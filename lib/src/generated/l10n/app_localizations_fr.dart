@@ -275,25 +275,16 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get aboutDescription =>
-      'PocketClaw est une application Flutter multiplateforme pour gérer le service PicoClaw.';
+      'PocketClaw est votre espace de travail privé pour assistant IA.';
 
   @override
   String get aboutAppVersionLabel => 'Version de PocketClaw';
 
   @override
-  String get aboutCoreVersionLabel => 'Version de PicoClaw Core';
+  String get aboutCoreVersionLabel => 'Version du runtime';
 
   @override
   String get aboutVersionUnavailable => 'Indisponible';
-
-  @override
-  String get picoclawOfficial => 'Site officiel de PicoClaw';
-
-  @override
-  String get sipeedOfficial => 'Site officiel de Sipeed';
-
-  @override
-  String get openLinkFailed => 'Impossible d\'ouvrir le lien officiel.';
 
   @override
   String get close => 'Fermer';

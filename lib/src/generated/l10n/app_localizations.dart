@@ -595,7 +595,7 @@ abstract class AppLocalizations {
   /// No description provided for @aboutDescription.
   ///
   /// In en, this message translates to:
-  /// **'PocketClaw is a cross-platform Flutter app powered by PicoClaw Core.'**
+  /// **'PocketClaw is your private AI assistant workspace.'**
   String get aboutDescription;
 
   /// No description provided for @aboutAppVersionLabel.
@@ -607,7 +607,7 @@ abstract class AppLocalizations {
   /// No description provided for @aboutCoreVersionLabel.
   ///
   /// In en, this message translates to:
-  /// **'PicoClaw Core version'**
+  /// **'Runtime version'**
   String get aboutCoreVersionLabel;
 
   /// No description provided for @aboutVersionUnavailable.
@@ -615,24 +615,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Unavailable'**
   String get aboutVersionUnavailable;
-
-  /// No description provided for @picoclawOfficial.
-  ///
-  /// In en, this message translates to:
-  /// **'PicoClaw Core project'**
-  String get picoclawOfficial;
-
-  /// No description provided for @sipeedOfficial.
-  ///
-  /// In en, this message translates to:
-  /// **'Sipeed'**
-  String get sipeedOfficial;
-
-  /// No description provided for @openLinkFailed.
-  ///
-  /// In en, this message translates to:
-  /// **'Couldn\'t open the official link.'**
-  String get openLinkFailed;
 
   /// No description provided for @close.
   ///

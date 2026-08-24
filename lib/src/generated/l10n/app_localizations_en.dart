@@ -270,25 +270,16 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get aboutDescription =>
-      'PocketClaw is a cross-platform Flutter app powered by PicoClaw Core.';
+      'PocketClaw is your private AI assistant workspace.';
 
   @override
   String get aboutAppVersionLabel => 'PocketClaw version';
 
   @override
-  String get aboutCoreVersionLabel => 'PicoClaw Core version';
+  String get aboutCoreVersionLabel => 'Runtime version';
 
   @override
   String get aboutVersionUnavailable => 'Unavailable';
-
-  @override
-  String get picoclawOfficial => 'PicoClaw Core project';
-
-  @override
-  String get sipeedOfficial => 'Sipeed';
-
-  @override
-  String get openLinkFailed => 'Couldn\'t open the official link.';
 
   @override
   String get close => 'Close';

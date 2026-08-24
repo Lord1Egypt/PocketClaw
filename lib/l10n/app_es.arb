@@ -98,12 +98,9 @@
   "language": "Idioma",
   "selectLanguage": "Seleccionar idioma",
   "about": "Acerca de",
-  "aboutDescription": "PocketClaw es una aplicación Flutter multiplataforma para gestionar el servicio PicoClaw.",
+  "aboutDescription": "PocketClaw es tu espacio de trabajo privado para asistentes de IA.",
   "aboutAppVersionLabel": "Versión de PocketClaw",
-  "aboutCoreVersionLabel": "Versión de PicoClaw Core",
+  "aboutCoreVersionLabel": "Versión del entorno",
   "aboutVersionUnavailable": "No disponible",
-  "picoclawOfficial": "Sitio oficial de PicoClaw",
-  "sipeedOfficial": "Sitio oficial de Sipeed",
-  "openLinkFailed": "No se pudo abrir el enlace oficial.",
   "close": "Cerrar"
 }

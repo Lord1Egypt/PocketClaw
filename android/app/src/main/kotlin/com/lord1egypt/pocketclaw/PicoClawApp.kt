@@ -23,7 +23,7 @@ class PicoClawApp : FlutterApplication() {
             CHANNEL_NAME,
             NotificationManager.IMPORTANCE_LOW
         ).apply {
-            description = "PocketClaw background service powered by PicoClaw Core"
+            description = "PocketClaw background service"
             setShowBadge(false)
         }
 

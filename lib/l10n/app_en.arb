@@ -106,12 +106,9 @@
   "language": "Language",
   "selectLanguage": "Select Language",
   "about": "About",
-  "aboutDescription": "PocketClaw is a cross-platform Flutter app powered by PicoClaw Core.",
+  "aboutDescription": "PocketClaw is your private AI assistant workspace.",
   "aboutAppVersionLabel": "PocketClaw version",
-  "aboutCoreVersionLabel": "PicoClaw Core version",
+  "aboutCoreVersionLabel": "Runtime version",
   "aboutVersionUnavailable": "Unavailable",
-  "picoclawOfficial": "PicoClaw Core project",
-  "sipeedOfficial": "Sipeed",
-  "openLinkFailed": "Couldn't open the official link.",
   "close": "Close"
 }

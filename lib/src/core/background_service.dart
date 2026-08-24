@@ -15,7 +15,7 @@ Future<void> initializeBackgroundService() async {
       const AndroidNotificationChannel channel = AndroidNotificationChannel(
         'picoclaw_foreground',
         'PocketClaw service',
-        description: 'Keep PocketClaw and PicoClaw Core running in the background.',
+        description: 'Keep PocketClaw running in the background.',
         importance: Importance.low,
       );
 

@@ -262,26 +262,16 @@ class AppLocalizationsJa extends AppLocalizations {
   String get about => '概要';
 
   @override
-  String get aboutDescription =>
-      'PocketClaw は、PicoClaw サービスを管理するためのクロスプラットフォーム Flutter アプリです。';
+  String get aboutDescription => 'PocketClaw は、プライベートな AI アシスタントのワークスペースです。';
 
   @override
   String get aboutAppVersionLabel => 'PocketClaw バージョン';
 
   @override
-  String get aboutCoreVersionLabel => 'PicoClaw Core バージョン';
+  String get aboutCoreVersionLabel => 'ランタイムのバージョン';
 
   @override
   String get aboutVersionUnavailable => '利用できません';
-
-  @override
-  String get picoclawOfficial => 'PicoClaw 公式サイト';
-
-  @override
-  String get sipeedOfficial => 'Sipeed 公式サイト';
-
-  @override
-  String get openLinkFailed => '公式リンクを開けませんでした。';
 
   @override
   String get close => '閉じる';

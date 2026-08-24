@@ -175,9 +175,7 @@ class _LogPageState extends State<LogPage> {
         ),
         actions: [
           TextButton.icon(
-            style: TextButton.styleFrom(
-              foregroundColor: colorScheme.onSurface,
-            ),
+            style: TextButton.styleFrom(foregroundColor: colorScheme.onSurface),
             onPressed: _exportLogs,
             icon: Icon(Icons.download, size: 18, color: colorScheme.onSurface),
             label: Text(
@@ -230,7 +228,7 @@ class _LogPageState extends State<LogPage> {
       }
 
       final ts = DateTime.now().toIso8601String().replaceAll(':', '-');
-      final filename = 'picoclaw_logs_$ts.txt';
+      final filename = 'pocketclaw_logs_$ts.txt';
 
       // Platform-specific save
       String savedPath = '';

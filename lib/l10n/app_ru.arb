@@ -98,12 +98,9 @@
   "language": "Язык",
   "selectLanguage": "Выбрать язык",
   "about": "О приложении",
-  "aboutDescription": "PocketClaw — это кроссплатформенное Flutter-приложение для управления сервисом PicoClaw.",
+  "aboutDescription": "PocketClaw — ваше личное рабочее пространство для ИИ-помощника.",
   "aboutAppVersionLabel": "Версия PocketClaw",
-  "aboutCoreVersionLabel": "Версия PicoClaw Core",
+  "aboutCoreVersionLabel": "Версия среды выполнения",
   "aboutVersionUnavailable": "Недоступно",
-  "picoclawOfficial": "Официальный сайт PicoClaw",
-  "sipeedOfficial": "Официальный сайт Sipeed",
-  "openLinkFailed": "Не удалось открыть официальную ссылку.",
   "close": "Закрыть"
 }

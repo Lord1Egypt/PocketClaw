@@ -98,12 +98,9 @@
   "language": "اللغة",
   "selectLanguage": "اختر اللغة",
   "about": "حول",
-  "aboutDescription": "PocketClaw هو تطبيق Flutter متعدد المنصات مدعوم بواسطة PicoClaw Core.",
+  "aboutDescription": "PocketClaw هو مساحة عملك الخاصة للمساعد الذكي.",
   "aboutAppVersionLabel": "إصدار PocketClaw",
-  "aboutCoreVersionLabel": "إصدار PicoClaw Core",
+  "aboutCoreVersionLabel": "إصدار وقت التشغيل",
   "aboutVersionUnavailable": "غير متوفر",
-  "picoclawOfficial": "موقع PicoClaw الرسمي",
-  "sipeedOfficial": "موقع Sipeed الرسمي",
-  "openLinkFailed": "تعذر فتح الرابط الرسمي.",
   "close": "إغلاق"
 }

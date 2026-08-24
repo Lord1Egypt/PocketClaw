@@ -98,12 +98,9 @@
   "language": "言語",
   "selectLanguage": "言語を選択",
   "about": "概要",
-  "aboutDescription": "PocketClaw は、PicoClaw サービスを管理するためのクロスプラットフォーム Flutter アプリです。",
+  "aboutDescription": "PocketClaw は、プライベートな AI アシスタントのワークスペースです。",
   "aboutAppVersionLabel": "PocketClaw バージョン",
-  "aboutCoreVersionLabel": "PicoClaw Core バージョン",
+  "aboutCoreVersionLabel": "ランタイムのバージョン",
   "aboutVersionUnavailable": "利用できません",
-  "picoclawOfficial": "PicoClaw 公式サイト",
-  "sipeedOfficial": "Sipeed 公式サイト",
-  "openLinkFailed": "公式リンクを開けませんでした。",
   "close": "閉じる"
 }

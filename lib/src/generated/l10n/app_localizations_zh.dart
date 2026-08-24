@@ -260,26 +260,16 @@ class AppLocalizationsZh extends AppLocalizations {
   String get about => '关于';
 
   @override
-  String get aboutDescription =>
-      'PocketClaw 是一个用于管理 PicoClaw 服务的跨平台 Flutter 应用。';
+  String get aboutDescription => 'PocketClaw 是您的私有 AI 助手工作区。';
 
   @override
   String get aboutAppVersionLabel => 'PocketClaw 版本';
 
   @override
-  String get aboutCoreVersionLabel => 'PicoClaw Core 版本';
+  String get aboutCoreVersionLabel => '运行时版本';
 
   @override
   String get aboutVersionUnavailable => '不可用';
-
-  @override
-  String get picoclawOfficial => 'PicoClaw 官网';
-
-  @override
-  String get sipeedOfficial => 'Sipeed 官网';
-
-  @override
-  String get openLinkFailed => '无法打开官方链接。';
 
   @override
   String get close => '关闭';

@@ -98,12 +98,9 @@
   "language": "भाषा",
   "selectLanguage": "भाषा चुनें",
   "about": "परिचय",
-  "aboutDescription": "PocketClaw, PicoClaw सेवा को प्रबंधित करने के लिए एक क्रॉस-प्लेटफ़ॉर्म Flutter ऐप है।",
+  "aboutDescription": "PocketClaw आपका निजी AI सहायक कार्यक्षेत्र है।",
   "aboutAppVersionLabel": "PocketClaw संस्करण",
-  "aboutCoreVersionLabel": "PicoClaw Core संस्करण",
+  "aboutCoreVersionLabel": "रनटाइम संस्करण",
   "aboutVersionUnavailable": "उपलब्ध नहीं",
-  "picoclawOfficial": "PicoClaw आधिकारिक साइट",
-  "sipeedOfficial": "Sipeed आधिकारिक साइट",
-  "openLinkFailed": "आधिकारिक लिंक नहीं खुल सका।",
   "close": "बंद करें"
 }

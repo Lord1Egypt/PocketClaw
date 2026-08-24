@@ -1236,7 +1236,7 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
       if (ok) {
         if (Platform.isAndroid) {
           // Android: keep original behavior — log and defer health check to native side
-          _addLog('Starting PocketClaw service (PicoClaw Core)...');
+          _addLog('Starting PocketClaw service...');
           Future.delayed(const Duration(seconds: 2), () {
             _syncNativeServiceStatus();
           });
@@ -1262,7 +1262,7 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
     try {
       await _adapter.stopService();
       _status = ServiceStatus.stopped;
-      _addLog('Stopping PocketClaw service (PicoClaw Core)...');
+      _addLog('Stopping PocketClaw service...');
       notifyListeners();
     } catch (e) {
       _addLog('Failed to stop native service: $e');

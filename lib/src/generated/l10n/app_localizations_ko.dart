@@ -263,26 +263,16 @@ class AppLocalizationsKo extends AppLocalizations {
   String get about => '정보';
 
   @override
-  String get aboutDescription =>
-      'PocketClaw는 PicoClaw 서비스를 관리하기 위한 크로스 플랫폼 Flutter 앱입니다.';
+  String get aboutDescription => 'PocketClaw는 개인 AI 도우미 작업 공간입니다.';
 
   @override
   String get aboutAppVersionLabel => 'PocketClaw 버전';
 
   @override
-  String get aboutCoreVersionLabel => 'PicoClaw Core 버전';
+  String get aboutCoreVersionLabel => '런타임 버전';
 
   @override
   String get aboutVersionUnavailable => '사용할 수 없음';
-
-  @override
-  String get picoclawOfficial => 'PicoClaw 공식 사이트';
-
-  @override
-  String get sipeedOfficial => 'Sipeed 공식 사이트';
-
-  @override
-  String get openLinkFailed => '공식 링크를 열 수 없습니다.';
 
   @override
   String get close => '닫기';
