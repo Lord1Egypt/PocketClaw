@@ -31,7 +31,14 @@
   Android `layer-list` item; replace it with a drawable-backed splash layer.
 - [x] Add the launch-background regression test; rebuild and inspect debug and
   replacement release APKs.
-- [ ] Milestone B physical test BLOCKED — retest the replacement APK for Flutter
+- [x] Root-cause the persistent black screen: builds from this workspace were
+  missing `lib/arm64-v8a/libdartjni.so` because the `jni` package's arm64 CMake
+  configure failure was cached in `~/.pub-cache`, outside `build/`.
+- [x] Purge the poisoned `.cxx` cache and rebuild Stage A (`642dc63`) with the
+  documented arm64 Gradle command and pinned toolchain; verify the packaged
+  `libdartjni.so`, package identity, Core hashes, analyze, and tests.
+- [ ] Physical test of the Stage A replacement APK
+  (`d87425344cca526afd8ef3eca41ef3648791593e69016a463aeee86693d7e405`): Flutter
   first frame, usable UI, Core lifecycle, and absence of a service/CPU loop.
 
 ## Later (not started)

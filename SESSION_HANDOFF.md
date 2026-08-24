@@ -2,10 +2,36 @@
 
 ## Current Objective
 
-Complete the Milestone B runtime-regression retest on
-`feature/pocketclaw-identity`. The original branded APK black-screened on a
-physical device; the source fix and replacement APK are ready, but Milestone B
-remains BLOCKED until the user retests it. Do not begin Milestone C features.
+Physically test the Stage A replacement APK. The black-screen regression is
+root-caused and fixed in the build environment; no source change was needed.
+Do not resume debranding or begin new features until the device test passes.
+
+## Black-screen root cause (resolved)
+
+Every APK built from `/home/lordegypt/PocketClaw-App` since 2026-08-24 02:52
+was missing `lib/arm64-v8a/libdartjni.so`. The `jni` package's CMake configure
+for `arm64-v8a` failed once with a transient filesystem error and CMake cached
+the failure as a valid configure with an empty target list in
+`~/.pub-cache/hosted/pub.dev/jni-1.0.3/android/.cxx/RelWithDebInfo/6n1p6673/`.
+Because that cache lives outside the project `build/` tree, deleting build
+intermediates never cleared it.
+
+`com.github.dart_lang.jni.JniPlugin` calls `System.loadLibrary("dartjni")` from
+a static initializer. `GeneratedPluginRegistrant.registerWith` wraps plugin
+construction in `catch (Exception e)`, but the failure is an
+`ExceptionInInitializerError` — an `Error`, not an `Exception` — so it escapes
+during `FlutterActivity.onCreate` and the Flutter view never attaches. The app
+process stays alive as a foreground service, which matches the reported black
+screen plus device slowdown. `path_provider_android` depends on
+`jni`/`jni_flutter`, so the plugin is always registered.
+
+The physically working APK `45be7269...ebe9e` was built from
+`/tmp/pocketclaw-runtime-fix`, whose separate cache
+(`.cxx/RelWithDebInfo/4l131246`) configured arm64-v8a successfully. That is the
+sole material difference; Stage A's source changes are text/UI only.
+
+Fix applied: purged the poisoned `.cxx` cache and rebuilt. Always verify
+`lib/arm64-v8a/libdartjni.so` is packaged before releasing.
 
 ## Exact State
 
@@ -72,9 +98,13 @@ capture final device logs, so that symptom must be confirmed during retest.
 
 ## Next Exact Steps
 
-1. Give the fixed APK to the user for side-by-side physical regression testing
-   with the preserved `com.sipeed.picoclaw` reference app. Confirm first frame,
-   UI interaction, Core start/stop, and that no CPU/service restart loop occurs.
-2. `34b0f6b` is pushed to the private feature branch
-   `origin/feature/pocketclaw-identity`; the fix is intentionally uncommitted
-   pending this review. Do not merge it to `develop` before the user's approval.
+1. Install and launch `build/app/outputs/apk/release/app-release.apk`
+   (34,119,437 bytes, SHA-256
+   `d87425344cca526afd8ef3eca41ef3648791593e69016a463aeee86693d7e405`) on the
+   physical device. Confirm the Flutter first frame, usable UI, Core start/stop,
+   active-network DNS, model discovery, Telegram, and Skill Hub.
+2. If it launches, Stage A is validated; only then consider merging or resuming
+   debranding. `recovery/pocketclaw-clean-debrand`, `feature/pocketclaw-identity`
+   (`354fc38` WIP preserved), `develop`, and `main` are all intact and unmerged.
+3. If it still black-screens, capture `adb logcat` around
+   `GeneratedPluginRegistrant`/`UnsatisfiedLinkError` before changing any source.

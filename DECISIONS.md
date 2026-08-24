@@ -87,3 +87,28 @@
 - Consequence: `launch_background.xml` and its v21 variant reference
   `@color/pocketclaw_splash_background`; a Flutter regression test guards both
   files. This is not a package-ID migration or Core integration change.
+
+## The `jni` CMake configure cache lives outside the project and can poison builds
+
+- Date: 2026-08-25
+- Decision: Treat `~/.pub-cache/hosted/pub.dev/jni-<version>/android/.cxx/` as a
+  build input that must be purged when an Android native library goes missing
+  from a release APK. Verify `lib/arm64-v8a/libdartjni.so` is packaged before
+  releasing any PocketClaw APK.
+- Evidence: On 2026-08-24 02:52 the CMake configure of the `jni` package for
+  `arm64-v8a` failed inside this workspace with a transient filesystem error
+  (`unable to open output file '...CMakeCCompilerABI.c.o': No such file or
+  directory`). CMake concluded the C compiler was unusable for that ABI and
+  cached a configure result with an empty target list
+  (`"libraries": {}`, `"cFileExtensions": []`). Every later build reported the
+  JSON "up-to-date", built no arm64 target, and shipped an APK with no
+  `lib/arm64-v8a/libdartjni.so`.
+- Consequence: `com.github.dart_lang.jni.JniPlugin` calls
+  `System.loadLibrary("dartjni")` from a **static initializer**, and
+  `GeneratedPluginRegistrant.registerWith` only catches `Exception`. The
+  resulting `ExceptionInInitializerError`/`UnsatisfiedLinkError` is an `Error`,
+  so it escapes the registrant during `FlutterActivity.onCreate` and the
+  Flutter view never attaches — a permanent black screen. `path_provider_android`
+  pulls in `jni`/`jni_flutter`, so this affects every build of this app.
+- Why it survived cleanups: the poisoned cache is in `~/.pub-cache`, not in the
+  project `build/` tree, so deleting build intermediates never cleared it.

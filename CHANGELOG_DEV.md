@@ -1,5 +1,38 @@
 # Development Changelog
 
+## 2026-08-25 — Black-screen root cause: missing arm64 `libdartjni.so`
+
+- Diagnosed the persistent PocketClaw black screen by differential forensics on
+  build artifacts and the AGP/CMake configure caches. It is a build-environment
+  defect, not a Stage A source defect.
+- Root cause: the `jni` package's CMake configure for `arm64-v8a` failed inside
+  this workspace on 2026-08-24 02:52 with a transient filesystem error and was
+  cached as a valid-but-empty configure in
+  `~/.pub-cache/hosted/pub.dev/jni-1.0.3/android/.cxx/RelWithDebInfo/6n1p6673/`.
+  Every subsequent build from `/home/lordegypt/PocketClaw-App` therefore
+  packaged **no** `lib/arm64-v8a/libdartjni.so`.
+- `JniPlugin`'s static initializer calls `System.loadLibrary("dartjni")`, and
+  `GeneratedPluginRegistrant` catches only `Exception`; the resulting `Error`
+  escapes during `FlutterActivity.onCreate`, so Flutter never renders a frame.
+- The physically working APK `45be7269...ebe9e` was built from a different
+  directory (`/tmp/pocketclaw-runtime-fix`), which produced a separate cache
+  (`.cxx/RelWithDebInfo/4l131246`) whose arm64-v8a configure succeeded. That is
+  the only material difference between the working and failing artifacts.
+- Fix: purged the poisoned `.cxx` cache and rebuilt with the documented
+  `./gradlew :app:assembleRelease -Ptarget-platform=android-arm64` command and
+  the pinned Flutter 3.47.1 / Dart 3.13.1 / Java 17 / AGP 8.11.1 toolchain.
+  No source change was required.
+- Replacement APK: `build/app/outputs/apk/release/app-release.apk` (also copied
+  to `build/app/outputs/flutter-apk/app-release.apk`), 34,119,437 bytes,
+  SHA-256 `d87425344cca526afd8ef3eca41ef3648791593e69016a463aeee86693d7e405`.
+  Verified: `lib/arm64-v8a/libdartjni.so` present (131,248 bytes, AArch64),
+  package `com.lord1egypt.pocketclaw`, label PocketClaw, launchable
+  `com.lord1egypt.pocketclaw.MainActivity`, pinned Core hashes unchanged,
+  drawable-backed splash layer intact.
+- `flutter analyze` clean; all 27 Flutter tests pass.
+- Closed hypotheses: stale `libpicoclaw-web.so`, workspace migration, splash
+  resources, and Stage A wording changes are all excluded by this evidence.
+
 ## 2026-08-24 — Milestone B runtime-regression fix (physical retest pending)
 
 - Recorded Milestone B physical validation as BLOCKED after the branded APK

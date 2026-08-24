@@ -2,20 +2,23 @@
 
 Project: PocketClaw  
 Current Phase: Phase 2 — Independent Product Repository  
-Current Milestone: Milestone B — BLOCKED pending fixed-APK physical-device retest
-Git Branch: `feature/pocketclaw-identity` (from validated `develop`)
+Current Milestone: Stage A recovery — awaiting physical-device test of the
+black-screen replacement APK
+Git Branch: `recovery/pocketclaw-clean-debrand` (from the working `8eeef15`)
 Foundation Bootstrap Commit: `950d4a3` — `chore: bootstrap PocketClaw independent Android foundation`  
 Origin: `https://github.com/Lord1Egypt/PocketClaw.git` (private)  
 Upstream FUI Baseline: `d689c94c1b67f625f70ec4111a9aa3f01be9cbb3`  
 PicoClaw Core: `v0.3.1`, source `2cf030d2fd3b871d7ec17e3be34c24688aac76da`  
-Baseline APK: Preserved outside this repository; SHA-256 `d673acea94a8d9a38f610afaf54888e731deba33a0978f15996271c6e2510624`  
-Build Status: Fixed arm64 release APK built and package-inspected
-APK Status: Awaiting physical-device verification of the startup regression fix
-Current Blocker: Milestone B physical test is BLOCKED — the original branded APK
-showed a black screen; the replacement must be retested before approval.
-Next Exact Action: Install and test the fixed PocketClaw APK beside the preserved
-reference; do not merge `feature/pocketclaw-identity` to `develop` or begin
-Milestone C before approval.
+Build Status: Stage A arm64 release APK rebuilt after the black-screen root
+cause was found and fixed in the build environment
+APK Status: Awaiting physical-device verification
+Current Blocker: None known. The black screen is root-caused to a missing
+`lib/arm64-v8a/libdartjni.so` caused by a poisoned `jni` CMake configure cache
+in `~/.pub-cache`; see `DECISIONS.md` and `CHANGELOG_DEV.md`.
+Next Exact Action: Install and launch
+`build/app/outputs/apk/release/app-release.apk`
+(SHA-256 `d87425344cca526afd8ef3eca41ef3648791593e69016a463aeee86693d7e405`) on
+the physical device and confirm a usable Flutter first frame.
 
 ## Completed
 
@@ -107,3 +110,38 @@ Milestone C before approval.
 - Core payload hashes: unchanged — gateway
   `3b849072a7c2858b0d2c0db5cbcfa42b542353e834f4c473399eda571ab16f3d`, web
   `252b38c64cbc4dc52277c206ca1b069cc7c3bb97b8a9c276e23f8edc3aaf95e3`.
+
+## Stage A Black-Screen Replacement APK
+
+- Status: Awaiting physical-device test.
+- Path: `build/app/outputs/apk/release/app-release.apk` (ignored; not committed)
+- Also copied to `build/app/outputs/flutter-apk/app-release.apk` (identical).
+- Built: 2026-08-25 01:10 from `642dc63` with
+  `./gradlew :app:assembleRelease -Ptarget-platform=android-arm64`,
+  `JAVA_HOME=/home/lordegypt/PocketCLaw/.tooling/jdk-17`,
+  `GRADLE_USER_HOME=.tooling/gradle-stage-a-clean`, Flutter 3.47.1 / Dart 3.13.1.
+- Size: 34,119,437 bytes
+- SHA-256: `d87425344cca526afd8ef3eca41ef3648791593e69016a463aeee86693d7e405`
+- Package/version: `com.lord1egypt.pocketclaw`, `0.1.3` (version code `3`)
+- Label: PocketClaw; launchable `com.lord1egypt.pocketclaw.MainActivity`
+- Native code advertised: `arm64-v8a`, `armeabi-v7a`, `x86_64`. Flutter and
+  Core payloads are `arm64-v8a`; the other ABIs carry only plugin JNI libs,
+  matching the previously working artifact.
+- `lib/arm64-v8a/libdartjni.so`: PRESENT, 131,248 bytes, AArch64. Its absence
+  was the black-screen root cause.
+- Core payload hashes unchanged: gateway
+  `3b849072a7c2858b0d2c0db5cbcfa42b542353e834f4c473399eda571ab16f3d`, web
+  `252b38c64cbc4dc52277c206ca1b069cc7c3bb97b8a9c276e23f8edc3aaf95e3`.
+
+## Pre-release APK check (mandatory)
+
+Before shipping any PocketClaw Android release, confirm the packaged
+`lib/arm64-v8a/` contains `libdartjni.so`:
+
+```bash
+unzip -l build/app/outputs/apk/release/app-release.apk | grep arm64-v8a
+```
+
+If it is missing, purge `~/.pub-cache/hosted/pub.dev/jni-*/android/.cxx/` and
+rebuild. The cache is outside the project `build/` tree, so cleaning build
+intermediates does not clear it.
