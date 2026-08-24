@@ -27,7 +27,12 @@
 - [x] Establish centralized Material 3 design tokens/theme foundations.
 - [x] Run Flutter/Core regressions and build/inspect the arm64 PocketClaw APK.
 - [x] Commit/push the feature branch after safety review; do not merge to `develop`.
-- [ ] Await user physical-device side-by-side regression approval.
+- [x] Root-cause the physical black-screen regression to the invalid branded
+  Android `layer-list` item; replace it with a drawable-backed splash layer.
+- [x] Add the launch-background regression test; rebuild and inspect debug and
+  replacement release APKs.
+- [ ] Milestone B physical test BLOCKED — retest the replacement APK for Flutter
+  first frame, usable UI, Core lifecycle, and absence of a service/CPU loop.
 
 ## Later (not started)
 

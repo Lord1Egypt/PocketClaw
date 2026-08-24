@@ -1,5 +1,26 @@
 # Development Changelog
 
+## 2026-08-24 — Milestone B runtime-regression fix (physical retest pending)
+
+- Recorded Milestone B physical validation as BLOCKED after the branded APK
+  installed and launched but remained on a black screen with no usable Flutter
+  UI.
+- Root-caused the regression to invalid Android splash `layer-list` syntax:
+  both launch backgrounds used `android:color` on an item instead of supplying
+  a drawable. Replaced the invalid item with the named
+  `@color/pocketclaw_splash_background` drawable reference.
+- Added `test/unit/android_launch_theme_resource_test.dart` to reject the
+  invalid color-only layer in both resource variants.
+- Passed `flutter analyze`, all 29 Flutter tests, focused Core
+  `pkg/androiddns`/`web/backend/api` tests, debug APK build, and release APK
+  build. Inspected the compiled release resource and verified package, label,
+  MainActivity, and unchanged pinned Core hashes.
+- Replacement APK: `build/app/outputs/flutter-apk/app-release.apk`,
+  33,308,653 bytes, SHA-256
+  `45be7269af920df4a36eb4eb37171770bbcfa242ed7c071da28874d9c27ebe9e`.
+- No merge to `develop`; physical-device retest is required before Milestone B
+  can be approved.
+
 ## 2026-08-24 — Phase 2 Milestone B identity foundation
 
 - Started `feature/pocketclaw-identity` from the validated `develop` state.

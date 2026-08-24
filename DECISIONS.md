@@ -74,3 +74,16 @@
   must simplify that identity rather than introduce a cartoon lobster/mascot.
 - Consequence: Preserve a restrained professional Android/developer-tool
   appearance and keep future visual work non-derivative of PicoClaw artwork.
+
+## Android splash layers must contain drawables
+
+- Date: 2026-08-24
+- Decision: Keep the branded PocketClaw launch mark, but express the splash
+  background as an explicit Android color drawable reference rather than
+  `android:color` on a `layer-list` item.
+- Evidence: `LayerDrawableItem` accepts `android:drawable`; the Milestone B
+  resource supplied neither a drawable attribute nor a child drawable, blocking
+  launch-theme inflation before Flutter's first frame on the physical device.
+- Consequence: `launch_background.xml` and its v21 variant reference
+  `@color/pocketclaw_splash_background`; a Flutter regression test guards both
+  files. This is not a package-ID migration or Core integration change.
