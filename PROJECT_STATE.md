@@ -4,7 +4,7 @@ Project: PocketClaw
 Current Phase: Phase 2 — Independent Product Repository  
 Current Milestone: Milestone A — independent Android foundation  
 Git Branch: `main`  
-Current Commit: `950d4a3` — `chore: bootstrap PocketClaw independent Android foundation`  
+Foundation Bootstrap Commit: `950d4a3` — `chore: bootstrap PocketClaw independent Android foundation`  
 Origin: `https://github.com/Lord1Egypt/PocketClaw.git` (private)  
 Upstream FUI Baseline: `d689c94c1b67f625f70ec4111a9aa3f01be9cbb3`  
 PicoClaw Core: `v0.3.1`, source `2cf030d2fd3b871d7ec17e3be34c24688aac76da`  
