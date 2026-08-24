@@ -16,6 +16,13 @@ the embedded web runtime and the seeded onboarding workspace.
 `pkg/androiddns/` is a new package and is therefore untracked in the reference
 checkout; it is not part of this patch and must be preserved in that checkout.
 
+New single files added by PocketClaw are kept in the patch by marking them
+intent-to-add in the reference checkout (`git add -N <path>`), so that
+`git diff` includes them. `pkg/channels/mqtt/topic_prefix_test.go` is recorded
+that way. Regenerate the patch after any Core change:
+
+    git -C $C diff > core/pocketclaw-core-v0.3.1.patch
+
 ## Rebuilding the Android arm64 runtime binaries
 
     C=/home/lordegypt/PocketCLaw/.upstream/picoclaw-core-v0.3.1

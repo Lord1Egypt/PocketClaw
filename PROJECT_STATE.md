@@ -2,7 +2,7 @@
 
 Project: PocketClaw  
 Current Phase: Phase 2 — Independent Product Repository  
-Current Milestone: Stage B — user-facing debranding, PHYSICALLY VERIFIED
+Current Milestone: Phase 2 Milestone B final cleanup — awaiting physical test
 Git Branch: `recovery/pocketclaw-clean-debrand`
 Foundation Bootstrap Commit: `950d4a3`  
 Origin: `https://github.com/Lord1Egypt/PocketClaw.git` (private)  
@@ -11,13 +11,14 @@ PicoClaw Core: `v0.3.1`, source `2cf030d2fd3b871d7ec17e3be34c24688aac76da`,
 rebuilt for PocketClaw — see `core/` and `UPSTREAM_BASELINE.md`  
 Build Status: arm64 release APK built through the canonical Gradle path; the
 release guard verified the arm64 native payload
-APK Status: PHYSICALLY VERIFIED on 2026-08-25 — SHA-256 `2717f32e9580cd5b5ea5da70b2cb9fcf13f6f14451423addcb5686e0278a1de4`
+APK Status: Cleanup APK built — SHA-256 `ba4f067df9811bd0e4af713343bdba632abbf96a41e3a5b47cf154740f70a4b8`.
+The previous APK `2717f32e9580cd5b5ea5da70b2cb9fcf13f6f14451423addcb5686e0278a1de4` remains the last
+physically verified artifact until this one is tested.
 Current Blocker: None. The black-screen incident is RESOLVED and physically
 confirmed.
-Next Exact Action: Decide the two open branding items in
-`docs/BRANDING_AUDIT.md` (MQTT `/picoclaw` topic prefix; bundled
-`picoclaw-agent`/`hardware` seeded skills). Do not merge and do not start new
-features without the user's instruction.
+Next Exact Action: Physically test the Milestone B final cleanup APK. Both
+former open branding items are now closed. Do not merge to `develop` before
+physical approval, and do not start Milestone C.
 
 ## Completed
 
@@ -110,7 +111,7 @@ features without the user's instruction.
   `3b849072a7c2858b0d2c0db5cbcfa42b542353e834f4c473399eda571ab16f3d`, web
   `252b38c64cbc4dc52277c206ca1b069cc7c3bb97b8a9c276e23f8edc3aaf95e3`.
 
-## Stage B Debranded APK — PHYSICALLY VERIFIED
+## Stage B Debranded APK — PHYSICALLY VERIFIED (previous reference)
 
 - Status: PASS on a physical Android device, 2026-08-25. Not merged to `develop`.
 - Path: `build/app/outputs/apk/release/app-release.apk` (ignored; not committed)
@@ -146,3 +147,32 @@ intermediates does not clear it.
 
 `./gradlew :app:assembleRelease -Ptarget-platform=android-arm64` is the
 canonical release path. Do not release a universal `flutter build apk --release`.
+
+## Milestone B Final Cleanup APK
+
+- Status: Awaiting physical-device test. Not merged to `develop`.
+- Path: `build/app/outputs/apk/release/app-release.apk` (ignored; not committed)
+- Also copied to `build/app/outputs/flutter-apk/app-release.apk` (identical).
+- Built: 2026-08-25 with the canonical command
+  `./gradlew :app:assembleRelease -Ptarget-platform=android-arm64`.
+- Size: 34,119,477 bytes
+- SHA-256: `ba4f067df9811bd0e4af713343bdba632abbf96a41e3a5b47cf154740f70a4b8`
+- Package/version: `com.lord1egypt.pocketclaw`, `0.1.3` (version code `3`)
+- Label: PocketClaw; launchable `com.lord1egypt.pocketclaw.MainActivity`
+- ABIs advertised: `arm64-v8a`, `armeabi-v7a`, `x86_64`. Flutter and Core
+  payloads are `arm64-v8a`; the other ABIs carry plugin JNI libs only.
+- Release guard PASS for all three required libraries:
+
+| Packaged library | Size | SHA-256 |
+| --- | --- | --- |
+| `libdartjni.so` | 131,248 | `47dae44db1c6202d164c0bb2ff25cc661023ba2904a6679abad4f3dcf3fcb5cd` |
+| `libpicoclaw.so` | 37,421,409 | `eb895f0892509b76242f572515c26f56530ec417bdedc0bb9ec1486f40bd9c88` |
+| `libpicoclaw-web.so` | 24,772,961 | `6d282df06680869a0aca25a976b123bce8e793d2f08708e79386a1761195a5a3` |
+
+- Contents of this cleanup: MQTT fresh default is `/pocketclaw` while any
+  explicitly configured prefix (including the legacy `/picoclaw`) is preserved;
+  `skills/picoclaw-agent` is no longer seeded into a fresh workspace while
+  existing user copies are untouched; factual Sipeed hardware references are
+  retained deliberately.
+- Both Core binaries are stripped with 0 debug sections, and
+  `PICOCLAW_DNS_SERVER` is verified present in the rebuilt gateway.

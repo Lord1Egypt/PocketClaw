@@ -1,5 +1,39 @@
 # Development Changelog
 
+## 2026-08-25 — Phase 2 Milestone B final cleanup
+
+- Closed both remaining branding edge cases. No new features; Milestone C not
+  started; no dependency, Flutter, Gradle, AGP, or Kotlin changes.
+- MQTT: the Core default topic prefix is now `/pocketclaw`, exposed as
+  `mqtt.DefaultTopicPrefix`. `topicPrefix()` substitutes the default only for an
+  empty value, so an explicitly configured prefix — including the legacy
+  `/picoclaw` — is preserved and broker-side topics are never rewritten. The
+  frontend topic preview, placeholder, and the localized hint in all five
+  locales were updated together. New tests in
+  `pkg/channels/mqtt/topic_prefix_test.go` cover fresh default, explicit legacy
+  prefix, custom prefix, and normalization.
+- Seeded workspace: `skills/picoclaw-agent` is no longer written into a fresh
+  workspace. It joins the existing `AGENTS.md` / `IDENTITY.md` exclusions via a
+  named `unseededTemplates` list. It was not renamed, because it documents the
+  real upstream CLI. Seeding only writes files, so existing user copies survive;
+  three new tests in `cmd/picoclaw/internal/onboard/helpers_test.go` cover the
+  exclusion, the surviving user copy, and the path matcher.
+- Retained factual third-party hardware references (Sipeed, LicheeRV Nano,
+  MaixCAM, NanoKVM) in the `hardware` skill rather than falsifying documentation
+  for a zero string count. Full classification in `docs/BRANDING_AUDIT.md`.
+- Rebuilt both Core binaries through the documented Makefile targets. Stripped,
+  0 debug sections, `PICOCLAW_DNS_SERVER` verified present:
+  `libpicoclaw.so` 37,421,409 `eb895f08...40bd9c88`;
+  `libpicoclaw-web.so` 24,772,961 `6d282df0...1195a5a3`.
+  The built frontend contains 0 `PicoClaw` and 0 `/picoclaw` strings.
+- Validation: `flutter analyze` clean; 27/27 Flutter tests; Go tests pass for
+  `pkg/channels/mqtt`, `cmd/picoclaw/internal/onboard`, `pkg/androiddns`,
+  `web/backend/api`, `pkg/commands`; frontend `pnpm lint` clean.
+- Built through the canonical arm64 Gradle path; the release guard passed for
+  `libdartjni.so`, `libpicoclaw.so`, and `libpicoclaw-web.so`.
+- Cleanup APK: 34,119,477 bytes, SHA-256 `ba4f067df9811bd0e4af713343bdba632abbf96a41e3a5b47cf154740f70a4b8`.
+  Not merged; physical-device approval is the merge gate.
+
 ## 2026-08-25 — Black-screen incident RESOLVED; Stage B physically verified
 
 - Physical Android device test of `2717f32e9580cd5b5ea5da70b2cb9fcf13f6f14451423addcb5686e0278a1de4`

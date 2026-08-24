@@ -69,6 +69,240 @@ index ba4ae1f..283782f 100644
 -	}
 +	androiddns.ConfigureDefaultResolverFromEnvironment()
  }
+diff --git a/cmd/picoclaw/internal/onboard/helpers.go b/cmd/picoclaw/internal/onboard/helpers.go
+index ecc699d..201fb32 100644
+--- a/cmd/picoclaw/internal/onboard/helpers.go
++++ b/cmd/picoclaw/internal/onboard/helpers.go
+@@ -5,6 +5,7 @@ import (
+ 	"io/fs"
+ 	"os"
+ 	"path/filepath"
++	"strings"
+ 
+ 	"golang.org/x/term"
+ 
+@@ -145,6 +146,33 @@ func createWorkspaceTemplates(workspace string) {
+ 	}
+ }
+ 
++// unseededTemplates are embedded workspace paths that are deliberately not
++// written into a fresh workspace. Paths are relative to the embedded
++// "workspace" root and match either the entry itself or anything beneath it.
++//
++// skills/picoclaw-agent documents the upstream PicoClaw CLI and repository
++// internals. Rebranding its text would make its instructions wrong, so
++// PocketClaw simply does not seed it. A user who already has a copy keeps it —
++// seeding only writes files, it never deletes — and it can still be installed
++// manually or from a registry.
++var unseededTemplates = []string{
++	"AGENTS.md",
++	"IDENTITY.md",
++	"skills/picoclaw-agent",
++}
++
++// isUnseeded reports whether a workspace-relative path is excluded from a
++// freshly seeded workspace.
++func isUnseeded(relPath string) bool {
++	normalized := filepath.ToSlash(relPath)
++	for _, entry := range unseededTemplates {
++		if normalized == entry || strings.HasPrefix(normalized, entry+"/") {
++			return true
++		}
++	}
++	return false
++}
++
+ func copyEmbeddedToTarget(targetDir string) error {
+ 	// Ensure target directory exists
+ 	if err := os.MkdirAll(targetDir, 0o755); err != nil {
+@@ -172,7 +200,7 @@ func copyEmbeddedToTarget(targetDir string) error {
+ 		if err != nil {
+ 			return fmt.Errorf("Failed to get relative path for %s: %v\n", path, err)
+ 		}
+-		if new_path == "AGENTS.md" || new_path == "IDENTITY.md" {
++		if isUnseeded(new_path) {
+ 			return nil
+ 		}
+ 
+diff --git a/cmd/picoclaw/internal/onboard/helpers_test.go b/cmd/picoclaw/internal/onboard/helpers_test.go
+index 23fc97c..9b48c1c 100644
+--- a/cmd/picoclaw/internal/onboard/helpers_test.go
++++ b/cmd/picoclaw/internal/onboard/helpers_test.go
+@@ -35,3 +35,79 @@ func TestCopyEmbeddedToTargetUsesStructuredAgentFiles(t *testing.T) {
+ 		}
+ 	}
+ }
++
++// PocketClaw does not seed the upstream-specific agent skill, but must still
++// seed the rest of the bundled skills.
++func TestCopyEmbeddedToTargetDoesNotSeedUpstreamAgentSkill(t *testing.T) {
++	targetDir := t.TempDir()
++
++	if err := copyEmbeddedToTarget(targetDir); err != nil {
++		t.Fatalf("copyEmbeddedToTarget() error = %v", err)
++	}
++
++	upstreamSkill := filepath.Join(targetDir, "skills", "picoclaw-agent")
++	if _, err := os.Stat(upstreamSkill); !os.IsNotExist(err) {
++		t.Fatalf("expected %s to be absent, got err=%v", upstreamSkill, err)
++	}
++
++	for _, seeded := range []string{"github", "summarize", "skill-creator", "hardware"} {
++		skillPath := filepath.Join(targetDir, "skills", seeded, "SKILL.md")
++		if _, err := os.Stat(skillPath); err != nil {
++			t.Fatalf("expected bundled skill %s to be seeded: %v", skillPath, err)
++		}
++	}
++}
++
++// Seeding must never remove a skill the user already has, including one
++// PocketClaw chose not to seed.
++func TestCopyEmbeddedToTargetKeepsExistingUserSkill(t *testing.T) {
++	targetDir := t.TempDir()
++
++	existing := filepath.Join(targetDir, "skills", "picoclaw-agent")
++	if err := os.MkdirAll(existing, 0o755); err != nil {
++		t.Fatalf("failed to stage existing skill: %v", err)
++	}
++	existingFile := filepath.Join(existing, "SKILL.md")
++	if err := os.WriteFile(existingFile, []byte("user copy"), 0o644); err != nil {
++		t.Fatalf("failed to stage existing skill file: %v", err)
++	}
++
++	if err := copyEmbeddedToTarget(targetDir); err != nil {
++		t.Fatalf("copyEmbeddedToTarget() error = %v", err)
++	}
++
++	data, err := os.ReadFile(existingFile)
++	if err != nil {
++		t.Fatalf("expected the user's existing skill to survive seeding: %v", err)
++	}
++	if string(data) != "user copy" {
++		t.Fatalf("expected the user's existing skill to be untouched, got %q", string(data))
++	}
++}
++
++func TestIsUnseeded(t *testing.T) {
++	unseeded := []string{
++		"AGENTS.md",
++		"IDENTITY.md",
++		"skills/picoclaw-agent",
++		"skills/picoclaw-agent/SKILL.md",
++		"skills/picoclaw-agent/references/notes.md",
++	}
++	for _, path := range unseeded {
++		if !isUnseeded(path) {
++			t.Errorf("isUnseeded(%q) = false, want true", path)
++		}
++	}
++
++	seeded := []string{
++		"AGENT.md",
++		"SOUL.md",
++		"skills/github/SKILL.md",
++		"skills/picoclaw-agent-extra/SKILL.md",
++	}
++	for _, path := range seeded {
++		if isUnseeded(path) {
++			t.Errorf("isUnseeded(%q) = true, want false", path)
++		}
++	}
++}
+diff --git a/pkg/channels/mqtt/mqtt.go b/pkg/channels/mqtt/mqtt.go
+index c34bc79..4c7df81 100644
+--- a/pkg/channels/mqtt/mqtt.go
++++ b/pkg/channels/mqtt/mqtt.go
+@@ -126,13 +126,19 @@ func (c *MQTTChannel) Start(ctx context.Context) error {
+ 	return nil
+ }
+ 
++// DefaultTopicPrefix is used when a configuration does not set one. Existing
++// deployments that explicitly configured the legacy "/picoclaw" prefix keep it:
++// topicPrefix only substitutes this default for an empty value, so broker-side
++// topics are never rewritten underneath a running deployment.
++const DefaultTopicPrefix = "/pocketclaw"
++
+ // topicPrefix returns the configured topic prefix, normalizing slashes.
+ // Trailing slashes are stripped; the result may or may not have a leading slash
+ // depending on what the user configured.
+ func (c *MQTTChannel) topicPrefix() string {
+ 	p := strings.TrimRight(c.cfg.TopicPrefix, "/")
+ 	if p == "" {
+-		return "/picoclaw"
++		return DefaultTopicPrefix
+ 	}
+ 	return p
+ }
+diff --git a/pkg/channels/mqtt/topic_prefix_test.go b/pkg/channels/mqtt/topic_prefix_test.go
+new file mode 100644
+index 0000000..2aa4fec
+--- /dev/null
++++ b/pkg/channels/mqtt/topic_prefix_test.go
+@@ -0,0 +1,64 @@
++package mqtt
++
++import (
++	"testing"
++
++	"github.com/sipeed/picoclaw/pkg/config"
++)
++
++// A fresh configuration gets the PocketClaw default, while any explicitly
++// configured prefix — including the legacy upstream one — survives untouched so
++// that broker-side topics are never rewritten under a running deployment.
++func TestTopicPrefixDefaultsAndPreservesConfiguredValues(t *testing.T) {
++	tests := []struct {
++		name       string
++		configured string
++		want       string
++	}{
++		{
++			name:       "fresh config uses the PocketClaw default",
++			configured: "",
++			want:       "/pocketclaw",
++		},
++		{
++			name:       "explicit legacy prefix is preserved",
++			configured: "/picoclaw",
++			want:       "/picoclaw",
++		},
++		{
++			name:       "custom prefix is preserved",
++			configured: "/fleet/agents",
++			want:       "/fleet/agents",
++		},
++		{
++			name:       "prefix without a leading slash is preserved as configured",
++			configured: "pocketclaw",
++			want:       "pocketclaw",
++		},
++		{
++			name:       "trailing slashes are stripped",
++			configured: "/custom///",
++			want:       "/custom",
++		},
++		{
++			name:       "a prefix of only slashes falls back to the default",
++			configured: "///",
++			want:       "/pocketclaw",
++		},
++	}
++
++	for _, tt := range tests {
++		t.Run(tt.name, func(t *testing.T) {
++			c := &MQTTChannel{cfg: &config.MQTTSettings{TopicPrefix: tt.configured}}
++			if got := c.topicPrefix(); got != tt.want {
++				t.Errorf("topicPrefix() with %q = %q, want %q", tt.configured, got, tt.want)
++			}
++		})
++	}
++}
++
++func TestDefaultTopicPrefixIsPocketClaw(t *testing.T) {
++	if DefaultTopicPrefix != "/pocketclaw" {
++		t.Errorf("DefaultTopicPrefix = %q, want %q", DefaultTopicPrefix, "/pocketclaw")
++	}
++}
 diff --git a/pkg/commands/cmd_start.go b/pkg/commands/cmd_start.go
 index 8b500aa..e5a424b 100644
 --- a/pkg/commands/cmd_start.go
@@ -427,6 +661,28 @@ index 10e2a22..c0597d3 100644
  
        <div className="flex min-h-0 flex-1 justify-center overflow-y-auto px-4 pb-8 sm:px-6">
          {loading ? (
+diff --git a/web/frontend/src/components/channels/channel-forms/mqtt-form.tsx b/web/frontend/src/components/channels/channel-forms/mqtt-form.tsx
+index 0be0264..e1e42d4 100644
+--- a/web/frontend/src/components/channels/channel-forms/mqtt-form.tsx
++++ b/web/frontend/src/components/channels/channel-forms/mqtt-form.tsx
+@@ -44,7 +44,7 @@ export function MqttForm({
+   fieldErrors = {},
+ }: MqttFormProps) {
+   const { t } = useTranslation()
+-  const prefix = asString(config.topic_prefix) || "/picoclaw"
++  const prefix = asString(config.topic_prefix) || "/pocketclaw"
+   const agentID = asString(config.agent_id) || "{agent_id}"
+   const topicBase = `${prefix}/${agentID}/{client_id}`
+ 
+@@ -85,7 +85,7 @@ export function MqttForm({
+             <Input
+               value={asString(config.topic_prefix)}
+               onChange={(e) => onChange("topic_prefix", e.target.value)}
+-              placeholder="/picoclaw"
++              placeholder="/pocketclaw"
+             />
+           </Field>
+         </CardContent>
 diff --git a/web/frontend/src/components/chat/assistant-message.tsx b/web/frontend/src/components/chat/assistant-message.tsx
 index 0a197b2..0be75e5 100644
 --- a/web/frontend/src/components/chat/assistant-message.tsx
@@ -521,7 +777,7 @@ index 7eefd94..5eebe8c 100644
  dayjs.extend(relativeTime)
  dayjs.extend(localizedFormat)
 diff --git a/web/frontend/src/i18n/locales/bn-in.json b/web/frontend/src/i18n/locales/bn-in.json
-index 0af20a7..d02698e 100644
+index 0af20a7..54993b7 100644
 --- a/web/frontend/src/i18n/locales/bn-in.json
 +++ b/web/frontend/src/i18n/locales/bn-in.json
 @@ -521,7 +521,7 @@
@@ -533,6 +789,15 @@ index 0af20a7..d02698e 100644
          "isLark": "Feishu ডোমেইন (open.feishu.cn) এর পরিবর্তে Lark আন্তর্জাতিক ডোমেইন (open.larksuite.com) ব্যবহার করুন।",
          "allowFrom": "অনুমোদিত ব্যবহারকারী বা গ্রুপ ID। একে একে আইটেম যোগ করুন, অথবা একাধিক মান একবারে পেস্ট করুন।",
          "allowOrigins": "অনুমোদিত অরিজিন ডোমেইন। একে একে আইটেম যোগ করুন, অথবা একাধিক মান একবারে পেস্ট করুন।",
+@@ -562,7 +562,7 @@
+         "genericField": "{{field}} কনফিগার করতে ব্যবহৃত।",
+         "broker": "MQTT ব্রোকার ঠিকানা।",
+         "mqttAgentId": "এই ইনস্ট্যান্সের জন্য অনন্য শনাক্তকারী, টপিক পাথ তৈরিতে ব্যবহৃত।",
+-        "topicPrefix": "টপিক প্রিফিক্স। ডিফল্ট /picoclaw।",
++        "topicPrefix": "টপিক প্রিফিক্স। ডিফল্ট /pocketclaw। কনফিগার করা প্রিফিক্স অপরিবর্তিত থাকে।",
+         "mqttUsername": "ব্রোকার প্রমাণীকরণ ব্যবহারকারীর নাম (ঐচ্ছিক)।",
+         "mqttPassword": "ব্রোকার প্রমাণীকরণ পাসওয়ার্ড (ঐচ্ছিক)।",
+         "mqttClientId": "MQTT ক্লায়েন্ট ID। স্বয়ংক্রিয়ভাবে তৈরি করতে খালি রাখুন।",
 @@ -795,14 +795,14 @@
        "turn_profile": "অনুরোধ প্রসঙ্গ নীতি",
        "turn_profile_hint": "প্রতিটি অনুরোধে কী প্রসঙ্গ বহন করে তা নিয়ন্ত্রণ করে। স্বাভাবিক চ্যাট আচরণ রাখতে নিষ্ক্রিয় রাখুন।",
@@ -576,7 +841,7 @@ index 0af20a7..d02698e 100644
      "models": {
        "title": "মডেল কনফিগার করুন",
 diff --git a/web/frontend/src/i18n/locales/cs.json b/web/frontend/src/i18n/locales/cs.json
-index d365157..390fc91 100644
+index d365157..77f475c 100644
 --- a/web/frontend/src/i18n/locales/cs.json
 +++ b/web/frontend/src/i18n/locales/cs.json
 @@ -520,7 +520,7 @@
@@ -588,6 +853,15 @@ index d365157..390fc91 100644
          "isLark": "Použít mezinárodní doménu Lark (open.larksuite.com) místo domény Feishu (open.feishu.cn).",
          "allowFrom": "Povolená ID uživatelů nebo skupin. Přidávejte po jednom nebo vložte více hodnot najednou.",
          "allowOrigins": "Povolené origin domény. Přidávejte po jednom nebo vložte více hodnot najednou.",
+@@ -561,7 +561,7 @@
+         "genericField": "Slouží ke konfiguraci {{field}}.",
+         "broker": "Adresa MQTT brokeru.",
+         "mqttAgentId": "Jedinečný identifikátor této instance, používá se k sestavení cesty tématu.",
+-        "topicPrefix": "Prefix tématu. Výchozí hodnota je /picoclaw.",
++        "topicPrefix": "Prefix tématu. Výchozí hodnota je /pocketclaw. Již nastavený prefix zůstane zachován.",
+         "mqttUsername": "Uživatelské jméno pro ověření u brokeru (volitelné).",
+         "mqttPassword": "Heslo pro ověření u brokeru (volitelné).",
+         "mqttClientId": "ID MQTT klienta. Ponechte prázdné pro automatické generování.",
 @@ -794,14 +794,14 @@
        "turn_profile": "Zásady kontextu požadavku",
        "turn_profile_hint": "Řídí, jaký kontext nese každý požadavek. Ponechte zakázáno pro zachování běžného chování chatu.",
@@ -631,7 +905,7 @@ index d365157..390fc91 100644
      "models": {
        "title": "Nakonfigurujte modely",
 diff --git a/web/frontend/src/i18n/locales/en.json b/web/frontend/src/i18n/locales/en.json
-index 83ee7f7..b32c1ae 100644
+index 83ee7f7..db4dacc 100644
 --- a/web/frontend/src/i18n/locales/en.json
 +++ b/web/frontend/src/i18n/locales/en.json
 @@ -522,7 +522,7 @@
@@ -643,6 +917,15 @@ index 83ee7f7..b32c1ae 100644
          "isLark": "Use Lark international domain (open.larksuite.com) instead of Feishu domain (open.feishu.cn).",
          "allowFrom": "Allowed user or group IDs. Add items one by one, or paste multiple values at once.",
          "allowOrigins": "Allowed origin domains. Add items one by one, or paste multiple values at once.",
+@@ -563,7 +563,7 @@
+         "genericField": "Used to configure {{field}}.",
+         "broker": "MQTT broker address.",
+         "mqttAgentId": "Unique identifier for this instance, used to build the topic path.",
+-        "topicPrefix": "Topic prefix. Defaults to /picoclaw.",
++        "topicPrefix": "Topic prefix. Defaults to /pocketclaw. An existing prefix is kept as configured.",
+         "mqttUsername": "Broker authentication username (optional).",
+         "mqttPassword": "Broker authentication password (optional).",
+         "mqttClientId": "MQTT client ID. Leave blank to auto-generate.",
 @@ -796,14 +796,14 @@
        "turn_profile": "Request Context Policy",
        "turn_profile_hint": "Controls what context each request carries. Leave disabled to keep the normal chat behavior.",
@@ -686,7 +969,7 @@ index 83ee7f7..b32c1ae 100644
      "models": {
        "title": "Configure Models",
 diff --git a/web/frontend/src/i18n/locales/pt-br.json b/web/frontend/src/i18n/locales/pt-br.json
-index 4ec805e..6703024 100644
+index 4ec805e..3447f85 100644
 --- a/web/frontend/src/i18n/locales/pt-br.json
 +++ b/web/frontend/src/i18n/locales/pt-br.json
 @@ -522,7 +522,7 @@
@@ -698,6 +981,15 @@ index 4ec805e..6703024 100644
          "isLark": "Usar o domínio internacional do Lark (open.larksuite.com) em vez do domínio do Feishu (open.feishu.cn).",
          "allowFrom": "IDs de usuário ou grupo permitidos. Adicione itens um a um ou cole vários valores de uma vez.",
          "allowOrigins": "Domínios de origem permitidos. Adicione itens um a um ou cole vários valores de uma vez.",
+@@ -563,7 +563,7 @@
+         "genericField": "Usado para configurar {{field}}.",
+         "broker": "Endereço do broker MQTT.",
+         "mqttAgentId": "Identificador único desta instância, usado para montar o caminho do topic.",
+-        "topicPrefix": "Prefixo do topic. O padrão é /picoclaw.",
++        "topicPrefix": "Prefixo do topic. O padrão é /pocketclaw. Um prefixo já configurado é mantido.",
+         "mqttUsername": "Nome de usuário de autenticação do broker (opcional).",
+         "mqttPassword": "Senha de autenticação do broker (opcional).",
+         "mqttClientId": "ID do cliente MQTT. Deixe em branco para gerar automaticamente.",
 @@ -796,14 +796,14 @@
        "turn_profile": "Política de Contexto da Requisição",
        "turn_profile_hint": "Controla qual contexto cada requisição carrega. Deixe desativado para manter o comportamento normal do chat.",
@@ -741,7 +1033,7 @@ index 4ec805e..6703024 100644
      "models": {
        "title": "Configurar Modelos",
 diff --git a/web/frontend/src/i18n/locales/zh.json b/web/frontend/src/i18n/locales/zh.json
-index fa8763d..1fa43c5 100644
+index fa8763d..7f87dc5 100644
 --- a/web/frontend/src/i18n/locales/zh.json
 +++ b/web/frontend/src/i18n/locales/zh.json
 @@ -522,7 +522,7 @@
@@ -753,6 +1045,15 @@ index fa8763d..1fa43c5 100644
          "isLark": "使用 Lark 国际版域名（open.larksuite.com）替代飞书域名（open.feishu.cn）",
          "allowFrom": "允许访问的用户或群组 ID。可逐项添加，也支持一次粘贴多个值。",
          "allowOrigins": "允许访问的来源域名。可逐项添加，也支持一次粘贴多个值。",
+@@ -563,7 +563,7 @@
+         "genericField": "用于配置{{field}}",
+         "broker": "MQTT Broker 地址。",
+         "mqttAgentId": "本实例的唯一标识，用于构造 topic 路径。",
+-        "topicPrefix": "Topic 前缀，默认为 /picoclaw。",
++        "topicPrefix": "Topic 前缀，默认为 /pocketclaw。已配置的前缀会保持不变。",
+         "mqttUsername": "Broker 认证用户名（可选）。",
+         "mqttPassword": "Broker 认证密码（可选）。",
+         "mqttClientId": "MQTT 客户端 ID，留空自动生成。",
 @@ -796,14 +796,14 @@
        "turn_profile": "请求上下文策略",
        "turn_profile_hint": "控制每次请求会带入哪些上下文。保持关闭时，普通对话完全沿用原逻辑。",

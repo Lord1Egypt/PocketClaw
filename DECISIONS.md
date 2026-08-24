@@ -166,3 +166,44 @@
   either reopens the failure mode that caused this incident. Any future
   regression should be compared against this artifact before new hypotheses are
   formed.
+
+## MQTT defaults to `/pocketclaw`, but never rewrites a configured prefix
+
+- Date: 2026-08-25
+- Decision: `mqtt.DefaultTopicPrefix` is `/pocketclaw`. `topicPrefix()`
+  substitutes it only when the configured value is empty, so any explicitly
+  configured prefix — including the legacy `/picoclaw` — is returned unchanged.
+- Reason: the topic prefix is a broker-side contract shared with every other
+  subscriber. A fresh PocketClaw install should not advertise the upstream name,
+  and an existing deployment must not have its topics moved underneath it.
+- Consequence: the Go default and the frontend preview/placeholder/hint must be
+  changed together or the preview will misreport the topic an unconfigured
+  channel publishes on. Because `topic_prefix` is `omitempty`, a config that
+  relied on the *implicit* old default is indistinguishable from a fresh one and
+  will move to `/pocketclaw`; pinning it would need a config migration, which is
+  deliberately out of scope. Set `topic_prefix` explicitly to keep the old topic.
+
+## The upstream agent skill is not seeded, and not renamed
+
+- Date: 2026-08-25
+- Decision: `skills/picoclaw-agent` is excluded from a freshly seeded workspace
+  through the `unseededTemplates` list in
+  `cmd/picoclaw/internal/onboard/helpers.go`.
+- Reason: the skill documents the real upstream `picoclaw` CLI and repository
+  internals. Rebranding its text would make its instructions technically wrong,
+  so the choice was to seed it or not, and PocketClaw does not.
+- Consequence: seeding only ever writes files, so a user who already has that
+  skill keeps it, and it can still be installed later from a registry or by
+  hand. The general skill loading/install mechanism is untouched.
+
+## Factual third-party hardware references are kept accurate
+
+- Date: 2026-08-25
+- Decision: Sipeed, LicheeRV Nano, MaixCAM, and NanoKVM stay in the `hardware`
+  skill, as do the real `picoclaw` binary name and `~/.picoclaw/workspace` path
+  in shell examples.
+- Reason: these are factual references to third-party hardware and to the real
+  executable, not PocketClaw product branding.
+- Consequence: do not rewrite documentation to reach a superficial zero string
+  count. The branding audit classifies occurrences rather than merely counting
+  them.

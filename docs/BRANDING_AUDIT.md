@@ -100,3 +100,101 @@ Not user-visible; changing them would break integration contracts.
    or to drop it from the seeded workspace. The bundled `hardware` skill
    similarly names Sipeed boards (LicheeRV Nano, MaixCAM, NanoKVM), which is a
    factual reference to third-party hardware rather than product branding.
+
+## 2026-08-25 — Milestone B final cleanup audit
+
+This supersedes the "Open items" of the previous section: both are now closed.
+
+### User-facing product branding
+
+| Surface | Result |
+| --- | --- |
+| Flutter UI, Android resources, notifications | PocketClaw only |
+| Embedded web console (`libpicoclaw-web.so`) | PocketClaw only — 0 `PicoClaw`, 0 `Sipeed` strings in the built frontend |
+| Seeded onboarding workspace | PocketClaw only, apart from the factual hardware references below |
+
+### Closed: MQTT topic prefix
+
+The Core default is now `/pocketclaw`, exposed as
+`mqtt.DefaultTopicPrefix` in `pkg/channels/mqtt/mqtt.go`, with the frontend
+topic preview, input placeholder, and the `channels.form.desc.topicPrefix` hint
+in all five locales updated to match.
+
+Backward compatibility is preserved by construction: `topicPrefix()` substitutes
+the default only for an empty value, so an explicitly configured prefix —
+including the legacy `/picoclaw` — is returned unchanged. Broker-side topics are
+never rewritten under a running deployment. Covered by
+`pkg/channels/mqtt/topic_prefix_test.go`: fresh default, explicit legacy prefix,
+arbitrary custom prefix, no-leading-slash, trailing-slash normalization, and
+slashes-only.
+
+One edge case is worth stating plainly: `topic_prefix` is `omitempty`, so a
+configuration that relied on the *implicit* old default is indistinguishable from
+a fresh one and will move to `/pocketclaw`. Pinning that would require a config
+migration, which is deliberately out of scope. Any deployment that wants the old
+topic can set `topic_prefix` explicitly.
+
+### Closed: seeded `picoclaw-agent` skill
+
+`skills/picoclaw-agent` is no longer written into a freshly seeded workspace. It
+is listed in `unseededTemplates` in
+`cmd/picoclaw/internal/onboard/helpers.go`, alongside the pre-existing
+`AGENTS.md` / `IDENTITY.md` exclusions.
+
+It was not renamed, because it documents the real upstream `picoclaw` CLI and
+repository internals — rebranding its text would make its instructions wrong.
+
+Seeding only ever writes files, so a user who already has that skill keeps it,
+and nothing prevents installing it later from a registry or by hand. The general
+skill loading and install mechanism is untouched, and the other bundled skills
+still seed. Covered by three tests in
+`cmd/picoclaw/internal/onboard/helpers_test.go`.
+
+### Retained — factual third-party hardware references
+
+Kept deliberately, per the rule that documentation must not be falsified to
+reach a superficial zero string count:
+
+- `workspace/skills/hardware/SKILL.md` and `references/board-pinout.md` name
+  Sipeed boards (LicheeRV Nano, MaixCAM, NanoKVM) and link to `wiki.sipeed.com`.
+  The skill exists to drive that hardware; the names are accurate.
+- `board-pinout.md` says "Run picoclaw as root" — `picoclaw` is the real
+  executable name.
+- `workspace/skills/skill-creator/SKILL.md` uses `$HOME/.picoclaw/workspace` in a
+  shell example, which is the real default workspace path of that binary.
+
+### Retained — protocol / compatibility identifiers
+
+Not user-visible; changing them breaks integration contracts.
+
+- `PICOCLAW_DNS_SERVER`, `PICOCLAW_HOME`, `PICOCLAW_CONFIG`, and the other
+  `PICOCLAW_*` environment keys, including
+  `PICOCLAW_CHANNELS_MQTT_TOPIC_PREFIX`.
+- Native library names `libpicoclaw.so`, `libpicoclaw-web.so`.
+- An explicitly configured legacy MQTT `/picoclaw` topic prefix.
+- The `picoclaw-oauth-result` postMessage type.
+
+### Retained — internal implementation
+
+- Dart `PicoClawChannel` and the `com.lord1egypt.pocketclaw/picoclaw`
+  MethodChannel name; Kotlin `PicoClawApp`, `PicoClawService`,
+  `PicoClawMethodChannel`; the `picoclaw_foreground` notification channel id;
+  `filesDir/picoclaw` as the internal config home.
+- Web frontend browser-storage keys (`picoclaw-tour-state`,
+  `picoclaw:last-session-id`, `picoclaw:code-block-wrap`, `picoclaw:chat-*`) and
+  DOM attributes (`data-picoclaw-code-block`, `data-picoclaw-highlight-theme`).
+- The Go module path `github.com/sipeed/picoclaw`, which appears in the stripped
+  binaries' function-name tables but never in UI.
+
+### Retained — legal / third-party attribution
+
+`LICENSE`, `licenses/`, `THIRD_PARTY_NOTICES.md`, `UPSTREAM_BASELINE.md`, and
+upstream copyright headers. These are attribution obligations, not product
+identity.
+
+### Retained — developer documentation
+
+CLI help text, log lines, config-migration messages, and the desktop-only
+launcher tray strings inside the Core binaries. None are reachable from the
+Android product UI. `core/README.md` and `core/pocketclaw-core-v0.3.1.patch`
+name the upstream project by design.

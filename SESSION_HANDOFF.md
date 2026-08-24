@@ -2,46 +2,60 @@
 
 ## Current Objective
 
-None outstanding. Stage B is complete and physically verified. Do not start new
-features and do not merge anything without the user's explicit instruction.
+Physically test the Phase 2 Milestone B final cleanup APK. Do not merge to
+`develop` before that passes, and do not start Milestone C.
 
-## Status: black-screen incident RESOLVED
+## Milestone B final cleanup (this session)
 
-APK `2717f32e9580cd5b5ea5da70b2cb9fcf13f6f14451423addcb5686e0278a1de4` passed a
-physical Android device test on 2026-08-25: install, app launch, Flutter first
-frame, Gateway/Core startup, navigation, PocketClaw branding, PocketClaw
-workspace path, and the QR/access page all PASS, with no abnormal device
-slowdown. This is the reference physically verified PocketClaw artifact.
+Both remaining branding edge cases are closed.
 
-Root cause, now confirmed: builds from this workspace were missing
-`lib/arm64-v8a/libdartjni.so`. The `jni` package's arm64 CMake configure failed
-once with a transient filesystem error, and CMake cached that failure as a
-successful configure with an empty target list under `~/.pub-cache` — outside
-the project `build/` tree, so no amount of cleaning `build/` cleared it.
-`JniPlugin` loads that library from a static initializer, and
-`GeneratedPluginRegistrant` catches only `Exception`, so the resulting `Error`
-escaped `FlutterActivity.onCreate` and no frame was ever drawn.
+**MQTT.** The Core default topic prefix is `/pocketclaw`
+(`mqtt.DefaultTopicPrefix`). `topicPrefix()` substitutes the default only for an
+empty value, so an explicitly configured prefix — including the legacy
+`/picoclaw` — is preserved and broker-side topics are never rewritten. The
+frontend preview, placeholder, and the localized hint in all five locales were
+changed with it; they must always move together or the preview misreports the
+real topic. Note that `topic_prefix` is `omitempty`, so a config that relied on
+the implicit old default will move to `/pocketclaw`; set it explicitly to keep
+the old topic.
+
+**Seeded skills.** `skills/picoclaw-agent` is excluded from a fresh workspace
+via `unseededTemplates` in `cmd/picoclaw/internal/onboard/helpers.go`, next to
+the existing `AGENTS.md` / `IDENTITY.md` exclusions. It was deliberately not
+renamed — it documents the real upstream CLI. Seeding only writes files, so
+existing user copies survive and it can still be installed later.
+
+**Hardware references.** Sipeed, LicheeRV Nano, MaixCAM, and NanoKVM stay in the
+`hardware` skill, as does the real `picoclaw` binary name. Documentation is not
+falsified for a zero string count. `docs/BRANDING_AUDIT.md` classifies every
+remaining occurrence.
+
+## Verified artifacts
+
+- Last physically verified APK:
+  `2717f32e9580cd5b5ea5da70b2cb9fcf13f6f14451423addcb5686e0278a1de4`.
+- Cleanup APK awaiting test: `ba4f067df9811bd0e4af713343bdba632abbf96a41e3a5b47cf154740f70a4b8`,
+  34,119,477 bytes.
+- Core binaries, both stripped with 0 debug sections:
+  `libpicoclaw.so` 37,421,409 `eb895f08...40bd9c88`;
+  `libpicoclaw-web.so` 24,772,961 `6d282df0...1195a5a3`.
+  `PICOCLAW_DNS_SERVER` verified present in the gateway.
 
 ## Permanent release requirements — do not remove
 
 - `packageRelease` fails the build unless the APK contains
   `lib/arm64-v8a/libdartjni.so`, `libpicoclaw.so`, and `libpicoclaw-web.so`.
   It prints "Verified arm64-v8a native payload" on success.
-- The canonical release command is
-  `./gradlew :app:assembleRelease -Ptarget-platform=android-arm64`, run with
-  `JAVA_HOME=/home/lordegypt/PocketCLaw/.tooling/jdk-17`. A universal
-  `flutter build apk --release` is not a PocketClaw release path.
-- If the guard reports `libdartjni.so` missing, purge
-  `~/.pub-cache/hosted/pub.dev/jni-*/android/.cxx/` and rebuild.
-
-## Stage B debranding
-
-Every normal user-facing surface reads PocketClaw. The embedded web runtime was
-rebranded at source and rebuilt, never binary-patched, and the gateway was
-rebuilt too because the assistant identity lives in it; `PICOCLAW_DNS_SERVER` is
-verified still present. `docs/BRANDING_AUDIT.md` holds the full classification
-and the two remaining open product decisions. `core/` holds the Core source
-patch and the exact rebuild commands.
+- Canonical release command:
+  `./gradlew :app:assembleRelease -Ptarget-platform=android-arm64` with
+  `JAVA_HOME=/home/lordegypt/PocketCLaw/.tooling/jdk-17` and
+  `GRADLE_USER_HOME=/home/lordegypt/PocketClaw-App/.tooling/gradle-stage-a-clean`.
+  A universal `flutter build apk --release` is not a PocketClaw release path.
+- If the guard reports `libdartjni.so` missing, do not change application code:
+  purge `~/.pub-cache/hosted/pub.dev/jni-*/android/.cxx/` and rebuild.
+- Rebuild Core via `make build-launcher-android-arm64`; calling
+  `make -C web build-android-arm64` directly drops the root `LDFLAGS` and
+  produces an unstripped binary. Use `pnpm lint`, never `pnpm check`.
 
 ## Exact State
 
@@ -108,10 +122,13 @@ capture final device logs, so that symptom must be confirmed during retest.
 
 ## Next Exact Steps
 
-1. Decide the two open branding items in `docs/BRANDING_AUDIT.md`: the MQTT
-   `/picoclaw` topic prefix (a broker-side protocol identifier, visible only in
-   the MQTT channel config screen) and the bundled `picoclaw-agent` / `hardware`
-   skills seeded into the onboarding workspace.
-2. Await the user's instruction before merging or starting new work.
+1. Install and smoke-test the cleanup APK
+   (`ba4f067df9811bd0e4af713343bdba632abbf96a41e3a5b47cf154740f70a4b8`):
+   first frame, Core lifecycle, navigation, branding, workspace path, and the
+   QR/access page. If MQTT is in use, confirm a fresh channel defaults to
+   `/pocketclaw` and an existing configured prefix is unchanged.
+2. On approval, Milestone B can be merged into `develop`. Until then
    `recovery/pocketclaw-clean-debrand`, `feature/pocketclaw-identity`
-   (`354fc38` WIP preserved), `develop`, and `main` are all intact and unmerged.
+   (`354fc38` WIP preserved), `develop`, and `main` stay intact and unmerged.
+3. Do not start Milestone C — no provider presets, no Telegram QR/deep-link
+   onboarding — without the user's instruction.

@@ -53,8 +53,27 @@
   Install, launch, Flutter first frame, Gateway/Core startup, navigation,
   PocketClaw branding, PocketClaw workspace path, and the QR/access page all
   pass, with no abnormal device slowdown. The black-screen incident is RESOLVED.
-- [ ] Decide the two open branding items in `docs/BRANDING_AUDIT.md`: the MQTT
-  `/picoclaw` topic prefix and the bundled `picoclaw-agent`/`hardware` skills.
+- [x] Decide the two open branding items: both closed in the Milestone B final
+  cleanup below.
+
+## Phase 2 — Milestone B final cleanup
+
+- [x] MQTT fresh default is `/pocketclaw`; explicitly configured prefixes,
+  including the legacy `/picoclaw`, are preserved. Go and frontend changed
+  together, with tests for fresh/legacy/custom/normalized values.
+- [x] `skills/picoclaw-agent` is no longer seeded into a fresh workspace, is not
+  renamed, and existing user copies survive. Tests cover all three.
+- [x] Factual Sipeed/LicheeRV Nano/MaixCAM/NanoKVM hardware references retained.
+- [x] Re-ran the branding audit with full classification into product branding,
+  protocol/compatibility, legal attribution, factual third-party, internal
+  implementation, and developer documentation.
+- [x] Rebuilt both Core binaries stripped via the documented Makefile targets;
+  `PICOCLAW_DNS_SERVER` verified present.
+- [x] Flutter analyze/tests, Go tests, frontend lint, canonical arm64 release
+  build, and the native payload guard all pass.
+- [ ] Physical test of the Milestone B final cleanup APK
+  (`ba4f067df9811bd0e4af713343bdba632abbf96a41e3a5b47cf154740f70a4b8`).
+  Physical approval is the gate for merging Milestone B into `develop`.
 
 ## Later (not started)
 

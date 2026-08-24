@@ -47,7 +47,10 @@ The reproducible source diff and build commands are in `core/`.
 
 | File | Size | SHA-256 |
 | --- | --- | --- |
-| `libpicoclaw.so` | 37,421,409 | `1f239a827c8562d6ac2ffdf63c1354ce0d28396cdab7d4f240f3866cbb525fed` |
-| `libpicoclaw-web.so` | 24,772,961 | `94bb6319bbac08e1aa0fa43e8093b4dd00bad512cb67ca94a6a57d666f4bc716` |
+| `libpicoclaw.so` | 37,421,409 | `eb895f0892509b76242f572515c26f56530ec417bdedc0bb9ec1486f40bd9c88` |
+| `libpicoclaw-web.so` | 24,772,961 | `6d282df06680869a0aca25a976b123bce8e793d2f08708e79386a1761195a5a3` |
+
+Superseded Stage B binaries (2026-08-25, before the Milestone B final cleanup):
+`libpicoclaw.so` `1f239a82...bb525fed`, `libpicoclaw-web.so` `94bb6319...6f4bc716`.
 
 Version stamp: `Version=v0.3.1`, `GitCommit=2cf030d2`, `GoVersion=go1.25.11`.
