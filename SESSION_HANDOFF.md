@@ -2,36 +2,35 @@
 
 ## Current Objective
 
-Physically test the Stage A replacement APK. The black-screen regression is
-root-caused and fixed in the build environment; no source change was needed.
-Do not resume debranding or begin new features until the device test passes.
+Physically test the Stage B debranded APK. Do not merge to `develop` and do not
+start new features until it passes.
 
-## Black-screen root cause (resolved)
+## Resolved: the black screen
 
-Every APK built from `/home/lordegypt/PocketClaw-App` since 2026-08-24 02:52
-was missing `lib/arm64-v8a/libdartjni.so`. The `jni` package's CMake configure
-for `arm64-v8a` failed once with a transient filesystem error and CMake cached
-the failure as a valid configure with an empty target list in
-`~/.pub-cache/hosted/pub.dev/jni-1.0.3/android/.cxx/RelWithDebInfo/6n1p6673/`.
-Because that cache lives outside the project `build/` tree, deleting build
-intermediates never cleared it.
+Root-caused and physically confirmed. Builds from this workspace were missing
+`lib/arm64-v8a/libdartjni.so` because the `jni` package's arm64 CMake configure
+failed once and was cached under `~/.pub-cache`, outside the project `build/`
+tree. `JniPlugin` loads that library from a static initializer and
+`GeneratedPluginRegistrant` only catches `Exception`, so the resulting `Error`
+escaped `FlutterActivity.onCreate` and no frame was ever drawn. The release
+build now fails closed if the arm64 payload is incomplete.
 
-`com.github.dart_lang.jni.JniPlugin` calls `System.loadLibrary("dartjni")` from
-a static initializer. `GeneratedPluginRegistrant.registerWith` wraps plugin
-construction in `catch (Exception e)`, but the failure is an
-`ExceptionInInitializerError` — an `Error`, not an `Exception` — so it escapes
-during `FlutterActivity.onCreate` and the Flutter view never attaches. The app
-process stays alive as a foreground service, which matches the reported black
-screen plus device slowdown. `path_provider_android` depends on
-`jni`/`jni_flutter`, so the plugin is always registered.
+## Stage B: user-facing debranding
 
-The physically working APK `45be7269...ebe9e` was built from
-`/tmp/pocketclaw-runtime-fix`, whose separate cache
-(`.cxx/RelWithDebInfo/4l131246`) configured arm64-v8a successfully. That is the
-sole material difference; Stage A's source changes are text/UI only.
+Every normal user-facing surface now reads PocketClaw. The embedded web runtime
+was rebranded at source and rebuilt — never binary-patched — and the gateway was
+rebuilt too because the assistant identity lives there. `PICOCLAW_DNS_SERVER` is
+verified still present in the rebuilt gateway.
 
-Fix applied: purged the poisoned `.cxx` cache and rebuilt. Always verify
-`lib/arm64-v8a/libdartjni.so` is packaged before releasing.
+`docs/BRANDING_AUDIT.md` has the full classification: 0 user-visible
+PicoClaw/Sipeed occurrences, 0 user-facing GitHub links, the retained legal and
+internal-compatibility occurrences, and two open product decisions (the MQTT
+`/picoclaw` topic prefix, and the bundled `picoclaw-agent`/`hardware` skills).
+
+`core/` holds the Core source patch and the exact rebuild commands. Build the
+runtime only through `make build-launcher-android-arm64`; calling
+`make -C web build-android-arm64` directly drops `-s -w` and produces an
+unstripped binary.
 
 ## Exact State
 
@@ -99,12 +98,12 @@ capture final device logs, so that symptom must be confirmed during retest.
 ## Next Exact Steps
 
 1. Install and launch `build/app/outputs/apk/release/app-release.apk`
-   (34,119,437 bytes, SHA-256
-   `d87425344cca526afd8ef3eca41ef3648791593e69016a463aeee86693d7e405`) on the
-   physical device. Confirm the Flutter first frame, usable UI, Core start/stop,
-   active-network DNS, model discovery, Telegram, and Skill Hub.
-2. If it launches, Stage A is validated; only then consider merging or resuming
-   debranding. `recovery/pocketclaw-clean-debrand`, `feature/pocketclaw-identity`
-   (`354fc38` WIP preserved), `develop`, and `main` are all intact and unmerged.
-3. If it still black-screens, capture `adb logcat` around
-   `GeneratedPluginRegistrant`/`UnsatisfiedLinkError` before changing any source.
+   (34,119,837 bytes, SHA-256
+   `2717f32e9580cd5b5ea5da70b2cb9fcf13f6f14451423addcb5686e0278a1de4`).
+   Confirm first frame, Core start/stop, active-network DNS, model discovery,
+   AI requests, Telegram, and Skill Hub, and walk the embedded web console
+   looking for any remaining upstream branding.
+2. Decide the two open items in `docs/BRANDING_AUDIT.md`.
+3. Only then consider merging. `recovery/pocketclaw-clean-debrand`,
+   `feature/pocketclaw-identity` (`354fc38` WIP preserved), `develop`, and
+   `main` are all intact and unmerged.

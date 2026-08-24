@@ -112,3 +112,40 @@
   pulls in `jni`/`jni_flutter`, so this affects every build of this app.
 - Why it survived cleanups: the poisoned cache is in `~/.pub-cache`, not in the
   project `build/` tree, so deleting build intermediates never cleared it.
+
+## Fresh installs use `Download/pocketclaw`; old data is left alone
+
+- Date: 2026-08-25
+- Decision: The Android workspace directory for fresh PocketClaw installs is
+  `Download/pocketclaw`, including the no-permission fallback and the
+  log-export directory. This supersedes the earlier decision to keep the
+  compatible `Downloads/picoclaw` path.
+- Consequence: Any existing `Download/picoclaw` tree is left untouched and no
+  migration runs at startup. A migration, if it is ever wanted, is a separate
+  designed feature and must not block the first frame.
+
+## Debrand the embedded web runtime at source, never by binary patching
+
+- Date: 2026-08-25
+- Decision: PocketClaw wording in the embedded web console comes from edits to
+  the Core web frontend/backend source, rebuilt through the Core Makefile
+  targets. The compiled `.so` files are never patched.
+- Consequence: `core/pocketclaw-core-v0.3.1.patch` and `core/README.md` carry
+  the exact source diff and build commands. Build only via
+  `make build-launcher-android-arm64`; calling `make -C web build-android-arm64`
+  directly drops the root `LDFLAGS` and yields an unstripped binary, which is
+  what produced the earlier oversized `libpicoclaw-web.so`.
+- Consequence: use `pnpm lint` on the frontend, not `pnpm check` — the latter
+  runs `prettier --write` across the whole tree and rewrites unrelated files.
+
+## The release build fails closed on an incomplete arm64 payload
+
+- Date: 2026-08-25
+- Decision: `packageRelease` verifies that the APK contains
+  `lib/arm64-v8a/libdartjni.so`, `libpicoclaw.so`, and `libpicoclaw-web.so`,
+  and fails the build otherwise.
+- Reason: the black-screen regression shipped for days because a missing
+  `libdartjni.so` is silent at build time and fatal at launch.
+- Consequence: `./gradlew :app:assembleRelease -Ptarget-platform=android-arm64`
+  is the canonical PocketClaw release path. Do not use a universal
+  `flutter build apk --release` for releases.

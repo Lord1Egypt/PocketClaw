@@ -345,7 +345,7 @@ class PicoClawMethodChannel(
             // For older devices, attempt fallback to legacy external storage path
             try {
                 val downloads = android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS)
-                val dir = java.io.File(downloads, "picoclaw")
+                val dir = java.io.File(downloads, "pocketclaw")
                 if (!dir.exists()) dir.mkdirs()
                 val f = java.io.File(dir, fileName)
                 f.writeBytes(data)

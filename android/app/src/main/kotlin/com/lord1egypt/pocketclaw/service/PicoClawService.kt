@@ -77,7 +77,7 @@ class PicoClawService : Service() {
                 android.os.Environment.getExternalStoragePublicDirectory(
                     android.os.Environment.DIRECTORY_DOWNLOADS
                 ),
-                "picoclaw"
+                "pocketclaw"
             )
             // Android 11+ 需要 MANAGE_EXTERNAL_STORAGE；低版本 requestLegacyExternalStorage 已可写
             val canWrite = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
@@ -90,8 +90,8 @@ class PicoClawService : Service() {
                 downloadsDir.absolutePath
             } else {
                 // 权限未授予，回退到应用专属目录，避免崩溃
-                val fallback = context.getExternalFilesDir(null)?.resolve("picoclaw")
-                    ?: File(context.filesDir, "picoclaw")
+                val fallback = context.getExternalFilesDir(null)?.resolve("pocketclaw")
+                    ?: File(context.filesDir, "pocketclaw")
                 fallback.mkdirs()
                 fallback.absolutePath
             }
@@ -226,9 +226,9 @@ class PicoClawService : Service() {
             }
 
             val binaryLabel = if (binaryName == GATEWAY_BINARY_NAME) {
-                "picoclaw"
+                "PocketClaw runtime"
             } else {
-                "picoclaw-web"
+                "PocketClaw web runtime"
             }
 
             throw RuntimeException(

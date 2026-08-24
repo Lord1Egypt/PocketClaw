@@ -37,9 +37,23 @@
 - [x] Purge the poisoned `.cxx` cache and rebuild Stage A (`642dc63`) with the
   documented arm64 Gradle command and pinned toolchain; verify the packaged
   `libdartjni.so`, package identity, Core hashes, analyze, and tests.
-- [ ] Physical test of the Stage A replacement APK
-  (`d87425344cca526afd8ef3eca41ef3648791593e69016a463aeee86693d7e405`): Flutter
-  first frame, usable UI, Core lifecycle, and absence of a service/CPU loop.
+- [x] Physical test of the Stage A replacement APK: launch, Flutter first
+  frame, and no black screen all PASS. Root cause physically confirmed.
+
+## Phase 2 — Stage B: User-facing debranding
+
+- [x] Fail the release build when the arm64 native payload is incomplete.
+- [x] Debrand the Flutter UI, Android resources, and the embedded web runtime;
+  rebuild the web runtime from source and record its hashes.
+- [x] Point fresh installs at `Download/pocketclaw` without any startup migration.
+- [x] Run Flutter analyze/tests, Go tests, frontend lint, and rebuild the APK
+  through the verified arm64 Gradle path.
+- [ ] Physical test of the debranded APK
+  (`2717f32e9580cd5b5ea5da70b2cb9fcf13f6f14451423addcb5686e0278a1de4`):
+  first frame, Core lifecycle, DNS, model discovery, AI requests, Telegram,
+  Skill Hub, and a visual branding pass over the embedded web console.
+- [ ] Decide the two open branding items in `docs/BRANDING_AUDIT.md`: the MQTT
+  `/picoclaw` topic prefix and the bundled `picoclaw-agent`/`hardware` skills.
 
 ## Later (not started)
 

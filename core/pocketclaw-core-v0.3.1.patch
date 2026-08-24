@@ -1,0 +1,824 @@
+diff --git a/cmd/picoclaw/dns_noresolv.go b/cmd/picoclaw/dns_noresolv.go
+index ba4ae1f..283782f 100644
+--- a/cmd/picoclaw/dns_noresolv.go
++++ b/cmd/picoclaw/dns_noresolv.go
+@@ -1,64 +1,7 @@
+ package main
+ 
+-import (
+-	"context"
+-	"net"
+-	"net/http"
+-	"os"
+-	"strings"
+-	"sync/atomic"
+-	"time"
+-)
++import "github.com/sipeed/picoclaw/pkg/androiddns"
+ 
+ func init() {
+-	// 仅在 /etc/resolv.conf 不存在时才覆盖（即 Android 环境）
+-	if _, err := os.Stat("/etc/resolv.conf"); err == nil {
+-		return
+-	}
+-
+-	// 从环境变量获取 DNS server 列表，多个用 ; 隔开
+-	// 例如: PICOCLAW_DNS_SERVER="8.8.8.8:53;1.1.1.1:53;223.5.5.5:53"
+-	dnsEnv := os.Getenv("PICOCLAW_DNS_SERVER")
+-	if dnsEnv == "" {
+-		dnsEnv = "8.8.8.8:53;1.1.1.1:53"
+-	}
+-
+-	var dnsServers []string
+-	for _, s := range strings.Split(dnsEnv, ";") {
+-		s = strings.TrimSpace(s)
+-		if s != "" {
+-			// 如果没有带端口号，自动补上 :53
+-			if _, _, err := net.SplitHostPort(s); err != nil {
+-				s = s + ":53"
+-			}
+-			dnsServers = append(dnsServers, s)
+-		}
+-	}
+-
+-	// 轮询索引，在多个 DNS 服务器之间轮转
+-	var idx uint64
+-
+-	customResolver := &net.Resolver{
+-		PreferGo: true,
+-		Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
+-			d := net.Dialer{Timeout: 5 * time.Second}
+-			// Round-robin: 依次尝试不同的 DNS 服务器
+-			server := dnsServers[atomic.AddUint64(&idx, 1)%uint64(len(dnsServers))]
+-			return d.DialContext(ctx, "udp", server)
+-		},
+-	}
+-
+-	// 覆盖全局 DefaultResolver
+-	net.DefaultResolver = customResolver
+-
+-	// 覆盖 http.DefaultTransport 使用自定义 DNS 解析的 DialContext
+-	dialer := &net.Dialer{
+-		Timeout:   30 * time.Second,
+-		KeepAlive: 30 * time.Second,
+-		Resolver:  customResolver,
+-	}
+-
+-	if tr, ok := http.DefaultTransport.(*http.Transport); ok {
+-		tr.DialContext = dialer.DialContext
+-	}
++	androiddns.ConfigureDefaultResolverFromEnvironment()
+ }
+diff --git a/pkg/commands/cmd_start.go b/pkg/commands/cmd_start.go
+index 8b500aa..e5a424b 100644
+--- a/pkg/commands/cmd_start.go
++++ b/pkg/commands/cmd_start.go
+@@ -8,7 +8,7 @@ func startCommand() Definition {
+ 		Description: "Start the bot",
+ 		Usage:       "/start",
+ 		Handler: func(_ context.Context, req Request, _ *Runtime) error {
+-			return req.Reply("Hello! I am PicoClaw 🦞")
++			return req.Reply("Hello! I am PocketClaw.")
+ 		},
+ 	}
+ }
+diff --git a/web/backend/api/models.go b/web/backend/api/models.go
+index 941c95e..79b3609 100644
+--- a/web/backend/api/models.go
++++ b/web/backend/api/models.go
+@@ -3,13 +3,16 @@ package api
+ import (
+ 	"context"
+ 	"encoding/json"
++	"errors"
+ 	"fmt"
+ 	"io"
++	"net"
+ 	"net/http"
+ 	"net/url"
+ 	"strconv"
+ 	"strings"
+ 	"sync"
++	"syscall"
+ 	"time"
+ 
+ 	"github.com/sipeed/picoclaw/pkg/audio/asr"
+@@ -768,12 +771,12 @@ func fetchNearAIModels(ctx context.Context, fetchURL, apiKey string) ([]upstream
+ 
+ 	resp, err := http.DefaultClient.Do(req)
+ 	if err != nil {
+-		return nil, err
++		return nil, describeModelFetchNetworkError(fetchURL, err)
+ 	}
+ 	defer resp.Body.Close()
+ 
+ 	if resp.StatusCode != http.StatusOK {
+-		return nil, fmt.Errorf("nearai returned status %d", resp.StatusCode)
++		return nil, describeModelFetchHTTPError("NearAI", resp.StatusCode)
+ 	}
+ 
+ 	var parsed struct {
+@@ -815,12 +818,12 @@ func fetchOpenAICompatibleModels(ctx context.Context, fetchURL, apiKey string) (
+ 
+ 	resp, err := http.DefaultClient.Do(req)
+ 	if err != nil {
+-		return nil, err
++		return nil, describeModelFetchNetworkError(fetchURL, err)
+ 	}
+ 	defer resp.Body.Close()
+ 
+ 	if resp.StatusCode != http.StatusOK {
+-		return nil, fmt.Errorf("upstream returned status %d", resp.StatusCode)
++		return nil, describeModelFetchHTTPError("provider", resp.StatusCode)
+ 	}
+ 
+ 	body, err := io.ReadAll(resp.Body)
+@@ -869,6 +872,34 @@ func fetchOpenAICompatibleModels(ctx context.Context, fetchURL, apiKey string) (
+ 	return nil, fmt.Errorf("decode response: unrecognized shape: %s", strings.TrimSpace(string(preview)))
+ }
+ 
++func describeModelFetchNetworkError(fetchURL string, err error) error {
++	host := "provider"
++	if parsed, parseErr := url.Parse(fetchURL); parseErr == nil && parsed.Hostname() != "" {
++		host = parsed.Hostname()
++	}
++
++	var dnsErr *net.DNSError
++	if errors.As(err, &dnsErr) {
++		return fmt.Errorf("DNS resolution failed for %s: %w", host, err)
++	}
++	if errors.Is(err, syscall.ECONNREFUSED) {
++		return fmt.Errorf("connection refused by %s: %w", host, err)
++	}
++	var urlErr *url.Error
++	if errors.Is(err, context.DeadlineExceeded) ||
++		(errors.As(err, &urlErr) && urlErr.Timeout()) {
++		return fmt.Errorf("connection timed out for %s: %w", host, err)
++	}
++	return fmt.Errorf("network request to %s failed: %w", host, err)
++}
++
++func describeModelFetchHTTPError(provider string, status int) error {
++	if status == http.StatusUnauthorized || status == http.StatusForbidden {
++		return fmt.Errorf("%s authentication failed (HTTP %d)", provider, status)
++	}
++	return fmt.Errorf("%s returned HTTP %d", provider, status)
++}
++
+ func fetchOllamaModels(ctx context.Context, fetchURL string) ([]upstreamModel, error) {
+ 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fetchURL, nil)
+ 	if err != nil {
+diff --git a/web/backend/api/models_test.go b/web/backend/api/models_test.go
+index cb088a0..e6e1420 100644
+--- a/web/backend/api/models_test.go
++++ b/web/backend/api/models_test.go
+@@ -2546,6 +2546,32 @@ func TestFetchOpenAICompatibleModels_NoAuthHeaderWhenKeyEmpty(t *testing.T) {
+ 	}
+ }
+ 
++func TestFetchUpstreamModels_PreservesCustomOpenAICompatibleBasePath(t *testing.T) {
++	var gotPath string
++	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
++		gotPath = r.URL.Path
++		w.Header().Set("Content-Type", "application/json")
++		fmt.Fprint(w, `{"data":[{"id":"gemini-3.7-flash"}]}`)
++	}))
++	defer srv.Close()
++
++	models, err := fetchUpstreamModels(
++		t.Context(),
++		"openai",
++		srv.URL+"/v1beta/openai/",
++		"test-key",
++	)
++	if err != nil {
++		t.Fatalf("fetchUpstreamModels() error = %v", err)
++	}
++	if gotPath != "/v1beta/openai/models" {
++		t.Fatalf("request path = %q, want %q", gotPath, "/v1beta/openai/models")
++	}
++	if len(models) != 1 || models[0].ID != "gemini-3.7-flash" {
++		t.Fatalf("models = %#v, want the upstream model", models)
++	}
++}
++
+ func TestHandleFetchModels_SiliconFlowUsesOpenAICompatibleEndpoint(t *testing.T) {
+ 	configPath, cleanup := setupOAuthTestEnv(t)
+ 	defer cleanup()
+diff --git a/web/backend/api/oauth.go b/web/backend/api/oauth.go
+index 7586a45..7ca7520 100644
+--- a/web/backend/api/oauth.go
++++ b/web/backend/api/oauth.go
+@@ -515,7 +515,7 @@ func renderOAuthCallbackPage(w http.ResponseWriter, flowID, status, title, errMs
+ 
+ 	_, _ = fmt.Fprintf(
+ 		w,
+-		"<!doctype html><html><head><meta charset=\"utf-8\"><title>PicoClaw OAuth</title></head><body><script>(function(){var payload=%s;var hasOpener=false;try{if(window.opener&&!window.opener.closed){window.opener.postMessage(payload,window.location.origin);hasOpener=true}}catch(e){}var target='/credentials?oauth_flow_id='+encodeURIComponent(payload.flowId||'')+'&oauth_status='+encodeURIComponent(payload.status||'');setTimeout(function(){if(hasOpener){window.close();return}window.location.replace(target)},800)})();</script><div style=\"font-family:Inter,system-ui,sans-serif;padding:24px\"><h2>%s</h2><p>%s</p><p>You can close this window.</p></div></body></html>",
++		"<!doctype html><html><head><meta charset=\"utf-8\"><title>PocketClaw OAuth</title></head><body><script>(function(){var payload=%s;var hasOpener=false;try{if(window.opener&&!window.opener.closed){window.opener.postMessage(payload,window.location.origin);hasOpener=true}}catch(e){}var target='/credentials?oauth_flow_id='+encodeURIComponent(payload.flowId||'')+'&oauth_status='+encodeURIComponent(payload.status||'');setTimeout(function(){if(hasOpener){window.close();return}window.location.replace(target)},800)})();</script><div style=\"font-family:Inter,system-ui,sans-serif;padding:24px\"><h2>%s</h2><p>%s</p><p>You can close this window.</p></div></body></html>",
+ 		string(payloadJSON),
+ 		html.EscapeString(title),
+ 		html.EscapeString(message),
+diff --git a/web/backend/api/startup.go b/web/backend/api/startup.go
+index bc71e49..f7f57b0 100644
+--- a/web/backend/api/startup.go
++++ b/web/backend/api/startup.go
+@@ -250,8 +250,8 @@ func setLinuxAutoStart(enabled bool, exePath string, args []string) error {
+ 			"[Desktop Entry]",
+ 			"Type=Application",
+ 			"Version=1.0",
+-			"Name=PicoClaw Web",
+-			"Comment=Start PicoClaw Web on login",
++			"Name=PocketClaw Web",
++			"Comment=Start PocketClaw Web on login",
+ 			"Exec=" + buildLinuxExecLine(exePath, args),
+ 			"Terminal=false",
+ 			"X-GNOME-Autostart-enabled=true",
+diff --git a/web/backend/i18n.go b/web/backend/i18n.go
+index 9cda9e5..8ab2330 100644
+--- a/web/backend/i18n.go
++++ b/web/backend/i18n.go
+@@ -46,9 +46,9 @@ var translations = map[Language]map[TranslationKey]string{
+ 	LanguageEnglish: {
+ 		AppTooltip:         "%s - Web Console",
+ 		MenuOpen:           "Open Console",
+-		MenuOpenTooltip:    "Open PicoClaw console in browser",
++		MenuOpenTooltip:    "Open PocketClaw console in browser",
+ 		MenuAbout:          "About",
+-		MenuAboutTooltip:   "About PicoClaw",
++		MenuAboutTooltip:   "About PocketClaw",
+ 		MenuVersion:        "Version: %s",
+ 		MenuVersionTooltip: "Current version number",
+ 		MenuGitHub:         "GitHub",
+@@ -56,16 +56,16 @@ var translations = map[Language]map[TranslationKey]string{
+ 		MenuRestart:        "Restart Service",
+ 		MenuRestartTooltip: "Restart Gateway service",
+ 		MenuQuit:           "Quit",
+-		MenuQuitTooltip:    "Exit PicoClaw",
+-		Exiting:            "Exiting PicoClaw...",
++		MenuQuitTooltip:    "Exit PocketClaw",
++		Exiting:            "Exiting PocketClaw...",
+ 		DocUrl:             "https://docs.picoclaw.io/docs/",
+ 	},
+ 	LanguageChinese: {
+ 		AppTooltip:         "%s - Web Console",
+ 		MenuOpen:           "打开控制台",
+-		MenuOpenTooltip:    "在浏览器中打开 PicoClaw 控制台",
++		MenuOpenTooltip:    "在浏览器中打开 PocketClaw 控制台",
+ 		MenuAbout:          "关于",
+-		MenuAboutTooltip:   "关于 PicoClaw",
++		MenuAboutTooltip:   "关于 PocketClaw",
+ 		MenuVersion:        "版本: %s",
+ 		MenuVersionTooltip: "当前版本号",
+ 		MenuGitHub:         "GitHub",
+@@ -73,8 +73,8 @@ var translations = map[Language]map[TranslationKey]string{
+ 		MenuRestart:        "重启服务",
+ 		MenuRestartTooltip: "重启核心服务",
+ 		MenuQuit:           "退出",
+-		MenuQuitTooltip:    "退出 PicoClaw",
+-		Exiting:            "正在退出 PicoClaw...",
++		MenuQuitTooltip:    "退出 PocketClaw",
++		Exiting:            "正在退出 PocketClaw...",
+ 		DocUrl:             "https://docs.picoclaw.io/zh-Hans/docs/",
+ 	},
+ }
+diff --git a/web/backend/main.go b/web/backend/main.go
+index 698e582..89e15f6 100644
+--- a/web/backend/main.go
++++ b/web/backend/main.go
+@@ -26,6 +26,7 @@ import (
+ 	"syscall"
+ 	"time"
+ 
++	"github.com/sipeed/picoclaw/pkg/androiddns"
+ 	"github.com/sipeed/picoclaw/pkg/config"
+ 	"github.com/sipeed/picoclaw/pkg/logger"
+ 	"github.com/sipeed/picoclaw/pkg/netbind"
+@@ -37,7 +38,7 @@ import (
+ )
+ 
+ const (
+-	appName = "PicoClaw"
++	appName = "PocketClaw"
+ 
+ 	logPath   = "logs"
+ 	panicFile = "launcher_panic.log"
+@@ -398,6 +399,8 @@ func launcherAllowlistBypassLogPolicy(
+ }
+ 
+ func main() {
++	androiddns.ConfigureDefaultResolverFromEnvironment()
++
+ 	port := flag.String("port", "18800", "Port to listen on")
+ 	host := flag.String("host", "", "Host to listen on (overrides -public when set)")
+ 	public := flag.Bool("public", false, "Listen on all interfaces (dual-stack) instead of localhost only")
+diff --git a/web/frontend/index.html b/web/frontend/index.html
+index d3bdd90..8eb9c67 100644
+--- a/web/frontend/index.html
++++ b/web/frontend/index.html
+@@ -8,7 +8,7 @@
+     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+     <link rel="manifest" href="/site.webmanifest" />
+     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+-    <title>PicoClaw</title>
++    <title>PocketClaw</title>
+   </head>
+ 
+   <body>
+diff --git a/web/frontend/src/components/app-header.tsx b/web/frontend/src/components/app-header.tsx
+index eb90881..2015d9d 100644
+--- a/web/frontend/src/components/app-header.tsx
++++ b/web/frontend/src/components/app-header.tsx
+@@ -1,5 +1,4 @@
+ import {
+-  IconBook,
+   IconLanguage,
+   IconLoader2,
+   IconLogout,
+@@ -264,19 +263,6 @@ export function AppHeader() {
+           orientation="vertical"
+         />
+ 
+-        {/* Docs Link */}
+-        <Button
+-          variant="ghost"
+-          size="icon"
+-          className="size-8"
+-          data-tour="docs-button"
+-          asChild
+-        >
+-          <a href="https://docs.picoclaw.io" target="_blank" rel="noreferrer">
+-            <IconBook className="size-4.5" />
+-          </a>
+-        </Button>
+-
+         {/* Language Switcher */}
+         <DropdownMenu>
+           <DropdownMenuTrigger asChild>
+diff --git a/web/frontend/src/components/channels/channel-config-page.tsx b/web/frontend/src/components/channels/channel-config-page.tsx
+index 10e2a22..c0597d3 100644
+--- a/web/frontend/src/components/channels/channel-config-page.tsx
++++ b/web/frontend/src/components/channels/channel-config-page.tsx
+@@ -273,22 +273,8 @@ function isMissingRequiredValue(value: unknown): boolean {
+   return false
+ }
+ 
+-function getChannelDocSlug(channelName: string): string {
+-  return channelName.replaceAll("_", "-")
+-}
+-
+-const CHANNELS_WITHOUT_DOCS = new Set([
+-  "pico",
+-  "wecom",
+-  "matrix",
+-  "irc",
+-  "whatsapp",
+-  "whatsapp_native",
+-  "mqtt",
+-])
+-
+ export function ChannelConfigPage({ channelName }: ChannelConfigPageProps) {
+-  const { t, i18n } = useTranslation()
++  const { t } = useTranslation()
+   const { state: gatewayState } = useGateway()
+ 
+   const [loading, setLoading] = useState(true)
+@@ -397,20 +383,6 @@ export function ChannelConfigPage({ channelName }: ChannelConfigPageProps) {
+     return JSON.stringify(basePayload) !== JSON.stringify(currentPayload)
+   }, [baseConfig, channel, channelName, editConfig, enabled, loading])
+ 
+-  const docsUrl = useMemo(() => {
+-    if (!channel) return ""
+-    if (CHANNELS_WITHOUT_DOCS.has(channel.name)) return ""
+-    const language = (
+-      i18n.resolvedLanguage ??
+-      i18n.language ??
+-      ""
+-    ).toLowerCase()
+-    const base = language.startsWith("zh")
+-      ? "https://docs.picoclaw.io/zh-Hans/docs/channels"
+-      : "https://docs.picoclaw.io/docs/channels"
+-    return `${base}/${getChannelDocSlug(channel.name)}`
+-  }, [channel, i18n.language, i18n.resolvedLanguage])
+-
+   const channelDisplayName = useMemo(() => {
+     if (!channel) return channelName
+     return getChannelDisplayName(channel, t)
+@@ -687,22 +659,7 @@ export function ChannelConfigPage({ channelName }: ChannelConfigPageProps) {
+ 
+   return (
+     <div className="flex h-full flex-col">
+-      <PageHeader
+-        title={channelDisplayName}
+-        titleExtra={
+-          channel &&
+-          docsUrl && (
+-            <a
+-              href={docsUrl}
+-              target="_blank"
+-              rel="noreferrer"
+-              className="text-muted-foreground hover:text-foreground text-xs underline underline-offset-2"
+-            >
+-              {t("channels.page.docLink")}
+-            </a>
+-          )
+-        }
+-      />
++      <PageHeader title={channelDisplayName} />
+ 
+       <div className="flex min-h-0 flex-1 justify-center overflow-y-auto px-4 pb-8 sm:px-6">
+         {loading ? (
+diff --git a/web/frontend/src/components/chat/assistant-message.tsx b/web/frontend/src/components/chat/assistant-message.tsx
+index 0a197b2..0be75e5 100644
+--- a/web/frontend/src/components/chat/assistant-message.tsx
++++ b/web/frontend/src/components/chat/assistant-message.tsx
+@@ -16,12 +16,12 @@ import rehypeSanitize from "rehype-sanitize"
+ import remarkGfm from "remark-gfm"
+ 
+ import {
+-  MessageCodeBlock,
+   MarkdownCodeBlock,
++  MessageCodeBlock,
+ } from "@/components/chat/message-code-block"
+ import { Button } from "@/components/ui/button"
+-import { formatMessageTime } from "@/hooks/use-pico-chat"
+ import { useCopyToClipboard } from "@/hooks/use-copy-to-clipboard"
++import { formatMessageTime } from "@/hooks/use-pico-chat"
+ import { cn } from "@/lib/utils"
+ import {
+   type AssistantMessageKind,
+@@ -73,9 +73,9 @@ export function AssistantMessage({
+   return (
+     <div className="group flex w-full flex-col gap-1.5">
+       {!isCollapsedBlock && (
+-          <div className="text-muted-foreground/60 flex items-center justify-between gap-2 px-1 text-xs opacity-70">
++        <div className="text-muted-foreground/60 flex items-center justify-between gap-2 px-1 text-xs opacity-70">
+           <div className="flex items-center gap-2">
+-            <span>PicoClaw</span>
++            <span>PocketClaw</span>
+             {trimmedModelName && (
+               <>
+                 <span className="opacity-50">•</span>
+@@ -114,7 +114,9 @@ export function AssistantMessage({
+                 )}
+                 <span>{collapsedLabel}</span>
+                 {trimmedModelName && (
+-                  <span className="text-muted-foreground/45">{trimmedModelName}</span>
++                  <span className="text-muted-foreground/45">
++                    {trimmedModelName}
++                  </span>
+                 )}
+               </div>
+               <div className="flex items-center gap-2">
+@@ -194,7 +196,9 @@ export function AssistantMessage({
+                             <MessageCodeBlock
+                               code={toolArguments}
+                               language="json"
+-                              label={toolName || t("chat.toolCallArgumentsLabel")}
++                              label={
++                                toolName || t("chat.toolCallArgumentsLabel")
++                              }
+                               className="my-0 shadow-none"
+                               bodyClassName="px-3 py-2 text-[12px] leading-relaxed"
+                             />
+diff --git a/web/frontend/src/components/config/config-sections.tsx b/web/frontend/src/components/config/config-sections.tsx
+index a921b99..4780b9b 100644
+--- a/web/frontend/src/components/config/config-sections.tsx
++++ b/web/frontend/src/components/config/config-sections.tsx
+@@ -122,7 +122,7 @@ export function AgentDefaultsSection({
+         <Input
+           value={form.workspace}
+           onChange={(e) => onFieldChange("workspace", e.target.value)}
+-          placeholder="~/.picoclaw/workspace"
++          placeholder="~/.pocketclaw/workspace"
+         />
+       </Field>
+ 
+@@ -444,7 +444,7 @@ export function EvolutionSection({
+         <Input
+           value={form.evolutionStateDir}
+           onChange={(e) => onFieldChange("evolutionStateDir", e.target.value)}
+-          placeholder="e.g. /var/lib/picoclaw/evolution"
++          placeholder="e.g. /var/lib/pocketclaw/evolution"
+         />
+       </Field>
+ 
+diff --git a/web/frontend/src/i18n/index.ts b/web/frontend/src/i18n/index.ts
+index 7eefd94..5eebe8c 100644
+--- a/web/frontend/src/i18n/index.ts
++++ b/web/frontend/src/i18n/index.ts
+@@ -10,11 +10,11 @@ import i18n from "i18next"
+ import LanguageDetector from "i18next-browser-languagedetector"
+ import { initReactI18next } from "react-i18next"
+ 
++import bnIn from "./locales/bn-in.json"
++import cs from "./locales/cs.json"
+ import en from "./locales/en.json"
+ import ptBr from "./locales/pt-br.json"
+-import bnIn from "./locales/bn-in.json"
+ import zh from "./locales/zh.json"
+-import cs from "./locales/cs.json"
+ 
+ dayjs.extend(relativeTime)
+ dayjs.extend(localizedFormat)
+diff --git a/web/frontend/src/i18n/locales/bn-in.json b/web/frontend/src/i18n/locales/bn-in.json
+index 0af20a7..d02698e 100644
+--- a/web/frontend/src/i18n/locales/bn-in.json
++++ b/web/frontend/src/i18n/locales/bn-in.json
+@@ -521,7 +521,7 @@
+         "streamingMinGrowthChars": "অন্য একটি মধ্যবর্তী স্ট্রিমিং আপডেট পাঠানোর আগে ন্যূনতম টেক্সট বৃদ্ধি। 0 মানে ডিফল্ট ব্যবহার করুন। চূড়ান্ত উত্তরে থ্রটল করা হয় না।",
+         "groupTriggerMentionOnly": "গ্রুপ চ্যাটে, শুধুমাত্র বটকে উল্লেখ করলেই প্রতিক্রিয়া জানান।",
+         "groupTriggerPrefixes": "কাস্টম গ্রুপ-চ্যাট ট্রিগার প্রিফিক্স। একে একে আইটেম যোগ করুন, অথবা একাধিক মান একবারে পেস্ট করুন।",
+-        "randomReactionEmoji": "PicoClaw প্রাপ্তি নিশ্চিত করতে ব্যবহারকারীর বার্তায় ইমোজি প্রতিক্রিয়া যোগ করে। উদাহরণ: \"THUMBSUP\", \"HEART\", \"SMILE\"। ডিফল্ট \"Pin\" ইমোজি ব্যবহার করতে খালি রাখুন।",
++        "randomReactionEmoji": "PocketClaw প্রাপ্তি নিশ্চিত করতে ব্যবহারকারীর বার্তায় ইমোজি প্রতিক্রিয়া যোগ করে। উদাহরণ: \"THUMBSUP\", \"HEART\", \"SMILE\"। ডিফল্ট \"Pin\" ইমোজি ব্যবহার করতে খালি রাখুন।",
+         "isLark": "Feishu ডোমেইন (open.feishu.cn) এর পরিবর্তে Lark আন্তর্জাতিক ডোমেইন (open.larksuite.com) ব্যবহার করুন।",
+         "allowFrom": "অনুমোদিত ব্যবহারকারী বা গ্রুপ ID। একে একে আইটেম যোগ করুন, অথবা একাধিক মান একবারে পেস্ট করুন।",
+         "allowOrigins": "অনুমোদিত অরিজিন ডোমেইন। একে একে আইটেম যোগ করুন, অথবা একাধিক মান একবারে পেস্ট করুন।",
+@@ -795,14 +795,14 @@
+       "turn_profile": "অনুরোধ প্রসঙ্গ নীতি",
+       "turn_profile_hint": "প্রতিটি অনুরোধে কী প্রসঙ্গ বহন করে তা নিয়ন্ত্রণ করে। স্বাভাবিক চ্যাট আচরণ রাখতে নিষ্ক্রিয় রাখুন।",
+       "turn_profile_enabled": "নীতি সক্ষম করুন",
+-      "turn_profile_enabled_hint": "সক্ষম থাকলে, এই নীতি প্রতিটি নতুন টার্নে প্রযোজ্য। নিষ্ক্রিয় থাকলে, PicoClaw মূল প্রসঙ্গ আচরণ ব্যবহার করে।",
++      "turn_profile_enabled_hint": "সক্ষম থাকলে, এই নীতি প্রতিটি নতুন টার্নে প্রযোজ্য। নিষ্ক্রিয় থাকলে, PocketClaw মূল প্রসঙ্গ আচরণ ব্যবহার করে।",
+       "turn_profile_mode_default": "ডিফল্ট",
+       "turn_profile_mode_off": "বন্ধ",
+       "turn_profile_mode_custom": "অনুমোদিত তালিকা",
+       "turn_profile_history": "ইতিহাস প্রসঙ্গ",
+       "turn_profile_history_hint": "ডিফল্ট এই সেশনের পূর্ববর্তী বার্তা অন্তর্ভুক্ত করে। বন্ধ করলে টার্নটি একটি নতুন চ্যাটের মতো আচরণ করে এবং তার ফলাফল ইতিহাসে সংরক্ষণ করা এড়িয়ে যায়।",
+       "turn_profile_system_prompt": "সিস্টেম প্রসঙ্গ",
+-      "turn_profile_system_prompt_hint": "ডিফল্ট PicoClaw পরিচয়, ওয়ার্কস্পেস, মেমরি এবং রানটাইম নির্দেশাবলী অন্তর্ভুক্ত করে। বন্ধ করলে অনুরোধ দ্বারা স্পষ্টভাবে সরবরাহিত সিস্টেম প্রম্পটগুলিই রাখা হয়।",
++      "turn_profile_system_prompt_hint": "ডিফল্ট PocketClaw পরিচয়, ওয়ার্কস্পেস, মেমরি এবং রানটাইম নির্দেশাবলী অন্তর্ভুক্ত করে। বন্ধ করলে অনুরোধ দ্বারা স্পষ্টভাবে সরবরাহিত সিস্টেম প্রম্পটগুলিই রাখা হয়।",
+       "turn_profile_skills": "দক্ষতা প্রম্পট",
+       "turn_profile_skills_hint": "ডিফল্ট উপলব্ধ দক্ষতা এবং সক্রিয় দক্ষতা নির্দেশাবলী অন্তর্ভুক্ত করে। বন্ধ করলে সেগুলি লুকায়। অনুমোদিত তালিকা প্রতি লাইনে এক করে প্রবেশ করানো দক্ষতার নামগুলিই রাখে।",
+       "turn_profile_skills_allow_placeholder": "skill-name\nanother-skill",
+@@ -828,11 +828,11 @@
+       "monitor_usb": "USB মনিটর করুন",
+       "monitor_usb_hint": "ডিভাইস সক্ষম থাকলে USB প্লাগ/আনপ্লাগ ইভেন্ট দেখুন।",
+       "autostart_label": "লগইনে চালু করুন",
+-      "autostart_hint": "লগ ইন করার সময় স্বয়ংক্রিয়ভাবে PicoClaw Web চালু করুন।",
++      "autostart_hint": "লগ ইন করার সময় স্বয়ংক্রিয়ভাবে PocketClaw Web চালু করুন।",
+       "autostart_unsupported": "এই প্ল্যাটফর্মে লগইনে চালু করা সমর্থিত নয়।",
+       "autostart_load_error": "লগইনে চালু করার স্ট্যাটাস লোড করতে ব্যর্থ।",
+       "server_port": "সার্ভিস পোর্ট",
+-      "server_port_hint": "PicoClaw Web দ্বারা ব্যবহৃত HTTP পোর্ট।",
++      "server_port_hint": "PocketClaw Web দ্বারা ব্যবহৃত HTTP পোর্ট।",
+       "launcher_section_hint": "এই বিভাগের পরিবর্তন লঞ্চার পুনরায় চালু হওয়ার পরে কার্যকর হয়।",
+       "gateway_restart_hint": "এই বিভাগের পরিবর্তন গেটওয়ে পুনরায় চালু হওয়ার পরে কার্যকর হয়।",
+       "dashboard_password": "লগইন পাসওয়ার্ড",
+@@ -948,8 +948,8 @@
+     "next": "পরবর্তী",
+     "finish": "শেষ করুন",
+     "welcome": {
+-      "title": "PicoClaw-এ স্বাগতম",
+-      "description": "PicoClaw একটি শক্তিশালী AI সহকারী প্ল্যাটফর্ম। মৌলিক সেটআপ সম্পন্ন করতে আপনাকে সাহায্য করতে কয়েক সেকেন্ড সময় নিই।"
++      "title": "PocketClaw-এ স্বাগতম",
++      "description": "PocketClaw একটি শক্তিশালী AI সহকারী প্ল্যাটফর্ম। মৌলিক সেটআপ সম্পন্ন করতে আপনাকে সাহায্য করতে কয়েক সেকেন্ড সময় নিই।"
+     },
+     "models": {
+       "title": "মডেল কনফিগার করুন",
+diff --git a/web/frontend/src/i18n/locales/cs.json b/web/frontend/src/i18n/locales/cs.json
+index d365157..390fc91 100644
+--- a/web/frontend/src/i18n/locales/cs.json
++++ b/web/frontend/src/i18n/locales/cs.json
+@@ -520,7 +520,7 @@
+         "streamingMinGrowthChars": "Minimální přírůstek textu před odesláním další průběžné aktualizace streamu. 0 znamená použít výchozí hodnotu. Finální odpovědi nejsou omezovány.",
+         "groupTriggerMentionOnly": "Ve skupinových chatech reagovat pouze při zmínce bota.",
+         "groupTriggerPrefixes": "Vlastní prefixy pro spuštění ve skupinovém chatu. Přidávejte položky po jedné nebo vložte více hodnot najednou.",
+-        "randomReactionEmoji": "PicoClaw přidává emoji reakce na zprávy uživatelů jako potvrzení přijetí. Příklady: \"THUMBSUP\", \"HEART\", \"SMILE\". Ponechte prázdné pro výchozí emoji \"Pin\".",
++        "randomReactionEmoji": "PocketClaw přidává emoji reakce na zprávy uživatelů jako potvrzení přijetí. Příklady: \"THUMBSUP\", \"HEART\", \"SMILE\". Ponechte prázdné pro výchozí emoji \"Pin\".",
+         "isLark": "Použít mezinárodní doménu Lark (open.larksuite.com) místo domény Feishu (open.feishu.cn).",
+         "allowFrom": "Povolená ID uživatelů nebo skupin. Přidávejte po jednom nebo vložte více hodnot najednou.",
+         "allowOrigins": "Povolené origin domény. Přidávejte po jednom nebo vložte více hodnot najednou.",
+@@ -794,14 +794,14 @@
+       "turn_profile": "Zásady kontextu požadavku",
+       "turn_profile_hint": "Řídí, jaký kontext nese každý požadavek. Ponechte zakázáno pro zachování běžného chování chatu.",
+       "turn_profile_enabled": "Povolit zásadu",
+-      "turn_profile_enabled_hint": "Pokud je povoleno, tato zásada se použije na každý nový tah. Pokud je zakázáno, PicoClaw používá původní chování kontextu.",
++      "turn_profile_enabled_hint": "Pokud je povoleno, tato zásada se použije na každý nový tah. Pokud je zakázáno, PocketClaw používá původní chování kontextu.",
+       "turn_profile_mode_default": "Výchozí",
+       "turn_profile_mode_off": "Vypnuto",
+       "turn_profile_mode_custom": "Povolený seznam",
+       "turn_profile_history": "Historický kontext",
+       "turn_profile_history_hint": "Výchozí nastavení zahrnuje předchozí zprávy z této session. Vypnutí způsobí, že tah bude fungovat jako nový chat a jeho výsledek se neuloží do historie.",
+       "turn_profile_system_prompt": "Systémový kontext",
+-      "turn_profile_system_prompt_hint": "Výchozí nastavení zahrnuje identitu PicoClaw, workspace, paměť a instrukce runtime. Vypnuto zachová pouze systémové prompty explicitně dodané požadavkem.",
++      "turn_profile_system_prompt_hint": "Výchozí nastavení zahrnuje identitu PocketClaw, workspace, paměť a instrukce runtime. Vypnuto zachová pouze systémové prompty explicitně dodané požadavkem.",
+       "turn_profile_skills": "Dovednostní prompty",
+       "turn_profile_skills_hint": "Výchozí nastavení zahrnuje dostupné dovednosti a aktivní instrukce. Vypnuto je skryje. Povolený seznam zachová jen dovednosti zadané jeden název na řádek.",
+       "turn_profile_skills_allow_placeholder": "název-dovednosti\ndalší-dovednost",
+@@ -827,11 +827,11 @@
+       "monitor_usb": "Sledovat USB",
+       "monitor_usb_hint": "Sledovat události připojení/odpojení USB při aktivních zařízeních.",
+       "autostart_label": "Spustit při přihlášení",
+-      "autostart_hint": "Automaticky spustit PicoClaw Web při přihlášení.",
++      "autostart_hint": "Automaticky spustit PocketClaw Web při přihlášení.",
+       "autostart_unsupported": "Spuštění při přihlášení není na této platformě podporováno.",
+       "autostart_load_error": "Načtení stavu spuštění při přihlášení selhalo.",
+       "server_port": "Port služby",
+-      "server_port_hint": "HTTP port používaný PicoClaw Web.",
++      "server_port_hint": "HTTP port používaný PocketClaw Web.",
+       "launcher_section_hint": "Změny v této sekci se projeví až po restartu launcheru.",
+       "gateway_restart_hint": "Změny v této části se projeví po restartu gateway.",
+       "dashboard_password": "Přihlašovací heslo",
+@@ -947,8 +947,8 @@
+     "next": "Další",
+     "finish": "Dokončit",
+     "welcome": {
+-      "title": "Vítejte v PicoClaw",
+-      "description": "PicoClaw je výkonná platforma pro AI asistenty. Pojďme si dát chvíli na dokončení základního nastavení."
++      "title": "Vítejte v PocketClaw",
++      "description": "PocketClaw je výkonná platforma pro AI asistenty. Pojďme si dát chvíli na dokončení základního nastavení."
+     },
+     "models": {
+       "title": "Nakonfigurujte modely",
+diff --git a/web/frontend/src/i18n/locales/en.json b/web/frontend/src/i18n/locales/en.json
+index 83ee7f7..b32c1ae 100644
+--- a/web/frontend/src/i18n/locales/en.json
++++ b/web/frontend/src/i18n/locales/en.json
+@@ -522,7 +522,7 @@
+         "streamingMinGrowthChars": "Minimum text growth before sending another intermediate streaming update. 0 means use the default. Final replies are not throttled.",
+         "groupTriggerMentionOnly": "In group chats, respond only when the bot is mentioned.",
+         "groupTriggerPrefixes": "Custom group-chat trigger prefixes. Add items one by one, or paste multiple values at once.",
+-        "randomReactionEmoji": "PicoClaw adds emoji reactions to user messages to confirm receipt. Example: \"THUMBSUP\", \"HEART\", \"SMILE\". Leave empty to use the default \"Pin\" emoji.",
++        "randomReactionEmoji": "PocketClaw adds emoji reactions to user messages to confirm receipt. Example: \"THUMBSUP\", \"HEART\", \"SMILE\". Leave empty to use the default \"Pin\" emoji.",
+         "isLark": "Use Lark international domain (open.larksuite.com) instead of Feishu domain (open.feishu.cn).",
+         "allowFrom": "Allowed user or group IDs. Add items one by one, or paste multiple values at once.",
+         "allowOrigins": "Allowed origin domains. Add items one by one, or paste multiple values at once.",
+@@ -796,14 +796,14 @@
+       "turn_profile": "Request Context Policy",
+       "turn_profile_hint": "Controls what context each request carries. Leave disabled to keep the normal chat behavior.",
+       "turn_profile_enabled": "Enable policy",
+-      "turn_profile_enabled_hint": "When enabled, this policy applies to every new turn. When disabled, PicoClaw uses the original context behavior.",
++      "turn_profile_enabled_hint": "When enabled, this policy applies to every new turn. When disabled, PocketClaw uses the original context behavior.",
+       "turn_profile_mode_default": "Default",
+       "turn_profile_mode_off": "Off",
+       "turn_profile_mode_custom": "Allow List",
+       "turn_profile_history": "History Context",
+       "turn_profile_history_hint": "Default includes earlier messages from this session. Off makes the turn behave like a fresh chat and skips saving its result back to history.",
+       "turn_profile_system_prompt": "System Context",
+-      "turn_profile_system_prompt_hint": "Default includes PicoClaw identity, workspace, memory, and runtime instructions. Off keeps only system prompts explicitly supplied by the request.",
++      "turn_profile_system_prompt_hint": "Default includes PocketClaw identity, workspace, memory, and runtime instructions. Off keeps only system prompts explicitly supplied by the request.",
+       "turn_profile_skills": "Skill Prompts",
+       "turn_profile_skills_hint": "Default includes available skills and active skill instructions. Off hides them. Allow List keeps only skill names entered one per line.",
+       "turn_profile_skills_allow_placeholder": "skill-name\nanother-skill",
+@@ -829,11 +829,11 @@
+       "monitor_usb": "Monitor USB",
+       "monitor_usb_hint": "Watch USB plug/unplug events when devices are enabled.",
+       "autostart_label": "Launch at Login",
+-      "autostart_hint": "Start PicoClaw Web automatically when you log in.",
++      "autostart_hint": "Start PocketClaw Web automatically when you log in.",
+       "autostart_unsupported": "Launch at login is not supported on this platform.",
+       "autostart_load_error": "Failed to load launch-at-login status.",
+       "server_port": "Service Port",
+-      "server_port_hint": "HTTP port used by PicoClaw Web.",
++      "server_port_hint": "HTTP port used by PocketClaw Web.",
+       "launcher_section_hint": "Changes in this section take effect after the launcher restarts.",
+       "gateway_restart_hint": "Changes in this section take effect after the gateway restarts.",
+       "dashboard_password": "Login Password",
+@@ -949,8 +949,8 @@
+     "next": "Next",
+     "finish": "Finish",
+     "welcome": {
+-      "title": "Welcome to PicoClaw",
+-      "description": "PicoClaw is a powerful AI assistant platform. Let's take a few seconds to help you complete the basic setup."
++      "title": "Welcome to PocketClaw",
++      "description": "PocketClaw is a powerful AI assistant platform. Let's take a few seconds to help you complete the basic setup."
+     },
+     "models": {
+       "title": "Configure Models",
+diff --git a/web/frontend/src/i18n/locales/pt-br.json b/web/frontend/src/i18n/locales/pt-br.json
+index 4ec805e..6703024 100644
+--- a/web/frontend/src/i18n/locales/pt-br.json
++++ b/web/frontend/src/i18n/locales/pt-br.json
+@@ -522,7 +522,7 @@
+         "streamingMinGrowthChars": "Crescimento mínimo de texto antes de enviar outra atualização intermediária. 0 significa usar o padrão. Respostas finais não são limitadas.",
+         "groupTriggerMentionOnly": "Em chats em grupo, responder apenas quando o bot for mencionado.",
+         "groupTriggerPrefixes": "Prefixos customizados de trigger para chats em grupo. Adicione itens um a um ou cole vários valores de uma vez.",
+-        "randomReactionEmoji": "PicoClaw adiciona reações de emoji às mensagens dos usuários para confirmar recebimento. Exemplo: \"THUMBSUP\", \"HEART\", \"SMILE\". Deixe vazio para usar o emoji \"Pin\" padrão.",
++        "randomReactionEmoji": "PocketClaw adiciona reações de emoji às mensagens dos usuários para confirmar recebimento. Exemplo: \"THUMBSUP\", \"HEART\", \"SMILE\". Deixe vazio para usar o emoji \"Pin\" padrão.",
+         "isLark": "Usar o domínio internacional do Lark (open.larksuite.com) em vez do domínio do Feishu (open.feishu.cn).",
+         "allowFrom": "IDs de usuário ou grupo permitidos. Adicione itens um a um ou cole vários valores de uma vez.",
+         "allowOrigins": "Domínios de origem permitidos. Adicione itens um a um ou cole vários valores de uma vez.",
+@@ -796,14 +796,14 @@
+       "turn_profile": "Política de Contexto da Requisição",
+       "turn_profile_hint": "Controla qual contexto cada requisição carrega. Deixe desativado para manter o comportamento normal do chat.",
+       "turn_profile_enabled": "Ativar política",
+-      "turn_profile_enabled_hint": "Quando ativada, esta política vale para cada novo turno. Quando desativada, o PicoClaw usa o comportamento original de contexto.",
++      "turn_profile_enabled_hint": "Quando ativada, esta política vale para cada novo turno. Quando desativada, o PocketClaw usa o comportamento original de contexto.",
+       "turn_profile_mode_default": "Padrão",
+       "turn_profile_mode_off": "Desligado",
+       "turn_profile_mode_custom": "Lista Permitida",
+       "turn_profile_history": "Contexto de Histórico",
+       "turn_profile_history_hint": "Padrão inclui mensagens anteriores desta sessão. Desligado faz o turno parecer um chat novo e não salva o resultado no histórico.",
+       "turn_profile_system_prompt": "Contexto de Sistema",
+-      "turn_profile_system_prompt_hint": "Padrão inclui identidade, workspace, memória e instruções de runtime do PicoClaw. Desligado mantém apenas prompts de sistema enviados explicitamente pela requisição.",
++      "turn_profile_system_prompt_hint": "Padrão inclui identidade, workspace, memória e instruções de runtime do PocketClaw. Desligado mantém apenas prompts de sistema enviados explicitamente pela requisição.",
+       "turn_profile_skills": "Prompts de Skills",
+       "turn_profile_skills_hint": "Padrão inclui skills disponíveis e instruções de skills ativas. Desligado oculta isso. Lista Permitida mantém apenas nomes de skills, um por linha.",
+       "turn_profile_skills_allow_placeholder": "skill-name\nanother-skill",
+@@ -829,11 +829,11 @@
+       "monitor_usb": "Monitorar USB",
+       "monitor_usb_hint": "Observar eventos de plug/unplug USB quando dispositivos estiverem habilitados.",
+       "autostart_label": "Iniciar no Login",
+-      "autostart_hint": "Iniciar o PicoClaw Web automaticamente quando você fizer login.",
++      "autostart_hint": "Iniciar o PocketClaw Web automaticamente quando você fizer login.",
+       "autostart_unsupported": "Iniciar no login não é suportado nesta plataforma.",
+       "autostart_load_error": "Falha ao carregar status de iniciar no login.",
+       "server_port": "Porta do Serviço",
+-      "server_port_hint": "Porta HTTP usada pelo PicoClaw Web.",
++      "server_port_hint": "Porta HTTP usada pelo PocketClaw Web.",
+       "launcher_section_hint": "Alterações nesta seção entram em vigor após o launcher reiniciar.",
+       "gateway_restart_hint": "Alterações nesta seção entram em vigor após o gateway reiniciar.",
+       "dashboard_password": "Senha de Login",
+@@ -949,8 +949,8 @@
+     "next": "Próximo",
+     "finish": "Concluir",
+     "welcome": {
+-      "title": "Bem-vindo ao PicoClaw",
+-      "description": "PicoClaw é uma plataforma poderosa de assistente de IA. Vamos levar alguns segundos para te ajudar a concluir a configuração básica."
++      "title": "Bem-vindo ao PocketClaw",
++      "description": "PocketClaw é uma plataforma poderosa de assistente de IA. Vamos levar alguns segundos para te ajudar a concluir a configuração básica."
+     },
+     "models": {
+       "title": "Configurar Modelos",
+diff --git a/web/frontend/src/i18n/locales/zh.json b/web/frontend/src/i18n/locales/zh.json
+index fa8763d..1fa43c5 100644
+--- a/web/frontend/src/i18n/locales/zh.json
++++ b/web/frontend/src/i18n/locales/zh.json
+@@ -522,7 +522,7 @@
+         "streamingMinGrowthChars": "中间流式更新相比上次发送至少增长的字符数，0 表示使用默认值。最终回复不受限制。",
+         "groupTriggerMentionOnly": "在群聊中仅当提及机器人时才响应",
+         "groupTriggerPrefixes": "群聊触发前缀。可逐项添加，也支持一次粘贴多个值。",
+-        "randomReactionEmoji": "PicoClaw 会对用户消息添加表情回复以确认已收到。例如：\"THUMBSUP\", \"HEART\", \"SMILE\"。留空则使用默认的 \"Pin\" 表情。",
++        "randomReactionEmoji": "PocketClaw 会对用户消息添加表情回复以确认已收到。例如：\"THUMBSUP\", \"HEART\", \"SMILE\"。留空则使用默认的 \"Pin\" 表情。",
+         "isLark": "使用 Lark 国际版域名（open.larksuite.com）替代飞书域名（open.feishu.cn）",
+         "allowFrom": "允许访问的用户或群组 ID。可逐项添加，也支持一次粘贴多个值。",
+         "allowOrigins": "允许访问的来源域名。可逐项添加，也支持一次粘贴多个值。",
+@@ -796,14 +796,14 @@
+       "turn_profile": "请求上下文策略",
+       "turn_profile_hint": "控制每次请求会带入哪些上下文。保持关闭时，普通对话完全沿用原逻辑。",
+       "turn_profile_enabled": "启用策略",
+-      "turn_profile_enabled_hint": "启用后，每个新回合都会应用下面的设置；关闭时，PicoClaw 使用原来的上下文行为。",
++      "turn_profile_enabled_hint": "启用后，每个新回合都会应用下面的设置；关闭时，PocketClaw 使用原来的上下文行为。",
+       "turn_profile_mode_default": "默认",
+       "turn_profile_mode_off": "关闭",
+       "turn_profile_mode_custom": "只允许列表",
+       "turn_profile_history": "历史上下文",
+       "turn_profile_history_hint": "默认会带上这段会话之前的消息；关闭后，本轮像一次新对话，也不会把结果写回历史。",
+       "turn_profile_system_prompt": "系统上下文",
+-      "turn_profile_system_prompt_hint": "默认会带上 PicoClaw 的身份、工作区、记忆和运行时说明；关闭后只保留外部明确传入的 system prompt。",
++      "turn_profile_system_prompt_hint": "默认会带上 PocketClaw 的身份、工作区、记忆和运行时说明；关闭后只保留外部明确传入的 system prompt。",
+       "turn_profile_skills": "技能提示",
+       "turn_profile_skills_hint": "默认会把可用技能和已激活技能写入提示；关闭后不写入；只允许列表时每行填写一个技能名。",
+       "turn_profile_skills_allow_placeholder": "skill-name\nanother-skill",
+@@ -829,11 +829,11 @@
+       "monitor_usb": "监听 USB",
+       "monitor_usb_hint": "在启用设备功能时，监听 USB 插拔事件",
+       "autostart_label": "开机自启",
+-      "autostart_hint": "登录系统后自动启动 PicoClaw Web",
++      "autostart_hint": "登录系统后自动启动 PocketClaw Web",
+       "autostart_unsupported": "当前平台不支持开机自启",
+       "autostart_load_error": "加载开机自启状态失败",
+       "server_port": "服务端口",
+-      "server_port_hint": "PicoClaw Web 的 HTTP 监听端口",
++      "server_port_hint": "PocketClaw Web 的 HTTP 监听端口",
+       "launcher_section_hint": "此分组中的改动需要在重启 launcher 后生效",
+       "gateway_restart_hint": "这组配置保存后，需要重启服务才能正式生效。",
+       "dashboard_password": "登录密码",
+@@ -949,8 +949,8 @@
+     "next": "下一步",
+     "finish": "完成",
+     "welcome": {
+-      "title": "欢迎使用 PicoClaw",
+-      "description": "PicoClaw 是一个强大的 AI 助手平台。让我们花几秒钟时间，帮您完成基础配置。"
++      "title": "欢迎使用 PocketClaw",
++      "description": "PocketClaw 是一个强大的 AI 助手平台。让我们花几秒钟时间，帮您完成基础配置。"
+     },
+     "models": {
+       "title": "配置模型",
+diff --git a/workspace/AGENT.md b/workspace/AGENT.md
+index 08f55a1..f89756b 100644
+--- a/workspace/AGENT.md
++++ b/workspace/AGENT.md
+@@ -5,8 +5,8 @@ description: >
+   solving, and workspace help.
+ ---
+ 
+-You are Pico, the default assistant for this workspace.
+-Your name is PicoClaw 🦞.
++You are the default assistant for this workspace.
++Your name is PocketClaw.
+ ## Role
+ 
+ You are an ultra-lightweight personal AI assistant written in Go, designed to
+diff --git a/workspace/SOUL.md b/workspace/SOUL.md
+index 8a6371f..bc2a85b 100644
+--- a/workspace/SOUL.md
++++ b/workspace/SOUL.md
+@@ -1,6 +1,6 @@
+ # Soul
+ 
+-I am PicoClaw: calm, helpful, and practical.
++I am PocketClaw: calm, helpful, and practical.
+ 
+ ## Personality
+ 

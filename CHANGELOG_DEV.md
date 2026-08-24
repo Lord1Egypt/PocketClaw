@@ -1,5 +1,35 @@
 # Development Changelog
 
+## 2026-08-25 — Release build guard and user-facing debranding
+
+- Physical device confirmed the black-screen fix: the Stage A replacement APK
+  `d8742534...d7e405` launches and reaches a usable Flutter first frame.
+- Added a `packageRelease` guard that fails the build when the APK is missing
+  `lib/arm64-v8a/libdartjni.so`, `libpicoclaw.so`, or `libpicoclaw-web.so`.
+  It printed the verification line on this build.
+- Debranded every normal user-facing surface. The full classification, with the
+  retained legal and internal-compatibility occurrences and the two open product
+  decisions, is in `docs/BRANDING_AUDIT.md`.
+- Rebuilt the embedded web runtime from source, not by patching the binary.
+  `libpicoclaw-web.so` contains 0 `PicoClaw`/`Sipeed` strings and 31
+  `PocketClaw` strings.
+- Rebuilt the gateway too, because the assistant identity (`/start` reply and
+  the seeded `AGENT.md`/`SOUL.md`) lives in `libpicoclaw.so`. Verified the
+  Android DNS integration survived: `PICOCLAW_DNS_SERVER` is still present.
+- Recorded the Core source diff and the exact rebuild commands in `core/`.
+- Android workspace default for fresh installs is now `Download/pocketclaw`;
+  existing `Download/picoclaw` data is untouched and nothing migrates at startup.
+- Removed three stale generated `lib/l10n/app_localizations*.dart` copies that
+  still carried the `PicoClaw UI` title. `l10n.yaml` generates into
+  `lib/src/generated/l10n`, so they were dead files.
+- Validation: `flutter analyze` clean; 27/27 Flutter tests; Go tests pass for
+  `pkg/androiddns`, `web/backend/api`, and `pkg/commands`; frontend `pnpm lint`
+  clean.
+- Candidate APK: `build/app/outputs/apk/release/app-release.apk`,
+  34,119,837 bytes, SHA-256
+  `2717f32e9580cd5b5ea5da70b2cb9fcf13f6f14451423addcb5686e0278a1de4`.
+  Not merged to `develop`; awaiting physical test.
+
 ## 2026-08-25 — Black-screen root cause: missing arm64 `libdartjni.so`
 
 - Diagnosed the persistent PocketClaw black screen by differential forensics on

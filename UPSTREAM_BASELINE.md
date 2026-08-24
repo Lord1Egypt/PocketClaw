@@ -37,3 +37,17 @@ produced from the Core source commit above with the Android DNS integration:
 | --- | --- |
 | `libpicoclaw.so` | `3b849072a7c2858b0d2c0db5cbcfa42b542353e834f4c473399eda571ab16f3d` |
 | `libpicoclaw-web.so` | `252b38c64cbc4dc52277c206ca1b069cc7c3bb97b8a9c276e23f8edc3aaf95e3` |
+
+## Current PocketClaw Core binaries (2026-08-25)
+
+Rebuilt from the same pinned source with the PocketClaw user-facing wording
+applied. The Android active-network DNS integration is unchanged and verified
+present in the gateway. Both are `android/arm64`, PIE, and stripped (`-s -w`).
+The reproducible source diff and build commands are in `core/`.
+
+| File | Size | SHA-256 |
+| --- | --- | --- |
+| `libpicoclaw.so` | 37,421,409 | `1f239a827c8562d6ac2ffdf63c1354ce0d28396cdab7d4f240f3866cbb525fed` |
+| `libpicoclaw-web.so` | 24,772,961 | `94bb6319bbac08e1aa0fa43e8093b4dd00bad512cb67ca94a6a57d666f4bc716` |
+
+Version stamp: `Version=v0.3.1`, `GitCommit=2cf030d2`, `GoVersion=go1.25.11`.
