@@ -11,7 +11,7 @@
 - [x] Run relevant Core/package validation and build an arm64 foundation APK.
 - [x] Record the independent APK metadata and hashes.
 - [x] Safety review Git contents for secrets and generated files.
-- [ ] Initialize, commit, and push the private repository; create `develop`.
+- [x] Initialize, commit, and push the private repository; create `develop`.
 - [ ] Await physical-device smoke testing of the independent foundation APK.
 
 ## Later (not started)

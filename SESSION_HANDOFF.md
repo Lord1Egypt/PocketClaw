@@ -2,15 +2,16 @@
 
 ## Current Objective
 
-Complete the safety-reviewed initial commit and private GitHub push for the
-validated independent Android foundation. Then stop for a physical-device smoke
-test; do not begin branding or feature development.
+Await a physical-device smoke test of the validated independent Android
+foundation. Do not begin branding or feature development.
 
 ## Exact State
 
 This is a standalone Git repository at `/home/lordegypt/PocketClaw-App`.
 It has no inherited PicoClaw FUI history. The initial source foundation is a
 selective adaptation from the FUI baseline documented in `UPSTREAM_BASELINE.md`.
+It is private at `https://github.com/Lord1Egypt/PocketClaw`, with `main` and
+`develop` tracking `origin`. The initial commit is `950d4a3`.
 
 The Android service and bundled Core retain the physically verified DNS bridge:
 Android active-network DNS servers are passed as `PICOCLAW_DNS_SERVER`; public
@@ -29,6 +30,9 @@ project ID and removed generated Firebase resources after packaging.
 
 ## Next Exact Steps
 
-1. Review for secrets, caches, build outputs, and licenses.
-2. Commit and push `main`, create/push `develop`, then await a physical-device
-   smoke test.
+1. Install the independent foundation APK on the validated arm64 Android
+   device.
+2. Smoke-test launch, Gateway/Core startup, model discovery/manual model,
+   optional-feedback behavior, AI request/response, Telegram, restart, and
+   configuration persistence.
+3. Record results and wait for explicit authorization before branding/features.

@@ -3,14 +3,16 @@
 Project: PocketClaw  
 Current Phase: Phase 2 — Independent Product Repository  
 Current Milestone: Milestone A — independent Android foundation  
-Git Branch: `main` (pending initial commit)  
+Git Branch: `main`  
+Current Commit: `950d4a3` — `chore: bootstrap PocketClaw independent Android foundation`  
+Origin: `https://github.com/Lord1Egypt/PocketClaw.git` (private)  
 Upstream FUI Baseline: `d689c94c1b67f625f70ec4111a9aa3f01be9cbb3`  
 PicoClaw Core: `v0.3.1`, source `2cf030d2fd3b871d7ec17e3be34c24688aac76da`  
 Baseline APK: Preserved outside this repository; SHA-256 `d673acea94a8d9a38f610afaf54888e731deba33a0978f15996271c6e2510624`  
 Build Status: arm64 foundation APK built successfully  
-APK Status: Ready for physical-device smoke testing after initial private push  
-Current Blocker: Initial commit and private GitHub push are pending.  
-Next Exact Action: Create the initial commit and private origin, push `main`/`develop`, then await physical-device smoke testing.
+APK Status: Ready for physical-device smoke testing  
+Current Blocker: Awaiting the user's physical-device smoke-test results for the independent foundation APK.  
+Next Exact Action: Install and smoke-test the independent foundation APK on the validated arm64 Android device; do not begin branding or feature development.
 
 ## Completed
 
@@ -28,6 +30,8 @@ Next Exact Action: Create the initial commit and private origin, push `main`/`de
 - Completed a Git diff/stat/check review and credential scan. No credentials,
   signing files, Firebase config, generated APKs, or caches are eligible for
   commit; the standard Gradle Wrapper files are intentionally retained.
+- Created the private GitHub repository `Lord1Egypt/PocketClaw`, pushed
+  `main`, and created/pushed the `develop` integration branch.
 
 ## Constraints
 
