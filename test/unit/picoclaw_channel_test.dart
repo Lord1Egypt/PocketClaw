@@ -1,11 +1,11 @@
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:picoclaw_flutter_ui/src/core/picoclaw_channel.dart';
+import 'package:pocketclaw/src/core/picoclaw_channel.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  const channel = MethodChannel('com.sipeed.picoclaw/picoclaw');
+  const channel = MethodChannel('com.lord1egypt.pocketclaw/picoclaw');
 
   tearDown(() async {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger

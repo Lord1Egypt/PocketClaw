@@ -1,6 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:picoclaw_flutter_ui/src/generated/l10n/app_localizations.dart';
+import 'package:pocketclaw/src/generated/l10n/app_localizations.dart';
 
 /// 检查当前平台是否需要明显的焦点效果（TV/桌面）还是 subtle 效果
 bool get _useSubtleFocus {

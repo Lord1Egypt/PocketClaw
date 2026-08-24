@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:picoclaw_flutter_ui/src/core/service_manager.dart';
-import 'package:picoclaw_flutter_ui/src/generated/l10n/app_localizations.dart';
-import 'package:picoclaw_flutter_ui/src/ui/webview/webview_android.dart';
-import 'package:picoclaw_flutter_ui/src/ui/webview/webview_linux.dart';
-import 'package:picoclaw_flutter_ui/src/ui/webview/webview_macos.dart';
-import 'package:picoclaw_flutter_ui/src/ui/webview/webview_windows.dart';
+import 'package:pocketclaw/src/core/service_manager.dart';
+import 'package:pocketclaw/src/generated/l10n/app_localizations.dart';
+import 'package:pocketclaw/src/ui/webview/webview_android.dart';
+import 'package:pocketclaw/src/ui/webview/webview_linux.dart';
+import 'package:pocketclaw/src/ui/webview/webview_macos.dart';
+import 'package:pocketclaw/src/ui/webview/webview_windows.dart';
 import 'package:provider/provider.dart';
 import 'package:remixicon/remixicon.dart';
 import 'dart:io';

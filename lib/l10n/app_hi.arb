@@ -1,6 +1,6 @@
 {
   "@@locale": "hi",
-  "appTitle": "PicoClaw UI",
+  "appTitle": "PocketClaw",
   "run": "चलाएं",
   "stop": "रोकें",
   "config": "कॉन्फ़िग",
@@ -60,8 +60,8 @@
   "deviceReportingUploadSucceeded": "डिवाइस संगतता प्रतिक्रिया सक्षम है",
   "deviceReportingUploadFailed": "डिवाइस संगतता प्रतिक्रिया सक्षम है, लेकिन वर्तमान डिवाइस जानकारी सिंक पूरा नहीं हुआ",
   "deviceReportingDisabled": "डिवाइस संगतता प्रतिक्रिया अक्षम है",
-  "localModeHint": "1. सेवा कॉन्फ़िगरेशन पर जाएं\n2. पब्लिक मोड चालू करें\n3. सेवा पुनः आरंभ करें\n4. PicoClaw तक पहुंचने के लिए QR कोड स्कैन करें",
-  "publicModeHint": "1. सेवा शुरू करें\n2. PicoClaw तक पहुंचने के लिए QR कोड स्कैन करें",
+  "localModeHint": "1. सेवा कॉन्फ़िगरेशन पर जाएं\n2. पब्लिक मोड चालू करें\n3. सेवा पुनः आरंभ करें\n4. PocketClaw तक पहुंचने के लिए QR कोड स्कैन करें",
+  "publicModeHint": "1. सेवा शुरू करें\n2. PocketClaw तक पहुंचने के लिए QR कोड स्कैन करें",
   "@coreUnknownError": {
     "placeholders": {
       "code": {}
@@ -75,7 +75,7 @@
       "path": {}
     }
   },
-  "shareLogsText": "Picoclaw लॉग",
+  "shareLogsText": "PocketClaw लॉग",
   "workspaceDirectory": "कार्यस्थान",
   "logsSavedToMediaLibraryWithName": "लॉग डाउनलोड (Android मीडिया लाइब्रेरी) में सहेजे गए: {name}",
   "@logsSavedToMediaLibraryWithName": {
@@ -98,8 +98,8 @@
   "language": "भाषा",
   "selectLanguage": "भाषा चुनें",
   "about": "परिचय",
-  "aboutDescription": "PicoClaw, PicoClaw सेवा को प्रबंधित करने के लिए एक क्रॉस-प्लेटफ़ॉर्म Flutter ऐप है।",
-  "aboutAppVersionLabel": "PicoClaw संस्करण",
+  "aboutDescription": "PocketClaw, PicoClaw सेवा को प्रबंधित करने के लिए एक क्रॉस-प्लेटफ़ॉर्म Flutter ऐप है।",
+  "aboutAppVersionLabel": "PocketClaw संस्करण",
   "aboutCoreVersionLabel": "PicoClaw Core संस्करण",
   "aboutVersionUnavailable": "उपलब्ध नहीं",
   "picoclawOfficial": "PicoClaw आधिकारिक साइट",

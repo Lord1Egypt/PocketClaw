@@ -9,7 +9,7 @@ class AppLocalizationsKo extends AppLocalizations {
   AppLocalizationsKo([String locale = 'ko']) : super(locale);
 
   @override
-  String get appTitle => 'PicoClaw UI';
+  String get appTitle => 'PocketClaw';
 
   @override
   String get run => '실행';
@@ -198,10 +198,10 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get localModeHint =>
-      '1. 서비스 구성으로 이동\n2. 공용 모드 켜기\n3. 서비스 재시작\n4. PicoClaw에 액세스하려면 QR 코드 스캔';
+      '1. 서비스 구성으로 이동\n2. 공용 모드 켜기\n3. 서비스 재시작\n4. PocketClaw에 액세스하려면 QR 코드 스캔';
 
   @override
-  String get publicModeHint => '1. 서비스 시작\n2. PicoClaw에 액세스하려면 QR 코드 스캔';
+  String get publicModeHint => '1. 서비스 시작\n2. PocketClaw에 액세스하려면 QR 코드 스캔';
 
   @override
   String get noLogsToExport => '내보낼 로그 없음';
@@ -215,7 +215,7 @@ class AppLocalizationsKo extends AppLocalizations {
   }
 
   @override
-  String get shareLogsText => 'Picoclaw 로그';
+  String get shareLogsText => 'PocketClaw 로그';
 
   @override
   String get workspaceDirectory => '작업 공간';
@@ -264,10 +264,10 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get aboutDescription =>
-      'PicoClaw는 PicoClaw 서비스를 관리하기 위한 크로스 플랫폼 Flutter 앱입니다.';
+      'PocketClaw는 PicoClaw 서비스를 관리하기 위한 크로스 플랫폼 Flutter 앱입니다.';
 
   @override
-  String get aboutAppVersionLabel => 'PicoClaw 버전';
+  String get aboutAppVersionLabel => 'PocketClaw 버전';
 
   @override
   String get aboutCoreVersionLabel => 'PicoClaw Core 버전';

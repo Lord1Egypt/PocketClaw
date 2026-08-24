@@ -4,10 +4,10 @@ import 'package:share_plus/share_plus.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:picoclaw_flutter_ui/src/core/service_manager.dart';
-import 'package:picoclaw_flutter_ui/src/core/ui_constants.dart';
-import 'package:picoclaw_flutter_ui/src/generated/l10n/app_localizations.dart';
-import 'package:picoclaw_flutter_ui/src/ui/widgets/tv_focusable.dart';
+import 'package:pocketclaw/src/core/service_manager.dart';
+import 'package:pocketclaw/src/core/ui_constants.dart';
+import 'package:pocketclaw/src/generated/l10n/app_localizations.dart';
+import 'package:pocketclaw/src/ui/widgets/tv_focusable.dart';
 
 class LogPage extends StatefulWidget {
   const LogPage({super.key});
@@ -238,7 +238,7 @@ class _LogPageState extends State<LogPage> {
         // Use platform MethodChannel to write via MediaStore
         try {
           final bytes = Uint8List.fromList(content.codeUnits);
-          final channel = MethodChannel('com.sipeed.picoclaw/picoclaw');
+          final channel = MethodChannel('com.lord1egypt.pocketclaw/picoclaw');
           final res = await channel.invokeMethod<String>('saveToDownloads', {
             'filename': filename,
             'bytes': bytes,
@@ -297,7 +297,7 @@ class _LogPageState extends State<LogPage> {
           // We received a content:// URI (Android MediaStore) — share via XFile with URI
           try {
             // Try to copy content URI to app cache so share_plus can access it reliably
-            final channel = MethodChannel('com.sipeed.picoclaw/picoclaw');
+            final channel = MethodChannel('com.lord1egypt.pocketclaw/picoclaw');
             String? cachePath;
             try {
               cachePath = await channel.invokeMethod<String>(

@@ -24,6 +24,9 @@ It is a regression reference and is not a PocketClaw build artifact.
   disabled without retries or log spam. No Firebase credentials are included.
 - Configuration persistence after a Core restart is verified on a physical
   device.
+- Skill Hub/ClawHub registry search is verified on a physical device after the
+  DNS fix: `Crypto` returned 20 results with metadata, URLs, and install
+  actions. The earlier registry-unavailable symptom is DNS-resolved.
 
 ## Core binary pin
 

@@ -1,4 +1,4 @@
-package com.sipeed.picoclaw.service
+package com.lord1egypt.pocketclaw.service
 
 import android.app.Notification
 import android.app.PendingIntent
@@ -11,8 +11,8 @@ import android.os.IBinder
 import android.os.PowerManager
 import android.util.Log
 import androidx.core.app.NotificationCompat
-import com.sipeed.picoclaw.PicoClawApp
-import com.sipeed.picoclaw.MainActivity
+import com.lord1egypt.pocketclaw.PicoClawApp
+import com.lord1egypt.pocketclaw.MainActivity
 import java.io.BufferedReader
 import java.io.File
 import java.io.FileOutputStream
@@ -35,8 +35,8 @@ class PicoClawService : Service() {
         // 本地 Pico Channel 认证 token（仅用于 loopback 通信）
         const val PICO_TOKEN = "picoclaw-android-local"
 
-        const val ACTION_START = "com.sipeed.picoclaw.action.START"
-        const val ACTION_STOP = "com.sipeed.picoclaw.action.STOP"
+        const val ACTION_START = "com.lord1egypt.pocketclaw.action.START"
+        const val ACTION_STOP = "com.lord1egypt.pocketclaw.action.STOP"
         const val EXTRA_PUBLIC_MODE = "public_mode"
 
         // 共享状态供 UI 读取
@@ -727,9 +727,9 @@ class PicoClawService : Service() {
         )
 
         return NotificationCompat.Builder(this, PicoClawApp.CHANNEL_ID)
-            .setContentTitle("PicoClaw")
+            .setContentTitle("PocketClaw")
             .setContentText(status)
-            .setSmallIcon(android.R.drawable.ic_menu_manage)
+            .setSmallIcon(com.lord1egypt.pocketclaw.R.drawable.ic_stat_pocketclaw)
             .setContentIntent(pendingIntent)
             .addAction(android.R.drawable.ic_media_pause, "Stop", stopPendingIntent)
             .setOngoing(true)

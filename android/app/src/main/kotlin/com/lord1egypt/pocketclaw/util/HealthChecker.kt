@@ -1,4 +1,4 @@
-package com.sipeed.picoclaw.util
+package com.lord1egypt.pocketclaw.util
 
 import org.json.JSONObject
 import java.net.HttpURLConnection

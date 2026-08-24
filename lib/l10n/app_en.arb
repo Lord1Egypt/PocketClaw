@@ -1,6 +1,6 @@
 {
   "@@locale": "en",
-  "appTitle": "PicoClaw UI",
+  "appTitle": "PocketClaw",
   "@appTitle": {
     "description": "The title of the application"
   },
@@ -65,8 +65,8 @@
   "deviceReportingUploadSucceeded": "Device compatibility feedback is on",
   "deviceReportingUploadFailed": "Device compatibility feedback is on, but the current device-info sync did not complete",
   "deviceReportingDisabled": "Device compatibility feedback is off",
-  "localModeHint": "1. Go to Service Config\n2. Turn on Public Mode\n3. Restart the service\n4. Scan QR code to access PicoClaw",
-  "publicModeHint": "1. Start the service\n2. Scan QR code to access PicoClaw",
+  "localModeHint": "1. Go to Service Config\n2. Turn on Public Mode\n3. Restart the service\n4. Scan QR code to access PocketClaw",
+  "publicModeHint": "1. Start the service\n2. Scan QR code to access PocketClaw",
   "@coreUnknownError": {
     "placeholders": {
       "code": {}
@@ -82,7 +82,7 @@
       "path": {}
     }
   },
-  "shareLogsText": "Picoclaw logs",
+  "shareLogsText": "PocketClaw logs",
   "workspaceDirectory": "Workspace"
   ,
   "logsSavedToMediaLibraryWithName": "Logs saved to Downloads (Android media library): {name}",
@@ -106,12 +106,12 @@
   "language": "Language",
   "selectLanguage": "Select Language",
   "about": "About",
-  "aboutDescription": "PicoClaw is a cross-platform Flutter app for managing the PicoClaw service.",
-  "aboutAppVersionLabel": "PicoClaw version",
+  "aboutDescription": "PocketClaw is a cross-platform Flutter app powered by PicoClaw Core.",
+  "aboutAppVersionLabel": "PocketClaw version",
   "aboutCoreVersionLabel": "PicoClaw Core version",
   "aboutVersionUnavailable": "Unavailable",
-  "picoclawOfficial": "PicoClaw Official",
-  "sipeedOfficial": "Sipeed Official",
+  "picoclawOfficial": "PicoClaw Core project",
+  "sipeedOfficial": "Sipeed",
   "openLinkFailed": "Couldn't open the official link.",
   "close": "Close"
 }

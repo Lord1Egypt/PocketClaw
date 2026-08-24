@@ -1,6 +1,6 @@
 {
   "@@locale": "es",
-  "appTitle": "PicoClaw UI",
+  "appTitle": "PocketClaw",
   "run": "Ejecutar",
   "stop": "Detener",
   "config": "Config",
@@ -60,8 +60,8 @@
   "deviceReportingUploadSucceeded": "Comentarios de compatibilidad del dispositivo activados",
   "deviceReportingUploadFailed": "Comentarios de compatibilidad del dispositivo activados, pero la sincronización de información del dispositivo actual no se completó",
   "deviceReportingDisabled": "Comentarios de compatibilidad del dispositivo desactivados",
-  "localModeHint": "1. Vaya a Configuración del servicio\n2. Active el Modo público\n3. Reinicie el servicio\n4. Escanee el código QR para acceder a PicoClaw",
-  "publicModeHint": "1. Inicie el servicio\n2. Escanee el código QR para acceder a PicoClaw",
+  "localModeHint": "1. Vaya a Configuración del servicio\n2. Active el Modo público\n3. Reinicie el servicio\n4. Escanee el código QR para acceder a PocketClaw",
+  "publicModeHint": "1. Inicie el servicio\n2. Escanee el código QR para acceder a PocketClaw",
   "@coreUnknownError": {
     "placeholders": {
       "code": {}
@@ -75,7 +75,7 @@
       "path": {}
     }
   },
-  "shareLogsText": "Registros de Picoclaw",
+  "shareLogsText": "Registros de PocketClaw",
   "workspaceDirectory": "Espacio de trabajo",
   "logsSavedToMediaLibraryWithName": "Registros guardados en Descargas (biblioteca multimedia de Android): {name}",
   "@logsSavedToMediaLibraryWithName": {
@@ -98,8 +98,8 @@
   "language": "Idioma",
   "selectLanguage": "Seleccionar idioma",
   "about": "Acerca de",
-  "aboutDescription": "PicoClaw es una aplicación Flutter multiplataforma para gestionar el servicio PicoClaw.",
-  "aboutAppVersionLabel": "Versión de PicoClaw",
+  "aboutDescription": "PocketClaw es una aplicación Flutter multiplataforma para gestionar el servicio PicoClaw.",
+  "aboutAppVersionLabel": "Versión de PocketClaw",
   "aboutCoreVersionLabel": "Versión de PicoClaw Core",
   "aboutVersionUnavailable": "No disponible",
   "picoclawOfficial": "Sitio oficial de PicoClaw",

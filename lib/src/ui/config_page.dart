@@ -2,17 +2,18 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import 'package:picoclaw_flutter_ui/src/core/service_manager.dart';
-import 'package:picoclaw_flutter_ui/src/generated/l10n/app_localizations.dart';
+import 'package:pocketclaw/src/core/service_manager.dart';
+import 'package:pocketclaw/src/generated/l10n/app_localizations.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:picoclaw_flutter_ui/src/core/app_theme.dart';
+import 'package:pocketclaw/src/core/app_theme.dart';
+import 'package:pocketclaw/src/core/app_identity.dart';
 import 'package:remixicon/remixicon.dart';
 
-const String _githubRepoUrl = 'https://github.com/sipeed/picoclaw_fui';
-const String _picoclawOfficialUrl = 'https://picoclaw.io';
-const String _sipeedOfficialUrl = 'https://sipeed.com';
-const String _aboutProjectName = 'PicoClaw';
+const String _githubRepoUrl = 'https://github.com/Lord1Egypt/PocketClaw';
+const String _picoclawOfficialUrl = AppIdentity.coreProjectUrl;
+const String _sipeedOfficialUrl = AppIdentity.vendorUrl;
+const String _aboutProjectName = AppIdentity.productName;
 
 class AboutInfo {
   const AboutInfo({required this.appVersion, required this.coreVersion});

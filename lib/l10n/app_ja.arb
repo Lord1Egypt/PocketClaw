@@ -1,6 +1,6 @@
 {
   "@@locale": "ja",
-  "appTitle": "PicoClaw UI",
+  "appTitle": "PocketClaw",
   "run": "実行",
   "stop": "停止",
   "config": "設定",
@@ -60,8 +60,8 @@
   "deviceReportingUploadSucceeded": "デバイス互換性フィードバックが有効になりました",
   "deviceReportingUploadFailed": "デバイス互換性フィードバックが有効ですが、現在のデバイス情報同期が完了しませんでした",
   "deviceReportingDisabled": "デバイス互換性フィードバックが無効になりました",
-  "localModeHint": "1. サービス設定に移動\n2. パブリックモードをオン\n3. サービスを再起動\n4. QRコードをスキャンしてPicoClawにアクセス",
-  "publicModeHint": "1. サービスを起動\n2. QRコードをスキャンしてPicoClawにアクセス",
+  "localModeHint": "1. サービス設定に移動\n2. パブリックモードをオン\n3. サービスを再起動\n4. QRコードをスキャンしてPocketClawにアクセス",
+  "publicModeHint": "1. サービスを起動\n2. QRコードをスキャンしてPocketClawにアクセス",
   "@coreUnknownError": {
     "placeholders": {
       "code": {}
@@ -75,7 +75,7 @@
       "path": {}
     }
   },
-  "shareLogsText": "Picoclawログ",
+  "shareLogsText": "PocketClawログ",
   "workspaceDirectory": "ワークスペース",
   "logsSavedToMediaLibraryWithName": "ログがダウンロード（Androidメディアライブラリ）に保存されました: {name}",
   "@logsSavedToMediaLibraryWithName": {
@@ -98,8 +98,8 @@
   "language": "言語",
   "selectLanguage": "言語を選択",
   "about": "概要",
-  "aboutDescription": "PicoClaw は、PicoClaw サービスを管理するためのクロスプラットフォーム Flutter アプリです。",
-  "aboutAppVersionLabel": "PicoClaw バージョン",
+  "aboutDescription": "PocketClaw は、PicoClaw サービスを管理するためのクロスプラットフォーム Flutter アプリです。",
+  "aboutAppVersionLabel": "PocketClaw バージョン",
   "aboutCoreVersionLabel": "PicoClaw Core バージョン",
   "aboutVersionUnavailable": "利用できません",
   "picoclawOfficial": "PicoClaw 公式サイト",

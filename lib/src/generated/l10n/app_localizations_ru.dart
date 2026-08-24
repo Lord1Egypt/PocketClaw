@@ -9,7 +9,7 @@ class AppLocalizationsRu extends AppLocalizations {
   AppLocalizationsRu([String locale = 'ru']) : super(locale);
 
   @override
-  String get appTitle => 'PicoClaw UI';
+  String get appTitle => 'PocketClaw';
 
   @override
   String get run => 'Запустить';
@@ -204,11 +204,11 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get localModeHint =>
-      '1. Перейдите в Настройку службы\n2. Включите Общий режим\n3. Перезапустите службу\n4. Отсканируйте QR-код для доступа к PicoClaw';
+      '1. Перейдите в Настройку службы\n2. Включите Общий режим\n3. Перезапустите службу\n4. Отсканируйте QR-код для доступа к PocketClaw';
 
   @override
   String get publicModeHint =>
-      '1. Запустите службу\n2. Отсканируйте QR-код для доступа к PicoClaw';
+      '1. Запустите службу\n2. Отсканируйте QR-код для доступа к PocketClaw';
 
   @override
   String get noLogsToExport => 'Нет журналов для экспорта';
@@ -223,7 +223,7 @@ class AppLocalizationsRu extends AppLocalizations {
   }
 
   @override
-  String get shareLogsText => 'Журналы Picoclaw';
+  String get shareLogsText => 'Журналы PocketClaw';
 
   @override
   String get workspaceDirectory => 'Рабочее пространство';
@@ -273,10 +273,10 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get aboutDescription =>
-      'PicoClaw — это кроссплатформенное Flutter-приложение для управления сервисом PicoClaw.';
+      'PocketClaw — это кроссплатформенное Flutter-приложение для управления сервисом PicoClaw.';
 
   @override
-  String get aboutAppVersionLabel => 'Версия PicoClaw';
+  String get aboutAppVersionLabel => 'Версия PocketClaw';
 
   @override
   String get aboutCoreVersionLabel => 'Версия PicoClaw Core';

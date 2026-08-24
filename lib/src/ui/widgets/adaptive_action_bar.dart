@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart';
-import 'package:picoclaw_flutter_ui/src/core/ui_constants.dart';
+import 'package:pocketclaw/src/core/ui_constants.dart';
 
 /// AdaptiveActionBar
 /// - Displays [content] and action widgets provided in [actions].

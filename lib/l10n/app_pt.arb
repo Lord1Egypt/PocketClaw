@@ -1,6 +1,6 @@
 {
   "@@locale": "pt",
-  "appTitle": "PicoClaw UI",
+  "appTitle": "PocketClaw",
   "run": "Executar",
   "stop": "Parar",
   "config": "Config",
@@ -60,8 +60,8 @@
   "deviceReportingUploadSucceeded": "Feedback de compatibilidade do dispositivo ativado",
   "deviceReportingUploadFailed": "Feedback de compatibilidade do dispositivo ativado, mas a sincronização atual das informações do dispositivo não foi concluída",
   "deviceReportingDisabled": "Feedback de compatibilidade do dispositivo desativado",
-  "localModeHint": "1. Vá para Configuração do serviço\n2. Ative o Modo público\n3. Reinicie o serviço\n4. Leia o código QR para aceder ao PicoClaw",
-  "publicModeHint": "1. Inicie o serviço\n2. Leia o código QR para aceder ao PicoClaw",
+  "localModeHint": "1. Vá para Configuração do serviço\n2. Ative o Modo público\n3. Reinicie o serviço\n4. Leia o código QR para aceder ao PocketClaw",
+  "publicModeHint": "1. Inicie o serviço\n2. Leia o código QR para aceder ao PocketClaw",
   "@coreUnknownError": {
     "placeholders": {
       "code": {}
@@ -75,7 +75,7 @@
       "path": {}
     }
   },
-  "shareLogsText": "Registos do Picoclaw",
+  "shareLogsText": "Registos do PocketClaw",
   "workspaceDirectory": "Espaço de trabalho",
   "logsSavedToMediaLibraryWithName": "Registos guardados em Transferências (biblioteca de mídia Android): {name}",
   "@logsSavedToMediaLibraryWithName": {
@@ -98,8 +98,8 @@
   "language": "Idioma",
   "selectLanguage": "Selecionar idioma",
   "about": "Sobre",
-  "aboutDescription": "O PicoClaw é um aplicativo Flutter multiplataforma para gerir o serviço PicoClaw.",
-  "aboutAppVersionLabel": "Versão do PicoClaw",
+  "aboutDescription": "O PocketClaw é um aplicativo Flutter multiplataforma para gerir o serviço PicoClaw.",
+  "aboutAppVersionLabel": "Versão do PocketClaw",
   "aboutCoreVersionLabel": "Versão do PicoClaw Core",
   "aboutVersionUnavailable": "Indisponível",
   "picoclawOfficial": "Site oficial do PicoClaw",

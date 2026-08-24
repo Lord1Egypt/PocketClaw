@@ -14,8 +14,8 @@ Future<void> initializeBackgroundService() async {
     if (defaultTargetPlatform == TargetPlatform.android) {
       const AndroidNotificationChannel channel = AndroidNotificationChannel(
         'picoclaw_foreground',
-        'PicoClaw Service',
-        description: 'Keep the PicoClaw server running in the background.',
+        'PocketClaw service',
+        description: 'Keep PocketClaw and PicoClaw Core running in the background.',
         importance: Importance.low,
       );
 
@@ -38,8 +38,8 @@ Future<void> initializeBackgroundService() async {
       autoStart: false, // 不自动启动，由原生服务管理
       isForegroundMode: true,
       notificationChannelId: 'picoclaw_foreground',
-      initialNotificationTitle: 'PicoClaw',
-      initialNotificationContent: 'PicoClaw service is running',
+      initialNotificationTitle: 'PocketClaw',
+      initialNotificationContent: 'PocketClaw service is running',
       foregroundServiceNotificationId: 888,
     ),
     iosConfiguration: IosConfiguration(

@@ -1,6 +1,6 @@
 {
   "@@locale": "ru",
-  "appTitle": "PicoClaw UI",
+  "appTitle": "PocketClaw",
   "run": "Запустить",
   "stop": "Остановить",
   "config": "Конфиг",
@@ -60,8 +60,8 @@
   "deviceReportingUploadSucceeded": "Отзыв о совместимости устройства включен",
   "deviceReportingUploadFailed": "Отзыв о совместимости устройства включен, но текущая синхронизация информации об устройстве не завершена",
   "deviceReportingDisabled": "Отзыв о совместимости устройства отключен",
-  "localModeHint": "1. Перейдите в Настройку службы\n2. Включите Общий режим\n3. Перезапустите службу\n4. Отсканируйте QR-код для доступа к PicoClaw",
-  "publicModeHint": "1. Запустите службу\n2. Отсканируйте QR-код для доступа к PicoClaw",
+  "localModeHint": "1. Перейдите в Настройку службы\n2. Включите Общий режим\n3. Перезапустите службу\n4. Отсканируйте QR-код для доступа к PocketClaw",
+  "publicModeHint": "1. Запустите службу\n2. Отсканируйте QR-код для доступа к PocketClaw",
   "@coreUnknownError": {
     "placeholders": {
       "code": {}
@@ -75,7 +75,7 @@
       "path": {}
     }
   },
-  "shareLogsText": "Журналы Picoclaw",
+  "shareLogsText": "Журналы PocketClaw",
   "workspaceDirectory": "Рабочее пространство",
   "logsSavedToMediaLibraryWithName": "Журналы сохранены в Загрузки (медиатека Android): {name}",
   "@logsSavedToMediaLibraryWithName": {
@@ -98,8 +98,8 @@
   "language": "Язык",
   "selectLanguage": "Выбрать язык",
   "about": "О приложении",
-  "aboutDescription": "PicoClaw — это кроссплатформенное Flutter-приложение для управления сервисом PicoClaw.",
-  "aboutAppVersionLabel": "Версия PicoClaw",
+  "aboutDescription": "PocketClaw — это кроссплатформенное Flutter-приложение для управления сервисом PicoClaw.",
+  "aboutAppVersionLabel": "Версия PocketClaw",
   "aboutCoreVersionLabel": "Версия PicoClaw Core",
   "aboutVersionUnavailable": "Недоступно",
   "picoclawOfficial": "Официальный сайт PicoClaw",

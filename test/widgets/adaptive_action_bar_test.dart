@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:picoclaw_flutter_ui/src/ui/widgets/adaptive_action_bar.dart';
+import 'package:pocketclaw/src/ui/widgets/adaptive_action_bar.dart';
 
 void main() {
   testWidgets('uses bottom actions when narrow', (WidgetTester tester) async {

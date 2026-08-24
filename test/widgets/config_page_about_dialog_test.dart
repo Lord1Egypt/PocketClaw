@@ -2,9 +2,9 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:picoclaw_flutter_ui/src/core/service_manager.dart';
-import 'package:picoclaw_flutter_ui/src/generated/l10n/app_localizations.dart';
-import 'package:picoclaw_flutter_ui/src/ui/config_page.dart';
+import 'package:pocketclaw/src/core/service_manager.dart';
+import 'package:pocketclaw/src/generated/l10n/app_localizations.dart';
+import 'package:pocketclaw/src/ui/config_page.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -61,7 +61,7 @@ void main() {
     expect(find.text('About'), findsWidgets);
     expect(
       find.text(
-        'PicoClaw is a cross-platform Flutter app for managing the PicoClaw service.',
+        'PocketClaw is a cross-platform Flutter app powered by PicoClaw Core.',
       ),
       findsOneWidget,
     );
@@ -69,10 +69,10 @@ void main() {
     await tester.tap(find.text('Close'));
     await tester.pumpAndSettle();
 
-    expect(find.text('PicoClaw'), findsNothing);
+    expect(find.text('PocketClaw'), findsNothing);
   });
 
-  testWidgets('shows PicoClaw branding and both version rows', (
+  testWidgets('shows PocketClaw identity and attributed Core version rows', (
     WidgetTester tester,
   ) async {
     await pumpConfigPage(
@@ -85,14 +85,14 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('About'), findsWidgets);
-    expect(find.text('PicoClaw'), findsOneWidget);
+    expect(find.text('PocketClaw'), findsOneWidget);
     expect(find.text('PicoClaw Flutter UI'), findsNothing);
-    expect(find.text('PicoClaw version'), findsOneWidget);
+    expect(find.text('PocketClaw version'), findsOneWidget);
     expect(find.text('1.2.3'), findsOneWidget);
     expect(find.text('PicoClaw Core version'), findsOneWidget);
     expect(find.text('core-9.8.7'), findsOneWidget);
-    expect(find.text('PicoClaw Official'), findsOneWidget);
-    expect(find.text('Sipeed Official'), findsOneWidget);
+    expect(find.text('PicoClaw Core project'), findsOneWidget);
+    expect(find.text('Sipeed'), findsOneWidget);
   });
 
   testWidgets('shows loading indicator while about info is still loading', (
@@ -110,7 +110,7 @@ void main() {
     await tester.pump();
 
     expect(find.byType(CircularProgressIndicator), findsOneWidget);
-    expect(find.text('PicoClaw version'), findsNothing);
+    expect(find.text('PocketClaw version'), findsNothing);
     expect(find.text('PicoClaw Core version'), findsNothing);
 
     aboutInfoCompleter.complete(
@@ -119,7 +119,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(CircularProgressIndicator), findsNothing);
-    expect(find.text('PicoClaw version'), findsOneWidget);
+    expect(find.text('PocketClaw version'), findsOneWidget);
     expect(find.text('1.0.0'), findsOneWidget);
     expect(find.text('PicoClaw Core version'), findsOneWidget);
     expect(find.text('core-1.0.0'), findsOneWidget);
@@ -172,9 +172,9 @@ void main() {
     await tester.tap(find.text('About'));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('PicoClaw Official'));
+    await tester.tap(find.text('PicoClaw Core project'));
     await tester.pump();
-    await tester.tap(find.text('Sipeed Official'));
+    await tester.tap(find.text('Sipeed'));
     await tester.pump();
 
     expect(
@@ -198,11 +198,11 @@ void main() {
 
       await tester.tap(find.text('About'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('PicoClaw Official'));
+      await tester.tap(find.text('PicoClaw Core project'));
       await tester.pump();
 
       expect(find.text("Couldn't open the official link."), findsOneWidget);
-      expect(find.text('Sipeed Official'), findsOneWidget);
+      expect(find.text('Sipeed'), findsOneWidget);
       expect(find.text('Close'), findsOneWidget);
     },
   );

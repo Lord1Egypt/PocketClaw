@@ -1,4 +1,4 @@
-package com.sipeed.picoclaw
+package com.lord1egypt.pocketclaw
 
 import android.content.Context
 import android.content.Intent
@@ -11,8 +11,8 @@ import android.provider.Settings
 import android.util.Log
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
-import com.sipeed.picoclaw.service.PicoClawService
-import com.sipeed.picoclaw.util.HealthChecker
+import com.lord1egypt.pocketclaw.service.PicoClawService
+import com.lord1egypt.pocketclaw.util.HealthChecker
 import java.io.File
 import java.util.concurrent.Executor
 
@@ -37,7 +37,7 @@ class PicoClawMethodChannel(
 ) {
     companion object {
         private const val TAG = "PicoClawMethodChannel"
-        private const val CHANNEL_NAME = "com.sipeed.picoclaw/picoclaw"
+        private const val CHANNEL_NAME = "com.lord1egypt.pocketclaw/picoclaw"
         private const val PREF_NAME = "picoclaw_prefs"
         private const val KEY_AUTO_START = "auto_start"
     }

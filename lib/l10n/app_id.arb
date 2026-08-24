@@ -1,6 +1,6 @@
 {
   "@@locale": "id",
-  "appTitle": "PicoClaw UI",
+  "appTitle": "PocketClaw",
   "run": "Jalankan",
   "stop": "Hentikan",
   "config": "Konfig",
@@ -60,8 +60,8 @@
   "deviceReportingUploadSucceeded": "Umpan balik kompatibilitas perangkat aktif",
   "deviceReportingUploadFailed": "Umpan balik kompatibilitas perangkat aktif, tetapi sinkronisasi info perangkat saat ini tidak selesai",
   "deviceReportingDisabled": "Umpan balik kompatibilitas perangkat nonaktif",
-  "localModeHint": "1. Buka Konfigurasi layanan\n2. Aktifkan Mode publik\n3. Mulai ulang layanan\n4. Pindai kode QR untuk mengakses PicoClaw",
-  "publicModeHint": "1. Mulai layanan\n2. Pindai kode QR untuk mengakses PicoClaw",
+  "localModeHint": "1. Buka Konfigurasi layanan\n2. Aktifkan Mode publik\n3. Mulai ulang layanan\n4. Pindai kode QR untuk mengakses PocketClaw",
+  "publicModeHint": "1. Mulai layanan\n2. Pindai kode QR untuk mengakses PocketClaw",
   "@coreUnknownError": {
     "placeholders": {
       "code": {}
@@ -75,7 +75,7 @@
       "path": {}
     }
   },
-  "shareLogsText": "Log Picoclaw",
+  "shareLogsText": "Log PocketClaw",
   "workspaceDirectory": "Ruang kerja",
   "logsSavedToMediaLibraryWithName": "Log disimpan ke Unduhan (perpustakaan media Android): {name}",
   "@logsSavedToMediaLibraryWithName": {
@@ -98,8 +98,8 @@
   "language": "Bahasa",
   "selectLanguage": "Pilih bahasa",
   "about": "Tentang",
-  "aboutDescription": "PicoClaw adalah aplikasi Flutter lintas platform untuk mengelola layanan PicoClaw.",
-  "aboutAppVersionLabel": "Versi PicoClaw",
+  "aboutDescription": "PocketClaw adalah aplikasi Flutter lintas platform untuk mengelola layanan PicoClaw.",
+  "aboutAppVersionLabel": "Versi PocketClaw",
   "aboutCoreVersionLabel": "Versi PicoClaw Core",
   "aboutVersionUnavailable": "Tidak tersedia",
   "picoclawOfficial": "Situs Resmi PicoClaw",

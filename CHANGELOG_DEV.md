@@ -1,5 +1,25 @@
 # Development Changelog
 
+## 2026-08-24 — Phase 2 Milestone B identity foundation
+
+- Started `feature/pocketclaw-identity` from the validated `develop` state.
+- Implemented the PocketClaw product-visible naming and planned independent
+  Android package identity `com.lord1egypt.pocketclaw`, while preserving
+  PicoClaw Core integration identifiers and compatible external workspace path.
+- Added branding, package-migration, asset, image-generation, and Skill Hub
+  regression documentation; established centralized Material 3 design tokens.
+- Selected the second original PocketClaw mark as the primary visual direction
+  and created matching Android launcher/adaptive, splash, and monochrome
+  notification treatments. No cartoon lobster/mascot was adopted.
+- Recorded physical Skill Hub/ClawHub success after the DNS fix: the prior
+  registry-unavailable symptom is resolved by Android DNS, not a separate hub
+  defect.
+- Passed `flutter analyze`, all 28 Flutter tests, and focused pinned-Core
+  Android DNS/model API tests; built the new PocketClaw APK.
+- Inspected the APK: package `com.lord1egypt.pocketclaw`, label PocketClaw,
+  branding resources, and pinned Core hashes are correct. The release build
+  had no Firebase app ID/API key/project ID and cleaned generated resources.
+
 ## 2026-08-24 — Phase 2 Milestone A bootstrap
 
 - Created the independent PocketClaw Android/Flutter foundation directory.

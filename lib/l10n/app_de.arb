@@ -1,6 +1,6 @@
 {
   "@@locale": "de",
-  "appTitle": "PicoClaw UI",
+  "appTitle": "PocketClaw",
   "run": "Ausführen",
   "stop": "Stoppen",
   "config": "Konfig",
@@ -60,8 +60,8 @@
   "deviceReportingUploadSucceeded": "Gerätekompatibilitäts-Feedback ist aktiviert",
   "deviceReportingUploadFailed": "Gerätekompatibilitäts-Feedback ist aktiviert, aber die aktuelle Geräteinfo-Synchronisierung wurde nicht abgeschlossen",
   "deviceReportingDisabled": "Gerätekompatibilitäts-Feedback ist deaktiviert",
-  "localModeHint": "1. Gehen Sie zur Dienstkonfiguration\n2. Aktivieren Sie den öffentlichen Modus\n3. Starten Sie den Dienst neu\n4. Scannen Sie den QR-Code für den Zugriff auf PicoClaw",
-  "publicModeHint": "1. Starten Sie den Dienst\n2. Scannen Sie den QR-Code für den Zugriff auf PicoClaw",
+  "localModeHint": "1. Gehen Sie zur Dienstkonfiguration\n2. Aktivieren Sie den öffentlichen Modus\n3. Starten Sie den Dienst neu\n4. Scannen Sie den QR-Code für den Zugriff auf PocketClaw",
+  "publicModeHint": "1. Starten Sie den Dienst\n2. Scannen Sie den QR-Code für den Zugriff auf PocketClaw",
   "@coreUnknownError": {
     "placeholders": {
       "code": {}
@@ -75,7 +75,7 @@
       "path": {}
     }
   },
-  "shareLogsText": "Picoclaw-Protokolle",
+  "shareLogsText": "PocketClaw-Protokolle",
   "workspaceDirectory": "Arbeitsbereich",
   "logsSavedToMediaLibraryWithName": "Protokolle in Downloads gespeichert (Android-Medienbibliothek): {name}",
   "@logsSavedToMediaLibraryWithName": {
@@ -98,8 +98,8 @@
   "language": "Sprache",
   "selectLanguage": "Sprache auswählen",
   "about": "Über",
-  "aboutDescription": "PicoClaw ist eine plattformübergreifende Flutter-App zur Verwaltung des PicoClaw-Dienstes.",
-  "aboutAppVersionLabel": "PicoClaw-Version",
+  "aboutDescription": "PocketClaw ist eine plattformübergreifende Flutter-App zur Verwaltung des PicoClaw-Dienstes.",
+  "aboutAppVersionLabel": "PocketClaw-Version",
   "aboutCoreVersionLabel": "PicoClaw-Core-Version",
   "aboutVersionUnavailable": "Nicht verfügbar",
   "picoclawOfficial": "Offizielle PicoClaw-Website",

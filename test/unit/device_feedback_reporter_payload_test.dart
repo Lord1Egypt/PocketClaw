@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:picoclaw_flutter_ui/src/core/device_feedback_models.dart';
-import 'package:picoclaw_flutter_ui/src/core/firebase_device_reporter.dart';
-import 'package:picoclaw_flutter_ui/src/core/umeng_device_reporter.dart';
+import 'package:pocketclaw/src/core/device_feedback_models.dart';
+import 'package:pocketclaw/src/core/firebase_device_reporter.dart';
+import 'package:pocketclaw/src/core/umeng_device_reporter.dart';
 
 void main() {
   final snapshot = DeviceTelemetrySnapshot(
