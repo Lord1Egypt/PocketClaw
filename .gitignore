@@ -1,0 +1,28 @@
+# Flutter/Dart
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+build/
+
+# Android/Gradle
+android/.gradle/
+android/.kotlin/
+android/build/
+android/app/build/
+*.keystore
+*.jks
+key.properties
+
+# Local configuration, credentials, and tooling
+.env
+.env.*
+!.env.example
+.tooling/
+local.properties
+
+# IDE and OS files
+.idea/
+.vscode/
+*.iml
+.DS_Store
