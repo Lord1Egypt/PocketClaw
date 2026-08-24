@@ -58,7 +58,8 @@ cleaned the generated Firebase resource source after packaging.
 
 ## Next Exact Steps
 
-1. Commit and push the feature branch after the secret/license review; do not
-   merge it to `develop`.
-2. Give the APK to the user for side-by-side physical regression testing with
+1. Give the APK to the user for side-by-side physical regression testing with
    the preserved `com.sipeed.picoclaw` reference app.
+2. `34b0f6b` is pushed to the private feature branch
+   `origin/feature/pocketclaw-identity`; do not merge it to `develop` before
+   the user's approval.

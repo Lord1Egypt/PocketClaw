@@ -12,7 +12,9 @@ Baseline APK: Preserved outside this repository; SHA-256 `d673acea94a8d9a38f610a
 Build Status: Milestone B validation complete; arm64 Core APK built successfully
 APK Status: Ready for the user's physical-device side-by-side regression test
 Current Blocker: Awaiting the user's physical-device regression results.
-Next Exact Action: Commit/push `feature/pocketclaw-identity`, then install and test the new PocketClaw APK beside the preserved reference; do not merge to `develop` or begin Milestone C before approval.
+Next Exact Action: Install and test the new PocketClaw APK beside the preserved
+reference; do not merge `feature/pocketclaw-identity` to `develop` or begin
+Milestone C before approval.
 
 ## Completed
 
@@ -47,6 +49,9 @@ Next Exact Action: Commit/push `feature/pocketclaw-identity`, then install and t
   package/label are `com.lord1egypt.pocketclaw`/PocketClaw, Android branding
   resources are bundled, the Core hashes match the pin, and no Firebase config
   values are present.
+- Committed Milestone B as `34b0f6b` and pushed
+  `feature/pocketclaw-identity` to the private `origin`; `develop` and `main`
+  remain untouched pending the user's physical-device approval.
 
 ## Constraints
 

@@ -19,6 +19,8 @@
 - Inspected the APK: package `com.lord1egypt.pocketclaw`, label PocketClaw,
   branding resources, and pinned Core hashes are correct. The release build
   had no Firebase app ID/API key/project ID and cleaned generated resources.
+- Committed as `34b0f6b` and pushed `feature/pocketclaw-identity` to private
+  `origin`; `develop` and `main` remain unchanged pending physical approval.
 
 ## 2026-08-24 — Phase 2 Milestone A bootstrap
 

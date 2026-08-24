@@ -26,7 +26,7 @@
   derive launcher, adaptive, splash, and monochrome notification treatments.
 - [x] Establish centralized Material 3 design tokens/theme foundations.
 - [x] Run Flutter/Core regressions and build/inspect the arm64 PocketClaw APK.
-- [ ] Commit/push the feature branch after safety review; do not merge to `develop`.
+- [x] Commit/push the feature branch after safety review; do not merge to `develop`.
 - [ ] Await user physical-device side-by-side regression approval.
 
 ## Later (not started)
