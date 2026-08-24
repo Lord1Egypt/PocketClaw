@@ -2,21 +2,22 @@
 
 Project: PocketClaw  
 Current Phase: Phase 2 — Independent Product Repository  
-Current Milestone: Stage B — user-facing debranding, awaiting physical test
+Current Milestone: Stage B — user-facing debranding, PHYSICALLY VERIFIED
 Git Branch: `recovery/pocketclaw-clean-debrand`
 Foundation Bootstrap Commit: `950d4a3`  
 Origin: `https://github.com/Lord1Egypt/PocketClaw.git` (private)  
 Upstream FUI Baseline: `d689c94c1b67f625f70ec4111a9aa3f01be9cbb3`  
 PicoClaw Core: `v0.3.1`, source `2cf030d2fd3b871d7ec17e3be34c24688aac76da`,
 rebuilt for PocketClaw — see `core/` and `UPSTREAM_BASELINE.md`  
-Build Status: arm64 release APK built through the verified Gradle path; the new
-release guard confirmed the arm64 native payload
-APK Status: Awaiting physical-device verification
-Current Blocker: None known. The black screen is fixed and physically confirmed.
-Next Exact Action: Install and test
-`build/app/outputs/apk/release/app-release.apk`
-(SHA-256 `2717f32e9580cd5b5ea5da70b2cb9fcf13f6f14451423addcb5686e0278a1de4`),
-then decide the two open items in `docs/BRANDING_AUDIT.md`.
+Build Status: arm64 release APK built through the canonical Gradle path; the
+release guard verified the arm64 native payload
+APK Status: PHYSICALLY VERIFIED on 2026-08-25 — SHA-256 `2717f32e9580cd5b5ea5da70b2cb9fcf13f6f14451423addcb5686e0278a1de4`
+Current Blocker: None. The black-screen incident is RESOLVED and physically
+confirmed.
+Next Exact Action: Decide the two open branding items in
+`docs/BRANDING_AUDIT.md` (MQTT `/picoclaw` topic prefix; bundled
+`picoclaw-agent`/`hardware` seeded skills). Do not merge and do not start new
+features without the user's instruction.
 
 ## Completed
 
@@ -109,9 +110,9 @@ then decide the two open items in `docs/BRANDING_AUDIT.md`.
   `3b849072a7c2858b0d2c0db5cbcfa42b542353e834f4c473399eda571ab16f3d`, web
   `252b38c64cbc4dc52277c206ca1b069cc7c3bb97b8a9c276e23f8edc3aaf95e3`.
 
-## Stage B Debranded APK
+## Stage B Debranded APK — PHYSICALLY VERIFIED
 
-- Status: Awaiting physical-device test. Not merged to `develop`.
+- Status: PASS on a physical Android device, 2026-08-25. Not merged to `develop`.
 - Path: `build/app/outputs/apk/release/app-release.apk` (ignored; not committed)
 - Also copied to `build/app/outputs/flutter-apk/app-release.apk` (identical).
 - Built: 2026-08-25 from `recovery/pocketclaw-clean-debrand` with
@@ -127,6 +128,12 @@ then decide the two open items in `docs/BRANDING_AUDIT.md`.
 - Embedded Core hashes: gateway
   `1f239a827c8562d6ac2ffdf63c1354ce0d28396cdab7d4f240f3866cbb525fed`, web
   `94bb6319bbac08e1aa0fa43e8093b4dd00bad512cb67ca94a6a57d666f4bc716`.
+- Physical-device results (2026-08-25): install PASS, app launch PASS, Flutter
+  first frame PASS, black-screen regression FIXED, Gateway/Core startup PASS,
+  navigation PASS, PocketClaw branding PASS, PocketClaw workspace path PASS,
+  QR/access page PASS, no abnormal device slowdown observed.
+- This is the reference physically verified PocketClaw artifact. Compare any
+  future build against it.
 
 ## Pre-release APK check (mandatory)
 

@@ -1,5 +1,23 @@
 # Development Changelog
 
+## 2026-08-25 — Black-screen incident RESOLVED; Stage B physically verified
+
+- Physical Android device test of `2717f32e9580cd5b5ea5da70b2cb9fcf13f6f14451423addcb5686e0278a1de4`
+  returned PASS across the board: install, app launch, Flutter first frame,
+  Gateway/Core startup, navigation, PocketClaw branding, PocketClaw workspace
+  path, and the QR/access page, with no abnormal device slowdown.
+- The black-screen incident is CLOSED. The missing `lib/arm64-v8a/libdartjni.so`
+  diagnosis and the build-pipeline fix are physically confirmed.
+- This APK is now the reference physically verified PocketClaw artifact.
+- Retained deliberately and not to be removed: the `packageRelease` guard over
+  `libdartjni.so`, `libpicoclaw.so`, and `libpicoclaw-web.so`, and the canonical
+  arm64 release command
+  `./gradlew :app:assembleRelease -Ptarget-platform=android-arm64`.
+- Still open, awaiting a product decision: the MQTT `/picoclaw` topic prefix and
+  the bundled `picoclaw-agent`/`hardware` seeded skills — see
+  `docs/BRANDING_AUDIT.md`.
+- Nothing merged to `develop` or `main`.
+
 ## 2026-08-25 — Release build guard and user-facing debranding
 
 - Physical device confirmed the black-screen fix: the Stage A replacement APK

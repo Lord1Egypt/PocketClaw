@@ -2,35 +2,46 @@
 
 ## Current Objective
 
-Physically test the Stage B debranded APK. Do not merge to `develop` and do not
-start new features until it passes.
+None outstanding. Stage B is complete and physically verified. Do not start new
+features and do not merge anything without the user's explicit instruction.
 
-## Resolved: the black screen
+## Status: black-screen incident RESOLVED
 
-Root-caused and physically confirmed. Builds from this workspace were missing
-`lib/arm64-v8a/libdartjni.so` because the `jni` package's arm64 CMake configure
-failed once and was cached under `~/.pub-cache`, outside the project `build/`
-tree. `JniPlugin` loads that library from a static initializer and
-`GeneratedPluginRegistrant` only catches `Exception`, so the resulting `Error`
-escaped `FlutterActivity.onCreate` and no frame was ever drawn. The release
-build now fails closed if the arm64 payload is incomplete.
+APK `2717f32e9580cd5b5ea5da70b2cb9fcf13f6f14451423addcb5686e0278a1de4` passed a
+physical Android device test on 2026-08-25: install, app launch, Flutter first
+frame, Gateway/Core startup, navigation, PocketClaw branding, PocketClaw
+workspace path, and the QR/access page all PASS, with no abnormal device
+slowdown. This is the reference physically verified PocketClaw artifact.
 
-## Stage B: user-facing debranding
+Root cause, now confirmed: builds from this workspace were missing
+`lib/arm64-v8a/libdartjni.so`. The `jni` package's arm64 CMake configure failed
+once with a transient filesystem error, and CMake cached that failure as a
+successful configure with an empty target list under `~/.pub-cache` — outside
+the project `build/` tree, so no amount of cleaning `build/` cleared it.
+`JniPlugin` loads that library from a static initializer, and
+`GeneratedPluginRegistrant` catches only `Exception`, so the resulting `Error`
+escaped `FlutterActivity.onCreate` and no frame was ever drawn.
 
-Every normal user-facing surface now reads PocketClaw. The embedded web runtime
-was rebranded at source and rebuilt — never binary-patched — and the gateway was
-rebuilt too because the assistant identity lives there. `PICOCLAW_DNS_SERVER` is
-verified still present in the rebuilt gateway.
+## Permanent release requirements — do not remove
 
-`docs/BRANDING_AUDIT.md` has the full classification: 0 user-visible
-PicoClaw/Sipeed occurrences, 0 user-facing GitHub links, the retained legal and
-internal-compatibility occurrences, and two open product decisions (the MQTT
-`/picoclaw` topic prefix, and the bundled `picoclaw-agent`/`hardware` skills).
+- `packageRelease` fails the build unless the APK contains
+  `lib/arm64-v8a/libdartjni.so`, `libpicoclaw.so`, and `libpicoclaw-web.so`.
+  It prints "Verified arm64-v8a native payload" on success.
+- The canonical release command is
+  `./gradlew :app:assembleRelease -Ptarget-platform=android-arm64`, run with
+  `JAVA_HOME=/home/lordegypt/PocketCLaw/.tooling/jdk-17`. A universal
+  `flutter build apk --release` is not a PocketClaw release path.
+- If the guard reports `libdartjni.so` missing, purge
+  `~/.pub-cache/hosted/pub.dev/jni-*/android/.cxx/` and rebuild.
 
-`core/` holds the Core source patch and the exact rebuild commands. Build the
-runtime only through `make build-launcher-android-arm64`; calling
-`make -C web build-android-arm64` directly drops `-s -w` and produces an
-unstripped binary.
+## Stage B debranding
+
+Every normal user-facing surface reads PocketClaw. The embedded web runtime was
+rebranded at source and rebuilt, never binary-patched, and the gateway was
+rebuilt too because the assistant identity lives in it; `PICOCLAW_DNS_SERVER` is
+verified still present. `docs/BRANDING_AUDIT.md` holds the full classification
+and the two remaining open product decisions. `core/` holds the Core source
+patch and the exact rebuild commands.
 
 ## Exact State
 
@@ -97,13 +108,10 @@ capture final device logs, so that symptom must be confirmed during retest.
 
 ## Next Exact Steps
 
-1. Install and launch `build/app/outputs/apk/release/app-release.apk`
-   (34,119,837 bytes, SHA-256
-   `2717f32e9580cd5b5ea5da70b2cb9fcf13f6f14451423addcb5686e0278a1de4`).
-   Confirm first frame, Core start/stop, active-network DNS, model discovery,
-   AI requests, Telegram, and Skill Hub, and walk the embedded web console
-   looking for any remaining upstream branding.
-2. Decide the two open items in `docs/BRANDING_AUDIT.md`.
-3. Only then consider merging. `recovery/pocketclaw-clean-debrand`,
-   `feature/pocketclaw-identity` (`354fc38` WIP preserved), `develop`, and
-   `main` are all intact and unmerged.
+1. Decide the two open branding items in `docs/BRANDING_AUDIT.md`: the MQTT
+   `/picoclaw` topic prefix (a broker-side protocol identifier, visible only in
+   the MQTT channel config screen) and the bundled `picoclaw-agent` / `hardware`
+   skills seeded into the onboarding workspace.
+2. Await the user's instruction before merging or starting new work.
+   `recovery/pocketclaw-clean-debrand`, `feature/pocketclaw-identity`
+   (`354fc38` WIP preserved), `develop`, and `main` are all intact and unmerged.

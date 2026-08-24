@@ -48,10 +48,11 @@
 - [x] Point fresh installs at `Download/pocketclaw` without any startup migration.
 - [x] Run Flutter analyze/tests, Go tests, frontend lint, and rebuild the APK
   through the verified arm64 Gradle path.
-- [ ] Physical test of the debranded APK
-  (`2717f32e9580cd5b5ea5da70b2cb9fcf13f6f14451423addcb5686e0278a1de4`):
-  first frame, Core lifecycle, DNS, model discovery, AI requests, Telegram,
-  Skill Hub, and a visual branding pass over the embedded web console.
+- [x] Physical test of the debranded APK
+  (`2717f32e9580cd5b5ea5da70b2cb9fcf13f6f14451423addcb5686e0278a1de4`): PASS.
+  Install, launch, Flutter first frame, Gateway/Core startup, navigation,
+  PocketClaw branding, PocketClaw workspace path, and the QR/access page all
+  pass, with no abnormal device slowdown. The black-screen incident is RESOLVED.
 - [ ] Decide the two open branding items in `docs/BRANDING_AUDIT.md`: the MQTT
   `/picoclaw` topic prefix and the bundled `picoclaw-agent`/`hardware` skills.
 

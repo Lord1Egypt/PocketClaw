@@ -149,3 +149,20 @@
 - Consequence: `./gradlew :app:assembleRelease -Ptarget-platform=android-arm64`
   is the canonical PocketClaw release path. Do not use a universal
   `flutter build apk --release` for releases.
+
+## The black-screen incident is closed on physical evidence
+
+- Date: 2026-08-25
+- Decision: Treat the black-screen incident as RESOLVED and treat APK
+  `2717f32e9580cd5b5ea5da70b2cb9fcf13f6f14451423addcb5686e0278a1de4` as the
+  reference physically verified PocketClaw artifact.
+- Evidence: a physical Android device passed install, app launch, Flutter first
+  frame, Gateway/Core startup, navigation, PocketClaw branding, PocketClaw
+  workspace path, and the QR/access page, with no abnormal device slowdown.
+  This confirms the missing `lib/arm64-v8a/libdartjni.so` diagnosis and the
+  build-pipeline fix.
+- Consequence: the release guard and the canonical arm64 Gradle command are
+  permanent parts of the release process, not temporary debugging aids. Removing
+  either reopens the failure mode that caused this incident. Any future
+  regression should be compared against this artifact before new hypotheses are
+  formed.
