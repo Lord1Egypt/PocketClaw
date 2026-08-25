@@ -2,10 +2,11 @@
 
 Project: PocketClaw  
 Current Phase: Phase 2 — Independent Product Repository  
-Current Milestone: Phase 2 Milestone C — Provider Catalog + Easy API-Key Setup.
-The main milestone PASSED physical-device testing on 2026-08-25. The OpenCode
-completion (OpenCode Zen and OpenCode Go presets) is implemented on top of it
-and awaits its own physical-device verification.
+Current Milestone: Self-contained source migration, on top of Phase 2
+Milestone C — Provider Catalog + Easy API-Key Setup. The main milestone PASSED
+physical-device testing on 2026-08-25. The OpenCode completion and the source
+migration are both implemented on top of it and share one pending
+physical-device verification.
 Git Branch: `feature/provider-catalog`, branched from `develop` @ `14e6991`.
 Last verified milestone: Phase 2 Milestone B (merge `225be3c`, tag
 `phase2-milestone-b`), which remains the fallback reference state.
@@ -14,15 +15,20 @@ Foundation Bootstrap Commit: `950d4a3`
 Origin: `https://github.com/Lord1Egypt/PocketClaw.git` (private)  
 Upstream FUI Baseline: `d689c94c1b67f625f70ec4111a9aa3f01be9cbb3`  
 PicoClaw Core: `v0.3.1`, source `2cf030d2fd3b871d7ec17e3be34c24688aac76da`,
-rebuilt for PocketClaw — see `core/` and `UPSTREAM_BASELINE.md`  
+vendored into this repository at `core/src/` and built from there — see
+`core/README.md` and `UPSTREAM_BASELINE.md`  
+Source-of-Truth: this repository. A clone contains all application and runtime
+source; no external checkout is a build dependency. Proven by
+`core/verify-no-external-source.sh`.  
 Build Status: arm64 release APK built through the canonical Gradle path; the
 release guard verified the arm64 native payload.
 APK Status: the Milestone C APK `b3dd892bdea86e8dfe7d1c2eb87e89f4e2832b1d1dbe39fc1decf20dabce569b`
-PASSED physical-device testing on 2026-08-25 and is the current verified
+PASSED physical-device testing on 2026-08-25 and remains the current verified
 reference artifact, superseding Milestone B's `ba4f067d...70f70a4b8`.
-The OpenCode completion APK `785ccd94cfa351ee2996ac340f9a55e828a0c8f736bec67a3edac906a56058c6`
-is BUILT and NOT yet physically verified.
-Current Blocker: physical-device testing of the OpenCode completion APK.
+The source-migration APK `588bbec144fe0c84b8429f4f053a73b44b9b3e8d9f24e31dab04b2165ff3a90b`
+is BUILT and NOT yet physically verified. It supersedes the never-tested
+OpenCode completion APK `785ccd94...56058c6`, whose functionality it contains.
+Current Blocker: physical-device testing of the source-migration APK.
 Next Exact Action: install the OpenCode completion APK and configure OpenCode
 Zen and OpenCode Go with a real OpenCode API key. Run at least one inference on
 each of the three protocol families so the routing is proven end to end:
@@ -310,3 +316,62 @@ The one assumption that only a device can settle is the Messages
 authentication form — see the OpenCode routing decision in `DECISIONS.md`.
 If a `claude-*` model returns 401 while `gpt-*` and `kimi-*` succeed, that is
 the bearer-versus-`X-API-Key` question, not a routing failure.
+
+## Self-Contained Source Migration APK — BUILT, PHYSICAL TEST PENDING
+
+- Status: NOT verified. The verified reference artifact remains the Milestone C
+  APK `b3dd892b...bce569b` until this one passes on a device. This APK
+  supersedes the never-tested OpenCode completion APK `785ccd94...56058c6`.
+- Path: `build/app/outputs/apk/release/app-release.apk` (ignored; not committed)
+- Built: 2026-08-25 with the canonical command
+  `./gradlew :app:assembleRelease -Ptarget-platform=android-arm64`,
+  `JAVA_HOME=/home/lordegypt/PocketCLaw/.tooling/jdk-17`,
+  `GRADLE_USER_HOME=/home/lordegypt/PocketClaw-App/.tooling/gradle-stage-a-clean`,
+  after building Core from `core/src/` with `core/build-android-arm64.sh`.
+- Size: 34,123,225 bytes
+- SHA-256: `588bbec144fe0c84b8429f4f053a73b44b9b3e8d9f24e31dab04b2165ff3a90b`
+- Package/version: `com.lord1egypt.pocketclaw`, `0.1.3` (version code `3`)
+- Label: PocketClaw; launchable `com.lord1egypt.pocketclaw.MainActivity`
+- Release guard PASS for all three required libraries:
+
+| Packaged library | Size | SHA-256 |
+| --- | --- | --- |
+| `libdartjni.so` | 131,248 | `47dae44db1c6202d164c0bb2ff25cc661023ba2904a6679abad4f3dcf3fcb5cd` |
+| `libpicoclaw.so` | 37,224,801 | `cb9b2cdea1ccd7ddbbda723ddd3bed1d8c3a931638b1952dd767f62efb895818` |
+| `libpicoclaw-web.so` | 24,641,889 | `b6b356f75eb348933e6cb1049890bb8be4d2bd20b605f55b23a5487656db9ba5` |
+
+- `libdartjni.so` is byte-identical to every verified build since Milestone B.
+- Both Core binaries are stripped, `ARM aarch64` PIE, and are the first built
+  from repository-local source and the first built with `-trimpath`. They are
+  roughly 197 KB and 131 KB smaller than the previous pair for that reason.
+- Developer-machine paths in the packaged Core binaries: 0 and 0. The previous
+  pair carried 2,501 and 1,346. `core/build-android-arm64.sh` fails the build
+  if this regresses.
+- `PICOCLAW_DNS_SERVER` is verified present in the rebuilt gateway.
+- Branding invariants hold in the rebuilt launcher: 0 `PicoClaw`, 0 `Sipeed`,
+  31 `PocketClaw` — identical to the verified Milestone C counts.
+- Pre-build validation: Go suites 92 ok / 0 failed, frontend `vitest` 28
+  passed, `pnpm lint` clean, `flutter analyze` no issues, `flutter test` 27
+  passed.
+
+### What to test on the device
+
+No feature changed. Every line of application behavior in this APK also existed
+in the OpenCode completion build; what changed is where the source was read
+from and that the binaries are now `-trimpath`-built. That makes this a
+regression sweep, not a feature test:
+
+1. App launches; no black screen; Core service starts.
+2. DNS: model discovery and Skill Hub/ClawHub search both work, which is the
+   end-to-end proof that the Android active-network DNS integration survived
+   the rebuild.
+3. One real inference against a configured provider.
+4. Telegram send/receive, MQTT prefix, workspace seeding, and branding
+   unregressed.
+5. The Logs screen shows no `/home/...` build-machine paths.
+6. Configuration persists across a Core restart.
+
+Because the OpenCode presets have never been physically tested, their check
+from the previous section still applies: OpenCode Zen and OpenCode Go each
+appear in Add Provider, ask only for an API key, and Fetch Models returns a
+live list.

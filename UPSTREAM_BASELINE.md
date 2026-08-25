@@ -42,6 +42,20 @@ The FUI is a historical reference only. PocketClaw is an independent Android
 application and is not a maintained fork of `picoclaw_fui`; see
 `DECISIONS.md`, "Independent repository, not a permanent FUI fork".
 
+### Where the baseline source lives
+
+Since 2026-08-25 the Core source is vendored into this repository at
+`core/src/` and is the canonical build source. The adoption record above is
+unchanged by that move: it still names the upstream release and commit the
+vendored tree originates from.
+
+    SOURCE LOCATION:      PocketClaw repository, core/src/
+    ORIGINAL PROVENANCE:  PicoClaw v0.3.1 @ 2cf030d2
+
+No release build reads Core source from any checkout outside this repository.
+`core/verify-no-external-source.sh` proves it by hiding the historical
+reference checkout and rebuilding. See `core/README.md`.
+
 ## Verified Phase 1 provenance
 
 - PicoClaw FUI baseline commit: `d689c94c1b67f625f70ec4111a9aa3f01be9cbb3`
@@ -80,7 +94,31 @@ produced from the Core source commit above with the Android DNS integration:
 | `libpicoclaw.so` | `3b849072a7c2858b0d2c0db5cbcfa42b542353e834f4c473399eda571ab16f3d` |
 | `libpicoclaw-web.so` | `252b38c64cbc4dc52277c206ca1b069cc7c3bb97b8a9c276e23f8edc3aaf95e3` |
 
-## Current PocketClaw Core binaries (2026-08-25, Milestone C OpenCode completion)
+## Current PocketClaw Core binaries (2026-08-25, self-contained source migration)
+
+First binaries built from the repository-local `core/src/` rather than an
+external checkout, and the first built with `-trimpath`. Both are
+`android/arm64`, PIE, and stripped (`-s -w`).
+
+| File | Size | SHA-256 |
+| --- | --- | --- |
+| `libpicoclaw.so` | 37,224,801 | `cb9b2cdea1ccd7ddbbda723ddd3bed1d8c3a931638b1952dd767f62efb895818` |
+| `libpicoclaw-web.so` | 24,641,889 | `b6b356f75eb348933e6cb1049890bb8be4d2bd20b605f55b23a5487656db9ba5` |
+
+The sizes dropped by roughly 197 KB and 131 KB against the previous pair
+because `-trimpath` removes the embedded absolute source paths. Those paths
+were real: the previous `libpicoclaw.so` carried 2,501 `/home/lordegypt/...`
+strings and `libpicoclaw-web.so` carried 1,346. Both now carry zero, and
+`core/build-android-arm64.sh` fails the build if that regresses.
+
+These hashes are not reproducible across rebuilds: the Makefile stamps
+`BuildTime` into the binary through `-ldflags`, so an identical source tree
+produces a different hash each build. Sizes and the zero-path count are the
+stable invariants.
+
+Version stamp: `Version=v0.3.1`, `GitCommit=2cf030d2`, `GoVersion=go1.25.11`.
+
+## Previous PocketClaw Core binaries (2026-08-25, Milestone C OpenCode completion)
 
 Rebuilt from the same pinned source with the OpenCode Zen/Go presets, the
 per-model routing table, and the new generic Responses provider added on top of

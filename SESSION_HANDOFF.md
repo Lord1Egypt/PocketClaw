@@ -2,13 +2,19 @@
 
 ## Current Objective
 
-Physical-device testing of the OpenCode completion APK
-`785ccd94cfa351ee2996ac340f9a55e828a0c8f736bec67a3edac906a56058c6`.
+Physical-device testing of the source-migration APK
+`588bbec144fe0c84b8429f4f053a73b44b9b3e8d9f24e31dab04b2165ff3a90b`.
 
 Milestone C itself PASSED on 2026-08-25 (APK `b3dd892b...bce569b`, now the
-verified reference artifact). The OpenCode Zen and OpenCode Go presets were
-added on the same branch afterwards and need their own device test before the
-milestone closes.
+verified reference artifact). Two changes landed on the same branch afterwards
+and share this one device test: the OpenCode Zen and OpenCode Go presets, and
+the self-contained source migration. The migration APK contains the OpenCode
+work, so the never-tested `785ccd94...56058c6` is superseded and can be
+discarded.
+
+The migration changed no feature. It moved the Core source into this repository
+at `core/src/`, made that the canonical build source, and added `-trimpath`. So
+the sweep is a regression test plus the untested OpenCode presets.
 
 Configure both OpenCode providers with a real OpenCode API key and run one real
 inference per protocol family, per provider: a Responses model (`gpt-*`,
@@ -20,9 +26,10 @@ passes, and do not touch `main`.
 ## Milestone C state
 
 Branch `feature/provider-catalog`, cut from `develop` @ `14e6991`. The Core
-changes live in the reference checkout and are captured in
-`core/pocketclaw-core-v0.3.1.patch` (40 files); the rebuilt arm64 binaries are
-committed under `android/app/src/main/jniLibs/arm64-v8a/`.
+source now lives in this repository at `core/src/`, and
+`core/pocketclaw-core-v0.3.1.patch` (52 files) is its divergence from upstream
+`v0.3.1`; the rebuilt arm64 binaries are committed under
+`android/app/src/main/jniLibs/arm64-v8a/`.
 
 What it delivers: a provider-first Add Provider flow (choose provider → API key
 → fetch or type a model → save) with the alias derived automatically; the
@@ -98,14 +105,27 @@ workspace seeding.
   A universal `flutter build apk --release` is not a PocketClaw release path.
 - If the guard reports `libdartjni.so` missing, do not change application code:
   purge `~/.pub-cache/hosted/pub.dev/jni-*/android/.cxx/` and rebuild.
-- Rebuild Core via `make build-launcher-android-arm64`; calling
+- Rebuild Core with `core/build-android-arm64.sh`, which builds from
+  `core/src/` through the root Makefile targets. Calling
   `make -C web build-android-arm64` directly drops the root `LDFLAGS` and
   produces an unstripped binary. Use `pnpm lint`, never `pnpm check`.
-- Core binaries currently committed (OpenCode completion, not yet
-  device-verified): `libpicoclaw.so` 37,421,409 `e48e8af0...12e78938`;
-  `libpicoclaw-web.so` 24,772,961 `5faaf82c...c383fe2abf`.
+- Never point a build at a Core checkout outside this repository. `core/src/`
+  is the source-of-truth; `core/verify-no-external-source.sh` proves the build
+  needs nothing else. Upstream is fetched for review only.
+- `-trimpath` on the Android arm64 build lines is a release requirement, not a
+  nicety. Without it the shipped binaries carry thousands of build-machine
+  paths that reach the user-facing Logs screen.
+  `core/build-android-arm64.sh` fails the build if the count is not zero.
+- Regenerate `core/pocketclaw-core-v0.3.1.patch` with
+  `core/regen-upstream-patch.sh` after any change under `core/src/`, or the
+  divergence record goes stale.
+- Core binaries currently committed (source migration, not yet
+  device-verified): `libpicoclaw.so` 37,224,801 `cb9b2cde...fb895818`;
+  `libpicoclaw-web.so` 24,641,889 `b6b356f7...656db9ba5`.
   The last device-verified pair is Milestone C's `cbe568af...5556468a` and
   `86e53457...0cb0a4cd`. All are stripped with `PICOCLAW_DNS_SERVER` present.
+  Core hashes are not reproducible across rebuilds — `BuildTime` is stamped in
+  via `-ldflags` — so compare sizes and the zero-path count, not hashes.
 
 ## Exact State
 
@@ -172,13 +192,16 @@ capture final device logs, so that symptom must be confirmed during retest.
 
 ## Next Exact Steps
 
-1. Physically test the OpenCode completion APK. The checklist is at the end of
-   `PROJECT_STATE.md`. The rest of the app is unchanged from the verified
-   Milestone C build, so the regression sweep can be brief.
+1. Physically test the source-migration APK
+   `588bbec1...5ff3a90b`. The checklist is at the end of `PROJECT_STATE.md`.
+   No feature changed, so it is a regression sweep — plus the OpenCode presets,
+   which have still never run on a device.
 2. On PASS: merge `feature/provider-catalog` into `develop` with `--no-ff`,
    tag the closure point, and record the result in the state documents.
 3. On FAIL: diff against the verified Milestone C artifact `b3dd892b...bce569b`
-   before forming a new hypothesis. The change surface is the two Core binaries
-   and nothing in the Flutter layer, so a Flutter-side symptom would point at
-   the build, not at this work.
+   before forming a new hypothesis. Nothing in the Flutter layer changed; the
+   change surface is the two Core binaries and where their source was read
+   from, so a Flutter-side symptom would point at the build, not at this work.
+   If Core misbehaves, the first question is `-trimpath`, since that is the
+   only compiler-flag change.
 4. Do not merge to `main` without instruction. Do not start Telegram linking.

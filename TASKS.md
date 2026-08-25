@@ -172,6 +172,46 @@ supplied by the user.
   Must exercise one real inference per protocol family, per provider.
   Not merged to `develop` until this passes.
 
+## Self-contained source migration (2026-08-25)
+
+- [x] Vendor the pinned Core source into the repository at `core/src/`
+  (1,372 files, 16 MB), with no submodule and no second clone required.
+- [x] Audit the vendored tree against the real patched source rather than from
+  memory: proved it equals upstream `v0.3.1` + `core/pocketclaw-core-v0.3.1.patch`
+  + `pkg/androiddns/`, byte-for-byte.
+- [x] Confirm every required Core modification is present — Android
+  active-network DNS, `PICOCLAW_DNS_SERVER`, PocketClaw wording, provider
+  catalog extensions, model-discovery fixes, OpenCode Zen, OpenCode Go, MQTT
+  `/pocketclaw` default, seeded workspace, provider routing.
+- [x] Secret/junk review of the vendored tree before committing: no keys,
+  tokens, caches, `node_modules`, build outputs, or developer state.
+- [x] Exclude `assets/` (upstream README media) and `pkg/seahorse/.omc/`
+  (upstream developer tool-state that leaks a home path).
+- [x] Add `core/build-android-arm64.sh` as the canonical repo-local Core build.
+- [x] Add `-trimpath` to the Android arm64 build lines and assert zero
+  developer paths in the shipped binaries (was 2,501 and 1,346; now 0).
+- [x] Move the Go build/module caches out of the external checkout to
+  `/home/lordegypt/PocketCLaw/.tooling/go/`. Moved, not deleted.
+- [x] Remove every build/runtime reference to
+  `/home/lordegypt/PocketCLaw/.upstream/picoclaw-core-v0.3.1`; the three
+  remaining mentions are documentation or the negative test itself.
+- [x] Keep the provenance patch. Rewrote `core/regen-upstream-patch.sh`, fixed
+  two defects in it, and verified upstream + patch reproduces `core/src/`.
+- [x] Confirm no runtime source or binary fetching: the app executes only the
+  packaged binaries; no clone, download, or auto-update path exists.
+- [x] Rewrite `core/README.md` as the authoritative Core guide.
+- [x] Preserve the release guard and document the `.cxx` recovery procedure.
+- [x] Prove the external checkout is unnecessary:
+  `core/verify-no-external-source.sh` hid it, the Core built, it was restored.
+- [x] Validation: Go 92 ok / 0 fail, vitest 28 passed, `pnpm lint` clean,
+  `flutter analyze` clean, `flutter test` 27 passed, arm64 release APK built
+  with the release guard passing.
+- [ ] PHYSICAL DEVICE TEST of APK
+  `588bbec144fe0c84b8429f4f053a73b44b9b3e8d9f24e31dab04b2165ff3a90b`.
+  This is a rebuild of the same functionality from a relocated source tree, so
+  it is a regression test: launch, Core start, DNS/model discovery, Skill Hub
+  search, and one real inference. Not merged to `develop` until it passes.
+
 ## Deferred out of Milestone C, deliberately
 
 - [ ] API key storage on Android is plaintext in the workspace config, because

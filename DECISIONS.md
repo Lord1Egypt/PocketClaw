@@ -453,3 +453,106 @@
   The raw `2cf030d2..main` count of 2583 is not that gap — Core `main` has
   merged an unrelated root history — so first-parent count is the figure
   review planning uses.
+
+## The PocketClaw repository is the canonical source-of-truth
+
+- Date: 2026-08-25
+- Decision: the Core source is vendored into this repository at `core/src/` and
+  is the only source the build reads. The external checkout at
+  `/home/lordegypt/PocketCLaw/.upstream/picoclaw-core-v0.3.1` survives as a
+  historical reference for upstream review and is no longer a build dependency.
+- Reason: a build that reaches outside the repository is not reproducible by
+  anyone but the machine that has that directory. A `git clone` of PocketClaw
+  now contains every line of application and runtime source needed to build the
+  APK. External toolchains — Go, Flutter, JDK, Android SDK/NDK, Node/pnpm — stay
+  external, because they are tools, not source.
+- Deliberately not a submodule: a submodule would reintroduce "clone that other
+  repository first" as a precondition, which is the exact failure being fixed.
+- Evidence: `core/verify-no-external-source.sh` renames the external checkout
+  away, runs the full Core build, and restores it. It passed on 2026-08-25.
+- Consequence: adapting an upstream change now means editing `core/src/` and
+  regenerating the provenance patch. Upstream is an update source that is
+  fetched for review only.
+
+## Vendoring moves the source, not the authorship
+
+- Date: 2026-08-25
+- Decision: `core/src/` keeps upstream copyright headers untouched, keeps
+  `LICENSE` in place, and `core/pocketclaw-core-v0.3.1.patch` is retained and
+  regenerated as the record of exactly what PocketClaw changed.
+- Reason: physically storing MIT-licensed upstream source in our repository
+  changes where it lives and nothing else. The patch is what keeps the two
+  readable apart — 52 changed files, of which 13 are PocketClaw-authored.
+- Evidence: upstream `v0.3.1` plus the regenerated patch reproduces `core/src/`
+  byte-for-byte, verified on 2026-08-25.
+- Consequence: `core/regen-upstream-patch.sh` must be run after any change under
+  `core/src/`, or the divergence record goes stale. Running it and getting an
+  empty `git diff` is the verification.
+
+## Two upstream paths are deliberately not vendored
+
+- Date: 2026-08-25
+- Decision: `assets/` and `pkg/seahorse/.omc/` are excluded from `core/src/`,
+  and excluded from both sides of the provenance patch so they never appear as
+  PocketClaw deletions.
+- Reason: `assets/` is 13 MB of upstream README screenshots and marketing GIFs
+  with no build role, and carrying PicoClaw marketing imagery inside PocketClaw
+  works against the branding position. `pkg/seahorse/.omc/state/` is an upstream
+  developer's tool-state file committed by accident; it contains no code and
+  leaks an upstream contributor's home-directory path. Vendoring developer
+  machine state was explicitly out of scope.
+- Consequence: neither is referenced by any build target, and `core/README.md`
+  records the omissions so a future reviewer does not read them as loss.
+
+## Release binaries are built with `-trimpath`
+
+- Date: 2026-08-25
+- Decision: `-trimpath` is added to the four Android arm64 `go build` lines in
+  `core/src/Makefile` and `core/src/web/Makefile`, and
+  `core/build-android-arm64.sh` fails the build if the shipped binaries contain
+  any `/home/`, `/Users/`, or `/root/` string.
+- Evidence: this was not theoretical. Before the change the shipped
+  `libpicoclaw.so` contained 2,501 absolute `/home/lordegypt/...` paths and
+  `libpicoclaw-web.so` contained 1,346 — every compiled file's full path on the
+  build machine, reachable from the user-facing Logs screen. Both are now zero.
+- Reason: `-s -w` strips symbols but does not remove the file paths Go records
+  for tracebacks. Moving the source into the repository would have replaced one
+  set of developer paths with another, so the fix had to be the compiler flag,
+  not the directory layout.
+- Consequence: the binaries shrank by roughly 197 KB and 131 KB, and their
+  hashes will not match any previously recorded pair. Build provenance now
+  lives in `core/README.md` and `UPSTREAM_BASELINE.md`, which is where it
+  belongs.
+
+## Upstream's `onboard` ignore rule is anchored in the vendored tree
+
+- Date: 2026-08-25
+- Decision: `core/src/.gitignore` changes the bare `onboard` rule to `/onboard`.
+- Reason: the bare rule sits in upstream's "Secrets & Config" block and was
+  plainly meant for a generated root-level `onboard` artifact, but an unanchored
+  pattern matches at every depth. It swallowed
+  `cmd/picoclaw/internal/onboard/`, which carries PocketClaw changes to
+  `helpers.go` and `helpers_test.go`. Upstream never noticed because those files
+  were already tracked there; a fresh vendored copy would silently have dropped
+  four source files.
+- Consequence: this also had to be handled in `core/regen-upstream-patch.sh`,
+  which force-adds both sides. Without that, the upstream baseline commit
+  excluded the same files and the patch misreported unmodified upstream source
+  as PocketClaw-authored additions.
+
+## Go caches are toolchain, and live outside the repository
+
+- Date: 2026-08-25
+- Decision: the Go build and module caches moved from
+  `.upstream/picoclaw-core-v0.3.1/.cache/` to
+  `/home/lordegypt/PocketCLaw/.tooling/go/`, alongside the JDK, Flutter, pnpm,
+  and Android SDK. `core/build-android-arm64.sh` points `GOCACHE`/`GOMODCACHE`
+  there and accepts a `GO_CACHE_ROOT` override.
+- Reason: 3.3 GB of cache had been living inside the external Core checkout,
+  which made that directory a build prerequisite for a second, non-obvious
+  reason. It also holds the Go 1.25.11 toolchain that `core/src/go.mod`
+  requires and the system Go 1.22.2 cannot satisfy. Caches are regenerable
+  build state, so they belong with the tools, not in the repository and not in
+  a source checkout.
+- Consequence: the caches were moved, not deleted, and a fresh machine can
+  instead let Go use its defaults and download from `core/src/go.sum`.

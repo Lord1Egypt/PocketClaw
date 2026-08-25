@@ -1,0 +1,31 @@
+name: build
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  integration:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Run Docker-backed integration suites
+        run: bash ./scripts/run-integration-tests.sh
+
+  build:
+    needs: integration
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+
+      - name: Build core binaries
+        run: make build-all

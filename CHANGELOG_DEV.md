@@ -1,5 +1,64 @@
 # Development Changelog
 
+## 2026-08-25 — Self-contained source migration
+
+- PocketClaw now builds entirely from its own repository. The Core source is
+  vendored at `core/src/` (1,372 files, 16 MB) and is the canonical build
+  source. No build script, Makefile target, or Gradle task reads
+  `/home/lordegypt/PocketCLaw/.upstream/picoclaw-core-v0.3.1` any more. That
+  checkout survives as a historical upstream-review reference.
+- The vendored tree was not reconstructed by hand. It was copied from the
+  reviewed working tree and then proved equal to upstream `v0.3.1` plus
+  `core/pocketclaw-core-v0.3.1.patch` plus `pkg/androiddns/`, byte-for-byte.
+  All previously required modifications were verified present: the Android
+  active-network DNS integration and `PICOCLAW_DNS_SERVER`, the provider
+  catalog extensions, the Gemini and OpenCode discovery branches, OpenCode
+  Zen/Go with per-model protocol routing, the generic Responses provider, the
+  opt-in Anthropic Messages bearer header, the MQTT `/pocketclaw` default, the
+  seeded workspace, and the user-facing wording.
+- Added `core/build-android-arm64.sh` as the canonical Core build. It builds
+  both binaries from `core/src` through the root Makefile targets, installs
+  them into `jniLibs`, and prints sizes and hashes.
+- Added `-trimpath` to the four Android arm64 `go build` lines. This fixed a
+  real leak, not a hypothetical one: the previously shipped `libpicoclaw.so`
+  carried 2,501 absolute `/home/lordegypt/...` paths and `libpicoclaw-web.so`
+  carried 1,346, all reachable from the user-facing Logs screen. Both now carry
+  zero, and the build script fails if that regresses.
+- Added `core/verify-no-external-source.sh`, which renames the external
+  checkout out of the way, runs the full Core build, and restores it. It
+  passed: the Core builds with that directory unavailable.
+- Rewrote `core/regen-upstream-patch.sh` and regenerated the provenance patch.
+  Two defects were found and fixed while doing so. The patch was claiming
+  PocketClaw had authored two unmodified upstream files, because upstream's
+  unanchored `onboard` ignore rule kept them out of the baseline commit; and
+  the file list now comes from git, so build outputs under `core/src` cannot
+  leak into the patch. Upstream `v0.3.1` plus the regenerated patch now
+  reproduces `core/src/` exactly — 52 changed files, 13 of them new and
+  PocketClaw-authored.
+- Excluded two upstream paths from the vendored tree: `assets/` (13 MB of
+  README screenshots and marketing GIFs, no build role) and
+  `pkg/seahorse/.omc/` (an upstream developer's tool-state file, committed by
+  accident, which leaks an upstream contributor's home directory path).
+- Anchored upstream's bare `onboard` ignore rule to `/onboard` in
+  `core/src/.gitignore`. Unanchored, it matched at every depth and would have
+  silently dropped the four files under `cmd/picoclaw/internal/onboard/`, two
+  of which carry PocketClaw changes.
+- Moved the 3.3 GB Go build and module caches out of the external checkout to
+  `/home/lordegypt/PocketCLaw/.tooling/go/`, next to the JDK, Flutter, pnpm,
+  and Android SDK. They are toolchain, not source, and they were the second
+  hidden reason that directory was a build prerequisite. Nothing was deleted.
+- `core/README.md` is rewritten as the authoritative Core guide: source
+  location, upstream origin, the modification list, build procedure and exact
+  release flags, jniLibs packaging, hash verification, the release guard and
+  its `.cxx` recovery procedure, patch regeneration, and the upstream review
+  model.
+- Validation: Go suites 92 packages ok / 0 failed; frontend `vitest` 28 passed;
+  `pnpm lint` clean; `flutter analyze` no issues; `flutter test` 27 passed. The
+  arm64 release APK built through the canonical Gradle path and the release
+  guard verified `libdartjni.so`, `libpicoclaw.so`, and `libpicoclaw-web.so`.
+- No feature work was started. This is a source-of-truth and reproducibility
+  migration, and the resulting APK needs a physical regression test.
+
 ## 2026-08-25 — Milestone C device PASS, plus the OpenCode completion
 
 - Physical Android device test of

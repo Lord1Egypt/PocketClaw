@@ -1,3 +1,38 @@
+diff --git a/.gitignore b/.gitignore
+index dc112eb..d35a6c7 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -26,7 +26,7 @@ build/
+ .env
+ config/config.json
+ .security.yml
+-onboard
++/onboard
+ 
+ 
+ # Test
+diff --git a/Makefile b/Makefile
+index 3e36c5c..b875b6a 100644
+--- a/Makefile
++++ b/Makefile
+@@ -280,7 +280,7 @@ build-linux-mipsle: generate
+ build-android-arm64: generate
+ 	@echo "Building for android/arm64..."
+ 	@mkdir -p $(BUILD_DIR)
+-	GOOS=android GOARCH=arm64 $(GO) build -tags stdjson -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-android-arm64 ./$(CMD_DIR)
++	GOOS=android GOARCH=arm64 $(GO) build -trimpath -tags stdjson -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-android-arm64 ./$(CMD_DIR)
+ 	@echo "Build complete: $(BUILD_DIR)/$(BINARY_NAME)-android-arm64"
+ 
+ ## build-launcher-android-arm64: Build launcher for Android ARM64
+@@ -297,7 +297,7 @@ build-launcher-android-arm64:
+ build-android-bundle: generate
+ 	@echo "Building core for all Android architectures..."
+ 	@mkdir -p $(BUILD_DIR)
+-	GOOS=android GOARCH=arm64 $(GO) build -tags stdjson -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-android-arm64 ./$(CMD_DIR)
++	GOOS=android GOARCH=arm64 $(GO) build -trimpath -tags stdjson -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-android-arm64 ./$(CMD_DIR)
+ 	@echo "Building launcher for Android arm64..."
+ 	@$(MAKE) build-launcher-android-arm64
+ 	@echo "Staging JNI libs..."
 diff --git a/cmd/picoclaw/dns_noresolv.go b/cmd/picoclaw/dns_noresolv.go
 index ba4ae1f..283782f 100644
 --- a/cmd/picoclaw/dns_noresolv.go
@@ -206,6 +241,129 @@ index 23fc97c..9b48c1c 100644
 +		if isUnseeded(path) {
 +			t.Errorf("isUnseeded(%q) = true, want false", path)
 +		}
++	}
++}
+diff --git a/pkg/androiddns/resolver.go b/pkg/androiddns/resolver.go
+new file mode 100644
+index 0000000..540475d
+--- /dev/null
++++ b/pkg/androiddns/resolver.go
+@@ -0,0 +1,91 @@
++// Package androiddns configures Go's resolver from Android's active network.
++//
++// Android applications do not expose a conventional /etc/resolv.conf to
++// statically linked Go binaries. The Android host passes the DNS servers from
++// ConnectivityManager.LinkProperties in PICOCLAW_DNS_SERVER before launching
++// either PicoClaw binary.
++package androiddns
++
++import (
++	"context"
++	"net"
++	"net/http"
++	"os"
++	"strings"
++	"sync"
++	"sync/atomic"
++	"time"
++)
++
++const envServer = "PICOCLAW_DNS_SERVER"
++
++var configureOnce sync.Once
++
++// ConfigureDefaultResolverFromEnvironment installs an Android-provided DNS
++// resolver when PICOCLAW_DNS_SERVER contains one or more semicolon-separated
++// addresses. It deliberately leaves the platform resolver unchanged when the
++// host did not supply DNS information.
++func ConfigureDefaultResolverFromEnvironment() {
++	configureOnce.Do(func() {
++		servers := parseServers(os.Getenv(envServer))
++		if len(servers) == 0 {
++			return
++		}
++
++		var next uint64
++		resolver := &net.Resolver{
++			PreferGo: true,
++			Dial: func(ctx context.Context, _, _ string) (net.Conn, error) {
++				server := servers[atomic.AddUint64(&next, 1)%uint64(len(servers))]
++				dialer := net.Dialer{Timeout: 5 * time.Second}
++				return dialer.DialContext(ctx, "udp", server)
++			},
++		}
++
++		net.DefaultResolver = resolver
++		dialer := &net.Dialer{
++			Timeout:   30 * time.Second,
++			KeepAlive: 30 * time.Second,
++			Resolver:  resolver,
++		}
++		if transport, ok := http.DefaultTransport.(*http.Transport); ok {
++			transport.DialContext = dialer.DialContext
++		}
++	})
++}
++
++func parseServers(raw string) []string {
++	servers := make([]string, 0)
++	seen := make(map[string]struct{})
++	for _, rawServer := range strings.Split(raw, ";") {
++		server, ok := normalizeServer(rawServer)
++		if !ok {
++			continue
++		}
++		if _, exists := seen[server]; exists {
++			continue
++		}
++		seen[server] = struct{}{}
++		servers = append(servers, server)
++	}
++	return servers
++}
++
++func normalizeServer(raw string) (string, bool) {
++	raw = strings.TrimSpace(raw)
++	if raw == "" {
++		return "", false
++	}
++	if host, port, err := net.SplitHostPort(raw); err == nil {
++		if strings.TrimSpace(host) == "" || strings.TrimSpace(port) == "" {
++			return "", false
++		}
++		return net.JoinHostPort(host, port), true
++	}
++
++	host := strings.Trim(raw, "[]")
++	if host == "" || strings.ContainsAny(host, " \t\r\n") {
++		return "", false
++	}
++	return net.JoinHostPort(host, "53"), true
++}
+diff --git a/pkg/androiddns/resolver_test.go b/pkg/androiddns/resolver_test.go
+new file mode 100644
+index 0000000..9afdfaa
+--- /dev/null
++++ b/pkg/androiddns/resolver_test.go
+@@ -0,0 +1,20 @@
++package androiddns
++
++import (
++	"reflect"
++	"testing"
++)
++
++func TestParseServersNormalizesAndroidDNSAddresses(t *testing.T) {
++	got := parseServers(" 192.0.2.53 ; [2001:db8::53]:5353 ; 2001:db8::54 ; 192.0.2.53 ")
++	want := []string{"192.0.2.53:53", "[2001:db8::53]:5353", "[2001:db8::54]:53"}
++	if !reflect.DeepEqual(got, want) {
++		t.Fatalf("parseServers() = %#v, want %#v", got, want)
++	}
++}
++
++func TestParseServersIgnoresBlankAddresses(t *testing.T) {
++	if got := parseServers(" ; \t ; "); len(got) != 0 {
++		t.Fatalf("parseServers() = %#v, want no servers", got)
 +	}
 +}
 diff --git a/pkg/channels/mqtt/mqtt.go b/pkg/channels/mqtt/mqtt.go
@@ -2093,6 +2251,28 @@ index 90a2206..f4cab1e 100644
  		DisplayName:         "Qwen US",
  		IconSlug:            "alibabacloud",
  		Domain:              "alibabacloud.com",
+diff --git a/web/Makefile b/web/Makefile
+index 254c439..c2a09ee 100644
+--- a/web/Makefile
++++ b/web/Makefile
+@@ -150,7 +150,7 @@ ifeq ($(OS),Windows_NT)
+ else
+ 	@mkdir -p $(BUILD_DIR)
+ endif
+-	GOOS=android GOARCH=arm64 $(GO) build -tags stdjson -ldflags "$(LDFLAGS)" -o "$(OUTPUT_ANDROID_ARM64)" ./$(BACKEND_DIR)/
++	GOOS=android GOARCH=arm64 $(GO) build -trimpath -tags stdjson -ldflags "$(LDFLAGS)" -o "$(OUTPUT_ANDROID_ARM64)" ./$(BACKEND_DIR)/
+ 
+ # Build launcher for all Android architectures
+ build-android-bundle: build-frontend
+@@ -159,7 +159,7 @@ ifeq ($(OS),Windows_NT)
+ else
+ 	@mkdir -p $(BUILD_DIR)
+ endif
+-	GOOS=android GOARCH=arm64 $(GO) build -tags stdjson -ldflags "$(LDFLAGS)" -o "$(BUILD_DIR)/picoclaw-launcher-android-arm64" ./$(BACKEND_DIR)/
++	GOOS=android GOARCH=arm64 $(GO) build -trimpath -tags stdjson -ldflags "$(LDFLAGS)" -o "$(BUILD_DIR)/picoclaw-launcher-android-arm64" ./$(BACKEND_DIR)/
+ 	@echo "All Android launcher builds complete"
+ 
+ build-frontend:
 diff --git a/web/backend/api/models.go b/web/backend/api/models.go
 index 941c95e..c6285db 100644
 --- a/web/backend/api/models.go

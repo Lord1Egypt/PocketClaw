@@ -139,6 +139,24 @@ Next review must begin AFTER:
 2cf030d2fd3b871d7ec17e3be34c24688aac76da (Core)
 d689c94c1b67f625f70ec4111a9aa3f01be9cbb3 (FUI)
 
+## Upstream is an update source, not a build dependency
+
+Since 2026-08-25 the Core source is vendored into this repository at
+`core/src/`, which is the canonical build source. Upstream is fetched only to
+review it, never to build from. Concretely:
+
+- No build script, Makefile target, or Gradle task reads a checkout outside
+  this repository. `core/verify-no-external-source.sh` proves it by hiding the
+  historical reference checkout and rebuilding.
+- The app never downloads Core source or binaries at runtime. The APK ships the
+  approved binaries, and updates are deliberate PocketClaw releases.
+- Adapting an upstream change means editing `core/src/` and regenerating
+  `core/pocketclaw-core-v0.3.1.patch`, not re-pointing a build at an upstream
+  tree.
+
+This does not restrict upstream review in any way — the checkpoint above is
+still what bounds it.
+
 ## Review Workflow
 
 When PocketClaw is asked "check what is new in PicoClaw", the workflow is
@@ -148,8 +166,10 @@ fixed:
 2. Fetch current upstream.
 3. Compare **only** changes after that checkpoint.
 4. Classify the useful changes.
-5. Selectively adapt them into PocketClaw.
-6. Update the Checkpoint section and append a new Review entry.
+5. Selectively adapt them into PocketClaw's repository-local Core (`core/src/`).
+6. Test, build, and physically verify.
+7. Regenerate `core/pocketclaw-core-v0.3.1.patch`, update the Checkpoint
+   section, and append a new Review entry.
 
 Never restart upstream analysis from v0.3.1 once later commits have been
 reviewed. Never overwrite review history.
