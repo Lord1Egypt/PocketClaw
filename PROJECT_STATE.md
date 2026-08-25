@@ -2,8 +2,11 @@
 
 Project: PocketClaw  
 Current Phase: Phase 2 — Independent Product Repository  
-Current Milestone: Phase 2 Milestone B — COMPLETE and physically verified
-Git Branch: `develop` (merge commit `225be3c`, tag `phase2-milestone-b`)
+Current Milestone: Phase 2 Milestone C — Provider Catalog + Easy API-Key Setup.
+Implementation COMPLETE; PHYSICAL-DEVICE VERIFICATION PENDING.
+Git Branch: `feature/provider-catalog`, branched from `develop` @ `14e6991`.
+Last verified milestone: Phase 2 Milestone B (merge `225be3c`, tag
+`phase2-milestone-b`), which remains the fallback reference state.
 Recovery Branch: `recovery/pocketclaw-clean-debrand` @ `f25d38e`, retained intact
 Foundation Bootstrap Commit: `950d4a3`  
 Origin: `https://github.com/Lord1Egypt/PocketClaw.git` (private)  
@@ -11,14 +14,15 @@ Upstream FUI Baseline: `d689c94c1b67f625f70ec4111a9aa3f01be9cbb3`
 PicoClaw Core: `v0.3.1`, source `2cf030d2fd3b871d7ec17e3be34c24688aac76da`,
 rebuilt for PocketClaw — see `core/` and `UPSTREAM_BASELINE.md`  
 Build Status: arm64 release APK built through the canonical Gradle path; the
-release guard verified the arm64 native payload
-APK Status: PHYSICALLY VERIFIED on 2026-08-25 — SHA-256 `ba4f067df9811bd0e4af713343bdba632abbf96a41e3a5b47cf154740f70a4b8`.
-This is the current verified reference artifact; it supersedes `2717f32e9580cd5b5ea5da70b2cb9fcf13f6f14451423addcb5686e0278a1de4`.
-Current Blocker: None. The black-screen incident is RESOLVED and physically
-confirmed.
-Next Exact Action: None. Milestone B is closed, merged to `develop` as
-`225be3c`, and tagged `phase2-milestone-b`. `main` is intentionally untouched.
-Do not begin Milestone C until the user explicitly authorizes it.
+release guard verified the arm64 native payload.
+APK Status: Milestone C candidate `b3dd892bdea86e8dfe7d1c2eb87e89f4e2832b1d1dbe39fc1decf20dabce569b`
+is BUILT and NOT YET physically verified. The verified reference artifact is
+still the Milestone B APK `ba4f067df9811bd0e4af713343bdba632abbf96a41e3a5b47cf154740f70a4b8`.
+Current Blocker: physical-device testing of the Milestone C APK.
+Next Exact Action: install the Milestone C APK and test provider setup with at
+least one real cloud provider and one custom/manual configuration. Do not merge
+`feature/provider-catalog` into `develop` before that passes. `main` is
+intentionally untouched.
 
 ## Completed
 
@@ -67,6 +71,29 @@ Do not begin Milestone C until the user explicitly authorizes it.
   arm64 release APK were built and the release's compiled layer-list was
   inspected to confirm the first item has a drawable reference.
 
+- Milestone C: audited the provider architecture end to end and recorded it in
+  `docs/PROVIDER_ARCHITECTURE.md`. Established that all AI provider
+  configuration lives in the Core web console, not in Flutter, and that the
+  provider catalog is already backend-owned by `pkg/providers`.
+- Milestone C: extended the backend-owned catalog with `category` and
+  `documentation_url`, added the xAI, Together AI, Fireworks AI, and
+  Custom OpenAI-Compatible presets, and registered all four in the protocol
+  switch so they actually dispatch at runtime.
+- Milestone C: enabled Gemini model discovery with a dedicated fetch branch
+  that uses `X-Goog-Api-Key` for the native base and Bearer for the
+  OpenAI-compatible base, and broadened fetch error classification to cover
+  rate limiting, provider outage, and a missing listing endpoint.
+- Milestone C: replaced the Add Model form with a two-step provider-first flow
+  — choose provider, paste API key, fetch or type a model, save — deriving the
+  model alias automatically and moving base URL, alias, and optional keys into
+  Advanced. Local and custom providers keep a visible base URL.
+- Milestone C: removed runtime logo fetching from `cdn.simpleicons.org` and
+  Google's favicon service; provider marks are now rendered locally.
+- Milestone C: added 22 frontend tests (new vitest runner), 8 Go catalog tests,
+  and 5 Go model-discovery tests. `flutter analyze` clean, 27 Flutter tests,
+  Go suites for providers/config/api/androiddns/mqtt/onboard/commands/agent all
+  pass, and the frontend type-checks and lints clean.
+
 ## Constraints
 
 - Do not modify the Phase 1 workspace or its verified APK.
@@ -74,8 +101,11 @@ Do not begin Milestone C until the user explicitly authorizes it.
 - Preserve PicoClaw Core protocol/binary/environment identifiers and the
   compatible `Downloads/picoclaw` workspace path while product identity changes.
 - Do not commit credentials, signing material, generated APKs, or caches.
-- Do not merge Milestone B to `develop` before the user's physical-device
-  approval, and do not begin Milestone C features.
+- Do not merge `feature/provider-catalog` to `develop` before the user's
+  physical-device approval, and do not touch `main`.
+- Do not start Telegram QR/deep-link onboarding: it is the next milestone.
+- Do not enable obfuscation or anti-reverse-engineering during active feature
+  development; release hardening is a later pre-release milestone.
 
 ## Independent Foundation APK
 
@@ -182,3 +212,41 @@ canonical release path. Do not release a universal `flutter build apk --release`
   PASS, provider/model flow PASS, no abnormal slowdown.
 - This is the current verified reference artifact. Compare any future
   regression against it before forming new hypotheses.
+
+## Milestone C Provider Catalog APK — BUILT, PHYSICAL TEST PENDING
+
+- Status: NOT verified. Do not treat this as a reference artifact until a
+  physical Android device passes. The Milestone B APK
+  `ba4f067d...70f70a4b8` remains the last verified reference.
+- Path: `build/app/outputs/apk/release/app-release.apk` (ignored; not committed)
+- Built: 2026-08-25 with the canonical command
+  `./gradlew :app:assembleRelease -Ptarget-platform=android-arm64`,
+  `JAVA_HOME=/home/lordegypt/PocketCLaw/.tooling/jdk-17`,
+  `GRADLE_USER_HOME=/home/lordegypt/PocketClaw-App/.tooling/gradle-stage-a-clean`.
+- Size: 34,123,401 bytes
+- SHA-256: `b3dd892bdea86e8dfe7d1c2eb87e89f4e2832b1d1dbe39fc1decf20dabce569b`
+- Package/version: `com.lord1egypt.pocketclaw`, `0.1.3` (version code `3`)
+- Label: PocketClaw; launchable `com.lord1egypt.pocketclaw.MainActivity`
+- ABIs advertised: `arm64-v8a`, `armeabi-v7a`, `x86_64`. Flutter and Core
+  payloads are `arm64-v8a`; the other ABIs carry plugin JNI libs only.
+- Release guard PASS for all three required libraries:
+
+| Packaged library | Size | SHA-256 |
+| --- | --- | --- |
+| `libdartjni.so` | 131,248 | `47dae44db1c6202d164c0bb2ff25cc661023ba2904a6679abad4f3dcf3fcb5cd` |
+| `libpicoclaw.so` | 37,421,409 | `cbe568af0d6e0a1e3e4e48f7ab53fa00300509dc04f5d6ee07d0465e5556468a` |
+| `libpicoclaw-web.so` | 24,772,961 | `86e53457468c6c53f6c8814b4345fcfe1ec7026e3ded388d2ab305c10cb0a4cd` |
+
+- `libdartjni.so` is byte-identical to the Milestone B verified build.
+- Both Core binaries are stripped with 0 debug sections, and
+  `PICOCLAW_DNS_SERVER` is verified present in the rebuilt gateway.
+- Branding invariants hold in the rebuilt launcher: 0 `PicoClaw`, 0 `Sipeed`,
+  31 `PocketClaw`. `google_app_id` is present but empty, which is the expected
+  `cleanupFirebaseResources` outcome; no Firebase credential value ships.
+- What to test on the device: the Add Provider picker opens and lists providers
+  by category; selecting a cloud provider asks only for an API key and a model;
+  Fetch Models succeeds against a real provider; a failed fetch still allows a
+  manually typed model ID; Custom OpenAI-Compatible accepts a base URL, key, and
+  model ID; an existing provider still opens with its stored values intact; and
+  startup, DNS, Core lifecycle, Telegram, Skill Hub, workspace, MQTT, and
+  branding are all unregressed.

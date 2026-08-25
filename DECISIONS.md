@@ -224,3 +224,110 @@
 - Consequence: `phase2-milestone-b` tags the closure point, so any later
   regression can be bisected against a known-good, physically verified state.
   Milestone C stays unstarted until the user authorizes it.
+
+## The provider catalog stays backend-owned; PocketClaw extends it
+
+- Date: 2026-08-25
+- Decision: Milestone C extends `pkg/providers.modelProviderOptionsByName` and
+  the `provider_options` payload rather than creating a PocketClaw-side catalog
+  in the UI or in Flutter.
+- Evidence: the Core already exposes a 42-entry catalog through
+  `ModelProviderOptions()`, and `web/frontend/.../provider-registry.ts` is a
+  pure projection of that payload with no provider URLs of its own.
+- Consequence: there is exactly one place to add or correct a provider. A
+  second catalog in the UI would drift from the one the Core actually dispatches
+  on. The full audit is in `docs/PROVIDER_ARCHITECTURE.md`.
+
+## A provider preset is only real when the protocol switch knows it
+
+- Date: 2026-08-25
+- Decision: every preset added to the catalog is added in the same change to
+  the OpenAI-compatible arm of `CreateProviderFromConfig`, and a Go test asserts
+  that each PocketClaw preset actually constructs a provider.
+- Reason: `CreateProviderFromConfig` ends in `default: unknown protocol %q`. A
+  catalog-only addition looks correct in the UI, saves successfully, and then
+  fails on the first message — the worst possible failure shape for a preset
+  whose entire purpose is to remove guesswork.
+- Consequence: `TestPocketClawPresetsResolveToAProvider` fails the build rather
+  than shipping a preset that cannot run.
+
+## Only presets that can be specified accurately are shipped
+
+- Date: 2026-08-25
+- Decision: xAI, Together AI, and Fireworks AI ship as presets. OpenCode Zen and
+  OpenCode GO do not.
+- Reason: the first three are Bearer-auth OpenAI-shaped APIs whose base URLs are
+  well established. For the two OpenCode entries, the base URL, authentication
+  header, and model-listing endpoint could not be established from the pinned
+  Core or anything else in this workspace.
+- Consequence: a guessed base URL would produce a preset that fails with a
+  confusing error, which is worse for the user than not offering it. Both remain
+  configurable today through Custom OpenAI-Compatible, and can be promoted to
+  presets once their configuration is verified.
+
+## Custom OpenAI-Compatible has no default base URL
+
+- Date: 2026-08-25
+- Decision: the `custom-openai` catalog entry deliberately ships with an empty
+  `DefaultAPIBase`, and its base URL is a required field in the normal flow.
+- Reason: falling back to a default would silently point a user's "custom"
+  endpoint at OpenAI and produce an authentication error that describes the
+  wrong service.
+- Consequence: an empty base surfaces as an explicit configuration error. This
+  is the supported path for self-hosted, VPS, local gateway, and unlisted
+  OpenAI-compatible providers, and it is why the previous workaround — provider
+  `openai` plus a custom `api_base` — is no longer the only option. Existing
+  entries configured that older way keep working untouched.
+
+## Gemini discovery needs its own fetch branch, not a flag
+
+- Date: 2026-08-25
+- Decision: `gemini` gains `SupportsFetch`, together with a dedicated branch in
+  `fetchUpstreamModels`.
+- Evidence: the shared fetch path sends `Authorization: Bearer`, but the Gemini
+  provider authenticates with `X-Goog-Api-Key`
+  (`pkg/providers/httpapi/gemini_provider.go`), and Google's native listing
+  returns `{"models":[{"name":"models/<id>"}]}` rather than the OpenAI shape.
+- Consequence: the branch keys off the base URL. A base ending in `/openai` is
+  treated as Google's OpenAI-compatibility surface and uses Bearer with the
+  standard response shape; anything else uses `X-Goog-Api-Key` and strips the
+  `models/` prefix. URL construction stays base-relative, so a custom Gemini
+  proxy path keeps working. Merely flipping the flag would have produced 401s.
+
+## The alias is derived, not demanded
+
+- Date: 2026-08-25
+- Decision: `model_name` is no longer a required field in the normal Add
+  Provider flow. When left blank it is derived from the model ID, with a numeric
+  suffix on collision, and it stays editable under Advanced.
+- Reason: the alias is a local label with no protocol meaning, but it was the
+  first required field in the old form — asking the user to invent a name before
+  they had even chosen a model.
+- Consequence: the Core contract is unchanged; `model_name` is still required
+  and unique at the API layer. Only who supplies it has changed.
+
+## Provider marks are rendered locally, never fetched
+
+- Date: 2026-08-25
+- Decision: `provider-icon.tsx` renders a local text mark. The runtime requests
+  to `cdn.simpleicons.org` and `https://www.google.com/s2/favicons` are removed.
+- Reason: on a mobile device those requests disclose to two third parties which
+  AI providers a user has configured, and they leave a broken mark whenever the
+  device is offline or behind a restrictive network.
+- Consequence: no provider logo assets are bundled and no licensing question is
+  raised. Verified absent from the built binary: 0 occurrences of either host.
+
+## Android API key storage is a separate milestone
+
+- Date: 2026-08-25
+- Decision: Milestone C does not change how API keys are stored.
+- Evidence: `SaveConfig` encrypts keys to `enc://` only when
+  `PICOCLAW_KEY_PASSPHRASE` and an SSH key are present, neither of which exists
+  on an Android device, so keys are written as plaintext in the workspace
+  config. Transport and UI exposure are already sound: `GET /api/models` returns
+  `maskAPIKey(...)`, and `PUT` preserves the stored key when `api_key` is empty.
+- Consequence: moving to Android Keystore touches config loading, the secret
+  resolver, and migration of existing config files. Folding that into a UX
+  milestone would put the verified Core config path at risk. It is recorded in
+  `docs/PROVIDER_ARCHITECTURE.md` §6 and deferred to its own controlled
+  milestone. Milestone C must not make the posture worse, and does not.

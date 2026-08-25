@@ -38,7 +38,23 @@ produced from the Core source commit above with the Android DNS integration:
 | `libpicoclaw.so` | `3b849072a7c2858b0d2c0db5cbcfa42b542353e834f4c473399eda571ab16f3d` |
 | `libpicoclaw-web.so` | `252b38c64cbc4dc52277c206ca1b069cc7c3bb97b8a9c276e23f8edc3aaf95e3` |
 
-## Current PocketClaw Core binaries (2026-08-25)
+## Current PocketClaw Core binaries (2026-08-25, Milestone C)
+
+Rebuilt from the same pinned source with the Milestone C provider-catalog
+changes applied (`pkg/providers`, `web/backend/api/models.go`, and the web
+frontend). The Android active-network DNS integration is unchanged and verified
+present in the gateway. Both are `android/arm64`, PIE, and stripped (`-s -w`).
+
+| File | Size | SHA-256 |
+| --- | --- | --- |
+| `libpicoclaw.so` | 37,421,409 | `cbe568af0d6e0a1e3e4e48f7ab53fa00300509dc04f5d6ee07d0465e5556468a` |
+| `libpicoclaw-web.so` | 24,772,961 | `86e53457468c6c53f6c8814b4345fcfe1ec7026e3ded388d2ab305c10cb0a4cd` |
+
+Milestone B binaries, superseded by the above but still the last physically
+verified pair until the Milestone C device test passes:
+`libpicoclaw.so` `eb895f08...40bd9c88`, `libpicoclaw-web.so` `6d282df0...1195a5a3`.
+
+## Milestone B PocketClaw Core binaries (2026-08-25)
 
 Rebuilt from the same pinned source with the PocketClaw user-facing wording
 applied. The Android active-network DNS integration is unchanged and verified

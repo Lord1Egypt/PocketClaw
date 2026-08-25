@@ -2,9 +2,37 @@
 
 ## Current Objective
 
-None. Phase 2 Milestone B is COMPLETE, physically verified, and merged into
-`develop`. Do not begin Milestone C until the user explicitly authorizes it,
-and do not merge to `main` without instruction.
+Physical-device testing of the Phase 2 Milestone C APK. Implementation is
+complete on `feature/provider-catalog`; nothing is merged.
+
+Install `b3dd892bdea86e8dfe7d1c2eb87e89f4e2832b1d1dbe39fc1decf20dabce569b` and
+test provider setup with at least one real cloud provider and one custom or
+manual configuration. Do not merge into `develop` until it passes, and do not
+touch `main`.
+
+## Milestone C state
+
+Branch `feature/provider-catalog`, cut from `develop` @ `14e6991`. The Core
+changes live in the reference checkout and are captured in
+`core/pocketclaw-core-v0.3.1.patch` (40 files); the rebuilt arm64 binaries are
+committed under `android/app/src/main/jniLibs/arm64-v8a/`.
+
+What it delivers: a provider-first Add Provider flow (choose provider → API key
+→ fetch or type a model → save) with the alias derived automatically; the
+backend catalog extended with categories, documentation links, and the xAI,
+Together AI, Fireworks AI, and Custom OpenAI-Compatible presets, all registered
+in the protocol switch; working Gemini model discovery; broader fetch error
+classification; and no runtime logo fetching from third-party hosts.
+
+Read `docs/PROVIDER_ARCHITECTURE.md` before touching provider code. Two facts in
+it will save a wrong turn: AI provider configuration lives in the Core web
+console and not in Flutter, and a provider added to the catalog without a
+matching arm in `CreateProviderFromConfig` saves cleanly and then fails at
+request time with `unknown protocol`.
+
+Deliberately not done: Telegram QR/deep-link onboarding (next milestone), any
+release hardening or obfuscation, and any change to API key storage. The last
+is not an oversight — see the deferral decision in `DECISIONS.md`.
 
 ## Milestone B closure
 
@@ -43,9 +71,12 @@ workspace seeding.
 - Rebuild Core via `make build-launcher-android-arm64`; calling
   `make -C web build-android-arm64` directly drops the root `LDFLAGS` and
   produces an unstripped binary. Use `pnpm lint`, never `pnpm check`.
-- Core binaries in this build: `libpicoclaw.so` 37,421,409
-  `eb895f08...40bd9c88`; `libpicoclaw-web.so` 24,772,961 `6d282df0...1195a5a3`.
-  Both stripped; `PICOCLAW_DNS_SERVER` verified present.
+- Core binaries currently committed (Milestone C, not yet device-verified):
+  `libpicoclaw.so` 37,421,409 `cbe568af...5556468a`;
+  `libpicoclaw-web.so` 24,772,961 `86e53457...0cb0a4cd`.
+  The last device-verified pair is Milestone B's `eb895f08...40bd9c88` and
+  `6d282df0...1195a5a3`. All four are stripped with `PICOCLAW_DNS_SERVER`
+  verified present.
 
 ## Exact State
 
@@ -112,9 +143,13 @@ capture final device logs, so that symptom must be confirmed during retest.
 
 ## Next Exact Steps
 
-1. Nothing is pending. Wait for the user to authorize Milestone C — provider
-   presets and Telegram QR/deep-link onboarding are the recorded candidates in
-   `TASKS.md` under "Later", and neither is started.
-2. Do not merge to `main` without instruction.
-3. Any regression report should start by diffing against the verified artifact
-   above, not by patching a plausible-looking runtime path.
+1. Physically test the Milestone C APK. The provider-specific checks are listed
+   at the end of `PROJECT_STATE.md`, alongside the unchanged regression set:
+   startup, DNS, Core lifecycle, Telegram, Skill Hub, workspace, MQTT, branding.
+2. On PASS: merge `feature/provider-catalog` into `develop` with `--no-ff`,
+   tag the closure point, and record the result in the state documents.
+3. On FAIL: diff against the Milestone B verified artifact
+   `ba4f067d...70f70a4b8` before forming a new hypothesis. The Milestone C
+   change surface is the two Core binaries and nothing in the Flutter layer, so
+   a Flutter-side symptom would point at the build, not at this milestone's code.
+4. Do not merge to `main` without instruction. Do not start Telegram linking.

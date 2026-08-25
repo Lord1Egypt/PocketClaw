@@ -1,6 +1,6 @@
 # PocketClaw Upstream Tracking
 
-Last Review: 2026-08-24
+Last Review: 2026-08-25
 
 ## PicoClaw Core
 
@@ -26,8 +26,11 @@ Last reviewed commit: `d689c94c1b67f625f70ec4111a9aa3f01be9cbb3`
 
 ## Pending Review
 
-None. Product identity and original PocketClaw visual assets are maintained in
-this repository and are not upstream imports.
+None. Product identity, original PocketClaw visual assets, and the Milestone C
+provider-catalog extensions are maintained in this repository and are not
+upstream imports. The provider presets, category metadata, Gemini discovery
+branch, and the provider-first UI are PocketClaw changes carried in
+`core/pocketclaw-core-v0.3.1.patch`, not adopted upstream work.
 
 ## Security Updates
 

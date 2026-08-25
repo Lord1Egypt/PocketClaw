@@ -316,8 +316,634 @@ index 8b500aa..e5a424b 100644
  		},
  	}
  }
+diff --git a/pkg/providers/factory_provider.go b/pkg/providers/factory_provider.go
+index 8a4af9f..d9312c4 100644
+--- a/pkg/providers/factory_provider.go
++++ b/pkg/providers/factory_provider.go
+@@ -203,7 +203,8 @@ func CreateProviderFromConfig(cfg *config.ModelConfig) (LLMProvider, string, err
+ 	case "litellm", "lmstudio", "gpt4free", "openrouter", "groq", "zhipu", "nvidia", "venice",
+ 		"nearai", "ollama", "moonshot", "shengsuanyun", "siliconflow", "deepseek", "cerebras",
+ 		"vivgrid", "volcengine", "vllm", "qwen-portal", "qwen-intl", "qwen-us", "mistral",
+-		"avian", "longcat", "modelscope", "novita", "alibaba-coding", "zai", "mimo":
++		"avian", "longcat", "modelscope", "novita", "alibaba-coding", "zai", "mimo",
++		"xai", "together", "fireworks", "custom-openai":
+ 		// All other OpenAI-compatible HTTP providers
+ 		if cfg.APIKey() == "" && cfg.APIBase == "" && !isEmptyAPIKeyAllowed(protocol) {
+ 			return nil, "", fmt.Errorf("api_key or api_base is required for HTTP-based protocol %q", protocol)
+diff --git a/pkg/providers/pocketclaw_catalog_test.go b/pkg/providers/pocketclaw_catalog_test.go
+new file mode 100644
+index 0000000..4145840
+--- /dev/null
++++ b/pkg/providers/pocketclaw_catalog_test.go
+@@ -0,0 +1,178 @@
++package providers
++
++import (
++	"strings"
++	"testing"
++
++	"github.com/sipeed/picoclaw/pkg/config"
++)
++
++// pocketClawPresets are the provider IDs PocketClaw's simplified "Add Provider"
++// flow depends on. Each must be present in the catalog, creatable, and — this
++// is the part a catalog-only change would silently break — dispatchable by
++// CreateProviderFromConfig.
++var pocketClawPresets = []string{
++	"openai", "anthropic", "gemini", "deepseek", "openrouter",
++	"qwen-portal", "moonshot", "groq", "mistral", "nvidia", "cerebras",
++	"xai", "together", "fireworks",
++	"ollama", "lmstudio", "custom-openai",
++}
++
++func TestPocketClawPresetsAreSupportedAndCreatable(t *testing.T) {
++	for _, id := range pocketClawPresets {
++		if !IsSupportedModelProvider(id) {
++			t.Errorf("provider %q is not in the catalog", id)
++		}
++		if !IsCreatableModelProvider(id) {
++			t.Errorf("provider %q is not creatable", id)
++		}
++	}
++}
++
++// A preset registered in the catalog but missing from the protocol switch in
++// CreateProviderFromConfig fails at request time with "unknown protocol". This
++// test is the guard against shipping that combination.
++func TestPocketClawPresetsResolveToAProvider(t *testing.T) {
++	for _, id := range pocketClawPresets {
++		option, ok := modelProviderOptionForName(id)
++		if !ok {
++			t.Fatalf("provider %q missing from catalog", id)
++		}
++
++		apiBase := option.DefaultAPIBase
++		if apiBase == "" {
++			apiBase = "https://example.invalid/v1"
++		}
++		cfg := &config.ModelConfig{
++			ModelName: "t",
++			Provider:  id,
++			Model:     "test-model",
++			APIBase:   apiBase,
++			APIKeys:   config.SimpleSecureStrings("test-key-not-a-real-secret"),
++		}
++
++		provider, modelID, err := CreateProviderFromConfig(cfg)
++		if err != nil {
++			t.Errorf("CreateProviderFromConfig(%q) error = %v", id, err)
++			continue
++		}
++		if provider == nil {
++			t.Errorf("CreateProviderFromConfig(%q) returned a nil provider", id)
++		}
++		if modelID != "test-model" {
++			t.Errorf("CreateProviderFromConfig(%q) modelID = %q, want %q", id, modelID, "test-model")
++		}
++	}
++}
++
++func TestNewPresetsHaveAccurateMetadata(t *testing.T) {
++	want := map[string]struct {
++		apiBase  string
++		fetch    bool
++		category string
++	}{
++		"xai":           {"https://api.x.ai/v1", true, "cloud"},
++		"together":      {"https://api.together.xyz/v1", true, "cloud"},
++		"fireworks":     {"https://api.fireworks.ai/inference/v1", true, "cloud"},
++		"custom-openai": {"", true, "custom"},
++	}
++
++	for id, expected := range want {
++		option, ok := modelProviderOptionForName(id)
++		if !ok {
++			t.Fatalf("provider %q missing from catalog", id)
++		}
++		if option.DefaultAPIBase != expected.apiBase {
++			t.Errorf("%s DefaultAPIBase = %q, want %q", id, option.DefaultAPIBase, expected.apiBase)
++		}
++		if option.SupportsFetch != expected.fetch {
++			t.Errorf("%s SupportsFetch = %v, want %v", id, option.SupportsFetch, expected.fetch)
++		}
++		if option.Category != expected.category {
++			t.Errorf("%s Category = %q, want %q", id, option.Category, expected.category)
++		}
++	}
++}
++
++// Custom OpenAI-compatible endpoints must never inherit OpenAI's base: an empty
++// api_base has to surface as a configuration error the user can act on.
++func TestCustomOpenAIHasNoDefaultAPIBase(t *testing.T) {
++	if got := DefaultAPIBaseForProtocol("custom-openai"); got != "" {
++		t.Fatalf("DefaultAPIBaseForProtocol(custom-openai) = %q, want empty", got)
++	}
++	if base := ResolveAPIBase(&config.ModelConfig{Provider: "custom-openai", Model: "m"}); base != "" {
++		t.Fatalf("ResolveAPIBase = %q, want empty", base)
++	}
++	custom := "https://inference.example.com/v1"
++	if base := ResolveAPIBase(&config.ModelConfig{
++		Provider: "custom-openai",
++		Model:    "m",
++		APIBase:  custom,
++	}); base != custom {
++		t.Fatalf("ResolveAPIBase = %q, want %q", base, custom)
++	}
++}
++
++func TestGeminiSupportsModelDiscovery(t *testing.T) {
++	if !IsModelProviderFetchable("gemini") {
++		t.Fatal("gemini must support model discovery")
++	}
++}
++
++// Keyless local providers must not be forced to carry an API key.
++func TestLocalProvidersAllowEmptyAPIKey(t *testing.T) {
++	for _, id := range []string{"ollama", "lmstudio", "custom-openai"} {
++		if !IsEmptyAPIKeyAllowedForProtocol(id) {
++			t.Errorf("provider %q must allow an empty API key", id)
++		}
++	}
++	for _, id := range []string{"openai", "anthropic", "gemini", "xai"} {
++		if IsEmptyAPIKeyAllowedForProtocol(id) {
++			t.Errorf("cloud provider %q must require an API key", id)
++		}
++	}
++}
++
++func TestUnknownProviderIsRejected(t *testing.T) {
++	if IsSupportedModelProvider("definitely-not-a-provider") {
++		t.Fatal("unknown provider must not be reported as supported")
++	}
++	if _, _, err := CreateProviderFromConfig(&config.ModelConfig{
++		ModelName: "t",
++		Provider:  "definitely-not-a-provider",
++		Model:     "m",
++		APIKeys:   config.SimpleSecureStrings("k"),
++	}); err == nil || !strings.Contains(err.Error(), "unknown protocol") {
++		t.Fatalf("error = %v, want an unknown protocol error", err)
++	}
++}
++
++// Every catalog entry must carry a category so the picker can group it.
++func TestEveryCatalogEntryHasACategory(t *testing.T) {
++	allowed := map[string]bool{
++		"cloud": true, "local": true, "managed": true, "custom": true, "speech": true,
++	}
++	for _, option := range ModelProviderOptions() {
++		if !allowed[option.Category] {
++			t.Errorf("provider %q has category %q, which is not a known group", option.ID, option.Category)
++		}
++	}
++}
++
++// Aliases must stay unambiguous, otherwise NormalizeProvider silently routes a
++// user's configuration to the wrong provider.
++func TestNewAliasesResolveToTheirProvider(t *testing.T) {
++	cases := map[string]string{
++		"grok":              "xai",
++		"x-ai":              "xai",
++		"togetherai":        "together",
++		"fireworks-ai":      "fireworks",
++		"custom":            "custom-openai",
++		"openai-compatible": "custom-openai",
++	}
++	for alias, want := range cases {
++		if got := NormalizeProvider(alias); got != want {
++			t.Errorf("NormalizeProvider(%q) = %q, want %q", alias, got, want)
++		}
++	}
++}
+diff --git a/pkg/providers/provider_metadata.go b/pkg/providers/provider_metadata.go
+index 90a2206..2d57516 100644
+--- a/pkg/providers/provider_metadata.go
++++ b/pkg/providers/provider_metadata.go
+@@ -7,8 +7,10 @@ import "strings"
+ type ModelProviderOption struct {
+ 	ID                  string   `json:"id"`
+ 	DisplayName         string   `json:"display_name,omitempty"`
++	Category            string   `json:"category,omitempty"`
+ 	IconSlug            string   `json:"icon_slug,omitempty"`
+ 	Domain              string   `json:"domain,omitempty"`
++	DocumentationURL    string   `json:"documentation_url,omitempty"`
+ 	DefaultAPIBase      string   `json:"default_api_base"`
+ 	EmptyAPIKeyAllowed  bool     `json:"empty_api_key_allowed"`
+ 	CreateAllowed       bool     `json:"create_allowed"`
+@@ -27,6 +29,8 @@ type ModelProviderOption struct {
+ var modelProviderOptionsByName = map[string]ModelProviderOption{
+ 	"openai": {
+ 		ID:                  "openai",
++		Category:            "cloud",
++		DocumentationURL:    "https://platform.openai.com/api-keys",
+ 		DisplayName:         "OpenAI",
+ 		IconSlug:            "openai",
+ 		Domain:              "openai.com",
+@@ -41,6 +45,8 @@ var modelProviderOptionsByName = map[string]ModelProviderOption{
+ 	},
+ 	"anthropic": {
+ 		ID:                  "anthropic",
++		Category:            "cloud",
++		DocumentationURL:    "https://console.anthropic.com/settings/keys",
+ 		DisplayName:         "Anthropic",
+ 		IconSlug:            "anthropic",
+ 		Domain:              "anthropic.com",
+@@ -54,6 +60,8 @@ var modelProviderOptionsByName = map[string]ModelProviderOption{
+ 	},
+ 	"anthropic-messages": {
+ 		ID:                  "anthropic-messages",
++		Category:            "cloud",
++		DocumentationURL:    "https://console.anthropic.com/settings/keys",
+ 		DisplayName:         "Anthropic Messages",
+ 		IconSlug:            "anthropic",
+ 		Domain:              "anthropic.com",
+@@ -66,12 +74,15 @@ var modelProviderOptionsByName = map[string]ModelProviderOption{
+ 	},
+ 	"gemini": {
+ 		ID:                  "gemini",
++		Category:            "cloud",
++		DocumentationURL:    "https://aistudio.google.com/apikey",
+ 		DisplayName:         "Google Gemini",
+ 		IconSlug:            "googlegemini",
+ 		Domain:              "gemini.google.com",
+ 		DefaultAPIBase:      "https://generativelanguage.googleapis.com/v1beta",
+ 		CreateAllowed:       true,
+ 		DefaultModelAllowed: true,
++		SupportsFetch:       true,
+ 		Priority:            90,
+ 		CommonModels:        []string{"gemini-3.1-pro-preview", "gemini-3-flash-preview", "gemini-3.1-flash-lite"},
+ 		Aliases:             []string{"google"},
+@@ -79,6 +90,8 @@ var modelProviderOptionsByName = map[string]ModelProviderOption{
+ 	},
+ 	"deepseek": {
+ 		ID:                  "deepseek",
++		Category:            "cloud",
++		DocumentationURL:    "https://platform.deepseek.com/api_keys",
+ 		DisplayName:         "DeepSeek",
+ 		IconSlug:            "deepseek",
+ 		Domain:              "deepseek.com",
+@@ -92,6 +105,8 @@ var modelProviderOptionsByName = map[string]ModelProviderOption{
+ 	},
+ 	"openrouter": {
+ 		ID:                  "openrouter",
++		Category:            "cloud",
++		DocumentationURL:    "https://openrouter.ai/keys",
+ 		DisplayName:         "OpenRouter",
+ 		IconSlug:            "openrouter",
+ 		Domain:              "openrouter.ai",
+@@ -110,6 +125,7 @@ var modelProviderOptionsByName = map[string]ModelProviderOption{
+ 	},
+ 	"qwen-portal": {
+ 		ID:                  "qwen-portal",
++		Category:            "cloud",
+ 		DisplayName:         "Qwen",
+ 		IconSlug:            "alibabacloud",
+ 		Domain:              "qwenlm.ai",
+@@ -124,6 +140,7 @@ var modelProviderOptionsByName = map[string]ModelProviderOption{
+ 	},
+ 	"qwen-intl": {
+ 		ID:                  "qwen-intl",
++		Category:            "cloud",
+ 		DisplayName:         "Qwen International",
+ 		IconSlug:            "alibabacloud",
+ 		Domain:              "alibabacloud.com",
+@@ -138,6 +155,7 @@ var modelProviderOptionsByName = map[string]ModelProviderOption{
+ 	},
+ 	"moonshot": {
+ 		ID:                  "moonshot",
++		Category:            "cloud",
+ 		DisplayName:         "Moonshot",
+ 		Domain:              "moonshot.ai",
+ 		DefaultAPIBase:      "https://api.moonshot.cn/v1",
+@@ -155,6 +173,7 @@ var modelProviderOptionsByName = map[string]ModelProviderOption{
+ 	},
+ 	"volcengine": {
+ 		ID:                  "volcengine",
++		Category:            "cloud",
+ 		DisplayName:         "Volcengine",
+ 		IconSlug:            "bytedance",
+ 		Domain:              "volcengine.com",
+@@ -172,6 +191,7 @@ var modelProviderOptionsByName = map[string]ModelProviderOption{
+ 	},
+ 	"zhipu": {
+ 		ID:                  "zhipu",
++		Category:            "cloud",
+ 		DisplayName:         "Zhipu AI",
+ 		IconSlug:            "zhipu",
+ 		Domain:              "zhipuai.cn",
+@@ -186,6 +206,8 @@ var modelProviderOptionsByName = map[string]ModelProviderOption{
+ 	},
+ 	"groq": {
+ 		ID:                  "groq",
++		Category:            "cloud",
++		DocumentationURL:    "https://console.groq.com/keys",
+ 		DisplayName:         "Groq",
+ 		IconSlug:            "groq",
+ 		Domain:              "groq.com",
+@@ -204,6 +226,8 @@ var modelProviderOptionsByName = map[string]ModelProviderOption{
+ 	},
+ 	"mistral": {
+ 		ID:                  "mistral",
++		Category:            "cloud",
++		DocumentationURL:    "https://console.mistral.ai/api-keys",
+ 		DisplayName:         "Mistral AI",
+ 		IconSlug:            "mistralai",
+ 		Domain:              "mistral.ai",
+@@ -222,6 +246,7 @@ var modelProviderOptionsByName = map[string]ModelProviderOption{
+ 	},
+ 	"nvidia": {
+ 		ID:                  "nvidia",
++		Category:            "cloud",
+ 		DisplayName:         "NVIDIA",
+ 		IconSlug:            "nvidia",
+ 		Domain:              "nvidia.com",
+@@ -240,6 +265,7 @@ var modelProviderOptionsByName = map[string]ModelProviderOption{
+ 	},
+ 	"cerebras": {
+ 		ID:                  "cerebras",
++		Category:            "cloud",
+ 		DisplayName:         "Cerebras",
+ 		IconSlug:            "cerebras",
+ 		Domain:              "cerebras.ai",
+@@ -253,6 +279,7 @@ var modelProviderOptionsByName = map[string]ModelProviderOption{
+ 	},
+ 	"azure": {
+ 		ID:                  "azure",
++		Category:            "managed",
+ 		DisplayName:         "Azure OpenAI",
+ 		IconSlug:            "microsoftazure",
+ 		Domain:              "azure.com",
+@@ -264,6 +291,7 @@ var modelProviderOptionsByName = map[string]ModelProviderOption{
+ 	},
+ 	"bedrock": {
+ 		ID:                  "bedrock",
++		Category:            "managed",
+ 		DisplayName:         "AWS Bedrock",
+ 		IconSlug:            "amazonwebservices",
+ 		Domain:              "aws.amazon.com",
+@@ -274,6 +302,7 @@ var modelProviderOptionsByName = map[string]ModelProviderOption{
+ 	},
+ 	"github-copilot": {
+ 		ID:                  "github-copilot",
++		Category:            "managed",
+ 		DisplayName:         "GitHub Copilot",
+ 		IconSlug:            "githubcopilot",
+ 		Domain:              "github.com",
+@@ -287,6 +316,7 @@ var modelProviderOptionsByName = map[string]ModelProviderOption{
+ 	},
+ 	"antigravity": {
+ 		ID:                  "antigravity",
++		Category:            "managed",
+ 		DisplayName:         "Google Code Assist",
+ 		Domain:              "antigravity.google",
+ 		EmptyAPIKeyAllowed:  true,
+@@ -299,6 +329,7 @@ var modelProviderOptionsByName = map[string]ModelProviderOption{
+ 	},
+ 	"claude-cli": {
+ 		ID:                  "claude-cli",
++		Category:            "managed",
+ 		DisplayName:         "Claude CLI",
+ 		IconSlug:            "anthropic",
+ 		Domain:              "anthropic.com",
+@@ -311,6 +342,7 @@ var modelProviderOptionsByName = map[string]ModelProviderOption{
+ 	},
+ 	"codex-cli": {
+ 		ID:                  "codex-cli",
++		Category:            "managed",
+ 		DisplayName:         "Codex CLI",
+ 		IconSlug:            "openai",
+ 		Domain:              "openai.com",
+@@ -323,6 +355,7 @@ var modelProviderOptionsByName = map[string]ModelProviderOption{
+ 	},
+ 	"ollama": {
+ 		ID:                  "ollama",
++		Category:            "local",
+ 		DisplayName:         "Ollama",
+ 		IconSlug:            "ollama",
+ 		Domain:              "ollama.com",
+@@ -337,6 +370,7 @@ var modelProviderOptionsByName = map[string]ModelProviderOption{
+ 	},
+ 	"vllm": {
+ 		ID:                  "vllm",
++		Category:            "local",
+ 		DisplayName:         "VLLM",
+ 		Domain:              "vllm.ai",
+ 		DefaultAPIBase:      "http://localhost:8000/v1",
+@@ -350,6 +384,7 @@ var modelProviderOptionsByName = map[string]ModelProviderOption{
+ 	},
+ 	"lmstudio": {
+ 		ID:                  "lmstudio",
++		Category:            "local",
+ 		DisplayName:         "LM Studio",
+ 		Domain:              "lmstudio.ai",
+ 		DefaultAPIBase:      "http://localhost:1234/v1",
+@@ -363,6 +398,7 @@ var modelProviderOptionsByName = map[string]ModelProviderOption{
+ 	},
+ 	"gpt4free": {
+ 		ID:                  "gpt4free",
++		Category:            "local",
+ 		DisplayName:         "GPT4Free",
+ 		Domain:              "g4f.dev",
+ 		DefaultAPIBase:      "http://localhost:1337/v1",
+@@ -377,6 +413,7 @@ var modelProviderOptionsByName = map[string]ModelProviderOption{
+ 	},
+ 	"elevenlabs": {
+ 		ID:                  "elevenlabs",
++		Category:            "speech",
+ 		DisplayName:         "ElevenLabs ASR",
+ 		IconSlug:            "elevenlabs",
+ 		Domain:              "elevenlabs.io",
+@@ -388,6 +425,7 @@ var modelProviderOptionsByName = map[string]ModelProviderOption{
+ 	},
+ 	"venice": {
+ 		ID:                  "venice",
++		Category:            "cloud",
+ 		DisplayName:         "Venice AI",
+ 		IconSlug:            "venice",
+ 		Domain:              "venice.ai",
+@@ -400,6 +438,7 @@ var modelProviderOptionsByName = map[string]ModelProviderOption{
+ 	},
+ 	"nearai": {
+ 		ID:                  "nearai",
++		Category:            "cloud",
+ 		DisplayName:         "NEAR AI Cloud",
+ 		Domain:              "near.ai",
+ 		DefaultAPIBase:      "https://cloud-api.near.ai/v1",
+@@ -418,6 +457,7 @@ var modelProviderOptionsByName = map[string]ModelProviderOption{
+ 	},
+ 	"shengsuanyun": {
+ 		ID:                  "shengsuanyun",
++		Category:            "cloud",
+ 		DisplayName:         "ShengsuanYun",
+ 		Domain:              "shengsuanyun.com",
+ 		DefaultAPIBase:      "https://router.shengsuanyun.com/api/v1",
+@@ -429,6 +469,7 @@ var modelProviderOptionsByName = map[string]ModelProviderOption{
+ 	},
+ 	"siliconflow": {
+ 		ID:                  "siliconflow",
++		Category:            "cloud",
+ 		DisplayName:         "SiliconFlow",
+ 		Domain:              "siliconflow.cn",
+ 		DefaultAPIBase:      "https://api.siliconflow.cn/v1",
+@@ -440,6 +481,7 @@ var modelProviderOptionsByName = map[string]ModelProviderOption{
+ 	},
+ 	"vivgrid": {
+ 		ID:                  "vivgrid",
++		Category:            "cloud",
+ 		DisplayName:         "Vivgrid",
+ 		Domain:              "vivgrid.com",
+ 		DefaultAPIBase:      "https://api.vivgrid.com/v1",
+@@ -451,6 +493,7 @@ var modelProviderOptionsByName = map[string]ModelProviderOption{
+ 	},
+ 	"minimax": {
+ 		ID:                  "minimax",
++		Category:            "cloud",
+ 		DisplayName:         "MiniMax",
+ 		Domain:              "minimaxi.com",
+ 		DefaultAPIBase:      "https://api.minimaxi.com/v1",
+@@ -462,6 +505,7 @@ var modelProviderOptionsByName = map[string]ModelProviderOption{
+ 	},
+ 	"longcat": {
+ 		ID:                  "longcat",
++		Category:            "cloud",
+ 		DisplayName:         "LongCat",
+ 		Domain:              "longcat.chat",
+ 		DefaultAPIBase:      "https://api.longcat.chat/openai",
+@@ -473,6 +517,7 @@ var modelProviderOptionsByName = map[string]ModelProviderOption{
+ 	},
+ 	"modelscope": {
+ 		ID:                  "modelscope",
++		Category:            "cloud",
+ 		DisplayName:         "ModelScope",
+ 		Domain:              "modelscope.cn",
+ 		DefaultAPIBase:      "https://api-inference.modelscope.cn/v1",
+@@ -484,6 +529,7 @@ var modelProviderOptionsByName = map[string]ModelProviderOption{
+ 	},
+ 	"mimo": {
+ 		ID:                  "mimo",
++		Category:            "cloud",
+ 		DisplayName:         "Xiaomi MiMo",
+ 		IconSlug:            "xiaomi",
+ 		Domain:              "xiaomi.com",
+@@ -497,6 +543,7 @@ var modelProviderOptionsByName = map[string]ModelProviderOption{
+ 	},
+ 	"avian": {
+ 		ID:                  "avian",
++		Category:            "cloud",
+ 		DisplayName:         "Avian",
+ 		Domain:              "avian.io",
+ 		DefaultAPIBase:      "https://api.avian.io/v1",
+@@ -508,6 +555,7 @@ var modelProviderOptionsByName = map[string]ModelProviderOption{
+ 	},
+ 	"zai": {
+ 		ID:                  "zai",
++		Category:            "cloud",
+ 		DisplayName:         "Z.ai",
+ 		Domain:              "z.ai",
+ 		DefaultAPIBase:      "https://api.z.ai/api/coding/paas/v4",
+@@ -521,6 +569,7 @@ var modelProviderOptionsByName = map[string]ModelProviderOption{
+ 	},
+ 	"alibaba-coding": {
+ 		ID:                  "alibaba-coding",
++		Category:            "cloud",
+ 		DisplayName:         "Alibaba Coding Plan",
+ 		IconSlug:            "alibabacloud",
+ 		Domain:              "alibabacloud.com",
+@@ -534,6 +583,7 @@ var modelProviderOptionsByName = map[string]ModelProviderOption{
+ 	},
+ 	"alibaba-coding-anthropic": {
+ 		ID:                  "alibaba-coding-anthropic",
++		Category:            "cloud",
+ 		DisplayName:         "Alibaba Coding Plan (Anthropic)",
+ 		IconSlug:            "alibabacloud",
+ 		Domain:              "alibabacloud.com",
+@@ -547,6 +597,7 @@ var modelProviderOptionsByName = map[string]ModelProviderOption{
+ 	},
+ 	"novita": {
+ 		ID:                  "novita",
++		Category:            "cloud",
+ 		DisplayName:         "Novita AI",
+ 		Domain:              "novita.ai",
+ 		DefaultAPIBase:      "https://api.novita.ai/openai",
+@@ -558,6 +609,7 @@ var modelProviderOptionsByName = map[string]ModelProviderOption{
+ 	},
+ 	"litellm": {
+ 		ID:                  "litellm",
++		Category:            "local",
+ 		DisplayName:         "LiteLLM",
+ 		Domain:              "litellm.ai",
+ 		DefaultAPIBase:      "http://localhost:4000/v1",
+@@ -567,8 +619,69 @@ var modelProviderOptionsByName = map[string]ModelProviderOption{
+ 		Priority:            35,
+ 		httpAPI:             true,
+ 	},
++	"xai": {
++		ID:                  "xai",
++		Category:            "cloud",
++		DocumentationURL:    "https://console.x.ai",
++		DisplayName:         "xAI",
++		IconSlug:            "x",
++		Domain:              "x.ai",
++		DefaultAPIBase:      "https://api.x.ai/v1",
++		CreateAllowed:       true,
++		DefaultModelAllowed: true,
++		SupportsFetch:       true,
++		Priority:            67,
++		CommonModels:        []string{"grok-4", "grok-4-fast", "grok-code-fast-1"},
++		Aliases:             []string{"grok", "x-ai"},
++		httpAPI:             true,
++	},
++	"together": {
++		ID:                  "together",
++		Category:            "cloud",
++		DocumentationURL:    "https://api.together.xyz/settings/api-keys",
++		DisplayName:         "Together AI",
++		Domain:              "together.ai",
++		DefaultAPIBase:      "https://api.together.xyz/v1",
++		CreateAllowed:       true,
++		DefaultModelAllowed: true,
++		SupportsFetch:       true,
++		Priority:            66,
++		Aliases:             []string{"togetherai", "together-ai"},
++		httpAPI:             true,
++	},
++	"fireworks": {
++		ID:                  "fireworks",
++		Category:            "cloud",
++		DocumentationURL:    "https://app.fireworks.ai/settings/users/api-keys",
++		DisplayName:         "Fireworks AI",
++		Domain:              "fireworks.ai",
++		DefaultAPIBase:      "https://api.fireworks.ai/inference/v1",
++		CreateAllowed:       true,
++		DefaultModelAllowed: true,
++		SupportsFetch:       true,
++		Priority:            65.5,
++		Aliases:             []string{"fireworksai", "fireworks-ai"},
++		httpAPI:             true,
++	},
++	// custom-openai is the first-class escape hatch for self-hosted, VPS, and
++	// unlisted OpenAI-compatible endpoints. It deliberately has no
++	// DefaultAPIBase: the user must supply one, and an empty base is reported
++	// as a configuration error rather than silently defaulting to OpenAI.
++	"custom-openai": {
++		ID:                  "custom-openai",
++		Category:            "custom",
++		DisplayName:         "Custom OpenAI-Compatible",
++		CreateAllowed:       true,
++		DefaultModelAllowed: true,
++		SupportsFetch:       true,
++		EmptyAPIKeyAllowed:  true,
++		Priority:            30,
++		Aliases:             []string{"custom", "custom_openai", "openai-compatible"},
++		httpAPI:             true,
++	},
+ 	"qwen-us": {
+ 		ID:                  "qwen-us",
++		Category:            "cloud",
+ 		DisplayName:         "Qwen US",
+ 		IconSlug:            "alibabacloud",
+ 		Domain:              "alibabacloud.com",
 diff --git a/web/backend/api/models.go b/web/backend/api/models.go
-index 941c95e..79b3609 100644
+index 941c95e..c6285db 100644
 --- a/web/backend/api/models.go
 +++ b/web/backend/api/models.go
 @@ -3,13 +3,16 @@ package api
@@ -337,7 +963,24 @@ index 941c95e..79b3609 100644
  	"time"
  
  	"github.com/sipeed/picoclaw/pkg/audio/asr"
-@@ -768,12 +771,12 @@ func fetchNearAIModels(ctx context.Context, fetchURL, apiKey string) ([]upstream
+@@ -750,6 +753,16 @@ func fetchUpstreamModels(ctx context.Context, provider, apiBase, apiKey string)
+ 	case "nearai":
+ 		fetchURL = apiBase + "/model/list"
+ 		return fetchNearAIModels(ctx, fetchURL, apiKey)
++	case "gemini":
++		// Google exposes two shapes under the same host. An OpenAI-compatible
++		// base (".../v1beta/openai") speaks the standard listing with Bearer
++		// auth; the native base (".../v1beta") needs the X-Goog-Api-Key header
++		// and returns {"models":[{"name":"models/<id>"}]}.
++		fetchURL = apiBase + "/models"
++		if isGeminiOpenAICompatibleBase(apiBase) {
++			return fetchOpenAICompatibleModels(ctx, fetchURL, apiKey)
++		}
++		return fetchGeminiNativeModels(ctx, fetchURL, apiKey)
+ 	default:
+ 		// OpenAI-compatible: /v1/models
+ 		fetchURL = apiBase + "/models"
+@@ -768,12 +781,12 @@ func fetchNearAIModels(ctx context.Context, fetchURL, apiKey string) ([]upstream
  
  	resp, err := http.DefaultClient.Do(req)
  	if err != nil {
@@ -352,7 +995,7 @@ index 941c95e..79b3609 100644
  	}
  
  	var parsed struct {
-@@ -815,12 +818,12 @@ func fetchOpenAICompatibleModels(ctx context.Context, fetchURL, apiKey string) (
+@@ -815,12 +828,12 @@ func fetchOpenAICompatibleModels(ctx context.Context, fetchURL, apiKey string) (
  
  	resp, err := http.DefaultClient.Do(req)
  	if err != nil {
@@ -367,10 +1010,58 @@ index 941c95e..79b3609 100644
  	}
  
  	body, err := io.ReadAll(resp.Body)
-@@ -869,6 +872,34 @@ func fetchOpenAICompatibleModels(ctx context.Context, fetchURL, apiKey string) (
+@@ -869,6 +882,92 @@ func fetchOpenAICompatibleModels(ctx context.Context, fetchURL, apiKey string) (
  	return nil, fmt.Errorf("decode response: unrecognized shape: %s", strings.TrimSpace(string(preview)))
  }
  
++// isGeminiOpenAICompatibleBase reports whether a Gemini API base points at
++// Google's OpenAI-compatibility surface rather than the native v1beta API.
++func isGeminiOpenAICompatibleBase(apiBase string) bool {
++	return strings.HasSuffix(strings.TrimRight(strings.TrimSpace(apiBase), "/"), "/openai")
++}
++
++// fetchGeminiNativeModels lists models from Google's native generativelanguage
++// API, which authenticates with X-Goog-Api-Key and returns fully qualified
++// resource names such as "models/gemini-3-flash-preview".
++func fetchGeminiNativeModels(ctx context.Context, fetchURL, apiKey string) ([]upstreamModel, error) {
++	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fetchURL, nil)
++	if err != nil {
++		return nil, err
++	}
++	if apiKey = strings.TrimSpace(apiKey); apiKey != "" {
++		req.Header.Set("X-Goog-Api-Key", apiKey)
++	}
++
++	resp, err := http.DefaultClient.Do(req)
++	if err != nil {
++		return nil, describeModelFetchNetworkError(fetchURL, err)
++	}
++	defer resp.Body.Close()
++
++	if resp.StatusCode != http.StatusOK {
++		return nil, describeModelFetchHTTPError("Gemini", resp.StatusCode)
++	}
++
++	var parsed struct {
++		Models []struct {
++			Name string `json:"name"`
++		} `json:"models"`
++	}
++	if err := json.NewDecoder(resp.Body).Decode(&parsed); err != nil {
++		return nil, fmt.Errorf("decode response: %w", err)
++	}
++
++	models := make([]upstreamModel, 0, len(parsed.Models))
++	for _, m := range parsed.Models {
++		id := strings.TrimPrefix(strings.TrimSpace(m.Name), "models/")
++		if id == "" {
++			continue
++		}
++		models = append(models, upstreamModel{ID: id})
++	}
++	return models, nil
++}
++
 +func describeModelFetchNetworkError(fetchURL string, err error) error {
 +	host := "provider"
 +	if parsed, parseErr := url.Parse(fetchURL); parseErr == nil && parsed.Hostname() != "" {
@@ -393,8 +1084,18 @@ index 941c95e..79b3609 100644
 +}
 +
 +func describeModelFetchHTTPError(provider string, status int) error {
-+	if status == http.StatusUnauthorized || status == http.StatusForbidden {
-+		return fmt.Errorf("%s authentication failed (HTTP %d)", provider, status)
++	switch {
++	case status == http.StatusUnauthorized || status == http.StatusForbidden:
++		return fmt.Errorf("%s authentication failed (HTTP %d): check the API key", provider, status)
++	case status == http.StatusTooManyRequests:
++		return fmt.Errorf("%s rate limited the request (HTTP %d): try again shortly", provider, status)
++	case status == http.StatusNotFound:
++		return fmt.Errorf(
++			"%s has no model listing endpoint at this API base (HTTP %d): enter the model ID manually",
++			provider, status,
++		)
++	case status >= 500:
++		return fmt.Errorf("%s is unavailable (HTTP %d)", provider, status)
 +	}
 +	return fmt.Errorf("%s returned HTTP %d", provider, status)
 +}
@@ -402,6 +1103,146 @@ index 941c95e..79b3609 100644
  func fetchOllamaModels(ctx context.Context, fetchURL string) ([]upstreamModel, error) {
  	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fetchURL, nil)
  	if err != nil {
+diff --git a/web/backend/api/models_gemini_fetch_test.go b/web/backend/api/models_gemini_fetch_test.go
+new file mode 100644
+index 0000000..247a742
+--- /dev/null
++++ b/web/backend/api/models_gemini_fetch_test.go
+@@ -0,0 +1,134 @@
++package api
++
++import (
++	"net/http"
++	"net/http/httptest"
++	"strings"
++	"testing"
++)
++
++func TestIsGeminiOpenAICompatibleBase(t *testing.T) {
++	cases := map[string]bool{
++		"https://generativelanguage.googleapis.com/v1beta":         false,
++		"https://generativelanguage.googleapis.com/v1beta/openai":  true,
++		"https://generativelanguage.googleapis.com/v1beta/openai/": true,
++		"https://proxy.example.com/gemini/openai":                  true,
++		"https://proxy.example.com/openai-compat":                  false,
++		"": false,
++	}
++	for base, want := range cases {
++		if got := isGeminiOpenAICompatibleBase(base); got != want {
++			t.Errorf("isGeminiOpenAICompatibleBase(%q) = %v, want %v", base, got, want)
++		}
++	}
++}
++
++// The native Gemini listing authenticates with X-Goog-Api-Key, never Bearer,
++// and returns fully qualified "models/<id>" resource names.
++func TestFetchGeminiNativeModels(t *testing.T) {
++	var gotAuthorization, gotGoogKey, gotPath string
++	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
++		gotAuthorization = r.Header.Get("Authorization")
++		gotGoogKey = r.Header.Get("X-Goog-Api-Key")
++		gotPath = r.URL.Path
++		w.Header().Set("Content-Type", "application/json")
++		_, _ = w.Write([]byte(`{"models":[
++			{"name":"models/gemini-3-flash-preview"},
++			{"name":"models/gemini-3.1-pro-preview"},
++			{"name":""}
++		]}`))
++	}))
++	defer srv.Close()
++
++	models, err := fetchGeminiNativeModels(t.Context(), srv.URL+"/v1beta/models", "test-key")
++	if err != nil {
++		t.Fatalf("fetchGeminiNativeModels() error = %v", err)
++	}
++	if gotPath != "/v1beta/models" {
++		t.Errorf("request path = %q, want %q", gotPath, "/v1beta/models")
++	}
++	if gotGoogKey != "test-key" {
++		t.Errorf("X-Goog-Api-Key = %q, want %q", gotGoogKey, "test-key")
++	}
++	if gotAuthorization != "" {
++		t.Errorf("Authorization = %q, want it unset for the native Gemini API", gotAuthorization)
++	}
++	if len(models) != 2 {
++		t.Fatalf("len(models) = %d, want 2", len(models))
++	}
++	if models[0].ID != "gemini-3-flash-preview" || models[1].ID != "gemini-3.1-pro-preview" {
++		t.Errorf("models = %+v, want the models/ prefix stripped", models)
++	}
++}
++
++func TestFetchUpstreamModelsGeminiRoutesByBase(t *testing.T) {
++	var nativeHit, openAIHit bool
++
++	native := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
++		nativeHit = r.Header.Get("X-Goog-Api-Key") == "k" && r.URL.Path == "/v1beta/models"
++		_, _ = w.Write([]byte(`{"models":[{"name":"models/gemini-3-flash-preview"}]}`))
++	}))
++	defer native.Close()
++
++	openAI := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
++		openAIHit = r.Header.Get("Authorization") == "Bearer k" && r.URL.Path == "/v1beta/openai/models"
++		_, _ = w.Write([]byte(`{"data":[{"id":"gemini-3-flash-preview"}]}`))
++	}))
++	defer openAI.Close()
++
++	if _, err := fetchUpstreamModels(t.Context(), "gemini", native.URL+"/v1beta", "k"); err != nil {
++		t.Fatalf("native fetch error = %v", err)
++	}
++	if !nativeHit {
++		t.Error("native Gemini base did not produce an X-Goog-Api-Key request to /v1beta/models")
++	}
++
++	// Trailing slash included on purpose: base-relative path handling must not regress.
++	if _, err := fetchUpstreamModels(t.Context(), "gemini", openAI.URL+"/v1beta/openai/", "k"); err != nil {
++		t.Fatalf("openai-compatible fetch error = %v", err)
++	}
++	if !openAIHit {
++		t.Error("Gemini OpenAI-compatible base did not produce a Bearer request to /v1beta/openai/models")
++	}
++}
++
++func TestDescribeModelFetchHTTPErrorClassification(t *testing.T) {
++	cases := []struct {
++		status int
++		want   string
++	}{
++		{http.StatusUnauthorized, "authentication failed"},
++		{http.StatusForbidden, "authentication failed"},
++		{http.StatusTooManyRequests, "rate limited"},
++		{http.StatusNotFound, "no model listing endpoint"},
++		{http.StatusBadGateway, "is unavailable"},
++		{http.StatusServiceUnavailable, "is unavailable"},
++		{http.StatusTeapot, "returned HTTP 418"},
++	}
++	for _, tc := range cases {
++		err := describeModelFetchHTTPError("provider", tc.status)
++		if err == nil || !strings.Contains(err.Error(), tc.want) {
++			t.Errorf("status %d error = %v, want it to mention %q", tc.status, err, tc.want)
++		}
++	}
++}
++
++// A failed discovery must never echo the API key back to the caller.
++func TestModelFetchErrorsDoNotLeakAPIKey(t *testing.T) {
++	const secret = "sk-do-not-leak-this-value"
++
++	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
++		w.WriteHeader(http.StatusUnauthorized)
++	}))
++	defer srv.Close()
++
++	for _, provider := range []string{"gemini", "openai"} {
++		_, err := fetchUpstreamModels(t.Context(), provider, srv.URL+"/v1", secret)
++		if err == nil {
++			t.Fatalf("%s: expected an error", provider)
++		}
++		if strings.Contains(err.Error(), secret) {
++			t.Errorf("%s: error message contains the API key: %v", provider, err)
++		}
++	}
++}
 diff --git a/web/backend/api/models_test.go b/web/backend/api/models_test.go
 index cb088a0..e6e1420 100644
 --- a/web/backend/api/models_test.go
@@ -558,6 +1399,511 @@ index d3bdd90..8eb9c67 100644
    </head>
  
    <body>
+diff --git a/web/frontend/package.json b/web/frontend/package.json
+index b548bdd..583e6ca 100644
+--- a/web/frontend/package.json
++++ b/web/frontend/package.json
+@@ -14,7 +14,8 @@
+     "lint": "eslint .",
+     "preview": "vite preview",
+     "format": "prettier --check .",
+-    "check": "prettier --write . && eslint --fix"
++    "check": "prettier --write . && eslint --fix",
++    "test": "vitest run"
+   },
+   "dependencies": {
+     "@fontsource-variable/inter": "^5.2.8",
+@@ -68,6 +69,7 @@
+     "prettier-plugin-tailwindcss": "^0.8.0",
+     "typescript": "~5.9.3",
+     "typescript-eslint": "^8.59.3",
+-    "vite": "^8.0.16"
++    "vite": "^8.0.16",
++    "vitest": "^4.1.11"
+   }
+ }
+diff --git a/web/frontend/pnpm-lock.yaml b/web/frontend/pnpm-lock.yaml
+index 1f767dc..914695d 100644
+--- a/web/frontend/pnpm-lock.yaml
++++ b/web/frontend/pnpm-lock.yaml
+@@ -159,6 +159,9 @@ importers:
+       vite:
+         specifier: ^8.0.16
+         version: 8.0.16(@types/node@25.6.0)(esbuild@0.27.4)(jiti@2.7.0)(tsx@4.21.0)
++      vitest:
++        specifier: ^4.1.11
++        version: 4.1.11(@types/node@25.6.0)(msw@2.14.4(@types/node@25.6.0)(typescript@5.9.3))(vite@8.0.16(@types/node@25.6.0)(esbuild@0.27.4)(jiti@2.7.0)(tsx@4.21.0))
+ 
+ packages:
+ 
+@@ -1466,6 +1469,9 @@ packages:
+     resolution: {integrity: sha512-tlqY9xq5ukxTUZBmoOp+m61cqwQD5pHJtFY3Mn8CA8ps6yghLH/Hw8UPdqg4OLmFW3IFlcXnQNmo/dh8HzXYIQ==}
+     engines: {node: '>=18'}
+ 
++  '@standard-schema/spec@1.1.0':
++    resolution: {integrity: sha512-l2aFy5jALhniG5HgqrD6jXLi/rUWrKvqN/qJx6yoJsgKhblVd+iqqU4RCXavm/jPityDo5TCvKMnpjKnOriy0w==}
++
+   '@tabler/icons-react@3.43.0':
+     resolution: {integrity: sha512-rXUuCQEeRbEk3lJxs3gwzdtaaITSwc/JUbp+AkqsGff5uBpzZw7eKPDk53xKoKLyjrbj82Ai4GuVG0kO89Jf5g==}
+     peerDependencies:
+@@ -1692,9 +1698,15 @@ packages:
+   '@tybys/wasm-util@0.10.2':
+     resolution: {integrity: sha512-RoBvJ2X0wuKlWFIjrwffGw1IqZHKQqzIchKaadZZfnNpsAYp2mM0h36JtPCjNDAHGgYez/15uMBpfGwchhiMgg==}
+ 
++  '@types/chai@5.2.3':
++    resolution: {integrity: sha512-Mw558oeA9fFbv65/y4mHtXDs9bPnFMZAL/jxdPFUpOHHIXX91mcgEHbS5Lahr+pwZFR8A7GQleRWeI6cGFC2UA==}
++
+   '@types/debug@4.1.13':
+     resolution: {integrity: sha512-KSVgmQmzMwPlmtljOomayoR89W4FynCAi3E8PPs7vmDVPe84hT+vGPKkJfThkmXs0x0jAaa9U8uW8bbfyS2fWw==}
+ 
++  '@types/deep-eql@4.0.2':
++    resolution: {integrity: sha512-c9h9dVVMigMPc4bwTvC5dxqtqJZwQPePsWjPlpSOnojbor6pGqdk541lfA7AqFQr5pB1BRdq0juY9db81BwyFw==}
++
+   '@types/esrecurse@4.3.1':
+     resolution: {integrity: sha512-xJBAbDifo5hpffDBuHl0Y8ywswbiAp/Wi7Y/GtAgSlZyIABppyurxVueOPE8LUQOxdlgi6Zqce7uoEpqNTeiUw==}
+ 
+@@ -1870,6 +1882,35 @@ packages:
+       babel-plugin-react-compiler:
+         optional: true
+ 
++  '@vitest/expect@4.1.11':
++    resolution: {integrity: sha512-VX2x5vNJXET47KAFzwERI+KRMtTTCSWTfSMKsW7JsUsXV4psq++e3DvZpuTDOpHcxytiDs6p2nhVb2tVDiiUYw==}
++
++  '@vitest/mocker@4.1.11':
++    resolution: {integrity: sha512-2XJVD55d1o5AZous5CCGKS74g/riOj9odEt2bQpCVZeblHyHdnMeFl4jl0XjU21stf4mbjUkew2eXQZt65g5CQ==}
++    peerDependencies:
++      msw: ^2.4.9
++      vite: ^6.0.0 || ^7.0.0 || ^8.0.0
++    peerDependenciesMeta:
++      msw:
++        optional: true
++      vite:
++        optional: true
++
++  '@vitest/pretty-format@4.1.11':
++    resolution: {integrity: sha512-yiZzPbGTS9Sr/JpFl8zHrcIkAofNbFV6k21vIgQN/cY/oxZeXhJv5sc/MBJ5jFKWmWs+oJHw0UXLZjmf931+Vw==}
++
++  '@vitest/runner@4.1.11':
++    resolution: {integrity: sha512-LztvUgdwMNJMIkj3hQnnxiC2Xy1zNxq928W/xhjCLaNCzqTZOudjwbQf6v9IntZGPw132i2Lq2rgTRZHD3JHNw==}
++
++  '@vitest/snapshot@4.1.11':
++    resolution: {integrity: sha512-pN7ikn1ON7h8ee4gIAp4AzyK+zBtJPzVbqOgu5LCEh4VaJVbPQcgYQYJIMGQPXVeJJq1fnfazis7a5pFNPahog==}
++
++  '@vitest/spy@4.1.11':
++    resolution: {integrity: sha512-apNa/prQy2qCeywhnixOHPRCgGNhvg7T4Dapfl1GahLp/R+uhBm5cPyFoNVyqsNd2h1nJxL6BqqdIjiABL60YA==}
++
++  '@vitest/utils@4.1.11':
++    resolution: {integrity: sha512-zTCVGpyFsGWBhllOyKlTw/vnr6D9qxsfSDyfbyZmTyjHw5N/VuvzHpHoQjm2ZJzn4RJgx5w4r7V0er69CmLgPQ==}
++
+   accepts@2.0.0:
+     resolution: {integrity: sha512-5cvg6CtKwfgdmVqY1WIiXKc3Q1bkRqGLi+2W/6ao+6Y7gu/RCwRuAhGEzh5B4KlszSuTLgZYuqFqo5bImjNKng==}
+     engines: {node: '>= 0.6'}
+@@ -1938,6 +1979,10 @@ packages:
+     resolution: {integrity: sha512-ik3ZgC9dY/lYVVM++OISsaYDeg1tb0VtP5uL3ouh1koGOaUMDPpbFIei4JkFimWUFPn90sbMNMXQAIVOlnYKJA==}
+     engines: {node: '>=10'}
+ 
++  assertion-error@2.0.1:
++    resolution: {integrity: sha512-Izi8RQcffqCeNVgFigKli1ssklIbpHnCYc6AknXGYoB6grJqyeby7jv12JUQgmTAnIDnbck1uxksT4dzN3PWBA==}
++    engines: {node: '>=12'}
++
+   ast-types@0.16.1:
+     resolution: {integrity: sha512-6t10qk83GOG8p0vKmaCr8eiilZwO171AvbROMtvvNiwrTly62t+7XkA8RdIIVbpMhCASAsxgAzdRSwh6nw/5Dg==}
+     engines: {node: '>=4'}
+@@ -2010,6 +2055,10 @@ packages:
+   ccount@2.0.1:
+     resolution: {integrity: sha512-eyrF0jiFpY+3drT6383f1qhkbGsLSifNAjA61IUjZjmLCWjItY6LB9ft9YhoDgwfmclB2zhu51Lc7+95b8NRAg==}
+ 
++  chai@6.2.2:
++    resolution: {integrity: sha512-NUPRluOfOiTKBKvWPtSD4PhFvWCqOi0BGStNWs57X9js7XGTprSmFoz5F0tWhR4WPjNeR9jXqdC7/UpSJTnlRg==}
++    engines: {node: '>=18'}
++
+   chalk@5.6.2:
+     resolution: {integrity: sha512-7NzBL0rN6fMUW+f7A6Io4h40qQlG+xGmtMxfbnH/K7TAtt8JQWVQK+6g0UXKMeVJoyV5EkkNsErQ8pVD3bLHbA==}
+     engines: {node: ^12.17.0 || ^14.13 || >=16.0.0}
+@@ -2253,6 +2302,9 @@ packages:
+     resolution: {integrity: sha512-Zf5H2Kxt2xjTvbJvP2ZWLEICxA6j+hAmMzIlypy4xcBg1vKVnx89Wy0GbS+kf5cwCVFFzdCFh2XSCFNULS6csw==}
+     engines: {node: '>= 0.4'}
+ 
++  es-module-lexer@2.3.2:
++    resolution: {integrity: sha512-poHGpORABojJJucnV9KbOavETW8lBVnphkW77ER5/BQ5Fz7oXSoCNek7IH3vR5nRjdsEz926ibFYX8KtLQmdyw==}
++
+   es-object-atoms@1.1.1:
+     resolution: {integrity: sha512-FGgH2h8zKNim9ljj7dankFPcICIK9Cp5bm+c2gQSYePhpaG5+esrLODihIorn+Pe6FGJzWhXQotPv73jTaldXA==}
+     engines: {node: '>= 0.4'}
+@@ -2340,6 +2392,9 @@ packages:
+   estree-util-is-identifier-name@3.0.0:
+     resolution: {integrity: sha512-hFtqIDZTIUZ9BXLb8y4pYGyk6+wekIivNVTcmvk8NoOh+VeRn5y6cEHzbURrWbfp1fIqdVipilzj+lfaadNZmg==}
+ 
++  estree-walker@3.0.3:
++    resolution: {integrity: sha512-7RUKfXgSMMkzt6ZuXmqapOurLGPPfgj6l9uRZ7lRGolvk0y2yocc35LdcxKC5PQZdn2DMqioAQ2NoWcrTKmm6g==}
++
+   esutils@2.0.3:
+     resolution: {integrity: sha512-kVscqXk4OCp68SZ0dkgEKVi6/8ij300KBWTJq32P/dYeWTSwK41WyTxalN1eRmA5Z9UU/LX9D7FWSmV9SAYx6g==}
+     engines: {node: '>=0.10.0'}
+@@ -2364,6 +2419,10 @@ packages:
+     resolution: {integrity: sha512-9Be3ZoN4LmYR90tUoVu2te2BsbzHfhJyfEiAVfz7N5/zv+jduIfLrV2xdQXOHbaD6KgpGdO9PRPM1Y4Q9QkPkA==}
+     engines: {node: ^18.19.0 || >=20.5.0}
+ 
++  expect-type@1.4.0:
++    resolution: {integrity: sha512-KfYbmpRm0VbLjEvVa9yGwCi9GI34xvi7A/HXYWQO65CSD2u3MczUJSuwXKFIxlGsgBQizV9q5J9NHj4VG0n+pA==}
++    engines: {node: '>=12.0.0'}
++
+   express-rate-limit@8.5.1:
+     resolution: {integrity: sha512-5O6KYmyJEpuPJV5hNTXKbAHWRqrzyu+OI3vUnSd2kXFubIVpG7ezpgxQy76Zo5GQZtrQBg86hF+CM/NX+cioiQ==}
+     engines: {node: '>= 16'}
+@@ -3199,6 +3258,10 @@ packages:
+     resolution: {integrity: sha512-EFVjAYfzWqWsBMRHPMAXLCDIJnpMhdWAqR7xG6M6a2cs6PMFpl/+Z20w9zDW4vkxOFfddegBKq9Rehd0bxWE7A==}
+     engines: {node: '>= 10'}
+ 
++  obug@2.1.4:
++    resolution: {integrity: sha512-4a+OsYv9UktOJKE+l1A4OufDgdRF9PifWj+tJnHURo/P+WOxpG4GzUFL9qCalmWauao6ogiG+QvnCovwPoyAWA==}
++    engines: {node: '>=12.20.0'}
++
+   on-finished@2.4.1:
+     resolution: {integrity: sha512-oVlzkg3ENAhCk2zdv7IJwd/QUD4z2RxRwpkcGY8psCVcCYZNq4wYnVWALHM+brtuJjePWiYF/ClmuDr8Ch5+kg==}
+     engines: {node: '>= 0.8'}
+@@ -3650,6 +3713,9 @@ packages:
+     resolution: {integrity: sha512-ZX99e6tRweoUXqR+VBrslhda51Nh5MTQwou5tnUDgbtyM0dBgmhEDtWGP/xbKn6hqfPRHujUNwz5fy/wbbhnpw==}
+     engines: {node: '>= 0.4'}
+ 
++  siginfo@2.0.0:
++    resolution: {integrity: sha512-ybx0WO1/8bSBLEWXZvEd7gMW3Sn3JFlW3TvX1nREbDLRNQNaeNN8WK0meBwPdAaOI7TtRRRJn/Es1zhrrCHu7g==}
++
+   signal-exit@3.0.7:
+     resolution: {integrity: sha512-wnD2ZE+l+SPC/uoS0vXeE9L1+0wuaMqKlfz9AMUo38JsyLSBWSFcHR1Rri62LZc12vLr1gb3jl7iwQhgwpAbGQ==}
+ 
+@@ -3681,10 +3747,16 @@ packages:
+   space-separated-tokens@2.0.2:
+     resolution: {integrity: sha512-PEGlAwrG8yXGXRjW32fGbg66JAlOAwbObuqVoJpv/mRgoWDQfgH1wDPvtzWyUSNAXBGSk8h755YDbbcEy3SH2Q==}
+ 
++  stackback@0.0.2:
++    resolution: {integrity: sha512-1XMJE5fQo1jGH6Y/7ebnwPOBEkIEnT4QF32d5R1+VXdXveM0IBMJt8zfaxX1P3QhVwrYe+576+jkANtSS2mBbw==}
++
+   statuses@2.0.2:
+     resolution: {integrity: sha512-DvEy55V3DB7uknRo+4iOGT5fP1slR8wQohVdknigZPMpMstaKJQWhwiYBACJE3Ul2pTnATihhBYnRhZQHGBiRw==}
+     engines: {node: '>= 0.8'}
+ 
++  std-env@4.2.0:
++    resolution: {integrity: sha512-oCUKSupKTHX53EyjDtuZQ64pjLJ6yYCtpmEw0goYxtjG9KpbRe8KAsl2tBUGU9DyMcJ0RwJ8GqJAFzMXcXW1Rw==}
++
+   stdin-discarder@0.2.2:
+     resolution: {integrity: sha512-UhDfHmA92YAlNnCfhmq0VeNL5bDbiZGg7sZ2IvPsXubGkiNa9EC+tUTsjBRsYUAz87btI6/1wf4XoVvQ3uRnmQ==}
+     engines: {node: '>=18'}
+@@ -3754,10 +3826,21 @@ packages:
+   tiny-invariant@1.3.3:
+     resolution: {integrity: sha512-+FbBPE1o9QAYvviau/qC5SE3caw21q3xkvWKBtja5vgqOWIHHJ3ioaq1VPfn/Szqctz2bU/oYeKd9/z5BL+PVg==}
+ 
++  tinybench@2.9.0:
++    resolution: {integrity: sha512-0+DUvqWMValLmha6lr4kD8iAMK1HzV0/aKnCtWb9v9641TnP/MFb7Pc2bxoxQjTXAErryXVgUOfv2YqNllqGeg==}
++
++  tinyexec@1.3.0:
++    resolution: {integrity: sha512-QKAl9m8gWWGHV8jZcPeym6j+XULi6tOf1mT83WYJ4Lk2ytW/uwAWkrP0uFsdoYMdueVJ0qs26wZ+23xeB4ibNQ==}
++    engines: {node: '>=18'}
++
+   tinyglobby@0.2.17:
+     resolution: {integrity: sha512-wXR/dYpcqKmfWpEdZjiKJOwCNFndD0DMnrW/cYjVGttEkBfVgcLFHoNrlj47mjOVic9yyNu65alsgF4NQyTa2g==}
+     engines: {node: '>=12.0.0'}
+ 
++  tinyrainbow@3.1.1:
++    resolution: {integrity: sha512-yau8yJdTt989Mm0Bd/236QnzEiPf2xLLTqUZRUJOo/3CB078LSwzei343DgtJVmfJKJE3TMINY1u42SQsP6mXw==}
++    engines: {node: '>=14.0.0'}
++
+   tldts-core@7.0.30:
+     resolution: {integrity: sha512-uiHN8PIB1VmWyS98eZYja4xzlYqeFZVjb4OuYlJQnZAuJhMw4PbKQOKgHKhBdJR3FE/t5mUQ1Kd80++B+qhD1Q==}
+ 
+@@ -3998,6 +4081,47 @@ packages:
+       yaml:
+         optional: true
+ 
++  vitest@4.1.11:
++    resolution: {integrity: sha512-fhACrNXUidIbGSBr5FlbuBkO7VWC1ZyLl0DO4CU2DrQoAPxX84Ysxs+HeGQpii5lZWV1Q4gBZTTu49mF+A6Edw==}
++    engines: {node: ^20.0.0 || ^22.0.0 || >=24.0.0}
++    hasBin: true
++    peerDependencies:
++      '@edge-runtime/vm': '*'
++      '@opentelemetry/api': ^1.9.0
++      '@types/node': ^20.0.0 || ^22.0.0 || >=24.0.0
++      '@vitest/browser-playwright': 4.1.11
++      '@vitest/browser-preview': 4.1.11
++      '@vitest/browser-webdriverio': 4.1.11
++      '@vitest/coverage-istanbul': 4.1.11
++      '@vitest/coverage-v8': 4.1.11
++      '@vitest/ui': 4.1.11
++      happy-dom: '*'
++      jsdom: '*'
++      vite: ^6.0.0 || ^7.0.0 || ^8.0.0
++    peerDependenciesMeta:
++      '@edge-runtime/vm':
++        optional: true
++      '@opentelemetry/api':
++        optional: true
++      '@types/node':
++        optional: true
++      '@vitest/browser-playwright':
++        optional: true
++      '@vitest/browser-preview':
++        optional: true
++      '@vitest/browser-webdriverio':
++        optional: true
++      '@vitest/coverage-istanbul':
++        optional: true
++      '@vitest/coverage-v8':
++        optional: true
++      '@vitest/ui':
++        optional: true
++      happy-dom:
++        optional: true
++      jsdom:
++        optional: true
++
+   void-elements@3.1.0:
+     resolution: {integrity: sha512-Dhxzh5HZuiHQhbvTW9AMetFfBHDMYpo23Uo9btPXgdYP+3T5S+p+jgNy7spra+veYhBP2dCSgxR/i2Y02h5/6w==}
+     engines: {node: '>=0.10.0'}
+@@ -4022,6 +4146,11 @@ packages:
+     engines: {node: ^16.13.0 || >=18.0.0}
+     hasBin: true
+ 
++  why-is-node-running@2.3.0:
++    resolution: {integrity: sha512-hUrmaWBdVDcxvYqnyh09zunKzROWjbZTiNy8dBEjkS7ehEDQibXJ7XvlmtbwuTclUiIyN+CyXQD4Vmko8fNm8w==}
++    engines: {node: '>=8'}
++    hasBin: true
++
+   word-wrap@1.2.5:
+     resolution: {integrity: sha512-BN22B5eaMMI9UMtjrGd5g5eCYPpCPDUy0FJXbYsaT5zYxjFOckS53SQDE3pWkVoWpHXVb3BrYcEN4Twa55B5cA==}
+     engines: {node: '>=0.10.0'}
+@@ -5387,6 +5516,8 @@ snapshots:
+ 
+   '@sindresorhus/merge-streams@4.0.0': {}
+ 
++  '@standard-schema/spec@1.1.0': {}
++
+   '@tabler/icons-react@3.43.0(react@19.2.5)':
+     dependencies:
+       '@tabler/icons': 3.43.0
+@@ -5602,10 +5733,17 @@ snapshots:
+       tslib: 2.8.1
+     optional: true
+ 
++  '@types/chai@5.2.3':
++    dependencies:
++      '@types/deep-eql': 4.0.2
++      assertion-error: 2.0.1
++
+   '@types/debug@4.1.13':
+     dependencies:
+       '@types/ms': 2.1.0
+ 
++  '@types/deep-eql@4.0.2': {}
++
+   '@types/esrecurse@4.3.1': {}
+ 
+   '@types/estree-jsx@1.0.5':
+@@ -5827,6 +5965,48 @@ snapshots:
+       '@rolldown/pluginutils': 1.0.0-rc.7
+       vite: 8.0.16(@types/node@25.6.0)(esbuild@0.27.4)(jiti@2.7.0)(tsx@4.21.0)
+ 
++  '@vitest/expect@4.1.11':
++    dependencies:
++      '@standard-schema/spec': 1.1.0
++      '@types/chai': 5.2.3
++      '@vitest/spy': 4.1.11
++      '@vitest/utils': 4.1.11
++      chai: 6.2.2
++      tinyrainbow: 3.1.1
++
++  '@vitest/mocker@4.1.11(msw@2.14.4(@types/node@25.6.0)(typescript@5.9.3))(vite@8.0.16(@types/node@25.6.0)(esbuild@0.27.4)(jiti@2.7.0)(tsx@4.21.0))':
++    dependencies:
++      '@vitest/spy': 4.1.11
++      estree-walker: 3.0.3
++      magic-string: 0.30.21
++    optionalDependencies:
++      msw: 2.14.4(@types/node@25.6.0)(typescript@5.9.3)
++      vite: 8.0.16(@types/node@25.6.0)(esbuild@0.27.4)(jiti@2.7.0)(tsx@4.21.0)
++
++  '@vitest/pretty-format@4.1.11':
++    dependencies:
++      tinyrainbow: 3.1.1
++
++  '@vitest/runner@4.1.11':
++    dependencies:
++      '@vitest/utils': 4.1.11
++      pathe: 2.0.3
++
++  '@vitest/snapshot@4.1.11':
++    dependencies:
++      '@vitest/pretty-format': 4.1.11
++      '@vitest/utils': 4.1.11
++      magic-string: 0.30.21
++      pathe: 2.0.3
++
++  '@vitest/spy@4.1.11': {}
++
++  '@vitest/utils@4.1.11':
++    dependencies:
++      '@vitest/pretty-format': 4.1.11
++      convert-source-map: 2.0.0
++      tinyrainbow: 3.1.1
++
+   accepts@2.0.0:
+     dependencies:
+       mime-types: 3.0.2
+@@ -5883,6 +6063,8 @@ snapshots:
+     dependencies:
+       tslib: 2.8.1
+ 
++  assertion-error@2.0.1: {}
++
+   ast-types@0.16.1:
+     dependencies:
+       tslib: 2.8.1
+@@ -5962,6 +6144,8 @@ snapshots:
+ 
+   ccount@2.0.1: {}
+ 
++  chai@6.2.2: {}
++
+   chalk@5.6.2: {}
+ 
+   character-entities-html4@2.1.0: {}
+@@ -6153,6 +6337,8 @@ snapshots:
+ 
+   es-errors@1.3.0: {}
+ 
++  es-module-lexer@2.3.2: {}
++
+   es-object-atoms@1.1.1:
+     dependencies:
+       es-errors: 1.3.0
+@@ -6281,6 +6467,10 @@ snapshots:
+ 
+   estree-util-is-identifier-name@3.0.0: {}
+ 
++  estree-walker@3.0.3:
++    dependencies:
++      '@types/estree': 1.0.9
++
+   esutils@2.0.3: {}
+ 
+   etag@1.8.1: {}
+@@ -6318,6 +6508,8 @@ snapshots:
+       strip-final-newline: 4.0.0
+       yoctocolors: 2.1.2
+ 
++  expect-type@1.4.0: {}
++
+   express-rate-limit@8.5.1(express@5.2.1):
+     dependencies:
+       express: 5.2.1
+@@ -7323,6 +7515,8 @@ snapshots:
+ 
+   object-treeify@1.1.33: {}
+ 
++  obug@2.1.4: {}
++
+   on-finished@2.4.1:
+     dependencies:
+       ee-first: 1.1.1
+@@ -7883,6 +8077,8 @@ snapshots:
+       side-channel-map: 1.0.1
+       side-channel-weakmap: 1.0.2
+ 
++  siginfo@2.0.0: {}
++
+   signal-exit@3.0.7: {}
+ 
+   signal-exit@4.1.0: {}
+@@ -7902,8 +8098,12 @@ snapshots:
+ 
+   space-separated-tokens@2.0.2: {}
+ 
++  stackback@0.0.2: {}
++
+   statuses@2.0.2: {}
+ 
++  std-env@4.2.0: {}
++
+   stdin-discarder@0.2.2: {}
+ 
+   strict-event-emitter@0.5.1: {}
+@@ -7968,11 +8168,17 @@ snapshots:
+ 
+   tiny-invariant@1.3.3: {}
+ 
++  tinybench@2.9.0: {}
++
++  tinyexec@1.3.0: {}
++
+   tinyglobby@0.2.17:
+     dependencies:
+       fdir: 6.5.0(picomatch@4.0.4)
+       picomatch: 4.0.4
+ 
++  tinyrainbow@3.1.1: {}
++
+   tldts-core@7.0.30: {}
+ 
+   tldts@7.0.30:
+@@ -8184,6 +8390,33 @@ snapshots:
+       jiti: 2.7.0
+       tsx: 4.21.0
+ 
++  vitest@4.1.11(@types/node@25.6.0)(msw@2.14.4(@types/node@25.6.0)(typescript@5.9.3))(vite@8.0.16(@types/node@25.6.0)(esbuild@0.27.4)(jiti@2.7.0)(tsx@4.21.0)):
++    dependencies:
++      '@vitest/expect': 4.1.11
++      '@vitest/mocker': 4.1.11(msw@2.14.4(@types/node@25.6.0)(typescript@5.9.3))(vite@8.0.16(@types/node@25.6.0)(esbuild@0.27.4)(jiti@2.7.0)(tsx@4.21.0))
++      '@vitest/pretty-format': 4.1.11
++      '@vitest/runner': 4.1.11
++      '@vitest/snapshot': 4.1.11
++      '@vitest/spy': 4.1.11
++      '@vitest/utils': 4.1.11
++      es-module-lexer: 2.3.2
++      expect-type: 1.4.0
++      magic-string: 0.30.21
++      obug: 2.1.4
++      pathe: 2.0.3
++      picomatch: 4.0.4
++      std-env: 4.2.0
++      tinybench: 2.9.0
++      tinyexec: 1.3.0
++      tinyglobby: 0.2.17
++      tinyrainbow: 3.1.1
++      vite: 8.0.16(@types/node@25.6.0)(esbuild@0.27.4)(jiti@2.7.0)(tsx@4.21.0)
++      why-is-node-running: 2.3.0
++    optionalDependencies:
++      '@types/node': 25.6.0
++    transitivePeerDependencies:
++      - msw
++
+   void-elements@3.1.0: {}
+ 
+   web-namespaces@2.0.1: {}
+@@ -8200,6 +8433,11 @@ snapshots:
+     dependencies:
+       isexe: 3.1.5
+ 
++  why-is-node-running@2.3.0:
++    dependencies:
++      siginfo: 2.0.0
++      stackback: 0.0.2
++
+   word-wrap@1.2.5: {}
+ 
+   wrap-ansi@10.0.0:
+diff --git a/web/frontend/src/api/models.ts b/web/frontend/src/api/models.ts
+index a319eda..d7267bd 100644
+--- a/web/frontend/src/api/models.ts
++++ b/web/frontend/src/api/models.ts
+@@ -37,8 +37,10 @@ export interface ModelInfo {
+ export interface ModelProviderOption {
+   id: string
+   display_name?: string
++  category?: string
+   icon_slug?: string
+   domain?: string
++  documentation_url?: string
+   default_api_base: string
+   empty_api_key_allowed: boolean
+   create_allowed: boolean
 diff --git a/web/frontend/src/components/app-header.tsx b/web/frontend/src/components/app-header.tsx
 index eb90881..2015d9d 100644
 --- a/web/frontend/src/components/app-header.tsx
@@ -758,6 +2104,1063 @@ index a921b99..4780b9b 100644
          />
        </Field>
  
+diff --git a/web/frontend/src/components/models/add-model-sheet.tsx b/web/frontend/src/components/models/add-model-sheet.tsx
+index 653380c..b6c1aff 100644
+--- a/web/frontend/src/components/models/add-model-sheet.tsx
++++ b/web/frontend/src/components/models/add-model-sheet.tsx
+@@ -1,5 +1,7 @@
+ import {
++  IconArrowLeft,
+   IconDownload,
++  IconExternalLink,
+   IconLoader2,
+   IconPlugConnected,
+ } from "@tabler/icons-react"
+@@ -42,8 +44,11 @@ import {
+   normalizeApiBase,
+ } from "./model-provider-form-shared"
+ import { type FieldValidation, validateModelField } from "./model-validation"
+-import { ProviderCombobox } from "./provider-combobox"
++import { ProviderIcon } from "./provider-icon"
++import { ProviderPicker } from "./provider-picker"
+ import {
++  type ProviderCatalogEntry,
++  deriveModelAlias,
+   getCanonicalProviderKey,
+   getProviderCatalogEntry,
+   getProviderCatalogMap,
+@@ -51,6 +56,7 @@ import {
+   getProviderDefaultAuthMethod,
+   isProviderAuthMethodLocked,
+   providerSupportsFetch,
++  requiresVisibleApiBase,
+ } from "./provider-registry"
+ import { TestModelDialog } from "./test-model-dialog"
+ 
+@@ -94,11 +100,14 @@ const EMPTY_ADD_FORM: AddForm = {
+   customHeaders: "",
+ }
+ 
++type AddStep = "provider" | "configure"
++
+ interface AddModelSheetProps {
+   open: boolean
+   onClose: () => void
+   onSaved: () => void
+   existingModelNames: string[]
++  configuredProviders?: Set<string>
+   providerOptions?: ModelProviderOption[]
+ }
+ 
+@@ -107,9 +116,11 @@ export function AddModelSheet({
+   onClose,
+   onSaved,
+   existingModelNames,
++  configuredProviders,
+   providerOptions,
+ }: AddModelSheetProps) {
+   const { t } = useTranslation()
++  const [step, setStep] = useState<AddStep>("provider")
+   const [form, setForm] = useState<AddForm>(EMPTY_ADD_FORM)
+   const [saving, setSaving] = useState(false)
+   const [setAsDefault, setSetAsDefault] = useState(false)
+@@ -136,6 +147,7 @@ export function AddModelSheet({
+ 
+   useEffect(() => {
+     if (open) {
++      setStep("provider")
+       setForm(EMPTY_ADD_FORM)
+       setSetAsDefault(false)
+       setFieldErrors({})
+@@ -177,12 +189,17 @@ export function AddModelSheet({
+     }
+   }, [form.provider, form.apiBase, providerOptions])
+ 
++  // The alias is only a local label. When the user has not opened Advanced to
++  // set one, derive it from the model ID so the simplified flow never asks for
++  // a name the user has no basis to choose.
++  const effectiveModelName = (): string =>
++    form.modelName.trim() ||
++    deriveModelAlias(form.model.trim(), existingModelNames)
++
+   const validate = (): boolean => {
+     const errors: Partial<Record<keyof AddForm, string>> = {}
+     const modelName = form.modelName.trim()
+-    if (!modelName) {
+-      errors.modelName = t("models.add.errorRequired")
+-    } else if (existingModelNames.some((name) => name.trim() === modelName)) {
++    if (modelName && existingModelNames.some((name) => name.trim() === modelName)) {
+       errors.modelName = t("models.add.errorDuplicateModelName")
+     }
+     if (!providerDef) {
+@@ -345,6 +362,21 @@ export function AddModelSheet({
+     providerOptions,
+   )
+   const submittedApiBase = getSubmittedAPIBase(form.apiBase)
++  // Base URL is part of the normal flow only where the endpoint is genuinely
++  // the user's to choose: local servers and custom OpenAI-compatible hosts.
++  const showApiBaseInNormalFlow = requiresVisibleApiBase(
++    form.provider,
++    providerOptions,
++  )
++  // A keyless provider must not be asked for a key it does not use; the field
++  // stays reachable under Advanced for gateways that do enforce one.
++  const apiKeyOptional = providerDef?.emptyApiKeyAllowed === true
++  const showApiKeyInNormalFlow = !isOAuth && !apiKeyOptional
++
++  const handleProviderPicked = (provider: ProviderCatalogEntry) => {
++    handleProviderChange(provider.key)
++    setStep("configure")
++  }
+ 
+   const handleSave = async () => {
+     if (!validate()) return
+@@ -379,7 +411,7 @@ export function AddModelSheet({
+     setSaving(true)
+     setServerError("")
+     try {
+-      const modelName = form.modelName.trim()
++      const modelName = effectiveModelName()
+       const provider = canonicalProvider
+       const modelId = form.model.trim()
+       await addModel({
+@@ -433,10 +465,14 @@ export function AddModelSheet({
+         >
+           <SheetHeader className="border-b-muted border-b px-6 py-5">
+             <SheetTitle className="text-base">
+-              {t("models.add.title")}
++              {step === "provider"
++                ? t("models.picker.title")
++                : t("models.add.title")}
+             </SheetTitle>
+             <SheetDescription className="text-xs">
+-              {t("models.add.description")}
++              {step === "provider"
++                ? t("models.picker.subtitle")
++                : t("models.add.description")}
+             </SheetDescription>
+           </SheetHeader>
+ 
+@@ -444,39 +480,53 @@ export function AddModelSheet({
+             className="min-h-0 flex-1 overflow-y-auto"
+             ref={scrollContainerRef}
+           >
+-            <div className="space-y-5 px-6 py-5">
+-              <Field
+-                label={t("models.add.modelName")}
+-                hint={t("models.add.modelNameHint")}
+-              >
+-                <Input
+-                  value={form.modelName}
+-                  onChange={setField("modelName")}
+-                  placeholder={t("models.add.modelNamePlaceholder")}
+-                  aria-invalid={!!fieldErrors.modelName}
++            {step === "provider" && (
++              <div className="px-6 py-5">
++                <ProviderPicker
++                  providerOptions={providerOptions}
++                  configuredProviders={configuredProviders ?? new Set()}
++                  onSelect={handleProviderPicked}
+                 />
+-                {fieldErrors.modelName && (
+-                  <p className="text-destructive text-xs">
+-                    {fieldErrors.modelName}
+-                  </p>
+-                )}
+-              </Field>
++              </div>
++            )}
+ 
+-              <Field
+-                label={t("models.field.provider")}
+-                hint={t("models.field.providerHint")}
+-                error={fieldErrors.provider}
+-                required
+-              >
+-                <ProviderCombobox
+-                  value={form.provider}
+-                  onChange={handleProviderChange}
+-                  placeholder={t("models.field.providerPlaceholder")}
+-                  backendOptions={providerOptions}
+-                  filterCreateAllowed
+-                  containerRef={scrollContainerRef}
+-                />
+-              </Field>
++            {step === "configure" && (
++            <div className="space-y-5 px-6 py-5">
++              <div className="bg-muted/40 flex items-center gap-3 rounded-lg border px-3 py-2.5">
++                {providerDef && (
++                  <ProviderIcon provider={providerDef} size="md" />
++                )}
++                <div className="min-w-0 flex-1">
++                  <p className="truncate text-sm font-medium">
++                    {providerDef?.label || form.provider}
++                  </p>
++                  {providerDef?.documentationUrl && (
++                    <a
++                      href={providerDef.documentationUrl}
++                      target="_blank"
++                      rel="noreferrer noopener"
++                      className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-xs"
++                    >
++                      {t("models.picker.getApiKey")}
++                      <IconExternalLink className="size-3" />
++                    </a>
++                  )}
++                </div>
++                <Button
++                  variant="ghost"
++                  size="sm"
++                  className="h-7 text-xs"
++                  onClick={() => setStep("provider")}
++                >
++                  <IconArrowLeft className="size-3" />
++                  {t("models.picker.change")}
++                </Button>
++              </div>
++              {fieldErrors.provider && (
++                <p className="text-destructive text-xs">
++                  {fieldErrors.provider}
++                </p>
++              )}
+ 
+               <Field
+                 label={t("models.add.modelId")}
+@@ -589,7 +639,7 @@ export function AddModelSheet({
+                 </div>
+               </Field>
+ 
+-              {!isOAuth && (
++              {showApiKeyInNormalFlow && (
+                 <Field label={t("models.field.apiKey")}>
+                   <KeyInput
+                     value={form.apiKey}
+@@ -599,17 +649,21 @@ export function AddModelSheet({
+                 </Field>
+               )}
+ 
+-              <Field
+-                label={t("models.field.apiBase")}
+-                hint={isOAuth ? t("models.edit.oauthNote") : undefined}
+-              >
+-                <Input
+-                  value={form.apiBase}
+-                  onChange={setField("apiBase")}
+-                  placeholder={apiBasePlaceholder}
+-                  disabled={isOAuth}
+-                />
+-              </Field>
++              {showApiBaseInNormalFlow && (
++                <Field
++                  label={t("models.field.apiBase")}
++                  hint={t("models.field.apiBaseLocalHint")}
++                  required={providerDef?.category === "custom"}
++                >
++                  <Input
++                    value={form.apiBase}
++                    onChange={setField("apiBase")}
++                    placeholder={apiBasePlaceholder}
++                    className="font-mono text-sm"
++                    dir="ltr"
++                  />
++                </Field>
++              )}
+ 
+               <div className="flex items-center gap-2">
+                 <Button
+@@ -636,6 +690,56 @@ export function AddModelSheet({
+               />
+ 
+               <AdvancedSection>
++                <Field
++                  label={t("models.add.modelName")}
++                  hint={t("models.add.modelNameAutoHint")}
++                  error={fieldErrors.modelName}
++                >
++                  <Input
++                    value={form.modelName}
++                    onChange={setField("modelName")}
++                    placeholder={
++                      form.model.trim()
++                        ? deriveModelAlias(form.model.trim(), existingModelNames)
++                        : t("models.add.modelNamePlaceholder")
++                    }
++                    aria-invalid={!!fieldErrors.modelName}
++                  />
++                </Field>
++
++                {!showApiKeyInNormalFlow && !isOAuth && (
++                  <Field
++                    label={t("models.field.apiKey")}
++                    hint={t("models.field.apiKeyOptionalHint")}
++                  >
++                    <KeyInput
++                      value={form.apiKey}
++                      onChange={(v) => setForm((f) => ({ ...f, apiKey: v }))}
++                      placeholder={apiKeyPlaceholder}
++                    />
++                  </Field>
++                )}
++
++                {!showApiBaseInNormalFlow && (
++                  <Field
++                    label={t("models.field.apiBase")}
++                    hint={
++                      isOAuth
++                        ? t("models.edit.oauthNote")
++                        : t("models.field.apiBasePresetHint")
++                    }
++                  >
++                    <Input
++                      value={form.apiBase}
++                      onChange={setField("apiBase")}
++                      placeholder={apiBasePlaceholder}
++                      disabled={isOAuth}
++                      className="font-mono text-sm"
++                      dir="ltr"
++                    />
++                  </Field>
++                )}
++
+                 <Field
+                   label={t("models.field.proxy")}
+                   hint={t("models.field.proxyHint")}
+@@ -787,10 +891,11 @@ export function AddModelSheet({
+                 </p>
+               )}
+             </div>
++            )}
+           </div>
+ 
+           <SheetFooter className="border-t-muted border-t px-6 py-4">
+-            {isDirty && (
++            {step === "configure" && isDirty && (
+               <ConfigChangeNotice
+                 kind="save"
+                 title={t("common.saveChangesTitle")}
+@@ -800,15 +905,19 @@ export function AddModelSheet({
+             <Button variant="ghost" onClick={onClose} disabled={saving}>
+               {t("common.cancel")}
+             </Button>
+-            <Button
+-              onClick={handleSave}
+-              disabled={
+-                !isDirty || saving || modelValidation?.level === "error"
+-              }
+-            >
+-              {saving && <IconLoader2 className="size-4 animate-spin" />}
+-              {t("models.add.confirm")}
+-            </Button>
++            {step === "configure" && (
++              <Button
++                onClick={handleSave}
++                disabled={
++                  !form.model.trim() ||
++                  saving ||
++                  modelValidation?.level === "error"
++                }
++              >
++                {saving && <IconLoader2 className="size-4 animate-spin" />}
++                {t("models.add.confirm")}
++              </Button>
++            )}
+           </SheetFooter>
+         </SheetContent>
+ 
+diff --git a/web/frontend/src/components/models/edit-model-sheet.tsx b/web/frontend/src/components/models/edit-model-sheet.tsx
+index d547474..0e7df14 100644
+--- a/web/frontend/src/components/models/edit-model-sheet.tsx
++++ b/web/frontend/src/components/models/edit-model-sheet.tsx
+@@ -51,6 +51,7 @@ import {
+   getProviderDefaultAPIBase,
+   getProviderDefaultAuthMethod,
+   isProviderAuthMethodLocked,
++  matchStoredProvider,
+   providerSupportsFetch,
+ } from "./provider-registry"
+ import { TestModelDialog } from "./test-model-dialog"
+@@ -316,6 +317,14 @@ export function EditModelSheet({
+     providerOptions,
+   )
+   const submittedApiBase = getSubmittedAPIBase(form.apiBase)
++  // Surface a stored base URL that differs from the preset instead of quietly
++  // presenting it as the provider default, so an existing custom endpoint is
++  // visible to the user and is never overwritten by accident.
++  const { hasApiBaseOverride } = matchStoredProvider(
++    form.provider,
++    form.apiBase,
++    providerOptions,
++  )
+ 
+   const handleSave = async () => {
+     if (!model) return
+@@ -571,13 +580,21 @@ export function EditModelSheet({
+ 
+               <Field
+                 label={t("models.field.apiBase")}
+-                hint={isOAuth ? t("models.edit.oauthNote") : undefined}
++                hint={
++                  isOAuth
++                    ? t("models.edit.oauthNote")
++                    : hasApiBaseOverride
++                      ? t("models.field.apiBaseOverrideHint")
++                      : undefined
++                }
+               >
+                 <Input
+                   value={form.apiBase}
+                   onChange={setField("apiBase")}
+                   placeholder={apiBasePlaceholder}
+                   disabled={isOAuth}
++                  className="font-mono text-sm"
++                  dir="ltr"
+                 />
+               </Field>
+ 
+diff --git a/web/frontend/src/components/models/models-page.tsx b/web/frontend/src/components/models/models-page.tsx
+index ecad762..bf3687f 100644
+--- a/web/frontend/src/components/models/models-page.tsx
++++ b/web/frontend/src/components/models/models-page.tsx
+@@ -55,6 +55,11 @@ export function ModelsPage() {
+     null,
+   )
+   const providerMap = getProviderCatalogMap(providerOptions)
++  const configuredProviders = new Set(
++    models
++      .map((model) => getCanonicalProviderKey(model.provider, providerOptions))
++      .filter(Boolean),
++  )
+ 
+   const fetchModels = useCallback(async () => {
+     setLoading(true)
+@@ -175,7 +180,7 @@ export function ModelsPage() {
+             disabled={providerOptions.length === 0}
+           >
+             <IconPlus className="size-4" />
+-            {t("models.add.button")}
++            {t("models.picker.addProvider")}
+           </Button>
+         </div>
+       </PageHeader>
+@@ -252,6 +257,7 @@ export function ModelsPage() {
+         onClose={() => setAddOpen(false)}
+         onSaved={fetchModels}
+         existingModelNames={models.map((model) => model.model_name)}
++        configuredProviders={configuredProviders}
+         providerOptions={providerOptions}
+       />
+ 
+diff --git a/web/frontend/src/components/models/provider-icon.tsx b/web/frontend/src/components/models/provider-icon.tsx
+index 673b1da..75d8fbd 100644
+--- a/web/frontend/src/components/models/provider-icon.tsx
++++ b/web/frontend/src/components/models/provider-icon.tsx
+@@ -1,54 +1,25 @@
+-import { useMemo, useState } from "react"
+-
+ import type { ProviderCatalogEntry } from "./provider-registry"
+ 
+ interface ProviderIconProps {
+   provider: Pick<ProviderCatalogEntry, "key" | "label" | "iconSlug" | "domain">
++  size?: "sm" | "md"
+ }
+ 
+-export function ProviderIcon({ provider }: ProviderIconProps) {
+-  const [sourceIndex, setSourceIndex] = useState(0)
+-  const [loadFailed, setLoadFailed] = useState(false)
++// Provider marks are rendered locally from the provider label. PocketClaw does
++// not fetch logos from a CDN or favicon service at runtime: those requests
++// disclose which providers a user has configured, and they leave a broken mark
++// on a device that is offline or behind a restrictive network.
++export function ProviderIcon({ provider, size = "sm" }: ProviderIconProps) {
+   const initial = provider.label.trim().charAt(0).toUpperCase() || "?"
+-  const iconUrls = useMemo(() => {
+-    const slug = provider.iconSlug
+-    const domain = provider.domain
+-    const urls: string[] = []
+-    if (slug) {
+-      urls.push(`https://cdn.simpleicons.org/${slug}`)
+-    }
+-    if (domain) {
+-      urls.push(`https://www.google.com/s2/favicons?domain=${domain}&sz=64`)
+-    }
+-    return urls
+-  }, [provider.domain, provider.iconSlug])
+-
+-  const iconUrl = iconUrls[sourceIndex]
+-
+-  if (!iconUrl || loadFailed) {
+-    return (
+-      <span className="inline-flex size-4 shrink-0 items-center justify-center rounded-sm border border-black/10 bg-white text-[9px] font-semibold text-black/70 dark:border-white/20 dark:text-white/70">
+-        {initial}
+-      </span>
+-    )
+-  }
++  const sizeClass =
++    size === "md" ? "size-8 text-sm rounded-md" : "size-4 text-[9px] rounded-sm"
+ 
+   return (
+-    <span className="inline-flex size-4 shrink-0 items-center justify-center overflow-hidden rounded-sm border border-black/10 bg-white p-0.5 dark:border-white/20">
+-      <img
+-        src={iconUrl}
+-        alt={`${provider.label} logo`}
+-        className="size-full object-contain"
+-        loading="lazy"
+-        referrerPolicy="no-referrer"
+-        onError={() => {
+-          if (sourceIndex < iconUrls.length - 1) {
+-            setSourceIndex((idx) => idx + 1)
+-            return
+-          }
+-          setLoadFailed(true)
+-        }}
+-      />
++    <span
++      aria-hidden="true"
++      className={`inline-flex shrink-0 items-center justify-center border border-black/10 bg-white font-semibold text-black/70 dark:border-white/20 dark:bg-white/10 dark:text-white/80 ${sizeClass}`}
++    >
++      {initial}
+     </span>
+   )
+ }
+diff --git a/web/frontend/src/components/models/provider-picker.tsx b/web/frontend/src/components/models/provider-picker.tsx
+new file mode 100644
+index 0000000..9205517
+--- /dev/null
++++ b/web/frontend/src/components/models/provider-picker.tsx
+@@ -0,0 +1,107 @@
++import { IconCheck, IconSearch } from "@tabler/icons-react"
++import { useMemo, useState } from "react"
++import { useTranslation } from "react-i18next"
++
++import type { ModelProviderOption } from "@/api/models"
++import { Input } from "@/components/ui/input"
++
++import { ProviderIcon } from "./provider-icon"
++import {
++  type ProviderCatalogEntry,
++  type ProviderCategory,
++  searchProviders,
++} from "./provider-registry"
++
++// Rendering order of the groups in the picker. Cloud providers come first
++// because they are the ones the API-key-only flow was built for.
++const CATEGORY_ORDER: ProviderCategory[] = [
++  "cloud",
++  "local",
++  "custom",
++  "managed",
++  "speech",
++]
++
++interface ProviderPickerProps {
++  providerOptions?: ModelProviderOption[]
++  configuredProviders: Set<string>
++  onSelect: (provider: ProviderCatalogEntry) => void
++}
++
++export function ProviderPicker({
++  providerOptions,
++  configuredProviders,
++  onSelect,
++}: ProviderPickerProps) {
++  const { t } = useTranslation()
++  const [query, setQuery] = useState("")
++
++  const groups = useMemo(() => {
++    const matches = searchProviders(query, providerOptions)
++    return CATEGORY_ORDER.map((category) => ({
++      category,
++      providers: matches.filter((provider) => provider.category === category),
++    })).filter((group) => group.providers.length > 0)
++  }, [query, providerOptions])
++
++  return (
++    <div className="space-y-4">
++      <div className="relative">
++        <IconSearch className="text-muted-foreground pointer-events-none absolute top-1/2 start-3 size-4 -translate-y-1/2" />
++        <Input
++          value={query}
++          onChange={(event) => setQuery(event.target.value)}
++          placeholder={t("models.picker.searchPlaceholder")}
++          className="ps-9"
++          autoFocus
++        />
++      </div>
++
++      {groups.length === 0 && (
++        <p className="text-muted-foreground py-8 text-center text-sm">
++          {t("models.picker.noMatches")}
++        </p>
++      )}
++
++      <div className="space-y-5">
++        {groups.map((group) => (
++          <section key={group.category} className="space-y-2">
++            <h3 className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
++              {t(`models.picker.category.${group.category}`)}
++            </h3>
++            <div className="grid gap-2 sm:grid-cols-2">
++              {group.providers.map((provider) => {
++                const configured = configuredProviders.has(provider.key)
++                return (
++                  <button
++                    key={provider.key}
++                    type="button"
++                    onClick={() => onSelect(provider)}
++                    className="hover:border-primary/60 hover:bg-accent/40 focus-visible:ring-ring flex items-center gap-3 rounded-lg border p-3 text-start transition-colors focus-visible:ring-2 focus-visible:outline-none"
++                  >
++                    <ProviderIcon provider={provider} size="md" />
++                    <span className="min-w-0 flex-1">
++                      <span className="flex items-center gap-1.5">
++                        <span className="truncate text-sm font-medium">
++                          {provider.label}
++                        </span>
++                        {configured && (
++                          <IconCheck className="size-3.5 shrink-0 text-emerald-600 dark:text-emerald-400" />
++                        )}
++                      </span>
++                      <span className="text-muted-foreground mt-0.5 block truncate text-xs">
++                        {configured
++                          ? t("models.picker.statusConfigured")
++                          : t(`models.picker.description.${provider.category}`)}
++                      </span>
++                    </span>
++                  </button>
++                )
++              })}
++            </div>
++          </section>
++        ))}
++      </div>
++    </div>
++  )
++}
+diff --git a/web/frontend/src/components/models/provider-registry.test.ts b/web/frontend/src/components/models/provider-registry.test.ts
+new file mode 100644
+index 0000000..aa3f64d
+--- /dev/null
++++ b/web/frontend/src/components/models/provider-registry.test.ts
+@@ -0,0 +1,257 @@
++import { describe, expect, it } from "vitest"
++
++import type { ModelProviderOption } from "@/api/models"
++
++import {
++  CUSTOM_OPENAI_PROVIDER,
++  deriveModelAlias,
++  getCanonicalProviderKey,
++  getProviderCatalogEntry,
++  getProviderDefaultAPIBase,
++  getSelectableProviders,
++  isApiKeyOnlyProvider,
++  matchStoredProvider,
++  providerSupportsFetch,
++  requiresVisibleApiBase,
++  searchProviders,
++} from "./provider-registry"
++
++// A trimmed stand-in for the backend payload. Provider semantics always come
++// from the backend, so the fixture mirrors its shape rather than inventing one.
++const options: ModelProviderOption[] = [
++  {
++    id: "openai",
++    display_name: "OpenAI",
++    category: "cloud",
++    default_api_base: "https://api.openai.com/v1",
++    documentation_url: "https://platform.openai.com/api-keys",
++    empty_api_key_allowed: false,
++    create_allowed: true,
++    default_model_allowed: true,
++    supports_fetch: true,
++    priority: 100,
++    aliases: ["gpt"],
++  },
++  {
++    id: "gemini",
++    display_name: "Google Gemini",
++    category: "cloud",
++    default_api_base: "https://generativelanguage.googleapis.com/v1beta",
++    empty_api_key_allowed: false,
++    create_allowed: true,
++    default_model_allowed: true,
++    supports_fetch: true,
++    priority: 90,
++    aliases: ["google"],
++  },
++  {
++    id: "ollama",
++    display_name: "Ollama",
++    category: "local",
++    default_api_base: "http://localhost:11434/v1",
++    empty_api_key_allowed: true,
++    create_allowed: true,
++    default_model_allowed: true,
++    supports_fetch: true,
++    local: true,
++    priority: 50,
++  },
++  {
++    id: CUSTOM_OPENAI_PROVIDER,
++    display_name: "Custom OpenAI-Compatible",
++    category: "custom",
++    default_api_base: "",
++    empty_api_key_allowed: true,
++    create_allowed: true,
++    default_model_allowed: true,
++    supports_fetch: true,
++    priority: 30,
++    aliases: ["custom", "openai-compatible"],
++  },
++  {
++    id: "bedrock",
++    display_name: "AWS Bedrock",
++    category: "managed",
++    default_api_base: "",
++    empty_api_key_allowed: true,
++    create_allowed: true,
++    default_model_allowed: true,
++    priority: 60,
++  },
++  {
++    id: "elevenlabs",
++    display_name: "ElevenLabs ASR",
++    category: "speech",
++    default_api_base: "https://api.elevenlabs.io",
++    empty_api_key_allowed: false,
++    create_allowed: true,
++    default_model_allowed: false,
++    priority: 47,
++  },
++]
++
++describe("provider catalog lookup", () => {
++  it("finds a known provider and its metadata", () => {
++    const entry = getProviderCatalogEntry("openai", options)
++    expect(entry?.key).toBe("openai")
++    expect(entry?.label).toBe("OpenAI")
++    expect(entry?.category).toBe("cloud")
++    expect(entry?.defaultApiBase).toBe("https://api.openai.com/v1")
++    expect(entry?.documentationUrl).toBe("https://platform.openai.com/api-keys")
++  })
++
++  it("resolves aliases to the canonical id, never the display label", () => {
++    expect(getCanonicalProviderKey("GPT", options)).toBe("openai")
++    expect(getCanonicalProviderKey("Google", options)).toBe("gemini")
++    expect(getCanonicalProviderKey("custom", options)).toBe(
++      CUSTOM_OPENAI_PROVIDER,
++    )
++  })
++
++  it("returns nothing for an unknown provider", () => {
++    expect(getProviderCatalogEntry("not-a-provider", options)).toBeUndefined()
++    expect(getProviderDefaultAPIBase("not-a-provider", options)).toBe("")
++  })
++
++  it("returns an empty catalog when the backend payload is missing", () => {
++    expect(getSelectableProviders(undefined)).toEqual([])
++    expect(getSelectableProviders([])).toEqual([])
++  })
++})
++
++describe("api key requirements", () => {
++  it("marks cloud providers as requiring a key", () => {
++    expect(getProviderCatalogEntry("openai", options)?.requiresApiKey).toBe(true)
++    expect(isApiKeyOnlyProvider("openai", options)).toBe(true)
++  })
++
++  it("marks local and custom providers as keyless", () => {
++    expect(getProviderCatalogEntry("ollama", options)?.requiresApiKey).toBe(
++      false,
++    )
++    expect(
++      getProviderCatalogEntry(CUSTOM_OPENAI_PROVIDER, options)?.requiresApiKey,
++    ).toBe(false)
++  })
++
++  it("keeps managed and custom providers out of the api-key-only flow", () => {
++    expect(isApiKeyOnlyProvider("bedrock", options)).toBe(false)
++    expect(isApiKeyOnlyProvider(CUSTOM_OPENAI_PROVIDER, options)).toBe(false)
++    expect(isApiKeyOnlyProvider("ollama", options)).toBe(false)
++  })
++})
++
++describe("model discovery flag", () => {
++  it("reports the backend supports_fetch flag", () => {
++    expect(providerSupportsFetch("gemini", options)).toBe(true)
++    expect(providerSupportsFetch("openai", options)).toBe(true)
++    expect(providerSupportsFetch("bedrock", options)).toBe(false)
++    expect(providerSupportsFetch("not-a-provider", options)).toBe(false)
++  })
++})
++
++describe("base url visibility", () => {
++  it("hides the base url for cloud presets and shows it where the host is the user's choice", () => {
++    expect(requiresVisibleApiBase("openai", options)).toBe(false)
++    expect(requiresVisibleApiBase("gemini", options)).toBe(false)
++    expect(requiresVisibleApiBase("ollama", options)).toBe(true)
++    expect(requiresVisibleApiBase(CUSTOM_OPENAI_PROVIDER, options)).toBe(true)
++  })
++
++  it("shows the base url for an unrecognized provider rather than hiding it", () => {
++    expect(requiresVisibleApiBase("not-a-provider", options)).toBe(true)
++  })
++})
++
++describe("picker listing", () => {
++  it("excludes speech-only providers from the chat provider picker", () => {
++    const keys = getSelectableProviders(options).map((p) => p.key)
++    expect(keys).not.toContain("elevenlabs")
++    expect(keys).toContain("openai")
++  })
++
++  it("sorts by descending priority", () => {
++    const keys = getSelectableProviders(options).map((p) => p.key)
++    expect(keys[0]).toBe("openai")
++  })
++
++  it("searches by id, label, and alias", () => {
++    expect(searchProviders("gpt", options).map((p) => p.key)).toEqual(["openai"])
++    expect(searchProviders("Gemini", options).map((p) => p.key)).toEqual([
++      "gemini",
++    ])
++    expect(searchProviders("openai-compatible", options).map((p) => p.key)).toEqual(
++      [CUSTOM_OPENAI_PROVIDER],
++    )
++    expect(searchProviders("zzzz", options)).toEqual([])
++  })
++})
++
++describe("model alias derivation", () => {
++  it("uses the model id when it is free", () => {
++    expect(deriveModelAlias("gpt-5.4", [])).toBe("gpt-5.4")
++  })
++
++  it("strips a provider prefix from a namespaced model id", () => {
++    expect(deriveModelAlias("openai/gpt-oss-120b", [])).toBe("gpt-oss-120b")
++  })
++
++  it("suffixes to avoid colliding with an existing alias", () => {
++    expect(deriveModelAlias("gpt-5.4", ["gpt-5.4"])).toBe("gpt-5.4-2")
++    expect(deriveModelAlias("gpt-5.4", ["gpt-5.4", "gpt-5.4-2"])).toBe(
++      "gpt-5.4-3",
++    )
++  })
++
++  it("falls back to a usable alias for an empty model id", () => {
++    expect(deriveModelAlias("", [])).toBe("model")
++  })
++})
++
++describe("existing configuration compatibility", () => {
++  it("recognizes a stored entry that matches its preset default", () => {
++    const result = matchStoredProvider(
++      "openai",
++      "https://api.openai.com/v1",
++      options,
++    )
++    expect(result.entry?.key).toBe("openai")
++    expect(result.hasApiBaseOverride).toBe(false)
++  })
++
++  it("treats a trailing slash as the same endpoint, not an override", () => {
++    expect(
++      matchStoredProvider("openai", "https://api.openai.com/v1/", options)
++        .hasApiBaseOverride,
++    ).toBe(false)
++  })
++
++  it("reports a genuinely custom base url as an override", () => {
++    const result = matchStoredProvider(
++      "openai",
++      "https://gateway.internal.example/v1",
++      options,
++    )
++    expect(result.entry?.key).toBe("openai")
++    expect(result.hasApiBaseOverride).toBe(true)
++  })
++
++  it("treats an empty stored base as inheriting the preset default", () => {
++    expect(
++      matchStoredProvider("openai", "", options).hasApiBaseOverride,
++    ).toBe(false)
++    expect(
++      matchStoredProvider("openai", undefined, options).hasApiBaseOverride,
++    ).toBe(false)
++  })
++
++  it("keeps an unknown provider's custom base visible as an override", () => {
++    const result = matchStoredProvider(
++      "some-retired-provider",
++      "https://legacy.example/v1",
++      options,
++    )
++    expect(result.entry).toBeUndefined()
++    expect(result.hasApiBaseOverride).toBe(true)
++  })
++})
+diff --git a/web/frontend/src/components/models/provider-registry.ts b/web/frontend/src/components/models/provider-registry.ts
+index 7f1a5bf..d61b1ee 100644
+--- a/web/frontend/src/components/models/provider-registry.ts
++++ b/web/frontend/src/components/models/provider-registry.ts
+@@ -1,10 +1,19 @@
+ import type { ModelProviderOption } from "@/api/models"
+ 
++export type ProviderCategory =
++  | "cloud"
++  | "local"
++  | "managed"
++  | "custom"
++  | "speech"
++
+ export interface ProviderCatalogEntry {
+   key: string
+   label: string
++  category: ProviderCategory
+   iconSlug?: string
+   domain?: string
++  documentationUrl?: string
+   priority: number
+   isLocal: boolean
+   defaultApiBase?: string
+@@ -27,13 +36,31 @@ function normalizeProvider(provider?: string): string {
+   return provider?.trim().toLowerCase() || ""
+ }
+ 
++const PROVIDER_CATEGORIES: ProviderCategory[] = [
++  "cloud",
++  "local",
++  "managed",
++  "custom",
++  "speech",
++]
++
++// An unrecognized category from a newer backend is grouped with the cloud
++// providers rather than dropped, so a provider can never become unreachable in
++// the picker because the frontend has not been rebuilt yet.
++function normalizeCategory(category?: string): ProviderCategory {
++  const value = (category || "").trim().toLowerCase() as ProviderCategory
++  return PROVIDER_CATEGORIES.includes(value) ? value : "cloud"
++}
++
+ function toCatalogEntry(option: ModelProviderOption): ProviderCatalogEntry {
+   const defaultApiBase = option.default_api_base || undefined
+   return {
+     key: option.id,
+     label: option.display_name || option.id,
++    category: normalizeCategory(option.category),
+     iconSlug: option.icon_slug || undefined,
+     domain: option.domain || undefined,
++    documentationUrl: option.documentation_url || undefined,
+     priority: option.priority ?? 0,
+     isLocal: option.local === true,
+     defaultApiBase,
+@@ -193,3 +220,106 @@ function editDistance(a: string, b: string): number {
+   }
+   return dp[m][n]
+ }
++
++/** The provider ID reserved for arbitrary OpenAI-compatible endpoints. */
++export const CUSTOM_OPENAI_PROVIDER = "custom-openai"
++
++/**
++ * Providers offered in the simplified "Add Provider" flow: every creatable
++ * provider except the speech-only entries, which cannot drive a chat model.
++ */
++export function getSelectableProviders(
++  backendOptions?: ModelProviderOption[],
++): ProviderCatalogEntry[] {
++  return getProviderCatalog(backendOptions).filter(
++    (provider) => provider.createAllowed && provider.category !== "speech",
++  )
++}
++
++export function searchProviders(
++  query: string,
++  backendOptions?: ModelProviderOption[],
++): ProviderCatalogEntry[] {
++  const needle = query.trim().toLowerCase()
++  const providers = getSelectableProviders(backendOptions)
++  if (!needle) return providers
++  return providers.filter(
++    (provider) =>
++      provider.key.includes(needle) ||
++      provider.label.toLowerCase().includes(needle) ||
++      provider.aliases.some((alias) => alias.toLowerCase().includes(needle)),
++  )
++}
++
++/**
++ * Whether the simplified flow can configure this provider with nothing but an
++ * API key. Managed providers (AWS credential chain, Entra ID, OAuth, local CLI
++ * bridges) and custom endpoints need more than a key, so they keep the full
++ * form.
++ */
++export function isApiKeyOnlyProvider(
++  provider: string | undefined,
++  backendOptions?: ModelProviderOption[],
++): boolean {
++  const entry = getProviderCatalogEntry(provider, backendOptions)
++  if (!entry) return false
++  return entry.category === "cloud" && !!entry.defaultApiBase
++}
++
++/**
++ * Whether the normal (non-advanced) form must show the Base URL field. Local
++ * servers and custom endpoints are addressable at a host the user chooses, so
++ * hiding the base URL there would make them unusable.
++ */
++export function requiresVisibleApiBase(
++  provider: string | undefined,
++  backendOptions?: ModelProviderOption[],
++): boolean {
++  const entry = getProviderCatalogEntry(provider, backendOptions)
++  if (!entry) return true
++  return entry.category === "local" || entry.category === "custom"
++}
++
++/**
++ * Derive a unique model alias from the chosen model ID, so a normal user never
++ * has to invent one. The model ID is kept intact as the alias when it is free;
++ * otherwise a numeric suffix is appended.
++ */
++export function deriveModelAlias(
++  modelId: string,
++  existingNames: string[],
++): string {
++  const base = modelId.trim().replace(/^.*\//, "") || "model"
++  const taken = new Set(existingNames.map((name) => name.trim()))
++  if (!taken.has(base)) return base
++  for (let suffix = 2; suffix < 1000; suffix++) {
++    const candidate = `${base}-${suffix}`
++    if (!taken.has(candidate)) return candidate
++  }
++  return `${base}-${Date.now()}`
++}
++
++/**
++ * Recognize which preset an already-saved model belongs to. A stored entry that
++ * uses a preset ID but overrides the base URL is reported as a preset with an
++ * override, never rewritten back to the preset default.
++ */
++export function matchStoredProvider(
++  provider: string | undefined,
++  apiBase: string | undefined,
++  backendOptions?: ModelProviderOption[],
++): {
++  entry?: ProviderCatalogEntry
++  hasApiBaseOverride: boolean
++} {
++  const entry = getProviderCatalogEntry(provider, backendOptions)
++  const stored = (apiBase || "").trim().replace(/\/+$/, "")
++  if (!entry) {
++    return { entry: undefined, hasApiBaseOverride: stored !== "" }
++  }
++  const preset = (entry.defaultApiBase || "").trim().replace(/\/+$/, "")
++  return {
++    entry,
++    hasApiBaseOverride: stored !== "" && stored !== preset,
++  }
++}
 diff --git a/web/frontend/src/i18n/index.ts b/web/frontend/src/i18n/index.ts
 index 7eefd94..5eebe8c 100644
 --- a/web/frontend/src/i18n/index.ts
@@ -777,10 +3180,64 @@ index 7eefd94..5eebe8c 100644
  dayjs.extend(relativeTime)
  dayjs.extend(localizedFormat)
 diff --git a/web/frontend/src/i18n/locales/bn-in.json b/web/frontend/src/i18n/locales/bn-in.json
-index 0af20a7..54993b7 100644
+index 0af20a7..1579678 100644
 --- a/web/frontend/src/i18n/locales/bn-in.json
 +++ b/web/frontend/src/i18n/locales/bn-in.json
-@@ -521,7 +521,7 @@
+@@ -283,7 +283,8 @@
+       "errorDuplicateModelName": "মডেল এলিয়াস ইতিমধ্যে বিদ্যমান। অনুগ্রহ করে একটি ভিন্ন নাম ব্যবহার করুন।",
+       "saveError": "মডেল যোগ করতে ব্যর্থ",
+       "saveSuccess": "মডেল যোগ করা হয়েছে।",
+-      "confirm": "মডেল যোগ করুন"
++      "confirm": "মডেল যোগ করুন",
++      "modelNameAutoHint": "Optional. Left blank, the model ID is used as the alias."
+     },
+     "delete": {
+       "title": "মডেল মুছবেন?",
+@@ -329,7 +330,11 @@
+       "extraBodyHint": "অনুরোধ বডিতে ইনজেক্ট করার অতিরিক্ত JSON ক্ষেত্র, যেমন {\"reasoning_split\": true}।",
+       "customHeaders": "Custom Headers",
+       "customHeadersHint": "প্রতিটি অনুরোধে ইনজেক্ট করার অতিরিক্ত HTTP হেডার, যেমন {\"X-Source\": \"coding-plan\"}।",
+-      "invalidJson": "অবৈধ JSON ফর্ম্যাট"
++      "invalidJson": "অবৈধ JSON ফর্ম্যাট",
++      "apiBaseLocalHint": "The address where this server is reachable from the device. On Android, localhost is the phone itself, so use the LAN or VPS address of your machine.",
++      "apiBasePresetHint": "Leave blank to use the provider's default endpoint. Set this only to override it.",
++      "apiKeyOptionalHint": "Optional. This provider normally accepts requests without a key.",
++      "apiBaseOverrideHint": "This entry uses a custom endpoint instead of the provider default. It is kept as saved."
+     },
+     "edit": {
+       "title": "{{name}} কনফিগার করুন",
+@@ -407,6 +412,30 @@
+       "noProvider": "কোনো প্রোভাইডার পাওয়া যায়নি।",
+       "noCatalog": "প্রোভাইডার ক্যাটালগ অনুপলব্ধ।",
+       "local": "লোকাল"
++    },
++    "picker": {
++      "title": "Add AI Provider",
++      "addProvider": "Add Provider",
++      "searchPlaceholder": "Search providers",
++      "noMatches": "No provider matches that search. Use Custom OpenAI-Compatible for an endpoint that is not listed.",
++      "statusConfigured": "Already configured",
++      "getApiKey": "Get an API key",
++      "change": "Change",
++      "category": {
++        "cloud": "Cloud providers",
++        "local": "Local and self-hosted",
++        "custom": "Custom endpoint",
++        "managed": "Managed credentials",
++        "speech": "Speech"
++      },
++      "subtitle": "Choose a provider, paste your API key, and pick a model.",
++      "description": {
++        "cloud": "Hosted API — needs an API key",
++        "local": "Runs on your own machine or server",
++        "custom": "Any OpenAI-compatible endpoint",
++        "managed": "Uses platform credentials or a local CLI",
++        "speech": "Speech recognition only"
++      }
+     }
+   },
+   "channels": {
+@@ -521,7 +550,7 @@
          "streamingMinGrowthChars": "অন্য একটি মধ্যবর্তী স্ট্রিমিং আপডেট পাঠানোর আগে ন্যূনতম টেক্সট বৃদ্ধি। 0 মানে ডিফল্ট ব্যবহার করুন। চূড়ান্ত উত্তরে থ্রটল করা হয় না।",
          "groupTriggerMentionOnly": "গ্রুপ চ্যাটে, শুধুমাত্র বটকে উল্লেখ করলেই প্রতিক্রিয়া জানান।",
          "groupTriggerPrefixes": "কাস্টম গ্রুপ-চ্যাট ট্রিগার প্রিফিক্স। একে একে আইটেম যোগ করুন, অথবা একাধিক মান একবারে পেস্ট করুন।",
@@ -789,7 +3246,7 @@ index 0af20a7..54993b7 100644
          "isLark": "Feishu ডোমেইন (open.feishu.cn) এর পরিবর্তে Lark আন্তর্জাতিক ডোমেইন (open.larksuite.com) ব্যবহার করুন।",
          "allowFrom": "অনুমোদিত ব্যবহারকারী বা গ্রুপ ID। একে একে আইটেম যোগ করুন, অথবা একাধিক মান একবারে পেস্ট করুন।",
          "allowOrigins": "অনুমোদিত অরিজিন ডোমেইন। একে একে আইটেম যোগ করুন, অথবা একাধিক মান একবারে পেস্ট করুন।",
-@@ -562,7 +562,7 @@
+@@ -562,7 +591,7 @@
          "genericField": "{{field}} কনফিগার করতে ব্যবহৃত।",
          "broker": "MQTT ব্রোকার ঠিকানা।",
          "mqttAgentId": "এই ইনস্ট্যান্সের জন্য অনন্য শনাক্তকারী, টপিক পাথ তৈরিতে ব্যবহৃত।",
@@ -798,7 +3255,7 @@ index 0af20a7..54993b7 100644
          "mqttUsername": "ব্রোকার প্রমাণীকরণ ব্যবহারকারীর নাম (ঐচ্ছিক)।",
          "mqttPassword": "ব্রোকার প্রমাণীকরণ পাসওয়ার্ড (ঐচ্ছিক)।",
          "mqttClientId": "MQTT ক্লায়েন্ট ID। স্বয়ংক্রিয়ভাবে তৈরি করতে খালি রাখুন।",
-@@ -795,14 +795,14 @@
+@@ -795,14 +824,14 @@
        "turn_profile": "অনুরোধ প্রসঙ্গ নীতি",
        "turn_profile_hint": "প্রতিটি অনুরোধে কী প্রসঙ্গ বহন করে তা নিয়ন্ত্রণ করে। স্বাভাবিক চ্যাট আচরণ রাখতে নিষ্ক্রিয় রাখুন।",
        "turn_profile_enabled": "নীতি সক্ষম করুন",
@@ -815,7 +3272,7 @@ index 0af20a7..54993b7 100644
        "turn_profile_skills": "দক্ষতা প্রম্পট",
        "turn_profile_skills_hint": "ডিফল্ট উপলব্ধ দক্ষতা এবং সক্রিয় দক্ষতা নির্দেশাবলী অন্তর্ভুক্ত করে। বন্ধ করলে সেগুলি লুকায়। অনুমোদিত তালিকা প্রতি লাইনে এক করে প্রবেশ করানো দক্ষতার নামগুলিই রাখে।",
        "turn_profile_skills_allow_placeholder": "skill-name\nanother-skill",
-@@ -828,11 +828,11 @@
+@@ -828,11 +857,11 @@
        "monitor_usb": "USB মনিটর করুন",
        "monitor_usb_hint": "ডিভাইস সক্ষম থাকলে USB প্লাগ/আনপ্লাগ ইভেন্ট দেখুন।",
        "autostart_label": "লগইনে চালু করুন",
@@ -829,7 +3286,7 @@ index 0af20a7..54993b7 100644
        "launcher_section_hint": "এই বিভাগের পরিবর্তন লঞ্চার পুনরায় চালু হওয়ার পরে কার্যকর হয়।",
        "gateway_restart_hint": "এই বিভাগের পরিবর্তন গেটওয়ে পুনরায় চালু হওয়ার পরে কার্যকর হয়।",
        "dashboard_password": "লগইন পাসওয়ার্ড",
-@@ -948,8 +948,8 @@
+@@ -948,8 +977,8 @@
      "next": "পরবর্তী",
      "finish": "শেষ করুন",
      "welcome": {
@@ -841,10 +3298,64 @@ index 0af20a7..54993b7 100644
      "models": {
        "title": "মডেল কনফিগার করুন",
 diff --git a/web/frontend/src/i18n/locales/cs.json b/web/frontend/src/i18n/locales/cs.json
-index d365157..77f475c 100644
+index d365157..5c96b42 100644
 --- a/web/frontend/src/i18n/locales/cs.json
 +++ b/web/frontend/src/i18n/locales/cs.json
-@@ -520,7 +520,7 @@
+@@ -282,7 +282,8 @@
+       "errorDuplicateModelName": "Alias modelu již existuje. Použijte jiný název.",
+       "saveError": "Přidání modelu selhalo",
+       "saveSuccess": "Model přidán.",
+-      "confirm": "Přidat model"
++      "confirm": "Přidat model",
++      "modelNameAutoHint": "Optional. Left blank, the model ID is used as the alias."
+     },
+     "delete": {
+       "title": "Smazat model?",
+@@ -328,7 +329,11 @@
+       "extraBodyHint": "Dodatečná JSON pole pro vložení do těla požadavku, např. {\"reasoning_split\": true}.",
+       "customHeaders": "Vlastní hlavičky",
+       "customHeadersHint": "Dodatečné HTTP hlavičky vkládané do každého požadavku, např. {\"X-Source\": \"coding-plan\"}.",
+-      "invalidJson": "Neplatný formát JSON"
++      "invalidJson": "Neplatný formát JSON",
++      "apiBaseLocalHint": "The address where this server is reachable from the device. On Android, localhost is the phone itself, so use the LAN or VPS address of your machine.",
++      "apiBasePresetHint": "Leave blank to use the provider's default endpoint. Set this only to override it.",
++      "apiKeyOptionalHint": "Optional. This provider normally accepts requests without a key.",
++      "apiBaseOverrideHint": "This entry uses a custom endpoint instead of the provider default. It is kept as saved."
+     },
+     "edit": {
+       "title": "Nastavení {{name}}",
+@@ -406,6 +411,30 @@
+       "noProvider": "Žádný poskytovatel nenalezen.",
+       "noCatalog": "Katalog poskytovatele není dostupný.",
+       "local": "lokální"
++    },
++    "picker": {
++      "title": "Add AI Provider",
++      "addProvider": "Add Provider",
++      "searchPlaceholder": "Search providers",
++      "noMatches": "No provider matches that search. Use Custom OpenAI-Compatible for an endpoint that is not listed.",
++      "statusConfigured": "Already configured",
++      "getApiKey": "Get an API key",
++      "change": "Change",
++      "category": {
++        "cloud": "Cloud providers",
++        "local": "Local and self-hosted",
++        "custom": "Custom endpoint",
++        "managed": "Managed credentials",
++        "speech": "Speech"
++      },
++      "subtitle": "Choose a provider, paste your API key, and pick a model.",
++      "description": {
++        "cloud": "Hosted API — needs an API key",
++        "local": "Runs on your own machine or server",
++        "custom": "Any OpenAI-compatible endpoint",
++        "managed": "Uses platform credentials or a local CLI",
++        "speech": "Speech recognition only"
++      }
+     }
+   },
+   "channels": {
+@@ -520,7 +549,7 @@
          "streamingMinGrowthChars": "Minimální přírůstek textu před odesláním další průběžné aktualizace streamu. 0 znamená použít výchozí hodnotu. Finální odpovědi nejsou omezovány.",
          "groupTriggerMentionOnly": "Ve skupinových chatech reagovat pouze při zmínce bota.",
          "groupTriggerPrefixes": "Vlastní prefixy pro spuštění ve skupinovém chatu. Přidávejte položky po jedné nebo vložte více hodnot najednou.",
@@ -853,7 +3364,7 @@ index d365157..77f475c 100644
          "isLark": "Použít mezinárodní doménu Lark (open.larksuite.com) místo domény Feishu (open.feishu.cn).",
          "allowFrom": "Povolená ID uživatelů nebo skupin. Přidávejte po jednom nebo vložte více hodnot najednou.",
          "allowOrigins": "Povolené origin domény. Přidávejte po jednom nebo vložte více hodnot najednou.",
-@@ -561,7 +561,7 @@
+@@ -561,7 +590,7 @@
          "genericField": "Slouží ke konfiguraci {{field}}.",
          "broker": "Adresa MQTT brokeru.",
          "mqttAgentId": "Jedinečný identifikátor této instance, používá se k sestavení cesty tématu.",
@@ -862,7 +3373,7 @@ index d365157..77f475c 100644
          "mqttUsername": "Uživatelské jméno pro ověření u brokeru (volitelné).",
          "mqttPassword": "Heslo pro ověření u brokeru (volitelné).",
          "mqttClientId": "ID MQTT klienta. Ponechte prázdné pro automatické generování.",
-@@ -794,14 +794,14 @@
+@@ -794,14 +823,14 @@
        "turn_profile": "Zásady kontextu požadavku",
        "turn_profile_hint": "Řídí, jaký kontext nese každý požadavek. Ponechte zakázáno pro zachování běžného chování chatu.",
        "turn_profile_enabled": "Povolit zásadu",
@@ -879,7 +3390,7 @@ index d365157..77f475c 100644
        "turn_profile_skills": "Dovednostní prompty",
        "turn_profile_skills_hint": "Výchozí nastavení zahrnuje dostupné dovednosti a aktivní instrukce. Vypnuto je skryje. Povolený seznam zachová jen dovednosti zadané jeden název na řádek.",
        "turn_profile_skills_allow_placeholder": "název-dovednosti\ndalší-dovednost",
-@@ -827,11 +827,11 @@
+@@ -827,11 +856,11 @@
        "monitor_usb": "Sledovat USB",
        "monitor_usb_hint": "Sledovat události připojení/odpojení USB při aktivních zařízeních.",
        "autostart_label": "Spustit při přihlášení",
@@ -893,7 +3404,7 @@ index d365157..77f475c 100644
        "launcher_section_hint": "Změny v této sekci se projeví až po restartu launcheru.",
        "gateway_restart_hint": "Změny v této části se projeví po restartu gateway.",
        "dashboard_password": "Přihlašovací heslo",
-@@ -947,8 +947,8 @@
+@@ -947,8 +976,8 @@
      "next": "Další",
      "finish": "Dokončit",
      "welcome": {
@@ -905,10 +3416,64 @@ index d365157..77f475c 100644
      "models": {
        "title": "Nakonfigurujte modely",
 diff --git a/web/frontend/src/i18n/locales/en.json b/web/frontend/src/i18n/locales/en.json
-index 83ee7f7..db4dacc 100644
+index 83ee7f7..8e1e101 100644
 --- a/web/frontend/src/i18n/locales/en.json
 +++ b/web/frontend/src/i18n/locales/en.json
-@@ -522,7 +522,7 @@
+@@ -284,7 +284,8 @@
+       "errorDuplicateModelName": "Model alias already exists. Please use a different name.",
+       "saveError": "Failed to add model",
+       "saveSuccess": "Model added.",
+-      "confirm": "Add Model"
++      "confirm": "Add Model",
++      "modelNameAutoHint": "Optional. Left blank, the model ID is used as the alias."
+     },
+     "delete": {
+       "title": "Delete Model?",
+@@ -330,7 +331,11 @@
+       "extraBodyHint": "Additional JSON fields to inject into the request body, e.g. {\"reasoning_split\": true}.",
+       "customHeaders": "Custom Headers",
+       "customHeadersHint": "Additional HTTP headers to inject into every request, e.g. {\"X-Source\": \"coding-plan\"}.",
+-      "invalidJson": "Invalid JSON format"
++      "invalidJson": "Invalid JSON format",
++      "apiBaseLocalHint": "The address where this server is reachable from the device. On Android, localhost is the phone itself, so use the LAN or VPS address of your machine.",
++      "apiBasePresetHint": "Leave blank to use the provider's default endpoint. Set this only to override it.",
++      "apiKeyOptionalHint": "Optional. This provider normally accepts requests without a key.",
++      "apiBaseOverrideHint": "This entry uses a custom endpoint instead of the provider default. It is kept as saved."
+     },
+     "edit": {
+       "title": "Configure {{name}}",
+@@ -408,6 +413,30 @@
+       "noProvider": "No provider found.",
+       "noCatalog": "Provider catalog unavailable.",
+       "local": "local"
++    },
++    "picker": {
++      "title": "Add AI Provider",
++      "addProvider": "Add Provider",
++      "searchPlaceholder": "Search providers",
++      "noMatches": "No provider matches that search. Use Custom OpenAI-Compatible for an endpoint that is not listed.",
++      "statusConfigured": "Already configured",
++      "getApiKey": "Get an API key",
++      "change": "Change",
++      "category": {
++        "cloud": "Cloud providers",
++        "local": "Local and self-hosted",
++        "custom": "Custom endpoint",
++        "managed": "Managed credentials",
++        "speech": "Speech"
++      },
++      "subtitle": "Choose a provider, paste your API key, and pick a model.",
++      "description": {
++        "cloud": "Hosted API — needs an API key",
++        "local": "Runs on your own machine or server",
++        "custom": "Any OpenAI-compatible endpoint",
++        "managed": "Uses platform credentials or a local CLI",
++        "speech": "Speech recognition only"
++      }
+     }
+   },
+   "channels": {
+@@ -522,7 +551,7 @@
          "streamingMinGrowthChars": "Minimum text growth before sending another intermediate streaming update. 0 means use the default. Final replies are not throttled.",
          "groupTriggerMentionOnly": "In group chats, respond only when the bot is mentioned.",
          "groupTriggerPrefixes": "Custom group-chat trigger prefixes. Add items one by one, or paste multiple values at once.",
@@ -917,7 +3482,7 @@ index 83ee7f7..db4dacc 100644
          "isLark": "Use Lark international domain (open.larksuite.com) instead of Feishu domain (open.feishu.cn).",
          "allowFrom": "Allowed user or group IDs. Add items one by one, or paste multiple values at once.",
          "allowOrigins": "Allowed origin domains. Add items one by one, or paste multiple values at once.",
-@@ -563,7 +563,7 @@
+@@ -563,7 +592,7 @@
          "genericField": "Used to configure {{field}}.",
          "broker": "MQTT broker address.",
          "mqttAgentId": "Unique identifier for this instance, used to build the topic path.",
@@ -926,7 +3491,7 @@ index 83ee7f7..db4dacc 100644
          "mqttUsername": "Broker authentication username (optional).",
          "mqttPassword": "Broker authentication password (optional).",
          "mqttClientId": "MQTT client ID. Leave blank to auto-generate.",
-@@ -796,14 +796,14 @@
+@@ -796,14 +825,14 @@
        "turn_profile": "Request Context Policy",
        "turn_profile_hint": "Controls what context each request carries. Leave disabled to keep the normal chat behavior.",
        "turn_profile_enabled": "Enable policy",
@@ -943,7 +3508,7 @@ index 83ee7f7..db4dacc 100644
        "turn_profile_skills": "Skill Prompts",
        "turn_profile_skills_hint": "Default includes available skills and active skill instructions. Off hides them. Allow List keeps only skill names entered one per line.",
        "turn_profile_skills_allow_placeholder": "skill-name\nanother-skill",
-@@ -829,11 +829,11 @@
+@@ -829,11 +858,11 @@
        "monitor_usb": "Monitor USB",
        "monitor_usb_hint": "Watch USB plug/unplug events when devices are enabled.",
        "autostart_label": "Launch at Login",
@@ -957,7 +3522,7 @@ index 83ee7f7..db4dacc 100644
        "launcher_section_hint": "Changes in this section take effect after the launcher restarts.",
        "gateway_restart_hint": "Changes in this section take effect after the gateway restarts.",
        "dashboard_password": "Login Password",
-@@ -949,8 +949,8 @@
+@@ -949,8 +978,8 @@
      "next": "Next",
      "finish": "Finish",
      "welcome": {
@@ -969,10 +3534,64 @@ index 83ee7f7..db4dacc 100644
      "models": {
        "title": "Configure Models",
 diff --git a/web/frontend/src/i18n/locales/pt-br.json b/web/frontend/src/i18n/locales/pt-br.json
-index 4ec805e..3447f85 100644
+index 4ec805e..f3eb742 100644
 --- a/web/frontend/src/i18n/locales/pt-br.json
 +++ b/web/frontend/src/i18n/locales/pt-br.json
-@@ -522,7 +522,7 @@
+@@ -284,7 +284,8 @@
+       "errorDuplicateModelName": "Apelido de modelo já existe. Use um nome diferente.",
+       "saveError": "Falha ao adicionar modelo",
+       "saveSuccess": "Modelo adicionado.",
+-      "confirm": "Adicionar Modelo"
++      "confirm": "Adicionar Modelo",
++      "modelNameAutoHint": "Optional. Left blank, the model ID is used as the alias."
+     },
+     "delete": {
+       "title": "Excluir Modelo?",
+@@ -330,7 +331,11 @@
+       "extraBodyHint": "Campos JSON adicionais para injetar no body da requisição, ex: {\"reasoning_split\": true}.",
+       "customHeaders": "Headers Customizados",
+       "customHeadersHint": "Headers HTTP adicionais para injetar em cada requisição, ex: {\"X-Source\": \"coding-plan\"}.",
+-      "invalidJson": "Formato JSON inválido"
++      "invalidJson": "Formato JSON inválido",
++      "apiBaseLocalHint": "The address where this server is reachable from the device. On Android, localhost is the phone itself, so use the LAN or VPS address of your machine.",
++      "apiBasePresetHint": "Leave blank to use the provider's default endpoint. Set this only to override it.",
++      "apiKeyOptionalHint": "Optional. This provider normally accepts requests without a key.",
++      "apiBaseOverrideHint": "This entry uses a custom endpoint instead of the provider default. It is kept as saved."
+     },
+     "edit": {
+       "title": "Configurar {{name}}",
+@@ -408,6 +413,30 @@
+       "noProvider": "Nenhum provider encontrado.",
+       "noCatalog": "Catálogo de providers indisponível.",
+       "local": "local"
++    },
++    "picker": {
++      "title": "Add AI Provider",
++      "addProvider": "Add Provider",
++      "searchPlaceholder": "Search providers",
++      "noMatches": "No provider matches that search. Use Custom OpenAI-Compatible for an endpoint that is not listed.",
++      "statusConfigured": "Already configured",
++      "getApiKey": "Get an API key",
++      "change": "Change",
++      "category": {
++        "cloud": "Cloud providers",
++        "local": "Local and self-hosted",
++        "custom": "Custom endpoint",
++        "managed": "Managed credentials",
++        "speech": "Speech"
++      },
++      "subtitle": "Choose a provider, paste your API key, and pick a model.",
++      "description": {
++        "cloud": "Hosted API — needs an API key",
++        "local": "Runs on your own machine or server",
++        "custom": "Any OpenAI-compatible endpoint",
++        "managed": "Uses platform credentials or a local CLI",
++        "speech": "Speech recognition only"
++      }
+     }
+   },
+   "channels": {
+@@ -522,7 +551,7 @@
          "streamingMinGrowthChars": "Crescimento mínimo de texto antes de enviar outra atualização intermediária. 0 significa usar o padrão. Respostas finais não são limitadas.",
          "groupTriggerMentionOnly": "Em chats em grupo, responder apenas quando o bot for mencionado.",
          "groupTriggerPrefixes": "Prefixos customizados de trigger para chats em grupo. Adicione itens um a um ou cole vários valores de uma vez.",
@@ -981,7 +3600,7 @@ index 4ec805e..3447f85 100644
          "isLark": "Usar o domínio internacional do Lark (open.larksuite.com) em vez do domínio do Feishu (open.feishu.cn).",
          "allowFrom": "IDs de usuário ou grupo permitidos. Adicione itens um a um ou cole vários valores de uma vez.",
          "allowOrigins": "Domínios de origem permitidos. Adicione itens um a um ou cole vários valores de uma vez.",
-@@ -563,7 +563,7 @@
+@@ -563,7 +592,7 @@
          "genericField": "Usado para configurar {{field}}.",
          "broker": "Endereço do broker MQTT.",
          "mqttAgentId": "Identificador único desta instância, usado para montar o caminho do topic.",
@@ -990,7 +3609,7 @@ index 4ec805e..3447f85 100644
          "mqttUsername": "Nome de usuário de autenticação do broker (opcional).",
          "mqttPassword": "Senha de autenticação do broker (opcional).",
          "mqttClientId": "ID do cliente MQTT. Deixe em branco para gerar automaticamente.",
-@@ -796,14 +796,14 @@
+@@ -796,14 +825,14 @@
        "turn_profile": "Política de Contexto da Requisição",
        "turn_profile_hint": "Controla qual contexto cada requisição carrega. Deixe desativado para manter o comportamento normal do chat.",
        "turn_profile_enabled": "Ativar política",
@@ -1007,7 +3626,7 @@ index 4ec805e..3447f85 100644
        "turn_profile_skills": "Prompts de Skills",
        "turn_profile_skills_hint": "Padrão inclui skills disponíveis e instruções de skills ativas. Desligado oculta isso. Lista Permitida mantém apenas nomes de skills, um por linha.",
        "turn_profile_skills_allow_placeholder": "skill-name\nanother-skill",
-@@ -829,11 +829,11 @@
+@@ -829,11 +858,11 @@
        "monitor_usb": "Monitorar USB",
        "monitor_usb_hint": "Observar eventos de plug/unplug USB quando dispositivos estiverem habilitados.",
        "autostart_label": "Iniciar no Login",
@@ -1021,7 +3640,7 @@ index 4ec805e..3447f85 100644
        "launcher_section_hint": "Alterações nesta seção entram em vigor após o launcher reiniciar.",
        "gateway_restart_hint": "Alterações nesta seção entram em vigor após o gateway reiniciar.",
        "dashboard_password": "Senha de Login",
-@@ -949,8 +949,8 @@
+@@ -949,8 +978,8 @@
      "next": "Próximo",
      "finish": "Concluir",
      "welcome": {
@@ -1033,10 +3652,64 @@ index 4ec805e..3447f85 100644
      "models": {
        "title": "Configurar Modelos",
 diff --git a/web/frontend/src/i18n/locales/zh.json b/web/frontend/src/i18n/locales/zh.json
-index fa8763d..7f87dc5 100644
+index fa8763d..b9d6497 100644
 --- a/web/frontend/src/i18n/locales/zh.json
 +++ b/web/frontend/src/i18n/locales/zh.json
-@@ -522,7 +522,7 @@
+@@ -284,7 +284,8 @@
+       "errorDuplicateModelName": "模型别名已存在，请使用其他名称。",
+       "saveError": "添加模型失败",
+       "saveSuccess": "模型已添加。",
+-      "confirm": "添加模型"
++      "confirm": "添加模型",
++      "modelNameAutoHint": "可选。留空时将使用模型 ID 作为别名。"
+     },
+     "delete": {
+       "title": "确认删除模型？",
+@@ -330,7 +331,11 @@
+       "customHeaders": "Custom Headers",
+       "customHeadersHint": "要注入到每个请求中的额外 HTTP Headers，例如 {\"X-Source\": \"coding-plan\"}。",
+       "selectProviderFirst": "请先选择服务商",
+-      "invalidJson": "JSON 格式不正确"
++      "invalidJson": "JSON 格式不正确",
++      "apiBaseLocalHint": "此服务在设备上可访问的地址。在 Android 上，localhost 指手机本身，请填写你机器的局域网或 VPS 地址。",
++      "apiBasePresetHint": "留空则使用该提供商的默认端点。仅在需要覆盖时填写。",
++      "apiKeyOptionalHint": "可选。该提供商通常无需密钥即可请求。",
++      "apiBaseOverrideHint": "此条目使用自定义端点而非提供商默认值，将按已保存的内容保留。"
+     },
+     "edit": {
+       "title": "配置 {{name}}",
+@@ -408,6 +413,30 @@
+       "noProvider": "未找到服务商。",
+       "noCatalog": "Provider catalog 暂不可用。",
+       "local": "本地"
++    },
++    "picker": {
++      "title": "添加 AI 提供商",
++      "addProvider": "添加提供商",
++      "searchPlaceholder": "搜索提供商",
++      "noMatches": "没有匹配的提供商。未列出的端点请使用“自定义 OpenAI 兼容”。",
++      "statusConfigured": "已配置",
++      "getApiKey": "获取 API 密钥",
++      "change": "更改",
++      "category": {
++        "cloud": "云端提供商",
++        "local": "本地与自托管",
++        "custom": "自定义端点",
++        "managed": "托管凭据",
++        "speech": "语音"
++      },
++      "subtitle": "选择提供商，粘贴 API 密钥，然后选择模型。",
++      "description": {
++        "cloud": "托管 API — 需要 API 密钥",
++        "local": "运行在你自己的机器或服务器上",
++        "custom": "任意 OpenAI 兼容端点",
++        "managed": "使用平台凭据或本地 CLI",
++        "speech": "仅语音识别"
++      }
+     }
+   },
+   "channels": {
+@@ -522,7 +551,7 @@
          "streamingMinGrowthChars": "中间流式更新相比上次发送至少增长的字符数，0 表示使用默认值。最终回复不受限制。",
          "groupTriggerMentionOnly": "在群聊中仅当提及机器人时才响应",
          "groupTriggerPrefixes": "群聊触发前缀。可逐项添加，也支持一次粘贴多个值。",
@@ -1045,7 +3718,7 @@ index fa8763d..7f87dc5 100644
          "isLark": "使用 Lark 国际版域名（open.larksuite.com）替代飞书域名（open.feishu.cn）",
          "allowFrom": "允许访问的用户或群组 ID。可逐项添加，也支持一次粘贴多个值。",
          "allowOrigins": "允许访问的来源域名。可逐项添加，也支持一次粘贴多个值。",
-@@ -563,7 +563,7 @@
+@@ -563,7 +592,7 @@
          "genericField": "用于配置{{field}}",
          "broker": "MQTT Broker 地址。",
          "mqttAgentId": "本实例的唯一标识，用于构造 topic 路径。",
@@ -1054,7 +3727,7 @@ index fa8763d..7f87dc5 100644
          "mqttUsername": "Broker 认证用户名（可选）。",
          "mqttPassword": "Broker 认证密码（可选）。",
          "mqttClientId": "MQTT 客户端 ID，留空自动生成。",
-@@ -796,14 +796,14 @@
+@@ -796,14 +825,14 @@
        "turn_profile": "请求上下文策略",
        "turn_profile_hint": "控制每次请求会带入哪些上下文。保持关闭时，普通对话完全沿用原逻辑。",
        "turn_profile_enabled": "启用策略",
@@ -1071,7 +3744,7 @@ index fa8763d..7f87dc5 100644
        "turn_profile_skills": "技能提示",
        "turn_profile_skills_hint": "默认会把可用技能和已激活技能写入提示；关闭后不写入；只允许列表时每行填写一个技能名。",
        "turn_profile_skills_allow_placeholder": "skill-name\nanother-skill",
-@@ -829,11 +829,11 @@
+@@ -829,11 +858,11 @@
        "monitor_usb": "监听 USB",
        "monitor_usb_hint": "在启用设备功能时，监听 USB 插拔事件",
        "autostart_label": "开机自启",
@@ -1085,7 +3758,7 @@ index fa8763d..7f87dc5 100644
        "launcher_section_hint": "此分组中的改动需要在重启 launcher 后生效",
        "gateway_restart_hint": "这组配置保存后，需要重启服务才能正式生效。",
        "dashboard_password": "登录密码",
-@@ -949,8 +949,8 @@
+@@ -949,8 +978,8 @@
      "next": "下一步",
      "finish": "完成",
      "welcome": {

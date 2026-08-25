@@ -79,17 +79,71 @@
 - [x] Phase 2 Milestone B COMPLETE. Merged into `develop` with a non-fast-forward
   merge; `main` intentionally untouched.
 
-## Phase 2 — Milestone C (NOT STARTED — needs explicit authorization)
+## Phase 2 — Milestone C: Provider Catalog + Easy API-Key Setup
 
-- [ ] Do not begin any Milestone C work until the user explicitly authorizes it.
+Authorized 2026-08-25. Branch `feature/provider-catalog` from `develop` @ `14e6991`.
+
+- [x] Audit the existing provider architecture — config/model schema, Core
+  provider abstraction, web provider pages, model discovery, custom
+  OpenAI-compatible handling, auth behavior, and API key storage — and record
+  it in `docs/PROVIDER_ARCHITECTURE.md`.
+- [x] Establish that provider configuration lives in the Core web console, not
+  in Flutter, and that the catalog is already backend-owned by `pkg/providers`.
+  Extend that catalog rather than creating a competing one.
+- [x] Add `category` and `documentation_url` to `ModelProviderOption` and
+  classify every one of the 42 catalog entries.
+- [x] Add the xAI, Together AI, Fireworks AI, and Custom OpenAI-Compatible
+  presets, and register all four in the `CreateProviderFromConfig` protocol
+  switch. A catalog entry alone fails at runtime with `unknown protocol`.
+- [x] Classify every requested candidate as SUPPORTED NOW, OPENAI-COMPATIBLE,
+  REQUIRES CORE ADAPTER, or DEFERRED. OpenCode Zen and OpenCode GO are DEFERRED
+  because their endpoint and auth could not be established accurately.
+- [x] Enable Gemini model discovery with a dedicated fetch branch:
+  `X-Goog-Api-Key` plus `models/` prefix stripping for the native base, Bearer
+  for a `/openai` compatibility base. Base-relative path handling unchanged.
+- [x] Broaden fetch error classification: invalid key/unauthorized, rate
+  limited, DNS/network failure, provider unavailable, missing listing endpoint,
+  and malformed response. No error path echoes the API key.
+- [x] Replace the Add Model form with a two-step provider-first flow: choose
+  provider, paste API key, fetch or type a model, save. The alias is derived
+  from the model ID; base URL, alias, and optional keys move to Advanced.
+- [x] Keep the base URL visible in the normal flow for local and custom
+  providers, and do not ask keyless providers for an API key.
+- [x] Keep manual model entry always available; saving never requires a
+  successful fetch.
+- [x] Keep Custom OpenAI-Compatible first-class, with no default base URL so an
+  empty endpoint is a clear error rather than a silent fall back to OpenAI.
+- [x] Preserve existing configurations: stored provider, custom base URL, and
+  model IDs are untouched, and a base that differs from the preset is surfaced
+  as an override in the edit sheet rather than reverted.
+- [x] Stop downloading provider logos from `cdn.simpleicons.org` and Google's
+  favicon service at runtime; render local text marks instead.
+- [x] Add localization keys for every new user-facing string across all five
+  web-console locales; keep URLs and model IDs LTR-readable.
+- [x] Tests: 22 frontend tests on a new vitest runner, 8 Go provider-catalog
+  tests, 5 Go model-discovery tests. `flutter analyze` clean; 27 Flutter tests;
+  Go suites for providers, config, api, androiddns, mqtt, onboard, commands,
+  and agent all pass; frontend `tsc -b` and `pnpm lint` clean.
+- [x] Rebuild both Core binaries through the documented Makefile targets and
+  build the Milestone C APK through the canonical arm64 Gradle path with the
+  release guard passing.
+- [ ] PHYSICAL DEVICE TEST of APK
+  `b3dd892bdea86e8dfe7d1c2eb87e89f4e2832b1d1dbe39fc1decf20dabce569b`.
+  Not merged to `develop` until this passes.
+
+## Deferred out of Milestone C, deliberately
+
+- [ ] API key storage on Android is plaintext in the workspace config, because
+  Core encryption needs `PICOCLAW_KEY_PASSPHRASE` and an SSH key that no
+  Android device has. Android Keystore or an equivalent needs its own
+  controlled milestone: it touches config loading, the secret resolver, and
+  migration of existing files. Recorded in `docs/PROVIDER_ARCHITECTURE.md` §6.
+- [ ] OpenCode Zen and OpenCode GO presets, pending a verified base URL,
+  authentication header, and model-listing endpoint.
 
 ## Later (not started)
 
 - [ ] Telegram easy-linking design after validating legitimate API capabilities:
   QR code and/or deep link when valid, with manual bot-token entry retained as
-  an advanced/fallback option.
-- [ ] Maintainable AI provider catalog and advanced custom-provider flow:
-  known provider protocol/endpoints/headers/model discovery plus a manual
-  OpenAI-compatible base URL, key, model ID, and safe additional headers.
-- [ ] Keep Fetch Available Models optional: discovery failures must still allow
-  first-class manual model ID configuration.
+  an advanced/fallback option. This is the next milestone and was deliberately
+  kept out of Milestone C.
