@@ -2,44 +2,29 @@
 
 ## Current Objective
 
-Physically test the Phase 2 Milestone B final cleanup APK. Do not merge to
-`develop` before that passes, and do not start Milestone C.
+None. Phase 2 Milestone B is COMPLETE, physically verified, and merged into
+`develop`. Do not begin Milestone C until the user explicitly authorizes it,
+and do not merge to `main` without instruction.
 
-## Milestone B final cleanup (this session)
+## Milestone B closure
 
-Both remaining branding edge cases are closed.
+APK `ba4f067df9811bd0e4af713343bdba632abbf96a41e3a5b47cf154740f70a4b8` passed a
+full physical Android device test on 2026-08-25: install, app launch / first
+frame, no black screen, Gateway/Core lifecycle, navigation, PocketClaw branding,
+workspace path, QR/access page, Skill Hub, provider/model flow, and no abnormal
+slowdown. It is the verified reference artifact — compare any future regression
+against it before forming new hypotheses.
 
-**MQTT.** The Core default topic prefix is `/pocketclaw`
-(`mqtt.DefaultTopicPrefix`). `topicPrefix()` substitutes the default only for an
-empty value, so an explicitly configured prefix — including the legacy
-`/picoclaw` — is preserved and broker-side topics are never rewritten. The
-frontend preview, placeholder, and the localized hint in all five locales were
-changed with it; they must always move together or the preview misreports the
-real topic. Note that `topic_prefix` is `omitempty`, so a config that relied on
-the implicit old default will move to `/pocketclaw`; set it explicitly to keep
-the old topic.
+`recovery/pocketclaw-clean-debrand` was merged into `develop` with a
+non-fast-forward merge and tagged `phase2-milestone-b`. The recovery branch,
+`feature/pocketclaw-identity` (`354fc38` WIP), and `main` are all intact.
 
-**Seeded skills.** `skills/picoclaw-agent` is excluded from a fresh workspace
-via `unseededTemplates` in `cmd/picoclaw/internal/onboard/helpers.go`, next to
-the existing `AGENTS.md` / `IDENTITY.md` exclusions. It was deliberately not
-renamed — it documents the real upstream CLI. Seeding only writes files, so
-existing user copies survive and it can still be installed later.
-
-**Hardware references.** Sipeed, LicheeRV Nano, MaixCAM, and NanoKVM stay in the
-`hardware` skill, as does the real `picoclaw` binary name. Documentation is not
-falsified for a zero string count. `docs/BRANDING_AUDIT.md` classifies every
-remaining occurrence.
-
-## Verified artifacts
-
-- Last physically verified APK:
-  `2717f32e9580cd5b5ea5da70b2cb9fcf13f6f14451423addcb5686e0278a1de4`.
-- Cleanup APK awaiting test: `ba4f067df9811bd0e4af713343bdba632abbf96a41e3a5b47cf154740f70a4b8`,
-  34,119,477 bytes.
-- Core binaries, both stripped with 0 debug sections:
-  `libpicoclaw.so` 37,421,409 `eb895f08...40bd9c88`;
-  `libpicoclaw-web.so` 24,772,961 `6d282df0...1195a5a3`.
-  `PICOCLAW_DNS_SERVER` verified present in the gateway.
+What Milestone B delivered: independent PocketClaw product and package identity;
+the black-screen root cause and its permanent fail-closed release guard; full
+user-facing debranding including the embedded web runtime rebuilt from source;
+`Download/pocketclaw` for fresh installs; the MQTT `/pocketclaw` default with
+backward compatibility; and the upstream agent skill dropped from fresh
+workspace seeding.
 
 ## Permanent release requirements — do not remove
 
@@ -56,6 +41,9 @@ remaining occurrence.
 - Rebuild Core via `make build-launcher-android-arm64`; calling
   `make -C web build-android-arm64` directly drops the root `LDFLAGS` and
   produces an unstripped binary. Use `pnpm lint`, never `pnpm check`.
+- Core binaries in this build: `libpicoclaw.so` 37,421,409
+  `eb895f08...40bd9c88`; `libpicoclaw-web.so` 24,772,961 `6d282df0...1195a5a3`.
+  Both stripped; `PICOCLAW_DNS_SERVER` verified present.
 
 ## Exact State
 
@@ -122,13 +110,9 @@ capture final device logs, so that symptom must be confirmed during retest.
 
 ## Next Exact Steps
 
-1. Install and smoke-test the cleanup APK
-   (`ba4f067df9811bd0e4af713343bdba632abbf96a41e3a5b47cf154740f70a4b8`):
-   first frame, Core lifecycle, navigation, branding, workspace path, and the
-   QR/access page. If MQTT is in use, confirm a fresh channel defaults to
-   `/pocketclaw` and an existing configured prefix is unchanged.
-2. On approval, Milestone B can be merged into `develop`. Until then
-   `recovery/pocketclaw-clean-debrand`, `feature/pocketclaw-identity`
-   (`354fc38` WIP preserved), `develop`, and `main` stay intact and unmerged.
-3. Do not start Milestone C — no provider presets, no Telegram QR/deep-link
-   onboarding — without the user's instruction.
+1. Nothing is pending. Wait for the user to authorize Milestone C — provider
+   presets and Telegram QR/deep-link onboarding are the recorded candidates in
+   `TASKS.md` under "Later", and neither is started.
+2. Do not merge to `main` without instruction.
+3. Any regression report should start by diffing against the verified artifact
+   above, not by patching a plausible-looking runtime path.

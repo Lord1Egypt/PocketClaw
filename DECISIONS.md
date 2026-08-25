@@ -207,3 +207,20 @@
 - Consequence: do not rewrite documentation to reach a superficial zero string
   count. The branding audit classifies occurrences rather than merely counting
   them.
+
+## Milestone B closes on physical evidence and merges non-destructively
+
+- Date: 2026-08-25
+- Decision: Treat APK
+  `ba4f067df9811bd0e4af713343bdba632abbf96a41e3a5b47cf154740f70a4b8` as the
+  verified reference artifact and Phase 2 Milestone B as COMPLETE.
+- Evidence: a physical Android device passed install, launch/first frame,
+  Gateway/Core lifecycle, navigation, branding, workspace path, QR/access page,
+  Skill Hub, and the provider/model flow, with no black screen and no abnormal
+  slowdown.
+- Decision: merge `recovery/pocketclaw-clean-debrand` into `develop` with
+  `--no-ff`, keeping the recovery branch and its history intact. `main` is not
+  updated yet, and no branch is deleted or rewritten.
+- Consequence: `phase2-milestone-b` tags the closure point, so any later
+  regression can be bisected against a known-good, physically verified state.
+  Milestone C stays unstarted until the user authorizes it.

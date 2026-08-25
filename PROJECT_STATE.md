@@ -2,7 +2,7 @@
 
 Project: PocketClaw  
 Current Phase: Phase 2 — Independent Product Repository  
-Current Milestone: Phase 2 Milestone B final cleanup — awaiting physical test
+Current Milestone: Phase 2 Milestone B — COMPLETE and physically verified
 Git Branch: `recovery/pocketclaw-clean-debrand`
 Foundation Bootstrap Commit: `950d4a3`  
 Origin: `https://github.com/Lord1Egypt/PocketClaw.git` (private)  
@@ -11,14 +11,13 @@ PicoClaw Core: `v0.3.1`, source `2cf030d2fd3b871d7ec17e3be34c24688aac76da`,
 rebuilt for PocketClaw — see `core/` and `UPSTREAM_BASELINE.md`  
 Build Status: arm64 release APK built through the canonical Gradle path; the
 release guard verified the arm64 native payload
-APK Status: Cleanup APK built — SHA-256 `ba4f067df9811bd0e4af713343bdba632abbf96a41e3a5b47cf154740f70a4b8`.
-The previous APK `2717f32e9580cd5b5ea5da70b2cb9fcf13f6f14451423addcb5686e0278a1de4` remains the last
-physically verified artifact until this one is tested.
+APK Status: PHYSICALLY VERIFIED on 2026-08-25 — SHA-256 `ba4f067df9811bd0e4af713343bdba632abbf96a41e3a5b47cf154740f70a4b8`.
+This is the current verified reference artifact; it supersedes `2717f32e9580cd5b5ea5da70b2cb9fcf13f6f14451423addcb5686e0278a1de4`.
 Current Blocker: None. The black-screen incident is RESOLVED and physically
 confirmed.
-Next Exact Action: Physically test the Milestone B final cleanup APK. Both
-former open branding items are now closed. Do not merge to `develop` before
-physical approval, and do not start Milestone C.
+Next Exact Action: None. Milestone B is closed and merged to `develop`.
+`main` is intentionally untouched. Do not begin Milestone C until the user
+explicitly authorizes it.
 
 ## Completed
 
@@ -148,9 +147,9 @@ intermediates does not clear it.
 `./gradlew :app:assembleRelease -Ptarget-platform=android-arm64` is the
 canonical release path. Do not release a universal `flutter build apk --release`.
 
-## Milestone B Final Cleanup APK
+## Milestone B Final Cleanup APK — VERIFIED REFERENCE ARTIFACT
 
-- Status: Awaiting physical-device test. Not merged to `develop`.
+- Status: PASS on a physical Android device, 2026-08-25. Merged to `develop`.
 - Path: `build/app/outputs/apk/release/app-release.apk` (ignored; not committed)
 - Also copied to `build/app/outputs/flutter-apk/app-release.apk` (identical).
 - Built: 2026-08-25 with the canonical command
@@ -176,3 +175,9 @@ canonical release path. Do not release a universal `flutter build apk --release`
   retained deliberately.
 - Both Core binaries are stripped with 0 debug sections, and
   `PICOCLAW_DNS_SERVER` is verified present in the rebuilt gateway.
+- Physical-device results (2026-08-25): install PASS, app launch / first frame
+  PASS, no black screen, Gateway/Core lifecycle PASS, navigation PASS,
+  PocketClaw branding PASS, workspace path PASS, QR/access page PASS, Skill Hub
+  PASS, provider/model flow PASS, no abnormal slowdown.
+- This is the current verified reference artifact. Compare any future
+  regression against it before forming new hypotheses.

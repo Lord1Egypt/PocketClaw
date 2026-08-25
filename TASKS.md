@@ -71,9 +71,17 @@
   `PICOCLAW_DNS_SERVER` verified present.
 - [x] Flutter analyze/tests, Go tests, frontend lint, canonical arm64 release
   build, and the native payload guard all pass.
-- [ ] Physical test of the Milestone B final cleanup APK
-  (`ba4f067df9811bd0e4af713343bdba632abbf96a41e3a5b47cf154740f70a4b8`).
-  Physical approval is the gate for merging Milestone B into `develop`.
+- [x] Physical test of the Milestone B final cleanup APK
+  (`ba4f067df9811bd0e4af713343bdba632abbf96a41e3a5b47cf154740f70a4b8`): PASS.
+  Install, launch/first frame, Gateway/Core lifecycle, navigation, branding,
+  workspace path, QR/access page, Skill Hub, and the provider/model flow all
+  pass, with no black screen and no abnormal slowdown.
+- [x] Phase 2 Milestone B COMPLETE. Merged into `develop` with a non-fast-forward
+  merge; `main` intentionally untouched.
+
+## Phase 2 — Milestone C (NOT STARTED — needs explicit authorization)
+
+- [ ] Do not begin any Milestone C work until the user explicitly authorizes it.
 
 ## Later (not started)
 

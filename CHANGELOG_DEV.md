@@ -1,5 +1,23 @@
 # Development Changelog
 
+## 2026-08-25 — Phase 2 Milestone B COMPLETE and physically verified
+
+- Physical Android device test of `ba4f067df9811bd0e4af713343bdba632abbf96a41e3a5b47cf154740f70a4b8`
+  returned PASS across every check: install, app launch / first frame, no black
+  screen, Gateway/Core lifecycle, navigation, PocketClaw branding, workspace
+  path, QR/access page, Skill Hub, provider/model flow, and no abnormal
+  slowdown.
+- This APK is now the verified reference artifact, superseding
+  `2717f32e...0278a1de4`.
+- Phase 2 Milestone B is CLOSED: independent product identity, the black-screen
+  build-pipeline fix and its permanent release guard, full user-facing
+  debranding, and the two branding edge cases.
+- Merged `recovery/pocketclaw-clean-debrand` into `develop` with a
+  non-fast-forward merge so the recovery history stays intact and auditable.
+  `main` is intentionally untouched.
+- Tagged the closure point as `phase2-milestone-b`.
+- Milestone C is NOT started and requires explicit authorization.
+
 ## 2026-08-25 — Phase 2 Milestone B final cleanup
 
 - Closed both remaining branding edge cases. No new features; Milestone C not
