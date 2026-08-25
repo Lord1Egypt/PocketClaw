@@ -9,7 +9,7 @@ class AppLocalizationsZh extends AppLocalizations {
   AppLocalizationsZh([String locale = 'zh']) : super(locale);
 
   @override
-  String get appTitle => 'PicoClaw UI';
+  String get appTitle => 'PocketClaw';
 
   @override
   String get run => '运行';
@@ -195,10 +195,10 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get localModeHint =>
-      '1. 进入服务配置\n2. 打开公共模式\n3. 重启服务\n4. 扫描二维码访问PicoClaw';
+      '1. 进入服务配置\n2. 打开公共模式\n3. 重启服务\n4. 扫描二维码访问PocketClaw';
 
   @override
-  String get publicModeHint => '1. 启动服务\n2. 扫描二维码访问PicoClaw';
+  String get publicModeHint => '1. 启动服务\n2. 扫描二维码访问PocketClaw';
 
   @override
   String get noLogsToExport => '没有可导出的日志';
@@ -212,7 +212,7 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get shareLogsText => 'Picoclaw 日志';
+  String get shareLogsText => 'PocketClaw 日志';
 
   @override
   String get workspaceDirectory => '工作目录';
@@ -260,25 +260,16 @@ class AppLocalizationsZh extends AppLocalizations {
   String get about => '关于';
 
   @override
-  String get aboutDescription => 'PicoClaw 是一个用于管理 PicoClaw 服务的跨平台 Flutter 应用。';
+  String get aboutDescription => 'PocketClaw 是您的私有 AI 助手工作区。';
 
   @override
-  String get aboutAppVersionLabel => 'PicoClaw 版本';
+  String get aboutAppVersionLabel => 'PocketClaw 版本';
 
   @override
-  String get aboutCoreVersionLabel => 'PicoClaw Core 版本';
+  String get aboutCoreVersionLabel => '运行时版本';
 
   @override
   String get aboutVersionUnavailable => '不可用';
-
-  @override
-  String get picoclawOfficial => 'PicoClaw 官网';
-
-  @override
-  String get sipeedOfficial => 'Sipeed 官网';
-
-  @override
-  String get openLinkFailed => '无法打开官方链接。';
 
   @override
   String get close => '关闭';

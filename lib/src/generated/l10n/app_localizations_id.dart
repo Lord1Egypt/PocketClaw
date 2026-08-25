@@ -9,7 +9,7 @@ class AppLocalizationsId extends AppLocalizations {
   AppLocalizationsId([String locale = 'id']) : super(locale);
 
   @override
-  String get appTitle => 'PicoClaw UI';
+  String get appTitle => 'PocketClaw';
 
   @override
   String get run => 'Jalankan';
@@ -203,11 +203,11 @@ class AppLocalizationsId extends AppLocalizations {
 
   @override
   String get localModeHint =>
-      '1. Buka Konfigurasi layanan\n2. Aktifkan Mode publik\n3. Mulai ulang layanan\n4. Pindai kode QR untuk mengakses PicoClaw';
+      '1. Buka Konfigurasi layanan\n2. Aktifkan Mode publik\n3. Mulai ulang layanan\n4. Pindai kode QR untuk mengakses PocketClaw';
 
   @override
   String get publicModeHint =>
-      '1. Mulai layanan\n2. Pindai kode QR untuk mengakses PicoClaw';
+      '1. Mulai layanan\n2. Pindai kode QR untuk mengakses PocketClaw';
 
   @override
   String get noLogsToExport => 'Tidak ada log untuk diekspor';
@@ -222,7 +222,7 @@ class AppLocalizationsId extends AppLocalizations {
   }
 
   @override
-  String get shareLogsText => 'Log Picoclaw';
+  String get shareLogsText => 'Log PocketClaw';
 
   @override
   String get workspaceDirectory => 'Ruang kerja';
@@ -272,25 +272,16 @@ class AppLocalizationsId extends AppLocalizations {
 
   @override
   String get aboutDescription =>
-      'PicoClaw adalah aplikasi Flutter lintas platform untuk mengelola layanan PicoClaw.';
+      'PocketClaw adalah ruang kerja pribadi untuk asisten AI Anda.';
 
   @override
-  String get aboutAppVersionLabel => 'Versi PicoClaw';
+  String get aboutAppVersionLabel => 'Versi PocketClaw';
 
   @override
-  String get aboutCoreVersionLabel => 'Versi PicoClaw Core';
+  String get aboutCoreVersionLabel => 'Versi runtime';
 
   @override
   String get aboutVersionUnavailable => 'Tidak tersedia';
-
-  @override
-  String get picoclawOfficial => 'Situs Resmi PicoClaw';
-
-  @override
-  String get sipeedOfficial => 'Situs Resmi Sipeed';
-
-  @override
-  String get openLinkFailed => 'Gagal membuka tautan resmi.';
 
   @override
   String get close => 'Tutup';

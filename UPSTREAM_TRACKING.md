@@ -18,9 +18,16 @@ Last reviewed commit: `d689c94c1b67f625f70ec4111a9aa3f01be9cbb3`
 - Android active-network DNS integration
 - Optional feedback behavior
 
+## Verified Upstream-Backed Behaviors
+
+- ClawHub Skill Hub search is available after the Android active-network DNS
+  fix. The prior registry-unavailable symptom is resolved by DNS, not pending
+  an independent FUI/registry change.
+
 ## Pending Review
 
-None.
+None. Product identity and original PocketClaw visual assets are maintained in
+this repository and are not upstream imports.
 
 ## Security Updates
 

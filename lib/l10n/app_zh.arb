@@ -1,6 +1,6 @@
 {
   "@@locale": "zh",
-  "appTitle": "PicoClaw UI",
+  "appTitle": "PocketClaw",
   "run": "运行",
   "stop": "停止",
   "config": "配置",
@@ -62,8 +62,8 @@
   "deviceReportingUploadSucceeded": "已开启设备兼容反馈",
   "deviceReportingUploadFailed": "已开启设备兼容反馈，当前设备信息同步未完成",
   "deviceReportingDisabled": "已关闭设备兼容反馈",
-  "localModeHint": "1. 进入服务配置\n2. 打开公共模式\n3. 重启服务\n4. 扫描二维码访问PicoClaw",
-  "publicModeHint": "1. 启动服务\n2. 扫描二维码访问PicoClaw",
+  "localModeHint": "1. 进入服务配置\n2. 打开公共模式\n3. 重启服务\n4. 扫描二维码访问PocketClaw",
+  "publicModeHint": "1. 启动服务\n2. 扫描二维码访问PocketClaw",
   "@coreUnknownError": {
     "placeholders": {
       "code": {}
@@ -79,7 +79,7 @@
       "path": {}
     }
   },
-  "shareLogsText": "Picoclaw 日志",
+  "shareLogsText": "PocketClaw 日志",
   "workspaceDirectory": "工作目录"
   ,
   "logsSavedToMediaLibraryWithName": "已保存到“下载”目录（Android 媒体库）：{name}",
@@ -103,12 +103,9 @@
   "language": "语言",
   "selectLanguage": "选择语言",
   "about": "关于",
-  "aboutDescription": "PicoClaw 是一个用于管理 PicoClaw 服务的跨平台 Flutter 应用。",
-  "aboutAppVersionLabel": "PicoClaw 版本",
-  "aboutCoreVersionLabel": "PicoClaw Core 版本",
+  "aboutDescription": "PocketClaw 是您的私有 AI 助手工作区。",
+  "aboutAppVersionLabel": "PocketClaw 版本",
+  "aboutCoreVersionLabel": "运行时版本",
   "aboutVersionUnavailable": "不可用",
-  "picoclawOfficial": "PicoClaw 官网",
-  "sipeedOfficial": "Sipeed 官网",
-  "openLinkFailed": "无法打开官方链接。",
   "close": "关闭"
 }

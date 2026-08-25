@@ -26,3 +26,11 @@ to preserve the documented Android active-network DNS integration.
 Flutter and Android dependencies are governed by their own upstream licenses,
 as resolved through `pubspec.lock` and Gradle dependency metadata. No final
 license has been selected for newly authored PocketClaw code.
+
+## PocketClaw-authored identity assets
+
+`assets/branding/pocketclaw-mark.png` is an original PocketClaw identity asset
+generated for this repository from a non-derivative design brief. The selected
+second mark is the primary visual direction; its launcher, adaptive, splash,
+and monochrome notification variants preserve that identity. It is not a
+PicoClaw/FUI image and does not remove or replace the upstream notices above.

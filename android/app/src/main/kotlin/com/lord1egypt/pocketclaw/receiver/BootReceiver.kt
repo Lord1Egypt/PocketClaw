@@ -1,10 +1,10 @@
-package com.sipeed.picoclaw.receiver
+package com.lord1egypt.pocketclaw.receiver
 
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.util.Log
-import com.sipeed.picoclaw.service.PicoClawService
+import com.lord1egypt.pocketclaw.service.PicoClawService
 
 /**
  * 设备启动后自动启动 PicoClaw 服务（如果已开启自动启动）。

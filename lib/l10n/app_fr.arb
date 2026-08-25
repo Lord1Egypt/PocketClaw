@@ -1,6 +1,6 @@
 {
   "@@locale": "fr",
-  "appTitle": "PicoClaw UI",
+  "appTitle": "PocketClaw",
   "run": "Exécuter",
   "stop": "Arrêter",
   "config": "Config",
@@ -60,8 +60,8 @@
   "deviceReportingUploadSucceeded": "Commentaires de compatibilité de l'appareil activés",
   "deviceReportingUploadFailed": "Commentaires de compatibilité de l'appareil activés, mais la synchronisation actuelle des informations de l'appareil n'est pas terminée",
   "deviceReportingDisabled": "Commentaires de compatibilité de l'appareil désactivés",
-  "localModeHint": "1. Accédez à la configuration du service\n2. Activez le mode public\n3. Redémarrez le service\n4. Scannez le code QR pour accéder à PicoClaw",
-  "publicModeHint": "1. Démarrez le service\n2. Scannez le code QR pour accéder à PicoClaw",
+  "localModeHint": "1. Accédez à la configuration du service\n2. Activez le mode public\n3. Redémarrez le service\n4. Scannez le code QR pour accéder à PocketClaw",
+  "publicModeHint": "1. Démarrez le service\n2. Scannez le code QR pour accéder à PocketClaw",
   "@coreUnknownError": {
     "placeholders": {
       "code": {}
@@ -75,7 +75,7 @@
       "path": {}
     }
   },
-  "shareLogsText": "Journaux Picoclaw",
+  "shareLogsText": "Journaux PocketClaw",
   "workspaceDirectory": "Espace de travail",
   "logsSavedToMediaLibraryWithName": "Journaux enregistrés dans Téléchargements (bibliothèque multimédia Android): {name}",
   "@logsSavedToMediaLibraryWithName": {
@@ -98,12 +98,9 @@
   "language": "Langue",
   "selectLanguage": "Sélectionner la langue",
   "about": "À propos",
-  "aboutDescription": "PicoClaw est une application Flutter multiplateforme pour gérer le service PicoClaw.",
-  "aboutAppVersionLabel": "Version de PicoClaw",
-  "aboutCoreVersionLabel": "Version de PicoClaw Core",
+  "aboutDescription": "PocketClaw est votre espace de travail privé pour assistant IA.",
+  "aboutAppVersionLabel": "Version de PocketClaw",
+  "aboutCoreVersionLabel": "Version du runtime",
   "aboutVersionUnavailable": "Indisponible",
-  "picoclawOfficial": "Site officiel de PicoClaw",
-  "sipeedOfficial": "Site officiel de Sipeed",
-  "openLinkFailed": "Impossible d'ouvrir le lien officiel.",
   "close": "Fermer"
 }

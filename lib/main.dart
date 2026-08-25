@@ -1,21 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:animations/animations.dart';
-import 'package:picoclaw_flutter_ui/src/generated/l10n/app_localizations.dart';
+import 'package:pocketclaw/src/generated/l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
-import 'package:picoclaw_flutter_ui/src/core/service_manager.dart';
-import 'package:picoclaw_flutter_ui/src/core/background_service.dart';
-import 'package:picoclaw_flutter_ui/src/core/app_theme.dart';
-import 'package:picoclaw_flutter_ui/src/ui/dashboard_page.dart';
-import 'package:picoclaw_flutter_ui/src/ui/config_page.dart';
-import 'package:picoclaw_flutter_ui/src/ui/webview_page.dart';
-import 'package:picoclaw_flutter_ui/src/ui/log_page.dart';
+import 'package:pocketclaw/src/core/service_manager.dart';
+import 'package:pocketclaw/src/core/background_service.dart';
+import 'package:pocketclaw/src/core/app_theme.dart';
+import 'package:pocketclaw/src/core/app_identity.dart';
+import 'package:pocketclaw/src/core/pocketclaw_design.dart';
+import 'package:pocketclaw/src/ui/dashboard_page.dart';
+import 'package:pocketclaw/src/ui/config_page.dart';
+import 'package:pocketclaw/src/ui/webview_page.dart';
+import 'package:pocketclaw/src/ui/log_page.dart';
 import 'package:tray_manager/tray_manager.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:windows_single_instance/windows_single_instance.dart';
 import 'dart:io';
-import 'package:picoclaw_flutter_ui/src/ui/widgets/adaptive_action_bar.dart';
-import 'package:picoclaw_flutter_ui/src/ui/widgets/tv_focusable.dart';
+import 'package:pocketclaw/src/ui/widgets/adaptive_action_bar.dart';
+import 'package:pocketclaw/src/ui/widgets/tv_focusable.dart';
 
 void main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -24,7 +26,7 @@ void main(List<String> args) async {
   if (Platform.isWindows) {
     await WindowsSingleInstance.ensureSingleInstance(
       args,
-      "picoclaw_flutter_ui_instance_key",
+      "pocketclaw_instance_key",
       onSecondWindow: (newArgs) {
         windowManager.show();
         windowManager.focus();
@@ -68,10 +70,10 @@ class MainApp extends StatelessWidget {
 
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'PicoClaw',
-      theme: AppTheme.getTheme(service.currentThemeMode),
+      title: AppIdentity.productName,
+      theme: PocketClawDesign.lightTheme(),
       darkTheme: AppTheme.getTheme(service.currentThemeMode),
-      themeMode: ThemeMode.dark,
+      themeMode: ThemeMode.system,
       locale: service.currentLocale,
       localizationsDelegates: const [
         AppLocalizations.delegate,

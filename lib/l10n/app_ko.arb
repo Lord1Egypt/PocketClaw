@@ -1,6 +1,6 @@
 {
   "@@locale": "ko",
-  "appTitle": "PicoClaw UI",
+  "appTitle": "PocketClaw",
   "run": "실행",
   "stop": "중지",
   "config": "구성",
@@ -60,8 +60,8 @@
   "deviceReportingUploadSucceeded": "장치 호환성 피드백이 활성화되었습니다",
   "deviceReportingUploadFailed": "장치 호환성 피드백이 활성화되었지만 현재 장치 정보 동기화가 완료되지 않았습니다",
   "deviceReportingDisabled": "장치 호환성 피드백이 비활성화되었습니다",
-  "localModeHint": "1. 서비스 구성으로 이동\n2. 공용 모드 켜기\n3. 서비스 재시작\n4. PicoClaw에 액세스하려면 QR 코드 스캔",
-  "publicModeHint": "1. 서비스 시작\n2. PicoClaw에 액세스하려면 QR 코드 스캔",
+  "localModeHint": "1. 서비스 구성으로 이동\n2. 공용 모드 켜기\n3. 서비스 재시작\n4. PocketClaw에 액세스하려면 QR 코드 스캔",
+  "publicModeHint": "1. 서비스 시작\n2. PocketClaw에 액세스하려면 QR 코드 스캔",
   "@coreUnknownError": {
     "placeholders": {
       "code": {}
@@ -75,7 +75,7 @@
       "path": {}
     }
   },
-  "shareLogsText": "Picoclaw 로그",
+  "shareLogsText": "PocketClaw 로그",
   "workspaceDirectory": "작업 공간",
   "logsSavedToMediaLibraryWithName": "로그가 다운로드(Android 미디어 라이브러리)에 저장되었습니다: {name}",
   "@logsSavedToMediaLibraryWithName": {
@@ -98,12 +98,9 @@
   "language": "언어",
   "selectLanguage": "언어 선택",
   "about": "정보",
-  "aboutDescription": "PicoClaw는 PicoClaw 서비스를 관리하기 위한 크로스 플랫폼 Flutter 앱입니다.",
-  "aboutAppVersionLabel": "PicoClaw 버전",
-  "aboutCoreVersionLabel": "PicoClaw Core 버전",
+  "aboutDescription": "PocketClaw는 개인 AI 도우미 작업 공간입니다.",
+  "aboutAppVersionLabel": "PocketClaw 버전",
+  "aboutCoreVersionLabel": "런타임 버전",
   "aboutVersionUnavailable": "사용할 수 없음",
-  "picoclawOfficial": "PicoClaw 공식 사이트",
-  "sipeedOfficial": "Sipeed 공식 사이트",
-  "openLinkFailed": "공식 링크를 열 수 없습니다.",
   "close": "닫기"
 }

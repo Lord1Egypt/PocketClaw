@@ -1,4 +1,4 @@
-package com.sipeed.picoclaw
+package com.lord1egypt.pocketclaw
 
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -8,7 +8,7 @@ class PicoClawApp : FlutterApplication() {
 
     companion object {
         const val CHANNEL_ID = "picoclaw_service"
-        const val CHANNEL_NAME = "PicoClaw Service"
+        const val CHANNEL_NAME = "PocketClaw service"
     }
 
     override fun onCreate() {
@@ -23,7 +23,7 @@ class PicoClawApp : FlutterApplication() {
             CHANNEL_NAME,
             NotificationManager.IMPORTANCE_LOW
         ).apply {
-            description = "PicoClaw AI Assistant background service"
+            description = "PocketClaw background service"
             setShowBadge(false)
         }
 

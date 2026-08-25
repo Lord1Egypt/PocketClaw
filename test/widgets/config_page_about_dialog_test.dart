@@ -2,9 +2,9 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:picoclaw_flutter_ui/src/core/service_manager.dart';
-import 'package:picoclaw_flutter_ui/src/generated/l10n/app_localizations.dart';
-import 'package:picoclaw_flutter_ui/src/ui/config_page.dart';
+import 'package:pocketclaw/src/core/service_manager.dart';
+import 'package:pocketclaw/src/generated/l10n/app_localizations.dart';
+import 'package:pocketclaw/src/ui/config_page.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -17,7 +17,6 @@ void main() {
 
   Future<void> pumpConfigPage(
     WidgetTester tester, {
-    ExternalUrlLauncher? launcher,
     Future<AboutInfo> Function()? aboutInfoLoader,
     bool settle = true,
   }) async {
@@ -29,12 +28,7 @@ void main() {
         child: MaterialApp(
           localizationsDelegates: AppLocalizations.localizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
-          home: Scaffold(
-            body: ConfigPage(
-              externalUrlLauncher: launcher ?? ((_) async => true),
-              aboutInfoLoader: aboutInfoLoader,
-            ),
-          ),
+          home: Scaffold(body: ConfigPage(aboutInfoLoader: aboutInfoLoader)),
         ),
       ),
     );
@@ -60,19 +54,17 @@ void main() {
 
     expect(find.text('About'), findsWidgets);
     expect(
-      find.text(
-        'PicoClaw is a cross-platform Flutter app for managing the PicoClaw service.',
-      ),
+      find.text('PocketClaw is your private AI assistant workspace.'),
       findsOneWidget,
     );
 
     await tester.tap(find.text('Close'));
     await tester.pumpAndSettle();
 
-    expect(find.text('PicoClaw'), findsNothing);
+    expect(find.text('PocketClaw'), findsNothing);
   });
 
-  testWidgets('shows PicoClaw branding and both version rows', (
+  testWidgets('shows PocketClaw identity without upstream branding', (
     WidgetTester tester,
   ) async {
     await pumpConfigPage(
@@ -85,14 +77,14 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('About'), findsWidgets);
-    expect(find.text('PicoClaw'), findsOneWidget);
-    expect(find.text('PicoClaw Flutter UI'), findsNothing);
-    expect(find.text('PicoClaw version'), findsOneWidget);
+    expect(find.text('PocketClaw'), findsOneWidget);
+    expect(find.text('PocketClaw version'), findsOneWidget);
     expect(find.text('1.2.3'), findsOneWidget);
-    expect(find.text('PicoClaw Core version'), findsOneWidget);
+    expect(find.text('Runtime version'), findsOneWidget);
     expect(find.text('core-9.8.7'), findsOneWidget);
-    expect(find.text('PicoClaw Official'), findsOneWidget);
-    expect(find.text('Sipeed Official'), findsOneWidget);
+    expect(find.textContaining('PicoClaw'), findsNothing);
+    expect(find.text('Sipeed'), findsNothing);
+    expect(find.byTooltip('GitHub'), findsNothing);
   });
 
   testWidgets('shows loading indicator while about info is still loading', (
@@ -110,8 +102,8 @@ void main() {
     await tester.pump();
 
     expect(find.byType(CircularProgressIndicator), findsOneWidget);
-    expect(find.text('PicoClaw version'), findsNothing);
-    expect(find.text('PicoClaw Core version'), findsNothing);
+    expect(find.text('PocketClaw version'), findsNothing);
+    expect(find.text('Runtime version'), findsNothing);
 
     aboutInfoCompleter.complete(
       const AboutInfo(appVersion: '1.0.0', coreVersion: 'core-1.0.0'),
@@ -119,9 +111,9 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(CircularProgressIndicator), findsNothing);
-    expect(find.text('PicoClaw version'), findsOneWidget);
+    expect(find.text('PocketClaw version'), findsOneWidget);
     expect(find.text('1.0.0'), findsOneWidget);
-    expect(find.text('PicoClaw Core version'), findsOneWidget);
+    expect(find.text('Runtime version'), findsOneWidget);
     expect(find.text('core-1.0.0'), findsOneWidget);
   });
 
@@ -130,10 +122,8 @@ void main() {
   ) async {
     await pumpConfigPage(
       tester,
-      aboutInfoLoader: () async => const AboutInfo(
-        appVersion: '',
-        coreVersion: 'unknown',
-      ),
+      aboutInfoLoader: () async =>
+          const AboutInfo(appVersion: '', coreVersion: 'unknown'),
     );
 
     await tester.tap(find.text('About'));
@@ -153,57 +143,4 @@ void main() {
 
     expect(find.byType(CircularProgressIndicator), findsOneWidget);
   });
-
-  testWidgets('launches both official links from the about dialog', (
-    WidgetTester tester,
-  ) async {
-    final launchedUris = <Uri>[];
-
-    await pumpConfigPage(
-      tester,
-      aboutInfoLoader: () async =>
-          const AboutInfo(appVersion: '1.0.0', coreVersion: 'core-1.0.0'),
-      launcher: (uri) async {
-        launchedUris.add(uri);
-        return true;
-      },
-    );
-
-    await tester.tap(find.text('About'));
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.text('PicoClaw Official'));
-    await tester.pump();
-    await tester.tap(find.text('Sipeed Official'));
-    await tester.pump();
-
-    expect(
-      launchedUris,
-      containsAll(<Uri>[
-        Uri.parse('https://picoclaw.io'),
-        Uri.parse('https://sipeed.com'),
-      ]),
-    );
-  });
-
-  testWidgets(
-    'shows feedback and keeps the dialog open when link launch fails',
-    (WidgetTester tester) async {
-      await pumpConfigPage(
-        tester,
-        aboutInfoLoader: () async =>
-            const AboutInfo(appVersion: '1.0.0', coreVersion: 'core-1.0.0'),
-        launcher: (_) async => false,
-      );
-
-      await tester.tap(find.text('About'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('PicoClaw Official'));
-      await tester.pump();
-
-      expect(find.text("Couldn't open the official link."), findsOneWidget);
-      expect(find.text('Sipeed Official'), findsOneWidget);
-      expect(find.text('Close'), findsOneWidget);
-    },
-  );
 }

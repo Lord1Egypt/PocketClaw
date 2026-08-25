@@ -9,7 +9,7 @@ class AppLocalizationsDe extends AppLocalizations {
   AppLocalizationsDe([String locale = 'de']) : super(locale);
 
   @override
-  String get appTitle => 'PicoClaw UI';
+  String get appTitle => 'PocketClaw';
 
   @override
   String get run => 'Ausführen';
@@ -205,11 +205,11 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get localModeHint =>
-      '1. Gehen Sie zur Dienstkonfiguration\n2. Aktivieren Sie den öffentlichen Modus\n3. Starten Sie den Dienst neu\n4. Scannen Sie den QR-Code für den Zugriff auf PicoClaw';
+      '1. Gehen Sie zur Dienstkonfiguration\n2. Aktivieren Sie den öffentlichen Modus\n3. Starten Sie den Dienst neu\n4. Scannen Sie den QR-Code für den Zugriff auf PocketClaw';
 
   @override
   String get publicModeHint =>
-      '1. Starten Sie den Dienst\n2. Scannen Sie den QR-Code für den Zugriff auf PicoClaw';
+      '1. Starten Sie den Dienst\n2. Scannen Sie den QR-Code für den Zugriff auf PocketClaw';
 
   @override
   String get noLogsToExport => 'Keine Protokolle zum Exportieren';
@@ -224,7 +224,7 @@ class AppLocalizationsDe extends AppLocalizations {
   }
 
   @override
-  String get shareLogsText => 'Picoclaw-Protokolle';
+  String get shareLogsText => 'PocketClaw-Protokolle';
 
   @override
   String get workspaceDirectory => 'Arbeitsbereich';
@@ -274,26 +274,16 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get aboutDescription =>
-      'PicoClaw ist eine plattformübergreifende Flutter-App zur Verwaltung des PicoClaw-Dienstes.';
+      'PocketClaw ist Ihr privater Arbeitsbereich für KI-Assistenten.';
 
   @override
-  String get aboutAppVersionLabel => 'PicoClaw-Version';
+  String get aboutAppVersionLabel => 'PocketClaw-Version';
 
   @override
-  String get aboutCoreVersionLabel => 'PicoClaw-Core-Version';
+  String get aboutCoreVersionLabel => 'Laufzeitversion';
 
   @override
   String get aboutVersionUnavailable => 'Nicht verfügbar';
-
-  @override
-  String get picoclawOfficial => 'Offizielle PicoClaw-Website';
-
-  @override
-  String get sipeedOfficial => 'Offizielle Sipeed-Website';
-
-  @override
-  String get openLinkFailed =>
-      'Der offizielle Link konnte nicht geöffnet werden.';
 
   @override
   String get close => 'Schließen';

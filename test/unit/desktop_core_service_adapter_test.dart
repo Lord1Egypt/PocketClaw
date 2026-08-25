@@ -1,7 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:picoclaw_flutter_ui/src/native/desktop_core_service_adapter.dart';
+import 'package:pocketclaw/src/native/desktop_core_service_adapter.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();

@@ -1,4 +1,4 @@
-package com.sipeed.picoclaw
+package com.lord1egypt.pocketclaw
 
 import android.content.Intent
 import android.net.Uri

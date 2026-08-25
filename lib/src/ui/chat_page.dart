@@ -6,7 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:web_socket_channel/io.dart';
-import 'package:picoclaw_flutter_ui/src/core/picoclaw_channel.dart';
+import 'package:pocketclaw/src/core/picoclaw_channel.dart';
 
 /// 聊天页面 - 通过 WebSocket 与 PicoClaw Gateway 的 Pico Protocol 通信
 class ChatPage extends StatefulWidget {
@@ -89,7 +89,7 @@ class _ChatPageState extends State<ChatPage> {
             });
             _addMessage(
               _ChatMessage(
-                '❌ 连接失败: $error\n请确保 PicoClaw 服务正在运行。',
+                '❌ 连接失败: $error\n请确保 PocketClaw 服务正在运行。',
                 _Role.assistant,
               ),
             );

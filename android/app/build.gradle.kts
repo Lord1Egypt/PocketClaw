@@ -1,4 +1,5 @@
 import java.util.Base64
+import java.util.zip.ZipFile
 
 plugins {
     id("com.android.application")
@@ -49,7 +50,7 @@ val firebaseMessagingSenderId = dartDefines["PICOCLAW_FIREBASE_MESSAGING_SENDER_
 val firebaseStorageBucket = dartDefines["PICOCLAW_FIREBASE_STORAGE_BUCKET"] ?: ""
 
 android {
-    namespace = "com.sipeed.picoclaw"
+    namespace = "com.lord1egypt.pocketclaw"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -65,7 +66,7 @@ android {
 
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.sipeed.picoclaw"
+        applicationId = "com.lord1egypt.pocketclaw"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
@@ -224,4 +225,47 @@ afterEvaluate {
     tasks.findByName("assembleDebug")?.finalizedBy("cleanupFirebaseResources")
     tasks.findByName("assembleRelease")?.finalizedBy("cleanupFirebaseResources")
     tasks.findByName("bundleRelease")?.finalizedBy("cleanupFirebaseResources")
+}
+
+// Fail the release build if the arm64 native payload is incomplete.
+//
+// A missing lib/arm64-v8a/libdartjni.so shipped silently for days and produced a
+// black screen on every device: JniPlugin loads it from a static initializer and
+// GeneratedPluginRegistrant only catches Exception, so the UnsatisfiedLinkError
+// escapes FlutterActivity.onCreate before Flutter can draw a frame. The library
+// is produced by an externalNativeBuild whose CMake configure is cached under
+// ~/.pub-cache, outside this project's build directory, so a failed configure
+// survives every local clean.
+val requiredArm64NativeLibraries = listOf(
+    "lib/arm64-v8a/libdartjni.so",
+    "lib/arm64-v8a/libpicoclaw.so",
+    "lib/arm64-v8a/libpicoclaw-web.so",
+)
+
+fun verifyArm64NativePayload(apk: File) {
+    val packaged = ZipFile(apk).use { zip ->
+        zip.entries().asSequence().map { entry -> entry.name }.toSet()
+    }
+    val missing = requiredArm64NativeLibraries.filter { name -> name !in packaged }
+    if (missing.isNotEmpty()) {
+        throw GradleException(
+            buildString {
+                appendLine("Release APK ${apk.name} is missing required arm64-v8a native libraries:")
+                missing.forEach { name -> appendLine("  - $name") }
+                appendLine("This build would black-screen on a device. Do not ship it.")
+                appendLine("If libdartjni.so is missing, purge the cached externalNativeBuild")
+                appendLine("configure and rebuild:")
+                appendLine("  rm -rf ~/.pub-cache/hosted/pub.dev/jni-*/android/.cxx")
+            }
+        )
+    }
+    println("Verified arm64-v8a native payload in ${apk.name}: ${requiredArm64NativeLibraries.joinToString(", ")}")
+}
+
+afterEvaluate {
+    tasks.findByName("packageRelease")?.doLast {
+        outputs.files.asFileTree
+            .matching { include("**/*.apk") }
+            .forEach { apk -> verifyArm64NativePayload(apk) }
+    }
 }

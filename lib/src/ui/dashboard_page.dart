@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:picoclaw_flutter_ui/src/core/service_manager.dart';
+import 'package:pocketclaw/src/core/service_manager.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:picoclaw_flutter_ui/src/generated/l10n/app_localizations.dart';
+import 'package:pocketclaw/src/generated/l10n/app_localizations.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:remixicon/remixicon.dart';
-import 'package:picoclaw_flutter_ui/src/ui/widgets/tv_focusable.dart';
+import 'package:pocketclaw/src/ui/widgets/tv_focusable.dart';
 
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});

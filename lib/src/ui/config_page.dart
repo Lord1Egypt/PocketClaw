@@ -2,17 +2,12 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import 'package:picoclaw_flutter_ui/src/core/service_manager.dart';
-import 'package:picoclaw_flutter_ui/src/generated/l10n/app_localizations.dart';
+import 'package:pocketclaw/src/core/service_manager.dart';
+import 'package:pocketclaw/src/generated/l10n/app_localizations.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:url_launcher/url_launcher.dart';
-import 'package:picoclaw_flutter_ui/src/core/app_theme.dart';
-import 'package:remixicon/remixicon.dart';
+import 'package:pocketclaw/src/core/app_theme.dart';
 
-const String _githubRepoUrl = 'https://github.com/sipeed/picoclaw_fui';
-const String _picoclawOfficialUrl = 'https://picoclaw.io';
-const String _sipeedOfficialUrl = 'https://sipeed.com';
-const String _aboutProjectName = 'PicoClaw';
+const String _aboutProjectName = 'PocketClaw';
 
 class AboutInfo {
   const AboutInfo({required this.appVersion, required this.coreVersion});
@@ -21,25 +16,17 @@ class AboutInfo {
   final String coreVersion;
 }
 
-typedef ExternalUrlLauncher = Future<bool> Function(Uri uri);
-
-Future<bool> _defaultExternalUrlLauncher(Uri uri) {
-  return launchUrl(uri, mode: LaunchMode.externalApplication);
-}
-
 class ConfigPage extends StatefulWidget {
   final ValueChanged<bool>? onDirtyChanged;
 
   /// Called once with the save function, so MainShell can call it later.
   final void Function(Future<void> Function()? saveFn)? onSaveFnReady;
-  final ExternalUrlLauncher externalUrlLauncher;
   final Future<AboutInfo> Function()? aboutInfoLoader;
 
   const ConfigPage({
     super.key,
     this.onDirtyChanged,
     this.onSaveFnReady,
-    this.externalUrlLauncher = _defaultExternalUrlLauncher,
     this.aboutInfoLoader,
   });
 
@@ -57,7 +44,6 @@ class ConfigPageState extends State<ConfigPage> with WidgetsBindingObserver {
 
   // Focus nodes for TV navigation
   final _aboutFocusNode = FocusNode();
-  final _githubFocusNode = FocusNode();
   final _publicModeFocusNode = FocusNode();
   final _hostFocusNode = FocusNode();
   final _portFocusNode = FocusNode();
@@ -170,7 +156,6 @@ class ConfigPageState extends State<ConfigPage> with WidgetsBindingObserver {
     _argsController.dispose();
 
     _aboutFocusNode.dispose();
-    _githubFocusNode.dispose();
     _publicModeFocusNode.dispose();
     _hostFocusNode.dispose();
     _portFocusNode.dispose();
@@ -269,20 +254,6 @@ class ConfigPageState extends State<ConfigPage> with WidgetsBindingObserver {
     _togglePublicMode(!service.publicMode);
   }
 
-  Future<bool> _launchExternalUrl(Uri uri) async {
-    try {
-      final launched = await widget.externalUrlLauncher(uri);
-      if (launched) return true;
-    } catch (_) {}
-
-    if (!mounted) return false;
-    final l10n = AppLocalizations.of(context)!;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(l10n.openLinkFailed)));
-    return false;
-  }
-
   Future<AboutInfo> _loadAboutInfo() async {
     final service = context.read<ServiceManager>();
     final appVersion = await service.getAppVersion();
@@ -379,20 +350,6 @@ class ConfigPageState extends State<ConfigPage> with WidgetsBindingObserver {
                     ],
                   );
                 },
-              ),
-              const SizedBox(height: 16),
-              TextButton.icon(
-                autofocus: true,
-                onPressed: () =>
-                    _launchExternalUrl(Uri.parse(_picoclawOfficialUrl)),
-                icon: const Icon(Icons.open_in_new),
-                label: Text(l10n.picoclawOfficial),
-              ),
-              TextButton.icon(
-                onPressed: () =>
-                    _launchExternalUrl(Uri.parse(_sipeedOfficialUrl)),
-                icon: const Icon(Icons.open_in_new),
-                label: Text(l10n.sipeedOfficial),
               ),
             ],
           ),
@@ -544,15 +501,6 @@ class ConfigPageState extends State<ConfigPage> with WidgetsBindingObserver {
                         ],
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  IconButton(
-                    tooltip: 'GitHub',
-                    focusNode: _githubFocusNode,
-                    icon: const Icon(Remix.github_line),
-                    onPressed: () async {
-                      await _launchExternalUrl(Uri.parse(_githubRepoUrl));
-                    },
                   ),
                 ],
               ),

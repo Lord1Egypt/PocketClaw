@@ -250,7 +250,7 @@ class FirebaseDeviceReporter {
         '[Firebase] To see real-time events, ensure DebugView is enabled:',
       );
       debugPrint(
-        '[Firebase]   adb shell setprop debug.firebase.analytics.app com.sipeed.picoclaw',
+        '[Firebase]   adb shell setprop debug.firebase.analytics.app com.lord1egypt.pocketclaw',
       );
 
       await markUploaded();

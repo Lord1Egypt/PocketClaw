@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:picoclaw_flutter_ui/src/core/device_feedback_models.dart';
+import 'package:pocketclaw/src/core/device_feedback_models.dart';
 
 void main() {
   const context = DeviceTelemetryRuntimeContext(

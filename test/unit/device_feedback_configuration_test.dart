@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:picoclaw_flutter_ui/src/core/device_feedback_models.dart';
-import 'package:picoclaw_flutter_ui/src/core/service_manager.dart';
+import 'package:pocketclaw/src/core/device_feedback_models.dart';
+import 'package:pocketclaw/src/core/service_manager.dart';
 
 void main() {
   group('optional device feedback configuration', () {

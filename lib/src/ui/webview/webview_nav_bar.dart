@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:picoclaw_flutter_ui/src/generated/l10n/app_localizations.dart';
+import 'package:pocketclaw/src/generated/l10n/app_localizations.dart';
 import 'package:remixicon/remixicon.dart';
 
 /// Floating draggable nav-bar (back / forward / reload) for WebView pages.
