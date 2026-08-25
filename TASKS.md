@@ -222,6 +222,58 @@ supplied by the user.
   closure point. Awaiting explicit instruction; `main` needs separate
   instruction.
 
+## Phase 2 — Milestone D: Telegram Managed-Bot Onboarding
+
+- [x] Close Milestone C: merge `feature/provider-catalog` into `develop`
+  (`36bc88d`), tag `phase2-milestone-c`, branch
+  `feature/telegram-managed-onboarding` from the verified `develop`.
+- [x] Verify Telegram's managed-bot capability against official documentation
+  before implementing: Bot API 9.6 (2026-04-03), `User.can_manage_bots`,
+  `Update.managed_bot` / `ManagedBotUpdated`, `Message.managed_bot_created`,
+  `getManagedBotToken`, `replaceManagedBotToken`, and the
+  `t.me/newbot/{manager}/{suggested}[?name=]` link form.
+- [x] Build PocketClaw's own onboarding service in-repo at
+  `services/telegram-onboarding/` — a separate Go module, zero external
+  dependencies, no third-party onboarding provider at runtime.
+- [x] Pairing API: create, poll, and a separate single-use token collection.
+- [x] Pairing security: `crypto/rand` IDs and poll tokens that are independent
+  of each other, poll tokens stored hashed and compared in constant time,
+  wrong-token and unknown-pairing both answering 404, per-client rate limiting,
+  10-minute TTL.
+- [x] Child naming: `pocketclaw_<random>_bot` with an 8-character
+  cryptographically random segment, Telegram username rules enforced, and
+  `hermes`/`picoclaw`/`sipeed` rejected in names and usernames.
+- [x] Deep-link and QR generation, with `%20` encoding rather than `+`.
+- [x] Manager bot verification at startup; the service refuses to run without
+  `can_manage_bots`.
+- [x] Manager token redaction from every error path, including transport errors
+  that quote the request URL.
+- [x] Flutter onboarding screen: Connect, Open Telegram, QR, live progress,
+  expiry countdown, Connected with Open Chat, and retry.
+- [x] Android lifecycle: polling pauses on background and resumes with an
+  immediate check; the pairing survives Telegram taking focus and survives the
+  app being killed.
+- [x] Auto-configuration reuses the existing `channel_list.telegram` entry,
+  merges rather than replaces, sets `allow_from` to the creating Telegram user,
+  and restarts Core.
+- [x] Manual token entry retained behind "Set up manually", writing the same
+  configuration.
+- [x] No secret embedded in the APK: the endpoint is a build-time
+  `--dart-define` that defaults to empty and must be HTTPS.
+- [x] Tests: 62 service tests across 6 Go packages; 50 new Flutter tests
+  (77 total).
+- [x] Regression: Core 92 packages ok, `pnpm lint` clean, `flutter analyze`
+  clean, release APK built with the build guard passing.
+- [ ] **BLOCKED ON OPERATOR SETUP** — end-to-end physical verification. Needs
+  the real PocketClaw manager bot created, Bot Management Mode enabled, the
+  service deployed, and the app built with the endpoint. See
+  `SESSION_HANDOFF.md`.
+- [ ] Localize the Telegram onboarding strings. They live in
+  `TelegramOnboardingStrings` and are English in all twelve locales, because
+  shipping machine-guessed translations into the `.arb` files would put
+  unverified text in front of users.
+- [ ] Confirm a `claude-*` model on OpenCode, carried over from Milestone C.
+
 ## Deferred out of Milestone C, deliberately
 
 - [ ] API key storage on Android is plaintext in the workspace config, because

@@ -54,6 +54,22 @@ Flutter and Android dependencies are governed by their own upstream licenses,
 as resolved through `pubspec.lock` and Gradle dependency metadata. No final
 license has been selected for newly authored PocketClaw code.
 
+## PocketClaw Telegram onboarding service
+
+`services/telegram-onboarding/` is original PocketClaw work. It is a separate
+Go module with **zero external dependencies** — standard library only — so it
+adds no third-party license obligations.
+
+It integrates with Telegram's official Bot API (managed bots, Bot API 9.6) over
+the network. Telegram is a runtime service the user's own bot lives on, not a
+bundled dependency.
+
+Hermes Agent's managed-bot onboarding was consulted as a behavioural reference
+for the shape of the flow. No Hermes or Nous source was copied, no such service
+is contacted at build time or runtime, and this repository carries no code from
+those projects. Behavioural inspiration creates no attribution obligation and
+none is implied.
+
 ## PocketClaw-authored identity assets
 
 `assets/branding/pocketclaw-mark.png` is an original PocketClaw identity asset

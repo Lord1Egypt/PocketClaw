@@ -6,6 +6,13 @@ import 'package:pocketclaw/src/core/service_manager.dart';
 import 'package:pocketclaw/src/generated/l10n/app_localizations.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:pocketclaw/src/core/app_theme.dart';
+import 'package:pocketclaw/src/telegram/telegram_config_writer.dart';
+import 'package:pocketclaw/src/telegram/telegram_onboarding_client.dart';
+import 'package:pocketclaw/src/telegram/telegram_onboarding_config.dart';
+import 'package:pocketclaw/src/telegram/telegram_onboarding_controller.dart';
+import 'package:pocketclaw/src/telegram/telegram_onboarding_strings.dart';
+import 'package:pocketclaw/src/ui/telegram_onboarding_page.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 const String _aboutProjectName = 'PocketClaw';
 
@@ -220,6 +227,59 @@ class ConfigPageState extends State<ConfigPage> with WidgetsBindingObserver {
       _isDirty = false;
     });
     widget.onDirtyChanged?.call(false);
+  }
+
+  /// Entry point to Telegram setup.
+  ///
+  /// The managed-bot flow is the primary path; manual token entry lives behind
+  /// it on the onboarding screen, not here, so the default route never asks a
+  /// normal user for a token.
+  Widget _buildTelegramEntry(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Card(
+      margin: EdgeInsets.zero,
+      child: ListTile(
+        leading: Icon(Icons.send_rounded, color: scheme.primary),
+        title: const Text(TelegramOnboardingStrings.title),
+        subtitle: const Text(TelegramOnboardingStrings.introHeadline),
+        trailing: const Icon(Icons.chevron_right_rounded),
+        onTap: () => _openTelegramOnboarding(context),
+      ),
+    );
+  }
+
+  Future<void> _openTelegramOnboarding(BuildContext context) async {
+    final service = context.read<ServiceManager>();
+    final configWriter = const TelegramConfigWriter();
+    final controller = TelegramOnboardingController(
+      client: TelegramOnboardingClient(
+        baseUrl: TelegramOnboardingConfig.baseUrl,
+      ),
+      configWriter: configWriter,
+      reloadCore: () async {
+        // Core reads channel configuration at startup, so a newly written
+        // Telegram token only takes effect after a restart.
+        if (service.status == ServiceStatus.running) {
+          await service.stop();
+          await service.start();
+        }
+      },
+      openUrl: (url) => launchUrl(
+        Uri.parse(url),
+        mode: LaunchMode.externalApplication,
+      ),
+      serviceConfigured: TelegramOnboardingConfig.isConfigured,
+    );
+
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => TelegramOnboardingPage(
+          controller: controller,
+          configWriter: configWriter,
+        ),
+      ),
+    );
+    controller.dispose();
   }
 
   Future<void> _pickFile() async {
@@ -563,6 +623,9 @@ class ConfigPageState extends State<ConfigPage> with WidgetsBindingObserver {
                     : _argsFocusNode,
                 prevFocusNode: _hostFocusNode,
               ),
+              const SizedBox(height: 16),
+
+              _buildTelegramEntry(context),
               const SizedBox(height: 16),
 
               if (!Platform.isWindows &&

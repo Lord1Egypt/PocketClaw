@@ -596,3 +596,135 @@
 - Consequence: a later 401 on a `claude-*` OpenCode model, while `gpt-*` and
   `kimi-*` succeed, points at the header pair rather than the routing table.
   Recorded as an open item in `TASKS.md` rather than closed by association.
+
+## PocketClaw owns its Telegram onboarding service, end to end
+
+- Date: 2026-08-26
+- Decision: the managed-bot onboarding service is PocketClaw-authored and lives
+  in this repository at `services/telegram-onboarding/`. It is a separate Go
+  module with zero external dependencies, and it depends on no third-party
+  onboarding provider at runtime — only on Telegram itself.
+- Reason: the self-contained source-of-truth rule from the previous milestone
+  applies to every part of the product, not just Core. An onboarding flow that
+  ran through someone else's setup service would put a third party between a
+  user and their own bot token.
+- Deliberately a separate module rather than code inside `core/src/`: anything
+  added under `core/src/` shows up in `core/pocketclaw-core-v0.3.1.patch` as
+  divergence from upstream PicoClaw, which this is not. Keeping it outside
+  leaves the upstream provenance record honest.
+- Consequence: Hermes was read as a behavioural reference for the shape of the
+  flow — a pairing session, a deep link, polling, a token handed back — and
+  nothing else. No Hermes or Nous service, endpoint, or source is involved at
+  build time or at runtime.
+
+## The managed-bot flow is built on verified Telegram API, not on inference
+
+- Date: 2026-08-26
+- Decision: every Telegram capability this milestone relies on was checked
+  against `core.telegram.org` before implementation, not inferred from another
+  project's code.
+- Evidence: managed bots are Bot API 9.6, published 2026-04-03. The changelog
+  states support for
+  `https://t.me/newbot/{manager_bot_username}/{suggested_bot_username}[?name={suggested_bot_name}]`
+  — note that `?name=` is optional, which the square brackets make explicit.
+  The reference documents `User.can_manage_bots` (Boolean),
+  `Update.managed_bot` carrying `ManagedBotUpdated{user User, bot User}`,
+  `Message.managed_bot_created` carrying `ManagedBotCreated{bot User}`,
+  `getManagedBotToken(user_id) -> String`, and
+  `replaceManagedBotToken(user_id) -> String`.
+- One correction this produced: the field is `can_manage_bots`, not
+  `bot_can_manage_bots`. The latter appears in discussion of the feature but is
+  not what the API returns, and coding against it would have made the manager
+  verification silently always fail.
+- `allowed_updates` defaults to everything except `chat_member`,
+  `message_reaction`, and `message_reaction_count`, so `managed_bot` arrives
+  without opting in. The client names it explicitly anyway, so a future default
+  change cannot quietly stop onboarding from working.
+- Consequence: Telegram still shows its own confirmation screen and the user
+  still presses Create. PocketClaw pre-fills the name and username; it does not
+  and cannot create a bot without that confirmation, and nothing in the design
+  pretends otherwise.
+
+## Polling and token collection are separate endpoints
+
+- Date: 2026-08-26
+- Decision: `GET /telegram/pairings/{id}` never returns a bot token. A separate
+  `POST /telegram/pairings/{id}/token` delivers it exactly once and destroys
+  the session.
+- Reason: polling is idempotent and happens every couple of seconds; delivery
+  is a one-shot transition. Folding them together forces a choice between
+  repeating the token on every poll and making polling destructive, and both
+  are worse than one extra round trip.
+- Consequence: "the token is single-use" is a property of the API shape rather
+  than of careful client behaviour, and it is directly testable. A failed
+  collection attempt with the wrong token does not burn the delivery.
+
+## A pairing is matched by its suggested username, and fails closed otherwise
+
+- Date: 2026-08-26
+- Decision: an incoming `managed_bot` update is bound to a pairing by the child
+  bot's username, which is why each pairing suggests a unique random one. If
+  nothing matches, the update is ignored and the pairing expires.
+- Reason: Telegram reports the created bot and its creator, but nothing that
+  ties either back to the app instance that issued the link. The suggested
+  username is the only carrier of that link, and it is one PocketClaw controls.
+- Consequence: if the user edits the suggested username on Telegram's
+  confirmation screen, the pairing will not complete. That is deliberate. The
+  alternative — matching loosely, for instance to the only pending pairing —
+  would let one user's bot be delivered into another user's app. The UI
+  surfaces the expiry with a retry and the manual fallback.
+
+## The pairing tells us who the owner is, so the bot is locked to them
+
+- Date: 2026-08-26
+- Decision: `ManagedBotUpdated.user` is written into the child bot's
+  `allow_from` list in Core's configuration.
+- Reason: Telegram tells us exactly which user created the bot. A freshly
+  paired bot therefore answers only its owner rather than anyone who discovers
+  its username. Manual setup cannot do this, because nothing in a pasted token
+  identifies the owner.
+- Consequence: this is a security improvement the automatic path gets for free,
+  and one more reason it is the default rather than a convenience wrapper.
+
+## Automatic onboarding reuses the existing Telegram channel, and never a second one
+
+- Date: 2026-08-26
+- Decision: onboarding writes the same `channel_list.telegram` entry that
+  manual setup writes, merging into it rather than replacing it, and then
+  restarts Core.
+- Reason: the Telegram channel, its streaming behaviour, MarkdownV2 handling,
+  and the PocketClaw agent identity behind `/start` are all already correct and
+  device-verified. Onboarding is a configuration path, not a runtime.
+- Consequence: existing settings — proxy, base URL, MarkdownV2, streaming,
+  reasoning channel — survive pairing, and every other channel is untouched.
+  Both paths converge on one implementation, so the branded `/start` reply
+  needed no change.
+
+## The app ships with no onboarding endpoint until an operator supplies one
+
+- Date: 2026-08-26
+- Decision: `POCKETCLAW_ONBOARDING_BASE_URL` is a build-time `--dart-define`
+  that defaults to empty. When it is unset, the app reports that automatic
+  setup is unavailable and offers manual token entry.
+- Reason: no PocketClaw manager bot exists yet, so there is no endpoint to
+  point at. Inventing one, or falling back to somebody else's, was not an
+  option. A build with no endpoint has to say so.
+- The URL must also be HTTPS. Plain HTTP would put the poll token, and once the
+  bot token, on the wire in the clear; the app refuses rather than downgrades.
+- Consequence: the whole flow is implemented and tested, and end-to-end
+  verification is blocked on operator setup rather than on code. See
+  `SESSION_HANDOFF.md` for exactly what the operator must create.
+
+## Onboarding strings are not localized yet, and are not machine-translated
+
+- Date: 2026-08-26
+- Decision: the Telegram onboarding screen's text lives in
+  `TelegramOnboardingStrings` rather than in `lib/l10n/*.arb`.
+- Reason: this repository keeps all twelve locales at exact parity — 84 of 84
+  keys in every file. Adding roughly thirty new keys means either breaking that
+  invariant or shipping twelve languages of unverified translation into a
+  product's locale files. Guessed translations look authoritative and are worse
+  than visibly-English text.
+- Consequence: the screen is English in every locale for now, one class holds
+  every string so the move to `.arb` is mechanical, and the work is recorded as
+  an open item in `TASKS.md` rather than left implicit.

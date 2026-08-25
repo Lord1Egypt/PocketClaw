@@ -2,13 +2,18 @@
 
 Project: PocketClaw  
 Current Phase: Phase 2 — Independent Product Repository  
-Current Milestone: none in progress. Phase 2 Milestone C — Provider Catalog +
-Easy API-Key Setup — is complete, including the OpenCode provider completion
-and the self-contained source migration. All three PASSED physical-device
-testing on 2026-08-25.
-Git Branch: `feature/provider-catalog`, branched from `develop` @ `14e6991`.
-Last verified milestone: Phase 2 Milestone B (merge `225be3c`, tag
-`phase2-milestone-b`), which remains the fallback reference state.
+Current Milestone: Phase 2 Milestone D — Telegram Managed-Bot Onboarding.
+Implemented and fully tested; end-to-end verification is BLOCKED ON OPERATOR
+SETUP, because the real PocketClaw manager bot does not exist yet.
+Milestone C — Provider Catalog + Easy API-Key Setup, the OpenCode completion,
+and the self-contained source migration — is complete and PASSED
+physical-device testing on 2026-08-25, merged to `develop` as `36bc88d` and
+tagged `phase2-milestone-c`.
+Git Branch: `feature/telegram-managed-onboarding`, branched from the verified
+`develop` @ `36bc88d` (tag `phase2-milestone-c`).
+Last verified milestone: Phase 2 Milestone C (merge `36bc88d`, tag
+`phase2-milestone-c`), which is the fallback reference state. Milestone B
+(merge `225be3c`, tag `phase2-milestone-b`) is retained below it.
 Recovery Branch: `recovery/pocketclaw-clean-debrand` @ `f25d38e`, retained intact
 Foundation Bootstrap Commit: `950d4a3`  
 Origin: `https://github.com/Lord1Egypt/PocketClaw.git` (private)  
@@ -23,19 +28,19 @@ Build Status: arm64 release APK built through the canonical Gradle path; the
 release guard verified the arm64 native payload.
 APK Status: the source-migration APK
 `588bbec144fe0c84b8429f4f053a73b44b9b3e8d9f24e31dab04b2165ff3a90b`
-PASSED physical-device testing on 2026-08-25 and is the current verified
-reference artifact, superseding Milestone C's `b3dd892b...bce569b`. It carries
-the OpenCode completion, so the never-tested `785ccd94...56058c6` is retired.
-Current Blocker: none. `feature/provider-catalog` is verified and not yet
-merged; merging it into `develop` and tagging the closure point awaits
-explicit instruction.
-Next Exact Action: install the OpenCode completion APK and configure OpenCode
-Zen and OpenCode Go with a real OpenCode API key. Run at least one inference on
-each of the three protocol families so the routing is proven end to end:
-a Responses-family model (gpt/codex), an Anthropic Messages-family model
-(claude), and a chat-completions-family model (kimi/deepseek/glm). Do not merge
-`feature/provider-catalog` into `develop` before that passes. `main` is
-intentionally untouched.
+PASSED physical-device testing on 2026-08-25 and remains the verified reference
+artifact. The Milestone D APK
+`7c34ab12b544e585981c46632a5246a3a3fe66da24a84fce2c0b831c4911178e`
+is BUILT and NOT yet physically verified.
+Current Blocker: operator setup. Milestone D cannot be verified end to end
+until the real PocketClaw manager bot is created with Bot Management Mode
+enabled, the onboarding service is deployed, and the app is rebuilt pointing at
+it. No credentials were invented; see `SESSION_HANDOFF.md`.
+Next Exact Action: operator setup for Milestone D — create the PocketClaw
+manager bot, enable Bot Management Mode, deploy
+`services/telegram-onboarding/`, then rebuild the app with
+`--dart-define=POCKETCLAW_ONBOARDING_BASE_URL=https://...` and run the
+end-to-end test. See `SESSION_HANDOFF.md`.
 
 ## Completed
 
@@ -401,3 +406,62 @@ is only settled by a `claude-*` model returning a real response, and the device
 report does not say which model families were exercised. Treat the Messages
 route as unconfirmed until a `claude-*` inference is observed; if one 401s while
 `gpt-*` and `kimi-*` succeed, the header pair is the cause, not the routing.
+
+## Milestone D Telegram Onboarding APK — BUILT, BLOCKED ON OPERATOR SETUP
+
+- Status: NOT verified, and not verifiable yet. The verified reference artifact
+  remains `588bbec1...5ff3a90b`. This APK contains the complete managed-bot
+  onboarding flow, but the flow cannot run end to end until a PocketClaw
+  manager bot exists.
+- Path: `build/app/outputs/apk/release/app-release.apk` (ignored; not committed)
+- Built: 2026-08-26 with the canonical command
+  `./gradlew :app:assembleRelease -Ptarget-platform=android-arm64`,
+  `JAVA_HOME=/home/lordegypt/PocketCLaw/.tooling/jdk-17`,
+  `GRADLE_USER_HOME=/home/lordegypt/PocketClaw-App/.tooling/gradle-stage-a-clean`.
+- Size: 34,211,793 bytes
+- SHA-256: `7c34ab12b544e585981c46632a5246a3a3fe66da24a84fce2c0b831c4911178e`
+- Package/version: `com.lord1egypt.pocketclaw`, `0.1.3` (version code `3`)
+- Release guard PASS for all three required libraries.
+- Both Core binaries are byte-identical to the device-verified pair
+  (`libpicoclaw.so` 37,224,801 `cb9b2cde...fb895818`; `libpicoclaw-web.so`
+  24,641,889 `b6b356f7...656db9ba5`). Milestone D changed no Core source, so
+  the Core half of this APK is already device-proven. `libapp.so` grew from
+  6,751,112 to 6,947,720 bytes, which is the new Dart code.
+- No secret is embedded: 0 occurrences of a manager token pattern, and 0
+  occurrences of a baked-in onboarding endpoint. The endpoint is a build-time
+  `--dart-define` that is unset in this build.
+
+### Why this cannot be device-tested yet
+
+The flow depends on a Telegram bot that PocketClaw owns and that has Bot
+Management Mode enabled. That bot does not exist, so there is nothing to point
+the app at. Inventing a token or falling back to another project's setup
+service was not an option, so the app in this build reports that automatic
+setup is unavailable and offers manual token entry.
+
+What is verifiable today, and was verified:
+
+- 62 service tests across six Go packages, all against a fake Telegram.
+- 50 new Flutter tests covering every stage, the lifecycle handling, the
+  configuration merge, and the manual fallback. 77 Flutter tests in total.
+- Core regression: 92 packages ok, `pnpm lint` clean.
+- `flutter analyze` clean, release APK built, build guard passed.
+
+### What to test on the device, once the operator setup is done
+
+1. Settings shows a Telegram entry; opening it offers Connect Telegram, not a
+   token field.
+2. Connect issues a pairing; Open Telegram lands on Telegram's creation screen
+   with the name and username already filled in.
+3. Confirming in Telegram and returning shows Bot created, then Connected, with
+   the new `@pocketclaw_..._bot` username.
+4. The QR path works from a second device.
+5. Backgrounding PocketClaw mid-flow and returning resumes the same pairing.
+6. The bot answers its owner in Telegram and its `/start` reply is
+   PocketClaw-branded, with no PicoClaw, Hermes, or Sipeed wording.
+7. `allow_from` contains the creating user's Telegram ID, and the bot ignores
+   other users.
+8. Letting a pairing expire shows the expiry with a working retry.
+9. Manual setup still works from the same screen.
+10. Regression: startup, DNS, provider catalog, OpenCode, Skill Hub, workspace,
+    MQTT, Core lifecycle, branding.

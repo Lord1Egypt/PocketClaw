@@ -1,5 +1,66 @@
 # Development Changelog
 
+## 2026-08-26 — Milestone D: Telegram managed-bot onboarding
+
+- Closed Milestone C first: merged `feature/provider-catalog` into `develop`
+  (`36bc88d`), tagged `phase2-milestone-c`, and branched
+  `feature/telegram-managed-onboarding` from the verified `develop`.
+- Verified Telegram's managed-bot API against `core.telegram.org` before
+  writing any code. It is Bot API 9.6, 2026-04-03: `User.can_manage_bots`,
+  `Update.managed_bot` carrying `ManagedBotUpdated{user, bot}`,
+  `Message.managed_bot_created`, `getManagedBotToken(user_id)`,
+  `replaceManagedBotToken(user_id)`, and
+  `t.me/newbot/{manager}/{suggested}[?name=]`. One correction fell out of this:
+  the field is `can_manage_bots`, not `bot_can_manage_bots`; coding against the
+  latter would have made manager verification always fail.
+- Added `services/telegram-onboarding/`, PocketClaw's own onboarding service. A
+  separate Go module with **zero external dependencies**, deliberately outside
+  `core/src/` so it never appears in the upstream provenance patch. No Hermes
+  or Nous service is involved at build time or runtime; Hermes was read for the
+  shape of the flow and nothing else.
+- Pairing API is three endpoints. Polling never returns a token; a separate
+  single-use collection endpoint delivers it once and destroys the session.
+  That separation is what makes single-use a property of the API shape rather
+  than of careful client behaviour.
+- Pairing security: 16-byte pairing IDs and 32-byte poll tokens from
+  `crypto/rand`, independent of each other; poll tokens stored only as SHA-256
+  and compared in constant time; a wrong token and an unknown pairing both
+  answer 404 so live pairings cannot be enumerated; per-client rate limiting;
+  a 10-minute TTL after which the session and any token material are swept.
+- Child bots are named `PocketClaw Agent` / `pocketclaw_<random>_bot` with an
+  8-character random segment. Telegram's username rules are enforced, and
+  `hermes`, `picoclaw`, and `sipeed` are rejected outright in both names and
+  usernames.
+- The manager bot token never leaves the server, and is redacted from every
+  error path — including transport errors, which quote the request URL and
+  therefore the token.
+- The service verifies its manager bot at startup and refuses to run without
+  `can_manage_bots`, rather than issuing links that could never resolve.
+- Flutter: a new Telegram screen with Connect, Open Telegram, a QR carrying only
+  the public creation link, live progress, an expiry countdown, Connected with
+  Open Chat, and retry. Reached from Settings.
+- Android lifecycle is handled properly: polling stops on background and
+  resumes with an immediate check, the pairing survives Telegram taking focus,
+  and it survives the app being killed via app-private storage of the pairing
+  identifiers — never the bot token.
+- Auto-configuration reuses the existing `channel_list.telegram` entry rather
+  than adding a second Telegram runtime. It merges, so proxy, base URL,
+  MarkdownV2, streaming, and the reasoning channel survive pairing, and it sets
+  `allow_from` to the Telegram user who created the bot — something manual
+  setup cannot do, since a pasted token identifies nobody.
+- Manual token entry stays available behind "Set up manually" and writes the
+  same configuration. The default path never shows a user a token.
+- No secret ships in the APK. The endpoint is a build-time
+  `--dart-define=POCKETCLAW_ONBOARDING_BASE_URL` that defaults to empty and
+  must be HTTPS; an unconfigured build says automatic setup is unavailable
+  instead of guessing an endpoint or reaching for someone else's.
+- Tests: 62 service tests across six Go packages, all against a fake Telegram,
+  none needing a real bot or a production secret; 50 new Flutter tests, 77
+  total. Core regression 92 packages ok, `pnpm lint` clean, `flutter analyze`
+  clean.
+- End-to-end physical verification is **blocked on operator setup**: the real
+  PocketClaw manager bot does not exist yet. No credentials were invented.
+
 ## 2026-08-25 — Source migration and OpenCode completion PASS on device
 
 - Physical Android device test of
