@@ -3,7 +3,8 @@
 Project: PocketClaw  
 Current Phase: Phase 2 — Independent Product Repository  
 Current Milestone: Phase 2 Milestone B — COMPLETE and physically verified
-Git Branch: `recovery/pocketclaw-clean-debrand`
+Git Branch: `develop` (merge commit `225be3c`, tag `phase2-milestone-b`)
+Recovery Branch: `recovery/pocketclaw-clean-debrand` @ `f25d38e`, retained intact
 Foundation Bootstrap Commit: `950d4a3`  
 Origin: `https://github.com/Lord1Egypt/PocketClaw.git` (private)  
 Upstream FUI Baseline: `d689c94c1b67f625f70ec4111a9aa3f01be9cbb3`  
@@ -15,9 +16,9 @@ APK Status: PHYSICALLY VERIFIED on 2026-08-25 — SHA-256 `ba4f067df9811bd0e4af7
 This is the current verified reference artifact; it supersedes `2717f32e9580cd5b5ea5da70b2cb9fcf13f6f14451423addcb5686e0278a1de4`.
 Current Blocker: None. The black-screen incident is RESOLVED and physically
 confirmed.
-Next Exact Action: None. Milestone B is closed and merged to `develop`.
-`main` is intentionally untouched. Do not begin Milestone C until the user
-explicitly authorizes it.
+Next Exact Action: None. Milestone B is closed, merged to `develop` as
+`225be3c`, and tagged `phase2-milestone-b`. `main` is intentionally untouched.
+Do not begin Milestone C until the user explicitly authorizes it.
 
 ## Completed
 

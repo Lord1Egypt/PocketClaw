@@ -15,9 +15,11 @@ workspace path, QR/access page, Skill Hub, provider/model flow, and no abnormal
 slowdown. It is the verified reference artifact — compare any future regression
 against it before forming new hypotheses.
 
-`recovery/pocketclaw-clean-debrand` was merged into `develop` with a
-non-fast-forward merge and tagged `phase2-milestone-b`. The recovery branch,
-`feature/pocketclaw-identity` (`354fc38` WIP), and `main` are all intact.
+`recovery/pocketclaw-clean-debrand` (@ `f25d38e`) was merged into `develop` with
+a non-fast-forward merge, `225be3c`, and the closure point is tagged
+`phase2-milestone-b`. The merged `develop` tree is byte-identical to the tested
+recovery tip. The recovery branch, `feature/pocketclaw-identity` (`354fc38`
+WIP), and `main` are all intact; nothing was deleted or rewritten.
 
 What Milestone B delivered: independent PocketClaw product and package identity;
 the black-screen root cause and its permanent fail-closed release guard; full
