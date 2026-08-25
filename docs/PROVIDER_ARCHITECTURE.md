@@ -269,14 +269,55 @@ they stay out of the simplified "paste an API key" path: Azure OpenAI
 (local gRPC bridge), Google Code Assist/`antigravity` (locked OAuth),
 Claude CLI and Codex CLI (local executables).
 
-**DEFERRED** — cannot be specified accurately from available evidence, so no
-preset is shipped: OpenCode Zen and OpenCode GO. Their base URL, authentication
-header, and model-listing endpoint could not be established from the pinned
-Core or from any source in this workspace. Shipping a guessed base URL would
-produce a preset that fails with a confusing error, which is worse than not
-offering it. They can be configured today through Custom OpenAI-Compatible.
+**MIXED PROTOCOL — shipped 2026-08-25:** OpenCode Zen
+(`https://opencode.ai/zen/v1`) and OpenCode Go
+(`https://opencode.ai/zen/go/v1`). Initially deferred for lack of verified
+endpoints; the product owner supplied the official documentation, and both now
+ship. They are not plain OpenAI-compatible providers — see §11.
 
-## 10. Constraints carried into the implementation
+## 11. OpenCode Zen and Go: per-model protocol routing
+
+Both gateways front three request protocols behind a single base URL and a
+single API key:
+
+| Protocol | Endpoint | Provider used |
+| --- | --- | --- |
+| OpenAI Responses | `{base}/responses` | `pkg/providers/openai_responses` (new) |
+| OpenAI chat completions | `{base}/chat/completions` | existing HTTP provider |
+| Anthropic Messages | `{base}/messages` | `pkg/providers/anthropic_messages` |
+
+Model discovery is OpenAI-shaped for both: `GET {base}/models`, Bearer auth,
+parse `data[].id`. That goes through the existing shared fetch path unchanged.
+
+Because the protocol is a property of the model rather than of the provider,
+`CreateProviderFromConfig` cannot pick a transport from the provider ID alone.
+It delegates to `pkg/providers/opencode_routing.go`, which owns:
+
+- `ClassifyOpenCodeModel(model) (OpenCodeProtocol, known bool)` — longest
+  matching model-ID family prefix; `known` is false when the fallback applies.
+- `NormalizeOpenCodeModelID(model)` — strips the `opencode-go/` style CLI
+  namespace so the bare ID reaches the wire.
+- `IsOpenCodeProvider(provider)`.
+
+Routing is family-based, not an enumerated model list: OpenCode changes its
+lineup often, and Fetch Models already returns the authoritative live list.
+An unrecognized model remains configurable and is still attempted using chat
+completions, with a warning that names the model, the chosen protocol, and what
+a 404 would imply. `known == false` is what stops any caller from treating a
+fallback as a confirmed route.
+
+Two consequences worth remembering:
+
+- `common.NormalizeBaseURL` strips and re-appends `/v1`. That is a no-op for
+  both OpenCode bases, but a regression there would silently turn
+  `.../zen/go/v1` into `.../zen/v1`, so the round trip is asserted directly.
+- The Messages route sends both `X-API-Key` and `Authorization: Bearer` via
+  `anthropicmessages.WithBearerAuth()`, because OpenCode issues one account key
+  for every surface and the expected form for its Messages endpoint is not
+  documented in anything available here. The option is off by default, so
+  Anthropic's own endpoint is unaffected.
+
+## 12. Constraints carried into the implementation
 
 - The backend catalog stays the single source of truth; the frontend keeps
   projecting it.

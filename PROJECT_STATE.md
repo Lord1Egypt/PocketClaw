@@ -3,7 +3,9 @@
 Project: PocketClaw  
 Current Phase: Phase 2 — Independent Product Repository  
 Current Milestone: Phase 2 Milestone C — Provider Catalog + Easy API-Key Setup.
-Implementation COMPLETE; PHYSICAL-DEVICE VERIFICATION PENDING.
+The main milestone PASSED physical-device testing on 2026-08-25. The OpenCode
+completion (OpenCode Zen and OpenCode Go presets) is implemented on top of it
+and awaits its own physical-device verification.
 Git Branch: `feature/provider-catalog`, branched from `develop` @ `14e6991`.
 Last verified milestone: Phase 2 Milestone B (merge `225be3c`, tag
 `phase2-milestone-b`), which remains the fallback reference state.
@@ -15,12 +17,17 @@ PicoClaw Core: `v0.3.1`, source `2cf030d2fd3b871d7ec17e3be34c24688aac76da`,
 rebuilt for PocketClaw — see `core/` and `UPSTREAM_BASELINE.md`  
 Build Status: arm64 release APK built through the canonical Gradle path; the
 release guard verified the arm64 native payload.
-APK Status: Milestone C candidate `b3dd892bdea86e8dfe7d1c2eb87e89f4e2832b1d1dbe39fc1decf20dabce569b`
-is BUILT and NOT YET physically verified. The verified reference artifact is
-still the Milestone B APK `ba4f067df9811bd0e4af713343bdba632abbf96a41e3a5b47cf154740f70a4b8`.
-Current Blocker: physical-device testing of the Milestone C APK.
-Next Exact Action: install the Milestone C APK and test provider setup with at
-least one real cloud provider and one custom/manual configuration. Do not merge
+APK Status: the Milestone C APK `b3dd892bdea86e8dfe7d1c2eb87e89f4e2832b1d1dbe39fc1decf20dabce569b`
+PASSED physical-device testing on 2026-08-25 and is the current verified
+reference artifact, superseding Milestone B's `ba4f067d...70f70a4b8`.
+The OpenCode completion APK `785ccd94cfa351ee2996ac340f9a55e828a0c8f736bec67a3edac906a56058c6`
+is BUILT and NOT yet physically verified.
+Current Blocker: physical-device testing of the OpenCode completion APK.
+Next Exact Action: install the OpenCode completion APK and configure OpenCode
+Zen and OpenCode Go with a real OpenCode API key. Run at least one inference on
+each of the three protocol families so the routing is proven end to end:
+a Responses-family model (gpt/codex), an Anthropic Messages-family model
+(claude), and a chat-completions-family model (kimi/deepseek/glm). Do not merge
 `feature/provider-catalog` into `develop` before that passes. `main` is
 intentionally untouched.
 
@@ -213,11 +220,12 @@ canonical release path. Do not release a universal `flutter build apk --release`
 - This is the current verified reference artifact. Compare any future
   regression against it before forming new hypotheses.
 
-## Milestone C Provider Catalog APK — BUILT, PHYSICAL TEST PENDING
+## Milestone C Provider Catalog APK — PHYSICALLY VERIFIED
 
-- Status: NOT verified. Do not treat this as a reference artifact until a
-  physical Android device passes. The Milestone B APK
-  `ba4f067d...70f70a4b8` remains the last verified reference.
+- Status: PASS on a physical Android device, 2026-08-25. This is the verified
+  reference artifact, superseding Milestone B's `ba4f067d...70f70a4b8`.
+  Not merged to `develop`: the OpenCode completion below rides on the same
+  branch and must pass its own device test first.
 - Path: `build/app/outputs/apk/release/app-release.apk` (ignored; not committed)
 - Built: 2026-08-25 with the canonical command
   `./gradlew :app:assembleRelease -Ptarget-platform=android-arm64`,
@@ -250,3 +258,55 @@ canonical release path. Do not release a universal `flutter build apk --release`
   model ID; an existing provider still opens with its stored values intact; and
   startup, DNS, Core lifecycle, Telegram, Skill Hub, workspace, MQTT, and
   branding are all unregressed.
+
+## Milestone C OpenCode Completion APK — BUILT, PHYSICAL TEST PENDING
+
+- Status: NOT verified. The verified reference artifact remains the Milestone C
+  APK `b3dd892b...bce569b` until this one passes on a device.
+- Path: `build/app/outputs/apk/release/app-release.apk` (ignored; not committed)
+- Built: 2026-08-25 with the canonical command
+  `./gradlew :app:assembleRelease -Ptarget-platform=android-arm64`,
+  `JAVA_HOME=/home/lordegypt/PocketCLaw/.tooling/jdk-17`,
+  `GRADLE_USER_HOME=/home/lordegypt/PocketClaw-App/.tooling/gradle-stage-a-clean`.
+- Size: 34,129,765 bytes
+- SHA-256: `785ccd94cfa351ee2996ac340f9a55e828a0c8f736bec67a3edac906a56058c6`
+- Package/version: `com.lord1egypt.pocketclaw`, `0.1.3` (version code `3`)
+- Label: PocketClaw; launchable `com.lord1egypt.pocketclaw.MainActivity`
+- ABIs advertised: `arm64-v8a`, `armeabi-v7a`, `x86_64`. Only `arm64-v8a`
+  carries `libapp.so`, `libflutter.so`, and the two Core payloads; the other
+  ABIs carry plugin JNI libs only.
+- Release guard PASS for all three required libraries:
+
+| Packaged library | Size | SHA-256 |
+| --- | --- | --- |
+| `libdartjni.so` | 131,248 | `47dae44db1c6202d164c0bb2ff25cc661023ba2904a6679abad4f3dcf3fcb5cd` |
+| `libpicoclaw.so` | 37,421,409 | `e48e8af073d6e7dfdb46ba8268785780d1f900888b82dba41747ef9212e78938` |
+| `libpicoclaw-web.so` | 24,772,961 | `5faaf82ccbcd2fbad27d7ffc336f240fd5c08a48a1abbb2bd4eff7c383fe2abf` |
+
+- `libdartjni.so` is byte-identical to every verified build since Milestone B.
+- Both Core binaries are stripped with 0 debug sections, and
+  `PICOCLAW_DNS_SERVER` is verified present in the rebuilt gateway.
+- Branding invariants hold in the rebuilt launcher: 0 `PicoClaw`, 0 `Sipeed`,
+  31 `PocketClaw`. `google_app_id` is present but empty, the expected
+  `cleanupFirebaseResources` outcome; no Firebase credential value ships.
+
+### What to test on the device
+
+The rest of the app is unchanged from the verified Milestone C build, so the
+regression sweep can be brief. The new surface is the two OpenCode presets:
+
+1. OpenCode Zen appears in Add Provider, asks only for an API key, and Fetch
+   Models returns the live list from `https://opencode.ai/zen/v1/models`.
+2. OpenCode Go does the same against `https://opencode.ai/zen/go/v1/models`.
+3. Run one real inference on each protocol family, per provider, because the
+   protocol is chosen per model and only a live request proves the route:
+   - a Responses-family model (`gpt-*`, `*codex*`),
+   - an Anthropic Messages-family model (`claude-*`),
+   - a chat-completions-family model (`kimi-*`, `deepseek-*`, `glm-*`).
+4. Confirm the model ID saved and sent is the bare ID (`kimi-k3`), not the
+   namespaced OpenCode CLI form.
+
+The one assumption that only a device can settle is the Messages
+authentication form — see the OpenCode routing decision in `DECISIONS.md`.
+If a `claude-*` model returns 401 while `gpt-*` and `kimi-*` succeed, that is
+the bearer-versus-`X-API-Key` question, not a routing failure.

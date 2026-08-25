@@ -1,5 +1,73 @@
 # Development Changelog
 
+## 2026-08-25 — Milestone C device PASS, plus the OpenCode completion
+
+- Physical Android device test of
+  `b3dd892bdea86e8dfe7d1c2eb87e89f4e2832b1d1dbe39fc1decf20dabce569b` returned
+  PASS. That APK is now the verified reference artifact, superseding
+  Milestone B's `ba4f067d...70f70a4b8`. Still not merged: the OpenCode
+  completion below lands on the same branch and needs its own device test.
+- Added the OpenCode Zen (`https://opencode.ai/zen/v1`) and OpenCode Go
+  (`https://opencode.ai/zen/go/v1`) presets, using the official endpoints the
+  user verified. Both require an API key, both support Fetch Models against
+  `{base}/models`, and both keep the base URL hidden in the normal flow.
+- These are mixed-protocol gateways, so they are not modelled as plain
+  OpenAI-compatible providers. One base URL and one key front OpenAI Responses,
+  OpenAI-compatible chat completions, and Anthropic Messages, and the protocol
+  is a property of the selected model. All routing lives in
+  `pkg/providers/opencode_routing.go`: `ClassifyOpenCodeModel` matches the
+  longest model-ID family prefix and returns both a protocol and whether the
+  match was known. No model-name conditional was added anywhere else.
+- Routing is family-based rather than an enumerated model list, because
+  OpenCode changes its lineup frequently and Fetch Models already returns the
+  authoritative live list. `gpt-*`/`o*`/`codex*` route to Responses, `claude-*`
+  to Messages, and `kimi-*`/`deepseek-*`/`glm-*`/`qwen-*`/`grok-*` and friends
+  to chat completions.
+- Built the generic Responses provider the Core was missing
+  (`pkg/providers/openai_responses`). The two existing Responses paths were not
+  reusable: Azure hardcodes its deployment path, and the Codex provider
+  hardcodes the ChatGPT backend plus Codex headers and instructions. The new
+  package reuses the shared `openai_responses_common` translation and adds only
+  transport.
+- Extended `anthropic_messages` with an opt-in `WithBearerAuth()` so the
+  OpenCode Messages route sends both `X-API-Key` and `Authorization: Bearer`
+  with the one OpenCode account key. It is off by default, so Anthropic's own
+  endpoint and the existing `anthropic-messages` and `alibaba-coding-anthropic`
+  presets are unchanged. Which form OpenCode's Messages surface actually wants
+  is the single assumption only a device can settle.
+- Model IDs go out bare. The `opencode-go/` style CLI namespace prefix is
+  stripped before the request is built and never persisted into the wire model.
+- An unrecognized model stays configurable and is still attempted, falling back
+  to chat completions, with a warning naming the model, the fallback protocol,
+  and what a 404 would imply. The warning never contains the API key.
+- Added a catalog-wide invariant test: every HTTP-API provider that can drive a
+  chat model must construct from a plain key-plus-base configuration, with a
+  floor of 30 providers exercised so the assertion cannot become vacuous. This
+  is the general form of the rule the earlier per-preset test only spot-checked.
+- Validation: `flutter analyze` clean; 27/27 Flutter tests; 28 frontend tests;
+  new Go tests covering OpenCode routing and catalog metadata, the Responses
+  transport, the Messages bearer/base-path behavior, and discovery for both
+  endpoints; full Go suites for providers, config, web/backend/api, androiddns,
+  mqtt, onboard, and commands all pass; frontend `tsc -b` and `pnpm lint` clean.
+- Every new test that can touch a credential asserts the key never appears in
+  an error, and the routing warning was inspected in real log output.
+- Rebuilt both Core binaries through the documented Makefile targets. Stripped,
+  0 debug sections, `PICOCLAW_DNS_SERVER` present, launcher still 0 `PicoClaw` /
+  0 `Sipeed` / 31 `PocketClaw`:
+  `libpicoclaw.so` 37,421,409 `e48e8af0...12e78938`;
+  `libpicoclaw-web.so` 24,772,961 `5faaf82c...c383fe2abf`.
+- One build note worth keeping: running `:app:packageRelease` without
+  `-Ptarget-platform=android-arm64` produced a 50 MB universal APK. Caught on
+  the size check and rebuilt on the canonical path. The flag is not optional,
+  and APK size is the cheapest signal that it was dropped.
+- OpenCode completion APK: 34,129,765 bytes, SHA-256
+  `785ccd94cfa351ee2996ac340f9a55e828a0c8f736bec67a3edac906a56058c6`,
+  `com.lord1egypt.pocketclaw` 0.1.3 (code 3), label PocketClaw, release guard
+  passed. NOT merged and NOT physically verified.
+- No Telegram work, no UI changes beyond the two presets flowing through the
+  existing picker, no release-pipeline changes, no dependency upgrades, and the
+  `libdartjni` guard is untouched.
+
 ## 2026-08-25 — Phase 2 Milestone C: Provider Catalog + Easy API-Key Setup
 
 Implementation complete on `feature/provider-catalog`, branched from the

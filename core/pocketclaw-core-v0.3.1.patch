@@ -316,11 +316,231 @@ index 8b500aa..e5a424b 100644
  		},
  	}
  }
+diff --git a/pkg/providers/anthropic_messages/provider.go b/pkg/providers/anthropic_messages/provider.go
+index 672fb93..e393b8b 100644
+--- a/pkg/providers/anthropic_messages/provider.go
++++ b/pkg/providers/anthropic_messages/provider.go
+@@ -43,6 +43,24 @@ type Provider struct {
+ 	apiBase    string
+ 	httpClient *http.Client
+ 	userAgent  string
++	// alsoSendBearerAuth adds an Authorization: Bearer header alongside the
++	// Anthropic X-API-Key header. Anthropic's own API authenticates with
++	// X-API-Key, but a multi-protocol gateway that exposes an Anthropic
++	// Messages surface behind a single account key may expect the bearer form
++	// it uses on its OpenAI surfaces. Sending both lets one key satisfy either
++	// convention; it is off by default so api.anthropic.com behavior is
++	// unchanged.
++	alsoSendBearerAuth bool
++}
++
++// Option customizes a Provider.
++type Option func(*Provider)
++
++// WithBearerAuth additionally sends Authorization: Bearer <api_key>.
++// Use it for gateways that front the Messages protocol with a bearer-token
++// account key rather than an Anthropic API key.
++func WithBearerAuth() Option {
++	return func(p *Provider) { p.alsoSendBearerAuth = true }
+ }
+ 
+ // NewProvider creates a new Anthropic Messages API provider.
+@@ -51,14 +69,16 @@ func NewProvider(apiKey, apiBase, userAgent string) *Provider {
+ }
+ 
+ // NewProviderWithTimeout creates a provider with custom request timeout.
+-func NewProviderWithTimeout(apiKey, apiBase, userAgent string, timeoutSeconds int) *Provider {
++func NewProviderWithTimeout(
++	apiKey, apiBase, userAgent string, timeoutSeconds int, opts ...Option,
++) *Provider {
+ 	baseURL := common.NormalizeBaseURL(apiBase, defaultBaseURL, true)
+ 	timeout := defaultRequestTimeout
+ 	if timeoutSeconds > 0 {
+ 		timeout = time.Duration(timeoutSeconds) * time.Second
+ 	}
+ 
+-	return &Provider{
++	p := &Provider{
+ 		apiKey:    apiKey,
+ 		apiBase:   baseURL,
+ 		userAgent: userAgent,
+@@ -66,6 +86,12 @@ func NewProviderWithTimeout(apiKey, apiBase, userAgent string, timeoutSeconds in
+ 			Timeout: timeout,
+ 		},
+ 	}
++	for _, opt := range opts {
++		if opt != nil {
++			opt(p)
++		}
++	}
++	return p
+ }
+ 
+ // Chat sends messages to the Anthropic Messages API and returns the response.
+@@ -108,6 +134,9 @@ func (p *Provider) Chat(
+ 	req.Header.Set("Content-Type", "application/json")
+ 	req.Header.Set("X-API-Key", p.apiKey) //nolint:canonicalheader // Anthropic API requires exact header name
+ 	req.Header.Set("Anthropic-Version", defaultAPIVersion)
++	if p.alsoSendBearerAuth {
++		req.Header.Set("Authorization", "Bearer "+p.apiKey)
++	}
+ 	if p.userAgent != "" {
+ 		req.Header.Set("User-Agent", p.userAgent)
+ 	}
+diff --git a/pkg/providers/anthropic_messages/provider_bearer_test.go b/pkg/providers/anthropic_messages/provider_bearer_test.go
+new file mode 100644
+index 0000000..5dcad16
+--- /dev/null
++++ b/pkg/providers/anthropic_messages/provider_bearer_test.go
+@@ -0,0 +1,130 @@
++package anthropicmessages
++
++import (
++	"net/http"
++	"net/http/httptest"
++	"strings"
++	"testing"
++)
++
++const bearerTestKey = "oc-test-key-not-a-real-secret"
++
++// The Messages provider requires an explicit max_tokens, so every request in
++// these tests carries the same minimal option set.
++func chatOptions() map[string]any {
++	return map[string]any{"max_tokens": 64}
++}
++
++func messagesResponse() string {
++	return `{"id":"msg_1","type":"message","role":"assistant","model":"m",
++		"content":[{"type":"text","text":"hi"}],"stop_reason":"end_turn",
++		"usage":{"input_tokens":1,"output_tokens":1}}`
++}
++
++// Default behavior must be unchanged for api.anthropic.com: X-API-Key only,
++// with no Authorization header.
++func TestDefaultSendsAnthropicKeyOnly(t *testing.T) {
++	var gotKey, gotAuth, gotVersion, gotPath string
++	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
++		gotKey = r.Header.Get("X-API-Key")
++		gotAuth = r.Header.Get("Authorization")
++		gotVersion = r.Header.Get("Anthropic-Version")
++		gotPath = r.URL.Path
++		_, _ = w.Write([]byte(messagesResponse()))
++	}))
++	defer srv.Close()
++
++	p := NewProviderWithTimeout(bearerTestKey, srv.URL+"/v1", "PocketClaw/test", 0)
++	if _, err := p.Chat(t.Context(), []Message{{Role: "user", Content: "hi"}}, nil, "claude-x", chatOptions()); err != nil {
++		t.Fatalf("Chat() error = %v", err)
++	}
++
++	if gotKey != bearerTestKey {
++		t.Errorf("X-API-Key = %q, want the configured key", gotKey)
++	}
++	if gotAuth != "" {
++		t.Errorf("Authorization = %q, want it unset by default", gotAuth)
++	}
++	if gotVersion == "" {
++		t.Error("Anthropic-Version must always be sent")
++	}
++	if gotPath != "/v1/messages" {
++		t.Errorf("path = %q, want %q", gotPath, "/v1/messages")
++	}
++}
++
++// A gateway that fronts the Messages protocol with a bearer account key gets
++// both header forms, so one OpenCode key satisfies either convention.
++func TestWithBearerAuthSendsBothHeaders(t *testing.T) {
++	var gotKey, gotAuth string
++	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
++		gotKey = r.Header.Get("X-API-Key")
++		gotAuth = r.Header.Get("Authorization")
++		_, _ = w.Write([]byte(messagesResponse()))
++	}))
++	defer srv.Close()
++
++	p := NewProviderWithTimeout(bearerTestKey, srv.URL+"/zen/v1", "", 0, WithBearerAuth())
++	if _, err := p.Chat(t.Context(), []Message{{Role: "user", Content: "hi"}}, nil, "claude-x", chatOptions()); err != nil {
++		t.Fatalf("Chat() error = %v", err)
++	}
++
++	if gotKey != bearerTestKey {
++		t.Errorf("X-API-Key = %q, want the configured key", gotKey)
++	}
++	if gotAuth != "Bearer "+bearerTestKey {
++		t.Errorf("Authorization = %q, want a bearer token", gotAuth)
++	}
++}
++
++// The OpenCode bases survive the strip-then-append "/v1" normalization and
++// resolve to the official messages endpoints.
++func TestOpenCodeBasesResolveToOfficialMessagesEndpoint(t *testing.T) {
++	cases := map[string]string{
++		"/zen/v1":     "/zen/v1/messages",
++		"/zen/go/v1":  "/zen/go/v1/messages",
++		"/zen/v1/":    "/zen/v1/messages",
++		"/zen/go/v1/": "/zen/go/v1/messages",
++	}
++
++	for base, wantPath := range cases {
++		var gotPath string
++		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
++			gotPath = r.URL.Path
++			_, _ = w.Write([]byte(messagesResponse()))
++		}))
++
++		p := NewProviderWithTimeout(bearerTestKey, srv.URL+base, "", 0, WithBearerAuth())
++		_, err := p.Chat(t.Context(), []Message{{Role: "user", Content: "hi"}}, nil, "claude-x", chatOptions())
++		srv.Close()
++
++		if err != nil {
++			t.Errorf("base %q: Chat() error = %v", base, err)
++			continue
++		}
++		if gotPath != wantPath {
++			t.Errorf("base %q: path = %q, want %q", base, gotPath, wantPath)
++		}
++	}
++}
++
++func TestBearerErrorsDoNotLeakAPIKey(t *testing.T) {
++	for _, status := range []int{http.StatusUnauthorized, http.StatusTooManyRequests, http.StatusNotFound} {
++		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
++			w.WriteHeader(status)
++			_, _ = w.Write([]byte(`{"error":"denied"}`))
++		}))
++
++		p := NewProviderWithTimeout(bearerTestKey, srv.URL+"/zen/v1", "", 0, WithBearerAuth())
++		_, err := p.Chat(t.Context(), []Message{{Role: "user", Content: "hi"}}, nil, "claude-x", chatOptions())
++		srv.Close()
++
++		if err == nil {
++			t.Errorf("status %d: expected an error", status)
++			continue
++		}
++		if strings.Contains(err.Error(), bearerTestKey) {
++			t.Errorf("status %d: error leaks the API key: %v", status, err)
++		}
++	}
++}
 diff --git a/pkg/providers/factory_provider.go b/pkg/providers/factory_provider.go
-index 8a4af9f..d9312c4 100644
+index 8a4af9f..2894b00 100644
 --- a/pkg/providers/factory_provider.go
 +++ b/pkg/providers/factory_provider.go
-@@ -203,7 +203,8 @@ func CreateProviderFromConfig(cfg *config.ModelConfig) (LLMProvider, string, err
+@@ -12,10 +12,12 @@ import (
+ 	"time"
+ 
+ 	"github.com/sipeed/picoclaw/pkg/config"
++	"github.com/sipeed/picoclaw/pkg/logger"
+ 	anthropicmessages "github.com/sipeed/picoclaw/pkg/providers/anthropic_messages"
+ 	"github.com/sipeed/picoclaw/pkg/providers/azure"
+ 	"github.com/sipeed/picoclaw/pkg/providers/bedrock"
+ 	"github.com/sipeed/picoclaw/pkg/providers/common"
++	openairesponses "github.com/sipeed/picoclaw/pkg/providers/openai_responses"
+ )
+ 
+ // createClaudeAuthProvider creates a Claude provider using OAuth credentials from auth store.
+@@ -203,7 +205,8 @@ func CreateProviderFromConfig(cfg *config.ModelConfig) (LLMProvider, string, err
  	case "litellm", "lmstudio", "gpt4free", "openrouter", "groq", "zhipu", "nvidia", "venice",
  		"nearai", "ollama", "moonshot", "shengsuanyun", "siliconflow", "deepseek", "cerebras",
  		"vivgrid", "volcengine", "vllm", "qwen-portal", "qwen-intl", "qwen-us", "mistral",
@@ -330,6 +550,908 @@ index 8a4af9f..d9312c4 100644
  		// All other OpenAI-compatible HTTP providers
  		if cfg.APIKey() == "" && cfg.APIBase == "" && !isEmptyAPIKeyAllowed(protocol) {
  			return nil, "", fmt.Errorf("api_key or api_base is required for HTTP-based protocol %q", protocol)
+@@ -331,6 +334,15 @@ func CreateProviderFromConfig(cfg *config.ModelConfig) (LLMProvider, string, err
+ 			cfg.RequestTimeout,
+ 		), modelID, cfg)
+ 
++	case openCodeZenProvider, openCodeGoProvider:
++		// Mixed-protocol gateway: the model decides the protocol. All routing
++		// knowledge lives in opencode_routing.go.
++		provider, err := createOpenCodeProvider(protocol, modelID, cfg, userAgent)
++		if err != nil {
++			return nil, "", err
++		}
++		return finalizeProviderFromConfig(provider, NormalizeOpenCodeModelID(modelID), cfg)
++
+ 	case "antigravity":
+ 		return finalizeProviderFromConfig(NewAntigravityProvider(), modelID, cfg)
+ 
+@@ -368,6 +380,84 @@ func CreateProviderFromConfig(cfg *config.ModelConfig) (LLMProvider, string, err
+ 	}
+ }
+ 
++// createOpenCodeProvider builds the provider for one OpenCode Zen/Go model
++// entry, selecting the transport from the model's protocol family.
++func createOpenCodeProvider(
++	protocol, modelID string,
++	cfg *config.ModelConfig,
++	userAgent string,
++) (LLMProvider, error) {
++	if cfg.APIKey() == "" {
++		return nil, fmt.Errorf("api_key is required for %q (model: %s)", protocol, cfg.Model)
++	}
++
++	apiBase := strings.TrimSpace(cfg.APIBase)
++	if apiBase == "" {
++		apiBase = getDefaultAPIBase(protocol)
++	}
++	if apiBase == "" {
++		return nil, fmt.Errorf("no API base configured for %q", protocol)
++	}
++
++	// The bare model ID is what the direct HTTP endpoints accept; the
++	// namespaced form belongs to the OpenCode CLI display layer only.
++	bareModel := NormalizeOpenCodeModelID(modelID)
++	routed, known := ClassifyOpenCodeModel(bareModel)
++	if !known {
++		logger.WarnCF(
++			"provider.opencode",
++			"Model is not in the known OpenCode routing table; attempting the fallback protocol",
++			map[string]any{
++				"provider":          protocol,
++				"model":             bareModel,
++				"fallback_protocol": string(routed),
++				"hint": "if the request fails with 404 or an unsupported-endpoint error, " +
++					"this model is likely served over a different OpenCode protocol",
++			},
++		)
++	}
++
++	switch routed {
++	case OpenCodeResponses:
++		return openairesponses.NewProvider(
++			cfg.APIKey(),
++			apiBase,
++			cfg.Proxy,
++			userAgent,
++			cfg.RequestTimeout,
++			cfg.CustomHeaders,
++		), nil
++
++	case OpenCodeMessages:
++		// OpenCode issues one account key for every surface, so the Messages
++		// endpoint is given both the Anthropic X-API-Key form and the bearer
++		// form used by the OpenAI surfaces.
++		return anthropicmessages.NewProviderWithTimeout(
++			cfg.APIKey(),
++			apiBase,
++			userAgent,
++			cfg.RequestTimeout,
++			anthropicmessages.WithBearerAuth(),
++		), nil
++
++	case OpenCodeChatCompletions:
++		provider := NewHTTPProviderWithMaxTokensFieldAndRequestTimeout(
++			cfg.APIKey(),
++			apiBase,
++			cfg.Proxy,
++			cfg.MaxTokensField,
++			userAgent,
++			cfg.RequestTimeout,
++			cfg.ExtraBody,
++			cfg.CustomHeaders,
++		)
++		provider.SetProviderName(protocol)
++		return provider, nil
++	}
++
++	return nil, fmt.Errorf("unsupported OpenCode routing %q for model %q", routed, bareModel)
++}
++
+ func finalizeProviderFromConfig(
+ 	provider LLMProvider,
+ 	modelID string,
+diff --git a/pkg/providers/openai_responses/provider.go b/pkg/providers/openai_responses/provider.go
+new file mode 100644
+index 0000000..e38bb7a
+--- /dev/null
++++ b/pkg/providers/openai_responses/provider.go
+@@ -0,0 +1,168 @@
++// PicoClaw - Ultra-lightweight personal AI agent
++// License: MIT
++//
++// Copyright (c) 2026 PicoClaw contributors
++
++// Package openairesponses implements the OpenAI Responses API over plain HTTP
++// against a caller-supplied base URL and bearer API key.
++//
++// The Core already spoke the Responses protocol in two places, but neither was
++// reusable for a third-party gateway: the Azure provider hardcodes Azure's
++// deployment path, and the Codex provider hardcodes the ChatGPT backend URL
++// along with Codex-specific headers and instructions. This package keeps the
++// shared request translation (pkg/providers/openai_responses_common) and adds
++// only the generic transport.
++package openairesponses
++
++import (
++	"bytes"
++	"context"
++	"encoding/json"
++	"fmt"
++	"net/http"
++	"net/url"
++	"strings"
++	"time"
++
++	"github.com/openai/openai-go/v3"
++	"github.com/openai/openai-go/v3/responses"
++
++	"github.com/sipeed/picoclaw/pkg/providers/common"
++	orc "github.com/sipeed/picoclaw/pkg/providers/openai_responses_common"
++	"github.com/sipeed/picoclaw/pkg/providers/protocoltypes"
++)
++
++type (
++	LLMResponse    = protocoltypes.LLMResponse
++	Message        = protocoltypes.Message
++	ToolDefinition = protocoltypes.ToolDefinition
++)
++
++const (
++	responsesAPIPath      = "responses"
++	defaultRequestTimeout = 120 * time.Second
++)
++
++// Provider posts to {apiBase}/responses with a bearer API key.
++type Provider struct {
++	apiKey        string
++	apiBase       string
++	httpClient    *http.Client
++	userAgent     string
++	customHeaders map[string]string
++}
++
++// NewProvider creates a Responses provider for an arbitrary OpenAI-compatible
++// Responses endpoint.
++func NewProvider(
++	apiKey, apiBase, proxy, userAgent string,
++	requestTimeoutSeconds int,
++	customHeaders map[string]string,
++) *Provider {
++	client := common.NewHTTPClient(proxy)
++	client.Timeout = defaultRequestTimeout
++	if requestTimeoutSeconds > 0 {
++		client.Timeout = time.Duration(requestTimeoutSeconds) * time.Second
++	}
++
++	headers := make(map[string]string, len(customHeaders))
++	for k, v := range customHeaders {
++		headers[k] = v
++	}
++
++	return &Provider{
++		apiKey:        strings.TrimSpace(apiKey),
++		apiBase:       strings.TrimRight(strings.TrimSpace(apiBase), "/"),
++		httpClient:    client,
++		userAgent:     strings.TrimSpace(userAgent),
++		customHeaders: headers,
++	}
++}
++
++// Chat sends a Responses API request. The model is carried in the body, so the
++// URL is the base plus a single "responses" segment and nothing else.
++func (p *Provider) Chat(
++	ctx context.Context,
++	messages []Message,
++	tools []ToolDefinition,
++	model string,
++	options map[string]any,
++) (*LLMResponse, error) {
++	if p.apiBase == "" {
++		return nil, fmt.Errorf("API base not configured")
++	}
++	if p.apiKey == "" {
++		return nil, fmt.Errorf("api_key is required for the responses protocol")
++	}
++
++	requestURL, err := url.JoinPath(p.apiBase, responsesAPIPath)
++	if err != nil {
++		return nil, fmt.Errorf("building responses request URL: %w", err)
++	}
++
++	input, instructions := orc.TranslateMessages(messages)
++
++	requestBody := responses.ResponseNewParams{
++		Model: model,
++		Input: responses.ResponseNewParamsInputUnion{
++			OfInputItemList: input,
++		},
++		Store: openai.Opt(false),
++	}
++	if instructions != "" {
++		requestBody.Instructions = openai.Opt(instructions)
++	}
++	if len(tools) > 0 {
++		enableWebSearch, _ := options["native_search"].(bool)
++		requestBody.Tools = orc.TranslateTools(tools, enableWebSearch)
++		requestBody.ToolChoice = responses.ResponseNewParamsToolChoiceUnion{
++			OfToolChoiceMode: openai.Opt(responses.ToolChoiceOptionsAuto),
++		}
++	}
++	if maxTokens, ok := common.AsInt(options["max_tokens"]); ok {
++		requestBody.MaxOutputTokens = openai.Opt(int64(maxTokens))
++	}
++	if temperature, ok := common.AsFloat(options["temperature"]); ok {
++		requestBody.Temperature = openai.Opt(temperature)
++	}
++
++	jsonData, err := json.Marshal(requestBody)
++	if err != nil {
++		return nil, fmt.Errorf("marshaling responses request: %w", err)
++	}
++
++	req, err := http.NewRequestWithContext(ctx, http.MethodPost, requestURL, bytes.NewReader(jsonData))
++	if err != nil {
++		return nil, fmt.Errorf("creating responses request: %w", err)
++	}
++
++	req.Header.Set("Content-Type", "application/json")
++	req.Header.Set("Authorization", "Bearer "+p.apiKey)
++	if p.userAgent != "" {
++		req.Header.Set("User-Agent", p.userAgent)
++	}
++	for k, v := range p.customHeaders {
++		if strings.TrimSpace(k) == "" {
++			continue
++		}
++		req.Header.Set(k, v)
++	}
++
++	resp, err := p.httpClient.Do(req)
++	if err != nil {
++		return nil, fmt.Errorf("sending responses request: %w", err)
++	}
++	defer resp.Body.Close()
++
++	if resp.StatusCode != http.StatusOK {
++		return nil, common.HandleErrorResponse(resp, p.apiBase)
++	}
++
++	return orc.ParseResponseBody(resp.Body)
++}
++
++// GetDefaultModel returns an empty string: the model is always supplied by the
++// configuration for a generic Responses endpoint.
++func (p *Provider) GetDefaultModel() string {
++	return ""
++}
+diff --git a/pkg/providers/openai_responses/provider_test.go b/pkg/providers/openai_responses/provider_test.go
+new file mode 100644
+index 0000000..cf846e4
+--- /dev/null
++++ b/pkg/providers/openai_responses/provider_test.go
+@@ -0,0 +1,142 @@
++package openairesponses
++
++import (
++	"encoding/json"
++	"io"
++	"net/http"
++	"net/http/httptest"
++	"strings"
++	"testing"
++
++	"github.com/sipeed/picoclaw/pkg/providers/protocoltypes"
++)
++
++const testKey = "oc-test-key-not-a-real-secret"
++
++func userMessages() []Message {
++	return []Message{{Role: "user", Content: "hello"}}
++}
++
++// The Responses endpoint is the base plus exactly one "responses" segment, and
++// the model travels in the body. A gateway base with extra path segments must
++// be preserved.
++func TestChatPostsToResponsesPathWithBearerAuth(t *testing.T) {
++	var gotPath, gotAuth, gotMethod, gotContentType string
++	body := make(map[string]any)
++
++	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
++		gotPath = r.URL.Path
++		gotAuth = r.Header.Get("Authorization")
++		gotMethod = r.Method
++		gotContentType = r.Header.Get("Content-Type")
++		_ = decodeJSON(r, &body)
++		w.Header().Set("Content-Type", "application/json")
++		_, _ = w.Write([]byte(`{"id":"resp_1","output":[{"type":"message","role":"assistant",
++			"content":[{"type":"output_text","text":"hi"}]}]}`))
++	}))
++	defer srv.Close()
++
++	p := NewProvider(testKey, srv.URL+"/zen/v1", "", "PocketClaw/test", 0, nil)
++	resp, err := p.Chat(t.Context(), userMessages(), nil, "gpt-5.4", nil)
++	if err != nil {
++		t.Fatalf("Chat() error = %v", err)
++	}
++
++	if gotMethod != http.MethodPost {
++		t.Errorf("method = %q, want POST", gotMethod)
++	}
++	if gotPath != "/zen/v1/responses" {
++		t.Errorf("path = %q, want %q", gotPath, "/zen/v1/responses")
++	}
++	if gotAuth != "Bearer "+testKey {
++		t.Errorf("Authorization header = %q, want a bearer token", gotAuth)
++	}
++	if gotContentType != "application/json" {
++		t.Errorf("Content-Type = %q, want application/json", gotContentType)
++	}
++	if body["model"] != "gpt-5.4" {
++		t.Errorf("request body model = %v, want gpt-5.4", body["model"])
++	}
++	if resp.Content != "hi" {
++		t.Errorf("parsed content = %q, want %q", resp.Content, "hi")
++	}
++}
++
++func TestChatTrimsTrailingSlashFromBase(t *testing.T) {
++	var gotPath string
++	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
++		gotPath = r.URL.Path
++		_, _ = w.Write([]byte(`{"id":"r","output":[]}`))
++	}))
++	defer srv.Close()
++
++	p := NewProvider(testKey, srv.URL+"/zen/go/v1/", "", "", 0, nil)
++	if _, err := p.Chat(t.Context(), userMessages(), nil, "gpt-5.4-codex", nil); err != nil {
++		t.Fatalf("Chat() error = %v", err)
++	}
++	if gotPath != "/zen/go/v1/responses" {
++		t.Errorf("path = %q, want %q", gotPath, "/zen/go/v1/responses")
++	}
++}
++
++func TestChatSendsCustomHeaders(t *testing.T) {
++	var gotCustom string
++	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
++		gotCustom = r.Header.Get("X-Source")
++		_, _ = w.Write([]byte(`{"id":"r","output":[]}`))
++	}))
++	defer srv.Close()
++
++	p := NewProvider(testKey, srv.URL, "", "", 0, map[string]string{"X-Source": "pocketclaw"})
++	if _, err := p.Chat(t.Context(), userMessages(), nil, "gpt-5.4", nil); err != nil {
++		t.Fatalf("Chat() error = %v", err)
++	}
++	if gotCustom != "pocketclaw" {
++		t.Errorf("X-Source = %q, want %q", gotCustom, "pocketclaw")
++	}
++}
++
++func TestChatRequiresAPIKeyAndBase(t *testing.T) {
++	if _, err := NewProvider("", "https://example.invalid/v1", "", "", 0, nil).
++		Chat(t.Context(), userMessages(), nil, "m", nil); err == nil {
++		t.Error("expected an error when the API key is missing")
++	}
++	if _, err := NewProvider(testKey, "", "", "", 0, nil).
++		Chat(t.Context(), userMessages(), nil, "m", nil); err == nil {
++		t.Error("expected an error when the API base is missing")
++	}
++}
++
++// An upstream failure must surface the status without echoing the credential.
++func TestChatErrorsDoNotLeakAPIKey(t *testing.T) {
++	for _, status := range []int{http.StatusUnauthorized, http.StatusTooManyRequests, http.StatusNotFound} {
++		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
++			w.WriteHeader(status)
++			_, _ = w.Write([]byte(`{"error":{"message":"nope"}}`))
++		}))
++
++		_, err := NewProvider(testKey, srv.URL+"/zen/v1", "", "", 0, nil).
++			Chat(t.Context(), userMessages(), nil, "gpt-5.4", nil)
++		srv.Close()
++
++		if err == nil {
++			t.Errorf("status %d: expected an error", status)
++			continue
++		}
++		if strings.Contains(err.Error(), testKey) {
++			t.Errorf("status %d: error leaks the API key: %v", status, err)
++		}
++	}
++}
++
++func TestGetDefaultModelIsEmpty(t *testing.T) {
++	if got := NewProvider(testKey, "https://example.invalid/v1", "", "", 0, nil).GetDefaultModel(); got != "" {
++		t.Errorf("GetDefaultModel() = %q, want empty for a generic endpoint", got)
++	}
++}
++
++var _ = protocoltypes.Message{}
++
++func decodeJSON(r *http.Request, out *map[string]any) error {
++	return json.NewDecoder(io.LimitReader(r.Body, 1<<20)).Decode(out)
++}
+diff --git a/pkg/providers/opencode_routing.go b/pkg/providers/opencode_routing.go
+new file mode 100644
+index 0000000..1a853a0
+--- /dev/null
++++ b/pkg/providers/opencode_routing.go
+@@ -0,0 +1,129 @@
++package providers
++
++import "strings"
++
++// OpenCode Zen and OpenCode Go are mixed-protocol gateways: a single base URL
++// and a single API key serve several request protocols, and which one applies
++// is a property of the selected model, not of the provider. Every routing
++// decision for those two providers lives in this file so that model-name
++// conditionals never spread into the factory or into unrelated packages.
++
++// OpenCodeProtocol names the request protocol a model is served over.
++type OpenCodeProtocol string
++
++const (
++	// OpenCodeResponses is the OpenAI Responses API: POST {base}/responses.
++	OpenCodeResponses OpenCodeProtocol = "responses"
++	// OpenCodeChatCompletions is OpenAI-compatible chat: POST {base}/chat/completions.
++	OpenCodeChatCompletions OpenCodeProtocol = "chat_completions"
++	// OpenCodeMessages is the Anthropic Messages API: POST {base}/messages.
++	OpenCodeMessages OpenCodeProtocol = "messages"
++)
++
++const (
++	openCodeZenProvider = "opencode_zen"
++	openCodeGoProvider  = "opencode_go"
++)
++
++// IsOpenCodeProvider reports whether a normalized provider ID is one of the
++// mixed-protocol OpenCode gateways.
++func IsOpenCodeProvider(provider string) bool {
++	switch NormalizeProvider(provider) {
++	case openCodeZenProvider, openCodeGoProvider:
++		return true
++	}
++	return false
++}
++
++// openCodeModelFamilies maps a model-ID prefix to the protocol that family is
++// served over. Longest match wins, so a more specific prefix can override a
++// broader one. Prefixes are matched against the normalized (namespace-stripped,
++// lowercased) model ID.
++//
++// This is deliberately family-based rather than an exhaustive model list:
++// OpenCode adds and retires individual models frequently, and Fetch Models
++// already returns the authoritative current list from the provider. Pinning
++// exact model IDs here would make the list wrong within weeks.
++var openCodeModelFamilies = map[string]OpenCodeProtocol{
++	// OpenAI Responses family.
++	"gpt-":   OpenCodeResponses,
++	"gpt5":   OpenCodeResponses,
++	"o1":     OpenCodeResponses,
++	"o3":     OpenCodeResponses,
++	"o4":     OpenCodeResponses,
++	"codex":  OpenCodeResponses,
++	"openai": OpenCodeResponses,
++
++	// Anthropic Messages family.
++	"claude":    OpenCodeMessages,
++	"anthropic": OpenCodeMessages,
++	"sonnet":    OpenCodeMessages,
++	"opus":      OpenCodeMessages,
++	"haiku":     OpenCodeMessages,
++
++	// OpenAI-compatible chat completions family.
++	"kimi":     OpenCodeChatCompletions,
++	"moonshot": OpenCodeChatCompletions,
++	"deepseek": OpenCodeChatCompletions,
++	"glm":      OpenCodeChatCompletions,
++	"zai":      OpenCodeChatCompletions,
++	"qwen":     OpenCodeChatCompletions,
++	"grok":     OpenCodeChatCompletions,
++	"llama":    OpenCodeChatCompletions,
++	"mistral":  OpenCodeChatCompletions,
++	"minimax":  OpenCodeChatCompletions,
++	"gemini":   OpenCodeChatCompletions,
++	"google":   OpenCodeChatCompletions,
++}
++
++// openCodeFallbackProtocol is used for a model this build does not recognize.
++// Chat completions is the broadest OpenAI-style surface both gateways expose,
++// so it is the least-bad guess — but the caller is told the classification was
++// a fallback so it can say so rather than failing opaquely.
++const openCodeFallbackProtocol = OpenCodeChatCompletions
++
++// NormalizeOpenCodeModelID strips the OpenCode TUI namespace prefix from a
++// model identifier. The direct HTTP endpoints expect the bare model ID
++// ("kimi-k3"), not the namespaced form the OpenCode CLI displays
++// ("opencode-go/kimi-k3"), so the prefix is removed before the request is
++// built and is never persisted into the outgoing model field.
++func NormalizeOpenCodeModelID(model string) string {
++	trimmed := strings.TrimSpace(model)
++	lower := strings.ToLower(trimmed)
++	for _, prefix := range []string{
++		"opencode-zen/", "opencode_zen/", "opencode-go/", "opencode_go/", "opencode/",
++	} {
++		if strings.HasPrefix(lower, prefix) {
++			return trimmed[len(prefix):]
++		}
++	}
++	return trimmed
++}
++
++// ClassifyOpenCodeModel resolves the request protocol for an OpenCode model.
++//
++// The second return value reports whether the model matched a known family.
++// When it is false the returned protocol is the fallback, and the caller must
++// surface that rather than treating the routing as authoritative — an unknown
++// model is allowed to be configured and attempted, but never silently
++// presented as a confirmed route.
++func ClassifyOpenCodeModel(model string) (protocol OpenCodeProtocol, known bool) {
++	normalized := strings.ToLower(NormalizeOpenCodeModelID(model))
++	if normalized == "" {
++		return openCodeFallbackProtocol, false
++	}
++
++	// Longest matching prefix wins so that a specific family beats a general one.
++	best := ""
++	var bestProtocol OpenCodeProtocol
++	for prefix, candidate := range openCodeModelFamilies {
++		if strings.HasPrefix(normalized, prefix) && len(prefix) > len(best) {
++			best = prefix
++			bestProtocol = candidate
++		}
++	}
++	if best == "" {
++		return openCodeFallbackProtocol, false
++	}
++	return bestProtocol, true
++}
+diff --git a/pkg/providers/opencode_test.go b/pkg/providers/opencode_test.go
+new file mode 100644
+index 0000000..f46b389
+--- /dev/null
++++ b/pkg/providers/opencode_test.go
+@@ -0,0 +1,338 @@
++package providers
++
++import (
++	"strings"
++	"testing"
++
++	"github.com/sipeed/picoclaw/pkg/config"
++	anthropicmessages "github.com/sipeed/picoclaw/pkg/providers/anthropic_messages"
++	"github.com/sipeed/picoclaw/pkg/providers/common"
++	openairesponses "github.com/sipeed/picoclaw/pkg/providers/openai_responses"
++)
++
++// providercommonNormalizeBaseURL is the exact rule the Messages provider applies.
++var providercommonNormalizeBaseURL = common.NormalizeBaseURL
++
++const testAPIKey = "oc-test-key-not-a-real-secret"
++
++func openCodeConfig(provider, model string) *config.ModelConfig {
++	return &config.ModelConfig{
++		ModelName: "t",
++		Provider:  provider,
++		Model:     model,
++		APIKeys:   config.SimpleSecureStrings(testAPIKey),
++	}
++}
++
++func TestOpenCodePresetsExistWithOfficialEndpoints(t *testing.T) {
++	cases := map[string]struct {
++		displayName string
++		apiBase     string
++	}{
++		"opencode_zen": {"OpenCode Zen", "https://opencode.ai/zen/v1"},
++		"opencode_go":  {"OpenCode Go", "https://opencode.ai/zen/go/v1"},
++	}
++
++	for id, want := range cases {
++		option, ok := modelProviderOptionForName(id)
++		if !ok {
++			t.Fatalf("provider %q is missing from the catalog", id)
++		}
++		if option.DisplayName != want.displayName {
++			t.Errorf("%s DisplayName = %q, want %q", id, option.DisplayName, want.displayName)
++		}
++		if option.DefaultAPIBase != want.apiBase {
++			t.Errorf("%s DefaultAPIBase = %q, want %q", id, option.DefaultAPIBase, want.apiBase)
++		}
++		if !option.SupportsFetch {
++			t.Errorf("%s must support model discovery", id)
++		}
++		if option.EmptyAPIKeyAllowed {
++			t.Errorf("%s must require an API key", id)
++		}
++		if !option.CreateAllowed || !option.DefaultModelAllowed {
++			t.Errorf("%s must be creatable and usable as the default model", id)
++		}
++		if option.Category != "cloud" {
++			t.Errorf("%s Category = %q, want cloud so the base URL stays hidden", id, option.Category)
++		}
++	}
++}
++
++// The Fetch Models URL is the catalog base plus "/models". These are the exact
++// official endpoints, asserted literally so a base-URL edit cannot pass silently.
++func TestOpenCodeModelsEndpoints(t *testing.T) {
++	cases := map[string]string{
++		"opencode_zen": "https://opencode.ai/zen/v1/models",
++		"opencode_go":  "https://opencode.ai/zen/go/v1/models",
++	}
++	for id, want := range cases {
++		got := strings.TrimRight(DefaultAPIBaseForProtocol(id), "/") + "/models"
++		if got != want {
++			t.Errorf("%s models endpoint = %q, want %q", id, got, want)
++		}
++	}
++}
++
++func TestOpenCodeAliasesResolve(t *testing.T) {
++	cases := map[string]string{
++		"opencode-zen": "opencode_zen",
++		"OpenCodeZen":  "opencode_zen",
++		"zen":          "opencode_zen",
++		"opencode-go":  "opencode_go",
++		"OPENCODEGO":   "opencode_go",
++	}
++	for alias, want := range cases {
++		if got := NormalizeProvider(alias); got != want {
++			t.Errorf("NormalizeProvider(%q) = %q, want %q", alias, got, want)
++		}
++	}
++}
++
++func TestIsOpenCodeProvider(t *testing.T) {
++	for _, id := range []string{"opencode_zen", "opencode_go", "opencode-zen", "zen"} {
++		if !IsOpenCodeProvider(id) {
++			t.Errorf("IsOpenCodeProvider(%q) = false, want true", id)
++		}
++	}
++	for _, id := range []string{"openai", "anthropic", "custom-openai", ""} {
++		if IsOpenCodeProvider(id) {
++			t.Errorf("IsOpenCodeProvider(%q) = true, want false", id)
++		}
++	}
++}
++
++// The direct HTTP endpoints take the bare model ID. The namespaced form the
++// OpenCode CLI displays must never reach the wire.
++func TestNormalizeOpenCodeModelID(t *testing.T) {
++	cases := map[string]string{
++		"kimi-k3":                 "kimi-k3",
++		"opencode-go/kimi-k3":     "kimi-k3",
++		"opencode_go/kimi-k3":     "kimi-k3",
++		"opencode-zen/gpt-5.4":    "gpt-5.4",
++		"OpenCode-Go/deepseek-v4": "deepseek-v4",
++		"opencode/glm-5.3":        "glm-5.3",
++		"  glm-5.3  ":             "glm-5.3",
++		"anthropic/claude-opus-4": "anthropic/claude-opus-4",
++		"":                        "",
++	}
++	for in, want := range cases {
++		if got := NormalizeOpenCodeModelID(in); got != want {
++			t.Errorf("NormalizeOpenCodeModelID(%q) = %q, want %q", in, got, want)
++		}
++	}
++}
++
++func TestClassifyOpenCodeModel(t *testing.T) {
++	cases := []struct {
++		model    string
++		protocol OpenCodeProtocol
++		known    bool
++	}{
++		// OpenAI Responses family.
++		{"gpt-5.4", OpenCodeResponses, true},
++		{"gpt-5.4-codex", OpenCodeResponses, true},
++		{"o3-mini", OpenCodeResponses, true},
++		{"codex-mini", OpenCodeResponses, true},
++		{"opencode-zen/gpt-5.4", OpenCodeResponses, true},
++		// Anthropic Messages family.
++		{"claude-opus-4-7", OpenCodeMessages, true},
++		{"claude-sonnet-4-6", OpenCodeMessages, true},
++		{"anthropic/claude-haiku-4-5", OpenCodeMessages, true},
++		// OpenAI-compatible chat completions family.
++		{"kimi-k3", OpenCodeChatCompletions, true},
++		{"deepseek-v4-flash", OpenCodeChatCompletions, true},
++		{"glm-5.3", OpenCodeChatCompletions, true},
++		{"qwen3-coder-next", OpenCodeChatCompletions, true},
++		{"grok-4", OpenCodeChatCompletions, true},
++		// Unknown models fall back but are reported as unknown.
++		{"totally-new-model-2099", OpenCodeChatCompletions, false},
++		{"", OpenCodeChatCompletions, false},
++	}
++	for _, tc := range cases {
++		protocol, known := ClassifyOpenCodeModel(tc.model)
++		if protocol != tc.protocol || known != tc.known {
++			t.Errorf("ClassifyOpenCodeModel(%q) = (%q, %v), want (%q, %v)",
++				tc.model, protocol, known, tc.protocol, tc.known)
++		}
++	}
++}
++
++// Longest-prefix matching means a specific family beats a broader one.
++func TestClassifyOpenCodePrefersLongestPrefix(t *testing.T) {
++	if protocol, _ := ClassifyOpenCodeModel("openai/gpt-oss-120b"); protocol != OpenCodeResponses {
++		t.Errorf("openai/... routed to %q, want %q", protocol, OpenCodeResponses)
++	}
++}
++
++// Each representative model must produce the concrete provider implementation
++// for its protocol — the point of the whole routing table.
++func TestOpenCodeRoutingBuildsTheRightProvider(t *testing.T) {
++	cases := []struct {
++		provider string
++		model    string
++		want     string
++	}{
++		{"opencode_zen", "gpt-5.4", "*openairesponses.Provider"},
++		{"opencode_zen", "claude-opus-4-7", "*anthropicmessages.Provider"},
++		{"opencode_zen", "kimi-k3", "openai_compat"},
++		{"opencode_go", "gpt-5.4-codex", "*openairesponses.Provider"},
++		{"opencode_go", "deepseek-v4-flash", "openai_compat"},
++		{"opencode_go", "glm-5.3", "openai_compat"},
++		{"opencode_go", "claude-sonnet-4-6", "*anthropicmessages.Provider"},
++	}
++
++	for _, tc := range cases {
++		provider, modelID, err := CreateProviderFromConfig(openCodeConfig(tc.provider, tc.model))
++		if err != nil {
++			t.Errorf("%s/%s: CreateProviderFromConfig error = %v", tc.provider, tc.model, err)
++			continue
++		}
++		if modelID != NormalizeOpenCodeModelID(tc.model) {
++			t.Errorf("%s/%s: modelID = %q, want the bare ID %q",
++				tc.provider, tc.model, modelID, NormalizeOpenCodeModelID(tc.model))
++		}
++
++		switch tc.want {
++		case "*openairesponses.Provider":
++			if _, ok := provider.(*openairesponses.Provider); !ok {
++				t.Errorf("%s/%s: provider is %T, want *openairesponses.Provider",
++					tc.provider, tc.model, provider)
++			}
++		case "*anthropicmessages.Provider":
++			if _, ok := provider.(*anthropicmessages.Provider); !ok {
++				t.Errorf("%s/%s: provider is %T, want *anthropicmessages.Provider",
++					tc.provider, tc.model, provider)
++			}
++		case "openai_compat":
++			if _, ok := provider.(*openairesponses.Provider); ok {
++				t.Errorf("%s/%s: routed to Responses, want chat completions", tc.provider, tc.model)
++			}
++			if _, ok := provider.(*anthropicmessages.Provider); ok {
++				t.Errorf("%s/%s: routed to Messages, want chat completions", tc.provider, tc.model)
++			}
++		}
++	}
++}
++
++// A namespaced model ID must route correctly and still be sent bare.
++func TestOpenCodeNamespacedModelIsStrippedBeforeUse(t *testing.T) {
++	_, modelID, err := CreateProviderFromConfig(openCodeConfig("opencode_go", "opencode-go/kimi-k3"))
++	if err != nil {
++		t.Fatalf("CreateProviderFromConfig error = %v", err)
++	}
++	if modelID != "kimi-k3" {
++		t.Fatalf("modelID = %q, want %q", modelID, "kimi-k3")
++	}
++}
++
++// An unknown model is still usable rather than rejected, but it must not be
++// presented as a confirmed route.
++func TestOpenCodeUnknownModelIsUsableAndFlagged(t *testing.T) {
++	protocol, known := ClassifyOpenCodeModel("brand-new-model-x")
++	if known {
++		t.Fatal("an unrecognized model must not be reported as a known route")
++	}
++	if protocol != OpenCodeChatCompletions {
++		t.Fatalf("fallback protocol = %q, want %q", protocol, OpenCodeChatCompletions)
++	}
++
++	provider, _, err := CreateProviderFromConfig(openCodeConfig("opencode_zen", "brand-new-model-x"))
++	if err != nil {
++		t.Fatalf("an unknown model must remain configurable and attemptable: %v", err)
++	}
++	if provider == nil {
++		t.Fatal("provider is nil")
++	}
++}
++
++func TestOpenCodeRequiresAPIKey(t *testing.T) {
++	for _, id := range []string{"opencode_zen", "opencode_go"} {
++		if IsEmptyAPIKeyAllowedForProtocol(id) {
++			t.Errorf("%s must require an API key", id)
++		}
++		_, _, err := CreateProviderFromConfig(&config.ModelConfig{
++			ModelName: "t", Provider: id, Model: "gpt-5.4",
++		})
++		if err == nil || !strings.Contains(err.Error(), "api_key is required") {
++			t.Errorf("%s without a key: error = %v, want an api_key requirement", id, err)
++		}
++	}
++}
++
++// Nothing on the OpenCode construction path may echo the key, including the
++// error raised when the key is missing or the base is unresolvable.
++func TestOpenCodeErrorsDoNotLeakAPIKey(t *testing.T) {
++	cases := []*config.ModelConfig{
++		openCodeConfig("opencode_zen", ""),
++		{ModelName: "t", Provider: "opencode_go", Model: "kimi-k3",
++			APIKeys: config.SimpleSecureStrings(testAPIKey), APIBase: ""},
++		{ModelName: "t", Provider: "opencode_zen", Model: "gpt-5.4",
++			APIKeys: config.SimpleSecureStrings(testAPIKey)},
++	}
++	for _, cfg := range cases {
++		_, _, err := CreateProviderFromConfig(cfg)
++		if err != nil && strings.Contains(err.Error(), testAPIKey) {
++			t.Errorf("error message contains the API key: %v", err)
++		}
++	}
++}
++
++// The Messages provider normalizes its base URL by stripping then re-appending
++// "/v1". That round-trip must leave the official OpenCode bases intact, or the
++// Anthropic route would post to the wrong host path.
++func TestOpenCodeMessagesBaseURLRoundTrip(t *testing.T) {
++	cases := map[string]string{
++		"https://opencode.ai/zen/v1":     "https://opencode.ai/zen/v1",
++		"https://opencode.ai/zen/go/v1":  "https://opencode.ai/zen/go/v1",
++		"https://opencode.ai/zen/v1/":    "https://opencode.ai/zen/v1",
++		"https://opencode.ai/zen/go/v1/": "https://opencode.ai/zen/go/v1",
++	}
++	for in, want := range cases {
++		if got := commonNormalizeBaseURLForTest(in); got != want {
++			t.Errorf("normalized base for %q = %q, want %q", in, got, want)
++		}
++	}
++}
++
++// Guards the invariant the whole milestone rests on: a provider must never be
++// offered in the catalog while being unusable at inference time. Every HTTP-API
++// provider that can drive a chat model has to construct from a plain
++// key-plus-base configuration.
++func TestEveryHTTPChatProviderInCatalogIsConstructible(t *testing.T) {
++	checked := 0
++	for _, option := range ModelProviderOptions() {
++		if !option.DefaultModelAllowed || !IsHTTPAPIProtocol(option.ID) {
++			continue
++		}
++
++		apiBase := option.DefaultAPIBase
++		if apiBase == "" {
++			apiBase = "https://endpoint.example/v1"
++		}
++		cfg := &config.ModelConfig{
++			ModelName: "t",
++			Provider:  option.ID,
++			Model:     "test-model",
++			APIBase:   apiBase,
++			APIKeys:   config.SimpleSecureStrings(testAPIKey),
++		}
++		if _, _, err := CreateProviderFromConfig(cfg); err != nil {
++			t.Errorf("catalog provider %q cannot be constructed: %v", option.ID, err)
++		}
++		checked++
++	}
++
++	// Guards against the assertion silently becoming vacuous if the catalog
++	// shape or the filter above ever changes.
++	if checked < 30 {
++		t.Fatalf("only %d providers were checked; the catalog filter is too narrow to be meaningful", checked)
++	}
++}
++
++// commonNormalizeBaseURLForTest mirrors what anthropicmessages.NewProviderWithTimeout
++// does to the configured base, so the round-trip assertion above exercises the
++// real normalization rule rather than a restatement of it.
++func commonNormalizeBaseURLForTest(apiBase string) string {
++	return providercommonNormalizeBaseURL(apiBase, "https://api.anthropic.com/v1", true)
++}
 diff --git a/pkg/providers/pocketclaw_catalog_test.go b/pkg/providers/pocketclaw_catalog_test.go
 new file mode 100644
 index 0000000..4145840
@@ -515,7 +1637,7 @@ index 0000000..4145840
 +	}
 +}
 diff --git a/pkg/providers/provider_metadata.go b/pkg/providers/provider_metadata.go
-index 90a2206..2d57516 100644
+index 90a2206..f4cab1e 100644
 --- a/pkg/providers/provider_metadata.go
 +++ b/pkg/providers/provider_metadata.go
 @@ -7,8 +7,10 @@ import "strings"
@@ -872,10 +1994,39 @@ index 90a2206..2d57516 100644
  		DisplayName:         "LiteLLM",
  		Domain:              "litellm.ai",
  		DefaultAPIBase:      "http://localhost:4000/v1",
-@@ -567,8 +619,69 @@ var modelProviderOptionsByName = map[string]ModelProviderOption{
+@@ -567,8 +619,98 @@ var modelProviderOptionsByName = map[string]ModelProviderOption{
  		Priority:            35,
  		httpAPI:             true,
  	},
++	// OpenCode Zen and OpenCode Go are mixed-protocol gateways. Their catalog
++	// entries carry only the base URL and key policy; which request protocol a
++	// given model uses is resolved per model in opencode_routing.go.
++	"opencode_zen": {
++		ID:                  "opencode_zen",
++		Category:            "cloud",
++		DisplayName:         "OpenCode Zen",
++		Domain:              "opencode.ai",
++		DefaultAPIBase:      "https://opencode.ai/zen/v1",
++		CreateAllowed:       true,
++		DefaultModelAllowed: true,
++		SupportsFetch:       true,
++		Priority:            72,
++		Aliases:             []string{"opencode-zen", "opencodezen", "zen"},
++		httpAPI:             true,
++	},
++	"opencode_go": {
++		ID:                  "opencode_go",
++		Category:            "cloud",
++		DisplayName:         "OpenCode Go",
++		Domain:              "opencode.ai",
++		DefaultAPIBase:      "https://opencode.ai/zen/go/v1",
++		CreateAllowed:       true,
++		DefaultModelAllowed: true,
++		SupportsFetch:       true,
++		Priority:            71,
++		Aliases:             []string{"opencode-go", "opencodego"},
++		httpAPI:             true,
++	},
 +	"xai": {
 +		ID:                  "xai",
 +		Category:            "cloud",
@@ -1240,6 +2391,122 @@ index 0000000..247a742
 +		}
 +		if strings.Contains(err.Error(), secret) {
 +			t.Errorf("%s: error message contains the API key: %v", provider, err)
++		}
++	}
++}
+diff --git a/web/backend/api/models_opencode_fetch_test.go b/web/backend/api/models_opencode_fetch_test.go
+new file mode 100644
+index 0000000..d65a3a3
+--- /dev/null
++++ b/web/backend/api/models_opencode_fetch_test.go
+@@ -0,0 +1,110 @@
++package api
++
++import (
++	"net/http"
++	"net/http/httptest"
++	"strings"
++	"testing"
++
++	"github.com/sipeed/picoclaw/pkg/providers"
++)
++
++const openCodeTestKey = "oc-test-key-not-a-real-secret"
++
++func TestOpenCodeProvidersAreFetchable(t *testing.T) {
++	for _, id := range []string{"opencode_zen", "opencode_go"} {
++		if !providers.IsModelProviderFetchable(id) {
++			t.Errorf("%s must support model discovery", id)
++		}
++	}
++}
++
++// Both official endpoints return an OpenAI-style list, so discovery goes
++// through the shared OpenAI-compatible path: GET {base}/models with a bearer
++// token, parsing data[].id.
++func TestFetchOpenCodeModels(t *testing.T) {
++	cases := []struct {
++		provider string
++		basePath string
++		wantPath string
++	}{
++		{"opencode_zen", "/zen/v1", "/zen/v1/models"},
++		{"opencode_go", "/zen/go/v1", "/zen/go/v1/models"},
++		// A trailing slash must not produce a doubled separator.
++		{"opencode_go", "/zen/go/v1/", "/zen/go/v1/models"},
++	}
++
++	for _, tc := range cases {
++		var gotPath, gotAuth string
++		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
++			gotPath = r.URL.Path
++			gotAuth = r.Header.Get("Authorization")
++			w.Header().Set("Content-Type", "application/json")
++			_, _ = w.Write([]byte(`{"object":"list","data":[
++				{"id":"kimi-k3","object":"model","owned_by":"opencode"},
++				{"id":"deepseek-v4-flash","object":"model","owned_by":"opencode"},
++				{"id":"glm-5.3","object":"model","owned_by":"opencode"}
++			]}`))
++		}))
++
++		models, err := fetchUpstreamModels(t.Context(), tc.provider, srv.URL+tc.basePath, openCodeTestKey)
++		srv.Close()
++
++		if err != nil {
++			t.Errorf("%s: fetchUpstreamModels() error = %v", tc.provider, err)
++			continue
++		}
++		if gotPath != tc.wantPath {
++			t.Errorf("%s: path = %q, want %q", tc.provider, gotPath, tc.wantPath)
++		}
++		if gotAuth != "Bearer "+openCodeTestKey {
++			t.Errorf("%s: Authorization = %q, want a bearer token", tc.provider, gotAuth)
++		}
++		if len(models) != 3 {
++			t.Fatalf("%s: len(models) = %d, want 3", tc.provider, len(models))
++		}
++		if models[0].ID != "kimi-k3" || models[2].ID != "glm-5.3" {
++			t.Errorf("%s: parsed models = %+v, want bare ids from data[].id", tc.provider, models)
++		}
++		if models[0].OwnedBy != "opencode" {
++			t.Errorf("%s: owned_by = %q, want %q", tc.provider, models[0].OwnedBy, "opencode")
++		}
++	}
++}
++
++// Discovery must reach the official host paths when the catalog default is used.
++func TestOpenCodeDefaultFetchURLs(t *testing.T) {
++	cases := map[string]string{
++		"opencode_zen": "https://opencode.ai/zen/v1/models",
++		"opencode_go":  "https://opencode.ai/zen/go/v1/models",
++	}
++	for id, want := range cases {
++		base := providers.DefaultAPIBaseForProtocol(id)
++		got := strings.TrimRight(base, "/") + "/models"
++		if got != want {
++			t.Errorf("%s discovery URL = %q, want %q", id, got, want)
++		}
++	}
++}
++
++func TestOpenCodeFetchErrorsDoNotLeakAPIKey(t *testing.T) {
++	for _, status := range []int{
++		http.StatusUnauthorized, http.StatusForbidden,
++		http.StatusTooManyRequests, http.StatusNotFound, http.StatusBadGateway,
++	} {
++		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
++			w.WriteHeader(status)
++		}))
++
++		_, err := fetchUpstreamModels(t.Context(), "opencode_zen", srv.URL+"/zen/v1", openCodeTestKey)
++		srv.Close()
++
++		if err == nil {
++			t.Errorf("status %d: expected an error", status)
++			continue
++		}
++		if strings.Contains(err.Error(), openCodeTestKey) {
++			t.Errorf("status %d: error leaks the API key: %v", status, err)
 +		}
 +	}
 +}
@@ -2737,10 +4004,10 @@ index 0000000..9205517
 +}
 diff --git a/web/frontend/src/components/models/provider-registry.test.ts b/web/frontend/src/components/models/provider-registry.test.ts
 new file mode 100644
-index 0000000..aa3f64d
+index 0000000..ef70112
 --- /dev/null
 +++ b/web/frontend/src/components/models/provider-registry.test.ts
-@@ -0,0 +1,257 @@
+@@ -0,0 +1,324 @@
 +import { describe, expect, it } from "vitest"
 +
 +import type { ModelProviderOption } from "@/api/models"
@@ -2810,6 +4077,30 @@ index 0000000..aa3f64d
 +    supports_fetch: true,
 +    priority: 30,
 +    aliases: ["custom", "openai-compatible"],
++  },
++  {
++    id: "opencode_zen",
++    display_name: "OpenCode Zen",
++    category: "cloud",
++    default_api_base: "https://opencode.ai/zen/v1",
++    empty_api_key_allowed: false,
++    create_allowed: true,
++    default_model_allowed: true,
++    supports_fetch: true,
++    priority: 72,
++    aliases: ["opencode-zen", "zen"],
++  },
++  {
++    id: "opencode_go",
++    display_name: "OpenCode Go",
++    category: "cloud",
++    default_api_base: "https://opencode.ai/zen/go/v1",
++    empty_api_key_allowed: false,
++    create_allowed: true,
++    default_model_allowed: true,
++    supports_fetch: true,
++    priority: 71,
++    aliases: ["opencode-go"],
 +  },
 +  {
 +    id: "bedrock",
@@ -2996,6 +4287,49 @@ index 0000000..aa3f64d
 +    )
 +    expect(result.entry).toBeUndefined()
 +    expect(result.hasApiBaseOverride).toBe(true)
++  })
++})
++
++describe("opencode presets", () => {
++  it("exposes both gateways with their official base URLs", () => {
++    expect(getProviderDefaultAPIBase("opencode_zen", options)).toBe(
++      "https://opencode.ai/zen/v1",
++    )
++    expect(getProviderDefaultAPIBase("opencode_go", options)).toBe(
++      "https://opencode.ai/zen/go/v1",
++    )
++  })
++
++  it("keeps the base URL out of the normal flow and asks only for a key", () => {
++    for (const id of ["opencode_zen", "opencode_go"]) {
++      expect(requiresVisibleApiBase(id, options)).toBe(false)
++      expect(isApiKeyOnlyProvider(id, options)).toBe(true)
++      expect(getProviderCatalogEntry(id, options)?.requiresApiKey).toBe(true)
++    }
++  })
++
++  it("offers model discovery for both", () => {
++    expect(providerSupportsFetch("opencode_zen", options)).toBe(true)
++    expect(providerSupportsFetch("opencode_go", options)).toBe(true)
++  })
++
++  it("resolves hyphenated aliases to the underscored canonical ids", () => {
++    expect(getCanonicalProviderKey("opencode-zen", options)).toBe("opencode_zen")
++    expect(getCanonicalProviderKey("opencode-go", options)).toBe("opencode_go")
++  })
++
++  it("is findable in the picker by name and by alias", () => {
++    expect(searchProviders("opencode", options).map((p) => p.key)).toEqual([
++      "opencode_zen",
++      "opencode_go",
++    ])
++    expect(searchProviders("zen", options).map((p) => p.key)).toContain(
++      "opencode_zen",
++    )
++  })
++
++  it("derives a clean alias from a namespaced opencode model id", () => {
++    expect(deriveModelAlias("opencode-go/kimi-k3", [])).toBe("kimi-k3")
 +  })
 +})
 diff --git a/web/frontend/src/components/models/provider-registry.ts b/web/frontend/src/components/models/provider-registry.ts

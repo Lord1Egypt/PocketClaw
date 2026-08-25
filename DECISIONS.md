@@ -254,6 +254,9 @@
 ## Only presets that can be specified accurately are shipped
 
 - Date: 2026-08-25
+- Status: SUPERSEDED for OpenCode on 2026-08-25 — the user supplied the
+  verified official endpoints, so both now ship. See "OpenCode Zen and Go are
+  mixed-protocol gateways" below. The principle itself stands.
 - Decision: xAI, Together AI, and Fireworks AI ship as presets. OpenCode Zen and
   OpenCode GO do not.
 - Reason: the first three are Bearer-auth OpenAI-shaped APIs whose base URLs are
@@ -331,3 +334,84 @@
   milestone would put the verified Core config path at risk. It is recorded in
   `docs/PROVIDER_ARCHITECTURE.md` §6 and deferred to its own controlled
   milestone. Milestone C must not make the posture worse, and does not.
+
+## OpenCode Zen and Go are mixed-protocol gateways, routed per model
+
+- Date: 2026-08-25
+- Decision: `opencode_zen` and `opencode_go` ship as presets, and the request
+  protocol is resolved per model rather than fixed per provider. Every routing
+  decision lives in `pkg/providers/opencode_routing.go`.
+- Evidence: both gateways expose OpenAI Responses (`/responses`),
+  OpenAI-compatible chat (`/chat/completions`), and Anthropic Messages
+  (`/messages`) behind one base URL and one API key. Modelling either as a
+  plain OpenAI-compatible provider would produce a preset that saves cleanly
+  and then fails on the first inference — precisely the failure the catalog
+  work exists to prevent.
+- Consequence: the catalog entry carries only the base URL and key policy. The
+  factory arm calls `ClassifyOpenCodeModel`, which matches the longest model-ID
+  family prefix and returns both a protocol and whether the match was known.
+  Model-name conditionals appear in that one file and nowhere else.
+- Consequence: routing is family-based (`gpt-`/`codex` to Responses, `claude`
+  to Messages, `kimi`/`deepseek`/`glm`/etc. to chat completions) rather than an
+  enumerated model list. OpenCode adds and retires models frequently, and Fetch
+  Models already returns the authoritative live list, so a pinned enumeration
+  would be wrong within weeks.
+
+## An unknown OpenCode model falls back, but never silently
+
+- Date: 2026-08-25
+- Decision: a model that matches no known family is still configurable and
+  still attempted, using chat completions as the fallback, and the attempt logs
+  a warning naming the model, the chosen protocol, and what a 404 would imply.
+- Reason: erroring out would strand every future OpenCode model until PocketClaw
+  ships an update, which is worse than a documented best guess. Routing it
+  quietly would violate the rule against sending a knowingly-unverified request
+  with no trace.
+- Consequence: `ClassifyOpenCodeModel` returns `known bool` alongside the
+  protocol, so no caller can mistake a fallback for a confirmed route. The
+  warning never contains the API key.
+
+## The Core needed a generic Responses provider, and now has one
+
+- Date: 2026-08-25
+- Decision: added `pkg/providers/openai_responses`, a Responses-over-HTTP
+  provider driven by a caller-supplied base URL and bearer key.
+- Evidence: the Core already spoke Responses twice, but neither was reusable —
+  `azure` hardcodes Azure's deployment path, and `oauth/codex_provider`
+  hardcodes `https://chatgpt.com/backend-api/codex` plus Codex-specific
+  headers and instructions.
+- Consequence: the new package reuses the shared
+  `openai_responses_common` translation and adds only transport, so request and
+  response handling stay in one place. It is the first Responses path in
+  PocketClaw usable against a third-party gateway.
+
+## The OpenCode Messages route sends both authentication headers
+
+- Date: 2026-08-25
+- Decision: for OpenCode's Anthropic Messages surface, the provider sends both
+  `X-API-Key` and `Authorization: Bearer` with the same OpenCode key, via a new
+  opt-in `anthropicmessages.WithBearerAuth()`.
+- Reason: OpenCode issues one account key for every surface, and its OpenAI
+  surfaces use the bearer form, but which form the Messages surface expects
+  could not be established from anything available in this workspace. Sending
+  both satisfies either convention. The option is off by default, so
+  `api.anthropic.com` and the existing `anthropic-messages` and
+  `alibaba-coding-anthropic` presets are byte-for-byte unchanged.
+- Consequence: this is the one part of the OpenCode work that a green test
+  suite cannot settle. If a `claude-*` model returns 401 on a device while
+  `gpt-*` and `kimi-*` succeed, the answer is this header pair, not the routing.
+- Consequence: `common.NormalizeBaseURL` strips and re-appends `/v1`, which is
+  a no-op for both OpenCode bases. That round trip is asserted directly, since
+  a base of `.../zen/go/v1` silently becoming `.../zen/v1` would be a
+  hard-to-spot production failure.
+
+## A catalog entry must never outlive its ability to run
+
+- Date: 2026-08-25
+- Decision: `TestEveryHTTPChatProviderInCatalogIsConstructible` asserts that
+  every HTTP-API provider in the catalog that can drive a chat model
+  constructs from a plain key-plus-base configuration, and fails if fewer than
+  30 providers were exercised so the assertion cannot quietly become vacuous.
+- Reason: the per-preset test only covers presets someone remembered to list.
+  This one covers the catalog itself, which is the actual contract: anything
+  offered in the picker has to work at inference time.

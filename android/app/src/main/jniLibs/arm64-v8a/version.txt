@@ -1,6 +1,6 @@
 PicoClaw Core v0.3.1 (source 2cf030d2), rebuilt for PocketClaw
 android/arm64, stripped (-s -w), Go 1.25.11
 Includes the Android active-network DNS integration, PocketClaw
-product-visible wording, and the Milestone C provider catalog
-(new presets, Gemini model discovery, provider-first setup UI).
+product-visible wording, the Milestone C provider catalog, and the
+OpenCode Zen/Go presets with per-model protocol routing.
 See UPSTREAM_BASELINE.md for hashes.

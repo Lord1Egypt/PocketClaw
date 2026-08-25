@@ -127,8 +127,49 @@ Authorized 2026-08-25. Branch `feature/provider-catalog` from `develop` @ `14e69
 - [x] Rebuild both Core binaries through the documented Makefile targets and
   build the Milestone C APK through the canonical arm64 Gradle path with the
   release guard passing.
+- [x] PHYSICAL DEVICE TEST of APK
+  `b3dd892bdea86e8dfe7d1c2eb87e89f4e2832b1d1dbe39fc1decf20dabce569b`: PASS
+  (2026-08-25). This is now the verified reference artifact.
+
+## Phase 2 — Milestone C: OpenCode completion
+
+Authorized 2026-08-25 after the Milestone C device PASS, with official endpoints
+supplied by the user.
+
+- [x] Add the OpenCode Zen preset: base `https://opencode.ai/zen/v1`, discovery
+  at `https://opencode.ai/zen/v1/models`, API key required, base URL hidden in
+  the normal flow.
+- [x] Add the OpenCode Go preset: base `https://opencode.ai/zen/go/v1`,
+  discovery at `https://opencode.ai/zen/go/v1/models`, same key policy.
+- [x] Treat both as mixed-protocol gateways rather than assuming
+  `/chat/completions`. All routing lives in `pkg/providers/opencode_routing.go`;
+  no model-name conditionals were added anywhere else.
+- [x] Build the generic OpenAI Responses provider the Core was missing
+  (`pkg/providers/openai_responses`), reusing the existing
+  `openai_responses_common` translation layer. The Azure and Codex Responses
+  implementations are hardcoded to their own endpoints and were not reusable.
+- [x] Route Anthropic Messages models through the existing
+  `anthropic_messages` provider, extended with an opt-in `WithBearerAuth()`
+  so one OpenCode account key satisfies either header convention. Anthropic's
+  own endpoint behavior is unchanged.
+- [x] Route chat-completions models through the existing OpenAI-compatible
+  HTTP provider.
+- [x] Send the bare model ID; strip the `opencode-go/` style CLI namespace
+  prefix before the request is built and never persist it into the wire model.
+- [x] Handle an unknown model safely and non-silently: it stays configurable
+  and attemptable, falls back to chat completions, and logs a warning naming
+  the model, the fallback protocol, and what a 404 would mean. The API key is
+  never logged.
+- [x] Do not hardcode the model list: Fetch Models reads the live list from
+  OpenCode, and the routing table is family-based rather than an enumeration.
+- [x] Tests: 14 OpenCode routing/catalog tests, 6 Responses transport tests,
+  4 Messages bearer/base-path tests, 4 discovery tests, 6 frontend preset
+  tests. Plus a catalog-wide invariant that every HTTP chat provider in the
+  catalog constructs, so a provider can never be offered while being unusable
+  at inference time.
 - [ ] PHYSICAL DEVICE TEST of APK
-  `b3dd892bdea86e8dfe7d1c2eb87e89f4e2832b1d1dbe39fc1decf20dabce569b`.
+  `785ccd94cfa351ee2996ac340f9a55e828a0c8f736bec67a3edac906a56058c6`.
+  Must exercise one real inference per protocol family, per provider.
   Not merged to `develop` until this passes.
 
 ## Deferred out of Milestone C, deliberately
@@ -138,8 +179,6 @@ Authorized 2026-08-25. Branch `feature/provider-catalog` from `develop` @ `14e69
   Android device has. Android Keystore or an equivalent needs its own
   controlled milestone: it touches config loading, the secret resolver, and
   migration of existing files. Recorded in `docs/PROVIDER_ARCHITECTURE.md` §6.
-- [ ] OpenCode Zen and OpenCode GO presets, pending a verified base URL,
-  authentication header, and model-listing endpoint.
 
 ## Later (not started)
 

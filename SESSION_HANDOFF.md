@@ -2,13 +2,20 @@
 
 ## Current Objective
 
-Physical-device testing of the Phase 2 Milestone C APK. Implementation is
-complete on `feature/provider-catalog`; nothing is merged.
+Physical-device testing of the OpenCode completion APK
+`785ccd94cfa351ee2996ac340f9a55e828a0c8f736bec67a3edac906a56058c6`.
 
-Install `b3dd892bdea86e8dfe7d1c2eb87e89f4e2832b1d1dbe39fc1decf20dabce569b` and
-test provider setup with at least one real cloud provider and one custom or
-manual configuration. Do not merge into `develop` until it passes, and do not
-touch `main`.
+Milestone C itself PASSED on 2026-08-25 (APK `b3dd892b...bce569b`, now the
+verified reference artifact). The OpenCode Zen and OpenCode Go presets were
+added on the same branch afterwards and need their own device test before the
+milestone closes.
+
+Configure both OpenCode providers with a real OpenCode API key and run one real
+inference per protocol family, per provider: a Responses model (`gpt-*`,
+`*codex*`), an Anthropic Messages model (`claude-*`), and a chat-completions
+model (`kimi-*`, `deepseek-*`, `glm-*`). The protocol is chosen per model, so
+only a live request proves a route. Do not merge into `develop` until it
+passes, and do not touch `main`.
 
 ## Milestone C state
 
@@ -33,6 +40,29 @@ request time with `unknown protocol`.
 Deliberately not done: Telegram QR/deep-link onboarding (next milestone), any
 release hardening or obfuscation, and any change to API key storage. The last
 is not an oversight — see the deferral decision in `DECISIONS.md`.
+
+## OpenCode completion state
+
+OpenCode Zen (`https://opencode.ai/zen/v1`) and OpenCode Go
+(`https://opencode.ai/zen/go/v1`) are mixed-protocol gateways: one base URL and
+one API key front OpenAI Responses, OpenAI-compatible chat completions, and
+Anthropic Messages, and the protocol is a property of the model. All routing is
+in `pkg/providers/opencode_routing.go` — if you need to change how an OpenCode
+model is dispatched, that is the only file to touch.
+
+Supporting changes: `pkg/providers/openai_responses` is a new generic
+Responses-over-HTTP provider (the Azure and Codex ones are hardcoded to their
+own endpoints and were not reusable), and `anthropic_messages` gained an opt-in
+`WithBearerAuth()` used only by the OpenCode Messages route.
+
+The one thing tests cannot settle: whether OpenCode's Messages surface wants
+`X-API-Key` or `Authorization: Bearer`. Both are sent. If a `claude-*` model
+401s on the device while `gpt-*` and `kimi-*` succeed, that is the header
+question, not the routing.
+
+Build gotcha found the hard way: `:app:packageRelease` without
+`-Ptarget-platform=android-arm64` silently produces a ~50 MB universal APK
+instead of ~34 MB. Check the size before trusting any release build.
 
 ## Milestone B closure
 
@@ -71,12 +101,11 @@ workspace seeding.
 - Rebuild Core via `make build-launcher-android-arm64`; calling
   `make -C web build-android-arm64` directly drops the root `LDFLAGS` and
   produces an unstripped binary. Use `pnpm lint`, never `pnpm check`.
-- Core binaries currently committed (Milestone C, not yet device-verified):
-  `libpicoclaw.so` 37,421,409 `cbe568af...5556468a`;
-  `libpicoclaw-web.so` 24,772,961 `86e53457...0cb0a4cd`.
-  The last device-verified pair is Milestone B's `eb895f08...40bd9c88` and
-  `6d282df0...1195a5a3`. All four are stripped with `PICOCLAW_DNS_SERVER`
-  verified present.
+- Core binaries currently committed (OpenCode completion, not yet
+  device-verified): `libpicoclaw.so` 37,421,409 `e48e8af0...12e78938`;
+  `libpicoclaw-web.so` 24,772,961 `5faaf82c...c383fe2abf`.
+  The last device-verified pair is Milestone C's `cbe568af...5556468a` and
+  `86e53457...0cb0a4cd`. All are stripped with `PICOCLAW_DNS_SERVER` present.
 
 ## Exact State
 
@@ -143,13 +172,13 @@ capture final device logs, so that symptom must be confirmed during retest.
 
 ## Next Exact Steps
 
-1. Physically test the Milestone C APK. The provider-specific checks are listed
-   at the end of `PROJECT_STATE.md`, alongside the unchanged regression set:
-   startup, DNS, Core lifecycle, Telegram, Skill Hub, workspace, MQTT, branding.
+1. Physically test the OpenCode completion APK. The checklist is at the end of
+   `PROJECT_STATE.md`. The rest of the app is unchanged from the verified
+   Milestone C build, so the regression sweep can be brief.
 2. On PASS: merge `feature/provider-catalog` into `develop` with `--no-ff`,
    tag the closure point, and record the result in the state documents.
-3. On FAIL: diff against the Milestone B verified artifact
-   `ba4f067d...70f70a4b8` before forming a new hypothesis. The Milestone C
-   change surface is the two Core binaries and nothing in the Flutter layer, so
-   a Flutter-side symptom would point at the build, not at this milestone's code.
+3. On FAIL: diff against the verified Milestone C artifact `b3dd892b...bce569b`
+   before forming a new hypothesis. The change surface is the two Core binaries
+   and nothing in the Flutter layer, so a Flutter-side symptom would point at
+   the build, not at this work.
 4. Do not merge to `main` without instruction. Do not start Telegram linking.
