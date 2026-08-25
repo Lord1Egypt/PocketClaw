@@ -728,3 +728,91 @@
 - Consequence: the screen is English in every locale for now, one class holds
   every string so the move to `.arb` is mechanical, and the work is recorded as
   an open item in `TASKS.md` rather than left implicit.
+
+## The onboarding service is a separate public repository
+
+- Date: 2026-08-26
+- Decision: the Telegram onboarding service moved from
+  `services/telegram-onboarding/` in this repository to its own public MIT
+  repository, `Lord1Egypt/PocketClaw-Telegram-Setup`. This repository keeps a
+  pointer at `services/README.md`.
+- Reason: it is infrastructure, not application source. The APK does not build
+  from it and does not contain it — the app holds only a public HTTPS base URL
+  supplied at build time. The self-contained source-of-truth rule covers what
+  builds the APK, which is `core/src/` and `lib/`. A deployable service also
+  needs its own deploy button, its own issue tracker, and its own README, none
+  of which work from a subdirectory of an Android app.
+- Consequence: the API contract is now a boundary between two repositories and
+  is documented on both sides. It did not change during the extraction: the
+  same three endpoints, the same fields, and the same 404-for-everything-gone
+  behaviour the Flutter client already expects.
+
+## In-memory pairing state could not survive contact with Vercel
+
+- Date: 2026-08-26
+- Decision: pairing state moved from a process-local Go map to a
+  Redis-compatible key/value store addressed over its HTTP REST API.
+- Reason: on Vercel the request that creates a pairing, the Telegram webhook
+  that completes it, and the request that collects the token can each execute
+  in a different function instance. A Go map works perfectly in development and
+  fails in production intermittently, which is the worst possible failure mode.
+  This was caught by auditing the storage before deploying rather than after.
+- Two operations must be atomic, and both are done by the store rather than in
+  application code: `SET username:… NX` claims a suggested bot username so two
+  instances cannot hand out the same one, and `GETDEL token:…` delivers the
+  child token so exactly one caller can ever receive it.
+- Evidence: both `Store` implementations run against the same conformance
+  suite, including a concurrency test asserting that exactly one of twelve
+  racing callers receives the token. A separate test asserts the Redis path
+  actually issues `GETDEL` and `SET … NX`, so a refactor to `GET`+`DEL` breaks
+  a test rather than exactly-once delivery in production.
+- Consequence: the in-memory store still exists for local development and
+  tests, but the service refuses to treat it as production — `config.Load`
+  reports it as a problem the setup page renders in full.
+
+## Long-polling became a webhook, because serverless has no long-lived process
+
+- Date: 2026-08-26
+- Decision: `getUpdates` long-polling was replaced by a Telegram webhook at
+  `POST /telegram/webhook`.
+- Reason: long-polling needs a process that stays alive, which a serverless
+  function is not. It also permits only one consumer per bot token, which
+  conflicts with more than one instance.
+- The endpoint is authenticated by the secret Telegram echoes in
+  `X-Telegram-Bot-Api-Secret-Token`, compared in constant time before the body
+  is parsed. An undecodable body still answers 200, because a non-200 makes
+  Telegram retry an update that can never be parsed.
+- Consequence: registration is a server-side action. The setup page has a
+  button that asks the server to call `setWebhook`; the browser never receives
+  the token. This is deliberately unlike the earlier DukeBot pattern, where a
+  Telegram token reached browser JavaScript.
+
+## The operator page asks the server to act, and holds nothing
+
+- Date: 2026-08-26
+- Decision: the status page performs no privileged operation itself. Every
+  button posts to an endpoint that reads credentials from the server
+  environment and reports back a boolean plus a non-secret message.
+- Reason: the page is public on a public deployment. Anything it holds is
+  disclosed. Making it a remote control rather than a client keeps the manager
+  token in exactly one place.
+- Evidence: a test renders the page and asserts that none of the manager token,
+  webhook secret, pairing secret, or storage token appears in it, and the same
+  assertion covers `/api/status` and the register-webhook response.
+- Consequence: the page is deliberately unauthenticated. Its actions are
+  idempotent and expose nothing, and `SECURITY.md` records that as a considered
+  choice with the option to put the deployment behind platform access control.
+
+## PAIRING_SECRET keys the stored poll-token verifier
+
+- Date: 2026-08-26
+- Decision: poll tokens are stored as HMAC-SHA256 keyed with `PAIRING_SECRET`,
+  not as a plain digest, and compared in constant time.
+- Reason: storage is now a third-party service. A plain SHA-256 of 32 random
+  bytes is already infeasible to reverse, so this is not about brute force —
+  it is that a keyed verifier is inert to anyone holding a storage dump but not
+  the server's key. Rotating the secret also invalidates every live pairing in
+  one move, which is a useful thing to have if exposure is suspected.
+- Consequence: the service refuses a secret under 16 characters rather than
+  silently falling back to an unkeyed digest, which would drop the property
+  without any visible symptom.

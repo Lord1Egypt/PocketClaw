@@ -1,5 +1,51 @@
 # Development Changelog
 
+## 2026-08-26 — Telegram onboarding extracted, reworked for Vercel, published
+
+- Operator state corrected: `@PocketClawSetupBot` **exists**, Bot Management
+  Mode is **enabled**, and the managed-bot deep link has been opened
+  successfully against it. The remaining unverified link is the live
+  `getMe` → `can_manage_bots` assertion, which needs the deployed service.
+- The onboarding service moved out of this repository to
+  **`Lord1Egypt/PocketClaw-Telegram-Setup`** — public, MIT, zero external Go
+  dependencies. `services/README.md` is the pointer and explains why it is not
+  vendored: it is infrastructure, the APK does not build from it, and the app
+  holds only a public base URL.
+- **Audited the storage before deploying, and it would not have survived.**
+  Pairing state was a process-local Go map. On Vercel the create request, the
+  Telegram webhook, and the token collection can each land in a different
+  function instance, so a Go map works in development and fails intermittently
+  in production. State now lives in a Redis-compatible store over its REST API.
+- Two operations are atomic server-side rather than in application code:
+  `SET username:… NX` claims a suggested bot username, and `GETDEL token:…`
+  delivers the child token exactly once. Both `Store` implementations run
+  against one conformance suite, including a test that twelve racing callers
+  produce exactly one winner, and a test asserting the Redis path really issues
+  `GETDEL` and `SET … NX`.
+- **Long-polling became a webhook**, because serverless has no long-lived
+  process. The endpoint is gated by the secret Telegram echoes in
+  `X-Telegram-Bot-Api-Secret-Token`, compared in constant time before parsing.
+  An undecodable body still answers 200 so Telegram does not retry forever.
+- Added an operator status page and `/privacy`. The page performs no privileged
+  action itself: each button asks the server, which reads credentials from its
+  own environment and answers with a boolean and a non-secret message.
+  Deliberately unlike the earlier DukeBot pattern, no Telegram token ever
+  reaches browser JavaScript.
+- Poll tokens are now stored as HMAC-SHA256 keyed with `PAIRING_SECRET`, so a
+  storage dump is inert without the server's key, and rotating the secret
+  invalidates every live pairing at once.
+- Deploy-to-Vercel button, `.env.example`, `README.md`, `PRIVACY.md`,
+  `SECURITY.md`, and `LICENSE` written for a standalone public project.
+- Tests in the new repository: 7 packages, all passing, including a fake
+  Upstash REST server so the Redis command construction is exercised for real.
+  Nothing requires a live bot or a production credential.
+- The Android side is unchanged. The API contract did not move during the
+  extraction — same three endpoints, same fields, same 404-for-anything-gone
+  behaviour the Flutter client already expects.
+- No credentials are recorded anywhere in either repository. The previously
+  issued manager token is treated as exposed and must be revoked before
+  deployment.
+
 ## 2026-08-26 — Milestone D: Telegram managed-bot onboarding
 
 - Closed Milestone C first: merged `feature/provider-catalog` into `develop`

@@ -3,8 +3,9 @@
 Project: PocketClaw  
 Current Phase: Phase 2 — Independent Product Repository  
 Current Milestone: Phase 2 Milestone D — Telegram Managed-Bot Onboarding.
-Implemented and fully tested; end-to-end verification is BLOCKED ON OPERATOR
-SETUP, because the real PocketClaw manager bot does not exist yet.
+Implemented and fully tested. The manager bot now exists and the onboarding
+service has been extracted to a public repository ready to deploy; what remains
+is the live deployment and the end-to-end device test.
 Milestone C — Provider Catalog + Easy API-Key Setup, the OpenCode completion,
 and the self-contained source migration — is complete and PASSED
 physical-device testing on 2026-08-25, merged to `develop` as `36bc88d` and
@@ -32,15 +33,16 @@ PASSED physical-device testing on 2026-08-25 and remains the verified reference
 artifact. The Milestone D APK
 `7c34ab12b544e585981c46632a5246a3a3fe66da24a84fce2c0b831c4911178e`
 is BUILT and NOT yet physically verified.
-Current Blocker: operator setup. Milestone D cannot be verified end to end
-until the real PocketClaw manager bot is created with Bot Management Mode
-enabled, the onboarding service is deployed, and the app is rebuilt pointing at
-it. No credentials were invented; see `SESSION_HANDOFF.md`.
-Next Exact Action: operator setup for Milestone D — create the PocketClaw
-manager bot, enable Bot Management Mode, deploy
-`services/telegram-onboarding/`, then rebuild the app with
+Current Blocker: deployment. The manager bot exists and Bot Management Mode is
+enabled; the remaining steps are deploying
+`Lord1Egypt/PocketClaw-Telegram-Setup` to Vercel with a freshly regenerated
+manager token, and rebuilding the app pointing at it. See `SESSION_HANDOFF.md`
+for the exact values to enter.
+Next Exact Action: deploy the onboarding service to Vercel with a regenerated
+manager bot token, register the webhook and verify the manager from the setup
+page, then rebuild the app with
 `--dart-define=POCKETCLAW_ONBOARDING_BASE_URL=https://...` and run the
-end-to-end test. See `SESSION_HANDOFF.md`.
+end-to-end device test. See `SESSION_HANDOFF.md`.
 
 ## Completed
 
@@ -465,3 +467,33 @@ What is verifiable today, and was verified:
 9. Manual setup still works from the same screen.
 10. Regression: startup, DNS, provider catalog, OpenCode, Skill Hub, workspace,
     MQTT, Core lifecycle, branding.
+
+## Telegram Manager Bot — OPERATOR STATE (2026-08-26)
+
+Recorded because these facts are external to this repository and cannot be
+derived from it.
+
+| | |
+| --- | --- |
+| Official Telegram manager | `@PocketClawSetupBot` |
+| Display name | PocketClaw Setup |
+| Manager created | **YES**, by the project owner |
+| Bot Management Mode enabled | **YES**, manually in the BotFather mini app |
+| Managed-bot deep link manually tested | **YES** — Telegram opened the managed-bot creation flow against `@PocketClawSetupBot` |
+| Live `getMe` → `can_manage_bots` verification | **PENDING** — needs the deployed service and the production token |
+| Public service repository | `Lord1Egypt/PocketClaw-Telegram-Setup` (public, MIT) |
+| Service deployment | **PENDING** |
+
+The manager bot token is **not** recorded here, in any other document, in the
+repository, or in the APK. It is entered directly into Vercel's environment
+variables.
+
+**The previously issued token is considered exposed** — it appeared in a
+screenshot — and must be revoked with `/revoke` in BotFather. The production
+deployment uses the regenerated token and only that.
+
+The live `can_manage_bots` check is the last unverified link. The BotFather UI
+showing management mode enabled, and Telegram opening the creation flow from a
+deep link, are both strong evidence, but neither is the API assertion the
+service makes at runtime. The setup page's **Verify Telegram** button performs
+exactly that call and reports the result.

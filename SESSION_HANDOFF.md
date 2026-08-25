@@ -2,53 +2,59 @@
 
 ## Current Objective
 
-**Operator setup, then one end-to-end Telegram test.**
+**Deploy the onboarding service, then run one end-to-end Telegram test.**
 
-Milestone D — Telegram managed-bot onboarding — is implemented, tested, and
-built. It cannot be verified on a device yet, and the blocker is not code: the
-real PocketClaw manager bot does not exist. No credentials were invented and no
-third-party setup service is used as a stand-in.
+The manager bot now exists. `@PocketClawSetupBot` is created, Bot Management
+Mode is enabled in the BotFather mini app, and the managed-bot deep link has
+been opened successfully against it. The onboarding service has been extracted
+to its own public repository and is ready to deploy.
 
 Candidate APK
-`7c34ab12b544e585981c46632a5246a3a3fe66da24a84fce2c0b831c4911178e`. The
-verified reference artifact remains `588bbec1...5ff3a90b`.
+`7c34ab12b544e585981c46632a5246a3a3fe66da24a84fce2c0b831c4911178e` — it has no
+endpoint compiled in, so it must be rebuilt after the deployment exists.
 
-### What the operator must do
+### Step 1 — Revoke the exposed manager token
 
-1. **Create the manager bot** with [@BotFather](https://t.me/BotFather).
-   Intended identity: display name **PocketClaw Setup**, username
-   **@PocketClawSetupBot**. If that username is taken, pick any other
-   PocketClaw-owned one — nothing hardcodes it.
-2. **Enable Bot Management Mode** in BotFather's mini app for that bot. This is
-   what makes Telegram set `can_manage_bots`. Without it the deep links open
-   Telegram but Telegram will not offer to create a bot.
-3. **Deploy `services/telegram-onboarding/`** behind HTTPS, with
-   `TELEGRAM_MANAGER_BOT_TOKEN` and `TELEGRAM_MANAGER_BOT_USERNAME` set from a
-   secret store. Exactly one instance per manager bot token. The service
-   verifies itself at startup and refuses to run if management mode is off, so
-   a successful start is itself confirmation that step 2 worked.
-   `services/telegram-onboarding/README.md` has the full deployment notes.
-4. **Rebuild the app** pointing at the deployment:
+The previously issued token appeared in a screenshot. Open
+[@BotFather](https://t.me/BotFather), select `@PocketClawSetupBot`, and use
+`/revoke` to generate a new one. Keep the new token in your clipboard; it goes
+straight into Vercel and nowhere else. Never paste it into chat, a file, this
+repository, or a `--dart-define`.
 
-       flutter build apk --release --target-platform=android-arm64 \
-         --dart-define=POCKETCLAW_ONBOARDING_BASE_URL=https://your-host
+### Step 2 — Deploy
 
-   or pass the same define through the canonical Gradle path. Without it the
-   app correctly reports that automatic setup is unavailable and offers manual
-   token entry, which is what the current APK does.
+<https://github.com/Lord1Egypt/PocketClaw-Telegram-Setup> — public, MIT, with a
+Deploy to Vercel button in its README. The full walkthrough is there; the short
+version is: click the button, add a Redis store from the project's Storage tab,
+set the variables below, redeploy.
 
-The manager bot token is a **server secret**. It must never reach the APK, the
-repository, this file, or a log line.
+Enter these in Vercel → Project Settings → Environment Variables:
 
-### Then test
+| Variable | Value |
+| --- | --- |
+| `TELEGRAM_MANAGER_BOT_TOKEN` | the **regenerated** token from step 1 |
+| `TELEGRAM_MANAGER_BOT_USERNAME` | `PocketClawSetupBot` |
+| `TELEGRAM_WEBHOOK_SECRET` | a fresh `openssl rand -hex 32` |
+| `PAIRING_SECRET` | a **different** fresh `openssl rand -hex 32` |
+| `KV_REST_API_URL` | injected by Vercel's Redis integration |
+| `KV_REST_API_TOKEN` | injected by Vercel's Redis integration |
 
-The device checklist is at the end of `PROJECT_STATE.md`. The short version:
-Settings → Telegram → Connect → Open Telegram → confirm → back to PocketClaw →
-Connected → Open Chat, plus the QR path from a second device, a
-background/resume mid-flow, an expiry, and the manual fallback.
+### Step 3 — Verify from the setup page
 
-Do not merge into `develop` until that passes. Do not touch `main`. Do not
-start another milestone.
+Open the deployment URL and click, in order: **Register Webhook**,
+**Verify Telegram**, **Check Storage**, **Create Test Pairing**. All four must
+report success. **Verify Telegram** is the live `getMe` call that finally
+confirms `can_manage_bots == true`; nothing else in the chain asserts it.
+
+### Step 4 — Rebuild the app and test on a device
+
+    flutter build apk --release --target-platform=android-arm64 \
+      --dart-define=POCKETCLAW_ONBOARDING_BASE_URL=https://your-deployment
+
+Then run the device checklist at the end of `PROJECT_STATE.md`.
+
+Do not merge `feature/telegram-managed-onboarding` into `develop` until that
+passes. Do not touch `main`. Do not start another milestone.
 
 ## Milestone C state
 
@@ -146,6 +152,9 @@ workspace seeding.
 - Regenerate `core/pocketclaw-core-v0.3.1.patch` with
   `core/regen-upstream-patch.sh` after any change under `core/src/`, or the
   divergence record goes stale.
+- The onboarding service lives in its own public repository,
+  `Lord1Egypt/PocketClaw-Telegram-Setup`. It is infrastructure, not part of the
+  APK build; `services/README.md` explains why it is not vendored here.
 - Never commit the manager bot token, and never add it to a `--dart-define`.
   The app receives only a public HTTPS base URL; the child bot token reaches it
   once, over TLS, and goes straight into Core's config.
@@ -226,17 +235,22 @@ capture final device logs, so that symptom must be confirmed during retest.
 
 ## Next Exact Steps
 
-1. Operator setup, above. Nothing else in Milestone D can proceed without it.
-2. Run the end-to-end Telegram test from the checklist at the end of
-   `PROJECT_STATE.md`.
-3. On PASS: merge `feature/telegram-managed-onboarding` into `develop` with
-   `--no-ff`, tag the closure point, and record the result in the state
-   documents. `main` needs separate instruction.
-4. On FAIL, the likely causes in order: Bot Management Mode not actually
-   enabled (the service would have refused to start, so check it is the running
-   build); the user edited the suggested username on Telegram's confirmation
-   screen, which by design fails closed and expires the pairing; or the app was
-   built without `POCKETCLAW_ONBOARDING_BASE_URL`.
-5. Two open items unrelated to the blocker: localizing the onboarding strings,
+1. Revoke the exposed manager token in BotFather.
+2. Deploy `Lord1Egypt/PocketClaw-Telegram-Setup` to Vercel with the variables
+   above, including a Redis store.
+3. Register the webhook and verify the manager from the setup page. The
+   `can_manage_bots` assertion happens here.
+4. Rebuild the app with `POCKETCLAW_ONBOARDING_BASE_URL` and run the device
+   checklist at the end of `PROJECT_STATE.md`.
+5. On PASS: merge `feature/telegram-managed-onboarding` into `develop` with
+   `--no-ff`, tag the closure point, and record the result. `main` needs
+   separate instruction.
+6. On FAIL, the likely causes in order: the app was built without
+   `POCKETCLAW_ONBOARDING_BASE_URL`; the webhook was never registered, or was
+   registered against a preview deployment URL rather than the production one
+   (set `PUBLIC_BASE_URL` if so); or the suggested username was edited on
+   Telegram's confirmation screen, which by design fails closed and expires the
+   pairing.
+7. Two open items unrelated to the blocker: localizing the onboarding strings,
    and confirming a `claude-*` model on OpenCode. Both are in `TASKS.md`.
-6. Do not start another milestone.
+8. Do not start another milestone.

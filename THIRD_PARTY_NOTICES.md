@@ -56,9 +56,11 @@ license has been selected for newly authored PocketClaw code.
 
 ## PocketClaw Telegram onboarding service
 
-`services/telegram-onboarding/` is original PocketClaw work. It is a separate
-Go module with **zero external dependencies** — standard library only — so it
-adds no third-party license obligations.
+The onboarding service is original PocketClaw work, published separately at
+<https://github.com/Lord1Egypt/PocketClaw-Telegram-Setup> under the MIT
+license. It has **zero external dependencies** — standard library only — so it
+adds no third-party license obligations, and it is not bundled into the APK.
+See `services/README.md`.
 
 It integrates with Telegram's official Bot API (managed bots, Bot API 9.6) over
 the network. Telegram is a runtime service the user's own bot lives on, not a

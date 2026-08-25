@@ -183,11 +183,11 @@ Recorded here so a future upstream review does not mistake PocketClaw's own
 work for an adoption, and does not go looking upstream for its origin.
 
 - **Telegram managed-bot onboarding (Milestone D, 2026-08-26).** The
-  onboarding service in `services/telegram-onboarding/` is PocketClaw-authored
-  and depends on no upstream code. It is a separate Go module, deliberately
-  outside `core/src/`, so it does not appear in
-  `core/pocketclaw-core-v0.3.1.patch`. The Flutter onboarding screen is
-  likewise PocketClaw's own.
+  onboarding service is PocketClaw-authored and depends on no upstream code. It
+  now lives in its own public repository,
+  `Lord1Egypt/PocketClaw-Telegram-Setup`, and never touched `core/src/`, so it
+  does not appear in `core/pocketclaw-core-v0.3.1.patch`. The Flutter
+  onboarding screen is likewise PocketClaw's own.
 - It adopts nothing from PicoClaw. It uses official Telegram Bot API 9.6
   managed-bot support directly, verified against `core.telegram.org` rather
   than inferred from any other implementation.

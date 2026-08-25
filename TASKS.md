@@ -264,10 +264,21 @@ supplied by the user.
   (77 total).
 - [x] Regression: Core 92 packages ok, `pnpm lint` clean, `flutter analyze`
   clean, release APK built with the build guard passing.
-- [ ] **BLOCKED ON OPERATOR SETUP** — end-to-end physical verification. Needs
-  the real PocketClaw manager bot created, Bot Management Mode enabled, the
-  service deployed, and the app built with the endpoint. See
-  `SESSION_HANDOFF.md`.
+- [x] Manager bot created and Bot Management Mode enabled by the project owner;
+  the managed-bot deep link opened successfully against `@PocketClawSetupBot`.
+- [x] Audit pairing storage for serverless: found process-local state, replaced
+  it with a Redis-compatible store using atomic `SET NX` and `GETDEL`.
+- [x] Replace `getUpdates` long-polling with an authenticated Telegram webhook.
+- [x] Extract the service to the public repository
+  `Lord1Egypt/PocketClaw-Telegram-Setup` with a Deploy to Vercel button,
+  operator status page, `/privacy`, README, PRIVACY.md, SECURITY.md, LICENSE.
+- [x] Verify no real credential exists in the public repository.
+- [ ] Revoke the exposed manager bot token in BotFather before deployment.
+- [ ] Deploy the service to Vercel with a Redis store and the four secrets.
+- [ ] Live `getMe` → `can_manage_bots == true` from the deployed service.
+- [ ] Rebuild the app with
+  `--dart-define=POCKETCLAW_ONBOARDING_BASE_URL=https://...` and run the
+  end-to-end device test. See `SESSION_HANDOFF.md`.
 - [ ] Localize the Telegram onboarding strings. They live in
   `TelegramOnboardingStrings` and are English in all twelve locales, because
   shipping machine-guessed translations into the `.arb` files would put
