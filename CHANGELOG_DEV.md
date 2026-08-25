@@ -1,5 +1,233 @@
 # Development Changelog
 
+## 2026-08-25 — Source migration and OpenCode completion PASS on device
+
+- Physical Android device test of
+  `588bbec144fe0c84b8429f4f053a73b44b9b3e8d9f24e31dab04b2165ff3a90b` returned
+  PASS across all 18 checks. That APK is now the verified reference artifact,
+  superseding Milestone C's `b3dd892b...bce569b`. The never-tested OpenCode
+  completion APK `785ccd94...56058c6` is retired; its functionality ships in
+  the verified artifact.
+- The logs check passed on device: no developer absolute paths on the
+  user-facing Logs screen. That is the on-device half of the `-trimpath` fix —
+  the build-time assertion proved the strings were gone from the binaries, and
+  this proves nothing surfaces them to a user.
+- Skill Hub search and Fetch Models both passed, which is the end-to-end proof
+  that the Android active-network DNS integration survived being rebuilt from
+  a relocated source tree. Both fail closed without working DNS, so this is a
+  behavioral result, not a string check.
+- Both OpenCode providers passed Fetch Models and a real request/response, so
+  per-model protocol routing is exercised live for the first time.
+- Still open, and deliberately not closed by association: the OpenCode
+  Anthropic Messages route sends both `X-API-Key` and a bearer header on an
+  unverified assumption, and the device report does not name which model
+  families were exercised. A `claude-*` inference is what settles it.
+- Device-proven Core binaries: `libpicoclaw.so` 37,224,801
+  `cb9b2cde...fb895818`; `libpicoclaw-web.so` 24,641,889 `b6b356f7...656db9ba5`.
+- `feature/provider-catalog` is verified and not merged. Merging into `develop`
+  and tagging the closure point awaits explicit instruction, and `main` needs
+  its own. No new feature was started.
+
+## 2026-08-25 — Self-contained source migration
+
+- PocketClaw now builds entirely from its own repository. The Core source is
+  vendored at `core/src/` (1,372 files, 16 MB) and is the canonical build
+  source. No build script, Makefile target, or Gradle task reads
+  `/home/lordegypt/PocketCLaw/.upstream/picoclaw-core-v0.3.1` any more. That
+  checkout survives as a historical upstream-review reference.
+- The vendored tree was not reconstructed by hand. It was copied from the
+  reviewed working tree and then proved equal to upstream `v0.3.1` plus
+  `core/pocketclaw-core-v0.3.1.patch` plus `pkg/androiddns/`, byte-for-byte.
+  All previously required modifications were verified present: the Android
+  active-network DNS integration and `PICOCLAW_DNS_SERVER`, the provider
+  catalog extensions, the Gemini and OpenCode discovery branches, OpenCode
+  Zen/Go with per-model protocol routing, the generic Responses provider, the
+  opt-in Anthropic Messages bearer header, the MQTT `/pocketclaw` default, the
+  seeded workspace, and the user-facing wording.
+- Added `core/build-android-arm64.sh` as the canonical Core build. It builds
+  both binaries from `core/src` through the root Makefile targets, installs
+  them into `jniLibs`, and prints sizes and hashes.
+- Added `-trimpath` to the four Android arm64 `go build` lines. This fixed a
+  real leak, not a hypothetical one: the previously shipped `libpicoclaw.so`
+  carried 2,501 absolute `/home/lordegypt/...` paths and `libpicoclaw-web.so`
+  carried 1,346, all reachable from the user-facing Logs screen. Both now carry
+  zero, and the build script fails if that regresses.
+- Added `core/verify-no-external-source.sh`, which renames the external
+  checkout out of the way, runs the full Core build, and restores it. It
+  passed: the Core builds with that directory unavailable.
+- Rewrote `core/regen-upstream-patch.sh` and regenerated the provenance patch.
+  Two defects were found and fixed while doing so. The patch was claiming
+  PocketClaw had authored two unmodified upstream files, because upstream's
+  unanchored `onboard` ignore rule kept them out of the baseline commit; and
+  the file list now comes from git, so build outputs under `core/src` cannot
+  leak into the patch. Upstream `v0.3.1` plus the regenerated patch now
+  reproduces `core/src/` exactly — 52 changed files, 13 of them new and
+  PocketClaw-authored.
+- Excluded two upstream paths from the vendored tree: `assets/` (13 MB of
+  README screenshots and marketing GIFs, no build role) and
+  `pkg/seahorse/.omc/` (an upstream developer's tool-state file, committed by
+  accident, which leaks an upstream contributor's home directory path).
+- Anchored upstream's bare `onboard` ignore rule to `/onboard` in
+  `core/src/.gitignore`. Unanchored, it matched at every depth and would have
+  silently dropped the four files under `cmd/picoclaw/internal/onboard/`, two
+  of which carry PocketClaw changes.
+- Moved the 3.3 GB Go build and module caches out of the external checkout to
+  `/home/lordegypt/PocketCLaw/.tooling/go/`, next to the JDK, Flutter, pnpm,
+  and Android SDK. They are toolchain, not source, and they were the second
+  hidden reason that directory was a build prerequisite. Nothing was deleted.
+- `core/README.md` is rewritten as the authoritative Core guide: source
+  location, upstream origin, the modification list, build procedure and exact
+  release flags, jniLibs packaging, hash verification, the release guard and
+  its `.cxx` recovery procedure, patch regeneration, and the upstream review
+  model.
+- Validation: Go suites 92 packages ok / 0 failed; frontend `vitest` 28 passed;
+  `pnpm lint` clean; `flutter analyze` no issues; `flutter test` 27 passed. The
+  arm64 release APK built through the canonical Gradle path and the release
+  guard verified `libdartjni.so`, `libpicoclaw.so`, and `libpicoclaw-web.so`.
+- No feature work was started. This is a source-of-truth and reproducibility
+  migration, and the resulting APK needs a physical regression test.
+
+## 2026-08-25 — Milestone C device PASS, plus the OpenCode completion
+
+- Physical Android device test of
+  `b3dd892bdea86e8dfe7d1c2eb87e89f4e2832b1d1dbe39fc1decf20dabce569b` returned
+  PASS. That APK is now the verified reference artifact, superseding
+  Milestone B's `ba4f067d...70f70a4b8`. Still not merged: the OpenCode
+  completion below lands on the same branch and needs its own device test.
+- Added the OpenCode Zen (`https://opencode.ai/zen/v1`) and OpenCode Go
+  (`https://opencode.ai/zen/go/v1`) presets, using the official endpoints the
+  user verified. Both require an API key, both support Fetch Models against
+  `{base}/models`, and both keep the base URL hidden in the normal flow.
+- These are mixed-protocol gateways, so they are not modelled as plain
+  OpenAI-compatible providers. One base URL and one key front OpenAI Responses,
+  OpenAI-compatible chat completions, and Anthropic Messages, and the protocol
+  is a property of the selected model. All routing lives in
+  `pkg/providers/opencode_routing.go`: `ClassifyOpenCodeModel` matches the
+  longest model-ID family prefix and returns both a protocol and whether the
+  match was known. No model-name conditional was added anywhere else.
+- Routing is family-based rather than an enumerated model list, because
+  OpenCode changes its lineup frequently and Fetch Models already returns the
+  authoritative live list. `gpt-*`/`o*`/`codex*` route to Responses, `claude-*`
+  to Messages, and `kimi-*`/`deepseek-*`/`glm-*`/`qwen-*`/`grok-*` and friends
+  to chat completions.
+- Built the generic Responses provider the Core was missing
+  (`pkg/providers/openai_responses`). The two existing Responses paths were not
+  reusable: Azure hardcodes its deployment path, and the Codex provider
+  hardcodes the ChatGPT backend plus Codex headers and instructions. The new
+  package reuses the shared `openai_responses_common` translation and adds only
+  transport.
+- Extended `anthropic_messages` with an opt-in `WithBearerAuth()` so the
+  OpenCode Messages route sends both `X-API-Key` and `Authorization: Bearer`
+  with the one OpenCode account key. It is off by default, so Anthropic's own
+  endpoint and the existing `anthropic-messages` and `alibaba-coding-anthropic`
+  presets are unchanged. Which form OpenCode's Messages surface actually wants
+  is the single assumption only a device can settle.
+- Model IDs go out bare. The `opencode-go/` style CLI namespace prefix is
+  stripped before the request is built and never persisted into the wire model.
+- An unrecognized model stays configurable and is still attempted, falling back
+  to chat completions, with a warning naming the model, the fallback protocol,
+  and what a 404 would imply. The warning never contains the API key.
+- Added a catalog-wide invariant test: every HTTP-API provider that can drive a
+  chat model must construct from a plain key-plus-base configuration, with a
+  floor of 30 providers exercised so the assertion cannot become vacuous. This
+  is the general form of the rule the earlier per-preset test only spot-checked.
+- Validation: `flutter analyze` clean; 27/27 Flutter tests; 28 frontend tests;
+  new Go tests covering OpenCode routing and catalog metadata, the Responses
+  transport, the Messages bearer/base-path behavior, and discovery for both
+  endpoints; full Go suites for providers, config, web/backend/api, androiddns,
+  mqtt, onboard, and commands all pass; frontend `tsc -b` and `pnpm lint` clean.
+- Every new test that can touch a credential asserts the key never appears in
+  an error, and the routing warning was inspected in real log output.
+- Rebuilt both Core binaries through the documented Makefile targets. Stripped,
+  0 debug sections, `PICOCLAW_DNS_SERVER` present, launcher still 0 `PicoClaw` /
+  0 `Sipeed` / 31 `PocketClaw`:
+  `libpicoclaw.so` 37,421,409 `e48e8af0...12e78938`;
+  `libpicoclaw-web.so` 24,772,961 `5faaf82c...c383fe2abf`.
+- One build note worth keeping: running `:app:packageRelease` without
+  `-Ptarget-platform=android-arm64` produced a 50 MB universal APK. Caught on
+  the size check and rebuilt on the canonical path. The flag is not optional,
+  and APK size is the cheapest signal that it was dropped.
+- OpenCode completion APK: 34,129,765 bytes, SHA-256
+  `785ccd94cfa351ee2996ac340f9a55e828a0c8f736bec67a3edac906a56058c6`,
+  `com.lord1egypt.pocketclaw` 0.1.3 (code 3), label PocketClaw, release guard
+  passed. NOT merged and NOT physically verified.
+- No Telegram work, no UI changes beyond the two presets flowing through the
+  existing picker, no release-pipeline changes, no dependency upgrades, and the
+  `libdartjni` guard is untouched.
+
+## 2026-08-25 — Phase 2 Milestone C: Provider Catalog + Easy API-Key Setup
+
+Implementation complete on `feature/provider-catalog`, branched from the
+verified `develop` @ `14e6991`. Not merged; physical-device testing is the gate.
+
+- Audited the provider architecture before changing anything and recorded it in
+  `docs/PROVIDER_ARCHITECTURE.md`. Two findings shaped the work: all AI provider
+  configuration lives in the Core web console, not in Flutter, and the provider
+  catalog is already backend-owned by `pkg/providers`, so Milestone C extends it
+  rather than building a competing catalog.
+- Catalog: added `category` and `documentation_url` to `ModelProviderOption` and
+  classified all 42 entries as cloud, local, managed, custom, or speech. Added
+  the xAI (`https://api.x.ai/v1`), Together AI (`https://api.together.xyz/v1`),
+  Fireworks AI (`https://api.fireworks.ai/inference/v1`), and Custom
+  OpenAI-Compatible presets, each also registered in the OpenAI-compatible arm of
+  `CreateProviderFromConfig`. A catalog-only addition would have saved cleanly
+  and then failed at request time with `unknown protocol`.
+- Deferred OpenCode Zen and OpenCode GO: their base URL, auth header, and model
+  listing endpoint could not be established accurately, and a guessed preset is
+  worse than none. Both work today through Custom OpenAI-Compatible.
+- Gemini model discovery now works. It needed a dedicated fetch branch, not just
+  the `supports_fetch` flag: the shared path sends `Authorization: Bearer` while
+  Gemini authenticates with `X-Goog-Api-Key` and returns
+  `{"models":[{"name":"models/<id>"}]}`. The branch selects by base URL, so a
+  `/openai` compatibility base keeps using Bearer and the standard shape.
+  URL construction stays base-relative; a custom Gemini proxy path is unaffected.
+- Broadened model-fetch error classification to distinguish invalid key /
+  unauthorized, rate limited, DNS and network failure, provider unavailable, a
+  missing listing endpoint, and a malformed response. A test asserts no error
+  path echoes the API key.
+- UX: the Add Model form became a two-step Add Provider flow — choose a provider
+  from a searchable, category-grouped card list, paste an API key, fetch or type
+  a model, save. The alias is derived from the model ID instead of being the
+  first required field. Base URL, alias, and optional keys moved into Advanced;
+  local and custom providers keep a visible base URL with an Android-specific
+  hint that `localhost` means the phone. Keyless providers are not asked for a
+  key. Saving never requires a successful fetch.
+- Backward compatibility: stored provider, model ID, and custom base URL are
+  untouched. A base that differs from the preset is now labeled as an override
+  in the edit sheet rather than silently presented as the default.
+- Removed runtime provider-logo fetching from `cdn.simpleicons.org` and Google's
+  favicon service. Those requests disclosed which providers a user had
+  configured and broke when offline. Provider marks render locally; verified 0
+  occurrences of either host in the built binary.
+- Localization: new keys added across all five web-console locales, with English
+  and Chinese translated and the rest carrying English fallbacks. URLs and model
+  IDs are pinned LTR and the picker uses logical properties.
+- API key storage is deliberately unchanged. Transport and UI exposure are
+  already sound (masked on GET, preserved on PUT when omitted), but at rest on
+  Android keys are plaintext because Core encryption needs
+  `PICOCLAW_KEY_PASSPHRASE` and an SSH key that no device has. Android Keystore
+  is recorded as its own controlled milestone.
+- Validation: `flutter analyze` clean; 27/27 Flutter tests; new Go tests (8
+  catalog, 5 model discovery) plus full suites for providers, config,
+  web/backend/api, androiddns, mqtt, onboard, commands, and agent all pass;
+  22 new frontend tests on a newly added vitest runner; frontend `tsc -b` and
+  `pnpm lint` clean.
+- Rebuilt both Core binaries through the documented Makefile targets. Stripped,
+  0 debug sections, `PICOCLAW_DNS_SERVER` present, and the launcher still has
+  0 `PicoClaw` / 0 `Sipeed` / 31 `PocketClaw` strings:
+  `libpicoclaw.so` 37,421,409 `cbe568af...5556468a`;
+  `libpicoclaw-web.so` 24,772,961 `86e53457...0cb0a4cd`.
+- Built through the canonical arm64 Gradle path; the release guard printed its
+  verification line for `libdartjni.so`, `libpicoclaw.so`, and
+  `libpicoclaw-web.so`. `libdartjni.so` is byte-identical to Milestone B.
+- Milestone C APK: 34,123,401 bytes, SHA-256
+  `b3dd892bdea86e8dfe7d1c2eb87e89f4e2832b1d1dbe39fc1decf20dabce569b`,
+  `com.lord1egypt.pocketclaw` 0.1.3 (code 3), label PocketClaw. NOT merged and
+  NOT physically verified. The Milestone B APK `ba4f067d...70f70a4b8` remains
+  the verified reference artifact.
+- Telegram QR/deep-link onboarding was deliberately not started; it is the next
+  milestone. No release hardening or obfuscation was enabled.
+
 ## 2026-08-25 — Phase 2 Milestone B COMPLETE and physically verified
 
 - Physical Android device test of `ba4f067df9811bd0e4af713343bdba632abbf96a41e3a5b47cf154740f70a4b8`

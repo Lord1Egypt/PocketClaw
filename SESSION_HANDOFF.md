@@ -2,9 +2,72 @@
 
 ## Current Objective
 
-None. Phase 2 Milestone B is COMPLETE, physically verified, and merged into
-`develop`. Do not begin Milestone C until the user explicitly authorizes it,
-and do not merge to `main` without instruction.
+None in progress. The self-contained source migration and the OpenCode provider
+completion both PASSED physical-device testing on 2026-08-25.
+
+The verified reference artifact is APK
+`588bbec144fe0c84b8429f4f053a73b44b9b3e8d9f24e31dab04b2165ff3a90b`, superseding
+Milestone C's `b3dd892b...bce569b`. Bisect or diff any future regression against
+it before forming new hypotheses.
+
+`feature/provider-catalog` is verified and **not merged**. The documented
+closure step — merge into `develop` with `--no-ff` and tag the closure point —
+awaits explicit instruction. Do not touch `main`. Do not start Telegram
+linking or any other feature until told to.
+
+One item is verified-but-incomplete: the OpenCode Anthropic Messages route
+(`claude-*` models) sends both `X-API-Key` and a bearer header, and the device
+report does not say whether a `claude-*` model was among those exercised. If one
+returns 401 later while `gpt-*` and `kimi-*` succeed, the header pair is the
+cause, not the routing. See `DECISIONS.md`.
+
+## Milestone C state
+
+Branch `feature/provider-catalog`, cut from `develop` @ `14e6991`. The Core
+source now lives in this repository at `core/src/`, and
+`core/pocketclaw-core-v0.3.1.patch` (52 files) is its divergence from upstream
+`v0.3.1`; the rebuilt arm64 binaries are committed under
+`android/app/src/main/jniLibs/arm64-v8a/`.
+
+What it delivers: a provider-first Add Provider flow (choose provider → API key
+→ fetch or type a model → save) with the alias derived automatically; the
+backend catalog extended with categories, documentation links, and the xAI,
+Together AI, Fireworks AI, and Custom OpenAI-Compatible presets, all registered
+in the protocol switch; working Gemini model discovery; broader fetch error
+classification; and no runtime logo fetching from third-party hosts.
+
+Read `docs/PROVIDER_ARCHITECTURE.md` before touching provider code. Two facts in
+it will save a wrong turn: AI provider configuration lives in the Core web
+console and not in Flutter, and a provider added to the catalog without a
+matching arm in `CreateProviderFromConfig` saves cleanly and then fails at
+request time with `unknown protocol`.
+
+Deliberately not done: Telegram QR/deep-link onboarding (next milestone), any
+release hardening or obfuscation, and any change to API key storage. The last
+is not an oversight — see the deferral decision in `DECISIONS.md`.
+
+## OpenCode completion state
+
+OpenCode Zen (`https://opencode.ai/zen/v1`) and OpenCode Go
+(`https://opencode.ai/zen/go/v1`) are mixed-protocol gateways: one base URL and
+one API key front OpenAI Responses, OpenAI-compatible chat completions, and
+Anthropic Messages, and the protocol is a property of the model. All routing is
+in `pkg/providers/opencode_routing.go` — if you need to change how an OpenCode
+model is dispatched, that is the only file to touch.
+
+Supporting changes: `pkg/providers/openai_responses` is a new generic
+Responses-over-HTTP provider (the Azure and Codex ones are hardcoded to their
+own endpoints and were not reusable), and `anthropic_messages` gained an opt-in
+`WithBearerAuth()` used only by the OpenCode Messages route.
+
+The one thing tests cannot settle: whether OpenCode's Messages surface wants
+`X-API-Key` or `Authorization: Bearer`. Both are sent. If a `claude-*` model
+401s on the device while `gpt-*` and `kimi-*` succeed, that is the header
+question, not the routing.
+
+Build gotcha found the hard way: `:app:packageRelease` without
+`-Ptarget-platform=android-arm64` silently produces a ~50 MB universal APK
+instead of ~34 MB. Check the size before trusting any release build.
 
 ## Milestone B closure
 
@@ -40,12 +103,28 @@ workspace seeding.
   A universal `flutter build apk --release` is not a PocketClaw release path.
 - If the guard reports `libdartjni.so` missing, do not change application code:
   purge `~/.pub-cache/hosted/pub.dev/jni-*/android/.cxx/` and rebuild.
-- Rebuild Core via `make build-launcher-android-arm64`; calling
+- Rebuild Core with `core/build-android-arm64.sh`, which builds from
+  `core/src/` through the root Makefile targets. Calling
   `make -C web build-android-arm64` directly drops the root `LDFLAGS` and
   produces an unstripped binary. Use `pnpm lint`, never `pnpm check`.
-- Core binaries in this build: `libpicoclaw.so` 37,421,409
-  `eb895f08...40bd9c88`; `libpicoclaw-web.so` 24,772,961 `6d282df0...1195a5a3`.
-  Both stripped; `PICOCLAW_DNS_SERVER` verified present.
+- Never point a build at a Core checkout outside this repository. `core/src/`
+  is the source-of-truth; `core/verify-no-external-source.sh` proves the build
+  needs nothing else. Upstream is fetched for review only.
+- `-trimpath` on the Android arm64 build lines is a release requirement, not a
+  nicety. Without it the shipped binaries carry thousands of build-machine
+  paths that reach the user-facing Logs screen.
+  `core/build-android-arm64.sh` fails the build if the count is not zero.
+- Regenerate `core/pocketclaw-core-v0.3.1.patch` with
+  `core/regen-upstream-patch.sh` after any change under `core/src/`, or the
+  divergence record goes stale.
+- Core binaries currently committed and DEVICE-VERIFIED (2026-08-25):
+  `libpicoclaw.so` 37,224,801 `cb9b2cde...fb895818`;
+  `libpicoclaw-web.so` 24,641,889 `b6b356f7...656db9ba5`. Both stripped, PIE
+  `ARM aarch64`, `-trimpath`, with `PICOCLAW_DNS_SERVER` present and zero
+  developer-machine paths. They supersede Milestone C's `cbe568af...5556468a`
+  and `86e53457...0cb0a4cd`.
+  Core hashes are not reproducible across rebuilds — `BuildTime` is stamped in
+  via `-ldflags` — so compare sizes and the zero-path count, not hashes.
 
 ## Exact State
 
@@ -112,9 +191,16 @@ capture final device logs, so that symptom must be confirmed during retest.
 
 ## Next Exact Steps
 
-1. Nothing is pending. Wait for the user to authorize Milestone C — provider
-   presets and Telegram QR/deep-link onboarding are the recorded candidates in
-   `TASKS.md` under "Later", and neither is started.
-2. Do not merge to `main` without instruction.
-3. Any regression report should start by diffing against the verified artifact
-   above, not by patching a plausible-looking runtime path.
+1. Await instruction on closure. On the word: merge `feature/provider-catalog`
+   into `develop` with `--no-ff`, tag the closure point, and record the merge
+   commit and tag in the state documents. `main` is not updated without
+   separate instruction.
+2. Do not start Telegram linking or any other feature until closure is done and
+   instructed.
+3. If a regression appears, diff against `588bbec1...5ff3a90b` first. Nothing
+   in the Flutter layer changed in the migration; the change surface was the two
+   Core binaries and where their source was read from.
+4. Before any future Core change: edit `core/src/`, rebuild with
+   `core/build-android-arm64.sh`, and regenerate
+   `core/pocketclaw-core-v0.3.1.patch` with `core/regen-upstream-patch.sh`.
+   Never point a build at a checkout outside this repository.

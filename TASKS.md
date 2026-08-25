@@ -79,17 +79,160 @@
 - [x] Phase 2 Milestone B COMPLETE. Merged into `develop` with a non-fast-forward
   merge; `main` intentionally untouched.
 
-## Phase 2 — Milestone C (NOT STARTED — needs explicit authorization)
+## Phase 2 — Milestone C: Provider Catalog + Easy API-Key Setup
 
-- [ ] Do not begin any Milestone C work until the user explicitly authorizes it.
+Authorized 2026-08-25. Branch `feature/provider-catalog` from `develop` @ `14e6991`.
+
+- [x] Audit the existing provider architecture — config/model schema, Core
+  provider abstraction, web provider pages, model discovery, custom
+  OpenAI-compatible handling, auth behavior, and API key storage — and record
+  it in `docs/PROVIDER_ARCHITECTURE.md`.
+- [x] Establish that provider configuration lives in the Core web console, not
+  in Flutter, and that the catalog is already backend-owned by `pkg/providers`.
+  Extend that catalog rather than creating a competing one.
+- [x] Add `category` and `documentation_url` to `ModelProviderOption` and
+  classify every one of the 42 catalog entries.
+- [x] Add the xAI, Together AI, Fireworks AI, and Custom OpenAI-Compatible
+  presets, and register all four in the `CreateProviderFromConfig` protocol
+  switch. A catalog entry alone fails at runtime with `unknown protocol`.
+- [x] Classify every requested candidate as SUPPORTED NOW, OPENAI-COMPATIBLE,
+  REQUIRES CORE ADAPTER, or DEFERRED. OpenCode Zen and OpenCode GO are DEFERRED
+  because their endpoint and auth could not be established accurately.
+- [x] Enable Gemini model discovery with a dedicated fetch branch:
+  `X-Goog-Api-Key` plus `models/` prefix stripping for the native base, Bearer
+  for a `/openai` compatibility base. Base-relative path handling unchanged.
+- [x] Broaden fetch error classification: invalid key/unauthorized, rate
+  limited, DNS/network failure, provider unavailable, missing listing endpoint,
+  and malformed response. No error path echoes the API key.
+- [x] Replace the Add Model form with a two-step provider-first flow: choose
+  provider, paste API key, fetch or type a model, save. The alias is derived
+  from the model ID; base URL, alias, and optional keys move to Advanced.
+- [x] Keep the base URL visible in the normal flow for local and custom
+  providers, and do not ask keyless providers for an API key.
+- [x] Keep manual model entry always available; saving never requires a
+  successful fetch.
+- [x] Keep Custom OpenAI-Compatible first-class, with no default base URL so an
+  empty endpoint is a clear error rather than a silent fall back to OpenAI.
+- [x] Preserve existing configurations: stored provider, custom base URL, and
+  model IDs are untouched, and a base that differs from the preset is surfaced
+  as an override in the edit sheet rather than reverted.
+- [x] Stop downloading provider logos from `cdn.simpleicons.org` and Google's
+  favicon service at runtime; render local text marks instead.
+- [x] Add localization keys for every new user-facing string across all five
+  web-console locales; keep URLs and model IDs LTR-readable.
+- [x] Tests: 22 frontend tests on a new vitest runner, 8 Go provider-catalog
+  tests, 5 Go model-discovery tests. `flutter analyze` clean; 27 Flutter tests;
+  Go suites for providers, config, api, androiddns, mqtt, onboard, commands,
+  and agent all pass; frontend `tsc -b` and `pnpm lint` clean.
+- [x] Rebuild both Core binaries through the documented Makefile targets and
+  build the Milestone C APK through the canonical arm64 Gradle path with the
+  release guard passing.
+- [x] PHYSICAL DEVICE TEST of APK
+  `b3dd892bdea86e8dfe7d1c2eb87e89f4e2832b1d1dbe39fc1decf20dabce569b`: PASS
+  (2026-08-25). This is now the verified reference artifact.
+
+## Phase 2 — Milestone C: OpenCode completion
+
+Authorized 2026-08-25 after the Milestone C device PASS, with official endpoints
+supplied by the user.
+
+- [x] Add the OpenCode Zen preset: base `https://opencode.ai/zen/v1`, discovery
+  at `https://opencode.ai/zen/v1/models`, API key required, base URL hidden in
+  the normal flow.
+- [x] Add the OpenCode Go preset: base `https://opencode.ai/zen/go/v1`,
+  discovery at `https://opencode.ai/zen/go/v1/models`, same key policy.
+- [x] Treat both as mixed-protocol gateways rather than assuming
+  `/chat/completions`. All routing lives in `pkg/providers/opencode_routing.go`;
+  no model-name conditionals were added anywhere else.
+- [x] Build the generic OpenAI Responses provider the Core was missing
+  (`pkg/providers/openai_responses`), reusing the existing
+  `openai_responses_common` translation layer. The Azure and Codex Responses
+  implementations are hardcoded to their own endpoints and were not reusable.
+- [x] Route Anthropic Messages models through the existing
+  `anthropic_messages` provider, extended with an opt-in `WithBearerAuth()`
+  so one OpenCode account key satisfies either header convention. Anthropic's
+  own endpoint behavior is unchanged.
+- [x] Route chat-completions models through the existing OpenAI-compatible
+  HTTP provider.
+- [x] Send the bare model ID; strip the `opencode-go/` style CLI namespace
+  prefix before the request is built and never persist it into the wire model.
+- [x] Handle an unknown model safely and non-silently: it stays configurable
+  and attemptable, falls back to chat completions, and logs a warning naming
+  the model, the fallback protocol, and what a 404 would mean. The API key is
+  never logged.
+- [x] Do not hardcode the model list: Fetch Models reads the live list from
+  OpenCode, and the routing table is family-based rather than an enumeration.
+- [x] Tests: 14 OpenCode routing/catalog tests, 6 Responses transport tests,
+  4 Messages bearer/base-path tests, 4 discovery tests, 6 frontend preset
+  tests. Plus a catalog-wide invariant that every HTTP chat provider in the
+  catalog constructs, so a provider can never be offered while being unusable
+  at inference time.
+- [x] PHYSICAL DEVICE TEST — PASS on 2026-08-25, carried by the
+  source-migration APK `588bbec1...5ff3a90b` rather than
+  `785ccd94...56058c6`, which was retired untested. Both OpenCode presets
+  passed Fetch Models and a real request/response.
+- [ ] Confirm a `claude-*` model on OpenCode. The device report does not say
+  which model families were exercised, and the Anthropic Messages route sends
+  both `X-API-Key` and a bearer header on an unverified assumption. A 401 there
+  while `gpt-*` and `kimi-*` succeed points at the header pair, not the
+  routing.
+
+## Self-contained source migration (2026-08-25)
+
+- [x] Vendor the pinned Core source into the repository at `core/src/`
+  (1,372 files, 16 MB), with no submodule and no second clone required.
+- [x] Audit the vendored tree against the real patched source rather than from
+  memory: proved it equals upstream `v0.3.1` + `core/pocketclaw-core-v0.3.1.patch`
+  + `pkg/androiddns/`, byte-for-byte.
+- [x] Confirm every required Core modification is present — Android
+  active-network DNS, `PICOCLAW_DNS_SERVER`, PocketClaw wording, provider
+  catalog extensions, model-discovery fixes, OpenCode Zen, OpenCode Go, MQTT
+  `/pocketclaw` default, seeded workspace, provider routing.
+- [x] Secret/junk review of the vendored tree before committing: no keys,
+  tokens, caches, `node_modules`, build outputs, or developer state.
+- [x] Exclude `assets/` (upstream README media) and `pkg/seahorse/.omc/`
+  (upstream developer tool-state that leaks a home path).
+- [x] Add `core/build-android-arm64.sh` as the canonical repo-local Core build.
+- [x] Add `-trimpath` to the Android arm64 build lines and assert zero
+  developer paths in the shipped binaries (was 2,501 and 1,346; now 0).
+- [x] Move the Go build/module caches out of the external checkout to
+  `/home/lordegypt/PocketCLaw/.tooling/go/`. Moved, not deleted.
+- [x] Remove every build/runtime reference to
+  `/home/lordegypt/PocketCLaw/.upstream/picoclaw-core-v0.3.1`; the three
+  remaining mentions are documentation or the negative test itself.
+- [x] Keep the provenance patch. Rewrote `core/regen-upstream-patch.sh`, fixed
+  two defects in it, and verified upstream + patch reproduces `core/src/`.
+- [x] Confirm no runtime source or binary fetching: the app executes only the
+  packaged binaries; no clone, download, or auto-update path exists.
+- [x] Rewrite `core/README.md` as the authoritative Core guide.
+- [x] Preserve the release guard and document the `.cxx` recovery procedure.
+- [x] Prove the external checkout is unnecessary:
+  `core/verify-no-external-source.sh` hid it, the Core built, it was restored.
+- [x] Validation: Go 92 ok / 0 fail, vitest 28 passed, `pnpm lint` clean,
+  `flutter analyze` clean, `flutter test` 27 passed, arm64 release APK built
+  with the release guard passing.
+- [x] PHYSICAL DEVICE TEST of APK
+  `588bbec144fe0c84b8429f4f053a73b44b9b3e8d9f24e31dab04b2165ff3a90b` — PASS on
+  2026-08-25, all 18 checks. Install/startup, Flutter first frame, Core
+  lifecycle, logs free of developer paths and of PicoClaw branding, provider
+  catalog, both OpenCode presets with Fetch Models and real request/response,
+  Gemini/provider, Skill Hub, Telegram, workspace, no black screen, no
+  slowdown. This is now the verified reference artifact.
+- [ ] Merge `feature/provider-catalog` into `develop` with `--no-ff` and tag the
+  closure point. Awaiting explicit instruction; `main` needs separate
+  instruction.
+
+## Deferred out of Milestone C, deliberately
+
+- [ ] API key storage on Android is plaintext in the workspace config, because
+  Core encryption needs `PICOCLAW_KEY_PASSPHRASE` and an SSH key that no
+  Android device has. Android Keystore or an equivalent needs its own
+  controlled milestone: it touches config loading, the secret resolver, and
+  migration of existing files. Recorded in `docs/PROVIDER_ARCHITECTURE.md` §6.
 
 ## Later (not started)
 
 - [ ] Telegram easy-linking design after validating legitimate API capabilities:
   QR code and/or deep link when valid, with manual bot-token entry retained as
-  an advanced/fallback option.
-- [ ] Maintainable AI provider catalog and advanced custom-provider flow:
-  known provider protocol/endpoints/headers/model discovery plus a manual
-  OpenAI-compatible base URL, key, model ID, and safe additional headers.
-- [ ] Keep Fetch Available Models optional: discovery failures must still allow
-  first-class manual model ID configuration.
+  an advanced/fallback option. This is the next milestone and was deliberately
+  kept out of Milestone C.
