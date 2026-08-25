@@ -415,3 +415,41 @@
 - Reason: the per-preset test only covers presets someone remembered to list.
   This one covers the catalog itself, which is the actual contract: anything
   offered in the picker has to work at inference time.
+
+## The upstream adoption timeline is recorded, not remembered
+
+- Date: 2026-08-25
+- Decision: PocketClaw permanently records which upstream release and commit it
+  started from, when it adopted them, and what upstream state was known at each
+  review. `UPSTREAM_BASELINE.md` holds the immutable adoption record
+  (adopted 2026-08-24; Core `v0.3.1` at
+  `2cf030d2fd3b871d7ec17e3be34c24688aac76da`; historical FUI reference
+  `d689c94c1b67f625f70ec4111a9aa3f01be9cbb3`, tag `v0.1.4`).
+  `UPSTREAM_TRACKING.md` holds a moving Checkpoint plus an append-only Upstream
+  Review History. Existing review entries are never edited or deleted.
+- Reason: without a durable checkpoint, every future "what is new in PicoClaw?"
+  restarts from v0.3.1 and re-reviews ranges that were already classified. The
+  checkpoint makes each review begin exactly where the last one ended.
+- Consequence: the review workflow is fixed — read the reviewed-through commit,
+  fetch upstream, compare only what came after it, classify, selectively adapt,
+  then update the checkpoint and append a new review entry.
+
+## Upstream version claims are verified against upstream, or marked NOT VERIFIED
+
+- Date: 2026-08-25
+- Decision: the "latest upstream release known at review time" field is only
+  ever filled from real upstream metadata. If it cannot be checked during a
+  review, it is recorded as `NOT VERIFIED` rather than guessed.
+- Evidence: for Review 1 it was verified live on 2026-08-25 against the GitHub
+  API. Core `releases/latest` and the full tag list both name `v0.3.1`
+  (published 2026-07-03) as the newest version tag, and its commit is the
+  PocketClaw baseline commit; the rolling `nightly` release tag points at that
+  same commit. FUI `main` HEAD equals the baseline commit and equals tag
+  `v0.1.4`. Core `main` has moved to
+  `bbf6893ca7afad27f1d00a0f5a45982a549c6ed6` (2026-08-19).
+- Consequence: PocketClaw is level with the newest upstream release and 19
+  first-parent commits behind Core `main`. That range is bounded and recorded
+  as unreviewed, so the gap is a known quantity rather than an open question.
+  The raw `2cf030d2..main` count of 2583 is not that gap — Core `main` has
+  merged an unrelated root history — so first-parent count is the figure
+  review planning uses.

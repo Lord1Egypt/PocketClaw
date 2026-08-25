@@ -1,5 +1,47 @@
 # PocketClaw Upstream Baseline
 
+## Adoption record
+
+This section is permanent. It records exactly which upstream state PocketClaw
+started from and when that state was adopted, so a future maintainer never has
+to reconstruct it from commit archaeology. Values here are never edited to
+track upstream movement — movement is recorded in `UPSTREAM_TRACKING.md`.
+
+Adopted by PocketClaw:
+2026-08-24
+
+Baseline release:
+v0.3.1
+
+Baseline commit:
+2cf030d2fd3b871d7ec17e3be34c24688aac76da
+
+Baseline commit authored:
+2026-06-30
+
+Baseline release published:
+2026-07-03
+
+Upstream Core repository:
+https://github.com/sipeed/picoclaw
+
+Historical FUI reference commit:
+d689c94c1b67f625f70ec4111a9aa3f01be9cbb3
+
+Historical FUI reference release:
+picoclaw_fui-v0.1.4 (tag `v0.1.4`, published 2026-06-04)
+
+Upstream FUI repository:
+https://github.com/sipeed/picoclaw_fui
+
+PocketClaw adoption commit:
+`950d4a3` — `chore: bootstrap PocketClaw independent Android foundation`
+(2026-08-24)
+
+The FUI is a historical reference only. PocketClaw is an independent Android
+application and is not a maintained fork of `picoclaw_fui`; see
+`DECISIONS.md`, "Independent repository, not a permanent FUI fork".
+
 ## Verified Phase 1 provenance
 
 - PicoClaw FUI baseline commit: `d689c94c1b67f625f70ec4111a9aa3f01be9cbb3`
