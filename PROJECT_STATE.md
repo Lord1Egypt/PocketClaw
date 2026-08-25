@@ -2,11 +2,10 @@
 
 Project: PocketClaw  
 Current Phase: Phase 2 — Independent Product Repository  
-Current Milestone: Self-contained source migration, on top of Phase 2
-Milestone C — Provider Catalog + Easy API-Key Setup. The main milestone PASSED
-physical-device testing on 2026-08-25. The OpenCode completion and the source
-migration are both implemented on top of it and share one pending
-physical-device verification.
+Current Milestone: none in progress. Phase 2 Milestone C — Provider Catalog +
+Easy API-Key Setup — is complete, including the OpenCode provider completion
+and the self-contained source migration. All three PASSED physical-device
+testing on 2026-08-25.
 Git Branch: `feature/provider-catalog`, branched from `develop` @ `14e6991`.
 Last verified milestone: Phase 2 Milestone B (merge `225be3c`, tag
 `phase2-milestone-b`), which remains the fallback reference state.
@@ -22,13 +21,14 @@ source; no external checkout is a build dependency. Proven by
 `core/verify-no-external-source.sh`.  
 Build Status: arm64 release APK built through the canonical Gradle path; the
 release guard verified the arm64 native payload.
-APK Status: the Milestone C APK `b3dd892bdea86e8dfe7d1c2eb87e89f4e2832b1d1dbe39fc1decf20dabce569b`
-PASSED physical-device testing on 2026-08-25 and remains the current verified
-reference artifact, superseding Milestone B's `ba4f067d...70f70a4b8`.
-The source-migration APK `588bbec144fe0c84b8429f4f053a73b44b9b3e8d9f24e31dab04b2165ff3a90b`
-is BUILT and NOT yet physically verified. It supersedes the never-tested
-OpenCode completion APK `785ccd94...56058c6`, whose functionality it contains.
-Current Blocker: physical-device testing of the source-migration APK.
+APK Status: the source-migration APK
+`588bbec144fe0c84b8429f4f053a73b44b9b3e8d9f24e31dab04b2165ff3a90b`
+PASSED physical-device testing on 2026-08-25 and is the current verified
+reference artifact, superseding Milestone C's `b3dd892b...bce569b`. It carries
+the OpenCode completion, so the never-tested `785ccd94...56058c6` is retired.
+Current Blocker: none. `feature/provider-catalog` is verified and not yet
+merged; merging it into `develop` and tagging the closure point awaits
+explicit instruction.
 Next Exact Action: install the OpenCode completion APK and configure OpenCode
 Zen and OpenCode Go with a real OpenCode API key. Run at least one inference on
 each of the three protocol families so the routing is proven end to end:
@@ -226,7 +226,7 @@ canonical release path. Do not release a universal `flutter build apk --release`
 - This is the current verified reference artifact. Compare any future
   regression against it before forming new hypotheses.
 
-## Milestone C Provider Catalog APK — PHYSICALLY VERIFIED
+## Milestone C Provider Catalog APK — PHYSICALLY VERIFIED (superseded)
 
 - Status: PASS on a physical Android device, 2026-08-25. This is the verified
   reference artifact, superseding Milestone B's `ba4f067d...70f70a4b8`.
@@ -265,10 +265,11 @@ canonical release path. Do not release a universal `flutter build apk --release`
   startup, DNS, Core lifecycle, Telegram, Skill Hub, workspace, MQTT, and
   branding are all unregressed.
 
-## Milestone C OpenCode Completion APK — BUILT, PHYSICAL TEST PENDING
+## Milestone C OpenCode Completion APK — RETIRED, NEVER TESTED
 
-- Status: NOT verified. The verified reference artifact remains the Milestone C
-  APK `b3dd892b...bce569b` until this one passes on a device.
+- Status: RETIRED without ever being tested. Its functionality is contained in
+  the physically verified source-migration APK `588bbec1...5ff3a90b`, which
+  supersedes it. Kept here only as a record of what was built.
 - Path: `build/app/outputs/apk/release/app-release.apk` (ignored; not committed)
 - Built: 2026-08-25 with the canonical command
   `./gradlew :app:assembleRelease -Ptarget-platform=android-arm64`,
@@ -317,11 +318,12 @@ authentication form — see the OpenCode routing decision in `DECISIONS.md`.
 If a `claude-*` model returns 401 while `gpt-*` and `kimi-*` succeed, that is
 the bearer-versus-`X-API-Key` question, not a routing failure.
 
-## Self-Contained Source Migration APK — BUILT, PHYSICAL TEST PENDING
+## Self-Contained Source Migration APK — PHYSICALLY VERIFIED REFERENCE ARTIFACT
 
-- Status: NOT verified. The verified reference artifact remains the Milestone C
-  APK `b3dd892b...bce569b` until this one passes on a device. This APK
-  supersedes the never-tested OpenCode completion APK `785ccd94...56058c6`.
+- Status: PHYSICALLY VERIFIED on 2026-08-25. This is the current verified
+  reference artifact, superseding Milestone C's `b3dd892b...bce569b`. Bisect or
+  diff any future regression against it before forming new hypotheses. It
+  carries the OpenCode completion, so `785ccd94...56058c6` is retired untested.
 - Path: `build/app/outputs/apk/release/app-release.apk` (ignored; not committed)
 - Built: 2026-08-25 with the canonical command
   `./gradlew :app:assembleRelease -Ptarget-platform=android-arm64`,
@@ -354,24 +356,48 @@ the bearer-versus-`X-API-Key` question, not a routing failure.
   passed, `pnpm lint` clean, `flutter analyze` no issues, `flutter test` 27
   passed.
 
-### What to test on the device
+### Physical-device results — 2026-08-25, all PASS
 
-No feature changed. Every line of application behavior in this APK also existed
-in the OpenCode completion build; what changed is where the source was read
-from and that the binaries are now `-trimpath`-built. That makes this a
-regression sweep, not a feature test:
+| Check | Result |
+| --- | --- |
+| Install / startup | PASS |
+| Flutter first frame | PASS |
+| Gateway/Core lifecycle | PASS |
+| User-facing logs free of developer absolute paths | PASS |
+| User-facing logs free of PicoClaw product branding | PASS |
+| Provider catalog | PASS |
+| OpenCode Zen preset | PASS |
+| OpenCode Zen Fetch Models | PASS |
+| OpenCode Zen real request/response | PASS |
+| OpenCode Go preset | PASS |
+| OpenCode Go Fetch Models | PASS |
+| OpenCode Go real request/response | PASS |
+| Gemini / provider regression | PASS |
+| Skill Hub regression | PASS |
+| Telegram regression | PASS |
+| Workspace regression | PASS |
+| No black screen | PASS |
+| No abnormal slowdown | PASS |
 
-1. App launches; no black screen; Core service starts.
-2. DNS: model discovery and Skill Hub/ClawHub search both work, which is the
-   end-to-end proof that the Android active-network DNS integration survived
-   the rebuild.
-3. One real inference against a configured provider.
-4. Telegram send/receive, MQTT prefix, workspace seeding, and branding
-   unregressed.
-5. The Logs screen shows no `/home/...` build-machine paths.
-6. Configuration persists across a Core restart.
+Three results carry more weight than the rest.
 
-Because the OpenCode presets have never been physically tested, their check
-from the previous section still applies: OpenCode Zen and OpenCode Go each
-appear in Add Provider, ask only for an API key, and Fetch Models returns a
-live list.
+The logs check is the first device confirmation of the `-trimpath` change. The
+build-time assertion proved the strings were absent from the binaries; this
+proves nothing surfaces them on the screen a user actually reads.
+
+Skill Hub search and Fetch Models both working is the end-to-end proof that the
+Android active-network DNS integration survived being rebuilt from a relocated
+source tree. Those paths fail closed without working DNS, so a PASS on both
+means the integration is intact — not merely present as a string in the binary.
+
+The four OpenCode results are the first live confirmation of per-model protocol
+routing. Zen and Go each returned a real response, so the routing table in
+`pkg/providers/opencode_routing.go` is exercised rather than assumed.
+
+One question stays open, and this PASS does not close it. `DECISIONS.md`
+records that OpenCode's Anthropic Messages surface is sent both `X-API-Key` and
+a bearer header because the correct form could not be established offline. That
+is only settled by a `claude-*` model returning a real response, and the device
+report does not say which model families were exercised. Treat the Messages
+route as unconfirmed until a `claude-*` inference is observed; if one 401s while
+`gpt-*` and `kimi-*` succeed, the header pair is the cause, not the routing.

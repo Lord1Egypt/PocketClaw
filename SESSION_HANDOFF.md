@@ -2,26 +2,24 @@
 
 ## Current Objective
 
-Physical-device testing of the source-migration APK
-`588bbec144fe0c84b8429f4f053a73b44b9b3e8d9f24e31dab04b2165ff3a90b`.
+None in progress. The self-contained source migration and the OpenCode provider
+completion both PASSED physical-device testing on 2026-08-25.
 
-Milestone C itself PASSED on 2026-08-25 (APK `b3dd892b...bce569b`, now the
-verified reference artifact). Two changes landed on the same branch afterwards
-and share this one device test: the OpenCode Zen and OpenCode Go presets, and
-the self-contained source migration. The migration APK contains the OpenCode
-work, so the never-tested `785ccd94...56058c6` is superseded and can be
-discarded.
+The verified reference artifact is APK
+`588bbec144fe0c84b8429f4f053a73b44b9b3e8d9f24e31dab04b2165ff3a90b`, superseding
+Milestone C's `b3dd892b...bce569b`. Bisect or diff any future regression against
+it before forming new hypotheses.
 
-The migration changed no feature. It moved the Core source into this repository
-at `core/src/`, made that the canonical build source, and added `-trimpath`. So
-the sweep is a regression test plus the untested OpenCode presets.
+`feature/provider-catalog` is verified and **not merged**. The documented
+closure step — merge into `develop` with `--no-ff` and tag the closure point —
+awaits explicit instruction. Do not touch `main`. Do not start Telegram
+linking or any other feature until told to.
 
-Configure both OpenCode providers with a real OpenCode API key and run one real
-inference per protocol family, per provider: a Responses model (`gpt-*`,
-`*codex*`), an Anthropic Messages model (`claude-*`), and a chat-completions
-model (`kimi-*`, `deepseek-*`, `glm-*`). The protocol is chosen per model, so
-only a live request proves a route. Do not merge into `develop` until it
-passes, and do not touch `main`.
+One item is verified-but-incomplete: the OpenCode Anthropic Messages route
+(`claude-*` models) sends both `X-API-Key` and a bearer header, and the device
+report does not say whether a `claude-*` model was among those exercised. If one
+returns 401 later while `gpt-*` and `kimi-*` succeed, the header pair is the
+cause, not the routing. See `DECISIONS.md`.
 
 ## Milestone C state
 
@@ -119,11 +117,12 @@ workspace seeding.
 - Regenerate `core/pocketclaw-core-v0.3.1.patch` with
   `core/regen-upstream-patch.sh` after any change under `core/src/`, or the
   divergence record goes stale.
-- Core binaries currently committed (source migration, not yet
-  device-verified): `libpicoclaw.so` 37,224,801 `cb9b2cde...fb895818`;
-  `libpicoclaw-web.so` 24,641,889 `b6b356f7...656db9ba5`.
-  The last device-verified pair is Milestone C's `cbe568af...5556468a` and
-  `86e53457...0cb0a4cd`. All are stripped with `PICOCLAW_DNS_SERVER` present.
+- Core binaries currently committed and DEVICE-VERIFIED (2026-08-25):
+  `libpicoclaw.so` 37,224,801 `cb9b2cde...fb895818`;
+  `libpicoclaw-web.so` 24,641,889 `b6b356f7...656db9ba5`. Both stripped, PIE
+  `ARM aarch64`, `-trimpath`, with `PICOCLAW_DNS_SERVER` present and zero
+  developer-machine paths. They supersede Milestone C's `cbe568af...5556468a`
+  and `86e53457...0cb0a4cd`.
   Core hashes are not reproducible across rebuilds — `BuildTime` is stamped in
   via `-ldflags` — so compare sizes and the zero-path count, not hashes.
 
@@ -192,16 +191,16 @@ capture final device logs, so that symptom must be confirmed during retest.
 
 ## Next Exact Steps
 
-1. Physically test the source-migration APK
-   `588bbec1...5ff3a90b`. The checklist is at the end of `PROJECT_STATE.md`.
-   No feature changed, so it is a regression sweep — plus the OpenCode presets,
-   which have still never run on a device.
-2. On PASS: merge `feature/provider-catalog` into `develop` with `--no-ff`,
-   tag the closure point, and record the result in the state documents.
-3. On FAIL: diff against the verified Milestone C artifact `b3dd892b...bce569b`
-   before forming a new hypothesis. Nothing in the Flutter layer changed; the
-   change surface is the two Core binaries and where their source was read
-   from, so a Flutter-side symptom would point at the build, not at this work.
-   If Core misbehaves, the first question is `-trimpath`, since that is the
-   only compiler-flag change.
-4. Do not merge to `main` without instruction. Do not start Telegram linking.
+1. Await instruction on closure. On the word: merge `feature/provider-catalog`
+   into `develop` with `--no-ff`, tag the closure point, and record the merge
+   commit and tag in the state documents. `main` is not updated without
+   separate instruction.
+2. Do not start Telegram linking or any other feature until closure is done and
+   instructed.
+3. If a regression appears, diff against `588bbec1...5ff3a90b` first. Nothing
+   in the Flutter layer changed in the migration; the change surface was the two
+   Core binaries and where their source was read from.
+4. Before any future Core change: edit `core/src/`, rebuild with
+   `core/build-android-arm64.sh`, and regenerate
+   `core/pocketclaw-core-v0.3.1.patch` with `core/regen-upstream-patch.sh`.
+   Never point a build at a checkout outside this repository.

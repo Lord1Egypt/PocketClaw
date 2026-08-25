@@ -182,6 +182,12 @@ adaptation. Automated merges from upstream are not a maintenance model.
 - ClawHub Skill Hub search is available after the Android active-network DNS
   fix. The prior registry-unavailable symptom is resolved by DNS, not pending
   an independent FUI/registry change.
+- The Android active-network DNS integration survives vendoring. It was
+  re-verified on a physical device on 2026-08-25, after the Core source moved
+  into this repository at `core/src/` and was rebuilt with `-trimpath`: Skill
+  Hub search and Fetch Models both passed, and both fail closed without working
+  DNS. Adapting the source location did not regress the one upstream-derived
+  behavior PocketClaw most depends on.
 
 ## Security Updates
 

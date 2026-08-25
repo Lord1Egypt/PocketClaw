@@ -1,5 +1,33 @@
 # Development Changelog
 
+## 2026-08-25 — Source migration and OpenCode completion PASS on device
+
+- Physical Android device test of
+  `588bbec144fe0c84b8429f4f053a73b44b9b3e8d9f24e31dab04b2165ff3a90b` returned
+  PASS across all 18 checks. That APK is now the verified reference artifact,
+  superseding Milestone C's `b3dd892b...bce569b`. The never-tested OpenCode
+  completion APK `785ccd94...56058c6` is retired; its functionality ships in
+  the verified artifact.
+- The logs check passed on device: no developer absolute paths on the
+  user-facing Logs screen. That is the on-device half of the `-trimpath` fix —
+  the build-time assertion proved the strings were gone from the binaries, and
+  this proves nothing surfaces them to a user.
+- Skill Hub search and Fetch Models both passed, which is the end-to-end proof
+  that the Android active-network DNS integration survived being rebuilt from
+  a relocated source tree. Both fail closed without working DNS, so this is a
+  behavioral result, not a string check.
+- Both OpenCode providers passed Fetch Models and a real request/response, so
+  per-model protocol routing is exercised live for the first time.
+- Still open, and deliberately not closed by association: the OpenCode
+  Anthropic Messages route sends both `X-API-Key` and a bearer header on an
+  unverified assumption, and the device report does not name which model
+  families were exercised. A `claude-*` inference is what settles it.
+- Device-proven Core binaries: `libpicoclaw.so` 37,224,801
+  `cb9b2cde...fb895818`; `libpicoclaw-web.so` 24,641,889 `b6b356f7...656db9ba5`.
+- `feature/provider-catalog` is verified and not merged. Merging into `develop`
+  and tagging the closure point awaits explicit instruction, and `main` needs
+  its own. No new feature was started.
+
 ## 2026-08-25 — Self-contained source migration
 
 - PocketClaw now builds entirely from its own repository. The Core source is

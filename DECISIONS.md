@@ -556,3 +556,43 @@
   a source checkout.
 - Consequence: the caches were moved, not deleted, and a fresh machine can
   instead let Go use its defaults and download from `core/src/go.sum`.
+
+## The source migration closes on physical evidence, and `-trimpath` is now proven end to end
+
+- Date: 2026-08-25
+- Decision: the self-contained source migration and the OpenCode provider
+  completion are marked physically verified on APK
+  `588bbec144fe0c84b8429f4f053a73b44b9b3e8d9f24e31dab04b2165ff3a90b`, which
+  becomes the reference artifact, superseding Milestone C's
+  `b3dd892b...bce569b`.
+- Evidence: 18 device checks, all PASS, on a real Android device. The three
+  that carry the argument: the user-facing Logs screen showed no developer
+  absolute paths, which is the first on-device confirmation that `-trimpath`
+  actually removed what the build-time assertion said it removed; Skill Hub
+  search and Fetch Models both worked, which is end-to-end proof that the
+  Android active-network DNS integration survived being rebuilt from a
+  relocated source tree, since both fail closed without working DNS; and both
+  OpenCode providers returned real responses, exercising per-model protocol
+  routing live rather than by assumption.
+- Reason this needed a device at all: the migration changed no feature. It
+  moved where source is read from and added a compiler flag. A green build and
+  a green test suite cannot distinguish "the runtime still works" from "the
+  runtime still links", and the previous black-screen incident is the standing
+  proof of that gap.
+- Consequence: the binaries `cb9b2cde...fb895818` and `b6b356f7...656db9ba5`
+  are now the device-proven pair. `785ccd94...56058c6` is retired without ever
+  being tested; its functionality is contained in the verified artifact.
+
+## The OpenCode Messages header pair is still unconfirmed
+
+- Date: 2026-08-25
+- Decision: despite the OpenCode PASS, the Anthropic Messages route is recorded
+  as unconfirmed, not settled.
+- Reason: the route sends both `X-API-Key` and `Authorization: Bearer` because
+  the correct form could not be established offline, and only a `claude-*`
+  model returning a real response settles it. The device report records
+  "OpenCode Zen real request/response: PASS" without naming the model families
+  exercised, so it does not distinguish a `claude-*` success from a `gpt-*` one.
+- Consequence: a later 401 on a `claude-*` OpenCode model, while `gpt-*` and
+  `kimi-*` succeed, points at the header pair rather than the routing table.
+  Recorded as an open item in `TASKS.md` rather than closed by association.

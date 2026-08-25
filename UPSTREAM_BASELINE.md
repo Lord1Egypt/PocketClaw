@@ -84,6 +84,14 @@ It is a regression reference and is not a PocketClaw build artifact.
   DNS fix: `Crypto` returned 20 results with metadata, URLs, and install
   actions. The earlier registry-unavailable symptom is DNS-resolved.
 
+All of the above were re-verified on a physical device on 2026-08-25, after the
+Core source was vendored into this repository and rebuilt with `-trimpath`, in
+APK `588bbec144fe0c84b8429f4f053a73b44b9b3e8d9f24e31dab04b2165ff3a90b`. Moving
+the source did not regress any preserved behavior. One requirement was added by
+that work and is now permanent: production binaries must contain no
+developer-machine absolute paths, and the user-facing Logs screen must never
+expose them.
+
 ## Core binary pin
 
 The initial Android foundation bundles the reviewed arm64 replacement binaries
@@ -94,11 +102,13 @@ produced from the Core source commit above with the Android DNS integration:
 | `libpicoclaw.so` | `3b849072a7c2858b0d2c0db5cbcfa42b542353e834f4c473399eda571ab16f3d` |
 | `libpicoclaw-web.so` | `252b38c64cbc4dc52277c206ca1b069cc7c3bb97b8a9c276e23f8edc3aaf95e3` |
 
-## Current PocketClaw Core binaries (2026-08-25, self-contained source migration)
+## Current PocketClaw Core binaries (2026-08-25, self-contained source migration) — PHYSICALLY VERIFIED
 
 First binaries built from the repository-local `core/src/` rather than an
 external checkout, and the first built with `-trimpath`. Both are
-`android/arm64`, PIE, and stripped (`-s -w`).
+`android/arm64`, PIE, and stripped (`-s -w`). **Device-verified on 2026-08-25**
+in APK `588bbec144fe0c84b8429f4f053a73b44b9b3e8d9f24e31dab04b2165ff3a90b`;
+these supersede every earlier pair as the device-proven reference.
 
 | File | Size | SHA-256 |
 | --- | --- | --- |
@@ -108,8 +118,13 @@ external checkout, and the first built with `-trimpath`. Both are
 The sizes dropped by roughly 197 KB and 131 KB against the previous pair
 because `-trimpath` removes the embedded absolute source paths. Those paths
 were real: the previous `libpicoclaw.so` carried 2,501 `/home/lordegypt/...`
-strings and `libpicoclaw-web.so` carried 1,346. Both now carry zero, and
-`core/build-android-arm64.sh` fails the build if that regresses.
+strings and `libpicoclaw-web.so` carried 1,346. Both now carry zero,
+`core/build-android-arm64.sh` fails the build if that regresses, and the device
+test confirmed the user-facing Logs screen shows no developer paths.
+
+The Android active-network DNS integration is verified present in the gateway
+and, more importantly, verified working on the device: Skill Hub search and
+Fetch Models both passed, and both fail closed without working DNS.
 
 These hashes are not reproducible across rebuilds: the Makefile stamps
 `BuildTime` into the binary through `-ldflags`, so an identical source tree
@@ -131,9 +146,10 @@ integration is unchanged and verified present in the gateway. Both are
 | `libpicoclaw.so` | 37,421,409 | `e48e8af073d6e7dfdb46ba8268785780d1f900888b82dba41747ef9212e78938` |
 | `libpicoclaw-web.so` | 24,772,961 | `5faaf82ccbcd2fbad27d7ffc336f240fd5c08a48a1abbb2bd4eff7c383fe2abf` |
 
-Physically verified Milestone C pair, superseded by the above but still the
-last device-proven binaries until the OpenCode completion is tested:
-`libpicoclaw.so` `cbe568af...5556468a`, `libpicoclaw-web.so` `86e53457...0cb0a4cd`.
+This pair was never device-tested; it was retired in favour of the
+`-trimpath` build above. The previously device-proven Milestone C pair was
+`libpicoclaw.so` `cbe568af...5556468a`, `libpicoclaw-web.so`
+`86e53457...0cb0a4cd`, now also superseded.
 
 Milestone B pair: `libpicoclaw.so` `eb895f08...40bd9c88`,
 `libpicoclaw-web.so` `6d282df0...1195a5a3`.

@@ -167,10 +167,15 @@ supplied by the user.
   tests. Plus a catalog-wide invariant that every HTTP chat provider in the
   catalog constructs, so a provider can never be offered while being unusable
   at inference time.
-- [ ] PHYSICAL DEVICE TEST of APK
-  `785ccd94cfa351ee2996ac340f9a55e828a0c8f736bec67a3edac906a56058c6`.
-  Must exercise one real inference per protocol family, per provider.
-  Not merged to `develop` until this passes.
+- [x] PHYSICAL DEVICE TEST — PASS on 2026-08-25, carried by the
+  source-migration APK `588bbec1...5ff3a90b` rather than
+  `785ccd94...56058c6`, which was retired untested. Both OpenCode presets
+  passed Fetch Models and a real request/response.
+- [ ] Confirm a `claude-*` model on OpenCode. The device report does not say
+  which model families were exercised, and the Anthropic Messages route sends
+  both `X-API-Key` and a bearer header on an unverified assumption. A 401 there
+  while `gpt-*` and `kimi-*` succeed points at the header pair, not the
+  routing.
 
 ## Self-contained source migration (2026-08-25)
 
@@ -206,11 +211,16 @@ supplied by the user.
 - [x] Validation: Go 92 ok / 0 fail, vitest 28 passed, `pnpm lint` clean,
   `flutter analyze` clean, `flutter test` 27 passed, arm64 release APK built
   with the release guard passing.
-- [ ] PHYSICAL DEVICE TEST of APK
-  `588bbec144fe0c84b8429f4f053a73b44b9b3e8d9f24e31dab04b2165ff3a90b`.
-  This is a rebuild of the same functionality from a relocated source tree, so
-  it is a regression test: launch, Core start, DNS/model discovery, Skill Hub
-  search, and one real inference. Not merged to `develop` until it passes.
+- [x] PHYSICAL DEVICE TEST of APK
+  `588bbec144fe0c84b8429f4f053a73b44b9b3e8d9f24e31dab04b2165ff3a90b` — PASS on
+  2026-08-25, all 18 checks. Install/startup, Flutter first frame, Core
+  lifecycle, logs free of developer paths and of PicoClaw branding, provider
+  catalog, both OpenCode presets with Fetch Models and real request/response,
+  Gemini/provider, Skill Hub, Telegram, workspace, no black screen, no
+  slowdown. This is now the verified reference artifact.
+- [ ] Merge `feature/provider-catalog` into `develop` with `--no-ff` and tag the
+  closure point. Awaiting explicit instruction; `main` needs separate
+  instruction.
 
 ## Deferred out of Milestone C, deliberately
 
