@@ -1,5 +1,45 @@
 # Development Changelog
 
+## 2026-08-26 — Milestone D UI integration fix (device-found)
+
+- **Root cause of the device failure**: PocketClaw renders Telegram on two
+  surfaces. Milestone D added managed-bot onboarding to the native Settings tab
+  (`lib/src/ui/config_page.dart`) while Channels → Telegram — the path a user
+  actually takes — is the Core web console's
+  `channel-config-page.tsx` → `telegram-form.tsx`, which knew nothing about it.
+  The flow was complete, tested, and unreachable.
+- Connected the console's Telegram route to the existing Dart flow rather than
+  rewriting pairing in TypeScript. A new `PocketClawHost` WebView bridge lets
+  the console render the entry point and ask the Flutter host to run the flow;
+  `TelegramOnboardingLauncher` is now the single way in, called by both
+  surfaces.
+- Channels → Telegram now shows managed onboarding first when there is no token
+  and a host that can pair, a connected summary when a token is set, and the
+  full manual form when there is no host or no compiled-in endpoint. The legacy
+  Bot Token / API Base URL / proxy / allow_from / typing / streaming /
+  placeholder form is unchanged and still reachable in every state.
+- Bridge security: no secret in the injected payload, the bot handle is
+  JSON-encoded so it cannot break out of its string, `openExternal` takes only
+  absolute http(s) URLs, and both injection and message handling are scoped to
+  the console's own origin so a followed outbound link cannot drive the app.
+- **The tests are the actual deliverable here.** The new web tests render
+  `ChannelConfigPage channelName="telegram"` — the same component the APK
+  renders — and were verified to fail against the old wiring: reverting the one
+  line back to `TelegramForm` failed all 8, restoring it passed all 8. Adding
+  `jsdom` and `@testing-library/react` was unavoidable, since the entire failure
+  was that nothing rendered the real route.
+- Verification: 36/36 frontend, 88/88 Flutter, `flutter analyze` clean,
+  `tsc -b` clean, `pnpm lint` clean.
+- **Core was rebuilt** because `core/src/web/frontend` changed. New binaries
+  `libpicoclaw.so` `33f8b4ef...3470e98a` and `libpicoclaw-web.so`
+  `5400cb02...2dbcb3bd` replace the device-verified pair, `-trimpath` verified
+  clean, and `core/pocketclaw-core-v0.3.1.patch` was regenerated (58 files).
+  The regression sweep on the device is therefore mandatory, not optional.
+- Replacement APK
+  `b6fea5d8ec5c3c66ba8a1320b0a217afcca322e75b5b26cc4082bbbb08a57f94`,
+  34,220,929 bytes, guard PASS, secret scan clean over 425,247 strings.
+- Not merged; `main` untouched.
+
 ## 2026-08-26 — Milestone D live-endpoint APK built
 
 - Built the first PocketClaw APK that carries a real onboarding endpoint:

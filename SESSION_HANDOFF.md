@@ -2,55 +2,54 @@
 
 ## Current Objective
 
-**Run the one physical-device end-to-end Telegram test.** Everything else for
-Milestone D is done.
+**Re-run the physical-device Telegram test against the UI integration fix.**
 
-The onboarding service is LIVE at
-<https://pocketclaw-telegram-setup-bot-83ai.vercel.app>, managed by
-`@PocketClawSetupBot`. Every server-side check passes: manager authentication,
-`can_manage_bots == true`, Bot Management Mode, webhook registration,
-Redis/Upstash storage, and a live test pairing created and read back.
+The previous APK failed on the device for a reason no build-time check could
+have caught: the managed-bot flow was wired to the native Settings tab, while
+Channels → Telegram — the path users take — is rendered by the Core web console
+and still opened the raw Bot Token form. The flow worked; nobody could reach it.
 
-The APK is built against it:
+Install:
 
     build/app/outputs/flutter-apk/app-release.apk
-    SHA-256 9a0f74070f0129b2180b4b3237fbfacaf001ee6c8808a26e128d7ae06bb1be7f
-    34,211,833 bytes · com.lord1egypt.pocketclaw 0.1.3 (3)
+    SHA-256 b6fea5d8ec5c3c66ba8a1320b0a217afcca322e75b5b26cc4082bbbb08a57f94
+    34,220,929 bytes · com.lord1egypt.pocketclaw 0.1.3 (3)
 
-### The one remaining step
+Then check, in order: Channels → Telegram shows **Connect PocketClaw to
+Telegram** rather than Bot Token; Open Telegram launches the native pairing
+screen with QR and live status; finishing pairing returns to a **Connected**
+summary on its own; Open Chat leaves the app; Advanced / Manual setup still
+reveals and saves the full legacy form; the native Settings → Telegram entry
+reaches the same flow. Then the standing regression sweep — **the Core binaries
+are new in this build**, so it is not optional this time.
 
-Install that APK on the Android device and run the Milestone D checklist in
-`PROJECT_STATE.md`: Connect Telegram, the Telegram creation screen prefilled,
-Bot created then Connected, the QR path from a second device, backgrounding
-mid-flow, the bot's PocketClaw-branded `/start` reply, `allow_from` scoped to
-the creating user, pairing expiry with retry, the manual fallback, and the
-standing regression sweep.
+Do not merge into `develop` until that passes. Do not touch `main`. Do not
+start another milestone.
 
-Do not merge `feature/telegram-managed-onboarding` into `develop` until that
-passes. Do not touch `main`. Do not start another milestone.
+### The lesson worth keeping
 
-### How this APK was built
+Milestone D's tests all passed while the feature was unreachable, because every
+one of them constructed the onboarding widget directly. A test that does not
+enter through the same route the app does can only prove the code runs, never
+that a user meets it. The new web tests render `ChannelConfigPage
+channelName="telegram"` — the real component — and were confirmed to fail
+against the old wiring before being accepted.
 
-The canonical release command carries the endpoint through Gradle's supported
-`dart-defines` property — base64-encoded `KEY=VALUE`, which the Flutter Gradle
-plugin forwards to `flutter assemble` as `--DartDefines`. There is no need to
-leave the canonical path for `flutter build apk`:
+### Architecture worth knowing before touching Telegram again
 
-    export JAVA_HOME=/home/lordegypt/PocketCLaw/.tooling/jdk-17
-    export GRADLE_USER_HOME=/home/lordegypt/PocketClaw-App/.tooling/gradle-stage-a-clean
+Telegram has two entry points and they must stay converged on one flow:
 
-    cd android && ./gradlew :app:assembleRelease \
-      -Ptarget-platform=android-arm64 \
-      -Pdart-defines=$(printf '%s' \
-        'POCKETCLAW_ONBOARDING_BASE_URL=https://pocketclaw-telegram-setup-bot-83ai.vercel.app' \
-        | base64 -w0)
+- Native Settings → Telegram (`lib/src/ui/config_page.dart`)
+- Channels → Telegram in the embedded console
+  (`core/src/web/frontend/.../channel-config-page.tsx` → `telegram-panel.tsx`)
 
-Verified before shipping: `flutter analyze` clean, 77/77 Flutter tests, the
-arm64 native-payload guard PASS, the ~34 MB arm64 size band, the endpoint
-present exactly once in `libapp.so`, and a secret scan over all 425,035
-printable strings in the APK returning zero Telegram tokens, zero webhook or
-pairing secrets, and zero Redis credentials. Full evidence is in
-`PROJECT_STATE.md`.
+Both call `TelegramOnboardingLauncher.open`. The console never runs pairing
+itself; it asks the Flutter host over the `PocketClawHost` bridge
+(`lib/src/ui/webview/pocketclaw_host_bridge.dart`). Do not reimplement pairing
+in TypeScript — that is how the two surfaces drifted apart in the first place.
+
+The bridge is scoped to the console's origin and only accepts `http`/`https`
+for `openExternal`. Both properties are tested; do not loosen either.
 
 ## Milestone C state
 

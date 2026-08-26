@@ -26,7 +26,7 @@ import { FeishuForm } from "@/components/channels/channel-forms/feishu-form"
 import { GenericForm } from "@/components/channels/channel-forms/generic-form"
 import { MqttForm } from "@/components/channels/channel-forms/mqtt-form"
 import { SlackForm } from "@/components/channels/channel-forms/slack-form"
-import { TelegramForm } from "@/components/channels/channel-forms/telegram-form"
+import { TelegramPanel } from "@/components/channels/channel-forms/telegram-panel"
 import { WecomForm } from "@/components/channels/channel-forms/wecom-form"
 import { WeixinForm } from "@/components/channels/channel-forms/weixin-form"
 import { ConfigChangeNotice } from "@/components/config-change-notice"
@@ -34,6 +34,7 @@ import { PageHeader } from "@/components/page-header"
 import { Button } from "@/components/ui/button"
 import { Switch } from "@/components/ui/switch"
 import { useGateway } from "@/hooks/use-gateway"
+import { TELEGRAM_UPDATED_EVENT } from "@/lib/pocketclaw-host"
 import { showSaveSuccessOrRestartToast } from "@/lib/restart-required"
 import { refreshGatewayState } from "@/store/gateway"
 
@@ -358,6 +359,16 @@ export function ChannelConfigPage({ channelName }: ChannelConfigPageProps) {
     loadData()
   }, [loadData, resetPageState])
 
+  // The native managed-bot flow writes Core's config from outside this page,
+  // so without this the user would come back from a successful pairing to a
+  // page still insisting Telegram is not configured.
+  useEffect(() => {
+    if (channelName !== "telegram") return
+    const reload = () => void loadData(true)
+    window.addEventListener(TELEGRAM_UPDATED_EVENT, reload)
+    return () => window.removeEventListener(TELEGRAM_UPDATED_EVENT, reload)
+  }, [channelName, loadData])
+
   const previousGatewayStatusRef = useRef(gatewayState)
   useEffect(() => {
     const previousStatus = previousGatewayStatusRef.current
@@ -554,10 +565,11 @@ export function ChannelConfigPage({ channelName }: ChannelConfigPageProps) {
     switch (channel.name) {
       case "telegram":
         return (
-          <TelegramForm
+          <TelegramPanel
             config={editConfig}
             onChange={handleChange}
             configuredSecrets={configuredSecrets}
+            configured={configured}
             fieldErrors={fieldErrors}
             registerArrayFieldFlusher={registerArrayFieldFlusher}
             arrayFieldResetVersion={arrayFieldResetVersion}

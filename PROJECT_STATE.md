@@ -30,17 +30,16 @@ release guard verified the arm64 native payload.
 APK Status: the source-migration APK
 `588bbec144fe0c84b8429f4f053a73b44b9b3e8d9f24e31dab04b2165ff3a90b`
 PASSED physical-device testing on 2026-08-25 and remains the verified reference
-artifact. The live-endpoint Milestone D APK
-`9a0f74070f0129b2180b4b3237fbfacaf001ee6c8808a26e128d7ae06bb1be7f`
-is BUILT against the live onboarding service and NOT yet physically verified.
-It supersedes the endpointless candidate `7c34ab12...c4911178e`.
-Current Blocker: the Android device test, and only that. The service is live
-and every server-side check passes — manager authentication, `can_manage_bots`,
-webhook registration, storage, and a live test pairing — and the APK is now
-built against it.
+artifact. The UI-integration APK
+`b6fea5d8ec5c3c66ba8a1320b0a217afcca322e75b5b26cc4082bbbb08a57f94`
+is BUILT and NOT yet physically verified. It supersedes
+`9a0f7407...6bb1be7f`, which reached the device on 2026-08-26 and FAILED: the
+service was live and the endpoint was compiled in, but Channels → Telegram
+still opened the raw Bot Token form.
+Current Blocker: the Android device test of the UI integration fix.
 Next Exact Action: install
-`9a0f74070f0129b2180b4b3237fbfacaf001ee6c8808a26e128d7ae06bb1be7f` on the
-Android device and run the Milestone D device checklist at the end of this file.
+`b6fea5d8ec5c3c66ba8a1320b0a217afcca322e75b5b26cc4082bbbb08a57f94`, open
+Channels → Telegram, and confirm the managed onboarding is the primary surface.
 Do not merge into `develop` until it passes; do not touch `main`.
 
 ## Completed
@@ -408,13 +407,152 @@ report does not say which model families were exercised. Treat the Messages
 route as unconfirmed until a `claude-*` inference is observed; if one 401s while
 `gpt-*` and `kimi-*` succeed, the header pair is the cause, not the routing.
 
-## Milestone D Live-Endpoint APK — BUILT, AWAITING PHYSICAL DEVICE
+## Milestone D UI Integration Fix — BUILT, AWAITING PHYSICAL DEVICE
+
+### Root cause
+
+PocketClaw shows Telegram on two different surfaces, and Milestone D wired the
+managed-bot flow to the wrong one.
+
+The app's four tabs are Dashboard, the embedded Core console in a WebView,
+Logs, and native Settings (`lib/main.dart:288-299`). Milestone D added the
+onboarding entry to the **native Settings** page
+(`lib/src/ui/config_page.dart`, `_buildTelegramEntry`). The **Channels** list —
+where a user naturally goes to add a channel — lives inside the Core web
+console, is served from `core/src/web/frontend`, and knew nothing about
+onboarding.
+
+So the flow existed, was fully tested, and was unreachable from the path users
+take. Every Milestone D test passed because every one of them entered through
+the Flutter widget directly; none entered through Channels.
+
+### Actual Telegram entry component
+
+    WebView tab (lib/main.dart:290)
+      → Core web console
+        → routes/channels/$name.tsx        (TanStack route /channels/$name)
+          → components/channels/channel-config-page.tsx
+            → channel-forms/telegram-form.tsx      ← what the device showed
+
+`telegram-form.tsx` renders exactly the fields reported from the device: Bot
+Token, API Base URL, HTTP Proxy, allow_from, Typing Indicator, Streaming
+Output, Placeholder Message. "Enable channel" and "Save" come from the
+`channel-config-page.tsx` wrapper around it.
+
+### The fix — one journey, one implementation
+
+The pairing flow stays in Dart, where it is already written and tested; the
+console renders the entry point and asks the host to run it. Nothing was
+reimplemented in TypeScript.
+
+- `lib/src/ui/telegram_onboarding_launcher.dart` (new) — the single way into
+  onboarding. Both the native settings list and the console now call it, so
+  there is one implementation rather than one per surface. It also remembers
+  the paired bot's public `@username` in SharedPreferences, because Core does
+  not report the handle back and the connected summary needs it for Open Chat.
+- `lib/src/ui/webview/pocketclaw_host_bridge.dart` (new) — the host contract.
+  Builds the injected `window.__pocketclawHost` script and parses messages
+  coming back. It carries no secret: only whether an endpoint was compiled in,
+  and the bot's public handle.
+- `lib/src/ui/webview/webview_android.dart` — registers the `PocketClawHost`
+  JavaScript channel, injects the contract on page load, runs the native flow
+  on request, then re-injects and fires `pocketclaw:telegram-updated` so the
+  console re-renders as connected instead of showing a stale state.
+- `core/src/web/frontend/src/components/channels/channel-forms/telegram-panel.tsx`
+  (new) — the surface the Channels route now renders.
+- `core/src/web/frontend/src/lib/pocketclaw-host.ts` (new) — typed access to
+  the host, returning null in an ordinary browser.
+- `channel-config-page.tsx` — the `telegram` branch renders `TelegramPanel`
+  instead of the bare `TelegramForm`.
+
+### The three surfaces
+
+| Condition | Surface |
+| --- | --- |
+| No token, host can pair | **Managed onboarding first** — Connect PocketClaw to Telegram, Open Telegram, status, then "Having trouble? / Advanced / Manual setup" |
+| No token, no host or no endpoint | **Manual setup**, shown in full with a short explanation and nothing to expand |
+| Token already set | **Connected** — bot handle, owner, Open Chat, Reconnect / Create New Bot, then Advanced Settings |
+
+The legacy form is never deleted or altered. It moved behind a disclosure, and
+in the manual-only case it is still the whole page. Every field the manual path
+depends on is asserted present by test.
+
+### Security review of the new bridge
+
+- The injected script carries no token or secret, and the bot handle is emitted
+  through `jsonEncode` so it cannot break out of its string literal.
+- `openExternal` accepts only absolute `http`/`https` URLs. `javascript:`,
+  `file:`, `intent:`, `content:` and relative paths are dropped, so the bridge
+  cannot be turned into an arbitrary-launch primitive.
+- Both injection and message handling are scoped to the console's own origin
+  (`PocketClawHostBridge.isSameOrigin`). The WebView will follow an outbound
+  link if a user taps one, and a third-party page holding the host object could
+  otherwise drive the app. Unparseable input fails closed.
+
+### Tests
+
+The point of these is that they fail against the old wiring. Reverting
+`channel-config-page.tsx` to render `TelegramForm` was tried, and all 8 web
+tests failed; restoring the panel made them pass. They enter through
+`ChannelConfigPage channelName="telegram"` — the same component the APK renders
+— not through an isolated onboarding widget.
+
+- `channel-config-page.telegram.test.tsx` — 8 tests: case 1 managed onboarding
+  primary and the handoff firing, case 2 fallback for both "no endpoint" and
+  "no host at all", case 3 connected summary with Open Chat, case 4 the legacy
+  form revealed from both Advanced entries, plus a host that injects late.
+- `test/unit/pocketclaw_host_bridge_test.dart` — 11 tests over the script
+  payload, origin scoping, scheme rejection, and malformed input.
+- Frontend suite 36/36, Flutter 88/88, `flutter analyze` clean, `tsc -b` clean,
+  `pnpm lint` clean.
+
+`jsdom` and `@testing-library/react` are new frontend dev dependencies. They
+had to be added: the whole failure was that no test rendered the real route,
+and there was no DOM renderer in the project to do it with.
+
+### The APK
+
+- Path: `build/app/outputs/flutter-apk/app-release.apk`
+- Size: 34,220,929 bytes (~34 MB arm64 band)
+- SHA-256: `b6fea5d8ec5c3c66ba8a1320b0a217afcca322e75b5b26cc4082bbbb08a57f94`
+- Package/version: `com.lord1egypt.pocketclaw`, `0.1.3` (3)
+- Release guard PASS, all three libraries present.
+- **Core WAS rebuilt** — `core/src/web/frontend` changed, so the console binary
+  had to be regenerated. New pair: `libpicoclaw.so` 37,224,801
+  `33f8b4ef...3470e98a`; `libpicoclaw-web.so` 24,641,889 `5400cb02...2dbcb3bd`.
+  They replace the device-verified `cb9b2cde...`/`b6b356f7...`, so the Core half
+  of this APK is no longer device-proven and the regression sweep matters.
+  `-trimpath` verified: zero developer paths in either binary.
+  `core/pocketclaw-core-v0.3.1.patch` regenerated (58 files).
+- Endpoint present once in `libapp.so`; the new console strings present in
+  `libpicoclaw-web.so` and absent from the previous build's copy.
+- Secret scan over all 425,247 printable strings: 0 Telegram tokens, 0
+  `TELEGRAM_MANAGER_BOT_TOKEN`/`TELEGRAM_WEBHOOK_SECRET`/`PAIRING_SECRET`, 0
+  `KV_REST_API_*`/`UPSTASH_*`/`REDIS_URL`, 0 `upstash`, 0 `redis://`. All 23
+  64-hex strings in `libapp.so` are google_fonts asset checksums.
+
+### What to check on the device
+
+1. Channels → Telegram opens **Connect PocketClaw to Telegram**, not Bot Token.
+2. Open Telegram launches the native pairing screen with QR and live status.
+3. Completing pairing returns to a **Connected** summary without a manual
+   reload, showing the new `@pocketclaw_..._bot` handle.
+4. Open Chat opens Telegram outside the app.
+5. Advanced / Manual setup reveals the full legacy form, and saving from it
+   still works.
+6. The native Settings → Telegram entry still reaches the same flow.
+7. Regression: startup, DNS, provider catalog, OpenCode, Skill Hub, workspace,
+   MQTT, Core lifecycle, branding — the Core binaries are new.
+
+## Milestone D Live-Endpoint APK — DEVICE-FAILED (UI never reachable)
 
 This is the artifact to install for the end-to-end Telegram test. It is the
 first PocketClaw build that carries a real onboarding endpoint.
 
-- Status: BUILT, NOT physically verified. The verified reference artifact
-  remains `588bbec1...5ff3a90b` until this one passes on a device.
+- Status: FAILED on a physical device 2026-08-26. Everything asserted about
+  this build was true — endpoint compiled in, guard passed, no secrets — and it
+  still did not work, because none of those checks covered whether a user could
+  reach the flow. Superseded by `b6fea5d8...08a57f94`.
 - Path: `build/app/outputs/flutter-apk/app-release.apk` (also written to
   `build/app/outputs/apk/release/app-release.apk`; both ignored, not committed)
 - Built: 2026-08-26 with the canonical command plus the supported dart-define
