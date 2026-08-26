@@ -273,9 +273,16 @@ supplied by the user.
   `Lord1Egypt/PocketClaw-Telegram-Setup` with a Deploy to Vercel button,
   operator status page, `/privacy`, README, PRIVACY.md, SECURITY.md, LICENSE.
 - [x] Verify no real credential exists in the public repository.
-- [ ] Revoke the exposed manager bot token in BotFather before deployment.
-- [ ] Deploy the service to Vercel with a Redis store and the four secrets.
-- [ ] Live `getMe` → `can_manage_bots == true` from the deployed service.
+- [x] Deploy the service to Vercel with an Upstash Redis store and the four
+  secrets. Live at `https://pocketclaw-telegram-setup-bot-83ai.vercel.app`.
+- [x] Live `getMe` → `can_manage_bots == true` from the deployed service —
+  **PASS on 2026-08-26**, the last link neither the BotFather UI nor a manual
+  deep link could establish.
+- [x] Webhook registered; storage connected; a test pairing created and read
+  back through the live service.
+- [ ] Revoke the manager bot token again — it was pasted into a chat log after
+  deployment. The service keeps working; rotate it in BotFather and update the
+  Vercel environment variable.
 - [ ] Rebuild the app with
   `--dart-define=POCKETCLAW_ONBOARDING_BASE_URL=https://...` and run the
   end-to-end device test. See `SESSION_HANDOFF.md`.

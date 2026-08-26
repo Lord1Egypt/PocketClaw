@@ -1,5 +1,36 @@
 # Development Changelog
 
+## 2026-08-26 — Onboarding service live; can_manage_bots verified
+
+- The service is deployed at
+  `https://pocketclaw-telegram-setup-bot-83ai.vercel.app` and every server-side
+  check passes: manager authentication, webhook registration, Upstash Redis
+  storage, and a live test pairing that was created and read back.
+- **`can_manage_bots = true`, verified live.** This was the last link in the
+  chain that nothing else could establish — the BotFather UI showing management
+  mode enabled and a manually-opened deep link were both strong evidence, but
+  only the running service makes that API assertion.
+- Fixed three deployment defects found by actually deploying, none of which any
+  amount of local testing would have surfaced:
+  - The build failed because the repository satisfied both Vercel Go build
+    modes at once. Committed to the framework preset, removed the `api/`
+    function, and added `internal/deployconfig` plus CI so a repeat fails on
+    push rather than in a deploy log.
+  - The storage health check only sent `PING`, which a read-only credential
+    answers happily. Since a Vercel Redis store injects both
+    `KV_REST_API_TOKEN` and `KV_REST_API_READ_ONLY_TOKEN`, the wrong paste
+    would have shown green and failed every pairing. It now does a real write
+    round-trip.
+  - A working deployment still displayed "Connect a Redis database" under a
+    green storage row, because the help block was revealed at first paint and
+    never hidden again.
+- Corrected the storage variable documentation. A real Vercel Redis store
+  injects the `KV_REST_API_*` names, not the `UPSTASH_REDIS_REST_*` ones the
+  README had led with. Both are current; which appears depends on how the
+  database was attached.
+- Android is untouched. The remaining work is a rebuild against the deployment
+  and the device test.
+
 ## 2026-08-26 — Telegram onboarding extracted, reworked for Vercel, published
 
 - Operator state corrected: `@PocketClawSetupBot` **exists**, Bot Management
