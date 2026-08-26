@@ -61,8 +61,24 @@ func Logger(next http.Handler) http.Handler {
 		start := time.Now()
 		rec := &responseRecorder{ResponseWriter: w, statusCode: http.StatusOK}
 		next.ServeHTTP(rec, r)
+		if isRoutineSuccessfulGatewayPoll(r.Method, r.URL.Path, rec.statusCode) {
+			return
+		}
 		logger.DebugC("http", fmt.Sprintf("%s %s %d %s", r.Method, r.URL.Path, rec.statusCode, time.Since(start)))
 	})
+}
+
+func isRoutineSuccessfulGatewayPoll(method, path string, statusCode int) bool {
+	if method != http.MethodGet || statusCode < http.StatusOK || statusCode >= http.StatusMultipleChoices {
+		return false
+	}
+
+	switch path {
+	case "/api/gateway/logs", "/api/gateway/status":
+		return true
+	default:
+		return false
+	}
 }
 
 // Recoverer recovers from panics in downstream handlers and returns a 500

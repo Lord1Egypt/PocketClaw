@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pocketclaw/src/core/plain_text_log_sanitizer.dart';
 
@@ -42,5 +44,23 @@ void main() {
   test('preserves Arabic, emoji, ordinary Unicode, tabs, and newlines', () {
     const text = 'تسلم\t😊\nالعفو — café 中文 ✓';
     expect(clean(text), text);
+  });
+
+  test('preserves valid multibyte text surrounding ANSI sequences', () {
+    const raw =
+        '\x1b[31mمدة 53.616µs ✅\x1b[0m — '
+        '\x1b]0;discarded title\x07English عربي 😊 «آمن»';
+    const expected = 'مدة 53.616µs ✅ — English عربي 😊 «آمن»';
+
+    final result = clean(raw);
+
+    expect(result, expected);
+    expect(result, contains('53.616µs'));
+    expect(result, isNot(contains('\uFFFD')));
+    expect(utf8.decode(utf8.encode(result), allowMalformed: false), result);
+  });
+
+  test('preserves plain millisecond durations', () {
+    expect(clean('123.4ms'), '123.4ms');
   });
 }

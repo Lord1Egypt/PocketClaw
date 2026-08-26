@@ -375,3 +375,26 @@ supplied by the user.
 - [ ] FINAL RELEASE HARDENING: controlled Dart generated-source URI strategy.
 - [ ] Future milestone only: Background & Battery page.
 - [ ] Future milestone only: local Runtime / Statistics bottom tab.
+
+## DEBUG log cleanup micro-pass
+
+- [x] Trace exported `53.616�s` to Android Export Logs truncating Dart UTF-16
+  `codeUnits` into bytes; confirm Go output, Kotlin string transport, sanitizer,
+  queue, and Logs UI are not the corruption layer.
+- [x] Encode Android export content as UTF-8 and test the real MethodChannel
+  transport with `µ`, Arabic, emoji, mixed text, punctuation, and surrounding
+  ANSI sequences; strict decoding introduces no U+FFFD.
+- [x] Suppress only exact successful 2xx `GET /api/gateway/logs` and
+  `GET /api/gateway/status` middleware DEBUG events; preserve failures,
+  unexpected methods, unknown routes, config/models, and other diagnostics.
+- [x] Preserve and rerun exactly-once queue, caller sanitization, branding, and
+  terminal-control regressions.
+- [x] Pass Flutter analyze/97 tests, frontend 36 tests/tsc/lint, tagged Go
+  logger/gateway/API/middleware suites, Core provenance/build, APK guard, and
+  artifact scans.
+- [x] Build replacement ARM64 candidate `eacbbc86...423f9a8` (34,239,073 bytes).
+- [ ] **PRE-RELEASE BLOCKER — PHYSICAL:** export one new DEBUG log and verify
+  valid `µ`, zero PocketClaw-introduced U+FFFD, intact Arabic/emoji/punctuation,
+  continued terminal cleanup, and no routine successful self-poll noise.
+- [ ] **PRE-RELEASE BLOCKER — PHYSICAL:** verify failed polls and real API
+  requests remain visible, then continue every standing device checklist item.

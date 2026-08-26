@@ -2,42 +2,55 @@
 
 ## Current Objective
 
-**Physically re-test the log regression fix. The GitHub milestone release is on
-hold until it passes.**
+**Physically verify the DEBUG log cleanup candidate. The GitHub release remains
+on hold until it and the broader pre-release checklist pass.**
 
-Milestone D itself is closed and verified. After closure, the device showed two
-user-facing log defects in the verified APK; both are fixed on
+Milestone D is closed and verified. Candidate `f663d25a...71c621d` physically
+confirmed the neutral Telegram card, basename callers, log debranding,
+terminal-control cleanup, and exactly-once queue/drain behavior. Preserve those
+fixes. Its exported DEBUG file exposed two smaller issues, now fixed on
 `fix/user-facing-log-privacy` (not merged, not tagged).
 
 Install:
 
     build/app/outputs/flutter-apk/app-release.apk
-    SHA-256 543c759b04b0e4c77dd7831435753aceac0b1e16a7a45fdec3fb37ed2e45479a
-    34,227,525 bytes · com.lord1egypt.pocketclaw 0.1.3 (3)   [version unchanged]
+    SHA-256 eacbbc86b99429f114aba9ba1dca57224122fa176f6b4d99edf350454423f9a8
+    34,239,073 bytes · com.lord1egypt.pocketclaw 0.1.3 (3)   [version unchanged]
 
 Check on the device:
 
-1. The Logs screen shows no `github.com/sipeed`, `picoclaw`, `Sipeed`,
-   `/home/lordegypt`, or `.upstream`.
-2. Callers read like `gateway.go:298` — no module or repository prefix.
-3. One stale-PID cleanup appears **once**, not dozens of times, and real log
-   history is no longer evicted.
-4. Telegram Managed Bot onboarding still works end to end.
-5. Native Settings shows **Connected** with the bot handle — not "Connect
-   PocketClaw to Telegram" — and tapping it opens the connected page instead of
-   starting a new pairing.
-6. Reconnect / Create New Bot asks first, and cancelling leaves the working bot
-   configured.
-7. Both surfaces still show Connected after a full app restart.
-8. No black screen, no slowdown.
+1. Export a DEBUG log containing HTTP durations. It must contain valid
+   `53.616µs`, not `53.616�s`, with no U+FFFD introduced by PocketClaw.
+2. Arabic, emoji, Unicode punctuation, and ANSI/control removal remain correct
+   in both Logs and Export.
+3. Several minutes of successful `GET /api/gateway/logs` and
+   `GET /api/gateway/status` polling do not consume user-visible history.
+4. A failed poll and ordinary requests such as config/models remain visible.
+5. Basename callers, user-facing debranding, and exactly-once queue/drain
+   behavior remain physically correct.
+6. Continue the standing Telegram, skills, background/locked, provider, Skill
+   Hub, startup, and performance sweep.
 
 **The Core binaries are new again in this build**, so the regression sweep is
-required. New pair: `libpicoclaw.so` `24c7df0a...e8029962`,
-`libpicoclaw-web.so` `bab16f30...351a90b` — these replace the device-verified
-`33f8b4ef...` / `5400cb02...`.
+required. New pair: `libpicoclaw.so` `5c09eb72...4d763bc`,
+`libpicoclaw-web.so` `cb6b10cc...4b03b52`.
 
 Do not merge, do not tag, and do not create the GitHub release until this
 passes. Do not touch `main`.
+
+### What the DEBUG-export bugs were
+
+The sanitizer was already Unicode/rune-safe. Corruption happened later in
+Android Export Logs: Dart `content.codeUnits` (UTF-16 code units) was truncated
+to bytes, making `µ` a lone invalid `B5`. The MediaStore bridge now receives
+real UTF-8 bytes from `utf8.encode`; the actual MethodChannel export boundary
+has a strict-decode regression test.
+
+The polling entries were genuine DEBUG middleware events, not the old sticky
+snapshot bug. Middleware now omits only exact successful 2xx `GET` requests to
+`/api/gateway/logs` and `/api/gateway/status`. Errors, unexpected methods,
+redirects, unknown routes, and other API requests remain logged. Do not alter
+`publishLog`/`takeNewLogs` or reintroduce `status['lastLog']`.
 
 ### What the two bugs actually were
 

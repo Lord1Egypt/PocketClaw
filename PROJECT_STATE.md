@@ -10,8 +10,8 @@ Milestone C — Provider Catalog + Easy API-Key Setup, the OpenCode completion,
 and the self-contained source migration — is complete and PASSED
 physical-device testing on 2026-08-25, merged to `develop` as `36bc88d` and
 tagged `phase2-milestone-c`.
-Git Branch: `develop`. `feature/telegram-managed-onboarding` was merged with a
-non-fast-forward merge and is retained intact.
+Git Branch: `fix/user-facing-log-privacy`. `feature/telegram-managed-onboarding`
+was merged with a non-fast-forward merge and is retained intact.
 Last verified milestone: Phase 2 Milestone D (tag `phase2-milestone-d`).
 Milestone C (merge `36bc88d`, tag `phase2-milestone-c`) is the fallback
 reference state, with Milestone B (merge `225be3c`, tag `phase2-milestone-b`)
@@ -31,25 +31,29 @@ release guard verified the arm64 native payload.
 APK Status: the Milestone D APK
 `b6fea5d8ec5c3c66ba8a1320b0a217afcca322e75b5b26cc4082bbbb08a57f94`
 PASSED physical-device testing on 2026-08-26 and remains the verified
-reference artifact. A **post-milestone log regression was then found on the
-device** and fixed; the replacement candidate
-`543c759b04b0e4c77dd7831435753aceac0b1e16a7a45fdec3fb37ed2e45479a`
-is BUILT and NOT yet physically verified.
+milestone reference artifact. The broader pre-release candidate
+`f663d25a2fffb0ce969ad4a9ce3405c1e563b6263c7af37e90768eef471c621d`
+then physically confirmed the neutral native Telegram shortcut, basename-only
+callers, user-facing log debranding, terminal-control removal, and exactly-once
+queue/drain behavior. A DEBUG export exposed two smaller defects; their
+replacement candidate
+`eacbbc86b99429f114aba9ba1dca57224122fa176f6b4d99edf350454423f9a8`
+is BUILT, AUTOMATED PASS, and NOT yet physically verified.
 Verified Core binaries (device-verified 2026-08-26, in the reference APK):
 `libpicoclaw.so` 37,224,801
 `33f8b4efbc88333747c5df30b3ddc6864c924b35dba99e9c8c3b91df3470e98a`;
 `libpicoclaw-web.so` 24,641,889
 `5400cb02322ece5c7035356595355bd3c116adfc6a5bb6b78f3e2bd22dbcb3bd`.
-The log-fix candidate carries a NEW, not-yet-verified pair: `libpicoclaw.so`
-`24c7df0af723fd7a86ce4a9e808fcb3145fa425935109eaba0ba1a10e8029962`;
+The DEBUG-cleanup candidate carries a NEW, not-yet-verified pair:
+`libpicoclaw.so`
+`5c09eb72a1faa6dd6f8a0e6b66bcbc028f070d3eff9b8c5b5f87716c04d763bc`;
 `libpicoclaw-web.so`
-`bab16f308950357199577d156c5639f0e5767efb2973a5e966c600285cf36a0b`.
-Current Blocker: physical re-test of the log regression fix. The GitHub
-milestone release is **on hold** until it passes.
-Next Exact Action: install
-`543c759b04b0e4c77dd7831435753aceac0b1e16a7a45fdec3fb37ed2e45479a`, open the
-Logs screen, and confirm no module path or repeated stale-PID spam. `main`
-remains deliberately at `100a51d`.
+`cb6b10cc2a951d2307959e9effbdbd052762fe827b9943c22a9cdcdd54b03b52`.
+Current Blocker: physical DEBUG-export validation and the remaining broader
+pre-release device sweep. The GitHub release is **on hold** until both pass.
+Next Exact Action: install `eacbbc86...423f9a8`, export a new DEBUG log, and
+confirm valid `53.616µs` plus no successful `/api/gateway/logs` or
+`/api/gateway/status` poll noise. `main` remains deliberately at `100a51d`.
 
 ## Completed
 
@@ -1161,3 +1165,59 @@ placeholder/typing/streaming combinations, native Telegram navigation,
 reconnect preservation, fresh/existing skills plus `gh`, clean exactly-once
 Unicode logs/export, provider, Skill Hub, startup, and performance. Do not merge
 or release on anything short of physical PASS.
+
+## DEBUG log cleanup micro-pass — AUTOMATED PASS, PHYSICAL PENDING
+
+Physical export from candidate `f663d25a...71c621d` contained valid Go timing
+text such as `53.616µs` as `53.616�s`, and 185 routine successful requests to
+the two UI polling endpoints. The prior basename caller, branding cleanup,
+terminal sanitizer, and exactly-once queue/drain fixes had physically passed
+and are unchanged.
+
+The UTF-8 corruption was not in Go, Kotlin ingestion, the Dart sanitizer, the
+in-memory queue, or the Logs UI. Android Export Logs used
+`Uint8List.fromList(content.codeUnits)`, truncating Dart UTF-16 code units to
+single bytes before the Kotlin MediaStore writer. `µ` became lone byte `B5`,
+which is invalid UTF-8; Arabic and emoji were vulnerable for the same reason.
+The Android export boundary now uses `utf8.encode`, while the rune-safe
+terminal sanitizer remains unchanged. The real MethodChannel export transport
+is tested by strict UTF-8 decode after sanitizing ANSI-wrapped Arabic, `µ`,
+emoji, mixed-language text, and Unicode punctuation; it introduces no U+FFFD.
+
+The polling noise was legitimate middleware output, not duplicate delivery:
+DEBUG HTTP logging recorded each successful UI request to its own log and
+status endpoints. The HTTP middleware now suppresses only expected `GET`
+requests to exact paths `/api/gateway/logs` and `/api/gateway/status` with a
+2xx response. Failures, redirects, unexpected methods, unknown routes, and all
+other API requests retain normal DEBUG logging. No deduplication or endpoint
+behavior changed.
+
+Validation: `flutter analyze` clean; 97 Flutter tests; frontend 36 Vitest tests,
+`tsc -b`, and lint; Go `pkg/logger`, `pkg/gateway`, `web/backend/api`, and
+`web/backend/middleware` pass with the shipped `goolm,stdjson` tags. Core
+provenance patch regenerated at 95 files. Canonical Core build passed
+`-trimpath` with zero developer paths; the APK guard passed all three required
+arm64 libraries. Artifact scan found zero Telegram token shapes, service secret
+names, Redis/Upstash values, or raw full Go callers; the single known generated
+Dart source URI remains deferred to final hardening.
+
+Replacement candidate:
+
+- APK: `build/app/outputs/apk/release/app-release.apk` and identical
+  `build/app/outputs/flutter-apk/app-release.apk`
+- Size: 34,239,073 bytes
+- SHA-256: `eacbbc86b99429f114aba9ba1dca57224122fa176f6b4d99edf350454423f9a8`
+- Package/version: `com.lord1egypt.pocketclaw` 0.1.3 (3), minSdk 24,
+  target/compile SDK 36
+- `libpicoclaw.so`: 37,224,801 bytes,
+  `5c09eb72a1faa6dd6f8a0e6b66bcbc028f070d3eff9b8c5b5f87716c04d763bc`
+- `libpicoclaw-web.so`: 24,641,889 bytes,
+  `cb6b10cc2a951d2307959e9effbdbd052762fe827b9943c22a9cdcdd54b03b52`
+- Onboarding endpoint occurs once in `libapp.so`; version unchanged.
+- Status: **AUTOMATED PASS; PHYSICAL DEVICE PENDING; RELEASE BLOCKED**.
+
+Install only this replacement. Export a DEBUG log after several minutes and
+verify valid `µ`, Arabic, emoji, punctuation, zero newly introduced U+FFFD,
+continued ANSI/control removal, and no routine successful polling noise. Failed
+polls and real API requests must remain visible. Continue the broader physical
+pre-release checklist before any merge or release.

@@ -956,3 +956,27 @@
   local-by-default Runtime / Statistics tab.
 - Reason: neither expands the evidence-backed current fix, and PocketClaw
   cannot silently grant itself unrestricted battery operation.
+
+## Export Logs encodes the sanitized representation as UTF-8
+
+- Date: 2026-08-26
+- Decision: Android Export Logs converts the already-sanitized Dart string with
+  `utf8.encode` before sending bytes through the MediaStore MethodChannel.
+- Reason: Dart strings expose UTF-16 code units. Truncating those units into an
+  8-bit list turned valid `µ`, Arabic, and emoji into malformed bytes even
+  though Go output, native string transport, sanitization, and the Logs UI were
+  Unicode-safe.
+- Consequence: export tests must exercise the actual platform-channel byte
+  boundary and strict UTF-8 decoding, not only the standalone sanitizer. No
+  global replacement of U+FFFD, `µ`, or non-ASCII text is permitted.
+
+## Routine successful log/status self-polls are not diagnostics
+
+- Date: 2026-08-26
+- Decision: HTTP middleware omits only exact 2xx `GET` requests to
+  `/api/gateway/logs` and `/api/gateway/status` from DEBUG output.
+- Reason: those UI monitoring requests generated the history they were reading
+  and displaced useful diagnostics without representing failures.
+- Consequence: poll failures, redirects, unexpected methods, unknown routes,
+  and every other API request remain logged. This filter is not deduplication
+  and must never replace the exactly-once `publishLog`/`takeNewLogs` drain.

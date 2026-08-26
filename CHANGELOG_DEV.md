@@ -1,5 +1,29 @@
 # Development Changelog
 
+## 2026-08-26 — DEBUG log cleanup micro-pass
+
+- Physical DEBUG export from `f663d25a...71c621d` isolated two small remaining
+  defects without invalidating its physically passed Telegram surface, caller,
+  branding, terminal cleanup, or exactly-once queue behavior.
+- Android Export Logs used `Uint8List.fromList(content.codeUnits)`. That
+  truncated UTF-16 code units into bytes, so valid Go `53.616µs` reached the
+  exported file as invalid byte `B5` and decoded as `53.616�s`. Export now uses
+  UTF-8. Strict MethodChannel transport tests preserve Arabic, emoji, `µ`,
+  punctuation, and ANSI-wrapped multibyte text without introducing U+FFFD.
+- DEBUG HTTP middleware logged the successful `/api/gateway/logs` and
+  `/api/gateway/status` requests used by the UI to monitor itself. Only exact
+  expected GET+2xx polls are now omitted. Errors, unexpected methods, redirects,
+  unknown routes, config/models, and all other requests remain visible.
+- Validation: Flutter analyze clean and 97 tests; frontend 36 tests, `tsc -b`,
+  lint; tagged Go logger/gateway/API/middleware suites pass. Core patch
+  regenerated (95 files), canonical arm64 Core build has zero developer paths,
+  and the APK guard passed.
+- Candidate: `eacbbc86b99429f114aba9ba1dca57224122fa176f6b4d99edf350454423f9a8`,
+  34,239,073 bytes, `com.lord1egypt.pocketclaw` 0.1.3 (3). Core hashes:
+  `5c09eb72...4d763bc` / `cb6b10cc...4b03b52`. Secret/path scan clean apart
+  from the already-deferred generated Dart source URI. Physical verification
+  remains pending; no merge or release.
+
 ## 2026-08-26 — user-facing log privacy and duplication fix (device-found)
 
 Found on a physical device after Milestone D closed. The GitHub milestone

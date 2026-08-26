@@ -191,7 +191,8 @@ work for an adoption, and does not go looking upstream for its origin.
   mailboxes, synchronous final delivery, edit-to-send fallback, and terminal
   placeholder cleanup; non-destructive workspace seed repair and additive
   skill-import coverage; and Android-safe plain logging, including basename
-  callers, a non-terminal banner, and neutral stale-PID wording. Future
+  callers, a non-terminal banner, neutral stale-PID wording, UTF-8 export, and
+  suppression of only successful high-rate log/status self-polls. Future
   upstream work touching agent session steering, Telegram delivery, onboarding
   helpers, or web API routing must preserve these PocketClaw guarantees.
 - **Telegram managed-bot onboarding (Milestone D, 2026-08-26).** The
