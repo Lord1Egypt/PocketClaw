@@ -1,6 +1,13 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+
+import 'package:pocketclaw/src/telegram/telegram_onboarding_config.dart';
+import 'package:pocketclaw/src/ui/telegram_onboarding_launcher.dart';
+import 'package:pocketclaw/src/ui/webview/pocketclaw_host_bridge.dart';
 import 'webview_nav_bar.dart';
 
 class WebViewAndroid extends StatefulWidget {
@@ -15,13 +22,79 @@ class WebViewAndroid extends StatefulWidget {
 class _WebViewAndroidState extends State<WebViewAndroid> {
   WebViewController? _controller;
   bool _isLoading = true;
+  String? _telegramBotUsername;
+  String? _loadedUrl;
+
+  /// Whether the currently loaded page is the local Core console.
+  ///
+  /// The console is the only origin the host contract is meant for. The
+  /// WebView will follow an outbound link if the user taps one, and handing a
+  /// third-party page `openTelegramOnboarding` and `openExternal` would let it
+  /// drive the app, so injection is scoped to the console's own origin.
+  bool get _isConsoleOrigin =>
+      PocketClawHostBridge.isSameOrigin(_loadedUrl, widget.url);
+
+  /// Publishes the host contract into the page.
+  ///
+  /// Runs on every page load because the console is a single-page app served
+  /// fresh on each navigation into the tab, and again after onboarding so the
+  /// Telegram surface re-renders as connected.
+  Future<void> _injectHost() async {
+    final controller = _controller;
+    if (controller == null || !_isConsoleOrigin) return;
+    try {
+      await controller.runJavaScript(
+        PocketClawHostBridge.bootstrapScript(
+          onboardingConfigured: TelegramOnboardingConfig.isConfigured,
+          telegramBotUsername: _telegramBotUsername,
+        ),
+      );
+    } catch (_) {
+      // The page can go away mid-injection; the next load re-publishes.
+    }
+  }
+
+  Future<void> _handleHostMessage(String raw) async {
+    final request = PocketClawHostBridge.parseMessage(raw);
+    if (request == null) return;
+
+    switch (request.kind) {
+      case HostRequestKind.openTelegramOnboarding:
+        if (!mounted || !_isConsoleOrigin) return;
+        final username = await TelegramOnboardingLauncher.open(context);
+        if (username != null && username.isNotEmpty) {
+          _telegramBotUsername = username;
+        }
+        if (!mounted) return;
+        await _injectHost();
+        await _controller?.runJavaScript(
+          PocketClawHostBridge.telegramUpdatedScript,
+        );
+      case HostRequestKind.openExternal:
+        final url = request.url;
+        if (url == null || !_isConsoleOrigin) return;
+        await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+    }
+  }
 
   @override
   void initState() {
     super.initState();
+    unawaited(
+      TelegramOnboardingLauncher.readConnectedBotUsername().then((username) {
+        if (!mounted || username == null) return;
+        _telegramBotUsername = username;
+        unawaited(_injectHost());
+      }),
+    );
     _controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setBackgroundColor(Colors.white)
+      ..addJavaScriptChannel(
+        PocketClawHostBridge.channelName,
+        onMessageReceived: (message) =>
+            unawaited(_handleHostMessage(message.message)),
+      )
       ..setNavigationDelegate(
         NavigationDelegate(
           onPageStarted: (_) {
@@ -30,14 +103,17 @@ class _WebViewAndroidState extends State<WebViewAndroid> {
           onProgress: (progress) {
             if (progress < 100 && mounted) setState(() => _isLoading = true);
           },
-          onPageFinished: (_) {
+          onPageFinished: (url) {
+            _loadedUrl = url;
+            unawaited(_injectHost());
             if (mounted) setState(() => _isLoading = false);
           },
           onWebResourceError: (_) {
             if (mounted) setState(() => _isLoading = false);
           },
           onNavigationRequest: (_) => NavigationDecision.navigate,
-          onUrlChange: (_) {
+          onUrlChange: (change) {
+            _loadedUrl = change.url ?? _loadedUrl;
             if (mounted && _isLoading) setState(() => _isLoading = false);
           },
         ),

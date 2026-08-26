@@ -2,31 +2,87 @@
 
 ## Current Objective
 
-None in progress. The self-contained source migration and the OpenCode provider
-completion both PASSED physical-device testing on 2026-08-25.
+**None. Stop and wait for explicit authorization for the next milestone.**
 
-The verified reference artifact is APK
-`588bbec144fe0c84b8429f4f053a73b44b9b3e8d9f24e31dab04b2165ff3a90b`, superseding
-Milestone C's `b3dd892b...bce569b`. Bisect or diff any future regression against
-it before forming new hypotheses.
+Do not begin another feature, redesign UI, start release hardening, or merge
+into `main`.
 
-`feature/provider-catalog` is verified and **not merged**. The documented
-closure step — merge into `develop` with `--no-ff` and tag the closure point —
-awaits explicit instruction. Do not touch `main`. Do not start Telegram
-linking or any other feature until told to.
+## Milestone D — COMPLETE
 
-One item is verified-but-incomplete: the OpenCode Anthropic Messages route
-(`claude-*` models) sends both `X-API-Key` and a bearer header, and the device
-report does not say whether a `claude-*` model was among those exercised. If one
-returns 401 later while `gpt-*` and `kimi-*` succeed, the header pair is the
-cause, not the routing. See `DECISIONS.md`.
+Phase 2 Milestone D, Telegram Managed-Bot Onboarding, passed its physical
+end-to-end test on a real Android device on 2026-08-26 and is closed. Merged
+into `develop` with a non-fast-forward merge and tagged `phase2-milestone-d`.
+`main` remains deliberately untouched at `100a51d`.
+
+Automatic managed-bot onboarding is now the **default** Telegram setup path.
+Manual Bot Token entry is the **advanced fallback**, still complete and
+reachable.
+
+### The verified reference artifact
+
+    APK              b6fea5d8ec5c3c66ba8a1320b0a217afcca322e75b5b26cc4082bbbb08a57f94
+                     34,220,929 bytes · com.lord1egypt.pocketclaw 0.1.3 (3)
+    libpicoclaw.so       37,224,801 · 33f8b4efbc88333747c5df30b3ddc6864c924b35dba99e9c8c3b91df3470e98a
+    libpicoclaw-web.so   24,641,889 · 5400cb02322ece5c7035356595355bd3c116adfc6a5bb6b78f3e2bd22dbcb3bd
+
+This supersedes the Milestone C APK `588bbec1...5ff3a90b` and the Milestone C
+Core pair. Diff any future regression against it first.
+
+### Live architecture
+
+    PocketClaw Android
+      → PocketClaw Telegram Setup  (Vercel)
+        → @PocketClawSetupBot      (manager, Bot Management Mode)
+          → Telegram Managed Bots
+            → Upstash Redis        (pairing state, REST, 600 s TTL)
+              → automatic PocketClaw Telegram configuration
+
+Official manager `@PocketClawSetupBot`. Service
+<https://pocketclaw-telegram-setup-bot-83ai.vercel.app>. Public service
+repository `Lord1Egypt/PocketClaw-Telegram-Setup` — independent, public, MIT,
+and not a build input to the APK.
+
+What was verified physically: the full Channels → Telegram onboarding UI, bot
+creation through Telegram, automatic pairing detection and token delivery,
+automatic owner and channel configuration, the connected state, Open Chat, and
+a real Telegram → Core → AI provider → Telegram message round trip with context
+persisting across consecutive messages. The full record is in
+`PROJECT_STATE.md`.
+
+### Still open, and deliberately so
+
+- **Rotate the manager bot token.** It was pasted into a chat log after
+  deployment. The service keeps working; rotate it in BotFather and update the
+  Vercel environment variable. This is the one outstanding security item and it
+  is not blocked by anything.
+- Localize the Telegram onboarding strings — English in all twelve locales.
+- Confirm a `claude-*` model on OpenCode, carried over from Milestone C.
+
+### Architecture worth knowing before touching Telegram again
+
+Telegram has two entry points and they must stay converged on one flow:
+
+- Native Settings → Telegram (`lib/src/ui/config_page.dart`)
+- Channels → Telegram in the embedded console
+  (`core/src/web/frontend/.../channel-config-page.tsx` → `telegram-panel.tsx`)
+
+Both call `TelegramOnboardingLauncher.open`. The console never runs pairing
+itself; it asks the Flutter host over the `PocketClawHost` bridge
+(`lib/src/ui/webview/pocketclaw_host_bridge.dart`). Do not reimplement pairing
+in TypeScript — that split is what made Milestone D ship unreachable the first
+time. The bridge is scoped to the console's origin and `openExternal` accepts
+only absolute http(s) URLs; both are tested, do not loosen either.
+
+The lesson worth keeping: a Flutter widget test proves the code runs, never
+that a user meets it. Any UI claim here needs a test entering through the same
+route the app does.
 
 ## Milestone C state
 
-Branch `feature/provider-catalog`, cut from `develop` @ `14e6991`. The Core
-source now lives in this repository at `core/src/`, and
-`core/pocketclaw-core-v0.3.1.patch` (52 files) is its divergence from upstream
-`v0.3.1`; the rebuilt arm64 binaries are committed under
+Merged into `develop` as `36bc88d` and tagged `phase2-milestone-c` on
+2026-08-26, after passing on a device. The Core source lives in this repository
+at `core/src/`, and `core/pocketclaw-core-v0.3.1.patch` (52 files) is its
+divergence from upstream `v0.3.1`; the arm64 binaries are committed under
 `android/app/src/main/jniLibs/arm64-v8a/`.
 
 What it delivers: a provider-first Add Provider flow (choose provider → API key
@@ -117,6 +173,15 @@ workspace seeding.
 - Regenerate `core/pocketclaw-core-v0.3.1.patch` with
   `core/regen-upstream-patch.sh` after any change under `core/src/`, or the
   divergence record goes stale.
+- The onboarding service lives in its own public repository,
+  `Lord1Egypt/PocketClaw-Telegram-Setup`. It is infrastructure, not part of the
+  APK build; `services/README.md` explains why it is not vendored here.
+- Never commit the manager bot token, and never add it to a `--dart-define`.
+  The app receives only a public HTTPS base URL; the child bot token reaches it
+  once, over TLS, and goes straight into Core's config.
+- Telegram onboarding must keep writing the existing `channel_list.telegram`
+  entry. Do not add a second Telegram runtime; both the automatic and the
+  manual path converge on the same channel.
 - Core binaries currently committed and DEVICE-VERIFIED (2026-08-25):
   `libpicoclaw.so` 37,224,801 `cb9b2cde...fb895818`;
   `libpicoclaw-web.so` 24,641,889 `b6b356f7...656db9ba5`. Both stripped, PIE
@@ -191,16 +256,22 @@ capture final device logs, so that symptom must be confirmed during retest.
 
 ## Next Exact Steps
 
-1. Await instruction on closure. On the word: merge `feature/provider-catalog`
-   into `develop` with `--no-ff`, tag the closure point, and record the merge
-   commit and tag in the state documents. `main` is not updated without
+1. Revoke the exposed manager token in BotFather.
+2. Deploy `Lord1Egypt/PocketClaw-Telegram-Setup` to Vercel with the variables
+   above, including a Redis store.
+3. Register the webhook and verify the manager from the setup page. The
+   `can_manage_bots` assertion happens here.
+4. Rebuild the app with `POCKETCLAW_ONBOARDING_BASE_URL` and run the device
+   checklist at the end of `PROJECT_STATE.md`.
+5. On PASS: merge `feature/telegram-managed-onboarding` into `develop` with
+   `--no-ff`, tag the closure point, and record the result. `main` needs
    separate instruction.
-2. Do not start Telegram linking or any other feature until closure is done and
-   instructed.
-3. If a regression appears, diff against `588bbec1...5ff3a90b` first. Nothing
-   in the Flutter layer changed in the migration; the change surface was the two
-   Core binaries and where their source was read from.
-4. Before any future Core change: edit `core/src/`, rebuild with
-   `core/build-android-arm64.sh`, and regenerate
-   `core/pocketclaw-core-v0.3.1.patch` with `core/regen-upstream-patch.sh`.
-   Never point a build at a checkout outside this repository.
+6. On FAIL, the likely causes in order: the app was built without
+   `POCKETCLAW_ONBOARDING_BASE_URL`; the webhook was never registered, or was
+   registered against a preview deployment URL rather than the production one
+   (set `PUBLIC_BASE_URL` if so); or the suggested username was edited on
+   Telegram's confirmation screen, which by design fails closed and expires the
+   pairing.
+7. Two open items unrelated to the blocker: localizing the onboarding strings,
+   and confirming a `claude-*` model on OpenCode. Both are in `TASKS.md`.
+8. Do not start another milestone.

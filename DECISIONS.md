@@ -596,3 +596,291 @@
 - Consequence: a later 401 on a `claude-*` OpenCode model, while `gpt-*` and
   `kimi-*` succeed, points at the header pair rather than the routing table.
   Recorded as an open item in `TASKS.md` rather than closed by association.
+
+## PocketClaw owns its Telegram onboarding service, end to end
+
+- Date: 2026-08-26
+- Decision: the managed-bot onboarding service is PocketClaw-authored and lives
+  in this repository at `services/telegram-onboarding/`. It is a separate Go
+  module with zero external dependencies, and it depends on no third-party
+  onboarding provider at runtime — only on Telegram itself.
+- Reason: the self-contained source-of-truth rule from the previous milestone
+  applies to every part of the product, not just Core. An onboarding flow that
+  ran through someone else's setup service would put a third party between a
+  user and their own bot token.
+- Deliberately a separate module rather than code inside `core/src/`: anything
+  added under `core/src/` shows up in `core/pocketclaw-core-v0.3.1.patch` as
+  divergence from upstream PicoClaw, which this is not. Keeping it outside
+  leaves the upstream provenance record honest.
+- Consequence: Hermes was read as a behavioural reference for the shape of the
+  flow — a pairing session, a deep link, polling, a token handed back — and
+  nothing else. No Hermes or Nous service, endpoint, or source is involved at
+  build time or at runtime.
+
+## The managed-bot flow is built on verified Telegram API, not on inference
+
+- Date: 2026-08-26
+- Decision: every Telegram capability this milestone relies on was checked
+  against `core.telegram.org` before implementation, not inferred from another
+  project's code.
+- Evidence: managed bots are Bot API 9.6, published 2026-04-03. The changelog
+  states support for
+  `https://t.me/newbot/{manager_bot_username}/{suggested_bot_username}[?name={suggested_bot_name}]`
+  — note that `?name=` is optional, which the square brackets make explicit.
+  The reference documents `User.can_manage_bots` (Boolean),
+  `Update.managed_bot` carrying `ManagedBotUpdated{user User, bot User}`,
+  `Message.managed_bot_created` carrying `ManagedBotCreated{bot User}`,
+  `getManagedBotToken(user_id) -> String`, and
+  `replaceManagedBotToken(user_id) -> String`.
+- One correction this produced: the field is `can_manage_bots`, not
+  `bot_can_manage_bots`. The latter appears in discussion of the feature but is
+  not what the API returns, and coding against it would have made the manager
+  verification silently always fail.
+- `allowed_updates` defaults to everything except `chat_member`,
+  `message_reaction`, and `message_reaction_count`, so `managed_bot` arrives
+  without opting in. The client names it explicitly anyway, so a future default
+  change cannot quietly stop onboarding from working.
+- Consequence: Telegram still shows its own confirmation screen and the user
+  still presses Create. PocketClaw pre-fills the name and username; it does not
+  and cannot create a bot without that confirmation, and nothing in the design
+  pretends otherwise.
+
+## Polling and token collection are separate endpoints
+
+- Date: 2026-08-26
+- Decision: `GET /telegram/pairings/{id}` never returns a bot token. A separate
+  `POST /telegram/pairings/{id}/token` delivers it exactly once and destroys
+  the session.
+- Reason: polling is idempotent and happens every couple of seconds; delivery
+  is a one-shot transition. Folding them together forces a choice between
+  repeating the token on every poll and making polling destructive, and both
+  are worse than one extra round trip.
+- Consequence: "the token is single-use" is a property of the API shape rather
+  than of careful client behaviour, and it is directly testable. A failed
+  collection attempt with the wrong token does not burn the delivery.
+
+## A pairing is matched by its suggested username, and fails closed otherwise
+
+- Date: 2026-08-26
+- Decision: an incoming `managed_bot` update is bound to a pairing by the child
+  bot's username, which is why each pairing suggests a unique random one. If
+  nothing matches, the update is ignored and the pairing expires.
+- Reason: Telegram reports the created bot and its creator, but nothing that
+  ties either back to the app instance that issued the link. The suggested
+  username is the only carrier of that link, and it is one PocketClaw controls.
+- Consequence: if the user edits the suggested username on Telegram's
+  confirmation screen, the pairing will not complete. That is deliberate. The
+  alternative — matching loosely, for instance to the only pending pairing —
+  would let one user's bot be delivered into another user's app. The UI
+  surfaces the expiry with a retry and the manual fallback.
+
+## The pairing tells us who the owner is, so the bot is locked to them
+
+- Date: 2026-08-26
+- Decision: `ManagedBotUpdated.user` is written into the child bot's
+  `allow_from` list in Core's configuration.
+- Reason: Telegram tells us exactly which user created the bot. A freshly
+  paired bot therefore answers only its owner rather than anyone who discovers
+  its username. Manual setup cannot do this, because nothing in a pasted token
+  identifies the owner.
+- Consequence: this is a security improvement the automatic path gets for free,
+  and one more reason it is the default rather than a convenience wrapper.
+
+## Automatic onboarding reuses the existing Telegram channel, and never a second one
+
+- Date: 2026-08-26
+- Decision: onboarding writes the same `channel_list.telegram` entry that
+  manual setup writes, merging into it rather than replacing it, and then
+  restarts Core.
+- Reason: the Telegram channel, its streaming behaviour, MarkdownV2 handling,
+  and the PocketClaw agent identity behind `/start` are all already correct and
+  device-verified. Onboarding is a configuration path, not a runtime.
+- Consequence: existing settings — proxy, base URL, MarkdownV2, streaming,
+  reasoning channel — survive pairing, and every other channel is untouched.
+  Both paths converge on one implementation, so the branded `/start` reply
+  needed no change.
+
+## The app ships with no onboarding endpoint until an operator supplies one
+
+- Date: 2026-08-26
+- Decision: `POCKETCLAW_ONBOARDING_BASE_URL` is a build-time `--dart-define`
+  that defaults to empty. When it is unset, the app reports that automatic
+  setup is unavailable and offers manual token entry.
+- Reason: no PocketClaw manager bot exists yet, so there is no endpoint to
+  point at. Inventing one, or falling back to somebody else's, was not an
+  option. A build with no endpoint has to say so.
+- The URL must also be HTTPS. Plain HTTP would put the poll token, and once the
+  bot token, on the wire in the clear; the app refuses rather than downgrades.
+- Consequence: the whole flow is implemented and tested, and end-to-end
+  verification is blocked on operator setup rather than on code. See
+  `SESSION_HANDOFF.md` for exactly what the operator must create.
+
+## Onboarding strings are not localized yet, and are not machine-translated
+
+- Date: 2026-08-26
+- Decision: the Telegram onboarding screen's text lives in
+  `TelegramOnboardingStrings` rather than in `lib/l10n/*.arb`.
+- Reason: this repository keeps all twelve locales at exact parity — 84 of 84
+  keys in every file. Adding roughly thirty new keys means either breaking that
+  invariant or shipping twelve languages of unverified translation into a
+  product's locale files. Guessed translations look authoritative and are worse
+  than visibly-English text.
+- Consequence: the screen is English in every locale for now, one class holds
+  every string so the move to `.arb` is mechanical, and the work is recorded as
+  an open item in `TASKS.md` rather than left implicit.
+
+## The onboarding service is a separate public repository
+
+- Date: 2026-08-26
+- Decision: the Telegram onboarding service moved from
+  `services/telegram-onboarding/` in this repository to its own public MIT
+  repository, `Lord1Egypt/PocketClaw-Telegram-Setup`. This repository keeps a
+  pointer at `services/README.md`.
+- Reason: it is infrastructure, not application source. The APK does not build
+  from it and does not contain it — the app holds only a public HTTPS base URL
+  supplied at build time. The self-contained source-of-truth rule covers what
+  builds the APK, which is `core/src/` and `lib/`. A deployable service also
+  needs its own deploy button, its own issue tracker, and its own README, none
+  of which work from a subdirectory of an Android app.
+- Consequence: the API contract is now a boundary between two repositories and
+  is documented on both sides. It did not change during the extraction: the
+  same three endpoints, the same fields, and the same 404-for-everything-gone
+  behaviour the Flutter client already expects.
+
+## In-memory pairing state could not survive contact with Vercel
+
+- Date: 2026-08-26
+- Decision: pairing state moved from a process-local Go map to a
+  Redis-compatible key/value store addressed over its HTTP REST API.
+- Reason: on Vercel the request that creates a pairing, the Telegram webhook
+  that completes it, and the request that collects the token can each execute
+  in a different function instance. A Go map works perfectly in development and
+  fails in production intermittently, which is the worst possible failure mode.
+  This was caught by auditing the storage before deploying rather than after.
+- Two operations must be atomic, and both are done by the store rather than in
+  application code: `SET username:… NX` claims a suggested bot username so two
+  instances cannot hand out the same one, and `GETDEL token:…` delivers the
+  child token so exactly one caller can ever receive it.
+- Evidence: both `Store` implementations run against the same conformance
+  suite, including a concurrency test asserting that exactly one of twelve
+  racing callers receives the token. A separate test asserts the Redis path
+  actually issues `GETDEL` and `SET … NX`, so a refactor to `GET`+`DEL` breaks
+  a test rather than exactly-once delivery in production.
+- Consequence: the in-memory store still exists for local development and
+  tests, but the service refuses to treat it as production — `config.Load`
+  reports it as a problem the setup page renders in full.
+
+## Long-polling became a webhook, because serverless has no long-lived process
+
+- Date: 2026-08-26
+- Decision: `getUpdates` long-polling was replaced by a Telegram webhook at
+  `POST /telegram/webhook`.
+- Reason: long-polling needs a process that stays alive, which a serverless
+  function is not. It also permits only one consumer per bot token, which
+  conflicts with more than one instance.
+- The endpoint is authenticated by the secret Telegram echoes in
+  `X-Telegram-Bot-Api-Secret-Token`, compared in constant time before the body
+  is parsed. An undecodable body still answers 200, because a non-200 makes
+  Telegram retry an update that can never be parsed.
+- Consequence: registration is a server-side action. The setup page has a
+  button that asks the server to call `setWebhook`; the browser never receives
+  the token. This is deliberately unlike the earlier DukeBot pattern, where a
+  Telegram token reached browser JavaScript.
+
+## The operator page asks the server to act, and holds nothing
+
+- Date: 2026-08-26
+- Decision: the status page performs no privileged operation itself. Every
+  button posts to an endpoint that reads credentials from the server
+  environment and reports back a boolean plus a non-secret message.
+- Reason: the page is public on a public deployment. Anything it holds is
+  disclosed. Making it a remote control rather than a client keeps the manager
+  token in exactly one place.
+- Evidence: a test renders the page and asserts that none of the manager token,
+  webhook secret, pairing secret, or storage token appears in it, and the same
+  assertion covers `/api/status` and the register-webhook response.
+- Consequence: the page is deliberately unauthenticated. Its actions are
+  idempotent and expose nothing, and `SECURITY.md` records that as a considered
+  choice with the option to put the deployment behind platform access control.
+
+## PAIRING_SECRET keys the stored poll-token verifier
+
+- Date: 2026-08-26
+- Decision: poll tokens are stored as HMAC-SHA256 keyed with `PAIRING_SECRET`,
+  not as a plain digest, and compared in constant time.
+- Reason: storage is now a third-party service. A plain SHA-256 of 32 random
+  bytes is already infeasible to reverse, so this is not about brute force —
+  it is that a keyed verifier is inert to anyone holding a storage dump but not
+  the server's key. Rotating the secret also invalidates every live pairing in
+  one move, which is a useful thing to have if exposure is suspected.
+- Consequence: the service refuses a secret under 16 characters rather than
+  silently falling back to an unkeyed digest, which would drop the property
+  without any visible symptom.
+
+## Managed-bot onboarding is the default Telegram path; manual is the fallback
+
+- Date: 2026-08-26
+- Decision: Channels → Telegram opens managed-bot onboarding when Telegram is
+  unconfigured and a host that can pair is present. The Bot Token / API Base
+  URL / proxy / allow_from / typing / streaming / placeholder form is retained
+  in full, behind "Advanced / Manual setup" when unconfigured and "Advanced
+  Settings" once connected.
+- Reason: asking a new user for a BotFather token was the single largest
+  barrier to a working PocketClaw. The managed flow removes the copy/paste
+  entirely and additionally scopes `allow_from` to the creating Telegram user,
+  which manual setup cannot know.
+- The manual path is not legacy debt and is not scheduled for removal. It is
+  the only path for an existing bot, a self-managed bot, a custom Telegram Bot
+  API endpoint, debugging, and any user who does not want managed onboarding.
+  When no host or no compiled-in endpoint is present it is not merely available
+  but primary, shown in full with nothing to expand.
+- Evidence: physically verified end to end on an Android device on 2026-08-26,
+  including a real Telegram → Core → AI provider → Telegram round trip.
+- Consequence: the surface decision is a pure function,
+  `resolveTelegramSurface`, and every one of its three outcomes is asserted
+  through the real route component rather than in isolation.
+
+## The web console asks the Flutter host to pair; it does not pair
+
+- Date: 2026-08-26
+- Decision: Channels → Telegram renders the onboarding entry point in React and
+  hands off to the native Dart flow over a `PocketClawHost` WebView bridge. The
+  pairing protocol has exactly one implementation, in Dart.
+- Reason: Milestone D shipped a complete, fully tested onboarding flow that no
+  user could reach, because it was wired to the native Settings tab while the
+  Channels list users actually navigate is rendered by the Core web console.
+  The obvious repair — reimplementing pairing in TypeScript so the console
+  could run it — would have recreated the same split it was fixing, and would
+  have needed CORS on the onboarding service plus a second copy of the polling,
+  expiry, and config-merge logic to keep in step.
+- The bridge is deliberately narrow: it publishes whether an endpoint was
+  compiled in and the bot's public handle, and accepts exactly two requests.
+  It carries no token. The handle is JSON-encoded so it cannot break out of its
+  string literal, `openExternal` accepts only absolute `http`/`https` URLs so
+  the bridge cannot become an arbitrary-launch primitive, and both injection
+  and message handling are scoped to the console's own origin because the
+  WebView will follow an outbound link if a user taps one. Unparseable input
+  fails closed.
+- Consequence: `TelegramOnboardingLauncher.open` is the single entry to
+  onboarding and both surfaces call it. Adding a third surface means calling it
+  too, never writing a second flow.
+
+## A test that does not enter through the app's own route proves nothing about reachability
+
+- Date: 2026-08-26
+- Decision: any claim that a PocketClaw UI feature is reachable must be backed
+  by a test that renders the same component the app renders — for Telegram,
+  `ChannelConfigPage channelName="telegram"` — not the feature widget alone.
+- Reason: Milestone D passed 77 Flutter tests, `flutter analyze`, the release
+  guard, and a full secret scan, and still failed on the device. Every test
+  constructed the onboarding widget directly, so all of them were true and none
+  of them was evidence that a user would ever meet it. A green build was
+  actively misleading here.
+- Evidence: the replacement web tests were confirmed to fail against the
+  pre-fix wiring — reverting the one line to `TelegramForm` failed all eight —
+  before being accepted. A regression test that has never been observed failing
+  is an assumption, not a test.
+- Consequence: `jsdom` and `@testing-library/react` were added to the Core
+  frontend's dev dependencies. That widens the upstream divergence, and it was
+  accepted deliberately: the project had no DOM renderer, which is precisely
+  why nothing could test the real route.

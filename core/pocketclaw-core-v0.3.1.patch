@@ -2847,7 +2847,7 @@ index d3bdd90..8eb9c67 100644
  
    <body>
 diff --git a/web/frontend/package.json b/web/frontend/package.json
-index b548bdd..583e6ca 100644
+index b548bdd..e1adcb1 100644
 --- a/web/frontend/package.json
 +++ b/web/frontend/package.json
 @@ -14,7 +14,8 @@
@@ -2860,7 +2860,22 @@ index b548bdd..583e6ca 100644
    },
    "dependencies": {
      "@fontsource-variable/inter": "^5.2.8",
-@@ -68,6 +69,7 @@
+@@ -53,6 +54,9 @@
+     "@eslint/js": "^10.0.1",
+     "@tailwindcss/typography": "^0.5.19",
+     "@tanstack/router-plugin": "^1.164.0",
++    "@testing-library/dom": "^10.4.1",
++    "@testing-library/react": "^16.3.2",
++    "@testing-library/user-event": "^14.6.6",
+     "@trivago/prettier-plugin-sort-imports": "^6.0.2",
+     "@types/node": "^25.6.0",
+     "@types/react": "^19.2.7",
+@@ -64,10 +68,12 @@
+     "eslint-plugin-react-hooks": "^7.1.1",
+     "eslint-plugin-react-refresh": "^0.5.2",
+     "globals": "^17.6.0",
++    "jsdom": "^30.0.1",
+     "prettier": "^3.8.3",
      "prettier-plugin-tailwindcss": "^0.8.0",
      "typescript": "~5.9.3",
      "typescript-eslint": "^8.59.3",
@@ -2870,20 +2885,120 @@ index b548bdd..583e6ca 100644
    }
  }
 diff --git a/web/frontend/pnpm-lock.yaml b/web/frontend/pnpm-lock.yaml
-index 1f767dc..914695d 100644
+index 1f767dc..cebf3bc 100644
 --- a/web/frontend/pnpm-lock.yaml
 +++ b/web/frontend/pnpm-lock.yaml
-@@ -159,6 +159,9 @@ importers:
+@@ -111,6 +111,15 @@ importers:
+       '@tanstack/router-plugin':
+         specifier: ^1.164.0
+         version: 1.167.9(@tanstack/react-router@1.169.2(react-dom@19.2.5(react@19.2.5))(react@19.2.5))(vite@8.0.16(@types/node@25.6.0)(esbuild@0.27.4)(jiti@2.7.0)(tsx@4.21.0))
++      '@testing-library/dom':
++        specifier: ^10.4.1
++        version: 10.4.1
++      '@testing-library/react':
++        specifier: ^16.3.2
++        version: 16.3.2(@testing-library/dom@10.4.1)(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
++      '@testing-library/user-event':
++        specifier: ^14.6.6
++        version: 14.6.6(@testing-library/dom@10.4.1)
+       '@trivago/prettier-plugin-sort-imports':
+         specifier: ^6.0.2
+         version: 6.0.2(prettier@3.8.3)
+@@ -144,6 +153,9 @@ importers:
+       globals:
+         specifier: ^17.6.0
+         version: 17.6.0
++      jsdom:
++        specifier: ^30.0.1
++        version: 30.0.1(@noble/hashes@1.8.0)
+       prettier:
+         specifier: ^3.8.3
+         version: 3.8.3
+@@ -159,9 +171,20 @@ importers:
        vite:
          specifier: ^8.0.16
          version: 8.0.16(@types/node@25.6.0)(esbuild@0.27.4)(jiti@2.7.0)(tsx@4.21.0)
 +      vitest:
 +        specifier: ^4.1.11
-+        version: 4.1.11(@types/node@25.6.0)(msw@2.14.4(@types/node@25.6.0)(typescript@5.9.3))(vite@8.0.16(@types/node@25.6.0)(esbuild@0.27.4)(jiti@2.7.0)(tsx@4.21.0))
++        version: 4.1.11(@types/node@25.6.0)(jsdom@30.0.1(@noble/hashes@1.8.0))(msw@2.14.4(@types/node@25.6.0)(typescript@5.9.3))(vite@8.0.16(@types/node@25.6.0)(esbuild@0.27.4)(jiti@2.7.0)(tsx@4.21.0))
  
  packages:
  
-@@ -1466,6 +1469,9 @@ packages:
++  '@asamuzakjp/css-color@6.0.7':
++    resolution: {integrity: sha512-vC/bk1Lz7Tn/EfU9/apOTBk80/8dyGyWMowPoV1tJ52muDGsDqt2HPT2klrFUiY60MQmQv9q8yIht15JnBgDGw==}
++    engines: {node: ^22.13.0 || >=24.0.0}
++
++  '@asamuzakjp/dom-selector@8.3.2':
++    resolution: {integrity: sha512-93Z1N+BQNXysodoicpOIyNh2drHfz/CTf9nnT0FEx72GJcIiwgydD7tGAr78j41LsYn3hlRn+LdGPuBLn1Bl8Q==}
++    engines: {node: ^22.13.0 || >=24.0.0}
++
+   '@babel/code-frame@7.29.0':
+     resolution: {integrity: sha512-9NhCeYjq9+3uxgdtp20LSiJXJvN0FeCtNGpJxuMFZ1Kv3cWUNb6DOhJwUvcVCzKGR66cw4njwM6hrJLqgOwbcw==}
+     engines: {node: '>=6.9.0'}
+@@ -300,6 +323,46 @@ packages:
+     resolution: {integrity: sha512-LwdZHpScM4Qz8Xw2iKSzS+cfglZzJGvofQICy7W7v4caru4EaAmyUuO6BGrbyQ2mYV11W0U8j5mBhd14dd3B0A==}
+     engines: {node: '>=6.9.0'}
+ 
++  '@bramus/specificity@2.4.2':
++    resolution: {integrity: sha512-ctxtJ/eA+t+6q2++vj5j7FYX3nRu311q1wfYH3xjlLOsczhlhxAg2FWNUXhpGvAw3BWo1xBcvOV6/YLc2r5FJw==}
++    hasBin: true
++
++  '@csstools/color-helpers@6.1.1':
++    resolution: {integrity: sha512-gLNsunvwf3mCi5u5o46/Z/JcJMnhbHSaZ69rkgPzNM3J4s8hWwpPUQB6/tt0EDFyCiWzxANlx+2LJwpYj4zS1w==}
++    engines: {node: '>=20.19.0'}
++
++  '@csstools/css-calc@3.3.0':
++    resolution: {integrity: sha512-c5ihYsPkdG6JCkU2zTMm4+k6r7RXuGxtWYhu5DHMIiF1FHzrfmHL5so11AoFpUv/tu61xfcmT4AmKoFfMPoqdQ==}
++    engines: {node: '>=20.19.0'}
++    peerDependencies:
++      '@csstools/css-parser-algorithms': ^4.0.0
++      '@csstools/css-tokenizer': ^4.0.0
++
++  '@csstools/css-color-parser@4.2.1':
++    resolution: {integrity: sha512-YpAJZhaHplYQkG8ib+/Fx5Y0eF2lVWi3tIvMJA6i39TLyUNp2439cifzW8VMjhlqrBjHzK5hVGugRRm2zTKI/A==}
++    engines: {node: '>=20.19.0'}
++    peerDependencies:
++      '@csstools/css-parser-algorithms': ^4.0.0
++      '@csstools/css-tokenizer': ^4.0.0
++
++  '@csstools/css-parser-algorithms@4.0.0':
++    resolution: {integrity: sha512-+B87qS7fIG3L5h3qwJ/IFbjoVoOe/bpOdh9hAjXbvx0o8ImEmUsGXN0inFOnk2ChCFgqkkGFQ+TpM5rbhkKe4w==}
++    engines: {node: '>=20.19.0'}
++    peerDependencies:
++      '@csstools/css-tokenizer': ^4.0.0
++
++  '@csstools/css-syntax-patches-for-csstree@1.1.9':
++    resolution: {integrity: sha512-iGGw4OsAYsS6pD29MdJ2bX/nJx65a04ZZiw6x+VwWlP2DdXf6f++Zmuv/OzALpdyfVhjbduIIF2cXM7HWBIe9A==}
++    peerDependencies:
++      css-tree: ^3.2.1
++    peerDependenciesMeta:
++      css-tree:
++        optional: true
++
++  '@csstools/css-tokenizer@4.0.0':
++    resolution: {integrity: sha512-QxULHAm7cNu72w97JUNCBFODFaXpbDg+dP8b/oWFAZ2MTRppA3U00Y2L1HqaS4J6yBqxwa/Y3nMBaxVKbB/NsA==}
++    engines: {node: '>=20.19.0'}
++
+   '@dotenvx/dotenvx@1.65.0':
+     resolution: {integrity: sha512-v4FA/Lw3pTEloLxBqTOaYDX6MNo0Jo7lGBsPZhwnJBqRJp0AzQg1ZZNxrFsh6HVC6QWeWrfIKLn0y2eyIXaVDg==}
+     hasBin: true
+@@ -514,6 +577,15 @@ packages:
+     resolution: {integrity: sha512-+CNAzxglkrpNf/kKywqQfk74QjtceuOE7Qm+AF8miRvPF/wmmK5+OJOgVh3AVTT3RP2mH3+FOaxlE5v72owk0A==}
+     engines: {node: ^20.19.0 || ^22.13.0 || >=24}
+ 
++  '@exodus/bytes@1.15.1':
++    resolution: {integrity: sha512-S6mL0yNB/Abt9Ei4tq8gDhcczc4S3+vQ4ra7vxnAf+YHC02srtqxKKZghx2Dq6p0e66THKwR6r8N6P95wEty7Q==}
++    engines: {node: ^20.19.0 || ^22.12.0 || >=24.0.0}
++    peerDependencies:
++      '@noble/hashes': ^1.8.0 || ^2.0.0
++    peerDependenciesMeta:
++      '@noble/hashes':
++        optional: true
++
+   '@floating-ui/core@1.7.5':
+     resolution: {integrity: sha512-1Ih4WTWyw0+lKyFMcBHGbb5U5FtuHJuujoyyr5zTaWS5EYMeT6Jb2AuDeftsCsEuchO+mM2ij5+q9crhydzLhQ==}
+ 
+@@ -1466,6 +1538,9 @@ packages:
      resolution: {integrity: sha512-tlqY9xq5ukxTUZBmoOp+m61cqwQD5pHJtFY3Mn8CA8ps6yghLH/Hw8UPdqg4OLmFW3IFlcXnQNmo/dh8HzXYIQ==}
      engines: {node: '>=18'}
  
@@ -2893,10 +3008,45 @@ index 1f767dc..914695d 100644
    '@tabler/icons-react@3.43.0':
      resolution: {integrity: sha512-rXUuCQEeRbEk3lJxs3gwzdtaaITSwc/JUbp+AkqsGff5uBpzZw7eKPDk53xKoKLyjrbj82Ai4GuVG0kO89Jf5g==}
      peerDependencies:
-@@ -1692,9 +1698,15 @@ packages:
+@@ -1667,6 +1742,31 @@ packages:
+     engines: {node: '>=20.19'}
+     hasBin: true
+ 
++  '@testing-library/dom@10.4.1':
++    resolution: {integrity: sha512-o4PXJQidqJl82ckFaXUeoAW+XysPLauYI43Abki5hABd853iMhitooc6znOnczgbTYmEP6U6/y1ZyKAIsvMKGg==}
++    engines: {node: '>=18'}
++
++  '@testing-library/react@16.3.2':
++    resolution: {integrity: sha512-XU5/SytQM+ykqMnAnvB2umaJNIOsLF3PVv//1Ew4CTcpz0/BRyy/af40qqrt7SjKpDdT1saBMc42CUok5gaw+g==}
++    engines: {node: '>=18'}
++    peerDependencies:
++      '@testing-library/dom': ^10.0.0
++      '@types/react': ^18.0.0 || ^19.0.0
++      '@types/react-dom': ^18.0.0 || ^19.0.0
++      react: ^18.0.0 || ^19.0.0
++      react-dom: ^18.0.0 || ^19.0.0
++    peerDependenciesMeta:
++      '@types/react':
++        optional: true
++      '@types/react-dom':
++        optional: true
++
++  '@testing-library/user-event@14.6.6':
++    resolution: {integrity: sha512-Jbs9FpkkIDw8FgSc6kOVsOv8JuuqGAL7J4X1oot77JxAoDlkNn2GRkd0aYRVuQ+pVQAiHWVkE4rX/dkF5fBiCw==}
++    engines: {node: '>=12', npm: '>=6'}
++    peerDependencies:
++      '@testing-library/dom': '>=7.21.4'
++
+   '@trivago/prettier-plugin-sort-imports@6.0.2':
+     resolution: {integrity: sha512-3DgfkukFyC/sE/VuYjaUUWoFfuVjPK55vOFDsxD56XXynFMCZDYFogH2l/hDfOsQAm1myoU/1xByJ3tWqtulXA==}
+     engines: {node: '>= 20'}
+@@ -1692,9 +1792,18 @@ packages:
    '@tybys/wasm-util@0.10.2':
      resolution: {integrity: sha512-RoBvJ2X0wuKlWFIjrwffGw1IqZHKQqzIchKaadZZfnNpsAYp2mM0h36JtPCjNDAHGgYez/15uMBpfGwchhiMgg==}
  
++  '@types/aria-query@5.0.4':
++    resolution: {integrity: sha512-rfT93uj5s0PRL7EzccGMs3brplhcrghnDoV26NqKhCAS1hVo+WdNsPvE/yb6ilfr5hi2MEk6d5EWJTKdxg8jVw==}
++
 +  '@types/chai@5.2.3':
 +    resolution: {integrity: sha512-Mw558oeA9fFbv65/y4mHtXDs9bPnFMZAL/jxdPFUpOHHIXX91mcgEHbS5Lahr+pwZFR8A7GQleRWeI6cGFC2UA==}
 +
@@ -2909,7 +3059,7 @@ index 1f767dc..914695d 100644
    '@types/esrecurse@4.3.1':
      resolution: {integrity: sha512-xJBAbDifo5hpffDBuHl0Y8ywswbiAp/Wi7Y/GtAgSlZyIABppyurxVueOPE8LUQOxdlgi6Zqce7uoEpqNTeiUw==}
  
-@@ -1870,6 +1882,35 @@ packages:
+@@ -1870,6 +1979,35 @@ packages:
        babel-plugin-react-compiler:
          optional: true
  
@@ -2945,10 +3095,24 @@ index 1f767dc..914695d 100644
    accepts@2.0.0:
      resolution: {integrity: sha512-5cvg6CtKwfgdmVqY1WIiXKc3Q1bkRqGLi+2W/6ao+6Y7gu/RCwRuAhGEzh5B4KlszSuTLgZYuqFqo5bImjNKng==}
      engines: {node: '>= 0.6'}
-@@ -1938,6 +1979,10 @@ packages:
+@@ -1919,6 +2057,10 @@ packages:
+     resolution: {integrity: sha512-zbB9rCJAT1rbjiVDb2hqKFHNYLxgtk8NURxZ3IZwD3F6NtxbXZQCnnSi1Lkx+IDohdPlFp222wVALIheZJQSEg==}
+     engines: {node: '>=8'}
+ 
++  ansi-styles@5.2.0:
++    resolution: {integrity: sha512-Cxwpt2SfTzTtXcfOlzGEee8O+c+MmUgGrNiBcXnuWxuFJHe6a5Hz7qwhwe5OgaSYI0IJvkLqWX1ASG+cJOkEiA==}
++    engines: {node: '>=10'}
++
+   ansi-styles@6.2.3:
+     resolution: {integrity: sha512-4Dj6M28JB+oAH8kFkTLUo+a2jwOFkuqb3yucU0CANcRRUbxS0cP0nZYCGjcc3BNXwRIsUVmDGgzawme7zvJHvg==}
+     engines: {node: '>=12'}
+@@ -1938,6 +2080,13 @@ packages:
      resolution: {integrity: sha512-ik3ZgC9dY/lYVVM++OISsaYDeg1tb0VtP5uL3ouh1koGOaUMDPpbFIei4JkFimWUFPn90sbMNMXQAIVOlnYKJA==}
      engines: {node: '>=10'}
  
++  aria-query@5.3.0:
++    resolution: {integrity: sha512-b0P0sZPKtyu8HkeRAfCq0IfURZK+SuwMjY1UXGBU27wpAiTwQAIlq56IbIO+ytk/JjS1fMR14ee5WBBfKi5J6A==}
++
 +  assertion-error@2.0.1:
 +    resolution: {integrity: sha512-Izi8RQcffqCeNVgFigKli1ssklIbpHnCYc6AknXGYoB6grJqyeby7jv12JUQgmTAnIDnbck1uxksT4dzN3PWBA==}
 +    engines: {node: '>=12'}
@@ -2956,7 +3120,17 @@ index 1f767dc..914695d 100644
    ast-types@0.16.1:
      resolution: {integrity: sha512-6t10qk83GOG8p0vKmaCr8eiilZwO171AvbROMtvvNiwrTly62t+7XkA8RdIIVbpMhCASAsxgAzdRSwh6nw/5Dg==}
      engines: {node: '>=4'}
-@@ -2010,6 +2055,10 @@ packages:
+@@ -1960,6 +2109,9 @@ packages:
+     engines: {node: '>=6.0.0'}
+     hasBin: true
+ 
++  bidi-js@1.0.3:
++    resolution: {integrity: sha512-RKshQI1R3YQ+n9YJz2QQ147P66ELpa1FQEg20Dk8oW9t2KgLbpDLLp9aGZ7y8WHSshDknG0bknqGw5/tyCs5tw==}
++
+   binary-extensions@2.3.0:
+     resolution: {integrity: sha512-Ceh+7ox5qe7LJuLHoY0feh3pHuUDHAcRUeyL2VYghZwfpkNIy/+8Ocg0a3UuSoYzavmylwuLWQOf3hl0jjMMIw==}
+     engines: {node: '>=8'}
+@@ -2010,6 +2162,10 @@ packages:
    ccount@2.0.1:
      resolution: {integrity: sha512-eyrF0jiFpY+3drT6383f1qhkbGsLSifNAjA61IUjZjmLCWjItY6LB9ft9YhoDgwfmclB2zhu51Lc7+95b8NRAg==}
  
@@ -2967,7 +3141,60 @@ index 1f767dc..914695d 100644
    chalk@5.6.2:
      resolution: {integrity: sha512-7NzBL0rN6fMUW+f7A6Io4h40qQlG+xGmtMxfbnH/K7TAtt8JQWVQK+6g0UXKMeVJoyV5EkkNsErQ8pVD3bLHbA==}
      engines: {node: ^12.17.0 || ^14.13 || >=16.0.0}
-@@ -2253,6 +2302,9 @@ packages:
+@@ -2126,6 +2282,10 @@ packages:
+     resolution: {integrity: sha512-uV2QOWP2nWzsy2aMp8aRibhi9dlzF5Hgh5SHaB9OiTGEyDTiJJyx0uy51QXdyWbtAHNua4XJzUKca3OzKUd3vA==}
+     engines: {node: '>= 8'}
+ 
++  css-tree@3.2.1:
++    resolution: {integrity: sha512-X7sjQzceUhu1u7Y/ylrRZFU2FS6LRiFVp6rKLPg23y3x3c3DOKAwuXGDp+PAGjh6CSnCjYeAul8pcT8bAl+lSA==}
++    engines: {node: ^10 || ^12.20.0 || ^14.13.0 || >=15.0.0}
++
+   cssesc@3.0.0:
+     resolution: {integrity: sha512-/Tb/JcjK111nNScGob5MNtsntNM1aCNUDipB/TkwZFhyDrrE47SOx/18wF2bbjgc3ZzCSKW1T5nt5EbFoAz/Vg==}
+     engines: {node: '>=4'}
+@@ -2138,6 +2298,10 @@ packages:
+     resolution: {integrity: sha512-0R9ikRb668HB7QDxT1vkpuUBtqc53YyAwMwGeUFKRojY/NWKvdZ+9UYtRfGmhqNbRkTSVpMbmyhXipFFv2cb/A==}
+     engines: {node: '>= 12'}
+ 
++  data-urls@7.0.0:
++    resolution: {integrity: sha512-23XHcCF+coGYevirZceTVD7NdJOqVn+49IHyxgszm+JIiHLoB2TkmPtsYkNWT1pvRSGkc35L6NHs0yHkN2SumA==}
++    engines: {node: ^20.19.0 || ^22.12.0 || >=24.0.0}
++
+   dayjs@1.11.20:
+     resolution: {integrity: sha512-YbwwqR/uYpeoP4pu043q+LTDLFBLApUP6VxRihdfNTqu4ubqMlGDLd6ErXhEgsyvY0K6nCs7nggYumAN+9uEuQ==}
+ 
+@@ -2150,6 +2314,9 @@ packages:
+       supports-color:
+         optional: true
+ 
++  decimal.js@10.6.0:
++    resolution: {integrity: sha512-YpgQiITW3JXGntzdUmyUR1V812Hn8T1YVXhCu+wO3OpS4eU9l4YdD3qjyiKdV6mvV29zapkMeD390UVEf2lkUg==}
++
+   decode-named-character-reference@1.3.0:
+     resolution: {integrity: sha512-GtpQYB283KrPp6nRw50q3U9/VfOutZOe103qlN7BPP6Ad27xYnOIWv4lPzo8HCAL+mMZofJ9KEy30fq6MfaK6Q==}
+ 
+@@ -2202,6 +2369,9 @@ packages:
+     resolution: {integrity: sha512-DPi0FmjiSU5EvQV0++GFDOJ9ASQUVFh5kD+OzOnYdi7n3Wpm9hWWGfB/O2blfHcMVTL5WkQXSnRiK9makhrcnw==}
+     engines: {node: '>=0.3.1'}
+ 
++  dom-accessibility-api@0.5.16:
++    resolution: {integrity: sha512-X7BJ2yElsnOJ30pZF4uIIDfBEVgF4XEBxL9Bxhy6dnrm5hkzqmsWHGTiHqRiITNhMyFLyAiWndIJP7Z1NTteDg==}
++
+   dotenv@17.4.2:
+     resolution: {integrity: sha512-nI4U3TottKAcAD9LLud4Cb7b2QztQMUEfHbvhTH09bqXTxnSie8WnjPALV/WMCrJZ6UV/qHJ6L03OqO3LcdYZw==}
+     engines: {node: '>=12'}
+@@ -2238,6 +2408,10 @@ packages:
+     resolution: {integrity: sha512-aN97NXWF6AWBTahfVOIrB/NShkzi5H7F9r1s9mD3cDj4Ko5f2qhhVoYMibXF7GlLveb/D2ioWay8lxI97Ven3g==}
+     engines: {node: '>=0.12'}
+ 
++  entities@8.0.0:
++    resolution: {integrity: sha512-zwfzJecQ/Uej6tusMqwAqU/6KL2XaB2VZ2Jg54Je6ahNBGNH6Ek6g3jjNCF0fG9EWQKGZNddNjU5F1ZQn/sBnA==}
++    engines: {node: '>=20.19.0'}
++
+   env-paths@2.2.1:
+     resolution: {integrity: sha512-+h1lkLKhZMTYjog1VEpJNG7NZJWcuc2DDk/qsqSTRRCOXiLjeQ1d1/udrUGhqMxUgAlwKNZ0cf2uqan5GLuS2A==}
+     engines: {node: '>=6'}
+@@ -2253,6 +2427,9 @@ packages:
      resolution: {integrity: sha512-Zf5H2Kxt2xjTvbJvP2ZWLEICxA6j+hAmMzIlypy4xcBg1vKVnx89Wy0GbS+kf5cwCVFFzdCFh2XSCFNULS6csw==}
      engines: {node: '>= 0.4'}
  
@@ -2977,7 +3204,7 @@ index 1f767dc..914695d 100644
    es-object-atoms@1.1.1:
      resolution: {integrity: sha512-FGgH2h8zKNim9ljj7dankFPcICIK9Cp5bm+c2gQSYePhpaG5+esrLODihIorn+Pe6FGJzWhXQotPv73jTaldXA==}
      engines: {node: '>= 0.4'}
-@@ -2340,6 +2392,9 @@ packages:
+@@ -2340,6 +2517,9 @@ packages:
    estree-util-is-identifier-name@3.0.0:
      resolution: {integrity: sha512-hFtqIDZTIUZ9BXLb8y4pYGyk6+wekIivNVTcmvk8NoOh+VeRn5y6cEHzbURrWbfp1fIqdVipilzj+lfaadNZmg==}
  
@@ -2987,7 +3214,7 @@ index 1f767dc..914695d 100644
    esutils@2.0.3:
      resolution: {integrity: sha512-kVscqXk4OCp68SZ0dkgEKVi6/8ij300KBWTJq32P/dYeWTSwK41WyTxalN1eRmA5Z9UU/LX9D7FWSmV9SAYx6g==}
      engines: {node: '>=0.10.0'}
-@@ -2364,6 +2419,10 @@ packages:
+@@ -2364,6 +2544,10 @@ packages:
      resolution: {integrity: sha512-9Be3ZoN4LmYR90tUoVu2te2BsbzHfhJyfEiAVfz7N5/zv+jduIfLrV2xdQXOHbaD6KgpGdO9PRPM1Y4Q9QkPkA==}
      engines: {node: ^18.19.0 || >=20.5.0}
  
@@ -2998,7 +3225,72 @@ index 1f767dc..914695d 100644
    express-rate-limit@8.5.1:
      resolution: {integrity: sha512-5O6KYmyJEpuPJV5hNTXKbAHWRqrzyu+OI3vUnSd2kXFubIVpG7ezpgxQy76Zo5GQZtrQBg86hF+CM/NX+cioiQ==}
      engines: {node: '>= 16'}
-@@ -3199,6 +3258,10 @@ packages:
+@@ -2594,6 +2778,10 @@ packages:
+     resolution: {integrity: sha512-RWzP96k/yv0PQfyXnWjs6zot20TqfpfsNXhOnev8d1InAxubW93L11/oNUc3tQqn2G0bSdAOBpX+2uDFHV7kdQ==}
+     engines: {node: '>=16.9.0'}
+ 
++  html-encoding-sniffer@6.0.0:
++    resolution: {integrity: sha512-CV9TW3Y3f8/wT0BRFc1/KAVQ3TUHiXmaAb6VW9vtiMFf7SLoMd1PdAc4W3KFOFETBJUb90KatHqlsZMWV+R9Gg==}
++    engines: {node: ^20.19.0 || ^22.12.0 || >=24.0.0}
++
+   html-parse-stringify@3.0.1:
+     resolution: {integrity: sha512-KknJ50kTInJ7qIScF3jeaFRpMpE8/lfiTdzf/twXyPBLAGrLRTmkz3AdTnKeh40X8k9L2fdYwEp/42WGXIRGcg==}
+ 
+@@ -2728,6 +2916,9 @@ packages:
+     resolution: {integrity: sha512-+Pgi+vMuUNkJyExiMBt5IlFoMyKnr5zhJ4Uspz58WOhBF5QoIZkFyNHIbBAtHwzVAgk5RtndVNsDRN61/mmDqg==}
+     engines: {node: '>=12'}
+ 
++  is-potential-custom-element-name@1.0.1:
++    resolution: {integrity: sha512-bCYeRA2rVibKZd+s2625gGnGF/t7DSqDs4dP7CrLA1m7jKWz6pps0LpYLJN8Q64HtmPKJ1hrN3nzPNKFEKOUiQ==}
++
+   is-promise@4.0.0:
+     resolution: {integrity: sha512-hvpoI6korhJMnej285dSg6nu1+e6uxs7zG3BYAm5byqDsgJNWwxzM6z6iZiAgQR4TJ30JmBTOwqZUw3WlyH3AQ==}
+ 
+@@ -2801,6 +2992,15 @@ packages:
+     resolution: {integrity: sha512-qQKT4zQxXl8lLwBtHMWwaTcGfFOZviOJet3Oy/xmGk2gZH677CJM9EvtfdSkgWcATZhj/55JZ0rmy3myCT5lsA==}
+     hasBin: true
+ 
++  jsdom@30.0.1:
++    resolution: {integrity: sha512-52v7mUVUfNQVYYqE1lcdaymWL0njO7lTLUog6ZvW2U5KsbiLk/GnZlVJ+qx0xfNJZ6Gn+KSpPNE52vurbxZwrA==}
++    engines: {node: ^22.22.2 || ^24.15.0 || >=26.0.0}
++    peerDependencies:
++      canvas: ^3.2.3
++    peerDependenciesMeta:
++      canvas:
++        optional: true
++
+   jsesc@3.1.0:
+     resolution: {integrity: sha512-/sM3dO2FOzXjKQhJuo0Q173wf2KOo8t4I8vHy6lF9poUp7bKT0/NHE8fPX23PwfhnykfqnC2xRxOnVw5XuGIaA==}
+     engines: {node: '>=6'}
+@@ -2941,9 +3141,17 @@ packages:
+   lowlight@3.3.0:
+     resolution: {integrity: sha512-0JNhgFoPvP6U6lE/UdVsSq99tn6DhjjpAj5MxG49ewd2mOBVtwWYIT8ClyABhq198aXXODMU6Ox8DrGy/CpTZQ==}
+ 
++  lru-cache@11.5.2:
++    resolution: {integrity: sha512-4pfM1Ff0x50o0tQwb5ucw/RzNyD0/YJME6IVcStalZuMWxdt3sR3huStTtxz4PUmvZfRguvDejasvQ2kifR11g==}
++    engines: {node: 20 || >=22}
++
+   lru-cache@5.1.1:
+     resolution: {integrity: sha512-KpNARQA3Iwv+jTA0utUVVbrh+Jlrr1Fv0e56GGzAFOXN7dk/FviaDW8LHmK52DlcH4WP2n6gI8vN1aesBFgo9w==}
+ 
++  lz-string@1.5.0:
++    resolution: {integrity: sha512-h5bgJWpxJNswbU7qCrV0tIKQCaS3blPDrqKWx+QxzuzL1zGUzij9XCWLrSLsJPu5t+eWA/ycetzYAO5IOMcWAQ==}
++    hasBin: true
++
+   magic-string@0.30.21:
+     resolution: {integrity: sha512-vd2F4YUyEXKGcLHoq+TEyCjxueSeHnFxyyjNp80yg0XV4vUhnDer/lvvlqM/arB5bXQN5K2/3oinyCRyx8T2CQ==}
+ 
+@@ -2999,6 +3207,9 @@ packages:
+   mdast-util-to-string@4.0.0:
+     resolution: {integrity: sha512-0H44vDimn51F0YwvxSJSm0eCDOJTRlmN0R1yBh4HLj9wiV1Dn0QoXGbvFAWj2hSItVTlCmBF1hqKlIyUBVFLPg==}
+ 
++  mdn-data@2.27.1:
++    resolution: {integrity: sha512-9Yubnt3e8A0OKwxYSXyhLymGW4sCufcLG6VdiDdUGVkPhpqLxlvP5vl1983gQjJl3tqbrM731mjaZaP68AgosQ==}
++
+   media-typer@1.1.0:
+     resolution: {integrity: sha512-aisnrDP4GNe06UcKFnV5bfMNPBUw4jsLGaWwWfnH3v02GnBuXX2MCVn5RbrWo0j3pczUilYblq7fQ7Nw2t5XKw==}
+     engines: {node: '>= 0.8'}
+@@ -3199,6 +3410,10 @@ packages:
      resolution: {integrity: sha512-EFVjAYfzWqWsBMRHPMAXLCDIJnpMhdWAqR7xG6M6a2cs6PMFpl/+Z20w9zDW4vkxOFfddegBKq9Rehd0bxWE7A==}
      engines: {node: '>= 10'}
  
@@ -3009,7 +3301,49 @@ index 1f767dc..914695d 100644
    on-finished@2.4.1:
      resolution: {integrity: sha512-oVlzkg3ENAhCk2zdv7IJwd/QUD4z2RxRwpkcGY8psCVcCYZNq4wYnVWALHM+brtuJjePWiYF/ClmuDr8Ch5+kg==}
      engines: {node: '>= 0.8'}
-@@ -3650,6 +3713,9 @@ packages:
+@@ -3261,6 +3476,9 @@ packages:
+   parse5@7.3.0:
+     resolution: {integrity: sha512-IInvU7fabl34qmi9gY8XOVxhYyMyuH2xUNpb2q8/Y+7552KlejkRvqvD19nMoUW/uQGGbqNpA6Tufu5FL5BZgw==}
+ 
++  parse5@8.0.1:
++    resolution: {integrity: sha512-z1e/HMG90obSGeidlli3hj7cbocou0/wa5HacvI3ASx34PecNjNQeaHNo5WIZpWofN9kgkqV1q5YvXe3F0FoPw==}
++
+   parseurl@1.3.3:
+     resolution: {integrity: sha512-CiyeOxFT/JZyN5m0z9PfXw4SCBJ6Sygz1Dpl0wqjlhDEGGBP1GnsUVEL0p63hoG1fcj3fHynXi9NYO4nWOL+qQ==}
+     engines: {node: '>= 0.8'}
+@@ -3388,6 +3606,10 @@ packages:
+     engines: {node: '>=14'}
+     hasBin: true
+ 
++  pretty-format@27.5.1:
++    resolution: {integrity: sha512-Qb1gy5OrP5+zDf2Bvnzdl3jsTf1qXVMazbvCoKhtKqVs4/YK4ozX4gKQJJVyNe+cajNPn0KoC0MC3FUmaHWEmQ==}
++    engines: {node: ^10.13.0 || ^12.13.0 || ^14.15.0 || >=15.0.0}
++
+   pretty-ms@9.3.0:
+     resolution: {integrity: sha512-gjVS5hOP+M3wMm5nmNOucbIrqudzs9v/57bWRHQWLYklXqoXKrVfYW2W9+glfGsqtPgpiz5WwyEEB+ksXIx3gQ==}
+     engines: {node: '>=18'}
+@@ -3456,6 +3678,9 @@ packages:
+       typescript:
+         optional: true
+ 
++  react-is@17.0.2:
++    resolution: {integrity: sha512-w2GsyukL62IJnlaff/nRegPQR94C/XXamvMWmSHRJ4y7Ts/4ocGRmTHvOs8PSE6pB3dWOrD/nueuU5sduBsQ4w==}
++
+   react-markdown@10.1.0:
+     resolution: {integrity: sha512-qKxVopLT/TyA6BX3Ue5NwabOsAzm0Q7kAPwq6L+wWDwisYs7R8vZ0nRXqq6rkueboxpkjvLGU9fWifiX/ZZFxQ==}
+     peerDependencies:
+@@ -3576,6 +3801,10 @@ packages:
+   safer-buffer@2.1.2:
+     resolution: {integrity: sha512-YZo3K82SD7Riyi0E1EQPojLz7kpepnSQI9IyPbHHg1XXXevb5dJI7tpyN2ADxGcQbHG7vcyRHk0cbwqcQriUtg==}
+ 
++  saxes@6.0.0:
++    resolution: {integrity: sha512-xAg7SOnEhrm5zI3puOOKyy1OMcMlIJZYNJY7xLBwSze0UjhPLnWfj2GF2EpT0jmzaJKIWKHLsaSSajf35bcYnA==}
++    engines: {node: '>=v12.22.7'}
++
+   scheduler@0.27.0:
+     resolution: {integrity: sha512-eNv+WrVbKu1f3vbYJT/xtiF5syA5HPIMtf9IgY/nKg0sWqzAUEvqY/xm7OcZc/qafLx/iO9FgOmeSAp4v5ti/Q==}
+ 
+@@ -3650,6 +3879,9 @@ packages:
      resolution: {integrity: sha512-ZX99e6tRweoUXqR+VBrslhda51Nh5MTQwou5tnUDgbtyM0dBgmhEDtWGP/xbKn6hqfPRHujUNwz5fy/wbbhnpw==}
      engines: {node: '>= 0.4'}
  
@@ -3019,7 +3353,7 @@ index 1f767dc..914695d 100644
    signal-exit@3.0.7:
      resolution: {integrity: sha512-wnD2ZE+l+SPC/uoS0vXeE9L1+0wuaMqKlfz9AMUo38JsyLSBWSFcHR1Rri62LZc12vLr1gb3jl7iwQhgwpAbGQ==}
  
-@@ -3681,10 +3747,16 @@ packages:
+@@ -3681,10 +3913,16 @@ packages:
    space-separated-tokens@2.0.2:
      resolution: {integrity: sha512-PEGlAwrG8yXGXRjW32fGbg66JAlOAwbObuqVoJpv/mRgoWDQfgH1wDPvtzWyUSNAXBGSk8h755YDbbcEy3SH2Q==}
  
@@ -3036,7 +3370,17 @@ index 1f767dc..914695d 100644
    stdin-discarder@0.2.2:
      resolution: {integrity: sha512-UhDfHmA92YAlNnCfhmq0VeNL5bDbiZGg7sZ2IvPsXubGkiNa9EC+tUTsjBRsYUAz87btI6/1wf4XoVvQ3uRnmQ==}
      engines: {node: '>=18'}
-@@ -3754,10 +3826,21 @@ packages:
+@@ -3737,6 +3975,9 @@ packages:
+   style-to-object@1.0.14:
+     resolution: {integrity: sha512-LIN7rULI0jBscWQYaSswptyderlarFkjQ+t79nzty8tcIAceVomEVlLzH5VP4Cmsv6MtKhs7qaAiwlcp+Mgaxw==}
+ 
++  symbol-tree@3.2.4:
++    resolution: {integrity: sha512-9QNk5KwDF+Bvz+PyObkmSYjI5ksVUYtjW7AU22r2NKcfLJcXp96hkDWU3+XndOsUb+AQ9QhfzfCT2O+CNWT5Tw==}
++
+   tagged-tag@1.0.0:
+     resolution: {integrity: sha512-yEFYrVhod+hdNyx7g5Bnkkb0G6si8HJurOoOEgC8B/O0uXLHlaey/65KRv6cuWBNhBgHKAROVpc7QyYqE5gFng==}
+     engines: {node: '>=20'}
+@@ -3754,10 +3995,21 @@ packages:
    tiny-invariant@1.3.3:
      resolution: {integrity: sha512-+FbBPE1o9QAYvviau/qC5SE3caw21q3xkvWKBtja5vgqOWIHHJ3ioaq1VPfn/Szqctz2bU/oYeKd9/z5BL+PVg==}
  
@@ -3058,7 +3402,33 @@ index 1f767dc..914695d 100644
    tldts-core@7.0.30:
      resolution: {integrity: sha512-uiHN8PIB1VmWyS98eZYja4xzlYqeFZVjb4OuYlJQnZAuJhMw4PbKQOKgHKhBdJR3FE/t5mUQ1Kd80++B+qhD1Q==}
  
-@@ -3998,6 +4081,47 @@ packages:
+@@ -3777,6 +4029,14 @@ packages:
+     resolution: {integrity: sha512-LktZQb3IeoUWB9lqR5EWTHgW/VTITCXg4D21M+lvybRVdylLrRMnqaIONLVb5mav8vM19m44HIcGq4qASeu2Qw==}
+     engines: {node: '>=16'}
+ 
++  tough-cookie@6.0.2:
++    resolution: {integrity: sha512-exgYmnmL/sJpR3upZfXG5PoatXQii55xAiXGXzY+sROLZ/Y+SLcp9PgJNI9Vz37HpQ74WvDcLT8eqm+kV3FzrA==}
++    engines: {node: '>=16'}
++
++  tr46@6.0.0:
++    resolution: {integrity: sha512-bLVMLPtstlZ4iMQHpFHTR7GAGj2jxi8Dg0s2h2MafAE4uSWF98FC/3MomU51iQAMf8/qDUbKWf5GxuvvVcXEhw==}
++    engines: {node: '>=20'}
++
+   trim-lines@3.0.1:
+     resolution: {integrity: sha512-kRj8B+YHZCc9kQYdWfJB2/oUl9rA99qbowYYBtr4ui4mZyAQ2JpvVBd/6U2YloATfqBhBTSMhTpgBHtU0Mf3Rg==}
+ 
+@@ -3834,6 +4094,10 @@ packages:
+   undici-types@7.19.2:
+     resolution: {integrity: sha512-qYVnV5OEm2AW8cJMCpdV20CDyaN3g0AjDlOGf1OW4iaDEx8MwdtChUp4zu4H0VP3nDRF/8RKWH+IPp9uW0YGZg==}
+ 
++  undici@8.10.0:
++    resolution: {integrity: sha512-HvltHd7avK13QIw/oLe4qoOLyoVSoafqJ2jYOrtMRBkbYT31eiBQ8O0ehRKZiEZCMEyLFQNIADpgCWC5fALvYQ==}
++    engines: {node: '>=22.19.0'}
++
+   unicorn-magic@0.3.0:
+     resolution: {integrity: sha512-+QBBXBCvifc56fsbuxZQ6Sic3wqqc3WWaqxs58gvJrcOuN83HGTCwz3oS5phzU9LthRNE9VrJCFCLUgHeeFnfA==}
+     engines: {node: '>=18'}
+@@ -3998,10 +4262,55 @@ packages:
        yaml:
          optional: true
  
@@ -3106,7 +3476,41 @@ index 1f767dc..914695d 100644
    void-elements@3.1.0:
      resolution: {integrity: sha512-Dhxzh5HZuiHQhbvTW9AMetFfBHDMYpo23Uo9btPXgdYP+3T5S+p+jgNy7spra+veYhBP2dCSgxR/i2Y02h5/6w==}
      engines: {node: '>=0.10.0'}
-@@ -4022,6 +4146,11 @@ packages:
+ 
++  w3c-xmlserializer@5.0.0:
++    resolution: {integrity: sha512-o8qghlI8NZHU1lLPrpi2+Uq7abh4GGPpYANlalzWxyWteJOCsr/P+oPBA49TOLu5FTZO4d3F9MnWJfiMo4BkmA==}
++    engines: {node: '>=18'}
++
+   web-namespaces@2.0.1:
+     resolution: {integrity: sha512-bKr1DkiNa2krS7qxNtdrtHAmzuYGFQLiQ13TsorsdT6ULTkPLKuu5+GsFpDlg6JFjUTwX2DyhMPG2be8uPrqsQ==}
+ 
+@@ -4009,9 +4318,25 @@ packages:
+     resolution: {integrity: sha512-d2JWLCivmZYTSIoge9MsgFCZrt571BikcWGYkjC1khllbTeDlGqZ2D8vD8E/lJa8WGWbb7Plm8/XJYV7IJHZZw==}
+     engines: {node: '>= 8'}
+ 
++  webidl-conversions@8.0.1:
++    resolution: {integrity: sha512-BMhLD/Sw+GbJC21C/UgyaZX41nPt8bUTg+jWyDeg7e7YN4xOM05YPSIXceACnXVtqyEw/LMClUQMtMZ+PGGpqQ==}
++    engines: {node: '>=20'}
++
+   webpack-virtual-modules@0.6.2:
+     resolution: {integrity: sha512-66/V2i5hQanC51vBQKPH4aI8NMAcBW59FVBs+rC7eGHupMyfn34q7rZIE+ETlJ+XTevqfUhVVBgSUNSW2flEUQ==}
+ 
++  whatwg-mimetype@5.0.0:
++    resolution: {integrity: sha512-sXcNcHOC51uPGF0P/D4NVtrkjSU2fNsm9iog4ZvZJsL3rjoDAzXZhkm2MWt1y+PUdggKAYVoMAIYcs78wJ51Cw==}
++    engines: {node: '>=20'}
++
++  whatwg-url@16.0.1:
++    resolution: {integrity: sha512-1to4zXBxmXHV3IiSSEInrreIlu02vUOvrhxJJH5vcxYTBDAx51cqZiKdyTxlecdKNSjj8EcxGBxNf6Vg+945gw==}
++    engines: {node: ^20.19.0 || ^22.12.0 || >=24.0.0}
++
++  whatwg-url@17.1.0:
++    resolution: {integrity: sha512-3GeworPmc2ZfEEHP7lEbUfBX/L75wdEsi0rLNhXcXxnoN5jyq0SL5gCy06SGW2cyTIZdTvWIDQNQoza++vKeaw==}
++    engines: {node: ^22.14.0 || >=24.0.0}
++
+   which@2.0.2:
+     resolution: {integrity: sha512-BLI3Tl1TW3Pvl70l3yq3Y64i+awpwXqsGBYWkkqMtnbXgrMD+yj7rhW0kuEDxzJaYXGjEW5ogapKNMEKNMjibA==}
+     engines: {node: '>= 8'}
+@@ -4022,6 +4347,11 @@ packages:
      engines: {node: ^16.13.0 || >=18.0.0}
      hasBin: true
  
@@ -3118,7 +3522,89 @@ index 1f767dc..914695d 100644
    word-wrap@1.2.5:
      resolution: {integrity: sha512-BN22B5eaMMI9UMtjrGd5g5eCYPpCPDUy0FJXbYsaT5zYxjFOckS53SQDE3pWkVoWpHXVb3BrYcEN4Twa55B5cA==}
      engines: {node: '>=0.10.0'}
-@@ -5387,6 +5516,8 @@ snapshots:
+@@ -4041,6 +4371,13 @@ packages:
+     resolution: {integrity: sha512-g/eziiSUNBSsdDJtCLB8bdYEUMj4jR7AGeUo96p/3dTafgjHhpF4RiCFPiRILwjQoDXx5MqkBr4fwWtR3Ky4Wg==}
+     engines: {node: '>=20'}
+ 
++  xml-name-validator@5.0.0:
++    resolution: {integrity: sha512-EvGK8EJ3DhaHfbRlETOWAS5pO9MZITeauHKJyb8wyajUfQUenkIg2MvLDTZ4T/TgIcm3HU0TFBgWWboAZ30UHg==}
++    engines: {node: '>=18'}
++
++  xmlchars@2.2.0:
++    resolution: {integrity: sha512-JZnDKK8B0RCDw84FNdDAIpZK+JuJw+s7Lz8nksI7SIuU3UXJJslUthsi+uWBUYOwPFwW7W7PRLRfUKpxjtjFCw==}
++
+   y18n@5.0.8:
+     resolution: {integrity: sha512-0pfFzegeDWJHJIAmTLRP2DwHjdF5s7jo9tuztdQxAhINCdvS+3nGINqPd00AphqJR/0LhANUS6/+7SCb98YOfA==}
+     engines: {node: '>=10'}
+@@ -4090,6 +4427,21 @@ packages:
+ 
+ snapshots:
+ 
++  '@asamuzakjp/css-color@6.0.7':
++    dependencies:
++      '@csstools/css-calc': 3.3.0(@csstools/css-parser-algorithms@4.0.0(@csstools/css-tokenizer@4.0.0))(@csstools/css-tokenizer@4.0.0)
++      '@csstools/css-color-parser': 4.2.1(@csstools/css-parser-algorithms@4.0.0(@csstools/css-tokenizer@4.0.0))(@csstools/css-tokenizer@4.0.0)
++      '@csstools/css-parser-algorithms': 4.0.0(@csstools/css-tokenizer@4.0.0)
++      '@csstools/css-tokenizer': 4.0.0
++      lru-cache: 11.5.2
++
++  '@asamuzakjp/dom-selector@8.3.2':
++    dependencies:
++      bidi-js: 1.0.3
++      css-tree: 3.2.1
++      is-potential-custom-element-name: 1.0.1
++      lru-cache: 11.5.2
++
+   '@babel/code-frame@7.29.0':
+     dependencies:
+       '@babel/helper-validator-identifier': 7.28.5
+@@ -4282,6 +4634,34 @@ snapshots:
+       '@babel/helper-string-parser': 7.27.1
+       '@babel/helper-validator-identifier': 7.28.5
+ 
++  '@bramus/specificity@2.4.2':
++    dependencies:
++      css-tree: 3.2.1
++
++  '@csstools/color-helpers@6.1.1': {}
++
++  '@csstools/css-calc@3.3.0(@csstools/css-parser-algorithms@4.0.0(@csstools/css-tokenizer@4.0.0))(@csstools/css-tokenizer@4.0.0)':
++    dependencies:
++      '@csstools/css-parser-algorithms': 4.0.0(@csstools/css-tokenizer@4.0.0)
++      '@csstools/css-tokenizer': 4.0.0
++
++  '@csstools/css-color-parser@4.2.1(@csstools/css-parser-algorithms@4.0.0(@csstools/css-tokenizer@4.0.0))(@csstools/css-tokenizer@4.0.0)':
++    dependencies:
++      '@csstools/color-helpers': 6.1.1
++      '@csstools/css-calc': 3.3.0(@csstools/css-parser-algorithms@4.0.0(@csstools/css-tokenizer@4.0.0))(@csstools/css-tokenizer@4.0.0)
++      '@csstools/css-parser-algorithms': 4.0.0(@csstools/css-tokenizer@4.0.0)
++      '@csstools/css-tokenizer': 4.0.0
++
++  '@csstools/css-parser-algorithms@4.0.0(@csstools/css-tokenizer@4.0.0)':
++    dependencies:
++      '@csstools/css-tokenizer': 4.0.0
++
++  '@csstools/css-syntax-patches-for-csstree@1.1.9(css-tree@3.2.1)':
++    optionalDependencies:
++      css-tree: 3.2.1
++
++  '@csstools/css-tokenizer@4.0.0': {}
++
+   '@dotenvx/dotenvx@1.65.0':
+     dependencies:
+       commander: 11.1.0
+@@ -4427,6 +4807,10 @@ snapshots:
+       '@eslint/core': 1.2.1
+       levn: 0.4.1
+ 
++  '@exodus/bytes@1.15.1(@noble/hashes@1.8.0)':
++    optionalDependencies:
++      '@noble/hashes': 1.8.0
++
+   '@floating-ui/core@1.7.5':
+     dependencies:
+       '@floating-ui/utils': 0.2.11
+@@ -5387,6 +5771,8 @@ snapshots:
  
    '@sindresorhus/merge-streams@4.0.0': {}
  
@@ -3127,10 +3613,44 @@ index 1f767dc..914695d 100644
    '@tabler/icons-react@3.43.0(react@19.2.5)':
      dependencies:
        '@tabler/icons': 3.43.0
-@@ -5602,10 +5733,17 @@ snapshots:
+@@ -5577,6 +5963,31 @@ snapshots:
+ 
+   '@tanstack/virtual-file-routes@1.161.7': {}
+ 
++  '@testing-library/dom@10.4.1':
++    dependencies:
++      '@babel/code-frame': 7.29.0
++      '@babel/runtime': 7.29.2
++      '@types/aria-query': 5.0.4
++      aria-query: 5.3.0
++      dom-accessibility-api: 0.5.16
++      lz-string: 1.5.0
++      picocolors: 1.1.1
++      pretty-format: 27.5.1
++
++  '@testing-library/react@16.3.2(@testing-library/dom@10.4.1)(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)':
++    dependencies:
++      '@babel/runtime': 7.29.2
++      '@testing-library/dom': 10.4.1
++      react: 19.2.5
++      react-dom: 19.2.5(react@19.2.5)
++    optionalDependencies:
++      '@types/react': 19.2.14
++      '@types/react-dom': 19.2.3(@types/react@19.2.14)
++
++  '@testing-library/user-event@14.6.6(@testing-library/dom@10.4.1)':
++    dependencies:
++      '@testing-library/dom': 10.4.1
++
+   '@trivago/prettier-plugin-sort-imports@6.0.2(prettier@3.8.3)':
+     dependencies:
+       '@babel/generator': 7.29.1
+@@ -5602,10 +6013,19 @@ snapshots:
        tslib: 2.8.1
      optional: true
  
++  '@types/aria-query@5.0.4': {}
++
 +  '@types/chai@5.2.3':
 +    dependencies:
 +      '@types/deep-eql': 4.0.2
@@ -3145,7 +3665,7 @@ index 1f767dc..914695d 100644
    '@types/esrecurse@4.3.1': {}
  
    '@types/estree-jsx@1.0.5':
-@@ -5827,6 +5965,48 @@ snapshots:
+@@ -5827,6 +6247,48 @@ snapshots:
        '@rolldown/pluginutils': 1.0.0-rc.7
        vite: 8.0.16(@types/node@25.6.0)(esbuild@0.27.4)(jiti@2.7.0)(tsx@4.21.0)
  
@@ -3194,16 +3714,40 @@ index 1f767dc..914695d 100644
    accepts@2.0.0:
      dependencies:
        mime-types: 3.0.2
-@@ -5883,6 +6063,8 @@ snapshots:
+@@ -5868,6 +6330,8 @@ snapshots:
+     dependencies:
+       color-convert: 2.0.1
+ 
++  ansi-styles@5.2.0: {}
++
+   ansi-styles@6.2.3: {}
+ 
+   ansis@4.2.0: {}
+@@ -5883,6 +6347,12 @@ snapshots:
      dependencies:
        tslib: 2.8.1
  
++  aria-query@5.3.0:
++    dependencies:
++      dequal: 2.0.3
++
 +  assertion-error@2.0.1: {}
 +
    ast-types@0.16.1:
      dependencies:
        tslib: 2.8.1
-@@ -5962,6 +6144,8 @@ snapshots:
+@@ -5904,6 +6374,10 @@ snapshots:
+ 
+   baseline-browser-mapping@2.10.27: {}
+ 
++  bidi-js@1.0.3:
++    dependencies:
++      require-from-string: 2.0.2
++
+   binary-extensions@2.3.0: {}
+ 
+   body-parser@2.2.2:
+@@ -5962,6 +6436,8 @@ snapshots:
  
    ccount@2.0.1: {}
  
@@ -3212,7 +3756,58 @@ index 1f767dc..914695d 100644
    chalk@5.6.2: {}
  
    character-entities-html4@2.1.0: {}
-@@ -6153,6 +6337,8 @@ snapshots:
+@@ -6066,18 +6542,32 @@ snapshots:
+       shebang-command: 2.0.0
+       which: 2.0.2
+ 
++  css-tree@3.2.1:
++    dependencies:
++      mdn-data: 2.27.1
++      source-map-js: 1.2.1
++
+   cssesc@3.0.0: {}
+ 
+   csstype@3.2.3: {}
+ 
+   data-uri-to-buffer@4.0.1: {}
+ 
++  data-urls@7.0.0(@noble/hashes@1.8.0):
++    dependencies:
++      whatwg-mimetype: 5.0.0
++      whatwg-url: 16.0.1(@noble/hashes@1.8.0)
++    transitivePeerDependencies:
++      - '@noble/hashes'
++
+   dayjs@1.11.20: {}
+ 
+   debug@4.4.3:
+     dependencies:
+       ms: 2.1.3
+ 
++  decimal.js@10.6.0: {}
++
+   decode-named-character-reference@1.3.0:
+     dependencies:
+       character-entities: 2.0.2
+@@ -6111,6 +6601,8 @@ snapshots:
+ 
+   diff@8.0.4: {}
+ 
++  dom-accessibility-api@0.5.16: {}
++
+   dotenv@17.4.2: {}
+ 
+   dunder-proto@1.0.1:
+@@ -6143,6 +6635,8 @@ snapshots:
+ 
+   entities@6.0.1: {}
+ 
++  entities@8.0.0: {}
++
+   env-paths@2.2.1: {}
+ 
+   error-ex@1.3.4:
+@@ -6153,6 +6647,8 @@ snapshots:
  
    es-errors@1.3.0: {}
  
@@ -3221,7 +3816,7 @@ index 1f767dc..914695d 100644
    es-object-atoms@1.1.1:
      dependencies:
        es-errors: 1.3.0
-@@ -6281,6 +6467,10 @@ snapshots:
+@@ -6281,6 +6777,10 @@ snapshots:
  
    estree-util-is-identifier-name@3.0.0: {}
  
@@ -3232,7 +3827,7 @@ index 1f767dc..914695d 100644
    esutils@2.0.3: {}
  
    etag@1.8.1: {}
-@@ -6318,6 +6508,8 @@ snapshots:
+@@ -6318,6 +6818,8 @@ snapshots:
        strip-final-newline: 4.0.0
        yoctocolors: 2.1.2
  
@@ -3241,7 +3836,86 @@ index 1f767dc..914695d 100644
    express-rate-limit@8.5.1(express@5.2.1):
      dependencies:
        express: 5.2.1
-@@ -7323,6 +7515,8 @@ snapshots:
+@@ -6623,6 +7125,12 @@ snapshots:
+ 
+   hono@4.12.18: {}
+ 
++  html-encoding-sniffer@6.0.0(@noble/hashes@1.8.0):
++    dependencies:
++      '@exodus/bytes': 1.15.1(@noble/hashes@1.8.0)
++    transitivePeerDependencies:
++      - '@noble/hashes'
++
+   html-parse-stringify@3.0.1:
+     dependencies:
+       void-elements: 3.1.0
+@@ -6724,6 +7232,8 @@ snapshots:
+ 
+   is-plain-obj@4.1.0: {}
+ 
++  is-potential-custom-element-name@1.0.1: {}
++
+   is-promise@4.0.0: {}
+ 
+   is-regexp@3.1.0: {}
+@@ -6765,6 +7275,32 @@ snapshots:
+     dependencies:
+       argparse: 2.0.1
+ 
++  jsdom@30.0.1(@noble/hashes@1.8.0):
++    dependencies:
++      '@asamuzakjp/css-color': 6.0.7
++      '@asamuzakjp/dom-selector': 8.3.2
++      '@bramus/specificity': 2.4.2
++      '@csstools/css-syntax-patches-for-csstree': 1.1.9(css-tree@3.2.1)
++      '@exodus/bytes': 1.15.1(@noble/hashes@1.8.0)
++      css-tree: 3.2.1
++      data-urls: 7.0.0(@noble/hashes@1.8.0)
++      decimal.js: 10.6.0
++      html-encoding-sniffer: 6.0.0(@noble/hashes@1.8.0)
++      is-potential-custom-element-name: 1.0.1
++      lru-cache: 11.5.2
++      parse5: 8.0.1
++      saxes: 6.0.0
++      symbol-tree: 3.2.4
++      tough-cookie: 6.0.2
++      undici: 8.10.0
++      w3c-xmlserializer: 5.0.0
++      webidl-conversions: 8.0.1
++      whatwg-mimetype: 5.0.0
++      whatwg-url: 17.1.0(@noble/hashes@1.8.0)
++      xml-name-validator: 5.0.0
++    transitivePeerDependencies:
++      - '@noble/hashes'
++
+   jsesc@3.1.0: {}
+ 
+   json-buffer@3.0.1: {}
+@@ -6870,10 +7406,14 @@ snapshots:
+       devlop: 1.1.0
+       highlight.js: 11.11.1
+ 
++  lru-cache@11.5.2: {}
++
+   lru-cache@5.1.1:
+     dependencies:
+       yallist: 3.1.1
+ 
++  lz-string@1.5.0: {}
++
+   magic-string@0.30.21:
+     dependencies:
+       '@jridgewell/sourcemap-codec': 1.5.5
+@@ -7035,6 +7575,8 @@ snapshots:
+     dependencies:
+       '@types/mdast': 4.0.4
+ 
++  mdn-data@2.27.1: {}
++
+   media-typer@1.1.0: {}
+ 
+   merge-descriptors@2.0.0: {}
+@@ -7323,6 +7865,8 @@ snapshots:
  
    object-treeify@1.1.33: {}
  
@@ -3250,7 +3924,51 @@ index 1f767dc..914695d 100644
    on-finished@2.4.1:
      dependencies:
        ee-first: 1.1.1
-@@ -7883,6 +8077,8 @@ snapshots:
+@@ -7412,6 +7956,10 @@ snapshots:
+     dependencies:
+       entities: 6.0.1
+ 
++  parse5@8.0.1:
++    dependencies:
++      entities: 8.0.0
++
+   parseurl@1.3.3: {}
+ 
+   path-browserify@1.0.1: {}
+@@ -7470,6 +8018,12 @@ snapshots:
+ 
+   prettier@3.8.3: {}
+ 
++  pretty-format@27.5.1:
++    dependencies:
++      ansi-regex: 5.0.1
++      ansi-styles: 5.2.0
++      react-is: 17.0.2
++
+   pretty-ms@9.3.0:
+     dependencies:
+       parse-ms: 4.0.0
+@@ -7582,6 +8136,8 @@ snapshots:
+       react-dom: 19.2.5(react@19.2.5)
+       typescript: 5.9.3
+ 
++  react-is@17.0.2: {}
++
+   react-markdown@10.1.0(@types/react@19.2.14)(react@19.2.5):
+     dependencies:
+       '@types/hast': 3.0.4
+@@ -7759,6 +8315,10 @@ snapshots:
+ 
+   safer-buffer@2.1.2: {}
+ 
++  saxes@6.0.0:
++    dependencies:
++      xmlchars: 2.2.0
++
+   scheduler@0.27.0: {}
+ 
+   semver@6.3.1: {}
+@@ -7883,6 +8443,8 @@ snapshots:
        side-channel-map: 1.0.1
        side-channel-weakmap: 1.0.2
  
@@ -3259,7 +3977,7 @@ index 1f767dc..914695d 100644
    signal-exit@3.0.7: {}
  
    signal-exit@4.1.0: {}
-@@ -7902,8 +8098,12 @@ snapshots:
+@@ -7902,8 +8464,12 @@ snapshots:
  
    space-separated-tokens@2.0.2: {}
  
@@ -3272,7 +3990,16 @@ index 1f767dc..914695d 100644
    stdin-discarder@0.2.2: {}
  
    strict-event-emitter@0.5.1: {}
-@@ -7968,11 +8168,17 @@ snapshots:
+@@ -7958,6 +8524,8 @@ snapshots:
+     dependencies:
+       inline-style-parser: 0.2.7
+ 
++  symbol-tree@3.2.4: {}
++
+   tagged-tag@1.0.0: {}
+ 
+   tailwind-merge@3.5.0: {}
+@@ -7968,11 +8536,17 @@ snapshots:
  
    tiny-invariant@1.3.3: {}
  
@@ -3290,11 +4017,35 @@ index 1f767dc..914695d 100644
    tldts-core@7.0.30: {}
  
    tldts@7.0.30:
-@@ -8184,6 +8390,33 @@ snapshots:
+@@ -7989,6 +8563,14 @@ snapshots:
+     dependencies:
+       tldts: 7.0.30
+ 
++  tough-cookie@6.0.2:
++    dependencies:
++      tldts: 7.0.30
++
++  tr46@6.0.0:
++    dependencies:
++      punycode: 2.3.1
++
+   trim-lines@3.0.1: {}
+ 
+   trough@2.2.0: {}
+@@ -8048,6 +8630,8 @@ snapshots:
+ 
+   undici-types@7.19.2: {}
+ 
++  undici@8.10.0: {}
++
+   unicorn-magic@0.3.0: {}
+ 
+   unified@11.0.5:
+@@ -8184,14 +8768,66 @@ snapshots:
        jiti: 2.7.0
        tsx: 4.21.0
  
-+  vitest@4.1.11(@types/node@25.6.0)(msw@2.14.4(@types/node@25.6.0)(typescript@5.9.3))(vite@8.0.16(@types/node@25.6.0)(esbuild@0.27.4)(jiti@2.7.0)(tsx@4.21.0)):
++  vitest@4.1.11(@types/node@25.6.0)(jsdom@30.0.1(@noble/hashes@1.8.0))(msw@2.14.4(@types/node@25.6.0)(typescript@5.9.3))(vite@8.0.16(@types/node@25.6.0)(esbuild@0.27.4)(jiti@2.7.0)(tsx@4.21.0)):
 +    dependencies:
 +      '@vitest/expect': 4.1.11
 +      '@vitest/mocker': 4.1.11(msw@2.14.4(@types/node@25.6.0)(typescript@5.9.3))(vite@8.0.16(@types/node@25.6.0)(esbuild@0.27.4)(jiti@2.7.0)(tsx@4.21.0))
@@ -3318,13 +4069,46 @@ index 1f767dc..914695d 100644
 +      why-is-node-running: 2.3.0
 +    optionalDependencies:
 +      '@types/node': 25.6.0
++      jsdom: 30.0.1(@noble/hashes@1.8.0)
 +    transitivePeerDependencies:
 +      - msw
 +
    void-elements@3.1.0: {}
  
++  w3c-xmlserializer@5.0.0:
++    dependencies:
++      xml-name-validator: 5.0.0
++
    web-namespaces@2.0.1: {}
-@@ -8200,6 +8433,11 @@ snapshots:
+ 
+   web-streams-polyfill@3.3.3: {}
+ 
++  webidl-conversions@8.0.1: {}
++
+   webpack-virtual-modules@0.6.2: {}
+ 
++  whatwg-mimetype@5.0.0: {}
++
++  whatwg-url@16.0.1(@noble/hashes@1.8.0):
++    dependencies:
++      '@exodus/bytes': 1.15.1(@noble/hashes@1.8.0)
++      tr46: 6.0.0
++      webidl-conversions: 8.0.1
++    transitivePeerDependencies:
++      - '@noble/hashes'
++
++  whatwg-url@17.1.0(@noble/hashes@1.8.0):
++    dependencies:
++      '@exodus/bytes': 1.15.1(@noble/hashes@1.8.0)
++      tr46: 6.0.0
++      webidl-conversions: 8.0.1
++    transitivePeerDependencies:
++      - '@noble/hashes'
++
+   which@2.0.2:
+     dependencies:
+       isexe: 2.0.0
+@@ -8200,6 +8836,11 @@ snapshots:
      dependencies:
        isexe: 3.1.5
  
@@ -3336,6 +4120,17 @@ index 1f767dc..914695d 100644
    word-wrap@1.2.5: {}
  
    wrap-ansi@10.0.0:
+@@ -8221,6 +8862,10 @@ snapshots:
+       is-wsl: 3.1.1
+       powershell-utils: 0.1.0
+ 
++  xml-name-validator@5.0.0: {}
++
++  xmlchars@2.2.0: {}
++
+   y18n@5.0.8: {}
+ 
+   yallist@3.1.1: {}
 diff --git a/web/frontend/src/api/models.ts b/web/frontend/src/api/models.ts
 index a319eda..d7267bd 100644
 --- a/web/frontend/src/api/models.ts
@@ -3381,11 +4176,274 @@ index eb90881..2015d9d 100644
          {/* Language Switcher */}
          <DropdownMenu>
            <DropdownMenuTrigger asChild>
+diff --git a/web/frontend/src/components/channels/channel-config-page.telegram.test.tsx b/web/frontend/src/components/channels/channel-config-page.telegram.test.tsx
+new file mode 100644
+index 0000000..467d0d1
+--- /dev/null
++++ b/web/frontend/src/components/channels/channel-config-page.telegram.test.tsx
+@@ -0,0 +1,240 @@
++/**
++ * Channels → Telegram, through the component the physical APK actually renders.
++ *
++ * Milestone D shipped a working managed-bot flow that no user could reach: it
++ * was wired to the native settings list while this page — the one reached from
++ * the Channels list in the embedded console — still opened straight onto Bot
++ * Token. Widget tests of the onboarding screen all passed, because none of them
++ * went through this route. These do.
++ */
++import { render, screen, waitFor } from "@testing-library/react"
++import userEvent from "@testing-library/user-event"
++import { beforeEach, describe, expect, it, vi } from "vitest"
++
++import en from "@/i18n/locales/en.json"
++import type { PocketClawHost } from "@/lib/pocketclaw-host"
++
++const getChannelsCatalog = vi.fn()
++const getChannelConfig = vi.fn()
++
++vi.mock("@/api/channels", () => ({
++  getChannelsCatalog: () => getChannelsCatalog(),
++  getChannelConfig: (name: string) => getChannelConfig(name),
++  patchAppConfig: vi.fn(),
++}))
++
++vi.mock("@/hooks/use-gateway", () => ({
++  useGateway: () => ({ state: "running" }),
++}))
++
++vi.mock("@/store/gateway", () => ({ refreshGatewayState: vi.fn() }))
++
++vi.mock("@/lib/restart-required", () => ({
++  showSaveSuccessOrRestartToast: vi.fn(),
++}))
++
++// The real header pulls in sidebar context this page does not otherwise need.
++vi.mock("@/components/page-header", () => ({
++  PageHeader: ({ title }: { title: string }) => <h1>{title}</h1>,
++}))
++
++function translate(key: string): string {
++  const value = key
++    .split(".")
++    .reduce<unknown>(
++      (node, part) =>
++        node && typeof node === "object"
++          ? (node as Record<string, unknown>)[part]
++          : undefined,
++      en,
++    )
++  return typeof value === "string" ? value : key
++}
++
++vi.mock("react-i18next", () => ({
++  useTranslation: () => ({ t: translate }),
++}))
++
++const { ChannelConfigPage } = await import(
++  "@/components/channels/channel-config-page"
++)
++
++const TELEGRAM_CHANNEL = {
++  name: "telegram",
++  display_name: "Telegram",
++  config_key: "telegram",
++}
++
++function installHost(overrides: Partial<PocketClawHost> = {}): PocketClawHost {
++  const host: PocketClawHost = {
++    platform: "android",
++    onboardingConfigured: true,
++    telegramBotUsername: null,
++    openTelegramOnboarding: vi.fn(),
++    openExternal: vi.fn(),
++    ...overrides,
++  }
++  window.__pocketclawHost = host
++  return host
++}
++
++function arrange({
++  configuredSecrets = [] as string[],
++  config = {} as Record<string, unknown>,
++} = {}) {
++  getChannelsCatalog.mockResolvedValue({ channels: [TELEGRAM_CHANNEL] })
++  getChannelConfig.mockResolvedValue({
++    config,
++    configured_secrets: configuredSecrets,
++    config_key: "telegram",
++  })
++}
++
++async function renderTelegramPage() {
++  render(<ChannelConfigPage channelName="telegram" />)
++  await waitFor(() =>
++    expect(screen.getByRole("heading", { name: "Telegram" })).toBeDefined(),
++  )
++}
++
++describe("Channels → Telegram", () => {
++  beforeEach(() => {
++    vi.clearAllMocks()
++    delete window.__pocketclawHost
++  })
++
++  it("case 1: unconfigured with an onboarding URL puts managed onboarding first", async () => {
++    installHost({ onboardingConfigured: true })
++    arrange()
++
++    await renderTelegramPage()
++
++    expect(screen.getByTestId("telegram-surface-managed-onboarding")).toBeDefined()
++    expect(screen.getByText(translate("channels.telegram.connectTitle"))).toBeDefined()
++    expect(
++      screen.getByRole("button", { name: translate("channels.telegram.openTelegram") }),
++    ).toBeDefined()
++    expect(screen.getByText(translate("channels.telegram.statusReady"))).toBeDefined()
++
++    // The regression itself: the raw token form must not be the landing page.
++    expect(screen.queryByText(translate("channels.field.token"))).toBeNull()
++    expect(screen.queryByText(translate("channels.field.baseUrl"))).toBeNull()
++  })
++
++  it("case 1: the connect button hands off to the native pairing flow", async () => {
++    const host = installHost({ onboardingConfigured: true })
++    arrange()
++
++    await renderTelegramPage()
++    await userEvent.click(
++      screen.getByRole("button", { name: translate("channels.telegram.openTelegram") }),
++    )
++
++    expect(host.openTelegramOnboarding).toHaveBeenCalledTimes(1)
++  })
++
++  it("case 2: unconfigured with no onboarding URL falls back to a clear manual setup", async () => {
++    installHost({ onboardingConfigured: false })
++    arrange()
++
++    await renderTelegramPage()
++
++    expect(screen.getByTestId("telegram-surface-manual-only")).toBeDefined()
++    expect(screen.getByText(translate("channels.telegram.manualOnlyTitle"))).toBeDefined()
++    // The legacy form is present immediately, with nothing to expand.
++    expect(screen.getByText(translate("channels.field.token"))).toBeDefined()
++    expect(screen.getByText(translate("channels.field.baseUrl"))).toBeDefined()
++    expect(
++      screen.queryByRole("button", { name: translate("channels.telegram.openTelegram") }),
++    ).toBeNull()
++  })
++
++  it("case 2: a plain browser with no host at all also gets manual setup", async () => {
++    arrange()
++
++    await renderTelegramPage()
++
++    expect(screen.getByTestId("telegram-surface-manual-only")).toBeDefined()
++    expect(screen.getByText(translate("channels.field.token"))).toBeDefined()
++  })
++
++  it("case 3: an already-configured Telegram shows the connected summary first", async () => {
++    const host = installHost({
++      onboardingConfigured: true,
++      telegramBotUsername: "pocketclaw_ab12cd34_bot",
++    })
++    arrange({
++      configuredSecrets: ["token"],
++      config: { enabled: true, allow_from: ["123456789"] },
++    })
++
++    await renderTelegramPage()
++
++    expect(screen.getByTestId("telegram-surface-connected")).toBeDefined()
++    expect(screen.getByText(translate("channels.telegram.connected"))).toBeDefined()
++    expect(screen.getByText("@pocketclaw_ab12cd34_bot")).toBeDefined()
++    expect(screen.getByText(translate("channels.telegram.ownerConfigured"))).toBeDefined()
++    expect(
++      screen.getByRole("button", { name: translate("channels.telegram.advancedSettings") }),
++    ).toBeDefined()
++
++    // Not dumped straight into raw token fields.
++    expect(screen.queryByText(translate("channels.field.token"))).toBeNull()
++
++    await userEvent.click(
++      screen.getByRole("button", { name: translate("channels.telegram.openChat") }),
++    )
++    expect(host.openExternal).toHaveBeenCalledWith(
++      "https://t.me/pocketclaw_ab12cd34_bot",
++    )
++  })
++
++  it("case 4: Advanced / Manual setup reveals the legacy Bot Token form", async () => {
++    installHost({ onboardingConfigured: true })
++    arrange()
++
++    await renderTelegramPage()
++    expect(screen.queryByText(translate("channels.field.token"))).toBeNull()
++
++    await userEvent.click(
++      screen.getByRole("button", { name: translate("channels.telegram.advancedManual") }),
++    )
++
++    // Every legacy field the manual path depends on is still here.
++    expect(screen.getByText(translate("channels.field.token"))).toBeDefined()
++    expect(screen.getByText(translate("channels.field.baseUrl"))).toBeDefined()
++    expect(screen.getByText(translate("channels.field.proxy"))).toBeDefined()
++    expect(screen.getByText(translate("channels.field.allowFrom"))).toBeDefined()
++    expect(screen.getByText(translate("channels.field.typingEnabled"))).toBeDefined()
++    expect(screen.getByText(translate("channels.field.placeholderEnabled"))).toBeDefined()
++  })
++
++  it("case 4: Advanced Settings reveals the same form from the connected state", async () => {
++    installHost({
++      onboardingConfigured: true,
++      telegramBotUsername: "pocketclaw_ab12cd34_bot",
++    })
++    arrange({ configuredSecrets: ["token"], config: { enabled: true } })
++
++    await renderTelegramPage()
++    await userEvent.click(
++      screen.getByRole("button", { name: translate("channels.telegram.advancedSettings") }),
++    )
++
++    expect(screen.getByText(translate("channels.field.token"))).toBeDefined()
++    expect(screen.getByText(translate("channels.field.baseUrl"))).toBeDefined()
++  })
++
++  it("picks up a host that injects itself after the page has rendered", async () => {
++    arrange()
++    await renderTelegramPage()
++    expect(screen.getByTestId("telegram-surface-manual-only")).toBeDefined()
++
++    installHost({ onboardingConfigured: true })
++    window.dispatchEvent(new CustomEvent("pocketclaw:host-ready"))
++
++    await waitFor(() =>
++      expect(screen.getByTestId("telegram-surface-managed-onboarding")).toBeDefined(),
++    )
++  })
++})
 diff --git a/web/frontend/src/components/channels/channel-config-page.tsx b/web/frontend/src/components/channels/channel-config-page.tsx
-index 10e2a22..c0597d3 100644
+index 10e2a22..778556f 100644
 --- a/web/frontend/src/components/channels/channel-config-page.tsx
 +++ b/web/frontend/src/components/channels/channel-config-page.tsx
-@@ -273,22 +273,8 @@ function isMissingRequiredValue(value: unknown): boolean {
+@@ -26,7 +26,7 @@ import { FeishuForm } from "@/components/channels/channel-forms/feishu-form"
+ import { GenericForm } from "@/components/channels/channel-forms/generic-form"
+ import { MqttForm } from "@/components/channels/channel-forms/mqtt-form"
+ import { SlackForm } from "@/components/channels/channel-forms/slack-form"
+-import { TelegramForm } from "@/components/channels/channel-forms/telegram-form"
++import { TelegramPanel } from "@/components/channels/channel-forms/telegram-panel"
+ import { WecomForm } from "@/components/channels/channel-forms/wecom-form"
+ import { WeixinForm } from "@/components/channels/channel-forms/weixin-form"
+ import { ConfigChangeNotice } from "@/components/config-change-notice"
+@@ -34,6 +34,7 @@ import { PageHeader } from "@/components/page-header"
+ import { Button } from "@/components/ui/button"
+ import { Switch } from "@/components/ui/switch"
+ import { useGateway } from "@/hooks/use-gateway"
++import { TELEGRAM_UPDATED_EVENT } from "@/lib/pocketclaw-host"
+ import { showSaveSuccessOrRestartToast } from "@/lib/restart-required"
+ import { refreshGatewayState } from "@/store/gateway"
+ 
+@@ -273,22 +274,8 @@ function isMissingRequiredValue(value: unknown): boolean {
    return false
  }
  
@@ -3409,7 +4467,24 @@ index 10e2a22..c0597d3 100644
    const { state: gatewayState } = useGateway()
  
    const [loading, setLoading] = useState(true)
-@@ -397,20 +383,6 @@ export function ChannelConfigPage({ channelName }: ChannelConfigPageProps) {
+@@ -372,6 +359,16 @@ export function ChannelConfigPage({ channelName }: ChannelConfigPageProps) {
+     loadData()
+   }, [loadData, resetPageState])
+ 
++  // The native managed-bot flow writes Core's config from outside this page,
++  // so without this the user would come back from a successful pairing to a
++  // page still insisting Telegram is not configured.
++  useEffect(() => {
++    if (channelName !== "telegram") return
++    const reload = () => void loadData(true)
++    window.addEventListener(TELEGRAM_UPDATED_EVENT, reload)
++    return () => window.removeEventListener(TELEGRAM_UPDATED_EVENT, reload)
++  }, [channelName, loadData])
++
+   const previousGatewayStatusRef = useRef(gatewayState)
+   useEffect(() => {
+     const previousStatus = previousGatewayStatusRef.current
+@@ -397,20 +394,6 @@ export function ChannelConfigPage({ channelName }: ChannelConfigPageProps) {
      return JSON.stringify(basePayload) !== JSON.stringify(currentPayload)
    }, [baseConfig, channel, channelName, editConfig, enabled, loading])
  
@@ -3430,7 +4505,20 @@ index 10e2a22..c0597d3 100644
    const channelDisplayName = useMemo(() => {
      if (!channel) return channelName
      return getChannelDisplayName(channel, t)
-@@ -687,22 +659,7 @@ export function ChannelConfigPage({ channelName }: ChannelConfigPageProps) {
+@@ -582,10 +565,11 @@ export function ChannelConfigPage({ channelName }: ChannelConfigPageProps) {
+     switch (channel.name) {
+       case "telegram":
+         return (
+-          <TelegramForm
++          <TelegramPanel
+             config={editConfig}
+             onChange={handleChange}
+             configuredSecrets={configuredSecrets}
++            configured={configured}
+             fieldErrors={fieldErrors}
+             registerArrayFieldFlusher={registerArrayFieldFlusher}
+             arrayFieldResetVersion={arrayFieldResetVersion}
+@@ -687,22 +671,7 @@ export function ChannelConfigPage({ channelName }: ChannelConfigPageProps) {
  
    return (
      <div className="flex h-full flex-col">
@@ -3476,6 +4564,290 @@ index 0be0264..e1e42d4 100644
              />
            </Field>
          </CardContent>
+diff --git a/web/frontend/src/components/channels/channel-forms/telegram-panel.tsx b/web/frontend/src/components/channels/channel-forms/telegram-panel.tsx
+new file mode 100644
+index 0000000..ab01e73
+--- /dev/null
++++ b/web/frontend/src/components/channels/channel-forms/telegram-panel.tsx
+@@ -0,0 +1,235 @@
++import {
++  IconBrandTelegram,
++  IconCircleCheckFilled,
++  IconChevronDown,
++  IconRefresh,
++} from "@tabler/icons-react"
++import { useCallback, useEffect, useMemo, useState } from "react"
++import { useTranslation } from "react-i18next"
++
++import type { ChannelConfig } from "@/api/channels"
++import { type ArrayFieldFlusher } from "@/components/channels/channel-array-list-field"
++import { TelegramForm } from "@/components/channels/channel-forms/telegram-form"
++import {
++  type TelegramSurface,
++  isAdvancedFormAlwaysVisible,
++  resolveTelegramSurface,
++} from "@/components/channels/channel-forms/telegram-surface"
++import { Button } from "@/components/ui/button"
++import { Card, CardContent } from "@/components/ui/card"
++import {
++  HOST_READY_EVENT,
++  type PocketClawHost,
++  getPocketClawHost,
++  isTelegramOnboardingAvailable,
++} from "@/lib/pocketclaw-host"
++
++interface TelegramPanelProps {
++  config: ChannelConfig
++  onChange: (key: string, value: unknown) => void
++  configuredSecrets: string[]
++  configured: boolean
++  fieldErrors?: Record<string, string>
++  registerArrayFieldFlusher?: (
++    fieldPath: string,
++    flusher: ArrayFieldFlusher | null,
++  ) => void
++  arrayFieldResetVersion?: number
++}
++
++function asStringArray(value: unknown): string[] {
++  return Array.isArray(value)
++    ? value.filter((item): item is string => typeof item === "string")
++    : []
++}
++
++/**
++ * Channels → Telegram.
++ *
++ * This is the page a user actually lands on, and until now it opened straight
++ * onto Bot Token / API Base URL. The managed-bot flow existed but was wired
++ * only to the native settings list, so nobody reached it. The raw form is
++ * unchanged and still here — it has just stopped being the first thing a new
++ * user sees.
++ */
++export function TelegramPanel({
++  config,
++  onChange,
++  configuredSecrets,
++  configured,
++  fieldErrors,
++  registerArrayFieldFlusher,
++  arrayFieldResetVersion,
++}: TelegramPanelProps) {
++  const { t } = useTranslation()
++  const [host, setHost] = useState<PocketClawHost | null>(() =>
++    getPocketClawHost(),
++  )
++  const [advancedOpen, setAdvancedOpen] = useState(false)
++
++  // The host injects itself after the page loads, which can land after React
++  // has already rendered. Without this the console would decide "no host" once
++  // and keep showing manual setup for the rest of the session.
++  useEffect(() => {
++    const sync = () => setHost(getPocketClawHost())
++    sync()
++    window.addEventListener(HOST_READY_EVENT, sync)
++    return () => window.removeEventListener(HOST_READY_EVENT, sync)
++  }, [])
++
++  const onboardingAvailable = isTelegramOnboardingAvailable(host)
++  const surface: TelegramSurface = useMemo(
++    () => resolveTelegramSurface({ configured, onboardingAvailable }),
++    [configured, onboardingAvailable],
++  )
++  const advancedAlwaysVisible = isAdvancedFormAlwaysVisible(surface)
++
++  const botUsername = host?.telegramBotUsername ?? null
++  const ownerConfigured = asStringArray(config.allow_from).length > 0
++
++  const connect = useCallback(() => {
++    host?.openTelegramOnboarding()
++  }, [host])
++
++  const openChat = useCallback(() => {
++    if (!host || !botUsername) return
++    host.openExternal(`https://t.me/${botUsername}`)
++  }, [botUsername, host])
++
++  const advancedForm = (
++    <TelegramForm
++      config={config}
++      onChange={onChange}
++      configuredSecrets={configuredSecrets}
++      fieldErrors={fieldErrors}
++      registerArrayFieldFlusher={registerArrayFieldFlusher}
++      arrayFieldResetVersion={arrayFieldResetVersion}
++    />
++  )
++
++  if (advancedAlwaysVisible) {
++    return (
++      <div className="space-y-6" data-testid="telegram-surface-manual-only">
++        <Card className="shadow-sm">
++          <CardContent className="px-6 py-5">
++            <p className="text-sm font-medium">
++              {t("channels.telegram.manualOnlyTitle")}
++            </p>
++            <p className="text-muted-foreground mt-1 text-sm">
++              {t("channels.telegram.manualOnlyBody")}
++            </p>
++          </CardContent>
++        </Card>
++        {advancedForm}
++      </div>
++    )
++  }
++
++  return (
++    <div
++      className="space-y-6"
++      data-testid={
++        surface === "connected"
++          ? "telegram-surface-connected"
++          : "telegram-surface-managed-onboarding"
++      }
++    >
++      {surface === "connected" ? (
++        <Card className="shadow-sm">
++          <CardContent className="space-y-4 px-6 py-5">
++            <div className="flex items-center gap-2">
++              <IconCircleCheckFilled className="size-5 text-emerald-500" />
++              <p className="text-base font-semibold">
++                {t("channels.telegram.connected")}
++              </p>
++            </div>
++
++            {botUsername && (
++              <div>
++                <p className="text-muted-foreground text-xs tracking-wide uppercase">
++                  {t("channels.telegram.botLabel")}
++                </p>
++                <p className="font-mono text-sm">@{botUsername}</p>
++              </div>
++            )}
++
++            <div>
++              <p className="text-muted-foreground text-xs tracking-wide uppercase">
++                {t("channels.telegram.ownerLabel")}
++              </p>
++              <p className="text-sm">
++                {ownerConfigured
++                  ? t("channels.telegram.ownerConfigured")
++                  : t("channels.telegram.ownerAnyone")}
++              </p>
++            </div>
++
++            <div className="flex flex-wrap gap-2 pt-1">
++              {botUsername && host && (
++                <Button onClick={openChat}>
++                  <IconBrandTelegram />
++                  {t("channels.telegram.openChat")}
++                </Button>
++              )}
++              {onboardingAvailable && (
++                <Button variant="outline" onClick={connect}>
++                  <IconRefresh />
++                  {t("channels.telegram.reconnect")}
++                </Button>
++              )}
++            </div>
++          </CardContent>
++        </Card>
++      ) : (
++        <Card className="shadow-sm">
++          <CardContent className="space-y-4 px-6 py-5">
++            <div>
++              <p className="text-base font-semibold">
++                {t("channels.telegram.connectTitle")}
++              </p>
++              <p className="text-muted-foreground mt-1 text-sm">
++                {t("channels.telegram.connectBody")}
++              </p>
++            </div>
++
++            <Button onClick={connect}>
++              <IconBrandTelegram />
++              {t("channels.telegram.openTelegram")}
++            </Button>
++
++            <p className="text-muted-foreground text-sm">
++              {t("channels.telegram.statusLabel")}{" "}
++              <span className="text-foreground font-medium">
++                {t("channels.telegram.statusReady")}
++              </span>
++            </p>
++          </CardContent>
++        </Card>
++      )}
++
++      <div className="space-y-4">
++        <div className="flex items-center gap-3">
++          {surface === "managed-onboarding" && (
++            <p className="text-muted-foreground text-sm">
++              {t("channels.telegram.troubleLabel")}
++            </p>
++          )}
++          <Button
++            variant="outline"
++            aria-expanded={advancedOpen}
++            onClick={() => setAdvancedOpen((open) => !open)}
++          >
++            <IconChevronDown
++              className={advancedOpen ? "rotate-180 transition" : "transition"}
++            />
++            {surface === "connected"
++              ? t("channels.telegram.advancedSettings")
++              : t("channels.telegram.advancedManual")}
++          </Button>
++        </div>
++
++        {advancedOpen && advancedForm}
++      </div>
++    </div>
++  )
++}
+diff --git a/web/frontend/src/components/channels/channel-forms/telegram-surface.ts b/web/frontend/src/components/channels/channel-forms/telegram-surface.ts
+new file mode 100644
+index 0000000..d1b6fe2
+--- /dev/null
++++ b/web/frontend/src/components/channels/channel-forms/telegram-surface.ts
+@@ -0,0 +1,37 @@
++/**
++ * Which Telegram surface the Channels → Telegram page shows.
++ *
++ * Kept as a pure function so the decision that regressed on a physical device
++ * — managed onboarding existing but never being reached — is asserted directly
++ * rather than inferred from a rendered tree.
++ */
++export type TelegramSurface =
++  /** Telegram already has a bot token: connected summary first. */
++  | "connected"
++  /** No token, and a host that can pair one: managed onboarding first. */
++  | "managed-onboarding"
++  /** No token and no way to pair: the manual form is the whole page. */
++  | "manual-only"
++
++export interface TelegramSurfaceInput {
++  configured: boolean
++  onboardingAvailable: boolean
++}
++
++export function resolveTelegramSurface({
++  configured,
++  onboardingAvailable,
++}: TelegramSurfaceInput): TelegramSurface {
++  if (configured) return "connected"
++  if (onboardingAvailable) return "managed-onboarding"
++  return "manual-only"
++}
++
++/**
++ * Whether the legacy token/base-URL/proxy form is visible without a further
++ * click. It is never removed — only demoted behind Advanced when there is a
++ * friendlier primary action to show first.
++ */
++export function isAdvancedFormAlwaysVisible(surface: TelegramSurface): boolean {
++  return surface === "manual-only"
++}
 diff --git a/web/frontend/src/components/chat/assistant-message.tsx b/web/frontend/src/components/chat/assistant-message.tsx
 index 0a197b2..0be75e5 100644
 --- a/web/frontend/src/components/chat/assistant-message.tsx
@@ -4930,7 +6302,7 @@ index d365157..5c96b42 100644
      "models": {
        "title": "Nakonfigurujte modely",
 diff --git a/web/frontend/src/i18n/locales/en.json b/web/frontend/src/i18n/locales/en.json
-index 83ee7f7..8e1e101 100644
+index 83ee7f7..65dd9fd 100644
 --- a/web/frontend/src/i18n/locales/en.json
 +++ b/web/frontend/src/i18n/locales/en.json
 @@ -284,7 +284,8 @@
@@ -5005,7 +6377,33 @@ index 83ee7f7..8e1e101 100644
          "mqttUsername": "Broker authentication username (optional).",
          "mqttPassword": "Broker authentication password (optional).",
          "mqttClientId": "MQTT client ID. Leave blank to auto-generate.",
-@@ -796,14 +825,14 @@
+@@ -589,6 +618,25 @@
+       "clientIdPlaceholder": "Auto-generated if blank",
+       "secretSet": "Already configured. Leave blank to keep unchanged.",
+       "secretEmpty": "Not configured"
++    },
++    "telegram": {
++      "connectTitle": "Connect PocketClaw to Telegram",
++      "connectBody": "Create your personal PocketClaw bot in a few seconds. No BotFather token copy/paste required.",
++      "openTelegram": "Open Telegram",
++      "statusLabel": "Status:",
++      "statusReady": "Ready to connect",
++      "troubleLabel": "Having trouble?",
++      "advancedManual": "Advanced / Manual setup",
++      "advancedSettings": "Advanced Settings",
++      "connected": "Connected",
++      "botLabel": "Bot",
++      "ownerLabel": "Owner",
++      "ownerConfigured": "Configured",
++      "ownerAnyone": "Anyone can message this bot",
++      "openChat": "Open Chat",
++      "reconnect": "Reconnect / Create New Bot",
++      "manualOnlyTitle": "Manual setup",
++      "manualOnlyBody": "One-tap bot creation is not available in this build, so Telegram is set up with a bot token from BotFather. Paste the token below and save."
+     }
+   },
+   "pages": {
+@@ -796,14 +844,14 @@
        "turn_profile": "Request Context Policy",
        "turn_profile_hint": "Controls what context each request carries. Leave disabled to keep the normal chat behavior.",
        "turn_profile_enabled": "Enable policy",
@@ -5022,7 +6420,7 @@ index 83ee7f7..8e1e101 100644
        "turn_profile_skills": "Skill Prompts",
        "turn_profile_skills_hint": "Default includes available skills and active skill instructions. Off hides them. Allow List keeps only skill names entered one per line.",
        "turn_profile_skills_allow_placeholder": "skill-name\nanother-skill",
-@@ -829,11 +858,11 @@
+@@ -829,11 +877,11 @@
        "monitor_usb": "Monitor USB",
        "monitor_usb_hint": "Watch USB plug/unplug events when devices are enabled.",
        "autostart_label": "Launch at Login",
@@ -5036,7 +6434,7 @@ index 83ee7f7..8e1e101 100644
        "launcher_section_hint": "Changes in this section take effect after the launcher restarts.",
        "gateway_restart_hint": "Changes in this section take effect after the gateway restarts.",
        "dashboard_password": "Login Password",
-@@ -949,8 +978,8 @@
+@@ -949,8 +997,8 @@
      "next": "Next",
      "finish": "Finish",
      "welcome": {
@@ -5283,6 +6681,125 @@ index fa8763d..b9d6497 100644
      },
      "models": {
        "title": "配置模型",
+diff --git a/web/frontend/src/lib/pocketclaw-host.ts b/web/frontend/src/lib/pocketclaw-host.ts
+new file mode 100644
+index 0000000..1283364
+--- /dev/null
++++ b/web/frontend/src/lib/pocketclaw-host.ts
+@@ -0,0 +1,51 @@
++/**
++ * The PocketClaw Android host, when the console is running inside the app.
++ *
++ * The console is also served to an ordinary browser, where no host exists.
++ * Every caller must handle that: `getPocketClawHost()` returns null and the UI
++ * falls back to the manual path rather than offering an action nothing can
++ * perform.
++ */
++export interface PocketClawHost {
++  platform: string
++  /** Whether this build was compiled with an onboarding service endpoint. */
++  onboardingConfigured: boolean
++  /** The paired bot's public @username, if this device paired one. */
++  telegramBotUsername: string | null
++  /** Runs the native managed-bot pairing flow. */
++  openTelegramOnboarding: () => void
++  /** Opens a link outside the WebView. */
++  openExternal: (url: string) => void
++}
++
++/** Fired by the host once `window.__pocketclawHost` is available. */
++export const HOST_READY_EVENT = "pocketclaw:host-ready"
++
++/** Fired by the host after the native flow changed the Telegram config. */
++export const TELEGRAM_UPDATED_EVENT = "pocketclaw:telegram-updated"
++
++declare global {
++  interface Window {
++    __pocketclawHost?: PocketClawHost
++  }
++}
++
++export function getPocketClawHost(): PocketClawHost | null {
++  if (typeof window === "undefined") return null
++  const host = window.__pocketclawHost
++  if (!host || typeof host.openTelegramOnboarding !== "function") return null
++  return host
++}
++
++/**
++ * Whether managed-bot onboarding can actually be offered right now.
++ *
++ * Both halves must hold: a host to run the flow, and an endpoint compiled into
++ * that host. A build without the endpoint deliberately offers manual setup
++ * instead of a button that cannot work.
++ */
++export function isTelegramOnboardingAvailable(
++  host: PocketClawHost | null,
++): boolean {
++  return host !== null && host.onboardingConfigured === true
++}
+diff --git a/web/frontend/src/test/setup.ts b/web/frontend/src/test/setup.ts
+new file mode 100644
+index 0000000..02ed039
+--- /dev/null
++++ b/web/frontend/src/test/setup.ts
+@@ -0,0 +1,31 @@
++import { cleanup } from "@testing-library/react"
++import { afterEach } from "vitest"
++
++// jsdom under Node 25 can start without a usable Storage, and modules that
++// build persisted atoms at import time crash before any test runs.
++function installStorage(name: "localStorage" | "sessionStorage") {
++  const existing = window[name] as Storage | undefined
++  if (existing && typeof existing.getItem === "function") return
++  const store = new Map<string, string>()
++  Object.defineProperty(window, name, {
++    configurable: true,
++    value: {
++      getItem: (key: string) => store.get(key) ?? null,
++      setItem: (key: string, value: string) => void store.set(key, String(value)),
++      removeItem: (key: string) => void store.delete(key),
++      clear: () => store.clear(),
++      key: (index: number) => Array.from(store.keys())[index] ?? null,
++      get length() {
++        return store.size
++      },
++    } satisfies Storage,
++  })
++}
++
++installStorage("localStorage")
++installStorage("sessionStorage")
++
++afterEach(() => {
++  cleanup()
++  delete window.__pocketclawHost
++})
+diff --git a/web/frontend/vite.config.ts b/web/frontend/vite.config.ts
+index 0de0858..01a1469 100644
+--- a/web/frontend/vite.config.ts
++++ b/web/frontend/vite.config.ts
+@@ -3,7 +3,7 @@ import path from "path"
+ import tailwindcss from "@tailwindcss/vite"
+ import { tanstackRouter } from "@tanstack/router-plugin/vite"
+ import react from "@vitejs/plugin-react"
+-import { defineConfig } from "vite"
++import { defineConfig } from "vitest/config"
+ 
+ // https://vite.dev/config/
+ export default defineConfig({
+@@ -23,6 +23,11 @@ export default defineConfig({
+   build: {
+     chunkSizeWarningLimit: 2048,
+   },
++  test: {
++    environment: "jsdom",
++    globals: true,
++    setupFiles: ["./src/test/setup.ts"],
++  },
+   server: {
+     proxy: {
+       "/api": {
 diff --git a/workspace/AGENT.md b/workspace/AGENT.md
 index 08f55a1..f89756b 100644
 --- a/workspace/AGENT.md

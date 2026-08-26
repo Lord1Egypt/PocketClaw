@@ -177,6 +177,43 @@ reviewed. Never overwrite review history.
 Upstream changes are classified and manually reviewed before selective
 adaptation. Automated merges from upstream are not a maintenance model.
 
+## PocketClaw-Authored Work, Not Upstream
+
+Recorded here so a future upstream review does not mistake PocketClaw's own
+work for an adoption, and does not go looking upstream for its origin.
+
+- **Telegram managed-bot onboarding (Milestone D, 2026-08-26).** The
+  onboarding service is PocketClaw-authored and depends on no upstream code. It
+  lives in its own public repository, `Lord1Egypt/PocketClaw-Telegram-Setup`,
+  and no part of it is vendored here. The Flutter onboarding screen is likewise
+  PocketClaw's own.
+- **The Milestone D UI integration does touch `core/src/`** and therefore does
+  appear in `core/pocketclaw-core-v0.3.1.patch`, which grew from 52 to 58 files
+  on 2026-08-26. Under `core/src/web/frontend/src/` it adds
+  `components/channels/channel-forms/telegram-panel.tsx`,
+  `components/channels/channel-forms/telegram-surface.ts`,
+  `lib/pocketclaw-host.ts`, `components/channels/channel-config-page.telegram.test.tsx`
+  and `test/setup.ts`, and modifies `components/channels/channel-config-page.tsx`,
+  `i18n/locales/en.json`, `vite.config.ts` and `package.json`. It also adds
+  `jsdom` and `@testing-library/react` as frontend dev dependencies.
+  None of this is an upstream adoption: it is PocketClaw's own work living
+  inside vendored Core because the channel configuration UI lives there. A
+  future upstream review must not go looking upstream for its origin, and must
+  expect a conflict here if upstream changes `channel-config-page.tsx`.
+- It adopts nothing from PicoClaw. It uses official Telegram Bot API 9.6
+  managed-bot support directly, verified against `core.telegram.org` rather
+  than inferred from any other implementation.
+- Hermes Agent's managed-bot onboarding was read as a **behavioural**
+  reference — the shape of the flow: a pairing session, a deep link and QR,
+  polling, and a token handed back on completion. No Hermes source was copied,
+  and no Hermes or Nous service is contacted at build time or at runtime.
+  Behavioural inspiration is not a source dependency, and this milestone
+  introduced neither an upstream nor a third-party one.
+- The existing Telegram **channel** in `core/src/pkg/channels/telegram/` is
+  upstream PicoClaw code and remains so. Milestone D did not modify it: the new
+  flow writes the same `channel_list.telegram` configuration manual setup
+  writes, so `core/src/` is unchanged by this milestone.
+
 ## Verified Upstream-Backed Behaviors
 
 - ClawHub Skill Hub search is available after the Android active-network DNS

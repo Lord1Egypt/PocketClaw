@@ -1,5 +1,255 @@
 # Development Changelog
 
+## 2026-08-26 — Phase 2 Milestone D COMPLETE (physical E2E PASS)
+
+- **Milestone D, Telegram Managed-Bot Onboarding, is closed.** The full flow
+  passed a physical end-to-end test on a real Android device against the
+  production service, including a real Telegram → PocketClaw Core → AI provider
+  → Telegram message round trip with conversation context persisting across
+  consecutive messages.
+- Automatic managed-bot onboarding is now the **default** Telegram setup path.
+  Manual Bot Token entry is the **advanced fallback**, retained in full.
+- Verified reference artifact, superseding the Milestone C APK:
+  `b6fea5d8ec5c3c66ba8a1320b0a217afcca322e75b5b26cc4082bbbb08a57f94`,
+  34,220,929 bytes, `com.lord1egypt.pocketclaw` 0.1.3 (3).
+- The Core pair rebuilt for the UI integration fix is now **device-verified**
+  with that APK and supersedes the Milestone C pair: `libpicoclaw.so`
+  37,224,801 `33f8b4efbc88333747c5df30b3ddc6864c924b35dba99e9c8c3b91df3470e98a`;
+  `libpicoclaw-web.so` 24,641,889
+  `5400cb02322ece5c7035356595355bd3c116adfc6a5bb6b78f3e2bd22dbcb3bd`.
+- Live architecture: PocketClaw Android → PocketClaw Telegram Setup on Vercel →
+  `@PocketClawSetupBot` → Telegram Managed Bots → Upstash Redis pairing state
+  (REST, 600 s TTL) → automatic PocketClaw Telegram configuration. The service
+  repository `Lord1Egypt/PocketClaw-Telegram-Setup` stays independent and
+  public; the APK builds from none of it and carries only its public base URL.
+- Device-observed Core regression: startup and Flutter first frame, Gateway and
+  Core lifecycle, Telegram channel lifecycle, branding, no black screen, no
+  abnormal slowdown, log path privacy intact. Android DNS/model discovery,
+  Provider Catalog, Gemini, OpenCode Zen, OpenCode Go, Skill Hub, Workspace and
+  MQTT keep their existing automated coverage and were not re-tested physically
+  in this round.
+- Security confirmed: no manager token, webhook secret, pairing secret, Redis
+  credential or child bot token in the APK or in Git; no child token in the QR;
+  no raw token shown in normal UI or required from the user. No secret value is
+  recorded in this repository.
+- Merged into `develop` with `--no-ff` and tagged `phase2-milestone-d`. `main`
+  remains deliberately untouched at `100a51d`.
+- Still open: rotating the manager bot token, which was pasted into a chat log
+  after deployment. The service is unaffected and keeps working; this is
+  hygiene, and it is the one outstanding security item.
+
+## 2026-08-26 — Milestone D UI integration fix (device-found)
+
+- **Root cause of the device failure**: PocketClaw renders Telegram on two
+  surfaces. Milestone D added managed-bot onboarding to the native Settings tab
+  (`lib/src/ui/config_page.dart`) while Channels → Telegram — the path a user
+  actually takes — is the Core web console's
+  `channel-config-page.tsx` → `telegram-form.tsx`, which knew nothing about it.
+  The flow was complete, tested, and unreachable.
+- Connected the console's Telegram route to the existing Dart flow rather than
+  rewriting pairing in TypeScript. A new `PocketClawHost` WebView bridge lets
+  the console render the entry point and ask the Flutter host to run the flow;
+  `TelegramOnboardingLauncher` is now the single way in, called by both
+  surfaces.
+- Channels → Telegram now shows managed onboarding first when there is no token
+  and a host that can pair, a connected summary when a token is set, and the
+  full manual form when there is no host or no compiled-in endpoint. The legacy
+  Bot Token / API Base URL / proxy / allow_from / typing / streaming /
+  placeholder form is unchanged and still reachable in every state.
+- Bridge security: no secret in the injected payload, the bot handle is
+  JSON-encoded so it cannot break out of its string, `openExternal` takes only
+  absolute http(s) URLs, and both injection and message handling are scoped to
+  the console's own origin so a followed outbound link cannot drive the app.
+- **The tests are the actual deliverable here.** The new web tests render
+  `ChannelConfigPage channelName="telegram"` — the same component the APK
+  renders — and were verified to fail against the old wiring: reverting the one
+  line back to `TelegramForm` failed all 8, restoring it passed all 8. Adding
+  `jsdom` and `@testing-library/react` was unavoidable, since the entire failure
+  was that nothing rendered the real route.
+- Verification: 36/36 frontend, 88/88 Flutter, `flutter analyze` clean,
+  `tsc -b` clean, `pnpm lint` clean.
+- **Core was rebuilt** because `core/src/web/frontend` changed. New binaries
+  `libpicoclaw.so` `33f8b4ef...3470e98a` and `libpicoclaw-web.so`
+  `5400cb02...2dbcb3bd` replace the device-verified pair, `-trimpath` verified
+  clean, and `core/pocketclaw-core-v0.3.1.patch` was regenerated (58 files).
+  The regression sweep on the device is therefore mandatory, not optional.
+- Replacement APK
+  `b6fea5d8ec5c3c66ba8a1320b0a217afcca322e75b5b26cc4082bbbb08a57f94`,
+  34,220,929 bytes, guard PASS, secret scan clean over 425,247 strings.
+- Not merged; `main` untouched.
+
+## 2026-08-26 — Milestone D live-endpoint APK built
+
+- Built the first PocketClaw APK that carries a real onboarding endpoint:
+  SHA-256 `9a0f74070f0129b2180b4b3237fbfacaf001ee6c8808a26e128d7ae06bb1be7f`,
+  34,211,833 bytes, `com.lord1egypt.pocketclaw` 0.1.3 (3). No Milestone D
+  feature behavior changed; the only difference from the previous candidate is
+  that `POCKETCLAW_ONBOARDING_BASE_URL` is now set.
+- The endpoint travels through the canonical Gradle release command, not around
+  it. `-Pdart-defines=<base64 of KEY=VALUE, comma-separated>` is the Gradle-path
+  equivalent of `--dart-define`: `FlutterPlugin.kt` reads the `dart-defines`
+  property and `BaseFlutterTaskHelper.kt` forwards it to `flutter assemble` as
+  `--DartDefines`. Recorded because the obvious move — switching to
+  `flutter build apk` to get `--dart-define` — would have left the canonical
+  release path for no reason.
+- The arm64 native-payload guard passed and printed all three libraries, and
+  the 34.2 MB size confirms `-Ptarget-platform=android-arm64` was honoured
+  rather than silently producing a ~50 MB universal APK.
+- Secret scan over the printable strings of every file in the APK: zero
+  Telegram bot tokens of any shape, zero occurrences of
+  `TELEGRAM_MANAGER_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET`, `PAIRING_SECRET`, or
+  any `KV_REST_API_*`/`UPSTASH_*`/`REDIS_URL` name, and zero `upstash` or
+  `redis://` strings. The 1,432 64-hex hits — the shape of the webhook and
+  pairing secrets — are fully attributed: 23 are `google_fonts` font-asset
+  checksums in `libapp.so`, and the rest live in Core binaries that are
+  byte-identical to the pair compiled and device-verified on 2026-08-25, before
+  the service existed. A secret that did not exist at compile time cannot be
+  inside them.
+- Regression run before the build: `flutter analyze` clean and 77/77 Flutter
+  tests. Core was deliberately not rebuilt — no Core source changed and the
+  committed binaries hash-match the device-verified pair.
+- Not merged. `feature/telegram-managed-onboarding` stays unmerged and `main`
+  untouched until the Android → Telegram → managed bot → PocketClaw end-to-end
+  test passes on a physical device.
+
+## 2026-08-26 — Onboarding service live; can_manage_bots verified
+
+- The service is deployed at
+  `https://pocketclaw-telegram-setup-bot-83ai.vercel.app` and every server-side
+  check passes: manager authentication, webhook registration, Upstash Redis
+  storage, and a live test pairing that was created and read back.
+- **`can_manage_bots = true`, verified live.** This was the last link in the
+  chain that nothing else could establish — the BotFather UI showing management
+  mode enabled and a manually-opened deep link were both strong evidence, but
+  only the running service makes that API assertion.
+- Fixed three deployment defects found by actually deploying, none of which any
+  amount of local testing would have surfaced:
+  - The build failed because the repository satisfied both Vercel Go build
+    modes at once. Committed to the framework preset, removed the `api/`
+    function, and added `internal/deployconfig` plus CI so a repeat fails on
+    push rather than in a deploy log.
+  - The storage health check only sent `PING`, which a read-only credential
+    answers happily. Since a Vercel Redis store injects both
+    `KV_REST_API_TOKEN` and `KV_REST_API_READ_ONLY_TOKEN`, the wrong paste
+    would have shown green and failed every pairing. It now does a real write
+    round-trip.
+  - A working deployment still displayed "Connect a Redis database" under a
+    green storage row, because the help block was revealed at first paint and
+    never hidden again.
+- Corrected the storage variable documentation. A real Vercel Redis store
+  injects the `KV_REST_API_*` names, not the `UPSTASH_REDIS_REST_*` ones the
+  README had led with. Both are current; which appears depends on how the
+  database was attached.
+- Android is untouched. The remaining work is a rebuild against the deployment
+  and the device test.
+
+## 2026-08-26 — Telegram onboarding extracted, reworked for Vercel, published
+
+- Operator state corrected: `@PocketClawSetupBot` **exists**, Bot Management
+  Mode is **enabled**, and the managed-bot deep link has been opened
+  successfully against it. The remaining unverified link is the live
+  `getMe` → `can_manage_bots` assertion, which needs the deployed service.
+- The onboarding service moved out of this repository to
+  **`Lord1Egypt/PocketClaw-Telegram-Setup`** — public, MIT, zero external Go
+  dependencies. `services/README.md` is the pointer and explains why it is not
+  vendored: it is infrastructure, the APK does not build from it, and the app
+  holds only a public base URL.
+- **Audited the storage before deploying, and it would not have survived.**
+  Pairing state was a process-local Go map. On Vercel the create request, the
+  Telegram webhook, and the token collection can each land in a different
+  function instance, so a Go map works in development and fails intermittently
+  in production. State now lives in a Redis-compatible store over its REST API.
+- Two operations are atomic server-side rather than in application code:
+  `SET username:… NX` claims a suggested bot username, and `GETDEL token:…`
+  delivers the child token exactly once. Both `Store` implementations run
+  against one conformance suite, including a test that twelve racing callers
+  produce exactly one winner, and a test asserting the Redis path really issues
+  `GETDEL` and `SET … NX`.
+- **Long-polling became a webhook**, because serverless has no long-lived
+  process. The endpoint is gated by the secret Telegram echoes in
+  `X-Telegram-Bot-Api-Secret-Token`, compared in constant time before parsing.
+  An undecodable body still answers 200 so Telegram does not retry forever.
+- Added an operator status page and `/privacy`. The page performs no privileged
+  action itself: each button asks the server, which reads credentials from its
+  own environment and answers with a boolean and a non-secret message.
+  Deliberately unlike the earlier DukeBot pattern, no Telegram token ever
+  reaches browser JavaScript.
+- Poll tokens are now stored as HMAC-SHA256 keyed with `PAIRING_SECRET`, so a
+  storage dump is inert without the server's key, and rotating the secret
+  invalidates every live pairing at once.
+- Deploy-to-Vercel button, `.env.example`, `README.md`, `PRIVACY.md`,
+  `SECURITY.md`, and `LICENSE` written for a standalone public project.
+- Tests in the new repository: 7 packages, all passing, including a fake
+  Upstash REST server so the Redis command construction is exercised for real.
+  Nothing requires a live bot or a production credential.
+- The Android side is unchanged. The API contract did not move during the
+  extraction — same three endpoints, same fields, same 404-for-anything-gone
+  behaviour the Flutter client already expects.
+- No credentials are recorded anywhere in either repository. The previously
+  issued manager token is treated as exposed and must be revoked before
+  deployment.
+
+## 2026-08-26 — Milestone D: Telegram managed-bot onboarding
+
+- Closed Milestone C first: merged `feature/provider-catalog` into `develop`
+  (`36bc88d`), tagged `phase2-milestone-c`, and branched
+  `feature/telegram-managed-onboarding` from the verified `develop`.
+- Verified Telegram's managed-bot API against `core.telegram.org` before
+  writing any code. It is Bot API 9.6, 2026-04-03: `User.can_manage_bots`,
+  `Update.managed_bot` carrying `ManagedBotUpdated{user, bot}`,
+  `Message.managed_bot_created`, `getManagedBotToken(user_id)`,
+  `replaceManagedBotToken(user_id)`, and
+  `t.me/newbot/{manager}/{suggested}[?name=]`. One correction fell out of this:
+  the field is `can_manage_bots`, not `bot_can_manage_bots`; coding against the
+  latter would have made manager verification always fail.
+- Added `services/telegram-onboarding/`, PocketClaw's own onboarding service. A
+  separate Go module with **zero external dependencies**, deliberately outside
+  `core/src/` so it never appears in the upstream provenance patch. No Hermes
+  or Nous service is involved at build time or runtime; Hermes was read for the
+  shape of the flow and nothing else.
+- Pairing API is three endpoints. Polling never returns a token; a separate
+  single-use collection endpoint delivers it once and destroys the session.
+  That separation is what makes single-use a property of the API shape rather
+  than of careful client behaviour.
+- Pairing security: 16-byte pairing IDs and 32-byte poll tokens from
+  `crypto/rand`, independent of each other; poll tokens stored only as SHA-256
+  and compared in constant time; a wrong token and an unknown pairing both
+  answer 404 so live pairings cannot be enumerated; per-client rate limiting;
+  a 10-minute TTL after which the session and any token material are swept.
+- Child bots are named `PocketClaw Agent` / `pocketclaw_<random>_bot` with an
+  8-character random segment. Telegram's username rules are enforced, and
+  `hermes`, `picoclaw`, and `sipeed` are rejected outright in both names and
+  usernames.
+- The manager bot token never leaves the server, and is redacted from every
+  error path — including transport errors, which quote the request URL and
+  therefore the token.
+- The service verifies its manager bot at startup and refuses to run without
+  `can_manage_bots`, rather than issuing links that could never resolve.
+- Flutter: a new Telegram screen with Connect, Open Telegram, a QR carrying only
+  the public creation link, live progress, an expiry countdown, Connected with
+  Open Chat, and retry. Reached from Settings.
+- Android lifecycle is handled properly: polling stops on background and
+  resumes with an immediate check, the pairing survives Telegram taking focus,
+  and it survives the app being killed via app-private storage of the pairing
+  identifiers — never the bot token.
+- Auto-configuration reuses the existing `channel_list.telegram` entry rather
+  than adding a second Telegram runtime. It merges, so proxy, base URL,
+  MarkdownV2, streaming, and the reasoning channel survive pairing, and it sets
+  `allow_from` to the Telegram user who created the bot — something manual
+  setup cannot do, since a pasted token identifies nobody.
+- Manual token entry stays available behind "Set up manually" and writes the
+  same configuration. The default path never shows a user a token.
+- No secret ships in the APK. The endpoint is a build-time
+  `--dart-define=POCKETCLAW_ONBOARDING_BASE_URL` that defaults to empty and
+  must be HTTPS; an unconfigured build says automatic setup is unavailable
+  instead of guessing an endpoint or reaching for someone else's.
+- Tests: 62 service tests across six Go packages, all against a fake Telegram,
+  none needing a real bot or a production secret; 50 new Flutter tests, 77
+  total. Core regression 92 packages ok, `pnpm lint` clean, `flutter analyze`
+  clean.
+- End-to-end physical verification is **blocked on operator setup**: the real
+  PocketClaw manager bot does not exist yet. No credentials were invented.
+
 ## 2026-08-25 — Source migration and OpenCode completion PASS on device
 
 - Physical Android device test of

@@ -222,6 +222,99 @@ supplied by the user.
   closure point. Awaiting explicit instruction; `main` needs separate
   instruction.
 
+## Phase 2 — Milestone D: Telegram Managed-Bot Onboarding
+
+- [x] Close Milestone C: merge `feature/provider-catalog` into `develop`
+  (`36bc88d`), tag `phase2-milestone-c`, branch
+  `feature/telegram-managed-onboarding` from the verified `develop`.
+- [x] Verify Telegram's managed-bot capability against official documentation
+  before implementing: Bot API 9.6 (2026-04-03), `User.can_manage_bots`,
+  `Update.managed_bot` / `ManagedBotUpdated`, `Message.managed_bot_created`,
+  `getManagedBotToken`, `replaceManagedBotToken`, and the
+  `t.me/newbot/{manager}/{suggested}[?name=]` link form.
+- [x] Build PocketClaw's own onboarding service in-repo at
+  `services/telegram-onboarding/` — a separate Go module, zero external
+  dependencies, no third-party onboarding provider at runtime.
+- [x] Pairing API: create, poll, and a separate single-use token collection.
+- [x] Pairing security: `crypto/rand` IDs and poll tokens that are independent
+  of each other, poll tokens stored hashed and compared in constant time,
+  wrong-token and unknown-pairing both answering 404, per-client rate limiting,
+  10-minute TTL.
+- [x] Child naming: `pocketclaw_<random>_bot` with an 8-character
+  cryptographically random segment, Telegram username rules enforced, and
+  `hermes`/`picoclaw`/`sipeed` rejected in names and usernames.
+- [x] Deep-link and QR generation, with `%20` encoding rather than `+`.
+- [x] Manager bot verification at startup; the service refuses to run without
+  `can_manage_bots`.
+- [x] Manager token redaction from every error path, including transport errors
+  that quote the request URL.
+- [x] Flutter onboarding screen: Connect, Open Telegram, QR, live progress,
+  expiry countdown, Connected with Open Chat, and retry.
+- [x] Android lifecycle: polling pauses on background and resumes with an
+  immediate check; the pairing survives Telegram taking focus and survives the
+  app being killed.
+- [x] Auto-configuration reuses the existing `channel_list.telegram` entry,
+  merges rather than replaces, sets `allow_from` to the creating Telegram user,
+  and restarts Core.
+- [x] Manual token entry retained behind "Set up manually", writing the same
+  configuration.
+- [x] No secret embedded in the APK: the endpoint is a build-time
+  `--dart-define` that defaults to empty and must be HTTPS.
+- [x] Tests: 62 service tests across 6 Go packages; 50 new Flutter tests
+  (77 total).
+- [x] Regression: Core 92 packages ok, `pnpm lint` clean, `flutter analyze`
+  clean, release APK built with the build guard passing.
+- [x] Manager bot created and Bot Management Mode enabled by the project owner;
+  the managed-bot deep link opened successfully against `@PocketClawSetupBot`.
+- [x] Audit pairing storage for serverless: found process-local state, replaced
+  it with a Redis-compatible store using atomic `SET NX` and `GETDEL`.
+- [x] Replace `getUpdates` long-polling with an authenticated Telegram webhook.
+- [x] Extract the service to the public repository
+  `Lord1Egypt/PocketClaw-Telegram-Setup` with a Deploy to Vercel button,
+  operator status page, `/privacy`, README, PRIVACY.md, SECURITY.md, LICENSE.
+- [x] Verify no real credential exists in the public repository.
+- [x] Deploy the service to Vercel with an Upstash Redis store and the four
+  secrets. Live at `https://pocketclaw-telegram-setup-bot-83ai.vercel.app`.
+- [x] Live `getMe` → `can_manage_bots == true` from the deployed service —
+  **PASS on 2026-08-26**, the last link neither the BotFather UI nor a manual
+  deep link could establish.
+- [x] Webhook registered; storage connected; a test pairing created and read
+  back through the live service.
+- [ ] Revoke the manager bot token again — it was pasted into a chat log after
+  deployment. The service keeps working; rotate it in BotFather and update the
+  Vercel environment variable.
+- [x] Rebuild the app with
+  `--dart-define=POCKETCLAW_ONBOARDING_BASE_URL=https://pocketclaw-telegram-setup-bot-83ai.vercel.app`
+  through the canonical Gradle path (`-Pdart-defines`, base64 `KEY=VALUE`).
+- [x] Fix the UI integration defect the first device test exposed: managed
+  onboarding was wired only to the native Settings tab, while Channels →
+  Telegram is rendered by the Core web console and still opened the raw Bot
+  Token form. The console now renders the entry point and asks the Flutter host
+  to run the existing Dart flow over the `PocketClawHost` bridge; pairing was
+  not reimplemented in TypeScript.
+- [x] Add regression tests that enter through the real route
+  (`ChannelConfigPage channelName="telegram"`), covering managed-onboarding
+  primary, the no-endpoint and no-host fallbacks, the connected summary, and
+  the legacy form behind both Advanced entries. Confirmed to fail against the
+  pre-fix wiring before being accepted.
+- [x] **Physical end-to-end device test: PASS on 2026-08-26.** Full Channels →
+  Telegram onboarding UI, bot creation through Telegram, automatic pairing
+  detection and token delivery, automatic owner and channel configuration, the
+  connected state, Open Chat, and a real Telegram → Core → AI provider →
+  Telegram message round trip with context persisting across consecutive
+  messages. Verified APK
+  `b6fea5d8ec5c3c66ba8a1320b0a217afcca322e75b5b26cc4082bbbb08a57f94`.
+- [x] Mark the rebuilt Core pair physically verified with that APK:
+  `libpicoclaw.so` `33f8b4ef...3470e98a`, `libpicoclaw-web.so`
+  `5400cb02...2dbcb3bd`.
+- [x] Close Milestone D: merge `feature/telegram-managed-onboarding` into
+  `develop` with `--no-ff` and tag `phase2-milestone-d`. `main` untouched.
+- [ ] Localize the Telegram onboarding strings. They live in
+  `TelegramOnboardingStrings` and are English in all twelve locales, because
+  shipping machine-guessed translations into the `.arb` files would put
+  unverified text in front of users.
+- [ ] Confirm a `claude-*` model on OpenCode, carried over from Milestone C.
+
 ## Deferred out of Milestone C, deliberately
 
 - [ ] API key storage on Android is plaintext in the workspace config, because

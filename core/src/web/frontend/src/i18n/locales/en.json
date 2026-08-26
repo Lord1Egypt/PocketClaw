@@ -618,6 +618,25 @@
       "clientIdPlaceholder": "Auto-generated if blank",
       "secretSet": "Already configured. Leave blank to keep unchanged.",
       "secretEmpty": "Not configured"
+    },
+    "telegram": {
+      "connectTitle": "Connect PocketClaw to Telegram",
+      "connectBody": "Create your personal PocketClaw bot in a few seconds. No BotFather token copy/paste required.",
+      "openTelegram": "Open Telegram",
+      "statusLabel": "Status:",
+      "statusReady": "Ready to connect",
+      "troubleLabel": "Having trouble?",
+      "advancedManual": "Advanced / Manual setup",
+      "advancedSettings": "Advanced Settings",
+      "connected": "Connected",
+      "botLabel": "Bot",
+      "ownerLabel": "Owner",
+      "ownerConfigured": "Configured",
+      "ownerAnyone": "Anyone can message this bot",
+      "openChat": "Open Chat",
+      "reconnect": "Reconnect / Create New Bot",
+      "manualOnlyTitle": "Manual setup",
+      "manualOnlyBody": "One-tap bot creation is not available in this build, so Telegram is set up with a bot token from BotFather. Paste the token below and save."
     }
   },
   "pages": {
