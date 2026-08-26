@@ -48,6 +48,41 @@ class PicoClawService : Service() {
         var lastLog = ""
             private set
 
+        // Lines emitted since the UI last collected them.
+        //
+        // lastLog is a sticky "most recent line" snapshot that never clears.
+        // The Flutter side polls status every three seconds and used to append
+        // lastLog on each poll, so one backend line was re-added forever until
+        // it filled the 500-entry Logs screen and evicted the real history.
+        // Handing each line out exactly once makes the producer match what the
+        // consumer actually needs, and keeps genuinely repeated lines distinct
+        // instead of collapsing them with a dedup heuristic.
+        private val pendingLogs = ArrayDeque<String>()
+        private const val MAX_PENDING_LOGS = 2000
+
+        /** Records a line for the UI exactly once and updates the snapshot. */
+        fun publishLog(line: String) {
+            if (line.isEmpty()) return
+            lastLog = line
+            synchronized(pendingLogs) {
+                pendingLogs.addLast(line)
+                while (pendingLogs.size > MAX_PENDING_LOGS) {
+                    pendingLogs.removeFirst()
+                }
+            }
+        }
+
+        /** Drains every line recorded since the previous call. */
+        fun takeNewLogs(): List<String> = synchronized(pendingLogs) {
+            if (pendingLogs.isEmpty()) {
+                emptyList()
+            } else {
+                val drained = ArrayList<String>(pendingLogs)
+                pendingLogs.clear()
+                drained
+            }
+        }
+
         @Volatile
         var processId: Int = -1
             private set
@@ -346,7 +381,7 @@ class PicoClawService : Service() {
                 } catch (e: Exception) {
                     if (!stopped) {
                         Log.e(TAG, "Failed to start service", e)
-                        lastLog = "Error: ${e.message}"
+                        publishLog("Error: ${e.message}")
                         updateNotification("Error: ${e.message}")
                     }
                 }
@@ -564,7 +599,7 @@ class PicoClawService : Service() {
 
         val lastOutput = logBuffer.toString().takeLast(500)
         Log.w(TAG, "Web service exited with code: $exitCode, last output: $lastOutput")
-        lastLog = "Process exited (code $exitCode)\n$lastOutput"
+        publishLog("Process exited (code $exitCode)\n$lastOutput")
         updateNotification("Stopped (exit code $exitCode)")
 
         // 非正常退出时自动重启（限制重试次数）
@@ -572,7 +607,7 @@ class PicoClawService : Service() {
             restartCount++
             if (restartCount > maxRestartAttempts) {
                 Log.e(TAG, "Web service has failed $restartCount times, giving up restart")
-                lastLog = "Service crashed $restartCount times, stopped retrying"
+                publishLog("Service crashed $restartCount times, stopped retrying")
                 updateNotification("Error: too many restarts")
                 return
             }
@@ -779,7 +814,7 @@ class PicoClawService : Service() {
         if (logBuffer.length > maxLogSize) {
             logBuffer.delete(0, logBuffer.length - maxLogSize)
         }
-        lastLog = line
+        publishLog(line)
     }
 
     @Synchronized

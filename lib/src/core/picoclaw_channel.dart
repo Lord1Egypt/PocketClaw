@@ -52,6 +52,16 @@ class PicoClawChannel {
   }
 
   /// 获取完整日志
+  /// Log lines emitted since the previous call, each delivered exactly once.
+  ///
+  /// Deliberately not `getServiceStatus`'s `lastLog`: that is a sticky
+  /// snapshot, and polling it appended the same line on every tick.
+  static Future<List<String>> takeNewLogs() async {
+    final result = await _channel.invokeMethod<List<Object?>>('takeNewLogs');
+    if (result == null) return const <String>[];
+    return result.whereType<String>().toList(growable: false);
+  }
+
   static Future<String> getFullLog() async {
     final result = await _channel.invokeMethod<String>('getFullLog');
     return result ?? '';

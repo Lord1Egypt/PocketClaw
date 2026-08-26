@@ -812,18 +812,29 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
+  /// Runs one native status/log poll.
+  ///
+  /// Exposed because the polling timer only starts on Android, so a host test
+  /// can never reach this path through [_startNativePolling] — and this path
+  /// is exactly where a single backend line was being re-appended forever.
+  @visibleForTesting
+  Future<void> pollNativeServiceStatusForTest() => _syncNativeServiceStatus();
+
   Future<void> _syncNativeServiceStatus() async {
     try {
       final status = await PicoClawChannel.getServiceStatus();
       final isRunning = status['isRunning'] as bool? ?? false;
-      final lastLog = status['lastLog'] as String? ?? '';
       _nativePid = status['pid'] as int? ?? -1;
 
       final oldStatus = _status;
       _status = isRunning ? ServiceStatus.running : ServiceStatus.stopped;
 
-      if (lastLog.isNotEmpty) {
-        _addLog(lastLog);
+      // Drain the lines emitted since the last poll. `status['lastLog']` is a
+      // sticky snapshot of the most recent line, so appending it here re-added
+      // the same entry every three seconds until it filled the Logs screen and
+      // evicted the real history.
+      for (final line in await PicoClawChannel.takeNewLogs()) {
+        _addLog(line);
       }
 
       if (isRunning) {

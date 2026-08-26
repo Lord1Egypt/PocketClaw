@@ -1,5 +1,50 @@
 # Development Changelog
 
+## 2026-08-26 — user-facing log privacy and duplication fix (device-found)
+
+Found on a physical device after Milestone D closed. The GitHub milestone
+release is on hold until this is re-tested. Application version unchanged at
+0.1.3 (3).
+
+- **Caller leaked the upstream module path.** `-trimpath` removed
+  `/home/lordegypt/...` exactly as intended, but what replaces an absolute path
+  under `-trimpath` is the Go module path, so the Logs screen showed
+  `github.com/sipeed/picoclaw/web/backend/api/gateway.go:298`. Every existing
+  assertion searched for `/home/`, so the substitution went unnoticed. Fixed by
+  setting `zerolog.CallerMarshalFunc` in `logger.init()` — the earliest layer
+  that sees caller metadata, so every writer and every exported log inherits
+  `gateway.go:298`. No message text and no in-message path is rewritten.
+- Eight user-visible message strings that named the project were individually
+  reworded, including four provider errors telling users to run a CLI command
+  that does not exist on Android.
+- **One event was rendering as hundreds.** Not repeated emission and not a
+  lifecycle fault: every duplicate carried the identical timestamp and PID, and
+  the counter sat at the full 500. Native `lastLog` is a sticky snapshot that
+  never clears, and the Flutter three-second status poll appended it on every
+  tick, so a single warning refilled the buffer indefinitely and evicted all
+  real history. Fixed by making the producer match the consumer: `publishLog`
+  queues each line and `takeNewLogs` drains it, so every line is delivered
+  exactly once. This also recovers lines emitted between polls, which the
+  snapshot silently dropped.
+- Both regression tests were confirmed to fail against the old code — 25 polls
+  produced 25 copies before the fix, one after — and the Dart test drives the
+  real polling path rather than a helper.
+- Core rebuilt, `-trimpath` clean, upstream patch regenerated (67 files).
+  Candidate APK `543c759b04b0e4c77dd7831435753aceac0b1e16a7a45fdec3fb37ed2e45479a`,
+  guard PASS, secret scan clean.
+- **Telegram connection state was out of sync between the two surfaces.** The
+  console showed Connected while native Settings hardcoded "Connect PocketClaw
+  to Telegram" and opened a new pairing. Both now derive from the persisted
+  `channel_list.telegram` entry through `TelegramConnectionReader`; no stored
+  boolean exists to drift. An already-connected user gets a connected page with
+  Open Chat, an explicit confirmed Reconnect, and Advanced / Manual. Replacement
+  was verified safe: the config writer runs only after a new token arrives, so a
+  cancelled or expired pairing leaves the working bot intact.
+- Recorded but not fixed: `libapp.so` carries the Flutter plugin registrant's
+  source URI, a developer path present in the device-verified APK and every
+  earlier one. It reaches users only in a Dart stack trace, Dart has no
+  `-trimpath` equivalent, and it needs its own decision.
+
 ## 2026-08-26 — Phase 2 Milestone D COMPLETE (physical E2E PASS)
 
 - **Milestone D, Telegram Managed-Bot Onboarding, is closed.** The full flow

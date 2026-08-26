@@ -1,0 +1,157 @@
+import 'package:flutter/services.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:pocketclaw/src/core/service_manager.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+/// Reproduces the physical-device regression where one backend log line filled
+/// the entire Logs screen.
+///
+/// The native side exposes `lastLog`, a sticky snapshot of the most recent
+/// line that never clears. The Flutter poll ran every three seconds and
+/// appended that snapshot each time, so a single warning was re-added forever
+/// until it evicted all 500 retained entries. The fix is a drain: the native
+/// side hands each line out exactly once via `takeNewLogs`.
+void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  const channel = MethodChannel('com.lord1egypt.pocketclaw/picoclaw');
+  const staleWarning =
+      'WRN api gateway.go:298 > removed stale pid file for PID 12302';
+
+  late ServiceManager service;
+  late List<String> pendingNativeLogs;
+  late String stickyLastLog;
+  late int takeNewLogsCalls;
+  // ServiceManager is a singleton, so its log list survives between tests.
+  // Each test asserts on the lines it appended rather than on the whole list.
+  late int logBaseline;
+
+  /// Stands in for the native service: `lastLog` stays set forever, while
+  /// `takeNewLogs` drains, which is precisely the contract difference.
+  void installNativeStub() {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, (call) async {
+      switch (call.method) {
+        case 'getServiceStatus':
+          return <String, Object?>{
+            'isRunning': false,
+            'pid': 12302,
+            'lastLog': stickyLastLog,
+          };
+        case 'takeNewLogs':
+          takeNewLogsCalls++;
+          final drained = List<String>.from(pendingNativeLogs);
+          pendingNativeLogs.clear();
+          return drained;
+        default:
+          return null;
+      }
+    });
+  }
+
+  setUp(() {
+    SharedPreferences.setMockInitialValues({});
+    service = ServiceManager();
+    stickyLastLog = '';
+    pendingNativeLogs = <String>[];
+    takeNewLogsCalls = 0;
+    logBaseline = service.logs.length;
+    installNativeStub();
+  });
+
+  tearDown(() {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, null);
+  });
+
+  /// Log appends are batched behind a 100 ms timer before they reach `logs`.
+  Future<void> settleLogBatch() =>
+      Future<void>.delayed(const Duration(milliseconds: 150));
+
+  /// Only the lines this test appended.
+  List<String> appendedLogs() => service.logs.sublist(logBaseline);
+
+  test(
+    'one backend warning is shown once, however many times status is polled',
+    () async {
+      // The backend emits the line exactly once...
+      pendingNativeLogs.add(staleWarning);
+      // ...and the sticky snapshot keeps reporting it forever afterwards.
+      stickyLastLog = staleWarning;
+
+      for (var poll = 0; poll < 25; poll++) {
+        await service.pollNativeServiceStatusForTest();
+      }
+      await settleLogBatch();
+
+      final occurrences =
+          appendedLogs().where((line) => line == staleWarning).length;
+      expect(
+        occurrences,
+        1,
+        reason: 'the device showed this single event repeated until it '
+            'evicted every other log entry',
+      );
+      expect(takeNewLogsCalls, 25);
+    },
+  );
+
+  test('a genuinely repeated backend line is not collapsed', () async {
+    // Distinct emissions of identical text must survive: the fix is a drain,
+    // not text deduplication.
+    pendingNativeLogs.addAll([staleWarning, staleWarning, staleWarning]);
+    stickyLastLog = staleWarning;
+
+    await service.pollNativeServiceStatusForTest();
+    await settleLogBatch();
+
+    expect(appendedLogs().where((line) => line == staleWarning).length, 3);
+  });
+
+  test('polling with nothing new adds nothing', () async {
+    stickyLastLog = staleWarning;
+
+    for (var poll = 0; poll < 10; poll++) {
+      await service.pollNativeServiceStatusForTest();
+    }
+    await settleLogBatch();
+
+    expect(appendedLogs(), isEmpty);
+  });
+
+  test('lines emitted between polls are all delivered, not just the last',
+      () async {
+    pendingNativeLogs.addAll(['first line', 'second line', 'third line']);
+    stickyLastLog = 'third line';
+
+    await service.pollNativeServiceStatusForTest();
+    await settleLogBatch();
+
+    expect(appendedLogs(), containsAllInOrder(<String>[
+      'first line',
+      'second line',
+      'third line',
+    ]));
+  });
+
+  test('no user-visible log line carries a module or developer path', () async {
+    pendingNativeLogs.add(staleWarning);
+    await service.pollNativeServiceStatusForTest();
+    await settleLogBatch();
+
+    for (final line in appendedLogs()) {
+      for (final banned in const <String>[
+        'github.com/sipeed',
+        'picoclaw',
+        'PicoClaw',
+        'sipeed',
+        'Sipeed',
+        '/home/',
+        '.upstream',
+      ]) {
+        expect(line.contains(banned), isFalse,
+            reason: '"$line" leaks "$banned"');
+      }
+    }
+  });
+}

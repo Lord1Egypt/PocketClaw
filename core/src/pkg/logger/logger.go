@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path"
 	"path/filepath"
 	"runtime"
 	"strconv"
@@ -47,6 +48,21 @@ var (
 func init() {
 	once.Do(func() {
 		zerolog.SetGlobalLevel(zerolog.InfoLevel)
+
+		// Reduce the caller to the file's own name before anything renders it.
+		//
+		// Zerolog reports the path the compiler recorded. Under -trimpath that
+		// is the module path — github.com/sipeed/picoclaw/web/backend/api/
+		// gateway.go — and without it an absolute build path. Both are
+		// developer-facing, and both reach PocketClaw's user-visible Logs
+		// screen and its exported log files. Only the file name carries
+		// meaning for a user; the package is already shown as the component
+		// field. This is the earliest structured layer that sees the caller,
+		// so every writer and every export inherits the short form and no
+		// message text is ever rewritten.
+		zerolog.CallerMarshalFunc = func(_ uintptr, file string, line int) string {
+			return ShortCallerLocation(file, line)
+		}
 
 		isTTY := term.IsTerminal(int(os.Stdout.Fd()))
 
@@ -236,6 +252,23 @@ func ConfigureFromEnv() {
 const (
 	locUnknown = "<unknown>"
 )
+
+// ShortCallerLocation renders a compiler-recorded caller as "file.go:line".
+//
+// It deliberately touches only logger source metadata. Paths that appear
+// inside a log *message* are the message's own content and are left alone.
+func ShortCallerLocation(file string, line int) string {
+	// Normalise both separators explicitly rather than via filepath.ToSlash,
+	// which only rewrites the *host* separator: a Windows-recorded caller
+	// would pass straight through a Linux build of this test and, worse,
+	// through a Linux-built binary reading a Windows-style path.
+	normalized := strings.ReplaceAll(strings.TrimSpace(file), `\`, "/")
+	name := path.Base(normalized)
+	if name == "" || name == "." || name == "/" {
+		return fmt.Sprintf("%s:%d", locUnknown, line)
+	}
+	return fmt.Sprintf("%s:%d", name, line)
+}
 
 func getPackageNameFromFile(filePath string) string {
 	dir := filepath.Dir(filePath)

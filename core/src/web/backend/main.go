@@ -545,7 +545,7 @@ func main() {
 	}
 
 	if !explicitHost && hostOverrideActive {
-		logger.InfoC("web", "Using launcher host from environment PICOCLAW_LAUNCHER_HOST")
+		logger.InfoC("web", "Using launcher host from the environment")
 	}
 
 	if hostOverrideActive && explicitPublic {

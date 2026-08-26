@@ -104,6 +104,19 @@ index ba4ae1f..283782f 100644
 -	}
 +	androiddns.ConfigureDefaultResolverFromEnvironment()
  }
+diff --git a/cmd/picoclaw/internal/auth/helpers.go b/cmd/picoclaw/internal/auth/helpers.go
+index 10bb3a1..47267a2 100644
+--- a/cmd/picoclaw/internal/auth/helpers.go
++++ b/cmd/picoclaw/internal/auth/helpers.go
+@@ -437,7 +437,7 @@ func authModelsCmd() error {
+ 	cred, err := auth.GetCredential("google-antigravity")
+ 	if err != nil || cred == nil {
+ 		return fmt.Errorf(
+-			"not logged in to Google Antigravity.\nrun: picoclaw auth login --provider google-antigravity",
++			"not logged in to Google Antigravity.\nsign in to this provider again",
+ 		)
+ 	}
+ 
 diff --git a/cmd/picoclaw/internal/onboard/helpers.go b/cmd/picoclaw/internal/onboard/helpers.go
 index ecc699d..201fb32 100644
 --- a/cmd/picoclaw/internal/onboard/helpers.go
@@ -474,6 +487,223 @@ index 8b500aa..e5a424b 100644
  		},
  	}
  }
+diff --git a/pkg/logger/caller_sanitize_test.go b/pkg/logger/caller_sanitize_test.go
+new file mode 100644
+index 0000000..e33c7cf
+--- /dev/null
++++ b/pkg/logger/caller_sanitize_test.go
+@@ -0,0 +1,140 @@
++package logger
++
++import (
++	"encoding/json"
++	"os"
++	"path/filepath"
++	"strings"
++	"testing"
++)
++
++// Substrings that must never reach a normal user's Logs screen or an exported
++// log file. The module path is the one that regressed: -trimpath removed the
++// developer's absolute path and left the compiler recording the Go module path
++// instead, which zerolog then reported as the caller.
++var forbiddenInUserFacingLogs = []string{
++	"github.com/sipeed",
++	"picoclaw",
++	"PicoClaw",
++	"sipeed",
++	"Sipeed",
++	"/home/",
++	".upstream",
++}
++
++func TestShortCallerLocationStripsModulePath(t *testing.T) {
++	cases := []struct {
++		name string
++		file string
++		line int
++		want string
++	}{
++		{
++			name: "the caller reported on device",
++			file: "github.com/sipeed/picoclaw/web/backend/api/gateway.go",
++			line: 298,
++			want: "gateway.go:298",
++		},
++		{
++			name: "absolute developer path, when built without -trimpath",
++			file: "/home/lordegypt/PocketClaw-App/core/src/web/backend/api/gateway.go",
++			line: 298,
++			want: "gateway.go:298",
++		},
++		{
++			name: "historical upstream reference checkout",
++			file: "/home/lordegypt/PocketCLaw/.upstream/picoclaw-core-v0.3.1/pkg/gateway/run.go",
++			line: 12,
++			want: "run.go:12",
++		},
++		{
++			name: "already short",
++			file: "gateway.go",
++			line: 1,
++			want: "gateway.go:1",
++		},
++		{
++			name: "windows separators",
++			file: `C:\build\picoclaw\pkg\logger\logger.go`,
++			line: 7,
++			want: "logger.go:7",
++		},
++		{
++			name: "degenerate input does not leak or panic",
++			file: "",
++			line: 0,
++			want: "<unknown>:0",
++		},
++	}
++
++	for _, tc := range cases {
++		t.Run(tc.name, func(t *testing.T) {
++			got := ShortCallerLocation(tc.file, tc.line)
++			if got != tc.want {
++				t.Fatalf("ShortCallerLocation(%q, %d) = %q, want %q", tc.file, tc.line, got, tc.want)
++			}
++			for _, banned := range forbiddenInUserFacingLogs {
++				if strings.Contains(got, banned) {
++					t.Fatalf("caller %q leaks %q", got, banned)
++				}
++			}
++		})
++	}
++}
++
++// The end-to-end assertion: a real log call through the real logger, read back
++// from a real log file, must carry a caller with no module path in it. This is
++// the property the device regression violated; a unit test of the helper alone
++// would have passed even while the logger stayed misconfigured.
++func TestLoggerEmitsSanitizedCaller(t *testing.T) {
++	dir := t.TempDir()
++	logPath := filepath.Join(dir, "pocketclaw.log")
++
++	if err := EnableFileLogging(logPath); err != nil {
++		t.Fatalf("EnableFileLogging: %v", err)
++	}
++	t.Cleanup(DisableFileLogging)
++
++	Warnf("removed stale pid file for PID %d", 12302)
++
++	raw, err := os.ReadFile(logPath)
++	if err != nil {
++		t.Fatalf("read log: %v", err)
++	}
++	if len(raw) == 0 {
++		t.Fatal("logger wrote nothing to the log file")
++	}
++
++	var sawCaller bool
++	for _, line := range strings.Split(strings.TrimSpace(string(raw)), "\n") {
++		if line == "" {
++			continue
++		}
++		var entry map[string]any
++		if err := json.Unmarshal([]byte(line), &entry); err != nil {
++			t.Fatalf("log line is not JSON: %q (%v)", line, err)
++		}
++
++		caller, _ := entry["caller"].(string)
++		if caller == "" {
++			t.Fatalf("log entry has no caller: %q", line)
++		}
++		sawCaller = true
++
++		for _, banned := range forbiddenInUserFacingLogs {
++			if strings.Contains(caller, banned) {
++				t.Fatalf("caller %q leaks %q", caller, banned)
++			}
++		}
++		if strings.Contains(caller, "/") {
++			t.Fatalf("caller %q still carries a path separator; want bare file:line", caller)
++		}
++		if !strings.HasSuffix(strings.Split(caller, ":")[0], ".go") {
++			t.Fatalf("caller %q is not a Go file name", caller)
++		}
++	}
++
++	if !sawCaller {
++		t.Fatal("no log entry carried a caller field")
++	}
++}
+diff --git a/pkg/logger/logger.go b/pkg/logger/logger.go
+index 6d2e317..806439b 100644
+--- a/pkg/logger/logger.go
++++ b/pkg/logger/logger.go
+@@ -4,6 +4,7 @@ import (
+ 	"fmt"
+ 	"io"
+ 	"os"
++	"path"
+ 	"path/filepath"
+ 	"runtime"
+ 	"strconv"
+@@ -48,6 +49,21 @@ func init() {
+ 	once.Do(func() {
+ 		zerolog.SetGlobalLevel(zerolog.InfoLevel)
+ 
++		// Reduce the caller to the file's own name before anything renders it.
++		//
++		// Zerolog reports the path the compiler recorded. Under -trimpath that
++		// is the module path — github.com/sipeed/picoclaw/web/backend/api/
++		// gateway.go — and without it an absolute build path. Both are
++		// developer-facing, and both reach PocketClaw's user-visible Logs
++		// screen and its exported log files. Only the file name carries
++		// meaning for a user; the package is already shown as the component
++		// field. This is the earliest structured layer that sees the caller,
++		// so every writer and every export inherits the short form and no
++		// message text is ever rewritten.
++		zerolog.CallerMarshalFunc = func(_ uintptr, file string, line int) string {
++			return ShortCallerLocation(file, line)
++		}
++
+ 		isTTY := term.IsTerminal(int(os.Stdout.Fd()))
+ 
+ 		consoleWriter = zerolog.ConsoleWriter{
+@@ -237,6 +253,23 @@ const (
+ 	locUnknown = "<unknown>"
+ )
+ 
++// ShortCallerLocation renders a compiler-recorded caller as "file.go:line".
++//
++// It deliberately touches only logger source metadata. Paths that appear
++// inside a log *message* are the message's own content and are left alone.
++func ShortCallerLocation(file string, line int) string {
++	// Normalise both separators explicitly rather than via filepath.ToSlash,
++	// which only rewrites the *host* separator: a Windows-recorded caller
++	// would pass straight through a Linux build of this test and, worse,
++	// through a Linux-built binary reading a Windows-style path.
++	normalized := strings.ReplaceAll(strings.TrimSpace(file), `\`, "/")
++	name := path.Base(normalized)
++	if name == "" || name == "." || name == "/" {
++		return fmt.Sprintf("%s:%d", locUnknown, line)
++	}
++	return fmt.Sprintf("%s:%d", name, line)
++}
++
+ func getPackageNameFromFile(filePath string) string {
+ 	dir := filepath.Dir(filePath)
+ 	importPath := filepath.ToSlash(dir)
+diff --git a/pkg/pid/pidfile.go b/pkg/pid/pidfile.go
+index 3efc45f..e9251e6 100644
+--- a/pkg/pid/pidfile.go
++++ b/pkg/pid/pidfile.go
+@@ -71,7 +71,7 @@ func WritePidFile(homePath, host string, port int) (*PidFileData, error) {
+ 				if isPicoclawProcess(data.PID) {
+ 					return nil, fmt.Errorf("gateway is already running (PID: %d, version: %s)", data.PID, data.Version)
+ 				}
+-				logger.Warnf("found pid file (PID: %d) but process is not picoclaw", data.PID)
++				logger.Warnf("found pid file (PID: %d) but the process is not the PocketClaw runtime", data.PID)
+ 			}
+ 			logger.Warnf("not running (PID: %d) so will remove the pid file: %s", data.PID, pidPath)
+ 		}
 diff --git a/pkg/providers/anthropic_messages/provider.go b/pkg/providers/anthropic_messages/provider.go
 index 672fb93..e393b8b 100644
 --- a/pkg/providers/anthropic_messages/provider.go
@@ -682,7 +912,7 @@ index 0000000..5dcad16
 +	}
 +}
 diff --git a/pkg/providers/factory_provider.go b/pkg/providers/factory_provider.go
-index 8a4af9f..2894b00 100644
+index 8a4af9f..255e180 100644
 --- a/pkg/providers/factory_provider.go
 +++ b/pkg/providers/factory_provider.go
 @@ -12,10 +12,12 @@ import (
@@ -698,6 +928,24 @@ index 8a4af9f..2894b00 100644
  )
  
  // createClaudeAuthProvider creates a Claude provider using OAuth credentials from auth store.
+@@ -25,7 +27,7 @@ func createClaudeAuthProvider() (LLMProvider, error) {
+ 		return nil, fmt.Errorf("loading auth credentials: %w", err)
+ 	}
+ 	if cred == nil {
+-		return nil, fmt.Errorf("no credentials for anthropic. Run: picoclaw auth login --provider anthropic")
++		return nil, fmt.Errorf("no credentials for anthropic; configure this provider before use")
+ 	}
+ 	return NewClaudeProviderWithTokenSource(cred.AccessToken, createClaudeTokenSource()), nil
+ }
+@@ -37,7 +39,7 @@ func createCodexAuthProvider() (LLMProvider, error) {
+ 		return nil, fmt.Errorf("loading auth credentials: %w", err)
+ 	}
+ 	if cred == nil {
+-		return nil, fmt.Errorf("no credentials for openai. Run: picoclaw auth login --provider openai")
++		return nil, fmt.Errorf("no credentials for openai; configure this provider before use")
+ 	}
+ 	return NewCodexProviderWithTokenSource(cred.AccessToken, cred.AccountID, createCodexTokenSource()), nil
+ }
 @@ -203,7 +205,8 @@ func CreateProviderFromConfig(cfg *config.ModelConfig) (LLMProvider, string, err
  	case "litellm", "lmstudio", "gpt4free", "openrouter", "groq", "zhipu", "nvidia", "venice",
  		"nearai", "ollama", "moonshot", "shengsuanyun", "siliconflow", "deepseek", "cerebras",
@@ -809,6 +1057,54 @@ index 8a4af9f..2894b00 100644
  func finalizeProviderFromConfig(
  	provider LLMProvider,
  	modelID string,
+diff --git a/pkg/providers/oauth/antigravity_provider.go b/pkg/providers/oauth/antigravity_provider.go
+index abf1e4b..a6257f9 100644
+--- a/pkg/providers/oauth/antigravity_provider.go
++++ b/pkg/providers/oauth/antigravity_provider.go
+@@ -455,7 +455,7 @@ func createAntigravityTokenSource() func() (string, string, error) {
+ 		}
+ 		if cred == nil {
+ 			return "", "", fmt.Errorf(
+-				"no credentials for google-antigravity. Run: picoclaw auth login --provider google-antigravity",
++				"no credentials for google-antigravity; configure this provider before use",
+ 			)
+ 		}
+ 
+@@ -478,7 +478,7 @@ func createAntigravityTokenSource() func() (string, string, error) {
+ 
+ 		if cred.IsExpired() {
+ 			return "", "", fmt.Errorf(
+-				"antigravity credentials expired. Run: picoclaw auth login --provider google-antigravity",
++				"antigravity credentials expired; sign in to this provider again",
+ 			)
+ 		}
+ 
+diff --git a/pkg/providers/oauth/claude_provider.go b/pkg/providers/oauth/claude_provider.go
+index cf0052a..7c3a1d8 100644
+--- a/pkg/providers/oauth/claude_provider.go
++++ b/pkg/providers/oauth/claude_provider.go
+@@ -63,7 +63,7 @@ func CreateClaudeTokenSource(getCredential func(string) (*auth.AuthCredential, e
+ 			return "", fmt.Errorf("loading auth credentials: %w", err)
+ 		}
+ 		if cred == nil {
+-			return "", fmt.Errorf("no credentials for anthropic. Run: picoclaw auth login --provider anthropic")
++			return "", fmt.Errorf("no credentials for anthropic; configure this provider before use")
+ 		}
+ 		return cred.AccessToken, nil
+ 	}
+diff --git a/pkg/providers/oauth/codex_provider.go b/pkg/providers/oauth/codex_provider.go
+index f8a1b17..f0734c5 100644
+--- a/pkg/providers/oauth/codex_provider.go
++++ b/pkg/providers/oauth/codex_provider.go
+@@ -265,7 +265,7 @@ func CreateCodexTokenSource() func() (string, string, error) {
+ 			return "", "", fmt.Errorf("loading auth credentials: %w", err)
+ 		}
+ 		if cred == nil {
+-			return "", "", fmt.Errorf("no credentials for openai. Run: picoclaw auth login --provider openai")
++			return "", "", fmt.Errorf("no credentials for openai; configure this provider before use")
+ 		}
+ 
+ 		if cred.AuthMethod == "oauth" && cred.NeedsRefresh() && cred.RefreshToken != "" {
 diff --git a/pkg/providers/openai_responses/provider.go b/pkg/providers/openai_responses/provider.go
 new file mode 100644
 index 0000000..e38bb7a
@@ -2273,6 +2569,19 @@ index 254c439..c2a09ee 100644
  	@echo "All Android launcher builds complete"
  
  build-frontend:
+diff --git a/web/backend/api/gateway.go b/web/backend/api/gateway.go
+index af6c656..12742c7 100644
+--- a/web/backend/api/gateway.go
++++ b/web/backend/api/gateway.go
+@@ -1086,7 +1086,7 @@ func (h *Handler) startGatewayLocked(initialStatus string, existingPid int) (int
+ 	gateway.bootConfigSignature = computeConfigSignature(cfg)
+ 	setGatewayRuntimeStatusLocked(initialStatus)
+ 	pid = cmd.Process.Pid
+-	logger.InfoC("gateway", fmt.Sprintf("Started picoclaw gateway (PID: %d) from %s", pid, execPath))
++	logger.InfoC("gateway", fmt.Sprintf("Started gateway (PID: %d)", pid))
+ 
+ 	// Capture stdout/stderr in background
+ 	go scanPipe(stdoutPipe, gateway.logs)
 diff --git a/web/backend/api/models.go b/web/backend/api/models.go
 index 941c95e..c6285db 100644
 --- a/web/backend/api/models.go
@@ -2804,7 +3113,7 @@ index 9cda9e5..8ab2330 100644
  	},
  }
 diff --git a/web/backend/main.go b/web/backend/main.go
-index 698e582..89e15f6 100644
+index 698e582..4939876 100644
 --- a/web/backend/main.go
 +++ b/web/backend/main.go
 @@ -26,6 +26,7 @@ import (
@@ -2833,6 +3142,28 @@ index 698e582..89e15f6 100644
  	port := flag.String("port", "18800", "Port to listen on")
  	host := flag.String("host", "", "Host to listen on (overrides -public when set)")
  	public := flag.Bool("public", false, "Listen on all interfaces (dual-stack) instead of localhost only")
+@@ -542,7 +545,7 @@ func main() {
+ 	}
+ 
+ 	if !explicitHost && hostOverrideActive {
+-		logger.InfoC("web", "Using launcher host from environment PICOCLAW_LAUNCHER_HOST")
++		logger.InfoC("web", "Using launcher host from the environment")
+ 	}
+ 
+ 	if hostOverrideActive && explicitPublic {
+diff --git a/web/backend/utils/runtime.go b/web/backend/utils/runtime.go
+index d4aee0b..5c05c34 100644
+--- a/web/backend/utils/runtime.go
++++ b/web/backend/utils/runtime.go
+@@ -45,7 +45,7 @@ func FindPicoclawBinary() string {
+ 	}
+ 
+ 	if exe, err := os.Executable(); err == nil {
+-		logger.Debugf("Trying to find picoclaw binary in %s", exe)
++		logger.Debugf("Looking for the runtime binary in %s", exe)
+ 		candidate := filepath.Join(filepath.Dir(exe), binaryName)
+ 		if info, err := os.Stat(candidate); err == nil && !info.IsDir() {
+ 			return candidate
 diff --git a/web/frontend/index.html b/web/frontend/index.html
 index d3bdd90..8eb9c67 100644
 --- a/web/frontend/index.html

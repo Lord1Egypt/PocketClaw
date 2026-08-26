@@ -30,22 +30,26 @@ Build Status: arm64 release APK built through the canonical Gradle path; the
 release guard verified the arm64 native payload.
 APK Status: the Milestone D APK
 `b6fea5d8ec5c3c66ba8a1320b0a217afcca322e75b5b26cc4082bbbb08a57f94`
-PASSED physical-device testing on 2026-08-26 and is now **the verified
-reference artifact**, superseding the Milestone C APK
-`588bbec144fe0c84b8429f4f053a73b44b9b3e8d9f24e31dab04b2165ff3a90b`. Diff any
-future regression against it before forming new hypotheses.
-Verified Core binaries (device-verified 2026-08-26, with this APK):
-`libpicoclaw.so` 37,224,801 bytes
+PASSED physical-device testing on 2026-08-26 and remains the verified
+reference artifact. A **post-milestone log regression was then found on the
+device** and fixed; the replacement candidate
+`543c759b04b0e4c77dd7831435753aceac0b1e16a7a45fdec3fb37ed2e45479a`
+is BUILT and NOT yet physically verified.
+Verified Core binaries (device-verified 2026-08-26, in the reference APK):
+`libpicoclaw.so` 37,224,801
 `33f8b4efbc88333747c5df30b3ddc6864c924b35dba99e9c8c3b91df3470e98a`;
-`libpicoclaw-web.so` 24,641,889 bytes
+`libpicoclaw-web.so` 24,641,889
 `5400cb02322ece5c7035356595355bd3c116adfc6a5bb6b78f3e2bd22dbcb3bd`.
-They supersede the Milestone C pair `cb9b2cde...fb895818` /
-`b6b356f7...656db9ba5`.
-Current Blocker: none. Milestone D is closed.
-Next Exact Action: **stop and wait for explicit authorization for the next
-milestone.** Do not begin another feature, redesign UI, or start release
-hardening. `main` remains deliberately at `100a51d` and needs explicit
-instruction.
+The log-fix candidate carries a NEW, not-yet-verified pair: `libpicoclaw.so`
+`24c7df0af723fd7a86ce4a9e808fcb3145fa425935109eaba0ba1a10e8029962`;
+`libpicoclaw-web.so`
+`bab16f308950357199577d156c5639f0e5767efb2973a5e966c600285cf36a0b`.
+Current Blocker: physical re-test of the log regression fix. The GitHub
+milestone release is **on hold** until it passes.
+Next Exact Action: install
+`543c759b04b0e4c77dd7831435753aceac0b1e16a7a45fdec3fb37ed2e45479a`, open the
+Logs screen, and confirm no module path or repeated stale-PID spam. `main`
+remains deliberately at `100a51d`.
 
 ## Completed
 
@@ -411,6 +415,163 @@ is only settled by a `claude-*` model returning a real response, and the device
 report does not say which model families were exercised. Treat the Messages
 route as unconfirmed until a `claude-*` inference is observed; if one 401s while
 `gpt-*` and `kimi-*` succeed, the header pair is the cause, not the routing.
+
+## Post-Milestone-D device regressions — FIXED, AWAITING PHYSICAL DEVICE
+
+Three defects found on the device after Milestone D closed, on branch
+`fix/user-facing-log-privacy` (not merged, not tagged). All three are
+pre-release blockers; the GitHub milestone release is on hold until the
+replacement APK passes a device re-test.
+
+### Bug 1 — the caller leaked the upstream module path
+
+The Logs screen showed:
+
+    WRN api github.com/sipeed/picoclaw/web/backend/api/gateway.go:298 >
+    removed stale pid file for PID 12302
+
+Root cause: `pkg/logger/logger.go` builds its zerolog logger with `.Caller()`,
+which reports the path the **compiler** recorded. The earlier `-trimpath` work
+did exactly what it was asked — it removed `/home/lordegypt/...` — but what
+replaces an absolute path under `-trimpath` is the Go **module path**. So the
+fix for one leak created another, and no check caught it because every existing
+assertion looked for `/home/`.
+
+Fixed at the structured layer, in `logger.init()`, by setting
+`zerolog.CallerMarshalFunc` to `ShortCallerLocation`, which reduces any
+recorded caller to `file.go:line`. This is the earliest point that sees caller
+metadata, so every writer, every level, and every exported log file inherits
+the short form. No message text is rewritten and no arbitrary file path inside
+a message is touched.
+
+    WRN api gateway.go:298 > removed stale pid file for PID 12302
+
+`ShortCallerLocation` normalises `\` as well as `/`. `filepath.ToSlash` only
+rewrites the *host* separator, so a Windows-recorded caller would have passed
+straight through a Linux build — the test caught this.
+
+Eight user-visible message strings that named the project were also reworded
+(not blind-replaced; each was read and edited individually):
+`pkg/pid/pidfile.go`, `web/backend/api/gateway.go`,
+`web/backend/utils/runtime.go`, `web/backend/main.go`, and four provider
+credential errors that told users to run a CLI command that does not exist on
+Android.
+
+### Bug 2 — one event rendered as hundreds
+
+Not repeated backend emission, and not a lifecycle bug. The device screenshot
+was decisive: every duplicate carried the **identical timestamp** `02:23:44`
+and the identical PID, and the event counter read the full 500.
+
+Root cause: `PicoClawService.lastLog` is a **sticky snapshot** of the most
+recent line that never clears. `ServiceManager._syncNativeServiceStatus`, which
+runs on a three-second timer, appended that snapshot on every tick. One warning
+was therefore re-added every three seconds until it filled the 500-entry buffer
+and **evicted the entire real log history** — the damage was not cosmetic.
+
+`RemovePidFileIfPID` was audited and is correct: it returns true only after
+actually reading, matching, and removing the file, so it cannot have fired
+repeatedly for one PID.
+
+Fixed by making the producer match the contract the consumer needs, rather than
+by deduplicating text. `PicoClawService` now funnels every line through
+`publishLog`, which appends to a bounded pending queue; `takeNewLogs` drains
+it, so each line is handed out exactly once. This also fixes a second defect the
+snapshot hid: lines emitted **between** polls used to be lost, because only the
+most recent one was ever read.
+
+### Bug 3 — the two surfaces disagreed about whether Telegram was connected
+
+The embedded console correctly showed Connected with the bot handle, while the
+native Settings card still read "Connect PocketClaw to Telegram" and opened a
+page whose primary action was a brand-new pairing. Same class of defect as the
+Milestone D UI bug: two surfaces, no shared source of truth.
+
+Root cause: the native card's subtitle was a **hardcoded constant**
+(`TelegramOnboardingStrings.introHeadline`) and its tap handler went straight
+to onboarding. It never read any state. The console, by contrast, derived
+`configured` from Core's own `detectConfiguredSecrets`.
+
+Fixed by giving both surfaces one canonical source. `TelegramConnectionReader`
+(`lib/src/telegram/telegram_connection_status.dart`) reads the persisted
+`channel_list.telegram` entry — a non-empty `settings.token`, plus `allow_from`
+for owner scoping — which is exactly the state Core reports to the console. No
+"connected" boolean is stored anywhere, so nothing can drift. It fails closed:
+unreadable or malformed configuration reports disconnected.
+
+- `TelegramSettingsCard` renders from that state and re-reads after the flow
+  returns and on app resume, so a change made in the console is picked up.
+- `TelegramConnectedPage` is what an already-connected user now opens: bot
+  handle, owner, Open Chat, Reconnect / Create New Bot, Advanced / Manual.
+- `TelegramOnboardingLauncher.open` is state-aware; `startPairing` is the
+  explicit pairing entry. The console's Connect and Reconnect buttons call
+  `startPairing`, since both are deliberate user requests.
+- Reconnect asks first, and the confirmation states plainly that the current
+  bot keeps working until a new one is ready.
+
+Replacement is already safe and was verified rather than assumed:
+`TelegramConfigWriter.apply` is the only thing that mutates
+`channel_list.telegram`, and the controller calls it only after the new token
+has been received. A cancelled or expired pairing therefore never reaches the
+writer and the existing bot stays configured.
+
+The bot handle is not stored by Core, so a manually configured bot — or one
+paired on another device — shows as Connected without a handle and hides Open
+Chat, rather than inventing one.
+
+14 tests in `test/widgets/telegram_state_sync_test.dart` cover cases A–G
+against real configuration JSON and the real widgets. Four of them fail against
+the old hardcoded card, which was confirmed before they were accepted.
+
+### Tests — confirmed to fail against the old code
+
+- `core/src/pkg/logger/caller_sanitize_test.go` — the exact device caller plus
+  absolute, `.upstream`, Windows, already-short and degenerate inputs, and an
+  end-to-end case that logs through the real logger into a real file and
+  asserts the emitted `caller` field carries no module path and no separator.
+- `test/unit/service_manager_log_stream_test.dart` — drives the real polling
+  path. Against the old code 25 polls produced **25 copies** of one event; it
+  now produces one. Also asserts a genuinely repeated line is *not* collapsed,
+  that bursts between polls all arrive, and that no rendered line carries a
+  module or developer path.
+
+`ServiceManager` is a singleton, so these tests assert on the lines each test
+appended rather than on the whole list.
+
+### Verification
+
+`flutter analyze` clean, 93/93 Flutter tests, 36/36 frontend, `tsc -b` clean,
+`pnpm lint` clean, and Go tests green for `pkg/logger`, `pkg/pid`,
+`pkg/providers/...` and `web/backend/...`.
+
+Core rebuilt (`-trimpath` verified, zero developer paths in both binaries) and
+`core/pocketclaw-core-v0.3.1.patch` regenerated — now 67 files.
+
+Candidate APK `543c759b04b0e4c77dd7831435753aceac0b1e16a7a45fdec3fb37ed2e45479a`,
+34,227,525 bytes, `com.lord1egypt.pocketclaw` 0.1.3 (3), guard PASS. Secret scan
+clean: 0 tokens, 0 webhook/pairing secrets, 0 Redis credentials. The onboarding
+endpoint and the Telegram onboarding UI are both present and unchanged.
+
+### Known, pre-existing, not a regression
+
+`libapp.so` contains one developer path:
+`file:///home/lordegypt/PocketClaw-App/.dart_tool/flutter_build/dart_plugin_registrant.dart`.
+It is the Flutter-generated plugin registrant's source URI baked into the Dart
+AOT snapshot, it is present in the **device-verified** `b6fea5d8...` APK and in
+every earlier one, and it reaches a user only inside a Dart stack trace, not
+the Logs screen. Go's `-trimpath` has no Dart equivalent. Recorded rather than
+fixed, because it is out of this fix's scope and needs its own decision.
+
+`Run: picoclaw auth login --provider <name>` remains in `libpicoclaw.so`, in
+`cmd/picoclaw/internal/auth/helpers.go`. It is printed by the CLI `auth list`
+subcommand, which the Android app never invokes — the app runs the gateway —
+and on desktop the binary genuinely is named `picoclaw`, so rewording it would
+make the instruction wrong. Left accurate deliberately.
+
+The compiler's embedded source-path table still contains
+`github.com/sipeed/picoclaw/...` inside the binaries. That is unavoidable Go
+metadata for stack traces and is explicitly permitted; what matters is that it
+no longer reaches rendered caller metadata.
 
 ## Phase 2 Milestone D — Telegram Managed-Bot Onboarding — COMPLETE
 

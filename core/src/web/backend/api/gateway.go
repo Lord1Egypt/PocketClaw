@@ -1086,7 +1086,7 @@ func (h *Handler) startGatewayLocked(initialStatus string, existingPid int) (int
 	gateway.bootConfigSignature = computeConfigSignature(cfg)
 	setGatewayRuntimeStatusLocked(initialStatus)
 	pid = cmd.Process.Pid
-	logger.InfoC("gateway", fmt.Sprintf("Started picoclaw gateway (PID: %d) from %s", pid, execPath))
+	logger.InfoC("gateway", fmt.Sprintf("Started gateway (PID: %d)", pid))
 
 	// Capture stdout/stderr in background
 	go scanPipe(stdoutPipe, gateway.logs)

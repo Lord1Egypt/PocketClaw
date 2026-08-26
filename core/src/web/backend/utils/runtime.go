@@ -45,7 +45,7 @@ func FindPicoclawBinary() string {
 	}
 
 	if exe, err := os.Executable(); err == nil {
-		logger.Debugf("Trying to find picoclaw binary in %s", exe)
+		logger.Debugf("Looking for the runtime binary in %s", exe)
 		candidate := filepath.Join(filepath.Dir(exe), binaryName)
 		if info, err := os.Stat(candidate); err == nil && !info.IsDir() {
 			return candidate

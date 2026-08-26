@@ -35,6 +35,22 @@ abstract final class TelegramOnboardingStrings {
   static const openChat = 'Open Chat';
   static const done = 'Done';
 
+  // Connected-state surface, shown when Telegram is already configured.
+  static const connectedSubtitle = 'Connected';
+  static const connectedUnknownBot = 'Bot configured on this device';
+  static const ownerLabel = 'Owner';
+  static const ownerConfigured = 'Configured';
+  static const ownerAnyone = 'Anyone can message this bot';
+  static const reconnect = 'Reconnect / Create New Bot';
+  static const advancedSettings = 'Advanced / Manual Settings';
+  static const reconnectConfirmTitle = 'Create a new bot?';
+  static const reconnectConfirmBody =
+      'Your current bot keeps working until a new one is created. '
+      'Only when the new bot is ready does PocketClaw switch over. '
+      'If you cancel or the link expires, nothing changes.';
+  static const reconnectConfirmCancel = 'Keep current bot';
+  static const reconnectConfirmProceed = 'Create new bot';
+
   static const expiredHeadline = 'Setup link expired';
   static const expiredBody =
       'The link is only valid for a few minutes. Start again to get a new one.';

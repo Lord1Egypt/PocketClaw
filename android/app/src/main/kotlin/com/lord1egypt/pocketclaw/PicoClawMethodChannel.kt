@@ -168,6 +168,10 @@ class PicoClawMethodChannel(
                 "getFullLog" -> {
                     result.success(PicoClawService.lastLog)
                 }
+                "takeNewLogs" -> {
+                    // Each line is delivered once. See PicoClawService.publishLog.
+                    result.success(PicoClawService.takeNewLogs())
+                }
                 "setAutoStart" -> {
                     try {
                         val enabled = call.argument<Boolean>("enabled") ?: false

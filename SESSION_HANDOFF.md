@@ -2,10 +2,62 @@
 
 ## Current Objective
 
-**None. Stop and wait for explicit authorization for the next milestone.**
+**Physically re-test the log regression fix. The GitHub milestone release is on
+hold until it passes.**
 
-Do not begin another feature, redesign UI, start release hardening, or merge
-into `main`.
+Milestone D itself is closed and verified. After closure, the device showed two
+user-facing log defects in the verified APK; both are fixed on
+`fix/user-facing-log-privacy` (not merged, not tagged).
+
+Install:
+
+    build/app/outputs/flutter-apk/app-release.apk
+    SHA-256 543c759b04b0e4c77dd7831435753aceac0b1e16a7a45fdec3fb37ed2e45479a
+    34,227,525 bytes · com.lord1egypt.pocketclaw 0.1.3 (3)   [version unchanged]
+
+Check on the device:
+
+1. The Logs screen shows no `github.com/sipeed`, `picoclaw`, `Sipeed`,
+   `/home/lordegypt`, or `.upstream`.
+2. Callers read like `gateway.go:298` — no module or repository prefix.
+3. One stale-PID cleanup appears **once**, not dozens of times, and real log
+   history is no longer evicted.
+4. Telegram Managed Bot onboarding still works end to end.
+5. Native Settings shows **Connected** with the bot handle — not "Connect
+   PocketClaw to Telegram" — and tapping it opens the connected page instead of
+   starting a new pairing.
+6. Reconnect / Create New Bot asks first, and cancelling leaves the working bot
+   configured.
+7. Both surfaces still show Connected after a full app restart.
+8. No black screen, no slowdown.
+
+**The Core binaries are new again in this build**, so the regression sweep is
+required. New pair: `libpicoclaw.so` `24c7df0a...e8029962`,
+`libpicoclaw-web.so` `bab16f30...351a90b` — these replace the device-verified
+`33f8b4ef...` / `5400cb02...`.
+
+Do not merge, do not tag, and do not create the GitHub release until this
+passes. Do not touch `main`.
+
+### What the two bugs actually were
+
+`-trimpath` removed `/home/lordegypt/...` from the caller and left the Go
+**module path** in its place; every existing check looked only for `/home/`, so
+nothing caught it. Fixed with `zerolog.CallerMarshalFunc` in
+`pkg/logger/logger.go` — the earliest structured layer, so all writers and
+exports inherit it.
+
+The repeated warning was **not** the backend emitting repeatedly. Native
+`lastLog` is a sticky snapshot, and the Flutter three-second poll appended it
+every tick, filling the 500-entry buffer from one event and evicting real
+history. Fixed by draining: `publishLog`/`takeNewLogs` hand each line out once.
+
+Do not reintroduce `status['lastLog']` as a log source — that is the bug.
+
+The third defect: native Settings hardcoded "Connect PocketClaw to Telegram"
+and never read any state, so it disagreed with the console. Both surfaces now
+derive from `channel_list.telegram` via `TelegramConnectionReader`. Do not add
+a stored "connected" boolean — that is what one source of truth prevents.
 
 ## Milestone D — COMPLETE
 

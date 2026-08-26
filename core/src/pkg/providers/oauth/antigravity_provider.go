@@ -455,7 +455,7 @@ func createAntigravityTokenSource() func() (string, string, error) {
 		}
 		if cred == nil {
 			return "", "", fmt.Errorf(
-				"no credentials for google-antigravity. Run: picoclaw auth login --provider google-antigravity",
+				"no credentials for google-antigravity; configure this provider before use",
 			)
 		}
 
@@ -478,7 +478,7 @@ func createAntigravityTokenSource() func() (string, string, error) {
 
 		if cred.IsExpired() {
 			return "", "", fmt.Errorf(
-				"antigravity credentials expired. Run: picoclaw auth login --provider google-antigravity",
+				"antigravity credentials expired; sign in to this provider again",
 			)
 		}
 

@@ -6,8 +6,7 @@ import 'package:pocketclaw/src/core/service_manager.dart';
 import 'package:pocketclaw/src/generated/l10n/app_localizations.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:pocketclaw/src/core/app_theme.dart';
-import 'package:pocketclaw/src/telegram/telegram_onboarding_strings.dart';
-import 'package:pocketclaw/src/ui/telegram_onboarding_launcher.dart';
+import 'package:pocketclaw/src/ui/telegram_settings_card.dart';
 
 const String _aboutProjectName = 'PocketClaw';
 
@@ -222,25 +221,6 @@ class ConfigPageState extends State<ConfigPage> with WidgetsBindingObserver {
       _isDirty = false;
     });
     widget.onDirtyChanged?.call(false);
-  }
-
-  /// Entry point to Telegram setup.
-  ///
-  /// The managed-bot flow is the primary path; manual token entry lives behind
-  /// it on the onboarding screen, not here, so the default route never asks a
-  /// normal user for a token.
-  Widget _buildTelegramEntry(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Card(
-      margin: EdgeInsets.zero,
-      child: ListTile(
-        leading: Icon(Icons.send_rounded, color: scheme.primary),
-        title: const Text(TelegramOnboardingStrings.title),
-        subtitle: const Text(TelegramOnboardingStrings.introHeadline),
-        trailing: const Icon(Icons.chevron_right_rounded),
-        onTap: () => TelegramOnboardingLauncher.open(context),
-      ),
-    );
   }
 
   Future<void> _pickFile() async {
@@ -586,7 +566,7 @@ class ConfigPageState extends State<ConfigPage> with WidgetsBindingObserver {
               ),
               const SizedBox(height: 16),
 
-              _buildTelegramEntry(context),
+              const TelegramSettingsCard(),
               const SizedBox(height: 16),
 
               if (!Platform.isWindows &&
