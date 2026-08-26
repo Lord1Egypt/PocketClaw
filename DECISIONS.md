@@ -816,3 +816,71 @@
 - Consequence: the service refuses a secret under 16 characters rather than
   silently falling back to an unkeyed digest, which would drop the property
   without any visible symptom.
+
+## Managed-bot onboarding is the default Telegram path; manual is the fallback
+
+- Date: 2026-08-26
+- Decision: Channels → Telegram opens managed-bot onboarding when Telegram is
+  unconfigured and a host that can pair is present. The Bot Token / API Base
+  URL / proxy / allow_from / typing / streaming / placeholder form is retained
+  in full, behind "Advanced / Manual setup" when unconfigured and "Advanced
+  Settings" once connected.
+- Reason: asking a new user for a BotFather token was the single largest
+  barrier to a working PocketClaw. The managed flow removes the copy/paste
+  entirely and additionally scopes `allow_from` to the creating Telegram user,
+  which manual setup cannot know.
+- The manual path is not legacy debt and is not scheduled for removal. It is
+  the only path for an existing bot, a self-managed bot, a custom Telegram Bot
+  API endpoint, debugging, and any user who does not want managed onboarding.
+  When no host or no compiled-in endpoint is present it is not merely available
+  but primary, shown in full with nothing to expand.
+- Evidence: physically verified end to end on an Android device on 2026-08-26,
+  including a real Telegram → Core → AI provider → Telegram round trip.
+- Consequence: the surface decision is a pure function,
+  `resolveTelegramSurface`, and every one of its three outcomes is asserted
+  through the real route component rather than in isolation.
+
+## The web console asks the Flutter host to pair; it does not pair
+
+- Date: 2026-08-26
+- Decision: Channels → Telegram renders the onboarding entry point in React and
+  hands off to the native Dart flow over a `PocketClawHost` WebView bridge. The
+  pairing protocol has exactly one implementation, in Dart.
+- Reason: Milestone D shipped a complete, fully tested onboarding flow that no
+  user could reach, because it was wired to the native Settings tab while the
+  Channels list users actually navigate is rendered by the Core web console.
+  The obvious repair — reimplementing pairing in TypeScript so the console
+  could run it — would have recreated the same split it was fixing, and would
+  have needed CORS on the onboarding service plus a second copy of the polling,
+  expiry, and config-merge logic to keep in step.
+- The bridge is deliberately narrow: it publishes whether an endpoint was
+  compiled in and the bot's public handle, and accepts exactly two requests.
+  It carries no token. The handle is JSON-encoded so it cannot break out of its
+  string literal, `openExternal` accepts only absolute `http`/`https` URLs so
+  the bridge cannot become an arbitrary-launch primitive, and both injection
+  and message handling are scoped to the console's own origin because the
+  WebView will follow an outbound link if a user taps one. Unparseable input
+  fails closed.
+- Consequence: `TelegramOnboardingLauncher.open` is the single entry to
+  onboarding and both surfaces call it. Adding a third surface means calling it
+  too, never writing a second flow.
+
+## A test that does not enter through the app's own route proves nothing about reachability
+
+- Date: 2026-08-26
+- Decision: any claim that a PocketClaw UI feature is reachable must be backed
+  by a test that renders the same component the app renders — for Telegram,
+  `ChannelConfigPage channelName="telegram"` — not the feature widget alone.
+- Reason: Milestone D passed 77 Flutter tests, `flutter analyze`, the release
+  guard, and a full secret scan, and still failed on the device. Every test
+  constructed the onboarding widget directly, so all of them were true and none
+  of them was evidence that a user would ever meet it. A green build was
+  actively misleading here.
+- Evidence: the replacement web tests were confirmed to fail against the
+  pre-fix wiring — reverting the one line to `TelegramForm` failed all eight —
+  before being accepted. A regression test that has never been observed failing
+  is an assumption, not a test.
+- Consequence: `jsdom` and `@testing-library/react` were added to the Core
+  frontend's dev dependencies. That widens the upstream divergence, and it was
+  accepted deliberately: the project had no DOM renderer, which is precisely
+  why nothing could test the real route.

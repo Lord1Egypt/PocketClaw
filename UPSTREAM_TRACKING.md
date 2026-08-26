@@ -184,10 +184,22 @@ work for an adoption, and does not go looking upstream for its origin.
 
 - **Telegram managed-bot onboarding (Milestone D, 2026-08-26).** The
   onboarding service is PocketClaw-authored and depends on no upstream code. It
-  now lives in its own public repository,
-  `Lord1Egypt/PocketClaw-Telegram-Setup`, and never touched `core/src/`, so it
-  does not appear in `core/pocketclaw-core-v0.3.1.patch`. The Flutter
-  onboarding screen is likewise PocketClaw's own.
+  lives in its own public repository, `Lord1Egypt/PocketClaw-Telegram-Setup`,
+  and no part of it is vendored here. The Flutter onboarding screen is likewise
+  PocketClaw's own.
+- **The Milestone D UI integration does touch `core/src/`** and therefore does
+  appear in `core/pocketclaw-core-v0.3.1.patch`, which grew from 52 to 58 files
+  on 2026-08-26. Under `core/src/web/frontend/src/` it adds
+  `components/channels/channel-forms/telegram-panel.tsx`,
+  `components/channels/channel-forms/telegram-surface.ts`,
+  `lib/pocketclaw-host.ts`, `components/channels/channel-config-page.telegram.test.tsx`
+  and `test/setup.ts`, and modifies `components/channels/channel-config-page.tsx`,
+  `i18n/locales/en.json`, `vite.config.ts` and `package.json`. It also adds
+  `jsdom` and `@testing-library/react` as frontend dev dependencies.
+  None of this is an upstream adoption: it is PocketClaw's own work living
+  inside vendored Core because the channel configuration UI lives there. A
+  future upstream review must not go looking upstream for its origin, and must
+  expect a conflict here if upstream changes `channel-config-page.tsx`.
 - It adopts nothing from PicoClaw. It uses official Telegram Bot API 9.6
   managed-bot support directly, verified against `core.telegram.org` rather
   than inferred from any other implementation.

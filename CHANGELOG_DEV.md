@@ -1,5 +1,43 @@
 # Development Changelog
 
+## 2026-08-26 — Phase 2 Milestone D COMPLETE (physical E2E PASS)
+
+- **Milestone D, Telegram Managed-Bot Onboarding, is closed.** The full flow
+  passed a physical end-to-end test on a real Android device against the
+  production service, including a real Telegram → PocketClaw Core → AI provider
+  → Telegram message round trip with conversation context persisting across
+  consecutive messages.
+- Automatic managed-bot onboarding is now the **default** Telegram setup path.
+  Manual Bot Token entry is the **advanced fallback**, retained in full.
+- Verified reference artifact, superseding the Milestone C APK:
+  `b6fea5d8ec5c3c66ba8a1320b0a217afcca322e75b5b26cc4082bbbb08a57f94`,
+  34,220,929 bytes, `com.lord1egypt.pocketclaw` 0.1.3 (3).
+- The Core pair rebuilt for the UI integration fix is now **device-verified**
+  with that APK and supersedes the Milestone C pair: `libpicoclaw.so`
+  37,224,801 `33f8b4efbc88333747c5df30b3ddc6864c924b35dba99e9c8c3b91df3470e98a`;
+  `libpicoclaw-web.so` 24,641,889
+  `5400cb02322ece5c7035356595355bd3c116adfc6a5bb6b78f3e2bd22dbcb3bd`.
+- Live architecture: PocketClaw Android → PocketClaw Telegram Setup on Vercel →
+  `@PocketClawSetupBot` → Telegram Managed Bots → Upstash Redis pairing state
+  (REST, 600 s TTL) → automatic PocketClaw Telegram configuration. The service
+  repository `Lord1Egypt/PocketClaw-Telegram-Setup` stays independent and
+  public; the APK builds from none of it and carries only its public base URL.
+- Device-observed Core regression: startup and Flutter first frame, Gateway and
+  Core lifecycle, Telegram channel lifecycle, branding, no black screen, no
+  abnormal slowdown, log path privacy intact. Android DNS/model discovery,
+  Provider Catalog, Gemini, OpenCode Zen, OpenCode Go, Skill Hub, Workspace and
+  MQTT keep their existing automated coverage and were not re-tested physically
+  in this round.
+- Security confirmed: no manager token, webhook secret, pairing secret, Redis
+  credential or child bot token in the APK or in Git; no child token in the QR;
+  no raw token shown in normal UI or required from the user. No secret value is
+  recorded in this repository.
+- Merged into `develop` with `--no-ff` and tagged `phase2-milestone-d`. `main`
+  remains deliberately untouched at `100a51d`.
+- Still open: rotating the manager bot token, which was pasted into a chat log
+  after deployment. The service is unaffected and keeps working; this is
+  hygiene, and it is the one outstanding security item.
+
 ## 2026-08-26 — Milestone D UI integration fix (device-found)
 
 - **Root cause of the device failure**: PocketClaw renders Telegram on two

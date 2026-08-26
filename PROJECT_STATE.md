@@ -3,18 +3,19 @@
 Project: PocketClaw  
 Current Phase: Phase 2 — Independent Product Repository  
 Current Milestone: Phase 2 Milestone D — Telegram Managed-Bot Onboarding.
-Implemented and fully tested. The manager bot now exists and the onboarding
-service has been extracted to a public repository ready to deploy; what remains
-is the live deployment and the end-to-end device test.
+**COMPLETE.** Physically verified end to end on a real Android device on
+2026-08-26, including a live Telegram → PocketClaw → AI provider → Telegram
+message round trip against the production onboarding service.
 Milestone C — Provider Catalog + Easy API-Key Setup, the OpenCode completion,
 and the self-contained source migration — is complete and PASSED
 physical-device testing on 2026-08-25, merged to `develop` as `36bc88d` and
 tagged `phase2-milestone-c`.
-Git Branch: `feature/telegram-managed-onboarding`, branched from the verified
-`develop` @ `36bc88d` (tag `phase2-milestone-c`).
-Last verified milestone: Phase 2 Milestone C (merge `36bc88d`, tag
-`phase2-milestone-c`), which is the fallback reference state. Milestone B
-(merge `225be3c`, tag `phase2-milestone-b`) is retained below it.
+Git Branch: `develop`. `feature/telegram-managed-onboarding` was merged with a
+non-fast-forward merge and is retained intact.
+Last verified milestone: Phase 2 Milestone D (tag `phase2-milestone-d`).
+Milestone C (merge `36bc88d`, tag `phase2-milestone-c`) is the fallback
+reference state, with Milestone B (merge `225be3c`, tag `phase2-milestone-b`)
+retained below it.
 Recovery Branch: `recovery/pocketclaw-clean-debrand` @ `f25d38e`, retained intact
 Foundation Bootstrap Commit: `950d4a3`  
 Origin: `https://github.com/Lord1Egypt/PocketClaw.git` (private)  
@@ -27,20 +28,24 @@ source; no external checkout is a build dependency. Proven by
 `core/verify-no-external-source.sh`.  
 Build Status: arm64 release APK built through the canonical Gradle path; the
 release guard verified the arm64 native payload.
-APK Status: the source-migration APK
-`588bbec144fe0c84b8429f4f053a73b44b9b3e8d9f24e31dab04b2165ff3a90b`
-PASSED physical-device testing on 2026-08-25 and remains the verified reference
-artifact. The UI-integration APK
+APK Status: the Milestone D APK
 `b6fea5d8ec5c3c66ba8a1320b0a217afcca322e75b5b26cc4082bbbb08a57f94`
-is BUILT and NOT yet physically verified. It supersedes
-`9a0f7407...6bb1be7f`, which reached the device on 2026-08-26 and FAILED: the
-service was live and the endpoint was compiled in, but Channels → Telegram
-still opened the raw Bot Token form.
-Current Blocker: the Android device test of the UI integration fix.
-Next Exact Action: install
-`b6fea5d8ec5c3c66ba8a1320b0a217afcca322e75b5b26cc4082bbbb08a57f94`, open
-Channels → Telegram, and confirm the managed onboarding is the primary surface.
-Do not merge into `develop` until it passes; do not touch `main`.
+PASSED physical-device testing on 2026-08-26 and is now **the verified
+reference artifact**, superseding the Milestone C APK
+`588bbec144fe0c84b8429f4f053a73b44b9b3e8d9f24e31dab04b2165ff3a90b`. Diff any
+future regression against it before forming new hypotheses.
+Verified Core binaries (device-verified 2026-08-26, with this APK):
+`libpicoclaw.so` 37,224,801 bytes
+`33f8b4efbc88333747c5df30b3ddc6864c924b35dba99e9c8c3b91df3470e98a`;
+`libpicoclaw-web.so` 24,641,889 bytes
+`5400cb02322ece5c7035356595355bd3c116adfc6a5bb6b78f3e2bd22dbcb3bd`.
+They supersede the Milestone C pair `cb9b2cde...fb895818` /
+`b6b356f7...656db9ba5`.
+Current Blocker: none. Milestone D is closed.
+Next Exact Action: **stop and wait for explicit authorization for the next
+milestone.** Do not begin another feature, redesign UI, or start release
+hardening. `main` remains deliberately at `100a51d` and needs explicit
+instruction.
 
 ## Completed
 
@@ -407,7 +412,102 @@ report does not say which model families were exercised. Treat the Messages
 route as unconfirmed until a `claude-*` inference is observed; if one 401s while
 `gpt-*` and `kimi-*` succeed, the header pair is the cause, not the routing.
 
-## Milestone D UI Integration Fix — BUILT, AWAITING PHYSICAL DEVICE
+## Phase 2 Milestone D — Telegram Managed-Bot Onboarding — COMPLETE
+
+**Status: COMPLETE. Physical end-to-end test PASSED on a real Android device,
+2026-08-26.**
+
+Automatic managed-bot onboarding is now the default Telegram setup path in
+PocketClaw. Manual Bot Token entry remains available as the advanced fallback.
+
+### Verified artifacts
+
+| | |
+| --- | --- |
+| Verified APK | `b6fea5d8ec5c3c66ba8a1320b0a217afcca322e75b5b26cc4082bbbb08a57f94` |
+| APK size | 34,220,929 bytes, `com.lord1egypt.pocketclaw` 0.1.3 (version code 3) |
+| `libpicoclaw.so` | 37,224,801 bytes, `33f8b4efbc88333747c5df30b3ddc6864c924b35dba99e9c8c3b91df3470e98a` |
+| `libpicoclaw-web.so` | 24,641,889 bytes, `5400cb02322ece5c7035356595355bd3c116adfc6a5bb6b78f3e2bd22dbcb3bd` |
+| Official manager | `@PocketClawSetupBot` |
+| Onboarding service | `https://pocketclaw-telegram-setup-bot-83ai.vercel.app` |
+| Public service repository | `Lord1Egypt/PocketClaw-Telegram-Setup` (public, MIT) |
+
+The Core pair above was rebuilt for the UI integration fix and is now
+**physically verified with this APK**, superseding the Milestone C pair.
+
+### Live architecture
+
+    PocketClaw Android
+      → PocketClaw Telegram Setup  (Vercel)
+        → @PocketClawSetupBot      (Telegram manager, Bot Management Mode)
+          → Telegram Managed Bots
+            → Upstash Redis        (pairing state, REST, 600 s TTL)
+              → automatic PocketClaw Telegram configuration
+
+The service repository is independent and public. PocketClaw's Android and Core
+source stays in this repository; the APK builds from nothing in the service
+repo and carries only its public base URL.
+
+### Telegram UI integration — verified on device
+
+- Channels → Telegram opens the managed onboarding flow: PASS
+- The legacy Bot Token form is no longer the primary first-run flow: PASS
+- QR code displayed: PASS
+- Open Telegram action: PASS
+- Suggested bot username uses the PocketClaw prefix: PASS
+- Manual setup remains available: PASS
+- Advanced Settings exposes the legacy Telegram configuration: PASS
+
+### Managed-bot end to end — verified on device
+
+Pairing created; QR/deep link generated; the Telegram managed-bot creation
+screen opened; the bot was created. Created identity: display name
+**PocketClaw Agent**, username pattern `@pocketclaw_<random>_bot`.
+
+Returning to PocketClaw detected the pairing automatically, the child bot token
+was delivered automatically with no BotFather copy/paste, the owner was
+configured automatically, and the Telegram configuration saved itself. The
+connected state and bot username rendered correctly, and Open Chat opened the
+Telegram conversation. All PASS.
+
+### Real message end to end — verified on device
+
+    Telegram user → PocketClaw bot → PocketClaw Core
+      → configured AI provider → AI response → Telegram
+
+PASS. Real messages were sent to the newly created PocketClaw Agent bot and AI
+replies were received. Multiple consecutive messages were tested and
+conversation context persisted across them. The first response was slightly
+slower, consistent with initial channel/provider startup; subsequent replies
+were prompt.
+
+### Live service state
+
+Manager authentication PASS as `@PocketClawSetupBot`; `can_manage_bots` true;
+Bot Management Mode enabled; Telegram webhook registered; shared pairing
+storage PASS on Upstash Redis REST with a 600-second pairing TTL; Create Test
+Pairing PASS; privacy page PASS.
+
+### Security — confirmed
+
+Embedded in the APK: manager bot token NO, Telegram webhook secret NO, pairing
+secret NO, Redis credentials NO. Child bot token included in the QR: NO. Raw
+token shown in normal UI: NO. Raw token required from the user: NO. Manager
+token committed to Git: NO. Production secrets committed to Git: NO.
+
+No secret value is recorded in this repository, and none ever should be.
+
+### Core regression observed during physical testing
+
+PocketClaw startup and Flutter first frame PASS; Gateway/Core lifecycle PASS;
+Telegram channel lifecycle PASS; PocketClaw branding PASS; no black screen;
+no abnormal runtime slowdown; user-facing log path privacy intact.
+
+Preserved automated regression coverage, not re-tested physically in this
+round: Android DNS/model discovery, Provider Catalog, Gemini and other
+providers, OpenCode Zen, OpenCode Go, Skill Hub, Workspace, MQTT.
+
+## Milestone D UI Integration Fix — the change that made it reachable
 
 ### Root cause
 

@@ -283,9 +283,32 @@ supplied by the user.
 - [ ] Revoke the manager bot token again — it was pasted into a chat log after
   deployment. The service keeps working; rotate it in BotFather and update the
   Vercel environment variable.
-- [ ] Rebuild the app with
-  `--dart-define=POCKETCLAW_ONBOARDING_BASE_URL=https://...` and run the
-  end-to-end device test. See `SESSION_HANDOFF.md`.
+- [x] Rebuild the app with
+  `--dart-define=POCKETCLAW_ONBOARDING_BASE_URL=https://pocketclaw-telegram-setup-bot-83ai.vercel.app`
+  through the canonical Gradle path (`-Pdart-defines`, base64 `KEY=VALUE`).
+- [x] Fix the UI integration defect the first device test exposed: managed
+  onboarding was wired only to the native Settings tab, while Channels →
+  Telegram is rendered by the Core web console and still opened the raw Bot
+  Token form. The console now renders the entry point and asks the Flutter host
+  to run the existing Dart flow over the `PocketClawHost` bridge; pairing was
+  not reimplemented in TypeScript.
+- [x] Add regression tests that enter through the real route
+  (`ChannelConfigPage channelName="telegram"`), covering managed-onboarding
+  primary, the no-endpoint and no-host fallbacks, the connected summary, and
+  the legacy form behind both Advanced entries. Confirmed to fail against the
+  pre-fix wiring before being accepted.
+- [x] **Physical end-to-end device test: PASS on 2026-08-26.** Full Channels →
+  Telegram onboarding UI, bot creation through Telegram, automatic pairing
+  detection and token delivery, automatic owner and channel configuration, the
+  connected state, Open Chat, and a real Telegram → Core → AI provider →
+  Telegram message round trip with context persisting across consecutive
+  messages. Verified APK
+  `b6fea5d8ec5c3c66ba8a1320b0a217afcca322e75b5b26cc4082bbbb08a57f94`.
+- [x] Mark the rebuilt Core pair physically verified with that APK:
+  `libpicoclaw.so` `33f8b4ef...3470e98a`, `libpicoclaw-web.so`
+  `5400cb02...2dbcb3bd`.
+- [x] Close Milestone D: merge `feature/telegram-managed-onboarding` into
+  `develop` with `--no-ff` and tag `phase2-milestone-d`. `main` untouched.
 - [ ] Localize the Telegram onboarding strings. They live in
   `TelegramOnboardingStrings` and are English in all twelve locales, because
   shipping machine-guessed translations into the `.arb` files would put

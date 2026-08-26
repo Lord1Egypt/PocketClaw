@@ -2,38 +2,61 @@
 
 ## Current Objective
 
-**Re-run the physical-device Telegram test against the UI integration fix.**
+**None. Stop and wait for explicit authorization for the next milestone.**
 
-The previous APK failed on the device for a reason no build-time check could
-have caught: the managed-bot flow was wired to the native Settings tab, while
-Channels → Telegram — the path users take — is rendered by the Core web console
-and still opened the raw Bot Token form. The flow worked; nobody could reach it.
+Do not begin another feature, redesign UI, start release hardening, or merge
+into `main`.
 
-Install:
+## Milestone D — COMPLETE
 
-    build/app/outputs/flutter-apk/app-release.apk
-    SHA-256 b6fea5d8ec5c3c66ba8a1320b0a217afcca322e75b5b26cc4082bbbb08a57f94
-    34,220,929 bytes · com.lord1egypt.pocketclaw 0.1.3 (3)
+Phase 2 Milestone D, Telegram Managed-Bot Onboarding, passed its physical
+end-to-end test on a real Android device on 2026-08-26 and is closed. Merged
+into `develop` with a non-fast-forward merge and tagged `phase2-milestone-d`.
+`main` remains deliberately untouched at `100a51d`.
 
-Then check, in order: Channels → Telegram shows **Connect PocketClaw to
-Telegram** rather than Bot Token; Open Telegram launches the native pairing
-screen with QR and live status; finishing pairing returns to a **Connected**
-summary on its own; Open Chat leaves the app; Advanced / Manual setup still
-reveals and saves the full legacy form; the native Settings → Telegram entry
-reaches the same flow. Then the standing regression sweep — **the Core binaries
-are new in this build**, so it is not optional this time.
+Automatic managed-bot onboarding is now the **default** Telegram setup path.
+Manual Bot Token entry is the **advanced fallback**, still complete and
+reachable.
 
-Do not merge into `develop` until that passes. Do not touch `main`. Do not
-start another milestone.
+### The verified reference artifact
 
-### The lesson worth keeping
+    APK              b6fea5d8ec5c3c66ba8a1320b0a217afcca322e75b5b26cc4082bbbb08a57f94
+                     34,220,929 bytes · com.lord1egypt.pocketclaw 0.1.3 (3)
+    libpicoclaw.so       37,224,801 · 33f8b4efbc88333747c5df30b3ddc6864c924b35dba99e9c8c3b91df3470e98a
+    libpicoclaw-web.so   24,641,889 · 5400cb02322ece5c7035356595355bd3c116adfc6a5bb6b78f3e2bd22dbcb3bd
 
-Milestone D's tests all passed while the feature was unreachable, because every
-one of them constructed the onboarding widget directly. A test that does not
-enter through the same route the app does can only prove the code runs, never
-that a user meets it. The new web tests render `ChannelConfigPage
-channelName="telegram"` — the real component — and were confirmed to fail
-against the old wiring before being accepted.
+This supersedes the Milestone C APK `588bbec1...5ff3a90b` and the Milestone C
+Core pair. Diff any future regression against it first.
+
+### Live architecture
+
+    PocketClaw Android
+      → PocketClaw Telegram Setup  (Vercel)
+        → @PocketClawSetupBot      (manager, Bot Management Mode)
+          → Telegram Managed Bots
+            → Upstash Redis        (pairing state, REST, 600 s TTL)
+              → automatic PocketClaw Telegram configuration
+
+Official manager `@PocketClawSetupBot`. Service
+<https://pocketclaw-telegram-setup-bot-83ai.vercel.app>. Public service
+repository `Lord1Egypt/PocketClaw-Telegram-Setup` — independent, public, MIT,
+and not a build input to the APK.
+
+What was verified physically: the full Channels → Telegram onboarding UI, bot
+creation through Telegram, automatic pairing detection and token delivery,
+automatic owner and channel configuration, the connected state, Open Chat, and
+a real Telegram → Core → AI provider → Telegram message round trip with context
+persisting across consecutive messages. The full record is in
+`PROJECT_STATE.md`.
+
+### Still open, and deliberately so
+
+- **Rotate the manager bot token.** It was pasted into a chat log after
+  deployment. The service keeps working; rotate it in BotFather and update the
+  Vercel environment variable. This is the one outstanding security item and it
+  is not blocked by anything.
+- Localize the Telegram onboarding strings — English in all twelve locales.
+- Confirm a `claude-*` model on OpenCode, carried over from Milestone C.
 
 ### Architecture worth knowing before touching Telegram again
 
@@ -46,10 +69,13 @@ Telegram has two entry points and they must stay converged on one flow:
 Both call `TelegramOnboardingLauncher.open`. The console never runs pairing
 itself; it asks the Flutter host over the `PocketClawHost` bridge
 (`lib/src/ui/webview/pocketclaw_host_bridge.dart`). Do not reimplement pairing
-in TypeScript — that is how the two surfaces drifted apart in the first place.
+in TypeScript — that split is what made Milestone D ship unreachable the first
+time. The bridge is scoped to the console's origin and `openExternal` accepts
+only absolute http(s) URLs; both are tested, do not loosen either.
 
-The bridge is scoped to the console's origin and only accepts `http`/`https`
-for `openExternal`. Both properties are tested; do not loosen either.
+The lesson worth keeping: a Flutter widget test proves the code runs, never
+that a user meets it. Any UI claim here needs a test entering through the same
+route the app does.
 
 ## Milestone C state
 
