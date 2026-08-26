@@ -1,5 +1,39 @@
 # Development Changelog
 
+## 2026-08-26 — Milestone D live-endpoint APK built
+
+- Built the first PocketClaw APK that carries a real onboarding endpoint:
+  SHA-256 `9a0f74070f0129b2180b4b3237fbfacaf001ee6c8808a26e128d7ae06bb1be7f`,
+  34,211,833 bytes, `com.lord1egypt.pocketclaw` 0.1.3 (3). No Milestone D
+  feature behavior changed; the only difference from the previous candidate is
+  that `POCKETCLAW_ONBOARDING_BASE_URL` is now set.
+- The endpoint travels through the canonical Gradle release command, not around
+  it. `-Pdart-defines=<base64 of KEY=VALUE, comma-separated>` is the Gradle-path
+  equivalent of `--dart-define`: `FlutterPlugin.kt` reads the `dart-defines`
+  property and `BaseFlutterTaskHelper.kt` forwards it to `flutter assemble` as
+  `--DartDefines`. Recorded because the obvious move — switching to
+  `flutter build apk` to get `--dart-define` — would have left the canonical
+  release path for no reason.
+- The arm64 native-payload guard passed and printed all three libraries, and
+  the 34.2 MB size confirms `-Ptarget-platform=android-arm64` was honoured
+  rather than silently producing a ~50 MB universal APK.
+- Secret scan over the printable strings of every file in the APK: zero
+  Telegram bot tokens of any shape, zero occurrences of
+  `TELEGRAM_MANAGER_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET`, `PAIRING_SECRET`, or
+  any `KV_REST_API_*`/`UPSTASH_*`/`REDIS_URL` name, and zero `upstash` or
+  `redis://` strings. The 1,432 64-hex hits — the shape of the webhook and
+  pairing secrets — are fully attributed: 23 are `google_fonts` font-asset
+  checksums in `libapp.so`, and the rest live in Core binaries that are
+  byte-identical to the pair compiled and device-verified on 2026-08-25, before
+  the service existed. A secret that did not exist at compile time cannot be
+  inside them.
+- Regression run before the build: `flutter analyze` clean and 77/77 Flutter
+  tests. Core was deliberately not rebuilt — no Core source changed and the
+  committed binaries hash-match the device-verified pair.
+- Not merged. `feature/telegram-managed-onboarding` stays unmerged and `main`
+  untouched until the Android → Telegram → managed bot → PocketClaw end-to-end
+  test passes on a physical device.
+
 ## 2026-08-26 — Onboarding service live; can_manage_bots verified
 
 - The service is deployed at

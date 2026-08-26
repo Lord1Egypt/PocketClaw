@@ -30,16 +30,18 @@ release guard verified the arm64 native payload.
 APK Status: the source-migration APK
 `588bbec144fe0c84b8429f4f053a73b44b9b3e8d9f24e31dab04b2165ff3a90b`
 PASSED physical-device testing on 2026-08-25 and remains the verified reference
-artifact. The Milestone D APK
-`7c34ab12b544e585981c46632a5246a3a3fe66da24a84fce2c0b831c4911178e`
-is BUILT and NOT yet physically verified.
-Current Blocker: the Android device test. The service is deployed and every
-server-side check passes — manager authentication, `can_manage_bots`, webhook
-registration, storage, and a live test pairing. The remaining step is to
-rebuild the APK against the deployment and run the end-to-end test.
-Next Exact Action: rebuild the APK with
-`--dart-define=POCKETCLAW_ONBOARDING_BASE_URL=https://pocketclaw-telegram-setup-bot-83ai.vercel.app`
-and run the device checklist at the end of this file.
+artifact. The live-endpoint Milestone D APK
+`9a0f74070f0129b2180b4b3237fbfacaf001ee6c8808a26e128d7ae06bb1be7f`
+is BUILT against the live onboarding service and NOT yet physically verified.
+It supersedes the endpointless candidate `7c34ab12...c4911178e`.
+Current Blocker: the Android device test, and only that. The service is live
+and every server-side check passes — manager authentication, `can_manage_bots`,
+webhook registration, storage, and a live test pairing — and the APK is now
+built against it.
+Next Exact Action: install
+`9a0f74070f0129b2180b4b3237fbfacaf001ee6c8808a26e128d7ae06bb1be7f` on the
+Android device and run the Milestone D device checklist at the end of this file.
+Do not merge into `develop` until it passes; do not touch `main`.
 
 ## Completed
 
@@ -406,12 +408,102 @@ report does not say which model families were exercised. Treat the Messages
 route as unconfirmed until a `claude-*` inference is observed; if one 401s while
 `gpt-*` and `kimi-*` succeed, the header pair is the cause, not the routing.
 
-## Milestone D Telegram Onboarding APK — BUILT, BLOCKED ON OPERATOR SETUP
+## Milestone D Live-Endpoint APK — BUILT, AWAITING PHYSICAL DEVICE
 
-- Status: NOT verified, and not verifiable yet. The verified reference artifact
-  remains `588bbec1...5ff3a90b`. This APK contains the complete managed-bot
-  onboarding flow, but the flow cannot run end to end until a PocketClaw
-  manager bot exists.
+This is the artifact to install for the end-to-end Telegram test. It is the
+first PocketClaw build that carries a real onboarding endpoint.
+
+- Status: BUILT, NOT physically verified. The verified reference artifact
+  remains `588bbec1...5ff3a90b` until this one passes on a device.
+- Path: `build/app/outputs/flutter-apk/app-release.apk` (also written to
+  `build/app/outputs/apk/release/app-release.apk`; both ignored, not committed)
+- Built: 2026-08-26 with the canonical command plus the supported dart-define
+  mechanism, which the Flutter Gradle plugin forwards to `flutter assemble` as
+  `--DartDefines`:
+
+      cd android && ./gradlew :app:assembleRelease \
+        -Ptarget-platform=android-arm64 \
+        -Pdart-defines=$(printf '%s' \
+          'POCKETCLAW_ONBOARDING_BASE_URL=https://pocketclaw-telegram-setup-bot-83ai.vercel.app' \
+          | base64 -w0)
+
+  with `JAVA_HOME=/home/lordegypt/PocketCLaw/.tooling/jdk-17` and
+  `GRADLE_USER_HOME=/home/lordegypt/PocketClaw-App/.tooling/gradle-stage-a-clean`.
+  `-Pdart-defines` takes a comma-separated list of base64-encoded `KEY=VALUE`
+  pairs. It is the Gradle-path equivalent of `--dart-define`, so the endpoint
+  does not require leaving the canonical release command.
+- Size: 34,211,833 bytes — in the ~34 MB arm64 band, not the ~50 MB universal
+  band, so `-Ptarget-platform=android-arm64` was honoured.
+- SHA-256: `9a0f74070f0129b2180b4b3237fbfacaf001ee6c8808a26e128d7ae06bb1be7f`
+- Package/version: `com.lord1egypt.pocketclaw`, `0.1.3` (version code `3`),
+  minSdk 24, targetSdk 36.
+- Release guard PASS. The build printed "Verified arm64-v8a native payload in
+  app-release.apk: lib/arm64-v8a/libdartjni.so, lib/arm64-v8a/libpicoclaw.so,
+  lib/arm64-v8a/libpicoclaw-web.so", and `unzip -l` confirms all three are
+  packaged (131,248 / 37,224,801 / 24,641,889 bytes).
+- Both Core binaries are byte-identical to the device-verified pair
+  (`libpicoclaw.so` 37,224,801 `cb9b2cde...fb895818`; `libpicoclaw-web.so`
+  24,641,889 `b6b356f7...656db9ba5`). No Core source changed, so the Core half
+  is already device-proven — and, decisively for the secret scan, those
+  binaries were compiled before the service was deployed and therefore cannot
+  contain any of its secrets.
+- Endpoint present: `https://pocketclaw-telegram-setup-bot-83ai.vercel.app`
+  appears exactly once, in `lib/arm64-v8a/libapp.so`, and in no other file in
+  the APK. The previous candidate had zero occurrences, so the string is there
+  because of the define and nothing else.
+- No Milestone D feature behavior was changed to produce this build. The only
+  difference from `7c34ab12...c4911178e` is that the define is now set.
+
+### Secret scan — explicit result
+
+Performed over the printable strings of every file in the APK (425,035 lines).
+
+| Checked for | Result |
+| --- | --- |
+| Telegram bot token pattern `<digits>:<35 chars>` (manager or child) | **0 matches** |
+| `TELEGRAM_MANAGER_BOT_TOKEN` | **0 matches** |
+| `TELEGRAM_WEBHOOK_SECRET` | **0 matches** |
+| `PAIRING_SECRET` | **0 matches** |
+| `KV_REST_API_URL` / `KV_REST_API_TOKEN` | **0 matches** |
+| `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` / `REDIS_URL` | **0 matches** |
+| `upstash` (any case) | **0 matches** |
+| `redis://` or `rediss://` | **0 matches** |
+
+The 64-hex scan — the shape of `openssl rand -hex 32`, used for both the
+webhook secret and the pairing secret — returns 1,432 hits, and every one is
+accounted for:
+
+- 23 unique in `libapp.so`, all of them `google_fonts` 8.2.1 font-asset SHA-256
+  checksums, each traced back to that package's `google_fonts_parts/*.dart`.
+  Nothing in `libapp.so` is unexplained.
+- 209 in `libpicoclaw.so` and 201 in `libpicoclaw-web.so`, inside binaries
+  byte-identical to the pre-deployment device-verified pair.
+- 0 in `libflutter.so`; the remaining hits are repeats across those files.
+
+Every HTTPS host reachable from the Dart layer was enumerated as well:
+`api.flutter.dev`, `docs.flutter.dev`, `fonts.gstatic.com`, `github.com`,
+`pub.dev`, `t.me`, and the onboarding base URL. No credential-bearing host is
+present.
+
+### Regression validation run before this build
+
+- `flutter analyze` — clean, no issues (Flutter 3.47.1, Dart 3.13.1).
+- `flutter test` — 77/77 passed, including the Telegram onboarding config,
+  stage, lifecycle, configuration-merge, and manual-fallback tests.
+- Core was deliberately not rebuilt or revalidated: no Core source changed and
+  the committed binaries hash-match the device-verified pair.
+
+### Device checklist for this APK
+
+Unchanged from the checklist recorded under the superseded candidate below.
+Run it, plus the standing regression sweep, and report back before any merge.
+
+## Milestone D Telegram Onboarding APK — SUPERSEDED CANDIDATE (no endpoint)
+
+- Status: SUPERSEDED by `9a0f7407...6bb1be7f` above. Retained as the record of
+  the build that proved the app ships no endpoint when the define is unset.
+  It was built before the service existed and has no endpoint compiled in, so
+  it cannot run the flow. Do not install it for the device test.
 - Path: `build/app/outputs/apk/release/app-release.apk` (ignored; not committed)
 - Built: 2026-08-26 with the canonical command
   `./gradlew :app:assembleRelease -Ptarget-platform=android-arm64`,

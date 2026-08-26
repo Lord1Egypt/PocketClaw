@@ -2,59 +2,55 @@
 
 ## Current Objective
 
-**Deploy the onboarding service, then run one end-to-end Telegram test.**
+**Run the one physical-device end-to-end Telegram test.** Everything else for
+Milestone D is done.
 
-The manager bot now exists. `@PocketClawSetupBot` is created, Bot Management
-Mode is enabled in the BotFather mini app, and the managed-bot deep link has
-been opened successfully against it. The onboarding service has been extracted
-to its own public repository and is ready to deploy.
+The onboarding service is LIVE at
+<https://pocketclaw-telegram-setup-bot-83ai.vercel.app>, managed by
+`@PocketClawSetupBot`. Every server-side check passes: manager authentication,
+`can_manage_bots == true`, Bot Management Mode, webhook registration,
+Redis/Upstash storage, and a live test pairing created and read back.
 
-Candidate APK
-`7c34ab12b544e585981c46632a5246a3a3fe66da24a84fce2c0b831c4911178e` — it has no
-endpoint compiled in, so it must be rebuilt after the deployment exists.
+The APK is built against it:
 
-### Step 1 — Revoke the exposed manager token
+    build/app/outputs/flutter-apk/app-release.apk
+    SHA-256 9a0f74070f0129b2180b4b3237fbfacaf001ee6c8808a26e128d7ae06bb1be7f
+    34,211,833 bytes · com.lord1egypt.pocketclaw 0.1.3 (3)
 
-The previously issued token appeared in a screenshot. Open
-[@BotFather](https://t.me/BotFather), select `@PocketClawSetupBot`, and use
-`/revoke` to generate a new one. Keep the new token in your clipboard; it goes
-straight into Vercel and nowhere else. Never paste it into chat, a file, this
-repository, or a `--dart-define`.
+### The one remaining step
 
-### Step 2 — Deploy
-
-<https://github.com/Lord1Egypt/PocketClaw-Telegram-Setup> — public, MIT, with a
-Deploy to Vercel button in its README. The full walkthrough is there; the short
-version is: click the button, add a Redis store from the project's Storage tab,
-set the variables below, redeploy.
-
-Enter these in Vercel → Project Settings → Environment Variables:
-
-| Variable | Value |
-| --- | --- |
-| `TELEGRAM_MANAGER_BOT_TOKEN` | the **regenerated** token from step 1 |
-| `TELEGRAM_MANAGER_BOT_USERNAME` | `PocketClawSetupBot` |
-| `TELEGRAM_WEBHOOK_SECRET` | a fresh `openssl rand -hex 32` |
-| `PAIRING_SECRET` | a **different** fresh `openssl rand -hex 32` |
-| `KV_REST_API_URL` | injected by Vercel's Redis integration |
-| `KV_REST_API_TOKEN` | injected by Vercel's Redis integration |
-
-### Step 3 — Verify from the setup page
-
-Open the deployment URL and click, in order: **Register Webhook**,
-**Verify Telegram**, **Check Storage**, **Create Test Pairing**. All four must
-report success. **Verify Telegram** is the live `getMe` call that finally
-confirms `can_manage_bots == true`; nothing else in the chain asserts it.
-
-### Step 4 — Rebuild the app and test on a device
-
-    flutter build apk --release --target-platform=android-arm64 \
-      --dart-define=POCKETCLAW_ONBOARDING_BASE_URL=https://your-deployment
-
-Then run the device checklist at the end of `PROJECT_STATE.md`.
+Install that APK on the Android device and run the Milestone D checklist in
+`PROJECT_STATE.md`: Connect Telegram, the Telegram creation screen prefilled,
+Bot created then Connected, the QR path from a second device, backgrounding
+mid-flow, the bot's PocketClaw-branded `/start` reply, `allow_from` scoped to
+the creating user, pairing expiry with retry, the manual fallback, and the
+standing regression sweep.
 
 Do not merge `feature/telegram-managed-onboarding` into `develop` until that
 passes. Do not touch `main`. Do not start another milestone.
+
+### How this APK was built
+
+The canonical release command carries the endpoint through Gradle's supported
+`dart-defines` property — base64-encoded `KEY=VALUE`, which the Flutter Gradle
+plugin forwards to `flutter assemble` as `--DartDefines`. There is no need to
+leave the canonical path for `flutter build apk`:
+
+    export JAVA_HOME=/home/lordegypt/PocketCLaw/.tooling/jdk-17
+    export GRADLE_USER_HOME=/home/lordegypt/PocketClaw-App/.tooling/gradle-stage-a-clean
+
+    cd android && ./gradlew :app:assembleRelease \
+      -Ptarget-platform=android-arm64 \
+      -Pdart-defines=$(printf '%s' \
+        'POCKETCLAW_ONBOARDING_BASE_URL=https://pocketclaw-telegram-setup-bot-83ai.vercel.app' \
+        | base64 -w0)
+
+Verified before shipping: `flutter analyze` clean, 77/77 Flutter tests, the
+arm64 native-payload guard PASS, the ~34 MB arm64 size band, the endpoint
+present exactly once in `libapp.so`, and a secret scan over all 425,035
+printable strings in the APK returning zero Telegram tokens, zero webhook or
+pairing secrets, and zero Redis credentials. Full evidence is in
+`PROJECT_STATE.md`.
 
 ## Milestone C state
 
