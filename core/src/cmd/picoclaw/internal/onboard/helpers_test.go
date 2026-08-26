@@ -85,6 +85,37 @@ func TestCopyEmbeddedToTargetKeepsExistingUserSkill(t *testing.T) {
 	}
 }
 
+func TestCopyMissingEmbeddedToTargetAddsSkillsWithoutReplacingUserFiles(t *testing.T) {
+	targetDir := t.TempDir()
+	existing := filepath.Join(targetDir, "skills", "github", "SKILL.md")
+	if err := os.MkdirAll(filepath.Dir(existing), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(existing, []byte("user github skill"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := copyMissingEmbeddedToTarget(targetDir); err != nil {
+		t.Fatalf("copyMissingEmbeddedToTarget() error = %v", err)
+	}
+
+	data, err := os.ReadFile(existing)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(data) != "user github skill" {
+		t.Fatalf("existing user skill was replaced: %q", data)
+	}
+	for _, seeded := range []string{"agent-browser", "hardware", "skill-creator", "summarize", "tmux", "weather"} {
+		if _, err := os.Stat(filepath.Join(targetDir, "skills", seeded, "SKILL.md")); err != nil {
+			t.Fatalf("missing repaired bundled skill %s: %v", seeded, err)
+		}
+	}
+	if _, err := os.Stat(filepath.Join(targetDir, "skills", "picoclaw-agent")); !os.IsNotExist(err) {
+		t.Fatalf("upstream-specific skill must remain unseeded, got %v", err)
+	}
+}
+
 func TestIsUnseeded(t *testing.T) {
 	unseeded := []string{
 		"AGENTS.md",

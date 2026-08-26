@@ -73,6 +73,16 @@ type PlaceholderRecorder interface {
 	RecordReactionUndo(channel, chatID string, undo func())
 }
 
+// CorrelatedPlaceholderRecorder keeps per-inbound lifecycle state separate
+// when multiple messages reach the same chat close together. Implementations
+// retain the legacy PlaceholderRecorder methods for channels without a
+// correlation ID.
+type CorrelatedPlaceholderRecorder interface {
+	RecordPlaceholderForLifecycle(channel, chatID, lifecycleID, placeholderID string)
+	RecordTypingStopForLifecycle(channel, chatID, lifecycleID string, stop func())
+	RecordReactionUndoForLifecycle(channel, chatID, lifecycleID string, undo func())
+}
+
 // CommandRegistrarCapable is implemented by channels that can register
 // command menus with their upstream platform (e.g. Telegram BotCommand).
 // Channels that do not support platform-level command menus can ignore it.

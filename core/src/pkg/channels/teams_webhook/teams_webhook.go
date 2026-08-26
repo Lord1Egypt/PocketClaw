@@ -205,7 +205,7 @@ func (c *TeamsWebhookChannel) buildAdaptiveCard(
 	// Add title if configured on the target
 	title := target.Title
 	if title == "" {
-		title = "PicoClaw Notification"
+		title = "PocketClaw Notification"
 	}
 
 	titleBlock := adaptivecard.NewTextBlock(title, true)

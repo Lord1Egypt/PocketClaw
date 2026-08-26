@@ -8,7 +8,7 @@ import (
 	"testing"
 )
 
-func TestEnsureOnboardedSkipsWhenConfigExists(t *testing.T) {
+func TestEnsureOnboardedSeedsMissingWorkspaceWhenConfigExists(t *testing.T) {
 	configPath := filepath.Join(t.TempDir(), "config.json")
 	if err := os.WriteFile(configPath, []byte(`{}`), 0o644); err != nil {
 		t.Fatalf("WriteFile() error = %v", err)
@@ -17,17 +17,35 @@ func TestEnsureOnboardedSkipsWhenConfigExists(t *testing.T) {
 	origExecCommand := execCommand
 	defer func() { execCommand = origExecCommand }()
 
-	called := false
+	var gotArgs []string
 	execCommand = func(name string, args ...string) *exec.Cmd {
-		called = true
-		return exec.Command("sh", "-c", "exit 1")
+		gotArgs = append([]string(nil), args...)
+		return exec.Command("sh", "-c", "exit 0")
 	}
 
 	if err := EnsureOnboarded(configPath); err != nil {
 		t.Fatalf("EnsureOnboarded() error = %v", err)
 	}
-	if called {
-		t.Fatal("expected onboard command not to run when config already exists")
+	if strings.Join(gotArgs, " ") != "onboard ensure-workspace" {
+		t.Fatalf("command args = %#v, want workspace repair command", gotArgs)
+	}
+}
+
+func TestEnsureOnboardedReturnsWorkspaceSeedFailure(t *testing.T) {
+	configPath := filepath.Join(t.TempDir(), "config.json")
+	if err := os.WriteFile(configPath, []byte(`{}`), 0o644); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+
+	origExecCommand := execCommand
+	defer func() { execCommand = origExecCommand }()
+	execCommand = func(name string, args ...string) *exec.Cmd {
+		return exec.Command("sh", "-c", "echo workspace unavailable >&2; exit 2")
+	}
+
+	err := EnsureOnboarded(configPath)
+	if err == nil || !strings.Contains(err.Error(), "workspace unavailable") {
+		t.Fatalf("EnsureOnboarded() error = %v, want workspace failure", err)
 	}
 }
 

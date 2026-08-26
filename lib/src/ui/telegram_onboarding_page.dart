@@ -18,6 +18,7 @@ class TelegramOnboardingPage extends StatefulWidget {
     super.key,
     required this.controller,
     required this.configWriter,
+    this.onManualConfigurationSaved,
   });
 
   final TelegramOnboardingController controller;
@@ -25,6 +26,7 @@ class TelegramOnboardingPage extends StatefulWidget {
   /// Used by the manual fallback, which writes the same configuration the
   /// automatic flow does.
   final TelegramConfigWriter configWriter;
+  final Future<void> Function()? onManualConfigurationSaved;
 
   @override
   State<TelegramOnboardingPage> createState() => _TelegramOnboardingPageState();
@@ -96,8 +98,11 @@ class _TelegramOnboardingPageState extends State<TelegramOnboardingPage>
       case TelegramOnboardingStage.awaitingConfirmation:
         return _buildAwaitingConfirmation(context);
       case TelegramOnboardingStage.botCreated:
-        return _buildBusy(context, TelegramOnboardingStrings.botCreated,
-            detail: TelegramOnboardingStrings.configuring);
+        return _buildBusy(
+          context,
+          TelegramOnboardingStrings.botCreated,
+          detail: TelegramOnboardingStrings.configuring,
+        );
       case TelegramOnboardingStage.configuring:
         return _buildBusy(context, TelegramOnboardingStrings.configuring);
       case TelegramOnboardingStage.connected:
@@ -115,8 +120,7 @@ class _TelegramOnboardingPageState extends State<TelegramOnboardingPage>
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Icon(Icons.send_rounded,
-            size: 56, color: theme.colorScheme.primary),
+        Icon(Icons.send_rounded, size: 56, color: theme.colorScheme.primary),
         const SizedBox(height: PocketClawDesign.spaceLarge),
         Text(
           TelegramOnboardingStrings.introHeadline,
@@ -148,10 +152,18 @@ class _TelegramOnboardingPageState extends State<TelegramOnboardingPage>
       children: [
         const CircularProgressIndicator(),
         const SizedBox(height: PocketClawDesign.spaceLarge),
-        Text(message, style: theme.textTheme.titleMedium, textAlign: TextAlign.center),
+        Text(
+          message,
+          style: theme.textTheme.titleMedium,
+          textAlign: TextAlign.center,
+        ),
         if (detail != null) ...[
           const SizedBox(height: PocketClawDesign.spaceSmall),
-          Text(detail, style: theme.textTheme.bodySmall, textAlign: TextAlign.center),
+          Text(
+            detail,
+            style: theme.textTheme.bodySmall,
+            textAlign: TextAlign.center,
+          ),
         ],
       ],
     );
@@ -189,8 +201,10 @@ class _TelegramOnboardingPageState extends State<TelegramOnboardingPage>
               child: CircularProgressIndicator(strokeWidth: 2),
             ),
             const SizedBox(width: PocketClawDesign.spaceSmall),
-            Text(TelegramOnboardingStrings.waiting,
-                style: theme.textTheme.titleSmall),
+            Text(
+              TelegramOnboardingStrings.waiting,
+              style: theme.textTheme.titleSmall,
+            ),
           ],
         ),
         const SizedBox(height: PocketClawDesign.spaceSmall),
@@ -239,17 +253,30 @@ class _TelegramOnboardingPageState extends State<TelegramOnboardingPage>
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Icon(Icons.check_circle_rounded, size: 56, color: theme.colorScheme.primary),
+        Icon(
+          Icons.check_circle_rounded,
+          size: 56,
+          color: theme.colorScheme.primary,
+        ),
         const SizedBox(height: PocketClawDesign.spaceLarge),
-        Text(TelegramOnboardingStrings.connected,
-            style: theme.textTheme.headlineSmall, textAlign: TextAlign.center),
+        Text(
+          TelegramOnboardingStrings.connected,
+          style: theme.textTheme.headlineSmall,
+          textAlign: TextAlign.center,
+        ),
         const SizedBox(height: PocketClawDesign.spaceSmall),
-        Text(TelegramOnboardingStrings.connectedBody,
-            style: theme.textTheme.bodyMedium, textAlign: TextAlign.center),
+        Text(
+          TelegramOnboardingStrings.connectedBody,
+          style: theme.textTheme.bodyMedium,
+          textAlign: TextAlign.center,
+        ),
         const SizedBox(height: PocketClawDesign.spaceLarge),
         if (username != null)
           _buildLabelledValue(
-              context, TelegramOnboardingStrings.yourBotLabel, '@$username'),
+            context,
+            TelegramOnboardingStrings.yourBotLabel,
+            '@$username',
+          ),
         const SizedBox(height: PocketClawDesign.spaceLarge),
         FilledButton.icon(
           onPressed: widget.controller.openBotChat,
@@ -296,9 +323,17 @@ class _TelegramOnboardingPageState extends State<TelegramOnboardingPage>
       children: [
         Icon(icon, size: 48, color: theme.colorScheme.error),
         const SizedBox(height: PocketClawDesign.spaceMedium),
-        Text(headline, style: theme.textTheme.titleLarge, textAlign: TextAlign.center),
+        Text(
+          headline,
+          style: theme.textTheme.titleLarge,
+          textAlign: TextAlign.center,
+        ),
         const SizedBox(height: PocketClawDesign.spaceSmall),
-        Text(body, style: theme.textTheme.bodyMedium, textAlign: TextAlign.center),
+        Text(
+          body,
+          style: theme.textTheme.bodyMedium,
+          textAlign: TextAlign.center,
+        ),
         const SizedBox(height: PocketClawDesign.spaceLarge),
         FilledButton(
           onPressed: widget.controller.retry,
@@ -346,11 +381,12 @@ class _TelegramOnboardingPageState extends State<TelegramOnboardingPage>
   Future<void> _openManualSetup(BuildContext context) async {
     final saved = await showDialog<bool>(
       context: context,
-      builder: (context) => TelegramManualSetupDialog(
-        configWriter: widget.configWriter,
-      ),
+      builder: (context) =>
+          TelegramManualSetupDialog(configWriter: widget.configWriter),
     );
     if (saved == true && mounted) {
+      await widget.onManualConfigurationSaved?.call();
+      if (!mounted) return;
       await widget.controller.reset();
     }
   }

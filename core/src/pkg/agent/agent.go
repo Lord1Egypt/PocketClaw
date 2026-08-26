@@ -28,7 +28,6 @@ import (
 	"github.com/sipeed/picoclaw/pkg/routing"
 	"github.com/sipeed/picoclaw/pkg/session"
 	"github.com/sipeed/picoclaw/pkg/state"
-	"github.com/sipeed/picoclaw/pkg/utils"
 )
 
 type AgentLoop struct {
@@ -68,6 +67,12 @@ type AgentLoop struct {
 	// activeTurnStates tracks active turns per session to prevent duplicates.
 	activeTurnStates sync.Map
 	subTurnCounter   atomic.Int64
+
+	// sessionMailboxes own externally received messages until each one reaches
+	// its own final-delivery attempt. Telegram messages are queued here rather
+	// than collapsed into steering for the preceding turn.
+	sessionMailboxMu sync.Mutex
+	sessionMailboxes map[string]*sessionMailbox
 
 	turnSeq atomic.Uint64
 
@@ -113,9 +118,10 @@ type processOptions struct {
 }
 
 type continuationTarget struct {
-	SessionKey string
-	Channel    string
-	ChatID     string
+	SessionKey     string
+	Channel        string
+	ChatID         string
+	InboundContext *bus.InboundContext
 }
 
 const (
@@ -167,6 +173,7 @@ func (al *AgentLoop) Run(ctx context.Context) error {
 			if !ok {
 				return nil
 			}
+			traceRequestLifecycle("request_started", &msg.Context, nil)
 
 			// Resolve the session key for this message
 			sessionKey, agentID, ok := al.resolveSteeringTarget(msg)
@@ -178,7 +185,33 @@ func (al *AgentLoop) Run(ctx context.Context) error {
 				continue
 			}
 
-			// Atomically claim the session key with a unique placeholder sentinel
+			mailbox, claimed, queued := al.claimSessionMailbox(sessionKey, msg)
+			if queued {
+				continue
+			}
+			if !claimed {
+				if al.tryHandleStopCommand(ctx, msg, sessionKey) {
+					continue
+				}
+
+				msg = al.prepareInboundMessageForAgent(ctx, msg)
+				if err := al.enqueueSteeringMessage(sessionKey, agentID, providers.Message{
+					Role:    "user",
+					Content: msg.Content,
+					Media:   append([]string(nil), msg.Media...),
+				}); err != nil {
+					logger.WarnCF("agent", "Failed to enqueue steering message",
+						map[string]any{
+							"error":        err.Error(),
+							"channel":      msg.Channel,
+							"lifecycle_id": bus.InboundLifecycleID(&msg.Context),
+							"session_key":  sessionKey,
+						})
+				}
+				continue
+			}
+
+			// Claim the active-turn slot with a unique placeholder sentinel
 			// to prevent a TOCTOU race where multiple messages for the same session
 			// pass the Load check before either registers.
 			// The placeholder ensures GetActiveTurnBySession() never returns nil
@@ -188,35 +221,19 @@ func (al *AgentLoop) Run(ctx context.Context) error {
 				turnID: makePendingTurnID(sessionKey, al.turnSeq.Add(1)),
 				phase:  TurnPhaseSetup,
 			}
-			if _, loaded := al.activeTurnStates.LoadOrStore(sessionKey, placeholder); loaded {
-				if al.tryHandleStopCommand(ctx, msg, sessionKey) {
-					continue
-				}
-
-				msg = al.prepareInboundMessageForAgent(ctx, msg)
-
-				// Another turn is already active (or reserved) for this session — enqueue
-				if err := al.enqueueSteeringMessage(sessionKey, agentID, providers.Message{
-					Role:    "user",
-					Content: msg.Content,
-					Media:   append([]string(nil), msg.Media...),
-				}); err != nil {
-					logger.WarnCF("agent", "Failed to enqueue steering message",
-						map[string]any{
-							"error":       err.Error(),
-							"channel":     msg.Channel,
-							"chat_id":     msg.ChatID,
-							"session_key": sessionKey,
-						})
-				}
-				continue
-			}
+			al.activeTurnStates.Store(sessionKey, placeholder)
 
 			// Session claimed — spawn a worker goroutine that acquires a semaphore
 			// slot. The goroutine is spawned immediately so the main loop keeps
 			// draining the inbound channel. The goroutine blocks on the semaphore.
-			go func(m bus.InboundMessage, ph *turnState) {
+			go func(
+				m bus.InboundMessage,
+				ph *turnState,
+				claimedSessionKey string,
+				mailboxOwner *sessionMailbox,
+			) {
 				var releaseSession bool
+				defer al.releaseSessionMailbox(claimedSessionKey, mailboxOwner)
 				// Acquire semaphore slot (blocks if at capacity)
 				select {
 				case al.workerSem <- struct{}{}:
@@ -224,7 +241,7 @@ func (al *AgentLoop) Run(ctx context.Context) error {
 				case <-ctx.Done():
 					// Context canceled while waiting for a slot — clean up the
 					// placeholder to prevent session-level deadlock.
-					al.releaseSessionTurnState(sessionKey, nil)
+					al.releaseSessionTurnState(claimedSessionKey, nil)
 					return
 				}
 
@@ -237,17 +254,17 @@ func (al *AgentLoop) Run(ctx context.Context) error {
 						// Conditional delete: only remove the entry if it still points
 						// to our placeholder. A new message may have claimed the slot
 						// between the panic and this defer.
-						if actual, ok := al.activeTurnStates.Load(sessionKey); ok {
+						if actual, ok := al.activeTurnStates.Load(claimedSessionKey); ok {
 							if ts, ok := actual.(*turnState); ok && ts == ph {
-								al.releaseSessionTurnState(sessionKey, ts)
+								al.releaseSessionTurnState(claimedSessionKey, ts)
 							}
 						}
 						return
 					}
-					if actual, ok := al.activeTurnStates.Load(sessionKey); ok {
+					if actual, ok := al.activeTurnStates.Load(claimedSessionKey); ok {
 						if ts, ok := actual.(*turnState); ok && strings.HasPrefix(ts.turnID, pendingTurnPrefix) {
 							// Placeholder still present — runTurn never replaced it.
-							al.releaseSessionTurnState(sessionKey, ts)
+							al.releaseSessionTurnState(claimedSessionKey, ts)
 						}
 					}
 				}()
@@ -258,10 +275,10 @@ func (al *AgentLoop) Run(ctx context.Context) error {
 						logger.RecoverPanicNoExit(r)
 						logger.ErrorCF("agent", "Worker goroutine panicked",
 							map[string]any{
-								"session_key": sessionKey,
-								"channel":     m.Channel,
-								"chat_id":     m.ChatID,
-								"panic":       fmt.Sprintf("%v", r),
+								"session_key":  claimedSessionKey,
+								"channel":      m.Channel,
+								"lifecycle_id": bus.InboundLifecycleID(&m.Context),
+								"panic":        fmt.Sprintf("%v", r),
 							})
 					}
 				}()
@@ -271,16 +288,16 @@ func (al *AgentLoop) Run(ctx context.Context) error {
 					defer al.channelManager.InvokeTypingStop(m.Channel, m.ChatID)
 				}
 
-				if al.takePendingStop(sessionKey) {
-					al.releaseSessionTurnState(sessionKey, nil)
+				if al.takePendingStop(claimedSessionKey) {
+					al.releaseSessionTurnState(claimedSessionKey, nil)
 					target := &continuationTarget{
-						SessionKey: sessionKey,
+						SessionKey: claimedSessionKey,
 						Channel:    m.Channel,
 						ChatID:     m.ChatID,
 					}
 					continued, continueErr := al.drainQueuedSteeringContinuations(ctx, target)
 					if continueErr != nil {
-						al.maybePublishError(ctx, m.Channel, m.ChatID, sessionKey, continueErr)
+						al.maybePublishError(ctx, m.Channel, m.ChatID, claimedSessionKey, continueErr)
 						return
 					}
 					if continued != "" {
@@ -289,8 +306,26 @@ func (al *AgentLoop) Run(ctx context.Context) error {
 					return
 				}
 
-				al.runTurnWithSteering(ctx, m)
-			}(msg, placeholder)
+				current := m
+				for {
+					deliveryErr := al.runTurnWithSteering(ctx, current)
+					if deliveryErr == nil {
+						traceRequestLifecycle("request_completed", &current.Context, nil)
+					} else {
+						traceRequestLifecycle("request_delivery_failed", &current.Context, nil)
+					}
+					next, ok := al.takeNextSessionMessage(claimedSessionKey, mailboxOwner)
+					if !ok {
+						return
+					}
+					current = next
+					nextPlaceholder := &turnState{
+						turnID: makePendingTurnID(claimedSessionKey, al.turnSeq.Add(1)),
+						phase:  TurnPhaseSetup,
+					}
+					al.activeTurnStates.Store(claimedSessionKey, nextPlaceholder)
+				}
+			}(msg, placeholder, sessionKey, mailbox)
 
 			// TODO: Re-enable media cleanup after inbound media is properly consumed by the agent.
 			// Currently disabled because files are deleted before the LLM can access their content.
@@ -613,14 +648,14 @@ func (al *AgentLoop) runAgentLoop(
 	}
 
 	if result.finalContent != "" {
-		responsePreview := utils.Truncate(result.finalContent, 120)
-		logger.InfoCF("agent", fmt.Sprintf("Response: %s", responsePreview),
+		traceRequestLifecycle(
+			"agent_final_generated",
+			opts.Dispatch.InboundContext,
 			map[string]any{
-				"agent_id":     agent.ID,
-				"session_key":  opts.Dispatch.SessionKey,
 				"iterations":   ts.currentIteration(),
 				"final_length": len(result.finalContent),
-			})
+			},
+		)
 	}
 
 	return result.finalContent, nil

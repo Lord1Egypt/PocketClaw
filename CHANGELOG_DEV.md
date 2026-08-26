@@ -714,3 +714,39 @@ verified `develop` @ `14e6991`. Not merged; physical-device testing is the gate.
   pinned Core hashes and has no Firebase app ID, API key, or project ID.
 - Created private GitHub repository `Lord1Egypt/PocketClaw` and pushed initial
   commit `950d4a3` to both `main` and `develop`.
+
+## 2026-08-26 — CODEX SOL HANDOFF — PRE-RELEASE FIX
+
+- Preserved and pushed the exact `e5b88ff` rollback checkpoint as branch
+  `checkpoint/pre-codex-sol-prerelease-fix` and annotated tag
+  `pre-codex-sol-prerelease-fix-20260826`.
+- Replaced duplicated native Telegram status with a neutral shortcut to Core's
+  authoritative `/channels/telegram` page; card tap cannot start pairing.
+- Added the authenticated loopback Android→Core credential-write boundary so
+  managed/manual setup updates Core's split secure config and failed reconnect
+  leaves the old bot intact.
+- Fixed Telegram request completion: bounded HTTP deadline, safe correlation,
+  independent same-session FIFO requests, synchronous final delivery, error
+  propagation, edit→send fallback, and terminal placeholder cleanup. Added
+  deterministic empty-provider/idle/sequential/close/failure coverage.
+- Audited tool execution, Android service ownership, and the recent log queue.
+  No `gh`-specific stall or log-queue causal link was found; physical
+  background/locked validation remains pending.
+- Established the intended seven-skill fresh baseline, added non-destructive
+  startup repair, preserved existing `picoclaw-agent`, and proved `gh` import
+  adds without replacing.
+- Preserved basename caller and exactly-once logs; neutralized the PID warning;
+  added a plain Android banner and one Unicode-preserving terminal sanitizer
+  shared by Logs and Export.
+- Regenerated the 93-file Core provenance patch and updated intentional
+  divergence tracking.
+- Passed `flutter analyze`, 94 Flutter tests, 36 frontend tests, `tsc`, lint,
+  and required Go suites. Canonical Core build passed `-trimpath` with zero
+  developer paths.
+- Built one successful candidate after a compile-only Kotlin getter clash was
+  caught and fixed. APK: `build/app/outputs/apk/release/app-release.apk`,
+  34,239,649 bytes,
+  `f663d25a2fffb0ce969ad4a9ce3405c1e563b6263c7af37e90768eef471c621d`.
+  Guard, package/version/SDK, endpoint, native hashes, and secret scans pass.
+- No merge, release, tag movement, or `main` change. Physical testing is
+  pending and release remains blocked.

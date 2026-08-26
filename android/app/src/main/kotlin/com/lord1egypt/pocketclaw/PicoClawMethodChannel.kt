@@ -13,7 +13,10 @@ import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 import com.lord1egypt.pocketclaw.service.PicoClawService
 import com.lord1egypt.pocketclaw.util.HealthChecker
+import org.json.JSONObject
 import java.io.File
+import java.net.HttpURLConnection
+import java.net.URL
 import java.util.concurrent.Executor
 
 /**
@@ -40,6 +43,8 @@ class PicoClawMethodChannel(
         private const val CHANNEL_NAME = "com.lord1egypt.pocketclaw/picoclaw"
         private const val PREF_NAME = "picoclaw_prefs"
         private const val KEY_AUTO_START = "auto_start"
+        private const val TELEGRAM_BRIDGE_URL =
+            "http://127.0.0.1:18800/api/pocketclaw/android/telegram"
     }
 
     // Copy a content:// URI to the app cache and return the absolute file path.
@@ -171,6 +176,28 @@ class PicoClawMethodChannel(
                 "takeNewLogs" -> {
                     // Each line is delivered once. See PicoClawService.publishLog.
                     result.success(PicoClawService.takeNewLogs())
+                }
+                "configureTelegram" -> {
+                    val token = call.argument<String>("token") ?: ""
+                    val ownerUserId = call.argument<Number>("ownerUserId")?.toLong() ?: 0L
+                    Thread {
+                        val mainExecutor = getMainExecutor()
+                        try {
+                            val body = JSONObject()
+                                .put("token", token)
+                                .put("owner_user_id", ownerUserId)
+                            callTelegramBridge("PUT", body)
+                            mainExecutor.execute { result.success(true) }
+                        } catch (e: Exception) {
+                            mainExecutor.execute {
+                                result.error(
+                                    "TELEGRAM_CONFIG_FAILED",
+                                    "Core rejected the Telegram configuration",
+                                    null
+                                )
+                            }
+                        }
+                    }.start()
                 }
                 "setAutoStart" -> {
                     try {
@@ -323,6 +350,40 @@ class PicoClawMethodChannel(
 
     fun dispose() {
         channel.setMethodCallHandler(null)
+    }
+
+    /** Writes paired credentials through Core's own config/security store. */
+    private fun callTelegramBridge(
+        method: String,
+        body: JSONObject? = null
+    ) {
+        val connection = (URL(TELEGRAM_BRIDGE_URL).openConnection() as HttpURLConnection).apply {
+            requestMethod = method
+            connectTimeout = 3_000
+            readTimeout = 5_000
+            setRequestProperty(
+                "X-PocketClaw-Android-Bridge",
+                PicoClawService.bridgeTokenForHost()
+            )
+            setRequestProperty("Accept", "application/json")
+            if (body != null) {
+                doOutput = true
+                setRequestProperty("Content-Type", "application/json")
+            }
+        }
+        try {
+            if (body != null) {
+                connection.outputStream.use { output ->
+                    output.write(body.toString().toByteArray(Charsets.UTF_8))
+                }
+            }
+            if (connection.responseCode != HttpURLConnection.HTTP_OK) {
+                throw IllegalStateException("Core Telegram bridge request failed")
+            }
+            connection.inputStream.close()
+        } finally {
+            connection.disconnect()
+        }
     }
 
     // Save bytes to Downloads using MediaStore (preferred for Android Q+).

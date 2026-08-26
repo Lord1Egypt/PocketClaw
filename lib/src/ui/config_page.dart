@@ -23,12 +23,14 @@ class ConfigPage extends StatefulWidget {
   /// Called once with the save function, so MainShell can call it later.
   final void Function(Future<void> Function()? saveFn)? onSaveFnReady;
   final Future<AboutInfo> Function()? aboutInfoLoader;
+  final Future<void> Function(String path)? onManageTelegram;
 
   const ConfigPage({
     super.key,
     this.onDirtyChanged,
     this.onSaveFnReady,
     this.aboutInfoLoader,
+    this.onManageTelegram,
   });
 
   @override
@@ -566,7 +568,7 @@ class ConfigPageState extends State<ConfigPage> with WidgetsBindingObserver {
               ),
               const SizedBox(height: 16),
 
-              const TelegramSettingsCard(),
+              TelegramSettingsCard(onManage: widget.onManageTelegram),
               const SizedBox(height: 16),
 
               if (!Platform.isWindows &&

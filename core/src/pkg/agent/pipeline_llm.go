@@ -266,8 +266,19 @@ func (p *Pipeline) CallLLM(
 		backoffSecs = 2
 	}
 	for retry := 0; retry <= maxRetries; retry++ {
+		traceTurnLifecycle("provider_started", ts, map[string]any{
+			"attempt": retry + 1,
+		})
 		exec.response, err = callLLM(exec.callMessages, exec.providerToolDefs)
 		if err == nil {
+			traceTurnLifecycle("provider_completed", ts, map[string]any{
+				"attempt": retry + 1,
+			})
+			if exec.response == nil || (strings.TrimSpace(exec.response.Content) == "" && len(exec.response.ToolCalls) == 0) {
+				traceTurnLifecycle("provider_empty", ts, map[string]any{
+					"attempt": retry + 1,
+				})
+			}
 			break
 		}
 		if ts.hardAbortRequested() && errors.Is(err, context.Canceled) {
@@ -600,6 +611,9 @@ func (p *Pipeline) CallLLM(
 	toolNames := make([]string, 0, len(exec.normalizedToolCalls))
 	for _, tc := range exec.normalizedToolCalls {
 		toolNames = append(toolNames, tc.Name)
+		traceTurnLifecycle("tool_requested", ts, map[string]any{
+			"tool": tc.Name,
+		})
 	}
 	logger.InfoCF("agent", "LLM requested tool calls",
 		map[string]any{

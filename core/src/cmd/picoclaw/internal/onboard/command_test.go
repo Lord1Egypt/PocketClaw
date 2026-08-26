@@ -28,5 +28,8 @@ func TestNewOnboardCommand(t *testing.T) {
 	encFlag := cmd.Flags().Lookup("enc")
 	require.NotNil(t, encFlag, "expected --enc flag to be registered")
 	assert.Equal(t, "false", encFlag.DefValue, "--enc should default to false")
-	assert.False(t, cmd.HasSubCommands())
+	assert.True(t, cmd.HasSubCommands())
+	ensureWorkspace, _, err := cmd.Find([]string{"ensure-workspace"})
+	require.NoError(t, err)
+	assert.True(t, ensureWorkspace.Hidden)
 }

@@ -267,6 +267,15 @@ func (c *BaseChannel) HandleMessageWithContext(
 	inboundCtx bus.InboundContext,
 	senderOpts ...bus.SenderInfo,
 ) {
+	if inboundCtx.Raw == nil {
+		inboundCtx.Raw = make(map[string]string, 1)
+	}
+	lifecycleID := strings.TrimSpace(inboundCtx.Raw[bus.LifecycleIDMetadataKey])
+	if lifecycleID == "" {
+		lifecycleID = uniqueID()
+		inboundCtx.Raw[bus.LifecycleIDMetadataKey] = lifecycleID
+	}
+
 	// Use SenderInfo-based allow check when available, else fall back to string
 	var sender bus.SenderInfo
 	if len(senderOpts) > 0 {
@@ -311,6 +320,11 @@ func (c *BaseChannel) HandleMessageWithContext(
 		MediaScope: scope,
 	}
 	msg = bus.NormalizeInboundMessage(msg)
+	logger.InfoCF("request_lifecycle", "Request lifecycle", map[string]any{
+		"event":        "update_received",
+		"channel":      c.name,
+		"lifecycle_id": lifecycleID,
+	})
 
 	// Auto-trigger typing indicator, message reaction, and placeholder before publishing.
 	// Each capability is independent — all three may fire for the same message.
@@ -319,16 +333,25 @@ func (c *BaseChannel) HandleMessageWithContext(
 	// and the typing stop will still be called. This avoids the problem of compile-time interface
 	// checks incorrectly skipping indicators when streaming may not work at runtime.
 	if c.owner != nil && c.placeholderRecorder != nil {
+		correlatedRecorder, correlated := c.placeholderRecorder.(CorrelatedPlaceholderRecorder)
 		// Typing
 		if tc, ok := c.owner.(TypingCapable); ok {
 			if stop, err := tc.StartTyping(ctx, deliveryChatID); err == nil {
-				c.placeholderRecorder.RecordTypingStop(c.name, deliveryChatID, stop)
+				if correlated {
+					correlatedRecorder.RecordTypingStopForLifecycle(c.name, deliveryChatID, lifecycleID, stop)
+				} else {
+					c.placeholderRecorder.RecordTypingStop(c.name, deliveryChatID, stop)
+				}
 			}
 		}
 		// Reaction
 		if rc, ok := c.owner.(ReactionCapable); ok && msg.MessageID != "" {
 			if undo, err := rc.ReactToMessage(ctx, deliveryChatID, msg.MessageID); err == nil {
-				c.placeholderRecorder.RecordReactionUndo(c.name, deliveryChatID, undo)
+				if correlated {
+					correlatedRecorder.RecordReactionUndoForLifecycle(c.name, deliveryChatID, lifecycleID, undo)
+				} else {
+					c.placeholderRecorder.RecordReactionUndo(c.name, deliveryChatID, undo)
+				}
 			}
 		}
 		// Placeholder — independent pipeline.
@@ -338,7 +361,16 @@ func (c *BaseChannel) HandleMessageWithContext(
 		if !audioAnnotationRe.MatchString(content) {
 			if pc, ok := c.owner.(PlaceholderCapable); ok {
 				if phID, err := pc.SendPlaceholder(ctx, deliveryChatID); err == nil && phID != "" {
-					c.placeholderRecorder.RecordPlaceholder(c.name, deliveryChatID, phID)
+					if correlated {
+						correlatedRecorder.RecordPlaceholderForLifecycle(c.name, deliveryChatID, lifecycleID, phID)
+					} else {
+						c.placeholderRecorder.RecordPlaceholder(c.name, deliveryChatID, phID)
+					}
+					logger.InfoCF("request_lifecycle", "Request lifecycle", map[string]any{
+						"event":        "placeholder_sent",
+						"channel":      c.name,
+						"lifecycle_id": lifecycleID,
+					})
 				}
 			}
 		}

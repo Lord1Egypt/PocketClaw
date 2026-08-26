@@ -187,6 +187,12 @@ describe("Channels → Telegram", () => {
     expect(host.openExternal).toHaveBeenCalledWith(
       "https://t.me/pocketclaw_ab12cd34_bot",
     )
+
+    await userEvent.click(
+      screen.getByRole("button", { name: translate("channels.telegram.reconnect") }),
+    )
+    expect(host.openTelegramOnboarding).toHaveBeenCalledTimes(1)
+    expect(screen.getByTestId("telegram-surface-connected")).toBeDefined()
   })
 
   it("case 4: Advanced / Manual setup reveals the legacy Bot Token form", async () => {

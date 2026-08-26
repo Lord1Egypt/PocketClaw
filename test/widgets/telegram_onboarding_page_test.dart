@@ -10,8 +10,9 @@ class StubClient extends TelegramOnboardingClient {
   StubClient() : super(baseUrl: 'https://onboarding.invalid');
 
   final statusQueue = <TelegramPairingStatus>[];
-  TelegramPairingStatus last =
-      const TelegramPairingStatus(state: PairingState.pending);
+  TelegramPairingStatus last = const TelegramPairingStatus(
+    state: PairingState.pending,
+  );
   TelegramOnboardingException? createError;
 
   @override
@@ -22,9 +23,11 @@ class StubClient extends TelegramOnboardingClient {
       pollToken: 'poll-secret-value',
       suggestedUsername: 'pocketclaw_abcd1234_bot',
       suggestedName: 'PocketClaw Agent',
-      deepLink: 'https://t.me/newbot/PocketClawSetupBot/'
+      deepLink:
+          'https://t.me/newbot/PocketClawSetupBot/'
           'pocketclaw_abcd1234_bot?name=PocketClaw%20Agent',
-      qrPayload: 'https://t.me/newbot/PocketClawSetupBot/'
+      qrPayload:
+          'https://t.me/newbot/PocketClawSetupBot/'
           'pocketclaw_abcd1234_bot?name=PocketClaw%20Agent',
       expiresAt: DateTime.now().toUtc().add(const Duration(minutes: 10)),
       pollInterval: const Duration(milliseconds: 20),
@@ -39,7 +42,8 @@ class StubClient extends TelegramOnboardingClient {
 
   @override
   Future<TelegramBotCredentials> collectCredentials(
-      TelegramPairing pairing) async {
+    TelegramPairing pairing,
+  ) async {
     return const TelegramBotCredentials(
       token: '9001:CHILD-TOKEN',
       botUserId: 9001,
@@ -64,24 +68,23 @@ class Fixture {
 
   final client = StubClient();
   final opened = <String>[];
-  String savedConfig = '{}';
+  TelegramBotCredentials? savedCredentials;
   int reloads = 0;
   late final TelegramOnboardingController controller;
 
   late final TelegramConfigWriter configWriter = TelegramConfigWriter(
-    readConfig: () async => savedConfig,
-    writeConfig: (content) async {
-      savedConfig = content;
+    writeCredentials: (credentials) async {
+      savedCredentials = credentials;
       return true;
     },
   );
 
   Widget widget() => MaterialApp(
-        home: TelegramOnboardingPage(
-          controller: controller,
-          configWriter: configWriter,
-        ),
-      );
+    home: TelegramOnboardingPage(
+      controller: controller,
+      configWriter: configWriter,
+    ),
+  );
 }
 
 Future<void> settle(WidgetTester tester) async {
@@ -89,7 +92,6 @@ Future<void> settle(WidgetTester tester) async {
     await tester.pump(const Duration(milliseconds: 25));
   }
 }
-
 
 /// Drives the real Android lifecycle sequence. Flutter's binding rejects
 /// shortcuts such as paused -> resumed, which is also what a device never
@@ -117,8 +119,9 @@ Future<void> foreground(WidgetTester tester) async {
 }
 
 void main() {
-  testWidgets('opens on the intro with Connect and a manual fallback',
-      (tester) async {
+  testWidgets('opens on the intro with Connect and a manual fallback', (
+    tester,
+  ) async {
     final f = Fixture();
     await tester.pumpWidget(f.widget());
     await tester.pump();
@@ -152,8 +155,7 @@ void main() {
     await tester.pump();
     await tester.pump();
 
-    final qr =
-        tester.widget<TelegramPairingQr>(find.byType(TelegramPairingQr));
+    final qr = tester.widget<TelegramPairingQr>(find.byType(TelegramPairingQr));
     expect(qr.payload, startsWith('https://t.me/newbot/PocketClawSetupBot/'));
     expect(qr.payload, isNot(contains('poll-secret-value')));
     expect(qr.payload, isNot(contains('CHILD-TOKEN')));
@@ -179,7 +181,9 @@ void main() {
     final f = Fixture();
     f.client.statusQueue.add(
       const TelegramPairingStatus(
-          state: PairingState.ready, botUsername: 'pocketclaw_abcd1234_bot'),
+        state: PairingState.ready,
+        botUsername: 'pocketclaw_abcd1234_bot',
+      ),
     );
     await tester.pumpWidget(f.widget());
     await tester.tap(find.text('Connect Telegram'));
@@ -191,7 +195,7 @@ void main() {
     expect(find.text('@pocketclaw_abcd1234_bot'), findsOneWidget);
     // The token configured Core; it is never shown.
     expect(find.textContaining('CHILD-TOKEN'), findsNothing);
-    expect(f.savedConfig, contains('9001:CHILD-TOKEN'));
+    expect(f.savedCredentials?.token, '9001:CHILD-TOKEN');
     expect(f.reloads, 1);
     f.controller.dispose();
   });
@@ -200,7 +204,9 @@ void main() {
     final f = Fixture();
     f.client.statusQueue.add(
       const TelegramPairingStatus(
-          state: PairingState.ready, botUsername: 'pocketclaw_abcd1234_bot'),
+        state: PairingState.ready,
+        botUsername: 'pocketclaw_abcd1234_bot',
+      ),
     );
     await tester.pumpWidget(f.widget());
     await tester.tap(find.text('Connect Telegram'));
@@ -217,7 +223,9 @@ void main() {
     final f = Fixture();
     f.client.statusQueue.add(
       const TelegramPairingStatus(
-          state: PairingState.created, botUsername: 'pocketclaw_abcd1234_bot'),
+        state: PairingState.created,
+        botUsername: 'pocketclaw_abcd1234_bot',
+      ),
     );
     await tester.pumpWidget(f.widget());
     await tester.tap(find.text('Connect Telegram'));
@@ -229,8 +237,9 @@ void main() {
 
   testWidgets('an expired pairing offers a retry', (tester) async {
     final f = Fixture();
-    f.client.statusQueue
-        .add(const TelegramPairingStatus(state: PairingState.expired));
+    f.client.statusQueue.add(
+      const TelegramPairingStatus(state: PairingState.expired),
+    );
     await tester.pumpWidget(f.widget());
     await tester.tap(find.text('Connect Telegram'));
     await settle(tester);
@@ -240,24 +249,29 @@ void main() {
     f.controller.dispose();
   });
 
-  testWidgets('a network failure explains itself and offers both ways out',
-      (tester) async {
+  testWidgets('a network failure explains itself and offers both ways out', (
+    tester,
+  ) async {
     final f = Fixture();
     f.client.createError = const TelegramOnboardingException(
-        TelegramOnboardingErrorKind.network);
+      TelegramOnboardingErrorKind.network,
+    );
     await tester.pumpWidget(f.widget());
     await tester.tap(find.text('Connect Telegram'));
     await settle(tester);
 
-    expect(find.textContaining('could not reach the setup service'),
-        findsOneWidget);
+    expect(
+      find.textContaining('could not reach the setup service'),
+      findsOneWidget,
+    );
     expect(find.widgetWithText(FilledButton, 'Try again'), findsOneWidget);
     expect(find.text('Set up manually'), findsOneWidget);
     f.controller.dispose();
   });
 
-  testWidgets('manual setup writes the same Telegram configuration',
-      (tester) async {
+  testWidgets('manual setup writes the same Telegram configuration', (
+    tester,
+  ) async {
     final f = Fixture();
     await tester.pumpWidget(f.widget());
     await tester.tap(find.text('Set up manually'));
@@ -275,10 +289,12 @@ void main() {
     await tester.tap(find.text('Save and connect'));
     await tester.pumpAndSettle();
 
-    expect(f.savedConfig,
-        contains('123456789:AAmanualtokenvaluethatislongenough'));
-    expect(f.savedConfig, contains('"777"'));
-    expect(f.savedConfig, contains('"telegram"'));
+    expect(
+      f.savedCredentials?.token,
+      '123456789:AAmanualtokenvaluethatislongenough',
+    );
+    expect(f.savedCredentials?.ownerUserId, 777);
+    expect(f.savedCredentials?.botUsername, 'manual');
     f.controller.dispose();
   });
 
@@ -295,8 +311,15 @@ void main() {
     await tester.tap(find.text('Save and connect'));
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('does not look like a bot token'), findsOneWidget);
-    expect(f.savedConfig, '{}', reason: 'nothing should have been written');
+    expect(
+      find.textContaining('does not look like a bot token'),
+      findsOneWidget,
+    );
+    expect(
+      f.savedCredentials,
+      isNull,
+      reason: 'nothing should have been written',
+    );
     f.controller.dispose();
   });
 
@@ -310,7 +333,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.textContaining('Enter the bot token'), findsOneWidget);
-    expect(f.savedConfig, '{}');
+    expect(f.savedCredentials, isNull);
     f.controller.dispose();
   });
 
@@ -320,14 +343,16 @@ void main() {
     await tester.tap(find.text('Set up manually'));
     await tester.pumpAndSettle();
 
-    final field =
-        tester.widget<TextField>(find.widgetWithText(TextField, 'Bot token'));
+    final field = tester.widget<TextField>(
+      find.widgetWithText(TextField, 'Bot token'),
+    );
     expect(field.obscureText, isTrue);
     f.controller.dispose();
   });
 
-  testWidgets('backgrounding the app does not lose the pairing',
-      (tester) async {
+  testWidgets('backgrounding the app does not lose the pairing', (
+    tester,
+  ) async {
     final f = Fixture();
     await tester.pumpWidget(f.widget());
     await tester.tap(find.text('Connect Telegram'));
@@ -359,7 +384,9 @@ void main() {
     // While the user was in Telegram, the bot got created.
     f.client.statusQueue.add(
       const TelegramPairingStatus(
-          state: PairingState.ready, botUsername: 'pocketclaw_abcd1234_bot'),
+        state: PairingState.ready,
+        botUsername: 'pocketclaw_abcd1234_bot',
+      ),
     );
     await foreground(tester);
     await settle(tester);

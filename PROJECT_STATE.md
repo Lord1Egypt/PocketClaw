@@ -994,3 +994,170 @@ Every server-side prerequisite for Milestone D is therefore satisfied. What
 remains is entirely on the app side: rebuild the APK with
 `--dart-define=POCKETCLAW_ONBOARDING_BASE_URL=https://pocketclaw-telegram-setup-bot-83ai.vercel.app`
 and run the device checklist.
+
+## CODEX SOL HANDOFF — PRE-RELEASE FIX (2026-08-26)
+
+### Status and rollback
+
+- Candidate status: **AUTOMATED PASS; PHYSICAL DEVICE PENDING; RELEASE
+  BLOCKED**. Do not merge or create `v0.2.0-rc1` until the device checklist
+  passes.
+- Work branch: `fix/user-facing-log-privacy`.
+- Exact starting commit: `e5b88ff1a4c8f76e321c07af97eff5ca23d59d78`.
+- Pushed rollback branch: `checkpoint/pre-codex-sol-prerelease-fix`.
+- Pushed annotated rollback tag:
+  `pre-codex-sol-prerelease-fix-20260826`.
+- Both rollback refs resolve to the starting commit. Historical
+  `phase2-milestone-d` remains at
+  `8f861bca1c82b43b306e95b14e277269260bbab0`; it was not moved.
+
+### Physical findings that triggered this candidate
+
+- **PRE-RELEASE BLOCKER — PHYSICAL DEVICE REPRODUCED:** "Telegram may send
+  Thinking placeholder for message A and stall the final response indefinitely
+  until message B arrives; message B then triggers/delivers the response
+  belonging to A."
+- A broader reproduction returned "The model returned an empty response",
+  then accepted several later Telegram updates and emitted several
+  `Thinking... 💭` placeholders without final responses before recovering.
+- Native Settings disagreed with the correctly connected Core console. A later
+  installation showed only the imported `gh` skill. Android Logs showed the
+  upstream-branded PID message and ANSI/control/block glyphs.
+- The basename-caller and queue/drain fixes at the starting commit had already
+  passed physically and were preserved.
+
+### Root causes and fixes
+
+- Native Telegram state was a fragile second interpretation of Core's split
+  config. Native Settings is now the neutral `Telegram / Manage Telegram
+  connection` shortcut to the authoritative Core route `/channels/telegram`.
+  Tapping it has no pairing callback; pairing begins only from an explicit Core
+  page action.
+- Core secure fields are split between `config.json` and `.security.yml`; raw
+  native JSON writes are invalid because secure values are redacted and the
+  security file wins. Managed/manual setup now writes through Core's
+  loopback-only, per-process-authenticated, write-only
+  `PUT /api/pocketclaw/android/telegram` bridge. It returns no credential.
+  Failed/cancelled replacement pairing performs no write, so the old bot stays
+  active until a new pairing succeeds.
+- Telego's default `fasthttp` path had no whole-request deadline when the
+  gateway context had none. A lost mobile connection could block one outbound
+  operation indefinitely while other update handlers accepted messages and
+  sent placeholders. Telegram now always uses a proxy-preserving
+  `net/http.Client` with a 45-second deadline.
+- `TelegramChannel.EditMessage` swallowed post-connect errors and Manager
+  ignored exhausted final delivery. Edit errors now propagate, normal send is
+  the fallback, final delivery is synchronous, and failures propagate. Failed
+  placeholder edits remain correlated: successful fallback send deletes the
+  stale placeholder (or edits if deletion fails); exhausted normal send makes
+  one final correlated edit attempt.
+- Placeholder, typing, and reaction state was keyed only by channel/chat, so
+  close arrivals could overwrite one another. Every accepted update now gets a
+  safe random process-local lifecycle ID. Same-session Telegram messages are
+  independent FIFO inbound requests instead of steering. Trace fields contain
+  only event, correlation ID, channel, durations/counts, and tool name — no
+  content, user/chat ID, token, arguments, session key, or credential.
+- No causal link was found between the exactly-once Android log queue and the
+  Telegram stall. The queue/drain fix remains intact.
+- Tool audit found Android `exec` already has a 60-second default timeout,
+  kills process trees, collects output without a pipe-drain deadlock, and
+  returns `(no output)` for empty output. Skill HTTP clients are bounded.
+  Success/failure/timeout/empty-output tests pass; there is no evidence `gh`
+  caused the stall. Safe lifecycle events will locate any future device stall.
+- Android Core is a sticky foreground service with a partial wake lock;
+  Flutter pause/resume does not stop it. No source evidence ties the incident
+  to backgrounding, but foreground/background/screen-locked behavior still
+  requires physical validation. No battery hack was added.
+- Both Milestone D and current source bundle eight templates:
+  `agent-browser`, `github`, `hardware`, `picoclaw-agent`, `skill-creator`,
+  `summarize`, `tmux`, `weather`. `picoclaw-agent` is deliberately unseeded, so
+  the intended fresh baseline is **seven**. Import writes only the new skill
+  directory and cannot replace others. The exact device reason for "only gh"
+  is unknowable without its filesystem, but a real repair gap existed: existing
+  config skipped seed paths. `onboard ensure-workspace` now fills only missing
+  embedded files at Core-console startup, never overwrites user files, never
+  newly seeds `picoclaw-agent`, and preserves an existing user copy.
+- Logs now store one sanitized plain-text representation before display and
+  export. CSI/SGR (RGB/256 included), OSC, DCS/SOS/PM/APC, cursor/erase, CR,
+  backspace, C0/C1, DEL, and orphaned CSI fragments are removed while Arabic,
+  emoji, ordinary Unicode, tabs, and newlines survive. Android sets
+  `NO_COLOR=1`, `TERM=dumb`, and prints plain `PocketClaw`. Stale PID text is
+  `pid belongs to another process; ignoring stale pid file`. No global string
+  replacement was used.
+
+### Changed source areas
+
+- Android host: `PicoClawMethodChannel.kt`, `PicoClawService.kt`.
+- Flutter: `lib/main.dart`; Core channel/service/log sanitizer; Telegram config
+  writer; config/onboarding/settings widgets. The obsolete native status reader
+  and connected page were deleted.
+- Core lifecycle: `pkg/bus/types.go`, agent lifecycle/mailbox/pipeline files,
+  channel base/interfaces/manager, and Telegram transport.
+- Core config/skills/log/UI: onboard helpers/command, Android bridge API, web
+  startup/onboarding/banner/gateway, Telegram route test, DingTalk and Teams
+  titles.
+- Tests changed across Flutter, agent lifecycle, Android bridge, skills,
+  onboarding, frontend route, logger, and log sanitization.
+- `core/pocketclaw-core-v0.3.1.patch` was regenerated (93 changed files) and
+  intentional divergence recorded in `UPSTREAM_TRACKING.md`.
+
+### Validation
+
+- `flutter analyze`: PASS, no issues. `flutter test`: PASS, 94 tests.
+- Frontend: Vitest PASS (2 files / 36 tests), `pnpm exec tsc -b` PASS,
+  `pnpm lint` PASS.
+- Go PASS: logger, PID, providers, all web backend packages, agent, skills,
+  androiddns, MQTT, onboard, commands, channels, Telegram, and tools. The final
+  agent/channel/Telegram run included long timeout cases.
+- Deterministic lifecycle tests prove: empty provider A finalizes explicitly
+  while idle; close B/C arrivals finalize independently in FIFO order; failed
+  edit sends normally and cleans the placeholder; exhausted send can retry the
+  placeholder as final delivery.
+- Canonical Core build used repository-local `core/src/`, root Make targets,
+  `-trimpath`, `-s`, and `-w`; both binaries contain zero developer paths.
+
+### Candidate artifact
+
+- APK: `build/app/outputs/apk/release/app-release.apk`
+- Size: `34,239,649` bytes
+- SHA-256:
+  `f663d25a2fffb0ce969ad4a9ce3405c1e563b6263c7af37e90768eef471c621d`
+- Package/version: `com.lord1egypt.pocketclaw`, `0.1.3` (3), minSdk 24,
+  target/compile SDK 36.
+- Onboarding URL occurs once:
+  `https://pocketclaw-telegram-setup-bot-83ai.vercel.app`.
+- Build guard PASS for the three required arm64 libraries.
+- `libpicoclaw.so`: 37,224,801 bytes,
+  `87653601023974156be1b1a255387ec3c93a0c154254a7b8d9e1012ac2e926e5`.
+- `libpicoclaw-web.so`: 24,641,889 bytes,
+  `a8328f1d66932ba8da544060905965278898744c04c2ece5a993717e361400c5`.
+- Secret scan PASS: zero Telegram-token shapes, secret environment names,
+  Redis URLs, private-key blocks, or full provider-key shapes. Two hits are
+  only seven-character provider-format prefixes compiled into Core, not keys.
+  Zero `.upstream` paths and zero raw full gateway caller strings.
+- Known deferred artifact issue remains once in `libapp.so`:
+  `file:///home/lordegypt/PocketClaw-App/.dart_tool/flutter_build/dart_plugin_registrant.dart`.
+  It is not normal UI/log output. Keep under **FINAL RELEASE HARDENING**; do
+  not rush obfuscation changes into this candidate.
+
+### Deferred roadmap — record only
+
+- Background & Battery page: optimization state, user-initiated settings,
+  Samsung Sleeping/Deep Sleeping guidance, reliability information. PocketClaw
+  cannot silently grant Unrestricted mode.
+- Runtime / Statistics tab: local-by-default uptime, agent state, token counts,
+  CPU/RAM/Core resources, request outcomes/latency, provider/model/channel
+  state, restart count, and later charts.
+- Manager-token rotation remains separate security hygiene. A token appeared
+  in screenshots/chat; do not mark rotation complete without explicit external
+  confirmation, and never retrieve or print it.
+
+### Required next action
+
+Install only the APK above. Run the full physical checklist, especially send
+`تسلم` and send nothing else until its final reply arrives; then idle and send
+another message repeatedly. Check foreground/background/locked screen,
+placeholder/typing/streaming combinations, native Telegram navigation,
+reconnect preservation, fresh/existing skills plus `gh`, clean exactly-once
+Unicode logs/export, provider, Skill Hub, startup, and performance. Do not merge
+or release on anything short of physical PASS.

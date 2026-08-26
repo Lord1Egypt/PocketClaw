@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/binary"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -47,6 +46,7 @@ var (
 const (
 	defaultMediaGroupDelay = 500 * time.Millisecond
 	telegramCaptionLimit   = 1024
+	telegramHTTPTimeout    = 45 * time.Second
 )
 
 type TelegramChannel struct {
@@ -89,24 +89,20 @@ func NewTelegramChannel(
 	channelName := bc.Name()
 	var opts []telego.BotOption
 
+	httpClient := &http.Client{Timeout: telegramHTTPTimeout}
 	if telegramCfg.Proxy != "" {
 		proxyURL, parseErr := url.Parse(telegramCfg.Proxy)
 		if parseErr != nil {
 			return nil, fmt.Errorf("invalid proxy URL %q: %w", telegramCfg.Proxy, parseErr)
 		}
-		opts = append(opts, telego.WithHTTPClient(&http.Client{
-			Transport: &http.Transport{
-				Proxy: http.ProxyURL(proxyURL),
-			},
-		}))
+		httpClient.Transport = &http.Transport{Proxy: http.ProxyURL(proxyURL)}
 	} else if os.Getenv("HTTP_PROXY") != "" || os.Getenv("HTTPS_PROXY") != "" {
-		// Use environment proxy if configured
-		opts = append(opts, telego.WithHTTPClient(&http.Client{
-			Transport: &http.Transport{
-				Proxy: http.ProxyFromEnvironment,
-			},
-		}))
+		httpClient.Transport = &http.Transport{Proxy: http.ProxyFromEnvironment}
 	}
+	// Telego otherwise defaults to fasthttp without a deadline. A lost mobile
+	// connection can then block one outbound worker indefinitely while polling
+	// continues accepting updates and emitting Thinking placeholders.
+	opts = append(opts, telego.WithHTTPClient(httpClient))
 
 	if baseURL := strings.TrimRight(strings.TrimSpace(telegramCfg.BaseURL), "/"); baseURL != "" {
 		opts = append(opts, telego.WithAPIServer(baseURL))
@@ -481,18 +477,6 @@ func (c *TelegramChannel) EditMessage(ctx context.Context, chatID string, messag
 			return nil
 		}
 
-		if isPostConnectError(err) {
-			logger.WarnCF(
-				"telegram",
-				"EditMessage likely landed but result is unknown; swallowing error to prevent duplicate",
-				map[string]any{
-					"chat_id": chatID,
-					"mid":     mid,
-					"error":   err.Error(),
-				},
-			)
-			return nil // Swallow to prevent Manager fallback to a new SendMessage
-		}
 	}
 
 	return err
@@ -1775,30 +1759,6 @@ func cryptoRandInt() int {
 	var b [4]byte
 	_, _ = rand.Read(b[:])
 	return int(binary.BigEndian.Uint32(b[:])) | 1 // ensure non-zero
-}
-
-// isPostConnectError identifies network errors that likely occurred after
-// the request was transmitted to Telegram (e.g. dropped connection while
-// waiting for response). Swallowing these for edits prevents duplicate
-// fallbacks, at the small risk of leaving a stale placeholder if the
-// edit never actually reached the server.
-func isPostConnectError(err error) bool {
-	if err == nil {
-		return false
-	}
-
-	// Context errors (timeout/canceled) are too broad; they can be triggered
-	// locally before any data is sent. Never swallow them.
-	if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
-		return false
-	}
-
-	msg := strings.ToLower(err.Error())
-	// Narrowly target connection dropouts where the request likely landed.
-	return strings.Contains(msg, "connection reset by peer") ||
-		strings.Contains(msg, "unexpected eof") ||
-		strings.Contains(msg, "connection closed by foreign host") ||
-		strings.Contains(msg, "broken pipe")
 }
 
 // VoiceCapabilities returns the voice capabilities of the channel.

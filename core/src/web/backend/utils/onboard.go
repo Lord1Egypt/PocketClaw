@@ -13,7 +13,7 @@ var execCommand = LauncherExecCommand
 func EnsureOnboarded(configPath string) error {
 	_, err := os.Stat(configPath)
 	if err == nil {
-		return nil
+		return ensureWorkspace(configPath)
 	}
 	if !os.IsNotExist(err) {
 		return fmt.Errorf("stat config: %w", err)
@@ -40,4 +40,18 @@ func EnsureOnboarded(configPath string) error {
 	}
 
 	return nil
+}
+
+func ensureWorkspace(configPath string) error {
+	cmd := execCommand(FindPicoclawBinary(), "onboard", "ensure-workspace")
+	cmd.Env = append(os.Environ(), config.EnvConfig+"="+configPath)
+	output, err := cmd.CombinedOutput()
+	if err == nil {
+		return nil
+	}
+	trimmed := strings.TrimSpace(string(output))
+	if trimmed == "" {
+		return fmt.Errorf("ensure workspace: %w", err)
+	}
+	return fmt.Errorf("ensure workspace: %w: %s", err, trimmed)
 }

@@ -265,7 +265,7 @@ func (h *Handler) validateGatewayPidData(
 
 	if gatewayProcess, inspected := gatewayProcessMatcher(pidData.PID); inspected {
 		if !gatewayProcess {
-			return false, true, "pid process command is not picoclaw gateway"
+			return false, true, "pid belongs to another process; ignoring stale pid file"
 		}
 		return true, true, ""
 	}

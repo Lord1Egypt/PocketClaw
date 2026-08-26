@@ -182,6 +182,18 @@ adaptation. Automated merges from upstream are not a maintenance model.
 Recorded here so a future upstream review does not mistake PocketClaw's own
 work for an adoption, and does not go looking upstream for its origin.
 
+- **Pre-release Android reliability and privacy work (Codex Sol candidate,
+  2026-08-26).** This is PocketClaw-authored divergence, not an upstream
+  adoption. It adds the loopback-authenticated, write-only Android Telegram
+  credential bridge so Core remains the sole owner of its split
+  `config.json`/`.security.yml` state; bounded Telegram HTTP requests, safe
+  per-request correlation, independently completing Telegram session
+  mailboxes, synchronous final delivery, edit-to-send fallback, and terminal
+  placeholder cleanup; non-destructive workspace seed repair and additive
+  skill-import coverage; and Android-safe plain logging, including basename
+  callers, a non-terminal banner, and neutral stale-PID wording. Future
+  upstream work touching agent session steering, Telegram delivery, onboarding
+  helpers, or web API routing must preserve these PocketClaw guarantees.
 - **Telegram managed-bot onboarding (Milestone D, 2026-08-26).** The
   onboarding service is PocketClaw-authored and depends on no upstream code. It
   lives in its own public repository, `Lord1Egypt/PocketClaw-Telegram-Setup`,

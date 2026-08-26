@@ -678,21 +678,30 @@ func main() {
 		ExpectedCookie: dashboardSessionCookie,
 		LocalAutoLogin: localAutoLogin,
 	}, accessControlledMux)
+	appMux := http.NewServeMux()
+	apiHandler.RegisterAndroidBridgeRoutes(appMux, os.Getenv(api.AndroidBridgeTokenEnv))
+	appMux.Handle("/", dashAuth)
 
 	// Apply middleware stack
 	handler := middleware.Recoverer(
 		middleware.Logger(
 			middleware.ReferrerPolicyNoReferrer(
-				middleware.JSONContentType(dashAuth),
+				middleware.JSONContentType(appMux),
 			),
 		),
 	)
 
-	// Print startup banner (console mode only).
+	// Print startup banner (console mode only). Android captures stdout for a
+	// plain-text Logs screen, so its NO_COLOR environment gets a text banner
+	// rather than RGB escapes and terminal-only block drawing characters.
 	if enableConsole || debug {
 		consoleHosts := launcherConsoleHosts(hostInput, effectivePublic)
 
-		fmt.Print(utils.Banner)
+		if os.Getenv("NO_COLOR") != "" {
+			fmt.Println(utils.PlainBanner)
+		} else {
+			fmt.Print(utils.Banner)
+		}
 		fmt.Println()
 		if needsInitialSetup {
 			if *noBrowser {

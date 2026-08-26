@@ -31,22 +31,22 @@ void main() {
   void installNativeStub() {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(channel, (call) async {
-      switch (call.method) {
-        case 'getServiceStatus':
-          return <String, Object?>{
-            'isRunning': false,
-            'pid': 12302,
-            'lastLog': stickyLastLog,
-          };
-        case 'takeNewLogs':
-          takeNewLogsCalls++;
-          final drained = List<String>.from(pendingNativeLogs);
-          pendingNativeLogs.clear();
-          return drained;
-        default:
-          return null;
-      }
-    });
+          switch (call.method) {
+            case 'getServiceStatus':
+              return <String, Object?>{
+                'isRunning': false,
+                'pid': 12302,
+                'lastLog': stickyLastLog,
+              };
+            case 'takeNewLogs':
+              takeNewLogsCalls++;
+              final drained = List<String>.from(pendingNativeLogs);
+              pendingNativeLogs.clear();
+              return drained;
+            default:
+              return null;
+          }
+        });
   }
 
   setUp(() {
@@ -84,12 +84,14 @@ void main() {
       }
       await settleLogBatch();
 
-      final occurrences =
-          appendedLogs().where((line) => line == staleWarning).length;
+      final occurrences = appendedLogs()
+          .where((line) => line == staleWarning)
+          .length;
       expect(
         occurrences,
         1,
-        reason: 'the device showed this single event repeated until it '
+        reason:
+            'the device showed this single event repeated until it '
             'evicted every other log entry',
       );
       expect(takeNewLogsCalls, 25);
@@ -119,19 +121,33 @@ void main() {
     expect(appendedLogs(), isEmpty);
   });
 
-  test('lines emitted between polls are all delivered, not just the last',
-      () async {
-    pendingNativeLogs.addAll(['first line', 'second line', 'third line']);
-    stickyLastLog = 'third line';
+  test(
+    'lines emitted between polls are all delivered, not just the last',
+    () async {
+      pendingNativeLogs.addAll(['first line', 'second line', 'third line']);
+      stickyLastLog = 'third line';
+
+      await service.pollNativeServiceStatusForTest();
+      await settleLogBatch();
+
+      expect(
+        appendedLogs(),
+        containsAllInOrder(<String>['first line', 'second line', 'third line']),
+      );
+    },
+  );
+
+  test('stored and therefore exported logs are plain Unicode text', () async {
+    pendingNativeLogs.add('\x1b[38;2;213;70;70mتسلم 😊\x1b[0m\x1b[2K\u0000');
 
     await service.pollNativeServiceStatusForTest();
     await settleLogBatch();
 
-    expect(appendedLogs(), containsAllInOrder(<String>[
-      'first line',
-      'second line',
-      'third line',
-    ]));
+    expect(appendedLogs(), <String>['تسلم 😊']);
+    final exportedRepresentation = appendedLogs().join('\n');
+    expect(exportedRepresentation, isNot(contains('\x1b')));
+    expect(exportedRepresentation, isNot(contains('[38;2;')));
+    expect(exportedRepresentation, isNot(contains('\u0000')));
   });
 
   test('no user-visible log line carries a module or developer path', () async {
@@ -149,8 +165,11 @@ void main() {
         '/home/',
         '.upstream',
       ]) {
-        expect(line.contains(banned), isFalse,
-            reason: '"$line" leaks "$banned"');
+        expect(
+          line.contains(banned),
+          isFalse,
+          reason: '"$line" leaks "$banned"',
+        );
       }
     }
   });

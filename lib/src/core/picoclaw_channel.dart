@@ -62,6 +62,19 @@ class PicoClawChannel {
     return result.whereType<String>().toList(growable: false);
   }
 
+  /// Persists Telegram credentials through Core so config.json and
+  /// .security.yml are updated together by Core's normal SaveConfig path.
+  static Future<bool> configureTelegram({
+    required String token,
+    required int ownerUserId,
+  }) async {
+    final result = await _channel.invokeMethod<bool>('configureTelegram', {
+      'token': token,
+      'ownerUserId': ownerUserId,
+    });
+    return result ?? false;
+  }
+
   static Future<String> getFullLog() async {
     final result = await _channel.invokeMethod<String>('getFullLog');
     return result ?? '';

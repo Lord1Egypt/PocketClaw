@@ -327,3 +327,42 @@ capture final device logs, so that symptom must be confirmed during retest.
 7. Two open items unrelated to the blocker: localizing the onboarding strings,
    and confirming a `claude-*` model on OpenCode. Both are in `TASKS.md`.
 8. Do not start another milestone.
+
+## CODEX SOL HANDOFF — PRE-RELEASE FIX
+
+Continue on `fix/user-facing-log-privacy`. The exact pre-Codex state is
+recoverable from pushed branch `checkpoint/pre-codex-sol-prerelease-fix` or
+annotated tag `pre-codex-sol-prerelease-fix-20260826`, both at
+`e5b88ff1a4c8f76e321c07af97eff5ca23d59d78`. Historical Milestone D remains
+`phase2-milestone-d` / `8f861bca1c82b43b306e95b14e277269260bbab0`.
+
+Automated work is complete and one candidate exists:
+
+- APK: `build/app/outputs/apk/release/app-release.apk`
+- Size: 34,239,649 bytes
+- SHA-256: `f663d25a2fffb0ce969ad4a9ce3405c1e563b6263c7af37e90768eef471c621d`
+- Core: `87653601023974156be1b1a255387ec3c93a0c154254a7b8d9e1012ac2e926e5`
+  and `a8328f1d66932ba8da544060905965278898744c04c2ece5a993717e361400c5`.
+- Guard, metadata, endpoint, `-trimpath`, and secret scans: PASS.
+- Flutter analyze/test (94), frontend Vitest (36)/tsc/lint, and required Go
+  suites: PASS.
+
+Native Telegram is now only a shortcut to Core's `/channels/telegram` page;
+Core owns credential persistence through a narrow authenticated loopback write;
+Telegram outbound HTTP is deadline-bounded; request/placeholder state is
+correlated and same-session Telegram requests are independent FIFO lifecycles;
+edit/send failures are no longer swallowed; seven fresh skills are repaired
+non-destructively; Android logs are sanitized once for display/export and use a
+plain banner/neutral PID warning. Full root causes, file groups, tests, and exact
+physical symptoms are in the matching section of `PROJECT_STATE.md`.
+
+Physical testing is still **PENDING**, so release is **BLOCKED**. Do not merge,
+touch `main`, move `phase2-milestone-d`, or create a GitHub release. Test a lone
+`تسلم` with no wake-up message, empty-response recovery, sequential/close
+messages, foreground/background/locked screen, placeholder/typing/streaming
+variants, neutral native Telegram navigation, reconnect preservation, skills
+repair/import, Unicode logs/export, provider, Skill Hub, startup, and speed.
+
+Deferred only: Background & Battery UX; Runtime/Statistics tab; controlled Dart
+source-URI hardening. Manager-token rotation remains pending unless explicitly
+confirmed externally; never retrieve or print the token.

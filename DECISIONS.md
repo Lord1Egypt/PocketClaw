@@ -884,3 +884,75 @@
   frontend's dev dependencies. That widens the upstream divergence, and it was
   accepted deliberately: the project had no DOM renderer, which is precisely
   why nothing could test the real route.
+
+## Native Telegram Settings is a neutral shortcut; Core owns management state
+
+- Date: 2026-08-26
+- Decision: native Settings always shows `Telegram / Manage Telegram
+  connection` and navigates to Core console `/channels/telegram`. It never
+  displays connected/disconnected state and never starts pairing on card tap.
+- Reason: physical evidence proved that duplicating Core's masked, split secure
+  configuration in Flutter creates contradictory state. The Core page already
+  has the correct connected/unconfigured, Open Chat, reconnect, and advanced
+  behavior.
+- Consequence: the native status reader/page was removed. Managed pairing is
+  only an explicit host action requested by the canonical Core page.
+
+## Core is the sole Telegram credential persistence authority
+
+- Date: 2026-08-26
+- Decision: Android sends a successful managed/manual credential to a
+  loopback-only, per-process-authenticated, write-only Core endpoint. Core uses
+  `SaveConfig`; the bridge exposes no GET and returns no token.
+- Reason: masking and `.security.yml` precedence invalidate raw native
+  `config.json` parsing/writing. Keeping the old bot untouched until a
+  replacement succeeds also makes reconnect failure safe.
+- Consequence: the random bridge credential is never persisted/logged and the
+  Telegram token is never returned to Flutter.
+
+## Telegram requests have bounded, independently completing lifecycles
+
+- Date: 2026-08-26
+- Decision: Telegram HTTP uses a 45-second deadline; every inbound gets a safe
+  process-local correlation ID; same-session Telegram arrivals are FIFO full
+  requests rather than steering; final delivery is synchronous; edit errors
+  fall back to send and correlated placeholder cleanup.
+- Reason: an unbounded outbound call matched the physical stall, while
+  swallowed edit errors and chat-only placeholder keys could independently
+  leave `Thinking` permanent or attach completion to the wrong request.
+- Consequence: empty provider output, tool errors/timeouts, normal output, edit
+  failure, and close arrivals release independently. Safe trace events locate
+  future physical stalls without logging content or identity.
+
+## Existing workspaces are repaired non-destructively to seven baseline skills
+
+- Date: 2026-08-26
+- Decision: Core console startup runs `onboard ensure-workspace`, which copies
+  only missing embedded files. Fresh PocketClaw seeds seven bundled skills;
+  `picoclaw-agent` remains deliberately unseeded but an existing user copy is
+  never deleted.
+- Reason: existing config skipped onboarding, so a workspace missing seeds
+  could remain with only a later imported `gh`. Import itself is additive.
+- Consequence: no hardcoded remembered count of eight; user/global skills can
+  increase discovery, and invalid/missing SKILL metadata can correctly exclude
+  a directory.
+
+## User logs are plain Unicode text at one storage boundary
+
+- Date: 2026-08-26
+- Decision: sanitize Core output before it enters `ServiceManager.logs`; Logs
+  and Export consume the same representation. Core also receives `NO_COLOR=1`
+  and `TERM=dumb` and prints a plain Android banner.
+- Reason: Android Logs is not a terminal. Display-only cleaning leaves exports
+  dirty; stripping non-ASCII corrupts Arabic and emoji.
+- Consequence: terminal protocols/control bytes are removed, printable Unicode
+  is preserved, and the exactly-once queue remains the transport model.
+
+## Background/battery and runtime statistics remain future work
+
+- Date: 2026-08-26
+- Decision: add neither battery-management hacks nor telemetry UI to this
+  pre-release fix. Record a future user-guided Background & Battery page and a
+  local-by-default Runtime / Statistics tab.
+- Reason: neither expands the evidence-backed current fix, and PocketClaw
+  cannot silently grant itself unrestricted battery operation.

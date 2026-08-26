@@ -9,6 +9,7 @@ import 'app_theme.dart';
 import 'device_feedback_models.dart';
 import 'firebase_device_reporter.dart';
 import 'picoclaw_channel.dart';
+import 'plain_text_log_sanitizer.dart';
 import 'umeng_device_reporter.dart';
 import '../native/core_service_adapter_factory.dart';
 import '../native/core_service_adapter.dart';
@@ -1201,10 +1202,11 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
   final List<String> _pendingLogs = [];
 
   void _addLog(String log) {
-    if (log.isEmpty) return;
+    final sanitized = PlainTextLogSanitizer.sanitize(log);
+    if (sanitized.isEmpty) return;
 
-    final lines = log.split(RegExp(r'[\r\n]+')).where((l) => l.isNotEmpty);
-    _pendingLogs.addAll(lines.map((l) => l.trim()));
+    final lines = sanitized.split('\n').where((line) => line.isNotEmpty);
+    _pendingLogs.addAll(lines);
 
     if (_notifyTimer == null || !_notifyTimer!.isActive) {
       _notifyTimer = Timer(const Duration(milliseconds: 100), () {

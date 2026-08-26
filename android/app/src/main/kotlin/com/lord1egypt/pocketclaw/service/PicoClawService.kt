@@ -9,6 +9,7 @@ import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.os.IBinder
 import android.os.PowerManager
+import android.util.Base64
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.lord1egypt.pocketclaw.PicoClawApp
@@ -17,6 +18,7 @@ import java.io.BufferedReader
 import java.io.File
 import java.io.FileOutputStream
 import java.io.InputStreamReader
+import java.security.SecureRandom
 import java.util.zip.ZipFile
 
 class PicoClawService : Service() {
@@ -59,6 +61,17 @@ class PicoClawService : Service() {
         // instead of collapsing them with a dedup heuristic.
         private val pendingLogs = ArrayDeque<String>()
         private const val MAX_PENDING_LOGS = 2000
+
+        // Authenticates the loopback-only Android/Core bridge. This random
+        // value lives for one app process, is passed only to the bundled Core
+        // child process, and is never persisted or logged.
+        private val androidBridgeToken: String by lazy {
+            ByteArray(32).also(SecureRandom()::nextBytes).let {
+                Base64.encodeToString(it, Base64.NO_WRAP or Base64.URL_SAFE)
+            }
+        }
+
+        fun bridgeTokenForHost(): String = androidBridgeToken
 
         /** Records a line for the UI exactly once and updates the snapshot. */
         fun publishLog(line: String) {
@@ -158,9 +171,14 @@ class PicoClawService : Service() {
                 "PICOCLAW_HOME" to workspace.absolutePath,
                 "PICOCLAW_CONFIG" to configPath,
                 "PICOCLAW_BINARY" to gatewayBinaryPath,
+                "POCKETCLAW_ANDROID_BRIDGE_TOKEN" to androidBridgeToken,
                 "TMPDIR" to tmpDir.absolutePath,
                 "PATH" to "/system/bin:/system/xbin",
                 "LANG" to "en_US.UTF-8",
+                // stdout is captured into PocketClaw's plain-text Logs screen,
+                // not rendered by a terminal emulator.
+                "NO_COLOR" to "1",
+                "TERM" to "dumb",
                 "SSL_CERT_DIR" to "/system/etc/security/cacerts",
             )
             activeNetworkDnsServers(context).takeIf { it.isNotEmpty() }?.let {
@@ -409,12 +427,12 @@ class PicoClawService : Service() {
 
             if (exitCode != 0) {
                 throw RuntimeException(
-                    "picoclaw binary test failed (exit $exitCode): $output"
+                    "Core binary test failed (exit $exitCode): $output"
                 )
             }
         } catch (e: java.io.IOException) {
             throw RuntimeException(
-                "Cannot execute picoclaw binary at ${binaryFile.absolutePath}: ${e.message}", e
+                "Cannot execute Core binary at ${binaryFile.absolutePath}: ${e.message}", e
             )
         }
     }

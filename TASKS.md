@@ -329,3 +329,49 @@ supplied by the user.
   QR code and/or deep link when valid, with manual bot-token entry retained as
   an advanced/fallback option. This is the next milestone and was deliberately
   kept out of Milestone C.
+
+## CODEX SOL HANDOFF — PRE-RELEASE FIX
+
+- [x] Create and push rollback branch/tag at exact pre-Codex commit `e5b88ff`.
+- [x] Make native Settings Telegram a neutral shortcut to Core console
+  `/channels/telegram`; assert card tap cannot invoke pairing.
+- [x] Route managed/manual credential writes through Core's authoritative
+  config/security persistence boundary without exposing a read/token API.
+- [x] Bound Telegram HTTP operations; propagate edit/send errors; make final
+  delivery synchronous; correlate placeholders; queue same-session Telegram
+  requests as independent FIFO lifecycles.
+- [x] Add deterministic empty-response, idle, sequential/close-arrival,
+  edit-fallback, send-failure, and placeholder-cleanup tests.
+- [x] Audit tool success/failure/timeout/empty-output/termination paths; no
+  unbounded `gh`-specific defect found.
+- [x] Determine intended fresh skill baseline: seven; preserve but do not newly
+  seed `picoclaw-agent`; repair missing seeds without overwriting user files;
+  prove `gh` import is additive.
+- [x] Preserve basename callers and exactly-once queue/drain logs; neutralize
+  stale-PID text; sanitize terminal controls once for Logs and Export while
+  preserving Arabic/emoji/Unicode.
+- [x] Regenerate Core patch and record intentional divergence.
+- [x] Pass Flutter, frontend, required Go, metadata, guard, path, branding, and
+  secret validations.
+- [x] Build one successful ARM64 candidate APK:
+  `f663d25a...71c621d` (34,239,649 bytes).
+- [ ] **PRE-RELEASE BLOCKER — PHYSICAL:** validate a lone `تسلم` completes
+  without any later inbound update; repeat idle/sequential/close-message flows.
+- [ ] **PRE-RELEASE BLOCKER — PHYSICAL:** validate foreground, background, and
+  locked-screen completion plus typing/placeholder/streaming combinations;
+  permanent Thinking placeholders must be zero.
+- [ ] **PRE-RELEASE BLOCKER — PHYSICAL:** validate native Telegram opens only
+  the canonical Core page, explicit reconnect is safe, failed/cancelled pairing
+  preserves the old bot, restart persists, and live bot AI replies work.
+- [ ] **PRE-RELEASE BLOCKER — PHYSICAL:** validate fresh/existing seven-skill
+  baseline, additive `gh` import, and Core/app restart discovery.
+- [ ] **PRE-RELEASE BLOCKER — PHYSICAL:** validate basename exactly-once logs,
+  no upstream branding/ANSI/control boxes, readable Arabic/emoji, and clean
+  exported logs.
+- [ ] Merge/release only after every physical item passes. `main` needs separate
+  authorization; do not create `v0.2.0-rc1` yet.
+- [ ] Security hygiene: confirm manager bot token rotation externally. Never
+  retrieve or record the token.
+- [ ] FINAL RELEASE HARDENING: controlled Dart generated-source URI strategy.
+- [ ] Future milestone only: Background & Battery page.
+- [ ] Future milestone only: local Runtime / Statistics bottom tab.
