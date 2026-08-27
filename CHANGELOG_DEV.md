@@ -889,3 +889,24 @@ verified `develop` @ `14e6991`. Not merged; physical-device testing is the gate.
 - Built guarded APK `309f6d7a...a5f3030`, with Core hashes
   `49f89ae2...be656f` and `98f3fa9d...08bae`. Physical validation is pending;
   no merge/release/main change was made.
+
+## 2026-08-27 — Telegram DEBUG final cleanup
+
+- Proved Telego emitted valid `Err: [<nil>]` and PocketClaw's pre-stdout secret
+  redactor preserved it; the Web pre-storage orphaned-CSI regex removed `[<n`
+  and persisted malformed `il>]`.
+- Narrowed orphaned CSI recovery to numeric/private-numeric suffixes across Go,
+  React, and Dart. Exact successful Telego nil fields now display `Err: none`;
+  ordinary angle brackets and multilingual Unicode remain unchanged and render
+  only as safe text nodes.
+- Suppressed exact DEBUG `getUpdates` request lines and successful empty
+  responses before stdout, with idempotent storage/render guards. Failures,
+  non-empty results, API errors, send/edit operations, and lifecycle events stay
+  visible and credential-free.
+- Added repeated-poll history, failure/non-empty/operation, token-negative,
+  cross-surface angle text, ANSI, Unicode, and DOM-injection regressions.
+- Passed frontend 45/45/tsc/lint, relevant tagged Go suites, Flutter analyze and
+  101 tests. Regenerated 115-file provenance and rebuilt zero-path Core.
+- Built guarded APK `2c00720a...2da27c` (34,243,585 bytes), with Core hashes
+  `7c1d3918...38ef1f` and `1611b6e1...d09256`. Physical validation is pending;
+  no merge/release/main change was made.

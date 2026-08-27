@@ -75,6 +75,41 @@ func TestNormalizeUserVisibleLogDropsMalformedBytesWithoutReplacement(t *testing
 	}
 }
 
+func TestLogBufferSuppressesOnlyRoutineEmptyTelegramPolling(t *testing.T) {
+	token := "123456789:AAExampleSecretTokenValue"
+	buffer := NewLogBuffer(20)
+	for range 4 {
+		buffer.Append(`DBG telego bot.go:247 > API call to: "https://api.telegram.org/bot` + token + `/getUpdates"`)
+		buffer.Append("DBG telego bot.go:173 > API response getUpdates: Ok: true, Err: [<nil>], Result: []")
+	}
+
+	if lines, total, _ := buffer.LinesSince(0); total != 0 || len(lines) != 0 {
+		t.Fatalf("routine empty polls grew stored history: total=%d lines=%#v", total, lines)
+	}
+
+	important := []string{
+		`ERR telego bot.go:170 > Execution error getUpdates: request call: Post "https://api.telegram.org/bot` + token + `/getUpdates": context deadline exceeded`,
+		`DBG telego bot.go:173 > API response getUpdates: Ok: true, Err: [<nil>], Result: [{"update_id":42}]`,
+		`DBG telego bot.go:173 > API response getUpdates: Ok: false, Err: [429 "Too Many Requests"], Result: []`,
+		`DBG telego bot.go:247 > API call to: "https://api.telegram.org/bot` + token + `/sendMessage"`,
+		`DBG telego bot.go:247 > API call to: "https://api.telegram.org/bot` + token + `/editMessageText"`,
+	}
+	for _, line := range important {
+		buffer.Append(line)
+	}
+	lines, total, _ := buffer.LinesSince(0)
+	if total != len(important) || len(lines) != len(important) {
+		t.Fatalf("important Telegram history = %#v, total=%d; want %d", lines, total, len(important))
+	}
+	joined := strings.Join(lines, "\n")
+	for _, detail := range []string{"context deadline exceeded", `[{"update_id":42}]`, "429", "sendMessage", "editMessageText"} {
+		if !strings.Contains(joined, detail) {
+			t.Fatalf("stored history lost %q: %q", detail, joined)
+		}
+	}
+	assertNoTelegramTokenFragment(t, joined, token)
+}
+
 func TestNormalizeUserVisibleLogMapsOnlyExactPicoLoggerIdentity(t *testing.T) {
 	got := normalizeUserVisibleLog("INF pico pico.go:1013 > WebSocket client connected")
 	want := "INF realtime realtime.go:1013 > WebSocket client connected"
@@ -249,8 +284,8 @@ func TestRepresentativeStartupHasNoUnintendedLegacyBrand(t *testing.T) {
 		buffer.Append(line)
 	}
 	lines, total, _ := buffer.LinesSince(0)
-	if total != len(raw) {
-		t.Fatalf("stored total = %d, want %d", total, len(raw))
+	if total != len(raw)-1 {
+		t.Fatalf("stored total = %d, want %d after routine poll suppression", total, len(raw)-1)
 	}
 	rendered := strings.Join(lines, "\n")
 	for _, forbidden := range []string{"pico", "picoclaw", "sipeed"} {
@@ -264,10 +299,12 @@ func TestRepresentativeStartupHasNoUnintendedLegacyBrand(t *testing.T) {
 		"channel=pocketclaw path=<internal>",
 		"SECURITY: Channel allows EVERYONE",
 		"Starting PocketClaw realtime channel",
-		"Telegram API call: getUpdates",
 	} {
 		if !strings.Contains(rendered, required) {
 			t.Fatalf("representative user-visible startup lost %q: %q", required, rendered)
 		}
+	}
+	if strings.Contains(rendered, "Telegram API call: getUpdates") {
+		t.Fatalf("representative startup retained routine Telegram poll: %q", rendered)
 	}
 }

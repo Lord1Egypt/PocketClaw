@@ -160,7 +160,6 @@ describe("Core Web Console Logs page", () => {
 
     for (const detail of [
       "Telegram API call: getMe",
-      "Telegram API call: getUpdates",
       "Telegram API call: sendMessage",
       "Telegram API call: editMessageText",
       "Telegram API call: answerCustomQuery",
@@ -178,6 +177,53 @@ describe("Core Web Console Logs page", () => {
     ]) {
       expect(rendered).not.toContain(fragment)
     }
+    expect(rendered).not.toContain("Telegram API call: getUpdates")
+  })
+
+  it("preserves angle-bracket text and suppresses only empty getUpdates polls", () => {
+    gatewayLogState.logs = [
+      ...Array.from({ length: 4 }, (_, index) => [
+        {
+          id: `15:${index * 2}`,
+          line: "DBG telego bot.go:247 > Telegram API call: getUpdates",
+        },
+        {
+          id: `15:${index * 2 + 1}`,
+          line: "DBG telego bot.go:173 > API response getUpdates: Ok: true, Err: [<nil>], Result: []",
+        },
+      ]).flat(),
+      {
+        id: "15:8",
+        line: 'DBG telego bot.go:173 > API response getUpdates: Ok: true, Err: [<nil>], Result: [{"update_id":42}]',
+      },
+      {
+        id: "15:9",
+        line: "ERR telego bot.go:170 > Execution error getUpdates: context deadline exceeded",
+      },
+      {
+        id: "15:10",
+        line: "DBG telego bot.go:173 > API response getMe: Ok: true, Err: [<nil>], Result: <tag>",
+      },
+      {
+        id: "15:11",
+        line: "DBG text fixture.go:1 > value=<none> 1 < 2 2 > 1 Arabic <نص> emoji 🚀 <nil>",
+      },
+    ]
+
+    const { container } = render(<LogsPage />)
+    const rendered = container.textContent ?? ""
+
+    expect(rendered).not.toContain("Result: []")
+    expect(rendered).not.toContain("Telegram API call: getUpdates")
+    expect(rendered).toContain('[{"update_id":42}]')
+    expect(rendered).toContain("context deadline exceeded")
+    expect(rendered).toContain("Err: none, Result: <tag>")
+    expect(rendered).toContain(
+      "value=<none> 1 < 2 2 > 1 Arabic <نص> emoji 🚀 <nil>",
+    )
+    expect(rendered).not.toContain("Err: il>]")
+    expect(rendered).not.toContain("�")
+    expect(container.querySelector("tag")).toBeNull()
   })
 
   it("normalizes only classified legacy startup identities", () => {

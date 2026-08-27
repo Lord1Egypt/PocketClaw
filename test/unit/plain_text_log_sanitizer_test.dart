@@ -65,6 +65,50 @@ void main() {
     expect(clean('123.4ms'), '123.4ms');
   });
 
+  test('preserves angle brackets as ordinary plain text', () {
+    for (final value in <String>[
+      'Err: <nil>',
+      'value=<none>',
+      '1 < 2',
+      '2 > 1',
+      '<tag>',
+      'Arabic <نص>',
+      'emoji 🚀 <nil>',
+    ]) {
+      expect(clean(value), value);
+      expect(clean(value), isNot(contains('\uFFFD')));
+    }
+    expect(
+      clean('API response getMe: Ok: true, Err: [<nil>], Result: {}'),
+      'API response getMe: Ok: true, Err: none, Result: {}',
+    );
+  });
+
+  test('suppresses only successful empty Telegram long polling', () {
+    expect(clean('DBG telego bot.go:247 > Telegram API call: getUpdates'), '');
+    expect(
+      clean(
+        'DBG telego bot.go:173 > API response getUpdates: '
+        'Ok: true, Err: [<nil>], Result: []',
+      ),
+      '',
+    );
+    expect(
+      clean(
+        'DBG telego bot.go:173 > API response getUpdates: '
+        'Ok: true, Err: [<nil>], Result: [{"update_id":42}]',
+      ),
+      contains('[{"update_id":42}]'),
+    );
+    expect(
+      clean(
+        'ERR telego bot.go:170 > Execution error getUpdates: '
+        'context deadline exceeded',
+      ),
+      contains('context deadline exceeded'),
+    );
+  });
+
   test('matches the shared user-visible log contract', () async {
     final raw = await File(
       'test/fixtures/user_visible_log_contract.json',

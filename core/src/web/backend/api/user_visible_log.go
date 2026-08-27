@@ -12,7 +12,7 @@ var (
 	stringControlPattern             = regexp.MustCompile(`(?:\x1B[P\^_X]|[\x{0090}\x{0098}\x{009E}\x{009F}])[\s\S]*?(?:\x1B\\|\x{009C})`)
 	unterminatedStringControlPattern = regexp.MustCompile(`(?m)(?:\x1B[P\^_X]|[\x{0090}\x{0098}\x{009E}\x{009F}])[^\n]*$`)
 	csiPattern                       = regexp.MustCompile(`(?:\x1B\[|\x{009B})[0-?]*[ -/]*[@-~]`)
-	orphanedCSIPattern               = regexp.MustCompile(`\[(?:\??[0-9:;<=>]+)[0-9:;<=>? ]*[ABCDEFGHJKSTfmnsu]`)
+	orphanedCSIPattern               = regexp.MustCompile(`\[(?:\?[0-9:;]+|[0-9][0-9:;]*)[ ]*[ABCDEFGHJKSTfmnsu]`)
 	otherEscapePattern               = regexp.MustCompile(`\x1B[ -/]*[@-~]`)
 	routinePicoWSPattern             = regexp.MustCompile(`(?:^| > )GET /pico/ws (?:101|2[0-9]{2})(?:\s|$)`)
 	picoWSRequestPattern             = regexp.MustCompile(`((?:^| > )[A-Z]+) /pico/ws ([0-9]{3})(\s|$)`)
@@ -23,6 +23,9 @@ var (
 	telegramAPICallWrapperPattern    = regexp.MustCompile(`(?i)API call to: "Telegram API call: ([A-Za-z][A-Za-z0-9_]*)"`)
 	authorizationCredentialPattern   = regexp.MustCompile(`(?i)(authorization[=:][ \t]*)(?:\[?(?:bearer|basic)[ \t]+)[A-Za-z0-9._~+/%:=-]+\]?`)
 	legacyPIDFilePathPattern         = regexp.MustCompile(`(?:[^\s"']*[/\\])?\.picoclaw\.pid(?:\.tmp)?([\s"']|$)`)
+	telegramSuccessfulNilError       = regexp.MustCompile(`((?:^| > )API response [A-Za-z][A-Za-z0-9_]*: Ok: true, Err:) \[<nil>\]`)
+	routineTelegramGetUpdatesCall    = regexp.MustCompile(`(?:^| > )Telegram API call: getUpdates(?:, with data:.*)?$`)
+	routineEmptyGetUpdatesResponse   = regexp.MustCompile(`(?:^| > )API response getUpdates: Ok: true, Err: none, Result: \[\](?:\s|$)`)
 )
 
 var exactCompatibilityMessages = map[string]string{
@@ -101,8 +104,12 @@ func normalizeUserVisibleLog(input string) string {
 	result = telegramAPICallWrapperPattern.ReplaceAllString(result, "Telegram API call: $1")
 	result = authorizationCredentialPattern.ReplaceAllString(result, "${1}<redacted>")
 	result = legacyPIDFilePathPattern.ReplaceAllString(result, "<gateway PID file>$1")
+	result = telegramSuccessfulNilError.ReplaceAllString(result, "${1} none")
 	result = normalizePicoStructuredFields(result)
 	result = normalizeExactCompatibilityMessages(result)
+	if routineTelegramGetUpdatesCall.MatchString(result) || routineEmptyGetUpdatesResponse.MatchString(result) {
+		return ""
+	}
 	if routinePicoWSPattern.MatchString(result) {
 		return ""
 	}

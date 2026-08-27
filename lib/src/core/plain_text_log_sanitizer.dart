@@ -19,7 +19,7 @@ abstract final class PlainTextLogSanitizer {
   );
   static final RegExp _csi = RegExp(r'(?:\x1B\[|\u009B)[0-?]*[ -/]*[@-~]');
   static final RegExp _orphanedCsi = RegExp(
-    r'\[(?:\??[0-9:;<=>]+)[0-9:;<=>? ]*[ABCDEFGHJKSTfmnsu]',
+    r'\[(?:\?[0-9:;]+|[0-9][0-9:;]*)[ ]*[ABCDEFGHJKSTfmnsu]',
   );
   static final RegExp _otherEscape = RegExp(r'\x1B[ -/]*[@-~]');
   static final RegExp _routinePicoWebSocket = RegExp(
@@ -38,6 +38,15 @@ abstract final class PlainTextLogSanitizer {
   static final RegExp _picoLoggerCaller = RegExp(
     r'(^|[ \t])([A-Z]{3}) ([^ \t]+) pico\.go:([0-9]+)([ \t]+>)',
     multiLine: true,
+  );
+  static final RegExp _routineTelegramGetUpdatesCall = RegExp(
+    r'(?:^| > )Telegram API call: getUpdates(?:, with data:.*)?$',
+  );
+  static final RegExp _telegramSuccessfulNilError = RegExp(
+    r'((?:^| > )API response [A-Za-z][A-Za-z0-9_]*: Ok: true, Err:) \[<nil>\]',
+  );
+  static final RegExp _routineEmptyGetUpdatesResponse = RegExp(
+    r'(?:^| > )API response getUpdates: Ok: true, Err: none, Result: \[\](?:\s|$)',
   );
 
   static String sanitize(String input) {
@@ -93,11 +102,19 @@ abstract final class PlainTextLogSanitizer {
           '${match.group(3)}${match.group(4)}',
     );
     result = result.replaceAllMapped(
+      _telegramSuccessfulNilError,
+      (match) => '${match.group(1)} none',
+    );
+    result = result.replaceAllMapped(
       _picoLoggerCaller,
       (match) =>
           '${match.group(1)}${match.group(2)} ${match.group(3)} '
           'realtime.go:${match.group(4)}${match.group(5)}',
     );
+    if (_routineTelegramGetUpdatesCall.hasMatch(result) ||
+        _routineEmptyGetUpdatesResponse.hasMatch(result)) {
+      return '';
+    }
     if (_routinePicoWebSocket.hasMatch(result)) return '';
     result = result.replaceAllMapped(
       _picoWebSocketRequest,

@@ -224,6 +224,12 @@ work for an adoption, and does not go looking upstream for its origin.
   upstream ChannelPico, serialized IDs, packages/files, routes, the actual PID
   file, libraries, or environment variables; substring-negative tests enforce
   that boundary.
+  PocketClaw also narrows the upstream-derived orphaned-CSI fallback to numeric
+  remnants so Telego's printable `[<nil>]` cannot be mistaken for terminal
+  control data. Successful nil fields display semantically as `none`.
+  PocketClaw's Telego adapter suppresses only DEBUG `getUpdates` request lines
+  and exact successful empty responses before writers; failure/non-empty/API
+  error diagnostics and all Telegram runtime behavior remain upstream-compatible.
 - **Telegram managed-bot onboarding (Milestone D, 2026-08-26).** The
   onboarding service is PocketClaw-authored and depends on no upstream code. It
   lives in its own public repository, `Lord1Egypt/PocketClaw-Telegram-Setup`,

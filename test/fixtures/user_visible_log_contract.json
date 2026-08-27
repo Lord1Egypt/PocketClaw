@@ -30,6 +30,26 @@
     "expected": "123.4ms"
   },
   {
+    "name": "nil angle brackets",
+    "input": "Err: <nil>",
+    "expected": "Err: <nil>"
+  },
+  {
+    "name": "telego nil response brackets",
+    "input": "API response getMe: Ok: true, Err: [<nil>], Result: {}",
+    "expected": "API response getMe: Ok: true, Err: none, Result: {}"
+  },
+  {
+    "name": "ordinary angle bracket values",
+    "input": "value=<none> 1 < 2 2 > 1 <tag>",
+    "expected": "value=<none> 1 < 2 2 > 1 <tag>"
+  },
+  {
+    "name": "multilingual angle brackets",
+    "input": "Arabic <نص> emoji 🚀 <nil>",
+    "expected": "Arabic <نص> emoji 🚀 <nil>"
+  },
+  {
     "name": "routine internal websocket success",
     "input": "12:00:00 DBG http middleware.go:67 > GET /pico/ws 200 53.616µs",
     "expected": ""

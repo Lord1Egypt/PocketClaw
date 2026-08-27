@@ -1079,3 +1079,32 @@
   `.picoclaw.pid`, libraries, environment variables, and provenance remain
   untouched. Security and failure diagnostics remain visible. Exact-token and
   exact-message matching explicitly leaves unrelated `pico` substrings alone.
+
+## Orphaned CSI recovery is numeric-only
+
+- Date: 2026-08-27
+- Decision: retain standards-compliant ESC/C1 CSI removal, but recognize a CSI
+  suffix whose introducer was lost only when its parameters begin with a digit
+  or `?` plus numeric parameters. Preserve all other printable angle-bracket
+  text. Normalize the exact successful Telego nil field to `Err: none`.
+- Reason: Telego correctly emitted `[<nil>]`; the old permissive suffix pattern
+  treated `<` as a parameter and `n` as a final byte, deleting `[<n` before Web
+  storage. An introducer-less control cannot safely use the full ambiguous CSI
+  grammar on ordinary text.
+- Consequence: numeric orphaned RGB/SGR/cursor controls remain removable,
+  `<nil>`, comparisons, tags, Arabic, emoji, and punctuation remain valid text,
+  and React continues to escape rather than interpret them as HTML.
+
+## Routine empty Telegram long polls are pre-writer noise
+
+- Date: 2026-08-27
+- Decision: for exact DEBUG component `telego`, omit Bot API `getUpdates`
+  request lines and exact successful responses with nil error plus `Result: []`
+  before any writer. Keep idempotent storage/render guards for raw/legacy input.
+- Reason: Telego logs the request before it knows the result, then emits a
+  distinct execution-error or API-response line. Omitting the request ensures
+  an empty success is silent while a later failure/non-empty response still
+  carries the operation and useful details.
+- Consequence: routine 30-second polling cannot consume history. Failures,
+  non-empty updates, non-success responses, other Bot API operations, token
+  redaction, and Telegram runtime behavior are unchanged.

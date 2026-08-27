@@ -506,3 +506,25 @@ occurrences. New APK: `309f6d7a...a5f3030`. Core hashes:
 relevant tagged Go including Skills/Pico/Telegram, Flutter analyze/99 tests,
 115-file provenance, zero paths, and guard pass. Physical device remains the
 final gate; no merge/release/main change.
+
+## TELEGRAM DEBUG FINAL CLEANUP CANDIDATE — 2026-08-27
+
+Telego emits correct `Err: [<nil>]`; pre-stdout redaction preserved it. The Web
+backend's orphaned-CSI fallback then misclassified `[<n` as a control suffix,
+so `LogBuffer` stored `il>]`. The fallback is now restricted to numeric CSI
+remnants. Known successful Telego nil fields display as `Err: none`, while
+ordinary angle-bracket text is preserved and React continues safe text-node
+rendering.
+
+Exact DEBUG `getUpdates` request lines and successful empty responses are now
+discarded before stdout, with idempotent shared-boundary guards. Failures,
+non-empty updates, API errors, send/edit operations, lifecycle diagnostics, and
+credential redaction remain. Four repeated empty polls produce zero stored
+events. No Telegram lifecycle/onboarding/delivery, Skills, Provider, Pico,
+viewport, or native queue logic changed.
+
+New APK: `2c00720a...2da27c` (34,243,585 bytes). Core hashes:
+`7c1d3918...38ef1f` and `1611b6e1...d09256`. Frontend 45/45/tsc/lint,
+relevant tagged Go including Telegram/Skills, Flutter analyze/101 tests,
+115-file provenance, zero paths, and build guard pass. Physical device remains
+the final gate; no merge/release/main change.

@@ -19,7 +19,7 @@ const CSI_PATTERN = new RegExp(
   "g",
 )
 const ORPHANED_CSI_PATTERN =
-  /\[(?:\??[0-9:;<=>]+)[0-9:;<=>? ]*[ABCDEFGHJKSTfmnsu]/g
+  /\[(?:\?[0-9:;]+|[0-9][0-9:;]*)[ ]*[ABCDEFGHJKSTfmnsu]/g
 const OTHER_ESCAPE_PATTERN = new RegExp(String.raw`\u001B[ -/]*[@-~]`, "g")
 const ROUTINE_PICO_WS_PATTERN =
   /(?:^| > )GET \/pico\/ws (?:101|2[0-9]{2})(?:\s|$)/
@@ -37,6 +37,12 @@ const AUTHORIZATION_CREDENTIAL_PATTERN =
   /(authorization[=:][ \t]*)(?:\[?(?:bearer|basic)[ \t]+)[A-Za-z0-9._~+/%:=-]+\]?/gi
 const LEGACY_PID_FILE_PATH_PATTERN =
   /(?:[^\s"']*[\\/])?\.picoclaw\.pid(?:\.tmp)?([\s"']|$)/g
+const TELEGRAM_SUCCESSFUL_NIL_ERROR =
+  /((?:^| > )API response [A-Za-z][A-Za-z0-9_]*: Ok: true, Err:) \[<nil>\]/g
+const ROUTINE_TELEGRAM_GET_UPDATES_CALL =
+  /(?:^| > )Telegram API call: getUpdates(?:, with data:.*)?$/
+const ROUTINE_EMPTY_GET_UPDATES_RESPONSE =
+  /(?:^| > )API response getUpdates: Ok: true, Err: none, Result: \[\](?:\s|$)/
 const EXACT_COMPATIBILITY_MESSAGES = new Map([
   ["Starting Pico Protocol channel", "Starting PocketClaw realtime channel"],
   ["Pico Protocol channel started", "PocketClaw realtime channel started"],
@@ -134,8 +140,15 @@ export function normalizeUserVisibleLog(input: string): string {
   )
   result = result.replace(AUTHORIZATION_CREDENTIAL_PATTERN, "$1<redacted>")
   result = result.replace(LEGACY_PID_FILE_PATH_PATTERN, "<gateway PID file>$1")
+  result = result.replace(TELEGRAM_SUCCESSFUL_NIL_ERROR, "$1 none")
   result = normalizePicoStructuredFields(result)
   result = normalizeExactCompatibilityMessages(result)
+  if (
+    ROUTINE_TELEGRAM_GET_UPDATES_CALL.test(result) ||
+    ROUTINE_EMPTY_GET_UPDATES_RESPONSE.test(result)
+  ) {
+    return ""
+  }
   if (ROUTINE_PICO_WS_PATTERN.test(result)) return ""
   result = result.replace(
     PICO_WS_REQUEST_PATTERN,

@@ -507,3 +507,23 @@ supplied by the user.
 - [ ] **FINAL PHYSICAL GATE:** restart Core in DEBUG and confirm the observed
   startup/security/realtime/PID lines are brand-safe while all earlier physical
   passes remain intact.
+
+## Telegram DEBUG final cleanup
+
+- [x] Prove Telego and the pre-stdout redactor preserve raw `Err: [<nil>]`.
+- [x] Trace corruption to the Web pre-storage orphaned-CSI fallback removing
+  `[<n` and persisting `il>]`.
+- [x] Restrict orphaned control cleanup to numeric CSI remnants and preserve
+  ordinary angle brackets, Unicode, Arabic, emoji, and HTML-safe text rendering.
+- [x] Display successful Telego nil fields as `Err: none` consistently.
+- [x] Suppress routine `getUpdates` calls and exact successful empty responses
+  before stdout; retain failures, non-empty updates, API errors, send/edit, and
+  lifecycle events.
+- [x] Prove repeated empty polls add zero stored history and all retained lines
+  remain credential-fragment-free.
+- [x] Pass frontend 45/45/tsc/lint, relevant tagged Go, Flutter analyze/101,
+  115-file provenance, zero-path builds, and permanent APK guard.
+- [x] Build ARM64 candidate `2c00720a...2da27c` with Core hashes
+  `7c1d3918...38ef1f` and `1611b6e1...d09256`.
+- [ ] **FINAL PHYSICAL GATE:** observe several empty long polls, one non-empty
+  update, and a recoverable failure in DEBUG; then reconfirm all prior passes.

@@ -72,6 +72,62 @@ func TestRedactSecretsPreservesPublicBotMetadata(t *testing.T) {
 	}
 }
 
+func TestPrepareThirdPartyLogSuppressesOnlyRoutineEmptyGetUpdates(t *testing.T) {
+	t.Parallel()
+
+	request := `API call to: "https://api.telegram.org/bot` + syntheticTelegramToken + `/getUpdates", with data: {"timeout":30}`
+	emptyResponse := "API response getUpdates: Ok: true, Err: [<nil>], Result: []"
+
+	var history []string
+	for range 4 {
+		for _, raw := range []string{request, emptyResponse} {
+			if message, keep := prepareThirdPartyLog(DEBUG, "telego", raw); keep {
+				history = append(history, message)
+			}
+		}
+	}
+	if len(history) != 0 {
+		t.Fatalf("routine empty polling grew history: %#v", history)
+	}
+
+	kept := map[string]string{
+		"failure":            `Execution error getUpdates: Post "https://api.telegram.org/bot` + syntheticTelegramToken + `/getUpdates": context deadline exceeded`,
+		"non-empty response": `API response getUpdates: Ok: true, Err: [<nil>], Result: [{"update_id":42}]`,
+		"api error response": `API response getUpdates: Ok: false, Err: [429 "Too Many Requests"], Result: []`,
+		"sendMessage":        `API call to: "https://api.telegram.org/bot` + syntheticTelegramToken + `/sendMessage"`,
+		"editMessageText":    `API call to: "https://api.telegram.org/bot` + syntheticTelegramToken + `/editMessageText"`,
+	}
+	for name, raw := range kept {
+		t.Run(name, func(t *testing.T) {
+			message, keep := prepareThirdPartyLog(DEBUG, "telego", raw)
+			if !keep {
+				t.Fatalf("important Telegram diagnostic was suppressed: %q", raw)
+			}
+			if want := redactSecrets(raw); message != want {
+				t.Fatalf("prepareThirdPartyLog() = %q, want %q", message, want)
+			}
+			assertNoTelegramCredentialFragment(t, message)
+		})
+	}
+}
+
+func TestPrepareThirdPartyLogDoesNotFilterOtherComponentsOrLevels(t *testing.T) {
+	t.Parallel()
+
+	input := "API response getUpdates: Ok: true, Err: [<nil>], Result: []"
+	for _, tc := range []struct {
+		level     LogLevel
+		component string
+	}{
+		{level: INFO, component: "telego"},
+		{level: DEBUG, component: "telegram"},
+	} {
+		if got, keep := prepareThirdPartyLog(tc.level, tc.component, input); !keep || got != input {
+			t.Fatalf("prepareThirdPartyLog(%v, %q) = %q, %v; want unchanged", tc.level, tc.component, got, keep)
+		}
+	}
+}
+
 func assertNoTelegramCredentialFragment(t *testing.T, value string) {
 	t.Helper()
 

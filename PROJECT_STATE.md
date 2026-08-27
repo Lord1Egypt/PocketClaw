@@ -1498,3 +1498,45 @@ Replacement candidate:
 Next physical check: restart Core with DEBUG logging and confirm channel
 initialization, security, webhook, realtime, and PID events use only the
 semantic PocketClaw display while all previously passed behavior remains intact.
+
+## Telegram DEBUG final cleanup — AUTOMATED PASS, PHYSICAL PENDING
+
+Telego's raw successful response is correct: `Err: [<nil>]`. PocketClaw's
+pre-stdout credential redactor also preserved it correctly. Corruption occurred
+when the Web backend normalized captured stdout before `LogBuffer` storage: the
+orphaned-CSI fallback accepted `<` as a parameter byte and `n` as a final byte,
+removed `[<n`, and persisted the malformed remainder `il>]`. React was already
+rendering that stored string as safe text, not HTML.
+
+The orphaned fallback now recognizes only numeric/private-numeric CSI remnants;
+real ESC/C1 CSI handling remains unchanged. Ordinary `<` and `>` text,
+including Arabic and emoji, stays intact. Exact successful Telego nil fields
+display semantically as `Err: none`; generic `<nil>` text remains unchanged.
+The real Logs DOM proves `<tag>` remains text and creates no element.
+
+At the pre-stdout Telego logger boundary, routine `getUpdates` request lines and
+only exact successful empty responses are omitted. Failures have their separate
+`Execution error getUpdates` line, and non-empty or unsuccessful responses stay
+visible. Web pre-storage, React, and Native/Export normalizers enforce the same
+idempotent policy for legacy/raw lines. Four repeated empty poll pairs add zero
+stored entries. Telegram lifecycle/delivery/onboarding and native queue logic
+were not changed.
+
+Regression results: frontend Vitest 45/45, TypeScript, lint; tagged Go logger,
+gateway, channels, Pico, Telegram, Skills, API, middleware, and CLI suites;
+Flutter analyze and 101/101 tests. The 115-file Core patch was regenerated,
+both Core binaries contain zero developer paths, and the permanent APK guard
+passed.
+
+Replacement candidate:
+
+- APK size: 34,243,585 bytes
+- APK SHA-256: `2c00720a44a2b2ac5de2c82c202c172129e778392eabf5434c36883a322da27c`
+- `libpicoclaw.so`: `7c1d3918e30ff673e62a963822fcdd00e327805221cea1b963cb222d1138ef1f`
+- `libpicoclaw-web.so`: `1611b6e102fbcff726213bef659cbb05509efc12e63592a373df64fe14d09256`
+- Status: **AUTOMATED PASS; PHYSICAL GATE PENDING; RELEASE BLOCKED**.
+
+Next physical check: leave Telegram polling in DEBUG for several minutes;
+routine empty `getUpdates` must stay silent. Exercise a non-empty update and a
+recoverable failure, verify useful details remain, and reconfirm every prior
+physical pass.
