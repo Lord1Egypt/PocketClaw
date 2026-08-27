@@ -1221,3 +1221,64 @@ verify valid `µ`, Arabic, emoji, punctuation, zero newly introduced U+FFFD,
 continued ANSI/control removal, and no routine successful polling noise. Failed
 polls and real API requests must remain visible. Continue the broader physical
 pre-release checklist before any merge or release.
+
+## Web Console log parity / internal identifier visibility — AUTOMATED PASS, PHYSICAL PENDING
+
+The native/export cleanup remains intact. The remaining Web Console startup
+boxes came from a separate path: the captured Core gateway CLI treated
+`--no-color` as “remove RGB” but still emitted a six-line Unicode block-art
+banner, while the React Logs page deliberately parsed SGR into styled spans and
+did not handle OSC, cursor/erase, carriage return, backspace, or other terminal
+protocols. The gateway log ring also stored raw child output, so the Web API
+had no user-visible normalization boundary.
+
+The earliest safe Web boundary is now `LogBuffer.Append`: it stores only the
+shared brand-safe plain-text representation. The native Dart boundary and the
+browser's idempotent legacy/raw-line guard are locked to the same canonical
+JSON fixtures. Valid Unicode, Arabic, emoji, punctuation, `µs`, tabs, and
+newlines survive; terminal protocols are removed. Literal box drawing is not
+globally stripped because it can be legitimate Unicode. Instead, the captured
+gateway is always started with `--no-color`, whose banner is now the single
+plain line `PocketClaw`.
+
+The launcher startup event is now `Starting gateway process` and never prints
+the `libpicoclaw.so` path. Exact successful `GET /pico/ws` connection/close
+events (recorder 200/2xx or upgrade 101) are suppressed at HTTP middleware.
+Failures and unexpected methods remain visible as `/internal realtime
+connection`, so the compatibility route itself is not exposed. The real
+`/pico/ws` endpoint, library filenames, module paths, environment variables,
+and other compatibility identifiers were not renamed.
+
+Regression results: `flutter analyze` clean; 99 Flutter tests; frontend 3 files
+/ 37 tests, `tsc -b`, and lint; tagged Go `pkg/logger`, `pkg/gateway`,
+`web/backend/api`, `web/backend/middleware`, and `cmd/picoclaw` all pass. The
+real React Logs page test consumes the shared contract and proves Arabic,
+emoji, and `53.616µs` render with no ANSI/control fragments, routine
+`/pico/ws`, internal library path, or unintended PicoClaw/Sipeed branding,
+while a 500 remains visible under neutral wording. Core provenance is now 108
+files; its generator was made deletion-safe after the intentionally removed
+ANSI renderer exposed a stale tracked-file assumption.
+
+Replacement candidate:
+
+- APK: `build/app/outputs/apk/release/app-release.apk` and identical
+  `build/app/outputs/flutter-apk/app-release.apk`
+- Size: 34,241,381 bytes
+- SHA-256: `3e138b4a53a0389b76dbef045649d906fe2db785cd2af606826f7a0f87170adc`
+- Package/version: `com.lord1egypt.pocketclaw` 0.1.3 (3), minSdk 24,
+  target/compile SDK 36
+- `libpicoclaw.so`: 37,224,801 bytes,
+  `c9c348e9c637a7552e810396bfba5460ad4a3f65ab506d933ac5d05ea68d236e`
+- `libpicoclaw-web.so`: 24,641,889 bytes,
+  `c891ca033ededb6b8941d997fbc8e0a8d69eb18f44a6ed2176f878f65d34840a`
+- Both Core libraries contain zero developer paths; packaged hashes match.
+- Live onboarding endpoint occurs once in `libapp.so`; metadata unchanged.
+- Build guard: PASS for `libdartjni.so`, `libpicoclaw.so`, and
+  `libpicoclaw-web.so`.
+- Status: **AUTOMATED PASS; PHYSICAL DEVICE PENDING; RELEASE BLOCKED**.
+
+Install only this replacement. In Native Logs, Export Logs, and Core Web
+Console Logs, verify zero normal visible `picoclaw`/`PicoClaw`/`sipeed`/`Sipeed`,
+no terminal boxes or ANSI, intact Arabic/emoji/`µs`, no successful
+`/pico/ws` noise, and visible neutral wording for genuine failures. Do not
+merge or release before the complete standing physical checklist passes.

@@ -398,3 +398,26 @@ supplied by the user.
   continued terminal cleanup, and no routine successful self-poll noise.
 - [ ] **PRE-RELEASE BLOCKER — PHYSICAL:** verify failed polls and real API
   requests remain visible, then continue every standing device checklist item.
+
+## Web Console log parity / internal identifier visibility
+
+- [x] Trace Web Console startup boxes to the Core CLI's block-art no-color
+  banner and the React Logs route's SGR-only renderer over a raw log ring.
+- [x] Store the shared Unicode-safe plain-text representation at
+  `LogBuffer.Append`; apply the same canonical fixtures to native/export and
+  the browser's idempotent legacy/raw guard.
+- [x] Replace captured no-color block art with one `PocketClaw` text line and
+  force captured gateway launches to `--no-color`.
+- [x] Remove the gateway executable/library path from the startup event.
+- [x] Suppress exact successful `GET /pico/ws` 101/2xx events; retain failures
+  and unexpected methods with `/internal realtime connection` wording.
+- [x] Prove the real Logs page preserves Arabic, emoji, and `53.616µs`; removes
+  ANSI/control data; hides routine compatibility traffic/path leakage; and
+  still renders a genuine 500.
+- [x] Pass Flutter analyze/99 tests, frontend 37 tests/tsc/lint, tagged Go
+  logger/gateway/API/middleware/CLI suites, Core build/provenance, and APK guard.
+- [x] Build ARM64 candidate `3e138b4a...170adc` (34,241,381 bytes).
+- [ ] **PRE-RELEASE BLOCKER — PHYSICAL:** verify Native Logs, Export Logs, and
+  Core Web Console Logs all show the same clean Unicode representation, with
+  no boxes/ANSI, routine `/pico/ws`, internal library path, or unintended
+  upstream branding, while genuine errors remain visible under neutral wording.

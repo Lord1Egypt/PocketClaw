@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pocketclaw/src/core/plain_text_log_sanitizer.dart';
@@ -62,5 +63,33 @@ void main() {
 
   test('preserves plain millisecond durations', () {
     expect(clean('123.4ms'), '123.4ms');
+  });
+
+  test('matches the shared user-visible log contract', () async {
+    final raw = await File(
+      'test/fixtures/user_visible_log_contract.json',
+    ).readAsString();
+    final cases = (jsonDecode(raw) as List<Object?>)
+        .cast<Map<String, Object?>>();
+
+    for (final fixture in cases) {
+      final input = fixture['input']! as String;
+      final expected = fixture['expected']! as String;
+      final result = clean(input);
+
+      expect(result, expected, reason: fixture['name']! as String);
+      expect(
+        utf8.decode(utf8.encode(result), allowMalformed: false),
+        result,
+        reason: fixture['name']! as String,
+      );
+      if (!input.contains('\uFFFD')) {
+        expect(
+          result,
+          isNot(contains('\uFFFD')),
+          reason: fixture['name']! as String,
+        );
+      }
+    }
   });
 }

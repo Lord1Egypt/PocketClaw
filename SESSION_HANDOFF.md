@@ -379,3 +379,35 @@ repair/import, Unicode logs/export, provider, Skill Hub, startup, and speed.
 Deferred only: Background & Battery UX; Runtime/Statistics tab; controlled Dart
 source-URI hardening. Manager-token rotation remains pending unless explicitly
 confirmed externally; never retrieve or print the token.
+
+## WEB CONSOLE LOG PARITY CANDIDATE — 2026-08-27
+
+Continue on `fix/user-facing-log-privacy`. The previous UTF-8 export,
+successful log/status poll suppression, exactly-once drain, basename callers,
+and neutral Telegram card all remain passing and must not be reopened.
+
+The current automated candidate is
+`3e138b4a53a0389b76dbef045649d906fe2db785cd2af606826f7a0f87170adc`
+(34,241,381 bytes). Core hashes are
+`c9c348e9c637a7552e810396bfba5460ad4a3f65ab506d933ac5d05ea68d236e`
+and `c891ca033ededb6b8941d997fbc8e0a8d69eb18f44a6ed2176f878f65d34840a`.
+The three-library ARM64 guard passed, Core paths are clean, the onboarding
+endpoint is present once, and package/version remain 0.1.3 (3).
+
+Root causes and fixes: the gateway's no-color banner was still Unicode block
+art; captured launches now force `--no-color` and render one `PocketClaw` line.
+The Web log ring stored raw output and React only interpreted SGR; the ring now
+stores the shared fixture-backed plain-text contract and the real Logs page has
+an idempotent parity guard instead of an ANSI renderer. Startup no longer logs
+the executable/library path. Routine successful `/pico/ws` events are omitted;
+failures remain under `/internal realtime connection`. No compatibility
+identifier was renamed.
+
+Automated validation is complete: Flutter analyze plus 99 tests, frontend 37
+tests/tsc/lint, and tagged Go logger/gateway/API/middleware/Core CLI suites all
+pass. Physical validation remains mandatory and release remains blocked. Next:
+install only this APK, open Core Web Console Logs for several minutes, export a
+DEBUG log, and compare all three surfaces for intact `53.616µs`, Arabic, emoji,
+zero controls/boxes/ANSI, zero routine `/pico/ws`, zero internal library path or
+unintended upstream branding, and a visible neutral genuine-error line. Do not
+merge, release, touch `main`, move `phase2-milestone-d`, or start a milestone.

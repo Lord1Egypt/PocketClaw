@@ -22,6 +22,15 @@ abstract final class PlainTextLogSanitizer {
     r'\[(?:\??[0-9:;<=>]+)[0-9:;<=>? ]*[ABCDEFGHJKSTfmnsu]',
   );
   static final RegExp _otherEscape = RegExp(r'\x1B[ -/]*[@-~]');
+  static final RegExp _routinePicoWebSocket = RegExp(
+    r'(?:^| > )GET /pico/ws (?:101|2[0-9]{2})(?:\s|$)',
+  );
+  static final RegExp _picoWebSocketRequest = RegExp(
+    r'((?:^| > )[A-Z]+) /pico/ws ([0-9]{3})(\s|$)',
+  );
+  static final RegExp _legacyGatewayStart = RegExp(
+    r'Starting gateway process \([^\r\n)]*\)',
+  );
 
   static String sanitize(String input) {
     if (input.isEmpty) return input;
@@ -64,6 +73,18 @@ abstract final class PlainTextLogSanitizer {
       }
     }
     flushLine(newline: false);
-    return output.toString();
+
+    var result = output.toString().replaceAll(
+      _legacyGatewayStart,
+      'Starting gateway process',
+    );
+    if (_routinePicoWebSocket.hasMatch(result)) return '';
+    result = result.replaceAllMapped(
+      _picoWebSocketRequest,
+      (match) =>
+          '${match.group(1)} /internal realtime connection '
+          '${match.group(2)}${match.group(3)}',
+    );
+    return result;
   }
 }

@@ -980,3 +980,32 @@
 - Consequence: poll failures, redirects, unexpected methods, unknown routes,
   and every other API request remain logged. This filter is not deduplication
   and must never replace the exactly-once `publishLog`/`takeNewLogs` drain.
+
+## User-visible log surfaces share one plain-text contract
+
+- Date: 2026-08-27
+- Decision: normalize captured gateway output before `LogBuffer` storage, and
+  enforce the same canonical fixture contract at the existing native boundary
+  and as an idempotent browser guard. Web Logs render plain text rather than
+  terminal styling.
+- Reason: native/export and Web Console followed separate paths. The Web ring
+  stored raw output while its SGR-only renderer left non-SGR terminal protocols
+  and startup artifacts visible.
+- Consequence: ANSI/OSC/cursor/erase/CR/backspace/control data cannot reach a
+  normal rendered surface, while Arabic, emoji, `µs`, and legitimate printable
+  Unicode remain intact. This is not an ASCII conversion or brand-wide string
+  replacement.
+
+## Compatibility identifiers stay internal, with source-level neutralization
+
+- Date: 2026-08-27
+- Decision: keep `/pico/ws`, `libpicoclaw.so`, `libpicoclaw-web.so`, module
+  paths, and environment names unchanged. Omit only successful routine
+  WebSocket events, reword failures to `/internal realtime connection`, and
+  omit the executable path from the startup message. Captured no-color startup
+  uses a single PocketClaw text banner rather than block art.
+- Reason: those identifiers are runtime compatibility contracts, not product
+  copy. Renaming them would add release risk; exposing them adds no normal user
+  diagnostic value.
+- Consequence: real failures remain observable without leaking implementation
+  naming, and interactive/internal compatibility behavior is preserved.

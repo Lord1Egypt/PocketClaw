@@ -61,24 +61,36 @@ func Logger(next http.Handler) http.Handler {
 		start := time.Now()
 		rec := &responseRecorder{ResponseWriter: w, statusCode: http.StatusOK}
 		next.ServeHTTP(rec, r)
-		if isRoutineSuccessfulGatewayPoll(r.Method, r.URL.Path, rec.statusCode) {
+		if isRoutineSuccessfulInternalRequest(r.Method, r.URL.Path, rec.statusCode) {
 			return
 		}
-		logger.DebugC("http", fmt.Sprintf("%s %s %d %s", r.Method, r.URL.Path, rec.statusCode, time.Since(start)))
+		logger.DebugC("http", fmt.Sprintf("%s %s %d %s", r.Method, userVisibleRequestPath(r.URL.Path), rec.statusCode, time.Since(start)))
 	})
 }
 
-func isRoutineSuccessfulGatewayPoll(method, path string, statusCode int) bool {
-	if method != http.MethodGet || statusCode < http.StatusOK || statusCode >= http.StatusMultipleChoices {
+func isRoutineSuccessfulInternalRequest(method, path string, statusCode int) bool {
+	if method != http.MethodGet {
 		return false
 	}
 
 	switch path {
 	case "/api/gateway/logs", "/api/gateway/status":
-		return true
+		return statusCode >= http.StatusOK && statusCode < http.StatusMultipleChoices
+	case "/pico/ws":
+		// Hijacked WebSocket responses commonly remain at the recorder's default
+		// 200, while test and alternate writers may report the actual 101.
+		return statusCode == http.StatusSwitchingProtocols ||
+			(statusCode >= http.StatusOK && statusCode < http.StatusMultipleChoices)
 	default:
 		return false
 	}
+}
+
+func userVisibleRequestPath(path string) string {
+	if path == "/pico/ws" {
+		return "/internal realtime connection"
+	}
+	return path
 }
 
 // Recoverer recovers from panics in downstream handlers and returns a 500

@@ -374,6 +374,54 @@ index 23fc97c..8612cb7 100644
 +		}
 +	}
 +}
+diff --git a/cmd/picoclaw/main.go b/cmd/picoclaw/main.go
+index 3f94f81..b4523cc 100644
+--- a/cmd/picoclaw/main.go
++++ b/cmd/picoclaw/main.go
+@@ -120,7 +120,7 @@ picoclaw --no-color status`,
+ 	}
+ 
+ 	cmd.PersistentFlags().BoolVar(&rootNoColor, "no-color", false,
+-		"Disable colors (boxed layout unchanged)")
++		"Disable colors and terminal-only layout")
+ 
+ 	cmd.SetHelpFunc(func(c *cobra.Command, _ []string) {
+ 		syncCliUIColor(c.Root())
+@@ -157,14 +157,10 @@ const (
+ 		colorBlue + "██║     ██║╚██████╗╚██████╔╝" + colorRed + "╚██████╗███████╗██║  ██║╚███╔███╔╝\n" +
+ 		colorBlue + "╚═╝     ╚═╝ ╚═════╝ ╚═════╝ " + colorRed + " ╚═════╝╚══════╝╚═╝  ╚═╝ ╚══╝╚══╝\n " +
+ 		"\033[0m\r\n"
+-	plainBanner = "\r\n" +
+-		"██████╗ ██╗ ██████╗ ██████╗  ██████╗██╗      █████╗ ██╗    ██╗\n" +
+-		"██╔══██╗██║██╔════╝██╔═══██╗██╔════╝██║     ██╔══██╗██║    ██║\n" +
+-		"██████╔╝██║██║     ██║   ██║██║     ██║     ███████║██║ █╗ ██║\n" +
+-		"██╔═══╝ ██║██║     ██║   ██║██║     ██║     ██╔══██║██║███╗██║\n" +
+-		"██║     ██║╚██████╗╚██████╔╝╚██████╗███████╗██║  ██║╚███╔███╔╝\n" +
+-		"╚═╝     ╚═╝ ╚═════╝ ╚═════╝  ╚═════╝╚══════╝╚═╝  ╚═╝ ╚══╝╚══╝\n " +
+-		"\r\n"
++	// Captured application logs are not a terminal. Keep no-color output to a
++	// single brand-safe text line instead of emitting Unicode block art that a
++	// browser or Android log viewer can render as white control-like boxes.
++	plainBanner = "\r\nPocketClaw\r\n"
+ )
+ 
+ func main() {
+diff --git a/cmd/picoclaw/main_test.go b/cmd/picoclaw/main_test.go
+index e4f9de5..ccb2e4f 100644
+--- a/cmd/picoclaw/main_test.go
++++ b/cmd/picoclaw/main_test.go
+@@ -62,3 +62,11 @@ func TestNewPicoclawCommand(t *testing.T) {
+ 		assert.False(t, subcmd.Hidden)
+ 	}
+ }
++
++func TestPlainBannerIsSafeForCapturedLogs(t *testing.T) {
++	assert.Equal(t, "\r\nPocketClaw\r\n", plainBanner)
++	assert.NotContains(t, plainBanner, "\x1b")
++	assert.NotContains(t, plainBanner, "█")
++	assert.NotContains(t, plainBanner, "PicoClaw")
++	assert.NotContains(t, plainBanner, "Sipeed")
++}
 diff --git a/pkg/agent/agent.go b/pkg/agent/agent.go
 index 26abe90..a9679e4 100644
 --- a/pkg/agent/agent.go
@@ -4504,10 +4552,21 @@ index 0000000..7c1d327
 +	}
 +}
 diff --git a/web/backend/api/gateway.go b/web/backend/api/gateway.go
-index af6c656..9fea706 100644
+index af6c656..0a30a4f 100644
 --- a/web/backend/api/gateway.go
 +++ b/web/backend/api/gateway.go
-@@ -265,7 +265,7 @@ func (h *Handler) validateGatewayPidData(
+@@ -76,7 +76,9 @@ func ensurePicoTokenCachedLocked(configPath string) {
+ }
+ 
+ func (h *Handler) gatewayCommandArgs() []string {
+-	args := []string{"gateway", "-E"}
++	// The gateway's stdout/stderr are captured into user-facing Web Console
++	// logs, never attached to an interactive terminal.
++	args := []string{"gateway", "-E", "--no-color"}
+ 	if h.debug {
+ 		args = append(args, "-d")
+ 	}
+@@ -265,7 +267,7 @@ func (h *Handler) validateGatewayPidData(
  
  	if gatewayProcess, inspected := gatewayProcessMatcher(pidData.PID); inspected {
  		if !gatewayProcess {
@@ -4516,7 +4575,16 @@ index af6c656..9fea706 100644
  		}
  		return true, true, ""
  	}
-@@ -1086,7 +1086,7 @@ func (h *Handler) startGatewayLocked(initialStatus string, existingPid int) (int
+@@ -1030,7 +1032,7 @@ func (h *Handler) startGatewayLocked(initialStatus string, existingPid int) (int
+ 	// Start new process
+ 	// Locate the picoclaw executable
+ 	execPath := utils.FindPicoclawBinary()
+-	logger.InfoC("gateway", fmt.Sprintf("Starting gateway process (%s)", execPath))
++	logger.InfoC("gateway", "Starting gateway process")
+ 
+ 	cmd = gatewayExecCommand(execPath, h.gatewayCommandArgs()...)
+ 	applyLauncherProcAttrs(cmd)
+@@ -1086,7 +1088,7 @@ func (h *Handler) startGatewayLocked(initialStatus string, existingPid int) (int
  	gateway.bootConfigSignature = computeConfigSignature(cfg)
  	setGatewayRuntimeStatusLocked(initialStatus)
  	pid = cmd.Process.Pid
@@ -4525,6 +4593,35 @@ index af6c656..9fea706 100644
  
  	// Capture stdout/stderr in background
  	go scanPipe(stdoutPipe, gateway.logs)
+diff --git a/web/backend/api/gateway_test.go b/web/backend/api/gateway_test.go
+index 3e118cd..8dcea36 100644
+--- a/web/backend/api/gateway_test.go
++++ b/web/backend/api/gateway_test.go
+@@ -565,7 +565,7 @@ func TestGatewayCommandArgsIncludesDebugFlagWhenEnabled(t *testing.T) {
+ 	h.SetDebug(true)
+ 
+ 	args := h.gatewayCommandArgs()
+-	want := []string{"gateway", "-E", "-d"}
++	want := []string{"gateway", "-E", "--no-color", "-d"}
+ 	if strings.Join(args, " ") != strings.Join(want, " ") {
+ 		t.Fatalf("gatewayCommandArgs() = %v, want %v", args, want)
+ 	}
+diff --git a/web/backend/api/log.go b/web/backend/api/log.go
+index f83f6f3..512f9a5 100644
+--- a/web/backend/api/log.go
++++ b/web/backend/api/log.go
+@@ -23,6 +23,11 @@ func NewLogBuffer(capacity int) *LogBuffer {
+ 
+ // Append adds a line to the buffer. If the buffer is full, the oldest line is evicted.
+ func (b *LogBuffer) Append(line string) {
++	line = normalizeUserVisibleLog(line)
++	if line == "" {
++		return
++	}
++
+ 	b.mu.Lock()
+ 	defer b.mu.Unlock()
+ 
 diff --git a/web/backend/api/models.go b/web/backend/api/models.go
 index 941c95e..c6285db 100644
 --- a/web/backend/api/models.go
@@ -5073,6 +5170,175 @@ index bc71e49..f7f57b0 100644
  			"Exec=" + buildLinuxExecLine(exePath, args),
  			"Terminal=false",
  			"X-GNOME-Autostart-enabled=true",
+diff --git a/web/backend/api/user_visible_log.go b/web/backend/api/user_visible_log.go
+new file mode 100644
+index 0000000..a8b4c30
+--- /dev/null
++++ b/web/backend/api/user_visible_log.go
+@@ -0,0 +1,81 @@
++package api
++
++import (
++	"regexp"
++	"strings"
++	"unicode/utf8"
++)
++
++var (
++	oscPattern                       = regexp.MustCompile(`(?:\x1B\]|\x{009D})[\s\S]*?(?:\x07|\x1B\\|\x{009C})`)
++	unterminatedOSCPattern           = regexp.MustCompile(`(?m)(?:\x1B\]|\x{009D})[^\n]*$`)
++	stringControlPattern             = regexp.MustCompile(`(?:\x1B[P\^_X]|[\x{0090}\x{0098}\x{009E}\x{009F}])[\s\S]*?(?:\x1B\\|\x{009C})`)
++	unterminatedStringControlPattern = regexp.MustCompile(`(?m)(?:\x1B[P\^_X]|[\x{0090}\x{0098}\x{009E}\x{009F}])[^\n]*$`)
++	csiPattern                       = regexp.MustCompile(`(?:\x1B\[|\x{009B})[0-?]*[ -/]*[@-~]`)
++	orphanedCSIPattern               = regexp.MustCompile(`\[(?:\??[0-9:;<=>]+)[0-9:;<=>? ]*[ABCDEFGHJKSTfmnsu]`)
++	otherEscapePattern               = regexp.MustCompile(`\x1B[ -/]*[@-~]`)
++	routinePicoWSPattern             = regexp.MustCompile(`(?:^| > )GET /pico/ws (?:101|2[0-9]{2})(?:\s|$)`)
++	picoWSRequestPattern             = regexp.MustCompile(`((?:^| > )[A-Z]+) /pico/ws ([0-9]{3})(\s|$)`)
++	legacyGatewayStartPattern        = regexp.MustCompile(`Starting gateway process \([^\r\n)]*\)`)
++)
++
++// normalizeUserVisibleLog applies the plain-text contract shared by every
++// PocketClaw diagnostic surface. It removes terminal protocols without
++// removing printable Unicode, and handles only known compatibility leaks.
++func normalizeUserVisibleLog(input string) string {
++	if input == "" {
++		return input
++	}
++
++	// Drop malformed source bytes rather than introducing U+FFFD. Valid UTF-8,
++	// including a literal replacement character supplied by the source, stays
++	// untouched.
++	if !utf8.ValidString(input) {
++		input = strings.ToValidUTF8(input, "")
++	}
++
++	text := strings.ReplaceAll(input, "\r\n", "\n")
++	text = oscPattern.ReplaceAllString(text, "")
++	text = unterminatedOSCPattern.ReplaceAllString(text, "")
++	text = stringControlPattern.ReplaceAllString(text, "")
++	text = unterminatedStringControlPattern.ReplaceAllString(text, "")
++	text = csiPattern.ReplaceAllString(text, "")
++	text = orphanedCSIPattern.ReplaceAllString(text, "")
++	text = otherEscapePattern.ReplaceAllString(text, "")
++
++	var output strings.Builder
++	currentLine := make([]rune, 0, len(text))
++	flushLine := func(newline bool) {
++		output.WriteString(string(currentLine))
++		currentLine = currentLine[:0]
++		if newline {
++			output.WriteByte('\n')
++		}
++	}
++
++	for _, r := range text {
++		switch {
++		case r == '\n':
++			flushLine(true)
++		case r == '\r':
++			currentLine = currentLine[:0]
++		case r == '\b':
++			if len(currentLine) > 0 {
++				currentLine = currentLine[:len(currentLine)-1]
++			}
++		case r == '\t':
++			currentLine = append(currentLine, r)
++		case r < 0x20 || (r >= 0x7f && r <= 0x9f):
++			continue
++		default:
++			currentLine = append(currentLine, r)
++		}
++	}
++	flushLine(false)
++
++	result := legacyGatewayStartPattern.ReplaceAllString(output.String(), "Starting gateway process")
++	if routinePicoWSPattern.MatchString(result) {
++		return ""
++	}
++	return picoWSRequestPattern.ReplaceAllString(result, "$1 /internal realtime connection $2$3")
++}
+diff --git a/web/backend/api/user_visible_log_test.go b/web/backend/api/user_visible_log_test.go
+new file mode 100644
+index 0000000..2c9432f
+--- /dev/null
++++ b/web/backend/api/user_visible_log_test.go
+@@ -0,0 +1,76 @@
++package api
++
++import (
++	"encoding/json"
++	"os"
++	"path/filepath"
++	"strings"
++	"testing"
++	"unicode/utf8"
++)
++
++type userVisibleLogCase struct {
++	Name     string `json:"name"`
++	Input    string `json:"input"`
++	Expected string `json:"expected"`
++}
++
++func loadUserVisibleLogContract(t *testing.T) []userVisibleLogCase {
++	t.Helper()
++	path := filepath.Join("..", "..", "..", "..", "..", "test", "fixtures", "user_visible_log_contract.json")
++	raw, err := os.ReadFile(path)
++	if err != nil {
++		t.Fatalf("ReadFile(%q): %v", path, err)
++	}
++	var cases []userVisibleLogCase
++	if err := json.Unmarshal(raw, &cases); err != nil {
++		t.Fatalf("Unmarshal contract: %v", err)
++	}
++	return cases
++}
++
++func TestNormalizeUserVisibleLogContract(t *testing.T) {
++	for _, tt := range loadUserVisibleLogContract(t) {
++		t.Run(tt.Name, func(t *testing.T) {
++			got := normalizeUserVisibleLog(tt.Input)
++			if got != tt.Expected {
++				t.Fatalf("normalizeUserVisibleLog() = %q, want %q", got, tt.Expected)
++			}
++			if !utf8.ValidString(got) {
++				t.Fatalf("normalizeUserVisibleLog() returned invalid UTF-8: %q", got)
++			}
++			if !strings.Contains(tt.Input, "�") && strings.Contains(got, "�") {
++				t.Fatalf("normalizeUserVisibleLog() introduced U+FFFD: %q", got)
++			}
++		})
++	}
++}
++
++func TestLogBufferStoresOnlyNormalizedUserVisibleLines(t *testing.T) {
++	buffer := NewLogBuffer(20)
++	want := make([]string, 0)
++	for _, tt := range loadUserVisibleLogContract(t) {
++		buffer.Append(tt.Input)
++		if tt.Expected != "" {
++			want = append(want, tt.Expected)
++		}
++	}
++
++	got, total, _ := buffer.LinesSince(0)
++	if strings.Join(got, "\n") != strings.Join(want, "\n") {
++		t.Fatalf("LinesSince() = %#v, want %#v", got, want)
++	}
++	if total != len(want) {
++		t.Fatalf("total = %d, want %d; suppressed lines must not consume history", total, len(want))
++	}
++}
++
++func TestNormalizeUserVisibleLogDropsMalformedBytesWithoutReplacement(t *testing.T) {
++	got := normalizeUserVisibleLog("valid µs \xff عربي")
++	if got != "valid µs  عربي" {
++		t.Fatalf("normalizeUserVisibleLog() = %q", got)
++	}
++	if strings.Contains(got, "�") {
++		t.Fatalf("normalizeUserVisibleLog() introduced U+FFFD: %q", got)
++	}
++}
 diff --git a/web/backend/i18n.go b/web/backend/i18n.go
 index 9cda9e5..8ab2330 100644
 --- a/web/backend/i18n.go
@@ -5195,31 +5461,44 @@ index 698e582..e9e25bb 100644
  		if needsInitialSetup {
  			if *noBrowser {
 diff --git a/web/backend/middleware/middleware.go b/web/backend/middleware/middleware.go
-index f9eb314..842fcbc 100644
+index f9eb314..ac08ad9 100644
 --- a/web/backend/middleware/middleware.go
 +++ b/web/backend/middleware/middleware.go
-@@ -61,10 +61,26 @@ func Logger(next http.Handler) http.Handler {
+@@ -61,10 +61,38 @@ func Logger(next http.Handler) http.Handler {
  		start := time.Now()
  		rec := &responseRecorder{ResponseWriter: w, statusCode: http.StatusOK}
  		next.ServeHTTP(rec, r)
-+		if isRoutineSuccessfulGatewayPoll(r.Method, r.URL.Path, rec.statusCode) {
+-		logger.DebugC("http", fmt.Sprintf("%s %s %d %s", r.Method, r.URL.Path, rec.statusCode, time.Since(start)))
++		if isRoutineSuccessfulInternalRequest(r.Method, r.URL.Path, rec.statusCode) {
 +			return
 +		}
- 		logger.DebugC("http", fmt.Sprintf("%s %s %d %s", r.Method, r.URL.Path, rec.statusCode, time.Since(start)))
++		logger.DebugC("http", fmt.Sprintf("%s %s %d %s", r.Method, userVisibleRequestPath(r.URL.Path), rec.statusCode, time.Since(start)))
  	})
  }
  
-+func isRoutineSuccessfulGatewayPoll(method, path string, statusCode int) bool {
-+	if method != http.MethodGet || statusCode < http.StatusOK || statusCode >= http.StatusMultipleChoices {
++func isRoutineSuccessfulInternalRequest(method, path string, statusCode int) bool {
++	if method != http.MethodGet {
 +		return false
 +	}
 +
 +	switch path {
 +	case "/api/gateway/logs", "/api/gateway/status":
-+		return true
++		return statusCode >= http.StatusOK && statusCode < http.StatusMultipleChoices
++	case "/pico/ws":
++		// Hijacked WebSocket responses commonly remain at the recorder's default
++		// 200, while test and alternate writers may report the actual 101.
++		return statusCode == http.StatusSwitchingProtocols ||
++			(statusCode >= http.StatusOK && statusCode < http.StatusMultipleChoices)
 +	default:
 +		return false
 +	}
++}
++
++func userVisibleRequestPath(path string) string {
++	if path == "/pico/ws" {
++		return "/internal realtime connection"
++	}
++	return path
 +}
 +
  // Recoverer recovers from panics in downstream handlers and returns a 500
@@ -5227,10 +5506,10 @@ index f9eb314..842fcbc 100644
  func Recoverer(next http.Handler) http.Handler {
 diff --git a/web/backend/middleware/middleware_test.go b/web/backend/middleware/middleware_test.go
 new file mode 100644
-index 0000000..dc60bd1
+index 0000000..8fbb905
 --- /dev/null
 +++ b/web/backend/middleware/middleware_test.go
-@@ -0,0 +1,72 @@
+@@ -0,0 +1,84 @@
 +package middleware
 +
 +import (
@@ -5272,8 +5551,13 @@ index 0000000..dc60bd1
 +	}{
 +		{name: "logs success", method: http.MethodGet, path: "/api/gateway/logs", status: http.StatusOK},
 +		{name: "status success", method: http.MethodGet, path: "/api/gateway/status", status: http.StatusOK},
++		{name: "websocket success", method: http.MethodGet, path: "/pico/ws", status: http.StatusOK},
++		{name: "websocket upgrade", method: http.MethodGet, path: "/pico/ws", status: http.StatusSwitchingProtocols},
 +		{name: "logs failure", method: http.MethodGet, path: "/api/gateway/logs", status: http.StatusInternalServerError, emitted: true},
 +		{name: "status failure", method: http.MethodGet, path: "/api/gateway/status", status: http.StatusInternalServerError, emitted: true},
++		{name: "websocket client failure", method: http.MethodGet, path: "/pico/ws", status: http.StatusBadRequest, emitted: true},
++		{name: "websocket server failure", method: http.MethodGet, path: "/pico/ws", status: http.StatusInternalServerError, emitted: true},
++		{name: "unexpected websocket method", method: http.MethodPost, path: "/pico/ws", status: http.StatusOK, emitted: true},
 +		{name: "config patch", method: http.MethodPatch, path: "/api/config", status: http.StatusOK, emitted: true},
 +		{name: "models", method: http.MethodGet, path: "/api/models", status: http.StatusOK, emitted: true},
 +		{name: "unknown route", method: http.MethodGet, path: "/api/unknown", status: http.StatusNotFound, emitted: true},
@@ -5297,10 +5581,17 @@ index 0000000..dc60bd1
 +	}
 +	output := string(raw)
 +	for _, tt := range tests {
-+		needle := tt.method + " " + tt.path + " " + strconv.Itoa(tt.status)
++		visiblePath := tt.path
++		if visiblePath == "/pico/ws" {
++			visiblePath = "/internal realtime connection"
++		}
++		needle := tt.method + " " + visiblePath + " " + strconv.Itoa(tt.status)
 +		if got := strings.Contains(output, needle); got != tt.emitted {
 +			t.Errorf("%s emitted = %v, want %v; logs:\n%s", tt.name, got, tt.emitted, output)
 +		}
++	}
++	if strings.Contains(output, "/pico/ws") {
++		t.Fatalf("internal compatibility route leaked into user-visible logs:\n%s", output)
 +	}
 +}
 diff --git a/web/backend/utils/banner.go b/web/backend/utils/banner.go
@@ -7515,6 +7806,193 @@ index a921b99..4780b9b 100644
          />
        </Field>
  
+diff --git a/web/frontend/src/components/logs/ansi-log-line.tsx b/web/frontend/src/components/logs/ansi-log-line.tsx
+deleted file mode 100644
+index db078ef..0000000
+--- a/web/frontend/src/components/logs/ansi-log-line.tsx
++++ /dev/null
+@@ -1,24 +0,0 @@
+-import { Fragment, useMemo } from "react"
+-
+-import { parseAnsiSegments, wrapLogLine } from "@/lib/ansi-log"
+-
+-type AnsiLogLineProps = {
+-  line: string
+-  wrapColumns: number
+-}
+-
+-export function AnsiLogLine({ line, wrapColumns }: AnsiLogLineProps) {
+-  const segments = useMemo(() => {
+-    return parseAnsiSegments(wrapLogLine(line, wrapColumns))
+-  }, [line, wrapColumns])
+-
+-  return (
+-    <div className="break-normal whitespace-pre-wrap">
+-      {segments.map((segment, index) => (
+-        <Fragment key={`${index}-${segment.text.length}`}>
+-          <span style={segment.style}>{segment.text}</span>
+-        </Fragment>
+-      ))}
+-    </div>
+-  )
+-}
+diff --git a/web/frontend/src/components/logs/logs-page.test.tsx b/web/frontend/src/components/logs/logs-page.test.tsx
+new file mode 100644
+index 0000000..704ada7
+--- /dev/null
++++ b/web/frontend/src/components/logs/logs-page.test.tsx
+@@ -0,0 +1,86 @@
++import { readFileSync } from "node:fs"
++import { resolve } from "node:path"
++
++import { render } from "@testing-library/react"
++import { beforeEach, describe, expect, it, vi } from "vitest"
++
++const gatewayLogState = vi.hoisted(() => ({ logs: [] as string[] }))
++
++vi.mock("@/hooks/use-gateway-logs", () => ({
++  useGatewayLogs: () => ({
++    clearLogs: vi.fn(),
++    clearing: false,
++    logs: gatewayLogState.logs,
++  }),
++}))
++
++vi.mock("@/hooks/use-log-wrap-columns", () => ({
++  useLogWrapColumns: () => ({
++    contentRef: { current: null },
++    measureRef: { current: null },
++    wrapColumns: 120,
++  }),
++}))
++
++vi.mock("@/components/page-header", () => ({
++  PageHeader: ({ title }: { title: string }) => <h1>{title}</h1>,
++}))
++
++vi.mock("@/components/logs/log-level-select", () => ({
++  LogLevelSelect: () => null,
++}))
++
++vi.mock("react-i18next", () => ({
++  useTranslation: () => ({ t: (key: string) => key }),
++}))
++
++const { LogsPage } = await import("@/components/logs/logs-page")
++
++type LogContractCase = {
++  expected: string
++  input: string
++  name: string
++}
++
++const contract = JSON.parse(
++  readFileSync(
++    resolve(
++      process.cwd(),
++      "../../../../test/fixtures/user_visible_log_contract.json",
++    ),
++    "utf8",
++  ),
++) as LogContractCase[]
++
++describe("Core Web Console Logs page", () => {
++  beforeEach(() => {
++    gatewayLogState.logs = []
++  })
++
++  it("renders the shared brand-safe plain-text representation", () => {
++    gatewayLogState.logs = contract.map((fixture) => fixture.input)
++
++    const { container } = render(<LogsPage />)
++    const rendered = container.textContent ?? ""
++
++    expect(rendered).toContain("مدة 53.616µs ✅")
++    expect(rendered).toContain("English عربي 😊")
++    expect(rendered).toContain("GET /internal realtime connection 500")
++    expect(rendered).toContain("Starting gateway process")
++    expect(rendered).not.toContain("\x1b")
++    expect(rendered).not.toContain("[38;2;")
++    expect(rendered).not.toContain("/pico/ws")
++    expect(rendered).not.toContain("libpicoclaw.so")
++    expect(rendered).not.toContain("PicoClaw")
++    expect(rendered).not.toContain("picoclaw")
++    expect(rendered).not.toContain("Sipeed")
++    expect(rendered).not.toContain("sipeed")
++    expect(rendered).not.toContain("�")
++
++    for (const fixture of contract) {
++      if (fixture.expected) {
++        expect(rendered, fixture.name).toContain(fixture.expected)
++      }
++    }
++  })
++})
+diff --git a/web/frontend/src/components/logs/logs-panel.tsx b/web/frontend/src/components/logs/logs-panel.tsx
+index 35148ad..434401c 100644
+--- a/web/frontend/src/components/logs/logs-panel.tsx
++++ b/web/frontend/src/components/logs/logs-panel.tsx
+@@ -1,8 +1,9 @@
+-import { type RefObject, useEffect, useRef } from "react"
++import { type RefObject, useEffect, useMemo, useRef } from "react"
+ import { useTranslation } from "react-i18next"
+ 
+-import { AnsiLogLine } from "@/components/logs/ansi-log-line"
++import { PlainLogLine } from "@/components/logs/plain-log-line"
+ import { ScrollArea } from "@/components/ui/scroll-area"
++import { normalizeUserVisibleLog } from "@/lib/plain-text-log"
+ 
+ const AUTO_SCROLL_THRESHOLD_PX = 24
+ 
+@@ -30,6 +31,10 @@ export function LogsPanel({
+   const scrollAreaRef = useRef<HTMLDivElement>(null)
+   const viewportRef = useRef<HTMLDivElement | null>(null)
+   const shouldStickToBottomRef = useRef(true)
++  const visibleLogs = useMemo(
++    () => logs.map(normalizeUserVisibleLog).filter(Boolean),
++    [logs],
++  )
+ 
+   useEffect(() => {
+     const scrollArea = scrollAreaRef.current
+@@ -89,11 +94,11 @@ export function LogsPanel({
+           >
+             0
+           </span>
+-          {logs.length === 0 ? (
++          {visibleLogs.length === 0 ? (
+             <div className="text-zinc-500 italic">{t("pages.logs.empty")}</div>
+           ) : (
+-            logs.map((log, index) => (
+-              <AnsiLogLine key={index} line={log} wrapColumns={wrapColumns} />
++            visibleLogs.map((log, index) => (
++              <PlainLogLine key={index} line={log} wrapColumns={wrapColumns} />
+             ))
+           )}
+         </div>
+diff --git a/web/frontend/src/components/logs/plain-log-line.tsx b/web/frontend/src/components/logs/plain-log-line.tsx
+new file mode 100644
+index 0000000..f561b49
+--- /dev/null
++++ b/web/frontend/src/components/logs/plain-log-line.tsx
+@@ -0,0 +1,17 @@
++import { useMemo } from "react"
++
++import { wrapPlainTextLogLine } from "@/lib/plain-text-log"
++
++type PlainLogLineProps = {
++  line: string
++  wrapColumns: number
++}
++
++export function PlainLogLine({ line, wrapColumns }: PlainLogLineProps) {
++  const wrapped = useMemo(
++    () => wrapPlainTextLogLine(line, wrapColumns),
++    [line, wrapColumns],
++  )
++
++  return <div className="break-normal whitespace-pre-wrap">{wrapped}</div>
++}
 diff --git a/web/frontend/src/components/models/add-model-sheet.tsx b/web/frontend/src/components/models/add-model-sheet.tsx
 index 653380c..b6c1aff 100644
 --- a/web/frontend/src/components/models/add-model-sheet.tsx
@@ -9273,6 +9751,404 @@ index fa8763d..b9d6497 100644
      },
      "models": {
        "title": "配置模型",
+diff --git a/web/frontend/src/lib/ansi-log.ts b/web/frontend/src/lib/ansi-log.ts
+deleted file mode 100644
+index 39561fb..0000000
+--- a/web/frontend/src/lib/ansi-log.ts
++++ /dev/null
+@@ -1,290 +0,0 @@
+-import type { CSSProperties } from "react"
+-import wrapAnsi from "wrap-ansi"
+-
+-export type AnsiSegment = {
+-  style: CSSProperties
+-  text: string
+-}
+-
+-type AnsiState = {
+-  background?: string
+-  bold?: boolean
+-  dim?: boolean
+-  foreground?: string
+-  italic?: boolean
+-  strikethrough?: boolean
+-  underline?: boolean
+-  underlineColor?: string
+-}
+-
+-const ANSI_PATTERN = new RegExp(String.raw`\u001B\[([0-9;]*)m`, "g")
+-
+-const ANSI_COLORS = [
+-  "#4b5563",
+-  "#f87171",
+-  "#4ade80",
+-  "#facc15",
+-  "#60a5fa",
+-  "#c084fc",
+-  "#22d3ee",
+-  "#f3f4f6",
+-]
+-
+-const ANSI_BRIGHT_COLORS = [
+-  "#6b7280",
+-  "#fb7185",
+-  "#86efac",
+-  "#fde047",
+-  "#93c5fd",
+-  "#e879f9",
+-  "#67e8f9",
+-  "#ffffff",
+-]
+-
+-function cloneAnsiState(state: AnsiState): AnsiState {
+-  return { ...state }
+-}
+-
+-function ansi256ToHex(code: number): string {
+-  if (code < 0 || code > 255) {
+-    return "inherit"
+-  }
+-
+-  if (code < 8) {
+-    return ANSI_COLORS[code]
+-  }
+-
+-  if (code < 16) {
+-    return ANSI_BRIGHT_COLORS[code - 8]
+-  }
+-
+-  if (code < 232) {
+-    const index = code - 16
+-    const red = Math.floor(index / 36)
+-    const green = Math.floor((index % 36) / 6)
+-    const blue = index % 6
+-    const scale = [0, 95, 135, 175, 215, 255]
+-    return `rgb(${scale[red]}, ${scale[green]}, ${scale[blue]})`
+-  }
+-
+-  const gray = 8 + (code - 232) * 10
+-  return `rgb(${gray}, ${gray}, ${gray})`
+-}
+-
+-function codeToColor(code: number): string | undefined {
+-  if (code >= 30 && code <= 37) {
+-    return ANSI_COLORS[code - 30]
+-  }
+-
+-  if (code >= 40 && code <= 47) {
+-    return ANSI_COLORS[code - 40]
+-  }
+-
+-  if (code >= 90 && code <= 97) {
+-    return ANSI_BRIGHT_COLORS[code - 90]
+-  }
+-
+-  if (code >= 100 && code <= 107) {
+-    return ANSI_BRIGHT_COLORS[code - 100]
+-  }
+-
+-  if (code === 39 || code === 49) {
+-    return undefined
+-  }
+-}
+-
+-function applyExtendedColor(
+-  state: AnsiState,
+-  codes: number[],
+-  index: number,
+-  target: "foreground" | "background" | "underlineColor",
+-): number {
+-  const mode = codes[index + 1]
+-
+-  if (mode === 5) {
+-    const colorCode = codes[index + 2]
+-    if (colorCode !== undefined) {
+-      state[target] = ansi256ToHex(colorCode)
+-      return index + 2
+-    }
+-  }
+-
+-  if (mode === 2) {
+-    const red = codes[index + 2]
+-    const green = codes[index + 3]
+-    const blue = codes[index + 4]
+-    if (red !== undefined && green !== undefined && blue !== undefined) {
+-      state[target] = `rgb(${red}, ${green}, ${blue})`
+-      return index + 4
+-    }
+-  }
+-
+-  return index
+-}
+-
+-function styleToCss(style: AnsiState): CSSProperties {
+-  return {
+-    backgroundColor: style.background,
+-    color: style.foreground,
+-    fontStyle: style.italic ? "italic" : undefined,
+-    fontWeight: style.bold ? 700 : undefined,
+-    opacity: style.dim ? 0.7 : undefined,
+-    textDecorationColor: style.underlineColor,
+-    textDecorationLine:
+-      [
+-        style.underline ? "underline" : "",
+-        style.strikethrough ? "line-through" : "",
+-      ]
+-        .filter(Boolean)
+-        .join(" ") || undefined,
+-  }
+-}
+-
+-export function parseAnsiSegments(input: string): AnsiSegment[] {
+-  const segments: AnsiSegment[] = []
+-  const state: AnsiState = {}
+-  let lastIndex = 0
+-  let match: RegExpExecArray | null
+-
+-  const pushText = (text: string) => {
+-    if (!text) {
+-      return
+-    }
+-
+-    segments.push({
+-      style: styleToCss(cloneAnsiState(state)),
+-      text,
+-    })
+-  }
+-
+-  ANSI_PATTERN.lastIndex = 0
+-
+-  while ((match = ANSI_PATTERN.exec(input)) !== null) {
+-    pushText(input.slice(lastIndex, match.index))
+-
+-    const codes = (match[1] || "0")
+-      .split(";")
+-      .map((value) => (value === "" ? 0 : Number.parseInt(value, 10)))
+-      .filter((value) => Number.isFinite(value))
+-
+-    for (let index = 0; index < codes.length; index += 1) {
+-      const code = codes[index]
+-
+-      if (code === 0) {
+-        Object.keys(state).forEach((key) => {
+-          delete state[key as keyof AnsiState]
+-        })
+-        continue
+-      }
+-
+-      if (code === 1) {
+-        state.bold = true
+-        continue
+-      }
+-
+-      if (code === 2) {
+-        state.dim = true
+-        continue
+-      }
+-
+-      if (code === 3) {
+-        state.italic = true
+-        continue
+-      }
+-
+-      if (code === 4) {
+-        state.underline = true
+-        continue
+-      }
+-
+-      if (code === 9) {
+-        state.strikethrough = true
+-        continue
+-      }
+-
+-      if (code === 21 || code === 22) {
+-        delete state.bold
+-        delete state.dim
+-        continue
+-      }
+-
+-      if (code === 23) {
+-        delete state.italic
+-        continue
+-      }
+-
+-      if (code === 24) {
+-        delete state.underline
+-        continue
+-      }
+-
+-      if (code === 29) {
+-        delete state.strikethrough
+-        continue
+-      }
+-
+-      if (code === 39) {
+-        delete state.foreground
+-        continue
+-      }
+-
+-      if (code === 49) {
+-        delete state.background
+-        continue
+-      }
+-
+-      if (code === 59) {
+-        delete state.underlineColor
+-        continue
+-      }
+-
+-      if (code === 38) {
+-        index = applyExtendedColor(state, codes, index, "foreground")
+-        continue
+-      }
+-
+-      if (code === 48) {
+-        index = applyExtendedColor(state, codes, index, "background")
+-        continue
+-      }
+-
+-      if (code === 58) {
+-        index = applyExtendedColor(state, codes, index, "underlineColor")
+-        continue
+-      }
+-
+-      if ((code >= 30 && code <= 37) || (code >= 90 && code <= 97)) {
+-        state.foreground = codeToColor(code)
+-        continue
+-      }
+-
+-      if ((code >= 40 && code <= 47) || (code >= 100 && code <= 107)) {
+-        state.background = codeToColor(code)
+-      }
+-    }
+-
+-    lastIndex = ANSI_PATTERN.lastIndex
+-  }
+-
+-  pushText(input.slice(lastIndex))
+-
+-  if (segments.length === 0) {
+-    return [{ style: {}, text: input }]
+-  }
+-
+-  return segments
+-}
+-
+-export function wrapLogLine(line: string, columns: number): string {
+-  const normalized = line.replaceAll("\r\n", "\n").replaceAll("\r", "\n")
+-
+-  if (columns < 20) {
+-    return normalized
+-  }
+-
+-  return wrapAnsi(normalized, columns, {
+-    hard: true,
+-    trim: false,
+-    wordWrap: false,
+-  })
+-}
+diff --git a/web/frontend/src/lib/plain-text-log.ts b/web/frontend/src/lib/plain-text-log.ts
+new file mode 100644
+index 0000000..95bbead
+--- /dev/null
++++ b/web/frontend/src/lib/plain-text-log.ts
+@@ -0,0 +1,96 @@
++import wrapAnsi from "wrap-ansi"
++
++const OSC_PATTERN = new RegExp(
++  String.raw`(?:\u001B\]|\u009D)[\s\S]*?(?:\u0007|\u001B\\|\u009C)`,
++  "g",
++)
++const UNTERMINATED_OSC_PATTERN = new RegExp(
++  String.raw`(?:\u001B\]|\u009D)[^\n]*$`,
++  "gm",
++)
++const STRING_CONTROL_PATTERN = new RegExp(
++  String.raw`(?:\u001B[P^_X]|[\u0090\u0098\u009E\u009F])[\s\S]*?(?:\u001B\\|\u009C)`,
++  "g",
++)
++const UNTERMINATED_STRING_CONTROL_PATTERN = new RegExp(
++  String.raw`(?:\u001B[P^_X]|[\u0090\u0098\u009E\u009F])[^\n]*$`,
++  "gm",
++)
++const CSI_PATTERN = new RegExp(
++  String.raw`(?:\u001B\[|\u009B)[0-?]*[ -/]*[@-~]`,
++  "g",
++)
++const ORPHANED_CSI_PATTERN =
++  /\[(?:\??[0-9:;<=>]+)[0-9:;<=>? ]*[ABCDEFGHJKSTfmnsu]/g
++const OTHER_ESCAPE_PATTERN = new RegExp(String.raw`\u001B[ -/]*[@-~]`, "g")
++const ROUTINE_PICO_WS_PATTERN =
++  /(?:^| > )GET \/pico\/ws (?:101|2[0-9]{2})(?:\s|$)/
++const PICO_WS_REQUEST_PATTERN = /((?:^| > )[A-Z]+) \/pico\/ws ([0-9]{3})(\s|$)/g
++const LEGACY_GATEWAY_START_PATTERN = /Starting gateway process \([^\r\n)]*\)/g
++
++/**
++ * Browser-side enforcement of the shared PocketClaw user-visible log
++ * contract. The backend applies the same contract before API storage; this is
++ * deliberately idempotent so raw or legacy API lines cannot bypass it.
++ */
++export function normalizeUserVisibleLog(input: string): string {
++  if (!input) return input
++
++  const text = input
++    .replaceAll("\r\n", "\n")
++    .replace(OSC_PATTERN, "")
++    .replace(UNTERMINATED_OSC_PATTERN, "")
++    .replace(STRING_CONTROL_PATTERN, "")
++    .replace(UNTERMINATED_STRING_CONTROL_PATTERN, "")
++    .replace(CSI_PATTERN, "")
++    .replace(ORPHANED_CSI_PATTERN, "")
++    .replace(OTHER_ESCAPE_PATTERN, "")
++
++  let output = ""
++  let currentLine: string[] = []
++
++  const flushLine = (newline: boolean) => {
++    output += currentLine.join("")
++    currentLine = []
++    if (newline) output += "\n"
++  }
++
++  for (const character of text) {
++    const codePoint = character.codePointAt(0)!
++    if (character === "\n") {
++      flushLine(true)
++    } else if (character === "\r") {
++      currentLine = []
++    } else if (character === "\b") {
++      currentLine.pop()
++    } else if (character === "\t") {
++      currentLine.push(character)
++    } else if (codePoint < 0x20 || (codePoint >= 0x7f && codePoint <= 0x9f)) {
++      continue
++    } else {
++      currentLine.push(character)
++    }
++  }
++  flushLine(false)
++
++  let result = output.replace(
++    LEGACY_GATEWAY_START_PATTERN,
++    "Starting gateway process",
++  )
++  if (ROUTINE_PICO_WS_PATTERN.test(result)) return ""
++  result = result.replace(
++    PICO_WS_REQUEST_PATTERN,
++    "$1 /internal realtime connection $2$3",
++  )
++  return result
++}
++
++export function wrapPlainTextLogLine(line: string, columns: number): string {
++  if (columns < 20) return line
++
++  return wrapAnsi(line, columns, {
++    hard: true,
++    trim: false,
++    wordWrap: false,
++  })
++}
 diff --git a/web/frontend/src/lib/pocketclaw-host.ts b/web/frontend/src/lib/pocketclaw-host.ts
 new file mode 100644
 index 0000000..1283364
@@ -9367,6 +10243,19 @@ index 0000000..02ed039
 +  cleanup()
 +  delete window.__pocketclawHost
 +})
+diff --git a/web/frontend/tsconfig.app.json b/web/frontend/tsconfig.app.json
+index a132313..b5b2167 100644
+--- a/web/frontend/tsconfig.app.json
++++ b/web/frontend/tsconfig.app.json
+@@ -5,7 +5,7 @@
+     "useDefineForClassFields": true,
+     "lib": ["ES2022", "DOM", "DOM.Iterable"],
+     "module": "ESNext",
+-    "types": ["vite/client"],
++    "types": ["vite/client", "node"],
+     "skipLibCheck": true,
+ 
+     /* Bundler mode */
 diff --git a/web/frontend/vite.config.ts b/web/frontend/vite.config.ts
 index 0de0858..01a1469 100644
 --- a/web/frontend/vite.config.ts

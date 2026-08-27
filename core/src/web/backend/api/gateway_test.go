@@ -565,7 +565,7 @@ func TestGatewayCommandArgsIncludesDebugFlagWhenEnabled(t *testing.T) {
 	h.SetDebug(true)
 
 	args := h.gatewayCommandArgs()
-	want := []string{"gateway", "-E", "-d"}
+	want := []string{"gateway", "-E", "--no-color", "-d"}
 	if strings.Join(args, " ") != strings.Join(want, " ") {
 		t.Fatalf("gatewayCommandArgs() = %v, want %v", args, want)
 	}

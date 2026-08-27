@@ -150,6 +150,33 @@ void main() {
     expect(exportedRepresentation, isNot(contains('\u0000')));
   });
 
+  test(
+    'stored and exported logs apply the shared visibility contract',
+    () async {
+      pendingNativeLogs.addAll([
+        '12:00 DBG http middleware.go:67 > GET /pico/ws 200 53.616µs',
+        '12:01 DBG http middleware.go:67 > GET /pico/ws 500 1.2ms',
+        '12:02 INF gateway gateway.go:1033 > Starting gateway process '
+            '(/data/app/lib/arm64/libpicoclaw.so)',
+        '\x1b[38;2;1;2;3mمدة 53.616µs ✅\x1b[0m',
+      ]);
+
+      await service.pollNativeServiceStatusForTest();
+      await settleLogBatch();
+
+      final exportedRepresentation = appendedLogs().join('\n');
+      expect(exportedRepresentation, isNot(contains('/pico/ws')));
+      expect(exportedRepresentation, isNot(contains('libpicoclaw.so')));
+      expect(exportedRepresentation, isNot(contains('\x1b')));
+      expect(
+        exportedRepresentation,
+        contains('GET /internal realtime connection 500'),
+      );
+      expect(exportedRepresentation, contains('Starting gateway process'));
+      expect(exportedRepresentation, contains('مدة 53.616µs ✅'));
+    },
+  );
+
   test('no user-visible log line carries a module or developer path', () async {
     pendingNativeLogs.add(staleWarning);
     await service.pollNativeServiceStatusForTest();

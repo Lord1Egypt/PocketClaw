@@ -62,3 +62,11 @@ func TestNewPicoclawCommand(t *testing.T) {
 		assert.False(t, subcmd.Hidden)
 	}
 }
+
+func TestPlainBannerIsSafeForCapturedLogs(t *testing.T) {
+	assert.Equal(t, "\r\nPocketClaw\r\n", plainBanner)
+	assert.NotContains(t, plainBanner, "\x1b")
+	assert.NotContains(t, plainBanner, "█")
+	assert.NotContains(t, plainBanner, "PicoClaw")
+	assert.NotContains(t, plainBanner, "Sipeed")
+}

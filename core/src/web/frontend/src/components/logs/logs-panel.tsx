@@ -1,8 +1,9 @@
-import { type RefObject, useEffect, useRef } from "react"
+import { type RefObject, useEffect, useMemo, useRef } from "react"
 import { useTranslation } from "react-i18next"
 
-import { AnsiLogLine } from "@/components/logs/ansi-log-line"
+import { PlainLogLine } from "@/components/logs/plain-log-line"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { normalizeUserVisibleLog } from "@/lib/plain-text-log"
 
 const AUTO_SCROLL_THRESHOLD_PX = 24
 
@@ -30,6 +31,10 @@ export function LogsPanel({
   const scrollAreaRef = useRef<HTMLDivElement>(null)
   const viewportRef = useRef<HTMLDivElement | null>(null)
   const shouldStickToBottomRef = useRef(true)
+  const visibleLogs = useMemo(
+    () => logs.map(normalizeUserVisibleLog).filter(Boolean),
+    [logs],
+  )
 
   useEffect(() => {
     const scrollArea = scrollAreaRef.current
@@ -89,11 +94,11 @@ export function LogsPanel({
           >
             0
           </span>
-          {logs.length === 0 ? (
+          {visibleLogs.length === 0 ? (
             <div className="text-zinc-500 italic">{t("pages.logs.empty")}</div>
           ) : (
-            logs.map((log, index) => (
-              <AnsiLogLine key={index} line={log} wrapColumns={wrapColumns} />
+            visibleLogs.map((log, index) => (
+              <PlainLogLine key={index} line={log} wrapColumns={wrapColumns} />
             ))
           )}
         </div>

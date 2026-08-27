@@ -774,3 +774,28 @@ verified `develop` @ `14e6991`. Not merged; physical-device testing is the gate.
   Guard, package/version/SDK, endpoint, native hashes, and secret scans pass.
 - No merge, release, tag movement, or `main` change. Physical testing is
   pending and release remains blocked.
+
+## 2026-08-27 — Web Console log parity and identifier visibility
+
+- Traced Core Web Console startup boxes to the captured Core CLI's Unicode
+  block-art no-color banner and a React Logs renderer that interpreted only SGR
+  while the backend ring stored raw child output.
+- Added a fixture-backed user-visible plain-text contract at the Web log ring,
+  the existing native/export sanitizer, and an idempotent real-page browser
+  guard. Removed the terminal-style renderer; preserved Arabic, emoji,
+  punctuation, and `53.616µs`.
+- Captured gateway launches now force `--no-color`; no-color startup is one
+  `PocketClaw` line. The startup event no longer prints an executable or
+  `libpicoclaw.so` path.
+- Successful exact `GET /pico/ws` 101/2xx events no longer enter normal DEBUG
+  history. Failures/unexpected methods remain visible as `/internal realtime
+  connection`; the endpoint and library identifiers were not renamed.
+- Fixed the provenance generator to preserve tracked deletions when building
+  its rsync file list, then regenerated the 108-file Core patch.
+- Passed Flutter analyze and 99 tests; frontend 37 tests, TypeScript, and lint;
+  tagged Go logger/gateway/API/middleware/CLI suites; canonical Core build with
+  zero developer paths; and the permanent APK payload guard.
+- Built candidate `3e138b4a53a0389b76dbef045649d906fe2db785cd2af606826f7a0f87170adc`
+  (34,241,381 bytes). Core hashes are `c9c348e9...68d236e` and
+  `c891ca03...d34840a`. Physical validation is pending; no merge/release/main
+  change was made.

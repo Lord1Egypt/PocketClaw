@@ -23,6 +23,11 @@ func NewLogBuffer(capacity int) *LogBuffer {
 
 // Append adds a line to the buffer. If the buffer is full, the oldest line is evicted.
 func (b *LogBuffer) Append(line string) {
+	line = normalizeUserVisibleLog(line)
+	if line == "" {
+		return
+	}
+
 	b.mu.Lock()
 	defer b.mu.Unlock()
 

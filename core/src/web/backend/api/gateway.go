@@ -76,7 +76,9 @@ func ensurePicoTokenCachedLocked(configPath string) {
 }
 
 func (h *Handler) gatewayCommandArgs() []string {
-	args := []string{"gateway", "-E"}
+	// The gateway's stdout/stderr are captured into user-facing Web Console
+	// logs, never attached to an interactive terminal.
+	args := []string{"gateway", "-E", "--no-color"}
 	if h.debug {
 		args = append(args, "-d")
 	}
@@ -1030,7 +1032,7 @@ func (h *Handler) startGatewayLocked(initialStatus string, existingPid int) (int
 	// Start new process
 	// Locate the picoclaw executable
 	execPath := utils.FindPicoclawBinary()
-	logger.InfoC("gateway", fmt.Sprintf("Starting gateway process (%s)", execPath))
+	logger.InfoC("gateway", "Starting gateway process")
 
 	cmd = gatewayExecCommand(execPath, h.gatewayCommandArgs()...)
 	applyLauncherProcAttrs(cmd)

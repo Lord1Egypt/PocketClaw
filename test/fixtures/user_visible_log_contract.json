@@ -1,0 +1,47 @@
+[
+  {
+    "name": "rgb multilingual duration",
+    "input": "\u001b[38;2;213;70;70mمدة 53.616µs ✅\u001b[0m",
+    "expected": "مدة 53.616µs ✅"
+  },
+  {
+    "name": "256 color mixed languages",
+    "input": "English \u001b[38;5;185mعربي 😊\u001b[0m — «آمن»",
+    "expected": "English عربي 😊 — «آمن»"
+  },
+  {
+    "name": "osc cursor erase and controls",
+    "input": "\u001b]0;private title\u0007\u001b[2J\u001b[HStart\u001b[3C Middle\u001b[K\u0000 End",
+    "expected": "Start Middle End"
+  },
+  {
+    "name": "carriage return terminal overwrite",
+    "input": "10%\r50%\rDone",
+    "expected": "Done"
+  },
+  {
+    "name": "backspace terminal overwrite",
+    "input": "abc\b\bd",
+    "expected": "ad"
+  },
+  {
+    "name": "plain milliseconds",
+    "input": "123.4ms",
+    "expected": "123.4ms"
+  },
+  {
+    "name": "routine internal websocket success",
+    "input": "12:00:00 DBG http middleware.go:67 > GET /pico/ws 200 53.616µs",
+    "expected": ""
+  },
+  {
+    "name": "internal websocket failure remains visible safely",
+    "input": "12:00:00 DBG http middleware.go:67 > GET /pico/ws 500 1.2ms",
+    "expected": "12:00:00 DBG http middleware.go:67 > GET /internal realtime connection 500 1.2ms"
+  },
+  {
+    "name": "legacy gateway startup path",
+    "input": "12:00:00 INF gateway gateway.go:1033 > Starting gateway process (/home/sipeed/PicoClaw/lib/arm64/libpicoclaw.so)",
+    "expected": "12:00:00 INF gateway gateway.go:1033 > Starting gateway process"
+  }
+]

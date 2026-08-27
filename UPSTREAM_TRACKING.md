@@ -195,6 +195,14 @@ work for an adoption, and does not go looking upstream for its origin.
   suppression of only successful high-rate log/status self-polls. Future
   upstream work touching agent session steering, Telegram delivery, onboarding
   helpers, or web API routing must preserve these PocketClaw guarantees.
+- **User-visible Web log parity (2026-08-27).** PocketClaw additionally owns the
+  shared plain-text gateway log boundary, React plain-log renderer and DOM
+  regression, captured no-color text banner, neutral gateway-start event, and
+  successful `/pico/ws` visibility filter. The actual route, executable/library
+  filenames, Go module identity, and provenance remain upstream-compatible and
+  were deliberately not renamed. Future upstream log UI, CLI banner, gateway
+  launcher, or HTTP middleware changes must preserve Unicode, error
+  observability, and the fixture-backed visibility contract.
 - **Telegram managed-bot onboarding (Milestone D, 2026-08-26).** The
   onboarding service is PocketClaw-authored and depends on no upstream code. It
   lives in its own public repository, `Lord1Egypt/PocketClaw-Telegram-Setup`,
