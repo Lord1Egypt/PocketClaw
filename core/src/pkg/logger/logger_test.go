@@ -89,6 +89,72 @@ func TestLoggerWithComponent(t *testing.T) {
 	SetLevel(INFO)
 }
 
+func TestSanitizeFieldsForLogProtectsDisplayWithoutMutatingRuntimeValues(t *testing.T) {
+	t.Parallel()
+
+	original := map[string]any{
+		"session_key":        "sk_v1_SUPERSECRETVALUE",
+		"scope_key":          "sk_v1_SUPERSECRETVALUE",
+		"route_main_session": "sk_v1_SUPERSECRETVALUE",
+		"chat_id":            "pico:1234",
+		"sender_id":          "pico-user",
+		"route_channel":      "pico",
+		"reasoning":          "private reasoning text",
+		"messages_json":      "actual conversation contents",
+		"tools_json":         "full schema",
+		"model":              "test-model",
+	}
+	safe := sanitizeFieldsForLog(original)
+
+	for _, key := range []string{"session_key", "scope_key", "route_main_session"} {
+		if safe[key] != "<redacted>" {
+			t.Errorf("%s = %v, want redacted", key, safe[key])
+		}
+	}
+	for _, key := range []string{"chat_id", "sender_id"} {
+		if safe[key] != "<internal>" {
+			t.Errorf("%s = %v, want internal", key, safe[key])
+		}
+	}
+	if safe["route_channel"] != "pocketclaw" {
+		t.Errorf("route_channel = %v, want pocketclaw display label", safe["route_channel"])
+	}
+	for _, key := range []string{"reasoning", "messages_json", "tools_json"} {
+		if _, exists := safe[key]; exists {
+			t.Errorf("raw content field %s was retained", key)
+		}
+	}
+	if safe["model"] != "test-model" {
+		t.Errorf("useful model metadata was lost: %v", safe["model"])
+	}
+
+	if original["session_key"] != "sk_v1_SUPERSECRETVALUE" ||
+		original["chat_id"] != "pico:1234" ||
+		original["sender_id"] != "pico-user" ||
+		original["route_channel"] != "pico" {
+		t.Fatalf("runtime field map was mutated: %#v", original)
+	}
+	if original["reasoning"] != "private reasoning text" {
+		t.Fatal("runtime response reasoning was mutated")
+	}
+}
+
+func TestSanitizeFieldsForLogDoesNotRewritePicoSubstrings(t *testing.T) {
+	t.Parallel()
+
+	original := map[string]any{
+		"route_channel": "pico-test",
+		"component":     "picometer",
+		"filename":      "my-pico-notes.txt",
+	}
+	safe := sanitizeFieldsForLog(original)
+	for key, want := range original {
+		if safe[key] != want {
+			t.Errorf("%s = %v, want unchanged %v", key, safe[key], want)
+		}
+	}
+}
+
 func TestLogLevels(t *testing.T) {
 	tests := []struct {
 		name  string

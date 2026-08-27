@@ -528,3 +528,24 @@ New APK: `2c00720a...2da27c` (34,243,585 bytes). Core hashes:
 relevant tagged Go including Telegram/Skills, Flutter analyze/101 tests,
 115-file provenance, zero paths, and build guard pass. Physical device remains
 the final gate; no merge/release/main change.
+
+## AGENT DEBUG PRIVACY + TELEGRAM PAYLOAD CANDIDATE — 2026-08-28
+
+Continue on `fix/user-facing-log-privacy`. Physical evidence proved the actual
+fresh default model prompt was legacy-branded and that normal Web DEBUG exposed
+Agent prompt/message/tool/reasoning/session data plus complete non-empty Telego
+result payloads. The default prompt now identifies as PocketClaw; custom prompt
+overlays and all internal compatibility values remain unchanged.
+
+Explicit prompt/full-request/raw-reasoning and tool-argument log paths are
+removed. A pre-writer exact-field copy redacts internal/session identities and
+raw-content fields without mutating runtime maps. Telego request/response data
+is normalized before stdout/backend storage to operation/status/count/type
+metadata; raw Telegram IDs, profiles and message bodies no longer enter normal
+history. Backend, React and Dart guards cover legacy/raw input.
+
+New APK: `46ca983a...2b908e` (34,251,141 bytes). Core hashes:
+`8ed15601...9be24a` and `21001004...5fc1d7`. Tagged relevant Go suites,
+frontend 46/46/tsc/lint, Flutter analyze/101, 124-file provenance, zero paths,
+live endpoint, packaged hashes, and permanent guard pass. Physical device is
+the final gate; no merge/release/main change.

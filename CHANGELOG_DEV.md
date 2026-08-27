@@ -910,3 +910,24 @@ verified `develop` @ `14e6991`. Not merged; physical-device testing is the gate.
 - Built guarded APK `2c00720a...2da27c` (34,243,585 bytes), with Core hashes
   `7c1d3918...38ef1f` and `1611b6e1...d09256`. Physical validation is pending;
   no merge/release/main change was made.
+
+## 2026-08-28 — Agent DEBUG and Telegram payload privacy
+
+- Confirmed the legacy name was in the actual freshly generated system prompt;
+  PocketClaw defaults now identify as PocketClaw without rewriting custom
+  prompts or internal/upstream compatibility names.
+- Removed normal prompt previews, full LLM message/tool dumps, raw reasoning,
+  and tool-argument previews. Added exact-field pre-writer redaction on a copy,
+  preserving runtime session/routing values and useful lifecycle metadata.
+- Traced raw Telegram PII/content to Telego `Response.String()` before stdout
+  and Web storage. Telego now emits concise operation/status/count/type metadata
+  before writers; backend, React and Dart guards cover historical/raw input.
+- Added regressions for runtime-value immutability, fresh prompt identity,
+  synthetic session/internal values, raw Agent payloads, Telegram IDs/profile/
+  messages, arbitrary Bot API operations, failures, real Web DOM and export.
+- Passed tagged relevant Go suites, frontend 46/46/tsc/lint, Flutter
+  analyze/101. Regenerated 124-file provenance, rebuilt zero-path Core, verified
+  the live endpoint and permanent payload guard.
+- Built APK `46ca983a...2b908e` (34,251,141 bytes), with Core hashes
+  `8ed15601...9be24a` and `21001004...5fc1d7`. Physical validation is pending;
+  no merge/release/main change was made.

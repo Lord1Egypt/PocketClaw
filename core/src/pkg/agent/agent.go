@@ -674,10 +674,6 @@ func (al *AgentLoop) runAgentLoop(
 
 // GetStartupInfo returns information about loaded tools and skills for logging.
 
-// formatMessagesForLog formats messages for logging
-
-// formatToolsForLog formats tool definitions for logging
-
 // summarizeSession summarizes the conversation history for a session.
 // findNearestUserMessage finds the nearest user message to the given index.
 // It searches backward first, then forward if no user message is found.

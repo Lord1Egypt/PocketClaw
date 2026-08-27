@@ -527,3 +527,25 @@ supplied by the user.
   `7c1d3918...38ef1f` and `1611b6e1...d09256`.
 - [ ] **FINAL PHYSICAL GATE:** observe several empty long polls, one non-empty
   update, and a recoverable failure in DEBUG; then reconfirm all prior passes.
+
+## Agent DEBUG privacy + final branding + Telegram payload privacy
+
+- [x] Prove the legacy assistant name was actual freshly generated system-prompt
+  content and update only the PocketClaw default identity.
+- [x] Remove normal logs of prompt bodies, full messages/tools JSON, raw model
+  reasoning, and tool arguments while retaining useful lifecycle metadata.
+- [x] Redact exact session/internal structured fields before writers without
+  mutating runtime routing values or using global/substr replacement.
+- [x] Normalize Telego requests/results before stdout and backend storage;
+  retain operation/status/count/type/error metadata without Telegram PII or
+  message bodies.
+- [x] Add backend, real Logs DOM, Core logger/Agent/Telegram, shared fixture and
+  Native/Export defense regressions.
+- [x] Pass relevant tagged Go suites, frontend 46/46/tsc/lint, Flutter
+  analyze/101, regenerate 124-file provenance, rebuild zero-path Core, and pass
+  the permanent APK guard.
+- [x] Build ARM64 candidate `46ca983a...2b908e` with Core hashes
+  `8ed15601...9be24a` and `21001004...5fc1d7`.
+- [ ] **FINAL PHYSICAL GATE:** run a fresh realtime plus Telegram conversation
+  in DEBUG and confirm only safe metadata appears while Skills 8/8, Tools 17+,
+  delivery, viewport, Unicode, branding and earlier polling fixes remain PASS.

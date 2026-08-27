@@ -422,8 +422,34 @@ index e4f9de5..ccb2e4f 100644
 +	assert.NotContains(t, plainBanner, "PicoClaw")
 +	assert.NotContains(t, plainBanner, "Sipeed")
 +}
+diff --git a/docs/operations/debug.md b/docs/operations/debug.md
+index eacd723..41d45df 100644
+--- a/docs/operations/debug.md
++++ b/docs/operations/debug.md
+@@ -39,7 +39,7 @@ When debug mode is active, the agent emits structured log entries at each stage
+ | Log message | Level | Key fields | Description |
+ |---|---|---|---|
+ | `LLM requested tool calls` | INFO | `tools`, `count`, `iteration` | List of tool names the model decided to call |
+-| `Tool call: <name>(<args>)` | INFO | `tool`, `iteration` | The tool name and a preview of its arguments (truncated to 200 chars) |
++| `Tool call: <name>` | INFO | `tool`, `iteration` | The tool name without private argument values |
+ | `Sent tool result to user` | DEBUG | `tool`, `content_len` | Fired when a tool result is forwarded to the chat channel |
+ | `TTL tick after tool execution` | DEBUG | `agent_id`, `iteration` | MCP tool-discovery TTL decrement after each tool round |
+ | `Async tool completed, publishing result` | INFO | `tool`, `content_len`, `channel` | Only for tools that run asynchronously in the background |
+@@ -50,10 +50,10 @@ A typical synchronous tool call produces two consecutive lines in the console:
+ 
+ ```
+ [...] [INFO] agent: LLM requested tool calls {tools=[web_search], count=1, iteration=1}
+-[...] [INFO] agent: Tool call: web_search({"query":"picoclaw release notes"}) {tool=web_search, iteration=1}
++[...] [INFO] agent: Tool call: web_search {tool=web_search, iteration=1}
+ ```
+ 
+-The arguments preview is hard-capped at **200 characters** in the logs regardless of the `--no-truncate` flag, because it belongs to the `INFO`-level path. Use `--no-truncate` together with `--debug` to see the full `tools_json` field emitted by the `Full LLM request` DEBUG entry, which contains every tool definition sent to the model.
++Normal logs intentionally retain tool names and lifecycle metadata without tool arguments, conversation messages, system-prompt bodies, or full tool schemas. The `--no-truncate` flag does not disable this privacy boundary.
+ 
+ ## Real-Time Tool Feedback in Chat (tool_feedback)
+ 
 diff --git a/pkg/agent/agent.go b/pkg/agent/agent.go
-index 26abe90..a9679e4 100644
+index 26abe90..3ac1b8a 100644
 --- a/pkg/agent/agent.go
 +++ b/pkg/agent/agent.go
 @@ -28,7 +28,6 @@ import (
@@ -658,6 +684,17 @@ index 26abe90..a9679e4 100644
  	}
  
  	return result.finalContent, nil
+@@ -639,10 +674,6 @@ func (al *AgentLoop) runAgentLoop(
+ 
+ // GetStartupInfo returns information about loaded tools and skills for logging.
+ 
+-// formatMessagesForLog formats messages for logging
+-
+-// formatToolsForLog formats tool definitions for logging
+-
+ // summarizeSession summarizes the conversation history for a session.
+ // findNearestUserMessage finds the nearest user message to the given index.
+ // It searches backward first, then forward if no user message is found.
 diff --git a/pkg/agent/agent_inbound_mailbox.go b/pkg/agent/agent_inbound_mailbox.go
 new file mode 100644
 index 0000000..b8e3056
@@ -993,11 +1030,187 @@ index 9b136e7..d2bd864 100644
  }
  
  func (al *AgentLoop) drainQueuedSteeringContinuations(
+diff --git a/pkg/agent/agent_utils.go b/pkg/agent/agent_utils.go
+index 85228b5..ac1bc7b 100644
+--- a/pkg/agent/agent_utils.go
++++ b/pkg/agent/agent_utils.go
+@@ -421,63 +421,6 @@ func sleepWithContext(ctx context.Context, d time.Duration) error {
+ 	}
+ }
+ 
+-func formatMessagesForLog(messages []providers.Message) string {
+-	if len(messages) == 0 {
+-		return "[]"
+-	}
+-
+-	var sb strings.Builder
+-	sb.WriteString("[\n")
+-	for i, msg := range messages {
+-		fmt.Fprintf(&sb, "  [%d] Role: %s\n", i, msg.Role)
+-		if len(msg.ToolCalls) > 0 {
+-			sb.WriteString("  ToolCalls:\n")
+-			for _, tc := range msg.ToolCalls {
+-				fmt.Fprintf(&sb, "    - ID: %s, Type: %s, Name: %s\n", tc.ID, tc.Type, tc.Name)
+-				if tc.Function != nil {
+-					fmt.Fprintf(
+-						&sb,
+-						"      Arguments: %s\n",
+-						utils.Truncate(tc.Function.Arguments, 200),
+-					)
+-				}
+-			}
+-		}
+-		if msg.Content != "" {
+-			content := utils.Truncate(msg.Content, 200)
+-			fmt.Fprintf(&sb, "  Content: %s\n", content)
+-		}
+-		if msg.ToolCallID != "" {
+-			fmt.Fprintf(&sb, "  ToolCallID: %s\n", msg.ToolCallID)
+-		}
+-		sb.WriteString("\n")
+-	}
+-	sb.WriteString("]")
+-	return sb.String()
+-}
+-
+-func formatToolsForLog(toolDefs []providers.ToolDefinition) string {
+-	if len(toolDefs) == 0 {
+-		return "[]"
+-	}
+-
+-	var sb strings.Builder
+-	sb.WriteString("[\n")
+-	for i, tool := range toolDefs {
+-		fmt.Fprintf(&sb, "  [%d] Type: %s, Name: %s\n", i, tool.Type, tool.Function.Name)
+-		fmt.Fprintf(&sb, "      Description: %s\n", tool.Function.Description)
+-		if len(tool.Function.Parameters) > 0 {
+-			fmt.Fprintf(
+-				&sb,
+-				"      Parameters: %s\n",
+-				utils.Truncate(fmt.Sprintf("%v", tool.Function.Parameters), 200),
+-			)
+-		}
+-	}
+-	sb.WriteString("]")
+-	return sb.String()
+-}
+-
+ func activeSkillNames(agent *AgentInstance, opts processOptions) []string {
+ 	if agent == nil {
+ 		return nil
+diff --git a/pkg/agent/context.go b/pkg/agent/context.go
+index 74c278f..8821dd3 100644
+--- a/pkg/agent/context.go
++++ b/pkg/agent/context.go
+@@ -18,7 +18,6 @@ import (
+ 	"github.com/sipeed/picoclaw/pkg/logger"
+ 	"github.com/sipeed/picoclaw/pkg/providers"
+ 	"github.com/sipeed/picoclaw/pkg/skills"
+-	"github.com/sipeed/picoclaw/pkg/utils"
+ )
+ 
+ type ContextBuilder struct {
+@@ -174,9 +173,9 @@ func (cb *ContextBuilder) getIdentity(includeToolUseRule bool) string {
+ 	}
+ 
+ 	return fmt.Sprintf(
+-		`# picoclaw 🦞 (%s)
++		`# PocketClaw 🦞 (%s)
+ 
+-You are picoclaw, a helpful AI assistant.
++You are PocketClaw, a helpful AI assistant.
+ 
+ ## Workspace
+ Your workspace is at: %s
+@@ -984,13 +983,6 @@ func (cb *ContextBuilder) BuildMessagesFromPrompt(req PromptBuildRequest) []prov
+ 			"cached":        isCached,
+ 		})
+ 
+-	// Log preview of system prompt (avoid logging huge content)
+-	preview := utils.Truncate(fullSystemPrompt, 500)
+-	logger.DebugCF("agent", "System prompt preview",
+-		map[string]any{
+-			"preview": preview,
+-		})
+-
+ 	history := sanitizeHistoryForProvider(req.History)
+ 
+ 	// Single system message containing all context — compatible with all providers.
+diff --git a/pkg/agent/context_test.go b/pkg/agent/context_test.go
+index ed64d15..7df1f91 100644
+--- a/pkg/agent/context_test.go
++++ b/pkg/agent/context_test.go
+@@ -1,11 +1,35 @@
+ package agent
+ 
+ import (
++	"strings"
+ 	"testing"
+ 
+ 	"github.com/sipeed/picoclaw/pkg/providers"
+ )
+ 
++func TestFreshDefaultSystemPromptUsesPocketClawIdentityAndPreservesCustomText(t *testing.T) {
++	workspace := setupWorkspace(t, map[string]string{
++		"AGENT.md": "# Custom identity\nKeep user-authored picoclaw migration notes unchanged.",
++	})
++	defer cleanupWorkspace(t, workspace)
++
++	prompt := NewContextBuilder(workspace).BuildSystemPrompt()
++	for _, required := range []string{
++		"# PocketClaw 🦞",
++		"You are PocketClaw, a helpful AI assistant.",
++		"Keep user-authored picoclaw migration notes unchanged.",
++	} {
++		if !strings.Contains(prompt, required) {
++			t.Fatalf("fresh system prompt missing %q", required)
++		}
++	}
++	for _, forbidden := range []string{"# picoclaw 🦞", "You are picoclaw"} {
++		if strings.Contains(prompt, forbidden) {
++			t.Fatalf("fresh system prompt retained legacy product identity %q", forbidden)
++		}
++	}
++}
++
+ func msg(role, content string) providers.Message {
+ 	return providers.Message{Role: role, Content: content}
+ }
 diff --git a/pkg/agent/pipeline_execute.go b/pkg/agent/pipeline_execute.go
-index 59e3331..c2d8a5a 100644
+index 59e3331..822fefd 100644
 --- a/pkg/agent/pipeline_execute.go
 +++ b/pkg/agent/pipeline_execute.go
-@@ -554,6 +554,9 @@ toolLoop:
+@@ -4,7 +4,6 @@ package agent
+ 
+ import (
+ 	"context"
+-	"encoding/json"
+ 	"fmt"
+ 	"path/filepath"
+ 	"sort"
+@@ -179,9 +178,7 @@ toolLoop:
+ 				if toolReq != nil && toolReq.HookResult != nil {
+ 					hookResult := toolReq.HookResult
+ 
+-					argsJSON, _ := json.Marshal(toolArgs)
+-					argsPreview := utils.Truncate(string(argsJSON), 200)
+-					logger.InfoCF("agent", fmt.Sprintf("Tool call (hook respond): %s(%s)", toolName, argsPreview),
++					logger.InfoCF("agent", toolCallLogMessage(toolName, true),
+ 						map[string]any{
+ 							"agent_id":  ts.agent.ID,
+ 							"tool":      toolName,
+@@ -472,9 +469,7 @@ toolLoop:
+ 			continue
+ 		}
+ 
+-		argsJSON, _ := json.Marshal(toolArgs)
+-		argsPreview := utils.Truncate(string(argsJSON), 200)
+-		logger.InfoCF("agent", fmt.Sprintf("Tool call: %s(%s)", toolName, argsPreview),
++		logger.InfoCF("agent", toolCallLogMessage(toolName, false),
+ 			map[string]any{
+ 				"agent_id":  ts.agent.ID,
+ 				"tool":      toolName,
+@@ -554,6 +549,9 @@ toolLoop:
  		}
  
  		toolStart := time.Now()
@@ -1007,7 +1220,7 @@ index 59e3331..c2d8a5a 100644
  		execCtx := tools.WithToolInboundContext(
  			turnCtx,
  			ts.channel,
-@@ -614,6 +617,16 @@ toolLoop:
+@@ -614,6 +612,16 @@ toolLoop:
  		if toolResult == nil {
  			toolResult = tools.ErrorResult("hook returned nil tool result")
  		}
@@ -1024,11 +1237,76 @@ index 59e3331..c2d8a5a 100644
  
  		if len(toolResult.Media) > 0 && toolResult.ResponseHandled {
  			parts := make([]bus.MediaPart, 0, len(toolResult.Media))
+@@ -862,3 +870,10 @@ toolLoop:
+ 	})
+ 	return ToolControlContinue
+ }
++
++func toolCallLogMessage(toolName string, hookRespond bool) string {
++	if hookRespond {
++		return fmt.Sprintf("Tool call (hook respond): %s", toolName)
++	}
++	return fmt.Sprintf("Tool call: %s", toolName)
++}
+diff --git a/pkg/agent/pipeline_execute_test.go b/pkg/agent/pipeline_execute_test.go
+index 404da32..07491d5 100644
+--- a/pkg/agent/pipeline_execute_test.go
++++ b/pkg/agent/pipeline_execute_test.go
+@@ -3,9 +3,35 @@ package agent
+ import (
+ 	"os"
+ 	"path/filepath"
++	"strings"
+ 	"testing"
+ )
+ 
++func TestToolCallLogMessageOmitsArguments(t *testing.T) {
++	t.Parallel()
++
++	for _, test := range []struct {
++		name        string
++		hookRespond bool
++		want        string
++	}{
++		{name: "normal", want: "Tool call: sendMessage"},
++		{name: "hook response", hookRespond: true, want: "Tool call (hook respond): sendMessage"},
++	} {
++		t.Run(test.name, func(t *testing.T) {
++			got := toolCallLogMessage("sendMessage", test.hookRespond)
++			if got != test.want {
++				t.Fatalf("toolCallLogMessage() = %q, want %q", got, test.want)
++			}
++			for _, forbidden := range []string{"private user content", `{"text":`, "SUPERSECRETVALUE"} {
++				if strings.Contains(got, forbidden) {
++					t.Fatalf("tool log exposed argument content %q in %q", forbidden, got)
++				}
++			}
++		})
++	}
++}
++
+ func TestInferSkillNamesFromToolCall_ReadFileSkillMarkdown(t *testing.T) {
+ 	workspace := t.TempDir()
+ 	skillDir := filepath.Join(workspace, "skills", "three-one")
 diff --git a/pkg/agent/pipeline_llm.go b/pkg/agent/pipeline_llm.go
-index 6856477..c9ffe97 100644
+index 6856477..37f9d41 100644
 --- a/pkg/agent/pipeline_llm.go
 +++ b/pkg/agent/pipeline_llm.go
-@@ -266,8 +266,19 @@ func (p *Pipeline) CallLLM(
+@@ -144,13 +144,6 @@ func (p *Pipeline) CallLLM(
+ 			"temperature":       ts.agent.Temperature,
+ 			"system_prompt_len": len(exec.callMessages[0].Content),
+ 		})
+-	logger.DebugCF("agent", "Full LLM request",
+-		map[string]any{
+-			"iteration":     iteration,
+-			"messages_json": formatMessagesForLog(exec.callMessages),
+-			"tools_json":    formatToolsForLog(exec.providerToolDefs),
+-		})
+-
+ 	// LLM call closure with fallback support
+ 	callLLM := func(messagesForCall []providers.Message, toolDefsForCall []providers.ToolDefinition) (*providers.LLMResponse, error) {
+ 		providerCtx, providerCancel := context.WithCancel(turnCtx)
+@@ -266,8 +259,19 @@ func (p *Pipeline) CallLLM(
  		backoffSecs = 2
  	}
  	for retry := 0; retry <= maxRetries; retry++ {
@@ -1048,7 +1326,29 @@ index 6856477..c9ffe97 100644
  			break
  		}
  		if ts.hardAbortRequested() && errors.Is(err, context.Canceled) {
-@@ -600,6 +611,9 @@ func (p *Pipeline) CallLLM(
+@@ -547,13 +551,14 @@ func (p *Pipeline) CallLLM(
+ 	)
+ 
+ 	llmResponseFields := map[string]any{
+-		"agent_id":       ts.agent.ID,
+-		"iteration":      iteration,
+-		"content_chars":  len(exec.response.Content),
+-		"tool_calls":     len(exec.response.ToolCalls),
+-		"reasoning":      exec.response.Reasoning,
+-		"target_channel": al.targetReasoningChannelID(ts.channel),
+-		"channel":        ts.channel,
++		"agent_id":          ts.agent.ID,
++		"iteration":         iteration,
++		"content_chars":     len(exec.response.Content),
++		"tool_calls":        len(exec.response.ToolCalls),
++		"reasoning_present": exec.response.Reasoning != "" || exec.response.ReasoningContent != "",
++		"reasoning_chars":   len(exec.response.Reasoning) + len(exec.response.ReasoningContent),
++		"target_channel":    al.targetReasoningChannelID(ts.channel),
++		"channel":           ts.channel,
+ 	}
+ 	if exec.response.Usage != nil {
+ 		llmResponseFields["prompt_tokens"] = exec.response.Usage.PromptTokens
+@@ -600,6 +605,9 @@ func (p *Pipeline) CallLLM(
  	toolNames := make([]string, 0, len(exec.normalizedToolCalls))
  	for _, tc := range exec.normalizedToolCalls {
  		toolNames = append(toolNames, tc.Name)
@@ -2079,6 +2379,22 @@ index 0000000..2aa4fec
 +		t.Errorf("DefaultTopicPrefix = %q, want %q", DefaultTopicPrefix, "/pocketclaw")
 +	}
 +}
+diff --git a/pkg/channels/pico/pico.go b/pkg/channels/pico/pico.go
+index 587f889..32aaf84 100644
+--- a/pkg/channels/pico/pico.go
++++ b/pkg/channels/pico/pico.go
+@@ -1202,9 +1202,8 @@ func (c *PicoChannel) handleMessageSend(pc *picoConn, msg PicoMessage) {
+ 	}
+ 
+ 	logger.DebugCF("pico", "Received message", map[string]any{
+-		"session_id": sessionID,
+-		"preview":    truncate(content, 50),
+-		"media":      len(media),
++		"content_chars": len([]rune(content)),
++		"media":         len(media),
+ 	})
+ 
+ 	sender := bus.SenderInfo{
 diff --git a/pkg/channels/teams_webhook/teams_webhook.go b/pkg/channels/teams_webhook/teams_webhook.go
 index 8375634..59b684c 100644
 --- a/pkg/channels/teams_webhook/teams_webhook.go
@@ -2093,7 +2409,7 @@ index 8375634..59b684c 100644
  
  	titleBlock := adaptivecard.NewTextBlock(title, true)
 diff --git a/pkg/channels/telegram/telegram.go b/pkg/channels/telegram/telegram.go
-index d7265fb..5db113d 100644
+index d7265fb..0420b91 100644
 --- a/pkg/channels/telegram/telegram.go
 +++ b/pkg/channels/telegram/telegram.go
 @@ -4,7 +4,6 @@ import (
@@ -2104,7 +2420,15 @@ index d7265fb..5db113d 100644
  	"fmt"
  	"io"
  	"net/http"
-@@ -47,6 +46,7 @@ var (
+@@ -16,6 +15,7 @@ import (
+ 	"strings"
+ 	"sync"
+ 	"time"
++	"unicode/utf8"
+ 
+ 	"github.com/mymmrac/telego"
+ 	th "github.com/mymmrac/telego/telegohandler"
+@@ -47,6 +47,7 @@ var (
  const (
  	defaultMediaGroupDelay = 500 * time.Millisecond
  	telegramCaptionLimit   = 1024
@@ -2112,7 +2436,7 @@ index d7265fb..5db113d 100644
  )
  
  type TelegramChannel struct {
-@@ -89,24 +89,20 @@ func NewTelegramChannel(
+@@ -89,24 +90,20 @@ func NewTelegramChannel(
  	channelName := bc.Name()
  	var opts []telego.BotOption
  
@@ -2144,7 +2468,7 @@ index d7265fb..5db113d 100644
  
  	if baseURL := strings.TrimRight(strings.TrimSpace(telegramCfg.BaseURL), "/"); baseURL != "" {
  		opts = append(opts, telego.WithAPIServer(baseURL))
-@@ -481,18 +477,6 @@ func (c *TelegramChannel) EditMessage(ctx context.Context, chatID string, messag
+@@ -481,18 +478,6 @@ func (c *TelegramChannel) EditMessage(ctx context.Context, chatID string, messag
  			return nil
  		}
  
@@ -2163,6 +2487,20 @@ index d7265fb..5db113d 100644
  	}
  
  	return err
+@@ -1164,10 +1149,9 @@ func (c *TelegramChannel) handleMessages(ctx context.Context, messages []*telego
+ 	}
+ 
+ 	logger.DebugCF("telegram", "Received message", map[string]any{
+-		"sender_id": sender.CanonicalID,
+-		"chat_id":   compositeChatID,
+-		"thread_id": threadID,
+-		"preview":   utils.Truncate(content, 50),
++		"message_chars": utf8.RuneCountInString(content),
++		"media_count":   len(mediaPaths),
++		"has_thread":    threadID != 0,
+ 	})
+ 
+ 	peerKind := "direct"
 @@ -1777,30 +1761,6 @@ func cryptoRandInt() int {
  	return int(binary.BigEndian.Uint32(b[:])) | 1 // ensure non-zero
  }
@@ -2436,7 +2774,7 @@ index 0000000..e33c7cf
 +	}
 +}
 diff --git a/pkg/logger/logger.go b/pkg/logger/logger.go
-index 6d2e317..806439b 100644
+index 6d2e317..926e8b2 100644
 --- a/pkg/logger/logger.go
 +++ b/pkg/logger/logger.go
 @@ -4,6 +4,7 @@ import (
@@ -2493,14 +2831,112 @@ index 6d2e317..806439b 100644
  func getPackageNameFromFile(filePath string) string {
  	dir := filepath.Dir(filePath)
  	importPath := filepath.ToSlash(dir)
+@@ -317,11 +350,92 @@ func logMessage(level LogLevel, component string, message string, fields map[str
+ 
+ 	event.Str(Component, component)
+ 
+-	appendFields(event, fields)
++	appendFields(event, sanitizeFieldsForLog(fields))
+ 
+ 	event.CallerSkipFrame(skip).Msg(message)
+ }
+ 
++var (
++	// These exact structured fields carry routing or personal identifiers. The
++	// runtime maps passed by callers are never mutated; only the copy handed to
++	// log writers is normalized.
++	internalLogIDFields = map[string]struct{}{
++		"chat_id":           {},
++		"inbound_chat_id":   {},
++		"target_chat_id":    {},
++		"sender_id":         {},
++		"inbound_sender_id": {},
++		"user_id":           {},
++		"session_id":        {},
++		"connection_id":     {},
++		"conn_id":           {},
++		"runtime_id":        {},
++	}
++	sensitiveLogKeyFields = map[string]struct{}{
++		"session_key":        {},
++		"scope_key":          {},
++		"route_main_session": {},
++	}
++	rawContentLogFields = map[string]struct{}{
++		"arguments":     {},
++		"args":          {},
++		"content":       {},
++		"messages_json": {},
++		"payload":       {},
++		"preview":       {},
++		"prompt":        {},
++		"reasoning":     {},
++		"response":      {},
++		"text":          {},
++		"tools_json":    {},
++	}
++	channelDisplayFields = map[string]struct{}{
++		"channel":         {},
++		"inbound_channel": {},
++		"route_channel":   {},
++		"scope_channel":   {},
++		"target_channel":  {},
++	}
++)
++
++// sanitizeFieldsForLog enforces the normal log privacy contract before any
++// console or file writer sees structured values. It deliberately matches
++// exact field names and exact compatibility values; runtime routing data is
++// not changed and unrelated strings containing "pico" are left untouched.
++func sanitizeFieldsForLog(fields map[string]any) map[string]any {
++	if len(fields) == 0 {
++		return fields
++	}
++
++	safe := make(map[string]any, len(fields))
++	for key, value := range fields {
++		if _, omit := rawContentLogFields[key]; omit {
++			continue
++		}
++		if _, redact := sensitiveLogKeyFields[key]; redact {
++			safe[key] = "<redacted>"
++			continue
++		}
++		if _, internal := internalLogIDFields[key]; internal {
++			safe[key] = "<internal>"
++			continue
++		}
++
++		switch typed := value.(type) {
++		case string:
++			if _, channelField := channelDisplayFields[key]; channelField && typed == "pico" {
++				typed = "pocketclaw"
++			}
++			safe[key] = redactSecrets(typed)
++		case error:
++			safe[key] = redactSecrets(typed.Error())
++		default:
++			safe[key] = value
++		}
++	}
++	return safe
++}
++
+ func appendFields(event *zerolog.Event, fields map[string]any) {
+ 	for k, v := range fields {
+ 		// Type switch to avoid double JSON serialization of strings
 diff --git a/pkg/logger/logger_3rd_party.go b/pkg/logger/logger_3rd_party.go
-index d0cb178..059f88c 100644
+index d0cb178..be29d88 100644
 --- a/pkg/logger/logger_3rd_party.go
 +++ b/pkg/logger/logger_3rd_party.go
-@@ -5,16 +5,55 @@ package logger
+@@ -3,18 +3,171 @@
+ package logger
+ 
  import (
++	"encoding/json"
  	"fmt"
  	"regexp"
++	"sort"
 +	"strings"
  )
  
@@ -2515,13 +2951,10 @@ index d0cb178..059f88c 100644
 +	telegramBareTokenPattern   = regexp.MustCompile(`(?i)\b\d{6,}(?::|%3A)[A-Za-z0-9_-]{10,}\b`)
 +	authorizationPattern       = regexp.MustCompile(`(?i)(authorization[=:][ \t]*)(?:\[?(?:bearer|basic)[ \t]+)[A-Za-z0-9._~+/%:=-]+\]?`)
 +	telegramAPICallPattern     = regexp.MustCompile(`(?i)^API call to: "https?://[^"\s]*/bot<redacted>/(?:test/)?([A-Za-z][A-Za-z0-9_]*)"`)
++	telegramSafeAPICallPattern = regexp.MustCompile(`(?i)^Telegram API call: ([A-Za-z][A-Za-z0-9_]*)(?:, with data:.*)?$`)
++	telegramAPIOperation       = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9_]*$`)
++	telegramErrorCodePattern   = regexp.MustCompile(`Err: \[([0-9]+)(?:\s|\])`)
 +)
- 
--// maskSecrets replaces any embedded bot tokens in s with a redacted placeholder
--// that keeps the first and last 4 characters of the secret for identification.
--func maskSecrets(s string) string {
--	return botTokenRe.ReplaceAllString(s, "${1}${2}****${3}")
-+const emptyTelegramGetUpdatesResponse = "API response getUpdates: Ok: true, Err: [<nil>], Result: []"
 +
 +// redactSecrets runs before logMessage and therefore before any console/file
 +// writer. Third-party libraries can keep useful method, status, and error text,
@@ -2533,22 +2966,137 @@ index d0cb178..059f88c 100644
 +}
 +
 +// prepareThirdPartyLog applies policy before logMessage reaches any writer.
-+// Telego emits a request line before it knows the result, so getUpdates request
-+// lines are always omitted; failures still emit their separate Execution error
-+// line, while non-empty and unsuccessful API responses remain visible.
-+func prepareThirdPartyLog(level LogLevel, component, input string) (string, bool) {
-+	message := redactSecrets(input)
-+	if level != DEBUG || component != "telego" {
-+		return message, true
++// Telego request parameters and response bodies contain credentials, chat/user
++// identifiers, names, and message text. Normal logs retain only the operation
++// and result metadata. getUpdates request lines are omitted because the paired
++// response carries the useful outcome; failures still emit their separate
++// Execution error line.
++func prepareThirdPartyLog(_ LogLevel, component, input string) (string, bool) {
++	if component != "telego" {
++		return redactSecrets(input), true
 +	}
-+	if message == emptyTelegramGetUpdatesResponse {
-+		return "", false
++	return NormalizeTelegramUserVisibleMessage(input)
++}
++
++// NormalizeTelegramUserVisibleMessage is the shared Core contract for Telego
++// request/response text. It runs before Telego output reaches stdout and is
++// also reused by the backend as a defense for older/raw input.
++func NormalizeTelegramUserVisibleMessage(input string) (string, bool) {
++	message := redactSecrets(input)
++	if normalized, keep, matched := normalizeTelegramAPIResponse(message); matched {
++		return normalized, keep
 +	}
 +	match := telegramAPICallPattern.FindStringSubmatch(message)
-+	if len(match) == 2 && strings.EqualFold(match[1], "getUpdates") {
-+		return "", false
++	if len(match) != 2 {
++		match = telegramSafeAPICallPattern.FindStringSubmatch(message)
++	}
++	if len(match) == 2 {
++		operation := match[1]
++		if strings.EqualFold(operation, "getUpdates") {
++			return "", false
++		}
++		return "Telegram API call: " + operation, true
 +	}
 +	return message, true
++}
++
++func normalizeTelegramAPIResponse(message string) (normalized string, keep, matched bool) {
++	const prefix = "API response "
++	if !strings.HasPrefix(message, prefix) {
++		return "", false, false
++	}
++
++	remainder := strings.TrimPrefix(message, prefix)
++	operationEnd := strings.Index(remainder, ": Ok: ")
++	if operationEnd <= 0 {
++		return "Telegram API response details=<redacted>", true, true
++	}
++	operation := remainder[:operationEnd]
++	if !telegramAPIOperation.MatchString(operation) {
++		return "Telegram API response details=<redacted>", true, true
++	}
++	details := remainder[operationEnd+len(": Ok: "):]
++	okEnd := strings.Index(details, ", Err: [")
++	if okEnd < 0 {
++		return fmt.Sprintf("Telegram API response operation=%s details=<redacted>", operation), true, true
++	}
++	okText := details[:okEnd]
++
++	switch okText {
++	case "false":
++		fields := fmt.Sprintf("Telegram API failed operation=%s ok=false", operation)
++		if code := telegramErrorCodePattern.FindStringSubmatch(message); len(code) == 2 {
++			fields += " error_code=" + code[1]
++		}
++		return fields, true, true
++	case "true":
++		if !strings.EqualFold(operation, "getUpdates") {
++			return fmt.Sprintf("Telegram API completed operation=%s ok=true", operation), true, true
++		}
++	default:
++		return fmt.Sprintf("Telegram API response operation=%s details=<redacted>", operation), true, true
++	}
++
++	const resultMarker = "], Result: "
++	resultStart := strings.Index(details, resultMarker)
++	if resultStart < 0 {
++		return "Telegram API response operation=getUpdates ok=true result=malformed", true, true
++	}
++	rawResult := details[resultStart+len(resultMarker):]
++	var updates []json.RawMessage
++	if err := json.Unmarshal([]byte(rawResult), &updates); err != nil {
++		return "Telegram API response operation=getUpdates ok=true result=malformed", true, true
++	}
++	if len(updates) == 0 {
++		return "", false, true
++	}
++
++	types := telegramUpdateTypes(updates)
++	if len(types) == 1 {
++		return fmt.Sprintf("Telegram update received updates=%d type=%s", len(updates), types[0]), true, true
++	}
++	return fmt.Sprintf("Telegram update received updates=%d types=%s", len(updates), strings.Join(types, ",")), true, true
++}
+ 
+-// maskSecrets replaces any embedded bot tokens in s with a redacted placeholder
+-// that keeps the first and last 4 characters of the secret for identification.
+-func maskSecrets(s string) string {
+-	return botTokenRe.ReplaceAllString(s, "${1}${2}****${3}")
++func telegramUpdateTypes(updates []json.RawMessage) []string {
++	typeSet := make(map[string]struct{})
++	for _, raw := range updates {
++		var update map[string]json.RawMessage
++		if err := json.Unmarshal(raw, &update); err != nil {
++			typeSet["unknown"] = struct{}{}
++			continue
++		}
++		found := false
++		for _, updateType := range []string{
++			"message", "edited_message", "channel_post", "edited_channel_post",
++			"business_connection", "business_message", "edited_business_message",
++			"deleted_business_messages", "message_reaction", "message_reaction_count",
++			"inline_query", "chosen_inline_result", "callback_query", "shipping_query",
++			"pre_checkout_query", "purchased_paid_media", "poll", "poll_answer",
++			"my_chat_member", "chat_member", "chat_join_request", "chat_boost",
++			"removed_chat_boost",
++		} {
++			if value, ok := update[updateType]; ok && len(value) > 0 && string(value) != "null" {
++				typeSet[updateType] = struct{}{}
++				found = true
++				break
++			}
++		}
++		if !found {
++			typeSet["unknown"] = struct{}{}
++		}
++	}
++
++	types := make([]string, 0, len(typeSet))
++	for updateType := range typeSet {
++		types = append(types, updateType)
++	}
++	sort.Strings(types)
++	return types
 +}
 +
 +func (b *Logger) write(level LogLevel, message string) {
@@ -2560,7 +3108,7 @@ index d0cb178..059f88c 100644
  }
  
  // Logger implements common Logger interface
-@@ -25,52 +64,52 @@ type Logger struct {
+@@ -25,52 +178,52 @@ type Logger struct {
  
  // Debug logs debug messages
  func (b *Logger) Debug(v ...any) {
@@ -2623,7 +3171,7 @@ index d0cb178..059f88c 100644
  }
  
  // Log logs a message at a given level with caller information
-@@ -88,7 +127,7 @@ func (b *Logger) Log(msgL, caller int, format string, a ...any) {
+@@ -88,7 +241,7 @@ func (b *Logger) Log(msgL, caller int, format string, a ...any) {
  			level = lvl
  		}
  	}
@@ -2634,13 +3182,14 @@ index d0cb178..059f88c 100644
  // Sync flushes log buffer (no-op for this implementation)
 diff --git a/pkg/logger/logger_3rd_party_test.go b/pkg/logger/logger_3rd_party_test.go
 new file mode 100644
-index 0000000..db7d7da
+index 0000000..3debe81
 --- /dev/null
 +++ b/pkg/logger/logger_3rd_party_test.go
-@@ -0,0 +1,145 @@
+@@ -0,0 +1,171 @@
 +package logger
 +
 +import (
++	"fmt"
 +	"strings"
 +	"testing"
 +)
@@ -2737,13 +3286,20 @@ index 0000000..db7d7da
 +		"sendMessage":        `API call to: "https://api.telegram.org/bot` + syntheticTelegramToken + `/sendMessage"`,
 +		"editMessageText":    `API call to: "https://api.telegram.org/bot` + syntheticTelegramToken + `/editMessageText"`,
 +	}
++	wants := map[string]string{
++		"failure":            redactSecrets(kept["failure"]),
++		"non-empty response": "Telegram update received updates=1 type=unknown",
++		"api error response": "Telegram API failed operation=getUpdates ok=false error_code=429",
++		"sendMessage":        "Telegram API call: sendMessage",
++		"editMessageText":    "Telegram API call: editMessageText",
++	}
 +	for name, raw := range kept {
 +		t.Run(name, func(t *testing.T) {
 +			message, keep := prepareThirdPartyLog(DEBUG, "telego", raw)
 +			if !keep {
 +				t.Fatalf("important Telegram diagnostic was suppressed: %q", raw)
 +			}
-+			if want := redactSecrets(raw); message != want {
++			if want := wants[name]; message != want {
 +				t.Fatalf("prepareThirdPartyLog() = %q, want %q", message, want)
 +			}
 +			assertNoTelegramCredentialFragment(t, message)
@@ -2751,19 +3307,37 @@ index 0000000..db7d7da
 +	}
 +}
 +
-+func TestPrepareThirdPartyLogDoesNotFilterOtherComponentsOrLevels(t *testing.T) {
++func TestPrepareThirdPartyLogDoesNotFilterOtherComponents(t *testing.T) {
 +	t.Parallel()
 +
 +	input := "API response getUpdates: Ok: true, Err: [<nil>], Result: []"
-+	for _, tc := range []struct {
-+		level     LogLevel
-+		component string
-+	}{
-+		{level: INFO, component: "telego"},
-+		{level: DEBUG, component: "telegram"},
-+	} {
-+		if got, keep := prepareThirdPartyLog(tc.level, tc.component, input); !keep || got != input {
-+			t.Fatalf("prepareThirdPartyLog(%v, %q) = %q, %v; want unchanged", tc.level, tc.component, got, keep)
++	if got, keep := prepareThirdPartyLog(DEBUG, "telegram", input); !keep || got != input {
++		t.Fatalf("prepareThirdPartyLog() = %q, %v; want unchanged", got, keep)
++	}
++}
++
++func TestNormalizeTelegramUserVisibleMessageRemovesResponsePayloadPII(t *testing.T) {
++	t.Parallel()
++
++	privatePayload := `[{"update_id":42,"message":{"from":{"id":581234567,"first_name":"Ada","last_name":"Lovelace","username":"private_user","language_code":"ar"},"chat":{"id":581234567},"text":"مرحبا private body"}}]`
++	message, keep := NormalizeTelegramUserVisibleMessage(
++		"API response getUpdates: Ok: true, Err: [<nil>], Result: " + privatePayload,
++	)
++	if !keep || message != "Telegram update received updates=1 type=message" {
++		t.Fatalf("NormalizeTelegramUserVisibleMessage() = %q, %v", message, keep)
++	}
++	for _, forbidden := range []string{"581234567", "Ada", "Lovelace", "private_user", "language_code", "مرحبا", "private body"} {
++		if strings.Contains(message, forbidden) {
++			t.Fatalf("private Telegram value %q remains in %q", forbidden, message)
++		}
++	}
++
++	for _, operation := range []string{"getMe", "sendMessage", "editMessageText", "deleteMessage", "answerCustomQuery"} {
++		raw := fmt.Sprintf(`API response %s: Ok: true, Err: [<nil>], Result: {"chat":{"id":581234567},"text":"private body"}`, operation)
++		got, operationKeep := NormalizeTelegramUserVisibleMessage(raw)
++		want := fmt.Sprintf("Telegram API completed operation=%s ok=true", operation)
++		if !operationKeep || got != want {
++			t.Errorf("operation %s = %q, %v; want %q", operation, got, operationKeep, want)
 +		}
 +	}
 +}
@@ -2783,6 +3357,83 @@ index 0000000..db7d7da
 +		}
 +	}
 +}
+diff --git a/pkg/logger/logger_test.go b/pkg/logger/logger_test.go
+index 7a7712d..252f865 100644
+--- a/pkg/logger/logger_test.go
++++ b/pkg/logger/logger_test.go
+@@ -89,6 +89,72 @@ func TestLoggerWithComponent(t *testing.T) {
+ 	SetLevel(INFO)
+ }
+ 
++func TestSanitizeFieldsForLogProtectsDisplayWithoutMutatingRuntimeValues(t *testing.T) {
++	t.Parallel()
++
++	original := map[string]any{
++		"session_key":        "sk_v1_SUPERSECRETVALUE",
++		"scope_key":          "sk_v1_SUPERSECRETVALUE",
++		"route_main_session": "sk_v1_SUPERSECRETVALUE",
++		"chat_id":            "pico:1234",
++		"sender_id":          "pico-user",
++		"route_channel":      "pico",
++		"reasoning":          "private reasoning text",
++		"messages_json":      "actual conversation contents",
++		"tools_json":         "full schema",
++		"model":              "test-model",
++	}
++	safe := sanitizeFieldsForLog(original)
++
++	for _, key := range []string{"session_key", "scope_key", "route_main_session"} {
++		if safe[key] != "<redacted>" {
++			t.Errorf("%s = %v, want redacted", key, safe[key])
++		}
++	}
++	for _, key := range []string{"chat_id", "sender_id"} {
++		if safe[key] != "<internal>" {
++			t.Errorf("%s = %v, want internal", key, safe[key])
++		}
++	}
++	if safe["route_channel"] != "pocketclaw" {
++		t.Errorf("route_channel = %v, want pocketclaw display label", safe["route_channel"])
++	}
++	for _, key := range []string{"reasoning", "messages_json", "tools_json"} {
++		if _, exists := safe[key]; exists {
++			t.Errorf("raw content field %s was retained", key)
++		}
++	}
++	if safe["model"] != "test-model" {
++		t.Errorf("useful model metadata was lost: %v", safe["model"])
++	}
++
++	if original["session_key"] != "sk_v1_SUPERSECRETVALUE" ||
++		original["chat_id"] != "pico:1234" ||
++		original["sender_id"] != "pico-user" ||
++		original["route_channel"] != "pico" {
++		t.Fatalf("runtime field map was mutated: %#v", original)
++	}
++	if original["reasoning"] != "private reasoning text" {
++		t.Fatal("runtime response reasoning was mutated")
++	}
++}
++
++func TestSanitizeFieldsForLogDoesNotRewritePicoSubstrings(t *testing.T) {
++	t.Parallel()
++
++	original := map[string]any{
++		"route_channel": "pico-test",
++		"component":     "picometer",
++		"filename":      "my-pico-notes.txt",
++	}
++	safe := sanitizeFieldsForLog(original)
++	for key, want := range original {
++		if safe[key] != want {
++			t.Errorf("%s = %v, want unchanged %v", key, safe[key], want)
++		}
++	}
++}
++
+ func TestLogLevels(t *testing.T) {
+ 	tests := []struct {
+ 		name  string
 diff --git a/pkg/pid/pidfile.go b/pkg/pid/pidfile.go
 index 3efc45f..e9251e6 100644
 --- a/pkg/pid/pidfile.go
@@ -4639,6 +5290,63 @@ index 90a2206..f4cab1e 100644
  		DisplayName:         "Qwen US",
  		IconSlug:            "alibabacloud",
  		Domain:              "alibabacloud.com",
+diff --git a/pkg/tools/toolloop.go b/pkg/tools/toolloop.go
+index c925c77..42270e6 100644
+--- a/pkg/tools/toolloop.go
++++ b/pkg/tools/toolloop.go
+@@ -15,7 +15,6 @@ import (
+ 
+ 	"github.com/sipeed/picoclaw/pkg/logger"
+ 	"github.com/sipeed/picoclaw/pkg/providers"
+-	"github.com/sipeed/picoclaw/pkg/utils"
+ )
+ 
+ // ToolLoopConfig configures the tool execution loop.
+@@ -178,9 +177,7 @@ func RunToolLoop(
+ 					}
+ 				}()
+ 
+-				argsJSON, _ := json.Marshal(tc.Arguments)
+-				argsPreview := utils.Truncate(string(argsJSON), 200)
+-				logger.InfoCF("toolloop", fmt.Sprintf("Tool call: %s(%s)", tc.Name, argsPreview),
++				logger.InfoCF("toolloop", toolCallLogMessage(tc.Name),
+ 					map[string]any{
+ 						"tool":      tc.Name,
+ 						"iteration": iteration,
+@@ -218,3 +215,7 @@ func RunToolLoop(
+ 		Iterations: iteration,
+ 	}, nil
+ }
++
++func toolCallLogMessage(toolName string) string {
++	return fmt.Sprintf("Tool call: %s", toolName)
++}
+diff --git a/pkg/tools/toolloop_test.go b/pkg/tools/toolloop_test.go
+new file mode 100644
+index 0000000..3e1438e
+--- /dev/null
++++ b/pkg/tools/toolloop_test.go
+@@ -0,0 +1,20 @@
++package tools
++
++import (
++	"strings"
++	"testing"
++)
++
++func TestToolCallLogMessageOmitsArguments(t *testing.T) {
++	t.Parallel()
++
++	got := toolCallLogMessage("sendMessage")
++	if got != "Tool call: sendMessage" {
++		t.Fatalf("toolCallLogMessage() = %q", got)
++	}
++	for _, forbidden := range []string{"private user content", `{"text":`, "SUPERSECRETVALUE"} {
++		if strings.Contains(got, forbidden) {
++			t.Fatalf("tool log exposed argument content %q in %q", forbidden, got)
++		}
++	}
++}
 diff --git a/web/Makefile b/web/Makefile
 index 254c439..c2a09ee 100644
 --- a/web/Makefile
@@ -5544,16 +6252,18 @@ index bc71e49..f7f57b0 100644
  			"X-GNOME-Autostart-enabled=true",
 diff --git a/web/backend/api/user_visible_log.go b/web/backend/api/user_visible_log.go
 new file mode 100644
-index 0000000..593bfb8
+index 0000000..bf602c8
 --- /dev/null
 +++ b/web/backend/api/user_visible_log.go
-@@ -0,0 +1,189 @@
+@@ -0,0 +1,221 @@
 +package api
 +
 +import (
 +	"regexp"
 +	"strings"
 +	"unicode/utf8"
++
++	corelogger "github.com/sipeed/picoclaw/pkg/logger"
 +)
 +
 +var (
@@ -5576,6 +6286,9 @@ index 0000000..593bfb8
 +	telegramSuccessfulNilError       = regexp.MustCompile(`((?:^| > )API response [A-Za-z][A-Za-z0-9_]*: Ok: true, Err:) \[<nil>\]`)
 +	routineTelegramGetUpdatesCall    = regexp.MustCompile(`(?:^| > )Telegram API call: getUpdates(?:, with data:.*)?$`)
 +	routineEmptyGetUpdatesResponse   = regexp.MustCompile(`(?:^| > )API response getUpdates: Ok: true, Err: none, Result: \[\](?:\s|$)`)
++	sensitiveSessionFieldPattern     = regexp.MustCompile(`(?m)(^|[ \t])(session_key|scope_key|route_main_session)=(?:"(?:\\.|[^"\\])*"|[^ \t\r\n]*)`)
++	internalIdentityFieldPattern     = regexp.MustCompile(`(?m)(^|[ \t])(chat_id|inbound_chat_id|target_chat_id|sender_id|inbound_sender_id|user_id|session_id|connection_id|conn_id|runtime_id)=(?:"(?:\\.|[^"\\])*"|[^ \t\r\n]*)`)
++	rawContentFieldPattern           = regexp.MustCompile(`(?m)(^|[ \t])(arguments|args|content|messages_json|payload|preview|prompt|reasoning|response|text|tools_json)=(?:"(?:\\.|[^"\\])*"|[^ \t\r\n]*)`)
 +)
 +
 +var exactCompatibilityMessages = map[string]string{
@@ -5654,7 +6367,12 @@ index 0000000..593bfb8
 +	result = telegramAPICallWrapperPattern.ReplaceAllString(result, "Telegram API call: $1")
 +	result = authorizationCredentialPattern.ReplaceAllString(result, "${1}<redacted>")
 +	result = legacyPIDFilePathPattern.ReplaceAllString(result, "<gateway PID file>$1")
++	result = normalizeTelegramMessageInLine(result)
++	if result == "" {
++		return ""
++	}
 +	result = telegramSuccessfulNilError.ReplaceAllString(result, "${1} none")
++	result = normalizePrivateStructuredFields(result)
 +	result = normalizePicoStructuredFields(result)
 +	result = normalizeExactCompatibilityMessages(result)
 +	if routineTelegramGetUpdatesCall.MatchString(result) || routineEmptyGetUpdatesResponse.MatchString(result) {
@@ -5666,11 +6384,33 @@ index 0000000..593bfb8
 +	return picoWSRequestPattern.ReplaceAllString(result, "$1 /internal realtime connection $2$3")
 +}
 +
++func normalizeTelegramMessageInLine(input string) string {
++	messageStart := 0
++	if separator := strings.Index(input, " > "); separator >= 0 {
++		messageStart = separator + len(" > ")
++	}
++	normalized, keep := corelogger.NormalizeTelegramUserVisibleMessage(input[messageStart:])
++	if !keep {
++		return ""
++	}
++	return input[:messageStart] + normalized
++}
++
++func normalizePrivateStructuredFields(input string) string {
++	result := sensitiveSessionFieldPattern.ReplaceAllString(input, "${1}${2}=<redacted>")
++	result = internalIdentityFieldPattern.ReplaceAllString(result, "${1}${2}=<internal>")
++	return rawContentFieldPattern.ReplaceAllString(result, "${1}${2}=<redacted>")
++}
++
 +func normalizePicoStructuredFields(input string) string {
 +	lines := strings.Split(input, "\n")
 +	for i, line := range lines {
 +		internalChannel := hasExactLogToken(line, "channel=pico")
-+		line = replaceExactLogToken(line, "channel=pico", "channel=pocketclaw")
++		for _, field := range []string{
++			"channel", "inbound_channel", "route_channel", "scope_channel", "target_channel",
++		} {
++			line = replaceExactLogToken(line, field+"=pico", field+"=pocketclaw")
++		}
 +		line = replaceExactLogToken(line, "type=pico", "type=pocketclaw")
 +		if internalChannel {
 +			line = replaceExactLogToken(line, "path=/pico/", "path=<internal>")
@@ -5739,10 +6479,10 @@ index 0000000..593bfb8
 +}
 diff --git a/web/backend/api/user_visible_log_test.go b/web/backend/api/user_visible_log_test.go
 new file mode 100644
-index 0000000..80a0913
+index 0000000..91cf783
 --- /dev/null
 +++ b/web/backend/api/user_visible_log_test.go
-@@ -0,0 +1,310 @@
+@@ -0,0 +1,359 @@
 +package api
 +
 +import (
@@ -5847,9 +6587,14 @@ index 0000000..80a0913
 +		t.Fatalf("important Telegram history = %#v, total=%d; want %d", lines, total, len(important))
 +	}
 +	joined := strings.Join(lines, "\n")
-+	for _, detail := range []string{"context deadline exceeded", `[{"update_id":42}]`, "429", "sendMessage", "editMessageText"} {
++	for _, detail := range []string{"context deadline exceeded", "updates=1", "error_code=429", "sendMessage", "editMessageText"} {
 +		if !strings.Contains(joined, detail) {
 +			t.Fatalf("stored history lost %q: %q", detail, joined)
++		}
++	}
++	for _, private := range []string{"update_id", "Result:"} {
++		if strings.Contains(joined, private) {
++			t.Fatalf("stored history retained Telegram payload %q: %q", private, joined)
 +		}
 +	}
 +	assertNoTelegramTokenFragment(t, joined, token)
@@ -5890,7 +6635,7 @@ index 0000000..80a0913
 +		},
 +		"sendMessage with data": {
 +			input: `DBG telego bot.go:245 > API call to: "https://api.telegram.org/bot` + token + `/sendMessage", with data: {"chat_id":42}`,
-+			want:  `DBG telego bot.go:245 > Telegram API call: sendMessage, with data: {"chat_id":42}`,
++			want:  `DBG telego bot.go:245 > Telegram API call: sendMessage`,
 +		},
 +		"old partial editMessageText mask": {
 +			input: `DBG telego bot.go:247 > API call to: "https://api.telegram.org/bot123456789:AAEx****alue/editMessageText"`,
@@ -5941,6 +6686,50 @@ index 0000000..80a0913
 +	for _, forbidden := range []string{token, "123456789:", "AAExample", "TokenValue", "AAEx****alue"} {
 +		if strings.Contains(value, forbidden) {
 +			t.Fatalf("credential fragment %q remains in %q", forbidden, value)
++		}
++	}
++}
++
++func TestLogBufferRedactsAgentInternalsAndTelegramPayloadsBeforeStorage(t *testing.T) {
++	buffer := NewLogBuffer(20)
++	raw := []string{
++		"DBG agent context.go:989 > System prompt preview preview=\"# picoclaw 🦞 You are picoclaw, a helpful AI assistant.\"",
++		"DBG agent pipeline_llm.go:147 > Full LLM request iteration=1 messages_json=\"actual conversation contents\" tools_json=\"full schema\"",
++		"DBG agent pipeline_llm.go:565 > LLM response reasoning=\"private reasoning text\" model=test-model",
++		"INF agent agent_message.go:159 > Routed message session_key=sk_v1_SUPERSECRETVALUE scope_key=sk_v1_SUPERSECRETVALUE route_main_session=sk_v1_SUPERSECRETVALUE route_channel=pico",
++		"DBG events runtime_event_logger.go:180 > Runtime event chat_id=pico:1234 sender_id=pico-user inbound_chat_id=pico:1234 inbound_sender_id=pico-user",
++		"DBG telego bot.go:173 > API response getUpdates: Ok: true, Err: [<nil>], Result: [{\"update_id\":42,\"message\":{\"from\":{\"id\":581234567,\"first_name\":\"Ada\",\"last_name\":\"Lovelace\",\"username\":\"private_user\",\"language_code\":\"ar\"},\"chat\":{\"id\":581234567},\"text\":\"مرحبا private body\"}}]",
++		"DBG telego bot.go:173 > API response editMessageText: Ok: true, Err: [<nil>], Result: {\"chat\":{\"id\":581234567},\"text\":\"private assistant body\"}",
++	}
++	for _, line := range raw {
++		buffer.Append(line)
++	}
++
++	lines, total, _ := buffer.LinesSince(0)
++	if total != len(raw) {
++		t.Fatalf("stored total = %d, want %d: %#v", total, len(raw), lines)
++	}
++	rendered := strings.Join(lines, "\n")
++	for _, forbidden := range []string{
++		"# picoclaw", "You are picoclaw", "actual conversation contents", "full schema",
++		"private reasoning text", "sk_v1_SUPERSECRETVALUE", "pico:1234", "pico-user",
++		"581234567", "Ada", "Lovelace", "private_user", "language_code", "مرحبا private body",
++		"private assistant body", "update_id",
++	} {
++		if strings.Contains(rendered, forbidden) {
++			t.Fatalf("stored normal DEBUG contains private value %q: %q", forbidden, rendered)
++		}
++	}
++	for _, required := range []string{
++		"preview=<redacted>", "messages_json=<redacted>", "tools_json=<redacted>",
++		"reasoning=<redacted>", "model=test-model", "session_key=<redacted>",
++		"scope_key=<redacted>", "route_main_session=<redacted>",
++		"route_channel=pocketclaw", "chat_id=<internal>", "sender_id=<internal>",
++		"Telegram update received updates=1 type=message",
++		"Telegram API completed operation=editMessageText ok=true",
++	} {
++		if !strings.Contains(rendered, required) {
++			t.Fatalf("stored normal DEBUG lost safe metadata %q: %q", required, rendered)
 +		}
 +	}
 +}
@@ -8610,10 +9399,10 @@ index db078ef..0000000
 -}
 diff --git a/web/frontend/src/components/logs/logs-page.test.tsx b/web/frontend/src/components/logs/logs-page.test.tsx
 new file mode 100644
-index 0000000..08a6674
+index 0000000..20537f5
 --- /dev/null
 +++ b/web/frontend/src/components/logs/logs-page.test.tsx
-@@ -0,0 +1,392 @@
+@@ -0,0 +1,464 @@
 +import { readFileSync } from "node:fs"
 +import { resolve } from "node:path"
 +
@@ -8831,15 +9620,87 @@ index 0000000..08a6674
 +
 +    expect(rendered).not.toContain("Result: []")
 +    expect(rendered).not.toContain("Telegram API call: getUpdates")
-+    expect(rendered).toContain('[{"update_id":42}]')
++    expect(rendered).toContain("Telegram update received updates=1 type=unknown")
 +    expect(rendered).toContain("context deadline exceeded")
-+    expect(rendered).toContain("Err: none, Result: <tag>")
++    expect(rendered).toContain("Telegram API completed operation=getMe ok=true")
 +    expect(rendered).toContain(
 +      "value=<none> 1 < 2 2 > 1 Arabic <نص> emoji 🚀 <nil>",
 +    )
 +    expect(rendered).not.toContain("Err: il>]")
++    expect(rendered).not.toContain("update_id")
 +    expect(rendered).not.toContain("�")
 +    expect(container.querySelector("tag")).toBeNull()
++  })
++
++  it("renders Agent and Telegram metadata without private content or routing IDs", () => {
++    gatewayLogState.logs = [
++      {
++        id: "18:0",
++        line: 'DBG agent context.go:989 > System prompt preview preview="# picoclaw 🦞 You are picoclaw"',
++      },
++      {
++        id: "18:1",
++        line: 'DBG agent pipeline_llm.go:147 > Full LLM request iteration=1 messages_json="actual conversation contents" tools_json="full schema"',
++      },
++      {
++        id: "18:2",
++        line: 'DBG agent pipeline_llm.go:565 > LLM response reasoning="private reasoning text" reasoning_chars=27 model=test-model',
++      },
++      {
++        id: "18:3",
++        line: "INF agent agent_message.go:159 > Routed message session_key=sk_v1_SUPERSECRETVALUE scope_key=sk_v1_SUPERSECRETVALUE route_main_session=sk_v1_SUPERSECRETVALUE route_channel=pico chat_id=pico:1234 sender_id=pico-user",
++      },
++      {
++        id: "18:4",
++        line: 'DBG telego bot.go:173 > API response getUpdates: Ok: true, Err: [<nil>], Result: [{"update_id":42,"message":{"from":{"id":581234567,"first_name":"Ada","last_name":"Lovelace","username":"private_user","language_code":"ar"},"chat":{"id":581234567},"text":"مرحبا private body"}}]',
++      },
++      {
++        id: "18:5",
++        line: 'DBG telego bot.go:173 > API response editMessageText: Ok: true, Err: [<nil>], Result: {"chat":{"id":581234567},"text":"private assistant body"}',
++      },
++    ]
++
++    const { container } = render(<LogsPage />)
++    const rendered = container.textContent ?? ""
++
++    for (const forbidden of [
++      "# picoclaw",
++      "You are picoclaw",
++      "actual conversation contents",
++      "full schema",
++      "private reasoning text",
++      "sk_v1_SUPERSECRETVALUE",
++      "pico:1234",
++      "pico-user",
++      "581234567",
++      "Ada",
++      "Lovelace",
++      "private_user",
++      "language_code",
++      "مرحبا private body",
++      "private assistant body",
++      "update_id",
++    ]) {
++      expect(rendered).not.toContain(forbidden)
++    }
++    for (const metadata of [
++      "preview=<redacted>",
++      "messages_json=<redacted>",
++      "tools_json=<redacted>",
++      "reasoning=<redacted>",
++      "reasoning_chars=27",
++      "model=test-model",
++      "session_key=<redacted>",
++      "scope_key=<redacted>",
++      "route_main_session=<redacted>",
++      "route_channel=pocketclaw",
++      "chat_id=<internal>",
++      "sender_id=<internal>",
++      "Telegram update received updates=1 type=message",
++      "Telegram API completed operation=editMessageText ok=true",
++    ]) {
++      expect(rendered).toContain(metadata)
++    }
 +  })
 +
 +  it("normalizes only classified legacy startup identities", () => {
@@ -11347,10 +12208,10 @@ index 39561fb..0000000
 -}
 diff --git a/web/frontend/src/lib/plain-text-log.ts b/web/frontend/src/lib/plain-text-log.ts
 new file mode 100644
-index 0000000..7042886
+index 0000000..9b85926
 --- /dev/null
 +++ b/web/frontend/src/lib/plain-text-log.ts
-@@ -0,0 +1,233 @@
+@@ -0,0 +1,337 @@
 +const OSC_PATTERN = new RegExp(
 +  String.raw`(?:\u001B\]|\u009D)[\s\S]*?(?:\u0007|\u001B\\|\u009C)`,
 +  "g",
@@ -11396,6 +12257,41 @@ index 0000000..7042886
 +  /(?:^| > )Telegram API call: getUpdates(?:, with data:.*)?$/
 +const ROUTINE_EMPTY_GET_UPDATES_RESPONSE =
 +  /(?:^| > )API response getUpdates: Ok: true, Err: none, Result: \[\](?:\s|$)/
++const SENSITIVE_SESSION_FIELD_PATTERN =
++  /(^|[ \t])(session_key|scope_key|route_main_session)=(?:"(?:\\.|[^"\\])*"|[^ \t\r\n]*)/gm
++const INTERNAL_IDENTITY_FIELD_PATTERN =
++  /(^|[ \t])(chat_id|inbound_chat_id|target_chat_id|sender_id|inbound_sender_id|user_id|session_id|connection_id|conn_id|runtime_id)=(?:"(?:\\.|[^"\\])*"|[^ \t\r\n]*)/gm
++const RAW_CONTENT_FIELD_PATTERN =
++  /(^|[ \t])(arguments|args|content|messages_json|payload|preview|prompt|reasoning|response|text|tools_json)=(?:"(?:\\.|[^"\\])*"|[^ \t\r\n]*)/gm
++const TELEGRAM_API_RESPONSE_PATTERN =
++  /^API response ([A-Za-z][A-Za-z0-9_]*): Ok: (true|false), Err: \[([\s\S]*?)\](?:, Result: ([\s\S]*))?$/
++const SAFE_TELEGRAM_API_CALL_PATTERN =
++  /^Telegram API call: ([A-Za-z][A-Za-z0-9_]*)(?:, with data:.*)?$/i
++const TELEGRAM_UPDATE_TYPES = [
++  "message",
++  "edited_message",
++  "channel_post",
++  "edited_channel_post",
++  "business_connection",
++  "business_message",
++  "edited_business_message",
++  "deleted_business_messages",
++  "message_reaction",
++  "message_reaction_count",
++  "inline_query",
++  "chosen_inline_result",
++  "callback_query",
++  "shipping_query",
++  "pre_checkout_query",
++  "purchased_paid_media",
++  "poll",
++  "poll_answer",
++  "my_chat_member",
++  "chat_member",
++  "chat_join_request",
++  "chat_boost",
++  "removed_chat_boost",
++] as const
 +const EXACT_COMPATIBILITY_MESSAGES = new Map([
 +  ["Starting Pico Protocol channel", "Starting PocketClaw realtime channel"],
 +  ["Pico Protocol channel started", "PocketClaw realtime channel started"],
@@ -11493,7 +12389,10 @@ index 0000000..7042886
 +  )
 +  result = result.replace(AUTHORIZATION_CREDENTIAL_PATTERN, "$1<redacted>")
 +  result = result.replace(LEGACY_PID_FILE_PATH_PATTERN, "<gateway PID file>$1")
++  result = normalizeTelegramMessageInLine(result)
++  if (!result) return ""
 +  result = result.replace(TELEGRAM_SUCCESSFUL_NIL_ERROR, "$1 none")
++  result = normalizePrivateStructuredFields(result)
 +  result = normalizePicoStructuredFields(result)
 +  result = normalizeExactCompatibilityMessages(result)
 +  if (
@@ -11510,16 +12409,82 @@ index 0000000..7042886
 +  return result
 +}
 +
++function normalizeTelegramMessageInLine(input: string): string {
++  const separator = input.indexOf(" > ")
++  const messageStart = separator < 0 ? 0 : separator + " > ".length
++  const prefix = input.slice(0, messageStart)
++  const message = input.slice(messageStart)
++
++  const call = message.match(SAFE_TELEGRAM_API_CALL_PATTERN)
++  if (call) {
++    if (call[1].toLowerCase() === "getupdates") return ""
++    return `${prefix}Telegram API call: ${call[1]}`
++  }
++
++  const response = message.match(TELEGRAM_API_RESPONSE_PATTERN)
++  if (!response) return input
++  const [, operation, ok, error, rawResult] = response
++  if (ok === "false") {
++    const errorCode = error.match(/^([0-9]+)(?:\s|$)/)?.[1]
++    return `${prefix}Telegram API failed operation=${operation} ok=false${errorCode ? ` error_code=${errorCode}` : ""}`
++  }
++  if (operation.toLowerCase() !== "getupdates") {
++    return `${prefix}Telegram API completed operation=${operation} ok=true`
++  }
++  if (rawResult === undefined) {
++    return `${prefix}Telegram API response operation=getUpdates ok=true result=malformed`
++  }
++
++  try {
++    const updates: unknown = JSON.parse(rawResult)
++    if (!Array.isArray(updates)) throw new Error("not an update array")
++    if (updates.length === 0) return ""
++    const types = new Set<string>()
++    for (const update of updates) {
++      if (!update || typeof update !== "object" || Array.isArray(update)) {
++        types.add("unknown")
++        continue
++      }
++      const record = update as Record<string, unknown>
++      const updateType = TELEGRAM_UPDATE_TYPES.find(
++        (candidate) => record[candidate] !== undefined && record[candidate] !== null,
++      )
++      types.add(updateType ?? "unknown")
++    }
++    const sortedTypes = [...types].sort()
++    const typeField = sortedTypes.length === 1 ? "type" : "types"
++    return `${prefix}Telegram update received updates=${updates.length} ${typeField}=${sortedTypes.join(",")}`
++  } catch {
++    return `${prefix}Telegram API response operation=getUpdates ok=true result=malformed`
++  }
++}
++
++function normalizePrivateStructuredFields(input: string): string {
++  return input
++    .replace(SENSITIVE_SESSION_FIELD_PATTERN, "$1$2=<redacted>")
++    .replace(INTERNAL_IDENTITY_FIELD_PATTERN, "$1$2=<internal>")
++    .replace(RAW_CONTENT_FIELD_PATTERN, "$1$2=<redacted>")
++}
++
 +function normalizePicoStructuredFields(input: string): string {
 +  return input
 +    .split("\n")
 +    .map((line) => {
 +      const internalChannel = hasExactLogToken(line, "channel=pico")
-+      let result = replaceExactLogToken(
-+        line,
-+        "channel=pico",
-+        "channel=pocketclaw",
-+      )
++      let result = line
++      for (const field of [
++        "channel",
++        "inbound_channel",
++        "route_channel",
++        "scope_channel",
++        "target_channel",
++      ]) {
++        result = replaceExactLogToken(
++          result,
++          `${field}=pico`,
++          `${field}=pocketclaw`,
++        )
++      }
 +      result = replaceExactLogToken(result, "type=pico", "type=pocketclaw")
 +      if (internalChannel) {
 +        result = replaceExactLogToken(result, "path=/pico/", "path=<internal>")

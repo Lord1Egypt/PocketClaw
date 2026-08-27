@@ -37,7 +37,7 @@
   {
     "name": "telego nil response brackets",
     "input": "API response getMe: Ok: true, Err: [<nil>], Result: {}",
-    "expected": "API response getMe: Ok: true, Err: none, Result: {}"
+    "expected": "Telegram API completed operation=getMe ok=true"
   },
   {
     "name": "ordinary angle bracket values",
@@ -78,5 +78,25 @@
     "name": "partial internal identity is not rewritten",
     "input": "12:00:02 INF pico_client pico_client.go:42 > compatibility client",
     "expected": "12:00:02 INF pico_client pico_client.go:42 > compatibility client"
+  },
+  {
+    "name": "agent structured privacy fields",
+    "input": "12:00:03 DBG agent agent_message.go:159 > Routed message session_key=sk_v1_SUPERSECRETVALUE scope_key=sk_v1_SUPERSECRETVALUE route_main_session=sk_v1_SUPERSECRETVALUE route_channel=pico chat_id=pico:1234 sender_id=pico-user",
+    "expected": "12:00:03 DBG agent agent_message.go:159 > Routed message session_key=<redacted> scope_key=<redacted> route_main_session=<redacted> route_channel=pocketclaw chat_id=<internal> sender_id=<internal>"
+  },
+  {
+    "name": "raw debug content fields",
+    "input": "12:00:04 DBG agent pipeline_llm.go:147 > Full LLM request messages_json=private-body tools_json=private-schema reasoning=private-thought model=test-model",
+    "expected": "12:00:04 DBG agent pipeline_llm.go:147 > Full LLM request messages_json=<redacted> tools_json=<redacted> reasoning=<redacted> model=test-model"
+  },
+  {
+    "name": "nonempty Telegram payload metadata",
+    "input": "12:00:05 DBG telego bot.go:173 > API response getUpdates: Ok: true, Err: [<nil>], Result: [{\"update_id\":42,\"message\":{\"from\":{\"id\":581234567,\"first_name\":\"Ada\"},\"chat\":{\"id\":581234567},\"text\":\"مرحبا\"}}]",
+    "expected": "12:00:05 DBG telego bot.go:173 > Telegram update received updates=1 type=message"
+  },
+  {
+    "name": "Telegram response body omitted",
+    "input": "12:00:06 DBG telego bot.go:173 > API response sendMessage: Ok: true, Err: [<nil>], Result: {\"chat\":{\"id\":581234567},\"text\":\"private response\"}",
+    "expected": "12:00:06 DBG telego bot.go:173 > Telegram API completed operation=sendMessage ok=true"
   }
 ]

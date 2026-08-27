@@ -80,7 +80,7 @@ void main() {
     }
     expect(
       clean('API response getMe: Ok: true, Err: [<nil>], Result: {}'),
-      'API response getMe: Ok: true, Err: none, Result: {}',
+      'Telegram API completed operation=getMe ok=true',
     );
   });
 
@@ -98,7 +98,7 @@ void main() {
         'DBG telego bot.go:173 > API response getUpdates: '
         'Ok: true, Err: [<nil>], Result: [{"update_id":42}]',
       ),
-      contains('[{"update_id":42}]'),
+      contains('Telegram update received updates=1 type=unknown'),
     );
     expect(
       clean(

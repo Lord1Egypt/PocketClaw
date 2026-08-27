@@ -4,6 +4,8 @@ import (
 	"regexp"
 	"strings"
 	"unicode/utf8"
+
+	corelogger "github.com/sipeed/picoclaw/pkg/logger"
 )
 
 var (
@@ -26,6 +28,9 @@ var (
 	telegramSuccessfulNilError       = regexp.MustCompile(`((?:^| > )API response [A-Za-z][A-Za-z0-9_]*: Ok: true, Err:) \[<nil>\]`)
 	routineTelegramGetUpdatesCall    = regexp.MustCompile(`(?:^| > )Telegram API call: getUpdates(?:, with data:.*)?$`)
 	routineEmptyGetUpdatesResponse   = regexp.MustCompile(`(?:^| > )API response getUpdates: Ok: true, Err: none, Result: \[\](?:\s|$)`)
+	sensitiveSessionFieldPattern     = regexp.MustCompile(`(?m)(^|[ \t])(session_key|scope_key|route_main_session)=(?:"(?:\\.|[^"\\])*"|[^ \t\r\n]*)`)
+	internalIdentityFieldPattern     = regexp.MustCompile(`(?m)(^|[ \t])(chat_id|inbound_chat_id|target_chat_id|sender_id|inbound_sender_id|user_id|session_id|connection_id|conn_id|runtime_id)=(?:"(?:\\.|[^"\\])*"|[^ \t\r\n]*)`)
+	rawContentFieldPattern           = regexp.MustCompile(`(?m)(^|[ \t])(arguments|args|content|messages_json|payload|preview|prompt|reasoning|response|text|tools_json)=(?:"(?:\\.|[^"\\])*"|[^ \t\r\n]*)`)
 )
 
 var exactCompatibilityMessages = map[string]string{
@@ -104,7 +109,12 @@ func normalizeUserVisibleLog(input string) string {
 	result = telegramAPICallWrapperPattern.ReplaceAllString(result, "Telegram API call: $1")
 	result = authorizationCredentialPattern.ReplaceAllString(result, "${1}<redacted>")
 	result = legacyPIDFilePathPattern.ReplaceAllString(result, "<gateway PID file>$1")
+	result = normalizeTelegramMessageInLine(result)
+	if result == "" {
+		return ""
+	}
 	result = telegramSuccessfulNilError.ReplaceAllString(result, "${1} none")
+	result = normalizePrivateStructuredFields(result)
 	result = normalizePicoStructuredFields(result)
 	result = normalizeExactCompatibilityMessages(result)
 	if routineTelegramGetUpdatesCall.MatchString(result) || routineEmptyGetUpdatesResponse.MatchString(result) {
@@ -116,11 +126,33 @@ func normalizeUserVisibleLog(input string) string {
 	return picoWSRequestPattern.ReplaceAllString(result, "$1 /internal realtime connection $2$3")
 }
 
+func normalizeTelegramMessageInLine(input string) string {
+	messageStart := 0
+	if separator := strings.Index(input, " > "); separator >= 0 {
+		messageStart = separator + len(" > ")
+	}
+	normalized, keep := corelogger.NormalizeTelegramUserVisibleMessage(input[messageStart:])
+	if !keep {
+		return ""
+	}
+	return input[:messageStart] + normalized
+}
+
+func normalizePrivateStructuredFields(input string) string {
+	result := sensitiveSessionFieldPattern.ReplaceAllString(input, "${1}${2}=<redacted>")
+	result = internalIdentityFieldPattern.ReplaceAllString(result, "${1}${2}=<internal>")
+	return rawContentFieldPattern.ReplaceAllString(result, "${1}${2}=<redacted>")
+}
+
 func normalizePicoStructuredFields(input string) string {
 	lines := strings.Split(input, "\n")
 	for i, line := range lines {
 		internalChannel := hasExactLogToken(line, "channel=pico")
-		line = replaceExactLogToken(line, "channel=pico", "channel=pocketclaw")
+		for _, field := range []string{
+			"channel", "inbound_channel", "route_channel", "scope_channel", "target_channel",
+		} {
+			line = replaceExactLogToken(line, field+"=pico", field+"=pocketclaw")
+		}
 		line = replaceExactLogToken(line, "type=pico", "type=pocketclaw")
 		if internalChannel {
 			line = replaceExactLogToken(line, "path=/pico/", "path=<internal>")

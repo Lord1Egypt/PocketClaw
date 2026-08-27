@@ -15,6 +15,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode/utf8"
 
 	"github.com/mymmrac/telego"
 	th "github.com/mymmrac/telego/telegohandler"
@@ -1148,10 +1149,9 @@ func (c *TelegramChannel) handleMessages(ctx context.Context, messages []*telego
 	}
 
 	logger.DebugCF("telegram", "Received message", map[string]any{
-		"sender_id": sender.CanonicalID,
-		"chat_id":   compositeChatID,
-		"thread_id": threadID,
-		"preview":   utils.Truncate(content, 50),
+		"message_chars": utf8.RuneCountInString(content),
+		"media_count":   len(mediaPaths),
+		"has_thread":    threadID != 0,
 	})
 
 	peerKind := "direct"

@@ -1108,3 +1108,20 @@
 - Consequence: routine 30-second polling cannot consume history. Failures,
   non-empty updates, non-success responses, other Bot API operations, token
   redaction, and Telegram runtime behavior are unchanged.
+
+## Normal logs are metadata-only at the pre-writer boundary
+
+- Date: 2026-08-28
+- Decision: normal PocketClaw logs omit prompt/message/response/reasoning/tool-
+  argument bodies, redact exact session and internal identity fields on a copy,
+  and retain lifecycle counts, lengths, model, tool names, status, duration and
+  safe failures. Telego payloads normalize before stdout to operation/status and
+  non-empty update count/type metadata.
+- Reason: Web DEBUG previously stored and rendered full Agent payloads and
+  Telego result JSON containing conversation content and personal identifiers.
+  Frontend-only masking would leave those values in backend history.
+- Consequence: runtime routing/session/Telegram values are not modified. Fresh
+  default assistant identity is PocketClaw, while user-authored prompt overlays,
+  internal compatibility identifiers, legal attribution and provenance remain
+  untouched. Backend/React/Dart guards are defense-in-depth for historical/raw
+  input, not the primary privacy boundary.

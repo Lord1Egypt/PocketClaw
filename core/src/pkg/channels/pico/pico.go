@@ -1202,9 +1202,8 @@ func (c *PicoChannel) handleMessageSend(pc *picoConn, msg PicoMessage) {
 	}
 
 	logger.DebugCF("pico", "Received message", map[string]any{
-		"session_id": sessionID,
-		"preview":    truncate(content, 50),
-		"media":      len(media),
+		"content_chars": len([]rune(content)),
+		"media":         len(media),
 	})
 
 	sender := bus.SenderInfo{

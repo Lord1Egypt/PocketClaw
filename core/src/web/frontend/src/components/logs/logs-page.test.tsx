@@ -215,15 +215,87 @@ describe("Core Web Console Logs page", () => {
 
     expect(rendered).not.toContain("Result: []")
     expect(rendered).not.toContain("Telegram API call: getUpdates")
-    expect(rendered).toContain('[{"update_id":42}]')
+    expect(rendered).toContain("Telegram update received updates=1 type=unknown")
     expect(rendered).toContain("context deadline exceeded")
-    expect(rendered).toContain("Err: none, Result: <tag>")
+    expect(rendered).toContain("Telegram API completed operation=getMe ok=true")
     expect(rendered).toContain(
       "value=<none> 1 < 2 2 > 1 Arabic <نص> emoji 🚀 <nil>",
     )
     expect(rendered).not.toContain("Err: il>]")
+    expect(rendered).not.toContain("update_id")
     expect(rendered).not.toContain("�")
     expect(container.querySelector("tag")).toBeNull()
+  })
+
+  it("renders Agent and Telegram metadata without private content or routing IDs", () => {
+    gatewayLogState.logs = [
+      {
+        id: "18:0",
+        line: 'DBG agent context.go:989 > System prompt preview preview="# picoclaw 🦞 You are picoclaw"',
+      },
+      {
+        id: "18:1",
+        line: 'DBG agent pipeline_llm.go:147 > Full LLM request iteration=1 messages_json="actual conversation contents" tools_json="full schema"',
+      },
+      {
+        id: "18:2",
+        line: 'DBG agent pipeline_llm.go:565 > LLM response reasoning="private reasoning text" reasoning_chars=27 model=test-model',
+      },
+      {
+        id: "18:3",
+        line: "INF agent agent_message.go:159 > Routed message session_key=sk_v1_SUPERSECRETVALUE scope_key=sk_v1_SUPERSECRETVALUE route_main_session=sk_v1_SUPERSECRETVALUE route_channel=pico chat_id=pico:1234 sender_id=pico-user",
+      },
+      {
+        id: "18:4",
+        line: 'DBG telego bot.go:173 > API response getUpdates: Ok: true, Err: [<nil>], Result: [{"update_id":42,"message":{"from":{"id":581234567,"first_name":"Ada","last_name":"Lovelace","username":"private_user","language_code":"ar"},"chat":{"id":581234567},"text":"مرحبا private body"}}]',
+      },
+      {
+        id: "18:5",
+        line: 'DBG telego bot.go:173 > API response editMessageText: Ok: true, Err: [<nil>], Result: {"chat":{"id":581234567},"text":"private assistant body"}',
+      },
+    ]
+
+    const { container } = render(<LogsPage />)
+    const rendered = container.textContent ?? ""
+
+    for (const forbidden of [
+      "# picoclaw",
+      "You are picoclaw",
+      "actual conversation contents",
+      "full schema",
+      "private reasoning text",
+      "sk_v1_SUPERSECRETVALUE",
+      "pico:1234",
+      "pico-user",
+      "581234567",
+      "Ada",
+      "Lovelace",
+      "private_user",
+      "language_code",
+      "مرحبا private body",
+      "private assistant body",
+      "update_id",
+    ]) {
+      expect(rendered).not.toContain(forbidden)
+    }
+    for (const metadata of [
+      "preview=<redacted>",
+      "messages_json=<redacted>",
+      "tools_json=<redacted>",
+      "reasoning=<redacted>",
+      "reasoning_chars=27",
+      "model=test-model",
+      "session_key=<redacted>",
+      "scope_key=<redacted>",
+      "route_main_session=<redacted>",
+      "route_channel=pocketclaw",
+      "chat_id=<internal>",
+      "sender_id=<internal>",
+      "Telegram update received updates=1 type=message",
+      "Telegram API completed operation=editMessageText ok=true",
+    ]) {
+      expect(rendered).toContain(metadata)
+    }
   })
 
   it("normalizes only classified legacy startup identities", () => {

@@ -43,6 +43,41 @@ const ROUTINE_TELEGRAM_GET_UPDATES_CALL =
   /(?:^| > )Telegram API call: getUpdates(?:, with data:.*)?$/
 const ROUTINE_EMPTY_GET_UPDATES_RESPONSE =
   /(?:^| > )API response getUpdates: Ok: true, Err: none, Result: \[\](?:\s|$)/
+const SENSITIVE_SESSION_FIELD_PATTERN =
+  /(^|[ \t])(session_key|scope_key|route_main_session)=(?:"(?:\\.|[^"\\])*"|[^ \t\r\n]*)/gm
+const INTERNAL_IDENTITY_FIELD_PATTERN =
+  /(^|[ \t])(chat_id|inbound_chat_id|target_chat_id|sender_id|inbound_sender_id|user_id|session_id|connection_id|conn_id|runtime_id)=(?:"(?:\\.|[^"\\])*"|[^ \t\r\n]*)/gm
+const RAW_CONTENT_FIELD_PATTERN =
+  /(^|[ \t])(arguments|args|content|messages_json|payload|preview|prompt|reasoning|response|text|tools_json)=(?:"(?:\\.|[^"\\])*"|[^ \t\r\n]*)/gm
+const TELEGRAM_API_RESPONSE_PATTERN =
+  /^API response ([A-Za-z][A-Za-z0-9_]*): Ok: (true|false), Err: \[([\s\S]*?)\](?:, Result: ([\s\S]*))?$/
+const SAFE_TELEGRAM_API_CALL_PATTERN =
+  /^Telegram API call: ([A-Za-z][A-Za-z0-9_]*)(?:, with data:.*)?$/i
+const TELEGRAM_UPDATE_TYPES = [
+  "message",
+  "edited_message",
+  "channel_post",
+  "edited_channel_post",
+  "business_connection",
+  "business_message",
+  "edited_business_message",
+  "deleted_business_messages",
+  "message_reaction",
+  "message_reaction_count",
+  "inline_query",
+  "chosen_inline_result",
+  "callback_query",
+  "shipping_query",
+  "pre_checkout_query",
+  "purchased_paid_media",
+  "poll",
+  "poll_answer",
+  "my_chat_member",
+  "chat_member",
+  "chat_join_request",
+  "chat_boost",
+  "removed_chat_boost",
+] as const
 const EXACT_COMPATIBILITY_MESSAGES = new Map([
   ["Starting Pico Protocol channel", "Starting PocketClaw realtime channel"],
   ["Pico Protocol channel started", "PocketClaw realtime channel started"],
@@ -140,7 +175,10 @@ export function normalizeUserVisibleLog(input: string): string {
   )
   result = result.replace(AUTHORIZATION_CREDENTIAL_PATTERN, "$1<redacted>")
   result = result.replace(LEGACY_PID_FILE_PATH_PATTERN, "<gateway PID file>$1")
+  result = normalizeTelegramMessageInLine(result)
+  if (!result) return ""
   result = result.replace(TELEGRAM_SUCCESSFUL_NIL_ERROR, "$1 none")
+  result = normalizePrivateStructuredFields(result)
   result = normalizePicoStructuredFields(result)
   result = normalizeExactCompatibilityMessages(result)
   if (
@@ -157,16 +195,82 @@ export function normalizeUserVisibleLog(input: string): string {
   return result
 }
 
+function normalizeTelegramMessageInLine(input: string): string {
+  const separator = input.indexOf(" > ")
+  const messageStart = separator < 0 ? 0 : separator + " > ".length
+  const prefix = input.slice(0, messageStart)
+  const message = input.slice(messageStart)
+
+  const call = message.match(SAFE_TELEGRAM_API_CALL_PATTERN)
+  if (call) {
+    if (call[1].toLowerCase() === "getupdates") return ""
+    return `${prefix}Telegram API call: ${call[1]}`
+  }
+
+  const response = message.match(TELEGRAM_API_RESPONSE_PATTERN)
+  if (!response) return input
+  const [, operation, ok, error, rawResult] = response
+  if (ok === "false") {
+    const errorCode = error.match(/^([0-9]+)(?:\s|$)/)?.[1]
+    return `${prefix}Telegram API failed operation=${operation} ok=false${errorCode ? ` error_code=${errorCode}` : ""}`
+  }
+  if (operation.toLowerCase() !== "getupdates") {
+    return `${prefix}Telegram API completed operation=${operation} ok=true`
+  }
+  if (rawResult === undefined) {
+    return `${prefix}Telegram API response operation=getUpdates ok=true result=malformed`
+  }
+
+  try {
+    const updates: unknown = JSON.parse(rawResult)
+    if (!Array.isArray(updates)) throw new Error("not an update array")
+    if (updates.length === 0) return ""
+    const types = new Set<string>()
+    for (const update of updates) {
+      if (!update || typeof update !== "object" || Array.isArray(update)) {
+        types.add("unknown")
+        continue
+      }
+      const record = update as Record<string, unknown>
+      const updateType = TELEGRAM_UPDATE_TYPES.find(
+        (candidate) => record[candidate] !== undefined && record[candidate] !== null,
+      )
+      types.add(updateType ?? "unknown")
+    }
+    const sortedTypes = [...types].sort()
+    const typeField = sortedTypes.length === 1 ? "type" : "types"
+    return `${prefix}Telegram update received updates=${updates.length} ${typeField}=${sortedTypes.join(",")}`
+  } catch {
+    return `${prefix}Telegram API response operation=getUpdates ok=true result=malformed`
+  }
+}
+
+function normalizePrivateStructuredFields(input: string): string {
+  return input
+    .replace(SENSITIVE_SESSION_FIELD_PATTERN, "$1$2=<redacted>")
+    .replace(INTERNAL_IDENTITY_FIELD_PATTERN, "$1$2=<internal>")
+    .replace(RAW_CONTENT_FIELD_PATTERN, "$1$2=<redacted>")
+}
+
 function normalizePicoStructuredFields(input: string): string {
   return input
     .split("\n")
     .map((line) => {
       const internalChannel = hasExactLogToken(line, "channel=pico")
-      let result = replaceExactLogToken(
-        line,
-        "channel=pico",
-        "channel=pocketclaw",
-      )
+      let result = line
+      for (const field of [
+        "channel",
+        "inbound_channel",
+        "route_channel",
+        "scope_channel",
+        "target_channel",
+      ]) {
+        result = replaceExactLogToken(
+          result,
+          `${field}=pico`,
+          `${field}=pocketclaw`,
+        )
+      }
       result = replaceExactLogToken(result, "type=pico", "type=pocketclaw")
       if (internalChannel) {
         result = replaceExactLogToken(result, "path=/pico/", "path=<internal>")

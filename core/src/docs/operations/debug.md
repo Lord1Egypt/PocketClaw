@@ -39,7 +39,7 @@ When debug mode is active, the agent emits structured log entries at each stage 
 | Log message | Level | Key fields | Description |
 |---|---|---|---|
 | `LLM requested tool calls` | INFO | `tools`, `count`, `iteration` | List of tool names the model decided to call |
-| `Tool call: <name>(<args>)` | INFO | `tool`, `iteration` | The tool name and a preview of its arguments (truncated to 200 chars) |
+| `Tool call: <name>` | INFO | `tool`, `iteration` | The tool name without private argument values |
 | `Sent tool result to user` | DEBUG | `tool`, `content_len` | Fired when a tool result is forwarded to the chat channel |
 | `TTL tick after tool execution` | DEBUG | `agent_id`, `iteration` | MCP tool-discovery TTL decrement after each tool round |
 | `Async tool completed, publishing result` | INFO | `tool`, `content_len`, `channel` | Only for tools that run asynchronously in the background |
@@ -50,10 +50,10 @@ A typical synchronous tool call produces two consecutive lines in the console:
 
 ```
 [...] [INFO] agent: LLM requested tool calls {tools=[web_search], count=1, iteration=1}
-[...] [INFO] agent: Tool call: web_search({"query":"picoclaw release notes"}) {tool=web_search, iteration=1}
+[...] [INFO] agent: Tool call: web_search {tool=web_search, iteration=1}
 ```
 
-The arguments preview is hard-capped at **200 characters** in the logs regardless of the `--no-truncate` flag, because it belongs to the `INFO`-level path. Use `--no-truncate` together with `--debug` to see the full `tools_json` field emitted by the `Full LLM request` DEBUG entry, which contains every tool definition sent to the model.
+Normal logs intentionally retain tool names and lifecycle metadata without tool arguments, conversation messages, system-prompt bodies, or full tool schemas. The `--no-truncate` flag does not disable this privacy boundary.
 
 ## Real-Time Tool Feedback in Chat (tool_feedback)
 

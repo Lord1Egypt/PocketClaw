@@ -1,6 +1,7 @@
 package logger
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 )
@@ -97,13 +98,20 @@ func TestPrepareThirdPartyLogSuppressesOnlyRoutineEmptyGetUpdates(t *testing.T) 
 		"sendMessage":        `API call to: "https://api.telegram.org/bot` + syntheticTelegramToken + `/sendMessage"`,
 		"editMessageText":    `API call to: "https://api.telegram.org/bot` + syntheticTelegramToken + `/editMessageText"`,
 	}
+	wants := map[string]string{
+		"failure":            redactSecrets(kept["failure"]),
+		"non-empty response": "Telegram update received updates=1 type=unknown",
+		"api error response": "Telegram API failed operation=getUpdates ok=false error_code=429",
+		"sendMessage":        "Telegram API call: sendMessage",
+		"editMessageText":    "Telegram API call: editMessageText",
+	}
 	for name, raw := range kept {
 		t.Run(name, func(t *testing.T) {
 			message, keep := prepareThirdPartyLog(DEBUG, "telego", raw)
 			if !keep {
 				t.Fatalf("important Telegram diagnostic was suppressed: %q", raw)
 			}
-			if want := redactSecrets(raw); message != want {
+			if want := wants[name]; message != want {
 				t.Fatalf("prepareThirdPartyLog() = %q, want %q", message, want)
 			}
 			assertNoTelegramCredentialFragment(t, message)
@@ -111,19 +119,37 @@ func TestPrepareThirdPartyLogSuppressesOnlyRoutineEmptyGetUpdates(t *testing.T) 
 	}
 }
 
-func TestPrepareThirdPartyLogDoesNotFilterOtherComponentsOrLevels(t *testing.T) {
+func TestPrepareThirdPartyLogDoesNotFilterOtherComponents(t *testing.T) {
 	t.Parallel()
 
 	input := "API response getUpdates: Ok: true, Err: [<nil>], Result: []"
-	for _, tc := range []struct {
-		level     LogLevel
-		component string
-	}{
-		{level: INFO, component: "telego"},
-		{level: DEBUG, component: "telegram"},
-	} {
-		if got, keep := prepareThirdPartyLog(tc.level, tc.component, input); !keep || got != input {
-			t.Fatalf("prepareThirdPartyLog(%v, %q) = %q, %v; want unchanged", tc.level, tc.component, got, keep)
+	if got, keep := prepareThirdPartyLog(DEBUG, "telegram", input); !keep || got != input {
+		t.Fatalf("prepareThirdPartyLog() = %q, %v; want unchanged", got, keep)
+	}
+}
+
+func TestNormalizeTelegramUserVisibleMessageRemovesResponsePayloadPII(t *testing.T) {
+	t.Parallel()
+
+	privatePayload := `[{"update_id":42,"message":{"from":{"id":581234567,"first_name":"Ada","last_name":"Lovelace","username":"private_user","language_code":"ar"},"chat":{"id":581234567},"text":"مرحبا private body"}}]`
+	message, keep := NormalizeTelegramUserVisibleMessage(
+		"API response getUpdates: Ok: true, Err: [<nil>], Result: " + privatePayload,
+	)
+	if !keep || message != "Telegram update received updates=1 type=message" {
+		t.Fatalf("NormalizeTelegramUserVisibleMessage() = %q, %v", message, keep)
+	}
+	for _, forbidden := range []string{"581234567", "Ada", "Lovelace", "private_user", "language_code", "مرحبا", "private body"} {
+		if strings.Contains(message, forbidden) {
+			t.Fatalf("private Telegram value %q remains in %q", forbidden, message)
+		}
+	}
+
+	for _, operation := range []string{"getMe", "sendMessage", "editMessageText", "deleteMessage", "answerCustomQuery"} {
+		raw := fmt.Sprintf(`API response %s: Ok: true, Err: [<nil>], Result: {"chat":{"id":581234567},"text":"private body"}`, operation)
+		got, operationKeep := NormalizeTelegramUserVisibleMessage(raw)
+		want := fmt.Sprintf("Telegram API completed operation=%s ok=true", operation)
+		if !operationKeep || got != want {
+			t.Errorf("operation %s = %q, %v; want %q", operation, got, operationKeep, want)
 		}
 	}
 }

@@ -230,6 +230,15 @@ work for an adoption, and does not go looking upstream for its origin.
   PocketClaw's Telego adapter suppresses only DEBUG `getUpdates` request lines
   and exact successful empty responses before writers; failure/non-empty/API
   error diagnostics and all Telegram runtime behavior remain upstream-compatible.
+  PocketClaw additionally changes the freshly generated default product identity
+  to PocketClaw and enforces metadata-only normal diagnostics before writers:
+  prompt/message/tool/reasoning bodies and tool arguments are omitted, exact
+  session/internal fields are redacted on a copy, and Telego result payloads are
+  reduced to operation/status/count/type metadata. Runtime session, routing,
+  Telegram, ChannelPico, module and user-authored prompt values remain unchanged.
+  Backend/React/Dart normalization is retained only as an idempotent legacy/raw
+  guard. Future upstream Agent or Telego logger updates must not reintroduce
+  payload bodies or personal identifiers into normal user-visible history.
 - **Telegram managed-bot onboarding (Milestone D, 2026-08-26).** The
   onboarding service is PocketClaw-authored and depends on no upstream code. It
   lives in its own public repository, `Lord1Egypt/PocketClaw-Telegram-Setup`,

@@ -1540,3 +1540,53 @@ Next physical check: leave Telegram polling in DEBUG for several minutes;
 routine empty `getUpdates` must stay silent. Exercise a non-empty update and a
 recoverable failure, verify useful details remain, and reconfirm every prior
 physical pass.
+
+## Agent DEBUG privacy, Telegram payload privacy, and default identity — AUTOMATED PASS, PHYSICAL PENDING
+
+Physical Web DEBUG evidence exposed two source-level payload paths. First, the
+freshly generated system prompt itself—not merely its log preview—still used
+the legacy lowercase product identity in `ContextBuilder.getIdentity`. Fresh
+PocketClaw defaults now send `# PocketClaw 🦞` and `You are PocketClaw, a
+helpful AI assistant.` to the model. Existing user-authored prompt overlays and
+all internal/upstream compatibility identities remain unchanged.
+
+Second, normal Agent logs explicitly emitted a system-prompt preview, complete
+message/tool JSON, raw reasoning text, complete tool-call argument previews,
+and structured routing/session identifiers. The explicit payload logs and dead
+raw formatters are removed. Normal logs retain model, iteration, message/tool
+counts, prompt length, content/reasoning lengths, token usage, tool names,
+status, duration, and failures. An exact-field pre-writer copy redacts session
+keys and internal identifiers, omits raw-content fields, and does not mutate the
+runtime maps or routing values.
+
+Telego's `Response.String()` also included complete successful Telegram result
+JSON (chat/user IDs, names, usernames, language and message bodies). Before
+this pass that raw result entered stdout and Web `LogBuffer`; it was not a
+frontend-only leak. The Telego adapter now converts request/response data to
+operation/status metadata before any writer. Empty successful `getUpdates`
+remains silent, non-empty updates retain count/type only, successful operations
+retain operation plus `ok=true`, and failures retain safe operation/error-code
+metadata. Backend, React, and Native/Export normalization provide idempotent
+legacy/raw guards. Credentials remain fully redacted.
+
+Regression results: tagged Go Agent/logger/Telegram/Pico/gateway/API/
+middleware/CLI suites; frontend Vitest 46/46, TypeScript and lint; Flutter
+analyze and 101/101 tests. Core provenance is 124 files, both binaries contain
+zero developer paths, the live onboarding endpoint is packaged, and the
+permanent APK guard passed.
+
+Replacement candidate:
+
+- APK size: 34,251,141 bytes
+- APK SHA-256: `46ca983a380d1a1b69f71f01cf18b840b5007054d732d8430fed5d11cd2b908e`
+- `libpicoclaw.so`: 37,224,801 bytes,
+  `8ed15601f3312c034e21df55bcbaa980b5c1c98ff1b15caa1a404be3129be24a`
+- `libpicoclaw-web.so`: 24,641,889 bytes,
+  `2100100454a42b0c7517084a9b52a069ad0153476da6d9e3787582bc7f5fc1d7`
+- Status: **AUTOMATED PASS; PHYSICAL GATE PENDING; RELEASE BLOCKED**.
+
+Next physical check: generate a fresh realtime/Telegram conversation under
+DEBUG and confirm only lifecycle/count/length/tool-name metadata appears; no
+prompt, message, reasoning, tool arguments/schemas, session/internal IDs, or
+Telegram payload values may appear. Reconfirm Skills 8/8, Tools 17+, Telegram
+delivery, Web viewport stability, and all prior Unicode/branding passes.

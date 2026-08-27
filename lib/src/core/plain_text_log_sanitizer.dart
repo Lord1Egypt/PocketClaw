@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 /// Converts terminal output into safe plain text for PocketClaw's Logs UI.
 ///
 /// This intentionally removes terminal control protocols, not Unicode. Arabic,
@@ -48,6 +50,50 @@ abstract final class PlainTextLogSanitizer {
   static final RegExp _routineEmptyGetUpdatesResponse = RegExp(
     r'(?:^| > )API response getUpdates: Ok: true, Err: none, Result: \[\](?:\s|$)',
   );
+  static final RegExp _sensitiveSessionField = RegExp(
+    r'(^|[ \t])(session_key|scope_key|route_main_session)=(?:"(?:\\.|[^"\\])*"|[^ \t\r\n]*)',
+    multiLine: true,
+  );
+  static final RegExp _internalIdentityField = RegExp(
+    r'(^|[ \t])(chat_id|inbound_chat_id|target_chat_id|sender_id|inbound_sender_id|user_id|session_id|connection_id|conn_id|runtime_id)=(?:"(?:\\.|[^"\\])*"|[^ \t\r\n]*)',
+    multiLine: true,
+  );
+  static final RegExp _rawContentField = RegExp(
+    r'(^|[ \t])(arguments|args|content|messages_json|payload|preview|prompt|reasoning|response|text|tools_json)=(?:"(?:\\.|[^"\\])*"|[^ \t\r\n]*)',
+    multiLine: true,
+  );
+  static final RegExp _telegramApiResponse = RegExp(
+    r'^API response ([A-Za-z][A-Za-z0-9_]*): Ok: (true|false), Err: \[([\s\S]*?)\](?:, Result: ([\s\S]*))?$',
+  );
+  static final RegExp _safeTelegramApiCall = RegExp(
+    r'^Telegram API call: ([A-Za-z][A-Za-z0-9_]*)(?:, with data:.*)?$',
+    caseSensitive: false,
+  );
+  static const List<String> _telegramUpdateTypes = <String>[
+    'message',
+    'edited_message',
+    'channel_post',
+    'edited_channel_post',
+    'business_connection',
+    'business_message',
+    'edited_business_message',
+    'deleted_business_messages',
+    'message_reaction',
+    'message_reaction_count',
+    'inline_query',
+    'chosen_inline_result',
+    'callback_query',
+    'shipping_query',
+    'pre_checkout_query',
+    'purchased_paid_media',
+    'poll',
+    'poll_answer',
+    'my_chat_member',
+    'chat_member',
+    'chat_join_request',
+    'chat_boost',
+    'removed_chat_boost',
+  ];
 
   static String sanitize(String input) {
     if (input.isEmpty) return input;
@@ -102,15 +148,19 @@ abstract final class PlainTextLogSanitizer {
           '${match.group(3)}${match.group(4)}',
     );
     result = result.replaceAllMapped(
-      _telegramSuccessfulNilError,
-      (match) => '${match.group(1)} none',
-    );
-    result = result.replaceAllMapped(
       _picoLoggerCaller,
       (match) =>
           '${match.group(1)}${match.group(2)} ${match.group(3)} '
           'realtime.go:${match.group(4)}${match.group(5)}',
     );
+    result = _normalizeTelegramMessageInLine(result);
+    if (result.isEmpty) return '';
+    result = result.replaceAllMapped(
+      _telegramSuccessfulNilError,
+      (match) => '${match.group(1)} none',
+    );
+    result = _normalizePrivateStructuredFields(result);
+    result = _normalizePicoStructuredFields(result);
     if (_routineTelegramGetUpdatesCall.hasMatch(result) ||
         _routineEmptyGetUpdatesResponse.hasMatch(result)) {
       return '';
@@ -122,6 +172,102 @@ abstract final class PlainTextLogSanitizer {
           '${match.group(1)} /internal realtime connection '
           '${match.group(2)}${match.group(3)}',
     );
+    return result;
+  }
+
+  static String _normalizeTelegramMessageInLine(String input) {
+    final separator = input.indexOf(' > ');
+    final messageStart = separator < 0 ? 0 : separator + ' > '.length;
+    final prefix = input.substring(0, messageStart);
+    final message = input.substring(messageStart);
+
+    final call = _safeTelegramApiCall.firstMatch(message);
+    if (call != null) {
+      final operation = call.group(1)!;
+      if (operation.toLowerCase() == 'getupdates') return '';
+      return '${prefix}Telegram API call: $operation';
+    }
+
+    final response = _telegramApiResponse.firstMatch(message);
+    if (response == null) return input;
+    final operation = response.group(1)!;
+    final ok = response.group(2)!;
+    final error = response.group(3)!;
+    final rawResult = response.group(4);
+    if (ok == 'false') {
+      final errorCode = RegExp(
+        r'^([0-9]+)(?:\s|$)',
+      ).firstMatch(error)?.group(1);
+      return '${prefix}Telegram API failed operation=$operation ok=false'
+          '${errorCode == null ? '' : ' error_code=$errorCode'}';
+    }
+    if (operation.toLowerCase() != 'getupdates') {
+      return '${prefix}Telegram API completed operation=$operation ok=true';
+    }
+    if (rawResult == null) {
+      return '${prefix}Telegram API response operation=getUpdates '
+          'ok=true result=malformed';
+    }
+
+    try {
+      final decoded = jsonDecode(rawResult);
+      if (decoded is! List<Object?>) throw const FormatException();
+      if (decoded.isEmpty) return '';
+      final types = <String>{};
+      for (final update in decoded) {
+        if (update is! Map<String, Object?>) {
+          types.add('unknown');
+          continue;
+        }
+        String? updateType;
+        for (final candidate in _telegramUpdateTypes) {
+          if (update[candidate] != null) {
+            updateType = candidate;
+            break;
+          }
+        }
+        types.add(updateType ?? 'unknown');
+      }
+      final sortedTypes = types.toList()..sort();
+      final typeField = sortedTypes.length == 1 ? 'type' : 'types';
+      return '${prefix}Telegram update received updates=${decoded.length} '
+          '$typeField=${sortedTypes.join(',')}';
+    } on FormatException {
+      return '${prefix}Telegram API response operation=getUpdates '
+          'ok=true result=malformed';
+    }
+  }
+
+  static String _normalizePrivateStructuredFields(String input) {
+    var result = input.replaceAllMapped(
+      _sensitiveSessionField,
+      (match) => '${match.group(1)}${match.group(2)}=<redacted>',
+    );
+    result = result.replaceAllMapped(
+      _internalIdentityField,
+      (match) => '${match.group(1)}${match.group(2)}=<internal>',
+    );
+    return result.replaceAllMapped(
+      _rawContentField,
+      (match) => '${match.group(1)}${match.group(2)}=<redacted>',
+    );
+  }
+
+  static String _normalizePicoStructuredFields(String input) {
+    const channelFields = <String>[
+      'channel',
+      'inbound_channel',
+      'route_channel',
+      'scope_channel',
+      'target_channel',
+    ];
+    var result = input;
+    for (final field in channelFields) {
+      result = result.replaceAllMapped(
+        RegExp('(^|[ \\t])$field=pico(?=\$|[ \\t\\r\\n])', multiLine: true),
+        (match) => '${match.group(1)}$field=pocketclaw',
+      );
+    }
     return result;
   }
 }

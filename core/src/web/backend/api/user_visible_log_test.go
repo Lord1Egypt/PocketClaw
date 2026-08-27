@@ -102,9 +102,14 @@ func TestLogBufferSuppressesOnlyRoutineEmptyTelegramPolling(t *testing.T) {
 		t.Fatalf("important Telegram history = %#v, total=%d; want %d", lines, total, len(important))
 	}
 	joined := strings.Join(lines, "\n")
-	for _, detail := range []string{"context deadline exceeded", `[{"update_id":42}]`, "429", "sendMessage", "editMessageText"} {
+	for _, detail := range []string{"context deadline exceeded", "updates=1", "error_code=429", "sendMessage", "editMessageText"} {
 		if !strings.Contains(joined, detail) {
 			t.Fatalf("stored history lost %q: %q", detail, joined)
+		}
+	}
+	for _, private := range []string{"update_id", "Result:"} {
+		if strings.Contains(joined, private) {
+			t.Fatalf("stored history retained Telegram payload %q: %q", private, joined)
 		}
 	}
 	assertNoTelegramTokenFragment(t, joined, token)
@@ -145,7 +150,7 @@ func TestNormalizeUserVisibleLogRedactsTelegramBotAPICredentials(t *testing.T) {
 		},
 		"sendMessage with data": {
 			input: `DBG telego bot.go:245 > API call to: "https://api.telegram.org/bot` + token + `/sendMessage", with data: {"chat_id":42}`,
-			want:  `DBG telego bot.go:245 > Telegram API call: sendMessage, with data: {"chat_id":42}`,
+			want:  `DBG telego bot.go:245 > Telegram API call: sendMessage`,
 		},
 		"old partial editMessageText mask": {
 			input: `DBG telego bot.go:247 > API call to: "https://api.telegram.org/bot123456789:AAEx****alue/editMessageText"`,
@@ -196,6 +201,50 @@ func assertNoTelegramTokenFragment(t *testing.T, value, token string) {
 	for _, forbidden := range []string{token, "123456789:", "AAExample", "TokenValue", "AAEx****alue"} {
 		if strings.Contains(value, forbidden) {
 			t.Fatalf("credential fragment %q remains in %q", forbidden, value)
+		}
+	}
+}
+
+func TestLogBufferRedactsAgentInternalsAndTelegramPayloadsBeforeStorage(t *testing.T) {
+	buffer := NewLogBuffer(20)
+	raw := []string{
+		"DBG agent context.go:989 > System prompt preview preview=\"# picoclaw 🦞 You are picoclaw, a helpful AI assistant.\"",
+		"DBG agent pipeline_llm.go:147 > Full LLM request iteration=1 messages_json=\"actual conversation contents\" tools_json=\"full schema\"",
+		"DBG agent pipeline_llm.go:565 > LLM response reasoning=\"private reasoning text\" model=test-model",
+		"INF agent agent_message.go:159 > Routed message session_key=sk_v1_SUPERSECRETVALUE scope_key=sk_v1_SUPERSECRETVALUE route_main_session=sk_v1_SUPERSECRETVALUE route_channel=pico",
+		"DBG events runtime_event_logger.go:180 > Runtime event chat_id=pico:1234 sender_id=pico-user inbound_chat_id=pico:1234 inbound_sender_id=pico-user",
+		"DBG telego bot.go:173 > API response getUpdates: Ok: true, Err: [<nil>], Result: [{\"update_id\":42,\"message\":{\"from\":{\"id\":581234567,\"first_name\":\"Ada\",\"last_name\":\"Lovelace\",\"username\":\"private_user\",\"language_code\":\"ar\"},\"chat\":{\"id\":581234567},\"text\":\"مرحبا private body\"}}]",
+		"DBG telego bot.go:173 > API response editMessageText: Ok: true, Err: [<nil>], Result: {\"chat\":{\"id\":581234567},\"text\":\"private assistant body\"}",
+	}
+	for _, line := range raw {
+		buffer.Append(line)
+	}
+
+	lines, total, _ := buffer.LinesSince(0)
+	if total != len(raw) {
+		t.Fatalf("stored total = %d, want %d: %#v", total, len(raw), lines)
+	}
+	rendered := strings.Join(lines, "\n")
+	for _, forbidden := range []string{
+		"# picoclaw", "You are picoclaw", "actual conversation contents", "full schema",
+		"private reasoning text", "sk_v1_SUPERSECRETVALUE", "pico:1234", "pico-user",
+		"581234567", "Ada", "Lovelace", "private_user", "language_code", "مرحبا private body",
+		"private assistant body", "update_id",
+	} {
+		if strings.Contains(rendered, forbidden) {
+			t.Fatalf("stored normal DEBUG contains private value %q: %q", forbidden, rendered)
+		}
+	}
+	for _, required := range []string{
+		"preview=<redacted>", "messages_json=<redacted>", "tools_json=<redacted>",
+		"reasoning=<redacted>", "model=test-model", "session_key=<redacted>",
+		"scope_key=<redacted>", "route_main_session=<redacted>",
+		"route_channel=pocketclaw", "chat_id=<internal>", "sender_id=<internal>",
+		"Telegram update received updates=1 type=message",
+		"Telegram API completed operation=editMessageText ok=true",
+	} {
+		if !strings.Contains(rendered, required) {
+			t.Fatalf("stored normal DEBUG lost safe metadata %q: %q", required, rendered)
 		}
 	}
 }

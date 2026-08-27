@@ -350,9 +350,90 @@ func logMessage(level LogLevel, component string, message string, fields map[str
 
 	event.Str(Component, component)
 
-	appendFields(event, fields)
+	appendFields(event, sanitizeFieldsForLog(fields))
 
 	event.CallerSkipFrame(skip).Msg(message)
+}
+
+var (
+	// These exact structured fields carry routing or personal identifiers. The
+	// runtime maps passed by callers are never mutated; only the copy handed to
+	// log writers is normalized.
+	internalLogIDFields = map[string]struct{}{
+		"chat_id":           {},
+		"inbound_chat_id":   {},
+		"target_chat_id":    {},
+		"sender_id":         {},
+		"inbound_sender_id": {},
+		"user_id":           {},
+		"session_id":        {},
+		"connection_id":     {},
+		"conn_id":           {},
+		"runtime_id":        {},
+	}
+	sensitiveLogKeyFields = map[string]struct{}{
+		"session_key":        {},
+		"scope_key":          {},
+		"route_main_session": {},
+	}
+	rawContentLogFields = map[string]struct{}{
+		"arguments":     {},
+		"args":          {},
+		"content":       {},
+		"messages_json": {},
+		"payload":       {},
+		"preview":       {},
+		"prompt":        {},
+		"reasoning":     {},
+		"response":      {},
+		"text":          {},
+		"tools_json":    {},
+	}
+	channelDisplayFields = map[string]struct{}{
+		"channel":         {},
+		"inbound_channel": {},
+		"route_channel":   {},
+		"scope_channel":   {},
+		"target_channel":  {},
+	}
+)
+
+// sanitizeFieldsForLog enforces the normal log privacy contract before any
+// console or file writer sees structured values. It deliberately matches
+// exact field names and exact compatibility values; runtime routing data is
+// not changed and unrelated strings containing "pico" are left untouched.
+func sanitizeFieldsForLog(fields map[string]any) map[string]any {
+	if len(fields) == 0 {
+		return fields
+	}
+
+	safe := make(map[string]any, len(fields))
+	for key, value := range fields {
+		if _, omit := rawContentLogFields[key]; omit {
+			continue
+		}
+		if _, redact := sensitiveLogKeyFields[key]; redact {
+			safe[key] = "<redacted>"
+			continue
+		}
+		if _, internal := internalLogIDFields[key]; internal {
+			safe[key] = "<internal>"
+			continue
+		}
+
+		switch typed := value.(type) {
+		case string:
+			if _, channelField := channelDisplayFields[key]; channelField && typed == "pico" {
+				typed = "pocketclaw"
+			}
+			safe[key] = redactSecrets(typed)
+		case error:
+			safe[key] = redactSecrets(typed.Error())
+		default:
+			safe[key] = value
+		}
+	}
+	return safe
 }
 
 func appendFields(event *zerolog.Event, fields map[string]any) {
