@@ -421,3 +421,18 @@ supplied by the user.
   Core Web Console Logs all show the same clean Unicode representation, with
   no boxes/ANSI, routine `/pico/ws`, internal library path, or unintended
   upstream branding, while genuine errors remain visible under neutral wording.
+
+## Final enabled-channel brand micro-fix
+
+- [x] Confirm internal `pico` means the singleton authenticated Web Console
+  WebSocket/media transport, not a user-facing product label.
+- [x] Map only exact `config.ChannelPico` to `pocketclaw` at the startup/reload
+  enabled-channel summary; preserve all internal identifiers and input data.
+- [x] Add targeted regression coverage for `[telegram pocketclaw]`, internal
+  identity preservation, and no substring/global replacement.
+- [x] Pass relevant tagged Go suites, regenerate the 110-file provenance patch,
+  rebuild Core, verify zero paths, and build guarded ARM64 APK
+  `aab3c565...25b3582`.
+- [ ] **FINAL PHYSICAL CHECK:** restart Core and confirm the enabled-channel
+  summary shows `pocketclaw`, with the physically passed Web log cleanup and
+  8/8 skills / 17 tools unchanged.

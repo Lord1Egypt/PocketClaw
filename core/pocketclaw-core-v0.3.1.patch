@@ -2207,6 +2207,88 @@ index 8b500aa..e5a424b 100644
  		},
  	}
  }
+diff --git a/pkg/gateway/gateway.go b/pkg/gateway/gateway.go
+index ec519e4..10c2731 100644
+--- a/pkg/gateway/gateway.go
++++ b/pkg/gateway/gateway.go
+@@ -101,6 +101,21 @@ func logChannelVoiceCapabilities(cm *channels.Manager, asrAvailable bool, ttsAva
+ 	}
+ }
+ 
++func userVisibleEnabledChannels(names []string) []string {
++	displayNames := make([]string, len(names))
++	for i, name := range names {
++		switch name {
++		case config.ChannelPico:
++			// `pico` is the internal protocol/config ID for PocketClaw's Web
++			// Console transport. Keep the runtime identity internal.
++			displayNames[i] = "pocketclaw"
++		default:
++			displayNames[i] = name
++		}
++	}
++	return displayNames
++}
++
+ func (p *startupBlockedProvider) Chat(
+ 	_ context.Context,
+ 	_ []providers.Message,
+@@ -476,7 +491,7 @@ func setupAndStartServices(
+ 
+ 	enabledChannels := runningServices.ChannelManager.GetEnabledChannels()
+ 	if len(enabledChannels) > 0 {
+-		fmt.Printf("✓ Channels enabled: %s\n", enabledChannels)
++		fmt.Printf("✓ Channels enabled: %s\n", userVisibleEnabledChannels(enabledChannels))
+ 	} else {
+ 		fmt.Println("⚠ Warning: No channels enabled")
+ 	}
+@@ -711,7 +726,7 @@ func restartServices(
+ 
+ 	enabledChannels := runningServices.ChannelManager.GetEnabledChannels()
+ 	if len(enabledChannels) > 0 {
+-		fmt.Printf("  ✓ Channels enabled: %s\n", enabledChannels)
++		fmt.Printf("  ✓ Channels enabled: %s\n", userVisibleEnabledChannels(enabledChannels))
+ 	} else {
+ 		fmt.Println("  ⚠ Warning: No channels enabled")
+ 	}
+diff --git a/pkg/gateway/gateway_test.go b/pkg/gateway/gateway_test.go
+index 2eb8a25..3494f30 100644
+--- a/pkg/gateway/gateway_test.go
++++ b/pkg/gateway/gateway_test.go
+@@ -18,6 +18,33 @@ import (
+ 	runtimeevents "github.com/sipeed/picoclaw/pkg/events"
+ )
+ 
++func TestUserVisibleEnabledChannelsMapsOnlyInternalPicoTransport(t *testing.T) {
++	internalNames := []string{
++		config.ChannelTelegram,
++		config.ChannelPico,
++	}
++
++	got := userVisibleEnabledChannels(internalNames)
++	want := []string{
++		config.ChannelTelegram,
++		"pocketclaw",
++	}
++	if !reflect.DeepEqual(got, want) {
++		t.Fatalf("userVisibleEnabledChannels() = %v, want %v", got, want)
++	}
++	if internalNames[1] != config.ChannelPico {
++		t.Fatalf("internal channel identity changed: %v", internalNames)
++	}
++	if summary := fmt.Sprintf("✓ Channels enabled: %s", got); summary != "✓ Channels enabled: [telegram pocketclaw]" {
++		t.Fatalf("summary = %q", summary)
++	}
++
++	unrelatedNames := []string{config.ChannelPicoClient, "picophone"}
++	if got := userVisibleEnabledChannels(unrelatedNames); !reflect.DeepEqual(got, unrelatedNames) {
++		t.Fatalf("substring/global replacement changed unrelated names: %v", got)
++	}
++}
++
+ func TestRun_StartupFailuresReturnErrorAndEmitStructuredLog(t *testing.T) {
+ 	t.Parallel()
+ 
 diff --git a/pkg/logger/caller_sanitize_test.go b/pkg/logger/caller_sanitize_test.go
 new file mode 100644
 index 0000000..e33c7cf

@@ -411,3 +411,21 @@ DEBUG log, and compare all three surfaces for intact `53.616µs`, Arabic, emoji,
 zero controls/boxes/ANSI, zero routine `/pico/ws`, zero internal library path or
 unintended upstream branding, and a visible neutral genuine-error line. Do not
 merge, release, touch `main`, move `phase2-milestone-d`, or start a milestone.
+
+## FINAL LOG BRAND MICRO-FIX CANDIDATE — 2026-08-27
+
+Physical validation of `3611ca1` passed the Web terminal cleanup, banner,
+UTF-8/`µs`, library-path visibility, and skills checks (8/8, 17 tools). The sole
+remaining line was `Channels enabled: [telegram pico]`.
+
+Internal meaning: `pico` is Core's singleton authenticated Web Console
+WebSocket/media transport and compatibility/config ID. It remains unchanged
+everywhere internal. Only the startup/reload summary copies the enabled names
+and maps exact `config.ChannelPico` to display label `pocketclaw`.
+
+New APK: `aab3c565bd6bec2eb714443756e16be5d2ebe8d4496d94e64a6b8ecac25b3582`
+(34,241,857 bytes). Core hashes: `10446d81...71b45f1` and
+`683463df...e5f5ce4`. Tagged relevant Go suites, Core provenance/build,
+zero-path checks, endpoint check, packaged hashes, and permanent guard pass.
+Physical action: restart Core and confirm `[telegram pocketclaw]` while all
+previously passed log and 8/8 skills behavior remains intact. No merge/release.

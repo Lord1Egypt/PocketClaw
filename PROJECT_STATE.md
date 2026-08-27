@@ -1282,3 +1282,42 @@ Console Logs, verify zero normal visible `picoclaw`/`PicoClaw`/`sipeed`/`Sipeed`
 no terminal boxes or ANSI, intact Arabic/emoji/`µs`, no successful
 `/pico/ws` noise, and visible neutral wording for genuine failures. Do not
 merge or release before the complete standing physical checklist passes.
+
+## Final enabled-channel brand micro-fix — AUTOMATED PASS, PHYSICAL PENDING
+
+Physical validation of commit `3611ca1` substantially passed: Web Console
+terminal/control boxes are gone, the PocketClaw banner and UTF-8/`µs` are
+correct, the internal library path is absent, and all eight skills are
+available with 17 tools loaded. One raw startup summary remained:
+`✓ Channels enabled: [telegram pico]`.
+
+`pico` is the exact internal singleton channel ID for the Core Web Console
+transport. It owns the authenticated `/pico/ws` connection, browser chat
+sessions, streaming/tool-feedback protocol, and `/pico/media` delivery. Its
+config key, factory registration, token handling, channel identity, routes,
+session IDs, and compatibility behavior remain unchanged.
+
+Only the two user-facing startup/reload summary print sites now map exact
+`config.ChannelPico` to display label `pocketclaw`. The internal slice is copied
+and left untouched; there is no substring or global replacement. Targeted
+coverage proves `[telegram pico]` renders as `[telegram pocketclaw]`, while the
+original internal value remains `pico` and unrelated names are unchanged.
+
+Tagged Go `pkg/gateway`, `pkg/logger`, `web/backend/api`,
+`web/backend/middleware`, and `cmd/picoclaw` tests pass. Core provenance is 110
+files. Canonical Core build has zero developer paths, and the APK guard passed.
+
+Replacement candidate:
+
+- APK size: 34,241,857 bytes
+- APK SHA-256: `aab3c565bd6bec2eb714443756e16be5d2ebe8d4496d94e64a6b8ecac25b3582`
+- `libpicoclaw.so`: 37,224,801 bytes,
+  `10446d8156b0a33a920f31c568b25c9ae59f96ea5f8db576f9fe40dce71b45f1`
+- `libpicoclaw-web.so`: 24,641,889 bytes,
+  `683463dfee287b7cd88f592b3ec534e2f8458e3bace77ca9bfee4dd7ce5f5ce4`
+- Packaged Core hashes match; live onboarding endpoint occurs once.
+- Status: **AUTOMATED PASS; FINAL LABEL PHYSICAL CHECK PENDING; RELEASE BLOCKED**.
+
+Next physical check: restart Core and confirm the Web Console line is exactly
+`✓ Channels enabled: [telegram pocketclaw]` (order may follow configured
+channel order), with every already-passed log and skill behavior preserved.

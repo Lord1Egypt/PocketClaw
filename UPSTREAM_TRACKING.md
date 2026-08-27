@@ -203,6 +203,9 @@ work for an adoption, and does not go looking upstream for its origin.
   were deliberately not renamed. Future upstream log UI, CLI banner, gateway
   launcher, or HTTP middleware changes must preserve Unicode, error
   observability, and the fixture-backed visibility contract.
+  The enabled-channel startup/reload summary also maps only exact internal
+  `config.ChannelPico` to display label `pocketclaw`; the upstream-compatible
+  channel/config/protocol identity remains `pico` everywhere else.
 - **Telegram managed-bot onboarding (Milestone D, 2026-08-26).** The
   onboarding service is PocketClaw-authored and depends on no upstream code. It
   lives in its own public repository, `Lord1Egypt/PocketClaw-Telegram-Setup`,

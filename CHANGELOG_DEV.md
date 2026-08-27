@@ -799,3 +799,19 @@ verified `develop` @ `14e6991`. Not merged; physical-device testing is the gate.
   (34,241,381 bytes). Core hashes are `c9c348e9...68d236e` and
   `c891ca03...d34840a`. Physical validation is pending; no merge/release/main
   change was made.
+
+## 2026-08-27 — Final enabled-channel log brand micro-fix
+
+- Recorded physical PASS for the Web terminal cleanup, PocketClaw banner,
+  UTF-8/`µs`, hidden internal library path, and restored 8/8 skills / 17 tools
+  on commit `3611ca1`.
+- Traced the remaining `[telegram pico]` summary entry to Core's internal
+  singleton Web Console WebSocket/media channel ID.
+- Preserved the internal `pico` config/factory/channel/routes/protocol and
+  mapped only its copied startup/reload display name to `pocketclaw`.
+- Added a focused regression proving the exact output, unchanged internal
+  input, and no substring/global replacement. Relevant tagged Go suites pass.
+- Regenerated the 110-file Core patch, rebuilt both zero-path Core libraries,
+  and built guarded ARM64 APK `aab3c565...25b3582` (34,241,857 bytes).
+  Physical confirmation of the final label is pending; no merge/release/main
+  change was made.

@@ -1009,3 +1009,14 @@
   diagnostic value.
 - Consequence: real failures remain observable without leaking implementation
   naming, and interactive/internal compatibility behavior is preserved.
+
+## The internal Pico transport has a PocketClaw-only summary label
+
+- Date: 2026-08-27
+- Decision: when formatting only the gateway startup/reload enabled-channel
+  summary, display exact `config.ChannelPico` as `pocketclaw`.
+- Reason: `pico` is the internal Web Console WebSocket/media protocol and config
+  identity, but the raw ID is not meaningful product copy.
+- Consequence: `/pico/ws`, `/pico/media`, channel/config IDs, factories, tokens,
+  session semantics, and other compatibility identifiers remain unchanged. The
+  formatter copies its input and performs no substring/global replacement.

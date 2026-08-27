@@ -101,6 +101,21 @@ func logChannelVoiceCapabilities(cm *channels.Manager, asrAvailable bool, ttsAva
 	}
 }
 
+func userVisibleEnabledChannels(names []string) []string {
+	displayNames := make([]string, len(names))
+	for i, name := range names {
+		switch name {
+		case config.ChannelPico:
+			// `pico` is the internal protocol/config ID for PocketClaw's Web
+			// Console transport. Keep the runtime identity internal.
+			displayNames[i] = "pocketclaw"
+		default:
+			displayNames[i] = name
+		}
+	}
+	return displayNames
+}
+
 func (p *startupBlockedProvider) Chat(
 	_ context.Context,
 	_ []providers.Message,
@@ -476,7 +491,7 @@ func setupAndStartServices(
 
 	enabledChannels := runningServices.ChannelManager.GetEnabledChannels()
 	if len(enabledChannels) > 0 {
-		fmt.Printf("✓ Channels enabled: %s\n", enabledChannels)
+		fmt.Printf("✓ Channels enabled: %s\n", userVisibleEnabledChannels(enabledChannels))
 	} else {
 		fmt.Println("⚠ Warning: No channels enabled")
 	}
@@ -711,7 +726,7 @@ func restartServices(
 
 	enabledChannels := runningServices.ChannelManager.GetEnabledChannels()
 	if len(enabledChannels) > 0 {
-		fmt.Printf("  ✓ Channels enabled: %s\n", enabledChannels)
+		fmt.Printf("  ✓ Channels enabled: %s\n", userVisibleEnabledChannels(enabledChannels))
 	} else {
 		fmt.Println("  ⚠ Warning: No channels enabled")
 	}
