@@ -1,24 +1,21 @@
 import { readFileSync } from "node:fs"
 import { resolve } from "node:path"
 
-import { render } from "@testing-library/react"
+import { fireEvent, render } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
-const gatewayLogState = vi.hoisted(() => ({ logs: [] as string[] }))
+type TestLogEntry = {
+  id: string
+  line: string
+}
+
+const gatewayLogState = vi.hoisted(() => ({ logs: [] as TestLogEntry[] }))
 
 vi.mock("@/hooks/use-gateway-logs", () => ({
   useGatewayLogs: () => ({
     clearLogs: vi.fn(),
     clearing: false,
     logs: gatewayLogState.logs,
-  }),
-}))
-
-vi.mock("@/hooks/use-log-wrap-columns", () => ({
-  useLogWrapColumns: () => ({
-    contentRef: { current: null },
-    measureRef: { current: null },
-    wrapColumns: 120,
   }),
 }))
 
@@ -52,13 +49,58 @@ const contract = JSON.parse(
   ),
 ) as LogContractCase[]
 
+type ViewportMetrics = {
+  clientHeight: number
+  scrollHeight: number
+  scrollTop: number
+  writes: number[]
+}
+
+function configureViewport(
+  viewport: HTMLDivElement,
+  initial: Omit<ViewportMetrics, "writes">,
+) {
+  const metrics: ViewportMetrics = { ...initial, writes: [] }
+
+  Object.defineProperties(viewport, {
+    clientHeight: {
+      configurable: true,
+      get: () => metrics.clientHeight,
+    },
+    scrollHeight: {
+      configurable: true,
+      get: () => metrics.scrollHeight,
+    },
+    scrollTop: {
+      configurable: true,
+      get: () => metrics.scrollTop,
+      set: (value: number) => {
+        const maximum = Math.max(metrics.scrollHeight - metrics.clientHeight, 0)
+        metrics.scrollTop = Math.max(0, Math.min(value, maximum))
+        metrics.writes.push(metrics.scrollTop)
+      },
+    },
+  })
+
+  return metrics
+}
+
+function viewportIn(container: HTMLElement) {
+  return container.querySelector<HTMLDivElement>(
+    '[data-slot="scroll-area-viewport"]',
+  )!
+}
+
 describe("Core Web Console Logs page", () => {
   beforeEach(() => {
     gatewayLogState.logs = []
   })
 
   it("renders the shared brand-safe plain-text representation", () => {
-    gatewayLogState.logs = contract.map((fixture) => fixture.input)
+    gatewayLogState.logs = contract.map((fixture, index) => ({
+      id: `7:${index}`,
+      line: fixture.input,
+    }))
 
     const { container } = render(<LogsPage />)
     const rendered = container.textContent ?? ""
@@ -86,5 +128,103 @@ describe("Core Web Console Logs page", () => {
         expect(rendered, fixture.name).toContain(fixture.expected)
       }
     }
+  })
+
+  it("keeps a following viewport pinned to the bottom before paint", () => {
+    gatewayLogState.logs = [
+      { id: "8:0", line: "first" },
+      { id: "8:1", line: "second" },
+    ]
+    const { container, rerender } = render(<LogsPage />)
+    const viewport = viewportIn(container)
+    const metrics = configureViewport(viewport, {
+      clientHeight: 100,
+      scrollHeight: 240,
+      scrollTop: 140,
+    })
+
+    fireEvent.scroll(viewport)
+    metrics.scrollHeight = 300
+    gatewayLogState.logs = [
+      ...gatewayLogState.logs,
+      { id: "8:2", line: "new log" },
+    ]
+    rerender(<LogsPage />)
+
+    expect(metrics.scrollTop).toBe(200)
+    expect(metrics.writes).toEqual([200])
+  })
+
+  it("preserves scrollTop when the user has scrolled upward", () => {
+    gatewayLogState.logs = [
+      { id: "9:0", line: "first" },
+      { id: "9:1", line: "second" },
+    ]
+    const { container, rerender } = render(<LogsPage />)
+    const viewport = viewportIn(container)
+    const metrics = configureViewport(viewport, {
+      clientHeight: 100,
+      scrollHeight: 300,
+      scrollTop: 42,
+    })
+
+    fireEvent.scroll(viewport)
+    metrics.scrollHeight = 380
+    gatewayLogState.logs = [
+      ...gatewayLogState.logs,
+      { id: "9:2", line: "new log" },
+    ]
+    rerender(<LogsPage />)
+
+    expect(metrics.scrollTop).toBe(42)
+    expect(metrics.writes).toEqual([])
+  })
+
+  it("retains the same DOM node and text for an unchanged long entry", () => {
+    const longLine =
+      'DBG telegram telego bot.go:173 > API response {"description":"رسالة طويلة ✅","duration":"53.616µs","payload":"' +
+      "x".repeat(300) +
+      '"}'
+    gatewayLogState.logs = [{ id: "10:27", line: longLine }]
+    const { container, rerender } = render(<LogsPage />)
+    const viewport = viewportIn(container)
+    const metrics = configureViewport(viewport, {
+      clientHeight: 100,
+      scrollHeight: 400,
+      scrollTop: 50,
+    })
+    fireEvent.scroll(viewport)
+
+    const before = container.querySelector('[data-log-entry-id="10:27"]')
+    metrics.scrollHeight = 460
+    gatewayLogState.logs = [
+      ...gatewayLogState.logs,
+      { id: "10:28", line: "next event" },
+    ]
+    rerender(<LogsPage />)
+    const after = container.querySelector('[data-log-entry-id="10:27"]')
+
+    expect(after).toBe(before)
+    expect(after?.textContent).toBe(longLine)
+    expect(metrics.scrollTop).toBe(50)
+    expect(metrics.writes).toEqual([])
+  })
+
+  it("does not change scrollTop across repeated polls with no new logs", () => {
+    gatewayLogState.logs = [{ id: "11:0", line: "unchanged" }]
+    const { container, rerender } = render(<LogsPage />)
+    const viewport = viewportIn(container)
+    const metrics = configureViewport(viewport, {
+      clientHeight: 100,
+      scrollHeight: 300,
+      scrollTop: 60,
+    })
+    fireEvent.scroll(viewport)
+
+    rerender(<LogsPage />)
+    rerender(<LogsPage />)
+
+    expect(metrics.scrollTop).toBe(60)
+    expect(metrics.writes).toEqual([])
   })
 })

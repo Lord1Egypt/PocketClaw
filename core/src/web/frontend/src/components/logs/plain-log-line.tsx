@@ -1,17 +1,20 @@
-import { useMemo } from "react"
-
-import { wrapPlainTextLogLine } from "@/lib/plain-text-log"
+import { memo } from "react"
 
 type PlainLogLineProps = {
+  id: string
   line: string
-  wrapColumns: number
 }
 
-export function PlainLogLine({ line, wrapColumns }: PlainLogLineProps) {
-  const wrapped = useMemo(
-    () => wrapPlainTextLogLine(line, wrapColumns),
-    [line, wrapColumns],
+export const PlainLogLine = memo(function PlainLogLine({
+  id,
+  line,
+}: PlainLogLineProps) {
+  return (
+    <div
+      className="[overflow-wrap:anywhere] whitespace-pre-wrap"
+      data-log-entry-id={id}
+    >
+      {line}
+    </div>
   )
-
-  return <div className="break-normal whitespace-pre-wrap">{wrapped}</div>
-}
+})

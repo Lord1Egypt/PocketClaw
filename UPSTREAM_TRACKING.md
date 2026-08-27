@@ -209,6 +209,10 @@ work for an adoption, and does not go looking upstream for its origin.
   Structured user-visible log headers additionally display exact component
   `pico` / caller `pico.go` as `realtime` / `realtime.go`, with line numbers
   preserved. This normalization does not rename upstream source or runtime IDs.
+  The Web Logs viewport also uses PocketClaw-owned stable run/offset event IDs,
+  memoized plain-text rows, browser-native wrapping, and conditional pre-paint
+  bottom following. This replaces upstream-derived array-index rows and
+  content-measured `wrap-ansi` hard wrapping; native log delivery is unaffected.
 - **Telegram managed-bot onboarding (Milestone D, 2026-08-26).** The
   onboarding service is PocketClaw-authored and depends on no upstream code. It
   lives in its own public repository, `Lord1Egypt/PocketClaw-Telegram-Setup`,

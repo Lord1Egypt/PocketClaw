@@ -444,3 +444,25 @@ New APK: `1eeca7c993d657f0e6e763d94691a054e584592d0989445454144ac15ad089f7`
 `584dd9ae...1fa4a01`. Flutter analyze/99 tests, frontend 37/tsc/lint, relevant
 tagged Go suites, provenance, zero paths, endpoint, packaged hashes, and guard
 pass. Physical device remains the final gate; no merge or release.
+
+## WEB CONSOLE LOG VIEWPORT STABILITY CANDIDATE — 2026-08-27
+
+Continue on `fix/user-facing-log-privacy`. The previous candidate's complete
+log sanitization/branding behavior passed physically. This micro-pass changes
+only the Core React Logs viewport.
+
+Root cause: bottom correction ran after paint in `useEffect`, and long lines
+were hard-wrapped from a `ResizeObserver` measurement of content whose height
+changes on every append. That could expose an old-offset frame and then rewrite
+all long-row layout. Index keys also lacked the API's real event identity.
+
+Fix: conditional pre-paint `useLayoutEffect` bottom following, no writes while
+scrolled up, stable `run_id:absolute_offset` keys, memoized rows, and native CSS
+wrapping of the unchanged plain-text entry. No native queue, logger sanitizer,
+poll filter, Telegram, Skills, Provider, or internal route logic changed.
+
+New APK: `be5d7cbb18c0378dad0a3d53d2d3a4e71001411121fa056f7a6606645070fc96`
+(34,239,873 bytes). Core hashes: `715cd790...6143cf1` and
+`e3930ae2...f5f5da14`. Frontend 41/41, tsc/lint, relevant Go, Native/Export
+regression, provenance, zero paths, packaged hashes, and guard pass. Physical
+device is the final gate; no merge/release/main change.

@@ -1366,3 +1366,49 @@ show `realtime realtime.go:<original line>` for these WebSocket events, with
 genuine failures visible and every previously passed Unicode, control-cleanup,
 exactly-once, polling, channel-label, skill, Telegram, and provider behavior
 unchanged.
+
+## Web Console Logs scroll/jitter micro-pass — AUTOMATED PASS, PHYSICAL PENDING
+
+Physical testing of the preceding candidate confirmed the complete
+user-visible log cleanup, but the Web Console Logs viewport moved between
+one-second polls. Native Logs did not reproduce it.
+
+The Web page had two layout timing defects. Following users were corrected with
+a passive `useEffect`, so an appended row could paint at the old scroll offset
+before the browser was snapped to the new bottom. Long lines were also hard
+wrapped in JavaScript using a column count recomputed by a `ResizeObserver` on
+the entire content element; every appended row changed that element's height,
+causing another measurement and potentially rewriting all long-row text/layout.
+Rows additionally used array-index keys rather than the event identity already
+available from the incremental API.
+
+The Logs page now records follow state from the viewport's scroll events and
+applies bottom correction in `useLayoutEffect`, before paint, only when the user
+was within 24 px of the bottom. A scrolled-up viewport receives no programmatic
+scroll. Log IDs are `run_id:absolute_offset`; memoized rows use those IDs as
+keys. JavaScript hard wrapping and the content resize observer were removed;
+the unchanged sanitized string is rendered once and wraps natively with CSS.
+Browser anchoring is disabled inside the explicit-policy log content.
+
+The real Logs page DOM suite covers bottom following, scrolled-up preservation,
+unchanged long Telegram-style row node/text identity with Arabic, emoji and
+`53.616µs`, and repeated no-new-log rerenders. Frontend Vitest is 41/41, `tsc
+-b` and lint pass. Tagged Go API/middleware tests and the Native/Export
+exactly-once/sanitization regression pass. Core provenance is 113 files; both
+Core binaries have zero developer paths; the permanent APK guard passed.
+
+Replacement candidate:
+
+- APK size: 34,239,873 bytes
+- APK SHA-256: `be5d7cbb18c0378dad0a3d53d2d3a4e71001411121fa056f7a6606645070fc96`
+- `libpicoclaw.so`: 37,224,801 bytes,
+  `715cd790d1af3f295a50a87a64d5ac8b2fbc0454c8e2268f55896538c6143cf1`
+- `libpicoclaw-web.so`: 24,641,889 bytes,
+  `e3930ae24e5d7e7185a470af65caf3c8d46a97335daecc3590ab64f9f5f5da14`
+- Status: **AUTOMATED PASS; WEB VIEWPORT PHYSICAL GATE PENDING; RELEASE
+  BLOCKED**.
+
+Next physical check: leave Web Console Logs untouched at the bottom through
+multiple updates, then scroll upward and wait through multiple polls. Confirm
+no shake, rewrap, or forced bottom jump while every already-passed log
+sanitization and branding behavior remains intact.

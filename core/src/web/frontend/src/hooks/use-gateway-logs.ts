@@ -4,8 +4,26 @@ import { useEffect, useRef, useState } from "react"
 import { clearGatewayLogs, getGatewayLogs } from "@/api/gateway"
 import { gatewayAtom } from "@/store/gateway"
 
+export type GatewayLogEntry = {
+  id: string
+  line: string
+}
+
+function createLogEntries(
+  lines: string[],
+  runId: number,
+  total: number,
+): GatewayLogEntry[] {
+  const firstOffset = Math.max(total - lines.length, 0)
+
+  return lines.map((line, index) => ({
+    id: `${runId}:${firstOffset + index}`,
+    line,
+  }))
+}
+
 export function useGatewayLogs() {
-  const [logs, setLogs] = useState<string[]>([])
+  const [logs, setLogs] = useState<GatewayLogEntry[]>([])
   const [clearing, setClearing] = useState(false)
   const logOffsetRef = useRef(0)
   const logRunIdRef = useRef(-1)
@@ -60,18 +78,22 @@ export function useGatewayLogs() {
           return
         }
 
-        if (data.log_run_id !== undefined && data.log_run_id !== requestRunId) {
-          logRunIdRef.current = data.log_run_id
+        const responseRunId = data.log_run_id ?? requestRunId
+
+        if (responseRunId !== requestRunId) {
+          logRunIdRef.current = responseRunId
           logOffsetRef.current = 0
           if (data.logs) {
-            setLogs(data.logs)
-            logOffsetRef.current = data.log_total || data.logs.length
+            const total = data.log_total ?? data.logs.length
+            setLogs(createLogEntries(data.logs, responseRunId, total))
+            logOffsetRef.current = total
           }
         } else if (data.logs && data.logs.length > 0) {
-          const nextLogs = data.logs
+          const total =
+            data.log_total ?? logOffsetRef.current + data.logs.length
+          const nextLogs = createLogEntries(data.logs, responseRunId, total)
           setLogs((prev) => [...prev, ...nextLogs])
-          logOffsetRef.current =
-            data.log_total || logOffsetRef.current + nextLogs.length
+          logOffsetRef.current = total
         }
       } catch {
         // Ignore simple fetch errors during polling.

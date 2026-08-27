@@ -449,3 +449,21 @@ supplied by the user.
 - [x] Build candidate `1eeca7c9...ad089f7` (34,242,865 bytes).
 - [ ] **FINAL PHYSICAL GATE:** verify all three user-visible log surfaces show
   `realtime realtime.go:<original line>` and preserve every prior physical PASS.
+
+## Web Console Logs scroll/jitter micro-pass
+
+- [x] Trace the real page to passive post-paint bottom correction and a
+  content-height-driven JavaScript hard-wrap measurement loop.
+- [x] Preserve live polling while following the bottom only when the user was
+  within 24 px; perform the correction before paint.
+- [x] Preserve a scrolled-up `scrollTop` without programmatic writes.
+- [x] Give events stable `run_id:absolute_offset` identities and memoize rows.
+- [x] Replace content-measured hard wrapping with deterministic browser-native
+  wrapping of the unchanged sanitized text.
+- [x] Cover bottom, scrolled-up, long-row node identity, and repeated no-new-log
+  cases in the real Logs page DOM suite.
+- [x] Pass frontend 41/41, tsc/lint, relevant Go and Native/Export regressions,
+  regenerate 113-file provenance, rebuild zero-path Core, and build guarded APK
+  `be5d7cbb...5070fc96`.
+- [ ] **FINAL PHYSICAL GATE:** verify several minutes at bottom and scrolled up
+  show no Web Logs shake, rewrap, or forced scrolling; preserve all prior PASS.

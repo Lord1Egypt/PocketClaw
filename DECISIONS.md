@@ -1033,3 +1033,18 @@
 - Consequence: Native Logs, Export Logs, and Web Console Logs agree. Actual Go
   package/file, `ChannelPico`, routes, config, and protocol stay unchanged;
   substring matches are explicitly rejected by regression tests.
+
+## Web Logs own an explicit pre-paint scroll policy
+
+- Date: 2026-08-27
+- Decision: identify frontend log events by Core run ID plus absolute append
+  offset; render memoized plain-text rows with browser-native wrapping; track
+  whether the viewport is within 24 px of bottom from actual scroll events; and
+  apply bottom following in `useLayoutEffect` only for followers.
+- Reason: passive post-paint correction exposed a transient old scroll offset,
+  while measuring the whole changing content box to hard-wrap text could
+  rewrite long rows on append. Array-index keys did not express event identity.
+- Consequence: new logs remain live and bottom followers remain pinned without
+  an animated bounce. Scrolled-up users receive no forced movement. An
+  unchanged long entry keeps the same DOM node and text across polling updates;
+  native/export transport and shared sanitization remain untouched.

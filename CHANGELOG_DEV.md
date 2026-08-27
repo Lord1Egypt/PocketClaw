@@ -829,3 +829,21 @@ verified `develop` @ `14e6991`. Not merged; physical-device testing is the gate.
 - Regenerated the 110-file Core patch, rebuilt zero-path Core libraries, and
   built guarded APK `1eeca7c9...ad089f7` (34,242,865 bytes). Physical device is
   the final gate; no merge/release/main change was made.
+
+## 2026-08-27 — Web Console Logs viewport stability micro-pass
+
+- Traced physical Web-only jitter to a passive post-paint bottom snap and a
+  content-resize-driven JavaScript hard-wrap loop that could rewrite long rows.
+- Moved conditional bottom following to `useLayoutEffect`; scrolled-up users
+  receive no scroll writes and repeated empty polls do not change `scrollTop`.
+- Added stable `run_id:absolute_offset` keys and memoized rows. Removed the
+  whole-content `ResizeObserver`, manual `wrap-ansi` hard wrapping, and its
+  now-unused direct dependency; CSS wraps the unchanged sanitized string.
+- Added real Logs page DOM cases for bottom following, scrolled-up preservation,
+  long Telegram-style row node/text stability, and no-new-log rerenders.
+- Passed frontend 41/41, TypeScript, lint, relevant tagged Go API/middleware,
+  and Native/Export log regressions. Regenerated 113-file Core provenance,
+  rebuilt zero-path libraries, and passed the permanent APK payload guard.
+- Built APK `be5d7cbb...5070fc96` (34,239,873 bytes), with Core hashes
+  `715cd790...6143cf1` and `e3930ae2...f5f5da14`. Physical validation is
+  pending; no merge/release/main change was made.

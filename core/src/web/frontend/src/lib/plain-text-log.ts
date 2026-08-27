@@ -1,5 +1,3 @@
-import wrapAnsi from "wrap-ansi"
-
 const OSC_PATTERN = new RegExp(
   String.raw`(?:\u001B\]|\u009D)[\s\S]*?(?:\u0007|\u001B\\|\u009C)`,
   "g",
@@ -92,14 +90,4 @@ export function normalizeUserVisibleLog(input: string): string {
     "$1 /internal realtime connection $2$3",
   )
   return result
-}
-
-export function wrapPlainTextLogLine(line: string, columns: number): string {
-  if (columns < 20) return line
-
-  return wrapAnsi(line, columns, {
-    hard: true,
-    trim: false,
-    wordWrap: false,
-  })
 }
