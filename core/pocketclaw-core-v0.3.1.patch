@@ -2493,6 +2493,207 @@ index 6d2e317..806439b 100644
  func getPackageNameFromFile(filePath string) string {
  	dir := filepath.Dir(filePath)
  	importPath := filepath.ToSlash(dir)
+diff --git a/pkg/logger/logger_3rd_party.go b/pkg/logger/logger_3rd_party.go
+index d0cb178..47a647a 100644
+--- a/pkg/logger/logger_3rd_party.go
++++ b/pkg/logger/logger_3rd_party.go
+@@ -7,14 +7,22 @@ import (
+ 	"regexp"
+ )
+ 
+-// botTokenRe matches the bot ID prefix and the secret part of a Telegram bot token.
+-// Groups: 1 = "bot<id>:", 2 = first 4 chars of secret, 3 = middle, 4 = last 4 chars.
+-var botTokenRe = regexp.MustCompile(`(bot\d+:)([A-Za-z0-9_-]{4})[A-Za-z0-9_-]{12,}([A-Za-z0-9_-]{4})`)
++var (
++	// Telegram puts the complete bot credential in every Bot API URL. Match
++	// both the normal colon and its percent-encoded form without retaining the
++	// public-ID prefix or any secret prefix/suffix.
++	telegramBotURLTokenPattern = regexp.MustCompile(`(?i)\bbot\d{6,}(?::|%3A)[A-Za-z0-9_-]{10,}`)
++	telegramBareTokenPattern   = regexp.MustCompile(`(?i)\b\d{6,}(?::|%3A)[A-Za-z0-9_-]{10,}\b`)
++	authorizationPattern       = regexp.MustCompile(`(?i)(authorization[=:][ \t]*)(?:\[?(?:bearer|basic)[ \t]+)[A-Za-z0-9._~+/%:=-]+\]?`)
++)
+ 
+-// maskSecrets replaces any embedded bot tokens in s with a redacted placeholder
+-// that keeps the first and last 4 characters of the secret for identification.
+-func maskSecrets(s string) string {
+-	return botTokenRe.ReplaceAllString(s, "${1}${2}****${3}")
++// redactSecrets runs before logMessage and therefore before any console/file
++// writer. Third-party libraries can keep useful method, status, and error text,
++// but no credential fragment reaches stdout or a downstream log store.
++func redactSecrets(s string) string {
++	s = authorizationPattern.ReplaceAllString(s, "${1}<redacted>")
++	s = telegramBotURLTokenPattern.ReplaceAllString(s, "bot<redacted>")
++	return telegramBareTokenPattern.ReplaceAllString(s, "<redacted>")
+ }
+ 
+ // Logger implements common Logger interface
+@@ -25,52 +33,52 @@ type Logger struct {
+ 
+ // Debug logs debug messages
+ func (b *Logger) Debug(v ...any) {
+-	logMessage(DEBUG, b.component, maskSecrets(fmt.Sprint(v...)), nil)
++	logMessage(DEBUG, b.component, redactSecrets(fmt.Sprint(v...)), nil)
+ }
+ 
+ // Info logs info messages
+ func (b *Logger) Info(v ...any) {
+-	logMessage(INFO, b.component, maskSecrets(fmt.Sprint(v...)), nil)
++	logMessage(INFO, b.component, redactSecrets(fmt.Sprint(v...)), nil)
+ }
+ 
+ // Warn logs warning messages
+ func (b *Logger) Warn(v ...any) {
+-	logMessage(WARN, b.component, maskSecrets(fmt.Sprint(v...)), nil)
++	logMessage(WARN, b.component, redactSecrets(fmt.Sprint(v...)), nil)
+ }
+ 
+ // Error logs error messages
+ func (b *Logger) Error(v ...any) {
+-	logMessage(ERROR, b.component, maskSecrets(fmt.Sprint(v...)), nil)
++	logMessage(ERROR, b.component, redactSecrets(fmt.Sprint(v...)), nil)
+ }
+ 
+ // Debugf logs formatted debug messages
+ func (b *Logger) Debugf(format string, v ...any) {
+-	logMessage(DEBUG, b.component, maskSecrets(fmt.Sprintf(format, v...)), nil)
++	logMessage(DEBUG, b.component, redactSecrets(fmt.Sprintf(format, v...)), nil)
+ }
+ 
+ // Infof logs formatted info messages
+ func (b *Logger) Infof(format string, v ...any) {
+-	logMessage(INFO, b.component, maskSecrets(fmt.Sprintf(format, v...)), nil)
++	logMessage(INFO, b.component, redactSecrets(fmt.Sprintf(format, v...)), nil)
+ }
+ 
+ // Warnf logs formatted warning messages
+ func (b *Logger) Warnf(format string, v ...any) {
+-	logMessage(WARN, b.component, maskSecrets(fmt.Sprintf(format, v...)), nil)
++	logMessage(WARN, b.component, redactSecrets(fmt.Sprintf(format, v...)), nil)
+ }
+ 
+ // Warningf logs formatted warning messages
+ func (b *Logger) Warningf(format string, v ...any) {
+-	logMessage(WARN, b.component, maskSecrets(fmt.Sprintf(format, v...)), nil)
++	logMessage(WARN, b.component, redactSecrets(fmt.Sprintf(format, v...)), nil)
+ }
+ 
+ // Errorf logs formatted error messages
+ func (b *Logger) Errorf(format string, v ...any) {
+-	logMessage(ERROR, b.component, maskSecrets(fmt.Sprintf(format, v...)), nil)
++	logMessage(ERROR, b.component, redactSecrets(fmt.Sprintf(format, v...)), nil)
+ }
+ 
+ // Fatalf logs formatted fatal messages and exits
+ func (b *Logger) Fatalf(format string, v ...any) {
+-	logMessage(FATAL, b.component, maskSecrets(fmt.Sprintf(format, v...)), nil)
++	logMessage(FATAL, b.component, redactSecrets(fmt.Sprintf(format, v...)), nil)
+ }
+ 
+ // Log logs a message at a given level with caller information
+@@ -88,7 +96,7 @@ func (b *Logger) Log(msgL, caller int, format string, a ...any) {
+ 			level = lvl
+ 		}
+ 	}
+-	logMessage(level, b.component, maskSecrets(fmt.Sprintf(format, a...)), nil)
++	logMessage(level, b.component, redactSecrets(fmt.Sprintf(format, a...)), nil)
+ }
+ 
+ // Sync flushes log buffer (no-op for this implementation)
+diff --git a/pkg/logger/logger_3rd_party_test.go b/pkg/logger/logger_3rd_party_test.go
+new file mode 100644
+index 0000000..8293964
+--- /dev/null
++++ b/pkg/logger/logger_3rd_party_test.go
+@@ -0,0 +1,89 @@
++package logger
++
++import (
++	"strings"
++	"testing"
++)
++
++const syntheticTelegramToken = "123456789:AAExampleSecretTokenValue"
++
++func TestRedactSecretsRemovesCompleteTelegramCredential(t *testing.T) {
++	t.Parallel()
++
++	tests := map[string]struct {
++		input string
++		want  string
++	}{
++		"getMe": {
++			input: `API call to: "https://api.telegram.org/bot` + syntheticTelegramToken + `/getMe"`,
++			want:  `API call to: "https://api.telegram.org/bot<redacted>/getMe"`,
++		},
++		"getUpdates timeout": {
++			input: `Execution error getUpdates: Post "https://api.telegram.org/bot` + syntheticTelegramToken + `/getUpdates": context deadline exceeded`,
++			want:  `Execution error getUpdates: Post "https://api.telegram.org/bot<redacted>/getUpdates": context deadline exceeded`,
++		},
++		"sendMessage status": {
++			input: `POST https://api.telegram.org/bot` + syntheticTelegramToken + `/sendMessage 200 53.616µs`,
++			want:  `POST https://api.telegram.org/bot<redacted>/sendMessage 200 53.616µs`,
++		},
++		"editMessageText failure": {
++			input: `POST https://api.telegram.org/bot` + syntheticTelegramToken + `/editMessageText 500`,
++			want:  `POST https://api.telegram.org/bot<redacted>/editMessageText 500`,
++		},
++		"arbitrary method and custom server": {
++			input: `https://telegram.example.test/v1/bot` + syntheticTelegramToken + `/answerCustomQuery`,
++			want:  `https://telegram.example.test/v1/bot<redacted>/answerCustomQuery`,
++		},
++		"percent encoded colon": {
++			input: `https://api.telegram.org/bot123456789%3AAAExampleSecretTokenValue/getMe`,
++			want:  `https://api.telegram.org/bot<redacted>/getMe`,
++		},
++		"bare credential": {
++			input: `telegram token=` + syntheticTelegramToken,
++			want:  `telegram token=<redacted>`,
++		},
++		"bearer authorization": {
++			input: `Authorization: Bearer ` + syntheticTelegramToken,
++			want:  `Authorization: <redacted>`,
++		},
++		"basic authorization": {
++			input: `authorization=Basic dXNlcjpwYXNzd29yZA==`,
++			want:  `authorization=<redacted>`,
++		},
++	}
++
++	for name, tt := range tests {
++		t.Run(name, func(t *testing.T) {
++			got := redactSecrets(tt.input)
++			if got != tt.want {
++				t.Fatalf("redactSecrets() = %q, want %q", got, tt.want)
++			}
++			assertNoTelegramCredentialFragment(t, got)
++		})
++	}
++}
++
++func TestRedactSecretsPreservesPublicBotMetadata(t *testing.T) {
++	t.Parallel()
++
++	input := "Telegram bot @PocketClawBot has public bot ID 123456789"
++	if got := redactSecrets(input); got != input {
++		t.Fatalf("redactSecrets() = %q, want unchanged public metadata", got)
++	}
++}
++
++func assertNoTelegramCredentialFragment(t *testing.T, value string) {
++	t.Helper()
++
++	for _, forbidden := range []string{
++		syntheticTelegramToken,
++		"123456789:",
++		"AAExample",
++		"TokenValue",
++		"AAEx****alue",
++	} {
++		if strings.Contains(value, forbidden) {
++			t.Fatalf("credential fragment %q remains in %q", forbidden, value)
++		}
++	}
++}
 diff --git a/pkg/pid/pidfile.go b/pkg/pid/pidfile.go
 index 3efc45f..e9251e6 100644
 --- a/pkg/pid/pidfile.go
@@ -5254,10 +5455,10 @@ index bc71e49..f7f57b0 100644
  			"X-GNOME-Autostart-enabled=true",
 diff --git a/web/backend/api/user_visible_log.go b/web/backend/api/user_visible_log.go
 new file mode 100644
-index 0000000..060c610
+index 0000000..6af5d11
 --- /dev/null
 +++ b/web/backend/api/user_visible_log.go
-@@ -0,0 +1,85 @@
+@@ -0,0 +1,91 @@
 +package api
 +
 +import (
@@ -5279,6 +5480,9 @@ index 0000000..060c610
 +	legacyGatewayStartPattern        = regexp.MustCompile(`Starting gateway process \([^\r\n)]*\)`)
 +	picoLoggerComponentPattern       = regexp.MustCompile(`(?m)(^|[ \t])([A-Z]{3}) pico ([^ \t]+:[0-9]+)([ \t]+>)`)
 +	picoLoggerCallerPattern          = regexp.MustCompile(`(?m)(^|[ \t])([A-Z]{3}) ([^ \t]+) pico\.go:([0-9]+)([ \t]+>)`)
++	telegramBotAPIURLPattern         = regexp.MustCompile(`(?i)https?://[^\s"']*/bot[^/\s"']+/(?:test/)?([A-Za-z][A-Za-z0-9_]*)`)
++	telegramAPICallWrapperPattern    = regexp.MustCompile(`(?i)API call to: "Telegram API call: ([A-Za-z][A-Za-z0-9_]*)"`)
++	authorizationCredentialPattern   = regexp.MustCompile(`(?i)(authorization[=:][ \t]*)(?:\[?(?:bearer|basic)[ \t]+)[A-Za-z0-9._~+/%:=-]+\]?`)
 +)
 +
 +// normalizeUserVisibleLog applies the plain-text contract shared by every
@@ -5338,6 +5542,9 @@ index 0000000..060c610
 +	result := legacyGatewayStartPattern.ReplaceAllString(output.String(), "Starting gateway process")
 +	result = picoLoggerComponentPattern.ReplaceAllString(result, "${1}${2} realtime ${3}${4}")
 +	result = picoLoggerCallerPattern.ReplaceAllString(result, "${1}${2} ${3} realtime.go:${4}${5}")
++	result = telegramBotAPIURLPattern.ReplaceAllString(result, "Telegram API call: $1")
++	result = telegramAPICallWrapperPattern.ReplaceAllString(result, "Telegram API call: $1")
++	result = authorizationCredentialPattern.ReplaceAllString(result, "${1}<redacted>")
 +	if routinePicoWSPattern.MatchString(result) {
 +		return ""
 +	}
@@ -5345,10 +5552,10 @@ index 0000000..060c610
 +}
 diff --git a/web/backend/api/user_visible_log_test.go b/web/backend/api/user_visible_log_test.go
 new file mode 100644
-index 0000000..e95685c
+index 0000000..fbdb13a
 --- /dev/null
 +++ b/web/backend/api/user_visible_log_test.go
-@@ -0,0 +1,95 @@
+@@ -0,0 +1,166 @@
 +package api
 +
 +import (
@@ -5441,6 +5648,77 @@ index 0000000..e95685c
 +	} {
 +		if got := normalizeUserVisibleLog(input); got != want {
 +			t.Errorf("exact identity mapping: got %q, want %q", got, want)
++		}
++	}
++}
++
++func TestNormalizeUserVisibleLogRedactsTelegramBotAPICredentials(t *testing.T) {
++	token := "123456789:AAExampleSecretTokenValue"
++	tests := map[string]struct {
++		input string
++		want  string
++	}{
++		"getMe": {
++			input: `DBG telego bot.go:247 > API call to: "https://api.telegram.org/bot` + token + `/getMe"`,
++			want:  `DBG telego bot.go:247 > Telegram API call: getMe`,
++		},
++		"getUpdates timeout": {
++			input: `ERR telego bot.go:170 > Execution error getUpdates: request call: Post "https://api.telegram.org/bot` + token + `/getUpdates": context deadline exceeded`,
++			want:  `ERR telego bot.go:170 > Execution error getUpdates: request call: Post "Telegram API call: getUpdates": context deadline exceeded`,
++		},
++		"sendMessage with data": {
++			input: `DBG telego bot.go:245 > API call to: "https://api.telegram.org/bot` + token + `/sendMessage", with data: {"chat_id":42}`,
++			want:  `DBG telego bot.go:245 > Telegram API call: sendMessage, with data: {"chat_id":42}`,
++		},
++		"old partial editMessageText mask": {
++			input: `DBG telego bot.go:247 > API call to: "https://api.telegram.org/bot123456789:AAEx****alue/editMessageText"`,
++			want:  `DBG telego bot.go:247 > Telegram API call: editMessageText`,
++		},
++		"arbitrary method failure": {
++			input: `ERR telego bot.go:170 > POST "https://telegram.example/v1/bot` + token + `/answerCustomQuery" 503 53.616µs`,
++			want:  `ERR telego bot.go:170 > POST "Telegram API call: answerCustomQuery" 503 53.616µs`,
++		},
++		"authorization": {
++			input: `ERR telego bot.go:170 > Authorization: Bearer ` + token + ` failed`,
++			want:  `ERR telego bot.go:170 > Authorization: <redacted> failed`,
++		},
++	}
++
++	for name, tt := range tests {
++		t.Run(name, func(t *testing.T) {
++			got := normalizeUserVisibleLog(tt.input)
++			if got != tt.want {
++				t.Fatalf("normalizeUserVisibleLog() = %q, want %q", got, tt.want)
++			}
++			assertNoTelegramTokenFragment(t, got, token)
++		})
++	}
++}
++
++func TestLogBufferNeverStoresTelegramBotCredentialFragments(t *testing.T) {
++	token := "123456789:AAExampleSecretTokenValue"
++	buffer := NewLogBuffer(20)
++	buffer.Append(`DBG telego bot.go:247 > API call to: "https://api.telegram.org/bot` + token + `/getMe"`)
++	buffer.Append(`ERR telego bot.go:170 > Post "https://api.telegram.org/bot` + token + `/getUpdates": context deadline exceeded`)
++
++	lines, total, _ := buffer.LinesSince(0)
++	if total != 2 || len(lines) != 2 {
++		t.Fatalf("stored history = %#v, total %d; want two useful events", lines, total)
++	}
++	joined := strings.Join(lines, "\n")
++	assertNoTelegramTokenFragment(t, joined, token)
++	for _, operation := range []string{"getMe", "getUpdates", "context deadline exceeded"} {
++		if !strings.Contains(joined, operation) {
++			t.Fatalf("stored history lost useful detail %q: %q", operation, joined)
++		}
++	}
++}
++
++func assertNoTelegramTokenFragment(t *testing.T, value, token string) {
++	t.Helper()
++	for _, forbidden := range []string{token, "123456789:", "AAExample", "TokenValue", "AAEx****alue"} {
++		if strings.Contains(value, forbidden) {
++			t.Fatalf("credential fragment %q remains in %q", forbidden, value)
 +		}
 +	}
 +}
@@ -8001,10 +8279,10 @@ index db078ef..0000000
 -}
 diff --git a/web/frontend/src/components/logs/logs-page.test.tsx b/web/frontend/src/components/logs/logs-page.test.tsx
 new file mode 100644
-index 0000000..02a13fa
+index 0000000..64f9274
 --- /dev/null
 +++ b/web/frontend/src/components/logs/logs-page.test.tsx
-@@ -0,0 +1,230 @@
+@@ -0,0 +1,280 @@
 +import { readFileSync } from "node:fs"
 +import { resolve } from "node:path"
 +
@@ -8134,6 +8412,56 @@ index 0000000..02a13fa
 +      if (fixture.expected) {
 +        expect(rendered, fixture.name).toContain(fixture.expected)
 +      }
++    }
++  })
++
++  it("renders Telegram API operations without token fragments", () => {
++    const token = "123456789:AAExampleSecretTokenValue"
++    gatewayLogState.logs = [
++      {
++        id: "12:0",
++        line: `DBG telego bot.go:247 > API call to: "https://api.telegram.org/bot${token}/getMe"`,
++      },
++      {
++        id: "12:1",
++        line: `DBG telego bot.go:247 > API call to: "https://api.telegram.org/bot${token}/getUpdates"`,
++      },
++      {
++        id: "12:2",
++        line: `DBG telego bot.go:245 > API call to: "https://api.telegram.org/bot${token}/sendMessage", with data: {"chat_id":42}`,
++      },
++      {
++        id: "12:3",
++        line: `ERR telego bot.go:170 > Post "https://api.telegram.org/bot${token}/editMessageText": context deadline exceeded`,
++      },
++      {
++        id: "12:4",
++        line: `ERR telego bot.go:170 > POST "https://telegram.example/v1/bot${token}/answerCustomQuery" 503 53.616µs`,
++      },
++    ]
++
++    const { container } = render(<LogsPage />)
++    const rendered = container.textContent ?? ""
++
++    for (const detail of [
++      "Telegram API call: getMe",
++      "Telegram API call: getUpdates",
++      "Telegram API call: sendMessage",
++      "Telegram API call: editMessageText",
++      "Telegram API call: answerCustomQuery",
++      "context deadline exceeded",
++      "503 53.616µs",
++    ]) {
++      expect(rendered).toContain(detail)
++    }
++    for (const fragment of [
++      token,
++      "123456789:",
++      "AAExample",
++      "TokenValue",
++      "AAEx****alue",
++    ]) {
++      expect(rendered).not.toContain(fragment)
 +    }
 +  })
 +
@@ -10576,10 +10904,10 @@ index 39561fb..0000000
 -}
 diff --git a/web/frontend/src/lib/plain-text-log.ts b/web/frontend/src/lib/plain-text-log.ts
 new file mode 100644
-index 0000000..67a83c0
+index 0000000..ec1e79f
 --- /dev/null
 +++ b/web/frontend/src/lib/plain-text-log.ts
-@@ -0,0 +1,93 @@
+@@ -0,0 +1,105 @@
 +const OSC_PATTERN = new RegExp(
 +  String.raw`(?:\u001B\]|\u009D)[\s\S]*?(?:\u0007|\u001B\\|\u009C)`,
 +  "g",
@@ -10611,6 +10939,12 @@ index 0000000..67a83c0
 +  /(^|[ \t])([A-Z]{3}) pico ([^ \t]+:[0-9]+)([ \t]+>)/gm
 +const PICO_LOGGER_CALLER_PATTERN =
 +  /(^|[ \t])([A-Z]{3}) ([^ \t]+) pico\.go:([0-9]+)([ \t]+>)/gm
++const TELEGRAM_BOT_API_URL_PATTERN =
++  /https?:\/\/[^\s"']*\/bot[^/\s"']+\/(?:test\/)?([A-Za-z][A-Za-z0-9_]*)/gi
++const TELEGRAM_API_CALL_WRAPPER_PATTERN =
++  /API call to: "Telegram API call: ([A-Za-z][A-Za-z0-9_]*)"/gi
++const AUTHORIZATION_CREDENTIAL_PATTERN =
++  /(authorization[=:][ \t]*)(?:\[?(?:bearer|basic)[ \t]+)[A-Za-z0-9._~+/%:=-]+\]?/gi
 +
 +/**
 + * Browser-side enforcement of the shared PocketClaw user-visible log
@@ -10666,6 +11000,12 @@ index 0000000..67a83c0
 +    PICO_LOGGER_CALLER_PATTERN,
 +    "$1$2 $3 realtime.go:$4$5",
 +  )
++  result = result.replace(TELEGRAM_BOT_API_URL_PATTERN, "Telegram API call: $1")
++  result = result.replace(
++    TELEGRAM_API_CALL_WRAPPER_PATTERN,
++    "Telegram API call: $1",
++  )
++  result = result.replace(AUTHORIZATION_CREDENTIAL_PATTERN, "$1<redacted>")
 +  if (ROUTINE_PICO_WS_PATTERN.test(result)) return ""
 +  result = result.replace(
 +    PICO_WS_REQUEST_PATTERN,

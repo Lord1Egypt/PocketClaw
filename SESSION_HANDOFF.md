@@ -466,3 +466,24 @@ New APK: `be5d7cbb18c0378dad0a3d53d2d3a4e71001411121fa056f7a6606645070fc96`
 `e3930ae2...f5f5da14`. Frontend 41/41, tsc/lint, relevant Go, Native/Export
 regression, provenance, zero paths, packaged hashes, and guard pass. Physical
 device is the final gate; no merge/release/main change.
+
+## TELEGRAM WEB LOG REDACTION CANDIDATE — 2026-08-27
+
+Physical clarification: token fragments appeared only in Core Web Console
+Logs; Native Android Logs remained clean. This is case A. Telego's full Bot API
+URL was partially masked in PocketClaw's logger before stdout and before Web
+`LogBuffer` storage. The full token was not persisted through this path, but
+the old bot-ID/first-four/last-four fragments were stored and rendered.
+
+The pre-stdout logger now retains no credential fragment. Web pre-storage
+normalization turns Bot API URLs into `Telegram API call: <operation>` and
+keeps method/status/error/timeout/latency; React has an idempotent legacy guard.
+Native/Export sources and all Telegram credentials/lifecycle code are
+unchanged. No rotation occurred.
+
+New APK: `8257e9f091039f2c29332b8f14e2d397d36bbb735593596a4caa0e567c7050fe`
+(34,240,641 bytes). Core hashes: `0e914550...8b555e9` and
+`7d7b254b...d9898c7`. Relevant Go suites, frontend 42/42/tsc/lint, unchanged
+Native log regression, 115-file provenance, zero paths, packaged hashes, and
+guard pass. Physical Web Console validation remains mandatory; no merge,
+release, main change, or credential mutation.

@@ -130,6 +130,56 @@ describe("Core Web Console Logs page", () => {
     }
   })
 
+  it("renders Telegram API operations without token fragments", () => {
+    const token = "123456789:AAExampleSecretTokenValue"
+    gatewayLogState.logs = [
+      {
+        id: "12:0",
+        line: `DBG telego bot.go:247 > API call to: "https://api.telegram.org/bot${token}/getMe"`,
+      },
+      {
+        id: "12:1",
+        line: `DBG telego bot.go:247 > API call to: "https://api.telegram.org/bot${token}/getUpdates"`,
+      },
+      {
+        id: "12:2",
+        line: `DBG telego bot.go:245 > API call to: "https://api.telegram.org/bot${token}/sendMessage", with data: {"chat_id":42}`,
+      },
+      {
+        id: "12:3",
+        line: `ERR telego bot.go:170 > Post "https://api.telegram.org/bot${token}/editMessageText": context deadline exceeded`,
+      },
+      {
+        id: "12:4",
+        line: `ERR telego bot.go:170 > POST "https://telegram.example/v1/bot${token}/answerCustomQuery" 503 53.616µs`,
+      },
+    ]
+
+    const { container } = render(<LogsPage />)
+    const rendered = container.textContent ?? ""
+
+    for (const detail of [
+      "Telegram API call: getMe",
+      "Telegram API call: getUpdates",
+      "Telegram API call: sendMessage",
+      "Telegram API call: editMessageText",
+      "Telegram API call: answerCustomQuery",
+      "context deadline exceeded",
+      "503 53.616µs",
+    ]) {
+      expect(rendered).toContain(detail)
+    }
+    for (const fragment of [
+      token,
+      "123456789:",
+      "AAExample",
+      "TokenValue",
+      "AAEx****alue",
+    ]) {
+      expect(rendered).not.toContain(fragment)
+    }
+  })
+
   it("keeps a following viewport pinned to the bottom before paint", () => {
     gatewayLogState.logs = [
       { id: "8:0", line: "first" },

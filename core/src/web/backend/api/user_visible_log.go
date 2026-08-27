@@ -19,6 +19,9 @@ var (
 	legacyGatewayStartPattern        = regexp.MustCompile(`Starting gateway process \([^\r\n)]*\)`)
 	picoLoggerComponentPattern       = regexp.MustCompile(`(?m)(^|[ \t])([A-Z]{3}) pico ([^ \t]+:[0-9]+)([ \t]+>)`)
 	picoLoggerCallerPattern          = regexp.MustCompile(`(?m)(^|[ \t])([A-Z]{3}) ([^ \t]+) pico\.go:([0-9]+)([ \t]+>)`)
+	telegramBotAPIURLPattern         = regexp.MustCompile(`(?i)https?://[^\s"']*/bot[^/\s"']+/(?:test/)?([A-Za-z][A-Za-z0-9_]*)`)
+	telegramAPICallWrapperPattern    = regexp.MustCompile(`(?i)API call to: "Telegram API call: ([A-Za-z][A-Za-z0-9_]*)"`)
+	authorizationCredentialPattern   = regexp.MustCompile(`(?i)(authorization[=:][ \t]*)(?:\[?(?:bearer|basic)[ \t]+)[A-Za-z0-9._~+/%:=-]+\]?`)
 )
 
 // normalizeUserVisibleLog applies the plain-text contract shared by every
@@ -78,6 +81,9 @@ func normalizeUserVisibleLog(input string) string {
 	result := legacyGatewayStartPattern.ReplaceAllString(output.String(), "Starting gateway process")
 	result = picoLoggerComponentPattern.ReplaceAllString(result, "${1}${2} realtime ${3}${4}")
 	result = picoLoggerCallerPattern.ReplaceAllString(result, "${1}${2} ${3} realtime.go:${4}${5}")
+	result = telegramBotAPIURLPattern.ReplaceAllString(result, "Telegram API call: $1")
+	result = telegramAPICallWrapperPattern.ReplaceAllString(result, "Telegram API call: $1")
+	result = authorizationCredentialPattern.ReplaceAllString(result, "${1}<redacted>")
 	if routinePicoWSPattern.MatchString(result) {
 		return ""
 	}

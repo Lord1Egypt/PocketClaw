@@ -213,6 +213,11 @@ work for an adoption, and does not go looking upstream for its origin.
   memoized plain-text rows, browser-native wrapping, and conditional pre-paint
   bottom following. This replaces upstream-derived array-index rows and
   content-measured `wrap-ansi` hard wrapping; native log delivery is unaffected.
+  PocketClaw also replaces Telego-compatible partial token masking with complete
+  pre-writer credential redaction, then normalizes Web-stored Bot API URLs to
+  operation-only diagnostic wording. Full tokens had already been masked before
+  Web storage; this removes the retained fragments without changing Telegram
+  credentials, lifecycle, API calls, or public bot metadata.
 - **Telegram managed-bot onboarding (Milestone D, 2026-08-26).** The
   onboarding service is PocketClaw-authored and depends on no upstream code. It
   lives in its own public repository, `Lord1Egypt/PocketClaw-Telegram-Setup`,

@@ -1048,3 +1048,19 @@
   an animated bounce. Scrolled-up users receive no forced movement. An
   unchanged long entry keeps the same DOM node and text across polling updates;
   native/export transport and shared sanitization remain untouched.
+
+## Third-party Telegram logs retain no credential fragments
+
+- Date: 2026-08-27
+- Decision: replace the compatible logger's partial Telegram token mask with
+  complete pre-writer redaction. At Web `LogBuffer` normalization, replace Bot
+  API URLs with `Telegram API call: <operation>` and redact Authorization
+  credentials; keep a browser-side idempotent guard for legacy/raw lines.
+- Reason: the full token was already masked before stdout/storage, but keeping
+  the bot ID and secret prefix/suffix exposed credential fragments in normal
+  Web Console diagnostics. Those fragments add no troubleshooting value.
+- Consequence: Web history retains HTTP method, Bot API operation, status,
+  timeout/error, and latency without any credential fragment. This finding is
+  not evidence of full-token persistence, and requires no automatic credential
+  rotation. Native/Export implementation and Telegram lifecycle remain
+  unchanged.

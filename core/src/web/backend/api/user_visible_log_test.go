@@ -93,3 +93,74 @@ func TestNormalizeUserVisibleLogMapsOnlyExactPicoLoggerIdentity(t *testing.T) {
 		}
 	}
 }
+
+func TestNormalizeUserVisibleLogRedactsTelegramBotAPICredentials(t *testing.T) {
+	token := "123456789:AAExampleSecretTokenValue"
+	tests := map[string]struct {
+		input string
+		want  string
+	}{
+		"getMe": {
+			input: `DBG telego bot.go:247 > API call to: "https://api.telegram.org/bot` + token + `/getMe"`,
+			want:  `DBG telego bot.go:247 > Telegram API call: getMe`,
+		},
+		"getUpdates timeout": {
+			input: `ERR telego bot.go:170 > Execution error getUpdates: request call: Post "https://api.telegram.org/bot` + token + `/getUpdates": context deadline exceeded`,
+			want:  `ERR telego bot.go:170 > Execution error getUpdates: request call: Post "Telegram API call: getUpdates": context deadline exceeded`,
+		},
+		"sendMessage with data": {
+			input: `DBG telego bot.go:245 > API call to: "https://api.telegram.org/bot` + token + `/sendMessage", with data: {"chat_id":42}`,
+			want:  `DBG telego bot.go:245 > Telegram API call: sendMessage, with data: {"chat_id":42}`,
+		},
+		"old partial editMessageText mask": {
+			input: `DBG telego bot.go:247 > API call to: "https://api.telegram.org/bot123456789:AAEx****alue/editMessageText"`,
+			want:  `DBG telego bot.go:247 > Telegram API call: editMessageText`,
+		},
+		"arbitrary method failure": {
+			input: `ERR telego bot.go:170 > POST "https://telegram.example/v1/bot` + token + `/answerCustomQuery" 503 53.616µs`,
+			want:  `ERR telego bot.go:170 > POST "Telegram API call: answerCustomQuery" 503 53.616µs`,
+		},
+		"authorization": {
+			input: `ERR telego bot.go:170 > Authorization: Bearer ` + token + ` failed`,
+			want:  `ERR telego bot.go:170 > Authorization: <redacted> failed`,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			got := normalizeUserVisibleLog(tt.input)
+			if got != tt.want {
+				t.Fatalf("normalizeUserVisibleLog() = %q, want %q", got, tt.want)
+			}
+			assertNoTelegramTokenFragment(t, got, token)
+		})
+	}
+}
+
+func TestLogBufferNeverStoresTelegramBotCredentialFragments(t *testing.T) {
+	token := "123456789:AAExampleSecretTokenValue"
+	buffer := NewLogBuffer(20)
+	buffer.Append(`DBG telego bot.go:247 > API call to: "https://api.telegram.org/bot` + token + `/getMe"`)
+	buffer.Append(`ERR telego bot.go:170 > Post "https://api.telegram.org/bot` + token + `/getUpdates": context deadline exceeded`)
+
+	lines, total, _ := buffer.LinesSince(0)
+	if total != 2 || len(lines) != 2 {
+		t.Fatalf("stored history = %#v, total %d; want two useful events", lines, total)
+	}
+	joined := strings.Join(lines, "\n")
+	assertNoTelegramTokenFragment(t, joined, token)
+	for _, operation := range []string{"getMe", "getUpdates", "context deadline exceeded"} {
+		if !strings.Contains(joined, operation) {
+			t.Fatalf("stored history lost useful detail %q: %q", operation, joined)
+		}
+	}
+}
+
+func assertNoTelegramTokenFragment(t *testing.T, value, token string) {
+	t.Helper()
+	for _, forbidden := range []string{token, "123456789:", "AAExample", "TokenValue", "AAEx****alue"} {
+		if strings.Contains(value, forbidden) {
+			t.Fatalf("credential fragment %q remains in %q", forbidden, value)
+		}
+	}
+}

@@ -7,14 +7,22 @@ import (
 	"regexp"
 )
 
-// botTokenRe matches the bot ID prefix and the secret part of a Telegram bot token.
-// Groups: 1 = "bot<id>:", 2 = first 4 chars of secret, 3 = middle, 4 = last 4 chars.
-var botTokenRe = regexp.MustCompile(`(bot\d+:)([A-Za-z0-9_-]{4})[A-Za-z0-9_-]{12,}([A-Za-z0-9_-]{4})`)
+var (
+	// Telegram puts the complete bot credential in every Bot API URL. Match
+	// both the normal colon and its percent-encoded form without retaining the
+	// public-ID prefix or any secret prefix/suffix.
+	telegramBotURLTokenPattern = regexp.MustCompile(`(?i)\bbot\d{6,}(?::|%3A)[A-Za-z0-9_-]{10,}`)
+	telegramBareTokenPattern   = regexp.MustCompile(`(?i)\b\d{6,}(?::|%3A)[A-Za-z0-9_-]{10,}\b`)
+	authorizationPattern       = regexp.MustCompile(`(?i)(authorization[=:][ \t]*)(?:\[?(?:bearer|basic)[ \t]+)[A-Za-z0-9._~+/%:=-]+\]?`)
+)
 
-// maskSecrets replaces any embedded bot tokens in s with a redacted placeholder
-// that keeps the first and last 4 characters of the secret for identification.
-func maskSecrets(s string) string {
-	return botTokenRe.ReplaceAllString(s, "${1}${2}****${3}")
+// redactSecrets runs before logMessage and therefore before any console/file
+// writer. Third-party libraries can keep useful method, status, and error text,
+// but no credential fragment reaches stdout or a downstream log store.
+func redactSecrets(s string) string {
+	s = authorizationPattern.ReplaceAllString(s, "${1}<redacted>")
+	s = telegramBotURLTokenPattern.ReplaceAllString(s, "bot<redacted>")
+	return telegramBareTokenPattern.ReplaceAllString(s, "<redacted>")
 }
 
 // Logger implements common Logger interface
@@ -25,52 +33,52 @@ type Logger struct {
 
 // Debug logs debug messages
 func (b *Logger) Debug(v ...any) {
-	logMessage(DEBUG, b.component, maskSecrets(fmt.Sprint(v...)), nil)
+	logMessage(DEBUG, b.component, redactSecrets(fmt.Sprint(v...)), nil)
 }
 
 // Info logs info messages
 func (b *Logger) Info(v ...any) {
-	logMessage(INFO, b.component, maskSecrets(fmt.Sprint(v...)), nil)
+	logMessage(INFO, b.component, redactSecrets(fmt.Sprint(v...)), nil)
 }
 
 // Warn logs warning messages
 func (b *Logger) Warn(v ...any) {
-	logMessage(WARN, b.component, maskSecrets(fmt.Sprint(v...)), nil)
+	logMessage(WARN, b.component, redactSecrets(fmt.Sprint(v...)), nil)
 }
 
 // Error logs error messages
 func (b *Logger) Error(v ...any) {
-	logMessage(ERROR, b.component, maskSecrets(fmt.Sprint(v...)), nil)
+	logMessage(ERROR, b.component, redactSecrets(fmt.Sprint(v...)), nil)
 }
 
 // Debugf logs formatted debug messages
 func (b *Logger) Debugf(format string, v ...any) {
-	logMessage(DEBUG, b.component, maskSecrets(fmt.Sprintf(format, v...)), nil)
+	logMessage(DEBUG, b.component, redactSecrets(fmt.Sprintf(format, v...)), nil)
 }
 
 // Infof logs formatted info messages
 func (b *Logger) Infof(format string, v ...any) {
-	logMessage(INFO, b.component, maskSecrets(fmt.Sprintf(format, v...)), nil)
+	logMessage(INFO, b.component, redactSecrets(fmt.Sprintf(format, v...)), nil)
 }
 
 // Warnf logs formatted warning messages
 func (b *Logger) Warnf(format string, v ...any) {
-	logMessage(WARN, b.component, maskSecrets(fmt.Sprintf(format, v...)), nil)
+	logMessage(WARN, b.component, redactSecrets(fmt.Sprintf(format, v...)), nil)
 }
 
 // Warningf logs formatted warning messages
 func (b *Logger) Warningf(format string, v ...any) {
-	logMessage(WARN, b.component, maskSecrets(fmt.Sprintf(format, v...)), nil)
+	logMessage(WARN, b.component, redactSecrets(fmt.Sprintf(format, v...)), nil)
 }
 
 // Errorf logs formatted error messages
 func (b *Logger) Errorf(format string, v ...any) {
-	logMessage(ERROR, b.component, maskSecrets(fmt.Sprintf(format, v...)), nil)
+	logMessage(ERROR, b.component, redactSecrets(fmt.Sprintf(format, v...)), nil)
 }
 
 // Fatalf logs formatted fatal messages and exits
 func (b *Logger) Fatalf(format string, v ...any) {
-	logMessage(FATAL, b.component, maskSecrets(fmt.Sprintf(format, v...)), nil)
+	logMessage(FATAL, b.component, redactSecrets(fmt.Sprintf(format, v...)), nil)
 }
 
 // Log logs a message at a given level with caller information
@@ -88,7 +96,7 @@ func (b *Logger) Log(msgL, caller int, format string, a ...any) {
 			level = lvl
 		}
 	}
-	logMessage(level, b.component, maskSecrets(fmt.Sprintf(format, a...)), nil)
+	logMessage(level, b.component, redactSecrets(fmt.Sprintf(format, a...)), nil)
 }
 
 // Sync flushes log buffer (no-op for this implementation)

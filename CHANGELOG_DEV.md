@@ -847,3 +847,24 @@ verified `develop` @ `14e6991`. Not merged; physical-device testing is the gate.
 - Built APK `be5d7cbb...5070fc96` (34,239,873 bytes), with Core hashes
   `715cd790...6143cf1` and `e3930ae2...f5f5da14`. Physical validation is
   pending; no merge/release/main change was made.
+
+## 2026-08-27 — Telegram Web-log credential redaction
+
+- Confirmed Telego's full Bot API URL was partially masked before stdout and
+  Web backend storage; no complete token was persisted through this path, but
+  the retained bot ID and secret prefix/suffix were user-visible in Web Logs.
+- Replaced partial masking at the same pre-stdout third-party logger boundary
+  with full credential and Authorization redaction. No credentials were read,
+  rotated, or modified.
+- Added Web pre-storage normalization to render Bot API URLs as
+  `Telegram API call: <operation>` while preserving methods, failures, status,
+  timeout, and latency. Added an idempotent React legacy/raw guard.
+- Added synthetic regressions for standard/arbitrary calls, success/failure,
+  timeout, encoded/bare/Authorization forms, Web ring storage, public metadata,
+  and the real Logs DOM. Native/Export source stayed unchanged.
+- Passed relevant tagged Go suites, frontend 42/42/tsc/lint, and unchanged
+  Native/Export 7/7 regression. Regenerated 115-file provenance, rebuilt both
+  zero-path Core libraries, and passed the permanent APK guard.
+- Built APK `8257e9f0...7c7050fe` (34,240,641 bytes), with Core hashes
+  `0e914550...8b555e9` and `7d7b254b...d9898c7`. Physical validation is
+  pending; no merge/release/main change was made.

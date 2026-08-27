@@ -467,3 +467,22 @@ supplied by the user.
   `be5d7cbb...5070fc96`.
 - [ ] **FINAL PHYSICAL GATE:** verify several minutes at bottom and scrolled up
   show no Web Logs shake, rewrap, or forced scrolling; preserve all prior PASS.
+
+## Telegram token Web-log redaction security pass
+
+- [x] Confirm case A: the full Telego URL was partially masked before stdout
+  and Web storage; only retained fragments reached stored/rendered Web logs.
+- [x] Replace partial masking at the same pre-stdout boundary with complete
+  credential redaction, including encoded/bare and Authorization forms.
+- [x] Normalize Web Bot API URLs before `LogBuffer` storage to operation-only
+  wording while preserving method, status/error, timeout, and latency.
+- [x] Add an idempotent React guard for raw/historical partial lines.
+- [x] Cover standard/arbitrary methods, successes, 5xx, timeouts, stored
+  history, real DOM rendering, public metadata, and fragment-negative checks.
+- [x] Leave Native/Export source, Telegram lifecycle/onboarding, and credentials
+  unchanged; pass the existing Native/Export 7/7 regression.
+- [x] Pass relevant Go suites, frontend 42/42/tsc/lint, regenerate 115-file
+  provenance, rebuild zero-path Core, and build guarded APK
+  `8257e9f0...7c7050fe`.
+- [ ] **FINAL PHYSICAL GATE:** exercise Telegram DEBUG calls and failures; Web
+  Logs must show useful operations/errors with zero credential fragments.

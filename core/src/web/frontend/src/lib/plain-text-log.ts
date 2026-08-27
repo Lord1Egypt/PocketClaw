@@ -29,6 +29,12 @@ const PICO_LOGGER_COMPONENT_PATTERN =
   /(^|[ \t])([A-Z]{3}) pico ([^ \t]+:[0-9]+)([ \t]+>)/gm
 const PICO_LOGGER_CALLER_PATTERN =
   /(^|[ \t])([A-Z]{3}) ([^ \t]+) pico\.go:([0-9]+)([ \t]+>)/gm
+const TELEGRAM_BOT_API_URL_PATTERN =
+  /https?:\/\/[^\s"']*\/bot[^/\s"']+\/(?:test\/)?([A-Za-z][A-Za-z0-9_]*)/gi
+const TELEGRAM_API_CALL_WRAPPER_PATTERN =
+  /API call to: "Telegram API call: ([A-Za-z][A-Za-z0-9_]*)"/gi
+const AUTHORIZATION_CREDENTIAL_PATTERN =
+  /(authorization[=:][ \t]*)(?:\[?(?:bearer|basic)[ \t]+)[A-Za-z0-9._~+/%:=-]+\]?/gi
 
 /**
  * Browser-side enforcement of the shared PocketClaw user-visible log
@@ -84,6 +90,12 @@ export function normalizeUserVisibleLog(input: string): string {
     PICO_LOGGER_CALLER_PATTERN,
     "$1$2 $3 realtime.go:$4$5",
   )
+  result = result.replace(TELEGRAM_BOT_API_URL_PATTERN, "Telegram API call: $1")
+  result = result.replace(
+    TELEGRAM_API_CALL_WRAPPER_PATTERN,
+    "Telegram API call: $1",
+  )
+  result = result.replace(AUTHORIZATION_CREDENTIAL_PATTERN, "$1<redacted>")
   if (ROUTINE_PICO_WS_PATTERN.test(result)) return ""
   result = result.replace(
     PICO_WS_REQUEST_PATTERN,

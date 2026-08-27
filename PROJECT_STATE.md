@@ -1412,3 +1412,50 @@ Next physical check: leave Web Console Logs untouched at the bottom through
 multiple updates, then scroll upward and wait through multiple polls. Confirm
 no shake, rewrap, or forced bottom jump while every already-passed log
 sanitization and branding behavior remains intact.
+
+## Telegram token log-redaction security pass — AUTOMATED PASS, PHYSICAL PENDING
+
+Physical evidence narrowed the disclosure to Core Web Console DEBUG Logs;
+Native Android Logs remained clean. Investigation confirmed **case A**: Telego
+constructs a full Bot API URL, but PocketClaw's compatible third-party logger
+called its masking function before `logMessage`, stdout writers, and the Web
+backend `LogBuffer`. The full token did not enter persisted Web history through
+this path. The old mask deliberately retained the bot-ID prefix plus the first
+and last four secret characters, and those fragments did enter the Web stream
+and stored ring. This is a fragment-disclosure defect, not evidence that the
+complete credential was persisted or compromised; no credential was rotated
+or modified.
+
+The same pre-stdout logger boundary now removes the complete Bot API credential,
+including normal/percent-encoded forms and bare credentials, without retaining
+an ID, prefix, or suffix. Bearer/Basic Authorization values are also removed.
+Before `LogBuffer.Append` persists a Web line, Telegram Bot API URLs—whether
+raw, fully redacted, or using the historical partial mask—normalize to
+`Telegram API call: <operation>`. Failures retain HTTP method, operation,
+status/error, timeout, and latency text. The React normalizer provides an
+idempotent legacy/raw guard. Native/Export source and queue code were not
+changed.
+
+Synthetic-only regressions cover `getMe`, `getUpdates`, `sendMessage`,
+`editMessageText`, timeout/error/5xx cases, arbitrary methods and custom API
+servers, percent encoding, bare tokens, Authorization credentials, public bot
+metadata preservation, actual `LogBuffer` storage, and the real Logs page.
+Go logger/Telegram/gateway/API/middleware/CLI suites pass; frontend Vitest is
+42/42 with tsc/lint; the unchanged Native/Export log regression is 7/7. Core
+provenance is 115 files; zero developer paths and the permanent APK guard pass.
+
+Replacement candidate:
+
+- APK size: 34,240,641 bytes
+- APK SHA-256: `8257e9f091039f2c29332b8f14e2d397d36bbb735593596a4caa0e567c7050fe`
+- `libpicoclaw.so`: 37,224,801 bytes,
+  `0e914550208fc7a77ce9319b32554be802108207789f992098d2186dc8b555e9`
+- `libpicoclaw-web.so`: 24,641,889 bytes,
+  `7d7b254b04b33919b6ebbfeac9147a06a4472de1c4fe6354b6ecb6fe6d9898c7`
+- Status: **AUTOMATED PASS; WEB CONSOLE PHYSICAL GATE PENDING; RELEASE
+  BLOCKED**.
+
+Next physical check: enable DEBUG, exercise Telegram polling and message/edit
+calls plus a recoverable failure, and confirm Web Console Logs show operation
+names and useful failure details with zero credential fragments. Reconfirm the
+already-passed viewport stability and Native Logs behavior.
