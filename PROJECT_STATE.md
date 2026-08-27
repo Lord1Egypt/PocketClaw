@@ -1321,3 +1321,48 @@ Replacement candidate:
 Next physical check: restart Core and confirm the Web Console line is exactly
 `✓ Channels enabled: [telegram pocketclaw]` (order may follow configured
 channel order), with every already-passed log and skill behavior preserved.
+
+## Final user-visible caller brand fix — AUTOMATED PASS, PHYSICAL PENDING
+
+Physical testing found the remaining structured WebSocket logger header as
+`INF pico pico.go:1013 > ...` / `pico.go:1071`. The internal Go package,
+source filename, `ChannelPico`, routes, media protocol, config keys, and channel
+identity remain unchanged.
+
+The shared user-visible normalization contract now recognizes only structured
+logger-header fields. Exact component token `pico` displays as `realtime`, and
+exact caller basename `pico.go` displays as `realtime.go`; the numeric line
+suffix is captured unchanged. The mapping is implemented at the Go Web log
+buffer boundary, Dart native/export boundary, and idempotent React Logs guard,
+using the same canonical fixtures. It is not a source rename or substring
+replacement: `picometer`, `picophone.go`, and `pico_client` remain unchanged.
+
+Expected example:
+
+`INF pico pico.go:1013 > WebSocket client connected`
+
+becomes:
+
+`INF realtime realtime.go:1013 > WebSocket client connected`
+
+Validation: `flutter analyze` clean; 99 Flutter tests including actual stored
+and exported representation; frontend 37 tests/tsc/lint including the real Logs
+page; tagged Go API/middleware/logger/gateway/CLI suites including `LogBuffer`;
+110-file Core provenance; zero developer paths; packaged hashes and live
+endpoint verified; permanent APK guard passed.
+
+Replacement candidate:
+
+- APK size: 34,242,865 bytes
+- APK SHA-256: `1eeca7c993d657f0e6e763d94691a054e584592d0989445454144ac15ad089f7`
+- `libpicoclaw.so`: 37,224,801 bytes,
+  `a379ae4531d1c64bf653d503f9f20fa627d497389e037346815525f6407eafb9`
+- `libpicoclaw-web.so`: 24,641,889 bytes,
+  `584dd9ae2e9c11e46d50f879020a07758ff612b744ae69448ac3f3cb71fa4a01`
+- Status: **AUTOMATED PASS; PHYSICAL DEVICE FINAL GATE PENDING; RELEASE BLOCKED**.
+
+Next physical check: confirm Native Logs, Export Logs, and Web Console Logs all
+show `realtime realtime.go:<original line>` for these WebSocket events, with
+genuine failures visible and every previously passed Unicode, control-cleanup,
+exactly-once, polling, channel-label, skill, Telegram, and provider behavior
+unchanged.

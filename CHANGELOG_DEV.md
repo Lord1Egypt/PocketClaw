@@ -815,3 +815,17 @@ verified `develop` @ `14e6991`. Not merged; physical-device testing is the gate.
   and built guarded ARM64 APK `aab3c565...25b3582` (34,241,857 bytes).
   Physical confirmation of the final label is pending; no merge/release/main
   change was made.
+
+## 2026-08-27 — Final user-visible caller brand fix
+
+- Mapped only structured user-visible logger component `pico` to `realtime`
+  and caller basename `pico.go` to `realtime.go`, preserving exact line numbers.
+- Applied the canonical contract at Web `LogBuffer`, native/export sanitizer,
+  and React legacy/raw guard. Internal packages, filenames, channel/config IDs,
+  routes, and protocol were not renamed.
+- Added exact and substring-negative fixtures plus direct Go, stored/export,
+  and real DOM assertions. Flutter analyze/99 tests, frontend 37/tsc/lint, and
+  relevant tagged Go suites pass.
+- Regenerated the 110-file Core patch, rebuilt zero-path Core libraries, and
+  built guarded APK `1eeca7c9...ad089f7` (34,242,865 bytes). Physical device is
+  the final gate; no merge/release/main change was made.

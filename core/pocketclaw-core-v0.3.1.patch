@@ -5254,10 +5254,10 @@ index bc71e49..f7f57b0 100644
  			"X-GNOME-Autostart-enabled=true",
 diff --git a/web/backend/api/user_visible_log.go b/web/backend/api/user_visible_log.go
 new file mode 100644
-index 0000000..a8b4c30
+index 0000000..060c610
 --- /dev/null
 +++ b/web/backend/api/user_visible_log.go
-@@ -0,0 +1,81 @@
+@@ -0,0 +1,85 @@
 +package api
 +
 +import (
@@ -5277,6 +5277,8 @@ index 0000000..a8b4c30
 +	routinePicoWSPattern             = regexp.MustCompile(`(?:^| > )GET /pico/ws (?:101|2[0-9]{2})(?:\s|$)`)
 +	picoWSRequestPattern             = regexp.MustCompile(`((?:^| > )[A-Z]+) /pico/ws ([0-9]{3})(\s|$)`)
 +	legacyGatewayStartPattern        = regexp.MustCompile(`Starting gateway process \([^\r\n)]*\)`)
++	picoLoggerComponentPattern       = regexp.MustCompile(`(?m)(^|[ \t])([A-Z]{3}) pico ([^ \t]+:[0-9]+)([ \t]+>)`)
++	picoLoggerCallerPattern          = regexp.MustCompile(`(?m)(^|[ \t])([A-Z]{3}) ([^ \t]+) pico\.go:([0-9]+)([ \t]+>)`)
 +)
 +
 +// normalizeUserVisibleLog applies the plain-text contract shared by every
@@ -5334,6 +5336,8 @@ index 0000000..a8b4c30
 +	flushLine(false)
 +
 +	result := legacyGatewayStartPattern.ReplaceAllString(output.String(), "Starting gateway process")
++	result = picoLoggerComponentPattern.ReplaceAllString(result, "${1}${2} realtime ${3}${4}")
++	result = picoLoggerCallerPattern.ReplaceAllString(result, "${1}${2} ${3} realtime.go:${4}${5}")
 +	if routinePicoWSPattern.MatchString(result) {
 +		return ""
 +	}
@@ -5341,10 +5345,10 @@ index 0000000..a8b4c30
 +}
 diff --git a/web/backend/api/user_visible_log_test.go b/web/backend/api/user_visible_log_test.go
 new file mode 100644
-index 0000000..2c9432f
+index 0000000..e95685c
 --- /dev/null
 +++ b/web/backend/api/user_visible_log_test.go
-@@ -0,0 +1,76 @@
+@@ -0,0 +1,95 @@
 +package api
 +
 +import (
@@ -5419,6 +5423,25 @@ index 0000000..2c9432f
 +	}
 +	if strings.Contains(got, "�") {
 +		t.Fatalf("normalizeUserVisibleLog() introduced U+FFFD: %q", got)
++	}
++}
++
++func TestNormalizeUserVisibleLogMapsOnlyExactPicoLoggerIdentity(t *testing.T) {
++	got := normalizeUserVisibleLog("INF pico pico.go:1013 > WebSocket client connected")
++	want := "INF realtime realtime.go:1013 > WebSocket client connected"
++	if got != want {
++		t.Fatalf("normalizeUserVisibleLog() = %q, want %q", got, want)
++	}
++
++	for input, want := range map[string]string{
++		"INF pico picophone.go:1013 > exact component":        "INF realtime picophone.go:1013 > exact component",
++		"INF picometer pico.go:1013 > exact caller":           "INF picometer realtime.go:1013 > exact caller",
++		"INF picometer picophone.go:1013 > substrings":        "INF picometer picophone.go:1013 > substrings",
++		"INF pico_client pico_client.go:1013 > compatibility": "INF pico_client pico_client.go:1013 > compatibility",
++	} {
++		if got := normalizeUserVisibleLog(input); got != want {
++			t.Errorf("exact identity mapping: got %q, want %q", got, want)
++		}
 +	}
 +}
 diff --git a/web/backend/i18n.go b/web/backend/i18n.go
@@ -7920,10 +7943,10 @@ index db078ef..0000000
 -}
 diff --git a/web/frontend/src/components/logs/logs-page.test.tsx b/web/frontend/src/components/logs/logs-page.test.tsx
 new file mode 100644
-index 0000000..704ada7
+index 0000000..edbc39a
 --- /dev/null
 +++ b/web/frontend/src/components/logs/logs-page.test.tsx
-@@ -0,0 +1,86 @@
+@@ -0,0 +1,90 @@
 +import { readFileSync } from "node:fs"
 +import { resolve } from "node:path"
 +
@@ -7993,6 +8016,9 @@ index 0000000..704ada7
 +    expect(rendered).toContain("English عربي 😊")
 +    expect(rendered).toContain("GET /internal realtime connection 500")
 +    expect(rendered).toContain("Starting gateway process")
++    expect(rendered).toContain(
++      "INF realtime realtime.go:1013 > WebSocket client connected",
++    )
 +    expect(rendered).not.toContain("\x1b")
 +    expect(rendered).not.toContain("[38;2;")
 +    expect(rendered).not.toContain("/pico/ws")
@@ -8001,6 +8027,7 @@ index 0000000..704ada7
 +    expect(rendered).not.toContain("picoclaw")
 +    expect(rendered).not.toContain("Sipeed")
 +    expect(rendered).not.toContain("sipeed")
++    expect(rendered).not.toContain("INF pico pico.go:1013")
 +    expect(rendered).not.toContain("�")
 +
 +    for (const fixture of contract) {
@@ -10131,10 +10158,10 @@ index 39561fb..0000000
 -}
 diff --git a/web/frontend/src/lib/plain-text-log.ts b/web/frontend/src/lib/plain-text-log.ts
 new file mode 100644
-index 0000000..95bbead
+index 0000000..6b440ce
 --- /dev/null
 +++ b/web/frontend/src/lib/plain-text-log.ts
-@@ -0,0 +1,96 @@
+@@ -0,0 +1,105 @@
 +import wrapAnsi from "wrap-ansi"
 +
 +const OSC_PATTERN = new RegExp(
@@ -10164,6 +10191,10 @@ index 0000000..95bbead
 +  /(?:^| > )GET \/pico\/ws (?:101|2[0-9]{2})(?:\s|$)/
 +const PICO_WS_REQUEST_PATTERN = /((?:^| > )[A-Z]+) \/pico\/ws ([0-9]{3})(\s|$)/g
 +const LEGACY_GATEWAY_START_PATTERN = /Starting gateway process \([^\r\n)]*\)/g
++const PICO_LOGGER_COMPONENT_PATTERN =
++  /(^|[ \t])([A-Z]{3}) pico ([^ \t]+:[0-9]+)([ \t]+>)/gm
++const PICO_LOGGER_CALLER_PATTERN =
++  /(^|[ \t])([A-Z]{3}) ([^ \t]+) pico\.go:([0-9]+)([ \t]+>)/gm
 +
 +/**
 + * Browser-side enforcement of the shared PocketClaw user-visible log
@@ -10213,6 +10244,11 @@ index 0000000..95bbead
 +  let result = output.replace(
 +    LEGACY_GATEWAY_START_PATTERN,
 +    "Starting gateway process",
++  )
++  result = result.replace(PICO_LOGGER_COMPONENT_PATTERN, "$1$2 realtime $3$4")
++  result = result.replace(
++    PICO_LOGGER_CALLER_PATTERN,
++    "$1$2 $3 realtime.go:$4$5",
 +  )
 +  if (ROUTINE_PICO_WS_PATTERN.test(result)) return ""
 +  result = result.replace(

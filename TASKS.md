@@ -436,3 +436,16 @@ supplied by the user.
 - [ ] **FINAL PHYSICAL CHECK:** restart Core and confirm the enabled-channel
   summary shows `pocketclaw`, with the physically passed Web log cleanup and
   8/8 skills / 17 tools unchanged.
+
+## Final user-visible caller brand fix
+
+- [x] Keep internal package/file/channel/routes/config identity unchanged.
+- [x] Map exact structured logger component `pico` to `realtime` and caller
+  basename `pico.go` to `realtime.go`, preserving line numbers.
+- [x] Prove Native/Export, Web `LogBuffer`, and real React Logs page parity via
+  the canonical fixture; prove substring names and `pico_client` are unchanged.
+- [x] Pass Flutter analyze/99 tests, frontend 37/tsc/lint, relevant tagged Go
+  suites, Core provenance/build, zero-path scan, endpoint/hash checks, and guard.
+- [x] Build candidate `1eeca7c9...ad089f7` (34,242,865 bytes).
+- [ ] **FINAL PHYSICAL GATE:** verify all three user-visible log surfaces show
+  `realtime realtime.go:<original line>` and preserve every prior physical PASS.

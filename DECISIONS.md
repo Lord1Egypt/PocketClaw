@@ -1020,3 +1020,16 @@
 - Consequence: `/pico/ws`, `/pico/media`, channel/config IDs, factories, tokens,
   session semantics, and other compatibility identifiers remain unchanged. The
   formatter copies its input and performs no substring/global replacement.
+
+## Internal WebSocket logger identities have display-only names
+
+- Date: 2026-08-27
+- Decision: at the shared user-visible normalization boundary only, map exact
+  structured logger component `pico` to `realtime` and exact caller basename
+  `pico.go` to `realtime.go`, preserving the caller line number.
+- Reason: logger component and source basename are implementation details on
+  normal product diagnostic surfaces, while the underlying compatibility
+  identities cannot safely be renamed.
+- Consequence: Native Logs, Export Logs, and Web Console Logs agree. Actual Go
+  package/file, `ChannelPico`, routes, config, and protocol stay unchanged;
+  substring matches are explicitly rejected by regression tests.

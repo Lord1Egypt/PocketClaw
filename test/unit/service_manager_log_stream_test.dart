@@ -158,6 +158,7 @@ void main() {
         '12:01 DBG http middleware.go:67 > GET /pico/ws 500 1.2ms',
         '12:02 INF gateway gateway.go:1033 > Starting gateway process '
             '(/data/app/lib/arm64/libpicoclaw.so)',
+        '12:03 INF pico pico.go:1013 > WebSocket client connected',
         '\x1b[38;2;1;2;3mمدة 53.616µs ✅\x1b[0m',
       ]);
 
@@ -173,6 +174,11 @@ void main() {
         contains('GET /internal realtime connection 500'),
       );
       expect(exportedRepresentation, contains('Starting gateway process'));
+      expect(
+        exportedRepresentation,
+        contains('INF realtime realtime.go:1013 > WebSocket client connected'),
+      );
+      expect(exportedRepresentation, isNot(contains('INF pico pico.go:1013')));
       expect(exportedRepresentation, contains('مدة 53.616µs ✅'));
     },
   );

@@ -429,3 +429,18 @@ New APK: `aab3c565bd6bec2eb714443756e16be5d2ebe8d4496d94e64a6b8ecac25b3582`
 zero-path checks, endpoint check, packaged hashes, and permanent guard pass.
 Physical action: restart Core and confirm `[telegram pocketclaw]` while all
 previously passed log and 8/8 skills behavior remains intact. No merge/release.
+
+## FINAL USER-VISIBLE CALLER BRAND CANDIDATE — 2026-08-27
+
+The last physical leak was structured logger header `INF pico
+pico.go:<line>`. Internal package/file/channel/routes/config remain unchanged.
+At the shared Go/Dart/React normalization contract, only exact logger component
+`pico` displays as `realtime` and exact caller basename `pico.go` as
+`realtime.go`, preserving the numeric line. Substrings and `pico_client` are
+unchanged.
+
+New APK: `1eeca7c993d657f0e6e763d94691a054e584592d0989445454144ac15ad089f7`
+(34,242,865 bytes). Core hashes: `a379ae45...07eafb9` and
+`584dd9ae...1fa4a01`. Flutter analyze/99 tests, frontend 37/tsc/lint, relevant
+tagged Go suites, provenance, zero paths, endpoint, packaged hashes, and guard
+pass. Physical device remains the final gate; no merge or release.

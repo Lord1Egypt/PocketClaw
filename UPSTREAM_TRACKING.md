@@ -206,6 +206,9 @@ work for an adoption, and does not go looking upstream for its origin.
   The enabled-channel startup/reload summary also maps only exact internal
   `config.ChannelPico` to display label `pocketclaw`; the upstream-compatible
   channel/config/protocol identity remains `pico` everywhere else.
+  Structured user-visible log headers additionally display exact component
+  `pico` / caller `pico.go` as `realtime` / `realtime.go`, with line numbers
+  preserved. This normalization does not rename upstream source or runtime IDs.
 - **Telegram managed-bot onboarding (Milestone D, 2026-08-26).** The
   onboarding service is PocketClaw-authored and depends on no upstream code. It
   lives in its own public repository, `Lord1Egypt/PocketClaw-Telegram-Setup`,

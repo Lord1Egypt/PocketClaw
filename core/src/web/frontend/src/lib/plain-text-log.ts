@@ -27,6 +27,10 @@ const ROUTINE_PICO_WS_PATTERN =
   /(?:^| > )GET \/pico\/ws (?:101|2[0-9]{2})(?:\s|$)/
 const PICO_WS_REQUEST_PATTERN = /((?:^| > )[A-Z]+) \/pico\/ws ([0-9]{3})(\s|$)/g
 const LEGACY_GATEWAY_START_PATTERN = /Starting gateway process \([^\r\n)]*\)/g
+const PICO_LOGGER_COMPONENT_PATTERN =
+  /(^|[ \t])([A-Z]{3}) pico ([^ \t]+:[0-9]+)([ \t]+>)/gm
+const PICO_LOGGER_CALLER_PATTERN =
+  /(^|[ \t])([A-Z]{3}) ([^ \t]+) pico\.go:([0-9]+)([ \t]+>)/gm
 
 /**
  * Browser-side enforcement of the shared PocketClaw user-visible log
@@ -76,6 +80,11 @@ export function normalizeUserVisibleLog(input: string): string {
   let result = output.replace(
     LEGACY_GATEWAY_START_PATTERN,
     "Starting gateway process",
+  )
+  result = result.replace(PICO_LOGGER_COMPONENT_PATTERN, "$1$2 realtime $3$4")
+  result = result.replace(
+    PICO_LOGGER_CALLER_PATTERN,
+    "$1$2 $3 realtime.go:$4$5",
   )
   if (ROUTINE_PICO_WS_PATTERN.test(result)) return ""
   result = result.replace(

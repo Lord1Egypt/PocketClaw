@@ -74,3 +74,22 @@ func TestNormalizeUserVisibleLogDropsMalformedBytesWithoutReplacement(t *testing
 		t.Fatalf("normalizeUserVisibleLog() introduced U+FFFD: %q", got)
 	}
 }
+
+func TestNormalizeUserVisibleLogMapsOnlyExactPicoLoggerIdentity(t *testing.T) {
+	got := normalizeUserVisibleLog("INF pico pico.go:1013 > WebSocket client connected")
+	want := "INF realtime realtime.go:1013 > WebSocket client connected"
+	if got != want {
+		t.Fatalf("normalizeUserVisibleLog() = %q, want %q", got, want)
+	}
+
+	for input, want := range map[string]string{
+		"INF pico picophone.go:1013 > exact component":        "INF realtime picophone.go:1013 > exact component",
+		"INF picometer pico.go:1013 > exact caller":           "INF picometer realtime.go:1013 > exact caller",
+		"INF picometer picophone.go:1013 > substrings":        "INF picometer picophone.go:1013 > substrings",
+		"INF pico_client pico_client.go:1013 > compatibility": "INF pico_client pico_client.go:1013 > compatibility",
+	} {
+		if got := normalizeUserVisibleLog(input); got != want {
+			t.Errorf("exact identity mapping: got %q, want %q", got, want)
+		}
+	}
+}

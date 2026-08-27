@@ -67,6 +67,9 @@ describe("Core Web Console Logs page", () => {
     expect(rendered).toContain("English عربي 😊")
     expect(rendered).toContain("GET /internal realtime connection 500")
     expect(rendered).toContain("Starting gateway process")
+    expect(rendered).toContain(
+      "INF realtime realtime.go:1013 > WebSocket client connected",
+    )
     expect(rendered).not.toContain("\x1b")
     expect(rendered).not.toContain("[38;2;")
     expect(rendered).not.toContain("/pico/ws")
@@ -75,6 +78,7 @@ describe("Core Web Console Logs page", () => {
     expect(rendered).not.toContain("picoclaw")
     expect(rendered).not.toContain("Sipeed")
     expect(rendered).not.toContain("sipeed")
+    expect(rendered).not.toContain("INF pico pico.go:1013")
     expect(rendered).not.toContain("�")
 
     for (const fixture of contract) {

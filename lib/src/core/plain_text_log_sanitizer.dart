@@ -31,6 +31,14 @@ abstract final class PlainTextLogSanitizer {
   static final RegExp _legacyGatewayStart = RegExp(
     r'Starting gateway process \([^\r\n)]*\)',
   );
+  static final RegExp _picoLoggerComponent = RegExp(
+    r'(^|[ \t])([A-Z]{3}) pico ([^ \t]+:[0-9]+)([ \t]+>)',
+    multiLine: true,
+  );
+  static final RegExp _picoLoggerCaller = RegExp(
+    r'(^|[ \t])([A-Z]{3}) ([^ \t]+) pico\.go:([0-9]+)([ \t]+>)',
+    multiLine: true,
+  );
 
   static String sanitize(String input) {
     if (input.isEmpty) return input;
@@ -77,6 +85,18 @@ abstract final class PlainTextLogSanitizer {
     var result = output.toString().replaceAll(
       _legacyGatewayStart,
       'Starting gateway process',
+    );
+    result = result.replaceAllMapped(
+      _picoLoggerComponent,
+      (match) =>
+          '${match.group(1)}${match.group(2)} realtime '
+          '${match.group(3)}${match.group(4)}',
+    );
+    result = result.replaceAllMapped(
+      _picoLoggerCaller,
+      (match) =>
+          '${match.group(1)}${match.group(2)} ${match.group(3)} '
+          'realtime.go:${match.group(4)}${match.group(5)}',
     );
     if (_routinePicoWebSocket.hasMatch(result)) return '';
     result = result.replaceAllMapped(

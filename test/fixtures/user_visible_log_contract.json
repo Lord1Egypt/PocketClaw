@@ -43,5 +43,20 @@
     "name": "legacy gateway startup path",
     "input": "12:00:00 INF gateway gateway.go:1033 > Starting gateway process (/home/sipeed/PicoClaw/lib/arm64/libpicoclaw.so)",
     "expected": "12:00:00 INF gateway gateway.go:1033 > Starting gateway process"
+  },
+  {
+    "name": "exact internal logger component and caller identity",
+    "input": "12:00:00 INF pico pico.go:1013 > WebSocket client connected",
+    "expected": "12:00:00 INF realtime realtime.go:1013 > WebSocket client connected"
+  },
+  {
+    "name": "pico substrings are not identities",
+    "input": "12:00:01 INF picometer picophone.go:1071 > unrelated pico text",
+    "expected": "12:00:01 INF picometer picophone.go:1071 > unrelated pico text"
+  },
+  {
+    "name": "partial internal identity is not rewritten",
+    "input": "12:00:02 INF pico_client pico_client.go:42 > compatibility client",
+    "expected": "12:00:02 INF pico_client pico_client.go:42 > compatibility client"
   }
 ]
