@@ -180,6 +180,72 @@ describe("Core Web Console Logs page", () => {
     }
   })
 
+  it("normalizes only classified legacy startup identities", () => {
+    gatewayLogState.logs = [
+      {
+        id: "13:0",
+        line: "DBG pid pidfile.go:112 > wrote pid file: /data/user/0/app/files/.picoclaw/.picoclaw.pid success",
+      },
+      {
+        id: "13:1",
+        line: "DBG channels manager.go:1101 > Attempting to initialize channel channel=pico type=pico",
+      },
+      {
+        id: "13:2",
+        line: "INF channels manager.go:1291 > Webhook handler registered channel=pico path=/pico/",
+      },
+      {
+        id: "13:3",
+        line: "INF channels manager.go:1347 > Starting channel channel=pico",
+      },
+      {
+        id: "13:4",
+        line: `WRN channels base.go:131 > SECURITY: Channel allows EVERYONE (allow_from is empty) channel=pico hint="Set allow_from to your ID, or use '*' to explicitly acknowledge open access."`,
+      },
+      {
+        id: "13:5",
+        line: "INF pico pico.go:248 > Starting Pico Protocol channel",
+      },
+      {
+        id: "13:6",
+        line: "WRN agent agent_outbound.go:205 > Failed to publish pico reasoning channel=pico error=timeout",
+      },
+    ]
+
+    const { container } = render(<LogsPage />)
+    const rendered = container.textContent ?? ""
+
+    for (const expected of [
+      "Gateway PID file written successfully",
+      "channel=pocketclaw type=pocketclaw",
+      "channel=pocketclaw path=<internal>",
+      "Starting channel channel=pocketclaw",
+      "SECURITY: Channel allows EVERYONE",
+      "Starting PocketClaw realtime channel",
+      "Failed to publish realtime reasoning channel=pocketclaw error=timeout",
+    ]) {
+      expect(rendered).toContain(expected)
+    }
+    for (const forbidden of [
+      ".picoclaw.pid",
+      "channel=pico",
+      "type=pico",
+      "/pico/",
+      "Pico Protocol",
+    ]) {
+      expect(rendered).not.toContain(forbidden)
+    }
+  })
+
+  it("does not rewrite unrelated pico substrings", () => {
+    const unrelated =
+      "INF picometer picophone.go:42 > compatibility pico_client.go topic=pico-test filename=my-pico-notes.txt archive=.picoclaw.pid.backup"
+    gatewayLogState.logs = [{ id: "14:0", line: unrelated }]
+
+    const { container } = render(<LogsPage />)
+    expect(container.textContent).toContain(unrelated)
+  })
+
   it("keeps a following viewport pinned to the bottom before paint", () => {
     gatewayLogState.logs = [
       { id: "8:0", line: "first" },

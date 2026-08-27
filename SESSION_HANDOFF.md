@@ -487,3 +487,22 @@ New APK: `8257e9f091039f2c29332b8f14e2d397d36bbb735593596a4caa0e567c7050fe`
 Native log regression, 115-file provenance, zero paths, packaged hashes, and
 guard pass. Physical Web Console validation remains mandatory; no merge,
 release, main change, or credential mutation.
+
+## FINAL LEGACY BRAND VISIBILITY SWEEP CANDIDATE — 2026-08-27
+
+The physically observed `.picoclaw.pid`, structured `channel=pico` /
+`type=pico`, `/pico/` registration path, and Pico Protocol lifecycle wording
+were traced to gateway compatibility details entering the Web ring. The shared
+pre-storage normalizer now gives only these exact classified identities semantic
+PocketClaw/realtime/internal/gateway display wording; React keeps the same
+idempotent guard for raw or historical lines. The security warning remains
+fully visible and only its exact channel field changes.
+
+All runtime compatibility identities and files remain unchanged. Substring
+negative cases remain byte-for-byte unchanged. A representative full startup
+stored in `LogBuffer` and the real Logs DOM have zero unintended legacy brand
+occurrences. New APK: `309f6d7a...a5f3030`. Core hashes:
+`49f89ae2...be656f` and `98f3fa9d...08bae`. Frontend 44/44/tsc/lint,
+relevant tagged Go including Skills/Pico/Telegram, Flutter analyze/99 tests,
+115-file provenance, zero paths, and guard pass. Physical device remains the
+final gate; no merge/release/main change.

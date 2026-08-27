@@ -218,6 +218,12 @@ work for an adoption, and does not go looking upstream for its origin.
   operation-only diagnostic wording. Full tokens had already been masked before
   Web storage; this removes the retained fragments without changing Telegram
   credentials, lifecycle, API calls, or public bot metadata.
+  Exact structured `channel=pico` / `type=pico`, classified protocol/reasoning
+  messages, the internal registration path, and compatibility PID path also
+  receive semantic display-only wording before Web storage. This does not alter
+  upstream ChannelPico, serialized IDs, packages/files, routes, the actual PID
+  file, libraries, or environment variables; substring-negative tests enforce
+  that boundary.
 - **Telegram managed-bot onboarding (Milestone D, 2026-08-26).** The
   onboarding service is PocketClaw-authored and depends on no upstream code. It
   lives in its own public repository, `Lord1Egypt/PocketClaw-Telegram-Setup`,

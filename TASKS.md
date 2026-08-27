@@ -486,3 +486,24 @@ supplied by the user.
   `8257e9f0...7c7050fe`.
 - [ ] **FINAL PHYSICAL GATE:** exercise Telegram DEBUG calls and failures; Web
   Logs must show useful operations/errors with zero credential fragments.
+
+## Final legacy brand visibility sweep
+
+- [x] Trace each physical string to structured ChannelPico fields, the exact
+  protocol lifecycle message, the exact internal webhook path field, or the
+  compatibility PID filename.
+- [x] Normalize exact channel/type fields and classified messages at the shared
+  Web pre-storage boundary with an idempotent React guard.
+- [x] Preserve the security warning and genuine realtime failures with neutral
+  semantic wording.
+- [x] Prove all internal channel/config/routes/files/libraries remain unchanged
+  and reject substring/global rewrites with explicit negative fixtures.
+- [x] Scan a representative stored full startup and real Logs DOM: unintended
+  user-visible `pico`/`picoclaw`/`sipeed` occurrences = 0.
+- [x] Pass frontend 44/44/tsc/lint, relevant tagged Go including Skills,
+  Flutter analyze/99 tests, 115-file provenance, zero-path builds, and guard.
+- [x] Build ARM64 candidate `309f6d7a...a5f3030` with Core hashes
+  `49f89ae2...be656f` and `98f3fa9d...08bae`.
+- [ ] **FINAL PHYSICAL GATE:** restart Core in DEBUG and confirm the observed
+  startup/security/realtime/PID lines are brand-safe while all earlier physical
+  passes remain intact.

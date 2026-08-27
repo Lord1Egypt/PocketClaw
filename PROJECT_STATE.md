@@ -1459,3 +1459,42 @@ Next physical check: enable DEBUG, exercise Telegram polling and message/edit
 calls plus a recoverable failure, and confirm Web Console Logs show operation
 names and useful failure details with zero credential fragments. Reconfirm the
 already-passed viewport stability and Native Logs behavior.
+
+## Final legacy brand visibility sweep — AUTOMATED PASS, PHYSICAL PENDING
+
+Physical validation confirmed every preceding logging, viewport, Telegram,
+Unicode, and Skills fix, then identified remaining structured compatibility
+details in normal Core Web Console startup logs. The shared Web pre-storage
+normalizer now maps only exact `channel=pico` and `type=pico` fields to
+`pocketclaw`, hides exact `/pico/` only when attached to that internal channel,
+uses PocketClaw realtime wording for exact protocol lifecycle messages, and
+replaces the compatibility PID path with a semantic gateway PID message.
+Exact realtime-subsystem failure messages remain visible with neutral wording.
+
+Runtime `ChannelPico`, config/serialized IDs, Go packages/files, `/pico` routes,
+the actual `.picoclaw.pid`, libraries, environment variables, and provenance
+were not changed. There is no blanket or substring replacement. Negative tests
+prove `picometer`, `picophone.go`, `pico_client.go`, `topic=pico-test`,
+`my-pico-notes.txt`, and `.picoclaw.pid.backup` remain unchanged. A
+representative stored startup plus real Logs-page DOM test reports zero
+unintended legacy occurrences while preserving the security warning.
+
+Regression results: frontend Vitest 44/44, TypeScript, lint; tagged Go logger,
+gateway, channel, Pico, Telegram, Skills, API, middleware, and CLI suites;
+Flutter analyze and 99/99 tests. The 115-file Core provenance patch was
+regenerated, both binaries contain zero developer paths, and the permanent APK
+payload guard passed.
+
+Replacement candidate:
+
+- APK SHA-256: `309f6d7ac47206015e3c3c9a5d5f1cf1903b5fb8b2c07783d21131e67a5f3030`
+- `libpicoclaw.so`: 37,224,801 bytes,
+  `49f89ae22f5020425ff9346fd579705bd2a44e43aa42018985cf1702d3be656f`
+- `libpicoclaw-web.so`: 24,641,889 bytes,
+  `98f3fa9df6b89bb745181793da2351adc7f8086ea63b20e2507d46bfaaf08bae`
+- Status: **AUTOMATED PASS; WEB CONSOLE PHYSICAL GATE PENDING; RELEASE
+  BLOCKED**.
+
+Next physical check: restart Core with DEBUG logging and confirm channel
+initialization, security, webhook, realtime, and PID events use only the
+semantic PocketClaw display while all previously passed behavior remains intact.

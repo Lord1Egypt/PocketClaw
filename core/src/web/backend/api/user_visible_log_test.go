@@ -164,3 +164,110 @@ func assertNoTelegramTokenFragment(t *testing.T, value, token string) {
 		}
 	}
 }
+
+func TestNormalizeUserVisibleLogMapsOnlyKnownCompatibilityDisplays(t *testing.T) {
+	tests := map[string]struct {
+		input string
+		want  string
+	}{
+		"channel and type": {
+			input: "DBG channels manager.go:1101 > Attempting to initialize channel channel=pico type=pico",
+			want:  "DBG channels manager.go:1101 > Attempting to initialize channel channel=pocketclaw type=pocketclaw",
+		},
+		"internal route": {
+			input: "INF channels manager.go:1291 > Webhook handler registered channel=pico path=/pico/",
+			want:  "INF channels manager.go:1291 > Webhook handler registered channel=pocketclaw path=<internal>",
+		},
+		"channel startup": {
+			input: "INF channels manager.go:1347 > Starting channel channel=pico",
+			want:  "INF channels manager.go:1347 > Starting channel channel=pocketclaw",
+		},
+		"security warning": {
+			input: "WRN channels base.go:131 > SECURITY: Channel allows EVERYONE (allow_from is empty) channel=pico hint=\"Set allow_from to your ID, or use '*' to explicitly acknowledge open access.\"",
+			want:  "WRN channels base.go:131 > SECURITY: Channel allows EVERYONE (allow_from is empty) channel=pocketclaw hint=\"Set allow_from to your ID, or use '*' to explicitly acknowledge open access.\"",
+		},
+		"protocol starting": {
+			input: "INF pico pico.go:248 > Starting Pico Protocol channel",
+			want:  "INF realtime realtime.go:248 > Starting PocketClaw realtime channel",
+		},
+		"protocol started": {
+			input: "INF pico pico.go:251 > Pico Protocol channel started",
+			want:  "INF realtime realtime.go:251 > PocketClaw realtime channel started",
+		},
+		"protocol stopping": {
+			input: "INF pico pico.go:257 > Stopping Pico Protocol channel",
+			want:  "INF realtime realtime.go:257 > Stopping PocketClaw realtime channel",
+		},
+		"protocol stopped": {
+			input: "INF pico pico.go:272 > Pico Protocol channel stopped",
+			want:  "INF realtime realtime.go:272 > PocketClaw realtime channel stopped",
+		},
+		"pid file": {
+			input: "DBG pid pidfile.go:112 > wrote pid file: /data/user/0/app/files/.picoclaw/.picoclaw.pid success",
+			want:  "DBG pid pidfile.go:112 > Gateway PID file written successfully",
+		},
+		"realtime failure with structured fields": {
+			input: "WRN agent agent_outbound.go:205 > Failed to publish pico reasoning channel=pico error=timeout",
+			want:  "WRN agent agent_outbound.go:205 > Failed to publish realtime reasoning channel=pocketclaw error=timeout",
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			if got := normalizeUserVisibleLog(tt.input); got != tt.want {
+				t.Fatalf("normalizeUserVisibleLog() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestNormalizeUserVisibleLogDoesNotRewritePicoSubstrings(t *testing.T) {
+	input := "INF picometer picophone.go:42 > compatibility pico_client.go topic=pico-test filename=my-pico-notes.txt archive=.picoclaw.pid.backup"
+	if got := normalizeUserVisibleLog(input); got != input {
+		t.Fatalf("normalizeUserVisibleLog() = %q, want unchanged %q", got, input)
+	}
+}
+
+func TestRepresentativeStartupHasNoUnintendedLegacyBrand(t *testing.T) {
+	token := "123456789:AAExampleSecretTokenValue"
+	raw := []string{
+		"INF gateway gateway.go:1033 > Starting gateway process",
+		"DBG pid pidfile.go:112 > wrote pid file: /data/user/0/app/files/.picoclaw/.picoclaw.pid success",
+		"INF tools loader.go:80 > Tools loaded count=17",
+		"INF agent agent.go:90 > Agent initialized",
+		"INF telegram telegram.go:120 > Telegram channel initialized username=@PocketClawBot",
+		"DBG channels manager.go:1101 > Attempting to initialize channel channel=pico type=pico",
+		"WRN channels base.go:131 > SECURITY: Channel allows EVERYONE (allow_from is empty) channel=pico hint=\"Set allow_from to your ID, or use '*' to explicitly acknowledge open access.\"",
+		"INF channels manager.go:1291 > Webhook handler registered channel=pico path=/pico/",
+		"INF channels manager.go:1347 > Starting channel channel=pico",
+		"INF pico pico.go:248 > Starting Pico Protocol channel",
+		`DBG telego bot.go:247 > API call to: "https://api.telegram.org/bot` + token + `/getUpdates"`,
+	}
+
+	buffer := NewLogBuffer(len(raw))
+	for _, line := range raw {
+		buffer.Append(line)
+	}
+	lines, total, _ := buffer.LinesSince(0)
+	if total != len(raw) {
+		t.Fatalf("stored total = %d, want %d", total, len(raw))
+	}
+	rendered := strings.Join(lines, "\n")
+	for _, forbidden := range []string{"pico", "picoclaw", "sipeed"} {
+		if strings.Contains(strings.ToLower(rendered), forbidden) {
+			t.Fatalf("representative user-visible startup contains %q: %q", forbidden, rendered)
+		}
+	}
+	for _, required := range []string{
+		"Gateway PID file written successfully",
+		"channel=pocketclaw type=pocketclaw",
+		"channel=pocketclaw path=<internal>",
+		"SECURITY: Channel allows EVERYONE",
+		"Starting PocketClaw realtime channel",
+		"Telegram API call: getUpdates",
+	} {
+		if !strings.Contains(rendered, required) {
+			t.Fatalf("representative user-visible startup lost %q: %q", required, rendered)
+		}
+	}
+}

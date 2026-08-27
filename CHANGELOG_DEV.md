@@ -868,3 +868,24 @@ verified `develop` @ `14e6991`. Not merged; physical-device testing is the gate.
 - Built APK `8257e9f0...7c7050fe` (34,240,641 bytes), with Core hashes
   `0e914550...8b555e9` and `7d7b254b...d9898c7`. Physical validation is
   pending; no merge/release/main change was made.
+
+## 2026-08-27 — Final legacy brand visibility sweep
+
+- Traced physical Web log leaks to exact structured ChannelPico fields, the
+  internal `/pico/` webhook field, Pico protocol lifecycle wording, and the
+  `.picoclaw.pid` compatibility path.
+- Added display-only normalization before Web `LogBuffer` storage plus the
+  idempotent React guard. Exact fields now display `pocketclaw`; protocol and
+  reasoning messages use realtime wording; the PID success line is semantic.
+- Preserved the complete security warning and genuine failures. Did not rename
+  any channel/config ID, source package/file, route, PID file, library, env var,
+  migration, or provenance identifier; no global/substring replacement exists.
+- Added backend storage, representative startup, real Logs DOM, and negative
+  substring regressions. Representative normal output has zero unintended
+  legacy brand occurrences.
+- Passed frontend 44/44, TypeScript, lint; relevant tagged Go logger/gateway/
+  channels/Pico/Telegram/Skills/API/middleware/CLI suites; Flutter analyze and
+  99 tests. Regenerated 115-file provenance and rebuilt zero-path Core.
+- Built guarded APK `309f6d7a...a5f3030`, with Core hashes
+  `49f89ae2...be656f` and `98f3fa9d...08bae`. Physical validation is pending;
+  no merge/release/main change was made.

@@ -1064,3 +1064,18 @@
   not evidence of full-token persistence, and requires no automatic credential
   rotation. Native/Export implementation and Telegram lifecycle remain
   unchanged.
+
+## Classified compatibility fields receive semantic display normalization
+
+- Date: 2026-08-27
+- Decision: at the shared Web pre-storage log boundary, map only exact
+  structured `channel=pico` / `type=pico`, hide exact `path=/pico/` only on a
+  line carrying that internal channel identity, replace only classified Pico
+  protocol/reasoning messages, and semanticize the exact compatibility PID
+  path. Keep the browser guard idempotent.
+- Reason: these are runtime implementation details visible in normal product
+  diagnostics, but their underlying identifiers are compatibility contracts.
+- Consequence: ChannelPico, serialized config, Go packages/files, routes,
+  `.picoclaw.pid`, libraries, environment variables, and provenance remain
+  untouched. Security and failure diagnostics remain visible. Exact-token and
+  exact-message matching explicitly leaves unrelated `pico` substrings alone.
