@@ -1,6 +1,18 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
+class PublicModeApplyResult {
+  const PublicModeApplyResult({
+    required this.success,
+    required this.publicMode,
+    required this.message,
+  });
+
+  final bool success;
+  final bool publicMode;
+  final String message;
+}
+
 /// PicoClaw 原生 MethodChannel 客户端。
 /// 仅在 Android 平台可用，用于与 Kotlin 原生服务层通信。
 class PicoClawChannel {
@@ -19,6 +31,27 @@ class PicoClawChannel {
   static Future<bool> stopService() async {
     final result = await _channel.invokeMethod<bool>('stopService');
     return result ?? false;
+  }
+
+  /// Rebinds only the authenticated Dashboard listener in the already-running
+  /// Android launcher. The managed Core process is not restarted.
+  static Future<PublicModeApplyResult> applyPublicMode(bool publicMode) async {
+    final result = await _channel.invokeMethod<Map>('applyPublicMode', {
+      'public': publicMode,
+    });
+    if (result == null) {
+      return PublicModeApplyResult(
+        success: false,
+        publicMode: !publicMode,
+        message: 'No response while applying network mode.',
+      );
+    }
+    final mapped = Map<String, dynamic>.from(result);
+    return PublicModeApplyResult(
+      success: mapped['success'] as bool? ?? false,
+      publicMode: mapped['public'] as bool? ?? !publicMode,
+      message: mapped['message'] as String? ?? '',
+    );
   }
 
   /// 获取服务状态
@@ -108,6 +141,15 @@ class PicoClawChannel {
   static Future<String> getConfigPath() async {
     final result = await _channel.invokeMethod<String>('getConfigPath');
     return result ?? '';
+  }
+
+  /// Returns a usable IPv4 address from Android's active Wi-Fi or Ethernet
+  /// network. A null result means there is currently no LAN destination that
+  /// another device should be told to open.
+  static Future<String?> getLanIpv4Address() async {
+    final result = await _channel.invokeMethod<String>('getLanIpv4Address');
+    final address = result?.trim() ?? '';
+    return address.isEmpty ? null : address;
   }
 
   /// 获取 Pico Channel token

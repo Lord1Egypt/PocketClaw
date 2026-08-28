@@ -2,13 +2,31 @@ package api
 
 import (
 	"bytes"
+	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/sipeed/picoclaw/pkg/config"
 )
+
+type fakeNetworkModeController struct {
+	public bool
+	err    error
+}
+
+func (c *fakeNetworkModeController) ApplyPublicMode(public bool) error {
+	if c.err != nil {
+		return c.err
+	}
+	c.public = public
+	return nil
+}
+
+func (c *fakeNetworkModeController) PublicMode() bool { return c.public }
 
 const testAndroidBridgeToken = "process-local-test-bridge-token"
 
@@ -94,6 +112,14 @@ func TestAndroidTelegramBridgeFailurePreservesWorkingConfiguration(t *testing.T)
 			`{"token":"","owner_user_id":123}`,
 			testAndroidBridgeToken,
 		),
+		"missing owner": telegramBridgeRequest(
+			`{"token":"replacement-token"}`,
+			testAndroidBridgeToken,
+		),
+		"invalid owner": telegramBridgeRequest(
+			`{"token":"replacement-token","owner_user_id":0}`,
+			testAndroidBridgeToken,
+		),
 	} {
 		t.Run(name, func(t *testing.T) {
 			rec := httptest.NewRecorder()
@@ -113,7 +139,7 @@ func TestAndroidTelegramBridgeRejectsNonLoopbackCaller(t *testing.T) {
 	path := writeAndroidBridgeTestConfig(t, "existing-child-token")
 	mux := http.NewServeMux()
 	NewHandler(path).RegisterAndroidBridgeRoutes(mux, testAndroidBridgeToken)
-	req := telegramBridgeRequest(`{"token":"replacement-token"}`, testAndroidBridgeToken)
+	req := telegramBridgeRequest(`{"token":"replacement-token","owner_user_id":123}`, testAndroidBridgeToken)
 	req.RemoteAddr = "192.0.2.10:48123"
 
 	rec := httptest.NewRecorder()
@@ -124,5 +150,92 @@ func TestAndroidTelegramBridgeRejectsNonLoopbackCaller(t *testing.T) {
 	_, _, settings := readTelegramBridgeConfig(t, path)
 	if settings.Token.String() != "existing-child-token" {
 		t.Fatal("non-loopback request changed Telegram credentials")
+	}
+}
+
+func networkModeBridgeRequest(method, body, token string) *http.Request {
+	req := httptest.NewRequest(method, androidNetworkModeBridgePath, bytes.NewBufferString(body))
+	req.RemoteAddr = "127.0.0.1:48123"
+	req.Header.Set("X-PocketClaw-Android-Bridge", token)
+	return req
+}
+
+func readNetworkModeState(t *testing.T, mux *http.ServeMux) androidNetworkModeResponse {
+	t.Helper()
+	deadline := time.Now().Add(time.Second)
+	for {
+		recorder := httptest.NewRecorder()
+		mux.ServeHTTP(recorder, networkModeBridgeRequest(http.MethodGet, "", testAndroidBridgeToken))
+		if recorder.Code != http.StatusOK {
+			t.Fatalf("status endpoint = %d", recorder.Code)
+		}
+		var state androidNetworkModeResponse
+		if err := json.NewDecoder(recorder.Body).Decode(&state); err != nil {
+			t.Fatal(err)
+		}
+		if state.Status != "applying" {
+			return state
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("network mode change did not complete")
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+}
+
+func TestAndroidNetworkModeBridgeAppliesThroughLoopbackCredential(t *testing.T) {
+	controller := &fakeNetworkModeController{}
+	handler := NewHandler(writeAndroidBridgeTestConfig(t, ""))
+	handler.SetLauncherNetworkModeController(controller)
+	mux := http.NewServeMux()
+	handler.RegisterAndroidBridgeRoutes(mux, testAndroidBridgeToken)
+
+	recorder := httptest.NewRecorder()
+	mux.ServeHTTP(recorder, networkModeBridgeRequest(
+		http.MethodPut,
+		`{"public":true}`,
+		testAndroidBridgeToken,
+	))
+	if recorder.Code != http.StatusAccepted {
+		t.Fatalf("apply status = %d, body=%s", recorder.Code, recorder.Body.String())
+	}
+	state := readNetworkModeState(t, mux)
+	if state.Status != "succeeded" || !state.Public || !controller.public {
+		t.Fatalf("state = %#v, controller public=%t", state, controller.public)
+	}
+}
+
+func TestAndroidNetworkModeBridgeReportsRollbackState(t *testing.T) {
+	controller := &fakeNetworkModeController{err: errors.New("injected bind failure")}
+	handler := NewHandler(writeAndroidBridgeTestConfig(t, ""))
+	handler.SetLauncherNetworkModeController(controller)
+	mux := http.NewServeMux()
+	handler.RegisterAndroidBridgeRoutes(mux, testAndroidBridgeToken)
+
+	recorder := httptest.NewRecorder()
+	mux.ServeHTTP(recorder, networkModeBridgeRequest(
+		http.MethodPut,
+		`{"public":true}`,
+		testAndroidBridgeToken,
+	))
+	if recorder.Code != http.StatusAccepted {
+		t.Fatalf("apply status = %d", recorder.Code)
+	}
+	state := readNetworkModeState(t, mux)
+	if state.Status != "failed" || state.Public || state.Error == "" {
+		t.Fatalf("rollback state = %#v", state)
+	}
+}
+
+func TestAndroidNetworkModeBridgeHidesRouteFromUnauthorizedCaller(t *testing.T) {
+	handler := NewHandler(writeAndroidBridgeTestConfig(t, ""))
+	handler.SetLauncherNetworkModeController(&fakeNetworkModeController{})
+	mux := http.NewServeMux()
+	handler.RegisterAndroidBridgeRoutes(mux, testAndroidBridgeToken)
+
+	recorder := httptest.NewRecorder()
+	mux.ServeHTTP(recorder, networkModeBridgeRequest(http.MethodPut, `{"public":true}`, "wrong-token"))
+	if recorder.Code != http.StatusNotFound {
+		t.Fatalf("unauthorized status = %d, want 404", recorder.Code)
 	}
 }

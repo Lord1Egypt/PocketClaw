@@ -34,6 +34,7 @@
   "coreValid": "Biner inti valid.",
   "publicMode": "Mode publik",
   "publicModeHintDesc": "Bila diaktifkan, layanan mengizinkan akses eksternal dan kolom alamat akan dinonaktifkan",
+  "publicModeApplying": "Menerapkan mode jaringan...",
   "themeSelection": "Tema",
   "check": "Periksa",
   "launchService": "MULAI LAYANAN",
@@ -60,7 +61,7 @@
   "deviceReportingUploadSucceeded": "Umpan balik kompatibilitas perangkat aktif",
   "deviceReportingUploadFailed": "Umpan balik kompatibilitas perangkat aktif, tetapi sinkronisasi info perangkat saat ini tidak selesai",
   "deviceReportingDisabled": "Umpan balik kompatibilitas perangkat nonaktif",
-  "localModeHint": "1. Buka Konfigurasi layanan\n2. Aktifkan Mode publik\n3. Mulai ulang layanan\n4. Pindai kode QR untuk mengakses PocketClaw",
+  "localModeHint": "1. Buka Konfigurasi layanan\n2. Aktifkan Mode publik\n3. Pindai kode QR untuk mengakses PocketClaw",
   "publicModeHint": "1. Mulai layanan\n2. Pindai kode QR untuk mengakses PocketClaw",
   "@coreUnknownError": {
     "placeholders": {

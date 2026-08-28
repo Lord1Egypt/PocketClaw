@@ -116,6 +116,9 @@ class AppLocalizationsFr extends AppLocalizations {
       'Lorsqu\'il est activé, le service autorise l\'accès externe et le champ d\'adresse sera désactivé';
 
   @override
+  String get publicModeApplying => 'Application du mode réseau...';
+
+  @override
   String get themeSelection => 'Thème';
 
   @override
@@ -206,7 +209,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get localModeHint =>
-      '1. Accédez à la configuration du service\n2. Activez le mode public\n3. Redémarrez le service\n4. Scannez le code QR pour accéder à PocketClaw';
+      '1. Accédez à la configuration du service\n2. Activez le mode public\n3. Scannez le code QR pour accéder à PocketClaw';
 
   @override
   String get publicModeHint =>

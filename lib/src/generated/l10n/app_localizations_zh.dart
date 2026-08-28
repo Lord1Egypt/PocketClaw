@@ -113,6 +113,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get publicModeHintDesc => '开启后服务将允许外部访问，地址栏将被禁用';
 
   @override
+  String get publicModeApplying => '正在应用网络模式...';
+
+  @override
   String get themeSelection => '主题';
 
   @override
@@ -194,8 +197,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get deviceReportingDisabled => '已关闭设备兼容反馈';
 
   @override
-  String get localModeHint =>
-      '1. 进入服务配置\n2. 打开公共模式\n3. 重启服务\n4. 扫描二维码访问PocketClaw';
+  String get localModeHint => '1. 进入服务配置\n2. 打开公共模式\n3. 扫描二维码访问PocketClaw';
 
   @override
   String get publicModeHint => '1. 启动服务\n2. 扫描二维码访问PocketClaw';

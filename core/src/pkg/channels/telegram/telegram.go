@@ -87,6 +87,13 @@ func NewTelegramChannel(
 	telegramCfg *config.TelegramSettings,
 	bus *bus.MessageBus,
 ) (*TelegramChannel, error) {
+	if len(bc.AllowFrom) != 1 {
+		return nil, fmt.Errorf("telegram requires exactly one paired numeric owner")
+	}
+	ownerID, err := strconv.ParseInt(strings.TrimSpace(bc.AllowFrom[0]), 10, 64)
+	if err != nil || ownerID <= 0 {
+		return nil, fmt.Errorf("telegram requires exactly one paired numeric owner")
+	}
 	channelName := bc.Name()
 	var opts []telego.BotOption
 

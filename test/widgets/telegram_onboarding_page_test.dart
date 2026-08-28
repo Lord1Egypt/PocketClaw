@@ -283,7 +283,7 @@ void main() {
       '123456789:AAmanualtokenvaluethatislongenough',
     );
     await tester.enterText(
-      find.widgetWithText(TextField, 'Allowed Telegram user IDs (optional)'),
+      find.widgetWithText(TextField, 'Owner Telegram numeric user ID'),
       '777',
     );
     await tester.tap(find.text('Save and connect'));
@@ -333,6 +333,26 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.textContaining('Enter the bot token'), findsOneWidget);
+    expect(f.savedCredentials, isNull);
+    f.controller.dispose();
+  });
+
+  testWidgets('manual setup requires a numeric owner before saving', (
+    tester,
+  ) async {
+    final f = Fixture();
+    await tester.pumpWidget(f.widget());
+    await tester.tap(find.text('Set up manually'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.widgetWithText(TextField, 'Bot token'),
+      '123456789:AAmanualtokenvaluethatislongenough',
+    );
+    await tester.tap(find.text('Save and connect'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('numeric Telegram user ID'), findsOneWidget);
     expect(f.savedCredentials, isNull);
     f.controller.dispose();
   });

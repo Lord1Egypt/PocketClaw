@@ -1,8 +1,6 @@
 package main
 
 import (
-	"context"
-	"errors"
 	"fmt"
 	"time"
 
@@ -11,8 +9,7 @@ import (
 )
 
 const (
-	browserDelay    = 500 * time.Millisecond
-	shutdownTimeout = 15 * time.Second
+	browserDelay = 500 * time.Millisecond
 )
 
 // shutdownApp gracefully shuts down all server components and resources.
@@ -34,31 +31,9 @@ func shutdownApp() {
 		apiHandler.Shutdown()
 	}
 
-	if len(servers) > 0 {
-		for _, srv := range servers {
-			if srv == nil {
-				continue
-			}
-
-			// Disable keep-alive to allow graceful shutdown
-			srv.SetKeepAlivesEnabled(false)
-
-			ctx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
-			err := srv.Shutdown(ctx)
-			cancel()
-
-			if err != nil {
-				// Context deadline exceeded is expected if there are active connections
-				// This is not necessarily an error, so log it at info level
-				if errors.Is(err, context.DeadlineExceeded) {
-					logger.Infof("Server shutdown timeout after %v, forcing close", shutdownTimeout)
-				} else {
-					logger.Errorf("Server shutdown error: %v", err)
-				}
-			} else {
-				logger.Infof("Server shutdown completed successfully")
-			}
-		}
+	if httpRuntime != nil {
+		httpRuntime.Shutdown()
+		logger.Infof("Server shutdown completed successfully")
 	}
 }
 

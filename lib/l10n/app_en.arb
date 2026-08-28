@@ -38,7 +38,8 @@
   "coreUnknownError": "Unknown core error: {code}",
   "coreValid": "Core binary is valid.",
   "publicMode": "Public Mode",
-  "publicModeHintDesc": "When enabled, the service allows external access and the address field will be disabled",
+  "publicModeHintDesc": "Expose the password-protected Dashboard to devices on your LAN. The Core gateway stays private.",
+  "publicModeApplying": "Applying network mode...",
   "themeSelection": "Theme",
   "check": "Check",
   "launchService": "LAUNCH SERVICE",
@@ -49,7 +50,7 @@
   "statusIdle": "IDLE",
   "publicModeEnabled": "Public Mode Enabled",
   "localMode": "Local Mode",
-  "unableToGetDeviceIp": "Unable to get device IP",
+  "unableToGetDeviceIp": "No LAN address available",
   "deviceReportingTitle": "Device compatibility feedback",
   "deviceReportingSubtitle": "Used only for OS-version and app-version compatibility checks. No chat messages, account details, or personal content are involved",
   "deviceReportingConsentTitle": "Help improve device compatibility",
@@ -65,7 +66,7 @@
   "deviceReportingUploadSucceeded": "Device compatibility feedback is on",
   "deviceReportingUploadFailed": "Device compatibility feedback is on, but the current device-info sync did not complete",
   "deviceReportingDisabled": "Device compatibility feedback is off",
-  "localModeHint": "1. Go to Service Config\n2. Turn on Public Mode\n3. Restart the service\n4. Scan QR code to access PocketClaw",
+  "localModeHint": "1. Go to Service Config\n2. Turn on Public Mode\n3. Scan QR code to access PocketClaw",
   "publicModeHint": "1. Start the service\n2. Scan QR code to access PocketClaw",
   "@coreUnknownError": {
     "placeholders": {

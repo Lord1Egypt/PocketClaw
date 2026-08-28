@@ -63,10 +63,12 @@ abstract final class TelegramOnboardingStrings {
   static const manualBody =
       'Create a bot with @BotFather in Telegram, then paste its token here.';
   static const manualTokenLabel = 'Bot token';
-  static const manualAllowedLabel = 'Allowed Telegram user IDs (optional)';
-  static const manualAllowedHelp = 'Comma-separated. Leave empty to allow anyone.';
+  static const manualAllowedLabel = 'Owner Telegram numeric user ID';
+  static const manualAllowedHelp =
+      'Required. Find your numeric ID from a trusted Telegram ID bot.';
   static const manualSave = 'Save and connect';
   static const manualTokenRequired = 'Enter the bot token from @BotFather.';
+  static const manualOwnerRequired = 'Enter your numeric Telegram user ID.';
   static const manualTokenMalformed =
       'That does not look like a bot token. It looks like 123456789:AA…';
 

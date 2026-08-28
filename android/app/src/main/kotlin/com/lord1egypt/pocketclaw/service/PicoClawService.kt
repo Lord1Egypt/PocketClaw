@@ -34,8 +34,9 @@ class PicoClawService : Service() {
         private val SEMANTIC_VERSION_REGEX = Regex(
             "(?<!\\d)v?(\\d+\\.\\d+\\.\\d+(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?)(?!\\d)"
         )
-        // 本地 Pico Channel 认证 token（仅用于 loopback 通信）
-        const val PICO_TOKEN = "picoclaw-android-local"
+        private const val REALTIME_AUTH_FILE = "realtime_auth"
+        private const val REALTIME_OWNER_PRINCIPAL = "pico-user"
+        private val realtimeAuthLock = Any()
 
         const val ACTION_START = "com.lord1egypt.pocketclaw.action.START"
         const val ACTION_STOP = "com.lord1egypt.pocketclaw.action.STOP"
@@ -72,6 +73,42 @@ class PicoClawService : Service() {
         }
 
         fun bridgeTokenForHost(): String = androidBridgeToken
+
+        /**
+         * Returns the installation-scoped Core realtime credential. It is
+         * generated with Android's CSPRNG and stored only in app-private
+         * no-backup storage; it is never copied into the public workspace,
+         * included in Android backup, or written to logs.
+         */
+        fun picoTokenForHost(context: Context): String {
+            synchronized(realtimeAuthLock) {
+                val tokenFile = File(
+                    context.applicationContext.noBackupFilesDir,
+                    REALTIME_AUTH_FILE,
+                )
+                if (tokenFile.isFile) {
+                    tokenFile.readText(Charsets.UTF_8).trim().takeIf {
+                        it.length >= 32
+                    }?.let { return it }
+                }
+
+                val token = ByteArray(32).also(SecureRandom()::nextBytes).let {
+                    Base64.encodeToString(
+                        it,
+                        Base64.NO_WRAP or Base64.NO_PADDING or Base64.URL_SAFE,
+                    )
+                }
+                FileOutputStream(tokenFile, false).use {
+                    it.write(token.toByteArray(Charsets.UTF_8))
+                    it.fd.sync()
+                }
+                tokenFile.setReadable(false, false)
+                tokenFile.setWritable(false, false)
+                tokenFile.setReadable(true, true)
+                tokenFile.setWritable(true, true)
+                return token
+            }
+        }
 
         /** Records a line for the UI exactly once and updates the snapshot. */
         fun publishLog(line: String) {
@@ -172,6 +209,7 @@ class PicoClawService : Service() {
                 "PICOCLAW_CONFIG" to configPath,
                 "PICOCLAW_BINARY" to gatewayBinaryPath,
                 "POCKETCLAW_ANDROID_BRIDGE_TOKEN" to androidBridgeToken,
+                "PICOCLAW_CHANNELS_PICO_TOKEN" to picoTokenForHost(context),
                 "TMPDIR" to tmpDir.absolutePath,
                 "PATH" to "/system/bin:/system/xbin",
                 "LANG" to "en_US.UTF-8",
@@ -501,14 +539,23 @@ class PicoClawService : Service() {
             val channels = json.optJSONObject("channels") ?: return
             val pico = channels.optJSONObject("pico") ?: return
 
-            if (pico.optBoolean("enabled", false) && pico.optString("token", "").isNotEmpty()) {
+            val ownerOnly = pico.optJSONArray("allow_from")?.let {
+                it.length() == 1 && it.optString(0) == REALTIME_OWNER_PRINCIPAL
+            } == true
+            if (pico.optBoolean("enabled", false) &&
+                pico.optString("token", "").isNotEmpty() &&
+                ownerOnly
+            ) {
                 Log.i(TAG, "Pico channel already enabled")
                 return
             }
 
-            val token = PICO_TOKEN
             pico.put("enabled", true)
-            pico.put("token", token)
+            pico.put("token", picoTokenForHost(this))
+            pico.put(
+                "allow_from",
+                org.json.JSONArray().put(REALTIME_OWNER_PRINCIPAL),
+            )
             channels.put("pico", pico)
             json.put("channels", channels)
 

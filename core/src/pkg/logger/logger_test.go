@@ -98,6 +98,8 @@ func TestSanitizeFieldsForLogProtectsDisplayWithoutMutatingRuntimeValues(t *test
 		"route_main_session": "sk_v1_SUPERSECRETVALUE",
 		"chat_id":            "pico:1234",
 		"sender_id":          "pico-user",
+		"channel":            "pico",
+		"path":               "/pico/",
 		"route_channel":      "pico",
 		"reasoning":          "private reasoning text",
 		"messages_json":      "actual conversation contents",
@@ -119,6 +121,9 @@ func TestSanitizeFieldsForLogProtectsDisplayWithoutMutatingRuntimeValues(t *test
 	if safe["route_channel"] != "pocketclaw" {
 		t.Errorf("route_channel = %v, want pocketclaw display label", safe["route_channel"])
 	}
+	if safe["channel"] != "pocketclaw" || safe["path"] != "<internal>" {
+		t.Errorf("internal realtime route was not normalized together: %#v", safe)
+	}
 	for _, key := range []string{"reasoning", "messages_json", "tools_json"} {
 		if _, exists := safe[key]; exists {
 			t.Errorf("raw content field %s was retained", key)
@@ -131,6 +136,8 @@ func TestSanitizeFieldsForLogProtectsDisplayWithoutMutatingRuntimeValues(t *test
 	if original["session_key"] != "sk_v1_SUPERSECRETVALUE" ||
 		original["chat_id"] != "pico:1234" ||
 		original["sender_id"] != "pico-user" ||
+		original["channel"] != "pico" ||
+		original["path"] != "/pico/" ||
 		original["route_channel"] != "pico" {
 		t.Fatalf("runtime field map was mutated: %#v", original)
 	}
@@ -144,6 +151,8 @@ func TestSanitizeFieldsForLogDoesNotRewritePicoSubstrings(t *testing.T) {
 
 	original := map[string]any{
 		"route_channel": "pico-test",
+		"channel":       "pocketclaw",
+		"path":          "/pico/",
 		"component":     "picometer",
 		"filename":      "my-pico-notes.txt",
 	}

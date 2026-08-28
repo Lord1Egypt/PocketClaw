@@ -17,7 +17,10 @@ import (
 
 // Channel type constants — single source of truth for all channel type names.
 const (
-	ChannelPico           = "pico"
+	ChannelPico = "pico"
+	// PicoOwnerPrincipal is the Core-derived owner identity for PocketClaw's
+	// internal realtime channel. It is an authorization label, not a secret.
+	PicoOwnerPrincipal    = "pico-user"
 	ChannelPicoClient     = "pico_client"
 	ChannelTelegram       = "telegram"
 	ChannelDiscord        = "discord"

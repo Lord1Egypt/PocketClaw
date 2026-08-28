@@ -48,6 +48,28 @@ void main() {
         throwsA(isA<TelegramOnboardingException>()),
       );
     });
+
+    test('rejects credentials without a verified numeric owner', () async {
+      var writes = 0;
+      final writer = TelegramConfigWriter(
+        writeCredentials: (_) async {
+          writes++;
+          return true;
+        },
+      );
+      await expectLater(
+        writer.apply(
+          const TelegramBotCredentials(
+            token: '9001:CHILD-TOKEN',
+            botUserId: 9001,
+            botUsername: 'manual',
+            ownerUserId: 0,
+          ),
+        ),
+        throwsA(isA<TelegramOnboardingException>()),
+      );
+      expect(writes, 0);
+    });
   });
 
   group('TelegramBotCredentials', () {

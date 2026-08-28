@@ -505,6 +505,45 @@ func TestOpenLauncherListeners_HonorsIPv6OnlyHost(t *testing.T) {
 	}
 }
 
+func TestOpenLauncherListeners_DefaultModeBoundary(t *testing.T) {
+	t.Run("public off binds loopback only", func(t *testing.T) {
+		result, err := openLauncherListeners("", false, "0")
+		if err != nil {
+			t.Fatalf("openLauncherListeners() error = %v", err)
+		}
+		for _, listener := range result.Listeners {
+			t.Cleanup(func() { _ = listener.Close() })
+		}
+		if len(result.BindHosts) == 0 {
+			t.Fatal("loopback bind returned no hosts")
+		}
+		for _, host := range result.BindHosts {
+			if ip := net.ParseIP(host); ip == nil || !ip.IsLoopback() {
+				t.Fatalf("public-off bind host = %q, want loopback", host)
+			}
+		}
+	})
+
+	t.Run("public on binds wildcard", func(t *testing.T) {
+		result, err := openLauncherListeners("", true, "0")
+		if err != nil {
+			t.Fatalf("openLauncherListeners() error = %v", err)
+		}
+		for _, listener := range result.Listeners {
+			t.Cleanup(func() { _ = listener.Close() })
+		}
+		wildcard := false
+		for _, host := range result.BindHosts {
+			if netbind.IsUnspecifiedHost(host) {
+				wildcard = true
+			}
+		}
+		if !wildcard {
+			t.Fatalf("public-on bind hosts = %#v, want wildcard", result.BindHosts)
+		}
+	})
+}
+
 func TestOpenLauncherListeners_SupportsExplicitMultiHost(t *testing.T) {
 	hasIPv4, hasIPv6 := netbind.DetectIPFamilies()
 	if !hasIPv4 || !hasIPv6 {

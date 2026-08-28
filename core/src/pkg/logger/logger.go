@@ -407,6 +407,11 @@ func sanitizeFieldsForLog(fields map[string]any) map[string]any {
 		return fields
 	}
 
+	// Capture this relationship before channel display names are normalized.
+	// Otherwise the downstream user-visible sanitizer can no longer tell that
+	// /pico/ belongs to the internal realtime channel.
+	internalPicoRoute := fields["channel"] == "pico" && fields["path"] == "/pico/"
+
 	safe := make(map[string]any, len(fields))
 	for key, value := range fields {
 		if _, omit := rawContentLogFields[key]; omit {
@@ -423,6 +428,9 @@ func sanitizeFieldsForLog(fields map[string]any) map[string]any {
 
 		switch typed := value.(type) {
 		case string:
+			if internalPicoRoute && key == "path" {
+				typed = "<internal>"
+			}
 			if _, channelField := channelDisplayFields[key]; channelField && typed == "pico" {
 				typed = "pocketclaw"
 			}

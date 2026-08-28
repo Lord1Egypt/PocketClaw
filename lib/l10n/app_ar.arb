@@ -34,6 +34,7 @@
   "coreValid": "الملف الثنائي الأساسي صالح.",
   "publicMode": "الوضع العام",
   "publicModeHintDesc": "عند التمكين، تسمح الخدمة بالوصول الخارجي وسيتم تعطيل حقل العنوان",
+  "publicModeApplying": "جارٍ تطبيق وضع الشبكة...",
   "themeSelection": "السمة",
   "check": "فحص",
   "launchService": "تشغيل الخدمة",
@@ -60,7 +61,7 @@
   "deviceReportingUploadSucceeded": "تعليقات توافق الجهاز مفعلة",
   "deviceReportingUploadFailed": "تعليقات توافق الجهاز مفعلة، لكن مزامنة معلومات الجهاز الحالية لم تكتمل",
   "deviceReportingDisabled": "تعليقات توافق الجهاز معطلة",
-  "localModeHint": "1. انتقل إلى تكوين الخدمة\n2. شغّل الوضع العام\n3. أعد تشغيل الخدمة\n4. امسح رمز QR للوصول إلى PocketClaw",
+  "localModeHint": "1. انتقل إلى تكوين الخدمة\n2. شغّل الوضع العام\n3. امسح رمز QR للوصول إلى PocketClaw",
   "publicModeHint": "1. ابدأ الخدمة\n2. امسح رمز QR للوصول إلى PocketClaw",
   "@coreUnknownError": {
     "placeholders": {

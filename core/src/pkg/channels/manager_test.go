@@ -2,8 +2,13 @@ package channels
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -15,6 +20,7 @@ import (
 	"github.com/sipeed/picoclaw/pkg/bus"
 	"github.com/sipeed/picoclaw/pkg/config"
 	runtimeevents "github.com/sipeed/picoclaw/pkg/events"
+	"github.com/sipeed/picoclaw/pkg/logger"
 	"github.com/sipeed/picoclaw/pkg/media"
 	"github.com/sipeed/picoclaw/pkg/utils"
 )
@@ -29,6 +35,69 @@ type mockChannel struct {
 	placeholdersSent  int
 	editedMessages    int
 	lastPlaceholderID string
+}
+
+type mockPicoWebhookChannel struct {
+	mockChannel
+}
+
+func (m *mockPicoWebhookChannel) WebhookPath() string { return "/pico/" }
+
+func (m *mockPicoWebhookChannel) ServeHTTP(w http.ResponseWriter, _ *http.Request) {
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// This exercises the real Manager startup registration and logger, rather
+// than feeding a synthetic pre-sanitized line directly to a display helper.
+func TestSetupHTTPServerNormalizesInternalPicoWebhookRouteInStartupLog(t *testing.T) {
+	initialLevel := logger.GetLevel()
+	logger.DisableFileLogging()
+	logger.SetLevel(logger.INFO)
+	logger.SetConsoleLevel(logger.INFO)
+	logger.DisableConsole()
+	t.Cleanup(func() {
+		logger.DisableFileLogging()
+		logger.EnableConsole()
+		logger.SetConsoleLevel(initialLevel)
+		logger.SetLevel(initialLevel)
+	})
+
+	logPath := filepath.Join(t.TempDir(), "startup.log")
+	if err := logger.EnableFileLogging(logPath); err != nil {
+		t.Fatalf("EnableFileLogging: %v", err)
+	}
+
+	webhook := &mockPicoWebhookChannel{}
+	manager := &Manager{channels: map[string]Channel{"pico": webhook}}
+	manager.SetupHTTPServer(":0", nil)
+
+	recorder := httptest.NewRecorder()
+	manager.httpServer.Handler.ServeHTTP(
+		recorder,
+		httptest.NewRequest(http.MethodGet, "/pico/", nil),
+	)
+	if recorder.Code != http.StatusNoContent {
+		t.Fatalf("actual /pico/ route status = %d, want %d", recorder.Code, http.StatusNoContent)
+	}
+
+	raw, err := os.ReadFile(logPath)
+	if err != nil {
+		t.Fatalf("read startup log: %v", err)
+	}
+	for _, line := range strings.Split(strings.TrimSpace(string(raw)), "\n") {
+		var entry map[string]any
+		if err := json.Unmarshal([]byte(line), &entry); err != nil {
+			t.Fatalf("startup log line is not JSON: %q (%v)", line, err)
+		}
+		if entry["message"] != "Webhook handler registered" {
+			continue
+		}
+		if entry["channel"] != "pocketclaw" || entry["path"] != "<internal>" {
+			t.Fatalf("startup webhook display leaked internal route: %#v", entry)
+		}
+		return
+	}
+	t.Fatalf("startup webhook registration log missing from %q", raw)
 }
 
 func (m *mockChannel) Send(ctx context.Context, msg bus.OutboundMessage) ([]string, error) {

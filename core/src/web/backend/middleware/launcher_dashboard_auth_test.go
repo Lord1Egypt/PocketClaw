@@ -24,6 +24,32 @@ func TestNewLauncherDashboardSessionCookie(t *testing.T) {
 	}
 }
 
+func TestLauncherDashboardSessionsExpireAndRevoke(t *testing.T) {
+	now := time.Date(2026, 8, 28, 0, 0, 0, 0, time.UTC)
+	sessions := NewLauncherDashboardSessions(time.Minute)
+	sessions.now = func() time.Time { return now }
+	token, err := sessions.Issue()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !sessions.Valid(token) {
+		t.Fatal("fresh session must be valid")
+	}
+	sessions.Revoke(token)
+	if sessions.Valid(token) {
+		t.Fatal("revoked session must be rejected")
+	}
+
+	token, err = sessions.Issue()
+	if err != nil {
+		t.Fatal(err)
+	}
+	now = now.Add(time.Minute)
+	if sessions.Valid(token) {
+		t.Fatal("expired session must be rejected")
+	}
+}
+
 func mustLocalAutoLogin(t *testing.T, ttl time.Duration) *LauncherDashboardLocalAutoLogin {
 	t.Helper()
 	autoLogin, err := NewLauncherDashboardLocalAutoLogin(ttl)
@@ -140,8 +166,8 @@ func TestLauncherDashboardAuth_LocalAutoLogin(t *testing.T) {
 	if len(cookies) != 1 || cookies[0].Name != LauncherDashboardCookieName || cookies[0].Value != cookieVal {
 		t.Fatalf("cookies = %#v", cookies)
 	}
-	if cookies[0].MaxAge != 31*24*3600 {
-		t.Fatalf("session cookie MaxAge = %d, want 31 days", cookies[0].MaxAge)
+	if cookies[0].MaxAge != 24*3600 {
+		t.Fatalf("session cookie MaxAge = %d, want 24 hours", cookies[0].MaxAge)
 	}
 
 	rec = httptest.NewRecorder()
@@ -261,5 +287,114 @@ func TestLauncherDashboardAuth_WebSocketUnauthorizedDoesNotRedirect(t *testing.T
 	}
 	if got := rec.Header().Get("Location"); got != "" {
 		t.Fatalf("Location = %q, want empty", got)
+	}
+}
+
+func TestLauncherDashboardAuth_LANClientsStillRequireSession(t *testing.T) {
+	sessions := NewLauncherDashboardSessions(time.Hour)
+	called := 0
+	h := LauncherDashboardAuth(LauncherDashboardAuthConfig{Sessions: sessions}, http.HandlerFunc(
+		func(w http.ResponseWriter, _ *http.Request) {
+			called++
+			w.WriteHeader(http.StatusOK)
+		},
+	))
+
+	unauthenticated := httptest.NewRequest(http.MethodGet, "/api/config", nil)
+	unauthenticated.RemoteAddr = "192.168.1.50:40000"
+	unauthenticated.Host = "192.168.1.37:18800"
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, unauthenticated)
+	if rec.Code != http.StatusUnauthorized || called != 0 {
+		t.Fatalf("unauthenticated LAN request code=%d called=%d, want 401/0", rec.Code, called)
+	}
+
+	token, err := sessions.Issue()
+	if err != nil {
+		t.Fatal(err)
+	}
+	authenticated := httptest.NewRequest(http.MethodGet, "/api/config", nil)
+	authenticated.RemoteAddr = "192.168.1.50:40001"
+	authenticated.Host = "192.168.1.37:18800"
+	authenticated.AddCookie(&http.Cookie{Name: LauncherDashboardCookieName, Value: token})
+	rec = httptest.NewRecorder()
+	h.ServeHTTP(rec, authenticated)
+	if rec.Code != http.StatusOK || called != 1 {
+		t.Fatalf("authenticated LAN request code=%d called=%d, want 200/1", rec.Code, called)
+	}
+}
+
+func TestLauncherDashboardAuth_AuthenticatedLANWebSocketWorks(t *testing.T) {
+	sessions := NewLauncherDashboardSessions(time.Hour)
+	token, err := sessions.Issue()
+	if err != nil {
+		t.Fatal(err)
+	}
+	h := LauncherDashboardAuth(LauncherDashboardAuthConfig{Sessions: sessions}, http.HandlerFunc(
+		func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusSwitchingProtocols)
+		},
+	))
+
+	req := httptest.NewRequest(http.MethodGet, "/pico/ws", nil)
+	req.RemoteAddr = "10.0.0.50:40002"
+	req.Host = "10.0.0.24:18800"
+	req.Header.Set("Origin", "http://10.0.0.24:18800")
+	req.AddCookie(&http.Cookie{Name: LauncherDashboardCookieName, Value: token})
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusSwitchingProtocols {
+		t.Fatalf("authenticated LAN websocket code=%d, want 101", rec.Code)
+	}
+}
+
+func TestLauncherDashboardAuth_WebSocketRequiresAuthenticatedSameOrigin(t *testing.T) {
+	sessions := NewLauncherDashboardSessions(time.Hour)
+	token, err := sessions.Issue()
+	if err != nil {
+		t.Fatal(err)
+	}
+	revokedToken, err := sessions.Issue()
+	if err != nil {
+		t.Fatal(err)
+	}
+	sessions.Revoke(revokedToken)
+	called := 0
+	h := LauncherDashboardAuth(LauncherDashboardAuthConfig{Sessions: sessions}, http.HandlerFunc(
+		func(w http.ResponseWriter, _ *http.Request) {
+			called++
+			w.WriteHeader(http.StatusSwitchingProtocols)
+		},
+	))
+
+	for _, tc := range []struct {
+		name   string
+		origin string
+		cookie string
+		want   int
+	}{
+		{name: "owner", origin: "http://launcher.local:18800", cookie: token, want: http.StatusSwitchingProtocols},
+		{name: "missing origin", cookie: token, want: http.StatusForbidden},
+		{name: "foreign origin", origin: "https://evil.example", cookie: token, want: http.StatusForbidden},
+		{name: "revoked session", origin: "http://launcher.local:18800", cookie: revokedToken, want: http.StatusUnauthorized},
+		{name: "forged cookie", origin: "http://launcher.local:18800", cookie: "pico-user", want: http.StatusUnauthorized},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			rec := httptest.NewRecorder()
+			req := httptest.NewRequest(http.MethodGet, "http://launcher.local:18800/pico/ws", nil)
+			if tc.origin != "" {
+				req.Header.Set("Origin", tc.origin)
+			}
+			if tc.cookie != "" {
+				req.AddCookie(&http.Cookie{Name: LauncherDashboardCookieName, Value: tc.cookie})
+			}
+			h.ServeHTTP(rec, req)
+			if rec.Code != tc.want {
+				t.Fatalf("status = %d, want %d", rec.Code, tc.want)
+			}
+		})
+	}
+	if called != 1 {
+		t.Fatalf("downstream calls = %d, want exactly one authorized request", called)
 	}
 }

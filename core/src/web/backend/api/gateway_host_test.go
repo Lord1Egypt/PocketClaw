@@ -15,7 +15,7 @@ import (
 	"github.com/sipeed/picoclaw/web/backend/launcherconfig"
 )
 
-func TestGatewayHostOverrideUsesExplicitRuntimePublic(t *testing.T) {
+func TestGatewayHostOverrideKeepsPublicLauncherGatewayLoopback(t *testing.T) {
 	configPath := filepath.Join(t.TempDir(), "config.json")
 	launcherPath := launcherconfig.PathForAppConfig(configPath)
 	if err := launcherconfig.Save(launcherPath, launcherconfig.Config{
@@ -28,8 +28,8 @@ func TestGatewayHostOverrideUsesExplicitRuntimePublic(t *testing.T) {
 	h := NewHandler(configPath)
 	h.SetServerOptions(18800, true, true, nil)
 
-	if got := h.gatewayHostOverride(); got != "*" {
-		t.Fatalf("gatewayHostOverride() = %q, want %q", got, "*")
+	if got := h.gatewayHostOverride(); got != "localhost" {
+		t.Fatalf("gatewayHostOverride() = %q, want loopback", got)
 	}
 }
 
@@ -99,7 +99,7 @@ func TestGatewayProbeHostUsesFirstConcreteHostForMultiHostBind(t *testing.T) {
 	}
 }
 
-func TestGatewayProxyURLUsesConfiguredHost(t *testing.T) {
+func TestGatewayProxyURLIgnoresNonLoopbackConfiguredHost(t *testing.T) {
 	configPath := filepath.Join(t.TempDir(), "config.json")
 	h := NewHandler(configPath)
 
@@ -110,12 +110,13 @@ func TestGatewayProxyURLUsesConfiguredHost(t *testing.T) {
 		t.Fatalf("SaveConfig() error = %v", err)
 	}
 
-	if got := h.gatewayProxyURL().String(); got != "http://192.168.1.10:18791" {
-		t.Fatalf("gatewayProxyURL() = %q, want %q", got, "http://192.168.1.10:18791")
+	want := "http://" + net.JoinHostPort(gatewayProbeHost("localhost"), "18791")
+	if got := h.gatewayProxyURL().String(); got != want {
+		t.Fatalf("gatewayProxyURL() = %q, want %q", got, want)
 	}
 }
 
-func TestGetGatewayHealthUsesConfiguredHost(t *testing.T) {
+func TestGetGatewayHealthUsesManagedLoopbackHost(t *testing.T) {
 	configPath := filepath.Join(t.TempDir(), "config.json")
 	h := NewHandler(configPath)
 
@@ -138,8 +139,9 @@ func TestGetGatewayHealthUsesConfiguredHost(t *testing.T) {
 	_ = statusCode
 	_ = err
 
-	if requestedURL != "http://192.168.1.10:18791/health" {
-		t.Fatalf("health url = %q, want %q", requestedURL, "http://192.168.1.10:18791/health")
+	want := "http://" + net.JoinHostPort(gatewayProbeHost("localhost"), "18791") + "/health"
+	if requestedURL != want {
+		t.Fatalf("health url = %q, want %q", requestedURL, want)
 	}
 }
 
@@ -289,23 +291,23 @@ func TestBuildWsURLUsesRequestHostNotGatewayBindLoopback(t *testing.T) {
 	}
 }
 
-func TestGatewayHostOverrideWithExplicitHostAndAlignedGatewayHost(t *testing.T) {
+func TestGatewayHostOverrideDoesNotFollowExplicitWildcardLauncherHost(t *testing.T) {
 	h := NewHandler(filepath.Join(t.TempDir(), "config.json"))
 	h.SetServerOptions(18800, false, false, nil)
 	h.SetServerBindHost("0.0.0.0", true)
 
-	if got := h.gatewayHostOverride(); got != "0.0.0.0" {
-		t.Fatalf("gatewayHostOverride() = %q, want %q", got, "0.0.0.0")
+	if got := h.gatewayHostOverride(); got != "localhost" {
+		t.Fatalf("gatewayHostOverride() = %q, want loopback", got)
 	}
 }
 
-func TestGatewayHostOverrideWithExplicitHostAndLocalhostGatewayHost(t *testing.T) {
+func TestGatewayHostOverrideDoesNotFollowExplicitIPv6WildcardLauncherHost(t *testing.T) {
 	h := NewHandler(filepath.Join(t.TempDir(), "config.json"))
 	h.SetServerOptions(18800, false, false, nil)
 	h.SetServerBindHost("::", true)
 
-	if got := h.gatewayHostOverride(); got != "::" {
-		t.Fatalf("gatewayHostOverride() = %q, want %q", got, "::")
+	if got := h.gatewayHostOverride(); got != "localhost" {
+		t.Fatalf("gatewayHostOverride() = %q, want loopback", got)
 	}
 }
 
@@ -314,8 +316,8 @@ func TestGatewayHostOverrideWithExplicitMultiHost(t *testing.T) {
 	h.SetServerOptions(18800, false, false, nil)
 	h.SetServerBindHost("127.0.0.1,::1", true)
 
-	if got := h.gatewayHostOverride(); got != "127.0.0.1,::1" {
-		t.Fatalf("gatewayHostOverride() = %q, want %q", got, "127.0.0.1,::1")
+	if got := h.gatewayHostOverride(); got != "localhost" {
+		t.Fatalf("gatewayHostOverride() = %q, want loopback", got)
 	}
 }
 

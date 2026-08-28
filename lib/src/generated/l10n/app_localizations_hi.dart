@@ -115,6 +115,9 @@ class AppLocalizationsHi extends AppLocalizations {
       'सक्षम होने पर, सेवा बाहरी एक्सेस की अनुमति देती है और पता फ़ील्ड अक्षम हो जाएगी';
 
   @override
+  String get publicModeApplying => 'नेटवर्क मोड लागू किया जा रहा है...';
+
+  @override
   String get themeSelection => 'थीम';
 
   @override
@@ -201,7 +204,7 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String get localModeHint =>
-      '1. सेवा कॉन्फ़िगरेशन पर जाएं\n2. पब्लिक मोड चालू करें\n3. सेवा पुनः आरंभ करें\n4. PocketClaw तक पहुंचने के लिए QR कोड स्कैन करें';
+      '1. सेवा कॉन्फ़िगरेशन पर जाएं\n2. पब्लिक मोड चालू करें\n3. PocketClaw तक पहुंचने के लिए QR कोड स्कैन करें';
 
   @override
   String get publicModeHint =>

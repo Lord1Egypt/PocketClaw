@@ -3,6 +3,9 @@ package com.lord1egypt.pocketclaw
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.net.ConnectivityManager
+import android.net.Network
+import android.net.NetworkCapabilities
 import android.os.Build
 import android.os.Environment
 import android.os.Handler
@@ -15,7 +18,9 @@ import com.lord1egypt.pocketclaw.service.PicoClawService
 import com.lord1egypt.pocketclaw.util.HealthChecker
 import org.json.JSONObject
 import java.io.File
+import java.io.IOException
 import java.net.HttpURLConnection
+import java.net.Inet4Address
 import java.net.URL
 import java.util.concurrent.Executor
 
@@ -45,6 +50,8 @@ class PicoClawMethodChannel(
         private const val KEY_AUTO_START = "auto_start"
         private const val TELEGRAM_BRIDGE_URL =
             "http://127.0.0.1:18800/api/pocketclaw/android/telegram"
+        private const val NETWORK_MODE_BRIDGE_URL =
+            "http://127.0.0.1:18800/api/pocketclaw/android/network-mode"
     }
 
     // Copy a content:// URI to the app cache and return the absolute file path.
@@ -108,6 +115,79 @@ class PicoClawMethodChannel(
                     } catch (e: Exception) {
                         result.error("GET_PUBLIC_MODE_FAILED", e.message, null)
                     }
+                }
+                "applyPublicMode" -> {
+                    val publicMode = call.argument<Boolean>("public") ?: false
+                    Thread {
+                        val mainExecutor = getMainExecutor()
+                        val previousMode = context
+                            .getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
+                            .getBoolean("public_mode", false)
+                        try {
+                            val accepted = callNetworkModeBridge(
+                                "PUT",
+                                JSONObject().put("public", publicMode),
+                                HttpURLConnection.HTTP_ACCEPTED,
+                            )
+                            if (accepted.optString("status") != "applying") {
+                                throw IllegalStateException("Dashboard did not accept the network mode change")
+                            }
+
+                            val deadline = System.currentTimeMillis() + 10_000
+                            var finalState: JSONObject? = null
+                            while (System.currentTimeMillis() < deadline) {
+                                Thread.sleep(100)
+                                try {
+                                    val state = callNetworkModeBridge(
+                                        "GET",
+                                        null,
+                                        HttpURLConnection.HTTP_OK,
+                                    )
+                                    when (state.optString("status")) {
+                                        "succeeded", "failed" -> {
+                                            finalState = state
+                                            break
+                                        }
+                                    }
+                                } catch (_: IOException) {
+                                    // Connection resets/timeouts are expected briefly while
+                                    // port 18800 is being rebound.
+                                }
+                            }
+
+                            val state = finalState
+                                ?: throw IllegalStateException("Dashboard network mode change timed out")
+                            val actualMode = state.optBoolean("public", previousMode)
+                            val success = state.optString("status") == "succeeded" &&
+                                actualMode == publicMode
+                            if (success) {
+                                context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
+                                    .edit()
+                                    .putBoolean("public_mode", actualMode)
+                                    .apply()
+                            }
+                            mainExecutor.execute {
+                                result.success(mapOf(
+                                    "success" to success,
+                                    "public" to actualMode,
+                                    "message" to state.optString("error", ""),
+                                ))
+                            }
+                        } catch (e: Exception) {
+                            Log.w(TAG, "Dashboard network mode change failed: ${e.message}")
+                            mainExecutor.execute {
+                                result.success(mapOf(
+                                    "success" to false,
+                                    "public" to previousMode,
+                                    "message" to if (publicMode) {
+                                        "Could not enable LAN access. PocketClaw remains available locally."
+                                    } else {
+                                        "Could not disable LAN access. PocketClaw remains in its previous network mode."
+                                    },
+                                ))
+                            }
+                        }
+                    }.start()
                 }
                 "stopService" -> {
                     try {
@@ -270,7 +350,7 @@ class PicoClawMethodChannel(
                     }
                 }
                 "getPicoToken" -> {
-                    result.success(PicoClawService.PICO_TOKEN)
+                    result.success(PicoClawService.picoTokenForHost(context))
                 }
                 "getSafeDeviceInfo" -> {
                     val packageInfo = context.packageManager.getPackageInfo(context.packageName, 0)
@@ -315,6 +395,9 @@ class PicoClawMethodChannel(
                 "getWebPort" -> {
                     result.success(18800)
                 }
+                "getLanIpv4Address" -> {
+                    result.success(activeLanIpv4Address())
+                }
                 "saveToDownloads" -> {
                     // args: filename: String, bytes: Uint8List
                     try {
@@ -352,6 +435,61 @@ class PicoClawMethodChannel(
         channel.setMethodCallHandler(null)
     }
 
+    /**
+     * Finds a connectable address on an active Wi-Fi/Ethernet network. The
+     * wildcard listen address and cellular/VPN-only destinations are never
+     * advertised as LAN URLs.
+     */
+    private fun activeLanIpv4Address(): String? {
+        return try {
+            val connectivity = context.getSystemService(ConnectivityManager::class.java)
+                ?: return null
+            val active = connectivity.activeNetwork ?: return null
+            lanIpv4Address(connectivity, active)
+        } catch (e: Exception) {
+            Log.w(TAG, "Unable to determine active LAN IPv4 address", e)
+            null
+        }
+    }
+
+    private fun lanIpv4Address(
+        connectivity: ConnectivityManager,
+        network: Network,
+    ): String? {
+        val capabilities = connectivity.getNetworkCapabilities(network) ?: return null
+        if (!capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) &&
+            !capabilities.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET)
+        ) {
+            return null
+        }
+
+        val addresses = connectivity.getLinkProperties(network)?.linkAddresses
+            ?.asSequence()
+            ?.map { it.address }
+            ?.filterIsInstance<Inet4Address>()
+            ?.filterNot { address ->
+                address.isAnyLocalAddress ||
+                    address.isLoopbackAddress ||
+                    address.isLinkLocalAddress ||
+                    address.isMulticastAddress
+            }
+            ?.toList()
+            .orEmpty()
+
+        return addresses.firstOrNull { isPrivateLanIpv4(it.address) }
+            ?.hostAddress
+            ?: addresses.firstOrNull()?.hostAddress
+    }
+
+    private fun isPrivateLanIpv4(bytes: ByteArray): Boolean {
+        if (bytes.size != 4) return false
+        val first = bytes[0].toInt() and 0xff
+        val second = bytes[1].toInt() and 0xff
+        return first == 10 ||
+            (first == 172 && second in 16..31) ||
+            (first == 192 && second == 168)
+    }
+
     /** Writes paired credentials through Core's own config/security store. */
     private fun callTelegramBridge(
         method: String,
@@ -381,6 +519,43 @@ class PicoClawMethodChannel(
                 throw IllegalStateException("Core Telegram bridge request failed")
             }
             connection.inputStream.close()
+        } finally {
+            connection.disconnect()
+        }
+    }
+
+    private fun callNetworkModeBridge(
+        method: String,
+        body: JSONObject?,
+        expectedStatus: Int,
+    ): JSONObject {
+        val connection = (URL(NETWORK_MODE_BRIDGE_URL).openConnection() as HttpURLConnection).apply {
+            requestMethod = method
+            connectTimeout = 1_000
+            readTimeout = 2_000
+            setRequestProperty(
+                "X-PocketClaw-Android-Bridge",
+                PicoClawService.bridgeTokenForHost(),
+            )
+            setRequestProperty("Accept", "application/json")
+            if (body != null) {
+                doOutput = true
+                setRequestProperty("Content-Type", "application/json")
+            }
+        }
+        try {
+            if (body != null) {
+                connection.outputStream.use { output ->
+                    output.write(body.toString().toByteArray(Charsets.UTF_8))
+                }
+            }
+            if (connection.responseCode != expectedStatus) {
+                throw IllegalStateException("Dashboard network mode bridge rejected the request")
+            }
+            val response = connection.inputStream.bufferedReader(Charsets.UTF_8).use {
+                it.readText()
+            }
+            return JSONObject(response)
         } finally {
             connection.disconnect()
         }

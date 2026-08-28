@@ -18,6 +18,12 @@ class TelegramConfigWriter {
   final TelegramCredentialSink? _writeCredentials;
 
   Future<void> apply(TelegramBotCredentials credentials) async {
+    if (credentials.ownerUserId <= 0) {
+      throw const TelegramOnboardingException(
+        TelegramOnboardingErrorKind.configurationFailed,
+        'a verified numeric Telegram owner is required',
+      );
+    }
     final sink = _writeCredentials ?? _writeThroughCore;
     final bool saved;
     try {

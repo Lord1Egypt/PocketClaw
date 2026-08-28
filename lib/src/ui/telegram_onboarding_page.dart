@@ -460,12 +460,17 @@ class _TelegramManualSetupDialogState extends State<TelegramManualSetupDialog> {
       return;
     }
 
+    final owner = _firstAllowedUserId();
+    if (owner <= 0) {
+      setState(() => _error = TelegramOnboardingStrings.manualOwnerRequired);
+      return;
+    }
+
     setState(() {
       _saving = true;
       _error = null;
     });
 
-    final owner = _firstAllowedUserId();
     try {
       await widget.configWriter.apply(
         TelegramBotCredentials(
@@ -500,7 +505,7 @@ class _TelegramManualSetupDialogState extends State<TelegramManualSetupDialog> {
   int _firstAllowedUserId() {
     for (final part in _allowedController.text.split(',')) {
       final parsed = int.tryParse(part.trim());
-      if (parsed != null) return parsed;
+      if (parsed != null && parsed > 0) return parsed;
     }
     return 0;
   }

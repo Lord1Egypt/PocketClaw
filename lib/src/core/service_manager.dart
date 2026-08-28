@@ -16,6 +16,17 @@ import '../native/core_service_adapter.dart';
 
 enum ServiceStatus { stopped, running, starting }
 
+@immutable
+class LanAddressCandidate {
+  const LanAddressCandidate({
+    required this.interfaceName,
+    required this.address,
+  });
+
+  final String interfaceName;
+  final String address;
+}
+
 class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
   static const List<Duration> _deviceFeedbackRetryDelays = [
     Duration(seconds: 15),
@@ -161,6 +172,9 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
   String _binaryPath = '';
   String _arguments = '';
   bool _publicMode = false;
+  bool _isApplyingPublicMode = false;
+  String? _publicModeApplyError;
+  String? _lanAddress;
   String _workspacePath = '';
 
   int _nativePid = -1;
@@ -174,6 +188,8 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
   bool get autoStart => _autoStart;
 
   Timer? _nativePollingTimer;
+  Timer? _lanAddressPollingTimer;
+  int _lanAddressRefreshGeneration = 0;
 
   AppThemeMode _currentThemeMode = AppThemeMode.carbon;
   AppThemeMode get currentThemeMode => _currentThemeMode;
@@ -216,57 +232,130 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   String get webUrl => 'http://$_host:$_port';
+  String get localDashboardUrl => 'http://127.0.0.1:$_port';
+  String? get lanAddress => _lanAddress;
+  String? get publicDashboardUrl =>
+      _lanAddress == null ? null : 'http://${_lanAddress!}:$_port';
+  String? get connectableDashboardUrl =>
+      _publicMode ? publicDashboardUrl : webUrl;
   String get host => _host;
   int get port => _port;
   String get binaryPath => _binaryPath;
   String get arguments => _arguments;
   bool get publicMode => _publicMode;
+  bool get isApplyingPublicMode => _isApplyingPublicMode;
+  String? get publicModeApplyError => _publicModeApplyError;
   String get workspacePath => _workspacePath;
 
   Future<String?> getDeviceIpAddress() async {
     try {
+      if (Platform.isAndroid) {
+        return await PicoClawChannel.getLanIpv4Address();
+      }
       final interfaces = await NetworkInterface.list(
         type: InternetAddressType.IPv4,
         includeLinkLocal: false,
       );
 
-      String? wifiIp;
-      String? anyIp;
-      for (final interface in interfaces) {
-        final name = interface.name.toLowerCase();
-        if (name.contains('loopback') || name.contains('lo')) continue;
-
-        for (final addr in interface.addresses) {
-          final ip = addr.address;
-          if (ip.isEmpty || ip == '127.0.0.1' || ip.startsWith('169.254.')) {
-            continue;
-          }
-
-          anyIp ??= ip;
-
-          if (name.contains('eth') ||
-              name.startsWith('en') ||
-              name.contains('ethernet') ||
-              name.contains('ens') ||
-              name.contains('enp')) {
-            return ip;
-          }
-          if (wifiIp == null &&
-              (name.contains('wlan') ||
-                  name.contains('wifi') ||
-                  name.contains('wl') ||
-                  name.startsWith('wlp') ||
-                  name.startsWith('wlo'))) {
-            wifiIp = ip;
-          }
-        }
-      }
-
-      return wifiIp ?? anyIp;
+      return selectUsableLanIpv4(
+        interfaces.expand(
+          (interface) => interface.addresses.map(
+            (address) => LanAddressCandidate(
+              interfaceName: interface.name,
+              address: address.address,
+            ),
+          ),
+        ),
+      );
     } catch (e) {
       debugPrint('Failed to get device IP: $e');
       return null;
     }
+  }
+
+  @visibleForTesting
+  static String? selectUsableLanIpv4(Iterable<LanAddressCandidate> candidates) {
+    final usable = <({LanAddressCandidate candidate, int score})>[];
+    for (final candidate in candidates) {
+      final parsed = InternetAddress.tryParse(candidate.address.trim());
+      if (parsed == null ||
+          parsed.type != InternetAddressType.IPv4 ||
+          parsed.isLoopback ||
+          parsed.isLinkLocal ||
+          parsed.isMulticast ||
+          parsed.address == '0.0.0.0' ||
+          parsed.address == '255.255.255.255') {
+        continue;
+      }
+
+      final name = candidate.interfaceName.toLowerCase();
+      if (name == 'lo' || name.startsWith('loopback')) continue;
+      final isWifi =
+          name.contains('wifi') ||
+          name.contains('wlan') ||
+          name.startsWith('wl');
+      final isEthernet =
+          name.contains('ethernet') ||
+          name.startsWith('eth') ||
+          name.startsWith('en');
+      final isCellular =
+          name.startsWith('rmnet') ||
+          name.startsWith('wwan') ||
+          name.startsWith('pdp_ip') ||
+          name.startsWith('ccmni');
+      if (isCellular) continue;
+      final networkScore = (isWifi || isEthernet) ? 0 : 1;
+      final addressScore = _isPrivateLanIpv4(parsed.address) ? 0 : 1;
+      usable.add((
+        candidate: candidate,
+        score: addressScore * 2 + networkScore,
+      ));
+    }
+    usable.sort((a, b) => a.score.compareTo(b.score));
+    return usable.isEmpty ? null : usable.first.candidate.address.trim();
+  }
+
+  static bool _isPrivateLanIpv4(String address) {
+    final parts = address.split('.').map(int.tryParse).toList();
+    if (parts.length != 4 || parts.any((part) => part == null)) return false;
+    final first = parts[0]!;
+    final second = parts[1]!;
+    return first == 10 ||
+        (first == 172 && second >= 16 && second <= 31) ||
+        (first == 192 && second == 168);
+  }
+
+  Future<void> refreshLanAddress() async {
+    final generation = ++_lanAddressRefreshGeneration;
+    final nextAddress = _publicMode ? await getDeviceIpAddress() : null;
+    if (generation != _lanAddressRefreshGeneration) return;
+    if (_lanAddress == nextAddress) return;
+    _lanAddress = nextAddress;
+    notifyListeners();
+  }
+
+  void _syncLanAddressPolling() {
+    _lanAddressPollingTimer?.cancel();
+    _lanAddressPollingTimer = null;
+    if (!_publicMode) {
+      _lanAddressRefreshGeneration++;
+      if (_lanAddress != null) {
+        _lanAddress = null;
+      }
+      return;
+    }
+    unawaited(refreshLanAddress());
+    _lanAddressPollingTimer = Timer.periodic(
+      const Duration(seconds: 3),
+      (_) => refreshLanAddress(),
+    );
+  }
+
+  @visibleForTesting
+  void setLanAddressForTest(String? address) {
+    _lanAddressRefreshGeneration++;
+    _lanAddress = address;
+    notifyListeners();
   }
 
   Future<void> init() async {
@@ -277,6 +366,7 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
     _binaryPath = prefs.getString('binaryPath') ?? '';
     _arguments = prefs.getString('arguments') ?? '';
     _publicMode = prefs.getBool('publicMode') ?? false;
+    _host = _publicMode ? '0.0.0.0' : _host;
     _syncAdapterConfiguration();
 
     final themeIndex = prefs.getInt('theme_mode') ?? 0;
@@ -300,7 +390,7 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
 
     if (Platform.isAndroid) {
       _port = 18800;
-      _host = '127.0.0.1';
+      _host = _publicMode ? '0.0.0.0' : '127.0.0.1';
       try {
         _autoStart = await PicoClawChannel.getAutoStart();
         _workspacePath = await _adapter.getWorkspacePath();
@@ -308,6 +398,7 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
       } catch (_) {}
       _startNativePolling();
     }
+    _syncLanAddressPolling();
 
     try {
       _adapter.setLogHandler(_addLog);
@@ -373,6 +464,7 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     switch (state) {
       case AppLifecycleState.resumed:
+        if (_publicMode) unawaited(refreshLanAddress());
         unawaited(recordTelemetryForeground());
         unawaited(_autoUploadDeviceFeedbackIfNeeded());
         break;
@@ -1169,18 +1261,75 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
       if (binaryPath != null) _binaryPath = binaryPath;
     }
     if (arguments != null) _arguments = arguments;
-    if (publicMode != null) _publicMode = publicMode;
+    if (publicMode != null) {
+      _publicMode = publicMode;
+      _host = publicMode ? '0.0.0.0' : host;
+    }
     _syncAdapterConfiguration();
 
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('host', host);
+    await prefs.setString('host', _host);
     await prefs.setInt('port', port);
     if (!(Platform.isWindows || Platform.isAndroid)) {
       if (binaryPath != null) await prefs.setString('binaryPath', binaryPath);
     }
     if (arguments != null) await prefs.setString('arguments', arguments);
     await prefs.setBool('publicMode', _publicMode);
+    _syncLanAddressPolling();
     notifyListeners();
+  }
+
+  /// Applies Public Mode transactionally. On a running Android service this
+  /// asks the launcher to replace only port 18800's listeners and persists the
+  /// setting only after the new bind succeeds. A failed bind reports the
+  /// listener mode restored by the launcher.
+  Future<bool> applyPublicMode(
+    bool value, {
+    required int port,
+    String? arguments,
+  }) async {
+    if (_isApplyingPublicMode) return false;
+    _publicModeApplyError = null;
+
+    if (!Platform.isAndroid || _status != ServiceStatus.running) {
+      await updateConfig(
+        value ? '0.0.0.0' : '127.0.0.1',
+        port,
+        arguments: arguments,
+        publicMode: value,
+      );
+      return true;
+    }
+
+    _isApplyingPublicMode = true;
+    notifyListeners();
+    try {
+      final result = await PicoClawChannel.applyPublicMode(value);
+      await updateConfig(
+        result.publicMode ? '0.0.0.0' : '127.0.0.1',
+        port,
+        arguments: arguments,
+        publicMode: result.publicMode,
+      );
+      if (!result.success || result.publicMode != value) {
+        _publicModeApplyError = result.message.isNotEmpty
+            ? result.message
+            : (value
+                  ? 'Could not enable LAN access. PocketClaw remains available locally.'
+                  : 'Could not disable LAN access. PocketClaw remains in its previous network mode.');
+        return false;
+      }
+      await refreshLanAddress();
+      return true;
+    } catch (_) {
+      _publicModeApplyError = value
+          ? 'Could not enable LAN access. PocketClaw remains available locally.'
+          : 'Could not disable LAN access. PocketClaw remains in its previous network mode.';
+      return false;
+    } finally {
+      _isApplyingPublicMode = false;
+      notifyListeners();
+    }
   }
 
   Future<bool> validateBinary([String? path]) async {
@@ -1288,6 +1437,7 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
     _deviceFeedbackRetryTimer?.cancel();
     _notifyTimer?.cancel();
     _nativePollingTimer?.cancel();
+    _lanAddressPollingTimer?.cancel();
     for (final subscription in _signalSubscriptions) {
       subscription.cancel();
     }

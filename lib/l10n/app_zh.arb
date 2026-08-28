@@ -36,6 +36,7 @@
   "coreValid": "核心二进制文件有效。",
   "publicMode": "公共模式",
   "publicModeHintDesc": "开启后服务将允许外部访问，地址栏将被禁用",
+  "publicModeApplying": "正在应用网络模式...",
   "themeSelection": "主题",
   "check": "检查",
   "launchService": "启动服务",
@@ -62,7 +63,7 @@
   "deviceReportingUploadSucceeded": "已开启设备兼容反馈",
   "deviceReportingUploadFailed": "已开启设备兼容反馈，当前设备信息同步未完成",
   "deviceReportingDisabled": "已关闭设备兼容反馈",
-  "localModeHint": "1. 进入服务配置\n2. 打开公共模式\n3. 重启服务\n4. 扫描二维码访问PocketClaw",
+  "localModeHint": "1. 进入服务配置\n2. 打开公共模式\n3. 扫描二维码访问PocketClaw",
   "publicModeHint": "1. 启动服务\n2. 扫描二维码访问PocketClaw",
   "@coreUnknownError": {
     "placeholders": {

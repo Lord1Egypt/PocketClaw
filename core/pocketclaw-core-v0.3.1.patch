@@ -2284,6 +2284,102 @@ index d7c6553..466c7c5 100644
  	}
  	return nil
  }
+diff --git a/pkg/channels/manager_test.go b/pkg/channels/manager_test.go
+index a7ceac6..9e6e5e8 100644
+--- a/pkg/channels/manager_test.go
++++ b/pkg/channels/manager_test.go
+@@ -2,8 +2,13 @@ package channels
+ 
+ import (
+ 	"context"
++	"encoding/json"
+ 	"errors"
+ 	"fmt"
++	"net/http"
++	"net/http/httptest"
++	"os"
++	"path/filepath"
+ 	"strings"
+ 	"sync"
+ 	"sync/atomic"
+@@ -15,6 +20,7 @@ import (
+ 	"github.com/sipeed/picoclaw/pkg/bus"
+ 	"github.com/sipeed/picoclaw/pkg/config"
+ 	runtimeevents "github.com/sipeed/picoclaw/pkg/events"
++	"github.com/sipeed/picoclaw/pkg/logger"
+ 	"github.com/sipeed/picoclaw/pkg/media"
+ 	"github.com/sipeed/picoclaw/pkg/utils"
+ )
+@@ -31,6 +37,69 @@ type mockChannel struct {
+ 	lastPlaceholderID string
+ }
+ 
++type mockPicoWebhookChannel struct {
++	mockChannel
++}
++
++func (m *mockPicoWebhookChannel) WebhookPath() string { return "/pico/" }
++
++func (m *mockPicoWebhookChannel) ServeHTTP(w http.ResponseWriter, _ *http.Request) {
++	w.WriteHeader(http.StatusNoContent)
++}
++
++// This exercises the real Manager startup registration and logger, rather
++// than feeding a synthetic pre-sanitized line directly to a display helper.
++func TestSetupHTTPServerNormalizesInternalPicoWebhookRouteInStartupLog(t *testing.T) {
++	initialLevel := logger.GetLevel()
++	logger.DisableFileLogging()
++	logger.SetLevel(logger.INFO)
++	logger.SetConsoleLevel(logger.INFO)
++	logger.DisableConsole()
++	t.Cleanup(func() {
++		logger.DisableFileLogging()
++		logger.EnableConsole()
++		logger.SetConsoleLevel(initialLevel)
++		logger.SetLevel(initialLevel)
++	})
++
++	logPath := filepath.Join(t.TempDir(), "startup.log")
++	if err := logger.EnableFileLogging(logPath); err != nil {
++		t.Fatalf("EnableFileLogging: %v", err)
++	}
++
++	webhook := &mockPicoWebhookChannel{}
++	manager := &Manager{channels: map[string]Channel{"pico": webhook}}
++	manager.SetupHTTPServer(":0", nil)
++
++	recorder := httptest.NewRecorder()
++	manager.httpServer.Handler.ServeHTTP(
++		recorder,
++		httptest.NewRequest(http.MethodGet, "/pico/", nil),
++	)
++	if recorder.Code != http.StatusNoContent {
++		t.Fatalf("actual /pico/ route status = %d, want %d", recorder.Code, http.StatusNoContent)
++	}
++
++	raw, err := os.ReadFile(logPath)
++	if err != nil {
++		t.Fatalf("read startup log: %v", err)
++	}
++	for _, line := range strings.Split(strings.TrimSpace(string(raw)), "\n") {
++		var entry map[string]any
++		if err := json.Unmarshal([]byte(line), &entry); err != nil {
++			t.Fatalf("startup log line is not JSON: %q (%v)", line, err)
++		}
++		if entry["message"] != "Webhook handler registered" {
++			continue
++		}
++		if entry["channel"] != "pocketclaw" || entry["path"] != "<internal>" {
++			t.Fatalf("startup webhook display leaked internal route: %#v", entry)
++		}
++		return
++	}
++	t.Fatalf("startup webhook registration log missing from %q", raw)
++}
++
+ func (m *mockChannel) Send(ctx context.Context, msg bus.OutboundMessage) ([]string, error) {
+ 	m.sentMessages = append(m.sentMessages, msg)
+ 	if m.sendFn == nil {
 diff --git a/pkg/channels/mqtt/mqtt.go b/pkg/channels/mqtt/mqtt.go
 index c34bc79..4c7df81 100644
 --- a/pkg/channels/mqtt/mqtt.go
@@ -2380,10 +2476,51 @@ index 0000000..2aa4fec
 +	}
 +}
 diff --git a/pkg/channels/pico/pico.go b/pkg/channels/pico/pico.go
-index 587f889..32aaf84 100644
+index 587f889..511742a 100644
 --- a/pkg/channels/pico/pico.go
 +++ b/pkg/channels/pico/pico.go
-@@ -1202,9 +1202,8 @@ func (c *PicoChannel) handleMessageSend(pc *picoConn, msg PicoMessage) {
+@@ -44,6 +44,10 @@ var allowedInlineImageMIMETypes = map[string]struct{}{
+ 	"image/bmp":  {},
+ }
+ 
++// OwnerPrincipal is the server-derived identity used by PocketClaw's internal
++// realtime channel. Clients cannot select or override this principal.
++const OwnerPrincipal = config.PicoOwnerPrincipal
++
+ func outboundMessageIsThought(msg bus.OutboundMessage) bool {
+ 	if len(msg.Context.Raw) == 0 {
+ 		return false
+@@ -117,7 +121,9 @@ func NewPicoChannel(
+ 		return nil, fmt.Errorf("pico token is required")
+ 	}
+ 
+-	base := channels.NewBaseChannel("pico", cfg, messageBus, bc.AllowFrom)
++	// The internal realtime channel is owner-only regardless of client payload
++	// fields or a stale/permissive on-disk allowlist.
++	base := channels.NewBaseChannel("pico", cfg, messageBus, config.FlexibleStringSlice{OwnerPrincipal})
+ 
+ 	allowOrigins := cfg.AllowOrigins
+ 	checkOrigin := func(r *http.Request) bool {
+@@ -1187,13 +1193,13 @@ func (c *PicoChannel) handleMessageSend(pc *picoConn, msg PicoMessage) {
+ 		return
+ 	}
+ 
+-	sessionID := msg.SessionID
+-	if sessionID == "" {
+-		sessionID = pc.sessionID
+-	}
++	// Bind every inbound message to the authenticated connection. A client may
++	// include legacy session/identity-looking fields, but they never become the
++	// effective authorization identity or conversation routing key.
++	sessionID := pc.sessionID
+ 
+ 	chatID := "pico:" + sessionID
+-	senderID := "pico-user"
++	senderID := OwnerPrincipal
+ 
+ 	metadata := map[string]string{
+ 		"platform":   "pico",
+@@ -1202,9 +1208,8 @@ func (c *PicoChannel) handleMessageSend(pc *picoConn, msg PicoMessage) {
  	}
  
  	logger.DebugCF("pico", "Received message", map[string]any{
@@ -2395,6 +2532,83 @@ index 587f889..32aaf84 100644
  	})
  
  	sender := bus.SenderInfo{
+diff --git a/pkg/channels/pico/pico_test.go b/pkg/channels/pico/pico_test.go
+index b776b41..5a1d1b2 100644
+--- a/pkg/channels/pico/pico_test.go
++++ b/pkg/channels/pico/pico_test.go
+@@ -69,6 +69,72 @@ func TestHandleMessageSend_ForwardsMessageMetadata(t *testing.T) {
+ 	}
+ }
+ 
++func TestHandleMessageSend_IgnoresClientForgedIdentityAndSession(t *testing.T) {
++	msgBus := bus.NewMessageBus()
++	bc := &config.Channel{
++		Type:      config.ChannelPico,
++		Enabled:   true,
++		AllowFrom: config.FlexibleStringSlice{"*"},
++	}
++	cfg := &config.PicoSettings{}
++	cfg.SetToken("test-token")
++	ch, err := NewPicoChannel(bc, cfg, msgBus)
++	if err != nil {
++		t.Fatal(err)
++	}
++	ch.ctx = context.Background()
++
++	ch.handleMessageSend(&picoConn{id: "conn-1", sessionID: "server-session"}, PicoMessage{
++		Type:      TypeMessageSend,
++		ID:        "msg-1",
++		SessionID: "client-forged-session",
++		Payload: map[string]any{
++			PayloadKeyContent: "hello",
++			"sender_id":       OwnerPrincipal,
++			"chat_id":         "forged-chat",
++			"owner_id":        OwnerPrincipal,
++			"principal":       OwnerPrincipal,
++			"user_id":         OwnerPrincipal,
++			"allow_from":      []string{"*"},
++		},
++	})
++
++	select {
++	case inbound := <-msgBus.InboundChan():
++		if inbound.SenderID != OwnerPrincipal || inbound.Context.SenderID != OwnerPrincipal {
++			t.Fatalf("effective sender = %q/%q, want server owner", inbound.SenderID, inbound.Context.SenderID)
++		}
++		if inbound.ChatID != "pico:server-session" || inbound.Context.ChatID != "pico:server-session" {
++			t.Fatalf("effective chat = %q/%q, want connection-bound session", inbound.ChatID, inbound.Context.ChatID)
++		}
++		if got := inbound.Context.Raw["session_id"]; got != "server-session" {
++			t.Fatalf("session metadata = %q, want server-session", got)
++		}
++	case <-time.After(time.Second):
++		t.Fatal("authorized server-derived owner did not reach the message bus")
++	}
++}
++
++func TestNewPicoChannelEnforcesOnlyServerOwnerPrincipal(t *testing.T) {
++	bc := &config.Channel{
++		Type:      config.ChannelPico,
++		Enabled:   true,
++		AllowFrom: config.FlexibleStringSlice{"*"},
++	}
++	cfg := &config.PicoSettings{}
++	cfg.SetToken("test-token")
++	ch, err := NewPicoChannel(bc, cfg, bus.NewMessageBus())
++	if err != nil {
++		t.Fatal(err)
++	}
++	if !ch.IsAllowedSender(bus.SenderInfo{Platform: "pico", PlatformID: OwnerPrincipal}) {
++		t.Fatal("server-derived owner principal was rejected")
++	}
++	if ch.IsAllowedSender(bus.SenderInfo{Platform: "pico", PlatformID: "attacker"}) {
++		t.Fatal("stale wildcard config bypassed owner-only authorization")
++	}
++}
++
+ func TestFinalizeTrackedToolFeedbackMessage_StopsTrackingBeforeEdit(t *testing.T) {
+ 	ch := &PicoChannel{
+ 		progress: channels.NewToolFeedbackAnimator(nil),
 diff --git a/pkg/channels/teams_webhook/teams_webhook.go b/pkg/channels/teams_webhook/teams_webhook.go
 index 8375634..59b684c 100644
 --- a/pkg/channels/teams_webhook/teams_webhook.go
@@ -2409,7 +2623,7 @@ index 8375634..59b684c 100644
  
  	titleBlock := adaptivecard.NewTextBlock(title, true)
 diff --git a/pkg/channels/telegram/telegram.go b/pkg/channels/telegram/telegram.go
-index d7265fb..0420b91 100644
+index d7265fb..ac7fb5b 100644
 --- a/pkg/channels/telegram/telegram.go
 +++ b/pkg/channels/telegram/telegram.go
 @@ -4,7 +4,6 @@ import (
@@ -2436,7 +2650,17 @@ index d7265fb..0420b91 100644
  )
  
  type TelegramChannel struct {
-@@ -89,24 +90,20 @@ func NewTelegramChannel(
+@@ -86,27 +87,30 @@ func NewTelegramChannel(
+ 	telegramCfg *config.TelegramSettings,
+ 	bus *bus.MessageBus,
+ ) (*TelegramChannel, error) {
++	if len(bc.AllowFrom) != 1 {
++		return nil, fmt.Errorf("telegram requires exactly one paired numeric owner")
++	}
++	ownerID, err := strconv.ParseInt(strings.TrimSpace(bc.AllowFrom[0]), 10, 64)
++	if err != nil || ownerID <= 0 {
++		return nil, fmt.Errorf("telegram requires exactly one paired numeric owner")
++	}
  	channelName := bc.Name()
  	var opts []telego.BotOption
  
@@ -2468,7 +2692,7 @@ index d7265fb..0420b91 100644
  
  	if baseURL := strings.TrimRight(strings.TrimSpace(telegramCfg.BaseURL), "/"); baseURL != "" {
  		opts = append(opts, telego.WithAPIServer(baseURL))
-@@ -481,18 +478,6 @@ func (c *TelegramChannel) EditMessage(ctx context.Context, chatID string, messag
+@@ -481,18 +485,6 @@ func (c *TelegramChannel) EditMessage(ctx context.Context, chatID string, messag
  			return nil
  		}
  
@@ -2487,7 +2711,7 @@ index d7265fb..0420b91 100644
  	}
  
  	return err
-@@ -1164,10 +1149,9 @@ func (c *TelegramChannel) handleMessages(ctx context.Context, messages []*telego
+@@ -1164,10 +1156,9 @@ func (c *TelegramChannel) handleMessages(ctx context.Context, messages []*telego
  	}
  
  	logger.DebugCF("telegram", "Received message", map[string]any{
@@ -2501,7 +2725,7 @@ index d7265fb..0420b91 100644
  	})
  
  	peerKind := "direct"
-@@ -1777,30 +1761,6 @@ func cryptoRandInt() int {
+@@ -1777,30 +1768,6 @@ func cryptoRandInt() int {
  	return int(binary.BigEndian.Uint32(b[:])) | 1 // ensure non-zero
  }
  
@@ -2532,6 +2756,150 @@ index d7265fb..0420b91 100644
  // VoiceCapabilities returns the voice capabilities of the channel.
  func (c *TelegramChannel) VoiceCapabilities() channels.VoiceCapabilities {
  	return channels.VoiceCapabilities{ASR: true, TTS: true}
+diff --git a/pkg/channels/telegram/telegram_test.go b/pkg/channels/telegram/telegram_test.go
+index 19b181c..eb7d58d 100644
+--- a/pkg/channels/telegram/telegram_test.go
++++ b/pkg/channels/telegram/telegram_test.go
+@@ -164,6 +164,87 @@ func newTestChannelWithConstructor(
+ 	}
+ }
+ 
++type telegramAuthPlaceholderRecorder struct {
++	placeholders int
++}
++
++func (r *telegramAuthPlaceholderRecorder) RecordPlaceholder(_, _, _ string)       { r.placeholders++ }
++func (*telegramAuthPlaceholderRecorder) RecordTypingStop(_, _ string, _ func())   {}
++func (*telegramAuthPlaceholderRecorder) RecordReactionUndo(_, _ string, _ func()) {}
++
++func TestTelegramOwnerAuthorizationRejectsBeforeLifecycle(t *testing.T) {
++	caller := &stubCaller{
++		callFn: func(context.Context, string, *ta.RequestData) (*ta.Response, error) {
++			return successResponse(t), nil
++		},
++	}
++	ch := newTestChannel(t, caller)
++	msgBus := bus.NewMessageBus()
++	const ownerID int64 = 24680
++	ch.BaseChannel = channels.NewBaseChannel(
++		"telegram",
++		nil,
++		msgBus,
++		config.FlexibleStringSlice{strconv.FormatInt(ownerID, 10)},
++	)
++	ch.BaseChannel.SetRunning(true)
++	ch.bc.Placeholder.Enabled = true
++	ch.ctx = context.Background()
++	recorder := &telegramAuthPlaceholderRecorder{}
++	ch.SetOwner(ch)
++	ch.SetPlaceholderRecorder(recorder)
++
++	unauthorized := &telego.Message{
++		MessageID: 1,
++		From: &telego.User{
++			ID:        ownerID + 1,
++			Username:  "same_name",
++			FirstName: "Imposter",
++		},
++		Chat: telego.Chat{ID: 999, Type: "private"},
++		Text: "spend provider credits",
++	}
++	if err := ch.handleMessage(context.Background(), unauthorized); err != nil {
++		t.Fatal(err)
++	}
++	select {
++	case got := <-msgBus.InboundChan():
++		t.Fatalf("unauthorized sender reached Agent bus: %#v", got)
++	default:
++	}
++	if recorder.placeholders != 0 || len(caller.calls) != 0 {
++		t.Fatalf("unauthorized sender triggered Telegram lifecycle: placeholders=%d API calls=%d", recorder.placeholders, len(caller.calls))
++	}
++	if len(ch.chatIDs) != 0 {
++		t.Fatalf("unauthorized sender created routing/session state: %#v", ch.chatIDs)
++	}
++
++	owner := &telego.Message{
++		MessageID: 2,
++		From: &telego.User{
++			ID:        ownerID,
++			Username:  "renamed_owner",
++			FirstName: "Owner",
++		},
++		Chat: telego.Chat{ID: ownerID, Type: "private"},
++		Text: "hello",
++	}
++	if err := ch.handleMessage(context.Background(), owner); err != nil {
++		t.Fatal(err)
++	}
++	select {
++	case got := <-msgBus.InboundChan():
++		if got.Sender.PlatformID != strconv.FormatInt(ownerID, 10) {
++			t.Fatalf("accepted sender = %#v", got.Sender)
++		}
++	case <-time.After(time.Second):
++		t.Fatal("paired numeric owner was not accepted")
++	}
++	if recorder.placeholders != 1 {
++		t.Fatalf("owner placeholder count = %d, want 1", recorder.placeholders)
++	}
++}
++
+ func TestSendMedia_ImageFallbacksToDocumentOnInvalidDimensions(t *testing.T) {
+ 	constructor := &multipartRecordingConstructor{}
+ 	caller := &stubCaller{
+@@ -226,7 +307,7 @@ func TestDownloadFileWithInfo_AllowsLocalConfiguredBaseURL(t *testing.T) {
+ 	defer server.Close()
+ 
+ 	ch, err := NewTelegramChannel(
+-		&config.Channel{Type: config.ChannelTelegram, Enabled: true},
++		&config.Channel{Type: config.ChannelTelegram, Enabled: true, AllowFrom: config.FlexibleStringSlice{"24680"}},
+ 		&config.TelegramSettings{
+ 			Token:   *config.NewSecureString(testToken),
+ 			BaseURL: server.URL,
+@@ -1705,7 +1786,7 @@ func TestStopFlushesPendingMediaGroups(t *testing.T) {
+ 
+ func TestNewTelegramChannelUsesConfiguredMediaGroupDelay(t *testing.T) {
+ 	ch, err := NewTelegramChannel(
+-		&config.Channel{Type: config.ChannelTelegram, Enabled: true},
++		&config.Channel{Type: config.ChannelTelegram, Enabled: true, AllowFrom: config.FlexibleStringSlice{"24680"}},
+ 		&config.TelegramSettings{
+ 			Token:             *config.NewSecureString(testToken),
+ 			MediaGroupDelayMS: 750,
+@@ -1716,7 +1797,7 @@ func TestNewTelegramChannelUsesConfiguredMediaGroupDelay(t *testing.T) {
+ 	assert.Equal(t, 750*time.Millisecond, ch.mediaGroupDelay)
+ 
+ 	ch, err = NewTelegramChannel(
+-		&config.Channel{Type: config.ChannelTelegram, Enabled: true},
++		&config.Channel{Type: config.ChannelTelegram, Enabled: true, AllowFrom: config.FlexibleStringSlice{"24680"}},
+ 		&config.TelegramSettings{Token: *config.NewSecureString(testToken)},
+ 		bus.NewMessageBus(),
+ 	)
+@@ -1724,6 +1805,24 @@ func TestNewTelegramChannelUsesConfiguredMediaGroupDelay(t *testing.T) {
+ 	assert.Equal(t, defaultMediaGroupDelay, ch.mediaGroupDelay)
+ }
+ 
++func TestNewTelegramChannelRejectsOpenAuthorization(t *testing.T) {
++	for name, allowFrom := range map[string]config.FlexibleStringSlice{
++		"empty":    nil,
++		"wildcard": {"*"},
++		"username": {"mutable_username"},
++		"multiple": {"24680", "13579"},
++	} {
++		t.Run(name, func(t *testing.T) {
++			_, err := NewTelegramChannel(
++				&config.Channel{Type: config.ChannelTelegram, Enabled: true, AllowFrom: allowFrom},
++				&config.TelegramSettings{Token: *config.NewSecureString(testToken)},
++				bus.NewMessageBus(),
++			)
++			require.Error(t, err)
++		})
++	}
++}
++
+ func newMediaGroupTestChannel(delay time.Duration) (*bus.MessageBus, *TelegramChannel) {
+ 	messageBus := bus.NewMessageBus()
+ 	ch := &TelegramChannel{
 diff --git a/pkg/commands/cmd_start.go b/pkg/commands/cmd_start.go
 index 8b500aa..e5a424b 100644
 --- a/pkg/commands/cmd_start.go
@@ -2545,6 +2913,22 @@ index 8b500aa..e5a424b 100644
  		},
  	}
  }
+diff --git a/pkg/config/config_channel.go b/pkg/config/config_channel.go
+index b71ec79..7403a6c 100644
+--- a/pkg/config/config_channel.go
++++ b/pkg/config/config_channel.go
+@@ -17,7 +17,10 @@ import (
+ 
+ // Channel type constants — single source of truth for all channel type names.
+ const (
+-	ChannelPico           = "pico"
++	ChannelPico = "pico"
++	// PicoOwnerPrincipal is the Core-derived owner identity for PocketClaw's
++	// internal realtime channel. It is an authorization label, not a secret.
++	PicoOwnerPrincipal    = "pico-user"
+ 	ChannelPicoClient     = "pico_client"
+ 	ChannelTelegram       = "telegram"
+ 	ChannelDiscord        = "discord"
 diff --git a/pkg/gateway/gateway.go b/pkg/gateway/gateway.go
 index ec519e4..10c2731 100644
 --- a/pkg/gateway/gateway.go
@@ -2774,7 +3158,7 @@ index 0000000..e33c7cf
 +	}
 +}
 diff --git a/pkg/logger/logger.go b/pkg/logger/logger.go
-index 6d2e317..926e8b2 100644
+index 6d2e317..ab1b17b 100644
 --- a/pkg/logger/logger.go
 +++ b/pkg/logger/logger.go
 @@ -4,6 +4,7 @@ import (
@@ -2831,7 +3215,7 @@ index 6d2e317..926e8b2 100644
  func getPackageNameFromFile(filePath string) string {
  	dir := filepath.Dir(filePath)
  	importPath := filepath.ToSlash(dir)
-@@ -317,11 +350,92 @@ func logMessage(level LogLevel, component string, message string, fields map[str
+@@ -317,11 +350,100 @@ func logMessage(level LogLevel, component string, message string, fields map[str
  
  	event.Str(Component, component)
  
@@ -2893,6 +3277,11 @@ index 6d2e317..926e8b2 100644
 +		return fields
 +	}
 +
++	// Capture this relationship before channel display names are normalized.
++	// Otherwise the downstream user-visible sanitizer can no longer tell that
++	// /pico/ belongs to the internal realtime channel.
++	internalPicoRoute := fields["channel"] == "pico" && fields["path"] == "/pico/"
++
 +	safe := make(map[string]any, len(fields))
 +	for key, value := range fields {
 +		if _, omit := rawContentLogFields[key]; omit {
@@ -2909,6 +3298,9 @@ index 6d2e317..926e8b2 100644
 +
 +		switch typed := value.(type) {
 +		case string:
++			if internalPicoRoute && key == "path" {
++				typed = "<internal>"
++			}
 +			if _, channelField := channelDisplayFields[key]; channelField && typed == "pico" {
 +				typed = "pocketclaw"
 +			}
@@ -3358,10 +3750,10 @@ index 0000000..3debe81
 +	}
 +}
 diff --git a/pkg/logger/logger_test.go b/pkg/logger/logger_test.go
-index 7a7712d..252f865 100644
+index 7a7712d..610e970 100644
 --- a/pkg/logger/logger_test.go
 +++ b/pkg/logger/logger_test.go
-@@ -89,6 +89,72 @@ func TestLoggerWithComponent(t *testing.T) {
+@@ -89,6 +89,81 @@ func TestLoggerWithComponent(t *testing.T) {
  	SetLevel(INFO)
  }
  
@@ -3374,6 +3766,8 @@ index 7a7712d..252f865 100644
 +		"route_main_session": "sk_v1_SUPERSECRETVALUE",
 +		"chat_id":            "pico:1234",
 +		"sender_id":          "pico-user",
++		"channel":            "pico",
++		"path":               "/pico/",
 +		"route_channel":      "pico",
 +		"reasoning":          "private reasoning text",
 +		"messages_json":      "actual conversation contents",
@@ -3395,6 +3789,9 @@ index 7a7712d..252f865 100644
 +	if safe["route_channel"] != "pocketclaw" {
 +		t.Errorf("route_channel = %v, want pocketclaw display label", safe["route_channel"])
 +	}
++	if safe["channel"] != "pocketclaw" || safe["path"] != "<internal>" {
++		t.Errorf("internal realtime route was not normalized together: %#v", safe)
++	}
 +	for _, key := range []string{"reasoning", "messages_json", "tools_json"} {
 +		if _, exists := safe[key]; exists {
 +			t.Errorf("raw content field %s was retained", key)
@@ -3407,6 +3804,8 @@ index 7a7712d..252f865 100644
 +	if original["session_key"] != "sk_v1_SUPERSECRETVALUE" ||
 +		original["chat_id"] != "pico:1234" ||
 +		original["sender_id"] != "pico-user" ||
++		original["channel"] != "pico" ||
++		original["path"] != "/pico/" ||
 +		original["route_channel"] != "pico" {
 +		t.Fatalf("runtime field map was mutated: %#v", original)
 +	}
@@ -3420,6 +3819,8 @@ index 7a7712d..252f865 100644
 +
 +	original := map[string]any{
 +		"route_channel": "pico-test",
++		"channel":       "pocketclaw",
++		"path":          "/pico/",
 +		"component":     "picometer",
 +		"filename":      "my-pico-notes.txt",
 +	}
@@ -5371,10 +5772,10 @@ index 254c439..c2a09ee 100644
  build-frontend:
 diff --git a/web/backend/api/android_bridge.go b/web/backend/api/android_bridge.go
 new file mode 100644
-index 0000000..7248f11
+index 0000000..0e022a0
 --- /dev/null
 +++ b/web/backend/api/android_bridge.go
-@@ -0,0 +1,122 @@
+@@ -0,0 +1,255 @@
 +package api
 +
 +import (
@@ -5384,6 +5785,7 @@ index 0000000..7248f11
 +	"net/http"
 +	"strconv"
 +	"strings"
++	"time"
 +
 +	"github.com/sipeed/picoclaw/pkg/config"
 +)
@@ -5393,15 +5795,41 @@ index 0000000..7248f11
 +const AndroidBridgeTokenEnv = "POCKETCLAW_ANDROID_BRIDGE_TOKEN"
 +
 +const androidTelegramBridgePath = "/api/pocketclaw/android/telegram"
++const androidNetworkModeBridgePath = "/api/pocketclaw/android/network-mode"
++
++// LauncherNetworkModeController is implemented by the Dashboard HTTP runtime.
++// It deliberately has no Core lifecycle methods.
++type LauncherNetworkModeController interface {
++	ApplyPublicMode(public bool) error
++	PublicMode() bool
++}
++
++type launcherNetworkModeState struct {
++	Status string
++	Public bool
++	Target bool
++	Error  string
++}
++
++type androidNetworkModeRequest struct {
++	Public bool `json:"public"`
++}
++
++type androidNetworkModeResponse struct {
++	Status string `json:"status"`
++	Public bool   `json:"public"`
++	Target bool   `json:"target"`
++	Error  string `json:"error,omitempty"`
++}
 +
 +type androidTelegramCredentials struct {
 +	Token       string `json:"token"`
 +	OwnerUserID int64  `json:"owner_user_id,omitempty"`
 +}
 +
-+// RegisterAndroidBridgeRoutes exposes only the credential write needed after
-+// an explicit managed-pairing action in the Core console. Native Settings does
-+// not query Telegram state through this bridge.
++// RegisterAndroidBridgeRoutes exposes the narrow loopback-only operations the
++// Android host needs: managed Telegram pairing and Dashboard listener rebind.
++// Native Settings does not query Telegram state through this bridge.
 +func (h *Handler) RegisterAndroidBridgeRoutes(mux *http.ServeMux, bridgeToken string) {
 +	bridgeToken = strings.TrimSpace(bridgeToken)
 +	if bridgeToken == "" {
@@ -5414,6 +5842,112 @@ index 0000000..7248f11
 +			return
 +		}
 +		h.handleAndroidTelegramConfigure(w, r)
++	})
++	mux.HandleFunc("PUT "+androidNetworkModeBridgePath, func(w http.ResponseWriter, r *http.Request) {
++		if !authorizedAndroidBridgeRequest(r, bridgeToken) {
++			http.NotFound(w, r)
++			return
++		}
++		h.handleAndroidNetworkModeApply(w, r)
++	})
++	mux.HandleFunc("GET "+androidNetworkModeBridgePath, func(w http.ResponseWriter, r *http.Request) {
++		if !authorizedAndroidBridgeRequest(r, bridgeToken) {
++			http.NotFound(w, r)
++			return
++		}
++		h.handleAndroidNetworkModeStatus(w)
++	})
++}
++
++func (h *Handler) SetLauncherNetworkModeController(controller LauncherNetworkModeController) {
++	h.launcherNetworkModeMu.Lock()
++	defer h.launcherNetworkModeMu.Unlock()
++	h.launcherNetworkMode = controller
++	if controller != nil {
++		h.launcherNetworkModeState.Public = controller.PublicMode()
++		h.launcherNetworkModeState.Target = h.launcherNetworkModeState.Public
++	}
++	if h.launcherNetworkModeState.Status == "" {
++		h.launcherNetworkModeState.Status = "idle"
++	}
++}
++
++func (h *Handler) handleAndroidNetworkModeApply(w http.ResponseWriter, r *http.Request) {
++	var request androidNetworkModeRequest
++	decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1024))
++	decoder.DisallowUnknownFields()
++	if err := decoder.Decode(&request); err != nil {
++		http.Error(w, "Invalid request", http.StatusBadRequest)
++		return
++	}
++
++	h.launcherNetworkModeMu.Lock()
++	controller := h.launcherNetworkMode
++	if controller == nil {
++		h.launcherNetworkModeMu.Unlock()
++		http.Error(w, "Network mode control unavailable", http.StatusServiceUnavailable)
++		return
++	}
++	if h.launcherNetworkModeState.Status == "applying" {
++		h.launcherNetworkModeMu.Unlock()
++		http.Error(w, "Network mode change already in progress", http.StatusConflict)
++		return
++	}
++	h.launcherNetworkModeState = launcherNetworkModeState{
++		Status: "applying",
++		Public: controller.PublicMode(),
++		Target: request.Public,
++	}
++	response := h.launcherNetworkModeState
++	h.launcherNetworkModeMu.Unlock()
++
++	w.Header().Set("Content-Type", "application/json")
++	w.WriteHeader(http.StatusAccepted)
++	_ = json.NewEncoder(w).Encode(androidNetworkModeResponse{
++		Status: response.Status,
++		Public: response.Public,
++		Target: response.Target,
++	})
++
++	// Let the accepted response reach Android before replacing the listener
++	// which carried this request.
++	time.AfterFunc(100*time.Millisecond, func() {
++		err := controller.ApplyPublicMode(request.Public)
++		actualPublic := controller.PublicMode()
++		h.launcherNetworkModeMu.Lock()
++		defer h.launcherNetworkModeMu.Unlock()
++		h.launcherNetworkModeState.Public = actualPublic
++		h.launcherNetworkModeState.Target = request.Public
++		if err != nil {
++			h.launcherNetworkModeState.Status = "failed"
++			if request.Public {
++				h.launcherNetworkModeState.Error = "Could not enable LAN access. PocketClaw remains available locally."
++			} else {
++				h.launcherNetworkModeState.Error = "Could not disable LAN access. PocketClaw remains in its previous network mode."
++			}
++			return
++		}
++		h.launcherNetworkModeState.Status = "succeeded"
++		h.launcherNetworkModeState.Error = ""
++	})
++}
++
++func (h *Handler) handleAndroidNetworkModeStatus(w http.ResponseWriter) {
++	h.launcherNetworkModeMu.Lock()
++	state := h.launcherNetworkModeState
++	if h.launcherNetworkMode != nil && state.Status != "applying" {
++		state.Public = h.launcherNetworkMode.PublicMode()
++	}
++	h.launcherNetworkModeMu.Unlock()
++	if state.Status == "" {
++		state.Status = "idle"
++	}
++	w.Header().Set("Content-Type", "application/json")
++	_ = json.NewEncoder(w).Encode(androidNetworkModeResponse{
++		Status: state.Status,
++		Public: state.Public,
++		Target: state.Target,
++		Error:  state.Error,
 +	})
 +}
 +
@@ -5447,6 +5981,10 @@ index 0000000..7248f11
 +		http.Error(w, "Telegram token is required", http.StatusBadRequest)
 +		return
 +	}
++	if request.OwnerUserID <= 0 {
++		http.Error(w, "Telegram owner user ID is required", http.StatusBadRequest)
++		return
++	}
 +
 +	cfg, channel, settings, err := h.loadTelegramConfigForUpdate()
 +	if err != nil {
@@ -5456,11 +5994,7 @@ index 0000000..7248f11
 +	settings.Token.Set(request.Token)
 +	channel.Enabled = true
 +	channel.Type = config.ChannelTelegram
-+	if request.OwnerUserID > 0 {
-+		channel.AllowFrom = config.FlexibleStringSlice{strconv.FormatInt(request.OwnerUserID, 10)}
-+	} else {
-+		channel.AllowFrom = config.FlexibleStringSlice{}
-+	}
++	channel.AllowFrom = config.FlexibleStringSlice{strconv.FormatInt(request.OwnerUserID, 10)}
 +
 +	if err := config.SaveConfig(h.configPath, cfg); err != nil {
 +		http.Error(w, "Failed to save config", http.StatusInternalServerError)
@@ -5499,21 +6033,39 @@ index 0000000..7248f11
 +}
 diff --git a/web/backend/api/android_bridge_test.go b/web/backend/api/android_bridge_test.go
 new file mode 100644
-index 0000000..7c1d327
+index 0000000..5994949
 --- /dev/null
 +++ b/web/backend/api/android_bridge_test.go
-@@ -0,0 +1,128 @@
+@@ -0,0 +1,241 @@
 +package api
 +
 +import (
 +	"bytes"
++	"encoding/json"
++	"errors"
 +	"net/http"
 +	"net/http/httptest"
 +	"path/filepath"
 +	"testing"
++	"time"
 +
 +	"github.com/sipeed/picoclaw/pkg/config"
 +)
++
++type fakeNetworkModeController struct {
++	public bool
++	err    error
++}
++
++func (c *fakeNetworkModeController) ApplyPublicMode(public bool) error {
++	if c.err != nil {
++		return c.err
++	}
++	c.public = public
++	return nil
++}
++
++func (c *fakeNetworkModeController) PublicMode() bool { return c.public }
 +
 +const testAndroidBridgeToken = "process-local-test-bridge-token"
 +
@@ -5599,6 +6151,14 @@ index 0000000..7c1d327
 +			`{"token":"","owner_user_id":123}`,
 +			testAndroidBridgeToken,
 +		),
++		"missing owner": telegramBridgeRequest(
++			`{"token":"replacement-token"}`,
++			testAndroidBridgeToken,
++		),
++		"invalid owner": telegramBridgeRequest(
++			`{"token":"replacement-token","owner_user_id":0}`,
++			testAndroidBridgeToken,
++		),
 +	} {
 +		t.Run(name, func(t *testing.T) {
 +			rec := httptest.NewRecorder()
@@ -5618,7 +6178,7 @@ index 0000000..7c1d327
 +	path := writeAndroidBridgeTestConfig(t, "existing-child-token")
 +	mux := http.NewServeMux()
 +	NewHandler(path).RegisterAndroidBridgeRoutes(mux, testAndroidBridgeToken)
-+	req := telegramBridgeRequest(`{"token":"replacement-token"}`, testAndroidBridgeToken)
++	req := telegramBridgeRequest(`{"token":"replacement-token","owner_user_id":123}`, testAndroidBridgeToken)
 +	req.RemoteAddr = "192.0.2.10:48123"
 +
 +	rec := httptest.NewRecorder()
@@ -5631,6 +6191,227 @@ index 0000000..7c1d327
 +		t.Fatal("non-loopback request changed Telegram credentials")
 +	}
 +}
++
++func networkModeBridgeRequest(method, body, token string) *http.Request {
++	req := httptest.NewRequest(method, androidNetworkModeBridgePath, bytes.NewBufferString(body))
++	req.RemoteAddr = "127.0.0.1:48123"
++	req.Header.Set("X-PocketClaw-Android-Bridge", token)
++	return req
++}
++
++func readNetworkModeState(t *testing.T, mux *http.ServeMux) androidNetworkModeResponse {
++	t.Helper()
++	deadline := time.Now().Add(time.Second)
++	for {
++		recorder := httptest.NewRecorder()
++		mux.ServeHTTP(recorder, networkModeBridgeRequest(http.MethodGet, "", testAndroidBridgeToken))
++		if recorder.Code != http.StatusOK {
++			t.Fatalf("status endpoint = %d", recorder.Code)
++		}
++		var state androidNetworkModeResponse
++		if err := json.NewDecoder(recorder.Body).Decode(&state); err != nil {
++			t.Fatal(err)
++		}
++		if state.Status != "applying" {
++			return state
++		}
++		if time.Now().After(deadline) {
++			t.Fatal("network mode change did not complete")
++		}
++		time.Sleep(10 * time.Millisecond)
++	}
++}
++
++func TestAndroidNetworkModeBridgeAppliesThroughLoopbackCredential(t *testing.T) {
++	controller := &fakeNetworkModeController{}
++	handler := NewHandler(writeAndroidBridgeTestConfig(t, ""))
++	handler.SetLauncherNetworkModeController(controller)
++	mux := http.NewServeMux()
++	handler.RegisterAndroidBridgeRoutes(mux, testAndroidBridgeToken)
++
++	recorder := httptest.NewRecorder()
++	mux.ServeHTTP(recorder, networkModeBridgeRequest(
++		http.MethodPut,
++		`{"public":true}`,
++		testAndroidBridgeToken,
++	))
++	if recorder.Code != http.StatusAccepted {
++		t.Fatalf("apply status = %d, body=%s", recorder.Code, recorder.Body.String())
++	}
++	state := readNetworkModeState(t, mux)
++	if state.Status != "succeeded" || !state.Public || !controller.public {
++		t.Fatalf("state = %#v, controller public=%t", state, controller.public)
++	}
++}
++
++func TestAndroidNetworkModeBridgeReportsRollbackState(t *testing.T) {
++	controller := &fakeNetworkModeController{err: errors.New("injected bind failure")}
++	handler := NewHandler(writeAndroidBridgeTestConfig(t, ""))
++	handler.SetLauncherNetworkModeController(controller)
++	mux := http.NewServeMux()
++	handler.RegisterAndroidBridgeRoutes(mux, testAndroidBridgeToken)
++
++	recorder := httptest.NewRecorder()
++	mux.ServeHTTP(recorder, networkModeBridgeRequest(
++		http.MethodPut,
++		`{"public":true}`,
++		testAndroidBridgeToken,
++	))
++	if recorder.Code != http.StatusAccepted {
++		t.Fatalf("apply status = %d", recorder.Code)
++	}
++	state := readNetworkModeState(t, mux)
++	if state.Status != "failed" || state.Public || state.Error == "" {
++		t.Fatalf("rollback state = %#v", state)
++	}
++}
++
++func TestAndroidNetworkModeBridgeHidesRouteFromUnauthorizedCaller(t *testing.T) {
++	handler := NewHandler(writeAndroidBridgeTestConfig(t, ""))
++	handler.SetLauncherNetworkModeController(&fakeNetworkModeController{})
++	mux := http.NewServeMux()
++	handler.RegisterAndroidBridgeRoutes(mux, testAndroidBridgeToken)
++
++	recorder := httptest.NewRecorder()
++	mux.ServeHTTP(recorder, networkModeBridgeRequest(http.MethodPut, `{"public":true}`, "wrong-token"))
++	if recorder.Code != http.StatusNotFound {
++		t.Fatalf("unauthorized status = %d, want 404", recorder.Code)
++	}
++}
+diff --git a/web/backend/api/auth.go b/web/backend/api/auth.go
+index da07b76..abc7688 100644
+--- a/web/backend/api/auth.go
++++ b/web/backend/api/auth.go
+@@ -23,6 +23,7 @@ type PasswordStore interface {
+ // LauncherAuthRouteOpts configures dashboard auth handlers.
+ type LauncherAuthRouteOpts struct {
+ 	SessionCookie string
++	Sessions      *middleware.LauncherDashboardSessions
+ 	SecureCookie  func(*http.Request) bool
+ 	// PasswordStore enables password login. It must be non-nil for auth to work.
+ 	PasswordStore PasswordStore
+@@ -54,6 +55,7 @@ func RegisterLauncherAuthRoutes(mux *http.ServeMux, opts LauncherAuthRouteOpts)
+ 	}
+ 	h := &launcherAuthHandlers{
+ 		sessionCookie: opts.SessionCookie,
++		sessions:      opts.Sessions,
+ 		secureCookie:  secure,
+ 		store:         opts.PasswordStore,
+ 		storeErr:      opts.StoreError,
+@@ -67,6 +69,7 @@ func RegisterLauncherAuthRoutes(mux *http.ServeMux, opts LauncherAuthRouteOpts)
+ 
+ type launcherAuthHandlers struct {
+ 	sessionCookie string
++	sessions      *middleware.LauncherDashboardSessions
+ 	secureCookie  func(*http.Request) bool
+ 	store         PasswordStore
+ 	storeErr      error // set when the store failed to open; drives recovery messages
+@@ -129,7 +132,16 @@ func (h *launcherAuthHandlers) handleLogin(w http.ResponseWriter, r *http.Reques
+ 		return
+ 	}
+ 
+-	middleware.SetLauncherDashboardSessionCookie(w, r, h.sessionCookie, h.secureCookie)
++	sessionValue := h.sessionCookie
++	if h.sessions != nil {
++		sessionValue, err = h.sessions.Issue()
++		if err != nil {
++			w.WriteHeader(http.StatusServiceUnavailable)
++			_, _ = w.Write([]byte(`{"error":"dashboard session unavailable"}`))
++			return
++		}
++	}
++	middleware.SetLauncherDashboardSessionCookie(w, r, sessionValue, h.secureCookie)
+ 	w.WriteHeader(http.StatusOK)
+ 	_, _ = w.Write([]byte(`{"status":"ok"}`))
+ }
+@@ -159,6 +171,9 @@ func (h *launcherAuthHandlers) handleLogout(w http.ResponseWriter, r *http.Reque
+ 		return
+ 	}
+ 
++	if c, err := r.Cookie(middleware.LauncherDashboardCookieName); err == nil && h.sessions != nil {
++		h.sessions.Revoke(c.Value)
++	}
+ 	middleware.ClearLauncherDashboardSessionCookie(w, r, h.secureCookie)
+ 	w.WriteHeader(http.StatusOK)
+ 	_, _ = w.Write([]byte(`{"status":"ok"}`))
+@@ -168,7 +183,7 @@ func (h *launcherAuthHandlers) handleStatus(w http.ResponseWriter, r *http.Reque
+ 	w.Header().Set("Content-Type", "application/json")
+ 	authed := false
+ 	if c, err := r.Cookie(middleware.LauncherDashboardCookieName); err == nil {
+-		authed = subtle.ConstantTimeCompare([]byte(c.Value), []byte(h.sessionCookie)) == 1
++		authed = h.validSession(c.Value)
+ 	}
+ 	initialized, initErr := h.isStoreInitialized(r.Context())
+ 	if initErr != nil {
+@@ -219,7 +234,7 @@ func (h *launcherAuthHandlers) handleSetup(w http.ResponseWriter, r *http.Reques
+ 	if initialized {
+ 		authed := false
+ 		if c, err := r.Cookie(middleware.LauncherDashboardCookieName); err == nil {
+-			authed = subtle.ConstantTimeCompare([]byte(c.Value), []byte(h.sessionCookie)) == 1
++			authed = h.validSession(c.Value)
+ 		}
+ 		if !authed {
+ 			w.WriteHeader(http.StatusUnauthorized)
+@@ -262,6 +277,13 @@ func (h *launcherAuthHandlers) handleSetup(w http.ResponseWriter, r *http.Reques
+ 	_, _ = w.Write([]byte(`{"status":"ok"}`))
+ }
+ 
++func (h *launcherAuthHandlers) validSession(value string) bool {
++	if h.sessions != nil {
++		return h.sessions.Valid(value)
++	}
++	return subtle.ConstantTimeCompare([]byte(value), []byte(h.sessionCookie)) == 1
++}
++
+ // writeErrorf writes a JSON error response with a formatted message.
+ // json.Marshal is used to safely escape the message string.
+ func writeErrorf(w http.ResponseWriter, format string, args ...any) {
+diff --git a/web/backend/api/auth_test.go b/web/backend/api/auth_test.go
+index f7f6037..0d4d88e 100644
+--- a/web/backend/api/auth_test.go
++++ b/web/backend/api/auth_test.go
+@@ -103,6 +103,41 @@ func TestLauncherAuthLoginAndStatus(t *testing.T) {
+ 	})
+ }
+ 
++func TestLauncherAuthLogoutRevokesServerSession(t *testing.T) {
++	store := &fakePasswordStore{initialized: true, password: "dashboard-test-password"}
++	sessions := middleware.NewLauncherDashboardSessions(time.Hour)
++	mux := http.NewServeMux()
++	RegisterLauncherAuthRoutes(mux, LauncherAuthRouteOpts{
++		Sessions:      sessions,
++		PasswordStore: store,
++	})
++
++	login := httptest.NewRequest(http.MethodPost, "/api/auth/login", strings.NewReader(`{"password":"dashboard-test-password"}`))
++	login.Header.Set("Content-Type", "application/json")
++	login.RemoteAddr = "127.0.0.1:12345"
++	loginRec := httptest.NewRecorder()
++	mux.ServeHTTP(loginRec, login)
++	if loginRec.Code != http.StatusOK || len(loginRec.Result().Cookies()) != 1 {
++		t.Fatalf("login status=%d cookies=%#v", loginRec.Code, loginRec.Result().Cookies())
++	}
++	cookie := loginRec.Result().Cookies()[0]
++	if !sessions.Valid(cookie.Value) {
++		t.Fatal("issued login session is not active")
++	}
++
++	logout := httptest.NewRequest(http.MethodPost, "/api/auth/logout", strings.NewReader(`{}`))
++	logout.Header.Set("Content-Type", "application/json")
++	logout.AddCookie(cookie)
++	logoutRec := httptest.NewRecorder()
++	mux.ServeHTTP(logoutRec, logout)
++	if logoutRec.Code != http.StatusOK {
++		t.Fatalf("logout status=%d body=%s", logoutRec.Code, logoutRec.Body.String())
++	}
++	if sessions.Valid(cookie.Value) {
++		t.Fatal("logout did not revoke the server-side session")
++	}
++}
++
+ func TestLauncherAuthUninitializedStoreRequiresSetup(t *testing.T) {
+ 	const sess = "session-cookie-value"
+ 	store := &fakePasswordStore{}
 diff --git a/web/backend/api/gateway.go b/web/backend/api/gateway.go
 index af6c656..0a30a4f 100644
 --- a/web/backend/api/gateway.go
@@ -5673,10 +6454,190 @@ index af6c656..0a30a4f 100644
  
  	// Capture stdout/stderr in background
  	go scanPipe(stdoutPipe, gateway.logs)
+diff --git a/web/backend/api/gateway_host.go b/web/backend/api/gateway_host.go
+index 03af7a9..ef78080 100644
+--- a/web/backend/api/gateway_host.go
++++ b/web/backend/api/gateway_host.go
+@@ -30,13 +30,10 @@ func (h *Handler) effectiveLauncherPublic() bool {
+ }
+ 
+ func (h *Handler) gatewayHostOverride() string {
+-	if h.serverHostExplicit {
+-		return strings.TrimSpace(h.serverHostInput)
+-	}
+-	if h.effectiveLauncherPublic() {
+-		return "*"
+-	}
+-	return ""
++	// The launcher is the authenticated ingress for browser realtime traffic.
++	// Keep its managed gateway on loopback even when the launcher itself is
++	// intentionally exposed through an authenticated public/tunnel endpoint.
++	return "localhost"
+ }
+ 
+ func (h *Handler) effectiveGatewayBindHost(cfg *config.Config) string {
+diff --git a/web/backend/api/gateway_host_test.go b/web/backend/api/gateway_host_test.go
+index 54d1010..e52534b 100644
+--- a/web/backend/api/gateway_host_test.go
++++ b/web/backend/api/gateway_host_test.go
+@@ -15,7 +15,7 @@ import (
+ 	"github.com/sipeed/picoclaw/web/backend/launcherconfig"
+ )
+ 
+-func TestGatewayHostOverrideUsesExplicitRuntimePublic(t *testing.T) {
++func TestGatewayHostOverrideKeepsPublicLauncherGatewayLoopback(t *testing.T) {
+ 	configPath := filepath.Join(t.TempDir(), "config.json")
+ 	launcherPath := launcherconfig.PathForAppConfig(configPath)
+ 	if err := launcherconfig.Save(launcherPath, launcherconfig.Config{
+@@ -28,8 +28,8 @@ func TestGatewayHostOverrideUsesExplicitRuntimePublic(t *testing.T) {
+ 	h := NewHandler(configPath)
+ 	h.SetServerOptions(18800, true, true, nil)
+ 
+-	if got := h.gatewayHostOverride(); got != "*" {
+-		t.Fatalf("gatewayHostOverride() = %q, want %q", got, "*")
++	if got := h.gatewayHostOverride(); got != "localhost" {
++		t.Fatalf("gatewayHostOverride() = %q, want loopback", got)
+ 	}
+ }
+ 
+@@ -99,7 +99,7 @@ func TestGatewayProbeHostUsesFirstConcreteHostForMultiHostBind(t *testing.T) {
+ 	}
+ }
+ 
+-func TestGatewayProxyURLUsesConfiguredHost(t *testing.T) {
++func TestGatewayProxyURLIgnoresNonLoopbackConfiguredHost(t *testing.T) {
+ 	configPath := filepath.Join(t.TempDir(), "config.json")
+ 	h := NewHandler(configPath)
+ 
+@@ -110,12 +110,13 @@ func TestGatewayProxyURLUsesConfiguredHost(t *testing.T) {
+ 		t.Fatalf("SaveConfig() error = %v", err)
+ 	}
+ 
+-	if got := h.gatewayProxyURL().String(); got != "http://192.168.1.10:18791" {
+-		t.Fatalf("gatewayProxyURL() = %q, want %q", got, "http://192.168.1.10:18791")
++	want := "http://" + net.JoinHostPort(gatewayProbeHost("localhost"), "18791")
++	if got := h.gatewayProxyURL().String(); got != want {
++		t.Fatalf("gatewayProxyURL() = %q, want %q", got, want)
+ 	}
+ }
+ 
+-func TestGetGatewayHealthUsesConfiguredHost(t *testing.T) {
++func TestGetGatewayHealthUsesManagedLoopbackHost(t *testing.T) {
+ 	configPath := filepath.Join(t.TempDir(), "config.json")
+ 	h := NewHandler(configPath)
+ 
+@@ -138,8 +139,9 @@ func TestGetGatewayHealthUsesConfiguredHost(t *testing.T) {
+ 	_ = statusCode
+ 	_ = err
+ 
+-	if requestedURL != "http://192.168.1.10:18791/health" {
+-		t.Fatalf("health url = %q, want %q", requestedURL, "http://192.168.1.10:18791/health")
++	want := "http://" + net.JoinHostPort(gatewayProbeHost("localhost"), "18791") + "/health"
++	if requestedURL != want {
++		t.Fatalf("health url = %q, want %q", requestedURL, want)
+ 	}
+ }
+ 
+@@ -289,23 +291,23 @@ func TestBuildWsURLUsesRequestHostNotGatewayBindLoopback(t *testing.T) {
+ 	}
+ }
+ 
+-func TestGatewayHostOverrideWithExplicitHostAndAlignedGatewayHost(t *testing.T) {
++func TestGatewayHostOverrideDoesNotFollowExplicitWildcardLauncherHost(t *testing.T) {
+ 	h := NewHandler(filepath.Join(t.TempDir(), "config.json"))
+ 	h.SetServerOptions(18800, false, false, nil)
+ 	h.SetServerBindHost("0.0.0.0", true)
+ 
+-	if got := h.gatewayHostOverride(); got != "0.0.0.0" {
+-		t.Fatalf("gatewayHostOverride() = %q, want %q", got, "0.0.0.0")
++	if got := h.gatewayHostOverride(); got != "localhost" {
++		t.Fatalf("gatewayHostOverride() = %q, want loopback", got)
+ 	}
+ }
+ 
+-func TestGatewayHostOverrideWithExplicitHostAndLocalhostGatewayHost(t *testing.T) {
++func TestGatewayHostOverrideDoesNotFollowExplicitIPv6WildcardLauncherHost(t *testing.T) {
+ 	h := NewHandler(filepath.Join(t.TempDir(), "config.json"))
+ 	h.SetServerOptions(18800, false, false, nil)
+ 	h.SetServerBindHost("::", true)
+ 
+-	if got := h.gatewayHostOverride(); got != "::" {
+-		t.Fatalf("gatewayHostOverride() = %q, want %q", got, "::")
++	if got := h.gatewayHostOverride(); got != "localhost" {
++		t.Fatalf("gatewayHostOverride() = %q, want loopback", got)
+ 	}
+ }
+ 
+@@ -314,8 +316,8 @@ func TestGatewayHostOverrideWithExplicitMultiHost(t *testing.T) {
+ 	h.SetServerOptions(18800, false, false, nil)
+ 	h.SetServerBindHost("127.0.0.1,::1", true)
+ 
+-	if got := h.gatewayHostOverride(); got != "127.0.0.1,::1" {
+-		t.Fatalf("gatewayHostOverride() = %q, want %q", got, "127.0.0.1,::1")
++	if got := h.gatewayHostOverride(); got != "localhost" {
++		t.Fatalf("gatewayHostOverride() = %q, want loopback", got)
+ 	}
+ }
+ 
 diff --git a/web/backend/api/gateway_test.go b/web/backend/api/gateway_test.go
-index 3e118cd..8dcea36 100644
+index 3e118cd..c708cdc 100644
 --- a/web/backend/api/gateway_test.go
 +++ b/web/backend/api/gateway_test.go
+@@ -244,7 +244,7 @@ func startGatewayAndCaptureEnv(t *testing.T, h *Handler) gatewayStartEnvSnapshot
+ 	}
+ }
+ 
+-func TestStartGatewayLocked_ForwardsLauncherHostOverrideToGatewayEnv(t *testing.T) {
++func TestStartGatewayLocked_ForcesLoopbackDespiteLauncherHost(t *testing.T) {
+ 	h := newGatewayStartTestHandler(t)
+ 	h.SetServerBindHost("127.0.0.1,::1", true)
+ 
+@@ -252,15 +252,15 @@ func TestStartGatewayLocked_ForwardsLauncherHostOverrideToGatewayEnv(t *testing.
+ 	if !snapshot.GatewayHostSet {
+ 		t.Fatal("gateway host env was not set")
+ 	}
+-	if snapshot.GatewayHost != "127.0.0.1,::1" {
+-		t.Fatalf("gateway host env = %q, want %q", snapshot.GatewayHost, "127.0.0.1,::1")
++	if snapshot.GatewayHost != "localhost" {
++		t.Fatalf("gateway host env = %q, want loopback", snapshot.GatewayHost)
+ 	}
+ 	if snapshot.ConfigPath != h.configPath {
+ 		t.Fatalf("config env = %q, want %q", snapshot.ConfigPath, h.configPath)
+ 	}
+ }
+ 
+-func TestStartGatewayLocked_ForwardsLauncherHostFromEnvironmentToGatewayEnv(t *testing.T) {
++func TestStartGatewayLocked_ForcesLoopbackDespiteIPv6WildcardLauncherHost(t *testing.T) {
+ 	h := newGatewayStartTestHandler(t)
+ 	h.SetServerBindHost("::", true)
+ 
+@@ -268,12 +268,12 @@ func TestStartGatewayLocked_ForwardsLauncherHostFromEnvironmentToGatewayEnv(t *t
+ 	if !snapshot.GatewayHostSet {
+ 		t.Fatal("gateway host env was not set")
+ 	}
+-	if snapshot.GatewayHost != "::" {
+-		t.Fatalf("gateway host env = %q, want %q", snapshot.GatewayHost, "::")
++	if snapshot.GatewayHost != "localhost" {
++		t.Fatalf("gateway host env = %q, want loopback", snapshot.GatewayHost)
+ 	}
+ }
+ 
+-func TestStartGatewayLocked_ForwardsWildcardHostForPublicLauncher(t *testing.T) {
++func TestStartGatewayLocked_ForcesLoopbackForPublicLauncher(t *testing.T) {
+ 	h := newGatewayStartTestHandler(t)
+ 	h.SetServerOptions(18800, true, true, nil)
+ 
+@@ -281,8 +281,8 @@ func TestStartGatewayLocked_ForwardsWildcardHostForPublicLauncher(t *testing.T)
+ 	if !snapshot.GatewayHostSet {
+ 		t.Fatal("gateway host env was not set")
+ 	}
+-	if snapshot.GatewayHost != "*" {
+-		t.Fatalf("gateway host env = %q, want %q", snapshot.GatewayHost, "*")
++	if snapshot.GatewayHost != "localhost" {
++		t.Fatalf("gateway host env = %q, want loopback", snapshot.GatewayHost)
+ 	}
+ }
+ 
 @@ -565,7 +565,7 @@ func TestGatewayCommandArgsIncludesDebugFlagWhenEnabled(t *testing.T) {
  	h.SetDebug(true)
  
@@ -6169,6 +7130,146 @@ index 7586a45..7ca7520 100644
  		string(payloadJSON),
  		html.EscapeString(title),
  		html.EscapeString(message),
+diff --git a/web/backend/api/pico.go b/web/backend/api/pico.go
+index 8eeff40..6d2d011 100644
+--- a/web/backend/api/pico.go
++++ b/web/backend/api/pico.go
+@@ -7,7 +7,6 @@ import (
+ 	"fmt"
+ 	"net/http"
+ 	"net/http/httputil"
+-	"time"
+ 
+ 	"github.com/sipeed/picoclaw/pkg/config"
+ 	"github.com/sipeed/picoclaw/pkg/logger"
+@@ -218,7 +217,11 @@ func (h *Handler) handleRegenPicoToken(w http.ResponseWriter, r *http.Request) {
+ 		return
+ 	}
+ 
+-	token := generateSecureToken()
++	token, err := generateSecureToken()
++	if err != nil {
++		http.Error(w, "Failed to generate Pico credential", http.StatusInternalServerError)
++		return
++	}
+ 	if bc := cfg.Channels.GetByType(config.ChannelPico); bc != nil {
+ 		decoded, err := bc.GetDecoded()
+ 		if err == nil && decoded != nil {
+@@ -260,11 +263,20 @@ func (h *Handler) EnsurePicoChannel() (bool, error) {
+ 		bc.Enabled = true
+ 		changed = true
+ 	}
++	ownerAllowFrom := config.FlexibleStringSlice{config.PicoOwnerPrincipal}
++	if len(bc.AllowFrom) != 1 || bc.AllowFrom[0] != config.PicoOwnerPrincipal {
++		bc.AllowFrom = ownerAllowFrom
++		changed = true
++	}
+ 
+ 	if decoded, err := bc.GetDecoded(); err == nil && decoded != nil {
+ 		if picoCfg, ok := decoded.(*config.PicoSettings); ok {
+ 			if picoCfg.Token.String() == "" {
+-				picoCfg.Token = *config.NewSecureString(generateSecureToken())
++				token, tokenErr := generateSecureToken()
++				if tokenErr != nil {
++					return false, fmt.Errorf("failed to generate pico credential: %w", tokenErr)
++				}
++				picoCfg.Token = *config.NewSecureString(token)
+ 				changed = true
+ 			}
+ 		}
+@@ -299,12 +311,12 @@ func (h *Handler) handlePicoSetup(w http.ResponseWriter, r *http.Request) {
+ 	h.writePicoInfoResponse(w, r, cfg, &changed)
+ }
+ 
+-// generateSecureToken creates a random 32-character hex string.
+-func generateSecureToken() string {
++// generateSecureToken creates a random 32-character hex string. Credential
++// creation fails closed if the platform CSPRNG is unavailable.
++func generateSecureToken() (string, error) {
+ 	b := make([]byte, 16)
+ 	if _, err := rand.Read(b); err != nil {
+-		// Fallback to something pseudo-random if crypto/rand fails
+-		return fmt.Sprintf("%032x", time.Now().UnixNano())
++		return "", err
+ 	}
+-	return hex.EncodeToString(b)
++	return hex.EncodeToString(b), nil
+ }
+diff --git a/web/backend/api/pico_test.go b/web/backend/api/pico_test.go
+index 6f7cefd..b112359 100644
+--- a/web/backend/api/pico_test.go
++++ b/web/backend/api/pico_test.go
+@@ -51,6 +51,9 @@ func TestEnsurePicoChannel_FreshConfig(t *testing.T) {
+ 	if picoCfg.Token.String() == "" {
+ 		t.Error("expected a non-empty token after setup")
+ 	}
++	if len(bc.AllowFrom) != 1 || bc.AllowFrom[0] != config.PicoOwnerPrincipal {
++		t.Fatalf("allow_from = %#v, want owner-only principal", bc.AllowFrom)
++	}
+ }
+ 
+ func TestEnsurePicoChannel_DoesNotEnableTokenQuery(t *testing.T) {
+@@ -140,6 +143,7 @@ func TestEnsurePicoChannel_PreservesUserSettings(t *testing.T) {
+ 	picoCfg.SetToken("user-custom-token")
+ 	picoCfg.AllowTokenQuery = true
+ 	picoCfg.AllowOrigins = []string{"https://myapp.example.com"}
++	bc.AllowFrom = config.FlexibleStringSlice{config.PicoOwnerPrincipal}
+ 	if err = config.SaveConfig(configPath, cfg); err != nil {
+ 		t.Fatalf("SaveConfig() error = %v", err)
+ 	}
+@@ -176,6 +180,38 @@ func TestEnsurePicoChannel_PreservesUserSettings(t *testing.T) {
+ 	}
+ }
+ 
++func TestEnsurePicoChannel_ReplacesOpenAllowlist(t *testing.T) {
++	configPath := filepath.Join(t.TempDir(), "config.json")
++	cfg := config.DefaultConfig()
++	bc := cfg.Channels["pico"]
++	bc.Enabled = true
++	bc.AllowFrom = config.FlexibleStringSlice{"*"}
++	decoded, err := bc.GetDecoded()
++	if err != nil {
++		t.Fatal(err)
++	}
++	decoded.(*config.PicoSettings).SetToken("existing-token")
++	if err := config.SaveConfig(configPath, cfg); err != nil {
++		t.Fatal(err)
++	}
++
++	changed, err := NewHandler(configPath).EnsurePicoChannel()
++	if err != nil {
++		t.Fatal(err)
++	}
++	if !changed {
++		t.Fatal("wildcard allowlist must be hardened")
++	}
++	cfg, err = config.LoadConfig(configPath)
++	if err != nil {
++		t.Fatal(err)
++	}
++	bc = cfg.Channels["pico"]
++	if len(bc.AllowFrom) != 1 || bc.AllowFrom[0] != config.PicoOwnerPrincipal {
++		t.Fatalf("allow_from = %#v, want owner-only principal", bc.AllowFrom)
++	}
++}
++
+ func TestEnsurePicoChannel_ExistingConfigWithoutSecurityFile(t *testing.T) {
+ 	configPath := filepath.Join(t.TempDir(), "config.json")
+ 
+diff --git a/web/backend/api/router.go b/web/backend/api/router.go
+index abd3196..10d4251 100644
+--- a/web/backend/api/router.go
++++ b/web/backend/api/router.go
+@@ -27,6 +27,9 @@ type Handler struct {
+ 	weixinFlows                map[string]*weixinFlow
+ 	wecomMu                    sync.Mutex
+ 	wecomFlows                 map[string]*wecomFlow
++	launcherNetworkMode        LauncherNetworkModeController
++	launcherNetworkModeMu      sync.Mutex
++	launcherNetworkModeState   launcherNetworkModeState
+ }
+ 
+ // NewHandler creates an instance of the API handler.
 diff --git a/web/backend/api/skills_additive_test.go b/web/backend/api/skills_additive_test.go
 new file mode 100644
 index 0000000..da90072
@@ -6842,6 +7943,64 @@ index 0000000..91cf783
 +		t.Fatalf("representative startup retained routine Telegram poll: %q", rendered)
 +	}
 +}
+diff --git a/web/backend/app_runtime.go b/web/backend/app_runtime.go
+index a063965..a3e6e92 100644
+--- a/web/backend/app_runtime.go
++++ b/web/backend/app_runtime.go
+@@ -1,8 +1,6 @@
+ package main
+ 
+ import (
+-	"context"
+-	"errors"
+ 	"fmt"
+ 	"time"
+ 
+@@ -11,8 +9,7 @@ import (
+ )
+ 
+ const (
+-	browserDelay    = 500 * time.Millisecond
+-	shutdownTimeout = 15 * time.Second
++	browserDelay = 500 * time.Millisecond
+ )
+ 
+ // shutdownApp gracefully shuts down all server components and resources.
+@@ -34,31 +31,9 @@ func shutdownApp() {
+ 		apiHandler.Shutdown()
+ 	}
+ 
+-	if len(servers) > 0 {
+-		for _, srv := range servers {
+-			if srv == nil {
+-				continue
+-			}
+-
+-			// Disable keep-alive to allow graceful shutdown
+-			srv.SetKeepAlivesEnabled(false)
+-
+-			ctx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
+-			err := srv.Shutdown(ctx)
+-			cancel()
+-
+-			if err != nil {
+-				// Context deadline exceeded is expected if there are active connections
+-				// This is not necessarily an error, so log it at info level
+-				if errors.Is(err, context.DeadlineExceeded) {
+-					logger.Infof("Server shutdown timeout after %v, forcing close", shutdownTimeout)
+-				} else {
+-					logger.Errorf("Server shutdown error: %v", err)
+-				}
+-			} else {
+-				logger.Infof("Server shutdown completed successfully")
+-			}
+-		}
++	if httpRuntime != nil {
++		httpRuntime.Shutdown()
++		logger.Infof("Server shutdown completed successfully")
+ 	}
+ }
+ 
 diff --git a/web/backend/i18n.go b/web/backend/i18n.go
 index 9cda9e5..8ab2330 100644
 --- a/web/backend/i18n.go
@@ -6890,8 +8049,295 @@ index 9cda9e5..8ab2330 100644
  		DocUrl:             "https://docs.picoclaw.io/zh-Hans/docs/",
  	},
  }
+diff --git a/web/backend/launcher_http_runtime.go b/web/backend/launcher_http_runtime.go
+new file mode 100644
+index 0000000..69e0e79
+--- /dev/null
++++ b/web/backend/launcher_http_runtime.go
+@@ -0,0 +1,167 @@
++package main
++
++import (
++	"errors"
++	"fmt"
++	"net"
++	"net/http"
++	"sync"
++
++	"github.com/sipeed/picoclaw/pkg/logger"
++	"github.com/sipeed/picoclaw/pkg/netbind"
++)
++
++type launcherListenerGroup struct {
++	server   *http.Server
++	listener net.Listener
++
++	connectionsMu sync.Mutex
++	connections   map[net.Conn]struct{}
++}
++
++func newLauncherListenerGroup(handler http.Handler, listener net.Listener) *launcherListenerGroup {
++	group := &launcherListenerGroup{
++		listener:    listener,
++		connections: make(map[net.Conn]struct{}),
++	}
++	group.server = &http.Server{
++		Handler: handler,
++		ConnState: func(connection net.Conn, state http.ConnState) {
++			group.connectionsMu.Lock()
++			defer group.connectionsMu.Unlock()
++			switch state {
++			case http.StateNew, http.StateActive, http.StateIdle, http.StateHijacked:
++				group.connections[connection] = struct{}{}
++			case http.StateClosed:
++				delete(group.connections, connection)
++			}
++		},
++	}
++	return group
++}
++
++func (g *launcherListenerGroup) serve() {
++	logger.InfoC("web", fmt.Sprintf("Server listening on %s", g.listener.Addr().String()))
++	if err := g.server.Serve(g.listener); err != nil && !errors.Is(err, http.ErrServerClosed) && !errors.Is(err, net.ErrClosed) {
++		logger.ErrorC("web", fmt.Sprintf("Dashboard listener stopped unexpectedly on %s: %v", g.listener.Addr().String(), err))
++	}
++}
++
++func (g *launcherListenerGroup) close() {
++	g.server.SetKeepAlivesEnabled(false)
++	_ = g.server.Close()
++	_ = g.listener.Close()
++
++	// net/http does not own hijacked WebSocket connections after the upgrade.
++	// Close every connection associated with the old bind so a remote browser
++	// cannot retain access after Public Mode is disabled. Its authenticated
++	// session cookie remains valid and can reconnect through the new listener.
++	g.connectionsMu.Lock()
++	connections := make([]net.Conn, 0, len(g.connections))
++	for connection := range g.connections {
++		connections = append(connections, connection)
++	}
++	g.connections = make(map[net.Conn]struct{})
++	g.connectionsMu.Unlock()
++	for _, connection := range connections {
++		_ = connection.Close()
++	}
++}
++
++type launcherHTTPRuntime struct {
++	mu sync.Mutex
++
++	handler   http.Handler
++	hostInput string
++	port      string
++	public    bool
++	groups    []*launcherListenerGroup
++	open      func(string, bool, string) (netbind.OpenResult, error)
++}
++
++func newLauncherHTTPRuntime(
++	handler http.Handler,
++	hostInput string,
++	public bool,
++	initial netbind.OpenResult,
++) *launcherHTTPRuntime {
++	return &launcherHTTPRuntime{
++		handler:   handler,
++		hostInput: hostInput,
++		port:      initial.Port,
++		public:    public,
++		groups:    launcherListenerGroups(handler, initial.Listeners),
++		open:      openLauncherListeners,
++	}
++}
++
++func launcherListenerGroups(handler http.Handler, listeners []net.Listener) []*launcherListenerGroup {
++	groups := make([]*launcherListenerGroup, 0, len(listeners))
++	for _, listener := range listeners {
++		groups = append(groups, newLauncherListenerGroup(handler, listener))
++	}
++	return groups
++}
++
++func (r *launcherHTTPRuntime) Start() {
++	r.mu.Lock()
++	defer r.mu.Unlock()
++	r.startLocked()
++}
++
++func (r *launcherHTTPRuntime) startLocked() {
++	for _, group := range r.groups {
++		go group.serve()
++	}
++}
++
++func (r *launcherHTTPRuntime) closeLocked() {
++	for _, group := range r.groups {
++		group.close()
++	}
++	r.groups = nil
++}
++
++func (r *launcherHTTPRuntime) PublicMode() bool {
++	r.mu.Lock()
++	defer r.mu.Unlock()
++	return r.public
++}
++
++// ApplyPublicMode replaces only the authenticated Dashboard listeners. The
++// API handler, session store, gateway process, Telegram polling, and agent
++// runtime remain in the same launcher process.
++func (r *launcherHTTPRuntime) ApplyPublicMode(public bool) error {
++	r.mu.Lock()
++	defer r.mu.Unlock()
++	if public == r.public {
++		return nil
++	}
++
++	previousPublic := r.public
++	r.closeLocked()
++
++	result, err := r.open(r.hostInput, public, r.port)
++	if err == nil {
++		r.groups = launcherListenerGroups(r.handler, result.Listeners)
++		r.public = public
++		r.startLocked()
++		logger.InfoC("web", fmt.Sprintf("Dashboard Public Mode applied: public=%t", public))
++		return nil
++	}
++
++	rollback, rollbackErr := r.open(r.hostInput, previousPublic, r.port)
++	if rollbackErr != nil {
++		return fmt.Errorf("dashboard bind failed: %w; previous listener restore failed: %v", err, rollbackErr)
++	}
++	r.groups = launcherListenerGroups(r.handler, rollback.Listeners)
++	r.public = previousPublic
++	r.startLocked()
++	return fmt.Errorf("dashboard bind failed; previous listener restored: %w", err)
++}
++
++func (r *launcherHTTPRuntime) Shutdown() {
++	r.mu.Lock()
++	defer r.mu.Unlock()
++	r.closeLocked()
++}
+diff --git a/web/backend/launcher_http_runtime_test.go b/web/backend/launcher_http_runtime_test.go
+new file mode 100644
+index 0000000..ca16497
+--- /dev/null
++++ b/web/backend/launcher_http_runtime_test.go
+@@ -0,0 +1,108 @@
++package main
++
++import (
++	"errors"
++	"io"
++	"net"
++	"net/http"
++	"strings"
++	"sync/atomic"
++	"testing"
++	"time"
++
++	"github.com/sipeed/picoclaw/pkg/netbind"
++)
++
++func newTestLauncherRuntime(t *testing.T, public bool, handler http.Handler) *launcherHTTPRuntime {
++	t.Helper()
++	initial, err := openLauncherListeners("", public, "0")
++	if err != nil {
++		t.Fatal(err)
++	}
++	runtime := newLauncherHTTPRuntime(handler, "", public, initial)
++	runtime.Start()
++	t.Cleanup(runtime.Shutdown)
++	return runtime
++}
++
++func runtimeAddresses(runtime *launcherHTTPRuntime) []string {
++	runtime.mu.Lock()
++	defer runtime.mu.Unlock()
++	addresses := make([]string, 0, len(runtime.groups))
++	for _, group := range runtime.groups {
++		addresses = append(addresses, group.listener.Addr().String())
++	}
++	return addresses
++}
++
++func TestLauncherHTTPRuntimeAppliesPublicModeWithoutReplacingHandler(t *testing.T) {
++	var requests atomic.Int32
++	handler := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
++		requests.Add(1)
++		_, _ = io.WriteString(w, "same authenticated dashboard")
++	})
++	runtime := newTestLauncherRuntime(t, false, handler)
++	port := runtime.port
++
++	if err := runtime.ApplyPublicMode(true); err != nil {
++		t.Fatalf("OFF -> ON: %v", err)
++	}
++	if !runtime.PublicMode() {
++		t.Fatal("runtime did not enter Public Mode")
++	}
++	publicAddresses := strings.Join(runtimeAddresses(runtime), ",")
++	if !strings.Contains(publicAddresses, "0.0.0.0:") && !strings.Contains(publicAddresses, "[::]:") {
++		t.Fatalf("public listeners = %s, want wildcard", publicAddresses)
++	}
++
++	response, err := http.Get("http://" + net.JoinHostPort("127.0.0.1", port))
++	if err != nil {
++		t.Fatalf("Dashboard after OFF -> ON: %v", err)
++	}
++	_ = response.Body.Close()
++	if response.StatusCode != http.StatusOK || requests.Load() != 1 {
++		t.Fatalf("same handler was not served after rebind: status=%d requests=%d", response.StatusCode, requests.Load())
++	}
++
++	if err := runtime.ApplyPublicMode(false); err != nil {
++		t.Fatalf("ON -> OFF: %v", err)
++	}
++	if runtime.PublicMode() {
++		t.Fatal("runtime did not return to local mode")
++	}
++	localAddresses := strings.Join(runtimeAddresses(runtime), ",")
++	if strings.Contains(localAddresses, "0.0.0.0:") || strings.Contains(localAddresses, "[::]:") {
++		t.Fatalf("local listeners = %s, want loopback only", localAddresses)
++	}
++}
++
++func TestLauncherHTTPRuntimeRestoresPreviousListenerWhenNewBindFails(t *testing.T) {
++	runtime := newTestLauncherRuntime(t, false, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
++		w.WriteHeader(http.StatusNoContent)
++	}))
++	port := runtime.port
++	realOpen := runtime.open
++	runtime.open = func(hostInput string, public bool, requestedPort string) (netbind.OpenResult, error) {
++		if public {
++			return netbind.OpenResult{}, errors.New("injected wildcard bind failure")
++		}
++		return realOpen(hostInput, public, requestedPort)
++	}
++
++	if err := runtime.ApplyPublicMode(true); err == nil {
++		t.Fatal("ApplyPublicMode() succeeded despite injected bind failure")
++	}
++	if runtime.PublicMode() {
++		t.Fatal("failed rebind changed the actual mode")
++	}
++
++	client := &http.Client{Timeout: time.Second}
++	response, err := client.Get("http://" + net.JoinHostPort("127.0.0.1", port))
++	if err != nil {
++		t.Fatalf("restored local Dashboard is unavailable: %v", err)
++	}
++	_ = response.Body.Close()
++	if response.StatusCode != http.StatusNoContent {
++		t.Fatalf("restored Dashboard status = %d", response.StatusCode)
++	}
++}
 diff --git a/web/backend/main.go b/web/backend/main.go
-index 698e582..e9e25bb 100644
+index 698e582..96f3054 100644
 --- a/web/backend/main.go
 +++ b/web/backend/main.go
 @@ -26,6 +26,7 @@ import (
@@ -6911,6 +8357,17 @@ index 698e582..e9e25bb 100644
  
  	logPath   = "logs"
  	panicFile = "launcher_panic.log"
+@@ -47,8 +48,8 @@ const (
+ var (
+ 	appVersion = config.Version
+ 
+-	servers    []*http.Server
+-	serverAddr string
++	httpRuntime *launcherHTTPRuntime
++	serverAddr  string
+ 	// browserLaunchURL is opened by openBrowser() (auto-open + tray "open console").
+ 	browserLaunchURL string
+ 	apiHandler       *api.Handler
 @@ -398,6 +399,8 @@ func launcherAllowlistBypassLogPolicy(
  }
  
@@ -6929,8 +8386,33 @@ index 698e582..e9e25bb 100644
  	}
  
  	if hostOverrideActive && explicitPublic {
-@@ -675,21 +678,30 @@ func main() {
- 		ExpectedCookie: dashboardSessionCookie,
+@@ -572,10 +575,7 @@ func main() {
+ 	}
+ 	listeners := openResult.Listeners
+ 
+-	dashboardSessionCookie, dashErr := middleware.NewLauncherDashboardSessionCookie()
+-	if dashErr != nil {
+-		logger.Fatalf("Dashboard auth setup failed: %v", dashErr)
+-	}
++	dashboardSessions := middleware.NewLauncherDashboardSessions(0)
+ 
+ 	// Open the bcrypt password store (creates the DB file on first run).
+ 	authStore, authStoreErr := dashboardauth.New(picoHome)
+@@ -640,7 +640,7 @@ func main() {
+ 	mux := http.NewServeMux()
+ 
+ 	api.RegisterLauncherAuthRoutes(mux, api.LauncherAuthRouteOpts{
+-		SessionCookie: dashboardSessionCookie,
++		Sessions:      dashboardSessions,
+ 		PasswordStore: passwordStore,
+ 		StoreError:    authStoreErr,
+ 	})
+@@ -672,24 +672,35 @@ func main() {
+ 	}
+ 
+ 	dashAuth := middleware.LauncherDashboardAuth(middleware.LauncherDashboardAuthConfig{
+-		ExpectedCookie: dashboardSessionCookie,
++		Sessions:       dashboardSessions,
  		LocalAutoLogin: localAutoLogin,
  	}, accessControlledMux)
 +	appMux := http.NewServeMux()
@@ -6946,6 +8428,8 @@ index 698e582..e9e25bb 100644
  			),
  		),
  	)
++	httpRuntime = newLauncherHTTPRuntime(handler, hostInput, effectivePublic, openResult)
++	apiHandler.SetLauncherNetworkModeController(httpRuntime)
  
 -	// Print startup banner (console mode only).
 +	// Print startup banner (console mode only). Android captures stdout for a
@@ -6963,6 +8447,406 @@ index 698e582..e9e25bb 100644
  		fmt.Println()
  		if needsInitialSetup {
  			if *noBrowser {
+@@ -729,19 +740,9 @@ func main() {
+ 		apiHandler.TryAutoStartGateway()
+ 	}()
+ 
+-	// Start the server(s) in goroutines.
+-	servers = make([]*http.Server, 0, len(listeners))
+-	for _, ln := range listeners {
+-		srv := &http.Server{Handler: handler}
+-		servers = append(servers, srv)
+-
+-		go func(s *http.Server, l net.Listener) {
+-			logger.InfoC("web", fmt.Sprintf("Server listening on %s", l.Addr().String()))
+-			if serveErr := s.Serve(l); serveErr != nil && !errors.Is(serveErr, http.ErrServerClosed) {
+-				logger.Fatalf("Server failed to start on %s: %v", l.Addr().String(), serveErr)
+-			}
+-		}(srv, ln)
+-	}
++	// Start the authenticated Dashboard listener(s). The runtime can replace
++	// only these listeners when Android applies Public Mode; Core stays alive.
++	httpRuntime.Start()
+ 
+ 	defer shutdownApp()
+ 
+diff --git a/web/backend/main_test.go b/web/backend/main_test.go
+index 5795a46..793fc84 100644
+--- a/web/backend/main_test.go
++++ b/web/backend/main_test.go
+@@ -505,6 +505,45 @@ func TestOpenLauncherListeners_HonorsIPv6OnlyHost(t *testing.T) {
+ 	}
+ }
+ 
++func TestOpenLauncherListeners_DefaultModeBoundary(t *testing.T) {
++	t.Run("public off binds loopback only", func(t *testing.T) {
++		result, err := openLauncherListeners("", false, "0")
++		if err != nil {
++			t.Fatalf("openLauncherListeners() error = %v", err)
++		}
++		for _, listener := range result.Listeners {
++			t.Cleanup(func() { _ = listener.Close() })
++		}
++		if len(result.BindHosts) == 0 {
++			t.Fatal("loopback bind returned no hosts")
++		}
++		for _, host := range result.BindHosts {
++			if ip := net.ParseIP(host); ip == nil || !ip.IsLoopback() {
++				t.Fatalf("public-off bind host = %q, want loopback", host)
++			}
++		}
++	})
++
++	t.Run("public on binds wildcard", func(t *testing.T) {
++		result, err := openLauncherListeners("", true, "0")
++		if err != nil {
++			t.Fatalf("openLauncherListeners() error = %v", err)
++		}
++		for _, listener := range result.Listeners {
++			t.Cleanup(func() { _ = listener.Close() })
++		}
++		wildcard := false
++		for _, host := range result.BindHosts {
++			if netbind.IsUnspecifiedHost(host) {
++				wildcard = true
++			}
++		}
++		if !wildcard {
++			t.Fatalf("public-on bind hosts = %#v, want wildcard", result.BindHosts)
++		}
++	})
++}
++
+ func TestOpenLauncherListeners_SupportsExplicitMultiHost(t *testing.T) {
+ 	hasIPv4, hasIPv6 := netbind.DetectIPFamilies()
+ 	if !hasIPv4 || !hasIPv6 {
+diff --git a/web/backend/middleware/launcher_dashboard_auth.go b/web/backend/middleware/launcher_dashboard_auth.go
+index fd59958..4715295 100644
+--- a/web/backend/middleware/launcher_dashboard_auth.go
++++ b/web/backend/middleware/launcher_dashboard_auth.go
+@@ -16,8 +16,8 @@ import (
+ // LauncherDashboardCookieName is the HttpOnly cookie set after a successful password login.
+ const LauncherDashboardCookieName = "picoclaw_launcher_auth"
+ 
+-// launcherDashboardSessionMaxAgeSec is the dashboard session cookie lifetime (31 days).
+-const launcherDashboardSessionMaxAgeSec = 31 * 24 * 3600
++// launcherDashboardSessionMaxAgeSec is the dashboard session cookie lifetime.
++const launcherDashboardSessionMaxAgeSec = 24 * 3600
+ 
+ const (
+ 	launcherSessionCookieBytes = 32
+@@ -46,12 +46,88 @@ func randomURLToken(n int) (string, error) {
+ // LauncherDashboardAuthConfig holds runtime material for dashboard access checks.
+ type LauncherDashboardAuthConfig struct {
+ 	ExpectedCookie string
++	// Sessions is the authoritative server-side dashboard session store. When
++	// set, cookies are accepted only while their corresponding session remains
++	// live and has not been revoked.
++	Sessions *LauncherDashboardSessions
+ 	// LocalAutoLogin enables one-shot startup auto-login.
+ 	LocalAutoLogin *LauncherDashboardLocalAutoLogin
+ 	// SecureCookie sets the session cookie's Secure flag. If nil, DefaultLauncherDashboardSecureCookie is used.
+ 	SecureCookie func(*http.Request) bool
+ }
+ 
++// LauncherDashboardSessions tracks short-lived dashboard sessions in memory.
++// Session tokens are opaque, cryptographically random bearer values; only the
++// browser cookie contains the value and logs must never include it.
++type LauncherDashboardSessions struct {
++	mu       sync.Mutex
++	ttl      time.Duration
++	sessions map[string]time.Time
++	now      func() time.Time
++}
++
++// NewLauncherDashboardSessions creates an empty server-side session store.
++func NewLauncherDashboardSessions(ttl time.Duration) *LauncherDashboardSessions {
++	if ttl <= 0 {
++		ttl = time.Duration(launcherDashboardSessionMaxAgeSec) * time.Second
++	}
++	return &LauncherDashboardSessions{
++		ttl:      ttl,
++		sessions: make(map[string]time.Time),
++		now:      time.Now,
++	}
++}
++
++// Issue creates and records a fresh dashboard session.
++func (s *LauncherDashboardSessions) Issue() (string, error) {
++	if s == nil {
++		return "", errors.New("dashboard session store unavailable")
++	}
++	token, err := NewLauncherDashboardSessionCookie()
++	if err != nil {
++		return "", err
++	}
++	s.mu.Lock()
++	defer s.mu.Unlock()
++	s.sessions[token] = s.currentTime().Add(s.ttl)
++	return token, nil
++}
++
++// Valid reports whether token names a live, non-revoked session.
++func (s *LauncherDashboardSessions) Valid(token string) bool {
++	if s == nil || token == "" {
++		return false
++	}
++	s.mu.Lock()
++	defer s.mu.Unlock()
++	expires, ok := s.sessions[token]
++	if !ok {
++		return false
++	}
++	if !s.currentTime().Before(expires) {
++		delete(s.sessions, token)
++		return false
++	}
++	return true
++}
++
++// Revoke invalidates a session immediately.
++func (s *LauncherDashboardSessions) Revoke(token string) {
++	if s == nil || token == "" {
++		return
++	}
++	s.mu.Lock()
++	delete(s.sessions, token)
++	s.mu.Unlock()
++}
++
++func (s *LauncherDashboardSessions) currentTime() time.Time {
++	if s.now != nil {
++		return s.now()
++	}
++	return time.Now()
++}
++
+ // LauncherDashboardLocalAutoLogin is an in-memory, one-shot startup grant.
+ // It is not a reusable credential; it only lets the launcher-opened browser
+ // receive the current process session cookie.
+@@ -143,6 +219,10 @@ func LauncherDashboardAuth(cfg LauncherDashboardAuthConfig, next http.Handler) h
+ 			return
+ 		}
+ 		if validLauncherDashboardAuth(r, cfg) {
++			if p == "/pico/ws" && !validLauncherWebSocketOrigin(r) {
++				http.Error(w, "forbidden", http.StatusForbidden)
++				return
++			}
+ 			next.ServeHTTP(w, r)
+ 			return
+ 		}
+@@ -168,7 +248,16 @@ func handleLauncherLocalAutoLogin(w http.ResponseWriter, r *http.Request, cfg La
+ 		return
+ 	}
+ 	if cfg.LocalAutoLogin != nil && cfg.LocalAutoLogin.consume(r.URL.Query().Get("nonce")) {
+-		SetLauncherDashboardSessionCookie(w, r, cfg.ExpectedCookie, cfg.SecureCookie)
++		sessionValue := cfg.ExpectedCookie
++		if cfg.Sessions != nil {
++			var err error
++			sessionValue, err = cfg.Sessions.Issue()
++			if err != nil {
++				http.Error(w, "dashboard session unavailable", http.StatusServiceUnavailable)
++				return
++			}
++		}
++		SetLauncherDashboardSessionCookie(w, r, sessionValue, cfg.SecureCookie)
+ 		http.Redirect(w, r, "/", http.StatusSeeOther)
+ 		return
+ 	}
+@@ -289,6 +378,9 @@ func isPublicLauncherDashboardStatic(method, p string) bool {
+ 
+ func validLauncherDashboardAuth(r *http.Request, cfg LauncherDashboardAuthConfig) bool {
+ 	if c, err := r.Cookie(LauncherDashboardCookieName); err == nil {
++		if cfg.Sessions != nil {
++			return cfg.Sessions.Valid(c.Value)
++		}
+ 		if subtle.ConstantTimeCompare([]byte(c.Value), []byte(cfg.ExpectedCookie)) == 1 {
+ 			return true
+ 		}
+@@ -296,6 +388,22 @@ func validLauncherDashboardAuth(r *http.Request, cfg LauncherDashboardAuthConfig
+ 	return false
+ }
+ 
++func validLauncherWebSocketOrigin(r *http.Request) bool {
++	origin := strings.TrimSpace(r.Header.Get("Origin"))
++	if origin == "" {
++		return false
++	}
++	u, err := url.Parse(origin)
++	if err != nil || u.Host == "" || (u.Scheme != "http" && u.Scheme != "https") {
++		return false
++	}
++	expectedHost := strings.TrimSpace(strings.Split(r.Header.Get("X-Forwarded-Host"), ",")[0])
++	if expectedHost == "" {
++		expectedHost = strings.TrimSpace(r.Host)
++	}
++	return expectedHost != "" && strings.EqualFold(u.Host, expectedHost)
++}
++
+ func rejectLauncherDashboardAuth(w http.ResponseWriter, r *http.Request, canonicalPath string) {
+ 	if canonicalPath == "/pico/ws" {
+ 		http.Error(w, "unauthorized", http.StatusUnauthorized)
+diff --git a/web/backend/middleware/launcher_dashboard_auth_test.go b/web/backend/middleware/launcher_dashboard_auth_test.go
+index 871b6f6..14dd89d 100644
+--- a/web/backend/middleware/launcher_dashboard_auth_test.go
++++ b/web/backend/middleware/launcher_dashboard_auth_test.go
+@@ -24,6 +24,32 @@ func TestNewLauncherDashboardSessionCookie(t *testing.T) {
+ 	}
+ }
+ 
++func TestLauncherDashboardSessionsExpireAndRevoke(t *testing.T) {
++	now := time.Date(2026, 8, 28, 0, 0, 0, 0, time.UTC)
++	sessions := NewLauncherDashboardSessions(time.Minute)
++	sessions.now = func() time.Time { return now }
++	token, err := sessions.Issue()
++	if err != nil {
++		t.Fatal(err)
++	}
++	if !sessions.Valid(token) {
++		t.Fatal("fresh session must be valid")
++	}
++	sessions.Revoke(token)
++	if sessions.Valid(token) {
++		t.Fatal("revoked session must be rejected")
++	}
++
++	token, err = sessions.Issue()
++	if err != nil {
++		t.Fatal(err)
++	}
++	now = now.Add(time.Minute)
++	if sessions.Valid(token) {
++		t.Fatal("expired session must be rejected")
++	}
++}
++
+ func mustLocalAutoLogin(t *testing.T, ttl time.Duration) *LauncherDashboardLocalAutoLogin {
+ 	t.Helper()
+ 	autoLogin, err := NewLauncherDashboardLocalAutoLogin(ttl)
+@@ -140,8 +166,8 @@ func TestLauncherDashboardAuth_LocalAutoLogin(t *testing.T) {
+ 	if len(cookies) != 1 || cookies[0].Name != LauncherDashboardCookieName || cookies[0].Value != cookieVal {
+ 		t.Fatalf("cookies = %#v", cookies)
+ 	}
+-	if cookies[0].MaxAge != 31*24*3600 {
+-		t.Fatalf("session cookie MaxAge = %d, want 31 days", cookies[0].MaxAge)
++	if cookies[0].MaxAge != 24*3600 {
++		t.Fatalf("session cookie MaxAge = %d, want 24 hours", cookies[0].MaxAge)
+ 	}
+ 
+ 	rec = httptest.NewRecorder()
+@@ -263,3 +289,112 @@ func TestLauncherDashboardAuth_WebSocketUnauthorizedDoesNotRedirect(t *testing.T
+ 		t.Fatalf("Location = %q, want empty", got)
+ 	}
+ }
++
++func TestLauncherDashboardAuth_LANClientsStillRequireSession(t *testing.T) {
++	sessions := NewLauncherDashboardSessions(time.Hour)
++	called := 0
++	h := LauncherDashboardAuth(LauncherDashboardAuthConfig{Sessions: sessions}, http.HandlerFunc(
++		func(w http.ResponseWriter, _ *http.Request) {
++			called++
++			w.WriteHeader(http.StatusOK)
++		},
++	))
++
++	unauthenticated := httptest.NewRequest(http.MethodGet, "/api/config", nil)
++	unauthenticated.RemoteAddr = "192.168.1.50:40000"
++	unauthenticated.Host = "192.168.1.37:18800"
++	rec := httptest.NewRecorder()
++	h.ServeHTTP(rec, unauthenticated)
++	if rec.Code != http.StatusUnauthorized || called != 0 {
++		t.Fatalf("unauthenticated LAN request code=%d called=%d, want 401/0", rec.Code, called)
++	}
++
++	token, err := sessions.Issue()
++	if err != nil {
++		t.Fatal(err)
++	}
++	authenticated := httptest.NewRequest(http.MethodGet, "/api/config", nil)
++	authenticated.RemoteAddr = "192.168.1.50:40001"
++	authenticated.Host = "192.168.1.37:18800"
++	authenticated.AddCookie(&http.Cookie{Name: LauncherDashboardCookieName, Value: token})
++	rec = httptest.NewRecorder()
++	h.ServeHTTP(rec, authenticated)
++	if rec.Code != http.StatusOK || called != 1 {
++		t.Fatalf("authenticated LAN request code=%d called=%d, want 200/1", rec.Code, called)
++	}
++}
++
++func TestLauncherDashboardAuth_AuthenticatedLANWebSocketWorks(t *testing.T) {
++	sessions := NewLauncherDashboardSessions(time.Hour)
++	token, err := sessions.Issue()
++	if err != nil {
++		t.Fatal(err)
++	}
++	h := LauncherDashboardAuth(LauncherDashboardAuthConfig{Sessions: sessions}, http.HandlerFunc(
++		func(w http.ResponseWriter, _ *http.Request) {
++			w.WriteHeader(http.StatusSwitchingProtocols)
++		},
++	))
++
++	req := httptest.NewRequest(http.MethodGet, "/pico/ws", nil)
++	req.RemoteAddr = "10.0.0.50:40002"
++	req.Host = "10.0.0.24:18800"
++	req.Header.Set("Origin", "http://10.0.0.24:18800")
++	req.AddCookie(&http.Cookie{Name: LauncherDashboardCookieName, Value: token})
++	rec := httptest.NewRecorder()
++	h.ServeHTTP(rec, req)
++	if rec.Code != http.StatusSwitchingProtocols {
++		t.Fatalf("authenticated LAN websocket code=%d, want 101", rec.Code)
++	}
++}
++
++func TestLauncherDashboardAuth_WebSocketRequiresAuthenticatedSameOrigin(t *testing.T) {
++	sessions := NewLauncherDashboardSessions(time.Hour)
++	token, err := sessions.Issue()
++	if err != nil {
++		t.Fatal(err)
++	}
++	revokedToken, err := sessions.Issue()
++	if err != nil {
++		t.Fatal(err)
++	}
++	sessions.Revoke(revokedToken)
++	called := 0
++	h := LauncherDashboardAuth(LauncherDashboardAuthConfig{Sessions: sessions}, http.HandlerFunc(
++		func(w http.ResponseWriter, _ *http.Request) {
++			called++
++			w.WriteHeader(http.StatusSwitchingProtocols)
++		},
++	))
++
++	for _, tc := range []struct {
++		name   string
++		origin string
++		cookie string
++		want   int
++	}{
++		{name: "owner", origin: "http://launcher.local:18800", cookie: token, want: http.StatusSwitchingProtocols},
++		{name: "missing origin", cookie: token, want: http.StatusForbidden},
++		{name: "foreign origin", origin: "https://evil.example", cookie: token, want: http.StatusForbidden},
++		{name: "revoked session", origin: "http://launcher.local:18800", cookie: revokedToken, want: http.StatusUnauthorized},
++		{name: "forged cookie", origin: "http://launcher.local:18800", cookie: "pico-user", want: http.StatusUnauthorized},
++	} {
++		t.Run(tc.name, func(t *testing.T) {
++			rec := httptest.NewRecorder()
++			req := httptest.NewRequest(http.MethodGet, "http://launcher.local:18800/pico/ws", nil)
++			if tc.origin != "" {
++				req.Header.Set("Origin", tc.origin)
++			}
++			if tc.cookie != "" {
++				req.AddCookie(&http.Cookie{Name: LauncherDashboardCookieName, Value: tc.cookie})
++			}
++			h.ServeHTTP(rec, req)
++			if rec.Code != tc.want {
++				t.Fatalf("status = %d, want %d", rec.Code, tc.want)
++			}
++		})
++	}
++	if called != 1 {
++		t.Fatalf("downstream calls = %d, want exactly one authorized request", called)
++	}
++}
 diff --git a/web/backend/middleware/middleware.go b/web/backend/middleware/middleware.go
 index f9eb314..ac08ad9 100644
 --- a/web/backend/middleware/middleware.go

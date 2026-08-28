@@ -103,6 +103,41 @@ func TestLauncherAuthLoginAndStatus(t *testing.T) {
 	})
 }
 
+func TestLauncherAuthLogoutRevokesServerSession(t *testing.T) {
+	store := &fakePasswordStore{initialized: true, password: "dashboard-test-password"}
+	sessions := middleware.NewLauncherDashboardSessions(time.Hour)
+	mux := http.NewServeMux()
+	RegisterLauncherAuthRoutes(mux, LauncherAuthRouteOpts{
+		Sessions:      sessions,
+		PasswordStore: store,
+	})
+
+	login := httptest.NewRequest(http.MethodPost, "/api/auth/login", strings.NewReader(`{"password":"dashboard-test-password"}`))
+	login.Header.Set("Content-Type", "application/json")
+	login.RemoteAddr = "127.0.0.1:12345"
+	loginRec := httptest.NewRecorder()
+	mux.ServeHTTP(loginRec, login)
+	if loginRec.Code != http.StatusOK || len(loginRec.Result().Cookies()) != 1 {
+		t.Fatalf("login status=%d cookies=%#v", loginRec.Code, loginRec.Result().Cookies())
+	}
+	cookie := loginRec.Result().Cookies()[0]
+	if !sessions.Valid(cookie.Value) {
+		t.Fatal("issued login session is not active")
+	}
+
+	logout := httptest.NewRequest(http.MethodPost, "/api/auth/logout", strings.NewReader(`{}`))
+	logout.Header.Set("Content-Type", "application/json")
+	logout.AddCookie(cookie)
+	logoutRec := httptest.NewRecorder()
+	mux.ServeHTTP(logoutRec, logout)
+	if logoutRec.Code != http.StatusOK {
+		t.Fatalf("logout status=%d body=%s", logoutRec.Code, logoutRec.Body.String())
+	}
+	if sessions.Valid(cookie.Value) {
+		t.Fatal("logout did not revoke the server-side session")
+	}
+}
+
 func TestLauncherAuthUninitializedStoreRequiresSetup(t *testing.T) {
 	const sess = "session-cookie-value"
 	store := &fakePasswordStore{}

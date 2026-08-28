@@ -51,6 +51,9 @@ func TestEnsurePicoChannel_FreshConfig(t *testing.T) {
 	if picoCfg.Token.String() == "" {
 		t.Error("expected a non-empty token after setup")
 	}
+	if len(bc.AllowFrom) != 1 || bc.AllowFrom[0] != config.PicoOwnerPrincipal {
+		t.Fatalf("allow_from = %#v, want owner-only principal", bc.AllowFrom)
+	}
 }
 
 func TestEnsurePicoChannel_DoesNotEnableTokenQuery(t *testing.T) {
@@ -140,6 +143,7 @@ func TestEnsurePicoChannel_PreservesUserSettings(t *testing.T) {
 	picoCfg.SetToken("user-custom-token")
 	picoCfg.AllowTokenQuery = true
 	picoCfg.AllowOrigins = []string{"https://myapp.example.com"}
+	bc.AllowFrom = config.FlexibleStringSlice{config.PicoOwnerPrincipal}
 	if err = config.SaveConfig(configPath, cfg); err != nil {
 		t.Fatalf("SaveConfig() error = %v", err)
 	}
@@ -173,6 +177,38 @@ func TestEnsurePicoChannel_PreservesUserSettings(t *testing.T) {
 	}
 	if len(picoCfg.AllowOrigins) != 1 || picoCfg.AllowOrigins[0] != "https://myapp.example.com" {
 		t.Errorf("allow_origins = %v, want [https://myapp.example.com]", picoCfg.AllowOrigins)
+	}
+}
+
+func TestEnsurePicoChannel_ReplacesOpenAllowlist(t *testing.T) {
+	configPath := filepath.Join(t.TempDir(), "config.json")
+	cfg := config.DefaultConfig()
+	bc := cfg.Channels["pico"]
+	bc.Enabled = true
+	bc.AllowFrom = config.FlexibleStringSlice{"*"}
+	decoded, err := bc.GetDecoded()
+	if err != nil {
+		t.Fatal(err)
+	}
+	decoded.(*config.PicoSettings).SetToken("existing-token")
+	if err := config.SaveConfig(configPath, cfg); err != nil {
+		t.Fatal(err)
+	}
+
+	changed, err := NewHandler(configPath).EnsurePicoChannel()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !changed {
+		t.Fatal("wildcard allowlist must be hardened")
+	}
+	cfg, err = config.LoadConfig(configPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	bc = cfg.Channels["pico"]
+	if len(bc.AllowFrom) != 1 || bc.AllowFrom[0] != config.PicoOwnerPrincipal {
+		t.Fatalf("allow_from = %#v, want owner-only principal", bc.AllowFrom)
 	}
 }
 
