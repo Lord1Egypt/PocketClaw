@@ -44,6 +44,10 @@ var allowedInlineImageMIMETypes = map[string]struct{}{
 	"image/bmp":  {},
 }
 
+// OwnerPrincipal is the server-derived identity used by PocketClaw's internal
+// realtime channel. Clients cannot select or override this principal.
+const OwnerPrincipal = config.PicoOwnerPrincipal
+
 func outboundMessageIsThought(msg bus.OutboundMessage) bool {
 	if len(msg.Context.Raw) == 0 {
 		return false
@@ -117,7 +121,9 @@ func NewPicoChannel(
 		return nil, fmt.Errorf("pico token is required")
 	}
 
-	base := channels.NewBaseChannel("pico", cfg, messageBus, bc.AllowFrom)
+	// The internal realtime channel is owner-only regardless of client payload
+	// fields or a stale/permissive on-disk allowlist.
+	base := channels.NewBaseChannel("pico", cfg, messageBus, config.FlexibleStringSlice{OwnerPrincipal})
 
 	allowOrigins := cfg.AllowOrigins
 	checkOrigin := func(r *http.Request) bool {
@@ -1187,13 +1193,13 @@ func (c *PicoChannel) handleMessageSend(pc *picoConn, msg PicoMessage) {
 		return
 	}
 
-	sessionID := msg.SessionID
-	if sessionID == "" {
-		sessionID = pc.sessionID
-	}
+	// Bind every inbound message to the authenticated connection. A client may
+	// include legacy session/identity-looking fields, but they never become the
+	// effective authorization identity or conversation routing key.
+	sessionID := pc.sessionID
 
 	chatID := "pico:" + sessionID
-	senderID := "pico-user"
+	senderID := OwnerPrincipal
 
 	metadata := map[string]string{
 		"platform":   "pico",
@@ -1202,9 +1208,8 @@ func (c *PicoChannel) handleMessageSend(pc *picoConn, msg PicoMessage) {
 	}
 
 	logger.DebugCF("pico", "Received message", map[string]any{
-		"session_id": sessionID,
-		"preview":    truncate(content, 50),
-		"media":      len(media),
+		"content_chars": len([]rune(content)),
+		"media":         len(media),
 	})
 
 	sender := bus.SenderInfo{

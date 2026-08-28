@@ -97,11 +97,17 @@ type Manager struct {
 	httpListeners             []net.Listener
 	mu                        sync.RWMutex
 	placeholders              sync.Map          // "channel:chatID" → placeholderID (string)
+	fallbackPlaceholders      sync.Map          // lifecycle key → placeholder whose edit failed before Send fallback
 	typingStops               sync.Map          // "channel:chatID" → func()
 	reactionUndos             sync.Map          // "channel:chatID" → reactionEntry
 	streamActive              sync.Map          // streamSuppressionKey → true (set when streamer.Finalize sent the message)
 	streamAuxiliaryTombstones sync.Map          // streamSuppressionKey → time.Time (drops late auxiliary messages after stream final)
 	channelHashes             map[string]string // channel name → config hash
+}
+
+type fallbackPlaceholderEntry struct {
+	chatID      string
+	placeholder placeholderEntry
 }
 
 type mediaStoreSetter interface {
@@ -228,6 +234,18 @@ func streamSuppressionKey(channel, chatID, sessionKey string) string {
 	return key + ":" + sessionKey
 }
 
+func inboundLifecycleStateKey(channel, chatID, lifecycleID string) string {
+	key := channel + ":" + chatID
+	if lifecycleID = strings.TrimSpace(lifecycleID); lifecycleID != "" {
+		return key + ":lifecycle:" + lifecycleID
+	}
+	return key
+}
+
+func outboundLifecycleStateKey(channel, chatID string, msg bus.OutboundMessage) string {
+	return inboundLifecycleStateKey(channel, chatID, bus.InboundLifecycleID(&msg.Context))
+}
+
 func trackedToolFeedbackMessageChatID(ch Channel, chatID string, outboundCtx *bus.InboundContext) string {
 	if resolver, ok := ch.(toolFeedbackMessageTargetResolver); ok {
 		if resolved := strings.TrimSpace(resolver.ToolFeedbackMessageChatID(chatID, outboundCtx)); resolved != "" {
@@ -308,7 +326,12 @@ func (m *Manager) toolFeedbackSeparateMessagesEnabled() bool {
 // RecordPlaceholder registers a placeholder message for later editing.
 // Implements PlaceholderRecorder.
 func (m *Manager) RecordPlaceholder(channel, chatID, placeholderID string) {
-	key := channel + ":" + chatID
+	key := inboundLifecycleStateKey(channel, chatID, "")
+	m.placeholders.Store(key, placeholderEntry{id: placeholderID, createdAt: time.Now()})
+}
+
+func (m *Manager) RecordPlaceholderForLifecycle(channel, chatID, lifecycleID, placeholderID string) {
+	key := inboundLifecycleStateKey(channel, chatID, lifecycleID)
 	m.placeholders.Store(key, placeholderEntry{id: placeholderID, createdAt: time.Now()})
 }
 
@@ -329,14 +352,29 @@ func (m *Manager) SendPlaceholder(ctx context.Context, channel, chatID string) b
 	if err != nil || phID == "" {
 		return false
 	}
-	m.RecordPlaceholder(channel, chatID, phID)
+	lifecycleID := bus.LifecycleIDFromContext(ctx)
+	if lifecycleID != "" {
+		m.RecordPlaceholderForLifecycle(channel, chatID, lifecycleID, phID)
+	} else {
+		m.RecordPlaceholder(channel, chatID, phID)
+	}
 	return true
 }
 
 // RecordTypingStop registers a typing stop function for later invocation.
 // Implements PlaceholderRecorder.
 func (m *Manager) RecordTypingStop(channel, chatID string, stop func()) {
-	key := channel + ":" + chatID
+	key := inboundLifecycleStateKey(channel, chatID, "")
+	entry := typingEntry{stop: stop, createdAt: time.Now()}
+	if previous, loaded := m.typingStops.Swap(key, entry); loaded {
+		if oldEntry, ok := previous.(typingEntry); ok && oldEntry.stop != nil {
+			oldEntry.stop()
+		}
+	}
+}
+
+func (m *Manager) RecordTypingStopForLifecycle(channel, chatID, lifecycleID string, stop func()) {
+	key := inboundLifecycleStateKey(channel, chatID, lifecycleID)
 	entry := typingEntry{stop: stop, createdAt: time.Now()}
 	if previous, loaded := m.typingStops.Swap(key, entry); loaded {
 		if oldEntry, ok := previous.(typingEntry); ok && oldEntry.stop != nil {
@@ -361,7 +399,12 @@ func (m *Manager) InvokeTypingStop(channel, chatID string) {
 // RecordReactionUndo registers a reaction undo function for later invocation.
 // Implements PlaceholderRecorder.
 func (m *Manager) RecordReactionUndo(channel, chatID string, undo func()) {
-	key := channel + ":" + chatID
+	key := inboundLifecycleStateKey(channel, chatID, "")
+	m.reactionUndos.Store(key, reactionEntry{undo: undo, createdAt: time.Now()})
+}
+
+func (m *Manager) RecordReactionUndoForLifecycle(channel, chatID, lifecycleID string, undo func()) {
+	key := inboundLifecycleStateKey(channel, chatID, lifecycleID)
 	m.reactionUndos.Store(key, reactionEntry{undo: undo, createdAt: time.Now()})
 }
 
@@ -369,7 +412,7 @@ func (m *Manager) RecordReactionUndo(channel, chatID string, undo func()) {
 // Returns the delivered message IDs and true when delivery completed before a normal Send.
 func (m *Manager) preSend(ctx context.Context, name string, msg bus.OutboundMessage, ch Channel) ([]string, bool) {
 	chatID := outboundMessageChatID(msg)
-	key := name + ":" + chatID
+	key := outboundLifecycleStateKey(name, chatID, msg)
 	streamKey := streamSuppressionKey(name, chatID, msg.SessionKey)
 
 	// 1. Stop typing
@@ -473,6 +516,13 @@ func (m *Manager) preSend(ctx context.Context, name string, msg bus.OutboundMess
 				return nil, false
 			}
 			if editor, ok := ch.(MessageEditor); ok {
+				if strings.EqualFold(name, "telegram") {
+					logger.InfoCF("request_lifecycle", "Request lifecycle", map[string]any{
+						"event":        "telegram_edit_started",
+						"channel":      name,
+						"lifecycle_id": bus.InboundLifecycleID(&msg.Context),
+					})
+				}
 				content := msg.Content
 				trackedContent := msg.Content
 				if isToolFeedback {
@@ -491,6 +541,13 @@ func (m *Manager) preSend(ctx context.Context, name string, msg bus.OutboundMess
 					return editor.EditMessage(ctx, chatID, entry.id, content)
 				}()
 				if err == nil {
+					if strings.EqualFold(name, "telegram") {
+						logger.InfoCF("request_lifecycle", "Request lifecycle", map[string]any{
+							"event":        "telegram_edit_completed",
+							"channel":      name,
+							"lifecycle_id": bus.InboundLifecycleID(&msg.Context),
+						})
+					}
 					trackedChatID := trackedToolFeedbackMessageChatID(ch, chatID, &msg.Context)
 					if tracker, ok := ch.(toolFeedbackMessageTracker); ok && isToolFeedback {
 						tracker.RecordToolFeedbackMessage(trackedChatID, entry.id, trackedContent)
@@ -499,11 +556,83 @@ func (m *Manager) preSend(ctx context.Context, name string, msg bus.OutboundMess
 					}
 					return []string{entry.id}, true
 				}
-				// edit failed → fall through to normal Send
+				// edit failed → fall through to normal Send, retaining only the
+				// placeholder ID under this safe lifecycle key for terminal cleanup.
+				m.fallbackPlaceholders.Store(key, fallbackPlaceholderEntry{
+					chatID:      chatID,
+					placeholder: entry,
+				})
+				if strings.EqualFold(name, "telegram") {
+					logger.InfoCF("request_lifecycle", "Request lifecycle", map[string]any{
+						"event":        "telegram_send_fallback_started",
+						"channel":      name,
+						"lifecycle_id": bus.InboundLifecycleID(&msg.Context),
+					})
+				}
 			}
 		}
 	}
 
+	return nil, false
+}
+
+// finalizeFallbackPlaceholder gives a placeholder whose initial edit failed a
+// terminal state. When normal Send succeeded, deleting it avoids a duplicate;
+// if deletion fails, a second edit still replaces Thinking with the delivered
+// final text. When Send failed, a successful second edit is itself a valid
+// final delivery. No platform identifiers or message content are logged.
+func (m *Manager) finalizeFallbackPlaceholder(
+	ctx context.Context,
+	name string,
+	msg bus.OutboundMessage,
+	ch Channel,
+	sendSucceeded bool,
+) (deliveredIDs []string, delivered bool) {
+	key := outboundLifecycleStateKey(name, outboundMessageChatID(msg), msg)
+	value, loaded := m.fallbackPlaceholders.LoadAndDelete(key)
+	if !loaded {
+		return nil, false
+	}
+	entry, ok := value.(fallbackPlaceholderEntry)
+	if !ok || entry.placeholder.id == "" {
+		return nil, false
+	}
+
+	if sendSucceeded {
+		if deleter, ok := ch.(MessageDeleter); ok {
+			if err := deleter.DeleteMessage(ctx, entry.chatID, entry.placeholder.id); err == nil {
+				return nil, false
+			}
+		}
+	}
+
+	if editor, ok := ch.(MessageEditor); ok {
+		if err := editor.EditMessage(ctx, entry.chatID, entry.placeholder.id, msg.Content); err == nil {
+			if strings.EqualFold(name, "telegram") {
+				logger.InfoCF("request_lifecycle", "Request lifecycle", map[string]any{
+					"event":        "telegram_edit_completed",
+					"channel":      name,
+					"lifecycle_id": bus.InboundLifecycleID(&msg.Context),
+				})
+			}
+			if !sendSucceeded {
+				return []string{entry.placeholder.id}, true
+			}
+			return nil, false
+		}
+	}
+
+	// If neither delivery path completed, at least make a bounded attempt to
+	// remove the non-terminal Thinking message.
+	if !sendSucceeded {
+		if deleter, ok := ch.(MessageDeleter); ok {
+			_ = deleter.DeleteMessage(ctx, entry.chatID, entry.placeholder.id)
+		}
+	}
+	logger.WarnCF("request_lifecycle", "Placeholder cleanup failed", map[string]any{
+		"channel":      name,
+		"lifecycle_id": bus.InboundLifecycleID(&msg.Context),
+	})
 	return nil, false
 }
 
@@ -625,11 +754,23 @@ func (m *Manager) GetStreamer(ctx context.Context, channelName, chatID, sessionK
 	// Mark streamActive on Finalize so preSend knows to clean up the placeholder
 	// and late auxiliary messages cannot leak after streaming produced a final.
 	streamKey := streamSuppressionKey(channelName, chatID, sessionKey)
-	placeholderKey := channelName + ":" + chatID
+	placeholderKey := inboundLifecycleStateKey(
+		channelName,
+		chatID,
+		bus.LifecycleIDFromContext(ctx),
+	)
+	lifecycleID := bus.LifecycleIDFromContext(ctx)
 	clearMarker := func() {
 		m.streamActive.Delete(streamKey)
 	}
 	onFinalize := func(finalizeCtx context.Context, finalContent string) {
+		if strings.EqualFold(channelName, "telegram") {
+			logger.InfoCF("request_lifecycle", "Request lifecycle", map[string]any{
+				"event":        "telegram_send_completed",
+				"channel":      channelName,
+				"lifecycle_id": lifecycleID,
+			})
+		}
 		if m.toolFeedbackSeparateMessagesEnabled() {
 			clearTrackedToolFeedbackMessage(
 				ch,
@@ -653,7 +794,12 @@ func (m *Manager) GetStreamer(ctx context.Context, channelName, chatID, sessionK
 		if v, loaded := m.placeholders.LoadAndDelete(placeholderKey); loaded {
 			if entry, ok := v.(placeholderEntry); ok && entry.id != "" {
 				if deleter, ok := ch.(MessageDeleter); ok {
-					deleter.DeleteMessage(finalizeCtx, chatID, entry.id) // best effort
+					if err := deleter.DeleteMessage(finalizeCtx, chatID, entry.id); err != nil {
+						// A successful stream must never leave Thinking permanent.
+						if editor, editOK := ch.(MessageEditor); editOK {
+							_ = editor.EditMessage(finalizeCtx, chatID, entry.id, finalContent)
+						}
+					}
 				} else if editor, ok := ch.(MessageEditor); ok {
 					editor.EditMessage(finalizeCtx, chatID, entry.id, finalContent) // best effort fallback
 				}
@@ -1550,6 +1696,14 @@ func (m *Manager) sendWithRetry(
 	for attempt := 0; attempt <= maxRetries; attempt++ {
 		msgIDs, lastErr = w.ch.Send(ctx, msg)
 		if lastErr == nil {
+			m.finalizeFallbackPlaceholder(ctx, name, msg, w.ch, true)
+			if strings.EqualFold(name, "telegram") {
+				logger.InfoCF("request_lifecycle", "Request lifecycle", map[string]any{
+					"event":        "telegram_send_completed",
+					"channel":      name,
+					"lifecycle_id": bus.InboundLifecycleID(&msg.Context),
+				})
+			}
 			m.publishOutboundSent(name, msg, msgIDs)
 			return msgIDs, true
 		}
@@ -1581,6 +1735,18 @@ func (m *Manager) sendWithRetry(
 		case <-ctx.Done():
 			return nil, false
 		}
+	}
+
+	if fallbackIDs, delivered := m.finalizeFallbackPlaceholder(ctx, name, msg, w.ch, false); delivered {
+		if strings.EqualFold(name, "telegram") {
+			logger.InfoCF("request_lifecycle", "Request lifecycle", map[string]any{
+				"event":        "telegram_send_completed",
+				"channel":      name,
+				"lifecycle_id": bus.InboundLifecycleID(&msg.Context),
+			})
+		}
+		m.publishOutboundSent(name, msg, fallbackIDs)
+		return fallbackIDs, true
 	}
 
 	// All retries exhausted or permanent failure
@@ -2033,13 +2199,17 @@ func (m *Manager) SendMessage(ctx context.Context, msg bus.OutboundMessage) erro
 		for _, chunk := range chunks {
 			chunkMsg := msg
 			chunkMsg.Content = chunk
-			m.sendWithRetry(ctx, channelName, w, chunkMsg)
+			if _, delivered := m.sendWithRetry(ctx, channelName, w, chunkMsg); !delivered {
+				return fmt.Errorf("channel %s final delivery failed", channelName)
+			}
 		}
 	} else {
 		if len(chunks) == 1 {
 			msg.Content = chunks[0]
 		}
-		m.sendWithRetry(ctx, channelName, w, msg)
+		if _, delivered := m.sendWithRetry(ctx, channelName, w, msg); !delivered {
+			return fmt.Errorf("channel %s final delivery failed", channelName)
+		}
 	}
 	return nil
 }

@@ -164,6 +164,87 @@ func newTestChannelWithConstructor(
 	}
 }
 
+type telegramAuthPlaceholderRecorder struct {
+	placeholders int
+}
+
+func (r *telegramAuthPlaceholderRecorder) RecordPlaceholder(_, _, _ string)       { r.placeholders++ }
+func (*telegramAuthPlaceholderRecorder) RecordTypingStop(_, _ string, _ func())   {}
+func (*telegramAuthPlaceholderRecorder) RecordReactionUndo(_, _ string, _ func()) {}
+
+func TestTelegramOwnerAuthorizationRejectsBeforeLifecycle(t *testing.T) {
+	caller := &stubCaller{
+		callFn: func(context.Context, string, *ta.RequestData) (*ta.Response, error) {
+			return successResponse(t), nil
+		},
+	}
+	ch := newTestChannel(t, caller)
+	msgBus := bus.NewMessageBus()
+	const ownerID int64 = 24680
+	ch.BaseChannel = channels.NewBaseChannel(
+		"telegram",
+		nil,
+		msgBus,
+		config.FlexibleStringSlice{strconv.FormatInt(ownerID, 10)},
+	)
+	ch.BaseChannel.SetRunning(true)
+	ch.bc.Placeholder.Enabled = true
+	ch.ctx = context.Background()
+	recorder := &telegramAuthPlaceholderRecorder{}
+	ch.SetOwner(ch)
+	ch.SetPlaceholderRecorder(recorder)
+
+	unauthorized := &telego.Message{
+		MessageID: 1,
+		From: &telego.User{
+			ID:        ownerID + 1,
+			Username:  "same_name",
+			FirstName: "Imposter",
+		},
+		Chat: telego.Chat{ID: 999, Type: "private"},
+		Text: "spend provider credits",
+	}
+	if err := ch.handleMessage(context.Background(), unauthorized); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case got := <-msgBus.InboundChan():
+		t.Fatalf("unauthorized sender reached Agent bus: %#v", got)
+	default:
+	}
+	if recorder.placeholders != 0 || len(caller.calls) != 0 {
+		t.Fatalf("unauthorized sender triggered Telegram lifecycle: placeholders=%d API calls=%d", recorder.placeholders, len(caller.calls))
+	}
+	if len(ch.chatIDs) != 0 {
+		t.Fatalf("unauthorized sender created routing/session state: %#v", ch.chatIDs)
+	}
+
+	owner := &telego.Message{
+		MessageID: 2,
+		From: &telego.User{
+			ID:        ownerID,
+			Username:  "renamed_owner",
+			FirstName: "Owner",
+		},
+		Chat: telego.Chat{ID: ownerID, Type: "private"},
+		Text: "hello",
+	}
+	if err := ch.handleMessage(context.Background(), owner); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case got := <-msgBus.InboundChan():
+		if got.Sender.PlatformID != strconv.FormatInt(ownerID, 10) {
+			t.Fatalf("accepted sender = %#v", got.Sender)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("paired numeric owner was not accepted")
+	}
+	if recorder.placeholders != 1 {
+		t.Fatalf("owner placeholder count = %d, want 1", recorder.placeholders)
+	}
+}
+
 func TestSendMedia_ImageFallbacksToDocumentOnInvalidDimensions(t *testing.T) {
 	constructor := &multipartRecordingConstructor{}
 	caller := &stubCaller{
@@ -226,7 +307,7 @@ func TestDownloadFileWithInfo_AllowsLocalConfiguredBaseURL(t *testing.T) {
 	defer server.Close()
 
 	ch, err := NewTelegramChannel(
-		&config.Channel{Type: config.ChannelTelegram, Enabled: true},
+		&config.Channel{Type: config.ChannelTelegram, Enabled: true, AllowFrom: config.FlexibleStringSlice{"24680"}},
 		&config.TelegramSettings{
 			Token:   *config.NewSecureString(testToken),
 			BaseURL: server.URL,
@@ -1705,7 +1786,7 @@ func TestStopFlushesPendingMediaGroups(t *testing.T) {
 
 func TestNewTelegramChannelUsesConfiguredMediaGroupDelay(t *testing.T) {
 	ch, err := NewTelegramChannel(
-		&config.Channel{Type: config.ChannelTelegram, Enabled: true},
+		&config.Channel{Type: config.ChannelTelegram, Enabled: true, AllowFrom: config.FlexibleStringSlice{"24680"}},
 		&config.TelegramSettings{
 			Token:             *config.NewSecureString(testToken),
 			MediaGroupDelayMS: 750,
@@ -1716,12 +1797,30 @@ func TestNewTelegramChannelUsesConfiguredMediaGroupDelay(t *testing.T) {
 	assert.Equal(t, 750*time.Millisecond, ch.mediaGroupDelay)
 
 	ch, err = NewTelegramChannel(
-		&config.Channel{Type: config.ChannelTelegram, Enabled: true},
+		&config.Channel{Type: config.ChannelTelegram, Enabled: true, AllowFrom: config.FlexibleStringSlice{"24680"}},
 		&config.TelegramSettings{Token: *config.NewSecureString(testToken)},
 		bus.NewMessageBus(),
 	)
 	require.NoError(t, err)
 	assert.Equal(t, defaultMediaGroupDelay, ch.mediaGroupDelay)
+}
+
+func TestNewTelegramChannelRejectsOpenAuthorization(t *testing.T) {
+	for name, allowFrom := range map[string]config.FlexibleStringSlice{
+		"empty":    nil,
+		"wildcard": {"*"},
+		"username": {"mutable_username"},
+		"multiple": {"24680", "13579"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			_, err := NewTelegramChannel(
+				&config.Channel{Type: config.ChannelTelegram, Enabled: true, AllowFrom: allowFrom},
+				&config.TelegramSettings{Token: *config.NewSecureString(testToken)},
+				bus.NewMessageBus(),
+			)
+			require.Error(t, err)
+		})
+	}
 }
 
 func newMediaGroupTestChannel(delay time.Duration) (*bus.MessageBus, *TelegramChannel) {

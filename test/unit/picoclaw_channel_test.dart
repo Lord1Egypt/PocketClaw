@@ -47,4 +47,55 @@ void main() {
 
     expect(await PicoClawChannel.getCoreVersion(), 'unknown');
   });
+
+  test('getLanIpv4Address returns active native LAN address', () async {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, (call) async {
+          if (call.method == 'getLanIpv4Address') return '10.0.0.24';
+          return null;
+        });
+
+    expect(await PicoClawChannel.getLanIpv4Address(), '10.0.0.24');
+  });
+
+  test('getLanIpv4Address maps blank native result to unavailable', () async {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, (_) async => '  ');
+
+    expect(await PicoClawChannel.getLanIpv4Address(), isNull);
+  });
+
+  test('applyPublicMode returns the launcher actual mode and result', () async {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, (call) async {
+          expect(call.method, 'applyPublicMode');
+          expect(call.arguments, {'public': true});
+          return <String, Object?>{
+            'success': true,
+            'public': true,
+            'message': '',
+          };
+        });
+
+    final result = await PicoClawChannel.applyPublicMode(true);
+    expect(result.success, isTrue);
+    expect(result.publicMode, isTrue);
+    expect(result.message, isEmpty);
+  });
+
+  test('applyPublicMode preserves reported rollback state', () async {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, (_) async {
+          return <String, Object?>{
+            'success': false,
+            'public': false,
+            'message': 'Could not enable LAN access.',
+          };
+        });
+
+    final result = await PicoClawChannel.applyPublicMode(true);
+    expect(result.success, isFalse);
+    expect(result.publicMode, isFalse);
+    expect(result.message, contains('Could not enable'));
+  });
 }

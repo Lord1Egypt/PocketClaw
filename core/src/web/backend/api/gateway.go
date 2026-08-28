@@ -76,7 +76,9 @@ func ensurePicoTokenCachedLocked(configPath string) {
 }
 
 func (h *Handler) gatewayCommandArgs() []string {
-	args := []string{"gateway", "-E"}
+	// The gateway's stdout/stderr are captured into user-facing Web Console
+	// logs, never attached to an interactive terminal.
+	args := []string{"gateway", "-E", "--no-color"}
 	if h.debug {
 		args = append(args, "-d")
 	}
@@ -265,7 +267,7 @@ func (h *Handler) validateGatewayPidData(
 
 	if gatewayProcess, inspected := gatewayProcessMatcher(pidData.PID); inspected {
 		if !gatewayProcess {
-			return false, true, "pid process command is not picoclaw gateway"
+			return false, true, "pid belongs to another process; ignoring stale pid file"
 		}
 		return true, true, ""
 	}
@@ -1030,7 +1032,7 @@ func (h *Handler) startGatewayLocked(initialStatus string, existingPid int) (int
 	// Start new process
 	// Locate the picoclaw executable
 	execPath := utils.FindPicoclawBinary()
-	logger.InfoC("gateway", fmt.Sprintf("Starting gateway process (%s)", execPath))
+	logger.InfoC("gateway", "Starting gateway process")
 
 	cmd = gatewayExecCommand(execPath, h.gatewayCommandArgs()...)
 	applyLauncherProcAttrs(cmd)
@@ -1086,7 +1088,7 @@ func (h *Handler) startGatewayLocked(initialStatus string, existingPid int) (int
 	gateway.bootConfigSignature = computeConfigSignature(cfg)
 	setGatewayRuntimeStatusLocked(initialStatus)
 	pid = cmd.Process.Pid
-	logger.InfoC("gateway", fmt.Sprintf("Started picoclaw gateway (PID: %d) from %s", pid, execPath))
+	logger.InfoC("gateway", fmt.Sprintf("Started gateway (PID: %d)", pid))
 
 	// Capture stdout/stderr in background
 	go scanPipe(stdoutPipe, gateway.logs)

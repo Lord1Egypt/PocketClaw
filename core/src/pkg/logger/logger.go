@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path"
 	"path/filepath"
 	"runtime"
 	"strconv"
@@ -47,6 +48,21 @@ var (
 func init() {
 	once.Do(func() {
 		zerolog.SetGlobalLevel(zerolog.InfoLevel)
+
+		// Reduce the caller to the file's own name before anything renders it.
+		//
+		// Zerolog reports the path the compiler recorded. Under -trimpath that
+		// is the module path — github.com/sipeed/picoclaw/web/backend/api/
+		// gateway.go — and without it an absolute build path. Both are
+		// developer-facing, and both reach PocketClaw's user-visible Logs
+		// screen and its exported log files. Only the file name carries
+		// meaning for a user; the package is already shown as the component
+		// field. This is the earliest structured layer that sees the caller,
+		// so every writer and every export inherits the short form and no
+		// message text is ever rewritten.
+		zerolog.CallerMarshalFunc = func(_ uintptr, file string, line int) string {
+			return ShortCallerLocation(file, line)
+		}
 
 		isTTY := term.IsTerminal(int(os.Stdout.Fd()))
 
@@ -237,6 +253,23 @@ const (
 	locUnknown = "<unknown>"
 )
 
+// ShortCallerLocation renders a compiler-recorded caller as "file.go:line".
+//
+// It deliberately touches only logger source metadata. Paths that appear
+// inside a log *message* are the message's own content and are left alone.
+func ShortCallerLocation(file string, line int) string {
+	// Normalise both separators explicitly rather than via filepath.ToSlash,
+	// which only rewrites the *host* separator: a Windows-recorded caller
+	// would pass straight through a Linux build of this test and, worse,
+	// through a Linux-built binary reading a Windows-style path.
+	normalized := strings.ReplaceAll(strings.TrimSpace(file), `\`, "/")
+	name := path.Base(normalized)
+	if name == "" || name == "." || name == "/" {
+		return fmt.Sprintf("%s:%d", locUnknown, line)
+	}
+	return fmt.Sprintf("%s:%d", name, line)
+}
+
 func getPackageNameFromFile(filePath string) string {
 	dir := filepath.Dir(filePath)
 	importPath := filepath.ToSlash(dir)
@@ -317,9 +350,98 @@ func logMessage(level LogLevel, component string, message string, fields map[str
 
 	event.Str(Component, component)
 
-	appendFields(event, fields)
+	appendFields(event, sanitizeFieldsForLog(fields))
 
 	event.CallerSkipFrame(skip).Msg(message)
+}
+
+var (
+	// These exact structured fields carry routing or personal identifiers. The
+	// runtime maps passed by callers are never mutated; only the copy handed to
+	// log writers is normalized.
+	internalLogIDFields = map[string]struct{}{
+		"chat_id":           {},
+		"inbound_chat_id":   {},
+		"target_chat_id":    {},
+		"sender_id":         {},
+		"inbound_sender_id": {},
+		"user_id":           {},
+		"session_id":        {},
+		"connection_id":     {},
+		"conn_id":           {},
+		"runtime_id":        {},
+	}
+	sensitiveLogKeyFields = map[string]struct{}{
+		"session_key":        {},
+		"scope_key":          {},
+		"route_main_session": {},
+	}
+	rawContentLogFields = map[string]struct{}{
+		"arguments":     {},
+		"args":          {},
+		"content":       {},
+		"messages_json": {},
+		"payload":       {},
+		"preview":       {},
+		"prompt":        {},
+		"reasoning":     {},
+		"response":      {},
+		"text":          {},
+		"tools_json":    {},
+	}
+	channelDisplayFields = map[string]struct{}{
+		"channel":         {},
+		"inbound_channel": {},
+		"route_channel":   {},
+		"scope_channel":   {},
+		"target_channel":  {},
+	}
+)
+
+// sanitizeFieldsForLog enforces the normal log privacy contract before any
+// console or file writer sees structured values. It deliberately matches
+// exact field names and exact compatibility values; runtime routing data is
+// not changed and unrelated strings containing "pico" are left untouched.
+func sanitizeFieldsForLog(fields map[string]any) map[string]any {
+	if len(fields) == 0 {
+		return fields
+	}
+
+	// Capture this relationship before channel display names are normalized.
+	// Otherwise the downstream user-visible sanitizer can no longer tell that
+	// /pico/ belongs to the internal realtime channel.
+	internalPicoRoute := fields["channel"] == "pico" && fields["path"] == "/pico/"
+
+	safe := make(map[string]any, len(fields))
+	for key, value := range fields {
+		if _, omit := rawContentLogFields[key]; omit {
+			continue
+		}
+		if _, redact := sensitiveLogKeyFields[key]; redact {
+			safe[key] = "<redacted>"
+			continue
+		}
+		if _, internal := internalLogIDFields[key]; internal {
+			safe[key] = "<internal>"
+			continue
+		}
+
+		switch typed := value.(type) {
+		case string:
+			if internalPicoRoute && key == "path" {
+				typed = "<internal>"
+			}
+			if _, channelField := channelDisplayFields[key]; channelField && typed == "pico" {
+				typed = "pocketclaw"
+			}
+			safe[key] = redactSecrets(typed)
+		case error:
+			safe[key] = redactSecrets(typed.Error())
+		default:
+			safe[key] = value
+		}
+	}
+	return safe
 }
 
 func appendFields(event *zerolog.Event, fields map[string]any) {

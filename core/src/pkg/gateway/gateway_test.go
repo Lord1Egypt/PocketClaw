@@ -18,6 +18,33 @@ import (
 	runtimeevents "github.com/sipeed/picoclaw/pkg/events"
 )
 
+func TestUserVisibleEnabledChannelsMapsOnlyInternalPicoTransport(t *testing.T) {
+	internalNames := []string{
+		config.ChannelTelegram,
+		config.ChannelPico,
+	}
+
+	got := userVisibleEnabledChannels(internalNames)
+	want := []string{
+		config.ChannelTelegram,
+		"pocketclaw",
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("userVisibleEnabledChannels() = %v, want %v", got, want)
+	}
+	if internalNames[1] != config.ChannelPico {
+		t.Fatalf("internal channel identity changed: %v", internalNames)
+	}
+	if summary := fmt.Sprintf("✓ Channels enabled: %s", got); summary != "✓ Channels enabled: [telegram pocketclaw]" {
+		t.Fatalf("summary = %q", summary)
+	}
+
+	unrelatedNames := []string{config.ChannelPicoClient, "picophone"}
+	if got := userVisibleEnabledChannels(unrelatedNames); !reflect.DeepEqual(got, unrelatedNames) {
+		t.Fatalf("substring/global replacement changed unrelated names: %v", got)
+	}
+}
+
 func TestRun_StartupFailuresReturnErrorAndEmitStructuredLog(t *testing.T) {
 	t.Parallel()
 

@@ -12,7 +12,6 @@ import (
 	"github.com/sipeed/picoclaw/pkg/logger"
 	"github.com/sipeed/picoclaw/pkg/routing"
 	"github.com/sipeed/picoclaw/pkg/session"
-	"github.com/sipeed/picoclaw/pkg/utils"
 )
 
 func (al *AgentLoop) buildContinuationTarget(msg bus.InboundMessage) (*continuationTarget, error) {
@@ -27,9 +26,10 @@ func (al *AgentLoop) buildContinuationTarget(msg bus.InboundMessage) (*continuat
 	allocation := al.allocateRouteSession(route, msg)
 
 	return &continuationTarget{
-		SessionKey: resolveScopeKey(allocation.SessionKey, msg.SessionKey),
-		Channel:    msg.Channel,
-		ChatID:     msg.ChatID,
+		SessionKey:     resolveScopeKey(allocation.SessionKey, msg.SessionKey),
+		Channel:        msg.Channel,
+		ChatID:         msg.ChatID,
+		InboundContext: cloneInboundContext(&msg.Context),
 	}, nil
 }
 
@@ -114,7 +114,11 @@ func (al *AgentLoop) prepareInboundMessageForAgent(
 	// For audio messages the placeholder was deferred by the channel.
 	// Now that transcription (and optional feedback) is done, send it.
 	if hadAudio && al.channelManager != nil {
-		al.channelManager.SendPlaceholder(ctx, msg.Channel, msg.ChatID)
+		placeholderCtx := bus.WithLifecycleID(
+			ctx,
+			bus.InboundLifecycleID(&msg.Context),
+		)
+		al.channelManager.SendPlaceholder(placeholderCtx, msg.Channel, msg.ChatID)
 	}
 
 	return msg
@@ -123,23 +127,9 @@ func (al *AgentLoop) prepareInboundMessageForAgent(
 func (al *AgentLoop) processMessage(ctx context.Context, msg bus.InboundMessage) (string, error) {
 	msg = al.prepareInboundMessageForAgent(ctx, msg)
 
-	// Add message preview to log (show full content for error messages)
-	var logContent string
-	if strings.Contains(msg.Content, "Error:") || strings.Contains(msg.Content, "error") {
-		logContent = msg.Content // Full content for errors
-	} else {
-		logContent = utils.Truncate(msg.Content, 80)
-	}
-	logger.InfoCF(
-		"agent",
-		fmt.Sprintf("Processing message from %s:%s: %s", msg.Channel, msg.SenderID, logContent),
-		map[string]any{
-			"channel":     msg.Channel,
-			"chat_id":     msg.ChatID,
-			"sender_id":   msg.SenderID,
-			"session_key": msg.SessionKey,
-		},
-	)
+	traceRequestLifecycle("agent_started", &msg.Context, map[string]any{
+		"media_count": len(msg.Media),
+	})
 
 	// Route system messages to processSystemMessage
 	if msg.Channel == "system" {

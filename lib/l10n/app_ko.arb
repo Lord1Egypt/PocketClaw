@@ -34,6 +34,7 @@
   "coreValid": "코어 바이너리가 유효합니다.",
   "publicMode": "공용 모드",
   "publicModeHintDesc": "활성화되면 서비스가 외부 액세스를 허용하고 주소 필드가 비활성화됩니다",
+  "publicModeApplying": "네트워크 모드 적용 중...",
   "themeSelection": "테마",
   "check": "확인",
   "launchService": "서비스 시작",
@@ -60,7 +61,7 @@
   "deviceReportingUploadSucceeded": "장치 호환성 피드백이 활성화되었습니다",
   "deviceReportingUploadFailed": "장치 호환성 피드백이 활성화되었지만 현재 장치 정보 동기화가 완료되지 않았습니다",
   "deviceReportingDisabled": "장치 호환성 피드백이 비활성화되었습니다",
-  "localModeHint": "1. 서비스 구성으로 이동\n2. 공용 모드 켜기\n3. 서비스 재시작\n4. PocketClaw에 액세스하려면 QR 코드 스캔",
+  "localModeHint": "1. 서비스 구성으로 이동\n2. 공용 모드 켜기\n3. PocketClaw에 액세스하려면 QR 코드 스캔",
   "publicModeHint": "1. 서비스 시작\n2. PocketClaw에 액세스하려면 QR 코드 스캔",
   "@coreUnknownError": {
     "placeholders": {

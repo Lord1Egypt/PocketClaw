@@ -34,6 +34,7 @@
   "coreValid": "コアバイナリは有効です。",
   "publicMode": "パブリックモード",
   "publicModeHintDesc": "有効にすると、サービスは外部アクセスを許可し、アドレスフィールドは無効になります",
+  "publicModeApplying": "ネットワークモードを適用中...",
   "themeSelection": "テーマ",
   "check": "確認",
   "launchService": "サービスを起動",
@@ -60,7 +61,7 @@
   "deviceReportingUploadSucceeded": "デバイス互換性フィードバックが有効になりました",
   "deviceReportingUploadFailed": "デバイス互換性フィードバックが有効ですが、現在のデバイス情報同期が完了しませんでした",
   "deviceReportingDisabled": "デバイス互換性フィードバックが無効になりました",
-  "localModeHint": "1. サービス設定に移動\n2. パブリックモードをオン\n3. サービスを再起動\n4. QRコードをスキャンしてPocketClawにアクセス",
+  "localModeHint": "1. サービス設定に移動\n2. パブリックモードをオン\n3. QRコードをスキャンしてPocketClawにアクセス",
   "publicModeHint": "1. サービスを起動\n2. QRコードをスキャンしてPocketClawにアクセス",
   "@coreUnknownError": {
     "placeholders": {

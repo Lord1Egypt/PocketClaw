@@ -116,6 +116,9 @@ class AppLocalizationsRu extends AppLocalizations {
       'Когда включено, служба разрешает внешний доступ, а поле адреса будет отключено';
 
   @override
+  String get publicModeApplying => 'Применение сетевого режима...';
+
+  @override
   String get themeSelection => 'Тема';
 
   @override
@@ -204,7 +207,7 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get localModeHint =>
-      '1. Перейдите в Настройку службы\n2. Включите Общий режим\n3. Перезапустите службу\n4. Отсканируйте QR-код для доступа к PocketClaw';
+      '1. Перейдите в Настройку службы\n2. Включите Общий режим\n3. Отсканируйте QR-код для доступа к PocketClaw';
 
   @override
   String get publicModeHint =>

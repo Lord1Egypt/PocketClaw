@@ -144,13 +144,6 @@ func (p *Pipeline) CallLLM(
 			"temperature":       ts.agent.Temperature,
 			"system_prompt_len": len(exec.callMessages[0].Content),
 		})
-	logger.DebugCF("agent", "Full LLM request",
-		map[string]any{
-			"iteration":     iteration,
-			"messages_json": formatMessagesForLog(exec.callMessages),
-			"tools_json":    formatToolsForLog(exec.providerToolDefs),
-		})
-
 	// LLM call closure with fallback support
 	callLLM := func(messagesForCall []providers.Message, toolDefsForCall []providers.ToolDefinition) (*providers.LLMResponse, error) {
 		providerCtx, providerCancel := context.WithCancel(turnCtx)
@@ -266,8 +259,19 @@ func (p *Pipeline) CallLLM(
 		backoffSecs = 2
 	}
 	for retry := 0; retry <= maxRetries; retry++ {
+		traceTurnLifecycle("provider_started", ts, map[string]any{
+			"attempt": retry + 1,
+		})
 		exec.response, err = callLLM(exec.callMessages, exec.providerToolDefs)
 		if err == nil {
+			traceTurnLifecycle("provider_completed", ts, map[string]any{
+				"attempt": retry + 1,
+			})
+			if exec.response == nil || (strings.TrimSpace(exec.response.Content) == "" && len(exec.response.ToolCalls) == 0) {
+				traceTurnLifecycle("provider_empty", ts, map[string]any{
+					"attempt": retry + 1,
+				})
+			}
 			break
 		}
 		if ts.hardAbortRequested() && errors.Is(err, context.Canceled) {
@@ -547,13 +551,14 @@ func (p *Pipeline) CallLLM(
 	)
 
 	llmResponseFields := map[string]any{
-		"agent_id":       ts.agent.ID,
-		"iteration":      iteration,
-		"content_chars":  len(exec.response.Content),
-		"tool_calls":     len(exec.response.ToolCalls),
-		"reasoning":      exec.response.Reasoning,
-		"target_channel": al.targetReasoningChannelID(ts.channel),
-		"channel":        ts.channel,
+		"agent_id":          ts.agent.ID,
+		"iteration":         iteration,
+		"content_chars":     len(exec.response.Content),
+		"tool_calls":        len(exec.response.ToolCalls),
+		"reasoning_present": exec.response.Reasoning != "" || exec.response.ReasoningContent != "",
+		"reasoning_chars":   len(exec.response.Reasoning) + len(exec.response.ReasoningContent),
+		"target_channel":    al.targetReasoningChannelID(ts.channel),
+		"channel":           ts.channel,
 	}
 	if exec.response.Usage != nil {
 		llmResponseFields["prompt_tokens"] = exec.response.Usage.PromptTokens
@@ -600,6 +605,9 @@ func (p *Pipeline) CallLLM(
 	toolNames := make([]string, 0, len(exec.normalizedToolCalls))
 	for _, tc := range exec.normalizedToolCalls {
 		toolNames = append(toolNames, tc.Name)
+		traceTurnLifecycle("tool_requested", ts, map[string]any{
+			"tool": tc.Name,
+		})
 	}
 	logger.InfoCF("agent", "LLM requested tool calls",
 		map[string]any{

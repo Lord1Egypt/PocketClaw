@@ -115,6 +115,9 @@ class AppLocalizationsId extends AppLocalizations {
       'Bila diaktifkan, layanan mengizinkan akses eksternal dan kolom alamat akan dinonaktifkan';
 
   @override
+  String get publicModeApplying => 'Menerapkan mode jaringan...';
+
+  @override
   String get themeSelection => 'Tema';
 
   @override
@@ -203,7 +206,7 @@ class AppLocalizationsId extends AppLocalizations {
 
   @override
   String get localModeHint =>
-      '1. Buka Konfigurasi layanan\n2. Aktifkan Mode publik\n3. Mulai ulang layanan\n4. Pindai kode QR untuk mengakses PocketClaw';
+      '1. Buka Konfigurasi layanan\n2. Aktifkan Mode publik\n3. Pindai kode QR untuk mengakses PocketClaw';
 
   @override
   String get publicModeHint =>

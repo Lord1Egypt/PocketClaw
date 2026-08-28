@@ -6,8 +6,7 @@ import 'package:pocketclaw/src/core/service_manager.dart';
 import 'package:pocketclaw/src/generated/l10n/app_localizations.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:pocketclaw/src/core/app_theme.dart';
-import 'package:pocketclaw/src/telegram/telegram_onboarding_strings.dart';
-import 'package:pocketclaw/src/ui/telegram_onboarding_launcher.dart';
+import 'package:pocketclaw/src/ui/telegram_settings_card.dart';
 
 const String _aboutProjectName = 'PocketClaw';
 
@@ -24,12 +23,14 @@ class ConfigPage extends StatefulWidget {
   /// Called once with the save function, so MainShell can call it later.
   final void Function(Future<void> Function()? saveFn)? onSaveFnReady;
   final Future<AboutInfo> Function()? aboutInfoLoader;
+  final Future<void> Function(String path)? onManageTelegram;
 
   const ConfigPage({
     super.key,
     this.onDirtyChanged,
     this.onSaveFnReady,
     this.aboutInfoLoader,
+    this.onManageTelegram,
   });
 
   @override
@@ -40,6 +41,7 @@ class ConfigPageState extends State<ConfigPage> with WidgetsBindingObserver {
   static ConfigPageState? _current;
   static ConfigPageState? get current => _current;
   final _hostController = TextEditingController();
+  final _publicAddressController = TextEditingController();
   final _portController = TextEditingController();
   final _pathController = TextEditingController();
   final _argsController = TextEditingController();
@@ -128,7 +130,7 @@ class ConfigPageState extends State<ConfigPage> with WidgetsBindingObserver {
 
     if (mounted) {
       setState(() {
-        _hostController.text = service.publicMode ? '0.0.0.0' : service.host;
+        _hostController.text = service.host;
         _portController.text = service.port.toString();
         _pathController.text = service.binaryPath;
         _argsController.text = service.arguments;
@@ -153,6 +155,7 @@ class ConfigPageState extends State<ConfigPage> with WidgetsBindingObserver {
     WidgetsBinding.instance.removeObserver(this);
     _current = null;
     _hostController.dispose();
+    _publicAddressController.dispose();
     _portController.dispose();
     _pathController.dispose();
     _argsController.dispose();
@@ -195,7 +198,7 @@ class ConfigPageState extends State<ConfigPage> with WidgetsBindingObserver {
             : _pathController.text;
 
         await service.updateConfig(
-          _hostController.text,
+          service.publicMode ? '0.0.0.0' : _hostController.text,
           port,
           binaryPath: binaryArg,
           arguments: _argsController.text,
@@ -224,25 +227,6 @@ class ConfigPageState extends State<ConfigPage> with WidgetsBindingObserver {
     widget.onDirtyChanged?.call(false);
   }
 
-  /// Entry point to Telegram setup.
-  ///
-  /// The managed-bot flow is the primary path; manual token entry lives behind
-  /// it on the onboarding screen, not here, so the default route never asks a
-  /// normal user for a token.
-  Widget _buildTelegramEntry(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Card(
-      margin: EdgeInsets.zero,
-      child: ListTile(
-        leading: Icon(Icons.send_rounded, color: scheme.primary),
-        title: const Text(TelegramOnboardingStrings.title),
-        subtitle: const Text(TelegramOnboardingStrings.introHeadline),
-        trailing: const Icon(Icons.chevron_right_rounded),
-        onTap: () => TelegramOnboardingLauncher.open(context),
-      ),
-    );
-  }
-
   Future<void> _pickFile() async {
     FilePickerResult? result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
@@ -258,16 +242,21 @@ class ConfigPageState extends State<ConfigPage> with WidgetsBindingObserver {
   Future<void> _togglePublicMode(bool value) async {
     final service = context.read<ServiceManager>();
 
-    await service.updateConfig(
-      value ? '0.0.0.0' : '127.0.0.1',
-      int.tryParse(_portController.text) ?? 18800,
+    final applied = await service.applyPublicMode(
+      value,
+      port: int.tryParse(_portController.text) ?? 18800,
       arguments: _argsController.text,
-      publicMode: value,
     );
 
-    setState(() {
-      _hostController.text = value ? '0.0.0.0' : '127.0.0.1';
-    });
+    if (!mounted) return;
+    if (!service.publicMode) {
+      setState(() => _hostController.text = '127.0.0.1');
+    }
+    if (!applied && service.publicModeApplyError != null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(service.publicModeApplyError!)));
+    }
   }
 
   void _togglePublicModeFromFocus() {
@@ -527,11 +516,15 @@ class ConfigPageState extends State<ConfigPage> with WidgetsBindingObserver {
               ),
               const SizedBox(height: 16),
 
-              Selector<ServiceManager, bool>(
-                selector: (_, s) => s.publicMode,
-                builder: (_, isPublicMode, _) => PublicModeToggle(
+              Selector<ServiceManager, ({bool isPublic, bool isApplying})>(
+                selector: (_, s) => (
+                  isPublic: s.publicMode,
+                  isApplying: s.isApplyingPublicMode,
+                ),
+                builder: (_, publicModeState, _) => PublicModeToggle(
                   focusNode: _publicModeFocusNode,
-                  isPublicMode: isPublicMode,
+                  isPublicMode: publicModeState.isPublic,
+                  isApplying: publicModeState.isApplying,
                   onToggle: _togglePublicModeFromFocus,
                   onArrowDown: () => _hostFocusNode.requestFocus(),
                   onArrowUp: () => _aboutFocusNode.requestFocus(),
@@ -548,16 +541,24 @@ class ConfigPageState extends State<ConfigPage> with WidgetsBindingObserver {
               const SizedBox(height: 8),
 
               // Host text field - only depends on `publicMode`
-              Selector<ServiceManager, bool>(
-                selector: (_, s) => s.publicMode,
-                builder: (_, isPublicMode, _) => FocusableTextField(
-                  controller: _hostController,
-                  focusNode: _hostFocusNode,
-                  label: l10n.address,
-                  enabled: !isPublicMode,
-                  nextFocusNode: _portFocusNode,
-                  prevFocusNode: _publicModeFocusNode,
-                ),
+              Selector<ServiceManager, ({bool isPublic, String? url})>(
+                selector: (_, s) =>
+                    (isPublic: s.publicMode, url: s.publicDashboardUrl),
+                builder: (_, addressState, _) {
+                  final isPublicMode = addressState.isPublic;
+                  _publicAddressController.text =
+                      addressState.url ?? l10n.unableToGetDeviceIp;
+                  return FocusableTextField(
+                    controller: isPublicMode
+                        ? _publicAddressController
+                        : _hostController,
+                    focusNode: _hostFocusNode,
+                    label: l10n.address,
+                    enabled: !isPublicMode,
+                    nextFocusNode: _portFocusNode,
+                    prevFocusNode: _publicModeFocusNode,
+                  );
+                },
               ),
               const SizedBox(height: 16),
 
@@ -586,7 +587,7 @@ class ConfigPageState extends State<ConfigPage> with WidgetsBindingObserver {
               ),
               const SizedBox(height: 16),
 
-              _buildTelegramEntry(context),
+              TelegramSettingsCard(onManage: widget.onManageTelegram),
               const SizedBox(height: 16),
 
               if (!Platform.isWindows &&
@@ -1115,6 +1116,7 @@ class _FocusableButtonState extends State<FocusableButton> {
 class PublicModeToggle extends StatefulWidget {
   final FocusNode focusNode;
   final bool isPublicMode;
+  final bool isApplying;
   final VoidCallback onToggle;
   final VoidCallback onArrowDown;
   final VoidCallback onArrowUp;
@@ -1123,6 +1125,7 @@ class PublicModeToggle extends StatefulWidget {
     super.key,
     required this.focusNode,
     required this.isPublicMode,
+    required this.isApplying,
     required this.onToggle,
     required this.onArrowDown,
     required this.onArrowUp,
@@ -1173,14 +1176,14 @@ class _PublicModeToggleState extends State<PublicModeToggle> {
             return KeyEventResult.handled;
           } else if (event.logicalKey == LogicalKeyboardKey.select ||
               event.logicalKey == LogicalKeyboardKey.enter) {
-            widget.onToggle();
+            if (!widget.isApplying) widget.onToggle();
             return KeyEventResult.handled;
           }
         }
         return KeyEventResult.ignored;
       },
       child: GestureDetector(
-        onTap: widget.onToggle,
+        onTap: widget.isApplying ? null : widget.onToggle,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -1249,44 +1252,55 @@ class _PublicModeToggleState extends State<PublicModeToggle> {
                       ),
                     ),
                     Text(
-                      l10n.publicModeHintDesc,
+                      widget.isApplying
+                          ? l10n.publicModeApplying
+                          : l10n.publicModeHintDesc,
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
                   ],
                 ),
               ),
-              Container(
-                width: 48,
-                height: 28,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(14),
-                  color: widget.isPublicMode
-                      ? Theme.of(context).colorScheme.secondary
-                      : Theme.of(context).colorScheme.secondary.withAlpha(100),
-                ),
-                child: AnimatedAlign(
-                  duration: const Duration(milliseconds: 200),
-                  alignment: widget.isPublicMode
-                      ? Alignment.centerRight
-                      : Alignment.centerLeft,
-                  child: Container(
-                    width: 24,
-                    height: 24,
-                    margin: const EdgeInsets.all(2),
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: Theme.of(context).colorScheme.surface,
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withAlpha(30),
-                          blurRadius: 2,
-                          offset: const Offset(0, 1),
-                        ),
-                      ],
+              if (widget.isApplying)
+                const SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              else
+                Container(
+                  width: 48,
+                  height: 28,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(14),
+                    color: widget.isPublicMode
+                        ? Theme.of(context).colorScheme.secondary
+                        : Theme.of(
+                            context,
+                          ).colorScheme.secondary.withAlpha(100),
+                  ),
+                  child: AnimatedAlign(
+                    duration: const Duration(milliseconds: 200),
+                    alignment: widget.isPublicMode
+                        ? Alignment.centerRight
+                        : Alignment.centerLeft,
+                    child: Container(
+                      width: 24,
+                      height: 24,
+                      margin: const EdgeInsets.all(2),
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Theme.of(context).colorScheme.surface,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withAlpha(30),
+                            blurRadius: 2,
+                            offset: const Offset(0, 1),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
-              ),
             ],
           ),
         ),

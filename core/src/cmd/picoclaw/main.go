@@ -120,7 +120,7 @@ picoclaw --no-color status`,
 	}
 
 	cmd.PersistentFlags().BoolVar(&rootNoColor, "no-color", false,
-		"Disable colors (boxed layout unchanged)")
+		"Disable colors and terminal-only layout")
 
 	cmd.SetHelpFunc(func(c *cobra.Command, _ []string) {
 		syncCliUIColor(c.Root())
@@ -157,14 +157,10 @@ const (
 		colorBlue + "██║     ██║╚██████╗╚██████╔╝" + colorRed + "╚██████╗███████╗██║  ██║╚███╔███╔╝\n" +
 		colorBlue + "╚═╝     ╚═╝ ╚═════╝ ╚═════╝ " + colorRed + " ╚═════╝╚══════╝╚═╝  ╚═╝ ╚══╝╚══╝\n " +
 		"\033[0m\r\n"
-	plainBanner = "\r\n" +
-		"██████╗ ██╗ ██████╗ ██████╗  ██████╗██╗      █████╗ ██╗    ██╗\n" +
-		"██╔══██╗██║██╔════╝██╔═══██╗██╔════╝██║     ██╔══██╗██║    ██║\n" +
-		"██████╔╝██║██║     ██║   ██║██║     ██║     ███████║██║ █╗ ██║\n" +
-		"██╔═══╝ ██║██║     ██║   ██║██║     ██║     ██╔══██║██║███╗██║\n" +
-		"██║     ██║╚██████╗╚██████╔╝╚██████╗███████╗██║  ██║╚███╔███╔╝\n" +
-		"╚═╝     ╚═╝ ╚═════╝ ╚═════╝  ╚═════╝╚══════╝╚═╝  ╚═╝ ╚══╝╚══╝\n " +
-		"\r\n"
+	// Captured application logs are not a terminal. Keep no-color output to a
+	// single brand-safe text line instead of emitting Unicode block art that a
+	// browser or Android log viewer can render as white control-like boxes.
+	plainBanner = "\r\nPocketClaw\r\n"
 )
 
 func main() {

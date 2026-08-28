@@ -40,8 +40,22 @@ func (al *AgentLoop) publishResponseOrError(
 }
 
 func (al *AgentLoop) PublishResponseIfNeeded(ctx context.Context, channel, chatID, sessionKey, response string) {
+	if err := al.publishResponseForContext(ctx, channel, chatID, sessionKey, nil, response); err != nil {
+		logger.ErrorCF("agent", "Final response delivery failed", map[string]any{
+			"channel": channel,
+			"error":   err.Error(),
+		})
+	}
+}
+
+func (al *AgentLoop) publishResponseForContext(
+	ctx context.Context,
+	channel, chatID, sessionKey string,
+	inbound *bus.InboundContext,
+	response string,
+) error {
 	if response == "" {
-		return
+		return nil
 	}
 
 	alreadySentToSameChat := false
@@ -70,11 +84,18 @@ func (al *AgentLoop) PublishResponseIfNeeded(ctx context.Context, channel, chatI
 			"Skipped outbound (message tool already sent to same chat)",
 			map[string]any{"channel": channel, "chat_id": chatID},
 		)
-		return
+		return nil
 	}
 
 	msg := bus.OutboundMessage{
-		Context:    bus.NewOutboundContext(channel, chatID, ""),
+		Channel: channel,
+		ChatID:  chatID,
+		Context: outboundContextFromInbound(
+			inbound,
+			channel,
+			chatID,
+			"",
+		),
 		SessionKey: sessionKey,
 		Content:    response,
 	}
@@ -82,13 +103,26 @@ func (al *AgentLoop) PublishResponseIfNeeded(ctx context.Context, channel, chatI
 		msg.ContextUsage = computeContextUsage(al.agentForSession(sessionKey), sessionKey)
 	}
 	markFinalOutbound(&msg)
-	al.bus.PublishOutbound(ctx, msg)
+
+	var err error
+	if al.channelManager != nil && channel != "" {
+		err = al.channelManager.SendMessage(ctx, msg)
+	} else {
+		publishCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		err = al.bus.PublishOutbound(publishCtx, msg)
+	}
+	if err != nil {
+		return err
+	}
+
 	logger.InfoCF("agent", "Published outbound response",
 		map[string]any{
-			"channel":     channel,
-			"chat_id":     chatID,
-			"content_len": len(response),
+			"channel":      channel,
+			"lifecycle_id": bus.InboundLifecycleID(&msg.Context),
+			"content_len":  len(response),
 		})
+	return nil
 }
 
 func (al *AgentLoop) targetReasoningChannelID(channelName string) (chatID string) {

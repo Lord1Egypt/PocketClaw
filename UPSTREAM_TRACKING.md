@@ -182,6 +182,63 @@ adaptation. Automated merges from upstream are not a maintenance model.
 Recorded here so a future upstream review does not mistake PocketClaw's own
 work for an adoption, and does not go looking upstream for its origin.
 
+- **Pre-release Android reliability and privacy work (Codex Sol candidate,
+  2026-08-26).** This is PocketClaw-authored divergence, not an upstream
+  adoption. It adds the loopback-authenticated, write-only Android Telegram
+  credential bridge so Core remains the sole owner of its split
+  `config.json`/`.security.yml` state; bounded Telegram HTTP requests, safe
+  per-request correlation, independently completing Telegram session
+  mailboxes, synchronous final delivery, edit-to-send fallback, and terminal
+  placeholder cleanup; non-destructive workspace seed repair and additive
+  skill-import coverage; and Android-safe plain logging, including basename
+  callers, a non-terminal banner, neutral stale-PID wording, UTF-8 export, and
+  suppression of only successful high-rate log/status self-polls. Future
+  upstream work touching agent session steering, Telegram delivery, onboarding
+  helpers, or web API routing must preserve these PocketClaw guarantees.
+- **User-visible Web log parity (2026-08-27).** PocketClaw additionally owns the
+  shared plain-text gateway log boundary, React plain-log renderer and DOM
+  regression, captured no-color text banner, neutral gateway-start event, and
+  successful `/pico/ws` visibility filter. The actual route, executable/library
+  filenames, Go module identity, and provenance remain upstream-compatible and
+  were deliberately not renamed. Future upstream log UI, CLI banner, gateway
+  launcher, or HTTP middleware changes must preserve Unicode, error
+  observability, and the fixture-backed visibility contract.
+  The enabled-channel startup/reload summary also maps only exact internal
+  `config.ChannelPico` to display label `pocketclaw`; the upstream-compatible
+  channel/config/protocol identity remains `pico` everywhere else.
+  Structured user-visible log headers additionally display exact component
+  `pico` / caller `pico.go` as `realtime` / `realtime.go`, with line numbers
+  preserved. This normalization does not rename upstream source or runtime IDs.
+  The Web Logs viewport also uses PocketClaw-owned stable run/offset event IDs,
+  memoized plain-text rows, browser-native wrapping, and conditional pre-paint
+  bottom following. This replaces upstream-derived array-index rows and
+  content-measured `wrap-ansi` hard wrapping; native log delivery is unaffected.
+  PocketClaw also replaces Telego-compatible partial token masking with complete
+  pre-writer credential redaction, then normalizes Web-stored Bot API URLs to
+  operation-only diagnostic wording. Full tokens had already been masked before
+  Web storage; this removes the retained fragments without changing Telegram
+  credentials, lifecycle, API calls, or public bot metadata.
+  Exact structured `channel=pico` / `type=pico`, classified protocol/reasoning
+  messages, the internal registration path, and compatibility PID path also
+  receive semantic display-only wording before Web storage. This does not alter
+  upstream ChannelPico, serialized IDs, packages/files, routes, the actual PID
+  file, libraries, or environment variables; substring-negative tests enforce
+  that boundary.
+  PocketClaw also narrows the upstream-derived orphaned-CSI fallback to numeric
+  remnants so Telego's printable `[<nil>]` cannot be mistaken for terminal
+  control data. Successful nil fields display semantically as `none`.
+  PocketClaw's Telego adapter suppresses only DEBUG `getUpdates` request lines
+  and exact successful empty responses before writers; failure/non-empty/API
+  error diagnostics and all Telegram runtime behavior remain upstream-compatible.
+  PocketClaw additionally changes the freshly generated default product identity
+  to PocketClaw and enforces metadata-only normal diagnostics before writers:
+  prompt/message/tool/reasoning bodies and tool arguments are omitted, exact
+  session/internal fields are redacted on a copy, and Telego result payloads are
+  reduced to operation/status/count/type metadata. Runtime session, routing,
+  Telegram, ChannelPico, module and user-authored prompt values remain unchanged.
+  Backend/React/Dart normalization is retained only as an idempotent legacy/raw
+  guard. Future upstream Agent or Telego logger updates must not reintroduce
+  payload bodies or personal identifiers into normal user-visible history.
 - **Telegram managed-bot onboarding (Milestone D, 2026-08-26).** The
   onboarding service is PocketClaw-authored and depends on no upstream code. It
   lives in its own public repository, `Lord1Egypt/PocketClaw-Telegram-Setup`,
@@ -228,6 +285,40 @@ work for an adoption, and does not go looking upstream for its origin.
 
 ## Security Updates
 
-None currently recorded. Note that upstream `49183d7e`
+None adopted from upstream yet. Upstream `49183d7e`
 (`fix: update Go and x/text for govulncheck`) sits in the unreviewed range and
 is a candidate for the next review.
+
+PocketClaw-originated security divergence, as of v0.2.0-rc1 (2026-08-29). These
+are PocketClaw decisions, not upstream adoptions, and a future upstream merge
+must not silently revert them:
+
+- The managed Core gateway is pinned to loopback. `gatewayHostOverride()`
+  returns `localhost` unconditionally and reaches the gateway child through
+  `PICOCLAW_GATEWAY_HOST`, which outranks the config file. Upstream lets
+  `gateway.host` and the launcher's `-host`/`-public` decide this bind.
+- The internal realtime channel is owner-only and server-derived. It is
+  constructed with an owner-only allowlist regardless of the on-disk value, and
+  each inbound message is bound to its authenticated connection rather than to
+  a client-supplied session or sender field.
+- Dashboard authentication uses a revocable server-side session store with a
+  24-hour lifetime, replacing a single process-wide cookie with a 31-day
+  lifetime. The realtime WebSocket upgrade additionally requires a same-origin
+  request.
+- Telegram refuses to start without exactly one paired numeric owner; upstream
+  permits an empty or wildcard allowlist.
+- Credential generation fails closed when the CSPRNG is unavailable. Upstream
+  fell back to a timestamp-derived value for the realtime token.
+
+### Core provenance
+
+`core/pocketclaw-core-v0.3.1.patch` now covers 141 files (was 124). Regenerating
+it with `core/regen-upstream-patch.sh` reproduces the committed patch byte for
+byte, and `core/verify-no-external-source.sh` passes.
+
+### Verification note
+
+Build and test the Core with `-tags goolm,stdjson`. That selects the pure-Go Olm
+implementation, so `go build ./...`, `go vet ./...`, and the complete test suite
+pass with no system libolm. The previously recorded "`olm/olm.h` missing" host
+dependency was avoidable and is no longer an accepted exception.

@@ -112,7 +112,10 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get publicModeHintDesc =>
-      'When enabled, the service allows external access and the address field will be disabled';
+      'Expose the password-protected Dashboard to devices on your LAN. The Core gateway stays private.';
+
+  @override
+  String get publicModeApplying => 'Applying network mode...';
 
   @override
   String get themeSelection => 'Theme';
@@ -145,7 +148,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get localMode => 'Local Mode';
 
   @override
-  String get unableToGetDeviceIp => 'Unable to get device IP';
+  String get unableToGetDeviceIp => 'No LAN address available';
 
   @override
   String get deviceReportingTitle => 'Device compatibility feedback';
@@ -201,7 +204,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get localModeHint =>
-      '1. Go to Service Config\n2. Turn on Public Mode\n3. Restart the service\n4. Scan QR code to access PocketClaw';
+      '1. Go to Service Config\n2. Turn on Public Mode\n3. Scan QR code to access PocketClaw';
 
   @override
   String get publicModeHint =>

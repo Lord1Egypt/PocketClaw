@@ -23,6 +23,7 @@ type PasswordStore interface {
 // LauncherAuthRouteOpts configures dashboard auth handlers.
 type LauncherAuthRouteOpts struct {
 	SessionCookie string
+	Sessions      *middleware.LauncherDashboardSessions
 	SecureCookie  func(*http.Request) bool
 	// PasswordStore enables password login. It must be non-nil for auth to work.
 	PasswordStore PasswordStore
@@ -54,6 +55,7 @@ func RegisterLauncherAuthRoutes(mux *http.ServeMux, opts LauncherAuthRouteOpts) 
 	}
 	h := &launcherAuthHandlers{
 		sessionCookie: opts.SessionCookie,
+		sessions:      opts.Sessions,
 		secureCookie:  secure,
 		store:         opts.PasswordStore,
 		storeErr:      opts.StoreError,
@@ -67,6 +69,7 @@ func RegisterLauncherAuthRoutes(mux *http.ServeMux, opts LauncherAuthRouteOpts) 
 
 type launcherAuthHandlers struct {
 	sessionCookie string
+	sessions      *middleware.LauncherDashboardSessions
 	secureCookie  func(*http.Request) bool
 	store         PasswordStore
 	storeErr      error // set when the store failed to open; drives recovery messages
@@ -129,7 +132,16 @@ func (h *launcherAuthHandlers) handleLogin(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	middleware.SetLauncherDashboardSessionCookie(w, r, h.sessionCookie, h.secureCookie)
+	sessionValue := h.sessionCookie
+	if h.sessions != nil {
+		sessionValue, err = h.sessions.Issue()
+		if err != nil {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			_, _ = w.Write([]byte(`{"error":"dashboard session unavailable"}`))
+			return
+		}
+	}
+	middleware.SetLauncherDashboardSessionCookie(w, r, sessionValue, h.secureCookie)
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write([]byte(`{"status":"ok"}`))
 }
@@ -159,6 +171,9 @@ func (h *launcherAuthHandlers) handleLogout(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
+	if c, err := r.Cookie(middleware.LauncherDashboardCookieName); err == nil && h.sessions != nil {
+		h.sessions.Revoke(c.Value)
+	}
 	middleware.ClearLauncherDashboardSessionCookie(w, r, h.secureCookie)
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write([]byte(`{"status":"ok"}`))
@@ -168,7 +183,7 @@ func (h *launcherAuthHandlers) handleStatus(w http.ResponseWriter, r *http.Reque
 	w.Header().Set("Content-Type", "application/json")
 	authed := false
 	if c, err := r.Cookie(middleware.LauncherDashboardCookieName); err == nil {
-		authed = subtle.ConstantTimeCompare([]byte(c.Value), []byte(h.sessionCookie)) == 1
+		authed = h.validSession(c.Value)
 	}
 	initialized, initErr := h.isStoreInitialized(r.Context())
 	if initErr != nil {
@@ -219,7 +234,7 @@ func (h *launcherAuthHandlers) handleSetup(w http.ResponseWriter, r *http.Reques
 	if initialized {
 		authed := false
 		if c, err := r.Cookie(middleware.LauncherDashboardCookieName); err == nil {
-			authed = subtle.ConstantTimeCompare([]byte(c.Value), []byte(h.sessionCookie)) == 1
+			authed = h.validSession(c.Value)
 		}
 		if !authed {
 			w.WriteHeader(http.StatusUnauthorized)
@@ -260,6 +275,13 @@ func (h *launcherAuthHandlers) handleSetup(w http.ResponseWriter, r *http.Reques
 
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write([]byte(`{"status":"ok"}`))
+}
+
+func (h *launcherAuthHandlers) validSession(value string) bool {
+	if h.sessions != nil {
+		return h.sessions.Valid(value)
+	}
+	return subtle.ConstantTimeCompare([]byte(value), []byte(h.sessionCookie)) == 1
 }
 
 // writeErrorf writes a JSON error response with a formatted message.

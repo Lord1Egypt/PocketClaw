@@ -35,6 +35,22 @@ abstract final class TelegramOnboardingStrings {
   static const openChat = 'Open Chat';
   static const done = 'Done';
 
+  // Connected-state surface, shown when Telegram is already configured.
+  static const connectedSubtitle = 'Connected';
+  static const connectedUnknownBot = 'Bot configured on this device';
+  static const ownerLabel = 'Owner';
+  static const ownerConfigured = 'Configured';
+  static const ownerAnyone = 'Anyone can message this bot';
+  static const reconnect = 'Reconnect / Create New Bot';
+  static const advancedSettings = 'Advanced / Manual Settings';
+  static const reconnectConfirmTitle = 'Create a new bot?';
+  static const reconnectConfirmBody =
+      'Your current bot keeps working until a new one is created. '
+      'Only when the new bot is ready does PocketClaw switch over. '
+      'If you cancel or the link expires, nothing changes.';
+  static const reconnectConfirmCancel = 'Keep current bot';
+  static const reconnectConfirmProceed = 'Create new bot';
+
   static const expiredHeadline = 'Setup link expired';
   static const expiredBody =
       'The link is only valid for a few minutes. Start again to get a new one.';
@@ -47,10 +63,12 @@ abstract final class TelegramOnboardingStrings {
   static const manualBody =
       'Create a bot with @BotFather in Telegram, then paste its token here.';
   static const manualTokenLabel = 'Bot token';
-  static const manualAllowedLabel = 'Allowed Telegram user IDs (optional)';
-  static const manualAllowedHelp = 'Comma-separated. Leave empty to allow anyone.';
+  static const manualAllowedLabel = 'Owner Telegram numeric user ID';
+  static const manualAllowedHelp =
+      'Required. Find your numeric ID from a trusted Telegram ID bot.';
   static const manualSave = 'Save and connect';
   static const manualTokenRequired = 'Enter the bot token from @BotFather.';
+  static const manualOwnerRequired = 'Enter your numeric Telegram user ID.';
   static const manualTokenMalformed =
       'That does not look like a bot token. It looks like 123456789:AA…';
 

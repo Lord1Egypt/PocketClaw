@@ -1,10 +1,34 @@
 package agent
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/sipeed/picoclaw/pkg/providers"
 )
+
+func TestFreshDefaultSystemPromptUsesPocketClawIdentityAndPreservesCustomText(t *testing.T) {
+	workspace := setupWorkspace(t, map[string]string{
+		"AGENT.md": "# Custom identity\nKeep user-authored picoclaw migration notes unchanged.",
+	})
+	defer cleanupWorkspace(t, workspace)
+
+	prompt := NewContextBuilder(workspace).BuildSystemPrompt()
+	for _, required := range []string{
+		"# PocketClaw 🦞",
+		"You are PocketClaw, a helpful AI assistant.",
+		"Keep user-authored picoclaw migration notes unchanged.",
+	} {
+		if !strings.Contains(prompt, required) {
+			t.Fatalf("fresh system prompt missing %q", required)
+		}
+	}
+	for _, forbidden := range []string{"# picoclaw 🦞", "You are picoclaw"} {
+		if strings.Contains(prompt, forbidden) {
+			t.Fatalf("fresh system prompt retained legacy product identity %q", forbidden)
+		}
+	}
+}
 
 func msg(role, content string) providers.Message {
 	return providers.Message{Role: role, Content: content}

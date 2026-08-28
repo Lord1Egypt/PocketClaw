@@ -37,7 +37,11 @@ func (p *Pipeline) tryConfiguredStreamingLLM(
 		return nil, false, nil
 	}
 
-	streamer, ok := p.Bus.GetStreamer(ctx, ts.channel, ts.chatID, ts.sessionKey)
+	streamCtx := bus.WithLifecycleID(
+		ctx,
+		bus.InboundLifecycleID(ts.opts.Dispatch.InboundContext),
+	)
+	streamer, ok := p.Bus.GetStreamer(streamCtx, ts.channel, ts.chatID, ts.sessionKey)
 	if !ok || streamer == nil {
 		logger.DebugCF("agent", "configured streaming not used", map[string]any{
 			"agent_id": ts.agent.ID,

@@ -71,7 +71,7 @@ func WritePidFile(homePath, host string, port int) (*PidFileData, error) {
 				if isPicoclawProcess(data.PID) {
 					return nil, fmt.Errorf("gateway is already running (PID: %d, version: %s)", data.PID, data.Version)
 				}
-				logger.Warnf("found pid file (PID: %d) but process is not picoclaw", data.PID)
+				logger.Warnf("found pid file (PID: %d) but the process is not the PocketClaw runtime", data.PID)
 			}
 			logger.Warnf("not running (PID: %d) so will remove the pid file: %s", data.PID, pidPath)
 		}

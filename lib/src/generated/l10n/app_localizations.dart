@@ -319,8 +319,14 @@ abstract class AppLocalizations {
   /// No description provided for @publicModeHintDesc.
   ///
   /// In en, this message translates to:
-  /// **'When enabled, the service allows external access and the address field will be disabled'**
+  /// **'Expose the password-protected Dashboard to devices on your LAN. The Core gateway stays private.'**
   String get publicModeHintDesc;
+
+  /// No description provided for @publicModeApplying.
+  ///
+  /// In en, this message translates to:
+  /// **'Applying network mode...'**
+  String get publicModeApplying;
 
   /// No description provided for @themeSelection.
   ///
@@ -385,7 +391,7 @@ abstract class AppLocalizations {
   /// No description provided for @unableToGetDeviceIp.
   ///
   /// In en, this message translates to:
-  /// **'Unable to get device IP'**
+  /// **'No LAN address available'**
   String get unableToGetDeviceIp;
 
   /// No description provided for @deviceReportingTitle.
@@ -481,7 +487,7 @@ abstract class AppLocalizations {
   /// No description provided for @localModeHint.
   ///
   /// In en, this message translates to:
-  /// **'1. Go to Service Config\n2. Turn on Public Mode\n3. Restart the service\n4. Scan QR code to access PocketClaw'**
+  /// **'1. Go to Service Config\n2. Turn on Public Mode\n3. Scan QR code to access PocketClaw'**
   String get localModeHint;
 
   /// No description provided for @publicModeHint.

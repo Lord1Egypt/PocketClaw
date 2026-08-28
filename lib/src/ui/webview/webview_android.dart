@@ -61,7 +61,7 @@ class _WebViewAndroidState extends State<WebViewAndroid> {
     switch (request.kind) {
       case HostRequestKind.openTelegramOnboarding:
         if (!mounted || !_isConsoleOrigin) return;
-        final username = await TelegramOnboardingLauncher.open(context);
+        final username = await TelegramOnboardingLauncher.startPairing(context);
         if (username != null && username.isNotEmpty) {
           _telegramBotUsername = username;
         }

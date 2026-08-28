@@ -44,7 +44,8 @@ class _ChatPageState extends State<ChatPage> {
     try {
       _picoToken = await PicoClawChannel.getPicoToken();
     } catch (_) {
-      _picoToken = 'picoclaw-android-local';
+      _addMessage(_ChatMessage('无法验证本机连接。', _Role.assistant));
+      return;
     }
     _addMessage(_ChatMessage('正在连接 AI 助手...', _Role.assistant));
     _connectToGateway();

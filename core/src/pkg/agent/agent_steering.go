@@ -4,6 +4,7 @@ package agent
 
 import (
 	"context"
+	"errors"
 
 	"github.com/sipeed/picoclaw/pkg/bus"
 	"github.com/sipeed/picoclaw/pkg/logger"
@@ -18,14 +19,29 @@ func (al *AgentLoop) processMessageSync(ctx context.Context, msg bus.InboundMess
 	al.publishResponseOrError(ctx, msg.Channel, msg.ChatID, msg.SessionKey, response, err)
 }
 
-func (al *AgentLoop) runTurnWithSteering(ctx context.Context, initialMsg bus.InboundMessage) {
+func (al *AgentLoop) runTurnWithSteering(ctx context.Context, initialMsg bus.InboundMessage) error {
 	// Process the initial message
 	response, err := al.processMessage(ctx, initialMsg)
 	if err != nil {
-		if !al.maybePublishError(ctx, initialMsg.Channel, initialMsg.ChatID, initialMsg.SessionKey, err) {
-			return // context canceled
+		if errors.Is(err, context.Canceled) {
+			return err
 		}
-		response = ""
+		if deliveryErr := al.publishResponseForContext(
+			ctx,
+			initialMsg.Channel,
+			initialMsg.ChatID,
+			initialMsg.SessionKey,
+			&initialMsg.Context,
+			formatProcessingError(err),
+		); deliveryErr != nil {
+			logger.ErrorCF("agent", "Error response delivery failed", map[string]any{
+				"channel":      initialMsg.Channel,
+				"lifecycle_id": bus.InboundLifecycleID(&initialMsg.Context),
+				"error":        deliveryErr.Error(),
+			})
+			return deliveryErr
+		}
+		return nil
 	}
 	finalResponse := response
 
@@ -37,11 +53,11 @@ func (al *AgentLoop) runTurnWithSteering(ctx context.Context, initialMsg bus.Inb
 				"channel": initialMsg.Channel,
 				"error":   targetErr.Error(),
 			})
-		return
+		return targetErr
 	}
 	if target == nil {
 		// System message or non-routable, response already published
-		return
+		return nil
 	}
 
 	continued, continueErr := al.drainQueuedSteeringContinuations(ctx, target)
@@ -58,8 +74,23 @@ func (al *AgentLoop) runTurnWithSteering(ctx context.Context, initialMsg bus.Inb
 
 	// Publish final response
 	if finalResponse != "" {
-		al.PublishResponseIfNeeded(ctx, target.Channel, target.ChatID, target.SessionKey, finalResponse)
+		if deliveryErr := al.publishResponseForContext(
+			ctx,
+			target.Channel,
+			target.ChatID,
+			target.SessionKey,
+			target.InboundContext,
+			finalResponse,
+		); deliveryErr != nil {
+			logger.ErrorCF("agent", "Final response delivery failed", map[string]any{
+				"channel":      target.Channel,
+				"lifecycle_id": bus.InboundLifecycleID(target.InboundContext),
+				"error":        deliveryErr.Error(),
+			})
+			return deliveryErr
+		}
 	}
+	return nil
 }
 
 func (al *AgentLoop) drainQueuedSteeringContinuations(

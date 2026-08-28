@@ -244,7 +244,7 @@ func startGatewayAndCaptureEnv(t *testing.T, h *Handler) gatewayStartEnvSnapshot
 	}
 }
 
-func TestStartGatewayLocked_ForwardsLauncherHostOverrideToGatewayEnv(t *testing.T) {
+func TestStartGatewayLocked_ForcesLoopbackDespiteLauncherHost(t *testing.T) {
 	h := newGatewayStartTestHandler(t)
 	h.SetServerBindHost("127.0.0.1,::1", true)
 
@@ -252,15 +252,15 @@ func TestStartGatewayLocked_ForwardsLauncherHostOverrideToGatewayEnv(t *testing.
 	if !snapshot.GatewayHostSet {
 		t.Fatal("gateway host env was not set")
 	}
-	if snapshot.GatewayHost != "127.0.0.1,::1" {
-		t.Fatalf("gateway host env = %q, want %q", snapshot.GatewayHost, "127.0.0.1,::1")
+	if snapshot.GatewayHost != "localhost" {
+		t.Fatalf("gateway host env = %q, want loopback", snapshot.GatewayHost)
 	}
 	if snapshot.ConfigPath != h.configPath {
 		t.Fatalf("config env = %q, want %q", snapshot.ConfigPath, h.configPath)
 	}
 }
 
-func TestStartGatewayLocked_ForwardsLauncherHostFromEnvironmentToGatewayEnv(t *testing.T) {
+func TestStartGatewayLocked_ForcesLoopbackDespiteIPv6WildcardLauncherHost(t *testing.T) {
 	h := newGatewayStartTestHandler(t)
 	h.SetServerBindHost("::", true)
 
@@ -268,12 +268,12 @@ func TestStartGatewayLocked_ForwardsLauncherHostFromEnvironmentToGatewayEnv(t *t
 	if !snapshot.GatewayHostSet {
 		t.Fatal("gateway host env was not set")
 	}
-	if snapshot.GatewayHost != "::" {
-		t.Fatalf("gateway host env = %q, want %q", snapshot.GatewayHost, "::")
+	if snapshot.GatewayHost != "localhost" {
+		t.Fatalf("gateway host env = %q, want loopback", snapshot.GatewayHost)
 	}
 }
 
-func TestStartGatewayLocked_ForwardsWildcardHostForPublicLauncher(t *testing.T) {
+func TestStartGatewayLocked_ForcesLoopbackForPublicLauncher(t *testing.T) {
 	h := newGatewayStartTestHandler(t)
 	h.SetServerOptions(18800, true, true, nil)
 
@@ -281,8 +281,8 @@ func TestStartGatewayLocked_ForwardsWildcardHostForPublicLauncher(t *testing.T) 
 	if !snapshot.GatewayHostSet {
 		t.Fatal("gateway host env was not set")
 	}
-	if snapshot.GatewayHost != "*" {
-		t.Fatalf("gateway host env = %q, want %q", snapshot.GatewayHost, "*")
+	if snapshot.GatewayHost != "localhost" {
+		t.Fatalf("gateway host env = %q, want loopback", snapshot.GatewayHost)
 	}
 }
 
@@ -565,7 +565,7 @@ func TestGatewayCommandArgsIncludesDebugFlagWhenEnabled(t *testing.T) {
 	h.SetDebug(true)
 
 	args := h.gatewayCommandArgs()
-	want := []string{"gateway", "-E", "-d"}
+	want := []string{"gateway", "-E", "--no-color", "-d"}
 	if strings.Join(args, " ") != strings.Join(want, " ") {
 		t.Fatalf("gatewayCommandArgs() = %v, want %v", args, want)
 	}

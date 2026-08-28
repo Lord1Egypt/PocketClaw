@@ -16,8 +16,8 @@ import (
 // LauncherDashboardCookieName is the HttpOnly cookie set after a successful password login.
 const LauncherDashboardCookieName = "picoclaw_launcher_auth"
 
-// launcherDashboardSessionMaxAgeSec is the dashboard session cookie lifetime (31 days).
-const launcherDashboardSessionMaxAgeSec = 31 * 24 * 3600
+// launcherDashboardSessionMaxAgeSec is the dashboard session cookie lifetime.
+const launcherDashboardSessionMaxAgeSec = 24 * 3600
 
 const (
 	launcherSessionCookieBytes = 32
@@ -46,10 +46,86 @@ func randomURLToken(n int) (string, error) {
 // LauncherDashboardAuthConfig holds runtime material for dashboard access checks.
 type LauncherDashboardAuthConfig struct {
 	ExpectedCookie string
+	// Sessions is the authoritative server-side dashboard session store. When
+	// set, cookies are accepted only while their corresponding session remains
+	// live and has not been revoked.
+	Sessions *LauncherDashboardSessions
 	// LocalAutoLogin enables one-shot startup auto-login.
 	LocalAutoLogin *LauncherDashboardLocalAutoLogin
 	// SecureCookie sets the session cookie's Secure flag. If nil, DefaultLauncherDashboardSecureCookie is used.
 	SecureCookie func(*http.Request) bool
+}
+
+// LauncherDashboardSessions tracks short-lived dashboard sessions in memory.
+// Session tokens are opaque, cryptographically random bearer values; only the
+// browser cookie contains the value and logs must never include it.
+type LauncherDashboardSessions struct {
+	mu       sync.Mutex
+	ttl      time.Duration
+	sessions map[string]time.Time
+	now      func() time.Time
+}
+
+// NewLauncherDashboardSessions creates an empty server-side session store.
+func NewLauncherDashboardSessions(ttl time.Duration) *LauncherDashboardSessions {
+	if ttl <= 0 {
+		ttl = time.Duration(launcherDashboardSessionMaxAgeSec) * time.Second
+	}
+	return &LauncherDashboardSessions{
+		ttl:      ttl,
+		sessions: make(map[string]time.Time),
+		now:      time.Now,
+	}
+}
+
+// Issue creates and records a fresh dashboard session.
+func (s *LauncherDashboardSessions) Issue() (string, error) {
+	if s == nil {
+		return "", errors.New("dashboard session store unavailable")
+	}
+	token, err := NewLauncherDashboardSessionCookie()
+	if err != nil {
+		return "", err
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.sessions[token] = s.currentTime().Add(s.ttl)
+	return token, nil
+}
+
+// Valid reports whether token names a live, non-revoked session.
+func (s *LauncherDashboardSessions) Valid(token string) bool {
+	if s == nil || token == "" {
+		return false
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	expires, ok := s.sessions[token]
+	if !ok {
+		return false
+	}
+	if !s.currentTime().Before(expires) {
+		delete(s.sessions, token)
+		return false
+	}
+	return true
+}
+
+// Revoke invalidates a session immediately.
+func (s *LauncherDashboardSessions) Revoke(token string) {
+	if s == nil || token == "" {
+		return
+	}
+	s.mu.Lock()
+	delete(s.sessions, token)
+	s.mu.Unlock()
+}
+
+func (s *LauncherDashboardSessions) currentTime() time.Time {
+	if s.now != nil {
+		return s.now()
+	}
+	return time.Now()
 }
 
 // LauncherDashboardLocalAutoLogin is an in-memory, one-shot startup grant.
@@ -143,6 +219,10 @@ func LauncherDashboardAuth(cfg LauncherDashboardAuthConfig, next http.Handler) h
 			return
 		}
 		if validLauncherDashboardAuth(r, cfg) {
+			if p == "/pico/ws" && !validLauncherWebSocketOrigin(r) {
+				http.Error(w, "forbidden", http.StatusForbidden)
+				return
+			}
 			next.ServeHTTP(w, r)
 			return
 		}
@@ -168,7 +248,16 @@ func handleLauncherLocalAutoLogin(w http.ResponseWriter, r *http.Request, cfg La
 		return
 	}
 	if cfg.LocalAutoLogin != nil && cfg.LocalAutoLogin.consume(r.URL.Query().Get("nonce")) {
-		SetLauncherDashboardSessionCookie(w, r, cfg.ExpectedCookie, cfg.SecureCookie)
+		sessionValue := cfg.ExpectedCookie
+		if cfg.Sessions != nil {
+			var err error
+			sessionValue, err = cfg.Sessions.Issue()
+			if err != nil {
+				http.Error(w, "dashboard session unavailable", http.StatusServiceUnavailable)
+				return
+			}
+		}
+		SetLauncherDashboardSessionCookie(w, r, sessionValue, cfg.SecureCookie)
 		http.Redirect(w, r, "/", http.StatusSeeOther)
 		return
 	}
@@ -289,11 +378,30 @@ func isPublicLauncherDashboardStatic(method, p string) bool {
 
 func validLauncherDashboardAuth(r *http.Request, cfg LauncherDashboardAuthConfig) bool {
 	if c, err := r.Cookie(LauncherDashboardCookieName); err == nil {
+		if cfg.Sessions != nil {
+			return cfg.Sessions.Valid(c.Value)
+		}
 		if subtle.ConstantTimeCompare([]byte(c.Value), []byte(cfg.ExpectedCookie)) == 1 {
 			return true
 		}
 	}
 	return false
+}
+
+func validLauncherWebSocketOrigin(r *http.Request) bool {
+	origin := strings.TrimSpace(r.Header.Get("Origin"))
+	if origin == "" {
+		return false
+	}
+	u, err := url.Parse(origin)
+	if err != nil || u.Host == "" || (u.Scheme != "http" && u.Scheme != "https") {
+		return false
+	}
+	expectedHost := strings.TrimSpace(strings.Split(r.Header.Get("X-Forwarded-Host"), ",")[0])
+	if expectedHost == "" {
+		expectedHost = strings.TrimSpace(r.Host)
+	}
+	return expectedHost != "" && strings.EqualFold(u.Host, expectedHost)
 }
 
 func rejectLauncherDashboardAuth(w http.ResponseWriter, r *http.Request, canonicalPath string) {

@@ -1,4 +1,3 @@
-
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pocketclaw/src/telegram/telegram_config_writer.dart';
 import 'package:pocketclaw/src/telegram/telegram_onboarding_client.dart';
@@ -19,8 +18,9 @@ class FakeClient extends TelegramOnboardingClient {
   TelegramOnboardingException? collectError;
 
   final List<TelegramPairingStatus> statusQueue = [];
-  TelegramPairingStatus lastStatus =
-      const TelegramPairingStatus(state: PairingState.pending);
+  TelegramPairingStatus lastStatus = const TelegramPairingStatus(
+    state: PairingState.pending,
+  );
 
   DateTime expiresAt = DateTime.now().toUtc().add(const Duration(minutes: 10));
 
@@ -31,12 +31,18 @@ class FakeClient extends TelegramOnboardingClient {
     return TelegramPairing(
       pairingId: 'pairing-$createCalls',
       pollToken: 'poll-$createCalls',
-      suggestedUsername: 'pocketclaw_abcd123$createCalls' '_bot',
+      suggestedUsername:
+          'pocketclaw_abcd123$createCalls'
+          '_bot',
       suggestedName: 'PocketClaw Agent',
-      deepLink: 'https://t.me/newbot/PocketClawSetupBot/'
-          'pocketclaw_abcd123$createCalls' '_bot?name=PocketClaw%20Agent',
-      qrPayload: 'https://t.me/newbot/PocketClawSetupBot/'
-          'pocketclaw_abcd123$createCalls' '_bot?name=PocketClaw%20Agent',
+      deepLink:
+          'https://t.me/newbot/PocketClawSetupBot/'
+          'pocketclaw_abcd123$createCalls'
+          '_bot?name=PocketClaw%20Agent',
+      qrPayload:
+          'https://t.me/newbot/PocketClawSetupBot/'
+          'pocketclaw_abcd123$createCalls'
+          '_bot?name=PocketClaw%20Agent',
       expiresAt: expiresAt,
       pollInterval: const Duration(milliseconds: 10),
     );
@@ -52,7 +58,8 @@ class FakeClient extends TelegramOnboardingClient {
 
   @override
   Future<TelegramBotCredentials> collectCredentials(
-      TelegramPairing pairing) async {
+    TelegramPairing pairing,
+  ) async {
     collectCalls++;
     if (collectError != null) throw collectError!;
     return const TelegramBotCredentials(
@@ -86,10 +93,9 @@ class Harness {
     controller = TelegramOnboardingController(
       client: client,
       configWriter: TelegramConfigWriter(
-        readConfig: () async => savedConfig,
-        writeConfig: (content) async {
+        writeCredentials: (credentials) async {
           if (configWriteFails) return false;
-          savedConfig = content;
+          savedCredentials = credentials;
           return true;
         },
       ),
@@ -111,7 +117,7 @@ class Harness {
   final openedUrls = <String>[];
   late final TelegramOnboardingController controller;
 
-  String savedConfig = '{}';
+  TelegramBotCredentials? savedCredentials;
   bool configWriteFails = false;
   bool reloadFails = false;
   bool openSucceeds = true;
@@ -133,13 +139,17 @@ void main() {
     await h.controller.start();
 
     expect(h.controller.stage, TelegramOnboardingStage.awaitingConfirmation);
-    expect(h.controller.pairing!.suggestedUsername,
-        startsWith('pocketclaw_'));
-    expect(h.controller.pairing!.deepLink,
-        startsWith('https://t.me/newbot/PocketClawSetupBot/'));
+    expect(h.controller.pairing!.suggestedUsername, startsWith('pocketclaw_'));
+    expect(
+      h.controller.pairing!.deepLink,
+      startsWith('https://t.me/newbot/PocketClawSetupBot/'),
+    );
     expect(h.controller.isPolling, isTrue);
-    expect(h.storage.saved, isNotNull,
-        reason: 'the pairing must survive the app being killed');
+    expect(
+      h.storage.saved,
+      isNotNull,
+      reason: 'the pairing must survive the app being killed',
+    );
     h.controller.dispose();
   });
 
@@ -148,23 +158,37 @@ void main() {
     h.client.statusQueue.addAll(const [
       TelegramPairingStatus(state: PairingState.pending),
       TelegramPairingStatus(
-          state: PairingState.created, botUsername: 'pocketclaw_abcd1231_bot'),
+        state: PairingState.created,
+        botUsername: 'pocketclaw_abcd1231_bot',
+      ),
       TelegramPairingStatus(
-          state: PairingState.ready, botUsername: 'pocketclaw_abcd1231_bot'),
+        state: PairingState.ready,
+        botUsername: 'pocketclaw_abcd1231_bot',
+      ),
     ]);
 
     await h.controller.start();
-    await waitFor(() => h.controller.stage == TelegramOnboardingStage.connected);
+    await waitFor(
+      () => h.controller.stage == TelegramOnboardingStage.connected,
+    );
 
     expect(h.controller.connectedBotUsername, 'pocketclaw_abcd1231_bot');
-    expect(h.controller.connectedChatUrl,
-        'https://t.me/pocketclaw_abcd1231_bot');
-    expect(h.savedConfig, contains('9001:CHILD-TOKEN'));
-    expect(h.savedConfig, contains('"555"'),
-        reason: 'the creating user becomes the allow-list');
+    expect(
+      h.controller.connectedChatUrl,
+      'https://t.me/pocketclaw_abcd1231_bot',
+    );
+    expect(h.savedCredentials?.token, '9001:CHILD-TOKEN');
+    expect(
+      h.savedCredentials?.ownerUserId,
+      555,
+      reason: 'the creating user becomes the allow-list',
+    );
     expect(h.reloads, 1, reason: 'Core must reload to pick up the channel');
-    expect(h.client.collectCalls, 1,
-        reason: 'the token is collected exactly once');
+    expect(
+      h.client.collectCalls,
+      1,
+      reason: 'the token is collected exactly once',
+    );
     expect(h.storage.saved, isNull, reason: 'the pairing is cleared when done');
     expect(h.controller.isPolling, isFalse);
     h.controller.dispose();
@@ -177,7 +201,10 @@ void main() {
 
     expect(h.openedUrls, hasLength(1));
     expect(h.openedUrls.single, h.controller.pairing!.deepLink);
-    expect(h.openedUrls.single, isNot(contains(h.controller.pairing!.pollToken)));
+    expect(
+      h.openedUrls.single,
+      isNot(contains(h.controller.pairing!.pollToken)),
+    );
     expect(h.openedUrls.single, isNot(contains('CHILD-TOKEN')));
     h.controller.dispose();
   });
@@ -188,8 +215,10 @@ void main() {
     await h.controller.openTelegram();
 
     expect(h.controller.stage, TelegramOnboardingStage.failed);
-    expect(h.controller.errorKind,
-        TelegramOnboardingErrorKind.telegramUnavailable);
+    expect(
+      h.controller.errorKind,
+      TelegramOnboardingErrorKind.telegramUnavailable,
+    );
     h.controller.dispose();
   });
 
@@ -202,8 +231,11 @@ void main() {
     expect(h.controller.isPolling, isFalse);
     final callsWhilePaused = h.client.statusCalls;
     await Future<void>.delayed(const Duration(milliseconds: 60));
-    expect(h.client.statusCalls, callsWhilePaused,
-        reason: 'polling must stop while the app is backgrounded');
+    expect(
+      h.client.statusCalls,
+      callsWhilePaused,
+      reason: 'polling must stop while the app is backgrounded',
+    );
 
     // The pairing itself must survive Telegram taking focus.
     expect(h.controller.pairing, isNotNull);
@@ -215,25 +247,32 @@ void main() {
     h.controller.dispose();
   });
 
-  test('resuming checks immediately rather than waiting a full interval',
-      () async {
-    final h = Harness();
-    h.client.expiresAt = DateTime.now().toUtc().add(const Duration(minutes: 10));
-    await h.controller.start();
-    h.controller.pausePolling();
-    final before = h.client.statusCalls;
+  test(
+    'resuming checks immediately rather than waiting a full interval',
+    () async {
+      final h = Harness();
+      h.client.expiresAt = DateTime.now().toUtc().add(
+        const Duration(minutes: 10),
+      );
+      await h.controller.start();
+      h.controller.pausePolling();
+      final before = h.client.statusCalls;
 
-    h.controller.resumePolling();
-    await waitFor(() => h.client.statusCalls > before);
-    h.controller.dispose();
-  });
+      h.controller.resumePolling();
+      await waitFor(() => h.client.statusCalls > before);
+      h.controller.dispose();
+    },
+  );
 
   test('resuming does nothing once the flow has finished', () async {
     final h = Harness();
-    h.client.statusQueue
-        .add(const TelegramPairingStatus(state: PairingState.ready));
+    h.client.statusQueue.add(
+      const TelegramPairingStatus(state: PairingState.ready),
+    );
     await h.controller.start();
-    await waitFor(() => h.controller.stage == TelegramOnboardingStage.connected);
+    await waitFor(
+      () => h.controller.stage == TelegramOnboardingStage.connected,
+    );
 
     h.controller.resumePolling();
     expect(h.controller.isPolling, isFalse);
@@ -244,24 +283,32 @@ void main() {
     final h = Harness();
     await h.controller.start();
     h.client.statusError = const TelegramOnboardingException(
-        TelegramOnboardingErrorKind.network);
+      TelegramOnboardingErrorKind.network,
+    );
     await waitFor(() => h.client.statusCalls > 2);
 
-    expect(h.controller.stage, TelegramOnboardingStage.awaitingConfirmation,
-        reason: 'a dropped poll must not end the pairing');
+    expect(
+      h.controller.stage,
+      TelegramOnboardingStage.awaitingConfirmation,
+      reason: 'a dropped poll must not end the pairing',
+    );
     expect(h.controller.isPolling, isTrue);
 
     h.client.statusError = null;
-    h.client.statusQueue
-        .add(const TelegramPairingStatus(state: PairingState.ready));
-    await waitFor(() => h.controller.stage == TelegramOnboardingStage.connected);
+    h.client.statusQueue.add(
+      const TelegramPairingStatus(state: PairingState.ready),
+    );
+    await waitFor(
+      () => h.controller.stage == TelegramOnboardingStage.connected,
+    );
     h.controller.dispose();
   });
 
   test('an expired pairing is reported and cleared', () async {
     final h = Harness();
-    h.client.expiresAt =
-        DateTime.now().toUtc().subtract(const Duration(seconds: 1));
+    h.client.expiresAt = DateTime.now().toUtc().subtract(
+      const Duration(seconds: 1),
+    );
     await h.controller.start();
     await waitFor(() => h.controller.stage == TelegramOnboardingStage.expired);
 
@@ -270,22 +317,29 @@ void main() {
     h.controller.dispose();
   });
 
-  test('a service-reported expiry is honoured even before the local deadline',
-      () async {
-    final h = Harness();
-    h.client.statusQueue
-        .add(const TelegramPairingStatus(state: PairingState.expired));
-    await h.controller.start();
-    await waitFor(() => h.controller.stage == TelegramOnboardingStage.expired);
-    h.controller.dispose();
-  });
+  test(
+    'a service-reported expiry is honoured even before the local deadline',
+    () async {
+      final h = Harness();
+      h.client.statusQueue.add(
+        const TelegramPairingStatus(state: PairingState.expired),
+      );
+      await h.controller.start();
+      await waitFor(
+        () => h.controller.stage == TelegramOnboardingStage.expired,
+      );
+      h.controller.dispose();
+    },
+  );
 
   test('a failed pairing surfaces as a failure, not as success', () async {
     final h = Harness();
-    h.client.statusQueue.add(const TelegramPairingStatus(
-      state: PairingState.failed,
-      reason: 'token_retrieval_failed',
-    ));
+    h.client.statusQueue.add(
+      const TelegramPairingStatus(
+        state: PairingState.failed,
+        reason: 'token_retrieval_failed',
+      ),
+    );
     await h.controller.start();
     await waitFor(() => h.controller.stage == TelegramOnboardingStage.failed);
     expect(h.controller.errorKind, TelegramOnboardingErrorKind.serviceError);
@@ -294,26 +348,32 @@ void main() {
 
   test('a failed config write does not report connected', () async {
     final h = Harness()..configWriteFails = true;
-    h.client.statusQueue
-        .add(const TelegramPairingStatus(state: PairingState.ready));
+    h.client.statusQueue.add(
+      const TelegramPairingStatus(state: PairingState.ready),
+    );
     await h.controller.start();
     await waitFor(() => h.controller.stage == TelegramOnboardingStage.failed);
 
-    expect(h.controller.errorKind,
-        TelegramOnboardingErrorKind.configurationFailed);
+    expect(
+      h.controller.errorKind,
+      TelegramOnboardingErrorKind.configurationFailed,
+    );
     expect(h.controller.connectedBotUsername, isNull);
     h.controller.dispose();
   });
 
   test('a failed Core reload does not report connected', () async {
     final h = Harness()..reloadFails = true;
-    h.client.statusQueue
-        .add(const TelegramPairingStatus(state: PairingState.ready));
+    h.client.statusQueue.add(
+      const TelegramPairingStatus(state: PairingState.ready),
+    );
     await h.controller.start();
     await waitFor(() => h.controller.stage == TelegramOnboardingStage.failed);
 
-    expect(h.controller.errorKind,
-        TelegramOnboardingErrorKind.configurationFailed);
+    expect(
+      h.controller.errorKind,
+      TelegramOnboardingErrorKind.configurationFailed,
+    );
     expect(h.controller.connectedBotUsername, isNull);
     h.controller.dispose();
   });
@@ -333,7 +393,8 @@ void main() {
   test('a rate-limited service is reported distinctly', () async {
     final h = Harness();
     h.client.createError = const TelegramOnboardingException(
-        TelegramOnboardingErrorKind.rateLimited);
+      TelegramOnboardingErrorKind.rateLimited,
+    );
     await h.controller.start();
 
     expect(h.controller.stage, TelegramOnboardingStage.failed);
@@ -348,8 +409,10 @@ void main() {
       pollToken: 'poll-restored',
       suggestedUsername: 'pocketclaw_restored_bot',
       suggestedName: 'PocketClaw Agent',
-      deepLink: 'https://t.me/newbot/PocketClawSetupBot/pocketclaw_restored_bot',
-      qrPayload: 'https://t.me/newbot/PocketClawSetupBot/pocketclaw_restored_bot',
+      deepLink:
+          'https://t.me/newbot/PocketClawSetupBot/pocketclaw_restored_bot',
+      qrPayload:
+          'https://t.me/newbot/PocketClawSetupBot/pocketclaw_restored_bot',
       expiresAt: DateTime.now().toUtc().add(const Duration(minutes: 5)),
       pollInterval: const Duration(milliseconds: 10),
     );
@@ -358,29 +421,37 @@ void main() {
     expect(h.controller.stage, TelegramOnboardingStage.awaitingConfirmation);
     expect(h.controller.pairing!.pairingId, 'restored');
     expect(h.controller.isPolling, isTrue);
-    expect(h.client.createCalls, 0, reason: 'restore must not start a new pairing');
-    h.controller.dispose();
-  });
-
-  test('restore discards a pairing that expired while the app was gone',
-      () async {
-    final h = Harness();
-    h.storage.saved = TelegramPairing(
-      pairingId: 'stale',
-      pollToken: 'poll-stale',
-      suggestedUsername: 'pocketclaw_stale000_bot',
-      suggestedName: 'PocketClaw Agent',
-      deepLink: 'https://t.me/newbot/PocketClawSetupBot/pocketclaw_stale000_bot',
-      qrPayload: 'https://t.me/newbot/PocketClawSetupBot/pocketclaw_stale000_bot',
-      expiresAt: DateTime.now().toUtc().subtract(const Duration(minutes: 1)),
-      pollInterval: const Duration(milliseconds: 10),
+    expect(
+      h.client.createCalls,
+      0,
+      reason: 'restore must not start a new pairing',
     );
-
-    await h.controller.restore();
-    expect(h.controller.stage, TelegramOnboardingStage.idle);
-    expect(h.storage.clearCalls, greaterThan(0));
     h.controller.dispose();
   });
+
+  test(
+    'restore discards a pairing that expired while the app was gone',
+    () async {
+      final h = Harness();
+      h.storage.saved = TelegramPairing(
+        pairingId: 'stale',
+        pollToken: 'poll-stale',
+        suggestedUsername: 'pocketclaw_stale000_bot',
+        suggestedName: 'PocketClaw Agent',
+        deepLink:
+            'https://t.me/newbot/PocketClawSetupBot/pocketclaw_stale000_bot',
+        qrPayload:
+            'https://t.me/newbot/PocketClawSetupBot/pocketclaw_stale000_bot',
+        expiresAt: DateTime.now().toUtc().subtract(const Duration(minutes: 1)),
+        pollInterval: const Duration(milliseconds: 10),
+      );
+
+      await h.controller.restore();
+      expect(h.controller.stage, TelegramOnboardingStage.idle);
+      expect(h.storage.clearCalls, greaterThan(0));
+      h.controller.dispose();
+    },
+  );
 
   test('timeRemaining counts down and never goes negative', () async {
     var now = DateTime.utc(2026, 8, 26, 12, 0, 0);
@@ -413,10 +484,7 @@ void main() {
     final h = Harness();
     final controller = TelegramOnboardingController(
       client: h.client,
-      configWriter: TelegramConfigWriter(
-        readConfig: () async => '{}',
-        writeConfig: (_) async => true,
-      ),
+      configWriter: TelegramConfigWriter(writeCredentials: (_) async => true),
       reloadCore: () async {},
       openUrl: (_) async => true,
       serviceConfigured: false,
@@ -425,8 +493,11 @@ void main() {
     await controller.start();
     expect(controller.stage, TelegramOnboardingStage.failed);
     expect(controller.errorKind, TelegramOnboardingErrorKind.notConfigured);
-    expect(h.client.createCalls, 0,
-        reason: 'no request may be made without a configured endpoint');
+    expect(
+      h.client.createCalls,
+      0,
+      reason: 'no request may be made without a configured endpoint',
+    );
     controller.dispose();
     h.controller.dispose();
   });

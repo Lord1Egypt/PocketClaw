@@ -10,19 +10,12 @@ import 'package:pocketclaw/src/telegram/telegram_onboarding_config.dart';
 import 'package:pocketclaw/src/telegram/telegram_onboarding_controller.dart';
 import 'package:pocketclaw/src/ui/telegram_onboarding_page.dart';
 
-/// The single way into managed-bot onboarding.
-///
-/// PocketClaw shows Telegram in two places: the native settings list, and
-/// Channels → Telegram inside the embedded Core console. Milestone D shipped
-/// the flow wired only to the first, so the second — the one users actually
-/// reach — still opened the raw token form. Both now call [open], so there is
-/// one pairing implementation and one user journey rather than one per surface.
+/// Native implementation invoked only by explicit actions in the Core console.
 abstract final class TelegramOnboardingLauncher {
   /// Where the paired bot's `@username` is remembered.
   ///
   /// Only the handle, never the token: the token belongs in Core's config and
-  /// nowhere else. Core does not report the handle back, so without this the
-  /// connected summary could not offer Open Chat after a restart.
+  /// nowhere else. The Core console uses this public handle for Open Chat.
   static const String botUsernamePrefsKey = 'pocketclaw.telegram.bot_username';
 
   /// The paired bot's `@username`, or null if Telegram was set up manually or
@@ -36,8 +29,12 @@ abstract final class TelegramOnboardingLauncher {
 
   /// Runs the managed-bot flow and returns the paired bot's `@username`, or
   /// null if the user backed out without connecting.
-  static Future<String?> open(BuildContext context) async {
+  static Future<String?> startPairing(BuildContext context) async {
     final service = context.read<ServiceManager>();
+    if (service.status == ServiceStatus.stopped) {
+      await service.start();
+      if (!context.mounted) return null;
+    }
     final navigator = Navigator.of(context);
     const configWriter = TelegramConfigWriter();
     final controller = TelegramOnboardingController(
@@ -45,18 +42,9 @@ abstract final class TelegramOnboardingLauncher {
         baseUrl: TelegramOnboardingConfig.baseUrl,
       ),
       configWriter: configWriter,
-      reloadCore: () async {
-        // Core reads channel configuration at startup, so a newly written
-        // Telegram token only takes effect after a restart.
-        if (service.status == ServiceStatus.running) {
-          await service.stop();
-          await service.start();
-        }
-      },
-      openUrl: (url) => launchUrl(
-        Uri.parse(url),
-        mode: LaunchMode.externalApplication,
-      ),
+      reloadCore: () => _reloadCore(service),
+      openUrl: (url) =>
+          launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication),
       serviceConfigured: TelegramOnboardingConfig.isConfigured,
     );
 
@@ -66,6 +54,7 @@ abstract final class TelegramOnboardingLauncher {
           builder: (_) => TelegramOnboardingPage(
             controller: controller,
             configWriter: configWriter,
+            onManualConfigurationSaved: () => _reloadCore(service),
           ),
         ),
       );
@@ -77,6 +66,14 @@ abstract final class TelegramOnboardingLauncher {
       return username;
     } finally {
       controller.dispose();
+    }
+  }
+
+  static Future<void> _reloadCore(ServiceManager service) async {
+    // Core loads channel credentials at gateway startup.
+    if (service.status == ServiceStatus.running) {
+      await service.stop();
+      await service.start();
     }
   }
 }

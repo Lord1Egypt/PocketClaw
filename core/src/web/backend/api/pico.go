@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httputil"
-	"time"
 
 	"github.com/sipeed/picoclaw/pkg/config"
 	"github.com/sipeed/picoclaw/pkg/logger"
@@ -218,7 +217,11 @@ func (h *Handler) handleRegenPicoToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token := generateSecureToken()
+	token, err := generateSecureToken()
+	if err != nil {
+		http.Error(w, "Failed to generate Pico credential", http.StatusInternalServerError)
+		return
+	}
 	if bc := cfg.Channels.GetByType(config.ChannelPico); bc != nil {
 		decoded, err := bc.GetDecoded()
 		if err == nil && decoded != nil {
@@ -260,11 +263,20 @@ func (h *Handler) EnsurePicoChannel() (bool, error) {
 		bc.Enabled = true
 		changed = true
 	}
+	ownerAllowFrom := config.FlexibleStringSlice{config.PicoOwnerPrincipal}
+	if len(bc.AllowFrom) != 1 || bc.AllowFrom[0] != config.PicoOwnerPrincipal {
+		bc.AllowFrom = ownerAllowFrom
+		changed = true
+	}
 
 	if decoded, err := bc.GetDecoded(); err == nil && decoded != nil {
 		if picoCfg, ok := decoded.(*config.PicoSettings); ok {
 			if picoCfg.Token.String() == "" {
-				picoCfg.Token = *config.NewSecureString(generateSecureToken())
+				token, tokenErr := generateSecureToken()
+				if tokenErr != nil {
+					return false, fmt.Errorf("failed to generate pico credential: %w", tokenErr)
+				}
+				picoCfg.Token = *config.NewSecureString(token)
 				changed = true
 			}
 		}
@@ -299,12 +311,12 @@ func (h *Handler) handlePicoSetup(w http.ResponseWriter, r *http.Request) {
 	h.writePicoInfoResponse(w, r, cfg, &changed)
 }
 
-// generateSecureToken creates a random 32-character hex string.
-func generateSecureToken() string {
+// generateSecureToken creates a random 32-character hex string. Credential
+// creation fails closed if the platform CSPRNG is unavailable.
+func generateSecureToken() (string, error) {
 	b := make([]byte, 16)
 	if _, err := rand.Read(b); err != nil {
-		// Fallback to something pseudo-random if crypto/rand fails
-		return fmt.Sprintf("%032x", time.Now().UnixNano())
+		return "", err
 	}
-	return hex.EncodeToString(b)
+	return hex.EncodeToString(b), nil
 }

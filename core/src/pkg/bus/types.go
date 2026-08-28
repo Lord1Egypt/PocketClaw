@@ -1,5 +1,47 @@
 package bus
 
+import (
+	"context"
+	"strings"
+)
+
+// LifecycleIDMetadataKey carries a process-local, non-user correlation ID from
+// inbound acceptance through final channel delivery. It must never contain a
+// platform user, chat, message, token, or message-content value.
+const LifecycleIDMetadataKey = "pocketclaw_lifecycle_id"
+
+type lifecycleIDContextKey struct{}
+
+// InboundLifecycleID returns the safe correlation ID attached to an inbound or
+// outbound context.
+func InboundLifecycleID(ctx *InboundContext) string {
+	if ctx == nil || len(ctx.Raw) == 0 {
+		return ""
+	}
+	return strings.TrimSpace(ctx.Raw[LifecycleIDMetadataKey])
+}
+
+// WithLifecycleID makes the correlation ID available to direct streaming
+// delivery without changing public Streamer method signatures.
+func WithLifecycleID(ctx context.Context, lifecycleID string) context.Context {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if lifecycleID = strings.TrimSpace(lifecycleID); lifecycleID == "" {
+		return ctx
+	}
+	return context.WithValue(ctx, lifecycleIDContextKey{}, lifecycleID)
+}
+
+// LifecycleIDFromContext reads a value installed by WithLifecycleID.
+func LifecycleIDFromContext(ctx context.Context) string {
+	if ctx == nil {
+		return ""
+	}
+	value, _ := ctx.Value(lifecycleIDContextKey{}).(string)
+	return strings.TrimSpace(value)
+}
+
 // SenderInfo provides structured sender identity information.
 type SenderInfo struct {
 	Platform    string `json:"platform,omitempty"`     // "telegram", "discord", "slack", ...

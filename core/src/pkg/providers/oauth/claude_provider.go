@@ -63,7 +63,7 @@ func CreateClaudeTokenSource(getCredential func(string) (*auth.AuthCredential, e
 			return "", fmt.Errorf("loading auth credentials: %w", err)
 		}
 		if cred == nil {
-			return "", fmt.Errorf("no credentials for anthropic. Run: picoclaw auth login --provider anthropic")
+			return "", fmt.Errorf("no credentials for anthropic; configure this provider before use")
 		}
 		return cred.AccessToken, nil
 	}

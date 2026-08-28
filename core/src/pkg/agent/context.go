@@ -18,7 +18,6 @@ import (
 	"github.com/sipeed/picoclaw/pkg/logger"
 	"github.com/sipeed/picoclaw/pkg/providers"
 	"github.com/sipeed/picoclaw/pkg/skills"
-	"github.com/sipeed/picoclaw/pkg/utils"
 )
 
 type ContextBuilder struct {
@@ -174,9 +173,9 @@ func (cb *ContextBuilder) getIdentity(includeToolUseRule bool) string {
 	}
 
 	return fmt.Sprintf(
-		`# picoclaw 🦞 (%s)
+		`# PocketClaw 🦞 (%s)
 
-You are picoclaw, a helpful AI assistant.
+You are PocketClaw, a helpful AI assistant.
 
 ## Workspace
 Your workspace is at: %s
@@ -982,13 +981,6 @@ func (cb *ContextBuilder) BuildMessagesFromPrompt(req PromptBuildRequest) []prov
 			"has_summary":   req.Summary != "",
 			"overlays":      len(req.Overlays),
 			"cached":        isCached,
-		})
-
-	// Log preview of system prompt (avoid logging huge content)
-	preview := utils.Truncate(fullSystemPrompt, 500)
-	logger.DebugCF("agent", "System prompt preview",
-		map[string]any{
-			"preview": preview,
 		})
 
 	history := sanitizeHistoryForProvider(req.History)

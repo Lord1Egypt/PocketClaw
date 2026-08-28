@@ -884,3 +884,317 @@
   frontend's dev dependencies. That widens the upstream divergence, and it was
   accepted deliberately: the project had no DOM renderer, which is precisely
   why nothing could test the real route.
+
+## Native Telegram Settings is a neutral shortcut; Core owns management state
+
+- Date: 2026-08-26
+- Decision: native Settings always shows `Telegram / Manage Telegram
+  connection` and navigates to Core console `/channels/telegram`. It never
+  displays connected/disconnected state and never starts pairing on card tap.
+- Reason: physical evidence proved that duplicating Core's masked, split secure
+  configuration in Flutter creates contradictory state. The Core page already
+  has the correct connected/unconfigured, Open Chat, reconnect, and advanced
+  behavior.
+- Consequence: the native status reader/page was removed. Managed pairing is
+  only an explicit host action requested by the canonical Core page.
+
+## Core is the sole Telegram credential persistence authority
+
+- Date: 2026-08-26
+- Decision: Android sends a successful managed/manual credential to a
+  loopback-only, per-process-authenticated, write-only Core endpoint. Core uses
+  `SaveConfig`; the bridge exposes no GET and returns no token.
+- Reason: masking and `.security.yml` precedence invalidate raw native
+  `config.json` parsing/writing. Keeping the old bot untouched until a
+  replacement succeeds also makes reconnect failure safe.
+- Consequence: the random bridge credential is never persisted/logged and the
+  Telegram token is never returned to Flutter.
+
+## Telegram requests have bounded, independently completing lifecycles
+
+- Date: 2026-08-26
+- Decision: Telegram HTTP uses a 45-second deadline; every inbound gets a safe
+  process-local correlation ID; same-session Telegram arrivals are FIFO full
+  requests rather than steering; final delivery is synchronous; edit errors
+  fall back to send and correlated placeholder cleanup.
+- Reason: an unbounded outbound call matched the physical stall, while
+  swallowed edit errors and chat-only placeholder keys could independently
+  leave `Thinking` permanent or attach completion to the wrong request.
+- Consequence: empty provider output, tool errors/timeouts, normal output, edit
+  failure, and close arrivals release independently. Safe trace events locate
+  future physical stalls without logging content or identity.
+
+## Existing workspaces are repaired non-destructively to seven baseline skills
+
+- Date: 2026-08-26
+- Decision: Core console startup runs `onboard ensure-workspace`, which copies
+  only missing embedded files. Fresh PocketClaw seeds seven bundled skills;
+  `picoclaw-agent` remains deliberately unseeded but an existing user copy is
+  never deleted.
+- Reason: existing config skipped onboarding, so a workspace missing seeds
+  could remain with only a later imported `gh`. Import itself is additive.
+- Consequence: no hardcoded remembered count of eight; user/global skills can
+  increase discovery, and invalid/missing SKILL metadata can correctly exclude
+  a directory.
+
+## User logs are plain Unicode text at one storage boundary
+
+- Date: 2026-08-26
+- Decision: sanitize Core output before it enters `ServiceManager.logs`; Logs
+  and Export consume the same representation. Core also receives `NO_COLOR=1`
+  and `TERM=dumb` and prints a plain Android banner.
+- Reason: Android Logs is not a terminal. Display-only cleaning leaves exports
+  dirty; stripping non-ASCII corrupts Arabic and emoji.
+- Consequence: terminal protocols/control bytes are removed, printable Unicode
+  is preserved, and the exactly-once queue remains the transport model.
+
+## Background/battery and runtime statistics remain future work
+
+- Date: 2026-08-26
+- Decision: add neither battery-management hacks nor telemetry UI to this
+  pre-release fix. Record a future user-guided Background & Battery page and a
+  local-by-default Runtime / Statistics tab.
+- Reason: neither expands the evidence-backed current fix, and PocketClaw
+  cannot silently grant itself unrestricted battery operation.
+
+## Export Logs encodes the sanitized representation as UTF-8
+
+- Date: 2026-08-26
+- Decision: Android Export Logs converts the already-sanitized Dart string with
+  `utf8.encode` before sending bytes through the MediaStore MethodChannel.
+- Reason: Dart strings expose UTF-16 code units. Truncating those units into an
+  8-bit list turned valid `µ`, Arabic, and emoji into malformed bytes even
+  though Go output, native string transport, sanitization, and the Logs UI were
+  Unicode-safe.
+- Consequence: export tests must exercise the actual platform-channel byte
+  boundary and strict UTF-8 decoding, not only the standalone sanitizer. No
+  global replacement of U+FFFD, `µ`, or non-ASCII text is permitted.
+
+## Routine successful log/status self-polls are not diagnostics
+
+- Date: 2026-08-26
+- Decision: HTTP middleware omits only exact 2xx `GET` requests to
+  `/api/gateway/logs` and `/api/gateway/status` from DEBUG output.
+- Reason: those UI monitoring requests generated the history they were reading
+  and displaced useful diagnostics without representing failures.
+- Consequence: poll failures, redirects, unexpected methods, unknown routes,
+  and every other API request remain logged. This filter is not deduplication
+  and must never replace the exactly-once `publishLog`/`takeNewLogs` drain.
+
+## User-visible log surfaces share one plain-text contract
+
+- Date: 2026-08-27
+- Decision: normalize captured gateway output before `LogBuffer` storage, and
+  enforce the same canonical fixture contract at the existing native boundary
+  and as an idempotent browser guard. Web Logs render plain text rather than
+  terminal styling.
+- Reason: native/export and Web Console followed separate paths. The Web ring
+  stored raw output while its SGR-only renderer left non-SGR terminal protocols
+  and startup artifacts visible.
+- Consequence: ANSI/OSC/cursor/erase/CR/backspace/control data cannot reach a
+  normal rendered surface, while Arabic, emoji, `µs`, and legitimate printable
+  Unicode remain intact. This is not an ASCII conversion or brand-wide string
+  replacement.
+
+## Compatibility identifiers stay internal, with source-level neutralization
+
+- Date: 2026-08-27
+- Decision: keep `/pico/ws`, `libpicoclaw.so`, `libpicoclaw-web.so`, module
+  paths, and environment names unchanged. Omit only successful routine
+  WebSocket events, reword failures to `/internal realtime connection`, and
+  omit the executable path from the startup message. Captured no-color startup
+  uses a single PocketClaw text banner rather than block art.
+- Reason: those identifiers are runtime compatibility contracts, not product
+  copy. Renaming them would add release risk; exposing them adds no normal user
+  diagnostic value.
+- Consequence: real failures remain observable without leaking implementation
+  naming, and interactive/internal compatibility behavior is preserved.
+
+## The internal Pico transport has a PocketClaw-only summary label
+
+- Date: 2026-08-27
+- Decision: when formatting only the gateway startup/reload enabled-channel
+  summary, display exact `config.ChannelPico` as `pocketclaw`.
+- Reason: `pico` is the internal Web Console WebSocket/media protocol and config
+  identity, but the raw ID is not meaningful product copy.
+- Consequence: `/pico/ws`, `/pico/media`, channel/config IDs, factories, tokens,
+  session semantics, and other compatibility identifiers remain unchanged. The
+  formatter copies its input and performs no substring/global replacement.
+
+## Internal WebSocket logger identities have display-only names
+
+- Date: 2026-08-27
+- Decision: at the shared user-visible normalization boundary only, map exact
+  structured logger component `pico` to `realtime` and exact caller basename
+  `pico.go` to `realtime.go`, preserving the caller line number.
+- Reason: logger component and source basename are implementation details on
+  normal product diagnostic surfaces, while the underlying compatibility
+  identities cannot safely be renamed.
+- Consequence: Native Logs, Export Logs, and Web Console Logs agree. Actual Go
+  package/file, `ChannelPico`, routes, config, and protocol stay unchanged;
+  substring matches are explicitly rejected by regression tests.
+
+## Web Logs own an explicit pre-paint scroll policy
+
+- Date: 2026-08-27
+- Decision: identify frontend log events by Core run ID plus absolute append
+  offset; render memoized plain-text rows with browser-native wrapping; track
+  whether the viewport is within 24 px of bottom from actual scroll events; and
+  apply bottom following in `useLayoutEffect` only for followers.
+- Reason: passive post-paint correction exposed a transient old scroll offset,
+  while measuring the whole changing content box to hard-wrap text could
+  rewrite long rows on append. Array-index keys did not express event identity.
+- Consequence: new logs remain live and bottom followers remain pinned without
+  an animated bounce. Scrolled-up users receive no forced movement. An
+  unchanged long entry keeps the same DOM node and text across polling updates;
+  native/export transport and shared sanitization remain untouched.
+
+## Third-party Telegram logs retain no credential fragments
+
+- Date: 2026-08-27
+- Decision: replace the compatible logger's partial Telegram token mask with
+  complete pre-writer redaction. At Web `LogBuffer` normalization, replace Bot
+  API URLs with `Telegram API call: <operation>` and redact Authorization
+  credentials; keep a browser-side idempotent guard for legacy/raw lines.
+- Reason: the full token was already masked before stdout/storage, but keeping
+  the bot ID and secret prefix/suffix exposed credential fragments in normal
+  Web Console diagnostics. Those fragments add no troubleshooting value.
+- Consequence: Web history retains HTTP method, Bot API operation, status,
+  timeout/error, and latency without any credential fragment. This finding is
+  not evidence of full-token persistence, and requires no automatic credential
+  rotation. Native/Export implementation and Telegram lifecycle remain
+  unchanged.
+
+## Classified compatibility fields receive semantic display normalization
+
+- Date: 2026-08-27
+- Decision: at the shared Web pre-storage log boundary, map only exact
+  structured `channel=pico` / `type=pico`, hide exact `path=/pico/` only on a
+  line carrying that internal channel identity, replace only classified Pico
+  protocol/reasoning messages, and semanticize the exact compatibility PID
+  path. Keep the browser guard idempotent.
+- Reason: these are runtime implementation details visible in normal product
+  diagnostics, but their underlying identifiers are compatibility contracts.
+- Consequence: ChannelPico, serialized config, Go packages/files, routes,
+  `.picoclaw.pid`, libraries, environment variables, and provenance remain
+  untouched. Security and failure diagnostics remain visible. Exact-token and
+  exact-message matching explicitly leaves unrelated `pico` substrings alone.
+
+## Orphaned CSI recovery is numeric-only
+
+- Date: 2026-08-27
+- Decision: retain standards-compliant ESC/C1 CSI removal, but recognize a CSI
+  suffix whose introducer was lost only when its parameters begin with a digit
+  or `?` plus numeric parameters. Preserve all other printable angle-bracket
+  text. Normalize the exact successful Telego nil field to `Err: none`.
+- Reason: Telego correctly emitted `[<nil>]`; the old permissive suffix pattern
+  treated `<` as a parameter and `n` as a final byte, deleting `[<n` before Web
+  storage. An introducer-less control cannot safely use the full ambiguous CSI
+  grammar on ordinary text.
+- Consequence: numeric orphaned RGB/SGR/cursor controls remain removable,
+  `<nil>`, comparisons, tags, Arabic, emoji, and punctuation remain valid text,
+  and React continues to escape rather than interpret them as HTML.
+
+## Routine empty Telegram long polls are pre-writer noise
+
+- Date: 2026-08-27
+- Decision: for exact DEBUG component `telego`, omit Bot API `getUpdates`
+  request lines and exact successful responses with nil error plus `Result: []`
+  before any writer. Keep idempotent storage/render guards for raw/legacy input.
+- Reason: Telego logs the request before it knows the result, then emits a
+  distinct execution-error or API-response line. Omitting the request ensures
+  an empty success is silent while a later failure/non-empty response still
+  carries the operation and useful details.
+- Consequence: routine 30-second polling cannot consume history. Failures,
+  non-empty updates, non-success responses, other Bot API operations, token
+  redaction, and Telegram runtime behavior are unchanged.
+
+## Normal logs are metadata-only at the pre-writer boundary
+
+- Date: 2026-08-28
+- Decision: normal PocketClaw logs omit prompt/message/response/reasoning/tool-
+  argument bodies, redact exact session and internal identity fields on a copy,
+  and retain lifecycle counts, lengths, model, tool names, status, duration and
+  safe failures. Telego payloads normalize before stdout to operation/status and
+  non-empty update count/type metadata.
+- Reason: Web DEBUG previously stored and rendered full Agent payloads and
+  Telego result JSON containing conversation content and personal identifiers.
+  Frontend-only masking would leave those values in backend history.
+- Consequence: runtime routing/session/Telegram values are not modified. Fresh
+  default assistant identity is PocketClaw, while user-authored prompt overlays,
+  internal compatibility identifiers, legal attribution and provenance remain
+  untouched. Backend/React/Dart guards are defense-in-depth for historical/raw
+  input, not the primary privacy boundary.
+
+## The managed Core gateway is pinned to loopback, unconditionally
+
+- Date: 2026-08-29
+- Decision: `gatewayHostOverride()` always returns `localhost`. The launcher
+  exports it to the gateway child through `PICOCLAW_GATEWAY_HOST`, and the
+  environment value wins over the config file, so Core on 18790 binds to
+  loopback no matter what `gateway.host` or `-host`/`-public` say.
+- Reason: Core speaks to the agent and providers with an installation-random
+  bearer credential and no password/session layer. The authenticated Dashboard
+  on 18800 is the only ingress that should ever face a LAN.
+- Consequence: a Core reachable from the LAN is now a structural impossibility
+  rather than a configuration discipline. `gateway.host` no longer influences
+  the managed gateway's bind; a future deployment that genuinely needs a
+  non-loopback Core must reintroduce an explicit, separately reviewed path.
+
+## Public Mode rebinds the Dashboard listener, never the Core process
+
+- Date: 2026-08-29
+- Decision: an in-process listener supervisor owns port 18800 and can replace
+  only its listeners. Applying Public Mode closes the old bind (including
+  hijacked WebSocket connections that `net/http` no longer owns after upgrade),
+  opens the new one, rolls back to the previous bind on failure, and persists
+  the setting only after the new bind succeeds.
+- Reason: the listener used to be created once at service startup, so changing
+  Public Mode in the UI updated persistence without moving the socket. The
+  obvious alternative — restarting the service — would drop the agent runtime,
+  session store, and Telegram polling for a network-scope change.
+- Consequence: OFF→ON and ON→OFF apply live and the LAN URL and QR refresh on
+  their own. A browser connected over the old bind loses its socket but keeps
+  its session cookie and can reconnect through the new listener. Android learns
+  the real outcome over the authenticated loopback bridge and only then writes
+  the preference, so a failed bind cannot leave the UI claiming a mode the
+  socket is not in.
+
+## Owner identity is server-derived; clients never assert it
+
+- Date: 2026-08-29
+- Decision: the internal realtime channel binds every inbound message to its
+  authenticated connection and to a Core-owned owner principal, and it is
+  constructed with an owner-only allowlist regardless of what is on disk.
+  Dashboard sessions live in a server-side store that can be revoked. Telegram
+  refuses to start without exactly one paired numeric owner.
+- Reason: a client-supplied session or sender field, or a stale permissive
+  `allow_from`, must never become the effective authorization identity.
+- Consequence: forged sender/user/session/owner/chat fields cannot bypass
+  authorization, and a Telegram username can never stand in for the numeric ID.
+  Onboarding fails closed for empty, wildcard, and username-only owners rather
+  than degrading to "allow anyone".
+
+## Ship the RC as 0.2.0, not the inherited 0.1.3 baseline
+
+- Date: 2026-08-29
+- Decision: the app version moves to `0.2.0+4` for `v0.2.0-rc1`.
+- Reason: the version had carried the inherited FUI `0.1.3+3` since bootstrap.
+  A release tagged `v0.2.0-rc1` whose APK reports `0.1.3` is an artifact
+  identity that cannot be explained to a tester.
+- Consequence: the version code advances 3 → 4 so the candidate installs over
+  the previous build. The physically validated APK reported `0.1.3 (3)`; the
+  released candidate differs from it in version metadata only, and carries a
+  byte-identical Core native payload.
+
+## Build the Core with the `goolm` tag rather than accepting a libolm gap
+
+- Date: 2026-08-29
+- Decision: Go verification runs as `-tags goolm,stdjson`, which selects the
+  pure-Go Olm implementation.
+- Reason: earlier sessions recorded "the full Go sweep fails only because
+  optional Matrix support needs `olm/olm.h`" as an accepted host-dependency
+  exception. It was avoidable: with `goolm`, `go build ./...`, `go vet ./...`,
+  and the complete test suite are green with no system libolm present.
+- Consequence: there is no longer any accepted failing region in the Go sweep,
+  so a genuine future failure cannot hide behind a Matrix/libolm explanation.

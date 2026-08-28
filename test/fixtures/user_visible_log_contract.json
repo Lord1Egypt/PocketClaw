@@ -1,0 +1,102 @@
+[
+  {
+    "name": "rgb multilingual duration",
+    "input": "\u001b[38;2;213;70;70mمدة 53.616µs ✅\u001b[0m",
+    "expected": "مدة 53.616µs ✅"
+  },
+  {
+    "name": "256 color mixed languages",
+    "input": "English \u001b[38;5;185mعربي 😊\u001b[0m — «آمن»",
+    "expected": "English عربي 😊 — «آمن»"
+  },
+  {
+    "name": "osc cursor erase and controls",
+    "input": "\u001b]0;private title\u0007\u001b[2J\u001b[HStart\u001b[3C Middle\u001b[K\u0000 End",
+    "expected": "Start Middle End"
+  },
+  {
+    "name": "carriage return terminal overwrite",
+    "input": "10%\r50%\rDone",
+    "expected": "Done"
+  },
+  {
+    "name": "backspace terminal overwrite",
+    "input": "abc\b\bd",
+    "expected": "ad"
+  },
+  {
+    "name": "plain milliseconds",
+    "input": "123.4ms",
+    "expected": "123.4ms"
+  },
+  {
+    "name": "nil angle brackets",
+    "input": "Err: <nil>",
+    "expected": "Err: <nil>"
+  },
+  {
+    "name": "telego nil response brackets",
+    "input": "API response getMe: Ok: true, Err: [<nil>], Result: {}",
+    "expected": "Telegram API completed operation=getMe ok=true"
+  },
+  {
+    "name": "ordinary angle bracket values",
+    "input": "value=<none> 1 < 2 2 > 1 <tag>",
+    "expected": "value=<none> 1 < 2 2 > 1 <tag>"
+  },
+  {
+    "name": "multilingual angle brackets",
+    "input": "Arabic <نص> emoji 🚀 <nil>",
+    "expected": "Arabic <نص> emoji 🚀 <nil>"
+  },
+  {
+    "name": "routine internal websocket success",
+    "input": "12:00:00 DBG http middleware.go:67 > GET /pico/ws 200 53.616µs",
+    "expected": ""
+  },
+  {
+    "name": "internal websocket failure remains visible safely",
+    "input": "12:00:00 DBG http middleware.go:67 > GET /pico/ws 500 1.2ms",
+    "expected": "12:00:00 DBG http middleware.go:67 > GET /internal realtime connection 500 1.2ms"
+  },
+  {
+    "name": "legacy gateway startup path",
+    "input": "12:00:00 INF gateway gateway.go:1033 > Starting gateway process (/home/sipeed/PicoClaw/lib/arm64/libpicoclaw.so)",
+    "expected": "12:00:00 INF gateway gateway.go:1033 > Starting gateway process"
+  },
+  {
+    "name": "exact internal logger component and caller identity",
+    "input": "12:00:00 INF pico pico.go:1013 > WebSocket client connected",
+    "expected": "12:00:00 INF realtime realtime.go:1013 > WebSocket client connected"
+  },
+  {
+    "name": "pico substrings are not identities",
+    "input": "12:00:01 INF picometer picophone.go:1071 > unrelated pico text",
+    "expected": "12:00:01 INF picometer picophone.go:1071 > unrelated pico text"
+  },
+  {
+    "name": "partial internal identity is not rewritten",
+    "input": "12:00:02 INF pico_client pico_client.go:42 > compatibility client",
+    "expected": "12:00:02 INF pico_client pico_client.go:42 > compatibility client"
+  },
+  {
+    "name": "agent structured privacy fields",
+    "input": "12:00:03 DBG agent agent_message.go:159 > Routed message session_key=sk_v1_SUPERSECRETVALUE scope_key=sk_v1_SUPERSECRETVALUE route_main_session=sk_v1_SUPERSECRETVALUE route_channel=pico chat_id=pico:1234 sender_id=pico-user",
+    "expected": "12:00:03 DBG agent agent_message.go:159 > Routed message session_key=<redacted> scope_key=<redacted> route_main_session=<redacted> route_channel=pocketclaw chat_id=<internal> sender_id=<internal>"
+  },
+  {
+    "name": "raw debug content fields",
+    "input": "12:00:04 DBG agent pipeline_llm.go:147 > Full LLM request messages_json=private-body tools_json=private-schema reasoning=private-thought model=test-model",
+    "expected": "12:00:04 DBG agent pipeline_llm.go:147 > Full LLM request messages_json=<redacted> tools_json=<redacted> reasoning=<redacted> model=test-model"
+  },
+  {
+    "name": "nonempty Telegram payload metadata",
+    "input": "12:00:05 DBG telego bot.go:173 > API response getUpdates: Ok: true, Err: [<nil>], Result: [{\"update_id\":42,\"message\":{\"from\":{\"id\":581234567,\"first_name\":\"Ada\"},\"chat\":{\"id\":581234567},\"text\":\"مرحبا\"}}]",
+    "expected": "12:00:05 DBG telego bot.go:173 > Telegram update received updates=1 type=message"
+  },
+  {
+    "name": "Telegram response body omitted",
+    "input": "12:00:06 DBG telego bot.go:173 > API response sendMessage: Ok: true, Err: [<nil>], Result: {\"chat\":{\"id\":581234567},\"text\":\"private response\"}",
+    "expected": "12:00:06 DBG telego bot.go:173 > Telegram API completed operation=sendMessage ok=true"
+  }
+]

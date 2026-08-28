@@ -1,5 +1,74 @@
 # Development Changelog
 
+## 2026-08-26 — DEBUG log cleanup micro-pass
+
+- Physical DEBUG export from `f663d25a...71c621d` isolated two small remaining
+  defects without invalidating its physically passed Telegram surface, caller,
+  branding, terminal cleanup, or exactly-once queue behavior.
+- Android Export Logs used `Uint8List.fromList(content.codeUnits)`. That
+  truncated UTF-16 code units into bytes, so valid Go `53.616µs` reached the
+  exported file as invalid byte `B5` and decoded as `53.616�s`. Export now uses
+  UTF-8. Strict MethodChannel transport tests preserve Arabic, emoji, `µ`,
+  punctuation, and ANSI-wrapped multibyte text without introducing U+FFFD.
+- DEBUG HTTP middleware logged the successful `/api/gateway/logs` and
+  `/api/gateway/status` requests used by the UI to monitor itself. Only exact
+  expected GET+2xx polls are now omitted. Errors, unexpected methods, redirects,
+  unknown routes, config/models, and all other requests remain visible.
+- Validation: Flutter analyze clean and 97 tests; frontend 36 tests, `tsc -b`,
+  lint; tagged Go logger/gateway/API/middleware suites pass. Core patch
+  regenerated (95 files), canonical arm64 Core build has zero developer paths,
+  and the APK guard passed.
+- Candidate: `eacbbc86b99429f114aba9ba1dca57224122fa176f6b4d99edf350454423f9a8`,
+  34,239,073 bytes, `com.lord1egypt.pocketclaw` 0.1.3 (3). Core hashes:
+  `5c09eb72...4d763bc` / `cb6b10cc...4b03b52`. Secret/path scan clean apart
+  from the already-deferred generated Dart source URI. Physical verification
+  remains pending; no merge or release.
+
+## 2026-08-26 — user-facing log privacy and duplication fix (device-found)
+
+Found on a physical device after Milestone D closed. The GitHub milestone
+release is on hold until this is re-tested. Application version unchanged at
+0.1.3 (3).
+
+- **Caller leaked the upstream module path.** `-trimpath` removed
+  `/home/lordegypt/...` exactly as intended, but what replaces an absolute path
+  under `-trimpath` is the Go module path, so the Logs screen showed
+  `github.com/sipeed/picoclaw/web/backend/api/gateway.go:298`. Every existing
+  assertion searched for `/home/`, so the substitution went unnoticed. Fixed by
+  setting `zerolog.CallerMarshalFunc` in `logger.init()` — the earliest layer
+  that sees caller metadata, so every writer and every exported log inherits
+  `gateway.go:298`. No message text and no in-message path is rewritten.
+- Eight user-visible message strings that named the project were individually
+  reworded, including four provider errors telling users to run a CLI command
+  that does not exist on Android.
+- **One event was rendering as hundreds.** Not repeated emission and not a
+  lifecycle fault: every duplicate carried the identical timestamp and PID, and
+  the counter sat at the full 500. Native `lastLog` is a sticky snapshot that
+  never clears, and the Flutter three-second status poll appended it on every
+  tick, so a single warning refilled the buffer indefinitely and evicted all
+  real history. Fixed by making the producer match the consumer: `publishLog`
+  queues each line and `takeNewLogs` drains it, so every line is delivered
+  exactly once. This also recovers lines emitted between polls, which the
+  snapshot silently dropped.
+- Both regression tests were confirmed to fail against the old code — 25 polls
+  produced 25 copies before the fix, one after — and the Dart test drives the
+  real polling path rather than a helper.
+- Core rebuilt, `-trimpath` clean, upstream patch regenerated (67 files).
+  Candidate APK `543c759b04b0e4c77dd7831435753aceac0b1e16a7a45fdec3fb37ed2e45479a`,
+  guard PASS, secret scan clean.
+- **Telegram connection state was out of sync between the two surfaces.** The
+  console showed Connected while native Settings hardcoded "Connect PocketClaw
+  to Telegram" and opened a new pairing. Both now derive from the persisted
+  `channel_list.telegram` entry through `TelegramConnectionReader`; no stored
+  boolean exists to drift. An already-connected user gets a connected page with
+  Open Chat, an explicit confirmed Reconnect, and Advanced / Manual. Replacement
+  was verified safe: the config writer runs only after a new token arrives, so a
+  cancelled or expired pairing leaves the working bot intact.
+- Recorded but not fixed: `libapp.so` carries the Flutter plugin registrant's
+  source URI, a developer path present in the device-verified APK and every
+  earlier one. It reaches users only in a Dart stack trace, Dart has no
+  `-trimpath` equivalent, and it needs its own decision.
+
 ## 2026-08-26 — Phase 2 Milestone D COMPLETE (physical E2E PASS)
 
 - **Milestone D, Telegram Managed-Bot Onboarding, is closed.** The full flow
@@ -669,3 +738,243 @@ verified `develop` @ `14e6991`. Not merged; physical-device testing is the gate.
   pinned Core hashes and has no Firebase app ID, API key, or project ID.
 - Created private GitHub repository `Lord1Egypt/PocketClaw` and pushed initial
   commit `950d4a3` to both `main` and `develop`.
+
+## 2026-08-26 — CODEX SOL HANDOFF — PRE-RELEASE FIX
+
+- Preserved and pushed the exact `e5b88ff` rollback checkpoint as branch
+  `checkpoint/pre-codex-sol-prerelease-fix` and annotated tag
+  `pre-codex-sol-prerelease-fix-20260826`.
+- Replaced duplicated native Telegram status with a neutral shortcut to Core's
+  authoritative `/channels/telegram` page; card tap cannot start pairing.
+- Added the authenticated loopback Android→Core credential-write boundary so
+  managed/manual setup updates Core's split secure config and failed reconnect
+  leaves the old bot intact.
+- Fixed Telegram request completion: bounded HTTP deadline, safe correlation,
+  independent same-session FIFO requests, synchronous final delivery, error
+  propagation, edit→send fallback, and terminal placeholder cleanup. Added
+  deterministic empty-provider/idle/sequential/close/failure coverage.
+- Audited tool execution, Android service ownership, and the recent log queue.
+  No `gh`-specific stall or log-queue causal link was found; physical
+  background/locked validation remains pending.
+- Established the intended seven-skill fresh baseline, added non-destructive
+  startup repair, preserved existing `picoclaw-agent`, and proved `gh` import
+  adds without replacing.
+- Preserved basename caller and exactly-once logs; neutralized the PID warning;
+  added a plain Android banner and one Unicode-preserving terminal sanitizer
+  shared by Logs and Export.
+- Regenerated the 93-file Core provenance patch and updated intentional
+  divergence tracking.
+- Passed `flutter analyze`, 94 Flutter tests, 36 frontend tests, `tsc`, lint,
+  and required Go suites. Canonical Core build passed `-trimpath` with zero
+  developer paths.
+- Built one successful candidate after a compile-only Kotlin getter clash was
+  caught and fixed. APK: `build/app/outputs/apk/release/app-release.apk`,
+  34,239,649 bytes,
+  `f663d25a2fffb0ce969ad4a9ce3405c1e563b6263c7af37e90768eef471c621d`.
+  Guard, package/version/SDK, endpoint, native hashes, and secret scans pass.
+- No merge, release, tag movement, or `main` change. Physical testing is
+  pending and release remains blocked.
+
+## 2026-08-27 — Web Console log parity and identifier visibility
+
+- Traced Core Web Console startup boxes to the captured Core CLI's Unicode
+  block-art no-color banner and a React Logs renderer that interpreted only SGR
+  while the backend ring stored raw child output.
+- Added a fixture-backed user-visible plain-text contract at the Web log ring,
+  the existing native/export sanitizer, and an idempotent real-page browser
+  guard. Removed the terminal-style renderer; preserved Arabic, emoji,
+  punctuation, and `53.616µs`.
+- Captured gateway launches now force `--no-color`; no-color startup is one
+  `PocketClaw` line. The startup event no longer prints an executable or
+  `libpicoclaw.so` path.
+- Successful exact `GET /pico/ws` 101/2xx events no longer enter normal DEBUG
+  history. Failures/unexpected methods remain visible as `/internal realtime
+  connection`; the endpoint and library identifiers were not renamed.
+- Fixed the provenance generator to preserve tracked deletions when building
+  its rsync file list, then regenerated the 108-file Core patch.
+- Passed Flutter analyze and 99 tests; frontend 37 tests, TypeScript, and lint;
+  tagged Go logger/gateway/API/middleware/CLI suites; canonical Core build with
+  zero developer paths; and the permanent APK payload guard.
+- Built candidate `3e138b4a53a0389b76dbef045649d906fe2db785cd2af606826f7a0f87170adc`
+  (34,241,381 bytes). Core hashes are `c9c348e9...68d236e` and
+  `c891ca03...d34840a`. Physical validation is pending; no merge/release/main
+  change was made.
+
+## 2026-08-27 — Final enabled-channel log brand micro-fix
+
+- Recorded physical PASS for the Web terminal cleanup, PocketClaw banner,
+  UTF-8/`µs`, hidden internal library path, and restored 8/8 skills / 17 tools
+  on commit `3611ca1`.
+- Traced the remaining `[telegram pico]` summary entry to Core's internal
+  singleton Web Console WebSocket/media channel ID.
+- Preserved the internal `pico` config/factory/channel/routes/protocol and
+  mapped only its copied startup/reload display name to `pocketclaw`.
+- Added a focused regression proving the exact output, unchanged internal
+  input, and no substring/global replacement. Relevant tagged Go suites pass.
+- Regenerated the 110-file Core patch, rebuilt both zero-path Core libraries,
+  and built guarded ARM64 APK `aab3c565...25b3582` (34,241,857 bytes).
+  Physical confirmation of the final label is pending; no merge/release/main
+  change was made.
+
+## 2026-08-27 — Final user-visible caller brand fix
+
+- Mapped only structured user-visible logger component `pico` to `realtime`
+  and caller basename `pico.go` to `realtime.go`, preserving exact line numbers.
+- Applied the canonical contract at Web `LogBuffer`, native/export sanitizer,
+  and React legacy/raw guard. Internal packages, filenames, channel/config IDs,
+  routes, and protocol were not renamed.
+- Added exact and substring-negative fixtures plus direct Go, stored/export,
+  and real DOM assertions. Flutter analyze/99 tests, frontend 37/tsc/lint, and
+  relevant tagged Go suites pass.
+- Regenerated the 110-file Core patch, rebuilt zero-path Core libraries, and
+  built guarded APK `1eeca7c9...ad089f7` (34,242,865 bytes). Physical device is
+  the final gate; no merge/release/main change was made.
+
+## 2026-08-27 — Web Console Logs viewport stability micro-pass
+
+- Traced physical Web-only jitter to a passive post-paint bottom snap and a
+  content-resize-driven JavaScript hard-wrap loop that could rewrite long rows.
+- Moved conditional bottom following to `useLayoutEffect`; scrolled-up users
+  receive no scroll writes and repeated empty polls do not change `scrollTop`.
+- Added stable `run_id:absolute_offset` keys and memoized rows. Removed the
+  whole-content `ResizeObserver`, manual `wrap-ansi` hard wrapping, and its
+  now-unused direct dependency; CSS wraps the unchanged sanitized string.
+- Added real Logs page DOM cases for bottom following, scrolled-up preservation,
+  long Telegram-style row node/text stability, and no-new-log rerenders.
+- Passed frontend 41/41, TypeScript, lint, relevant tagged Go API/middleware,
+  and Native/Export log regressions. Regenerated 113-file Core provenance,
+  rebuilt zero-path libraries, and passed the permanent APK payload guard.
+- Built APK `be5d7cbb...5070fc96` (34,239,873 bytes), with Core hashes
+  `715cd790...6143cf1` and `e3930ae2...f5f5da14`. Physical validation is
+  pending; no merge/release/main change was made.
+
+## 2026-08-27 — Telegram Web-log credential redaction
+
+- Confirmed Telego's full Bot API URL was partially masked before stdout and
+  Web backend storage; no complete token was persisted through this path, but
+  the retained bot ID and secret prefix/suffix were user-visible in Web Logs.
+- Replaced partial masking at the same pre-stdout third-party logger boundary
+  with full credential and Authorization redaction. No credentials were read,
+  rotated, or modified.
+- Added Web pre-storage normalization to render Bot API URLs as
+  `Telegram API call: <operation>` while preserving methods, failures, status,
+  timeout, and latency. Added an idempotent React legacy/raw guard.
+- Added synthetic regressions for standard/arbitrary calls, success/failure,
+  timeout, encoded/bare/Authorization forms, Web ring storage, public metadata,
+  and the real Logs DOM. Native/Export source stayed unchanged.
+- Passed relevant tagged Go suites, frontend 42/42/tsc/lint, and unchanged
+  Native/Export 7/7 regression. Regenerated 115-file provenance, rebuilt both
+  zero-path Core libraries, and passed the permanent APK guard.
+- Built APK `8257e9f0...7c7050fe` (34,240,641 bytes), with Core hashes
+  `0e914550...8b555e9` and `7d7b254b...d9898c7`. Physical validation is
+  pending; no merge/release/main change was made.
+
+## 2026-08-27 — Final legacy brand visibility sweep
+
+- Traced physical Web log leaks to exact structured ChannelPico fields, the
+  internal `/pico/` webhook field, Pico protocol lifecycle wording, and the
+  `.picoclaw.pid` compatibility path.
+- Added display-only normalization before Web `LogBuffer` storage plus the
+  idempotent React guard. Exact fields now display `pocketclaw`; protocol and
+  reasoning messages use realtime wording; the PID success line is semantic.
+- Preserved the complete security warning and genuine failures. Did not rename
+  any channel/config ID, source package/file, route, PID file, library, env var,
+  migration, or provenance identifier; no global/substring replacement exists.
+- Added backend storage, representative startup, real Logs DOM, and negative
+  substring regressions. Representative normal output has zero unintended
+  legacy brand occurrences.
+- Passed frontend 44/44, TypeScript, lint; relevant tagged Go logger/gateway/
+  channels/Pico/Telegram/Skills/API/middleware/CLI suites; Flutter analyze and
+  99 tests. Regenerated 115-file provenance and rebuilt zero-path Core.
+- Built guarded APK `309f6d7a...a5f3030`, with Core hashes
+  `49f89ae2...be656f` and `98f3fa9d...08bae`. Physical validation is pending;
+  no merge/release/main change was made.
+
+## 2026-08-27 — Telegram DEBUG final cleanup
+
+- Proved Telego emitted valid `Err: [<nil>]` and PocketClaw's pre-stdout secret
+  redactor preserved it; the Web pre-storage orphaned-CSI regex removed `[<n`
+  and persisted malformed `il>]`.
+- Narrowed orphaned CSI recovery to numeric/private-numeric suffixes across Go,
+  React, and Dart. Exact successful Telego nil fields now display `Err: none`;
+  ordinary angle brackets and multilingual Unicode remain unchanged and render
+  only as safe text nodes.
+- Suppressed exact DEBUG `getUpdates` request lines and successful empty
+  responses before stdout, with idempotent storage/render guards. Failures,
+  non-empty results, API errors, send/edit operations, and lifecycle events stay
+  visible and credential-free.
+- Added repeated-poll history, failure/non-empty/operation, token-negative,
+  cross-surface angle text, ANSI, Unicode, and DOM-injection regressions.
+- Passed frontend 45/45/tsc/lint, relevant tagged Go suites, Flutter analyze and
+  101 tests. Regenerated 115-file provenance and rebuilt zero-path Core.
+- Built guarded APK `2c00720a...2da27c` (34,243,585 bytes), with Core hashes
+  `7c1d3918...38ef1f` and `1611b6e1...d09256`. Physical validation is pending;
+  no merge/release/main change was made.
+
+## 2026-08-28 — Agent DEBUG and Telegram payload privacy
+
+- Confirmed the legacy name was in the actual freshly generated system prompt;
+  PocketClaw defaults now identify as PocketClaw without rewriting custom
+  prompts or internal/upstream compatibility names.
+- Removed normal prompt previews, full LLM message/tool dumps, raw reasoning,
+  and tool-argument previews. Added exact-field pre-writer redaction on a copy,
+  preserving runtime session/routing values and useful lifecycle metadata.
+- Traced raw Telegram PII/content to Telego `Response.String()` before stdout
+  and Web storage. Telego now emits concise operation/status/count/type metadata
+  before writers; backend, React and Dart guards cover historical/raw input.
+- Added regressions for runtime-value immutability, fresh prompt identity,
+  synthetic session/internal values, raw Agent payloads, Telegram IDs/profile/
+  messages, arbitrary Bot API operations, failures, real Web DOM and export.
+- Passed tagged relevant Go suites, frontend 46/46/tsc/lint, Flutter
+  analyze/101. Regenerated 124-file provenance, rebuilt zero-path Core, verified
+  the live endpoint and permanent payload guard.
+- Built APK `46ca983a...2b908e` (34,251,141 bytes), with Core hashes
+  `8ed15601...9be24a` and `21001004...5fc1d7`. Physical validation is pending;
+  no merge/release/main change was made.
+
+## 2026-08-29 — v0.2.0-rc1: owner authorization and live LAN Dashboard mode
+
+- Owner authorization became server-derived on every surface. The internal
+  realtime channel binds each inbound message to its authenticated connection
+  and to a Core-owned owner principal, so payload fields and a stale or
+  permissive on-disk allowlist can no longer choose the effective sender,
+  session, or routing identity.
+- Dashboard sessions moved from one process-wide cookie to a server-side store
+  with issue/validate/revoke and a 24-hour lifetime (was 31 days). Logout now
+  revokes server-side rather than only clearing the browser cookie, and the
+  realtime WebSocket upgrade requires a same-origin request.
+- Telegram fails closed unless exactly one paired numeric owner is configured.
+  The Android bridge rejects a pairing without a numeric owner instead of
+  writing an empty allowlist, and manual onboarding requires the numeric ID.
+  Usernames are never a security identity.
+- Credential generation fails closed when the platform CSPRNG is unavailable;
+  the previous timestamp fallback for the realtime token is gone. The Android
+  host's realtime credential is now a per-installation CSPRNG value kept in
+  no-backup storage, replacing a constant compiled into the app.
+- The managed Core gateway is pinned to loopback unconditionally. It no longer
+  inherits the launcher's bind host, so exposing the Dashboard cannot expose
+  Core on 18790 by any configuration or environment path.
+- Public Mode applies live. A Dashboard listener supervisor rebinds only port
+  18800 between loopback and wildcard while the Core process, session store,
+  Telegram polling, and agent runtime keep running. It closes hijacked
+  WebSocket connections belonging to the old bind, rolls back to the previous
+  listener when the new bind fails, and persists the setting only after the
+  bind succeeds. Android drives it over the authenticated loopback bridge, so
+  OFF→ON and ON→OFF no longer need a manual service restart.
+- The advertised LAN address now comes from an active Wi-Fi or Ethernet link.
+  Cellular-only, link-local, loopback, and wildcard addresses are never offered
+  as connect targets, and the QR falls back to an explicit "no LAN address"
+  state instead of encoding an unreachable URL.
+- Logging keeps the internal realtime route out of user-facing output by
+  capturing the channel/path relationship before display names are normalized.
+- Validation: `flutter analyze` clean, 114/114 Flutter tests; frontend 46/46,
+  `tsc -b`, lint; the complete Go suite, `go build ./...`, and `go vet ./...`
+  green under `-tags goolm,stdjson`. Core provenance regenerated to 141 files
+  and reproduced byte for byte; zero developer paths; permanent APK guard pass.
+- Both Core binaries were reproduced byte for byte from this source with their
+  build timestamps pinned, proving the released native payload is the payload
+  physically validated on device.
+- Known pre-existing: `-race` on `web/backend/api` fails in
+  `TestStartGatewayLocked_UsesReloadedConfigForBootSignature`, where the test's
+  cleanup and the production monitor goroutine both call `cmd.Wait()`. It
+  reproduces identically on `develop` at `8f861bc`. Not a production race.

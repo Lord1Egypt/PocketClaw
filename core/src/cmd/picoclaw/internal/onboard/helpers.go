@@ -140,7 +140,9 @@ func setupSSHKey() error {
 }
 
 func createWorkspaceTemplates(workspace string) {
-	err := copyEmbeddedToTarget(workspace)
+	// Android app data can be reset while the external workspace survives.
+	// Onboarding must repair missing templates without replacing user edits.
+	err := copyMissingEmbeddedToTarget(workspace)
 	if err != nil {
 		fmt.Printf("Error copying workspace templates: %v\n", err)
 	}
@@ -174,6 +176,16 @@ func isUnseeded(relPath string) bool {
 }
 
 func copyEmbeddedToTarget(targetDir string) error {
+	return copyEmbeddedToTargetMode(targetDir, false)
+}
+
+// copyMissingEmbeddedToTarget repairs a fresh or newly selected workspace
+// without replacing any existing user-managed file.
+func copyMissingEmbeddedToTarget(targetDir string) error {
+	return copyEmbeddedToTargetMode(targetDir, true)
+}
+
+func copyEmbeddedToTargetMode(targetDir string, keepExisting bool) error {
 	// Ensure target directory exists
 	if err := os.MkdirAll(targetDir, 0o755); err != nil {
 		return fmt.Errorf("Failed to create target directory: %w", err)
@@ -210,6 +222,14 @@ func copyEmbeddedToTarget(targetDir string) error {
 		// Ensure target file's directory exists
 		if err := os.MkdirAll(filepath.Dir(targetPath), 0o755); err != nil {
 			return fmt.Errorf("Failed to create directory %s: %w", filepath.Dir(targetPath), err)
+		}
+
+		if keepExisting {
+			if _, err := os.Stat(targetPath); err == nil {
+				return nil
+			} else if !os.IsNotExist(err) {
+				return fmt.Errorf("Failed to inspect target file %s: %w", targetPath, err)
+			}
 		}
 
 		// Write file

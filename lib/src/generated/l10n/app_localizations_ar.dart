@@ -115,6 +115,9 @@ class AppLocalizationsAr extends AppLocalizations {
       'عند التمكين، تسمح الخدمة بالوصول الخارجي وسيتم تعطيل حقل العنوان';
 
   @override
+  String get publicModeApplying => 'جارٍ تطبيق وضع الشبكة...';
+
+  @override
   String get themeSelection => 'السمة';
 
   @override
@@ -199,7 +202,7 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get localModeHint =>
-      '1. انتقل إلى تكوين الخدمة\n2. شغّل الوضع العام\n3. أعد تشغيل الخدمة\n4. امسح رمز QR للوصول إلى PocketClaw';
+      '1. انتقل إلى تكوين الخدمة\n2. شغّل الوضع العام\n3. امسح رمز QR للوصول إلى PocketClaw';
 
   @override
   String get publicModeHint =>

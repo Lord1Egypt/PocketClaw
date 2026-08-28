@@ -4,6 +4,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:pocketclaw/src/core/log_export_writer.dart';
 import 'package:pocketclaw/src/core/service_manager.dart';
 import 'package:pocketclaw/src/core/ui_constants.dart';
 import 'package:pocketclaw/src/generated/l10n/app_localizations.dart';
@@ -235,12 +236,10 @@ class _LogPageState extends State<LogPage> {
       if (Platform.isAndroid) {
         // Use platform MethodChannel to write via MediaStore
         try {
-          final bytes = Uint8List.fromList(content.codeUnits);
-          final channel = MethodChannel('com.lord1egypt.pocketclaw/picoclaw');
-          final res = await channel.invokeMethod<String>('saveToDownloads', {
-            'filename': filename,
-            'bytes': bytes,
-          });
+          final res = await LogExportWriter.saveToAndroidDownloads(
+            filename: filename,
+            content: content,
+          );
           if (res != null) savedPath = res;
         } catch (_) {}
       }

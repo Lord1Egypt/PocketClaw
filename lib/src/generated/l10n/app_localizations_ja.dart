@@ -114,6 +114,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get publicModeHintDesc => '有効にすると、サービスは外部アクセスを許可し、アドレスフィールドは無効になります';
 
   @override
+  String get publicModeApplying => 'ネットワークモードを適用中...';
+
+  @override
   String get themeSelection => 'テーマ';
 
   @override
@@ -197,7 +200,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get localModeHint =>
-      '1. サービス設定に移動\n2. パブリックモードをオン\n3. サービスを再起動\n4. QRコードをスキャンしてPocketClawにアクセス';
+      '1. サービス設定に移動\n2. パブリックモードをオン\n3. QRコードをスキャンしてPocketClawにアクセス';
 
   @override
   String get publicModeHint => '1. サービスを起動\n2. QRコードをスキャンしてPocketClawにアクセス';

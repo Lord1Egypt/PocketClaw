@@ -1,8 +1,10 @@
-import { type RefObject, useEffect, useRef } from "react"
+import { useLayoutEffect, useMemo, useRef } from "react"
 import { useTranslation } from "react-i18next"
 
-import { AnsiLogLine } from "@/components/logs/ansi-log-line"
+import { PlainLogLine } from "@/components/logs/plain-log-line"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import type { GatewayLogEntry } from "@/hooks/use-gateway-logs"
+import { normalizeUserVisibleLog } from "@/lib/plain-text-log"
 
 const AUTO_SCROLL_THRESHOLD_PX = 24
 
@@ -14,24 +16,23 @@ function isNearBottom(viewport: HTMLDivElement) {
 }
 
 type LogsPanelProps = {
-  logs: string[]
-  wrapColumns: number
-  contentRef: RefObject<HTMLDivElement | null>
-  measureRef: RefObject<HTMLSpanElement | null>
+  logs: GatewayLogEntry[]
 }
 
-export function LogsPanel({
-  logs,
-  wrapColumns,
-  contentRef,
-  measureRef,
-}: LogsPanelProps) {
+export function LogsPanel({ logs }: LogsPanelProps) {
   const { t } = useTranslation()
   const scrollAreaRef = useRef<HTMLDivElement>(null)
   const viewportRef = useRef<HTMLDivElement | null>(null)
   const shouldStickToBottomRef = useRef(true)
+  const visibleLogs = useMemo(
+    () =>
+      logs
+        .map(({ id, line }) => ({ id, line: normalizeUserVisibleLog(line) }))
+        .filter(({ line }) => Boolean(line)),
+    [logs],
+  )
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const scrollArea = scrollAreaRef.current
     const viewport = scrollArea?.querySelector<HTMLDivElement>(
       '[data-slot="scroll-area-viewport"]',
@@ -47,7 +48,7 @@ export function LogsPanel({
       shouldStickToBottomRef.current = isNearBottom(viewport)
     }
 
-    updateStickToBottom()
+    viewport.scrollTop = viewport.scrollHeight
     viewport.addEventListener("scroll", updateStickToBottom)
 
     return () => {
@@ -58,16 +59,10 @@ export function LogsPanel({
     }
   }, [])
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const viewport = viewportRef.current
     if (!viewport) {
       return
-    }
-
-    // Clearing logs or switching runs can replace the buffer with much shorter
-    // content, so a previously stale "not sticky" state needs to be rechecked.
-    if (!shouldStickToBottomRef.current) {
-      shouldStickToBottomRef.current = isNearBottom(viewport)
     }
 
     if (shouldStickToBottomRef.current) {
@@ -78,22 +73,12 @@ export function LogsPanel({
   return (
     <div className="relative flex-1 overflow-hidden rounded-lg border border-zinc-800 bg-zinc-950 text-zinc-100">
       <ScrollArea ref={scrollAreaRef} className="h-full">
-        <div
-          ref={contentRef}
-          className="relative p-4 font-mono text-sm leading-relaxed"
-        >
-          <span
-            ref={measureRef}
-            aria-hidden
-            className="pointer-events-none invisible absolute font-mono text-sm"
-          >
-            0
-          </span>
-          {logs.length === 0 ? (
+        <div className="relative p-4 font-mono text-sm leading-relaxed [overflow-anchor:none]">
+          {visibleLogs.length === 0 ? (
             <div className="text-zinc-500 italic">{t("pages.logs.empty")}</div>
           ) : (
-            logs.map((log, index) => (
-              <AnsiLogLine key={index} line={log} wrapColumns={wrapColumns} />
+            visibleLogs.map((log) => (
+              <PlainLogLine key={log.id} id={log.id} line={log.line} />
             ))
           )}
         </div>

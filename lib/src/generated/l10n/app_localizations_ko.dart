@@ -114,6 +114,9 @@ class AppLocalizationsKo extends AppLocalizations {
   String get publicModeHintDesc => '활성화되면 서비스가 외부 액세스를 허용하고 주소 필드가 비활성화됩니다';
 
   @override
+  String get publicModeApplying => '네트워크 모드 적용 중...';
+
+  @override
   String get themeSelection => '테마';
 
   @override
@@ -198,7 +201,7 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get localModeHint =>
-      '1. 서비스 구성으로 이동\n2. 공용 모드 켜기\n3. 서비스 재시작\n4. PocketClaw에 액세스하려면 QR 코드 스캔';
+      '1. 서비스 구성으로 이동\n2. 공용 모드 켜기\n3. PocketClaw에 액세스하려면 QR 코드 스캔';
 
   @override
   String get publicModeHint => '1. 서비스 시작\n2. PocketClaw에 액세스하려면 QR 코드 스캔';

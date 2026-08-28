@@ -73,6 +73,7 @@ func NewAgentLoop(
 		evolution:         bridge,
 		steering:          newSteeringQueue(parseSteeringMode(cfg.Agents.Defaults.SteeringMode)),
 		workerSem:         make(chan struct{}, workerPoolSize),
+		sessionMailboxes:  make(map[string]*sessionMailbox),
 		ownsRuntimeEvents: true,
 	}
 	for _, opt := range opts {

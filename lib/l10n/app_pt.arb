@@ -34,6 +34,7 @@
   "coreValid": "O binário principal é válido.",
   "publicMode": "Modo público",
   "publicModeHintDesc": "Quando ativado, o serviço permite acesso externo e o campo de endereço será desativado",
+  "publicModeApplying": "A aplicar o modo de rede...",
   "themeSelection": "Tema",
   "check": "Verificar",
   "launchService": "INICIAR SERVIÇO",
@@ -60,7 +61,7 @@
   "deviceReportingUploadSucceeded": "Feedback de compatibilidade do dispositivo ativado",
   "deviceReportingUploadFailed": "Feedback de compatibilidade do dispositivo ativado, mas a sincronização atual das informações do dispositivo não foi concluída",
   "deviceReportingDisabled": "Feedback de compatibilidade do dispositivo desativado",
-  "localModeHint": "1. Vá para Configuração do serviço\n2. Ative o Modo público\n3. Reinicie o serviço\n4. Leia o código QR para aceder ao PocketClaw",
+  "localModeHint": "1. Vá para Configuração do serviço\n2. Ative o Modo público\n3. Leia o código QR para aceder ao PocketClaw",
   "publicModeHint": "1. Inicie o serviço\n2. Leia o código QR para aceder ao PocketClaw",
   "@coreUnknownError": {
     "placeholders": {

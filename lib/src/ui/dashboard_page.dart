@@ -8,39 +8,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:remixicon/remixicon.dart';
 import 'package:pocketclaw/src/ui/widgets/tv_focusable.dart';
 
-class DashboardPage extends StatefulWidget {
+class DashboardPage extends StatelessWidget {
   const DashboardPage({super.key});
-
-  @override
-  State<DashboardPage> createState() => _DashboardPageState();
-}
-
-class _DashboardPageState extends State<DashboardPage> {
-  String? _deviceIp;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadDeviceIp();
-  }
-
-  Future<void> _loadDeviceIp() async {
-    final service = context.read<ServiceManager>();
-    final ip = await service.getDeviceIpAddress();
-    if (mounted) {
-      setState(() => _deviceIp = ip);
-    }
-  }
-
-  @override
-  void didUpdateWidget(covariant DashboardPage oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    // 当公共模式从关闭变为开启时，重新获取IP
-    final service = context.read<ServiceManager>();
-    if (service.publicMode && _deviceIp == null) {
-      _loadDeviceIp();
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -48,10 +17,7 @@ class _DashboardPageState extends State<DashboardPage> {
     final l10n = AppLocalizations.of(context)!;
     final colorScheme = Theme.of(context).colorScheme;
 
-    // 二维码数据：公共模式开启时使用设备IP，否则使用内部地址(webUrl)
-    final qrData = (service.publicMode && _deviceIp != null)
-        ? 'http://$_deviceIp:${service.webUrl.split(':').last}'
-        : service.webUrl;
+    final connectableUrl = service.connectableDashboardUrl;
 
     return Scaffold(
       backgroundColor:
@@ -168,7 +134,7 @@ class _DashboardPageState extends State<DashboardPage> {
 
                     Widget qrSection = _buildQrSection(
                       context,
-                      qrData,
+                      connectableUrl,
                       colorScheme,
                     );
 
@@ -337,7 +303,7 @@ class _DashboardPageState extends State<DashboardPage> {
           Builder(
             builder: (context) {
               // 公共模式开启但无法获取IP时显示警告
-              if (service.publicMode && _deviceIp == null) {
+              if (service.publicMode && service.publicDashboardUrl == null) {
                 return TVFocusable(
                   onTap: null,
                   borderRadius: BorderRadius.circular(8),
@@ -347,42 +313,19 @@ class _DashboardPageState extends State<DashboardPage> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          service.webUrl,
+                          l10n.unableToGetDeviceIp,
                           style: GoogleFonts.firaCode(
                             fontSize: 20,
                             color: colorScheme.secondary,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
-                        const SizedBox(height: 4),
-                        Row(
-                          children: [
-                            Icon(
-                              Icons.warning_amber_rounded,
-                              size: 14,
-                              color: colorScheme.error,
-                            ),
-                            const SizedBox(width: 4),
-                            Flexible(
-                              child: Text(
-                                l10n.unableToGetDeviceIp,
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: colorScheme.error,
-                                ),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ],
-                        ),
                       ],
                     ),
                   ),
                 );
               }
-              final displayUrl = (service.publicMode && _deviceIp != null)
-                  ? 'http://$_deviceIp:${service.webUrl.split(':').last}'
-                  : service.webUrl;
+              final displayUrl = service.connectableDashboardUrl!;
               return TVFocusable(
                 onTap: () => launchUrl(Uri.parse(displayUrl)),
                 borderRadius: BorderRadius.circular(8),
@@ -417,7 +360,7 @@ class _DashboardPageState extends State<DashboardPage> {
 
   Widget _buildQrSection(
     BuildContext context,
-    String qrData,
+    String? qrData,
     ColorScheme colorScheme,
   ) {
     return Container(
@@ -444,12 +387,13 @@ class _DashboardPageState extends State<DashboardPage> {
               ),
             ],
           ),
-          child: QrImageView(
-            data: qrData,
-            version: QrVersions.auto,
-            size: 140.0,
-            gapless: true,
-          ),
+          child: qrData == null
+              ? Icon(
+                  Icons.wifi_off_rounded,
+                  size: 72,
+                  color: colorScheme.surfaceContainerHighest,
+                )
+              : DashboardAccessQrCode(data: qrData),
         ),
       ),
     );
@@ -518,6 +462,24 @@ class _DashboardPageState extends State<DashboardPage> {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Named wrapper so the connect URL encoded by the Dashboard QR remains a
+/// testable part of the UI contract when LAN addressing changes.
+class DashboardAccessQrCode extends StatelessWidget {
+  const DashboardAccessQrCode({super.key, required this.data});
+
+  final String data;
+
+  @override
+  Widget build(BuildContext context) {
+    return QrImageView(
+      data: data,
+      version: QrVersions.auto,
+      size: 140.0,
+      gapless: true,
     );
   }
 }

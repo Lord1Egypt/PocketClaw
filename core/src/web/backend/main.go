@@ -48,8 +48,8 @@ const (
 var (
 	appVersion = config.Version
 
-	servers    []*http.Server
-	serverAddr string
+	httpRuntime *launcherHTTPRuntime
+	serverAddr  string
 	// browserLaunchURL is opened by openBrowser() (auto-open + tray "open console").
 	browserLaunchURL string
 	apiHandler       *api.Handler
@@ -545,7 +545,7 @@ func main() {
 	}
 
 	if !explicitHost && hostOverrideActive {
-		logger.InfoC("web", "Using launcher host from environment PICOCLAW_LAUNCHER_HOST")
+		logger.InfoC("web", "Using launcher host from the environment")
 	}
 
 	if hostOverrideActive && explicitPublic {
@@ -575,10 +575,7 @@ func main() {
 	}
 	listeners := openResult.Listeners
 
-	dashboardSessionCookie, dashErr := middleware.NewLauncherDashboardSessionCookie()
-	if dashErr != nil {
-		logger.Fatalf("Dashboard auth setup failed: %v", dashErr)
-	}
+	dashboardSessions := middleware.NewLauncherDashboardSessions(0)
 
 	// Open the bcrypt password store (creates the DB file on first run).
 	authStore, authStoreErr := dashboardauth.New(picoHome)
@@ -643,7 +640,7 @@ func main() {
 	mux := http.NewServeMux()
 
 	api.RegisterLauncherAuthRoutes(mux, api.LauncherAuthRouteOpts{
-		SessionCookie: dashboardSessionCookie,
+		Sessions:      dashboardSessions,
 		PasswordStore: passwordStore,
 		StoreError:    authStoreErr,
 	})
@@ -675,24 +672,35 @@ func main() {
 	}
 
 	dashAuth := middleware.LauncherDashboardAuth(middleware.LauncherDashboardAuthConfig{
-		ExpectedCookie: dashboardSessionCookie,
+		Sessions:       dashboardSessions,
 		LocalAutoLogin: localAutoLogin,
 	}, accessControlledMux)
+	appMux := http.NewServeMux()
+	apiHandler.RegisterAndroidBridgeRoutes(appMux, os.Getenv(api.AndroidBridgeTokenEnv))
+	appMux.Handle("/", dashAuth)
 
 	// Apply middleware stack
 	handler := middleware.Recoverer(
 		middleware.Logger(
 			middleware.ReferrerPolicyNoReferrer(
-				middleware.JSONContentType(dashAuth),
+				middleware.JSONContentType(appMux),
 			),
 		),
 	)
+	httpRuntime = newLauncherHTTPRuntime(handler, hostInput, effectivePublic, openResult)
+	apiHandler.SetLauncherNetworkModeController(httpRuntime)
 
-	// Print startup banner (console mode only).
+	// Print startup banner (console mode only). Android captures stdout for a
+	// plain-text Logs screen, so its NO_COLOR environment gets a text banner
+	// rather than RGB escapes and terminal-only block drawing characters.
 	if enableConsole || debug {
 		consoleHosts := launcherConsoleHosts(hostInput, effectivePublic)
 
-		fmt.Print(utils.Banner)
+		if os.Getenv("NO_COLOR") != "" {
+			fmt.Println(utils.PlainBanner)
+		} else {
+			fmt.Print(utils.Banner)
+		}
 		fmt.Println()
 		if needsInitialSetup {
 			if *noBrowser {
@@ -732,19 +740,9 @@ func main() {
 		apiHandler.TryAutoStartGateway()
 	}()
 
-	// Start the server(s) in goroutines.
-	servers = make([]*http.Server, 0, len(listeners))
-	for _, ln := range listeners {
-		srv := &http.Server{Handler: handler}
-		servers = append(servers, srv)
-
-		go func(s *http.Server, l net.Listener) {
-			logger.InfoC("web", fmt.Sprintf("Server listening on %s", l.Addr().String()))
-			if serveErr := s.Serve(l); serveErr != nil && !errors.Is(serveErr, http.ErrServerClosed) {
-				logger.Fatalf("Server failed to start on %s: %v", l.Addr().String(), serveErr)
-			}
-		}(srv, ln)
-	}
+	// Start the authenticated Dashboard listener(s). The runtime can replace
+	// only these listeners when Android applies Public Mode; Core stays alive.
+	httpRuntime.Start()
 
 	defer shutdownApp()
 

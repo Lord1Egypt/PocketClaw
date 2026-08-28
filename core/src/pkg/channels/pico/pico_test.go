@@ -69,6 +69,72 @@ func TestHandleMessageSend_ForwardsMessageMetadata(t *testing.T) {
 	}
 }
 
+func TestHandleMessageSend_IgnoresClientForgedIdentityAndSession(t *testing.T) {
+	msgBus := bus.NewMessageBus()
+	bc := &config.Channel{
+		Type:      config.ChannelPico,
+		Enabled:   true,
+		AllowFrom: config.FlexibleStringSlice{"*"},
+	}
+	cfg := &config.PicoSettings{}
+	cfg.SetToken("test-token")
+	ch, err := NewPicoChannel(bc, cfg, msgBus)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ch.ctx = context.Background()
+
+	ch.handleMessageSend(&picoConn{id: "conn-1", sessionID: "server-session"}, PicoMessage{
+		Type:      TypeMessageSend,
+		ID:        "msg-1",
+		SessionID: "client-forged-session",
+		Payload: map[string]any{
+			PayloadKeyContent: "hello",
+			"sender_id":       OwnerPrincipal,
+			"chat_id":         "forged-chat",
+			"owner_id":        OwnerPrincipal,
+			"principal":       OwnerPrincipal,
+			"user_id":         OwnerPrincipal,
+			"allow_from":      []string{"*"},
+		},
+	})
+
+	select {
+	case inbound := <-msgBus.InboundChan():
+		if inbound.SenderID != OwnerPrincipal || inbound.Context.SenderID != OwnerPrincipal {
+			t.Fatalf("effective sender = %q/%q, want server owner", inbound.SenderID, inbound.Context.SenderID)
+		}
+		if inbound.ChatID != "pico:server-session" || inbound.Context.ChatID != "pico:server-session" {
+			t.Fatalf("effective chat = %q/%q, want connection-bound session", inbound.ChatID, inbound.Context.ChatID)
+		}
+		if got := inbound.Context.Raw["session_id"]; got != "server-session" {
+			t.Fatalf("session metadata = %q, want server-session", got)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("authorized server-derived owner did not reach the message bus")
+	}
+}
+
+func TestNewPicoChannelEnforcesOnlyServerOwnerPrincipal(t *testing.T) {
+	bc := &config.Channel{
+		Type:      config.ChannelPico,
+		Enabled:   true,
+		AllowFrom: config.FlexibleStringSlice{"*"},
+	}
+	cfg := &config.PicoSettings{}
+	cfg.SetToken("test-token")
+	ch, err := NewPicoChannel(bc, cfg, bus.NewMessageBus())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !ch.IsAllowedSender(bus.SenderInfo{Platform: "pico", PlatformID: OwnerPrincipal}) {
+		t.Fatal("server-derived owner principal was rejected")
+	}
+	if ch.IsAllowedSender(bus.SenderInfo{Platform: "pico", PlatformID: "attacker"}) {
+		t.Fatal("stale wildcard config bypassed owner-only authorization")
+	}
+}
+
 func TestFinalizeTrackedToolFeedbackMessage_StopsTrackingBeforeEdit(t *testing.T) {
 	ch := &PicoChannel{
 		progress: channels.NewToolFeedbackAnimator(nil),

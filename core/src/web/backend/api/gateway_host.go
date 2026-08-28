@@ -30,13 +30,10 @@ func (h *Handler) effectiveLauncherPublic() bool {
 }
 
 func (h *Handler) gatewayHostOverride() string {
-	if h.serverHostExplicit {
-		return strings.TrimSpace(h.serverHostInput)
-	}
-	if h.effectiveLauncherPublic() {
-		return "*"
-	}
-	return ""
+	// The launcher is the authenticated ingress for browser realtime traffic.
+	// Keep its managed gateway on loopback even when the launcher itself is
+	// intentionally exposed through an authenticated public/tunnel endpoint.
+	return "localhost"
 }
 
 func (h *Handler) effectiveGatewayBindHost(cfg *config.Config) string {

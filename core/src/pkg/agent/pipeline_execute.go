@@ -4,7 +4,6 @@ package agent
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"path/filepath"
 	"sort"
@@ -179,9 +178,7 @@ toolLoop:
 				if toolReq != nil && toolReq.HookResult != nil {
 					hookResult := toolReq.HookResult
 
-					argsJSON, _ := json.Marshal(toolArgs)
-					argsPreview := utils.Truncate(string(argsJSON), 200)
-					logger.InfoCF("agent", fmt.Sprintf("Tool call (hook respond): %s(%s)", toolName, argsPreview),
+					logger.InfoCF("agent", toolCallLogMessage(toolName, true),
 						map[string]any{
 							"agent_id":  ts.agent.ID,
 							"tool":      toolName,
@@ -472,9 +469,7 @@ toolLoop:
 			continue
 		}
 
-		argsJSON, _ := json.Marshal(toolArgs)
-		argsPreview := utils.Truncate(string(argsJSON), 200)
-		logger.InfoCF("agent", fmt.Sprintf("Tool call: %s(%s)", toolName, argsPreview),
+		logger.InfoCF("agent", toolCallLogMessage(toolName, false),
 			map[string]any{
 				"agent_id":  ts.agent.ID,
 				"tool":      toolName,
@@ -554,6 +549,9 @@ toolLoop:
 		}
 
 		toolStart := time.Now()
+		traceTurnLifecycle("tool_started", ts, map[string]any{
+			"tool": toolName,
+		})
 		execCtx := tools.WithToolInboundContext(
 			turnCtx,
 			ts.channel,
@@ -614,6 +612,16 @@ toolLoop:
 		if toolResult == nil {
 			toolResult = tools.ErrorResult("hook returned nil tool result")
 		}
+		toolEvent := "tool_completed"
+		if toolResult.IsError {
+			toolEvent = "tool_failed"
+		}
+		traceTurnLifecycle(toolEvent, ts, map[string]any{
+			"tool":        toolName,
+			"duration_ms": toolDuration.Milliseconds(),
+			"empty_output": strings.TrimSpace(toolResult.ContentForLLM()) == "" &&
+				strings.TrimSpace(toolResult.ForUser) == "" && len(toolResult.Media) == 0,
+		})
 
 		if len(toolResult.Media) > 0 && toolResult.ResponseHandled {
 			parts := make([]bus.MediaPart, 0, len(toolResult.Media))
@@ -861,4 +869,11 @@ toolLoop:
 		"agent_id": ts.agent.ID, "iteration": iteration,
 	})
 	return ToolControlContinue
+}
+
+func toolCallLogMessage(toolName string, hookRespond bool) string {
+	if hookRespond {
+		return fmt.Sprintf("Tool call (hook respond): %s", toolName)
+	}
+	return fmt.Sprintf("Tool call: %s", toolName)
 }

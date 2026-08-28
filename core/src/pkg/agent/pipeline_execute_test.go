@@ -3,8 +3,34 @@ package agent
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
+
+func TestToolCallLogMessageOmitsArguments(t *testing.T) {
+	t.Parallel()
+
+	for _, test := range []struct {
+		name        string
+		hookRespond bool
+		want        string
+	}{
+		{name: "normal", want: "Tool call: sendMessage"},
+		{name: "hook response", hookRespond: true, want: "Tool call (hook respond): sendMessage"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			got := toolCallLogMessage("sendMessage", test.hookRespond)
+			if got != test.want {
+				t.Fatalf("toolCallLogMessage() = %q, want %q", got, test.want)
+			}
+			for _, forbidden := range []string{"private user content", `{"text":`, "SUPERSECRETVALUE"} {
+				if strings.Contains(got, forbidden) {
+					t.Fatalf("tool log exposed argument content %q in %q", forbidden, got)
+				}
+			}
+		})
+	}
+}
 
 func TestInferSkillNamesFromToolCall_ReadFileSkillMarkdown(t *testing.T) {
 	workspace := t.TempDir()

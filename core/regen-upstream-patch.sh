@@ -53,10 +53,16 @@ git -C "$WORK" -c user.email=core@pocketclaw -c user.name=PocketClaw \
 # Replace the worktree with PocketClaw's baseline. The file list comes from git
 # so build outputs, node_modules, and caches under core/src can never leak into
 # the patch. Rebuilding the tree from empty is what makes deletions show up.
-git -C "$REPO_ROOT" ls-files -co --exclude-standard -- core/src \
-    | sed 's|^core/src/||' > "$FILE_LIST"
+git -C "$REPO_ROOT" ls-files -co --exclude-standard -z -- core/src \
+    | while IFS= read -r -d '' path; do
+        # `git ls-files` includes tracked paths deleted in the worktree. They
+        # must stay absent so the generated patch records the deletion.
+        if [ -e "$REPO_ROOT/$path" ]; then
+            printf '%s\0' "${path#core/src/}"
+        fi
+    done > "$FILE_LIST"
 find "$WORK" -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
-rsync -a --files-from="$FILE_LIST" "$CORE_SRC/" "$WORK/"
+rsync -a --from0 --files-from="$FILE_LIST" "$CORE_SRC/" "$WORK/"
 
 git -C "$WORK" add -A --force
 git -C "$WORK" diff --cached --binary > "$PATCH_OUT"

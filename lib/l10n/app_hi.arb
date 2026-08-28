@@ -34,6 +34,7 @@
   "coreValid": "कोर बाइनरी वैध है।",
   "publicMode": "पब्लिक मोड",
   "publicModeHintDesc": "सक्षम होने पर, सेवा बाहरी एक्सेस की अनुमति देती है और पता फ़ील्ड अक्षम हो जाएगी",
+  "publicModeApplying": "नेटवर्क मोड लागू किया जा रहा है...",
   "themeSelection": "थीम",
   "check": "जांचें",
   "launchService": "सेवा शुरू करें",
@@ -60,7 +61,7 @@
   "deviceReportingUploadSucceeded": "डिवाइस संगतता प्रतिक्रिया सक्षम है",
   "deviceReportingUploadFailed": "डिवाइस संगतता प्रतिक्रिया सक्षम है, लेकिन वर्तमान डिवाइस जानकारी सिंक पूरा नहीं हुआ",
   "deviceReportingDisabled": "डिवाइस संगतता प्रतिक्रिया अक्षम है",
-  "localModeHint": "1. सेवा कॉन्फ़िगरेशन पर जाएं\n2. पब्लिक मोड चालू करें\n3. सेवा पुनः आरंभ करें\n4. PocketClaw तक पहुंचने के लिए QR कोड स्कैन करें",
+  "localModeHint": "1. सेवा कॉन्फ़िगरेशन पर जाएं\n2. पब्लिक मोड चालू करें\n3. PocketClaw तक पहुंचने के लिए QR कोड स्कैन करें",
   "publicModeHint": "1. सेवा शुरू करें\n2. PocketClaw तक पहुंचने के लिए QR कोड स्कैन करें",
   "@coreUnknownError": {
     "placeholders": {

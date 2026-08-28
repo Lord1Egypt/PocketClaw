@@ -100,6 +100,7 @@ class _MainShellState extends State<MainShell>
   ServiceManager? _serviceManager;
   bool _configIsDirty = false;
   Future<void> Function()? _saveFn;
+  String _webPath = '';
 
   void _onConfigDirtyChanged(bool dirty) {
     setState(() => _configIsDirty = dirty);
@@ -109,7 +110,16 @@ class _MainShellState extends State<MainShell>
     _saveFn = fn;
   }
 
-  void _onNavTap(int index) async {
+  Future<void> _openTelegramConsole(String path) async {
+    await _onNavTap(1, webPath: path);
+  }
+
+  String _webUrl(String baseUrl) {
+    final base = Uri.parse(baseUrl);
+    return base.replace(path: _webPath).toString();
+  }
+
+  Future<void> _onNavTap(int index, {String? webPath}) async {
     if (_selectedIndex == 3 && index != 3 && _configIsDirty) {
       final l10n = AppLocalizations.of(context)!;
       final result = await showDialog<bool>(
@@ -140,7 +150,10 @@ class _MainShellState extends State<MainShell>
         _onConfigDirtyChanged(false);
       }
     }
-    setState(() => _selectedIndex = index);
+    setState(() {
+      _selectedIndex = index;
+      if (index == 1) _webPath = webPath ?? '';
+    });
   }
 
   bool get _supportsTray => !Platform.isAndroid && !Platform.isIOS;
@@ -289,7 +302,8 @@ class _MainShellState extends State<MainShell>
               const DashboardPage(),
               Consumer<ServiceManager>(
                 builder: (context, service, _) => WebViewPage(
-                  url: service.webUrl,
+                  key: ValueKey<String>(_webPath),
+                  url: _webUrl(service.webUrl),
                   onGoToDashboard: () => _onNavTap(0),
                 ),
               ),
@@ -297,6 +311,7 @@ class _MainShellState extends State<MainShell>
               ConfigPage(
                 onDirtyChanged: _onConfigDirtyChanged,
                 onSaveFnReady: _onSaveFnReady,
+                onManageTelegram: _openTelegramConsole,
               ),
             ],
           ),
