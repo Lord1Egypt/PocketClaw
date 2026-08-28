@@ -931,3 +931,50 @@ verified `develop` @ `14e6991`. Not merged; physical-device testing is the gate.
 - Built APK `46ca983a...2b908e` (34,251,141 bytes), with Core hashes
   `8ed15601...9be24a` and `21001004...5fc1d7`. Physical validation is pending;
   no merge/release/main change was made.
+
+## 2026-08-29 — v0.2.0-rc1: owner authorization and live LAN Dashboard mode
+
+- Owner authorization became server-derived on every surface. The internal
+  realtime channel binds each inbound message to its authenticated connection
+  and to a Core-owned owner principal, so payload fields and a stale or
+  permissive on-disk allowlist can no longer choose the effective sender,
+  session, or routing identity.
+- Dashboard sessions moved from one process-wide cookie to a server-side store
+  with issue/validate/revoke and a 24-hour lifetime (was 31 days). Logout now
+  revokes server-side rather than only clearing the browser cookie, and the
+  realtime WebSocket upgrade requires a same-origin request.
+- Telegram fails closed unless exactly one paired numeric owner is configured.
+  The Android bridge rejects a pairing without a numeric owner instead of
+  writing an empty allowlist, and manual onboarding requires the numeric ID.
+  Usernames are never a security identity.
+- Credential generation fails closed when the platform CSPRNG is unavailable;
+  the previous timestamp fallback for the realtime token is gone. The Android
+  host's realtime credential is now a per-installation CSPRNG value kept in
+  no-backup storage, replacing a constant compiled into the app.
+- The managed Core gateway is pinned to loopback unconditionally. It no longer
+  inherits the launcher's bind host, so exposing the Dashboard cannot expose
+  Core on 18790 by any configuration or environment path.
+- Public Mode applies live. A Dashboard listener supervisor rebinds only port
+  18800 between loopback and wildcard while the Core process, session store,
+  Telegram polling, and agent runtime keep running. It closes hijacked
+  WebSocket connections belonging to the old bind, rolls back to the previous
+  listener when the new bind fails, and persists the setting only after the
+  bind succeeds. Android drives it over the authenticated loopback bridge, so
+  OFF→ON and ON→OFF no longer need a manual service restart.
+- The advertised LAN address now comes from an active Wi-Fi or Ethernet link.
+  Cellular-only, link-local, loopback, and wildcard addresses are never offered
+  as connect targets, and the QR falls back to an explicit "no LAN address"
+  state instead of encoding an unreachable URL.
+- Logging keeps the internal realtime route out of user-facing output by
+  capturing the channel/path relationship before display names are normalized.
+- Validation: `flutter analyze` clean, 114/114 Flutter tests; frontend 46/46,
+  `tsc -b`, lint; the complete Go suite, `go build ./...`, and `go vet ./...`
+  green under `-tags goolm,stdjson`. Core provenance regenerated to 141 files
+  and reproduced byte for byte; zero developer paths; permanent APK guard pass.
+- Both Core binaries were reproduced byte for byte from this source with their
+  build timestamps pinned, proving the released native payload is the payload
+  physically validated on device.
+- Known pre-existing: `-race` on `web/backend/api` fails in
+  `TestStartGatewayLocked_UsesReloadedConfigForBootSignature`, where the test's
+  cleanup and the production monitor goroutine both call `cmd.Wait()`. It
+  reproduces identically on `develop` at `8f861bc`. Not a production race.

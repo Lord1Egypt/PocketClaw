@@ -2,41 +2,69 @@
 
 ## Current Objective
 
-**Physically verify the DEBUG log cleanup candidate. The GitHub release remains
-on hold until it and the broader pre-release checklist pass.**
+**v0.2.0-rc1 is frozen, merged to `develop`, tagged, and published as a GitHub
+pre-release. No further RC work is pending.** The next objective is the
+deferred roadmap in `TASKS.md`, not another release pass.
 
-Milestone D is closed and verified. Candidate `f663d25a...71c621d` physically
-confirmed the neutral Telegram card, basename callers, log debranding,
-terminal-control cleanup, and exactly-once queue/drain behavior. Preserve those
-fixes. Its exported DEBUG file exposed two smaller issues, now fixed on
-`fix/user-facing-log-privacy` (not merged, not tagged).
+The DEBUG log-cleanup physical gate that previously blocked release is CLEARED.
+The user physically validated
+`5760247a17ccff68d188180875f1812c150dd7ae6de45e3f109d7ba07c2186b9`
+on a real ARM64 Android device on 2026-08-29, covering startup, Skills 8/8,
+Tools 17, Telegram owner-only authorization and final delivery, Web/realtime
+owner authorization, dashboard password/session auth, Core staying loopback-only
+on 18790, Public Mode OFF/ON with live OFF→ON→OFF→ON rebinding and no manual
+service restart, a real `192.168.x.x:18800` LAN URL, authenticated LAN Dashboard
+access from a computer, QR/connect refresh, Telegram continuity across the mode
+change, Web Logs stability, UTF-8/Arabic/emoji/µs rendering, and every earlier
+privacy expectation.
+
+What a later session most needs to know:
+
+- The Go sweep has no accepted failing region any more. Build and test with
+  `-tags goolm,stdjson` from `core/src`; the pure-Go Olm implementation removes
+  the `olm/olm.h` host dependency entirely. Treat any Go failure as real.
+- `go test -race ./web/backend/api` fails in
+  `TestStartGatewayLocked_UsesReloadedConfigForBootSignature`. The test's
+  cleanup and the production monitor goroutine both call `cmd.Wait()` on the
+  same `exec.Cmd`. It is a test-harness defect, it reproduces identically on
+  `develop` at `8f861bc`, and the same Kill+Wait pattern appears in several
+  other tests in that file. Fixing it is deferred and tracked in `TASKS.md`.
+- Core is not byte-reproducible by default because `BuildTime` is stamped via
+  `-ldflags`; two builds of identical source differ in exactly 64 bytes at the
+  same length. To compare a binary against a reference, re-run
+  `make build-android-arm64 BUILD_TIME_RAW='<the reference stamp>'` and the
+  hashes match exactly. That is how this RC's native payload was proven to be
+  the physically validated payload.
+- Core on 18790 is loopback-only structurally, not by configuration.
+  `gatewayHostOverride()` returns `localhost` unconditionally and is exported to
+  the gateway child as `PICOCLAW_GATEWAY_HOST`, which outranks the config file.
+  Do not "restore" config-driven gateway host binding without a security review.
+- Dashboard sessions are in-memory, so restarting Core signs everyone out. That
+  is intended, not a bug.
 
 Install:
 
     build/app/outputs/flutter-apk/app-release.apk
-    SHA-256 eacbbc86b99429f114aba9ba1dca57224122fa176f6b4d99edf350454423f9a8
-    34,239,073 bytes · com.lord1egypt.pocketclaw 0.1.3 (3)   [version unchanged]
+    com.lord1egypt.pocketclaw 0.2.0 (4) · arm64-v8a
 
-Check on the device:
+All of the following were confirmed on the device in this pass and need no
+re-verification unless a concrete regression appears:
 
-1. Export a DEBUG log containing HTTP durations. It must contain valid
-   `53.616µs`, not `53.616�s`, with no U+FFFD introduced by PocketClaw.
-2. Arabic, emoji, Unicode punctuation, and ANSI/control removal remain correct
-   in both Logs and Export.
-3. Several minutes of successful `GET /api/gateway/logs` and
-   `GET /api/gateway/status` polling do not consume user-visible history.
-4. A failed poll and ordinary requests such as config/models remain visible.
-5. Basename callers, user-facing debranding, and exactly-once queue/drain
-   behavior remain physically correct.
-6. Continue the standing Telegram, skills, background/locked, provider, Skill
-   Hub, startup, and performance sweep.
+1. A DEBUG log export containing HTTP durations carries valid `53.616µs`, with
+   no U+FFFD introduced by PocketClaw.
+2. Arabic, emoji, Unicode punctuation, and ANSI/control removal are correct in
+   both Logs and Export.
+3. Sustained successful `GET /api/gateway/logs` and `GET /api/gateway/status`
+   polling does not consume user-visible history, while failed polls and
+   ordinary requests such as config/models stay visible.
+4. Basename callers, user-facing debranding, and exactly-once queue/drain
+   behavior are correct.
+5. Telegram, skills, background/locked operation, providers, Skill Hub,
+   startup, and performance all pass.
 
-**The Core binaries are new again in this build**, so the regression sweep is
-required. New pair: `libpicoclaw.so` `5c09eb72...4d763bc`,
-`libpicoclaw-web.so` `cb6b10cc...4b03b52`.
-
-Do not merge, do not tag, and do not create the GitHub release until this
-passes. Do not touch `main`.
+The Core binaries in this build are the exact ones validated in that run;
+rebuilding this source with their timestamps pinned reproduces them byte for
+byte.
 
 ### What the DEBUG-export bugs were
 
@@ -549,3 +577,19 @@ New APK: `46ca983a...2b908e` (34,251,141 bytes). Core hashes:
 frontend 46/46/tsc/lint, Flutter analyze/101, 124-file provenance, zero paths,
 live endpoint, packaged hashes, and permanent guard pass. Physical device is
 the final gate; no merge/release/main change.
+
+## v0.2.0-rc1 freeze record — 2026-08-29
+
+The candidate is merged to `develop`, tagged `v0.2.0-rc1`, and published as a
+GitHub **pre-release**. `main` was not touched and `phase2-milestone-d` was not
+moved. Nothing was published to Google Play.
+
+Explicitly deferred and NOT in this candidate: Flutter/Dart obfuscation,
+R8/ProGuard, symbol stripping, anti-reverse-engineering protection, and
+generated Dart source URI cleanup. Those belong to the final production release
+and are tracked in `TASKS.md` alongside the Statistics/Runtime page, background
+and battery settings, service/gateway auto-start, the managed tool runtime, and
+Android Keystore migration for provider secrets.
+
+The candidate is validated on one ARM64 Android device. Do not describe it as
+universally compatible.

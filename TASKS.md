@@ -546,6 +546,60 @@ supplied by the user.
   the permanent APK guard.
 - [x] Build ARM64 candidate `46ca983a...2b908e` with Core hashes
   `8ed15601...9be24a` and `21001004...5fc1d7`.
-- [ ] **FINAL PHYSICAL GATE:** run a fresh realtime plus Telegram conversation
+- [x] **FINAL PHYSICAL GATE:** run a fresh realtime plus Telegram conversation
   in DEBUG and confirm only safe metadata appears while Skills 8/8, Tools 17+,
   delivery, viewport, Unicode, branding and earlier polling fixes remain PASS.
+  PASSED on a real ARM64 device on 2026-08-29 against APK
+  `5760247a...2c186b9`.
+
+## Phase 2 — v0.2.0-rc1 Release Candidate
+
+- [x] Make owner authorization server-derived on the internal realtime channel
+  so payload fields and a stale allowlist cannot select the effective identity.
+- [x] Replace the single process-wide dashboard cookie with a revocable
+  server-side session store and require a same-origin realtime upgrade.
+- [x] Fail closed on Telegram unless exactly one paired numeric owner exists,
+  across the Android bridge and manual onboarding.
+- [x] Fail closed on credential generation when the CSPRNG is unavailable and
+  give the Android host a per-installation realtime credential.
+- [x] Pin the managed Core gateway to loopback unconditionally.
+- [x] Add the Dashboard listener supervisor so Public Mode rebinds only 18800,
+  with rollback on bind failure and persistence only after success.
+- [x] Advertise a real LAN address from an active Wi-Fi/Ethernet link and
+  refresh the connect URL and QR without a service restart.
+- [x] Physically validate the candidate on a real ARM64 Android device.
+- [x] Prove both Core binaries reproduce byte for byte from the committed
+  source with their build timestamps pinned.
+- [x] Pass Flutter analyze/114, frontend 46/46 + tsc + lint, and the complete
+  Go suite, build, and vet under `-tags goolm,stdjson`.
+- [x] Bump the app version to `0.2.0+4` for the candidate.
+- [x] Merge to `develop`, tag `v0.2.0-rc1`, and publish a GitHub pre-release.
+
+### Deferred — recorded, not implemented
+
+- [ ] Statistics / Runtime page: uptime, agent active/idle/working state, input
+  and output token counts, session/day/lifetime totals only where truthful,
+  CPU/RAM/Core usage, request counts, success/failure, average latency,
+  provider/model, channel states, Core restart count and last restart, optional
+  charts. Local telemetry and provider-reported tokens only — never invent a
+  statistic.
+- [ ] Background and battery settings: battery-optimization detection, a route
+  into Android battery settings, Samsung Sleeping/Deep Sleeping Apps guidance,
+  and a plain reliability explanation. No silent battery-exemption claims;
+  Play policy review comes later.
+- [ ] Service/Gateway auto-start: configurable "start the service
+  automatically", "start the Gateway automatically", and an optional restart of
+  the Gateway when it stops unexpectedly.
+- [ ] Managed runtime and tool dependencies: an app-private `runtime/bin` for
+  verified Android ARM64 tools such as `gh` and `git`, gated on checksums and
+  trusted sources, with a runtime PATH, a safe policy, and declared
+  dependencies. No arbitrary Skill-controlled installation. Document the agent
+  contract in `AGENTS.md` and/or `RUNTIME.md` / `TOOLS.md`.
+- [ ] Secure API-key storage: migrate provider secrets to the Android Keystore.
+- [ ] Final production hardening, deferred until the final release: Flutter and
+  Dart obfuscation, R8/ProGuard, symbol stripping, release-only hardening,
+  anti-reverse-engineering protection, config/secret exposure minimization,
+  APK/AAB inspection, and generated Dart source URI cleanup.
+- [ ] Fix the shared Kill+Wait cleanup pattern in `gateway_test.go` so the
+  `-race` gate on `web/backend/api` is green. Pre-existing on `develop`; the
+  race is in the test harness, not in production code.

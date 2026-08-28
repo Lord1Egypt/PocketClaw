@@ -285,6 +285,40 @@ work for an adoption, and does not go looking upstream for its origin.
 
 ## Security Updates
 
-None currently recorded. Note that upstream `49183d7e`
+None adopted from upstream yet. Upstream `49183d7e`
 (`fix: update Go and x/text for govulncheck`) sits in the unreviewed range and
 is a candidate for the next review.
+
+PocketClaw-originated security divergence, as of v0.2.0-rc1 (2026-08-29). These
+are PocketClaw decisions, not upstream adoptions, and a future upstream merge
+must not silently revert them:
+
+- The managed Core gateway is pinned to loopback. `gatewayHostOverride()`
+  returns `localhost` unconditionally and reaches the gateway child through
+  `PICOCLAW_GATEWAY_HOST`, which outranks the config file. Upstream lets
+  `gateway.host` and the launcher's `-host`/`-public` decide this bind.
+- The internal realtime channel is owner-only and server-derived. It is
+  constructed with an owner-only allowlist regardless of the on-disk value, and
+  each inbound message is bound to its authenticated connection rather than to
+  a client-supplied session or sender field.
+- Dashboard authentication uses a revocable server-side session store with a
+  24-hour lifetime, replacing a single process-wide cookie with a 31-day
+  lifetime. The realtime WebSocket upgrade additionally requires a same-origin
+  request.
+- Telegram refuses to start without exactly one paired numeric owner; upstream
+  permits an empty or wildcard allowlist.
+- Credential generation fails closed when the CSPRNG is unavailable. Upstream
+  fell back to a timestamp-derived value for the realtime token.
+
+### Core provenance
+
+`core/pocketclaw-core-v0.3.1.patch` now covers 141 files (was 124). Regenerating
+it with `core/regen-upstream-patch.sh` reproduces the committed patch byte for
+byte, and `core/verify-no-external-source.sh` passes.
+
+### Verification note
+
+Build and test the Core with `-tags goolm,stdjson`. That selects the pure-Go Olm
+implementation, so `go build ./...`, `go vet ./...`, and the complete test suite
+pass with no system libolm. The previously recorded "`olm/olm.h` missing" host
+dependency was avoidable and is no longer an accepted exception.

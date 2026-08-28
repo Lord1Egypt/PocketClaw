@@ -1125,3 +1125,76 @@
   internal compatibility identifiers, legal attribution and provenance remain
   untouched. Backend/React/Dart guards are defense-in-depth for historical/raw
   input, not the primary privacy boundary.
+
+## The managed Core gateway is pinned to loopback, unconditionally
+
+- Date: 2026-08-29
+- Decision: `gatewayHostOverride()` always returns `localhost`. The launcher
+  exports it to the gateway child through `PICOCLAW_GATEWAY_HOST`, and the
+  environment value wins over the config file, so Core on 18790 binds to
+  loopback no matter what `gateway.host` or `-host`/`-public` say.
+- Reason: Core speaks to the agent and providers with an installation-random
+  bearer credential and no password/session layer. The authenticated Dashboard
+  on 18800 is the only ingress that should ever face a LAN.
+- Consequence: a Core reachable from the LAN is now a structural impossibility
+  rather than a configuration discipline. `gateway.host` no longer influences
+  the managed gateway's bind; a future deployment that genuinely needs a
+  non-loopback Core must reintroduce an explicit, separately reviewed path.
+
+## Public Mode rebinds the Dashboard listener, never the Core process
+
+- Date: 2026-08-29
+- Decision: an in-process listener supervisor owns port 18800 and can replace
+  only its listeners. Applying Public Mode closes the old bind (including
+  hijacked WebSocket connections that `net/http` no longer owns after upgrade),
+  opens the new one, rolls back to the previous bind on failure, and persists
+  the setting only after the new bind succeeds.
+- Reason: the listener used to be created once at service startup, so changing
+  Public Mode in the UI updated persistence without moving the socket. The
+  obvious alternative — restarting the service — would drop the agent runtime,
+  session store, and Telegram polling for a network-scope change.
+- Consequence: OFF→ON and ON→OFF apply live and the LAN URL and QR refresh on
+  their own. A browser connected over the old bind loses its socket but keeps
+  its session cookie and can reconnect through the new listener. Android learns
+  the real outcome over the authenticated loopback bridge and only then writes
+  the preference, so a failed bind cannot leave the UI claiming a mode the
+  socket is not in.
+
+## Owner identity is server-derived; clients never assert it
+
+- Date: 2026-08-29
+- Decision: the internal realtime channel binds every inbound message to its
+  authenticated connection and to a Core-owned owner principal, and it is
+  constructed with an owner-only allowlist regardless of what is on disk.
+  Dashboard sessions live in a server-side store that can be revoked. Telegram
+  refuses to start without exactly one paired numeric owner.
+- Reason: a client-supplied session or sender field, or a stale permissive
+  `allow_from`, must never become the effective authorization identity.
+- Consequence: forged sender/user/session/owner/chat fields cannot bypass
+  authorization, and a Telegram username can never stand in for the numeric ID.
+  Onboarding fails closed for empty, wildcard, and username-only owners rather
+  than degrading to "allow anyone".
+
+## Ship the RC as 0.2.0, not the inherited 0.1.3 baseline
+
+- Date: 2026-08-29
+- Decision: the app version moves to `0.2.0+4` for `v0.2.0-rc1`.
+- Reason: the version had carried the inherited FUI `0.1.3+3` since bootstrap.
+  A release tagged `v0.2.0-rc1` whose APK reports `0.1.3` is an artifact
+  identity that cannot be explained to a tester.
+- Consequence: the version code advances 3 → 4 so the candidate installs over
+  the previous build. The physically validated APK reported `0.1.3 (3)`; the
+  released candidate differs from it in version metadata only, and carries a
+  byte-identical Core native payload.
+
+## Build the Core with the `goolm` tag rather than accepting a libolm gap
+
+- Date: 2026-08-29
+- Decision: Go verification runs as `-tags goolm,stdjson`, which selects the
+  pure-Go Olm implementation.
+- Reason: earlier sessions recorded "the full Go sweep fails only because
+  optional Matrix support needs `olm/olm.h`" as an accepted host-dependency
+  exception. It was avoidable: with `goolm`, `go build ./...`, `go vet ./...`,
+  and the complete test suite are green with no system libolm present.
+- Consequence: there is no longer any accepted failing region in the Go sweep,
+  so a genuine future failure cannot hide behind a Matrix/libolm explanation.

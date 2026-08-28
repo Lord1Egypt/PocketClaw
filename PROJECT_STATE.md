@@ -1590,3 +1590,61 @@ DEBUG and confirm only lifecycle/count/length/tool-name metadata appears; no
 prompt, message, reasoning, tool arguments/schemas, session/internal IDs, or
 Telegram payload values may appear. Reconfirm Skills 8/8, Tools 17+, Telegram
 delivery, Web viewport stability, and all prior Unicode/branding passes.
+
+## 2026-08-29 — v0.2.0-rc1 release candidate frozen
+
+**PHYSICAL DEVICE: PASS.** The candidate
+`5760247a17ccff68d188180875f1812c150dd7ae6de45e3f109d7ba07c2186b9`
+(34,260,709 bytes) was validated by the user on a real ARM64 Android device.
+That run cleared app/Core startup, Skills 8/8, Tools 17, Telegram owner-only
+authorization and final delivery, the no-second-message stall fix, Web/realtime
+owner authorization, password/session dashboard auth, Core Gateway remaining
+loopback-only on 18790, Public Mode OFF and ON, live OFF→ON→OFF→ON rebinding
+without a manual service restart, a real LAN URL of the `192.168.x.x:18800`
+form, authenticated Dashboard access from a computer on the same LAN, Core
+18790 staying off the LAN, QR/connect URL refresh, Telegram continuity across a
+Public Mode change, Web Logs stability, UTF-8/Arabic/emoji/µs rendering, and
+every privacy expectation from the preceding passes. The DEBUG log-cleanup
+physical gate that previously blocked release is therefore CLEARED.
+
+Source provenance for that artifact is proven, not assumed. The Core build
+stamps `BuildTime` through `-ldflags`, so consecutive builds differ in exactly
+64 bytes at identical length. Rebuilding this workspace's Core source with the
+validated binaries' own timestamps pinned reproduced both of them byte for
+byte:
+
+- `libpicoclaw.so` 37,224,801 bytes,
+  `4e8c23c70bd77fbdce96d04004dd13b3ba4cac8e1e03164296cc47f7ead1ffb6`
+- `libpicoclaw-web.so` 24,707,425 bytes,
+  `45427e0d48c53c7611625a8b621e4a4f565bfec11702d12e66c94ada2c900917`
+
+Those exact binaries are what the repository now carries and what the RC APK
+packages, so the released native payload is the physically validated payload.
+
+Release-candidate build identity:
+
+- Package: `com.lord1egypt.pocketclaw`
+- Version: `0.2.0`, version code `4` (was `0.1.3`/`3`, the inherited FUI
+  baseline; a candidate tagged `v0.2.0-rc1` must not report `0.1.3`)
+- ABI: `arm64-v8a`; the permanent guard verified `libdartjni.so`,
+  `libpicoclaw.so`, and `libpicoclaw-web.so` under `lib/arm64-v8a/`
+
+Automated verification at the freeze: `flutter analyze` clean and 114/114
+Flutter tests; frontend 46/46 Vitest, `tsc -b`, and lint clean; the **complete**
+Go suite green under `-tags goolm,stdjson`, along with `go build ./...` and
+`go vet ./...`. The `goolm` tag selects the pure-Go Olm implementation, so the
+previously reported `olm/olm.h` host dependency is not required at all and is
+no longer an accepted exception. Core provenance regenerated to 141 files and
+reproduced the committed patch byte for byte; both binaries carry zero
+developer paths; `core/verify-no-external-source.sh` passed.
+
+One known, non-blocking condition: `go test -race ./web/backend/api` fails in
+`TestStartGatewayLocked_UsesReloadedConfigForBootSignature`. The race is
+between that test's own cleanup calling `cmd.Wait()` and the production monitor
+goroutine's `cmd.Wait()` on the same `exec.Cmd` — a test-harness defect, not a
+production data race; production calls `Wait` once. It reproduces identically on
+`develop` at `8f861bc`, so it is pre-existing and not a regression from this
+work. Every other test in that package passes under `-race`, as do the race
+runs for `pkg/channels`, `pico`, `telegram`, `logger`, `netbind`, `config`,
+`skills`, and the rest of `web/backend`. Fixing the shared Kill+Wait cleanup
+pattern in `gateway_test.go` is deferred; it is out of scope for RC closure.
