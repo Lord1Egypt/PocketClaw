@@ -109,6 +109,21 @@ void main() {
     );
   });
 
+  test('redacts credentials before structured lifecycle log persistence', () {
+    const raw =
+        '{"event":"gateway.start.failed","token":"telegram-child-token",'
+        '"reason":"Bearer abcdefghijklmnop",'
+        '"error":"provider rejected sk-abcdefghijklmnop"}';
+    final result = clean(raw);
+    final decoded = jsonDecode(result) as Map<String, Object?>;
+
+    expect(decoded['token'], '<redacted>');
+    expect(decoded['reason'], 'Bearer <redacted>');
+    expect(decoded['error'], 'provider rejected <redacted>');
+    expect(result, isNot(contains('telegram-child-token')));
+    expect(result, isNot(contains('abcdefghijklmnop')));
+  });
+
   test('matches the shared user-visible log contract', () async {
     final raw = await File(
       'test/fixtures/user_visible_log_contract.json',

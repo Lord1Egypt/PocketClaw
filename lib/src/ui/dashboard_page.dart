@@ -419,6 +419,10 @@ class DashboardPage extends StatelessWidget {
         );
         label = l10n.statusIdle;
         break;
+      case ServiceStatus.failed:
+        color = colorScheme.error;
+        label = 'FAILED';
+        break;
     }
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),

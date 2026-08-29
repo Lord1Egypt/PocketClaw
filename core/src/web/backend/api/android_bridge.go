@@ -18,6 +18,7 @@ const AndroidBridgeTokenEnv = "POCKETCLAW_ANDROID_BRIDGE_TOKEN"
 
 const androidTelegramBridgePath = "/api/pocketclaw/android/telegram"
 const androidNetworkModeBridgePath = "/api/pocketclaw/android/network-mode"
+const androidGatewayBridgePath = "/api/pocketclaw/android/gateway"
 
 // LauncherNetworkModeController is implemented by the Dashboard HTTP runtime.
 // It deliberately has no Core lifecycle methods.
@@ -50,7 +51,8 @@ type androidTelegramCredentials struct {
 }
 
 // RegisterAndroidBridgeRoutes exposes the narrow loopback-only operations the
-// Android host needs: managed Telegram pairing and Dashboard listener rebind.
+// Android host needs: managed Telegram pairing, Dashboard listener rebind, and
+// idempotent managed Gateway status/start operations.
 // Native Settings does not query Telegram state through this bridge.
 func (h *Handler) RegisterAndroidBridgeRoutes(mux *http.ServeMux, bridgeToken string) {
 	bridgeToken = strings.TrimSpace(bridgeToken)
@@ -78,6 +80,20 @@ func (h *Handler) RegisterAndroidBridgeRoutes(mux *http.ServeMux, bridgeToken st
 			return
 		}
 		h.handleAndroidNetworkModeStatus(w)
+	})
+	mux.HandleFunc("GET "+androidGatewayBridgePath, func(w http.ResponseWriter, r *http.Request) {
+		if !authorizedAndroidBridgeRequest(r, bridgeToken) {
+			http.NotFound(w, r)
+			return
+		}
+		h.handleGatewayStatus(w, r)
+	})
+	mux.HandleFunc("POST "+androidGatewayBridgePath, func(w http.ResponseWriter, r *http.Request) {
+		if !authorizedAndroidBridgeRequest(r, bridgeToken) {
+			http.NotFound(w, r)
+			return
+		}
+		h.handleGatewayStart(w, r)
 	})
 }
 

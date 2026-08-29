@@ -239,3 +239,44 @@ func TestAndroidNetworkModeBridgeHidesRouteFromUnauthorizedCaller(t *testing.T) 
 		t.Fatalf("unauthorized status = %d, want 404", recorder.Code)
 	}
 }
+
+func gatewayBridgeRequest(method, token string) *http.Request {
+	req := httptest.NewRequest(method, androidGatewayBridgePath, nil)
+	req.RemoteAddr = "127.0.0.1:48123"
+	req.Header.Set("X-PocketClaw-Android-Bridge", token)
+	return req
+}
+
+func TestAndroidGatewayBridgeExposesStatusOnlyToLoopbackCredential(t *testing.T) {
+	resetGatewayTestState(t)
+	handler := NewHandler(writeAndroidBridgeTestConfig(t, ""))
+	mux := http.NewServeMux()
+	handler.RegisterAndroidBridgeRoutes(mux, testAndroidBridgeToken)
+
+	authorized := httptest.NewRecorder()
+	mux.ServeHTTP(authorized, gatewayBridgeRequest(http.MethodGet, testAndroidBridgeToken))
+	if authorized.Code != http.StatusOK {
+		t.Fatalf("authorized status = %d, body=%s", authorized.Code, authorized.Body.String())
+	}
+	var status map[string]any
+	if err := json.NewDecoder(authorized.Body).Decode(&status); err != nil {
+		t.Fatal(err)
+	}
+	if status["gateway_status"] != "stopped" {
+		t.Fatalf("gateway_status = %#v, want stopped", status["gateway_status"])
+	}
+
+	unauthorized := httptest.NewRecorder()
+	mux.ServeHTTP(unauthorized, gatewayBridgeRequest(http.MethodGet, "wrong-token"))
+	if unauthorized.Code != http.StatusNotFound {
+		t.Fatalf("unauthorized status = %d, want 404", unauthorized.Code)
+	}
+
+	nonLoopback := gatewayBridgeRequest(http.MethodGet, testAndroidBridgeToken)
+	nonLoopback.RemoteAddr = "192.0.2.10:48123"
+	nonLoopbackRecorder := httptest.NewRecorder()
+	mux.ServeHTTP(nonLoopbackRecorder, nonLoopback)
+	if nonLoopbackRecorder.Code != http.StatusNotFound {
+		t.Fatalf("non-loopback status = %d, want 404", nonLoopbackRecorder.Code)
+	}
+}

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
@@ -13,8 +14,9 @@ import 'plain_text_log_sanitizer.dart';
 import 'umeng_device_reporter.dart';
 import '../native/core_service_adapter_factory.dart';
 import '../native/core_service_adapter.dart';
+import 'autostart_coordinator.dart';
 
-enum ServiceStatus { stopped, running, starting }
+enum ServiceStatus { stopped, running, starting, failed }
 
 @immutable
 class LanAddressCandidate {
@@ -27,7 +29,14 @@ class LanAddressCandidate {
   final String address;
 }
 
-class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
+class ServiceManager extends ChangeNotifier
+    with WidgetsBindingObserver
+    implements AutoStartRuntime {
+  static const String _prefsServiceLaunchAutoStart = 'service_launch_autostart';
+  static const String _prefsGatewayLaunchAutoStart = 'gateway_launch_autostart';
+  static const Duration _serviceStartTimeout = Duration(seconds: 25);
+  static const Duration _gatewayStartTimeout = Duration(seconds: 20);
+  static const Duration _readinessPollInterval = Duration(milliseconds: 250);
   static const List<Duration> _deviceFeedbackRetryDelays = [
     Duration(seconds: 15),
     Duration(minutes: 1),
@@ -121,6 +130,10 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
   static final ServiceManager _instance = ServiceManager._internal();
   factory ServiceManager() => _instance;
   ServiceManager._internal() {
+    _autoStartCoordinator = AutoStartCoordinator(
+      runtime: this,
+      logger: _addLifecycleLog,
+    );
     if (!kIsWeb && !_isTestEnvironment) {
       try {
         _signalSubscriptions.add(
@@ -138,6 +151,7 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   final CoreServiceAdapter _adapter = CoreServiceAdapterFactory.create();
+  late final AutoStartCoordinator _autoStartCoordinator;
   final FirebaseDeviceReporter _firebaseReporter = FirebaseDeviceReporter();
   final UmengDeviceReporter _umengReporter = UmengDeviceReporter();
   String? _lastErrorCode;
@@ -162,9 +176,11 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
   DeviceTelemetrySnapshot? get lastTelemetrySnapshot => _lastTelemetrySnapshot;
 
   ServiceStatus _status = ServiceStatus.stopped;
+  AutoStartRuntimeState _gatewayStatus = AutoStartRuntimeState.stopped;
   final List<String> _logs = [];
 
   ServiceStatus get status => _status;
+  AutoStartRuntimeState get gatewayStatus => _gatewayStatus;
   List<String> get logs => List.unmodifiable(_logs);
 
   String _host = '127.0.0.1';
@@ -181,11 +197,23 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
   String _healthStatus = '';
   String _healthUptime = '';
   bool _autoStart = false;
+  bool _serviceLaunchAutoStart = AutoStartPreferences.defaults.serviceEnabled;
+  bool _gatewayLaunchAutoStart = AutoStartPreferences.defaults.gatewayEnabled;
+  String? _serviceStartError;
+  String? _gatewayStartError;
+  Future<AutoStartTransitionResult>? _serviceStartTask;
+  Future<AutoStartTransitionResult>? _gatewayStartTask;
+  int _serviceTransitionGeneration = 0;
+  int _gatewayTransitionGeneration = 0;
 
   int get nativePid => _nativePid;
   String get healthStatus => _healthStatus;
   String get healthUptime => _healthUptime;
   bool get autoStart => _autoStart;
+  bool get serviceLaunchAutoStart => _serviceLaunchAutoStart;
+  bool get gatewayLaunchAutoStart => _gatewayLaunchAutoStart;
+  String? get serviceStartError => _serviceStartError;
+  String? get gatewayStartError => _gatewayStartError;
 
   Timer? _nativePollingTimer;
   Timer? _lanAddressPollingTimer;
@@ -366,6 +394,12 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
     _binaryPath = prefs.getString('binaryPath') ?? '';
     _arguments = prefs.getString('arguments') ?? '';
     _publicMode = prefs.getBool('publicMode') ?? false;
+    _serviceLaunchAutoStart =
+        prefs.getBool(_prefsServiceLaunchAutoStart) ??
+        AutoStartPreferences.defaults.serviceEnabled;
+    _gatewayLaunchAutoStart =
+        prefs.getBool(_prefsGatewayLaunchAutoStart) ??
+        AutoStartPreferences.defaults.gatewayEnabled;
     _host = _publicMode ? '0.0.0.0' : _host;
     _syncAdapterConfiguration();
 
@@ -467,6 +501,7 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
         if (_publicMode) unawaited(refreshLanAddress());
         unawaited(recordTelemetryForeground());
         unawaited(_autoUploadDeviceFeedbackIfNeeded());
+        unawaited(ensureAutoStart(source: 'app_resume'));
         break;
       case AppLifecycleState.inactive:
       case AppLifecycleState.hidden:
@@ -917,10 +952,17 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
     try {
       final status = await PicoClawChannel.getServiceStatus();
       final isRunning = status['isRunning'] as bool? ?? false;
+      final isStarting = status['isStarting'] as bool? ?? false;
       _nativePid = status['pid'] as int? ?? -1;
 
       final oldStatus = _status;
-      _status = isRunning ? ServiceStatus.running : ServiceStatus.stopped;
+      if (isRunning) {
+        _status = ServiceStatus.running;
+      } else if (isStarting || _serviceStartTask != null) {
+        _status = ServiceStatus.starting;
+      } else if (_status != ServiceStatus.failed) {
+        _status = ServiceStatus.stopped;
+      }
 
       // Drain the lines emitted since the last poll. `status['lastLog']` is a
       // sticky snapshot of the most recent line, so appending it here re-added
@@ -945,6 +987,9 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
       } else {
         _healthStatus = '';
         _healthUptime = '';
+        if (_gatewayStartTask == null) {
+          _gatewayStatus = AutoStartRuntimeState.stopped;
+        }
       }
 
       if (oldStatus != _status) {
@@ -969,6 +1014,42 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
       _autoStart = enabled;
       notifyListeners();
     }
+  }
+
+  Future<void> setServiceLaunchAutoStart(bool enabled) async {
+    _serviceLaunchAutoStart = enabled;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_prefsServiceLaunchAutoStart, enabled);
+    notifyListeners();
+    if (enabled) {
+      unawaited(ensureAutoStart(source: 'service_setting_enabled'));
+    }
+  }
+
+  Future<void> setGatewayLaunchAutoStart(bool enabled) async {
+    _gatewayLaunchAutoStart = enabled;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_prefsGatewayLaunchAutoStart, enabled);
+    notifyListeners();
+    if (enabled) {
+      unawaited(ensureAutoStart(source: 'gateway_setting_enabled'));
+    }
+  }
+
+  Future<AutoStartEvaluation?> ensureAutoStart({required String source}) async {
+    if (!Platform.isAndroid) return null;
+    final evaluation = await _autoStartCoordinator.ensureForAppOpen(
+      preferences: AutoStartPreferences(
+        serviceEnabled: _serviceLaunchAutoStart,
+        gatewayEnabled: _gatewayLaunchAutoStart,
+      ),
+      source: source,
+    );
+    if (evaluation.error.isNotEmpty) {
+      _serviceStartError = 'Automatic startup could not be evaluated.';
+      notifyListeners();
+    }
+    return evaluation;
   }
 
   Future<void> setTheme(AppThemeMode mode) async {
@@ -1350,6 +1431,17 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
   Timer? _notifyTimer;
   final List<String> _pendingLogs = [];
 
+  void _addLifecycleLog(String event, Map<String, Object?> metadata) {
+    final safeMetadata = <String, Object?>{};
+    for (final entry in metadata.entries) {
+      final value = entry.value;
+      safeMetadata[entry.key] = value is String
+          ? PlainTextLogSanitizer.sanitize(value)
+          : value;
+    }
+    _addLog(jsonEncode(<String, Object?>{'event': event, ...safeMetadata}));
+  }
+
   void _addLog(String log) {
     final sanitized = PlainTextLogSanitizer.sanitize(log);
     if (sanitized.isEmpty) return;
@@ -1372,58 +1464,365 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
-  Future<void> start() async {
-    if (_status != ServiceStatus.stopped) return;
-    _syncAdapterConfiguration();
-
-    _status = ServiceStatus.starting;
-    notifyListeners();
-
-    String launchArgs = _arguments;
-    // Use simple token logic (split by spaces and dedupe) instead of regex.
-    // _arguments is initialized to '' and loaded with `?? ''` in init(), so it's non-null.
-    final tokens = launchArgs.split(' ').where((t) => t.isNotEmpty).toList();
-
-    if (_publicMode && !tokens.contains('-public')) {
-      tokens.add('-public');
+  String _buildLaunchArguments() {
+    final tokens = _arguments
+        .split(' ')
+        .where((token) => token.isNotEmpty)
+        .toList();
+    if (_publicMode && !tokens.contains('-public')) tokens.add('-public');
+    if (!tokens.contains('-no-browser')) tokens.add('-no-browser');
+    if (!_gatewayLaunchAutoStart && !tokens.contains('-no-gateway-autostart')) {
+      tokens.add('-no-gateway-autostart');
     }
-    if (!tokens.contains('-no-browser')) {
-      tokens.add('-no-browser');
-    }
+    return tokens.join(' ');
+  }
 
-    launchArgs = tokens.join(' ');
+  @override
+  Future<AutoStartRuntimeState> inspectServiceState() async {
+    if (!Platform.isAndroid) {
+      return switch (_status) {
+        ServiceStatus.running => AutoStartRuntimeState.running,
+        ServiceStatus.starting => AutoStartRuntimeState.starting,
+        ServiceStatus.failed => AutoStartRuntimeState.failed,
+        ServiceStatus.stopped => AutoStartRuntimeState.stopped,
+      };
+    }
     try {
-      final ok = await _adapter.startService(port: _port, args: launchArgs);
-
-      if (ok) {
-        if (Platform.isAndroid) {
-          // Android: keep original behavior — log and defer health check to native side
-          _addLog('Starting PocketClaw service...');
-          Future.delayed(const Duration(seconds: 2), () {
-            _syncNativeServiceStatus();
-          });
-        } else {
-          // Desktop: consider service running immediately
+      final nativeStatus = await PicoClawChannel.getServiceStatus();
+      final running = nativeStatus['isRunning'] as bool? ?? false;
+      final starting = nativeStatus['isStarting'] as bool? ?? false;
+      if (running) {
+        final health = await PicoClawChannel.checkHealth();
+        if (health['isHealthy'] as bool? ?? false) {
           _status = ServiceStatus.running;
-          _addLog('Service started on $webUrl');
+          _healthStatus = 'Healthy';
+          return AutoStartRuntimeState.running;
         }
-      } else {
-        _status = ServiceStatus.stopped;
-        final code = _adapter.getLastErrorCode();
-        _addLog('Failed to start service: ${code ?? 'unknown'}');
+        _status = ServiceStatus.starting;
+        return AutoStartRuntimeState.starting;
       }
+      if (starting) {
+        _status = ServiceStatus.starting;
+        return AutoStartRuntimeState.starting;
+      }
+      return _status == ServiceStatus.failed
+          ? AutoStartRuntimeState.failed
+          : AutoStartRuntimeState.stopped;
+    } catch (_) {
+      return _status == ServiceStatus.failed
+          ? AutoStartRuntimeState.failed
+          : AutoStartRuntimeState.stopped;
+    }
+  }
+
+  Future<bool> start() async {
+    final result = await ensureServiceReady(
+      operationId: 'manual-${DateTime.now().toUtc().microsecondsSinceEpoch}',
+      source: 'manual',
+    );
+    return result.isReady;
+  }
+
+  @override
+  Future<AutoStartTransitionResult> ensureServiceReady({
+    required String operationId,
+    required String source,
+  }) {
+    final current = _serviceStartTask;
+    if (current != null) return current;
+    final task = _ensureServiceReadyInternal();
+    _serviceStartTask = task;
+    task.whenComplete(() {
+      if (identical(_serviceStartTask, task)) _serviceStartTask = null;
+    });
+    return task;
+  }
+
+  Future<AutoStartTransitionResult> _ensureServiceReadyInternal() async {
+    final stopwatch = Stopwatch()..start();
+    final generation = _serviceTransitionGeneration;
+    var retries = 0;
+    var actualStart = false;
+    _serviceStartError = null;
+    try {
+      final previousState = await inspectServiceState();
+      if (previousState == AutoStartRuntimeState.running) {
+        return AutoStartTransitionResult(
+          state: AutoStartRuntimeState.running,
+          actualStart: false,
+          reason: 'already_running',
+          duration: stopwatch.elapsed,
+        );
+      }
+
+      _status = ServiceStatus.starting;
       notifyListeners();
-    } catch (e) {
-      _status = ServiceStatus.stopped;
-      _addLog('Failed to start service: $e');
+      if (previousState != AutoStartRuntimeState.starting) {
+        _syncAdapterConfiguration();
+        actualStart = true;
+        final accepted = await _adapter.startService(
+          port: _port,
+          args: _buildLaunchArguments(),
+        );
+        if (!accepted) {
+          final code = _adapter.getLastErrorCode() ?? 'core.start_failed';
+          _serviceStartError = 'PocketClaw service could not be started.';
+          _lastErrorCode = code;
+          _status = ServiceStatus.failed;
+          notifyListeners();
+          return AutoStartTransitionResult(
+            state: AutoStartRuntimeState.failed,
+            actualStart: true,
+            reason: 'start_rejected',
+            error: code,
+            duration: stopwatch.elapsed,
+          );
+        }
+        if (generation != _serviceTransitionGeneration) {
+          return AutoStartTransitionResult(
+            state: AutoStartRuntimeState.stopped,
+            actualStart: true,
+            reason: 'cancelled_by_stop',
+            duration: stopwatch.elapsed,
+          );
+        }
+        _addLog('Starting PocketClaw service...');
+      }
+
+      if (!Platform.isAndroid) {
+        _status = ServiceStatus.running;
+        _addLog('Service started on $webUrl');
+        notifyListeners();
+        return AutoStartTransitionResult(
+          state: AutoStartRuntimeState.running,
+          actualStart: actualStart,
+          reason: 'ready',
+          duration: stopwatch.elapsed,
+        );
+      }
+
+      while (stopwatch.elapsed < _serviceStartTimeout) {
+        if (generation != _serviceTransitionGeneration) {
+          return AutoStartTransitionResult(
+            state: AutoStartRuntimeState.stopped,
+            actualStart: actualStart,
+            reason: 'cancelled_by_stop',
+            duration: stopwatch.elapsed,
+            retryCount: retries,
+          );
+        }
+        final nativeStatus = await PicoClawChannel.getServiceStatus();
+        if (nativeStatus['isRunning'] as bool? ?? false) {
+          try {
+            final health = await PicoClawChannel.checkHealth();
+            if (health['isHealthy'] as bool? ?? false) {
+              _status = ServiceStatus.running;
+              _healthStatus = 'Healthy';
+              _nativePid = health['pid'] as int? ?? _nativePid;
+              notifyListeners();
+              return AutoStartTransitionResult(
+                state: AutoStartRuntimeState.running,
+                actualStart: actualStart,
+                reason: 'health_check_ready',
+                duration: stopwatch.elapsed,
+                retryCount: retries,
+              );
+            }
+          } catch (_) {
+            // The bounded readiness poll records one truthful timeout below.
+          }
+        }
+        retries += 1;
+        await Future<void>.delayed(_readinessPollInterval);
+      }
+
+      _serviceStartError = 'PocketClaw service startup timed out. Try again.';
+      _status = ServiceStatus.failed;
       notifyListeners();
+      return AutoStartTransitionResult(
+        state: AutoStartRuntimeState.failed,
+        actualStart: actualStart,
+        reason: 'health_check',
+        error: 'service readiness timed out',
+        timedOut: true,
+        duration: stopwatch.elapsed,
+        retryCount: retries,
+        timeout: _serviceStartTimeout,
+      );
+    } catch (_) {
+      _serviceStartError = 'PocketClaw service could not be started.';
+      _status = ServiceStatus.failed;
+      notifyListeners();
+      return AutoStartTransitionResult(
+        state: AutoStartRuntimeState.failed,
+        actualStart: actualStart,
+        reason: 'start_exception',
+        error: 'service start failed',
+        duration: stopwatch.elapsed,
+        retryCount: retries,
+      );
+    }
+  }
+
+  @override
+  Future<AutoStartRuntimeState> inspectGatewayState() async {
+    if (!Platform.isAndroid || _status != ServiceStatus.running) {
+      return _gatewayStatus;
+    }
+    try {
+      final status = await PicoClawChannel.getGatewayStatus();
+      _gatewayStatus = switch (status['gateway_status'] as String? ?? '') {
+        'running' => AutoStartRuntimeState.running,
+        'starting' || 'restarting' => AutoStartRuntimeState.starting,
+        'error' => AutoStartRuntimeState.failed,
+        _ => AutoStartRuntimeState.stopped,
+      };
+      notifyListeners();
+      return _gatewayStatus;
+    } catch (_) {
+      return _gatewayStatus;
+    }
+  }
+
+  @override
+  Future<AutoStartTransitionResult> ensureGatewayReady({
+    required String operationId,
+    required String source,
+  }) {
+    final current = _gatewayStartTask;
+    if (current != null) return current;
+    final task = _ensureGatewayReadyInternal();
+    _gatewayStartTask = task;
+    task.whenComplete(() {
+      if (identical(_gatewayStartTask, task)) _gatewayStartTask = null;
+    });
+    return task;
+  }
+
+  Future<AutoStartTransitionResult> _ensureGatewayReadyInternal() async {
+    final stopwatch = Stopwatch()..start();
+    final generation = _gatewayTransitionGeneration;
+    var retries = 0;
+    var actualStart = false;
+    _gatewayStartError = null;
+    try {
+      if (await inspectServiceState() != AutoStartRuntimeState.running) {
+        _gatewayStartError = 'Start the PocketClaw service first.';
+        _gatewayStatus = AutoStartRuntimeState.failed;
+        notifyListeners();
+        return AutoStartTransitionResult(
+          state: AutoStartRuntimeState.failed,
+          actualStart: false,
+          reason: 'service_not_ready',
+          error: 'required service context is unavailable',
+          duration: stopwatch.elapsed,
+        );
+      }
+
+      final previousState = await inspectGatewayState();
+      if (previousState == AutoStartRuntimeState.running) {
+        return AutoStartTransitionResult(
+          state: AutoStartRuntimeState.running,
+          actualStart: false,
+          reason: 'already_running',
+          duration: stopwatch.elapsed,
+        );
+      }
+      _gatewayStatus = AutoStartRuntimeState.starting;
+      notifyListeners();
+      if (previousState != AutoStartRuntimeState.starting) {
+        actualStart = true;
+        final response = await PicoClawChannel.startGateway();
+        final responseStatus = response['status'] as String? ?? '';
+        if (responseStatus == 'precondition_failed') {
+          _gatewayStartError =
+              response['message'] as String? ??
+              'Gateway is not ready to start.';
+          _gatewayStatus = AutoStartRuntimeState.failed;
+          notifyListeners();
+          return AutoStartTransitionResult(
+            state: AutoStartRuntimeState.failed,
+            actualStart: true,
+            reason: 'precondition_failed',
+            error: _gatewayStartError!,
+            duration: stopwatch.elapsed,
+          );
+        }
+      }
+
+      while (stopwatch.elapsed < _gatewayStartTimeout) {
+        if (generation != _gatewayTransitionGeneration) {
+          return AutoStartTransitionResult(
+            state: AutoStartRuntimeState.stopped,
+            actualStart: actualStart,
+            reason: 'cancelled_by_service_stop',
+            duration: stopwatch.elapsed,
+            retryCount: retries,
+          );
+        }
+        final state = await inspectGatewayState();
+        if (state == AutoStartRuntimeState.running) {
+          return AutoStartTransitionResult(
+            state: state,
+            actualStart: actualStart,
+            reason: 'health_check_ready',
+            duration: stopwatch.elapsed,
+            retryCount: retries,
+          );
+        }
+        if (state == AutoStartRuntimeState.failed) {
+          _gatewayStartError = 'Gateway startup failed. Try again.';
+          notifyListeners();
+          return AutoStartTransitionResult(
+            state: state,
+            actualStart: actualStart,
+            reason: 'health_check_failed',
+            error: 'gateway reported an error state',
+            duration: stopwatch.elapsed,
+            retryCount: retries,
+          );
+        }
+        retries += 1;
+        await Future<void>.delayed(_readinessPollInterval);
+      }
+
+      _gatewayStatus = AutoStartRuntimeState.failed;
+      _gatewayStartError = 'Gateway startup timed out. Try again.';
+      notifyListeners();
+      return AutoStartTransitionResult(
+        state: AutoStartRuntimeState.failed,
+        actualStart: actualStart,
+        reason: 'health_check',
+        error: 'gateway readiness timed out',
+        timedOut: true,
+        duration: stopwatch.elapsed,
+        retryCount: retries,
+        timeout: _gatewayStartTimeout,
+      );
+    } catch (_) {
+      _gatewayStatus = AutoStartRuntimeState.failed;
+      _gatewayStartError = 'Gateway could not be started.';
+      notifyListeners();
+      return AutoStartTransitionResult(
+        state: AutoStartRuntimeState.failed,
+        actualStart: actualStart,
+        reason: 'start_exception',
+        error: 'gateway start failed',
+        duration: stopwatch.elapsed,
+        retryCount: retries,
+      );
     }
   }
 
   Future<void> stop() async {
     try {
+      _serviceTransitionGeneration += 1;
+      _gatewayTransitionGeneration += 1;
       await _adapter.stopService();
       _status = ServiceStatus.stopped;
+      _gatewayStatus = AutoStartRuntimeState.stopped;
+      _serviceStartError = null;
+      _gatewayStartError = null;
       _addLog('Stopping PocketClaw service...');
       notifyListeners();
     } catch (e) {

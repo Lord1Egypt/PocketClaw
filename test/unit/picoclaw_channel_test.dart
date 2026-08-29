@@ -98,4 +98,35 @@ void main() {
     expect(result.publicMode, isFalse);
     expect(result.message, contains('Could not enable'));
   });
+
+  test(
+    'managed Gateway status and start use separate native operations',
+    () async {
+      final methods = <String>[];
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, (call) async {
+            methods.add(call.method);
+            if (call.method == 'getGatewayStatus') {
+              return <String, Object?>{'gateway_status': 'stopped'};
+            }
+            if (call.method == 'startGateway') {
+              return <String, Object?>{
+                'status': 'already_starting',
+                'gateway_status': 'starting',
+              };
+            }
+            return null;
+          });
+
+      expect(
+        await PicoClawChannel.getGatewayStatus(),
+        containsPair('gateway_status', 'stopped'),
+      );
+      expect(
+        await PicoClawChannel.startGateway(),
+        containsPair('status', 'already_starting'),
+      );
+      expect(methods, ['getGatewayStatus', 'startGateway']);
+    },
+  );
 }

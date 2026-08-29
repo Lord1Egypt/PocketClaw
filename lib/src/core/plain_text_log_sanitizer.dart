@@ -62,6 +62,20 @@ abstract final class PlainTextLogSanitizer {
     r'(^|[ \t])(arguments|args|content|messages_json|payload|preview|prompt|reasoning|response|text|tools_json)=(?:"(?:\\.|[^"\\])*"|[^ \t\r\n]*)',
     multiLine: true,
   );
+  static final RegExp _jsonCredentialField = RegExp(
+    r'("(?:api[_-]?key|telegram[_-]?token|token|cookie|authorization|credential|secret|password|core[_-]?bearer)"\s*:\s*)"(?:\\.|[^"\\])*"',
+    caseSensitive: false,
+  );
+  static final RegExp _credentialAssignment = RegExp(
+    r'(^|[ \t])((?:api[_-]?key|telegram[_-]?token|token|cookie|authorization|credential|secret|password|core[_-]?bearer)=)(?:"(?:\\.|[^"\\])*"|[^ \t\r\n]*)',
+    caseSensitive: false,
+    multiLine: true,
+  );
+  static final RegExp _bearerCredential = RegExp(
+    r'\bBearer[ \t]+[A-Za-z0-9._~+/=-]{8,}',
+    caseSensitive: false,
+  );
+  static final RegExp _commonApiKey = RegExp(r'\bsk-[A-Za-z0-9_-]{12,}\b');
   static final RegExp _telegramApiResponse = RegExp(
     r'^API response ([A-Za-z][A-Za-z0-9_]*): Ok: (true|false), Err: \[([\s\S]*?)\](?:, Result: ([\s\S]*))?$',
   );
@@ -240,6 +254,17 @@ abstract final class PlainTextLogSanitizer {
 
   static String _normalizePrivateStructuredFields(String input) {
     var result = input.replaceAllMapped(
+      _jsonCredentialField,
+      (match) => '${match.group(1)}"<redacted>"',
+    );
+    result = result.replaceAllMapped(
+      _credentialAssignment,
+      (match) => '${match.group(1)}${match.group(2)}<redacted>',
+    );
+    result = result
+        .replaceAll(_bearerCredential, 'Bearer <redacted>')
+        .replaceAll(_commonApiKey, '<redacted>');
+    result = result.replaceAllMapped(
       _sensitiveSessionField,
       (match) => '${match.group(1)}${match.group(2)}=<redacted>',
     );

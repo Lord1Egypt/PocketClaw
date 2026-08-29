@@ -357,6 +357,52 @@ func TestGatewayStartReady_NoDefaultModel(t *testing.T) {
 	}
 }
 
+func TestGatewayStartWhileAlreadyStartingKeepsTelegramPollingSingleton(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("sleep command differs on Windows")
+	}
+	resetGatewayTestState(t)
+	h := newGatewayStartTestHandler(t)
+	cmd := exec.Command("sleep", "30")
+	if err := cmd.Start(); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		_ = cmd.Process.Kill()
+		_ = cmd.Wait()
+	})
+
+	gateway.mu.Lock()
+	gateway.cmd = cmd
+	gateway.owned = true
+	setGatewayRuntimeStatusLocked("starting")
+	gateway.mu.Unlock()
+
+	actualStarts := 0
+	gatewayExecCommand = func(_ string, _ ...string) *exec.Cmd {
+		actualStarts++
+		return exec.Command("sleep", "30")
+	}
+
+	for i := 0; i < 2; i++ {
+		recorder := httptest.NewRecorder()
+		h.handleGatewayStart(recorder, httptest.NewRequest(http.MethodPost, "/api/gateway/start", nil))
+		if recorder.Code != http.StatusOK {
+			t.Fatalf("request %d status = %d, body=%s", i, recorder.Code, recorder.Body.String())
+		}
+		var response map[string]any
+		if err := json.NewDecoder(recorder.Body).Decode(&response); err != nil {
+			t.Fatal(err)
+		}
+		if response["status"] != "already_starting" {
+			t.Fatalf("request %d status payload = %#v", i, response["status"])
+		}
+	}
+	if actualStarts != 0 {
+		t.Fatalf("actual gateway starts = %d, want 0", actualStarts)
+	}
+}
+
 func TestGatewayStartReady_RejectsASROnlyDefaultModel(t *testing.T) {
 	configPath, cleanup := setupOAuthTestEnv(t)
 	defer cleanup()

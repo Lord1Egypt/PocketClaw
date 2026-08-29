@@ -41,10 +41,17 @@ class PicoClawService : Service() {
         const val ACTION_START = "com.lord1egypt.pocketclaw.action.START"
         const val ACTION_STOP = "com.lord1egypt.pocketclaw.action.STOP"
         const val EXTRA_PUBLIC_MODE = "public_mode"
+        const val EXTRA_GATEWAY_AUTO_START = "gateway_auto_start"
+        private const val PREF_NAME = "picoclaw_prefs"
+        private const val KEY_GATEWAY_LAUNCH_AUTO_START = "gateway_launch_auto_start"
 
         // 共享状态供 UI 读取
         @Volatile
         var isRunning = false
+            private set
+
+        @Volatile
+        var isStarting = false
             private set
 
         @Volatile
@@ -137,12 +144,32 @@ class PicoClawService : Service() {
         var processId: Int = -1
             private set
 
-        fun start(context: Context, publicMode: Boolean = false) {
+        fun start(
+            context: Context,
+            publicMode: Boolean = false,
+            gatewayAutoStart: Boolean? = null,
+        ): Boolean = synchronized(PicoClawService::class.java) {
+            if (isRunning || isStarting) return@synchronized false
+            val gatewayEnabled = gatewayAutoStart
+                ?: context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
+                    .getBoolean(KEY_GATEWAY_LAUNCH_AUTO_START, true)
+            context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
+                .edit()
+                .putBoolean(KEY_GATEWAY_LAUNCH_AUTO_START, gatewayEnabled)
+                .apply()
             val intent = Intent(context, PicoClawService::class.java).apply {
                 action = ACTION_START
                 putExtra(EXTRA_PUBLIC_MODE, publicMode)
+                putExtra(EXTRA_GATEWAY_AUTO_START, gatewayEnabled)
             }
-            context.startForegroundService(intent)
+            isStarting = true
+            try {
+                context.startForegroundService(intent)
+                true
+            } catch (error: Exception) {
+                isStarting = false
+                throw error
+            }
         }
 
         fun stop(context: Context) {
@@ -377,6 +404,8 @@ class PicoClawService : Service() {
     private var stopped = false // 用于通知运行中的线程应该停止
     @Volatile
     private var publicMode = false // 是否启用公共模式（监听所有接口）
+    @Volatile
+    private var gatewayAutoStart = true
     private var restartCount = 0
     private val maxRestartAttempts = 3 // 最大重启次数
 
@@ -390,14 +419,19 @@ class PicoClawService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ACTION_STOP -> {
+                isStarting = false
                 stopService()
                 stopForeground(STOP_FOREGROUND_REMOVE)
                 stopSelf()
                 return START_NOT_STICKY
             }
             else -> {
+                isStarting = true
                 // 从 Intent 读取 publicMode 参数
                 publicMode = intent?.getBooleanExtra(EXTRA_PUBLIC_MODE, false) ?: false
+                gatewayAutoStart = intent?.getBooleanExtra(EXTRA_GATEWAY_AUTO_START, true)
+                    ?: getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
+                        .getBoolean(KEY_GATEWAY_LAUNCH_AUTO_START, true)
                 startForeground(NOTIFICATION_ID, createNotification("Starting..."))
                 acquireWakeLock()
                 startService()
@@ -410,6 +444,7 @@ class PicoClawService : Service() {
         stopService()
         releaseWakeLock()
         isRunning = false
+        isStarting = false
         Log.i(TAG, "Service destroyed")
         super.onDestroy()
     }
@@ -420,6 +455,7 @@ class PicoClawService : Service() {
         synchronized(serviceLock) {
             // 防止重复启动
             if (serviceThread?.isAlive == true || process?.isAlive == true) {
+                if (process?.isAlive == true) isStarting = false
                 Log.w(TAG, "Service is already starting or running, ignoring duplicate start request")
                 return
             }
@@ -435,6 +471,7 @@ class PicoClawService : Service() {
                     killPicoClawOrphanProcesses()
                     runWebService()
                 } catch (e: Exception) {
+                    isStarting = false
                     if (!stopped) {
                         Log.e(TAG, "Failed to start service", e)
                         publishLog("Error: ${e.message}")
@@ -616,6 +653,7 @@ class PicoClawService : Service() {
             }
             process = proc
             isRunning = true
+            isStarting = false
         }
 
         processId = try {
@@ -652,6 +690,7 @@ class PicoClawService : Service() {
         // 等待进程退出（阻塞）
         val exitCode = proc.waitFor()
         isRunning = false
+        isStarting = false
         processId = -1
 
         try { logThread?.join(2000) } catch (_: InterruptedException) {}
@@ -774,6 +813,7 @@ class PicoClawService : Service() {
 
             process = null
             isRunning = false
+            isStarting = false
             processId = -1
 
             logThread?.interrupt()
@@ -804,7 +844,9 @@ class PicoClawService : Service() {
      * 关键：设置 PICOCLAW_BINARY 指向 gateway 二进制，让 web 服务能找到并启动 gateway
      */
     private fun buildEnvironment(): Map<String, String> {
-        return Companion.buildEnvironment(this)
+        return Companion.buildEnvironment(this).toMutableMap().apply {
+            put("POCKETCLAW_GATEWAY_AUTOSTART", gatewayAutoStart.toString())
+        }
     }
 
     // --- 通知 ---

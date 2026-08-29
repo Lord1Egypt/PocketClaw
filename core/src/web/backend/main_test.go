@@ -45,6 +45,24 @@ func TestShouldEnableLauncherFileLogging(t *testing.T) {
 	}
 }
 
+func TestGatewayAutoStartEnvironmentDefaultsOnAndHonorsFalse(t *testing.T) {
+	for _, test := range []struct {
+		value string
+		want  bool
+	}{
+		{value: "", want: true},
+		{value: "true", want: true},
+		{value: "1", want: true},
+		{value: "false", want: false},
+		{value: "0", want: false},
+		{value: "invalid", want: true},
+	} {
+		if got := gatewayAutoStartEnabledFromEnvironment(test.value); got != test.want {
+			t.Fatalf("gatewayAutoStartEnabledFromEnvironment(%q) = %t, want %t", test.value, got, test.want)
+		}
+	}
+}
+
 func TestShouldEnableLocalAutoLogin(t *testing.T) {
 	tests := []struct {
 		name       string

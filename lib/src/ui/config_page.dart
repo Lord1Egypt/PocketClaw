@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:pocketclaw/src/core/service_manager.dart';
+import 'package:pocketclaw/src/core/autostart_coordinator.dart';
 import 'package:pocketclaw/src/generated/l10n/app_localizations.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:pocketclaw/src/core/app_theme.dart';
@@ -15,6 +16,75 @@ class AboutInfo {
 
   final String appVersion;
   final String coreVersion;
+}
+
+class AutoStartSettingsCard extends StatelessWidget {
+  const AutoStartSettingsCard({
+    super.key,
+    required this.serviceEnabled,
+    required this.gatewayEnabled,
+    required this.serviceStatus,
+    required this.gatewayStatus,
+    required this.onServiceChanged,
+    required this.onGatewayChanged,
+    this.serviceError,
+    this.gatewayError,
+  });
+
+  final bool serviceEnabled;
+  final bool gatewayEnabled;
+  final ServiceStatus serviceStatus;
+  final AutoStartRuntimeState gatewayStatus;
+  final ValueChanged<bool> onServiceChanged;
+  final ValueChanged<bool> onGatewayChanged;
+  final String? serviceError;
+  final String? gatewayError;
+
+  String _serviceRuntimeLabel() => switch (serviceStatus) {
+    ServiceStatus.running => 'Runtime: Service running',
+    ServiceStatus.starting => 'Runtime: Service starting',
+    ServiceStatus.stopped => 'Runtime: Service stopped',
+    ServiceStatus.failed => 'Runtime: Service failed',
+  };
+
+  String _gatewayRuntimeLabel() => switch (gatewayStatus) {
+    AutoStartRuntimeState.running => 'Runtime: Gateway running',
+    AutoStartRuntimeState.starting => 'Runtime: Gateway starting',
+    AutoStartRuntimeState.stopped => 'Runtime: Gateway stopped',
+    AutoStartRuntimeState.failed => 'Runtime: Gateway failed',
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    final dependencyBlocked =
+        gatewayEnabled &&
+        !serviceEnabled &&
+        serviceStatus != ServiceStatus.running;
+    return Card(
+      margin: EdgeInsets.zero,
+      child: Column(
+        children: [
+          SwitchListTile.adaptive(
+            title: const Text('Start PocketClaw service automatically'),
+            subtitle: Text(serviceError ?? _serviceRuntimeLabel()),
+            value: serviceEnabled,
+            onChanged: onServiceChanged,
+          ),
+          const Divider(height: 1),
+          SwitchListTile.adaptive(
+            title: const Text('Start Gateway automatically'),
+            subtitle: Text(
+              dependencyBlocked
+                  ? 'Requires a running PocketClaw service; this setting will not start it.'
+                  : (gatewayError ?? _gatewayRuntimeLabel()),
+            ),
+            value: gatewayEnabled,
+            onChanged: onGatewayChanged,
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class ConfigPage extends StatefulWidget {
@@ -515,6 +585,48 @@ class ConfigPageState extends State<ConfigPage> with WidgetsBindingObserver {
                 ],
               ),
               const SizedBox(height: 16),
+
+              if (Platform.isAndroid) ...[
+                Selector<
+                  ServiceManager,
+                  ({
+                    bool serviceEnabled,
+                    bool gatewayEnabled,
+                    ServiceStatus serviceStatus,
+                    AutoStartRuntimeState gatewayStatus,
+                    String? serviceError,
+                    String? gatewayError,
+                  })
+                >(
+                  selector: (_, service) => (
+                    serviceEnabled: service.serviceLaunchAutoStart,
+                    gatewayEnabled: service.gatewayLaunchAutoStart,
+                    serviceStatus: service.status,
+                    gatewayStatus: service.gatewayStatus,
+                    serviceError: service.serviceStartError,
+                    gatewayError: service.gatewayStartError,
+                  ),
+                  builder: (_, state, _) => AutoStartSettingsCard(
+                    serviceEnabled: state.serviceEnabled,
+                    gatewayEnabled: state.gatewayEnabled,
+                    serviceStatus: state.serviceStatus,
+                    gatewayStatus: state.gatewayStatus,
+                    serviceError: state.serviceError,
+                    gatewayError: state.gatewayError,
+                    onServiceChanged: (enabled) {
+                      context.read<ServiceManager>().setServiceLaunchAutoStart(
+                        enabled,
+                      );
+                    },
+                    onGatewayChanged: (enabled) {
+                      context.read<ServiceManager>().setGatewayLaunchAutoStart(
+                        enabled,
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ],
 
               Selector<ServiceManager, ({bool isPublic, bool isApplying})>(
                 selector: (_, s) => (

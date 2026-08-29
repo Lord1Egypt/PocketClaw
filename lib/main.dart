@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:animations/animations.dart';
@@ -59,6 +60,7 @@ void main(List<String> args) async {
   await service.init();
 
   runApp(ChangeNotifierProvider.value(value: service, child: const MainApp()));
+  unawaited(service.ensureAutoStart(source: 'app_launch'));
 }
 
 class MainApp extends StatelessWidget {

@@ -52,6 +52,8 @@ class PicoClawMethodChannel(
             "http://127.0.0.1:18800/api/pocketclaw/android/telegram"
         private const val NETWORK_MODE_BRIDGE_URL =
             "http://127.0.0.1:18800/api/pocketclaw/android/network-mode"
+        private const val GATEWAY_BRIDGE_URL =
+            "http://127.0.0.1:18800/api/pocketclaw/android/gateway"
     }
 
     // Copy a content:// URI to the app cache and return the absolute file path.
@@ -97,12 +99,18 @@ class PicoClawMethodChannel(
                     try {
                         // 从参数中读取 publicMode，默认为 false
                         val args = call.argument<String>("args") ?: ""
-                        val publicMode = args.contains("-public")
+                        val tokens = args.split(Regex("\\s+")).filter { it.isNotBlank() }
+                        val publicMode = tokens.contains("-public")
+                        val gatewayAutoStart = !tokens.contains("-no-gateway-autostart")
                         // 保存 publicMode 到 SharedPreferences
                         val prefs = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
                         prefs.edit().putBoolean("public_mode", publicMode).apply()
-                        Log.d(TAG, "Starting service with publicMode=$publicMode (args: $args)")
-                        PicoClawService.start(context, publicMode)
+                        Log.d(
+                            TAG,
+                            "Starting service with publicMode=$publicMode, " +
+                                "gatewayAutoStart=$gatewayAutoStart"
+                        )
+                        PicoClawService.start(context, publicMode, gatewayAutoStart)
                         result.success(true)
                     } catch (e: Exception) {
                         result.error("START_FAILED", e.message, null)
@@ -200,6 +208,7 @@ class PicoClawMethodChannel(
                 "getServiceStatus" -> {
                     result.success(mapOf(
                         "isRunning" to PicoClawService.isRunning,
+                        "isStarting" to PicoClawService.isStarting,
                         "pid" to PicoClawService.processId,
                         "lastLog" to PicoClawService.lastLog
                     ))
@@ -223,6 +232,40 @@ class PicoClawMethodChannel(
                         } catch (e: Exception) {
                             mainExecutor.execute {
                                 result.error("HEALTH_CHECK_FAILED", e.message, null)
+                            }
+                        }
+                    }.start()
+                }
+                "getGatewayStatus" -> {
+                    Thread {
+                        val mainExecutor = getMainExecutor()
+                        try {
+                            val response = callGatewayBridge("GET")
+                            mainExecutor.execute { result.success(jsonObjectMap(response)) }
+                        } catch (e: Exception) {
+                            mainExecutor.execute {
+                                result.error(
+                                    "GATEWAY_STATUS_FAILED",
+                                    "Managed Gateway status is unavailable",
+                                    null
+                                )
+                            }
+                        }
+                    }.start()
+                }
+                "startGateway" -> {
+                    Thread {
+                        val mainExecutor = getMainExecutor()
+                        try {
+                            val response = callGatewayBridge("POST")
+                            mainExecutor.execute { result.success(jsonObjectMap(response)) }
+                        } catch (e: Exception) {
+                            mainExecutor.execute {
+                                result.error(
+                                    "GATEWAY_START_FAILED",
+                                    "Managed Gateway start was rejected",
+                                    null
+                                )
                             }
                         }
                     }.start()
@@ -560,6 +603,38 @@ class PicoClawMethodChannel(
             connection.disconnect()
         }
     }
+
+    private fun callGatewayBridge(method: String): JSONObject {
+        val connection = (URL(GATEWAY_BRIDGE_URL).openConnection() as HttpURLConnection).apply {
+            requestMethod = method
+            connectTimeout = 1_000
+            readTimeout = 3_000
+            setRequestProperty(
+                "X-PocketClaw-Android-Bridge",
+                PicoClawService.bridgeTokenForHost(),
+            )
+            setRequestProperty("Accept", "application/json")
+        }
+        try {
+            val status = connection.responseCode
+            if (status != HttpURLConnection.HTTP_OK &&
+                status != HttpURLConnection.HTTP_BAD_REQUEST
+            ) {
+                throw IllegalStateException("Managed Gateway bridge rejected the request")
+            }
+            val stream = if (status >= 400) connection.errorStream else connection.inputStream
+            val response = stream.bufferedReader(Charsets.UTF_8).use { it.readText() }
+            return JSONObject(response)
+        } finally {
+            connection.disconnect()
+        }
+    }
+
+    private fun jsonObjectMap(json: JSONObject): Map<String, Any?> =
+        json.keys().asSequence().associateWith { key ->
+            val value = json.opt(key)
+            if (value == JSONObject.NULL) null else value
+        }
 
     // Save bytes to Downloads using MediaStore (preferred for Android Q+).
     private fun saveToDownloads(fileName: String, data: ByteArray): String? {

@@ -70,6 +70,23 @@ class PicoClawChannel {
     return Map<String, dynamic>.from(result);
   }
 
+  /// Reads the managed Core Gateway state through the loopback-only,
+  /// per-process authenticated Android bridge.
+  static Future<Map<String, dynamic>> getGatewayStatus() async {
+    final result = await _channel.invokeMethod<Map>('getGatewayStatus');
+    if (result == null) return {'gateway_status': 'stopped'};
+    return Map<String, dynamic>.from(result);
+  }
+
+  /// Requests an idempotent managed Core Gateway start. Core serializes this
+  /// with Dashboard/manual starts and returns the existing transition when one
+  /// is already underway.
+  static Future<Map<String, dynamic>> startGateway() async {
+    final result = await _channel.invokeMethod<Map>('startGateway');
+    if (result == null) return {'status': 'failed'};
+    return Map<String, dynamic>.from(result);
+  }
+
   /// 读取 config.json 内容
   static Future<String> getConfig() async {
     final result = await _channel.invokeMethod<String>('getConfig');

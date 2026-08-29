@@ -347,7 +347,19 @@ func (h *Handler) TryAutoStartGateway() {
 	gateway.mu.Lock()
 	defer gateway.mu.Unlock()
 
-	if gateway.cmd != nil && gateway.cmd.Process != nil {
+	currentStatus := gatewayStatusWithoutHealthLocked()
+	if currentStatus == "starting" || currentStatus == "restarting" || currentStatus == "running" {
+		logger.InfoCF("gateway", "Gateway auto-start skipped", map[string]any{
+			"event":          "gateway.start.skipped",
+			"reason":         "already_" + currentStatus,
+			"previous_state": currentStatus,
+			"target_state":   "running",
+			"result":         "skipped",
+			"retry_count":    0,
+		})
+		return
+	}
+	if gateway.cmd != nil && gateway.cmd.Process != nil && !isCmdProcessAliveLocked(gateway.cmd) {
 		gateway.cmd = nil
 	}
 
@@ -1222,7 +1234,22 @@ func (h *Handler) handleGatewayStart(w http.ResponseWriter, r *http.Request) {
 	gateway.mu.Lock()
 	defer gateway.mu.Unlock()
 
-	if gateway.cmd != nil && gateway.cmd.Process != nil {
+	currentStatus := gatewayStatusWithoutHealthLocked()
+	if currentStatus == "starting" || currentStatus == "restarting" || currentStatus == "running" {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]any{
+			"status":         "already_" + currentStatus,
+			"gateway_status": currentStatus,
+			"pid": func() int {
+				if gateway.cmd != nil && gateway.cmd.Process != nil {
+					return gateway.cmd.Process.Pid
+				}
+				return 0
+			}(),
+		})
+		return
+	}
+	if gateway.cmd != nil && gateway.cmd.Process != nil && !isCmdProcessAliveLocked(gateway.cmd) {
 		gateway.cmd = nil
 		setGatewayRuntimeStatusLocked("stopped")
 	}
