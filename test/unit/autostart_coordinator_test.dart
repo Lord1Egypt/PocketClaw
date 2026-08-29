@@ -12,6 +12,7 @@ class _FakeRuntime implements AutoStartRuntime {
   Completer<void>? gatewayGate;
   int serviceStarts = 0;
   int gatewayStarts = 0;
+  final List<String> serviceStartSources = <String>[];
   Future<AutoStartTransitionResult>? _serviceTask;
   Future<AutoStartTransitionResult>? _gatewayTask;
 
@@ -28,6 +29,7 @@ class _FakeRuntime implements AutoStartRuntime {
   }) {
     final current = _serviceTask;
     if (current != null) return current;
+    serviceStartSources.add(source);
     final task = _startService();
     _serviceTask = task;
     task.whenComplete(() => _serviceTask = null);
@@ -205,6 +207,74 @@ void main() {
       expect(runtime.gatewayStarts, 1);
     },
   );
+
+  test(
+    'manual stop suppresses repeated resume auto-start evaluations',
+    () async {
+      final runtime = _FakeRuntime();
+      final coordinator = _coordinator(runtime);
+
+      await coordinator.ensureForAppOpen(
+        preferences: _bothOn,
+        source: 'app_resume',
+        manualStopActive: true,
+      );
+      await coordinator.ensureForAppOpen(
+        preferences: _bothOn,
+        source: 'app_resume',
+        manualStopActive: true,
+      );
+
+      expect(runtime.serviceStarts, 0);
+      expect(runtime.gatewayStarts, 0);
+    },
+  );
+
+  test('manual stop with both preferences off remains stopped', () async {
+    final runtime = _FakeRuntime();
+
+    await _coordinator(runtime).ensureForAppOpen(
+      preferences: const AutoStartPreferences(
+        serviceEnabled: false,
+        gatewayEnabled: false,
+      ),
+      source: 'app_resume_autostart',
+      manualStopActive: true,
+    );
+
+    expect(runtime.serviceState, AutoStartRuntimeState.stopped);
+    expect(runtime.gatewayState, AutoStartRuntimeState.stopped);
+    expect(runtime.serviceStarts, 0);
+    expect(runtime.gatewayStarts, 0);
+  });
+
+  test('a new app launch is a legitimate boundary after manual stop', () async {
+    final runtime = _FakeRuntime();
+
+    await _coordinator(runtime).ensureForAppOpen(
+      preferences: _bothOn,
+      source: 'app_launch_autostart',
+      manualStopActive: true,
+    );
+
+    expect(runtime.serviceStarts, 1);
+    expect(runtime.serviceStartSources, <String>['app_launch_autostart']);
+    expect(runtime.gatewayStarts, 1);
+  });
+
+  test('every automatic Service start records its exact source', () async {
+    final runtime = _FakeRuntime();
+
+    await _coordinator(runtime).ensureForAppOpen(
+      preferences: const AutoStartPreferences(
+        serviceEnabled: true,
+        gatewayEnabled: false,
+      ),
+      source: 'app_launch',
+    );
+
+    expect(runtime.serviceStartSources, <String>['app_launch']);
+  });
 
   test(
     'concurrent manual and automatic Service start share one transition',

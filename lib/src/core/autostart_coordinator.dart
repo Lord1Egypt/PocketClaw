@@ -1,6 +1,6 @@
 import 'dart:async';
 
-enum AutoStartRuntimeState { stopped, starting, running, failed }
+enum AutoStartRuntimeState { stopped, starting, running, stopping, failed }
 
 class AutoStartPreferences {
   const AutoStartPreferences({
@@ -97,6 +97,7 @@ class AutoStartCoordinator {
     required AutoStartPreferences preferences,
     required String source,
     String preferenceSource = 'runtime_memory',
+    bool manualStopActive = false,
   }) {
     final current = _inFlight;
     if (current != null) {
@@ -121,6 +122,7 @@ class AutoStartCoordinator {
       preferences: preferences,
       source: source,
       preferenceSource: preferenceSource,
+      manualStopActive: manualStopActive,
     );
     _inFlight = task;
     _inFlightOperationId = operationId;
@@ -143,6 +145,7 @@ class AutoStartCoordinator {
     required AutoStartPreferences preferences,
     required String source,
     required String preferenceSource,
+    required bool manualStopActive,
   }) async {
     final startedAt = _clock();
     var serviceState = AutoStartRuntimeState.stopped;
@@ -154,7 +157,9 @@ class AutoStartCoordinator {
           : AutoStartRuntimeState.stopped;
       _logger('autostart.evaluate', {
         'operation_id': operationId,
-        'reason': 'app_open',
+        'reason': manualStopActive && source != 'app_launch_autostart'
+            ? 'manual_stop_authoritative'
+            : 'app_open',
         'source': source,
         'service_autostart': preferences.serviceEnabled,
         'gateway_autostart': preferences.gatewayEnabled,
@@ -164,6 +169,28 @@ class AutoStartCoordinator {
         'result': 'evaluated',
         'retry_count': 0,
       });
+
+      if (manualStopActive && source != 'app_launch_autostart') {
+        _logSkipped(
+          component: 'service',
+          operationId: operationId,
+          source: source,
+          reason: 'manual_stop_authoritative',
+          previousState: serviceState,
+        );
+        _logSkipped(
+          component: 'gateway',
+          operationId: operationId,
+          source: source,
+          reason: 'service_manually_stopped',
+          previousState: gatewayState,
+        );
+        return AutoStartEvaluation(
+          operationId: operationId,
+          serviceState: serviceState,
+          gatewayState: gatewayState,
+        );
+      }
 
       if (!preferences.serviceEnabled) {
         _logSkipped(

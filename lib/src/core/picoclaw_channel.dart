@@ -21,17 +21,30 @@ class PicoClawChannel {
   static const _channel = MethodChannel('com.lord1egypt.pocketclaw/picoclaw');
 
   /// 启动 PicoClaw 前台服务
-  static Future<bool> startService({int port = 18800, String args = ''}) async {
+  static Future<bool> startService({
+    int port = 18800,
+    String args = '',
+    String source = 'manual',
+    String operationId = '',
+  }) async {
     final result = await _channel.invokeMethod<bool>('startService', {
       'port': port,
       'args': args,
+      'source': source,
+      'operationId': operationId,
     });
     return result ?? false;
   }
 
   /// 停止 PicoClaw 前台服务
-  static Future<bool> stopService() async {
-    final result = await _channel.invokeMethod<bool>('stopService');
+  static Future<bool> stopService({
+    String source = 'manual',
+    String operationId = '',
+  }) async {
+    final result = await _channel.invokeMethod<bool>('stopService', {
+      'source': source,
+      'operationId': operationId,
+    });
     return result ?? false;
   }
 

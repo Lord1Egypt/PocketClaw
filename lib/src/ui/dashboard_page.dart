@@ -16,6 +16,9 @@ class DashboardPage extends StatelessWidget {
     final service = context.watch<ServiceManager>();
     final l10n = AppLocalizations.of(context)!;
     final colorScheme = Theme.of(context).colorScheme;
+    final serviceTransitioning =
+        service.status == ServiceStatus.starting ||
+        service.status == ServiceStatus.stopping;
 
     final connectableUrl = service.connectableDashboardUrl;
 
@@ -57,9 +60,11 @@ class DashboardPage extends StatelessWidget {
                     children: [
                       Expanded(
                         child: TVFocusable(
-                          onTap: service.status == ServiceStatus.running
-                              ? service.stop
-                              : service.start,
+                          onTap: serviceTransitioning
+                              ? null
+                              : service.status == ServiceStatus.running
+                              ? () => service.stop()
+                              : () => service.start(),
                           borderRadius: BorderRadius.circular(24),
                           focusBorderColor:
                               service.status == ServiceStatus.running
@@ -412,6 +417,10 @@ class DashboardPage extends StatelessWidget {
       case ServiceStatus.starting:
         color = const Color(0xFFF59E0B); // Modern Amber
         label = l10n.statusSyncing;
+        break;
+      case ServiceStatus.stopping:
+        color = const Color(0xFFF59E0B);
+        label = 'STOPPING';
         break;
       case ServiceStatus.stopped:
         color = colorScheme.onSurface.withAlpha(

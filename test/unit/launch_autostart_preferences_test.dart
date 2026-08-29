@@ -76,6 +76,78 @@ void main() {
   );
 
   test(
+    'toggle OFF to ON is verified by canonical readback and logged',
+    () async {
+      final native = _FakeNativePreferences(initialized: true)
+        ..serviceEnabled = false;
+      final events = <({String event, Map<String, Object?> metadata})>[];
+
+      final updated = await _nativeStore(native).update(
+        serviceEnabled: true,
+        operationId: 'preference-service-1',
+        logger: (event, metadata) {
+          events.add((event: event, metadata: metadata));
+        },
+      );
+
+      expect(updated.preferences.serviceEnabled, isTrue);
+      expect((await native.read()).serviceEnabled, isTrue);
+      expect(events.map((entry) => entry.event), <String>[
+        'autostart.preference.change.requested',
+        'autostart.preference.change.persisted',
+        'autostart.preference.readback',
+      ]);
+      expect(events.last.metadata, containsPair('persisted_value', true));
+      expect(events.last.metadata, containsPair('result', 'verified'));
+      expect(
+        events.last.metadata,
+        containsPair('preference_source', 'android_native_canonical'),
+      );
+    },
+  );
+
+  test('toggle ON to OFF is verified by canonical readback', () async {
+    final native = _FakeNativePreferences(initialized: true);
+
+    final updated = await _nativeStore(
+      native,
+    ).update(gatewayEnabled: false, operationId: 'preference-gateway-1');
+
+    expect(updated.preferences.gatewayEnabled, isFalse);
+    expect((await native.read()).gatewayEnabled, isFalse);
+  });
+
+  test(
+    'failed canonical readback never updates Flutter mirror optimistically',
+    () async {
+      SharedPreferences.setMockInitialValues({
+        LaunchAutoStartPreferenceStore.serviceKey: false,
+      });
+      final native = _FakeNativePreferences(initialized: true)
+        ..serviceEnabled = false
+        ..ignoreWrites = true;
+      final events = <String>[];
+
+      await expectLater(
+        _nativeStore(native).update(
+          serviceEnabled: true,
+          operationId: 'preference-service-failed',
+          logger: (event, _) => events.add(event),
+        ),
+        throwsStateError,
+      );
+
+      expect((await native.read()).serviceEnabled, isFalse);
+      final flutter = await SharedPreferences.getInstance();
+      expect(
+        flutter.getBool(LaunchAutoStartPreferenceStore.serviceKey),
+        isFalse,
+      );
+      expect(events, contains('autostart.preference.change.failed'));
+    },
+  );
+
+  test(
     'rapid independent toggles are serialized without losing a value',
     () async {
       final native = _FakeNativePreferences(initialized: true);
@@ -118,6 +190,7 @@ class _FakeNativePreferences {
   bool serviceEnabled = true;
   bool gatewayEnabled = true;
   bool initialized;
+  bool ignoreWrites = false;
 
   Future<NativeLaunchAutoStartPreferences> read() async => _snapshot();
 
@@ -126,8 +199,10 @@ class _FakeNativePreferences {
     bool? gatewayEnabled,
   }) async {
     await Future<void>.delayed(Duration.zero);
-    this.serviceEnabled = serviceEnabled ?? this.serviceEnabled;
-    this.gatewayEnabled = gatewayEnabled ?? this.gatewayEnabled;
+    if (!ignoreWrites) {
+      this.serviceEnabled = serviceEnabled ?? this.serviceEnabled;
+      this.gatewayEnabled = gatewayEnabled ?? this.gatewayEnabled;
+    }
     initialized = true;
     return _snapshot();
   }

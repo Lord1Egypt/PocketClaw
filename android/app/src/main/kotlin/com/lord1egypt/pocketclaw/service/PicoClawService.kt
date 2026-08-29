@@ -14,6 +14,7 @@ import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.lord1egypt.pocketclaw.PicoClawApp
 import com.lord1egypt.pocketclaw.MainActivity
+import org.json.JSONObject
 import java.io.BufferedReader
 import java.io.File
 import java.io.FileOutputStream
@@ -41,6 +42,9 @@ class PicoClawService : Service() {
         const val ACTION_START = "com.lord1egypt.pocketclaw.action.START"
         const val ACTION_STOP = "com.lord1egypt.pocketclaw.action.STOP"
         const val EXTRA_PUBLIC_MODE = "public_mode"
+        const val EXTRA_REQUEST_SOURCE = "request_source"
+        const val EXTRA_OPERATION_ID = "operation_id"
+        const val EXTRA_REQUEST_LOGGED = "request_logged"
 
         // 共享状态供 UI 读取
         @Volatile
@@ -49,6 +53,34 @@ class PicoClawService : Service() {
 
         @Volatile
         var isStarting = false
+            private set
+
+        @Volatile
+        var isStopping = false
+            private set
+
+        @Volatile
+        var manualStopActive = false
+            private set
+
+        @Volatile
+        var hasFailed = false
+            private set
+
+        @Volatile
+        var lastStartSource = "none"
+            private set
+
+        @Volatile
+        var lastStartOperationId = ""
+            private set
+
+        @Volatile
+        var lastStopSource = "none"
+            private set
+
+        @Volatile
+        var lastStopOperationId = ""
             private set
 
         @Volatile
@@ -144,27 +176,154 @@ class PicoClawService : Service() {
         fun start(
             context: Context,
             publicMode: Boolean = false,
+            source: String = "manual",
+            operationId: String = "",
         ): Boolean = synchronized(PicoClawService::class.java) {
-            if (isRunning || isStarting) return@synchronized false
+            val safeSource = source.ifBlank { "explicit_android_request" }
+            val safeOperationId = operationId.ifBlank {
+                "android-start-${System.currentTimeMillis()}"
+            }
+            publishLifecycle(
+                "service.start.requested",
+                safeOperationId,
+                safeSource,
+                mapOf(
+                    "previous_state" to currentStateName(),
+                    "target_state" to "running",
+                    "result" to "requested",
+                ),
+            )
+            if (isRunning || isStarting || isStopping) {
+                publishLifecycle(
+                    "service.start.skipped",
+                    safeOperationId,
+                    safeSource,
+                    mapOf(
+                        "reason" to if (isStopping) "already_stopping" else "already_active",
+                        "previous_state" to currentStateName(),
+                        "target_state" to "running",
+                        "result" to "skipped",
+                    ),
+                )
+                return@synchronized false
+            }
+            if (safeSource == "manual" || safeSource == "app_launch_autostart") {
+                manualStopActive = false
+            } else if (manualStopActive) {
+                publishLifecycle(
+                    "service.start.skipped",
+                    safeOperationId,
+                    safeSource,
+                    mapOf(
+                        "reason" to "manual_stop_authoritative",
+                        "previous_state" to "stopped",
+                        "target_state" to "running",
+                        "result" to "skipped",
+                    ),
+                )
+                return@synchronized false
+            }
             val intent = Intent(context, PicoClawService::class.java).apply {
                 action = ACTION_START
                 putExtra(EXTRA_PUBLIC_MODE, publicMode)
+                putExtra(EXTRA_REQUEST_SOURCE, safeSource)
+                putExtra(EXTRA_OPERATION_ID, safeOperationId)
+                putExtra(EXTRA_REQUEST_LOGGED, true)
             }
             isStarting = true
+            hasFailed = false
+            lastStartSource = safeSource
+            lastStartOperationId = safeOperationId
             try {
                 context.startForegroundService(intent)
                 true
             } catch (error: Exception) {
                 isStarting = false
+                hasFailed = true
+                publishLifecycle(
+                    "service.start.failed",
+                    safeOperationId,
+                    safeSource,
+                    mapOf(
+                        "reason" to "android_dispatch_failed",
+                        "stage" to "foreground_service_dispatch",
+                        "previous_state" to "starting",
+                        "target_state" to "failed",
+                        "result" to "failed",
+                    ),
+                )
                 throw error
             }
         }
 
-        fun stop(context: Context) {
+        fun stop(
+            context: Context,
+            source: String = "manual",
+            operationId: String = "",
+        ): Boolean = synchronized(PicoClawService::class.java) {
+            val safeSource = source.ifBlank { "explicit_android_request" }
+            val safeOperationId = operationId.ifBlank {
+                "android-stop-${System.currentTimeMillis()}"
+            }
+            publishLifecycle(
+                "service.stop.requested",
+                safeOperationId,
+                safeSource,
+                mapOf(
+                    "reason" to "explicit_request",
+                    "previous_state" to currentStateName(),
+                    "target_state" to "stopped",
+                    "result" to "requested",
+                ),
+            )
+            if (safeSource == "manual" || safeSource == "notification") {
+                manualStopActive = true
+            }
+            isStopping = true
+            hasFailed = false
+            lastStopSource = safeSource
+            lastStopOperationId = safeOperationId
             val intent = Intent(context, PicoClawService::class.java).apply {
                 action = ACTION_STOP
+                putExtra(EXTRA_REQUEST_SOURCE, safeSource)
+                putExtra(EXTRA_OPERATION_ID, safeOperationId)
+                putExtra(EXTRA_REQUEST_LOGGED, true)
             }
-            context.startService(intent)
+            try {
+                context.startService(intent)
+                true
+            } catch (error: Exception) {
+                isStopping = false
+                publishLifecycle(
+                    "service.stop.failed",
+                    safeOperationId,
+                    safeSource,
+                    mapOf("reason" to "android_dispatch_failed", "result" to "failed"),
+                )
+                throw error
+            }
+        }
+
+        private fun currentStateName(): String = when {
+            isStopping -> "stopping"
+            isRunning -> "running"
+            isStarting -> "starting"
+            hasFailed -> "failed"
+            else -> "stopped"
+        }
+
+        private fun publishLifecycle(
+            event: String,
+            operationId: String,
+            source: String,
+            metadata: Map<String, Any?> = emptyMap(),
+        ) {
+            val record = JSONObject()
+                .put("event", event)
+                .put("operation_id", operationId)
+                .put("source", source)
+            metadata.forEach { (key, value) -> record.put(key, value) }
+            publishLog(record.toString())
         }
 
         /**
@@ -394,8 +553,6 @@ class PicoClawService : Service() {
     private var publicMode = false // 是否启用公共模式（监听所有接口）
     @Volatile
     private var gatewayAutoStart = true
-    private var restartCount = 0
-    private val maxRestartAttempts = 3 // 最大重启次数
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -405,31 +562,137 @@ class PicoClawService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (intent == null) {
+            val operationId = "android-restart-${System.currentTimeMillis()}"
+            publishLifecycle(
+                "service.start.requested",
+                operationId,
+                "android_restart",
+                mapOf(
+                    "reason" to "null_restart_intent",
+                    "previous_state" to currentStateName(),
+                    "target_state" to "running",
+                    "result" to "rejected",
+                ),
+            )
+            publishLifecycle(
+                "service.start.skipped",
+                operationId,
+                "android_restart",
+                mapOf(
+                    "reason" to "restart_policy_disabled",
+                    "previous_state" to currentStateName(),
+                    "target_state" to "stopped",
+                    "result" to "skipped",
+                ),
+            )
+            isStarting = false
+            isStopping = false
+            stopSelf(startId)
+            return START_NOT_STICKY
+        }
+        val source = intent.getStringExtra(EXTRA_REQUEST_SOURCE)
+            ?.takeIf { it.isNotBlank() }
+            ?: if (intent.action == ACTION_STOP) "notification" else "explicit_android_intent"
+        val operationId = intent.getStringExtra(EXTRA_OPERATION_ID)
+            ?.takeIf { it.isNotBlank() }
+            ?: "android-${System.currentTimeMillis()}"
+        if (!intent.getBooleanExtra(EXTRA_REQUEST_LOGGED, false)) {
+            publishLifecycle(
+                if (intent.action == ACTION_STOP) {
+                    "service.stop.requested"
+                } else {
+                    "service.start.requested"
+                },
+                operationId,
+                source,
+                mapOf(
+                    "reason" to "android_intent",
+                    "previous_state" to currentStateName(),
+                    "target_state" to if (intent.action == ACTION_STOP) "stopped" else "running",
+                    "result" to "requested",
+                ),
+            )
+        }
         when (intent?.action) {
             ACTION_STOP -> {
+                if (source == "manual" || source == "notification") {
+                    manualStopActive = true
+                }
+                lastStopSource = source
+                lastStopOperationId = operationId
+                isStopping = true
                 isStarting = false
-                stopService()
-                stopForeground(STOP_FOREGROUND_REMOVE)
-                stopSelf()
-                return START_NOT_STICKY
+                try {
+                    stopService()
+                    stopForeground(STOP_FOREGROUND_REMOVE)
+                    stopSelf(startId)
+                    isStopping = false
+                    publishLifecycle(
+                        "service.stop.completed",
+                        operationId,
+                        source,
+                        mapOf(
+                            "reason" to "native_runtime_stopped",
+                            "previous_state" to "stopping",
+                            "target_state" to "stopped",
+                            "result" to "completed",
+                        ),
+                    )
+                    return START_NOT_STICKY
+                } catch (error: Exception) {
+                    isStopping = false
+                    publishLifecycle(
+                        "service.stop.failed",
+                        operationId,
+                        source,
+                        mapOf("reason" to "native_cleanup_failed", "result" to "failed"),
+                    )
+                    throw error
+                }
             }
             else -> {
+                if (source == "manual" || source == "app_launch_autostart") {
+                    manualStopActive = false
+                } else if (manualStopActive) {
+                    isStarting = false
+                    publishLifecycle(
+                        "service.start.skipped",
+                        operationId,
+                        source,
+                        mapOf(
+                            "reason" to "manual_stop_authoritative",
+                            "previous_state" to "stopped",
+                            "target_state" to "running",
+                            "result" to "skipped",
+                        ),
+                    )
+                    stopSelf(startId)
+                    return START_NOT_STICKY
+                }
+                lastStartSource = source
+                lastStartOperationId = operationId
                 isStarting = true
+                hasFailed = false
                 // 从 Intent 读取 publicMode 参数
                 publicMode = intent?.getBooleanExtra(EXTRA_PUBLIC_MODE, false) ?: false
                 val launchPreferences = LaunchAutoStartPreferences.read(this)
                 gatewayAutoStart = launchPreferences.gatewayEnabled
-                publishLog(
-                    "{\"event\":\"autostart.preferences.loaded\"," +
-                        "\"service_autostart\":${launchPreferences.serviceEnabled}," +
-                        "\"gateway_autostart\":${launchPreferences.gatewayEnabled}," +
-                        "\"preference_source\":\"${launchPreferences.source}\"," +
-                        "\"source\":\"android_service_start\"}"
+                publishLifecycle(
+                    "autostart.preferences.loaded",
+                    operationId,
+                    source,
+                    mapOf(
+                        "service_autostart" to launchPreferences.serviceEnabled,
+                        "gateway_autostart" to launchPreferences.gatewayEnabled,
+                        "preference_source" to launchPreferences.source,
+                        "result" to "loaded",
+                    ),
                 )
                 startForeground(NOTIFICATION_ID, createNotification("Starting..."))
                 acquireWakeLock()
                 startService()
-                return START_STICKY
+                return START_NOT_STICKY
             }
         }
     }
@@ -439,6 +702,7 @@ class PicoClawService : Service() {
         releaseWakeLock()
         isRunning = false
         isStarting = false
+        isStopping = false
         Log.i(TAG, "Service destroyed")
         super.onDestroy()
     }
@@ -454,7 +718,6 @@ class PicoClawService : Service() {
                 return
             }
             stopped = false
-            restartCount = 0
 
             serviceThread = Thread {
                 try {
@@ -467,8 +730,21 @@ class PicoClawService : Service() {
                 } catch (e: Exception) {
                     isStarting = false
                     if (!stopped) {
+                        hasFailed = true
                         Log.e(TAG, "Failed to start service", e)
                         publishLog("Error: ${e.message}")
+                        publishLifecycle(
+                            "service.start.failed",
+                            lastStartOperationId.ifBlank {
+                                "android-start-${System.currentTimeMillis()}"
+                            },
+                            lastStartSource,
+                            mapOf(
+                                "reason" to "native_runtime_start_failed",
+                                "stage" to "process_launch",
+                                "result" to "failed",
+                            ),
+                        )
                         updateNotification("Error: ${e.message}")
                     }
                 }
@@ -660,6 +936,17 @@ class PicoClawService : Service() {
 
         updateNotification("Running (PID: $processId)")
         Log.i(TAG, "Web service started with PID: $processId, listening on port $WEB_PORT")
+        publishLifecycle(
+            "service.start.started",
+            lastStartOperationId.ifBlank { "android-start-${System.currentTimeMillis()}" },
+            lastStartSource,
+            mapOf(
+                "reason" to "native_process_running",
+                "previous_state" to "starting",
+                "target_state" to "running",
+                "result" to "started",
+            ),
+        )
 
         // 后台线程读取 stdout/stderr
         logThread = Thread({
@@ -700,26 +987,19 @@ class PicoClawService : Service() {
         publishLog("Process exited (code $exitCode)\n$lastOutput")
         updateNotification("Stopped (exit code $exitCode)")
 
-        // 非正常退出时自动重启（限制重试次数）
-        if (exitCode != 0) {
-            restartCount++
-            if (restartCount > maxRestartAttempts) {
-                Log.e(TAG, "Web service has failed $restartCount times, giving up restart")
-                publishLog("Service crashed $restartCount times, stopped retrying")
-                updateNotification("Error: too many restarts")
-                return
-            }
-            Log.i(TAG, "Scheduling restart in 5 seconds... (attempt $restartCount/$maxRestartAttempts)")
-            // 清理可能残留的占用端口的进程
-            killPicoClawOrphanProcesses()
-            Thread.sleep(5000)
-            // 再次检查是否被要求停止
-            if (stopped) {
-                Log.i(TAG, "Service was stopped during restart wait, aborting")
-                return
-            }
-            runWebService()
-        }
+        // Milestone A has no watchdog or crash-restart policy. Any unrequested
+        // child exit remains failed until a later explicit start boundary.
+        hasFailed = true
+        publishLifecycle(
+            "service.start.failed",
+            lastStartOperationId.ifBlank { "android-start-${System.currentTimeMillis()}" },
+            lastStartSource,
+            mapOf(
+                "reason" to "child_process_exit",
+                "stage" to "runtime",
+                "result" to "failed",
+            ),
+        )
     }
 
     /**
@@ -808,6 +1088,7 @@ class PicoClawService : Service() {
             process = null
             isRunning = false
             isStarting = false
+            hasFailed = false
             processId = -1
 
             logThread?.interrupt()
@@ -824,9 +1105,6 @@ class PicoClawService : Service() {
 
         // 清理可能残留的孤儿进程（包括 web 服务自己启动的 gateway）
         killPicoClawOrphanProcesses()
-
-        // 重置重启计数
-        restartCount = 0
 
         Log.i(TAG, "Service stopped and cleaned up")
     }
@@ -856,6 +1134,8 @@ class PicoClawService : Service() {
 
         val stopIntent = Intent(this, PicoClawService::class.java).apply {
             action = ACTION_STOP
+            putExtra(EXTRA_REQUEST_SOURCE, "notification")
+            putExtra(EXTRA_OPERATION_ID, "notification-stop-${System.currentTimeMillis()}")
         }
         val stopPendingIntent = PendingIntent.getService(
             this, 1, stopIntent,

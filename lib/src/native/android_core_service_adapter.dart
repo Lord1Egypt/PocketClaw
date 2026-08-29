@@ -14,11 +14,18 @@ class AndroidCoreServiceAdapter implements CoreServiceAdapter {
   void Function(String)? _logHandler;
 
   @override
-  Future<bool> startService({int? port, String? args}) async {
+  Future<bool> startService({
+    int? port,
+    String? args,
+    String source = 'manual',
+    String operationId = '',
+  }) async {
     try {
       final Map<String, Object?> params = {
         'port': port ?? 18800,
         'args': args ?? '',
+        'source': source,
+        'operationId': operationId,
       };
       final result = await _channel.invokeMethod<bool>('startService', params);
       return result ?? false;
@@ -29,9 +36,15 @@ class AndroidCoreServiceAdapter implements CoreServiceAdapter {
   }
 
   @override
-  Future<bool> stopService() async {
+  Future<bool> stopService({
+    String source = 'manual',
+    String operationId = '',
+  }) async {
     try {
-      final result = await _channel.invokeMethod<bool>('stopService');
+      final result = await _channel.invokeMethod<bool>('stopService', {
+        'source': source,
+        'operationId': operationId,
+      });
       return result ?? false;
     } catch (_) {
       _lastErrorCode = 'core.stop_failed';

@@ -249,6 +249,9 @@ func gatewayBridgeRequest(method, token string) *http.Request {
 
 func TestAndroidGatewayBridgeExposesStatusOnlyToLoopbackCredential(t *testing.T) {
 	resetGatewayTestState(t)
+	gateway.mu.Lock()
+	gateway.operationID = "gateway-physical-sync-1"
+	gateway.mu.Unlock()
 	handler := NewHandler(writeAndroidBridgeTestConfig(t, ""))
 	mux := http.NewServeMux()
 	handler.RegisterAndroidBridgeRoutes(mux, testAndroidBridgeToken)
@@ -264,6 +267,9 @@ func TestAndroidGatewayBridgeExposesStatusOnlyToLoopbackCredential(t *testing.T)
 	}
 	if status["gateway_status"] != "stopped" {
 		t.Fatalf("gateway_status = %#v, want stopped", status["gateway_status"])
+	}
+	if status["operation_id"] != "gateway-physical-sync-1" {
+		t.Fatalf("operation_id = %#v, want gateway-physical-sync-1", status["operation_id"])
 	}
 
 	unauthorized := httptest.NewRecorder()

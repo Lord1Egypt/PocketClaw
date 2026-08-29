@@ -159,4 +159,29 @@ void main() {
       expect(calls.last.arguments, {'gatewayEnabled': false});
     },
   );
+
+  test('Service start and stop carry exact source and operation IDs', () async {
+    final calls = <MethodCall>[];
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, (call) async {
+          calls.add(call);
+          return true;
+        });
+
+    await PicoClawChannel.startService(
+      source: 'app_launch_autostart',
+      operationId: 'start-1',
+    );
+    await PicoClawChannel.stopService(source: 'manual', operationId: 'stop-1');
+
+    expect(calls.first.method, 'startService');
+    expect(
+      calls.first.arguments,
+      containsPair('source', 'app_launch_autostart'),
+    );
+    expect(calls.first.arguments, containsPair('operationId', 'start-1'));
+    expect(calls.last.method, 'stopService');
+    expect(calls.last.arguments, containsPair('source', 'manual'));
+    expect(calls.last.arguments, containsPair('operationId', 'stop-1'));
+  });
 }

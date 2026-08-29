@@ -1615,6 +1615,11 @@ func (h *Handler) handleGatewayStatus(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) gatewayStatusData() map[string]any {
 	data := map[string]any{}
+	gateway.mu.Lock()
+	if gateway.operationID != "" {
+		data["operation_id"] = gateway.operationID
+	}
+	gateway.mu.Unlock()
 	var configDefaultModel string
 	cfg, cfgErr := config.LoadConfig(h.configPath)
 	if cfgErr == nil && cfg != nil {

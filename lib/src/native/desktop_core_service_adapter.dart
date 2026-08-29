@@ -284,7 +284,12 @@ class DesktopCoreServiceAdapter implements CoreServiceAdapter {
   }
 
   @override
-  Future<bool> startService({int? port, String? args}) async {
+  Future<bool> startService({
+    int? port,
+    String? args,
+    String source = 'manual',
+    String operationId = '',
+  }) async {
     if (_proc != null) return true;
     final usedPort = port ?? this.port;
     await _preCleanup(usedPort);
@@ -343,7 +348,10 @@ class DesktopCoreServiceAdapter implements CoreServiceAdapter {
   }
 
   @override
-  Future<bool> stopService() async {
+  Future<bool> stopService({
+    String source = 'manual',
+    String operationId = '',
+  }) async {
     if (_proc == null) return true;
     try {
       _proc!.kill(ProcessSignal.sigkill);

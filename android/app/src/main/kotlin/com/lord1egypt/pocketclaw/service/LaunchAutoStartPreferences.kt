@@ -54,11 +54,8 @@ object LaunchAutoStartPreferences {
             .putBoolean(KEY_INITIALIZED, true)
             .commit()
         check(committed) { "Could not persist launch auto-start preferences" }
-        return LaunchAutoStartSnapshot(
-            serviceEnabled = nextService,
-            gatewayEnabled = nextGateway,
-            initialized = true,
-            source = "android_native_canonical",
-        )
+        // Never acknowledge the requested values from memory. Return a fresh
+        // canonical readback after the synchronous filesystem commit.
+        return read(context)
     }
 }

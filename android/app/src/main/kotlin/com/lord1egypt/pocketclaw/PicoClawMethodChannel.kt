@@ -100,6 +100,12 @@ class PicoClawMethodChannel(
                     try {
                         // 从参数中读取 publicMode，默认为 false
                         val args = call.argument<String>("args") ?: ""
+                        val source = call.argument<String>("source")
+                            ?.takeIf { it.isNotBlank() }
+                            ?: "manual"
+                        val operationId = call.argument<String>("operationId")
+                            ?.takeIf { it.isNotBlank() }
+                            ?: "android-start-${System.currentTimeMillis()}"
                         val tokens = args.split(Regex("\\s+")).filter { it.isNotBlank() }
                         val publicMode = tokens.contains("-public")
                         val launchPreferences = LaunchAutoStartPreferences.read(context)
@@ -113,8 +119,14 @@ class PicoClawMethodChannel(
                                 "gatewayAutoStart=${launchPreferences.gatewayEnabled}, " +
                                 "preferenceSource=${launchPreferences.source}"
                         )
-                        PicoClawService.start(context, publicMode)
-                        result.success(true)
+                        result.success(
+                            PicoClawService.start(
+                                context,
+                                publicMode,
+                                source,
+                                operationId,
+                            ),
+                        )
                     } catch (e: Exception) {
                         result.error("START_FAILED", e.message, null)
                     }
@@ -202,8 +214,13 @@ class PicoClawMethodChannel(
                 }
                 "stopService" -> {
                     try {
-                        PicoClawService.stop(context)
-                        result.success(true)
+                        val source = call.argument<String>("source")
+                            ?.takeIf { it.isNotBlank() }
+                            ?: "manual"
+                        val operationId = call.argument<String>("operationId")
+                            ?.takeIf { it.isNotBlank() }
+                            ?: "android-stop-${System.currentTimeMillis()}"
+                        result.success(PicoClawService.stop(context, source, operationId))
                     } catch (e: Exception) {
                         result.error("STOP_FAILED", e.message, null)
                     }
@@ -212,8 +229,15 @@ class PicoClawMethodChannel(
                     result.success(mapOf(
                         "isRunning" to PicoClawService.isRunning,
                         "isStarting" to PicoClawService.isStarting,
+                        "isStopping" to PicoClawService.isStopping,
+                        "manualStopActive" to PicoClawService.manualStopActive,
+                        "hasFailed" to PicoClawService.hasFailed,
                         "pid" to PicoClawService.processId,
-                        "lastLog" to PicoClawService.lastLog
+                        "lastLog" to PicoClawService.lastLog,
+                        "lastStartSource" to PicoClawService.lastStartSource,
+                        "lastStartOperationId" to PicoClawService.lastStartOperationId,
+                        "lastStopSource" to PicoClawService.lastStopSource,
+                        "lastStopOperationId" to PicoClawService.lastStopOperationId,
                     ))
                 }
                 "checkHealth" -> {

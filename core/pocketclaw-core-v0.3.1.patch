@@ -6049,10 +6049,10 @@ index 0000000..dc2bb6c
 +}
 diff --git a/web/backend/api/android_bridge_test.go b/web/backend/api/android_bridge_test.go
 new file mode 100644
-index 0000000..186da70
+index 0000000..e71c508
 --- /dev/null
 +++ b/web/backend/api/android_bridge_test.go
-@@ -0,0 +1,282 @@
+@@ -0,0 +1,288 @@
 +package api
 +
 +import (
@@ -6304,6 +6304,9 @@ index 0000000..186da70
 +
 +func TestAndroidGatewayBridgeExposesStatusOnlyToLoopbackCredential(t *testing.T) {
 +	resetGatewayTestState(t)
++	gateway.mu.Lock()
++	gateway.operationID = "gateway-physical-sync-1"
++	gateway.mu.Unlock()
 +	handler := NewHandler(writeAndroidBridgeTestConfig(t, ""))
 +	mux := http.NewServeMux()
 +	handler.RegisterAndroidBridgeRoutes(mux, testAndroidBridgeToken)
@@ -6319,6 +6322,9 @@ index 0000000..186da70
 +	}
 +	if status["gateway_status"] != "stopped" {
 +		t.Fatalf("gateway_status = %#v, want stopped", status["gateway_status"])
++	}
++	if status["operation_id"] != "gateway-physical-sync-1" {
++		t.Fatalf("operation_id = %#v, want gateway-physical-sync-1", status["operation_id"])
 +	}
 +
 +	unauthorized := httptest.NewRecorder()
@@ -6470,7 +6476,7 @@ index f7f6037..0d4d88e 100644
  	const sess = "session-cookie-value"
  	store := &fakePasswordStore{}
 diff --git a/web/backend/api/gateway.go b/web/backend/api/gateway.go
-index af6c656..d999ac3 100644
+index af6c656..7d705c4 100644
 --- a/web/backend/api/gateway.go
 +++ b/web/backend/api/gateway.go
 @@ -38,6 +38,7 @@ var gateway = struct {
@@ -6906,7 +6912,19 @@ index af6c656..d999ac3 100644
  		gateway.cmd = nil
  		setGatewayRuntimeStatusLocked("stopped")
  	}
-@@ -1427,9 +1624,15 @@ func (h *Handler) gatewayStatusData() map[string]any {
+@@ -1418,6 +1615,11 @@ func (h *Handler) handleGatewayStatus(w http.ResponseWriter, r *http.Request) {
+ 
+ func (h *Handler) gatewayStatusData() map[string]any {
+ 	data := map[string]any{}
++	gateway.mu.Lock()
++	if gateway.operationID != "" {
++		data["operation_id"] = gateway.operationID
++	}
++	gateway.mu.Unlock()
+ 	var configDefaultModel string
+ 	cfg, cfgErr := config.LoadConfig(h.configPath)
+ 	if cfgErr == nil && cfg != nil {
+@@ -1427,9 +1629,15 @@ func (h *Handler) gatewayStatusData() map[string]any {
  		}
  	}
  
@@ -6925,7 +6943,7 @@ index af6c656..d999ac3 100644
  		gateway.mu.Lock()
  		gateway.pidData = pidData
  		if pidData.Version != "" {
-@@ -1450,19 +1653,18 @@ func (h *Handler) gatewayStatusData() map[string]any {
+@@ -1450,19 +1658,18 @@ func (h *Handler) gatewayStatusData() map[string]any {
  		data["pid"] = pidData.PID
  		gateway.mu.Unlock()
  	} else {

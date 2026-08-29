@@ -25,7 +25,11 @@ class BootReceiver : BroadcastReceiver() {
 
         if (autoStart) {
             Log.i(TAG, "Boot completed, auto-starting PicoClaw service")
-            PicoClawService.start(context)
+            PicoClawService.start(
+                context,
+                source = "android_boot",
+                operationId = "android-boot-${System.currentTimeMillis()}",
+            )
         } else {
             Log.i(TAG, "Boot completed, auto-start is disabled")
         }

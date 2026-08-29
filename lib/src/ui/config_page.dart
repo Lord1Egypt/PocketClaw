@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -43,6 +44,7 @@ class AutoStartSettingsCard extends StatelessWidget {
   String _serviceRuntimeLabel() => switch (serviceStatus) {
     ServiceStatus.running => 'Runtime: Service running',
     ServiceStatus.starting => 'Runtime: Service starting',
+    ServiceStatus.stopping => 'Runtime: Service stopping',
     ServiceStatus.stopped => 'Runtime: Service stopped',
     ServiceStatus.failed => 'Runtime: Service failed',
   };
@@ -50,6 +52,7 @@ class AutoStartSettingsCard extends StatelessWidget {
   String _gatewayRuntimeLabel() => switch (gatewayStatus) {
     AutoStartRuntimeState.running => 'Runtime: Gateway running',
     AutoStartRuntimeState.starting => 'Runtime: Gateway starting',
+    AutoStartRuntimeState.stopping => 'Runtime: Gateway stopping',
     AutoStartRuntimeState.stopped => 'Runtime: Gateway stopped',
     AutoStartRuntimeState.failed => 'Runtime: Gateway failed',
   };
@@ -108,6 +111,7 @@ class ConfigPage extends StatefulWidget {
   final void Function(Future<void> Function()? saveFn)? onSaveFnReady;
   final Future<AboutInfo> Function()? aboutInfoLoader;
   final Future<void> Function(String path)? onManageTelegram;
+  final bool runtimeStatusVisible;
 
   const ConfigPage({
     super.key,
@@ -115,6 +119,7 @@ class ConfigPage extends StatefulWidget {
     this.onSaveFnReady,
     this.aboutInfoLoader,
     this.onManageTelegram,
+    this.runtimeStatusVisible = false,
   });
 
   @override
@@ -157,6 +162,15 @@ class ConfigPageState extends State<ConfigPage> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     _current = this;
     widget.onSaveFnReady?.call(_saveConfig);
+    if (widget.runtimeStatusVisible) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          unawaited(
+            context.read<ServiceManager>().setSettingsRuntimeObservation(true),
+          );
+        }
+      });
+    }
 
     // Initialize theme focus nodes
     _themeFocusNodes.addAll(
@@ -170,6 +184,18 @@ class ConfigPageState extends State<ConfigPage> with WidgetsBindingObserver {
     _argsController.addListener(_markDirty);
 
     _loadConfig();
+  }
+
+  @override
+  void didUpdateWidget(covariant ConfigPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.runtimeStatusVisible != widget.runtimeStatusVisible) {
+      unawaited(
+        context.read<ServiceManager>().setSettingsRuntimeObservation(
+          widget.runtimeStatusVisible,
+        ),
+      );
+    }
   }
 
   String _getLanguageName(String code) {
@@ -236,6 +262,11 @@ class ConfigPageState extends State<ConfigPage> with WidgetsBindingObserver {
 
   @override
   void dispose() {
+    if (widget.runtimeStatusVisible) {
+      unawaited(
+        context.read<ServiceManager>().setSettingsRuntimeObservation(false),
+      );
+    }
     WidgetsBinding.instance.removeObserver(this);
     _current = null;
     _hostController.dispose();
@@ -295,8 +326,8 @@ class ConfigPageState extends State<ConfigPage> with WidgetsBindingObserver {
 
     // Restart service if it was running to apply new settings
     if (wasRunning) {
-      await service.stop();
-      await service.start();
+      await service.stop(source: 'configuration_restart');
+      await service.start(source: 'configuration_restart');
     }
 
     // 无论保存成功还是失败，都重置 dirty 状态并通知父组件

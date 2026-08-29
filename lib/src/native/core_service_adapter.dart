@@ -1,8 +1,13 @@
 import 'dart:async';
 
 abstract class CoreServiceAdapter {
-  Future<bool> startService({int? port, String? args});
-  Future<bool> stopService();
+  Future<bool> startService({
+    int? port,
+    String? args,
+    String source = 'manual',
+    String operationId = '',
+  });
+  Future<bool> stopService({String source = 'manual', String operationId = ''});
   Future<Map<String, dynamic>> getServiceStatus();
   Future<Map<String, dynamic>> checkHealth();
   Future<bool> setAutoStart(bool enabled);

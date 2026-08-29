@@ -60,7 +60,7 @@ void main(List<String> args) async {
   await service.init();
 
   runApp(ChangeNotifierProvider.value(value: service, child: const MainApp()));
-  unawaited(service.ensureAutoStart(source: 'app_launch'));
+  unawaited(service.ensureAutoStart(source: 'app_launch_autostart'));
 }
 
 class MainApp extends StatelessWidget {
@@ -241,7 +241,7 @@ class _MainShellState extends State<MainShell>
     } else if (menuItem.key == 'stop_service') {
       service.stop();
     } else if (menuItem.key == 'exit_app') {
-      service.stop();
+      service.stop(source: 'app_exit');
       exit(0);
     }
   }
@@ -314,6 +314,7 @@ class _MainShellState extends State<MainShell>
                 onDirtyChanged: _onConfigDirtyChanged,
                 onSaveFnReady: _onSaveFnReady,
                 onManageTelegram: _openTelegramConsole,
+                runtimeStatusVisible: _selectedIndex == 3,
               ),
             ],
           ),
