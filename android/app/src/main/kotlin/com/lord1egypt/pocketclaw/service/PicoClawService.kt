@@ -41,9 +41,6 @@ class PicoClawService : Service() {
         const val ACTION_START = "com.lord1egypt.pocketclaw.action.START"
         const val ACTION_STOP = "com.lord1egypt.pocketclaw.action.STOP"
         const val EXTRA_PUBLIC_MODE = "public_mode"
-        const val EXTRA_GATEWAY_AUTO_START = "gateway_auto_start"
-        private const val PREF_NAME = "picoclaw_prefs"
-        private const val KEY_GATEWAY_LAUNCH_AUTO_START = "gateway_launch_auto_start"
 
         // 共享状态供 UI 读取
         @Volatile
@@ -147,20 +144,11 @@ class PicoClawService : Service() {
         fun start(
             context: Context,
             publicMode: Boolean = false,
-            gatewayAutoStart: Boolean? = null,
         ): Boolean = synchronized(PicoClawService::class.java) {
             if (isRunning || isStarting) return@synchronized false
-            val gatewayEnabled = gatewayAutoStart
-                ?: context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
-                    .getBoolean(KEY_GATEWAY_LAUNCH_AUTO_START, true)
-            context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
-                .edit()
-                .putBoolean(KEY_GATEWAY_LAUNCH_AUTO_START, gatewayEnabled)
-                .apply()
             val intent = Intent(context, PicoClawService::class.java).apply {
                 action = ACTION_START
                 putExtra(EXTRA_PUBLIC_MODE, publicMode)
-                putExtra(EXTRA_GATEWAY_AUTO_START, gatewayEnabled)
             }
             isStarting = true
             try {
@@ -429,9 +417,15 @@ class PicoClawService : Service() {
                 isStarting = true
                 // 从 Intent 读取 publicMode 参数
                 publicMode = intent?.getBooleanExtra(EXTRA_PUBLIC_MODE, false) ?: false
-                gatewayAutoStart = intent?.getBooleanExtra(EXTRA_GATEWAY_AUTO_START, true)
-                    ?: getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
-                        .getBoolean(KEY_GATEWAY_LAUNCH_AUTO_START, true)
+                val launchPreferences = LaunchAutoStartPreferences.read(this)
+                gatewayAutoStart = launchPreferences.gatewayEnabled
+                publishLog(
+                    "{\"event\":\"autostart.preferences.loaded\"," +
+                        "\"service_autostart\":${launchPreferences.serviceEnabled}," +
+                        "\"gateway_autostart\":${launchPreferences.gatewayEnabled}," +
+                        "\"preference_source\":\"${launchPreferences.source}\"," +
+                        "\"source\":\"android_service_start\"}"
+                )
                 startForeground(NOTIFICATION_ID, createNotification("Starting..."))
                 acquireWakeLock()
                 startService()

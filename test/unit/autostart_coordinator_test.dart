@@ -288,4 +288,37 @@ void main() {
     expect(result.serviceState, AutoStartRuntimeState.failed);
     expect(runtime.gatewayStarts, 0);
   });
+
+  test(
+    'evaluation log identifies canonical preference source and states',
+    () async {
+      final runtime = _FakeRuntime()
+        ..serviceState = AutoStartRuntimeState.running
+        ..gatewayState = AutoStartRuntimeState.running;
+      final records = <Map<String, Object?>>[];
+      final coordinator = AutoStartCoordinator(
+        runtime: runtime,
+        logger: (event, metadata) {
+          if (event == 'autostart.evaluate') records.add(metadata);
+        },
+        clock: () => DateTime.utc(2026, 8, 29),
+      );
+
+      await coordinator.ensureForAppOpen(
+        preferences: _bothOn,
+        source: 'app_resume',
+        preferenceSource: 'android_native_canonical',
+      );
+
+      expect(records, hasLength(1));
+      expect(records.single, containsPair('service_autostart', true));
+      expect(records.single, containsPair('gateway_autostart', true));
+      expect(records.single, containsPair('service_state', 'running'));
+      expect(records.single, containsPair('gateway_state', 'running'));
+      expect(
+        records.single,
+        containsPair('preference_source', 'android_native_canonical'),
+      );
+    },
+  );
 }

@@ -77,6 +77,22 @@ func mockGatewayHealthResponse(statusCode, pid int) *http.Response {
 	}
 }
 
+func mockGatewayRuntimeReady(t *testing.T, pid int) {
+	t.Helper()
+	gatewayProcessMatcher = func(candidate int) (bool, bool) {
+		return candidate == pid, true
+	}
+	gatewayHealthGet = func(string, time.Duration) (*http.Response, error) {
+		return mockGatewayHealthResponse(http.StatusOK, pid), nil
+	}
+	writeTestPidFile(t, ppid.PidFileData{
+		PID:  pid,
+		Host: "127.0.0.1",
+		Port: 18790,
+	})
+	t.Cleanup(func() { ppid.RemovePidFile(globalConfigDir()) })
+}
+
 func startIgnoringTermProcess(t *testing.T) *exec.Cmd {
 	t.Helper()
 
@@ -114,11 +130,43 @@ func resetGatewayTestState(t *testing.T) {
 		gateway.cmd = nil
 		gateway.pidData = nil
 		gateway.owned = false
+		gateway.operationID = ""
 		gateway.bootDefaultModel = ""
 		gateway.bootConfigSignature = ""
+		gateway.picoToken = ""
 		setGatewayRuntimeStatusLocked("stopped")
 		gateway.mu.Unlock()
 	})
+}
+
+func TestValidateGatewayPidDataAcceptsFreshOwnedProcessWhenPlatformMatcherMisclassifies(t *testing.T) {
+	resetGatewayTestState(t)
+
+	cmd := startLongRunningProcess(t)
+	t.Cleanup(func() {
+		if cmd.Process != nil {
+			_ = cmd.Process.Kill()
+		}
+		_ = cmd.Wait()
+	})
+
+	gateway.mu.Lock()
+	gateway.cmd = cmd
+	gateway.owned = true
+	gateway.operationID = "test-owned-operation"
+	setGatewayRuntimeStatusLocked("starting")
+	gateway.mu.Unlock()
+	gatewayProcessMatcher = func(int) (bool, bool) { return false, true }
+
+	h := NewHandler(filepath.Join(t.TempDir(), "config.json"))
+	ok, decisive, reason := h.validateGatewayPidData(
+		&ppid.PidFileData{PID: cmd.Process.Pid, Host: "127.0.0.1", Port: 18790},
+		nil,
+		"fresh_spawn",
+	)
+	if !ok || !decisive {
+		t.Fatalf("fresh owned PID rejected: ok=%v decisive=%v reason=%q", ok, decisive, reason)
+	}
 }
 
 func TestPicoGatewayProtocol(t *testing.T) {
@@ -502,7 +550,7 @@ func TestValidateGatewayPidDataAcceptsHealthWhenMatcherInconclusive(t *testing.T
 		return mockGatewayHealthResponse(http.StatusOK, testPID), nil
 	}
 
-	ok, decisive, reason := h.validateGatewayPidData(pidData, nil)
+	ok, decisive, reason := h.validateGatewayPidData(pidData, nil, "test")
 	if !ok {
 		t.Fatalf("validateGatewayPidData() ok = false, want true (reason=%q)", reason)
 	}
@@ -528,7 +576,7 @@ func TestValidateGatewayPidDataRejectsHealthPidMismatchWhenMatcherInconclusive(t
 		return mockGatewayHealthResponse(http.StatusOK, 99999), nil
 	}
 
-	ok, decisive, reason := h.validateGatewayPidData(pidData, nil)
+	ok, decisive, reason := h.validateGatewayPidData(pidData, nil, "test")
 	if ok {
 		t.Fatalf("validateGatewayPidData() ok = true, want false")
 	}
@@ -837,7 +885,7 @@ func TestGatewayStatusIncludesStartConditionWhenNotReady(t *testing.T) {
 	}
 }
 
-func TestGatewayStatusKeepsRunningWhenHealthProbeFailsAfterRunning(t *testing.T) {
+func TestGatewayStatusDoesNotReportRunningWhenHealthProbeFails(t *testing.T) {
 	resetGatewayTestState(t)
 
 	configPath := filepath.Join(t.TempDir(), "config.json")
@@ -877,12 +925,12 @@ func TestGatewayStatusKeepsRunningWhenHealthProbeFailsAfterRunning(t *testing.T)
 		t.Fatalf("unmarshal response: %v", err)
 	}
 
-	if got := body["gateway_status"]; got != "running" {
-		t.Fatalf("gateway_status = %#v, want %q", got, "running")
+	if got := body["gateway_status"]; got == "running" {
+		t.Fatalf("gateway_status = %#v, must not be running without health", got)
 	}
 }
 
-func TestGatewayStatusKeepsPidDataWhileTrackedProcessAliveWhenPidFileUnavailable(t *testing.T) {
+func TestGatewayStatusClearsRunningWhenPidOwnershipUnavailable(t *testing.T) {
 	resetGatewayTestState(t)
 
 	configPath := filepath.Join(t.TempDir(), "config.json")
@@ -917,8 +965,11 @@ func TestGatewayStatusKeepsPidDataWhileTrackedProcessAliveWhenPidFileUnavailable
 
 	gateway.mu.Lock()
 	defer gateway.mu.Unlock()
-	if gateway.pidData == nil {
-		t.Fatal("gateway.pidData was cleared while runtime status remained running")
+	if gateway.pidData != nil {
+		t.Fatal("gateway.pidData must be cleared when pid ownership is unavailable")
+	}
+	if gateway.runtimeStatus == "running" {
+		t.Fatal("runtime status must not remain running without pid ownership")
 	}
 }
 
@@ -983,6 +1034,9 @@ func TestGatewayStatusIgnoresAndRemovesPidFileForNonGatewayProcess(t *testing.T)
 		}
 		_ = cmd.Wait()
 	})
+	gatewayHealthGet = func(string, time.Duration) (*http.Response, error) {
+		return mockGatewayHealthResponse(http.StatusOK, cmd.Process.Pid), nil
+	}
 
 	pidPath := writeTestPidFile(t, ppid.PidFileData{
 		PID:   cmd.Process.Pid,
@@ -1066,6 +1120,7 @@ func TestGatewayStatusReportsRunningFromPidProbe(t *testing.T) {
 	})
 
 	gateway.mu.Lock()
+	gateway.picoToken = "test-token"
 	setGatewayRuntimeStatusLocked("stopped")
 	gateway.mu.Unlock()
 
@@ -1141,6 +1196,7 @@ func TestGatewayStatusRequiresRestartAfterDefaultModelChange(t *testing.T) {
 	gateway.cmd = cmd
 	gateway.bootDefaultModel = cfg.ModelList[0].ModelName
 	gateway.bootConfigSignature = bootSignature
+	gateway.picoToken = "test-token"
 	setGatewayRuntimeStatusLocked("running")
 	gateway.mu.Unlock()
 
@@ -1154,7 +1210,7 @@ func TestGatewayStatusRequiresRestartAfterDefaultModelChange(t *testing.T) {
 	}
 
 	gatewayHealthGet = func(string, time.Duration) (*http.Response, error) {
-		return mockGatewayHealthResponse(http.StatusOK, os.Getpid()), nil
+		return mockGatewayHealthResponse(http.StatusOK, cmd.Process.Pid), nil
 	}
 
 	rec := httptest.NewRecorder()
@@ -1210,6 +1266,7 @@ func TestGatewayStatusRequiresRestartAfterToolChange(t *testing.T) {
 	gateway.cmd = &exec.Cmd{Process: process}
 	gateway.bootDefaultModel = cfg.ModelList[0].ModelName
 	gateway.bootConfigSignature = bootSignature
+	gateway.picoToken = "test-token"
 	setGatewayRuntimeStatusLocked("running")
 	gateway.mu.Unlock()
 
@@ -1222,9 +1279,7 @@ func TestGatewayStatusRequiresRestartAfterToolChange(t *testing.T) {
 		t.Fatalf("SaveConfig() error = %v", err)
 	}
 
-	gatewayHealthGet = func(string, time.Duration) (*http.Response, error) {
-		return mockGatewayHealthResponse(http.StatusOK, os.Getpid()), nil
-	}
+	mockGatewayRuntimeReady(t, os.Getpid())
 
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/api/gateway/status", nil)
@@ -1272,6 +1327,7 @@ func TestGatewayStatusRequiresRestartAfterChannelChange(t *testing.T) {
 	gateway.cmd = &exec.Cmd{Process: process}
 	gateway.bootDefaultModel = cfg.ModelList[0].ModelName
 	gateway.bootConfigSignature = bootSignature
+	gateway.picoToken = "test-token"
 	setGatewayRuntimeStatusLocked("running")
 	gateway.mu.Unlock()
 
@@ -1288,9 +1344,7 @@ func TestGatewayStatusRequiresRestartAfterChannelChange(t *testing.T) {
 		t.Fatalf("SaveConfig() error = %v", err)
 	}
 
-	gatewayHealthGet = func(string, time.Duration) (*http.Response, error) {
-		return mockGatewayHealthResponse(http.StatusOK, os.Getpid()), nil
-	}
+	mockGatewayRuntimeReady(t, os.Getpid())
 
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/api/gateway/status", nil)
@@ -1339,6 +1393,7 @@ func TestGatewayStatusRequiresRestartAfterDefaultModelStreamingChange(t *testing
 	gateway.cmd = &exec.Cmd{Process: process}
 	gateway.bootDefaultModel = cfg.ModelList[0].ModelName
 	gateway.bootConfigSignature = bootSignature
+	gateway.picoToken = "test-token"
 	setGatewayRuntimeStatusLocked("running")
 	gateway.mu.Unlock()
 
@@ -1351,9 +1406,7 @@ func TestGatewayStatusRequiresRestartAfterDefaultModelStreamingChange(t *testing
 		t.Fatalf("SaveConfig() error = %v", err)
 	}
 
-	gatewayHealthGet = func(string, time.Duration) (*http.Response, error) {
-		return mockGatewayHealthResponse(http.StatusOK, os.Getpid()), nil
-	}
+	mockGatewayRuntimeReady(t, os.Getpid())
 
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/api/gateway/status", nil)
@@ -1862,6 +1915,7 @@ func TestGatewayStatusRequiresRestartAfterWebSearchConfigChange(t *testing.T) {
 	gateway.cmd = &exec.Cmd{Process: process}
 	gateway.bootDefaultModel = cfg.ModelList[0].ModelName
 	gateway.bootConfigSignature = bootSignature
+	gateway.picoToken = "test-token"
 	setGatewayRuntimeStatusLocked("running")
 	gateway.mu.Unlock()
 
@@ -1874,9 +1928,7 @@ func TestGatewayStatusRequiresRestartAfterWebSearchConfigChange(t *testing.T) {
 		t.Fatalf("SaveConfig() error = %v", err)
 	}
 
-	gatewayHealthGet = func(string, time.Duration) (*http.Response, error) {
-		return mockGatewayHealthResponse(http.StatusOK, os.Getpid()), nil
-	}
+	mockGatewayRuntimeReady(t, os.Getpid())
 
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/api/gateway/status", nil)
@@ -1925,6 +1977,7 @@ func TestGatewayStatusNoRestartRequiredForNonSensitiveChanges(t *testing.T) {
 	gateway.cmd = &exec.Cmd{Process: process}
 	gateway.bootDefaultModel = cfg.ModelList[0].ModelName
 	gateway.bootConfigSignature = bootSignature
+	gateway.picoToken = "test-token"
 	setGatewayRuntimeStatusLocked("running")
 	gateway.mu.Unlock()
 
@@ -1937,9 +1990,7 @@ func TestGatewayStatusNoRestartRequiredForNonSensitiveChanges(t *testing.T) {
 		t.Fatalf("SaveConfig() error = %v", err)
 	}
 
-	gatewayHealthGet = func(string, time.Duration) (*http.Response, error) {
-		return mockGatewayHealthResponse(http.StatusOK, os.Getpid()), nil
-	}
+	mockGatewayRuntimeReady(t, os.Getpid())
 
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/api/gateway/status", nil)

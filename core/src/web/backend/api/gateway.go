@@ -38,6 +38,7 @@ var gateway = struct {
 	bootConfigSignature string
 	runtimeStatus       string
 	startupDeadline     time.Time
+	operationID         string
 	logs                *LogBuffer
 	pidData             *ppid.PidFileData // pid file data read from picoclaw.pid.json
 	picoToken           string            // cached raw pico token for upstream gateway proxy injection
@@ -257,40 +258,140 @@ func (h *Handler) getGatewayHealthForPidData(
 	return getGatewayHealthByURL(url, timeout)
 }
 
+func (h *Handler) getGatewayReadyForPidData(
+	pidData *ppid.PidFileData,
+	cfg *config.Config,
+	timeout time.Duration,
+) (int, error) {
+	if pidData == nil {
+		return 0, errors.New("nil pid data")
+	}
+	port := pidData.Port
+	if port == 0 {
+		port = 18790
+		if cfg != nil && cfg.Gateway.Port != 0 {
+			port = cfg.Gateway.Port
+		}
+	}
+	host := gatewayProbeHost(strings.TrimSpace(pidData.Host))
+	if host == "" {
+		host = gatewayProbeHost(h.effectiveGatewayBindHost(cfg))
+	}
+	if host == "" {
+		host = netbind.ResolveAdaptiveLoopbackHost()
+	}
+	url := "http://" + net.JoinHostPort(host, strconv.Itoa(port)) + "/ready"
+	_, statusCode, err := getGatewayHealthByURL(url, timeout)
+	return statusCode, err
+}
+
 func (h *Handler) validateGatewayPidData(
 	pidData *ppid.PidFileData,
 	cfg *config.Config,
+	stage string,
 ) (ok bool, decisive bool, reason string) {
 	if pidData == nil || pidData.PID <= 0 {
+		logGatewayPidValidation(0, false, "missing", stage, "")
 		return false, true, "invalid pid data"
+	}
+
+	gateway.mu.Lock()
+	spawnedPID := 0
+	trackedOwned := gateway.owned
+	processAlive := false
+	operationID := gateway.operationID
+	if gateway.cmd != nil && gateway.cmd.Process != nil {
+		spawnedPID = gateway.cmd.Process.Pid
+		processAlive = isCmdProcessAliveLocked(gateway.cmd)
+	}
+	gateway.mu.Unlock()
+
+	// The launcher has stronger evidence for a process it directly spawned
+	// than platform command-line inspection. Android toybox `ps` may expose
+	// only the executable name and omit the `gateway` argument, which made a
+	// fresh, exact PID look foreign even though exec.Cmd still owned it.
+	if trackedOwned && spawnedPID == pidData.PID {
+		if processAlive {
+			logGatewayPidValidation(pidData.PID, true, "owned", stage, operationID)
+			return true, true, ""
+		}
+		logGatewayPidValidation(pidData.PID, false, "missing", stage, operationID)
+		return false, true, "tracked gateway process exited"
 	}
 
 	if gatewayProcess, inspected := gatewayProcessMatcher(pidData.PID); inspected {
 		if !gatewayProcess {
+			result := "foreign"
+			if spawnedPID > 0 && spawnedPID != pidData.PID {
+				result = "mismatch"
+			}
+			logGatewayPidValidation(pidData.PID, processAlive, result, stage, operationID)
 			return false, true, "pid belongs to another process; ignoring stale pid file"
 		}
+		logGatewayPidValidation(pidData.PID, true, "owned", stage, operationID)
 		return true, true, ""
 	}
 
 	healthResp, statusCode, err := h.getGatewayHealthForPidData(pidData, cfg, 800*time.Millisecond)
 	if err != nil {
+		logGatewayPidValidation(pidData.PID, false, "missing", stage, operationID)
 		return false, false, fmt.Sprintf("health probe failed: %v", err)
 	}
 	if statusCode != http.StatusOK {
 		return false, false, fmt.Sprintf("health endpoint returned status %d", statusCode)
 	}
 	if healthResp.PID > 0 && healthResp.PID != pidData.PID {
+		logGatewayPidValidation(pidData.PID, true, "mismatch", stage, operationID)
 		return false, true, fmt.Sprintf("health pid mismatch: pidFile=%d, health=%d", pidData.PID, healthResp.PID)
 	}
+	logGatewayPidValidation(pidData.PID, true, "owned", stage, operationID)
 	return true, true, ""
 }
 
-func (h *Handler) sanitizeGatewayPidData(pidData *ppid.PidFileData, cfg *config.Config) *ppid.PidFileData {
+func logGatewayPidValidation(
+	pidFilePID int,
+	processAlive bool,
+	result string,
+	stage string,
+	operationID string,
+) {
+	spawnedPID := 0
+	gateway.mu.Lock()
+	if gateway.cmd != nil && gateway.cmd.Process != nil {
+		spawnedPID = gateway.cmd.Process.Pid
+	}
+	if operationID == "" {
+		operationID = gateway.operationID
+	}
+	gateway.mu.Unlock()
+	if operationID == "" {
+		operationID = fmt.Sprintf("validation-%d-%d", time.Now().UTC().UnixMicro(), pidFilePID)
+	}
+	logger.DebugCF("gateway", "Gateway PID validation", map[string]any{
+		"event":             "gateway.pid.validation",
+		"spawned_pid":       spawnedPID,
+		"pidfile_pid":       pidFilePID,
+		"validation_result": result,
+		"process_alive":     processAlive,
+		"stage":             stage,
+		"operation_id":      operationID,
+	})
+}
+
+func (h *Handler) sanitizeGatewayPidData(
+	pidData *ppid.PidFileData,
+	cfg *config.Config,
+	stage ...string,
+) *ppid.PidFileData {
 	if pidData == nil {
 		return nil
 	}
 
-	ok, decisive, reason := h.validateGatewayPidData(pidData, cfg)
+	validationStage := "runtime"
+	if len(stage) > 0 && strings.TrimSpace(stage[0]) != "" {
+		validationStage = stage[0]
+	}
+	ok, decisive, reason := h.validateGatewayPidData(pidData, cfg, validationStage)
 	if ok {
 		return pidData
 	}
@@ -300,6 +401,48 @@ func (h *Handler) sanitizeGatewayPidData(pidData *ppid.PidFileData, cfg *config.
 		logger.Warnf("removed stale pid file for PID %d", pidData.PID)
 	}
 	return nil
+}
+
+// gatewayRuntimeReady is the single readiness contract shared by status and
+// realtime proxy admission. A reachable health endpoint alone is insufficient:
+// the PID must be recognized as the managed process and identify itself in its
+// health response, and the launcher must have the Pico routing credential in
+// memory before RUNNING can be reported.
+func (h *Handler) gatewayRuntimeReady(
+	pidData *ppid.PidFileData,
+	cfg *config.Config,
+	stage string,
+) (bool, string) {
+	if pidData == nil {
+		return false, "managed pid unavailable"
+	}
+	ok, _, reason := h.validateGatewayPidData(pidData, cfg, stage)
+	if !ok {
+		return false, reason
+	}
+	healthResp, statusCode, err := h.getGatewayHealthForPidData(pidData, cfg, 800*time.Millisecond)
+	if err != nil {
+		return false, "health endpoint unavailable"
+	}
+	if statusCode != http.StatusOK {
+		return false, fmt.Sprintf("health endpoint returned status %d", statusCode)
+	}
+	if healthResp.PID <= 0 || healthResp.PID != pidData.PID {
+		return false, "health process identity mismatch"
+	}
+	readyStatus, readyErr := h.getGatewayReadyForPidData(pidData, cfg, 800*time.Millisecond)
+	if readyErr != nil || readyStatus != http.StatusOK {
+		return false, "ready endpoint unavailable"
+	}
+
+	gateway.mu.Lock()
+	ensurePicoTokenCachedLocked(h.configPath)
+	tokenReady := gateway.picoToken != ""
+	gateway.mu.Unlock()
+	if !tokenReady {
+		return false, "realtime proxy credential unavailable"
+	}
+	return true, "ready"
 }
 
 // registerGatewayRoutes binds gateway lifecycle endpoints to the ServeMux.
@@ -316,8 +459,12 @@ func (h *Handler) registerGatewayRoutes(mux *http.ServeMux) {
 // starts it when possible. Intended to be called by the backend at startup.
 func (h *Handler) TryAutoStartGateway() {
 	// Check PID file first to detect an already-running gateway.
-	pidData := h.sanitizeGatewayPidData(ppid.ReadPidFileWithCheck(globalConfigDir()), nil)
+	pidData := h.sanitizeGatewayPidData(ppid.ReadPidFileWithCheck(globalConfigDir()), nil, "autostart_attach")
 	if pidData != nil {
+		if ready, reason := h.gatewayRuntimeReady(pidData, nil, "autostart_attach"); !ready {
+			logger.InfoC("gateway", fmt.Sprintf("Existing gateway is not ready to attach: %s", reason))
+			return
+		}
 		gateway.mu.Lock()
 		ready, reason, err := h.gatewayStartReady()
 		if err != nil {
@@ -873,6 +1020,7 @@ func attachToGatewayProcessLocked(pid int, cfg *config.Config) error {
 
 	gateway.cmd = &exec.Cmd{Process: process}
 	gateway.owned = false // We didn't start this process
+	gateway.operationID = fmt.Sprintf("attached-%d-%d", time.Now().UTC().UnixMicro(), pid)
 	setGatewayRuntimeStatusLocked("running")
 
 	// Update bootDefaultModel and bootConfigSignature from config
@@ -901,6 +1049,7 @@ func gatewayStatusWithoutHealthLocked() string {
 			gateway.owned = false
 			gateway.bootDefaultModel = ""
 			gateway.bootConfigSignature = ""
+			gateway.operationID = ""
 			return "stopped"
 		}
 		return "running"
@@ -982,6 +1131,7 @@ func stopGatewayLocked() (int, error) {
 	gateway.owned = false
 	gateway.bootDefaultModel = ""
 	gateway.pidData = nil
+	gateway.operationID = ""
 	setGatewayRuntimeStatusLocked("stopped")
 
 	return pid, nil
@@ -1096,6 +1246,7 @@ func (h *Handler) startGatewayLocked(initialStatus string, existingPid int) (int
 
 	gateway.cmd = cmd
 	gateway.owned = true // We started this process
+	gateway.operationID = fmt.Sprintf("spawned-%d-%d", time.Now().UTC().UnixMicro(), cmd.Process.Pid)
 	gateway.bootDefaultModel = defaultModelName
 	gateway.bootConfigSignature = computeConfigSignature(cfg)
 	setGatewayRuntimeStatusLocked(initialStatus)
@@ -1119,6 +1270,7 @@ func (h *Handler) startGatewayLocked(initialStatus string, existingPid int) (int
 			gateway.cmd = nil
 			gateway.bootDefaultModel = ""
 			gateway.bootConfigSignature = ""
+			gateway.operationID = ""
 			if gateway.runtimeStatus != "restarting" {
 				setGatewayRuntimeStatusLocked("stopped")
 			}
@@ -1129,6 +1281,7 @@ func (h *Handler) startGatewayLocked(initialStatus string, existingPid int) (int
 	// Start a goroutine to probe pidFile and health, update runtime state once ready.
 	go func() {
 		healthConfirmed := false
+		lastReason := "managed pid unavailable"
 		for i := 0; i < 30; i++ { // try for up to 15 seconds
 			time.Sleep(500 * time.Millisecond)
 			gateway.mu.Lock()
@@ -1138,47 +1291,53 @@ func (h *Handler) startGatewayLocked(initialStatus string, existingPid int) (int
 				return
 			}
 
-			// Poll for pidFile first — once available we have port/host/token.
-			if pd := ppid.ReadPidFileWithCheck(globalConfigDir()); pd != nil && pd.PID == pid {
-				gateway.mu.Lock()
-				if gateway.cmd == cmd {
-					gateway.pidData = pd
-					var picoCfg config.PicoSettings
-					if bc := cfg.Channels.GetByType(config.ChannelPico); bc != nil {
-						decoded, err := bc.GetDecoded()
-						if err == nil && decoded != nil {
-							if p, ok := decoded.(*config.PicoSettings); ok {
-								picoCfg = *p
-							}
+			// RUNNING requires the exact managed PID, its health identity, and
+			// realtime routing prerequisites to agree.
+			if raw := ppid.ReadPidFileWithCheck(globalConfigDir()); raw != nil && raw.PID == pid {
+				pd := h.sanitizeGatewayPidData(raw, cfg, "startup_readiness")
+				if pd != nil {
+					ready, reason := h.gatewayRuntimeReady(pd, cfg, "startup_readiness")
+					lastReason = reason
+					if ready {
+						gateway.mu.Lock()
+						if gateway.cmd == cmd {
+							gateway.pidData = pd
+							setGatewayRuntimeStatusLocked("running")
 						}
+						gateway.mu.Unlock()
+						logger.InfoC("gateway", fmt.Sprintf("Gateway ready (PID: %d, port: %d)", pd.PID, pd.Port))
+						return
 					}
-					gateway.picoToken = picoCfg.Token.String()
-					setGatewayRuntimeStatusLocked("running")
 				}
-				gateway.mu.Unlock()
-				logger.InfoC("gateway", fmt.Sprintf("Gateway pidFile detected (PID: %d, port: %d)", pd.PID, pd.Port))
-				return
 			}
 
-			// Fallback: probe health endpoint to confirm liveness.
-			cfg, err := config.LoadConfig(h.configPath)
+			// Health alone is diagnostic and must never promote state to RUNNING.
+			currentCfg, err := config.LoadConfig(h.configPath)
 			if err != nil {
 				continue
 			}
-			_, statusCode, err := h.getGatewayHealth(cfg, 1*time.Second)
+			_, statusCode, err := h.getGatewayHealth(currentCfg, 1*time.Second)
 			if err == nil && statusCode == http.StatusOK {
-				gateway.mu.Lock()
-				if gateway.cmd == cmd {
-					setGatewayRuntimeStatusLocked("running")
-				}
-				gateway.mu.Unlock()
 				if !healthConfirmed {
 					healthConfirmed = true
-					logger.InfoC("gateway", "Gateway health endpoint reachable; waiting for pid file")
+					logger.InfoC("gateway", "Gateway health endpoint reachable; waiting for pid ownership")
 				}
 				continue
 			}
 		}
+		gateway.mu.Lock()
+		if gateway.cmd == cmd && gateway.runtimeStatus != "stopped" {
+			setGatewayRuntimeStatusLocked("error")
+			logger.WarnCF("gateway", "Gateway readiness failed", map[string]any{
+				"event":        "gateway.start.failed",
+				"operation_id": gateway.operationID,
+				"stage":        "readiness_contract",
+				"reason":       lastReason,
+				"result":       "failed",
+				"timeout_ms":   gatewayStartupWindow.Milliseconds(),
+			})
+		}
+		gateway.mu.Unlock()
 	}()
 
 	return pid, nil
@@ -1189,8 +1348,17 @@ func (h *Handler) startGatewayLocked(initialStatus string, existingPid int) (int
 //	POST /api/gateway/start
 func (h *Handler) handleGatewayStart(w http.ResponseWriter, r *http.Request) {
 	// Check PID file first to detect an already-running gateway.
-	pidData := h.sanitizeGatewayPidData(ppid.ReadPidFileWithCheck(globalConfigDir()), nil)
+	pidData := h.sanitizeGatewayPidData(ppid.ReadPidFileWithCheck(globalConfigDir()), nil, "manual_attach")
 	if pidData != nil {
+		if runtimeReady, runtimeReason := h.gatewayRuntimeReady(pidData, nil, "manual_attach"); !runtimeReady {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(map[string]any{
+				"status":  "precondition_failed",
+				"message": runtimeReason,
+			})
+			return
+		}
 		pid := pidData.PID
 		gateway.mu.Lock()
 		ready, reason, err := h.gatewayStartReady()
@@ -1456,9 +1624,15 @@ func (h *Handler) gatewayStatusData() map[string]any {
 		}
 	}
 
-	// Primary detection: read PID file and check if process is alive.
-	pidData := h.sanitizeGatewayPidData(ppid.ReadPidFileWithCheck(globalConfigDir()), cfg)
-	if pidData != nil {
+	// Status and proxy use the same readiness contract. PID or health alone
+	// cannot promote the managed runtime to RUNNING.
+	pidData := h.sanitizeGatewayPidData(
+		ppid.ReadPidFileWithCheck(globalConfigDir()),
+		cfg,
+		"status",
+	)
+	runtimeReady, readinessReason := h.gatewayRuntimeReady(pidData, cfg, "status")
+	if runtimeReady {
 		gateway.mu.Lock()
 		gateway.pidData = pidData
 		if pidData.Version != "" {
@@ -1479,19 +1653,18 @@ func (h *Handler) gatewayStatusData() map[string]any {
 		data["pid"] = pidData.PID
 		gateway.mu.Unlock()
 	} else {
-		// Intentionally skip health probe here; the startup goroutine
-		// (startGatewayLocked) already handles liveness detection via
-		// pidFile polling and health fallback.
 		gateway.mu.Lock()
 		status := gatewayStatusWithoutHealthLocked()
+		if status == "running" {
+			setGatewayRuntimeStatusLocked("error")
+			status = "error"
+		}
 		data["gateway_status"] = status
-		// Keep last known pidData while gateway is still in a transient
-		// running state; otherwise websocket proxy may lose auth token
-		// during short pid-file races.
 		if status == "stopped" || status == "error" {
 			gateway.pidData = nil
 		}
 		gateway.mu.Unlock()
+		data["gateway_readiness_reason"] = readinessReason
 	}
 
 	gatewayStatus, _ := data["gateway_status"].(string)

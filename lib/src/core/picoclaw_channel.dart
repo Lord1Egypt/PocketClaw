@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
+import 'launch_autostart_preferences.dart';
+
 class PublicModeApplyResult {
   const PublicModeApplyResult({
     required this.success,
@@ -85,6 +87,40 @@ class PicoClawChannel {
     final result = await _channel.invokeMethod<Map>('startGateway');
     if (result == null) return {'status': 'failed'};
     return Map<String, dynamic>.from(result);
+  }
+
+  static Future<NativeLaunchAutoStartPreferences>
+  getLaunchAutoStartPreferences() async {
+    final result = await _channel.invokeMethod<Map>(
+      'getLaunchAutoStartPreferences',
+    );
+    return _mapLaunchAutoStartPreferences(result);
+  }
+
+  static Future<NativeLaunchAutoStartPreferences>
+  setLaunchAutoStartPreferences({
+    bool? serviceEnabled,
+    bool? gatewayEnabled,
+  }) async {
+    final result = await _channel.invokeMethod<Map>(
+      'setLaunchAutoStartPreferences',
+      <String, Object?>{
+        'serviceEnabled': ?serviceEnabled,
+        'gatewayEnabled': ?gatewayEnabled,
+      },
+    );
+    return _mapLaunchAutoStartPreferences(result);
+  }
+
+  static NativeLaunchAutoStartPreferences _mapLaunchAutoStartPreferences(
+    Map<dynamic, dynamic>? result,
+  ) {
+    return NativeLaunchAutoStartPreferences(
+      serviceEnabled: result?['serviceEnabled'] as bool? ?? true,
+      gatewayEnabled: result?['gatewayEnabled'] as bool? ?? true,
+      initialized: result?['initialized'] as bool? ?? false,
+      source: result?['source'] as String? ?? 'native_canonical',
+    );
   }
 
   /// 读取 config.json 内容

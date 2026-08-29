@@ -54,6 +54,10 @@ class AutoStartSettingsCard extends StatelessWidget {
     AutoStartRuntimeState.failed => 'Runtime: Gateway failed',
   };
 
+  String _preferenceAndRuntime(bool enabled, String runtime, [String? error]) =>
+      'Auto-start preference: ${enabled ? 'ON' : 'OFF'}\n'
+      '$runtime${error == null ? '' : '\n$error'}';
+
   @override
   Widget build(BuildContext context) {
     final dependencyBlocked =
@@ -66,7 +70,13 @@ class AutoStartSettingsCard extends StatelessWidget {
         children: [
           SwitchListTile.adaptive(
             title: const Text('Start PocketClaw service automatically'),
-            subtitle: Text(serviceError ?? _serviceRuntimeLabel()),
+            subtitle: Text(
+              _preferenceAndRuntime(
+                serviceEnabled,
+                _serviceRuntimeLabel(),
+                serviceError,
+              ),
+            ),
             value: serviceEnabled,
             onChanged: onServiceChanged,
           ),
@@ -74,9 +84,13 @@ class AutoStartSettingsCard extends StatelessWidget {
           SwitchListTile.adaptive(
             title: const Text('Start Gateway automatically'),
             subtitle: Text(
-              dependencyBlocked
-                  ? 'Requires a running PocketClaw service; this setting will not start it.'
-                  : (gatewayError ?? _gatewayRuntimeLabel()),
+              _preferenceAndRuntime(
+                gatewayEnabled,
+                dependencyBlocked
+                    ? 'Runtime: Requires a running PocketClaw service; this setting will not start it.'
+                    : _gatewayRuntimeLabel(),
+                gatewayError,
+              ),
             ),
             value: gatewayEnabled,
             onChanged: onGatewayChanged,

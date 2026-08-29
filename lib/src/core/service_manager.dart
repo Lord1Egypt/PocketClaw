@@ -9,6 +9,7 @@ import '../generated/l10n/app_localizations.dart';
 import 'app_theme.dart';
 import 'device_feedback_models.dart';
 import 'firebase_device_reporter.dart';
+import 'launch_autostart_preferences.dart';
 import 'picoclaw_channel.dart';
 import 'plain_text_log_sanitizer.dart';
 import 'umeng_device_reporter.dart';
@@ -32,8 +33,6 @@ class LanAddressCandidate {
 class ServiceManager extends ChangeNotifier
     with WidgetsBindingObserver
     implements AutoStartRuntime {
-  static const String _prefsServiceLaunchAutoStart = 'service_launch_autostart';
-  static const String _prefsGatewayLaunchAutoStart = 'gateway_launch_autostart';
   static const Duration _serviceStartTimeout = Duration(seconds: 25);
   static const Duration _gatewayStartTimeout = Duration(seconds: 20);
   static const Duration _readinessPollInterval = Duration(milliseconds: 250);
@@ -151,6 +150,12 @@ class ServiceManager extends ChangeNotifier
   }
 
   final CoreServiceAdapter _adapter = CoreServiceAdapterFactory.create();
+  final LaunchAutoStartPreferenceStore _launchAutoStartPreferenceStore =
+      LaunchAutoStartPreferenceStore(
+        useNativeStore: Platform.isAndroid,
+        readNative: PicoClawChannel.getLaunchAutoStartPreferences,
+        writeNative: PicoClawChannel.setLaunchAutoStartPreferences,
+      );
   late final AutoStartCoordinator _autoStartCoordinator;
   final FirebaseDeviceReporter _firebaseReporter = FirebaseDeviceReporter();
   final UmengDeviceReporter _umengReporter = UmengDeviceReporter();
@@ -199,6 +204,7 @@ class ServiceManager extends ChangeNotifier
   bool _autoStart = false;
   bool _serviceLaunchAutoStart = AutoStartPreferences.defaults.serviceEnabled;
   bool _gatewayLaunchAutoStart = AutoStartPreferences.defaults.gatewayEnabled;
+  String _launchAutoStartPreferenceSource = 'defaults';
   String? _serviceStartError;
   String? _gatewayStartError;
   Future<AutoStartTransitionResult>? _serviceStartTask;
@@ -212,6 +218,8 @@ class ServiceManager extends ChangeNotifier
   bool get autoStart => _autoStart;
   bool get serviceLaunchAutoStart => _serviceLaunchAutoStart;
   bool get gatewayLaunchAutoStart => _gatewayLaunchAutoStart;
+  String get launchAutoStartPreferenceSource =>
+      _launchAutoStartPreferenceSource;
   String? get serviceStartError => _serviceStartError;
   String? get gatewayStartError => _gatewayStartError;
 
@@ -394,12 +402,13 @@ class ServiceManager extends ChangeNotifier
     _binaryPath = prefs.getString('binaryPath') ?? '';
     _arguments = prefs.getString('arguments') ?? '';
     _publicMode = prefs.getBool('publicMode') ?? false;
-    _serviceLaunchAutoStart =
-        prefs.getBool(_prefsServiceLaunchAutoStart) ??
-        AutoStartPreferences.defaults.serviceEnabled;
-    _gatewayLaunchAutoStart =
-        prefs.getBool(_prefsGatewayLaunchAutoStart) ??
-        AutoStartPreferences.defaults.gatewayEnabled;
+    try {
+      await _reloadLaunchAutoStartPreferences(notify: false);
+    } catch (_) {
+      _launchAutoStartPreferenceSource = 'native_canonical_unavailable';
+      _serviceStartError = 'Auto-start preferences could not be loaded.';
+      _gatewayStartError = 'Auto-start preferences could not be loaded.';
+    }
     _host = _publicMode ? '0.0.0.0' : _host;
     _syncAdapterConfiguration();
 
@@ -1017,39 +1026,89 @@ class ServiceManager extends ChangeNotifier
   }
 
   Future<void> setServiceLaunchAutoStart(bool enabled) async {
-    _serviceLaunchAutoStart = enabled;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_prefsServiceLaunchAutoStart, enabled);
-    notifyListeners();
-    if (enabled) {
-      unawaited(ensureAutoStart(source: 'service_setting_enabled'));
+    try {
+      final snapshot = await _launchAutoStartPreferenceStore.update(
+        serviceEnabled: enabled,
+      );
+      _applyLaunchAutoStartSnapshot(snapshot);
+      _serviceStartError = null;
+      notifyListeners();
+      if (enabled) {
+        unawaited(ensureAutoStart(source: 'service_setting_enabled'));
+      }
+    } catch (_) {
+      _serviceStartError = 'Auto-start preference could not be saved.';
+      notifyListeners();
     }
   }
 
   Future<void> setGatewayLaunchAutoStart(bool enabled) async {
-    _gatewayLaunchAutoStart = enabled;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_prefsGatewayLaunchAutoStart, enabled);
-    notifyListeners();
-    if (enabled) {
-      unawaited(ensureAutoStart(source: 'gateway_setting_enabled'));
+    try {
+      final snapshot = await _launchAutoStartPreferenceStore.update(
+        gatewayEnabled: enabled,
+      );
+      _applyLaunchAutoStartSnapshot(snapshot);
+      _gatewayStartError = null;
+      notifyListeners();
+      if (enabled) {
+        unawaited(ensureAutoStart(source: 'gateway_setting_enabled'));
+      }
+    } catch (_) {
+      _gatewayStartError = 'Auto-start preference could not be saved.';
+      notifyListeners();
     }
   }
 
   Future<AutoStartEvaluation?> ensureAutoStart({required String source}) async {
     if (!Platform.isAndroid) return null;
+    try {
+      await _reloadLaunchAutoStartPreferences();
+    } catch (_) {
+      _addLifecycleLog('autostart.evaluate', {
+        'operation_id':
+            'preference-${DateTime.now().toUtc().microsecondsSinceEpoch}',
+        'reason': 'preference_load_failed',
+        'source': source,
+        'service_autostart': _serviceLaunchAutoStart,
+        'gateway_autostart': _gatewayLaunchAutoStart,
+        'service_state': status.name,
+        'gateway_state': _gatewayStatus.name,
+        'preference_source': _launchAutoStartPreferenceSource,
+        'result': 'failed',
+      });
+      return null;
+    }
     final evaluation = await _autoStartCoordinator.ensureForAppOpen(
       preferences: AutoStartPreferences(
         serviceEnabled: _serviceLaunchAutoStart,
         gatewayEnabled: _gatewayLaunchAutoStart,
       ),
       source: source,
+      preferenceSource: _launchAutoStartPreferenceSource,
     );
     if (evaluation.error.isNotEmpty) {
       _serviceStartError = 'Automatic startup could not be evaluated.';
       notifyListeners();
     }
     return evaluation;
+  }
+
+  Future<void> _reloadLaunchAutoStartPreferences({bool notify = true}) async {
+    final snapshot = await _launchAutoStartPreferenceStore.load();
+    final changed =
+        snapshot.preferences.serviceEnabled != _serviceLaunchAutoStart ||
+        snapshot.preferences.gatewayEnabled != _gatewayLaunchAutoStart ||
+        snapshot.source != _launchAutoStartPreferenceSource;
+    _applyLaunchAutoStartSnapshot(snapshot);
+    if (notify && changed) notifyListeners();
+  }
+
+  void _applyLaunchAutoStartSnapshot(
+    LaunchAutoStartPreferenceSnapshot snapshot,
+  ) {
+    _serviceLaunchAutoStart = snapshot.preferences.serviceEnabled;
+    _gatewayLaunchAutoStart = snapshot.preferences.gatewayEnabled;
+    _launchAutoStartPreferenceSource = snapshot.source;
   }
 
   Future<void> setTheme(AppThemeMode mode) async {

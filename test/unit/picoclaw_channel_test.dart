@@ -129,4 +129,34 @@ void main() {
       expect(methods, ['getGatewayStatus', 'startGateway']);
     },
   );
+
+  test(
+    'launch auto-start preferences round-trip through native bridge',
+    () async {
+      final calls = <MethodCall>[];
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, (call) async {
+            calls.add(call);
+            return <String, Object?>{
+              'serviceEnabled': true,
+              'gatewayEnabled': false,
+              'initialized': true,
+              'source': 'android_native_canonical',
+            };
+          });
+
+      final read = await PicoClawChannel.getLaunchAutoStartPreferences();
+      final written = await PicoClawChannel.setLaunchAutoStartPreferences(
+        gatewayEnabled: false,
+      );
+
+      expect(read.serviceEnabled, isTrue);
+      expect(written.gatewayEnabled, isFalse);
+      expect(calls.map((call) => call.method), [
+        'getLaunchAutoStartPreferences',
+        'setLaunchAutoStartPreferences',
+      ]);
+      expect(calls.last.arguments, {'gatewayEnabled': false});
+    },
+  );
 }

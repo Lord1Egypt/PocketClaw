@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/sipeed/picoclaw/pkg/config"
 	ppid "github.com/sipeed/picoclaw/pkg/pid"
@@ -20,6 +21,15 @@ func newPicoProxyRequest(method, path string) *http.Request {
 	req := httptest.NewRequest(method, "http://launcher.local:18800"+path, nil)
 	req.Header.Set("Origin", "http://launcher.local:18800")
 	return req
+}
+
+func requireHealthyGatewayIdentity(t *testing.T, pid int) {
+	t.Helper()
+	originalHealthGet := gatewayHealthGet
+	gatewayHealthGet = func(string, time.Duration) (*http.Response, error) {
+		return mockGatewayHealthResponse(http.StatusOK, pid), nil
+	}
+	t.Cleanup(func() { gatewayHealthGet = originalHealthGet })
 }
 
 func TestEnsurePicoChannel_FreshConfig(t *testing.T) {
@@ -518,6 +528,7 @@ func TestHandleWebSocketProxyReloadsGatewayTargetFromConfig(t *testing.T) {
 		t.Fatalf("SaveConfig() error = %v", err)
 	}
 	cmd := startGatewayLikeProcess(t)
+	requireHealthyGatewayIdentity(t, cmd.Process.Pid)
 	t.Cleanup(func() {
 		if cmd.Process != nil {
 			_ = cmd.Process.Kill()
@@ -604,6 +615,7 @@ func TestHandleWebSocketProxyLoadsCachedPicoTokenWhenMissing(t *testing.T) {
 		t.Fatalf("SaveConfig() error = %v", err)
 	}
 	cmd := startGatewayLikeProcess(t)
+	requireHealthyGatewayIdentity(t, cmd.Process.Pid)
 	t.Cleanup(func() {
 		if cmd.Process != nil {
 			_ = cmd.Process.Kill()
@@ -681,6 +693,7 @@ func TestHandleWebSocketProxyLoadsPidDataOnDemand(t *testing.T) {
 	}
 
 	cmd := startGatewayLikeProcess(t)
+	requireHealthyGatewayIdentity(t, cmd.Process.Pid)
 	t.Cleanup(func() {
 		if cmd.Process != nil {
 			_ = cmd.Process.Kill()
@@ -821,12 +834,19 @@ func TestHandlePicoMediaProxyUsesRawBearerToken(t *testing.T) {
 	}
 
 	cmd := startGatewayLikeProcess(t)
+	requireHealthyGatewayIdentity(t, cmd.Process.Pid)
 	t.Cleanup(func() {
 		if cmd.Process != nil {
 			_ = cmd.Process.Kill()
 		}
 		_ = cmd.Wait()
 	})
+	writeTestPidFile(t, ppid.PidFileData{
+		PID:  cmd.Process.Pid,
+		Host: cfg.Gateway.Host,
+		Port: cfg.Gateway.Port,
+	})
+	t.Cleanup(func() { ppid.RemovePidFile(globalConfigDir()) })
 
 	origPidData := gateway.pidData
 	origPicoToken := gateway.picoToken
@@ -954,6 +974,7 @@ func TestHandleWebSocketProxy_AllowsArbitraryOrigin(t *testing.T) {
 	}
 
 	cmd := startGatewayLikeProcess(t)
+	requireHealthyGatewayIdentity(t, cmd.Process.Pid)
 	t.Cleanup(func() {
 		if cmd.Process != nil {
 			_ = cmd.Process.Kill()

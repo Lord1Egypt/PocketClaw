@@ -15,6 +15,7 @@ import android.util.Log
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 import com.lord1egypt.pocketclaw.service.PicoClawService
+import com.lord1egypt.pocketclaw.service.LaunchAutoStartPreferences
 import com.lord1egypt.pocketclaw.util.HealthChecker
 import org.json.JSONObject
 import java.io.File
@@ -101,16 +102,18 @@ class PicoClawMethodChannel(
                         val args = call.argument<String>("args") ?: ""
                         val tokens = args.split(Regex("\\s+")).filter { it.isNotBlank() }
                         val publicMode = tokens.contains("-public")
-                        val gatewayAutoStart = !tokens.contains("-no-gateway-autostart")
+                        val launchPreferences = LaunchAutoStartPreferences.read(context)
                         // 保存 publicMode 到 SharedPreferences
                         val prefs = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
                         prefs.edit().putBoolean("public_mode", publicMode).apply()
                         Log.d(
                             TAG,
                             "Starting service with publicMode=$publicMode, " +
-                                "gatewayAutoStart=$gatewayAutoStart"
+                                "serviceAutoStart=${launchPreferences.serviceEnabled}, " +
+                                "gatewayAutoStart=${launchPreferences.gatewayEnabled}, " +
+                                "preferenceSource=${launchPreferences.source}"
                         )
-                        PicoClawService.start(context, publicMode, gatewayAutoStart)
+                        PicoClawService.start(context, publicMode)
                         result.success(true)
                     } catch (e: Exception) {
                         result.error("START_FAILED", e.message, null)
@@ -252,6 +255,33 @@ class PicoClawMethodChannel(
                             }
                         }
                     }.start()
+                }
+                "getLaunchAutoStartPreferences" -> {
+                    try {
+                        result.success(LaunchAutoStartPreferences.read(context).asMap())
+                    } catch (e: Exception) {
+                        result.error(
+                            "GET_LAUNCH_AUTOSTART_FAILED",
+                            "Could not read launch auto-start preferences",
+                            null,
+                        )
+                    }
+                }
+                "setLaunchAutoStartPreferences" -> {
+                    try {
+                        val snapshot = LaunchAutoStartPreferences.update(
+                            context = context,
+                            serviceEnabled = call.argument<Boolean>("serviceEnabled"),
+                            gatewayEnabled = call.argument<Boolean>("gatewayEnabled"),
+                        )
+                        result.success(snapshot.asMap())
+                    } catch (e: Exception) {
+                        result.error(
+                            "SET_LAUNCH_AUTOSTART_FAILED",
+                            "Could not persist launch auto-start preferences",
+                            null,
+                        )
+                    }
                 }
                 "startGateway" -> {
                     Thread {

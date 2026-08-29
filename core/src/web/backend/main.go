@@ -746,19 +746,32 @@ func main() {
 	// Auto-start gateway after backend starts listening unless the Android host
 	// explicitly leaves Gateway startup under user control.
 	if gatewayAutoStartEnabledFromEnvironment(os.Getenv("POCKETCLAW_GATEWAY_AUTOSTART")) {
+		logger.InfoCF("gateway", "Gateway auto-start preference loaded", map[string]any{
+			"event":             "gateway.start.requested",
+			"reason":            "autostart_enabled",
+			"source":            "android_service",
+			"preference_source": "android_service_environment",
+			"gateway_autostart": true,
+			"previous_state":    "stopped",
+			"target_state":      "running",
+			"result":            "requested",
+			"retry_count":       0,
+		})
 		go func() {
 			time.Sleep(1 * time.Second)
 			apiHandler.TryAutoStartGateway()
 		}()
 	} else {
 		logger.InfoCF("gateway", "Gateway auto-start skipped", map[string]any{
-			"event":          "gateway.start.skipped",
-			"reason":         "preference_disabled",
-			"source":         "android_service",
-			"previous_state": "stopped",
-			"target_state":   "running",
-			"result":         "skipped",
-			"retry_count":    0,
+			"event":             "gateway.start.skipped",
+			"reason":            "preference_disabled",
+			"source":            "android_service",
+			"preference_source": "android_service_environment",
+			"gateway_autostart": false,
+			"previous_state":    "stopped",
+			"target_state":      "running",
+			"result":            "skipped",
+			"retry_count":       0,
 		})
 	}
 

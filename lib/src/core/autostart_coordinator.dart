@@ -96,6 +96,7 @@ class AutoStartCoordinator {
   Future<AutoStartEvaluation> ensureForAppOpen({
     required AutoStartPreferences preferences,
     required String source,
+    String preferenceSource = 'runtime_memory',
   }) {
     final current = _inFlight;
     if (current != null) {
@@ -103,6 +104,11 @@ class AutoStartCoordinator {
         'operation_id': _inFlightOperationId ?? 'coalesced',
         'reason': 'evaluation_already_in_progress',
         'source': source,
+        'service_autostart': preferences.serviceEnabled,
+        'gateway_autostart': preferences.gatewayEnabled,
+        'service_state': 'evaluation_in_progress',
+        'gateway_state': 'evaluation_in_progress',
+        'preference_source': preferenceSource,
         'result': 'skipped',
         'retry_count': 0,
       });
@@ -114,6 +120,7 @@ class AutoStartCoordinator {
       operationId: operationId,
       preferences: preferences,
       source: source,
+      preferenceSource: preferenceSource,
     );
     _inFlight = task;
     _inFlightOperationId = operationId;
@@ -135,6 +142,7 @@ class AutoStartCoordinator {
     required String operationId,
     required AutoStartPreferences preferences,
     required String source,
+    required String preferenceSource,
   }) async {
     final startedAt = _clock();
     var serviceState = AutoStartRuntimeState.stopped;
@@ -152,6 +160,7 @@ class AutoStartCoordinator {
         'gateway_autostart': preferences.gatewayEnabled,
         'service_state': serviceState.name,
         'gateway_state': gatewayState.name,
+        'preference_source': preferenceSource,
         'result': 'evaluated',
         'retry_count': 0,
       });
@@ -273,6 +282,11 @@ class AutoStartCoordinator {
         'operation_id': operationId,
         'reason': 'unexpected_error',
         'source': source,
+        'service_autostart': preferences.serviceEnabled,
+        'gateway_autostart': preferences.gatewayEnabled,
+        'service_state': serviceState.name,
+        'gateway_state': gatewayState.name,
+        'preference_source': preferenceSource,
         'duration_ms': _clock().difference(startedAt).inMilliseconds,
         'result': 'failed',
         'error': error.toString(),
