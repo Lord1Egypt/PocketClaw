@@ -681,8 +681,14 @@ writable executable storage. Tools 18, Skills 7/7.
 
 ## Phase 2 — Lean Runtime Pack v2
 
-Branch `feature/lean-runtime-pack-v2`, from `develop` at `fa27ad2`.
-Not merged; physical validation PENDING.
+Branch `feature/lean-runtime-pack-v2`, fix commit `7ebd254`, from `develop` at
+`fa27ad2`. **PHYSICAL PASS** on a real ARM64 device 2026-08-30, then merged to
+`develop`.
+
+Physical: Git HTTPS PASS, `git clone` of a public GitHub repository PASS, **Git
+helper symlink execution on Android PASS**, git 2.51.0, gh 2.82.1, curl HTTPS
+PASS, ripgrep PASS, sqlite3 PASS. Skills 7/7 on an existing upgraded workspace,
+6/6 on a fresh install.
 
 Six bundled tools ship: git 2.51.0 with its transport helper, gh 2.82.1,
 curl 8.11.1, ripgrep 14.1.1 and sqlite3 3.50.4, alongside the jq from v1.
@@ -720,18 +726,27 @@ wherever it is lighter than a binary.
 OpenSSH suite (reconsider after HTTPS Git is stable), `rsync`, Python, Node,
 npm, a full bash runtime, `make`, compilers, ffmpeg, ImageMagick.
 
-### Open for physical validation
+### Known limitation carried forward
+
+- Git features that depend on a shell — hooks in particular, and git's `ENOEXEC`
+  fallback — are **not guaranteed on Android**. git compiles in `/bin/sh`, which
+  the platform does not have, and overriding `SHELL_PATH` breaks git's own
+  cross-build. Clone, fetch and push do not need a shell.
+
+### Physical validation results
 
 - [x] `git clone` over HTTPS failed on the first physical run with `unable to
   find remote helper for 'https'`. Root cause: git spawns `git remote-https` and
   resolves the literal name `git` through PATH; the helper directory held only
   the two remote helpers. Fixed by declaring `git` as its own helper. Not TLS,
   not symlinks.
-- [ ] **`symlink_exec`** — whether Android permits executing through a symlink in
-  app-private storage that points at a packaged payload. Still unobserved: the
-  first run failed before reaching an exec. The probe reports it in the Debug
-  Logs. If a device refuses it, git's transport helper cannot be presented this
-  way and the fallback is a documented patch to git's helper lookup.
+- [x] **`symlink_exec` — PASS on hardware.** Android permits executing through a
+  symlink in app-private storage that points at a packaged payload in
+  `nativeLibraryDir`. The kernel resolves the link and runs the read-only
+  packaged file, so the API 29+ restriction on executing writable storage does
+  not apply. This is what makes multi-executable tools possible on Android, and
+  it is now evidence rather than reasoning. The probe still reports it, so a
+  device that behaves differently will say so.
 - [x] GitHub Skill removed from the seeded workspace. Note that the seeded set is
   now **6** skills, not 7: `picoclaw-agent` is deliberately unseeded. An existing
   device keeps its 7 because seeding only writes and never deletes.
@@ -750,3 +765,41 @@ npm, a full bash runtime, `make`, compilers, ffmpeg, ImageMagick.
   `gh release upload` are not utility commands.
 - Bounded output stays mandatory; Git logs and diffs are unbounded by nature.
 - Never put a credential in argv. No `https://TOKEN@github.com/...`.
+
+## Phase 2 — Provider Resilience & Automatic Failover
+
+Next milestone. Its own branch from `develop` after the Runtime v2 merge.
+**Not to be implemented on `feature/lean-runtime-pack-v2`.**
+
+A provider that rate-limits, times out, or returns nothing should degrade into a
+retry or a fallback, not into a failed turn the user has to notice and repeat.
+
+### Detection
+
+- [ ] HTTP 429, with the provider's own retry hint honoured where it sends one.
+- [ ] HTTP 502, 503 and 504.
+- [ ] Provider timeouts.
+- [ ] Empty model responses, but **only** where the emptiness is attributable to
+  provider failure. A model that legitimately returns nothing must not be
+  retried as though it had errored.
+
+### Response
+
+- [ ] Bounded retries. No unbounded loop, and no retry that outlives the turn.
+- [ ] Provider cooldown, so a failing provider is not hammered by every
+  subsequent request while it recovers.
+- [ ] Automatic fallback to the configured backup model or provider.
+
+### Correctness under retry — the hard part
+
+- [ ] Preserve completed tool-call results across a retry or failover.
+- [ ] **Never blindly re-run a tool that already succeeded and had side effects.**
+  A retry that re-sends a message, re-pushes a commit, or re-writes a file is
+  worse than the failure it is recovering from. This constraint, not the
+  detection, is what makes the milestone non-trivial.
+
+### Observability
+
+- [ ] Clear lifecycle and debug logs for every retry and failover decision:
+  what failed, what was decided, which provider was chosen, and why.
+- [ ] No provider secrets in logs, on any path.

@@ -1,5 +1,36 @@
 # PocketClaw Decisions
 
+## Symlink execution into nativeLibraryDir works on Android, proven on hardware
+
+- Date: 2026-08-30
+- Decision: The helper model stands. Android permits executing through a symlink
+  in app-private storage whose target is a packaged payload in
+  `nativeLibraryDir`, confirmed end to end by a real `git clone` over HTTPS on a
+  physical ARM64 device.
+- Consequence: This was the one open platform question behind the whole helper
+  design, and it is now evidence rather than reasoning. The kernel resolves the
+  link and executes the read-only packaged file, so the API 29+ restriction on
+  executing writable app storage does not apply — a symlink is not an
+  executable. This is what makes multi-executable tools such as git possible on
+  Android at all. It does **not** license copying an executable into app storage,
+  which remains refused by the platform; the probe keeps reporting
+  `symlink_exec` so a device that behaves differently says so in its own logs.
+
+## Shell-dependent git features are unsupported on Android
+
+- Date: 2026-08-30
+- Decision: PocketClaw ships git with its default compiled-in `SHELL_PATH` of
+  `/bin/sh`, a path Android does not have, and documents the consequence rather
+  than working around it.
+- Consequence: **Git hooks and git's `ENOEXEC` fallback are not guaranteed on
+  Android.** Clone, fetch, push, log, diff and status are unaffected, because the
+  transport helpers are ELF executables and no shell is on that path. Overriding
+  `SHELL_PATH` is not available: git's Makefile uses the same variable as the
+  shell that runs its own build recipes and code generators, so setting it breaks
+  the cross-build — verified twice, including with make's `SHELL` overridden
+  separately. Revisit only if a real use for hooks appears, and expect it to
+  require patching git's build rather than passing a flag.
+
 ## A tool that re-invokes itself by name must be its own helper
 
 - Date: 2026-08-30

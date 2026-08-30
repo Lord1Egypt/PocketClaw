@@ -1,10 +1,20 @@
 # PocketClaw Session Handoff
 
-## In progress — Lean Runtime Pack v2 (2026-08-30)
+## Shipped — Lean Runtime Pack v2 (2026-08-30, PHYSICAL PASS)
 
-Branch `feature/lean-runtime-pack-v2`, from `develop` at `fa27ad2`. Not merged,
-not released, `main` untouched. **Physical validation PENDING and not claimed.**
-Read `RUNTIME.md` first.
+Branch `feature/lean-runtime-pack-v2`, fix commit `7ebd254`, from `develop` at
+`fa27ad2`. **Physical validation PASSED** on a real ARM64 device on 2026-08-30,
+then merged to `develop`. Not released, `main` untouched. Read `RUNTIME.md`
+first.
+
+Physical: Git HTTPS PASS, `git clone` of a public GitHub repository PASS,
+**Git helper symlink execution on Android PASS**, git 2.51.0, gh 2.82.1, curl
+HTTPS PASS, ripgrep PASS, sqlite3 PASS.
+
+Skills: **7/7** on an existing upgraded workspace, **6/6** on a fresh install.
+Both are correct — seeding only writes and never deletes, so an existing device
+keeps the GitHub Skill it already had, while a fresh workspace gets the six
+seeded skills (`picoclaw-agent` is deliberately unseeded).
 
 git 2.51.0, gh 2.82.1, curl 8.11.1, ripgrep 14.1.1 and sqlite3 3.50.4 now ship
 alongside jq. APK 34.7 MB -> 58.3 MB.
@@ -18,21 +28,21 @@ helper directory held only the two remote helpers. git now declares itself as
 one of its own helpers. If a tool re-invokes itself by name, it needs an entry
 for itself — that is the general lesson.
 
-### The one thing that could sink this milestone
+### The platform question that is now answered
 
 `git clone` over HTTPS depends on **executing through a symlink** in app-private
 storage that points at a packaged payload. Android cannot package a file named
 `git-remote-https`, so the runtime builds a symlink directory and points
-`GIT_EXEC_PATH` at it. A symlink is not an executable — the kernel resolves it
-and runs the read-only packaged file — so this should be permitted where writing
-a real executable is not.
+`GIT_EXEC_PATH` at it.
 
-**That has not been observed on hardware.** `ProbeExecution` now reports
-`symlink_exec` in the Debug Logs of every device. Check it first on the physical
-run. If it comes back `blocked`, git's transport helper cannot be presented this
-way and the fallback is a documented patch to git's helper lookup — do not try
-to copy the helper into app storage instead, which is the one thing Android
-definitely refuses.
+**The device confirmed this works.** A symlink is not an executable: the kernel
+resolves it and runs the read-only packaged file, so the API 29+ restriction on
+executing writable app storage does not apply. This is the mechanism that makes
+multi-executable tools possible on Android at all, and it is now evidence rather
+than reasoning.
+
+Do not "simplify" it by copying a helper into app storage. That is the one thing
+Android definitely refuses, and the reason this design exists.
 
 ### What a next session must not undo
 
@@ -65,11 +75,20 @@ definitely refuses.
 - `core/src/pkg/pcruntime/{helpers,environment}.go` — the symlink farm and the
   per-tool environment profiles.
 
+### Known limitation
+
+git ships with its default compiled-in `SHELL_PATH` of `/bin/sh`, which Android
+lacks. **Shell-dependent git features — hooks above all, and git's `ENOEXEC`
+fallback — are not guaranteed on Android.** Clone, fetch and push do not need a
+shell. Overriding `SHELL_PATH` breaks git's own cross-build because its Makefile
+uses the same variable for its build recipes; see `DECISIONS.md`.
+
 ### Next
 
-Physical validation, then merge. After that, SSH is worth reconsidering now that
-HTTPS git exists, and the deferred release-engineering items in `TASKS.md` still
-stand, including the high-priority `extractBinaryFromApk()` dead path.
+Provider Resilience and Automatic Failover, on its own branch from the new
+`develop` HEAD. SSH is worth reconsidering now that HTTPS git is proven, and the
+deferred release-engineering items in `TASKS.md` still stand, including the
+high-priority `extractBinaryFromApk()` dead path.
 
 ## Shipped — Managed Runtime Foundation (2026-08-30, PHYSICAL PASS)
 

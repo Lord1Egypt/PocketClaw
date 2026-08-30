@@ -256,11 +256,18 @@ Logical names are validated as filenames, never paths, so a catalog entry cannot
 place a link outside that directory. Stale links are repaired rather than reused,
 because an app update moves `nativeLibraryDir`.
 
-**This is the one platform assumption v2 rests on**, and it is measured rather
-than trusted: `ProbeExecution` also reports `symlink_exec`, so every device's
-Debug Logs say whether execution through such a symlink is permitted.
-`runtime.helpers.prepared` records the directory that was built and the logical
-names in it, so a helper failure can be told apart from a lookup failure without
+**This works on Android, proven on hardware.** A physical ARM64 device cloned a
+public GitHub repository over HTTPS through exactly this path on 2026-08-30. The
+kernel resolves the link and executes the read-only packaged file, so the API 29+
+restriction on executing writable app storage does not apply — a symlink is not
+an executable. This is the mechanism that makes multi-executable tools such as
+git possible on Android at all.
+
+It does **not** license copying an executable into app storage, which the
+platform still refuses. `ProbeExecution` keeps reporting `symlink_exec` so a
+device that behaves differently says so in its own Debug Logs, and
+`runtime.helpers.prepared` records the directory built and the logical names in
+it, so a helper failure can be told apart from a lookup failure without
 guesswork.
 
 ## Environment profiles
@@ -308,7 +315,12 @@ path would silently break TLS on either older or newer devices.
 
 ### Physically observed on hardware, 2026-08-30
 
-**43 of 44** catalog tools resolved as available on the tested ARM64 device.
+Runtime Pack v2: Git HTTPS **PASS**, `git clone` of a public GitHub repository
+**PASS**, Git helper symlink execution **PASS**, git 2.51.0, gh 2.82.1, curl
+HTTPS **PASS**, ripgrep **PASS**, sqlite3 **PASS**.
+
+From the Foundation run, **43 of 44** catalog tools resolved as available on the
+tested ARM64 device.
 `traceroute` was the one reported unavailable, correctly — availability is
 measured per device, so a platform that does not ship a command says so instead
 of failing later at exec. jq resolved, verified against its pinned checksum, and
@@ -335,6 +347,18 @@ rule at build time rather than letting such a tool ship and fail on every device
 | curl | 8.11.1 | 1.30 MB | HTTP and HTTPS requests |
 | ripgrep | 14.1.1 | 4.27 MB | recursive source search |
 | sqlite3 | 3.50.4 | 1.23 MB | local databases |
+
+### Known limitation: no shell
+
+git is built with its default compiled-in `SHELL_PATH` of `/bin/sh`, which
+Android does not have. **Git features that depend on a shell — hooks above all,
+and git's `ENOEXEC` fallback — are not guaranteed on Android.** Clone, fetch,
+push, log, diff and status are unaffected: the transport helpers are ELF
+executables and no shell is on that path.
+
+This is not an oversight to fix with a flag. git's Makefile uses `SHELL_PATH`
+both as the compiled-in constant and as the shell that runs its own build
+recipes and code generators, so overriding it breaks the cross-build.
 
 `gh` is a deliberate strategic exception to the size policy, accepted because
 GitHub capability is core to the agent. It is **not** a precedent: any other

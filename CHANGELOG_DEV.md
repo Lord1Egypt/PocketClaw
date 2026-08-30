@@ -1,8 +1,41 @@
 # Development Changelog
 
-## 2026-08-30 — git HTTPS remote-helper fix (physical validation PENDING)
+## 2026-08-30 — Lean Runtime Pack v2 (PHYSICAL PASS)
 
-Branch `feature/lean-runtime-pack-v2`, on top of `b13f297`. Not merged.
+Branch `feature/lean-runtime-pack-v2`, fix commit `7ebd254`. **Physically
+validated on a real ARM64 device on 2026-08-30** and merged to `develop`.
+
+| Check | Result |
+|---|---|
+| Git HTTPS | **PASS** |
+| `git clone` of a public GitHub repository | **PASS** |
+| **Git helper symlink execution on Android** | **PASS** |
+| `git --version` | 2.51.0 |
+| `gh` | 2.82.1 |
+| curl HTTPS | PASS |
+| ripgrep | PASS |
+| sqlite3 | PASS |
+
+**The symlink question is settled.** Android permits executing through a symlink
+in app-private storage that points at a packaged payload in `nativeLibraryDir`.
+The kernel resolves the link and runs the read-only packaged file, so the API 29+
+restriction on executing writable storage does not apply. That is what makes
+multi-executable tools possible on Android, and it is now evidence rather than
+reasoning. It still does not license copying an executable into app storage.
+
+Skills read **7/7** on an existing upgraded workspace and **6/6** on a fresh
+install. Both are correct: seeding only writes and never deletes, so a device
+that already had the GitHub Skill keeps it, while a fresh workspace receives the
+six seeded skills (`picoclaw-agent` is deliberately unseeded).
+
+**Known limitation.** git ships with its default compiled-in `SHELL_PATH` of
+`/bin/sh`, which Android lacks, so **git features depending on a shell — hooks in
+particular, and the `ENOEXEC` fallback — are not guaranteed on Android.** Clone,
+fetch and push do not need a shell.
+
+## 2026-08-30 — git HTTPS remote-helper fix
+
+Branch `feature/lean-runtime-pack-v2`, on top of `b13f297`.
 
 The v2 physical run passed everything except `git clone` over HTTPS, which
 failed with `unable to find remote helper for 'https'`.
@@ -46,11 +79,6 @@ the entry removed and pass with it present, so it genuinely guards the bug.
 - `SHELL_PATH` is knowingly left at git's default `/bin/sh`, which Android does
   not have. Overriding it breaks git's cross-build because its Makefile uses the
   same variable for its own recipes; nothing on the clone path needs a shell.
-
-### Not verified
-
-Physical validation is PENDING. In particular `symlink_exec` remains unobserved
-on hardware — the previous run failed before reaching it.
 
 ## 2026-08-30 — Lean Runtime Pack v2 (physical validation PENDING)
 
