@@ -1,5 +1,37 @@
 # PocketClaw Session Handoff
 
+## Next milestone — Provider Resilience & Automatic Failover
+
+Branch `feature/provider-resilience-failover`, from `develop` at `0a0b3fa`.
+Nothing implemented yet; the branch exists so the work starts from the merged
+Runtime v2 baseline rather than from a feature branch.
+
+A provider that rate-limits, times out, or returns nothing should degrade into a
+retry or a fallback, not into a failed turn the user has to notice and repeat.
+
+**Detect:** HTTP 429 (honouring the provider's own retry hint where it sends
+one), 502/503/504, provider timeouts, and empty model responses *only* where the
+emptiness is attributable to provider failure. A model that legitimately returns
+nothing must not be retried as though it had errored — that distinction is the
+first thing to get right, because getting it wrong turns a quiet answer into a
+loop.
+
+**Respond:** bounded retries, provider cooldown so a failing provider is not
+hammered by every subsequent request, and automatic fallback to the configured
+backup model or provider.
+
+**The hard part is correctness under retry, not detection.** Completed tool-call
+results must be preserved across a retry or failover, and a tool that already
+succeeded with side effects must never be blindly re-run. A retry that re-sends
+a message, re-pushes a commit, or re-writes a file is worse than the failure it
+is recovering from. Design for that first and the rest follows.
+
+**Observability:** every retry and failover decision gets a clear lifecycle log
+saying what failed, what was decided, which provider was chosen and why. No
+provider secrets on any path — the runtime's redaction rules apply here too.
+
+Full scope in `TASKS.md`.
+
 ## Shipped — Lean Runtime Pack v2 (2026-08-30, PHYSICAL PASS)
 
 Branch `feature/lean-runtime-pack-v2`, fix commit `7ebd254`, from `develop` at

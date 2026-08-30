@@ -1,5 +1,20 @@
 # PocketClaw Project State
 
+## Next milestone — Provider Resilience & Automatic Failover
+
+Branch `feature/provider-resilience-failover`, from `develop` at `0a0b3fa`.
+Not started. Full scope in `TASKS.md`.
+
+Goal: a provider that rate-limits, times out, or returns nothing degrades into a
+retry or a fallback rather than a failed turn. Detection covers 429, 502/503/504,
+provider timeouts, and empty responses attributable to provider failure; the
+response is bounded retries, provider cooldown, and automatic fallback to a
+configured backup.
+
+The difficulty is correctness under retry, not detection: completed tool-call
+results must survive a failover, and a tool that already succeeded with side
+effects must never be re-run blindly.
+
 ## Lean Runtime Pack v2 — PHYSICAL PASS
 
 Branch `feature/lean-runtime-pack-v2`, fix commit `7ebd254`, from `develop` at
