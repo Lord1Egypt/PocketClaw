@@ -587,14 +587,14 @@ supplied by the user.
   into Android battery settings, Samsung Sleeping/Deep Sleeping Apps guidance,
   and a plain reliability explanation. No silent battery-exemption claims;
   Play policy review comes later.
-- [~] Service/Gateway auto-start: configurable "start the service
-  automatically" and "start the Gateway automatically" are implemented on
-  `fix/autostart-safe-rebuild`, built on `v0.2.0-rc1` rather than on the
-  abandoned `feature/autostart-foundation` experiment. Physical verification is
-  pending; nothing is merged. The optional restart of the Gateway when it stops
-  unexpectedly is deliberately NOT part of this work — a restart policy belongs
-  to a reliability milestone, and mixing it into auto-start is what made the
-  experimental branch fail physical acceptance.
+- [x] Service/Gateway auto-start: configurable "start the service
+  automatically" and "start the Gateway automatically". Shipped in
+  `v0.2.0-rc2`, PHYSICAL PASS on 2026-08-30. Built on `v0.2.0-rc1` rather than
+  on the abandoned `feature/autostart-foundation` experiment, which was never
+  merged. The optional restart of the Gateway when it stops unexpectedly is
+  deliberately NOT part of this work and remains deferred — a restart policy
+  belongs to a reliability milestone, and mixing it into auto-start is what made
+  the experimental branch fail physical acceptance.
 - [ ] Managed runtime and tool dependencies: an app-private `runtime/bin` for
   verified Android ARM64 tools such as `gh` and `git`, gated on checksums and
   trusted sources, with a runtime PATH, a safe policy, and declared

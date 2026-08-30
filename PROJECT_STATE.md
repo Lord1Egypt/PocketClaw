@@ -1,5 +1,25 @@
 # PocketClaw Project State
 
+## v0.2.0-rc2 — Auto-Start and Gateway PID ownership (PHYSICAL PASS)
+
+Release candidate 2, published as a GitHub pre-release. Not a production
+release and not published to Google Play.
+
+Physical validation: **PASS** on a real ARM64 Android device, 2026-08-30.
+Physical reference APK SHA-256:
+`182b85183156428aa93baf3113492484258a3a1eace95f7bccd9ed82035177a3`
+
+That run covered fresh install, Service Auto-Start, Gateway Auto-Start, manual
+Service stop and start, Gateway starting automatically after the Service, no
+immediate Service resurrection, internal PocketClaw chat, Core startup, Skills
+8/8, Tools 17, Core bound only to `127.0.0.1:18790` / `[::1]:18790`, a working
+Dashboard, and no recurrence of the Gateway PID ownership false positive.
+
+- Auto-Start Safe Rebuild (`75ac0d9`): **PHYSICAL PASS**
+- Gateway PID ownership fix (`90194c8`): **PHYSICAL PASS**
+- `feature/autostart-foundation`: **NOT MERGED**, reference only. The shipped
+  work was rebuilt from `v0.2.0-rc1` rather than salvaged from that branch.
+
 Project: PocketClaw  
 Current Phase: Phase 2 — Independent Product Repository  
 Current Milestone: Phase 2 Milestone D — Telegram Managed-Bot Onboarding.

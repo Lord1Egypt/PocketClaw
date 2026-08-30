@@ -182,6 +182,21 @@ adaptation. Automated merges from upstream are not a maintenance model.
 Recorded here so a future upstream review does not mistake PocketClaw's own
 work for an adoption, and does not go looking upstream for its origin.
 
+- **Auto-Start and the Gateway PID ownership fix (v0.2.0-rc2, 2026-08-30).**
+  PocketClaw-authored divergence with no upstream origin. Two Core changes:
+  `TryAutoStartGateway()` is gated on a `POCKETCLAW_GATEWAY_AUTOSTART`
+  environment preference exported by the Android host, so Gateway startup can
+  be left under user control; and gateway pid ownership no longer rests solely
+  on inspecting a command line. `launcherOwnsGatewayPID()` decides ownership
+  from first-hand `exec.Cmd` evidence before `ps` is consulted, and
+  `classifyGatewayCommandLine()` treats a bare executable name as un-inspected
+  rather than as proof of a foreign process. Upstream classifies a pid purely
+  by searching `ps` output for the `gateway` subcommand, which on Android
+  deletes a live gateway's pid file because the process is executed as
+  `libpicoclaw.so` and that argv is not reported. A future upstream merge must
+  not silently revert either rule. Everything else in this release is Flutter
+  and Android-host work with no Core counterpart.
+
 - **Pre-release Android reliability and privacy work (Codex Sol candidate,
   2026-08-26).** This is PocketClaw-authored divergence, not an upstream
   adoption. It adds the loopback-authenticated, write-only Android Telegram
@@ -289,7 +304,7 @@ None adopted from upstream yet. Upstream `49183d7e`
 (`fix: update Go and x/text for govulncheck`) sits in the unreviewed range and
 is a candidate for the next review.
 
-PocketClaw-originated security divergence, as of v0.2.0-rc1 (2026-08-29). These
+PocketClaw-originated security divergence, as of v0.2.0-rc2 (2026-08-30). These
 are PocketClaw decisions, not upstream adoptions, and a future upstream merge
 must not silently revert them:
 
@@ -312,9 +327,10 @@ must not silently revert them:
 
 ### Core provenance
 
-`core/pocketclaw-core-v0.3.1.patch` now covers 141 files (was 124). Regenerating
-it with `core/regen-upstream-patch.sh` reproduces the committed patch byte for
-byte, and `core/verify-no-external-source.sh` passes.
+`core/pocketclaw-core-v0.3.1.patch` covers 141 files (was 124 before
+v0.2.0-rc1). v0.2.0-rc2 changed the contents of existing hunks but added no new
+files. Regenerating it with `core/regen-upstream-patch.sh` reproduces the
+committed patch byte for byte, and `core/verify-no-external-source.sh` passes.
 
 ### Verification note
 

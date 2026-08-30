@@ -1,5 +1,45 @@
 # PocketClaw Decisions
 
+## Auto-Start is an app-launch decision, not a supervision framework
+
+- Date: 2026-08-30
+- Decision: Auto-Start evaluates exactly once per app process, from `main()`,
+  after a true launch. There is no resume hook, watchdog, boot-receiver change,
+  crash-restart policy, or resurrection path, and `START_NOT_STICKY` plus a
+  null-intent guard stop Android from re-creating the Service on its own.
+- Consequence: A manual Stop stays stopped structurally rather than by a flag,
+  and "start automatically" can only ever mean "on the next legitimate app
+  launch". Do not add resume evaluation, a watchdog, or a background daemon
+  policy under the Auto-Start banner; battery/background work is a separate,
+  still-deferred milestone.
+
+## `feature/autostart-foundation` is reference only and must never be merged
+
+- Date: 2026-08-30
+- Decision: The experimental Auto-Start branch (`c854d7a`) is abandoned. The
+  shipped implementation, `fix/autostart-safe-rebuild`, was rebuilt from
+  `v0.2.0-rc1` and reimplements only individually reviewed pieces.
+- Consequence: Its automated tests were green while a manual Start Service
+  press could land in a FAILED state RC1 cannot represent. Never merge or
+  cherry-pick it. In particular do not reintroduce a `Boolean` return from
+  native `PicoClawService.start()` mapped onto a failure state, the
+  process-lifetime `isStarting`/`isStopping`/`manualStopActive`/`hasFailed`
+  companion flags, or `gatewayRuntimeReady()`.
+
+## Native process ownership outranks command-line inspection
+
+- Date: 2026-08-30
+- Decision: If the launcher spawned a pid itself via `exec.Cmd` and that
+  process is alive, it is the managed Gateway — decided before `ps` is
+  consulted. A negative command-line match is decisive only when `ps` actually
+  returned a command line; a bare executable name is un-inspected, not foreign.
+- Consequence: Android's `ps` does not report the `gateway` subcommand for a
+  process executed as `libpicoclaw.so`, which was deleting a live Gateway's pid
+  file. Dead-process cleanup is unaffected because it lives in
+  `ppid.ReadPidFileWithCheck` and runs before validation. Do not restore
+  bare-name rejection, and do not make string matching on a command line the
+  sole ownership proof.
+
 ## Independent repository, not a permanent FUI fork
 
 - Date: 2026-08-24

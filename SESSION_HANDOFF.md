@@ -1,15 +1,21 @@
 # PocketClaw Session Handoff
 
-## Active work — Auto-Start safe rebuild (2026-08-30)
+## Shipped — v0.2.0-rc2, Auto-Start and Gateway PID ownership (2026-08-30)
 
-Branch: `fix/autostart-safe-rebuild`, based on `develop @ e470bb6`
-(`v0.2.0-rc1`). Not merged, not tagged.
+`v0.2.0-rc2` is frozen, merged to `develop`, tagged, and published as a GitHub
+pre-release. Both commits PASSED physical validation on a real ARM64 device on
+2026-08-30, with reference APK SHA-256
+`182b85183156428aa93baf3113492484258a3a1eace95f7bccd9ed82035177a3`.
 
-`75ac0d9` PASSED physical validation: Service and Gateway auto-start, manual
-stop and start, internal chat, Telegram, and Core bound only to
-`127.0.0.1:18790` / `[::1]:18790`. A follow-up commit fixes the one defect that
-run surfaced — see "Gateway PID ownership" below. That follow-up is PENDING
-physical verification.
+- `75ac0d9` — Auto-Start safe rebuild: Service and Gateway auto-start, manual
+  stop and start, no resurrection, internal chat, Telegram, Skills 8/8, Tools
+  17, Core bound only to `127.0.0.1:18790` / `[::1]:18790`.
+- `90194c8` — Gateway PID ownership fix: the false positive did not recur.
+
+`feature/autostart-foundation` was NOT merged and must not be. The shipped work
+was rebuilt from `v0.2.0-rc1`; see `DECISIONS.md`.
+
+The next milestone is Managed Runtime Foundation, per `TASKS.md`.
 
 ### Gateway PID ownership on Android
 

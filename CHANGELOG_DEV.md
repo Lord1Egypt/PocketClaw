@@ -1,5 +1,51 @@
 # Development Changelog
 
+## 2026-08-30 — v0.2.0-rc2 frozen (PHYSICAL PASS)
+
+Release candidate 2, published as a GitHub pre-release. Not a production
+release and not published to Google Play. `main` untouched; `v0.2.0-rc1` and
+`phase2-milestone-d` not moved.
+
+Physical validation PASSED on a real ARM64 Android device on 2026-08-30 for
+both commits in this candidate. Physical reference APK SHA-256:
+`182b85183156428aa93baf3113492484258a3a1eace95f7bccd9ed82035177a3`
+(`com.lord1egypt.pocketclaw` 0.2.0, versionCode 4). It covered fresh install,
+Service Auto-Start, Gateway Auto-Start, manual Service stop and start, Gateway
+starting automatically after the Service, no immediate Service resurrection,
+internal PocketClaw chat, Core startup, Skills 8/8, Tools 17, Core bound only
+to `127.0.0.1:18790` / `[::1]:18790`, a working Dashboard, and no recurrence of
+the Gateway PID ownership false positive.
+
+What RC2 adds over RC1: simplified Service and Gateway Auto-Start, both
+preferences persisted in the Android canonical SharedPreferences store,
+evaluation only at a legitimate app launch with no resume-triggered
+orchestration, authoritative manual Stop, `START_NOT_STICKY`, removal of the
+experimental FAILED/stale lifecycle architecture, and the Android Gateway PID
+ownership false-positive fix that stops a valid running Gateway's pid file from
+being deleted while keeping foreign, dead, and stale PID protection.
+
+`feature/autostart-foundation` was NOT merged and remains reference only. The
+shipped implementation was rebuilt from `v0.2.0-rc1`.
+
+Release identity: versionName stays `0.2.0`, versionCode moves `4` → `5`. The
+candidate identity lives in the tag, matching how `v0.2.0-rc1` shipped. The
+versionCode bump means the released APK is not byte-identical to the physically
+validated one; the native payload is, see below.
+
+Native payload provenance: `libpicoclaw.so` and `libpicoclaw-web.so` are
+committed build inputs under `android/app/src/main/jniLibs/arm64-v8a/`, not
+build outputs. Core was deliberately not rebuilt for this release, so the
+released APK carries the physically validated Core binaries byte for byte:
+`0bf50e618a5f3cb92205365e9eb46df6d72e2c72d7d900ed76bb725563ce09da` and
+`d38f200df217b3b31e79d5bc0dfbe0a8393fc845341f37a3abb1273718b5e758`.
+
+Final verification: `flutter analyze` clean and 134 Flutter tests pass;
+`go test -tags goolm,stdjson ./...` exit 0 with no failing package and
+`go vet -tags goolm,stdjson ./...` exit 0; focused Gateway/PID, Auto-Start
+gate, Telegram, auth, Public Mode, and binding suites pass; the RC1→RC2 diff
+contains no credential literals, no wildcard authorization, and no new LAN
+exposure; the shipped Core binaries carry zero developer paths.
+
 ## 2026-08-30 — Gateway PID ownership false positive on Android
 
 The Auto-Start safe rebuild PASSED physical validation. One defect remained in
