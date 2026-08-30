@@ -1,5 +1,33 @@
 # PocketClaw Decisions
 
+## An inconclusive writable-exec probe is information, not a blocker
+
+- Date: 2026-08-30
+- Decision: On the device that physically validated the Managed Runtime, the
+  writable-app-data execution probe returned `inconclusive` — it could neither
+  run its staged copy nor observe a clean permission refusal. The delivery model
+  is unchanged: Android system executables and APK payloads unpacked into
+  `nativeLibraryDir`, both read-only to the app.
+- Consequence: The probe exists to report the platform's behaviour, not to gate
+  anything, which is why an inconclusive answer costs nothing — the bundled jq
+  payload executed from `nativeLibraryDir` on the same run, and that is the path
+  the runtime actually uses. Do not read `inconclusive` as permission to attempt
+  writable execution, and do not "fix" the probe by making it assume a verdict;
+  reporting what was actually observed is the whole point of it.
+
+## Skills 7/7 is the expected value; the GitHub Skill is not coming back
+
+- Date: 2026-08-30
+- Decision: The incomplete GitHub Skill was deliberately removed by the user. The
+  expected Skills count is 7/7 and the expected agent tool count is 18.
+- Consequence: 7/7 must not be reported as a regression, no migration should
+  restore the Skill, and 8/8 must not be used as a target in any acceptance list.
+  One loose end is recorded rather than silently resolved: the Skill still exists
+  in the seeded workspace tree, so a fresh install would receive it again. If
+  7/7 is meant to hold for new installs, remove it from `core/src/workspace/skills`
+  or add it to `unseededTemplates` — a deliberate change, not a side effect of
+  another milestone.
+
 ## Android forbids executing writable app storage, so the runtime has no installer
 
 - Date: 2026-08-30

@@ -180,6 +180,13 @@ on should be visible in the Debug Logs of every real device instead of being
 taken on trust. The verdict is `supported`, `blocked`, or `inconclusive`, always
 with an explanation.
 
+On the device that physically validated this runtime the verdict was
+**`inconclusive`**: the probe could neither run its staged copy nor observe a
+clean permission refusal. It reported that rather than guessing, which is the
+behaviour to preserve. An inconclusive probe is not a licence to attempt writable
+execution — on the same run the bundled jq payload executed from
+`nativeLibraryDir`, which is the route the runtime actually uses.
+
 ## Runtime Pack v1
 
 **Tier 1 is system-provided.** Android already ships toybox in `/system/bin`,
@@ -191,6 +198,14 @@ Catalogued as `system`: `cat cp mv rm mkdir rmdir ls pwd touch chmod stat find
 grep sed awk cut sort uniq head tail wc xargs tee which env printenv date sleep
 timeout ps uname df du base64 sha256sum md5sum tar gzip gunzip`, plus the network
 diagnostics Android plausibly provides: `ping traceroute ip netstat`.
+
+### Physically observed on hardware, 2026-08-30
+
+**43 of 44** catalog tools resolved as available on the tested ARM64 device.
+`traceroute` was the one reported unavailable, correctly — availability is
+measured per device, so a platform that does not ship a command says so instead
+of failing later at exec. jq resolved, verified against its pinned checksum, and
+executed from `nativeLibraryDir`.
 
 **`jq` is the first bundled payload**, and exists to prove the packaging contract
 end to end. jq 1.7.1 is cross-built from the official release tarball with the

@@ -1,10 +1,43 @@
 # PocketClaw Session Handoff
 
-## In progress — Managed Runtime Foundation (2026-08-30)
+## Shipped — Managed Runtime Foundation (2026-08-30, PHYSICAL PASS)
 
-Branch `feature/managed-runtime-foundation`, based on `v0.2.0-rc2` / `404ef44`.
-Not merged, not released, `main` untouched. **Physical validation PENDING and not
-claimed.** Read `RUNTIME.md` first; it is the architecture of record.
+Branch `feature/managed-runtime-foundation`, commit `ee236da`, based on
+`v0.2.0-rc2` / `404ef44`. **Physical validation PASSED** on a real ARM64 device
+on 2026-08-30, then merged to `develop`. Not released, `main` untouched. Read
+`RUNTIME.md` first; it is the architecture of record.
+
+Physical results: runtime tool registered; jq 1.7.1 executed and processed JSON;
+`sha256sum`, `grep`, `sed`, `tar`, `uname`, `df`, `ping` executed; stderr
+captured; non-zero exit preserved; timeout terminated a long-running command;
+lifecycle logs appeared; no secret leakage; the runtime was driven through
+Telegram; Auto-Start and the Gateway PID fix held.
+
+**43 of 44** catalog tools were available. `traceroute` was correctly reported
+unavailable — the resolver measuring the device instead of trusting the catalog,
+which is exactly what it is for.
+
+**The writable-app-data probe returned INCONCLUSIVE on that device**, and that is
+fine. Nothing depends on it: the bundled jq payload executed from
+`nativeLibraryDir` on the same run. Do not read an inconclusive probe as licence
+to try writable execution — the two supported routes are unchanged.
+
+### Counts, and one that will look wrong
+
+- Tools: **18**
+- Skills: **7/7**
+
+**Skills 7/7 is correct and is not a regression.** The user deliberately removed
+the incomplete GitHub Skill. Do not restore it, do not write a migration for it,
+and do not treat 8/8 as the target.
+
+Note for whoever picks this up: `core/src/workspace/skills/github/` is still in
+the repository, so a *freshly seeded* workspace would receive it again. The
+device count of 7 and the repo's seeded set are therefore consistent today only
+because the device workspace already exists. If 7/7 is meant to hold for new
+installs too, the skill needs removing from the seeded tree or adding to
+`unseededTemplates` in `cmd/picoclaw/internal/onboard/helpers.go`. That was not
+done here because it was not asked for.
 
 ### What a next session must not undo
 
@@ -57,10 +90,10 @@ a tester checking the workspace file should use a fresh workspace.
 
 ### Next
 
-Physical validation on a real ARM64 device, then merge. After that, the natural
-next payloads are `curl` and `wget`, which need an NDK cross-build with a TLS
-stack. See `TASKS.md` for the deferred release-engineering items, including the
-high-priority `extractBinaryFromApk()` dead path.
+Lean Runtime Pack v2 on `feature/lean-runtime-pack-v2`: Git and GitHub CLI
+first, then an HTTP/TLS capability, ripgrep, sqlite3 and yq. See `TASKS.md` for
+the deferred release-engineering items, including the high-priority
+`extractBinaryFromApk()` dead path.
 
 ## Shipped — v0.2.0-rc2, Auto-Start and Gateway PID ownership (2026-08-30)
 

@@ -595,8 +595,8 @@ supplied by the user.
   deliberately NOT part of this work and remains deferred — a restart policy
   belongs to a reliability milestone, and mixing it into auto-start is what made
   the experimental branch fail physical acceptance.
-- [~] Managed runtime and tool dependencies. The foundation is implemented on
-  `feature/managed-runtime-foundation`; see the milestone section below. The
+- [x] Managed runtime and tool dependencies. The foundation is implemented,
+  physically validated and merged; see the milestone section below. The
   original plan here — an app-private `runtime/bin` — is **invalid** and was
   replaced: PocketClaw targets SDK 36, and an app targeting API 29+ cannot
   execute a file in its own writable storage. `gh` and `git` remain unshipped;
@@ -612,8 +612,14 @@ supplied by the user.
 
 ## Phase 2 — Managed Runtime Foundation
 
-Branch `feature/managed-runtime-foundation`, based on `v0.2.0-rc2` / `404ef44`.
-Not merged; physical validation PENDING.
+Branch `feature/managed-runtime-foundation`, commit `ee236da`, based on
+`v0.2.0-rc2` / `404ef44`. **PHYSICAL PASS** on a real ARM64 device 2026-08-30,
+then merged to `develop`.
+
+Physical catalog result: **43 of 44** tools available; `traceroute` correctly
+reported unavailable. Bundled: jq 1.7.1. The writable-app-data probe returned
+INCONCLUSIVE on that device, which changes nothing — the architecture never used
+writable executable storage. Tools 18, Skills 7/7.
 
 - [x] Establish the Android execution model. Executables reach the device only
   through `/system/bin` or through APK payloads the installer unpacks into
@@ -641,7 +647,7 @@ Not merged; physical validation PENDING.
   packaging contract end to end.
 - [x] Agent guidance in `RUNTIME.md`, `core/src/workspace/AGENT.md`, the
   `runtime` tool description, and the GitHub Skill.
-- [ ] PHYSICAL validation on a real ARM64 device. Not claimed.
+- [x] PHYSICAL validation on a real ARM64 device. **PASS**, 2026-08-30.
 
 ### Not in this milestone, deliberately
 
@@ -672,3 +678,52 @@ Not merged; physical validation PENDING.
 - [ ] Production release signing. RC2 and this branch are debug-signed for
   sideload pre-release use.
 - [ ] Final obfuscation and hardening.
+
+## Phase 2 — Lean Runtime Pack v2
+
+Branch `feature/lean-runtime-pack-v2`, from `develop` after the Foundation merge.
+Not merged; physical validation PENDING.
+
+The goal is maximum Agent capability per megabyte. PocketClaw is not becoming a
+Linux distribution: no apt, no proot, no Python or Node runtime, no compiler
+toolchain, no background package manager. Android's own system tools plus a small
+number of high-value bundled executables, with native Go capability preferred
+wherever it is lighter than a binary.
+
+### Tier A — investigate and, if sound, ship
+
+- [ ] Git over HTTPS. Highest priority. Needs an Android-compatible packaged
+  layout for its helper executables, which `nativeLibraryDir`'s flat `lib*.so`
+  namespace does not naturally provide.
+- [ ] GitHub CLI (`gh`). Size is acceptable if the ARM64 build is stable,
+  provenance pinned and hash-verified, and Git integration works.
+- [ ] HTTP/TLS capability: real `curl` versus a native Go capability in Core.
+  A lightweight in-process tool must not be called `curl` unless it is actually
+  curl-compatible.
+- [ ] ripgrep (`rg`).
+- [ ] `yq`, only if its size is justified beside the jq already shipped.
+- [ ] `sqlite3`, restricted to workspace and app-owned databases.
+
+### Tier B — probe the system image before bundling anything
+
+- [ ] `zip`, `unzip`, `diff`, `patch`, `file`, `tree`. Do not duplicate what
+  Android already provides.
+
+### Tier C — deferred
+
+OpenSSH suite (reconsider after HTTPS Git is stable), `rsync`, Python, Node,
+npm, a full bash runtime, `make`, compilers, ffmpeg, ImageMagick.
+
+### Rules that carry over
+
+- Delivery classes stay `system`, `bundled`, `unavailable`. No executable
+  downloading or provisioning, no package marketplace, no URL-to-executable flow.
+- Every bundled executable needs an exact version, trusted source, license,
+  ARM64 build method, and SHA-256 recorded before it ships — licensing is
+  reviewed first, not after.
+- Any single tool adding more than roughly 10 MB installed needs explicit
+  justification. Git and `gh` are the deliberate exceptions.
+- Per-tool timeout profiles, not one global timeout: `git clone` and
+  `gh release upload` are not utility commands.
+- Bounded output stays mandatory; Git logs and diffs are unbounded by nature.
+- Never put a credential in argv. No `https://TOKEN@github.com/...`.

@@ -1,18 +1,60 @@
 # PocketClaw Project State
 
-## Managed Runtime Foundation — in progress, PHYSICAL PENDING
+## Managed Runtime Foundation — PHYSICAL PASS
 
-Branch `feature/managed-runtime-foundation`, based on `v0.2.0-rc2` / `404ef44`.
-Not merged to `develop`. Not released. `main` untouched. `v0.2.0-rc1`,
+Branch `feature/managed-runtime-foundation`, commit `ee236da`, based on
+`v0.2.0-rc2` / `404ef44`. Not released. `main` untouched. `v0.2.0-rc1`,
 `v0.2.0-rc2` and `phase2-milestone-d` not moved.
+
+**Physical validation: PASS** on a real ARM64 Android device, 2026-08-30.
+
+That run covered the runtime tool registering; jq 1.7.1 executing and processing
+JSON; `sha256sum`, `grep`, `sed`, `tar`, `uname`, `df` and `ping` executing;
+stderr captured; a non-zero exit code preserved; a timeout terminating a harmless
+long-running command; runtime lifecycle events appearing in the logs; no secret
+leakage observed; the runtime driven end to end through Telegram; Service and
+Gateway Auto-Start still working; and no recurrence of the Gateway PID ownership
+false positive.
+
+### Physical runtime catalog
+
+- **43 of 44** catalog tools available on the tested device.
+- Unavailable: `traceroute`, correctly reported as such rather than assumed
+  present. This is the resolver doing its job: availability is measured per
+  device, never read from the catalog.
+- Bundled: jq 1.7.1 (`libpocketclaw-jq.so`), resolved and executed from
+  `nativeLibraryDir`.
+
+### Writable-app-data probe: INCONCLUSIVE on the tested device
+
+The probe could neither execute its staged copy nor observe a clean permission
+refusal, so it reported `inconclusive` with its reason, which is the honest
+outcome rather than a guess in either direction.
+
+This changes nothing. **The architecture does not depend on writable executable
+app storage.** Executable delivery remains exactly two routes, both read-only to
+the app:
+
+1. Android system executables in `/system/bin`.
+2. APK payloads the package manager unpacks into `nativeLibraryDir`.
+
+An inconclusive probe is therefore information, not a blocker: the bundled jq
+payload executed from `nativeLibraryDir` on the same device, which is the path
+the runtime actually uses.
+
+### Counts
+
+- Tools: **18**
+- Skills: **7/7**
+
+Skills 7/7 is the current expected value and **not a regression**. The
+incomplete GitHub Skill was intentionally removed by the user. It must not be
+restored and 8/8 must not be treated as the target.
 
 The PocketClaw Managed Runtime gives the Agent a controlled, observable, verified
 local tool environment: `core/src/pkg/pcruntime` plus a `runtime` agent tool.
 Architecture, storage layout, observability contract and the tool catalog are
 documented in `RUNTIME.md`.
-
-**Physical validation: PENDING.** No device was attached during this work, so
-nothing here is claimed as physically passing.
 
 ### The constraint this milestone established
 
@@ -36,15 +78,13 @@ download-and-execute path at all. See `DECISIONS.md`.
 
 17 -> 18. All 17 existing tools are unchanged; the addition is `runtime`.
 
-### Verified here, and not
+### Verification
 
-Green: `go test ./pkg/pcruntime/ ./pkg/tools/`, and the jq payload extracted from
-the built release APK hashes to its catalog pin, proving Gradle packaging leaves
-it byte-identical.
+Automated: `go vet` and `go test` green across Core, `flutter analyze` clean,
+Flutter tests passing, and the jq payload extracted from the built release APK
+hashing to its catalog pin, proving Gradle packaging leaves it byte-identical.
 
-Not verified: on-device install, resolution, and execution. The Android execution
-constraint is reasoned from the platform contract and measured at runtime by the
-execution probe, not observed on hardware in this session.
+Physical: PASS, as recorded above.
 
 ## v0.2.0-rc2 — Auto-Start and Gateway PID ownership (PHYSICAL PASS)
 

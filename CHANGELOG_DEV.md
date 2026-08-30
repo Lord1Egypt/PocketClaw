@@ -1,9 +1,31 @@
 # Development Changelog
 
-## 2026-08-30 — Managed Runtime Foundation (physical validation PENDING)
+## 2026-08-30 — Managed Runtime Foundation (PHYSICAL PASS)
 
-Branch `feature/managed-runtime-foundation`, based on `v0.2.0-rc2` / `404ef44`.
-Not merged to `develop`, not released, `main` untouched.
+Branch `feature/managed-runtime-foundation`, commit `ee236da`, based on
+`v0.2.0-rc2` / `404ef44`. **Physically validated on a real ARM64 device on
+2026-08-30** and merged to `develop`. Not released, `main` untouched.
+
+Physical results: the runtime tool registered; jq 1.7.1 executed and processed
+JSON; `sha256sum`, `grep`, `sed`, `tar`, `uname`, `df` and `ping` executed;
+stderr was captured; a non-zero exit code was preserved; a timeout terminated a
+harmless long-running command; runtime lifecycle events appeared in the logs; no
+secret leakage was observed; and the runtime was driven end to end through
+Telegram. Service and Gateway Auto-Start still worked and the Gateway PID
+ownership false positive did not return.
+
+**43 of 44** catalog tools were available on the tested device. `traceroute` was
+correctly reported unavailable rather than assumed present — the resolver
+measuring the device instead of trusting the catalog, which is what it is for.
+
+The writable-app-data execution probe returned **inconclusive** on that device:
+it could neither run its staged copy nor observe a clean permission refusal, and
+it said so rather than guessing. That costs nothing, because the architecture
+never used writable executable storage — the bundled jq payload executed from
+`nativeLibraryDir` on the same run, which is the path the runtime actually uses.
+
+Counts are Tools **18** and Skills **7/7**. Skills 7/7 is not a regression: the
+incomplete GitHub Skill was removed deliberately and is not being restored.
 
 The PocketClaw Agent now has a controlled, observable, verified local tool
 environment. It names a tool; the runtime resolves that name through a versioned
@@ -71,18 +93,12 @@ Debug Logs, and deletes the copy. The runtime never depends on the answer.
   `3c1f61c100d7b8f3a68355f9cd697952bae27579cba516a0a3e43ac54926c997`, matching
   the catalog pin.
 
-### Not verified
-
-Physical validation on a real ARM64 device is PENDING and is not claimed. No
-device was attached during this work, so the Android execution constraint is
-reasoned from the platform contract and measured by the probe, not observed here.
-
 ### RC2 preserved
 
 No change to Service or Gateway Auto-Start, manual Stop authority,
 `START_NOT_STICKY`, the Gateway PID ownership fix, Core loopback binding,
-Dashboard auth, Public Mode, Telegram, credential redaction, Skills 8/8, or the
-internal PocketClaw chat.
+Dashboard auth, Public Mode, Telegram, credential redaction, or the internal
+PocketClaw chat.
 
 ## 2026-08-30 — v0.2.0-rc2 frozen (PHYSICAL PASS)
 
