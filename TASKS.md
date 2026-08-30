@@ -956,8 +956,13 @@ increase. **A 100+ MB addition needs explicit approval.**
 - [x] Python Lite **Phase A** build and measurement (2026-08-31). CPython 3.14.7,
   NDK 28.2, static modules, appended `.pyc` stdlib. Payload 11,591,387 bytes,
   APK delta +5,814,942 — both gates pass. See `runtime/PYTHON_LITE_PHASE_A.md`.
-- [ ] Python Lite Phase A **physical device run** — BLOCKING. No device was
-  attached to the build host. Run `build/phase-a-python/run-device-tests.sh`.
+- [x] Python Lite Phase A **physical device run** (2026-08-31, SM-A165F,
+  Android 16 / API 36). 52 passed, 0 failed. Harness:
+  `runtime/python-lite-device-tests.sh`.
+- [ ] Correct the architecture review's shell claim: Android 11+ ships
+  `/bin/sh` (`/bin` -> `/system/bin`), so `subprocess(shell=True)` and
+  `os.system()` work on API 30+. minSdk is 24, so document it as conditional.
+  The same assumption underlies the recorded git `SHELL_PATH` limitation.
 - [ ] Python Lite provenance: build bzip2 and xz from pinned source instead of
   using upstream's unverified beeware prebuilt binaries.
 - [ ] Python Lite Phase B — only after the device run and explicit approval.

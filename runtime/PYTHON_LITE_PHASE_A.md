@@ -163,12 +163,98 @@ PSF License 2.0 (CPython), public domain (SQLite — a second, embedded copy
 beside the CLI's), BSD 2-clause (libmpdec), Apache 2.0 (HACL\*), MIT (expat),
 0BSD (xz), BSD-like (bzip2). OpenSSL and libffi do not apply: not linked.
 
+## Physical validation — PASS (2026-08-31)
+
+Samsung SM-A165F, Android 16, API 36, arm64-v8a, 4096-byte page size, via
+`runtime/python-lite-device-tests.sh`. **52 checks passed, 0 failed.**
+
+Acceptance gate: payload present in `nativeLibraryDir`; direct execution as the
+app uid; `Python 3.14.7`; `PYTHON-PASS` from a stdin script. All four pass, so
+**standalone CPython runs on Android under the Managed Runtime execution model**.
+
+getpath resolved exactly as designed, with `PYTHONHOME` pointing at
+`/pocketclaw/python`, which does not exist on the device:
+
+```
+sys.prefix   = /pocketclaw/python
+sys.path[0]  = <nativeLibraryDir>/libpocketclaw-python.so
+flags        : no_site=1 no_user_site=1 dont_write_bytecode=1 safe_path=1
+```
+
+The appended-zip stdlib is confirmed on hardware: every import came out of the
+zip appended to the ELF, and the package manager extracted the file unchanged.
+The fallback layout is not needed.
+
+34 modules import and 8 compute assertions pass. `bz2`, `lzma` and `sqlite3`
+work. `socket`, `ssl`, `ctypes`, `multiprocessing`, `email` and `http` are
+absent. `hashlib`, `hmac` and `secrets` work with no OpenSSL:
+`sha256`, `sha3_256`, `blake2b` and HMAC all produce correct digests.
+
+SQLite is 3.50.4 with FTS5 and JSON1; commit and rollback both behave.
+Arabic and emoji round-trip through stdout and a file (23 chars, 39 UTF-8 bytes).
+
+| Startup (10 runs) | min | median | max |
+|---|---|---|---|
+| bare | 76 ms | **90 ms** | 96 ms |
+| `import json, re, datetime, hashlib` | 108 ms | **121 ms** | 134 ms |
+| sqlite3 in-memory round trip (5 runs) | 100 ms | **112 ms** | 116 ms |
+
+Comfortably inside the 1-second product threshold, and better than the review's
+250-600 ms estimate. This is the `.pyc` payload; the `.py` variant was not
+re-measured on device, and on this evidence there is no reason to revisit it.
+
+| RSS | |
+|---|---|
+| bare | 11,200 kB |
+| typical imports | 12,736 kB |
+| sqlite3, 1k inserts | 13,928 kB |
+| json, 20k objects | 20,756 kB |
+
+RSS only. PSS and USS need `dumpsys meminfo` against a live process and were not
+collected, so they are not reported.
+
+A runaway `while True: pass` was killed in **25 ms** with **no orphan**, using
+the process-group semantics the Runtime already implements.
+
+## Correction: Android does have /bin/sh
+
+The architecture review asserted that Android provides no `/bin/sh` and that
+`subprocess(shell=True)` and `os.system()` would therefore be unusable. **On
+API 30 and later that is wrong**, and it was measured wrong here:
+
+```
+command -v sh  : /system/bin/sh
+/bin           : lrw-r--r-- root root 11 -> /system/bin
+/bin/sh        : -rwxr-xr-x root shell 334864
+/system/bin/sh : mksh, MIRBSD KSH R59 2020/10/31 Android
+```
+
+From Python on the device: `shell=False` rc=0, **`shell=True` rc=0**,
+**`os.system()` rc=0**. Android 11 added the `/bin` -> `/system/bin` symlink, so
+the shell is reachable at the path Python looks for.
+
+PocketClaw's `minSdkVersion` is 24, so this is version-dependent: on API 24-29
+`/bin/sh` genuinely is absent and those calls fail. Python Lite must therefore
+document shell availability as *conditional*, not absent.
+
+This does not change the security conclusion, it sharpens it. The review already
+said Python's `subprocess` is a Runtime bypass and that guidance about it is
+advisory rather than a boundary. Shell access being available on modern devices
+makes that bypass easier to reach, not different in kind. Nothing was added to
+the device and no shell ships with PocketClaw.
+
+The same conditionality applies to the documented git limitation, which was
+written from the same assumption. That is recorded but deliberately not acted on
+here.
+
 ## What Phase A could not answer
 
-No Android device was attached to the build host and no emulator or user-mode
-QEMU was available, so **nothing was executed on Android**. Everything above is
-either a host measurement, a static property of the binary, or a functional
-test run through the x86_64 build interpreter.
+Nothing, now. The initial build host had no device, but the physical run above
+was completed against a real SM-A165F by pointing the Linux adb client at the
+Windows ADB server (`ADB_SERVER_SOCKET=tcp:172.20.64.1:5037`).
+
+The one item still outstanding is not a measurement but a work item: bzip2 and
+xz remain third-party prebuilt binaries (see Provenance).
 
 `build/phase-a-python/` holds the payload, both stdlib zips, a signed
 throwaway diagnostic APK (`com.pocketclaw.pythonprobe`, targetSdk 36,

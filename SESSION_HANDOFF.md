@@ -31,10 +31,20 @@ kept over `.py` despite costing 943,381 bytes because it starts ~4.5x faster.
 `hashlib`, `hmac` and `secrets` work with no OpenSSL. `socket`, `ssl`, `ctypes`,
 `multiprocessing`, `email` and `http` are absent by construction.
 
-**Blocking gap: nothing has run on Android.** No device was attached to the
-build host and no emulator was available. `build/phase-a-python/` holds the
-payload, a signed throwaway diagnostic APK and `run-device-tests.sh`; the Phase
-A decision cannot be completed until that runs on real hardware.
+**PHYSICAL VALIDATION PASSED (2026-08-31)** on Samsung SM-A165F, Android 16,
+API 36, arm64-v8a: 52 checks passed, 0 failed. Standalone CPython runs from
+`nativeLibraryDir` under the app uid, the appended-zip stdlib imports on
+hardware, `sqlite3` 3.50.4 works with FTS5 and JSON1, `hashlib` works with no
+OpenSSL, Arabic and emoji round-trip, a runaway loop dies in 25 ms with no
+orphan. Startup: bare 90 ms median, typical imports 121 ms median. RSS 11.2 MB
+bare, 20.8 MB for a 20k-object JSON workload.
+
+Correction carried out of the run: **Android 11+ does have `/bin/sh`** (a
+symlink `/bin` -> `/system/bin`, mksh), so `subprocess(shell=True)` and
+`os.system()` work on API 30+ and the architecture review was wrong to call them
+unusable. PocketClaw's minSdk is 24, so shell availability is conditional on the
+device. This sharpens the existing "subprocess is a bypass, guidance is
+advisory" conclusion rather than changing it.
 
 Second gap: upstream's Android tooling downloads prebuilt dependency binaries
 with no checksum verification. The Phase A build script pins them by SHA-256,
