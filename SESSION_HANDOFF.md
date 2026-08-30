@@ -3,7 +3,44 @@
 ## Active work — Auto-Start safe rebuild (2026-08-30)
 
 Branch: `fix/autostart-safe-rebuild`, based on `develop @ e470bb6`
-(`v0.2.0-rc1`). Physical verification PENDING. Not merged, not tagged.
+(`v0.2.0-rc1`). Not merged, not tagged.
+
+`75ac0d9` PASSED physical validation: Service and Gateway auto-start, manual
+stop and start, internal chat, Telegram, and Core bound only to
+`127.0.0.1:18790` / `[::1]:18790`. A follow-up commit fixes the one defect that
+run surfaced — see "Gateway PID ownership" below. That follow-up is PENDING
+physical verification.
+
+### Gateway PID ownership on Android
+
+`validateGatewayPidData` proved ownership by running `ps -o command= -p <pid>`
+and looking for the bare `gateway` subcommand from the launch line
+`<binary> gateway -E --no-color`. On Android the Gateway is executed as
+`.../lib/arm64/libpicoclaw.so` and `ps` does not report that argv, so a live,
+launcher-spawned Gateway was classified foreign and its pid file deleted.
+
+The log message "pid belongs to another process" is reachable only when `ps`
+succeeded with non-empty output lacking the token — that is how the cause was
+established rather than guessed.
+
+Startup and status disagreed because the readiness goroutine in
+`startGatewayLocked` accepts the pid file on `pd.PID == pid` alone and never
+calls `sanitizeGatewayPidData`. Only status, the realtime proxy, and manual
+start ran the heuristic.
+
+Two rules now hold, and should not be undone:
+
+- `exec.Cmd` ownership outranks `ps`. If this launcher spawned the exact pid and
+  the process is alive, it is owned, full stop. Pid reuse cannot defeat this:
+  the child stays a zombie holding its pid until `cmd.Wait()` returns, and the
+  monitor goroutine clears `gateway.cmd` at that moment.
+- A negative command-line match is decisive only when `ps` actually returned a
+  command line. A bare executable name is un-inspected, not foreign, and falls
+  through to the health probe. Do not "restore" bare-name rejection.
+
+Dead-process cleanup is independent of all of this — it lives in
+`ppid.ReadPidFileWithCheck` and runs first — so relaxing the heuristic cannot
+leak stale pid files.
 
 `feature/autostart-foundation` is abandoned. Do not base work on it, merge it,
 or cherry-pick from it. It is kept intact for reference only. Its automated

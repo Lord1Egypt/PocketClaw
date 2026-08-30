@@ -1,5 +1,66 @@
 # Development Changelog
 
+## 2026-08-30 — Gateway PID ownership false positive on Android
+
+The Auto-Start safe rebuild PASSED physical validation. One defect remained in
+its logs: while a launcher-spawned Gateway was serving traffic on PID 5312,
+status polling logged
+
+    ignore pid file for PID 5312: pid belongs to another process; ignoring
+    stale pid file
+    removed stale pid file for PID 5312
+
+and deleted a valid pid file.
+
+Root cause. `validateGatewayPidData` proves ownership by running
+`ps -o command= -p <pid>` and looking for a bare `gateway` token, which is the
+subcommand in the launch line `<binary> gateway -E --no-color`. That message is
+reachable only when `ps` succeeded and returned non-empty output that contained
+no such token, so Android's `ps` answered with something that is not the argv
+the matcher expects. On Android the Gateway is executed as
+`.../lib/arm64/libpicoclaw.so`, and the `gateway` subcommand is absent from what
+`ps` reports for it.
+
+Why startup and status disagreed: the readiness goroutine in
+`startGatewayLocked` accepts the pid file on `pd.PID == pid` alone and never
+calls `sanitizeGatewayPidData`, so it logged "Gateway pidFile detected". Only
+the later status, realtime-proxy, and start paths ran the command-line
+heuristic, and only those rejected the same live process.
+
+Two small changes, no framework:
+
+- `launcherOwnsGatewayPID` short-circuits validation when this launcher spawned
+  the exact pid via `exec.Cmd` and that process is still alive. First-hand
+  `exec.Cmd` ownership outranks a platform-dependent `ps` description. It is
+  safe against pid reuse because the child remains a zombie holding its pid
+  until `cmd.Wait()` returns, and the monitor goroutine clears `gateway.cmd` at
+  that moment. Attached (not spawned) processes are excluded and still take the
+  ordinary path.
+- `classifyGatewayCommandLine` makes a negative command-line match decisive
+  only when `ps` actually returned a command line. A bare executable name is now
+  reported as un-inspected, which falls through to the existing health probe
+  and its pid-identity check rather than deleting the pid file.
+
+Dead-process cleanup is unaffected: it lives in `ppid.ReadPidFileWithCheck`,
+runs before validation, and never consulted the command line.
+
+PID validation was not disabled, the pid file is still removed for a dead or
+decisively foreign process, and the discarded experimental
+`gatewayRuntimeReady` framework was not restored.
+
+Observability: a `gateway.pid.validation` DEBUG event records
+`ownership_signal`, `validation_result`, `stage`, and `reason`. Repeats of the
+same verdict for the same pid are suppressed, so status polling cannot spam it.
+No credentials, paths, or command lines are logged.
+
+- Diff: 3 Core source files, Core-only. No Flutter, Kotlin, Auto-Start,
+  preference, auth, port, version, or packaging change.
+- Validation: 12 new focused Go tests; full Go sweep passes with
+  `-tags goolm,stdjson` (exit 0); `flutter analyze` clean and 134 Flutter tests
+  pass; Core rebuilt with zero developer paths; provenance patch regenerated
+  (141 files, no new files).
+- Physical verification: PENDING. No merge, no tag, no release.
+
 ## 2026-08-30 — Auto-Start safe rebuild from the RC1 baseline
 
 `feature/autostart-foundation` passed automated tests but failed physical

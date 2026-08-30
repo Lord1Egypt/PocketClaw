@@ -77,7 +77,7 @@ func (h *Handler) gatewayAvailableForProxy() bool {
 	trackedCmd := gateway.cmd
 	gateway.mu.Unlock()
 
-	if pidData := h.sanitizeGatewayPidData(ppid.ReadPidFileWithCheck(globalConfigDir()), nil); pidData != nil {
+	if pidData := h.sanitizeGatewayPidData(ppid.ReadPidFileWithCheck(globalConfigDir()), nil, "realtime"); pidData != nil {
 		gateway.mu.Lock()
 		gateway.pidData = pidData
 		setGatewayRuntimeStatusLocked("running")
