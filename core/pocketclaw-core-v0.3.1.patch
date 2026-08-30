@@ -8337,7 +8337,7 @@ index 0000000..ca16497
 +	}
 +}
 diff --git a/web/backend/main.go b/web/backend/main.go
-index 698e582..96f3054 100644
+index 698e582..b368f7d 100644
 --- a/web/backend/main.go
 +++ b/web/backend/main.go
 @@ -26,6 +26,7 @@ import (
@@ -8368,7 +8368,29 @@ index 698e582..96f3054 100644
  	// browserLaunchURL is opened by openBrowser() (auto-open + tray "open console").
  	browserLaunchURL string
  	apiHandler       *api.Handler
-@@ -398,6 +399,8 @@ func launcherAllowlistBypassLogPolicy(
+@@ -60,6 +61,21 @@ func shouldEnableLauncherFileLogging(enableConsole, debug bool) bool {
+ 	return !enableConsole || debug
+ }
+ 
++// gatewayAutoStartEnabled reads the host's Gateway auto-start preference from
++// the environment. An absent or unparsable value keeps the historical
++// always-on behaviour, so only an explicit, well-formed "false" disables it.
++func gatewayAutoStartEnabled(value string) bool {
++	value = strings.TrimSpace(value)
++	if value == "" {
++		return true
++	}
++	enabled, err := strconv.ParseBool(value)
++	if err != nil {
++		return true
++	}
++	return enabled
++}
++
+ func shouldEnableLocalAutoLogin(noBrowser bool, probeHost string) bool {
+ 	return !noBrowser && isLoopbackLaunchHost(probeHost)
+ }
+@@ -398,6 +414,8 @@ func launcherAllowlistBypassLogPolicy(
  }
  
  func main() {
@@ -8377,7 +8399,7 @@ index 698e582..96f3054 100644
  	port := flag.String("port", "18800", "Port to listen on")
  	host := flag.String("host", "", "Host to listen on (overrides -public when set)")
  	public := flag.Bool("public", false, "Listen on all interfaces (dual-stack) instead of localhost only")
-@@ -542,7 +545,7 @@ func main() {
+@@ -542,7 +560,7 @@ func main() {
  	}
  
  	if !explicitHost && hostOverrideActive {
@@ -8386,7 +8408,7 @@ index 698e582..96f3054 100644
  	}
  
  	if hostOverrideActive && explicitPublic {
-@@ -572,10 +575,7 @@ func main() {
+@@ -572,10 +590,7 @@ func main() {
  	}
  	listeners := openResult.Listeners
  
@@ -8398,7 +8420,7 @@ index 698e582..96f3054 100644
  
  	// Open the bcrypt password store (creates the DB file on first run).
  	authStore, authStoreErr := dashboardauth.New(picoHome)
-@@ -640,7 +640,7 @@ func main() {
+@@ -640,7 +655,7 @@ func main() {
  	mux := http.NewServeMux()
  
  	api.RegisterLauncherAuthRoutes(mux, api.LauncherAuthRouteOpts{
@@ -8407,7 +8429,7 @@ index 698e582..96f3054 100644
  		PasswordStore: passwordStore,
  		StoreError:    authStoreErr,
  	})
-@@ -672,24 +672,35 @@ func main() {
+@@ -672,24 +687,35 @@ func main() {
  	}
  
  	dashAuth := middleware.LauncherDashboardAuth(middleware.LauncherDashboardAuthConfig{
@@ -8447,10 +8469,16 @@ index 698e582..96f3054 100644
  		fmt.Println()
  		if needsInitialSetup {
  			if *noBrowser {
-@@ -729,19 +740,9 @@ func main() {
- 		apiHandler.TryAutoStartGateway()
- 	}()
+@@ -723,26 +749,21 @@ func main() {
  
+ 	// Auto-open browser will be handled by the launcher runtime.
+ 
+-	// Auto-start gateway after backend starts listening.
+-	go func() {
+-		time.Sleep(1 * time.Second)
+-		apiHandler.TryAutoStartGateway()
+-	}()
+-
 -	// Start the server(s) in goroutines.
 -	servers = make([]*http.Server, 0, len(listeners))
 -	for _, ln := range listeners {
@@ -8463,15 +8491,26 @@ index 698e582..96f3054 100644
 -				logger.Fatalf("Server failed to start on %s: %v", l.Addr().String(), serveErr)
 -			}
 -		}(srv, ln)
--	}
++	// Auto-start gateway after backend starts listening, unless the host asked
++	// to leave Gateway startup under the user's control.
++	if gatewayAutoStartEnabled(os.Getenv("POCKETCLAW_GATEWAY_AUTOSTART")) {
++		go func() {
++			time.Sleep(1 * time.Second)
++			apiHandler.TryAutoStartGateway()
++		}()
++	} else {
++		logger.InfoC("gateway", "Gateway auto-start skipped: disabled by launch preference")
+ 	}
+ 
 +	// Start the authenticated Dashboard listener(s). The runtime can replace
 +	// only these listeners when Android applies Public Mode; Core stays alive.
 +	httpRuntime.Start()
- 
++
  	defer shutdownApp()
  
+ 	// Start system tray or run in console mode
 diff --git a/web/backend/main_test.go b/web/backend/main_test.go
-index 5795a46..793fc84 100644
+index 5795a46..8f03890 100644
 --- a/web/backend/main_test.go
 +++ b/web/backend/main_test.go
 @@ -505,6 +505,45 @@ func TestOpenLauncherListeners_HonorsIPv6OnlyHost(t *testing.T) {
@@ -8520,6 +8559,34 @@ index 5795a46..793fc84 100644
  func TestOpenLauncherListeners_SupportsExplicitMultiHost(t *testing.T) {
  	hasIPv4, hasIPv6 := netbind.DetectIPFamilies()
  	if !hasIPv4 || !hasIPv6 {
+@@ -601,3 +640,27 @@ func mustAtoi(t *testing.T, value string) int {
+ 	}
+ 	return n
+ }
++
++func TestGatewayAutoStartEnabled(t *testing.T) {
++	cases := []struct {
++		name  string
++		value string
++		want  bool
++	}{
++		{"absent keeps historical always-on behaviour", "", true},
++		{"whitespace is treated as absent", "   ", true},
++		{"explicit false disables", "false", false},
++		{"explicit 0 disables", "0", false},
++		{"padded false disables", "  false  ", false},
++		{"explicit true enables", "true", true},
++		{"unparsable value fails open to enabled", "maybe", true},
++	}
++
++	for _, tc := range cases {
++		t.Run(tc.name, func(t *testing.T) {
++			if got := gatewayAutoStartEnabled(tc.value); got != tc.want {
++				t.Fatalf("gatewayAutoStartEnabled(%q) = %v, want %v", tc.value, got, tc.want)
++			}
++		})
++	}
++}
 diff --git a/web/backend/middleware/launcher_dashboard_auth.go b/web/backend/middleware/launcher_dashboard_auth.go
 index fd59958..4715295 100644
 --- a/web/backend/middleware/launcher_dashboard_auth.go

@@ -16,6 +16,14 @@ import '../native/core_service_adapter.dart';
 
 enum ServiceStatus { stopped, running, starting }
 
+/// Why an app-launch auto-start evaluation did or did not start the service.
+enum LaunchAutoStartDecision {
+  start,
+  alreadyEvaluated,
+  preferenceOff,
+  alreadyActive,
+}
+
 @immutable
 class LanAddressCandidate {
   const LanAddressCandidate({
@@ -181,11 +189,20 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
   String _healthStatus = '';
   String _healthUptime = '';
   bool _autoStart = false;
+  LaunchAutoStartPreferences _launchAutoStart =
+      LaunchAutoStartPreferences.defaults;
+  bool _launchAutoStartEvaluated = false;
 
   int get nativePid => _nativePid;
   String get healthStatus => _healthStatus;
   String get healthUptime => _healthUptime;
   bool get autoStart => _autoStart;
+
+  /// Cached mirror of the Android host's canonical launch auto-start record.
+  /// The host remains the only source of truth; this is refreshed from every
+  /// read and every committed write.
+  bool get serviceLaunchAutoStart => _launchAutoStart.serviceEnabled;
+  bool get gatewayLaunchAutoStart => _launchAutoStart.gatewayEnabled;
 
   Timer? _nativePollingTimer;
   Timer? _lanAddressPollingTimer;
@@ -395,6 +412,10 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
         _autoStart = await PicoClawChannel.getAutoStart();
         _workspacePath = await _adapter.getWorkspacePath();
         await _syncNativeServiceStatus();
+        // Read last: the launch auto-start decision needs an accurate runtime
+        // status more than it needs the preference, and this call must not be
+        // able to skip the status sync above.
+        _launchAutoStart = await PicoClawChannel.getLaunchAutoStartPreferences();
       } catch (_) {}
       _startNativePolling();
     }
@@ -968,6 +989,86 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
       await PicoClawChannel.setAutoStart(enabled);
       _autoStart = enabled;
       notifyListeners();
+    }
+  }
+
+  Future<void> setServiceLaunchAutoStart(bool enabled) =>
+      _commitLaunchAutoStart(serviceEnabled: enabled);
+
+  Future<void> setGatewayLaunchAutoStart(bool enabled) =>
+      _commitLaunchAutoStart(gatewayEnabled: enabled);
+
+  Future<void> _commitLaunchAutoStart({
+    bool? serviceEnabled,
+    bool? gatewayEnabled,
+  }) async {
+    if (!Platform.isAndroid) return;
+    try {
+      // Adopt the host's post-commit readback, never the requested value, so
+      // the switch can only settle on state that actually reached the disk.
+      _launchAutoStart = await PicoClawChannel.setLaunchAutoStartPreferences(
+        serviceEnabled: serviceEnabled,
+        gatewayEnabled: gatewayEnabled,
+      );
+    } catch (e) {
+      // The host refused to persist. Fall back to what is actually stored so
+      // the switch reports the truth rather than an unsaved change.
+      _addLog('Could not save the auto-start preference');
+      debugPrint('Failed to persist launch auto-start preferences: $e');
+      try {
+        _launchAutoStart = await PicoClawChannel.getLaunchAutoStartPreferences();
+      } catch (_) {}
+    }
+    notifyListeners();
+  }
+
+  /// Decides whether a true app-process launch should start the service.
+  ///
+  /// Pure so that the auto-start contract can be asserted without a device: it
+  /// fires at most once per process, only when the user asked for it, and only
+  /// when nothing is running.
+  @visibleForTesting
+  static LaunchAutoStartDecision decideLaunchAutoStart({
+    required bool alreadyEvaluated,
+    required bool preferenceEnabled,
+    required ServiceStatus status,
+  }) {
+    if (alreadyEvaluated) return LaunchAutoStartDecision.alreadyEvaluated;
+    if (!preferenceEnabled) return LaunchAutoStartDecision.preferenceOff;
+    if (status != ServiceStatus.stopped) {
+      return LaunchAutoStartDecision.alreadyActive;
+    }
+    return LaunchAutoStartDecision.start;
+  }
+
+  /// Starts the service once, at a true app-process launch, if the user asked
+  /// for it and nothing is running yet.
+  ///
+  /// This deliberately has no resume, watchdog, or retry behaviour: auto-start
+  /// means "start on the next legitimate app launch", so a service the user
+  /// stopped by hand stays stopped until they start it again or relaunch the
+  /// app. Gateway auto-start is not handled here at all — the preference
+  /// travels to Core in the service environment and Core decides.
+  Future<void> evaluateLaunchAutoStart() async {
+    if (!Platform.isAndroid) return;
+    final decision = decideLaunchAutoStart(
+      alreadyEvaluated: _launchAutoStartEvaluated,
+      preferenceEnabled: _launchAutoStart.serviceEnabled,
+      status: _status,
+    );
+    _launchAutoStartEvaluated = true;
+    switch (decision) {
+      case LaunchAutoStartDecision.alreadyEvaluated:
+        return;
+      case LaunchAutoStartDecision.preferenceOff:
+        _addLog('Auto-start skipped: service auto-start is off');
+        return;
+      case LaunchAutoStartDecision.alreadyActive:
+        _addLog('Auto-start skipped: service is already ${_status.name}');
+        return;
+      case LaunchAutoStartDecision.start:
+        _addLog('Auto-starting PocketClaw service on app launch');
+        await start();
     }
   }
 

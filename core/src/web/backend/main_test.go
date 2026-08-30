@@ -640,3 +640,27 @@ func mustAtoi(t *testing.T, value string) int {
 	}
 	return n
 }
+
+func TestGatewayAutoStartEnabled(t *testing.T) {
+	cases := []struct {
+		name  string
+		value string
+		want  bool
+	}{
+		{"absent keeps historical always-on behaviour", "", true},
+		{"whitespace is treated as absent", "   ", true},
+		{"explicit false disables", "false", false},
+		{"explicit 0 disables", "0", false},
+		{"padded false disables", "  false  ", false},
+		{"explicit true enables", "true", true},
+		{"unparsable value fails open to enabled", "maybe", true},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := gatewayAutoStartEnabled(tc.value); got != tc.want {
+				t.Fatalf("gatewayAutoStartEnabled(%q) = %v, want %v", tc.value, got, tc.want)
+			}
+		})
+	}
+}

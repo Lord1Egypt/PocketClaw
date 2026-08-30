@@ -1,5 +1,65 @@
 # Development Changelog
 
+## 2026-08-30 — Auto-Start safe rebuild from the RC1 baseline
+
+`feature/autostart-foundation` passed automated tests but failed physical
+acceptance, most seriously by turning a manual Start Service press into a
+FAILED state that RC1 cannot reach. That branch is retained for reference only.
+It was neither merged nor cherry-picked. This work restarts from
+`develop @ e470bb6` (`v0.2.0-rc1`) on `fix/autostart-safe-rebuild`.
+
+Why the experimental branch failed, and what was therefore discarded:
+
+- It changed native `PicoClawService.start()` to return a `Boolean` and taught
+  Flutter to map `false` onto `ServiceStatus.failed`. But `false` also meant
+  "skipped", returned whenever the process-lifetime `isStarting`, `isStopping`,
+  or `manualStopActive` companion flags were set. Those flags outlive the
+  Service object and have paths that never clear them, so one stale flag turned
+  every later manual Start into FAILED.
+- It set `hasFailed = true` after *every* child-process exit, including a
+  requested stop, from a thread running outside the lock that had just cleared
+  it. A clean manual Stop therefore left the service marked failed.
+- `inspectServiceState()` latched: its fallback returned FAILED whenever
+  `_status` was already FAILED, even when the native side reported a clean stop.
+- Several later commits existed only to mask races the earlier ones introduced
+  (transition generations, the owned-PID fast path, the `hasFailed` mask). Both
+  halves of each pair were discarded rather than carried forward.
+
+The rebuild is RC1 plus a preference and one call:
+
+- `LaunchAutoStartPreferences` (Android) is the single canonical store, in the
+  existing `picoclaw_prefs` file under new keys, written with a synchronous
+  `commit()` and acknowledged only from a post-commit readback. RC1's separate
+  `auto_start` boot-receiver key is untouched. Both new preferences default ON.
+- `ServiceManager.evaluateLaunchAutoStart()` runs once, from `main()`, after a
+  true app-process launch. There is no resume hook, watchdog, boot receiver
+  change, crash-restart policy, or resurrection path, so a manual Stop stays
+  stopped until the user starts it again or relaunches the app.
+- Gateway auto-start is a preference only. The Service exports
+  `POCKETCLAW_GATEWAY_AUTOSTART` into the Core child environment and Core's
+  existing `TryAutoStartGateway()` is gated on it. No Flutter gateway lifecycle
+  code, no Android gateway bridge, and no second definition of gateway
+  readiness. An absent or unparsable value keeps RC1's always-on behaviour.
+- `START_STICKY` became `START_NOT_STICKY`, and a null restart intent now stops
+  the Service instead of re-entering the start branch. This addresses the
+  observed unexpected Android Service restarts. RC1's `runWebService` crash
+  restart is deliberately unchanged; it is guarded by `stopped` and never fires
+  on a manual stop.
+- `ServiceStatus` stays `{ stopped, running, starting }`. No `failed` state, so
+  no stale failure can be displayed or latched. Settings shows the persisted
+  preference and RC1's live 3-second runtime poll as two separate lines.
+
+Also carried across, independent of Auto-Start: the log sanitizer now redacts
+JSON credential fields, `key=value` credential assignments, `Bearer` tokens,
+and `sk-` API keys, which RC1 did not cover.
+
+- Diff versus RC1: 11 files, +458/-9, plus three new files. The experimental
+  branch was 32 files and +5048/-246.
+- Validation: `flutter analyze` clean, 134 Flutter tests pass, the full Go
+  sweep passes with `-tags goolm,stdjson`, Core rebuilt with zero developer
+  paths, and the Core provenance patch was regenerated (141 files).
+- Physical verification: PENDING. No merge, no tag, no release.
+
 ## 2026-08-26 — DEBUG log cleanup micro-pass
 
 - Physical DEBUG export from `f663d25a...71c621d` isolated two small remaining

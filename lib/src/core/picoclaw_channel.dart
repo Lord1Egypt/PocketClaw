@@ -1,6 +1,32 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
+/// The canonical launch auto-start record, as committed by the Android host.
+///
+/// Flutter never holds a second copy of this state: every read and write goes
+/// through the native store, and the values below are always a post-commit
+/// readback rather than the values that were requested.
+class LaunchAutoStartPreferences {
+  const LaunchAutoStartPreferences({
+    required this.serviceEnabled,
+    required this.gatewayEnabled,
+    required this.initialized,
+  });
+
+  /// Fresh installations start with both components enabled.
+  static const defaults = LaunchAutoStartPreferences(
+    serviceEnabled: true,
+    gatewayEnabled: true,
+    initialized: false,
+  );
+
+  final bool serviceEnabled;
+  final bool gatewayEnabled;
+
+  /// False until the user has saved a choice at least once.
+  final bool initialized;
+}
+
 class PublicModeApplyResult {
   const PublicModeApplyResult({
     required this.success,
@@ -68,6 +94,41 @@ class PicoClawChannel {
       return {'isHealthy': false, 'error': 'No response'};
     }
     return Map<String, dynamic>.from(result);
+  }
+
+  /// Reads the canonical launch auto-start record from the Android host.
+  static Future<LaunchAutoStartPreferences> getLaunchAutoStartPreferences()
+  async {
+    final result = await _channel.invokeMethod<Map>(
+      'getLaunchAutoStartPreferences',
+    );
+    return _mapLaunchAutoStart(result);
+  }
+
+  /// Commits a launch auto-start change and returns the native readback.
+  ///
+  /// Omitted fields are left untouched by the host, so a single toggle never
+  /// rewrites the other component's preference.
+  static Future<LaunchAutoStartPreferences> setLaunchAutoStartPreferences({
+    bool? serviceEnabled,
+    bool? gatewayEnabled,
+  }) async {
+    final result = await _channel.invokeMethod<Map>(
+      'setLaunchAutoStartPreferences',
+      <String, Object?>{
+        'serviceEnabled': ?serviceEnabled,
+        'gatewayEnabled': ?gatewayEnabled,
+      },
+    );
+    return _mapLaunchAutoStart(result);
+  }
+
+  static LaunchAutoStartPreferences _mapLaunchAutoStart(Map<dynamic, dynamic>? r) {
+    return LaunchAutoStartPreferences(
+      serviceEnabled: r?['serviceEnabled'] as bool? ?? true,
+      gatewayEnabled: r?['gatewayEnabled'] as bool? ?? true,
+      initialized: r?['initialized'] as bool? ?? false,
+    );
   }
 
   /// 读取 config.json 内容

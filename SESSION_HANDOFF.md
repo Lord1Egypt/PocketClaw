@@ -1,6 +1,52 @@
 # PocketClaw Session Handoff
 
-## Current Objective
+## Active work — Auto-Start safe rebuild (2026-08-30)
+
+Branch: `fix/autostart-safe-rebuild`, based on `develop @ e470bb6`
+(`v0.2.0-rc1`). Physical verification PENDING. Not merged, not tagged.
+
+`feature/autostart-foundation` is abandoned. Do not base work on it, merge it,
+or cherry-pick from it. It is kept intact for reference only. Its automated
+tests were green, but on a device a manual Start Service press could land in a
+FAILED state that RC1 cannot even represent — RC1's `ServiceStatus` is
+`{ stopped, running, starting }`, with no `failed` member.
+
+The three mechanisms behind that regression, so it is not reintroduced:
+
+1. It changed native `PicoClawService.start()` to return a `Boolean` and mapped
+   `false` to `ServiceStatus.failed` in Flutter. `false` also meant "skipped",
+   returned whenever the process-lifetime `isStarting` / `isStopping` /
+   `manualStopActive` companion flags were set. Those flags outlive the Service
+   object and had paths that never cleared them, so one stale flag made every
+   later manual Start fail.
+2. It set `hasFailed = true` after every child-process exit, including a
+   requested stop, from a thread outside the lock that had just cleared it. A
+   clean manual Stop therefore left the service marked failed.
+3. `inspectServiceState()` latched on FAILED and reported it even when the
+   native side said the service was cleanly stopped.
+
+Design rules this rebuild holds to, and the reasons:
+
+- Auto-start evaluates exactly once, from `main()`, at a true app-process
+  launch. There is no resume hook. A manual Stop stays stopped until the user
+  starts it again or relaunches, and that is guaranteed structurally rather
+  than by a flag.
+- `LaunchAutoStartPreferences` (Android) is the only store: the existing
+  `picoclaw_prefs` file under new keys, synchronous `commit()`, acknowledged
+  only from a post-commit readback. RC1's `auto_start` boot-receiver key is a
+  different preference and is untouched.
+- Gateway auto-start is a preference, not a lifecycle. The Service exports
+  `POCKETCLAW_GATEWAY_AUTOSTART` and Core's existing `TryAutoStartGateway()`
+  is gated on it. Do not add a Flutter gateway lifecycle, an Android gateway
+  bridge, or a second definition of gateway readiness — the experimental
+  branch's `gatewayRuntimeReady()` also introduced a new HTTP 400
+  `precondition_failed` failure mode on the RC1 web console's own Gateway
+  button.
+- `START_NOT_STICKY`, and a null restart intent stops the Service. RC1's
+  `runWebService` crash restart is intentionally unchanged; it is guarded by
+  `stopped` and never fires on a manual stop.
+
+## Previous objective
 
 **v0.2.0-rc1 is frozen, merged to `develop`, tagged, and published as a GitHub
 pre-release. No further RC work is pending.** The next objective is the

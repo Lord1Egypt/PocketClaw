@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:animations/animations.dart';
@@ -59,6 +60,9 @@ void main(List<String> args) async {
   await service.init();
 
   runApp(ChangeNotifierProvider.value(value: service, child: const MainApp()));
+
+  // The only auto-start boundary: a true app-process launch. Nothing on resume.
+  unawaited(service.evaluateLaunchAutoStart());
 }
 
 class MainApp extends StatelessWidget {

@@ -377,6 +377,8 @@ class PicoClawService : Service() {
     private var stopped = false // 用于通知运行中的线程应该停止
     @Volatile
     private var publicMode = false // 是否启用公共模式（监听所有接口）
+    @Volatile
+    private var gatewayAutoStart = true // 由启动偏好决定是否让 Core 自动拉起 gateway
     private var restartCount = 0
     private val maxRestartAttempts = 3 // 最大重启次数
 
@@ -388,7 +390,14 @@ class PicoClawService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        when (intent?.action) {
+        // A null intent means Android re-created the Service on its own. Auto-start
+        // is an app-launch decision, so an OS-driven restart must not resurrect it.
+        if (intent == null) {
+            Log.i(TAG, "Ignoring Android service restart with no originating intent")
+            stopSelf(startId)
+            return START_NOT_STICKY
+        }
+        when (intent.action) {
             ACTION_STOP -> {
                 stopService()
                 stopForeground(STOP_FOREGROUND_REMOVE)
@@ -397,11 +406,12 @@ class PicoClawService : Service() {
             }
             else -> {
                 // 从 Intent 读取 publicMode 参数
-                publicMode = intent?.getBooleanExtra(EXTRA_PUBLIC_MODE, false) ?: false
+                publicMode = intent.getBooleanExtra(EXTRA_PUBLIC_MODE, false)
+                gatewayAutoStart = LaunchAutoStartPreferences.read(this).gatewayEnabled
                 startForeground(NOTIFICATION_ID, createNotification("Starting..."))
                 acquireWakeLock()
                 startService()
-                return START_STICKY
+                return START_NOT_STICKY
             }
         }
     }
@@ -804,7 +814,9 @@ class PicoClawService : Service() {
      * 关键：设置 PICOCLAW_BINARY 指向 gateway 二进制，让 web 服务能找到并启动 gateway
      */
     private fun buildEnvironment(): Map<String, String> {
-        return Companion.buildEnvironment(this)
+        return Companion.buildEnvironment(this).toMutableMap().apply {
+            put("POCKETCLAW_GATEWAY_AUTOSTART", gatewayAutoStart.toString())
+        }
     }
 
     // --- 通知 ---
