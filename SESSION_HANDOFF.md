@@ -1,5 +1,30 @@
 # PocketClaw Session Handoff
 
+## In progress — Resume white-screen recovery (2026-08-30)
+
+Branch `feature/provider-resilience-failover`, on top of `ebf49b4`. Not merged.
+**Physical validation PENDING.**
+
+### What not to change
+
+- **Never reload on every resume.** The probe exists precisely so a healthy page
+  is left alone; a blanket reload would discard scroll and page state every time
+  and hide the real defect.
+- **Blankness is reported by the page, not sampled from pixels.** A white area is
+  a symptom. `window.__pocketclawReady` plus a non-empty `#root` is the signal.
+- **Recovery is capped at one attempt per page load.** A console that is
+  genuinely broken must stop being reloaded so the Refresh control stays usable.
+- **A resource error during a gateway restart is not a trigger.** The backend is
+  briefly unavailable by design; only a resume that finds a dead page acts.
+
+### Still open
+
+Which failure mode actually occurs on the device. `webview_flutter_android`
+4.14.0 has no `onRenderProcessGone`, so renderer death cannot be observed
+directly — the new `[webview]` logs separate `renderer_gone` (probe threw) from
+`blank` (page answered but is empty, i.e. a console crash). Read those on the
+next occurrence before drawing a conclusion.
+
 ## In progress — Fallback UI and automatic gateway restart (2026-08-30)
 
 Branch `feature/provider-resilience-failover`, on top of `68443c1`. Not merged,

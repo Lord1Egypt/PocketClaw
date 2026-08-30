@@ -856,3 +856,27 @@ Not merged; physical validation PENDING.
   action applies the change.
 - [ ] `raw-config-page`, `config-page` and `channel-config-page` still show
   "restart required" rather than applying automatically. Out of scope here.
+
+## Phase 2 — Resume white-screen recovery
+
+Branch `feature/provider-resilience-failover`, on top of `ebf49b4`.
+Not merged; physical validation PENDING.
+
+- [x] Resume lifecycle observer on the Android WebView, which had none.
+- [x] Liveness probe: readiness flag plus non-empty `#root`, asked on resume.
+- [x] Conditional recovery only — a healthy page is never reloaded.
+- [x] Route preserved across recovery rather than returning to home.
+- [x] Recovery capped at one attempt per page load; no loop.
+- [x] React error boundary so a crash shows a reload affordance instead of an
+  empty page, and clears the readiness flag.
+- [x] `[webview]` lifecycle logging that separates renderer death from a console
+  crash. No page contents or secrets.
+- [ ] PHYSICAL validation, and with it the actual root cause.
+
+### Known limitation
+
+`webview_flutter_android` 4.14.0 exposes no `onRenderProcessGone` callback, so
+renderer death cannot be observed directly. The probe is the substitute. If the
+physical logs confirm renderer death is the cause, a plugin upgrade or a native
+`WebViewClient` override would allow reacting at the moment it happens rather
+than at the next resume.

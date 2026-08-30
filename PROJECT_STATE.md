@@ -1,5 +1,25 @@
 # PocketClaw Project State
 
+## Resume white-screen recovery — PHYSICAL PENDING
+
+Branch `feature/provider-resilience-failover`, on top of `ebf49b4`. Not merged.
+
+An intermittent blank console after returning from the background. Three causes
+were verified in the source rather than inferred: the Android WebView had no
+lifecycle observer at all, `webview_flutter_android` 4.14.0 exposes no
+`onRenderProcessGone` callback so a killed renderer is invisible to Dart, and the
+console had no React error boundary so a render crash would empty `#root` in a
+visually identical way.
+
+On resume the host now asks the page a question only a live page can answer and
+reloads **only** when the answer is missing — preserving the user's route, capped
+at one attempt per page load. A healthy page is never touched. New `[webview]`
+lifecycle logs distinguish renderer death from a console crash.
+
+The physically validated deferred-restart behaviour is unchanged.
+
+Physical: **PENDING**, not claimed.
+
 ## Fallback models UI and automatic gateway restart — PHYSICAL PENDING
 
 Branch `feature/provider-resilience-failover`, on top of `68443c1`. Not merged.

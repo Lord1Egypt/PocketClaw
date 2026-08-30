@@ -1,5 +1,40 @@
 # PocketClaw Decisions
 
+## The WebView is recovered on evidence, never on every resume
+
+- Date: 2026-08-30
+- Decision: On resume the Android WebView asks the page a question only a live
+  page can answer — a readiness flag plus a non-empty `#root` — and reloads only
+  when the answer is missing or wrong. A healthy page is left untouched, and
+  recovery reloads the route the user was on rather than the console home page.
+- Consequence: Android may kill a backgrounded WebView's renderer process to
+  reclaim memory. The view keeps its layout and shows white, and
+  `webview_flutter_android` 4.14.0 exposes no `onRenderProcessGone` callback, so
+  Dart is never told — verified by grep, the API simply is not there. Probing is
+  the only signal available.
+
+  A blanket `onResume → reload()` was rejected: it would discard scroll position
+  and page state on every single resume, add pointless work, and hide the defect
+  rather than fix it. Recovery is capped at one attempt per page load, so a
+  console that is genuinely broken stops being reloaded and leaves the Refresh
+  control usable instead of flickering.
+
+  Blankness is deliberately not detected by sampling pixels or background
+  colour. The page reports its own health; a white area is a symptom, not a
+  signal.
+
+## The console has an error boundary so a crash is not silent
+
+- Date: 2026-08-30
+- Decision: The React tree is wrapped in `AppErrorBoundary`, which shows a
+  reload affordance and clears the readiness flag.
+- Consequence: Without one, an uncaught render error unmounts the whole tree and
+  empties `#root`. That is visually identical to a killed renderer and equally
+  unexplained, which is exactly what made the white-screen report ambiguous.
+  Clearing the readiness flag also lets the host's resume probe recover a
+  crashed console, so the two failure modes share one recovery path while
+  remaining distinguishable in the logs.
+
 ## The fallback chain belongs to the default model, not to each model entry
 
 - Date: 2026-08-30

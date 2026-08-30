@@ -1,5 +1,66 @@
 # Development Changelog
 
+## 2026-08-30 — Resume white-screen recovery (physical PENDING)
+
+Branch `feature/provider-resilience-failover`, on top of `ebf49b4`. Not merged.
+
+Physical validation reported an intermittent blank content area after returning
+from the background: Flutter chrome and navigation intact, only the embedded
+console white, and the existing Refresh button fixing it immediately.
+
+### What the code actually showed
+
+Three findings, each verified by reading the source rather than inferred from
+the symptom:
+
+- `webview_android.dart` had **no lifecycle observer at all**. Nothing ran on
+  resume, so nothing could notice or recover a lost page.
+- `webview_flutter_android` 4.14.0 exposes **no `onRenderProcessGone`
+  callback** — grep finds no such API anywhere in the plugin. If Android kills a
+  backgrounded renderer, Dart is never told, and the WebView keeps its layout
+  while rendering nothing. Both the widget and its container paint white, which
+  is exactly the reported appearance.
+- The console had **no React error boundary**, so an uncaught render error would
+  unmount the tree and empty `#root` — visually identical to a killed renderer.
+
+That leaves two failure modes that look the same from outside. Rather than guess
+between them, the recovery covers both and the new logging tells them apart.
+
+### Recovery, gated on evidence
+
+On resume the host asks the page a question only a live page can answer: a
+readiness flag set after the first paint, plus a non-empty `#root`. A healthy
+page is left completely alone. Only a missing or wrong answer triggers a reload,
+and the reload targets the route the user was on, not the console home page.
+
+A blanket `onResume → reload()` was rejected: it would discard scroll position
+and page state on every resume, add pointless work, and hide the defect. Recovery
+is capped at one attempt per page load, so a genuinely broken console stops being
+reloaded and the Refresh control stays useful.
+
+Blankness is deliberately not detected by sampling pixels or background colour.
+The page reports its own health; white is a symptom, not a signal.
+
+### Also
+
+An `AppErrorBoundary` now wraps the console, showing a reload affordance instead
+of an empty page and clearing the readiness flag so the host probe can recover a
+crashed tree too.
+
+Resource errors during a gateway configuration restart are logged but never
+trigger recovery on their own — the backend being briefly unavailable is
+expected, and only a resume that finds a dead page acts.
+
+### Unchanged
+
+The physically validated deferred-restart behaviour is untouched: an active turn
+still completes before a configuration restart runs.
+
+### Not verified
+
+Physical validation is PENDING. The new `[webview]` lifecycle logs are what
+should distinguish renderer death from a console crash on the next occurrence.
+
 ## 2026-08-30 — Fallback models UI and automatic gateway restart (physical PENDING)
 
 Branch `feature/provider-resilience-failover`, on top of `68443c1`. Not merged.
