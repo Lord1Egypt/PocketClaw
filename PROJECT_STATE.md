@@ -1,5 +1,48 @@
 # PocketClaw Project State
 
+## Python Lite — Phase A COMPLETE (build + measurement), 2026-08-31
+
+Branch `feature/python-lite-runtime`. Architecture review approved for Phase A
+only. **Phase A is host-side build and measurement. Nothing is integrated:** no
+catalog entry, no tool count change, no `python_tool.go`, no production APK
+payload, no merge.
+
+CPython **3.14.7** cross-built for `aarch64-linux-android` API 24 on PocketClaw's
+own NDK **28.2.13676358**, using upstream `Android/android.py` with a single
+patched line (the NDK version). Extension modules linked statically, so the
+interpreter is one self-contained PIE ELF and `lib-dynload` is empty.
+
+Measured, not estimated:
+
+| | bytes |
+|---|---|
+| Interpreter, stripped, LTO | 9,123,056 |
+| Payload (interpreter + `.pyc` stdlib) | 11,591,387 |
+| APK increase, measured against the shipped APK | +5,814,942 |
+| Projected APK | 64,147,589 |
+
+Both Phase A gates pass: APK increase 5.55 MiB (limit 7.5 MB), installed
+11.06 MiB (limit 13.0 MB).
+
+The stdlib is appended to the ELF as a zip and imported by `zipimport` with
+`PYTHONHOME`/`PYTHONPATH` set; verified functionally on the host. `.pyc` is
+kept over `.py` despite costing 943,381 bytes because it starts ~4.5x faster.
+
+`hashlib`, `hmac` and `secrets` work with no OpenSSL. `socket`, `ssl`, `ctypes`,
+`multiprocessing`, `email` and `http` are absent by construction.
+
+**Blocking gap: nothing has run on Android.** No device was attached to the
+build host and no emulator was available. `build/phase-a-python/` holds the
+payload, a signed throwaway diagnostic APK and `run-device-tests.sh`; the Phase
+A decision cannot be completed until that runs on real hardware.
+
+Second gap: upstream's Android tooling downloads prebuilt dependency binaries
+with no checksum verification. The Phase A build script pins them by SHA-256,
+but bzip2 and xz remain third-party binaries. Phase B must build them from
+pinned source, as SQLite already is.
+
+Full record: `runtime/PYTHON_LITE_PHASE_A.md`.
+
 ## Next milestone — Python Lite Runtime
 
 Branch `feature/python-lite-runtime`, from `develop` at `b46921e`.

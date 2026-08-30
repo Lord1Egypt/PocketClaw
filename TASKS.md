@@ -952,5 +952,12 @@ The APK is currently ~55.6 MB. Exact projections are required before any
 inclusion: APK before, interpreter, stdlib, dynamic modules, APK after, installed
 increase. **A 100+ MB addition needs explicit approval.**
 
-- [ ] Python Lite architecture review. Nothing compiled or bundled until it is
-  approved.
+- [x] Python Lite architecture review (2026-08-30, approved for Phase A only).
+- [x] Python Lite **Phase A** build and measurement (2026-08-31). CPython 3.14.7,
+  NDK 28.2, static modules, appended `.pyc` stdlib. Payload 11,591,387 bytes,
+  APK delta +5,814,942 — both gates pass. See `runtime/PYTHON_LITE_PHASE_A.md`.
+- [ ] Python Lite Phase A **physical device run** — BLOCKING. No device was
+  attached to the build host. Run `build/phase-a-python/run-device-tests.sh`.
+- [ ] Python Lite provenance: build bzip2 and xz from pinned source instead of
+  using upstream's unverified beeware prebuilt binaries.
+- [ ] Python Lite Phase B — only after the device run and explicit approval.
