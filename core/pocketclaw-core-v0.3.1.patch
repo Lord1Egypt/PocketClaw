@@ -6413,7 +6413,7 @@ index f7f6037..0d4d88e 100644
  	const sess = "session-cookie-value"
  	store := &fakePasswordStore{}
 diff --git a/web/backend/api/gateway.go b/web/backend/api/gateway.go
-index af6c656..0a30a4f 100644
+index af6c656..292bb09 100644
 --- a/web/backend/api/gateway.go
 +++ b/web/backend/api/gateway.go
 @@ -76,7 +76,9 @@ func ensurePicoTokenCachedLocked(configPath string) {
@@ -6427,16 +6427,171 @@ index af6c656..0a30a4f 100644
  	if h.debug {
  		args = append(args, "-d")
  	}
-@@ -265,7 +267,7 @@ func (h *Handler) validateGatewayPidData(
+@@ -203,11 +205,31 @@ func isLikelyGatewayProcess(pid int) (bool, bool) {
+ 	if err != nil {
+ 		return false, false
+ 	}
+-	cmdline := strings.ToLower(strings.TrimSpace(string(out)))
++	return classifyGatewayCommandLine(string(out))
++}
++
++// classifyGatewayCommandLine turns one line of `ps` output into the
++// (isGateway, inspected) verdict.
++//
++// A positive match proves the process is a gateway. A negative one only
++// disproves it when `ps` actually returned a command line. Android's toybox
++// reports the bare executable name for a launcher-spawned child, so the
++// `gateway` subcommand is absent from output that is otherwise valid. Reading
++// that as proof of a foreign process is what deleted a live gateway's pid
++// file, so a bare name is reported as un-inspected and the health probe
++// decides instead.
++func classifyGatewayCommandLine(psOutput string) (isGateway bool, inspected bool) {
++	cmdline := strings.ToLower(strings.TrimSpace(psOutput))
+ 	if cmdline == "" {
+ 		return false, true
+ 	}
+-	return looksLikeGatewayCommandLine(cmdline), true
++	if looksLikeGatewayCommandLine(cmdline) {
++		return true, true
++	}
++	if len(strings.Fields(cmdline)) < 2 {
++		return false, false
++	}
++	return false, true
+ }
  
+ // looksLikeGatewayCommandLine checks whether a process command line likely
+@@ -255,40 +277,117 @@ func (h *Handler) getGatewayHealthForPidData(
+ 	return getGatewayHealthByURL(url, timeout)
+ }
+ 
++// launcherOwnsGatewayPID reports whether this launcher spawned the process the
++// pid file names and that process is still alive.
++//
++// This outranks command-line inspection: exec.Cmd ownership is first-hand
++// evidence, while `ps` output is a platform-dependent description. It is also
++// safe against pid reuse — the child stays a zombie, holding its pid, until
++// cmd.Wait() returns, and the monitor goroutine clears gateway.cmd at that
++// moment.
++func launcherOwnsGatewayPID(pid int) bool {
++	gateway.mu.Lock()
++	defer gateway.mu.Unlock()
++
++	if !gateway.owned || gateway.cmd == nil || gateway.cmd.Process == nil {
++		return false
++	}
++	if gateway.cmd.Process.Pid != pid {
++		return false
++	}
++	return isCmdProcessAliveLocked(gateway.cmd)
++}
++
+ func (h *Handler) validateGatewayPidData(
+ 	pidData *ppid.PidFileData,
+ 	cfg *config.Config,
++	stage string,
+ ) (ok bool, decisive bool, reason string) {
+ 	if pidData == nil || pidData.PID <= 0 {
+ 		return false, true, "invalid pid data"
+ 	}
+ 
++	if launcherOwnsGatewayPID(pidData.PID) {
++		logGatewayPidValidation(pidData.PID, "owned", "launcher_spawned", stage, "")
++		return true, true, ""
++	}
++
  	if gatewayProcess, inspected := gatewayProcessMatcher(pidData.PID); inspected {
  		if !gatewayProcess {
 -			return false, true, "pid process command is not picoclaw gateway"
++			logGatewayPidValidation(pidData.PID, "foreign", "command_line", stage, "command line is not a gateway")
 +			return false, true, "pid belongs to another process; ignoring stale pid file"
  		}
++		logGatewayPidValidation(pidData.PID, "owned", "command_line", stage, "")
  		return true, true, ""
  	}
-@@ -1030,7 +1032,7 @@ func (h *Handler) startGatewayLocked(initialStatus string, existingPid int) (int
+ 
+ 	healthResp, statusCode, err := h.getGatewayHealthForPidData(pidData, cfg, 800*time.Millisecond)
+ 	if err != nil {
++		logGatewayPidValidation(pidData.PID, "unknown", "health_probe", stage, "health endpoint unreachable")
+ 		return false, false, fmt.Sprintf("health probe failed: %v", err)
+ 	}
+ 	if statusCode != http.StatusOK {
++		logGatewayPidValidation(pidData.PID, "unknown", "health_probe", stage, "health endpoint not ok")
+ 		return false, false, fmt.Sprintf("health endpoint returned status %d", statusCode)
+ 	}
+ 	if healthResp.PID > 0 && healthResp.PID != pidData.PID {
++		logGatewayPidValidation(pidData.PID, "foreign", "health_identity", stage, "health pid does not match the pid file")
+ 		return false, true, fmt.Sprintf("health pid mismatch: pidFile=%d, health=%d", pidData.PID, healthResp.PID)
+ 	}
++	logGatewayPidValidation(pidData.PID, "owned", "health_identity", stage, "")
+ 	return true, true, ""
+ }
+ 
+-func (h *Handler) sanitizeGatewayPidData(pidData *ppid.PidFileData, cfg *config.Config) *ppid.PidFileData {
++// gatewayPidValidationState suppresses repeats so a status poll cannot emit the
++// same validation line every few seconds. Only transitions are logged.
++var gatewayPidValidationState = struct {
++	mu     sync.Mutex
++	pid    int
++	result string
++	signal string
++}{}
++
++// The caller has already been through ReadPidFileWithCheck, which removes the
++// pid file for a process that is not running, so anything reaching validation
++// is alive and names itself in the pid file.
++func logGatewayPidValidation(pid int, result, signal, stage, reason string) {
++	gatewayPidValidationState.mu.Lock()
++	repeat := gatewayPidValidationState.pid == pid &&
++		gatewayPidValidationState.result == result &&
++		gatewayPidValidationState.signal == signal
++	gatewayPidValidationState.pid = pid
++	gatewayPidValidationState.result = result
++	gatewayPidValidationState.signal = signal
++	gatewayPidValidationState.mu.Unlock()
++	if repeat {
++		return
++	}
++
++	fields := map[string]any{
++		"event":             "gateway.pid.validation",
++		"pid":               pid,
++		"process_alive":     true,
++		"pidfile_match":     true,
++		"ownership_signal":  signal,
++		"validation_result": result,
++		"stage":             stage,
++	}
++	if reason != "" {
++		fields["reason"] = reason
++	}
++	logger.DebugCF("gateway", "Gateway PID validation", fields)
++}
++
++func (h *Handler) sanitizeGatewayPidData(
++	pidData *ppid.PidFileData,
++	cfg *config.Config,
++	stage string,
++) *ppid.PidFileData {
+ 	if pidData == nil {
+ 		return nil
+ 	}
+ 
+-	ok, decisive, reason := h.validateGatewayPidData(pidData, cfg)
++	ok, decisive, reason := h.validateGatewayPidData(pidData, cfg, stage)
+ 	if ok {
+ 		return pidData
+ 	}
+@@ -314,7 +413,7 @@ func (h *Handler) registerGatewayRoutes(mux *http.ServeMux) {
+ // starts it when possible. Intended to be called by the backend at startup.
+ func (h *Handler) TryAutoStartGateway() {
+ 	// Check PID file first to detect an already-running gateway.
+-	pidData := h.sanitizeGatewayPidData(ppid.ReadPidFileWithCheck(globalConfigDir()), nil)
++	pidData := h.sanitizeGatewayPidData(ppid.ReadPidFileWithCheck(globalConfigDir()), nil, "autostart")
+ 	if pidData != nil {
+ 		gateway.mu.Lock()
+ 		ready, reason, err := h.gatewayStartReady()
+@@ -1030,7 +1129,7 @@ func (h *Handler) startGatewayLocked(initialStatus string, existingPid int) (int
  	// Start new process
  	// Locate the picoclaw executable
  	execPath := utils.FindPicoclawBinary()
@@ -6445,7 +6600,7 @@ index af6c656..0a30a4f 100644
  
  	cmd = gatewayExecCommand(execPath, h.gatewayCommandArgs()...)
  	applyLauncherProcAttrs(cmd)
-@@ -1086,7 +1088,7 @@ func (h *Handler) startGatewayLocked(initialStatus string, existingPid int) (int
+@@ -1086,7 +1185,7 @@ func (h *Handler) startGatewayLocked(initialStatus string, existingPid int) (int
  	gateway.bootConfigSignature = computeConfigSignature(cfg)
  	setGatewayRuntimeStatusLocked(initialStatus)
  	pid = cmd.Process.Pid
@@ -6454,6 +6609,24 @@ index af6c656..0a30a4f 100644
  
  	// Capture stdout/stderr in background
  	go scanPipe(stdoutPipe, gateway.logs)
+@@ -1175,7 +1274,7 @@ func (h *Handler) startGatewayLocked(initialStatus string, existingPid int) (int
+ //	POST /api/gateway/start
+ func (h *Handler) handleGatewayStart(w http.ResponseWriter, r *http.Request) {
+ 	// Check PID file first to detect an already-running gateway.
+-	pidData := h.sanitizeGatewayPidData(ppid.ReadPidFileWithCheck(globalConfigDir()), nil)
++	pidData := h.sanitizeGatewayPidData(ppid.ReadPidFileWithCheck(globalConfigDir()), nil, "manual_start")
+ 	if pidData != nil {
+ 		pid := pidData.PID
+ 		gateway.mu.Lock()
+@@ -1428,7 +1527,7 @@ func (h *Handler) gatewayStatusData() map[string]any {
+ 	}
+ 
+ 	// Primary detection: read PID file and check if process is alive.
+-	pidData := h.sanitizeGatewayPidData(ppid.ReadPidFileWithCheck(globalConfigDir()), cfg)
++	pidData := h.sanitizeGatewayPidData(ppid.ReadPidFileWithCheck(globalConfigDir()), cfg, "status")
+ 	if pidData != nil {
+ 		gateway.mu.Lock()
+ 		gateway.pidData = pidData
 diff --git a/web/backend/api/gateway_host.go b/web/backend/api/gateway_host.go
 index 03af7a9..ef78080 100644
 --- a/web/backend/api/gateway_host.go
@@ -6580,10 +6753,18 @@ index 54d1010..e52534b 100644
  }
  
 diff --git a/web/backend/api/gateway_test.go b/web/backend/api/gateway_test.go
-index 3e118cd..c708cdc 100644
+index 3e118cd..f1937cf 100644
 --- a/web/backend/api/gateway_test.go
 +++ b/web/backend/api/gateway_test.go
-@@ -244,7 +244,7 @@ func startGatewayAndCaptureEnv(t *testing.T, h *Handler) gatewayStartEnvSnapshot
+@@ -3,6 +3,7 @@ package api
+ import (
+ 	"encoding/json"
+ 	"errors"
++	"fmt"
+ 	"io"
+ 	"net/http"
+ 	"net/http/httptest"
+@@ -244,7 +245,7 @@ func startGatewayAndCaptureEnv(t *testing.T, h *Handler) gatewayStartEnvSnapshot
  	}
  }
  
@@ -6592,7 +6773,7 @@ index 3e118cd..c708cdc 100644
  	h := newGatewayStartTestHandler(t)
  	h.SetServerBindHost("127.0.0.1,::1", true)
  
-@@ -252,15 +252,15 @@ func TestStartGatewayLocked_ForwardsLauncherHostOverrideToGatewayEnv(t *testing.
+@@ -252,15 +253,15 @@ func TestStartGatewayLocked_ForwardsLauncherHostOverrideToGatewayEnv(t *testing.
  	if !snapshot.GatewayHostSet {
  		t.Fatal("gateway host env was not set")
  	}
@@ -6611,7 +6792,7 @@ index 3e118cd..c708cdc 100644
  	h := newGatewayStartTestHandler(t)
  	h.SetServerBindHost("::", true)
  
-@@ -268,12 +268,12 @@ func TestStartGatewayLocked_ForwardsLauncherHostFromEnvironmentToGatewayEnv(t *t
+@@ -268,12 +269,12 @@ func TestStartGatewayLocked_ForwardsLauncherHostFromEnvironmentToGatewayEnv(t *t
  	if !snapshot.GatewayHostSet {
  		t.Fatal("gateway host env was not set")
  	}
@@ -6627,7 +6808,7 @@ index 3e118cd..c708cdc 100644
  	h := newGatewayStartTestHandler(t)
  	h.SetServerOptions(18800, true, true, nil)
  
-@@ -281,8 +281,8 @@ func TestStartGatewayLocked_ForwardsWildcardHostForPublicLauncher(t *testing.T)
+@@ -281,8 +282,8 @@ func TestStartGatewayLocked_ForwardsWildcardHostForPublicLauncher(t *testing.T)
  	if !snapshot.GatewayHostSet {
  		t.Fatal("gateway host env was not set")
  	}
@@ -6638,7 +6819,25 @@ index 3e118cd..c708cdc 100644
  	}
  }
  
-@@ -565,7 +565,7 @@ func TestGatewayCommandArgsIncludesDebugFlagWhenEnabled(t *testing.T) {
+@@ -456,7 +457,7 @@ func TestValidateGatewayPidDataAcceptsHealthWhenMatcherInconclusive(t *testing.T
+ 		return mockGatewayHealthResponse(http.StatusOK, testPID), nil
+ 	}
+ 
+-	ok, decisive, reason := h.validateGatewayPidData(pidData, nil)
++	ok, decisive, reason := h.validateGatewayPidData(pidData, nil, "test")
+ 	if !ok {
+ 		t.Fatalf("validateGatewayPidData() ok = false, want true (reason=%q)", reason)
+ 	}
+@@ -482,7 +483,7 @@ func TestValidateGatewayPidDataRejectsHealthPidMismatchWhenMatcherInconclusive(t
+ 		return mockGatewayHealthResponse(http.StatusOK, 99999), nil
+ 	}
+ 
+-	ok, decisive, reason := h.validateGatewayPidData(pidData, nil)
++	ok, decisive, reason := h.validateGatewayPidData(pidData, nil, "test")
+ 	if ok {
+ 		t.Fatalf("validateGatewayPidData() ok = true, want false")
+ 	}
+@@ -565,7 +566,7 @@ func TestGatewayCommandArgsIncludesDebugFlagWhenEnabled(t *testing.T) {
  	h.SetDebug(true)
  
  	args := h.gatewayCommandArgs()
@@ -6647,6 +6846,341 @@ index 3e118cd..c708cdc 100644
  	if strings.Join(args, " ") != strings.Join(want, " ") {
  		t.Fatalf("gatewayCommandArgs() = %v, want %v", args, want)
  	}
+@@ -2383,3 +2384,334 @@ func TestFindPicoclawBinary_EnvOverride_InvalidPath(t *testing.T) {
+ 		t.Errorf("FindPicoclawBinary() returned invalid env path %q, expected fallback", got)
+ 	}
+ }
++
++// --- Gateway PID ownership regression tests -------------------------------
++//
++// A physically validated build logged "pid belongs to another process;
++// ignoring stale pid file" for PID 5312 while that very gateway was serving
++// traffic, and then deleted its pid file. The launcher had spawned that
++// process itself, so the only thing that failed was command-line inspection:
++// on Android `ps` reports the bare executable name (`libpicoclaw.so`) rather
++// than the `... gateway -E --no-color` argv the matcher looks for.
++
++func TestClassifyGatewayCommandLine(t *testing.T) {
++	cases := []struct {
++		name          string
++		psOutput      string
++		wantIsGateway bool
++		wantInspected bool
++	}{
++		{
++			name:          "android bare executable name is inconclusive",
++			psOutput:      "libpicoclaw.so",
++			wantIsGateway: false,
++			wantInspected: false,
++		},
++		{
++			name:          "android launch line with argv is owned",
++			psOutput:      "/data/app/lib/arm64/libpicoclaw.so gateway -E --no-color",
++			wantIsGateway: true,
++			wantInspected: true,
++		},
++		{
++			name:          "desktop launch line is owned",
++			psOutput:      "/usr/local/bin/picoclaw gateway -E --no-color",
++			wantIsGateway: true,
++			wantInspected: true,
++		},
++		{
++			name:          "a real foreign command line is decisively foreign",
++			psOutput:      "/usr/sbin/sshd -D -e",
++			wantIsGateway: false,
++			wantInspected: true,
++		},
++		{
++			name:          "a bare foreign name is not proof of foreignness",
++			psOutput:      "sshd",
++			wantIsGateway: false,
++			wantInspected: false,
++		},
++		{
++			name:          "empty output means the process is gone",
++			psOutput:      "   ",
++			wantIsGateway: false,
++			wantInspected: true,
++		},
++	}
++
++	for _, tc := range cases {
++		t.Run(tc.name, func(t *testing.T) {
++			isGateway, inspected := classifyGatewayCommandLine(tc.psOutput)
++			if isGateway != tc.wantIsGateway || inspected != tc.wantInspected {
++				t.Fatalf(
++					"classifyGatewayCommandLine(%q) = (%v, %v), want (%v, %v)",
++					tc.psOutput, isGateway, inspected, tc.wantIsGateway, tc.wantInspected,
++				)
++			}
++		})
++	}
++}
++
++// spawnOwnedGatewayForTest starts a real long-lived child and records it as the
++// launcher-spawned gateway, which is the exact state the physical run was in.
++func spawnOwnedGatewayForTest(t *testing.T) int {
++	t.Helper()
++
++	cmd := exec.Command("sleep", "60")
++	if err := cmd.Start(); err != nil {
++		t.Fatalf("could not start the stand-in gateway process: %v", err)
++	}
++	t.Cleanup(func() {
++		_ = cmd.Process.Kill()
++		_ = cmd.Wait()
++	})
++
++	gateway.mu.Lock()
++	gateway.cmd = cmd
++	gateway.owned = true
++	gateway.mu.Unlock()
++
++	return cmd.Process.Pid
++}
++
++func TestValidateGatewayPidDataTrustsLauncherSpawnedProcess(t *testing.T) {
++	resetGatewayTestState(t)
++	h := NewHandler(filepath.Join(t.TempDir(), "config.json"))
++
++	pid := spawnOwnedGatewayForTest(t)
++	pidData := &ppid.PidFileData{PID: pid, Host: "127.0.0.1", Port: 18790}
++
++	// Reproduce Android: `ps` answers, and its answer says "not a gateway".
++	matcherCalls := 0
++	gatewayProcessMatcher = func(int) (bool, bool) {
++		matcherCalls++
++		return false, true
++	}
++	gatewayHealthGet = func(string, time.Duration) (*http.Response, error) {
++		t.Fatal("health probe must not be needed for a launcher-spawned process")
++		return nil, nil
++	}
++
++	ok, decisive, reason := h.validateGatewayPidData(pidData, nil, "test")
++	if !ok || !decisive {
++		t.Fatalf("validateGatewayPidData() = (%v, %v, %q), want owned and decisive", ok, decisive, reason)
++	}
++	if matcherCalls != 0 {
++		t.Fatalf("command-line inspection ran %d times; launcher ownership must outrank it", matcherCalls)
++	}
++}
++
++func TestValidateGatewayPidDataStaysOwnedAcrossRepeatedChecks(t *testing.T) {
++	resetGatewayTestState(t)
++	h := NewHandler(filepath.Join(t.TempDir(), "config.json"))
++
++	pid := spawnOwnedGatewayForTest(t)
++	pidData := &ppid.PidFileData{PID: pid, Host: "127.0.0.1", Port: 18790}
++	gatewayProcessMatcher = func(int) (bool, bool) { return false, true }
++
++	// The Dashboard polls status repeatedly; none of those polls may flip the
++	// verdict for a process that never changed.
++	for i := range 8 {
++		ok, decisive, reason := h.validateGatewayPidData(pidData, nil, "status")
++		if !ok || !decisive {
++			t.Fatalf("check %d: validateGatewayPidData() = (%v, %v, %q), want owned", i, ok, decisive, reason)
++		}
++	}
++}
++
++func TestSanitizeGatewayPidDataKeepsPidFileForOwnedProcessUnderPolling(t *testing.T) {
++	resetGatewayTestState(t)
++	h := NewHandler(filepath.Join(t.TempDir(), "config.json"))
++
++	pid := spawnOwnedGatewayForTest(t)
++	home := globalConfigDir()
++	pidPath := filepath.Join(home, ".picoclaw.pid")
++	writePidFileForTest(t, pidPath, pid)
++
++	gatewayProcessMatcher = func(int) (bool, bool) { return false, true }
++
++	for i := range 8 {
++		if got := h.sanitizeGatewayPidData(ppid.ReadPidFileWithCheck(home), nil, "status"); got == nil {
++			t.Fatalf("poll %d: sanitizeGatewayPidData() = nil, want the live pid data", i)
++		}
++		if _, err := os.Stat(pidPath); err != nil {
++			t.Fatalf("poll %d: the pid file of a live owned gateway was deleted: %v", i, err)
++		}
++	}
++}
++
++func TestSanitizeGatewayPidDataAgreesAcrossStatusAndRealtime(t *testing.T) {
++	resetGatewayTestState(t)
++	h := NewHandler(filepath.Join(t.TempDir(), "config.json"))
++
++	pid := spawnOwnedGatewayForTest(t)
++	home := globalConfigDir()
++	writePidFileForTest(t, filepath.Join(home, ".picoclaw.pid"), pid)
++	gatewayProcessMatcher = func(int) (bool, bool) { return false, true }
++
++	// Startup said owned. Status and the realtime proxy must not disagree.
++	status := h.sanitizeGatewayPidData(ppid.ReadPidFileWithCheck(home), nil, "status")
++	realtime := h.sanitizeGatewayPidData(ppid.ReadPidFileWithCheck(home), nil, "realtime")
++	if status == nil || realtime == nil {
++		t.Fatalf("status = %v, realtime = %v; both must see the same owned gateway", status, realtime)
++	}
++	if status.PID != realtime.PID {
++		t.Fatalf("status PID %d and realtime PID %d disagree", status.PID, realtime.PID)
++	}
++}
++
++func TestLauncherOwnsGatewayPIDRejectsAnUnrelatedPid(t *testing.T) {
++	resetGatewayTestState(t)
++
++	pid := spawnOwnedGatewayForTest(t)
++
++	// Pid reuse: the pid file names a process the launcher never spawned.
++	if launcherOwnsGatewayPID(pid + 1) {
++		t.Fatal("launcherOwnsGatewayPID() trusted a pid the launcher did not spawn")
++	}
++	if !launcherOwnsGatewayPID(pid) {
++		t.Fatal("launcherOwnsGatewayPID() rejected the pid the launcher did spawn")
++	}
++}
++
++func TestLauncherOwnsGatewayPIDRejectsAnExitedProcess(t *testing.T) {
++	resetGatewayTestState(t)
++
++	cmd := exec.Command("true")
++	if err := cmd.Start(); err != nil {
++		t.Fatalf("could not start the stand-in process: %v", err)
++	}
++	pid := cmd.Process.Pid
++	if err := cmd.Wait(); err != nil {
++		t.Fatalf("stand-in process did not exit cleanly: %v", err)
++	}
++
++	gateway.mu.Lock()
++	gateway.cmd = cmd
++	gateway.owned = true
++	gateway.mu.Unlock()
++
++	// Once Wait() has reaped the child its pid can be reused, so ownership
++	// must lapse the moment the process is known to have exited.
++	if launcherOwnsGatewayPID(pid) {
++		t.Fatal("launcherOwnsGatewayPID() still trusted a reaped process")
++	}
++}
++
++func TestLauncherOwnsGatewayPIDRejectsAnAttachedProcess(t *testing.T) {
++	resetGatewayTestState(t)
++
++	pid := spawnOwnedGatewayForTest(t)
++
++	// An attached process was not spawned here, so the launcher has no
++	// first-hand evidence and must fall back to the ordinary signals.
++	gateway.mu.Lock()
++	gateway.owned = false
++	gateway.mu.Unlock()
++
++	if launcherOwnsGatewayPID(pid) {
++		t.Fatal("launcherOwnsGatewayPID() claimed first-hand ownership of an attached process")
++	}
++}
++
++func TestSanitizeGatewayPidDataRejectsForeignLivePid(t *testing.T) {
++	resetGatewayTestState(t)
++	h := NewHandler(filepath.Join(t.TempDir(), "config.json"))
++
++	// A live process the launcher did not spawn, whose real command line
++	// proves it is something else entirely.
++	cmd := exec.Command("sleep", "60")
++	if err := cmd.Start(); err != nil {
++		t.Fatalf("could not start the foreign process: %v", err)
++	}
++	t.Cleanup(func() {
++		_ = cmd.Process.Kill()
++		_ = cmd.Wait()
++	})
++
++	home := globalConfigDir()
++	pidPath := filepath.Join(home, ".picoclaw.pid")
++	writePidFileForTest(t, pidPath, cmd.Process.Pid)
++	gatewayProcessMatcher = func(int) (bool, bool) { return false, true }
++
++	if got := h.sanitizeGatewayPidData(ppid.ReadPidFileWithCheck(home), nil, "status"); got != nil {
++		t.Fatalf("sanitizeGatewayPidData() = %v, want nil for a foreign live pid", got)
++	}
++	if _, err := os.Stat(pidPath); !os.IsNotExist(err) {
++		t.Fatalf("a decisively foreign pid file should be removed, stat err = %v", err)
++	}
++}
++
++func TestSanitizeGatewayPidDataRemovesPidFileForDeadProcess(t *testing.T) {
++	resetGatewayTestState(t)
++	h := NewHandler(filepath.Join(t.TempDir(), "config.json"))
++
++	cmd := exec.Command("true")
++	if err := cmd.Start(); err != nil {
++		t.Fatalf("could not start the stand-in process: %v", err)
++	}
++	pid := cmd.Process.Pid
++	_ = cmd.Wait()
++
++	home := globalConfigDir()
++	pidPath := filepath.Join(home, ".picoclaw.pid")
++	writePidFileForTest(t, pidPath, pid)
++
++	// Dead-process cleanup lives in ReadPidFileWithCheck and does not depend on
++	// command-line inspection at all, so relaxing that heuristic cannot leak
++	// stale pid files.
++	if got := h.sanitizeGatewayPidData(ppid.ReadPidFileWithCheck(home), nil, "status"); got != nil {
++		t.Fatalf("sanitizeGatewayPidData() = %v, want nil for a dead pid", got)
++	}
++	if _, err := os.Stat(pidPath); !os.IsNotExist(err) {
++		t.Fatalf("the pid file of a dead process should be removed, stat err = %v", err)
++	}
++}
++
++func writePidFileForTest(t *testing.T, pidPath string, pid int) {
++	t.Helper()
++
++	if err := os.MkdirAll(filepath.Dir(pidPath), 0o755); err != nil {
++		t.Fatalf("could not create the pid file directory: %v", err)
++	}
++	body := fmt.Sprintf(
++		`{"pid":%d,"token":"0123456789abcdef0123456789abcdef","version":"test","port":18790,"host":"127.0.0.1"}`,
++		pid,
++	)
++	if err := os.WriteFile(pidPath, []byte(body), 0o600); err != nil {
++		t.Fatalf("could not write the pid file: %v", err)
++	}
++}
++
++func TestSanitizeGatewayPidDataKeepsPidFileWhenInspectionIsInconclusive(t *testing.T) {
++	resetGatewayTestState(t)
++	h := NewHandler(filepath.Join(t.TempDir(), "config.json"))
++
++	cmd := exec.Command("sleep", "60")
++	if err := cmd.Start(); err != nil {
++		t.Fatalf("could not start the stand-in process: %v", err)
++	}
++	t.Cleanup(func() {
++		_ = cmd.Process.Kill()
++		_ = cmd.Wait()
++	})
++
++	home := globalConfigDir()
++	pidPath := filepath.Join(home, ".picoclaw.pid")
++	writePidFileForTest(t, pidPath, cmd.Process.Pid)
++
++	// The host exposed no usable command line and the health endpoint is not
++	// answering yet. That is an absence of evidence, not evidence of a foreign
++	// process, so the pid file must survive for a later check to settle.
++	gatewayProcessMatcher = func(int) (bool, bool) { return false, false }
++	gatewayHealthGet = func(string, time.Duration) (*http.Response, error) {
++		return nil, errors.New("connection refused")
++	}
++
++	if got := h.sanitizeGatewayPidData(ppid.ReadPidFileWithCheck(home), nil, "status"); got != nil {
++		t.Fatalf("sanitizeGatewayPidData() = %v, want nil while ownership is unproven", got)
++	}
++	if _, err := os.Stat(pidPath); err != nil {
++		t.Fatalf("an unproven pid file must not be deleted: %v", err)
++	}
++}
 diff --git a/web/backend/api/log.go b/web/backend/api/log.go
 index f83f6f3..512f9a5 100644
 --- a/web/backend/api/log.go
@@ -7131,7 +7665,7 @@ index 7586a45..7ca7520 100644
  		html.EscapeString(title),
  		html.EscapeString(message),
 diff --git a/web/backend/api/pico.go b/web/backend/api/pico.go
-index 8eeff40..6d2d011 100644
+index 8eeff40..ffe2e91 100644
 --- a/web/backend/api/pico.go
 +++ b/web/backend/api/pico.go
 @@ -7,7 +7,6 @@ import (
@@ -7142,6 +7676,15 @@ index 8eeff40..6d2d011 100644
  
  	"github.com/sipeed/picoclaw/pkg/config"
  	"github.com/sipeed/picoclaw/pkg/logger"
+@@ -78,7 +77,7 @@ func (h *Handler) gatewayAvailableForProxy() bool {
+ 	trackedCmd := gateway.cmd
+ 	gateway.mu.Unlock()
+ 
+-	if pidData := h.sanitizeGatewayPidData(ppid.ReadPidFileWithCheck(globalConfigDir()), nil); pidData != nil {
++	if pidData := h.sanitizeGatewayPidData(ppid.ReadPidFileWithCheck(globalConfigDir()), nil, "realtime"); pidData != nil {
+ 		gateway.mu.Lock()
+ 		gateway.pidData = pidData
+ 		setGatewayRuntimeStatusLocked("running")
 @@ -218,7 +217,11 @@ func (h *Handler) handleRegenPicoToken(w http.ResponseWriter, r *http.Request) {
  		return
  	}
@@ -8337,7 +8880,7 @@ index 0000000..ca16497
 +	}
 +}
 diff --git a/web/backend/main.go b/web/backend/main.go
-index 698e582..96f3054 100644
+index 698e582..b368f7d 100644
 --- a/web/backend/main.go
 +++ b/web/backend/main.go
 @@ -26,6 +26,7 @@ import (
@@ -8368,7 +8911,29 @@ index 698e582..96f3054 100644
  	// browserLaunchURL is opened by openBrowser() (auto-open + tray "open console").
  	browserLaunchURL string
  	apiHandler       *api.Handler
-@@ -398,6 +399,8 @@ func launcherAllowlistBypassLogPolicy(
+@@ -60,6 +61,21 @@ func shouldEnableLauncherFileLogging(enableConsole, debug bool) bool {
+ 	return !enableConsole || debug
+ }
+ 
++// gatewayAutoStartEnabled reads the host's Gateway auto-start preference from
++// the environment. An absent or unparsable value keeps the historical
++// always-on behaviour, so only an explicit, well-formed "false" disables it.
++func gatewayAutoStartEnabled(value string) bool {
++	value = strings.TrimSpace(value)
++	if value == "" {
++		return true
++	}
++	enabled, err := strconv.ParseBool(value)
++	if err != nil {
++		return true
++	}
++	return enabled
++}
++
+ func shouldEnableLocalAutoLogin(noBrowser bool, probeHost string) bool {
+ 	return !noBrowser && isLoopbackLaunchHost(probeHost)
+ }
+@@ -398,6 +414,8 @@ func launcherAllowlistBypassLogPolicy(
  }
  
  func main() {
@@ -8377,7 +8942,7 @@ index 698e582..96f3054 100644
  	port := flag.String("port", "18800", "Port to listen on")
  	host := flag.String("host", "", "Host to listen on (overrides -public when set)")
  	public := flag.Bool("public", false, "Listen on all interfaces (dual-stack) instead of localhost only")
-@@ -542,7 +545,7 @@ func main() {
+@@ -542,7 +560,7 @@ func main() {
  	}
  
  	if !explicitHost && hostOverrideActive {
@@ -8386,7 +8951,7 @@ index 698e582..96f3054 100644
  	}
  
  	if hostOverrideActive && explicitPublic {
-@@ -572,10 +575,7 @@ func main() {
+@@ -572,10 +590,7 @@ func main() {
  	}
  	listeners := openResult.Listeners
  
@@ -8398,7 +8963,7 @@ index 698e582..96f3054 100644
  
  	// Open the bcrypt password store (creates the DB file on first run).
  	authStore, authStoreErr := dashboardauth.New(picoHome)
-@@ -640,7 +640,7 @@ func main() {
+@@ -640,7 +655,7 @@ func main() {
  	mux := http.NewServeMux()
  
  	api.RegisterLauncherAuthRoutes(mux, api.LauncherAuthRouteOpts{
@@ -8407,7 +8972,7 @@ index 698e582..96f3054 100644
  		PasswordStore: passwordStore,
  		StoreError:    authStoreErr,
  	})
-@@ -672,24 +672,35 @@ func main() {
+@@ -672,24 +687,35 @@ func main() {
  	}
  
  	dashAuth := middleware.LauncherDashboardAuth(middleware.LauncherDashboardAuthConfig{
@@ -8447,10 +9012,16 @@ index 698e582..96f3054 100644
  		fmt.Println()
  		if needsInitialSetup {
  			if *noBrowser {
-@@ -729,19 +740,9 @@ func main() {
- 		apiHandler.TryAutoStartGateway()
- 	}()
+@@ -723,26 +749,21 @@ func main() {
  
+ 	// Auto-open browser will be handled by the launcher runtime.
+ 
+-	// Auto-start gateway after backend starts listening.
+-	go func() {
+-		time.Sleep(1 * time.Second)
+-		apiHandler.TryAutoStartGateway()
+-	}()
+-
 -	// Start the server(s) in goroutines.
 -	servers = make([]*http.Server, 0, len(listeners))
 -	for _, ln := range listeners {
@@ -8463,15 +9034,26 @@ index 698e582..96f3054 100644
 -				logger.Fatalf("Server failed to start on %s: %v", l.Addr().String(), serveErr)
 -			}
 -		}(srv, ln)
--	}
++	// Auto-start gateway after backend starts listening, unless the host asked
++	// to leave Gateway startup under the user's control.
++	if gatewayAutoStartEnabled(os.Getenv("POCKETCLAW_GATEWAY_AUTOSTART")) {
++		go func() {
++			time.Sleep(1 * time.Second)
++			apiHandler.TryAutoStartGateway()
++		}()
++	} else {
++		logger.InfoC("gateway", "Gateway auto-start skipped: disabled by launch preference")
+ 	}
+ 
 +	// Start the authenticated Dashboard listener(s). The runtime can replace
 +	// only these listeners when Android applies Public Mode; Core stays alive.
 +	httpRuntime.Start()
- 
++
  	defer shutdownApp()
  
+ 	// Start system tray or run in console mode
 diff --git a/web/backend/main_test.go b/web/backend/main_test.go
-index 5795a46..793fc84 100644
+index 5795a46..8f03890 100644
 --- a/web/backend/main_test.go
 +++ b/web/backend/main_test.go
 @@ -505,6 +505,45 @@ func TestOpenLauncherListeners_HonorsIPv6OnlyHost(t *testing.T) {
@@ -8520,6 +9102,34 @@ index 5795a46..793fc84 100644
  func TestOpenLauncherListeners_SupportsExplicitMultiHost(t *testing.T) {
  	hasIPv4, hasIPv6 := netbind.DetectIPFamilies()
  	if !hasIPv4 || !hasIPv6 {
+@@ -601,3 +640,27 @@ func mustAtoi(t *testing.T, value string) int {
+ 	}
+ 	return n
+ }
++
++func TestGatewayAutoStartEnabled(t *testing.T) {
++	cases := []struct {
++		name  string
++		value string
++		want  bool
++	}{
++		{"absent keeps historical always-on behaviour", "", true},
++		{"whitespace is treated as absent", "   ", true},
++		{"explicit false disables", "false", false},
++		{"explicit 0 disables", "0", false},
++		{"padded false disables", "  false  ", false},
++		{"explicit true enables", "true", true},
++		{"unparsable value fails open to enabled", "maybe", true},
++	}
++
++	for _, tc := range cases {
++		t.Run(tc.name, func(t *testing.T) {
++			if got := gatewayAutoStartEnabled(tc.value); got != tc.want {
++				t.Fatalf("gatewayAutoStartEnabled(%q) = %v, want %v", tc.value, got, tc.want)
++			}
++		})
++	}
++}
 diff --git a/web/backend/middleware/launcher_dashboard_auth.go b/web/backend/middleware/launcher_dashboard_auth.go
 index fd59958..4715295 100644
 --- a/web/backend/middleware/launcher_dashboard_auth.go

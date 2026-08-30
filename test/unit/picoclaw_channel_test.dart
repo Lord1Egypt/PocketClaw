@@ -12,6 +12,95 @@ void main() {
         .setMockMethodCallHandler(channel, null);
   });
 
+  test('getLaunchAutoStartPreferences maps the native record', () async {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, (call) async {
+          if (call.method != 'getLaunchAutoStartPreferences') return null;
+          return <String, Object?>{
+            'serviceEnabled': false,
+            'gatewayEnabled': true,
+            'initialized': true,
+            'source': 'android_native_canonical',
+          };
+        });
+
+    final prefs = await PicoClawChannel.getLaunchAutoStartPreferences();
+
+    expect(prefs.serviceEnabled, isFalse);
+    expect(prefs.gatewayEnabled, isTrue);
+    expect(prefs.initialized, isTrue);
+  });
+
+  test('getLaunchAutoStartPreferences defaults a fresh install to on', () async {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, (call) async => null);
+
+    final prefs = await PicoClawChannel.getLaunchAutoStartPreferences();
+
+    expect(prefs.serviceEnabled, isTrue);
+    expect(prefs.gatewayEnabled, isTrue);
+    expect(prefs.initialized, isFalse);
+  });
+
+  test('setLaunchAutoStartPreferences sends only the changed field', () async {
+    MethodCall? observed;
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, (call) async {
+          observed = call;
+          return <String, Object?>{
+            'serviceEnabled': true,
+            'gatewayEnabled': false,
+            'initialized': true,
+            'source': 'android_native_canonical',
+          };
+        });
+
+    final prefs = await PicoClawChannel.setLaunchAutoStartPreferences(
+      gatewayEnabled: false,
+    );
+
+    expect(observed?.method, 'setLaunchAutoStartPreferences');
+    expect(observed?.arguments, <String, Object?>{'gatewayEnabled': false});
+    expect(prefs.serviceEnabled, isTrue);
+    expect(prefs.gatewayEnabled, isFalse);
+  });
+
+  test('setLaunchAutoStartPreferences returns the native readback, '
+      'not the requested value', () async {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, (call) async {
+          // The host rejected the write and reports the state on disk.
+          return <String, Object?>{
+            'serviceEnabled': false,
+            'gatewayEnabled': false,
+            'initialized': true,
+            'source': 'android_native_canonical',
+          };
+        });
+
+    final prefs = await PicoClawChannel.setLaunchAutoStartPreferences(
+      serviceEnabled: true,
+    );
+
+    expect(prefs.serviceEnabled, isFalse);
+  });
+
+  test('setLaunchAutoStartPreferences surfaces a refused commit', () async {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, (call) async {
+          throw PlatformException(
+            code: 'SET_LAUNCH_AUTOSTART_FAILED',
+            message: 'Could not persist launch auto-start preferences',
+          );
+        });
+
+    // A refused write must not be reported as a saved preference.
+    await expectLater(
+      PicoClawChannel.setLaunchAutoStartPreferences(serviceEnabled: false),
+      throwsA(isA<PlatformException>()),
+    );
+  });
+
   test('getCoreVersion returns the native version string', () async {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(channel, (call) async {

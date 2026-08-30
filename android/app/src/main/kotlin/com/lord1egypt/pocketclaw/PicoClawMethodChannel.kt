@@ -15,6 +15,7 @@ import android.util.Log
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 import com.lord1egypt.pocketclaw.service.PicoClawService
+import com.lord1egypt.pocketclaw.service.LaunchAutoStartPreferences
 import com.lord1egypt.pocketclaw.util.HealthChecker
 import org.json.JSONObject
 import java.io.File
@@ -278,6 +279,33 @@ class PicoClawMethodChannel(
                             }
                         }
                     }.start()
+                }
+                "getLaunchAutoStartPreferences" -> {
+                    try {
+                        result.success(LaunchAutoStartPreferences.read(context).asMap())
+                    } catch (e: Exception) {
+                        result.error(
+                            "GET_LAUNCH_AUTOSTART_FAILED",
+                            "Could not read launch auto-start preferences",
+                            null,
+                        )
+                    }
+                }
+                "setLaunchAutoStartPreferences" -> {
+                    try {
+                        val snapshot = LaunchAutoStartPreferences.update(
+                            context = context,
+                            serviceEnabled = call.argument<Boolean>("serviceEnabled"),
+                            gatewayEnabled = call.argument<Boolean>("gatewayEnabled"),
+                        )
+                        result.success(snapshot.asMap())
+                    } catch (e: Exception) {
+                        result.error(
+                            "SET_LAUNCH_AUTOSTART_FAILED",
+                            "Could not persist launch auto-start preferences",
+                            null,
+                        )
+                    }
                 }
                 "setAutoStart" -> {
                     try {

@@ -205,11 +205,31 @@ func isLikelyGatewayProcess(pid int) (bool, bool) {
 	if err != nil {
 		return false, false
 	}
-	cmdline := strings.ToLower(strings.TrimSpace(string(out)))
+	return classifyGatewayCommandLine(string(out))
+}
+
+// classifyGatewayCommandLine turns one line of `ps` output into the
+// (isGateway, inspected) verdict.
+//
+// A positive match proves the process is a gateway. A negative one only
+// disproves it when `ps` actually returned a command line. Android's toybox
+// reports the bare executable name for a launcher-spawned child, so the
+// `gateway` subcommand is absent from output that is otherwise valid. Reading
+// that as proof of a foreign process is what deleted a live gateway's pid
+// file, so a bare name is reported as un-inspected and the health probe
+// decides instead.
+func classifyGatewayCommandLine(psOutput string) (isGateway bool, inspected bool) {
+	cmdline := strings.ToLower(strings.TrimSpace(psOutput))
 	if cmdline == "" {
 		return false, true
 	}
-	return looksLikeGatewayCommandLine(cmdline), true
+	if looksLikeGatewayCommandLine(cmdline) {
+		return true, true
+	}
+	if len(strings.Fields(cmdline)) < 2 {
+		return false, false
+	}
+	return false, true
 }
 
 // looksLikeGatewayCommandLine checks whether a process command line likely
@@ -257,40 +277,117 @@ func (h *Handler) getGatewayHealthForPidData(
 	return getGatewayHealthByURL(url, timeout)
 }
 
+// launcherOwnsGatewayPID reports whether this launcher spawned the process the
+// pid file names and that process is still alive.
+//
+// This outranks command-line inspection: exec.Cmd ownership is first-hand
+// evidence, while `ps` output is a platform-dependent description. It is also
+// safe against pid reuse — the child stays a zombie, holding its pid, until
+// cmd.Wait() returns, and the monitor goroutine clears gateway.cmd at that
+// moment.
+func launcherOwnsGatewayPID(pid int) bool {
+	gateway.mu.Lock()
+	defer gateway.mu.Unlock()
+
+	if !gateway.owned || gateway.cmd == nil || gateway.cmd.Process == nil {
+		return false
+	}
+	if gateway.cmd.Process.Pid != pid {
+		return false
+	}
+	return isCmdProcessAliveLocked(gateway.cmd)
+}
+
 func (h *Handler) validateGatewayPidData(
 	pidData *ppid.PidFileData,
 	cfg *config.Config,
+	stage string,
 ) (ok bool, decisive bool, reason string) {
 	if pidData == nil || pidData.PID <= 0 {
 		return false, true, "invalid pid data"
 	}
 
+	if launcherOwnsGatewayPID(pidData.PID) {
+		logGatewayPidValidation(pidData.PID, "owned", "launcher_spawned", stage, "")
+		return true, true, ""
+	}
+
 	if gatewayProcess, inspected := gatewayProcessMatcher(pidData.PID); inspected {
 		if !gatewayProcess {
+			logGatewayPidValidation(pidData.PID, "foreign", "command_line", stage, "command line is not a gateway")
 			return false, true, "pid belongs to another process; ignoring stale pid file"
 		}
+		logGatewayPidValidation(pidData.PID, "owned", "command_line", stage, "")
 		return true, true, ""
 	}
 
 	healthResp, statusCode, err := h.getGatewayHealthForPidData(pidData, cfg, 800*time.Millisecond)
 	if err != nil {
+		logGatewayPidValidation(pidData.PID, "unknown", "health_probe", stage, "health endpoint unreachable")
 		return false, false, fmt.Sprintf("health probe failed: %v", err)
 	}
 	if statusCode != http.StatusOK {
+		logGatewayPidValidation(pidData.PID, "unknown", "health_probe", stage, "health endpoint not ok")
 		return false, false, fmt.Sprintf("health endpoint returned status %d", statusCode)
 	}
 	if healthResp.PID > 0 && healthResp.PID != pidData.PID {
+		logGatewayPidValidation(pidData.PID, "foreign", "health_identity", stage, "health pid does not match the pid file")
 		return false, true, fmt.Sprintf("health pid mismatch: pidFile=%d, health=%d", pidData.PID, healthResp.PID)
 	}
+	logGatewayPidValidation(pidData.PID, "owned", "health_identity", stage, "")
 	return true, true, ""
 }
 
-func (h *Handler) sanitizeGatewayPidData(pidData *ppid.PidFileData, cfg *config.Config) *ppid.PidFileData {
+// gatewayPidValidationState suppresses repeats so a status poll cannot emit the
+// same validation line every few seconds. Only transitions are logged.
+var gatewayPidValidationState = struct {
+	mu     sync.Mutex
+	pid    int
+	result string
+	signal string
+}{}
+
+// The caller has already been through ReadPidFileWithCheck, which removes the
+// pid file for a process that is not running, so anything reaching validation
+// is alive and names itself in the pid file.
+func logGatewayPidValidation(pid int, result, signal, stage, reason string) {
+	gatewayPidValidationState.mu.Lock()
+	repeat := gatewayPidValidationState.pid == pid &&
+		gatewayPidValidationState.result == result &&
+		gatewayPidValidationState.signal == signal
+	gatewayPidValidationState.pid = pid
+	gatewayPidValidationState.result = result
+	gatewayPidValidationState.signal = signal
+	gatewayPidValidationState.mu.Unlock()
+	if repeat {
+		return
+	}
+
+	fields := map[string]any{
+		"event":             "gateway.pid.validation",
+		"pid":               pid,
+		"process_alive":     true,
+		"pidfile_match":     true,
+		"ownership_signal":  signal,
+		"validation_result": result,
+		"stage":             stage,
+	}
+	if reason != "" {
+		fields["reason"] = reason
+	}
+	logger.DebugCF("gateway", "Gateway PID validation", fields)
+}
+
+func (h *Handler) sanitizeGatewayPidData(
+	pidData *ppid.PidFileData,
+	cfg *config.Config,
+	stage string,
+) *ppid.PidFileData {
 	if pidData == nil {
 		return nil
 	}
 
-	ok, decisive, reason := h.validateGatewayPidData(pidData, cfg)
+	ok, decisive, reason := h.validateGatewayPidData(pidData, cfg, stage)
 	if ok {
 		return pidData
 	}
@@ -316,7 +413,7 @@ func (h *Handler) registerGatewayRoutes(mux *http.ServeMux) {
 // starts it when possible. Intended to be called by the backend at startup.
 func (h *Handler) TryAutoStartGateway() {
 	// Check PID file first to detect an already-running gateway.
-	pidData := h.sanitizeGatewayPidData(ppid.ReadPidFileWithCheck(globalConfigDir()), nil)
+	pidData := h.sanitizeGatewayPidData(ppid.ReadPidFileWithCheck(globalConfigDir()), nil, "autostart")
 	if pidData != nil {
 		gateway.mu.Lock()
 		ready, reason, err := h.gatewayStartReady()
@@ -1177,7 +1274,7 @@ func (h *Handler) startGatewayLocked(initialStatus string, existingPid int) (int
 //	POST /api/gateway/start
 func (h *Handler) handleGatewayStart(w http.ResponseWriter, r *http.Request) {
 	// Check PID file first to detect an already-running gateway.
-	pidData := h.sanitizeGatewayPidData(ppid.ReadPidFileWithCheck(globalConfigDir()), nil)
+	pidData := h.sanitizeGatewayPidData(ppid.ReadPidFileWithCheck(globalConfigDir()), nil, "manual_start")
 	if pidData != nil {
 		pid := pidData.PID
 		gateway.mu.Lock()
@@ -1430,7 +1527,7 @@ func (h *Handler) gatewayStatusData() map[string]any {
 	}
 
 	// Primary detection: read PID file and check if process is alive.
-	pidData := h.sanitizeGatewayPidData(ppid.ReadPidFileWithCheck(globalConfigDir()), cfg)
+	pidData := h.sanitizeGatewayPidData(ppid.ReadPidFileWithCheck(globalConfigDir()), cfg, "status")
 	if pidData != nil {
 		gateway.mu.Lock()
 		gateway.pidData = pidData

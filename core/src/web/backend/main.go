@@ -61,6 +61,21 @@ func shouldEnableLauncherFileLogging(enableConsole, debug bool) bool {
 	return !enableConsole || debug
 }
 
+// gatewayAutoStartEnabled reads the host's Gateway auto-start preference from
+// the environment. An absent or unparsable value keeps the historical
+// always-on behaviour, so only an explicit, well-formed "false" disables it.
+func gatewayAutoStartEnabled(value string) bool {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return true
+	}
+	enabled, err := strconv.ParseBool(value)
+	if err != nil {
+		return true
+	}
+	return enabled
+}
+
 func shouldEnableLocalAutoLogin(noBrowser bool, probeHost string) bool {
 	return !noBrowser && isLoopbackLaunchHost(probeHost)
 }
@@ -734,11 +749,16 @@ func main() {
 
 	// Auto-open browser will be handled by the launcher runtime.
 
-	// Auto-start gateway after backend starts listening.
-	go func() {
-		time.Sleep(1 * time.Second)
-		apiHandler.TryAutoStartGateway()
-	}()
+	// Auto-start gateway after backend starts listening, unless the host asked
+	// to leave Gateway startup under the user's control.
+	if gatewayAutoStartEnabled(os.Getenv("POCKETCLAW_GATEWAY_AUTOSTART")) {
+		go func() {
+			time.Sleep(1 * time.Second)
+			apiHandler.TryAutoStartGateway()
+		}()
+	} else {
+		logger.InfoC("gateway", "Gateway auto-start skipped: disabled by launch preference")
+	}
 
 	// Start the authenticated Dashboard listener(s). The runtime can replace
 	// only these listeners when Android applies Public Mode; Core stays alive.

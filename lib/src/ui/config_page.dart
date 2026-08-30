@@ -17,6 +17,65 @@ class AboutInfo {
   final String coreVersion;
 }
 
+/// Settings control for the two launch auto-start preferences.
+///
+/// The preference and the runtime are shown as two separate lines on purpose:
+/// a preference that is ON does not mean the component is running, and a
+/// component the user stopped by hand stays stopped until the next app launch.
+class AutoStartSettingsCard extends StatelessWidget {
+  const AutoStartSettingsCard({
+    super.key,
+    required this.serviceEnabled,
+    required this.gatewayEnabled,
+    required this.serviceStatus,
+    required this.onServiceChanged,
+    required this.onGatewayChanged,
+  });
+
+  final bool serviceEnabled;
+  final bool gatewayEnabled;
+  final ServiceStatus serviceStatus;
+  final ValueChanged<bool> onServiceChanged;
+  final ValueChanged<bool> onGatewayChanged;
+
+  static String runtimeLabel(ServiceStatus status) => switch (status) {
+    ServiceStatus.running => 'Runtime: Running',
+    ServiceStatus.starting => 'Runtime: Starting',
+    ServiceStatus.stopped => 'Runtime: Stopped',
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: EdgeInsets.zero,
+      child: Column(
+        children: [
+          SwitchListTile.adaptive(
+            title: const Text('Start PocketClaw service automatically'),
+            subtitle: Text(
+              'Auto-start preference: ${serviceEnabled ? 'ON' : 'OFF'}\n'
+              '${runtimeLabel(serviceStatus)}',
+            ),
+            value: serviceEnabled,
+            onChanged: onServiceChanged,
+          ),
+          const Divider(height: 1),
+          SwitchListTile.adaptive(
+            title: const Text('Start Gateway automatically'),
+            subtitle: Text(
+              'Auto-start preference: ${gatewayEnabled ? 'ON' : 'OFF'}\n'
+              'Applies the next time the PocketClaw service starts. '
+              'Gateway runtime is managed in the Dashboard.',
+            ),
+            value: gatewayEnabled,
+            onChanged: onGatewayChanged,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class ConfigPage extends StatefulWidget {
   final ValueChanged<bool>? onDirtyChanged;
 
@@ -531,6 +590,35 @@ class ConfigPageState extends State<ConfigPage> with WidgetsBindingObserver {
                 ),
               ),
               const SizedBox(height: 16),
+
+              if (Platform.isAndroid) ...[
+                Selector<
+                  ServiceManager,
+                  ({
+                    bool serviceEnabled,
+                    bool gatewayEnabled,
+                    ServiceStatus serviceStatus,
+                  })
+                >(
+                  selector: (_, s) => (
+                    serviceEnabled: s.serviceLaunchAutoStart,
+                    gatewayEnabled: s.gatewayLaunchAutoStart,
+                    serviceStatus: s.status,
+                  ),
+                  builder: (context, autoStart, _) => AutoStartSettingsCard(
+                    serviceEnabled: autoStart.serviceEnabled,
+                    gatewayEnabled: autoStart.gatewayEnabled,
+                    serviceStatus: autoStart.serviceStatus,
+                    onServiceChanged: (value) => context
+                        .read<ServiceManager>()
+                        .setServiceLaunchAutoStart(value),
+                    onGatewayChanged: (value) => context
+                        .read<ServiceManager>()
+                        .setGatewayLaunchAutoStart(value),
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ],
 
               Text(
                 l10n.address,

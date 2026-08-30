@@ -109,6 +109,29 @@ void main() {
     );
   });
 
+  test('redacts credentials in structured and free-form log lines', () {
+    const raw =
+        '{"event":"gateway.start.failed","token":"telegram-child-token",'
+        '"reason":"Bearer abcdefghijklmnop",'
+        '"error":"provider rejected sk-abcdefghijklmnop"}';
+    final result = clean(raw);
+    final decoded = jsonDecode(result) as Map<String, Object?>;
+
+    expect(decoded['token'], '<redacted>');
+    expect(decoded['reason'], 'Bearer <redacted>');
+    expect(decoded['error'], 'provider rejected <redacted>');
+    expect(result, isNot(contains('telegram-child-token')));
+    expect(result, isNot(contains('abcdefghijklmnop')));
+  });
+
+  test('redacts credential assignments without altering other fields', () {
+    final result = clean('INF core > start api_key=secret-value port=18800');
+
+    expect(result, contains('api_key=<redacted>'));
+    expect(result, contains('port=18800'));
+    expect(result, isNot(contains('secret-value')));
+  });
+
   test('matches the shared user-visible log contract', () async {
     final raw = await File(
       'test/fixtures/user_visible_log_contract.json',

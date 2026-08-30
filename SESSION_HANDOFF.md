@@ -1,6 +1,95 @@
 # PocketClaw Session Handoff
 
-## Current Objective
+## Shipped — v0.2.0-rc2, Auto-Start and Gateway PID ownership (2026-08-30)
+
+`v0.2.0-rc2` is frozen, merged to `develop`, tagged, and published as a GitHub
+pre-release. Both commits PASSED physical validation on a real ARM64 device on
+2026-08-30, with reference APK SHA-256
+`182b85183156428aa93baf3113492484258a3a1eace95f7bccd9ed82035177a3`.
+
+- `75ac0d9` — Auto-Start safe rebuild: Service and Gateway auto-start, manual
+  stop and start, no resurrection, internal chat, Telegram, Skills 8/8, Tools
+  17, Core bound only to `127.0.0.1:18790` / `[::1]:18790`.
+- `90194c8` — Gateway PID ownership fix: the false positive did not recur.
+
+`feature/autostart-foundation` was NOT merged and must not be. The shipped work
+was rebuilt from `v0.2.0-rc1`; see `DECISIONS.md`.
+
+The next milestone is Managed Runtime Foundation, per `TASKS.md`.
+
+### Gateway PID ownership on Android
+
+`validateGatewayPidData` proved ownership by running `ps -o command= -p <pid>`
+and looking for the bare `gateway` subcommand from the launch line
+`<binary> gateway -E --no-color`. On Android the Gateway is executed as
+`.../lib/arm64/libpicoclaw.so` and `ps` does not report that argv, so a live,
+launcher-spawned Gateway was classified foreign and its pid file deleted.
+
+The log message "pid belongs to another process" is reachable only when `ps`
+succeeded with non-empty output lacking the token — that is how the cause was
+established rather than guessed.
+
+Startup and status disagreed because the readiness goroutine in
+`startGatewayLocked` accepts the pid file on `pd.PID == pid` alone and never
+calls `sanitizeGatewayPidData`. Only status, the realtime proxy, and manual
+start ran the heuristic.
+
+Two rules now hold, and should not be undone:
+
+- `exec.Cmd` ownership outranks `ps`. If this launcher spawned the exact pid and
+  the process is alive, it is owned, full stop. Pid reuse cannot defeat this:
+  the child stays a zombie holding its pid until `cmd.Wait()` returns, and the
+  monitor goroutine clears `gateway.cmd` at that moment.
+- A negative command-line match is decisive only when `ps` actually returned a
+  command line. A bare executable name is un-inspected, not foreign, and falls
+  through to the health probe. Do not "restore" bare-name rejection.
+
+Dead-process cleanup is independent of all of this — it lives in
+`ppid.ReadPidFileWithCheck` and runs first — so relaxing the heuristic cannot
+leak stale pid files.
+
+`feature/autostart-foundation` is abandoned. Do not base work on it, merge it,
+or cherry-pick from it. It is kept intact for reference only. Its automated
+tests were green, but on a device a manual Start Service press could land in a
+FAILED state that RC1 cannot even represent — RC1's `ServiceStatus` is
+`{ stopped, running, starting }`, with no `failed` member.
+
+The three mechanisms behind that regression, so it is not reintroduced:
+
+1. It changed native `PicoClawService.start()` to return a `Boolean` and mapped
+   `false` to `ServiceStatus.failed` in Flutter. `false` also meant "skipped",
+   returned whenever the process-lifetime `isStarting` / `isStopping` /
+   `manualStopActive` companion flags were set. Those flags outlive the Service
+   object and had paths that never cleared them, so one stale flag made every
+   later manual Start fail.
+2. It set `hasFailed = true` after every child-process exit, including a
+   requested stop, from a thread outside the lock that had just cleared it. A
+   clean manual Stop therefore left the service marked failed.
+3. `inspectServiceState()` latched on FAILED and reported it even when the
+   native side said the service was cleanly stopped.
+
+Design rules this rebuild holds to, and the reasons:
+
+- Auto-start evaluates exactly once, from `main()`, at a true app-process
+  launch. There is no resume hook. A manual Stop stays stopped until the user
+  starts it again or relaunches, and that is guaranteed structurally rather
+  than by a flag.
+- `LaunchAutoStartPreferences` (Android) is the only store: the existing
+  `picoclaw_prefs` file under new keys, synchronous `commit()`, acknowledged
+  only from a post-commit readback. RC1's `auto_start` boot-receiver key is a
+  different preference and is untouched.
+- Gateway auto-start is a preference, not a lifecycle. The Service exports
+  `POCKETCLAW_GATEWAY_AUTOSTART` and Core's existing `TryAutoStartGateway()`
+  is gated on it. Do not add a Flutter gateway lifecycle, an Android gateway
+  bridge, or a second definition of gateway readiness — the experimental
+  branch's `gatewayRuntimeReady()` also introduced a new HTTP 400
+  `precondition_failed` failure mode on the RC1 web console's own Gateway
+  button.
+- `START_NOT_STICKY`, and a null restart intent stops the Service. RC1's
+  `runWebService` crash restart is intentionally unchanged; it is guarded by
+  `stopped` and never fires on a manual stop.
+
+## Previous objective
 
 **v0.2.0-rc1 is frozen, merged to `develop`, tagged, and published as a GitHub
 pre-release. No further RC work is pending.** The next objective is the
