@@ -1,5 +1,16 @@
 # PocketClaw Decisions
 
+## Provider Resilience closed on physical evidence, not on a green build
+
+- Date: 2026-08-30
+- Decision: The milestone is closed as PHYSICAL PASS on the target ARM64 device:
+  failover, the Fallback Models UI, active-turn restart safety and resume
+  recovery were all exercised on hardware before merge.
+- Consequence: The load-bearing observation is the restart sequence — a running
+  request finished before the gateway restarted, on a real device. That is the
+  behaviour every safety invariant in this milestone exists to produce, and it
+  is the one thing a green test suite could not have established.
+
 ## The WebView is recovered on evidence, never on every resume
 
 - Date: 2026-08-30

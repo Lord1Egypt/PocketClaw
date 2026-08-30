@@ -1,148 +1,50 @@
 # PocketClaw Session Handoff
 
-## In progress — Resume white-screen recovery (2026-08-30)
+## Shipped — Provider Resilience & Automatic Failover (2026-08-30, PHYSICAL PASS)
 
-Branch `feature/provider-resilience-failover`, on top of `ebf49b4`. Not merged.
-**Physical validation PENDING.**
+Branch `feature/provider-resilience-failover`, merged to `develop`. Commits
+`68443c1`, `7b67493`, `ebf49b4`, `812a003`, `3446b0f`. Not released, `main`
+untouched, no tags moved.
 
-### What not to change
+Physically validated on the target ARM64 device: automatic failover, the
+Fallback Models UI with ordered selection, a failing primary answered by its
+configured fallback with one user-visible answer, automatic gateway restart after
+both model and fallback changes, active-turn safety, and white-screen resume
+recovery with no loop.
 
-- **Never reload on every resume.** The probe exists precisely so a healthy page
-  is left alone; a blanket reload would discard scroll and page state every time
-  and hide the real defect.
-- **Blankness is reported by the page, not sampled from pixels.** A white area is
-  a symptom. `window.__pocketclawReady` plus a non-empty `#root` is the signal.
-- **Recovery is capped at one attempt per page load.** A console that is
-  genuinely broken must stop being reloaded so the Refresh control stays usable.
-- **A resource error during a gateway restart is not a trigger.** The backend is
-  briefly unavailable by design; only a resume that finds a dead page acts.
+### What a next session must not undo
 
-### Still open
+- **No checkpoint subsystem, no tool fingerprinting, no side-effect
+  classification.** The agent loop already guarantees a provider retry does not
+  rewind completed tool execution. It is protected by tests plus one exact
+  `toolCallID` reuse guard. Do not match on tool name or arguments: asking for
+  the same command twice in a turn is legitimate.
+- **Two restart invariants are absolute.** A busy gateway is never force
+  restarted when the two-minute wait expires, and an unverified busy state is
+  never read as idle. Both leave the config saved and unapplied. An earlier
+  revision did force both; it was wrong.
+- **Unknown is never idle, and never a claimed cause.** The resume diagnostics
+  log `probe_failed` and `page_unresponsive`, not `renderer_gone` —
+  `webview_flutter_android` 4.14.0 has no `onRenderProcessGone`, so renderer
+  death is not observable here. A test fails if the old label returns.
+- **Healthy resumes are never reloaded.** The probe exists so page state and
+  scroll survive; a blanket reload would hide the defect rather than fix it.
+- **Streaming failover stops at first visible output**, or the answer duplicates
+  on screen.
+- **Fallbacks are references by model name**, so each keeps its own provider and
+  credentials. Never copy the primary's key into a fallback.
 
-Which failure mode actually occurs on the device. `webview_flutter_android`
-4.14.0 has no `onRenderProcessGone`, so renderer death cannot be observed at all
-from this layer.
+### Counts
 
-The `[webview]` logs therefore record what was seen, not why:
-`frontend.resume.health_check result=probe_failed` means the page could not be
-asked, and `result=page_unresponsive` means it answered but is not rendering a
-console. A killed renderer is the most likely explanation for the first, but a
-failed JavaScript channel or a controller error look identical from here, so the
-log does not name a cause. Read these on the next occurrence and treat them as
-symptoms, not as a diagnosis.
-
-## In progress — Fallback UI and automatic gateway restart (2026-08-30)
-
-Branch `feature/provider-resilience-failover`, on top of `68443c1`. Not merged,
-`main` untouched. **Physical validation PENDING.**
-
-### Boundaries worth keeping
-
-- **The fallback chain is `Agents.Defaults.ModelFallbacks`, not
-  `config.ModelConfig.Fallbacks`.** The latter serves multi-key expansion within
-  one provider and is generated, not user-edited. Editing it from the UI would
-  target the wrong mechanism.
-- **A fallback is a reference by model name.** The referenced entry supplies its
-  own provider, credentials, base URL and headers. Never copy the primary's key
-  into a fallback; that would send one provider's secret to another's endpoint.
-- **`apply-config` is deliberately separate from `POST /api/gateway/restart`.**
-  The manual restart is immediate recovery the user asked for. The automatic one
-  is a consequence of saving settings and must wait for the gateway to be idle,
-  or it will cut off a Telegram reply mid-sentence or kill a `git push` half way
-  through. Do not merge the two.
-- **`busy` and `active_requests` are pointers on purpose.** "Not reported" is not
-  "idle", and it never authorises a restart. The idle check has four outcomes:
-  `not_running` and `idle` permit a restart, `busy_timeout` and `unverified` do
-  not. The two-minute limit bounds the *wait*, not the safety of the user's work
-  — reaching it leaves the config saved and unapplied. Do not "fix" either case
-  by restarting anyway; an earlier revision did, and it was wrong.
-- **There is only one restart decision.** It is the backend's existing
-  `gateway_restart_required` signature comparison. Do not add a second.
-- **Readiness is signature-matched, not HTTP 200.** Success means the gateway is
-  running *and* booted the configuration that was just saved.
+Tools **18**. Skills **7/7** on an existing workspace, **6/6** fresh. The GitHub
+Skill stays removed and `picoclaw-agent` stays unseeded; the count is not a
+target.
 
 ### Next
 
-Physical validation: configure a failing primary, add a working fallback from
-the UI, save, and confirm the gateway restarts by itself and the fallback
-answers.
-
-## In progress — Provider Resilience & Automatic Failover (2026-08-30)
-
-Branch `feature/provider-resilience-failover`, from `develop` at `0a0b3fa`.
-Not merged, not released, `main` untouched. **Physical validation PENDING.**
-
-### The one thing not to undo
-
-The agent loop guarantees that a provider retry does not rewind a completed tool
-execution: results are committed to the turn and the session in
-`pipeline_execute.go` before control returns, and the loop in `turn_coord.go`
-never re-enters a finished tool call. A retry re-sends the committed results.
-
-**Do not add a checkpoint subsystem, tool fingerprinting, or side-effect
-classification to defend this.** They were explicitly scoped out because the
-structure already provides the property, and each would add surface area and new
-ways to be wrong. It is protected by tests and by one guard in
-`turn_tool_results.go`.
-
-That guard matches on the provider's `tool_call_id` and nothing else. Do not
-"improve" it to match on tool name or arguments: asking for the same command
-twice in one turn is legitimate, and collapsing those would silently change what
-the agent did. A call with no id is not recorded, for the same reason.
-
-### Other boundaries
-
-- **Unknown capability is not a refusal.** The gate skips a candidate only on an
-  explicit unsupported. PocketClaw routes to providers whose model lists it does
-  not enumerate; treating unrecognised as unusable would disable failover where
-  it matters most.
-- **Hard-quota patterns are narrow on purpose.** Widening them until they catch
-  ordinary throttling would put healthy providers into long cooldowns.
-- **An empty completion is not an outage.** `responseIsUserVisiblyEmpty` is for
-  logging and the placeholder only. A tool-call-only response is not empty.
-- **Streaming failover stops at first visible output.** Unchanged, and it must
-  stay that way or answers duplicate on screen.
-
-### Deferred
-
-Cross-provider context-overflow fallback, for want of reliable per-model context
-capacity metadata. See `DECISIONS.md`.
-
-### Next
-
-Physical validation, then merge.
-
-## Next milestone — Provider Resilience & Automatic Failover
-
-Branch `feature/provider-resilience-failover`, from `develop` at `0a0b3fa`.
-Nothing implemented yet; the branch exists so the work starts from the merged
-Runtime v2 baseline rather than from a feature branch.
-
-A provider that rate-limits, times out, or returns nothing should degrade into a
-retry or a fallback, not into a failed turn the user has to notice and repeat.
-
-**Detect:** HTTP 429 (honouring the provider's own retry hint where it sends
-one), 502/503/504, provider timeouts, and empty model responses *only* where the
-emptiness is attributable to provider failure. A model that legitimately returns
-nothing must not be retried as though it had errored — that distinction is the
-first thing to get right, because getting it wrong turns a quiet answer into a
-loop.
-
-**Respond:** bounded retries, provider cooldown so a failing provider is not
-hammered by every subsequent request, and automatic fallback to the configured
-backup model or provider.
-
-**The hard part is correctness under retry, not detection.** Completed tool-call
-results must be preserved across a retry or failover, and a tool that already
-succeeded with side effects must never be blindly re-run. A retry that re-sends
-a message, re-pushes a commit, or re-writes a file is worse than the failure it
-is recovering from. Design for that first and the rest follows.
-
-**Observability:** every retry and failover decision gets a clear lifecycle log
-saying what failed, what was decided, which provider was chosen and why. No
-provider secrets on any path — the runtime's redaction rules apply here too.
-
-Full scope in `TASKS.md`.
+Python Lite, on `feature/python-lite-runtime` from the new `develop` HEAD.
+Architecture review only — nothing to be compiled or bundled until that review
+is approved.
 
 ## Shipped — Lean Runtime Pack v2 (2026-08-30, PHYSICAL PASS)
 

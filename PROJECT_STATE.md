@@ -1,100 +1,60 @@
 # PocketClaw Project State
 
-## Resume white-screen recovery — PHYSICAL PENDING
-
-Branch `feature/provider-resilience-failover`, on top of `ebf49b4`. Not merged.
-
-An intermittent blank console after returning from the background. Three causes
-were verified in the source rather than inferred: the Android WebView had no
-lifecycle observer at all, `webview_flutter_android` 4.14.0 exposes no
-`onRenderProcessGone` callback so a killed renderer is invisible to Dart, and the
-console had no React error boundary so a render crash would empty `#root` in a
-visually identical way.
-
-On resume the host now asks the page a question only a live page can answer and
-reloads **only** when the answer is missing — preserving the user's route, capped
-at one attempt per page load. A healthy page is never touched. New `[webview]`
-lifecycle logs distinguish renderer death from a console crash.
-
-The physically validated deferred-restart behaviour is unchanged.
-
-Physical: **PENDING**, not claimed.
-
-## Fallback models UI and automatic gateway restart — PHYSICAL PENDING
-
-Branch `feature/provider-resilience-failover`, on top of `68443c1`. Not merged.
-
-Physical validation of Provider Resilience found the failover chain had no UI:
-`Agents.Defaults.ModelFallbacks` was reachable only by editing JSON, so the
-feature could not be exercised from the product.
-
-**Fallback Models** now appears on the Models page beside the default model, with
-add, remove, reorder and save. Candidates come from configured model entries, and
-a fallback is stored as a reference by name — the referenced model keeps its own
-provider, credentials and base URL, so no key ever crosses providers.
-
-**Saving a restart-requiring setting now applies it.** The frontend persists the
-change, asks the backend whether a restart is needed, and calls
-`POST /api/gateway/apply-config`, which waits for the gateway to go idle first.
-Core's `/health` reports `active_requests` and `busy` so a settings change never
-cuts off an answer in progress. The restart decision itself is unchanged — still
-the existing `gateway_restart_required` signature comparison.
-
-Physical: **PENDING**, not claimed.
-
-## Provider Resilience & Automatic Failover — in progress, PHYSICAL PENDING
+## Provider Resilience & Automatic Failover — PHYSICAL PASS
 
 Branch `feature/provider-resilience-failover`, from `develop` at `0a0b3fa`.
-Not merged. Not released. `main` untouched.
+**Physical validation PASSED** on the target ARM64 device on 2026-08-30 and
+merged to `develop`. Not released; `main` untouched and no tags moved.
 
-Implemented as gap-closing on the existing `FallbackChain`, `CooldownTracker`
-and `ClassifyError`. **No checkpoint subsystem, no tool fingerprinting, no
-side-effect classification, no shell-command parser** — the agent loop already
-guarantees that a provider retry does not rewind a completed tool execution, and
-that property is protected by tests plus one small guard rather than by new
-machinery.
+Implementation commits: `68443c1` (resilience), `7b67493` (fallback UI and
+automatic gateway restart), `ebf49b4` (restart safety invariants), `812a003`
+(resume white-screen recovery), `3446b0f` (diagnostic naming).
 
-### What changed
+### Physical results
 
-- 5xx split by meaning: 502 network, 503/521/522/523/529 overloaded,
-  500/504/524 timeout.
-- New `hard_quota` class, refined from a 429 using the response body.
-- `AllowsSameCandidateRetry`, distinct from `IsRetriable`: auth, billing, hard
-  quota and malformed requests are never retried on the same candidate.
-- `Retry-After` parsed in both legal forms, honoured up to a 30-second ceiling
-  when no fallback exists, and used to extend cooldown when one does.
-- Single-candidate failures now feed cooldown; previously a sole provider failed
-  with no memory and every turn re-ran the same doomed request.
-- Same-candidate retries capped at one when a fallback candidate exists.
-- Tool result reuse guard keyed on the provider's `tool_call_id` only.
-- Capability gate that skips explicitly unusable candidates; unknown is not a
-  refusal.
-- `provider.*` event family with emitter-level redaction, distinguishing
-  configured name, provider, upstream model and protocol.
-- Empty-turn placeholder no longer asserts a provider error.
+| Check | Result |
+|---|---|
+| Provider automatic failover | **PASS** |
+| Fallback Models UI, ordered selection | **PASS** |
+| Primary unavailable → configured fallback answered | **PASS** |
+| Single user-visible final answer | **PASS** |
+| Automatic gateway restart after model config | **PASS** |
+| Automatic gateway restart after fallback config | **PASS** |
+| Active-turn safety | **PASS** |
+| White-screen resume recovery | **PASS** |
+| No recovery loop; healthy pages untouched | **PASS** |
 
-### Deferred, deliberately
+The observed restart sequence was: active request running → model configuration
+saved → UI entered "Restarting Gateway" → the request finished → gateway
+restarted → configuration became active. **The active request was not
+interrupted.**
 
-Cross-provider context-overflow fallback. No reliable per-model context capacity
-metadata exists, so failing over on a guess would overflow again after paying
-the latency. Compact-and-retry on the current candidate is unchanged.
+### What was built, and what deliberately was not
 
-### Physical: PENDING, not claimed.
+The existing `FallbackChain`, `CooldownTracker` and `ClassifyError` were reused
+rather than rewritten. There is **no checkpoint subsystem, no semantic tool
+fingerprinting and no side-effect classification framework**: the agent loop
+already guaranteed that a provider retry does not rewind completed tool
+execution, so that property is protected by tests plus one exact-`toolCallID`
+result-reuse guard.
 
-## Next milestone — Provider Resilience & Automatic Failover
+Delivered: single-candidate cooldown, `Retry-After` support, hard-quota
+distinction from transient throttling, 502/503/504 classified by what each
+actually means, a conservative fallback capability gate, streaming failover only
+before first visible output, steering and cancellation preserved across retries,
+a `provider.*` event family with emitter-level redaction, the Fallback Models UI,
+and automatic safe gateway config apply.
 
-Branch `feature/provider-resilience-failover`, from `develop` at `0a0b3fa`.
-Not started. Full scope in `TASKS.md`.
+**Two restart invariants hold absolutely.** A busy gateway is never force
+restarted when the two-minute wait expires, and an unverified busy state is never
+treated as idle. Both leave the configuration saved and unapplied, and the manual
+Restart Gateway control remains available.
 
-Goal: a provider that rate-limits, times out, or returns nothing degrades into a
-retry or a fallback rather than a failed turn. Detection covers 429, 502/503/504,
-provider timeouts, and empty responses attributable to provider failure; the
-response is bounded retries, provider cooldown, and automatic fallback to a
-configured backup.
+### Counts
 
-The difficulty is correctness under retry, not detection: completed tool-call
-results must survive a failover, and a tool that already succeeded with side
-effects must never be re-run blindly.
+Tools **18**. Skills **7/7** on an existing upgraded workspace, **6/6** on a
+fresh install. The removed GitHub Skill stays removed, and `picoclaw-agent` stays
+unseeded — the count is not a target.
 
 ## Lean Runtime Pack v2 — PHYSICAL PASS
 

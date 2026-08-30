@@ -1,5 +1,59 @@
 # Development Changelog
 
+## 2026-08-30 — Provider Resilience & Automatic Failover (PHYSICAL PASS)
+
+Branch `feature/provider-resilience-failover`, commits `68443c1`, `7b67493`,
+`ebf49b4`, `812a003`, `3446b0f`. **Physically validated on the target ARM64
+device** and merged to `develop`. Not released, `main` untouched, no tags moved.
+
+| Check | Result |
+|---|---|
+| Provider automatic failover | **PASS** |
+| Fallback Models UI, ordered selection | **PASS** |
+| Failing primary answered by its configured fallback | **PASS** |
+| Single user-visible final answer | **PASS** |
+| Automatic gateway restart after model and fallback changes | **PASS** |
+| Active-turn safety | **PASS** |
+| White-screen resume recovery, no loop | **PASS** |
+
+The restart sequence observed on device: active request running → configuration
+saved → "Restarting Gateway" → the request finished → gateway restarted →
+configuration active. **The active request was not interrupted.**
+
+### The shape of the work
+
+The existing `FallbackChain`, `CooldownTracker` and `ClassifyError` were reused
+rather than rewritten, and three subsystems the brief allowed for were
+deliberately not built: no checkpoint machinery, no semantic tool fingerprinting,
+no side-effect classification. The agent loop already guaranteed that a provider
+retry does not rewind completed tool execution, so that invariant is held by
+tests plus one exact-`toolCallID` result-reuse guard rather than by new
+mechanism that could itself be wrong.
+
+Shipped alongside: single-candidate cooldown, `Retry-After` in both legal forms,
+hard quota separated from transient throttling, 502/503/504 classified by what
+each actually indicates, a conservative capability gate, streaming failover only
+before first visible output, steering and cancellation preserved across retries,
+a `provider.*` event family with redaction inside the emitter, the Fallback
+Models UI, and automatic safe gateway config apply.
+
+### The invariants that survived review
+
+A busy gateway is **never** force restarted when the two-minute wait expires, and
+an unverified busy state is **never** read as idle. Both leave the configuration
+saved and unapplied; the manual Restart Gateway control remains the way to apply
+it. An earlier revision forced the restart in both cases and was corrected in
+`ebf49b4`.
+
+Resume diagnostics name what was observed — `probe_failed`,
+`page_unresponsive` — not a renderer death this layer cannot observe, since
+`webview_flutter_android` 4.14.0 exposes no `onRenderProcessGone`. A test fails
+if the old `renderer_gone` label returns.
+
+### Counts
+
+Tools **18**. Skills **7/7** existing workspace, **6/6** fresh install.
+
 ## 2026-08-30 — Resume white-screen recovery (physical PENDING)
 
 Branch `feature/provider-resilience-failover`, on top of `ebf49b4`. Not merged.

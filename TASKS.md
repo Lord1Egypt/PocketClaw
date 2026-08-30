@@ -769,7 +769,17 @@ npm, a full bash runtime, `make`, compilers, ffmpeg, ImageMagick.
 ## Phase 2 — Provider Resilience & Automatic Failover
 
 Branch `feature/provider-resilience-failover`, from `develop` at `0a0b3fa`.
-Implemented; physical validation PENDING.
+**PHYSICAL PASS** on the target ARM64 device 2026-08-30, then merged to
+`develop`. Commits `68443c1`, `7b67493`, `ebf49b4`, `812a003`, `3446b0f`.
+
+Physical: automatic failover PASS, Fallback Models UI and ordered selection PASS,
+failing primary answered by its configured fallback PASS, one user-visible final
+answer PASS, automatic gateway restart after model and fallback changes PASS,
+active-turn safety PASS, white-screen resume recovery PASS with no loop.
+
+Deliberately not built: checkpoint subsystem, semantic tool fingerprinting,
+side-effect classification framework. The loop already held the invariant; it is
+protected by tests plus one exact-`toolCallID` reuse guard.
 
 A provider that rate-limits, times out, or returns nothing should degrade into a
 retry or a fallback, not into a failed turn the user has to notice and repeat.
@@ -842,7 +852,7 @@ Not merged; physical validation PENDING.
 - [x] Restart coalescing at both the frontend and the launcher.
 - [x] Readiness confirmed by signature match, not by the restart call returning
   200. Failure keeps the saved config and leaves the manual control available.
-- [ ] PHYSICAL validation.
+- [x] PHYSICAL validation. **PASS**, 2026-08-30.
 
 ### Deferred, deliberately
 
@@ -871,7 +881,10 @@ Not merged; physical validation PENDING.
   empty page, and clears the readiness flag.
 - [x] `[webview]` lifecycle logging that separates renderer death from a console
   crash. No page contents or secrets.
-- [ ] PHYSICAL validation, and with it the actual root cause.
+- [x] PHYSICAL validation. **PASS**, 2026-08-30: normal resume does not
+  reload, automatic recovery works, no recovery loop observed. The underlying
+  cause remains unconfirmed — recovery works for both candidates, and the
+  `probe_failed` / `page_unresponsive` split is what would settle it.
 
 ### Known limitation
 
@@ -880,3 +893,64 @@ renderer death cannot be observed directly. The probe is the substitute. If the
 physical logs confirm renderer death is the cause, a plugin upgrade or a native
 `WebViewClient` override would allow reacting at the moment it happens rather
 than at the next resume.
+
+## Phase 2 — Python Lite Runtime
+
+Branch `feature/python-lite-runtime`, from `develop` after the Provider
+Resilience merge. **Architecture review only — nothing implemented.**
+
+The appeal is capability per megabyte: scripting, parsing, JSON, CSV, XML,
+regex, calculation, file transformation, SQLite scripting, archives, and
+automation logic, from one interpreter.
+
+### Hard boundaries for the review to assume
+
+No Linux distribution, no PRoot, no apt, no compiler toolchain, no GCC/Clang, no
+make, no Node or npm, no arbitrary executable downloads, no pip installation by
+default, no native wheel compilation, no shell environment emulation. v1 targets
+an interpreter plus a selected standard library under PocketClaw-controlled
+execution, with no unrestricted package ecosystem.
+
+### Android execution model
+
+Python must respect what Managed Runtime already proved physically: executables
+ship in the APK and run from `nativeLibraryDir`; **writable executable storage is
+not used**. Writable Python data may live in app-private storage, and stdlib
+resources may ship as non-executable assets. Do not write a native Python binary
+into `filesDir` and try to exec it.
+
+### The review must answer
+
+Distribution route for Android ARM64; interpreter, stdlib and dynamic-module
+sizes; compressed APK contribution and installed size; idle and per-script RAM;
+startup latency; `nativeLibraryDir` packaging feasibility; stdlib asset layout;
+`PYTHONHOME`, `PYTHONPATH`, `HOME`, `TMPDIR`; subprocess behaviour on Android and
+its security implications; `ctypes`; dynamic extension modules; SSL; `sqlite3`;
+`json`/`csv`/`xml`/`re`/`hashlib`/`zipfile`/`tarfile`; multiprocessing and signal
+limitations; `/bin/sh` assumptions (PocketClaw's git already ships without a
+usable one); pip feasibility and whether it should ship at all initially;
+licensing and redistribution; provenance and build reproducibility; runtime
+integration, timeout, cancellation, output bounds, redaction and workspace
+boundaries; and the Agent-facing interface.
+
+Compare a minimal bundled CPython, embedding CPython in Core, and any lighter
+runtime that offers a real advantage. Do not pick an exotic runtime for size
+alone if compatibility suffers.
+
+### Security, stated honestly
+
+The review must address filesystem access, subprocess execution, environment
+access, secret exposure, network access, `ctypes`, dynamic libraries, native
+extension loading, process creation, output limits, timeouts, cancellation, and
+runaway CPU and memory. **Python must not become an escape hatch around Runtime
+security**, and the review must not claim a sandbox the architecture cannot
+provide. State the real boundary.
+
+### Size gate
+
+The APK is currently ~55.6 MB. Exact projections are required before any
+inclusion: APK before, interpreter, stdlib, dynamic modules, APK after, installed
+increase. **A 100+ MB addition needs explicit approval.**
+
+- [ ] Python Lite architecture review. Nothing compiled or bundled until it is
+  approved.
