@@ -833,6 +833,12 @@ Not merged; physical validation PENDING.
   existing `gateway_restart_required` signature decision.
 - [x] Restart deferred while the gateway is busy, via new `active_requests` and
   `busy` fields on Core's `/health`.
+- [x] **Unknown busy state never forces a restart.** A running gateway that will
+  not report its state is retried for five seconds, then the change is left
+  saved and unapplied.
+- [x] **The two-minute cap bounds the wait, not the user's work.** Reaching it
+  never restarts a busy gateway; the change stays saved and the manual Restart
+  Gateway action applies it.
 - [x] Restart coalescing at both the frontend and the launcher.
 - [x] Readiness confirmed by signature match, not by the restart call returning
   200. Failure keeps the saved config and leaves the manual control available.
@@ -843,3 +849,10 @@ Not merged; physical validation PENDING.
 - [ ] Retry-count sliders, cooldown controls, Retry-After settings, per-error
   policy, provider health dashboard and fallback statistics. The milestone needs
   only presence-of-list plus ordered selection.
+- [ ] Automatic re-application once the gateway later goes idle. It would mean a
+  background worker restarting the gateway at a moment the user did not choose,
+  which is the surprise the Auto-Start milestone was built to avoid. The
+  restart-required indicator stays visible and the next save or the manual
+  action applies the change.
+- [ ] `raw-config-page`, `config-page` and `channel-config-page` still show
+  "restart required" rather than applying automatically. Out of scope here.

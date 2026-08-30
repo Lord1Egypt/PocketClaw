@@ -42,18 +42,28 @@ system to keep in agreement, and cosmetic or hot-reloadable edits still restart
 nothing. Success means the gateway is running *and* its boot signature matches
 the saved config — not that the restart call returned 200.
 
-**A settings change must never interrupt an answer.** Core's `/health` now
-reports `active_requests` and `busy`, fed by the agent loop's existing in-flight
-counter, and `apply-config` defers the restart until the gateway is idle, capped
-at two minutes. That is why it is a separate endpoint from the manual restart:
-the manual action is immediate recovery the user asked for, while this one must
-not cut off a Telegram reply mid-sentence or kill a `git push` half way through.
+**A settings change must never interrupt an answer.** Core's `/health` reports
+`active_requests` and `busy`, fed by the agent loop's existing in-flight counter,
+and `apply-config` restarts only when the gateway is not running or reports
+itself idle. That is why it is a separate endpoint from the manual restart: the
+manual action is immediate recovery the user asked for, while this one must not
+cut off a Telegram reply mid-sentence or kill a `git push` half way through.
 
-Both health fields are pointers so "not reported" differs from "zero". An older
-gateway that cannot answer is treated as unknown and restarted immediately,
-because blocking forever on a signal that will never arrive would make
-configuration changes impossible to apply. Concurrent saves coalesce into one
-restart at both the frontend and the launcher.
+**Neither an unreadable busy signal nor an expired wait is permission to
+restart.** The idle check yields one of four outcomes — `not_running` and `idle`
+allow a restart, `busy_timeout` and `unverified` do not. The two-minute limit
+bounds how long PocketClaw waits, not how long the user's work is safe: reaching
+it leaves the configuration saved and unapplied, reported to the UI as
+`saved_not_applied` with HTTP 202 and a warning rather than an error. A running
+gateway that will not report its busyness is retried for five seconds and then
+also left alone, because a gateway too old to answer — or one whose health
+endpoint is briefly unreachable — may be mid-turn.
+
+An earlier revision of this code forced the restart in both cases. That trade was
+wrong: a delayed setting costs a banner, a forced restart costs destroyed work.
+There is deliberately no background retry either; the restart-required indicator
+stays visible and the next save or the manual action applies the change.
+Concurrent saves coalesce into one restart at both the frontend and the launcher.
 
 A failed restart never discards the save — the config is written first — and the
 manual Restart Gateway control remains as the recovery path.

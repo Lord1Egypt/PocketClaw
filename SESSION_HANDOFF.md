@@ -20,9 +20,11 @@ Branch `feature/provider-resilience-failover`, on top of `68443c1`. Not merged,
   or it will cut off a Telegram reply mid-sentence or kill a `git push` half way
   through. Do not merge the two.
 - **`busy` and `active_requests` are pointers on purpose.** "Not reported" is not
-  "idle". An older gateway that cannot answer is restarted immediately, because
-  blocking on a signal that will never arrive would make configuration changes
-  impossible to apply.
+  "idle", and it never authorises a restart. The idle check has four outcomes:
+  `not_running` and `idle` permit a restart, `busy_timeout` and `unverified` do
+  not. The two-minute limit bounds the *wait*, not the safety of the user's work
+  — reaching it leaves the config saved and unapplied. Do not "fix" either case
+  by restarting anyway; an earlier revision did, and it was wrong.
 - **There is only one restart decision.** It is the backend's existing
   `gateway_restart_required` signature comparison. Do not add a second.
 - **Readiness is signature-matched, not HTTP 200.** Success means the gateway is

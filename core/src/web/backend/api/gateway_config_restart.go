@@ -18,16 +18,72 @@ import (
 // willing to wait for it to become idle first.
 const (
 	// configRestartIdleTimeout caps how long a restart waits for in-flight
-	// turns to finish. A turn that runs longer than this is most likely stuck,
-	// and holding the user's configuration change hostage to it indefinitely is
-	// worse than interrupting it.
+	// turns to finish.
+	//
+	// Reaching it does NOT authorise interrupting the gateway. It only ends the
+	// wait: the configuration stays saved and the automatic restart is reported
+	// as unsatisfied, leaving the manual Restart Gateway action as the way to
+	// apply it. Killing a running answer, a Telegram reply or a git push
+	// because a timer expired would be a worse outcome than a delayed setting.
 	configRestartIdleTimeout = 2 * time.Minute
 	// configRestartIdlePoll is how often the gateway is asked whether it is
 	// still busy.
 	configRestartIdlePoll = 500 * time.Millisecond
 	// configRestartHealthTimeout bounds a single /health probe.
 	configRestartHealthTimeout = 2 * time.Second
+	// configRestartUnknownGrace is how long a *running* gateway is given to
+	// produce a trustworthy busy signal before the restart is abandoned.
+	//
+	// A short retry covers a health endpoint that is briefly unreachable. If the
+	// signal still cannot be read, the gateway may well be mid-answer and we
+	// have no way to tell, so the restart does not happen.
+	configRestartUnknownGrace = 5 * time.Second
 )
+
+// configRestartIdleTimeoutForTest is the effective wait, indirected so tests can
+// exercise the timeout path without waiting two minutes for it.
+var configRestartIdleTimeoutForTest = configRestartIdleTimeout
+
+// gatewayIdleOutcome is what the idle check concluded.
+type gatewayIdleOutcome string
+
+const (
+	// gatewayIdleNotRunning: there is no gateway process, so there is nothing
+	// to interrupt and the restart can proceed immediately.
+	gatewayIdleNotRunning gatewayIdleOutcome = "not_running"
+	// gatewayIdleReady: the gateway reported no in-flight turns.
+	gatewayIdleReady gatewayIdleOutcome = "idle"
+	// gatewayIdleBusyTimeout: the gateway was still busy when the wait ended.
+	gatewayIdleBusyTimeout gatewayIdleOutcome = "busy_timeout"
+	// gatewayIdleUnverified: the gateway is running but would not tell us
+	// whether it is busy. Unknown is never treated as idle.
+	gatewayIdleUnverified gatewayIdleOutcome = "unverified"
+)
+
+// canRestart reports whether this outcome permits restarting the gateway.
+//
+// Only two do. Neither a timeout nor an unreadable busy signal is permission to
+// interrupt work that may be in progress.
+func (o gatewayIdleOutcome) canRestart() bool {
+	return o == gatewayIdleNotRunning || o == gatewayIdleReady
+}
+
+// ErrGatewayBusy reports that a configuration change was saved but could not be
+// applied because the gateway was not safe to restart.
+type ErrGatewayBusy struct {
+	Outcome gatewayIdleOutcome
+}
+
+func (e *ErrGatewayBusy) Error() string {
+	switch e.Outcome {
+	case gatewayIdleBusyTimeout:
+		return "configuration saved, but the gateway is still handling a request; " +
+			"it was not restarted"
+	default:
+		return "configuration saved, but the gateway did not report whether it is idle; " +
+			"it was not restarted"
+	}
+}
 
 // configRestartState serialises automatic configuration restarts.
 //
@@ -96,10 +152,24 @@ func (h *Handler) runConfigRestart(reason string) (int, bool, error) {
 		"reason": reason,
 	})
 
-	deferred := h.waitForGatewayIdle()
+	outcome, deferred := h.waitForGatewayIdle()
 	if deferred {
-		logger.InfoCF("gateway", "Configuration restart deferred until the gateway went idle",
-			map[string]any{"reason": reason})
+		logger.InfoCF("gateway", "Configuration restart waited for the gateway",
+			map[string]any{"reason": reason, "outcome": string(outcome)})
+	}
+
+	if !outcome.canRestart() {
+		// The configuration is already persisted. Not restarting leaves it
+		// pending, which the restart-required indicator continues to show, and
+		// the manual Restart Gateway action still applies it.
+		logger.WarnCF("gateway",
+			"Configuration saved but the gateway was not safe to restart",
+			map[string]any{
+				"reason":      reason,
+				"outcome":     string(outcome),
+				"duration_ms": time.Since(started).Milliseconds(),
+			})
+		return 0, deferred, &ErrGatewayBusy{Outcome: outcome}
 	}
 
 	pid, err := h.RestartGateway()
@@ -121,46 +191,89 @@ func (h *Handler) runConfigRestart(reason string) (int, bool, error) {
 	return pid, deferred, nil
 }
 
-// waitForGatewayIdle blocks until the gateway reports no in-flight turns, and
-// reports whether it actually had to wait.
+// waitForGatewayIdle waits for the gateway to become safe to restart.
 //
-// A gateway that does not report the field at all is treated as unknown and
-// restarted immediately: an older gateway build has no way to tell us, and
-// blocking forever on a signal that will never arrive would make configuration
-// changes impossible to apply.
-func (h *Handler) waitForGatewayIdle() bool {
-	deadline := time.Now().Add(configRestartIdleTimeout)
+// The rule it enforces: a restart caused by saving settings may never interrupt
+// work in progress. Unknown is not idle, and a timeout is not permission — both
+// end the wait without restarting, leaving the saved configuration to be applied
+// by the manual Restart Gateway action.
+func (h *Handler) waitForGatewayIdle() (gatewayIdleOutcome, bool) {
+	deadline := time.Now().Add(configRestartIdleTimeoutForTest)
+	unknownDeadline := time.Now().Add(configRestartUnknownGrace)
 	waited := false
 
 	for {
-		healthResponse, _, err := h.getGatewayHealth(nil, configRestartHealthTimeout)
-		if err != nil || healthResponse == nil || healthResponse.Busy == nil {
-			return waited
+		if !h.gatewayProcessRunning() {
+			// Nothing is running, so nothing can be interrupted.
+			return gatewayIdleNotRunning, waited
 		}
-		if !*healthResponse.Busy {
-			return waited
+
+		busy, known := h.gatewayBusyState()
+		switch {
+		case known && !busy:
+			return gatewayIdleReady, waited
+		case known && busy:
+			unknownDeadline = time.Now().Add(configRestartUnknownGrace)
+			if time.Now().After(deadline) {
+				logger.WarnCF("gateway",
+					"Gateway still busy after the idle wait; leaving the configuration unapplied",
+					map[string]any{
+						"timeout": configRestartIdleTimeoutForTest.String(),
+					})
+				return gatewayIdleBusyTimeout, waited
+			}
+		default:
+			// Running, but the busy signal is unreadable. Retry briefly in case
+			// health is momentarily unavailable, then give up rather than
+			// gamble that it is idle.
+			if time.Now().After(unknownDeadline) {
+				logger.WarnCF("gateway",
+					"Gateway is running but did not report an idle state; "+
+						"leaving the configuration unapplied",
+					map[string]any{
+						"grace": configRestartUnknownGrace.String(),
+					})
+				return gatewayIdleUnverified, waited
+			}
 		}
-		if time.Now().After(deadline) {
-			logger.WarnCF("gateway",
-				"Gateway still busy after the idle timeout; restarting anyway",
-				map[string]any{
-					"timeout": configRestartIdleTimeout.String(),
-				})
-			return waited
-		}
+
 		waited = true
 		time.Sleep(configRestartIdlePoll)
 	}
 }
 
+// gatewayProcessRunning reports whether a gateway process is currently tracked
+// and alive.
+func (h *Handler) gatewayProcessRunning() bool {
+	gateway.mu.Lock()
+	defer gateway.mu.Unlock()
+	return gatewayStatusWithoutHealthLocked() == "running"
+}
+
+// gatewayBusyState reads the gateway's in-flight turn count.
+//
+// The second return value is whether the answer is trustworthy. A probe error,
+// a missing response or an absent field all yield "unknown", never "idle": a
+// gateway too old to report, or one whose health endpoint is briefly
+// unreachable, may still be part way through an answer.
+func (h *Handler) gatewayBusyState() (busy bool, known bool) {
+	healthResponse, _, err := h.getGatewayHealth(nil, configRestartHealthTimeout)
+	if err != nil || healthResponse == nil || healthResponse.Busy == nil {
+		return false, false
+	}
+	return *healthResponse.Busy, true
+}
+
 // handleGatewayApplyConfig restarts the gateway so a saved configuration change
-// takes effect, waiting for in-flight turns to finish first.
+// takes effect, but only when doing so cannot interrupt work in progress.
 //
 //	POST /api/gateway/apply-config
 //
 // It is separate from POST /api/gateway/restart on purpose. The manual restart
 // is an immediate recovery action the user asked for explicitly; this one is a
-// consequence of saving settings, and must not interrupt an answer in progress.
+// consequence of saving settings, so a busy gateway — or one that will not say
+// whether it is busy — results in the change staying saved but unapplied rather
+// than an answer being cut off.
 func (h *Handler) handleGatewayApplyConfig(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Reason string `json:"reason"`
@@ -179,7 +292,22 @@ func (h *Handler) handleGatewayApplyConfig(w http.ResponseWriter, r *http.Reques
 
 	pid, deferred, err := h.RestartGatewayForConfigChange(reason)
 	w.Header().Set("Content-Type", "application/json")
+
 	if err != nil {
+		// A gateway that was not safe to restart is not an error the user did
+		// anything wrong. The configuration is saved; it is simply not live yet.
+		var busyErr *ErrGatewayBusy
+		if errors.As(err, &busyErr) {
+			w.WriteHeader(http.StatusAccepted)
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"status":   "saved_not_applied",
+				"outcome":  string(busyErr.Outcome),
+				"reason":   reason,
+				"message":  busyErr.Error(),
+				"deferred": deferred,
+			})
+			return
+		}
 		var precondErr *preconditionFailedError
 		if errors.As(err, &precondErr) {
 			w.WriteHeader(http.StatusBadRequest)

@@ -34,19 +34,34 @@
 ## A restart for a settings change must never interrupt an answer
 
 - Date: 2026-08-30
-- Decision: Core's `/health` now reports `active_requests` and `busy`, fed by the
-  agent loop's existing in-flight counter. `apply-config` polls it and defers the
-  restart until the gateway is idle, up to a two-minute cap.
+- Decision: Core's `/health` reports `active_requests` and `busy`, fed by the
+  agent loop's existing in-flight counter. `apply-config` restarts the gateway
+  only on two outcomes: the process is not running, or it reported itself idle.
+  **Neither an unreadable busy signal nor an expired wait authorises a restart.**
 - Consequence: This is why `apply-config` is a separate endpoint from
-  `POST /api/gateway/restart` rather than a flag on it. The manual restart is an
-  immediate recovery action the user asked for explicitly and must stay
-  immediate; a restart caused by saving settings must not cut off a Telegram
-  reply mid-sentence or kill a `git push` half way through. Both fields are
-  pointers so "not reported" is distinguishable from "zero": an older gateway
-  that cannot answer is treated as unknown and restarted immediately, because
-  blocking forever on a signal that will never arrive would make configuration
-  changes impossible to apply. Concurrent saves coalesce into one restart at both
-  layers.
+  `POST /api/gateway/restart`. The manual restart is immediate recovery the user
+  asked for explicitly; a restart caused by saving settings must not cut off a
+  Telegram reply mid-sentence or kill a `git push` half way through.
+
+  The four outcomes are `not_running` and `idle` (restart proceeds),
+  `busy_timeout` and `unverified` (it does not). The two-minute limit bounds how
+  long PocketClaw *waits*, not how long the user's work is safe: reaching it
+  leaves the configuration saved and unapplied. A running gateway that will not
+  report its busyness is retried for five seconds and then also left alone —
+  unknown is never read as idle, because a gateway too old to answer, or one
+  whose health endpoint is briefly unreachable, may be part way through a turn.
+
+  An earlier revision of this code did force a restart in both cases, on the
+  reasoning that blocking on a signal that never arrives would make settings
+  impossible to apply. That trade was wrong: the cost of a delayed setting is a
+  banner, and the cost of a forced restart is destroyed work. The configuration
+  is persisted before any restart is attempted, so a withheld restart loses
+  nothing and the manual control still applies it.
+
+  There is deliberately **no background retry**. A restart that fires at an
+  arbitrary later moment is exactly the surprise the Auto-Start milestone was
+  built to avoid; the restart-required indicator stays visible and the next save
+  or the manual action applies the change.
 
 ## Provider retry is scoped to the request; the turn never rewinds
 

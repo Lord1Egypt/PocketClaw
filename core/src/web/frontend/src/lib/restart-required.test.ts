@@ -5,6 +5,7 @@ const refreshGatewayState = vi.fn()
 const toastSuccess = vi.fn()
 const toastError = vi.fn()
 const toastLoading: (...a: unknown[]) => string = vi.fn(() => "toast-id")
+const toastWarning = vi.fn()
 
 vi.mock("@/api/gateway", () => ({
   applyGatewayConfig: (...args: unknown[]) => applyGatewayConfig(...args),
@@ -16,7 +17,7 @@ vi.mock("sonner", () => ({
   toast: {
     success: (...a: unknown[]) => toastSuccess(...a),
     error: (...a: unknown[]) => toastError(...a),
-    warning: vi.fn(),
+    warning: (...a: unknown[]) => toastWarning(...a),
     loading: (...a: unknown[]) => toastLoading(...a),
   },
 }))
@@ -181,5 +182,72 @@ describe("saveAndApplyGatewayConfig", () => {
     // old configuration and discard the user's change.
     expect(order[0]).toBe("save")
     expect(order.indexOf("restart")).toBeGreaterThan(order.indexOf("save"))
+  })
+})
+
+// A gateway that was busy, or would not say whether it was busy, is left alone
+// on purpose. That is a deliberate outcome, not a failure, and reporting it as
+// an error would tell the user their save went wrong when it did not.
+describe("saveAndApplyGatewayConfig when the gateway is not safe to restart", () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it("reports saved-but-not-applied without claiming failure", async () => {
+    refreshGatewayState.mockResolvedValue(needsRestart)
+    applyGatewayConfig.mockResolvedValue({
+      status: "saved_not_applied",
+      outcome: "busy_timeout",
+    })
+    const save = vi.fn().mockResolvedValue("saved")
+
+    const result = await saveAndApplyGatewayConfig(t, {
+      save,
+      savedMessage: "saved.message",
+      name: "Fallback Models",
+    })
+
+    // The save stands.
+    expect(result).toBe("saved")
+    expect(save).toHaveBeenCalledTimes(1)
+    // Warned, not errored.
+    expect(toastWarning).toHaveBeenCalled()
+    expect(toastError).not.toHaveBeenCalled()
+  })
+
+  it("does not poll for readiness after a withheld restart", async () => {
+    refreshGatewayState.mockResolvedValue(needsRestart)
+    applyGatewayConfig.mockResolvedValue({
+      status: "saved_not_applied",
+      outcome: "unverified",
+    })
+
+    await saveAndApplyGatewayConfig(t, {
+      save: vi.fn().mockResolvedValue("saved"),
+      savedMessage: "saved.message",
+      name: "Model",
+    })
+
+    // One refresh to learn a restart was required, and no readiness polling for
+    // a restart that never happened.
+    expect(refreshGatewayState).toHaveBeenCalledTimes(1)
+  })
+
+  it("never retries the restart on its own after it was withheld", async () => {
+    refreshGatewayState.mockResolvedValue(needsRestart)
+    applyGatewayConfig.mockResolvedValue({
+      status: "saved_not_applied",
+      outcome: "busy_timeout",
+    })
+
+    await saveAndApplyGatewayConfig(t, {
+      save: vi.fn().mockResolvedValue("saved"),
+      savedMessage: "saved.message",
+      name: "Model",
+    })
+
+    // Exactly one attempt. A silent background retry would restart the gateway
+    // at a moment the user did not choose.
+    expect(applyGatewayConfig).toHaveBeenCalledTimes(1)
   })
 })

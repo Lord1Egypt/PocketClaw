@@ -40,7 +40,7 @@ const READY_POLL_INTERVAL_MS = 500
  * whether a further restart is still needed, because the running one may
  * already have picked up the newer config.
  */
-let pendingRestart: Promise<boolean> | null = null
+let pendingRestart: Promise<ApplyOutcome> | null = null
 
 async function waitForGatewayReady(): Promise<boolean> {
   const deadline = Date.now() + READY_TIMEOUT_MS
@@ -60,11 +60,21 @@ async function waitForGatewayReady(): Promise<boolean> {
   return false
 }
 
-async function restartAndWait(reason: string): Promise<boolean> {
+type ApplyOutcome = "restarted" | "not_applied" | "failed"
+
+async function restartAndWait(reason: string): Promise<ApplyOutcome> {
   // apply-config rather than the manual restart: it holds the restart until the
   // gateway is idle, so saving settings never cuts off an answer in progress.
-  await applyGatewayConfig(reason)
-  return waitForGatewayReady()
+  const response = await applyGatewayConfig(reason)
+
+  // The gateway was busy, or would not say whether it was busy, so it was left
+  // alone on purpose. The configuration is saved; it is not live yet. This is a
+  // deliberate outcome, not a failure, and must not be reported as one.
+  if (response.status === "saved_not_applied") {
+    return "not_applied"
+  }
+
+  return (await waitForGatewayReady()) ? "restarted" : "failed"
 }
 
 export interface SaveAndApplyOptions<T> {
@@ -133,10 +143,17 @@ export async function saveAndApplyGatewayConfig<T>(
     }
 
     pendingRestart = restartAndWait(options.name)
-    const ready = await pendingRestart
+    const outcome = await pendingRestart
 
-    if (ready) {
+    if (outcome === "restarted") {
       toast.success(t("common.restartedGateway"), { id: restartToast })
+    } else if (outcome === "not_applied") {
+      // Saved, but deliberately not applied: something was still running. The
+      // manual Restart Gateway control applies it when the user is ready.
+      toast.warning(t("common.restartDeferredTitle"), {
+        id: restartToast,
+        description: t("common.restartDeferredDesc", { name: options.name }),
+      })
     } else {
       toast.error(t("common.restartFailedTitle"), {
         id: restartToast,
