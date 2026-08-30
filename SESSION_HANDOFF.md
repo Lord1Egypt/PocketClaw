@@ -9,6 +9,15 @@ Read `RUNTIME.md` first.
 git 2.51.0, gh 2.82.1, curl 8.11.1, ripgrep 14.1.1 and sqlite3 3.50.4 now ship
 alongside jq. APK 34.7 MB -> 58.3 MB.
 
+### Fixed after the first physical run
+
+`git clone` failed with `unable to find remote helper for 'https'`. That message
+names the protocol and sends you to TLS; the actual cause was that git spawns
+`git remote-https` and resolves the literal name `git` through PATH, and the
+helper directory held only the two remote helpers. git now declares itself as
+one of its own helpers. If a tool re-invokes itself by name, it needs an entry
+for itself — that is the general lesson.
+
 ### The one thing that could sink this milestone
 
 `git clone` over HTTPS depends on **executing through a symlink** in app-private

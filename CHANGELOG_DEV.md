@@ -1,5 +1,57 @@
 # Development Changelog
 
+## 2026-08-30 — git HTTPS remote-helper fix (physical validation PENDING)
+
+Branch `feature/lean-runtime-pack-v2`, on top of `b13f297`. Not merged.
+
+The v2 physical run passed everything except `git clone` over HTTPS, which
+failed with `unable to find remote helper for 'https'`.
+
+### Root cause, proven rather than guessed
+
+It was not TLS and not symlink execution. curl HTTPS passed on the same device,
+and the failing code path never reached an exec.
+
+git does not exec its transport helper directly. `get_helper()` builds
+`remote-https …` with `git_cmd = 1`; `prepare_git_cmd()` prepends the literal
+string `git`; `prepare_cmd()` then resolves **that** name through
+`locate_in_PATH`, with `GIT_EXEC_PATH` already prepended to `PATH` by
+`setup_path()`. PocketClaw's helper directory held `git-remote-http` and
+`git-remote-https` but not `git`, and Android's `PATH` is
+`/system/bin:/system/xbin`. The lookup returned `ENOENT`, and `get_helper()`
+converts exactly that errno into the observed message — which names the protocol
+and points at TLS, nowhere near the actual fault.
+
+Reproduced natively before changing anything: with a `PATH` containing no `git`
+and a `GIT_EXEC_PATH` holding both remote helpers, a host git produced the
+identical error; adding a `git` symlink to the same directory made the clone
+succeed with all three entries as symlinks.
+
+### Fix
+
+One catalog change: git declares `git` among its own helpers. No architecture
+change, no git patch, no writable executable copy. The git payloads are
+byte-identical to `b13f297`.
+
+`TestGitDeclaresItselfAsAHelperSoItsOwnLookupSucceeds` was verified to fail with
+the entry removed and pass with it present, so it genuinely guards the bug.
+
+### Also in this commit
+
+- `runtime.helpers.prepared` and `runtime.helpers.failed` record the exec path
+  built and the logical names in it, so a helper failure can be told from a
+  lookup failure without guesswork.
+- The incomplete GitHub Skill was removed from the seeded workspace, and the
+  onboarding tests that referenced it now use a skill that still exists.
+- `SHELL_PATH` is knowingly left at git's default `/bin/sh`, which Android does
+  not have. Overriding it breaks git's cross-build because its Makefile uses the
+  same variable for its own recipes; nothing on the clone path needs a shell.
+
+### Not verified
+
+Physical validation is PENDING. In particular `symlink_exec` remains unobserved
+on hardware — the previous run failed before reaching it.
+
 ## 2026-08-30 — Lean Runtime Pack v2 (physical validation PENDING)
 
 Branch `feature/lean-runtime-pack-v2`, from `develop` at `fa27ad2`. Not merged,

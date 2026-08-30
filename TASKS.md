@@ -722,11 +722,19 @@ npm, a full bash runtime, `make`, compilers, ffmpeg, ImageMagick.
 
 ### Open for physical validation
 
+- [x] `git clone` over HTTPS failed on the first physical run with `unable to
+  find remote helper for 'https'`. Root cause: git spawns `git remote-https` and
+  resolves the literal name `git` through PATH; the helper directory held only
+  the two remote helpers. Fixed by declaring `git` as its own helper. Not TLS,
+  not symlinks.
 - [ ] **`symlink_exec`** — whether Android permits executing through a symlink in
-  app-private storage that points at a packaged payload. `git clone` over HTTPS
-  depends on it, and the probe now reports it in the Debug Logs. If a device
-  refuses it, git's transport helper cannot be presented this way and the
-  fallback is a documented patch to git's helper lookup.
+  app-private storage that points at a packaged payload. Still unobserved: the
+  first run failed before reaching an exec. The probe reports it in the Debug
+  Logs. If a device refuses it, git's transport helper cannot be presented this
+  way and the fallback is a documented patch to git's helper lookup.
+- [x] GitHub Skill removed from the seeded workspace. Note that the seeded set is
+  now **6** skills, not 7: `picoclaw-agent` is deliberately unseeded. An existing
+  device keeps its 7 because seeding only writes and never deletes.
 - [ ] Everything else in the physical acceptance list below.
 
 ### Rules that carry over

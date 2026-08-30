@@ -21,6 +21,12 @@ APK 34,727,724 -> 58,302,215 bytes. Catalog 44 -> 55 tools.
 
 ### Two things a reader should know
 
+**git found its helpers only after it could find itself.** The v2 physical run
+failed `git clone` with `unable to find remote helper for 'https'`. The cause was
+not TLS or symlinks: git spawns `git remote-https` and resolves the literal name
+`git` through PATH, and the helper directory did not contain it. Fixed by
+declaring `git` as one of its own helpers; the payloads are unchanged.
+
 **git's transport helper is presented by symlink.** Android cannot package a
 file named `git-remote-https`, so the runtime builds a directory of symlinks to
 the packaged payloads and points `GIT_EXEC_PATH` at it. Nothing is written into

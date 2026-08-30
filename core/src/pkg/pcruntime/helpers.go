@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"sync"
 )
 
@@ -33,6 +34,7 @@ func (m *Manager) materialiseHelpers(resolved *ResolvedTool) (string, error) {
 		return "", fmt.Errorf("cannot create helper directory for %s: %w", toolID, err)
 	}
 
+	prepared := make([]string, 0, len(resolved.HelperPaths))
 	for logicalName, target := range resolved.HelperPaths {
 		link := filepath.Join(dir, logicalName)
 
@@ -40,15 +42,31 @@ func (m *Manager) materialiseHelpers(resolved *ResolvedTool) (string, error) {
 		// this resolution verified. After an app update the payload path can
 		// change, and a stale link would silently point at nothing.
 		if current, err := os.Readlink(link); err == nil && current == target {
+			prepared = append(prepared, logicalName)
 			continue
 		}
 		if err := os.Remove(link); err != nil && !os.IsNotExist(err) {
+			emitError(EventHelpersFailed, map[string]any{
+				"tool": toolID, "helper": logicalName, "diagnostics": err.Error(),
+			})
 			return "", fmt.Errorf("cannot replace stale helper link %s: %w", link, err)
 		}
 		if err := os.Symlink(target, link); err != nil {
+			emitError(EventHelpersFailed, map[string]any{
+				"tool": toolID, "helper": logicalName, "diagnostics": err.Error(),
+			})
 			return "", fmt.Errorf("cannot link helper %s for %s: %w", logicalName, toolID, err)
 		}
+		prepared = append(prepared, logicalName)
 	}
+
+	sort.Strings(prepared)
+	emitDebug(EventHelpersPrepared, map[string]any{
+		"tool":      toolID,
+		"exec_path": dir,
+		"helpers":   prepared,
+		"count":     len(prepared),
+	})
 	return dir, nil
 }
 

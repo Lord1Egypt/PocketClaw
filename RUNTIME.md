@@ -224,6 +224,30 @@ unverified transport helper would look installed and then fail at its first
 `https://` URL, which is a far harder failure to read than "unavailable,
 checksum mismatch".
 
+### A tool must be able to find itself
+
+git does **not** exec its transport helper directly. `get_helper()` builds the
+argument vector `remote-https …` with `git_cmd = 1`, `prepare_git_cmd()` prepends
+the literal string `git`, and `prepare_cmd()` then resolves that name — not the
+helper's — through `locate_in_PATH`. `setup_path()` has meanwhile prepended
+`GIT_EXEC_PATH` to `PATH`.
+
+So a helper directory holding only `git-remote-http` and `git-remote-https` is
+not enough: the lookup for `git` itself returns `ENOENT`, and `get_helper()`
+converts exactly that errno into
+
+```
+fatal: unable to find remote helper for 'https'
+```
+
+which names the wrong thing entirely and sends you looking at TLS. The git
+catalog entry therefore declares **`git` as one of its own helpers**, and
+`TestGitDeclaresItselfAsAHelperSoItsOwnLookupSucceeds` fails if that is ever
+removed. `gh` declares the same three entries, because it shells out to git.
+
+The general rule: if a tool re-invokes itself by name, it needs an entry for
+itself.
+
 At execution time the runtime builds a directory of **symlinks** to the packaged
 payloads and points `GIT_EXEC_PATH` at it. The distinction is the whole design:
 a symlink is not an executable, so nothing is ever written into app storage and
@@ -235,6 +259,9 @@ because an app update moves `nativeLibraryDir`.
 **This is the one platform assumption v2 rests on**, and it is measured rather
 than trusted: `ProbeExecution` also reports `symlink_exec`, so every device's
 Debug Logs say whether execution through such a symlink is permitted.
+`runtime.helpers.prepared` records the directory that was built and the logical
+names in it, so a helper failure can be told apart from a lookup failure without
+guesswork.
 
 ## Environment profiles
 

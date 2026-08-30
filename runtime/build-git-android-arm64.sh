@@ -12,10 +12,12 @@
 #   git              -> libpocketclaw-git.so
 #   git-remote-http  -> libpocketclaw-git-remote-http.so
 #
-# git looks its transport helper up as "git-remote-https" inside GIT_EXEC_PATH.
-# nativeLibraryDir cannot hold a file under that name, so the runtime builds a
-# symlink directory at execution time and points GIT_EXEC_PATH at it. See
-# RUNTIME.md, "Helper payloads".
+# git does not exec its transport helper directly. It spawns "git remote-https"
+# and resolves the literal name "git" through PATH, which setup_path() builds by
+# prepending GIT_EXEC_PATH. The runtime's helper directory therefore has to hold
+# git itself as well as the two remote helpers, or the lookup fails with ENOENT
+# and git reports "unable to find remote helper for 'https'". See RUNTIME.md,
+# "Helper payloads".
 #
 source "$(dirname "${BASH_SOURCE[0]}")/android-build-env.sh"
 
@@ -62,6 +64,13 @@ export PATH="$TOOLCHAIN/bin:$PATH"
 #   NO_PERL/NO_PYTHON/NO_TCLTK
 #                           no interpreter ships with PocketClaw, so the
 #                           script-based commands could not run anyway.
+#
+# SHELL_PATH is deliberately left at git's default. Android has no /bin/sh, so
+# the compiled-in value is wrong for hooks and for git's ENOEXEC fallback, but
+# git's Makefile also uses SHELL_PATH as the shell that runs its own build
+# recipes and code generators, so overriding it breaks the cross-build. Nothing
+# on the clone path needs a shell — the transport helpers are ELF executables —
+# so this is recorded as a known limitation rather than worked around here.
 make -j"$(nproc)" \
     CC="$TARGET_CC" AR="llvm-ar" \
     CFLAGS="-Os -fPIE -include compat/pocketclaw-android-pthread-cancel.h" \

@@ -39,6 +39,14 @@ const (
 	EventProbeStarted   = "runtime.probe.started"
 	EventProbeCompleted = "runtime.probe.completed"
 
+	// Helper preparation is logged in its own right because a tool that cannot
+	// find its helper fails with an error from inside the tool, not from the
+	// runtime. git reports "unable to find remote helper for 'https'" whether
+	// the entry is missing, the link is stale, or the payload is gone; these
+	// events say which.
+	EventHelpersPrepared = "runtime.helpers.prepared"
+	EventHelpersFailed   = "runtime.helpers.failed"
+
 	EventInventoryCompleted = "runtime.inventory.completed"
 )
 

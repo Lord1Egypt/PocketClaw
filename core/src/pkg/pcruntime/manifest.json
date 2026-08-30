@@ -1,6 +1,6 @@
 {
   "runtime_version": 1,
-  "catalog_version": "2.0.0",
+  "catalog_version": "2.0.1",
   "tools": [
     {
       "tool_id": "cat",
@@ -696,6 +696,11 @@
       "security_class": "bundled_verified",
       "library_name": "libpocketclaw-git.so",
       "helpers": [
+        {
+          "logical_name": "git",
+          "library_name": "libpocketclaw-git.so",
+          "sha256": "b3e905b81a46d5903ca22ebb169ee7698984384ff2f30a9ac0009490f8d7b66b"
+        },
         {
           "logical_name": "git-remote-http",
           "library_name": "libpocketclaw-git-remote-http.so",

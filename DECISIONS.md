@@ -1,5 +1,33 @@
 # PocketClaw Decisions
 
+## A tool that re-invokes itself by name must be its own helper
+
+- Date: 2026-08-30
+- Decision: git's catalog entry declares `git` among its own helpers, alongside
+  `git-remote-http` and `git-remote-https`.
+- Consequence: git does not exec its transport helper directly. It spawns
+  `git remote-https`, and `prepare_cmd()` resolves the literal name `git`
+  through `PATH`, which `setup_path()` builds by prepending `GIT_EXEC_PATH`.
+  Without a `git` entry that lookup returns `ENOENT`, and `get_helper()` turns
+  that specific errno into `unable to find remote helper for 'https'` — a message
+  that names the protocol and sends the reader to TLS, which is not where the
+  fault is. This cost a physical release cycle to find. The general rule is that
+  a tool which re-invokes itself by name needs an entry for itself, and
+  `TestGitDeclaresItselfAsAHelperSoItsOwnLookupSucceeds` enforces it.
+
+## git ships with the wrong compiled-in SHELL_PATH, knowingly
+
+- Date: 2026-08-30
+- Decision: git is built with its default `SHELL_PATH` of `/bin/sh`, which does
+  not exist on Android, rather than `/system/bin/sh`.
+- Consequence: git's Makefile uses `SHELL_PATH` both as the compiled-in constant
+  *and* as the shell that runs its own build recipes and code generators, so
+  overriding it breaks the cross-build — verified twice, once with `SHELL`
+  overridden as well. Nothing on the clone path needs a shell: the transport
+  helpers are ELF executables. This is recorded as a known limitation affecting
+  hooks and git's `ENOEXEC` fallback, not worked around, and should be revisited
+  only if a real use appears.
+
 ## Helper executables are presented by symlink, never by copy
 
 - Date: 2026-08-30
