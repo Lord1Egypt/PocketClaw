@@ -896,8 +896,8 @@ than at the next resume.
 
 ## Phase 2 — Python Lite Runtime
 
-Branch `feature/python-lite-runtime`, from `develop` after the Provider
-Resilience merge. **Architecture review only — nothing implemented.**
+Branch `feature/python-lite-runtime`, from `develop` at `b46921e`.
+**Architecture review only — nothing implemented.**
 
 The appeal is capability per megabyte: scripting, parsing, JSON, CSV, XML,
 regex, calculation, file transformation, SQLite scripting, archives, and

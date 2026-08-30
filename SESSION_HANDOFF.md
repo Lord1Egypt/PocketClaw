@@ -1,5 +1,47 @@
 # PocketClaw Session Handoff
 
+## Next milestone — Python Lite Runtime
+
+Branch `feature/python-lite-runtime`, from `develop` at `b46921e`. Nothing
+implemented; the branch exists so the work starts from the merged Provider
+Resilience baseline.
+
+**The next session produces an architecture review and nothing else.** Do not
+compile, download or bundle Python until that review is approved.
+
+### What the review must not assume it may use
+
+No Linux distribution, PRoot, apt, compiler toolchain, GCC/Clang, make, Node,
+npm, arbitrary executable downloads, pip by default, native wheel compilation or
+shell environment emulation. v1 is an interpreter plus a selected standard
+library under PocketClaw-controlled execution, with no unrestricted package
+ecosystem.
+
+### The execution model is already settled
+
+Managed Runtime proved it physically: executables ship in the APK and run from
+`nativeLibraryDir`, and writable executable storage is **not** used. Do not
+propose writing a native Python binary into `filesDir` and exec'ing it — Android
+refuses that, and the whole Runtime design exists because of it. Writable Python
+data may live app-private; stdlib resources may ship as non-executable assets.
+
+One inherited limitation worth carrying into the review: PocketClaw's git ships
+without a usable `/bin/sh`, because Android has none. Anything in Python that
+assumes a shell — `os.system`, `subprocess` with `shell=True`, some `tempfile`
+and `webbrowser` paths — needs the same honesty applied to it.
+
+### Honesty requirement
+
+The review must state the real security boundary. Python cannot be perfectly
+sandboxed on top of this architecture, and claiming otherwise would be worse
+than shipping nothing: it would let the Agent treat Python as safe when it is
+an escape hatch around Runtime security. Say what actually holds.
+
+### Size gate
+
+APK is ~55.6 MB today. Exact projections required before inclusion; 100+ MB
+needs explicit approval.
+
 ## Shipped — Provider Resilience & Automatic Failover (2026-08-30, PHYSICAL PASS)
 
 Branch `feature/provider-resilience-failover`, merged to `develop`. Commits

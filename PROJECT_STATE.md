@@ -1,5 +1,30 @@
 # PocketClaw Project State
 
+## Next milestone — Python Lite Runtime
+
+Branch `feature/python-lite-runtime`, from `develop` at `b46921e`.
+**Not started. Architecture review only — nothing to be compiled or bundled
+until that review is approved.**
+
+The appeal is capability per megabyte: one interpreter buys scripting, parsing,
+JSON, CSV, XML, regex, calculation, file transformation, SQLite scripting,
+archives and automation logic.
+
+The constraint is that PocketClaw must not become a Linux distribution. No
+PRoot, no apt, no compiler toolchain, no Node or npm, no arbitrary executable
+downloads, no pip by default, no native wheel compilation, no shell emulation.
+v1 targets an interpreter plus a selected standard library under
+PocketClaw-controlled execution.
+
+Python must respect what Managed Runtime already proved on hardware:
+**executables ship in the APK and run from `nativeLibraryDir`; writable
+executable storage is not used.** Writable Python data may live app-private, and
+stdlib resources may ship as non-executable assets.
+
+The APK is currently ~55.6 MB. Exact size projections are required before any
+inclusion, and a 100+ MB addition needs explicit approval. Full scope in
+`TASKS.md`.
+
 ## Provider Resilience & Automatic Failover — PHYSICAL PASS
 
 Branch `feature/provider-resilience-failover`, from `develop` at `0a0b3fa`.
