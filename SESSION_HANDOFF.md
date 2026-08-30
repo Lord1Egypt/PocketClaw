@@ -1,5 +1,39 @@
 # PocketClaw Session Handoff
 
+## In progress — Fallback UI and automatic gateway restart (2026-08-30)
+
+Branch `feature/provider-resilience-failover`, on top of `68443c1`. Not merged,
+`main` untouched. **Physical validation PENDING.**
+
+### Boundaries worth keeping
+
+- **The fallback chain is `Agents.Defaults.ModelFallbacks`, not
+  `config.ModelConfig.Fallbacks`.** The latter serves multi-key expansion within
+  one provider and is generated, not user-edited. Editing it from the UI would
+  target the wrong mechanism.
+- **A fallback is a reference by model name.** The referenced entry supplies its
+  own provider, credentials, base URL and headers. Never copy the primary's key
+  into a fallback; that would send one provider's secret to another's endpoint.
+- **`apply-config` is deliberately separate from `POST /api/gateway/restart`.**
+  The manual restart is immediate recovery the user asked for. The automatic one
+  is a consequence of saving settings and must wait for the gateway to be idle,
+  or it will cut off a Telegram reply mid-sentence or kill a `git push` half way
+  through. Do not merge the two.
+- **`busy` and `active_requests` are pointers on purpose.** "Not reported" is not
+  "idle". An older gateway that cannot answer is restarted immediately, because
+  blocking on a signal that will never arrive would make configuration changes
+  impossible to apply.
+- **There is only one restart decision.** It is the backend's existing
+  `gateway_restart_required` signature comparison. Do not add a second.
+- **Readiness is signature-matched, not HTTP 200.** Success means the gateway is
+  running *and* booted the configuration that was just saved.
+
+### Next
+
+Physical validation: configure a failing primary, add a working fallback from
+the UI, save, and confirm the gateway restarts by itself and the fallback
+answers.
+
 ## In progress — Provider Resilience & Automatic Failover (2026-08-30)
 
 Branch `feature/provider-resilience-failover`, from `develop` at `0a0b3fa`.

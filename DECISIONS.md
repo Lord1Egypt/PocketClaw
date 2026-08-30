@@ -1,5 +1,53 @@
 # PocketClaw Decisions
 
+## The fallback chain belongs to the default model, not to each model entry
+
+- Date: 2026-08-30
+- Decision: The Fallback Models UI lives on the Models page beside the default
+  model, editing `Agents.Defaults.ModelFallbacks`. It is not in the per-model
+  edit sheet.
+- Consequence: `config.ModelConfig` also has a `Fallbacks` field, but that one
+  serves multi-key expansion within a single provider and is generated, not
+  user-edited. Putting the UI in the edit sheet would have targeted the wrong
+  field and implied every model entry has its own chain. A fallback is stored as
+  a **reference by model name**, so the referenced entry keeps its own provider,
+  credentials, base URL and headers — the primary's API key is never copied to
+  another provider's endpoint.
+
+## Configuration saves restart the gateway automatically, when it is idle
+
+- Date: 2026-08-30
+- Decision: Saving a restart-requiring setting now applies it. The frontend
+  helper `saveAndApplyGatewayConfig` persists the change, asks the backend
+  whether a restart is required, and only then calls `POST
+  /api/gateway/apply-config`, which waits for the gateway to become idle before
+  restarting.
+- Consequence: The restart decision is still the existing
+  `gateway_restart_required` signature comparison — there is no second decision
+  system to keep in agreement with the first, so cosmetic edits and
+  hot-reloadable fields still restart nothing. Success means the gateway is
+  running *and* its boot signature matches the saved config, not that the
+  restart call returned 200. A failed restart never discards the save, because
+  the config is written before any restart is attempted, and the manual Restart
+  Gateway control remains as the recovery path.
+
+## A restart for a settings change must never interrupt an answer
+
+- Date: 2026-08-30
+- Decision: Core's `/health` now reports `active_requests` and `busy`, fed by the
+  agent loop's existing in-flight counter. `apply-config` polls it and defers the
+  restart until the gateway is idle, up to a two-minute cap.
+- Consequence: This is why `apply-config` is a separate endpoint from
+  `POST /api/gateway/restart` rather than a flag on it. The manual restart is an
+  immediate recovery action the user asked for explicitly and must stay
+  immediate; a restart caused by saving settings must not cut off a Telegram
+  reply mid-sentence or kill a `git push` half way through. Both fields are
+  pointers so "not reported" is distinguishable from "zero": an older gateway
+  that cannot answer is treated as unknown and restarted immediately, because
+  blocking forever on a signal that will never arrive would make configuration
+  changes impossible to apply. Concurrent saves coalesce into one restart at both
+  layers.
+
 ## Provider retry is scoped to the request; the turn never rewinds
 
 - Date: 2026-08-30

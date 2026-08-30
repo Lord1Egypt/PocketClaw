@@ -407,6 +407,7 @@ func (h *Handler) registerGatewayRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/gateway/start", h.handleGatewayStart)
 	mux.HandleFunc("POST /api/gateway/stop", h.handleGatewayStop)
 	mux.HandleFunc("POST /api/gateway/restart", h.handleGatewayRestart)
+	mux.HandleFunc("POST /api/gateway/apply-config", h.handleGatewayApplyConfig)
 }
 
 // TryAutoStartGateway checks whether gateway start preconditions are met and

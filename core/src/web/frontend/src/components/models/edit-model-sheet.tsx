@@ -33,8 +33,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet"
 import { Textarea } from "@/components/ui/textarea"
-import { showSaveSuccessOrRestartToast } from "@/lib/restart-required"
-import { refreshGatewayState } from "@/store/gateway"
+import { applyGatewayConfigIfRequired } from "@/lib/restart-required"
 
 import { FetchModelsDialog } from "./fetch-models-dialog"
 import {
@@ -400,13 +399,12 @@ export function EditModelSheet({
       if (setAsDefault && !model.is_default) {
         await setDefaultModel(model.model_name)
       }
-      const gateway = await refreshGatewayState({ force: true })
-      showSaveSuccessOrRestartToast(
-        t,
-        t("models.edit.saveSuccess"),
-        model.model_name,
-        gateway?.restartRequired === true,
-      )
+      // The change is already persisted; applying it restarts the
+      // gateway only if the backend says this change needs it.
+      await applyGatewayConfigIfRequired(t, {
+        savedMessage: t("models.edit.saveSuccess"),
+        name: model.model_name,
+      })
       onSaved()
       onClose()
     } catch (e) {

@@ -535,6 +535,17 @@ func closeProviderIfStateful(provider providers.LLMProvider) {
 	}
 }
 
+// ActiveRequests reports how many agent turns are currently in flight.
+//
+// The launcher reads this through the gateway's /health endpoint to avoid
+// restarting for a configuration change while someone's answer is still being
+// produced, or while a tool is part way through a side effect.
+func (al *AgentLoop) ActiveRequests() int {
+	al.activeReqMu.Lock()
+	defer al.activeReqMu.Unlock()
+	return al.activeReqCount
+}
+
 // activeRequestsInc atomically increments the active request count.
 func (al *AgentLoop) activeRequestsInc() {
 	al.activeReqMu.Lock()

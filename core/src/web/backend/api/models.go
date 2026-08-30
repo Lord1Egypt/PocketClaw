@@ -29,6 +29,7 @@ func (h *Handler) registerModelRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("DELETE /api/models/catalog/{id}", h.handleDeleteCatalog)
 	mux.HandleFunc("POST /api/models", h.handleAddModel)
 	mux.HandleFunc("POST /api/models/default", h.handleSetDefaultModel)
+	mux.HandleFunc("POST /api/models/fallbacks", h.handleSetModelFallbacks)
 	mux.HandleFunc("PUT /api/models/{index}", h.handleUpdateModel)
 	mux.HandleFunc("DELETE /api/models/{index}", h.handleDeleteModel)
 	mux.HandleFunc("POST /api/models/{index}/test", h.handleTestModel)
@@ -297,10 +298,18 @@ func (h *Handler) handleListModels(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
+	// model_fallbacks is the ordered chain tried when the default model is
+	// unavailable. It is emitted even when empty so the UI can tell "none
+	// configured" from "field not supported by this build".
+	fallbacks := cfg.Agents.Defaults.ModelFallbacks
+	if fallbacks == nil {
+		fallbacks = []string{}
+	}
 	json.NewEncoder(w).Encode(map[string]any{
 		"models":           models,
 		"total":            len(models),
 		"default_model":    defaultModel,
+		"model_fallbacks":  fallbacks,
 		"provider_options": modelProviderOptionsForResponse(),
 	})
 }
@@ -605,6 +614,107 @@ func (h *Handler) handleSetDefaultModel(w http.ResponseWriter, r *http.Request) 
 		"status":        "ok",
 		"default_model": req.ModelName,
 	})
+}
+
+// handleSetModelFallbacks replaces the ordered fallback chain used when the
+// default chat model is unavailable.
+//
+//	POST /api/models/fallbacks
+//
+// Fallbacks are references to entries in model_list by name, never inline model
+// definitions. Each referenced entry keeps its own provider, credentials, base
+// URL and headers: the chain selects which configured model to try, it does not
+// copy anything from the primary. See DECISIONS.md.
+func (h *Handler) handleSetModelFallbacks(w http.ResponseWriter, r *http.Request) {
+	body, err := io.ReadAll(io.LimitReader(r.Body, 1<<20))
+	if err != nil {
+		http.Error(w, "Failed to read request body", http.StatusBadRequest)
+		return
+	}
+	defer r.Body.Close()
+
+	var req struct {
+		Fallbacks []string `json:"fallbacks"`
+	}
+	if err = json.Unmarshal(body, &req); err != nil {
+		http.Error(w, fmt.Sprintf("Invalid JSON: %v", err), http.StatusBadRequest)
+		return
+	}
+
+	cfg, err := config.LoadConfig(h.configPath)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Failed to load config: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	normalized, validationErr := normalizeModelFallbacks(cfg, req.Fallbacks)
+	if validationErr != "" {
+		http.Error(w, validationErr, http.StatusBadRequest)
+		return
+	}
+
+	cfg.Agents.Defaults.ModelFallbacks = normalized
+
+	if err := config.SaveConfig(h.configPath, cfg); err != nil {
+		http.Error(w, fmt.Sprintf("Failed to save config: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]any{
+		"status":    "ok",
+		"fallbacks": normalized,
+	})
+}
+
+// normalizeModelFallbacks validates an ordered fallback list against the
+// configured model entries.
+//
+// It returns the cleaned list and an empty string, or an error message. An empty
+// list is valid and means "no fallback", which is the behaviour every existing
+// installation already has.
+func normalizeModelFallbacks(cfg *config.Config, requested []string) ([]string, string) {
+	defaultModel := strings.TrimSpace(cfg.Agents.Defaults.GetModelName())
+
+	byName := make(map[string]*config.ModelConfig, len(cfg.ModelList))
+	for _, m := range cfg.ModelList {
+		byName[m.ModelName] = m
+	}
+
+	normalized := make([]string, 0, len(requested))
+	seen := make(map[string]bool, len(requested))
+	for _, raw := range requested {
+		name := strings.TrimSpace(raw)
+		if name == "" {
+			continue
+		}
+
+		entry, exists := byName[name]
+		if !exists || entry == nil {
+			return nil, fmt.Sprintf("Fallback model %q is not in model_list", name)
+		}
+		// A virtual entry has no upstream to call, so it can never answer a
+		// request the primary could not.
+		if entry.IsVirtual() {
+			return nil, fmt.Sprintf("Virtual model %q cannot be used as a fallback", name)
+		}
+		if !defaultModelAllowedForModelConfig(entry) {
+			return nil, fmt.Sprintf("Model %q cannot be used as a chat fallback", name)
+		}
+		// Self-reference would make the chain retry the candidate that just
+		// failed, which is the one thing a fallback must not do.
+		if name == defaultModel {
+			return nil, fmt.Sprintf(
+				"Model %q is already the default; it cannot also be its own fallback", name,
+			)
+		}
+		if seen[name] {
+			return nil, fmt.Sprintf("Fallback model %q is listed more than once", name)
+		}
+		seen[name] = true
+		normalized = append(normalized, name)
+	}
+	return normalized, ""
 }
 
 // maskAPIKey returns a masked version of an API key for safe display.

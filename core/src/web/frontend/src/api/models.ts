@@ -58,6 +58,12 @@ interface ModelsListResponse {
   models: ModelInfo[]
   total: number
   default_model: string
+  /**
+   * Ordered chain tried when the default model is unavailable, as model_name
+   * references into `models`. Always present, so an empty array means "none
+   * configured" rather than "unsupported by this build".
+   */
+  model_fallbacks: string[]
   provider_options: ModelProviderOption[]
 }
 
@@ -122,6 +128,29 @@ export async function setDefaultModel(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ model_name: modelName }),
   })
+
+  await refreshGatewayState()
+  return response
+}
+
+/**
+ * Replaces the ordered fallback chain.
+ *
+ * Each entry is a reference to a configured model, not a copy of one: the
+ * referenced model keeps its own provider, credentials, base URL and headers.
+ * The primary's API key is never sent to a fallback provider.
+ */
+export async function setModelFallbacks(
+  fallbacks: string[],
+): Promise<{ status: string; fallbacks: string[] }> {
+  const response = await request<{ status: string; fallbacks: string[] }>(
+    "/api/models/fallbacks",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ fallbacks }),
+    },
+  )
 
   await refreshGatewayState()
   return response

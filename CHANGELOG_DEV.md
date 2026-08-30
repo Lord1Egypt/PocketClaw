@@ -1,5 +1,67 @@
 # Development Changelog
 
+## 2026-08-30 — Fallback models UI and automatic gateway restart (physical PENDING)
+
+Branch `feature/provider-resilience-failover`, on top of `68443c1`. Not merged.
+
+Physical validation of Provider Resilience found that the failover chain had no
+UI: `Agents.Defaults.ModelFallbacks` was configurable only by editing JSON, so
+the feature could not be exercised from the product at all.
+
+### Fallback Models
+
+A **Fallback Models** section on the Models page, beside the default model, with
+add, remove, reorder and save. Candidates are picked from configured model
+entries rather than typed by hand, and each entry shows its provider and model
+identifier.
+
+Placement is deliberate. `config.ModelConfig` also has a `Fallbacks` field, but
+that one serves multi-key expansion within a single provider and is generated
+rather than user-edited; putting the UI in the per-model edit sheet would have
+targeted the wrong field and implied every entry has its own chain.
+
+A fallback is stored as a **reference by model name**, so the referenced entry is
+used with its own provider, credentials, base URL and headers. The primary's API
+key is never copied to another provider's endpoint.
+
+`POST /api/models/fallbacks` rejects unknown entries, duplicates, virtual models,
+non-chat models, and a primary listed as its own fallback — the last because it
+would make the chain retry the candidate that just failed. Zero fallbacks stays
+valid, and a config written before this feature keeps working untouched.
+
+### Automatic gateway restart
+
+Saving a restart-requiring setting now applies it instead of leaving "Gateway
+restart required" as the resting state. `saveAndApplyGatewayConfig` persists the
+change, asks the backend whether a restart is needed, and calls the new
+`POST /api/gateway/apply-config`.
+
+The restart decision is unchanged: it is still the existing
+`gateway_restart_required` signature comparison, so there is no second decision
+system to keep in agreement, and cosmetic or hot-reloadable edits still restart
+nothing. Success means the gateway is running *and* its boot signature matches
+the saved config — not that the restart call returned 200.
+
+**A settings change must never interrupt an answer.** Core's `/health` now
+reports `active_requests` and `busy`, fed by the agent loop's existing in-flight
+counter, and `apply-config` defers the restart until the gateway is idle, capped
+at two minutes. That is why it is a separate endpoint from the manual restart:
+the manual action is immediate recovery the user asked for, while this one must
+not cut off a Telegram reply mid-sentence or kill a `git push` half way through.
+
+Both health fields are pointers so "not reported" differs from "zero". An older
+gateway that cannot answer is treated as unknown and restarted immediately,
+because blocking forever on a signal that will never arrive would make
+configuration changes impossible to apply. Concurrent saves coalesce into one
+restart at both the frontend and the launcher.
+
+A failed restart never discards the save — the config is written first — and the
+manual Restart Gateway control remains as the recovery path.
+
+### Not verified
+
+Physical validation is PENDING and is not claimed.
+
 ## 2026-08-30 — Provider Resilience & Automatic Failover (physical validation PENDING)
 
 Branch `feature/provider-resilience-failover`, from `develop` at `0a0b3fa`. Not

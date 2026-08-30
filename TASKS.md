@@ -816,3 +816,30 @@ retry or a fallback, not into a failed turn the user has to notice and repeat.
 - [ ] Automatic-failover user settings (on/off, ordered fallback list, retry
   toggle, maximum fallback attempts). The config shape already supports ordered
   fallbacks; only the UI is deferred.
+
+## Phase 2 — Fallback models UI and automatic gateway restart
+
+Branch `feature/provider-resilience-failover`, on top of `68443c1`.
+Not merged; physical validation PENDING.
+
+- [x] Fallback Models section on the Models page: add, remove, reorder, save,
+  reload. Candidates selected from configured model entries.
+- [x] `POST /api/models/fallbacks` with validation: unknown entry, duplicate,
+  virtual model, non-chat model, and self-reference all rejected. Empty list
+  valid; existing configs unaffected.
+- [x] Fallbacks stored as references by model name, so each keeps its own
+  provider, credentials and base URL.
+- [x] Automatic gateway restart after a restart-requiring save, reusing the
+  existing `gateway_restart_required` signature decision.
+- [x] Restart deferred while the gateway is busy, via new `active_requests` and
+  `busy` fields on Core's `/health`.
+- [x] Restart coalescing at both the frontend and the launcher.
+- [x] Readiness confirmed by signature match, not by the restart call returning
+  200. Failure keeps the saved config and leaves the manual control available.
+- [ ] PHYSICAL validation.
+
+### Deferred, deliberately
+
+- [ ] Retry-count sliders, cooldown controls, Retry-After settings, per-error
+  policy, provider health dashboard and fallback statistics. The milestone needs
+  only presence-of-list plus ordered selection.

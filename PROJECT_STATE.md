@@ -1,5 +1,27 @@
 # PocketClaw Project State
 
+## Fallback models UI and automatic gateway restart — PHYSICAL PENDING
+
+Branch `feature/provider-resilience-failover`, on top of `68443c1`. Not merged.
+
+Physical validation of Provider Resilience found the failover chain had no UI:
+`Agents.Defaults.ModelFallbacks` was reachable only by editing JSON, so the
+feature could not be exercised from the product.
+
+**Fallback Models** now appears on the Models page beside the default model, with
+add, remove, reorder and save. Candidates come from configured model entries, and
+a fallback is stored as a reference by name — the referenced model keeps its own
+provider, credentials and base URL, so no key ever crosses providers.
+
+**Saving a restart-requiring setting now applies it.** The frontend persists the
+change, asks the backend whether a restart is needed, and calls
+`POST /api/gateway/apply-config`, which waits for the gateway to go idle first.
+Core's `/health` reports `active_requests` and `busy` so a settings change never
+cuts off an answer in progress. The restart decision itself is unchanged — still
+the existing `gateway_restart_required` signature comparison.
+
+Physical: **PENDING**, not claimed.
+
 ## Provider Resilience & Automatic Failover — in progress, PHYSICAL PENDING
 
 Branch `feature/provider-resilience-failover`, from `develop` at `0a0b3fa`.

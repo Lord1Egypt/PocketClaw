@@ -155,7 +155,11 @@
     "saveChangesTitle": "有未保存的配置更改",
     "restartRequiredTitle": "需要重启服务",
     "restartRequiredDesc": "{{name}} 的最新配置已保存。重启服务后才能正式生效。",
-    "fix": "修复"
+    "fix": "修复",
+    "restartingGateway": "Restarting gateway...",
+    "restartedGateway": "Saved. Gateway restarted successfully.",
+    "restartFailedTitle": "Gateway restart failed",
+    "restartFailedDesc": "The {{name}} configuration was saved, but the gateway did not restart. Use Restart Gateway to apply it."
   },
   "labels": {
     "loading": "加载中..."
@@ -437,6 +441,19 @@
         "managed": "使用平台凭据或本地 CLI",
         "speech": "仅语音识别"
       }
+    },
+    "fallbacks": {
+      "title": "Fallback Models",
+      "description": "If this model is temporarily unavailable, PocketClaw can try these models in order.",
+      "empty": "No fallback models configured. The default model is used on its own.",
+      "add": "Add fallback model",
+      "remove": "Remove fallback",
+      "moveUp": "Move up",
+      "moveDown": "Move down",
+      "saving": "Saving...",
+      "saved": "Fallback models updated.",
+      "noCandidates": "Configure another model to use it as a fallback.",
+      "missingModel": "This model is no longer configured"
     }
   },
   "channels": {
