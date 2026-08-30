@@ -155,7 +155,13 @@
     "fix": "Fix",
     "saveChangesTitle": "You have unsaved configuration changes",
     "restartRequiredTitle": "Gateway restart required",
-    "restartRequiredDesc": "The latest {{name}} configuration has been saved. Restart the gateway for it to take effect."
+    "restartRequiredDesc": "The latest {{name}} configuration has been saved. Restart the gateway for it to take effect.",
+    "restartingGateway": "Restarting gateway...",
+    "restartedGateway": "Saved. Gateway restarted successfully.",
+    "restartFailedTitle": "Gateway restart failed",
+    "restartFailedDesc": "The {{name}} configuration was saved, but the gateway did not restart. Use Restart Gateway to apply it.",
+    "restartDeferredTitle": "Saved, gateway not restarted yet",
+    "restartDeferredDesc": "The {{name}} configuration was saved. PocketClaw did not restart the gateway because it is still handling a request. Use Restart Gateway when you are ready."
   },
   "labels": {
     "loading": "Loading..."
@@ -232,6 +238,19 @@
     }
   },
   "models": {
+    "fallbacks": {
+      "title": "Fallback Models",
+      "description": "If this model is temporarily unavailable, PocketClaw can try these models in order.",
+      "empty": "No fallback models configured. The default model is used on its own.",
+      "add": "Add fallback model",
+      "remove": "Remove fallback",
+      "moveUp": "Move up",
+      "moveDown": "Move down",
+      "saving": "Saving...",
+      "saved": "Fallback models updated.",
+      "noCandidates": "Configure another model to use it as a fallback.",
+      "missingModel": "This model is no longer configured"
+    },
     "description": "Configure API keys for AI providers. Only configured models are available for chat.",
     "defaultChangeSuccess": "Default model updated.",
     "unsavedPrompt": "This change has not been saved yet. Save to write it into the model configuration.",

@@ -154,7 +154,13 @@
     "fix": "ঠিক করুন",
     "saveChangesTitle": "আপনার অসংরক্ষিত কনফিগারেশন পরিবর্তন রয়েছে",
     "restartRequiredTitle": "গেটওয়ে পুনরায় চালু করা প্রয়োজন",
-    "restartRequiredDesc": "সর্বশেষ {{name}} কনফিগারেশন সংরক্ষিত হয়েছে। কার্যকর হতে গেটওয়ে পুনরায় চালু করুন।"
+    "restartRequiredDesc": "সর্বশেষ {{name}} কনফিগারেশন সংরক্ষিত হয়েছে। কার্যকর হতে গেটওয়ে পুনরায় চালু করুন।",
+    "restartingGateway": "Restarting gateway...",
+    "restartedGateway": "Saved. Gateway restarted successfully.",
+    "restartFailedTitle": "Gateway restart failed",
+    "restartFailedDesc": "The {{name}} configuration was saved, but the gateway did not restart. Use Restart Gateway to apply it.",
+    "restartDeferredTitle": "Saved, gateway not restarted yet",
+    "restartDeferredDesc": "The {{name}} configuration was saved. PocketClaw did not restart the gateway because it is still handling a request. Use Restart Gateway when you are ready."
   },
   "labels": {
     "loading": "লোড হচ্ছে..."
@@ -436,6 +442,19 @@
         "managed": "Uses platform credentials or a local CLI",
         "speech": "Speech recognition only"
       }
+    },
+    "fallbacks": {
+      "title": "Fallback Models",
+      "description": "If this model is temporarily unavailable, PocketClaw can try these models in order.",
+      "empty": "No fallback models configured. The default model is used on its own.",
+      "add": "Add fallback model",
+      "remove": "Remove fallback",
+      "moveUp": "Move up",
+      "moveDown": "Move down",
+      "saving": "Saving...",
+      "saved": "Fallback models updated.",
+      "noCandidates": "Configure another model to use it as a fallback.",
+      "missingModel": "This model is no longer configured"
     }
   },
   "channels": {

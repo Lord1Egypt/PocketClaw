@@ -3,6 +3,7 @@ package providers
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/sipeed/picoclaw/pkg/providers/protocoltypes"
 )
@@ -84,8 +85,13 @@ type NativeSearchCapable interface {
 type FailoverReason string
 
 const (
-	FailoverAuth            FailoverReason = "auth"
-	FailoverRateLimit       FailoverReason = "rate_limit"
+	FailoverAuth      FailoverReason = "auth"
+	FailoverRateLimit FailoverReason = "rate_limit"
+	// FailoverHardQuota is a rate-limit family failure the provider has
+	// indicated is not going to clear on its own within this request's
+	// lifetime: an exhausted plan, credit or period quota. Retrying the same
+	// candidate is pointless; another candidate may still work.
+	FailoverHardQuota       FailoverReason = "hard_quota"
 	FailoverBilling         FailoverReason = "billing"
 	FailoverNetwork         FailoverReason = "network"
 	FailoverTimeout         FailoverReason = "timeout"
@@ -102,6 +108,11 @@ type FailoverError struct {
 	Model    string
 	Status   int
 	Wrapped  error
+
+	// RetryAfter is the provider's own instruction to wait, taken from a
+	// Retry-After header or an equivalent field. Zero means the provider gave
+	// none, which is not the same as "retry immediately".
+	RetryAfter time.Duration
 }
 
 func (e *FailoverError) Error() string {
@@ -113,10 +124,33 @@ func (e *FailoverError) Unwrap() error {
 	return e.Wrapped
 }
 
-// IsRetriable returns true if this error should trigger fallback to next candidate.
-// Non-retriable: Format errors (bad request structure, image dimension/size).
+// IsRetriable returns true if this error should trigger fallback to the next
+// candidate. Non-retriable: format errors (bad request structure, image
+// dimension/size) and context overflow, which has its own compact-and-retry
+// path on the current candidate.
+//
+// Hard quota is retriable in this sense: the candidate is finished, but a
+// different one may well succeed. Whether the *same* candidate may be retried
+// is a separate question — see AllowsSameCandidateRetry.
 func (e *FailoverError) IsRetriable() bool {
 	return e.Reason != FailoverFormat && e.Reason != FailoverContextOverflow
+}
+
+// AllowsSameCandidateRetry reports whether retrying the identical
+// provider/model could plausibly succeed.
+//
+// This is deliberately distinct from IsRetriable. Moving to another candidate
+// and retrying the same one fail for different reasons: a bad API key, an
+// exhausted quota or an unpaid bill will still be bad, exhausted and unpaid a
+// few seconds later, so a same-candidate retry is pure latency. Transient
+// conditions are the opposite.
+func (e *FailoverError) AllowsSameCandidateRetry() bool {
+	switch e.Reason {
+	case FailoverAuth, FailoverBilling, FailoverHardQuota, FailoverFormat:
+		return false
+	default:
+		return true
+	}
 }
 
 // ModelConfig holds primary model and fallback list.

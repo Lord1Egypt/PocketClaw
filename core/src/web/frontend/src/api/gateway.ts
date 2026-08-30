@@ -73,6 +73,37 @@ export async function restartGateway(): Promise<GatewayActionResponse> {
   })
 }
 
+/**
+ * Restarts the gateway so a saved configuration change takes effect.
+ *
+ * Distinct from restartGateway: this waits for in-flight turns to finish first,
+ * so saving settings never cuts off an answer that is still being produced, and
+ * concurrent saves coalesce into one restart.
+ */
+export interface ApplyGatewayConfigResponse {
+  /**
+   * "ok" when the gateway restarted, "saved_not_applied" when it was not safe
+   * to restart. The second is not a failure: the configuration is persisted, it
+   * simply is not live yet.
+   */
+  status: string
+  /** Why the restart was withheld: busy_timeout or unverified. */
+  outcome?: string
+  message?: string
+  deferred?: boolean
+  pid?: number
+}
+
+export async function applyGatewayConfig(
+  reason: string,
+): Promise<ApplyGatewayConfigResponse> {
+  return request<ApplyGatewayConfigResponse>("/api/gateway/apply-config", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ reason }),
+  })
+}
+
 export async function clearGatewayLogs(): Promise<GatewayActionResponse> {
   return request<GatewayActionResponse>("/api/gateway/logs/clear", {
     method: "POST",

@@ -21,6 +21,12 @@ type Server struct {
 	startTime  time.Time
 	reloadFunc func() error
 	authToken  string // optional bearer token for protected endpoints
+
+	// activeRequests reports how many agent turns are currently in flight.
+	// The launcher reads it to avoid restarting the gateway mid-answer; nil
+	// means the gateway did not supply one, which callers must treat as
+	// "unknown", never as "idle".
+	activeRequests func() int
 }
 
 type Check struct {
@@ -35,6 +41,15 @@ type StatusResponse struct {
 	Uptime string           `json:"uptime"`
 	PID    int              `json:"pid,omitempty"`
 	Checks map[string]Check `json:"checks,omitempty"`
+
+	// ActiveRequests is the number of agent turns in flight, and Busy is
+	// whether that number is above zero.
+	//
+	// Both are pointers so "the gateway did not report" is distinguishable
+	// from "the gateway reported zero". A restart decision must not read a
+	// missing field as an idle gateway and interrupt someone's answer.
+	ActiveRequests *int  `json:"active_requests,omitempty"`
+	Busy           *bool `json:"busy,omitempty"`
 }
 
 func NewServer(host string, port int, token string) *Server {
@@ -176,7 +191,28 @@ func (s *Server) healthHandler(w http.ResponseWriter, r *http.Request) {
 		PID:    os.Getpid(),
 	}
 
+	s.mu.RLock()
+	probe := s.activeRequests
+	s.mu.RUnlock()
+	if probe != nil {
+		active := probe()
+		busy := active > 0
+		resp.ActiveRequests = &active
+		resp.Busy = &busy
+	}
+
 	_ = json.NewEncoder(w).Encode(resp)
+}
+
+// SetActiveRequestsProbe supplies the in-flight turn count reported by /health.
+//
+// It exists so the launcher can defer a configuration restart until the gateway
+// is idle, rather than interrupting a running answer or a tool that is part way
+// through a side effect.
+func (s *Server) SetActiveRequestsProbe(probe func() int) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.activeRequests = probe
 }
 
 func (s *Server) readyHandler(w http.ResponseWriter, r *http.Request) {

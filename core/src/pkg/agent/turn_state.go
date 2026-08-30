@@ -182,6 +182,12 @@ func newTurnExecution(
 type turnState struct {
 	mu sync.RWMutex
 
+	// completedToolResults guards against replaying a tool call that already
+	// finished in this turn. See turn_tool_results.go for why identity is the
+	// provider's tool_call_id and nothing else.
+	completedToolResultsOnce sync.Once
+	completedToolResults     *completedToolResults
+
 	agent   *AgentInstance
 	opts    processOptions
 	profile config.EffectiveTurnProfile

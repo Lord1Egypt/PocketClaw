@@ -1,5 +1,61 @@
 # PocketClaw Project State
 
+## Provider Resilience & Automatic Failover — PHYSICAL PASS
+
+Branch `feature/provider-resilience-failover`, from `develop` at `0a0b3fa`.
+**Physical validation PASSED** on the target ARM64 device on 2026-08-30 and
+merged to `develop`. Not released; `main` untouched and no tags moved.
+
+Implementation commits: `68443c1` (resilience), `7b67493` (fallback UI and
+automatic gateway restart), `ebf49b4` (restart safety invariants), `812a003`
+(resume white-screen recovery), `3446b0f` (diagnostic naming).
+
+### Physical results
+
+| Check | Result |
+|---|---|
+| Provider automatic failover | **PASS** |
+| Fallback Models UI, ordered selection | **PASS** |
+| Primary unavailable → configured fallback answered | **PASS** |
+| Single user-visible final answer | **PASS** |
+| Automatic gateway restart after model config | **PASS** |
+| Automatic gateway restart after fallback config | **PASS** |
+| Active-turn safety | **PASS** |
+| White-screen resume recovery | **PASS** |
+| No recovery loop; healthy pages untouched | **PASS** |
+
+The observed restart sequence was: active request running → model configuration
+saved → UI entered "Restarting Gateway" → the request finished → gateway
+restarted → configuration became active. **The active request was not
+interrupted.**
+
+### What was built, and what deliberately was not
+
+The existing `FallbackChain`, `CooldownTracker` and `ClassifyError` were reused
+rather than rewritten. There is **no checkpoint subsystem, no semantic tool
+fingerprinting and no side-effect classification framework**: the agent loop
+already guaranteed that a provider retry does not rewind completed tool
+execution, so that property is protected by tests plus one exact-`toolCallID`
+result-reuse guard.
+
+Delivered: single-candidate cooldown, `Retry-After` support, hard-quota
+distinction from transient throttling, 502/503/504 classified by what each
+actually means, a conservative fallback capability gate, streaming failover only
+before first visible output, steering and cancellation preserved across retries,
+a `provider.*` event family with emitter-level redaction, the Fallback Models UI,
+and automatic safe gateway config apply.
+
+**Two restart invariants hold absolutely.** A busy gateway is never force
+restarted when the two-minute wait expires, and an unverified busy state is never
+treated as idle. Both leave the configuration saved and unapplied, and the manual
+Restart Gateway control remains available.
+
+### Counts
+
+Tools **18**. Skills **7/7** on an existing upgraded workspace, **6/6** on a
+fresh install. The removed GitHub Skill stays removed, and `picoclaw-agent` stays
+unseeded — the count is not a target.
+
 ## Lean Runtime Pack v2 — PHYSICAL PASS
 
 Branch `feature/lean-runtime-pack-v2`, fix commit `7ebd254`, from `develop` at

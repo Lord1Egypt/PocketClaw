@@ -3,8 +3,7 @@ import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 
 import { type ModelInfo, getModels, setDefaultModel } from "@/api/models"
-import { showSaveSuccessOrRestartToast } from "@/lib/restart-required"
-import { refreshGatewayState } from "@/store/gateway"
+import { applyGatewayConfigIfRequired } from "@/lib/restart-required"
 
 interface UseChatModelsOptions {
   isConnected: boolean
@@ -70,13 +69,12 @@ export function useChatModels({ isConnected }: UseChatModelsOptions) {
 
         setModelList(data.models)
         syncDefaultModelName(data.models, data.default_model)
-        const gateway = await refreshGatewayState({ force: true })
-        showSaveSuccessOrRestartToast(
-          t,
-          t("models.defaultChangeSuccess"),
-          modelName,
-          gateway?.restartRequired === true,
-        )
+        // Switching model from the chat header should make that model answer,
+        // not leave the user to press Restart Gateway first.
+        await applyGatewayConfigIfRequired(t, {
+          savedMessage: t("models.defaultChangeSuccess"),
+          name: modelName,
+        })
       } catch (err) {
         console.error("Failed to set default model:", err)
         toast.error(err instanceof Error ? err.message : t("models.loadError"))

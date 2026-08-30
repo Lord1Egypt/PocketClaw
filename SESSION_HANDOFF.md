@@ -1,5 +1,51 @@
 # PocketClaw Session Handoff
 
+## Shipped — Provider Resilience & Automatic Failover (2026-08-30, PHYSICAL PASS)
+
+Branch `feature/provider-resilience-failover`, merged to `develop`. Commits
+`68443c1`, `7b67493`, `ebf49b4`, `812a003`, `3446b0f`. Not released, `main`
+untouched, no tags moved.
+
+Physically validated on the target ARM64 device: automatic failover, the
+Fallback Models UI with ordered selection, a failing primary answered by its
+configured fallback with one user-visible answer, automatic gateway restart after
+both model and fallback changes, active-turn safety, and white-screen resume
+recovery with no loop.
+
+### What a next session must not undo
+
+- **No checkpoint subsystem, no tool fingerprinting, no side-effect
+  classification.** The agent loop already guarantees a provider retry does not
+  rewind completed tool execution. It is protected by tests plus one exact
+  `toolCallID` reuse guard. Do not match on tool name or arguments: asking for
+  the same command twice in a turn is legitimate.
+- **Two restart invariants are absolute.** A busy gateway is never force
+  restarted when the two-minute wait expires, and an unverified busy state is
+  never read as idle. Both leave the config saved and unapplied. An earlier
+  revision did force both; it was wrong.
+- **Unknown is never idle, and never a claimed cause.** The resume diagnostics
+  log `probe_failed` and `page_unresponsive`, not `renderer_gone` —
+  `webview_flutter_android` 4.14.0 has no `onRenderProcessGone`, so renderer
+  death is not observable here. A test fails if the old label returns.
+- **Healthy resumes are never reloaded.** The probe exists so page state and
+  scroll survive; a blanket reload would hide the defect rather than fix it.
+- **Streaming failover stops at first visible output**, or the answer duplicates
+  on screen.
+- **Fallbacks are references by model name**, so each keeps its own provider and
+  credentials. Never copy the primary's key into a fallback.
+
+### Counts
+
+Tools **18**. Skills **7/7** on an existing workspace, **6/6** fresh. The GitHub
+Skill stays removed and `picoclaw-agent` stays unseeded; the count is not a
+target.
+
+### Next
+
+Python Lite, on `feature/python-lite-runtime` from the new `develop` HEAD.
+Architecture review only — nothing to be compiled or bundled until that review
+is approved.
+
 ## Shipped — Lean Runtime Pack v2 (2026-08-30, PHYSICAL PASS)
 
 Branch `feature/lean-runtime-pack-v2`, fix commit `7ebd254`, from `develop` at

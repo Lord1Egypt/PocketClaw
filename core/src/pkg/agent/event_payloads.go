@@ -135,6 +135,53 @@ type ToolExecSkippedPayload struct {
 	Reason string
 }
 
+// ToolResultReusedPayload describes a tool call answered from an already
+// recorded result instead of being executed again.
+type ToolResultReusedPayload struct {
+	Tool       string
+	ToolCallID string
+}
+
+// ProviderAttemptPayload describes one provider request attempt.
+//
+// Every field here is safe to persist. Credentials, request bodies, prompts and
+// message content are deliberately absent: the redacting emitter drops secrets
+// as a backstop, but a payload that never carries them cannot leak them.
+type ProviderAttemptPayload struct {
+	// ModelConfigName is what the user configured and sees.
+	ModelConfigName string
+	// Provider is the resolved provider id.
+	Provider string
+	// UpstreamModel is the model identifier actually sent upstream, which is
+	// often not the configured name — routing aliases make these diverge, and
+	// blurring them makes failover diagnosis guesswork.
+	UpstreamModel string
+	// Protocol is the request protocol used, where the provider exposes one.
+	Protocol string
+
+	Attempt       int
+	FallbackIndex int
+	CandidateKey  string
+
+	ErrorClass string
+	HTTPStatus int
+	DurationMS int64
+	RetryDelay int64
+
+	TurnID    string
+	Iteration int
+}
+
+// ProviderCooldownPayload describes a candidate entering or being skipped for
+// cooldown.
+type ProviderCooldownPayload struct {
+	Provider      string
+	UpstreamModel string
+	CandidateKey  string
+	ErrorClass    string
+	RemainingMS   int64
+}
+
 // SteeringInjectedPayload describes steering messages appended before the next LLM call.
 type SteeringInjectedPayload struct {
 	Count           int

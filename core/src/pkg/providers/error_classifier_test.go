@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/sipeed/picoclaw/pkg/providers/common"
 	"io"
 	"net"
 	"net/url"
@@ -55,14 +56,18 @@ func TestClassifyError_StatusCodes(t *testing.T) {
 		{408, FailoverTimeout},
 		{429, FailoverRateLimit},
 		{400, FailoverFormat},
+		// The 5xx family is split by what each status actually indicates
+		// rather than collapsed into "timeout": 502 is a reachability
+		// problem, 503/521/522/523/529 mean the upstream is shedding load,
+		// and 500/504/524 are best read as it running out of time.
 		{500, FailoverTimeout},
-		{502, FailoverTimeout},
-		{503, FailoverTimeout},
-		{521, FailoverTimeout},
-		{522, FailoverTimeout},
-		{523, FailoverTimeout},
+		{502, FailoverNetwork},
+		{503, FailoverOverloaded},
+		{521, FailoverOverloaded},
+		{522, FailoverOverloaded},
+		{523, FailoverOverloaded},
 		{524, FailoverTimeout},
-		{529, FailoverTimeout},
+		{529, FailoverOverloaded},
 	}
 
 	for _, tt := range tests {
@@ -83,11 +88,8 @@ func TestClassifyError_RateLimitPatterns(t *testing.T) {
 		"rate limit exceeded",
 		"rate_limit reached",
 		"too many requests",
-		"exceeded your current quota",
 		"resource has been exhausted",
 		"resource_exhausted",
-		"quota exceeded",
-		"usage limit reached",
 	}
 
 	for _, msg := range patterns {
@@ -100,6 +102,76 @@ func TestClassifyError_RateLimitPatterns(t *testing.T) {
 		if result.Reason != FailoverRateLimit {
 			t.Errorf("pattern %q: reason = %q, want rate_limit", msg, result.Reason)
 		}
+	}
+}
+
+// A quota the provider says is exhausted will still be exhausted after any
+// retry this turn could wait out, so it is separated from transient rate
+// limiting. Getting this wrong in either direction is costly: treating a
+// transient limit as hard quota puts a healthy provider into a long cooldown,
+// and the reverse produces a retry storm against a provider that has already
+// said no.
+func TestClassifyError_HardQuotaPatterns(t *testing.T) {
+	patterns := []string{
+		"exceeded your current quota",
+		"quota exceeded",
+		"usage limit reached",
+		"insufficient_quota",
+		"out of credits",
+		"plan limit reached",
+	}
+
+	for _, msg := range patterns {
+		result := ClassifyError(errors.New(msg), "openai", "gpt-4")
+		if result == nil {
+			t.Errorf("pattern %q: expected non-nil", msg)
+			continue
+		}
+		if result.Reason != FailoverHardQuota {
+			t.Errorf("pattern %q: reason = %q, want hard_quota", msg, result.Reason)
+		}
+		if result.AllowsSameCandidateRetry() {
+			t.Errorf("pattern %q: hard quota must not permit a same-candidate retry", msg)
+		}
+		if !result.IsRetriable() {
+			t.Errorf("pattern %q: hard quota must still allow moving to another candidate", msg)
+		}
+	}
+}
+
+// A plain rate limit must stay transient. This is the guard against the
+// hard-quota patterns being widened until they swallow ordinary throttling.
+func TestClassifyError_PlainRateLimitIsNotHardQuota(t *testing.T) {
+	for _, msg := range []string{"rate limit exceeded", "too many requests", "429 slow down"} {
+		result := ClassifyError(errors.New(msg), "openai", "gpt-4")
+		if result == nil {
+			t.Fatalf("pattern %q: expected non-nil", msg)
+		}
+		if result.Reason == FailoverHardQuota {
+			t.Errorf("pattern %q: transient throttling must not be read as hard quota", msg)
+		}
+		if !result.AllowsSameCandidateRetry() {
+			t.Errorf("pattern %q: transient throttling may be retried", msg)
+		}
+	}
+}
+
+// A 429 alone cannot tell the two apart; only the body can.
+func TestClassifyError_429BodyDistinguishesQuotaFromThrottling(t *testing.T) {
+	throttled := ClassifyError(
+		&common.HTTPError{StatusCode: 429, BodyPreview: "rate limit, please slow down"},
+		"openai", "gpt-4",
+	)
+	if throttled == nil || throttled.Reason != FailoverRateLimit {
+		t.Fatalf("429 without quota wording should stay rate_limit, got %+v", throttled)
+	}
+
+	exhausted := ClassifyError(
+		&common.HTTPError{StatusCode: 429, BodyPreview: "You exceeded your current quota"},
+		"openai", "gpt-4",
+	)
+	if exhausted == nil || exhausted.Reason != FailoverHardQuota {
+		t.Fatalf("429 with quota wording should be hard_quota, got %+v", exhausted)
 	}
 }
 
@@ -117,9 +189,11 @@ func TestClassifyError_OverloadedPatterns(t *testing.T) {
 			t.Errorf("pattern %q: expected non-nil", msg)
 			continue
 		}
-		// Overloaded is treated as rate_limit
-		if result.Reason != FailoverRateLimit {
-			t.Errorf("pattern %q: reason = %q, want rate_limit", msg, result.Reason)
+		// Overloaded is its own reason rather than rate_limit: the provider
+		// is shedding load, not throttling this caller, and the two deserve
+		// different cooldown treatment.
+		if result.Reason != FailoverOverloaded {
+			t.Errorf("pattern %q: reason = %q, want overloaded", msg, result.Reason)
 		}
 	}
 }

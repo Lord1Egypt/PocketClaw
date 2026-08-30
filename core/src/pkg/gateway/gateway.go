@@ -498,6 +498,10 @@ func setupAndStartServices(
 
 	runningServices.authToken = authToken
 	runningServices.HealthServer = health.NewServer(listenResult.ProbeHost, cfg.Gateway.Port, authToken)
+	// Let /health report in-flight turns so the launcher can hold a
+	// configuration restart until the gateway is idle instead of cutting off a
+	// running answer.
+	runningServices.HealthServer.SetActiveRequestsProbe(agentLoop.ActiveRequests)
 
 	var listenAddr string
 	if len(listenResult.Listeners) > 0 {

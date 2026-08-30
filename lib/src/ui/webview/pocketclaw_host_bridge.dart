@@ -55,6 +55,62 @@ abstract final class PocketClawHostBridge {
 ''';
   }
 
+  /// Asks the page whether it is still alive and rendering.
+  ///
+  /// This exists because Android may kill a backgrounded WebView's renderer
+  /// process to reclaim memory. When it does the view keeps its layout but
+  /// shows nothing, and `webview_flutter_android` exposes no
+  /// `onRenderProcessGone` callback, so Dart is never told. Asking the page a
+  /// question it can only answer while alive is the available signal.
+  ///
+  /// Returns `alive` only when the console has mounted and its root still has
+  /// content. Anything else — a thrown error, a null result, or a page that
+  /// never runs the script at all — means the page is not usable. Which of
+  /// those happened is recorded; why it happened is not inferred.
+  static const String livenessProbeScript = r"""
+(function () {
+  try {
+    if (!window.__pocketclawReady) return 'not-ready';
+    var root = document.getElementById('root');
+    if (!root || root.childElementCount === 0) return 'empty';
+    return 'alive';
+  } catch (e) {
+    return 'error';
+  }
+})();
+""";
+
+  /// Reads the console's current in-app route so a recovery reload can return
+  /// the user where they were rather than to the home page.
+  static const String currentRouteScript = r"""
+(function () {
+  try {
+    return window.location.pathname + window.location.search;
+  } catch (e) {
+    return '';
+  }
+})();
+""";
+
+  /// Whether a liveness probe result means the page is usable.
+  ///
+  /// A page that cannot run script produces an error rather than a value, and
+  /// `runJavaScriptReturningResult` returns platform-shaped values, so anything
+  /// that is not an explicit `alive` is treated as unusable.
+  static bool isAliveResult(Object? result) {
+    if (result == null) return false;
+    final text = result.toString().replaceAll('"', '').trim();
+    return text == 'alive';
+  }
+
+  /// Normalises a probe result for a route string.
+  static String? routeFromResult(Object? result) {
+    if (result == null) return null;
+    final text = result.toString().replaceAll('"', '').trim();
+    if (text.isEmpty || !text.startsWith('/')) return null;
+    return text;
+  }
+
   /// Fired after the native flow returns so the console reloads the channel
   /// configuration instead of showing a stale disconnected state.
   static const String telegramUpdatedScript =

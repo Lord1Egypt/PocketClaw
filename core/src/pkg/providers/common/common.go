@@ -16,6 +16,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -379,6 +380,11 @@ type HTTPError struct {
 	ContentType string
 	APIBase     string
 	IsHTML      bool
+
+	// RetryAfter carries the provider's own Retry-After instruction, parsed at
+	// the point the response is still available. Zero means the provider sent
+	// none, which is not the same as "retry immediately".
+	RetryAfter time.Duration
 }
 
 func (e *HTTPError) Error() string {
@@ -416,7 +422,31 @@ func HandleErrorResponse(resp *http.Response, apiBase string) error {
 		BodyPreview: ResponsePreview(body, 128),
 		ContentType: contentType,
 		APIBase:     apiBase,
+		RetryAfter:  ParseRetryAfter(resp.Header.Get("Retry-After"), time.Now()),
 	}
+}
+
+// ParseRetryAfter reads an HTTP Retry-After value in either of its two legal
+// forms: delta-seconds, or an HTTP date. It returns zero for anything it cannot
+// read, and for dates already in the past, so a malformed or stale header can
+// never become an unbounded wait.
+func ParseRetryAfter(value string, now time.Time) time.Duration {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return 0
+	}
+	if seconds, err := strconv.Atoi(value); err == nil {
+		if seconds <= 0 {
+			return 0
+		}
+		return time.Duration(seconds) * time.Second
+	}
+	if when, err := http.ParseTime(value); err == nil {
+		if delay := when.Sub(now); delay > 0 {
+			return delay
+		}
+	}
+	return 0
 }
 
 // ReadAndParseResponse peeks at the response body to detect HTML errors,

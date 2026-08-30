@@ -130,6 +130,35 @@ toolLoop:
 
 		toolName := tc.Name
 		toolArgs := cloneStringAnyMap(tc.Arguments)
+
+		// Defensive replay guard. The loop never rewinds past a completed tool
+		// execution, so this should not fire; if it ever does, reusing the
+		// recorded result is strictly safer than running a side effect twice.
+		//
+		// Matching is on the provider's tool_call_id alone. The same tool with
+		// the same arguments under a different id is a genuinely new request
+		// and must run again.
+		if prior, reused := ts.completedToolResultFor(tc.ID); reused {
+			logger.WarnCF("agent", "Reusing completed tool result instead of re-executing",
+				map[string]any{
+					"agent_id":     ts.agent.ID,
+					"tool":         prior.toolName,
+					"iteration":    iteration,
+					"tool_call_id": tc.ID,
+				})
+			al.emitEvent(
+				runtimeevents.KindAgentToolResultReused,
+				ts.eventMeta("runTurn", "turn.tool.reused"),
+				ToolResultReusedPayload{
+					Tool:       prior.toolName,
+					ToolCallID: tc.ID,
+				},
+			)
+			messages = append(messages, prior.message)
+			exec.messages = messages
+			continue
+		}
+
 		denyByTurnProfile := func() bool {
 			if turnProfileToolAllowed(ts.profile, toolName) {
 				return false
@@ -722,6 +751,9 @@ toolLoop:
 			inferSkillNamesFromToolCall(ts, toolName, toolArgs),
 		)
 		messages = append(messages, toolResultMsg)
+		// Recorded before the loop can reach another provider request, so the
+		// committed result is what any later attempt sees.
+		ts.recordCompletedToolResult(toolCallID, toolName, toolResultMsg)
 		if !ts.opts.NoHistory {
 			ts.agent.Sessions.AddFullMessage(ts.sessionKey, toolResultMsg)
 			ts.recordPersistedMessage(toolResultMsg)

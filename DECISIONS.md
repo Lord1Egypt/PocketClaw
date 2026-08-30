@@ -1,5 +1,198 @@
 # PocketClaw Decisions
 
+## Provider Resilience closed on physical evidence, not on a green build
+
+- Date: 2026-08-30
+- Decision: The milestone is closed as PHYSICAL PASS on the target ARM64 device:
+  failover, the Fallback Models UI, active-turn restart safety and resume
+  recovery were all exercised on hardware before merge.
+- Consequence: The load-bearing observation is the restart sequence — a running
+  request finished before the gateway restarted, on a real device. That is the
+  behaviour every safety invariant in this milestone exists to produce, and it
+  is the one thing a green test suite could not have established.
+
+## The WebView is recovered on evidence, never on every resume
+
+- Date: 2026-08-30
+- Decision: On resume the Android WebView asks the page a question only a live
+  page can answer — a readiness flag plus a non-empty `#root` — and reloads only
+  when the answer is missing or wrong. A healthy page is left untouched, and
+  recovery reloads the route the user was on rather than the console home page.
+- Consequence: Android may kill a backgrounded WebView's renderer process to
+  reclaim memory. The view keeps its layout and shows white, and
+  `webview_flutter_android` 4.14.0 exposes no `onRenderProcessGone` callback, so
+  Dart is never told — verified by grep, the API simply is not there. Probing is
+  the only signal available.
+
+  A blanket `onResume → reload()` was rejected: it would discard scroll position
+  and page state on every single resume, add pointless work, and hide the defect
+  rather than fix it. Recovery is capped at one attempt per page load, so a
+  console that is genuinely broken stops being reloaded and leaves the Refresh
+  control usable instead of flickering.
+
+  Blankness is deliberately not detected by sampling pixels or background
+  colour. The page reports its own health; a white area is a symptom, not a
+  signal.
+
+## The console has an error boundary so a crash is not silent
+
+- Date: 2026-08-30
+- Decision: The React tree is wrapped in `AppErrorBoundary`, which shows a
+  reload affordance and clears the readiness flag.
+- Consequence: Without one, an uncaught render error unmounts the whole tree and
+  empties `#root`. That is visually identical to a killed renderer and equally
+  unexplained, which is exactly what made the white-screen report ambiguous.
+  Clearing the readiness flag also lets the host's resume probe recover a
+  crashed console, so the two failure modes share one recovery path while
+  remaining distinguishable in the logs.
+
+## The fallback chain belongs to the default model, not to each model entry
+
+- Date: 2026-08-30
+- Decision: The Fallback Models UI lives on the Models page beside the default
+  model, editing `Agents.Defaults.ModelFallbacks`. It is not in the per-model
+  edit sheet.
+- Consequence: `config.ModelConfig` also has a `Fallbacks` field, but that one
+  serves multi-key expansion within a single provider and is generated, not
+  user-edited. Putting the UI in the edit sheet would have targeted the wrong
+  field and implied every model entry has its own chain. A fallback is stored as
+  a **reference by model name**, so the referenced entry keeps its own provider,
+  credentials, base URL and headers — the primary's API key is never copied to
+  another provider's endpoint.
+
+## Configuration saves restart the gateway automatically, when it is idle
+
+- Date: 2026-08-30
+- Decision: Saving a restart-requiring setting now applies it. The frontend
+  helper `saveAndApplyGatewayConfig` persists the change, asks the backend
+  whether a restart is required, and only then calls `POST
+  /api/gateway/apply-config`, which waits for the gateway to become idle before
+  restarting.
+- Consequence: The restart decision is still the existing
+  `gateway_restart_required` signature comparison — there is no second decision
+  system to keep in agreement with the first, so cosmetic edits and
+  hot-reloadable fields still restart nothing. Success means the gateway is
+  running *and* its boot signature matches the saved config, not that the
+  restart call returned 200. A failed restart never discards the save, because
+  the config is written before any restart is attempted, and the manual Restart
+  Gateway control remains as the recovery path.
+
+## A restart for a settings change must never interrupt an answer
+
+- Date: 2026-08-30
+- Decision: Core's `/health` reports `active_requests` and `busy`, fed by the
+  agent loop's existing in-flight counter. `apply-config` restarts the gateway
+  only on two outcomes: the process is not running, or it reported itself idle.
+  **Neither an unreadable busy signal nor an expired wait authorises a restart.**
+- Consequence: This is why `apply-config` is a separate endpoint from
+  `POST /api/gateway/restart`. The manual restart is immediate recovery the user
+  asked for explicitly; a restart caused by saving settings must not cut off a
+  Telegram reply mid-sentence or kill a `git push` half way through.
+
+  The four outcomes are `not_running` and `idle` (restart proceeds),
+  `busy_timeout` and `unverified` (it does not). The two-minute limit bounds how
+  long PocketClaw *waits*, not how long the user's work is safe: reaching it
+  leaves the configuration saved and unapplied. A running gateway that will not
+  report its busyness is retried for five seconds and then also left alone —
+  unknown is never read as idle, because a gateway too old to answer, or one
+  whose health endpoint is briefly unreachable, may be part way through a turn.
+
+  An earlier revision of this code did force a restart in both cases, on the
+  reasoning that blocking on a signal that never arrives would make settings
+  impossible to apply. That trade was wrong: the cost of a delayed setting is a
+  banner, and the cost of a forced restart is destroyed work. The configuration
+  is persisted before any restart is attempted, so a withheld restart loses
+  nothing and the manual control still applies it.
+
+  There is deliberately **no background retry**. A restart that fires at an
+  arbitrary later moment is exactly the surprise the Auto-Start milestone was
+  built to avoid; the restart-required indicator stays visible and the next save
+  or the manual action applies the change.
+
+## Provider retry is scoped to the request; the turn never rewinds
+
+- Date: 2026-08-30
+- Decision: Provider resilience was implemented as gap-closing on the existing
+  `FallbackChain`, `CooldownTracker` and `ClassifyError`. No checkpoint
+  subsystem, no tool fingerprinting, no per-tool side-effect classification and
+  no runtime shell-command parser were built.
+- Consequence: The agent loop already guaranteed the invariant those mechanisms
+  would have defended. Tool results are committed to the turn and the session in
+  `pipeline_execute.go` before control returns, and the loop in `turn_coord.go`
+  never re-enters a completed tool execution — a retry re-sends the committed
+  results rather than replaying the call. Adding machinery to protect a property
+  the structure already provides would have added surface area and new ways to
+  be wrong. It is protected instead by tests and one small guard.
+
+## Tool replay identity is the provider's call id, and nothing else
+
+- Date: 2026-08-30
+- Decision: `completedToolResults` records a finished tool result under its
+  `protocoltypes.ToolCall.ID` and reuses it if that exact id is ever presented
+  again in the same turn. Matching on tool name, arguments, or any hash of them
+  is deliberately excluded, and a call with no id is not recorded at all.
+- Consequence: Asking for the same command twice in one turn is legitimate —
+  re-reading a file after editing it, retrying a fetch the model believes went
+  stale — and collapsing those into one execution would silently change what the
+  agent did. A missing id means no identity: inventing one from the arguments
+  would reintroduce exactly the fingerprint matching this rejects. The guard is
+  defensive; if it ever fires, something tried to replay a turn, which is why it
+  logs at warning severity.
+
+## The 5xx family is classified by what each status means
+
+- Date: 2026-08-30
+- Decision: 502 classifies as network, 503/521/522/523/529 as overloaded, and
+  500/504/524 as timeout, replacing a single collapse into timeout. 429 is
+  refined against the response body into transient rate limiting or hard quota.
+- Consequence: A log that says "timeout" for a gateway that could not reach
+  upstream is actively misleading during diagnosis, and the classes now carry
+  different cooldown treatment. The hard-quota patterns are deliberately narrow:
+  reading ordinary throttling as an exhausted quota would put a healthy provider
+  into a long cooldown, and the reverse produces a retry storm against a
+  provider that has already said no. A 429 alone cannot distinguish them, so
+  only the body does.
+
+## Capability gating returns unknown, and unknown is not a refusal
+
+- Date: 2026-08-30
+- Decision: `SupportsToolCalls` returns supported, unsupported or unknown, and
+  the fallback chain skips a candidate only on an explicit unsupported. The only
+  seeded negatives are model families that are not chat models at all —
+  embedding, TTS, transcription, moderation, rerank.
+- Consequence: PocketClaw routes to providers whose model lists it does not
+  enumerate. Treating unrecognised as unusable would disable failover for
+  exactly the configurations that need it most. No tool-support metadata was
+  invented for chat models, because it varies by provider, version and endpoint,
+  and a wrong guess either skips a working candidate or lets a doomed one
+  through while claiming it was checked.
+
+## Cross-provider context-overflow fallback is DEFERRED
+
+- Date: 2026-08-30
+- Decision: Context overflow keeps its existing compact-and-retry path on the
+  current candidate. It is not made retriable into a different candidate.
+- Consequence: Choosing a fallback for context overflow requires knowing the
+  alternate model's context capacity, and no reliable per-model capacity
+  metadata exists — `ContextWindow` is an agent default, not a model property.
+  Guessing would mean failing over to a model that overflows too, having spent
+  the latency. Recorded as deferred rather than implemented on invented data.
+
+## An empty completion is not an outage
+
+- Date: 2026-08-30
+- Decision: `responseIsUserVisiblyEmpty` is used for logging and the end-of-turn
+  placeholder only. It never triggers a retry or a failover. A response carrying
+  tool calls is not empty. The placeholder text no longer asserts a provider
+  error or a token limit.
+- Consequence: The old placeholder — "This may indicate a provider error or
+  token limit" — fires for entirely ordinary contentless turns and was read as
+  evidence of an outage when no provider had failed. Genuinely
+  provider-attributable emptiness (zero-byte body, truncated framing,
+  unparseable JSON) arrives as an error from the provider adapter and is
+  classified there, which is the only place it can be told apart from a model
+  choosing to say nothing.
+
 ## Symlink execution into nativeLibraryDir works on Android, proven on hardware
 
 - Date: 2026-08-30

@@ -138,11 +138,43 @@ var (
 		rxp(`image exceeds.*mb`),
 	}
 
-	// Transient HTTP status codes that map to timeout (server-side failures).
-	transientStatusCodes = map[int]bool{
-		500: true, 502: true, 503: true,
-		521: true, 522: true, 523: true, 524: true,
-		529: true,
+	// hardQuotaPatterns mark a rate-limit family failure the provider has said
+	// will not clear on its own: an exhausted plan, credit or period quota.
+	// These are deliberately narrow. A plain "rate limit exceeded" is transient
+	// and must not land here, because treating it as hard quota would put a
+	// healthy provider into a long cooldown.
+	hardQuotaPatterns = []errorPattern{
+		substr("exceeded your current quota"),
+		substr("quota exceeded"),
+		rxp(`quota.*exhausted`),
+		rxp(`exhausted.*quota`),
+		substr("insufficient_quota"),
+		substr("billing hard limit"),
+		substr("monthly limit"),
+		substr("daily limit exceeded"),
+		substr("usage limit reached"),
+		substr("out of credits"),
+		substr("no credits remaining"),
+		substr("plan limit reached"),
+	}
+
+	// Server-side status codes, split by what they actually indicate. Collapsing
+	// all of them into "timeout" loses the distinction between a gateway that
+	// could not reach upstream, an upstream that is deliberately shedding load,
+	// and one that genuinely ran out of time.
+	upstreamNetworkStatusCodes = map[int]bool{
+		502: true, // bad gateway: the edge could not reach upstream
+	}
+	overloadedStatusCodes = map[int]bool{
+		503: true, // service unavailable: upstream is shedding load
+		529: true, // used by several providers for "overloaded"
+		//nolint:gomnd // Cloudflare origin-error family, all load/reachability
+		521: true, 522: true, 523: true,
+	}
+	upstreamTimeoutStatusCodes = map[int]bool{
+		500: true, // opaque server error; timeout is the safest transient read
+		504: true, // gateway timeout
+		524: true, // Cloudflare: origin did not respond in time
 	}
 )
 
@@ -196,18 +228,19 @@ func ClassifyError(err error, provider, model string) *FailoverError {
 	if errors.As(err, &httpErr) && httpErr != nil {
 		if reason := classifyByStatus(httpErr.StatusCode); reason != "" {
 			return &FailoverError{
-				Reason:   reason,
-				Provider: provider,
-				Model:    model,
-				Status:   httpErr.StatusCode,
-				Wrapped:  err,
+				Reason:     refineRateLimitReason(reason, msg),
+				Provider:   provider,
+				Model:      model,
+				Status:     httpErr.StatusCode,
+				Wrapped:    err,
+				RetryAfter: httpErr.RetryAfter,
 			}
 		}
 	}
 	if status := extractHTTPStatus(msg); status > 0 {
 		if reason := classifyByStatus(status); reason != "" {
 			return &FailoverError{
-				Reason:   reason,
+				Reason:   refineRateLimitReason(reason, msg),
 				Provider: provider,
 				Model:    model,
 				Status:   status,
@@ -265,6 +298,11 @@ func classifyByErrorType(err error) FailoverReason {
 }
 
 // classifyByStatus maps HTTP status codes to FailoverReason.
+//
+// The 5xx family is split rather than collapsed: 502 is a reachability problem,
+// 503/529 mean the upstream is deliberately shedding load, and 504 means it ran
+// out of time. They deserve different cooldown and retry treatment, and a log
+// that says "timeout" for all three is actively misleading during diagnosis.
 func classifyByStatus(status int) FailoverReason {
 	switch {
 	case status == 401 || status == 403:
@@ -277,7 +315,11 @@ func classifyByStatus(status int) FailoverReason {
 		return FailoverRateLimit
 	case status == 400:
 		return FailoverFormat
-	case transientStatusCodes[status]:
+	case upstreamNetworkStatusCodes[status]:
+		return FailoverNetwork
+	case overloadedStatusCodes[status]:
+		return FailoverOverloaded
+	case upstreamTimeoutStatusCodes[status]:
 		return FailoverTimeout
 	}
 	return ""
@@ -286,11 +328,17 @@ func classifyByStatus(status int) FailoverReason {
 // classifyByMessage matches error messages against patterns.
 // Priority order matters (from OpenClaw classifyFailoverReason).
 func classifyByMessage(msg string) FailoverReason {
+	// Hard quota is checked before the general rate-limit patterns, which it
+	// overlaps by design: "exceeded your current quota" matches both, and the
+	// more specific reading is the useful one.
+	if matchesAny(msg, hardQuotaPatterns) {
+		return FailoverHardQuota
+	}
 	if matchesAny(msg, rateLimitPatterns) {
 		return FailoverRateLimit
 	}
 	if matchesAny(msg, overloadedPatterns) {
-		return FailoverRateLimit // Overloaded treated as rate_limit
+		return FailoverOverloaded
 	}
 	if matchesAny(msg, billingPatterns) {
 		return FailoverBilling
@@ -359,4 +407,22 @@ func parseDigits(s string) int {
 		}
 	}
 	return n
+}
+
+// refineRateLimitReason upgrades a status-derived rate limit to hard quota when
+// the body says so.
+//
+// A 429 alone cannot tell the two apart, and the difference matters: a
+// transient rate limit clears in seconds, while an exhausted quota will still
+// be exhausted after any retry this turn could wait out. Only the body
+// distinguishes them, so the status classification is refined rather than
+// trusted on its own.
+func refineRateLimitReason(reason FailoverReason, msg string) FailoverReason {
+	if reason != FailoverRateLimit {
+		return reason
+	}
+	if matchesAny(msg, hardQuotaPatterns) {
+		return FailoverHardQuota
+	}
+	return reason
 }

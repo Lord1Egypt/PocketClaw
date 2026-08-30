@@ -43,11 +43,22 @@ func runtimeCorrelationFromHookMeta(meta HookMeta) runtimeevents.Correlation {
 
 func runtimeSeverityForAgentEvent(kind runtimeevents.Kind, payload any) runtimeevents.Severity {
 	switch kind {
-	case runtimeevents.KindAgentError, runtimeevents.KindAgentSubTurnOrphan:
+	case runtimeevents.KindAgentError,
+		runtimeevents.KindAgentSubTurnOrphan,
+		runtimeevents.KindProviderFailoverExhaust:
 		return runtimeevents.SeverityError
 	case runtimeevents.KindAgentLLMRetry,
 		runtimeevents.KindAgentContextCompress,
-		runtimeevents.KindAgentToolExecSkipped:
+		runtimeevents.KindAgentToolExecSkipped,
+		// A reused tool result means something attempted to replay a turn.
+		// It is safe, because the recorded result is returned instead of the
+		// side effect running twice, but it is never expected.
+		runtimeevents.KindAgentToolResultReused,
+		runtimeevents.KindProviderAttemptFailed,
+		runtimeevents.KindProviderRetryScheduled,
+		runtimeevents.KindProviderCooldownStarted,
+		runtimeevents.KindProviderCooldownSkipped,
+		runtimeevents.KindProviderFallbackSelected:
 		return runtimeevents.SeverityWarn
 	case runtimeevents.KindAgentTurnEnd:
 		payload, ok := payload.(TurnEndPayload)

@@ -16,13 +16,13 @@ import {
 } from "@/api/models"
 import { PageHeader } from "@/components/page-header"
 import { Button } from "@/components/ui/button"
-import { showSaveSuccessOrRestartToast } from "@/lib/restart-required"
-import { refreshGatewayState } from "@/store/gateway"
+import { saveAndApplyGatewayConfig } from "@/lib/restart-required"
 
 import { AddModelSheet } from "./add-model-sheet"
 import { CatalogDialog } from "./catalog-dialog"
 import { DeleteModelDialog } from "./delete-model-dialog"
 import { EditModelSheet } from "./edit-model-sheet"
+import { FallbackModelsSection } from "./fallback-models-section"
 import {
   getCanonicalProviderKey,
   getProviderCatalogMap,
@@ -41,6 +41,7 @@ interface ProviderGroup {
 export function ModelsPage() {
   const { t } = useTranslation()
   const [models, setModels] = useState<ModelInfo[]>([])
+  const [fallbacks, setFallbacks] = useState<string[]>([])
   const [providerOptions, setProviderOptions] = useState<
     ModelProviderOption[]
   >([])
@@ -73,6 +74,7 @@ export function ModelsPage() {
         return a.model_name.localeCompare(b.model_name)
       })
       setModels(sorted)
+      setFallbacks(data.model_fallbacks || [])
       setProviderOptions(data.provider_options || [])
       setFetchError("")
     } catch (e) {
@@ -91,15 +93,15 @@ export function ModelsPage() {
 
     setSettingDefaultIndex(model.index)
     try {
-      await setDefaultModel(model.model_name)
+      // Changing the default model needs a gateway restart to take effect.
+      // Applying it automatically is the difference between the new model being
+      // selected and the new model actually answering.
+      await saveAndApplyGatewayConfig(t, {
+        save: () => setDefaultModel(model.model_name),
+        savedMessage: t("models.defaultChangeSuccess"),
+        name: model.model_name,
+      })
       await fetchModels()
-      const gateway = await refreshGatewayState({ force: true })
-      showSaveSuccessOrRestartToast(
-        t,
-        t("models.defaultChangeSuccess"),
-        model.model_name,
-        gateway?.restartRequired === true,
-      )
     } catch (e) {
       toast.error(e instanceof Error ? e.message : t("models.loadError"))
     } finally {
@@ -201,6 +203,21 @@ export function ModelsPage() {
             <p className="text-muted-foreground mt-1 text-sm">
               {t("models.providerCatalogUnavailable")}
             </p>
+          )}
+
+          {/*
+            Placed beside the default model rather than inside a model's edit
+            sheet: the chain belongs to the default chat model, not to each
+            entry, and putting it in the sheet would imply every model has its
+            own list.
+          */}
+          {!loading && models.length > 0 && (
+            <FallbackModelsSection
+              models={models}
+              fallbacks={fallbacks}
+              defaultModelName={defaultModel?.model_name}
+              onSaved={fetchModels}
+            />
           )}
         </div>
 

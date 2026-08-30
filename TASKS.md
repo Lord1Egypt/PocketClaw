@@ -768,38 +768,189 @@ npm, a full bash runtime, `make`, compilers, ffmpeg, ImageMagick.
 
 ## Phase 2 — Provider Resilience & Automatic Failover
 
-Next milestone. Its own branch from `develop` after the Runtime v2 merge.
-**Not to be implemented on `feature/lean-runtime-pack-v2`.**
+Branch `feature/provider-resilience-failover`, from `develop` at `0a0b3fa`.
+**PHYSICAL PASS** on the target ARM64 device 2026-08-30, then merged to
+`develop`. Commits `68443c1`, `7b67493`, `ebf49b4`, `812a003`, `3446b0f`.
+
+Physical: automatic failover PASS, Fallback Models UI and ordered selection PASS,
+failing primary answered by its configured fallback PASS, one user-visible final
+answer PASS, automatic gateway restart after model and fallback changes PASS,
+active-turn safety PASS, white-screen resume recovery PASS with no loop.
+
+Deliberately not built: checkpoint subsystem, semantic tool fingerprinting,
+side-effect classification framework. The loop already held the invariant; it is
+protected by tests plus one exact-`toolCallID` reuse guard.
 
 A provider that rate-limits, times out, or returns nothing should degrade into a
 retry or a fallback, not into a failed turn the user has to notice and repeat.
 
 ### Detection
 
-- [ ] HTTP 429, with the provider's own retry hint honoured where it sends one.
-- [ ] HTTP 502, 503 and 504.
-- [ ] Provider timeouts.
+- [x] HTTP 429, with `Retry-After` parsed in both legal forms and honoured.
+- [x] HTTP 502, 503 and 504, classified by what each actually means rather than collapsed into timeout.
+- [x] Provider timeouts.
 - [ ] Empty model responses, but **only** where the emptiness is attributable to
   provider failure. A model that legitimately returns nothing must not be
   retried as though it had errored.
 
 ### Response
 
-- [ ] Bounded retries. No unbounded loop, and no retry that outlives the turn.
-- [ ] Provider cooldown, so a failing provider is not hammered by every
-  subsequent request while it recovers.
-- [ ] Automatic fallback to the configured backup model or provider.
+- [x] Bounded retries, capped at one same-candidate attempt when a fallback exists.
+- [x] Provider cooldown, now fed by single-candidate failures too.
+- [x] Automatic fallback to the configured backup model or provider.
 
 ### Correctness under retry — the hard part
 
-- [ ] Preserve completed tool-call results across a retry or failover.
+- [x] Preserve completed tool-call results across a retry or failover.
 - [ ] **Never blindly re-run a tool that already succeeded and had side effects.**
   A retry that re-sends a message, re-pushes a commit, or re-writes a file is
   worse than the failure it is recovering from. This constraint, not the
   detection, is what makes the milestone non-trivial.
+- [x] Done without a checkpoint subsystem, fingerprinting or side-effect
+  classification: the loop already provided the property. Guarded by tests and a
+  `tool_call_id` reuse check.
 
 ### Observability
 
-- [ ] Clear lifecycle and debug logs for every retry and failover decision:
-  what failed, what was decided, which provider was chosen, and why.
-- [ ] No provider secrets in logs, on any path.
+- [x] `provider.*` lifecycle events, distinguishing configured name, provider, upstream model and protocol.
+- [x] No provider secrets in logs; redaction lives in the emitter, not at call sites.
+
+### Deferred out of Provider Resilience, deliberately
+
+- [ ] Cross-provider context-overflow fallback. Choosing a fallback for a
+  context overflow needs the alternate model's context capacity, and no reliable
+  per-model metadata exists — `ContextWindow` is an agent default, not a model
+  property. Failing over on a guess would overflow again having paid the
+  latency. Compact-and-retry on the current candidate is unchanged and still
+  correct.
+- [ ] Automatic-failover user settings (on/off, ordered fallback list, retry
+  toggle, maximum fallback attempts). The config shape already supports ordered
+  fallbacks; only the UI is deferred.
+
+## Phase 2 — Fallback models UI and automatic gateway restart
+
+Branch `feature/provider-resilience-failover`, on top of `68443c1`.
+Not merged; physical validation PENDING.
+
+- [x] Fallback Models section on the Models page: add, remove, reorder, save,
+  reload. Candidates selected from configured model entries.
+- [x] `POST /api/models/fallbacks` with validation: unknown entry, duplicate,
+  virtual model, non-chat model, and self-reference all rejected. Empty list
+  valid; existing configs unaffected.
+- [x] Fallbacks stored as references by model name, so each keeps its own
+  provider, credentials and base URL.
+- [x] Automatic gateway restart after a restart-requiring save, reusing the
+  existing `gateway_restart_required` signature decision.
+- [x] Restart deferred while the gateway is busy, via new `active_requests` and
+  `busy` fields on Core's `/health`.
+- [x] **Unknown busy state never forces a restart.** A running gateway that will
+  not report its state is retried for five seconds, then the change is left
+  saved and unapplied.
+- [x] **The two-minute cap bounds the wait, not the user's work.** Reaching it
+  never restarts a busy gateway; the change stays saved and the manual Restart
+  Gateway action applies it.
+- [x] Restart coalescing at both the frontend and the launcher.
+- [x] Readiness confirmed by signature match, not by the restart call returning
+  200. Failure keeps the saved config and leaves the manual control available.
+- [x] PHYSICAL validation. **PASS**, 2026-08-30.
+
+### Deferred, deliberately
+
+- [ ] Retry-count sliders, cooldown controls, Retry-After settings, per-error
+  policy, provider health dashboard and fallback statistics. The milestone needs
+  only presence-of-list plus ordered selection.
+- [ ] Automatic re-application once the gateway later goes idle. It would mean a
+  background worker restarting the gateway at a moment the user did not choose,
+  which is the surprise the Auto-Start milestone was built to avoid. The
+  restart-required indicator stays visible and the next save or the manual
+  action applies the change.
+- [ ] `raw-config-page`, `config-page` and `channel-config-page` still show
+  "restart required" rather than applying automatically. Out of scope here.
+
+## Phase 2 — Resume white-screen recovery
+
+Branch `feature/provider-resilience-failover`, on top of `ebf49b4`.
+Not merged; physical validation PENDING.
+
+- [x] Resume lifecycle observer on the Android WebView, which had none.
+- [x] Liveness probe: readiness flag plus non-empty `#root`, asked on resume.
+- [x] Conditional recovery only — a healthy page is never reloaded.
+- [x] Route preserved across recovery rather than returning to home.
+- [x] Recovery capped at one attempt per page load; no loop.
+- [x] React error boundary so a crash shows a reload affordance instead of an
+  empty page, and clears the readiness flag.
+- [x] `[webview]` lifecycle logging that separates renderer death from a console
+  crash. No page contents or secrets.
+- [x] PHYSICAL validation. **PASS**, 2026-08-30: normal resume does not
+  reload, automatic recovery works, no recovery loop observed. The underlying
+  cause remains unconfirmed — recovery works for both candidates, and the
+  `probe_failed` / `page_unresponsive` split is what would settle it.
+
+### Known limitation
+
+`webview_flutter_android` 4.14.0 exposes no `onRenderProcessGone` callback, so
+renderer death cannot be observed directly. The probe is the substitute. If the
+physical logs confirm renderer death is the cause, a plugin upgrade or a native
+`WebViewClient` override would allow reacting at the moment it happens rather
+than at the next resume.
+
+## Phase 2 — Python Lite Runtime
+
+Branch `feature/python-lite-runtime`, from `develop` after the Provider
+Resilience merge. **Architecture review only — nothing implemented.**
+
+The appeal is capability per megabyte: scripting, parsing, JSON, CSV, XML,
+regex, calculation, file transformation, SQLite scripting, archives, and
+automation logic, from one interpreter.
+
+### Hard boundaries for the review to assume
+
+No Linux distribution, no PRoot, no apt, no compiler toolchain, no GCC/Clang, no
+make, no Node or npm, no arbitrary executable downloads, no pip installation by
+default, no native wheel compilation, no shell environment emulation. v1 targets
+an interpreter plus a selected standard library under PocketClaw-controlled
+execution, with no unrestricted package ecosystem.
+
+### Android execution model
+
+Python must respect what Managed Runtime already proved physically: executables
+ship in the APK and run from `nativeLibraryDir`; **writable executable storage is
+not used**. Writable Python data may live in app-private storage, and stdlib
+resources may ship as non-executable assets. Do not write a native Python binary
+into `filesDir` and try to exec it.
+
+### The review must answer
+
+Distribution route for Android ARM64; interpreter, stdlib and dynamic-module
+sizes; compressed APK contribution and installed size; idle and per-script RAM;
+startup latency; `nativeLibraryDir` packaging feasibility; stdlib asset layout;
+`PYTHONHOME`, `PYTHONPATH`, `HOME`, `TMPDIR`; subprocess behaviour on Android and
+its security implications; `ctypes`; dynamic extension modules; SSL; `sqlite3`;
+`json`/`csv`/`xml`/`re`/`hashlib`/`zipfile`/`tarfile`; multiprocessing and signal
+limitations; `/bin/sh` assumptions (PocketClaw's git already ships without a
+usable one); pip feasibility and whether it should ship at all initially;
+licensing and redistribution; provenance and build reproducibility; runtime
+integration, timeout, cancellation, output bounds, redaction and workspace
+boundaries; and the Agent-facing interface.
+
+Compare a minimal bundled CPython, embedding CPython in Core, and any lighter
+runtime that offers a real advantage. Do not pick an exotic runtime for size
+alone if compatibility suffers.
+
+### Security, stated honestly
+
+The review must address filesystem access, subprocess execution, environment
+access, secret exposure, network access, `ctypes`, dynamic libraries, native
+extension loading, process creation, output limits, timeouts, cancellation, and
+runaway CPU and memory. **Python must not become an escape hatch around Runtime
+security**, and the review must not claim a sandbox the architecture cannot
+provide. State the real boundary.
+
+### Size gate
+
+The APK is currently ~55.6 MB. Exact projections are required before any
+inclusion: APK before, interpreter, stdlib, dynamic modules, APK after, installed
+increase. **A 100+ MB addition needs explicit approval.**
+
+- [ ] Python Lite architecture review. Nothing compiled or bundled until it is
+  approved.
