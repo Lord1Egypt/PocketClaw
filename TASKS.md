@@ -768,38 +768,51 @@ npm, a full bash runtime, `make`, compilers, ffmpeg, ImageMagick.
 
 ## Phase 2 — Provider Resilience & Automatic Failover
 
-Next milestone. Its own branch from `develop` after the Runtime v2 merge.
-**Not to be implemented on `feature/lean-runtime-pack-v2`.**
+Branch `feature/provider-resilience-failover`, from `develop` at `0a0b3fa`.
+Implemented; physical validation PENDING.
 
 A provider that rate-limits, times out, or returns nothing should degrade into a
 retry or a fallback, not into a failed turn the user has to notice and repeat.
 
 ### Detection
 
-- [ ] HTTP 429, with the provider's own retry hint honoured where it sends one.
-- [ ] HTTP 502, 503 and 504.
-- [ ] Provider timeouts.
+- [x] HTTP 429, with `Retry-After` parsed in both legal forms and honoured.
+- [x] HTTP 502, 503 and 504, classified by what each actually means rather than collapsed into timeout.
+- [x] Provider timeouts.
 - [ ] Empty model responses, but **only** where the emptiness is attributable to
   provider failure. A model that legitimately returns nothing must not be
   retried as though it had errored.
 
 ### Response
 
-- [ ] Bounded retries. No unbounded loop, and no retry that outlives the turn.
-- [ ] Provider cooldown, so a failing provider is not hammered by every
-  subsequent request while it recovers.
-- [ ] Automatic fallback to the configured backup model or provider.
+- [x] Bounded retries, capped at one same-candidate attempt when a fallback exists.
+- [x] Provider cooldown, now fed by single-candidate failures too.
+- [x] Automatic fallback to the configured backup model or provider.
 
 ### Correctness under retry — the hard part
 
-- [ ] Preserve completed tool-call results across a retry or failover.
+- [x] Preserve completed tool-call results across a retry or failover.
 - [ ] **Never blindly re-run a tool that already succeeded and had side effects.**
   A retry that re-sends a message, re-pushes a commit, or re-writes a file is
   worse than the failure it is recovering from. This constraint, not the
   detection, is what makes the milestone non-trivial.
+- [x] Done without a checkpoint subsystem, fingerprinting or side-effect
+  classification: the loop already provided the property. Guarded by tests and a
+  `tool_call_id` reuse check.
 
 ### Observability
 
-- [ ] Clear lifecycle and debug logs for every retry and failover decision:
-  what failed, what was decided, which provider was chosen, and why.
-- [ ] No provider secrets in logs, on any path.
+- [x] `provider.*` lifecycle events, distinguishing configured name, provider, upstream model and protocol.
+- [x] No provider secrets in logs; redaction lives in the emitter, not at call sites.
+
+### Deferred out of Provider Resilience, deliberately
+
+- [ ] Cross-provider context-overflow fallback. Choosing a fallback for a
+  context overflow needs the alternate model's context capacity, and no reliable
+  per-model metadata exists — `ContextWindow` is an agent default, not a model
+  property. Failing over on a guess would overflow again having paid the
+  latency. Compact-and-retry on the current candidate is unchanged and still
+  correct.
+- [ ] Automatic-failover user settings (on/off, ordered fallback list, retry
+  toggle, maximum fallback attempts). The config shape already supports ordered
+  fallbacks; only the UI is deferred.

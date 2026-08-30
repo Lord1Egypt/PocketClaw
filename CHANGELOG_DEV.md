@@ -1,5 +1,97 @@
 # Development Changelog
 
+## 2026-08-30 — Provider Resilience & Automatic Failover (physical validation PENDING)
+
+Branch `feature/provider-resilience-failover`, from `develop` at `0a0b3fa`. Not
+merged, not released, `main` untouched.
+
+Gap-closing on the existing `FallbackChain`, `CooldownTracker` and
+`ClassifyError` rather than a new subsystem. No checkpoint machinery, no tool
+fingerprinting, no side-effect classification, no shell-command parser: the
+agent loop already guarantees that a provider retry does not rewind a completed
+tool execution, and that property is now protected by tests plus one small
+guard instead of by new mechanism.
+
+### Error classification
+
+The 5xx family is split by what each status actually indicates — 502 network,
+503/521/522/523/529 overloaded, 500/504/524 timeout — instead of collapsing into
+timeout, because a log that reports "timeout" for a gateway that could not reach
+upstream sends diagnosis the wrong way.
+
+A new `hard_quota` class separates an exhausted plan or credit balance from
+transient throttling. A 429 alone cannot tell them apart, so the response body
+refines it. The patterns are deliberately narrow in both directions: reading
+ordinary throttling as hard quota would put a healthy provider into a long
+cooldown, and the reverse produces a retry storm against a provider that has
+already said no.
+
+`AllowsSameCandidateRetry` is new and distinct from `IsRetriable`. Moving to
+another candidate and retrying the same one fail for different reasons: a bad
+key, an exhausted quota and an unpaid bill will all still be bad a second later.
+
+### Retry, Retry-After and cooldown
+
+`Retry-After` is parsed at the point the HTTP response is still available, in
+both legal forms, refusing stale dates and malformed values so a bad header can
+never become an unbounded wait. With a fallback candidate available the chain
+does not wait it out — it puts the candidate into cooldown and moves on, which
+is the latency this milestone exists to remove. Without one, the wait is honoured
+up to a 30-second ceiling and stays cancellable.
+
+Single-candidate failures now feed the same cooldown state. Previously a sole
+configured provider failed with no memory at all, so every turn re-ran the same
+doomed request. Same-candidate retries drop to one when a fallback exists, so
+the worst case stops multiplying retries by candidates by iterations.
+
+### Safety
+
+`completedToolResults` records a finished tool result under the provider's own
+`tool_call_id` and reuses it if that exact id reappears in the turn. Matching on
+tool name or arguments is deliberately excluded — asking for the same command
+twice in one turn is legitimate — and a call without an id is not recorded,
+because inventing identity from arguments is the fingerprinting this design
+rejects.
+
+The capability gate skips a fallback candidate only when it is explicitly unable
+to serve a tool-calling turn. Unknown is not a refusal: PocketClaw routes to
+providers whose model lists it does not enumerate, and treating unrecognised as
+unusable would disable failover exactly where it is needed.
+
+Cross-provider context-overflow fallback is **deferred**: no reliable per-model
+context capacity metadata exists, and failing over on a guess would overflow
+again after paying the latency. Compact-and-retry on the current candidate is
+unchanged.
+
+### Empty responses
+
+The placeholder no longer claims a provider error or a token limit. It fires for
+ordinary contentless turns — a tool-only turn, a graceful interrupt, an
+iteration limit — and the old wording was read as evidence of an outage when no
+provider had failed. `responseIsUserVisiblyEmpty` is for logging and the
+placeholder only, never for failover, and a response carrying tool calls is not
+empty.
+
+### Observability
+
+A `provider.*` event family with emitter-level redaction, so a new call site
+cannot forget it. Logs distinguish the configured model name, the provider, the
+model identifier actually sent upstream, and the protocol — these diverge under
+routing aliases, and blurring them makes failover diagnosis guesswork. An
+unrecognised model reports its protocol as "unknown" rather than as the one that
+will be attempted.
+
+### Preserved unchanged
+
+Streaming already gated failover on visible output and still does: a failure
+before publication may recover, one after it must not, or the answer would be
+duplicated on screen. Cancellation still cuts backoff short, and steering still
+survives a provider retry — both verified rather than modified.
+
+### Not verified
+
+Physical validation is PENDING and is not claimed.
+
 ## 2026-08-30 — Lean Runtime Pack v2 (PHYSICAL PASS)
 
 Branch `feature/lean-runtime-pack-v2`, fix commit `7ebd254`. **Physically

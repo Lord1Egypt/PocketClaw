@@ -11,6 +11,25 @@ import (
 type FallbackChain struct {
 	cooldown *CooldownTracker
 	rl       *RateLimiterRegistry
+
+	// requireToolSupport marks the chain as running inside a tool-calling turn,
+	// so candidates that cannot serve one are skipped rather than tried and
+	// failed. Set per execution via WithToolTurn.
+	requireToolSupport bool
+}
+
+// WithToolTurn returns a copy of the chain that will skip candidates explicitly
+// unable to serve a tool-calling turn.
+//
+// A copy rather than a mutation: the chain is shared across concurrent turns,
+// and one turn's tool requirement must not leak into another's.
+func (fc *FallbackChain) WithToolTurn(hasTools bool) *FallbackChain {
+	if fc == nil {
+		return nil
+	}
+	clone := *fc
+	clone.requireToolSupport = hasTools
+	return &clone
 }
 
 // FallbackCandidate represents one model/provider to try.
@@ -54,6 +73,16 @@ type FallbackAttempt struct {
 // and rate limiter registry.
 func NewFallbackChain(cooldown *CooldownTracker, rl *RateLimiterRegistry) *FallbackChain {
 	return &FallbackChain{cooldown: cooldown, rl: rl}
+}
+
+// Cooldown exposes the shared tracker so a single-candidate caller, which never
+// enters the chain, can still record its failures against the same state. Two
+// separate cooldown stores would disagree about the same provider.
+func (fc *FallbackChain) Cooldown() *CooldownTracker {
+	if fc == nil {
+		return nil
+	}
+	return fc.cooldown
 }
 
 // ResolveCandidates parses model config into a deduplicated candidate list.
@@ -147,6 +176,22 @@ func (fc *FallbackChain) ExecuteCandidate(
 		// Check context before each attempt.
 		if ctx.Err() == context.Canceled {
 			return nil, context.Canceled
+		}
+
+		// Skip a candidate that explicitly cannot serve this turn. Only
+		// definitive negatives are rejected here; an unrecognised model is
+		// unknown, not unusable, and is still attempted.
+		if usable, why := CandidateUsableForToolTurn(candidate, fc.requireToolSupport); !usable {
+			result.Attempts = append(result.Attempts, FallbackAttempt{
+				Provider: candidate.Provider,
+				Model:    candidate.Model,
+				Skipped:  true,
+				Reason:   FailoverFormat,
+				Error: fmt.Errorf(
+					"%s skipped: %s", ModelKey(candidate.Provider, candidate.Model), why,
+				),
+			})
+			continue
 		}
 
 		// Check cooldown per stable candidate identity, not just provider/model.
@@ -249,7 +294,13 @@ func (fc *FallbackChain) ExecuteCandidate(
 		}
 
 		// Retriable error: mark failure and continue to next candidate.
-		fc.cooldown.MarkFailure(cooldownKey, failErr.Reason)
+		//
+		// The provider's own Retry-After is passed through so a candidate that
+		// asked to be left alone for a minute is not tried again in two
+		// seconds. Moving on to the next candidate is still immediate: waiting
+		// out a Retry-After when an alternative exists is exactly the latency
+		// this milestone is meant to remove.
+		fc.cooldown.MarkFailureWithRetryAfter(cooldownKey, failErr.Reason, failErr.RetryAfter)
 		result.Attempts = append(result.Attempts, FallbackAttempt{
 			Provider: candidate.Provider,
 			Model:    candidate.Model,

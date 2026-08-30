@@ -15,6 +15,20 @@ const (
 	// KindAgentLLMRetry is emitted before retrying an LLM request.
 	KindAgentLLMRetry Kind = "agent.llm.retry"
 
+	// Provider attempt lifecycle. Every provider request emits a started event
+	// and exactly one terminal event, so an attempt can never be left with no
+	// record of how it ended.
+	KindProviderAttemptStarted   Kind = "provider.attempt.started"
+	KindProviderAttemptCompleted Kind = "provider.attempt.completed"
+	KindProviderAttemptFailed    Kind = "provider.attempt.failed"
+	KindProviderRetryScheduled   Kind = "provider.retry.scheduled"
+	KindProviderCooldownStarted  Kind = "provider.cooldown.started"
+	KindProviderCooldownSkipped  Kind = "provider.cooldown.skipped"
+	KindProviderFallbackSelected Kind = "provider.fallback.selected"
+	KindProviderFallbackStarted  Kind = "provider.fallback.started"
+	KindProviderFallbackDone     Kind = "provider.fallback.completed"
+	KindProviderFailoverExhaust  Kind = "provider.failover.exhausted"
+
 	// KindAgentContextCompress is emitted when agent context is compressed.
 	KindAgentContextCompress Kind = "agent.context.compress"
 	// KindAgentSessionSummarize is emitted when session summarization completes.
@@ -26,6 +40,11 @@ const (
 	KindAgentToolExecEnd Kind = "agent.tool.exec_end"
 	// KindAgentToolExecSkipped is emitted when a tool call is skipped.
 	KindAgentToolExecSkipped Kind = "agent.tool.exec_skipped"
+	// KindAgentToolResultReused is emitted when a tool call that already
+	// completed in this turn is answered from its recorded result instead of
+	// being executed again. It should be rare; seeing it means something tried
+	// to replay a turn.
+	KindAgentToolResultReused Kind = "agent.tool.result_reused"
 
 	// KindAgentSteeringInjected is emitted when steering is injected into context.
 	KindAgentSteeringInjected Kind = "agent.steering.injected"
@@ -112,11 +131,22 @@ var knownKinds = []Kind{
 	KindAgentLLMDelta,
 	KindAgentLLMResponse,
 	KindAgentLLMRetry,
+	KindProviderAttemptStarted,
+	KindProviderAttemptCompleted,
+	KindProviderAttemptFailed,
+	KindProviderRetryScheduled,
+	KindProviderCooldownStarted,
+	KindProviderCooldownSkipped,
+	KindProviderFallbackSelected,
+	KindProviderFallbackStarted,
+	KindProviderFallbackDone,
+	KindProviderFailoverExhaust,
 	KindAgentContextCompress,
 	KindAgentSessionSummarize,
 	KindAgentToolExecStart,
 	KindAgentToolExecEnd,
 	KindAgentToolExecSkipped,
+	KindAgentToolResultReused,
 	KindAgentSteeringInjected,
 	KindAgentFollowUpQueued,
 	KindAgentInterruptReceived,

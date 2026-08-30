@@ -1,5 +1,44 @@
 # PocketClaw Project State
 
+## Provider Resilience & Automatic Failover — in progress, PHYSICAL PENDING
+
+Branch `feature/provider-resilience-failover`, from `develop` at `0a0b3fa`.
+Not merged. Not released. `main` untouched.
+
+Implemented as gap-closing on the existing `FallbackChain`, `CooldownTracker`
+and `ClassifyError`. **No checkpoint subsystem, no tool fingerprinting, no
+side-effect classification, no shell-command parser** — the agent loop already
+guarantees that a provider retry does not rewind a completed tool execution, and
+that property is protected by tests plus one small guard rather than by new
+machinery.
+
+### What changed
+
+- 5xx split by meaning: 502 network, 503/521/522/523/529 overloaded,
+  500/504/524 timeout.
+- New `hard_quota` class, refined from a 429 using the response body.
+- `AllowsSameCandidateRetry`, distinct from `IsRetriable`: auth, billing, hard
+  quota and malformed requests are never retried on the same candidate.
+- `Retry-After` parsed in both legal forms, honoured up to a 30-second ceiling
+  when no fallback exists, and used to extend cooldown when one does.
+- Single-candidate failures now feed cooldown; previously a sole provider failed
+  with no memory and every turn re-ran the same doomed request.
+- Same-candidate retries capped at one when a fallback candidate exists.
+- Tool result reuse guard keyed on the provider's `tool_call_id` only.
+- Capability gate that skips explicitly unusable candidates; unknown is not a
+  refusal.
+- `provider.*` event family with emitter-level redaction, distinguishing
+  configured name, provider, upstream model and protocol.
+- Empty-turn placeholder no longer asserts a provider error.
+
+### Deferred, deliberately
+
+Cross-provider context-overflow fallback. No reliable per-model context capacity
+metadata exists, so failing over on a guess would overflow again after paying
+the latency. Compact-and-retry on the current candidate is unchanged.
+
+### Physical: PENDING, not claimed.
+
 ## Next milestone — Provider Resilience & Automatic Failover
 
 Branch `feature/provider-resilience-failover`, from `develop` at `0a0b3fa`.

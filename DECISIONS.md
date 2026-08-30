@@ -1,5 +1,89 @@
 # PocketClaw Decisions
 
+## Provider retry is scoped to the request; the turn never rewinds
+
+- Date: 2026-08-30
+- Decision: Provider resilience was implemented as gap-closing on the existing
+  `FallbackChain`, `CooldownTracker` and `ClassifyError`. No checkpoint
+  subsystem, no tool fingerprinting, no per-tool side-effect classification and
+  no runtime shell-command parser were built.
+- Consequence: The agent loop already guaranteed the invariant those mechanisms
+  would have defended. Tool results are committed to the turn and the session in
+  `pipeline_execute.go` before control returns, and the loop in `turn_coord.go`
+  never re-enters a completed tool execution — a retry re-sends the committed
+  results rather than replaying the call. Adding machinery to protect a property
+  the structure already provides would have added surface area and new ways to
+  be wrong. It is protected instead by tests and one small guard.
+
+## Tool replay identity is the provider's call id, and nothing else
+
+- Date: 2026-08-30
+- Decision: `completedToolResults` records a finished tool result under its
+  `protocoltypes.ToolCall.ID` and reuses it if that exact id is ever presented
+  again in the same turn. Matching on tool name, arguments, or any hash of them
+  is deliberately excluded, and a call with no id is not recorded at all.
+- Consequence: Asking for the same command twice in one turn is legitimate —
+  re-reading a file after editing it, retrying a fetch the model believes went
+  stale — and collapsing those into one execution would silently change what the
+  agent did. A missing id means no identity: inventing one from the arguments
+  would reintroduce exactly the fingerprint matching this rejects. The guard is
+  defensive; if it ever fires, something tried to replay a turn, which is why it
+  logs at warning severity.
+
+## The 5xx family is classified by what each status means
+
+- Date: 2026-08-30
+- Decision: 502 classifies as network, 503/521/522/523/529 as overloaded, and
+  500/504/524 as timeout, replacing a single collapse into timeout. 429 is
+  refined against the response body into transient rate limiting or hard quota.
+- Consequence: A log that says "timeout" for a gateway that could not reach
+  upstream is actively misleading during diagnosis, and the classes now carry
+  different cooldown treatment. The hard-quota patterns are deliberately narrow:
+  reading ordinary throttling as an exhausted quota would put a healthy provider
+  into a long cooldown, and the reverse produces a retry storm against a
+  provider that has already said no. A 429 alone cannot distinguish them, so
+  only the body does.
+
+## Capability gating returns unknown, and unknown is not a refusal
+
+- Date: 2026-08-30
+- Decision: `SupportsToolCalls` returns supported, unsupported or unknown, and
+  the fallback chain skips a candidate only on an explicit unsupported. The only
+  seeded negatives are model families that are not chat models at all —
+  embedding, TTS, transcription, moderation, rerank.
+- Consequence: PocketClaw routes to providers whose model lists it does not
+  enumerate. Treating unrecognised as unusable would disable failover for
+  exactly the configurations that need it most. No tool-support metadata was
+  invented for chat models, because it varies by provider, version and endpoint,
+  and a wrong guess either skips a working candidate or lets a doomed one
+  through while claiming it was checked.
+
+## Cross-provider context-overflow fallback is DEFERRED
+
+- Date: 2026-08-30
+- Decision: Context overflow keeps its existing compact-and-retry path on the
+  current candidate. It is not made retriable into a different candidate.
+- Consequence: Choosing a fallback for context overflow requires knowing the
+  alternate model's context capacity, and no reliable per-model capacity
+  metadata exists — `ContextWindow` is an agent default, not a model property.
+  Guessing would mean failing over to a model that overflows too, having spent
+  the latency. Recorded as deferred rather than implemented on invented data.
+
+## An empty completion is not an outage
+
+- Date: 2026-08-30
+- Decision: `responseIsUserVisiblyEmpty` is used for logging and the end-of-turn
+  placeholder only. It never triggers a retry or a failover. A response carrying
+  tool calls is not empty. The placeholder text no longer asserts a provider
+  error or a token limit.
+- Consequence: The old placeholder — "This may indicate a provider error or
+  token limit" — fires for entirely ordinary contentless turns and was read as
+  evidence of an outage when no provider had failed. Genuinely
+  provider-attributable emptiness (zero-byte body, truncated framing,
+  unparseable JSON) arrives as an error from the provider adapter and is
+  classified there, which is the only place it can be told apart from a model
+  choosing to say nothing.
+
 ## Symlink execution into nativeLibraryDir works on Android, proven on hardware
 
 - Date: 2026-08-30

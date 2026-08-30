@@ -125,7 +125,13 @@ type continuationTarget struct {
 }
 
 const (
-	defaultResponse            = "The model returned an empty response. This may indicate a provider error or token limit."
+	// defaultResponse is substituted whenever a turn ends with no user-visible
+	// content. That happens for entirely ordinary reasons — a tool-only turn, a
+	// graceful interrupt, an iteration limit — so the wording must not assert a
+	// provider fault. The previous text claimed a provider error or token limit
+	// and was read as evidence of an outage during diagnosis when no provider
+	// had failed at all.
+	defaultResponse            = "The model returned no user-visible response."
 	toolLimitResponse          = "I've reached `max_tool_iterations` without a final response. Increase `max_tool_iterations` in config.json if this task needs more tool steps."
 	handledToolResponseSummary = "Requested output delivered via tool attachment."
 	sessionKeyAgentPrefix      = "agent:"

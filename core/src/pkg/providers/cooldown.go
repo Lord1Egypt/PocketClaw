@@ -40,6 +40,21 @@ func NewCooldownTracker() *CooldownTracker {
 // MarkFailure records a failure for a provider and sets appropriate cooldown.
 // Resets error counts if last failure was more than failureWindow ago.
 func (ct *CooldownTracker) MarkFailure(provider string, reason FailoverReason) {
+	ct.MarkFailureWithRetryAfter(provider, reason, 0)
+}
+
+// MarkFailureWithRetryAfter records a failure and honours the provider's own
+// Retry-After instruction when it is longer than the computed backoff.
+//
+// The provider knows something we do not: our exponential backoff is a guess,
+// while Retry-After is the upstream telling us when it will be ready. Taking
+// the longer of the two respects that without ever shortening a cooldown the
+// failure count has already earned.
+func (ct *CooldownTracker) MarkFailureWithRetryAfter(
+	provider string,
+	reason FailoverReason,
+	retryAfter time.Duration,
+) {
 	ct.mu.Lock()
 	defer ct.mu.Unlock()
 
@@ -56,12 +71,28 @@ func (ct *CooldownTracker) MarkFailure(provider string, reason FailoverReason) {
 	entry.FailureCounts[reason]++
 	entry.LastFailure = now
 
-	if reason == FailoverBilling {
+	switch reason {
+	case FailoverBilling:
 		billingCount := entry.FailureCounts[FailoverBilling]
 		entry.DisabledUntil = now.Add(calculateBillingCooldown(billingCount))
 		entry.DisabledReason = FailoverBilling
-	} else {
-		entry.CooldownEnd = now.Add(calculateStandardCooldown(entry.ErrorCount))
+	case FailoverHardQuota:
+		// An exhausted quota is not a transient blip. It gets the billing-style
+		// curve so a candidate that has said "no quota" is not asked again on
+		// every turn, but it stays a cooldown rather than a disable so a quota
+		// that resets on a period boundary recovers on its own.
+		quotaCount := entry.FailureCounts[FailoverHardQuota]
+		cooldown := calculateHardQuotaCooldown(quotaCount)
+		if retryAfter > cooldown {
+			cooldown = retryAfter
+		}
+		entry.CooldownEnd = now.Add(cooldown)
+	default:
+		cooldown := calculateStandardCooldown(entry.ErrorCount)
+		if retryAfter > cooldown {
+			cooldown = retryAfter
+		}
+		entry.CooldownEnd = now.Add(cooldown)
 	}
 }
 
@@ -204,4 +235,25 @@ func calculateBillingCooldown(billingErrorCount int) time.Duration {
 	raw := float64(baseMs) * math.Pow(2, float64(exp))
 	ms := int(math.Min(float64(maxMs), raw))
 	return time.Duration(ms) * time.Millisecond
+}
+
+// calculateHardQuotaCooldown backs off an exhausted quota harder than a
+// transient failure but far less than a billing failure.
+//
+//	1 error  → 15 minutes
+//	2 errors → 30 minutes
+//	3 errors → 1 hour
+//	4+       → 2 hours (cap)
+//
+// The cap is deliberate: many quotas reset hourly or daily, so a candidate must
+// be able to come back without a restart.
+func calculateHardQuotaCooldown(quotaErrorCount int) time.Duration {
+	const baseMinutes = 15
+	const maxMinutes = 120
+
+	n := max(1, quotaErrorCount)
+	exp := min(n-1, 3)
+	minutes := baseMinutes * int(math.Pow(2, float64(exp)))
+	minutes = min(maxMinutes, minutes)
+	return time.Duration(minutes) * time.Minute
 }

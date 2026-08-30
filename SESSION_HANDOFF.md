@@ -1,5 +1,50 @@
 # PocketClaw Session Handoff
 
+## In progress — Provider Resilience & Automatic Failover (2026-08-30)
+
+Branch `feature/provider-resilience-failover`, from `develop` at `0a0b3fa`.
+Not merged, not released, `main` untouched. **Physical validation PENDING.**
+
+### The one thing not to undo
+
+The agent loop guarantees that a provider retry does not rewind a completed tool
+execution: results are committed to the turn and the session in
+`pipeline_execute.go` before control returns, and the loop in `turn_coord.go`
+never re-enters a finished tool call. A retry re-sends the committed results.
+
+**Do not add a checkpoint subsystem, tool fingerprinting, or side-effect
+classification to defend this.** They were explicitly scoped out because the
+structure already provides the property, and each would add surface area and new
+ways to be wrong. It is protected by tests and by one guard in
+`turn_tool_results.go`.
+
+That guard matches on the provider's `tool_call_id` and nothing else. Do not
+"improve" it to match on tool name or arguments: asking for the same command
+twice in one turn is legitimate, and collapsing those would silently change what
+the agent did. A call with no id is not recorded, for the same reason.
+
+### Other boundaries
+
+- **Unknown capability is not a refusal.** The gate skips a candidate only on an
+  explicit unsupported. PocketClaw routes to providers whose model lists it does
+  not enumerate; treating unrecognised as unusable would disable failover where
+  it matters most.
+- **Hard-quota patterns are narrow on purpose.** Widening them until they catch
+  ordinary throttling would put healthy providers into long cooldowns.
+- **An empty completion is not an outage.** `responseIsUserVisiblyEmpty` is for
+  logging and the placeholder only. A tool-call-only response is not empty.
+- **Streaming failover stops at first visible output.** Unchanged, and it must
+  stay that way or answers duplicate on screen.
+
+### Deferred
+
+Cross-provider context-overflow fallback, for want of reliable per-model context
+capacity metadata. See `DECISIONS.md`.
+
+### Next
+
+Physical validation, then merge.
+
 ## Next milestone — Provider Resilience & Automatic Failover
 
 Branch `feature/provider-resilience-failover`, from `develop` at `0a0b3fa`.

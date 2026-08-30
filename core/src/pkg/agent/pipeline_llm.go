@@ -216,7 +216,7 @@ func (p *Pipeline) CallLLM(
 					},
 				)
 			} else {
-				fbResult, fbErr = p.Fallback.ExecuteCandidate(
+				fbResult, fbErr = p.Fallback.WithToolTurn(len(toolDefsForCall) > 0).ExecuteCandidate(
 					providerCtx,
 					exec.activeCandidates,
 					runCandidate,
@@ -226,6 +226,22 @@ func (p *Pipeline) CallLLM(
 				return nil, fbErr
 			}
 			if fbResult.Provider != "" && len(fbResult.Attempts) > 0 {
+				selected := providerAttemptPayload(
+					ts,
+					providers.FallbackCandidate{
+						Provider:    fbResult.Provider,
+						Model:       fbResult.Model,
+						IdentityKey: fbResult.IdentityKey,
+					},
+					fbResult.Model,
+					len(fbResult.Attempts)+1,
+					len(fbResult.Attempts),
+				)
+				al.emitProviderEvent(
+					runtimeevents.KindProviderFallbackSelected,
+					ts.eventMeta("runTurn", "provider.fallback"),
+					selected,
+				)
 				logger.InfoCF(
 					"agent",
 					fmt.Sprintf("Fallback: succeeded with %s/%s after %d attempts",
@@ -258,16 +274,46 @@ func (p *Pipeline) CallLLM(
 	if backoffSecs <= 0 {
 		backoffSecs = 2
 	}
+	// When a fallback candidate exists, trying a different provider beats
+	// waiting out a backoff on the one that just failed. Same-candidate retries
+	// are therefore capped at one, so the worst case stays bounded rather than
+	// multiplying retries by candidates by agent iterations.
+	hasFallbackCandidates := len(exec.activeCandidates) > 1 && p.Fallback != nil
+	if hasFallbackCandidates && maxRetries > 1 {
+		maxRetries = 1
+	}
+
 	for retry := 0; retry <= maxRetries; retry++ {
 		traceTurnLifecycle("provider_started", ts, map[string]any{
 			"attempt": retry + 1,
 		})
+		attemptPayload := p.providerAttemptFor(ts, exec, retry+1)
+		al.emitProviderEvent(
+			runtimeevents.KindProviderAttemptStarted,
+			ts.eventMeta("runTurn", "provider.attempt"),
+			attemptPayload,
+		)
+		attemptStarted := time.Now()
+
 		exec.response, err = callLLM(exec.callMessages, exec.providerToolDefs)
 		if err == nil {
+			completed := attemptPayload
+			completed.DurationMS = time.Since(attemptStarted).Milliseconds()
+			al.emitProviderEvent(
+				runtimeevents.KindProviderAttemptCompleted,
+				ts.eventMeta("runTurn", "provider.attempt"),
+				completed,
+			)
 			traceTurnLifecycle("provider_completed", ts, map[string]any{
 				"attempt": retry + 1,
 			})
-			if exec.response == nil || (strings.TrimSpace(exec.response.Content) == "" && len(exec.response.ToolCalls) == 0) {
+			if responseIsUserVisiblyEmpty(exec.response) {
+				// Observability only. A parsed HTTP success that carries no
+				// text is not evidence of an outage, and must not trigger a
+				// retry or a failover: the model is entitled to say nothing.
+				// Genuinely provider-attributable emptiness — a zero-byte body,
+				// truncated framing, unparseable JSON — arrives as an error
+				// from the provider adapter and is classified there.
 				traceTurnLifecycle("provider_empty", ts, map[string]any{
 					"attempt": retry + 1,
 				})
@@ -290,6 +336,27 @@ func (p *Pipeline) CallLLM(
 			)
 		}
 
+		// Record the failure against the shared cooldown state.
+		//
+		// The fallback chain already does this, but it only runs with more than
+		// one candidate. A sole configured provider previously failed here with
+		// no memory at all, so every turn re-ran the same doomed request.
+		failErr := p.classifyAndRecordProviderFailure(ts, exec, err, hasFallbackCandidates)
+
+		failedPayload := attemptPayload
+		failedPayload.DurationMS = time.Since(attemptStarted).Milliseconds()
+		if failErr != nil {
+			failedPayload.ErrorClass = string(failErr.Reason)
+			failedPayload.HTTPStatus = failErr.Status
+		} else {
+			failedPayload.ErrorClass = string(providers.FailoverUnknown)
+		}
+		al.emitProviderEvent(
+			runtimeevents.KindProviderAttemptFailed,
+			ts.eventMeta("runTurn", "provider.attempt"),
+			failedPayload,
+		)
+
 		errMsg := strings.ToLower(err.Error())
 		retryReason, isTransientError := transientLLMRetryReason(err)
 		isContextError := !isTransientError && (strings.Contains(errMsg, "context_length_exceeded") ||
@@ -303,8 +370,31 @@ func (p *Pipeline) CallLLM(
 			strings.Contains(errMsg, "prompt is too long") ||
 			strings.Contains(errMsg, "request too large"))
 
+		// Auth, billing, hard quota and malformed requests will fail
+		// identically a second later, so a same-candidate retry is pure
+		// latency. Context overflow is excluded deliberately: it classifies as
+		// a request error but has its own compact-and-retry recovery below,
+		// which must keep working.
+		if failErr != nil && !failErr.AllowsSameCandidateRetry() && !isContextError {
+			logger.WarnCF("agent", "Provider failure is not retriable on the same model", map[string]any{
+				"agent_id":    ts.agent.ID,
+				"error_class": string(failErr.Reason),
+				"status":      failErr.Status,
+			})
+			break
+		}
+
 		if isTransientError && retry < maxRetries {
 			backoff := time.Duration(retry+1) * time.Duration(backoffSecs) * time.Second
+			// A provider that sent Retry-After knows better than our guess, but
+			// only up to a point: an unbounded sleep is indistinguishable from a
+			// hang to the user, and the backoff stays cancellable either way.
+			if failErr != nil && failErr.RetryAfter > backoff {
+				backoff = failErr.RetryAfter
+				if backoff > maxHonouredRetryAfter {
+					backoff = maxHonouredRetryAfter
+				}
+			}
 			al.emitEvent(
 				runtimeevents.KindAgentLLMRetry,
 				ts.eventMeta("runTurn", "turn.llm.retry"),
@@ -315,6 +405,14 @@ func (p *Pipeline) CallLLM(
 					Error:      err.Error(),
 					Backoff:    backoff,
 				},
+			)
+			scheduled := attemptPayload
+			scheduled.ErrorClass = retryReason
+			scheduled.RetryDelay = backoff.Milliseconds()
+			al.emitProviderEvent(
+				runtimeevents.KindProviderRetryScheduled,
+				ts.eventMeta("runTurn", "provider.retry"),
+				scheduled,
 			)
 			logger.WarnCF("agent", "Transient LLM error, retrying after backoff", map[string]any{
 				"error":   err.Error(),
@@ -471,6 +569,7 @@ func (p *Pipeline) CallLLM(
 				"model":     exec.llmModel,
 				"error":     err.Error(),
 			})
+		p.emitProviderFailoverExhausted(ts, exec, err)
 		return ControlBreak, fmt.Errorf("LLM call failed after retries: %w", err)
 	}
 
@@ -730,8 +829,14 @@ func transientLLMRetryReason(err error) (string, bool) {
 			return "timeout", true
 		case providers.FailoverNetwork:
 			return "network", true
-		case providers.FailoverRateLimit, providers.FailoverOverloaded:
+		case providers.FailoverOverloaded:
+			return "overloaded", true
+		case providers.FailoverRateLimit:
 			return "rate_limit", true
+		case providers.FailoverHardQuota:
+			// Reported for the log, but never retriable on this candidate: the
+			// quota will not refill within the turn.
+			return "hard_quota", false
 		}
 	}
 
@@ -756,4 +861,132 @@ func transientLLMRetryReason(err error) (string, bool) {
 	}
 
 	return "", false
+}
+
+// maxHonouredRetryAfter caps how long a provider's Retry-After may stall a turn
+// when there is no alternative candidate. Beyond this the wait stops being
+// recovery and becomes an unexplained hang.
+const maxHonouredRetryAfter = 30 * time.Second
+
+// classifyAndRecordProviderFailure classifies a provider error and records it
+// against the shared cooldown state when no fallback chain did so.
+//
+// It returns the classification, or nil when the error is not attributable to
+// the provider at all — an unclassifiable error must not put a healthy
+// candidate into cooldown.
+func (p *Pipeline) classifyAndRecordProviderFailure(
+	ts *turnState,
+	exec *turnExecution,
+	err error,
+	handledByChain bool,
+) *providers.FailoverError {
+	if err == nil || errors.Is(err, context.Canceled) {
+		return nil
+	}
+
+	provider, model := providerAndModelForFailure(exec)
+	failErr := providers.ClassifyError(err, provider, model)
+	if failErr == nil {
+		return nil
+	}
+
+	// The chain records its own failures per candidate; recording again here
+	// would double-count and lengthen the backoff curve incorrectly.
+	if handledByChain || p.Fallback == nil {
+		return failErr
+	}
+	tracker := p.Fallback.Cooldown()
+	if tracker == nil {
+		return failErr
+	}
+
+	key := singleCandidateCooldownKey(exec, provider, model)
+	if key == "" {
+		return failErr
+	}
+	tracker.MarkFailureWithRetryAfter(key, failErr.Reason, failErr.RetryAfter)
+	logger.DebugCF("agent", "Recorded provider failure for cooldown", map[string]any{
+		"agent_id":    ts.agent.ID,
+		"error_class": string(failErr.Reason),
+		"candidate":   key,
+	})
+	return failErr
+}
+
+func providerAndModelForFailure(exec *turnExecution) (string, string) {
+	if len(exec.activeCandidates) == 1 {
+		return exec.activeCandidates[0].Provider, exec.activeCandidates[0].Model
+	}
+	return "", exec.llmModel
+}
+
+func singleCandidateCooldownKey(exec *turnExecution, provider, model string) string {
+	if len(exec.activeCandidates) == 1 {
+		return exec.activeCandidates[0].StableKey()
+	}
+	if provider == "" && model == "" {
+		return ""
+	}
+	return providers.ModelKey(provider, model)
+}
+
+// responseIsUserVisiblyEmpty reports whether a response carries nothing for the
+// user and nothing for the agent to act on.
+//
+// A response containing tool calls is emphatically not empty: it is the normal
+// shape of every tool-using turn, and treating it as a failure would make the
+// agent retry its own successful requests. Reasoning-only responses are equally
+// not failures.
+//
+// This predicate exists for logging and for the end-of-turn placeholder. It is
+// deliberately not wired to retry or failover.
+func responseIsUserVisiblyEmpty(response *providers.LLMResponse) bool {
+	if response == nil {
+		return true
+	}
+	if len(response.ToolCalls) > 0 {
+		return false
+	}
+	return strings.TrimSpace(response.Content) == ""
+}
+
+// providerAttemptFor builds the safe attempt payload for the candidate this
+// call will actually use.
+func (p *Pipeline) providerAttemptFor(
+	ts *turnState,
+	exec *turnExecution,
+	attempt int,
+) ProviderAttemptPayload {
+	var candidate providers.FallbackCandidate
+	if len(exec.activeCandidates) > 0 {
+		candidate = exec.activeCandidates[0]
+	} else {
+		candidate = providers.FallbackCandidate{Model: exec.llmModel}
+	}
+	upstream := exec.llmModel
+	if strings.TrimSpace(upstream) == "" {
+		upstream = candidate.Model
+	}
+	return providerAttemptPayload(ts, candidate, upstream, attempt, 0)
+}
+
+// emitProviderFailoverExhausted records that every configured candidate failed.
+// It is the one provider event a user is likely to see the consequence of, so
+// the classified reason is carried rather than a bare failure.
+func (p *Pipeline) emitProviderFailoverExhausted(
+	ts *turnState,
+	exec *turnExecution,
+	err error,
+) {
+	payload := p.providerAttemptFor(ts, exec, 0)
+	if failErr := providers.ClassifyError(err, payload.Provider, payload.UpstreamModel); failErr != nil {
+		payload.ErrorClass = string(failErr.Reason)
+		payload.HTTPStatus = failErr.Status
+	}
+	payload.FallbackIndex = max(0, len(exec.activeCandidates)-1)
+	p.al.emitProviderEvent(
+		runtimeevents.KindProviderFailoverExhaust,
+		ts.eventMeta("runTurn", "provider.failover"),
+		payload,
+	)
 }
