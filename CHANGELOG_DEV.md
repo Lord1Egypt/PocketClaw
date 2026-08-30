@@ -1,5 +1,89 @@
 # Development Changelog
 
+## 2026-08-30 — Managed Runtime Foundation (physical validation PENDING)
+
+Branch `feature/managed-runtime-foundation`, based on `v0.2.0-rc2` / `404ef44`.
+Not merged to `develop`, not released, `main` untouched.
+
+The PocketClaw Agent now has a controlled, observable, verified local tool
+environment. It names a tool; the runtime resolves that name through a versioned
+catalog, verifies it, and runs it under bounded execution with a full structured
+lifecycle. No physical binary path is ever handed to the model.
+
+### The finding that shaped the design
+
+PocketClaw targets Android SDK 36. Since API 29 an app may not `execve()` a file
+in its own writable data directory, and `File.setExecutable(true)` does not
+change that — the restriction is enforced on the app's SELinux domain rather than
+by the file mode. The previously planned app-private `runtime/bin` cannot work.
+
+Executables reach the device by two routes instead, both read-only to the app:
+the platform's `/system/bin`, and APK payloads the package manager unpacks into
+`nativeLibraryDir` — the same mechanism the Core payload has always used. There
+is consequently no download-and-execute code path in the runtime at all, which
+makes "no arbitrary binary installation" structural rather than a policy someone
+has to keep enforcing.
+
+The assumption is not merely asserted: an execution probe copies a harmless
+system binary into writable storage, tries to run it, records the verdict in the
+Debug Logs, and deletes the copy. The runtime never depends on the answer.
+
+### New
+
+- `core/src/pkg/pcruntime`: versioned manifest and catalog, tool resolver,
+  bounded execution API, structured lifecycle events, redaction, read-only
+  inventory, execution probe, storage layout policy.
+- `runtime` agent tool with `list`, `info` and `run`. Agent tool count moves
+  17 -> 18; all 17 existing tools are unchanged.
+- Runtime Pack v1. Tier 1 is catalogued as system-provided and probed per device,
+  because Android already ships toybox and bundling BusyBox would duplicate the
+  platform at the cost of tens of megabytes and a GPLv2 source-offer obligation.
+  jq 1.7.1 is cross-built from the pinned official release tarball by
+  `runtime/build-jq-android-arm64.sh` and bundled as `libpocketclaw-jq.so`,
+  proving the packaging contract end to end.
+- `RUNTIME.md`, `runtime/README.md`, runtime guidance in
+  `core/src/workspace/AGENT.md`, the `runtime` tool description, and the GitHub
+  Skill.
+
+### Behaviour worth knowing
+
+- Managed tools run by direct `argv`, never `sh -c`, so shell metacharacters in
+  an argument are inert. This is deliberately narrower than the existing `exec`
+  tool and does not relax to match it.
+- The child environment is constructed from an allowlist rather than inherited,
+  so provider keys held by the Core process cannot reach a child by accident.
+  `PATH`, `LD_PRELOAD`, `LD_LIBRARY_PATH`, `LD_AUDIT` and the `DYLD_*`
+  equivalents are refused to callers.
+- Timeout profiles are ceilings a caller may lower and never raise. Cancellation
+  terminates the child's whole process group and always reaps it.
+- Runtime logs record that a tool ran, never what it printed: only `stdout` and
+  `stderr` byte counts are persisted. The caller still receives the real output.
+
+### Verified in this session
+
+- `go test ./pkg/pcruntime/ ./pkg/tools/` green, including argv preservation,
+  timeout, cancellation, process-group termination, output truncation,
+  working-directory policy, checksum and ABI rejection, concurrent-resolution
+  deduplication, redaction, and complete lifecycles on success, failure, timeout
+  and cancellation.
+- The jq payload survives Gradle packaging byte-identical: the entry extracted
+  from the release APK hashes to
+  `3c1f61c100d7b8f3a68355f9cd697952bae27579cba516a0a3e43ac54926c997`, matching
+  the catalog pin.
+
+### Not verified
+
+Physical validation on a real ARM64 device is PENDING and is not claimed. No
+device was attached during this work, so the Android execution constraint is
+reasoned from the platform contract and measured by the probe, not observed here.
+
+### RC2 preserved
+
+No change to Service or Gateway Auto-Start, manual Stop authority,
+`START_NOT_STICKY`, the Gateway PID ownership fix, Core loopback binding,
+Dashboard auth, Public Mode, Telegram, credential redaction, Skills 8/8, or the
+internal PocketClaw chat.
+
 ## 2026-08-30 — v0.2.0-rc2 frozen (PHYSICAL PASS)
 
 Release candidate 2, published as a GitHub pre-release. Not a production

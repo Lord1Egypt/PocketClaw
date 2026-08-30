@@ -1,5 +1,67 @@
 # PocketClaw Session Handoff
 
+## In progress — Managed Runtime Foundation (2026-08-30)
+
+Branch `feature/managed-runtime-foundation`, based on `v0.2.0-rc2` / `404ef44`.
+Not merged, not released, `main` untouched. **Physical validation PENDING and not
+claimed.** Read `RUNTIME.md` first; it is the architecture of record.
+
+### What a next session must not undo
+
+- **There is no provisioning subsystem, and that is deliberate.** PocketClaw
+  targets SDK 36; an app targeting API 29+ cannot `execve()` a file in its own
+  writable data directory, and `File.setExecutable(true)` does not change it
+  because the restriction is enforced on the app's SELinux domain rather than by
+  the file mode. Do not add a download-verify-activate pipeline for executables:
+  it could not run, and its absence is what makes "no arbitrary binary
+  installation" structural instead of a policy. Any future provisioning
+  abstraction is limited to non-executable assets.
+- **Bundled payloads must be named `lib*.so`** and must appear in both
+  `requiredArm64NativeLibraries` and `keepDebugSymbols` in
+  `android/app/build.gradle.kts`. The package manager only unpacks
+  `lib/<abi>/*.so` into `nativeLibraryDir`; any other name ships a payload that
+  can never run. Without `keepDebugSymbols`, Gradle strips the executable during
+  packaging, changing its bytes and breaking the catalog's pinned SHA-256, which
+  reaches the device as a `checksum_mismatch` that looks like a corrupt install.
+- **System tools carry no hash, on purpose.** The OS owns `/system/bin` and
+  replaces it on every update, so `security_class: system` reports
+  `platform_owned` and the catalog format refuses to record a checksum. Do not
+  "improve" this by pinning one.
+- **Managed execution never uses `sh -c`.** It is deliberately narrower than the
+  existing `exec` tool, which does. Do not relax one to match the other.
+- **Flag-directed redaction is scoped per tool.** Applying curl's flag list
+  globally would blank the filename in `sort -u notes.txt` and the pattern in
+  `grep -E '<expr>' file`. Do not make it global.
+
+### Where things are
+
+- `core/src/pkg/pcruntime` — manifest and catalog, resolver, execution API,
+  lifecycle events, redaction, inventory, execution probe, storage policy.
+- `core/src/pkg/pcruntime/manifest.json` — the catalog. Adding a bundled tool
+  means updating its SHA-256 here; `TestBundledPayloadsMatchTheirPinnedChecksums`
+  fails while the catalog and the packaged payload disagree.
+- `core/src/pkg/tools/runtime_tool.go` — the `runtime` agent tool, wired in
+  `pkg/agent/instance.go` and gated by `cfg.Tools.Runtime`.
+- `runtime/build-jq-android-arm64.sh` — the jq payload build.
+- `PicoClawService.buildEnvironment()` exports `POCKETCLAW_RUNTIME_LIB_DIR` and
+  `POCKETCLAW_RUNTIME_DIR`.
+
+### Known gap for physical validation
+
+`core/src/workspace/AGENT.md` is seeded only when the file is **missing**
+(`copyMissingEmbeddedToTarget`). A device with an existing workspace keeps its old
+`AGENT.md` and will not see the new runtime guidance. The same applies to the
+GitHub Skill. This is why the essential rules are also in the `runtime` tool's
+own description, which is always in the prompt when the tool is registered — but
+a tester checking the workspace file should use a fresh workspace.
+
+### Next
+
+Physical validation on a real ARM64 device, then merge. After that, the natural
+next payloads are `curl` and `wget`, which need an NDK cross-build with a TLS
+stack. See `TASKS.md` for the deferred release-engineering items, including the
+high-priority `extractBinaryFromApk()` dead path.
+
 ## Shipped — v0.2.0-rc2, Auto-Start and Gateway PID ownership (2026-08-30)
 
 `v0.2.0-rc2` is frozen, merged to `develop`, tagged, and published as a GitHub

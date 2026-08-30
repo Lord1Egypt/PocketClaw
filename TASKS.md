@@ -595,11 +595,12 @@ supplied by the user.
   deliberately NOT part of this work and remains deferred — a restart policy
   belongs to a reliability milestone, and mixing it into auto-start is what made
   the experimental branch fail physical acceptance.
-- [ ] Managed runtime and tool dependencies: an app-private `runtime/bin` for
-  verified Android ARM64 tools such as `gh` and `git`, gated on checksums and
-  trusted sources, with a runtime PATH, a safe policy, and declared
-  dependencies. No arbitrary Skill-controlled installation. Document the agent
-  contract in `AGENTS.md` and/or `RUNTIME.md` / `TOOLS.md`.
+- [~] Managed runtime and tool dependencies. The foundation is implemented on
+  `feature/managed-runtime-foundation`; see the milestone section below. The
+  original plan here — an app-private `runtime/bin` — is **invalid** and was
+  replaced: PocketClaw targets SDK 36, and an app targeting API 29+ cannot
+  execute a file in its own writable storage. `gh` and `git` remain unshipped;
+  see the milestone section for why each is hard.
 - [ ] Secure API-key storage: migrate provider secrets to the Android Keystore.
 - [ ] Final production hardening, deferred until the final release: Flutter and
   Dart obfuscation, R8/ProGuard, symbol stripping, release-only hardening,
@@ -608,3 +609,66 @@ supplied by the user.
 - [ ] Fix the shared Kill+Wait cleanup pattern in `gateway_test.go` so the
   `-race` gate on `web/backend/api` is green. Pre-existing on `develop`; the
   race is in the test harness, not in production code.
+
+## Phase 2 — Managed Runtime Foundation
+
+Branch `feature/managed-runtime-foundation`, based on `v0.2.0-rc2` / `404ef44`.
+Not merged; physical validation PENDING.
+
+- [x] Establish the Android execution model. Executables reach the device only
+  through `/system/bin` or through APK payloads the installer unpacks into
+  `nativeLibraryDir`. Writable app-private storage is not executable on
+  targetSdk 36, so no provisioning subsystem exists; see `DECISIONS.md`.
+- [x] Runtime registry and versioned manifest in `core/src/pkg/pcruntime`, with
+  per-tool metadata, integrity class, timeout profile and output bounds.
+- [x] Tool resolver that measures the device instead of trusting the catalog,
+  with SHA-256 and ELF/ABI verification for bundled payloads and per-tool
+  resolution locks so concurrent callers share one verification pass.
+- [x] Bounded execution API: direct argv with no shell, constructed environment,
+  workspace-confined working directory, timeout ceiling, cancellation with
+  process-group termination and reaping, bounded stdout/stderr with truncation
+  markers.
+- [x] Structured lifecycle logging for resolve, verify, exec, cleanup, probe and
+  inventory, with redaction inside the emitter and tool output never persisted.
+- [x] Read-only runtime inventory API, suitable for a future Runtime/Statistics
+  page. The page itself is still deferred.
+- [x] On-device execution probe that measures whether writable app storage is
+  executable and reports the verdict in the Debug Logs.
+- [x] `runtime` agent tool (list / info / run). Agent tool count moves 17 -> 18;
+  all 17 existing tools are unchanged.
+- [x] Runtime Pack v1: Tier 1 catalogued as system-provided and probed;
+  jq 1.7.1 cross-built and bundled as `libpocketclaw-jq.so`, proving the
+  packaging contract end to end.
+- [x] Agent guidance in `RUNTIME.md`, `core/src/workspace/AGENT.md`, the
+  `runtime` tool description, and the GitHub Skill.
+- [ ] PHYSICAL validation on a real ARM64 device. Not claimed.
+
+### Not in this milestone, deliberately
+
+- [ ] `curl`, `wget`, `openssl`: no system binary exists and each needs an NDK
+  cross-build with a TLS stack.
+- [ ] `git`: C, and it `exec`s helpers from a `libexec` layout that
+  `nativeLibraryDir`'s flat `lib*.so` namespace cannot represent.
+- [ ] `gh`: pure Go and easy to cross-compile, but roughly 40 MB and of little
+  use without `git`.
+- [ ] Runtime / Statistics UI. The inventory API exists; the page does not.
+
+### Deferred release engineering
+
+- [ ] Version source-of-truth cleanup. `android/local.properties` holds
+  `flutter.versionCode` and is gitignored, so a stale value there ships an
+  apparently successful build with the wrong version. `pubspec.yaml` does not
+  reach the canonical Gradle release.
+- [ ] The arm64 native-payload guard runs from a `packageRelease` `doLast` block
+  and may not execute when Gradle considers packaging UP-TO-DATE, so a bad
+  payload could pass unchecked on an incremental build.
+- [ ] `PicoClawService.extractBinaryFromApk()` copies a payload into `filesDir`
+  and calls `setExecutable(true)`. **High priority.** On targetSdk 36 that path
+  cannot work: the file is written, the mode is set, and `ProcessBuilder.start()`
+  then fails with `EACCES`, so the failure reads as a mysterious launch error
+  rather than an unsupported delivery model. It is unreachable today because
+  `nativeLibraryDir` always resolves first. Do not fix it inside the Managed
+  Runtime milestone unless it becomes a blocker.
+- [ ] Production release signing. RC2 and this branch are debug-signed for
+  sideload pre-release use.
+- [ ] Final obfuscation and hardening.

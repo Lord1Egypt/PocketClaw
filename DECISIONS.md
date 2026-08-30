@@ -1,5 +1,86 @@
 # PocketClaw Decisions
 
+## Android forbids executing writable app storage, so the runtime has no installer
+
+- Date: 2026-08-30
+- Decision: The Managed Runtime delivers executables by exactly two routes, both
+  read-only to the app: `system` (the platform's own `/system/bin`) and
+  `bundled` (APK payloads the package manager unpacks into `nativeLibraryDir`).
+  There is no download, verify-and-activate provisioning pipeline for
+  executables, because PocketClaw targets SDK 36 and an app targeting API 29+
+  may not `execve()` a file in its own writable data directory. `setExecutable`
+  does not change that: the restriction is enforced on the app's SELinux domain,
+  not by the file mode.
+- Consequence: "No arbitrary binary installation" stops being a policy someone
+  must keep enforcing and becomes a structural property — there is no
+  download-and-execute code path in this repository to audit or to regress.
+  `EnsureTool` reports availability; it never acquires. This supersedes the
+  earlier `TASKS.md` plan for an app-private `runtime/bin`, which cannot work.
+  Any future provisioning abstraction is limited to non-executable assets unless
+  the platform model changes.
+
+## Bundled runtime payloads must be named `lib*.so`
+
+- Date: 2026-08-30
+- Decision: Every bundled Managed Runtime executable ships as
+  `lib<name>.so` under `android/app/src/main/jniLibs/<abi>/`, is listed in
+  `requiredArm64NativeLibraries` and in `keepDebugSymbols`, and is exposed to the
+  agent under its logical name. jq 1.7.1 ships as `libpocketclaw-jq.so` and
+  resolves as `jq`. The catalog format rejects a bundled entry whose
+  `library_name` is not `lib*.so`.
+- Consequence: Android's package manager only unpacks `lib/<abi>/*.so` into
+  `nativeLibraryDir`, the one directory the app may execute from, so any other
+  name ships a payload that can never run. `keepDebugSymbols` matters just as
+  much: without it Gradle strips the executable during packaging, changing its
+  bytes and breaking the SHA-256 the catalog pins, which reaches the device as a
+  `checksum_mismatch` that looks like a corrupt install.
+
+## Tier 1 runtime tools are system-provided, not bundled
+
+- Date: 2026-08-30
+- Decision: Android already ships toybox in `/system/bin`, covering nearly the
+  whole Tier 1 command list. Those tools are catalogued with
+  `delivery_type: system` and probed on the device rather than bundled.
+  BusyBox is not shipped.
+- Consequence: The APK does not carry tens of megabytes duplicating the platform,
+  and PocketClaw takes on no GPLv2 source-offer obligation. The cost is that the
+  command set varies by Android version and vendor, which is why availability is
+  measured per device and never read from the catalog. A `system` tool carries
+  `security_class: system` and `verification_result: platform_owned`; the catalog
+  format refuses to record a SHA-256 for one, because the OS replaces those files
+  on every system update and a pinned hash would be a guarantee PocketClaw
+  cannot keep.
+
+## Managed tools run by argv, with a constructed environment
+
+- Date: 2026-08-30
+- Decision: The runtime executes `argv` directly and never invokes `sh -c`. The
+  child environment is built from an allowlist rather than inherited, and
+  `PATH`, `LD_PRELOAD`, `LD_LIBRARY_PATH`, `LD_AUDIT` and the `DYLD_*`
+  equivalents may not be set by a caller. Working directories are confined to the
+  user workspace, and the tool's timeout profile is a ceiling a caller may lower
+  but never raise.
+- Consequence: Shell metacharacters in an argument are inert, provider keys held
+  by the Core process cannot reach a child by accident, and a caller cannot make
+  the loader substitute code for the binary the registry just verified. This is
+  deliberately narrower than the existing `exec` tool, which does use `sh -c`
+  behind deny patterns; the two are separate surfaces and the runtime does not
+  relax to match it.
+
+## Runtime logs record that a tool ran, never what it printed
+
+- Date: 2026-08-30
+- Decision: Redaction happens inside the runtime's event emitter, before any
+  writer sees a value. Argument vectors, environment maps and free text are
+  redacted; `stdout` and `stderr` are logged only as byte counts. The caller
+  still receives the real output in memory.
+- Consequence: A tool's stdout is exactly where a fetched credential appears —
+  `gh auth token` prints one — so bounding what may be persisted is more reliable
+  than pattern-matching what was printed. Flag-directed redaction is scoped per
+  tool rather than applied globally, because blanking the element after `-u` or
+  `-E` everywhere would erase the filename in `sort -u notes.txt` and the pattern
+  in `grep -E '<expr>' file`, destroying the diagnostics the logs exist for.
+
 ## Auto-Start is an app-launch decision, not a supervision framework
 
 - Date: 2026-08-30

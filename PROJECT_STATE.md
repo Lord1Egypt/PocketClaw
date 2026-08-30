@@ -1,5 +1,51 @@
 # PocketClaw Project State
 
+## Managed Runtime Foundation — in progress, PHYSICAL PENDING
+
+Branch `feature/managed-runtime-foundation`, based on `v0.2.0-rc2` / `404ef44`.
+Not merged to `develop`. Not released. `main` untouched. `v0.2.0-rc1`,
+`v0.2.0-rc2` and `phase2-milestone-d` not moved.
+
+The PocketClaw Managed Runtime gives the Agent a controlled, observable, verified
+local tool environment: `core/src/pkg/pcruntime` plus a `runtime` agent tool.
+Architecture, storage layout, observability contract and the tool catalog are
+documented in `RUNTIME.md`.
+
+**Physical validation: PENDING.** No device was attached during this work, so
+nothing here is claimed as physically passing.
+
+### The constraint this milestone established
+
+PocketClaw targets Android SDK 36, and an app targeting API 29+ cannot execute a
+file in its own writable storage — `setExecutable` does not change that. The
+earlier plan for an app-private `runtime/bin` is invalid and has been replaced.
+Executables reach the device only through `/system/bin` or through APK payloads
+the installer unpacks into `nativeLibraryDir`, so the runtime contains no
+download-and-execute path at all. See `DECISIONS.md`.
+
+### Runtime Pack v1
+
+- Tier 1 catalogued as system-provided and probed per device; Android already
+  ships toybox, so BusyBox is deliberately not bundled.
+- jq 1.7.1 bundled as `libpocketclaw-jq.so`, cross-built from the pinned official
+  release tarball, proving the APK/`nativeLibraryDir` packaging contract.
+- `curl`, `wget`, `openssl`, `git` and `gh` are not shipped; `TASKS.md` records
+  why each is hard.
+
+### Agent tool count
+
+17 -> 18. All 17 existing tools are unchanged; the addition is `runtime`.
+
+### Verified here, and not
+
+Green: `go test ./pkg/pcruntime/ ./pkg/tools/`, and the jq payload extracted from
+the built release APK hashes to its catalog pin, proving Gradle packaging leaves
+it byte-identical.
+
+Not verified: on-device install, resolution, and execution. The Android execution
+constraint is reasoned from the platform contract and measured at runtime by the
+execution probe, not observed on hardware in this session.
+
 ## v0.2.0-rc2 — Auto-Start and Gateway PID ownership (PHYSICAL PASS)
 
 Release candidate 2, published as a GitHub pre-release. Not a production

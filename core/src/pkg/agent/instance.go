@@ -119,6 +119,19 @@ func NewAgentInstance(
 		}
 	}
 
+	if cfg.Tools.IsToolEnabled("runtime") {
+		// The Managed Runtime is optional at the edges: a host with no catalog
+		// storage still runs every other tool. Failing to build it must not take
+		// the agent down with it.
+		runtimeTool, err := tools.NewRuntimeTool(workspace)
+		if err != nil {
+			logger.WarnCF("agent", "Managed Runtime unavailable; continuing without it",
+				map[string]any{"error": err.Error()})
+		} else {
+			toolsRegistry.Register(runtimeTool)
+		}
+	}
+
 	if cfg.Tools.IsToolEnabled("edit_file") {
 		toolsRegistry.Register(tools.NewEditFileTool(workspace, restrict, allowWritePaths))
 	}
