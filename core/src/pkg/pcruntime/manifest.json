@@ -1,0 +1,680 @@
+{
+  "runtime_version": 1,
+  "catalog_version": "1.1.0",
+  "tools": [
+    {
+      "tool_id": "cat",
+      "display_name": "cat",
+      "command_name": "cat",
+      "version": "platform",
+      "abi": "arm64-v8a",
+      "delivery_type": "system",
+      "trusted_source": "android-system-image:/system/bin",
+      "capabilities": [
+        "filesystem.read"
+      ],
+      "timeout_profile": "standard",
+      "max_output_bytes": 1048576,
+      "security_class": "system"
+    },
+    {
+      "tool_id": "ls",
+      "display_name": "ls",
+      "command_name": "ls",
+      "version": "platform",
+      "abi": "arm64-v8a",
+      "delivery_type": "system",
+      "trusted_source": "android-system-image:/system/bin",
+      "capabilities": [
+        "filesystem.read"
+      ],
+      "timeout_profile": "quick",
+      "max_output_bytes": 1048576,
+      "security_class": "system"
+    },
+    {
+      "tool_id": "pwd",
+      "display_name": "pwd",
+      "command_name": "pwd",
+      "version": "platform",
+      "abi": "arm64-v8a",
+      "delivery_type": "system",
+      "trusted_source": "android-system-image:/system/bin",
+      "capabilities": [
+        "filesystem.read"
+      ],
+      "timeout_profile": "quick",
+      "max_output_bytes": 4096,
+      "security_class": "system"
+    },
+    {
+      "tool_id": "stat",
+      "display_name": "stat",
+      "command_name": "stat",
+      "version": "platform",
+      "abi": "arm64-v8a",
+      "delivery_type": "system",
+      "trusted_source": "android-system-image:/system/bin",
+      "capabilities": [
+        "filesystem.read"
+      ],
+      "timeout_profile": "quick",
+      "max_output_bytes": 65536,
+      "security_class": "system"
+    },
+    {
+      "tool_id": "find",
+      "display_name": "find",
+      "command_name": "find",
+      "version": "platform",
+      "abi": "arm64-v8a",
+      "delivery_type": "system",
+      "trusted_source": "android-system-image:/system/bin",
+      "capabilities": [
+        "filesystem.read"
+      ],
+      "timeout_profile": "standard",
+      "max_output_bytes": 1048576,
+      "security_class": "system"
+    },
+    {
+      "tool_id": "head",
+      "display_name": "head",
+      "command_name": "head",
+      "version": "platform",
+      "abi": "arm64-v8a",
+      "delivery_type": "system",
+      "trusted_source": "android-system-image:/system/bin",
+      "capabilities": [
+        "filesystem.read",
+        "text.filter"
+      ],
+      "timeout_profile": "quick",
+      "max_output_bytes": 1048576,
+      "security_class": "system"
+    },
+    {
+      "tool_id": "tail",
+      "display_name": "tail",
+      "command_name": "tail",
+      "version": "platform",
+      "abi": "arm64-v8a",
+      "delivery_type": "system",
+      "trusted_source": "android-system-image:/system/bin",
+      "capabilities": [
+        "filesystem.read",
+        "text.filter"
+      ],
+      "timeout_profile": "quick",
+      "max_output_bytes": 1048576,
+      "security_class": "system"
+    },
+    {
+      "tool_id": "wc",
+      "display_name": "wc",
+      "command_name": "wc",
+      "version": "platform",
+      "abi": "arm64-v8a",
+      "delivery_type": "system",
+      "trusted_source": "android-system-image:/system/bin",
+      "capabilities": [
+        "filesystem.read",
+        "text.filter"
+      ],
+      "timeout_profile": "quick",
+      "max_output_bytes": 65536,
+      "security_class": "system"
+    },
+    {
+      "tool_id": "du",
+      "display_name": "du",
+      "command_name": "du",
+      "version": "platform",
+      "abi": "arm64-v8a",
+      "delivery_type": "system",
+      "trusted_source": "android-system-image:/system/bin",
+      "capabilities": [
+        "filesystem.read",
+        "storage.inspect"
+      ],
+      "timeout_profile": "standard",
+      "max_output_bytes": 1048576,
+      "security_class": "system"
+    },
+    {
+      "tool_id": "df",
+      "display_name": "df",
+      "command_name": "df",
+      "version": "platform",
+      "abi": "arm64-v8a",
+      "delivery_type": "system",
+      "trusted_source": "android-system-image:/system/bin",
+      "capabilities": [
+        "storage.inspect"
+      ],
+      "timeout_profile": "quick",
+      "max_output_bytes": 65536,
+      "security_class": "system"
+    },
+    {
+      "tool_id": "which",
+      "display_name": "which",
+      "command_name": "which",
+      "version": "platform",
+      "abi": "arm64-v8a",
+      "delivery_type": "system",
+      "trusted_source": "android-system-image:/system/bin",
+      "capabilities": [
+        "runtime.introspect"
+      ],
+      "timeout_profile": "quick",
+      "max_output_bytes": 4096,
+      "security_class": "system"
+    },
+    {
+      "tool_id": "cp",
+      "display_name": "cp",
+      "command_name": "cp",
+      "version": "platform",
+      "abi": "arm64-v8a",
+      "delivery_type": "system",
+      "trusted_source": "android-system-image:/system/bin",
+      "capabilities": [
+        "filesystem.write"
+      ],
+      "timeout_profile": "standard",
+      "max_output_bytes": 65536,
+      "security_class": "system"
+    },
+    {
+      "tool_id": "mv",
+      "display_name": "mv",
+      "command_name": "mv",
+      "version": "platform",
+      "abi": "arm64-v8a",
+      "delivery_type": "system",
+      "trusted_source": "android-system-image:/system/bin",
+      "capabilities": [
+        "filesystem.write"
+      ],
+      "timeout_profile": "standard",
+      "max_output_bytes": 65536,
+      "security_class": "system"
+    },
+    {
+      "tool_id": "rm",
+      "display_name": "rm",
+      "command_name": "rm",
+      "version": "platform",
+      "abi": "arm64-v8a",
+      "delivery_type": "system",
+      "trusted_source": "android-system-image:/system/bin",
+      "capabilities": [
+        "filesystem.write",
+        "filesystem.destructive"
+      ],
+      "timeout_profile": "standard",
+      "max_output_bytes": 65536,
+      "security_class": "system"
+    },
+    {
+      "tool_id": "mkdir",
+      "display_name": "mkdir",
+      "command_name": "mkdir",
+      "version": "platform",
+      "abi": "arm64-v8a",
+      "delivery_type": "system",
+      "trusted_source": "android-system-image:/system/bin",
+      "capabilities": [
+        "filesystem.write"
+      ],
+      "timeout_profile": "quick",
+      "max_output_bytes": 65536,
+      "security_class": "system"
+    },
+    {
+      "tool_id": "rmdir",
+      "display_name": "rmdir",
+      "command_name": "rmdir",
+      "version": "platform",
+      "abi": "arm64-v8a",
+      "delivery_type": "system",
+      "trusted_source": "android-system-image:/system/bin",
+      "capabilities": [
+        "filesystem.write",
+        "filesystem.destructive"
+      ],
+      "timeout_profile": "quick",
+      "max_output_bytes": 65536,
+      "security_class": "system"
+    },
+    {
+      "tool_id": "touch",
+      "display_name": "touch",
+      "command_name": "touch",
+      "version": "platform",
+      "abi": "arm64-v8a",
+      "delivery_type": "system",
+      "trusted_source": "android-system-image:/system/bin",
+      "capabilities": [
+        "filesystem.write"
+      ],
+      "timeout_profile": "quick",
+      "max_output_bytes": 65536,
+      "security_class": "system"
+    },
+    {
+      "tool_id": "chmod",
+      "display_name": "chmod",
+      "command_name": "chmod",
+      "version": "platform",
+      "abi": "arm64-v8a",
+      "delivery_type": "system",
+      "trusted_source": "android-system-image:/system/bin",
+      "capabilities": [
+        "filesystem.write"
+      ],
+      "timeout_profile": "quick",
+      "max_output_bytes": 65536,
+      "security_class": "system"
+    },
+    {
+      "tool_id": "grep",
+      "display_name": "grep",
+      "command_name": "grep",
+      "version": "platform",
+      "abi": "arm64-v8a",
+      "delivery_type": "system",
+      "trusted_source": "android-system-image:/system/bin",
+      "capabilities": [
+        "text.filter"
+      ],
+      "timeout_profile": "standard",
+      "max_output_bytes": 1048576,
+      "security_class": "system"
+    },
+    {
+      "tool_id": "sed",
+      "display_name": "sed",
+      "command_name": "sed",
+      "version": "platform",
+      "abi": "arm64-v8a",
+      "delivery_type": "system",
+      "trusted_source": "android-system-image:/system/bin",
+      "capabilities": [
+        "text.transform"
+      ],
+      "timeout_profile": "standard",
+      "max_output_bytes": 1048576,
+      "security_class": "system"
+    },
+    {
+      "tool_id": "awk",
+      "display_name": "awk",
+      "command_name": "awk",
+      "version": "platform",
+      "abi": "arm64-v8a",
+      "delivery_type": "system",
+      "trusted_source": "android-system-image:/system/bin",
+      "capabilities": [
+        "text.transform"
+      ],
+      "timeout_profile": "standard",
+      "max_output_bytes": 1048576,
+      "security_class": "system"
+    },
+    {
+      "tool_id": "cut",
+      "display_name": "cut",
+      "command_name": "cut",
+      "version": "platform",
+      "abi": "arm64-v8a",
+      "delivery_type": "system",
+      "trusted_source": "android-system-image:/system/bin",
+      "capabilities": [
+        "text.transform"
+      ],
+      "timeout_profile": "quick",
+      "max_output_bytes": 1048576,
+      "security_class": "system"
+    },
+    {
+      "tool_id": "sort",
+      "display_name": "sort",
+      "command_name": "sort",
+      "version": "platform",
+      "abi": "arm64-v8a",
+      "delivery_type": "system",
+      "trusted_source": "android-system-image:/system/bin",
+      "capabilities": [
+        "text.transform"
+      ],
+      "timeout_profile": "standard",
+      "max_output_bytes": 1048576,
+      "security_class": "system"
+    },
+    {
+      "tool_id": "uniq",
+      "display_name": "uniq",
+      "command_name": "uniq",
+      "version": "platform",
+      "abi": "arm64-v8a",
+      "delivery_type": "system",
+      "trusted_source": "android-system-image:/system/bin",
+      "capabilities": [
+        "text.transform"
+      ],
+      "timeout_profile": "quick",
+      "max_output_bytes": 1048576,
+      "security_class": "system"
+    },
+    {
+      "tool_id": "tee",
+      "display_name": "tee",
+      "command_name": "tee",
+      "version": "platform",
+      "abi": "arm64-v8a",
+      "delivery_type": "system",
+      "trusted_source": "android-system-image:/system/bin",
+      "capabilities": [
+        "text.transform",
+        "filesystem.write"
+      ],
+      "timeout_profile": "standard",
+      "max_output_bytes": 1048576,
+      "security_class": "system"
+    },
+    {
+      "tool_id": "xargs",
+      "display_name": "xargs",
+      "command_name": "xargs",
+      "version": "platform",
+      "abi": "arm64-v8a",
+      "delivery_type": "system",
+      "trusted_source": "android-system-image:/system/bin",
+      "capabilities": [
+        "process.compose"
+      ],
+      "timeout_profile": "standard",
+      "max_output_bytes": 1048576,
+      "security_class": "system"
+    },
+    {
+      "tool_id": "env",
+      "display_name": "env",
+      "command_name": "env",
+      "version": "platform",
+      "abi": "arm64-v8a",
+      "delivery_type": "system",
+      "trusted_source": "android-system-image:/system/bin",
+      "capabilities": [
+        "runtime.introspect"
+      ],
+      "timeout_profile": "quick",
+      "max_output_bytes": 65536,
+      "security_class": "system"
+    },
+    {
+      "tool_id": "printenv",
+      "display_name": "printenv",
+      "command_name": "printenv",
+      "version": "platform",
+      "abi": "arm64-v8a",
+      "delivery_type": "system",
+      "trusted_source": "android-system-image:/system/bin",
+      "capabilities": [
+        "runtime.introspect"
+      ],
+      "timeout_profile": "quick",
+      "max_output_bytes": 65536,
+      "security_class": "system"
+    },
+    {
+      "tool_id": "uname",
+      "display_name": "uname",
+      "command_name": "uname",
+      "version": "platform",
+      "abi": "arm64-v8a",
+      "delivery_type": "system",
+      "trusted_source": "android-system-image:/system/bin",
+      "capabilities": [
+        "system.inspect"
+      ],
+      "timeout_profile": "quick",
+      "max_output_bytes": 4096,
+      "security_class": "system"
+    },
+    {
+      "tool_id": "date",
+      "display_name": "date",
+      "command_name": "date",
+      "version": "platform",
+      "abi": "arm64-v8a",
+      "delivery_type": "system",
+      "trusted_source": "android-system-image:/system/bin",
+      "capabilities": [
+        "system.inspect"
+      ],
+      "timeout_profile": "quick",
+      "max_output_bytes": 4096,
+      "security_class": "system"
+    },
+    {
+      "tool_id": "ps",
+      "display_name": "ps",
+      "command_name": "ps",
+      "version": "platform",
+      "abi": "arm64-v8a",
+      "delivery_type": "system",
+      "trusted_source": "android-system-image:/system/bin",
+      "capabilities": [
+        "process.inspect"
+      ],
+      "timeout_profile": "quick",
+      "max_output_bytes": 262144,
+      "security_class": "system"
+    },
+    {
+      "tool_id": "sleep",
+      "display_name": "sleep",
+      "command_name": "sleep",
+      "version": "platform",
+      "abi": "arm64-v8a",
+      "delivery_type": "system",
+      "trusted_source": "android-system-image:/system/bin",
+      "capabilities": [
+        "process.control"
+      ],
+      "timeout_profile": "extended",
+      "max_output_bytes": 4096,
+      "security_class": "system"
+    },
+    {
+      "tool_id": "timeout",
+      "display_name": "timeout",
+      "command_name": "timeout",
+      "version": "platform",
+      "abi": "arm64-v8a",
+      "delivery_type": "system",
+      "trusted_source": "android-system-image:/system/bin",
+      "capabilities": [
+        "process.control"
+      ],
+      "timeout_profile": "extended",
+      "max_output_bytes": 1048576,
+      "security_class": "system"
+    },
+    {
+      "tool_id": "base64",
+      "display_name": "base64",
+      "command_name": "base64",
+      "version": "platform",
+      "abi": "arm64-v8a",
+      "delivery_type": "system",
+      "trusted_source": "android-system-image:/system/bin",
+      "capabilities": [
+        "encoding.transform"
+      ],
+      "timeout_profile": "standard",
+      "max_output_bytes": 1048576,
+      "security_class": "system"
+    },
+    {
+      "tool_id": "sha256sum",
+      "display_name": "sha256sum",
+      "command_name": "sha256sum",
+      "version": "platform",
+      "abi": "arm64-v8a",
+      "delivery_type": "system",
+      "trusted_source": "android-system-image:/system/bin",
+      "capabilities": [
+        "integrity.checksum"
+      ],
+      "timeout_profile": "standard",
+      "max_output_bytes": 65536,
+      "security_class": "system"
+    },
+    {
+      "tool_id": "md5sum",
+      "display_name": "md5sum",
+      "command_name": "md5sum",
+      "version": "platform",
+      "abi": "arm64-v8a",
+      "delivery_type": "system",
+      "trusted_source": "android-system-image:/system/bin",
+      "capabilities": [
+        "integrity.checksum"
+      ],
+      "timeout_profile": "standard",
+      "max_output_bytes": 65536,
+      "security_class": "system"
+    },
+    {
+      "tool_id": "tar",
+      "display_name": "tar",
+      "command_name": "tar",
+      "version": "platform",
+      "abi": "arm64-v8a",
+      "delivery_type": "system",
+      "trusted_source": "android-system-image:/system/bin",
+      "capabilities": [
+        "archive.transform",
+        "filesystem.write"
+      ],
+      "timeout_profile": "extended",
+      "max_output_bytes": 1048576,
+      "security_class": "system"
+    },
+    {
+      "tool_id": "gzip",
+      "display_name": "gzip",
+      "command_name": "gzip",
+      "version": "platform",
+      "abi": "arm64-v8a",
+      "delivery_type": "system",
+      "trusted_source": "android-system-image:/system/bin",
+      "capabilities": [
+        "archive.transform",
+        "filesystem.write"
+      ],
+      "timeout_profile": "extended",
+      "max_output_bytes": 262144,
+      "security_class": "system"
+    },
+    {
+      "tool_id": "gunzip",
+      "display_name": "gunzip",
+      "command_name": "gunzip",
+      "version": "platform",
+      "abi": "arm64-v8a",
+      "delivery_type": "system",
+      "trusted_source": "android-system-image:/system/bin",
+      "capabilities": [
+        "archive.transform",
+        "filesystem.write"
+      ],
+      "timeout_profile": "extended",
+      "max_output_bytes": 262144,
+      "security_class": "system"
+    },
+    {
+      "tool_id": "ping",
+      "display_name": "ping",
+      "command_name": "ping",
+      "version": "platform",
+      "abi": "arm64-v8a",
+      "delivery_type": "system",
+      "trusted_source": "android-system-image:/system/bin",
+      "capabilities": [
+        "network.diagnose"
+      ],
+      "timeout_profile": "standard",
+      "max_output_bytes": 65536,
+      "security_class": "system"
+    },
+    {
+      "tool_id": "traceroute",
+      "display_name": "traceroute",
+      "command_name": "traceroute",
+      "version": "platform",
+      "abi": "arm64-v8a",
+      "delivery_type": "system",
+      "trusted_source": "android-system-image:/system/bin",
+      "capabilities": [
+        "network.diagnose"
+      ],
+      "timeout_profile": "extended",
+      "max_output_bytes": 65536,
+      "security_class": "system"
+    },
+    {
+      "tool_id": "ip",
+      "display_name": "ip",
+      "command_name": "ip",
+      "version": "platform",
+      "abi": "arm64-v8a",
+      "delivery_type": "system",
+      "trusted_source": "android-system-image:/system/bin",
+      "capabilities": [
+        "network.inspect"
+      ],
+      "timeout_profile": "quick",
+      "max_output_bytes": 262144,
+      "security_class": "system"
+    },
+    {
+      "tool_id": "netstat",
+      "display_name": "netstat",
+      "command_name": "netstat",
+      "version": "platform",
+      "abi": "arm64-v8a",
+      "delivery_type": "system",
+      "trusted_source": "android-system-image:/system/bin",
+      "capabilities": [
+        "network.inspect"
+      ],
+      "timeout_profile": "quick",
+      "max_output_bytes": 262144,
+      "security_class": "system"
+    },
+    {
+      "tool_id": "jq",
+      "display_name": "jq",
+      "command_name": "jq",
+      "version": "1.7.1",
+      "abi": "arm64-v8a",
+      "delivery_type": "bundled",
+      "trusted_source": "https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-1.7.1.tar.gz",
+      "sha256": "3c1f61c100d7b8f3a68355f9cd697952bae27579cba516a0a3e43ac54926c997",
+      "capabilities": [
+        "json.query",
+        "json.transform",
+        "text.transform"
+      ],
+      "timeout_profile": "standard",
+      "max_output_bytes": 1048576,
+      "security_class": "bundled_verified",
+      "library_name": "libpocketclaw-jq.so"
+    }
+  ]
+}

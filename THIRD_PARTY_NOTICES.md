@@ -72,6 +72,37 @@ is contacted at build time or runtime, and this repository carries no code from
 those projects. Behavioural inspiration creates no attribution obligation and
 none is implied.
 
+## Managed Runtime payloads
+
+The PocketClaw Managed Runtime ships verified command-line tools inside the APK.
+Each payload is cross-built from an official upstream release tarball, pinned by
+SHA-256, by a script under [`runtime/`](runtime/). No prebuilt third-party
+binary is downloaded and no third-party binary is fetched at runtime.
+
+### jq
+
+- Shipped as `android/app/src/main/jniLibs/arm64-v8a/libpocketclaw-jq.so`, built
+  by [`runtime/build-jq-android-arm64.sh`](runtime/build-jq-android-arm64.sh).
+  The `lib*.so` name is an Android packaging requirement, not a claim that the
+  payload is a shared library; it is an ARM64 PIE executable.
+- Upstream release: jq 1.7.1,
+  <https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-1.7.1.tar.gz>,
+  tarball SHA-256
+  `478c9ca129fd2e3443fe27314b455e211e0d8c60bc8ff7df703873deeee580c2`
+- Copyright: © 2012 Stephen Dolan and jq contributors
+- License: MIT
+
+The tarball builds two further components into the payload, each under its own
+upstream license, both carried unmodified:
+
+- **Oniguruma** (regular-expression engine, `modules/oniguruma`) —
+  © K. Kosako and Oniguruma contributors, BSD 2-Clause.
+- **decNumber** (decimal arithmetic, `src/decNumber`) — © International Business
+  Machines Corporation, ICU license.
+
+The upstream license texts are preserved inside the release tarball the build
+script pins and verifies.
+
 ## PocketClaw-authored identity assets
 
 `assets/branding/pocketclaw-mark.png` is an original PocketClaw identity asset

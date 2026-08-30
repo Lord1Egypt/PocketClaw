@@ -1,5 +1,100 @@
 # PocketClaw Session Handoff
 
+## Shipped — Managed Runtime Foundation (2026-08-30, PHYSICAL PASS)
+
+Branch `feature/managed-runtime-foundation`, commit `ee236da`, based on
+`v0.2.0-rc2` / `404ef44`. **Physical validation PASSED** on a real ARM64 device
+on 2026-08-30, then merged to `develop`. Not released, `main` untouched. Read
+`RUNTIME.md` first; it is the architecture of record.
+
+Physical results: runtime tool registered; jq 1.7.1 executed and processed JSON;
+`sha256sum`, `grep`, `sed`, `tar`, `uname`, `df`, `ping` executed; stderr
+captured; non-zero exit preserved; timeout terminated a long-running command;
+lifecycle logs appeared; no secret leakage; the runtime was driven through
+Telegram; Auto-Start and the Gateway PID fix held.
+
+**43 of 44** catalog tools were available. `traceroute` was correctly reported
+unavailable — the resolver measuring the device instead of trusting the catalog,
+which is exactly what it is for.
+
+**The writable-app-data probe returned INCONCLUSIVE on that device**, and that is
+fine. Nothing depends on it: the bundled jq payload executed from
+`nativeLibraryDir` on the same run. Do not read an inconclusive probe as licence
+to try writable execution — the two supported routes are unchanged.
+
+### Counts, and one that will look wrong
+
+- Tools: **18**
+- Skills: **7/7**
+
+**Skills 7/7 is correct and is not a regression.** The user deliberately removed
+the incomplete GitHub Skill. Do not restore it, do not write a migration for it,
+and do not treat 8/8 as the target.
+
+Note for whoever picks this up: `core/src/workspace/skills/github/` is still in
+the repository, so a *freshly seeded* workspace would receive it again. The
+device count of 7 and the repo's seeded set are therefore consistent today only
+because the device workspace already exists. If 7/7 is meant to hold for new
+installs too, the skill needs removing from the seeded tree or adding to
+`unseededTemplates` in `cmd/picoclaw/internal/onboard/helpers.go`. That was not
+done here because it was not asked for.
+
+### What a next session must not undo
+
+- **There is no provisioning subsystem, and that is deliberate.** PocketClaw
+  targets SDK 36; an app targeting API 29+ cannot `execve()` a file in its own
+  writable data directory, and `File.setExecutable(true)` does not change it
+  because the restriction is enforced on the app's SELinux domain rather than by
+  the file mode. Do not add a download-verify-activate pipeline for executables:
+  it could not run, and its absence is what makes "no arbitrary binary
+  installation" structural instead of a policy. Any future provisioning
+  abstraction is limited to non-executable assets.
+- **Bundled payloads must be named `lib*.so`** and must appear in both
+  `requiredArm64NativeLibraries` and `keepDebugSymbols` in
+  `android/app/build.gradle.kts`. The package manager only unpacks
+  `lib/<abi>/*.so` into `nativeLibraryDir`; any other name ships a payload that
+  can never run. Without `keepDebugSymbols`, Gradle strips the executable during
+  packaging, changing its bytes and breaking the catalog's pinned SHA-256, which
+  reaches the device as a `checksum_mismatch` that looks like a corrupt install.
+- **System tools carry no hash, on purpose.** The OS owns `/system/bin` and
+  replaces it on every update, so `security_class: system` reports
+  `platform_owned` and the catalog format refuses to record a checksum. Do not
+  "improve" this by pinning one.
+- **Managed execution never uses `sh -c`.** It is deliberately narrower than the
+  existing `exec` tool, which does. Do not relax one to match the other.
+- **Flag-directed redaction is scoped per tool.** Applying curl's flag list
+  globally would blank the filename in `sort -u notes.txt` and the pattern in
+  `grep -E '<expr>' file`. Do not make it global.
+
+### Where things are
+
+- `core/src/pkg/pcruntime` — manifest and catalog, resolver, execution API,
+  lifecycle events, redaction, inventory, execution probe, storage policy.
+- `core/src/pkg/pcruntime/manifest.json` — the catalog. Adding a bundled tool
+  means updating its SHA-256 here; `TestBundledPayloadsMatchTheirPinnedChecksums`
+  fails while the catalog and the packaged payload disagree.
+- `core/src/pkg/tools/runtime_tool.go` — the `runtime` agent tool, wired in
+  `pkg/agent/instance.go` and gated by `cfg.Tools.Runtime`.
+- `runtime/build-jq-android-arm64.sh` — the jq payload build.
+- `PicoClawService.buildEnvironment()` exports `POCKETCLAW_RUNTIME_LIB_DIR` and
+  `POCKETCLAW_RUNTIME_DIR`.
+
+### Known gap for physical validation
+
+`core/src/workspace/AGENT.md` is seeded only when the file is **missing**
+(`copyMissingEmbeddedToTarget`). A device with an existing workspace keeps its old
+`AGENT.md` and will not see the new runtime guidance. The same applies to the
+GitHub Skill. This is why the essential rules are also in the `runtime` tool's
+own description, which is always in the prompt when the tool is registered — but
+a tester checking the workspace file should use a fresh workspace.
+
+### Next
+
+Lean Runtime Pack v2 on `feature/lean-runtime-pack-v2`: Git and GitHub CLI
+first, then an HTTP/TLS capability, ripgrep, sqlite3 and yq. See `TASKS.md` for
+the deferred release-engineering items, including the high-priority
+`extractBinaryFromApk()` dead path.
+
 ## Shipped — v0.2.0-rc2, Auto-Start and Gateway PID ownership (2026-08-30)
 
 `v0.2.0-rc2` is frozen, merged to `develop`, tagged, and published as a GitHub

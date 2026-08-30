@@ -6,6 +6,18 @@ metadata: {"nanobot":{"emoji":"🐙","requires":{"bins":["gh"]},"install":[{"id"
 
 # GitHub Skill
 
+## Availability on PocketClaw
+
+This Skill is knowledge, not proof that `gh` is installed. Ask the Managed
+Runtime for it first (`runtime` tool, `action=info`, `tool=gh`).
+
+`gh` is **not** part of the PocketClaw Runtime Pack v1, so on an Android device
+it will report capability unavailable. The runtime cannot install it and neither
+can you: Android runs executables only from the app package or the system image,
+both fixed at install time. The `brew` and `apt` install hints in this Skill's
+metadata apply to desktop hosts only. When `gh` is unavailable, say so plainly
+rather than emitting commands that cannot run.
+
 Use the `gh` CLI to interact with GitHub. Always specify `--repo owner/repo` when not in a git directory, or use URLs directly.
 
 ## Pull Requests

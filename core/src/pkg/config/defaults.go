@@ -471,6 +471,9 @@ func DefaultConfig() *Config {
 				Mode:            ReadFileModeBytes,
 				MaxReadFileSize: 64 * 1024, // 64KB
 			},
+			Runtime: ToolConfig{
+				Enabled: true,
+			},
 			Serial: ToolConfig{
 				Enabled: false, // Hardware tool - requires host serial ports
 			},

@@ -129,6 +129,11 @@ android {
             // 不要 strip libpicoclaw*.so（它们不是标准动态库）
             keepDebugSymbols += "**/libpicoclaw.so"
             keepDebugSymbols += "**/libpicoclaw-web.so"
+            // Managed Runtime payloads are executables, not shared libraries.
+            // Gradle's strip would rewrite the file and break the SHA-256 the
+            // runtime catalog pins, so the tool would resolve as a corrupt
+            // install on every device.
+            keepDebugSymbols += "**/libpocketclaw-jq.so"
         }
     }
 }
@@ -240,6 +245,10 @@ val requiredArm64NativeLibraries = listOf(
     "lib/arm64-v8a/libdartjni.so",
     "lib/arm64-v8a/libpicoclaw.so",
     "lib/arm64-v8a/libpicoclaw-web.so",
+    // Managed Runtime payload. It must be packaged under lib/<abi>/lib*.so or
+    // the installer never unpacks it into nativeLibraryDir, and nativeLibraryDir
+    // is the only directory an app targeting API 29+ may execute from.
+    "lib/arm64-v8a/libpocketclaw-jq.so",
 )
 
 fun verifyArm64NativePayload(apk: File) {

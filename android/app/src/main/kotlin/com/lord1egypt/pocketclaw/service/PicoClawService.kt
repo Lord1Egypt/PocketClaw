@@ -203,11 +203,21 @@ class PicoClawService : Service() {
             }
             val configPath = File(internalHome, "config.json").absolutePath
 
+            // Managed Runtime storage. Executables live in nativeLibraryDir,
+            // which the installer unpacked and the app cannot write; metadata
+            // lives app-private and outside the user workspace, so a Skill
+            // writing into Download/pocketclaw cannot reach runtime state.
+            val runtimeLibDir = context.applicationInfo.nativeLibraryDir
+            val runtimeMetadataDir = File(internalHome, "runtime")
+            runtimeMetadataDir.mkdirs()
+
             val environment = mutableMapOf(
                 "HOME" to context.filesDir.absolutePath,
                 "PICOCLAW_HOME" to workspace.absolutePath,
                 "PICOCLAW_CONFIG" to configPath,
                 "PICOCLAW_BINARY" to gatewayBinaryPath,
+                "POCKETCLAW_RUNTIME_LIB_DIR" to runtimeLibDir,
+                "POCKETCLAW_RUNTIME_DIR" to runtimeMetadataDir.absolutePath,
                 "POCKETCLAW_ANDROID_BRIDGE_TOKEN" to androidBridgeToken,
                 "PICOCLAW_CHANNELS_PICO_TOKEN" to picoTokenForHost(context),
                 "TMPDIR" to tmpDir.absolutePath,

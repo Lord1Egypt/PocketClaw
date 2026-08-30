@@ -1,5 +1,105 @@
 # Development Changelog
 
+## 2026-08-30 — Managed Runtime Foundation (PHYSICAL PASS)
+
+Branch `feature/managed-runtime-foundation`, commit `ee236da`, based on
+`v0.2.0-rc2` / `404ef44`. **Physically validated on a real ARM64 device on
+2026-08-30** and merged to `develop`. Not released, `main` untouched.
+
+Physical results: the runtime tool registered; jq 1.7.1 executed and processed
+JSON; `sha256sum`, `grep`, `sed`, `tar`, `uname`, `df` and `ping` executed;
+stderr was captured; a non-zero exit code was preserved; a timeout terminated a
+harmless long-running command; runtime lifecycle events appeared in the logs; no
+secret leakage was observed; and the runtime was driven end to end through
+Telegram. Service and Gateway Auto-Start still worked and the Gateway PID
+ownership false positive did not return.
+
+**43 of 44** catalog tools were available on the tested device. `traceroute` was
+correctly reported unavailable rather than assumed present — the resolver
+measuring the device instead of trusting the catalog, which is what it is for.
+
+The writable-app-data execution probe returned **inconclusive** on that device:
+it could neither run its staged copy nor observe a clean permission refusal, and
+it said so rather than guessing. That costs nothing, because the architecture
+never used writable executable storage — the bundled jq payload executed from
+`nativeLibraryDir` on the same run, which is the path the runtime actually uses.
+
+Counts are Tools **18** and Skills **7/7**. Skills 7/7 is not a regression: the
+incomplete GitHub Skill was removed deliberately and is not being restored.
+
+The PocketClaw Agent now has a controlled, observable, verified local tool
+environment. It names a tool; the runtime resolves that name through a versioned
+catalog, verifies it, and runs it under bounded execution with a full structured
+lifecycle. No physical binary path is ever handed to the model.
+
+### The finding that shaped the design
+
+PocketClaw targets Android SDK 36. Since API 29 an app may not `execve()` a file
+in its own writable data directory, and `File.setExecutable(true)` does not
+change that — the restriction is enforced on the app's SELinux domain rather than
+by the file mode. The previously planned app-private `runtime/bin` cannot work.
+
+Executables reach the device by two routes instead, both read-only to the app:
+the platform's `/system/bin`, and APK payloads the package manager unpacks into
+`nativeLibraryDir` — the same mechanism the Core payload has always used. There
+is consequently no download-and-execute code path in the runtime at all, which
+makes "no arbitrary binary installation" structural rather than a policy someone
+has to keep enforcing.
+
+The assumption is not merely asserted: an execution probe copies a harmless
+system binary into writable storage, tries to run it, records the verdict in the
+Debug Logs, and deletes the copy. The runtime never depends on the answer.
+
+### New
+
+- `core/src/pkg/pcruntime`: versioned manifest and catalog, tool resolver,
+  bounded execution API, structured lifecycle events, redaction, read-only
+  inventory, execution probe, storage layout policy.
+- `runtime` agent tool with `list`, `info` and `run`. Agent tool count moves
+  17 -> 18; all 17 existing tools are unchanged.
+- Runtime Pack v1. Tier 1 is catalogued as system-provided and probed per device,
+  because Android already ships toybox and bundling BusyBox would duplicate the
+  platform at the cost of tens of megabytes and a GPLv2 source-offer obligation.
+  jq 1.7.1 is cross-built from the pinned official release tarball by
+  `runtime/build-jq-android-arm64.sh` and bundled as `libpocketclaw-jq.so`,
+  proving the packaging contract end to end.
+- `RUNTIME.md`, `runtime/README.md`, runtime guidance in
+  `core/src/workspace/AGENT.md`, the `runtime` tool description, and the GitHub
+  Skill.
+
+### Behaviour worth knowing
+
+- Managed tools run by direct `argv`, never `sh -c`, so shell metacharacters in
+  an argument are inert. This is deliberately narrower than the existing `exec`
+  tool and does not relax to match it.
+- The child environment is constructed from an allowlist rather than inherited,
+  so provider keys held by the Core process cannot reach a child by accident.
+  `PATH`, `LD_PRELOAD`, `LD_LIBRARY_PATH`, `LD_AUDIT` and the `DYLD_*`
+  equivalents are refused to callers.
+- Timeout profiles are ceilings a caller may lower and never raise. Cancellation
+  terminates the child's whole process group and always reaps it.
+- Runtime logs record that a tool ran, never what it printed: only `stdout` and
+  `stderr` byte counts are persisted. The caller still receives the real output.
+
+### Verified in this session
+
+- `go test ./pkg/pcruntime/ ./pkg/tools/` green, including argv preservation,
+  timeout, cancellation, process-group termination, output truncation,
+  working-directory policy, checksum and ABI rejection, concurrent-resolution
+  deduplication, redaction, and complete lifecycles on success, failure, timeout
+  and cancellation.
+- The jq payload survives Gradle packaging byte-identical: the entry extracted
+  from the release APK hashes to
+  `3c1f61c100d7b8f3a68355f9cd697952bae27579cba516a0a3e43ac54926c997`, matching
+  the catalog pin.
+
+### RC2 preserved
+
+No change to Service or Gateway Auto-Start, manual Stop authority,
+`START_NOT_STICKY`, the Gateway PID ownership fix, Core loopback binding,
+Dashboard auth, Public Mode, Telegram, credential redaction, or the internal
+PocketClaw chat.
+
 ## 2026-08-30 — v0.2.0-rc2 frozen (PHYSICAL PASS)
 
 Release candidate 2, published as a GitHub pre-release. Not a production
