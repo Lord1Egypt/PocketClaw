@@ -50,7 +50,7 @@ func TestCopyEmbeddedToTargetDoesNotSeedUpstreamAgentSkill(t *testing.T) {
 		t.Fatalf("expected %s to be absent, got err=%v", upstreamSkill, err)
 	}
 
-	for _, seeded := range []string{"github", "summarize", "skill-creator", "hardware"} {
+	for _, seeded := range []string{"summarize", "skill-creator", "hardware", "weather"} {
 		skillPath := filepath.Join(targetDir, "skills", seeded, "SKILL.md")
 		if _, err := os.Stat(skillPath); err != nil {
 			t.Fatalf("expected bundled skill %s to be seeded: %v", skillPath, err)
@@ -87,11 +87,11 @@ func TestCopyEmbeddedToTargetKeepsExistingUserSkill(t *testing.T) {
 
 func TestCopyMissingEmbeddedToTargetAddsSkillsWithoutReplacingUserFiles(t *testing.T) {
 	targetDir := t.TempDir()
-	existing := filepath.Join(targetDir, "skills", "github", "SKILL.md")
+	existing := filepath.Join(targetDir, "skills", "summarize", "SKILL.md")
 	if err := os.MkdirAll(filepath.Dir(existing), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(existing, []byte("user github skill"), 0o644); err != nil {
+	if err := os.WriteFile(existing, []byte("user summarize skill"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -103,7 +103,7 @@ func TestCopyMissingEmbeddedToTargetAddsSkillsWithoutReplacingUserFiles(t *testi
 	if err != nil {
 		t.Fatal(err)
 	}
-	if string(data) != "user github skill" {
+	if string(data) != "user summarize skill" {
 		t.Fatalf("existing user skill was replaced: %q", data)
 	}
 	for _, seeded := range []string{"agent-browser", "hardware", "skill-creator", "summarize", "tmux", "weather"} {
@@ -133,7 +133,7 @@ func TestIsUnseeded(t *testing.T) {
 	seeded := []string{
 		"AGENT.md",
 		"SOUL.md",
-		"skills/github/SKILL.md",
+		"skills/summarize/SKILL.md",
 		"skills/picoclaw-agent-extra/SKILL.md",
 	}
 	for _, path := range seeded {

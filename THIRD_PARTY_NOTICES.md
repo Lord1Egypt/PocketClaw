@@ -79,6 +79,10 @@ Each payload is cross-built from an official upstream release tarball, pinned by
 SHA-256, by a script under [`runtime/`](runtime/). No prebuilt third-party
 binary is downloaded and no third-party binary is fetched at runtime.
 
+Every payload below is built by a script under `runtime/` from a pinned upstream
+release, verified by SHA-256 before the build starts. The Android ARM64 build
+method is recorded in each script.
+
 ### jq
 
 - Shipped as `android/app/src/main/jniLibs/arm64-v8a/libpocketclaw-jq.so`, built
@@ -102,6 +106,85 @@ upstream license, both carried unmodified:
 
 The upstream license texts are preserved inside the release tarball the build
 script pins and verifies.
+
+### git
+
+- Shipped as `libpocketclaw-git.so` and `libpocketclaw-git-remote-http.so`,
+  built by [`runtime/build-git-android-arm64.sh`](runtime/build-git-android-arm64.sh).
+- Upstream release: git 2.51.0,
+  <https://github.com/git/git/archive/refs/tags/v2.51.0.tar.gz>, tarball SHA-256
+  `3524fc5fd81f16f80e1696a8281bd8ad831048b67848015d7b7382bf365ae685`
+- Copyright: © Linus Torvalds and the git contributors
+- License: **GPL-2.0-only**
+
+git is the only copyleft component PocketClaw ships. It runs as a separate
+executable invoked through `exec`, so it does not place PocketClaw's own code
+under the GPL, but it does carry a **source-offer obligation**. That obligation
+is met by this repository: the exact upstream source is the pinned tarball named
+above, and PocketClaw's only modification is
+[`runtime/patches/git-android-pthread-cancel.h`](runtime/patches/git-android-pthread-cancel.h),
+a compatibility shim for Android's bionic, applied by the build script. Anyone
+receiving the APK can reproduce the shipped binaries from those two inputs.
+
+The build excludes git's Perl, Python and Tcl/Tk components, its gettext
+translations, and its OpenSSL and expat dependencies. Nothing from those
+projects is distributed.
+
+### GitHub CLI (gh)
+
+- Shipped as `libpocketclaw-gh.so`, built by
+  [`runtime/build-gh-android-arm64.sh`](runtime/build-gh-android-arm64.sh).
+- Upstream release: gh 2.82.1,
+  <https://github.com/cli/cli/archive/refs/tags/v2.82.1.tar.gz>, tarball SHA-256
+  `999bdea5c8baf3d03fe0314127c2c393d6c0f7a504a573ad0c107072973af973`
+- Copyright: © GitHub, Inc.
+- License: MIT
+
+gh is statically linked Go and carries its Go module dependencies inside the
+binary, each under its own upstream license as resolved by gh's own `go.mod`.
+
+### curl and mbedTLS
+
+- Shipped as `libpocketclaw-curl.so`, built by
+  [`runtime/build-curl-android-arm64.sh`](runtime/build-curl-android-arm64.sh).
+  The same libcurl and mbedTLS are statically linked into
+  `libpocketclaw-git-remote-http.so`.
+- curl 8.11.1,
+  <https://github.com/curl/curl/releases/download/curl-8_11_1/curl-8.11.1.tar.xz>,
+  tarball SHA-256
+  `c7ca7db48b0909743eaef34250da02c19bc61d4f1dcedd6603f109409536ab56`
+  — © Daniel Stenberg and contributors, curl license (MIT/X derivative).
+- Mbed TLS 3.6.4,
+  <https://github.com/Mbed-TLS/mbedtls/releases/download/mbedtls-3.6.4/mbedtls-3.6.4.tar.bz2>,
+  tarball SHA-256
+  `ec35b18a6c593cf98c3e30db8b98ff93e8940a8c4e690e66b41dfc011d678110`
+  — © The Mbed TLS Contributors, Apache-2.0.
+
+mbedTLS rather than OpenSSL: the whole TLS stack costs about 1.3 MB this way.
+zlib is not bundled; curl and git link the Android system's `libz.so`.
+
+### ripgrep
+
+- Shipped as `libpocketclaw-rg.so`, built by
+  [`runtime/build-ripgrep-android-arm64.sh`](runtime/build-ripgrep-android-arm64.sh).
+- Upstream release: ripgrep 14.1.1,
+  <https://github.com/BurntSushi/ripgrep/archive/refs/tags/14.1.1.tar.gz>,
+  tarball SHA-256
+  `4dad02a2f9c8c3c8d89434e47337aa654cb0e2aa50e806589132f186bf5c2b66`
+- Copyright: © Andrew Gallant and contributors
+- License: MIT OR Unlicense. Its Rust crate dependencies are compiled in, each
+  under its own upstream license as resolved by ripgrep's `Cargo.lock`.
+
+### SQLite
+
+- Shipped as `libpocketclaw-sqlite3.so`, built by
+  [`runtime/build-sqlite3-android-arm64.sh`](runtime/build-sqlite3-android-arm64.sh).
+- Upstream release: SQLite 3.50.4 amalgamation,
+  <https://sqlite.org/2025/sqlite-amalgamation-3500400.zip>, archive SHA-256
+  `1d3049dd0f830a025a53105fc79fd2ab9431aea99e137809d064d8ee8356b032`
+- SQLite is released into the **public domain**; it imposes no redistribution
+  obligation and no attribution requirement. It is recorded here for
+  completeness.
 
 ## PocketClaw-authored identity assets
 

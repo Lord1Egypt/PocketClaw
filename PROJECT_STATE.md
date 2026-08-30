@@ -1,5 +1,85 @@
 # PocketClaw Project State
 
+## Lean Runtime Pack v2 — PHYSICAL PASS
+
+Branch `feature/lean-runtime-pack-v2`, fix commit `7ebd254`, from `develop` at
+`fa27ad2`. **Physical validation PASSED** on a real ARM64 device on 2026-08-30
+and merged to `develop`. Not released. `main` untouched; `v0.2.0-rc1`,
+`v0.2.0-rc2` and `phase2-milestone-d` not moved.
+
+### Physical results
+
+| Check | Result |
+|---|---|
+| Git HTTPS | **PASS** |
+| `git clone` of a public GitHub repository | **PASS** |
+| **Git helper symlink execution on Android** | **PASS** |
+| `git --version` | 2.51.0 |
+| `gh` | 2.82.1 |
+| curl HTTPS | PASS |
+| ripgrep | PASS |
+| sqlite3 | PASS |
+
+### Skills
+
+- Existing upgraded workspace: **7/7**
+- Fresh install: **6/6**
+
+The two differ legitimately. Seeding only ever writes and never deletes, so a
+device that already had the GitHub Skill keeps its seven; a fresh workspace gets
+the six seeded skills, because `picoclaw-agent` is deliberately unseeded.
+
+### Known limitation
+
+git is built with its default compiled-in `SHELL_PATH` of `/bin/sh`, which
+Android does not have. **Git features that depend on a shell — hooks in
+particular, and git's `ENOEXEC` fallback — are not guaranteed on Android.**
+Nothing on the clone, fetch or push path needs a shell: the transport helpers
+are ELF executables. See `DECISIONS.md` for why overriding it is not possible
+without breaking git's own cross-build.
+
+Six bundled tools now ship. Full architecture in `RUNTIME.md`.
+
+| Tool | Version | Installed | License |
+|---|---|---:|---|
+| git + git-remote-http | 2.51.0 | 6.21 MB | GPL-2.0-only |
+| gh | 2.82.1 | 55.9 MB | MIT |
+| curl (mbedTLS) | 8.11.1 | 1.30 MB | curl + Apache-2.0 |
+| ripgrep | 14.1.1 | 4.27 MB | MIT / Unlicense |
+| sqlite3 | 3.50.4 | 1.23 MB | public domain |
+| jq (from v1) | 1.7.1 | 0.77 MB | MIT |
+
+APK 34,727,724 -> 58,302,215 bytes. Catalog 44 -> 55 tools.
+
+### Two things a reader should know
+
+**git found its helpers only after it could find itself.** The v2 physical run
+failed `git clone` with `unable to find remote helper for 'https'`. The cause was
+not TLS or symlinks: git spawns `git remote-https` and resolves the literal name
+`git` through PATH, and the helper directory did not contain it. Fixed by
+declaring `git` as one of its own helpers; the payloads are unchanged.
+
+**git's transport helper is presented by symlink.** Android cannot package a
+file named `git-remote-https`, so the runtime builds a directory of symlinks to
+the packaged payloads and points `GIT_EXEC_PATH` at it. Nothing is written into
+app storage and executed. This was the **one platform assumption v2 rested on**,
+and the device has now settled it: symlink execution works, confirmed end to end
+by a real clone. The probe continues to report `symlink_exec` so a device that
+behaves differently says so in its own Debug Logs.
+
+**gh's 55.9 MB is a sanctioned exception, not a precedent.** The user accepted it
+explicitly because GitHub capability is core to the agent. The size policy still
+binds everything else: yq was measured at 11.25 MB and left out on that basis,
+since jq already covers JSON.
+
+### Verification
+
+Automated: `go vet` and `go test` green across Core, `flutter analyze` clean,
+Flutter tests passing, all seven bundled payloads extracted from the built
+release APK hashing to their catalog pins, and the arm64 guard listing every one.
+
+Physical: **PASS**, as recorded above.
+
 ## Managed Runtime Foundation — PHYSICAL PASS
 
 Branch `feature/managed-runtime-foundation`, commit `ee236da`, based on

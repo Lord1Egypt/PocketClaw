@@ -47,31 +47,42 @@ func TestBundledPayloadsMatchTheirPinnedChecksums(t *testing.T) {
 		if tool.Delivery != DeliveryBundled {
 			continue
 		}
-		payload := filepath.Join(
-			root, "android", "app", "src", "main", "jniLibs", tool.ABI, tool.LibraryName,
-		)
-		if _, err := os.Stat(payload); err != nil {
-			t.Fatalf("catalog declares bundled tool %q but %s is not in the APK payload: %v",
-				tool.ToolID, payload, err)
+		// Helper payloads are checked alongside the main one. A stale helper
+		// checksum is the more dangerous of the two: the tool still resolves
+		// far enough to look installed and then fails at its first network
+		// operation.
+		payloads := map[string]string{tool.LibraryName: tool.SHA256}
+		for libraryName, sum := range tool.helperPayloads() {
+			payloads[libraryName] = sum
 		}
 
-		sum, err := fileSHA256(payload)
-		if err != nil {
-			t.Fatalf("cannot hash %s: %v", payload, err)
-		}
-		if sum != tool.SHA256 {
-			t.Fatalf(
-				"catalog pins %s for %s but the packaged payload hashes to %s.\n"+
-					"Rebuild with runtime/build-%s-android-arm64.sh and update "+
-					"core/src/pkg/pcruntime/manifest.json.",
-				tool.SHA256, tool.ToolID, sum, tool.ToolID,
+		for libraryName, expected := range payloads {
+			payload := filepath.Join(
+				root, "android", "app", "src", "main", "jniLibs", tool.ABI, libraryName,
 			)
-		}
+			if _, err := os.Stat(payload); err != nil {
+				t.Fatalf("catalog declares bundled tool %q but %s is not in the APK payload: %v",
+					tool.ToolID, payload, err)
+			}
 
-		if err := verifyELFTarget(payload, tool.ABI); err != nil {
-			t.Fatalf("packaged payload for %q is not a %s binary: %v", tool.ToolID, tool.ABI, err)
+			sum, err := fileSHA256(payload)
+			if err != nil {
+				t.Fatalf("cannot hash %s: %v", payload, err)
+			}
+			if sum != expected {
+				t.Fatalf(
+					"catalog pins %s for %s payload %s but the packaged file hashes to %s.\n"+
+						"Rebuild with the matching script in runtime/ and update "+
+						"core/src/pkg/pcruntime/manifest.json.",
+					expected, tool.ToolID, libraryName, sum,
+				)
+			}
+			if err := verifyELFTarget(payload, tool.ABI); err != nil {
+				t.Fatalf("packaged payload %s for %q is not a %s binary: %v",
+					libraryName, tool.ToolID, tool.ABI, err)
+			}
+			checked++
 		}
-		checked++
 	}
 
 	if checked == 0 {

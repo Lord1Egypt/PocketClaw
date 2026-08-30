@@ -134,6 +134,12 @@ android {
             // runtime catalog pins, so the tool would resolve as a corrupt
             // install on every device.
             keepDebugSymbols += "**/libpocketclaw-jq.so"
+            keepDebugSymbols += "**/libpocketclaw-git.so"
+            keepDebugSymbols += "**/libpocketclaw-git-remote-http.so"
+            keepDebugSymbols += "**/libpocketclaw-gh.so"
+            keepDebugSymbols += "**/libpocketclaw-curl.so"
+            keepDebugSymbols += "**/libpocketclaw-rg.so"
+            keepDebugSymbols += "**/libpocketclaw-sqlite3.so"
         }
     }
 }
@@ -245,10 +251,18 @@ val requiredArm64NativeLibraries = listOf(
     "lib/arm64-v8a/libdartjni.so",
     "lib/arm64-v8a/libpicoclaw.so",
     "lib/arm64-v8a/libpicoclaw-web.so",
-    // Managed Runtime payload. It must be packaged under lib/<abi>/lib*.so or
+    // Managed Runtime payloads. Each must be packaged under lib/<abi>/lib*.so or
     // the installer never unpacks it into nativeLibraryDir, and nativeLibraryDir
     // is the only directory an app targeting API 29+ may execute from.
     "lib/arm64-v8a/libpocketclaw-jq.so",
+    "lib/arm64-v8a/libpocketclaw-git.so",
+    // git's transport helper. Without it every https:// remote fails, and the
+    // failure would surface as a confusing "unable to find remote helper".
+    "lib/arm64-v8a/libpocketclaw-git-remote-http.so",
+    "lib/arm64-v8a/libpocketclaw-gh.so",
+    "lib/arm64-v8a/libpocketclaw-curl.so",
+    "lib/arm64-v8a/libpocketclaw-rg.so",
+    "lib/arm64-v8a/libpocketclaw-sqlite3.so",
 )
 
 fun verifyArm64NativePayload(apk: File) {

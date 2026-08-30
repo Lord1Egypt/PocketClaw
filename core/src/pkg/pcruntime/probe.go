@@ -35,7 +35,11 @@ type ExecutionProbe struct {
 	LibDir             string              `json:"lib_dir"`
 	WritableExec       WritableExecSupport `json:"writable_exec"`
 	WritableExecDetail string              `json:"writable_exec_detail"`
-	ProbedAt           time.Time           `json:"probed_at"`
+	// SymlinkExec is whether a symlink in app-private storage pointing at a
+	// packaged executable can be run. Tools with helper payloads depend on it.
+	SymlinkExec       WritableExecSupport `json:"symlink_exec"`
+	SymlinkExecDetail string              `json:"symlink_exec_detail"`
+	ProbedAt          time.Time           `json:"probed_at"`
 }
 
 // probeSourceBinaries are harmless executables to copy for the probe, in order
@@ -63,13 +67,82 @@ func ProbeExecution(ctx context.Context, paths *Paths) *ExecutionProbe {
 	probe.WritableExec = support
 	probe.WritableExecDetail = detail
 
+	symlinkSupport, symlinkDetail := measureSymlinkExec(ctx, paths)
+	probe.SymlinkExec = symlinkSupport
+	probe.SymlinkExecDetail = symlinkDetail
+
 	emitInfo(EventProbeCompleted, map[string]any{
-		"stage":         "writable_exec",
-		"writable_exec": string(support),
-		"diagnostics":   detail,
-		"lib_dir":       paths.LibDir,
+		"stage":               "execution",
+		"writable_exec":       string(support),
+		"diagnostics":         detail,
+		"symlink_exec":        string(symlinkSupport),
+		"symlink_diagnostics": symlinkDetail,
+		"lib_dir":             paths.LibDir,
 	})
 	return probe
+}
+
+// measureSymlinkExec answers the question git depends on.
+//
+// git looks its transport helper up as "git-remote-https" inside GIT_EXEC_PATH,
+// and Android cannot package a file under that name: the installer only unpacks
+// lib/<abi>/*.so. The runtime therefore builds a directory of symlinks pointing
+// at the packaged payloads. A symlink is not itself an executable — the kernel
+// resolves it and executes the read-only target — so this should be permitted
+// where writing a real executable is not. "Should be" is why this is measured
+// and not assumed.
+func measureSymlinkExec(ctx context.Context, paths *Paths) (WritableExecSupport, string) {
+	source := firstExisting(probeSourceBinaries)
+	if source == "" {
+		return WritableExecInconclusive,
+			"no harmless system executable was available to link for the probe"
+	}
+	if err := paths.EnsureMetadataDir(); err != nil {
+		return WritableExecInconclusive, err.Error()
+	}
+
+	link := filepath.Join(paths.MetadataDir, ".symlink-probe")
+	_ = os.Remove(link)
+	if err := os.Symlink(source, link); err != nil {
+		return WritableExecInconclusive, fmt.Sprintf("could not create the probe symlink: %v", err)
+	}
+	defer func() { _ = os.Remove(link) }()
+
+	probeCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	cmd := exec.CommandContext(probeCtx, link)
+	cmd.Args = []string{"true"}
+	cmd.Env = []string{}
+	isolateProcessGroup(cmd)
+
+	err := cmd.Run()
+	switch {
+	case err == nil:
+		return WritableExecSupported, fmt.Sprintf(
+			"a symlink in %s to %s executed; helper payloads such as "+
+				"git-remote-https can be presented this way",
+			paths.MetadataDir, source,
+		)
+	case errors.Is(err, os.ErrPermission):
+		return WritableExecBlocked, fmt.Sprintf(
+			"the platform refused to execute through a symlink in %s (%v). "+
+				"Tools with helper payloads, git most of all, cannot resolve their "+
+				"helpers this way on this device.",
+			paths.MetadataDir, err,
+		)
+	default:
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) {
+			return WritableExecSupported, fmt.Sprintf(
+				"a symlink in %s to %s executed and exited %d",
+				paths.MetadataDir, source, exitErr.ExitCode(),
+			)
+		}
+		return WritableExecInconclusive, fmt.Sprintf(
+			"the symlink probe neither ran nor was refused for a recognisable reason: %v", err,
+		)
+	}
 }
 
 func measureWritableExec(ctx context.Context, paths *Paths) (WritableExecSupport, string) {

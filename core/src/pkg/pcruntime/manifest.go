@@ -47,18 +47,53 @@ const (
 	TimeoutQuick    TimeoutProfile = "quick"
 	TimeoutStandard TimeoutProfile = "standard"
 	TimeoutExtended TimeoutProfile = "extended"
+	// TimeoutTransfer is for tools whose work is bounded by a network peer
+	// rather than by local computation: cloning a large repository or uploading
+	// a release asset is not a utility command and must not share their budget.
+	TimeoutTransfer TimeoutProfile = "transfer"
 )
 
 var timeoutProfileDurations = map[TimeoutProfile]time.Duration{
 	TimeoutQuick:    15 * time.Second,
 	TimeoutStandard: 2 * time.Minute,
 	TimeoutExtended: 10 * time.Minute,
+	TimeoutTransfer: 30 * time.Minute,
 }
 
 // Duration returns the budget for a profile, and whether the profile is known.
 func (p TimeoutProfile) Duration() (time.Duration, bool) {
 	d, ok := timeoutProfileDurations[p]
 	return d, ok
+}
+
+// EnvironmentProfile names the per-tool environment the runtime prepares before
+// execution. Tools that need nothing beyond the base allowlist leave it empty.
+type EnvironmentProfile string
+
+const (
+	EnvironmentProfileNone EnvironmentProfile = ""
+	EnvironmentProfileGit  EnvironmentProfile = "git"
+	EnvironmentProfileGH   EnvironmentProfile = "gh"
+)
+
+var knownEnvironmentProfiles = map[EnvironmentProfile]struct{}{
+	EnvironmentProfileNone: {},
+	EnvironmentProfileGit:  {},
+	EnvironmentProfileGH:   {},
+}
+
+// Helper is an auxiliary executable a tool invokes by a logical name that the
+// APK cannot use as a filename.
+//
+// Android's package manager only unpacks lib/<abi>/*.so, so git's transport
+// helper cannot ship as "git-remote-https". It ships under a lib*.so name and
+// the runtime presents it under its logical name at execution time. Several
+// logical names may share one payload: git-remote-http and git-remote-https are
+// the same binary upstream.
+type Helper struct {
+	LogicalName string `json:"logical_name"`
+	LibraryName string `json:"library_name"`
+	SHA256      string `json:"sha256"`
 }
 
 // Tool is one catalog entry: everything the runtime needs to resolve, verify,
@@ -86,6 +121,12 @@ type Tool struct {
 	// Applets are the command names a multicall binary answers to. Empty for a
 	// single-purpose tool.
 	Applets []string `json:"applets,omitempty"`
+
+	// Helpers are auxiliary executables this tool invokes by logical name.
+	Helpers []Helper `json:"helpers,omitempty"`
+
+	// EnvironmentProfile selects the per-tool environment preparation.
+	EnvironmentProfile EnvironmentProfile `json:"environment_profile,omitempty"`
 }
 
 // Manifest is the versioned runtime catalog.
@@ -229,7 +270,83 @@ func (t *Tool) validate() error {
 	default:
 		return fmt.Errorf("runtime tool %q declares unknown delivery_type %q", t.ToolID, t.Delivery)
 	}
+
+	if _, known := knownEnvironmentProfiles[t.EnvironmentProfile]; !known {
+		return fmt.Errorf(
+			"runtime tool %q declares unknown environment_profile %q",
+			t.ToolID, t.EnvironmentProfile,
+		)
+	}
+	return t.validateHelpers()
+}
+
+func (t *Tool) validateHelpers() error {
+	if len(t.Helpers) == 0 {
+		return nil
+	}
+	if t.Delivery != DeliveryBundled {
+		return fmt.Errorf(
+			"runtime tool %q declares helpers but is %s-delivered; only bundled payloads have helpers",
+			t.ToolID, t.Delivery,
+		)
+	}
+
+	// One payload may back several logical names, but the catalog must agree
+	// with itself about that payload's checksum, or verification would depend
+	// on which entry happened to be read first.
+	checksums := make(map[string]string, len(t.Helpers))
+	logical := make(map[string]struct{}, len(t.Helpers))
+	for _, helper := range t.Helpers {
+		if strings.TrimSpace(helper.LogicalName) == "" {
+			return fmt.Errorf("runtime tool %q declares a helper with no logical_name", t.ToolID)
+		}
+		// The logical name becomes a filename in the runtime's helper directory.
+		// Anything path-like there would let a catalog entry place a symlink
+		// outside it.
+		if strings.ContainsAny(helper.LogicalName, `/\`) || helper.LogicalName == "." || helper.LogicalName == ".." {
+			return fmt.Errorf(
+				"runtime tool %q declares helper logical_name %q; it is used as a filename and must not be a path",
+				t.ToolID, helper.LogicalName,
+			)
+		}
+		if _, dup := logical[helper.LogicalName]; dup {
+			return fmt.Errorf(
+				"runtime tool %q declares helper %q twice", t.ToolID, helper.LogicalName,
+			)
+		}
+		logical[helper.LogicalName] = struct{}{}
+
+		if !strings.HasPrefix(helper.LibraryName, "lib") || !strings.HasSuffix(helper.LibraryName, ".so") {
+			return fmt.Errorf(
+				"runtime tool %q helper %q declares library_name %q; bundled payloads must be named lib*.so "+
+					"or the Android package manager will not extract them",
+				t.ToolID, helper.LogicalName, helper.LibraryName,
+			)
+		}
+		if !isSHA256Hex(helper.SHA256) {
+			return fmt.Errorf(
+				"runtime tool %q helper %q must pin a 64-character sha256",
+				t.ToolID, helper.LogicalName,
+			)
+		}
+		if existing, seen := checksums[helper.LibraryName]; seen && existing != helper.SHA256 {
+			return fmt.Errorf(
+				"runtime tool %q pins two different checksums for payload %q",
+				t.ToolID, helper.LibraryName,
+			)
+		}
+		checksums[helper.LibraryName] = helper.SHA256
+	}
 	return nil
+}
+
+// helperPayloads returns each distinct packaged payload the tool's helpers use.
+func (t *Tool) helperPayloads() map[string]string {
+	payloads := make(map[string]string, len(t.Helpers))
+	for _, helper := range t.Helpers {
+		payloads[helper.LibraryName] = helper.SHA256
+	}
+	return payloads
 }
 
 // commandNames is every command this tool answers to.

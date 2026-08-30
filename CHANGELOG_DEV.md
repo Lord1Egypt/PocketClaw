@@ -1,5 +1,166 @@
 # Development Changelog
 
+## 2026-08-30 — Lean Runtime Pack v2 (PHYSICAL PASS)
+
+Branch `feature/lean-runtime-pack-v2`, fix commit `7ebd254`. **Physically
+validated on a real ARM64 device on 2026-08-30** and merged to `develop`.
+
+| Check | Result |
+|---|---|
+| Git HTTPS | **PASS** |
+| `git clone` of a public GitHub repository | **PASS** |
+| **Git helper symlink execution on Android** | **PASS** |
+| `git --version` | 2.51.0 |
+| `gh` | 2.82.1 |
+| curl HTTPS | PASS |
+| ripgrep | PASS |
+| sqlite3 | PASS |
+
+**The symlink question is settled.** Android permits executing through a symlink
+in app-private storage that points at a packaged payload in `nativeLibraryDir`.
+The kernel resolves the link and runs the read-only packaged file, so the API 29+
+restriction on executing writable storage does not apply. That is what makes
+multi-executable tools possible on Android, and it is now evidence rather than
+reasoning. It still does not license copying an executable into app storage.
+
+Skills read **7/7** on an existing upgraded workspace and **6/6** on a fresh
+install. Both are correct: seeding only writes and never deletes, so a device
+that already had the GitHub Skill keeps it, while a fresh workspace receives the
+six seeded skills (`picoclaw-agent` is deliberately unseeded).
+
+**Known limitation.** git ships with its default compiled-in `SHELL_PATH` of
+`/bin/sh`, which Android lacks, so **git features depending on a shell — hooks in
+particular, and the `ENOEXEC` fallback — are not guaranteed on Android.** Clone,
+fetch and push do not need a shell.
+
+## 2026-08-30 — git HTTPS remote-helper fix
+
+Branch `feature/lean-runtime-pack-v2`, on top of `b13f297`.
+
+The v2 physical run passed everything except `git clone` over HTTPS, which
+failed with `unable to find remote helper for 'https'`.
+
+### Root cause, proven rather than guessed
+
+It was not TLS and not symlink execution. curl HTTPS passed on the same device,
+and the failing code path never reached an exec.
+
+git does not exec its transport helper directly. `get_helper()` builds
+`remote-https …` with `git_cmd = 1`; `prepare_git_cmd()` prepends the literal
+string `git`; `prepare_cmd()` then resolves **that** name through
+`locate_in_PATH`, with `GIT_EXEC_PATH` already prepended to `PATH` by
+`setup_path()`. PocketClaw's helper directory held `git-remote-http` and
+`git-remote-https` but not `git`, and Android's `PATH` is
+`/system/bin:/system/xbin`. The lookup returned `ENOENT`, and `get_helper()`
+converts exactly that errno into the observed message — which names the protocol
+and points at TLS, nowhere near the actual fault.
+
+Reproduced natively before changing anything: with a `PATH` containing no `git`
+and a `GIT_EXEC_PATH` holding both remote helpers, a host git produced the
+identical error; adding a `git` symlink to the same directory made the clone
+succeed with all three entries as symlinks.
+
+### Fix
+
+One catalog change: git declares `git` among its own helpers. No architecture
+change, no git patch, no writable executable copy. The git payloads are
+byte-identical to `b13f297`.
+
+`TestGitDeclaresItselfAsAHelperSoItsOwnLookupSucceeds` was verified to fail with
+the entry removed and pass with it present, so it genuinely guards the bug.
+
+### Also in this commit
+
+- `runtime.helpers.prepared` and `runtime.helpers.failed` record the exec path
+  built and the logical names in it, so a helper failure can be told from a
+  lookup failure without guesswork.
+- The incomplete GitHub Skill was removed from the seeded workspace, and the
+  onboarding tests that referenced it now use a skill that still exists.
+- `SHELL_PATH` is knowingly left at git's default `/bin/sh`, which Android does
+  not have. Overriding it breaks git's cross-build because its Makefile uses the
+  same variable for its own recipes; nothing on the clone path needs a shell.
+
+## 2026-08-30 — Lean Runtime Pack v2 (physical validation PENDING)
+
+Branch `feature/lean-runtime-pack-v2`, from `develop` at `fa27ad2`. Not merged,
+not released, `main` untouched.
+
+Six bundled tools now ship, and the runtime learned two things it needed in
+order to carry them: helper payloads and per-tool environment profiles.
+
+### What ships
+
+| Tool | Version | Installed | License |
+|---|---|---:|---|
+| git | 2.51.0 | 3.23 MB | GPL-2.0-only |
+| git-remote-http | (same build) | 2.98 MB | GPL-2.0-only |
+| gh | 2.82.1 | 55.9 MB | MIT |
+| curl | 8.11.1 | 1.30 MB | curl licence + Apache-2.0 (mbedTLS) |
+| ripgrep | 14.1.1 | 4.27 MB | MIT / Unlicense |
+| sqlite3 | 3.50.4 | 1.23 MB | public domain |
+
+`zip`, `unzip`, `diff`, `patch`, `file` and `tree` were added as `system`
+entries costing nothing: shipping a catalog entry *is* the probe, and the
+physical run will report which the platform provides.
+
+### Helper payloads
+
+git looks its transport helper up as `git-remote-https` inside `GIT_EXEC_PATH`,
+and Android's package manager only unpacks `lib/<abi>/*.so`, so no packaged file
+can carry that name. A catalog entry now declares helpers by logical name; the
+runtime verifies each payload's checksum and ABI alongside the main one and, at
+execution time, builds a directory of **symlinks** to them.
+
+Nothing is written into app storage and executed — the kernel resolves the link
+and runs the read-only packaged file — so the delivery model is unchanged. This
+is the one platform assumption v2 rests on, so the probe now also reports
+`symlink_exec` on every device instead of it being trusted.
+
+A tool whose helper fails verification resolves as *unavailable*. git with an
+unverified transport helper would otherwise look installed and fail at its first
+`https://` URL, which is a much harder failure to read.
+
+### Environment profiles and credentials
+
+Tools may declare an `environment_profile` the runtime prepares and the caller
+cannot. `git` gets its helper path, prompts disabled so a missing credential
+fails fast instead of hanging until the timeout, a private HOME inside runtime
+storage, and the platform CA path — probed across both the Android 14 Conscrypt
+APEX location and the older one. `gh` gets the helper directory on PATH so it
+finds the runtime's verified git, with prompts, pager and update checks off.
+
+A GitHub token is injected through git's environment-based config and through
+`GH_TOKEN`, never through argv. `https://TOKEN@github.com/...` is forbidden: it
+leaks the credential into the command line, into git's on-disk remote config,
+and into any error quoting the URL. Both values are redacted before any writer.
+
+A `transfer` timeout profile (30 minutes) was added, because a clone or a release
+upload is bounded by a network peer and must not share a utility command's budget.
+
+### Notable
+
+- curl is real curl. mbedTLS instead of OpenSSL is why the whole TLS stack costs
+  about 1.3 MB, and the same libcurl is linked into `git-remote-http`, so curl is
+  nearly free once git is present. This reverses the Foundation milestone's
+  deferral, on measurement rather than opinion.
+- gh's 56 MB is a sanctioned exception, not a precedent. yq was measured at
+  11.25 MB and left out on the size policy, since jq already covers JSON.
+- Three bionic portability issues had to be solved for git, none of them papered
+  over: no pthread cancellation (a documented no-op shim, which is correct where
+  nothing can be cancelled), no `sync_file_range`, and no separate `libpthread`.
+  `arc4random` was selected as the CSPRNG because bionic provides it natively.
+- The build-path privacy check was tightened. The old pattern matched any
+  `/root/` substring, so it false-positived on Go's own trimmed module paths like
+  `pkg/root/trusted_root.go`. It now tests for this build's actual home directory
+  plus boundary-anchored developer roots. It also caught Rust baking cargo
+  registry paths into ripgrep's panic strings, now fixed with a neutral
+  `CARGO_HOME` and `--remap-path-prefix`.
+
+### Not verified
+
+Physical validation is PENDING and is not claimed. In particular the
+`symlink_exec` assumption behind `git clone` has not been observed on hardware.
+
 ## 2026-08-30 — Managed Runtime Foundation (PHYSICAL PASS)
 
 Branch `feature/managed-runtime-foundation`, commit `ee236da`, based on

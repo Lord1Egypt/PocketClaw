@@ -49,9 +49,27 @@ Four things to hold on to:
   `gh` does not mean `gh` exists here — ask the runtime, and report accurately if
   it does not.
 
+Reason about the runtime by capability rather than by remembering binary names:
+
+| You need | Ask the runtime for |
+|---|---|
+| repository history, clone, commit, diff | `git` |
+| GitHub issues, pull requests, releases, API | `gh` |
+| recursive search across a source tree | `rg` |
+| JSON queries and transforms | `jq` |
+| a local SQLite database | `sqlite3` |
+| an HTTP or HTTPS request | `curl` |
+| everyday file and text work | the system tools in `action=list` |
+
 Runtime tools run without a shell. Arguments are passed through exactly as you
 write them, so pipes, redirection, globs and `$(...)` do nothing; use several
 calls instead of one composed command line.
+
+Never put a credential in an argument. Do not write a token into a URL such as
+`https://TOKEN@github.com/...`, and do not pass one with `-u` or `--password`.
+PocketClaw supplies GitHub credentials to `git` and `gh` itself when they are
+configured; if a command needs authentication and none is configured, say so
+rather than trying to supply one yourself.
 
 ## Working Principles
 

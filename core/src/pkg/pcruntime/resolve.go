@@ -73,6 +73,10 @@ type ResolvedTool struct {
 	ObservedSHA256  string
 	Diagnostics     string
 	ResolvedAt      time.Time
+
+	// HelperPaths maps each verified helper's logical name to its packaged
+	// payload. Set only when Availability is available.
+	HelperPaths map[string]string
 }
 
 // Available reports whether the tool can be executed.
@@ -357,10 +361,28 @@ func (r *Registry) resolveBundled(tool *Tool) *ResolvedTool {
 		return resolved
 	}
 
+	// A tool whose helper is missing or altered is not usable: git without a
+	// verified transport helper would fail at the first https:// URL, and
+	// reporting it available would move that failure somewhere less legible.
+	helperPaths, helperErr := r.verifyHelpers(tool)
+	if helperErr != nil {
+		resolved.Availability = AvailabilityUnavailable
+		resolved.UnavailableReason = helperErr.reason
+		resolved.Verification = helperErr.verification
+		resolved.Diagnostics = helperErr.Error()
+		emitError(EventVerifyFailed, map[string]any{
+			"tool":                tool.ToolID,
+			"verification_result": string(helperErr.verification),
+			"diagnostics":         helperErr.Error(),
+		})
+		return resolved
+	}
+
 	resolved.Availability = AvailabilityAvailable
 	resolved.Verification = VerificationSHA256Match
 	resolved.ExecutablePath = path
 	resolved.ResolvedVersion = tool.Version
+	resolved.HelperPaths = helperPaths
 	emitInfo(EventVerifyCompleted, map[string]any{
 		"tool":                tool.ToolID,
 		"tool_version":        tool.Version,
@@ -451,3 +473,81 @@ func hostSupportsManagedExecution() bool {
 
 // runtimeGOARCH is a seam for tests that need the host architecture name.
 func runtimeGOARCH() string { return runtime.GOARCH }
+
+// helperError carries the reason and verification outcome for a helper failure
+// so the caller can report it the same way as a main-payload failure.
+type helperError struct {
+	message      string
+	reason       UnavailableReason
+	verification VerificationResult
+}
+
+func (e *helperError) Error() string { return e.message }
+
+// verifyHelpers checks every distinct helper payload and returns the logical
+// name to path mapping the execution environment needs.
+func (r *Registry) verifyHelpers(tool *Tool) (map[string]string, *helperError) {
+	if len(tool.Helpers) == 0 {
+		return nil, nil
+	}
+
+	// Each payload is hashed once even when several logical names share it.
+	verified := make(map[string]string, len(tool.Helpers))
+	for libraryName, expected := range tool.helperPayloads() {
+		path := filepath.Join(r.paths.LibDir, libraryName)
+
+		info, err := os.Stat(path)
+		if err != nil {
+			return nil, &helperError{
+				message: fmt.Sprintf(
+					"%s needs helper payload %s, which was not unpacked into %s; "+
+						"the APK must ship it as lib/%s/%s",
+					tool.ToolID, libraryName, r.paths.LibDir, tool.ABI, libraryName,
+				),
+				reason:       ReasonNotInstalled,
+				verification: VerificationNotPerformed,
+			}
+		}
+		if info.Mode().Perm()&0o111 == 0 {
+			return nil, &helperError{
+				message:      fmt.Sprintf("%s is not executable", path),
+				reason:       ReasonNotExecutable,
+				verification: VerificationNotPerformed,
+			}
+		}
+		if err := verifyELFTarget(path, tool.ABI); err != nil {
+			return nil, &helperError{
+				message:      err.Error(),
+				reason:       ReasonABIMismatch,
+				verification: VerificationABIRejected,
+			}
+		}
+
+		sum, err := fileSHA256(path)
+		if err != nil {
+			return nil, &helperError{
+				message:      fmt.Sprintf("cannot read %s for verification: %v", path, err),
+				reason:       ReasonNotInstalled,
+				verification: VerificationNotPerformed,
+			}
+		}
+		if sum != expected {
+			return nil, &helperError{
+				message: fmt.Sprintf(
+					"helper payload %s does not match the pinned checksum for %s %s; "+
+						"the install is corrupt",
+					libraryName, tool.ToolID, tool.Version,
+				),
+				reason:       ReasonChecksumMismatch,
+				verification: VerificationSHA256Mismatch,
+			}
+		}
+		verified[libraryName] = path
+	}
+
+	paths := make(map[string]string, len(tool.Helpers))
+	for _, helper := range tool.Helpers {
+		paths[helper.LogicalName] = verified[helper.LibraryName]
+	}
+	return paths, nil
+}
