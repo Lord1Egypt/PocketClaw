@@ -64,8 +64,9 @@ abstract final class PocketClawHostBridge {
   /// question it can only answer while alive is the available signal.
   ///
   /// Returns `alive` only when the console has mounted and its root still has
-  /// content. Anything else — a thrown error, a null result, or a dead renderer
-  /// that never runs the script at all — means the page is not usable.
+  /// content. Anything else — a thrown error, a null result, or a page that
+  /// never runs the script at all — means the page is not usable. Which of
+  /// those happened is recorded; why it happened is not inferred.
   static const String livenessProbeScript = r"""
 (function () {
   try {
@@ -93,7 +94,7 @@ abstract final class PocketClawHostBridge {
 
   /// Whether a liveness probe result means the page is usable.
   ///
-  /// A dead renderer produces an error rather than a value, and
+  /// A page that cannot run script produces an error rather than a value, and
   /// `runJavaScriptReturningResult` returns platform-shaped values, so anything
   /// that is not an explicit `alive` is treated as unusable.
   static bool isAliveResult(Object? result) {

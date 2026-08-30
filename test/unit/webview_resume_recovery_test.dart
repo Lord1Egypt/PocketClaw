@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pocketclaw/src/ui/webview/pocketclaw_host_bridge.dart';
 
@@ -30,7 +32,7 @@ void main() {
       expect(script.contains('__pocketclawReady'), isTrue);
       expect(script.contains('childElementCount'), isTrue);
       // It must never throw out of the page; a throw is indistinguishable from
-      // a dead renderer and would misreport a live page.
+      // a page that cannot answer, and would misreport a live page.
       expect(script.contains('catch'), isTrue);
     });
   });
@@ -48,7 +50,7 @@ void main() {
     });
 
     test('anything that is not an in-app route is rejected', () {
-      // A dead renderer returns nothing; an absolute URL is not this console's
+      // A page that cannot answer returns nothing; an absolute URL is not this console's
       // route and must not be navigated to on its behalf.
       expect(PocketClawHostBridge.routeFromResult(null), isNull);
       expect(PocketClawHostBridge.routeFromResult(''), isNull);
@@ -61,6 +63,36 @@ void main() {
 
     test('the route script cannot throw out of the page', () {
       expect(PocketClawHostBridge.currentRouteScript.contains('catch'), isTrue);
+    });
+  });
+
+  group('diagnostic naming', () {
+    // webview_flutter_android 4.14.0 exposes no onRenderProcessGone callback,
+    // so this layer cannot tell a killed renderer from a failed JavaScript
+    // channel or a controller error. The log must therefore name what was
+    // observed and not the cause that seems likeliest, or it would read as
+    // evidence for a conclusion nobody actually reached.
+    test('the resume diagnostic names no cause it cannot observe', () {
+      final source = File(
+        'lib/src/ui/webview/webview_android.dart',
+      ).readAsStringSync();
+
+      for (final claim in [
+        'renderer_gone',
+        'renderer_died',
+        'renderer_killed',
+      ]) {
+        expect(
+          source.contains("'$claim'"),
+          isFalse,
+          reason:
+              'the diagnostic must not assert $claim; renderer death is not '
+              'observable through this plugin',
+        );
+      }
+
+      expect(source.contains("'probe_failed'"), isTrue);
+      expect(source.contains("'page_unresponsive'"), isTrue);
     });
   });
 }

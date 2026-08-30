@@ -20,10 +20,16 @@ Branch `feature/provider-resilience-failover`, on top of `ebf49b4`. Not merged.
 ### Still open
 
 Which failure mode actually occurs on the device. `webview_flutter_android`
-4.14.0 has no `onRenderProcessGone`, so renderer death cannot be observed
-directly — the new `[webview]` logs separate `renderer_gone` (probe threw) from
-`blank` (page answered but is empty, i.e. a console crash). Read those on the
-next occurrence before drawing a conclusion.
+4.14.0 has no `onRenderProcessGone`, so renderer death cannot be observed at all
+from this layer.
+
+The `[webview]` logs therefore record what was seen, not why:
+`frontend.resume.health_check result=probe_failed` means the page could not be
+asked, and `result=page_unresponsive` means it answered but is not rendering a
+console. A killed renderer is the most likely explanation for the first, but a
+failed JavaScript channel or a controller error look identical from here, so the
+log does not name a cause. Read these on the next occurrence and treat them as
+symptoms, not as a diagnosis.
 
 ## In progress — Fallback UI and automatic gateway restart (2026-08-30)
 

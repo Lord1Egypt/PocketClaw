@@ -202,7 +202,10 @@ class _WebViewAndroidState extends State<WebViewAndroid>
         PocketClawHostBridge.livenessProbeScript,
       );
     } catch (_) {
-      // A dead renderer cannot run script at all; the throw is the answer.
+      // The page did not answer. A killed renderer is the most likely reason,
+      // but it is not the only one — a failed JavaScript channel or a controller
+      // error look identical from here — so the log records what was observed
+      // rather than a cause that was inferred.
       probeFailed = true;
     }
 
@@ -212,8 +215,15 @@ class _WebViewAndroidState extends State<WebViewAndroid>
       return;
     }
 
+    // probe_failed: the page could not be asked at all.
+    // page_unresponsive: the page answered, but is not rendering a console.
+    //
+    // Neither name asserts a renderer death, because
+    // webview_flutter_android 4.14.0 has no onRenderProcessGone callback and
+    // this layer cannot distinguish a killed renderer from any other reason the
+    // page went quiet.
     _logLifecycle('frontend.resume.health_check', {
-      'result': probeFailed ? 'renderer_gone' : 'blank',
+      'result': probeFailed ? 'probe_failed' : 'page_unresponsive',
     });
 
     if (_consecutiveFailedRecoveries >= _maxConsecutiveRecoveries) {
@@ -232,8 +242,8 @@ class _WebViewAndroidState extends State<WebViewAndroid>
     _logLifecycle('frontend.resume.recovery.started');
 
     // Reload the route the user was on rather than the console's home page. A
-    // dead renderer cannot report its route, so the last URL observed through
-    // onUrlChange is the fallback.
+    // page that cannot answer the probe cannot report its route either, so the
+    // last URL observed through onUrlChange is the fallback.
     var target = _loadedUrl ?? widget.url;
     try {
       final route = PocketClawHostBridge.routeFromResult(
@@ -245,7 +255,8 @@ class _WebViewAndroidState extends State<WebViewAndroid>
         target = Uri.parse(widget.url).replace(path: route).toString();
       }
     } catch (_) {
-      // Expected when the renderer is gone; the observed URL still applies.
+      // Expected whenever the page is not answering; the observed URL still
+      // applies.
     }
 
     try {

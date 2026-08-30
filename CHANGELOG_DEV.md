@@ -58,8 +58,11 @@ still completes before a configuration restart runs.
 
 ### Not verified
 
-Physical validation is PENDING. The new `[webview]` lifecycle logs are what
-should distinguish renderer death from a console crash on the next occurrence.
+Physical validation is PENDING. The new `[webview]` lifecycle logs record what
+was observed rather than a cause: `probe_failed` means the page could not be
+asked at all, `page_unresponsive` means it answered but is not rendering. A
+killed renderer is the likeliest reading of the first, but this layer cannot
+prove it, so the logs do not claim it.
 
 ## 2026-08-30 — Fallback models UI and automatic gateway restart (physical PENDING)
 
