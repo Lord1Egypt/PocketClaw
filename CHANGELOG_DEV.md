@@ -1,5 +1,86 @@
 # Development Changelog
 
+## 2026-08-30 — Lean Runtime Pack v2 (physical validation PENDING)
+
+Branch `feature/lean-runtime-pack-v2`, from `develop` at `fa27ad2`. Not merged,
+not released, `main` untouched.
+
+Six bundled tools now ship, and the runtime learned two things it needed in
+order to carry them: helper payloads and per-tool environment profiles.
+
+### What ships
+
+| Tool | Version | Installed | License |
+|---|---|---:|---|
+| git | 2.51.0 | 3.23 MB | GPL-2.0-only |
+| git-remote-http | (same build) | 2.98 MB | GPL-2.0-only |
+| gh | 2.82.1 | 55.9 MB | MIT |
+| curl | 8.11.1 | 1.30 MB | curl licence + Apache-2.0 (mbedTLS) |
+| ripgrep | 14.1.1 | 4.27 MB | MIT / Unlicense |
+| sqlite3 | 3.50.4 | 1.23 MB | public domain |
+
+`zip`, `unzip`, `diff`, `patch`, `file` and `tree` were added as `system`
+entries costing nothing: shipping a catalog entry *is* the probe, and the
+physical run will report which the platform provides.
+
+### Helper payloads
+
+git looks its transport helper up as `git-remote-https` inside `GIT_EXEC_PATH`,
+and Android's package manager only unpacks `lib/<abi>/*.so`, so no packaged file
+can carry that name. A catalog entry now declares helpers by logical name; the
+runtime verifies each payload's checksum and ABI alongside the main one and, at
+execution time, builds a directory of **symlinks** to them.
+
+Nothing is written into app storage and executed — the kernel resolves the link
+and runs the read-only packaged file — so the delivery model is unchanged. This
+is the one platform assumption v2 rests on, so the probe now also reports
+`symlink_exec` on every device instead of it being trusted.
+
+A tool whose helper fails verification resolves as *unavailable*. git with an
+unverified transport helper would otherwise look installed and fail at its first
+`https://` URL, which is a much harder failure to read.
+
+### Environment profiles and credentials
+
+Tools may declare an `environment_profile` the runtime prepares and the caller
+cannot. `git` gets its helper path, prompts disabled so a missing credential
+fails fast instead of hanging until the timeout, a private HOME inside runtime
+storage, and the platform CA path — probed across both the Android 14 Conscrypt
+APEX location and the older one. `gh` gets the helper directory on PATH so it
+finds the runtime's verified git, with prompts, pager and update checks off.
+
+A GitHub token is injected through git's environment-based config and through
+`GH_TOKEN`, never through argv. `https://TOKEN@github.com/...` is forbidden: it
+leaks the credential into the command line, into git's on-disk remote config,
+and into any error quoting the URL. Both values are redacted before any writer.
+
+A `transfer` timeout profile (30 minutes) was added, because a clone or a release
+upload is bounded by a network peer and must not share a utility command's budget.
+
+### Notable
+
+- curl is real curl. mbedTLS instead of OpenSSL is why the whole TLS stack costs
+  about 1.3 MB, and the same libcurl is linked into `git-remote-http`, so curl is
+  nearly free once git is present. This reverses the Foundation milestone's
+  deferral, on measurement rather than opinion.
+- gh's 56 MB is a sanctioned exception, not a precedent. yq was measured at
+  11.25 MB and left out on the size policy, since jq already covers JSON.
+- Three bionic portability issues had to be solved for git, none of them papered
+  over: no pthread cancellation (a documented no-op shim, which is correct where
+  nothing can be cancelled), no `sync_file_range`, and no separate `libpthread`.
+  `arc4random` was selected as the CSPRNG because bionic provides it natively.
+- The build-path privacy check was tightened. The old pattern matched any
+  `/root/` substring, so it false-positived on Go's own trimmed module paths like
+  `pkg/root/trusted_root.go`. It now tests for this build's actual home directory
+  plus boundary-anchored developer roots. It also caught Rust baking cargo
+  registry paths into ripgrep's panic strings, now fixed with a neutral
+  `CARGO_HOME` and `--remap-path-prefix`.
+
+### Not verified
+
+Physical validation is PENDING and is not claimed. In particular the
+`symlink_exec` assumption behind `git clone` has not been observed on hardware.
+
 ## 2026-08-30 — Managed Runtime Foundation (PHYSICAL PASS)
 
 Branch `feature/managed-runtime-foundation`, commit `ee236da`, based on

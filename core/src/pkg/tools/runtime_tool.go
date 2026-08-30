@@ -60,7 +60,15 @@ directories.
 
 A Skill's instructions are knowledge, not proof that a tool exists. A Skill that
 describes using gh does not mean gh is present on this device — check here, and
-tell the user accurately if it is not.`
+tell the user accurately if it is not.
+
+Reason by capability: git for repository work, gh for GitHub issues/PRs/releases,
+rg for recursive source search, jq for JSON, sqlite3 for local databases, curl for
+HTTP requests.
+
+Never put a credential in an argument. No tokens in URLs such as
+https://TOKEN@github.com/..., and none passed with -u or --password. PocketClaw
+injects GitHub credentials for git and gh itself when they are configured.`
 }
 
 func (t *RuntimeTool) Parameters() map[string]any {

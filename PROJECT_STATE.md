@@ -1,5 +1,46 @@
 # PocketClaw Project State
 
+## Lean Runtime Pack v2 — in progress, PHYSICAL PENDING
+
+Branch `feature/lean-runtime-pack-v2`, from `develop` at `fa27ad2`. Not merged.
+Not released. `main` untouched; `v0.2.0-rc1`, `v0.2.0-rc2` and
+`phase2-milestone-d` not moved.
+
+Six bundled tools now ship. Full architecture in `RUNTIME.md`.
+
+| Tool | Version | Installed | License |
+|---|---|---:|---|
+| git + git-remote-http | 2.51.0 | 6.21 MB | GPL-2.0-only |
+| gh | 2.82.1 | 55.9 MB | MIT |
+| curl (mbedTLS) | 8.11.1 | 1.30 MB | curl + Apache-2.0 |
+| ripgrep | 14.1.1 | 4.27 MB | MIT / Unlicense |
+| sqlite3 | 3.50.4 | 1.23 MB | public domain |
+| jq (from v1) | 1.7.1 | 0.77 MB | MIT |
+
+APK 34,727,724 -> 58,302,215 bytes. Catalog 44 -> 55 tools.
+
+### Two things a reader should know
+
+**git's transport helper is presented by symlink.** Android cannot package a
+file named `git-remote-https`, so the runtime builds a directory of symlinks to
+the packaged payloads and points `GIT_EXEC_PATH` at it. Nothing is written into
+app storage and executed. This is the **one platform assumption v2 rests on**,
+and it is unproven on hardware — the probe now reports `symlink_exec` on every
+device so the answer appears in the Debug Logs rather than being trusted.
+
+**gh's 55.9 MB is a sanctioned exception, not a precedent.** The user accepted it
+explicitly because GitHub capability is core to the agent. The size policy still
+binds everything else: yq was measured at 11.25 MB and left out on that basis,
+since jq already covers JSON.
+
+### Verification
+
+Automated: `go vet` and `go test` green across Core, `flutter analyze` clean,
+Flutter tests passing, all seven bundled payloads extracted from the built
+release APK hashing to their catalog pins, and the arm64 guard listing every one.
+
+Physical: **PENDING**, and not claimed.
+
 ## Managed Runtime Foundation — PHYSICAL PASS
 
 Branch `feature/managed-runtime-foundation`, commit `ee236da`, based on

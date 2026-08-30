@@ -681,8 +681,12 @@ writable executable storage. Tools 18, Skills 7/7.
 
 ## Phase 2 — Lean Runtime Pack v2
 
-Branch `feature/lean-runtime-pack-v2`, from `develop` after the Foundation merge.
+Branch `feature/lean-runtime-pack-v2`, from `develop` at `fa27ad2`.
 Not merged; physical validation PENDING.
+
+Six bundled tools ship: git 2.51.0 with its transport helper, gh 2.82.1,
+curl 8.11.1, ripgrep 14.1.1 and sqlite3 3.50.4, alongside the jq from v1.
+APK 34.7 MB -> 58.3 MB. Six more system entries were added at zero cost.
 
 The goal is maximum Agent capability per megabyte. PocketClaw is not becoming a
 Linux distribution: no apt, no proot, no Python or Node runtime, no compiler
@@ -690,29 +694,40 @@ toolchain, no background package manager. Android's own system tools plus a smal
 number of high-value bundled executables, with native Go capability preferred
 wherever it is lighter than a binary.
 
-### Tier A — investigate and, if sound, ship
+### Tier A
 
-- [ ] Git over HTTPS. Highest priority. Needs an Android-compatible packaged
-  layout for its helper executables, which `nativeLibraryDir`'s flat `lib*.so`
-  namespace does not naturally provide.
-- [ ] GitHub CLI (`gh`). Size is acceptable if the ARM64 build is stable,
-  provenance pinned and hash-verified, and Git integration works.
-- [ ] HTTP/TLS capability: real `curl` versus a native Go capability in Core.
-  A lightweight in-process tool must not be called `curl` unless it is actually
-  curl-compatible.
-- [ ] ripgrep (`rg`).
-- [ ] `yq`, only if its size is justified beside the jq already shipped.
-- [ ] `sqlite3`, restricted to workspace and app-owned databases.
+- [x] Git over HTTPS. Packaged as `libpocketclaw-git.so` plus
+  `libpocketclaw-git-remote-http.so`; the runtime presents the helper under its
+  logical name through a symlink directory pointed at by `GIT_EXEC_PATH`.
+- [x] GitHub CLI (`gh`). 55.9 MB installed, accepted as a sanctioned exception.
+- [x] HTTP/TLS: real curl 8.11.1 against mbedTLS, 1.30 MB. The native-Go
+  alternative was rejected once curl proved this cheap.
+- [x] ripgrep 14.1.1, 4.27 MB.
+- [x] sqlite3 3.50.4, 1.23 MB, built with `SQLITE_OMIT_LOAD_EXTENSION` so it
+  cannot load a shared library the runtime never verified.
+- [ ] `yq` — measured at 11.25 MB, above the size policy, and jq already covers
+  JSON. Left out; revisit only if YAML handling proves to matter.
 
-### Tier B — probe the system image before bundling anything
+### Tier B — probed rather than bundled
 
-- [ ] `zip`, `unzip`, `diff`, `patch`, `file`, `tree`. Do not duplicate what
-  Android already provides.
+- [x] `zip`, `unzip`, `diff`, `patch`, `file`, `tree` added as `system` catalog
+  entries at zero cost. Shipping the entry *is* the probe: the physical run
+  reports which the platform provides. Bundle one only if a device is shown not
+  to have it.
 
 ### Tier C — deferred
 
 OpenSSH suite (reconsider after HTTPS Git is stable), `rsync`, Python, Node,
 npm, a full bash runtime, `make`, compilers, ffmpeg, ImageMagick.
+
+### Open for physical validation
+
+- [ ] **`symlink_exec`** — whether Android permits executing through a symlink in
+  app-private storage that points at a packaged payload. `git clone` over HTTPS
+  depends on it, and the probe now reports it in the Debug Logs. If a device
+  refuses it, git's transport helper cannot be presented this way and the
+  fallback is a documented patch to git's helper lookup.
+- [ ] Everything else in the physical acceptance list below.
 
 ### Rules that carry over
 

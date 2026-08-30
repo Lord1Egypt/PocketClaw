@@ -1,6 +1,6 @@
 {
   "runtime_version": 1,
-  "catalog_version": "1.1.0",
+  "catalog_version": "2.0.0",
   "tools": [
     {
       "tool_id": "cat",
@@ -675,6 +675,232 @@
       "max_output_bytes": 1048576,
       "security_class": "bundled_verified",
       "library_name": "libpocketclaw-jq.so"
+    },
+    {
+      "tool_id": "git",
+      "display_name": "git",
+      "command_name": "git",
+      "version": "2.51.0",
+      "abi": "arm64-v8a",
+      "delivery_type": "bundled",
+      "trusted_source": "https://github.com/git/git/archive/refs/tags/v2.51.0.tar.gz",
+      "sha256": "b3e905b81a46d5903ca22ebb169ee7698984384ff2f30a9ac0009490f8d7b66b",
+      "capabilities": [
+        "vcs.repository",
+        "vcs.history",
+        "vcs.transport.https",
+        "network.https"
+      ],
+      "timeout_profile": "transfer",
+      "max_output_bytes": 4194304,
+      "security_class": "bundled_verified",
+      "library_name": "libpocketclaw-git.so",
+      "helpers": [
+        {
+          "logical_name": "git-remote-http",
+          "library_name": "libpocketclaw-git-remote-http.so",
+          "sha256": "9790f8179d62c52f3d7a2f757103383a1120537fe7bdc40b9efed49d7a2b5200"
+        },
+        {
+          "logical_name": "git-remote-https",
+          "library_name": "libpocketclaw-git-remote-http.so",
+          "sha256": "9790f8179d62c52f3d7a2f757103383a1120537fe7bdc40b9efed49d7a2b5200"
+        }
+      ],
+      "environment_profile": "git"
+    },
+    {
+      "tool_id": "gh",
+      "display_name": "GitHub CLI",
+      "command_name": "gh",
+      "version": "2.82.1",
+      "abi": "arm64-v8a",
+      "delivery_type": "bundled",
+      "trusted_source": "https://github.com/cli/cli/archive/refs/tags/v2.82.1.tar.gz",
+      "sha256": "db1b85d5a15092b046e46dc0ba291ff6abb5fa778d593359ab5397a28f5990d3",
+      "capabilities": [
+        "github.api",
+        "github.repository",
+        "github.issues",
+        "github.pull_requests",
+        "github.releases",
+        "network.https"
+      ],
+      "timeout_profile": "transfer",
+      "max_output_bytes": 4194304,
+      "security_class": "bundled_verified",
+      "library_name": "libpocketclaw-gh.so",
+      "helpers": [
+        {
+          "logical_name": "git",
+          "library_name": "libpocketclaw-git.so",
+          "sha256": "b3e905b81a46d5903ca22ebb169ee7698984384ff2f30a9ac0009490f8d7b66b"
+        },
+        {
+          "logical_name": "git-remote-http",
+          "library_name": "libpocketclaw-git-remote-http.so",
+          "sha256": "9790f8179d62c52f3d7a2f757103383a1120537fe7bdc40b9efed49d7a2b5200"
+        },
+        {
+          "logical_name": "git-remote-https",
+          "library_name": "libpocketclaw-git-remote-http.so",
+          "sha256": "9790f8179d62c52f3d7a2f757103383a1120537fe7bdc40b9efed49d7a2b5200"
+        }
+      ],
+      "environment_profile": "gh"
+    },
+    {
+      "tool_id": "curl",
+      "display_name": "curl",
+      "command_name": "curl",
+      "version": "8.11.1",
+      "abi": "arm64-v8a",
+      "delivery_type": "bundled",
+      "trusted_source": "https://github.com/curl/curl/releases/download/curl-8_11_1/curl-8.11.1.tar.xz",
+      "sha256": "0da29feaef9865014c48b3e4d54add375c79693bcb61607096338fbd69a20194",
+      "capabilities": [
+        "network.https",
+        "network.http",
+        "network.download",
+        "network.tls_inspect"
+      ],
+      "timeout_profile": "transfer",
+      "max_output_bytes": 4194304,
+      "security_class": "bundled_verified",
+      "library_name": "libpocketclaw-curl.so"
+    },
+    {
+      "tool_id": "rg",
+      "display_name": "ripgrep",
+      "command_name": "rg",
+      "version": "14.1.1",
+      "abi": "arm64-v8a",
+      "delivery_type": "bundled",
+      "trusted_source": "https://github.com/BurntSushi/ripgrep/archive/refs/tags/14.1.1.tar.gz",
+      "sha256": "7dfcc880667642d9d3f4b5d7955bfae8602e5f76796144c556cba9f0aab1c73a",
+      "capabilities": [
+        "text.search",
+        "text.regex",
+        "filesystem.read"
+      ],
+      "timeout_profile": "standard",
+      "max_output_bytes": 4194304,
+      "security_class": "bundled_verified",
+      "library_name": "libpocketclaw-rg.so"
+    },
+    {
+      "tool_id": "sqlite3",
+      "display_name": "SQLite",
+      "command_name": "sqlite3",
+      "version": "3.50.4",
+      "abi": "arm64-v8a",
+      "delivery_type": "bundled",
+      "trusted_source": "https://sqlite.org/2025/sqlite-amalgamation-3500400.zip",
+      "sha256": "6a5d6c3d9dc6da31235908084b076ce9c02ef51f2c35857f768e2d84a2ab286e",
+      "capabilities": [
+        "database.sqlite",
+        "database.query",
+        "filesystem.read",
+        "filesystem.write"
+      ],
+      "timeout_profile": "standard",
+      "max_output_bytes": 4194304,
+      "security_class": "bundled_verified",
+      "library_name": "libpocketclaw-sqlite3.so"
+    },
+    {
+      "tool_id": "zip",
+      "display_name": "zip",
+      "command_name": "zip",
+      "version": "platform",
+      "abi": "arm64-v8a",
+      "delivery_type": "system",
+      "trusted_source": "android-system-image:/system/bin",
+      "capabilities": [
+        "archive.transform",
+        "filesystem.write"
+      ],
+      "timeout_profile": "extended",
+      "max_output_bytes": 262144,
+      "security_class": "system"
+    },
+    {
+      "tool_id": "unzip",
+      "display_name": "unzip",
+      "command_name": "unzip",
+      "version": "platform",
+      "abi": "arm64-v8a",
+      "delivery_type": "system",
+      "trusted_source": "android-system-image:/system/bin",
+      "capabilities": [
+        "archive.transform",
+        "filesystem.write"
+      ],
+      "timeout_profile": "extended",
+      "max_output_bytes": 1048576,
+      "security_class": "system"
+    },
+    {
+      "tool_id": "diff",
+      "display_name": "diff",
+      "command_name": "diff",
+      "version": "platform",
+      "abi": "arm64-v8a",
+      "delivery_type": "system",
+      "trusted_source": "android-system-image:/system/bin",
+      "capabilities": [
+        "text.compare"
+      ],
+      "timeout_profile": "standard",
+      "max_output_bytes": 1048576,
+      "security_class": "system"
+    },
+    {
+      "tool_id": "patch",
+      "display_name": "patch",
+      "command_name": "patch",
+      "version": "platform",
+      "abi": "arm64-v8a",
+      "delivery_type": "system",
+      "trusted_source": "android-system-image:/system/bin",
+      "capabilities": [
+        "text.transform",
+        "filesystem.write"
+      ],
+      "timeout_profile": "standard",
+      "max_output_bytes": 262144,
+      "security_class": "system"
+    },
+    {
+      "tool_id": "file",
+      "display_name": "file",
+      "command_name": "file",
+      "version": "platform",
+      "abi": "arm64-v8a",
+      "delivery_type": "system",
+      "trusted_source": "android-system-image:/system/bin",
+      "capabilities": [
+        "filesystem.read",
+        "system.inspect"
+      ],
+      "timeout_profile": "quick",
+      "max_output_bytes": 262144,
+      "security_class": "system"
+    },
+    {
+      "tool_id": "tree",
+      "display_name": "tree",
+      "command_name": "tree",
+      "version": "platform",
+      "abi": "arm64-v8a",
+      "delivery_type": "system",
+      "trusted_source": "android-system-image:/system/bin",
+      "capabilities": [
+        "filesystem.read"
+      ],
+      "timeout_profile": "standard",
+      "max_output_bytes": 1048576,
+      "security_class": "system"
     }
   ]
 }

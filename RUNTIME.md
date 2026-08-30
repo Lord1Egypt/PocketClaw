@@ -199,6 +199,86 @@ grep sed awk cut sort uniq head tail wc xargs tee which env printenv date sleep
 timeout ps uname df du base64 sha256sum md5sum tar gzip gunzip`, plus the network
 diagnostics Android plausibly provides: `ping traceroute ip netstat`.
 
+## Helper payloads
+
+Some tools invoke auxiliary executables by a logical name the APK cannot use as
+a filename. git looks its transport helper up as `git-remote-https` inside
+`GIT_EXEC_PATH`, and Android's package manager only unpacks `lib/<abi>/*.so`, so
+no packaged file can carry that name.
+
+A catalog entry therefore declares its helpers:
+
+```json
+"helpers": [
+  {"logical_name": "git-remote-http",  "library_name": "libpocketclaw-git-remote-http.so", "sha256": "..."},
+  {"logical_name": "git-remote-https", "library_name": "libpocketclaw-git-remote-http.so", "sha256": "..."}
+]
+```
+
+Several logical names may share one payload — `git-remote-http` and
+`git-remote-https` are the same binary upstream — and the catalog is rejected at
+build time if it pins two different checksums for the same payload. Every helper
+is hashed and ABI-checked alongside the main payload, and a tool whose helper
+fails verification resolves as *unavailable*. That matters: git with an
+unverified transport helper would look installed and then fail at its first
+`https://` URL, which is a far harder failure to read than "unavailable,
+checksum mismatch".
+
+At execution time the runtime builds a directory of **symlinks** to the packaged
+payloads and points `GIT_EXEC_PATH` at it. The distinction is the whole design:
+a symlink is not an executable, so nothing is ever written into app storage and
+run — the kernel resolves the link and executes the read-only packaged file.
+Logical names are validated as filenames, never paths, so a catalog entry cannot
+place a link outside that directory. Stale links are repaired rather than reused,
+because an app update moves `nativeLibraryDir`.
+
+**This is the one platform assumption v2 rests on**, and it is measured rather
+than trusted: `ProbeExecution` also reports `symlink_exec`, so every device's
+Debug Logs say whether execution through such a symlink is permitted.
+
+## Environment profiles
+
+Tools that need more than the base allowlist declare an `environment_profile`.
+The runtime prepares it; the caller cannot. Profile values are applied over the
+inherited allowlist and before caller additions, but the denied list still wins,
+so a caller cannot reach `PATH` or `LD_PRELOAD` by way of a profile.
+
+- **`git`** sets `GIT_EXEC_PATH` to the helper directory, `GIT_TERMINAL_PROMPT=0`
+  and an empty `GIT_ASKPASS` so a missing credential fails fast instead of
+  hanging until the timeout, `GIT_CONFIG_NOSYSTEM=1`, a private `HOME` inside
+  runtime metadata storage, and `GIT_SSL_CAPATH` from the platform store.
+- **`gh`** puts the helper directory on `PATH` so gh finds the runtime's verified
+  git rather than whatever the platform exposes, and disables prompts, the pager
+  and update checks.
+
+### Credentials
+
+A GitHub token is read from `POCKETCLAW_GITHUB_TOKEN`, or from
+`credentials/github_token` under runtime metadata storage — app-private and
+outside the user workspace. The environment is checked first so the Android
+Service can pass a credential it holds without it ever touching disk.
+
+It is injected through **git's environment-based config**, never argv:
+
+```
+GIT_CONFIG_COUNT=1
+GIT_CONFIG_KEY_0=http.https://github.com/.extraheader
+GIT_CONFIG_VALUE_0=Authorization: Basic <base64>
+```
+
+This is deliberately not `https://TOKEN@github.com/...`, which leaks the token
+into the command line where any process listing can read it, into git's own
+remote config on disk, and into any error message that quotes the URL. gh
+receives `GH_TOKEN` the same way. Both are redacted before any log writer sees
+them.
+
+### Certificate store
+
+Android 14 moved the system certificates into the Conscrypt APEX, so the runtime
+probes `/apex/com.android.conscrypt/cacerts` and then
+`/system/etc/security/cacerts` and uses whichever exists. A single hard-coded
+path would silently break TLS on either older or newer devices.
+
 ### Physically observed on hardware, 2026-08-30
 
 **43 of 44** catalog tools resolved as available on the tested ARM64 device.
@@ -218,15 +298,39 @@ only directory the app may execute from. A payload under any other name would
 ship inside the APK and never be runnable. The catalog format enforces the naming
 rule at build time rather than letting such a tool ship and fail on every device.
 
-Not in this milestone, with reasons:
+## Runtime Pack v2
 
-- **curl, wget, openssl** — no system binary exists and each needs an NDK
-  cross-build with a TLS stack. Deferred as the highest-effort items.
-- **git** — C, and it `exec`s helpers (`git-remote-https`, `git-http-fetch`) from
-  a `libexec` layout that `nativeLibraryDir`'s flat `lib*.so` namespace cannot
-  represent.
-- **gh** — pure Go and easy to cross-compile, but roughly 40 MB and of little use
-  without `git`.
+| Tool | Version | Installed | Why |
+|---|---|---:|---|
+| git | 2.51.0 | 3.23 MB | repository work over HTTPS |
+| git-remote-http | (same build) | 2.98 MB | git's transport helper |
+| gh | 2.82.1 | 55.9 MB | GitHub issues, PRs, releases, API |
+| curl | 8.11.1 | 1.30 MB | HTTP and HTTPS requests |
+| ripgrep | 14.1.1 | 4.27 MB | recursive source search |
+| sqlite3 | 3.50.4 | 1.23 MB | local databases |
+
+`gh` is a deliberate strategic exception to the size policy, accepted because
+GitHub capability is core to the agent. It is **not** a precedent: any other
+single tool above roughly 10 MB installed needs its own justification.
+
+curl is real curl, not a lookalike. It links mbedTLS rather than OpenSSL, which
+is why the entire TLS stack costs about 1.3 MB, and the same libcurl is what
+`git-remote-http` uses — so curl the binary is nearly free once git is present.
+
+`zip`, `unzip`, `diff`, `patch`, `file` and `tree` are catalogued as `system`
+entries costing zero bytes. Shipping them *is* the probe: the resolver measures
+each device and reports what the platform actually provides, the way `traceroute`
+reported itself unavailable.
+
+Still not shipped, with reasons:
+
+- **yq** — 11.25 MB installed for YAML alone, above the size policy, and jq
+  already covers JSON. Revisit if YAML handling proves to matter.
+- **wget** — curl covers the same ground.
+- **OpenSSH, rsync** — deferred. SSH is worth reconsidering once HTTPS git is
+  proven on hardware.
+- **Python, Node, npm, compilers, ffmpeg, ImageMagick** — out of scope.
+  PocketClaw is not becoming a Linux distribution.
 - **dig, host, nslookup, ss** — Android does not ship them, and listing catalog
   entries that can only ever probe unavailable would be noise, not information.
 

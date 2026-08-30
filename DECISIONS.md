@@ -1,5 +1,73 @@
 # PocketClaw Decisions
 
+## Helper executables are presented by symlink, never by copy
+
+- Date: 2026-08-30
+- Decision: A tool that invokes auxiliary executables by a logical name the APK
+  cannot use as a filename — git looking up `git-remote-https` in
+  `GIT_EXEC_PATH` — gets a runtime-built directory of symlinks pointing at its
+  packaged payloads. Helper payloads are hashed and ABI-checked exactly like the
+  main one, and a tool whose helper fails verification resolves as unavailable.
+- Consequence: Nothing is ever written into app storage and executed; the kernel
+  resolves the link and runs the read-only packaged file, so the delivery model
+  is unchanged. This is the single platform assumption Pack v2 rests on, so
+  `ProbeExecution` measures it as `symlink_exec` on every device rather than
+  trusting it. If a device refuses it, `git clone` over HTTPS cannot work there
+  and the runtime will say so instead of failing obscurely. Logical names are
+  validated as filenames and never paths, so a catalog entry cannot place a link
+  outside the helper directory.
+
+## Credentials reach git and gh through the environment, never argv
+
+- Date: 2026-08-30
+- Decision: A GitHub token is read from `POCKETCLAW_GITHUB_TOKEN` or from
+  app-private runtime storage and injected via git's
+  `GIT_CONFIG_COUNT`/`GIT_CONFIG_KEY_n`/`GIT_CONFIG_VALUE_n` mechanism, and via
+  `GH_TOKEN` for gh. Both are marked secret and redacted before any log writer
+  sees them.
+- Consequence: `https://TOKEN@github.com/...` is forbidden and must not be
+  reintroduced as a convenience. It leaks the credential three ways at once —
+  into the command line where any process listing can read it, into git's remote
+  config on disk, and into every error message that quotes the URL. The
+  environment-config form leaks none of them. The agent is told not to supply
+  credentials itself, because the runtime already does.
+
+## curl is real curl, and mbedTLS is why it is affordable
+
+- Date: 2026-08-30
+- Decision: curl 8.11.1 is bundled, built against mbedTLS rather than OpenSSL.
+  The finished binary is about 1.3 MB because zlib comes from the Android system
+  image and mbedTLS is a fraction of OpenSSL's size.
+- Consequence: This reverses the Foundation milestone's deferral of curl, on
+  measurement rather than opinion — the estimate there was several megabytes and
+  a heavy dependency chain. The same libcurl is statically linked into
+  `git-remote-http`, so curl the binary is nearly free once git is present. A
+  lightweight in-house HTTP tool was rejected: it would have had to be called
+  something other than `curl`, and would have cost more to maintain than 1.3 MB.
+
+## gh's 56 MB is a sanctioned exception, not a precedent
+
+- Date: 2026-08-30
+- Decision: gh 2.82.1 ships at roughly 56 MB installed and 16.5 MB compressed,
+  taking the APK from about 35 MB to about 57 MB. The user accepted this
+  explicitly because Git and GitHub capability is core to the agent.
+- Consequence: The size policy still stands for everything else — any other
+  single tool above roughly 10 MB installed needs its own justification before
+  inclusion. yq was measured at 11.25 MB and left out on exactly that basis,
+  since jq already covers JSON. Do not cite gh as a reason to bundle the next
+  large tool.
+
+## Tier 1 growth is probed, not bundled
+
+- Date: 2026-08-30
+- Decision: `zip`, `unzip`, `diff`, `patch`, `file` and `tree` were added as
+  `system` catalog entries rather than bundled payloads.
+- Consequence: They cost zero bytes and the resolver reports per device what the
+  platform actually provides, so the physical run tells us which are worth
+  bundling instead of us guessing. Shipping a catalog entry *is* the probe. Only
+  bundle one of these if a device is shown not to provide it and the capability
+  is genuinely needed.
+
 ## An inconclusive writable-exec probe is information, not a blocker
 
 - Date: 2026-08-30

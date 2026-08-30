@@ -1,5 +1,67 @@
 # PocketClaw Session Handoff
 
+## In progress — Lean Runtime Pack v2 (2026-08-30)
+
+Branch `feature/lean-runtime-pack-v2`, from `develop` at `fa27ad2`. Not merged,
+not released, `main` untouched. **Physical validation PENDING and not claimed.**
+Read `RUNTIME.md` first.
+
+git 2.51.0, gh 2.82.1, curl 8.11.1, ripgrep 14.1.1 and sqlite3 3.50.4 now ship
+alongside jq. APK 34.7 MB -> 58.3 MB.
+
+### The one thing that could sink this milestone
+
+`git clone` over HTTPS depends on **executing through a symlink** in app-private
+storage that points at a packaged payload. Android cannot package a file named
+`git-remote-https`, so the runtime builds a symlink directory and points
+`GIT_EXEC_PATH` at it. A symlink is not an executable — the kernel resolves it
+and runs the read-only packaged file — so this should be permitted where writing
+a real executable is not.
+
+**That has not been observed on hardware.** `ProbeExecution` now reports
+`symlink_exec` in the Debug Logs of every device. Check it first on the physical
+run. If it comes back `blocked`, git's transport helper cannot be presented this
+way and the fallback is a documented patch to git's helper lookup — do not try
+to copy the helper into app storage instead, which is the one thing Android
+definitely refuses.
+
+### What a next session must not undo
+
+- **No credential ever goes in argv.** git gets its token through
+  `GIT_CONFIG_COUNT`/`GIT_CONFIG_KEY_n`/`GIT_CONFIG_VALUE_n`, gh through
+  `GH_TOKEN`. Do not "simplify" this to `https://TOKEN@github.com/...`: that
+  leaks the credential into the command line, into git's on-disk remote config,
+  and into any error quoting the URL.
+- **Helper payloads are verified like main payloads.** A tool whose helper fails
+  its checksum resolves unavailable on purpose. git with an unverified transport
+  helper looks installed and then fails at the first `https://` URL.
+- **gh is not a precedent.** Anything else above roughly 10 MB installed needs
+  its own justification. yq was rejected at 11.25 MB with jq already present.
+- **The build-path privacy check is deliberately narrow.** It tests for this
+  build's own home directory plus boundary-anchored developer roots. A bare
+  `/root/` search false-positives on Go's trimmed module paths such as
+  `pkg/root/trusted_root.go`. Do not widen it back.
+- **curl is real curl.** Do not replace it with a lookalike, and do not name any
+  in-house HTTP tool `curl`.
+
+### Where things are
+
+- `runtime/android-build-env.sh` — shared cross-build setup and the
+  strip/verify/install step every payload goes through.
+- `runtime/build-{curl,git,ripgrep,sqlite3,gh}-android-arm64.sh` — one per
+  payload. Run curl before git; git links the libcurl it leaves behind.
+- `runtime/patches/git-android-pthread-cancel.h` — the bionic shim, and the only
+  PocketClaw modification to git's source. It is also what satisfies the GPL
+  source-offer obligation alongside the pinned tarball.
+- `core/src/pkg/pcruntime/{helpers,environment}.go` — the symlink farm and the
+  per-tool environment profiles.
+
+### Next
+
+Physical validation, then merge. After that, SSH is worth reconsidering now that
+HTTPS git exists, and the deferred release-engineering items in `TASKS.md` still
+stand, including the high-priority `extractBinaryFromApk()` dead path.
+
 ## Shipped — Managed Runtime Foundation (2026-08-30, PHYSICAL PASS)
 
 Branch `feature/managed-runtime-foundation`, commit `ee236da`, based on

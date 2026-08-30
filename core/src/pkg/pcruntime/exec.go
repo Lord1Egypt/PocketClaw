@@ -203,7 +203,11 @@ func (m *Manager) Execute(ctx context.Context, req ExecRequest) (*ExecResult, er
 	if err != nil {
 		return nil, err
 	}
-	environment, err := buildEnvironment(req.EnvironmentAdditions)
+	prepared, err := m.prepareEnvironment(resolved)
+	if err != nil {
+		return nil, err
+	}
+	environment, err := buildEnvironment(prepared, req.EnvironmentAdditions)
 	if err != nil {
 		return nil, err
 	}
@@ -215,6 +219,7 @@ func (m *Manager) Execute(ctx context.Context, req ExecRequest) (*ExecResult, er
 		timeout:     timeout,
 		environment: environment,
 		stdin:       req.Stdin,
+		prepared:    prepared,
 	}), nil
 }
 
@@ -224,6 +229,7 @@ type runPlan struct {
 	timeout     time.Duration
 	environment []string
 	stdin       string
+	prepared    *preparedEnvironment
 }
 
 func (m *Manager) run(
@@ -466,14 +472,34 @@ func resolveTimeout(tool *Tool, requestedMS int64) (time.Duration, error) {
 	return requested, nil
 }
 
-// buildEnvironment constructs the child environment from an allowlist.
-func buildEnvironment(additions map[string]string) ([]string, error) {
-	environment := make([]string, 0, len(inheritedEnvKeys)+len(additions))
+// buildEnvironment constructs the child environment from an allowlist, then
+// applies the tool's prepared profile, then the caller's additions.
+//
+// The order matters. Profile values come from the runtime and may legitimately
+// set variables a caller may not, such as PATH for gh; caller additions are
+// applied last but are still checked against the denied list, so a caller
+// cannot undo the loader protections by overwriting a profile value.
+func buildEnvironment(prepared *preparedEnvironment, additions map[string]string) ([]string, error) {
+	resolved := make(map[string]string, len(inheritedEnvKeys)+len(additions))
+	ordered := make([]string, 0, len(inheritedEnvKeys)+len(additions))
+	put := func(key, value string) {
+		if _, seen := resolved[key]; !seen {
+			ordered = append(ordered, key)
+		}
+		resolved[key] = value
+	}
+
 	for _, key := range inheritedEnvKeys {
 		if value, present := os.LookupEnv(key); present {
-			environment = append(environment, key+"="+value)
+			put(key, value)
 		}
 	}
+	if prepared != nil {
+		for key, value := range prepared.variables {
+			put(key, value)
+		}
+	}
+
 	for key, value := range additions {
 		if !envKeyPattern.MatchString(key) {
 			return nil, fmt.Errorf("%q is not a valid environment variable name", key)
@@ -484,7 +510,12 @@ func buildEnvironment(additions map[string]string) ([]string, error) {
 				key,
 			)
 		}
-		environment = append(environment, key+"="+value)
+		put(key, value)
+	}
+
+	environment := make([]string, 0, len(ordered))
+	for _, key := range ordered {
+		environment = append(environment, key+"="+resolved[key])
 	}
 	return environment, nil
 }
