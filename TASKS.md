@@ -1,5 +1,46 @@
 # PocketClaw Tasks
 
+## Secure GitHub Authentication
+
+- [x] Audit the existing architecture before editing: the Android bridge, Core
+  launch environment, `Manager.Execute` injection, the gh and git runtime
+  profiles, provider secret handling, Settings, and credential lifecycle.
+- [x] Encrypt the GitHub token under a non-exportable Android Keystore key
+  (AES-256-GCM, provider-chosen nonce, fail closed on any decryption failure).
+- [x] Remove Core's `credentials/github_token` plaintext fallback; the runtime
+  reads the credential from its environment and nowhere else.
+- [x] Validate a candidate through Core's bundled gh over the loopback Android
+  bridge, scrubbing the candidate out of anything gh reports.
+- [x] Add the GitHub Settings card: connect, test, disconnect, no reveal.
+- [x] Declare `allowBackup`, `fullBackupContent` and `dataExtractionRules`, and
+  exclude the credential directory from cloud backup and device transfer.
+- [x] Make validate-before-save structural: `connect` requires the login that
+  only a successful `gh api user` can produce.
+- [x] Apply connect and disconnect through the existing stop/start, queueing the
+  restart when the service is mid-start rather than interrupting it.
+- [x] Classify decryption failures: destroy only on a failed GCM tag, corrupt
+  ciphertext, a malformed blob or a permanently invalidated key; preserve the
+  ciphertext on transient platform failures. JVM unit tests cover the rule.
+- [x] Classify GitHub validation failures (auth, connectivity, timeout,
+  unavailable, other) from gh's stderr with `GH_DEBUG=1`, scrubbing the
+  candidate and sending the detail to Debug Logs. A connection failure no longer
+  reports the token as rejected.
+- [x] Prove why gh cannot reach GitHub on Android: no `/etc/resolv.conf`, so
+  Go's resolver falls back to `[::1]:53`. Reproduced over adb with `GH_DEBUG=1`
+  and `GODEBUG=netdns=2`; curl succeeds in the same environment.
+- [x] Fix Go DNS for gh: the payload carries the `pkg/androiddns` resolver,
+  copied in by the build so there is one implementation, and the runtime hands it
+  `PICOCLAW_DNS_SERVER` on the gh profile only. Verified over adb — a dummy
+  credential now returns HTTP 401 from GitHub instead of a DNS failure. gh
+  checksum repinned, catalog `2.3.0`, Core rebuilt.
+- [x] Correct `install_payload`'s alignment guard: require a multiple of 16 KB
+  rather than exactly `0x4000`, which rejected every Go payload including the
+  device-verified Core.
+- [x] **Physical acceptance** of secure GitHub auth — all twelve steps PASS on
+  SM-A165F with a real token and a private repository, including disconnect
+  removing auth from both gh and git, and `adb install -r` preserving the
+  credential. Merged to `develop`.
+
 ## Phase 2 — Milestone A: Independent Foundation
 
 - [x] Confirm Phase 1 completion and preserve the verified baseline workspace.

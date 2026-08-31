@@ -5,17 +5,23 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/sipeed/picoclaw/pkg/androiddns"
 )
 
 // Environment keys for the credentials the git and gh profiles inject. Both are
 // read at execution time and never written to a log, an event, or an argument
 // vector.
 const (
-	// EnvGitHubToken is the GitHub credential the git and gh profiles use.
+	// EnvGitHubToken is the GitHub credential the git and gh profiles use, and
+	// the only place the runtime reads it from.
+	//
+	// The Android host holds the credential encrypted under a key that lives in
+	// the Android Keystore and never leaves it, decrypts it when it starts Core,
+	// and passes it here. There is deliberately no file fallback: a credential
+	// this process could read off disk is one that survives on disk, which is
+	// what the encrypted store exists to prevent.
 	EnvGitHubToken = "POCKETCLAW_GITHUB_TOKEN"
-	// githubTokenFile is the app-private fallback location, under the runtime's
-	// own metadata directory rather than the user workspace.
-	githubTokenFile = "credentials/github_token"
 	// pythonHome is the prefix compiled into the interpreter by
 	// runtime/build-python-android-arm64.sh. It intentionally does not exist on
 	// the device: setting it stops getpath searching the filesystem around the
@@ -162,6 +168,21 @@ func (m *Manager) applyGHProfile(prepared *preparedEnvironment, helperDir string
 	prepared.set("NO_COLOR", "1")
 	prepared.set("HOME", m.gitHome())
 
+	// gh is a statically linked Go binary, and Android provides no
+	// /etc/resolv.conf for Go's resolver to read. Without this it falls back to
+	// [::1]:53, where nothing listens, and every request fails as "error
+	// connecting to api.github.com" without leaving the device. The payload
+	// carries the same resolver shim Core and the launcher use; this is what
+	// gives it the servers to use.
+	//
+	// It is set on the gh profile rather than inherited by every managed tool:
+	// gh is the only bundled tool that resolves names in Go. curl, git and its
+	// transport helper go through bionic and Android's own resolver, so widening
+	// this would add reach without adding capability.
+	if servers := strings.TrimSpace(os.Getenv(androiddns.EnvServer)); servers != "" {
+		prepared.set(androiddns.EnvServer, servers)
+	}
+
 	if token := m.githubToken(); token != "" {
 		prepared.setSecret("GH_TOKEN", token)
 	}
@@ -173,15 +194,7 @@ func (m *Manager) applyGHProfile(prepared *preparedEnvironment, helperDir string
 // it holds without it ever touching disk. The file fallback lives under runtime
 // metadata storage, which is app-private and outside the user workspace.
 func (m *Manager) githubToken() string {
-	if token := strings.TrimSpace(os.Getenv(EnvGitHubToken)); token != "" {
-		return token
-	}
-	path := filepath.Join(m.registry.paths.MetadataDir, githubTokenFile)
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return ""
-	}
-	return strings.TrimSpace(string(data))
+	return strings.TrimSpace(os.Getenv(EnvGitHubToken))
 }
 
 // gitHome is the private HOME given to git and gh.

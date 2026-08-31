@@ -1,5 +1,165 @@
 # PocketClaw Session Handoff
 
+## Secure GitHub auth — PHYSICAL PASS and merged, 2026-09-01
+
+Branch `feature/secure-github-auth`. **Physically validated inside the installed
+application, then merged to `develop`.** Not released, `main` untouched, no tags
+moved.
+
+The gh payload carries the resolver from `core/src/pkg/androiddns`, copied in by
+`runtime/build-gh-android-arm64.sh` so there is one implementation, and the
+runtime hands it `PICOCLAW_DNS_SERVER` on the **gh profile only** — gh is the
+only bundled tool that resolves names in Go.
+
+Proved over adb with one binary and one variable: without the variable,
+`lookup api.github.com on [::1]:53: connection refused`; with it, HTTP 401 "Bad
+credentials" from GitHub in 450 ms. DNS failure became an authentication answer.
+
+`install_payload`'s alignment guard required exactly `0x4000` and rejected Go's
+`0x10000`. It now requires a multiple of 16 KB, which is what Android needs;
+Core, the launcher and the shipped gh have all been `0x10000` since Phase 1.
+
+| Artifact | Value |
+|---|---|
+| gh payload | `3f56431f1fdd1497e9529f1c844090881abbfd5dd47a5e6a40abb7611bf8b9d8` |
+| Catalog | `2.3.0` |
+| APK | `build/app/outputs/flutter-apk/app-release.apk`, 64,282,270 bytes, versionCode 13 |
+| APK SHA-256 | `4a7d6eb8eeef3873d1fca7168c631aeaf9f7698069bb2f0f647e1391747706f1` |
+
+### Physical acceptance — PASS, 2026-09-01
+
+All twelve steps on SM-A165F / Android 16, with a real token against a private
+test repository.
+
+| Step | Result |
+|---|---|
+| Connect, validated through the bundled gh | **PASS** |
+| Account resolved as `Lord1Egypt` | **PASS** |
+| Safe Core restart completed | **PASS** |
+| Test connection | **PASS** |
+| Close and reopen; credential persists | **PASS** |
+| `gh api user` from the managed runtime | **PASS** |
+| Private `gh repo view` | **PASS** |
+| Private HTTPS `git clone`, `fetch`, `pull` | **PASS** |
+| Raw token absent from argv, logs, events, agent output, gh config, `.git/config` | **PASS** |
+| Disconnect removes active auth after the safe restart | **PASS** |
+| `adb install -r` over the existing install preserves the credential | **PASS** |
+
+Two results are worth keeping for what they prove rather than for passing.
+
+After Disconnect, `git fetch` failed with `could not read Username for
+'https://github.com': terminal prompts disabled`. Git had no credential from any
+other source: no helper, no `~/.gitconfig` entry, nothing in the repository's
+own config, no cached username. Had `gh auth setup-git` ever run, or had a token
+reached a remote URL, that fetch would have succeeded. The process-scoped
+`http.extraheader` left with the old Core process, which is the whole design.
+
+The reinstall preserved `firstInstallTime` (2026-08-26) while `lastUpdateTime`
+moved, so Android replaced the package and kept the data directory. The card
+still read Connected as `Lord1Egypt` with nothing re-entered, and
+`gh api user --jq .login` still returned it: the Keystore key survived the
+package replacement, as it must, since it is not part of the APK.
+
+## GitHub auth blocked by Go DNS on Android — cause proven, 2026-09-01
+
+Branch `feature/secure-github-auth`. **Not merged.** The credential storage,
+injection and UI are done and green; gh cannot resolve DNS on Android, so
+Connect cannot validate.
+
+**Proven on device over adb, outside the app:** `gh api user` with `GH_DEBUG=1`
+reports `dial tcp: lookup api.github.com on [::1]:53: connection refused`.
+Android has no `/etc/resolv.conf`, so Go's resolver falls back to localhost.
+`GODEBUG=netdns=2` shows `using the Go DNS resolver`; `netdns=cgo` cannot help
+because the payload is `CGO_ENABLED=0`. The bundled curl gets HTTP 200 in the
+same environment. Both CA stores are populated and the failure is unchanged with
+`SSL_CERT_DIR` set either way, so it is not a certificate problem.
+
+`pkg/androiddns` already solves exactly this for Core and the launcher via
+`PICOCLAW_DNS_SERVER`. gh never got it, and that variable is not in the
+runtime's inherited environment keys.
+
+**The fix has two parts, neither applied yet:** give the gh payload the same
+resolver shim at build time, and let `PICOCLAW_DNS_SERVER` reach managed tools.
+The second changes what every managed tool sees, and the first repins a
+checksum-pinned payload, so both were held pending a decision.
+
+**This build** classifies failures instead of mislabelling them: auth,
+connectivity, timeout, unavailable and other, from gh's stderr with `GH_DEBUG=1`,
+with the candidate scrubbed and the detail sent to Debug Logs.
+
+| Artifact | Value |
+|---|---|
+| APK | `build/app/outputs/flutter-apk/app-release.apk`, 64,282,982 bytes, versionCode 12 |
+| APK SHA-256 | `09335f1a038b3470ba672babfeb257c871b4c66f522204e0a516cc94327ab96a` |
+
+## Secure GitHub authentication — implemented, awaiting physical acceptance, 2026-08-31
+
+Branch `feature/secure-github-auth`, from `develop` at `08c457e`.
+**Not merged.** All automated gates are green; the nine physical tests are the
+remaining gate.
+
+### Design, after auditing what already existed
+
+The injection half was already built: `applyGHProfile` sets `GH_TOKEN` and
+`applyGitCredentials` sets an `http.https://github.com/.extraheader`
+Authorization header through `GIT_CONFIG_KEY_0`/`VALUE_0`. Both are marked
+secret, neither reaches argv, and no token-bearing URL is ever constructed. What
+was missing was storage, a UI, and any way to configure the credential.
+`Manager.Execute` is reused unchanged; no second execution path exists.
+
+| Layer | Where it lives |
+|---|---|
+| At rest | `GitHubCredentialStore` — AES-256-GCM under a non-exportable Android Keystore key, ciphertext only, app-private |
+| Host → Core | decrypted at Core launch, passed as `POCKETCLAW_GITHUB_TOKEN` |
+| Core → tools | existing gh and git profiles, unchanged |
+| Validation | `POST /api/pocketclaw/android/github/validate` on the loopback bridge, `gh api user` with a one-shot override |
+| Status | `GET /api/pocketclaw/android/github/status`, the ambient credential |
+| UI | `GitHubSettingsCard` — connect, test, disconnect; no reveal control |
+
+Core's `credentials/github_token` plaintext fallback was removed. `gh auth login`
+and `gh auth setup-git` are deliberately unused: both persist credentials outside
+PocketClaw.
+
+The manifest declared neither `allowBackup` nor `dataExtractionRules`, so
+app-private files were backed up by default. Both are declared now and the
+credential directory is excluded from cloud backup and device transfer.
+
+### Applying a change
+
+The credential is read at Core launch, so `ServiceManager.applyCredentialChange`
+restarts Core through the same stop/start the config screen already uses. A
+service that is mid-start is never interrupted: the change is queued and applied
+from the existing status poll once it settles, and the card reports "saved, will
+apply automatically" instead of claiming the credential is live.
+
+### Reading failures
+
+Destroying a credential is irreversible, so `GitHubCredentialStore.classify`
+destroys only on positive evidence — a GCM tag that does not verify, ciphertext
+that cannot be a valid block sequence, a malformed blob, or a permanently
+invalidated key. A busy keystore or an unrecognised provider failure preserves
+the ciphertext and reports the credential unavailable. The rule is a pure
+function of the failure and is covered by JVM unit tests
+(`./gradlew :app:testReleaseUnitTest`).
+
+### Build
+
+| Artifact | Value |
+|---|---|
+| Core `libpicoclaw.so` | `ae74a8584ea2010015591c3a65fe72cf02f2f1e9c89a6606d388906e3302eadd` |
+| Core source fingerprint | `a61c0664f1932a577bac4498699be44ffca33105a0b757c2f2e1de7d0b6c1a7e` |
+| APK | `build/app/outputs/flutter-apk/app-release.apk`, 64,278,210 bytes |
+| APK SHA-256 | `eaddd9fc3ce1e9b0c02e4efb36e37fe44c3a406ab5e6c43be55d38c9a068f94f` |
+| versionCode | 11 |
+
+### Physical acceptance still to do
+
+Connect; restart and stay connected; `gh api user`; `gh repo view` a private
+repo; `git clone`, `fetch` and `pull` over HTTPS; inspect `.git/config`, gh
+config, PocketClaw and Runtime logs and agent output for the raw token;
+disconnect and confirm gh no longer authenticates; reconnect, install the APK
+over itself without clearing data, and confirm the credential survives.
+
 ## Python Lite — Phase C PHYSICAL PASS and merged, 2026-08-31
 
 Branch `feature/python-lite-agent-tool`, from `develop` at `de7ea53`.

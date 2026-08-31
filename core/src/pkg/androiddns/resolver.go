@@ -17,7 +17,11 @@ import (
 	"time"
 )
 
-const envServer = "PICOCLAW_DNS_SERVER"
+// EnvServer carries the DNS servers the Android host read from
+// ConnectivityManager. It is exported because the Managed Runtime passes the
+// same value on to the one bundled tool that needs it, and two spellings of one
+// variable name is exactly the kind of drift that makes DNS fail silently.
+const EnvServer = "PICOCLAW_DNS_SERVER"
 
 var configureOnce sync.Once
 
@@ -27,7 +31,7 @@ var configureOnce sync.Once
 // host did not supply DNS information.
 func ConfigureDefaultResolverFromEnvironment() {
 	configureOnce.Do(func() {
-		servers := parseServers(os.Getenv(envServer))
+		servers := parseServers(os.Getenv(EnvServer))
 		if len(servers) == 0 {
 			return
 		}

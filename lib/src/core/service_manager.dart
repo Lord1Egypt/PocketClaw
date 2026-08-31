@@ -16,6 +16,19 @@ import '../native/core_service_adapter.dart';
 
 enum ServiceStatus { stopped, running, starting }
 
+/// What happened to a credential change that Core only reads when it launches.
+enum CredentialApplyOutcome {
+  /// Core was restarted, so the change is live.
+  applied,
+
+  /// Core was not running. The change is stored and will be read at next start.
+  notRunning,
+
+  /// Core was mid-transition. The restart is queued and runs as soon as the
+  /// service settles, without interrupting whatever it is doing.
+  deferred,
+}
+
 /// Why an app-launch auto-start evaluation did or did not start the service.
 enum LaunchAutoStartDecision {
   start,
@@ -170,6 +183,7 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
   DeviceTelemetrySnapshot? get lastTelemetrySnapshot => _lastTelemetrySnapshot;
 
   ServiceStatus _status = ServiceStatus.stopped;
+  bool _pendingCredentialRestart = false;
   final List<String> _logs = [];
 
   ServiceStatus get status => _status;
@@ -943,6 +957,15 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
       final oldStatus = _status;
       _status = isRunning ? ServiceStatus.running : ServiceStatus.stopped;
 
+      // A credential change that arrived mid-transition is applied here, once
+      // the service has settled. This is the existing poll, not a new watchdog:
+      // the restart waits for a state the app already tracks rather than for a
+      // timer, so it can never land on top of a start that is still in flight.
+      if (_pendingCredentialRestart && _status != ServiceStatus.starting) {
+        _pendingCredentialRestart = false;
+        unawaited(applyCredentialChange());
+      }
+
       // Drain the lines emitted since the last poll. `status['lastLog']` is a
       // sticky snapshot of the most recent line, so appending it here re-added
       // the same entry every three seconds until it filled the Logs screen and
@@ -1471,6 +1494,34 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
         }
       });
     }
+  }
+
+  /// True while a credential change is waiting for a safe moment to restart.
+  bool get hasPendingCredentialRestart => _pendingCredentialRestart;
+
+  /// Restarts Core so a credential it reads only at launch takes effect.
+  ///
+  /// The GitHub token is decrypted by the Android service when it builds Core's
+  /// environment, so a change to it is inert until the process restarts. This
+  /// reuses the same stop/start the config screen already performs when settings
+  /// change; it adds no lifecycle machinery of its own.
+  ///
+  /// A service that is mid-transition is never interrupted. The change is queued
+  /// and applied from the status poll once the service settles, which is why
+  /// this can report [CredentialApplyOutcome.deferred] rather than blocking or
+  /// forcing a stop.
+  Future<CredentialApplyOutcome> applyCredentialChange() async {
+    if (_status == ServiceStatus.starting) {
+      _pendingCredentialRestart = true;
+      notifyListeners();
+      return CredentialApplyOutcome.deferred;
+    }
+    if (_status == ServiceStatus.stopped) {
+      return CredentialApplyOutcome.notRunning;
+    }
+    await stop();
+    await start();
+    return CredentialApplyOutcome.applied;
   }
 
   Future<void> start() async {

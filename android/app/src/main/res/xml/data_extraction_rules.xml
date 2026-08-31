@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Android 12 and later. Cloud backup and device-to-device transfer are separate
+  decisions, and the credential is excluded from both.
+
+  Device transfer is excluded even though it never leaves the user's own
+  devices: the Keystore key does not travel with it, so what would arrive is an
+  undecryptable blob presented as a working connection.
+-->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="file" path="credentials/" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="file" path="credentials/" />
+    </device-transfer>
+</data-extraction-rules>

@@ -1,5 +1,198 @@
 # Development Changelog
 
+## 2026-09-01 — Android DNS for the bundled gh
+
+Branch `feature/secure-github-auth`. **Physically validated and merged to
+`develop`.** The proven cause from the diagnostic commit is fixed, verified on
+the device over adb, and then through the full twelve-step UI flow with a real
+token against a private repository.
+
+### The fix
+
+The gh payload now carries the same resolver Core and the launcher use.
+`runtime/build-gh-android-arm64.sh` copies `core/src/pkg/androiddns/resolver.go`
+into the gh tree and adds a three-line `init()` in `cmd/gh` that calls it. The
+file is copied rather than reimplemented, so there is one resolver in the
+repository; it imports nothing outside the standard library, and the build fails
+if that stops being true or if the shim does not end up linked in.
+
+`PICOCLAW_DNS_SERVER` is delivered on the **gh profile**, not through
+`inheritedEnvKeys`. gh is the only bundled tool that resolves names in Go — curl,
+git and its transport helper go through bionic and Android's own resolver — so
+inheriting it everywhere would add reach without adding capability. It is not a
+credential, but the narrow path costs nothing and stays honest about who needs
+it. No agent-controlled environment field was added; the runtime tool still takes
+no environment at all.
+
+Off Android, or when the host supplies nothing, the shim installs no resolver and
+gh behaves exactly as upstream does.
+
+### Proved on the device, before any UI test
+
+One binary, one variable, two outcomes:
+
+```
+patched gh, no PICOCLAW_DNS_SERVER
+  dial tcp: lookup api.github.com on [::1]:53: connection refused
+
+patched gh, PICOCLAW_DNS_SERVER set
+  * Request took 450.852692ms
+  {"message": "Bad credentials", "status": "401"}
+```
+
+A dummy credential now produces an HTTP 401 from GitHub instead of a DNS
+failure. The request reaches GitHub; the credential is what it rejects.
+
+### A guard that was testing the wrong property
+
+`install_payload` required LOAD segments aligned to exactly `0x4000` and rejected
+the rebuilt gh at `0x10000`. The requirement is 16 KB pages, and a 64 KB-aligned
+segment satisfies them; the NDK links C payloads at `0x4000` while Go links arm64
+at `0x10000`, which is why Core, the launcher and the shipped gh are all
+`0x10000` and have run on device since Phase 1. The check now requires a multiple
+of 16 KB rather than one exact value, which is the property Android cares about.
+
+Rebuilding gh repinned its checksum and moved the catalog to `2.3.0`; Core was
+rebuilt, and the catalog, source-freshness and payload guards all pass.
+
+## 2026-09-01 — GitHub connectivity diagnostic, and the proven cause
+
+Branch `feature/secure-github-auth`. **Not merged.** The credential path is
+sound; gh cannot reach the network on Android, and this build says so honestly
+instead of blaming the token.
+
+### Root cause, proven on the device
+
+Reproduced outside the app, over adb, on SM-A165F:
+
+```
+$ gh api user            # GH_DEBUG=1, dummy token, app-like environment
+* Request to https://api.github.com/user
+* dial tcp: lookup api.github.com on [::1]:53:
+    read udp [::1]:36500->[::1]:53: read: connection refused
+error connecting to api.github.com
+```
+
+Android has no `/etc/resolv.conf`. Go's resolver finds no nameservers and falls
+back to `[::1]:53`, where nothing is listening, so the request never leaves the
+device. `GODEBUG=netdns=2` confirms it: `using the Go DNS resolver`,
+`hostLookupOrder(api.github.com) = files,dns`. `netdns=cgo` changes nothing —
+the payload is built `CGO_ENABLED=0`, so there is no cgo resolver to select.
+
+The bundled curl reaches `https://api.github.com/` with HTTP 200 in the same
+environment, because it resolves through bionic and Android's netd.
+
+This is not a CA problem: both `/system/etc/security/cacerts` (143) and
+`/apex/com.android.conscrypt/cacerts` (145) are populated, and the failure is
+identical with `SSL_CERT_DIR` set to either, or unset.
+
+It is the same problem `pkg/androiddns` already solves for Core and the
+launcher, which receive `PICOCLAW_DNS_SERVER` from the host and install a
+resolver from it. gh is a separate Go binary that never got that treatment, and
+`PICOCLAW_DNS_SERVER` is not among the runtime's inherited environment keys, so
+it could not have used it anyway.
+
+### What changed here
+
+The message was wrong in a way that mattered. "GitHub rejected this token:
+error connecting to api.github.com" tells the user to replace a credential that
+was never checked. Failures are now classified from gh's stderr — with
+`GH_DEBUG=1`, which adds the underlying transport error and prints no request
+headers — into auth, connectivity, timeout, unavailable and other, each with its
+own message and HTTP status, so the host can tell "your credential is wrong"
+from "PocketClaw could not ask". The sanitized detail goes to the Debug Logs.
+
+The candidate is scrubbed from every diagnostic before it can reach a reply or a
+log, and no environment is dumped with it.
+
+## 2026-08-31 — Secure GitHub authentication (Phase 1)
+
+Branch `feature/secure-github-auth` from `develop` at `08c457e`. **Not merged**,
+physical acceptance outstanding.
+
+### What was already there
+
+The audit found the injection half of this already built and correct.
+`applyGHProfile` sets `GH_TOKEN` and `applyGitCredentials` sets an
+`http.https://github.com/.extraheader` Authorization header through
+`GIT_CONFIG_KEY_0`/`VALUE_0`, both marked secret, neither in argv, and no
+credential-bearing URL anywhere. What was missing was everything below it: the
+credential had no storage, no UI, and no way to be configured except an
+environment variable.
+
+`Manager.Execute` is reused unchanged. No second execution path was added.
+
+### What changed
+
+**Storage.** `GitHubCredentialStore` encrypts the token with AES-256-GCM under a
+key generated inside the Android Keystore that cannot be exported from it.
+`setRandomizedEncryptionRequired(true)` makes the provider draw the nonce from
+the platform CSPRNG and refuse a caller-chosen one, so nonce reuse is impossible
+rather than merely unlikely. Only ciphertext reaches storage, written whole so a
+half-written blob cannot silently disconnect the user. Any decryption failure
+deletes the material and reports "not connected": a credential that will not
+authenticate is not one to carry forward.
+
+**Core reads the credential from its environment and nowhere else.** The
+previous `credentials/github_token` file fallback is gone. Nothing wrote it, and
+a credential this process can read off disk is one that survives on disk, which
+is what the encrypted store exists to prevent. The Android service decrypts at
+Core launch and passes it in, so connecting or disconnecting takes effect on the
+next start.
+
+**Validation.** A candidate is checked before it is stored, by Core, over the
+existing loopback Android bridge: `gh api user` through `Manager.Execute` with
+the candidate as a one-shot `GH_TOKEN` override. gh is never asked to log in, so
+it writes no config of its own. Core scrubs the candidate out of anything gh
+said before replying, because a tool's error message may quote what it was
+given. `gh auth setup-git` is deliberately not used: it makes gh a persistent
+credential helper in `~/.gitconfig`, which is credential persistence outside
+PocketClaw.
+
+**UI.** A GitHub card in Settings showing connected state and account name, with
+Connect, Test connection and Disconnect. There is no reveal control and no field
+that could redisplay a stored value, because nothing above the Android service
+has a copy to show.
+
+**Backup.** The manifest declared neither `allowBackup` nor
+`dataExtractionRules`, so app-private files were backed up by default. Both are
+now declared and the credential directory is excluded from cloud backup and from
+device transfer. The Keystore key does not travel, so a restored blob would fail
+closed — excluding it keeps that from being the user's problem to discover.
+
+### Pre-physical corrections
+
+**Validate before save was already the flow, and is now structural.**
+`GitHubCredentialStore.connect` requires a non-blank login, and the only source
+of a login is a successful `gh api user`, so storing an unvalidated token is not
+expressible. Tests assert that a rejected candidate stores nothing and triggers
+no restart.
+
+**Connect and disconnect apply themselves.** `ServiceManager.applyCredential
+Change` reuses the stop/start the config screen already performs; it adds no
+lifecycle machinery. A service that is mid-start is never interrupted: the
+change is queued and applied from the existing status poll once the service
+settles, and the card reports "saved, will apply automatically" rather than
+claiming the credential is live. After the restart the old credential is gone
+from Core, because the new process is built with a fresh environment.
+
+**Decryption failures are classified rather than lumped together.** Destroying a
+credential is irreversible, so it happens only on positive evidence: a GCM tag
+that does not verify, ciphertext that cannot be a valid block sequence, a
+malformed blob, or a key the platform reports permanently invalidated.
+Everything else — a busy keystore, a provider that failed to load, an error this
+code has not seen — preserves the ciphertext and reports the credential
+unavailable, which the UI shows as a temporary state rather than a
+disconnection. `GitHubCredentialStore.classify` is a pure function of the
+failure and is covered by JVM unit tests, which is why the Android module now
+has a `test` source set and a JUnit dependency.
+
+### Known limitation
+
+Test connection exercises the running Core. Immediately after connecting, the
+restart it triggers must finish before the test reports authenticated; while the
+service is still coming up the card says so rather than claiming success.
+
 ## 2026-08-31 — Python Lite Phase C: Android stdio root cause and the bootstrap
 
 Branch `feature/python-lite-agent-tool`. **Physically validated and merged to

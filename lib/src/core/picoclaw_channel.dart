@@ -169,6 +169,46 @@ class PicoClawChannel {
     return result ?? false;
   }
 
+  /// Whether PocketClaw holds a GitHub credential, and for which account.
+  ///
+  /// The token itself is never returned across this channel. It is decrypted
+  /// only by the Android service, when it starts Core, and reaches gh and git
+  /// as an environment variable from there.
+  static Future<GitHubConnection> getGitHubStatus() async {
+    final result = await _channel.invokeMapMethod<String, dynamic>(
+      'getGitHubStatus',
+    );
+    return GitHubConnection.fromMap(result);
+  }
+
+  /// Validates a candidate token through Core's bundled gh, then stores it
+  /// encrypted under an Android Keystore key.
+  ///
+  /// Nothing is stored unless GitHub accepts the token. On failure the
+  /// PlatformException message is Core's own, with the candidate scrubbed out.
+  static Future<GitHubConnection> connectGitHub(String token) async {
+    final result = await _channel.invokeMapMethod<String, dynamic>(
+      'connectGitHub',
+      {'token': token},
+    );
+    return GitHubConnection.fromMap(result);
+  }
+
+  /// Asks the running Core whether its GitHub credential authenticates, which
+  /// is the same path an agent `gh` call takes.
+  static Future<String> testGitHubConnection() async {
+    final result = await _channel.invokeMapMethod<String, dynamic>(
+      'testGitHubConnection',
+    );
+    return (result?['login'] as String?)?.trim() ?? '';
+  }
+
+  /// Removes the stored credential. Other secrets are untouched.
+  static Future<bool> disconnectGitHub() async {
+    final result = await _channel.invokeMethod<bool>('disconnectGitHub');
+    return result ?? false;
+  }
+
   static Future<String> getFullLog() async {
     final result = await _channel.invokeMethod<String>('getFullLog');
     return result ?? '';
@@ -282,5 +322,24 @@ class PicoClawChannel {
   static Future<bool> requestStorageManager() async {
     final result = await _channel.invokeMethod<bool>('requestStorageManager');
     return result ?? false;
+  }
+}
+
+/// What Settings is allowed to know about the GitHub credential: that there is
+/// one, and whose account it belongs to. There is deliberately no field for the
+/// token, so no screen can render it and no log can capture it.
+class GitHubConnection {
+  const GitHubConnection({required this.connected, this.login});
+
+  final bool connected;
+  final String? login;
+
+  static GitHubConnection fromMap(Map<String, dynamic>? map) {
+    if (map == null) return const GitHubConnection(connected: false);
+    final login = (map['login'] as String?)?.trim();
+    return GitHubConnection(
+      connected: map['connected'] == true,
+      login: login == null || login.isEmpty ? null : login,
+    );
   }
 }

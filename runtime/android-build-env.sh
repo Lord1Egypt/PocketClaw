@@ -103,13 +103,22 @@ install_payload() {
 
     # 16 KB page alignment. Android 15 introduced devices with 16 KB pages, and
     # a payload linked for 4 KB pages will not load there at all.
-    local misaligned
-    misaligned="$("$TOOLCHAIN/bin/llvm-readelf" -lW "$JNI_LIBS/$payload" \
-        | awk '$1 == "LOAD" && $NF != "0x4000" { print $NF }')"
-    if [ -n "$misaligned" ]; then
-        echo "error: $payload has LOAD segments aligned $misaligned, expected 0x4000" >&2
-        exit 1
-    fi
+    #
+    # The requirement is "at least 16 KB", not "exactly": a segment aligned to a
+    # larger multiple satisfies a 16 KB page too. The NDK links C payloads at
+    # 0x4000, while Go links arm64 at 0x10000 -- which is why Core, the launcher
+    # and gh are all 0x10000 and have run on device since Phase 1. An equality
+    # test rejected them, so it tested the linker's choice rather than the
+    # property Android cares about.
+    local alignment
+    for alignment in $("$TOOLCHAIN/bin/llvm-readelf" -lW "$JNI_LIBS/$payload" \
+        | awk '$1 == "LOAD" { print $NF }' | sort -u); do
+        if [ $(( alignment )) -lt 16384 ] || [ $(( alignment % 16384 )) -ne 0 ]; then
+            echo "error: $payload has a LOAD segment aligned $alignment;" >&2
+            echo "       it must be a multiple of 0x4000 to load on a 16 KB-page device" >&2
+            exit 1
+        fi
+    done
 
     printf '  %-38s %10d bytes  %s\n' "$payload" \
         "$(stat -c%s "$JNI_LIBS/$payload")" \

@@ -1,5 +1,37 @@
 # PocketClaw Decisions
 
+## PocketClaw owns the GitHub credential, and the Keystore owns its key
+
+- Date: 2026-08-31
+- Decision: the token is encrypted with AES-256-GCM under a non-exportable
+  Android Keystore key, stored as ciphertext in app-private storage, decrypted
+  only by the Android service when it starts Core, and passed in as
+  `POCKETCLAW_GITHUB_TOKEN`. The runtime's existing gh and git profiles inject it
+  from there. Core's `credentials/github_token` file fallback was removed.
+- Consequence: a credential Core can read off disk is a credential that survives
+  on disk in usable form, which is exactly what the encrypted store exists to
+  prevent. Reading it at launch means connect and disconnect take effect on the
+  next start; that is a real cost, and it buys having no plaintext at rest.
+- Consequence: there is no agent-facing way to read the token. The runtime tool
+  takes no environment parameter, no tool returns a credential, and a test fails
+  if one is ever registered whose name suggests it does. Python still runs as the
+  application and is documented as not a sandbox, so this is a guarantee about
+  PocketClaw's own surface, not about what a determined program can reach.
+
+## gh is never asked to log in
+
+- Date: 2026-08-31
+- Decision: credential validation runs `gh api user` with a one-shot `GH_TOKEN`
+  override through `Manager.Execute`. `gh auth login` and `gh auth setup-git` are
+  not used, and git authenticates through a process-scoped
+  `http.https://github.com/.extraheader` rather than a credential helper or a
+  token-bearing URL.
+- Consequence: gh writes no config of its own, `.git/config` carries nothing, and
+  no cloned repository can leak the credential to whoever reads its remotes. The
+  alternative was letting gh persist a credential in `~/.gitconfig` and in its
+  own hosts file, which would move ownership of the secret outside PocketClaw for
+  the sake of a shorter setup path.
+
 ## Android CPython logs its stdio, so PocketClaw ships its own entry point
 
 - Date: 2026-08-31
