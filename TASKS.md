@@ -28,9 +28,14 @@
 - [x] Prove why gh cannot reach GitHub on Android: no `/etc/resolv.conf`, so
   Go's resolver falls back to `[::1]:53`. Reproduced over adb with `GH_DEBUG=1`
   and `GODEBUG=netdns=2`; curl succeeds in the same environment.
-- [ ] **Fix Go DNS for managed tools:** give the gh payload the `pkg/androiddns`
-  resolver shim at build time, and let `PICOCLAW_DNS_SERVER` reach managed
-  tools. Repins the gh checksum and the catalog; needs a Core rebuild.
+- [x] Fix Go DNS for gh: the payload carries the `pkg/androiddns` resolver,
+  copied in by the build so there is one implementation, and the runtime hands it
+  `PICOCLAW_DNS_SERVER` on the gh profile only. Verified over adb — a dummy
+  credential now returns HTTP 401 from GitHub instead of a DNS failure. gh
+  checksum repinned, catalog `2.3.0`, Core rebuilt.
+- [x] Correct `install_payload`'s alignment guard: require a multiple of 16 KB
+  rather than exactly `0x4000`, which rejected every Go payload including the
+  device-verified Core.
 - [ ] **Physical acceptance** of secure GitHub auth, then merge to `develop`.
 
 ## Phase 2 — Milestone A: Independent Foundation

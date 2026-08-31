@@ -1,5 +1,58 @@
 # Development Changelog
 
+## 2026-09-01 — Android DNS for the bundled gh
+
+Branch `feature/secure-github-auth`. **Not merged.** The proven cause from the
+diagnostic commit is fixed, and the fix is verified on the device over adb.
+
+### The fix
+
+The gh payload now carries the same resolver Core and the launcher use.
+`runtime/build-gh-android-arm64.sh` copies `core/src/pkg/androiddns/resolver.go`
+into the gh tree and adds a three-line `init()` in `cmd/gh` that calls it. The
+file is copied rather than reimplemented, so there is one resolver in the
+repository; it imports nothing outside the standard library, and the build fails
+if that stops being true or if the shim does not end up linked in.
+
+`PICOCLAW_DNS_SERVER` is delivered on the **gh profile**, not through
+`inheritedEnvKeys`. gh is the only bundled tool that resolves names in Go — curl,
+git and its transport helper go through bionic and Android's own resolver — so
+inheriting it everywhere would add reach without adding capability. It is not a
+credential, but the narrow path costs nothing and stays honest about who needs
+it. No agent-controlled environment field was added; the runtime tool still takes
+no environment at all.
+
+Off Android, or when the host supplies nothing, the shim installs no resolver and
+gh behaves exactly as upstream does.
+
+### Proved on the device, before any UI test
+
+One binary, one variable, two outcomes:
+
+```
+patched gh, no PICOCLAW_DNS_SERVER
+  dial tcp: lookup api.github.com on [::1]:53: connection refused
+
+patched gh, PICOCLAW_DNS_SERVER set
+  * Request took 450.852692ms
+  {"message": "Bad credentials", "status": "401"}
+```
+
+A dummy credential now produces an HTTP 401 from GitHub instead of a DNS
+failure. The request reaches GitHub; the credential is what it rejects.
+
+### A guard that was testing the wrong property
+
+`install_payload` required LOAD segments aligned to exactly `0x4000` and rejected
+the rebuilt gh at `0x10000`. The requirement is 16 KB pages, and a 64 KB-aligned
+segment satisfies them; the NDK links C payloads at `0x4000` while Go links arm64
+at `0x10000`, which is why Core, the launcher and the shipped gh are all
+`0x10000` and have run on device since Phase 1. The check now requires a multiple
+of 16 KB rather than one exact value, which is the property Android cares about.
+
+Rebuilding gh repinned its checksum and moved the catalog to `2.3.0`; Core was
+rebuilt, and the catalog, source-freshness and payload guards all pass.
+
 ## 2026-09-01 — GitHub connectivity diagnostic, and the proven cause
 
 Branch `feature/secure-github-auth`. **Not merged.** The credential path is

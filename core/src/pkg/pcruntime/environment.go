@@ -5,6 +5,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/sipeed/picoclaw/pkg/androiddns"
 )
 
 // Environment keys for the credentials the git and gh profiles inject. Both are
@@ -165,6 +167,21 @@ func (m *Manager) applyGHProfile(prepared *preparedEnvironment, helperDir string
 	prepared.set("GH_PAGER", "cat")
 	prepared.set("NO_COLOR", "1")
 	prepared.set("HOME", m.gitHome())
+
+	// gh is a statically linked Go binary, and Android provides no
+	// /etc/resolv.conf for Go's resolver to read. Without this it falls back to
+	// [::1]:53, where nothing listens, and every request fails as "error
+	// connecting to api.github.com" without leaving the device. The payload
+	// carries the same resolver shim Core and the launcher use; this is what
+	// gives it the servers to use.
+	//
+	// It is set on the gh profile rather than inherited by every managed tool:
+	// gh is the only bundled tool that resolves names in Go. curl, git and its
+	// transport helper go through bionic and Android's own resolver, so widening
+	// this would add reach without adding capability.
+	if servers := strings.TrimSpace(os.Getenv(androiddns.EnvServer)); servers != "" {
+		prepared.set(androiddns.EnvServer, servers)
+	}
 
 	if token := m.githubToken(); token != "" {
 		prepared.setSecret("GH_TOKEN", token)

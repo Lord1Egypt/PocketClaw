@@ -1,6 +1,6 @@
 {
   "runtime_version": 1,
-  "catalog_version": "2.2.0",
+  "catalog_version": "2.3.0",
   "tools": [
     {
       "tool_id": "cat",
@@ -722,7 +722,7 @@
       "abi": "arm64-v8a",
       "delivery_type": "bundled",
       "trusted_source": "https://github.com/cli/cli/archive/refs/tags/v2.82.1.tar.gz",
-      "sha256": "db1b85d5a15092b046e46dc0ba291ff6abb5fa778d593359ab5397a28f5990d3",
+      "sha256": "3f56431f1fdd1497e9529f1c844090881abbfd5dd47a5e6a40abb7611bf8b9d8",
       "capabilities": [
         "github.api",
         "github.repository",

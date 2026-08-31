@@ -1,5 +1,31 @@
 # PocketClaw Session Handoff
 
+## Secure GitHub auth — DNS fixed, awaiting physical UI acceptance, 2026-09-01
+
+Branch `feature/secure-github-auth`. **Not merged.** Everything automated is
+green and the DNS fix is verified on the device; the twelve-step UI flow is the
+remaining gate.
+
+The gh payload carries the resolver from `core/src/pkg/androiddns`, copied in by
+`runtime/build-gh-android-arm64.sh` so there is one implementation, and the
+runtime hands it `PICOCLAW_DNS_SERVER` on the **gh profile only** — gh is the
+only bundled tool that resolves names in Go.
+
+Proved over adb with one binary and one variable: without the variable,
+`lookup api.github.com on [::1]:53: connection refused`; with it, HTTP 401 "Bad
+credentials" from GitHub in 450 ms. DNS failure became an authentication answer.
+
+`install_payload`'s alignment guard required exactly `0x4000` and rejected Go's
+`0x10000`. It now requires a multiple of 16 KB, which is what Android needs;
+Core, the launcher and the shipped gh have all been `0x10000` since Phase 1.
+
+| Artifact | Value |
+|---|---|
+| gh payload | `3f56431f1fdd1497e9529f1c844090881abbfd5dd47a5e6a40abb7611bf8b9d8` |
+| Catalog | `2.3.0` |
+| APK | `build/app/outputs/flutter-apk/app-release.apk`, 64,282,270 bytes, versionCode 13 |
+| APK SHA-256 | `4a7d6eb8eeef3873d1fca7168c631aeaf9f7698069bb2f0f647e1391747706f1` |
+
 ## GitHub auth blocked by Go DNS on Android — cause proven, 2026-09-01
 
 Branch `feature/secure-github-auth`. **Not merged.** The credential storage,
