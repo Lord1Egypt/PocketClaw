@@ -1,5 +1,70 @@
 # PocketClaw Project State
 
+## Python Lite — Phase C physical FAIL, root cause not yet proven, 2026-08-31
+
+Branch `feature/python-lite-agent-tool`, from `develop` at `de7ea53`.
+**Not merged. The stdout/stderr failure is not fixed.**
+
+### The physical result
+
+| Test | Device result | Verdict |
+|---|---|---|
+| `print("PYTHON-FINAL-PASS")` | exit 0, stdout empty | **FAIL** |
+| `raise ValueError("TEST-ERROR")` | exit 1, stderr empty | **FAIL** |
+| infinite loop, `timeout_ms=2000` | exit -1, `timed_out=true`, ~2 s | PASS |
+| `print("مرحبا 🐍")` | needed several calls; visible only after `os.write` | **FAIL** |
+
+### What is proven
+
+An empty `ExecResult.Stdout` has one possible cause: the capture layer received
+nothing. A bounded buffer that saw bytes and kept none returns a truncation
+marker rather than an empty string, so an empty stream can never mean "the
+runtime dropped it". The `(empty)` text the device printed is therefore evidence
+about the process, not about the formatter.
+
+That rules out the formatter, the tool-result serialisation and the agent
+message as the place the bytes disappear, and it rules out the hardening commit:
+`git diff c4c0bf2..b42f813` touches the formatter, one log field and the new
+fingerprint package — no capture, environment, catalog or argv code.
+
+The whole production chain is now proven byte-exact on the host, from a real
+child process's pipes through to `ContentForLLM()`.
+
+### What is not proven
+
+Where the bytes stop between CPython and the pipe. The evidence is consistent
+with the interpreter's own `sys.stdout`/`sys.stderr` being disconnected — CPython
+makes `print()` a silent no-op when `sys.stdout` is None, and an unhandled
+exception still exits 1 when `sys.stderr` is None, which matches all four
+observations including `os.write` working — but that is a hypothesis, not a
+finding. It has not been reproduced: this machine has no device, no adb target
+and no aarch64 emulation, and the host interpreter behaves correctly through the
+same code.
+
+### What the next physical run will settle
+
+`ExecResult` now carries `StdoutBytes`/`StderrBytes`, measured at capture and
+printed in the Python result:
+
+- `stdout_bytes=18` beside `stdout: (empty)` → the loss is downstream of capture
+- `stdout_bytes=0` → the interpreter wrote nothing the runtime could see
+
+`stderr_bytes` also joins `bytes_out` on the INFO `runtime.exec.completed` event,
+so a Debug Logs pull corroborates without a second run.
+
+### Build
+
+| Artifact | Value |
+|---|---|
+| Core `libpicoclaw.so` | `6210de2bd04980025aca045a6b3d8d6a0cbc1351aedae9fccdb8ec2264d33ff5` |
+| Core source fingerprint | `25653d50d04fe4ae5bbb4cc7e62c9f357287933687fdf2178c5e4835756767d9` |
+| APK | `build/app/outputs/flutter-apk/app-release.apk`, 64,164,250 bytes |
+| APK SHA-256 | `c7844a51e9d5d3f0e59365b1fc587b578455cf1faad1d147a5b43bc0c98c690e` |
+| versionCode | 8 |
+
+Install over the existing app without clearing data, then run the four tests with
+exactly one `python` call each and report the `stdout_bytes`/`stderr_bytes` line.
+
 ## Python Lite — Phase C hardened, awaiting the physical stderr recheck, 2026-08-31
 
 Branch `feature/python-lite-agent-tool`, from `develop` at `de7ea53`.

@@ -986,9 +986,25 @@ increase. **A 100+ MB addition needs explicit approval.**
   build inputs, `core/build-android-arm64.sh` stamps it into the binary, and the
   gate fails if the staged Core does not carry the current value. A Go-only
   change is now detected with the catalog unchanged.
-- [ ] Python Lite Phase C **physical stderr recheck**, then merge to `develop`:
-  `print("PYTHON-FINAL-PASS")`, `raise ValueError("TEST-ERROR")` (the Agent must
-  report the real traceback and exit code 1), a 2000 ms timeout, and Unicode.
+- [x] Python Lite Phase C physical stderr recheck — **FAILED**. `print()` gave
+  exit 0 with empty stdout and `raise` gave exit 1 with empty stderr; the timeout
+  still passed. Not merged.
+- [x] Prove which boundary loses the bytes: an empty `ExecResult.Stdout` can only
+  mean the capture layer received nothing, because a bounded buffer that kept no
+  bytes returns a truncation marker. Formatter, serialisation and the agent
+  message are ruled out.
+- [x] Close the test seam: a production-path test through
+  `ToolRegistry.ExecuteWithContext` to `ContentForLLM()`, with a real child
+  process staged as a checksum-verified bundled payload.
+- [x] Instrument the boundary: `ExecResult.StdoutBytes`/`StderrBytes`, printed in
+  the Python result and logged at INFO.
+- [ ] **Root-cause the empty capture on device.** Leading hypothesis, unproven:
+  the interpreter's `sys.stdout`/`sys.stderr` are disconnected, which would make
+  `print()` a silent no-op at exit 0 and suppress the traceback at exit 1 while
+  raw fd writes still work. Next physical run reports `stdout_bytes`, which
+  separates "the interpreter wrote nothing" from "the runtime lost it".
+- [ ] Python Lite Phase C physical PASS on all four tests, then merge to
+  `develop`.
 - [ ] Git `SHELL_PATH`: the recorded "Android has no /bin/sh" limitation is
   wrong on Android 11+, which ships `/bin` -> `/system/bin`. Re-evaluate whether
   git hooks and the ENOEXEC fallback can be supported on API 30+ devices.

@@ -1,5 +1,53 @@
 # Development Changelog
 
+## 2026-08-31 — Python Lite Phase C: physical stdout/stderr failure, boundary instrumented
+
+Branch `feature/python-lite-agent-tool`. **Not merged. Not fixed.** The physical
+recheck failed and the root cause is not yet proven; this commit makes the next
+physical run prove it, and closes the test seam that let the failure through.
+
+The device reported `print("PYTHON-FINAL-PASS")` as exit 0 with empty stdout, and
+`raise ValueError("TEST-ERROR")` as exit 1 with empty stderr. The timeout still
+behaved correctly.
+
+### What the empty string proves
+
+`ExecResult.Stdout == ""` has exactly one possible cause. A bounded buffer that
+saw bytes and kept none returns a truncation marker, not an empty string, so an
+empty stream can never mean "output arrived and was dropped in the runtime". It
+means the capture layer received nothing. `TestEmptyCapturedOutputMeansNothing
+WasWritten` pins that down.
+
+That eliminates the formatter and the result serialisation as causes: the
+`(empty)` text the device printed can only be reached from an empty capture. It
+also eliminates the hardening commit, which changed no capture, environment or
+catalog code at all — `git diff c4c0bf2..b42f813` touches only the formatter, one
+log field and the new fingerprint package.
+
+### The seam the tests missed
+
+The Phase C end-to-end test stopped at `PythonTool.Execute` and read `ForLLM` off
+the result. Production goes through `ToolRegistry.ExecuteWithContext`, which
+normalises the result before the agent sees it. A gap between the tool and the
+model was invisible from inside the tool.
+
+There is now a production-path test: the test binary re-executes itself as the
+interpreter, staged as a checksum-verified bundled payload with the catalog's
+real `default_args`, so a real child writes to real pipes and the assertion is on
+`ContentForLLM()` — the exact string the pipeline puts into the conversation.
+stdout, stderr, the exit code, UTF-8 byte-for-byte, and the source staying out of
+the ordinary tool log are all covered there.
+
+### The instrument
+
+`ExecResult` now carries `StdoutBytes` and `StderrBytes` — what the capture layer
+actually received, before bounding. The Python tool prints them, and the runtime
+logs `stderr_bytes` next to the existing `bytes_out` at INFO rather than only at
+DEBUG. One physical call now says which side of the pipe lost the bytes:
+`stdout_bytes=18` beside `stdout: (empty)` would mean the loss is downstream of
+the capture; `stdout_bytes=0` means the interpreter wrote nothing the runtime
+could see.
+
 ## 2026-08-31 — Python Lite Phase C: raw stderr and a Core source fingerprint
 
 Branch `feature/python-lite-agent-tool`. Automated gates green; **not merged**,

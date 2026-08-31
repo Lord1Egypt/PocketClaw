@@ -168,6 +168,12 @@ func formatPythonResult(result *pcruntime.ExecResult) string {
 		"exit_code=%d timed_out=%t cancelled=%t stdout_truncated=%t stderr_truncated=%t\n",
 		result.ExitCode, result.TimedOut, result.Cancelled,
 		result.StdoutTruncated, result.StderrTruncated)
+	// What the runtime measured coming out of the process, next to what it is
+	// showing. If these disagree — bytes counted but no text below — the loss is
+	// downstream of the capture, and the report says so itself instead of
+	// needing a device log to find out.
+	fmt.Fprintf(&report, "stdout_bytes=%d stderr_bytes=%d\n",
+		result.StdoutBytes, result.StderrBytes)
 
 	writeStream(&report, "stdout", result.Stdout, result.StdoutTruncated,
 		"[stdout truncated at the tool's output limit; "+

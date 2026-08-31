@@ -339,3 +339,47 @@ func TestExecuteRefusesASymlinkOutOfTheWorkspace(t *testing.T) {
 		t.Fatalf("a symlink out of the workspace must be refused, got %v", err)
 	}
 }
+
+// An empty Stdout has exactly one meaning, and it is worth pinning down: the
+// capture layer received nothing. A buffer that saw bytes and kept none returns
+// a truncation marker instead, so "" can never mean "output arrived and was
+// dropped here". That makes an empty stream in a tool result evidence about the
+// process rather than about the runtime, which is what a physical failure
+// report needs it to be.
+func TestEmptyCapturedOutputMeansNothingWasWritten(t *testing.T) {
+	keptNone := newBoundedBuffer(0)
+	if _, err := keptNone.Write([]byte("PYTHON-FINAL-PASS\n")); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	if keptNone.String() == "" {
+		t.Error("a buffer that saw bytes but kept none returned an empty string; " +
+			"an empty stream would then be ambiguous")
+	}
+	if keptNone.TotalBytes() != 18 {
+		t.Errorf("TotalBytes = %d, want the 18 bytes the process produced", keptNone.TotalBytes())
+	}
+
+	sawNothing := newBoundedBuffer(1 << 20)
+	if sawNothing.String() != "" || sawNothing.TotalBytes() != 0 {
+		t.Error("a buffer that saw nothing must report empty and zero")
+	}
+}
+
+// The counters travel on the result, not only into a log line, so a caller can
+// tell a silent process from a lost stream without a device log.
+func TestExecResultReportsCapturedByteCounts(t *testing.T) {
+	manifest := newTestManifest(t, systemTool("noisy", TimeoutQuick, 1<<16))
+	manager, binDir := newTestManager(t, manifest)
+	writeScript(t, binDir, "noisy", "printf 'out'\nprintf 'err' >&2\nexit 3\n")
+
+	result, err := manager.Execute(context.Background(), ExecRequest{Tool: "noisy"})
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if result.StdoutBytes != 3 || result.StderrBytes != 3 {
+		t.Errorf("byte counts = %d/%d, want 3/3", result.StdoutBytes, result.StderrBytes)
+	}
+	if result.ExitCode != 3 {
+		t.Errorf("exit code = %d, want 3", result.ExitCode)
+	}
+}
