@@ -973,7 +973,9 @@ increase. **A 100+ MB addition needs explicit approval.**
   catalog requires `./core/build-android-arm64.sh`; guarded by
   `TestStagedCoreEmbedsTheCurrentCatalog`.
 - [ ] Python Lite Phase C — the Agent-facing `python` tool, on
-  `feature/python-lite-agent-tool`. Scope recorded, nothing implemented.
+  `feature/python-lite-agent-tool` from `develop` at `de7ea53`. Scope recorded,
+  nothing implemented. Code on stdin, never argv; reuse `Manager.Execute` and
+  add no second execution path.
 - [ ] Git `SHELL_PATH`: the recorded "Android has no /bin/sh" limitation is
   wrong on Android 11+, which ships `/bin` -> `/system/bin`. Re-evaluate whether
   git hooks and the ENOEXEC fallback can be supported on API 30+ devices.

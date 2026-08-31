@@ -1,5 +1,56 @@
 # PocketClaw Session Handoff
 
+## Next milestone — Python Lite Phase C: the Agent-facing Python tool
+
+Branch `feature/python-lite-agent-tool`, from `develop` at `de7ea53`.
+**Nothing implemented.** The branch exists so the work starts from the merged
+Phase B baseline.
+
+Phase B made Python reachable through the generic Runtime path. Phase C gives
+the model a tool shaped for writing Python rather than for driving a command
+line, without building any new execution machinery.
+
+### Shape
+
+```
+python { "code": "...", "timeout_ms": ..., "args": [...] }
+```
+
+Code travels on **stdin**, never in argv. `ExecRequest.Stdin` already exists and
+the lifecycle log already records `bytes_in` rather than content, so this needs
+no new plumbing. Argv is the wrong channel twice over: `MAX_ARG_STRLEN` caps a
+single argument at roughly 128 KB, and argv is visible in `/proc/<pid>/cmdline`
+and in argv diagnostics, so a script containing a secret would leak.
+
+### Reuse, do not rebuild
+
+`Manager.Execute` already provides the timeout ceiling a caller may lower but
+never raise, cancellation, process-group termination, bounded stdout and stderr
+with truncation flags, workspace-confined working directory, `operation_id`, the
+runtime event family and redaction. Phase C adds a tool schema over that engine
+and nothing else. The `python` environment profile and the catalog entry are
+already in place and must not be duplicated.
+
+### Boundaries
+
+- Do not add a second execution path, a second timeout policy or a second event
+  family.
+- Do not put source in argv, in an event, or in a log line.
+- Do not weaken the `PYTHON*` denial or the catalog's `default_args`.
+- Do not present Python as sandboxed. The boundary is the Android app UID, and
+  `subprocess` remains a Runtime-observability bypass; Agent guidance about it
+  is advisory, not enforcement.
+- Do not add pip, ctypes, sockets or a shell.
+
+### Open questions for the Phase C review
+
+- Whether the tool should expose `stdin` separately from `code`, so a script can
+  be fed data as well as source.
+- Whether tracebacks should name something friendlier than `<stdin>`, which
+  costs a wrapper and buys readability for the model.
+- How the tool description should state the Runtime-versus-Python choice, so the
+  model does not reach for Python to do jq's job at 90 ms a call.
+
 ## Python Lite — Phase B PHYSICAL PASS and merged, 2026-08-31
 
 Branch `feature/python-lite-runtime`, commits `bfe47e6`, `c376837`, `c60b15f`,
