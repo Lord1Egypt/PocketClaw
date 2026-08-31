@@ -1,42 +1,41 @@
 # PocketClaw Project State
 
-## Python Lite — Phase B catalog regression, found and fixed on device, 2026-08-31
+## Python Lite — Phase B PHYSICAL PASS and merged, 2026-08-31
 
-The first Phase B APK shipped the Python payload beside a **stale Core**. The
-catalog is `//go:embed`-ed into `libpicoclaw.so`, which is a committed artifact;
-`manifest.json` was edited but `core/build-android-arm64.sh` was never re-run, so
-the installed app reported catalog 2.0.1 / 55 tools and could not see Python.
-Nothing persisted wrongly on the device — the live Core matched the APK exactly.
-The APK was simply built from an old Core.
+Branch `feature/python-lite-runtime`, commits `bfe47e6`, `c376837`, `c60b15f`,
+`bfc2074`. **Physically validated inside the installed application** on
+SM-A165F / Android 16 / API 36, then merged to `develop`. Not released, `main`
+untouched, no tags moved. Phase A was a physical PASS in its own right.
 
-Fixed by rebuilding Core (`95a9b33b…`, catalog 2.1.0, 56 tools, 7 bundled) and
-guarded by `TestStagedCoreEmbedsTheCurrentCatalog`, which fails in the normal
-gate when the staged Core predates the catalog. Verified: it fails against the
-Core that actually shipped and passes against the rebuilt one.
-
-Upgrade path verified on device with `adb install -r` and no Clear Data:
-`firstInstallTime` unchanged, so application data was preserved.
-
-## Python Lite — Phase B COMPLETE (Runtime integration), 2026-08-31
-
-Branch `feature/python-lite-runtime`. **Not merged.** Python is a bundled
-Managed Runtime tool reachable through the generic execution path. There is no
-Agent-facing Python tool; that is Phase C and is deliberately not started.
+Observed in the real app: catalog **2.1.0**, **56** tools, 53 available, `python`
+present. `runtime {tool: python, args: ["--version"]}` returned
+**Python 3.14.7**, and a script through the Managed Runtime produced
+`PYTHON-PASS`, `SUM=5`, `مرحبا 🐍`, `SQLITE-PASS`. No shell was required.
 
 | | |
 |---|---|
 | CPython | 3.14.7, NDK 28.2.13676358, API 24, arm64-v8a |
-| Payload | `libpocketclaw-python.so`, 11,509,517 bytes |
-| SHA-256 | `a302c990006dfa1adbe9e4223017a4637ce713e7ff20441922ac1df4460dad1b` |
-| Catalog | 2.1.0 — 56 tools, 7 bundled |
-| Provenance | **PASS** — bzip2 1.0.8, XZ 5.4.7 and SQLite 3.50.4 all built from pinned source |
-| Device re-validation | 52 passed, 0 failed on SM-A165F / Android 16 |
+| Payload | `libpocketclaw-python.so`, 11,509,517 bytes, `a302c990…ad1b` |
+| Core | `95a9b33b…`, embeds catalog 2.1.0 |
+| Provenance | bzip2 1.0.8, XZ 5.4.7, SQLite 3.50.4 — all built from pinned source |
 
-Python is **not sandboxed**. The boundary is the Android app UID. `subprocess`
-bypasses Runtime observability, and that guidance is advisory, not enforcement.
-No pip, no ctypes, no direct sockets, no writable executable storage. Shell
-availability is version-dependent: Android 11+ ships `/bin/sh`, API 24-29 does
-not.
+Static extension modules, `lib-dynload` empty, standard library appended to the
+ELF as a `.pyc` zip. No pip, no ctypes, no direct Python sockets, no writable
+executable storage.
+
+**Python is not a sandbox.** The boundary is the Android app UID; `subprocess`
+remains a Runtime-observability bypass and that guidance is advisory, not
+enforcement. Shell availability is version-dependent: Android 11+ ships
+`/bin/sh`, API 24-29 does not.
+
+Two packaging defects were found and are permanently guarded: Gradle stripping
+the appended stdlib (`keepDebugSymbols` plus an EOCD check in the build guard),
+and a stale Core shipping beside a new payload
+(`TestStagedCoreEmbedsTheCurrentCatalog`). **Core must be rebuilt whenever the
+embedded Runtime catalog changes.**
+
+Phase C — the Agent-facing Python tool — is open on
+`feature/python-lite-agent-tool` and not started.
 
 ## Python Lite — Phase A COMPLETE (build + measurement), 2026-08-31
 

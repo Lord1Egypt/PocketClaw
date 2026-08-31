@@ -1,5 +1,20 @@
 # PocketClaw Decisions
 
+## A packaged payload is checked for reachability, not just presence
+
+- Date: 2026-08-31
+- Decision: The APK build guard verifies that the packaged Python payload still
+  ends in a zip end-of-central-directory record, and the test gate verifies that
+  the staged Core embeds the current catalog. Both guards are permanent.
+- Consequence: Phase B produced the same failure twice in different clothes.
+  Gradle's native-library strip removed the standard library appended to the
+  Python payload, leaving a correctly-named, correctly-sized-looking interpreter
+  that could not import anything. Separately, an APK shipped the new payload
+  beside a Core built before the catalog knew the tool existed. In both cases the
+  existing payload guard passed, the build was green, and the app ran — because
+  the guard asked whether files were present, and the question that mattered was
+  whether they were reachable.
+
 ## A catalog change is not shipped until Core is rebuilt
 
 - Date: 2026-08-31

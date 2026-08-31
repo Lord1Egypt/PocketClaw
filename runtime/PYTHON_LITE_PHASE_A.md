@@ -1,5 +1,13 @@
 # Python Lite — Phase A feasibility record
 
+> **Phase A: PHYSICAL PASS. Phase B: PHYSICAL PASS, merged to `develop`
+> 2026-08-31.** Python now ships as the bundled Managed Runtime `python` tool,
+> catalog 2.1.0. Two Phase B packaging defects are recorded in
+> `CHANGELOG_DEV.md` and permanently guarded: Gradle stripping the appended
+> standard library, and a stale Core shipping beside a new payload. Dependency
+> provenance is PASS — bzip2 and xz are built from pinned source, superseding
+> the gap described below.
+
 Experimental. No payload ships, no catalog entry exists, and nothing here is
 wired into the Gradle build guard or the Agent. This file records what was
 built, what was measured, and what is still unproven, so Phase B starts from

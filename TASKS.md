@@ -965,12 +965,15 @@ increase. **A 100+ MB addition needs explicit approval.**
   The same assumption underlies the recorded git `SHELL_PATH` limitation.
 - [x] Python Lite provenance closed (2026-08-31): bzip2 1.0.8 and XZ 5.4.7 are
   built from pinned source; no upstream prebuilt binary is used.
-- [x] Python Lite **Phase B** Runtime integration (2026-08-31). Catalog 2.1.0,
-  56 tools, 7 bundled. Not merged; awaiting physical validation of the APK.
+- [x] Python Lite **Phase B** Runtime integration — **PHYSICAL PASS** and merged
+  (2026-08-31). Catalog 2.1.0, 56 tools, 7 bundled. Verified inside the
+  installed app: python resolves and runs, Python 3.14.7, json/arithmetic/
+  Arabic/emoji/sqlite3 all correct through the Managed Runtime.
 - [x] Fix the stale-Core packaging defect (2026-08-31): editing the embedded
   catalog requires `./core/build-android-arm64.sh`; guarded by
   `TestStagedCoreEmbedsTheCurrentCatalog`.
-- [ ] Python Lite Phase C — the Agent-facing `python` tool. Not started.
+- [ ] Python Lite Phase C — the Agent-facing `python` tool, on
+  `feature/python-lite-agent-tool`. Scope recorded, nothing implemented.
 - [ ] Git `SHELL_PATH`: the recorded "Android has no /bin/sh" limitation is
   wrong on Android 11+, which ships `/bin` -> `/system/bin`. Re-evaluate whether
   git hooks and the ENOEXEC fallback can be supported on API 30+ devices.
