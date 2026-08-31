@@ -1,5 +1,21 @@
 # PocketClaw Tasks
 
+## Secure GitHub Authentication
+
+- [x] Audit the existing architecture before editing: the Android bridge, Core
+  launch environment, `Manager.Execute` injection, the gh and git runtime
+  profiles, provider secret handling, Settings, and credential lifecycle.
+- [x] Encrypt the GitHub token under a non-exportable Android Keystore key
+  (AES-256-GCM, provider-chosen nonce, fail closed on any decryption failure).
+- [x] Remove Core's `credentials/github_token` plaintext fallback; the runtime
+  reads the credential from its environment and nowhere else.
+- [x] Validate a candidate through Core's bundled gh over the loopback Android
+  bridge, scrubbing the candidate out of anything gh reports.
+- [x] Add the GitHub Settings card: connect, test, disconnect, no reveal.
+- [x] Declare `allowBackup`, `fullBackupContent` and `dataExtractionRules`, and
+  exclude the credential directory from cloud backup and device transfer.
+- [ ] **Physical acceptance** of secure GitHub auth, then merge to `develop`.
+
 ## Phase 2 — Milestone A: Independent Foundation
 
 - [x] Confirm Phase 1 completion and preserve the verified baseline workspace.

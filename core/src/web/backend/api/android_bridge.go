@@ -79,6 +79,23 @@ func (h *Handler) RegisterAndroidBridgeRoutes(mux *http.ServeMux, bridgeToken st
 		}
 		h.handleAndroidNetworkModeStatus(w)
 	})
+	// Checking a candidate GitHub credential runs a bundled tool, which only the
+	// Managed Runtime may do. The host holds the credential; Core only answers
+	// whether GitHub accepts it and for which account.
+	mux.HandleFunc("POST "+androidGitHubValidatePath, func(w http.ResponseWriter, r *http.Request) {
+		if !authorizedAndroidBridgeRequest(r, bridgeToken) {
+			http.NotFound(w, r)
+			return
+		}
+		h.handleAndroidGitHubValidate(w, r)
+	})
+	mux.HandleFunc("GET "+androidGitHubStatusPath, func(w http.ResponseWriter, r *http.Request) {
+		if !authorizedAndroidBridgeRequest(r, bridgeToken) {
+			http.NotFound(w, r)
+			return
+		}
+		h.handleAndroidGitHubStatus(w, r)
+	})
 }
 
 func (h *Handler) SetLauncherNetworkModeController(controller LauncherNetworkModeController) {

@@ -6,6 +6,7 @@ import 'package:pocketclaw/src/core/service_manager.dart';
 import 'package:pocketclaw/src/generated/l10n/app_localizations.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:pocketclaw/src/core/app_theme.dart';
+import 'package:pocketclaw/src/ui/github_settings_card.dart';
 import 'package:pocketclaw/src/ui/telegram_settings_card.dart';
 
 const String _aboutProjectName = 'PocketClaw';
@@ -676,6 +677,8 @@ class ConfigPageState extends State<ConfigPage> with WidgetsBindingObserver {
               const SizedBox(height: 16),
 
               TelegramSettingsCard(onManage: widget.onManageTelegram),
+              const SizedBox(height: 12),
+              const GitHubSettingsCard(),
               const SizedBox(height: 16),
 
               if (!Platform.isWindows &&

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Android 11 and earlier backup rules.
+
+  The GitHub credential is encrypted under a key that lives in the Android
+  Keystore and never leaves the device, so a restored copy on another device
+  could not be decrypted anyway. Excluding it keeps that from being the user's
+  problem to discover: they would see "Connected" against a credential that
+  fails closed on first use. It also keeps the ciphertext out of Google's backup
+  transport entirely, which is the stronger property.
+-->
+<full-backup-content>
+    <exclude domain="file" path="credentials/" />
+</full-backup-content>

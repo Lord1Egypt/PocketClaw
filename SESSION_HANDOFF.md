@@ -1,5 +1,61 @@
 # PocketClaw Session Handoff
 
+## Secure GitHub authentication — implemented, awaiting physical acceptance, 2026-08-31
+
+Branch `feature/secure-github-auth`, from `develop` at `08c457e`.
+**Not merged.** All automated gates are green; the nine physical tests are the
+remaining gate.
+
+### Design, after auditing what already existed
+
+The injection half was already built: `applyGHProfile` sets `GH_TOKEN` and
+`applyGitCredentials` sets an `http.https://github.com/.extraheader`
+Authorization header through `GIT_CONFIG_KEY_0`/`VALUE_0`. Both are marked
+secret, neither reaches argv, and no token-bearing URL is ever constructed. What
+was missing was storage, a UI, and any way to configure the credential.
+`Manager.Execute` is reused unchanged; no second execution path exists.
+
+| Layer | Where it lives |
+|---|---|
+| At rest | `GitHubCredentialStore` — AES-256-GCM under a non-exportable Android Keystore key, ciphertext only, app-private |
+| Host → Core | decrypted at Core launch, passed as `POCKETCLAW_GITHUB_TOKEN` |
+| Core → tools | existing gh and git profiles, unchanged |
+| Validation | `POST /api/pocketclaw/android/github/validate` on the loopback bridge, `gh api user` with a one-shot override |
+| Status | `GET /api/pocketclaw/android/github/status`, the ambient credential |
+| UI | `GitHubSettingsCard` — connect, test, disconnect; no reveal control |
+
+Core's `credentials/github_token` plaintext fallback was removed. `gh auth login`
+and `gh auth setup-git` are deliberately unused: both persist credentials outside
+PocketClaw.
+
+The manifest declared neither `allowBackup` nor `dataExtractionRules`, so
+app-private files were backed up by default. Both are declared now and the
+credential directory is excluded from cloud backup and device transfer.
+
+### Known limitation
+
+The credential is read at Core launch, so connect and disconnect take effect on
+the next start, and Test connection reports unauthenticated until then. The card
+says so.
+
+### Build
+
+| Artifact | Value |
+|---|---|
+| Core `libpicoclaw.so` | `ae74a8584ea2010015591c3a65fe72cf02f2f1e9c89a6606d388906e3302eadd` |
+| Core source fingerprint | `a61c0664f1932a577bac4498699be44ffca33105a0b757c2f2e1de7d0b6c1a7e` |
+| APK | `build/app/outputs/flutter-apk/app-release.apk`, 64,275,718 bytes |
+| APK SHA-256 | `2e756d57c7dfc3f966c424cc0a5b218de785fd65fc21fa48390d3643c36745ef` |
+| versionCode | 10 |
+
+### Physical acceptance still to do
+
+Connect; restart and stay connected; `gh api user`; `gh repo view` a private
+repo; `git clone`, `fetch` and `pull` over HTTPS; inspect `.git/config`, gh
+config, PocketClaw and Runtime logs and agent output for the raw token;
+disconnect and confirm gh no longer authenticates; reconnect, install the APK
+over itself without clearing data, and confirm the credential survives.
+
 ## Python Lite — Phase C PHYSICAL PASS and merged, 2026-08-31
 
 Branch `feature/python-lite-agent-tool`, from `develop` at `de7ea53`.

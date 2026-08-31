@@ -1,5 +1,6 @@
 package com.lord1egypt.pocketclaw.service
 
+import com.lord1egypt.pocketclaw.security.GitHubCredentialStore
 import android.app.Notification
 import android.app.PendingIntent
 import android.app.Service
@@ -231,6 +232,14 @@ class PicoClawService : Service() {
             )
             activeNetworkDnsServers(context).takeIf { it.isNotEmpty() }?.let {
                 environment["PICOCLAW_DNS_SERVER"] = it
+            }
+            // The GitHub credential is decrypted here and nowhere else: the
+            // Keystore key never leaves the Keystore, and the plaintext exists
+            // only in this map and in the child's environment, where the runtime
+            // hands it to gh and git as GH_TOKEN and an Authorization header. It
+            // is read at launch, so connecting or disconnecting restarts Core.
+            GitHubCredentialStore.token(context)?.let {
+                environment["POCKETCLAW_GITHUB_TOKEN"] = it
             }
             return environment
         }

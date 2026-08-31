@@ -1,5 +1,6 @@
 package com.lord1egypt.pocketclaw
 
+import com.lord1egypt.pocketclaw.security.GitHubCredentialStore
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -53,6 +54,10 @@ class PicoClawMethodChannel(
             "http://127.0.0.1:18800/api/pocketclaw/android/telegram"
         private const val NETWORK_MODE_BRIDGE_URL =
             "http://127.0.0.1:18800/api/pocketclaw/android/network-mode"
+        private const val GITHUB_VALIDATE_BRIDGE_URL =
+            "http://127.0.0.1:18800/api/pocketclaw/android/github/validate"
+        private const val GITHUB_STATUS_BRIDGE_URL =
+            "http://127.0.0.1:18800/api/pocketclaw/android/github/status"
     }
 
     // Copy a content:// URI to the app cache and return the absolute file path.
@@ -279,6 +284,84 @@ class PicoClawMethodChannel(
                             }
                         }
                     }.start()
+                }
+                "getGitHubStatus" -> {
+                    try {
+                        result.success(GitHubCredentialStore.status(context).asMap())
+                    } catch (e: Exception) {
+                        result.error(
+                            "GITHUB_STATUS_FAILED",
+                            "Could not read the GitHub connection state",
+                            null,
+                        )
+                    }
+                }
+                "connectGitHub" -> {
+                    // The candidate is checked by Core, which is the only part of
+                    // PocketClaw allowed to run the bundled gh, and is stored only
+                    // if GitHub accepts it. Nothing is written on failure, and the
+                    // token is never returned to Flutter.
+                    val candidate = call.argument<String>("token").orEmpty().trim()
+                    if (candidate.isEmpty()) {
+                        result.error("GITHUB_TOKEN_REQUIRED", "A GitHub token is required", null)
+                        return@setMethodCallHandler
+                    }
+                    Thread {
+                        val mainExecutor = getMainExecutor()
+                        try {
+                            val login = callGitHubBridge(
+                                url = GITHUB_VALIDATE_BRIDGE_URL,
+                                method = "POST",
+                                body = JSONObject().put("token", candidate),
+                            ).optString("login")
+                            GitHubCredentialStore.connect(context, candidate, login)
+                            mainExecutor.execute {
+                                result.success(mapOf("connected" to true, "login" to login))
+                            }
+                        } catch (e: Exception) {
+                            // e.message comes from Core, which scrubs the candidate
+                            // out of anything gh said before replying.
+                            val reason = e.message ?: "GitHub did not accept this token"
+                            mainExecutor.execute {
+                                result.error("GITHUB_CONNECT_FAILED", reason, null)
+                            }
+                        }
+                    }.start()
+                }
+                "testGitHubConnection" -> {
+                    // Deliberately tests the credential as gh will actually see
+                    // it, rather than re-checking what is in storage: the useful
+                    // question is whether the running Core is authenticated.
+                    Thread {
+                        val mainExecutor = getMainExecutor()
+                        try {
+                            val login = callGitHubBridge(
+                                url = GITHUB_STATUS_BRIDGE_URL,
+                                method = "GET",
+                                body = null,
+                            ).optString("login")
+                            mainExecutor.execute {
+                                result.success(mapOf("authenticated" to true, "login" to login))
+                            }
+                        } catch (e: Exception) {
+                            val reason = e.message ?: "GitHub authentication is not working"
+                            mainExecutor.execute {
+                                result.error("GITHUB_TEST_FAILED", reason, null)
+                            }
+                        }
+                    }.start()
+                }
+                "disconnectGitHub" -> {
+                    try {
+                        GitHubCredentialStore.disconnect(context)
+                        result.success(true)
+                    } catch (e: Exception) {
+                        result.error(
+                            "GITHUB_DISCONNECT_FAILED",
+                            "Could not remove the GitHub credential",
+                            null,
+                        )
+                    }
                 }
                 "getLaunchAutoStartPreferences" -> {
                     try {
@@ -547,6 +630,53 @@ class PicoClawMethodChannel(
                 throw IllegalStateException("Core Telegram bridge request failed")
             }
             connection.inputStream.close()
+        } finally {
+            connection.disconnect()
+        }
+    }
+
+    /**
+     * One request to Core's loopback GitHub bridge.
+     *
+     * Core's reply carries an account name or a reason, never the credential:
+     * it scrubs the candidate out of gh's own output before answering, so an
+     * error message is safe to show and safe to log.
+     */
+    private fun callGitHubBridge(url: String, method: String, body: JSONObject?): JSONObject {
+        val connection = (URL(url).openConnection() as HttpURLConnection).apply {
+            requestMethod = method
+            connectTimeout = 3_000
+            // A credential check reaches GitHub over the network, so it is
+            // allowed to take noticeably longer than a local bridge call.
+            readTimeout = 30_000
+            setRequestProperty(
+                "X-PocketClaw-Android-Bridge",
+                PicoClawService.bridgeTokenForHost(),
+            )
+            setRequestProperty("Accept", "application/json")
+            if (body != null) {
+                doOutput = true
+                setRequestProperty("Content-Type", "application/json")
+            }
+        }
+        try {
+            if (body != null) {
+                connection.outputStream.use { output ->
+                    output.write(body.toString().toByteArray(Charsets.UTF_8))
+                }
+            }
+            if (connection.responseCode != HttpURLConnection.HTTP_OK) {
+                val reason = connection.errorStream
+                    ?.bufferedReader(Charsets.UTF_8)
+                    ?.use { it.readText() }
+                    ?.trim()
+                    .orEmpty()
+                throw IllegalStateException(
+                    reason.ifEmpty { "PocketClaw could not reach GitHub. Is the service running?" }
+                )
+            }
+            val payload = connection.inputStream.bufferedReader(Charsets.UTF_8).use { it.readText() }
+            return if (payload.isBlank()) JSONObject() else JSONObject(payload)
         } finally {
             connection.disconnect()
         }

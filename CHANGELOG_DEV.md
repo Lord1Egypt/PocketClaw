@@ -1,5 +1,66 @@
 # Development Changelog
 
+## 2026-08-31 — Secure GitHub authentication (Phase 1)
+
+Branch `feature/secure-github-auth` from `develop` at `08c457e`. **Not merged**,
+physical acceptance outstanding.
+
+### What was already there
+
+The audit found the injection half of this already built and correct.
+`applyGHProfile` sets `GH_TOKEN` and `applyGitCredentials` sets an
+`http.https://github.com/.extraheader` Authorization header through
+`GIT_CONFIG_KEY_0`/`VALUE_0`, both marked secret, neither in argv, and no
+credential-bearing URL anywhere. What was missing was everything below it: the
+credential had no storage, no UI, and no way to be configured except an
+environment variable.
+
+`Manager.Execute` is reused unchanged. No second execution path was added.
+
+### What changed
+
+**Storage.** `GitHubCredentialStore` encrypts the token with AES-256-GCM under a
+key generated inside the Android Keystore that cannot be exported from it.
+`setRandomizedEncryptionRequired(true)` makes the provider draw the nonce from
+the platform CSPRNG and refuse a caller-chosen one, so nonce reuse is impossible
+rather than merely unlikely. Only ciphertext reaches storage, written whole so a
+half-written blob cannot silently disconnect the user. Any decryption failure
+deletes the material and reports "not connected": a credential that will not
+authenticate is not one to carry forward.
+
+**Core reads the credential from its environment and nowhere else.** The
+previous `credentials/github_token` file fallback is gone. Nothing wrote it, and
+a credential this process can read off disk is one that survives on disk, which
+is what the encrypted store exists to prevent. The Android service decrypts at
+Core launch and passes it in, so connecting or disconnecting takes effect on the
+next start.
+
+**Validation.** A candidate is checked before it is stored, by Core, over the
+existing loopback Android bridge: `gh api user` through `Manager.Execute` with
+the candidate as a one-shot `GH_TOKEN` override. gh is never asked to log in, so
+it writes no config of its own. Core scrubs the candidate out of anything gh
+said before replying, because a tool's error message may quote what it was
+given. `gh auth setup-git` is deliberately not used: it makes gh a persistent
+credential helper in `~/.gitconfig`, which is credential persistence outside
+PocketClaw.
+
+**UI.** A GitHub card in Settings showing connected state and account name, with
+Connect, Test connection and Disconnect. There is no reveal control and no field
+that could redisplay a stored value, because nothing above the Android service
+has a copy to show.
+
+**Backup.** The manifest declared neither `allowBackup` nor
+`dataExtractionRules`, so app-private files were backed up by default. Both are
+now declared and the credential directory is excluded from cloud backup and from
+device transfer. The Keystore key does not travel, so a restored blob would fail
+closed — excluding it keeps that from being the user's problem to discover.
+
+### Known limitation
+
+Test connection exercises the running Core, so immediately after connecting it
+reports unauthenticated until PocketClaw restarts. That is the honest answer to
+"will my next gh command work", and the card says so.
+
 ## 2026-08-31 — Python Lite Phase C: Android stdio root cause and the bootstrap
 
 Branch `feature/python-lite-agent-tool`. **Physically validated and merged to

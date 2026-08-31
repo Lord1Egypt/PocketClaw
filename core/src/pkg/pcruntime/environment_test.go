@@ -100,7 +100,15 @@ func TestNoCredentialIsInjectedWhenNoneIsConfigured(t *testing.T) {
 
 // The Android Service can hold the token in memory, but a file fallback lets it
 // live app-private, outside the workspace, without a UI existing yet.
-func TestGitHubTokenIsReadFromAppPrivateStorage(t *testing.T) {
+// The runtime reads the GitHub credential from its environment and from
+// nowhere else.
+//
+// A file the runtime would read is a credential that lives on disk in a form
+// this process can use, which is the thing the encrypted store exists to
+// prevent: the Android host holds it under a Keystore key and passes the
+// plaintext in at launch. An earlier build did read such a file, so this test
+// exists to keep that path from coming back by habit.
+func TestGitHubTokenIsNeverReadFromDisk(t *testing.T) {
 	t.Setenv(EnvGitHubToken, "")
 
 	manager, _ := profileFixture(t, EnvironmentProfileGit)
@@ -108,17 +116,38 @@ func TestGitHubTokenIsReadFromAppPrivateStorage(t *testing.T) {
 	if err := os.MkdirAll(credentials, 0o700); err != nil {
 		t.Fatalf("cannot create credential dir: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(credentials, "github_token"),
-		[]byte("ghp_abcdefghijklmnopqrstuvwxyz012345\n"), 0o600); err != nil {
-		t.Fatalf("cannot write token: %v", err)
+	const planted = "ghp_planted_credential_that_must_not_be_read_0001"
+	for _, name := range []string{"github_token", "github.bin", "github_token.txt"} {
+		if err := os.WriteFile(filepath.Join(credentials, name),
+			[]byte(planted+"\n"), 0o600); err != nil {
+			t.Fatalf("cannot write %s: %v", name, err)
+		}
 	}
 
 	result, err := manager.Execute(context.Background(), ExecRequest{Tool: "dumpenv"})
 	if err != nil {
 		t.Fatalf("execute was rejected: %v", err)
 	}
-	if !strings.Contains(result.Stdout, "GIT_CONFIG_VALUE_0=Authorization: Basic ") {
-		t.Fatalf("token file was not used: %q", result.Stdout)
+	if strings.Contains(result.Stdout, planted) {
+		t.Error("a credential file on disk was read and injected")
+	}
+	if strings.Contains(result.Stdout, "GIT_CONFIG_VALUE_0=") {
+		t.Errorf("a credential was injected with none configured:\n%s", result.Stdout)
+	}
+}
+
+// The host supplies the credential at launch, and that is the whole source.
+func TestGitHubTokenComesFromTheProcessEnvironment(t *testing.T) {
+	const token = "ghp_environment_supplied_credential_0002"
+	t.Setenv(EnvGitHubToken, token)
+
+	manager, _ := profileFixture(t, EnvironmentProfileGH)
+	result, err := manager.Execute(context.Background(), ExecRequest{Tool: "dumpenv"})
+	if err != nil {
+		t.Fatalf("execute was rejected: %v", err)
+	}
+	if !strings.Contains(result.Stdout, "GH_TOKEN="+token) {
+		t.Errorf("the credential from the environment was not injected:\n%s", result.Stdout)
 	}
 }
 

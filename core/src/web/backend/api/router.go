@@ -30,6 +30,15 @@ type Handler struct {
 	launcherNetworkMode        LauncherNetworkModeController
 	launcherNetworkModeMu      sync.Mutex
 	launcherNetworkModeState   launcherNetworkModeState
+	// githubValidator overrides how a candidate GitHub credential is checked.
+	// Production leaves it nil and goes through the Managed Runtime.
+	githubValidator GitHubTokenValidator
+}
+
+// SetGitHubTokenValidator replaces credential validation. It exists for tests,
+// which have no gh binary and must not depend on network access.
+func (h *Handler) SetGitHubTokenValidator(validator GitHubTokenValidator) {
+	h.githubValidator = validator
 }
 
 // NewHandler creates an instance of the API handler.

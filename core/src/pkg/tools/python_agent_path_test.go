@@ -63,6 +63,11 @@ func runStandInInterpreter() int {
 			fmt.Fprintln(os.Stderr, strings.TrimPrefix(line, "ERR:"))
 		case strings.HasPrefix(line, "EXIT:"):
 			fmt.Sscanf(strings.TrimPrefix(line, "EXIT:"), "%d", &status)
+		case strings.HasPrefix(line, "ENVLEN:"):
+			// The length, never the value: a test that printed a credential
+			// would put it in the very output it is checking.
+			name := strings.TrimPrefix(line, "ENVLEN:")
+			fmt.Fprintf(os.Stdout, "%s_len=%d\n", name, len(os.Getenv(name)))
 		case line == "ARGV":
 			fmt.Fprintf(os.Stdout, "argv=%s\n", strings.Join(os.Args, " "))
 		}
