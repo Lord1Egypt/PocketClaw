@@ -1,5 +1,18 @@
 # PocketClaw Decisions
 
+## A catalog change is not shipped until Core is rebuilt
+
+- Date: 2026-08-31
+- Decision: The staged Core binary is checked against the current catalog in the
+  normal test gate, and the check names the build script to run.
+- Consequence: `manifest.json` is `//go:embed`-ed into `libpicoclaw.so`, and that
+  binary is a committed artifact rather than something Gradle produces. Editing
+  the catalog and rebuilding the APK produces an installable, runnable app that
+  silently reports the previous catalog — the payload guard sees the new payload
+  file and is satisfied, because presence is not the same as reachability. The
+  first Phase B APK shipped exactly that. A green build and a correct APK payload
+  list were both true while the feature was entirely absent on the device.
+
 ## Python ships as a Runtime tool, and it is not a sandbox
 
 - Date: 2026-08-31

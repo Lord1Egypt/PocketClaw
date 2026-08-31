@@ -49,6 +49,24 @@ to install a payload that carries one, and prints the payload's checksum.
    Gradle strips the executable during packaging, which changes its bytes and
    breaks the pinned checksum on every device.
 
+## Rebuilding Core after a catalog change
+
+`core/src/pkg/pcruntime/manifest.json` is compiled into the Core executable with
+`//go:embed`, and that executable is a committed artifact under `jniLibs`.
+Editing the catalog therefore changes nothing on a device until Core is rebuilt
+and re-staged:
+
+    ./core/build-android-arm64.sh
+
+Nothing in the Gradle build does this. The APK payload guard only checks that
+files are present, so a stale Core packages, installs and runs cleanly while the
+app reports the previous catalog and cannot see the new tool. That is exactly
+what happened once: an APK carrying the Python payload beside a Core that had
+never heard of it.
+
+`TestStagedCoreEmbedsTheCurrentCatalog` now fails in the normal test gate when
+the staged Core predates the catalog, and names the script to run.
+
 ## Python
 
 `build-python-android-arm64.sh` is different from the other payload builds and

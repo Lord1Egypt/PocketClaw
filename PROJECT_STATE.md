@@ -1,5 +1,22 @@
 # PocketClaw Project State
 
+## Python Lite — Phase B catalog regression, found and fixed on device, 2026-08-31
+
+The first Phase B APK shipped the Python payload beside a **stale Core**. The
+catalog is `//go:embed`-ed into `libpicoclaw.so`, which is a committed artifact;
+`manifest.json` was edited but `core/build-android-arm64.sh` was never re-run, so
+the installed app reported catalog 2.0.1 / 55 tools and could not see Python.
+Nothing persisted wrongly on the device — the live Core matched the APK exactly.
+The APK was simply built from an old Core.
+
+Fixed by rebuilding Core (`95a9b33b…`, catalog 2.1.0, 56 tools, 7 bundled) and
+guarded by `TestStagedCoreEmbedsTheCurrentCatalog`, which fails in the normal
+gate when the staged Core predates the catalog. Verified: it fails against the
+Core that actually shipped and passes against the rebuilt one.
+
+Upgrade path verified on device with `adb install -r` and no Clear Data:
+`firstInstallTime` unchanged, so application data was preserved.
+
 ## Python Lite — Phase B COMPLETE (Runtime integration), 2026-08-31
 
 Branch `feature/python-lite-runtime`. **Not merged.** Python is a bundled

@@ -967,6 +967,9 @@ increase. **A 100+ MB addition needs explicit approval.**
   built from pinned source; no upstream prebuilt binary is used.
 - [x] Python Lite **Phase B** Runtime integration (2026-08-31). Catalog 2.1.0,
   56 tools, 7 bundled. Not merged; awaiting physical validation of the APK.
+- [x] Fix the stale-Core packaging defect (2026-08-31): editing the embedded
+  catalog requires `./core/build-android-arm64.sh`; guarded by
+  `TestStagedCoreEmbedsTheCurrentCatalog`.
 - [ ] Python Lite Phase C — the Agent-facing `python` tool. Not started.
 - [ ] Git `SHELL_PATH`: the recorded "Android has no /bin/sh" limitation is
   wrong on Android 11+, which ships `/bin` -> `/system/bin`. Re-evaluate whether
