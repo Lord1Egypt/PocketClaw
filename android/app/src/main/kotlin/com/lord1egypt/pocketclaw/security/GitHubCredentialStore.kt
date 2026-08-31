@@ -6,7 +6,10 @@ import android.security.keystore.KeyProperties
 import java.io.File
 import java.security.GeneralSecurityException
 import java.security.KeyStore
+import javax.crypto.AEADBadTagException
+import javax.crypto.BadPaddingException
 import javax.crypto.Cipher
+import javax.crypto.IllegalBlockSizeException
 import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
@@ -41,13 +44,76 @@ object GitHubCredentialStore {
     private const val METADATA_FILE = "github.json"
 
     /** What the UI is allowed to know: whether there is a credential, and whose. */
-    data class Status(val connected: Boolean, val login: String?) {
-        fun asMap(): Map<String, Any?> = mapOf("connected" to connected, "login" to login)
+    data class Status(
+        val connected: Boolean,
+        val login: String?,
+        val unavailableReason: String? = null,
+    ) {
+        fun asMap(): Map<String, Any?> = mapOf(
+            "connected" to connected,
+            "login" to login,
+            "unavailableReason" to unavailableReason,
+        )
     }
 
+    /**
+     * The three answers reading the credential can give.
+     *
+     * [Unavailable] is not [Absent]. A Keystore that is momentarily unreachable
+     * has not lost the user's credential, and treating the two the same would
+     * turn a transient platform fault into a silent disconnection that the user
+     * only discovers when a push fails.
+     */
+    sealed interface CredentialState {
+        data class Present(val token: String) : CredentialState
+        object Absent : CredentialState
+        data class Unavailable(val reason: String) : CredentialState
+    }
+
+    /** What to do with stored material after a failure to read it. */
+    internal enum class Recovery { DESTROY, PRESERVE }
+
+    /**
+     * Whether a read failure is evidence that the stored material is unusable.
+     *
+     * Destroying a credential is irreversible, so it happens only on positive
+     * evidence: an authentication tag that does not verify, ciphertext that
+     * cannot be a valid block sequence, or a key the platform says is
+     * permanently invalidated. Everything else — a busy keystore, a provider
+     * that failed to load, an error this code has never seen — preserves the
+     * ciphertext and reports the credential unavailable for now.
+     *
+     * The permanently-invalidated case is matched by class name rather than by
+     * type. android.security.keystore.KeyPermanentlyInvalidatedException cannot
+     * be constructed in a JVM unit test, and a rule that could not be tested is
+     * a rule that quietly rots.
+     */
+    internal fun classify(failure: Throwable): Recovery {
+        var cause: Throwable? = failure
+        while (cause != null) {
+            when {
+                cause is AEADBadTagException -> return Recovery.DESTROY
+                cause is BadPaddingException -> return Recovery.DESTROY
+                cause is IllegalBlockSizeException -> return Recovery.DESTROY
+                cause.javaClass.simpleName == "KeyPermanentlyInvalidatedException" ->
+                    return Recovery.DESTROY
+            }
+            cause = cause.cause
+        }
+        return Recovery.PRESERVE
+    }
+
+    /**
+     * @param login the account the credential was proved to belong to. It is
+     * required, which is what makes storing an unvalidated token impossible:
+     * the only source of a login is a successful `gh api user`.
+     */
     @Synchronized
     fun connect(context: Context, token: String, login: String) {
         require(token.isNotBlank()) { "refusing to store an empty credential" }
+        require(login.isNotBlank()) {
+            "refusing to store a credential that GitHub has not accepted"
+        }
 
         val cipher = Cipher.getInstance(TRANSFORMATION).apply {
             // No IV is supplied here on purpose. The key is generated with
@@ -76,43 +142,62 @@ object GitHubCredentialStore {
     }
 
     /**
-     * The stored credential, or null when there is none or it cannot be
-     * decrypted.
+     * The stored credential, or why it cannot be produced.
      *
-     * Every failure path deletes the material and reports "not connected". A
-     * credential that will not decrypt is not recoverable — the Keystore key is
-     * gone, or the blob was tampered with, and GCM's tag is what tells the
-     * difference from a lucky-looking corruption. Carrying on with a partially
-     * trusted secret would be worse than asking the user to connect again.
+     * A blob that fails its authentication tag is deleted: GCM's tag is what
+     * distinguishes tampering and corruption from bad luck, and carrying on with
+     * a partially trusted secret would be worse than asking the user to connect
+     * again. A blob that could not be read because the platform was unwilling is
+     * kept, because nothing about it is known to be wrong.
      */
     @Synchronized
-    fun token(context: Context): String? {
-        val blob = ciphertextFile(context).takeIf { it.isFile }?.readBytes() ?: return null
+    fun read(context: Context): CredentialState {
+        val file = ciphertextFile(context)
+        if (!file.isFile) return CredentialState.Absent
+
+        val blob = try {
+            file.readBytes()
+        } catch (failure: java.io.IOException) {
+            return CredentialState.Unavailable("the credential file could not be read")
+        }
         if (blob.size < 3 || blob[0].toInt() != FORMAT_VERSION) {
             forget(context)
-            return null
+            return CredentialState.Absent
         }
         val nonceSize = blob[1].toInt()
         if (nonceSize <= 0 || blob.size <= 2 + nonceSize) {
             forget(context)
-            return null
+            return CredentialState.Absent
         }
 
         return try {
+            val key = existingKey()
+                ?: return CredentialState.Unavailable("the Keystore key is not available")
             val nonce = blob.copyOfRange(2, 2 + nonceSize)
             val ciphertext = blob.copyOfRange(2 + nonceSize, blob.size)
             val cipher = Cipher.getInstance(TRANSFORMATION).apply {
-                init(Cipher.DECRYPT_MODE, existingKey() ?: return null, GCMParameterSpec(TAG_BITS, nonce))
+                init(Cipher.DECRYPT_MODE, key, GCMParameterSpec(TAG_BITS, nonce))
             }
-            String(cipher.doFinal(ciphertext), Charsets.UTF_8).trim().ifEmpty { null }
-        } catch (failure: GeneralSecurityException) {
-            forget(context)
-            null
-        } catch (failure: IllegalStateException) {
-            forget(context)
-            null
+            val token = String(cipher.doFinal(ciphertext), Charsets.UTF_8).trim()
+            if (token.isEmpty()) {
+                forget(context)
+                CredentialState.Absent
+            } else {
+                CredentialState.Present(token)
+            }
+        } catch (failure: Exception) {
+            if (classify(failure) == Recovery.DESTROY) {
+                forget(context)
+                return CredentialState.Absent
+            }
+            CredentialState.Unavailable("the Android Keystore could not decrypt the credential")
         }
     }
+
+    /** The credential for the Core process, or null when there is none to give. */
+    @Synchronized
+    fun token(context: Context): String? =
+        (read(context) as? CredentialState.Present)?.token
 
     /**
      * Whether a usable credential is present, and the account it belongs to.
@@ -120,19 +205,24 @@ object GitHubCredentialStore {
      * This decrypts rather than trusting the metadata file: metadata is
      * plaintext and could outlive the key, and reporting "Connected" for a
      * credential that can no longer be decrypted would send the user looking for
-     * a fault in GitHub instead of reconnecting.
+     * a fault in GitHub instead of reconnecting. A transient failure is reported
+     * as such, so the user is not told to reconnect over something that will fix
+     * itself.
      */
     @Synchronized
-    fun status(context: Context): Status {
-        if (token(context) == null) return Status(connected = false, login = null)
-        val login = try {
-            metadataFile(context).takeIf { it.isFile }
-                ?.readText(Charsets.UTF_8)
-                ?.let { JSONObject(it).optString("login").ifBlank { null } }
-        } catch (failure: Exception) {
-            null
-        }
-        return Status(connected = true, login = login)
+    fun status(context: Context): Status = when (val state = read(context)) {
+        is CredentialState.Present -> Status(connected = true, login = storedLogin(context))
+        is CredentialState.Absent -> Status(connected = false, login = null)
+        is CredentialState.Unavailable ->
+            Status(connected = false, login = storedLogin(context), unavailableReason = state.reason)
+    }
+
+    private fun storedLogin(context: Context): String? = try {
+        metadataFile(context).takeIf { it.isFile }
+            ?.readText(Charsets.UTF_8)
+            ?.let { JSONObject(it).optString("login").ifBlank { null } }
+    } catch (failure: Exception) {
+        null
     }
 
     /** Removes the credential and its metadata. Other secrets are untouched. */

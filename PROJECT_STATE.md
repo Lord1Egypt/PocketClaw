@@ -32,11 +32,23 @@ The manifest declared neither `allowBackup` nor `dataExtractionRules`, so
 app-private files were backed up by default. Both are declared now and the
 credential directory is excluded from cloud backup and device transfer.
 
-### Known limitation
+### Applying a change
 
-The credential is read at Core launch, so connect and disconnect take effect on
-the next start, and Test connection reports unauthenticated until then. The card
-says so.
+The credential is read at Core launch, so `ServiceManager.applyCredentialChange`
+restarts Core through the same stop/start the config screen already uses. A
+service that is mid-start is never interrupted: the change is queued and applied
+from the existing status poll once it settles, and the card reports "saved, will
+apply automatically" instead of claiming the credential is live.
+
+### Reading failures
+
+Destroying a credential is irreversible, so `GitHubCredentialStore.classify`
+destroys only on positive evidence — a GCM tag that does not verify, ciphertext
+that cannot be a valid block sequence, a malformed blob, or a permanently
+invalidated key. A busy keystore or an unrecognised provider failure preserves
+the ciphertext and reports the credential unavailable. The rule is a pure
+function of the failure and is covered by JVM unit tests
+(`./gradlew :app:testReleaseUnitTest`).
 
 ### Build
 
@@ -44,9 +56,9 @@ says so.
 |---|---|
 | Core `libpicoclaw.so` | `ae74a8584ea2010015591c3a65fe72cf02f2f1e9c89a6606d388906e3302eadd` |
 | Core source fingerprint | `a61c0664f1932a577bac4498699be44ffca33105a0b757c2f2e1de7d0b6c1a7e` |
-| APK | `build/app/outputs/flutter-apk/app-release.apk`, 64,275,718 bytes |
-| APK SHA-256 | `2e756d57c7dfc3f966c424cc0a5b218de785fd65fc21fa48390d3643c36745ef` |
-| versionCode | 10 |
+| APK | `build/app/outputs/flutter-apk/app-release.apk`, 64,278,210 bytes |
+| APK SHA-256 | `eaddd9fc3ce1e9b0c02e4efb36e37fe44c3a406ab5e6c43be55d38c9a068f94f` |
+| versionCode | 11 |
 
 ### Physical acceptance still to do
 

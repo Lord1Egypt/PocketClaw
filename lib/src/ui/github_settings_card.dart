@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'package:pocketclaw/src/core/picoclaw_channel.dart';
+import 'package:pocketclaw/src/core/service_manager.dart';
 
 /// GitHub authentication for the bundled `gh` and for Git over HTTPS.
 ///
@@ -13,9 +14,10 @@ import 'package:pocketclaw/src/core/picoclaw_channel.dart';
 class GitHubSettingsCard extends StatefulWidget {
   const GitHubSettingsCard({super.key, this.onCredentialChanged});
 
-  /// Called after connecting or disconnecting. The credential is read when Core
-  /// starts, so the change takes effect on the next start.
-  final Future<void> Function()? onCredentialChanged;
+  /// Applies the change to a running Core. The credential is read when Core
+  /// launches, so a restart is what makes it live; the caller supplies the
+  /// app's existing safe restart rather than this card inventing one.
+  final Future<CredentialApplyOutcome> Function()? onCredentialChanged;
 
   @override
   State<GitHubSettingsCard> createState() => _GitHubSettingsCardState();
@@ -71,11 +73,8 @@ class _GitHubSettingsCardState extends State<GitHubSettingsCard> {
       final connection = await PicoClawChannel.connectGitHub(token);
       if (!mounted) return;
       setState(() => _connection = connection);
-      _report(
-        'Connected as ${connection.login ?? 'your GitHub account'}. '
-        'Restart PocketClaw for gh and git to use it.',
-      );
-      await widget.onCredentialChanged?.call();
+      final who = connection.login ?? 'your GitHub account';
+      _report('Connected as $who. ${await _applyOutcome()}');
     } on PlatformException catch (error) {
       _report(error.message ?? 'GitHub did not accept this token.',
           isError: true);
@@ -111,13 +110,31 @@ class _GitHubSettingsCardState extends State<GitHubSettingsCard> {
       await PicoClawChannel.disconnectGitHub();
       if (!mounted) return;
       setState(() => _connection = const GitHubConnection(connected: false));
-      _report('Disconnected. Restart PocketClaw to complete it.');
-      await widget.onCredentialChanged?.call();
+      _report('Disconnected. ${await _applyOutcome()}');
     } on PlatformException catch (error) {
       _report(error.message ?? 'Could not remove the credential.',
           isError: true);
     } finally {
       if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  /// Applies the change through the app's normal restart and says what
+  /// happened, because "saved" and "in effect" are different states and the
+  /// user is about to run a gh command on the strength of this message.
+  Future<String> _applyOutcome() async {
+    final apply = widget.onCredentialChanged;
+    if (apply == null) {
+      return 'It will be used the next time PocketClaw starts.';
+    }
+    switch (await apply()) {
+      case CredentialApplyOutcome.applied:
+        return 'gh and git can use it now.';
+      case CredentialApplyOutcome.notRunning:
+        return 'It will be used the next time PocketClaw starts.';
+      case CredentialApplyOutcome.deferred:
+        return 'Saved. PocketClaw is busy starting, so it will apply '
+            'automatically as soon as that finishes.';
     }
   }
 

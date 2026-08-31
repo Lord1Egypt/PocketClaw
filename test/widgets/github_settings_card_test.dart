@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:pocketclaw/src/core/service_manager.dart';
 import 'package:pocketclaw/src/ui/github_settings_card.dart';
 
 void main() {
@@ -10,6 +11,7 @@ void main() {
   const canary = 'ghp_canary_widget_must_never_render_this';
 
   final calls = <MethodCall>[];
+  var applied = 0;
 
   void mockNative(Object? Function(MethodCall call) respond) {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
@@ -19,16 +21,31 @@ void main() {
         });
   }
 
-  setUp(calls.clear);
+  setUp(() {
+    calls.clear();
+    applied = 0;
+  });
 
   tearDown(() {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(channel, null);
   });
 
-  Future<void> pumpCard(WidgetTester tester) async {
+  Future<void> pumpCard(
+    WidgetTester tester, {
+    CredentialApplyOutcome outcome = CredentialApplyOutcome.applied,
+  }) async {
     await tester.pumpWidget(
-      const MaterialApp(home: Scaffold(body: GitHubSettingsCard())),
+      MaterialApp(
+        home: Scaffold(
+          body: GitHubSettingsCard(
+            onCredentialChanged: () async {
+              applied++;
+              return outcome;
+            },
+          ),
+        ),
+      ),
     );
     await tester.pumpAndSettle();
   }
@@ -139,6 +156,81 @@ void main() {
 
     expect(calls.map((c) => c.method), contains('disconnectGitHub'));
     expect(find.text('Not connected'), findsOneWidget);
+    expect(find.byKey(const Key('github-connect-button')), findsOneWidget);
+  });
+
+  testWidgets('a successful connect applies through the app restart', (
+    tester,
+  ) async {
+    var connected = false;
+    mockNative((call) {
+      if (call.method == 'connectGitHub') {
+        connected = true;
+        return <String, Object?>{'connected': true, 'login': 'octocat'};
+      }
+      return <String, Object?>{
+        'connected': connected,
+        'login': connected ? 'octocat' : null,
+      };
+    });
+
+    await pumpCard(tester);
+    await tester.tap(find.byKey(const Key('github-connect-button')));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('github-token-field')), canary);
+    await tester.tap(find.byKey(const Key('github-token-save')));
+    await tester.pumpAndSettle();
+
+    expect(applied, 1);
+    expect(find.textContaining('gh and git can use it now'), findsOneWidget);
+  });
+
+  testWidgets('a busy service is reported as pending, not as done', (
+    tester,
+  ) async {
+    var connected = false;
+    mockNative((call) {
+      if (call.method == 'connectGitHub') {
+        connected = true;
+        return <String, Object?>{'connected': true, 'login': 'octocat'};
+      }
+      return <String, Object?>{
+        'connected': connected,
+        'login': connected ? 'octocat' : null,
+      };
+    });
+
+    await pumpCard(tester, outcome: CredentialApplyOutcome.deferred);
+    await tester.tap(find.byKey(const Key('github-connect-button')));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('github-token-field')), canary);
+    await tester.tap(find.byKey(const Key('github-token-save')));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('apply automatically'), findsOneWidget);
+    expect(find.textContaining('can use it now'), findsNothing);
+  });
+
+  testWidgets('a rejected token never triggers a restart', (tester) async {
+    mockNative((call) {
+      if (call.method == 'connectGitHub') {
+        throw PlatformException(
+          code: 'GITHUB_CONNECT_FAILED',
+          message: 'GitHub rejected this token: HTTP 401',
+        );
+      }
+      return <String, Object?>{'connected': false, 'login': null};
+    });
+
+    await pumpCard(tester);
+    await tester.tap(find.byKey(const Key('github-connect-button')));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('github-token-field')), canary);
+    await tester.tap(find.byKey(const Key('github-token-save')));
+    await tester.pumpAndSettle();
+
+    // Nothing was stored, so nothing needed applying.
+    expect(applied, 0);
     expect(find.byKey(const Key('github-connect-button')), findsOneWidget);
   });
 }

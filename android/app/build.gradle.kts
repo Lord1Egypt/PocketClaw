@@ -158,6 +158,9 @@ dependencies {
     implementation("com.umeng.umsdk:common:9.9.1")
     implementation("com.umeng.umsdk:asms:1.8.7.2")
     implementation("javax.xml.stream:stax-api:1.0-2")
+    // The credential store's destroy-or-preserve rule is a pure function of the
+    // failure, so it is checked on the JVM rather than only on a device.
+    testImplementation("junit:junit:4.13.2")
 }
 
 // Generate Firebase resources from dart-define

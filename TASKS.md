@@ -14,6 +14,13 @@
 - [x] Add the GitHub Settings card: connect, test, disconnect, no reveal.
 - [x] Declare `allowBackup`, `fullBackupContent` and `dataExtractionRules`, and
   exclude the credential directory from cloud backup and device transfer.
+- [x] Make validate-before-save structural: `connect` requires the login that
+  only a successful `gh api user` can produce.
+- [x] Apply connect and disconnect through the existing stop/start, queueing the
+  restart when the service is mid-start rather than interrupting it.
+- [x] Classify decryption failures: destroy only on a failed GCM tag, corrupt
+  ciphertext, a malformed blob or a permanently invalidated key; preserve the
+  ciphertext on transient platform failures. JVM unit tests cover the rule.
 - [ ] **Physical acceptance** of secure GitHub auth, then merge to `develop`.
 
 ## Phase 2 — Milestone A: Independent Foundation

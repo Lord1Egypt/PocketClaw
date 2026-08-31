@@ -678,7 +678,10 @@ class ConfigPageState extends State<ConfigPage> with WidgetsBindingObserver {
 
               TelegramSettingsCard(onManage: widget.onManageTelegram),
               const SizedBox(height: 12),
-              const GitHubSettingsCard(),
+              GitHubSettingsCard(
+                onCredentialChanged: () =>
+                    context.read<ServiceManager>().applyCredentialChange(),
+              ),
               const SizedBox(height: 16),
 
               if (!Platform.isWindows &&

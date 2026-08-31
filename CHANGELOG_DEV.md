@@ -55,11 +55,38 @@ now declared and the credential directory is excluded from cloud backup and from
 device transfer. The Keystore key does not travel, so a restored blob would fail
 closed — excluding it keeps that from being the user's problem to discover.
 
+### Pre-physical corrections
+
+**Validate before save was already the flow, and is now structural.**
+`GitHubCredentialStore.connect` requires a non-blank login, and the only source
+of a login is a successful `gh api user`, so storing an unvalidated token is not
+expressible. Tests assert that a rejected candidate stores nothing and triggers
+no restart.
+
+**Connect and disconnect apply themselves.** `ServiceManager.applyCredential
+Change` reuses the stop/start the config screen already performs; it adds no
+lifecycle machinery. A service that is mid-start is never interrupted: the
+change is queued and applied from the existing status poll once the service
+settles, and the card reports "saved, will apply automatically" rather than
+claiming the credential is live. After the restart the old credential is gone
+from Core, because the new process is built with a fresh environment.
+
+**Decryption failures are classified rather than lumped together.** Destroying a
+credential is irreversible, so it happens only on positive evidence: a GCM tag
+that does not verify, ciphertext that cannot be a valid block sequence, a
+malformed blob, or a key the platform reports permanently invalidated.
+Everything else — a busy keystore, a provider that failed to load, an error this
+code has not seen — preserves the ciphertext and reports the credential
+unavailable, which the UI shows as a temporary state rather than a
+disconnection. `GitHubCredentialStore.classify` is a pure function of the
+failure and is covered by JVM unit tests, which is why the Android module now
+has a `test` source set and a JUnit dependency.
+
 ### Known limitation
 
-Test connection exercises the running Core, so immediately after connecting it
-reports unauthenticated until PocketClaw restarts. That is the honest answer to
-"will my next gh command work", and the card says so.
+Test connection exercises the running Core. Immediately after connecting, the
+restart it triggers must finish before the test reports authenticated; while the
+service is still coming up the card says so rather than claiming success.
 
 ## 2026-08-31 — Python Lite Phase C: Android stdio root cause and the bootstrap
 
