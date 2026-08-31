@@ -9,6 +9,8 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/sipeed/picoclaw/pkg/pcruntime"
 )
 
 // canaryToken is unique enough that finding it anywhere is proof, not
@@ -192,5 +194,182 @@ func TestScrubTokenRemovesEveryOccurrence(t *testing.T) {
 	// An empty credential must not turn every string into redactions.
 	if got := scrubToken("nothing to hide", ""); got != "nothing to hide" {
 		t.Errorf("scrubToken with no credential changed the text: %q", got)
+	}
+}
+
+// The message the user sees has to match what actually happened. "GitHub
+// rejected this token" for a request that never left the device is not a
+// wording problem: it sends the user to regenerate a credential that was never
+// checked.
+func TestFailuresAreClassifiedByWhatActuallyHappened(t *testing.T) {
+	cases := []struct {
+		name     string
+		result   *pcruntime.ExecResult
+		category string
+		message  string
+	}{
+		{
+			name: "android has no resolv.conf so Go falls back to localhost",
+			result: &pcruntime.ExecResult{
+				ExitCode: 1,
+				Stderr: "* Request to https://api.github.com/user\n" +
+					"* dial tcp: lookup api.github.com on [::1]:53: read udp [::1]:36500->[::1]:53: read: connection refused\n" +
+					"error connecting to api.github.com\n",
+			},
+			category: GitHubFailureConnectivity,
+			message:  "Could not connect to GitHub",
+		},
+		{
+			name: "name resolution failed outright",
+			result: &pcruntime.ExecResult{
+				ExitCode: 1,
+				Stderr:   "dial tcp: lookup api.github.com: no such host\n",
+			},
+			category: GitHubFailureConnectivity,
+			message:  "address could not be resolved",
+		},
+		{
+			name: "the certificate chain did not verify",
+			result: &pcruntime.ExecResult{
+				ExitCode: 1,
+				Stderr:   "x509: certificate signed by unknown authority\n",
+			},
+			category: GitHubFailureConnectivity,
+			message:  "secure connection failed",
+		},
+		{
+			name: "the credential was actually rejected",
+			result: &pcruntime.ExecResult{
+				ExitCode: 1,
+				Stderr:   "gh: Bad credentials (HTTP 401)\n",
+			},
+			category: GitHubFailureAuth,
+			message:  "GitHub rejected this token",
+		},
+		{
+			name: "the credential lacks a scope",
+			result: &pcruntime.ExecResult{
+				ExitCode: 1,
+				Stderr:   "gh: Resource not accessible by personal access token (HTTP 403)\n",
+			},
+			category: GitHubFailureAuth,
+			message:  "lacks the required access",
+		},
+		{
+			name:     "the run exceeded its budget",
+			result:   &pcruntime.ExecResult{ExitCode: -1, TimedOut: true, DurationMS: 20000},
+			category: GitHubFailureTimeout,
+			message:  "timed out",
+		},
+		{
+			name: "the transport gave up waiting",
+			result: &pcruntime.ExecResult{
+				ExitCode: 1,
+				Stderr:   "dial tcp 140.82.121.6:443: i/o timeout\n",
+			},
+			category: GitHubFailureTimeout,
+			message:  "timed out",
+		},
+		{
+			name: "gh has no credential at all",
+			result: &pcruntime.ExecResult{
+				ExitCode: 4,
+				Stderr:   "To get started with GitHub CLI, please run: gh auth login\n",
+			},
+			category: GitHubFailureAuth,
+			message:  "not configured",
+		},
+		{
+			name: "something this code has not seen",
+			result: &pcruntime.ExecResult{
+				ExitCode: 1,
+				Stderr:   "gh: an entirely novel problem\n",
+			},
+			category: GitHubFailureOther,
+			message:  "GitHub validation failed",
+		},
+	}
+
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			failure := classifyGitHubResult(testCase.result, "")
+			if failure == nil {
+				t.Fatal("a failing run was classified as a success")
+			}
+			if failure.Category != testCase.category {
+				t.Errorf("category = %q, want %q (detail: %s)",
+					failure.Category, testCase.category, failure.Detail)
+			}
+			if !strings.Contains(failure.Message, testCase.message) {
+				t.Errorf("message = %q, want it to contain %q", failure.Message, testCase.message)
+			}
+			if failure.Category != GitHubFailureAuth &&
+				strings.Contains(strings.ToLower(failure.Message), "rejected this token") {
+				t.Errorf("a %s failure claimed the token was rejected: %q",
+					failure.Category, failure.Message)
+			}
+		})
+	}
+}
+
+func TestASuccessfulRunIsNotClassifiedAsAFailure(t *testing.T) {
+	if failure := classifyGitHubResult(&pcruntime.ExecResult{
+		ExitCode: 0, Stdout: `{"login":"octocat"}`,
+	}, ""); failure != nil {
+		t.Errorf("a successful run was classified as %+v", failure)
+	}
+}
+
+// The sanitized diagnostic is what reaches the Debug Logs and the reply, so it
+// is the one place the credential could still escape.
+func TestTheDiagnosticNeverCarriesTheCandidate(t *testing.T) {
+	failure := classifyGitHubResult(&pcruntime.ExecResult{
+		ExitCode: 1,
+		Stderr:   "gh: request with token " + canaryToken + " failed (HTTP 401)\n",
+	}, canaryToken)
+
+	if failure == nil {
+		t.Fatal("a failing run was classified as a success")
+	}
+	if strings.Contains(failure.Detail, canaryToken) {
+		t.Errorf("the diagnostic carried the credential: %s", failure.Detail)
+	}
+	if !strings.Contains(failure.Detail, "[redacted]") {
+		t.Errorf("the credential was removed without saying so: %s", failure.Detail)
+	}
+	if failure.Category != GitHubFailureAuth {
+		t.Errorf("category = %q, want auth", failure.Category)
+	}
+}
+
+// A connectivity failure must not answer with the status a rejected credential
+// would get, or the host cannot tell them apart without reading prose.
+func TestConnectivityFailuresAnswerWithABadGateway(t *testing.T) {
+	server, bridgeToken := newGitHubBridge(t, func(context.Context, string) (string, error) {
+		return "", &GitHubFailure{
+			Category: GitHubFailureConnectivity,
+			Message:  "Could not connect to GitHub.",
+			Detail:   "dial tcp: lookup api.github.com on [::1]:53: connection refused",
+		}
+	})
+
+	status, body := bridgeRequest(t, server, bridgeToken, "POST",
+		androidGitHubValidatePath, `{"token":"`+canaryToken+`"}`)
+
+	if status != http.StatusBadGateway {
+		t.Errorf("status = %d, want 502 for a connectivity failure", status)
+	}
+	var decoded GitHubFailure
+	if err := json.Unmarshal([]byte(body), &decoded); err != nil {
+		t.Fatalf("the reply is not a structured failure: %v (%s)", err, body)
+	}
+	if decoded.Category != GitHubFailureConnectivity {
+		t.Errorf("category = %q, want connectivity", decoded.Category)
+	}
+	if strings.Contains(body, canaryToken) {
+		t.Error("the reply carried the credential")
+	}
+	if strings.Contains(strings.ToLower(body), "rejected this token") {
+		t.Error("a connectivity failure was reported as a rejected credential")
 	}
 }

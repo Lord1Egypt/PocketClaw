@@ -3,10 +3,13 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/sipeed/picoclaw/pkg/logger"
 
 	"github.com/sipeed/picoclaw/pkg/pcruntime"
 )
@@ -53,38 +56,160 @@ func (h *Handler) validateGitHubToken(ctx context.Context, token string) (string
 func validateGitHubTokenThroughRuntime(ctx context.Context, token string) (string, error) {
 	manager, err := pcruntime.NewManager()
 	if err != nil {
-		return "", fmt.Errorf("the managed runtime is unavailable: %w", err)
+		return "", &GitHubFailure{
+			Category: GitHubFailureUnavailable,
+			Message:  "The PocketClaw runtime is not available.",
+			Detail:   err.Error(),
+		}
 	}
 
 	result, err := manager.Execute(ctx, pcruntime.ExecRequest{
-		Tool:                 "gh",
-		Args:                 []string{"api", "user"},
-		EnvironmentAdditions: map[string]string{"GH_TOKEN": token},
-		TimeoutMS:            githubTokenValidation.Milliseconds(),
+		Tool: "gh",
+		Args: []string{"api", "user"},
+		EnvironmentAdditions: map[string]string{
+			"GH_TOKEN": token,
+			// gh's own summary is "error connecting to api.github.com", which
+			// cannot distinguish a rejected credential from a network that never
+			// carried the request. GH_DEBUG=1 makes it print the underlying error
+			// as well. It prints no request headers -- that is GH_DEBUG=api -- so
+			// nothing here can carry the credential, and it is scrubbed anyway.
+			"GH_DEBUG": "1",
+		},
+		TimeoutMS: githubTokenValidation.Milliseconds(),
 	})
 	if err != nil {
-		return "", err
+		return "", &GitHubFailure{
+			Category: GitHubFailureOther,
+			Message:  "GitHub validation failed.",
+			Detail:   scrubToken(err.Error(), token),
+		}
 	}
-	if result.Status == pcruntime.StatusUnavailable {
-		return "", fmt.Errorf("gh is not available on this device: %s", result.Diagnostics)
-	}
-	if result.ExitCode != 0 {
-		// gh does not echo GH_TOKEN, but its output is not something this code
-		// controls, so it is scrubbed before it can reach a response or a log.
-		return "", fmt.Errorf("GitHub rejected this token: %s",
-			firstLine(scrubToken(result.Stderr, token)))
+	if failure := classifyGitHubResult(result, token); failure != nil {
+		return "", failure
 	}
 
 	var account struct {
 		Login string `json:"login"`
 	}
 	if err := json.Unmarshal([]byte(result.Stdout), &account); err != nil {
-		return "", fmt.Errorf("GitHub's reply could not be read")
+		return "", &GitHubFailure{
+			Category: GitHubFailureOther,
+			Message:  "GitHub's reply could not be read.",
+			Detail:   "the response body was not the expected JSON",
+		}
 	}
 	if strings.TrimSpace(account.Login) == "" {
-		return "", fmt.Errorf("GitHub did not name an account for this token")
+		return "", &GitHubFailure{
+			Category: GitHubFailureOther,
+			Message:  "GitHub did not name an account for this token.",
+		}
 	}
 	return account.Login, nil
+}
+
+// Categories a caller can act on. "Rejected" and "unreachable" call for
+// completely different responses from the user, and reporting one as the other
+// sends them to change a credential that was never checked.
+const (
+	GitHubFailureAuth         = "auth"
+	GitHubFailureConnectivity = "connectivity"
+	GitHubFailureTimeout      = "timeout"
+	GitHubFailureUnavailable  = "unavailable"
+	GitHubFailureOther        = "other"
+)
+
+// GitHubFailure is a validation failure the UI can classify, with a sanitized
+// diagnostic for the logs. Detail never contains the credential.
+type GitHubFailure struct {
+	Category string `json:"category"`
+	Message  string `json:"message"`
+	Detail   string `json:"detail,omitempty"`
+	ExitCode int    `json:"exit_code,omitempty"`
+}
+
+func (f *GitHubFailure) Error() string { return f.Message }
+
+// HTTPStatus separates "your credential is wrong" from "PocketClaw could not
+// ask", so the host is not left inferring it from prose.
+func (f *GitHubFailure) HTTPStatus() int {
+	switch f.Category {
+	case GitHubFailureAuth:
+		return http.StatusBadRequest
+	case GitHubFailureConnectivity, GitHubFailureTimeout, GitHubFailureUnavailable:
+		return http.StatusBadGateway
+	default:
+		return http.StatusBadRequest
+	}
+}
+
+// classifyGitHubResult turns one gh run into a category, or nil if it succeeded.
+//
+// The evidence is gh's stderr, which with GH_DEBUG=1 carries the underlying
+// transport error as well as gh's own summary. Everything returned from here is
+// scrubbed of the candidate first: gh does not echo it, but a tool's output is
+// not something this code controls.
+func classifyGitHubResult(result *pcruntime.ExecResult, token string) *GitHubFailure {
+	if result.Status == pcruntime.StatusUnavailable {
+		return &GitHubFailure{
+			Category: GitHubFailureUnavailable,
+			Message:  "The bundled gh is not available on this device.",
+			Detail:   scrubToken(result.Diagnostics, token),
+		}
+	}
+	if result.TimedOut {
+		return &GitHubFailure{
+			Category: GitHubFailureTimeout,
+			Message:  "GitHub connection timed out.",
+			Detail:   fmt.Sprintf("gh was terminated after %dms", result.DurationMS),
+			ExitCode: result.ExitCode,
+		}
+	}
+	if result.ExitCode == 0 {
+		return nil
+	}
+
+	detail := scrubToken(strings.TrimSpace(result.Stderr), token)
+	lowered := strings.ToLower(detail)
+	failure := &GitHubFailure{Detail: detail, ExitCode: result.ExitCode}
+
+	switch {
+	case containsAny(lowered, "http 401", "bad credentials", "requires authentication"):
+		failure.Category = GitHubFailureAuth
+		failure.Message = "GitHub rejected this token."
+	case containsAny(lowered, "http 403", "forbidden", "insufficient scope", "missing the required scope"):
+		failure.Category = GitHubFailureAuth
+		failure.Message = "GitHub rejected this token: it lacks the required access."
+	case containsAny(lowered, "no such host", "server misbehaving", "lookup "):
+		failure.Category = GitHubFailureConnectivity
+		failure.Message = "Could not connect to GitHub: its address could not be resolved."
+	case containsAny(lowered, "x509", "certificate", "tls handshake"):
+		failure.Category = GitHubFailureConnectivity
+		failure.Message = "Could not connect to GitHub: the secure connection failed."
+	case containsAny(lowered, "i/o timeout", "context deadline exceeded", "timeout awaiting"):
+		failure.Category = GitHubFailureTimeout
+		failure.Message = "GitHub connection timed out."
+	case containsAny(lowered, "connection refused", "network is unreachable", "no route to host",
+		"error connecting to", "dial tcp", "connection reset"):
+		failure.Category = GitHubFailureConnectivity
+		failure.Message = "Could not connect to GitHub."
+	case result.ExitCode == 4:
+		// gh's own "not logged in" exit. It means gh never made a request.
+		failure.Category = GitHubFailureAuth
+		failure.Message = "GitHub authentication is not configured."
+	default:
+		failure.Category = GitHubFailureOther
+		failure.Message = "GitHub validation failed."
+	}
+	return failure
+}
+
+func containsAny(haystack string, needles ...string) bool {
+	for _, needle := range needles {
+		if strings.Contains(haystack, needle) {
+			return true
+		}
+	}
+	return false
 }
 
 // scrubToken removes a credential from text that is about to be shown or
@@ -136,8 +261,7 @@ func (h *Handler) handleAndroidGitHubValidate(w http.ResponseWriter, r *http.Req
 
 	login, err := h.validateGitHubToken(ctx, token)
 	if err != nil {
-		// The candidate never appears in the reply, whatever gh said about it.
-		http.Error(w, scrubToken(err.Error(), token), http.StatusBadRequest)
+		writeGitHubFailure(w, asGitHubFailure(err, token))
 		return
 	}
 
@@ -159,7 +283,7 @@ func (h *Handler) handleAndroidGitHubStatus(w http.ResponseWriter, r *http.Reque
 
 	login, err := h.checkGitHubAuthentication(ctx)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		writeGitHubFailure(w, asGitHubFailure(err, ""))
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
@@ -178,31 +302,75 @@ func (h *Handler) checkGitHubAuthentication(ctx context.Context) (string, error)
 func authenticatedGitHubLogin(ctx context.Context) (string, error) {
 	manager, err := pcruntime.NewManager()
 	if err != nil {
-		return "", fmt.Errorf("the managed runtime is unavailable: %w", err)
+		return "", &GitHubFailure{
+			Category: GitHubFailureUnavailable,
+			Message:  "The PocketClaw runtime is not available.",
+			Detail:   err.Error(),
+		}
 	}
 	result, err := manager.Execute(ctx, pcruntime.ExecRequest{
-		Tool:      "gh",
-		Args:      []string{"api", "user"},
-		TimeoutMS: githubTokenValidation.Milliseconds(),
+		Tool:                 "gh",
+		Args:                 []string{"api", "user"},
+		EnvironmentAdditions: map[string]string{"GH_DEBUG": "1"},
+		TimeoutMS:            githubTokenValidation.Milliseconds(),
 	})
 	if err != nil {
-		return "", err
+		return "", &GitHubFailure{
+			Category: GitHubFailureOther,
+			Message:  "GitHub validation failed.",
+			Detail:   err.Error(),
+		}
 	}
-	if result.Status == pcruntime.StatusUnavailable {
-		return "", fmt.Errorf("gh is not available on this device")
-	}
-	if result.ExitCode != 0 {
-		return "", fmt.Errorf("GitHub authentication is not working: %s", firstLine(result.Stderr))
+	if failure := classifyGitHubResult(result, ""); failure != nil {
+		if failure.Category == GitHubFailureAuth && result.ExitCode == 4 {
+			failure.Message = "GitHub authentication is not configured."
+		}
+		return "", failure
 	}
 
 	var account struct {
 		Login string `json:"login"`
 	}
 	if err := json.Unmarshal([]byte(result.Stdout), &account); err != nil {
-		return "", fmt.Errorf("GitHub's reply could not be read")
+		return "", &GitHubFailure{
+			Category: GitHubFailureOther,
+			Message:  "GitHub's reply could not be read.",
+		}
 	}
 	if strings.TrimSpace(account.Login) == "" {
-		return "", fmt.Errorf("GitHub did not name an authenticated account")
+		return "", &GitHubFailure{
+			Category: GitHubFailureOther,
+			Message:  "GitHub did not name an authenticated account.",
+		}
 	}
 	return account.Login, nil
+}
+
+// asGitHubFailure normalises anything the validator returned into a category.
+func asGitHubFailure(err error, token string) *GitHubFailure {
+	var failure *GitHubFailure
+	if errors.As(err, &failure) {
+		return failure
+	}
+	return &GitHubFailure{
+		Category: GitHubFailureOther,
+		Message:  "GitHub validation failed.",
+		Detail:   scrubToken(err.Error(), token),
+	}
+}
+
+// writeGitHubFailure answers the host and records the diagnostic.
+//
+// The detail goes to the log so it reaches the Debug Logs screen, where a
+// connectivity fault can actually be diagnosed. It has already been scrubbed of
+// the candidate, and no environment is dumped with it.
+func writeGitHubFailure(w http.ResponseWriter, failure *GitHubFailure) {
+	logger.WarnCF("github", "GitHub credential check failed", map[string]any{
+		"category":  failure.Category,
+		"exit_code": failure.ExitCode,
+		"detail":    failure.Detail,
+	})
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(failure.HTTPStatus())
+	_ = json.NewEncoder(w).Encode(failure)
 }

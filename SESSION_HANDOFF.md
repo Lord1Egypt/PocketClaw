@@ -1,5 +1,37 @@
 # PocketClaw Session Handoff
 
+## GitHub auth blocked by Go DNS on Android — cause proven, 2026-09-01
+
+Branch `feature/secure-github-auth`. **Not merged.** The credential storage,
+injection and UI are done and green; gh cannot resolve DNS on Android, so
+Connect cannot validate.
+
+**Proven on device over adb, outside the app:** `gh api user` with `GH_DEBUG=1`
+reports `dial tcp: lookup api.github.com on [::1]:53: connection refused`.
+Android has no `/etc/resolv.conf`, so Go's resolver falls back to localhost.
+`GODEBUG=netdns=2` shows `using the Go DNS resolver`; `netdns=cgo` cannot help
+because the payload is `CGO_ENABLED=0`. The bundled curl gets HTTP 200 in the
+same environment. Both CA stores are populated and the failure is unchanged with
+`SSL_CERT_DIR` set either way, so it is not a certificate problem.
+
+`pkg/androiddns` already solves exactly this for Core and the launcher via
+`PICOCLAW_DNS_SERVER`. gh never got it, and that variable is not in the
+runtime's inherited environment keys.
+
+**The fix has two parts, neither applied yet:** give the gh payload the same
+resolver shim at build time, and let `PICOCLAW_DNS_SERVER` reach managed tools.
+The second changes what every managed tool sees, and the first repins a
+checksum-pinned payload, so both were held pending a decision.
+
+**This build** classifies failures instead of mislabelling them: auth,
+connectivity, timeout, unavailable and other, from gh's stderr with `GH_DEBUG=1`,
+with the candidate scrubbed and the detail sent to Debug Logs.
+
+| Artifact | Value |
+|---|---|
+| APK | `build/app/outputs/flutter-apk/app-release.apk`, 64,282,982 bytes, versionCode 12 |
+| APK SHA-256 | `09335f1a038b3470ba672babfeb257c871b4c66f522204e0a516cc94327ab96a` |
+
 ## Secure GitHub authentication — implemented, awaiting physical acceptance, 2026-08-31
 
 Branch `feature/secure-github-auth`, from `develop` at `08c457e`.

@@ -1,5 +1,55 @@
 # Development Changelog
 
+## 2026-09-01 — GitHub connectivity diagnostic, and the proven cause
+
+Branch `feature/secure-github-auth`. **Not merged.** The credential path is
+sound; gh cannot reach the network on Android, and this build says so honestly
+instead of blaming the token.
+
+### Root cause, proven on the device
+
+Reproduced outside the app, over adb, on SM-A165F:
+
+```
+$ gh api user            # GH_DEBUG=1, dummy token, app-like environment
+* Request to https://api.github.com/user
+* dial tcp: lookup api.github.com on [::1]:53:
+    read udp [::1]:36500->[::1]:53: read: connection refused
+error connecting to api.github.com
+```
+
+Android has no `/etc/resolv.conf`. Go's resolver finds no nameservers and falls
+back to `[::1]:53`, where nothing is listening, so the request never leaves the
+device. `GODEBUG=netdns=2` confirms it: `using the Go DNS resolver`,
+`hostLookupOrder(api.github.com) = files,dns`. `netdns=cgo` changes nothing —
+the payload is built `CGO_ENABLED=0`, so there is no cgo resolver to select.
+
+The bundled curl reaches `https://api.github.com/` with HTTP 200 in the same
+environment, because it resolves through bionic and Android's netd.
+
+This is not a CA problem: both `/system/etc/security/cacerts` (143) and
+`/apex/com.android.conscrypt/cacerts` (145) are populated, and the failure is
+identical with `SSL_CERT_DIR` set to either, or unset.
+
+It is the same problem `pkg/androiddns` already solves for Core and the
+launcher, which receive `PICOCLAW_DNS_SERVER` from the host and install a
+resolver from it. gh is a separate Go binary that never got that treatment, and
+`PICOCLAW_DNS_SERVER` is not among the runtime's inherited environment keys, so
+it could not have used it anyway.
+
+### What changed here
+
+The message was wrong in a way that mattered. "GitHub rejected this token:
+error connecting to api.github.com" tells the user to replace a credential that
+was never checked. Failures are now classified from gh's stderr — with
+`GH_DEBUG=1`, which adds the underlying transport error and prints no request
+headers — into auth, connectivity, timeout, unavailable and other, each with its
+own message and HTTP status, so the host can tell "your credential is wrong"
+from "PocketClaw could not ask". The sanitized detail goes to the Debug Logs.
+
+The candidate is scrubbed from every diagnostic before it can reach a reply or a
+log, and no environment is dumped with it.
+
 ## 2026-08-31 — Secure GitHub authentication (Phase 1)
 
 Branch `feature/secure-github-auth` from `develop` at `08c457e`. **Not merged**,

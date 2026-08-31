@@ -666,13 +666,25 @@ class PicoClawMethodChannel(
                 }
             }
             if (connection.responseCode != HttpURLConnection.HTTP_OK) {
-                val reason = connection.errorStream
+                val body = connection.errorStream
                     ?.bufferedReader(Charsets.UTF_8)
                     ?.use { it.readText() }
                     ?.trim()
                     .orEmpty()
+                // Core answers failures as a structured category plus a message
+                // written for the user. A connectivity fault and a rejected
+                // credential are different things, and the message already says
+                // which; the raw body is only a fallback for a reply that is not
+                // Core's own, such as one from a listener that is not up yet.
+                val reason = try {
+                    JSONObject(body).optString("message").ifBlank { body }
+                } catch (malformed: Exception) {
+                    body
+                }
                 throw IllegalStateException(
-                    reason.ifEmpty { "PocketClaw could not reach GitHub. Is the service running?" }
+                    reason.ifEmpty {
+                        "PocketClaw could not reach GitHub. Is the service running?"
+                    }
                 )
             }
             val payload = connection.inputStream.bufferedReader(Charsets.UTF_8).use { it.readText() }

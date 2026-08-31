@@ -21,6 +21,16 @@
 - [x] Classify decryption failures: destroy only on a failed GCM tag, corrupt
   ciphertext, a malformed blob or a permanently invalidated key; preserve the
   ciphertext on transient platform failures. JVM unit tests cover the rule.
+- [x] Classify GitHub validation failures (auth, connectivity, timeout,
+  unavailable, other) from gh's stderr with `GH_DEBUG=1`, scrubbing the
+  candidate and sending the detail to Debug Logs. A connection failure no longer
+  reports the token as rejected.
+- [x] Prove why gh cannot reach GitHub on Android: no `/etc/resolv.conf`, so
+  Go's resolver falls back to `[::1]:53`. Reproduced over adb with `GH_DEBUG=1`
+  and `GODEBUG=netdns=2`; curl succeeds in the same environment.
+- [ ] **Fix Go DNS for managed tools:** give the gh payload the `pkg/androiddns`
+  resolver shim at build time, and let `PICOCLAW_DNS_SERVER` reach managed
+  tools. Repins the gh checksum and the catalog; needs a Core rebuild.
 - [ ] **Physical acceptance** of secure GitHub auth, then merge to `develop`.
 
 ## Phase 2 — Milestone A: Independent Foundation
