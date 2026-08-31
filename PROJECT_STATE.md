@@ -1,10 +1,10 @@
 # PocketClaw Project State
 
-## Secure GitHub auth — DNS fixed, awaiting physical UI acceptance, 2026-09-01
+## Secure GitHub auth — PHYSICAL PASS and merged, 2026-09-01
 
-Branch `feature/secure-github-auth`. **Not merged.** Everything automated is
-green and the DNS fix is verified on the device; the twelve-step UI flow is the
-remaining gate.
+Branch `feature/secure-github-auth`. **Physically validated inside the installed
+application, then merged to `develop`.** Not released, `main` untouched, no tags
+moved.
 
 The gh payload carries the resolver from `core/src/pkg/androiddns`, copied in by
 `runtime/build-gh-android-arm64.sh` so there is one implementation, and the
@@ -25,6 +25,40 @@ Core, the launcher and the shipped gh have all been `0x10000` since Phase 1.
 | Catalog | `2.3.0` |
 | APK | `build/app/outputs/flutter-apk/app-release.apk`, 64,282,270 bytes, versionCode 13 |
 | APK SHA-256 | `4a7d6eb8eeef3873d1fca7168c631aeaf9f7698069bb2f0f647e1391747706f1` |
+
+### Physical acceptance — PASS, 2026-09-01
+
+All twelve steps on SM-A165F / Android 16, with a real token against a private
+test repository.
+
+| Step | Result |
+|---|---|
+| Connect, validated through the bundled gh | **PASS** |
+| Account resolved as `Lord1Egypt` | **PASS** |
+| Safe Core restart completed | **PASS** |
+| Test connection | **PASS** |
+| Close and reopen; credential persists | **PASS** |
+| `gh api user` from the managed runtime | **PASS** |
+| Private `gh repo view` | **PASS** |
+| Private HTTPS `git clone`, `fetch`, `pull` | **PASS** |
+| Raw token absent from argv, logs, events, agent output, gh config, `.git/config` | **PASS** |
+| Disconnect removes active auth after the safe restart | **PASS** |
+| `adb install -r` over the existing install preserves the credential | **PASS** |
+
+Two results are worth keeping for what they prove rather than for passing.
+
+After Disconnect, `git fetch` failed with `could not read Username for
+'https://github.com': terminal prompts disabled`. Git had no credential from any
+other source: no helper, no `~/.gitconfig` entry, nothing in the repository's
+own config, no cached username. Had `gh auth setup-git` ever run, or had a token
+reached a remote URL, that fetch would have succeeded. The process-scoped
+`http.extraheader` left with the old Core process, which is the whole design.
+
+The reinstall preserved `firstInstallTime` (2026-08-26) while `lastUpdateTime`
+moved, so Android replaced the package and kept the data directory. The card
+still read Connected as `Lord1Egypt` with nothing re-entered, and
+`gh api user --jq .login` still returned it: the Keystore key survived the
+package replacement, as it must, since it is not part of the APK.
 
 ## GitHub auth blocked by Go DNS on Android — cause proven, 2026-09-01
 

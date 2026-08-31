@@ -36,7 +36,10 @@
 - [x] Correct `install_payload`'s alignment guard: require a multiple of 16 KB
   rather than exactly `0x4000`, which rejected every Go payload including the
   device-verified Core.
-- [ ] **Physical acceptance** of secure GitHub auth, then merge to `develop`.
+- [x] **Physical acceptance** of secure GitHub auth — all twelve steps PASS on
+  SM-A165F with a real token and a private repository, including disconnect
+  removing auth from both gh and git, and `adb install -r` preserving the
+  credential. Merged to `develop`.
 
 ## Phase 2 — Milestone A: Independent Foundation
 

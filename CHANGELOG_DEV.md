@@ -2,8 +2,10 @@
 
 ## 2026-09-01 — Android DNS for the bundled gh
 
-Branch `feature/secure-github-auth`. **Not merged.** The proven cause from the
-diagnostic commit is fixed, and the fix is verified on the device over adb.
+Branch `feature/secure-github-auth`. **Physically validated and merged to
+`develop`.** The proven cause from the diagnostic commit is fixed, verified on
+the device over adb, and then through the full twelve-step UI flow with a real
+token against a private repository.
 
 ### The fix
 
