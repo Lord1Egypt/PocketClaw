@@ -474,6 +474,9 @@ func DefaultConfig() *Config {
 			Runtime: ToolConfig{
 				Enabled: true,
 			},
+			Python: ToolConfig{
+				Enabled: true,
+			},
 			Serial: ToolConfig{
 				Enabled: false, // Hardware tool - requires host serial ports
 			},

@@ -1108,6 +1108,7 @@ type ToolsConfig struct {
 	Message         MessageToolsConfig `json:"message"           yaml:"-"`
 	ReadFile        ReadFileToolConfig `json:"read_file"         yaml:"-"                                                       envPrefix:"PICOCLAW_TOOLS_READ_FILE_"`
 	Runtime         ToolConfig         `json:"runtime"           yaml:"-"                                                       envPrefix:"PICOCLAW_TOOLS_RUNTIME_"`
+	Python          ToolConfig         `json:"python"            yaml:"-"                                                       envPrefix:"PICOCLAW_TOOLS_PYTHON_"`
 	Serial          ToolConfig         `json:"serial"            yaml:"-"                                                       envPrefix:"PICOCLAW_TOOLS_SERIAL_"`
 	SendFile        ToolConfig         `json:"send_file"         yaml:"-"                                                       envPrefix:"PICOCLAW_TOOLS_SEND_FILE_"`
 	SendTTS         ToolConfig         `json:"send_tts"          yaml:"-"                                                       envPrefix:"PICOCLAW_TOOLS_SEND_TTS_"`
@@ -1867,6 +1868,10 @@ func (t *ToolsConfig) IsToolEnabled(name string) bool {
 		return t.ReadFile.Enabled
 	case "runtime":
 		return t.Runtime.Enabled
+	case "python":
+		// Python runs arbitrary code as the application, so it is switchable
+		// independently of the rest of the Managed Runtime.
+		return t.Python.Enabled
 	case "serial":
 		return t.Serial.Enabled
 	case "spawn":

@@ -972,10 +972,14 @@ increase. **A 100+ MB addition needs explicit approval.**
 - [x] Fix the stale-Core packaging defect (2026-08-31): editing the embedded
   catalog requires `./core/build-android-arm64.sh`; guarded by
   `TestStagedCoreEmbedsTheCurrentCatalog`.
-- [ ] Python Lite Phase C — the Agent-facing `python` tool, on
-  `feature/python-lite-agent-tool` from `develop` at `de7ea53`. Scope recorded,
-  nothing implemented. Code on stdin, never argv; reuse `Manager.Execute` and
-  add no second execution path.
+- [x] Python Lite Phase C — the Agent-facing `python` tool implemented on
+  `feature/python-lite-agent-tool`. Code on stdin, never argv; reuses
+  `Manager.Execute`; no duplicate execution path. Automated gates green.
+- [ ] Python Lite Phase C **physical validation**, then merge.
+- [ ] Core staleness beyond the catalog: `TestStagedCoreEmbedsTheCurrentCatalog`
+  cannot see a Core that is stale for Go-source reasons while the catalog is
+  unchanged. Consider stamping a source identity into Core so the guard covers
+  it; until then, rebuild Core after any `core/src` change.
 - [ ] Git `SHELL_PATH`: the recorded "Android has no /bin/sh" limitation is
   wrong on Android 11+, which ships `/bin` -> `/system/bin`. Re-evaluate whether
   git hooks and the ENOEXEC fallback can be supported on API 30+ devices.

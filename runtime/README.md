@@ -67,6 +67,11 @@ never heard of it.
 `TestStagedCoreEmbedsTheCurrentCatalog` now fails in the normal test gate when
 the staged Core predates the catalog, and names the script to run.
 
+That guard covers the catalog, not Go source generally. A change to Core code
+that leaves `manifest.json` untouched — a new Agent tool, for instance — will
+pass it while still needing a rebuild. **Rebuild Core after any change under
+`core/src` that has to reach a device**, not only after a catalog edit.
+
 ## Python
 
 `build-python-android-arm64.sh` is different from the other payload builds and

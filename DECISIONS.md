@@ -1,5 +1,31 @@
 # PocketClaw Decisions
 
+## Python source travels on stdin, and the traceback name is not worth a wrapper
+
+- Date: 2026-08-31
+- Decision: The Agent-facing `python` tool passes source through
+  `ExecRequest.Stdin` as `python -`, never `-c`, and accepts `<stdin>` as the
+  traceback filename for v1.
+- Consequence: argv is capped near 128 KB, is readable from `/proc/<pid>/cmdline`
+  and is recorded in argument diagnostics, so a program containing a secret would
+  leak simply by being run. stdin is accounted only as `bytes_in`. A nicer
+  `<pocketclaw>` traceback name is achievable, but only with a wrapper that reads
+  stdin and recompiles the source — an interpreter trick wrapped around the exact
+  path that carries user code, in exchange for cosmetics. A regression test fails
+  if the implementation ever moves back to `-c`.
+
+## The Python tool steers toward the cheaper tool, and says what it is not
+
+- Date: 2026-08-31
+- Decision: The tool description names jq, rg, sqlite3 and curl for the work each
+  suits, names the cases where Python genuinely earns its cost, and states that
+  Python is not a sandbox. Tests fail if either half disappears.
+- Consequence: Python starts in about 90 ms against single-digit milliseconds for
+  jq, so a model that reaches for it by default makes every simple task slower
+  for no gain. And a model that believes Python is contained will write code on
+  that assumption. Both failures are caused by the description, so both are
+  guarded by tests on the description.
+
 ## A packaged payload is checked for reachability, not just presence
 
 - Date: 2026-08-31

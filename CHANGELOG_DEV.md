@@ -1,5 +1,41 @@
 # Development Changelog
 
+## 2026-08-31 — Python Lite Phase C: the Agent-facing Python tool
+
+Branch `feature/python-lite-agent-tool`. Automated gates green; **not merged**,
+physical validation outstanding.
+
+The model gets a `python` tool taking `code`, optional `args` and optional
+`timeout_ms`. It adds no execution machinery: the tool builds an ordinary
+`ExecRequest` and `Manager.Execute` provides resolution, checksum verification,
+the environment profile, catalog `default_args`, the timeout ceiling,
+cancellation, process-group termination, output bounds, events and redaction. It
+shares the Managed Runtime's manager rather than building a second one.
+
+Source travels on stdin as `python -`, never in argv, and a regression test fails
+if that ever changes to `-c`. argv is capped near 128 KB, readable from
+`/proc/<pid>/cmdline` and recorded in argument diagnostics; stdin is accounted
+only as `bytes_in`.
+
+Tracebacks keep `<stdin>`. `<pocketclaw>` would need a wrapper that reads stdin
+and recompiles the source — an interpreter trick around the exact path carrying
+user code, bought for cosmetics. Not worth it in v1.
+
+The description steers the model rather than inviting it to reach for Python by
+default: jq for simple JSON, rg for search, sqlite3 for a single query, curl for
+HTTP; Python for arithmetic, statistics, multi-step logic, custom parsing and
+work that would otherwise cost several round-trips. It states that Python is not
+a sandbox and that the boundary is the application UID. Tests fail if the
+steering is removed or the wording starts claiming containment it does not have.
+
+One shared improvement came out of this: truncated output was recorded in the
+event log but never shown to the model, so a bounded result looked complete.
+`formatExecResult` now says when stdout or stderr was cut, which the runtime tool
+benefits from too.
+
+`python` is enabled by default and switchable independently of `runtime`,
+because it runs arbitrary code as the application.
+
 ## 2026-08-31 — Python Lite Phase B: Runtime integration (PHYSICAL PASS)
 
 Branch `feature/python-lite-runtime`, commits `bfe47e6`, `c376837`, `c60b15f`,

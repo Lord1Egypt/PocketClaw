@@ -254,3 +254,44 @@ func TestPythonPayloadIsPackagedForTheInstaller(t *testing.T) {
 		t.Error("the appended standard library does not contain json/__init__.pyc")
 	}
 }
+
+// TestPythonShapedRequestDeliversSourceOnStdin proves end to end what the
+// agent-facing Python tool relies on: catalog default_args lead, the caller's
+// "-" marker follows, script arguments land after it, and the program itself
+// arrives on standard input rather than anywhere a process listing could show.
+func TestPythonShapedRequestDeliversSourceOnStdin(t *testing.T) {
+	manifest := newTestManifest(t, Tool{
+		ToolID: "pyfake", DisplayName: "pyfake", CommandName: "pyfake",
+		Version: "3.14.7", ABI: "arm64-v8a",
+		Delivery: DeliverySystem, TrustedSource: "test",
+		Capabilities:   []string{"script.execute"},
+		DefaultArgs:    []string{"-P", "-s", "-S", "-B", "-u"},
+		TimeoutProfile: TimeoutQuick, MaxOutputBytes: 1 << 16,
+		SecurityClass: SecurityClassSystem,
+	})
+	manager, binDir := newTestManager(t, manifest)
+	writeScript(t, binDir, "pyfake", "echo \"argv:$*\"\necho \"stdin:$(cat)\"\n")
+
+	const source = "print('PYTHON-AGENT-PASS')"
+	result, err := manager.Execute(context.Background(), ExecRequest{
+		Tool:  "pyfake",
+		Args:  []string{"-", "alpha", "beta"},
+		Stdin: source,
+	})
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+
+	if !strings.Contains(result.Stdout, "stdin:"+source) {
+		t.Errorf("the program did not arrive on stdin:\n%s", result.Stdout)
+	}
+	if !strings.Contains(result.Stdout, "argv:-P -s -S -B -u - alpha beta") {
+		t.Errorf("argv is not default_args, then the stdin marker, then script args:\n%s",
+			result.Stdout)
+	}
+	for _, line := range strings.Split(result.Stdout, "\n") {
+		if strings.HasPrefix(line, "argv:") && strings.Contains(line, "print(") {
+			t.Errorf("source reached the argument vector: %q", line)
+		}
+	}
+}
