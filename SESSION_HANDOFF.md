@@ -1,5 +1,137 @@
 # PocketClaw Session Handoff
 
+## Python Lite — Phase B PHYSICAL PASS and merged, 2026-08-31
+
+Branch `feature/python-lite-runtime`, commits `bfe47e6`, `c376837`, `c60b15f`,
+`bfc2074`. **Physically validated inside the installed application** on
+SM-A165F / Android 16 / API 36, then merged to `develop`. Not released, `main`
+untouched, no tags moved. Phase A was a physical PASS in its own right.
+
+Observed in the real app: catalog **2.1.0**, **56** tools, 53 available, `python`
+present. `runtime {tool: python, args: ["--version"]}` returned
+**Python 3.14.7**, and a script through the Managed Runtime produced
+`PYTHON-PASS`, `SUM=5`, `مرحبا 🐍`, `SQLITE-PASS`. No shell was required.
+
+| | |
+|---|---|
+| CPython | 3.14.7, NDK 28.2.13676358, API 24, arm64-v8a |
+| Payload | `libpocketclaw-python.so`, 11,509,517 bytes, `a302c990…ad1b` |
+| Core | `95a9b33b…`, embeds catalog 2.1.0 |
+| Provenance | bzip2 1.0.8, XZ 5.4.7, SQLite 3.50.4 — all built from pinned source |
+
+Static extension modules, `lib-dynload` empty, standard library appended to the
+ELF as a `.pyc` zip. No pip, no ctypes, no direct Python sockets, no writable
+executable storage.
+
+**Python is not a sandbox.** The boundary is the Android app UID; `subprocess`
+remains a Runtime-observability bypass and that guidance is advisory, not
+enforcement. Shell availability is version-dependent: Android 11+ ships
+`/bin/sh`, API 24-29 does not.
+
+Two packaging defects were found and are permanently guarded: Gradle stripping
+the appended stdlib (`keepDebugSymbols` plus an EOCD check in the build guard),
+and a stale Core shipping beside a new payload
+(`TestStagedCoreEmbedsTheCurrentCatalog`). **Core must be rebuilt whenever the
+embedded Runtime catalog changes.**
+
+Phase C — the Agent-facing Python tool — is open on
+`feature/python-lite-agent-tool` and not started.
+
+## Python Lite — Phase A COMPLETE (build + measurement), 2026-08-31
+
+Branch `feature/python-lite-runtime`. Architecture review approved for Phase A
+only. **Phase A is host-side build and measurement. Nothing is integrated:** no
+catalog entry, no tool count change, no `python_tool.go`, no production APK
+payload, no merge.
+
+CPython **3.14.7** cross-built for `aarch64-linux-android` API 24 on PocketClaw's
+own NDK **28.2.13676358**, using upstream `Android/android.py` with a single
+patched line (the NDK version). Extension modules linked statically, so the
+interpreter is one self-contained PIE ELF and `lib-dynload` is empty.
+
+Measured, not estimated:
+
+| | bytes |
+|---|---|
+| Interpreter, stripped, LTO | 9,123,056 |
+| Payload (interpreter + `.pyc` stdlib) | 11,591,387 |
+| APK increase, measured against the shipped APK | +5,814,942 |
+| Projected APK | 64,147,589 |
+
+Both Phase A gates pass: APK increase 5.55 MiB (limit 7.5 MB), installed
+11.06 MiB (limit 13.0 MB).
+
+The stdlib is appended to the ELF as a zip and imported by `zipimport` with
+`PYTHONHOME`/`PYTHONPATH` set; verified functionally on the host. `.pyc` is
+kept over `.py` despite costing 943,381 bytes because it starts ~4.5x faster.
+
+`hashlib`, `hmac` and `secrets` work with no OpenSSL. `socket`, `ssl`, `ctypes`,
+`multiprocessing`, `email` and `http` are absent by construction.
+
+**PHYSICAL VALIDATION PASSED (2026-08-31)** on Samsung SM-A165F, Android 16,
+API 36, arm64-v8a: 52 checks passed, 0 failed. Standalone CPython runs from
+`nativeLibraryDir` under the app uid, the appended-zip stdlib imports on
+hardware, `sqlite3` 3.50.4 works with FTS5 and JSON1, `hashlib` works with no
+OpenSSL, Arabic and emoji round-trip, a runaway loop dies in 25 ms with no
+orphan. Startup: bare 90 ms median, typical imports 121 ms median. RSS 11.2 MB
+bare, 20.8 MB for a 20k-object JSON workload.
+
+Correction carried out of the run: **Android 11+ does have `/bin/sh`** (a
+symlink `/bin` -> `/system/bin`, mksh), so `subprocess(shell=True)` and
+`os.system()` work on API 30+ and the architecture review was wrong to call them
+unusable. PocketClaw's minSdk is 24, so shell availability is conditional on the
+device. This sharpens the existing "subprocess is a bypass, guidance is
+advisory" conclusion rather than changing it.
+
+Second gap: upstream's Android tooling downloads prebuilt dependency binaries
+with no checksum verification. The Phase A build script pins them by SHA-256,
+but bzip2 and xz remain third-party binaries. Phase B must build them from
+pinned source, as SQLite already is.
+
+Full record: `runtime/PYTHON_LITE_PHASE_A.md`.
+
+## Next milestone — Python Lite Runtime
+
+Branch `feature/python-lite-runtime`, from `develop` at `b46921e`. Nothing
+implemented; the branch exists so the work starts from the merged Provider
+Resilience baseline.
+
+**The next session produces an architecture review and nothing else.** Do not
+compile, download or bundle Python until that review is approved.
+
+### What the review must not assume it may use
+
+No Linux distribution, PRoot, apt, compiler toolchain, GCC/Clang, make, Node,
+npm, arbitrary executable downloads, pip by default, native wheel compilation or
+shell environment emulation. v1 is an interpreter plus a selected standard
+library under PocketClaw-controlled execution, with no unrestricted package
+ecosystem.
+
+### The execution model is already settled
+
+Managed Runtime proved it physically: executables ship in the APK and run from
+`nativeLibraryDir`, and writable executable storage is **not** used. Do not
+propose writing a native Python binary into `filesDir` and exec'ing it — Android
+refuses that, and the whole Runtime design exists because of it. Writable Python
+data may live app-private; stdlib resources may ship as non-executable assets.
+
+One inherited limitation worth carrying into the review: PocketClaw's git ships
+without a usable `/bin/sh`, because Android has none. Anything in Python that
+assumes a shell — `os.system`, `subprocess` with `shell=True`, some `tempfile`
+and `webbrowser` paths — needs the same honesty applied to it.
+
+### Honesty requirement
+
+The review must state the real security boundary. Python cannot be perfectly
+sandboxed on top of this architecture, and claiming otherwise would be worse
+than shipping nothing: it would let the Agent treat Python as safe when it is
+an escape hatch around Runtime security. Say what actually holds.
+
+### Size gate
+
+APK is ~55.6 MB today. Exact projections required before inclusion; 100+ MB
+needs explicit approval.
+
 ## Shipped — Provider Resilience & Automatic Failover (2026-08-30, PHYSICAL PASS)
 
 Branch `feature/provider-resilience-failover`, merged to `develop`. Commits

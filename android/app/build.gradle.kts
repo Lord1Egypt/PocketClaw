@@ -140,6 +140,10 @@ android {
             keepDebugSymbols += "**/libpocketclaw-curl.so"
             keepDebugSymbols += "**/libpocketclaw-rg.so"
             keepDebugSymbols += "**/libpocketclaw-sqlite3.so"
+            // Python additionally carries its standard library appended after
+            // the ELF image. Stripping would silently discard it and ship an
+            // interpreter that cannot import anything at all.
+            keepDebugSymbols += "**/libpocketclaw-python.so"
         }
     }
 }
@@ -263,7 +267,47 @@ val requiredArm64NativeLibraries = listOf(
     "lib/arm64-v8a/libpocketclaw-curl.so",
     "lib/arm64-v8a/libpocketclaw-rg.so",
     "lib/arm64-v8a/libpocketclaw-sqlite3.so",
+    // The Python interpreter carries its own standard library appended to the
+    // ELF, so this one file is both the executable and the stdlib.
+    "lib/arm64-v8a/libpocketclaw-python.so",
 )
+
+// The Python payload is an ELF with its standard library appended as a zip.
+// Presence alone does not prove it survived packaging: Gradle's native-library
+// strip rewrites the file and drops everything past the last section, which
+// would ship an interpreter that cannot import anything. Look for the zip's
+// end-of-central-directory record, which only an intact payload still has.
+val pythonPayloadEntry = "lib/arm64-v8a/libpocketclaw-python.so"
+
+fun verifyPythonStdlibSurvived(apk: File) {
+    val bytes = ZipFile(apk).use { zip ->
+        val entry = zip.getEntry(pythonPayloadEntry) ?: return
+        zip.getInputStream(entry).readBytes()
+    }
+    val eocd = byteArrayOf(0x50, 0x4b, 0x05, 0x06)
+    val from = maxOf(0, bytes.size - 65_557)
+    var found = false
+    for (i in bytes.size - eocd.size downTo from) {
+        if (bytes[i] == eocd[0] && bytes[i + 1] == eocd[1] &&
+            bytes[i + 2] == eocd[2] && bytes[i + 3] == eocd[3]
+        ) {
+            found = true
+            break
+        }
+    }
+    if (!found) {
+        throw GradleException(
+            buildString {
+                appendLine("$pythonPayloadEntry has no appended standard library.")
+                appendLine("Packaged size: ${bytes.size} bytes.")
+                appendLine("Gradle stripped the payload. Add it to")
+                appendLine("  packaging { jniLibs { keepDebugSymbols += ... } }")
+                appendLine("or the interpreter ships unable to import anything.")
+            }
+        )
+    }
+    println("Verified appended Python standard library in ${apk.name}: ${bytes.size} bytes")
+}
 
 fun verifyArm64NativePayload(apk: File) {
     val packaged = ZipFile(apk).use { zip ->
@@ -289,6 +333,9 @@ afterEvaluate {
     tasks.findByName("packageRelease")?.doLast {
         outputs.files.asFileTree
             .matching { include("**/*.apk") }
-            .forEach { apk -> verifyArm64NativePayload(apk) }
+            .forEach { apk ->
+                verifyArm64NativePayload(apk)
+                verifyPythonStdlibSurvived(apk)
+            }
     }
 }

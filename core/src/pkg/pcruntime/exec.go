@@ -54,6 +54,13 @@ var deniedEnvAdditions = map[string]struct{}{
 	"PATH": {},
 }
 
+// deniedEnvPrefixes are namespaces a caller may never write into. Every PYTHON*
+// variable is execution control: PYTHONPATH and PYTHONHOME decide which code the
+// interpreter imports, PYTHONSTARTUP and PYTHONINSPECT run code of their own,
+// and PYTHONUSERBASE reintroduces a writable import location. Allowing any of
+// them would let a caller replace the standard library the registry verified.
+var deniedEnvPrefixes = []string{"PYTHON"}
+
 // ExecRequest is a request to run one managed tool.
 type ExecRequest struct {
 	// Tool is a catalog tool id or a command name it answers to.
@@ -510,6 +517,14 @@ func buildEnvironment(prepared *preparedEnvironment, additions map[string]string
 				key,
 			)
 		}
+		for _, prefix := range deniedEnvPrefixes {
+			if strings.HasPrefix(key, prefix) {
+				return nil, fmt.Errorf(
+					"%s may not be set for a managed tool: the %s* namespace controls which code the interpreter runs",
+					key, prefix,
+				)
+			}
+		}
 		put(key, value)
 	}
 
@@ -530,8 +545,10 @@ func buildArgv(resolved *ResolvedTool, requestedName string, args []string) []st
 			break
 		}
 	}
-	argv := make([]string, 0, len(args)+1)
+	argv := make([]string, 0, len(args)+len(resolved.Tool.DefaultArgs)+1)
 	argv = append(argv, argv0)
+	// Catalog arguments come first so a caller cannot get in front of them.
+	argv = append(argv, resolved.Tool.DefaultArgs...)
 	argv = append(argv, args...)
 	return argv
 }

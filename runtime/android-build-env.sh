@@ -58,11 +58,18 @@ fetch_pinned() {
 #
 # Strips, verifies, and installs one payload, then prints its checksum for the
 # runtime catalog.
+# install_payload <built-file> <lib*.so name> [no-strip]
+#
+# Pass "no-strip" for a payload that carries data after the ELF image, such as
+# the Python interpreter with its standard library appended: llvm-strip rewrites
+# the file and would discard everything past the last section.
 install_payload() {
-    local built="$1" payload="$2"
+    local built="$1" payload="$2" strip_mode="${3:-strip}"
 
     install -m 0755 "$built" "$JNI_LIBS/$payload"
-    "$TOOLCHAIN/bin/llvm-strip" --strip-unneeded "$JNI_LIBS/$payload"
+    if [ "$strip_mode" != "no-strip" ]; then
+        "$TOOLCHAIN/bin/llvm-strip" --strip-unneeded "$JNI_LIBS/$payload"
+    fi
 
     # Build-path privacy, the same rule the Core build enforces: a shipped
     # binary must not identify the machine it was built on.
@@ -93,6 +100,16 @@ install_payload() {
         echo "error: $payload is not an AArch64 binary" >&2
         exit 1
     }
+
+    # 16 KB page alignment. Android 15 introduced devices with 16 KB pages, and
+    # a payload linked for 4 KB pages will not load there at all.
+    local misaligned
+    misaligned="$("$TOOLCHAIN/bin/llvm-readelf" -lW "$JNI_LIBS/$payload" \
+        | awk '$1 == "LOAD" && $NF != "0x4000" { print $NF }')"
+    if [ -n "$misaligned" ]; then
+        echo "error: $payload has LOAD segments aligned $misaligned, expected 0x4000" >&2
+        exit 1
+    fi
 
     printf '  %-38s %10d bytes  %s\n' "$payload" \
         "$(stat -c%s "$JNI_LIBS/$payload")" \

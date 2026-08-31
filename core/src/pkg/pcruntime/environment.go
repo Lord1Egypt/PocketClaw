@@ -16,6 +16,12 @@ const (
 	// githubTokenFile is the app-private fallback location, under the runtime's
 	// own metadata directory rather than the user workspace.
 	githubTokenFile = "credentials/github_token"
+	// pythonHome is the prefix compiled into the interpreter by
+	// runtime/build-python-android-arm64.sh. It intentionally does not exist on
+	// the device: setting it stops getpath searching the filesystem around the
+	// executable, and the standard library is supplied through PYTHONPATH
+	// instead. Change it in both places or not at all.
+	pythonHome = "/pocketclaw/python"
 )
 
 // systemCACandidates are the platform certificate stores, newest layout first.
@@ -71,6 +77,8 @@ func (m *Manager) prepareEnvironment(resolved *ResolvedTool) (*preparedEnvironme
 		m.applyGitProfile(prepared, helperDir)
 	case EnvironmentProfileGH:
 		m.applyGHProfile(prepared, helperDir)
+	case EnvironmentProfilePython:
+		m.applyPythonProfile(prepared, resolved)
 	default:
 		return nil, fmt.Errorf(
 			"tool %q declares environment profile %q, which this build cannot prepare",
@@ -78,6 +86,27 @@ func (m *Manager) prepareEnvironment(resolved *ResolvedTool) (*preparedEnvironme
 		)
 	}
 	return prepared, nil
+}
+
+// applyPythonProfile prepares the interpreter's environment.
+//
+// It injects no credential. Python runs model-authored code, so a token in its
+// environment would be readable by that code; the git and gh profiles hand out
+// credentials because those tools use them for a fixed purpose, and Python has
+// no such purpose.
+func (m *Manager) applyPythonProfile(prepared *preparedEnvironment, resolved *ResolvedTool) {
+	prepared.set("PYTHONHOME", pythonHome)
+	// The payload is both the interpreter and its standard library: the stdlib
+	// zip is appended to the ELF and zipimport reads it out of the same file.
+	// The stdlib must come first so a workspace file called json.py or re.py
+	// cannot shadow it, while the workspace still follows so a user's own
+	// modules remain importable.
+	prepared.set("PYTHONPATH", strings.Join(
+		[]string{resolved.ExecutablePath, m.workspace}, string(os.PathListSeparator),
+	))
+	prepared.set("PYTHONDONTWRITEBYTECODE", "1")
+	prepared.set("PYTHONUTF8", "1")
+	prepared.set("PYTHONNOUSERSITE", "1")
 }
 
 func (m *Manager) applyGitProfile(prepared *preparedEnvironment, helperDir string) {

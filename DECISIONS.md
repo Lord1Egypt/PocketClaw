@@ -1,5 +1,90 @@
 # PocketClaw Decisions
 
+## A packaged payload is checked for reachability, not just presence
+
+- Date: 2026-08-31
+- Decision: The APK build guard verifies that the packaged Python payload still
+  ends in a zip end-of-central-directory record, and the test gate verifies that
+  the staged Core embeds the current catalog. Both guards are permanent.
+- Consequence: Phase B produced the same failure twice in different clothes.
+  Gradle's native-library strip removed the standard library appended to the
+  Python payload, leaving a correctly-named, correctly-sized-looking interpreter
+  that could not import anything. Separately, an APK shipped the new payload
+  beside a Core built before the catalog knew the tool existed. In both cases the
+  existing payload guard passed, the build was green, and the app ran — because
+  the guard asked whether files were present, and the question that mattered was
+  whether they were reachable.
+
+## A catalog change is not shipped until Core is rebuilt
+
+- Date: 2026-08-31
+- Decision: The staged Core binary is checked against the current catalog in the
+  normal test gate, and the check names the build script to run.
+- Consequence: `manifest.json` is `//go:embed`-ed into `libpicoclaw.so`, and that
+  binary is a committed artifact rather than something Gradle produces. Editing
+  the catalog and rebuilding the APK produces an installable, runnable app that
+  silently reports the previous catalog — the payload guard sees the new payload
+  file and is satisfied, because presence is not the same as reachability. The
+  first Phase B APK shipped exactly that. A green build and a correct APK payload
+  list were both true while the feature was entirely absent on the device.
+
+## Python ships as a Runtime tool, and it is not a sandbox
+
+- Date: 2026-08-31
+- Decision: CPython 3.14.7 is bundled as the Managed Runtime `python` tool and
+  reached through the generic Runtime execution path. It is not, and will not be
+  presented as, a sandbox.
+- Consequence: Python is the first bundled tool that turns model-authored text
+  into executed code. The security boundary is the Android application UID and
+  nothing narrower. A Python script can read app-private config, write the
+  workspace and spawn other processes, and `subprocess` bypasses the Runtime's
+  registry, timeout policy, output bounds and event log entirely. Agent guidance
+  to prefer the Runtime for external commands is advisory, not enforcement.
+  The mitigations that are real are the ones that remove capability rather than
+  ask for restraint: no pip, no ctypes, no `_socket`, no writable executable
+  storage, and a catalog-fixed `-S` so a workspace `sitecustomize.py` cannot be
+  imported automatically ahead of the caller's own code.
+
+## Python's standard library rides inside the interpreter payload
+
+- Date: 2026-08-31
+- Decision: The stdlib is a `.pyc` zip appended to the interpreter ELF, and
+  `PYTHONPATH` points at the payload itself. Extension modules are linked
+  statically (`MODULE_BUILDTYPE=static`), so `lib-dynload` is empty.
+- Consequence: One file is the whole runtime. Static linking removes the
+  extension-module naming problem altogether — there is no
+  `_ssl.cpython-314-aarch64-linux-android.so` to package under a `lib*.so` name,
+  and nothing needs `dlopen` from a directory the platform would refuse. The
+  `.pyc` form costs 943 KB more than source but starts about 4.5x faster,
+  because `PYTHONDONTWRITEBYTECODE` means a source zip recompiles on every
+  launch and nothing is ever cached. Stripping must happen before the zip is
+  appended; `llvm-strip` rewrites the file and would discard it.
+
+## Python builds every dependency from pinned source
+
+- Date: 2026-08-31
+- Decision: bzip2 1.0.8, XZ 5.4.7 and SQLite 3.50.4 are built from pinned source
+  by `runtime/build-python-android-arm64.sh`. Upstream CPython's Android tooling
+  is not used to obtain them.
+- Consequence: Upstream `Android/android.py` downloads six prebuilt dependency
+  tarballs over `curl -Lf` with **no checksum verification of any kind**. That is
+  acceptable for a feasibility build and not for a shipped payload, so the whole
+  dependency set is built here instead. OpenSSL and libffi are not built at all,
+  because the reduced profile links neither.
+
+## Android's shell is version-dependent, so Python's is too
+
+- Date: 2026-08-31
+- Decision: PocketClaw documents shell availability under Python as conditional
+  on the Android version, and ships no shell.
+- Consequence: The earlier blanket claim that Android has no `/bin/sh` is wrong
+  for modern devices. Android 11 added a `/bin` -> `/system/bin` symlink, and on
+  the tested Android 16 device `/bin/sh` is mksh, `subprocess(shell=True)`
+  returns 0 and `os.system()` returns 0. `minSdkVersion` is 24, so on API 24-29
+  those calls still fail. Neither behaviour may be assumed. The same wrong
+  assumption underlies the recorded git `SHELL_PATH` limitation, which is logged
+  as technical debt rather than changed here.
+
 ## Provider Resilience closed on physical evidence, not on a green build
 
 - Date: 2026-08-30

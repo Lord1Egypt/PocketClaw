@@ -896,8 +896,8 @@ than at the next resume.
 
 ## Phase 2 — Python Lite Runtime
 
-Branch `feature/python-lite-runtime`, from `develop` after the Provider
-Resilience merge. **Architecture review only — nothing implemented.**
+Branch `feature/python-lite-runtime`, from `develop` at `b46921e`.
+**Architecture review only — nothing implemented.**
 
 The appeal is capability per megabyte: scripting, parsing, JSON, CSV, XML,
 regex, calculation, file transformation, SQLite scripting, archives, and
@@ -952,5 +952,28 @@ The APK is currently ~55.6 MB. Exact projections are required before any
 inclusion: APK before, interpreter, stdlib, dynamic modules, APK after, installed
 increase. **A 100+ MB addition needs explicit approval.**
 
-- [ ] Python Lite architecture review. Nothing compiled or bundled until it is
-  approved.
+- [x] Python Lite architecture review (2026-08-30, approved for Phase A only).
+- [x] Python Lite **Phase A** build and measurement (2026-08-31). CPython 3.14.7,
+  NDK 28.2, static modules, appended `.pyc` stdlib. Payload 11,591,387 bytes,
+  APK delta +5,814,942 — both gates pass. See `runtime/PYTHON_LITE_PHASE_A.md`.
+- [x] Python Lite Phase A **physical device run** (2026-08-31, SM-A165F,
+  Android 16 / API 36). 52 passed, 0 failed. Harness:
+  `runtime/python-lite-device-tests.sh`.
+- [ ] Correct the architecture review's shell claim: Android 11+ ships
+  `/bin/sh` (`/bin` -> `/system/bin`), so `subprocess(shell=True)` and
+  `os.system()` work on API 30+. minSdk is 24, so document it as conditional.
+  The same assumption underlies the recorded git `SHELL_PATH` limitation.
+- [x] Python Lite provenance closed (2026-08-31): bzip2 1.0.8 and XZ 5.4.7 are
+  built from pinned source; no upstream prebuilt binary is used.
+- [x] Python Lite **Phase B** Runtime integration — **PHYSICAL PASS** and merged
+  (2026-08-31). Catalog 2.1.0, 56 tools, 7 bundled. Verified inside the
+  installed app: python resolves and runs, Python 3.14.7, json/arithmetic/
+  Arabic/emoji/sqlite3 all correct through the Managed Runtime.
+- [x] Fix the stale-Core packaging defect (2026-08-31): editing the embedded
+  catalog requires `./core/build-android-arm64.sh`; guarded by
+  `TestStagedCoreEmbedsTheCurrentCatalog`.
+- [ ] Python Lite Phase C — the Agent-facing `python` tool, on
+  `feature/python-lite-agent-tool`. Scope recorded, nothing implemented.
+- [ ] Git `SHELL_PATH`: the recorded "Android has no /bin/sh" limitation is
+  wrong on Android 11+, which ships `/bin` -> `/system/bin`. Re-evaluate whether
+  git hooks and the ENOEXEC fallback can be supported on API 30+ devices.

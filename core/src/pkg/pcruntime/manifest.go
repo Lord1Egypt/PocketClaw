@@ -74,12 +74,16 @@ const (
 	EnvironmentProfileNone EnvironmentProfile = ""
 	EnvironmentProfileGit  EnvironmentProfile = "git"
 	EnvironmentProfileGH   EnvironmentProfile = "gh"
+	// EnvironmentProfilePython points the interpreter at the standard library
+	// appended to its own payload. It injects no credential of any kind.
+	EnvironmentProfilePython EnvironmentProfile = "python"
 )
 
 var knownEnvironmentProfiles = map[EnvironmentProfile]struct{}{
 	EnvironmentProfileNone: {},
 	EnvironmentProfileGit:  {},
-	EnvironmentProfileGH:   {},
+	EnvironmentProfileGH:     {},
+	EnvironmentProfilePython: {},
 }
 
 // Helper is an auxiliary executable a tool invokes by a logical name that the
@@ -127,6 +131,13 @@ type Tool struct {
 
 	// EnvironmentProfile selects the per-tool environment preparation.
 	EnvironmentProfile EnvironmentProfile `json:"environment_profile,omitempty"`
+
+	// DefaultArgs are prepended to every invocation, ahead of the caller's own
+	// arguments. They exist for interpreters whose execution mode has to be
+	// fixed by the runtime rather than left to the caller: Python's -S, for
+	// one, is what stops a workspace sitecustomize.py from being imported and
+	// executed automatically. There is no env-var equivalent for it.
+	DefaultArgs []string `json:"default_args,omitempty"`
 }
 
 // Manifest is the versioned runtime catalog.
@@ -271,6 +282,14 @@ func (t *Tool) validate() error {
 		return fmt.Errorf("runtime tool %q declares unknown delivery_type %q", t.ToolID, t.Delivery)
 	}
 
+	for i, arg := range t.DefaultArgs {
+		if strings.TrimSpace(arg) == "" {
+			return fmt.Errorf(
+				"runtime tool %q declares an empty default_args entry at index %d",
+				t.ToolID, i,
+			)
+		}
+	}
 	if _, known := knownEnvironmentProfiles[t.EnvironmentProfile]; !known {
 		return fmt.Errorf(
 			"runtime tool %q declares unknown environment_profile %q",

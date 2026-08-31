@@ -1,5 +1,65 @@
 # Development Changelog
 
+## 2026-08-31 — Python Lite Phase B: Runtime integration (PHYSICAL PASS)
+
+Branch `feature/python-lite-runtime`, commits `bfe47e6`, `c376837`, `c60b15f`,
+`bfc2074`. **Physically validated inside the installed application** on
+SM-A165F / Android 16 / API 36, then merged to `develop`. Not released, `main`
+untouched, no tags moved. Phase A was a physical PASS in its own right.
+
+Python is a bundled Managed Runtime tool reached through the generic execution
+path. **There is no Agent-facing Python tool** — that is Phase C.
+
+| Check | Result |
+|---|---|
+| In-app catalog 2.1.0, 56 tools, 53 available on device | **PASS** |
+| `python` present and resolvable in the installed app | **PASS** |
+| `runtime {tool: python, args: ["--version"]}` → `Python 3.14.7` | **PASS** |
+| `PYTHON-PASS`, `SUM=5`, `مرحبا 🐍`, `SQLITE-PASS` through the Runtime | **PASS** |
+| No shell required for the acceptance test | **PASS** |
+| CPython 3.14.7, NDK 28.2.13676358, API 24, arm64-v8a | **PASS** |
+| bzip2 1.0.8 and XZ 5.4.7 built from pinned source | **PASS** |
+| SQLite 3.50.4 from PocketClaw's pinned amalgamation | **PASS** |
+| Dependency provenance — no third-party prebuilt binaries | **PASS** |
+| Build-path leakage | **NONE** |
+| Upgrade install with no Clear Data, user data preserved | **PASS** |
+
+The payload is one self-contained PIE ELF: CPython with every extension module
+linked in statically and the standard library appended as a `.pyc` zip.
+`lib-dynload` is empty. Dependencies are Android platform libraries only.
+
+### Two packaging defects found and permanently guarded
+
+**Gradle stripped the appended standard library.** The first APK packaged the
+payload at 9,041,016 bytes against 11,509,517 on disk — the native-library strip
+had removed the appended zip exactly, and the interpreter would have shipped
+unable to import anything. `keepDebugSymbols` already existed for this reason
+and Python was missing from it. The build guard now also verifies the packaged
+payload still ends in a zip end-of-central-directory record, because a presence
+check cannot see a payload that was mangled rather than dropped.
+
+**A stale Core shipped beside the new payload.** The catalog is `//go:embed`-ed
+into `libpicoclaw.so`, which is a committed artifact rather than something
+Gradle produces. `manifest.json` was updated to 2.1.0 with Python and Core was
+never rebuilt, so an APK shipped the new payload beside a Core that reported
+catalog 2.0.1 and could not see it. The installed app was correct to report no
+Python. Nothing persisted wrongly: the live Core matched the packaged one byte
+for byte. `TestStagedCoreEmbedsTheCurrentCatalog` now fails in the normal gate
+when the staged Core predates the catalog, checking the catalog version and
+every bundled payload's name and pinned checksum, and naming the script to run.
+
+Both guards are permanent. The shared lesson is the same one twice: the payload
+guard checks that files are present, and presence is not reachability.
+
+### Security posture, unchanged and stated plainly
+
+Python is **not** sandboxed and is not described as such. The boundary is the
+Android application UID. `subprocess` bypasses the Runtime's registry, timeout
+policy, output bounds and event log, and guidance to prefer the Runtime is
+advisory, not enforcement. No pip, no ctypes, no direct sockets, no writable
+executable storage, and no shell is shipped. Shell availability is
+version-dependent: Android 11+ provides `/bin/sh`, API 24-29 does not.
+
 ## 2026-08-30 — Provider Resilience & Automatic Failover (PHYSICAL PASS)
 
 Branch `feature/provider-resilience-failover`, commits `68443c1`, `7b67493`,
