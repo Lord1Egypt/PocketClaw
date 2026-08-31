@@ -1,5 +1,59 @@
 # PocketClaw Project State
 
+## Python Lite — Phase C stdio fixed, awaiting physical acceptance, 2026-08-31
+
+Branch `feature/python-lite-agent-tool`, from `develop` at `de7ea53`.
+**Not merged.** All automated gates are green; the four physical tests are the
+remaining gate.
+
+### Root cause, confirmed on device
+
+Android's CPython replaces `sys.stdout` and `sys.stderr` with `TextLogStream`,
+which writes to the Android system log instead of file descriptors 1 and 2. The
+runtime captures the descriptors, so managed runs wrote where the caller could
+not read: `print()` succeeded and exited 0 with nothing captured, an uncaught
+exception exited 1 with its traceback in logcat, and `os.write(1, ...)` worked
+because it bypasses `sys.stdout`. CPython, the pipes, the capture layer and the
+formatter were all correct.
+
+### The fix
+
+`pocketclaw_bootstrap`, a module inside the payload's appended standard library,
+rebinds both streams to unbuffered UTF-8 wrappers over `os.dup(1)`/`os.dup(2)`,
+then reads the program from stdin exactly as `python -` does and runs it as
+`__main__`. The tool now invokes
+`python <default_args> -m pocketclaw_bootstrap <caller args>`.
+
+The source still travels on stdin only — not `-c`, not argv, not the
+environment, not a log. Tracebacks compile under `<stdin>`, `sys.argv` is
+`["-", ...]`, and the bootstrap's own frames are stripped so line numbers refer
+to the submitted code. CPython is not patched.
+
+Because the module ships inside the checksum-pinned payload, the payload hash was
+repinned and the catalog moved to `2.2.0`. A new entry-point guard runs in the
+Gradle release and in the Go tests, alongside the appended-stdlib, catalog and
+source-freshness guards.
+
+### Build
+
+| Artifact | Value |
+|---|---|
+| Python payload | `dfa19e41ac57edfdaa7ba2d94de7d1c9fa8ce8e30db2c3385f1559c1d576848d`, 299 entries |
+| Core `libpicoclaw.so` | `029f70307a9a84309f3d30ebca0cd2eab4fcd5ea9e18b90c49be477f3fcfd3a7` |
+| Core source fingerprint | `535cbfd664415f66ea8bcc2dfcc2d1859e6905f118b4eeae44470f20cea17305` |
+| Catalog | `2.2.0` |
+| APK | `build/app/outputs/flutter-apk/app-release.apk`, 64,168,930 bytes |
+| APK SHA-256 | `b92b958677794dbd7bca95d4ec040c6a41ed5707978e2f4bd5791aa787816884` |
+| versionCode | 9 |
+
+### Physical acceptance, one call each
+
+1. `print("PYTHON-FINAL-PASS")` → `stdout_bytes` > 0, the text, `exit_code=0`
+2. `raise ValueError("TEST-ERROR")` → `stderr_bytes` > 0, the real traceback,
+   `ValueError: TEST-ERROR`, `exit_code=1`
+3. `print("مرحبا 🐍")` → exactly that text
+4. infinite loop, `timeout_ms=2000` → `timed_out=true`
+
 ## Python Lite — Phase C physical FAIL, root cause not yet proven, 2026-08-31
 
 Branch `feature/python-lite-agent-tool`, from `develop` at `de7ea53`.

@@ -998,11 +998,16 @@ increase. **A 100+ MB addition needs explicit approval.**
   process staged as a checksum-verified bundled payload.
 - [x] Instrument the boundary: `ExecResult.StdoutBytes`/`StderrBytes`, printed in
   the Python result and logged at INFO.
-- [ ] **Root-cause the empty capture on device.** Leading hypothesis, unproven:
-  the interpreter's `sys.stdout`/`sys.stderr` are disconnected, which would make
-  `print()` a silent no-op at exit 0 and suppress the traceback at exit 1 while
-  raw fd writes still work. Next physical run reports `stdout_bytes`, which
-  separates "the interpreter wrote nothing" from "the runtime lost it".
+- [x] Root cause found and confirmed on device: Android's CPython replaces
+  `sys.stdout`/`sys.stderr` with `TextLogStream`, which writes to the Android
+  system log rather than to descriptors 1 and 2.
+- [x] Ship `pocketclaw_bootstrap` inside the payload's appended stdlib and run
+  the tool through `-m pocketclaw_bootstrap`. It rebinds both streams over
+  `os.dup(1)`/`os.dup(2)`, then reads the program from stdin as `python -` does.
+  Source transport, argv contract and traceback filenames unchanged. CPython not
+  patched.
+- [x] Repin the payload checksum, move the catalog to `2.2.0`, and add an
+  entry-point guard to the Gradle release and the Go tests.
 - [ ] Python Lite Phase C physical PASS on all four tests, then merge to
   `develop`.
 - [ ] Git `SHELL_PATH`: the recorded "Android has no /bin/sh" limitation is

@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -39,6 +40,7 @@ const interpreterArgv0 = "python"
 //	OUT:<text>   write text and a newline to stdout
 //	ERR:<text>   write text and a newline to stderr
 //	EXIT:<n>     exit with status n
+//	ARGV         write the argument vector it was invoked with to stdout
 func TestMain(m *testing.M) {
 	if filepath.Base(os.Args[0]) == interpreterArgv0 {
 		os.Exit(runStandInInterpreter())
@@ -61,6 +63,8 @@ func runStandInInterpreter() int {
 			fmt.Fprintln(os.Stderr, strings.TrimPrefix(line, "ERR:"))
 		case strings.HasPrefix(line, "EXIT:"):
 			fmt.Sscanf(strings.TrimPrefix(line, "EXIT:"), "%d", &status)
+		case line == "ARGV":
+			fmt.Fprintf(os.Stdout, "argv=%s\n", strings.Join(os.Args, " "))
 		}
 	}
 	return status
@@ -72,7 +76,7 @@ func runStandInInterpreter() int {
 // Bundled delivery is the device's delivery: the payload is checksum-verified
 // and ABI-checked before it runs, and the catalog's default_args lead the
 // argument vector, so the child sees exactly what a device's interpreter sees.
-func newAgentPathRegistry(t *testing.T) (*ToolRegistry, string) {
+func newAgentPathRegistry(t *testing.T, maxOutputBytes int64) (*ToolRegistry, string) {
 	t.Helper()
 
 	self, err := os.Executable()
@@ -104,7 +108,7 @@ func newAgentPathRegistry(t *testing.T) (*ToolRegistry, string) {
 			SHA256:         digestOf(t, payload),
 			Capabilities:   []string{"script.execute"},
 			TimeoutProfile: pcruntime.TimeoutQuick,
-			MaxOutputBytes: 1 << 20,
+			MaxOutputBytes: maxOutputBytes,
 			SecurityClass:  pcruntime.SecurityClassBundledVerified,
 			LibraryName:    "libpocketclaw-python.so",
 			DefaultArgs:    []string{"-P", "-s", "-S", "-B", "-u"},
@@ -124,6 +128,21 @@ func newAgentPathRegistry(t *testing.T) (*ToolRegistry, string) {
 	tools := NewToolRegistry()
 	tools.Register(&PythonTool{manager: manager})
 	return tools, workspace
+}
+
+func hostABI(t *testing.T) string {
+	t.Helper()
+	switch runtime.GOARCH {
+	case "arm64":
+		return "arm64-v8a"
+	case "arm":
+		return "armeabi-v7a"
+	case "amd64":
+		return "x86_64"
+	default:
+		t.Skipf("the runtime catalog has no ABI name for %s", runtime.GOARCH)
+		return ""
+	}
 }
 
 func digestOf(t *testing.T, path string) string {
@@ -156,7 +175,7 @@ func agentSees(t *testing.T, tools *ToolRegistry, code string) string {
 
 // stdout must survive every step between the process and the model.
 func TestAgentSeesStdoutFromTheProcess(t *testing.T) {
-	tools, _ := newAgentPathRegistry(t)
+	tools, _ := newAgentPathRegistry(t, 1<<20)
 
 	report := agentSees(t, tools, "OUT:PYTHON-FINAL-PASS\nEXIT:0")
 
@@ -175,7 +194,7 @@ func TestAgentSeesStdoutFromTheProcess(t *testing.T) {
 
 // stderr must survive it too, byte for byte, with the exit status beside it.
 func TestAgentSeesStderrAndExitCodeFromTheProcess(t *testing.T) {
-	tools, _ := newAgentPathRegistry(t)
+	tools, _ := newAgentPathRegistry(t, 1<<20)
 
 	report := agentSees(t, tools,
 		"ERR:Traceback (most recent call last):\n"+
@@ -203,7 +222,7 @@ func TestAgentSeesStderrAndExitCodeFromTheProcess(t *testing.T) {
 // sys.stdout.buffer and os.write; if plain output survives, there is nothing to
 // work around.
 func TestAgentSeesUnicodeStdoutExactly(t *testing.T) {
-	tools, _ := newAgentPathRegistry(t)
+	tools, _ := newAgentPathRegistry(t, 1<<20)
 
 	const text = "مرحبا 🐍"
 	report := agentSees(t, tools, "OUT:"+text+"\nEXIT:0")
@@ -223,7 +242,7 @@ func TestAgentSeesUnicodeStdoutExactly(t *testing.T) {
 // from the text, so a report can distinguish a silent process from a lost
 // stream. This asserts they describe the process rather than the rendering.
 func TestAgentResultReportsWhatTheCaptureLayerMeasured(t *testing.T) {
-	tools, _ := newAgentPathRegistry(t)
+	tools, _ := newAgentPathRegistry(t, 1<<20)
 
 	silent := agentSees(t, tools, "EXIT:7")
 	for _, field := range []string{"stdout_bytes=0", "stderr_bytes=0", "exit_code=7"} {
@@ -244,7 +263,7 @@ func TestAgentResultReportsWhatTheCaptureLayerMeasured(t *testing.T) {
 // pasted. The runtime keeps it out of its own events; the generic tool registry
 // logs every tool's arguments, which is a different log and was never checked.
 func TestAgentPathNeverLogsThePythonSource(t *testing.T) {
-	tools, _ := newAgentPathRegistry(t)
+	tools, _ := newAgentPathRegistry(t, 1<<20)
 
 	const canary = "canary-secret-inside-the-python-source"
 	captured := captureToolLog(t, func() {
@@ -279,4 +298,86 @@ func captureToolLog(t *testing.T, body func()) string {
 		t.Fatalf("cannot read the captured log: %v", err)
 	}
 	return string(captured)
+}
+
+// What the interpreter is actually invoked with, observed from inside the child
+// rather than asserted on the request. The entry point must lead, the caller's
+// values must follow it, and the program must not be there at all.
+func TestChildIsInvokedThroughTheEntryPointWithoutTheSourceInArgv(t *testing.T) {
+	tools, _ := newAgentPathRegistry(t, 1<<20)
+
+	result := tools.ExecuteWithContext(
+		context.Background(), "python",
+		map[string]any{
+			"code": "ARGV\n# canary-source-text-must-not-appear-in-argv\nEXIT:0",
+			"args": []any{"alpha", "beta gamma"},
+		},
+		"pocketclaw", "test-chat", nil,
+	)
+	report := result.ContentForLLM()
+
+	if !strings.Contains(report, "-m "+pythonBootstrapModule) {
+		t.Errorf("the child was not invoked through the entry point:\n%s", report)
+	}
+	// The catalog's own flags still lead the entry point.
+	if !strings.Contains(report, "argv=python -P -s -S -B -u -m "+
+		pythonBootstrapModule+" alpha beta gamma") {
+		t.Errorf("the argument vector is not default_args, entry point, caller args:\n%s",
+			report)
+	}
+	argvLine := ""
+	for _, line := range strings.Split(report, "\n") {
+		if strings.HasPrefix(line, "argv=") {
+			argvLine = line
+			break
+		}
+	}
+	if argvLine == "" {
+		t.Fatalf("the child did not report its argument vector:\n%s", report)
+	}
+	if strings.Contains(argvLine, "canary-source-text") {
+		t.Errorf("the program reached the argument vector: %s", argvLine)
+	}
+}
+
+// The runtime's output bound has to survive the whole path, and the report has
+// to say the bound was hit. An unbounded traceback from a deep recursion would
+// otherwise be pasted whole into the conversation, and a bounded one that did
+// not say so would be read as the complete error.
+func TestAgentSeesBoundedOutputAndIsToldItWasCut(t *testing.T) {
+	const limit = 2048
+	tools, _ := newAgentPathRegistry(t, limit)
+
+	var program strings.Builder
+	for i := 0; i < 2000; i++ {
+		program.WriteString("ERR:0123456789012345678901234567890123456789\n")
+	}
+	program.WriteString("EXIT:3")
+
+	report := agentSees(t, tools, program.String())
+
+	if !strings.Contains(report, "stderr_truncated=true") {
+		t.Errorf("truncation was not reported as a field:\n%s", firstLines(report, 6))
+	}
+	if !strings.Contains(report, "[stderr truncated") {
+		t.Errorf("truncation was not marked where it happened:\n%s", firstLines(report, 6))
+	}
+	if !strings.Contains(report, "exit_code=3") {
+		t.Errorf("the exit code was lost:\n%s", firstLines(report, 6))
+	}
+	// The measured size is the whole stream; the kept text is the bound.
+	if !strings.Contains(report, "stderr_bytes=82000") {
+		t.Errorf("the measured stderr size is not the full volume:\n%s", firstLines(report, 6))
+	}
+	if len(report) > limit*4 {
+		t.Errorf("the bound did not hold: the report is %d bytes", len(report))
+	}
+}
+
+func firstLines(text string, count int) string {
+	lines := strings.SplitN(text, "\n", count+1)
+	if len(lines) > count {
+		lines = lines[:count]
+	}
+	return strings.Join(lines, "\n")
 }

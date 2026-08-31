@@ -182,6 +182,13 @@ if [ "$ACTUAL_NEEDED" != "$EXPECTED_NEEDED" ]; then
     exit 1
 fi
 
+# The bootstrap goes inside the payload, so the checksum the runtime verifies
+# covers it. Android's CPython points sys.stdout and sys.stderr at the system
+# log rather than at descriptors 1 and 2; without this module every print()
+# from a managed run lands in logcat and the caller sees an empty stream.
+"$BUILD_PYTHON" "$(dirname "${BASH_SOURCE[0]}")/install-python-bootstrap.py" \
+    "$PY_ROOT/payload.so"
+
 # zipimport must still find the appended archive after packaging.
 "$BUILD_PYTHON" - "$PY_ROOT/payload.so" <<'VERIFY'
 import sys, zipfile

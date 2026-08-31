@@ -139,3 +139,38 @@ nothing.
 
 Android NDK 28.2.13676358, overridable with `NDK_ROOT`. ripgrep additionally
 needs a Rust toolchain with the `aarch64-linux-android` target; gh needs Go.
+
+## The PocketClaw entry point
+
+`pocketclaw_bootstrap.py` ships inside the payload's appended standard library
+and is what the Agent-facing `python` tool actually runs:
+
+    python <catalog default_args> -m pocketclaw_bootstrap <caller args>
+
+Android's CPython does not connect `sys.stdout` and `sys.stderr` to file
+descriptors 1 and 2. It replaces both with `TextLogStream`, which writes to the
+Android system log, because an app has no console. The managed runtime captures
+the descriptors, so without this module every `print()` from a managed run went
+to logcat and the caller saw an empty stream — a silent no-op that still exited
+0, and an uncaught exception whose traceback never appeared.
+
+The module rebinds both streams to unbuffered UTF-8 wrappers over `os.dup(1)`
+and `os.dup(2)` — duplicated so interpreter shutdown closes the duplicate rather
+than the pipe the runtime is reading — then reads the program from standard
+input exactly as `python -` does, compiles it under `<stdin>`, and runs it as
+`__main__` with `sys.argv` set to `["-", ...caller args]`.
+
+It lives inside the payload so the checksum the registry verifies covers it. The
+alternative, materialising it into app storage, would put the supervisor of
+model-authored code somewhere model-authored code can rewrite.
+
+`build-python-android-arm64.sh` installs it as part of assembling the payload.
+To add it to an existing payload, or to check one:
+
+    runtime/install-python-bootstrap.py <payload>
+
+The step is idempotent and verifies afterwards that the ELF header, the appended
+stdlib and the new entry all read back. Changing the payload changes its
+checksum, so `core/src/pkg/pcruntime/manifest.json` must be repinned and Core
+rebuilt; `TestPythonPayloadIsPackagedForTheInstaller` and the Gradle release
+guard both fail if the entry point is missing.

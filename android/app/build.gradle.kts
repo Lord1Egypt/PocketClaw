@@ -306,7 +306,28 @@ fun verifyPythonStdlibSurvived(apk: File) {
             }
         )
     }
+    // The entry point PocketClaw runs is a module inside that same zip. Android's
+    // CPython points sys.stdout and sys.stderr at the system log rather than at
+    // file descriptors 1 and 2, so without this module every managed run reports
+    // an empty stream: print() is a silent no-op that exits 0, and a traceback
+    // never appears. A payload that shipped without it would pass every other
+    // guard here and fail only on a device, silently.
+    val bootstrap = "pocketclaw_bootstrap.py".toByteArray(Charsets.US_ASCII)
+    val carriesBootstrap = (0..bytes.size - bootstrap.size).any { at ->
+        bootstrap.indices.all { i -> bytes[at + i] == bootstrap[i] }
+    }
+    if (!carriesBootstrap) {
+        throw GradleException(
+            buildString {
+                appendLine("$pythonPayloadEntry does not contain pocketclaw_bootstrap.py.")
+                appendLine("Python would run with its output going to the Android log,")
+                appendLine("which reads as an empty stream to the caller. Reinstall it:")
+                appendLine("  runtime/install-python-bootstrap.py <payload>")
+            }
+        )
+    }
     println("Verified appended Python standard library in ${apk.name}: ${bytes.size} bytes")
+    println("Verified pocketclaw_bootstrap entry point in ${apk.name}")
 }
 
 fun verifyArm64NativePayload(apk: File) {

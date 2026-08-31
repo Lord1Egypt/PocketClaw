@@ -1,5 +1,62 @@
 # Development Changelog
 
+## 2026-08-31 — Python Lite Phase C: Android stdio root cause and the bootstrap
+
+Branch `feature/python-lite-agent-tool`. **Not merged**, physical acceptance
+outstanding.
+
+### Root cause
+
+Android's CPython does not connect `sys.stdout` and `sys.stderr` to file
+descriptors 1 and 2. It replaces both with `TextLogStream`, which writes to the
+Android system log, because an app has no console. The managed runtime captures
+the descriptors, so every managed run wrote its output somewhere the caller
+could not read.
+
+That explains each symptom exactly. `print()` succeeded and exited 0 with
+nothing captured. An uncaught exception still exited 1 while its traceback went
+to logcat. `os.write(1, ...)` worked, because it bypasses `sys.stdout`
+altogether. Device evidence: `stdout = TextLogStream, fd=1, closed=false`, and
+rebinding the streams by hand produced `stdout_bytes=33`, `stderr_bytes=97` and
+the real `ValueError: TEST-ERROR`.
+
+CPython, the runtime's pipes, the capture layer and the formatter were all
+working. Nothing in PocketClaw was broken; the interpreter was pointed
+elsewhere.
+
+### The fix
+
+`pocketclaw_bootstrap` is a small module shipped **inside** the payload's
+appended standard library, so the checksum the registry verifies before
+executing anything covers it. The Python tool now invokes
+`python <catalog default_args> -m pocketclaw_bootstrap <caller args>`. The
+bootstrap rebinds `sys.stdout` and `sys.stderr` to unbuffered UTF-8 streams over
+`os.dup(1)` and `os.dup(2)` — duplicated so interpreter shutdown cannot close
+the descriptors the runtime is reading — then reads the program from standard
+input exactly as `python -` does and executes it.
+
+The caller's source still travels on stdin and nowhere else. It is not moved to
+`-c`, not put in argv, not written to the environment, and not logged. The
+bootstrap compiles it under `<stdin>`, runs it as `__main__`, sets
+`sys.argv` to `["-", ...caller args]`, and prints the caller's traceback with
+its own frames removed, so line numbers still refer to the submitted code.
+
+CPython is not patched. Upstream's Android logging behaviour is untouched, since
+other embeddings may rely on it.
+
+### Guards
+
+The payload is checksum-pinned, so adding the module repinned it: catalog
+`2.1.0` → `2.2.0`, python sha256 repinned, Core rebuilt. Three guards now cover
+the payload — the appended-stdlib guard, a new entry-point guard in the Gradle
+release and in the Go tests, and the existing catalog and source-freshness
+guards.
+
+The Python result also names the failure it cannot otherwise distinguish: a
+non-zero exit with zero bytes on both streams is reported as an install fault
+rather than a program failure, because that is the shape this bug had, and a
+payload shipped without the entry point would reproduce it silently.
+
 ## 2026-08-31 — Python Lite Phase C: physical stdout/stderr failure, boundary instrumented
 
 Branch `feature/python-lite-agent-tool`. **Not merged. Not fixed.** The physical

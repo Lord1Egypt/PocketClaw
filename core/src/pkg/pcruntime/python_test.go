@@ -253,6 +253,23 @@ func TestPythonPayloadIsPackagedForTheInstaller(t *testing.T) {
 	if !found {
 		t.Error("the appended standard library does not contain json/__init__.pyc")
 	}
+
+	// PocketClaw's entry point ships inside the same zip, so the checksum the
+	// registry verifies covers it. Android's CPython replaces sys.stdout and
+	// sys.stderr with a stream that writes to the system log; without this
+	// module a managed run produces no output the caller can see, exits 0, and
+	// looks like a program that printed nothing.
+	entryPoint := false
+	for _, file := range reader.File {
+		if file.Name == "pocketclaw_bootstrap.py" {
+			entryPoint = true
+			break
+		}
+	}
+	if !entryPoint {
+		t.Error("the payload does not contain pocketclaw_bootstrap.py; " +
+			"reinstall it with runtime/install-python-bootstrap.py")
+	}
 }
 
 // TestPythonShapedRequestDeliversSourceOnStdin proves end to end what the

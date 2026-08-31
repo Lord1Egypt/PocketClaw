@@ -1,5 +1,38 @@
 # PocketClaw Decisions
 
+## Android CPython logs its stdio, so PocketClaw ships its own entry point
+
+- Date: 2026-08-31
+- Decision: the Python tool runs `-m pocketclaw_bootstrap`, a module inside the
+  payload's appended standard library, which rebinds `sys.stdout` and
+  `sys.stderr` to `os.dup(1)`/`os.dup(2)` before executing the caller's program.
+  CPython is not patched and Android's `TextLogStream` is left in place for
+  anything else that embeds this interpreter.
+- Consequence: on Android, CPython points `sys.stdout` and `sys.stderr` at the
+  system log rather than at descriptors 1 and 2, so the managed runtime captured
+  nothing. `print()` was a silent no-op that exited 0 and an uncaught exception
+  exited 1 with no traceback — a failure that looked like a runtime defect and
+  was not one. The descriptors are duplicated so interpreter shutdown closes the
+  duplicate and never the pipe the runtime is still reading.
+- Consequence: the module lives inside the payload rather than in app storage,
+  so the checksum the registry verifies covers it. The alternative — writing it
+  to the runtime metadata directory — would put the supervisor of model-authored
+  code in a file that model-authored code can rewrite.
+- Consequence: the caller's source did not move. It still travels on stdin,
+  never in argv, the environment, a log or an event, and the bootstrap compiles
+  it under `<stdin>` with `sys.argv[0]` set to `"-"`, which is what `python -`
+  gives. Tests fail if the source reaches argv or if the argv contract changes.
+
+## stdin carries the program and nothing else
+
+- Date: 2026-08-31
+- Decision: `pocketclaw_bootstrap` consumes standard input in full as the
+  program. Phase C v1 adds no second stdin or data channel.
+- Consequence: a program that needs structured input embeds it or reads a
+  workspace file. A second channel would have to multiplex the one stream the
+  interpreter reads, and the tool would gain an API before anything needed it.
+  This is a limitation, recorded as one rather than worked around.
+
 ## The Core carries a fingerprint of the source it was built from
 
 - Date: 2026-08-31

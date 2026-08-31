@@ -48,8 +48,9 @@ func TestPythonRequestPutsSourceOnStdinAndNotInArgv(t *testing.T) {
 			t.Fatalf("source leaked into the argument vector: %q", arg)
 		}
 	}
-	if len(request.Args) == 0 || request.Args[0] != "-" {
-		t.Fatalf("args = %v, want the stdin marker first", request.Args)
+	if len(request.Args) != 2 ||
+		request.Args[0] != "-m" || request.Args[1] != pythonBootstrapModule {
+		t.Fatalf("args = %v, want PocketClaw's entry point first", request.Args)
 	}
 }
 
@@ -57,20 +58,18 @@ func TestPythonRequestPutsSourceOnStdinAndNotInArgv(t *testing.T) {
 // is size-capped near 128 KB, readable from /proc/<pid>/cmdline, and recorded in
 // argument diagnostics. stdin is size-accounted only.
 func TestPythonRequestNeverUsesDashC(t *testing.T) {
-	if pythonStdinMarker != "-" {
-		t.Fatalf("the stdin marker is %q; it must stay \"-\"", pythonStdinMarker)
-	}
 	request, _ := buildPythonRequest(map[string]any{
 		"code": "print(1)",
 		"args": []any{"-c", "print('smuggled')"},
 	})
-	if request.Args[0] != "-" {
+	if request.Args[0] != "-m" || request.Args[1] != pythonBootstrapModule {
 		t.Fatalf("a caller-supplied argument reached the front of argv: %v", request.Args)
 	}
-	// Caller arguments are still passed through, but only after "-", where the
-	// interpreter treats them as sys.argv rather than as source.
-	if len(request.Args) != 3 || request.Args[1] != "-c" {
-		t.Fatalf("args = %v, want the marker followed by the caller's values", request.Args)
+	// Caller arguments are still passed through, but only after the module name,
+	// where the interpreter treats them as sys.argv rather than as source.
+	if len(request.Args) != 4 || request.Args[2] != "-c" {
+		t.Fatalf("args = %v, want the entry point followed by the caller's values",
+			request.Args)
 	}
 	if request.Stdin != "print(1)" {
 		t.Errorf("stdin = %q, want the code field only", request.Stdin)
@@ -82,7 +81,7 @@ func TestPythonRequestArgsBecomeScriptArguments(t *testing.T) {
 		"code": "import sys; print(sys.argv[1:])",
 		"args": []any{"alpha", "beta gamma", "🐍"},
 	})
-	want := []string{"-", "alpha", "beta gamma", "🐍"}
+	want := []string{"-m", pythonBootstrapModule, "alpha", "beta gamma", "🐍"}
 	if len(request.Args) != len(want) {
 		t.Fatalf("args = %v, want %v", request.Args, want)
 	}
@@ -130,7 +129,8 @@ func TestPythonRequestRejectsMissingOrNonStringCode(t *testing.T) {
 func TestPythonResultKeepsTheTracebackAndExplainsExitCode(t *testing.T) {
 	report := formatPythonResult(&pcruntime.ExecResult{
 		Tool: "python", ExitCode: 1, DurationMS: 12, Status: pcruntime.StatusCompleted,
-		Stderr: "Traceback (most recent call last):\n  File \"<stdin>\", line 1\nValueError: TEST-ERROR\n",
+		Stderr:      "Traceback (most recent call last):\n  File \"<stdin>\", line 1\nValueError: TEST-ERROR\n",
+		StderrBytes: 74,
 	})
 	for _, want := range []string{
 		"Traceback (most recent call last):", "ValueError: TEST-ERROR", "exited 1",
@@ -168,8 +168,8 @@ func TestPythonResultExplainsTimeoutAndCancellation(t *testing.T) {
 func TestPythonResultReportsTruncatedOutput(t *testing.T) {
 	report := formatPythonResult(&pcruntime.ExecResult{
 		Tool: "python", Status: pcruntime.StatusCompleted,
-		Stdout: "lots of output\n", StdoutTruncated: true,
-		Stderr: "lots of noise\n", StderrTruncated: true,
+		Stdout: "lots of output\n", StdoutTruncated: true, StdoutBytes: 900000,
+		Stderr: "lots of noise\n", StderrTruncated: true, StderrBytes: 900000,
 	})
 	if strings.Count(report, "truncated") < 2 {
 		t.Errorf("truncation of stdout and stderr was not both reported:\n%s", report)
@@ -242,7 +242,7 @@ func TestPythonToolSharesTheRuntimeManager(t *testing.T) {
 func TestPythonResultNamesEveryMeasuredField(t *testing.T) {
 	report := formatPythonResult(&pcruntime.ExecResult{
 		Tool: "python", ExitCode: 2, DurationMS: 5, Status: pcruntime.StatusCompleted,
-		Stdout: "out\n", Stderr: "err\n",
+		Stdout: "out\n", Stderr: "err\n", StdoutBytes: 4, StderrBytes: 4,
 	})
 	for _, field := range []string{
 		"exit_code=2", "timed_out=false", "cancelled=false",
@@ -262,6 +262,7 @@ func TestPythonResultKeepsStderrAlongsideDiagnostics(t *testing.T) {
 		Tool: "python", ExitCode: -1, DurationMS: 2000,
 		Status: pcruntime.StatusTimeout, TimedOut: true,
 		Stderr:      "Traceback (most recent call last):\nKeyboardInterrupt\n",
+		StderrBytes: 51,
 		Diagnostics: "python exceeded its 2s budget and was terminated",
 	})
 	if !strings.Contains(report, "KeyboardInterrupt") {
@@ -272,5 +273,33 @@ func TestPythonResultKeepsStderrAlongsideDiagnostics(t *testing.T) {
 	}
 	if !strings.Contains(report, "timed_out=true") {
 		t.Errorf("the timeout flag was not reported:\n%s", report)
+	}
+}
+
+// A failing program produces a traceback. A non-zero status with nothing on
+// either stream is the shape of the Android stdio bug itself: the interpreter
+// never reached the program, and said so somewhere the caller cannot read. The
+// report must name that rather than let it look like an ordinary failure.
+func TestPythonResultNamesASilentNonZeroExitAsAnInstallFault(t *testing.T) {
+	report := formatPythonResult(&pcruntime.ExecResult{
+		Tool: "python", ExitCode: 1, DurationMS: 40, Status: pcruntime.StatusCompleted,
+	})
+	if !strings.Contains(report, pythonBootstrapModule) {
+		t.Errorf("a silent non-zero exit was not attributed to the entry point:\n%s", report)
+	}
+	if !strings.Contains(report, "wrote nothing to either stream") {
+		t.Errorf("a silent non-zero exit was reported as an ordinary failure:\n%s", report)
+	}
+
+	// A real program failure must keep the ordinary explanation.
+	ordinary := formatPythonResult(&pcruntime.ExecResult{
+		Tool: "python", ExitCode: 1, Status: pcruntime.StatusCompleted,
+		Stderr: "ValueError: TEST-ERROR\n", StderrBytes: 23,
+	})
+	if strings.Contains(ordinary, pythonBootstrapModule) {
+		t.Errorf("a normal traceback was blamed on the entry point:\n%s", ordinary)
+	}
+	if !strings.Contains(ordinary, "read the last line for the exception type") {
+		t.Errorf("a normal failure lost its explanation:\n%s", ordinary)
 	}
 }

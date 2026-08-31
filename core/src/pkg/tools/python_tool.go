@@ -8,12 +8,26 @@ import (
 	"github.com/sipeed/picoclaw/pkg/pcruntime"
 )
 
-// pythonStdinMarker makes the interpreter read the program from standard input.
+// pythonBootstrapModule is PocketClaw's entry point inside the payload.
 //
-// It must stay the first argument. Everything after it becomes sys.argv[1:],
-// which is what lets a caller pass data without the runtime ever interpolating
-// it into the source.
-const pythonStdinMarker = "-"
+// Android's CPython does not connect sys.stdout and sys.stderr to descriptors 1
+// and 2: it replaces both with TextLogStream, which writes to the Android system
+// log. The runtime captures the descriptors, so a device ran every program with
+// its output going somewhere the caller could not see — print() was a silent
+// no-op that still exited 0, and an uncaught exception's traceback never
+// appeared even though the exit status was 1.
+//
+// The bootstrap restores the two streams and then reads the program from
+// standard input exactly as `python -` does. It ships inside the payload, so the
+// checksum the registry verifies covers it, and it is the only code here that
+// PocketClaw supplies: the program itself is still the caller's, and still
+// arrives on stdin.
+const pythonBootstrapModule = "pocketclaw_bootstrap"
+
+// pythonModuleFlag runs a module as __main__. Everything after the module name
+// becomes sys.argv[1:], which is what lets a caller pass data without the
+// runtime ever interpolating it into the source.
+const pythonModuleFlag = "-m"
 
 // PythonTool runs Python through the Managed Runtime.
 //
@@ -124,9 +138,11 @@ func buildPythonRequest(args map[string]any) (pcruntime.ExecRequest, *ToolResult
 			"code is empty: pass the Python source to run.")
 	}
 
-	// "-" first, so the interpreter reads the program from stdin and every
-	// later argument lands in sys.argv rather than being read as source.
-	argv := append([]string{pythonStdinMarker}, stringSliceArg(args["args"])...)
+	// The bootstrap leads, so the interpreter runs PocketClaw's entry point and
+	// every later argument lands in sys.argv rather than being read as source.
+	// The bootstrap restores sys.argv[0] to "-", which is what `python -` sets.
+	argv := append([]string{pythonModuleFlag, pythonBootstrapModule},
+		stringSliceArg(args["args"])...)
 
 	return pcruntime.ExecRequest{
 		Tool:      "python",
@@ -197,6 +213,19 @@ func formatPythonResult(result *pcruntime.ExecResult) string {
 				"the same program.\n", result.DurationMS)
 	case result.Cancelled:
 		report.WriteString("\nThe run was cancelled before it finished.\n")
+	case result.ExitCode != 0 && result.StdoutBytes == 0 && result.StderrBytes == 0:
+		// A failing program produces a traceback. Silence with a non-zero status
+		// means the interpreter never reached the program: PocketClaw's entry
+		// point could not be imported, and CPython reported that on Android's
+		// system log rather than on a descriptor anyone here can read. Saying so
+		// is the difference between a diagnosable install fault and a repeat of
+		// the bug this entry point exists to fix.
+		fmt.Fprintf(&report,
+			"\nPython exited %d and wrote nothing to either stream. A program that fails "+
+				"produces a traceback, so this is not the program failing: the interpreter "+
+				"could not start PocketClaw's %s entry point, which means the packaged "+
+				"payload is not the one the catalog pins. Report it; retrying will not "+
+				"change it.\n", result.ExitCode, pythonBootstrapModule)
 	case result.ExitCode != 0:
 		report.WriteString("\nPython exited non-zero. If a traceback is shown above, it is the " +
 			"real error: read the last line for the exception type and message. " +
