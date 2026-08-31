@@ -975,11 +975,20 @@ increase. **A 100+ MB addition needs explicit approval.**
 - [x] Python Lite Phase C — the Agent-facing `python` tool implemented on
   `feature/python-lite-agent-tool`. Code on stdin, never argv; reuses
   `Manager.Execute`; no duplicate execution path. Automated gates green.
-- [ ] Python Lite Phase C **physical validation**, then merge.
-- [ ] Core staleness beyond the catalog: `TestStagedCoreEmbedsTheCurrentCatalog`
-  cannot see a Core that is stale for Go-source reasons while the catalog is
-  unchanged. Consider stamping a source identity into Core so the guard covers
-  it; until then, rebuild Core after any `core/src` change.
+- [x] Python Lite Phase C physical validation of statistics, JSON, Unicode,
+  timeout and uncaught exception — all PASS. One gap found: the model could not
+  report the traceback from a single `raise ValueError("TEST-ERROR")` call.
+- [x] Expose the real `ExecResult` stderr to the Agent. `formatPythonResult` now
+  names `exit_code`, `timed_out`, `cancelled`, `stdout_truncated` and
+  `stderr_truncated` and prints both streams, an empty one included. End-to-end
+  tests run a real interpreter through `Manager.Execute`.
+- [x] Core staleness beyond the catalog: `pkg/coresource` fingerprints the Core's
+  build inputs, `core/build-android-arm64.sh` stamps it into the binary, and the
+  gate fails if the staged Core does not carry the current value. A Go-only
+  change is now detected with the catalog unchanged.
+- [ ] Python Lite Phase C **physical stderr recheck**, then merge to `develop`:
+  `print("PYTHON-FINAL-PASS")`, `raise ValueError("TEST-ERROR")` (the Agent must
+  report the real traceback and exit code 1), a 2000 ms timeout, and Unicode.
 - [ ] Git `SHELL_PATH`: the recorded "Android has no /bin/sh" limitation is
   wrong on Android 11+, which ships `/bin` -> `/system/bin`. Re-evaluate whether
   git hooks and the ENOEXEC fallback can be supported on API 30+ devices.

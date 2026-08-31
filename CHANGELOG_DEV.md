@@ -1,5 +1,51 @@
 # Development Changelog
 
+## 2026-08-31 — Python Lite Phase C: raw stderr and a Core source fingerprint
+
+Branch `feature/python-lite-agent-tool`. Automated gates green; **not merged**,
+the physical stderr recheck is outstanding.
+
+Phase C passed physically on its core behaviour — statistics, JSON, Unicode, an
+uncaught exception and a 2 s timeout — but a controlled single-call test found
+the model unable to report the traceback from `raise ValueError("TEST-ERROR")`.
+Two things came out of chasing that.
+
+**The Python result now names every field it has.** `formatPythonResult` writes
+`exit_code`, `timed_out`, `cancelled`, `stdout_truncated` and
+`stderr_truncated`, then both streams under their own headings — including an
+empty one, printed as `(empty)`. It previously omitted a stream that had no
+content, which left "the interpreter printed nothing" and "the result dropped
+it" looking identical to the model. Nothing is reconstructed: the text is the
+runtime's own bounded, redacted capture, and a test fails if a traceback ever
+appears for a run that produced none.
+
+The end-to-end proof runs a real interpreter through `Manager.Execute` rather
+than handing the formatter a hand-written `ExecResult` — a hand-written one
+cannot fail the way this failed. The tests cover the traceback reaching the
+agent, the non-zero exit code, the bound on stderr, truncation being reported,
+and the source staying out of the log.
+
+**Core staleness now covers Go-only changes.** `pkg/coresource` hashes the Core's
+build inputs — non-test Go source under `cmd/` and `pkg/`, the embedded catalog,
+the embedded `workspace/`, `go.mod`, `go.sum` and the Makefile — into one
+content-addressed fingerprint. `core/build-android-arm64.sh` computes it and
+stamps it into the binary with `-X`; the test gate recomputes it from the working
+tree and fails if the staged Core does not carry it.
+
+`TestStagedCoreEmbedsTheCurrentCatalog` stays: the two guards answer different
+questions. Does this Core know the current catalog, and was this Core built from
+the current code? Phase C itself is the case only the second one catches —
+`python_tool.go` changed, `manifest.json` did not, and the catalog guard had
+nothing to notice.
+
+The fingerprint is content-addressed on purpose. No mtime, no build timestamp,
+no absolute path, no build id: a value that changes on its own cannot say
+anything about staleness, and a guard that cries wolf stops being read. The first
+draft hashed every `*.json` under `pkg/`, which `pkg/cron`'s tests write into
+during a run, so the gate failed against a Core that was in fact current.
+Embedded assets are named one by one now, and a test reads the `//go:embed`
+directives out of the Core source to fail if the list falls behind.
+
 ## 2026-08-31 — Python Lite Phase C: the Agent-facing Python tool
 
 Branch `feature/python-lite-agent-tool`. Automated gates green; **not merged**,

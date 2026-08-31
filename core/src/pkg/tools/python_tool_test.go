@@ -235,3 +235,42 @@ func TestPythonToolSharesTheRuntimeManager(t *testing.T) {
 		t.Error("the Python tool built its own manager; it must share the runtime's")
 	}
 }
+
+// The reported gap was a presentation gap: the run was fine and the model could
+// not see why it failed. The contract is therefore the field list itself, and
+// it is asserted by name so it cannot quietly shrink again.
+func TestPythonResultNamesEveryMeasuredField(t *testing.T) {
+	report := formatPythonResult(&pcruntime.ExecResult{
+		Tool: "python", ExitCode: 2, DurationMS: 5, Status: pcruntime.StatusCompleted,
+		Stdout: "out\n", Stderr: "err\n",
+	})
+	for _, field := range []string{
+		"exit_code=2", "timed_out=false", "cancelled=false",
+		"stdout_truncated=false", "stderr_truncated=false",
+		"stdout:", "stderr:",
+	} {
+		if !strings.Contains(report, field) {
+			t.Errorf("the report does not state %q:\n%s", field, report)
+		}
+	}
+}
+
+// Diagnostics explain a non-completed status. They belong in the report, but
+// never in place of what the process actually wrote.
+func TestPythonResultKeepsStderrAlongsideDiagnostics(t *testing.T) {
+	report := formatPythonResult(&pcruntime.ExecResult{
+		Tool: "python", ExitCode: -1, DurationMS: 2000,
+		Status: pcruntime.StatusTimeout, TimedOut: true,
+		Stderr:      "Traceback (most recent call last):\nKeyboardInterrupt\n",
+		Diagnostics: "python exceeded its 2s budget and was terminated",
+	})
+	if !strings.Contains(report, "KeyboardInterrupt") {
+		t.Errorf("stderr was replaced by the runtime's diagnostics:\n%s", report)
+	}
+	if !strings.Contains(report, "exceeded its 2s budget") {
+		t.Errorf("the runtime's diagnostics were dropped:\n%s", report)
+	}
+	if !strings.Contains(report, "timed_out=true") {
+		t.Errorf("the timeout flag was not reported:\n%s", report)
+	}
+}

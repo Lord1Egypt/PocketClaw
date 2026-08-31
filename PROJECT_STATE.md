@@ -1,6 +1,81 @@
 # PocketClaw Project State
 
-## Python Lite — Phase C implemented, awaiting physical validation, 2026-08-31
+## Python Lite — Phase C hardened, awaiting the physical stderr recheck, 2026-08-31
+
+Branch `feature/python-lite-agent-tool`, from `develop` at `de7ea53`.
+**Not merged.** Core, Flutter and frontend gates are green and the ARM64 APK is
+rebuilt; the physical stderr recheck is the only thing outstanding.
+
+Phase C's own physical run passed on statistics, JSON, Unicode, an uncaught
+exception and a 2 s timeout. A controlled single-call test then found the model
+unable to report the traceback from `raise ValueError("TEST-ERROR")`. Two fixes
+came out of it.
+
+### The Python result names every field it has
+
+`formatPythonResult` writes `exit_code`, `timed_out`, `cancelled`,
+`stdout_truncated` and `stderr_truncated`, then both streams under their own
+headings — an empty stream printed as `(empty)` rather than omitted. It used to
+leave out a stream with no content, which made "the interpreter printed nothing"
+and "the result dropped it" look the same to the model.
+
+Nothing is reconstructed. The text is the runtime's own bounded, redacted
+capture; a test fails if a traceback ever appears for a run that produced none.
+The end-to-end tests run a real interpreter through `Manager.Execute` rather than
+handing the formatter a hand-written `ExecResult`, because a hand-written one
+cannot fail the way this failed. They cover the traceback reaching the agent, the
+non-zero exit code, the bound on stderr, truncation being reported, and the
+source staying out of the log.
+
+Bounds, redaction and event privacy are unchanged, and the source still travels
+on stdin only.
+
+### Core staleness now covers Go-only changes
+
+`pkg/coresource` hashes the Core's build inputs into one content-addressed
+fingerprint: non-test Go source under `cmd/` and `pkg/`, the embedded catalog,
+the embedded `workspace/`, `go.mod`, `go.sum`, and the Makefile that fixes the
+build tags. `core/build-android-arm64.sh` computes it and stamps it into the
+binary with `-X github.com/sipeed/picoclaw/pkg/coresource.Stamped=...`; the gate
+recomputes it from the working tree and fails if the staged Core does not carry
+it. The runtime's startup diagnostics log it as `core_source`, which is also what
+keeps the linker from dropping the variable.
+
+`TestStagedCoreEmbedsTheCurrentCatalog` stays. The two guards answer different
+questions — does this Core know the current catalog, and was it built from the
+current code — and Phase C is the case only the second one catches:
+`python_tool.go` changed, `manifest.json` did not.
+
+No mtime, timestamp, absolute path or build id takes part. The first draft hashed
+every `*.json` under `pkg/`, which `pkg/cron`'s tests write into during a run, so
+the gate failed against a Core that was current; embedded assets are named one by
+one now, and a test reads the `//go:embed` directives out of the Core source so
+the list cannot fall behind quietly.
+
+The guard was proved in both directions in this session: it failed against the
+Core staged before the rebuild — a Go-only change with the catalog untouched —
+and passed against the rebuilt one.
+
+### Build
+
+| Artifact | Value |
+|---|---|
+| Core `libpicoclaw.so` | `c3af079fcb49403da3d8546f68d5e466b2bf83341fec5f1de56acf76b3d27390` |
+| Launcher `libpicoclaw-web.so` | `c54098b5a5ce55c6e3c0251bd268e1a74516e69d19021441757898a53f3c8c8d` |
+| Core source fingerprint | `9b9d44567c30380fa08e46ba39ef876e4c8f22e36f4b56fb1123f1d85615c8ae` |
+| APK | `build/app/outputs/flutter-apk/app-release.apk`, 64,162,658 bytes |
+| APK SHA-256 | `2e608a757580fe0503d7904cde2a341087884c457db640a31898072fcf48424a` |
+| versionCode | 7 (bumped from 6 so the recheck cannot run against the old install) |
+
+### Physical recheck still to do
+
+1. `print("PYTHON-FINAL-PASS")`
+2. `raise ValueError("TEST-ERROR")` — the Agent must report the real traceback
+   ending in `ValueError: TEST-ERROR` and exit code 1, from one call
+3. an infinite loop with `timeout_ms: 2000`
+4. Unicode: `مرحبا 🐍`
+
+## Python Lite — Phase C implementation record, 2026-08-31
 
 Branch `feature/python-lite-agent-tool`, from `develop` at `de7ea53`.
 **Not merged.** Automated gates are green; physical validation is outstanding.

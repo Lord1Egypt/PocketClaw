@@ -121,12 +121,41 @@ Both targets compile with:
                 -X ...config.GitCommit=2cf030d2 \
                 -X ...config.BuildTime=<timestamp> \
                 -X ...config.GoVersion=go1.25.11 \
+                -X ...coresource.Stamped=<source fingerprint> \
                 -s -w"
 
 `-s -w` is what makes the shipped binaries stripped. `CGO_ENABLED=0` comes from
 the Makefile. The expected release profile is roughly 37.2 MB for
 `libpicoclaw.so` and 24.6 MB for `libpicoclaw-web.so`; both are
 `ELF 64-bit LSB pie executable, ARM aarch64 ... stripped`.
+
+### The Core source fingerprint
+
+`build-android-arm64.sh` computes a content-addressed digest of everything the
+Core is built from — non-test Go source under `cmd/` and `pkg/`, the embedded
+catalog, the embedded `workspace/`, `go.mod`, `go.sum` and this Makefile — and
+stamps it into both binaries. `TestStagedCoreWasBuiltFromTheCurrentSource`
+recomputes it from the working tree and fails if the staged Core does not carry
+the current value:
+
+    Staged Core does not match current core/src source fingerprint.
+    Rebuild:
+      ./core/build-android-arm64.sh
+
+This exists because `TestStagedCoreEmbedsTheCurrentCatalog` cannot see a Core
+that is stale for Go-source reasons. Change `python_tool.go`, leave
+`manifest.json` alone, and a Core built last week still embeds this week's
+catalog and every pinned checksum — so the catalog guard passes while the binary
+Gradle packages does not contain the change at all.
+
+Only relative paths and file bytes take part. No mtime, build timestamp,
+absolute path or build id: a fingerprint that moves on its own says nothing about
+staleness. A plain `make` leaves it empty, which the guard treats exactly like a
+stale Core, because neither can be shown to match the source in the tree.
+
+Print the current value with:
+
+    cd core/src && go run ./cmd/corefingerprint .
 
 ### Build path privacy
 

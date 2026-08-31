@@ -34,14 +34,28 @@ export PATH="$PNPM_BIN_DIR:$PATH"
 
 [ -d "$CORE_SRC" ] || { echo "error: repository-local Core source missing: $CORE_SRC" >&2; exit 1; }
 
+cd "$CORE_SRC"
+
+# Fingerprint of the Core source this build consumes, stamped into the binaries
+# so the test gate can tell a Core built from the current source from one built
+# before it. The catalog guard cannot see a Go-only change: manifest.json is
+# unchanged, so a Core built yesterday still embeds today's catalog.
+#
+# Computed by the same code the gate recomputes with, so the two values cannot
+# drift through two implementations of one hash. GOOS/GOARCH are cleared because
+# this runs on the build host, not on the Android target.
+SOURCE_FINGERPRINT="$(GOOS= GOARCH= go run ./cmd/corefingerprint .)"
+
 echo "PocketClaw Core build"
 echo "  source:  $CORE_SRC"
 echo "  version: $CORE_VERSION ($CORE_GIT_COMMIT)"
+echo "  source fingerprint: $SOURCE_FINGERPRINT"
 echo
 
-cd "$CORE_SRC"
-make build-android-arm64          VERSION="$CORE_VERSION" GIT_COMMIT="$CORE_GIT_COMMIT"
-make build-launcher-android-arm64 VERSION="$CORE_VERSION" GIT_COMMIT="$CORE_GIT_COMMIT"
+make build-android-arm64          VERSION="$CORE_VERSION" GIT_COMMIT="$CORE_GIT_COMMIT" \
+                                  SOURCE_FINGERPRINT="$SOURCE_FINGERPRINT"
+make build-launcher-android-arm64 VERSION="$CORE_VERSION" GIT_COMMIT="$CORE_GIT_COMMIT" \
+                                  SOURCE_FINGERPRINT="$SOURCE_FINGERPRINT"
 
 install -m 0755 "$CORE_SRC/build/picoclaw-android-arm64"          "$JNI_LIBS/libpicoclaw.so"
 install -m 0755 "$CORE_SRC/build/picoclaw-launcher-android-arm64" "$JNI_LIBS/libpicoclaw-web.so"
@@ -67,6 +81,16 @@ if [ "$leaked" -ne 0 ]; then
     echo "error: release binaries contain developer-machine paths; -trimpath regressed" >&2
     exit 1
 fi
+
+# The stamp is what the test gate greps for. A build that produced a binary
+# without it would pass here and fail the gate with a confusing message, so
+# check it where the cause is still obvious.
+if ! grep -qa "$SOURCE_FINGERPRINT" "$JNI_LIBS/libpicoclaw.so"; then
+    echo "error: the staged Core does not carry its source fingerprint" >&2
+    exit 1
+fi
+echo
+echo "  source fingerprint stamped: $SOURCE_FINGERPRINT"
 
 echo
 echo "Core build complete. Package with:"

@@ -152,13 +152,35 @@ func (t *PythonTool) Execute(ctx context.Context, args map[string]any) *ToolResu
 	return UserResult(formatPythonResult(result))
 }
 
-// formatPythonResult reuses the runtime's own result rendering and adds only
-// what a Python caller needs on top: why a run ended badly, in terms the model
-// can act on. A traceback is left intact in stderr rather than being collapsed
-// into a generic failure.
+// formatPythonResult renders the complete outcome of one run.
+//
+// Every field the runtime measured is named and always present, an empty stream
+// included. A model that cannot tell "the interpreter printed nothing" from
+// "the result dropped it" has to guess, and guessing about a traceback is the
+// one thing this tool must never require. The streams are the runtime's own
+// bounded, redacted capture: nothing here reconstructs, summarises or replaces
+// what the process actually wrote.
 func formatPythonResult(result *pcruntime.ExecResult) string {
 	var report strings.Builder
-	report.WriteString(formatExecResult(result))
+	fmt.Fprintf(&report, "%s exited %d after %dms (%s)\n",
+		result.Tool, result.ExitCode, result.DurationMS, result.Status)
+	fmt.Fprintf(&report,
+		"exit_code=%d timed_out=%t cancelled=%t stdout_truncated=%t stderr_truncated=%t\n",
+		result.ExitCode, result.TimedOut, result.Cancelled,
+		result.StdoutTruncated, result.StderrTruncated)
+
+	writeStream(&report, "stdout", result.Stdout, result.StdoutTruncated,
+		"[stdout truncated at the tool's output limit; "+
+			"narrow the output rather than assuming this is all of it]")
+	// stderr is printed on every path, including a zero exit: a traceback, a
+	// warning and a silent success are three different answers.
+	writeStream(&report, "stderr", result.Stderr, result.StderrTruncated,
+		"[stderr truncated at the tool's output limit; the traceback above may be "+
+			"cut off, and its last line may not be the exception line]")
+
+	if result.Diagnostics != "" {
+		fmt.Fprintf(&report, "\n%s\n", result.Diagnostics)
+	}
 
 	switch {
 	case result.TimedOut:
@@ -175,6 +197,24 @@ func formatPythonResult(result *pcruntime.ExecResult) string {
 			"Line numbers refer to the code you supplied.\n")
 	}
 	return report.String()
+}
+
+// writeStream renders one captured stream under its own name. An empty stream
+// is stated rather than omitted, so silence is distinguishable from a field
+// that never made it into the report.
+func writeStream(report *strings.Builder, label, text string, truncated bool, note string) {
+	fmt.Fprintf(report, "\n%s:\n", label)
+	if text == "" {
+		report.WriteString("(empty)\n")
+		return
+	}
+	report.WriteString(text)
+	if !strings.HasSuffix(text, "\n") {
+		report.WriteString("\n")
+	}
+	if truncated {
+		report.WriteString(note + "\n")
+	}
 }
 
 func pythonUnavailableMessage(diagnostics string) string {

@@ -1,5 +1,42 @@
 # PocketClaw Decisions
 
+## The Core carries a fingerprint of the source it was built from
+
+- Date: 2026-08-31
+- Decision: `core/build-android-arm64.sh` stamps a content-addressed fingerprint
+  of the Core's build inputs into `libpicoclaw.so` with `-X`, and the test gate
+  recomputes it from `core/src` and fails if the staged binary does not carry it.
+  `TestStagedCoreEmbedsTheCurrentCatalog` is kept alongside it.
+- Consequence: the catalog guard answers "does this Core know the current
+  catalog?", which is silent about a Go-only change: edit `python_tool.go`, leave
+  `manifest.json` alone, and a Core built last week still embeds this week's
+  catalog and every pinned checksum. That is exactly what Phase C did, and the
+  only thing standing between it and a shipped stale Core was someone
+  remembering to run the build script. The two guards answer different questions
+  and both are permanent.
+- Consequence: the fingerprint takes only relative paths and file bytes — never
+  an mtime, a build timestamp, an absolute path, a developer name or a build id.
+  A value that moves on its own cannot say anything about staleness, and a guard
+  that fires at random stops being read. The first draft hashed every `*.json`
+  under `pkg/`, which `pkg/cron`'s own tests write into while the gate runs, and
+  it failed against a Core that was current. Embedded assets are named
+  individually now, and a test reads the `//go:embed` directives out of the Core
+  source so the list cannot fall behind quietly.
+
+## The Python result states every field, including the empty ones
+
+- Date: 2026-08-31
+- Decision: `formatPythonResult` always writes `exit_code`, `timed_out`,
+  `cancelled`, `stdout_truncated` and `stderr_truncated`, then both streams under
+  their own headings — an empty stream as `(empty)` rather than being left out.
+- Consequence: a model that cannot tell "the interpreter printed nothing" from
+  "the result dropped it" has to guess, and guessing about a traceback is the one
+  thing this tool must never require. Phase C's physical run found exactly that:
+  the execution was correct and the model still could not say why
+  `raise ValueError("TEST-ERROR")` failed. Nothing in the report is synthesised —
+  the text is the runtime's own bounded, redacted capture, and a test fails if a
+  traceback appears for a run that produced none.
+
 ## Python source travels on stdin, and the traceback name is not worth a wrapper
 
 - Date: 2026-08-31
