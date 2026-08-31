@@ -1008,8 +1008,10 @@ increase. **A 100+ MB addition needs explicit approval.**
   patched.
 - [x] Repin the payload checksum, move the catalog to `2.2.0`, and add an
   entry-point guard to the Gradle release and the Go tests.
-- [ ] Python Lite Phase C physical PASS on all four tests, then merge to
-  `develop`.
+- [x] Python Lite Phase C **physical PASS** on all four tests, one call each, no
+  retries: `stdout_bytes=18`/`PYTHON-FINAL-PASS`, `stderr_bytes=96` with a real
+  traceback ending `ValueError: TEST-ERROR` at `exit_code=1`, `stdout_bytes=16`
+  for `مرحبا 🐍`, and `timed_out=true` at 2 s. Merged to `develop`.
 - [ ] Git `SHELL_PATH`: the recorded "Android has no /bin/sh" limitation is
   wrong on Android 11+, which ships `/bin` -> `/system/bin`. Re-evaluate whether
   git hooks and the ENOEXEC fallback can be supported on API 30+ devices.

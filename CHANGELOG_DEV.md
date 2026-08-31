@@ -2,8 +2,11 @@
 
 ## 2026-08-31 — Python Lite Phase C: Android stdio root cause and the bootstrap
 
-Branch `feature/python-lite-agent-tool`. **Not merged**, physical acceptance
-outstanding.
+Branch `feature/python-lite-agent-tool`. **Physically validated and merged to
+`develop`.** All four acceptance tests passed with one tool call each and no
+retries: `stdout_bytes=18` for the printed line, `stderr_bytes=96` for a real
+traceback ending `ValueError: TEST-ERROR`, `stdout_bytes=16` for `مرحبا 🐍`, and
+`timed_out=true` at 2 s. The same calls previously reported zero bytes.
 
 ### Root cause
 

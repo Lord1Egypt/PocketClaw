@@ -1,10 +1,10 @@
 # PocketClaw Session Handoff
 
-## Python Lite — Phase C stdio fixed, awaiting physical acceptance, 2026-08-31
+## Python Lite — Phase C PHYSICAL PASS and merged, 2026-08-31
 
 Branch `feature/python-lite-agent-tool`, from `develop` at `de7ea53`.
-**Not merged.** All automated gates are green; the four physical tests are the
-remaining gate.
+**Physically validated inside the installed application, then merged to
+`develop`.** Not released, `main` untouched, no tags moved.
 
 ### Root cause, confirmed on device
 
@@ -46,13 +46,21 @@ source-freshness guards.
 | APK SHA-256 | `b92b958677794dbd7bca95d4ec040c6a41ed5707978e2f4bd5791aa787816884` |
 | versionCode | 9 |
 
-### Physical acceptance, one call each
+### Physical acceptance — PASS, 2026-08-31
 
-1. `print("PYTHON-FINAL-PASS")` → `stdout_bytes` > 0, the text, `exit_code=0`
-2. `raise ValueError("TEST-ERROR")` → `stderr_bytes` > 0, the real traceback,
-   `ValueError: TEST-ERROR`, `exit_code=1`
-3. `print("مرحبا 🐍")` → exactly that text
-4. infinite loop, `timeout_ms=2000` → `timed_out=true`
+Four tests, one `python` tool call each, no retries.
+
+| Test | Device result | Verdict |
+|---|---|---|
+| `print("PYTHON-FINAL-PASS")` | `exit_code=0`, `stdout_bytes=18`, `PYTHON-FINAL-PASS` | **PASS** |
+| `raise ValueError("TEST-ERROR")` | `exit_code=1`, `stderr_bytes=96`, real traceback ending `ValueError: TEST-ERROR` | **PASS** |
+| `print("مرحبا 🐍")` | `exit_code=0`, `stdout_bytes=16`, `مرحبا 🐍` | **PASS** |
+| infinite loop, `timeout_ms=2000` | `exit_code=-1`, `timed_out=true` | **PASS** |
+
+The byte counters are the confirmation that this is the entry point working
+rather than a coincidence: the same calls previously reported `stdout_bytes=0`
+and `stderr_bytes=0` with the identical exit codes.
+
 
 ## Python Lite — Phase C physical FAIL, root cause not yet proven, 2026-08-31
 
