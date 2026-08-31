@@ -1,6 +1,6 @@
 {
   "runtime_version": 1,
-  "catalog_version": "2.0.1",
+  "catalog_version": "2.1.0",
   "tools": [
     {
       "tool_id": "cat",
@@ -906,6 +906,42 @@
       "timeout_profile": "standard",
       "max_output_bytes": 1048576,
       "security_class": "system"
+    },
+    {
+      "tool_id": "python",
+      "display_name": "Python",
+      "command_name": "python",
+      "version": "3.14.7",
+      "abi": "arm64-v8a",
+      "delivery_type": "bundled",
+      "trusted_source": "https://www.python.org/ftp/python/3.14.7/Python-3.14.7.tgz",
+      "sha256": "a302c990006dfa1adbe9e4223017a4637ce713e7ff20441922ac1df4460dad1b",
+      "capabilities": [
+        "script.execute",
+        "text.transform",
+        "text.regex",
+        "json.transform",
+        "json.query",
+        "archive.transform",
+        "encoding.transform",
+        "integrity.checksum",
+        "database.sqlite",
+        "database.query",
+        "filesystem.read",
+        "filesystem.write"
+      ],
+      "timeout_profile": "standard",
+      "max_output_bytes": 4194304,
+      "security_class": "bundled_verified",
+      "library_name": "libpocketclaw-python.so",
+      "default_args": [
+        "-P",
+        "-s",
+        "-S",
+        "-B",
+        "-u"
+      ],
+      "environment_profile": "python"
     }
   ]
 }

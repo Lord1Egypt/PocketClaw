@@ -186,6 +186,57 @@ zlib is not bundled; curl and git link the Android system's `libz.so`.
   obligation and no attribution requirement. It is recorded here for
   completeness.
 
+### Python (CPython)
+
+- Shipped as `libpocketclaw-python.so`, built by
+  [`runtime/build-python-android-arm64.sh`](runtime/build-python-android-arm64.sh).
+- Upstream release: CPython 3.14.7,
+  <https://www.python.org/ftp/python/3.14.7/Python-3.14.7.tgz>, archive SHA-256
+  `62859805f6fdf25e2bcbf3fa3217801e1996887ca33e6a2af80674bdfa2dbe07`
+- Licensed under the **Python Software Foundation License Version 2**, a
+  permissive licence that requires the copyright notice and a summary of changes
+  to be retained. PocketClaw applies no source modification to CPython: the
+  payload differs from an upstream build only in configuration (static extension
+  modules, a reduced module set, LTO, and `-ffile-prefix-map`).
+- The full licence text ships inside the payload's own standard library as
+  `LICENSE.txt` and is reproduced upstream at <https://docs.python.org/3/license.html>.
+
+The payload statically links the following, all of which are distributed as part
+of the CPython source archive above and are covered by its checksum:
+
+- **libmpdec** (the `_decimal` module) — BSD 2-clause,
+  Copyright (c) 2008-2020 Stefan Krah.
+- **HACL\*** (the `hashlib` and `hmac` implementations) — Apache License 2.0,
+  Copyright (c) INRIA and Microsoft Corporation. These are what let PocketClaw
+  ship SHA-2, SHA-3, BLAKE2 and HMAC with no OpenSSL dependency.
+- **Expat** (the `pyexpat` and `xml.etree` parsers) — MIT licence,
+  Copyright (c) 1998-2000 Thai Open Source Software Center Ltd and Clark Cooper.
+
+It also statically links three dependencies built from their own pinned sources:
+
+- **SQLite 3.50.4** (the `sqlite3` module) — public domain. This is a second,
+  separately linked copy of the same amalgamation and checksum recorded under
+  SQLite above. The `sqlite3` command-line payload keeps its own copy; neither
+  depends on the other.
+- **bzip2 1.0.8** (the `bz2` module) — BSD-style licence,
+  Copyright (c) 1996-2019 Julian R Seward.
+  <https://sourceware.org/pub/bzip2/bzip2-1.0.8.tar.gz>, archive SHA-256
+  `ab5a03176ee106d3f0fa90e381da478ddae405918153cca248e682cd0c4a2269`
+- **XZ Utils 5.4.7 / liblzma** (the `lzma` module) — released into the public
+  domain (0BSD for the later releases; the 5.4 series is public domain).
+  <https://github.com/tukaani-project/xz/releases/download/v5.4.7/xz-5.4.7.tar.gz>,
+  archive SHA-256
+  `8db6664c48ca07908b92baedcfe7f3ba23f49ef2476864518ab5db6723836e71`
+  The 5.4 branch never carried the CVE-2024-3094 backdoor, which was introduced
+  in 5.6.0 and removed after 5.6.1.
+
+`zlib` is not bundled: the payload links Android's platform `libz`.
+
+**OpenSSL and libffi are deliberately not present.** CPython would normally link
+them for the `ssl`, `_hashlib` and `ctypes` modules; PocketClaw's reduced profile
+excludes all three, so neither library is distributed and neither licence
+applies.
+
 ## PocketClaw-authored identity assets
 
 `assets/branding/pocketclaw-mark.png` is an original PocketClaw identity asset

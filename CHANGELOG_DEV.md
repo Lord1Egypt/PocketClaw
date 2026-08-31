@@ -1,5 +1,35 @@
 # Development Changelog
 
+## 2026-08-31 — Python Lite Phase B: Runtime integration
+
+Branch `feature/python-lite-runtime`. Phase A was a physical PASS; this phase
+makes Python a bundled Runtime tool reachable through the existing generic
+execution path. **No Agent-facing Python tool exists yet** — that is Phase C.
+
+| Check | Result |
+|---|---|
+| CPython 3.14.7, NDK 28.2.13676358, API 24, arm64-v8a | **PASS** |
+| bzip2 1.0.8 and XZ 5.4.7 built from pinned source | **PASS** |
+| SQLite 3.50.4 from PocketClaw's own pinned amalgamation | **PASS** |
+| Dependency provenance (no prebuilt third-party binaries) | **PASS** |
+| Build-path leakage | **NONE** |
+| Catalog: 56 tools, 7 bundled, version 2.1.0 | **PASS** |
+| `PYTHON*` override protection | **PASS** |
+| Python profile injects no credential | **PASS** |
+| stdlib ordered before workspace on `PYTHONPATH` | **PASS** |
+| Device re-validation of the source-built payload | **52 passed, 0 failed** |
+
+The payload is a single self-contained PIE ELF: CPython with every extension
+module linked in statically and the standard library appended as a `.pyc` zip.
+`lib-dynload` is empty. Dependencies are Android platform libraries only —
+`libc`, `libm`, `libdl`, `liblog`, `libz`.
+
+Two things worth carrying forward. Upstream CPython's Android tooling downloads
+prebuilt dependency binaries with no checksum verification, so none of them are
+used. And Android 11+ does ship `/bin/sh`, which makes the earlier "no shell on
+Android" claim wrong on modern devices; shell availability is now documented as
+version-dependent rather than absent.
+
 ## 2026-08-30 — Provider Resilience & Automatic Failover (PHYSICAL PASS)
 
 Branch `feature/provider-resilience-failover`, commits `68443c1`, `7b67493`,

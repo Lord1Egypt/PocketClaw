@@ -136,6 +136,12 @@ rather than ship it.
 | xz | 5.4.6-1 | beeware prebuilt | pinned here, **PROVENANCE GAP** | `_lzma` |
 | zlib | platform | Android NDK | n/a | `zlib` |
 
+> **Superseded by Phase B (2026-08-31).** bzip2 1.0.8 and XZ 5.4.7 are now built
+> from pinned source by `runtime/build-python-android-arm64.sh`, and no upstream
+> prebuilt binary is used. Dependency provenance is PASS. The gap described
+> below is retained because it documents what upstream's tooling does, which is
+> still true and still the reason PocketClaw does not use it.
+
 **PROVENANCE: GAP.** Upstream `Android/android.py` downloads six prebuilt
 dependency tarballs from `github.com/beeware/cpython-android-source-deps` with
 `curl -Lf` and **no checksum verification of any kind**. The Phase A build

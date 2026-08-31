@@ -1,5 +1,26 @@
 # PocketClaw Session Handoff
 
+## Python Lite — Phase B COMPLETE (Runtime integration), 2026-08-31
+
+Branch `feature/python-lite-runtime`. **Not merged.** Python is a bundled
+Managed Runtime tool reachable through the generic execution path. There is no
+Agent-facing Python tool; that is Phase C and is deliberately not started.
+
+| | |
+|---|---|
+| CPython | 3.14.7, NDK 28.2.13676358, API 24, arm64-v8a |
+| Payload | `libpocketclaw-python.so`, 11,509,517 bytes |
+| SHA-256 | `a302c990006dfa1adbe9e4223017a4637ce713e7ff20441922ac1df4460dad1b` |
+| Catalog | 2.1.0 — 56 tools, 7 bundled |
+| Provenance | **PASS** — bzip2 1.0.8, XZ 5.4.7 and SQLite 3.50.4 all built from pinned source |
+| Device re-validation | 52 passed, 0 failed on SM-A165F / Android 16 |
+
+Python is **not sandboxed**. The boundary is the Android app UID. `subprocess`
+bypasses Runtime observability, and that guidance is advisory, not enforcement.
+No pip, no ctypes, no direct sockets, no writable executable storage. Shell
+availability is version-dependent: Android 11+ ships `/bin/sh`, API 24-29 does
+not.
+
 ## Python Lite — Phase A COMPLETE (build + measurement), 2026-08-31
 
 Branch `feature/python-lite-runtime`. Architecture review approved for Phase A

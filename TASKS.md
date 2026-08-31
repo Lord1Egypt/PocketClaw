@@ -963,6 +963,11 @@ increase. **A 100+ MB addition needs explicit approval.**
   `/bin/sh` (`/bin` -> `/system/bin`), so `subprocess(shell=True)` and
   `os.system()` work on API 30+. minSdk is 24, so document it as conditional.
   The same assumption underlies the recorded git `SHELL_PATH` limitation.
-- [ ] Python Lite provenance: build bzip2 and xz from pinned source instead of
-  using upstream's unverified beeware prebuilt binaries.
-- [ ] Python Lite Phase B — only after the device run and explicit approval.
+- [x] Python Lite provenance closed (2026-08-31): bzip2 1.0.8 and XZ 5.4.7 are
+  built from pinned source; no upstream prebuilt binary is used.
+- [x] Python Lite **Phase B** Runtime integration (2026-08-31). Catalog 2.1.0,
+  56 tools, 7 bundled. Not merged; awaiting physical validation of the APK.
+- [ ] Python Lite Phase C — the Agent-facing `python` tool. Not started.
+- [ ] Git `SHELL_PATH`: the recorded "Android has no /bin/sh" limitation is
+  wrong on Android 11+, which ships `/bin` -> `/system/bin`. Re-evaluate whether
+  git hooks and the ENOEXEC fallback can be supported on API 30+ devices.

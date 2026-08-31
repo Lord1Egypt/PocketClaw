@@ -49,6 +49,40 @@ to install a payload that carries one, and prints the payload's checksum.
    Gradle strips the executable during packaging, which changes its bytes and
    breaks the pinned checksum on every device.
 
+## Python
+
+`build-python-android-arm64.sh` is different from the other payload builds and
+worth reading before changing.
+
+The payload is one file that is both the interpreter and its standard library:
+CPython with every extension module linked in statically
+(`MODULE_BUILDTYPE=static`, so `lib-dynload` is empty) and the pure-Python
+stdlib appended to the ELF as a `.pyc` zip that `zipimport` reads out of the
+same file. `install_payload` is therefore called with `no-strip`, because
+`llvm-strip` rewrites the file and would discard everything after the last
+section. The script strips the interpreter itself before appending.
+
+Every dependency is built here from pinned source — bzip2, XZ and SQLite.
+Upstream CPython's `Android/android.py` downloads prebuilt dependency tarballs
+with no checksum verification, and none of them are used. OpenSSL and libffi are
+not built, because the reduced profile has no `ssl`, `_hashlib` or `ctypes`.
+
+The build fails rather than warns on: a build path that names the machine, a
+non-AArch64 ELF, LOAD segments not aligned to 16 KB, any shared-library
+dependency outside the Android platform set, and a stdlib zip that does not
+parse after packaging.
+
+`python-lite-stdlib.py` selects the stdlib and fails the build if any module it
+keeps has a module-level import the interpreter cannot satisfy. Run it with the
+CPython 3.14 build interpreter so the `.pyc` magic matches the target.
+
+`python-lite-device-tests.sh` runs the payload on a physical device from
+`nativeLibraryDir`. Note that `adb shell` flattens its arguments into a single
+string, so the harness base64-encodes every remote command; and that Android
+installs APKs under a directory whose name ends in `==`, which toybox `env`
+misparses as a variable assignment, so the interpreter is invoked through the
+shell's own assignment prefix instead.
+
 ## Helper payloads
 
 git needs a second executable, `git-remote-https`, which Android cannot package
