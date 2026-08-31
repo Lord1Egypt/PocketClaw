@@ -253,4 +253,62 @@ func TestPythonPayloadIsPackagedForTheInstaller(t *testing.T) {
 	if !found {
 		t.Error("the appended standard library does not contain json/__init__.pyc")
 	}
+
+	// PocketClaw's entry point ships inside the same zip, so the checksum the
+	// registry verifies covers it. Android's CPython replaces sys.stdout and
+	// sys.stderr with a stream that writes to the system log; without this
+	// module a managed run produces no output the caller can see, exits 0, and
+	// looks like a program that printed nothing.
+	entryPoint := false
+	for _, file := range reader.File {
+		if file.Name == "pocketclaw_bootstrap.py" {
+			entryPoint = true
+			break
+		}
+	}
+	if !entryPoint {
+		t.Error("the payload does not contain pocketclaw_bootstrap.py; " +
+			"reinstall it with runtime/install-python-bootstrap.py")
+	}
+}
+
+// TestPythonShapedRequestDeliversSourceOnStdin proves end to end what the
+// agent-facing Python tool relies on: catalog default_args lead, the caller's
+// "-" marker follows, script arguments land after it, and the program itself
+// arrives on standard input rather than anywhere a process listing could show.
+func TestPythonShapedRequestDeliversSourceOnStdin(t *testing.T) {
+	manifest := newTestManifest(t, Tool{
+		ToolID: "pyfake", DisplayName: "pyfake", CommandName: "pyfake",
+		Version: "3.14.7", ABI: "arm64-v8a",
+		Delivery: DeliverySystem, TrustedSource: "test",
+		Capabilities:   []string{"script.execute"},
+		DefaultArgs:    []string{"-P", "-s", "-S", "-B", "-u"},
+		TimeoutProfile: TimeoutQuick, MaxOutputBytes: 1 << 16,
+		SecurityClass: SecurityClassSystem,
+	})
+	manager, binDir := newTestManager(t, manifest)
+	writeScript(t, binDir, "pyfake", "echo \"argv:$*\"\necho \"stdin:$(cat)\"\n")
+
+	const source = "print('PYTHON-AGENT-PASS')"
+	result, err := manager.Execute(context.Background(), ExecRequest{
+		Tool:  "pyfake",
+		Args:  []string{"-", "alpha", "beta"},
+		Stdin: source,
+	})
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+
+	if !strings.Contains(result.Stdout, "stdin:"+source) {
+		t.Errorf("the program did not arrive on stdin:\n%s", result.Stdout)
+	}
+	if !strings.Contains(result.Stdout, "argv:-P -s -S -B -u - alpha beta") {
+		t.Errorf("argv is not default_args, then the stdin marker, then script args:\n%s",
+			result.Stdout)
+	}
+	for _, line := range strings.Split(result.Stdout, "\n") {
+		if strings.HasPrefix(line, "argv:") && strings.Contains(line, "print(") {
+			t.Errorf("source reached the argument vector: %q", line)
+		}
+	}
 }

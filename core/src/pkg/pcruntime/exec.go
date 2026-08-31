@@ -87,6 +87,13 @@ type ExecResult struct {
 	ExitCode        int
 	Stdout          string
 	Stderr          string
+	// StdoutBytes and StderrBytes are what the capture layer actually received
+	// from the process, before bounding. They are reported alongside the text so
+	// a caller can tell "the process wrote nothing" from "the text was lost on
+	// the way here" — two failures that look identical in an empty string, and
+	// that need completely different fixes.
+	StdoutBytes     int64
+	StderrBytes     int64
 	DurationMS      int64
 	TimedOut        bool
 	Cancelled       bool
@@ -318,6 +325,8 @@ func (m *Manager) run(
 	result.ExitCode = exitCodeOf(cmd, waitErr)
 	result.Stdout = stdout.String()
 	result.Stderr = stderr.String()
+	result.StdoutBytes = stdout.TotalBytes()
+	result.StderrBytes = stderr.TotalBytes()
 	result.StdoutTruncated = stdout.Truncated()
 	result.StderrTruncated = stderr.Truncated()
 
@@ -325,9 +334,12 @@ func (m *Manager) run(
 	// diagnosis, and a tool's stdout is exactly where a fetched credential would
 	// appear — `gh auth token` prints one.
 	outcomeFields := mergeFields(baseFields, map[string]any{
-		"duration_ms":      result.DurationMS,
-		"exit_code":        result.ExitCode,
-		"bytes_out":        stdout.TotalBytes(),
+		"duration_ms": result.DurationMS,
+		"exit_code":   result.ExitCode,
+		"bytes_out":   stdout.TotalBytes(),
+		// stderr volume was only ever a DEBUG event, so an INFO-level log from a
+		// device could not answer "did the runtime capture the traceback?".
+		"stderr_bytes":     stderr.TotalBytes(),
 		"stdout_truncated": result.StdoutTruncated,
 		"stderr_truncated": result.StderrTruncated,
 	})

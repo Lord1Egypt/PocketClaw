@@ -221,6 +221,10 @@ func formatExecResult(result *pcruntime.ExecResult) string {
 		if !strings.HasSuffix(result.Stdout, "\n") {
 			report.WriteString("\n")
 		}
+		if result.StdoutTruncated {
+			report.WriteString("[stdout truncated at the tool's output limit; " +
+				"narrow the output rather than assuming this is all of it]\n")
+		}
 	}
 	// stderr is reported even on success: a tool that warns and exits zero is
 	// telling the agent something it needs.
@@ -229,6 +233,9 @@ func formatExecResult(result *pcruntime.ExecResult) string {
 		report.WriteString(result.Stderr)
 		if !strings.HasSuffix(result.Stderr, "\n") {
 			report.WriteString("\n")
+		}
+		if result.StderrTruncated {
+			report.WriteString("[stderr truncated at the tool's output limit]\n")
 		}
 	}
 	if result.Stdout == "" && result.Stderr == "" {

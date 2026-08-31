@@ -1,5 +1,195 @@
 # Development Changelog
 
+## 2026-08-31 — Python Lite Phase C: Android stdio root cause and the bootstrap
+
+Branch `feature/python-lite-agent-tool`. **Physically validated and merged to
+`develop`.** All four acceptance tests passed with one tool call each and no
+retries: `stdout_bytes=18` for the printed line, `stderr_bytes=96` for a real
+traceback ending `ValueError: TEST-ERROR`, `stdout_bytes=16` for `مرحبا 🐍`, and
+`timed_out=true` at 2 s. The same calls previously reported zero bytes.
+
+### Root cause
+
+Android's CPython does not connect `sys.stdout` and `sys.stderr` to file
+descriptors 1 and 2. It replaces both with `TextLogStream`, which writes to the
+Android system log, because an app has no console. The managed runtime captures
+the descriptors, so every managed run wrote its output somewhere the caller
+could not read.
+
+That explains each symptom exactly. `print()` succeeded and exited 0 with
+nothing captured. An uncaught exception still exited 1 while its traceback went
+to logcat. `os.write(1, ...)` worked, because it bypasses `sys.stdout`
+altogether. Device evidence: `stdout = TextLogStream, fd=1, closed=false`, and
+rebinding the streams by hand produced `stdout_bytes=33`, `stderr_bytes=97` and
+the real `ValueError: TEST-ERROR`.
+
+CPython, the runtime's pipes, the capture layer and the formatter were all
+working. Nothing in PocketClaw was broken; the interpreter was pointed
+elsewhere.
+
+### The fix
+
+`pocketclaw_bootstrap` is a small module shipped **inside** the payload's
+appended standard library, so the checksum the registry verifies before
+executing anything covers it. The Python tool now invokes
+`python <catalog default_args> -m pocketclaw_bootstrap <caller args>`. The
+bootstrap rebinds `sys.stdout` and `sys.stderr` to unbuffered UTF-8 streams over
+`os.dup(1)` and `os.dup(2)` — duplicated so interpreter shutdown cannot close
+the descriptors the runtime is reading — then reads the program from standard
+input exactly as `python -` does and executes it.
+
+The caller's source still travels on stdin and nowhere else. It is not moved to
+`-c`, not put in argv, not written to the environment, and not logged. The
+bootstrap compiles it under `<stdin>`, runs it as `__main__`, sets
+`sys.argv` to `["-", ...caller args]`, and prints the caller's traceback with
+its own frames removed, so line numbers still refer to the submitted code.
+
+CPython is not patched. Upstream's Android logging behaviour is untouched, since
+other embeddings may rely on it.
+
+### Guards
+
+The payload is checksum-pinned, so adding the module repinned it: catalog
+`2.1.0` → `2.2.0`, python sha256 repinned, Core rebuilt. Three guards now cover
+the payload — the appended-stdlib guard, a new entry-point guard in the Gradle
+release and in the Go tests, and the existing catalog and source-freshness
+guards.
+
+The Python result also names the failure it cannot otherwise distinguish: a
+non-zero exit with zero bytes on both streams is reported as an install fault
+rather than a program failure, because that is the shape this bug had, and a
+payload shipped without the entry point would reproduce it silently.
+
+## 2026-08-31 — Python Lite Phase C: physical stdout/stderr failure, boundary instrumented
+
+Branch `feature/python-lite-agent-tool`. **Not merged. Not fixed.** The physical
+recheck failed and the root cause is not yet proven; this commit makes the next
+physical run prove it, and closes the test seam that let the failure through.
+
+The device reported `print("PYTHON-FINAL-PASS")` as exit 0 with empty stdout, and
+`raise ValueError("TEST-ERROR")` as exit 1 with empty stderr. The timeout still
+behaved correctly.
+
+### What the empty string proves
+
+`ExecResult.Stdout == ""` has exactly one possible cause. A bounded buffer that
+saw bytes and kept none returns a truncation marker, not an empty string, so an
+empty stream can never mean "output arrived and was dropped in the runtime". It
+means the capture layer received nothing. `TestEmptyCapturedOutputMeansNothing
+WasWritten` pins that down.
+
+That eliminates the formatter and the result serialisation as causes: the
+`(empty)` text the device printed can only be reached from an empty capture. It
+also eliminates the hardening commit, which changed no capture, environment or
+catalog code at all — `git diff c4c0bf2..b42f813` touches only the formatter, one
+log field and the new fingerprint package.
+
+### The seam the tests missed
+
+The Phase C end-to-end test stopped at `PythonTool.Execute` and read `ForLLM` off
+the result. Production goes through `ToolRegistry.ExecuteWithContext`, which
+normalises the result before the agent sees it. A gap between the tool and the
+model was invisible from inside the tool.
+
+There is now a production-path test: the test binary re-executes itself as the
+interpreter, staged as a checksum-verified bundled payload with the catalog's
+real `default_args`, so a real child writes to real pipes and the assertion is on
+`ContentForLLM()` — the exact string the pipeline puts into the conversation.
+stdout, stderr, the exit code, UTF-8 byte-for-byte, and the source staying out of
+the ordinary tool log are all covered there.
+
+### The instrument
+
+`ExecResult` now carries `StdoutBytes` and `StderrBytes` — what the capture layer
+actually received, before bounding. The Python tool prints them, and the runtime
+logs `stderr_bytes` next to the existing `bytes_out` at INFO rather than only at
+DEBUG. One physical call now says which side of the pipe lost the bytes:
+`stdout_bytes=18` beside `stdout: (empty)` would mean the loss is downstream of
+the capture; `stdout_bytes=0` means the interpreter wrote nothing the runtime
+could see.
+
+## 2026-08-31 — Python Lite Phase C: raw stderr and a Core source fingerprint
+
+Branch `feature/python-lite-agent-tool`. Automated gates green; **not merged**,
+the physical stderr recheck is outstanding.
+
+Phase C passed physically on its core behaviour — statistics, JSON, Unicode, an
+uncaught exception and a 2 s timeout — but a controlled single-call test found
+the model unable to report the traceback from `raise ValueError("TEST-ERROR")`.
+Two things came out of chasing that.
+
+**The Python result now names every field it has.** `formatPythonResult` writes
+`exit_code`, `timed_out`, `cancelled`, `stdout_truncated` and
+`stderr_truncated`, then both streams under their own headings — including an
+empty one, printed as `(empty)`. It previously omitted a stream that had no
+content, which left "the interpreter printed nothing" and "the result dropped
+it" looking identical to the model. Nothing is reconstructed: the text is the
+runtime's own bounded, redacted capture, and a test fails if a traceback ever
+appears for a run that produced none.
+
+The end-to-end proof runs a real interpreter through `Manager.Execute` rather
+than handing the formatter a hand-written `ExecResult` — a hand-written one
+cannot fail the way this failed. The tests cover the traceback reaching the
+agent, the non-zero exit code, the bound on stderr, truncation being reported,
+and the source staying out of the log.
+
+**Core staleness now covers Go-only changes.** `pkg/coresource` hashes the Core's
+build inputs — non-test Go source under `cmd/` and `pkg/`, the embedded catalog,
+the embedded `workspace/`, `go.mod`, `go.sum` and the Makefile — into one
+content-addressed fingerprint. `core/build-android-arm64.sh` computes it and
+stamps it into the binary with `-X`; the test gate recomputes it from the working
+tree and fails if the staged Core does not carry it.
+
+`TestStagedCoreEmbedsTheCurrentCatalog` stays: the two guards answer different
+questions. Does this Core know the current catalog, and was this Core built from
+the current code? Phase C itself is the case only the second one catches —
+`python_tool.go` changed, `manifest.json` did not, and the catalog guard had
+nothing to notice.
+
+The fingerprint is content-addressed on purpose. No mtime, no build timestamp,
+no absolute path, no build id: a value that changes on its own cannot say
+anything about staleness, and a guard that cries wolf stops being read. The first
+draft hashed every `*.json` under `pkg/`, which `pkg/cron`'s tests write into
+during a run, so the gate failed against a Core that was in fact current.
+Embedded assets are named one by one now, and a test reads the `//go:embed`
+directives out of the Core source to fail if the list falls behind.
+
+## 2026-08-31 — Python Lite Phase C: the Agent-facing Python tool
+
+Branch `feature/python-lite-agent-tool`. Automated gates green; **not merged**,
+physical validation outstanding.
+
+The model gets a `python` tool taking `code`, optional `args` and optional
+`timeout_ms`. It adds no execution machinery: the tool builds an ordinary
+`ExecRequest` and `Manager.Execute` provides resolution, checksum verification,
+the environment profile, catalog `default_args`, the timeout ceiling,
+cancellation, process-group termination, output bounds, events and redaction. It
+shares the Managed Runtime's manager rather than building a second one.
+
+Source travels on stdin as `python -`, never in argv, and a regression test fails
+if that ever changes to `-c`. argv is capped near 128 KB, readable from
+`/proc/<pid>/cmdline` and recorded in argument diagnostics; stdin is accounted
+only as `bytes_in`.
+
+Tracebacks keep `<stdin>`. `<pocketclaw>` would need a wrapper that reads stdin
+and recompiles the source — an interpreter trick around the exact path carrying
+user code, bought for cosmetics. Not worth it in v1.
+
+The description steers the model rather than inviting it to reach for Python by
+default: jq for simple JSON, rg for search, sqlite3 for a single query, curl for
+HTTP; Python for arithmetic, statistics, multi-step logic, custom parsing and
+work that would otherwise cost several round-trips. It states that Python is not
+a sandbox and that the boundary is the application UID. Tests fail if the
+steering is removed or the wording starts claiming containment it does not have.
+
+One shared improvement came out of this: truncated output was recorded in the
+event log but never shown to the model, so a bounded result looked complete.
+`formatExecResult` now says when stdout or stderr was cut, which the runtime tool
+benefits from too.
+
+`python` is enabled by default and switchable independently of `runtime`,
+because it runs arbitrary code as the application.
+
 ## 2026-08-31 — Python Lite Phase B: Runtime integration (PHYSICAL PASS)
 
 Branch `feature/python-lite-runtime`, commits `bfe47e6`, `c376837`, `c60b15f`,

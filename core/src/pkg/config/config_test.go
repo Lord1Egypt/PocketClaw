@@ -3238,3 +3238,24 @@ func testChannelsConfigWithTokens() ChannelsConfig {
 	}
 	return channels
 }
+
+// The Python tool ships enabled, and is switchable independently of the rest of
+// the Managed Runtime because it runs arbitrary code as the application.
+func TestPythonToolIsEnabledByDefaultAndSeparatelySwitchable(t *testing.T) {
+	cfg := DefaultConfig()
+
+	if !cfg.Tools.IsToolEnabled("python") {
+		t.Error("the python tool is not enabled by default")
+	}
+	if !cfg.Tools.IsToolEnabled("runtime") {
+		t.Error("the runtime tool is not enabled by default")
+	}
+
+	cfg.Tools.Python.Enabled = false
+	if cfg.Tools.IsToolEnabled("python") {
+		t.Error("python stayed enabled after being switched off")
+	}
+	if !cfg.Tools.IsToolEnabled("runtime") {
+		t.Error("switching python off also disabled the rest of the runtime")
+	}
+}

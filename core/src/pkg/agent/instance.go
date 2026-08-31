@@ -129,6 +129,12 @@ func NewAgentInstance(
 				map[string]any{"error": err.Error()})
 		} else {
 			toolsRegistry.Register(runtimeTool)
+			// Python is delivered by the Managed Runtime and shares its manager,
+			// so there is one registry, one platform probe and one execution
+			// path rather than a second set of everything.
+			if cfg.Tools.IsToolEnabled("python") {
+				toolsRegistry.Register(tools.NewPythonTool(runtimeTool))
+			}
 		}
 	}
 

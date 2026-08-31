@@ -1,5 +1,249 @@
 # PocketClaw Session Handoff
 
+## Python Lite — Phase C PHYSICAL PASS and merged, 2026-08-31
+
+Branch `feature/python-lite-agent-tool`, from `develop` at `de7ea53`.
+**Physically validated inside the installed application, then merged to
+`develop`.** Not released, `main` untouched, no tags moved.
+
+### Root cause, confirmed on device
+
+Android's CPython replaces `sys.stdout` and `sys.stderr` with `TextLogStream`,
+which writes to the Android system log instead of file descriptors 1 and 2. The
+runtime captures the descriptors, so managed runs wrote where the caller could
+not read: `print()` succeeded and exited 0 with nothing captured, an uncaught
+exception exited 1 with its traceback in logcat, and `os.write(1, ...)` worked
+because it bypasses `sys.stdout`. CPython, the pipes, the capture layer and the
+formatter were all correct.
+
+### The fix
+
+`pocketclaw_bootstrap`, a module inside the payload's appended standard library,
+rebinds both streams to unbuffered UTF-8 wrappers over `os.dup(1)`/`os.dup(2)`,
+then reads the program from stdin exactly as `python -` does and runs it as
+`__main__`. The tool now invokes
+`python <default_args> -m pocketclaw_bootstrap <caller args>`.
+
+The source still travels on stdin only — not `-c`, not argv, not the
+environment, not a log. Tracebacks compile under `<stdin>`, `sys.argv` is
+`["-", ...]`, and the bootstrap's own frames are stripped so line numbers refer
+to the submitted code. CPython is not patched.
+
+Because the module ships inside the checksum-pinned payload, the payload hash was
+repinned and the catalog moved to `2.2.0`. A new entry-point guard runs in the
+Gradle release and in the Go tests, alongside the appended-stdlib, catalog and
+source-freshness guards.
+
+### Build
+
+| Artifact | Value |
+|---|---|
+| Python payload | `dfa19e41ac57edfdaa7ba2d94de7d1c9fa8ce8e30db2c3385f1559c1d576848d`, 299 entries |
+| Core `libpicoclaw.so` | `029f70307a9a84309f3d30ebca0cd2eab4fcd5ea9e18b90c49be477f3fcfd3a7` |
+| Core source fingerprint | `535cbfd664415f66ea8bcc2dfcc2d1859e6905f118b4eeae44470f20cea17305` |
+| Catalog | `2.2.0` |
+| APK | `build/app/outputs/flutter-apk/app-release.apk`, 64,168,930 bytes |
+| APK SHA-256 | `b92b958677794dbd7bca95d4ec040c6a41ed5707978e2f4bd5791aa787816884` |
+| versionCode | 9 |
+
+### Physical acceptance — PASS, 2026-08-31
+
+Four tests, one `python` tool call each, no retries.
+
+| Test | Device result | Verdict |
+|---|---|---|
+| `print("PYTHON-FINAL-PASS")` | `exit_code=0`, `stdout_bytes=18`, `PYTHON-FINAL-PASS` | **PASS** |
+| `raise ValueError("TEST-ERROR")` | `exit_code=1`, `stderr_bytes=96`, real traceback ending `ValueError: TEST-ERROR` | **PASS** |
+| `print("مرحبا 🐍")` | `exit_code=0`, `stdout_bytes=16`, `مرحبا 🐍` | **PASS** |
+| infinite loop, `timeout_ms=2000` | `exit_code=-1`, `timed_out=true` | **PASS** |
+
+The byte counters are the confirmation that this is the entry point working
+rather than a coincidence: the same calls previously reported `stdout_bytes=0`
+and `stderr_bytes=0` with the identical exit codes.
+
+
+## Python Lite — Phase C physical FAIL, root cause not yet proven, 2026-08-31
+
+Branch `feature/python-lite-agent-tool`, from `develop` at `de7ea53`.
+**Not merged. The stdout/stderr failure is not fixed.**
+
+### The physical result
+
+| Test | Device result | Verdict |
+|---|---|---|
+| `print("PYTHON-FINAL-PASS")` | exit 0, stdout empty | **FAIL** |
+| `raise ValueError("TEST-ERROR")` | exit 1, stderr empty | **FAIL** |
+| infinite loop, `timeout_ms=2000` | exit -1, `timed_out=true`, ~2 s | PASS |
+| `print("مرحبا 🐍")` | needed several calls; visible only after `os.write` | **FAIL** |
+
+### What is proven
+
+An empty `ExecResult.Stdout` has one possible cause: the capture layer received
+nothing. A bounded buffer that saw bytes and kept none returns a truncation
+marker rather than an empty string, so an empty stream can never mean "the
+runtime dropped it". The `(empty)` text the device printed is therefore evidence
+about the process, not about the formatter.
+
+That rules out the formatter, the tool-result serialisation and the agent
+message as the place the bytes disappear, and it rules out the hardening commit:
+`git diff c4c0bf2..b42f813` touches the formatter, one log field and the new
+fingerprint package — no capture, environment, catalog or argv code.
+
+The whole production chain is now proven byte-exact on the host, from a real
+child process's pipes through to `ContentForLLM()`.
+
+### What is not proven
+
+Where the bytes stop between CPython and the pipe. The evidence is consistent
+with the interpreter's own `sys.stdout`/`sys.stderr` being disconnected — CPython
+makes `print()` a silent no-op when `sys.stdout` is None, and an unhandled
+exception still exits 1 when `sys.stderr` is None, which matches all four
+observations including `os.write` working — but that is a hypothesis, not a
+finding. It has not been reproduced: this machine has no device, no adb target
+and no aarch64 emulation, and the host interpreter behaves correctly through the
+same code.
+
+### What the next physical run will settle
+
+`ExecResult` now carries `StdoutBytes`/`StderrBytes`, measured at capture and
+printed in the Python result:
+
+- `stdout_bytes=18` beside `stdout: (empty)` → the loss is downstream of capture
+- `stdout_bytes=0` → the interpreter wrote nothing the runtime could see
+
+`stderr_bytes` also joins `bytes_out` on the INFO `runtime.exec.completed` event,
+so a Debug Logs pull corroborates without a second run.
+
+### Build
+
+| Artifact | Value |
+|---|---|
+| Core `libpicoclaw.so` | `6210de2bd04980025aca045a6b3d8d6a0cbc1351aedae9fccdb8ec2264d33ff5` |
+| Core source fingerprint | `25653d50d04fe4ae5bbb4cc7e62c9f357287933687fdf2178c5e4835756767d9` |
+| APK | `build/app/outputs/flutter-apk/app-release.apk`, 64,164,250 bytes |
+| APK SHA-256 | `c7844a51e9d5d3f0e59365b1fc587b578455cf1faad1d147a5b43bc0c98c690e` |
+| versionCode | 8 |
+
+Install over the existing app without clearing data, then run the four tests with
+exactly one `python` call each and report the `stdout_bytes`/`stderr_bytes` line.
+
+## Python Lite — Phase C hardened, awaiting the physical stderr recheck, 2026-08-31
+
+Branch `feature/python-lite-agent-tool`, from `develop` at `de7ea53`.
+**Not merged.** Core, Flutter and frontend gates are green and the ARM64 APK is
+rebuilt; the physical stderr recheck is the only thing outstanding.
+
+Phase C's own physical run passed on statistics, JSON, Unicode, an uncaught
+exception and a 2 s timeout. A controlled single-call test then found the model
+unable to report the traceback from `raise ValueError("TEST-ERROR")`. Two fixes
+came out of it.
+
+### The Python result names every field it has
+
+`formatPythonResult` writes `exit_code`, `timed_out`, `cancelled`,
+`stdout_truncated` and `stderr_truncated`, then both streams under their own
+headings — an empty stream printed as `(empty)` rather than omitted. It used to
+leave out a stream with no content, which made "the interpreter printed nothing"
+and "the result dropped it" look the same to the model.
+
+Nothing is reconstructed. The text is the runtime's own bounded, redacted
+capture; a test fails if a traceback ever appears for a run that produced none.
+The end-to-end tests run a real interpreter through `Manager.Execute` rather than
+handing the formatter a hand-written `ExecResult`, because a hand-written one
+cannot fail the way this failed. They cover the traceback reaching the agent, the
+non-zero exit code, the bound on stderr, truncation being reported, and the
+source staying out of the log.
+
+Bounds, redaction and event privacy are unchanged, and the source still travels
+on stdin only.
+
+### Core staleness now covers Go-only changes
+
+`pkg/coresource` hashes the Core's build inputs into one content-addressed
+fingerprint: non-test Go source under `cmd/` and `pkg/`, the embedded catalog,
+the embedded `workspace/`, `go.mod`, `go.sum`, and the Makefile that fixes the
+build tags. `core/build-android-arm64.sh` computes it and stamps it into the
+binary with `-X github.com/sipeed/picoclaw/pkg/coresource.Stamped=...`; the gate
+recomputes it from the working tree and fails if the staged Core does not carry
+it. The runtime's startup diagnostics log it as `core_source`, which is also what
+keeps the linker from dropping the variable.
+
+`TestStagedCoreEmbedsTheCurrentCatalog` stays. The two guards answer different
+questions — does this Core know the current catalog, and was it built from the
+current code — and Phase C is the case only the second one catches:
+`python_tool.go` changed, `manifest.json` did not.
+
+No mtime, timestamp, absolute path or build id takes part. The first draft hashed
+every `*.json` under `pkg/`, which `pkg/cron`'s tests write into during a run, so
+the gate failed against a Core that was current; embedded assets are named one by
+one now, and a test reads the `//go:embed` directives out of the Core source so
+the list cannot fall behind quietly.
+
+The guard was proved in both directions in this session: it failed against the
+Core staged before the rebuild — a Go-only change with the catalog untouched —
+and passed against the rebuilt one.
+
+### Build
+
+| Artifact | Value |
+|---|---|
+| Core `libpicoclaw.so` | `c3af079fcb49403da3d8546f68d5e466b2bf83341fec5f1de56acf76b3d27390` |
+| Launcher `libpicoclaw-web.so` | `c54098b5a5ce55c6e3c0251bd268e1a74516e69d19021441757898a53f3c8c8d` |
+| Core source fingerprint | `9b9d44567c30380fa08e46ba39ef876e4c8f22e36f4b56fb1123f1d85615c8ae` |
+| APK | `build/app/outputs/flutter-apk/app-release.apk`, 64,162,658 bytes |
+| APK SHA-256 | `2e608a757580fe0503d7904cde2a341087884c457db640a31898072fcf48424a` |
+| versionCode | 7 (bumped from 6 so the recheck cannot run against the old install) |
+
+### Physical recheck still to do
+
+1. `print("PYTHON-FINAL-PASS")`
+2. `raise ValueError("TEST-ERROR")` — the Agent must report the real traceback
+   ending in `ValueError: TEST-ERROR` and exit code 1, from one call
+3. an infinite loop with `timeout_ms: 2000`
+4. Unicode: `مرحبا 🐍`
+
+## Python Lite — Phase C implementation record, 2026-08-31
+
+Branch `feature/python-lite-agent-tool`, from `develop` at `de7ea53`.
+**Not merged.** Automated gates are green; physical validation is outstanding.
+
+The Agent now has a dedicated `python` tool:
+
+```
+python { "code": "...", "args": [...], "timeout_ms": ... }
+```
+
+It owns no execution machinery. `buildPythonRequest` produces an ordinary
+`ExecRequest` and `Manager.Execute` does the rest, so resolution, checksum
+verification, the `python` environment profile, catalog `default_args`, the
+timeout ceiling, cancellation, process-group termination, output bounds, the
+runtime event family and redaction all apply unchanged. The tool shares the
+Managed Runtime's manager, so there is still one registry and one platform probe.
+
+Source travels on **stdin** as `python -`, never in argv: argv is capped near
+128 KB, is readable from `/proc/<pid>/cmdline`, and appears in argument
+diagnostics, while stdin is accounted only as `bytes_in`. A regression test fails
+if the implementation ever switches to `-c`.
+
+Tracebacks name `<stdin>`, which is what `python -` reports. `<pocketclaw>` was
+considered and rejected for v1: it would need a wrapper that reads stdin and
+re-compiles the source, which is a cosmetic gain bought with an interpreter trick
+around the exact path that carries user code.
+
+v1 has no separate data channel. If a script needs structured input it can embed
+it or read a workspace file; a second stdin field would compete with `code` for
+the one channel the interpreter reads.
+
+The tool description steers deliberately: jq for simple JSON, rg for search,
+sqlite3 for a single query, curl for HTTP, and Python for arithmetic,
+statistics, multi-step logic, custom parsing and work that would otherwise take
+several runtime round-trips. It states plainly that Python is **not** a sandbox
+and that the boundary is the application UID. Tests fail if that steering
+disappears or if the description starts claiming containment.
+
+`python` is enabled by default and switchable independently of `runtime`,
+because it runs arbitrary code as the application.
+
 ## Python Lite — Phase B PHYSICAL PASS and merged, 2026-08-31
 
 Branch `feature/python-lite-runtime`, commits `bfe47e6`, `c376837`, `c60b15f`,

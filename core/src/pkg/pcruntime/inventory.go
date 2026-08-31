@@ -3,6 +3,8 @@ package pcruntime
 import (
 	"os"
 	"sort"
+
+	"github.com/sipeed/picoclaw/pkg/coresource"
 )
 
 // InventoryTool is one catalog entry as it stands on this device.
@@ -106,6 +108,10 @@ func (m *Manager) Inventory(probe *ExecutionProbe) *Inventory {
 		"available_count": inventory.AvailableCount,
 		"total_count":     inventory.TotalCount,
 		"bundled_bytes":   inventory.BundledBytes,
+		// Which Core source this binary was built from. Paired with
+		// catalog_version it separates the two ways a device can be behind:
+		// a Core that predates the catalog, and a Core that predates the code.
+		"core_source": coresource.Describe(),
 	})
 	return inventory
 }

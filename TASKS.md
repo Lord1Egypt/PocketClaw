@@ -972,8 +972,46 @@ increase. **A 100+ MB addition needs explicit approval.**
 - [x] Fix the stale-Core packaging defect (2026-08-31): editing the embedded
   catalog requires `./core/build-android-arm64.sh`; guarded by
   `TestStagedCoreEmbedsTheCurrentCatalog`.
-- [ ] Python Lite Phase C — the Agent-facing `python` tool, on
-  `feature/python-lite-agent-tool`. Scope recorded, nothing implemented.
+- [x] Python Lite Phase C — the Agent-facing `python` tool implemented on
+  `feature/python-lite-agent-tool`. Code on stdin, never argv; reuses
+  `Manager.Execute`; no duplicate execution path. Automated gates green.
+- [x] Python Lite Phase C physical validation of statistics, JSON, Unicode,
+  timeout and uncaught exception — all PASS. One gap found: the model could not
+  report the traceback from a single `raise ValueError("TEST-ERROR")` call.
+- [x] Expose the real `ExecResult` stderr to the Agent. `formatPythonResult` now
+  names `exit_code`, `timed_out`, `cancelled`, `stdout_truncated` and
+  `stderr_truncated` and prints both streams, an empty one included. End-to-end
+  tests run a real interpreter through `Manager.Execute`.
+- [x] Core staleness beyond the catalog: `pkg/coresource` fingerprints the Core's
+  build inputs, `core/build-android-arm64.sh` stamps it into the binary, and the
+  gate fails if the staged Core does not carry the current value. A Go-only
+  change is now detected with the catalog unchanged.
+- [x] Python Lite Phase C physical stderr recheck — **FAILED**. `print()` gave
+  exit 0 with empty stdout and `raise` gave exit 1 with empty stderr; the timeout
+  still passed. Not merged.
+- [x] Prove which boundary loses the bytes: an empty `ExecResult.Stdout` can only
+  mean the capture layer received nothing, because a bounded buffer that kept no
+  bytes returns a truncation marker. Formatter, serialisation and the agent
+  message are ruled out.
+- [x] Close the test seam: a production-path test through
+  `ToolRegistry.ExecuteWithContext` to `ContentForLLM()`, with a real child
+  process staged as a checksum-verified bundled payload.
+- [x] Instrument the boundary: `ExecResult.StdoutBytes`/`StderrBytes`, printed in
+  the Python result and logged at INFO.
+- [x] Root cause found and confirmed on device: Android's CPython replaces
+  `sys.stdout`/`sys.stderr` with `TextLogStream`, which writes to the Android
+  system log rather than to descriptors 1 and 2.
+- [x] Ship `pocketclaw_bootstrap` inside the payload's appended stdlib and run
+  the tool through `-m pocketclaw_bootstrap`. It rebinds both streams over
+  `os.dup(1)`/`os.dup(2)`, then reads the program from stdin as `python -` does.
+  Source transport, argv contract and traceback filenames unchanged. CPython not
+  patched.
+- [x] Repin the payload checksum, move the catalog to `2.2.0`, and add an
+  entry-point guard to the Gradle release and the Go tests.
+- [x] Python Lite Phase C **physical PASS** on all four tests, one call each, no
+  retries: `stdout_bytes=18`/`PYTHON-FINAL-PASS`, `stderr_bytes=96` with a real
+  traceback ending `ValueError: TEST-ERROR` at `exit_code=1`, `stdout_bytes=16`
+  for `مرحبا 🐍`, and `timed_out=true` at 2 s. Merged to `develop`.
 - [ ] Git `SHELL_PATH`: the recorded "Android has no /bin/sh" limitation is
   wrong on Android 11+, which ships `/bin` -> `/system/bin`. Re-evaluate whether
   git hooks and the ENOEXEC fallback can be supported on API 30+ devices.

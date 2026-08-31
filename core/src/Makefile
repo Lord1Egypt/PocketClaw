@@ -29,7 +29,14 @@ GIT_COMMIT=$(if $(GIT_COMMIT_RAW),$(GIT_COMMIT_RAW),dev)
 BUILD_TIME=$(if $(BUILD_TIME_RAW),$(BUILD_TIME_RAW),dev)
 GO_VERSION=$(if $(GO_VERSION_RAW),$(firstword $(GO_VERSION_RAW)),unknown)
 CONFIG_PKG=github.com/sipeed/picoclaw/pkg/config
-LDFLAGS=-X $(CONFIG_PKG).Version=$(VERSION) -X $(CONFIG_PKG).GitCommit=$(GIT_COMMIT) -X $(CONFIG_PKG).BuildTime=$(BUILD_TIME) -X $(CONFIG_PKG).GoVersion=$(GO_VERSION) -s -w
+# PocketClaw: fingerprint of the Core source this binary is built from, stamped
+# by core/build-android-arm64.sh and checked against the working tree by the
+# test gate. Left empty by a plain `make`, which the guard reports as a Core
+# that cannot be shown to match its source.
+CORESOURCE_PKG=github.com/sipeed/picoclaw/pkg/coresource
+SOURCE_FINGERPRINT?=
+SOURCE_FINGERPRINT_LDFLAG=$(if $(SOURCE_FINGERPRINT),-X $(CORESOURCE_PKG).Stamped=$(SOURCE_FINGERPRINT),)
+LDFLAGS=-X $(CONFIG_PKG).Version=$(VERSION) -X $(CONFIG_PKG).GitCommit=$(GIT_COMMIT) -X $(CONFIG_PKG).BuildTime=$(BUILD_TIME) -X $(CONFIG_PKG).GoVersion=$(GO_VERSION) $(SOURCE_FINGERPRINT_LDFLAG) -s -w
 
 # Go variables
 GO?=go

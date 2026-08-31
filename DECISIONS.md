@@ -1,5 +1,101 @@
 # PocketClaw Decisions
 
+## Android CPython logs its stdio, so PocketClaw ships its own entry point
+
+- Date: 2026-08-31
+- Decision: the Python tool runs `-m pocketclaw_bootstrap`, a module inside the
+  payload's appended standard library, which rebinds `sys.stdout` and
+  `sys.stderr` to `os.dup(1)`/`os.dup(2)` before executing the caller's program.
+  CPython is not patched and Android's `TextLogStream` is left in place for
+  anything else that embeds this interpreter.
+- Consequence: on Android, CPython points `sys.stdout` and `sys.stderr` at the
+  system log rather than at descriptors 1 and 2, so the managed runtime captured
+  nothing. `print()` was a silent no-op that exited 0 and an uncaught exception
+  exited 1 with no traceback — a failure that looked like a runtime defect and
+  was not one. The descriptors are duplicated so interpreter shutdown closes the
+  duplicate and never the pipe the runtime is still reading.
+- Consequence: the module lives inside the payload rather than in app storage,
+  so the checksum the registry verifies covers it. The alternative — writing it
+  to the runtime metadata directory — would put the supervisor of model-authored
+  code in a file that model-authored code can rewrite.
+- Consequence: the caller's source did not move. It still travels on stdin,
+  never in argv, the environment, a log or an event, and the bootstrap compiles
+  it under `<stdin>` with `sys.argv[0]` set to `"-"`, which is what `python -`
+  gives. Tests fail if the source reaches argv or if the argv contract changes.
+
+## stdin carries the program and nothing else
+
+- Date: 2026-08-31
+- Decision: `pocketclaw_bootstrap` consumes standard input in full as the
+  program. Phase C v1 adds no second stdin or data channel.
+- Consequence: a program that needs structured input embeds it or reads a
+  workspace file. A second channel would have to multiplex the one stream the
+  interpreter reads, and the tool would gain an API before anything needed it.
+  This is a limitation, recorded as one rather than worked around.
+
+## The Core carries a fingerprint of the source it was built from
+
+- Date: 2026-08-31
+- Decision: `core/build-android-arm64.sh` stamps a content-addressed fingerprint
+  of the Core's build inputs into `libpicoclaw.so` with `-X`, and the test gate
+  recomputes it from `core/src` and fails if the staged binary does not carry it.
+  `TestStagedCoreEmbedsTheCurrentCatalog` is kept alongside it.
+- Consequence: the catalog guard answers "does this Core know the current
+  catalog?", which is silent about a Go-only change: edit `python_tool.go`, leave
+  `manifest.json` alone, and a Core built last week still embeds this week's
+  catalog and every pinned checksum. That is exactly what Phase C did, and the
+  only thing standing between it and a shipped stale Core was someone
+  remembering to run the build script. The two guards answer different questions
+  and both are permanent.
+- Consequence: the fingerprint takes only relative paths and file bytes — never
+  an mtime, a build timestamp, an absolute path, a developer name or a build id.
+  A value that moves on its own cannot say anything about staleness, and a guard
+  that fires at random stops being read. The first draft hashed every `*.json`
+  under `pkg/`, which `pkg/cron`'s own tests write into while the gate runs, and
+  it failed against a Core that was current. Embedded assets are named
+  individually now, and a test reads the `//go:embed` directives out of the Core
+  source so the list cannot fall behind quietly.
+
+## The Python result states every field, including the empty ones
+
+- Date: 2026-08-31
+- Decision: `formatPythonResult` always writes `exit_code`, `timed_out`,
+  `cancelled`, `stdout_truncated` and `stderr_truncated`, then both streams under
+  their own headings — an empty stream as `(empty)` rather than being left out.
+- Consequence: a model that cannot tell "the interpreter printed nothing" from
+  "the result dropped it" has to guess, and guessing about a traceback is the one
+  thing this tool must never require. Phase C's physical run found exactly that:
+  the execution was correct and the model still could not say why
+  `raise ValueError("TEST-ERROR")` failed. Nothing in the report is synthesised —
+  the text is the runtime's own bounded, redacted capture, and a test fails if a
+  traceback appears for a run that produced none.
+
+## Python source travels on stdin, and the traceback name is not worth a wrapper
+
+- Date: 2026-08-31
+- Decision: The Agent-facing `python` tool passes source through
+  `ExecRequest.Stdin` as `python -`, never `-c`, and accepts `<stdin>` as the
+  traceback filename for v1.
+- Consequence: argv is capped near 128 KB, is readable from `/proc/<pid>/cmdline`
+  and is recorded in argument diagnostics, so a program containing a secret would
+  leak simply by being run. stdin is accounted only as `bytes_in`. A nicer
+  `<pocketclaw>` traceback name is achievable, but only with a wrapper that reads
+  stdin and recompiles the source — an interpreter trick wrapped around the exact
+  path that carries user code, in exchange for cosmetics. A regression test fails
+  if the implementation ever moves back to `-c`.
+
+## The Python tool steers toward the cheaper tool, and says what it is not
+
+- Date: 2026-08-31
+- Decision: The tool description names jq, rg, sqlite3 and curl for the work each
+  suits, names the cases where Python genuinely earns its cost, and states that
+  Python is not a sandbox. Tests fail if either half disappears.
+- Consequence: Python starts in about 90 ms against single-digit milliseconds for
+  jq, so a model that reaches for it by default makes every simple task slower
+  for no gain. And a model that believes Python is contained will write code on
+  that assumption. Both failures are caused by the description, so both are
+  guarded by tests on the description.
+
 ## A packaged payload is checked for reachability, not just presence
 
 - Date: 2026-08-31
