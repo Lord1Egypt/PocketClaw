@@ -1,11 +1,10 @@
 # PocketClaw Session Handoff
 
-## WhatsApp Self-Chat + Chat image attachment — PHYSICAL PASS except auto-apply, RECHECK PENDING
+## WhatsApp Self-Chat + Chat image attachment — PHYSICAL PASS and merged, 2026-09-01
 
-Branch `feature/whatsapp-self-chat`, off `develop` at `8952c9a5`. **Not merged.**
-`main` untouched, no tags moved, no release created. The full regression gate is
-green and the arm64 APK is built; nothing here is proven until the device says
-so.
+Branch `feature/whatsapp-self-chat`, off `develop` at `8952c9a5`. **Physically
+validated on SM-A165F / Android 16, then merged to `develop` with `--no-ff`.**
+`main` untouched, no tags moved, no release created.
 
 ### What changed
 
@@ -110,18 +109,31 @@ visible window. A foreground service raises importance to 125, not the 100 a
 visible activity gives, so an agent tool call arriving while the app is in the
 background is answered "PocketClaw is in the background" rather than OPENED.
 
-### Physical acceptance — REQUIRED BEFORE MERGE
+### Physical acceptance — PASS
 
-WhatsApp: one WhatsApp entry in Channels and no "WhatsApp" / "WhatsApp Native";
-configure the number; reopen the app and confirm it persisted; Settings Test
-prepares `PocketClaw WhatsApp test` **unsent**; the agent tool prepares
-`PocketClaw Agent Test` in the same chat; `مرحبا من PocketClaw 🦞` arrives
-intact; after Disconnect the tool reports not configured.
+First pass, versionCode 14:
 
-Chat: the attachment button opens the Android picker; a JPEG and a PNG each come
-back into Chat and reach the agent; cancelling returns to Chat with no phantom
-attachment and no crash; Debug Logs carry no image bytes, no WhatsApp message
-body, and no GitHub credential regression.
+| Step | Result |
+|---|---|
+| Exactly one WhatsApp entry in Channels | **PASS** |
+| "WhatsApp" and "WhatsApp Native" gone | **PASS** |
+| Configure the self number | **PASS** |
+| Settings Test opens the right self-chat | **PASS** |
+| Prepared text correct, nothing sent | **PASS** |
+| Chat attachment button opens the Android picker | **PASS** |
+| Selected image returns to Chat as an attachment | **PASS** |
+| Connect / Change / Disconnect apply without a manual restart | **FAIL — fixed below** |
+
+Recheck, versionCode 15, after the auto-apply fix:
+
+| Step | Result |
+|---|---|
+| Connect — automatic apply, no manual Restart request | **PASS** |
+| `whatsapp_self_chat` after Connect, prepared and unsent | **PASS** |
+| Change — automatic apply, no manual Restart request | **PASS** |
+| Disconnect — the tool reports not configured | **PASS** |
+| Chat image attachment regression | **PASS** |
+| GitHub regression: `gh api user --jq .login` → `Lord1Egypt` | **PASS** |
 
 
 ## Secure GitHub auth — PHYSICAL PASS and merged, 2026-09-01

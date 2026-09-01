@@ -31,10 +31,10 @@
 - [x] Close the one gap the device found: Connect / Change / Disconnect applied
   automatically through the existing safe config-apply path, never asking for a
   manual restart and never interrupting a turn.
-- [ ] **Physical recheck — the merge gate.** Connect, agent tool, Change,
-  Disconnect, image attachment, and the GitHub `gh api user` regression.
-- [ ] Merge `feature/whatsapp-self-chat` into `develop` and push, only after
-  both physical passes. Do not touch `main`, move tags, or create a release.
+- [x] Physical recheck: Connect, agent tool, Change, Disconnect, image
+  attachment, and the GitHub `gh api user` regression — all PASS.
+- [x] Merged `feature/whatsapp-self-chat` into `develop` with `--no-ff` and
+  pushed. `main` untouched, no tags moved, no release created.
 
 
 ## Secure GitHub Authentication

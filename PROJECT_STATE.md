@@ -1,9 +1,10 @@
 # PocketClaw Project State
 
-## WhatsApp Self-Chat + Chat image attachment APK — RECHECK PENDING
+## WhatsApp Self-Chat + Chat image attachment APK — PHYSICALLY VERIFIED
 
-- Status: **not merged, not device-verified.** Branch `feature/whatsapp-self-chat`
-  off `develop` at `8952c9a5`. `main` untouched, no tags moved, no release.
+- Status: **PASS on a physical Android device (SM-A165F / Android 16),
+  2026-09-01. Merged to `develop` with `--no-ff`.** `main` untouched, no tags
+  moved, no release.
 - Path: `build/app/outputs/flutter-apk/app-release.apk` (ignored; not committed)
 - Built: 2026-09-01 with the canonical command
 
@@ -43,8 +44,11 @@
 - The retired `whatsapp` and `whatsapp_native` names are absent from the
   embedded console bundle in every locale; `whatsapp_self_chat` is present in
   both Core binaries.
-- Physical acceptance is the gate. Nothing in this milestone is proven until the
-  device runs the WhatsApp and Chat-attachment steps in `SESSION_HANDOFF.md`.
+- Physical results are recorded in `SESSION_HANDOFF.md`. The first pass
+  (versionCode 14) passed every step except automatic apply on
+  Connect / Change / Disconnect; the recheck (versionCode 15) passed that plus
+  the Chat-attachment and GitHub regressions. This is the current reference
+  physically verified PocketClaw artifact.
 
 
 ## Secure GitHub auth — PHYSICAL PASS and merged, 2026-09-01
