@@ -1,6 +1,8 @@
 package com.lord1egypt.pocketclaw
 
+import com.lord1egypt.pocketclaw.media.ChatImagePicker
 import com.lord1egypt.pocketclaw.security.GitHubCredentialStore
+import com.lord1egypt.pocketclaw.whatsapp.WhatsAppSelfChatLauncher
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -43,7 +45,9 @@ import java.util.concurrent.Executor
  */
 class PicoClawMethodChannel(
     private val context: Context,
-    flutterEngine: FlutterEngine
+    flutterEngine: FlutterEngine,
+    /** Absent on hosts with no Activity to receive a picker result. */
+    private val chatImagePicker: ChatImagePicker? = null
 ) {
     companion object {
         private const val TAG = "PicoClawMethodChannel"
@@ -284,6 +288,48 @@ class PicoClawMethodChannel(
                             }
                         }
                     }.start()
+                }
+                "openWhatsAppSelfChat" -> {
+                    // Opens WhatsApp with the text prepared. It is never sent
+                    // here: WhatsApp shows the compose box and waits for the
+                    // user. Neither the number nor the body is logged.
+                    val selfNumber = call.argument<String>("selfNumber").orEmpty()
+                    val message = call.argument<String>("message").orEmpty()
+                    if (message.isBlank()) {
+                        result.error("empty_message", "There is no message to prepare", null)
+                        return@setMethodCallHandler
+                    }
+                    when (val failure = WhatsAppSelfChatLauncher.open(context, selfNumber, message)) {
+                        null -> result.success(null)
+                        WhatsAppSelfChatLauncher.Failure.NOT_INSTALLED ->
+                            result.error(failure, "WhatsApp is not installed on this device", null)
+                        WhatsAppSelfChatLauncher.Failure.INVALID_NUMBER ->
+                            result.error(failure, "That is not a valid WhatsApp number", null)
+                        WhatsAppSelfChatLauncher.Failure.NOT_FOREGROUND ->
+                            result.error(failure, "Bring PocketClaw to the foreground and try again", null)
+                        else ->
+                            result.error(failure, "Android would not open WhatsApp", null)
+                    }
+                }
+                "pickChatImage" -> {
+                    val picker = chatImagePicker
+                    if (picker == null) {
+                        result.success(null)
+                        return@setMethodCallHandler
+                    }
+                    val acceptTypes = call.argument<List<String>>("acceptTypes").orEmpty()
+                    picker.pick(acceptTypes) { outcome ->
+                        outcome.fold(
+                            onSuccess = { uri -> result.success(uri) },
+                            onFailure = { failure ->
+                                result.error(
+                                    failure.message ?: ChatImagePicker.ERROR_UNREADABLE,
+                                    "That image could not be attached",
+                                    null,
+                                )
+                            },
+                        )
+                    }
                 }
                 "getGitHubStatus" -> {
                     try {

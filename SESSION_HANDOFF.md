@@ -1,5 +1,141 @@
 # PocketClaw Session Handoff
 
+## WhatsApp Self-Chat + Chat image attachment — PHYSICAL PASS and merged, 2026-09-01
+
+Branch `feature/whatsapp-self-chat`, off `develop` at `8952c9a5`. **Physically
+validated on SM-A165F / Android 16, then merged to `develop` with `--no-ff`.**
+`main` untouched, no tags moved, no release created.
+
+### What changed
+
+The console offered two WhatsApp cards, "WhatsApp" and "WhatsApp Native", whose
+first questions were a bridge URL and a session store path. A phone user has
+neither, so neither card could be completed on the device the app runs on. One
+card replaces them, and it stores exactly one value: the user's own number in
+canonical international form.
+
+Nothing reads WhatsApp, keeps a session, scrapes, automates taps, or presses
+Send. The host opens a deep link and stops. The agent tool reports `OPENED`, and
+its description says so, because the model must never tell a user a message was
+delivered when it is sitting in a compose box.
+
+The old transports were audited before anything was removed and **kept**: the
+gateway blank-imports both packages, `Manager` splits them by `use_native`, the
+config types them, the OpenClaw importer reads `channels.whatsapp.bridge_url`,
+and six test files cover them. An install that already configured one keeps
+working — it is only no longer offered.
+
+### Chat attachment root cause
+
+Not a permission problem, and not a rewrite. The attachment button in the
+console's composer dispatches a click at a hidden `<input type="file">`; the
+Android WebView then asks the host through
+`WebChromeClient.onShowFileChooser`. Nobody answered: `webview_android.dart`
+built a plain `WebViewController` and never registered
+`AndroidWebViewController.setOnShowFileSelector`. With no handler,
+`onShowFileChooser` returns `false` and Android shows nothing at all — exactly
+the reported symptom. Registering the selector is the fix; the existing
+data-URL media pipeline is untouched.
+
+The picker is Android's own — the system photo picker on 33+, and
+`ACTION_OPEN_DOCUMENT` below it. Neither needs a storage permission, so none is
+requested and `MANAGE_EXTERNAL_STORAGE` is unchanged from what the log export
+already had.
+
+One adjacent defect had to go with it: `MainActivity.onResume` jumped to the
+all-files-access settings screen on **every** resume when the permission was
+missing, despite a comment saying it should prompt once. That includes the
+resume that returns from the picker, which would have read as the app throwing
+the user out. It now prompts once per launch.
+
+### How Core reaches Android
+
+Core runs as a child process of the app and cannot start an Activity. The agent
+tool writes `req-<id>.json` into an app-private directory named by
+`POCKETCLAW_ANDROID_HOST_OUTBOX` and reads back `res-<id>.json`; a `FileObserver`
+in the foreground service serves it. No port is opened and no token is needed —
+the directory is reachable only by this UID. The console's Test button does not
+use this path: it goes through the existing JavaScript host bridge, the same one
+Telegram onboarding uses.
+
+| Artifact | Value |
+|---|---|
+| APK | `build/app/outputs/flutter-apk/app-release.apk`, 64,297,534 bytes, versionCode 15 |
+| APK SHA-256 | `2b4e5b56420e847d6fb772deda3fc2f83598b6f4e9868fa6f4fc9d09bbbafe67` |
+| `libpicoclaw.so` | 37,683,553 `fe277e8d821f35fadf3f0c54dee27d89f20cc557fca00d9cfcc1e2c64a8b0a4f` |
+| `libpicoclaw-web.so` | 25,166,177 `8aef0661ae6c3ab5a2176255ce3d9f6820e9f09d0277fa0969fdf72263c9eb8d` |
+| Core source fingerprint | `9a03c38717281c5adfeab35ace622603941be45f327ad23a33a3a197b957699b` |
+
+### Physical pass, 2026-09-01, SM-A165F / Android 16
+
+One WhatsApp entry, old entries gone, number configuration, Settings Test
+opening the right self-chat with the right prepared text, no auto-send, the
+image picker opening, and the chosen image returning to Chat as an attachment —
+all **PASS** on the device.
+
+One gap: Connect, Change and Disconnect saved and then asked for a manual Core
+restart. Fixed by routing the Self-Chat save through
+`saveAndApplyGatewayConfig`, the same path the models pages already use. It
+holds the restart until the gateway is idle, so saving a number can never cut
+off an answer, and it never instructs the user to restart anything.
+
+The card now reports what actually happened, because the shared helper takes an
+`onOutcome` callback instead of raising its own toast. A gateway that is
+stopped, still starting, or already running the saved config needs no restart
+and gets none. A busy one is left alone and the card says "Saved and in use…
+waiting for the gateway"; a failed apply says PocketClaw could not confirm it —
+neither claims a state that is not true, and neither tells the user to press
+Restart.
+
+Worth knowing for the recheck: the self number is read from `config.json` on
+**every** tool call, so Connect, Change and Disconnect reach the agent tool
+whether or not the gateway restarted. `TestWhatsAppSelfChatFollowsTheConfigFile
+WithoutARestart` drives that against a file changing underneath it. The
+automatic apply exists so the rest of the gateway catches up and the console
+stops showing a restart-required indicator.
+
+
+### Two things the device will exercise that the gate cannot
+
+`FileObserver(File, int)` is API 29 and PocketClaw ships minSdk 24, where it
+would have taken the whole foreground service down with a `NoSuchMethodError`
+before Core ever started. The watcher uses the path constructor, which is
+deprecated on newer releases but present on every one of them.
+
+A background activity start does not throw on Android 10+ — `startActivity`
+returns and nothing appears — so the launcher asks
+`ActivityManager.getMyMemoryState` first and declines when PocketClaw has no
+visible window. A foreground service raises importance to 125, not the 100 a
+visible activity gives, so an agent tool call arriving while the app is in the
+background is answered "PocketClaw is in the background" rather than OPENED.
+
+### Physical acceptance — PASS
+
+First pass, versionCode 14:
+
+| Step | Result |
+|---|---|
+| Exactly one WhatsApp entry in Channels | **PASS** |
+| "WhatsApp" and "WhatsApp Native" gone | **PASS** |
+| Configure the self number | **PASS** |
+| Settings Test opens the right self-chat | **PASS** |
+| Prepared text correct, nothing sent | **PASS** |
+| Chat attachment button opens the Android picker | **PASS** |
+| Selected image returns to Chat as an attachment | **PASS** |
+| Connect / Change / Disconnect apply without a manual restart | **FAIL — fixed below** |
+
+Recheck, versionCode 15, after the auto-apply fix:
+
+| Step | Result |
+|---|---|
+| Connect — automatic apply, no manual Restart request | **PASS** |
+| `whatsapp_self_chat` after Connect, prepared and unsent | **PASS** |
+| Change — automatic apply, no manual Restart request | **PASS** |
+| Disconnect — the tool reports not configured | **PASS** |
+| Chat image attachment regression | **PASS** |
+| GitHub regression: `gh api user --jq .login` → `Lord1Egypt` | **PASS** |
+
+
 ## Secure GitHub auth — PHYSICAL PASS and merged, 2026-09-01
 
 Branch `feature/secure-github-auth`. **Physically validated inside the installed

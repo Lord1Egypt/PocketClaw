@@ -392,3 +392,33 @@ func TestApplyConfigReportsSavedNotAppliedWhenBusy(t *testing.T) {
 		t.Fatalf("outcome = %v, want busy_timeout", body["outcome"])
 	}
 }
+
+// A gateway that is stopped, starting or already running the saved
+// configuration reports no restart requirement, which is what stops an
+// automatic apply from touching a Core that is mid-boot.
+func TestRestartIsOnlyRequiredForARunningGatewayOnStaleConfig(t *testing.T) {
+	const booted = "sig-a"
+	const current = "sig-b"
+
+	for _, tc := range []struct {
+		name   string
+		status string
+		boot   string
+		want   bool
+	}{
+		{"running on stale config", "running", booted, true},
+		{"running on the saved config", "running", current, false},
+		{"stopped", "stopped", booted, false},
+		{"starting", "starting", booted, false},
+		{"errored", "error", booted, false},
+		{"boot signature unknown", "running", "", false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got := gatewayRestartRequiredBySignature(tc.boot, current, tc.status)
+			if got != tc.want {
+				t.Errorf("gatewayRestartRequiredBySignature(%q, %q, %q) = %v, want %v",
+					tc.boot, current, tc.status, got, tc.want)
+			}
+		})
+	}
+}

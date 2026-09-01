@@ -43,6 +43,18 @@ const (
 	EnvGatewayHost = "PICOCLAW_GATEWAY_HOST"
 )
 
+// ResolveConfigPath returns the JSON config file this process reads, applying
+// the same precedence the CLI uses: EnvConfig when set, otherwise
+// config.json under GetHome. Long-lived processes that must observe config
+// edits made by the web console — rather than a snapshot taken at start —
+// reload from this path.
+func ResolveConfigPath() string {
+	if configPath := os.Getenv(EnvConfig); configPath != "" {
+		return configPath
+	}
+	return filepath.Join(GetHome(), "config.json")
+}
+
 func GetHome() string {
 	homePath, _ := os.UserHomeDir()
 	if picoclawHome := os.Getenv(EnvHome); picoclawHome != "" {

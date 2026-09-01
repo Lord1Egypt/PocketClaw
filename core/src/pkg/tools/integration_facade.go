@@ -36,6 +36,7 @@ type (
 	WebSearchTool            = integrationtools.WebSearchTool
 	WebSearchToolOptions     = integrationtools.WebSearchToolOptions
 	WebFetchTool             = integrationtools.WebFetchTool
+	WhatsAppSelfChatTool     = integrationtools.WhatsAppSelfChatTool
 )
 
 func NewMCPTool(manager MCPManager, serverName string, tool *mcp.Tool) *MCPTool {
@@ -60,6 +61,13 @@ func NewReactionTool() *ReactionTool {
 
 func NewSendTTSTool(provider tts.TTSProvider, store media.MediaStore) *SendTTSTool {
 	return integrationtools.NewSendTTSTool(provider, store)
+}
+
+// NewWhatsAppSelfChatTool builds the WhatsApp Self-Chat tool. selfNumber is
+// consulted on every call so a number changed or disconnected in the console
+// takes effect without restarting the gateway.
+func NewWhatsAppSelfChatTool(selfNumber func() string) *WhatsAppSelfChatTool {
+	return integrationtools.NewWhatsAppSelfChatTool(selfNumber)
 }
 
 func NewAPIKeyPool(keys []string) *APIKeyPool {

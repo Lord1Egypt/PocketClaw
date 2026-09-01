@@ -60,7 +60,18 @@ async function waitForGatewayReady(): Promise<boolean> {
   return false
 }
 
-type ApplyOutcome = "restarted" | "not_applied" | "failed"
+/**
+ * What happened to a saved configuration change.
+ *
+ * `not_required` means the backend's signature comparison said no restart was
+ * needed. `not_applied` means the gateway was deliberately left alone because
+ * it was busy — the change is saved, and it is not an error.
+ */
+export type ApplyOutcome =
+  | "not_required"
+  | "restarted"
+  | "not_applied"
+  | "failed"
 
 async function restartAndWait(reason: string): Promise<ApplyOutcome> {
   // apply-config rather than the manual restart: it holds the restart until the
@@ -84,6 +95,15 @@ export interface SaveAndApplyOptions<T> {
   savedMessage: string
   /** Human-readable name of what was saved, used in restart messages. */
   name: string
+  /**
+   * Reports the outcome instead of the generic toasts.
+   *
+   * A surface that shows its own state — where "saved, applying automatically"
+   * belongs in the card rather than in a toast telling the user to restart
+   * something themselves — passes this and renders the outcome itself. Callers
+   * that do not pass it keep the toasts exactly as before.
+   */
+  onOutcome?: (outcome: ApplyOutcome) => void
 }
 
 /**
@@ -122,14 +142,23 @@ export async function saveAndApplyGatewayConfig<T>(
   options: SaveAndApplyOptions<T>,
 ): Promise<T> {
   const result = await options.save()
+  const report = options.onOutcome
 
   const state = await refreshGatewayState({ force: true })
   if (state?.restartRequired !== true) {
-    toast.success(options.savedMessage)
+    // Nothing to apply: the gateway is stopped, still starting, or already
+    // running the saved configuration. None of those is a failure.
+    if (report) {
+      report("not_required")
+    } else {
+      toast.success(options.savedMessage)
+    }
     return result
   }
 
-  const restartToast = toast.loading(t("common.restartingGateway"))
+  const restartToast = report
+    ? ""
+    : toast.loading(t("common.restartingGateway"))
 
   try {
     // Join an in-flight restart rather than starting a second one.
@@ -137,7 +166,11 @@ export async function saveAndApplyGatewayConfig<T>(
       await pendingRestart
       const after = await refreshGatewayState({ force: true })
       if (after?.restartRequired !== true) {
-        toast.success(options.savedMessage, { id: restartToast })
+        if (report) {
+          report("restarted")
+        } else {
+          toast.success(options.savedMessage, { id: restartToast })
+        }
         return result
       }
     }
@@ -145,7 +178,9 @@ export async function saveAndApplyGatewayConfig<T>(
     pendingRestart = restartAndWait(options.name)
     const outcome = await pendingRestart
 
-    if (outcome === "restarted") {
+    if (report) {
+      report(outcome)
+    } else if (outcome === "restarted") {
       toast.success(t("common.restartedGateway"), { id: restartToast })
     } else if (outcome === "not_applied") {
       // Saved, but deliberately not applied: something was still running. The
@@ -161,13 +196,17 @@ export async function saveAndApplyGatewayConfig<T>(
       })
     }
   } catch (e) {
-    toast.error(t("common.restartFailedTitle"), {
-      id: restartToast,
-      description:
-        e instanceof Error
-          ? e.message
-          : t("common.restartFailedDesc", { name: options.name }),
-    })
+    if (report) {
+      report("failed")
+    } else {
+      toast.error(t("common.restartFailedTitle"), {
+        id: restartToast,
+        description:
+          e instanceof Error
+            ? e.message
+            : t("common.restartFailedDesc", { name: options.name }),
+      })
+    }
   } finally {
     pendingRestart = null
   }

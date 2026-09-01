@@ -36,6 +36,10 @@ dependencies:
   uuid: ^4.5.1
   web_socket_channel: ^3.0.2
   webview_flutter: ^4.13.1
+  # Direct, because the Android file chooser is an Android-only API:
+  # AndroidWebViewController.setOnShowFileSelector is what makes the
+  # console's image attachment button open a picker.
+  webview_flutter_android: ^4.14.0
   webview_windows: ^0.4.0
   window_manager: ^0.5.1
   windows_single_instance: any

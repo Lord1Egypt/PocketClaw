@@ -1,5 +1,139 @@
 # Development Changelog
 
+## 2026-09-01 — WhatsApp Self-Chat applies itself
+
+Branch `feature/whatsapp-self-chat`. The device found the one gap the gate
+could not: Connect, Change and Disconnect saved the number and then asked for a
+manual Core restart. Everything else in the milestone passed physically.
+
+The save now goes through `saveAndApplyGatewayConfig` — the same helper the
+models pages use, which calls `POST /api/gateway/apply-config`, which waits for
+the gateway to be idle before restarting it. No new lifecycle code: the busy
+wait, the "unknown is not idle" rule, the two-minute ceiling that ends the wait
+without ever interrupting a turn, and the coalescing of concurrent saves are all
+the machinery that was already there.
+
+What is new is that the card reports the outcome instead of a toast. The shared
+helper takes an optional `onOutcome`; when a caller passes it, the helper skips
+its own toasts — including the one that ends "Use Restart Gateway when you are
+ready", which is exactly what this surface must never say. Callers that do not
+pass it are untouched.
+
+Four states, four truthful answers. A gateway that is stopped, still starting,
+or already running the saved configuration needs no restart and is not touched.
+A busy one is left alone: "Saved and in use. PocketClaw is waiting for the
+gateway to finish what it is doing." A failed apply says PocketClaw could not
+confirm the gateway picked it up. None of them claims the change is live when it
+is not, and none of them asks the user to restart anything.
+
+The number itself was never the thing needing a restart: `ConfiguredNumber`
+reads `config.json` on every tool call, so Connect, Change and Disconnect reach
+the agent tool immediately. `TestWhatsAppSelfChatFollowsTheConfigFileWithout
+ARestart` drives the real provider against a file changing underneath it,
+through Connect, Change and Disconnect, and asserts the tool reports "not
+configured" after the last one. What the restart is for is the rest of the
+gateway, and the console's restart-required indicator.
+
+Tests: seven scenarios through the real apply machinery at the page level —
+Connect, Change and Disconnect while running; a stopped Core; a Core still
+starting; a busy Core deferring; and a failed apply — plus the `onOutcome`
+delegation arm in `restart-required.test.ts` and a table for
+`gatewayRestartRequiredBySignature`, which had none.
+
+
+## 2026-09-01 — WhatsApp Self-Chat, and the Chat attachment button that did nothing
+
+Branch `feature/whatsapp-self-chat`. **Built and gated; physical acceptance
+pending.** Not merged, `main` untouched, no tags moved.
+
+### One WhatsApp entry, and one value
+
+Channels showed "WhatsApp" and "WhatsApp Native". Both opened onto a bridge URL
+and a session store path — configuration a phone user cannot supply for the
+device the app is running on. Both are gone from the console. In their place is
+WhatsApp Self-Chat, which stores the user's own number in canonical
+international form and nothing else.
+
+`Normalize` accepts `+20 101 234 5678`, `0020-101-234-5678` and
+`201012345678`, because each names its country. It refuses `0101 234 5678`: the
+leading trunk zero belongs to a national plan, and guessing the country from a
+locale would quietly point the feature at a stranger's chat. The same rule is
+implemented in Go for what Core reads off disk and in TypeScript for what the
+console accepts, and both are tested against the same table.
+
+The bridge and native transports were **not** deleted. `pkg/gateway` blank-imports
+them, `Manager.channelReadiness` splits them on `use_native`, `config` types
+them, `pkg/migrate/sources/openclaw` reads `channels.whatsapp.bridge_url`, and
+six test files exercise them. Removing them would break installs that already
+work. They are only no longer offered.
+
+### Opened is not sent
+
+The `whatsapp_self_chat` tool takes one argument, requires a configured number,
+caps the body at 4096 characters, and returns `OPENED` with an explicit "it has
+NOT been sent". Its description says the same thing, because the description is
+all the model reads before deciding to call it. A test asserts the result never
+claims delivery.
+
+Neither the number nor the message body reaches the logs — only
+`message_chars` and a status — and that is checked by capturing the log file
+during a real call rather than by reading the call site.
+
+### Core cannot start an Activity
+
+So it asks. The tool writes `req-<id>.json` into an app-private directory named
+by `POCKETCLAW_ANDROID_HOST_OUTBOX` and waits for `res-<id>.json`; a
+`FileObserver` in the foreground service serves it and answers every request it
+consumes, including the ones it cannot serve, so the tool reports a real reason
+instead of a timeout. A request that is abandoned is deleted, because one left
+behind would open WhatsApp out of the blue the next time the host started.
+
+No socket, no token: the directory is reachable only by this UID.
+
+### The attachment button
+
+It was never wired to anything on the host side. The console's composer
+dispatches a click at a hidden `<input type="file">`, and the Android WebView
+asks the host through `WebChromeClient.onShowFileChooser`.
+`webview_android.dart` built a plain `WebViewController` and never called
+`AndroidWebViewController.setOnShowFileSelector`, so the plugin's
+`onShowFileChooser` returned `false` and Android showed nothing — no error, no
+picker, no log line. Registering the selector is the entire fix. The media
+pipeline that turns the chosen file into a chat attachment was already correct
+and is untouched.
+
+The picker is the system photo picker on Android 13+ and `ACTION_OPEN_DOCUMENT`
+below it. Neither needs a storage permission, so none was added.
+
+`MainActivity.onResume` had a related defect: it jumped to the all-files-access
+settings screen on every resume when `MANAGE_EXTERNAL_STORAGE` was missing,
+despite its own comment saying it should prompt once. That includes the resume
+returning from the picker, which would have looked like the app ejecting the
+user mid-attachment. It now prompts once per launch.
+
+### Two bugs the gate could not have caught
+
+`FileObserver(File, int)` is API 29. PocketClaw ships minSdk 24, so on anything
+below Android 10 the watcher would have thrown `NoSuchMethodError` in
+`PicoClawService.onCreate` and taken the foreground service — and with it
+Core, Auto-Start and the gateway — down before it started. The path
+constructor is deprecated but universal, and is what ships.
+
+A background activity start does not throw on Android 10+; `startActivity`
+returns normally and nothing appears. The launcher would therefore have
+reported OPENED for a window nobody saw. It now asks
+`ActivityManager.getMyMemoryState` first: a foreground service reports
+importance 125, a visible activity 100, and only the latter earns the start.
+An agent call arriving while PocketClaw is backgrounded is answered with that
+reason instead.
+
+### Also fixed
+
+`useSidebarChannels` read `appConfig.channels` while `GET /api/config`
+serialises that field under its `channel_list` JSON tag, so the enabled map was
+always empty and the "configured channels first" ordering never took effect.
+
+
 ## 2026-09-01 — Android DNS for the bundled gh
 
 Branch `feature/secure-github-auth`. **Physically validated and merged to

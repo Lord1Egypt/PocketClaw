@@ -1,5 +1,88 @@
 # PocketClaw Decisions
 
+## A surface that shows its own apply state reports the outcome, not a toast
+
+- Date: 2026-09-01
+- Decision: `saveAndApplyGatewayConfig` takes an optional `onOutcome`. When a
+  caller passes it, the helper delegates reporting and raises none of its own
+  toasts. Callers that do not pass it behave exactly as before.
+- Why: WhatsApp Self-Chat must never tell the user to restart anything by hand,
+  and the shared deferred toast ends "Use Restart Gateway when you are ready".
+  Suppressing that for one caller without giving it a way to say what happened
+  would have left the card silent about a deferred apply.
+- Consequence: the restart decision, the idle wait and the coalescing all stay
+  in one place. Only the sentence shown to the user moves.
+
+
+## The retired WhatsApp transports stay in the code and leave the console
+
+- Date: 2026-09-01
+- Decision: remove `whatsapp` and `whatsapp_native` from the channel catalog and
+  the console's UI arms, and keep every line of their implementation.
+- Why: they are not dead. `pkg/gateway` blank-imports both packages,
+  `Manager.channelReadiness` splits them on `use_native`, `config` types their
+  settings, `pkg/migrate/sources/openclaw` parses `channels.whatsapp.bridge_url`
+  when importing an OpenClaw config, and six test files cover them.
+- Consequence: an install that already configured a bridge keeps working, and
+  nobody new is asked for a bridge URL. `/api/channels/whatsapp/config` now
+  404s, which is what makes the entries unreachable rather than merely hidden.
+
+## Self-Chat is a stored number, not a channel that runs
+
+- Date: 2026-09-01
+- Decision: `whatsapp_self_chat` lives in `channel_list` for the console's
+  plumbing, registers no channel factory, and its readiness arm returns false
+  however its config block is edited. The page hides the Enabled switch and the
+  page-level Save, and Connect / Change / Disconnect persist directly.
+- Why: it is a deep link the Android host opens, not a transport with a
+  lifecycle. An Enabled switch would be a control with nothing behind it, and an
+  enabled entry with no factory would log "Factory not registered" on every
+  start.
+- Consequence: "configured" means a stored number, everywhere — in Core, in the
+  console, and in the sidebar's ordering.
+
+## Core asks the Android host through a file, not a socket
+
+- Date: 2026-09-01
+- Decision: the `whatsapp_self_chat` tool writes `req-<id>.json` into an
+  app-private directory named by `POCKETCLAW_ANDROID_HOST_OUTBOX` and waits for
+  `res-<id>.json`; a `FileObserver` in the foreground service serves it.
+- Why: Core runs as a child process and cannot start an Activity, so opening
+  WhatsApp has to be a request. A loopback port would be reachable by every
+  other app on the device and would need a shared secret to be safe; the
+  directory is reachable only by this UID, so it needs neither.
+- Consequence: the host answers every request it consumes, including ones it
+  cannot serve, so the tool reports `not_installed` or `start_failed` rather
+  than timing out. A request that is abandoned is deleted, because one left
+  behind would open WhatsApp unprompted when the host next started.
+
+## Regular WhatsApp wins, deterministically
+
+- Date: 2026-09-01
+- Decision: open `com.whatsapp` when it is installed, `com.whatsapp.w4b` when it
+  is the only one, and report `not_installed` when neither is. No chooser.
+- Why: the same code path serves a Settings button and an agent tool. A chooser
+  raised by a tool call is a dialog nobody is looking at, and a tool that cannot
+  say what happened is worse than one that picks.
+- Consequence: both packages are declared in `<queries>`, because Android 11+
+  hides everything else and the answer would otherwise always be "neither".
+
+## The Chat attachment fix registers a file selector; it does not replace the pipeline
+
+- Date: 2026-09-01
+- Decision: register `AndroidWebViewController.setOnShowFileSelector` in
+  `webview_android.dart` and change nothing about how a chosen image becomes a
+  chat attachment.
+- Why: the button was never broken in the page. It dispatches a click at a
+  hidden `<input type="file">`, the WebView asks the host through
+  `WebChromeClient.onShowFileChooser`, and with no handler registered the
+  plugin returns `false` and Android shows nothing at all — silently. The
+  data-URL pipeline behind it already worked.
+- Consequence: the picker is Android's own (system photo picker on 33+,
+  `ACTION_OPEN_DOCUMENT` below), so no storage permission is requested and
+  `MANAGE_EXTERNAL_STORAGE` stays exactly as the log export left it.
+
+
 ## PocketClaw owns the GitHub credential, and the Keystore owns its key
 
 - Date: 2026-08-31

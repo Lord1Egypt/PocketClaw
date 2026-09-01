@@ -146,4 +146,63 @@ void main() {
       );
     });
   });
+
+  group('openWhatsAppSelfChat', () {
+    test('the host contract exposes it to the console', () {
+      final script = PocketClawHostBridge.bootstrapScript(
+        onboardingConfigured: false,
+      );
+
+      expect(script, contains('openWhatsAppSelfChat: function'));
+      expect(script, contains("type: 'openWhatsAppSelfChat'"));
+      expect(script, contains('selfNumber: selfNumber'));
+      expect(script, contains('message: message'));
+    });
+
+    test('a well-formed request carries the number and the message', () {
+      final request = PocketClawHostBridge.parseMessage(
+        jsonEncode({
+          'type': 'openWhatsAppSelfChat',
+          'selfNumber': ' +201012345678 ',
+          'message': 'PocketClaw WhatsApp test',
+        }),
+      );
+
+      expect(request, isNotNull);
+      expect(request!.kind, HostRequestKind.openWhatsAppSelfChat);
+      expect(request.selfNumber, '+201012345678');
+      expect(request.message, 'PocketClaw WhatsApp test');
+    });
+
+    test('unicode reaches the host exactly as the console wrote it', () {
+      const message = 'مرحبا من PocketClaw 🦞';
+
+      final request = PocketClawHostBridge.parseMessage(
+        jsonEncode({
+          'type': 'openWhatsAppSelfChat',
+          'selfNumber': '+201012345678',
+          'message': message,
+        }),
+      );
+
+      expect(request!.message, message);
+    });
+
+    test('an incomplete request is dropped rather than half-acted-on', () {
+      for (final payload in <Map<String, Object?>>[
+        {'type': 'openWhatsAppSelfChat'},
+        {'type': 'openWhatsAppSelfChat', 'selfNumber': '+201012345678'},
+        {'type': 'openWhatsAppSelfChat', 'message': 'hi'},
+        {'type': 'openWhatsAppSelfChat', 'selfNumber': '', 'message': 'hi'},
+        {'type': 'openWhatsAppSelfChat', 'selfNumber': '+2010', 'message': '  '},
+        {'type': 'openWhatsAppSelfChat', 'selfNumber': 201012345678, 'message': 'hi'},
+      ]) {
+        expect(
+          PocketClawHostBridge.parseMessage(jsonEncode(payload)),
+          isNull,
+          reason: 'accepted $payload',
+        );
+      }
+    });
+  });
 }
