@@ -119,5 +119,14 @@
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
         </intent>
+        <!--
+          WhatsApp Self-Chat. Android 11+ hides installed packages unless they
+          are declared here, so without these two the app is invisible and
+          "which WhatsApp is installed" always answers "neither". Named
+          explicitly rather than by a broad intent filter: PocketClaw needs to
+          know about these two packages and nothing else.
+        -->
+        <package android:name="com.whatsapp"/>
+        <package android:name="com.whatsapp.w4b"/>
     </queries>
 </manifest>

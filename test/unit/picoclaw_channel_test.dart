@@ -187,4 +187,76 @@ void main() {
     expect(result.publicMode, isFalse);
     expect(result.message, contains('Could not enable'));
   });
+
+  group('openWhatsAppSelfChat', () {
+    test('sends the number and the message to the host', () async {
+      MethodCall? observed;
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, (call) async {
+            observed = call;
+            return null;
+          });
+
+      await PicoClawChannel.openWhatsAppSelfChat(
+        selfNumber: '+201012345678',
+        message: 'مرحبا من PocketClaw 🦞',
+      );
+
+      expect(observed?.method, 'openWhatsAppSelfChat');
+      expect(observed?.arguments, <String, Object?>{
+        'selfNumber': '+201012345678',
+        'message': 'مرحبا من PocketClaw 🦞',
+      });
+    });
+
+    test('a host failure surfaces its reason instead of passing silently',
+        () async {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, (call) async {
+            throw PlatformException(
+              code: 'not_installed',
+              message: 'WhatsApp is not installed on this device',
+            );
+          });
+
+      await expectLater(
+        PicoClawChannel.openWhatsAppSelfChat(
+          selfNumber: '+201012345678',
+          message: 'hello',
+        ),
+        throwsA(
+          isA<PlatformException>().having((e) => e.code, 'code', 'not_installed'),
+        ),
+      );
+    });
+  });
+
+  group('pickChatImage', () {
+    test('passes the page accept types through and returns the chosen uri',
+        () async {
+      MethodCall? observed;
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, (call) async {
+            observed = call;
+            return 'content://media/picker/0/com.android.providers.media.photopicker/media/42';
+          });
+
+      final uri = await PicoClawChannel.pickChatImage(
+        acceptTypes: const <String>['image/jpeg', 'image/png'],
+      );
+
+      expect(observed?.method, 'pickChatImage');
+      expect(observed?.arguments, <String, Object?>{
+        'acceptTypes': <String>['image/jpeg', 'image/png'],
+      });
+      expect(uri, startsWith('content://'));
+    });
+
+    test('a cancelled picker returns null rather than an error', () async {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, (call) async => null);
+
+      expect(await PicoClawChannel.pickChatImage(), isNull);
+    });
+  });
 }

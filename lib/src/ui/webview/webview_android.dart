@@ -1,9 +1,13 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter/gestures.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+import 'package:webview_flutter_android/webview_flutter_android.dart';
+
+import 'package:pocketclaw/src/core/picoclaw_channel.dart';
 
 import 'package:pocketclaw/src/telegram/telegram_onboarding_config.dart';
 import 'package:pocketclaw/src/ui/telegram_onboarding_launcher.dart';
@@ -88,6 +92,11 @@ class _WebViewAndroidState extends State<WebViewAndroid>
         final url = request.url;
         if (url == null || !_isConsoleOrigin) return;
         await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+      case HostRequestKind.openWhatsAppSelfChat:
+        final selfNumber = request.selfNumber;
+        final message = request.message;
+        if (selfNumber == null || message == null || !_isConsoleOrigin) return;
+        await _openWhatsAppSelfChat(selfNumber, message);
     }
   }
 
@@ -102,7 +111,11 @@ class _WebViewAndroidState extends State<WebViewAndroid>
         unawaited(_injectHost());
       }),
     );
-    _controller = WebViewController()
+    final controller = WebViewController.fromPlatformCreationParams(
+      WebViewPlatform.instance is AndroidWebViewPlatform
+          ? AndroidWebViewControllerCreationParams()
+          : const PlatformWebViewControllerCreationParams(),
+    )
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setBackgroundColor(Colors.white)
       ..addJavaScriptChannel(
@@ -144,7 +157,75 @@ class _WebViewAndroidState extends State<WebViewAndroid>
           },
         ),
       );
-    _controller!.loadRequest(Uri.parse(widget.url));
+    // Chat's image attachment is a hidden `<input type="file">` in the
+    // console. Android shows a chooser for it only if the host answers
+    // `WebChromeClient.onShowFileChooser`; with no handler registered the
+    // WebView asks, nobody answers, and the button does nothing at all —
+    // which is exactly what the attachment icon did.
+    final platform = controller.platform;
+    if (platform is AndroidWebViewController) {
+      unawaited(platform.setOnShowFileSelector(_onShowFileSelector));
+    }
+
+    _controller = controller;
+    controller.loadRequest(Uri.parse(widget.url));
+  }
+
+  /// Hands the page a file the user chose from Android's own picker.
+  ///
+  /// Returning an empty list is how "cancelled" is expressed: the WebView
+  /// clears the pending input and Chat carries on with no attachment. Anything
+  /// that goes wrong ends the same way rather than throwing across the
+  /// platform boundary and leaving the input stuck forever.
+  ///
+  /// Neither the chosen URI nor the file's contents are logged.
+  Future<List<String>> _onShowFileSelector(FileSelectorParams params) async {
+    try {
+      final uri = await PicoClawChannel.pickChatImage(
+        acceptTypes: params.acceptTypes,
+      );
+      if (uri == null || uri.isEmpty) {
+        _logLifecycle('chat.attachment.picker', {'result': 'cancelled'});
+        return const <String>[];
+      }
+      _logLifecycle('chat.attachment.picker', {'result': 'selected'});
+      return <String>[uri];
+    } on PlatformException catch (e) {
+      _logLifecycle('chat.attachment.picker', {
+        'result': 'failed',
+        'reason': e.code,
+      });
+      return const <String>[];
+    } on MissingPluginException {
+      // The console also renders on desktop builds, where no picker exists.
+      _logLifecycle('chat.attachment.picker', {'result': 'unavailable'});
+      return const <String>[];
+    }
+  }
+
+  /// Opens WhatsApp on the user's own chat with the message prepared.
+  ///
+  /// The message is never logged, and the number is never logged in full.
+  Future<void> _openWhatsAppSelfChat(String selfNumber, String message) async {
+    try {
+      await PicoClawChannel.openWhatsAppSelfChat(
+        selfNumber: selfNumber,
+        message: message,
+      );
+      _logLifecycle('whatsapp.self_chat', {
+        'result': 'opened',
+        'message_chars': message.runes.length,
+      });
+    } on PlatformException catch (e) {
+      _logLifecycle('whatsapp.self_chat', {
+        'result': 'failed',
+        'reason': e.code,
+      });
+      if (!mounted) return;
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        SnackBar(content: Text(e.message ?? e.code)),
+      );
+    }
   }
 
   @override

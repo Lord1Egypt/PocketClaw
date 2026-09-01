@@ -15,6 +15,7 @@ import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.lord1egypt.pocketclaw.PicoClawApp
 import com.lord1egypt.pocketclaw.MainActivity
+import com.lord1egypt.pocketclaw.whatsapp.HostRequestWatcher
 import java.io.BufferedReader
 import java.io.File
 import java.io.FileOutputStream
@@ -220,6 +221,12 @@ class PicoClawService : Service() {
                 "POCKETCLAW_RUNTIME_LIB_DIR" to runtimeLibDir,
                 "POCKETCLAW_RUNTIME_DIR" to runtimeMetadataDir.absolutePath,
                 "POCKETCLAW_ANDROID_BRIDGE_TOKEN" to androidBridgeToken,
+                // Where Core drops a request when the agent asks the host to
+                // open WhatsApp. Core cannot start an Activity from a child
+                // process; this directory is how it asks the app to. It is
+                // app-private, so no port is opened and no token is needed.
+                HostRequestWatcher.ENV_OUTBOX to
+                    HostRequestWatcher.outboxDir(context).absolutePath,
                 "PICOCLAW_CHANNELS_PICO_TOKEN" to picoTokenForHost(context),
                 "TMPDIR" to tmpDir.absolutePath,
                 "PATH" to "/system/bin:/system/xbin",
@@ -401,10 +408,21 @@ class PicoClawService : Service() {
     private var restartCount = 0
     private val maxRestartAttempts = 3 // 最大重启次数
 
+    /**
+     * Serves the requests Core writes when the agent calls
+     * `whatsapp_self_chat`. It lives here because this service outlives the
+     * Activity and is alive for exactly as long as Core is.
+     */
+    private var hostRequestWatcher: HostRequestWatcher? = null
+
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onCreate() {
         super.onCreate()
+        hostRequestWatcher = HostRequestWatcher(
+            applicationContext,
+            HostRequestWatcher.outboxDir(applicationContext),
+        ).also { it.start() }
         Log.i(TAG, "Service created")
     }
 
@@ -436,6 +454,8 @@ class PicoClawService : Service() {
     }
 
     override fun onDestroy() {
+        hostRequestWatcher?.stop()
+        hostRequestWatcher = null
         stopService()
         releaseWakeLock()
         isRunning = false

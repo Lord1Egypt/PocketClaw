@@ -209,6 +209,37 @@ class PicoClawChannel {
     return result ?? false;
   }
 
+  /// Opens WhatsApp on the user's own chat with [message] prepared.
+  ///
+  /// Never sends. The Intent hands the text to WhatsApp and stops there; the
+  /// Send button belongs to the user. Throws a [PlatformException] whose code
+  /// names why nothing opened — `not_installed`, `invalid_number`,
+  /// `start_failed` — so the caller can say something useful instead of
+  /// failing silently the way the old WhatsApp cards did.
+  static Future<void> openWhatsAppSelfChat({
+    required String selfNumber,
+    required String message,
+  }) async {
+    await _channel.invokeMethod<void>('openWhatsAppSelfChat', {
+      'selfNumber': selfNumber,
+      'message': message,
+    });
+  }
+
+  /// Opens the Android photo picker and returns the chosen image as a URI
+  /// string, or null when the user cancelled.
+  ///
+  /// [acceptTypes] are the MIME types the requesting page asked for; an empty
+  /// list means "any image". The returned URI is readable by this process for
+  /// as long as it lives, which is what the WebView needs to read the file.
+  static Future<String?> pickChatImage({
+    List<String> acceptTypes = const <String>[],
+  }) async {
+    return _channel.invokeMethod<String>('pickChatImage', {
+      'acceptTypes': acceptTypes,
+    });
+  }
+
   static Future<String> getFullLog() async {
     final result = await _channel.invokeMethod<String>('getFullLog');
     return result ?? '';

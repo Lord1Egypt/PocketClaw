@@ -7,6 +7,7 @@ import android.os.Bundle
 import android.os.Environment
 import android.provider.Settings
 import android.util.Log
+import com.lord1egypt.pocketclaw.media.ChatImagePicker
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 
@@ -17,6 +18,16 @@ class MainActivity : FlutterActivity() {
 
     private var methodChannel: PicoClawMethodChannel? = null
 
+    /**
+     * Owns the Chat attachment picker, because only an Activity receives an
+     * Activity result. FlutterActivity is a plain android.app.Activity, so the
+     * androidx result contracts are not available here.
+     */
+    private val chatImagePicker = ChatImagePicker(this)
+
+    /** Guards the all-files-access prompt to one appearance per launch. */
+    private var storageAccessPromptShown = false
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         logIncomingIntent(intent)
@@ -24,7 +35,13 @@ class MainActivity : FlutterActivity() {
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
-        methodChannel = PicoClawMethodChannel(this, flutterEngine)
+        methodChannel = PicoClawMethodChannel(this, flutterEngine, chatImagePicker)
+    }
+
+    @Suppress("DEPRECATION")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        if (chatImagePicker.onActivityResult(requestCode, resultCode, data)) return
+        super.onActivityResult(requestCode, resultCode, data)
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -37,9 +54,16 @@ class MainActivity : FlutterActivity() {
         super.onResume()
         // Android 11+ 需要 MANAGE_EXTERNAL_STORAGE 才能写 Downloads 目录。
         // 若未授予，跳转系统设置页引导用户开启（只弹一次，直到用户授予或主动拒绝）。
+        //
+        // The "only once" the comment describes was never enforced, so every
+        // resume jumped to Settings — including the resume that comes back from
+        // the Chat attachment picker, which made choosing an image look like it
+        // had thrown the user out of the app.
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R &&
+            !storageAccessPromptShown &&
             !Environment.isExternalStorageManager()
         ) {
+            storageAccessPromptShown = true
             try {
                 startActivity(
                     Intent(
@@ -54,6 +78,9 @@ class MainActivity : FlutterActivity() {
     }
 
     override fun cleanUpFlutterEngine(flutterEngine: FlutterEngine) {
+        // A pick still open here can never be answered, and an unanswered pick
+        // leaves the console's file input waiting forever.
+        chatImagePicker.cancelPending()
         methodChannel?.dispose()
         methodChannel = null
         super.cleanUpFlutterEngine(flutterEngine)

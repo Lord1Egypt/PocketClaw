@@ -7,13 +7,23 @@ enum HostRequestKind {
 
   /// A link that must leave the WebView, such as the bot's `t.me` chat.
   openExternal,
+
+  /// Channels → WhatsApp Self-Chat wants WhatsApp opened on the user's own
+  /// number with a message prepared. Never sent.
+  openWhatsAppSelfChat,
 }
 
 class HostRequest {
-  const HostRequest(this.kind, {this.url});
+  const HostRequest(this.kind, {this.url, this.selfNumber, this.message});
 
   final HostRequestKind kind;
   final String? url;
+
+  /// The user's own WhatsApp number, in canonical international form.
+  final String? selfNumber;
+
+  /// The body to place in WhatsApp's compose box. Never logged.
+  final String? message;
 }
 
 /// The contract between the embedded Core console and the Flutter host.
@@ -48,6 +58,13 @@ abstract final class PocketClawHostBridge {
     },
     openExternal: function (url) {
       $channelName.postMessage(JSON.stringify({ type: 'openExternal', url: url }));
+    },
+    openWhatsAppSelfChat: function (selfNumber, message) {
+      $channelName.postMessage(JSON.stringify({
+        type: 'openWhatsAppSelfChat',
+        selfNumber: selfNumber,
+        message: message
+      }));
     }
   };
   window.dispatchEvent(new CustomEvent('pocketclaw:host-ready'));
@@ -161,6 +178,16 @@ abstract final class PocketClawHostBridge {
         if (uri == null || !uri.hasScheme || !uri.hasAuthority) return null;
         if (uri.scheme != 'http' && uri.scheme != 'https') return null;
         return HostRequest(HostRequestKind.openExternal, url: url);
+      case 'openWhatsAppSelfChat':
+        final selfNumber = decoded['selfNumber'];
+        final message = decoded['message'];
+        if (selfNumber is! String || message is! String) return null;
+        if (selfNumber.trim().isEmpty || message.trim().isEmpty) return null;
+        return HostRequest(
+          HostRequestKind.openWhatsAppSelfChat,
+          selfNumber: selfNumber.trim(),
+          message: message,
+        );
       default:
         return null;
     }
