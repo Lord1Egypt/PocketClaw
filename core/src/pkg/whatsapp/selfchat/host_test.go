@@ -148,3 +148,19 @@ func TestHostAvailableFollowsTheEnvironment(t *testing.T) {
 		t.Errorf("HostOutboxDir() = %q", HostOutboxDir())
 	}
 }
+
+// A blocked background activity start does not throw on Android, so the host
+// declines it up front. The tool must relay that as a real reason rather than
+// reporting a window nobody saw.
+func TestOpenReportsThatPocketClawIsInTheBackground(t *testing.T) {
+	dir := t.TempDir()
+	answerOnce(t, dir, "error", "not_foreground")
+
+	err := openInDir(context.Background(), dir, "+201012345678", "hello")
+	if err == nil {
+		t.Fatal("expected an error when the host declines a background start")
+	}
+	if !strings.Contains(err.Error(), "background") {
+		t.Errorf("error = %q, want it to name the background restriction", err)
+	}
+}

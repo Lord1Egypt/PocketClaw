@@ -163,7 +163,11 @@ func hostError(reason string) error {
 	case "invalid_number":
 		return errors.New("whatsapp: the configured self number is not a valid WhatsApp number")
 	case "start_failed":
-		return errors.New("whatsapp: Android refused to open WhatsApp; bring PocketClaw to the foreground and try again")
+		return errors.New("whatsapp: Android refused to open WhatsApp")
+	case "not_foreground":
+		// Android silently drops an activity start from an app with no visible
+		// window, so the host declines rather than reporting a window nobody saw.
+		return errors.New("whatsapp: PocketClaw is in the background, so Android will not let it open WhatsApp; ask the user to open PocketClaw and try again")
 	case "":
 		return errors.New("whatsapp: the Android app could not open WhatsApp")
 	default:

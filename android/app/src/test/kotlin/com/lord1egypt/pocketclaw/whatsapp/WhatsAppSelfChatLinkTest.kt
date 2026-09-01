@@ -1,6 +1,7 @@
 package com.lord1egypt.pocketclaw.whatsapp
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -104,5 +105,22 @@ class WhatsAppSelfChatLinkTest {
             "%D9%85%D8%B1%D8%AD%D8%A8%D8%A7%20%D9%85%D9%86%20PocketClaw%20%F0%9F%A6%9E",
             encoded,
         )
+    }
+
+    @Test
+    fun `a visible window may start an activity`() {
+        // ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND
+        assertTrue(WhatsAppSelfChatLink.canStartActivity(100))
+        assertTrue(WhatsAppSelfChatLink.canStartActivity(50))
+    }
+
+    @Test
+    fun `a foreground service alone may not`() {
+        // A blocked background start returns normally and shows nothing, so
+        // anything short of a visible window has to be refused rather than
+        // reported as opened.
+        assertFalse(WhatsAppSelfChatLink.canStartActivity(125)) // FOREGROUND_SERVICE
+        assertFalse(WhatsAppSelfChatLink.canStartActivity(200)) // VISIBLE
+        assertFalse(WhatsAppSelfChatLink.canStartActivity(400)) // CACHED
     }
 }

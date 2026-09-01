@@ -305,6 +305,8 @@ class PicoClawMethodChannel(
                             result.error(failure, "WhatsApp is not installed on this device", null)
                         WhatsAppSelfChatLauncher.Failure.INVALID_NUMBER ->
                             result.error(failure, "That is not a valid WhatsApp number", null)
+                        WhatsAppSelfChatLauncher.Failure.NOT_FOREGROUND ->
+                            result.error(failure, "Bring PocketClaw to the foreground and try again", null)
                         else ->
                             result.error(failure, "Android would not open WhatsApp", null)
                     }

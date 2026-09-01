@@ -70,6 +70,22 @@ despite its own comment saying it should prompt once. That includes the resume
 returning from the picker, which would have looked like the app ejecting the
 user mid-attachment. It now prompts once per launch.
 
+### Two bugs the gate could not have caught
+
+`FileObserver(File, int)` is API 29. PocketClaw ships minSdk 24, so on anything
+below Android 10 the watcher would have thrown `NoSuchMethodError` in
+`PicoClawService.onCreate` and taken the foreground service — and with it
+Core, Auto-Start and the gateway — down before it started. The path
+constructor is deprecated but universal, and is what ships.
+
+A background activity start does not throw on Android 10+; `startActivity`
+returns normally and nothing appears. The launcher would therefore have
+reported OPENED for a window nobody saw. It now asks
+`ActivityManager.getMyMemoryState` first: a foreground service reports
+importance 125, a visible activity 100, and only the latter earns the start.
+An agent call arriving while PocketClaw is backgrounded is answered with that
+reason instead.
+
 ### Also fixed
 
 `useSidebarChannels` read `appConfig.channels` while `GET /api/config`

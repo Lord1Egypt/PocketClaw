@@ -37,6 +37,25 @@ object WhatsAppSelfChatLink {
     }
 
     /**
+     * Whether an Activity can actually be started right now, given this
+     * process's reported importance.
+     *
+     * Android 10+ blocks a background activity start *silently*: startActivity
+     * returns normally and nothing appears. PocketClaw runs a foreground
+     * service, which raises importance to IMPORTANCE_FOREGROUND_SERVICE (125)
+     * but does not by itself earn the exemption — only a visible activity,
+     * IMPORTANCE_FOREGROUND (100), does. Checking first is what stops the agent
+     * tool reporting OPENED for a window the user never saw.
+     *
+     * @param importance ActivityManager.RunningAppProcessInfo.importance
+     */
+    fun canStartActivity(importance: Int): Boolean =
+        importance <= IMPORTANCE_FOREGROUND
+
+    /** ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND. */
+    private const val IMPORTANCE_FOREGROUND = 100
+
+    /**
      * Returns the canonical digits of an international number, or null when the
      * input is not one.
      *

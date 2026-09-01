@@ -1,5 +1,6 @@
 package com.lord1egypt.pocketclaw.whatsapp
 
+import android.app.ActivityManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -22,6 +23,9 @@ object WhatsAppSelfChatLauncher {
         const val INVALID_NUMBER = "invalid_number"
         const val NOT_INSTALLED = "not_installed"
         const val START_FAILED = "start_failed"
+
+        /** PocketClaw has no visible window, so Android would block the start. */
+        const val NOT_FOREGROUND = "not_foreground"
     }
 
     /**
@@ -35,6 +39,13 @@ object WhatsAppSelfChatLauncher {
 
         val target = WhatsAppSelfChatLink.choosePackage(installedWhatsAppPackages(context))
             ?: return Failure.NOT_INSTALLED
+
+        // Asked before trying, because a blocked background start does not
+        // throw — startActivity returns and nothing happens. Without this the
+        // agent tool would report OPENED for a window nobody saw.
+        if (!WhatsAppSelfChatLink.canStartActivity(currentImportance())) {
+            return Failure.NOT_FOREGROUND
+        }
 
         for (link in WhatsAppSelfChatLink.linksFor(digits, message)) {
             val intent = Intent(Intent.ACTION_VIEW, Uri.parse(link)).apply {
@@ -55,6 +66,12 @@ object WhatsAppSelfChatLauncher {
             }
         }
         return Failure.START_FAILED
+    }
+
+    private fun currentImportance(): Int {
+        val state = ActivityManager.RunningAppProcessInfo()
+        ActivityManager.getMyMemoryState(state)
+        return state.importance
     }
 
     /**

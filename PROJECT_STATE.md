@@ -15,10 +15,10 @@
 
   with `JAVA_HOME=/home/lordegypt/PocketCLaw/.tooling/jdk-17` and
   `GRADLE_USER_HOME=/home/lordegypt/PocketClaw-App/.tooling/gradle-stage-a-clean`.
-- Size: 64,297,802 bytes — the ~64 MB arm64 band this app has occupied since the
+- Size: 64,297,286 bytes — the ~64 MB arm64 band this app has occupied since the
   Managed Runtime payloads landed, not the ~50 MB universal band, so
   `-Ptarget-platform=android-arm64` was honoured.
-- SHA-256: `ed637bfb5bff1c307820947a5c32fce250097b5546942370a024ffd6d72fc9ee`
+- SHA-256: `bb7761dd0262ea711e8a2ea9f2503b8ff34364cbda546c73b46973be1fc3587f`
 - Package/version: `com.lord1egypt.pocketclaw`, `0.2.0` (version code `14`),
   minSdk 24, targetSdk 36.
 - Release guard PASS for all eleven required arm64 payloads, plus the appended
@@ -28,15 +28,15 @@
 | Packaged library | Size | SHA-256 |
 | --- | --- | --- |
 | `libdartjni.so` | 131,248 | `47dae44db1c6202d164c0bb2ff25cc661023ba2904a6679abad4f3dcf3fcb5cd` |
-| `libpicoclaw.so` | 37,683,553 | `0eca060a403ed84ed4d86f4dfe5bf71c98df7a7800e203406927ee6c031a80e7` |
-| `libpicoclaw-web.so` | 25,166,177 | `1ed4f0deabb83d20325b0f7ae38436a8ee2820586ede39bd08f7104e98024b24` |
+| `libpicoclaw.so` | 37,683,553 | `cb4d9aa24b437bc4527c62f82a24da73f528d9e6582a56665e6126c96d3fb2f3` |
+| `libpicoclaw-web.so` | 25,166,177 | `ab6ad5d7a424e3a1fdbbc164398d00dc36c35978b5ee2277d9192323f13bc4bb` |
 
 - Core source fingerprint stamped:
-  `61c43820355c26f4bc389bb88478c35ea8973970b3e291661eb8ffc7317d7afe`.
+  `9a03c38717281c5adfeab35ace622603941be45f327ad23a33a3a197b957699b`.
   Developer paths in both binaries: 0.
 - Regression gate, all green on this tree: `go test`/`go vet`
   `-tags goolm,stdjson ./...`; `flutter analyze` clean and 161 Flutter tests;
-  `:app:testReleaseUnitTest` 21 tests; console `tsc`, `eslint`, and 99 vitest
+  `:app:testReleaseUnitTest` 23 tests; console `tsc`, `eslint`, and 99 vitest
   tests.
 - Both WhatsApp packages appear in the merged manifest's `<queries>`, which is
   what makes package detection answer anything but "neither" on Android 11+.

@@ -43,7 +43,12 @@ class HostRequestWatcher(private val context: Context, private val directory: Fi
         // CLOSE_WRITE alone would miss the requests Core stages and renames,
         // which is how it avoids ever exposing a half-written file.
         val mask = FileObserver.CLOSE_WRITE or FileObserver.MOVED_TO
-        val watcher = object : FileObserver(directory, mask) {
+        // The File constructor is API 29, and PocketClaw ships minSdk 24, where
+        // it would take the whole foreground service down with a
+        // NoSuchMethodError before Core ever starts. The path constructor is
+        // deprecated on newer releases but present on every one of them.
+        @Suppress("DEPRECATION")
+        val watcher = object : FileObserver(directory.absolutePath, mask) {
             override fun onEvent(event: Int, path: String?) {
                 if (path == null) return
                 serve(path)
