@@ -1,5 +1,82 @@
 # Development Changelog
 
+## 2026-09-01 — WhatsApp Self-Chat, and the Chat attachment button that did nothing
+
+Branch `feature/whatsapp-self-chat`. **Built and gated; physical acceptance
+pending.** Not merged, `main` untouched, no tags moved.
+
+### One WhatsApp entry, and one value
+
+Channels showed "WhatsApp" and "WhatsApp Native". Both opened onto a bridge URL
+and a session store path — configuration a phone user cannot supply for the
+device the app is running on. Both are gone from the console. In their place is
+WhatsApp Self-Chat, which stores the user's own number in canonical
+international form and nothing else.
+
+`Normalize` accepts `+20 101 234 5678`, `0020-101-234-5678` and
+`201012345678`, because each names its country. It refuses `0101 234 5678`: the
+leading trunk zero belongs to a national plan, and guessing the country from a
+locale would quietly point the feature at a stranger's chat. The same rule is
+implemented in Go for what Core reads off disk and in TypeScript for what the
+console accepts, and both are tested against the same table.
+
+The bridge and native transports were **not** deleted. `pkg/gateway` blank-imports
+them, `Manager.channelReadiness` splits them on `use_native`, `config` types
+them, `pkg/migrate/sources/openclaw` reads `channels.whatsapp.bridge_url`, and
+six test files exercise them. Removing them would break installs that already
+work. They are only no longer offered.
+
+### Opened is not sent
+
+The `whatsapp_self_chat` tool takes one argument, requires a configured number,
+caps the body at 4096 characters, and returns `OPENED` with an explicit "it has
+NOT been sent". Its description says the same thing, because the description is
+all the model reads before deciding to call it. A test asserts the result never
+claims delivery.
+
+Neither the number nor the message body reaches the logs — only
+`message_chars` and a status — and that is checked by capturing the log file
+during a real call rather than by reading the call site.
+
+### Core cannot start an Activity
+
+So it asks. The tool writes `req-<id>.json` into an app-private directory named
+by `POCKETCLAW_ANDROID_HOST_OUTBOX` and waits for `res-<id>.json`; a
+`FileObserver` in the foreground service serves it and answers every request it
+consumes, including the ones it cannot serve, so the tool reports a real reason
+instead of a timeout. A request that is abandoned is deleted, because one left
+behind would open WhatsApp out of the blue the next time the host started.
+
+No socket, no token: the directory is reachable only by this UID.
+
+### The attachment button
+
+It was never wired to anything on the host side. The console's composer
+dispatches a click at a hidden `<input type="file">`, and the Android WebView
+asks the host through `WebChromeClient.onShowFileChooser`.
+`webview_android.dart` built a plain `WebViewController` and never called
+`AndroidWebViewController.setOnShowFileSelector`, so the plugin's
+`onShowFileChooser` returned `false` and Android showed nothing — no error, no
+picker, no log line. Registering the selector is the entire fix. The media
+pipeline that turns the chosen file into a chat attachment was already correct
+and is untouched.
+
+The picker is the system photo picker on Android 13+ and `ACTION_OPEN_DOCUMENT`
+below it. Neither needs a storage permission, so none was added.
+
+`MainActivity.onResume` had a related defect: it jumped to the all-files-access
+settings screen on every resume when `MANAGE_EXTERNAL_STORAGE` was missing,
+despite its own comment saying it should prompt once. That includes the resume
+returning from the picker, which would have looked like the app ejecting the
+user mid-attachment. It now prompts once per launch.
+
+### Also fixed
+
+`useSidebarChannels` read `appConfig.channels` while `GET /api/config`
+serialises that field under its `channel_list` JSON tag, so the enabled map was
+always empty and the "configured channels first" ordering never took effect.
+
+
 ## 2026-09-01 — Android DNS for the bundled gh
 
 Branch `feature/secure-github-auth`. **Physically validated and merged to

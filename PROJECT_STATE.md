@@ -1,5 +1,52 @@
 # PocketClaw Project State
 
+## WhatsApp Self-Chat + Chat image attachment APK — BUILT, PHYSICAL PENDING
+
+- Status: **not merged, not device-verified.** Branch `feature/whatsapp-self-chat`
+  off `develop` at `8952c9a5`. `main` untouched, no tags moved, no release.
+- Path: `build/app/outputs/flutter-apk/app-release.apk` (ignored; not committed)
+- Built: 2026-09-01 with the canonical command
+
+      cd android && ./gradlew :app:assembleRelease \
+        -Ptarget-platform=android-arm64 \
+        -Pdart-defines=$(printf '%s' \
+          'POCKETCLAW_ONBOARDING_BASE_URL=https://pocketclaw-telegram-setup-bot-83ai.vercel.app' \
+          | base64 -w0)
+
+  with `JAVA_HOME=/home/lordegypt/PocketCLaw/.tooling/jdk-17` and
+  `GRADLE_USER_HOME=/home/lordegypt/PocketClaw-App/.tooling/gradle-stage-a-clean`.
+- Size: 64,297,802 bytes — the ~64 MB arm64 band this app has occupied since the
+  Managed Runtime payloads landed, not the ~50 MB universal band, so
+  `-Ptarget-platform=android-arm64` was honoured.
+- SHA-256: `ed637bfb5bff1c307820947a5c32fce250097b5546942370a024ffd6d72fc9ee`
+- Package/version: `com.lord1egypt.pocketclaw`, `0.2.0` (version code `14`),
+  minSdk 24, targetSdk 36.
+- Release guard PASS for all eleven required arm64 payloads, plus the appended
+  Python standard library (11,511,845 bytes) and the `pocketclaw_bootstrap`
+  entry point.
+
+| Packaged library | Size | SHA-256 |
+| --- | --- | --- |
+| `libdartjni.so` | 131,248 | `47dae44db1c6202d164c0bb2ff25cc661023ba2904a6679abad4f3dcf3fcb5cd` |
+| `libpicoclaw.so` | 37,683,553 | `0eca060a403ed84ed4d86f4dfe5bf71c98df7a7800e203406927ee6c031a80e7` |
+| `libpicoclaw-web.so` | 25,166,177 | `1ed4f0deabb83d20325b0f7ae38436a8ee2820586ede39bd08f7104e98024b24` |
+
+- Core source fingerprint stamped:
+  `61c43820355c26f4bc389bb88478c35ea8973970b3e291661eb8ffc7317d7afe`.
+  Developer paths in both binaries: 0.
+- Regression gate, all green on this tree: `go test`/`go vet`
+  `-tags goolm,stdjson ./...`; `flutter analyze` clean and 161 Flutter tests;
+  `:app:testReleaseUnitTest` 21 tests; console `tsc`, `eslint`, and 99 vitest
+  tests.
+- Both WhatsApp packages appear in the merged manifest's `<queries>`, which is
+  what makes package detection answer anything but "neither" on Android 11+.
+- The retired `whatsapp` and `whatsapp_native` names are absent from the
+  embedded console bundle in every locale; `whatsapp_self_chat` is present in
+  both Core binaries.
+- Physical acceptance is the gate. Nothing in this milestone is proven until the
+  device runs the WhatsApp and Chat-attachment steps in `SESSION_HANDOFF.md`.
+
+
 ## Secure GitHub auth — PHYSICAL PASS and merged, 2026-09-01
 
 Branch `feature/secure-github-auth`. **Physically validated inside the installed

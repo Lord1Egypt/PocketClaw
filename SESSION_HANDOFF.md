@@ -1,5 +1,86 @@
 # PocketClaw Session Handoff
 
+## WhatsApp Self-Chat + Chat image attachment — BUILT, PHYSICAL PENDING
+
+Branch `feature/whatsapp-self-chat`, off `develop` at `8952c9a5`. **Not merged.**
+`main` untouched, no tags moved, no release created. The full regression gate is
+green and the arm64 APK is built; nothing here is proven until the device says
+so.
+
+### What changed
+
+The console offered two WhatsApp cards, "WhatsApp" and "WhatsApp Native", whose
+first questions were a bridge URL and a session store path. A phone user has
+neither, so neither card could be completed on the device the app runs on. One
+card replaces them, and it stores exactly one value: the user's own number in
+canonical international form.
+
+Nothing reads WhatsApp, keeps a session, scrapes, automates taps, or presses
+Send. The host opens a deep link and stops. The agent tool reports `OPENED`, and
+its description says so, because the model must never tell a user a message was
+delivered when it is sitting in a compose box.
+
+The old transports were audited before anything was removed and **kept**: the
+gateway blank-imports both packages, `Manager` splits them by `use_native`, the
+config types them, the OpenClaw importer reads `channels.whatsapp.bridge_url`,
+and six test files cover them. An install that already configured one keeps
+working — it is only no longer offered.
+
+### Chat attachment root cause
+
+Not a permission problem, and not a rewrite. The attachment button in the
+console's composer dispatches a click at a hidden `<input type="file">`; the
+Android WebView then asks the host through
+`WebChromeClient.onShowFileChooser`. Nobody answered: `webview_android.dart`
+built a plain `WebViewController` and never registered
+`AndroidWebViewController.setOnShowFileSelector`. With no handler,
+`onShowFileChooser` returns `false` and Android shows nothing at all — exactly
+the reported symptom. Registering the selector is the fix; the existing
+data-URL media pipeline is untouched.
+
+The picker is Android's own — the system photo picker on 33+, and
+`ACTION_OPEN_DOCUMENT` below it. Neither needs a storage permission, so none is
+requested and `MANAGE_EXTERNAL_STORAGE` is unchanged from what the log export
+already had.
+
+One adjacent defect had to go with it: `MainActivity.onResume` jumped to the
+all-files-access settings screen on **every** resume when the permission was
+missing, despite a comment saying it should prompt once. That includes the
+resume that returns from the picker, which would have read as the app throwing
+the user out. It now prompts once per launch.
+
+### How Core reaches Android
+
+Core runs as a child process of the app and cannot start an Activity. The agent
+tool writes `req-<id>.json` into an app-private directory named by
+`POCKETCLAW_ANDROID_HOST_OUTBOX` and reads back `res-<id>.json`; a `FileObserver`
+in the foreground service serves it. No port is opened and no token is needed —
+the directory is reachable only by this UID. The console's Test button does not
+use this path: it goes through the existing JavaScript host bridge, the same one
+Telegram onboarding uses.
+
+| Artifact | Value |
+|---|---|
+| APK | `build/app/outputs/flutter-apk/app-release.apk`, 64,297,802 bytes, versionCode 14 |
+| APK SHA-256 | `ed637bfb5bff1c307820947a5c32fce250097b5546942370a024ffd6d72fc9ee` |
+| `libpicoclaw.so` | 37,683,553 `0eca060a403ed84ed4d86f4dfe5bf71c98df7a7800e203406927ee6c031a80e7` |
+| `libpicoclaw-web.so` | 25,166,177 `1ed4f0deabb83d20325b0f7ae38436a8ee2820586ede39bd08f7104e98024b24` |
+| Core source fingerprint | `61c43820355c26f4bc389bb88478c35ea8973970b3e291661eb8ffc7317d7afe` |
+
+### Physical acceptance — REQUIRED BEFORE MERGE
+
+WhatsApp: one WhatsApp entry in Channels and no "WhatsApp" / "WhatsApp Native";
+configure the number; reopen the app and confirm it persisted; Settings Test
+prepares `PocketClaw WhatsApp test` **unsent**; the agent tool prepares
+`PocketClaw Agent Test` in the same chat; `مرحبا من PocketClaw 🦞` arrives
+intact; after Disconnect the tool reports not configured.
+
+Chat: the attachment button opens the Android picker; a JPEG and a PNG each come
+back into Chat and reach the agent; cancelling returns to Chat with no phantom
+attachment and no crash; Debug Logs carry no image bytes, no WhatsApp message
+body, and no GitHub credential regression.
+
+
 ## Secure GitHub auth — PHYSICAL PASS and merged, 2026-09-01
 
 Branch `feature/secure-github-auth`. **Physically validated inside the installed

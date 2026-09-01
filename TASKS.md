@@ -1,5 +1,36 @@
 # PocketClaw Tasks
 
+## WhatsApp Self-Chat + Chat image attachment
+
+- [x] Audit the two existing WhatsApp implementations before removing anything;
+  record that both are load-bearing and keep them.
+- [x] Replace the "WhatsApp" and "WhatsApp Native" catalog entries with one
+  WhatsApp Self-Chat entry and remove every UI arm for the old two.
+- [x] Store one value — the user's own number in canonical international form —
+  and validate it identically in Go and TypeScript.
+- [x] Build the Connect / Test / Change / Disconnect surface with no bridge URL,
+  session store path, WebSocket URL, or QR session database.
+- [x] Add the `whatsapp_self_chat` agent tool: configured number required,
+  non-empty message required, bounded length, `OPENED` not `SENT`.
+- [x] Reach Android from Core over an app-private request/reply directory, with
+  a `FileObserver` in the foreground service; no port, no token.
+- [x] Prefer regular WhatsApp, fall back to Business, report neither installed;
+  declare both packages in `<queries>`.
+- [x] Keep the number and the message body out of the logs, and prove it by
+  capturing the log file during a real call.
+- [x] Trace the Chat attachment failure to its actual cause rather than
+  replacing the implementation.
+- [x] Register `setOnShowFileSelector` and route the pick through Android's own
+  photo picker / document picker, adding no storage permission.
+- [x] Handle cancel, unsupported type, unreadable file, and an Activity torn
+  down mid-pick without a crash or a phantom attachment.
+- [x] Full regression gate green; forced-arm64 APK built with versionCode 14.
+- [ ] **Physical acceptance on a device — the merge gate.** Both halves must
+  pass; see `SESSION_HANDOFF.md` for the steps.
+- [ ] Merge `feature/whatsapp-self-chat` into `develop` and push, only after
+  both physical passes. Do not touch `main`, move tags, or create a release.
+
+
 ## Secure GitHub Authentication
 
 - [x] Audit the existing architecture before editing: the Android bridge, Core
