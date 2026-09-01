@@ -1,5 +1,19 @@
 # PocketClaw Decisions
 
+## A surface that shows its own apply state reports the outcome, not a toast
+
+- Date: 2026-09-01
+- Decision: `saveAndApplyGatewayConfig` takes an optional `onOutcome`. When a
+  caller passes it, the helper delegates reporting and raises none of its own
+  toasts. Callers that do not pass it behave exactly as before.
+- Why: WhatsApp Self-Chat must never tell the user to restart anything by hand,
+  and the shared deferred toast ends "Use Restart Gateway when you are ready".
+  Suppressing that for one caller without giving it a way to say what happened
+  would have left the card silent about a deferred apply.
+- Consequence: the restart decision, the idle wait and the coalescing all stay
+  in one place. Only the sentence shown to the user moves.
+
+
 ## The retired WhatsApp transports stay in the code and leave the console
 
 - Date: 2026-09-01

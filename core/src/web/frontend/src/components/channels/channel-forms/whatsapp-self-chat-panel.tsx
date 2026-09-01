@@ -1,6 +1,8 @@
 import {
+  IconAlertTriangle,
   IconBrandWhatsapp,
   IconCircleCheckFilled,
+  IconLoader2,
   IconPencil,
   IconPlugConnected,
   IconPlugConnectedX,
@@ -25,12 +27,19 @@ import {
   getPocketClawHost,
   isWhatsAppSelfChatAvailable,
 } from "@/lib/pocketclaw-host"
+import type { ApplyOutcome } from "@/lib/restart-required"
 
 interface WhatsAppSelfChatPanelProps {
   config: ChannelConfig
-  /** Persists the whole channel block. The panel owns its own draft, so the
-   * page-level Save/Reset footer never competes with Connect and Disconnect. */
-  onPersist: (nextConfig: ChannelConfig) => Promise<void>
+  /**
+   * Persists the whole channel block and applies it through the gateway's safe
+   * config-apply path. The panel owns its own draft, so the page-level
+   * Save/Reset footer never competes with Connect and Disconnect.
+   *
+   * Resolves with what actually happened, so the card can say it rather than
+   * leaving the user to guess — or, worse, claim a state that is not true.
+   */
+  onPersist: (nextConfig: ChannelConfig) => Promise<ApplyOutcome>
 }
 
 function asString(value: unknown): string {
@@ -68,6 +77,7 @@ export function WhatsAppSelfChatPanel({
   const [editing, setEditing] = useState(false)
   const [error, setError] = useState("")
   const [busy, setBusy] = useState(false)
+  const [outcome, setOutcome] = useState<ApplyOutcome | null>(null)
 
   // The host injects itself after the page loads, which can land after React
   // has already rendered. Without this the console would decide "no host" once
@@ -96,13 +106,55 @@ export function WhatsAppSelfChatPanel({
   const persist = useCallback(
     async (selfNumber: string) => {
       setBusy(true)
+      setOutcome(null)
       try {
-        await onPersist({ ...config, self_number: selfNumber })
+        setOutcome(await onPersist({ ...config, self_number: selfNumber }))
       } finally {
         setBusy(false)
       }
     },
     [config, onPersist],
+  )
+
+  /**
+   * What the card says about applying the change.
+   *
+   * The number itself is read from the configuration on every use, so a saved
+   * number is in effect whether or not the gateway restarted. What a deferred
+   * or failed apply means is that the *rest* of the gateway has not picked the
+   * save up yet — which is worth saying, and is never a reason to ask the user
+   * to restart something by hand.
+   */
+  const applyStatus = busy
+    ? { key: "channels.whatsappSelfChat.applying", tone: "pending" as const }
+    : outcome === "not_applied"
+      ? {
+          key: "channels.whatsappSelfChat.applyDeferred",
+          tone: "pending" as const,
+        }
+      : outcome === "failed"
+        ? {
+            key: "channels.whatsappSelfChat.applyFailed",
+            tone: "warning" as const,
+          }
+        : null
+
+  const applyStatusLine = applyStatus && (
+    <p
+      className={`flex items-center gap-2 text-sm ${
+        applyStatus.tone === "warning"
+          ? "text-amber-600"
+          : "text-muted-foreground"
+      }`}
+      data-testid={`whatsapp-self-chat-apply-${applyStatus.tone}`}
+    >
+      {applyStatus.tone === "pending" ? (
+        <IconLoader2 className="size-4 animate-spin" />
+      ) : (
+        <IconAlertTriangle className="size-4" />
+      )}
+      {t(applyStatus.key)}
+    </p>
   )
 
   const handleConnect = useCallback(async () => {
@@ -165,6 +217,8 @@ export function WhatsAppSelfChatPanel({
 
             {numberField}
 
+            {applyStatusLine}
+
             <div className="flex flex-wrap gap-2 pt-1">
               <Button onClick={() => void handleConnect()} disabled={busy}>
                 <IconPlugConnected />
@@ -178,6 +232,7 @@ export function WhatsAppSelfChatPanel({
                     setDraft(storedNumber)
                     setEditing(false)
                     setError("")
+                    setOutcome(null)
                   }}
                 >
                   {t("common.cancel")}
@@ -214,6 +269,8 @@ export function WhatsAppSelfChatPanel({
             {t("channels.whatsappSelfChat.neverSends")}
           </p>
 
+          {applyStatusLine}
+
           <div className="flex flex-wrap gap-2 pt-1">
             {canTest && (
               <Button onClick={handleTest} disabled={busy}>
@@ -227,6 +284,7 @@ export function WhatsAppSelfChatPanel({
               onClick={() => {
                 setDraft(storedNumber)
                 setEditing(true)
+                setOutcome(null)
               }}
             >
               <IconPencil />

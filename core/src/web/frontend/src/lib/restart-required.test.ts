@@ -251,3 +251,99 @@ describe("saveAndApplyGatewayConfig when the gateway is not safe to restart", ()
     expect(applyGatewayConfig).toHaveBeenCalledTimes(1)
   })
 })
+
+/**
+ * Surfaces that show their own state.
+ *
+ * WhatsApp Self-Chat says "saved, applying automatically" in the card, and must
+ * never raise a toast telling the user to restart the gateway by hand. Passing
+ * onOutcome hands the reporting to the caller; everything about the restart
+ * decision stays here.
+ */
+describe("saveAndApplyGatewayConfig with onOutcome", () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    applyGatewayConfig.mockResolvedValue({ status: "ok" })
+  })
+
+  it("reports not_required and raises no toast when no restart is needed", async () => {
+    refreshGatewayState.mockResolvedValue(running)
+    const onOutcome = vi.fn()
+
+    await saveAndApplyGatewayConfig(t, {
+      save: async () => undefined,
+      savedMessage: "saved.message",
+      name: "WhatsApp Self-Chat",
+      onOutcome,
+    })
+
+    expect(onOutcome).toHaveBeenCalledWith("not_required")
+    expect(applyGatewayConfig).not.toHaveBeenCalled()
+    expect(toastSuccess).not.toHaveBeenCalled()
+    expect(toastLoading).not.toHaveBeenCalled()
+  })
+
+  it("reports restarted after the gateway comes back", async () => {
+    refreshGatewayState
+      .mockResolvedValueOnce(needsRestart)
+      .mockResolvedValue(running)
+    const onOutcome = vi.fn()
+
+    await saveAndApplyGatewayConfig(t, {
+      save: async () => undefined,
+      savedMessage: "saved.message",
+      name: "WhatsApp Self-Chat",
+      onOutcome,
+    })
+
+    expect(applyGatewayConfig).toHaveBeenCalledTimes(1)
+    expect(onOutcome).toHaveBeenCalledWith("restarted")
+    expect(toastSuccess).not.toHaveBeenCalled()
+  })
+
+  it("reports not_applied for a busy gateway instead of a restart-it-yourself toast", async () => {
+    refreshGatewayState.mockResolvedValue(needsRestart)
+    applyGatewayConfig.mockResolvedValue({ status: "saved_not_applied" })
+    const onOutcome = vi.fn()
+
+    await saveAndApplyGatewayConfig(t, {
+      save: async () => undefined,
+      savedMessage: "saved.message",
+      name: "WhatsApp Self-Chat",
+      onOutcome,
+    })
+
+    expect(onOutcome).toHaveBeenCalledWith("not_applied")
+    expect(toastWarning).not.toHaveBeenCalled()
+    expect(toastError).not.toHaveBeenCalled()
+  })
+
+  it("reports failed when the apply throws", async () => {
+    refreshGatewayState.mockResolvedValue(needsRestart)
+    applyGatewayConfig.mockRejectedValue(new Error("gateway refused"))
+    const onOutcome = vi.fn()
+
+    await saveAndApplyGatewayConfig(t, {
+      save: async () => undefined,
+      savedMessage: "saved.message",
+      name: "WhatsApp Self-Chat",
+      onOutcome,
+    })
+
+    expect(onOutcome).toHaveBeenCalledWith("failed")
+    expect(toastError).not.toHaveBeenCalled()
+  })
+
+  // The toasts every other caller relies on must be untouched.
+  it("leaves callers without onOutcome exactly as they were", async () => {
+    refreshGatewayState.mockResolvedValue(running)
+
+    await saveAndApplyGatewayConfig(t, {
+      save: async () => undefined,
+      savedMessage: "saved.message",
+      name: "Model",
+    })
+
+    expect(toastSuccess).toHaveBeenCalledWith("saved.message")
+  })
+})

@@ -1,5 +1,46 @@
 # Development Changelog
 
+## 2026-09-01 — WhatsApp Self-Chat applies itself
+
+Branch `feature/whatsapp-self-chat`. The device found the one gap the gate
+could not: Connect, Change and Disconnect saved the number and then asked for a
+manual Core restart. Everything else in the milestone passed physically.
+
+The save now goes through `saveAndApplyGatewayConfig` — the same helper the
+models pages use, which calls `POST /api/gateway/apply-config`, which waits for
+the gateway to be idle before restarting it. No new lifecycle code: the busy
+wait, the "unknown is not idle" rule, the two-minute ceiling that ends the wait
+without ever interrupting a turn, and the coalescing of concurrent saves are all
+the machinery that was already there.
+
+What is new is that the card reports the outcome instead of a toast. The shared
+helper takes an optional `onOutcome`; when a caller passes it, the helper skips
+its own toasts — including the one that ends "Use Restart Gateway when you are
+ready", which is exactly what this surface must never say. Callers that do not
+pass it are untouched.
+
+Four states, four truthful answers. A gateway that is stopped, still starting,
+or already running the saved configuration needs no restart and is not touched.
+A busy one is left alone: "Saved and in use. PocketClaw is waiting for the
+gateway to finish what it is doing." A failed apply says PocketClaw could not
+confirm the gateway picked it up. None of them claims the change is live when it
+is not, and none of them asks the user to restart anything.
+
+The number itself was never the thing needing a restart: `ConfiguredNumber`
+reads `config.json` on every tool call, so Connect, Change and Disconnect reach
+the agent tool immediately. `TestWhatsAppSelfChatFollowsTheConfigFileWithout
+ARestart` drives the real provider against a file changing underneath it,
+through Connect, Change and Disconnect, and asserts the tool reports "not
+configured" after the last one. What the restart is for is the rest of the
+gateway, and the console's restart-required indicator.
+
+Tests: seven scenarios through the real apply machinery at the page level —
+Connect, Change and Disconnect while running; a stopped Core; a Core still
+starting; a busy Core deferring; and a failed apply — plus the `onOutcome`
+delegation arm in `restart-required.test.ts` and a table for
+`gatewayRestartRequiredBySignature`, which had none.
+
+
 ## 2026-09-01 — WhatsApp Self-Chat, and the Chat attachment button that did nothing
 
 Branch `feature/whatsapp-self-chat`. **Built and gated; physical acceptance

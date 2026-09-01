@@ -671,7 +671,10 @@
       "errorEmpty": "Enter your WhatsApp number.",
       "errorInvalidChars": "Use digits only, optionally with +, spaces, brackets or dashes.",
       "errorNotInternational": "Enter the number in international format, starting with the country code — for example +20 101 234 5678.",
-      "errorLength": "A WhatsApp number is between 8 and 15 digits, including the country code."
+      "errorLength": "A WhatsApp number is between 8 and 15 digits, including the country code.",
+      "applying": "Saved — applying automatically…",
+      "applyDeferred": "Saved and in use. PocketClaw is waiting for the gateway to finish what it is doing before applying the rest.",
+      "applyFailed": "Saved and in use, but PocketClaw could not confirm the gateway picked it up. It will apply on the next start."
     }
   },
   "pages": {

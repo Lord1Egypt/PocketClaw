@@ -1,6 +1,6 @@
 # PocketClaw Project State
 
-## WhatsApp Self-Chat + Chat image attachment APK — BUILT, PHYSICAL PENDING
+## WhatsApp Self-Chat + Chat image attachment APK — RECHECK PENDING
 
 - Status: **not merged, not device-verified.** Branch `feature/whatsapp-self-chat`
   off `develop` at `8952c9a5`. `main` untouched, no tags moved, no release.
@@ -15,11 +15,11 @@
 
   with `JAVA_HOME=/home/lordegypt/PocketCLaw/.tooling/jdk-17` and
   `GRADLE_USER_HOME=/home/lordegypt/PocketClaw-App/.tooling/gradle-stage-a-clean`.
-- Size: 64,297,286 bytes — the ~64 MB arm64 band this app has occupied since the
+- Size: 64,297,534 bytes — the ~64 MB arm64 band this app has occupied since the
   Managed Runtime payloads landed, not the ~50 MB universal band, so
   `-Ptarget-platform=android-arm64` was honoured.
-- SHA-256: `bb7761dd0262ea711e8a2ea9f2503b8ff34364cbda546c73b46973be1fc3587f`
-- Package/version: `com.lord1egypt.pocketclaw`, `0.2.0` (version code `14`),
+- SHA-256: `2b4e5b56420e847d6fb772deda3fc2f83598b6f4e9868fa6f4fc9d09bbbafe67`
+- Package/version: `com.lord1egypt.pocketclaw`, `0.2.0` (version code `15`),
   minSdk 24, targetSdk 36.
 - Release guard PASS for all eleven required arm64 payloads, plus the appended
   Python standard library (11,511,845 bytes) and the `pocketclaw_bootstrap`
@@ -28,15 +28,15 @@
 | Packaged library | Size | SHA-256 |
 | --- | --- | --- |
 | `libdartjni.so` | 131,248 | `47dae44db1c6202d164c0bb2ff25cc661023ba2904a6679abad4f3dcf3fcb5cd` |
-| `libpicoclaw.so` | 37,683,553 | `cb4d9aa24b437bc4527c62f82a24da73f528d9e6582a56665e6126c96d3fb2f3` |
-| `libpicoclaw-web.so` | 25,166,177 | `ab6ad5d7a424e3a1fdbbc164398d00dc36c35978b5ee2277d9192323f13bc4bb` |
+| `libpicoclaw.so` | 37,683,553 | `fe277e8d821f35fadf3f0c54dee27d89f20cc557fca00d9cfcc1e2c64a8b0a4f` |
+| `libpicoclaw-web.so` | 25,166,177 | `8aef0661ae6c3ab5a2176255ce3d9f6820e9f09d0277fa0969fdf72263c9eb8d` |
 
 - Core source fingerprint stamped:
   `9a03c38717281c5adfeab35ace622603941be45f327ad23a33a3a197b957699b`.
   Developer paths in both binaries: 0.
 - Regression gate, all green on this tree: `go test`/`go vet`
   `-tags goolm,stdjson ./...`; `flutter analyze` clean and 161 Flutter tests;
-  `:app:testReleaseUnitTest` 23 tests; console `tsc`, `eslint`, and 99 vitest
+  `:app:testReleaseUnitTest` 23 tests; console `tsc`, `eslint`, and 112 vitest
   tests.
 - Both WhatsApp packages appear in the merged manifest's `<queries>`, which is
   what makes package detection answer anything but "neither" on Android 11+.

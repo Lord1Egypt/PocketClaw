@@ -1,6 +1,6 @@
 # PocketClaw Session Handoff
 
-## WhatsApp Self-Chat + Chat image attachment — BUILT, PHYSICAL PENDING
+## WhatsApp Self-Chat + Chat image attachment — PHYSICAL PASS except auto-apply, RECHECK PENDING
 
 Branch `feature/whatsapp-self-chat`, off `develop` at `8952c9a5`. **Not merged.**
 `main` untouched, no tags moved, no release created. The full regression gate is
@@ -61,11 +61,40 @@ Telegram onboarding uses.
 
 | Artifact | Value |
 |---|---|
-| APK | `build/app/outputs/flutter-apk/app-release.apk`, 64,297,286 bytes, versionCode 14 |
-| APK SHA-256 | `bb7761dd0262ea711e8a2ea9f2503b8ff34364cbda546c73b46973be1fc3587f` |
-| `libpicoclaw.so` | 37,683,553 `cb4d9aa24b437bc4527c62f82a24da73f528d9e6582a56665e6126c96d3fb2f3` |
-| `libpicoclaw-web.so` | 25,166,177 `ab6ad5d7a424e3a1fdbbc164398d00dc36c35978b5ee2277d9192323f13bc4bb` |
+| APK | `build/app/outputs/flutter-apk/app-release.apk`, 64,297,534 bytes, versionCode 15 |
+| APK SHA-256 | `2b4e5b56420e847d6fb772deda3fc2f83598b6f4e9868fa6f4fc9d09bbbafe67` |
+| `libpicoclaw.so` | 37,683,553 `fe277e8d821f35fadf3f0c54dee27d89f20cc557fca00d9cfcc1e2c64a8b0a4f` |
+| `libpicoclaw-web.so` | 25,166,177 `8aef0661ae6c3ab5a2176255ce3d9f6820e9f09d0277fa0969fdf72263c9eb8d` |
 | Core source fingerprint | `9a03c38717281c5adfeab35ace622603941be45f327ad23a33a3a197b957699b` |
+
+### Physical pass, 2026-09-01, SM-A165F / Android 16
+
+One WhatsApp entry, old entries gone, number configuration, Settings Test
+opening the right self-chat with the right prepared text, no auto-send, the
+image picker opening, and the chosen image returning to Chat as an attachment —
+all **PASS** on the device.
+
+One gap: Connect, Change and Disconnect saved and then asked for a manual Core
+restart. Fixed by routing the Self-Chat save through
+`saveAndApplyGatewayConfig`, the same path the models pages already use. It
+holds the restart until the gateway is idle, so saving a number can never cut
+off an answer, and it never instructs the user to restart anything.
+
+The card now reports what actually happened, because the shared helper takes an
+`onOutcome` callback instead of raising its own toast. A gateway that is
+stopped, still starting, or already running the saved config needs no restart
+and gets none. A busy one is left alone and the card says "Saved and in use…
+waiting for the gateway"; a failed apply says PocketClaw could not confirm it —
+neither claims a state that is not true, and neither tells the user to press
+Restart.
+
+Worth knowing for the recheck: the self number is read from `config.json` on
+**every** tool call, so Connect, Change and Disconnect reach the agent tool
+whether or not the gateway restarted. `TestWhatsAppSelfChatFollowsTheConfigFile
+WithoutARestart` drives that against a file changing underneath it. The
+automatic apply exists so the rest of the gateway catches up and the console
+stops showing a restart-required indicator.
+
 
 ### Two things the device will exercise that the gate cannot
 

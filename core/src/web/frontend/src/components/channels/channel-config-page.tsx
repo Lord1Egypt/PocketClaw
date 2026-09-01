@@ -37,7 +37,11 @@ import { Button } from "@/components/ui/button"
 import { Switch } from "@/components/ui/switch"
 import { useGateway } from "@/hooks/use-gateway"
 import { TELEGRAM_UPDATED_EVENT } from "@/lib/pocketclaw-host"
-import { showSaveSuccessOrRestartToast } from "@/lib/restart-required"
+import {
+  type ApplyOutcome,
+  saveAndApplyGatewayConfig,
+  showSaveSuccessOrRestartToast,
+} from "@/lib/restart-required"
 import { refreshGatewayState } from "@/store/gateway"
 
 interface ChannelConfigPageProps {
@@ -504,33 +508,46 @@ export function ChannelConfigPage({ channelName }: ChannelConfigPageProps) {
   // Persists an explicit config rather than the page's edit draft: the
   // Self-Chat panel owns its own draft so that typing a number never lights up
   // the page-level Save button behind it.
+  //
+  // The apply goes through the same machinery every other configuration change
+  // uses. It holds the restart until the gateway is idle, so saving a number
+  // can never cut off an answer in progress, and it never asks the user to
+  // restart anything by hand.
   const persistChannelConfig = useCallback(
-    async (nextConfig: ChannelConfig) => {
-      if (!channel) return
+    async (nextConfig: ChannelConfig): Promise<ApplyOutcome> => {
+      if (!channel) return "failed"
       setServerError("")
+      let outcome: ApplyOutcome = "failed"
       try {
-        await patchAppConfig({
-          channel_list: {
-            [channel.config_key]: buildSavePayload(
-              channel,
-              nextConfig,
-              enabled,
-            ),
+        await saveAndApplyGatewayConfig(t, {
+          save: async () => {
+            await patchAppConfig({
+              channel_list: {
+                [channel.config_key]: buildSavePayload(
+                  channel,
+                  nextConfig,
+                  enabled,
+                ),
+              },
+            })
+            // Reload before the apply rather than after it, so the card shows
+            // the stored number immediately instead of the old one for however
+            // long the gateway takes to come back.
+            await loadData(true)
+          },
+          savedMessage: t("channels.page.saveSuccess"),
+          name: channelDisplayName,
+          onOutcome: (result) => {
+            outcome = result
           },
         })
-        await loadData()
-        const gateway = await refreshGatewayState({ force: true })
-        showSaveSuccessOrRestartToast(
-          t,
-          t("channels.page.saveSuccess"),
-          channelDisplayName,
-          gateway?.restartRequired === true,
-        )
       } catch (e) {
         setServerError(
           e instanceof Error ? e.message : t("channels.page.saveError"),
         )
+        return "failed"
       }
+      return outcome
     },
     [channel, channelDisplayName, enabled, loadData, t],
   )
