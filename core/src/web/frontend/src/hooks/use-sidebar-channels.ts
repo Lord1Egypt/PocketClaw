@@ -25,6 +25,7 @@ import {
   getChannelsCatalog,
 } from "@/api/channels"
 import { getChannelDisplayName } from "@/components/channels/channel-display-name"
+import { isWhatsAppSelfChatConfigured } from "@/components/channels/channel-forms/whatsapp-self-chat"
 import { gatewayAtom } from "@/store/gateway"
 
 const DEFAULT_VISIBLE_CHANNELS = 4
@@ -39,8 +40,7 @@ const CHANNEL_IMPORTANCE_TAIL = [
   "pico",
   "maixcam",
   "irc",
-  "whatsapp",
-  "whatsapp_native",
+  "whatsapp_self_chat",
 ]
 
 function getChannelImportanceOrder(language: string): string[] {
@@ -76,8 +76,7 @@ const CHANNEL_ICON_MAP: Record<
   qq: IconBrandQq,
   weixin: IconBrandWechat,
   wecom: IconBrandWechat,
-  whatsapp: IconBrandWhatsapp,
-  whatsapp_native: IconBrandWhatsapp,
+  whatsapp_self_chat: IconBrandWhatsapp,
   matrix: IconBrandMatrix,
   maixcam: IconCamera,
   onebot: IconRobot,
@@ -97,16 +96,17 @@ function isChannelEnabled(
   channelsConfig: Record<string, unknown>,
 ): boolean {
   const channelConfig = asRecord(channelsConfig[channel.config_key])
-  if (channelConfig.enabled !== true) {
-    return false
+
+  // Self-Chat has no transport to enable — it is configured exactly when a
+  // self number is stored, so that is what puts it at the top of the list.
+  if (channel.name === "whatsapp_self_chat") {
+    return isWhatsAppSelfChatConfigured(
+      asRecord(channelConfig.settings).self_number ?? channelConfig.self_number,
+    )
   }
 
-  // whatsapp / whatsapp_native share one config block and are split by use_native.
-  if (channel.name === "whatsapp_native") {
-    return channelConfig.use_native === true
-  }
-  if (channel.name === "whatsapp") {
-    return channelConfig.use_native !== true
+  if (channelConfig.enabled !== true) {
+    return false
   }
 
   return true
@@ -116,7 +116,10 @@ function buildChannelEnabledMap(
   channels: SupportedChannel[],
   appConfig: AppConfig,
 ): Record<string, boolean> {
-  const channelsConfig = asRecord(asRecord(appConfig).channels)
+  // GET /api/config serialises Config.Channels under its "channel_list" tag.
+  // Reading "channels" here found nothing, so every channel was reported
+  // disabled and the "configured first" ordering below never took effect.
+  const channelsConfig = asRecord(asRecord(appConfig).channel_list)
   const result: Record<string, boolean> = {}
   for (const channel of channels) {
     result[channel.name] = isChannelEnabled(channel, channelsConfig)

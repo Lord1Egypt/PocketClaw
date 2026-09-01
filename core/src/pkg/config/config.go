@@ -541,6 +541,14 @@ type WhatsAppSettings struct {
 	SessionStorePath string `json:"session_store_path" yaml:"-" env:"PICOCLAW_CHANNELS_WHATSAPP_SESSION_STORE_PATH"`
 }
 
+// WhatsAppSelfChatSettings holds the single value the WhatsApp Self-Chat
+// surface persists: the user's own number in canonical international form
+// (leading "+", digits only). No bridge, no session store, no credentials —
+// the feature only ever hands Android a deep link to the user's own chat.
+type WhatsAppSelfChatSettings struct {
+	SelfNumber string `json:"self_number" yaml:"-" env:"PICOCLAW_CHANNELS_WHATSAPP_SELF_CHAT_SELF_NUMBER"`
+}
+
 type TelegramSettings struct {
 	Token             SecureString    `json:"token,omitzero"       yaml:"token,omitempty" env:"PICOCLAW_CHANNELS_TELEGRAM_TOKEN"`
 	BaseURL           string          `json:"base_url"             yaml:"-"               env:"PICOCLAW_CHANNELS_TELEGRAM_BASE_URL"`

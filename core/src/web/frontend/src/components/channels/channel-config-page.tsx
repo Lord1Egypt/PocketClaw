@@ -29,6 +29,8 @@ import { SlackForm } from "@/components/channels/channel-forms/slack-form"
 import { TelegramPanel } from "@/components/channels/channel-forms/telegram-panel"
 import { WecomForm } from "@/components/channels/channel-forms/wecom-form"
 import { WeixinForm } from "@/components/channels/channel-forms/weixin-form"
+import { isWhatsAppSelfChatConfigured } from "@/components/channels/channel-forms/whatsapp-self-chat"
+import { WhatsAppSelfChatPanel } from "@/components/channels/channel-forms/whatsapp-self-chat-panel"
 import { ConfigChangeNotice } from "@/components/config-change-notice"
 import { PageHeader } from "@/components/page-header"
 import { Button } from "@/components/ui/button"
@@ -102,20 +104,6 @@ const CHANNEL_COMMON_CONFIG_KEYS = new Set([
   "typing",
 ])
 
-function normalizeConfig(
-  channel: SupportedChannel,
-  rawConfig: ChannelConfig,
-): ChannelConfig {
-  const config = { ...rawConfig }
-  if (channel.name === "whatsapp_native") {
-    config.use_native = true
-  }
-  if (channel.name === "whatsapp") {
-    config.use_native = false
-  }
-  return config
-}
-
 function buildSavePayload(
   channel: SupportedChannel,
   editConfig: ChannelConfig,
@@ -156,13 +144,6 @@ function buildSavePayload(
     }
   }
 
-  if (channel.name === "whatsapp_native") {
-    settings.use_native = true
-  }
-  if (channel.name === "whatsapp") {
-    settings.use_native = false
-  }
-
   if (Object.keys(settings).length > 0) {
     payload.settings = settings
   }
@@ -201,10 +182,8 @@ function isConfigured(
       return hasValue("account_id")
     case "wecom":
       return hasValue("bot_id")
-    case "whatsapp":
-      return hasValue("bridge_url")
-    case "whatsapp_native":
-      return asBool(config.use_native)
+    case "whatsapp_self_chat":
+      return isWhatsAppSelfChatConfigured(config.self_number)
     case "pico":
       return hasValue("token")
     case "maixcam":
@@ -244,8 +223,6 @@ function getRequiredFieldKeys(channelName: string): string[] {
       return ["ws_url"]
     case "wecom":
       return []
-    case "whatsapp":
-      return ["bridge_url"]
     case "pico":
       return ["token"]
     case "maixcam":
@@ -329,8 +306,7 @@ export function ChannelConfigPage({ channelName }: ChannelConfigPageProps) {
 
         const channelConfig = await getChannelConfig(channelName)
         if (loadRequestIdRef.current !== requestId) return
-        const raw = asRecord(channelConfig.config)
-        const normalized = normalizeConfig(matched, raw)
+        const normalized = asRecord(channelConfig.config)
 
         setChannel(matched)
         setBaseConfig(normalized)
@@ -399,18 +375,15 @@ export function ChannelConfigPage({ channelName }: ChannelConfigPageProps) {
     return getChannelDisplayName(channel, t)
   }, [channel, channelName, t])
 
-  const hidesPageLevelEnableToggle = channel?.name === "wecom"
+  // WhatsApp Self-Chat is not a transport that runs: it is a stored number the
+  // Android host deep-links to. An Enabled switch and a page-level Save would
+  // both be controls with nothing to act on, so Connect / Change / Disconnect
+  // are the whole page.
+  const isWhatsAppSelfChat = channel?.name === "whatsapp_self_chat"
+  const hidesPageLevelEnableToggle =
+    channel?.name === "wecom" || isWhatsAppSelfChat
 
-  const hiddenKeys = useMemo(() => {
-    if (!channel) return []
-    if (channel.name === "whatsapp") {
-      return ["use_native"]
-    }
-    if (channel.name === "whatsapp_native") {
-      return ["use_native", "bridge_url"]
-    }
-    return []
-  }, [channel])
+  const hiddenKeys = useMemo<string[]>(() => [], [])
   const requiredKeys = useMemo(
     () => getRequiredFieldKeys(channelName),
     [channelName],
@@ -528,6 +501,40 @@ export function ChannelConfigPage({ channelName }: ChannelConfigPageProps) {
     }
   }, [loadData, t])
 
+  // Persists an explicit config rather than the page's edit draft: the
+  // Self-Chat panel owns its own draft so that typing a number never lights up
+  // the page-level Save button behind it.
+  const persistChannelConfig = useCallback(
+    async (nextConfig: ChannelConfig) => {
+      if (!channel) return
+      setServerError("")
+      try {
+        await patchAppConfig({
+          channel_list: {
+            [channel.config_key]: buildSavePayload(
+              channel,
+              nextConfig,
+              enabled,
+            ),
+          },
+        })
+        await loadData()
+        const gateway = await refreshGatewayState({ force: true })
+        showSaveSuccessOrRestartToast(
+          t,
+          t("channels.page.saveSuccess"),
+          channelDisplayName,
+          gateway?.restartRequired === true,
+        )
+      } catch (e) {
+        setServerError(
+          e instanceof Error ? e.message : t("channels.page.saveError"),
+        )
+      }
+    },
+    [channel, channelDisplayName, enabled, loadData, t],
+  )
+
   const handleWecomBindSuccess = useCallback(async () => {
     try {
       setEnabled(true)
@@ -573,6 +580,13 @@ export function ChannelConfigPage({ channelName }: ChannelConfigPageProps) {
             fieldErrors={fieldErrors}
             registerArrayFieldFlusher={registerArrayFieldFlusher}
             arrayFieldResetVersion={arrayFieldResetVersion}
+          />
+        )
+      case "whatsapp_self_chat":
+        return (
+          <WhatsAppSelfChatPanel
+            config={editConfig}
+            onPersist={persistChannelConfig}
           />
         )
       case "discord":
@@ -707,18 +721,20 @@ export function ChannelConfigPage({ channelName }: ChannelConfigPageProps) {
               />
             )}
 
-            <div className="border-border/60 flex justify-end gap-2 border-t py-4">
-              <Button
-                variant="outline"
-                onClick={handleReset}
-                disabled={!isDirty || saving}
-              >
-                {t("common.reset")}
-              </Button>
-              <Button onClick={handleSave} disabled={!isDirty || saving}>
-                {saving ? t("common.saving") : t("common.save")}
-              </Button>
-            </div>
+            {!isWhatsAppSelfChat && (
+              <div className="border-border/60 flex justify-end gap-2 border-t py-4">
+                <Button
+                  variant="outline"
+                  onClick={handleReset}
+                  disabled={!isDirty || saving}
+                >
+                  {t("common.reset")}
+                </Button>
+                <Button onClick={handleSave} disabled={!isDirty || saving}>
+                  {saving ? t("common.saving") : t("common.save")}
+                </Button>
+              </div>
+            )}
           </div>
         )}
       </div>

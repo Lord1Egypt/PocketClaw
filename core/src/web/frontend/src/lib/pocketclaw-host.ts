@@ -16,6 +16,14 @@ export interface PocketClawHost {
   openTelegramOnboarding: () => void
   /** Opens a link outside the WebView. */
   openExternal: (url: string) => void
+  /**
+   * Opens WhatsApp on the given number with `message` prepared in the compose
+   * box. Never sends: the Send button stays in WhatsApp, under the user.
+   *
+   * Optional because a host built before WhatsApp Self-Chat does not have it,
+   * and the console must not offer a button that silently does nothing.
+   */
+  openWhatsAppSelfChat?: (selfNumber: string, message: string) => void
 }
 
 /** Fired by the host once `window.__pocketclawHost` is available. */
@@ -48,4 +56,17 @@ export function isTelegramOnboardingAvailable(
   host: PocketClawHost | null,
 ): boolean {
   return host !== null && host.onboardingConfigured === true
+}
+
+/**
+ * Whether this host can open WhatsApp.
+ *
+ * Self-Chat is an Android Intent, so it exists only inside the app. In an
+ * ordinary browser the console shows the number it has stored and hides Test,
+ * rather than offering an action nothing can perform.
+ */
+export function isWhatsAppSelfChatAvailable(
+  host: PocketClawHost | null,
+): boolean {
+  return host !== null && typeof host.openWhatsAppSelfChat === "function"
 }

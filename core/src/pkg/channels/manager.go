@@ -1206,6 +1206,11 @@ func (m *Manager) getChannelConfigAndEnabled(channelName string) (*config.Channe
 		return bc, settings.GroupID != 0 && settings.Token.String() != ""
 	case *config.MQTTSettings:
 		return bc, settings.Broker != "" && settings.AgentID != ""
+	case *config.WhatsAppSelfChatSettings:
+		// Self-Chat is a deep link the Android host opens, not a transport. It
+		// has no factory and must never be started as a channel, however its
+		// config block is edited.
+		return bc, false
 	}
 
 	return bc, bc.Enabled
