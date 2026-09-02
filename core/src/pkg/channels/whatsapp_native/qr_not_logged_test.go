@@ -33,19 +33,42 @@ func TestPairingCodeNeverReachesStdoutOrLogs(t *testing.T) {
 		}
 	}
 
-	// The code itself is published to the pairing store and nowhere else.
-	// Anything that put evt.Code into a log line would defeat the whole design.
+	// Both pairing credentials — the QR payload and the companion linking code
+	// — are published to the pairing store and go nowhere else. They are named
+	// consistently so this guard can cover both: anything that put either into
+	// a log line would defeat the whole design.
+	credentials := []string{"evt.Code", "linkCode"}
 	for _, line := range strings.Split(text, "\n") {
-		if !strings.Contains(line, "evt.Code") {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "//") {
 			continue
 		}
-		if !strings.Contains(line, "PublishQR") {
-			t.Errorf("evt.Code is used outside PublishQR: %s", strings.TrimSpace(line))
+		if !strings.Contains(line, "logger.") {
+			continue
+		}
+		for _, credential := range credentials {
+			if strings.Contains(line, credential) {
+				t.Errorf("a log line references the pairing credential %s: %s", credential, trimmed)
+			}
 		}
 	}
 
-	if !strings.Contains(text, "c.pairing.PublishQR(evt.Code)") {
-		t.Error("the pairing code is no longer published to the pairing store")
+	// evt.Code may only ever be handed to the pairing store.
+	for _, line := range strings.Split(text, "\n") {
+		trimmed := strings.TrimSpace(line)
+		if !strings.Contains(line, "evt.Code") || strings.HasPrefix(trimmed, "//") {
+			continue
+		}
+		if !strings.Contains(line, "PublishPairing") {
+			t.Errorf("evt.Code is used outside PublishPairing: %s", trimmed)
+		}
+	}
+
+	if !strings.Contains(text, "c.pairing.PublishPairing(evt.Code, linkCode)") {
+		t.Error("the pairing credentials are no longer published to the pairing store")
+	}
+	if !strings.Contains(text, "return linkCode") {
+		t.Error("the companion pairing code is no longer returned to the pairing store")
 	}
 }
 

@@ -15,6 +15,7 @@ import {
   type WhatsAppAgentStatus,
   forgetWhatsAppAgentSession,
   getChannelConfig,
+  getWhatsAppAgentPairCode,
   getWhatsAppAgentStatus,
 } from "@/api/channels"
 import { normalizeWhatsAppNumber } from "@/components/channels/channel-forms/whatsapp-self-chat"
@@ -35,6 +36,17 @@ interface WhatsAppAgentPanelProps {
  * following closely; otherwise a slow poll is enough to notice a drop. */
 const FAST_POLL_MS = 2000
 const IDLE_POLL_MS = 10000
+
+/**
+ * WhatsApp shows companion codes in two groups of four. The value is displayed
+ * grouped and copied whole, so the dash is presentation only and never reaches
+ * the pairing state.
+ */
+function formatPairCode(code: string): string {
+  const trimmed = code.trim()
+  if (trimmed.length !== 8) return trimmed
+  return `${trimmed.slice(0, 4)}-${trimmed.slice(4)}`
+}
 
 const STATE_KEY: Record<WhatsAppAgentStatus["state"], string> = {
   unavailable: "channels.whatsappAgent.stateUnavailable",
@@ -69,6 +81,11 @@ export function WhatsAppAgentPanel({
   // Cache-busts the QR image so a new code replaces the old one in the tab.
   const [qrNonce, setQrNonce] = useState(0)
   const previousHasQR = useRef(false)
+  // The companion code, held only for as long as it is live. It is fetched
+  // separately from the polled status so the polled response carries no
+  // credential, and dropped the moment pairing leaves the pairing state.
+  const [pairCode, setPairCode] = useState("")
+  const [showQrFallback, setShowQrFallback] = useState(false)
 
   const refresh = useCallback(async () => {
     try {
@@ -78,6 +95,18 @@ export function WhatsAppAgentPanel({
         setQrNonce((n) => n + 1)
       }
       previousHasQR.current = next.has_qr
+
+      if (next.has_code) {
+        try {
+          setPairCode((await getWhatsAppAgentPairCode()).code)
+        } catch {
+          setPairCode("")
+        }
+      } else {
+        // Paired, cancelled, timed out or disconnected — the code is dead and
+        // must not stay on screen.
+        setPairCode("")
+      }
     } catch {
       // A failed poll is not worth a visible error: the next tick retries, and
       // the panel keeps showing the last state it actually knew.
@@ -211,19 +240,48 @@ export function WhatsAppAgentPanel({
             )}
           </div>
 
-          {status?.has_qr && (
+          {pairCode !== "" && (
             <div className="flex flex-col items-center gap-3 py-2">
-              <p className="text-muted-foreground text-sm">
-                {t("channels.whatsappAgent.scanHint")}
+              <p className="text-muted-foreground text-center text-sm">
+                {t("channels.whatsappAgent.codeHint")}
               </p>
-              <img
-                // Served as an image so the pairing payload is never a string
-                // in this page. It is single-use and short-lived, so it is
-                // re-fetched rather than cached.
-                src={`${WHATSAPP_AGENT_QR_URL}?v=${qrNonce}`}
-                alt={t("channels.whatsappAgent.qrAlt")}
-                className="h-64 w-64 rounded border bg-white p-2"
-              />
+              <div
+                data-testid="wa-agent-pair-code"
+                className="bg-muted rounded-lg px-6 py-4 font-mono text-3xl tracking-[0.3em] select-all"
+              >
+                {formatPairCode(pairCode)}
+              </div>
+              <p className="text-muted-foreground text-center text-xs">
+                {t("channels.whatsappAgent.codeExpiry")}
+              </p>
+            </div>
+          )}
+
+          {status?.has_qr && (
+            <div className="flex flex-col items-center gap-2 py-1">
+              <button
+                type="button"
+                onClick={() => setShowQrFallback((shown) => !shown)}
+                className="text-muted-foreground hover:text-foreground flex items-center gap-2 text-sm underline-offset-4 hover:underline"
+              >
+                <IconQrcode size={16} />
+                {t("channels.whatsappAgent.qrFallbackToggle")}
+              </button>
+              {showQrFallback && (
+                <div className="flex flex-col items-center gap-2 pt-2">
+                  <p className="text-muted-foreground max-w-sm text-center text-xs">
+                    {t("channels.whatsappAgent.qrFallbackHint")}
+                  </p>
+                  <img
+                    // Served as an image so the pairing payload is never a
+                    // string in this page. Single-use and short-lived, so it is
+                    // re-fetched rather than cached.
+                    src={`${WHATSAPP_AGENT_QR_URL}?v=${qrNonce}`}
+                    alt={t("channels.whatsappAgent.qrAlt")}
+                    className="h-64 w-64 rounded border bg-white p-2"
+                  />
+                </div>
+              )}
             </div>
           )}
 

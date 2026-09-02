@@ -20,6 +20,7 @@ import (
 
 	"go.mau.fi/whatsmeow"
 	"go.mau.fi/whatsmeow/proto/waE2E"
+	"go.mau.fi/whatsmeow/store"
 	"go.mau.fi/whatsmeow/store/sqlstore"
 	"go.mau.fi/whatsmeow/types"
 	"go.mau.fi/whatsmeow/types/events"
@@ -69,6 +70,14 @@ type WhatsAppNativeChannel struct {
 	// loggedOut is set when WhatsApp revoked the link. It stops the reconnect
 	// loop from retrying a session the server has already thrown away.
 	loggedOut atomic.Bool
+	// selfNumber is the configured WhatsApp Self-Chat number in bare digits, and
+	// it is the only identity this channel will ever read from or write to.
+	// Empty means not configured, which denies everything in both directions.
+	selfNumber string
+	// pairRequested keeps the companion pairing code to a single request: it is
+	// valid for one linking window, and asking again mid-flow would swap the
+	// code out from under a user part-way through typing it.
+	pairRequested atomic.Bool
 }
 
 // NewWhatsAppNativeChannel creates a WhatsApp channel that uses whatsmeow for connection.
@@ -79,6 +88,7 @@ func NewWhatsAppNativeChannel(
 	cfg *config.WhatsAppSettings,
 	bus *bus.MessageBus,
 	storePath string,
+	selfNumber string,
 ) (channels.Channel, error) {
 	// One matching rule, applied on both sides. BaseChannel compares the
 	// allow-list against the sender it is given, and it does that from inside
@@ -95,12 +105,38 @@ func NewWhatsAppNativeChannel(
 		storePath:   storePath,
 		pairing:     pairing.NewStore(),
 		allowList:   allowList,
+		selfNumber:  whatsAppNumber(selfNumber),
 	}
 	return c, nil
 }
 
+// deviceProps is applied once per process, before the first Connect, because
+// whatsmeow sends it during companion registration.
+var deviceProps sync.Once
+
+// configureDeviceProps names PocketClaw in the user's Linked Devices list and
+// asks the server for as little history as the protocol allows.
+//
+// The default asks for a 10 GB history quota with no day limit. PocketClaw
+// reads one chat — the user's own — so every other conversation the server
+// would ship is data it has no use for: it costs memory on a phone, and it is
+// account content this feature has no business receiving.
+func configureDeviceProps() {
+	deviceProps.Do(func() {
+		store.DeviceProps.Os = proto.String("PocketClaw")
+		if hs := store.DeviceProps.HistorySyncConfig; hs != nil {
+			hs.RecentSyncDaysLimit = proto.Uint32(0)
+			hs.StorageQuotaMb = proto.Uint32(1)
+			hs.SupportGroupHistory = proto.Bool(false)
+			hs.SupportCallLogHistory = proto.Bool(false)
+		}
+		store.DeviceProps.RequireFullSync = proto.Bool(false)
+	})
+}
+
 func (c *WhatsAppNativeChannel) Start(ctx context.Context) error {
 	logger.InfoCF("whatsapp", "Starting WhatsApp native channel (whatsmeow)", map[string]any{"store": c.storePath})
+	configureDeviceProps()
 
 	// Reset lifecycle state from any previous Stop() so a restarted channel
 	// behaves correctly.  Use reconnectMu to be consistent with eventHandler
@@ -109,6 +145,7 @@ func (c *WhatsAppNativeChannel) Start(ctx context.Context) error {
 	c.stopping.Store(false)
 	c.reconnecting = false
 	c.reconnectMu.Unlock()
+	c.pairRequested.Store(false)
 
 	if err := os.MkdirAll(c.storePath, 0o700); err != nil {
 		return fmt.Errorf("create session store dir: %w", err)
@@ -206,17 +243,24 @@ func (c *WhatsAppNativeChannel) Start(ctx context.Context) error {
 						return
 					}
 					if evt.Event == "code" {
-						// The code goes only to the pairing store, which the
-						// console reads over an authenticated request. It is
-						// credential material: printing it here would put it in
-						// PocketClaw's persisted Logs screen, where whoever
-						// scanned it first would own the link.
-						if err := c.pairing.PublishQR(evt.Code); err != nil {
-							logger.WarnCF("whatsapp", "Could not publish pairing code", map[string]any{
+						// A QR arriving is also whatsmeow's signal that the
+						// login socket is fully up, which is what PairPhone
+						// requires. Requesting the companion code here rather
+						// than earlier also spends the least of the ~160s
+						// linking window.
+						linkCode := c.requestPairingCode(client)
+
+						// Both credentials go only to the pairing store, which
+						// the console reads over an authenticated request.
+						// Printing either here would put it in PocketClaw's
+						// persisted Logs screen, where whoever used it first
+						// would own the link.
+						if err := c.pairing.PublishPairing(evt.Code, linkCode); err != nil {
+							logger.WarnCF("whatsapp", "Could not publish pairing credentials", map[string]any{
 								"error": err.Error(),
 							})
 						}
-						logger.InfoC("whatsapp", "WhatsApp pairing code ready; open the console to scan it")
+						logger.InfoC("whatsapp", "WhatsApp pairing ready; open the console to complete it")
 					} else {
 						// evt.Event is a whatsmeow lifecycle word ("success",
 						// "timeout", "err-scanned"), never the code itself.
@@ -241,6 +285,39 @@ func (c *WhatsAppNativeChannel) Start(ctx context.Context) error {
 	c.SetRunning(true)
 	logger.InfoC("whatsapp", "WhatsApp native channel connected")
 	return nil
+}
+
+// requestPairingCode asks WhatsApp for a companion linking code, once.
+//
+// This is the primary flow on Android: PocketClaw and WhatsApp share one
+// screen, so a QR displayed in PocketClaw is a QR the phone's own camera
+// cannot reach. The code is requested for the configured Self-Chat number —
+// the account this channel is allowed to touch at all — so there is no second
+// number to ask the user for.
+//
+// It returns "" rather than failing the pairing: the QR is still published, and
+// on a desktop or second screen that is a complete flow on its own.
+func (c *WhatsAppNativeChannel) requestPairingCode(client *whatsmeow.Client) string {
+	if c.selfNumber == "" || !c.pairRequested.CompareAndSwap(false, true) {
+		return ""
+	}
+	// "Browser (OS)" is a server-validated format; anything else is rejected
+	// with a 400, so this is not a place to put a product name.
+	// Named linkCode, like the QR's evt.Code, so one guard can assert that no
+	// logger line in this file ever mentions either.
+	linkCode, err := client.PairPhone(
+		c.runCtx, c.selfNumber, true, whatsmeow.PairClientChrome, "Chrome (Linux)",
+	)
+	if err != nil {
+		// The error is reported, never the credential.
+		logger.WarnCF("whatsapp", "Could not request a companion pairing code; QR remains available", map[string]any{
+			"error": err.Error(),
+		})
+		c.pairRequested.Store(false)
+		return ""
+	}
+	logger.InfoC("whatsapp", "WhatsApp companion pairing is ready; open the console to complete it")
+	return linkCode
 }
 
 func (c *WhatsAppNativeChannel) Stop(ctx context.Context) error {
@@ -471,6 +548,27 @@ func normalizeAllowList(entries []string) []string {
 	return out
 }
 
+// isSelfChat reports whether an inbound message is the user talking to
+// themselves in the configured Self-Chat.
+//
+// Both halves must match the configured number: the chat it arrived in and the
+// account that sent it. Requiring both is what separates "the user messaged
+// their own notes" from "somebody messaged the user" and from "the user sent
+// something to a contact", which a linked device also sees.
+//
+// A group, broadcast, newsletter or status JID fails on the chat half, because
+// whatsAppNumber only yields digits for the phone-number server.
+func (c *WhatsAppNativeChannel) isSelfChat(info types.MessageInfo) bool {
+	if c.selfNumber == "" {
+		return false
+	}
+	if info.Chat.Server != types.DefaultUserServer {
+		return false
+	}
+	return whatsAppNumber(info.Chat.String()) == c.selfNumber &&
+		whatsAppNumber(info.Sender.String()) == c.selfNumber
+}
+
 // whatsAppNumber extracts the subscriber number from a JID or a typed phone
 // number. It returns "" for anything that is not all digits once the JID
 // decoration is removed, so a @lid identity or a username never collides with
@@ -508,27 +606,27 @@ func (c *WhatsAppNativeChannel) handleIncoming(evt *events.Message) {
 	if evt.Message == nil {
 		return
 	}
-	// Phase B is direct/self chat only. A group message is dropped before its
-	// body is touched, and the diagnostic carries no content, no sender and no
-	// group id.
-	if evt.Info.Chat.Server == types.GroupServer {
+	// Self-Chat only, decided from routing metadata before the body is read.
+	//
+	// A linked device receives account-level traffic for every chat, group and
+	// broadcast the user is in. PocketClaw is allowed to read exactly one
+	// conversation — the user's own — so everything else is dropped here, at
+	// the top, where the decision needs nothing but evt.Info. Nothing below
+	// this line runs for another person's message: no body, no bus, no agent,
+	// no provider call.
+	if !c.isSelfChat(evt.Info) {
+		// Metadata only, and deliberately coarse: naming the chat or the
+		// sender would record who the user talks to, which is the very thing
+		// this boundary exists to avoid.
 		logger.InfoCF("whatsapp", "Inbound ignored", map[string]any{
-			"channel":   "whatsapp",
-			"chat_type": "group",
-			"status":    "ignored",
+			"channel": "whatsapp_agent",
+			"scope":   "other",
+			"status":  "ignored",
 		})
 		return
 	}
 
-	// Identify the sender by phone number. evt.Info.Sender carries the device
-	// that sent the message ("20100...:5@s.whatsapp.net"), and that suffix
-	// changes whenever the user relinks, so keying identity on it would make a
-	// working allow-list silently stop matching. chatID keeps the full JID
-	// because that is what replies are addressed to.
-	senderID := evt.Info.Sender.String()
-	if number := whatsAppNumber(senderID); number != "" {
-		senderID = number
-	}
+	senderID := c.selfNumber
 	chatID := evt.Info.Chat.String()
 	content := evt.Message.GetConversation()
 	if content == "" && evt.Message.ExtendedTextMessage != nil {
@@ -611,9 +709,9 @@ func (c *WhatsAppNativeChannel) Send(ctx context.Context, msg bus.OutboundMessag
 		return nil, fmt.Errorf("whatsapp not yet paired (QR login pending): %w", channels.ErrTemporary)
 	}
 
-	to, err := parseJID(msg.ChatID)
+	to, err := c.allowedTarget(msg.ChatID)
 	if err != nil {
-		return nil, fmt.Errorf("invalid chat id %q: %w", msg.ChatID, err)
+		return nil, err
 	}
 
 	waMsg := &waE2E.Message{
@@ -632,6 +730,42 @@ func (c *WhatsAppNativeChannel) Send(ctx context.Context, msg bus.OutboundMessag
 		"status":        "sent",
 	})
 	return nil, nil
+}
+
+// allowedTarget resolves an outbound chat id and refuses anything that is not
+// the configured Self-Chat.
+//
+// This is the outbound boundary, enforced below the model. PocketClaw's
+// WhatsApp channel writes to exactly one conversation: the user's own. A prompt
+// cannot widen that, and neither can a crafted message that talks the agent
+// into addressing a contact — the target is checked here, against the
+// configured number, after everything the model influenced.
+//
+// Refusal is permanent rather than ErrTemporary: retrying the same wrong target
+// would only send it again.
+func (c *WhatsAppNativeChannel) allowedTarget(chatID string) (types.JID, error) {
+	denied := func() (types.JID, error) {
+		// The rejected target is not logged. It would name whoever the agent
+		// was talked into addressing.
+		logger.WarnCF("whatsapp", "Outbound denied: target is not the configured Self-Chat", map[string]any{
+			"channel": "whatsapp_agent",
+			"scope":   "other",
+			"status":  "denied",
+		})
+		return types.JID{}, fmt.Errorf("whatsapp: refusing to send outside Self-Chat: %w", channels.ErrSendFailed)
+	}
+
+	if c.selfNumber == "" {
+		return denied()
+	}
+	to, err := parseJID(chatID)
+	if err != nil {
+		return denied()
+	}
+	if to.Server != types.DefaultUserServer || whatsAppNumber(to.String()) != c.selfNumber {
+		return denied()
+	}
+	return to, nil
 }
 
 // parseJID converts a chat ID (phone number or JID string) to types.JID.

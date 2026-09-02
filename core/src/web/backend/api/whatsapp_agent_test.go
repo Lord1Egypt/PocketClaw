@@ -215,3 +215,116 @@ func TestWhatsAppAgentIsInTheCatalogAsExperimental(t *testing.T) {
 		}
 	}
 }
+
+func TestWhatsAppAgentStatus_NeverCarriesTheCompanionCode(t *testing.T) {
+	// The panel polls status every two seconds while pairing. A credential in
+	// that response would sit in every intermediate cache and network log.
+	configPath, cleanup := setupOAuthTestEnv(t)
+	defer cleanup()
+	dir := t.TempDir()
+	t.Setenv(pairing.EnvStateDir, dir)
+
+	const code = "ABCD1234"
+	if err := pairing.NewStoreAt(dir).PublishPairing("2@qr", code); err != nil {
+		t.Fatalf("PublishPairing: %v", err)
+	}
+
+	rec := httptest.NewRecorder()
+	newWhatsAppAgentMux(t, configPath).ServeHTTP(
+		rec, httptest.NewRequest(http.MethodGet, whatsAppAgentStatusPath, nil))
+
+	if bytes.Contains(rec.Body.Bytes(), []byte(code)) {
+		t.Errorf("the status response carries the companion code: %s", rec.Body.String())
+	}
+	var resp whatsAppAgentStatusResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if !resp.HasCode {
+		t.Error("HasCode = false while a code is live")
+	}
+}
+
+func TestWhatsAppAgentCode_ServesTheLiveCodeUncacheable(t *testing.T) {
+	configPath, cleanup := setupOAuthTestEnv(t)
+	defer cleanup()
+	dir := t.TempDir()
+	t.Setenv(pairing.EnvStateDir, dir)
+
+	const code = "ABCD1234"
+	if err := pairing.NewStoreAt(dir).PublishPairing("2@qr", code); err != nil {
+		t.Fatalf("PublishPairing: %v", err)
+	}
+
+	rec := httptest.NewRecorder()
+	newWhatsAppAgentMux(t, configPath).ServeHTTP(
+		rec, httptest.NewRequest(http.MethodGet, whatsAppAgentCodePath, nil))
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200; body=%s", rec.Code, rec.Body.String())
+	}
+	var resp whatsAppAgentCodeResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if resp.Code != code {
+		t.Errorf("Code = %q, want %q", resp.Code, code)
+	}
+	if got := rec.Header().Get("Cache-Control"); !bytes.Contains([]byte(got), []byte("no-store")) {
+		t.Errorf("Cache-Control = %q, want no-store", got)
+	}
+}
+
+// TestWhatsAppAgentCode_IsGoneOncePairingEnds covers pair, cancel, timeout,
+// logout and disconnect: each leaves StatePairing, and the endpoint must stop
+// serving the credential immediately.
+func TestWhatsAppAgentCode_IsGoneOncePairingEnds(t *testing.T) {
+	for _, state := range []pairing.State{
+		pairing.StateConnected, pairing.StateNotPaired,
+		pairing.StateDisconnected, pairing.StateLoggedOut,
+	} {
+		t.Run(string(state), func(t *testing.T) {
+			configPath, cleanup := setupOAuthTestEnv(t)
+			defer cleanup()
+			dir := t.TempDir()
+			t.Setenv(pairing.EnvStateDir, dir)
+
+			store := pairing.NewStoreAt(dir)
+			if err := store.PublishPairing("2@qr", "ABCD1234"); err != nil {
+				t.Fatalf("PublishPairing: %v", err)
+			}
+			if err := store.PublishState(state, ""); err != nil {
+				t.Fatalf("PublishState: %v", err)
+			}
+
+			mux := newWhatsAppAgentMux(t, configPath)
+			for _, path := range []string{whatsAppAgentCodePath, whatsAppAgentQRPath} {
+				rec := httptest.NewRecorder()
+				mux.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, path, nil))
+				if rec.Code != http.StatusNotFound {
+					t.Errorf("GET %s after %q: status = %d, want 404", path, state, rec.Code)
+				}
+			}
+		})
+	}
+}
+
+// TestWhatsAppAgentSitsBesideSelfChatInTheCatalog is the backend half of the
+// discoverability fix; the sidebar ordering is pinned in the console tests.
+func TestWhatsAppAgentSitsBesideSelfChatInTheCatalog(t *testing.T) {
+	selfChat, agent := -1, -1
+	for i, item := range channelCatalog {
+		switch item.Name {
+		case "whatsapp_self_chat":
+			selfChat = i
+		case "whatsapp_agent":
+			agent = i
+		}
+	}
+	if selfChat < 0 || agent < 0 {
+		t.Fatalf("catalog is missing a WhatsApp entry: selfChat=%d agent=%d", selfChat, agent)
+	}
+	if agent-selfChat != 1 {
+		t.Errorf("whatsapp_agent is at %d and whatsapp_self_chat at %d; they must be adjacent", agent, selfChat)
+	}
+}

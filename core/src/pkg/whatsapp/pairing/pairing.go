@@ -8,7 +8,9 @@
 // qrterminal. On Android that is wrong twice over: Core's stdout is captured
 // into PocketClaw's persisted Logs screen, and a WhatsApp pairing QR is
 // credential material — anyone who scans it before the user does links their
-// own device to the account. The QR must never reach a log.
+// own device to the account. The QR must never reach a log. The companion
+// pairing code carried alongside it is credential material for exactly the
+// same reason and gets exactly the same treatment.
 //
 // # Why a file and not a socket
 //
@@ -74,14 +76,22 @@ type Snapshot struct {
 	// QR is the raw pairing payload, present only while State is StatePairing.
 	// It is never logged and never written under any other state.
 	QR string `json:"qr,omitempty"`
+	// Code is the WhatsApp companion pairing code — the one the user types into
+	// Linked Devices. It is the primary flow on Android, where PocketClaw and
+	// WhatsApp share a screen and a QR cannot be scanned by the phone showing
+	// it. Same lifetime and same secrecy as QR.
+	Code string `json:"code,omitempty"`
 	// Detail is a short non-sensitive reason, e.g. why a reconnect is running.
 	// It never contains message content, phone numbers, or key material.
 	Detail    string    `json:"detail,omitempty"`
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
-// HasQR reports whether a live code is waiting to be scanned.
+// HasQR reports whether a live QR is waiting to be scanned.
 func (s Snapshot) HasQR() bool { return s.State == StatePairing && s.QR != "" }
+
+// HasCode reports whether a live companion pairing code is waiting to be typed.
+func (s Snapshot) HasCode() bool { return s.State == StatePairing && s.Code != "" }
 
 // Dir returns the configured state directory, or "" when there is no host.
 func Dir() string { return strings.TrimSpace(os.Getenv(EnvStateDir)) }
@@ -117,22 +127,56 @@ func NewStoreAt(dir string) *Store {
 
 func (s *Store) path() string { return filepath.Join(s.dir, stateFileName) }
 
-// PublishQR records a live pairing code. This is the only call that ever puts
-// a QR on disk.
-func (s *Store) PublishQR(code string) error {
-	if s == nil || strings.TrimSpace(code) == "" {
-		return nil
-	}
-	return s.write(Snapshot{State: StatePairing, QR: code, UpdatedAt: time.Now().UTC()})
+// PublishQR records a live QR payload, preserving any companion code already
+// published. This and PublishPairing are the only calls that put pairing
+// credentials on disk.
+func (s *Store) PublishQR(qr string) error {
+	return s.PublishPairing(qr, "")
 }
 
-// PublishState records a lifecycle state. It never carries a QR: moving to any
-// state other than StatePairing is exactly what retires the previous code.
+// PublishPairing records the live pairing credentials.
+//
+// An empty argument means "keep what is already there": whatsmeow regenerates
+// the QR every twenty seconds or so, but the companion code is requested once
+// and must survive those refreshes, or the code the user is part-way through
+// typing would change under them.
+func (s *Store) PublishPairing(qr, code string) error {
+	if s == nil {
+		return nil
+	}
+	qr = strings.TrimSpace(qr)
+	code = strings.TrimSpace(code)
+	if qr == "" && code == "" {
+		return nil
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	previous := s.readLocked()
+	if previous.State == StatePairing {
+		if qr == "" {
+			qr = previous.QR
+		}
+		if code == "" {
+			code = previous.Code
+		}
+	}
+	return s.writeLocked(Snapshot{
+		State: StatePairing, QR: qr, Code: code, UpdatedAt: time.Now().UTC(),
+	})
+}
+
+// PublishState records a lifecycle state. It never carries a QR or a pairing
+// code: moving to any state other than StatePairing is exactly what retires
+// both, whether pairing succeeded, was cancelled, or timed out.
 func (s *Store) PublishState(state State, detail string) error {
 	if s == nil {
 		return nil
 	}
-	return s.write(Snapshot{State: state, Detail: detail, UpdatedAt: time.Now().UTC()})
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.writeLocked(Snapshot{State: state, Detail: detail, UpdatedAt: time.Now().UTC()})
 }
 
 // Clear removes the snapshot entirely, taking any live QR with it.
@@ -148,9 +192,7 @@ func (s *Store) Clear() error {
 	return nil
 }
 
-func (s *Store) write(snap Snapshot) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+func (s *Store) writeLocked(snap Snapshot) error {
 	// 0700 before the atomic write, whose MkdirAll would otherwise create the
 	// directory 0755. Creating it here is a no-op when it already exists, so
 	// this cannot loosen a directory the host already made.
@@ -174,6 +216,10 @@ func (s *Store) Read() Snapshot {
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	return s.readLocked()
+}
+
+func (s *Store) readLocked() Snapshot {
 	data, err := os.ReadFile(s.path())
 	if err != nil {
 		return Snapshot{State: StateNotPaired}
@@ -182,10 +228,11 @@ func (s *Store) Read() Snapshot {
 	if err := json.Unmarshal(data, &snap); err != nil {
 		return Snapshot{State: StateNotPaired}
 	}
-	// A QR that survived under a non-pairing state would be a stale credential
-	// served to the console. Drop it on read as well as on write.
+	// Credentials that survived under a non-pairing state would be stale
+	// secrets served to the console. Drop them on read as well as on write.
 	if snap.State != StatePairing {
 		snap.QR = ""
+		snap.Code = ""
 	}
 	return snap
 }

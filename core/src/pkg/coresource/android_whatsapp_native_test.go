@@ -16,7 +16,7 @@ const whatsAppNativeStubMarker = "whatsapp native not compiled in"
 
 // A log line that exists only in the real transport, so its presence is
 // positive evidence rather than merely the absence of the stub.
-const whatsAppNativeRealMarker = "WhatsApp pairing code ready"
+const whatsAppNativeRealMarker = "WhatsApp pairing ready; open the console"
 
 // TestAndroidBuildCompilesTheRealWhatsAppTransport pins the build tag.
 //
@@ -41,6 +41,13 @@ func TestAndroidBuildCompilesTheRealWhatsAppTransport(t *testing.T) {
 		if strings.Contains(line, "GOOS=android") && strings.Contains(line, "-tags stdjson ") {
 			t.Errorf("an Android target still hardcodes -tags stdjson: %s", strings.TrimSpace(line))
 		}
+	}
+
+	// The Android toolchain has no C compiler, and whatsmeow's dependencies —
+	// modernc.org/sqlite in particular — were chosen because they are pure Go.
+	// CGO creeping back on would break the Core build rather than degrade it.
+	if !strings.Contains(string(makefile), "CGO_ENABLED?=0") {
+		t.Error("the Core build no longer pins CGO_ENABLED=0")
 	}
 }
 

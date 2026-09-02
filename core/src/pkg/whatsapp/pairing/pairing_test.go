@@ -196,3 +196,133 @@ func TestPublishQR_IgnoresAnEmptyCode(t *testing.T) {
 		t.Error("an empty code created a snapshot")
 	}
 }
+
+func TestPublishPairing_CarriesBothCredentials(t *testing.T) {
+	dir := t.TempDir()
+	store := NewStoreAt(dir)
+
+	if err := store.PublishPairing("2@qr-payload", "ABCD1234"); err != nil {
+		t.Fatalf("PublishPairing: %v", err)
+	}
+
+	snap := store.Read()
+	if !snap.HasQR() || snap.QR != "2@qr-payload" {
+		t.Errorf("QR = %q, want the published payload", snap.QR)
+	}
+	if !snap.HasCode() || snap.Code != "ABCD1234" {
+		t.Errorf("Code = %q, want the published code", snap.Code)
+	}
+}
+
+// TestPublishPairing_KeepsTheCodeAcrossQRRefreshes is the reason an empty
+// argument means "keep". whatsmeow regenerates the QR every twenty seconds or
+// so; if that dropped the companion code, it would change under a user who is
+// part-way through typing it into WhatsApp.
+func TestPublishPairing_KeepsTheCodeAcrossQRRefreshes(t *testing.T) {
+	dir := t.TempDir()
+	store := NewStoreAt(dir)
+
+	if err := store.PublishPairing("2@first-qr", "ABCD1234"); err != nil {
+		t.Fatalf("PublishPairing: %v", err)
+	}
+	if err := store.PublishQR("2@second-qr"); err != nil {
+		t.Fatalf("PublishQR: %v", err)
+	}
+
+	snap := store.Read()
+	if snap.QR != "2@second-qr" {
+		t.Errorf("QR = %q, want the refreshed payload", snap.QR)
+	}
+	if snap.Code != "ABCD1234" {
+		t.Errorf("Code = %q, want the original code to survive the refresh", snap.Code)
+	}
+}
+
+// TestPublishState_RetiresBothCredentials covers pair, cancel, timeout, logout
+// and disconnect at once: every one of them is a state change away from
+// StatePairing, and that is what must erase the credentials.
+func TestPublishState_RetiresBothCredentials(t *testing.T) {
+	for _, state := range []State{
+		StateConnected, StateNotPaired, StateConnecting, StateDisconnected, StateLoggedOut,
+	} {
+		t.Run(string(state), func(t *testing.T) {
+			dir := t.TempDir()
+			store := NewStoreAt(dir)
+
+			if err := store.PublishPairing("2@qr-payload", "ABCD1234"); err != nil {
+				t.Fatalf("PublishPairing: %v", err)
+			}
+			if err := store.PublishState(state, ""); err != nil {
+				t.Fatalf("PublishState: %v", err)
+			}
+
+			snap := store.Read()
+			if snap.QR != "" || snap.Code != "" || snap.HasQR() || snap.HasCode() {
+				t.Errorf("credentials survived the move to %q: qr=%q code=%q", state, snap.QR, snap.Code)
+			}
+
+			raw, err := os.ReadFile(filepath.Join(dir, stateFileName))
+			if err != nil {
+				t.Fatalf("read snapshot: %v", err)
+			}
+			for _, credential := range []string{"2@qr-payload", "ABCD1234"} {
+				if containsCode(t, raw, credential) {
+					t.Errorf("%q is still on disk after moving to %q", credential, state)
+				}
+			}
+		})
+	}
+}
+
+func TestClear_RemovesBothCredentials(t *testing.T) {
+	dir := t.TempDir()
+	store := NewStoreAt(dir)
+
+	if err := store.PublishPairing("2@qr-payload", "ABCD1234"); err != nil {
+		t.Fatalf("PublishPairing: %v", err)
+	}
+	if err := store.Clear(); err != nil {
+		t.Fatalf("Clear: %v", err)
+	}
+
+	snap := store.Read()
+	if snap.HasQR() || snap.HasCode() {
+		t.Error("a credential survived Clear")
+	}
+}
+
+func TestRead_DropsACodeThatSurvivedUnderANonPairingState(t *testing.T) {
+	dir := t.TempDir()
+	store := NewStoreAt(dir)
+
+	forged, err := json.Marshal(Snapshot{State: StateConnected, Code: "ABCD1234"})
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, stateFileName), forged, 0o600); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+
+	if snap := store.Read(); snap.Code != "" || snap.HasCode() {
+		t.Errorf("Read returned a pairing code under state %q", snap.State)
+	}
+}
+
+func TestPublishPairing_IgnoresTwoEmptyArguments(t *testing.T) {
+	dir := t.TempDir()
+	store := NewStoreAt(dir)
+
+	if err := store.PublishPairing("  ", ""); err != nil {
+		t.Fatalf("PublishPairing: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, stateFileName)); !os.IsNotExist(err) {
+		t.Error("an empty publish created a snapshot")
+	}
+}
+
+func TestNilStoreAcceptsPairingCredentials(t *testing.T) {
+	var store *Store
+	if err := store.PublishPairing("2@qr", "ABCD1234"); err != nil {
+		t.Errorf("PublishPairing on a nil store: %v", err)
+	}
+}

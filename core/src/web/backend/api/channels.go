@@ -122,8 +122,8 @@ var channelSecretFieldMap = map[string][]string{
 	// The Agent Channel's credential is the whatsmeow session database, which
 	// Android owns and which never passes through the config file.
 	"whatsapp_agent": {},
-	"maixcam":            {},
-	"mqtt":               {"username", "password"},
+	"maixcam":        {},
+	"mqtt":           {"username", "password"},
 }
 
 func buildChannelConfigResponse(cfg *config.Config, item channelCatalogItem) channelConfigResponse {

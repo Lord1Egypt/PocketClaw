@@ -13,12 +13,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 import en from "@/i18n/locales/en.json"
 
 const getWhatsAppAgentStatus = vi.fn()
+const getWhatsAppAgentPairCode = vi.fn()
 const forgetWhatsAppAgentSession = vi.fn()
 const getChannelConfig = vi.fn()
 
 vi.mock("@/api/channels", () => ({
   WHATSAPP_AGENT_QR_URL: "/api/channels/whatsapp-agent/qr.png",
   getWhatsAppAgentStatus: () => getWhatsAppAgentStatus(),
+  getWhatsAppAgentPairCode: () => getWhatsAppAgentPairCode(),
   forgetWhatsAppAgentSession: () => forgetWhatsAppAgentSession(),
   getChannelConfig: (name: string) => getChannelConfig(name),
 }))
@@ -62,6 +64,7 @@ function status(overrides: Record<string, unknown> = {}) {
     enabled: false,
     state: "not_paired",
     has_qr: false,
+    has_code: false,
     ...overrides,
   }
 }
@@ -71,6 +74,7 @@ describe("WhatsAppAgentPanel", () => {
     vi.clearAllMocks()
     withSelfNumber(SELF_NUMBER)
     getWhatsAppAgentStatus.mockResolvedValue(status())
+    getWhatsAppAgentPairCode.mockResolvedValue({ code: "ABCD1234" })
   })
 
   it("marks itself experimental", async () => {
@@ -131,21 +135,79 @@ describe("WhatsAppAgentPanel", () => {
     expect(enabled).toBe(true)
   })
 
-  it("renders the pairing code as an image, never as text", async () => {
+  it("shows the companion pairing code as the primary flow", async () => {
+    // PocketClaw and WhatsApp share one screen on Android, so a QR the phone
+    // cannot photograph is the wrong thing to lead with.
     getWhatsAppAgentStatus.mockResolvedValue(
-      status({ state: "pairing", has_qr: true }),
+      status({ state: "pairing", has_code: true, has_qr: true }),
     )
-    const { container } = render(
-      <WhatsAppAgentPanel config={{}} onPersist={vi.fn()} />,
+    render(<WhatsAppAgentPanel config={{}} onPersist={vi.fn()} />)
+
+    const code = await screen.findByTestId("wa-agent-pair-code")
+    expect(code.textContent).toBe("ABCD-1234")
+    expect(screen.getByText(en.channels.whatsappAgent.codeHint)).toBeDefined()
+  })
+
+  it("keeps the QR behind a fallback disclosure", async () => {
+    getWhatsAppAgentStatus.mockResolvedValue(
+      status({ state: "pairing", has_code: true, has_qr: true }),
     )
+    render(<WhatsAppAgentPanel config={{}} onPersist={vi.fn()} />)
+
+    const toggle = await screen.findByRole("button", {
+      name: en.channels.whatsappAgent.qrFallbackToggle,
+    })
+    expect(screen.queryByAltText(en.channels.whatsappAgent.qrAlt)).toBeNull()
+
+    await userEvent.click(toggle)
 
     const image = await screen.findByAltText(en.channels.whatsappAgent.qrAlt)
     expect(image.getAttribute("src")).toContain(
       "/api/channels/whatsapp-agent/qr.png",
     )
-    // The payload is served as bytes by the backend and is never part of the
-    // status response, so it cannot appear in the rendered markup.
+  })
+
+  it("never renders a pairing payload as text", async () => {
+    getWhatsAppAgentStatus.mockResolvedValue(
+      status({ state: "pairing", has_code: true, has_qr: true }),
+    )
+    const { container } = render(
+      <WhatsAppAgentPanel config={{}} onPersist={vi.fn()} />,
+    )
+    await screen.findByTestId("wa-agent-pair-code")
+
+    // The QR payload is served as bytes and is never in the status response,
+    // so it cannot reach the markup.
     expect(container.textContent).not.toContain("2@")
+  })
+
+  it("drops the pairing code once pairing is over", async () => {
+    // Pair, cancel, timeout and disconnect all leave the pairing state, and a
+    // dead code left on screen is a credential the user might still try to use.
+    getWhatsAppAgentStatus.mockResolvedValue(
+      status({ state: "pairing", has_code: true }),
+    )
+    render(<WhatsAppAgentPanel config={{}} onPersist={vi.fn()} />)
+    await screen.findByTestId("wa-agent-pair-code")
+
+    // The panel learns pairing ended from its own poll, so this waits for a
+    // real tick rather than forcing a re-render the running app would not do.
+    getWhatsAppAgentStatus.mockResolvedValue(
+      status({ state: "connected", has_code: false, enabled: true }),
+    )
+
+    await waitFor(
+      () => expect(screen.queryByTestId("wa-agent-pair-code")).toBeNull(),
+      { timeout: 5000 },
+    )
+  })
+
+  it("does not ask for a pairing code when none is live", async () => {
+    getWhatsAppAgentStatus.mockResolvedValue(status({ state: "connected" }))
+    render(<WhatsAppAgentPanel config={{}} onPersist={vi.fn()} />)
+
+    await waitFor(() => expect(getWhatsAppAgentStatus).toHaveBeenCalled())
+    expect(getWhatsAppAgentPairCode).not.toHaveBeenCalled()
   })
 
   it("reports each pairing state", async () => {

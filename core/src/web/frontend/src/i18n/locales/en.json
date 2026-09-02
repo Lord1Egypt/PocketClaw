@@ -688,14 +688,17 @@
       "stateConnected": "Paired / Connected",
       "stateDisconnected": "Disconnected — reconnecting",
       "stateLoggedOut": "Logged out",
-      "scanHint": "In WhatsApp, open Settings → Linked devices → Link a device, then scan this code.",
       "qrAlt": "WhatsApp pairing code",
       "pair": "Pair",
       "disconnect": "Disconnect",
       "allowedSender": "Only messages from {{number}} reach the agent.",
-      "errorNoSelfNumber": "Set your number in WhatsApp Self-Chat first. This channel accepts nobody until it knows which number is yours.",
+      "errorNoSelfNumber": "Configure WhatsApp Self-Chat first. This channel talks only to your own Self-Chat, so it needs to know which number is yours.",
       "applyDeferred": "Saved. The gateway will pick this up when it is next idle.",
-      "unavailable": "The WhatsApp Agent Channel is only available inside the PocketClaw Android app."
+      "unavailable": "The WhatsApp Agent Channel is only available inside the PocketClaw Android app.",
+      "codeHint": "In WhatsApp on this phone, open Settings → Linked devices → Link a device, then choose \"Link with phone number instead\" and enter this code.",
+      "codeExpiry": "The code is valid for about two minutes. Pairing replaces it automatically.",
+      "qrFallbackToggle": "Use a QR code instead",
+      "qrFallbackHint": "For linking from another screen — a second phone or a desktop showing this console. Scanning it on this phone will not work, because WhatsApp and PocketClaw share the screen."
     }
   },
   "pages": {

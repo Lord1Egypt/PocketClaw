@@ -29,7 +29,7 @@ import { isWhatsAppSelfChatConfigured } from "@/components/channels/channel-form
 import { gatewayAtom } from "@/store/gateway"
 
 const DEFAULT_VISIBLE_CHANNELS = 4
-const CHANNEL_IMPORTANCE_TAIL = [
+export const CHANNEL_IMPORTANCE_TAIL = [
   "slack",
   "line",
   "wecom",
@@ -40,9 +40,11 @@ const CHANNEL_IMPORTANCE_TAIL = [
   "pico",
   "maixcam",
   "irc",
+  // The two WhatsApp surfaces sit together, because that is how a user thinks
+  // about them: one composes a message for you to send, the other is the agent
+  // channel. Splitting them left the experimental one at the bottom of ~17
+  // entries, behind the show-more toggle, where nobody found it.
   "whatsapp_self_chat",
-  // Experimental, so it sorts last: an unconfigured install should meet the
-  // supported channels before this one.
   "whatsapp_agent",
 ]
 

@@ -146,6 +146,7 @@ export interface WhatsAppAgentStatus {
     | "disconnected"
     | "logged_out"
   has_qr: boolean
+  has_code: boolean
   detail?: string
 }
 
@@ -153,6 +154,16 @@ export const WHATSAPP_AGENT_QR_URL = "/api/channels/whatsapp-agent/qr.png"
 
 export async function getWhatsAppAgentStatus(): Promise<WhatsAppAgentStatus> {
   return request<WhatsAppAgentStatus>("/api/channels/whatsapp-agent/status")
+}
+
+/**
+ * Fetches the live companion pairing code.
+ *
+ * Kept off the polled status response so the endpoint hit every two seconds
+ * never carries a credential. Call it only when `has_code` is true.
+ */
+export async function getWhatsAppAgentPairCode(): Promise<{ code: string }> {
+  return request<{ code: string }>("/api/channels/whatsapp-agent/pair-code")
 }
 
 /** Erases the local WhatsApp session and any pairing snapshot. */

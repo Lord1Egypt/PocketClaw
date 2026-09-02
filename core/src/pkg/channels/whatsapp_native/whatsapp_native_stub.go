@@ -18,11 +18,13 @@ func NewWhatsAppNativeChannel(
 	cfg *config.WhatsAppSettings,
 	bus *bus.MessageBus,
 	storePath string,
+	selfNumber string,
 ) (channels.Channel, error) {
 	_ = bc
 	_ = name
 	_ = cfg
 	_ = bus
 	_ = storePath
+	_ = selfNumber
 	return nil, fmt.Errorf("whatsapp native not compiled in; build with -tags whatsapp_native")
 }

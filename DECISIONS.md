@@ -1,5 +1,59 @@
 # PocketClaw Decisions
 
+## The WhatsApp Agent Channel reads one conversation: the user's own Self-Chat
+
+- Date: 2026-09-02
+- Decision: inbound is dropped unless `Info.Chat` and `Info.Sender` are both the
+  configured Self-Chat number, decided from routing metadata before the message
+  body is read. Outbound resolves through `allowedTarget`, which refuses any
+  JID but that same number. No Self-Chat number configured means deny in both
+  directions.
+- Why: a linked device receives account-level traffic for every chat, group and
+  broadcast the user is in. An allow-list alone does not express this — the
+  owner is on the allow-list, so their own message *to a contact* would pass it,
+  and reading that conversation is exactly what this feature promises not to do.
+  The outbound half is enforced below the model rather than in a prompt, because
+  a prompt is not a boundary: a crafted Self-Chat message could otherwise talk
+  the agent into addressing a contact.
+- Consequence: group, broadcast and newsletter traffic costs nothing — no bus
+  publish, so no agent turn and no provider request. `DeviceProps` also asks the
+  server for zero days of history with a 1 MB quota, so most of that traffic is
+  never sent to the device in the first place.
+
+## Companion pairing code is the primary flow; QR is the fallback
+
+- Date: 2026-09-02
+- Decision: on the first QR event the channel calls whatsmeow's `PairPhone`
+  with the configured Self-Chat number and publishes the returned code. The
+  console leads with the code and keeps the QR behind a disclosure. The code is
+  requested once per Start.
+- Why: PocketClaw and WhatsApp are on the same phone, so a QR rendered in
+  PocketClaw is one the phone's own camera cannot reach. The QR still matters
+  from a second screen or a desktop dashboard, so it stays. Requesting once
+  matters because each request issues a new code and would invalidate the one
+  the user is part-way through typing; the first QR event is also whatsmeow's
+  signal that the login socket is up, which `PairPhone` requires, and it spends
+  the least of the ~160-second linking window.
+- Consequence: the code is credential material and is treated exactly like the
+  QR — never logged, served from its own authenticated endpoint so the
+  two-second status poll carries no secret, and erased by any move away from
+  the pairing state, which covers pair, cancel, timeout, logout and disconnect.
+
+## The two WhatsApp surfaces sit together
+
+- Date: 2026-09-02
+- Decision: `whatsapp_agent` sits directly after `whatsapp_self_chat` in both
+  the console catalog and the sidebar ordering.
+- Why: placing the experimental entry last put it at the bottom of ~17
+  unconfigured channels, behind the show-more toggle. The first physical test
+  never found it, exercised the Self-Chat launcher instead — which is
+  compose-only and cannot reply — and the silence read as a broken transport.
+  Discoverability was the defect, not the transport.
+- Consequence: a user meets the two WhatsApp surfaces as a pair, which is how
+  they think about them. The retired `whatsapp` and `whatsapp_native` cards stay
+  gone, and a test asserts both the adjacency and their continued absence.
+
+
 ## The WhatsApp Agent Channel returns under a new name, not the retired cards
 
 - Date: 2026-09-02

@@ -22,6 +22,7 @@ import (
 const (
 	whatsAppAgentStatusPath = "/api/channels/whatsapp-agent/status"
 	whatsAppAgentQRPath     = "/api/channels/whatsapp-agent/qr.png"
+	whatsAppAgentCodePath   = "/api/channels/whatsapp-agent/pair-code"
 	whatsAppAgentForgetPath = "/api/channels/whatsapp-agent/forget"
 )
 
@@ -40,13 +41,23 @@ type whatsAppAgentStatusResponse struct {
 	// deliberately not in this response: it is fetched as a rendered image from
 	// whatsAppAgentQRPath, so the raw pairing credential never exists as a
 	// string in the browser, in a JSON cache, or in a devtools network log.
-	HasQR  bool   `json:"has_qr"`
-	Detail string `json:"detail,omitempty"`
+	HasQR bool `json:"has_qr"`
+	// HasCode reports that a companion pairing code is waiting to be typed into
+	// WhatsApp. Like the QR, the value is fetched separately rather than
+	// carried here, so the endpoint the panel polls every two seconds never
+	// holds a credential.
+	HasCode bool   `json:"has_code"`
+	Detail  string `json:"detail,omitempty"`
+}
+
+type whatsAppAgentCodeResponse struct {
+	Code string `json:"code"`
 }
 
 func (h *Handler) registerWhatsAppAgentRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET "+whatsAppAgentStatusPath, h.handleWhatsAppAgentStatus)
 	mux.HandleFunc("GET "+whatsAppAgentQRPath, h.handleWhatsAppAgentQR)
+	mux.HandleFunc("GET "+whatsAppAgentCodePath, h.handleWhatsAppAgentCode)
 	mux.HandleFunc("POST "+whatsAppAgentForgetPath, h.handleWhatsAppAgentForget)
 }
 
@@ -74,6 +85,7 @@ func (h *Handler) handleWhatsAppAgentStatus(w http.ResponseWriter, r *http.Reque
 		resp.State = string(snap.State)
 		resp.Detail = snap.Detail
 		resp.HasQR = snap.HasQR()
+		resp.HasCode = snap.HasCode()
 	}
 	w.Header().Set("Content-Type", "application/json")
 	// A live pairing code must not be cached by anything between here and the
@@ -110,6 +122,29 @@ func (h *Handler) handleWhatsAppAgentQR(w http.ResponseWriter, r *http.Request) 
 	w.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate, private")
 	w.Header().Set("Pragma", "no-cache")
 	_, _ = w.Write(code.PNG())
+}
+
+// handleWhatsAppAgentCode returns the live companion pairing code.
+//
+// Unlike the QR, this one has to reach the browser as text: the user types it
+// into WhatsApp's Linked Devices screen. It is served from its own endpoint,
+// behind the same dashboard authentication, so the status response the panel
+// polls on a timer never carries a credential — and this response is fetched
+// only while a code is actually live.
+//
+//	GET /api/channels/whatsapp-agent/pair-code
+func (h *Handler) handleWhatsAppAgentCode(w http.ResponseWriter, r *http.Request) {
+	snap := pairing.NewStore().Read()
+	if !snap.HasCode() {
+		http.NotFound(w, r)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	// Single-use and short-lived. Nothing between here and the tab may keep it.
+	w.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate, private")
+	w.Header().Set("Pragma", "no-cache")
+	_ = json.NewEncoder(w).Encode(whatsAppAgentCodeResponse{Code: snap.Code})
 }
 
 // handleWhatsAppAgentForget erases the local WhatsApp session and any pairing
