@@ -150,12 +150,10 @@ describe("Channels → Web", () => {
     const payload = patchAppConfig.mock.calls[0][0] as {
       channel_list: { pico: Record<string, unknown> }
     }
-    // The form collapses list fields to a newline-joined string on submit —
-    // pre-existing behaviour for every channel, and Go's FlexibleStringSlice
-    // decodes a bare string straight back to a one-element slice. What matters
-    // here is that the principal survived the save rather than being cleared by
-    // a control the user can no longer see.
-    expect(payload.channel_list.pico.allow_from).toBe("pico-user")
+    // List fields submit as canonical JSON arrays. What matters here is that
+    // the principal survived the save rather than being cleared by a control
+    // the user can no longer see.
+    expect(payload.channel_list.pico.allow_from).toEqual(["pico-user"])
   })
 
   it("still shows Allow From for channels where it is a real setting", async () => {
