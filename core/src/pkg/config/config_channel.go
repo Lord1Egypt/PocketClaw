@@ -717,6 +717,21 @@ func isValidChannelType(channelType string) bool {
 	return ok
 }
 
+// retiredChannelTypes are channel types PocketClaw once wrote into config files
+// and no longer supports.
+//
+// An install that configured one still has its block on disk, and an unknown
+// type fails the whole config — so without this, removing a feature would stop
+// the gateway starting for exactly the users who had adopted it. That is not a
+// hypothetical: dropping WhatsApp Self-Chat did it, and the device found it.
+//
+// The entry is dropped in memory rather than rewritten on disk. Silently
+// editing a user's configuration file to erase a block they wrote is a bigger
+// liberty than ignoring it, and re-reading it costs nothing.
+var retiredChannelTypes = map[string]string{
+	"whatsapp_self_chat": "WhatsApp Self-Chat was removed; Telegram is the supported remote agent channel",
+}
+
 // InitChannelList validates and initializes all channels in the ChannelsConfig.
 // It performs three steps:
 //  1. Validates that each channel has a non-empty Type
@@ -738,6 +753,15 @@ func InitChannelList(channels ChannelsConfig) error {
 		// Infer Type from map key if not explicitly set
 		if bc.Type == "" {
 			bc.Type = name
+		}
+		if reason, gone := retiredChannelTypes[bc.Type]; gone {
+			logger.WarnF("ignoring a retired channel left in the configuration", map[string]any{
+				"channel": name,
+				"type":    bc.Type,
+				"reason":  reason,
+			})
+			delete(channels, name)
+			continue
 		}
 		if !isValidChannelType(bc.Type) {
 			return fmt.Errorf("channel %q has unknown type %q", name, bc.Type)
