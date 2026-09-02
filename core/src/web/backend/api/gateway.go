@@ -41,6 +41,7 @@ var gateway = struct {
 	logs                *LogBuffer
 	pidData             *ppid.PidFileData // pid file data read from picoclaw.pid.json
 	picoToken           string            // cached raw pico token for upstream gateway proxy injection
+	lastStartupError    string            // sanitized reason the last start attempt failed
 }{
 	runtimeStatus: "stopped",
 	logs:          NewLogBuffer(200),
@@ -298,6 +299,26 @@ func launcherOwnsGatewayPID(pid int) bool {
 	return isCmdProcessAliveLocked(gateway.cmd)
 }
 
+// gatewayHealthProbeRefused reports whether a health probe failed because
+// nothing is listening on the gateway port.
+//
+// The gateway opens its listeners before it commits the pid file, and closes
+// them again when the singleton check rejects the start, so a process that
+// legitimately owns the pid file is always accepting connections on that port.
+// A refused connection is therefore decisive proof that the pid file is stale.
+// A timeout is not: a wedged or merely busy gateway can leave a probe hanging,
+// and deleting its pid file would be the bug this guard exists to prevent.
+func gatewayHealthProbeRefused(err error) bool {
+	if err == nil {
+		return false
+	}
+	var netErr net.Error
+	if errors.As(err, &netErr) && netErr.Timeout() {
+		return false
+	}
+	return errors.Is(err, syscall.ECONNREFUSED)
+}
+
 func (h *Handler) validateGatewayPidData(
 	pidData *ppid.PidFileData,
 	cfg *config.Config,
@@ -323,6 +344,10 @@ func (h *Handler) validateGatewayPidData(
 
 	healthResp, statusCode, err := h.getGatewayHealthForPidData(pidData, cfg, 800*time.Millisecond)
 	if err != nil {
+		if gatewayHealthProbeRefused(err) {
+			logGatewayPidValidation(pidData.PID, "foreign", "health_probe", stage, "no listener on the gateway port")
+			return false, true, fmt.Sprintf("health probe refused: %v", err)
+		}
 		logGatewayPidValidation(pidData.PID, "unknown", "health_probe", stage, "health endpoint unreachable")
 		return false, false, fmt.Sprintf("health probe failed: %v", err)
 	}
@@ -941,6 +966,11 @@ func isCmdProcessAliveLocked(cmd *exec.Cmd) bool {
 
 func setGatewayRuntimeStatusLocked(status string) {
 	gateway.runtimeStatus = status
+	// The failure reason is only meaningful while the gateway is in the error
+	// state; any other transition clears it so a stale line cannot be shown.
+	if status != "error" {
+		gateway.lastStartupError = ""
+	}
 	if status == "starting" || status == "restarting" {
 		gateway.startupDeadline = time.Now().Add(gatewayStartupWindow)
 		return
@@ -976,6 +1006,9 @@ func gatewayStatusWithoutHealthLocked() string {
 	if gateway.runtimeStatus == "starting" || gateway.runtimeStatus == "restarting" {
 		if gateway.startupDeadline.IsZero() || time.Now().Before(gateway.startupDeadline) {
 			return gateway.runtimeStatus
+		}
+		if gateway.lastStartupError == "" {
+			gateway.lastStartupError = "Gateway did not become healthy within the startup window."
 		}
 		return "error"
 	}
@@ -1188,14 +1221,28 @@ func (h *Handler) startGatewayLocked(initialStatus string, existingPid int) (int
 	pid = cmd.Process.Pid
 	logger.InfoC("gateway", fmt.Sprintf("Started gateway (PID: %d)", pid))
 
-	// Capture stdout/stderr in background
-	go scanPipe(stdoutPipe, gateway.logs)
-	go scanPipe(stderrPipe, gateway.logs)
+	// Capture stdout/stderr in background. Both pipes must be drained before
+	// cmd.Wait closes them, otherwise a child that dies during startup can lose
+	// the very line that explains why.
+	var pipesDone sync.WaitGroup
+	pipesDone.Add(2)
+	go func() {
+		defer pipesDone.Done()
+		scanPipe(stdoutPipe, gateway.logs)
+	}()
+	go func() {
+		defer pipesDone.Done()
+		scanPipe(stderrPipe, gateway.logs)
+	}()
+
+	startedAt := time.Now()
 
 	// Wait for exit in background and clean up
 	go func() {
-		if err := cmd.Wait(); err != nil {
-			logger.ErrorC("gateway", fmt.Sprintf("Gateway process exited: %v", err))
+		pipesDone.Wait()
+		waitErr := cmd.Wait()
+		if waitErr != nil {
+			logger.ErrorC("gateway", fmt.Sprintf("Gateway process exited: %v", waitErr))
 		} else {
 			logger.InfoC("gateway", "Gateway process exited normally")
 		}
@@ -1205,7 +1252,25 @@ func (h *Handler) startGatewayLocked(initialStatus string, existingPid int) (int
 			gateway.cmd = nil
 			gateway.bootDefaultModel = ""
 			gateway.bootConfigSignature = ""
-			if gateway.runtimeStatus != "restarting" {
+			switch {
+			case gateway.runtimeStatus == "restarting":
+				// A restart owns the state machine; leave it to finish.
+			case waitErr != nil && gateway.runtimeStatus == "starting":
+				// Exited non-zero without ever reaching healthy. Land in a
+				// terminal error state so the console stops saying "starting"
+				// and the user can retry against a real message.
+				lines, _, _ := gateway.logs.LinesSince(0)
+				setGatewayRuntimeStatusLocked("error")
+				gateway.lastStartupError = gatewayStartupFailureReason(lines, waitErr)
+				logger.ErrorCF("gateway", "Gateway startup failed", map[string]any{
+					"event":        "gateway.start.failed",
+					"pid":          pid,
+					"exit_error":   waitErr.Error(),
+					"startup_ms":   time.Since(startedAt).Milliseconds(),
+					"health_state": "never_healthy",
+					"reason":       gateway.lastStartupError,
+				})
+			default:
 				setGatewayRuntimeStatusLocked("stopped")
 			}
 		}
@@ -1556,6 +1621,9 @@ func (h *Handler) gatewayStatusData() map[string]any {
 		gateway.mu.Lock()
 		status := gatewayStatusWithoutHealthLocked()
 		data["gateway_status"] = status
+		if status == "error" && gateway.lastStartupError != "" {
+			data["gateway_last_error"] = gateway.lastStartupError
+		}
 		// Keep last known pidData while gateway is still in a transient
 		// running state; otherwise websocket proxy may lose auth token
 		// during short pid-file races.
@@ -1645,6 +1713,41 @@ func gatewayLogsData(r *http.Request) map[string]any {
 }
 
 // scanPipe reads lines from r and appends them to buf. Returns when r reaches EOF.
+// gatewayStartupFailurePatterns maps a marker in the child's captured output to
+// the one sentence the console should show. The list is a whitelist on purpose:
+// the gateway's own logs carry config paths and channel detail, and a panic
+// dump can carry anything at all, so no child output is ever forwarded
+// verbatim. Order matters — the first match wins.
+var gatewayStartupFailurePatterns = []struct {
+	marker string
+	reason string
+}{
+	{"singleton check failed", "Gateway could not start because a stale previous process record was detected."},
+	{"gateway is already running", "Gateway could not start because a stale previous process record was detected."},
+	{"error opening gateway listeners", "Gateway could not start because its network port is already in use."},
+	{"config pre-check failed", "Gateway could not start because its configuration was rejected."},
+	{"error loading config", "Gateway could not start because its configuration could not be read."},
+	{"error enabling file logging", "Gateway could not start because it could not open its log file."},
+}
+
+// gatewayStartupFailureReason turns a failed child's captured output into one
+// short, safe sentence. Unrecognised failures fall back to the exit status
+// alone, which carries no configuration or credential data.
+func gatewayStartupFailureReason(lines []string, waitErr error) string {
+	for i := len(lines) - 1; i >= 0; i-- {
+		lower := strings.ToLower(lines[i])
+		for _, p := range gatewayStartupFailurePatterns {
+			if strings.Contains(lower, p.marker) {
+				return p.reason
+			}
+		}
+	}
+	if waitErr != nil {
+		return fmt.Sprintf("Gateway exited during startup (%v). Check the gateway logs for details.", waitErr)
+	}
+	return "Gateway exited during startup. Check the gateway logs for details."
+}
+
 func scanPipe(r io.Reader, buf *LogBuffer) {
 	scanner := bufio.NewScanner(r)
 	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)

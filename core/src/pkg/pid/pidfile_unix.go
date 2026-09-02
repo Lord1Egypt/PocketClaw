@@ -30,15 +30,67 @@ func isProcessRunning(pid int) bool {
 	return errors.As(err, &errno) && errno == syscall.EPERM
 }
 
-// isPicoclawProcess reads /proc/<pid>/comm to confirm the process name
-// contains "picoclaw". Returns false when the comm file can be read and
-// the name does not match (e.g., PID was reused by an unrelated process).
-// Returns true if /proc/<pid>/comm is unreadable so the call site falls
-// back to trusting the liveness check alone.
-func isPicoclawProcess(pid int) bool {
-	data, err := os.ReadFile(fmt.Sprintf("/proc/%d/comm", pid))
-	if err != nil {
-		return true // cannot verify — trust liveness check
+// procVerdict is what /proc/<pid>/comm says about a PID that isProcessRunning
+// has already reported as alive.
+type procVerdict int
+
+const (
+	// procMatch: comm was readable and names the PocketClaw runtime.
+	procMatch procVerdict = iota
+	// procForeign: comm was readable and names something else, so the PID was
+	// reused by an unrelated process.
+	procForeign
+	// procNotVisible: the kernel will not show this PID to us at all.
+	procNotVisible
+	// procUnknown: the read failed for a reason that says nothing about who
+	// owns the PID.
+	procUnknown
+)
+
+// readProcComm is a seam so the classification can be tested without a real
+// process to point at.
+var readProcComm = func(pid int) ([]byte, error) {
+	return os.ReadFile(fmt.Sprintf("/proc/%d/comm", pid))
+}
+
+// classifyProcComm turns one /proc/<pid>/comm read into an ownership verdict.
+//
+// A "not visible" error is evidence of foreignness, not an inconclusive
+// result: a gateway whose pid file we are asked to respect was spawned by this
+// launcher and therefore shares our UID, and a same-UID process is always
+// readable under every /proc mode. Android mounts /proc with
+// hidepid=invisible, so a recycled PID owned by any other UID lands here on
+// every device — reading that as "cannot verify, assume it is ours" is what
+// wedged startup behind a dead gateway's pid file.
+func classifyProcComm(data []byte, err error) procVerdict {
+	if err == nil {
+		if strings.Contains(strings.TrimSpace(string(data)), "picoclaw") {
+			return procMatch
+		}
+		return procForeign
 	}
-	return strings.Contains(strings.TrimSpace(string(data)), "picoclaw")
+	if errors.Is(err, os.ErrNotExist) ||
+		errors.Is(err, os.ErrPermission) ||
+		errors.Is(err, syscall.ESRCH) {
+		return procNotVisible
+	}
+	return procUnknown
+}
+
+// isPicoclawProcess reports whether the live process holding pid is a
+// PocketClaw runtime, and so whether its pid file must be honoured.
+//
+// It stays conservative for genuinely ambiguous read failures. That cannot
+// cause a double start: the gateway opens its listeners before it commits the
+// pid file, so a second instance that gets past this check still fails to bind
+// the gateway port.
+func isPicoclawProcess(pid int) bool {
+	switch classifyProcComm(readProcComm(pid)) {
+	case procMatch:
+		return true
+	case procForeign, procNotVisible:
+		return false
+	default:
+		return true
+	}
 }
