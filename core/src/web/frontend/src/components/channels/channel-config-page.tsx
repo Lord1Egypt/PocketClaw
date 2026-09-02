@@ -199,6 +199,30 @@ function isConfigured(
   }
 }
 
+/**
+ * Fields the form must not offer, per channel.
+ *
+ * The Web channel's allow-list is not a setting. `pkg/channels/pico` stamps
+ * every inbound message's sender itself and enforces a hardcoded owner
+ * allow-list "regardless of client payload fields or a stale/permissive on-disk
+ * allowlist", so the value in config.json is never consulted for authorization.
+ * Both the console backend and the Android host also rewrite it on every
+ * provisioning pass. Rendering it as an editable field showed the user an
+ * internal principal they could neither meaningfully change nor remove — the
+ * control was misleading, not merely badly named.
+ *
+ * The value itself is untouched: hiding it is a UI decision, and existing
+ * configurations keep loading exactly as before.
+ */
+function getHiddenFieldKeys(channelName: string): string[] {
+  switch (channelName) {
+    case "pico":
+      return ["allow_from"]
+    default:
+      return []
+  }
+}
+
 function getRequiredFieldKeys(channelName: string): string[] {
   switch (channelName) {
     case "telegram":
@@ -373,7 +397,7 @@ export function ChannelConfigPage({ channelName }: ChannelConfigPageProps) {
 
   const hidesPageLevelEnableToggle = channel?.name === "wecom"
 
-  const hiddenKeys = useMemo<string[]>(() => [], [])
+  const hiddenKeys = useMemo(() => getHiddenFieldKeys(channelName), [channelName])
   const requiredKeys = useMemo(
     () => getRequiredFieldKeys(channelName),
     [channelName],
