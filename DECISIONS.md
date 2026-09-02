@@ -1,5 +1,31 @@
 # PocketClaw Decisions
 
+## BlueStacks is the iteration device; the Samsung is the final physical gate
+
+- Date: 2026-09-02
+- Decision: routine development and regression testing run on a BlueStacks
+  Android 11 ARM instance (`DEV_DEVICE`). The Samsung SM-A165F on Android 16
+  (`FINAL_DEVICE`) remains the authoritative gate for milestone acceptance.
+  Routine work is no longer blocked when the phone is disconnected.
+- Reason: every build previously needed the physical phone, which made ordinary
+  UI, settings, channel, chat, and gateway-lifecycle iteration slow and
+  serialised behind one device.
+- Consequence: BlueStacks results count as development/regression evidence
+  only. Before a milestone is accepted, the Samsung must still cover what an
+  emulator cannot prove: Android 16 compatibility, real foreground/background
+  and process-death lifecycle, Auto-Start, permissions, storage and the
+  photo/file picker, notifications, Keystore and GitHub auth persistence,
+  battery/background restrictions, Telegram end to end, `adb install -r`
+  upgrades, and real RAM/PSS/RSS. Emulator memory numbers are never quoted as
+  phone memory, and emulator lifecycle behaviour never stands in for Android 16.
+  A feature that depends on real hardware may need the Samsung earlier.
+- How to apply: run `adb devices` and confirm the target before every install —
+  a development APK must never land on the Samsung by accident. Discover the
+  BlueStacks ADB endpoint at run time (its instances publish an
+  `...status.adb_port` key in the BlueStacks config, and the port differs per
+  instance) rather than hardcoding one.
+
+
 ## WhatsApp is cancelled; Telegram is the remote agent channel
 
 - Date: 2026-09-02
