@@ -1,5 +1,23 @@
 # PocketClaw Tasks
 
+## FOLLOW-UP: normalize channel list-field serialization
+
+Not part of the WhatsApp removal or the Web branding cleanup. Recorded here
+because it was found while testing them, and deliberately left alone so those
+branches stayed scoped.
+
+- [ ] Normalize channel list-field serialization consistently between the
+  console, Go's `FlexibleStringSlice`, and Android provisioning.
+
+The console's `serializeStringArrayForSubmit` joins list fields with newlines
+and submits a bare string, so saving any channel page turns `["a","b"]` into
+`"a\nb"`. Go absorbs this — `FlexibleStringSlice` accepts a string, a number or
+an array — but Android does not: `ensurePicoChannelEnabled` reads `allow_from`
+with `optJSONArray`, which returns null for a string, so it treats the block as
+unprovisioned and rewrites it on the next start. Self-healing today, and
+harmless, but the three layers disagree about what the field is.
+
+
 ## WhatsApp Self-Chat + Chat image attachment
 
 - [x] Audit the two existing WhatsApp implementations before removing anything;
