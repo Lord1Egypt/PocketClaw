@@ -1,6 +1,6 @@
 ---
 name: skill-creator
-description: Create, update, or review Picoclaw skills. Use when writing a new skill, modifying an existing SKILL.md, turning a repeated workflow into a reusable skill, or organizing scripts, references, and assets for a skill.
+description: Create, update, or review PocketClaw skills. Use when writing a new skill, modifying an existing SKILL.md, turning a repeated workflow into a reusable skill, or organizing scripts, references, and assets for a skill.
 ---
 
 # Skill Creator
@@ -266,7 +266,7 @@ At this point, it is time to actually create the skill.
 
 Skip this step only if the skill being developed already exists. In that case, continue to editing and verification.
 
-Create user-installed Picoclaw skills under the workspace configured by Picoclaw: `<workspace>/skills/<skill-name>/`. If Picoclaw is configured to use a non-default workspace, set `WORKSPACE` to that path instead.
+Create user-installed PocketClaw skills under the workspace configured by PocketClaw: `<workspace>/skills/<skill-name>/`. If PocketClaw is configured to use a non-default workspace, set `WORKSPACE` to that path instead.
 
 ```bash
 WORKSPACE="$HOME/.picoclaw/workspace"
@@ -274,7 +274,7 @@ mkdir -p "$WORKSPACE/skills/my-skill"
 cat > "$WORKSPACE/skills/my-skill/SKILL.md" <<'EOF'
 ---
 name: my-skill
-description: Describe what this skill does and when Picoclaw should use it.
+description: Describe what this skill does and when PocketClaw should use it.
 ---
 
 # My Skill
@@ -344,7 +344,7 @@ Before considering the skill complete:
 5. Confirm optional `scripts/`, `references/`, or `assets/` directories are either used by the skill or omitted.
 6. Test any scripts or procedural instructions with a representative real task.
 
-If Picoclaw documents a packaging or validation command in the future, use that documented command rather than assuming a helper script exists.
+If PocketClaw documents a packaging or validation command in the future, use that documented command rather than assuming a helper script exists.
 
 ### Step 6: Iterate
 
