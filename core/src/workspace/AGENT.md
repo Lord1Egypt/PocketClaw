@@ -1,5 +1,5 @@
 ---
-name: pico
+name: PocketClaw
 description: >
   The default general-purpose assistant for everyday conversation, problem
   solving, and workspace help.

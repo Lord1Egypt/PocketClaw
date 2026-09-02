@@ -248,3 +248,54 @@ func TestBuildPrompt_UserTasksAfterMarkerProducePrompt(t *testing.T) {
 		t.Fatalf("prompt = %q, want user task content", prompt)
 	}
 }
+
+// HEARTBEAT.md is workspace content a user edits directly. The service seeds a
+// default only when the file is absent, and must never replace one that exists
+// — including an empty one, which is a deliberate way to disable the prompt.
+func TestBuildPromptPreservesExistingHeartbeatFile(t *testing.T) {
+	tests := []struct {
+		name    string
+		content string
+	}{
+		{name: "customized tasks", content: "- check my calendar\n- water the plants\n"},
+		{name: "deliberately emptied", content: ""},
+		{name: "whitespace only", content: "\n  \n"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			workspace := t.TempDir()
+			path := filepath.Join(workspace, "HEARTBEAT.md")
+			if err := os.WriteFile(path, []byte(tt.content), 0o644); err != nil {
+				t.Fatal(err)
+			}
+
+			NewHeartbeatService(workspace, 30, true).buildPrompt()
+
+			got, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatalf("ReadFile() error = %v", err)
+			}
+			if string(got) != tt.content {
+				t.Errorf("HEARTBEAT.md was rewritten:\n got: %q\nwant: %q", string(got), tt.content)
+			}
+		})
+	}
+}
+
+// The counterpart: a genuinely missing file is still seeded, and the seeded
+// template carries no upstream branding.
+func TestBuildPromptSeedsCleanDefaultWhenMissing(t *testing.T) {
+	workspace := t.TempDir()
+	path := filepath.Join(workspace, "HEARTBEAT.md")
+
+	NewHeartbeatService(workspace, 30, true).buildPrompt()
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("expected a default HEARTBEAT.md to be created: %v", err)
+	}
+	if strings.Contains(strings.ToLower(string(data)), "pico") {
+		t.Errorf("default HEARTBEAT.md carries upstream branding:\n%s", string(data))
+	}
+}
