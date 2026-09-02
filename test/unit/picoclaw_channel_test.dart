@@ -188,49 +188,6 @@ void main() {
     expect(result.message, contains('Could not enable'));
   });
 
-  group('openWhatsAppSelfChat', () {
-    test('sends the number and the message to the host', () async {
-      MethodCall? observed;
-      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-          .setMockMethodCallHandler(channel, (call) async {
-            observed = call;
-            return null;
-          });
-
-      await PicoClawChannel.openWhatsAppSelfChat(
-        selfNumber: '+201012345678',
-        message: 'مرحبا من PocketClaw 🦞',
-      );
-
-      expect(observed?.method, 'openWhatsAppSelfChat');
-      expect(observed?.arguments, <String, Object?>{
-        'selfNumber': '+201012345678',
-        'message': 'مرحبا من PocketClaw 🦞',
-      });
-    });
-
-    test('a host failure surfaces its reason instead of passing silently',
-        () async {
-      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-          .setMockMethodCallHandler(channel, (call) async {
-            throw PlatformException(
-              code: 'not_installed',
-              message: 'WhatsApp is not installed on this device',
-            );
-          });
-
-      await expectLater(
-        PicoClawChannel.openWhatsAppSelfChat(
-          selfNumber: '+201012345678',
-          message: 'hello',
-        ),
-        throwsA(
-          isA<PlatformException>().having((e) => e.code, 'code', 'not_installed'),
-        ),
-      );
-    });
-  });
-
   group('pickChatImage', () {
     test('passes the page accept types through and returns the chosen uri',
         () async {

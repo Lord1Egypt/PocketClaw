@@ -92,11 +92,6 @@ class _WebViewAndroidState extends State<WebViewAndroid>
         final url = request.url;
         if (url == null || !_isConsoleOrigin) return;
         await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
-      case HostRequestKind.openWhatsAppSelfChat:
-        final selfNumber = request.selfNumber;
-        final message = request.message;
-        if (selfNumber == null || message == null || !_isConsoleOrigin) return;
-        await _openWhatsAppSelfChat(selfNumber, message);
     }
   }
 
@@ -203,30 +198,6 @@ class _WebViewAndroidState extends State<WebViewAndroid>
     }
   }
 
-  /// Opens WhatsApp on the user's own chat with the message prepared.
-  ///
-  /// The message is never logged, and the number is never logged in full.
-  Future<void> _openWhatsAppSelfChat(String selfNumber, String message) async {
-    try {
-      await PicoClawChannel.openWhatsAppSelfChat(
-        selfNumber: selfNumber,
-        message: message,
-      );
-      _logLifecycle('whatsapp.self_chat', {
-        'result': 'opened',
-        'message_chars': message.runes.length,
-      });
-    } on PlatformException catch (e) {
-      _logLifecycle('whatsapp.self_chat', {
-        'result': 'failed',
-        'reason': e.code,
-      });
-      if (!mounted) return;
-      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-        SnackBar(content: Text(e.message ?? e.code)),
-      );
-    }
-  }
 
   @override
   void dispose() {

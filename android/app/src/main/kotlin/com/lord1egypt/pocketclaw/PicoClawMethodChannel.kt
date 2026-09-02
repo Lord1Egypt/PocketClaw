@@ -2,7 +2,6 @@ package com.lord1egypt.pocketclaw
 
 import com.lord1egypt.pocketclaw.media.ChatImagePicker
 import com.lord1egypt.pocketclaw.security.GitHubCredentialStore
-import com.lord1egypt.pocketclaw.whatsapp.WhatsAppSelfChatLauncher
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -288,28 +287,6 @@ class PicoClawMethodChannel(
                             }
                         }
                     }.start()
-                }
-                "openWhatsAppSelfChat" -> {
-                    // Opens WhatsApp with the text prepared. It is never sent
-                    // here: WhatsApp shows the compose box and waits for the
-                    // user. Neither the number nor the body is logged.
-                    val selfNumber = call.argument<String>("selfNumber").orEmpty()
-                    val message = call.argument<String>("message").orEmpty()
-                    if (message.isBlank()) {
-                        result.error("empty_message", "There is no message to prepare", null)
-                        return@setMethodCallHandler
-                    }
-                    when (val failure = WhatsAppSelfChatLauncher.open(context, selfNumber, message)) {
-                        null -> result.success(null)
-                        WhatsAppSelfChatLauncher.Failure.NOT_INSTALLED ->
-                            result.error(failure, "WhatsApp is not installed on this device", null)
-                        WhatsAppSelfChatLauncher.Failure.INVALID_NUMBER ->
-                            result.error(failure, "That is not a valid WhatsApp number", null)
-                        WhatsAppSelfChatLauncher.Failure.NOT_FOREGROUND ->
-                            result.error(failure, "Bring PocketClaw to the foreground and try again", null)
-                        else ->
-                            result.error(failure, "Android would not open WhatsApp", null)
-                    }
                 }
                 "pickChatImage" -> {
                     val picker = chatImagePicker

@@ -470,7 +470,6 @@
       "qq": "QQ",
       "onebot": "OneBot",
       "wecom": "WeCom",
-      "whatsapp_self_chat": "WhatsApp Self-Chat",
       "pico": "Web",
       "maixcam": "MaixCam",
       "matrix": "Matrix",
@@ -655,26 +654,6 @@
       "reconnect": "Reconnect / Create New Bot",
       "manualOnlyTitle": "Manual setup",
       "manualOnlyBody": "One-tap bot creation is not available in this build, so Telegram is set up with a bot token from BotFather. Paste the token below and save."
-    },
-    "whatsappSelfChat": {
-      "connectTitle": "Chat to yourself on WhatsApp",
-      "connectBody": "PocketClaw opens WhatsApp on your own chat with a message ready to send. Enter your own WhatsApp number to connect.",
-      "numberLabel": "Your WhatsApp number",
-      "numberHint": "International format, starting with your country code — for example +20 101 234 5678.",
-      "connect": "Connect",
-      "connected": "Connected",
-      "test": "Test",
-      "change": "Change",
-      "disconnect": "Disconnect",
-      "neverSends": "PocketClaw only opens WhatsApp with the message prepared. You press Send.",
-      "testNeedsApp": "Open PocketClaw on Android to test this.",
-      "errorEmpty": "Enter your WhatsApp number.",
-      "errorInvalidChars": "Use digits only, optionally with +, spaces, brackets or dashes.",
-      "errorNotInternational": "Enter the number in international format, starting with the country code — for example +20 101 234 5678.",
-      "errorLength": "A WhatsApp number is between 8 and 15 digits, including the country code.",
-      "applying": "Saved — applying automatically…",
-      "applyDeferred": "Saved and in use. PocketClaw is waiting for the gateway to finish what it is doing before applying the rest.",
-      "applyFailed": "Saved and in use, but PocketClaw could not confirm the gateway picked it up. It will apply on the next start."
     }
   },
   "pages": {

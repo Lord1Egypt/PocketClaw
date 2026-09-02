@@ -255,7 +255,7 @@ describe("saveAndApplyGatewayConfig when the gateway is not safe to restart", ()
 /**
  * Surfaces that show their own state.
  *
- * WhatsApp Self-Chat says "saved, applying automatically" in the card, and must
+ * A caller that owns its own apply reporting says so in its own surface, and must
  * never raise a toast telling the user to restart the gateway by hand. Passing
  * onOutcome hands the reporting to the caller; everything about the restart
  * decision stays here.
@@ -273,7 +273,7 @@ describe("saveAndApplyGatewayConfig with onOutcome", () => {
     await saveAndApplyGatewayConfig(t, {
       save: async () => undefined,
       savedMessage: "saved.message",
-      name: "WhatsApp Self-Chat",
+      name: "Test Channel",
       onOutcome,
     })
 
@@ -292,7 +292,7 @@ describe("saveAndApplyGatewayConfig with onOutcome", () => {
     await saveAndApplyGatewayConfig(t, {
       save: async () => undefined,
       savedMessage: "saved.message",
-      name: "WhatsApp Self-Chat",
+      name: "Test Channel",
       onOutcome,
     })
 
@@ -309,7 +309,7 @@ describe("saveAndApplyGatewayConfig with onOutcome", () => {
     await saveAndApplyGatewayConfig(t, {
       save: async () => undefined,
       savedMessage: "saved.message",
-      name: "WhatsApp Self-Chat",
+      name: "Test Channel",
       onOutcome,
     })
 
@@ -326,7 +326,7 @@ describe("saveAndApplyGatewayConfig with onOutcome", () => {
     await saveAndApplyGatewayConfig(t, {
       save: async () => undefined,
       savedMessage: "saved.message",
-      name: "WhatsApp Self-Chat",
+      name: "Test Channel",
       onOutcome,
     })
 

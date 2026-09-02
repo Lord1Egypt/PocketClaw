@@ -1,5 +1,45 @@
 # PocketClaw Decisions
 
+## WhatsApp is cancelled; Telegram is the remote agent channel
+
+- Date: 2026-09-02
+- Decision: PocketClaw ships no WhatsApp feature. The Phase-B experimental
+  branch is not merged, and WhatsApp Self-Chat — which had already shipped on
+  `develop` — is removed along with it: the Core tool, the `selfchat` package,
+  the Android host bridge and `<queries>` entries, the Flutter host-bridge arm,
+  the console panel, and the config type. The vendored upstream `whatsapp` and
+  `whatsapp_native` packages stay exactly where they are.
+- Why: the native transport carried more runtime and protocol surface than a
+  phone-resident product could justify, and Telegram already covers the remote
+  agent case. Self-Chat goes too because a compose-only launcher is not what
+  anyone meant by "WhatsApp support" — keeping it would leave a WhatsApp card
+  that cannot receive or reply, which is exactly the confusion that made the
+  first physical test read as a broken transport.
+- Consequence: the Android Core no longer links whatsmeow — 37,618,017 bytes,
+  65,536 below the pre-Phase-B baseline, because Self-Chat went as well. The
+  upstream transports remain dormant: unreachable from the console, startable
+  only by hand-editing a config block, and compiled as the inert stub. Deleting
+  them would diverge from upstream for no runtime benefit. `go.mod` is
+  unchanged — whatsmeow was always an upstream requirement, and
+  `modernc.org/sqlite` and `rsc.io/qr` are used by the live Matrix and Weixin
+  channels regardless.
+
+## The absence of WhatsApp is a tested property, not a memory
+
+- Date: 2026-09-02
+- Decision: three guards. The Android target must not carry the
+  `whatsapp_native` tag; the staged Core must not link whatsmeow and must carry
+  the inert stub; and no file under `lib/`, `test/`, `android/app/src/`, the
+  console source or the console API may name WhatsApp outside a comment. The
+  catalog is asserted separately to offer no WhatsApp entry.
+- Why: re-enabling the transport is one word in a Makefile and produces a green
+  build, so nothing else would notice it coming back. The comment exemption is
+  deliberate: a note explaining that WhatsApp was removed, and why, is the thing
+  most likely to stop someone re-adding it.
+- Consequence: `pkg/coresource` and `web/backend/api` fail the ordinary gate if
+  any WhatsApp surface returns, on the tagless build everyone runs.
+
+
 ## A surface that shows its own apply state reports the outcome, not a toast
 
 - Date: 2026-09-01

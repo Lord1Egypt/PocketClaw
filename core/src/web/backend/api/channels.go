@@ -25,12 +25,10 @@ var channelCatalog = []channelCatalogItem{
 	{Name: "qq", ConfigKey: "qq"},
 	{Name: "onebot", ConfigKey: "onebot"},
 	{Name: "wecom", ConfigKey: "wecom"},
-	// WhatsApp Self-Chat replaces the former "whatsapp" (bridge) and
-	// "whatsapp_native" entries in the console. Those transports still exist and
-	// still run for installs that already configured them — they are simply no
-	// longer offered, so nobody new is asked for a bridge URL or a session store
-	// path. Their config block is untouched; Self-Chat persists into its own.
-	{Name: "whatsapp_self_chat", ConfigKey: "whatsapp_self_chat"},
+	// No WhatsApp entry of any kind. The bridge and native transports still
+	// exist in vendored upstream Core and still run for an install that already
+	// configured one by hand, but PocketClaw offers no WhatsApp channel:
+	// Telegram is the supported remote agent channel.
 	{Name: "pico", ConfigKey: "pico"},
 	{Name: "maixcam", ConfigKey: "maixcam"},
 	{Name: "matrix", ConfigKey: "matrix"},
@@ -109,10 +107,8 @@ var channelSecretFieldMap = map[string][]string{
 	"pico":     {"token"},
 	"matrix":   {"access_token"},
 	"irc":      {"password", "nickserv_password", "sasl_password"},
-	// Self-Chat stores one phone number and no credentials.
-	"whatsapp_self_chat": {},
-	"maixcam":            {},
-	"mqtt":               {"username", "password"},
+	"maixcam":  {},
+	"mqtt":     {"username", "password"},
 }
 
 func buildChannelConfigResponse(cfg *config.Config, item channelCatalogItem) channelConfigResponse {
