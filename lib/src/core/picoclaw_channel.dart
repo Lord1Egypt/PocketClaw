@@ -209,23 +209,6 @@ class PicoClawChannel {
     return result ?? false;
   }
 
-  /// Opens WhatsApp on the user's own chat with [message] prepared.
-  ///
-  /// Never sends. The Intent hands the text to WhatsApp and stops there; the
-  /// Send button belongs to the user. Throws a [PlatformException] whose code
-  /// names why nothing opened — `not_installed`, `invalid_number`,
-  /// `start_failed` — so the caller can say something useful instead of
-  /// failing silently the way the old WhatsApp cards did.
-  static Future<void> openWhatsAppSelfChat({
-    required String selfNumber,
-    required String message,
-  }) async {
-    await _channel.invokeMethod<void>('openWhatsAppSelfChat', {
-      'selfNumber': selfNumber,
-      'message': message,
-    });
-  }
-
   /// Opens the Android photo picker and returns the chosen image as a URI
   /// string, or null when the user cancelled.
   ///

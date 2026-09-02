@@ -20,28 +20,27 @@ const (
 	ChannelPico = "pico"
 	// PicoOwnerPrincipal is the Core-derived owner identity for PocketClaw's
 	// internal realtime channel. It is an authorization label, not a secret.
-	PicoOwnerPrincipal      = "pico-user"
-	ChannelPicoClient       = "pico_client"
-	ChannelTelegram         = "telegram"
-	ChannelDiscord          = "discord"
-	ChannelFeishu           = "feishu"
-	ChannelWeixin           = "weixin"
-	ChannelWeCom            = "wecom"
-	ChannelDingTalk         = "dingtalk"
-	ChannelSlack            = "slack"
-	ChannelMatrix           = "matrix"
-	ChannelLINE             = "line"
-	ChannelOneBot           = "onebot"
-	ChannelQQ               = "qq"
-	ChannelIRC              = "irc"
-	ChannelVK               = "vk"
-	ChannelMaixCam          = "maixcam"
-	ChannelWhatsApp         = "whatsapp"
-	ChannelWhatsAppNative   = "whatsapp_native"
-	ChannelWhatsAppSelfChat = "whatsapp_self_chat"
-	ChannelTeamsWebHook     = "teams_webhook"
-	ChannelMQTT             = "mqtt"
-	ChannelSlackWebHook     = "slack_webhook"
+	PicoOwnerPrincipal    = "pico-user"
+	ChannelPicoClient     = "pico_client"
+	ChannelTelegram       = "telegram"
+	ChannelDiscord        = "discord"
+	ChannelFeishu         = "feishu"
+	ChannelWeixin         = "weixin"
+	ChannelWeCom          = "wecom"
+	ChannelDingTalk       = "dingtalk"
+	ChannelSlack          = "slack"
+	ChannelMatrix         = "matrix"
+	ChannelLINE           = "line"
+	ChannelOneBot         = "onebot"
+	ChannelQQ             = "qq"
+	ChannelIRC            = "irc"
+	ChannelVK             = "vk"
+	ChannelMaixCam        = "maixcam"
+	ChannelWhatsApp       = "whatsapp"
+	ChannelWhatsAppNative = "whatsapp_native"
+	ChannelTeamsWebHook   = "teams_webhook"
+	ChannelMQTT           = "mqtt"
+	ChannelSlackWebHook   = "slack_webhook"
 )
 
 func initChannel() {
@@ -663,28 +662,27 @@ func filterSecureFields(r RawNode, secureFields map[string]struct{}) RawNode {
 var channelSettingsMu sync.RWMutex
 
 var channelSettingsFactory = map[string]any{
-	ChannelPico:             (PicoSettings{}),
-	ChannelPicoClient:       (PicoClientSettings{}),
-	ChannelTelegram:         (TelegramSettings{}),
-	ChannelDiscord:          (DiscordSettings{}),
-	ChannelFeishu:           (FeishuSettings{}),
-	ChannelWeixin:           (WeixinSettings{}),
-	ChannelWeCom:            (WeComSettings{}),
-	ChannelDingTalk:         (DingTalkSettings{}),
-	ChannelSlack:            (SlackSettings{}),
-	ChannelMatrix:           (MatrixSettings{}),
-	ChannelLINE:             (LINESettings{}),
-	ChannelOneBot:           (OneBotSettings{}),
-	ChannelQQ:               (QQSettings{}),
-	ChannelIRC:              (IRCSettings{}),
-	ChannelVK:               (VKSettings{}),
-	ChannelMaixCam:          (MaixCamSettings{}),
-	ChannelWhatsApp:         (WhatsAppSettings{}),
-	ChannelWhatsAppNative:   (WhatsAppSettings{}),
-	ChannelWhatsAppSelfChat: (WhatsAppSelfChatSettings{}),
-	ChannelTeamsWebHook:     (TeamsWebhookSettings{}),
-	ChannelMQTT:             (MQTTSettings{}),
-	ChannelSlackWebHook:     (SlackWebhookSettings{}),
+	ChannelPico:           (PicoSettings{}),
+	ChannelPicoClient:     (PicoClientSettings{}),
+	ChannelTelegram:       (TelegramSettings{}),
+	ChannelDiscord:        (DiscordSettings{}),
+	ChannelFeishu:         (FeishuSettings{}),
+	ChannelWeixin:         (WeixinSettings{}),
+	ChannelWeCom:          (WeComSettings{}),
+	ChannelDingTalk:       (DingTalkSettings{}),
+	ChannelSlack:          (SlackSettings{}),
+	ChannelMatrix:         (MatrixSettings{}),
+	ChannelLINE:           (LINESettings{}),
+	ChannelOneBot:         (OneBotSettings{}),
+	ChannelQQ:             (QQSettings{}),
+	ChannelIRC:            (IRCSettings{}),
+	ChannelVK:             (VKSettings{}),
+	ChannelMaixCam:        (MaixCamSettings{}),
+	ChannelWhatsApp:       (WhatsAppSettings{}),
+	ChannelWhatsAppNative: (WhatsAppSettings{}),
+	ChannelTeamsWebHook:   (TeamsWebhookSettings{}),
+	ChannelMQTT:           (MQTTSettings{}),
+	ChannelSlackWebHook:   (SlackWebhookSettings{}),
 }
 
 // RegisterChannelSettings registers a settings struct prototype for a custom

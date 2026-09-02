@@ -20,7 +20,6 @@ import (
 	"github.com/sipeed/picoclaw/pkg/skills"
 	"github.com/sipeed/picoclaw/pkg/state"
 	"github.com/sipeed/picoclaw/pkg/tools"
-	"github.com/sipeed/picoclaw/pkg/whatsapp/selfchat"
 )
 
 func NewAgentLoop(
@@ -254,13 +253,6 @@ func registerSharedTools(
 
 		if ttsProvider != nil {
 			agent.Tools.Register(tools.NewSendTTSTool(ttsProvider, nil))
-		}
-
-		// WhatsApp Self-Chat only exists inside the PocketClaw Android app,
-		// which is the process that can start an Intent. Registering it
-		// elsewhere would show the model a tool that can never succeed.
-		if selfchat.HostAvailable() {
-			agent.Tools.Register(tools.NewWhatsAppSelfChatTool(selfchat.ConfiguredNumber))
 		}
 
 		if cfg.Tools.IsToolEnabled("load_image") {

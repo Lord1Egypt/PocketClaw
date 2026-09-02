@@ -8,7 +8,6 @@ import {
   IconBrandSlack,
   IconBrandTelegram,
   IconBrandWechat,
-  IconBrandWhatsapp,
   IconCamera,
   IconMessages,
   IconPlug,
@@ -25,7 +24,6 @@ import {
   getChannelsCatalog,
 } from "@/api/channels"
 import { getChannelDisplayName } from "@/components/channels/channel-display-name"
-import { isWhatsAppSelfChatConfigured } from "@/components/channels/channel-forms/whatsapp-self-chat"
 import { gatewayAtom } from "@/store/gateway"
 
 const DEFAULT_VISIBLE_CHANNELS = 4
@@ -40,7 +38,6 @@ const CHANNEL_IMPORTANCE_TAIL = [
   "pico",
   "maixcam",
   "irc",
-  "whatsapp_self_chat",
 ]
 
 function getChannelImportanceOrder(language: string): string[] {
@@ -76,7 +73,6 @@ const CHANNEL_ICON_MAP: Record<
   qq: IconBrandQq,
   weixin: IconBrandWechat,
   wecom: IconBrandWechat,
-  whatsapp_self_chat: IconBrandWhatsapp,
   matrix: IconBrandMatrix,
   maixcam: IconCamera,
   onebot: IconRobot,
@@ -96,14 +92,6 @@ function isChannelEnabled(
   channelsConfig: Record<string, unknown>,
 ): boolean {
   const channelConfig = asRecord(channelsConfig[channel.config_key])
-
-  // Self-Chat has no transport to enable — it is configured exactly when a
-  // self number is stored, so that is what puts it at the top of the list.
-  if (channel.name === "whatsapp_self_chat") {
-    return isWhatsAppSelfChatConfigured(
-      asRecord(channelConfig.settings).self_number ?? channelConfig.self_number,
-    )
-  }
 
   if (channelConfig.enabled !== true) {
     return false
