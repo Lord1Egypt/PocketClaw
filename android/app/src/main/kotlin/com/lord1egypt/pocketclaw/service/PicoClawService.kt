@@ -1,5 +1,6 @@
 package com.lord1egypt.pocketclaw.service
 
+import com.lord1egypt.pocketclaw.config.ChannelListField
 import com.lord1egypt.pocketclaw.security.GitHubCredentialStore
 import android.app.Notification
 import android.app.PendingIntent
@@ -568,9 +569,19 @@ class PicoClawService : Service() {
             val channels = json.optJSONObject("channels") ?: return
             val pico = channels.optJSONObject("pico") ?: return
 
-            val ownerOnly = pico.optJSONArray("allow_from")?.let {
-                it.length() == 1 && it.optString(0) == REALTIME_OWNER_PRINCIPAL
-            } == true
+            // Accepts both the canonical array and the legacy newline-joined
+            // string. Reading only the array shape would read a valid legacy
+            // value as missing and rewrite config.json on every start.
+            //
+            // NOTE: this whole function currently no-ops — the config key is
+            // "channel_list", not "channels", so the lookup above always
+            // returns early. Go's EnsurePicoChannel already provisions the
+            // channel during gateway start, so nothing is missing; the key is
+            // left alone here rather than silently activating a second writer
+            // of config.json.
+            val allowFrom = ChannelListField.read(pico, "allow_from")
+            val ownerOnly =
+                allowFrom.size == 1 && allowFrom[0] == REALTIME_OWNER_PRINCIPAL
             if (pico.optBoolean("enabled", false) &&
                 pico.optString("token", "").isNotEmpty() &&
                 ownerOnly

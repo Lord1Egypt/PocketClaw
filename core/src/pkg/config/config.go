@@ -486,8 +486,8 @@ func (d *AgentDefaults) GetModelName() string {
 
 // GroupTriggerConfig controls when the bot responds in group chats.
 type GroupTriggerConfig struct {
-	MentionOnly bool     `json:"mention_only,omitempty"`
-	Prefixes    []string `json:"prefixes,omitempty"`
+	MentionOnly bool                `json:"mention_only,omitempty"`
+	Prefixes    FlexibleStringSlice `json:"prefixes,omitempty"`
 }
 
 // TypingConfig controls typing indicator behavior (Phase 10).
@@ -608,10 +608,10 @@ type LINESettings struct {
 }
 
 type OneBotSettings struct {
-	WSUrl              string       `json:"ws_url"                yaml:"-"                      env:"PICOCLAW_CHANNELS_ONEBOT_WS_URL"`
-	AccessToken        SecureString `json:"access_token,omitzero" yaml:"access_token,omitempty" env:"PICOCLAW_CHANNELS_ONEBOT_ACCESS_TOKEN"`
-	ReconnectInterval  int          `json:"reconnect_interval"    yaml:"-"                      env:"PICOCLAW_CHANNELS_ONEBOT_RECONNECT_INTERVAL"`
-	GroupTriggerPrefix []string     `json:"group_trigger_prefix"  yaml:"-"                      env:"PICOCLAW_CHANNELS_ONEBOT_GROUP_TRIGGER_PREFIX"`
+	WSUrl              string              `json:"ws_url"                yaml:"-"                      env:"PICOCLAW_CHANNELS_ONEBOT_WS_URL"`
+	AccessToken        SecureString        `json:"access_token,omitzero" yaml:"access_token,omitempty" env:"PICOCLAW_CHANNELS_ONEBOT_ACCESS_TOKEN"`
+	ReconnectInterval  int                 `json:"reconnect_interval"    yaml:"-"                      env:"PICOCLAW_CHANNELS_ONEBOT_RECONNECT_INTERVAL"`
+	GroupTriggerPrefix FlexibleStringSlice `json:"group_trigger_prefix"  yaml:"-"                      env:"PICOCLAW_CHANNELS_ONEBOT_GROUP_TRIGGER_PREFIX"`
 }
 
 type WeComGroupConfig struct {
@@ -644,14 +644,14 @@ func (c *WeixinSettings) SetToken(token string) {
 }
 
 type PicoSettings struct {
-	Token           SecureString    `json:"token,omitzero"              yaml:"token,omitempty" env:"PICOCLAW_CHANNELS_PICO_TOKEN"`
-	AllowTokenQuery bool            `json:"allow_token_query,omitempty" yaml:"-"`
-	AllowOrigins    []string        `json:"allow_origins,omitempty"     yaml:"-"`
-	Streaming       StreamingConfig `json:"streaming,omitzero"          yaml:"-"`
-	PingInterval    int             `json:"ping_interval,omitempty"     yaml:"-"`
-	ReadTimeout     int             `json:"read_timeout,omitempty"      yaml:"-"`
-	WriteTimeout    int             `json:"write_timeout,omitempty"     yaml:"-"`
-	MaxConnections  int             `json:"max_connections,omitempty"   yaml:"-"`
+	Token           SecureString        `json:"token,omitzero"              yaml:"token,omitempty" env:"PICOCLAW_CHANNELS_PICO_TOKEN"`
+	AllowTokenQuery bool                `json:"allow_token_query,omitempty" yaml:"-"`
+	AllowOrigins    FlexibleStringSlice `json:"allow_origins,omitempty"     yaml:"-"`
+	Streaming       StreamingConfig     `json:"streaming,omitzero"          yaml:"-"`
+	PingInterval    int                 `json:"ping_interval,omitempty"     yaml:"-"`
+	ReadTimeout     int                 `json:"read_timeout,omitempty"      yaml:"-"`
+	WriteTimeout    int                 `json:"write_timeout,omitempty"     yaml:"-"`
+	MaxConnections  int                 `json:"max_connections,omitempty"   yaml:"-"`
 }
 
 // SetToken sets the Pico token and marks it as dirty for security saving
