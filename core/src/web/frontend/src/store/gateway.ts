@@ -16,6 +16,7 @@ export interface GatewayStoreState {
   canStart: boolean
   startReason?: string
   restartRequired: boolean
+  lastError?: string
 }
 
 type GatewayStorePatch = Partial<GatewayStoreState>
@@ -59,7 +60,8 @@ function normalizeGatewayStoreState(
     next.status === prev.status &&
     next.canStart === prev.canStart &&
     next.startReason === prev.startReason &&
-    next.restartRequired === prev.restartRequired
+    next.restartRequired === prev.restartRequired &&
+    next.lastError === prev.lastError
   ) {
     return prev
   }
@@ -114,6 +116,7 @@ export function applyGatewayStatusToStore(
       | "gateway_start_allowed"
       | "gateway_start_reason"
       | "gateway_restart_required"
+      | "gateway_last_error"
     >
   >,
 ) {
@@ -134,6 +137,12 @@ export function applyGatewayStatusToStore(
       prev.status === "stopping" && data.gateway_status === "running"
         ? false
         : (data.gateway_restart_required ?? prev.restartRequired),
+    // Not defaulted to the previous value: the field disappears as soon as the
+    // gateway leaves the error state, and a stale reason must disappear with it.
+    lastError:
+      prev.status === "stopping" && data.gateway_status === "running"
+        ? prev.lastError
+        : data.gateway_last_error,
   }))
 }
 

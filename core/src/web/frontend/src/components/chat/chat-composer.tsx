@@ -39,6 +39,9 @@ interface ChatComposerProps {
   onSend: () => void
   onContextDetail?: () => void
   inputDisabledReason: ChatInputDisabledReason | null
+  // Specific, already-sanitized reason from the launcher. Replaces the generic
+  // message when the backend knows exactly why the gateway is unusable.
+  inputDisabledDetail?: string
   canSend: boolean
   isDragActive: boolean
   contextUsage?: ContextUsage
@@ -58,6 +61,7 @@ export function ChatComposer({
   onSend,
   onContextDetail,
   inputDisabledReason,
+  inputDisabledDetail,
   canSend,
   isDragActive,
   contextUsage,
@@ -69,7 +73,8 @@ export function ChatComposer({
   const disabledMessage =
     inputDisabledReason === null
       ? null
-      : t(`chat.disabledPlaceholder.${inputDisabledReason}`)
+      : (inputDisabledDetail ??
+        t(`chat.disabledPlaceholder.${inputDisabledReason}`))
   const placeholder = disabledMessage ?? t("chat.placeholder")
 
   const handleKeyDown = (e: ReactKeyboardEvent<HTMLTextAreaElement>) => {
@@ -203,7 +208,7 @@ export function ChatComposer({
         <div
           aria-hidden={!hasInput}
           className={cn(
-            "border-border/50 bg-muted/55 text-muted-foreground mt-2 inline-flex items-center rounded-md border px-3 py-1 text-[11px] shadow-sm transition-all duration-200 dark:bg-muted/45",
+            "border-border/50 bg-muted/55 text-muted-foreground dark:bg-muted/45 mt-2 inline-flex items-center rounded-md border px-3 py-1 text-[11px] shadow-sm transition-all duration-200",
             hasInput
               ? "translate-y-0 opacity-100"
               : "pointer-events-none -translate-y-1 opacity-0",

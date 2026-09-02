@@ -13,7 +13,13 @@ import {
 
 export function useGateway() {
   const gateway = useAtomValue(gatewayAtom)
-  const { status: state, canStart, startReason, restartRequired } = gateway
+  const {
+    status: state,
+    canStart,
+    startReason,
+    restartRequired,
+    lastError,
+  } = gateway
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -83,6 +89,7 @@ export function useGateway() {
     canStart,
     startReason,
     restartRequired,
+    lastError,
     start,
     stop,
     restart,

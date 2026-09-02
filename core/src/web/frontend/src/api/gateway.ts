@@ -7,6 +7,9 @@ interface GatewayStatusResponse {
   gateway_start_allowed?: boolean
   gateway_start_reason?: string
   gateway_restart_required?: boolean
+  // Sanitized reason the last start attempt failed. Only present while the
+  // gateway is in the error state.
+  gateway_last_error?: string
   pid?: number
   boot_default_model?: string
   config_default_model?: string

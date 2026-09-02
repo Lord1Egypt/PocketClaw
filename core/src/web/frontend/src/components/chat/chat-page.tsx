@@ -138,7 +138,7 @@ export function ChatPage() {
     newChat,
   } = usePicoChat()
 
-  const { state: gwState } = useGateway()
+  const { state: gwState, lastError: gwLastError } = useGateway()
   const isGatewayRunning = gwState === "running"
 
   const {
@@ -455,6 +455,9 @@ export function ChatPage() {
           }
         }}
         inputDisabledReason={inputDisabledReason}
+        inputDisabledDetail={
+          inputDisabledReason === "gatewayError" ? gwLastError : undefined
+        }
         canSend={canSubmit}
         isDragActive={isDragActive}
         contextUsage={contextUsage}
