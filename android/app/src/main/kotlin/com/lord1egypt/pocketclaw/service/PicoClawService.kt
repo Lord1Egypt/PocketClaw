@@ -16,6 +16,7 @@ import androidx.core.app.NotificationCompat
 import com.lord1egypt.pocketclaw.PicoClawApp
 import com.lord1egypt.pocketclaw.MainActivity
 import com.lord1egypt.pocketclaw.whatsapp.HostRequestWatcher
+import com.lord1egypt.pocketclaw.whatsapp.WhatsAppAgentStorage
 import java.io.BufferedReader
 import java.io.File
 import java.io.FileOutputStream
@@ -213,6 +214,11 @@ class PicoClawService : Service() {
             val runtimeMetadataDir = File(internalHome, "runtime")
             runtimeMetadataDir.mkdirs()
 
+            // WhatsApp Agent Channel (experimental). Both directories live in
+            // no-backup app-private storage; see WhatsAppAgentStorage for why
+            // that specific root is what makes the account keys safe.
+            val whatsAppEnvironment = WhatsAppAgentStorage.environment(context.noBackupFilesDir)
+
             val environment = mutableMapOf(
                 "HOME" to context.filesDir.absolutePath,
                 "PICOCLAW_HOME" to workspace.absolutePath,
@@ -237,6 +243,7 @@ class PicoClawService : Service() {
                 "TERM" to "dumb",
                 "SSL_CERT_DIR" to "/system/etc/security/cacerts",
             )
+            environment.putAll(whatsAppEnvironment)
             activeNetworkDnsServers(context).takeIf { it.isNotEmpty() }?.let {
                 environment["PICOCLAW_DNS_SERVER"] = it
             }

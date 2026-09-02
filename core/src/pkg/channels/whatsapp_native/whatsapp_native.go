@@ -18,7 +18,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/mdp/qrterminal/v3"
 	"go.mau.fi/whatsmeow"
 	"go.mau.fi/whatsmeow/proto/waE2E"
 	"go.mau.fi/whatsmeow/store/sqlstore"
@@ -34,6 +33,7 @@ import (
 	"github.com/sipeed/picoclaw/pkg/identity"
 	"github.com/sipeed/picoclaw/pkg/logger"
 	"github.com/sipeed/picoclaw/pkg/utils"
+	"github.com/sipeed/picoclaw/pkg/whatsapp/pairing"
 )
 
 const (
@@ -59,6 +59,16 @@ type WhatsAppNativeChannel struct {
 	reconnecting bool
 	stopping     atomic.Bool    // set once Stop begins; prevents new wg.Add calls
 	wg           sync.WaitGroup // tracks background goroutines (QR handler, reconnect)
+
+	// pairing carries QR and lifecycle state to the console backend process.
+	// It is nil off Android, where no host directory is named.
+	pairing *pairing.Store
+	// allowList is the configured allow_from, kept here because this channel
+	// treats an empty list as deny rather than as allow-all.
+	allowList []string
+	// loggedOut is set when WhatsApp revoked the link. It stops the reconnect
+	// loop from retrying a session the server has already thrown away.
+	loggedOut atomic.Bool
 }
 
 // NewWhatsAppNativeChannel creates a WhatsApp channel that uses whatsmeow for connection.
@@ -70,7 +80,12 @@ func NewWhatsAppNativeChannel(
 	bus *bus.MessageBus,
 	storePath string,
 ) (channels.Channel, error) {
-	base := channels.NewBaseChannel(name, cfg, bus, bc.AllowFrom, channels.WithMaxMessageLength(65536))
+	// One matching rule, applied on both sides. BaseChannel compares the
+	// allow-list against the sender it is given, and it does that from inside
+	// HandleMessageWithContext where an override on this type cannot intervene,
+	// so the normalization has to happen to the data rather than to the check.
+	allowList := normalizeAllowList(bc.AllowFrom)
+	base := channels.NewBaseChannel(name, cfg, bus, allowList, channels.WithMaxMessageLength(65536))
 	if storePath == "" {
 		storePath = "whatsapp"
 	}
@@ -78,6 +93,8 @@ func NewWhatsAppNativeChannel(
 		BaseChannel: base,
 		config:      cfg,
 		storePath:   storePath,
+		pairing:     pairing.NewStore(),
+		allowList:   allowList,
 	}
 	return c, nil
 }
@@ -157,6 +174,7 @@ func (c *WhatsAppNativeChannel) Start(ctx context.Context) error {
 	}()
 
 	if client.Store.ID == nil {
+		_ = c.pairing.PublishState(pairing.StateNotPaired, "")
 		qrChan, err := client.GetQRChannel(c.runCtx)
 		if err != nil {
 			return fmt.Errorf("get QR channel: %w", err)
@@ -188,19 +206,32 @@ func (c *WhatsAppNativeChannel) Start(ctx context.Context) error {
 						return
 					}
 					if evt.Event == "code" {
-						logger.InfoCF("whatsapp", "Scan this QR code with WhatsApp (Linked Devices):", nil)
-						qrterminal.GenerateWithConfig(evt.Code, qrterminal.Config{
-							Level:      qrterminal.L,
-							Writer:     os.Stdout,
-							HalfBlocks: true,
-						})
+						// The code goes only to the pairing store, which the
+						// console reads over an authenticated request. It is
+						// credential material: printing it here would put it in
+						// PocketClaw's persisted Logs screen, where whoever
+						// scanned it first would own the link.
+						if err := c.pairing.PublishQR(evt.Code); err != nil {
+							logger.WarnCF("whatsapp", "Could not publish pairing code", map[string]any{
+								"error": err.Error(),
+							})
+						}
+						logger.InfoC("whatsapp", "WhatsApp pairing code ready; open the console to scan it")
 					} else {
+						// evt.Event is a whatsmeow lifecycle word ("success",
+						// "timeout", "err-scanned"), never the code itself.
 						logger.InfoCF("whatsapp", "WhatsApp login event", map[string]any{"event": evt.Event})
+						if evt.Event == "success" {
+							_ = c.pairing.PublishState(pairing.StateConnected, "")
+						} else {
+							_ = c.pairing.PublishState(pairing.StateNotPaired, evt.Event)
+						}
 					}
 				}
 			}
 		}()
 	} else {
+		_ = c.pairing.PublishState(pairing.StateConnecting, "")
 		if err := client.Connect(); err != nil {
 			return fmt.Errorf("connect: %w", err)
 		}
@@ -264,6 +295,10 @@ func (c *WhatsAppNativeChannel) Stop(ctx context.Context) error {
 	if container != nil {
 		_ = container.Close()
 	}
+	// Retire the snapshot. A QR that outlived the process would be a live
+	// credential the console still offered, and a stale "connected" would
+	// describe a channel that is no longer running.
+	_ = c.pairing.Clear()
 	c.SetRunning(false)
 	return nil
 }
@@ -272,8 +307,21 @@ func (c *WhatsAppNativeChannel) eventHandler(evt any) {
 	switch v := evt.(type) {
 	case *events.Message:
 		c.handleIncoming(v)
+	case *events.Connected:
+		c.loggedOut.Store(false)
+		_ = c.pairing.PublishState(pairing.StateConnected, "")
+	case *events.LoggedOut:
+		// WhatsApp revoked this link — the user unlinked the device, or the
+		// server rejected the session. Reconnecting cannot fix it, and the
+		// stored keys are now worthless, so they are deleted rather than left
+		// behind for a reconnect loop to keep replaying.
+		c.handleLoggedOut(v)
 	case *events.Disconnected:
+		// A transient drop. The session stays on disk; only a LoggedOut
+		// deletes it. Conflating the two would wipe a good session every time
+		// the phone changed networks.
 		logger.InfoCF("whatsapp", "WhatsApp disconnected, will attempt reconnection", nil)
+		_ = c.pairing.PublishState(pairing.StateDisconnected, "reconnecting")
 		c.reconnectMu.Lock()
 		if c.reconnecting {
 			c.reconnectMu.Unlock()
@@ -311,6 +359,13 @@ func (c *WhatsAppNativeChannel) reconnectWithBackoff() {
 		default:
 		}
 
+		// A revoked session cannot be reconnected. Without this the loop would
+		// retry it every five minutes forever.
+		if c.loggedOut.Load() {
+			logger.InfoC("whatsapp", "WhatsApp session was logged out; not reconnecting")
+			return
+		}
+
 		c.mu.Lock()
 		client := c.client
 		c.mu.Unlock()
@@ -342,11 +397,138 @@ func (c *WhatsAppNativeChannel) reconnectWithBackoff() {
 	}
 }
 
+// handleLoggedOut retires a session WhatsApp has revoked.
+//
+// It is deliberately not reachable from a plain disconnect: only the server
+// saying the link is gone removes local state. The client is disconnected, the
+// device row is deleted so the next Start shows a fresh QR, and the console is
+// told the channel is unpaired.
+func (c *WhatsAppNativeChannel) handleLoggedOut(evt *events.LoggedOut) {
+	reason := "unlinked"
+	if evt != nil && evt.OnConnect {
+		reason = evt.Reason.String()
+	}
+	logger.WarnCF("whatsapp", "WhatsApp session logged out", map[string]any{"reason": reason})
+
+	c.loggedOut.Store(true)
+
+	c.mu.Lock()
+	client := c.client
+	c.mu.Unlock()
+
+	if client != nil {
+		client.Disconnect()
+		if client.Store != nil {
+			// Delete rather than keep: these keys no longer authenticate
+			// anything, and leaving them on disk only preserves credential
+			// material for a session that cannot be resumed.
+			if err := client.Store.Delete(context.Background()); err != nil {
+				logger.WarnCF("whatsapp", "Could not delete revoked WhatsApp session", map[string]any{
+					"error": err.Error(),
+				})
+			}
+		}
+	}
+
+	c.SetRunning(false)
+	_ = c.pairing.PublishState(pairing.StateLoggedOut, reason)
+}
+
+// IsAllowedSender overrides the BaseChannel default, which treats an empty
+// allow-list as allow-all.
+//
+// That default is wrong here. Inbound WhatsApp text reaches an agent holding
+// shell and Python tools, and this transport is linked to the user's personal
+// account, so an unconfigured channel must accept nobody rather than everybody.
+// An empty allow_from denies.
+func (c *WhatsAppNativeChannel) IsAllowedSender(sender bus.SenderInfo) bool {
+	if len(c.allowList) == 0 {
+		logger.WarnCF("whatsapp", "Inbound denied: no allow_from configured", map[string]any{
+			"channel": "whatsapp",
+			"status":  "denied",
+		})
+		return false
+	}
+
+	return c.BaseChannel.IsAllowedSender(sender)
+}
+
+// normalizeAllowList reduces phone-number entries to bare digits so they match
+// the identity handleIncoming builds. Anything that is not a phone number — a
+// canonical "whatsapp:..." entry, or "*" — is passed through untouched.
+func normalizeAllowList(entries []string) []string {
+	if len(entries) == 0 {
+		return nil
+	}
+	out := make([]string, 0, len(entries))
+	for _, entry := range entries {
+		if number := whatsAppNumber(entry); number != "" {
+			out = append(out, number)
+			continue
+		}
+		out = append(out, entry)
+	}
+	return out
+}
+
+// whatsAppNumber extracts the subscriber number from a JID or a typed phone
+// number. It returns "" for anything that is not all digits once the JID
+// decoration is removed, so a @lid identity or a username never collides with
+// a number.
+func whatsAppNumber(value string) string {
+	v := strings.TrimSpace(value)
+	if v == "" {
+		return ""
+	}
+	if idx := strings.IndexByte(v, '@'); idx >= 0 {
+		// Only a phone-number server carries a subscriber number; @lid and
+		// friends use an opaque id that must not be compared as one.
+		if v[idx+1:] != types.DefaultUserServer {
+			return ""
+		}
+		v = v[:idx]
+	}
+	// Strip the device/agent suffix: "20100...:5" -> "20100...".
+	if idx := strings.IndexByte(v, ':'); idx >= 0 {
+		v = v[:idx]
+	}
+	v = strings.TrimPrefix(v, "+")
+	if v == "" {
+		return ""
+	}
+	for _, r := range v {
+		if r < '0' || r > '9' {
+			return ""
+		}
+	}
+	return v
+}
+
 func (c *WhatsAppNativeChannel) handleIncoming(evt *events.Message) {
 	if evt.Message == nil {
 		return
 	}
+	// Phase B is direct/self chat only. A group message is dropped before its
+	// body is touched, and the diagnostic carries no content, no sender and no
+	// group id.
+	if evt.Info.Chat.Server == types.GroupServer {
+		logger.InfoCF("whatsapp", "Inbound ignored", map[string]any{
+			"channel":   "whatsapp",
+			"chat_type": "group",
+			"status":    "ignored",
+		})
+		return
+	}
+
+	// Identify the sender by phone number. evt.Info.Sender carries the device
+	// that sent the message ("20100...:5@s.whatsapp.net"), and that suffix
+	// changes whenever the user relinks, so keying identity on it would make a
+	// working allow-list silently stop matching. chatID keeps the full JID
+	// because that is what replies are addressed to.
 	senderID := evt.Info.Sender.String()
+	if number := whatsAppNumber(senderID); number != "" {
+		senderID = number
+	}
 	chatID := evt.Info.Chat.String()
 	content := evt.Message.GetConversation()
 	if content == "" && evt.Message.ExtendedTextMessage != nil {
@@ -358,26 +540,15 @@ func (c *WhatsAppNativeChannel) handleIncoming(evt *events.Message) {
 		return
 	}
 
-	var mediaPaths []string
-
-	metadata := make(map[string]string)
-	metadata["message_id"] = evt.Info.ID
+	metadata := map[string]string{
+		"message_id": evt.Info.ID,
+		"peer_kind":  "direct",
+		"peer_id":    senderID,
+	}
 	if evt.Info.PushName != "" {
 		metadata["user_name"] = evt.Info.PushName
 	}
-	if evt.Info.Chat.Server == types.GroupServer {
-		metadata["peer_kind"] = "group"
-		metadata["peer_id"] = chatID
-	} else {
-		metadata["peer_kind"] = "direct"
-		metadata["peer_id"] = senderID
-	}
 
-	peerKind := "direct"
-	if evt.Info.Chat.Server == types.GroupServer {
-		peerKind = "group"
-	}
-	messageID := evt.Info.ID
 	sender := bus.SenderInfo{
 		Platform:    "whatsapp",
 		PlatformID:  senderID,
@@ -386,25 +557,34 @@ func (c *WhatsAppNativeChannel) handleIncoming(evt *events.Message) {
 	}
 
 	if !c.IsAllowedSender(sender) {
+		logger.InfoCF("whatsapp", "Inbound denied", map[string]any{
+			"channel":   "whatsapp",
+			"chat_type": "direct",
+			"status":    "denied",
+		})
 		return
 	}
 
-	logger.DebugCF(
-		"whatsapp",
-		"WhatsApp message received",
-		map[string]any{"sender_id": senderID, "content_preview": utils.Truncate(content, 50)},
-	)
+	// Metadata only. The message body belongs to the user's personal WhatsApp
+	// account and never reaches PocketClaw's Logs screen; the length is enough
+	// to tell "arrived" from "arrived empty" when diagnosing the channel.
+	logger.InfoCF("whatsapp", "Inbound received", map[string]any{
+		"channel":       "whatsapp",
+		"chat_type":     "direct",
+		"message_chars": len([]rune(content)),
+		"status":        "received",
+	})
 
 	inboundCtx := bus.InboundContext{
 		Channel:   "whatsapp",
 		ChatID:    chatID,
 		SenderID:  senderID,
-		MessageID: messageID,
-		ChatType:  peerKind,
+		MessageID: evt.Info.ID,
+		ChatType:  "direct",
 		Raw:       metadata,
 	}
 
-	c.HandleInboundContext(c.runCtx, chatID, content, mediaPaths, inboundCtx, sender)
+	c.HandleInboundContext(c.runCtx, chatID, content, nil, inboundCtx, sender)
 }
 
 func (c *WhatsAppNativeChannel) Send(ctx context.Context, msg bus.OutboundMessage) ([]string, error) {
@@ -443,6 +623,14 @@ func (c *WhatsAppNativeChannel) Send(ctx context.Context, msg bus.OutboundMessag
 	if _, err = client.SendMessage(ctx, to, waMsg); err != nil {
 		return nil, fmt.Errorf("whatsapp send: %w", channels.ErrTemporary)
 	}
+
+	// Metadata only, for the same reason as inbound: the reply text is the
+	// user's WhatsApp conversation, not diagnostic material.
+	logger.InfoCF("whatsapp", "Outbound sent", map[string]any{
+		"channel":       "whatsapp",
+		"message_chars": len([]rune(msg.Content)),
+		"status":        "sent",
+	})
 	return nil, nil
 }
 

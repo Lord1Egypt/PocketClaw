@@ -1,11 +1,11 @@
 package whatsapp
 
 import (
-	"path/filepath"
-
 	"github.com/sipeed/picoclaw/pkg/bus"
 	"github.com/sipeed/picoclaw/pkg/channels"
 	"github.com/sipeed/picoclaw/pkg/config"
+	"github.com/sipeed/picoclaw/pkg/logger"
+	"github.com/sipeed/picoclaw/pkg/whatsapp/session"
 )
 
 func init() {
@@ -21,11 +21,18 @@ func init() {
 			if !ok {
 				return nil, channels.ErrSendFailed
 			}
-			storePath := c.SessionStorePath
-			if storePath == "" {
-				storePath = filepath.Join(cfg.WorkspacePath(), "whatsapp")
+			// Where the session database lives is not the config's decision on
+			// Android. The whatsmeow store holds the linked device's identity
+			// keys, and the workspace it would otherwise default into is both
+			// public external storage and the root the agent's file tools are
+			// restricted to. When the host names a directory, it wins.
+			store := session.Resolve(c.SessionStorePath, cfg.WorkspacePath())
+			if store.HostOwned && store.IgnoredConfigured != "" {
+				logger.InfoCF("whatsapp", "Ignoring configured session_store_path; the Android host owns this path", map[string]any{
+					"channel": channelName,
+				})
 			}
-			ch, err := NewWhatsAppNativeChannel(bc, channelName, c, b, storePath)
+			ch, err := NewWhatsAppNativeChannel(bc, channelName, c, b, store.Path)
 			if err != nil {
 				return nil, err
 			}

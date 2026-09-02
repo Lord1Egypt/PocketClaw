@@ -19,9 +19,13 @@ import (
 
 func TestHandleIncoming_DoesNotConsumeGenericCommandsLocally(t *testing.T) {
 	messageBus := bus.NewMessageBus()
+	// allowList is seeded because this channel denies an unconfigured sender
+	// rather than allowing every sender. The subject here is command handling,
+	// so the sender is allowed and the command is what is under test.
 	ch := &WhatsAppNativeChannel{
 		BaseChannel: channels.NewBaseChannel("whatsapp_native", config.WhatsAppSettings{}, messageBus, nil),
 		runCtx:      context.Background(),
+		allowList:   []string{"1001"},
 	}
 
 	evt := &events.Message{

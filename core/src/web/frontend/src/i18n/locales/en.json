@@ -476,7 +476,8 @@
       "matrix": "Matrix",
       "irc": "IRC",
       "weixin": "WeChat",
-      "mqtt": "MQTT"
+      "mqtt": "MQTT",
+      "whatsapp_agent": "WhatsApp Agent Channel"
     },
     "weixin": {
       "bindTitle": "WeChat Account Binding",
@@ -675,6 +676,26 @@
       "applying": "Saved — applying automatically…",
       "applyDeferred": "Saved and in use. PocketClaw is waiting for the gateway to finish what it is doing before applying the rest.",
       "applyFailed": "Saved and in use, but PocketClaw could not confirm the gateway picked it up. It will apply on the next start."
+    },
+    "whatsappAgent": {
+      "experimentalTitle": "Experimental — not production approved",
+      "experimentalBody": "This links PocketClaw to your personal WhatsApp account over the unofficial multi-device protocol. WhatsApp may change it without notice, and using it carries a real risk to your account. Text only for now.",
+      "statusLabel": "Status",
+      "stateUnavailable": "Unavailable",
+      "stateNotPaired": "Not paired",
+      "statePairing": "Waiting for scan",
+      "stateConnecting": "Connecting",
+      "stateConnected": "Paired / Connected",
+      "stateDisconnected": "Disconnected — reconnecting",
+      "stateLoggedOut": "Logged out",
+      "scanHint": "In WhatsApp, open Settings → Linked devices → Link a device, then scan this code.",
+      "qrAlt": "WhatsApp pairing code",
+      "pair": "Pair",
+      "disconnect": "Disconnect",
+      "allowedSender": "Only messages from {{number}} reach the agent.",
+      "errorNoSelfNumber": "Set your number in WhatsApp Self-Chat first. This channel accepts nobody until it knows which number is yours.",
+      "applyDeferred": "Saved. The gateway will pick this up when it is next idle.",
+      "unavailable": "The WhatsApp Agent Channel is only available inside the PocketClaw Android app."
     }
   },
   "pages": {

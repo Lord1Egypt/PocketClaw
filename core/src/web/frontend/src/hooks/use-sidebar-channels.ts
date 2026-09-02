@@ -41,6 +41,9 @@ const CHANNEL_IMPORTANCE_TAIL = [
   "maixcam",
   "irc",
   "whatsapp_self_chat",
+  // Experimental, so it sorts last: an unconfigured install should meet the
+  // supported channels before this one.
+  "whatsapp_agent",
 ]
 
 function getChannelImportanceOrder(language: string): string[] {
@@ -77,6 +80,7 @@ const CHANNEL_ICON_MAP: Record<
   weixin: IconBrandWechat,
   wecom: IconBrandWechat,
   whatsapp_self_chat: IconBrandWhatsapp,
+  whatsapp_agent: IconBrandWhatsapp,
   matrix: IconBrandMatrix,
   maixcam: IconCamera,
   onebot: IconRobot,

@@ -30,6 +30,7 @@ import { TelegramPanel } from "@/components/channels/channel-forms/telegram-pane
 import { WecomForm } from "@/components/channels/channel-forms/wecom-form"
 import { WeixinForm } from "@/components/channels/channel-forms/weixin-form"
 import { isWhatsAppSelfChatConfigured } from "@/components/channels/channel-forms/whatsapp-self-chat"
+import { WhatsAppAgentPanel } from "@/components/channels/channel-forms/whatsapp-agent-panel"
 import { WhatsAppSelfChatPanel } from "@/components/channels/channel-forms/whatsapp-self-chat-panel"
 import { ConfigChangeNotice } from "@/components/config-change-notice"
 import { PageHeader } from "@/components/page-header"
@@ -384,8 +385,12 @@ export function ChannelConfigPage({ channelName }: ChannelConfigPageProps) {
   // both be controls with nothing to act on, so Connect / Change / Disconnect
   // are the whole page.
   const isWhatsAppSelfChat = channel?.name === "whatsapp_self_chat"
+  // The Agent Channel panel owns Pair and Disconnect, which are what enable and
+  // disable the channel. A separate switch and Save footer would be a second
+  // way to do the same thing, out of step with the pairing state.
+  const isWhatsAppAgent = channel?.name === "whatsapp_agent"
   const hidesPageLevelEnableToggle =
-    channel?.name === "wecom" || isWhatsAppSelfChat
+    channel?.name === "wecom" || isWhatsAppSelfChat || isWhatsAppAgent
 
   const hiddenKeys = useMemo<string[]>(() => [], [])
   const requiredKeys = useMemo(
@@ -514,7 +519,13 @@ export function ChannelConfigPage({ channelName }: ChannelConfigPageProps) {
   // can never cut off an answer in progress, and it never asks the user to
   // restart anything by hand.
   const persistChannelConfig = useCallback(
-    async (nextConfig: ChannelConfig): Promise<ApplyOutcome> => {
+    async (
+      nextConfig: ChannelConfig,
+      // Panels that own an enable/disable action pass it here. Without this the
+      // page's own switch state would win, and a panel that just disabled the
+      // channel would write it back enabled.
+      nextEnabled?: boolean,
+    ): Promise<ApplyOutcome> => {
       if (!channel) return "failed"
       setServerError("")
       let outcome: ApplyOutcome = "failed"
@@ -526,7 +537,7 @@ export function ChannelConfigPage({ channelName }: ChannelConfigPageProps) {
                 [channel.config_key]: buildSavePayload(
                   channel,
                   nextConfig,
-                  enabled,
+                  nextEnabled ?? enabled,
                 ),
               },
             })
@@ -602,6 +613,13 @@ export function ChannelConfigPage({ channelName }: ChannelConfigPageProps) {
       case "whatsapp_self_chat":
         return (
           <WhatsAppSelfChatPanel
+            config={editConfig}
+            onPersist={persistChannelConfig}
+          />
+        )
+      case "whatsapp_agent":
+        return (
+          <WhatsAppAgentPanel
             config={editConfig}
             onPersist={persistChannelConfig}
           />
@@ -738,7 +756,7 @@ export function ChannelConfigPage({ channelName }: ChannelConfigPageProps) {
               />
             )}
 
-            {!isWhatsAppSelfChat && (
+            {!isWhatsAppSelfChat && !isWhatsAppAgent && (
               <div className="border-border/60 flex justify-end gap-2 border-t py-4">
                 <Button
                   variant="outline"

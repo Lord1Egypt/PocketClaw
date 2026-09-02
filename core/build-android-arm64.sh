@@ -70,10 +70,19 @@ done
 
 # Build-path privacy: a release binary must not carry developer-machine paths.
 # -trimpath is what keeps this true; this check is what proves it stayed true.
+#
+# The pattern matches an ABSOLUTE path only. A bare '/home/|/Users/|/root/'
+# also matches a correctly trimmed module path that merely has a directory of
+# that name — go.mau.fi/libsignal@v0.2.1/keys/root/RootKey.go, a cryptographic
+# root key, is one the WhatsApp transport pulls in. Requiring the segment to
+# start the string, or to follow a character that cannot continue a path
+# component, keeps every real leak ('/home/<user>/...', 'file:///home/...',
+# 'dir=/home/...') and drops that class of false positive.
 echo
 leaked=0
+DEV_PATH_RE='(^|[^[:alnum:]._@+-])/(home|Users|root)/'
 for lib in libpicoclaw.so libpicoclaw-web.so; do
-    hits="$(strings -a "$JNI_LIBS/$lib" | grep -c -E '/home/|/Users/|/root/' || true)"
+    hits="$(strings -a "$JNI_LIBS/$lib" | grep -c -E "$DEV_PATH_RE" || true)"
     printf '  %-20s developer paths: %s\n' "$lib" "$hits"
     [ "$hits" -eq 0 ] || leaked=1
 done

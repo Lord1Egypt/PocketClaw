@@ -126,3 +126,38 @@ export async function pollWecomFlow(
 }
 
 export type { ChannelsCatalogResponse, ConfigActionResponse }
+
+/**
+ * WhatsApp Agent Channel (experimental) pairing state.
+ *
+ * The pairing payload itself is deliberately absent: it is served as a rendered
+ * PNG from /api/channels/whatsapp-agent/qr.png so the raw credential never
+ * exists as a string in the browser.
+ */
+export interface WhatsAppAgentStatus {
+  available: boolean
+  enabled: boolean
+  state:
+    | "unavailable"
+    | "not_paired"
+    | "pairing"
+    | "connecting"
+    | "connected"
+    | "disconnected"
+    | "logged_out"
+  has_qr: boolean
+  detail?: string
+}
+
+export const WHATSAPP_AGENT_QR_URL = "/api/channels/whatsapp-agent/qr.png"
+
+export async function getWhatsAppAgentStatus(): Promise<WhatsAppAgentStatus> {
+  return request<WhatsAppAgentStatus>("/api/channels/whatsapp-agent/status")
+}
+
+/** Erases the local WhatsApp session and any pairing snapshot. */
+export async function forgetWhatsAppAgentSession(): Promise<{ status: string }> {
+  return request<{ status: string }>("/api/channels/whatsapp-agent/forget", {
+    method: "POST",
+  })
+}

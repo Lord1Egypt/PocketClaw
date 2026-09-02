@@ -43,6 +43,12 @@ GO?=go
 WEB_GO?=$(GO)
 CGO_ENABLED?=0
 GO_BUILD_TAGS?=goolm,stdjson
+
+# Android carries the WhatsApp Agent Channel, so the Android Core is the one
+# build that compiles the whatsmeow transport in rather than its stub. It is a
+# separate variable because the tag costs roughly 47 MB and no other target
+# wants to pay it.
+ANDROID_BUILD_TAGS?=stdjson,whatsapp_native
 GOFLAGS?=-v -tags $(GO_BUILD_TAGS)
 GOCACHE?=$(CURDIR)/.cache/go-build
 GOMODCACHE?=$(CURDIR)/.cache/go-mod
@@ -287,7 +293,7 @@ build-linux-mipsle: generate
 build-android-arm64: generate
 	@echo "Building for android/arm64..."
 	@mkdir -p $(BUILD_DIR)
-	GOOS=android GOARCH=arm64 $(GO) build -trimpath -tags stdjson -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-android-arm64 ./$(CMD_DIR)
+	GOOS=android GOARCH=arm64 $(GO) build -trimpath -tags $(ANDROID_BUILD_TAGS) -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-android-arm64 ./$(CMD_DIR)
 	@echo "Build complete: $(BUILD_DIR)/$(BINARY_NAME)-android-arm64"
 
 ## build-launcher-android-arm64: Build launcher for Android ARM64
@@ -304,7 +310,7 @@ build-launcher-android-arm64:
 build-android-bundle: generate
 	@echo "Building core for all Android architectures..."
 	@mkdir -p $(BUILD_DIR)
-	GOOS=android GOARCH=arm64 $(GO) build -trimpath -tags stdjson -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-android-arm64 ./$(CMD_DIR)
+	GOOS=android GOARCH=arm64 $(GO) build -trimpath -tags $(ANDROID_BUILD_TAGS) -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-android-arm64 ./$(CMD_DIR)
 	@echo "Building launcher for Android arm64..."
 	@$(MAKE) build-launcher-android-arm64
 	@echo "Staging JNI libs..."

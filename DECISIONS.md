@@ -1,5 +1,93 @@
 # PocketClaw Decisions
 
+## The WhatsApp Agent Channel returns under a new name, not the retired cards
+
+- Date: 2026-09-02
+- Decision: the console offers one experimental entry, `whatsapp_agent`, whose
+  config block is still `whatsapp_native`. The retired `whatsapp` and
+  `whatsapp_native` cards stay gone. The panel shows Pair and Disconnect and
+  asks for no bridge URL, no session store path, and no `use_native` switch.
+- Why: the earlier decision removed those cards because their first questions
+  were a bridge URL and a session store path, which a phone user cannot answer.
+  None of that changes now that the transport actually runs — the answers are
+  simply not the user's to give: bridge mode is not offered, and Android owns
+  the session path. Reusing the existing config key keeps an install that had
+  one working, and keeps `pkg/migrate/sources/openclaw` importing as before.
+- Consequence: `use_native` is written by the panel rather than shown, so the
+  one control with exactly one valid value stops being a question. The entry
+  sorts last in the sidebar, after every supported channel.
+
+## Android owns the WhatsApp session path, and the config file cannot move it
+
+- Date: 2026-09-02
+- Decision: `POCKETCLAW_WHATSAPP_SESSION_DIR` names an app-private no-backup
+  directory, and `pkg/whatsapp/session.Resolve` lets it beat a configured
+  `session_store_path` outright rather than merging with it. The console never
+  shows the field, and `/api/channels/whatsapp-agent/forget` erases only the
+  host-named directory.
+- Why: the whatsmeow store holds the linked device's Signal identity keys.
+  Upstream defaults it to `<workspace>/whatsapp`, and on Android the workspace
+  is `Download/pocketclaw` — public external storage, and the exact root the
+  agent's file tools are restricted to under `RestrictToWorkspace`. The default
+  therefore put the account keys inside the agent's own sandbox. A configured
+  path is untrusted input for the same reason: the agent can write the config.
+- Consequence: the keys are outside the workspace, outside cloud backup and
+  device transfer (Android never includes `no_backup` in either), and outside
+  the agent's reach — without touching the `credentials/` rules that already
+  protect the GitHub token.
+
+## The pairing QR travels as a file and is rendered server-side
+
+- Date: 2026-09-02
+- Decision: the gateway publishes the code into an app-private directory named
+  by `POCKETCLAW_WHATSAPP_PAIR_DIR`; the console backend renders it as a PNG at
+  `/api/channels/whatsapp-agent/qr.png`. The status JSON carries `has_qr` and
+  never the payload. Nothing prints it.
+- Why: upstream printed it to stdout with qrterminal, and PocketClaw captures
+  Core's stdout into a persisted Logs screen — a pairing QR is credential
+  material, and whoever scans it first links their device to the account. The
+  gateway and the console are two processes, so the code has to cross a
+  boundary; a loopback port would be reachable by every app on the device and
+  would need a shared secret, which is the same reasoning that put the
+  Core-to-host bridge in a directory. Rendering as an image means the payload
+  never becomes a string in the browser, a response cache, or a devtools log.
+- Consequence: the code is not purely in memory, which is unachievable across a
+  process boundary without the socket that reasoning rejects. It is instead
+  short-lived: written 0600, dropped on read under any non-pairing state, and
+  removed on pair, on stop, and on Disconnect.
+
+## Inbound WhatsApp denies an empty allow_from
+
+- Date: 2026-09-02
+- Decision: `WhatsAppNativeChannel.IsAllowedSender` returns false when
+  `allow_from` is empty, rather than BaseChannel's allow-all. Allow-list
+  entries and sender identities are both reduced to the bare subscriber number,
+  and groups are dropped before their body is read.
+- Why: allow-all is a reasonable default for a bot token nobody else holds. It
+  is the wrong one for a transport linked to the user's personal account that
+  feeds an agent holding shell and Python tools. Matching the number rather than
+  the JID is what makes the closed default usable: the sender JID carries the
+  sending device, which changes whenever the user relinks.
+- Consequence: the normalization happens to the data in the constructor, not
+  only in the override — `BaseChannel.HandleMessageWithContext` re-checks the
+  allow-list from inside itself, where a method on the outer type cannot
+  intervene.
+
+## The build-path guard matches absolute paths only
+
+- Date: 2026-09-02
+- Decision: `core/build-android-arm64.sh` matches
+  `(^|[^[:alnum:]._@+-])/(home|Users|root)/` rather than a bare
+  `/home/|/Users/|/root/`.
+- Why: the WhatsApp transport pulls in `go.mau.fi/libsignal`, whose correctly
+  trimmed module path contains `keys/root/RootKey.go` — a cryptographic root
+  key, not a developer's home directory. The bare pattern failed a build whose
+  `-trimpath` was working perfectly.
+- Consequence: every real leak still fails the build — `/home/<user>/...` at the
+  start of a string, `file:///home/...`, `dir=/Users/...` — while a relative
+  path segment that merely happens to be named `root` does not.
+
+
 ## A surface that shows its own apply state reports the outcome, not a toast
 
 - Date: 2026-09-01

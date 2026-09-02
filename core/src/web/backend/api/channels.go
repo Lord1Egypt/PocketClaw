@@ -31,6 +31,13 @@ var channelCatalog = []channelCatalogItem{
 	// longer offered, so nobody new is asked for a bridge URL or a session store
 	// path. Their config block is untouched; Self-Chat persists into its own.
 	{Name: "whatsapp_self_chat", ConfigKey: "whatsapp_self_chat"},
+	// WhatsApp Agent Channel — experimental. A real personal-account transport
+	// over whatsmeow, offered under a new name rather than by restoring the old
+	// "whatsapp" and "whatsapp_native" cards: those asked a phone user for a
+	// bridge URL and a session store path, and this one asks for neither. The
+	// config block is still whatsapp_native, so an install that already had one
+	// keeps it.
+	{Name: "whatsapp_agent", ConfigKey: "whatsapp_native", Variant: "experimental"},
 	{Name: "pico", ConfigKey: "pico"},
 	{Name: "maixcam", ConfigKey: "maixcam"},
 	{Name: "matrix", ConfigKey: "matrix"},
@@ -49,6 +56,7 @@ type channelConfigResponse struct {
 func (h *Handler) registerChannelRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/channels/catalog", h.handleListChannelCatalog)
 	mux.HandleFunc("GET /api/channels/{name}/config", h.handleGetChannelConfig)
+	h.registerWhatsAppAgentRoutes(mux)
 }
 
 // handleListChannelCatalog returns the channels supported by backend.
@@ -111,6 +119,9 @@ var channelSecretFieldMap = map[string][]string{
 	"irc":      {"password", "nickserv_password", "sasl_password"},
 	// Self-Chat stores one phone number and no credentials.
 	"whatsapp_self_chat": {},
+	// The Agent Channel's credential is the whatsmeow session database, which
+	// Android owns and which never passes through the config file.
+	"whatsapp_agent": {},
 	"maixcam":            {},
 	"mqtt":               {"username", "password"},
 }
