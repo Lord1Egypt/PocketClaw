@@ -1,5 +1,35 @@
 # PocketClaw Decisions
 
+## The rolling summary quotes exact values, and never credentials
+
+- Date: 2026-09-03
+- Decision: every summarization request now separates the two jobs — compress
+  the narrative, quote the identifiers verbatim — and a deterministic pass
+  restores any exact value the model dropped, carrying the block forward across
+  re-summarization. Credentials are excluded by both the instruction and the
+  extractor.
+- Reason: a device test stated a session-only value, `ORBIT-4826`, and asked for
+  it after enough turns to push the message out of the recent-15 window. The
+  agent recalled that a temporary test code had existed but not what it was. The
+  value was not stripped by anything: no redaction, truncation or normalization
+  touches this path, so it reached the model intact and the model compressed it
+  away. The prompt asked only for "a concise summary preserving core context and
+  key points", which is right for narrative and wrong for identity.
+- Consequence: an exact value is unrecoverable once lost, because the messages
+  holding it are truncated in the same block that persists the summary. The
+  prompt is therefore backed by a guarantee rather than trusted alone —
+  identifier-shaped literals from user messages are extracted, and any missing
+  from the model's summary are appended under an `EXACT FACTS:` heading that a
+  later pass reads back and carries forward. Labelled facts supersede by label,
+  so `versionCode 30` replaces `versionCode 29` instead of accumulating; the
+  block is capped at 24 entries and 120 characters each. Credential protection
+  is strengthened, not relaxed: values are screened through the runtime's own
+  `RedactText`, so the two cannot drift apart, and a fact the user labelled a
+  token, password or key is dropped whatever its shape.
+- Not addressed here: this is session summary state only. Nothing is written to
+  global or user-profile memory, no memory tool is involved, and a fact lives
+  and dies with its session.
+
 ## Telegram bounds what the model sees, not what is stored
 
 - Date: 2026-09-03
