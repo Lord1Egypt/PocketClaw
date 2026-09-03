@@ -571,5 +571,70 @@
       "local": "Lokal"
     },
     "downloadFile": "Unduh berkas"
+  },
+  "credentials": {
+    "description": "Kelola kredensial OAuth dan berbasis token untuk penyedia yang didukung.",
+    "loading": "Memuat kredensial...",
+    "providers": {
+      "openai": {
+        "description": "Mendukung OAuth peramban, kode perangkat, dan masuk dengan token."
+      },
+      "anthropic": {
+        "description": "Memakai masuk dengan token untuk mengakses Claude."
+      },
+      "antigravity": {
+        "description": "Memakai OAuth peramban untuk Google Cloud Code Assist."
+      }
+    },
+    "status": {
+      "connected": "Terhubung",
+      "needsRefresh": "Perlu disegarkan",
+      "expired": "Kedaluwarsa",
+      "notLoggedIn": "Belum masuk"
+    },
+    "actions": {
+      "browser": "OAuth peramban",
+      "deviceCode": "Kode Perangkat",
+      "stopLoading": "Hentikan Pemuatan",
+      "saveToken": "Simpan",
+      "logout": "Keluar"
+    },
+    "logoutDialog": {
+      "title": "Keluar dari penyedia?",
+      "description": "Tindakan ini akan menghapus kredensial tersimpan untuk {{provider}}."
+    },
+    "fields": {
+      "openaiToken": "Token OpenAI",
+      "anthropicToken": "Token Anthropic"
+    },
+    "labels": {
+      "account": "Akun",
+      "email": "Email",
+      "project": "Proyek"
+    },
+    "errors": {
+      "loadFailed": "Gagal memuat kredensial",
+      "flowFailed": "Gagal memeriksa alur autentikasi",
+      "loginFailed": "Gagal masuk",
+      "logoutFailed": "Gagal keluar",
+      "invalidBrowserResponse": "Respons masuk peramban tidak valid",
+      "invalidDeviceResponse": "Respons kode perangkat tidak valid",
+      "popupBlocked": "Tidak dapat membuka tab baru. Izinkan pop-up lalu coba lagi."
+    },
+    "flow": {
+      "current": "Status autentikasi saat ini",
+      "pending": "Menunggu otorisasi...",
+      "success": "Autentikasi berhasil",
+      "error": "Autentikasi gagal",
+      "expired": "Sesi autentikasi kedaluwarsa"
+    },
+    "device": {
+      "title": "Masuk Perangkat OpenAI",
+      "description": "Buka halaman verifikasi dan masukkan kode di bawah. Halaman ini akan disegarkan otomatis.",
+      "code": "Kode Pengguna",
+      "url": "URL Verifikasi",
+      "polling": "Memeriksa status masuk...",
+      "open": "Buka Halaman Verifikasi"
+    }
   }
 }

@@ -571,5 +571,70 @@
       "local": "ローカル"
     },
     "downloadFile": "ファイルをダウンロード"
+  },
+  "credentials": {
+    "description": "対応プロバイダーの OAuth およびトークン認証情報を管理します。",
+    "loading": "認証情報を読み込んでいます...",
+    "providers": {
+      "openai": {
+        "description": "ブラウザー OAuth、デバイスコード、トークンログインに対応しています。"
+      },
+      "anthropic": {
+        "description": "Claude へのアクセスにトークンログインを使用します。"
+      },
+      "antigravity": {
+        "description": "Google Cloud Code Assist にブラウザー OAuth を使用します。"
+      }
+    },
+    "status": {
+      "connected": "接続済み",
+      "needsRefresh": "更新が必要",
+      "expired": "期限切れ",
+      "notLoggedIn": "未ログイン"
+    },
+    "actions": {
+      "browser": "ブラウザー OAuth",
+      "deviceCode": "デバイスコード",
+      "stopLoading": "読み込みを停止",
+      "saveToken": "保存",
+      "logout": "ログアウト"
+    },
+    "logoutDialog": {
+      "title": "プロバイダーからログアウトしますか？",
+      "description": "{{provider}} に保存された認証情報が削除されます。"
+    },
+    "fields": {
+      "openaiToken": "OpenAI トークン",
+      "anthropicToken": "Anthropic トークン"
+    },
+    "labels": {
+      "account": "アカウント",
+      "email": "メールアドレス",
+      "project": "プロジェクト"
+    },
+    "errors": {
+      "loadFailed": "認証情報を読み込めませんでした",
+      "flowFailed": "認証フローを確認できませんでした",
+      "loginFailed": "ログインに失敗しました",
+      "logoutFailed": "ログアウトに失敗しました",
+      "invalidBrowserResponse": "ブラウザーログインの応答が無効です",
+      "invalidDeviceResponse": "デバイスコードの応答が無効です",
+      "popupBlocked": "新しいタブを開けませんでした。ポップアップを許可してからもう一度お試しください。"
+    },
+    "flow": {
+      "current": "現在の認証状態",
+      "pending": "承認を待っています...",
+      "success": "認証に成功しました",
+      "error": "認証に失敗しました",
+      "expired": "認証セッションの有効期限が切れました"
+    },
+    "device": {
+      "title": "OpenAI デバイスログイン",
+      "description": "確認ページを開き、以下のコードを入力してください。このページは自動的に更新されます。",
+      "code": "ユーザーコード",
+      "url": "確認 URL",
+      "polling": "ログイン状態を確認しています...",
+      "open": "確認ページを開く"
+    }
   }
 }

@@ -571,5 +571,70 @@
       "local": "Local"
     },
     "downloadFile": "Télécharger le fichier"
+  },
+  "credentials": {
+    "description": "Gérez les identifiants OAuth et par jeton des fournisseurs pris en charge.",
+    "loading": "Chargement des identifiants...",
+    "providers": {
+      "openai": {
+        "description": "Prend en charge l'OAuth navigateur, le code d'appareil et la connexion par jeton."
+      },
+      "anthropic": {
+        "description": "Utilise la connexion par jeton pour accéder à Claude."
+      },
+      "antigravity": {
+        "description": "Utilise l'OAuth navigateur pour Google Cloud Code Assist."
+      }
+    },
+    "status": {
+      "connected": "Connecté",
+      "needsRefresh": "À actualiser",
+      "expired": "Expiré",
+      "notLoggedIn": "Non connecté"
+    },
+    "actions": {
+      "browser": "OAuth navigateur",
+      "deviceCode": "Code d'appareil",
+      "stopLoading": "Arrêter le chargement",
+      "saveToken": "Enregistrer",
+      "logout": "Se déconnecter"
+    },
+    "logoutDialog": {
+      "title": "Se déconnecter du fournisseur ?",
+      "description": "Cela supprimera vos identifiants enregistrés pour {{provider}}."
+    },
+    "fields": {
+      "openaiToken": "Jeton OpenAI",
+      "anthropicToken": "Jeton Anthropic"
+    },
+    "labels": {
+      "account": "Compte",
+      "email": "Adresse e-mail",
+      "project": "Projet"
+    },
+    "errors": {
+      "loadFailed": "Échec du chargement des identifiants",
+      "flowFailed": "Impossible de vérifier le processus d'authentification",
+      "loginFailed": "Échec de la connexion",
+      "logoutFailed": "Échec de la déconnexion",
+      "invalidBrowserResponse": "Réponse de connexion navigateur non valide",
+      "invalidDeviceResponse": "Réponse de code d'appareil non valide",
+      "popupBlocked": "Impossible d'ouvrir un nouvel onglet. Autorisez les fenêtres contextuelles et réessayez."
+    },
+    "flow": {
+      "current": "État d'authentification actuel",
+      "pending": "En attente de l'autorisation...",
+      "success": "Authentification réussie",
+      "error": "Échec de l'authentification",
+      "expired": "Session d'authentification expirée"
+    },
+    "device": {
+      "title": "Connexion par appareil OpenAI",
+      "description": "Ouvrez la page de vérification et saisissez le code ci-dessous. Cette page s'actualisera automatiquement.",
+      "code": "Code utilisateur",
+      "url": "URL de vérification",
+      "polling": "Interrogation de l'état de connexion...",
+      "open": "Ouvrir la page de vérification"
+    }
   }
 }

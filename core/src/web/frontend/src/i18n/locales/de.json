@@ -571,5 +571,70 @@
       "local": "Lokal"
     },
     "downloadFile": "Datei herunterladen"
+  },
+  "credentials": {
+    "description": "OAuth- und tokenbasierte Anmeldedaten für unterstützte Anbieter verwalten.",
+    "loading": "Anmeldedaten werden geladen ...",
+    "providers": {
+      "openai": {
+        "description": "Unterstützt Browser-OAuth, Gerätecode und Token-Anmeldung."
+      },
+      "anthropic": {
+        "description": "Nutzt die Token-Anmeldung für den Zugriff auf Claude."
+      },
+      "antigravity": {
+        "description": "Nutzt Browser-OAuth für Google Cloud Code Assist."
+      }
+    },
+    "status": {
+      "connected": "Verbunden",
+      "needsRefresh": "Aktualisierung erforderlich",
+      "expired": "Abgelaufen",
+      "notLoggedIn": "Nicht angemeldet"
+    },
+    "actions": {
+      "browser": "Browser-OAuth",
+      "deviceCode": "Gerätecode",
+      "stopLoading": "Laden abbrechen",
+      "saveToken": "Speichern",
+      "logout": "Abmelden"
+    },
+    "logoutDialog": {
+      "title": "Vom Anbieter abmelden?",
+      "description": "Dadurch werden Ihre gespeicherten Anmeldedaten für {{provider}} entfernt."
+    },
+    "fields": {
+      "openaiToken": "OpenAI-Token",
+      "anthropicToken": "Anthropic-Token"
+    },
+    "labels": {
+      "account": "Konto",
+      "email": "E-Mail",
+      "project": "Projekt"
+    },
+    "errors": {
+      "loadFailed": "Anmeldedaten konnten nicht geladen werden",
+      "flowFailed": "Authentifizierungsablauf konnte nicht geprüft werden",
+      "loginFailed": "Anmeldung fehlgeschlagen",
+      "logoutFailed": "Abmeldung fehlgeschlagen",
+      "invalidBrowserResponse": "Ungültige Antwort der Browser-Anmeldung",
+      "invalidDeviceResponse": "Ungültige Gerätecode-Antwort",
+      "popupBlocked": "Es konnte kein neuer Tab geöffnet werden. Bitte erlauben Sie Pop-ups und versuchen Sie es erneut."
+    },
+    "flow": {
+      "current": "Aktueller Authentifizierungsstatus",
+      "pending": "Warten auf Autorisierung ...",
+      "success": "Authentifizierung erfolgreich",
+      "error": "Authentifizierung fehlgeschlagen",
+      "expired": "Authentifizierungssitzung abgelaufen"
+    },
+    "device": {
+      "title": "OpenAI-Geräteanmeldung",
+      "description": "Öffnen Sie die Bestätigungsseite und geben Sie den untenstehenden Code ein. Diese Seite wird automatisch aktualisiert.",
+      "code": "Benutzercode",
+      "url": "Bestätigungs-URL",
+      "polling": "Anmeldestatus wird abgefragt ...",
+      "open": "Bestätigungsseite öffnen"
+    }
   }
 }

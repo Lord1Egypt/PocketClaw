@@ -571,5 +571,70 @@
       "local": "로컬"
     },
     "downloadFile": "파일 다운로드"
+  },
+  "credentials": {
+    "description": "지원되는 공급자의 OAuth 및 토큰 기반 자격 증명을 관리합니다.",
+    "loading": "자격 증명을 불러오는 중...",
+    "providers": {
+      "openai": {
+        "description": "브라우저 OAuth, 기기 코드, 토큰 로그인을 지원합니다."
+      },
+      "anthropic": {
+        "description": "Claude 접근에 토큰 로그인을 사용합니다."
+      },
+      "antigravity": {
+        "description": "Google Cloud Code Assist에 브라우저 OAuth를 사용합니다."
+      }
+    },
+    "status": {
+      "connected": "연결됨",
+      "needsRefresh": "갱신 필요",
+      "expired": "만료됨",
+      "notLoggedIn": "로그인하지 않음"
+    },
+    "actions": {
+      "browser": "브라우저 OAuth",
+      "deviceCode": "기기 코드",
+      "stopLoading": "불러오기 중지",
+      "saveToken": "저장",
+      "logout": "로그아웃"
+    },
+    "logoutDialog": {
+      "title": "공급자에서 로그아웃할까요?",
+      "description": "{{provider}}에 저장된 자격 증명이 삭제됩니다."
+    },
+    "fields": {
+      "openaiToken": "OpenAI 토큰",
+      "anthropicToken": "Anthropic 토큰"
+    },
+    "labels": {
+      "account": "계정",
+      "email": "이메일",
+      "project": "프로젝트"
+    },
+    "errors": {
+      "loadFailed": "자격 증명을 불러오지 못했습니다",
+      "flowFailed": "인증 흐름을 확인하지 못했습니다",
+      "loginFailed": "로그인에 실패했습니다",
+      "logoutFailed": "로그아웃에 실패했습니다",
+      "invalidBrowserResponse": "브라우저 로그인 응답이 올바르지 않습니다",
+      "invalidDeviceResponse": "기기 코드 응답이 올바르지 않습니다",
+      "popupBlocked": "새 탭을 열 수 없습니다. 팝업을 허용한 뒤 다시 시도하세요."
+    },
+    "flow": {
+      "current": "현재 인증 상태",
+      "pending": "승인을 기다리는 중...",
+      "success": "인증에 성공했습니다",
+      "error": "인증에 실패했습니다",
+      "expired": "인증 세션이 만료되었습니다"
+    },
+    "device": {
+      "title": "OpenAI 기기 로그인",
+      "description": "확인 페이지를 열고 아래 코드를 입력하세요. 이 페이지는 자동으로 새로 고쳐집니다.",
+      "code": "사용자 코드",
+      "url": "확인 URL",
+      "polling": "로그인 상태를 확인하는 중...",
+      "open": "확인 페이지 열기"
+    }
   }
 }

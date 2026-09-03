@@ -152,6 +152,7 @@ describe("translation coverage", () => {
     "models",
     "channels",
     "chat",
+    "credentials",
   ] as const
 
   const bundles: Record<string, unknown> = {
@@ -492,6 +493,103 @@ describe("Chat route body", () => {
     for (const locale of ["pt", "zh"]) {
       await i18n.changeLanguage(locale)
       expect(i18n.t("chat.newChat"), locale).not.toBe("chat.newChat")
+    }
+  })
+})
+
+describe("Credentials route body", () => {
+  const CRED_LOCALES = [
+    "ar",
+    "de",
+    "es",
+    "fr",
+    "hi",
+    "id",
+    "ja",
+    "ko",
+    "ru",
+  ] as const
+
+  it("renders translated Credentials body, fields, actions and states", async () => {
+    for (const locale of CRED_LOCALES) {
+      await i18n.changeLanguage(locale)
+
+      // Title / description prose.
+      expect(i18n.t("credentials.description"), locale).not.toBe(
+        "Manage OAuth and token-based credentials for supported providers.",
+      )
+      expect(i18n.t("credentials.providers.anthropic.description"), locale).not.toBe(
+        "Uses token login for Claude access.",
+      )
+
+      // Field and helper strings.
+      expect(i18n.t("credentials.labels.account"), locale).not.toBe("Account")
+      expect(i18n.t("credentials.device.description"), locale).not.toBe(
+        "Open the verification page and enter the code below. This page will refresh automatically.",
+      )
+
+      // Action buttons.
+      expect(i18n.t("credentials.actions.saveToken"), locale).not.toBe("Save")
+      expect(i18n.t("credentials.actions.logout"), locale).not.toBe("Logout")
+
+      // Validation / error / status.
+      expect(i18n.t("credentials.errors.loginFailed"), locale).not.toBe(
+        "Login failed",
+      )
+      expect(i18n.t("credentials.errors.popupBlocked"), locale).not.toBe(
+        "Unable to open a new tab. Please allow popups and try again.",
+      )
+      expect(i18n.t("credentials.status.notLoggedIn"), locale).not.toBe(
+        "Not logged in",
+      )
+      expect(i18n.t("credentials.flow.pending"), locale).not.toBe(
+        "Waiting for authorization...",
+      )
+    }
+  })
+
+  it("keeps Arabic Credentials right-to-left with a translated body", async () => {
+    await i18n.changeLanguage("ar")
+    expect(i18n.dir()).toBe("rtl")
+    expect(document.documentElement.getAttribute("dir")).toBe("rtl")
+    expect(i18n.t("credentials.status.connected")).toBe("متصل")
+    expect(i18n.t("credentials.labels.email")).toBe("البريد الإلكتروني")
+  })
+
+  it("preserves the Credentials interpolation placeholder", async () => {
+    for (const locale of CRED_LOCALES) {
+      await i18n.changeLanguage(locale)
+      expect(
+        i18n.t("credentials.logoutDialog.description", { provider: "OpenAI" }),
+        locale,
+      ).toContain("OpenAI")
+    }
+  })
+
+  it("keeps provider and protocol names untranslated", async () => {
+    for (const locale of ["ar", "hi", "ja", "ko", "ru"]) {
+      await i18n.changeLanguage(locale)
+      expect(i18n.t("credentials.fields.openaiToken"), locale).toContain(
+        "OpenAI",
+      )
+      expect(i18n.t("credentials.fields.anthropicToken"), locale).toContain(
+        "Anthropic",
+      )
+      expect(i18n.t("credentials.providers.anthropic.description"), locale).toContain(
+        "Claude",
+      )
+    }
+  })
+
+  it("keeps English and the pre-existing locales intact for Credentials", async () => {
+    await i18n.changeLanguage("en")
+    expect(i18n.t("credentials.status.connected")).toBe("Connected")
+
+    for (const locale of ["pt", "zh"]) {
+      await i18n.changeLanguage(locale)
+      expect(i18n.t("credentials.status.connected"), locale).not.toBe(
+        "credentials.status.connected",
+      )
     }
   })
 })

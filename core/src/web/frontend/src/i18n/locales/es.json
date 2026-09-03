@@ -571,5 +571,70 @@
       "local": "Local"
     },
     "downloadFile": "Descargar archivo"
+  },
+  "credentials": {
+    "description": "Gestiona credenciales OAuth y basadas en token para los proveedores compatibles.",
+    "loading": "Cargando credenciales...",
+    "providers": {
+      "openai": {
+        "description": "Admite OAuth en el navegador, código de dispositivo e inicio de sesión con token."
+      },
+      "anthropic": {
+        "description": "Usa el inicio de sesión con token para acceder a Claude."
+      },
+      "antigravity": {
+        "description": "Usa OAuth en el navegador para Google Cloud Code Assist."
+      }
+    },
+    "status": {
+      "connected": "Conectado",
+      "needsRefresh": "Necesita actualizarse",
+      "expired": "Caducada",
+      "notLoggedIn": "Sin iniciar sesión"
+    },
+    "actions": {
+      "browser": "OAuth en el navegador",
+      "deviceCode": "Código de dispositivo",
+      "stopLoading": "Detener carga",
+      "saveToken": "Guardar",
+      "logout": "Cerrar sesión"
+    },
+    "logoutDialog": {
+      "title": "¿Cerrar sesión del proveedor?",
+      "description": "Esto eliminará la credencial guardada de {{provider}}."
+    },
+    "fields": {
+      "openaiToken": "Token de OpenAI",
+      "anthropicToken": "Token de Anthropic"
+    },
+    "labels": {
+      "account": "Cuenta",
+      "email": "Correo electrónico",
+      "project": "Proyecto"
+    },
+    "errors": {
+      "loadFailed": "No se pudieron cargar las credenciales",
+      "flowFailed": "No se pudo comprobar el flujo de autenticación",
+      "loginFailed": "Error al iniciar sesión",
+      "logoutFailed": "Error al cerrar sesión",
+      "invalidBrowserResponse": "Respuesta de inicio de sesión del navegador no válida",
+      "invalidDeviceResponse": "Respuesta de código de dispositivo no válida",
+      "popupBlocked": "No se pudo abrir una pestaña nueva. Permite las ventanas emergentes e inténtalo de nuevo."
+    },
+    "flow": {
+      "current": "Estado de autenticación actual",
+      "pending": "Esperando la autorización...",
+      "success": "Autenticación correcta",
+      "error": "Error de autenticación",
+      "expired": "La sesión de autenticación ha caducado"
+    },
+    "device": {
+      "title": "Inicio de sesión de dispositivo de OpenAI",
+      "description": "Abre la página de verificación e introduce el código de abajo. Esta página se actualizará automáticamente.",
+      "code": "Código de usuario",
+      "url": "URL de verificación",
+      "polling": "Consultando el estado del inicio de sesión...",
+      "open": "Abrir página de verificación"
+    }
   }
 }

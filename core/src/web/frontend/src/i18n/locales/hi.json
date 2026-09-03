@@ -571,5 +571,70 @@
       "local": "स्थानीय"
     },
     "downloadFile": "फ़ाइल डाउनलोड करें"
+  },
+  "credentials": {
+    "description": "समर्थित प्रदाताओं हेतु OAuth और टोकन-आधारित क्रेडेंशियल प्रबंधित करें।",
+    "loading": "क्रेडेंशियल लोड हो रहे हैं...",
+    "providers": {
+      "openai": {
+        "description": "ब्राउज़र OAuth, डिवाइस कोड और टोकन लॉगिन का समर्थन करता है।"
+      },
+      "anthropic": {
+        "description": "Claude तक पहुँच हेतु टोकन लॉगिन उपयोग करता है।"
+      },
+      "antigravity": {
+        "description": "Google Cloud Code Assist हेतु ब्राउज़र OAuth उपयोग करता है।"
+      }
+    },
+    "status": {
+      "connected": "कनेक्टेड",
+      "needsRefresh": "ताज़ा करना आवश्यक",
+      "expired": "समय-सीमा समाप्त",
+      "notLoggedIn": "लॉग इन नहीं"
+    },
+    "actions": {
+      "browser": "ब्राउज़र OAuth",
+      "deviceCode": "डिवाइस कोड",
+      "stopLoading": "लोडिंग रोकें",
+      "saveToken": "सहेजें",
+      "logout": "लॉग आउट"
+    },
+    "logoutDialog": {
+      "title": "प्रदाता से लॉग आउट करें?",
+      "description": "इससे {{provider}} हेतु आपका सहेजा गया क्रेडेंशियल हट जाएगा।"
+    },
+    "fields": {
+      "openaiToken": "OpenAI टोकन",
+      "anthropicToken": "Anthropic टोकन"
+    },
+    "labels": {
+      "account": "खाता",
+      "email": "ईमेल",
+      "project": "प्रोजेक्ट"
+    },
+    "errors": {
+      "loadFailed": "क्रेडेंशियल लोड नहीं हो सके",
+      "flowFailed": "प्रमाणीकरण प्रवाह जाँचा नहीं जा सका",
+      "loginFailed": "लॉगिन विफल",
+      "logoutFailed": "लॉग आउट विफल",
+      "invalidBrowserResponse": "अमान्य ब्राउज़र लॉगिन प्रतिक्रिया",
+      "invalidDeviceResponse": "अमान्य डिवाइस कोड प्रतिक्रिया",
+      "popupBlocked": "नया टैब नहीं खुल सका। कृपया पॉपअप की अनुमति दें और पुनः प्रयास करें।"
+    },
+    "flow": {
+      "current": "वर्तमान प्रमाणीकरण स्थिति",
+      "pending": "प्राधिकरण की प्रतीक्षा...",
+      "success": "प्रमाणीकरण सफल",
+      "error": "प्रमाणीकरण विफल",
+      "expired": "प्रमाणीकरण सत्र की समय-सीमा समाप्त"
+    },
+    "device": {
+      "title": "OpenAI डिवाइस लॉगिन",
+      "description": "सत्यापन पृष्ठ खोलें और नीचे दिया गया कोड दर्ज करें। यह पृष्ठ स्वतः ताज़ा होगा।",
+      "code": "उपयोगकर्ता कोड",
+      "url": "सत्यापन URL",
+      "polling": "लॉगिन स्थिति जाँची जा रही है...",
+      "open": "सत्यापन पृष्ठ खोलें"
+    }
   }
 }

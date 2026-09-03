@@ -571,5 +571,70 @@
       "local": "محلي"
     },
     "downloadFile": "تنزيل الملف"
+  },
+  "credentials": {
+    "description": "إدارة بيانات الاعتماد المعتمدة على OAuth والرموز للمزوّدين المدعومين.",
+    "loading": "جارٍ تحميل بيانات الاعتماد...",
+    "providers": {
+      "openai": {
+        "description": "يدعم مصادقة OAuth عبر المتصفح ورمز الجهاز وتسجيل الدخول بالرمز."
+      },
+      "anthropic": {
+        "description": "يستخدم تسجيل الدخول بالرمز للوصول إلى Claude."
+      },
+      "antigravity": {
+        "description": "يستخدم مصادقة OAuth عبر المتصفح لخدمة Google Cloud Code Assist."
+      }
+    },
+    "status": {
+      "connected": "متصل",
+      "needsRefresh": "يحتاج إلى تحديث",
+      "expired": "منتهي الصلاحية",
+      "notLoggedIn": "لم يتم تسجيل الدخول"
+    },
+    "actions": {
+      "browser": "مصادقة OAuth عبر المتصفح",
+      "deviceCode": "رمز الجهاز",
+      "stopLoading": "إيقاف التحميل",
+      "saveToken": "حفظ",
+      "logout": "تسجيل الخروج"
+    },
+    "logoutDialog": {
+      "title": "تسجيل الخروج من المزوّد؟",
+      "description": "سيؤدي هذا إلى إزالة بيانات الاعتماد المحفوظة لـ {{provider}}."
+    },
+    "fields": {
+      "openaiToken": "رمز OpenAI",
+      "anthropicToken": "رمز Anthropic"
+    },
+    "labels": {
+      "account": "الحساب",
+      "email": "البريد الإلكتروني",
+      "project": "المشروع"
+    },
+    "errors": {
+      "loadFailed": "تعذّر تحميل بيانات الاعتماد",
+      "flowFailed": "تعذّر التحقق من تدفق المصادقة",
+      "loginFailed": "فشل تسجيل الدخول",
+      "logoutFailed": "فشل تسجيل الخروج",
+      "invalidBrowserResponse": "استجابة تسجيل الدخول عبر المتصفح غير صالحة",
+      "invalidDeviceResponse": "استجابة رمز الجهاز غير صالحة",
+      "popupBlocked": "تعذّر فتح تبويب جديد. يرجى السماح بالنوافذ المنبثقة والمحاولة مرة أخرى."
+    },
+    "flow": {
+      "current": "حالة المصادقة الحالية",
+      "pending": "في انتظار التفويض...",
+      "success": "تمت المصادقة بنجاح",
+      "error": "فشلت المصادقة",
+      "expired": "انتهت صلاحية جلسة المصادقة"
+    },
+    "device": {
+      "title": "تسجيل دخول OpenAI عبر الجهاز",
+      "description": "افتح صفحة التحقق وأدخل الرمز أدناه. ستُحدَّث هذه الصفحة تلقائيًا.",
+      "code": "رمز المستخدم",
+      "url": "رابط التحقق",
+      "polling": "جارٍ استعلام حالة تسجيل الدخول...",
+      "open": "فتح صفحة التحقق"
+    }
   }
 }
