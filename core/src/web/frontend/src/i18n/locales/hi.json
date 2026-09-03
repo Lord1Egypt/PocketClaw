@@ -636,5 +636,101 @@
       "polling": "लॉगिन स्थिति जाँची जा रही है...",
       "open": "सत्यापन पृष्ठ खोलें"
     }
+  },
+  "pages": {
+    "agent": {
+      "skills": {
+        "empty": "अभी कोई स्किल उपलब्ध नहीं है।",
+        "install_success": "{{name}} इंस्टॉल हुई।",
+        "install_error": "स्किल इंस्टॉल नहीं हो सकी।",
+        "search_placeholder": "नाम, विवरण या रजिस्ट्री से खोजें",
+        "source_label": "प्रकार",
+        "sort_label": "क्रम",
+        "import": "स्किल आयात करें",
+        "import_success": "स्किल आयात हुई।",
+        "import_error": "स्किल आयात नहीं हो सकी।",
+        "import_invalid_type": "केवल Markdown या ZIP स्किल फ़ाइलें समर्थित हैं।",
+        "import_invalid_size": "स्किल फ़ाइल 1 MB या उससे छोटी होनी चाहिए।",
+        "import_constraints": "1 MB तक की Markdown या ZIP स्किल फ़ाइल आयात करें",
+        "view": "देखें",
+        "delete": "हटाएँ",
+        "delete_title": "स्किल हटाएँ?",
+        "delete_description": "\"{{name}}\" वर्कस्पेस स्किल्स से हटा दी जाएगी।",
+        "delete_confirm": "हटाएँ",
+        "delete_success": "स्किल हटाई गई।",
+        "delete_error": "स्किल हटाई नहीं जा सकी।",
+        "viewer_title": "स्किल सामग्री",
+        "viewer_description": "वर्तमान प्रभावी SKILL.md सामग्री यहाँ पढ़ें।",
+        "load_detail_error": "स्किल सामग्री लोड नहीं हो सकी।",
+        "no_description": "कोई विवरण नहीं दिया गया।",
+        "no_results": "वर्तमान फ़िल्टर से कोई स्किल मेल नहीं खाती।",
+        "dropzone_title": "वर्कस्पेस में आयात करें",
+        "dropzone_description": "स्किल फ़ाइल यहाँ खींचें या डिस्क से चुनें।",
+        "dropzone_label": "स्किल फ़ाइल यहाँ छोड़ें",
+        "dropzone_active": "इस स्किल को आयात करने हेतु छोड़ें",
+        "dropzone_release": "स्किल को सामान्यीकृत करके वर्कस्पेस स्किल्स निर्देशिका में सहेजा जाएगा।",
+        "marketplace_title": "स्किल्स खोजें",
+        "marketplace_description": "स्किल रजिस्ट्रियों में खोजें और उपयोगी स्किल्स इस वर्कस्पेस में इंस्टॉल करें",
+        "marketplace_search_placeholder": "github, docker, database जैसी क्षमताएँ खोजें...",
+        "marketplace_search_action": "खोजें",
+        "marketplace_search_status": "खोज स्थिति",
+        "marketplace_install_status": "इंस्टॉल स्थिति",
+        "marketplace_notice_title": "सुरक्षा सूचना",
+        "marketplace_notice_body": "रजिस्ट्री स्किल्स तृतीय-पक्ष सामग्री हैं। इंस्टॉल करने से पहले लेखक, पृष्ठ URL, निर्देश और आवश्यक कोड या क्रेडेंशियल जाँच लें।",
+        "marketplace_status_disabled": "अक्षम। पहले टूल पृष्ठ पर संबंधित टूल सक्षम करें।",
+        "marketplace_status_enable_hint": "पहले टूल पृष्ठ पर संबंधित टूल सक्षम करें।",
+        "marketplace_search_error": "रजिस्ट्रियों में खोज विफल रही।",
+        "marketplace_loading_results": "स्किल्स खोजी जा रही हैं...",
+        "marketplace_loading_more": "और स्किल्स लोड हो रही हैं...",
+        "marketplace_results_title": "“{{query}}” हेतु {{count}} परिणाम",
+        "marketplace_results_hint": "रजिस्ट्री परिणाम वर्तमान वर्कस्पेस में इंस्टॉल होते हैं।",
+        "marketplace_install_action": "इंस्टॉल करें",
+        "marketplace_installed": "इंस्टॉल है",
+        "marketplace_view_installed": "स्थानीय देखें",
+        "marketplace_installed_hint": "इस वर्कस्पेस में पहले से “{{name}}” के रूप में उपलब्ध है।",
+        "marketplace_empty_results": "“{{query}}” से मेल खाती कोई इंस्टॉल करने योग्य स्किल नहीं मिली।",
+        "marketplace_idle": "कॉन्फ़िगर की गई रजिस्ट्रियों से इंस्टॉल करने योग्य स्किल्स खोजने हेतु कोई क्षमता खोजें।",
+        "marketplace_unavailable": "रजिस्ट्री खोज अभी उपलब्ध नहीं है। स्किल्स टूल कॉन्फ़िगरेशन जाँचें।",
+        "sort": {
+          "name_asc": "नाम (अ-ज्ञ)",
+          "name_desc": "नाम (ज्ञ-अ)",
+          "source": "प्रकार"
+        },
+        "origin": {
+          "all": "सभी प्रकार",
+          "builtin": "अंतर्निहित",
+          "third_party": "तृतीय-पक्ष",
+          "manual": "मैन्युअल"
+        },
+        "summary": {
+          "total": "कुल स्किल्स"
+        },
+        "detail_tabs": {
+          "preview": "पूर्वावलोकन",
+          "raw": "कच्चा",
+          "meta": "मेटाडेटा"
+        },
+        "metadata": {
+          "name": "नाम",
+          "description": "विवरण",
+          "registry": "रजिस्ट्री",
+          "url": "URL",
+          "version": "इंस्टॉल किया संस्करण",
+          "lines": "पंक्ति संख्या",
+          "characters": "वर्ण संख्या"
+        },
+        "marketplace_installDisabled": {
+          "installing": "इंस्टॉल हो रही है...",
+          "installed": "पहले से इंस्टॉल",
+          "cannotInstall": "इंस्टॉल नहीं हो सकती: संबंधित टूल सक्षम नहीं है"
+        }
+      },
+      "load_error": "एजेंट समर्थन जानकारी लोड नहीं हो सकी।"
+    },
+    "logs": {
+      "log_level_error": "लॉग स्तर अपडेट नहीं हो सका।",
+      "clear": "लॉग साफ़ करें",
+      "empty": "लॉग की प्रतीक्षा है..."
+    }
   }
 }

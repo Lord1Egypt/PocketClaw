@@ -218,6 +218,10 @@ describe("translation coverage", () => {
     // technical interfaces all write it "OAuth"; transliterating it would be
     // less recognisable, not more localized.
     "chat.modelGroup.oauth",
+    // "URL" is the standard term in Hindi, Japanese, Korean and Russian
+    // technical interfaces; it is a field label beside Name and Description,
+    // not prose. Arabic uses "الرابط" and is unaffected.
+    "pages.agent.skills.metadata.url",
   ])
 
   // Latin-script languages legitimately share loanwords with English — German
@@ -249,6 +253,23 @@ describe("translation coverage", () => {
     return [...english.keys()].filter((key) => key.startsWith(`${namespace}.`))
   }
 
+  // `pages` is translated in batches, so only the finished groups are required.
+  // Listing prefixes rather than the whole namespace keeps the enforcement
+  // honest: it can never imply that all 316 pages keys are done.
+  const PAGES_DONE_PREFIXES = [
+    "pages.agent.skills.",
+    "pages.agent.load_error",
+    "pages.logs.",
+  ] as const
+
+  function batchedPagesKeys(english: Map<string, string>) {
+    return [...english.keys()].filter((key) =>
+      PAGES_DONE_PREFIXES.some(
+        (prefix) => key === prefix || key.startsWith(prefix),
+      ),
+    )
+  }
+
   it("has every required key in every locale", () => {
     const english = flatten(enBundleFor("en"), "", new Map())
     const failures: string[] = []
@@ -262,6 +283,11 @@ describe("translation coverage", () => {
           }
         }
       }
+      for (const key of batchedPagesKeys(english)) {
+        if (theirs.get(key) === undefined) {
+          failures.push(`${locale} | pages | ${key} | MISSING`)
+        }
+      }
     }
 
     expect(failures.join("\n"), failures.join("\n")).toBe("")
@@ -273,8 +299,18 @@ describe("translation coverage", () => {
 
     for (const locale of NON_LATIN) {
       const theirs = flatten(enBundleFor(locale), "", new Map())
-      for (const namespace of CHROME) {
-        for (const key of keysOfNamespace(english, namespace)) {
+      const checked: Array<[string, string[]]> = [
+        ...CHROME.map(
+          (namespace) =>
+            [namespace, keysOfNamespace(english, namespace)] as [
+              string,
+              string[],
+            ],
+        ),
+        ["pages", batchedPagesKeys(english)],
+      ]
+      for (const [namespace, keys] of checked) {
+        for (const key of keys) {
           if (PROPER_NOUNS.has(key)) continue
           const value = theirs.get(key)
           if (value !== undefined && value === english.get(key)) {
@@ -590,6 +626,157 @@ describe("Credentials route body", () => {
       expect(i18n.t("credentials.status.connected"), locale).not.toBe(
         "credentials.status.connected",
       )
+    }
+  })
+})
+
+describe("Pages batch 1 — Skills and Logs", () => {
+  const BATCH_LOCALES = [
+    "ar",
+    "de",
+    "es",
+    "fr",
+    "hi",
+    "id",
+    "ja",
+    "ko",
+    "ru",
+  ] as const
+
+  // Interpolation parity: every {{var}} English uses must survive translation,
+  // and no translation may invent one English does not have.
+  it("preserves placeholder parity with English for every batch 1 key", async () => {
+    const placeholders = (value: string) =>
+      [...value.matchAll(/\{\{\s*([A-Za-z0-9_]+)\s*\}\}/g)]
+        .map((match) => match[1])
+        .sort()
+
+    const english = i18n.getResourceBundle("en", "translation") as Record<
+      string,
+      unknown
+    >
+    const failures: string[] = []
+
+    const walk = (
+      value: unknown,
+      path: string,
+      visit: (key: string, text: string) => void,
+    ) => {
+      if (value && typeof value === "object") {
+        for (const [key, child] of Object.entries(
+          value as Record<string, unknown>,
+        )) {
+          walk(child, path ? `${path}.${key}` : key, visit)
+        }
+      } else if (typeof value === "string") {
+        visit(path, value)
+      }
+    }
+
+    for (const locale of BATCH_LOCALES) {
+      const bundle = i18n.getResourceBundle(locale, "translation") as Record<
+        string,
+        unknown
+      >
+      for (const group of [
+        ["pages.agent.skills", (english.pages as never)["agent"]["skills"]],
+        ["pages.logs", (english.pages as never)["logs"]],
+      ] as Array<[string, unknown]>) {
+        walk(group[1], "", (key, englishText) => {
+          const path = `${group[0]}.${key}`
+          const translated = i18n.getResource(locale, "translation", path) as
+            | string
+            | undefined
+          if (typeof translated !== "string") return
+          const want = placeholders(englishText).join(",")
+          const got = placeholders(translated).join(",")
+          if (want !== got) {
+            failures.push(
+              `${locale} | pages | ${path} | placeholders "${want}" vs "${got}"`,
+            )
+          }
+        })
+      }
+      void bundle
+    }
+
+    expect(failures.join("\n"), failures.join("\n")).toBe("")
+  })
+
+  it("renders translated Skills page body, actions and states", async () => {
+    for (const locale of BATCH_LOCALES) {
+      await i18n.changeLanguage(locale)
+
+      // Title / description prose.
+      expect(i18n.t("pages.agent.skills.marketplace_title"), locale).not.toBe(
+        "Discover Skills",
+      )
+      expect(
+        i18n.t("pages.agent.skills.marketplace_description"),
+        locale,
+      ).not.toBe(
+        "Search the skill registries and install useful skills into this workspace",
+      )
+
+      // Form / helper content.
+      expect(i18n.t("pages.agent.skills.search_placeholder"), locale).not.toBe(
+        "Search by name, description, or registry",
+      )
+      expect(i18n.t("pages.agent.skills.import_constraints"), locale).not.toBe(
+        "Import a Markdown or ZIP skill file up to 1 MB",
+      )
+
+      // Actions.
+      expect(i18n.t("pages.agent.skills.import"), locale).not.toBe(
+        "Import Skill",
+      )
+      expect(
+        i18n.t("pages.agent.skills.marketplace_install_action"),
+        locale,
+      ).not.toBe("Install")
+
+      // Status / error / empty states.
+      expect(i18n.t("pages.agent.skills.empty"), locale).not.toBe(
+        "No skills are currently available.",
+      )
+      expect(i18n.t("pages.agent.skills.no_results"), locale).not.toBe(
+        "No skills matched the current filters.",
+      )
+      expect(i18n.t("pages.agent.skills.install_error"), locale).not.toBe(
+        "Failed to install skill.",
+      )
+      expect(i18n.t("pages.agent.load_error"), locale).not.toBe(
+        "Failed to load agent support information.",
+      )
+    }
+  })
+
+  it("renders the translated Logs page", async () => {
+    for (const locale of BATCH_LOCALES) {
+      await i18n.changeLanguage(locale)
+      expect(i18n.t("pages.logs.clear"), locale).not.toBe("Clear logs")
+      expect(i18n.t("pages.logs.empty"), locale).not.toBe("Waiting for logs...")
+      expect(i18n.t("pages.logs.log_level_error"), locale).not.toBe(
+        "Failed to update log level.",
+      )
+    }
+  })
+
+  it("keeps Arabic batch 1 pages right-to-left and translated", async () => {
+    await i18n.changeLanguage("ar")
+    expect(i18n.dir()).toBe("rtl")
+    expect(document.documentElement.getAttribute("dir")).toBe("rtl")
+    expect(i18n.t("pages.agent.skills.import")).toBe("استيراد مهارة")
+    expect(i18n.t("pages.logs.clear")).toBe("مسح السجلات")
+  })
+
+  it("keeps English and the pre-existing locales intact for batch 1", async () => {
+    await i18n.changeLanguage("en")
+    expect(i18n.t("pages.logs.clear")).toBe("Clear logs")
+
+    for (const locale of ["pt", "zh"]) {
+      await i18n.changeLanguage(locale)
+      expect(i18n.t("pages.logs.clear"), locale).not.toBe("pages.logs.clear")
     }
   })
 })

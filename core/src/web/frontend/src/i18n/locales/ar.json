@@ -636,5 +636,101 @@
       "polling": "جارٍ استعلام حالة تسجيل الدخول...",
       "open": "فتح صفحة التحقق"
     }
+  },
+  "pages": {
+    "agent": {
+      "skills": {
+        "empty": "لا توجد مهارات متاحة حاليًا.",
+        "install_success": "تم تثبيت {{name}}.",
+        "install_error": "تعذّر تثبيت المهارة.",
+        "search_placeholder": "ابحث بالاسم أو الوصف أو السجل",
+        "source_label": "النوع",
+        "sort_label": "الترتيب",
+        "import": "استيراد مهارة",
+        "import_success": "تم استيراد المهارة.",
+        "import_error": "تعذّر استيراد المهارة.",
+        "import_invalid_type": "يُدعم فقط ملفات المهارات بصيغة Markdown أو ZIP.",
+        "import_invalid_size": "يجب ألا يتجاوز حجم ملف المهارة 1 ميجابايت.",
+        "import_constraints": "استورد ملف مهارة بصيغة Markdown أو ZIP بحجم أقصاه 1 ميجابايت",
+        "view": "عرض",
+        "delete": "حذف",
+        "delete_title": "حذف المهارة؟",
+        "delete_description": "ستُزال \"{{name}}\" من مهارات مساحة العمل.",
+        "delete_confirm": "حذف",
+        "delete_success": "تم حذف المهارة.",
+        "delete_error": "تعذّر حذف المهارة.",
+        "viewer_title": "محتوى المهارة",
+        "viewer_description": "اطّلع هنا على محتوى SKILL.md الفعّال الحالي.",
+        "load_detail_error": "تعذّر تحميل محتوى المهارة.",
+        "no_description": "لا يوجد وصف.",
+        "no_results": "لا توجد مهارات مطابقة للمرشّحات الحالية.",
+        "dropzone_title": "استيراد إلى مساحة العمل",
+        "dropzone_description": "اسحب ملف مهارة إلى هنا أو اختر واحدًا من القرص.",
+        "dropzone_label": "أفلت ملف مهارة هنا",
+        "dropzone_active": "أفلت لاستيراد هذه المهارة",
+        "dropzone_release": "ستُطبَّع المهارة وتُحفظ في دليل مهارات مساحة العمل.",
+        "marketplace_title": "اكتشاف المهارات",
+        "marketplace_description": "ابحث في سجلات المهارات وثبّت ما يفيدك منها في مساحة العمل هذه",
+        "marketplace_search_placeholder": "ابحث عن قدرات مثل github أو docker أو database...",
+        "marketplace_search_action": "بحث",
+        "marketplace_search_status": "حالة البحث",
+        "marketplace_install_status": "حالة التثبيت",
+        "marketplace_notice_title": "تنبيه أمني",
+        "marketplace_notice_body": "مهارات السجلات محتوى من طرف ثالث. راجع المؤلف ورابط الصفحة والتعليمات وأي كود أو بيانات اعتماد مطلوبة قبل التثبيت.",
+        "marketplace_status_disabled": "معطّل. فعّل الأداة المقابلة من صفحة الأدوات أولًا.",
+        "marketplace_status_enable_hint": "فعّل الأداة المرتبطة من صفحة الأدوات أولًا.",
+        "marketplace_search_error": "تعذّر البحث في السجلات.",
+        "marketplace_loading_results": "جارٍ البحث عن المهارات...",
+        "marketplace_loading_more": "جارٍ تحميل مزيد من المهارات...",
+        "marketplace_results_title": "{{count}} نتيجة لـ ”{{query}}“",
+        "marketplace_results_hint": "تُثبَّت نتائج السجل في مساحة العمل الحالية.",
+        "marketplace_install_action": "تثبيت",
+        "marketplace_installed": "مثبَّتة",
+        "marketplace_view_installed": "عرض المحلية",
+        "marketplace_installed_hint": "متاحة بالفعل في مساحة العمل هذه باسم ”{{name}}“.",
+        "marketplace_empty_results": "لا توجد مهارات قابلة للتثبيت تطابق ”{{query}}“.",
+        "marketplace_idle": "ابحث عن قدرة لاكتشاف مهارات قابلة للتثبيت من السجلات المُعدّة.",
+        "marketplace_unavailable": "البحث في السجلات غير متاح حاليًا. تحقق من إعداد أدوات المهارات.",
+        "sort": {
+          "name_asc": "الاسم (أ-ي)",
+          "name_desc": "الاسم (ي-أ)",
+          "source": "النوع"
+        },
+        "origin": {
+          "all": "كل الأنواع",
+          "builtin": "مدمجة",
+          "third_party": "طرف ثالث",
+          "manual": "يدوية"
+        },
+        "summary": {
+          "total": "إجمالي المهارات"
+        },
+        "detail_tabs": {
+          "preview": "معاينة",
+          "raw": "خام",
+          "meta": "البيانات الوصفية"
+        },
+        "metadata": {
+          "name": "الاسم",
+          "description": "الوصف",
+          "registry": "السجل",
+          "url": "الرابط",
+          "version": "الإصدار المثبَّت",
+          "lines": "عدد الأسطر",
+          "characters": "عدد الأحرف"
+        },
+        "marketplace_installDisabled": {
+          "installing": "جارٍ التثبيت...",
+          "installed": "مثبَّتة بالفعل",
+          "cannotInstall": "يتعذّر التثبيت: الأداة المرتبطة غير مفعّلة"
+        }
+      },
+      "load_error": "تعذّر تحميل معلومات دعم الوكيل."
+    },
+    "logs": {
+      "log_level_error": "تعذّر تحديث مستوى السجل.",
+      "clear": "مسح السجلات",
+      "empty": "في انتظار السجلات..."
+    }
   }
 }

@@ -636,5 +636,101 @@
       "polling": "Anmeldestatus wird abgefragt ...",
       "open": "Bestätigungsseite öffnen"
     }
+  },
+  "pages": {
+    "agent": {
+      "skills": {
+        "empty": "Derzeit sind keine Skills verfügbar.",
+        "install_success": "{{name}} installiert.",
+        "install_error": "Skill konnte nicht installiert werden.",
+        "search_placeholder": "Nach Name, Beschreibung oder Registry suchen",
+        "source_label": "Typ",
+        "sort_label": "Sortierung",
+        "import": "Skill importieren",
+        "import_success": "Skill importiert.",
+        "import_error": "Skill konnte nicht importiert werden.",
+        "import_invalid_type": "Es werden nur Markdown- oder ZIP-Skilldateien unterstützt.",
+        "import_invalid_size": "Die Skilldatei darf höchstens 1 MB groß sein.",
+        "import_constraints": "Importieren Sie eine Markdown- oder ZIP-Skilldatei mit bis zu 1 MB",
+        "view": "Ansehen",
+        "delete": "Löschen",
+        "delete_title": "Skill löschen?",
+        "delete_description": "„{{name}}“ wird aus den Workspace-Skills entfernt.",
+        "delete_confirm": "Löschen",
+        "delete_success": "Skill gelöscht.",
+        "delete_error": "Skill konnte nicht gelöscht werden.",
+        "viewer_title": "Skill-Inhalt",
+        "viewer_description": "Hier sehen Sie den aktuell wirksamen Inhalt von SKILL.md.",
+        "load_detail_error": "Skill-Inhalt konnte nicht geladen werden.",
+        "no_description": "Keine Beschreibung vorhanden.",
+        "no_results": "Keine Skills entsprechen den aktuellen Filtern.",
+        "dropzone_title": "In den Workspace importieren",
+        "dropzone_description": "Ziehen Sie eine Skilldatei hierher oder wählen Sie eine vom Datenträger.",
+        "dropzone_label": "Skilldatei hier ablegen",
+        "dropzone_active": "Loslassen, um diesen Skill zu importieren",
+        "dropzone_release": "Der Skill wird normalisiert und im Skills-Verzeichnis des Workspace gespeichert.",
+        "marketplace_title": "Skills entdecken",
+        "marketplace_description": "Durchsuchen Sie die Skill-Registries und installieren Sie nützliche Skills in diesen Workspace",
+        "marketplace_search_placeholder": "Nach Fähigkeiten wie github, docker, database suchen ...",
+        "marketplace_search_action": "Suchen",
+        "marketplace_search_status": "Suchstatus",
+        "marketplace_install_status": "Installationsstatus",
+        "marketplace_notice_title": "Sicherheitshinweis",
+        "marketplace_notice_body": "Registry-Skills sind Inhalte von Dritten. Prüfen Sie Autor, Seiten-URL, Anweisungen sowie erforderlichen Code oder Anmeldedaten vor der Installation.",
+        "marketplace_status_disabled": "Deaktiviert. Aktivieren Sie zuerst das zugehörige Werkzeug auf der Seite „Werkzeuge“.",
+        "marketplace_status_enable_hint": "Aktivieren Sie zuerst das zugehörige Werkzeug auf der Seite „Werkzeuge“.",
+        "marketplace_search_error": "Die Registries konnten nicht durchsucht werden.",
+        "marketplace_loading_results": "Skills werden gesucht ...",
+        "marketplace_loading_more": "Weitere Skills werden geladen ...",
+        "marketplace_results_title": "{{count}} Ergebnisse für „{{query}}“",
+        "marketplace_results_hint": "Registry-Ergebnisse werden in den aktuellen Workspace installiert.",
+        "marketplace_install_action": "Installieren",
+        "marketplace_installed": "Installiert",
+        "marketplace_view_installed": "Lokal ansehen",
+        "marketplace_installed_hint": "In diesem Workspace bereits als „{{name}}“ vorhanden.",
+        "marketplace_empty_results": "Keine installierbaren Skills passen zu „{{query}}“.",
+        "marketplace_idle": "Suchen Sie nach einer Fähigkeit, um installierbare Skills aus den konfigurierten Registries zu finden.",
+        "marketplace_unavailable": "Die Registry-Suche ist derzeit nicht verfügbar. Prüfen Sie die Konfiguration der Skills-Werkzeuge.",
+        "sort": {
+          "name_asc": "Name (A-Z)",
+          "name_desc": "Name (Z-A)",
+          "source": "Typ"
+        },
+        "origin": {
+          "all": "Alle Typen",
+          "builtin": "Integriert",
+          "third_party": "Drittanbieter",
+          "manual": "Manuell"
+        },
+        "summary": {
+          "total": "Skills gesamt"
+        },
+        "detail_tabs": {
+          "preview": "Vorschau",
+          "raw": "Rohtext",
+          "meta": "Metadaten"
+        },
+        "metadata": {
+          "name": "Name",
+          "description": "Beschreibung",
+          "registry": "Registry",
+          "url": "URL",
+          "version": "Installierte Version",
+          "lines": "Zeilenanzahl",
+          "characters": "Zeichenanzahl"
+        },
+        "marketplace_installDisabled": {
+          "installing": "Wird installiert ...",
+          "installed": "Bereits installiert",
+          "cannotInstall": "Installation nicht möglich: das zugehörige Werkzeug ist nicht aktiviert"
+        }
+      },
+      "load_error": "Informationen zur Agent-Unterstützung konnten nicht geladen werden."
+    },
+    "logs": {
+      "log_level_error": "Protokollstufe konnte nicht aktualisiert werden.",
+      "clear": "Protokolle leeren",
+      "empty": "Warten auf Protokolle ..."
+    }
   }
 }

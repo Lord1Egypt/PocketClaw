@@ -636,5 +636,101 @@
       "polling": "Memeriksa status masuk...",
       "open": "Buka Halaman Verifikasi"
     }
+  },
+  "pages": {
+    "agent": {
+      "skills": {
+        "empty": "Saat ini tidak ada keterampilan yang tersedia.",
+        "install_success": "{{name}} terpasang.",
+        "install_error": "Gagal memasang keterampilan.",
+        "search_placeholder": "Cari berdasarkan nama, deskripsi, atau registri",
+        "source_label": "Jenis",
+        "sort_label": "Urutkan",
+        "import": "Impor Keterampilan",
+        "import_success": "Keterampilan diimpor.",
+        "import_error": "Gagal mengimpor keterampilan.",
+        "import_invalid_type": "Hanya berkas keterampilan Markdown atau ZIP yang didukung.",
+        "import_invalid_size": "Berkas keterampilan maksimal 1 MB.",
+        "import_constraints": "Impor berkas keterampilan Markdown atau ZIP hingga 1 MB",
+        "view": "Lihat",
+        "delete": "Hapus",
+        "delete_title": "Hapus Keterampilan?",
+        "delete_description": "\"{{name}}\" akan dihapus dari keterampilan ruang kerja.",
+        "delete_confirm": "Hapus",
+        "delete_success": "Keterampilan dihapus.",
+        "delete_error": "Gagal menghapus keterampilan.",
+        "viewer_title": "Isi Keterampilan",
+        "viewer_description": "Baca isi SKILL.md yang sedang berlaku di sini.",
+        "load_detail_error": "Gagal memuat isi keterampilan.",
+        "no_description": "Tidak ada deskripsi.",
+        "no_results": "Tidak ada keterampilan yang cocok dengan filter saat ini.",
+        "dropzone_title": "Impor ke Ruang Kerja",
+        "dropzone_description": "Seret berkas keterampilan ke sini atau pilih dari diska.",
+        "dropzone_label": "Letakkan berkas keterampilan di sini",
+        "dropzone_active": "Lepaskan untuk mengimpor keterampilan ini",
+        "dropzone_release": "Keterampilan akan dinormalkan dan disimpan ke direktori keterampilan ruang kerja.",
+        "marketplace_title": "Temukan Keterampilan",
+        "marketplace_description": "Telusuri registri keterampilan dan pasang yang berguna ke ruang kerja ini",
+        "marketplace_search_placeholder": "Cari kemampuan seperti github, docker, database...",
+        "marketplace_search_action": "Cari",
+        "marketplace_search_status": "Status Pencarian",
+        "marketplace_install_status": "Status Pemasangan",
+        "marketplace_notice_title": "Pemberitahuan Keamanan",
+        "marketplace_notice_body": "Keterampilan dari registri adalah konten pihak ketiga. Periksa penulis, URL halaman, instruksi, serta kode atau kredensial yang diperlukan sebelum memasang.",
+        "marketplace_status_disabled": "Nonaktif. Aktifkan dulu alat terkait di halaman Alat.",
+        "marketplace_status_enable_hint": "Aktifkan dulu alat terkait di halaman Alat.",
+        "marketplace_search_error": "Gagal menelusuri registri.",
+        "marketplace_loading_results": "Mencari keterampilan...",
+        "marketplace_loading_more": "Memuat keterampilan lainnya...",
+        "marketplace_results_title": "{{count}} hasil untuk “{{query}}”",
+        "marketplace_results_hint": "Hasil registri dipasang ke ruang kerja saat ini.",
+        "marketplace_install_action": "Pasang",
+        "marketplace_installed": "Terpasang",
+        "marketplace_view_installed": "Lihat Lokal",
+        "marketplace_installed_hint": "Sudah tersedia di ruang kerja ini sebagai “{{name}}”.",
+        "marketplace_empty_results": "Tidak ada keterampilan yang dapat dipasang cocok dengan “{{query}}”.",
+        "marketplace_idle": "Cari sebuah kemampuan untuk menemukan keterampilan yang dapat dipasang dari registri yang dikonfigurasi.",
+        "marketplace_unavailable": "Pencarian registri sedang tidak tersedia. Periksa konfigurasi alat Keterampilan.",
+        "sort": {
+          "name_asc": "Nama (A-Z)",
+          "name_desc": "Nama (Z-A)",
+          "source": "Jenis"
+        },
+        "origin": {
+          "all": "Semua Jenis",
+          "builtin": "Bawaan",
+          "third_party": "Pihak Ketiga",
+          "manual": "Manual"
+        },
+        "summary": {
+          "total": "Total Keterampilan"
+        },
+        "detail_tabs": {
+          "preview": "Pratinjau",
+          "raw": "Mentah",
+          "meta": "Metadata"
+        },
+        "metadata": {
+          "name": "Nama",
+          "description": "Deskripsi",
+          "registry": "Registri",
+          "url": "URL",
+          "version": "Versi Terpasang",
+          "lines": "Jumlah Baris",
+          "characters": "Jumlah Karakter"
+        },
+        "marketplace_installDisabled": {
+          "installing": "Memasang...",
+          "installed": "Sudah terpasang",
+          "cannotInstall": "Tidak dapat dipasang: alat terkait belum aktif"
+        }
+      },
+      "load_error": "Gagal memuat informasi dukungan agen."
+    },
+    "logs": {
+      "log_level_error": "Gagal memperbarui level log.",
+      "clear": "Bersihkan log",
+      "empty": "Menunggu log..."
+    }
   }
 }

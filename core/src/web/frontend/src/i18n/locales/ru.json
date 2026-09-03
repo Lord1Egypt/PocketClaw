@@ -636,5 +636,101 @@
       "polling": "Опрос состояния входа...",
       "open": "Открыть страницу подтверждения"
     }
+  },
+  "pages": {
+    "agent": {
+      "skills": {
+        "empty": "Сейчас нет доступных навыков.",
+        "install_success": "{{name}} установлен.",
+        "install_error": "Не удалось установить навык.",
+        "search_placeholder": "Поиск по названию, описанию или реестру",
+        "source_label": "Тип",
+        "sort_label": "Сортировка",
+        "import": "Импортировать навык",
+        "import_success": "Навык импортирован.",
+        "import_error": "Не удалось импортировать навык.",
+        "import_invalid_type": "Поддерживаются только файлы навыков в формате Markdown или ZIP.",
+        "import_invalid_size": "Файл навыка не должен превышать 1 МБ.",
+        "import_constraints": "Импортируйте файл навыка Markdown или ZIP размером до 1 МБ",
+        "view": "Просмотр",
+        "delete": "Удалить",
+        "delete_title": "Удалить навык?",
+        "delete_description": "«{{name}}» будет удалён из навыков рабочей области.",
+        "delete_confirm": "Удалить",
+        "delete_success": "Навык удалён.",
+        "delete_error": "Не удалось удалить навык.",
+        "viewer_title": "Содержимое навыка",
+        "viewer_description": "Здесь можно прочитать текущее действующее содержимое SKILL.md.",
+        "load_detail_error": "Не удалось загрузить содержимое навыка.",
+        "no_description": "Описание отсутствует.",
+        "no_results": "Ни один навык не соответствует текущим фильтрам.",
+        "dropzone_title": "Импорт в рабочую область",
+        "dropzone_description": "Перетащите сюда файл навыка или выберите его на диске.",
+        "dropzone_label": "Перетащите файл навыка сюда",
+        "dropzone_active": "Отпустите, чтобы импортировать этот навык",
+        "dropzone_release": "Навык будет нормализован и сохранён в каталоге навыков рабочей области.",
+        "marketplace_title": "Поиск навыков",
+        "marketplace_description": "Ищите в реестрах навыков и устанавливайте полезные из них в эту рабочую область",
+        "marketplace_search_placeholder": "Ищите возможности вроде github, docker, database...",
+        "marketplace_search_action": "Найти",
+        "marketplace_search_status": "Состояние поиска",
+        "marketplace_install_status": "Состояние установки",
+        "marketplace_notice_title": "Замечание по безопасности",
+        "marketplace_notice_body": "Навыки из реестров — сторонний контент. Перед установкой проверьте автора, URL страницы, инструкции и любой требуемый код или учётные данные.",
+        "marketplace_status_disabled": "Отключено. Сначала включите соответствующий инструмент на странице инструментов.",
+        "marketplace_status_enable_hint": "Сначала включите связанный инструмент на странице инструментов.",
+        "marketplace_search_error": "Не удалось выполнить поиск по реестрам.",
+        "marketplace_loading_results": "Поиск навыков...",
+        "marketplace_loading_more": "Загрузка других навыков...",
+        "marketplace_results_title": "Результатов по «{{query}}»: {{count}}",
+        "marketplace_results_hint": "Результаты из реестра устанавливаются в текущую рабочую область.",
+        "marketplace_install_action": "Установить",
+        "marketplace_installed": "Установлен",
+        "marketplace_view_installed": "Показать локальный",
+        "marketplace_installed_hint": "Уже доступен в этой рабочей области как «{{name}}».",
+        "marketplace_empty_results": "Нет устанавливаемых навыков по запросу «{{query}}».",
+        "marketplace_idle": "Найдите нужную возможность, чтобы увидеть устанавливаемые навыки из настроенных реестров.",
+        "marketplace_unavailable": "Поиск по реестрам сейчас недоступен. Проверьте настройку инструментов навыков.",
+        "sort": {
+          "name_asc": "Название (А-Я)",
+          "name_desc": "Название (Я-А)",
+          "source": "Тип"
+        },
+        "origin": {
+          "all": "Все типы",
+          "builtin": "Встроенный",
+          "third_party": "Сторонний",
+          "manual": "Вручную"
+        },
+        "summary": {
+          "total": "Всего навыков"
+        },
+        "detail_tabs": {
+          "preview": "Предпросмотр",
+          "raw": "Исходник",
+          "meta": "Метаданные"
+        },
+        "metadata": {
+          "name": "Название",
+          "description": "Описание",
+          "registry": "Реестр",
+          "url": "URL",
+          "version": "Установленная версия",
+          "lines": "Число строк",
+          "characters": "Число символов"
+        },
+        "marketplace_installDisabled": {
+          "installing": "Установка...",
+          "installed": "Уже установлен",
+          "cannotInstall": "Установка невозможна: связанный инструмент не включён"
+        }
+      },
+      "load_error": "Не удалось загрузить сведения о поддержке агента."
+    },
+    "logs": {
+      "log_level_error": "Не удалось изменить уровень журналирования.",
+      "clear": "Очистить журналы",
+      "empty": "Ожидание записей журнала..."
+    }
   }
 }

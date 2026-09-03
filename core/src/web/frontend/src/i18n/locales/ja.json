@@ -636,5 +636,101 @@
       "polling": "ログイン状態を確認しています...",
       "open": "確認ページを開く"
     }
+  },
+  "pages": {
+    "agent": {
+      "skills": {
+        "empty": "現在利用できるスキルはありません。",
+        "install_success": "{{name}} をインストールしました。",
+        "install_error": "スキルをインストールできませんでした。",
+        "search_placeholder": "名前、説明、レジストリで検索",
+        "source_label": "種類",
+        "sort_label": "並び順",
+        "import": "スキルをインポート",
+        "import_success": "スキルをインポートしました。",
+        "import_error": "スキルをインポートできませんでした。",
+        "import_invalid_type": "対応しているのは Markdown または ZIP のスキルファイルのみです。",
+        "import_invalid_size": "スキルファイルは 1 MB 以下にしてください。",
+        "import_constraints": "1 MB 以下の Markdown または ZIP のスキルファイルをインポートします",
+        "view": "表示",
+        "delete": "削除",
+        "delete_title": "スキルを削除しますか？",
+        "delete_description": "「{{name}}」はワークスペースのスキルから削除されます。",
+        "delete_confirm": "削除",
+        "delete_success": "スキルを削除しました。",
+        "delete_error": "スキルを削除できませんでした。",
+        "viewer_title": "スキルの内容",
+        "viewer_description": "現在有効な SKILL.md の内容をここで確認できます。",
+        "load_detail_error": "スキルの内容を読み込めませんでした。",
+        "no_description": "説明はありません。",
+        "no_results": "現在のフィルターに一致するスキルはありません。",
+        "dropzone_title": "ワークスペースにインポート",
+        "dropzone_description": "スキルファイルをここにドラッグするか、ディスクから選択してください。",
+        "dropzone_label": "ここにスキルファイルをドロップ",
+        "dropzone_active": "ドロップしてこのスキルをインポート",
+        "dropzone_release": "スキルは正規化され、ワークスペースのスキルディレクトリに保存されます。",
+        "marketplace_title": "スキルを探す",
+        "marketplace_description": "スキルレジストリを検索し、役立つスキルをこのワークスペースにインストールします",
+        "marketplace_search_placeholder": "github、docker、database などの機能を検索...",
+        "marketplace_search_action": "検索",
+        "marketplace_search_status": "検索の状態",
+        "marketplace_install_status": "インストールの状態",
+        "marketplace_notice_title": "セキュリティに関する注意",
+        "marketplace_notice_body": "レジストリのスキルはサードパーティのコンテンツです。インストール前に作成者、ページ URL、手順、必要なコードや資格情報を確認してください。",
+        "marketplace_status_disabled": "無効です。まずツールページで対応するツールを有効にしてください。",
+        "marketplace_status_enable_hint": "まずツールページで関連するツールを有効にしてください。",
+        "marketplace_search_error": "レジストリを検索できませんでした。",
+        "marketplace_loading_results": "スキルを検索しています...",
+        "marketplace_loading_more": "さらにスキルを読み込んでいます...",
+        "marketplace_results_title": "「{{query}}」の検索結果 {{count}} 件",
+        "marketplace_results_hint": "レジストリの結果は現在のワークスペースにインストールされます。",
+        "marketplace_install_action": "インストール",
+        "marketplace_installed": "インストール済み",
+        "marketplace_view_installed": "ローカルを表示",
+        "marketplace_installed_hint": "このワークスペースに「{{name}}」として既に存在します。",
+        "marketplace_empty_results": "「{{query}}」に一致するインストール可能なスキルはありません。",
+        "marketplace_idle": "機能を検索すると、設定済みレジストリからインストール可能なスキルが見つかります。",
+        "marketplace_unavailable": "レジストリ検索は現在利用できません。スキルツールの設定を確認してください。",
+        "sort": {
+          "name_asc": "名前（昇順）",
+          "name_desc": "名前（降順）",
+          "source": "種類"
+        },
+        "origin": {
+          "all": "すべての種類",
+          "builtin": "組み込み",
+          "third_party": "サードパーティ",
+          "manual": "手動"
+        },
+        "summary": {
+          "total": "スキル総数"
+        },
+        "detail_tabs": {
+          "preview": "プレビュー",
+          "raw": "ソース",
+          "meta": "メタデータ"
+        },
+        "metadata": {
+          "name": "名前",
+          "description": "説明",
+          "registry": "レジストリ",
+          "url": "URL",
+          "version": "インストール済みバージョン",
+          "lines": "行数",
+          "characters": "文字数"
+        },
+        "marketplace_installDisabled": {
+          "installing": "インストール中...",
+          "installed": "インストール済み",
+          "cannotInstall": "インストールできません: 関連するツールが有効ではありません"
+        }
+      },
+      "load_error": "エージェントのサポート情報を読み込めませんでした。"
+    },
+    "logs": {
+      "log_level_error": "ログレベルを更新できませんでした。",
+      "clear": "ログを消去",
+      "empty": "ログを待機しています..."
+    }
   }
 }

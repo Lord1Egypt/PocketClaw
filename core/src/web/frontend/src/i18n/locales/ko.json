@@ -636,5 +636,101 @@
       "polling": "로그인 상태를 확인하는 중...",
       "open": "확인 페이지 열기"
     }
+  },
+  "pages": {
+    "agent": {
+      "skills": {
+        "empty": "현재 사용할 수 있는 스킬이 없습니다.",
+        "install_success": "{{name}}을(를) 설치했습니다.",
+        "install_error": "스킬을 설치하지 못했습니다.",
+        "search_placeholder": "이름, 설명 또는 레지스트리로 검색",
+        "source_label": "유형",
+        "sort_label": "정렬",
+        "import": "스킬 가져오기",
+        "import_success": "스킬을 가져왔습니다.",
+        "import_error": "스킬을 가져오지 못했습니다.",
+        "import_invalid_type": "Markdown 또는 ZIP 스킬 파일만 지원합니다.",
+        "import_invalid_size": "스킬 파일은 1MB 이하여야 합니다.",
+        "import_constraints": "1MB 이하의 Markdown 또는 ZIP 스킬 파일을 가져옵니다",
+        "view": "보기",
+        "delete": "삭제",
+        "delete_title": "스킬을 삭제할까요?",
+        "delete_description": "\"{{name}}\"이(가) 워크스페이스 스킬에서 제거됩니다.",
+        "delete_confirm": "삭제",
+        "delete_success": "스킬을 삭제했습니다.",
+        "delete_error": "스킬을 삭제하지 못했습니다.",
+        "viewer_title": "스킬 내용",
+        "viewer_description": "현재 적용 중인 SKILL.md 내용을 여기에서 확인합니다.",
+        "load_detail_error": "스킬 내용을 불러오지 못했습니다.",
+        "no_description": "설명이 없습니다.",
+        "no_results": "현재 필터와 일치하는 스킬이 없습니다.",
+        "dropzone_title": "워크스페이스로 가져오기",
+        "dropzone_description": "스킬 파일을 여기로 끌어다 놓거나 디스크에서 선택하세요.",
+        "dropzone_label": "여기에 스킬 파일을 놓으세요",
+        "dropzone_active": "놓으면 이 스킬을 가져옵니다",
+        "dropzone_release": "스킬이 정규화되어 워크스페이스 스킬 디렉터리에 저장됩니다.",
+        "marketplace_title": "스킬 찾아보기",
+        "marketplace_description": "스킬 레지스트리를 검색해 유용한 스킬을 이 워크스페이스에 설치합니다",
+        "marketplace_search_placeholder": "github, docker, database 같은 기능을 검색...",
+        "marketplace_search_action": "검색",
+        "marketplace_search_status": "검색 상태",
+        "marketplace_install_status": "설치 상태",
+        "marketplace_notice_title": "보안 안내",
+        "marketplace_notice_body": "레지스트리 스킬은 서드파티 콘텐츠입니다. 설치 전에 작성자, 페이지 URL, 안내, 필요한 코드나 자격 증명을 확인하세요.",
+        "marketplace_status_disabled": "비활성화됨. 먼저 도구 페이지에서 해당 도구를 켜세요.",
+        "marketplace_status_enable_hint": "먼저 도구 페이지에서 관련 도구를 켜세요.",
+        "marketplace_search_error": "레지스트리를 검색하지 못했습니다.",
+        "marketplace_loading_results": "스킬을 검색하는 중...",
+        "marketplace_loading_more": "스킬을 더 불러오는 중...",
+        "marketplace_results_title": "\"{{query}}\" 검색 결과 {{count}}개",
+        "marketplace_results_hint": "레지스트리 결과는 현재 워크스페이스에 설치됩니다.",
+        "marketplace_install_action": "설치",
+        "marketplace_installed": "설치됨",
+        "marketplace_view_installed": "로컬 보기",
+        "marketplace_installed_hint": "이 워크스페이스에 \"{{name}}\"(으)로 이미 있습니다.",
+        "marketplace_empty_results": "\"{{query}}\"과(와) 일치하는 설치 가능한 스킬이 없습니다.",
+        "marketplace_idle": "기능을 검색하면 구성된 레지스트리에서 설치 가능한 스킬을 찾을 수 있습니다.",
+        "marketplace_unavailable": "현재 레지스트리 검색을 사용할 수 없습니다. 스킬 도구 구성을 확인하세요.",
+        "sort": {
+          "name_asc": "이름(오름차순)",
+          "name_desc": "이름(내림차순)",
+          "source": "유형"
+        },
+        "origin": {
+          "all": "모든 유형",
+          "builtin": "기본 제공",
+          "third_party": "서드파티",
+          "manual": "수동"
+        },
+        "summary": {
+          "total": "전체 스킬"
+        },
+        "detail_tabs": {
+          "preview": "미리보기",
+          "raw": "원본",
+          "meta": "메타데이터"
+        },
+        "metadata": {
+          "name": "이름",
+          "description": "설명",
+          "registry": "레지스트리",
+          "url": "URL",
+          "version": "설치된 버전",
+          "lines": "줄 수",
+          "characters": "글자 수"
+        },
+        "marketplace_installDisabled": {
+          "installing": "설치하는 중...",
+          "installed": "이미 설치됨",
+          "cannotInstall": "설치할 수 없음: 관련 도구가 켜져 있지 않습니다"
+        }
+      },
+      "load_error": "에이전트 지원 정보를 불러오지 못했습니다."
+    },
+    "logs": {
+      "log_level_error": "로그 수준을 변경하지 못했습니다.",
+      "clear": "로그 지우기",
+      "empty": "로그를 기다리는 중..."
+    }
   }
 }

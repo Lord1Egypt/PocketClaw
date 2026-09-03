@@ -636,5 +636,101 @@
       "polling": "Consultando el estado del inicio de sesión...",
       "open": "Abrir página de verificación"
     }
+  },
+  "pages": {
+    "agent": {
+      "skills": {
+        "empty": "Actualmente no hay habilidades disponibles.",
+        "install_success": "{{name}} instalada.",
+        "install_error": "No se pudo instalar la habilidad.",
+        "search_placeholder": "Buscar por nombre, descripción o registro",
+        "source_label": "Tipo",
+        "sort_label": "Orden",
+        "import": "Importar habilidad",
+        "import_success": "Habilidad importada.",
+        "import_error": "No se pudo importar la habilidad.",
+        "import_invalid_type": "Solo se admiten archivos de habilidad Markdown o ZIP.",
+        "import_invalid_size": "El archivo de habilidad no puede superar 1 MB.",
+        "import_constraints": "Importa un archivo de habilidad Markdown o ZIP de hasta 1 MB",
+        "view": "Ver",
+        "delete": "Eliminar",
+        "delete_title": "¿Eliminar la habilidad?",
+        "delete_description": "«{{name}}» se eliminará de las habilidades del espacio de trabajo.",
+        "delete_confirm": "Eliminar",
+        "delete_success": "Habilidad eliminada.",
+        "delete_error": "No se pudo eliminar la habilidad.",
+        "viewer_title": "Contenido de la habilidad",
+        "viewer_description": "Consulta aquí el contenido efectivo actual de SKILL.md.",
+        "load_detail_error": "No se pudo cargar el contenido de la habilidad.",
+        "no_description": "Sin descripción.",
+        "no_results": "Ninguna habilidad coincide con los filtros actuales.",
+        "dropzone_title": "Importar al espacio de trabajo",
+        "dropzone_description": "Arrastra aquí un archivo de habilidad o elige uno del disco.",
+        "dropzone_label": "Suelta aquí un archivo de habilidad",
+        "dropzone_active": "Suelta para importar esta habilidad",
+        "dropzone_release": "La habilidad se normalizará y se guardará en el directorio de habilidades del espacio de trabajo.",
+        "marketplace_title": "Descubrir habilidades",
+        "marketplace_description": "Busca en los registros de habilidades e instala las que te sirvan en este espacio de trabajo",
+        "marketplace_search_placeholder": "Busca capacidades como github, docker, database...",
+        "marketplace_search_action": "Buscar",
+        "marketplace_search_status": "Estado de la búsqueda",
+        "marketplace_install_status": "Estado de la instalación",
+        "marketplace_notice_title": "Aviso de seguridad",
+        "marketplace_notice_body": "Las habilidades de los registros son contenido de terceros. Revisa el autor, la URL de la página, las instrucciones y cualquier código o credencial necesarios antes de instalar.",
+        "marketplace_status_disabled": "Desactivado. Activa primero la herramienta correspondiente en la página de herramientas.",
+        "marketplace_status_enable_hint": "Activa primero la herramienta relacionada en la página de herramientas.",
+        "marketplace_search_error": "No se pudieron buscar los registros.",
+        "marketplace_loading_results": "Buscando habilidades...",
+        "marketplace_loading_more": "Cargando más habilidades...",
+        "marketplace_results_title": "{{count}} resultados para «{{query}}»",
+        "marketplace_results_hint": "Los resultados del registro se instalan en el espacio de trabajo actual.",
+        "marketplace_install_action": "Instalar",
+        "marketplace_installed": "Instalada",
+        "marketplace_view_installed": "Ver local",
+        "marketplace_installed_hint": "Ya disponible en este espacio de trabajo como «{{name}}».",
+        "marketplace_empty_results": "Ninguna habilidad instalable coincide con «{{query}}».",
+        "marketplace_idle": "Busca una capacidad para descubrir habilidades instalables de los registros configurados.",
+        "marketplace_unavailable": "La búsqueda en registros no está disponible ahora mismo. Revisa la configuración de las herramientas de habilidades.",
+        "sort": {
+          "name_asc": "Nombre (A-Z)",
+          "name_desc": "Nombre (Z-A)",
+          "source": "Tipo"
+        },
+        "origin": {
+          "all": "Todos los tipos",
+          "builtin": "Integrada",
+          "third_party": "De terceros",
+          "manual": "Manual"
+        },
+        "summary": {
+          "total": "Habilidades totales"
+        },
+        "detail_tabs": {
+          "preview": "Vista previa",
+          "raw": "Sin formato",
+          "meta": "Metadatos"
+        },
+        "metadata": {
+          "name": "Nombre",
+          "description": "Descripción",
+          "registry": "Registro",
+          "url": "URL",
+          "version": "Versión instalada",
+          "lines": "Número de líneas",
+          "characters": "Número de caracteres"
+        },
+        "marketplace_installDisabled": {
+          "installing": "Instalando...",
+          "installed": "Ya instalada",
+          "cannotInstall": "No se puede instalar: la herramienta relacionada no está activada"
+        }
+      },
+      "load_error": "No se pudo cargar la información de compatibilidad del agente."
+    },
+    "logs": {
+      "log_level_error": "No se pudo actualizar el nivel de registro.",
+      "clear": "Borrar registros",
+      "empty": "Esperando registros..."
+    }
   }
 }
