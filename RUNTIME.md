@@ -197,7 +197,7 @@ already provides, so the catalog declares these as `system` and probes them.
 Catalogued as `system`: `cat cp mv rm mkdir rmdir ls pwd touch chmod stat find
 grep sed awk cut sort uniq head tail wc xargs tee which env printenv date sleep
 timeout ps uname df du base64 sha256sum md5sum tar gzip gunzip`, plus the network
-diagnostics Android plausibly provides: `ping traceroute ip netstat`.
+diagnostics Android actually provides: `ping ip netstat`.
 
 ## Helper payloads
 
@@ -368,10 +368,18 @@ curl is real curl, not a lookalike. It links mbedTLS rather than OpenSSL, which
 is why the entire TLS stack costs about 1.3 MB, and the same libcurl is what
 `git-remote-http` uses — so curl the binary is nearly free once git is present.
 
-`zip`, `unzip`, `diff`, `patch`, `file` and `tree` are catalogued as `system`
-entries costing zero bytes. Shipping them *is* the probe: the resolver measures
-each device and reports what the platform actually provides, the way `traceroute`
-reported itself unavailable.
+`unzip`, `diff`, `patch` and `file` are catalogued as `system` entries costing
+zero bytes. The resolver measures each device and reports what the platform
+actually provides rather than assuming it.
+
+`traceroute`, `zip` and `tree` were catalogued the same way until catalog
+`2.4.0` and are now removed. The Android 16 image ships none of them, so they
+were a permanently unmet promise rather than a probe, and each capability is
+already covered: `ping` and `ip` for the diagnostics an ordinary app UID can
+actually perform, `tar` with `gzip` and Python's `zipfile` for archives, and
+`find` for directory listing. None is bundled: a payload for a duplicate
+capability is not worth the APK weight, and `traceroute` needs raw sockets an
+app UID does not get.
 
 Still not shipped, with reasons:
 
@@ -380,10 +388,14 @@ Still not shipped, with reasons:
 - **wget** — curl covers the same ground.
 - **OpenSSH, rsync** — deferred. SSH is worth reconsidering once HTTPS git is
   proven on hardware.
-- **Python, Node, npm, compilers, ffmpeg, ImageMagick** — out of scope.
-  PocketClaw is not becoming a Linux distribution.
-- **dig, host, nslookup, ss** — Android does not ship them, and listing catalog
-  entries that can only ever probe unavailable would be noise, not information.
+- **Node, npm, compilers, ffmpeg, ImageMagick** — out of scope. PocketClaw is
+  not becoming a Linux distribution. Python is the exception and now ships: a
+  bundled Python 3.14 runtime with standard-library support and a dedicated
+  Agent execution tool, running offline on-device, with no package installation
+  and no direct network access.
+- **dig, host, nslookup, ss, traceroute, zip, tree** — Android does not ship
+  them, and listing catalog entries that can only ever probe unavailable would
+  be noise, not information.
 
 ## Skills are not evidence that a tool exists
 

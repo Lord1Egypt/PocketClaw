@@ -19,6 +19,40 @@ func TestEmbeddedManifestIsValid(t *testing.T) {
 	}
 }
 
+// The catalog advertises only what the supported Android target can actually
+// provide. traceroute, zip and tree were removed in catalog 2.4.0 because the
+// Android 16 system image ships none of them and each capability is already
+// covered — ping and ip for reachable network diagnostics, tar with gzip and
+// Python's zipfile for archives, find for directory listing. Re-adding one as a
+// system entry would restore a permanently unmet promise.
+func TestEmbeddedCatalogAdvertisesOnlyDeliverableCommands(t *testing.T) {
+	manifest, err := LoadEmbeddedManifest()
+	if err != nil {
+		t.Fatalf("cannot load catalog: %v", err)
+	}
+	if manifest.CatalogVersion != "2.4.0" {
+		t.Fatalf("catalog_version = %q, want 2.4.0", manifest.CatalogVersion)
+	}
+	if len(manifest.Tools) != 53 {
+		t.Fatalf("catalog declares %d tools, want 53", len(manifest.Tools))
+	}
+
+	bundled := 0
+	for _, tool := range manifest.Tools {
+		switch tool.ToolID {
+		case "traceroute", "zip", "tree":
+			t.Errorf("%q is back in the catalog; the Android target does not provide it",
+				tool.ToolID)
+		}
+		if tool.Delivery == DeliveryBundled {
+			bundled++
+		}
+	}
+	if bundled != 7 {
+		t.Fatalf("catalog declares %d bundled tools, want 7", bundled)
+	}
+}
+
 // Every shipped entry must be system-delivered until a bundled payload with a
 // real checksum exists. A bundled entry naming a payload the APK does not carry
 // would resolve unavailable on every device and mislead anyone reading it.
