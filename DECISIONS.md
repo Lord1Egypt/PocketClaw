@@ -1,8 +1,45 @@
 # PocketClaw Decisions
 
+## The Samsung is the development device; BlueStacks is unsupported for the current Core model
+
+- Date: 2026-09-03
+- Decision: the Samsung SM-A165F on Android 16 (ARM64) is the single
+  development and physical-validation device. It is used when device testing is
+  genuinely required, not for routine acceptance. BlueStacks is not an accepted
+  PocketClaw development or validation target for the architecture PocketClaw
+  ships today.
+- Reason: BlueStacks was tested on two instance types and neither ran the
+  product as packaged. PocketClaw packages the ARM64 Core as `libpicoclaw.so`
+  and executes it as a standalone child process. On the Android 11 ARM-oriented
+  instance, standalone Core execution failed. On the mixed x86/x64/ARM/ARM64
+  instance, the installer selected `x86_64` as the primary ABI, so the ARM64
+  Core was never installed into `nativeLibraryDir` and there was nothing to
+  execute. This is a statement about the current standalone ARM64 Core
+  execution model, not a claim that BlueStacks can never host PocketClaw.
+- Consequence: no PocketClaw workaround was implemented and none is to be
+  written — the product is not modified to accommodate BlueStacks. Development
+  evidence comes from focused automated tests and from the Samsung; there is no
+  emulator tier in between, so the earlier split between development evidence
+  and gate evidence no longer exists. Everything the Samsung was previously
+  reserved for still requires it: Android 16 compatibility, real
+  foreground/background and process-death lifecycle, permissions, storage and
+  the photo/file picker, notifications, Keystore and GitHub auth persistence,
+  battery and background restrictions, Telegram end to end, `adb install -r`
+  upgrades, and real memory figures.
+- How to apply: the agent implements, runs focused automated tests, builds the
+  APK, and installs by `adb install -r` when asked; the user performs routine
+  visual and UI acceptance. Agent interaction with the physical device stays
+  minimal and takes zero screenshots by default. Run `adb devices` and confirm
+  the target before every install.
+
 ## BlueStacks is the iteration device; the Samsung is the final physical gate
 
 - Date: 2026-09-02
+- Status: SUPERSEDED on 2026-09-03 — BlueStacks could not run the Core as
+  packaged, so there is no emulator tier. See "The Samsung is the development
+  device; BlueStacks is unsupported for the current Core model" above. The
+  caution that emulator numbers and emulator lifecycle never stand in for
+  Android 16 stands, and is now moot.
 - Decision: routine development and regression testing run on a BlueStacks
   Android 11 ARM instance (`DEV_DEVICE`). The Samsung SM-A165F on Android 16
   (`FINAL_DEVICE`) remains the authoritative gate for milestone acceptance.
