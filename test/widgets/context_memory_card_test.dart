@@ -215,4 +215,90 @@ void main() {
     await tester.pumpAndSettle();
     expect(focusNode.hasFocus, isTrue);
   });
+
+  testWidgets('Custom shows a Save button that stores the value', (
+    tester,
+  ) async {
+    final recorder = await pumpCard(tester, initial: 15);
+
+    expect(find.byKey(const Key('context-memory-save')), findsNothing);
+
+    await tester.tap(find.byKey(const Key('context-memory-preset-custom')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('context-memory-save')), findsOneWidget);
+    expect(find.text('Save'), findsOneWidget);
+
+    await tester.enterText(
+      find.byKey(const Key('context-memory-custom-field')),
+      '17',
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('context-memory-save')));
+    await tester.pumpAndSettle();
+
+    expect(recorder.saved, <int>[17]);
+    expect(recorder.current.recentMessages, 17);
+  });
+
+  testWidgets('Save is disabled until the value is valid and changed', (
+    tester,
+  ) async {
+    await pumpCard(tester, initial: 15);
+    await tester.tap(find.byKey(const Key('context-memory-preset-custom')));
+    await tester.pumpAndSettle();
+
+    bool saveEnabled() =>
+        tester
+            .widget<FilledButton>(find.byKey(const Key('context-memory-save')))
+            .onPressed !=
+        null;
+
+    // Unchanged.
+    expect(saveEnabled(), isFalse);
+
+    for (final invalid in <String>['', '4', '51']) {
+      await tester.enterText(
+        find.byKey(const Key('context-memory-custom-field')),
+        invalid,
+      );
+      await tester.pumpAndSettle();
+      expect(saveEnabled(), isFalse, reason: '$invalid must not be savable');
+    }
+
+    await tester.enterText(
+      find.byKey(const Key('context-memory-custom-field')),
+      '17',
+    );
+    await tester.pumpAndSettle();
+    expect(saveEnabled(), isTrue);
+  });
+
+  testWidgets('one action is one save — no double submit', (tester) async {
+    final recorder = await pumpCard(tester, initial: 15);
+
+    await tester.tap(find.byKey(const Key('context-memory-preset-custom')));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('context-memory-custom-field')),
+      '17',
+    );
+    await tester.pumpAndSettle();
+
+    // Enter commits once.
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pumpAndSettle();
+    expect(recorder.saved, <int>[17]);
+
+    // Save is now disabled because nothing changed, so it cannot save again.
+    final button = tester.widget<FilledButton>(
+      find.byKey(const Key('context-memory-save')),
+    );
+    expect(button.onPressed, isNull);
+    expect(recorder.saved, <int>[17]);
+  });
+
+  testWidgets('the Save button is localized', (tester) async {
+    await pumpCard(tester, initial: 17, locale: const Locale('ar'));
+    expect(find.text('حفظ'), findsOneWidget);
+  });
 }

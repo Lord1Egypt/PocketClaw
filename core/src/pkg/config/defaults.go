@@ -19,6 +19,27 @@ import (
 // and the API that exposes it read the same number.
 const DefaultTelegramRecentContextMessages = 15
 
+// Bounds for the Telegram context-memory limit.
+//
+// The floor keeps a turn usable: below a handful of messages the model loses
+// the exchange it is answering. The ceiling keeps the prompt bounded, which is
+// the point of the window. Both the Settings API and the agent that applies the
+// limit resolve through ResolveTelegramRecentContextMessages so a value can
+// never be accepted by one and rejected by the other.
+const (
+	MinTelegramRecentContextMessages = 5
+	MaxTelegramRecentContextMessages = 50
+)
+
+// ResolveTelegramRecentContextMessages turns a stored value into the effective
+// one. Anything unset or out of range reads as the default.
+func ResolveTelegramRecentContextMessages(stored int) int {
+	if stored < MinTelegramRecentContextMessages || stored > MaxTelegramRecentContextMessages {
+		return DefaultTelegramRecentContextMessages
+	}
+	return stored
+}
+
 func DefaultConfig() *Config {
 	workspacePath := filepath.Join(GetHome(), pkg.WorkspaceName)
 

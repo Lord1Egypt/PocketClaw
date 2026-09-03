@@ -314,4 +314,120 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String get contextMemorySaveFailed => 'यह सेटिंग सहेजी नहीं जा सकी।';
+
+  @override
+  String get settingsSave => 'सहेजें';
+
+  @override
+  String get autoStartServiceTitle => 'PocketClaw सेवा स्वतः प्रारंभ करें';
+
+  @override
+  String get autoStartGatewayTitle => 'गेटवे स्वतः प्रारंभ करें';
+
+  @override
+  String get autoStartPreferenceOn => 'स्वतः प्रारंभ वरीयता: चालू';
+
+  @override
+  String get autoStartPreferenceOff => 'स्वतः प्रारंभ वरीयता: बंद';
+
+  @override
+  String get runtimeRunning => 'रनटाइम: चल रहा है';
+
+  @override
+  String get runtimeStarting => 'रनटाइम: प्रारंभ हो रहा है';
+
+  @override
+  String get runtimeStopped => 'रनटाइम: रुका हुआ';
+
+  @override
+  String get gatewayAutoStartHint =>
+      'यह अगली बार PocketClaw सेवा शुरू होने पर लागू होगा। गेटवे रनटाइम डैशबोर्ड से प्रबंधित होता है।';
+
+  @override
+  String get manageTelegramConnection => 'Telegram कनेक्शन प्रबंधित करें';
+
+  @override
+  String get manageModelsTitle => 'मॉडल प्रबंधित करें';
+
+  @override
+  String get manageModelsDescription =>
+      'AI मॉडल जोड़ें, संपादित करें, परखें और चुनें।';
+
+  @override
+  String get githubChecking => 'जाँच हो रही है…';
+
+  @override
+  String get githubConnected => 'कनेक्टेड';
+
+  @override
+  String get githubNotConnected => 'कनेक्ट नहीं है';
+
+  @override
+  String githubConnectedAs(String login) {
+    return '$login के रूप में कनेक्टेड';
+  }
+
+  @override
+  String get githubDescription =>
+      'बंडल किए गए gh और HTTPS पर Git द्वारा उपयोग किया जाता है। टोकन इस डिवाइस पर एन्क्रिप्ट किया जाता है और दोबारा नहीं दिखाया जाता।';
+
+  @override
+  String get githubTestConnection => 'कनेक्शन जाँचें';
+
+  @override
+  String get githubDisconnect => 'डिस्कनेक्ट करें';
+
+  @override
+  String get githubConnectAction => 'GitHub कनेक्ट करें';
+
+  @override
+  String get githubConnect => 'कनेक्ट करें';
+
+  @override
+  String get githubTokenLabel => 'व्यक्तिगत एक्सेस टोकन';
+
+  @override
+  String get githubTokenHint =>
+      'आवश्यक स्कोप वाला GitHub व्यक्तिगत एक्सेस टोकन चिपकाएँ (निजी रिपॉजिटरी के लिए repo)।';
+
+  @override
+  String get githubTokenRejected => 'GitHub ने यह टोकन स्वीकार नहीं किया।';
+
+  @override
+  String get githubAuthWorking => 'GitHub प्रमाणीकरण काम कर रहा है।';
+
+  @override
+  String get githubAuthNotWorking => 'GitHub प्रमाणीकरण काम नहीं कर रहा है।';
+
+  @override
+  String githubAuthenticatedAs(String login) {
+    return '$login के रूप में प्रमाणित।';
+  }
+
+  @override
+  String get githubCredentialRemoveFailed => 'क्रेडेंशियल हटाया नहीं जा सका।';
+
+  @override
+  String get githubYourAccount => 'आपका GitHub खाता';
+
+  @override
+  String githubConnectedReport(String who, String outcome) {
+    return '$who के रूप में कनेक्टेड। $outcome';
+  }
+
+  @override
+  String githubDisconnectedReport(String outcome) {
+    return 'डिस्कनेक्ट हो गया। $outcome';
+  }
+
+  @override
+  String get credentialAppliedNow => 'gh और git अब इसका उपयोग कर सकते हैं।';
+
+  @override
+  String get credentialAppliesNextStart =>
+      'इसका उपयोग अगली बार PocketClaw शुरू होने पर किया जाएगा।';
+
+  @override
+  String get credentialAppliesDeferred =>
+      'सहेजा गया। PocketClaw प्रारंभ हो रहा है, इसलिए पूरा होते ही यह स्वतः लागू हो जाएगा।';
 }

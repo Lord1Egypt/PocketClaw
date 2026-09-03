@@ -319,4 +319,122 @@ class AppLocalizationsDe extends AppLocalizations {
   @override
   String get contextMemorySaveFailed =>
       'Diese Einstellung konnte nicht gespeichert werden.';
+
+  @override
+  String get settingsSave => 'Speichern';
+
+  @override
+  String get autoStartServiceTitle => 'PocketClaw-Dienst automatisch starten';
+
+  @override
+  String get autoStartGatewayTitle => 'Gateway automatisch starten';
+
+  @override
+  String get autoStartPreferenceOn => 'Autostart-Einstellung: EIN';
+
+  @override
+  String get autoStartPreferenceOff => 'Autostart-Einstellung: AUS';
+
+  @override
+  String get runtimeRunning => 'Laufzeit: Läuft';
+
+  @override
+  String get runtimeStarting => 'Laufzeit: Wird gestartet';
+
+  @override
+  String get runtimeStopped => 'Laufzeit: Gestoppt';
+
+  @override
+  String get gatewayAutoStartHint =>
+      'Wird beim nächsten Start des PocketClaw-Dienstes wirksam. Die Gateway-Laufzeit wird im Dashboard verwaltet.';
+
+  @override
+  String get manageTelegramConnection => 'Telegram-Verbindung verwalten';
+
+  @override
+  String get manageModelsTitle => 'Modelle verwalten';
+
+  @override
+  String get manageModelsDescription =>
+      'KI-Modelle hinzufügen, bearbeiten, testen und auswählen.';
+
+  @override
+  String get githubChecking => 'Wird geprüft …';
+
+  @override
+  String get githubConnected => 'Verbunden';
+
+  @override
+  String get githubNotConnected => 'Nicht verbunden';
+
+  @override
+  String githubConnectedAs(String login) {
+    return 'Verbunden als $login';
+  }
+
+  @override
+  String get githubDescription =>
+      'Wird vom mitgelieferten gh und von Git über HTTPS verwendet. Das Token wird auf diesem Gerät verschlüsselt und nie wieder angezeigt.';
+
+  @override
+  String get githubTestConnection => 'Verbindung testen';
+
+  @override
+  String get githubDisconnect => 'Trennen';
+
+  @override
+  String get githubConnectAction => 'GitHub verbinden';
+
+  @override
+  String get githubConnect => 'Verbinden';
+
+  @override
+  String get githubTokenLabel => 'Persönliches Zugriffstoken';
+
+  @override
+  String get githubTokenHint =>
+      'Fügen Sie ein persönliches GitHub-Zugriffstoken mit den benötigten Berechtigungen ein (repo für private Repositories).';
+
+  @override
+  String get githubTokenRejected => 'GitHub hat dieses Token nicht akzeptiert.';
+
+  @override
+  String get githubAuthWorking => 'Die GitHub-Authentifizierung funktioniert.';
+
+  @override
+  String get githubAuthNotWorking =>
+      'Die GitHub-Authentifizierung funktioniert nicht.';
+
+  @override
+  String githubAuthenticatedAs(String login) {
+    return 'Authentifiziert als $login.';
+  }
+
+  @override
+  String get githubCredentialRemoveFailed =>
+      'Die Anmeldedaten konnten nicht entfernt werden.';
+
+  @override
+  String get githubYourAccount => 'Ihr GitHub-Konto';
+
+  @override
+  String githubConnectedReport(String who, String outcome) {
+    return 'Verbunden als $who. $outcome';
+  }
+
+  @override
+  String githubDisconnectedReport(String outcome) {
+    return 'Getrennt. $outcome';
+  }
+
+  @override
+  String get credentialAppliedNow => 'gh und git können es jetzt verwenden.';
+
+  @override
+  String get credentialAppliesNextStart =>
+      'Es wird beim nächsten Start von PocketClaw verwendet.';
+
+  @override
+  String get credentialAppliesDeferred =>
+      'Gespeichert. PocketClaw startet gerade und wendet es automatisch an, sobald das abgeschlossen ist.';
 }

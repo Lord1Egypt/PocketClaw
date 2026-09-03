@@ -307,4 +307,118 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get contextMemorySaveFailed => '이 설정을 저장할 수 없습니다.';
+
+  @override
+  String get settingsSave => '저장';
+
+  @override
+  String get autoStartServiceTitle => 'PocketClaw 서비스 자동 시작';
+
+  @override
+  String get autoStartGatewayTitle => '게이트웨이 자동 시작';
+
+  @override
+  String get autoStartPreferenceOn => '자동 시작 설정: 켬';
+
+  @override
+  String get autoStartPreferenceOff => '자동 시작 설정: 끔';
+
+  @override
+  String get runtimeRunning => '런타임: 실행 중';
+
+  @override
+  String get runtimeStarting => '런타임: 시작 중';
+
+  @override
+  String get runtimeStopped => '런타임: 중지됨';
+
+  @override
+  String get gatewayAutoStartHint =>
+      '다음에 PocketClaw 서비스를 시작할 때 적용됩니다. 게이트웨이 런타임은 대시보드에서 관리합니다.';
+
+  @override
+  String get manageTelegramConnection => 'Telegram 연결 관리';
+
+  @override
+  String get manageModelsTitle => '모델 관리';
+
+  @override
+  String get manageModelsDescription => 'AI 모델을 추가, 편집, 테스트하고 선택합니다.';
+
+  @override
+  String get githubChecking => '확인 중…';
+
+  @override
+  String get githubConnected => '연결됨';
+
+  @override
+  String get githubNotConnected => '연결되지 않음';
+
+  @override
+  String githubConnectedAs(String login) {
+    return '$login 계정으로 연결됨';
+  }
+
+  @override
+  String get githubDescription =>
+      '번들로 제공되는 gh와 HTTPS를 통한 Git이 사용합니다. 토큰은 이 기기에서 암호화되며 다시 표시되지 않습니다.';
+
+  @override
+  String get githubTestConnection => '연결 테스트';
+
+  @override
+  String get githubDisconnect => '연결 해제';
+
+  @override
+  String get githubConnectAction => 'GitHub 연결';
+
+  @override
+  String get githubConnect => '연결';
+
+  @override
+  String get githubTokenLabel => '개인용 액세스 토큰';
+
+  @override
+  String get githubTokenHint =>
+      '필요한 범위를 가진 GitHub 개인용 액세스 토큰을 붙여넣으세요(비공개 저장소는 repo).';
+
+  @override
+  String get githubTokenRejected => 'GitHub가 이 토큰을 거부했습니다.';
+
+  @override
+  String get githubAuthWorking => 'GitHub 인증이 정상 작동합니다.';
+
+  @override
+  String get githubAuthNotWorking => 'GitHub 인증이 작동하지 않습니다.';
+
+  @override
+  String githubAuthenticatedAs(String login) {
+    return '$login 계정으로 인증되었습니다.';
+  }
+
+  @override
+  String get githubCredentialRemoveFailed => '자격 증명을 제거할 수 없습니다.';
+
+  @override
+  String get githubYourAccount => '회원님의 GitHub 계정';
+
+  @override
+  String githubConnectedReport(String who, String outcome) {
+    return '$who 계정으로 연결되었습니다. $outcome';
+  }
+
+  @override
+  String githubDisconnectedReport(String outcome) {
+    return '연결이 해제되었습니다. $outcome';
+  }
+
+  @override
+  String get credentialAppliedNow => '이제 gh와 git이 사용할 수 있습니다.';
+
+  @override
+  String get credentialAppliesNextStart => '다음에 PocketClaw를 시작할 때 사용됩니다.';
+
+  @override
+  String get credentialAppliesDeferred =>
+      '저장되었습니다. PocketClaw가 시작 중이므로 완료되는 즉시 자동으로 적용됩니다.';
 }

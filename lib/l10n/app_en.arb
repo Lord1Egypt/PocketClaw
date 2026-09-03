@@ -132,5 +132,70 @@
         "type": "int"
       }
     }
+  },
+  "settingsSave": "Save",
+  "autoStartServiceTitle": "Start PocketClaw service automatically",
+  "autoStartGatewayTitle": "Start Gateway automatically",
+  "autoStartPreferenceOn": "Auto-start preference: ON",
+  "autoStartPreferenceOff": "Auto-start preference: OFF",
+  "runtimeRunning": "Runtime: Running",
+  "runtimeStarting": "Runtime: Starting",
+  "runtimeStopped": "Runtime: Stopped",
+  "gatewayAutoStartHint": "Applies the next time the PocketClaw service starts. Gateway runtime is managed in the Dashboard.",
+  "manageTelegramConnection": "Manage Telegram connection",
+  "manageModelsTitle": "Manage Models",
+  "manageModelsDescription": "Add, edit, test, and choose AI models.",
+  "githubChecking": "Checking…",
+  "githubConnected": "Connected",
+  "githubNotConnected": "Not connected",
+  "githubConnectedAs": "Connected as {login}",
+  "githubDescription": "Used by the bundled gh and by Git over HTTPS. The token is encrypted on this device and is never shown again.",
+  "githubTestConnection": "Test connection",
+  "githubDisconnect": "Disconnect",
+  "githubConnectAction": "Connect GitHub",
+  "githubConnect": "Connect",
+  "githubTokenLabel": "Personal access token",
+  "githubTokenHint": "Paste a GitHub personal access token with the scopes you need (repo for private repositories).",
+  "githubTokenRejected": "GitHub did not accept this token.",
+  "githubAuthWorking": "GitHub authentication is working.",
+  "githubAuthNotWorking": "GitHub authentication is not working.",
+  "githubAuthenticatedAs": "Authenticated as {login}.",
+  "githubCredentialRemoveFailed": "Could not remove the credential.",
+  "githubYourAccount": "your GitHub account",
+  "githubConnectedReport": "Connected as {who}. {outcome}",
+  "githubDisconnectedReport": "Disconnected. {outcome}",
+  "credentialAppliedNow": "gh and git can use it now.",
+  "credentialAppliesNextStart": "It will be used the next time PocketClaw starts.",
+  "credentialAppliesDeferred": "Saved. PocketClaw is busy starting, so it will apply automatically as soon as that finishes.",
+  "@githubConnectedAs": {
+    "placeholders": {
+      "login": {
+        "type": "String"
+      }
+    }
+  },
+  "@githubAuthenticatedAs": {
+    "placeholders": {
+      "login": {
+        "type": "String"
+      }
+    }
+  },
+  "@githubConnectedReport": {
+    "placeholders": {
+      "who": {
+        "type": "String"
+      },
+      "outcome": {
+        "type": "String"
+      }
+    }
+  },
+  "@githubDisconnectedReport": {
+    "placeholders": {
+      "outcome": {
+        "type": "String"
+      }
+    }
   }
 }

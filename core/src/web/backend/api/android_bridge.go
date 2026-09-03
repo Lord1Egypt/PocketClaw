@@ -28,8 +28,8 @@ const androidContextMemoryBridgePath = "/api/pocketclaw/android/context-memory"
 // the exchange it is answering. The ceiling keeps the prompt bounded, which is
 // the whole point of the window.
 const (
-	minTelegramRecentContextMessages = 5
-	maxTelegramRecentContextMessages = 50
+	minTelegramRecentContextMessages = config.MinTelegramRecentContextMessages
+	maxTelegramRecentContextMessages = config.MaxTelegramRecentContextMessages
 )
 
 type androidContextMemoryRequest struct {
@@ -377,9 +377,7 @@ func effectiveTelegramRecentContextMessages(cfg *config.Config) int {
 	if cfg == nil {
 		return config.DefaultTelegramRecentContextMessages
 	}
-	stored := cfg.Agents.Defaults.TelegramRecentContextMessages
-	if stored < minTelegramRecentContextMessages || stored > maxTelegramRecentContextMessages {
-		return config.DefaultTelegramRecentContextMessages
-	}
-	return stored
+	return config.ResolveTelegramRecentContextMessages(
+		cfg.Agents.Defaults.TelegramRecentContextMessages,
+	)
 }

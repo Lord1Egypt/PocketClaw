@@ -51,7 +51,11 @@ func recentContextLimit(agent *AgentInstance, channel string) int {
 	if agent.TelegramRecentContextMessages <= 0 {
 		return 0
 	}
-	return agent.TelegramRecentContextMessages
+	// The configuration file is the source of truth, and Settings writes it from
+	// a different process. Read the current value rather than the one this agent
+	// started with, so a saved change applies to the next turn without a
+	// restart. The startup value is the fallback when the file cannot be read.
+	return telegramContextLimit.resolve(agent.TelegramRecentContextMessages)
 }
 
 // isConversationalMessage reports whether a stored message counts against the

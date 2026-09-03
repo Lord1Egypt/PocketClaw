@@ -8,6 +8,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:pocketclaw/src/core/app_theme.dart';
 import 'package:pocketclaw/src/ui/github_settings_card.dart';
 import 'context_memory_card.dart';
+import 'models_settings_card.dart';
 import 'package:pocketclaw/src/ui/telegram_settings_card.dart';
 
 const String _aboutProjectName = 'PocketClaw';
@@ -40,34 +41,35 @@ class AutoStartSettingsCard extends StatelessWidget {
   final ValueChanged<bool> onServiceChanged;
   final ValueChanged<bool> onGatewayChanged;
 
-  static String runtimeLabel(ServiceStatus status) => switch (status) {
-    ServiceStatus.running => 'Runtime: Running',
-    ServiceStatus.starting => 'Runtime: Starting',
-    ServiceStatus.stopped => 'Runtime: Stopped',
-  };
+  static String runtimeLabel(AppLocalizations l10n, ServiceStatus status) =>
+      switch (status) {
+        ServiceStatus.running => l10n.runtimeRunning,
+        ServiceStatus.starting => l10n.runtimeStarting,
+        ServiceStatus.stopped => l10n.runtimeStopped,
+      };
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Card(
       margin: EdgeInsets.zero,
       child: Column(
         children: [
           SwitchListTile.adaptive(
-            title: const Text('Start PocketClaw service automatically'),
+            title: Text(l10n.autoStartServiceTitle),
             subtitle: Text(
-              'Auto-start preference: ${serviceEnabled ? 'ON' : 'OFF'}\n'
-              '${runtimeLabel(serviceStatus)}',
+              '${serviceEnabled ? l10n.autoStartPreferenceOn : l10n.autoStartPreferenceOff}\n'
+              '${runtimeLabel(l10n, serviceStatus)}',
             ),
             value: serviceEnabled,
             onChanged: onServiceChanged,
           ),
           const Divider(height: 1),
           SwitchListTile.adaptive(
-            title: const Text('Start Gateway automatically'),
+            title: Text(l10n.autoStartGatewayTitle),
             subtitle: Text(
-              'Auto-start preference: ${gatewayEnabled ? 'ON' : 'OFF'}\n'
-              'Applies the next time the PocketClaw service starts. '
-              'Gateway runtime is managed in the Dashboard.',
+              '${gatewayEnabled ? l10n.autoStartPreferenceOn : l10n.autoStartPreferenceOff}\n'
+              '${l10n.gatewayAutoStartHint}',
             ),
             value: gatewayEnabled,
             onChanged: onGatewayChanged,
@@ -86,12 +88,17 @@ class ConfigPage extends StatefulWidget {
   final Future<AboutInfo> Function()? aboutInfoLoader;
   final Future<void> Function(String path)? onManageTelegram;
 
+  /// Opens a console route in the embedded Dashboard. Same mechanism as
+  /// [onManageTelegram]; named generically because more than one card uses it.
+  final Future<void> Function(String path)? onManageConsole;
+
   const ConfigPage({
     super.key,
     this.onDirtyChanged,
     this.onSaveFnReady,
     this.aboutInfoLoader,
     this.onManageTelegram,
+    this.onManageConsole,
   });
 
   @override
@@ -682,6 +689,8 @@ class ConfigPageState extends State<ConfigPage> with WidgetsBindingObserver {
               TelegramSettingsCard(onManage: widget.onManageTelegram),
               const SizedBox(height: 12),
               ContextMemoryCard(focusNode: _contextMemoryFocusNode),
+              const SizedBox(height: 12),
+              ModelsSettingsCard(onManage: widget.onManageConsole),
               const SizedBox(height: 12),
               GitHubSettingsCard(
                 onCredentialChanged: () =>

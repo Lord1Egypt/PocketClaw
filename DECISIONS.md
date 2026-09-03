@@ -1,5 +1,58 @@
 # PocketClaw Decisions
 
+## The Telegram context limit is read from the file, not from a startup snapshot
+
+- Date: 2026-09-03
+- Decision: `recentContextLimit` resolves the limit from `config.json` at
+  projection time, behind a modification-time check, instead of reading the
+  value the `AgentInstance` was built with. The agent's startup value remains
+  the fallback when the file cannot be read.
+- Reason: a saved 17 kept projecting 15 until the service was restarted.
+  Settings writes the file in the web/launcher process while the agent runs in
+  the gateway child process, so no in-memory update on one side can reach the
+  other. The agent's config is a startup snapshot and is never reassigned at
+  runtime — `Manager.Reload` exists but sits behind `Gateway.HotReload`, which
+  ships off.
+- Consequence: a saved change applies to the next Telegram turn with no
+  restart, no session reset and no reconnect. Nothing polls: each projection
+  does one `os.Stat`, and the file is decoded again only when size or mtime
+  changed. Only the one field is decoded, deliberately not through
+  `config.LoadConfig`, whose migration and diagnostic logging do not belong on a
+  per-turn path. A malformed read — a save caught mid-write — keeps the previous
+  answer rather than snapping to the default for one turn, and a failed or
+  invalid save moves nothing because the file is the only thing consulted.
+
+## Settings prose is localized; the embedded Dashboard is not, yet
+
+- Date: 2026-09-03
+- Decision: every PocketClaw-added Settings string moves into ARB across all
+  twelve locales, and the app's language is handed to the embedded Dashboard as
+  an `?lng=` query parameter, which the console's existing i18next
+  language-detector already reads.
+- Reason: with the app set to Arabic, the auto-start card, the Telegram
+  shortcut and the whole GitHub card still rendered English.
+- Consequence, stated plainly: **the console ships only five locales** — `en`,
+  `pt-BR`, `bn-IN`, `zh`, `cs` — against the app's twelve. Handing it the app
+  language makes Chinese and Portuguese follow, and leaves Arabic, German,
+  Spanish, French, Hindi, Indonesian, Japanese, Korean and Russian falling back
+  to the console's English resources. Arabic in particular means the Dashboard
+  stays LTR English while Settings is RTL Arabic. Translating the console is a
+  separate milestone; nothing is hard-coded into a Flutter wrapper to disguise
+  the gap.
+
+## Manage Models navigates; it does not manage models
+
+- Date: 2026-09-03
+- Decision: a Settings card opens the console's `/models` route through the same
+  `onManage(path)` mechanism the Telegram shortcut uses.
+- Reason: a beginner should not have to discover Dashboard navigation to reach
+  models.
+- Consequence: providers, API keys, the catalog, the default-model choice and
+  model testing stay in the one place that owns them. A second implementation in
+  native Settings would be a second writer for state Core owns, which is the
+  mistake the dead Pico provisioner removal cleaned up. A test asserts the card
+  renders no field, switch or dropdown — only a navigation row.
+
 ## Telegram context memory is a Settings control, written through Core
 
 - Date: 2026-09-03

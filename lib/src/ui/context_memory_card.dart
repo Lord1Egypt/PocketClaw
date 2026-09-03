@@ -20,6 +20,7 @@ class ContextMemoryCard extends StatefulWidget {
   const ContextMemoryCard({
     super.key,
     this.focusNode,
+    this.saveFocusNode,
     this.prevFocusNode,
     this.nextFocusNode,
     this.load,
@@ -27,6 +28,7 @@ class ContextMemoryCard extends StatefulWidget {
   });
 
   final FocusNode? focusNode;
+  final FocusNode? saveFocusNode;
   final FocusNode? prevFocusNode;
   final FocusNode? nextFocusNode;
 
@@ -123,6 +125,19 @@ class _ContextMemoryCardState extends State<ContextMemoryCard> {
     });
   }
 
+  /// The value the field currently holds, or null when it is not a usable
+  /// number. Save and Enter both go through this, so one action is one save.
+  int? get _pendingCustomValue => int.tryParse(_customController.text.trim());
+
+  /// Save is offered only when pressing it would do something: the field holds
+  /// a value Core will accept, and that value is not the one already stored.
+  bool get _canSaveCustom {
+    final pending = _pendingCustomValue;
+    return pending != null &&
+        _setting.accepts(pending) &&
+        pending != _setting.recentMessages;
+  }
+
   Future<void> _submitCustom(String raw) async {
     final l10n = AppLocalizations.of(context)!;
     final parsed = int.tryParse(raw.trim());
@@ -202,23 +217,43 @@ class _ContextMemoryCardState extends State<ContextMemoryCard> {
             ),
             if (_customSelected && !_loading) ...[
               const SizedBox(height: 12),
-              SizedBox(
-                width: 200,
-                child: TextField(
-                  key: const Key('context-memory-custom-field'),
-                  controller: _customController,
-                  keyboardType: TextInputType.number,
-                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                  decoration: InputDecoration(
-                    labelText: l10n.contextMemoryCustomLabel,
-                    border: const OutlineInputBorder(),
-                    isDense: true,
-                    helperText: '${_setting.min}–${_setting.max}',
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SizedBox(
+                    width: 200,
+                    child: TextField(
+                      key: const Key('context-memory-custom-field'),
+                      controller: _customController,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                      decoration: InputDecoration(
+                        labelText: l10n.contextMemoryCustomLabel,
+                        border: const OutlineInputBorder(),
+                        isDense: true,
+                        helperText: '${_setting.min}–${_setting.max}',
+                      ),
+                      // Typing only re-evaluates whether Save is offered; it
+                      // never saves. Only onSubmitted commits — wiring
+                      // onEditingComplete as well makes one confirmation save
+                      // twice.
+                      onChanged: (_) => setState(() => _error = null),
+                      onSubmitted: _submitCustom,
+                    ),
                   ),
-                  // Only onSubmitted commits. Wiring onEditingComplete as
-                  // well makes a single confirmation save twice.
-                  onSubmitted: _submitCustom,
-                ),
+                  const SizedBox(width: 12),
+                  Padding(
+                    padding: const EdgeInsetsDirectional.only(top: 2),
+                    child: FilledButton(
+                      key: const Key('context-memory-save'),
+                      focusNode: widget.saveFocusNode,
+                      onPressed: _canSaveCustom
+                          ? () => _submitCustom(_customController.text)
+                          : null,
+                      child: Text(l10n.settingsSave),
+                    ),
+                  ),
+                ],
               ),
             ],
             if (_error != null) ...[
