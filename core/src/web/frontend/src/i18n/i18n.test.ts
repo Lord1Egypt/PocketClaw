@@ -146,9 +146,11 @@ describe("translation coverage", () => {
     "header",
     "footer",
     "labels",
-    // Manage Models is a first-class entry point from native Settings, so the
-    // whole namespace is required rather than falling back to English.
+    // Manage Models and Manage Telegram are first-class entry points from
+    // native Settings, so these namespaces are required in full rather than
+    // falling back to English.
     "models",
+    "channels",
   ] as const
 
   const bundles: Record<string, unknown> = {
@@ -191,6 +193,96 @@ describe("translation coverage", () => {
     }
   })
 
+  // Proper nouns that are identical in every language. Kept deliberately tiny:
+  // a broad whitelist would hide real untranslated work.
+  const PROPER_NOUNS = new Set([
+    "channels.name.telegram",
+    "channels.name.discord",
+    "channels.name.slack",
+    "channels.name.feishu",
+    "channels.name.dingtalk",
+    "channels.name.line",
+    "channels.name.qq",
+    "channels.name.onebot",
+    "channels.name.wecom",
+    "channels.name.maixcam",
+    "channels.name.matrix",
+    "channels.name.irc",
+    "channels.name.weixin",
+    "channels.name.mqtt",
+    // "text" is the wire field name in the MQTT payload, not prose.
+    "channels.mqtt.fieldText",
+  ])
+
+  // Latin-script languages legitimately share loanwords with English — German
+  // "Chat", "Agent" and "Version", French "Services" and "Documentation",
+  // Spanish "Hub" are correct translations that happen to be identical. An
+  // equality check cannot tell those from untranslated strings, so the
+  // English-copy rule is applied where it is unambiguous: in these scripts any
+  // identical Latin string is genuinely untranslated.
+  const NON_LATIN = ["ar", "hi", "ja", "ko", "ru"] as const
+
+  function flatten(
+    value: unknown,
+    prefix: string,
+    out: Map<string, string>,
+  ): Map<string, string> {
+    if (value && typeof value === "object") {
+      for (const [key, child] of Object.entries(
+        value as Record<string, unknown>,
+      )) {
+        flatten(child, prefix ? `${prefix}.${key}` : key, out)
+      }
+    } else if (typeof value === "string") {
+      out.set(prefix, value)
+    }
+    return out
+  }
+
+  function keysOfNamespace(english: Map<string, string>, namespace: string) {
+    return [...english.keys()].filter((key) => key.startsWith(`${namespace}.`))
+  }
+
+  it("has every required key in every locale", () => {
+    const english = flatten(enBundleFor("en"), "", new Map())
+    const failures: string[] = []
+
+    for (const [locale, bundle] of Object.entries(bundles)) {
+      const theirs = flatten(bundle, "", new Map())
+      for (const namespace of CHROME) {
+        for (const key of keysOfNamespace(english, namespace)) {
+          if (theirs.get(key) === undefined) {
+            failures.push(`${locale} | ${namespace} | ${key} | MISSING`)
+          }
+        }
+      }
+    }
+
+    expect(failures.join("\n"), failures.join("\n")).toBe("")
+  })
+
+  it("leaves nothing in English in the non-Latin locales", () => {
+    const english = flatten(enBundleFor("en"), "", new Map())
+    const failures: string[] = []
+
+    for (const locale of NON_LATIN) {
+      const theirs = flatten(enBundleFor(locale), "", new Map())
+      for (const namespace of CHROME) {
+        for (const key of keysOfNamespace(english, namespace)) {
+          if (PROPER_NOUNS.has(key)) continue
+          const value = theirs.get(key)
+          if (value !== undefined && value === english.get(key)) {
+            failures.push(
+              `${locale} | ${namespace} | ${key} | ENGLISH COPY: "${value}"`,
+            )
+          }
+        }
+      }
+    }
+
+    expect(failures.join("\n"), failures.join("\n")).toBe("")
+  })
+
   it("does not ship English copies as if they were translations", () => {
     const english = enBundleFor("en") as Record<string, Record<string, string>>
     for (const [locale, bundle] of Object.entries(bundles)) {
@@ -223,6 +315,84 @@ describe("Models route body", () => {
         "Configure API keys for AI providers. Only configured models are available for chat.",
       )
       expect(i18n.t("models.field.apiKey"), locale).not.toBe("API Key")
+    }
+  })
+})
+
+describe("Channels / Telegram route body", () => {
+  // Manage Telegram opens /channels/telegram, so its body must be translated,
+  // not merely reachable.
+  it("renders translated Telegram page content in every app locale", async () => {
+    const connectTitle: Record<string, string> = {
+      ar: "اربط PocketClaw بتيليجرام",
+      de: "PocketClaw mit Telegram verbinden",
+      es: "Conecta PocketClaw a Telegram",
+      fr: "Connecter PocketClaw à Telegram",
+      hi: "PocketClaw को Telegram से जोड़ें",
+      id: "Hubungkan PocketClaw ke Telegram",
+      ja: "PocketClaw を Telegram に接続",
+      ko: "PocketClaw를 Telegram에 연결",
+      ru: "Подключить PocketClaw к Telegram",
+    }
+    for (const [locale, text] of Object.entries(connectTitle)) {
+      await i18n.changeLanguage(locale)
+      expect(i18n.t("channels.telegram.connectTitle"), locale).toBe(text)
+
+      // Body prose and form text, not just the headline.
+      expect(i18n.t("channels.telegram.connectBody"), locale).not.toBe(
+        "Create your personal PocketClaw bot in a few seconds. No BotFather token copy/paste required.",
+      )
+      expect(i18n.t("channels.page.enableLabel"), locale).not.toBe(
+        "Enable channel",
+      )
+      expect(i18n.t("channels.form.desc.allowFrom"), locale).not.toBe(
+        "Allowed user or group IDs. Add items one by one, or paste multiple values at once.",
+      )
+      expect(i18n.t("channels.validation.requiredField"), locale).not.toBe(
+        "This field is required.",
+      )
+    }
+  })
+
+  it("keeps English and the pre-existing locales intact", async () => {
+    await i18n.changeLanguage("en")
+    expect(i18n.t("channels.telegram.connected")).toBe("Connected")
+
+    for (const locale of ["pt", "zh"]) {
+      await i18n.changeLanguage(locale)
+      expect(i18n.t("channels.telegram.connectTitle"), locale).toBeTruthy()
+      expect(i18n.t("channels.telegram.connectTitle"), locale).not.toBe(
+        "channels.telegram.connectTitle",
+      )
+    }
+  })
+
+  it("keeps Arabic right-to-left on the Telegram route", async () => {
+    await i18n.changeLanguage("ar")
+    expect(i18n.dir()).toBe("rtl")
+    expect(document.documentElement.getAttribute("dir")).toBe("rtl")
+    expect(i18n.t("channels.telegram.ownerLabel")).toBe("المالك")
+  })
+
+  it("preserves interpolation placeholders", async () => {
+    for (const locale of ["ar", "de", "es", "fr", "hi", "id", "ja", "ko", "ru"]) {
+      await i18n.changeLanguage(locale)
+      expect(
+        i18n.t("channels.page.notFound", { name: "telegram" }),
+        locale,
+      ).toContain("telegram")
+      expect(
+        i18n.t("channels.field.removeListItem", { value: "123456" }),
+        locale,
+      ).toContain("123456")
+    }
+  })
+
+  it("does not translate platform names", async () => {
+    for (const locale of ["ar", "hi", "ja", "ko", "ru"]) {
+      await i18n.changeLanguage(locale)
+      expect(i18n.t("channels.name.telegram"), locale).toBe("Telegram")
+      expect(i18n.t("channels.name.matrix"), locale).toBe("Matrix")
     }
   })
 })
