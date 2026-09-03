@@ -1,6 +1,5 @@
 package com.lord1egypt.pocketclaw.service
 
-import com.lord1egypt.pocketclaw.config.ChannelListField
 import com.lord1egypt.pocketclaw.security.GitHubCredentialStore
 import android.app.Notification
 import android.app.PendingIntent
@@ -37,7 +36,6 @@ class PicoClawService : Service() {
             "(?<!\\d)v?(\\d+\\.\\d+\\.\\d+(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?)(?!\\d)"
         )
         private const val REALTIME_AUTH_FILE = "realtime_auth"
-        private const val REALTIME_OWNER_PRINCIPAL = "pico-user"
         private val realtimeAuthLock = Any()
 
         const val ACTION_START = "com.lord1egypt.pocketclaw.action.START"
@@ -530,7 +528,6 @@ class PicoClawService : Service() {
 
         if (configFile.exists()) {
             Log.i(TAG, "Config already exists, skipping onboard")
-            ensurePicoChannelEnabled(configFile)
             return
         }
 
@@ -553,56 +550,6 @@ class PicoClawService : Service() {
 
         if (exitCode != 0) {
             throw RuntimeException("Onboard failed (exit $exitCode): $output")
-        }
-
-        ensurePicoChannelEnabled(configFile)
-    }
-
-    /**
-     * 确保启用 Pico Channel
-     */
-    private fun ensurePicoChannelEnabled(configFile: File) {
-        try {
-            if (!configFile.exists()) return
-
-            val json = org.json.JSONObject(configFile.readText())
-            val channels = json.optJSONObject("channels") ?: return
-            val pico = channels.optJSONObject("pico") ?: return
-
-            // Accepts both the canonical array and the legacy newline-joined
-            // string. Reading only the array shape would read a valid legacy
-            // value as missing and rewrite config.json on every start.
-            //
-            // NOTE: this whole function currently no-ops — the config key is
-            // "channel_list", not "channels", so the lookup above always
-            // returns early. Go's EnsurePicoChannel already provisions the
-            // channel during gateway start, so nothing is missing; the key is
-            // left alone here rather than silently activating a second writer
-            // of config.json.
-            val allowFrom = ChannelListField.read(pico, "allow_from")
-            val ownerOnly =
-                allowFrom.size == 1 && allowFrom[0] == REALTIME_OWNER_PRINCIPAL
-            if (pico.optBoolean("enabled", false) &&
-                pico.optString("token", "").isNotEmpty() &&
-                ownerOnly
-            ) {
-                Log.i(TAG, "Pico channel already enabled")
-                return
-            }
-
-            pico.put("enabled", true)
-            pico.put("token", picoTokenForHost(this))
-            pico.put(
-                "allow_from",
-                org.json.JSONArray().put(REALTIME_OWNER_PRINCIPAL),
-            )
-            channels.put("pico", pico)
-            json.put("channels", channels)
-
-            configFile.writeText(json.toString(2))
-            Log.i(TAG, "Pico channel enabled in config.json")
-        } catch (e: Exception) {
-            Log.w(TAG, "Failed to enable Pico channel: ${e.message}", e)
         }
     }
 

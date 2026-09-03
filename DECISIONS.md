@@ -1,5 +1,26 @@
 # PocketClaw Decisions
 
+## Go owns the Pico channel config; the Android host only injects the token
+
+- Date: 2026-09-03
+- Decision: `ensurePicoChannelEnabled` is deleted from `PicoClawService`, along
+  with `REALTIME_OWNER_PRINCIPAL`, `ChannelListField` and its test. Go's
+  `EnsurePicoChannel` is the single authoritative writer of the Pico/Web
+  channel's config state. Android keeps `picoTokenForHost` and continues to
+  supply the per-install credential through `PICOCLAW_CHANNELS_PICO_TOKEN`; it
+  writes no channel config of its own.
+- Reason: the function was inherited from the upstream Android host, written
+  against config schema v1/v2 where the key was `channels`. Core has been at v3
+  since the first vendored copy, where it is `channel_list`, so the lookup
+  returned early on every execution — the code had never run once in this
+  repository's lifetime.
+- Consequence: fixing the key would not have produced a provisioner. Token
+  lives under the channel's `settings` object, not at its top level, so the
+  satisfied-state guard could never be met and the function would have
+  rewritten `config.json` on every service start — a second config writer,
+  writing a live credential in plaintext into the file whose `SecureString`
+  handling exists precisely to keep credentials in `.security.yml` instead.
+
 ## The Samsung is the development device; BlueStacks is unsupported for the current Core model
 
 - Date: 2026-09-03

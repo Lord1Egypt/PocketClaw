@@ -6,16 +6,14 @@ Not part of the WhatsApp removal or the Web branding cleanup. Recorded here
 because it was found while testing them, and deliberately left alone so those
 branches stayed scoped.
 
-- [ ] Normalize channel list-field serialization consistently between the
+- [x] Normalize channel list-field serialization consistently between the
   console, Go's `FlexibleStringSlice`, and Android provisioning.
 
-The console's `serializeStringArrayForSubmit` joins list fields with newlines
-and submits a bare string, so saving any channel page turns `["a","b"]` into
-`"a\nb"`. Go absorbs this — `FlexibleStringSlice` accepts a string, a number or
-an array — but Android does not: `ensurePicoChannelEnabled` reads `allow_from`
-with `optJSONArray`, which returns null for a string, so it treats the block as
-unprovisioned and rewrites it on the next start. Self-healing today, and
-harmless, but the three layers disagree about what the field is.
+The console's `serializeStringArrayForSubmit` joined list fields with newlines
+and submitted a bare string, so saving any channel page turned `["a","b"]` into
+`"a\nb"`. `2a2f3ce` fixed the console to write arrays and kept Go reading the
+legacy string. The Android half is closed by deletion instead: there is no
+Android provisioning any more, so only two layers remain and they agree.
 
 
 ## WhatsApp Self-Chat + Chat image attachment

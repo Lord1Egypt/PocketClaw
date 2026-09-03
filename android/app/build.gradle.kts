@@ -161,9 +161,6 @@ dependencies {
     // The credential store's destroy-or-preserve rule is a pure function of the
     // failure, so it is checked on the JVM rather than only on a device.
     testImplementation("junit:junit:4.13.2")
-    // Real org.json for unit tests: the Android stub throws, which would leave
-    // the config list-field shape handling untested on the JVM.
-    testImplementation("org.json:json:20180813")
 }
 
 // Generate Firebase resources from dart-define
