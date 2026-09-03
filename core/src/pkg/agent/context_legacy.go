@@ -52,7 +52,7 @@ func (m *legacyContextManager) Compact(_ context.Context, req *CompactRequest) e
 			)
 		}
 	case ContextCompressReasonSummarize:
-		m.maybeSummarize(req.SessionKey)
+		m.maybeSummarize(req.SessionKey, req.MessageThreshold)
 	}
 	return nil
 }
@@ -72,19 +72,25 @@ func (m *legacyContextManager) Clear(_ context.Context, sessionKey string) error
 	return agent.Sessions.Save(sessionKey)
 }
 
-// maybeSummarize triggers summarization if the session history exceeds thresholds.
-// It runs asynchronously in a goroutine.
-func (m *legacyContextManager) maybeSummarize(sessionKey string) {
+// maybeSummarize triggers summarization when the session exceeds either the
+// message threshold or the token threshold. It runs asynchronously in a
+// goroutine. messageThreshold overrides the agent's configured message
+// threshold when positive.
+func (m *legacyContextManager) maybeSummarize(sessionKey string, messageThreshold int) {
 	agent := m.al.registry.GetDefaultAgent()
 	if agent == nil {
 		return
+	}
+
+	if messageThreshold <= 0 {
+		messageThreshold = agent.SummarizeMessageThreshold
 	}
 
 	newHistory := agent.Sessions.GetHistory(sessionKey)
 	tokenEstimate := m.estimateTokens(newHistory)
 	threshold := agent.ContextWindow * agent.SummarizeTokenPercent / 100
 
-	if len(newHistory) > agent.SummarizeMessageThreshold || tokenEstimate > threshold {
+	if len(newHistory) > messageThreshold || tokenEstimate > threshold {
 		summarizeKey := agent.ID + ":" + sessionKey
 		if _, loading := m.summarizing.LoadOrStore(summarizeKey, true); !loading {
 			go func() {
@@ -103,6 +109,36 @@ func (m *legacyContextManager) maybeSummarize(sessionKey string) {
 		}
 	}
 }
+
+// summarizationInstruction prefixes every summarization request.
+//
+// The original asked only for "a concise summary preserving core context and key
+// points". A model reading that compresses semantically, which is right for
+// narrative and wrong for identity: a session was observed to reduce "the test
+// code is ORBIT-4826" to "the user supplied a temporary test code", and the
+// value could not be recovered afterwards because the messages holding it were
+// truncated in the same operation that saved the summary.
+//
+// Technical work depends on literals. The instruction therefore separates the
+// two jobs — compress the narrative, quote the identifiers — and says plainly
+// that credentials are not identifiers.
+const summarizationInstruction = "Summarize this conversation segment for an AI " +
+	"technical assistant that will continue the conversation without access to " +
+	"the original messages.\n\n" +
+	"Compress narrative and chatter freely. Do NOT compress exact values: " +
+	"reproduce them verbatim, character for character, whenever a later turn " +
+	"might need them. That includes identifiers and codes the user defined, " +
+	"project and branch names, commit hashes, version numbers and version " +
+	"codes, package identifiers, file paths, function and class names, ports, " +
+	"hostnames, non-secret URLs, model and provider names, explicit numbers, " +
+	"configuration choices, and stated decisions and constraints.\n\n" +
+	"Write the exact value, never a description of it. \"Temporary test code: " +
+	"ORBIT-4826\" is correct; \"the user supplied a temporary test code\" loses " +
+	"the fact and is wrong.\n\n" +
+	"When a value is restated with a newer one, keep the current value and drop " +
+	"the stale one rather than listing both.\n\n" +
+	"Never copy credentials: API keys, auth tokens, passwords, private keys and " +
+	"session cookies must not appear, in any form.\n"
 
 type compressionResult struct {
 	DroppedMessages   int
@@ -224,8 +260,11 @@ func (m *legacyContextManager) summarizeSession(agent *AgentInstance, sessionKey
 		s2, _ := m.summarizeBatch(ctx, agent, part2, "")
 
 		mergePrompt := fmt.Sprintf(
-			"Merge these two conversation summaries into one cohesive summary:\n\n1: %s\n\n2: %s",
-			s1, s2,
+			"%sMerge these two conversation summaries into one cohesive summary. "+
+				"Every exact value in either input must appear verbatim in the "+
+				"result unless the other input supersedes it with a newer value "+
+				"for the same thing.\n\n1: %s\n\n2: %s",
+			summarizationInstruction, s1, s2,
 		)
 
 		resp, err := m.retryLLMCall(ctx, agent, mergePrompt, llmMaxRetries)
@@ -240,6 +279,16 @@ func (m *legacyContextManager) summarizeSession(agent *AgentInstance, sessionKey
 
 	if omitted && finalSummary != "" {
 		finalSummary += "\n[Note: Some oversized messages were omitted from this summary for efficiency.]"
+	}
+
+	// The instruction above usually suffices, but "usually" is not a guarantee
+	// and a lost identifier is unrecoverable: the messages holding it are
+	// truncated in the same block that persists this summary. Facts the model
+	// dropped are restored verbatim, and facts the previous summary held are
+	// carried forward unless this batch supersedes them.
+	if finalSummary != "" {
+		facts := carryForwardExactFacts(summary, extractExactFacts(toSummarize))
+		finalSummary = ensureExactFacts(finalSummary, facts)
 	}
 
 	if finalSummary != "" {
@@ -334,9 +383,9 @@ func (m *legacyContextManager) summarizeBatch(
 	)
 
 	var sb strings.Builder
-	sb.WriteString("Provide a concise summary of this conversation segment, preserving core context and key points.\n")
+	sb.WriteString(summarizationInstruction)
 	if existingSummary != "" {
-		sb.WriteString("Existing context: ")
+		sb.WriteString("Existing context (carry its exact values forward unless superseded below): ")
 		sb.WriteString(existingSummary)
 		sb.WriteString("\n")
 	}

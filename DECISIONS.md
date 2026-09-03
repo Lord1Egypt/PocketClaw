@@ -1,5 +1,77 @@
 # PocketClaw Decisions
 
+## The rolling summary quotes exact values, and never credentials
+
+- Date: 2026-09-03
+- Decision: every summarization request now separates the two jobs — compress
+  the narrative, quote the identifiers verbatim — and a deterministic pass
+  restores any exact value the model dropped, carrying the block forward across
+  re-summarization. Credentials are excluded by both the instruction and the
+  extractor.
+- Reason: a device test stated a session-only value, `ORBIT-4826`, and asked for
+  it after enough turns to push the message out of the recent-15 window. The
+  agent recalled that a temporary test code had existed but not what it was. The
+  value was not stripped by anything: no redaction, truncation or normalization
+  touches this path, so it reached the model intact and the model compressed it
+  away. The prompt asked only for "a concise summary preserving core context and
+  key points", which is right for narrative and wrong for identity.
+- Consequence: an exact value is unrecoverable once lost, because the messages
+  holding it are truncated in the same block that persists the summary. The
+  prompt is therefore backed by a guarantee rather than trusted alone —
+  identifier-shaped literals from user messages are extracted, and any missing
+  from the model's summary are appended under an `EXACT FACTS:` heading that a
+  later pass reads back and carries forward. Labelled facts supersede by label,
+  so `versionCode 30` replaces `versionCode 29` instead of accumulating; the
+  block is capped at 24 entries and 120 characters each. Credential protection
+  is strengthened, not relaxed: values are screened through the runtime's own
+  `RedactText`, so the two cannot drift apart, and a fact the user labelled a
+  token, password or key is dropped whatever its shape.
+- Not addressed here: this is session summary state only. Nothing is written to
+  global or user-profile memory, no memory tool is involved, and a fact lives
+  and dies with its session.
+
+## Telegram bounds what the model sees, not what is stored
+
+- Date: 2026-09-03
+- Decision: a Telegram turn projects at most 15 conversational messages into the
+  model, counting the current inbound one, plus the rolling summary the context
+  manager already maintains. The cut lands on a turn boundary, tool records ride
+  with the turn that issued them and consume no budget of their own, and the
+  limit is `agents.defaults.telegram_recent_context_messages` with a default of
+  15. Every other channel is untouched.
+- Reason: Telegram is the channel where a burst of separate messages each
+  becomes its own queued request, so its transcripts grow in a way the others'
+  do not, and the prompt grew with them. The existing budget-driven compression
+  reacts to tokens after the fact; this is a hard bound on message count before
+  the prompt is built.
+- Consequence: the projection is read-only. It runs after `Assemble` and before
+  the prompt is built, touches no session store, deletes nothing, and never
+  edits, retracts or removes a Telegram message — the user's conversation and
+  the stored transcript are exactly what they were. Because the cap does not
+  depend on the summary, a failed or lagging summarization still yields a
+  bounded turn with the previous summary rather than restoring the whole
+  transcript. Summarization itself is unchanged: it already folds the existing
+  summary into the new one and already persists through restart, so no second
+  summarizer was written. An oversized single turn is kept whole rather than
+  torn; the token-budget compression that follows still applies to it.
+- Not addressed here: the unbounded mailbox, `/stop`, restart reconciliation,
+  placeholder TTL, timeout policy and the HTML fallback all remain open in
+  `TASKS.md`, and there is no Settings UI for the limit yet.
+- Amended 2026-09-03, same branch: the window must not evict what the summary
+  does not yet represent. Coverage needs no watermark — `summarizeSession`
+  writes the summary and truncates what it summarized in one all-or-nothing
+  block, and `forceCompression` replaces both together, so whatever is still in
+  the persisted history is exactly what the summary does not cover. The cutoff
+  therefore holds rather than dropping uncovered history, and asks the existing
+  incremental summarizer to advance coverage with a threshold that leads the
+  window instead of the generic 20. The request is asynchronous and deduplicated
+  per session, so a burst does not become a burst of summarization calls.
+  **Documented degradation:** the hold is bounded at twice the window. Past that
+  the summarizer is not keeping up, the cap is enforced, and the dropped
+  uncovered history is logged as a warning rather than hidden. Coverage is never
+  marked as advanced, because nothing but a successful summarize-and-truncate
+  can advance it.
+
 ## Telegram typing is owned by the running request, not by every received one
 
 - Date: 2026-09-03
