@@ -314,13 +314,7 @@ func (al *AgentLoop) Run(ctx context.Context) error {
 
 				current := m
 				for {
-					// The worker holds a semaphore slot and this message is the
-					// one about to run, so "Thinking…" is now true. The channel
-					// deferred it for exactly this reason: a message queued
-					// behind a long turn must not claim to be in progress.
-					al.sendDeferredPlaceholder(ctx, current)
-
-					deliveryErr := al.runTurnWithSteering(ctx, current)
+					deliveryErr := al.runTurnWithDeferredActivity(ctx, current)
 					if deliveryErr == nil {
 						traceRequestLifecycle("request_completed", &current.Context, nil)
 					} else {
@@ -548,6 +542,63 @@ func (al *AgentLoop) ReloadProviderAndConfig(
 // SetReloadFunc sets the callback function for triggering config reload.
 
 var audioAnnotationRe = regexp.MustCompile(`\[(voice|audio)(?::[^\]]*)?\]`)
+
+// runTurnWithDeferredActivity runs one turn with the activity signals the
+// channel layer deferred.
+//
+// The worker holds a semaphore slot and this message is the current one, so the
+// signals are now truthful: claiming the session is not enough, because a
+// claimed worker still blocks on the global semaphore. The stop is deferred
+// rather than called after the turn so that every terminal path releases the
+// indicator — normal completion, a provider or tool error, cancellation, an
+// empty result, an early return, and the unwinding of a panic.
+func (al *AgentLoop) runTurnWithDeferredActivity(
+	ctx context.Context,
+	msg bus.InboundMessage,
+) error {
+	defer al.stopDeferredTyping(msg)
+	al.startDeferredTyping(ctx, msg)
+	al.sendDeferredPlaceholder(ctx, msg)
+	return al.runTurnWithSteering(ctx, msg)
+}
+
+// startDeferredTyping begins the typing indicator the channel layer deferred.
+//
+// Each indicator is a repeating chat-action loop owned by one message. Starting
+// one on receipt gave every queued request its own loop, so a deep queue sent
+// several chat actions per second for a single chat and Telegram answered with
+// 429. Starting it here means one loop per session at a time: the one belonging
+// to the request actually running.
+func (al *AgentLoop) startDeferredTyping(ctx context.Context, msg bus.InboundMessage) {
+	if al.channelManager == nil {
+		return
+	}
+	if !bus.ChannelUsesIndependentResponseLifecycle(msg.Channel) {
+		return
+	}
+	lifecycleID := bus.InboundLifecycleID(&msg.Context)
+	al.channelManager.StartTyping(
+		bus.WithLifecycleID(ctx, lifecycleID), msg.Channel, msg.ChatID,
+	)
+}
+
+// stopDeferredTyping releases the indicator started for this message.
+//
+// Delivering a final response already stops it through preSend, but a turn that
+// ends without one must not leave the loop running. InvokeTypingStop cannot do
+// this: it looks under the bare "channel:chatID" key while the indicator is
+// recorded per lifecycle.
+func (al *AgentLoop) stopDeferredTyping(msg bus.InboundMessage) {
+	if al.channelManager == nil {
+		return
+	}
+	if !bus.ChannelUsesIndependentResponseLifecycle(msg.Channel) {
+		return
+	}
+	al.channelManager.InvokeTypingStopForLifecycle(
+		msg.Channel, msg.ChatID, bus.InboundLifecycleID(&msg.Context),
+	)
+}
 
 // sendDeferredPlaceholder sends the "Thinking…" placeholder the channel layer
 // deferred, at the moment this message actually begins execution: the worker

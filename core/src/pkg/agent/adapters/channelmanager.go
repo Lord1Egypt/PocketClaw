@@ -32,6 +32,14 @@ func (a *channelManagerAdapter) InvokeTypingStop(channel, chatID string) {
 	a.inner.InvokeTypingStop(channel, chatID)
 }
 
+func (a *channelManagerAdapter) StartTyping(ctx context.Context, channel, chatID string) bool {
+	return a.inner.StartTyping(ctx, channel, chatID)
+}
+
+func (a *channelManagerAdapter) InvokeTypingStopForLifecycle(channel, chatID, lifecycleID string) {
+	a.inner.InvokeTypingStopForLifecycle(channel, chatID, lifecycleID)
+}
+
 func (a *channelManagerAdapter) SendMessage(ctx context.Context, msg bus.OutboundMessage) error {
 	return a.inner.SendMessage(ctx, msg)
 }

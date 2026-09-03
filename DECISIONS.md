@@ -1,5 +1,38 @@
 # PocketClaw Decisions
 
+## Telegram typing is owned by the running request, not by every received one
+
+- Date: 2026-09-03
+- Decision: for Telegram, `StartTyping` moves off the receipt path and onto the
+  same execution-start boundary the "Thinking…" placeholder already uses. The
+  agent starts it once the worker holds a semaphore slot and this message is the
+  current one, and a deferred stop releases it on every terminal path. The
+  message reaction stays at receipt: it acknowledges arrival rather than
+  claiming work is under way.
+- Reason: `TelegramChannel.StartTyping` spawns a goroutine per call with a
+  four-second ticker, and the channel called it for every message as it arrived.
+  A queued request therefore owned a live chat-action loop while it did nothing.
+  At queue depth 8 that was nine concurrent loops for one chat, roughly two
+  chat actions per second, and Telegram answered with `error_code=429`. The
+  loops were also effectively unstoppable: they are recorded per lifecycle, but
+  the agent's `InvokeTypingStop` looks under the bare `channel:chatID` key, so
+  nothing released them until each hit its own five-minute cap or the TTL
+  janitor expired it.
+- Consequence: a session owns exactly one typing loop at a time, whatever the
+  queue depth, which removes the structural cause of the 429 burst.
+  `Manager.StartTyping` and `Manager.InvokeTypingStopForLifecycle` were added as
+  the typing counterparts of `SendPlaceholder`, correlating by the lifecycle ID
+  on the context exactly as it does. The stop is a `defer` around the turn, so
+  a provider error, a tool failure, cancellation, an empty result, an early
+  return and a panic all release it — delivery is no longer the only path that
+  does. Nothing about the placeholder changed: it was already deferred, and the
+  physical logs confirmed that behaviour is correct.
+- Not addressed here: the unbounded mailbox, `/stop` ordering, restart
+  redelivery and reconciliation, placeholder persistence and TTL cleanup,
+  `StopAll`, update-offset persistence, long-poll headroom, agent wall-clock
+  deadlines, tool-iteration policy, and the HTML formatting fallback. All remain
+  open in `TASKS.md`.
+
 ## Telegram "Thinking…" means execution started, not that a message arrived
 
 - Date: 2026-09-03

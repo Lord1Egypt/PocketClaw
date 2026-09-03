@@ -23,6 +23,18 @@ surfaced. None is a regression from that fix, and none should be folded into it.
   but did not close it.
 - [ ] `StopAll` does not reconcile outstanding placeholders, so every one still
   in flight is abandoned in the chat on shutdown.
+- [ ] The Telegram long poll asks for a 30s server timeout under a 45s HTTP
+  client cap, leaving only 15s of headroom.
+- [ ] One turn ran 474,024 ms and hit `iterations_total=50`. That is agent and
+  tool efficiency, not a queue defect; no wall-clock deadline and no change to
+  `max_tool_iterations` was made for it.
+- [ ] `editMessageText` still returns 400 for malformed HTML before the
+  plain-text fallback succeeds. Recovered, not fixed.
+
+The typing half of the incident is fixed on
+`fix/telegram-queued-typing-lifecycle`; the persistent-placeholder half was
+already fixed on `fix/telegram-deferred-thinking-placeholder`. Neither branch
+touches anything above.
 
 ## FOLLOW-UP: normalize channel list-field serialization
 

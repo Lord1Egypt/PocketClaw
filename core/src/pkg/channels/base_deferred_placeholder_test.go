@@ -149,11 +149,18 @@ func TestTelegramDefersPlaceholderToTheAgent(t *testing.T) {
 	if recorder.recorded() != 0 {
 		t.Fatalf("recorded %d placeholders on receipt, want 0", recorder.recorded())
 	}
-	if typing != 1 {
-		t.Errorf("typing starts = %d, want 1: receipt feedback must be preserved", typing)
+	// The typing indicator is a repeating chat-action loop owned per received
+	// message. Starting one here for a request that may wait minutes in the
+	// FIFO gave a deep queue as many concurrent loops as it had entries, which
+	// is what drove Telegram into rate limiting. It is deferred with the
+	// placeholder.
+	if typing != 0 {
+		t.Errorf("typing starts = %d, want 0: Telegram defers typing to execution", typing)
 	}
+	// The reaction is a one-shot acknowledgement that the message arrived, not
+	// a claim that work is under way, so it stays at receipt.
 	if reactions != 1 {
-		t.Errorf("reactions = %d, want 1: receipt feedback must be preserved", reactions)
+		t.Errorf("reactions = %d, want 1: receipt acknowledgement must be preserved", reactions)
 	}
 }
 
@@ -174,7 +181,7 @@ func TestNonTelegramChannelStillSendsPlaceholderOnReceipt(t *testing.T) {
 				t.Fatalf("%s recorded %d placeholders, want 1", name, recorder.recorded())
 			}
 			if typing != 1 || reactions != 1 {
-				t.Errorf("%s typing=%d reactions=%d, want 1 and 1", name, typing, reactions)
+				t.Errorf("%s typing=%d reactions=%d, want 1 and 1: unchanged", name, typing, reactions)
 			}
 		})
 	}
@@ -189,9 +196,16 @@ func TestAudioMessageStillDefersPlaceholder(t *testing.T) {
 
 			handleInbound(ch, "[voice] transcribe me")
 
-			placeholders, _, _ := ch.counts()
+			placeholders, typing, _ := ch.counts()
 			if placeholders != 0 {
 				t.Fatalf("%s sent %d placeholders for audio, want 0", name, placeholders)
+			}
+			wantTyping := 1
+			if name == "telegram" {
+				wantTyping = 0
+			}
+			if typing != wantTyping {
+				t.Fatalf("%s audio typing starts = %d, want %d", name, typing, wantTyping)
 			}
 			if recorder.recorded() != 0 {
 				t.Fatalf("%s recorded %d placeholders for audio, want 0", name, recorder.recorded())

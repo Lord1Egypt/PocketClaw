@@ -334,8 +334,16 @@ func (c *BaseChannel) HandleMessageWithContext(
 	// checks incorrectly skipping indicators when streaming may not work at runtime.
 	if c.owner != nil && c.placeholderRecorder != nil {
 		correlatedRecorder, correlated := c.placeholderRecorder.(CorrelatedPlaceholderRecorder)
+		// A channel whose messages each get their own queued response lifecycle
+		// defers both activity signals to the agent, which starts them when the
+		// message actually begins executing. Both are deferred for the same
+		// reason and must be deferred together: the typing indicator is a
+		// repeating chat-action loop owned per received message, so starting one
+		// here for every queued request produced as many concurrent loops as the
+		// queue was deep and drove Telegram into rate limiting.
+		deferActivityToAgent := bus.ChannelUsesIndependentResponseLifecycle(c.name)
 		// Typing
-		if tc, ok := c.owner.(TypingCapable); ok {
+		if tc, ok := c.owner.(TypingCapable); ok && !deferActivityToAgent {
 			if stop, err := tc.StartTyping(ctx, deliveryChatID); err == nil {
 				if correlated {
 					correlatedRecorder.RecordTypingStopForLifecycle(c.name, deliveryChatID, lifecycleID, stop)
@@ -366,8 +374,7 @@ func (c *BaseChannel) HandleMessageWithContext(
 		// The agent sends it instead, once that specific message reaches
 		// execution. "Thinking…" then means execution started, not that
 		// Telegram delivered the message.
-		deferPlaceholderToAgent := bus.ChannelUsesIndependentResponseLifecycle(c.name)
-		if !audioAnnotationRe.MatchString(content) && !deferPlaceholderToAgent {
+		if !audioAnnotationRe.MatchString(content) && !deferActivityToAgent {
 			if pc, ok := c.owner.(PlaceholderCapable); ok {
 				if phID, err := pc.SendPlaceholder(ctx, deliveryChatID); err == nil && phID != "" {
 					if correlated {

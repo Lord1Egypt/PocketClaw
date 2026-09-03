@@ -17,14 +17,62 @@ import (
 type placeholderRecordingManager struct {
 	recordingChannelManager
 
-	mu    sync.Mutex
-	sends []placeholderSend
+	mu           sync.Mutex
+	sends        []placeholderSend
+	typingStarts []string
+	typingStops  []string
+	typingActive map[string]bool
 }
 
 type placeholderSend struct {
 	channel     string
 	chatID      string
 	lifecycleID string
+}
+
+// StartTyping and InvokeTypingStopForLifecycle are recorded per lifecycle so a
+// test can count how many typing loops a session owns at once.
+func (m *placeholderRecordingManager) StartTyping(
+	ctx context.Context, channel, chatID string,
+) bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	lifecycleID := bus.LifecycleIDFromContext(ctx)
+	m.typingStarts = append(m.typingStarts, lifecycleID)
+	if m.typingActive == nil {
+		m.typingActive = make(map[string]bool)
+	}
+	m.typingActive[lifecycleID] = true
+	return true
+}
+
+func (m *placeholderRecordingManager) InvokeTypingStopForLifecycle(
+	channel, chatID, lifecycleID string,
+) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.typingStops = append(m.typingStops, lifecycleID)
+	delete(m.typingActive, lifecycleID)
+}
+
+func (m *placeholderRecordingManager) typingStartedFor() []string {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return append([]string(nil), m.typingStarts...)
+}
+
+func (m *placeholderRecordingManager) typingStoppedFor() []string {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return append([]string(nil), m.typingStops...)
+}
+
+// activeTypingLoops is the assertion the 429 burst reduces to: however deep the
+// queue is, a session may own only one repeating chat-action loop at a time.
+func (m *placeholderRecordingManager) activeTypingLoops() int {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return len(m.typingActive)
 }
 
 func (m *placeholderRecordingManager) SendPlaceholder(
@@ -315,6 +363,9 @@ func TestPlaceholderWaitsForTheWorkerSemaphore(t *testing.T) {
 		if got := cm.count(); got != 0 {
 			t.Fatalf("placeholder sent while the worker was waiting for a slot (%d sends)", got)
 		}
+		if got := cm.activeTypingLoops(); got != 0 {
+			t.Fatalf("typing started while the worker was waiting for a slot (%d loops)", got)
+		}
 		time.Sleep(20 * time.Millisecond)
 	}
 
@@ -333,6 +384,14 @@ func TestPlaceholderWaitsForTheWorkerSemaphore(t *testing.T) {
 	}
 	if sends[0].lifecycleID != "lc-sem" {
 		t.Fatalf("placeholder lifecycle = %q, want lc-sem", sends[0].lifecycleID)
+	}
+
+	started := cm.typingStartedFor()
+	if len(started) != 1 || started[0] != "lc-sem" {
+		t.Fatalf("typing starts = %v, want exactly [lc-sem] once the slot was held", started)
+	}
+	if got := cm.activeTypingLoops(); got != 1 {
+		t.Fatalf("%d typing loops active during the turn, want exactly 1", got)
 	}
 }
 
@@ -392,5 +451,153 @@ func TestCancelledWorkerSendsNoPlaceholder(t *testing.T) {
 	time.Sleep(300 * time.Millisecond)
 	if got := cm.count(); got != 0 {
 		t.Fatalf("cancelled worker sent %d placeholders, want 0", got)
+	}
+}
+
+// Only the channels whose activity signals the channel layer deferred may have
+// typing started here.
+func TestStartDeferredTypingOnlyForIndependentLifecycleChannels(t *testing.T) {
+	for _, channel := range []string{"telegram", "discord", "slack", "pico", "cli"} {
+		cm := &placeholderRecordingManager{}
+		al := &AgentLoop{channelManager: cm}
+
+		msg := telegramMessage("lc-1", "hello")
+		msg.Context.Channel = channel
+		msg.Channel = channel
+
+		al.startDeferredTyping(context.Background(), msg)
+
+		want := 0
+		if channel == "telegram" {
+			want = 1
+		}
+		if got := len(cm.typingStartedFor()); got != want {
+			t.Errorf("%s started %d typing loops, want %d", channel, got, want)
+		}
+	}
+}
+
+// Typing is deferred for audio too. The placeholder is not — it waits for
+// transcription — so the two must not be gated by the same condition, and a
+// voice message must get exactly one of each and no duplicate.
+func TestAudioGetsTypingButDefersItsPlaceholder(t *testing.T) {
+	cm := &placeholderRecordingManager{}
+	al := &AgentLoop{channelManager: cm}
+
+	msg := telegramMessage("lc-voice", "[voice]")
+	al.startDeferredTyping(context.Background(), msg)
+	al.sendDeferredPlaceholder(context.Background(), msg)
+
+	if got := len(cm.typingStartedFor()); got != 1 {
+		t.Errorf("audio started %d typing loops, want 1", got)
+	}
+	if got := cm.count(); got != 0 {
+		t.Errorf("audio sent %d placeholders here, want 0: transcription sends it", got)
+	}
+}
+
+// The structural cause of the 429 burst: however deep the queue is, the session
+// owns exactly one repeating chat-action loop, and it belongs to the request
+// that is running.
+func TestQueuedRequestsDoNotMultiplyTypingLoops(t *testing.T) {
+	cm := &placeholderRecordingManager{}
+	al := &AgentLoop{channelManager: cm}
+	const sessionKey = "session-1"
+
+	first := telegramMessage("lc-1", "part one")
+	owner, claimed, _ := al.claimSessionMailbox(sessionKey, first)
+	if !claimed {
+		t.Fatal("first message did not claim the session")
+	}
+	queuedIDs := []string{"lc-2", "lc-3", "lc-4", "lc-5", "lc-6", "lc-7", "lc-8"}
+	for _, lifecycleID := range queuedIDs {
+		al.claimSessionMailbox(sessionKey, telegramMessage(lifecycleID, "part"))
+	}
+
+	// Seven requests are waiting. None of them may be signalling activity.
+	if got := cm.activeTypingLoops(); got != 0 {
+		t.Fatalf("%d typing loops active before any turn began, want 0", got)
+	}
+
+	current := first
+	for i := 0; ; i++ {
+		al.startDeferredTyping(context.Background(), current)
+
+		if got := cm.activeTypingLoops(); got != 1 {
+			t.Fatalf("while running %s there were %d active typing loops, want exactly 1",
+				bus.InboundLifecycleID(&current.Context), got)
+		}
+
+		al.stopDeferredTyping(current)
+		if got := cm.activeTypingLoops(); got != 0 {
+			t.Fatalf("after %s finished there were %d active typing loops, want 0",
+				bus.InboundLifecycleID(&current.Context), got)
+		}
+
+		next, ok := al.takeNextSessionMessage(sessionKey, owner)
+		if !ok {
+			if i != len(queuedIDs) {
+				t.Fatalf("ran %d requests, want %d", i+1, len(queuedIDs)+1)
+			}
+			break
+		}
+		current = next
+	}
+
+	started := cm.typingStartedFor()
+	wantOrder := append([]string{"lc-1"}, queuedIDs...)
+	if len(started) != len(wantOrder) {
+		t.Fatalf("started %d typing loops for %d requests", len(started), len(wantOrder))
+	}
+	for i, want := range wantOrder {
+		if started[i] != want {
+			t.Fatalf("typing loop %d belonged to %s, want %s: FIFO order changed",
+				i, started[i], want)
+		}
+	}
+	if len(cm.typingStoppedFor()) != len(wantOrder) {
+		t.Fatalf("stopped %d typing loops for %d starts",
+			len(cm.typingStoppedFor()), len(wantOrder))
+	}
+}
+
+// The stop is deferred, so it must fire even when the turn fails or the
+// context is cancelled rather than only when a response is delivered.
+func TestDeferredTypingStopsOnEveryTerminalPath(t *testing.T) {
+	cm := &placeholderRecordingManager{}
+	al := &AgentLoop{channelManager: cm}
+
+	msg := telegramMessage("lc-term", "hello")
+
+	// Simulates runTurnWithDeferredActivity's own body: whatever the turn does,
+	// the deferred stop runs.
+	func() {
+		defer al.stopDeferredTyping(msg)
+		al.startDeferredTyping(context.Background(), msg)
+		// turn returns an error, panics, or is cancelled — all unwind through here
+	}()
+
+	if got := cm.activeTypingLoops(); got != 0 {
+		t.Fatalf("%d typing loops still active after the turn ended, want 0", got)
+	}
+	if got := cm.typingStoppedFor(); len(got) != 1 || got[0] != "lc-term" {
+		t.Fatalf("typing stops = %v, want exactly [lc-term]", got)
+	}
+}
+
+func TestDeferredTypingStopSurvivesAPanickingTurn(t *testing.T) {
+	cm := &placeholderRecordingManager{}
+	al := &AgentLoop{channelManager: cm}
+	msg := telegramMessage("lc-panic", "hello")
+
+	func() {
+		defer func() { _ = recover() }()
+		defer al.stopDeferredTyping(msg)
+		al.startDeferredTyping(context.Background(), msg)
+		panic("turn exploded")
+	}()
+
+	if got := cm.activeTypingLoops(); got != 0 {
+		t.Fatalf("%d typing loops leaked past a panic, want 0", got)
 	}
 }
