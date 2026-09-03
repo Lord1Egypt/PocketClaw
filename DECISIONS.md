@@ -1,5 +1,33 @@
 # PocketClaw Decisions
 
+## Telegram bounds what the model sees, not what is stored
+
+- Date: 2026-09-03
+- Decision: a Telegram turn projects at most 15 conversational messages into the
+  model, counting the current inbound one, plus the rolling summary the context
+  manager already maintains. The cut lands on a turn boundary, tool records ride
+  with the turn that issued them and consume no budget of their own, and the
+  limit is `agents.defaults.telegram_recent_context_messages` with a default of
+  15. Every other channel is untouched.
+- Reason: Telegram is the channel where a burst of separate messages each
+  becomes its own queued request, so its transcripts grow in a way the others'
+  do not, and the prompt grew with them. The existing budget-driven compression
+  reacts to tokens after the fact; this is a hard bound on message count before
+  the prompt is built.
+- Consequence: the projection is read-only. It runs after `Assemble` and before
+  the prompt is built, touches no session store, deletes nothing, and never
+  edits, retracts or removes a Telegram message — the user's conversation and
+  the stored transcript are exactly what they were. Because the cap does not
+  depend on the summary, a failed or lagging summarization still yields a
+  bounded turn with the previous summary rather than restoring the whole
+  transcript. Summarization itself is unchanged: it already folds the existing
+  summary into the new one and already persists through restart, so no second
+  summarizer was written. An oversized single turn is kept whole rather than
+  torn; the token-budget compression that follows still applies to it.
+- Not addressed here: the unbounded mailbox, `/stop`, restart reconciliation,
+  placeholder TTL, timeout policy and the HTML fallback all remain open in
+  `TASKS.md`, and there is no Settings UI for the limit yet.
+
 ## Telegram typing is owned by the running request, not by every received one
 
 - Date: 2026-09-03

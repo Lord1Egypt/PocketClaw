@@ -321,3 +321,39 @@ func TestJSONLBackend_EnsureSessionMetadata_DoesNotOverwriteNonEmptyCanonicalHis
 		t.Fatalf("canonical history overwritten: %+v", history)
 	}
 }
+
+// The Telegram recent-context window relies on the rolling summary to carry
+// everything it evicts, so the summary has to outlive the process. This reopens
+// the same directory with a fresh store, which is what a Gateway restart does.
+func TestJSONLBackend_SummarySurvivesReload(t *testing.T) {
+	dir := t.TempDir()
+
+	store, err := memory.NewJSONLStore(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	b := session.NewJSONLBackend(store)
+	for i := 0; i < 20; i++ {
+		b.AddMessage("s1", "user", fmt.Sprintf("msg %d", i))
+	}
+	b.SetSummary("s1", "rolling summary of older turns")
+	b.TruncateHistory("s1", 4)
+	if err := b.Save("s1"); err != nil {
+		t.Fatal(err)
+	}
+	store.Close()
+
+	reopened, err := memory.NewJSONLStore(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { reopened.Close() })
+	restarted := session.NewJSONLBackend(reopened)
+
+	if got := restarted.GetSummary("s1"); got != "rolling summary of older turns" {
+		t.Fatalf("summary after reload = %q, want it preserved", got)
+	}
+	if got := len(restarted.GetHistory("s1")); got != 4 {
+		t.Fatalf("history after reload = %d messages, want 4", got)
+	}
+}

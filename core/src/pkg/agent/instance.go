@@ -34,16 +34,18 @@ type AgentInstance struct {
 	ContextWindow             int
 	SummarizeMessageThreshold int
 	SummarizeTokenPercent     int
-	Provider                  providers.LLMProvider
-	Sessions                  session.SessionStore
-	ContextBuilder            *ContextBuilder
-	Tools                     *tools.ToolRegistry
-	Definition                AgentContextDefinition
-	Subagents                 *config.SubagentsConfig
-	SkillsFilter              []string
-	MCPServerAllowlist        map[string]struct{}
-	Candidates                []providers.FallbackCandidate
-	ImageCandidates           []providers.FallbackCandidate
+	// TelegramRecentContextMessages bounds the Telegram model-context window.
+	TelegramRecentContextMessages int
+	Provider                      providers.LLMProvider
+	Sessions                      session.SessionStore
+	ContextBuilder                *ContextBuilder
+	Tools                         *tools.ToolRegistry
+	Definition                    AgentContextDefinition
+	Subagents                     *config.SubagentsConfig
+	SkillsFilter                  []string
+	MCPServerAllowlist            map[string]struct{}
+	Candidates                    []providers.FallbackCandidate
+	ImageCandidates               []providers.FallbackCandidate
 
 	// Router is non-nil when model routing is configured and the light model
 	// was successfully resolved. It scores each incoming message and decides
@@ -216,6 +218,15 @@ func NewAgentInstance(
 		summarizeTokenPercent = 75
 	}
 
+	// A configured 0 disables the cap deliberately; only an absent value falls
+	// back to the default, which is why this reads < 0 rather than == 0.
+	telegramRecentContextMessages := defaults.TelegramRecentContextMessages
+	if telegramRecentContextMessages == 0 {
+		telegramRecentContextMessages = DefaultTelegramRecentContextMessages
+	} else if telegramRecentContextMessages < 0 {
+		telegramRecentContextMessages = 0
+	}
+
 	// Resolve fallback candidates
 	candidates := resolveModelCandidates(cfg, defaults.Provider, model, fallbacks)
 	imageCandidates := resolveModelCandidates(
@@ -273,33 +284,34 @@ func NewAgentInstance(
 	}
 
 	return &AgentInstance{
-		ID:                        agentID,
-		Name:                      agentName,
-		Model:                     model,
-		Fallbacks:                 fallbacks,
-		Workspace:                 workspace,
-		MaxIterations:             maxIter,
-		MaxTokens:                 maxTokens,
-		Temperature:               temperature,
-		ThinkingLevel:             thinkingLevel,
-		ThinkingLevelConfigured:   thinkingLevelConfigured,
-		ContextWindow:             contextWindow,
-		SummarizeMessageThreshold: summarizeMessageThreshold,
-		SummarizeTokenPercent:     summarizeTokenPercent,
-		Provider:                  provider,
-		Sessions:                  sessions,
-		ContextBuilder:            contextBuilder,
-		Tools:                     toolsRegistry,
-		Definition:                definition,
-		Subagents:                 subagents,
-		SkillsFilter:              skillsFilter,
-		MCPServerAllowlist:        agentMCPServerAllowlist,
-		Candidates:                candidates,
-		ImageCandidates:           imageCandidates,
-		Router:                    router,
-		LightCandidates:           lightCandidates,
-		LightProvider:             lightProvider,
-		CandidateProviders:        candidateProviders,
+		ID:                            agentID,
+		Name:                          agentName,
+		Model:                         model,
+		Fallbacks:                     fallbacks,
+		Workspace:                     workspace,
+		MaxIterations:                 maxIter,
+		MaxTokens:                     maxTokens,
+		Temperature:                   temperature,
+		ThinkingLevel:                 thinkingLevel,
+		ThinkingLevelConfigured:       thinkingLevelConfigured,
+		ContextWindow:                 contextWindow,
+		SummarizeMessageThreshold:     summarizeMessageThreshold,
+		TelegramRecentContextMessages: telegramRecentContextMessages,
+		SummarizeTokenPercent:         summarizeTokenPercent,
+		Provider:                      provider,
+		Sessions:                      sessions,
+		ContextBuilder:                contextBuilder,
+		Tools:                         toolsRegistry,
+		Definition:                    definition,
+		Subagents:                     subagents,
+		SkillsFilter:                  skillsFilter,
+		MCPServerAllowlist:            agentMCPServerAllowlist,
+		Candidates:                    candidates,
+		ImageCandidates:               imageCandidates,
+		Router:                        router,
+		LightCandidates:               lightCandidates,
+		LightProvider:                 lightProvider,
+		CandidateProviders:            candidateProviders,
 	}
 }
 

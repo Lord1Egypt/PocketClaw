@@ -25,15 +25,16 @@ func DefaultConfig() *Config {
 		},
 		Agents: AgentsConfig{
 			Defaults: AgentDefaults{
-				Workspace:                 workspacePath,
-				RestrictToWorkspace:       true,
-				Provider:                  "",
-				MaxTokens:                 32768,
-				Temperature:               nil, // nil means use provider default
-				MaxToolIterations:         50,
-				SummarizeMessageThreshold: 20,
-				SummarizeTokenPercent:     75,
-				SteeringMode:              "one-at-a-time",
+				Workspace:                     workspacePath,
+				RestrictToWorkspace:           true,
+				Provider:                      "",
+				MaxTokens:                     32768,
+				Temperature:                   nil, // nil means use provider default
+				MaxToolIterations:             50,
+				SummarizeMessageThreshold:     20,
+				SummarizeTokenPercent:         75,
+				TelegramRecentContextMessages: 15,
+				SteeringMode:                  "one-at-a-time",
 				ToolFeedback: ToolFeedbackConfig{
 					Enabled:          false,
 					MaxArgsLength:    300,
