@@ -66,5 +66,226 @@
     "commit": "Commit",
     "build": "Build",
     "version_unknown": "Inconnu"
+  },
+  "models": {
+    "fallbacks": {
+      "title": "Modèles de secours",
+      "description": "Si ce modèle est temporairement indisponible, PocketClaw peut essayer ces modèles dans l'ordre.",
+      "empty": "Aucun modèle de secours configuré. Le modèle par défaut est utilisé seul.",
+      "add": "Ajouter un modèle de secours",
+      "remove": "Retirer le secours",
+      "moveUp": "Monter",
+      "moveDown": "Descendre",
+      "saving": "Enregistrement...",
+      "saved": "Modèles de secours mis à jour.",
+      "noCandidates": "Configurez un autre modèle pour l'utiliser en secours.",
+      "missingModel": "Ce modèle n'est plus configuré"
+    },
+    "description": "Configurez les clés d'API des fournisseurs d'IA. Seuls les modèles configurés sont disponibles dans la discussion.",
+    "defaultChangeSuccess": "Modèle par défaut mis à jour.",
+    "unsavedPrompt": "Cette modification n'est pas encore enregistrée. Enregistrez-la pour l'écrire dans la configuration des modèles.",
+    "restartHint": "Les modifications de la configuration des modèles prennent effet après le redémarrage de la passerelle.",
+    "loadError": "Échec du chargement des modèles",
+    "retry": "Réessayer",
+    "providerCatalogUnavailable": "Le catalogue des fournisseurs est indisponible. La sélection de nouveaux fournisseurs est désactivée jusqu'au chargement de l'API Modèles.",
+    "noDefaultHintPrefix": "Aucun modèle par défaut défini. Cliquez sur",
+    "noDefaultHintSuffix": "pour en définir un.",
+    "status": {
+      "available": "Disponible",
+      "unconfigured": "Non configuré",
+      "unreachable": "Service injoignable"
+    },
+    "badge": {
+      "default": "Par défaut",
+      "virtual": "Virtuel"
+    },
+    "action": {
+      "edit": "Modifier la clé d'API",
+      "setDefault": "Définir par défaut",
+      "delete": "Supprimer le modèle",
+      "setDefaultDisabled": {
+        "setting": "Définition par défaut...",
+        "unavailable": "Impossible de définir par défaut un modèle indisponible",
+        "isDefault": "Déjà le modèle par défaut",
+        "isVirtual": "Impossible de définir un modèle virtuel par défaut",
+        "unsupportedProvider": "Ce fournisseur ne peut pas servir de modèle de discussion par défaut."
+      },
+      "deleteDisabled": {
+        "isDefault": "Impossible de supprimer le modèle par défaut"
+      }
+    },
+    "defaultOnSave": {
+      "label": "Modèle par défaut",
+      "description": "Définir automatiquement ce modèle par défaut après l'enregistrement.",
+      "unsupportedProvider": "Ce fournisseur peut être enregistré dans la liste des modèles mais ne peut pas servir de modèle de discussion par défaut."
+    },
+    "add": {
+      "button": "Ajouter un modèle",
+      "title": "Ajouter un modèle personnalisé",
+      "description": "Ajoutez un point de terminaison natif ou compatible OpenAI.",
+      "modelName": "Alias du modèle",
+      "modelNamePlaceholder": "ex. my-gpt4",
+      "modelNameHint": "Un nom court pour identifier ce modèle dans les conversations.",
+      "modelId": "Identifiant du modèle",
+      "modelIdPlaceholder": "ex. gpt-4o ou openai/gpt-4o",
+      "modelIdHint": "Ce champ est traité comme l'ID canonique du modèle pour le fournisseur sélectionné. Si l'identifiant contient lui-même une barre oblique (par exemple openai/gpt-5.4), il est conservé tel quel et n'est pas redécoupé.",
+      "errorRequired": "Ce champ est obligatoire.",
+      "errorDuplicateModelName": "Cet alias de modèle existe déjà. Choisissez un autre nom.",
+      "saveError": "Échec de l'ajout du modèle",
+      "saveSuccess": "Modèle ajouté.",
+      "confirm": "Ajouter un modèle",
+      "modelNameAutoHint": "Facultatif. Laissé vide, l'ID du modèle sert d'alias."
+    },
+    "delete": {
+      "title": "Supprimer le modèle ?",
+      "description": "« {{name}} » sera définitivement retiré de votre liste de modèles. Cette action est irréversible.",
+      "confirm": "Supprimer"
+    },
+    "advanced": {
+      "toggle": "Options avancées"
+    },
+    "field": {
+      "provider": "Fournisseur",
+      "providerPlaceholder": "Sélectionner un fournisseur",
+      "providerHint": "Choisissez un fournisseur dans le catalogue ; l'identifiant du modèle sera interprété comme son ID canonique.",
+      "providerInvalid": "Le fournisseur actuel n'est pas valide. Choisissez un fournisseur pris en charge.",
+      "selectProviderFirst": "Sélectionnez d'abord un fournisseur",
+      "apiBase": "URL de base de l'API",
+      "apiKey": "Clé d'API",
+      "apiKeyPlaceholder": "Saisissez votre clé d'API",
+      "apiKeyPlaceholderSet": "Laissez vide pour conserver la clé existante",
+      "proxy": "Proxy HTTP",
+      "proxyHint": "Facultatif. ex. http://127.0.0.1:7890",
+      "authMethod": "Méthode d'authentification",
+      "authMethodHint": "Méthode d'authentification : oauth, token. Laissez vide pour une authentification par clé d'API.",
+      "authMethodManagedHint": "La méthode d'authentification de ce fournisseur est gérée par le système.",
+      "connectMode": "Mode de connexion",
+      "connectModeHint": "Mode de connexion pour les fournisseurs en ligne de commande : stdio ou grpc.",
+      "workspace": "Chemin de l'espace de travail",
+      "workspaceHint": "Répertoire de travail des fournisseurs en ligne de commande (ex. GitHub Copilot).",
+      "requestTimeout": "Délai de la requête (s)",
+      "requestTimeoutHint": "Nombre maximal de secondes d'attente d'une réponse. 0 = valeur par défaut.",
+      "rpm": "Limite de débit (RPM)",
+      "rpmHint": "Nombre maximal de requêtes par minute. 0 = sans limite.",
+      "thinkingLevel": "Niveau de réflexion",
+      "thinkingLevelHint": "Laissez vide pour omettre thinking_level et utiliser la valeur du fournisseur. Valeurs : off, low, medium, high, xhigh, adaptive.",
+      "providerDefault": "valeur du fournisseur",
+      "maxTokensField": "Champ de tokens maximum",
+      "maxTokensFieldHint": "Remplacer le nom du champ de tokens maximum, ex. max_completion_tokens.",
+      "toolSchemaTransform": "Transformation du schéma d'outils",
+      "toolSchemaTransformHint": "Transformation de compatibilité facultative pour les schémas JSON d'outils. Laissez vide pour le comportement natif. Valeurs acceptées : simple.",
+      "streamingEnabled": "Sortie en streaming",
+      "streamingEnabledHint": "Autoriser cette entrée de modèle à tenter des requêtes en streaming. L'option de streaming du canal actuel doit aussi être activée.",
+      "extraBody": "Corps supplémentaire",
+      "extraBodyHint": "Champs JSON supplémentaires à injecter dans le corps de la requête, ex. {\"reasoning_split\": true}.",
+      "customHeaders": "En-têtes personnalisés",
+      "customHeadersHint": "En-têtes HTTP supplémentaires à injecter dans chaque requête, ex. {\"X-Source\": \"coding-plan\"}.",
+      "invalidJson": "Format JSON non valide",
+      "apiBaseLocalHint": "L'adresse à laquelle ce serveur est joignable depuis l'appareil. Sous Android, localhost désigne le téléphone lui-même : utilisez l'adresse LAN ou VPS de votre machine.",
+      "apiBasePresetHint": "Laissez vide pour utiliser le point de terminaison par défaut du fournisseur. Ne le renseignez que pour le remplacer.",
+      "apiKeyOptionalHint": "Facultatif. Ce fournisseur accepte normalement les requêtes sans clé.",
+      "apiBaseOverrideHint": "Cette entrée utilise un point de terminaison personnalisé au lieu de celui du fournisseur ; il est conservé tel qu'enregistré."
+    },
+    "edit": {
+      "title": "Configurer {{name}}",
+      "apiKeyHint": "Une clé est déjà définie. Laissez vide pour la conserver.",
+      "oauthNote": "Ce fournisseur utilise OAuth — aucune clé d'API nécessaire.",
+      "saveError": "Échec de l'enregistrement",
+      "saveSuccess": "Configuration du modèle enregistrée."
+    },
+    "fetch": {
+      "title": "Récupérer les modèles disponibles",
+      "description": "Récupérer la liste des modèles auprès du fournisseur.",
+      "providerLabel": "Fournisseur :",
+      "needApiKey": "Saisissez d'abord une clé d'API pour récupérer les modèles.",
+      "fetching": "Récupération des modèles...",
+      "retry": "Réessayer",
+      "filterPlaceholder": "Filtrer les modèles...",
+      "found": "{{count}} modèle trouvé",
+      "found_plural": "{{count}} modèles trouvés",
+      "shown": "({{count}} affichés)",
+      "selectAll": "Tout sélectionner",
+      "deselectAll": "Tout désélectionner",
+      "fill": "Remplir {{count}} modèle sélectionné",
+      "fill_plural": "Remplir {{count}} modèles sélectionnés",
+      "failed": "Échec de la récupération des modèles"
+    },
+    "catalog": {
+      "button": "Catalogues enregistrés",
+      "title": "Catalogues de modèles enregistrés",
+      "description": "Listes de modèles récupérées précédemment, enregistrées par clé d'API. Sélectionnez des modèles à ajouter à votre configuration.",
+      "loading": "Chargement des catalogues...",
+      "empty": "Aucun catalogue enregistré. Récupérez des modèles auprès d'un fournisseur pour enregistrer un catalogue.",
+      "filterPlaceholder": "Filtrer les modèles...",
+      "models": "modèles",
+      "fetchedAt": "Récupéré",
+      "delete": "Supprimer le catalogue",
+      "refresh": "Actualiser depuis le fournisseur",
+      "found": "{{count}} modèle trouvé",
+      "found_plural": "{{count}} modèles trouvés",
+      "selectAll": "Tout sélectionner",
+      "deselectAll": "Tout désélectionner",
+      "addSelected": "Ajouter {{count}} sélectionnés",
+      "addSuccess": "{{count}} modèle(s) ajouté(s) à la configuration.",
+      "needApiKey": "Ces modèles nécessitent une clé d'API. Vous devrez configurer les identifiants après l'import."
+    },
+    "test": {
+      "title": "Tester la connexion du modèle",
+      "description": "Vérifier que le point de terminaison du modèle est joignable et correctement configuré.",
+      "modelLabel": "Modèle :",
+      "identifierLabel": "Identifiant :",
+      "endpointLabel": "Point de terminaison :",
+      "testConnection": "Tester la connexion",
+      "testing": "Test de la connexion...",
+      "success": "Connexion réussie",
+      "responseTime": "Temps de réponse : {{ms}} ms",
+      "failed": "Échec de la connexion",
+      "status": "Statut : {{status}}",
+      "testFailed": "Échec du test",
+      "testAgain": "Tester à nouveau"
+    },
+    "validation": {
+      "whitespace": "L'identifiant du modèle ne peut pas contenir d'espaces",
+      "leadingSlash": "Ne doit pas commencer par /",
+      "consecutiveSlash": "Ne doit pas contenir de / consécutifs",
+      "useProvider": "Utilisera « {{provider}} » comme fournisseur",
+      "defaultToOpenAI": "Aucun fournisseur indiqué, OpenAI par défaut",
+      "emptyModel": "Le nom du modèle ne peut pas être vide",
+      "shouldUse": "« {{provider}} » devrait utiliser « {{alias}} »",
+      "didYouMean": "Vouliez-vous dire « {{closest}} » ?",
+      "unknownProvider": "Fournisseur inconnu « {{provider}} »",
+      "parsed": "fournisseur={{provider}}, modèle={{model}}"
+    },
+    "combobox": {
+      "selectProvider": "Sélectionner un fournisseur...",
+      "searchProvider": "Rechercher un fournisseur...",
+      "noProvider": "Aucun fournisseur trouvé.",
+      "noCatalog": "Catalogue des fournisseurs indisponible.",
+      "local": "local"
+    },
+    "picker": {
+      "title": "Ajouter un fournisseur d'IA",
+      "addProvider": "Ajouter un fournisseur",
+      "searchPlaceholder": "Rechercher des fournisseurs",
+      "noMatches": "Aucun fournisseur ne correspond. Utilisez « Compatible OpenAI personnalisé » pour un point de terminaison non listé.",
+      "statusConfigured": "Déjà configuré",
+      "getApiKey": "Obtenir une clé d'API",
+      "change": "Modifier",
+      "category": {
+        "cloud": "Fournisseurs cloud",
+        "local": "Local et auto-hébergé",
+        "custom": "Point de terminaison personnalisé",
+        "managed": "Identifiants gérés",
+        "speech": "Parole"
+      },
+      "subtitle": "Choisissez un fournisseur, collez votre clé d'API et sélectionnez un modèle.",
+      "description": {
+        "cloud": "API hébergée — nécessite une clé d'API",
+        "local": "S'exécute sur votre machine ou serveur",
+        "custom": "Tout point de terminaison compatible OpenAI",
+        "managed": "Utilise les identifiants de la plateforme ou une CLI locale",
+        "speech": "Reconnaissance vocale uniquement"
+      }
+    }
   }
 }

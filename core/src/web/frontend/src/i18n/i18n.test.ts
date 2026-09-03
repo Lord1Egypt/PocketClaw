@@ -140,7 +140,16 @@ describe("translation coverage", () => {
   // What this milestone actually delivers: the shared chrome every route shows.
   // The page bodies are not translated yet and fall back to English per key,
   // which is why this asserts the chrome rather than the whole bundle.
-  const CHROME = ["common", "navigation", "header", "footer", "labels"] as const
+  const CHROME = [
+    "common",
+    "navigation",
+    "header",
+    "footer",
+    "labels",
+    // Manage Models is a first-class entry point from native Settings, so the
+    // whole namespace is required rather than falling back to English.
+    "models",
+  ] as const
 
   const bundles: Record<string, unknown> = {
     ar: enBundleFor("ar"),
@@ -168,7 +177,7 @@ describe("translation coverage", () => {
     return 1
   }
 
-  it("translates the whole shared chrome in every added locale", () => {
+  it("translates the whole shared chrome and Models in every added locale", () => {
     const english = enBundleFor("en")
     for (const [locale, bundle] of Object.entries(bundles)) {
       for (const namespace of CHROME) {
@@ -189,6 +198,31 @@ describe("translation coverage", () => {
       expect(common.save, `${locale} copied the English "Save"`).not.toBe(
         english.common.save,
       )
+    }
+  })
+})
+
+describe("Models route body", () => {
+  it("renders translated Models page content in every app locale", async () => {
+    const expected: Record<string, string> = {
+      ar: "إضافة موديل",
+      de: "Modell hinzufügen",
+      es: "Añadir modelo",
+      fr: "Ajouter un modèle",
+      hi: "मॉडल जोड़ें",
+      id: "Tambah Model",
+      ja: "モデルを追加",
+      ko: "모델 추가",
+      ru: "Добавить модель",
+    }
+    for (const [locale, text] of Object.entries(expected)) {
+      await i18n.changeLanguage(locale)
+      expect(i18n.t("models.add.button"), locale).toBe(text)
+      // Body prose, not just a button.
+      expect(i18n.t("models.description"), locale).not.toBe(
+        "Configure API keys for AI providers. Only configured models are available for chat.",
+      )
+      expect(i18n.t("models.field.apiKey"), locale).not.toBe("API Key")
     }
   })
 })

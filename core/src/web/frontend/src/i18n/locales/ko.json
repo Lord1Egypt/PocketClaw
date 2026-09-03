@@ -66,5 +66,226 @@
     "commit": "커밋",
     "build": "빌드",
     "version_unknown": "알 수 없음"
+  },
+  "models": {
+    "fallbacks": {
+      "title": "대체 모델",
+      "description": "이 모델을 일시적으로 사용할 수 없을 때 PocketClaw가 다음 모델을 순서대로 시도합니다.",
+      "empty": "구성된 대체 모델이 없습니다. 기본 모델만 사용합니다.",
+      "add": "대체 모델 추가",
+      "remove": "대체 모델 제거",
+      "moveUp": "위로 이동",
+      "moveDown": "아래로 이동",
+      "saving": "저장 중...",
+      "saved": "대체 모델을 업데이트했습니다.",
+      "noCandidates": "대체로 사용할 다른 모델을 구성하세요.",
+      "missingModel": "이 모델은 더 이상 구성되어 있지 않습니다"
+    },
+    "description": "AI 공급자의 API 키를 구성합니다. 구성된 모델만 채팅에서 사용할 수 있습니다.",
+    "defaultChangeSuccess": "기본 모델을 업데이트했습니다.",
+    "unsavedPrompt": "이 변경 사항은 아직 저장되지 않았습니다. 모델 구성에 기록하려면 저장하세요.",
+    "restartHint": "모델 구성 변경은 게이트웨이를 재시작한 뒤 적용됩니다.",
+    "loadError": "모델을 불러오지 못했습니다",
+    "retry": "다시 시도",
+    "providerCatalogUnavailable": "공급자 카탈로그를 사용할 수 없습니다. 모델 API가 정상적으로 로드될 때까지 새 공급자 선택이 비활성화됩니다.",
+    "noDefaultHintPrefix": "기본 모델이 아직 설정되지 않았습니다.",
+    "noDefaultHintSuffix": "을(를) 클릭해 설정하세요.",
+    "status": {
+      "available": "사용 가능",
+      "unconfigured": "구성되지 않음",
+      "unreachable": "서비스에 연결할 수 없음"
+    },
+    "badge": {
+      "default": "기본",
+      "virtual": "가상"
+    },
+    "action": {
+      "edit": "API 키 편집",
+      "setDefault": "기본으로 설정",
+      "delete": "모델 삭제",
+      "setDefaultDisabled": {
+        "setting": "기본으로 설정하는 중...",
+        "unavailable": "사용할 수 없는 모델은 기본으로 설정할 수 없습니다",
+        "isDefault": "이미 기본 모델입니다",
+        "isVirtual": "가상 모델은 기본으로 설정할 수 없습니다",
+        "unsupportedProvider": "이 공급자는 기본 채팅 모델로 사용할 수 없습니다."
+      },
+      "deleteDisabled": {
+        "isDefault": "기본 모델은 삭제할 수 없습니다"
+      }
+    },
+    "defaultOnSave": {
+      "label": "기본 모델",
+      "description": "저장 후 이 모델을 자동으로 기본으로 설정합니다.",
+      "unsupportedProvider": "이 공급자는 모델 목록에 저장할 수 있지만 기본 채팅 모델로는 사용할 수 없습니다."
+    },
+    "add": {
+      "button": "모델 추가",
+      "title": "사용자 지정 모델 추가",
+      "description": "OpenAI 호환 또는 네이티브 모델 엔드포인트를 추가합니다.",
+      "modelName": "모델 별칭",
+      "modelNamePlaceholder": "예: my-gpt4",
+      "modelNameHint": "대화에서 이 모델을 식별하는 짧은 이름입니다.",
+      "modelId": "모델 식별자",
+      "modelIdPlaceholder": "예: gpt-4o 또는 openai/gpt-4o",
+      "modelIdHint": "이 필드는 선택한 공급자의 표준 모델 ID로 처리됩니다. 식별자 자체에 슬래시가 포함된 경우(예: openai/gpt-5.4) 그대로 유지되며 다시 분리되지 않습니다.",
+      "errorRequired": "필수 항목입니다.",
+      "errorDuplicateModelName": "이미 존재하는 모델 별칭입니다. 다른 이름을 사용하세요.",
+      "saveError": "모델을 추가하지 못했습니다",
+      "saveSuccess": "모델을 추가했습니다.",
+      "confirm": "모델 추가",
+      "modelNameAutoHint": "선택 사항. 비워 두면 모델 ID가 별칭으로 사용됩니다."
+    },
+    "delete": {
+      "title": "모델을 삭제할까요?",
+      "description": "\"{{name}}\"이(가) 모델 목록에서 영구히 제거됩니다. 이 작업은 되돌릴 수 없습니다.",
+      "confirm": "삭제"
+    },
+    "advanced": {
+      "toggle": "고급 옵션"
+    },
+    "field": {
+      "provider": "공급자",
+      "providerPlaceholder": "공급자 선택",
+      "providerHint": "카탈로그에서 공급자를 선택하세요. 모델 식별자는 해당 공급자의 표준 모델 ID로 해석됩니다.",
+      "providerInvalid": "현재 공급자가 유효하지 않습니다. 지원되는 공급자를 선택하세요.",
+      "selectProviderFirst": "공급자를 먼저 선택하세요",
+      "apiBase": "API 기본 URL",
+      "apiKey": "API 키",
+      "apiKeyPlaceholder": "API 키를 입력하세요",
+      "apiKeyPlaceholderSet": "기존 키를 유지하려면 비워 두세요",
+      "proxy": "HTTP 프록시",
+      "proxyHint": "선택 사항. 예: http://127.0.0.1:7890",
+      "authMethod": "인증 방식",
+      "authMethodHint": "인증 방식: oauth, token. API 키 인증은 비워 두세요.",
+      "authMethodManagedHint": "이 공급자의 인증 방식은 시스템이 관리합니다.",
+      "connectMode": "연결 모드",
+      "connectModeHint": "CLI 기반 공급자의 연결 모드: stdio 또는 grpc.",
+      "workspace": "작업 공간 경로",
+      "workspaceHint": "CLI 기반 공급자(예: GitHub Copilot)의 작업 디렉터리입니다.",
+      "requestTimeout": "요청 제한 시간(초)",
+      "requestTimeoutHint": "응답을 기다리는 최대 초입니다. 0 = 기본값 사용.",
+      "rpm": "속도 제한(RPM)",
+      "rpmHint": "분당 최대 요청 수입니다. 0 = 제한 없음.",
+      "thinkingLevel": "사고 수준",
+      "thinkingLevelHint": "비워 두면 thinking_level을 생략하고 공급자 기본값을 사용합니다. 값: off, low, medium, high, xhigh, adaptive.",
+      "providerDefault": "공급자 기본값",
+      "maxTokensField": "최대 토큰 필드",
+      "maxTokensFieldHint": "최대 토큰의 요청 필드 이름을 재정의합니다. 예: max_completion_tokens.",
+      "toolSchemaTransform": "도구 스키마 변환",
+      "toolSchemaTransformHint": "도구 JSON 스키마에 대한 선택적 호환 변환입니다. 기본 동작을 원하면 비워 두세요. 지원 값: simple.",
+      "streamingEnabled": "스트리밍 출력",
+      "streamingEnabledHint": "이 모델 항목이 공급자 스트리밍 요청을 시도하도록 허용합니다. 현재 채널의 스트리밍 스위치도 켜져 있어야 합니다.",
+      "extraBody": "추가 본문",
+      "extraBodyHint": "요청 본문에 삽입할 추가 JSON 필드입니다. 예: {\"reasoning_split\": true}.",
+      "customHeaders": "사용자 지정 헤더",
+      "customHeadersHint": "모든 요청에 삽입할 추가 HTTP 헤더입니다. 예: {\"X-Source\": \"coding-plan\"}.",
+      "invalidJson": "잘못된 JSON 형식",
+      "apiBaseLocalHint": "기기에서 이 서버에 접근할 수 있는 주소입니다. Android에서 localhost는 휴대전화 자신을 가리키므로, 컴퓨터의 LAN 또는 VPS 주소를 사용하세요.",
+      "apiBasePresetHint": "비워 두면 공급자의 기본 엔드포인트를 사용합니다. 재정의할 때만 설정하세요.",
+      "apiKeyOptionalHint": "선택 사항. 이 공급자는 보통 키 없이도 요청을 받습니다.",
+      "apiBaseOverrideHint": "이 항목은 공급자 기본값 대신 사용자 지정 엔드포인트를 사용하며 저장된 상태로 유지됩니다."
+    },
+    "edit": {
+      "title": "{{name}} 구성",
+      "apiKeyHint": "키가 이미 설정되어 있습니다. 그대로 두려면 비워 두세요.",
+      "oauthNote": "이 공급자는 OAuth를 사용합니다 — API 키가 필요 없습니다.",
+      "saveError": "저장하지 못했습니다",
+      "saveSuccess": "모델 구성을 저장했습니다."
+    },
+    "fetch": {
+      "title": "사용 가능한 모델 가져오기",
+      "description": "공급자에서 모델 목록을 가져옵니다.",
+      "providerLabel": "공급자:",
+      "needApiKey": "모델을 가져오려면 먼저 API 키를 입력하세요.",
+      "fetching": "모델을 가져오는 중...",
+      "retry": "다시 시도",
+      "filterPlaceholder": "모델 필터...",
+      "found": "모델 {{count}}개를 찾았습니다",
+      "found_plural": "모델 {{count}}개를 찾았습니다",
+      "shown": "({{count}}개 표시)",
+      "selectAll": "모두 선택",
+      "deselectAll": "선택 해제",
+      "fill": "선택한 모델 {{count}}개 채우기",
+      "fill_plural": "선택한 모델 {{count}}개 채우기",
+      "failed": "모델을 가져오지 못했습니다"
+    },
+    "catalog": {
+      "button": "저장된 카탈로그",
+      "title": "저장된 모델 카탈로그",
+      "description": "이전에 가져온 모델 목록으로 API 키별로 저장됩니다. 구성에 추가할 모델을 선택하세요.",
+      "loading": "카탈로그를 불러오는 중...",
+      "empty": "저장된 카탈로그가 아직 없습니다. 공급자에서 모델을 가져오면 카탈로그가 저장됩니다.",
+      "filterPlaceholder": "모델 필터...",
+      "models": "모델",
+      "fetchedAt": "가져온 시각",
+      "delete": "카탈로그 삭제",
+      "refresh": "공급자에서 새로 고침",
+      "found": "모델 {{count}}개를 찾았습니다",
+      "found_plural": "모델 {{count}}개를 찾았습니다",
+      "selectAll": "모두 선택",
+      "deselectAll": "선택 해제",
+      "addSelected": "선택한 {{count}}개 추가",
+      "addSuccess": "모델 {{count}}개를 구성에 추가했습니다.",
+      "needApiKey": "이 모델에는 API 키가 필요합니다. 가져온 뒤 자격 증명을 구성해야 합니다."
+    },
+    "test": {
+      "title": "모델 연결 테스트",
+      "description": "모델 엔드포인트에 연결할 수 있고 올바르게 구성되었는지 확인합니다.",
+      "modelLabel": "모델:",
+      "identifierLabel": "식별자:",
+      "endpointLabel": "엔드포인트:",
+      "testConnection": "연결 테스트",
+      "testing": "연결을 테스트하는 중...",
+      "success": "연결에 성공했습니다",
+      "responseTime": "응답 시간: {{ms}}ms",
+      "failed": "연결에 실패했습니다",
+      "status": "상태: {{status}}",
+      "testFailed": "테스트에 실패했습니다",
+      "testAgain": "다시 테스트"
+    },
+    "validation": {
+      "whitespace": "모델 식별자에는 공백을 사용할 수 없습니다",
+      "leadingSlash": "/로 시작하면 안 됩니다",
+      "consecutiveSlash": "/를 연속으로 사용하면 안 됩니다",
+      "useProvider": "공급자로 \"{{provider}}\"을(를) 사용합니다",
+      "defaultToOpenAI": "공급자를 지정하지 않아 기본값인 OpenAI를 사용합니다",
+      "emptyModel": "모델 이름은 비워 둘 수 없습니다",
+      "shouldUse": "\"{{provider}}\"은(는) \"{{alias}}\"을(를) 사용해야 합니다",
+      "didYouMean": "\"{{closest}}\"을(를) 찾으셨나요?",
+      "unknownProvider": "알 수 없는 공급자 \"{{provider}}\"",
+      "parsed": "공급자={{provider}}, 모델={{model}}"
+    },
+    "combobox": {
+      "selectProvider": "공급자 선택...",
+      "searchProvider": "공급자 검색...",
+      "noProvider": "공급자를 찾을 수 없습니다.",
+      "noCatalog": "공급자 카탈로그를 사용할 수 없습니다.",
+      "local": "로컬"
+    },
+    "picker": {
+      "title": "AI 공급자 추가",
+      "addProvider": "공급자 추가",
+      "searchPlaceholder": "공급자 검색",
+      "noMatches": "검색과 일치하는 공급자가 없습니다. 목록에 없는 엔드포인트는 \"사용자 지정 OpenAI 호환\"을 사용하세요.",
+      "statusConfigured": "이미 구성됨",
+      "getApiKey": "API 키 받기",
+      "change": "변경",
+      "category": {
+        "cloud": "클라우드 공급자",
+        "local": "로컬 및 자체 호스팅",
+        "custom": "사용자 지정 엔드포인트",
+        "managed": "관리형 자격 증명",
+        "speech": "음성"
+      },
+      "subtitle": "공급자를 선택하고 API 키를 붙여넣은 뒤 모델을 고르세요.",
+      "description": {
+        "cloud": "호스팅 API — API 키가 필요합니다",
+        "local": "자신의 컴퓨터나 서버에서 실행",
+        "custom": "OpenAI 호환 엔드포인트",
+        "managed": "플랫폼 자격 증명 또는 로컬 CLI 사용",
+        "speech": "음성 인식 전용"
+      }
+    }
   }
 }

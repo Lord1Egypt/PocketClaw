@@ -66,5 +66,226 @@
     "commit": "Commit",
     "build": "Build",
     "version_unknown": "Unbekannt"
+  },
+  "models": {
+    "fallbacks": {
+      "title": "Ersatzmodelle",
+      "description": "Wenn dieses Modell vorübergehend nicht verfügbar ist, kann PocketClaw diese Modelle der Reihe nach versuchen.",
+      "empty": "Keine Ersatzmodelle konfiguriert. Das Standardmodell wird allein verwendet.",
+      "add": "Ersatzmodell hinzufügen",
+      "remove": "Ersatz entfernen",
+      "moveUp": "Nach oben",
+      "moveDown": "Nach unten",
+      "saving": "Wird gespeichert ...",
+      "saved": "Ersatzmodelle aktualisiert.",
+      "noCandidates": "Konfigurieren Sie ein weiteres Modell, um es als Ersatz zu verwenden.",
+      "missingModel": "Dieses Modell ist nicht mehr konfiguriert"
+    },
+    "description": "API-Schlüssel für KI-Anbieter konfigurieren. Nur konfigurierte Modelle stehen im Chat zur Verfügung.",
+    "defaultChangeSuccess": "Standardmodell aktualisiert.",
+    "unsavedPrompt": "Diese Änderung wurde noch nicht gespeichert. Speichern Sie sie, um sie in die Modellkonfiguration zu schreiben.",
+    "restartHint": "Änderungen an der Modellkonfiguration wirken sich nach einem Gateway-Neustart aus.",
+    "loadError": "Modelle konnten nicht geladen werden",
+    "retry": "Erneut versuchen",
+    "providerCatalogUnavailable": "Der Anbieterkatalog ist nicht verfügbar. Neue Anbieterauswahlen sind deaktiviert, bis die Modelle-API erfolgreich geladen wurde.",
+    "noDefaultHintPrefix": "Noch kein Standardmodell festgelegt. Klicken Sie",
+    "noDefaultHintSuffix": "um eines festzulegen.",
+    "status": {
+      "available": "Verfügbar",
+      "unconfigured": "Nicht konfiguriert",
+      "unreachable": "Dienst nicht erreichbar"
+    },
+    "badge": {
+      "default": "Standard",
+      "virtual": "Virtuell"
+    },
+    "action": {
+      "edit": "API-Schlüssel bearbeiten",
+      "setDefault": "Als Standard festlegen",
+      "delete": "Modell löschen",
+      "setDefaultDisabled": {
+        "setting": "Wird als Standard festgelegt ...",
+        "unavailable": "Nicht verfügbares Modell kann nicht als Standard festgelegt werden",
+        "isDefault": "Bereits das Standardmodell",
+        "isVirtual": "Virtuelles Modell kann nicht als Standard festgelegt werden",
+        "unsupportedProvider": "Dieser Anbieter kann nicht als Standard-Chatmodell verwendet werden."
+      },
+      "deleteDisabled": {
+        "isDefault": "Das Standardmodell kann nicht gelöscht werden"
+      }
+    },
+    "defaultOnSave": {
+      "label": "Standardmodell",
+      "description": "Dieses Modell nach dem Speichern automatisch als Standard festlegen.",
+      "unsupportedProvider": "Dieser Anbieter kann in der Modellliste gespeichert, aber nicht als Standard-Chatmodell verwendet werden."
+    },
+    "add": {
+      "button": "Modell hinzufügen",
+      "title": "Eigenes Modell hinzufügen",
+      "description": "Einen OpenAI-kompatiblen oder nativen Modell-Endpunkt hinzufügen.",
+      "modelName": "Modellalias",
+      "modelNamePlaceholder": "z. B. my-gpt4",
+      "modelNameHint": "Ein kurzer Name, mit dem dieses Modell in Unterhaltungen erkannt wird.",
+      "modelId": "Modellkennung",
+      "modelIdPlaceholder": "z. B. gpt-4o oder openai/gpt-4o",
+      "modelIdHint": "Dieses Feld gilt als kanonische Modell-ID des gewählten Anbieters. Enthält die Kennung selbst einen Schrägstrich (etwa openai/gpt-5.4), bleibt sie unverändert und wird nicht erneut geteilt.",
+      "errorRequired": "Dieses Feld ist erforderlich.",
+      "errorDuplicateModelName": "Der Modellalias existiert bereits. Bitte wählen Sie einen anderen Namen.",
+      "saveError": "Modell konnte nicht hinzugefügt werden",
+      "saveSuccess": "Modell hinzugefügt.",
+      "confirm": "Modell hinzufügen",
+      "modelNameAutoHint": "Optional. Bleibt das Feld leer, wird die Modell-ID als Alias verwendet."
+    },
+    "delete": {
+      "title": "Modell löschen?",
+      "description": "„{{name}}“ wird dauerhaft aus Ihrer Modellliste entfernt. Dies kann nicht rückgängig gemacht werden.",
+      "confirm": "Löschen"
+    },
+    "advanced": {
+      "toggle": "Erweiterte Optionen"
+    },
+    "field": {
+      "provider": "Anbieter",
+      "providerPlaceholder": "Anbieter auswählen",
+      "providerHint": "Wählen Sie einen Anbieter aus dem Katalog; die Modellkennung wird als dessen kanonische Modell-ID interpretiert.",
+      "providerInvalid": "Der aktuelle Anbieter ist ungültig. Bitte wählen Sie einen unterstützten Anbieter.",
+      "selectProviderFirst": "Zuerst einen Anbieter auswählen",
+      "apiBase": "API-Basis-URL",
+      "apiKey": "API-Schlüssel",
+      "apiKeyPlaceholder": "API-Schlüssel eingeben",
+      "apiKeyPlaceholderSet": "Leer lassen, um den vorhandenen Schlüssel zu behalten",
+      "proxy": "HTTP-Proxy",
+      "proxyHint": "Optional. z. B. http://127.0.0.1:7890",
+      "authMethod": "Authentifizierungsmethode",
+      "authMethodHint": "Authentifizierungsmethode: oauth, token. Für API-Schlüssel-Auth leer lassen.",
+      "authMethodManagedHint": "Die Authentifizierungsmethode dieses Anbieters wird vom System verwaltet.",
+      "connectMode": "Verbindungsmodus",
+      "connectModeHint": "Verbindungsmodus für CLI-basierte Anbieter: stdio oder grpc.",
+      "workspace": "Arbeitsverzeichnis",
+      "workspaceHint": "Arbeitsverzeichnis für CLI-basierte Anbieter (z. B. GitHub Copilot).",
+      "requestTimeout": "Anfrage-Timeout (s)",
+      "requestTimeoutHint": "Maximale Wartezeit auf eine Antwort in Sekunden. 0 = Standard verwenden.",
+      "rpm": "Ratenlimit (RPM)",
+      "rpmHint": "Maximale Anfragen pro Minute. 0 = kein Limit.",
+      "thinkingLevel": "Denkstufe",
+      "thinkingLevelHint": "Leer lassen, um thinking_level wegzulassen und den Anbieterstandard zu nutzen. Werte: off, low, medium, high, xhigh, adaptive.",
+      "providerDefault": "Anbieterstandard",
+      "maxTokensField": "Feld für maximale Tokens",
+      "maxTokensFieldHint": "Den Feldnamen für maximale Tokens überschreiben, z. B. max_completion_tokens.",
+      "toolSchemaTransform": "Tool-Schema-Transformation",
+      "toolSchemaTransformHint": "Optionale Kompatibilitätstransformation für Tool-JSON-Schemata. Für natives Verhalten leer lassen. Unterstützte Werte: simple.",
+      "streamingEnabled": "Streaming-Ausgabe",
+      "streamingEnabledHint": "Diesem Modelleintrag erlauben, Streaming-Anfragen beim Anbieter zu versuchen. Der Streaming-Schalter des aktuellen Kanals muss ebenfalls aktiv sein.",
+      "extraBody": "Zusätzlicher Body",
+      "extraBodyHint": "Zusätzliche JSON-Felder für den Anfrage-Body, z. B. {\"reasoning_split\": true}.",
+      "customHeaders": "Eigene Header",
+      "customHeadersHint": "Zusätzliche HTTP-Header für jede Anfrage, z. B. {\"X-Source\": \"coding-plan\"}.",
+      "invalidJson": "Ungültiges JSON-Format",
+      "apiBaseLocalHint": "Die Adresse, unter der dieser Server vom Gerät aus erreichbar ist. Unter Android ist localhost das Telefon selbst — verwenden Sie daher die LAN- oder VPS-Adresse Ihres Rechners.",
+      "apiBasePresetHint": "Leer lassen, um den Standard-Endpunkt des Anbieters zu verwenden. Nur setzen, um ihn zu überschreiben.",
+      "apiKeyOptionalHint": "Optional. Dieser Anbieter akzeptiert Anfragen normalerweise auch ohne Schlüssel.",
+      "apiBaseOverrideHint": "Dieser Eintrag verwendet einen eigenen Endpunkt statt des Anbieterstandards und bleibt wie gespeichert erhalten."
+    },
+    "edit": {
+      "title": "{{name}} konfigurieren",
+      "apiKeyHint": "Ein Schlüssel ist bereits gesetzt. Leer lassen, um ihn unverändert zu lassen.",
+      "oauthNote": "Dieser Anbieter verwendet OAuth — kein API-Schlüssel erforderlich.",
+      "saveError": "Speichern fehlgeschlagen",
+      "saveSuccess": "Modellkonfiguration gespeichert."
+    },
+    "fetch": {
+      "title": "Verfügbare Modelle abrufen",
+      "description": "Modellliste vom Anbieter abrufen.",
+      "providerLabel": "Anbieter:",
+      "needApiKey": "Bitte geben Sie zuerst einen API-Schlüssel ein, um Modelle abzurufen.",
+      "fetching": "Modelle werden abgerufen ...",
+      "retry": "Erneut versuchen",
+      "filterPlaceholder": "Modelle filtern ...",
+      "found": "{{count}} Modell gefunden",
+      "found_plural": "{{count}} Modelle gefunden",
+      "shown": "({{count}} angezeigt)",
+      "selectAll": "Alle auswählen",
+      "deselectAll": "Auswahl aufheben",
+      "fill": "{{count}} ausgewähltes Modell übernehmen",
+      "fill_plural": "{{count}} ausgewählte Modelle übernehmen",
+      "failed": "Modelle konnten nicht abgerufen werden"
+    },
+    "catalog": {
+      "button": "Gespeicherte Kataloge",
+      "title": "Gespeicherte Modellkataloge",
+      "description": "Zuvor abgerufene Modelllisten, pro API-Schlüssel gespeichert. Wählen Sie Modelle aus, um sie Ihrer Konfiguration hinzuzufügen.",
+      "loading": "Kataloge werden geladen ...",
+      "empty": "Noch keine gespeicherten Kataloge. Rufen Sie Modelle von einem Anbieter ab, um einen Katalog zu speichern.",
+      "filterPlaceholder": "Modelle filtern ...",
+      "models": "Modelle",
+      "fetchedAt": "Abgerufen",
+      "delete": "Katalog löschen",
+      "refresh": "Vom Anbieter aktualisieren",
+      "found": "{{count}} Modell gefunden",
+      "found_plural": "{{count}} Modelle gefunden",
+      "selectAll": "Alle auswählen",
+      "deselectAll": "Auswahl aufheben",
+      "addSelected": "{{count}} ausgewählte hinzufügen",
+      "addSuccess": "{{count}} Modell(e) zur Konfiguration hinzugefügt.",
+      "needApiKey": "Diese Modelle benötigen einen API-Schlüssel. Nach dem Import müssen Sie Anmeldedaten konfigurieren."
+    },
+    "test": {
+      "title": "Modellverbindung testen",
+      "description": "Prüfen, ob der Modell-Endpunkt erreichbar und korrekt konfiguriert ist.",
+      "modelLabel": "Modell:",
+      "identifierLabel": "Kennung:",
+      "endpointLabel": "Endpunkt:",
+      "testConnection": "Verbindung testen",
+      "testing": "Verbindung wird getestet ...",
+      "success": "Verbindung erfolgreich",
+      "responseTime": "Antwortzeit: {{ms}} ms",
+      "failed": "Verbindung fehlgeschlagen",
+      "status": "Status: {{status}}",
+      "testFailed": "Test fehlgeschlagen",
+      "testAgain": "Erneut testen"
+    },
+    "validation": {
+      "whitespace": "Die Modellkennung darf keine Leerzeichen enthalten",
+      "leadingSlash": "Sollte nicht mit / beginnen",
+      "consecutiveSlash": "Sollte keine aufeinanderfolgenden / enthalten",
+      "useProvider": "Verwendet „{{provider}}“ als Anbieter",
+      "defaultToOpenAI": "Kein Anbieter angegeben, Standard ist OpenAI",
+      "emptyModel": "Der Modellname darf nicht leer sein",
+      "shouldUse": "„{{provider}}“ sollte „{{alias}}“ verwenden",
+      "didYouMean": "Meinten Sie „{{closest}}“?",
+      "unknownProvider": "Unbekannter Anbieter „{{provider}}“",
+      "parsed": "Anbieter={{provider}}, Modell={{model}}"
+    },
+    "combobox": {
+      "selectProvider": "Anbieter auswählen ...",
+      "searchProvider": "Anbieter suchen ...",
+      "noProvider": "Kein Anbieter gefunden.",
+      "noCatalog": "Anbieterkatalog nicht verfügbar.",
+      "local": "lokal"
+    },
+    "picker": {
+      "title": "KI-Anbieter hinzufügen",
+      "addProvider": "Anbieter hinzufügen",
+      "searchPlaceholder": "Anbieter suchen",
+      "noMatches": "Kein Anbieter passt zu dieser Suche. Verwenden Sie „Eigener OpenAI-kompatibler“ für einen nicht gelisteten Endpunkt.",
+      "statusConfigured": "Bereits konfiguriert",
+      "getApiKey": "API-Schlüssel holen",
+      "change": "Ändern",
+      "category": {
+        "cloud": "Cloud-Anbieter",
+        "local": "Lokal und selbst gehostet",
+        "custom": "Eigener Endpunkt",
+        "managed": "Verwaltete Anmeldedaten",
+        "speech": "Sprache"
+      },
+      "subtitle": "Anbieter wählen, API-Schlüssel einfügen und ein Modell auswählen.",
+      "description": {
+        "cloud": "Gehostete API — benötigt einen API-Schlüssel",
+        "local": "Läuft auf Ihrem eigenen Rechner oder Server",
+        "custom": "Jeder OpenAI-kompatible Endpunkt",
+        "managed": "Nutzt Plattform-Anmeldedaten oder ein lokales CLI",
+        "speech": "Nur Spracherkennung"
+      }
+    }
   }
 }

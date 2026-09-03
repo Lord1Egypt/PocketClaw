@@ -66,5 +66,226 @@
     "commit": "Commit",
     "build": "Build",
     "version_unknown": "Tidak diketahui"
+  },
+  "models": {
+    "fallbacks": {
+      "title": "Model Cadangan",
+      "description": "Jika model ini sementara tidak tersedia, PocketClaw dapat mencoba model berikut secara berurutan.",
+      "empty": "Belum ada model cadangan. Model default digunakan sendiri.",
+      "add": "Tambah model cadangan",
+      "remove": "Hapus cadangan",
+      "moveUp": "Naikkan",
+      "moveDown": "Turunkan",
+      "saving": "Menyimpan...",
+      "saved": "Model cadangan diperbarui.",
+      "noCandidates": "Konfigurasikan model lain untuk dipakai sebagai cadangan.",
+      "missingModel": "Model ini tidak lagi dikonfigurasi"
+    },
+    "description": "Konfigurasikan kunci API untuk penyedia AI. Hanya model yang dikonfigurasi tersedia untuk obrolan.",
+    "defaultChangeSuccess": "Model default diperbarui.",
+    "unsavedPrompt": "Perubahan ini belum disimpan. Simpan untuk menuliskannya ke konfigurasi model.",
+    "restartHint": "Perubahan konfigurasi model berlaku setelah gateway dimulai ulang.",
+    "loadError": "Gagal memuat model",
+    "retry": "Coba lagi",
+    "providerCatalogUnavailable": "Katalog penyedia tidak tersedia. Pemilihan penyedia baru dinonaktifkan hingga API Model berhasil dimuat.",
+    "noDefaultHintPrefix": "Belum ada model default. Klik",
+    "noDefaultHintSuffix": "untuk menetapkannya.",
+    "status": {
+      "available": "Tersedia",
+      "unconfigured": "Belum dikonfigurasi",
+      "unreachable": "Layanan tidak dapat dijangkau"
+    },
+    "badge": {
+      "default": "Default",
+      "virtual": "Virtual"
+    },
+    "action": {
+      "edit": "Ubah kunci API",
+      "setDefault": "Jadikan default",
+      "delete": "Hapus model",
+      "setDefaultDisabled": {
+        "setting": "Menjadikan default...",
+        "unavailable": "Model yang tidak tersedia tidak bisa dijadikan default",
+        "isDefault": "Sudah menjadi model default",
+        "isVirtual": "Model virtual tidak bisa dijadikan default",
+        "unsupportedProvider": "Penyedia ini tidak dapat dipakai sebagai model obrolan default."
+      },
+      "deleteDisabled": {
+        "isDefault": "Model default tidak dapat dihapus"
+      }
+    },
+    "defaultOnSave": {
+      "label": "Model Default",
+      "description": "Otomatis jadikan model ini default setelah disimpan.",
+      "unsupportedProvider": "Penyedia ini dapat disimpan di daftar model tetapi tidak dapat dipakai sebagai model obrolan default."
+    },
+    "add": {
+      "button": "Tambah Model",
+      "title": "Tambah Model Kustom",
+      "description": "Tambahkan endpoint model native atau yang kompatibel dengan OpenAI.",
+      "modelName": "Alias Model",
+      "modelNamePlaceholder": "mis. my-gpt4",
+      "modelNameHint": "Nama singkat untuk mengenali model ini dalam percakapan.",
+      "modelId": "Pengenal Model",
+      "modelIdPlaceholder": "mis. gpt-4o atau openai/gpt-4o",
+      "modelIdHint": "Kolom ini diperlakukan sebagai ID model kanonik untuk penyedia yang dipilih. Jika pengenalnya sendiri memuat garis miring (misalnya openai/gpt-5.4), nilainya dipertahankan apa adanya dan tidak dipecah lagi.",
+      "errorRequired": "Kolom ini wajib diisi.",
+      "errorDuplicateModelName": "Alias model sudah ada. Gunakan nama lain.",
+      "saveError": "Gagal menambahkan model",
+      "saveSuccess": "Model ditambahkan.",
+      "confirm": "Tambah Model",
+      "modelNameAutoHint": "Opsional. Jika dikosongkan, ID model dipakai sebagai alias."
+    },
+    "delete": {
+      "title": "Hapus Model?",
+      "description": "\"{{name}}\" akan dihapus permanen dari daftar model Anda. Tindakan ini tidak dapat dibatalkan.",
+      "confirm": "Hapus"
+    },
+    "advanced": {
+      "toggle": "Opsi lanjutan"
+    },
+    "field": {
+      "provider": "Penyedia",
+      "providerPlaceholder": "Pilih penyedia",
+      "providerHint": "Pilih penyedia dari katalog; Pengenal Model akan ditafsirkan sebagai ID model kanonik penyedia tersebut.",
+      "providerInvalid": "Penyedia saat ini tidak valid. Pilih penyedia yang didukung.",
+      "selectProviderFirst": "Pilih penyedia terlebih dahulu",
+      "apiBase": "URL Dasar API",
+      "apiKey": "Kunci API",
+      "apiKeyPlaceholder": "Masukkan kunci API Anda",
+      "apiKeyPlaceholderSet": "Kosongkan untuk mempertahankan kunci yang ada",
+      "proxy": "Proksi HTTP",
+      "proxyHint": "Opsional. mis. http://127.0.0.1:7890",
+      "authMethod": "Metode Autentikasi",
+      "authMethodHint": "Metode autentikasi: oauth, token. Kosongkan untuk autentikasi kunci API.",
+      "authMethodManagedHint": "Metode autentikasi penyedia ini dikelola oleh sistem.",
+      "connectMode": "Mode Koneksi",
+      "connectModeHint": "Mode koneksi untuk penyedia berbasis CLI: stdio atau grpc.",
+      "workspace": "Jalur Ruang Kerja",
+      "workspaceHint": "Direktori kerja untuk penyedia berbasis CLI (mis. GitHub Copilot).",
+      "requestTimeout": "Batas Waktu Permintaan (dtk)",
+      "requestTimeoutHint": "Detik maksimum menunggu respons. 0 = pakai default.",
+      "rpm": "Batas Laju (RPM)",
+      "rpmHint": "Permintaan maksimum per menit. 0 = tanpa batas.",
+      "thinkingLevel": "Tingkat Penalaran",
+      "thinkingLevelHint": "Kosongkan untuk menghilangkan thinking_level dan memakai default penyedia. Nilai: off, low, medium, high, xhigh, adaptive.",
+      "providerDefault": "default penyedia",
+      "maxTokensField": "Kolom Token Maksimum",
+      "maxTokensFieldHint": "Ganti nama kolom permintaan untuk token maksimum, mis. max_completion_tokens.",
+      "toolSchemaTransform": "Transformasi Skema Alat",
+      "toolSchemaTransformHint": "Transformasi kompatibilitas opsional untuk skema JSON alat. Kosongkan untuk perilaku native. Nilai yang didukung: simple.",
+      "streamingEnabled": "Keluaran Streaming",
+      "streamingEnabledHint": "Izinkan entri model ini mencoba permintaan streaming penyedia. Sakelar streaming saluran saat ini juga harus aktif.",
+      "extraBody": "Body Tambahan",
+      "extraBodyHint": "Kolom JSON tambahan untuk disisipkan ke body permintaan, mis. {\"reasoning_split\": true}.",
+      "customHeaders": "Header Kustom",
+      "customHeadersHint": "Header HTTP tambahan untuk setiap permintaan, mis. {\"X-Source\": \"coding-plan\"}.",
+      "invalidJson": "Format JSON tidak valid",
+      "apiBaseLocalHint": "Alamat tempat server ini dapat dijangkau dari perangkat. Di Android, localhost adalah ponsel itu sendiri, jadi gunakan alamat LAN atau VPS mesin Anda.",
+      "apiBasePresetHint": "Kosongkan untuk memakai endpoint default penyedia. Isi hanya untuk menggantinya.",
+      "apiKeyOptionalHint": "Opsional. Penyedia ini biasanya menerima permintaan tanpa kunci.",
+      "apiBaseOverrideHint": "Entri ini memakai endpoint kustom alih-alih default penyedia, dan dipertahankan seperti yang disimpan."
+    },
+    "edit": {
+      "title": "Konfigurasikan {{name}}",
+      "apiKeyHint": "Kunci sudah disetel. Kosongkan untuk membiarkannya.",
+      "oauthNote": "Penyedia ini memakai OAuth — tidak perlu kunci API.",
+      "saveError": "Gagal menyimpan",
+      "saveSuccess": "Konfigurasi model disimpan."
+    },
+    "fetch": {
+      "title": "Ambil Model yang Tersedia",
+      "description": "Ambil daftar model dari penyedia.",
+      "providerLabel": "Penyedia:",
+      "needApiKey": "Masukkan Kunci API terlebih dahulu untuk mengambil model.",
+      "fetching": "Mengambil model...",
+      "retry": "Coba lagi",
+      "filterPlaceholder": "Saring model...",
+      "found": "Ditemukan {{count}} model",
+      "found_plural": "Ditemukan {{count}} model",
+      "shown": "({{count}} ditampilkan)",
+      "selectAll": "Pilih Semua",
+      "deselectAll": "Batalkan Pilihan",
+      "fill": "Isi {{count}} Model Terpilih",
+      "fill_plural": "Isi {{count}} Model Terpilih",
+      "failed": "Gagal mengambil model"
+    },
+    "catalog": {
+      "button": "Katalog Tersimpan",
+      "title": "Katalog Model Tersimpan",
+      "description": "Daftar model yang pernah diambil, disimpan per kunci API. Pilih model untuk ditambahkan ke konfigurasi Anda.",
+      "loading": "Memuat katalog...",
+      "empty": "Belum ada katalog tersimpan. Ambil model dari penyedia untuk menyimpan katalog.",
+      "filterPlaceholder": "Saring model...",
+      "models": "model",
+      "fetchedAt": "Diambil",
+      "delete": "Hapus katalog",
+      "refresh": "Segarkan dari penyedia",
+      "found": "Ditemukan {{count}} model",
+      "found_plural": "Ditemukan {{count}} model",
+      "selectAll": "Pilih Semua",
+      "deselectAll": "Batalkan Pilihan",
+      "addSelected": "Tambah {{count}} Terpilih",
+      "addSuccess": "{{count}} model ditambahkan ke konfigurasi.",
+      "needApiKey": "Model ini memerlukan kunci API. Anda perlu mengonfigurasi kredensial setelah impor."
+    },
+    "test": {
+      "title": "Uji Konektivitas Model",
+      "description": "Pastikan endpoint model dapat dijangkau dan dikonfigurasi dengan benar.",
+      "modelLabel": "Model:",
+      "identifierLabel": "Pengenal:",
+      "endpointLabel": "Endpoint:",
+      "testConnection": "Uji Koneksi",
+      "testing": "Menguji koneksi...",
+      "success": "Koneksi berhasil",
+      "responseTime": "Waktu respons: {{ms}}ms",
+      "failed": "Koneksi gagal",
+      "status": "Status: {{status}}",
+      "testFailed": "Pengujian gagal",
+      "testAgain": "Uji Lagi"
+    },
+    "validation": {
+      "whitespace": "Pengenal model tidak boleh mengandung spasi",
+      "leadingSlash": "Tidak boleh diawali /",
+      "consecutiveSlash": "Tidak boleh mengandung / berurutan",
+      "useProvider": "Akan memakai \"{{provider}}\" sebagai penyedia",
+      "defaultToOpenAI": "Penyedia tidak ditentukan, default ke OpenAI",
+      "emptyModel": "Nama model tidak boleh kosong",
+      "shouldUse": "\"{{provider}}\" seharusnya memakai \"{{alias}}\"",
+      "didYouMean": "Maksud Anda \"{{closest}}\"?",
+      "unknownProvider": "Penyedia tidak dikenal \"{{provider}}\"",
+      "parsed": "penyedia={{provider}}, model={{model}}"
+    },
+    "combobox": {
+      "selectProvider": "Pilih penyedia...",
+      "searchProvider": "Cari penyedia...",
+      "noProvider": "Penyedia tidak ditemukan.",
+      "noCatalog": "Katalog penyedia tidak tersedia.",
+      "local": "lokal"
+    },
+    "picker": {
+      "title": "Tambah Penyedia AI",
+      "addProvider": "Tambah Penyedia",
+      "searchPlaceholder": "Cari penyedia",
+      "noMatches": "Tidak ada penyedia yang cocok. Gunakan Kustom Kompatibel OpenAI untuk endpoint yang tidak terdaftar.",
+      "statusConfigured": "Sudah dikonfigurasi",
+      "getApiKey": "Dapatkan kunci API",
+      "change": "Ubah",
+      "category": {
+        "cloud": "Penyedia cloud",
+        "local": "Lokal dan swa-host",
+        "custom": "Endpoint kustom",
+        "managed": "Kredensial terkelola",
+        "speech": "Ucapan"
+      },
+      "subtitle": "Pilih penyedia, tempel kunci API Anda, lalu pilih model.",
+      "description": {
+        "cloud": "API terkelola — perlu kunci API",
+        "local": "Berjalan di mesin atau server Anda sendiri",
+        "custom": "Endpoint apa pun yang kompatibel dengan OpenAI",
+        "managed": "Memakai kredensial platform atau CLI lokal",
+        "speech": "Hanya pengenalan ucapan"
+      }
+    }
   }
 }

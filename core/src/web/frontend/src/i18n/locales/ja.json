@@ -66,5 +66,226 @@
     "commit": "コミット",
     "build": "ビルド",
     "version_unknown": "不明"
+  },
+  "models": {
+    "fallbacks": {
+      "title": "フォールバックモデル",
+      "description": "このモデルが一時的に利用できない場合、PocketClaw はこれらのモデルを順に試します。",
+      "empty": "フォールバックモデルは未設定です。既定のモデルのみを使用します。",
+      "add": "フォールバックモデルを追加",
+      "remove": "フォールバックを削除",
+      "moveUp": "上へ移動",
+      "moveDown": "下へ移動",
+      "saving": "保存中...",
+      "saved": "フォールバックモデルを更新しました。",
+      "noCandidates": "フォールバックに使うモデルをもう一つ設定してください。",
+      "missingModel": "このモデルは設定されていません"
+    },
+    "description": "AI プロバイダーの API キーを設定します。設定済みのモデルのみチャットで使用できます。",
+    "defaultChangeSuccess": "既定のモデルを更新しました。",
+    "unsavedPrompt": "この変更はまだ保存されていません。モデル設定に書き込むには保存してください。",
+    "restartHint": "モデル設定の変更はゲートウェイの再起動後に反映されます。",
+    "loadError": "モデルの読み込みに失敗しました",
+    "retry": "再試行",
+    "providerCatalogUnavailable": "プロバイダーカタログを利用できません。モデル API が正常に読み込まれるまで、新しいプロバイダーの選択は無効です。",
+    "noDefaultHintPrefix": "既定のモデルが未設定です。",
+    "noDefaultHintSuffix": "をクリックして設定してください。",
+    "status": {
+      "available": "利用可能",
+      "unconfigured": "未設定",
+      "unreachable": "サービスに接続できません"
+    },
+    "badge": {
+      "default": "既定",
+      "virtual": "仮想"
+    },
+    "action": {
+      "edit": "API キーを編集",
+      "setDefault": "既定に設定",
+      "delete": "モデルを削除",
+      "setDefaultDisabled": {
+        "setting": "既定に設定しています...",
+        "unavailable": "利用できないモデルは既定に設定できません",
+        "isDefault": "すでに既定のモデルです",
+        "isVirtual": "仮想モデルは既定に設定できません",
+        "unsupportedProvider": "このプロバイダーは既定のチャットモデルとして使用できません。"
+      },
+      "deleteDisabled": {
+        "isDefault": "既定のモデルは削除できません"
+      }
+    },
+    "defaultOnSave": {
+      "label": "既定のモデル",
+      "description": "保存後、このモデルを自動的に既定に設定します。",
+      "unsupportedProvider": "このプロバイダーはモデル一覧に保存できますが、既定のチャットモデルとしては使用できません。"
+    },
+    "add": {
+      "button": "モデルを追加",
+      "title": "カスタムモデルを追加",
+      "description": "OpenAI 互換またはネイティブのモデルエンドポイントを追加します。",
+      "modelName": "モデルの別名",
+      "modelNamePlaceholder": "例: my-gpt4",
+      "modelNameHint": "会話でこのモデルを識別するための短い名前です。",
+      "modelId": "モデル識別子",
+      "modelIdPlaceholder": "例: gpt-4o または openai/gpt-4o",
+      "modelIdHint": "このフィールドは選択したプロバイダーの正式なモデル ID として扱われます。識別子自体にスラッシュが含まれる場合（例: openai/gpt-5.4）はそのまま保持され、再分割されません。",
+      "errorRequired": "この項目は必須です。",
+      "errorDuplicateModelName": "その別名はすでに存在します。別の名前を使用してください。",
+      "saveError": "モデルを追加できませんでした",
+      "saveSuccess": "モデルを追加しました。",
+      "confirm": "モデルを追加",
+      "modelNameAutoHint": "任意。空欄の場合はモデル ID が別名として使われます。"
+    },
+    "delete": {
+      "title": "モデルを削除しますか？",
+      "description": "「{{name}}」がモデル一覧から完全に削除されます。この操作は取り消せません。",
+      "confirm": "削除"
+    },
+    "advanced": {
+      "toggle": "詳細オプション"
+    },
+    "field": {
+      "provider": "プロバイダー",
+      "providerPlaceholder": "プロバイダーを選択",
+      "providerHint": "カタログからプロバイダーを選択します。モデル識別子はそのプロバイダーの正式なモデル ID として解釈されます。",
+      "providerInvalid": "現在のプロバイダーは無効です。対応しているプロバイダーを選択してください。",
+      "selectProviderFirst": "先にプロバイダーを選択してください",
+      "apiBase": "API ベース URL",
+      "apiKey": "API キー",
+      "apiKeyPlaceholder": "API キーを入力",
+      "apiKeyPlaceholderSet": "既存のキーを保持するには空欄のままにします",
+      "proxy": "HTTP プロキシ",
+      "proxyHint": "任意。例: http://127.0.0.1:7890",
+      "authMethod": "認証方式",
+      "authMethodHint": "認証方式: oauth、token。API キー認証の場合は空欄にします。",
+      "authMethodManagedHint": "このプロバイダーの認証方式はシステムが管理します。",
+      "connectMode": "接続モード",
+      "connectModeHint": "CLI ベースのプロバイダーの接続モード: stdio または grpc。",
+      "workspace": "ワークスペースのパス",
+      "workspaceHint": "CLI ベースのプロバイダー（例: GitHub Copilot）の作業ディレクトリ。",
+      "requestTimeout": "リクエストタイムアウト（秒）",
+      "requestTimeoutHint": "応答を待つ最大秒数。0 = 既定値を使用。",
+      "rpm": "レート制限（RPM）",
+      "rpmHint": "1 分あたりの最大リクエスト数。0 = 制限なし。",
+      "thinkingLevel": "思考レベル",
+      "thinkingLevelHint": "空欄にすると thinking_level を省略し、プロバイダーの既定値を使用します。値: off、low、medium、high、xhigh、adaptive。",
+      "providerDefault": "プロバイダーの既定値",
+      "maxTokensField": "最大トークン数フィールド",
+      "maxTokensFieldHint": "最大トークン数のリクエストフィールド名を上書きします。例: max_completion_tokens。",
+      "toolSchemaTransform": "ツールスキーマ変換",
+      "toolSchemaTransformHint": "ツールの JSON スキーマに対する任意の互換変換。ネイティブ動作にするには空欄にします。対応値: simple。",
+      "streamingEnabled": "ストリーミング出力",
+      "streamingEnabledHint": "このモデルでプロバイダーのストリーミングリクエストを試行できるようにします。現在のチャンネルのストリーミング設定も有効である必要があります。",
+      "extraBody": "追加ボディ",
+      "extraBodyHint": "リクエストボディに追加する JSON フィールド。例: {\"reasoning_split\": true}。",
+      "customHeaders": "カスタムヘッダー",
+      "customHeadersHint": "すべてのリクエストに追加する HTTP ヘッダー。例: {\"X-Source\": \"coding-plan\"}。",
+      "invalidJson": "JSON の形式が正しくありません",
+      "apiBaseLocalHint": "端末からこのサーバーに到達できるアドレスです。Android では localhost は端末自身を指すため、マシンの LAN または VPS のアドレスを使用してください。",
+      "apiBasePresetHint": "空欄にするとプロバイダーの既定エンドポイントを使用します。上書きする場合のみ設定してください。",
+      "apiKeyOptionalHint": "任意。このプロバイダーは通常キーなしでもリクエストを受け付けます。",
+      "apiBaseOverrideHint": "このエントリはプロバイダーの既定ではなくカスタムエンドポイントを使用し、保存された状態のまま維持されます。"
+    },
+    "edit": {
+      "title": "{{name}} を設定",
+      "apiKeyHint": "キーは設定済みです。変更しない場合は空欄のままにしてください。",
+      "oauthNote": "このプロバイダーは OAuth を使用します — API キーは不要です。",
+      "saveError": "保存に失敗しました",
+      "saveSuccess": "モデル設定を保存しました。"
+    },
+    "fetch": {
+      "title": "利用可能なモデルを取得",
+      "description": "プロバイダーからモデル一覧を取得します。",
+      "providerLabel": "プロバイダー:",
+      "needApiKey": "モデルを取得するには、先に API キーを入力してください。",
+      "fetching": "モデルを取得しています...",
+      "retry": "再試行",
+      "filterPlaceholder": "モデルを絞り込み...",
+      "found": "{{count}} 件のモデルが見つかりました",
+      "found_plural": "{{count}} 件のモデルが見つかりました",
+      "shown": "（{{count}} 件表示）",
+      "selectAll": "すべて選択",
+      "deselectAll": "選択を解除",
+      "fill": "選択した {{count}} 件のモデルを入力",
+      "fill_plural": "選択した {{count}} 件のモデルを入力",
+      "failed": "モデルの取得に失敗しました"
+    },
+    "catalog": {
+      "button": "保存済みカタログ",
+      "title": "保存済みモデルカタログ",
+      "description": "以前に取得したモデル一覧を API キーごとに保存しています。設定に追加するモデルを選択してください。",
+      "loading": "カタログを読み込んでいます...",
+      "empty": "保存済みのカタログはまだありません。プロバイダーからモデルを取得するとカタログが保存されます。",
+      "filterPlaceholder": "モデルを絞り込み...",
+      "models": "モデル",
+      "fetchedAt": "取得日時",
+      "delete": "カタログを削除",
+      "refresh": "プロバイダーから更新",
+      "found": "{{count}} 件のモデルが見つかりました",
+      "found_plural": "{{count}} 件のモデルが見つかりました",
+      "selectAll": "すべて選択",
+      "deselectAll": "選択を解除",
+      "addSelected": "選択した {{count}} 件を追加",
+      "addSuccess": "{{count}} 件のモデルを設定に追加しました。",
+      "needApiKey": "これらのモデルには API キーが必要です。インポート後に認証情報を設定してください。"
+    },
+    "test": {
+      "title": "モデル接続をテスト",
+      "description": "モデルのエンドポイントに到達でき、正しく設定されているか確認します。",
+      "modelLabel": "モデル:",
+      "identifierLabel": "識別子:",
+      "endpointLabel": "エンドポイント:",
+      "testConnection": "接続をテスト",
+      "testing": "接続をテストしています...",
+      "success": "接続に成功しました",
+      "responseTime": "応答時間: {{ms}} ミリ秒",
+      "failed": "接続に失敗しました",
+      "status": "ステータス: {{status}}",
+      "testFailed": "テストに失敗しました",
+      "testAgain": "再テスト"
+    },
+    "validation": {
+      "whitespace": "モデル識別子に空白は使用できません",
+      "leadingSlash": "/ で始めないでください",
+      "consecutiveSlash": "/ を連続させないでください",
+      "useProvider": "プロバイダーとして「{{provider}}」を使用します",
+      "defaultToOpenAI": "プロバイダーの指定がないため、既定で OpenAI を使用します",
+      "emptyModel": "モデル名は空にできません",
+      "shouldUse": "「{{provider}}」は「{{alias}}」を使用してください",
+      "didYouMean": "「{{closest}}」ですか？",
+      "unknownProvider": "不明なプロバイダー「{{provider}}」",
+      "parsed": "プロバイダー={{provider}}、モデル={{model}}"
+    },
+    "combobox": {
+      "selectProvider": "プロバイダーを選択...",
+      "searchProvider": "プロバイダーを検索...",
+      "noProvider": "プロバイダーが見つかりません。",
+      "noCatalog": "プロバイダーカタログを利用できません。",
+      "local": "ローカル"
+    },
+    "picker": {
+      "title": "AI プロバイダーを追加",
+      "addProvider": "プロバイダーを追加",
+      "searchPlaceholder": "プロバイダーを検索",
+      "noMatches": "検索に一致するプロバイダーがありません。一覧にないエンドポイントには「カスタム OpenAI 互換」を使用してください。",
+      "statusConfigured": "設定済み",
+      "getApiKey": "API キーを取得",
+      "change": "変更",
+      "category": {
+        "cloud": "クラウドプロバイダー",
+        "local": "ローカル・セルフホスト",
+        "custom": "カスタムエンドポイント",
+        "managed": "マネージド認証情報",
+        "speech": "音声"
+      },
+      "subtitle": "プロバイダーを選び、API キーを貼り付けて、モデルを選択します。",
+      "description": {
+        "cloud": "ホスト型 API — API キーが必要",
+        "local": "自分のマシンまたはサーバーで実行",
+        "custom": "OpenAI 互換の任意のエンドポイント",
+        "managed": "プラットフォームの認証情報またはローカル CLI を使用",
+        "speech": "音声認識のみ"
+      }
+    }
   }
 }
