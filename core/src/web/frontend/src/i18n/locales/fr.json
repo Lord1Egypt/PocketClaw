@@ -485,5 +485,91 @@
       "manualOnlyTitle": "Configuration manuelle",
       "manualOnlyBody": "La création de bot en un geste n'est pas disponible dans cette version ; Telegram se configure donc avec un jeton BotFather. Collez le jeton ci-dessous et enregistrez."
     }
+  },
+  "chat": {
+    "welcome": "Comment puis-je vous aider aujourd'hui ?",
+    "welcomeDesc": "Posez-moi une question sur la météo, les paramètres ou toute autre tâche. Je suis là pour vous aider.",
+    "placeholder": "Rédigez un nouveau message...",
+    "disabledPlaceholder": {
+      "gatewayUnknown": "Discussion impossible : l'état de la passerelle est encore en cours de vérification. Patientez, puis actualisez la page ou redémarrez le lanceur si nécessaire.",
+      "gatewayStarting": "Discussion impossible : la passerelle démarre. Attendez la fin du démarrage, puis réessayez.",
+      "gatewayRestarting": "Discussion impossible : la passerelle redémarre. Veuillez attendre la fin du redémarrage.",
+      "gatewayStopping": "Discussion impossible : la passerelle s'arrête. Attendez son arrêt, puis redémarrez-la.",
+      "gatewayStopped": "Discussion impossible : la passerelle n'est pas démarrée. Cliquez sur « Démarrer la passerelle » dans la barre supérieure, puis réessayez.",
+      "gatewayError": "Discussion impossible : la passerelle est en erreur. Consultez les journaux, puis redémarrez la passerelle ou le lanceur.",
+      "websocketConnecting": "Connexion au service de discussion... Veuillez patienter.",
+      "websocketDisconnected": "Discussion impossible : la connexion WebSocket est interrompue. Vérifiez le réseau et l'état de la passerelle, puis actualisez la page ou redémarrez le lanceur.",
+      "websocketError": "Discussion impossible : la connexion WebSocket a échoué. Vérifiez le réseau et l'état de la passerelle, puis réessayez.",
+      "noDefaultModel": "Discussion impossible : aucun modèle par défaut n'est sélectionné. Définissez-en un sur la page Modèles."
+    },
+    "newChat": "Nouvelle discussion",
+    "notConnected": "La passerelle n'est pas en cours d'exécution. Démarrez-la pour discuter.",
+    "thinking": {
+      "step1": "Réflexion...",
+      "step2": "Analyse de votre demande...",
+      "step3": "Préparation de la réponse...",
+      "step4": "Presque terminé..."
+    },
+    "reasoningLabel": "Raisonnement",
+    "toolCallsLabel": "Appels d'outils",
+    "toolCallExplanationLabel": "Note d'appel",
+    "toolCallFunctionLabel": "Résumé de l'appel",
+    "toolCallArgumentsLabel": "Arguments",
+    "showAssistantDetails": "Raisonnement et appels d'outils",
+    "assistantDetailVisibility": {
+      "none": "N'afficher aucun des deux",
+      "thought": "Afficher uniquement le raisonnement",
+      "toolCalls": "Afficher uniquement les appels d'outils",
+      "all": "Afficher les deux"
+    },
+    "toolLabel": "Outil",
+    "codeLabel": "Code",
+    "copyMessage": "Copier le message",
+    "copyCode": "Copier le code",
+    "copiedLabel": "Copié",
+    "enableCodeWrap": "Renvoyer à la ligne",
+    "disableCodeWrap": "Désactiver le renvoi",
+    "expandCode": "Développer le code",
+    "collapseCode": "Réduire le code",
+    "history": "Historique",
+    "noHistory": "Aucun historique de discussion",
+    "historyLoadFailed": "Échec du chargement de l'historique de discussion",
+    "historyOpenFailed": "Impossible d'ouvrir cet historique de discussion",
+    "loadingMore": "Chargement en cours...",
+    "deleteSession": "Supprimer la session",
+    "messagesCount": "{{count}} messages",
+    "noModel": "Sélectionner un modèle",
+    "inputDisabled": {
+      "notConnected": "La passerelle n'est pas en cours d'exécution. Démarrez-la pour discuter.",
+      "noModel": "Aucun modèle par défaut configuré. Rendez-vous sur la page Modèles pour en définir un."
+    },
+    "sendMessage": "Envoyer le message",
+    "composeHint": "Entrée pour envoyer, Maj + Entrée pour une nouvelle ligne",
+    "contextTitle": "Contexte",
+    "contextDetail": "Voir les détails",
+    "contextCompressAt": "Compresser à",
+    "contextSummarizeAt": "Résumer à",
+    "attachImage": "Ajouter des images",
+    "dropImagesActive": "Relâchez pour ajouter des images",
+    "removeImage": "Retirer l'image",
+    "uploadedImage": "Image jointe",
+    "invalidImage": "« {{name}} » n'est pas un fichier image pris en charge.",
+    "imageTooLarge": "« {{name}} » dépasse la limite de {{size}}.",
+    "imageReadFailed": "Impossible de lire « {{name}} ».",
+    "empty": {
+      "noConfiguredModel": "Aucun modèle configuré",
+      "noConfiguredModelDescription": "Vous devez configurer au moins un modèle d'IA avec une clé d'API avant de pouvoir discuter.",
+      "goToModels": "Aller aux modèles",
+      "noSelectedModel": "Aucun modèle sélectionné",
+      "noSelectedModelDescription": "Des modèles sont configurés, mais aucun n'est défini par défaut. Sélectionnez-en un avant de commencer.",
+      "notRunning": "Passerelle à l'arrêt",
+      "notRunningDescription": "Démarrez le service de passerelle pour commencer à discuter. Utilisez le bouton « Démarrer la passerelle » en haut."
+    },
+    "modelGroup": {
+      "apikey": "Clé d'API",
+      "oauth": "OAuth",
+      "local": "Local"
+    },
+    "downloadFile": "Télécharger le fichier"
   }
 }

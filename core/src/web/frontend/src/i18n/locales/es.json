@@ -485,5 +485,91 @@
       "manualOnlyTitle": "Configuración manual",
       "manualOnlyBody": "La creación del bot con un toque no está disponible en esta versión, así que Telegram se configura con un token de BotFather. Pega el token abajo y guarda."
     }
+  },
+  "chat": {
+    "welcome": "¿En qué puedo ayudarte hoy?",
+    "welcomeDesc": "Pregúntame sobre el tiempo, la configuración o cualquier otra tarea. Estoy aquí para ayudarte.",
+    "placeholder": "Escribe un mensaje nuevo...",
+    "disabledPlaceholder": {
+      "gatewayUnknown": "No se puede chatear: aún se está comprobando el estado de la puerta de enlace. Espera y luego actualiza la página o reinicia el lanzador si hace falta.",
+      "gatewayStarting": "No se puede chatear: la puerta de enlace se está iniciando. Espera a que termine y vuelve a intentarlo.",
+      "gatewayRestarting": "No se puede chatear: la puerta de enlace se está reiniciando. Espera a que finalice.",
+      "gatewayStopping": "No se puede chatear: la puerta de enlace se está deteniendo. Espera a que se detenga y vuelve a iniciarla.",
+      "gatewayStopped": "No se puede chatear: la puerta de enlace no está iniciada. Pulsa «Iniciar puerta de enlace» en la barra superior y vuelve a intentarlo.",
+      "gatewayError": "No se puede chatear: la puerta de enlace está en estado de error. Revisa los registros y reinicia la puerta de enlace o el lanzador.",
+      "websocketConnecting": "Conectando con el servicio de chat... Espera un momento.",
+      "websocketDisconnected": "No se puede chatear: la conexión WebSocket está desconectada. Comprueba la red y el estado de la puerta de enlace, y actualiza la página o reinicia el lanzador.",
+      "websocketError": "No se puede chatear: falló la conexión WebSocket. Comprueba la red y el estado de la puerta de enlace y reinténtalo.",
+      "noDefaultModel": "No se puede chatear: no hay un modelo predeterminado. Establece uno en la página de modelos."
+    },
+    "newChat": "Nuevo chat",
+    "notConnected": "La puerta de enlace no está en ejecución. Iníciala para chatear.",
+    "thinking": {
+      "step1": "Pensando...",
+      "step2": "Analizando tu solicitud...",
+      "step3": "Preparando la respuesta...",
+      "step4": "Casi listo..."
+    },
+    "reasoningLabel": "Razonamiento",
+    "toolCallsLabel": "Llamadas a herramientas",
+    "toolCallExplanationLabel": "Nota de la llamada",
+    "toolCallFunctionLabel": "Resumen de la llamada",
+    "toolCallArgumentsLabel": "Argumentos",
+    "showAssistantDetails": "Razonamiento y llamadas a herramientas",
+    "assistantDetailVisibility": {
+      "none": "No mostrar ninguno",
+      "thought": "Mostrar solo el razonamiento",
+      "toolCalls": "Mostrar solo las llamadas a herramientas",
+      "all": "Mostrar ambos"
+    },
+    "toolLabel": "Herramienta",
+    "codeLabel": "Código",
+    "copyMessage": "Copiar mensaje",
+    "copyCode": "Copiar código",
+    "copiedLabel": "Copiado",
+    "enableCodeWrap": "Ajustar líneas",
+    "disableCodeWrap": "Desactivar ajuste",
+    "expandCode": "Expandir código",
+    "collapseCode": "Contraer código",
+    "history": "Historial",
+    "noHistory": "Aún no hay historial de chat",
+    "historyLoadFailed": "No se pudo cargar el historial de chat",
+    "historyOpenFailed": "No se pudo abrir este historial de chat",
+    "loadingMore": "Cargando más...",
+    "deleteSession": "Eliminar sesión",
+    "messagesCount": "{{count}} mensajes",
+    "noModel": "Seleccionar modelo",
+    "inputDisabled": {
+      "notConnected": "La puerta de enlace no está en ejecución. Iníciala para chatear.",
+      "noModel": "No hay un modelo predeterminado configurado. Ve a la página de modelos para establecer uno."
+    },
+    "sendMessage": "Enviar mensaje",
+    "composeHint": "Pulsa Intro para enviar, Mayús + Intro para una nueva línea",
+    "contextTitle": "Contexto",
+    "contextDetail": "Ver detalles",
+    "contextCompressAt": "Comprimir en",
+    "contextSummarizeAt": "Resumir en",
+    "attachImage": "Añadir imágenes",
+    "dropImagesActive": "Suelta para añadir imágenes",
+    "removeImage": "Quitar imagen",
+    "uploadedImage": "Imagen adjunta",
+    "invalidImage": "«{{name}}» no es un archivo de imagen compatible.",
+    "imageTooLarge": "«{{name}}» supera el límite de {{size}}.",
+    "imageReadFailed": "No se pudo leer «{{name}}».",
+    "empty": {
+      "noConfiguredModel": "Ningún modelo configurado",
+      "noConfiguredModelDescription": "Debes configurar al menos un modelo de IA con una clave de API antes de poder chatear.",
+      "goToModels": "Ir a Modelos",
+      "noSelectedModel": "Ningún modelo seleccionado",
+      "noSelectedModelDescription": "Tienes modelos configurados, pero ninguno está establecido como predeterminado. Selecciona uno antes de chatear.",
+      "notRunning": "La puerta de enlace no está en ejecución",
+      "notRunningDescription": "Inicia el servicio de la puerta de enlace para empezar a chatear. Usa el botón «Iniciar puerta de enlace» de la barra superior."
+    },
+    "modelGroup": {
+      "apikey": "Clave de API",
+      "oauth": "OAuth",
+      "local": "Local"
+    },
+    "downloadFile": "Descargar archivo"
   }
 }

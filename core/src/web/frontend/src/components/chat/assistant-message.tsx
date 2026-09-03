@@ -265,7 +265,7 @@ export function AssistantMessage({
             >
               <img
                 src={attachment.url}
-                alt={attachment.filename || "Attached image"}
+                alt={attachment.filename || t("chat.uploadedImage")}
                 className="max-h-80 max-w-[280px] object-contain transition-transform duration-300 group-hover/img:scale-[1.02]"
               />
               <div className="absolute inset-0 bg-black/0 transition-colors group-hover/img:bg-black/10 dark:group-hover/img:bg-black/20" />
@@ -288,7 +288,7 @@ export function AssistantMessage({
               </div>
               <div className="flex min-w-0 flex-1 flex-col pr-1">
                 <span className="text-foreground/90 truncate text-[14px] leading-tight font-medium transition-colors group-hover/file:text-violet-600 dark:group-hover/file:text-violet-400">
-                  {attachment.filename || "Download file"}
+                  {attachment.filename || t("chat.downloadFile")}
                 </span>
                 <span className="text-muted-foreground/70 mt-1 text-[12px] font-medium">
                   {attachment.filename?.split(".").pop()?.toUpperCase() ||

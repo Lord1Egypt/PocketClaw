@@ -485,5 +485,91 @@
       "manualOnlyTitle": "Manuelle Einrichtung",
       "manualOnlyBody": "Die Bot-Erstellung mit einem Tippen ist in diesem Build nicht verfügbar, daher wird Telegram mit einem BotFather-Token eingerichtet. Fügen Sie das Token unten ein und speichern Sie."
     }
+  },
+  "chat": {
+    "welcome": "Wie kann ich Ihnen heute helfen?",
+    "welcomeDesc": "Fragen Sie mich nach Wetter, Einstellungen oder anderen Aufgaben. Ich helfe Ihnen gern.",
+    "placeholder": "Neue Nachricht schreiben ...",
+    "disabledPlaceholder": {
+      "gatewayUnknown": "Chat nicht möglich: Der Gateway-Status wird noch geprüft. Bitte warten Sie und aktualisieren Sie dann die Seite oder starten Sie bei Bedarf den Launcher neu.",
+      "gatewayStarting": "Chat nicht möglich: Das Gateway startet gerade. Warten Sie den Start ab und versuchen Sie es erneut.",
+      "gatewayRestarting": "Chat nicht möglich: Das Gateway wird neu gestartet. Bitte warten Sie, bis der Neustart abgeschlossen ist.",
+      "gatewayStopping": "Chat nicht möglich: Das Gateway wird gestoppt. Warten Sie, bis es steht, und starten Sie es dann erneut.",
+      "gatewayStopped": "Chat nicht möglich: Das Gateway ist nicht gestartet. Klicken Sie oben auf „Gateway starten“ und versuchen Sie es erneut.",
+      "gatewayError": "Chat nicht möglich: Das Gateway befindet sich in einem Fehlerzustand. Prüfen Sie die Protokolle und starten Sie Gateway oder Launcher neu.",
+      "websocketConnecting": "Verbindung zum Chatdienst wird hergestellt ... Bitte warten.",
+      "websocketDisconnected": "Chat nicht möglich: Die WebSocket-Verbindung ist getrennt. Prüfen Sie Netzwerk und Gateway-Status, aktualisieren Sie dann die Seite oder starten Sie den Launcher neu.",
+      "websocketError": "Chat nicht möglich: Die WebSocket-Verbindung ist fehlgeschlagen. Prüfen Sie Netzwerk und Gateway-Status und versuchen Sie es erneut.",
+      "noDefaultModel": "Chat nicht möglich: Es ist kein Standardmodell ausgewählt. Legen Sie auf der Seite „Modelle“ ein Standardmodell fest."
+    },
+    "newChat": "Neuer Chat",
+    "notConnected": "Das Gateway läuft nicht. Starten Sie es, um zu chatten.",
+    "thinking": {
+      "step1": "Denkt nach ...",
+      "step2": "Ihre Anfrage wird analysiert ...",
+      "step3": "Antwort wird vorbereitet ...",
+      "step4": "Fast fertig ..."
+    },
+    "reasoningLabel": "Begründung",
+    "toolCallsLabel": "Tool-Aufrufe",
+    "toolCallExplanationLabel": "Aufrufhinweis",
+    "toolCallFunctionLabel": "Aufrufübersicht",
+    "toolCallArgumentsLabel": "Argumente",
+    "showAssistantDetails": "Begründung und Tool-Aufrufe",
+    "assistantDetailVisibility": {
+      "none": "Keines von beidem anzeigen",
+      "thought": "Nur Begründung anzeigen",
+      "toolCalls": "Nur Tool-Aufrufe anzeigen",
+      "all": "Beides anzeigen"
+    },
+    "toolLabel": "Werkzeug",
+    "codeLabel": "Code",
+    "copyMessage": "Nachricht kopieren",
+    "copyCode": "Code kopieren",
+    "copiedLabel": "Kopiert",
+    "enableCodeWrap": "Zeilen umbrechen",
+    "disableCodeWrap": "Umbruch deaktivieren",
+    "expandCode": "Code ausklappen",
+    "collapseCode": "Code einklappen",
+    "history": "Verlauf",
+    "noHistory": "Noch kein Chatverlauf",
+    "historyLoadFailed": "Chatverlauf konnte nicht geladen werden",
+    "historyOpenFailed": "Dieser Chatverlauf konnte nicht geöffnet werden",
+    "loadingMore": "Weitere werden geladen ...",
+    "deleteSession": "Sitzung löschen",
+    "messagesCount": "{{count}} Nachrichten",
+    "noModel": "Modell auswählen",
+    "inputDisabled": {
+      "notConnected": "Das Gateway läuft nicht. Starten Sie es, um zu chatten.",
+      "noModel": "Kein Standardmodell konfiguriert. Legen Sie auf der Seite „Modelle“ eines fest."
+    },
+    "sendMessage": "Nachricht senden",
+    "composeHint": "Enter zum Senden, Umschalt + Enter für eine neue Zeile",
+    "contextTitle": "Kontext",
+    "contextDetail": "Details anzeigen",
+    "contextCompressAt": "Komprimieren bei",
+    "contextSummarizeAt": "Zusammenfassen bei",
+    "attachImage": "Bilder hinzufügen",
+    "dropImagesActive": "Loslassen, um Bilder hinzuzufügen",
+    "removeImage": "Bild entfernen",
+    "uploadedImage": "Angehängtes Bild",
+    "invalidImage": "„{{name}}“ ist keine unterstützte Bilddatei.",
+    "imageTooLarge": "„{{name}}“ überschreitet das Limit von {{size}}.",
+    "imageReadFailed": "„{{name}}“ konnte nicht gelesen werden.",
+    "empty": {
+      "noConfiguredModel": "Kein Modell konfiguriert",
+      "noConfiguredModelDescription": "Sie müssen mindestens ein KI-Modell mit einem API-Schlüssel konfigurieren, bevor Sie chatten können.",
+      "goToModels": "Zu den Modellen",
+      "noSelectedModel": "Kein Modell ausgewählt",
+      "noSelectedModelDescription": "Es sind Modelle konfiguriert, aber keines ist als Standard festgelegt. Wählen Sie eines aus, bevor Sie chatten.",
+      "notRunning": "Gateway läuft nicht",
+      "notRunningDescription": "Starten Sie den Gateway-Dienst, um zu chatten. Nutzen Sie oben die Schaltfläche „Gateway starten“."
+    },
+    "modelGroup": {
+      "apikey": "API-Schlüssel",
+      "oauth": "OAuth",
+      "local": "Lokal"
+    },
+    "downloadFile": "Datei herunterladen"
   }
 }

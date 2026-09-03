@@ -485,5 +485,91 @@
       "manualOnlyTitle": "수동 설정",
       "manualOnlyBody": "이 빌드에서는 한 번에 봇을 만드는 기능을 사용할 수 없으므로 BotFather의 봇 토큰으로 Telegram을 설정합니다. 아래에 토큰을 붙여 넣고 저장하세요."
     }
+  },
+  "chat": {
+    "welcome": "오늘 무엇을 도와드릴까요?",
+    "welcomeDesc": "날씨, 설정 등 무엇이든 물어보세요. 도와드리겠습니다.",
+    "placeholder": "새 메시지 입력...",
+    "disabledPlaceholder": {
+      "gatewayUnknown": "채팅할 수 없습니다: 게이트웨이 상태를 확인하는 중입니다. 잠시 기다린 뒤 페이지를 새로 고치거나 필요하면 런처를 다시 시작하세요.",
+      "gatewayStarting": "채팅할 수 없습니다: 게이트웨이가 시작 중입니다. 시작이 끝난 뒤 다시 시도하세요.",
+      "gatewayRestarting": "채팅할 수 없습니다: 게이트웨이가 재시작 중입니다. 완료될 때까지 기다려 주세요.",
+      "gatewayStopping": "채팅할 수 없습니다: 게이트웨이가 중지 중입니다. 중지된 뒤 다시 시작하세요.",
+      "gatewayStopped": "채팅할 수 없습니다: 게이트웨이가 시작되지 않았습니다. 상단 바에서 게이트웨이 시작을 클릭한 뒤 다시 시도하세요.",
+      "gatewayError": "채팅할 수 없습니다: 게이트웨이가 오류 상태입니다. 로그를 확인한 뒤 게이트웨이나 런처를 다시 시작하세요.",
+      "websocketConnecting": "채팅 서비스에 연결하는 중입니다... 잠시 기다려 주세요.",
+      "websocketDisconnected": "채팅할 수 없습니다: WebSocket 연결이 끊어졌습니다. 네트워크와 게이트웨이 상태를 확인한 뒤 페이지를 새로 고치거나 런처를 다시 시작하세요.",
+      "websocketError": "채팅할 수 없습니다: WebSocket 연결에 실패했습니다. 네트워크와 게이트웨이 상태를 확인한 뒤 다시 시도하세요.",
+      "noDefaultModel": "채팅할 수 없습니다: 기본 모델이 선택되지 않았습니다. 모델 페이지에서 기본 모델을 설정하세요."
+    },
+    "newChat": "새 채팅",
+    "notConnected": "게이트웨이가 실행 중이 아닙니다. 채팅하려면 시작하세요.",
+    "thinking": {
+      "step1": "생각하는 중...",
+      "step2": "요청을 분석하는 중...",
+      "step3": "응답을 준비하는 중...",
+      "step4": "거의 다 됐습니다..."
+    },
+    "reasoningLabel": "추론",
+    "toolCallsLabel": "도구 호출",
+    "toolCallExplanationLabel": "호출 메모",
+    "toolCallFunctionLabel": "호출 요약",
+    "toolCallArgumentsLabel": "인수",
+    "showAssistantDetails": "추론 및 도구 호출",
+    "assistantDetailVisibility": {
+      "none": "모두 표시하지 않음",
+      "thought": "추론만 표시",
+      "toolCalls": "도구 호출만 표시",
+      "all": "모두 표시"
+    },
+    "toolLabel": "도구",
+    "codeLabel": "코드",
+    "copyMessage": "메시지 복사",
+    "copyCode": "코드 복사",
+    "copiedLabel": "복사됨",
+    "enableCodeWrap": "줄 바꿈",
+    "disableCodeWrap": "줄 바꿈 해제",
+    "expandCode": "코드 펼치기",
+    "collapseCode": "코드 접기",
+    "history": "기록",
+    "noHistory": "아직 채팅 기록이 없습니다",
+    "historyLoadFailed": "채팅 기록을 불러오지 못했습니다",
+    "historyOpenFailed": "이 채팅 기록을 열지 못했습니다",
+    "loadingMore": "더 불러오는 중...",
+    "deleteSession": "세션 삭제",
+    "messagesCount": "메시지 {{count}}개",
+    "noModel": "모델 선택",
+    "inputDisabled": {
+      "notConnected": "게이트웨이가 실행 중이 아닙니다. 채팅하려면 시작하세요.",
+      "noModel": "기본 모델이 구성되지 않았습니다. 모델 페이지에서 설정하세요."
+    },
+    "sendMessage": "메시지 보내기",
+    "composeHint": "Enter로 전송, Shift + Enter로 줄 바꿈",
+    "contextTitle": "컨텍스트",
+    "contextDetail": "세부 정보 보기",
+    "contextCompressAt": "압축 기준",
+    "contextSummarizeAt": "요약 기준",
+    "attachImage": "이미지 추가",
+    "dropImagesActive": "놓으면 이미지가 추가됩니다",
+    "removeImage": "이미지 제거",
+    "uploadedImage": "첨부된 이미지",
+    "invalidImage": "\"{{name}}\"은(는) 지원되지 않는 이미지 파일입니다.",
+    "imageTooLarge": "\"{{name}}\"이(가) {{size}} 제한을 초과합니다.",
+    "imageReadFailed": "\"{{name}}\"을(를) 읽지 못했습니다.",
+    "empty": {
+      "noConfiguredModel": "구성된 모델 없음",
+      "noConfiguredModelDescription": "채팅을 시작하려면 API 키가 설정된 AI 모델이 하나 이상 필요합니다.",
+      "goToModels": "모델로 이동",
+      "noSelectedModel": "선택된 모델 없음",
+      "noSelectedModelDescription": "모델은 구성되어 있지만 기본으로 지정된 것이 없습니다. 채팅을 시작하기 전에 모델을 선택하세요.",
+      "notRunning": "게이트웨이가 실행 중이 아님",
+      "notRunningDescription": "채팅을 시작하려면 게이트웨이 서비스를 시작하세요. 상단 바의 게이트웨이 시작 버튼을 사용합니다."
+    },
+    "modelGroup": {
+      "apikey": "API 키",
+      "oauth": "OAuth",
+      "local": "로컬"
+    },
+    "downloadFile": "파일 다운로드"
   }
 }

@@ -485,5 +485,91 @@
       "manualOnlyTitle": "Pengaturan manual",
       "manualOnlyBody": "Pembuatan bot sekali ketuk tidak tersedia pada build ini, jadi Telegram disiapkan dengan token bot dari BotFather. Tempel token di bawah lalu simpan."
     }
+  },
+  "chat": {
+    "welcome": "Ada yang bisa saya bantu hari ini?",
+    "welcomeDesc": "Tanyakan tentang cuaca, pengaturan, atau tugas lainnya. Saya siap membantu.",
+    "placeholder": "Tulis pesan baru...",
+    "disabledPlaceholder": {
+      "gatewayUnknown": "Tidak dapat mengobrol: status gateway masih diperiksa. Harap tunggu, lalu segarkan halaman atau mulai ulang peluncur bila perlu.",
+      "gatewayStarting": "Tidak dapat mengobrol: gateway sedang dijalankan. Tunggu hingga selesai, lalu coba lagi.",
+      "gatewayRestarting": "Tidak dapat mengobrol: gateway sedang dimulai ulang. Harap tunggu hingga selesai.",
+      "gatewayStopping": "Tidak dapat mengobrol: gateway sedang dihentikan. Tunggu hingga berhenti, lalu jalankan lagi.",
+      "gatewayStopped": "Tidak dapat mengobrol: gateway belum dijalankan. Klik Mulai Gateway di bilah atas, lalu coba lagi.",
+      "gatewayError": "Tidak dapat mengobrol: gateway dalam keadaan error. Periksa log, lalu mulai ulang gateway atau peluncur.",
+      "websocketConnecting": "Menghubungkan ke layanan obrolan... Harap tunggu.",
+      "websocketDisconnected": "Tidak dapat mengobrol: koneksi WebSocket terputus. Periksa jaringan dan status gateway, lalu segarkan halaman atau mulai ulang peluncur.",
+      "websocketError": "Tidak dapat mengobrol: koneksi WebSocket gagal. Periksa jaringan dan status gateway, lalu coba lagi.",
+      "noDefaultModel": "Tidak dapat mengobrol: belum ada model default. Tetapkan model default di halaman Model."
+    },
+    "newChat": "Obrolan Baru",
+    "notConnected": "Gateway tidak berjalan. Jalankan untuk mulai mengobrol.",
+    "thinking": {
+      "step1": "Berpikir...",
+      "step2": "Menganalisis permintaan Anda...",
+      "step3": "Menyiapkan jawaban...",
+      "step4": "Hampir selesai..."
+    },
+    "reasoningLabel": "Penalaran",
+    "toolCallsLabel": "Panggilan alat",
+    "toolCallExplanationLabel": "Catatan panggilan",
+    "toolCallFunctionLabel": "Ringkasan panggilan",
+    "toolCallArgumentsLabel": "Argumen",
+    "showAssistantDetails": "Penalaran dan panggilan alat",
+    "assistantDetailVisibility": {
+      "none": "Jangan tampilkan keduanya",
+      "thought": "Tampilkan penalaran saja",
+      "toolCalls": "Tampilkan panggilan alat saja",
+      "all": "Tampilkan keduanya"
+    },
+    "toolLabel": "Alat",
+    "codeLabel": "Kode",
+    "copyMessage": "Salin pesan",
+    "copyCode": "Salin kode",
+    "copiedLabel": "Tersalin",
+    "enableCodeWrap": "Bungkus baris",
+    "disableCodeWrap": "Matikan pembungkusan",
+    "expandCode": "Perluas kode",
+    "collapseCode": "Ciutkan kode",
+    "history": "Riwayat",
+    "noHistory": "Belum ada riwayat obrolan",
+    "historyLoadFailed": "Gagal memuat riwayat obrolan",
+    "historyOpenFailed": "Gagal membuka riwayat obrolan ini",
+    "loadingMore": "Memuat lebih banyak...",
+    "deleteSession": "Hapus sesi",
+    "messagesCount": "{{count}} pesan",
+    "noModel": "Pilih model",
+    "inputDisabled": {
+      "notConnected": "Gateway tidak berjalan. Jalankan untuk mulai mengobrol.",
+      "noModel": "Belum ada model default. Buka halaman Model untuk menetapkannya."
+    },
+    "sendMessage": "Kirim pesan",
+    "composeHint": "Tekan Enter untuk mengirim, Shift + Enter untuk baris baru",
+    "contextTitle": "Konteks",
+    "contextDetail": "Lihat Detail",
+    "contextCompressAt": "Kompres pada",
+    "contextSummarizeAt": "Ringkas pada",
+    "attachImage": "Tambah gambar",
+    "dropImagesActive": "Lepaskan untuk menambah gambar",
+    "removeImage": "Hapus gambar",
+    "uploadedImage": "Gambar terlampir",
+    "invalidImage": "\"{{name}}\" bukan berkas gambar yang didukung.",
+    "imageTooLarge": "\"{{name}}\" melebihi batas {{size}}.",
+    "imageReadFailed": "Gagal membaca \"{{name}}\".",
+    "empty": {
+      "noConfiguredModel": "Belum Ada Model",
+      "noConfiguredModelDescription": "Anda perlu mengonfigurasi setidaknya satu model AI dengan kunci API sebelum dapat mulai mengobrol.",
+      "goToModels": "Buka Model",
+      "noSelectedModel": "Belum Ada Model Dipilih",
+      "noSelectedModelDescription": "Model sudah dikonfigurasi, tetapi belum ada yang menjadi default. Pilih model sebelum mulai mengobrol.",
+      "notRunning": "Gateway Tidak Berjalan",
+      "notRunningDescription": "Jalankan layanan gateway untuk mulai mengobrol. Gunakan tombol Mulai Gateway di bilah atas."
+    },
+    "modelGroup": {
+      "apikey": "Kunci API",
+      "oauth": "OAuth",
+      "local": "Lokal"
+    },
+    "downloadFile": "Unduh berkas"
   }
 }

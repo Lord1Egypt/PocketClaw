@@ -485,5 +485,91 @@
       "manualOnlyTitle": "إعداد يدوي",
       "manualOnlyBody": "إنشاء الروبوت بنقرة واحدة غير متاح في هذه النسخة، لذا يُعد تيليجرام برمز روبوت من BotFather. الصق الرمز أدناه واحفظ."
     }
+  },
+  "chat": {
+    "welcome": "كيف يمكنني مساعدتك اليوم؟",
+    "welcomeDesc": "اسألني عن الطقس أو الإعدادات أو أي مهمة أخرى. أنا هنا لمساعدتك.",
+    "placeholder": "ابدأ رسالة جديدة...",
+    "disabledPlaceholder": {
+      "gatewayUnknown": "تعذّرت الدردشة: ما زال يجري التحقق من حالة البوابة. انتظر قليلًا ثم حدّث الصفحة أو أعد تشغيل المشغّل عند الحاجة.",
+      "gatewayStarting": "تعذّرت الدردشة: البوابة قيد البدء. انتظر اكتمال التشغيل ثم حاول مجددًا.",
+      "gatewayRestarting": "تعذّرت الدردشة: البوابة قيد إعادة التشغيل. انتظر حتى تكتمل.",
+      "gatewayStopping": "تعذّرت الدردشة: البوابة قيد الإيقاف. انتظر توقفها ثم شغّلها من جديد.",
+      "gatewayStopped": "تعذّرت الدردشة: البوابة غير مُشغّلة. انقر تشغيل البوابة في الشريط العلوي ثم أعد المحاولة.",
+      "gatewayError": "تعذّرت الدردشة: البوابة في حالة خطأ. راجع السجلات ثم أعد تشغيل البوابة أو المشغّل.",
+      "websocketConnecting": "جارٍ الاتصال بخدمة الدردشة... يرجى الانتظار.",
+      "websocketDisconnected": "تعذّرت الدردشة: انقطع اتصال WebSocket. تحقق من الشبكة وحالة البوابة ثم حدّث الصفحة أو أعد تشغيل المشغّل.",
+      "websocketError": "تعذّرت الدردشة: فشل اتصال WebSocket. تحقق من الشبكة وحالة البوابة ثم أعد المحاولة.",
+      "noDefaultModel": "تعذّرت الدردشة: لم يُحدَّد موديل افتراضي. عيّن موديلًا افتراضيًا من صفحة الموديلات."
+    },
+    "newChat": "دردشة جديدة",
+    "notConnected": "البوابة غير مشغّلة. شغّلها لبدء الدردشة.",
+    "thinking": {
+      "step1": "جارٍ التفكير...",
+      "step2": "جارٍ تحليل طلبك...",
+      "step3": "جارٍ تحضير الرد...",
+      "step4": "أوشكنا على الانتهاء..."
+    },
+    "reasoningLabel": "الاستدلال",
+    "toolCallsLabel": "استدعاءات الأدوات",
+    "toolCallExplanationLabel": "ملاحظة الاستدعاء",
+    "toolCallFunctionLabel": "ملخّص الاستدعاء",
+    "toolCallArgumentsLabel": "المعاملات",
+    "showAssistantDetails": "الاستدلال واستدعاءات الأدوات",
+    "assistantDetailVisibility": {
+      "none": "عدم إظهار أي منهما",
+      "thought": "إظهار الاستدلال فقط",
+      "toolCalls": "إظهار استدعاءات الأدوات فقط",
+      "all": "إظهار كليهما"
+    },
+    "toolLabel": "أداة",
+    "codeLabel": "كود",
+    "copyMessage": "نسخ الرسالة",
+    "copyCode": "نسخ الكود",
+    "copiedLabel": "تم النسخ",
+    "enableCodeWrap": "التفاف الأسطر",
+    "disableCodeWrap": "إيقاف الالتفاف",
+    "expandCode": "توسيع الكود",
+    "collapseCode": "طيّ الكود",
+    "history": "السجل",
+    "noHistory": "لا يوجد سجل دردشة بعد",
+    "historyLoadFailed": "تعذّر تحميل سجل الدردشة",
+    "historyOpenFailed": "تعذّر فتح سجل الدردشة هذا",
+    "loadingMore": "جارٍ تحميل المزيد...",
+    "deleteSession": "حذف الجلسة",
+    "messagesCount": "{{count}} رسالة",
+    "noModel": "اختر موديلًا",
+    "inputDisabled": {
+      "notConnected": "البوابة غير مشغّلة. شغّلها لبدء الدردشة.",
+      "noModel": "لا يوجد موديل افتراضي مُعَد. اذهب إلى صفحة الموديلات لتعيين واحد."
+    },
+    "sendMessage": "إرسال الرسالة",
+    "composeHint": "اضغط Enter للإرسال، وShift + Enter لسطر جديد",
+    "contextTitle": "السياق",
+    "contextDetail": "عرض التفاصيل",
+    "contextCompressAt": "الضغط عند",
+    "contextSummarizeAt": "التلخيص عند",
+    "attachImage": "إضافة صور",
+    "dropImagesActive": "أفلت لإضافة الصور",
+    "removeImage": "إزالة الصورة",
+    "uploadedImage": "صورة مرفقة",
+    "invalidImage": "\"{{name}}\" ليس ملف صورة مدعومًا.",
+    "imageTooLarge": "\"{{name}}\" يتجاوز الحد {{size}}.",
+    "imageReadFailed": "تعذّرت قراءة \"{{name}}\".",
+    "empty": {
+      "noConfiguredModel": "لا يوجد موديل مُعَد",
+      "noConfiguredModelDescription": "تحتاج إلى إعداد موديل ذكاء اصطناعي واحد على الأقل بمفتاح API قبل أن تتمكن من بدء الدردشة.",
+      "goToModels": "الذهاب إلى الموديلات",
+      "noSelectedModel": "لم يُحدَّد موديل",
+      "noSelectedModelDescription": "لديك موديلات مُعدّة، لكن لم يُعيَّن أي منها كافتراضي. اختر موديلًا قبل بدء الدردشة.",
+      "notRunning": "البوابة غير مشغّلة",
+      "notRunningDescription": "شغّل خدمة البوابة لبدء الدردشة. استخدم زر تشغيل البوابة في الشريط العلوي."
+    },
+    "modelGroup": {
+      "apikey": "مفتاح API",
+      "oauth": "OAuth",
+      "local": "محلي"
+    },
+    "downloadFile": "تنزيل الملف"
   }
 }

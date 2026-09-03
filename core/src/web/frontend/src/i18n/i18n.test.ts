@@ -151,6 +151,7 @@ describe("translation coverage", () => {
     // falling back to English.
     "models",
     "channels",
+    "chat",
   ] as const
 
   const bundles: Record<string, unknown> = {
@@ -212,6 +213,10 @@ describe("translation coverage", () => {
     "channels.name.mqtt",
     // "text" is the wire field name in the MQTT payload, not prose.
     "channels.mqtt.fieldText",
+    // OAuth is a protocol name. Arabic, Hindi, Japanese, Korean and Russian
+    // technical interfaces all write it "OAuth"; transliterating it would be
+    // less recognisable, not more localized.
+    "chat.modelGroup.oauth",
   ])
 
   // Latin-script languages legitimately share loanwords with English — German
@@ -393,6 +398,100 @@ describe("Channels / Telegram route body", () => {
       await i18n.changeLanguage(locale)
       expect(i18n.t("channels.name.telegram"), locale).toBe("Telegram")
       expect(i18n.t("channels.name.matrix"), locale).toBe("Matrix")
+    }
+  })
+})
+
+describe("Chat route body", () => {
+  const CHAT_LOCALES = [
+    "ar",
+    "de",
+    "es",
+    "fr",
+    "hi",
+    "id",
+    "ja",
+    "ko",
+    "ru",
+  ] as const
+
+  // Body prose, an action control and a status/empty state — not nav.chat.
+  it("renders translated Chat body, actions and states in every locale", async () => {
+    const welcome: Record<string, string> = {
+      ar: "كيف يمكنني مساعدتك اليوم؟",
+      de: "Wie kann ich Ihnen heute helfen?",
+      es: "¿En qué puedo ayudarte hoy?",
+      fr: "Comment puis-je vous aider aujourd'hui ?",
+      hi: "आज मैं आपकी क्या मदद कर सकता हूँ?",
+      id: "Ada yang bisa saya bantu hari ini?",
+      ja: "今日はどのようなご用件でしょうか？",
+      ko: "오늘 무엇을 도와드릴까요?",
+      ru: "Чем я могу помочь сегодня?",
+    }
+
+    for (const locale of CHAT_LOCALES) {
+      await i18n.changeLanguage(locale)
+
+      // Page/body prose.
+      expect(i18n.t("chat.welcome"), locale).toBe(welcome[locale])
+      expect(i18n.t("chat.welcomeDesc"), locale).not.toBe(
+        "Ask me about weather, settings, or any other tasks. I'm here to assist you.",
+      )
+
+      // Input and action controls.
+      expect(i18n.t("chat.placeholder"), locale).not.toBe(
+        "Start a new message...",
+      )
+      expect(i18n.t("chat.sendMessage"), locale).not.toBe("Send message")
+      expect(i18n.t("chat.newChat"), locale).not.toBe("New Chat")
+
+      // Status, error and empty states.
+      expect(i18n.t("chat.thinking.step1"), locale).not.toBe("Thinking...")
+      expect(i18n.t("chat.historyLoadFailed"), locale).not.toBe(
+        "Failed to load chat history",
+      )
+      expect(i18n.t("chat.noHistory"), locale).not.toBe("No chat history yet")
+      expect(i18n.t("chat.empty.notRunning"), locale).not.toBe(
+        "Gateway Not Running",
+      )
+      expect(i18n.t("chat.disabledPlaceholder.gatewayStopped"), locale).not.toBe(
+        "Unable to chat: Gateway is not started. Click Start Gateway in the top bar, then retry.",
+      )
+    }
+  })
+
+  it("keeps Arabic Chat right-to-left with a translated body", async () => {
+    await i18n.changeLanguage("ar")
+    expect(i18n.dir()).toBe("rtl")
+    expect(document.documentElement.getAttribute("dir")).toBe("rtl")
+    expect(i18n.t("chat.newChat")).toBe("دردشة جديدة")
+    expect(i18n.t("chat.empty.noSelectedModel")).toBe("لم يُحدَّد موديل")
+  })
+
+  it("preserves Chat interpolation placeholders", async () => {
+    for (const locale of CHAT_LOCALES) {
+      await i18n.changeLanguage(locale)
+      expect(i18n.t("chat.messagesCount", { count: 12 }), locale).toContain("12")
+      expect(
+        i18n.t("chat.invalidImage", { name: "photo.heic" }),
+        locale,
+      ).toContain("photo.heic")
+      const tooLarge = i18n.t("chat.imageTooLarge", {
+        name: "photo.png",
+        size: "5 MB",
+      })
+      expect(tooLarge, locale).toContain("photo.png")
+      expect(tooLarge, locale).toContain("5 MB")
+    }
+  })
+
+  it("keeps English and the pre-existing locales intact for Chat", async () => {
+    await i18n.changeLanguage("en")
+    expect(i18n.t("chat.newChat")).toBe("New Chat")
+
+    for (const locale of ["pt", "zh"]) {
+      await i18n.changeLanguage(locale)
+      expect(i18n.t("chat.newChat"), locale).not.toBe("chat.newChat")
     }
   })
 })

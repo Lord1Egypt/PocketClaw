@@ -118,7 +118,8 @@
       "apikey": "API Key",
       "oauth": "OAuth",
       "local": "Local"
-    }
+    },
+    "downloadFile": "Download file"
   },
   "header": {
     "logout": {

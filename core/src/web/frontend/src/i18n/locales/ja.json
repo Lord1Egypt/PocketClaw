@@ -485,5 +485,91 @@
       "manualOnlyTitle": "手動セットアップ",
       "manualOnlyBody": "このビルドではワンタップでのボット作成が利用できないため、BotFather のボットトークンで Telegram を設定します。下にトークンを貼り付けて保存してください。"
     }
+  },
+  "chat": {
+    "welcome": "今日はどのようなご用件でしょうか？",
+    "welcomeDesc": "天気や設定、その他のタスクについてお気軽にお尋ねください。お手伝いします。",
+    "placeholder": "新しいメッセージを入力...",
+    "disabledPlaceholder": {
+      "gatewayUnknown": "チャットできません: ゲートウェイの状態を確認中です。しばらく待ってからページを更新するか、必要に応じてランチャーを再起動してください。",
+      "gatewayStarting": "チャットできません: ゲートウェイが起動中です。起動の完了を待ってから再度お試しください。",
+      "gatewayRestarting": "チャットできません: ゲートウェイを再起動しています。完了までお待ちください。",
+      "gatewayStopping": "チャットできません: ゲートウェイを停止しています。停止後にもう一度起動してください。",
+      "gatewayStopped": "チャットできません: ゲートウェイが起動していません。上部バーの「ゲートウェイを開始」をクリックして再試行してください。",
+      "gatewayError": "チャットできません: ゲートウェイがエラー状態です。ログを確認し、ゲートウェイまたはランチャーを再起動してください。",
+      "websocketConnecting": "チャットサービスに接続しています... しばらくお待ちください。",
+      "websocketDisconnected": "チャットできません: WebSocket 接続が切断されました。ネットワークとゲートウェイの状態を確認し、ページを更新するかランチャーを再起動してください。",
+      "websocketError": "チャットできません: WebSocket 接続に失敗しました。ネットワークとゲートウェイの状態を確認して再試行してください。",
+      "noDefaultModel": "チャットできません: 既定のモデルが選択されていません。モデルページで既定のモデルを設定してください。"
+    },
+    "newChat": "新しいチャット",
+    "notConnected": "ゲートウェイが起動していません。チャットするには起動してください。",
+    "thinking": {
+      "step1": "考えています...",
+      "step2": "リクエストを分析しています...",
+      "step3": "応答を準備しています...",
+      "step4": "もう少しです..."
+    },
+    "reasoningLabel": "推論",
+    "toolCallsLabel": "ツール呼び出し",
+    "toolCallExplanationLabel": "呼び出しメモ",
+    "toolCallFunctionLabel": "呼び出しの概要",
+    "toolCallArgumentsLabel": "引数",
+    "showAssistantDetails": "推論とツール呼び出し",
+    "assistantDetailVisibility": {
+      "none": "どちらも表示しない",
+      "thought": "推論のみ表示",
+      "toolCalls": "ツール呼び出しのみ表示",
+      "all": "両方表示"
+    },
+    "toolLabel": "ツール",
+    "codeLabel": "コード",
+    "copyMessage": "メッセージをコピー",
+    "copyCode": "コードをコピー",
+    "copiedLabel": "コピーしました",
+    "enableCodeWrap": "行を折り返す",
+    "disableCodeWrap": "折り返しを解除",
+    "expandCode": "コードを展開",
+    "collapseCode": "コードを折りたたむ",
+    "history": "履歴",
+    "noHistory": "チャット履歴はまだありません",
+    "historyLoadFailed": "チャット履歴を読み込めませんでした",
+    "historyOpenFailed": "このチャット履歴を開けませんでした",
+    "loadingMore": "さらに読み込んでいます...",
+    "deleteSession": "セッションを削除",
+    "messagesCount": "{{count}} 件のメッセージ",
+    "noModel": "モデルを選択",
+    "inputDisabled": {
+      "notConnected": "ゲートウェイが起動していません。チャットするには起動してください。",
+      "noModel": "既定のモデルが設定されていません。モデルページで設定してください。"
+    },
+    "sendMessage": "メッセージを送信",
+    "composeHint": "Enter で送信、Shift + Enter で改行",
+    "contextTitle": "コンテキスト",
+    "contextDetail": "詳細を表示",
+    "contextCompressAt": "圧縮のしきい値",
+    "contextSummarizeAt": "要約のしきい値",
+    "attachImage": "画像を追加",
+    "dropImagesActive": "ドロップして画像を追加",
+    "removeImage": "画像を削除",
+    "uploadedImage": "添付画像",
+    "invalidImage": "「{{name}}」はサポートされていない画像ファイルです。",
+    "imageTooLarge": "「{{name}}」は {{size}} の上限を超えています。",
+    "imageReadFailed": "「{{name}}」を読み込めませんでした。",
+    "empty": {
+      "noConfiguredModel": "モデルが未設定です",
+      "noConfiguredModelDescription": "チャットを始めるには、API キーを設定した AI モデルが少なくとも 1 つ必要です。",
+      "goToModels": "モデルページへ",
+      "noSelectedModel": "モデルが未選択です",
+      "noSelectedModelDescription": "モデルは設定済みですが、既定に指定されていません。チャットを始める前にモデルを選択してください。",
+      "notRunning": "ゲートウェイが停止しています",
+      "notRunningDescription": "チャットを始めるにはゲートウェイサービスを起動してください。上部バーの「ゲートウェイを開始」ボタンを使用します。"
+    },
+    "modelGroup": {
+      "apikey": "API キー",
+      "oauth": "OAuth",
+      "local": "ローカル"
+    },
+    "downloadFile": "ファイルをダウンロード"
   }
 }
