@@ -28,7 +28,7 @@ func (p *Pipeline) SetupTurn(ctx context.Context, ts *turnState) (*turnExecution
 			history = resp.History
 			summary = resp.Summary
 		}
-		history = ts.projectRecentContext(history, summary)
+		history = ts.projectRecentContext(ctx, p, history, summary)
 	}
 	ts.captureRestorePoint(history, summary)
 
@@ -71,7 +71,7 @@ func (p *Pipeline) SetupTurn(ctx context.Context, ts *turnState) (*turnExecution
 				history = resp.History
 				summary = resp.Summary
 			}
-			history = ts.projectRecentContext(history, summary)
+			history = ts.projectRecentContext(ctx, p, history, summary)
 			originalHistoryCount := len(history)
 			var fit bool
 			history, messages, fit = trimHistoryToFitContextWindow(

@@ -48,6 +48,11 @@ type CompactRequest struct {
 	SessionKey string                // session identifier
 	Reason     ContextCompressReason // proactive_budget | llm_retry | summarize
 	Budget     int                   // context window budget (used for retry aggressive compaction)
+	// MessageThreshold overrides the agent's SummarizeMessageThreshold for this
+	// request. The Telegram recent-context window uses it to keep summary
+	// coverage ahead of its own cutoff instead of waiting for the generic
+	// threshold. 0 means use the agent's configured threshold.
+	MessageThreshold int
 }
 
 // IngestRequest is the input to Ingest.

@@ -52,7 +52,7 @@ func (m *legacyContextManager) Compact(_ context.Context, req *CompactRequest) e
 			)
 		}
 	case ContextCompressReasonSummarize:
-		m.maybeSummarize(req.SessionKey)
+		m.maybeSummarize(req.SessionKey, req.MessageThreshold)
 	}
 	return nil
 }
@@ -72,19 +72,25 @@ func (m *legacyContextManager) Clear(_ context.Context, sessionKey string) error
 	return agent.Sessions.Save(sessionKey)
 }
 
-// maybeSummarize triggers summarization if the session history exceeds thresholds.
-// It runs asynchronously in a goroutine.
-func (m *legacyContextManager) maybeSummarize(sessionKey string) {
+// maybeSummarize triggers summarization when the session exceeds either the
+// message threshold or the token threshold. It runs asynchronously in a
+// goroutine. messageThreshold overrides the agent's configured message
+// threshold when positive.
+func (m *legacyContextManager) maybeSummarize(sessionKey string, messageThreshold int) {
 	agent := m.al.registry.GetDefaultAgent()
 	if agent == nil {
 		return
+	}
+
+	if messageThreshold <= 0 {
+		messageThreshold = agent.SummarizeMessageThreshold
 	}
 
 	newHistory := agent.Sessions.GetHistory(sessionKey)
 	tokenEstimate := m.estimateTokens(newHistory)
 	threshold := agent.ContextWindow * agent.SummarizeTokenPercent / 100
 
-	if len(newHistory) > agent.SummarizeMessageThreshold || tokenEstimate > threshold {
+	if len(newHistory) > messageThreshold || tokenEstimate > threshold {
 		summarizeKey := agent.ID + ":" + sessionKey
 		if _, loading := m.summarizing.LoadOrStore(summarizeKey, true); !loading {
 			go func() {

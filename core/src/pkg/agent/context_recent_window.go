@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"context"
 	"strings"
 
 	"github.com/sipeed/picoclaw/pkg/logger"
@@ -19,6 +20,17 @@ import (
 // `agents.defaults.telegram_recent_context_messages`; nothing in the context
 // engine needs to change for that.
 const DefaultTelegramRecentContextMessages = 15
+
+// uncoveredHoldFactor is how far past the window the history may grow while the
+// summarizer catches up.
+//
+// Summarization is asynchronous, so the turn that first exceeds the window
+// cannot have coverage yet. Holding for a bounded stretch lets the existing
+// summarizer land without losing anything; refusing to hold at all would drop
+// history nothing represents, and holding indefinitely would let a failed
+// summarizer grow the prompt without limit. Two windows is enough room for an
+// async summarization to complete across a burst, and is still bounded.
+const uncoveredHoldFactor = 2
 
 // recentContextLimit is the number of conversational messages this turn may
 // carry, or 0 for no limit.
@@ -108,6 +120,51 @@ func projectRecentHistory(
 	return history, 0
 }
 
+// summaryCoversEvicted reports whether the rolling summary already represents
+// the messages the window wants to drop.
+//
+// PocketClaw needs no watermark to answer this, because the two compaction
+// paths keep history and summary in step by construction. summarizeSession
+// writes the summary and truncates the history it summarized in one
+// all-or-nothing block, and forceCompression replaces summary and history
+// together. Whatever is still in the persisted history is therefore exactly
+// what the summary does not yet cover.
+//
+// So the honest answer is: the assembled history is the uncovered region, and
+// dropping any of it would drop content nothing represents.
+func summaryCoversEvicted(evicted int) bool {
+	return evicted == 0
+}
+
+// requestSummaryCoverage asks the existing incremental summarizer to advance
+// coverage past the window's cutoff.
+//
+// It reuses the machinery already there rather than summarizing inline: the
+// call returns immediately, the summarizer runs in its own goroutine and
+// deduplicates concurrent requests for the same session, and it folds the
+// previous summary into the new one instead of re-reading the transcript from
+// the first message. No turn waits on an LLM call, so a burst of Telegram
+// messages does not become a burst of summarization requests.
+func (ts *turnState) requestSummaryCoverage(ctx context.Context, p *Pipeline, limit int) {
+	if p == nil || p.ContextManager == nil {
+		return
+	}
+	if err := p.ContextManager.Compact(ctx, &CompactRequest{
+		SessionKey: ts.sessionKey,
+		Reason:     ContextCompressReasonSummarize,
+		Budget:     ts.agent.ContextWindow,
+		// Ahead of the window, not the generic threshold: coverage has to lead
+		// the cutoff, or the window would be asked to drop uncovered history
+		// again on the next turn.
+		MessageThreshold: limit,
+	}); err != nil {
+		logger.WarnCF("agent", "Telegram summary coverage request failed", map[string]any{
+			"session_key": ts.sessionKey,
+			"error":       err.Error(),
+		})
+	}
+}
+
 // projectRecentContext bounds what this turn sends to the model.
 //
 // It runs after Assemble and before the prompt is built, which is the only
@@ -119,6 +176,8 @@ func projectRecentHistory(
 // The current inbound message is not in history yet — the prompt builder
 // appends it — so the budget reserves a slot for it.
 func (ts *turnState) projectRecentContext(
+	ctx context.Context,
+	p *Pipeline,
 	history []providers.Message,
 	summary string,
 ) []providers.Message {
@@ -135,6 +194,54 @@ func (ts *turnState) projectRecentContext(
 	projected, evicted := projectRecentHistory(history, historyBudget)
 	if evicted == 0 {
 		return projected
+	}
+
+	// The window is a cap, not a shredder. Dropping history the summary does not
+	// yet represent would lose it outright — the transcript on disk would still
+	// hold it, but nothing would ever put it in front of the model again. So the
+	// cutoff waits for coverage and asks the summarizer to advance.
+	//
+	// The turn is not left unbounded by waiting: the token-budget check that
+	// runs immediately after this still applies, and its forceCompression path
+	// writes summary and history together, so even that route advances coverage
+	// rather than discarding silently.
+	if !summaryCoversEvicted(evicted) {
+		ts.requestSummaryCoverage(ctx, p, limit)
+
+		// Holding is safe only while coverage is catching up. Summarization is
+		// asynchronous and can fail, and a hold that waited forever would let
+		// the prompt grow without limit — the opposite of what this window is
+		// for. Past the ceiling the hold is abandoned: the cap is enforced, and
+		// the fact that uncovered history was dropped is logged rather than
+		// hidden. This is the documented degradation for a summarizer that
+		// cannot keep up or cannot run at all.
+		if countConversationalMessages(history) <= limit*uncoveredHoldFactor {
+			logger.DebugCF("agent", "Telegram context cutoff held for summary coverage",
+				map[string]any{
+					"channel":               ts.opts.Channel,
+					"session_key":           ts.sessionKey,
+					"history_total":         len(history),
+					"would_evict":           evicted,
+					"summary_present":       strings.TrimSpace(summary) != "",
+					"summary_chars":         len(summary),
+					"limit":                 limit,
+					"coverage_advance_sent": true,
+				})
+			return history
+		}
+
+		logger.WarnCF("agent", "Telegram context cutoff dropped uncovered history",
+			map[string]any{
+				"channel":         ts.opts.Channel,
+				"session_key":     ts.sessionKey,
+				"history_total":   len(history),
+				"dropped_msgs":    evicted,
+				"summary_present": strings.TrimSpace(summary) != "",
+				"summary_chars":   len(summary),
+				"limit":           limit,
+				"hold_ceiling":    limit * uncoveredHoldFactor,
+				"reason":          "summary coverage did not advance",
+			})
 	}
 
 	// Counts and sizes only. No message content, no prompt, no reasoning.

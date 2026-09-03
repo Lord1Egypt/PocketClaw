@@ -1,6 +1,8 @@
 package agent
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"testing"
 
@@ -8,6 +10,8 @@ import (
 	"github.com/sipeed/picoclaw/pkg/providers"
 	"github.com/sipeed/picoclaw/pkg/providers/protocoltypes"
 )
+
+var errSummaryFailed = errors.New("summary provider unavailable")
 
 func userMsg(text string) providers.Message {
 	return providers.Message{Role: "user", Content: text}
@@ -227,7 +231,8 @@ func TestIsConversationalMessage(t *testing.T) {
 }
 
 // The turn-level projection reserves a slot for the inbound message the prompt
-// builder appends, so the model sees at most the configured total.
+// builder appends, so the model sees at most the configured total. Past the
+// hold ceiling the cap is enforced even though coverage never advanced.
 func TestProjectRecentContextReservesTheCurrentMessage(t *testing.T) {
 	ts := &turnState{
 		agent:      &AgentInstance{TelegramRecentContextMessages: 15},
@@ -236,7 +241,7 @@ func TestProjectRecentContextReservesTheCurrentMessage(t *testing.T) {
 	}
 
 	history := conversation(100)
-	projected := ts.projectRecentContext(history, "an existing summary")
+	projected := ts.projectRecentContext(context.Background(), nil, history, "an existing summary")
 
 	got := countConversationalMessages(projected)
 	if got > 14 {
@@ -256,7 +261,7 @@ func TestProjectRecentContextLeavesOtherChannelsAlone(t *testing.T) {
 			sessionKey: "s1",
 			opts:       processOptions{Channel: channel},
 		}
-		projected := ts.projectRecentContext(history, "")
+		projected := ts.projectRecentContext(context.Background(), nil, history, "")
 		if len(projected) != len(history) {
 			t.Errorf("%s projected %d of %d messages; it must be unchanged",
 				channel, len(projected), len(history))
@@ -264,8 +269,9 @@ func TestProjectRecentContextLeavesOtherChannelsAlone(t *testing.T) {
 	}
 }
 
-// The cap must hold on its own. If summarization has failed or has not caught
-// up, the turn still runs bounded rather than restoring the whole transcript.
+// A summarizer that never lands must not grow the prompt without limit. Past
+// the hold ceiling the cap is enforced, with the loss logged rather than
+// hidden. This is the documented degradation.
 func TestProjectRecentContextBoundsEvenWithNoSummary(t *testing.T) {
 	ts := &turnState{
 		agent:      &AgentInstance{TelegramRecentContextMessages: 15},
@@ -274,7 +280,7 @@ func TestProjectRecentContextBoundsEvenWithNoSummary(t *testing.T) {
 	}
 
 	history := conversation(200)
-	projected := ts.projectRecentContext(history, "")
+	projected := ts.projectRecentContext(context.Background(), nil, history, "")
 
 	if got := countConversationalMessages(projected); got > 14 {
 		t.Fatalf("with no summary the projection was %d messages, want <= 14", got)
@@ -294,7 +300,7 @@ func TestProjectRecentContextDoesNotMutateStoredHistory(t *testing.T) {
 	before := make([]providers.Message, len(history))
 	copy(before, history)
 
-	ts.projectRecentContext(history, "")
+	ts.projectRecentContext(context.Background(), nil, history, "")
 
 	if len(history) != len(before) {
 		t.Fatalf("history length changed from %d to %d", len(before), len(history))
@@ -335,7 +341,7 @@ func TestQueuedMessagesAreNotVisibleToAnEarlierTurn(t *testing.T) {
 		sessionKey: sessionKey,
 		opts:       processOptions{Channel: "telegram"},
 	}
-	projected := ts.projectRecentContext(historyDuringA, "")
+	projected := ts.projectRecentContext(context.Background(), nil, historyDuringA, "")
 
 	for _, msg := range projected {
 		switch msg.Content {
@@ -352,6 +358,181 @@ func TestQueuedMessagesAreNotVisibleToAnEarlierTurn(t *testing.T) {
 		}
 		if got := bus.InboundLifecycleID(&next.Context); got != want {
 			t.Fatalf("dequeued %s, want %s: FIFO order changed", got, want)
+		}
+	}
+}
+
+// recordingContextManager captures the coverage requests the window makes
+// without running a summarizer.
+type recordingContextManager struct {
+	compacts []CompactRequest
+	err      error
+}
+
+func (m *recordingContextManager) Assemble(context.Context, *AssembleRequest) (*AssembleResponse, error) {
+	return &AssembleResponse{}, nil
+}
+
+func (m *recordingContextManager) Compact(_ context.Context, req *CompactRequest) error {
+	m.compacts = append(m.compacts, *req)
+	return m.err
+}
+
+func (m *recordingContextManager) Ingest(context.Context, *IngestRequest) error { return nil }
+
+func (m *recordingContextManager) Clear(context.Context, string) error { return nil }
+
+func telegramTurn(limit int) *turnState {
+	return &turnState{
+		agent:      &AgentInstance{TelegramRecentContextMessages: limit, ContextWindow: 128000},
+		sessionKey: "s1",
+		opts:       processOptions{Channel: "telegram"},
+	}
+}
+
+// THE GAP. A fresh session with 16 conversational messages and no summary: the
+// oldest must not vanish from the model with nothing representing it.
+func TestFreshSessionDoesNotDropUncoveredHistory(t *testing.T) {
+	cm := &recordingContextManager{}
+	ts := telegramTurn(15)
+	history := conversation(16)
+
+	projected := ts.projectRecentContext(
+		context.Background(), &Pipeline{ContextManager: cm}, history, "",
+	)
+
+	if len(projected) != len(history) {
+		t.Fatalf("dropped %d uncovered messages from a fresh session; first was %q",
+			len(history)-len(projected), history[0].Content)
+	}
+	if len(cm.compacts) != 1 {
+		t.Fatalf("made %d coverage requests, want 1", len(cm.compacts))
+	}
+	if cm.compacts[0].Reason != ContextCompressReasonSummarize {
+		t.Errorf("coverage request reason = %q, want summarize", cm.compacts[0].Reason)
+	}
+	if cm.compacts[0].MessageThreshold != 15 {
+		t.Errorf("coverage threshold = %d, want 15: it must lead the window, not the generic 20",
+			cm.compacts[0].MessageThreshold)
+	}
+}
+
+// Once the summarizer has landed, the store itself is small and the window is
+// simply satisfied — summary plus the recent conversation.
+func TestCoveredHistoryProjectsSummaryPlusRecent(t *testing.T) {
+	cm := &recordingContextManager{}
+	ts := telegramTurn(15)
+
+	// summarizeSession truncates what it summarized, so a covered session's
+	// persisted history is the short tail that survived.
+	history := conversation(4)
+	projected := ts.projectRecentContext(
+		context.Background(), &Pipeline{ContextManager: cm}, history, "a persisted rolling summary",
+	)
+
+	if len(projected) != len(history) {
+		t.Fatalf("projected %d of %d covered messages, want all", len(projected), len(history))
+	}
+	if got := countConversationalMessages(projected); got > 14 {
+		t.Fatalf("projected %d conversational messages, want <= 14", got)
+	}
+	if len(cm.compacts) != 0 {
+		t.Fatalf("requested coverage %d times for a session already within the window",
+			len(cm.compacts))
+	}
+}
+
+// While summarization lags, the cutoff waits rather than outrunning coverage.
+func TestProjectionDoesNotOutrunCoverageWhileSummarizationLags(t *testing.T) {
+	cm := &recordingContextManager{}
+	ts := telegramTurn(15)
+
+	for _, total := range []int{16, 20, 24, 30} {
+		cm.compacts = nil
+		history := conversation(total)
+		projected := ts.projectRecentContext(
+			context.Background(), &Pipeline{ContextManager: cm}, history, "stale summary",
+		)
+		if len(projected) != len(history) {
+			t.Fatalf("history of %d: dropped %d uncovered messages while summarization lagged",
+				total, len(history)-len(projected))
+		}
+		if len(cm.compacts) != 1 {
+			t.Fatalf("history of %d: %d coverage requests, want 1", total, len(cm.compacts))
+		}
+	}
+}
+
+// A Compact that errors must not advance coverage, must not restore an
+// unbounded transcript, and must not stop the turn.
+func TestSummaryFailureDoesNotAdvanceCoverageOrUnboundContext(t *testing.T) {
+	cm := &recordingContextManager{err: errSummaryFailed}
+	ts := telegramTurn(15)
+
+	held := ts.projectRecentContext(
+		context.Background(), &Pipeline{ContextManager: cm}, conversation(20), "previous valid summary",
+	)
+	if len(held) != 20 {
+		t.Fatalf("a failed coverage request dropped %d uncovered messages", 20-len(held))
+	}
+
+	// Past the ceiling the cap is enforced rather than growing forever.
+	bounded := ts.projectRecentContext(
+		context.Background(), &Pipeline{ContextManager: cm}, conversation(200), "previous valid summary",
+	)
+	if got := countConversationalMessages(bounded); got > 14 {
+		t.Fatalf("a permanently failing summarizer left %d messages in context, want <= 14", got)
+	}
+}
+
+// The hold is bounded. Below the ceiling it waits; above it the cap wins.
+func TestUncoveredHoldIsBounded(t *testing.T) {
+	cm := &recordingContextManager{}
+	ts := telegramTurn(15)
+	ceiling := 15 * uncoveredHoldFactor
+
+	below := conversation(ceiling)
+	if got := ts.projectRecentContext(
+		context.Background(), &Pipeline{ContextManager: cm}, below, ""); len(got) != len(below) {
+		t.Fatalf("history of %d (at the ceiling) was cut; the hold must still apply", ceiling)
+	}
+
+	above := conversation(ceiling + 2)
+	got := ts.projectRecentContext(context.Background(), &Pipeline{ContextManager: cm}, above, "")
+	if countConversationalMessages(got) > 14 {
+		t.Fatalf("history of %d (past the ceiling) was not bounded", ceiling+2)
+	}
+}
+
+// A nil manager must not panic or change the outcome of the hold.
+func TestCoverageRequestToleratesNoContextManager(t *testing.T) {
+	ts := telegramTurn(15)
+	history := conversation(16)
+	if got := ts.projectRecentContext(context.Background(), nil, history, ""); len(got) != len(history) {
+		t.Fatal("the hold must still apply when no context manager is available")
+	}
+	if got := ts.projectRecentContext(
+		context.Background(), &Pipeline{}, history, ""); len(got) != len(history) {
+		t.Fatal("the hold must still apply when the pipeline has no context manager")
+	}
+}
+
+// Other channels never request coverage and are never held or cut.
+func TestOtherChannelsNeitherHeldNorCoverageRequested(t *testing.T) {
+	for _, channel := range []string{"pico", "discord", "slack", "matrix", "cli"} {
+		cm := &recordingContextManager{}
+		ts := telegramTurn(15)
+		ts.opts.Channel = channel
+
+		history := conversation(100)
+		projected := ts.projectRecentContext(
+			context.Background(), &Pipeline{ContextManager: cm}, history, "",
+		)
+		if len(projected) != len(history) {
+			t.Errorf("%s history was modified", channel)
+		}
+		if len(cm.compacts) != 0 {
+			t.Errorf("%s requested summary coverage; only Telegram may", channel)
 		}
 	}
 }

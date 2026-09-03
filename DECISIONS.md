@@ -27,6 +27,20 @@
 - Not addressed here: the unbounded mailbox, `/stop`, restart reconciliation,
   placeholder TTL, timeout policy and the HTML fallback all remain open in
   `TASKS.md`, and there is no Settings UI for the limit yet.
+- Amended 2026-09-03, same branch: the window must not evict what the summary
+  does not yet represent. Coverage needs no watermark — `summarizeSession`
+  writes the summary and truncates what it summarized in one all-or-nothing
+  block, and `forceCompression` replaces both together, so whatever is still in
+  the persisted history is exactly what the summary does not cover. The cutoff
+  therefore holds rather than dropping uncovered history, and asks the existing
+  incremental summarizer to advance coverage with a threshold that leads the
+  window instead of the generic 20. The request is asynchronous and deduplicated
+  per session, so a burst does not become a burst of summarization calls.
+  **Documented degradation:** the hold is bounded at twice the window. Past that
+  the summarizer is not keeping up, the cap is enforced, and the dropped
+  uncovered history is logged as a warning rather than hidden. Coverage is never
+  marked as advanced, because nothing but a successful summarize-and-truncate
+  can advance it.
 
 ## Telegram typing is owned by the running request, not by every received one
 
