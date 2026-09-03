@@ -80,15 +80,23 @@
   "workspaceDirectory": "مساحة العمل",
   "logsSavedToMediaLibraryWithName": "تم حفظ السجلات في التنزيلات (مكتبة وسائط Android): {name}",
   "@logsSavedToMediaLibraryWithName": {
-    "placeholders": {"name": {}}
+    "placeholders": {
+      "name": {}
+    }
   },
   "shareFailed": "فشل في فتح حوار المشاركة: {error}",
-  "@shareFailed": {"placeholders": {"error": {}}},
+  "@shareFailed": {
+    "placeholders": {
+      "error": {}
+    }
+  },
   "exportLogs": "تصدير السجلات",
   "logEventsCount": "{count} أحداث",
   "@logEventsCount": {
     "placeholders": {
-      "count": {"type": "int"}
+      "count": {
+        "type": "int"
+      }
     }
   },
   "unsavedChanges": "تغييرات غير محفوظة",
@@ -103,5 +111,13 @@
   "aboutAppVersionLabel": "إصدار PocketClaw",
   "aboutCoreVersionLabel": "إصدار وقت التشغيل",
   "aboutVersionUnavailable": "غير متوفر",
-  "close": "إغلاق"
+  "close": "إغلاق",
+  "contextMemoryTitle": "ذاكرة سياق تيليجرام",
+  "contextMemoryDescription": "تتحكم في عدد رسائل المحادثة الأخيرة المُرسلة إلى الذكاء الاصطناعي. تبقى المحادثات الأقدم في تيليجرام ويُمثّلها الملخّص المتجدّد.",
+  "contextMemoryHelp": "عدد أكبر من الرسائل يمنح سياقًا أحدث لكنه يستهلك رموزًا أكثر. تبقى الرسائل الأقدم في تيليجرام وقد يُحتفظ بها عبر الملخّص المتجدّد.",
+  "contextMemoryRecommended": "موصى به",
+  "contextMemoryCustom": "مخصص",
+  "contextMemoryCustomLabel": "الرسائل",
+  "contextMemoryRangeError": "أدخل رقمًا صحيحًا بين {min} و{max}.",
+  "contextMemorySaveFailed": "تعذّر حفظ هذا الإعداد."
 }

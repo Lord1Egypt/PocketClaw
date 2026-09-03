@@ -278,4 +278,32 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get close => '閉じる';
+
+  @override
+  String get contextMemoryTitle => 'Telegram コンテキストメモリ';
+
+  @override
+  String get contextMemoryDescription =>
+      'AI に送信する直近の会話メッセージ数を設定します。それ以前の会話は Telegram に残り、ローリング要約で表現されます。';
+
+  @override
+  String get contextMemoryHelp =>
+      'メッセージを増やすと直近の文脈は充実しますが、トークン消費も増えます。古いメッセージは Telegram に残り、ローリング要約を通じて保持される場合があります。';
+
+  @override
+  String get contextMemoryRecommended => '推奨';
+
+  @override
+  String get contextMemoryCustom => 'カスタム';
+
+  @override
+  String get contextMemoryCustomLabel => 'メッセージ数';
+
+  @override
+  String contextMemoryRangeError(int min, int max) {
+    return '$min から $max までの整数を入力してください。';
+  }
+
+  @override
+  String get contextMemorySaveFailed => 'この設定を保存できませんでした。';
 }

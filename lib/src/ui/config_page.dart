@@ -7,6 +7,7 @@ import 'package:pocketclaw/src/generated/l10n/app_localizations.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:pocketclaw/src/core/app_theme.dart';
 import 'package:pocketclaw/src/ui/github_settings_card.dart';
+import 'context_memory_card.dart';
 import 'package:pocketclaw/src/ui/telegram_settings_card.dart';
 
 const String _aboutProjectName = 'PocketClaw';
@@ -108,6 +109,7 @@ class ConfigPageState extends State<ConfigPage> with WidgetsBindingObserver {
 
   // Focus nodes for TV navigation
   final _aboutFocusNode = FocusNode();
+  final _contextMemoryFocusNode = FocusNode();
   final _publicModeFocusNode = FocusNode();
   final _hostFocusNode = FocusNode();
   final _portFocusNode = FocusNode();
@@ -221,6 +223,7 @@ class ConfigPageState extends State<ConfigPage> with WidgetsBindingObserver {
     _argsController.dispose();
 
     _aboutFocusNode.dispose();
+    _contextMemoryFocusNode.dispose();
     _publicModeFocusNode.dispose();
     _hostFocusNode.dispose();
     _portFocusNode.dispose();
@@ -677,6 +680,8 @@ class ConfigPageState extends State<ConfigPage> with WidgetsBindingObserver {
               const SizedBox(height: 16),
 
               TelegramSettingsCard(onManage: widget.onManageTelegram),
+              const SizedBox(height: 12),
+              ContextMemoryCard(focusNode: _contextMemoryFocusNode),
               const SizedBox(height: 12),
               GitHubSettingsCard(
                 onCredentialChanged: () =>

@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 
+	"github.com/sipeed/picoclaw/pkg/config"
 	"github.com/sipeed/picoclaw/pkg/logger"
 	"github.com/sipeed/picoclaw/pkg/providers"
 )
@@ -19,7 +20,7 @@ import (
 // A future Settings surface offering 10 / 15 / 20 / Custom sets
 // `agents.defaults.telegram_recent_context_messages`; nothing in the context
 // engine needs to change for that.
-const DefaultTelegramRecentContextMessages = 15
+const DefaultTelegramRecentContextMessages = config.DefaultTelegramRecentContextMessages
 
 // uncoveredHoldFactor is how far past the window the history may grow while the
 // summarizer catches up.

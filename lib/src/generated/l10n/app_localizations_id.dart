@@ -288,4 +288,32 @@ class AppLocalizationsId extends AppLocalizations {
 
   @override
   String get close => 'Tutup';
+
+  @override
+  String get contextMemoryTitle => 'Memori Konteks Telegram';
+
+  @override
+  String get contextMemoryDescription =>
+      'Mengatur berapa banyak pesan percakapan terbaru yang dikirim ke AI. Percakapan lama tetap ada di Telegram dan diwakili oleh ringkasan berjalan.';
+
+  @override
+  String get contextMemoryHelp =>
+      'Lebih banyak pesan memberi konteks terbaru yang lebih kaya tetapi memakai lebih banyak token. Pesan lama tetap ada di Telegram dan dapat dipertahankan melalui ringkasan berjalan.';
+
+  @override
+  String get contextMemoryRecommended => 'Disarankan';
+
+  @override
+  String get contextMemoryCustom => 'Kustom';
+
+  @override
+  String get contextMemoryCustomLabel => 'Pesan';
+
+  @override
+  String contextMemoryRangeError(int min, int max) {
+    return 'Masukkan bilangan bulat antara $min dan $max.';
+  }
+
+  @override
+  String get contextMemorySaveFailed => 'Pengaturan ini tidak dapat disimpan.';
 }

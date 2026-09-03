@@ -291,4 +291,33 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get close => 'Fermer';
+
+  @override
+  String get contextMemoryTitle => 'Mémoire de contexte Telegram';
+
+  @override
+  String get contextMemoryDescription =>
+      'Détermine le nombre de messages récents envoyés à l\'IA. Les conversations plus anciennes restent dans Telegram et sont représentées par le résumé évolutif.';
+
+  @override
+  String get contextMemoryHelp =>
+      'Davantage de messages apportent plus de contexte récent mais consomment plus de jetons. Les messages plus anciens restent dans Telegram et peuvent être conservés via le résumé évolutif.';
+
+  @override
+  String get contextMemoryRecommended => 'Recommandé';
+
+  @override
+  String get contextMemoryCustom => 'Personnalisé';
+
+  @override
+  String get contextMemoryCustomLabel => 'Messages';
+
+  @override
+  String contextMemoryRangeError(int min, int max) {
+    return 'Saisissez un nombre entier entre $min et $max.';
+  }
+
+  @override
+  String get contextMemorySaveFailed =>
+      'Impossible d\'enregistrer ce paramètre.';
 }

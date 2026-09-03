@@ -279,4 +279,32 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get close => '닫기';
+
+  @override
+  String get contextMemoryTitle => '텔레그램 컨텍스트 메모리';
+
+  @override
+  String get contextMemoryDescription =>
+      'AI에 전달할 최근 대화 메시지 수를 조절합니다. 이전 대화는 텔레그램에 그대로 남으며 롤링 요약으로 표현됩니다.';
+
+  @override
+  String get contextMemoryHelp =>
+      '메시지를 늘리면 최근 맥락이 풍부해지지만 토큰을 더 많이 사용합니다. 이전 메시지는 텔레그램에 남아 있으며 롤링 요약을 통해 유지될 수 있습니다.';
+
+  @override
+  String get contextMemoryRecommended => '권장';
+
+  @override
+  String get contextMemoryCustom => '사용자 지정';
+
+  @override
+  String get contextMemoryCustomLabel => '메시지';
+
+  @override
+  String contextMemoryRangeError(int min, int max) {
+    return '$min에서 $max 사이의 정수를 입력하세요.';
+  }
+
+  @override
+  String get contextMemorySaveFailed => '이 설정을 저장할 수 없습니다.';
 }

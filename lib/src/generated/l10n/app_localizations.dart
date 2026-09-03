@@ -627,6 +627,54 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Close'**
   String get close;
+
+  /// No description provided for @contextMemoryTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Telegram Context Memory'**
+  String get contextMemoryTitle;
+
+  /// No description provided for @contextMemoryDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Controls how many recent conversation messages are sent to the AI. Older conversation stays in Telegram and is represented by the rolling summary.'**
+  String get contextMemoryDescription;
+
+  /// No description provided for @contextMemoryHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'More messages provide more recent context but use more tokens. Older messages remain in Telegram and may be retained through the rolling summary.'**
+  String get contextMemoryHelp;
+
+  /// No description provided for @contextMemoryRecommended.
+  ///
+  /// In en, this message translates to:
+  /// **'Recommended'**
+  String get contextMemoryRecommended;
+
+  /// No description provided for @contextMemoryCustom.
+  ///
+  /// In en, this message translates to:
+  /// **'Custom'**
+  String get contextMemoryCustom;
+
+  /// No description provided for @contextMemoryCustomLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Messages'**
+  String get contextMemoryCustomLabel;
+
+  /// No description provided for @contextMemoryRangeError.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a whole number between {min} and {max}.'**
+  String contextMemoryRangeError(int min, int max);
+
+  /// No description provided for @contextMemorySaveFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not save this setting.'**
+  String get contextMemorySaveFailed;
 }
 
 class _AppLocalizationsDelegate

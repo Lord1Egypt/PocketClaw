@@ -1,5 +1,29 @@
 # PocketClaw Decisions
 
+## Telegram context memory is a Settings control, written through Core
+
+- Date: 2026-09-03
+- Decision: Settings exposes the Telegram context-memory limit as presets
+  10 / 15 / 20 / 25 plus Custom, defaulting to 15. Native Settings reads and
+  writes it over the existing loopback Android bridge, so Core stays the only
+  writer of `config.json`, exactly as Telegram pairing and the GitHub credential
+  already do.
+- Reason: writing the file from Flutter would reintroduce a second config
+  writer, which is precisely what was removed when the dead Pico provisioner was
+  deleted. The bridge already exists for this purpose, and Core validates the
+  5–50 range itself so the host is never the authority on what is acceptable.
+- Consequence: the control changes one number. It deletes no Telegram message,
+  no stored transcript and no session history, and it does not clear the rolling
+  summary or restart anything — the next turn simply projects a different count.
+  A value outside the range is rejected by Core and the card restores what Core
+  is actually using, so the UI can never show a setting that is not in force. A
+  stored value outside the range reads as the default, matching how the agent
+  resolves it. `DefaultTelegramRecentContextMessages` now lives in `pkg/config`
+  so the agent that applies it and the API that exposes it read one number.
+- Note: the card renders its choices disabled rather than showing a progress
+  indicator while loading. An indeterminate indicator animates forever, which
+  hung every existing ConfigPage widget test the moment the card was added.
+
 ## The rolling summary quotes exact values, and never credentials
 
 - Date: 2026-09-03

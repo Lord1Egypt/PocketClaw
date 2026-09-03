@@ -80,15 +80,23 @@
   "workspaceDirectory": "कार्यस्थान",
   "logsSavedToMediaLibraryWithName": "लॉग डाउनलोड (Android मीडिया लाइब्रेरी) में सहेजे गए: {name}",
   "@logsSavedToMediaLibraryWithName": {
-    "placeholders": {"name": {}}
+    "placeholders": {
+      "name": {}
+    }
   },
   "shareFailed": "शेयर डायलॉग खोलने में विफल: {error}",
-  "@shareFailed": {"placeholders": {"error": {}}},
+  "@shareFailed": {
+    "placeholders": {
+      "error": {}
+    }
+  },
   "exportLogs": "लॉग निर्यात करें",
   "logEventsCount": "{count} इवेंट्स",
   "@logEventsCount": {
     "placeholders": {
-      "count": {"type": "int"}
+      "count": {
+        "type": "int"
+      }
     }
   },
   "unsavedChanges": "असहेजे गए परिवर्तन",
@@ -103,5 +111,13 @@
   "aboutAppVersionLabel": "PocketClaw संस्करण",
   "aboutCoreVersionLabel": "रनटाइम संस्करण",
   "aboutVersionUnavailable": "उपलब्ध नहीं",
-  "close": "बंद करें"
+  "close": "बंद करें",
+  "contextMemoryTitle": "टेलीग्राम संदर्भ स्मृति",
+  "contextMemoryDescription": "नियंत्रित करता है कि हाल की कितनी बातचीत AI को भेजी जाए। पुरानी बातचीत टेलीग्राम में बनी रहती है और चलते सारांश द्वारा दर्शाई जाती है।",
+  "contextMemoryHelp": "अधिक संदेश अधिक हालिया संदर्भ देते हैं पर अधिक टोकन खर्च करते हैं। पुराने संदेश टेलीग्राम में बने रहते हैं और चलते सारांश के माध्यम से सुरक्षित रह सकते हैं।",
+  "contextMemoryRecommended": "अनुशंसित",
+  "contextMemoryCustom": "कस्टम",
+  "contextMemoryCustomLabel": "संदेश",
+  "contextMemoryRangeError": "{min} और {max} के बीच एक पूर्ण संख्या दर्ज करें।",
+  "contextMemorySaveFailed": "यह सेटिंग सहेजी नहीं जा सकी।"
 }

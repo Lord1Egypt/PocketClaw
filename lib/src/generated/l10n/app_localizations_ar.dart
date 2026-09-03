@@ -284,4 +284,32 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get close => 'إغلاق';
+
+  @override
+  String get contextMemoryTitle => 'ذاكرة سياق تيليجرام';
+
+  @override
+  String get contextMemoryDescription =>
+      'تتحكم في عدد رسائل المحادثة الأخيرة المُرسلة إلى الذكاء الاصطناعي. تبقى المحادثات الأقدم في تيليجرام ويُمثّلها الملخّص المتجدّد.';
+
+  @override
+  String get contextMemoryHelp =>
+      'عدد أكبر من الرسائل يمنح سياقًا أحدث لكنه يستهلك رموزًا أكثر. تبقى الرسائل الأقدم في تيليجرام وقد يُحتفظ بها عبر الملخّص المتجدّد.';
+
+  @override
+  String get contextMemoryRecommended => 'موصى به';
+
+  @override
+  String get contextMemoryCustom => 'مخصص';
+
+  @override
+  String get contextMemoryCustomLabel => 'الرسائل';
+
+  @override
+  String contextMemoryRangeError(int min, int max) {
+    return 'أدخل رقمًا صحيحًا بين $min و$max.';
+  }
+
+  @override
+  String get contextMemorySaveFailed => 'تعذّر حفظ هذا الإعداد.';
 }

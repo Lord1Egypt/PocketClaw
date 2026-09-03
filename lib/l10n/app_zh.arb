@@ -22,12 +22,10 @@
   "argumentsHint": "例如: config.json",
   "notStarted": "服务暂未启动",
   "startHint": "请先从 Dashboard 主面板启动服务。",
-  "goToDashboard": "去主面板"
-  ,
+  "goToDashboard": "去主面板",
   "back": "后退",
   "forward": "前进",
-  "refresh": "刷新"
-  ,
+  "refresh": "刷新",
   "coreBinaryMissing": "未找到核心二进制文件。请将平台二进制放入 app/bin/ 或在设置中指定路径。",
   "coreStartFailed": "启动核心服务失败。",
   "coreStopFailed": "停止核心服务失败。",
@@ -69,9 +67,7 @@
     "placeholders": {
       "code": {}
     }
-  }
-
-  ,
+  },
   "noLogsToExport": "没有可导出的日志",
   "logsSavedToMediaLibrary": "已保存到“下载”目录（Android 媒体库）",
   "logsSavedToDownloads": "已保存到 Downloads：{path}",
@@ -81,19 +77,26 @@
     }
   },
   "shareLogsText": "PocketClaw 日志",
-  "workspaceDirectory": "工作目录"
-  ,
+  "workspaceDirectory": "工作目录",
   "logsSavedToMediaLibraryWithName": "已保存到“下载”目录（Android 媒体库）：{name}",
   "@logsSavedToMediaLibraryWithName": {
-    "placeholders": {"name": {}}
+    "placeholders": {
+      "name": {}
+    }
   },
   "shareFailed": "打开分享对话框失败：{error}",
-  "@shareFailed": {"placeholders": {"error": {}}},
+  "@shareFailed": {
+    "placeholders": {
+      "error": {}
+    }
+  },
   "exportLogs": "导出日志",
   "logEventsCount": "{count} 条日志",
   "@logEventsCount": {
     "placeholders": {
-      "count": {"type": "int"}
+      "count": {
+        "type": "int"
+      }
     }
   },
   "unsavedChanges": "未保存的更改",
@@ -108,5 +111,13 @@
   "aboutAppVersionLabel": "PocketClaw 版本",
   "aboutCoreVersionLabel": "运行时版本",
   "aboutVersionUnavailable": "不可用",
-  "close": "关闭"
+  "close": "关闭",
+  "contextMemoryTitle": "Telegram 上下文记忆",
+  "contextMemoryDescription": "控制发送给 AI 的最近对话消息数量。更早的对话仍保留在 Telegram 中，并由滚动摘要表示。",
+  "contextMemoryHelp": "消息越多，近期上下文越丰富，但消耗的令牌也越多。更早的消息会保留在 Telegram 中，并可能通过滚动摘要保留下来。",
+  "contextMemoryRecommended": "推荐",
+  "contextMemoryCustom": "自定义",
+  "contextMemoryCustomLabel": "消息数",
+  "contextMemoryRangeError": "请输入 {min} 到 {max} 之间的整数。",
+  "contextMemorySaveFailed": "无法保存此设置。"
 }

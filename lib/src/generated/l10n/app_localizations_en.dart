@@ -286,4 +286,32 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get close => 'Close';
+
+  @override
+  String get contextMemoryTitle => 'Telegram Context Memory';
+
+  @override
+  String get contextMemoryDescription =>
+      'Controls how many recent conversation messages are sent to the AI. Older conversation stays in Telegram and is represented by the rolling summary.';
+
+  @override
+  String get contextMemoryHelp =>
+      'More messages provide more recent context but use more tokens. Older messages remain in Telegram and may be retained through the rolling summary.';
+
+  @override
+  String get contextMemoryRecommended => 'Recommended';
+
+  @override
+  String get contextMemoryCustom => 'Custom';
+
+  @override
+  String get contextMemoryCustomLabel => 'Messages';
+
+  @override
+  String contextMemoryRangeError(int min, int max) {
+    return 'Enter a whole number between $min and $max.';
+  }
+
+  @override
+  String get contextMemorySaveFailed => 'Could not save this setting.';
 }

@@ -80,15 +80,23 @@
   "workspaceDirectory": "Espace de travail",
   "logsSavedToMediaLibraryWithName": "Journaux enregistrés dans Téléchargements (bibliothèque multimédia Android): {name}",
   "@logsSavedToMediaLibraryWithName": {
-    "placeholders": {"name": {}}
+    "placeholders": {
+      "name": {}
+    }
   },
   "shareFailed": "Échec de l'ouverture de la boîte de dialogue de partage: {error}",
-  "@shareFailed": {"placeholders": {"error": {}}},
+  "@shareFailed": {
+    "placeholders": {
+      "error": {}
+    }
+  },
   "exportLogs": "Exporter les journaux",
   "logEventsCount": "{count} ÉVÉNEMENTS",
   "@logEventsCount": {
     "placeholders": {
-      "count": {"type": "int"}
+      "count": {
+        "type": "int"
+      }
     }
   },
   "unsavedChanges": "Modifications non enregistrées",
@@ -103,5 +111,13 @@
   "aboutAppVersionLabel": "Version de PocketClaw",
   "aboutCoreVersionLabel": "Version du runtime",
   "aboutVersionUnavailable": "Indisponible",
-  "close": "Fermer"
+  "close": "Fermer",
+  "contextMemoryTitle": "Mémoire de contexte Telegram",
+  "contextMemoryDescription": "Détermine le nombre de messages récents envoyés à l'IA. Les conversations plus anciennes restent dans Telegram et sont représentées par le résumé évolutif.",
+  "contextMemoryHelp": "Davantage de messages apportent plus de contexte récent mais consomment plus de jetons. Les messages plus anciens restent dans Telegram et peuvent être conservés via le résumé évolutif.",
+  "contextMemoryRecommended": "Recommandé",
+  "contextMemoryCustom": "Personnalisé",
+  "contextMemoryCustomLabel": "Messages",
+  "contextMemoryRangeError": "Saisissez un nombre entier entre {min} et {max}.",
+  "contextMemorySaveFailed": "Impossible d'enregistrer ce paramètre."
 }

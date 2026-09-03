@@ -275,4 +275,32 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get close => '关闭';
+
+  @override
+  String get contextMemoryTitle => 'Telegram 上下文记忆';
+
+  @override
+  String get contextMemoryDescription =>
+      '控制发送给 AI 的最近对话消息数量。更早的对话仍保留在 Telegram 中，并由滚动摘要表示。';
+
+  @override
+  String get contextMemoryHelp =>
+      '消息越多，近期上下文越丰富，但消耗的令牌也越多。更早的消息会保留在 Telegram 中，并可能通过滚动摘要保留下来。';
+
+  @override
+  String get contextMemoryRecommended => '推荐';
+
+  @override
+  String get contextMemoryCustom => '自定义';
+
+  @override
+  String get contextMemoryCustomLabel => '消息数';
+
+  @override
+  String contextMemoryRangeError(int min, int max) {
+    return '请输入 $min 到 $max 之间的整数。';
+  }
+
+  @override
+  String get contextMemorySaveFailed => '无法保存此设置。';
 }

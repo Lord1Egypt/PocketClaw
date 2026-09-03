@@ -25,12 +25,10 @@
   "argumentsHint": "e.g. config.json",
   "notStarted": "Service Not Started",
   "startHint": "Please start the service from the dashboard first.",
-  "goToDashboard": "Go to Dashboard"
-  ,
+  "goToDashboard": "Go to Dashboard",
   "back": "Back",
   "forward": "Forward",
-  "refresh": "Refresh"
-  ,
+  "refresh": "Refresh",
   "coreBinaryMissing": "Core binary not found. Place the platform binary into app/bin/ or set the path in Settings.",
   "coreStartFailed": "Failed to start core service.",
   "coreStopFailed": "Failed to stop core service.",
@@ -72,9 +70,7 @@
     "placeholders": {
       "code": {}
     }
-  }
-
-  ,
+  },
   "noLogsToExport": "No logs to export",
   "logsSavedToMediaLibrary": "Logs saved to Downloads (Android media library)",
   "logsSavedToDownloads": "Logs saved to Downloads: {path}",
@@ -84,19 +80,26 @@
     }
   },
   "shareLogsText": "PocketClaw logs",
-  "workspaceDirectory": "Workspace"
-  ,
+  "workspaceDirectory": "Workspace",
   "logsSavedToMediaLibraryWithName": "Logs saved to Downloads (Android media library): {name}",
   "@logsSavedToMediaLibraryWithName": {
-    "placeholders": {"name": {}}
+    "placeholders": {
+      "name": {}
+    }
   },
   "shareFailed": "Failed to open share dialog: {error}",
-  "@shareFailed": {"placeholders": {"error": {}}},
+  "@shareFailed": {
+    "placeholders": {
+      "error": {}
+    }
+  },
   "exportLogs": "Export Logs",
   "logEventsCount": "{count} EVENTS",
   "@logEventsCount": {
     "placeholders": {
-      "count": {"type": "int"}
+      "count": {
+        "type": "int"
+      }
     }
   },
   "unsavedChanges": "Unsaved Changes",
@@ -111,5 +114,23 @@
   "aboutAppVersionLabel": "PocketClaw version",
   "aboutCoreVersionLabel": "Runtime version",
   "aboutVersionUnavailable": "Unavailable",
-  "close": "Close"
+  "close": "Close",
+  "contextMemoryTitle": "Telegram Context Memory",
+  "contextMemoryDescription": "Controls how many recent conversation messages are sent to the AI. Older conversation stays in Telegram and is represented by the rolling summary.",
+  "contextMemoryHelp": "More messages provide more recent context but use more tokens. Older messages remain in Telegram and may be retained through the rolling summary.",
+  "contextMemoryRecommended": "Recommended",
+  "contextMemoryCustom": "Custom",
+  "contextMemoryCustomLabel": "Messages",
+  "contextMemoryRangeError": "Enter a whole number between {min} and {max}.",
+  "contextMemorySaveFailed": "Could not save this setting.",
+  "@contextMemoryRangeError": {
+    "placeholders": {
+      "min": {
+        "type": "int"
+      },
+      "max": {
+        "type": "int"
+      }
+    }
+  }
 }

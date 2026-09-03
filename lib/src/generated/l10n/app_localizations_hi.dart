@@ -286,4 +286,32 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String get close => 'बंद करें';
+
+  @override
+  String get contextMemoryTitle => 'टेलीग्राम संदर्भ स्मृति';
+
+  @override
+  String get contextMemoryDescription =>
+      'नियंत्रित करता है कि हाल की कितनी बातचीत AI को भेजी जाए। पुरानी बातचीत टेलीग्राम में बनी रहती है और चलते सारांश द्वारा दर्शाई जाती है।';
+
+  @override
+  String get contextMemoryHelp =>
+      'अधिक संदेश अधिक हालिया संदर्भ देते हैं पर अधिक टोकन खर्च करते हैं। पुराने संदेश टेलीग्राम में बने रहते हैं और चलते सारांश के माध्यम से सुरक्षित रह सकते हैं।';
+
+  @override
+  String get contextMemoryRecommended => 'अनुशंसित';
+
+  @override
+  String get contextMemoryCustom => 'कस्टम';
+
+  @override
+  String get contextMemoryCustomLabel => 'संदेश';
+
+  @override
+  String contextMemoryRangeError(int min, int max) {
+    return '$min और $max के बीच एक पूर्ण संख्या दर्ज करें।';
+  }
+
+  @override
+  String get contextMemorySaveFailed => 'यह सेटिंग सहेजी नहीं जा सकी।';
 }

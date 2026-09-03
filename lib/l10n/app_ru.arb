@@ -80,15 +80,23 @@
   "workspaceDirectory": "Рабочее пространство",
   "logsSavedToMediaLibraryWithName": "Журналы сохранены в Загрузки (медиатека Android): {name}",
   "@logsSavedToMediaLibraryWithName": {
-    "placeholders": {"name": {}}
+    "placeholders": {
+      "name": {}
+    }
   },
   "shareFailed": "Не удалось открыть диалоговое окно общего доступа: {error}",
-  "@shareFailed": {"placeholders": {"error": {}}},
+  "@shareFailed": {
+    "placeholders": {
+      "error": {}
+    }
+  },
   "exportLogs": "Экспорт журналов",
   "logEventsCount": "{count} СОБЫТИЙ",
   "@logEventsCount": {
     "placeholders": {
-      "count": {"type": "int"}
+      "count": {
+        "type": "int"
+      }
     }
   },
   "unsavedChanges": "Несохраненные изменения",
@@ -103,5 +111,13 @@
   "aboutAppVersionLabel": "Версия PocketClaw",
   "aboutCoreVersionLabel": "Версия среды выполнения",
   "aboutVersionUnavailable": "Недоступно",
-  "close": "Закрыть"
+  "close": "Закрыть",
+  "contextMemoryTitle": "Память контекста Telegram",
+  "contextMemoryDescription": "Определяет, сколько последних сообщений передаётся ИИ. Более ранняя переписка остаётся в Telegram и отражается в накопительной сводке.",
+  "contextMemoryHelp": "Больше сообщений — больше свежего контекста, но и больше расход токенов. Ранние сообщения остаются в Telegram и могут сохраняться в накопительной сводке.",
+  "contextMemoryRecommended": "Рекомендуется",
+  "contextMemoryCustom": "Вручную",
+  "contextMemoryCustomLabel": "Сообщения",
+  "contextMemoryRangeError": "Введите целое число от {min} до {max}.",
+  "contextMemorySaveFailed": "Не удалось сохранить эту настройку."
 }

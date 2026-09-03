@@ -80,15 +80,23 @@
   "workspaceDirectory": "ワークスペース",
   "logsSavedToMediaLibraryWithName": "ログがダウンロード（Androidメディアライブラリ）に保存されました: {name}",
   "@logsSavedToMediaLibraryWithName": {
-    "placeholders": {"name": {}}
+    "placeholders": {
+      "name": {}
+    }
   },
   "shareFailed": "共有ダイアログを開けませんでした: {error}",
-  "@shareFailed": {"placeholders": {"error": {}}},
+  "@shareFailed": {
+    "placeholders": {
+      "error": {}
+    }
+  },
   "exportLogs": "ログをエクスポート",
   "logEventsCount": "{count} イベント",
   "@logEventsCount": {
     "placeholders": {
-      "count": {"type": "int"}
+      "count": {
+        "type": "int"
+      }
     }
   },
   "unsavedChanges": "未保存の変更",
@@ -103,5 +111,13 @@
   "aboutAppVersionLabel": "PocketClaw バージョン",
   "aboutCoreVersionLabel": "ランタイムのバージョン",
   "aboutVersionUnavailable": "利用できません",
-  "close": "閉じる"
+  "close": "閉じる",
+  "contextMemoryTitle": "Telegram コンテキストメモリ",
+  "contextMemoryDescription": "AI に送信する直近の会話メッセージ数を設定します。それ以前の会話は Telegram に残り、ローリング要約で表現されます。",
+  "contextMemoryHelp": "メッセージを増やすと直近の文脈は充実しますが、トークン消費も増えます。古いメッセージは Telegram に残り、ローリング要約を通じて保持される場合があります。",
+  "contextMemoryRecommended": "推奨",
+  "contextMemoryCustom": "カスタム",
+  "contextMemoryCustomLabel": "メッセージ数",
+  "contextMemoryRangeError": "{min} から {max} までの整数を入力してください。",
+  "contextMemorySaveFailed": "この設定を保存できませんでした。"
 }

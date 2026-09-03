@@ -80,15 +80,23 @@
   "workspaceDirectory": "Espaço de trabalho",
   "logsSavedToMediaLibraryWithName": "Registos guardados em Transferências (biblioteca de mídia Android): {name}",
   "@logsSavedToMediaLibraryWithName": {
-    "placeholders": {"name": {}}
+    "placeholders": {
+      "name": {}
+    }
   },
   "shareFailed": "Falha ao abrir a caixa de diálogo de partilha: {error}",
-  "@shareFailed": {"placeholders": {"error": {}}},
+  "@shareFailed": {
+    "placeholders": {
+      "error": {}
+    }
+  },
   "exportLogs": "Exportar registos",
   "logEventsCount": "{count} EVENTOS",
   "@logEventsCount": {
     "placeholders": {
-      "count": {"type": "int"}
+      "count": {
+        "type": "int"
+      }
     }
   },
   "unsavedChanges": "Alterações não guardadas",
@@ -103,5 +111,13 @@
   "aboutAppVersionLabel": "Versão do PocketClaw",
   "aboutCoreVersionLabel": "Versão do runtime",
   "aboutVersionUnavailable": "Indisponível",
-  "close": "Fechar"
+  "close": "Fechar",
+  "contextMemoryTitle": "Memória de contexto do Telegram",
+  "contextMemoryDescription": "Controla quantas mensagens recentes da conversa são enviadas à IA. As conversas mais antigas permanecem no Telegram e são representadas pelo resumo contínuo.",
+  "contextMemoryHelp": "Mais mensagens oferecem mais contexto recente, mas consomem mais tokens. Mensagens antigas permanecem no Telegram e podem ser mantidas pelo resumo contínuo.",
+  "contextMemoryRecommended": "Recomendado",
+  "contextMemoryCustom": "Personalizado",
+  "contextMemoryCustomLabel": "Mensagens",
+  "contextMemoryRangeError": "Digite um número inteiro entre {min} e {max}.",
+  "contextMemorySaveFailed": "Não foi possível salvar esta configuração."
 }

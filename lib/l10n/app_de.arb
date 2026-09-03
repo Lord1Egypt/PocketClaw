@@ -80,15 +80,23 @@
   "workspaceDirectory": "Arbeitsbereich",
   "logsSavedToMediaLibraryWithName": "Protokolle in Downloads gespeichert (Android-Medienbibliothek): {name}",
   "@logsSavedToMediaLibraryWithName": {
-    "placeholders": {"name": {}}
+    "placeholders": {
+      "name": {}
+    }
   },
   "shareFailed": "Freigabedialog konnte nicht geöffnet werden: {error}",
-  "@shareFailed": {"placeholders": {"error": {}}},
+  "@shareFailed": {
+    "placeholders": {
+      "error": {}
+    }
+  },
   "exportLogs": "Protokolle exportieren",
   "logEventsCount": "{count} EREIGNISSE",
   "@logEventsCount": {
     "placeholders": {
-      "count": {"type": "int"}
+      "count": {
+        "type": "int"
+      }
     }
   },
   "unsavedChanges": "Ungespeicherte Änderungen",
@@ -103,5 +111,13 @@
   "aboutAppVersionLabel": "PocketClaw-Version",
   "aboutCoreVersionLabel": "Laufzeitversion",
   "aboutVersionUnavailable": "Nicht verfügbar",
-  "close": "Schließen"
+  "close": "Schließen",
+  "contextMemoryTitle": "Telegram-Kontextspeicher",
+  "contextMemoryDescription": "Legt fest, wie viele der letzten Nachrichten an die KI gesendet werden. Ältere Unterhaltungen bleiben in Telegram und werden durch die fortlaufende Zusammenfassung abgebildet.",
+  "contextMemoryHelp": "Mehr Nachrichten liefern mehr aktuellen Kontext, verbrauchen aber mehr Tokens. Ältere Nachrichten bleiben in Telegram und können über die fortlaufende Zusammenfassung erhalten bleiben.",
+  "contextMemoryRecommended": "Empfohlen",
+  "contextMemoryCustom": "Benutzerdefiniert",
+  "contextMemoryCustomLabel": "Nachrichten",
+  "contextMemoryRangeError": "Gib eine ganze Zahl zwischen {min} und {max} ein.",
+  "contextMemorySaveFailed": "Diese Einstellung konnte nicht gespeichert werden."
 }
