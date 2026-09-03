@@ -639,6 +639,7 @@
   },
   "pages": {
     "agent": {
+      "load_error": "Informationen zur Agent-Unterstützung konnten nicht geladen werden.",
       "skills": {
         "empty": "Derzeit sind keine Skills verfügbar.",
         "install_success": "{{name}} installiert.",
@@ -725,7 +726,123 @@
           "cannotInstall": "Installation nicht möglich: das zugehörige Werkzeug ist nicht aktiviert"
         }
       },
-      "load_error": "Informationen zur Agent-Unterstützung konnten nicht geladen werden."
+      "tools": {
+        "search_placeholder": "Tools durchsuchen...",
+        "no_results": "Keine Tools entsprechen Ihren Kriterien.",
+        "no_results_hint": "Passen Sie Ihre Suchbegriffe oder die Statusfilter an.",
+        "filter": {
+          "all": "Alle Status",
+          "enabled": "Aktiviert",
+          "disabled": "Deaktiviert",
+          "blocked": "Blockiert"
+        },
+        "empty": "Keine Tools verfügbar.",
+        "enable_success": "Tool aktiviert.",
+        "disable_success": "Tool deaktiviert.",
+        "toggle_error": "Tool-Status konnte nicht aktualisiert werden.",
+        "library_title": "Tool-Bibliothek",
+        "library_description": "Durchsuchen und verwalten Sie die Tools, die Ihren KI-Agenten zur Verfügung stehen.",
+        "web_search": {
+          "title": "Websuche",
+          "description": "Gibt Agenten die Fähigkeit zur Websuche, um aktuelle Informationen aus der realen Welt zu finden. Die Anfrage wird automatisch an den optimalen aktiven Anbieter geleitet.",
+          "unsaved_prompt": "Diese Änderung wurde noch nicht gespeichert. Speichern Sie sie, um sie in die Websuche-Konfiguration zu schreiben.",
+          "global_settings": "Allgemein",
+          "providers_config": "Integrationen",
+          "load_error": "Websuche-Konfiguration konnte nicht geladen werden.",
+          "save": "Änderungen speichern",
+          "open_settings": "Einstellungen öffnen",
+          "save_success": "Einstellungen erfolgreich gespeichert.",
+          "save_error": "Einstellungen konnten nicht gespeichert werden.",
+          "provider": "Primärer Anbieter",
+          "provider_description": "Wählen Sie den Standardanbieter, den das Websuche-Tool bei einer Anfrage verwendet.",
+          "proxy": "HTTPS-Proxy",
+          "proxy_description": "Optionaler globaler HTTP/S-Proxy für die zugrunde liegenden Webanfragen.",
+          "prefer_native": "Native Suche bevorzugen",
+          "prefer_native_hint": "Wenn aktiviert, kann das Modell seine eingebaute Suchfunktion statt der konfigurierten Anbieterliste nutzen.",
+          "provider_hint": "Aktivieren Sie diesen Anbieter und füllen Sie alle erforderlichen Verbindungsangaben aus.",
+          "max_results": "Max. Ergebnisse",
+          "base_url": "Basis-URL",
+          "base_url_placeholder": "Optionaler abweichender Endpunkt",
+          "model": "Modell",
+          "model_placeholder": "Optionales abweichendes Modell",
+          "api_key": "API-Schlüssel / Token",
+          "api_key_placeholder": "API-Schlüssel eingeben oder leer lassen, um den bisherigen zu behalten",
+          "none": "Nicht verfügbar"
+        },
+        "status": {
+          "enabled": "Aktiviert",
+          "disabled": "Deaktiviert",
+          "blocked": "Blockiert"
+        },
+        "categories": {
+          "automation": "Automatisierung",
+          "filesystem": "Dateisystem",
+          "web": "Web",
+          "communication": "Kommunikation",
+          "skills": "Skills",
+          "agents": "Agenten",
+          "hardware": "Hardware",
+          "discovery": "Erkennung"
+        },
+        "reasons": {
+          "requires_linux": "Dieses Tool funktioniert nur auf Linux-Hosts, auf denen die erforderlichen Gerätedateien verfügbar sind.",
+          "requires_serial_platform": "Dieses Tool unterstützt derzeit Linux-, macOS- und Windows-Hosts mit zugänglichen seriellen Schnittstellen.",
+          "requires_skills": "Aktivieren Sie `tools.skills`, bevor dieses Skill-Registry-Tool genutzt werden kann.",
+          "requires_subagent": "Aktivieren Sie `tools.subagent`, bevor das Spawn-Tool Arbeit delegieren kann.",
+          "requires_mcp_discovery": "Aktivieren Sie `tools.mcp.discovery`, bevor MCP-Erkennungstools verfügbar werden.",
+          "requires_web_search_provider": "Konfigurieren Sie mindestens einen einsatzbereiten externen Websuche-Anbieter."
+        }
+      }
+    },
+    "config": {
+      "load_error": "Konfiguration konnte nicht geladen werden. Bitte aktualisieren Sie die Seite und versuchen Sie es erneut.",
+      "workspace": "Arbeitsverzeichnis",
+      "workspace_hint": "Basisverzeichnis für Dateioperationen des Agenten.",
+      "workspace_required": "Ein Arbeitsverzeichnis ist erforderlich.",
+      "restrict_workspace": "Auf Arbeitsbereich beschränken",
+      "restrict_workspace_hint": "Dateioperationen nur innerhalb des Arbeitsbereichs zulassen.",
+      "split_on_marker": "Plaudermodus",
+      "split_on_marker_hint": "Lange Nachrichten in kurze aufteilen, wie in einem echten Chat zwischen Menschen.",
+      "tool_feedback_enabled": "Tool-Rückmeldung",
+      "tool_feedback_enabled_hint": "Vor jedem Tool-Aufruf einen kurzen Ausführungshinweis in den aktuellen Chat senden.",
+      "tool_feedback_separate_messages": "Getrennte Rückmeldungen",
+      "tool_feedback_separate_messages_hint": "Jede Tool-Rückmeldung als eigene Chat-Nachricht behalten, statt eine einzelne Platzhalter- bzw. Fortschrittsnachricht wiederzuverwenden.",
+      "tool_feedback_max_args_length": "Länge der Argumentvorschau",
+      "tool_feedback_max_args_length_hint": "Maximale Zeichenzahl in der Vorschau jedes Tool-Arguments. 0 verwendet den Standardwert.",
+      "exec_enabled": "Befehle zulassen",
+      "exec_enabled_hint": "Befehlsausführung für die App aktivieren oder deaktivieren. Ist sie deaktiviert, wird keine Befehlsanfrage ausgeführt.",
+      "allow_remote": "Entfernte Befehle zulassen",
+      "allow_remote_hint": "Wenn aktiviert, können auch entfernte Sitzungen oder nicht lokale Kontexte Befehle ausführen. Ist die Option deaktiviert, bleibt die Ausführung auf lokale, sichere Kontexte beschränkt.",
+      "enable_deny_patterns": "Sperrliste aktivieren",
+      "enable_deny_patterns_hint": "Wenn aktiviert, blockiert die App Befehle, die auf ihre eingebauten gefährlichen Muster oder auf die eigene Sperrliste unten passen.",
+      "exec_timeout_seconds": "Befehlszeitlimit (Sekunden)",
+      "exec_timeout_seconds_hint": "Maximale Laufzeit für Befehlsanfragen. 0 verwendet das Standardzeitlimit.",
+      "custom_deny_patterns": "Befehls-Sperrliste",
+      "custom_deny_patterns_hint": "Zusätzliche Sperrregeln hinzufügen, ein regulärer Ausdruck pro Zeile. Ein Befehl, der auf eine Regel hier passt, wird blockiert.",
+      "custom_allow_patterns": "Befehls-Freigabeliste",
+      "custom_allow_patterns_hint": "Zusätzliche Freigaberegeln hinzufügen, ein regulärer Ausdruck pro Zeile. Ein Befehl, der auf eine Regel hier passt, überspringt die Sperrliste; andere Sicherheitsgrenzen gelten weiterhin.",
+      "custom_patterns_placeholder": "^rm\\s+-rf\\b\n^git\\s+push\\b",
+      "pattern_detector_title": "Musterprüfung",
+      "pattern_detector_hint": "Geben Sie einen Befehl ein, um zu testen, ob er auf Sperr- oder Freigabemuster passt.",
+      "pattern_detector_input_placeholder": "Befehl zum Testen eingeben, z. B. rm -rf /tmp",
+      "pattern_detector_test_button": "Testen",
+      "pattern_detector_result_allowed": "Erlaubt (passt auf die Freigabeliste)",
+      "pattern_detector_result_blocked": "Blockiert (passt auf die Sperrliste)",
+      "pattern_detector_result_no_match": "Kein Treffer (Standardregeln greifen)",
+      "allow_shell_execution": "Geplante Befehle zulassen",
+      "allow_shell_execution_hint": "Geplanten Aufgaben standardmäßig erlauben, Befehle auszuführen. Ist die Option deaktiviert, müssen Nutzer command_confirm=true übergeben, um eine Befehlsaufgabe zu planen.",
+      "cron_exec_timeout": "Zeitlimit geplanter Befehle (Minuten)",
+      "cron_exec_timeout_hint": "Maximale Laufzeit für geplante Befehle. 0 deaktiviert das Zeitlimit.",
+      "sections": {
+        "agent": "Agent",
+        "runtime": "Laufzeit",
+        "evolution": "Evolution",
+        "mcp": "MCP",
+        "exec": "Befehle ausführen",
+        "cron": "Cron-Aufgaben",
+        "launcher": "Launcher",
+        "devices": "Geräte"
+      }
     },
     "logs": {
       "log_level_error": "Protokollstufe konnte nicht aktualisiert werden.",

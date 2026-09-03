@@ -639,6 +639,7 @@
   },
   "pages": {
     "agent": {
+      "load_error": "Échec du chargement des informations de prise en charge de l'agent.",
       "skills": {
         "empty": "Aucune compétence n'est disponible actuellement.",
         "install_success": "{{name}} installée.",
@@ -725,7 +726,123 @@
           "cannotInstall": "Installation impossible : l'outil associé n'est pas activé"
         }
       },
-      "load_error": "Échec du chargement des informations de prise en charge de l'agent."
+      "tools": {
+        "search_placeholder": "Rechercher des outils...",
+        "no_results": "Aucun outil ne correspond à vos critères.",
+        "no_results_hint": "Essayez d'ajuster vos critères de recherche ou les filtres d'état.",
+        "filter": {
+          "all": "Tous les états",
+          "enabled": "Activés",
+          "disabled": "Désactivés",
+          "blocked": "Bloqués"
+        },
+        "empty": "Aucun outil disponible.",
+        "enable_success": "Outil activé.",
+        "disable_success": "Outil désactivé.",
+        "toggle_error": "Échec de la mise à jour de l'état de l'outil.",
+        "library_title": "Bibliothèque d'outils",
+        "library_description": "Parcourez et gérez la panoplie d'outils accessible à vos agents IA.",
+        "web_search": {
+          "title": "Recherche web",
+          "description": "Donne aux agents la capacité de rechercher sur le web pour trouver les informations les plus récentes. La requête est automatiquement dirigée vers le meilleur fournisseur actif.",
+          "unsaved_prompt": "Cette modification n'a pas encore été enregistrée. Enregistrez-la pour l'écrire dans la configuration de la recherche web.",
+          "global_settings": "Général",
+          "providers_config": "Intégrations",
+          "load_error": "Échec du chargement de la configuration de la recherche web.",
+          "save": "Enregistrer les modifications",
+          "open_settings": "Ouvrir les paramètres",
+          "save_success": "Paramètres enregistrés.",
+          "save_error": "Échec de l'enregistrement des paramètres.",
+          "provider": "Fournisseur principal",
+          "provider_description": "Sélectionnez le fournisseur utilisé par défaut lorsque l'outil de recherche web traite une requête.",
+          "proxy": "Proxy HTTPS",
+          "proxy_description": "Proxy HTTP/S global facultatif pour les requêtes web sous-jacentes.",
+          "prefer_native": "Préférer la recherche native",
+          "prefer_native_hint": "Lorsque l'option est activée, le modèle peut utiliser sa capacité de recherche intégrée plutôt que la liste de fournisseurs configurée.",
+          "provider_hint": "Activez ce fournisseur et renseignez les paramètres de connexion requis.",
+          "max_results": "Nombre maximal de résultats",
+          "base_url": "URL de base",
+          "base_url_placeholder": "Point de terminaison personnalisé facultatif",
+          "model": "Modèle",
+          "model_placeholder": "Modèle personnalisé facultatif",
+          "api_key": "Clé API / jeton",
+          "api_key_placeholder": "Saisissez la clé API, ou laissez vide pour conserver la clé existante",
+          "none": "Indisponible"
+        },
+        "status": {
+          "enabled": "Activé",
+          "disabled": "Désactivé",
+          "blocked": "Bloqué"
+        },
+        "categories": {
+          "automation": "Automatisation",
+          "filesystem": "Système de fichiers",
+          "web": "Web",
+          "communication": "Communication",
+          "skills": "Compétences",
+          "agents": "Agents",
+          "hardware": "Matériel",
+          "discovery": "Découverte"
+        },
+        "reasons": {
+          "requires_linux": "Cet outil ne fonctionne que sur des hôtes Linux exposant les fichiers de périphérique requis.",
+          "requires_serial_platform": "Cet outil prend actuellement en charge les hôtes Linux, macOS et Windows dotés de ports série accessibles.",
+          "requires_skills": "Activez `tools.skills` avant de pouvoir utiliser cet outil du registre de compétences.",
+          "requires_subagent": "Activez `tools.subagent` avant que l'outil de lancement puisse déléguer du travail.",
+          "requires_mcp_discovery": "Activez `tools.mcp.discovery` pour que les outils de découverte MCP deviennent disponibles.",
+          "requires_web_search_provider": "Configurez au moins un fournisseur de recherche web externe opérationnel."
+        }
+      }
+    },
+    "config": {
+      "load_error": "Échec du chargement de la configuration. Veuillez actualiser la page et réessayer.",
+      "workspace": "Répertoire de travail",
+      "workspace_hint": "Répertoire de base pour les opérations de fichiers de l'agent.",
+      "workspace_required": "Le chemin de l'espace de travail est obligatoire.",
+      "restrict_workspace": "Limiter à l'espace de travail",
+      "restrict_workspace_hint": "N'autoriser les opérations de fichiers qu'à l'intérieur de l'espace de travail.",
+      "split_on_marker": "Mode bavard",
+      "split_on_marker_hint": "Découpe les longs messages en messages courts, comme une vraie conversation humaine.",
+      "tool_feedback_enabled": "Retour des outils",
+      "tool_feedback_enabled_hint": "Envoie une courte note d'exécution dans la conversation en cours avant chaque outil.",
+      "tool_feedback_separate_messages": "Retours en messages distincts",
+      "tool_feedback_separate_messages_hint": "Conserve chaque retour d'outil comme un message distinct au lieu de réutiliser un seul message d'attente ou de progression.",
+      "tool_feedback_max_args_length": "Longueur de l'aperçu des arguments",
+      "tool_feedback_max_args_length_hint": "Nombre maximal de caractères affichés dans l'aperçu de chaque argument d'outil. Mettez 0 pour la valeur par défaut.",
+      "exec_enabled": "Autoriser les commandes",
+      "exec_enabled_hint": "Active ou désactive l'exécution de commandes dans l'application. Une fois désactivée, aucune demande de commande ne sera exécutée.",
+      "allow_remote": "Autoriser les commandes distantes",
+      "allow_remote_hint": "Lorsque l'option est activée, les sessions distantes ou les contextes non locaux peuvent aussi exécuter des commandes. Désactivée, l'exécution reste limitée aux contextes locaux sûrs.",
+      "enable_deny_patterns": "Activer la liste de blocage",
+      "enable_deny_patterns_hint": "Lorsque l'option est activée, l'application bloque les commandes correspondant à ses motifs dangereux intégrés et à la liste de blocage personnalisée ci-dessous.",
+      "exec_timeout_seconds": "Délai d'expiration des commandes (secondes)",
+      "exec_timeout_seconds_hint": "Durée d'exécution maximale des demandes de commande. Mettez 0 pour le délai par défaut.",
+      "custom_deny_patterns": "Liste de blocage des commandes",
+      "custom_deny_patterns_hint": "Ajoutez des règles de blocage supplémentaires, une expression régulière par ligne. Toute commande correspondant à une règle sera bloquée.",
+      "custom_allow_patterns": "Liste d'autorisation des commandes",
+      "custom_allow_patterns_hint": "Ajoutez des règles d'autorisation supplémentaires, une expression régulière par ligne. Une commande correspondant à l'une d'elles ignore la liste de blocage, mais les autres limites de sécurité restent appliquées.",
+      "custom_patterns_placeholder": "^rm\\s+-rf\\b\n^git\\s+push\\b",
+      "pattern_detector_title": "Testeur de motifs",
+      "pattern_detector_hint": "Saisissez une commande pour vérifier si elle correspond à un motif de blocage ou d'autorisation.",
+      "pattern_detector_input_placeholder": "Saisissez une commande à tester, par ex. rm -rf /tmp",
+      "pattern_detector_test_button": "Tester",
+      "pattern_detector_result_allowed": "Autorisée (correspond à la liste d'autorisation)",
+      "pattern_detector_result_blocked": "Bloquée (correspond à la liste de blocage)",
+      "pattern_detector_result_no_match": "Aucune correspondance (les règles par défaut s'appliqueront)",
+      "allow_shell_execution": "Autoriser les commandes planifiées",
+      "allow_shell_execution_hint": "Autorise par défaut les tâches planifiées à exécuter des commandes. Une fois désactivée, il faut passer command_confirm=true pour planifier une tâche de commande.",
+      "cron_exec_timeout": "Délai des commandes planifiées (minutes)",
+      "cron_exec_timeout_hint": "Durée d'exécution maximale des commandes planifiées. Mettez 0 pour désactiver le délai.",
+      "sections": {
+        "agent": "Agent",
+        "runtime": "Exécution",
+        "evolution": "Évolution",
+        "mcp": "MCP",
+        "exec": "Exécuter des commandes",
+        "cron": "Tâches planifiées",
+        "launcher": "Lanceur",
+        "devices": "Appareils"
+      }
     },
     "logs": {
       "log_level_error": "Échec de la mise à jour du niveau de journalisation.",

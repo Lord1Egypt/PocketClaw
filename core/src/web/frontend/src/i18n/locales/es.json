@@ -639,6 +639,7 @@
   },
   "pages": {
     "agent": {
+      "load_error": "No se pudo cargar la información de compatibilidad del agente.",
       "skills": {
         "empty": "Actualmente no hay habilidades disponibles.",
         "install_success": "{{name}} instalada.",
@@ -725,7 +726,123 @@
           "cannotInstall": "No se puede instalar: la herramienta relacionada no está activada"
         }
       },
-      "load_error": "No se pudo cargar la información de compatibilidad del agente."
+      "tools": {
+        "search_placeholder": "Buscar herramientas...",
+        "no_results": "Ninguna herramienta coincide con tus criterios.",
+        "no_results_hint": "Prueba a ajustar los criterios de búsqueda o los filtros de estado.",
+        "filter": {
+          "all": "Todos los estados",
+          "enabled": "Activadas",
+          "disabled": "Desactivadas",
+          "blocked": "Bloqueadas"
+        },
+        "empty": "No hay herramientas disponibles.",
+        "enable_success": "Herramienta activada.",
+        "disable_success": "Herramienta desactivada.",
+        "toggle_error": "No se pudo actualizar el estado de la herramienta.",
+        "library_title": "Biblioteca de herramientas",
+        "library_description": "Explora y gestiona el conjunto de herramientas disponible para tus agentes de IA.",
+        "web_search": {
+          "title": "Búsqueda web",
+          "description": "Ofrece a los agentes la capacidad de buscar en la web para encontrar la información más reciente del mundo real. La solicitud se dirige automáticamente al proveedor activo óptimo.",
+          "unsaved_prompt": "Este cambio aún no se ha guardado. Guárdalo para escribirlo en la configuración de búsqueda web.",
+          "global_settings": "General",
+          "providers_config": "Integraciones",
+          "load_error": "No se pudo cargar la configuración de búsqueda web.",
+          "save": "Guardar cambios",
+          "open_settings": "Abrir ajustes",
+          "save_success": "Ajustes guardados correctamente.",
+          "save_error": "No se pudieron guardar los ajustes.",
+          "provider": "Proveedor principal",
+          "provider_description": "Selecciona el proveedor predeterminado que usará la herramienta de búsqueda web al atender una solicitud.",
+          "proxy": "Proxy HTTPS",
+          "proxy_description": "Proxy HTTP/S global opcional para las solicitudes web subyacentes.",
+          "prefer_native": "Preferir búsqueda nativa",
+          "prefer_native_hint": "Si se activa, el modelo puede usar su capacidad de búsqueda integrada en lugar de la lista de proveedores configurada.",
+          "provider_hint": "Activa este proveedor y completa los ajustes de conexión necesarios.",
+          "max_results": "Máximo de resultados",
+          "base_url": "URL base",
+          "base_url_placeholder": "Punto de conexión alternativo opcional",
+          "model": "Modelo",
+          "model_placeholder": "Modelo alternativo opcional",
+          "api_key": "Clave de API / token",
+          "api_key_placeholder": "Introduce la clave de API o déjalo en blanco para conservar la actual",
+          "none": "No disponible"
+        },
+        "status": {
+          "enabled": "Activada",
+          "disabled": "Desactivada",
+          "blocked": "Bloqueada"
+        },
+        "categories": {
+          "automation": "Automatización",
+          "filesystem": "Sistema de archivos",
+          "web": "Web",
+          "communication": "Comunicación",
+          "skills": "Habilidades",
+          "agents": "Agentes",
+          "hardware": "Hardware",
+          "discovery": "Descubrimiento"
+        },
+        "reasons": {
+          "requires_linux": "Esta herramienta solo funciona en hosts Linux con los archivos de dispositivo necesarios expuestos.",
+          "requires_serial_platform": "Actualmente esta herramienta admite hosts Linux, macOS y Windows con puertos serie accesibles.",
+          "requires_skills": "Activa `tools.skills` antes de poder usar esta herramienta del registro de habilidades.",
+          "requires_subagent": "Activa `tools.subagent` antes de que la herramienta de generación pueda delegar trabajo.",
+          "requires_mcp_discovery": "Activa `tools.mcp.discovery` para que las herramientas de descubrimiento MCP estén disponibles.",
+          "requires_web_search_provider": "Configura al menos un proveedor externo de búsqueda web listo para usar."
+        }
+      }
+    },
+    "config": {
+      "load_error": "No se pudo cargar la configuración. Actualiza la página e inténtalo de nuevo.",
+      "workspace": "Directorio del espacio de trabajo",
+      "workspace_hint": "Directorio base para las operaciones de archivos del agente.",
+      "workspace_required": "La ruta del espacio de trabajo es obligatoria.",
+      "restrict_workspace": "Restringir al espacio de trabajo",
+      "restrict_workspace_hint": "Permitir operaciones de archivos solo dentro del espacio de trabajo.",
+      "split_on_marker": "Modo conversador",
+      "split_on_marker_hint": "Divide los mensajes largos en mensajes cortos, como en una conversación humana real.",
+      "tool_feedback_enabled": "Avisos de herramientas",
+      "tool_feedback_enabled_hint": "Envía una breve nota de ejecución al chat actual antes de ejecutar cada herramienta.",
+      "tool_feedback_separate_messages": "Avisos en mensajes separados",
+      "tool_feedback_separate_messages_hint": "Mantiene cada aviso de herramienta como un mensaje propio en lugar de reutilizar un único mensaje de marcador o progreso.",
+      "tool_feedback_max_args_length": "Longitud de la vista previa de argumentos",
+      "tool_feedback_max_args_length_hint": "Número máximo de caracteres mostrados en la vista previa de cada argumento. Usa 0 para el valor predeterminado.",
+      "exec_enabled": "Permitir comandos",
+      "exec_enabled_hint": "Activa o desactiva la ejecución de comandos en la aplicación. Si está desactivada, no se ejecutará ninguna solicitud de comando.",
+      "allow_remote": "Permitir comandos remotos",
+      "allow_remote_hint": "Si se activa, las sesiones remotas o los contextos no locales también podrán ejecutar comandos. Si se desactiva, la ejecución queda limitada a contextos locales seguros.",
+      "enable_deny_patterns": "Activar lista de bloqueo",
+      "enable_deny_patterns_hint": "Si se activa, la aplicación bloquea los comandos que coincidan con sus patrones peligrosos integrados y con la lista de bloqueo personalizada de abajo.",
+      "exec_timeout_seconds": "Tiempo límite del comando (segundos)",
+      "exec_timeout_seconds_hint": "Tiempo máximo de ejecución de las solicitudes de comandos. Usa 0 para el tiempo límite predeterminado.",
+      "custom_deny_patterns": "Lista de bloqueo de comandos",
+      "custom_deny_patterns_hint": "Añade reglas de bloqueo adicionales, una expresión regular por línea. Cualquier comando que coincida con una regla será bloqueado.",
+      "custom_allow_patterns": "Lista de permitidos",
+      "custom_allow_patterns_hint": "Añade reglas de permiso adicionales, una expresión regular por línea. Un comando que coincida con alguna de ellas omite la lista de bloqueo, pero se mantienen los demás límites de seguridad.",
+      "custom_patterns_placeholder": "^rm\\s+-rf\\b\n^git\\s+push\\b",
+      "pattern_detector_title": "Comprobador de patrones",
+      "pattern_detector_hint": "Introduce un comando para comprobar si coincide con algún patrón de bloqueo o de permiso.",
+      "pattern_detector_input_placeholder": "Introduce un comando para probar, p. ej., rm -rf /tmp",
+      "pattern_detector_test_button": "Probar",
+      "pattern_detector_result_allowed": "Permitido (coincide con la lista de permitidos)",
+      "pattern_detector_result_blocked": "Bloqueado (coincide con la lista de bloqueo)",
+      "pattern_detector_result_no_match": "Sin coincidencias (se usarán las reglas predeterminadas)",
+      "allow_shell_execution": "Permitir comandos programados",
+      "allow_shell_execution_hint": "Permite que las tareas programadas ejecuten comandos de forma predeterminada. Si se desactiva, hay que pasar command_confirm=true para programar una tarea de comando.",
+      "cron_exec_timeout": "Tiempo límite de comandos programados (minutos)",
+      "cron_exec_timeout_hint": "Tiempo máximo de ejecución de los comandos programados. Usa 0 para desactivar el límite.",
+      "sections": {
+        "agent": "Agente",
+        "runtime": "Entorno de ejecución",
+        "evolution": "Evolución",
+        "mcp": "MCP",
+        "exec": "Ejecutar comandos",
+        "cron": "Tareas programadas",
+        "launcher": "Lanzador",
+        "devices": "Dispositivos"
+      }
     },
     "logs": {
       "log_level_error": "No se pudo actualizar el nivel de registro.",

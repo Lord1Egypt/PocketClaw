@@ -314,7 +314,7 @@ export function ConfigPage() {
         const dmScope = form.dmScope.trim()
 
         if (!workspace) {
-          throw new Error("Workspace path is required.")
+          throw new Error(t("pages.config.workspace_required"))
         }
         if (!dmScope) {
           throw new Error("Session scope is required.")

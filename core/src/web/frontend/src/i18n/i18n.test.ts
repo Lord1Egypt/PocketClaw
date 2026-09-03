@@ -19,6 +19,87 @@ const APP_LOCALES = [
   "zh",
 ] as const
 
+/// The nine locales the dashboard localization milestone adds. Every finished
+/// batch must render in all of them.
+const BATCH_LOCALES = [
+  "ar",
+  "de",
+  "es",
+  "fr",
+  "hi",
+  "id",
+  "ja",
+  "ko",
+  "ru",
+] as const
+
+// `pages` is translated in batches, so only the finished groups are required.
+// Listing prefixes rather than the whole namespace keeps the enforcement
+// honest: it can never imply that all 316 pages keys are done.
+
+// The Skills page, the Agent page's shared load error, and the Logs page.
+const PAGES_BATCH_1 = [
+  "pages.agent.skills.",
+  "pages.agent.load_error",
+  "pages.logs.",
+] as const
+
+// The Tools page including its Web Search panel, the Configuration page's
+// shared load error and section tabs, and the settings behind the Agent and
+// Run Commands tabs: workspace, chatty mode, tool feedback, command
+// execution, the pattern detector and the scheduled-command limits.
+//
+// `pages.config` is one flat group rather than a tree, so its members are
+// listed key by key. A `pages.config.` prefix would silently claim batches 3
+// and 4 as well.
+const PAGES_BATCH_2 = [
+  "pages.agent.tools.",
+  "pages.config.load_error",
+  "pages.config.sections.",
+  "pages.config.workspace",
+  "pages.config.workspace_hint",
+  "pages.config.workspace_required",
+  "pages.config.restrict_workspace",
+  "pages.config.restrict_workspace_hint",
+  "pages.config.split_on_marker",
+  "pages.config.split_on_marker_hint",
+  "pages.config.tool_feedback_enabled",
+  "pages.config.tool_feedback_enabled_hint",
+  "pages.config.tool_feedback_separate_messages",
+  "pages.config.tool_feedback_separate_messages_hint",
+  "pages.config.tool_feedback_max_args_length",
+  "pages.config.tool_feedback_max_args_length_hint",
+  "pages.config.exec_enabled",
+  "pages.config.exec_enabled_hint",
+  "pages.config.allow_remote",
+  "pages.config.allow_remote_hint",
+  "pages.config.enable_deny_patterns",
+  "pages.config.enable_deny_patterns_hint",
+  "pages.config.exec_timeout_seconds",
+  "pages.config.exec_timeout_seconds_hint",
+  "pages.config.custom_deny_patterns",
+  "pages.config.custom_deny_patterns_hint",
+  "pages.config.custom_allow_patterns",
+  "pages.config.custom_allow_patterns_hint",
+  "pages.config.custom_patterns_placeholder",
+  "pages.config.pattern_detector_title",
+  "pages.config.pattern_detector_hint",
+  "pages.config.pattern_detector_input_placeholder",
+  "pages.config.pattern_detector_test_button",
+  "pages.config.pattern_detector_result_allowed",
+  "pages.config.pattern_detector_result_blocked",
+  "pages.config.pattern_detector_result_no_match",
+  "pages.config.allow_shell_execution",
+  "pages.config.allow_shell_execution_hint",
+  "pages.config.cron_exec_timeout",
+  "pages.config.cron_exec_timeout_hint",
+] as const
+
+const PAGES_DONE_PREFIXES = [
+  ...PAGES_BATCH_1,
+  ...PAGES_BATCH_2,
+] as readonly string[]
+
 describe("dashboard i18n", () => {
   beforeEach(async () => {
     await i18n.changeLanguage("en")
@@ -222,6 +303,12 @@ describe("translation coverage", () => {
     // technical interfaces; it is a field label beside Name and Description,
     // not prose. Arabic uses "الرابط" and is unaffected.
     "pages.agent.skills.metadata.url",
+    // MCP is the protocol's name and is written "MCP" in every one of these
+    // languages, the same way the channel platform names above are.
+    "pages.config.sections.mcp",
+    // Not prose at all: the two sample regular expressions shown greyed out in
+    // the custom-pattern textareas. Translating a regex would make it wrong.
+    "pages.config.custom_patterns_placeholder",
   ])
 
   // Latin-script languages legitimately share loanwords with English — German
@@ -253,14 +340,6 @@ describe("translation coverage", () => {
     return [...english.keys()].filter((key) => key.startsWith(`${namespace}.`))
   }
 
-  // `pages` is translated in batches, so only the finished groups are required.
-  // Listing prefixes rather than the whole namespace keeps the enforcement
-  // honest: it can never imply that all 316 pages keys are done.
-  const PAGES_DONE_PREFIXES = [
-    "pages.agent.skills.",
-    "pages.agent.load_error",
-    "pages.logs.",
-  ] as const
 
   function batchedPagesKeys(english: Map<string, string>) {
     return [...english.keys()].filter((key) =>
@@ -631,18 +710,6 @@ describe("Credentials route body", () => {
 })
 
 describe("Pages batch 1 — Skills and Logs", () => {
-  const BATCH_LOCALES = [
-    "ar",
-    "de",
-    "es",
-    "fr",
-    "hi",
-    "id",
-    "ja",
-    "ko",
-    "ru",
-  ] as const
-
   // Interpolation parity: every {{var}} English uses must survive translation,
   // and no translation may invent one English does not have.
   it("preserves placeholder parity with English for every batch 1 key", async () => {
@@ -777,6 +844,276 @@ describe("Pages batch 1 — Skills and Logs", () => {
     for (const locale of ["pt", "zh"]) {
       await i18n.changeLanguage(locale)
       expect(i18n.t("pages.logs.clear"), locale).not.toBe("pages.logs.clear")
+    }
+  })
+})
+
+describe("Pages batch 2 — Tools and Configuration", () => {
+  // Interpolation parity, applied to the batch 2 keys the same way batch 1
+  // applies it to its own: no translation may drop a {{var}} English uses or
+  // invent one it does not.
+  it("preserves placeholder parity with English for every batch 2 key", () => {
+    const placeholders = (value: string) =>
+      [...value.matchAll(/\{\{\s*([A-Za-z0-9_]+)\s*\}\}/g)]
+        .map((match) => match[1])
+        .sort()
+        .join(",")
+
+    const walk = (
+      value: unknown,
+      path: string,
+      visit: (key: string, text: string) => void,
+    ) => {
+      if (value && typeof value === "object") {
+        for (const [key, child] of Object.entries(
+          value as Record<string, unknown>,
+        )) {
+          walk(child, path ? `${path}.${key}` : key, visit)
+        }
+      } else if (typeof value === "string") {
+        visit(path, value)
+      }
+    }
+
+    const english = i18n.getResourceBundle("en", "translation") as Record<
+      string,
+      unknown
+    >
+    const inBatch2 = (key: string) =>
+      PAGES_BATCH_2.some(
+        (prefix) => key === prefix || key.startsWith(prefix as string),
+      )
+
+    const failures: string[] = []
+    walk(english.pages, "pages", (key, englishText) => {
+      if (!inBatch2(key)) return
+      for (const locale of BATCH_LOCALES) {
+        const translated = i18n.getResource(locale, "translation", key) as
+          | string
+          | undefined
+        if (typeof translated !== "string") continue
+        const want = placeholders(englishText)
+        const got = placeholders(translated)
+        if (want !== got) {
+          failures.push(
+            `${locale} | pages | ${key} | placeholders "${want}" vs "${got}"`,
+          )
+        }
+      }
+    })
+
+    expect(failures.join("\n"), failures.join("\n")).toBe("")
+  })
+
+  it("renders translated Tools page body, actions and states", async () => {
+    for (const locale of BATCH_LOCALES) {
+      await i18n.changeLanguage(locale)
+
+      // Title / description prose.
+      expect(i18n.t("pages.agent.tools.library_title"), locale).not.toBe(
+        "Tool Library",
+      )
+      expect(i18n.t("pages.agent.tools.library_description"), locale).not.toBe(
+        "Browse and manage the toolset available to your AI agents.",
+      )
+
+      // Form / helper content.
+      expect(i18n.t("pages.agent.tools.search_placeholder"), locale).not.toBe(
+        "Search tools...",
+      )
+      expect(i18n.t("pages.agent.tools.filter.all"), locale).not.toBe(
+        "All Status",
+      )
+
+      // Status.
+      expect(i18n.t("pages.agent.tools.enable_success"), locale).not.toBe(
+        "Tool enabled.",
+      )
+      expect(i18n.t("pages.agent.tools.status.enabled"), locale).not.toBe(
+        "Enabled",
+      )
+
+      // Empty / no-result states.
+      expect(i18n.t("pages.agent.tools.empty"), locale).not.toBe(
+        "No tools are available.",
+      )
+      expect(i18n.t("pages.agent.tools.no_results"), locale).not.toBe(
+        "No tools match your criteria.",
+      )
+      expect(i18n.t("pages.agent.tools.no_results_hint"), locale).not.toBe(
+        "Try adjusting your search criteria or status filters.",
+      )
+
+      // Errors and the reasons a tool is blocked.
+      expect(i18n.t("pages.agent.tools.toggle_error"), locale).not.toBe(
+        "Failed to update tool state.",
+      )
+      expect(
+        i18n.t("pages.agent.tools.reasons.requires_web_search_provider"),
+        locale,
+      ).not.toBe("Configure at least one ready external web-search provider.")
+    }
+  })
+
+  it("renders the translated Web Search panel", async () => {
+    for (const locale of BATCH_LOCALES) {
+      await i18n.changeLanguage(locale)
+
+      expect(i18n.t("pages.agent.tools.web_search.title"), locale).not.toBe(
+        "Web Search",
+      )
+      expect(
+        i18n.t("pages.agent.tools.web_search.provider_description"),
+        locale,
+      ).not.toBe(
+        "Select the default provider to use when the web search tool handles a request.",
+      )
+
+      // Form helper text.
+      expect(
+        i18n.t("pages.agent.tools.web_search.api_key_placeholder"),
+        locale,
+      ).not.toBe("Enter API key, leave it blank to keep the original key")
+
+      // Actions.
+      expect(i18n.t("pages.agent.tools.web_search.save"), locale).not.toBe(
+        "Save Changes",
+      )
+      expect(
+        i18n.t("pages.agent.tools.web_search.open_settings"),
+        locale,
+      ).not.toBe("Open Settings")
+
+      // Status and error states.
+      expect(
+        i18n.t("pages.agent.tools.web_search.save_success"),
+        locale,
+      ).not.toBe("Settings saved successfully.")
+      expect(
+        i18n.t("pages.agent.tools.web_search.load_error"),
+        locale,
+      ).not.toBe("Failed to load web search configuration.")
+      expect(i18n.t("pages.agent.tools.web_search.none"), locale).not.toBe(
+        "Unavailable",
+      )
+      // "Model" itself is a Latin cognate that several of these languages
+      // legitimately spell the same way, so the field asserted here is its
+      // helper text rather than the one-word label.
+      expect(
+        i18n.t("pages.agent.tools.web_search.model_placeholder"),
+        locale,
+      ).not.toBe("Optional model override")
+    }
+  })
+
+  it("renders the translated Configuration page", async () => {
+    for (const locale of BATCH_LOCALES) {
+      await i18n.changeLanguage(locale)
+
+      // Section tabs. Agent, Runtime, Evolution, MCP and Launcher are the same
+      // word in several of these languages, so the tabs asserted here are the
+      // ones that genuinely differ.
+      expect(i18n.t("pages.config.sections.exec"), locale).not.toBe(
+        "Run Commands",
+      )
+      expect(i18n.t("pages.config.sections.cron"), locale).not.toBe(
+        "Cron Tasks",
+      )
+      expect(i18n.t("pages.config.sections.devices"), locale).not.toBe(
+        "Devices",
+      )
+
+      // Field labels and their helper text.
+      expect(i18n.t("pages.config.workspace"), locale).not.toBe(
+        "Workspace Directory",
+      )
+      expect(i18n.t("pages.config.workspace_hint"), locale).not.toBe(
+        "Base directory for agent file operations.",
+      )
+      expect(i18n.t("pages.config.tool_feedback_enabled"), locale).not.toBe(
+        "Tool Feedback",
+      )
+      expect(i18n.t("pages.config.exec_timeout_seconds_hint"), locale).not.toBe(
+        "Maximum runtime for command requests. Set to 0 to use the default timeout.",
+      )
+      expect(i18n.t("pages.config.cron_exec_timeout"), locale).not.toBe(
+        "Scheduled Command Timeout (minutes)",
+      )
+
+      // The pattern detector: prompt, input placeholder, action and each of
+      // its three verdicts.
+      expect(i18n.t("pages.config.pattern_detector_title"), locale).not.toBe(
+        "Pattern Detection Tool",
+      )
+      expect(
+        i18n.t("pages.config.pattern_detector_input_placeholder"),
+        locale,
+      ).not.toBe("Enter a command to test, e.g., rm -rf /tmp")
+      expect(
+        i18n.t("pages.config.pattern_detector_test_button"),
+        locale,
+      ).not.toBe("Test")
+      expect(
+        i18n.t("pages.config.pattern_detector_result_allowed"),
+        locale,
+      ).not.toBe("Allowed (matches whitelist)")
+      expect(
+        i18n.t("pages.config.pattern_detector_result_blocked"),
+        locale,
+      ).not.toBe("Blocked (matches blacklist)")
+      expect(
+        i18n.t("pages.config.pattern_detector_result_no_match"),
+        locale,
+      ).not.toBe("No match (will use default rules)")
+
+      // Validation and error states.
+      expect(i18n.t("pages.config.workspace_required"), locale).not.toBe(
+        "Workspace path is required.",
+      )
+      expect(i18n.t("pages.config.load_error"), locale).not.toBe(
+        "Failed to load configuration. Please refresh and try again.",
+      )
+    }
+  })
+
+  // The sample regular expressions are code, not copy: they must be byte
+  // identical everywhere or the hint they give would be wrong.
+  it("keeps the pattern samples identical in every locale", async () => {
+    await i18n.changeLanguage("en")
+    const english = i18n.t("pages.config.custom_patterns_placeholder")
+    expect(english).toContain("^rm")
+
+    for (const locale of BATCH_LOCALES) {
+      await i18n.changeLanguage(locale)
+      expect(i18n.t("pages.config.custom_patterns_placeholder"), locale).toBe(
+        english,
+      )
+    }
+  })
+
+  it("keeps Arabic batch 2 pages right-to-left and translated", async () => {
+    await i18n.changeLanguage("ar")
+    expect(i18n.dir()).toBe("rtl")
+    expect(document.documentElement.getAttribute("dir")).toBe("rtl")
+    expect(i18n.t("pages.agent.tools.library_title")).toBe("مكتبة الأدوات")
+    expect(i18n.t("pages.agent.tools.web_search.title")).toBe("البحث على الويب")
+    expect(i18n.t("pages.config.sections.exec")).toBe("تشغيل الأوامر")
+    expect(i18n.t("pages.config.pattern_detector_test_button")).toBe("اختبار")
+  })
+
+  it("keeps English and the pre-existing locales intact for batch 2", async () => {
+    await i18n.changeLanguage("en")
+    expect(i18n.t("pages.agent.tools.library_title")).toBe("Tool Library")
+    expect(i18n.t("pages.config.sections.exec")).toBe("Run Commands")
+
+    for (const locale of ["pt", "zh"]) {
+      await i18n.changeLanguage(locale)
+      for (const key of [
+        "pages.agent.tools.library_title",
+        "pages.config.sections.exec",
+      ]) {
+        expect(i18n.t(key), `${locale} ${key}`).not.toBe(key)
+      }
     }
   })
 })

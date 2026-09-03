@@ -749,6 +749,7 @@
       "tools": {
         "search_placeholder": "Search tools...",
         "no_results": "No tools match your criteria.",
+        "no_results_hint": "Try adjusting your search criteria or status filters.",
         "filter": {
           "all": "All Status",
           "enabled": "Enabled",
@@ -782,6 +783,8 @@
           "max_results": "Max Results",
           "base_url": "Base URL",
           "base_url_placeholder": "Optional endpoint override",
+          "model": "Model",
+          "model_placeholder": "Optional model override",
           "api_key": "API Key / Token",
           "api_key_placeholder": "Enter API key, leave it blank to keep the original key",
           "none": "Unavailable"
@@ -815,6 +818,7 @@
       "load_error": "Failed to load configuration. Please refresh and try again.",
       "workspace": "Workspace Directory",
       "workspace_hint": "Base directory for agent file operations.",
+      "workspace_required": "Workspace path is required.",
       "restrict_workspace": "Restrict to Workspace",
       "restrict_workspace_hint": "Only allow file operations inside workspace.",
       "split_on_marker": "Chatty Mode",

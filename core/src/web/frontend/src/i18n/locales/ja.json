@@ -639,6 +639,7 @@
   },
   "pages": {
     "agent": {
+      "load_error": "エージェントのサポート情報を読み込めませんでした。",
       "skills": {
         "empty": "現在利用できるスキルはありません。",
         "install_success": "{{name}} をインストールしました。",
@@ -725,7 +726,123 @@
           "cannotInstall": "インストールできません: 関連するツールが有効ではありません"
         }
       },
-      "load_error": "エージェントのサポート情報を読み込めませんでした。"
+      "tools": {
+        "search_placeholder": "ツールを検索...",
+        "no_results": "条件に一致するツールはありません。",
+        "no_results_hint": "検索条件や状態フィルターを調整してみてください。",
+        "filter": {
+          "all": "すべての状態",
+          "enabled": "有効",
+          "disabled": "無効",
+          "blocked": "ブロック中"
+        },
+        "empty": "利用できるツールがありません。",
+        "enable_success": "ツールを有効にしました。",
+        "disable_success": "ツールを無効にしました。",
+        "toggle_error": "ツールの状態を更新できませんでした。",
+        "library_title": "ツール ライブラリ",
+        "library_description": "AI エージェントが利用できるツールセットを閲覧・管理します。",
+        "web_search": {
+          "title": "ウェブ検索",
+          "description": "エージェントにウェブ検索機能を提供し、最新の実世界の情報を取得できるようにします。要求は自動的に最適な有効プロバイダーへ振り分けられます。",
+          "unsaved_prompt": "この変更はまだ保存されていません。ウェブ検索の設定に書き込むには保存してください。",
+          "global_settings": "全般",
+          "providers_config": "連携",
+          "load_error": "ウェブ検索の設定を読み込めませんでした。",
+          "save": "変更を保存",
+          "open_settings": "設定を開く",
+          "save_success": "設定を保存しました。",
+          "save_error": "設定を保存できませんでした。",
+          "provider": "主要プロバイダー",
+          "provider_description": "ウェブ検索ツールが要求を処理するときに使う既定のプロバイダーを選択します。",
+          "proxy": "HTTPS プロキシ",
+          "proxy_description": "内部のウェブ要求に使う任意のグローバル HTTP/S プロキシです。",
+          "prefer_native": "ネイティブ検索を優先",
+          "prefer_native_hint": "有効にすると、設定したプロバイダー一覧ではなくモデル内蔵の検索機能が使われることがあります。",
+          "provider_hint": "このプロバイダーを有効にし、必要な接続設定を入力してください。",
+          "max_results": "最大結果数",
+          "base_url": "ベース URL",
+          "base_url_placeholder": "任意のエンドポイント上書き",
+          "model": "モデル",
+          "model_placeholder": "任意のモデル上書き",
+          "api_key": "API キー／トークン",
+          "api_key_placeholder": "API キーを入力してください。空欄のままにすると既存のキーを保持します",
+          "none": "利用不可"
+        },
+        "status": {
+          "enabled": "有効",
+          "disabled": "無効",
+          "blocked": "ブロック中"
+        },
+        "categories": {
+          "automation": "自動化",
+          "filesystem": "ファイルシステム",
+          "web": "ウェブ",
+          "communication": "コミュニケーション",
+          "skills": "スキル",
+          "agents": "エージェント",
+          "hardware": "ハードウェア",
+          "discovery": "ディスカバリー"
+        },
+        "reasons": {
+          "requires_linux": "このツールは、必要なデバイスファイルが公開された Linux ホストでのみ動作します。",
+          "requires_serial_platform": "このツールは現在、シリアルポートにアクセスできる Linux、macOS、Windows のホストに対応しています。",
+          "requires_skills": "このスキル レジストリ ツールを使う前に `tools.skills` を有効にしてください。",
+          "requires_subagent": "スポーン ツールが作業を委任できるようにするには、先に `tools.subagent` を有効にしてください。",
+          "requires_mcp_discovery": "MCP ディスカバリー ツールを利用するには、先に `tools.mcp.discovery` を有効にしてください。",
+          "requires_web_search_provider": "使用可能な外部ウェブ検索プロバイダーを 1 つ以上設定してください。"
+        }
+      }
+    },
+    "config": {
+      "load_error": "設定を読み込めませんでした。ページを再読み込みして、もう一度お試しください。",
+      "workspace": "ワークスペース ディレクトリ",
+      "workspace_hint": "エージェントのファイル操作の基準ディレクトリです。",
+      "workspace_required": "ワークスペースのパスは必須です。",
+      "restrict_workspace": "ワークスペース内に制限",
+      "restrict_workspace_hint": "ワークスペース内のファイル操作のみを許可します。",
+      "split_on_marker": "おしゃべりモード",
+      "split_on_marker_hint": "長いメッセージを、実際の人どうしの会話のように短いメッセージへ分割します。",
+      "tool_feedback_enabled": "ツール実行の通知",
+      "tool_feedback_enabled_hint": "各ツールを実行する前に、現在のチャットへ短い実行メモを送信します。",
+      "tool_feedback_separate_messages": "通知を個別メッセージにする",
+      "tool_feedback_separate_messages_hint": "1 つのプレースホルダーや進捗メッセージを使い回さず、ツール通知ごとに独立したチャットメッセージとして残します。",
+      "tool_feedback_max_args_length": "ツール引数プレビューの長さ",
+      "tool_feedback_max_args_length_hint": "各ツール引数のプレビューに表示する最大文字数です。0 を指定すると既定値を使用します。",
+      "exec_enabled": "コマンドを許可",
+      "exec_enabled_hint": "アプリでのコマンド実行を有効または無効にします。無効の場合、コマンド要求は一切実行されません。",
+      "allow_remote": "リモートコマンドを許可",
+      "allow_remote_hint": "有効にすると、リモートセッションやローカル以外のコンテキストからもコマンドを実行できます。無効の場合、実行は安全なローカルコンテキストに限定されます。",
+      "enable_deny_patterns": "ブラックリストを有効化",
+      "enable_deny_patterns_hint": "有効にすると、組み込みの危険なパターンおよび下のカスタム ブラックリストに一致するコマンドをブロックします。",
+      "exec_timeout_seconds": "コマンドのタイムアウト（秒）",
+      "exec_timeout_seconds_hint": "コマンド要求の最大実行時間です。0 を指定すると既定のタイムアウトを使用します。",
+      "custom_deny_patterns": "コマンド ブラックリスト",
+      "custom_deny_patterns_hint": "追加のブロック規則を、1 行に 1 つの正規表現で入力します。ここのいずれかに一致したコマンドはブロックされます。",
+      "custom_allow_patterns": "コマンド ホワイトリスト",
+      "custom_allow_patterns_hint": "追加の許可規則を、1 行に 1 つの正規表現で入力します。ここに一致したコマンドはブラックリスト判定を省略しますが、その他の安全制限は適用されます。",
+      "custom_patterns_placeholder": "^rm\\s+-rf\\b\n^git\\s+push\\b",
+      "pattern_detector_title": "パターン判定ツール",
+      "pattern_detector_hint": "コマンドを入力して、ブラックリストやホワイトリストのパターンに一致するか確認します。",
+      "pattern_detector_input_placeholder": "テストするコマンドを入力（例: rm -rf /tmp）",
+      "pattern_detector_test_button": "テスト",
+      "pattern_detector_result_allowed": "許可（ホワイトリストに一致）",
+      "pattern_detector_result_blocked": "ブロック（ブラックリストに一致）",
+      "pattern_detector_result_no_match": "一致なし（既定の規則が適用されます）",
+      "allow_shell_execution": "定期コマンドを許可",
+      "allow_shell_execution_hint": "定期タスクによるコマンド実行を既定で許可します。無効の場合、コマンドタスクを登録するには command_confirm=true を指定する必要があります。",
+      "cron_exec_timeout": "定期コマンドのタイムアウト（分）",
+      "cron_exec_timeout_hint": "定期コマンドの最大実行時間です。0 を指定するとタイムアウトを無効にします。",
+      "sections": {
+        "agent": "エージェント",
+        "runtime": "ランタイム",
+        "evolution": "進化",
+        "mcp": "MCP",
+        "exec": "コマンド実行",
+        "cron": "定期タスク",
+        "launcher": "ランチャー",
+        "devices": "デバイス"
+      }
     },
     "logs": {
       "log_level_error": "ログレベルを更新できませんでした。",

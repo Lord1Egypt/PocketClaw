@@ -639,6 +639,7 @@
   },
   "pages": {
     "agent": {
+      "load_error": "Gagal memuat informasi dukungan agen.",
       "skills": {
         "empty": "Saat ini tidak ada keterampilan yang tersedia.",
         "install_success": "{{name}} terpasang.",
@@ -725,7 +726,123 @@
           "cannotInstall": "Tidak dapat dipasang: alat terkait belum aktif"
         }
       },
-      "load_error": "Gagal memuat informasi dukungan agen."
+      "tools": {
+        "search_placeholder": "Cari alat...",
+        "no_results": "Tidak ada alat yang cocok dengan kriteria Anda.",
+        "no_results_hint": "Coba sesuaikan kriteria pencarian atau filter status Anda.",
+        "filter": {
+          "all": "Semua Status",
+          "enabled": "Aktif",
+          "disabled": "Nonaktif",
+          "blocked": "Diblokir"
+        },
+        "empty": "Tidak ada alat yang tersedia.",
+        "enable_success": "Alat diaktifkan.",
+        "disable_success": "Alat dinonaktifkan.",
+        "toggle_error": "Gagal memperbarui status alat.",
+        "library_title": "Pustaka Alat",
+        "library_description": "Jelajahi dan kelola kumpulan alat yang tersedia untuk agen AI Anda.",
+        "web_search": {
+          "title": "Pencarian Web",
+          "description": "Memberi agen kemampuan pencarian web untuk menemukan informasi dunia nyata terbaru. Permintaan otomatis diarahkan ke penyedia aktif yang paling sesuai.",
+          "unsaved_prompt": "Perubahan ini belum disimpan. Simpan untuk menuliskannya ke konfigurasi Pencarian Web.",
+          "global_settings": "Umum",
+          "providers_config": "Integrasi",
+          "load_error": "Gagal memuat konfigurasi pencarian web.",
+          "save": "Simpan Perubahan",
+          "open_settings": "Buka Pengaturan",
+          "save_success": "Pengaturan berhasil disimpan.",
+          "save_error": "Gagal menyimpan pengaturan.",
+          "provider": "Penyedia Utama",
+          "provider_description": "Pilih penyedia bawaan yang dipakai saat alat pencarian web menangani sebuah permintaan.",
+          "proxy": "Proksi HTTPS",
+          "proxy_description": "Proksi HTTP/S global opsional untuk permintaan web yang mendasarinya.",
+          "prefer_native": "Utamakan Pencarian Bawaan",
+          "prefer_native_hint": "Jika diaktifkan, model boleh memakai kemampuan pencarian bawaannya alih-alih daftar penyedia yang dikonfigurasi.",
+          "provider_hint": "Aktifkan penyedia ini dan isi setelan koneksi yang diperlukan.",
+          "max_results": "Hasil Maksimum",
+          "base_url": "URL Dasar",
+          "base_url_placeholder": "Penggantian endpoint opsional",
+          "model": "Model",
+          "model_placeholder": "Penggantian model opsional",
+          "api_key": "Kunci API / Token",
+          "api_key_placeholder": "Masukkan kunci API, biarkan kosong untuk mempertahankan kunci lama",
+          "none": "Tidak tersedia"
+        },
+        "status": {
+          "enabled": "Aktif",
+          "disabled": "Nonaktif",
+          "blocked": "Diblokir"
+        },
+        "categories": {
+          "automation": "Otomatisasi",
+          "filesystem": "Sistem Berkas",
+          "web": "Web",
+          "communication": "Komunikasi",
+          "skills": "Keterampilan",
+          "agents": "Agen",
+          "hardware": "Perangkat Keras",
+          "discovery": "Penemuan"
+        },
+        "reasons": {
+          "requires_linux": "Alat ini hanya bekerja pada host Linux yang mengekspos berkas perangkat yang diperlukan.",
+          "requires_serial_platform": "Saat ini alat ini mendukung host Linux, macOS, dan Windows dengan port serial yang dapat diakses.",
+          "requires_skills": "Aktifkan `tools.skills` sebelum alat registri keterampilan ini dapat dipakai.",
+          "requires_subagent": "Aktifkan `tools.subagent` sebelum alat spawn dapat mendelegasikan pekerjaan.",
+          "requires_mcp_discovery": "Aktifkan `tools.mcp.discovery` agar alat penemuan MCP tersedia.",
+          "requires_web_search_provider": "Konfigurasikan setidaknya satu penyedia pencarian web eksternal yang siap dipakai."
+        }
+      }
+    },
+    "config": {
+      "load_error": "Gagal memuat konfigurasi. Silakan segarkan halaman dan coba lagi.",
+      "workspace": "Direktori Ruang Kerja",
+      "workspace_hint": "Direktori dasar untuk operasi berkas agen.",
+      "workspace_required": "Jalur ruang kerja wajib diisi.",
+      "restrict_workspace": "Batasi ke Ruang Kerja",
+      "restrict_workspace_hint": "Hanya izinkan operasi berkas di dalam ruang kerja.",
+      "split_on_marker": "Mode Obrolan",
+      "split_on_marker_hint": "Pecah pesan panjang menjadi pesan pendek seperti obrolan manusia sungguhan.",
+      "tool_feedback_enabled": "Umpan Balik Alat",
+      "tool_feedback_enabled_hint": "Kirim catatan eksekusi singkat ke obrolan saat ini sebelum setiap alat dijalankan.",
+      "tool_feedback_separate_messages": "Pesan Umpan Balik Terpisah",
+      "tool_feedback_separate_messages_hint": "Simpan setiap pembaruan umpan balik alat sebagai pesan tersendiri alih-alih memakai ulang satu pesan penampung atau pesan progres.",
+      "tool_feedback_max_args_length": "Panjang Pratinjau Argumen Alat",
+      "tool_feedback_max_args_length_hint": "Jumlah karakter maksimum yang ditampilkan pada pratinjau setiap argumen alat. Isi 0 untuk memakai nilai bawaan.",
+      "exec_enabled": "Izinkan Perintah",
+      "exec_enabled_hint": "Aktifkan atau nonaktifkan eksekusi perintah untuk aplikasi. Saat dinonaktifkan, tidak ada permintaan perintah yang dijalankan.",
+      "allow_remote": "Izinkan Perintah Jarak Jauh",
+      "allow_remote_hint": "Jika diaktifkan, sesi jarak jauh atau konteks non-lokal juga dapat menjalankan perintah. Jika dinonaktifkan, eksekusi perintah tetap terbatas pada konteks lokal yang aman.",
+      "enable_deny_patterns": "Aktifkan Daftar Blokir",
+      "enable_deny_patterns_hint": "Jika diaktifkan, aplikasi memblokir perintah yang cocok dengan pola berbahaya bawaannya dan daftar blokir khusus di bawah.",
+      "exec_timeout_seconds": "Batas Waktu Perintah (detik)",
+      "exec_timeout_seconds_hint": "Durasi maksimum untuk permintaan perintah. Isi 0 untuk memakai batas waktu bawaan.",
+      "custom_deny_patterns": "Daftar Blokir Perintah",
+      "custom_deny_patterns_hint": "Tambahkan aturan pemblokiran tambahan, satu ekspresi reguler per baris. Perintah yang cocok dengan salah satu aturan akan diblokir.",
+      "custom_allow_patterns": "Daftar Izin Perintah",
+      "custom_allow_patterns_hint": "Tambahkan aturan pengizinan tambahan, satu ekspresi reguler per baris. Perintah yang cocok akan melewati pencocokan daftar blokir, tetapi batas keamanan lain tetap berlaku.",
+      "custom_patterns_placeholder": "^rm\\s+-rf\\b\n^git\\s+push\\b",
+      "pattern_detector_title": "Alat Deteksi Pola",
+      "pattern_detector_hint": "Masukkan sebuah perintah untuk menguji apakah cocok dengan pola daftar blokir atau daftar izin.",
+      "pattern_detector_input_placeholder": "Masukkan perintah untuk diuji, misalnya rm -rf /tmp",
+      "pattern_detector_test_button": "Uji",
+      "pattern_detector_result_allowed": "Diizinkan (cocok dengan daftar izin)",
+      "pattern_detector_result_blocked": "Diblokir (cocok dengan daftar blokir)",
+      "pattern_detector_result_no_match": "Tidak cocok (aturan bawaan akan dipakai)",
+      "allow_shell_execution": "Izinkan Perintah Terjadwal",
+      "allow_shell_execution_hint": "Izinkan tugas terjadwal menjalankan perintah secara bawaan. Jika dinonaktifkan, pengguna harus mengirim command_confirm=true untuk menjadwalkan tugas perintah.",
+      "cron_exec_timeout": "Batas Waktu Perintah Terjadwal (menit)",
+      "cron_exec_timeout_hint": "Durasi maksimum untuk perintah terjadwal. Isi 0 untuk menonaktifkan batas waktu.",
+      "sections": {
+        "agent": "Agen",
+        "runtime": "Runtime",
+        "evolution": "Evolusi",
+        "mcp": "MCP",
+        "exec": "Jalankan Perintah",
+        "cron": "Tugas Terjadwal",
+        "launcher": "Peluncur",
+        "devices": "Perangkat"
+      }
     },
     "logs": {
       "log_level_error": "Gagal memperbarui level log.",
