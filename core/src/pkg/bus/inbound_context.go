@@ -79,3 +79,17 @@ func cloneStringMap(src map[string]string) map[string]string {
 func normalizeKind(kind string) string {
 	return strings.ToLower(strings.TrimSpace(kind))
 }
+
+// ChannelUsesIndependentResponseLifecycle reports whether a channel's messages
+// each get their own queued response lifecycle rather than being merged into a
+// running turn as steering input.
+//
+// Two places must agree on this, which is why the rule lives here rather than
+// in either of them. The agent uses it to decide whether a message arriving on
+// a busy session is queued as an independent request, and the channel layer
+// uses it to decide whether to defer the "Thinking…" placeholder to the agent.
+// If they disagreed, a queued message would either show a placeholder it never
+// earned or execute without one at all.
+func ChannelUsesIndependentResponseLifecycle(channel string) bool {
+	return strings.EqualFold(strings.TrimSpace(channel), "telegram")
+}

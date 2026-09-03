@@ -314,6 +314,12 @@ func (al *AgentLoop) Run(ctx context.Context) error {
 
 				current := m
 				for {
+					// The worker holds a semaphore slot and this message is the
+					// one about to run, so "Thinking…" is now true. The channel
+					// deferred it for exactly this reason: a message queued
+					// behind a long turn must not claim to be in progress.
+					al.sendDeferredPlaceholder(ctx, current)
+
 					deliveryErr := al.runTurnWithSteering(ctx, current)
 					if deliveryErr == nil {
 						traceRequestLifecycle("request_completed", &current.Context, nil)
@@ -542,6 +548,31 @@ func (al *AgentLoop) ReloadProviderAndConfig(
 // SetReloadFunc sets the callback function for triggering config reload.
 
 var audioAnnotationRe = regexp.MustCompile(`\[(voice|audio)(?::[^\]]*)?\]`)
+
+// sendDeferredPlaceholder sends the "Thinking…" placeholder the channel layer
+// deferred, at the moment this message actually begins execution: the worker
+// has acquired its semaphore slot and this message is the current one.
+//
+// It is a no-op for every channel that already sent its own placeholder on
+// receipt, and for an audio message, whose placeholder is sent later by
+// prepareInboundMessageForAgent once transcription has produced real text.
+// Sending here as well would leave two "Thinking…" messages in the chat with
+// only the second one recorded, and the first would never be edited away.
+func (al *AgentLoop) sendDeferredPlaceholder(ctx context.Context, msg bus.InboundMessage) {
+	if al.channelManager == nil {
+		return
+	}
+	if !bus.ChannelUsesIndependentResponseLifecycle(msg.Channel) {
+		return
+	}
+	if audioAnnotationRe.MatchString(msg.Content) {
+		return
+	}
+	lifecycleID := bus.InboundLifecycleID(&msg.Context)
+	if al.channelManager.SendPlaceholder(bus.WithLifecycleID(ctx, lifecycleID), msg.Channel, msg.ChatID) {
+		traceRequestLifecycle("placeholder_sent", &msg.Context, nil)
+	}
+}
 
 // transcribeAudioInMessage resolves audio media refs, transcribes them, and
 // replaces audio annotations in msg.Content with the transcribed text.

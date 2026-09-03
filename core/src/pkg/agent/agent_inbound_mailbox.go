@@ -1,8 +1,6 @@
 package agent
 
 import (
-	"strings"
-
 	"github.com/sipeed/picoclaw/pkg/bus"
 	"github.com/sipeed/picoclaw/pkg/logger"
 )
@@ -12,7 +10,7 @@ type sessionMailbox struct {
 }
 
 func requiresIndependentResponseLifecycle(msg bus.InboundMessage) bool {
-	return strings.EqualFold(strings.TrimSpace(msg.Channel), "telegram")
+	return bus.ChannelUsesIndependentResponseLifecycle(msg.Channel)
 }
 
 // claimSessionMailbox serializes ownership of a routed session. A Telegram

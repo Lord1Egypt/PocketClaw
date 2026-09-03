@@ -240,8 +240,14 @@ func TestTelegramOwnerAuthorizationRejectsBeforeLifecycle(t *testing.T) {
 	case <-time.After(time.Second):
 		t.Fatal("paired numeric owner was not accepted")
 	}
-	if recorder.placeholders != 1 {
-		t.Fatalf("owner placeholder count = %d, want 1", recorder.placeholders)
+	// The owner's message is accepted and published, but its "Thinking…"
+	// placeholder is deferred: Telegram messages queue behind one another, and
+	// the agent sends the placeholder when this message actually starts
+	// executing. Acceptance is proven by the bus receive above, not by a
+	// placeholder.
+	if recorder.placeholders != 0 {
+		t.Fatalf("owner placeholder count = %d, want 0: Telegram defers to execution",
+			recorder.placeholders)
 	}
 }
 

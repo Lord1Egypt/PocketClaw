@@ -1,5 +1,34 @@
 # PocketClaw Decisions
 
+## Telegram "Thinking…" means execution started, not that a message arrived
+
+- Date: 2026-09-03
+- Decision: for Telegram, the channel layer no longer sends the "Thinking… 💭"
+  placeholder on receipt. The agent worker sends it once it holds a worker
+  semaphore slot and that specific message is the one about to run. Typing and
+  the message reaction still fire at receipt, so the user still gets immediate
+  acknowledgement. Every Telegram message remains its own FIFO request; nothing
+  is coalesced, superseded, dropped or reordered.
+- Reason: Telegram messages get an independent response lifecycle, so a message
+  arriving while a turn is running is queued rather than merged. The placeholder
+  was created at receipt, before the message was even published to the bus, so a
+  request sitting sixth in the queue claimed the agent was thinking about it.
+  A long turn made that visibly wrong: six placeholders, minutes of apparent
+  work, nothing actually started.
+- Consequence: the placeholder now lives roughly as long as the turn instead of
+  as long as the queue wait plus the turn. That also shrinks exposure to the
+  ten-minute `placeholderTTL`, which evicts the bookkeeping without editing the
+  Telegram message — a queued request could previously outlive its own
+  placeholder record and be answered in a new message, stranding the original.
+  Coalescing consecutive messages was considered and rejected: it would merge
+  unrelated messages that merely arrived together and discard the per-message
+  reply the independent lifecycle exists to guarantee. The rule lives in
+  `bus.ChannelUsesIndependentResponseLifecycle` so the channel layer and the
+  agent cannot disagree about which channels defer.
+- Not addressed here, and tracked separately in `TASKS.md`: queue durability,
+  the Telegram update offset, `/stop` ordering, the placeholder TTL, and
+  `StopAll` placeholder reconciliation.
+
 ## The runtime catalog advertises only what the Android target can deliver
 
 - Date: 2026-09-03

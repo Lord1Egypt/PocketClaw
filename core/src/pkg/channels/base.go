@@ -358,7 +358,16 @@ func (c *BaseChannel) HandleMessageWithContext(
 		// Skip when the message contains audio: the agent will send the
 		// placeholder after transcription completes, so the user sees
 		// "Thinking…" only once the voice has been processed.
-		if !audioAnnotationRe.MatchString(content) {
+		//
+		// Skip as well for a channel whose messages each get their own queued
+		// response lifecycle. Such a message may sit in the session FIFO behind
+		// a turn that runs for minutes, and a placeholder sent here would tell
+		// the user the agent is thinking about a request it has not started.
+		// The agent sends it instead, once that specific message reaches
+		// execution. "Thinking…" then means execution started, not that
+		// Telegram delivered the message.
+		deferPlaceholderToAgent := bus.ChannelUsesIndependentResponseLifecycle(c.name)
+		if !audioAnnotationRe.MatchString(content) && !deferPlaceholderToAgent {
 			if pc, ok := c.owner.(PlaceholderCapable); ok {
 				if phID, err := pc.SendPlaceholder(ctx, deliveryChatID); err == nil && phID != "" {
 					if correlated {
