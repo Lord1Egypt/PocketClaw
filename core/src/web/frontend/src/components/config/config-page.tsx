@@ -327,7 +327,7 @@ export function ConfigPage() {
           !form.mcpDiscoveryUseRegex
         ) {
           throw new Error(
-            "MCP discovery requires at least one search method (BM25 or regex).",
+            t("pages.config.mcp_discovery_requires_search_method"),
           )
         }
 
@@ -457,7 +457,9 @@ export function ConfigPage() {
 
           if (duplicateNames.length > 0) {
             throw new Error(
-              `MCP server names must be unique. Duplicates: ${duplicateNames.join(", ")}.`,
+              t("pages.config.mcp_duplicate_names", {
+                names: duplicateNames.join(", "),
+              }),
             )
           }
 
@@ -486,7 +488,11 @@ export function ConfigPage() {
 
             if (server.type !== "stdio") {
               if (shouldValidateServer && server.url === "") {
-                throw new Error(`MCP server ${server.name} requires a URL.`)
+                throw new Error(
+                  t("pages.config.mcp_server_url_required", {
+                    name: server.name,
+                  }),
+                )
               }
 
               if (shouldValidateServer) {
@@ -500,7 +506,9 @@ export function ConfigPage() {
                   }
                 } catch {
                   throw new Error(
-                    `MCP server ${server.name} requires a valid HTTP(S) URL.`,
+                    t("pages.config.mcp_server_url_invalid", {
+                      name: server.name,
+                    }),
                   )
                 }
               }
@@ -508,7 +516,10 @@ export function ConfigPage() {
               const baselineHeaders = baselineServer
                 ? parseJSONObjectField(
                     baselineServer.headersText,
-                    `Saved MCP server ${server.name} headers`,
+                    t("pages.config.mcp_saved_headers_label", {
+                      name: server.name,
+                    }),
+                    t,
                   )
                 : {}
 
@@ -523,7 +534,10 @@ export function ConfigPage() {
                     shouldValidateServer
                       ? parseJSONObjectField(
                           server.headersText,
-                          `MCP server ${server.name} headers`,
+                          t("pages.config.mcp_headers_label", {
+                            name: server.name,
+                          }),
+                          t,
                         )
                       : baselineHeaders,
                     baselineHeaders,
@@ -537,13 +551,20 @@ export function ConfigPage() {
             }
 
             if (shouldValidateServer && server.command === "") {
-              throw new Error(`MCP server ${server.name} requires a command.`)
+              throw new Error(
+                t("pages.config.mcp_server_command_required", {
+                  name: server.name,
+                }),
+              )
             }
 
             const baselineEnv = baselineServer
               ? parseJSONObjectField(
                   baselineServer.envText,
-                  `Saved MCP server ${server.name} env`,
+                  t("pages.config.mcp_saved_env_label", {
+                    name: server.name,
+                  }),
+                  t,
                 )
               : {}
 
@@ -559,7 +580,10 @@ export function ConfigPage() {
                   shouldValidateServer
                     ? parseJSONObjectField(
                         server.envText,
-                        `MCP server ${server.name} env`,
+                        t("pages.config.mcp_env_label", {
+                          name: server.name,
+                        }),
+                        t,
                       )
                     : baselineEnv,
                   baselineEnv,

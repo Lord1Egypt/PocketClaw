@@ -33,158 +33,6 @@ const BATCH_LOCALES = [
   "ru",
 ] as const
 
-// `pages` is translated in batches, so only the finished groups are required.
-// Listing prefixes rather than the whole namespace keeps the enforcement
-// honest: it can never imply that all 316 pages keys are done.
-
-// The Skills page, the Agent page's shared load error, and the Logs page.
-const PAGES_BATCH_1 = [
-  "pages.agent.skills.",
-  "pages.agent.load_error",
-  "pages.logs.",
-] as const
-
-// The Tools page including its Web Search panel, the Configuration page's
-// shared load error and section tabs, and the settings behind the Agent and
-// Run Commands tabs: workspace, chatty mode, tool feedback, command
-// execution, the pattern detector and the scheduled-command limits.
-//
-// `pages.config` is one flat group rather than a tree, so its members are
-// listed key by key. A `pages.config.` prefix would silently claim batches 3
-// and 4 as well.
-const PAGES_BATCH_2 = [
-  "pages.agent.tools.",
-  "pages.config.load_error",
-  "pages.config.sections.",
-  "pages.config.workspace",
-  "pages.config.workspace_hint",
-  "pages.config.workspace_required",
-  "pages.config.restrict_workspace",
-  "pages.config.restrict_workspace_hint",
-  "pages.config.split_on_marker",
-  "pages.config.split_on_marker_hint",
-  "pages.config.tool_feedback_enabled",
-  "pages.config.tool_feedback_enabled_hint",
-  "pages.config.tool_feedback_separate_messages",
-  "pages.config.tool_feedback_separate_messages_hint",
-  "pages.config.tool_feedback_max_args_length",
-  "pages.config.tool_feedback_max_args_length_hint",
-  "pages.config.exec_enabled",
-  "pages.config.exec_enabled_hint",
-  "pages.config.allow_remote",
-  "pages.config.allow_remote_hint",
-  "pages.config.enable_deny_patterns",
-  "pages.config.enable_deny_patterns_hint",
-  "pages.config.exec_timeout_seconds",
-  "pages.config.exec_timeout_seconds_hint",
-  "pages.config.custom_deny_patterns",
-  "pages.config.custom_deny_patterns_hint",
-  "pages.config.custom_allow_patterns",
-  "pages.config.custom_allow_patterns_hint",
-  "pages.config.custom_patterns_placeholder",
-  "pages.config.pattern_detector_title",
-  "pages.config.pattern_detector_hint",
-  "pages.config.pattern_detector_input_placeholder",
-  "pages.config.pattern_detector_test_button",
-  "pages.config.pattern_detector_result_allowed",
-  "pages.config.pattern_detector_result_blocked",
-  "pages.config.pattern_detector_result_no_match",
-  "pages.config.allow_shell_execution",
-  "pages.config.allow_shell_execution_hint",
-  "pages.config.cron_exec_timeout",
-  "pages.config.cron_exec_timeout_hint",
-] as const
-
-// The Configuration page's Agent tuning, session scope, runtime, launcher and
-// security settings, plus the shared numeric-field validation messages. Listed
-// key by key for the same reason batch 2 is: a `pages.config.` prefix would
-// falsely claim batch 4's evolution, MCP and raw-JSON groups as finished.
-const PAGES_BATCH_3 = [
-  "pages.config.max_tokens",
-  "pages.config.max_tokens_hint",
-  "pages.config.context_window",
-  "pages.config.context_window_hint",
-  "pages.config.max_tool_iterations",
-  "pages.config.max_tool_iterations_hint",
-  "pages.config.summarize_threshold",
-  "pages.config.summarize_threshold_hint",
-  "pages.config.summarize_token_percent",
-  "pages.config.summarize_token_percent_hint",
-  "pages.config.turn_profile",
-  "pages.config.turn_profile_hint",
-  "pages.config.turn_profile_enabled",
-  "pages.config.turn_profile_enabled_hint",
-  "pages.config.turn_profile_mode_default",
-  "pages.config.turn_profile_mode_off",
-  "pages.config.turn_profile_mode_custom",
-  "pages.config.turn_profile_history",
-  "pages.config.turn_profile_history_hint",
-  "pages.config.turn_profile_system_prompt",
-  "pages.config.turn_profile_system_prompt_hint",
-  "pages.config.turn_profile_skills",
-  "pages.config.turn_profile_skills_hint",
-  "pages.config.turn_profile_skills_allow_placeholder",
-  "pages.config.turn_profile_tools",
-  "pages.config.turn_profile_tools_hint",
-  "pages.config.turn_profile_tools_allow_placeholder",
-  "pages.config.session_scope",
-  "pages.config.session_scope_hint",
-  "pages.config.session_scope_required",
-  "pages.config.session_scope_per_channel_peer",
-  "pages.config.session_scope_per_channel_peer_desc",
-  "pages.config.session_scope_per_channel",
-  "pages.config.session_scope_per_channel_desc",
-  "pages.config.session_scope_per_peer",
-  "pages.config.session_scope_per_peer_desc",
-  "pages.config.session_scope_global",
-  "pages.config.session_scope_global_desc",
-  "pages.config.heartbeat_enabled",
-  "pages.config.heartbeat_enabled_hint",
-  "pages.config.heartbeat_interval",
-  "pages.config.heartbeat_interval_hint",
-  "pages.config.devices_enabled",
-  "pages.config.devices_enabled_hint",
-  "pages.config.monitor_usb",
-  "pages.config.monitor_usb_hint",
-  "pages.config.autostart_label",
-  "pages.config.autostart_hint",
-  "pages.config.autostart_unsupported",
-  "pages.config.autostart_load_error",
-  "pages.config.server_port",
-  "pages.config.server_port_hint",
-  "pages.config.launcher_section_hint",
-  "pages.config.gateway_restart_hint",
-  "pages.config.dashboard_password",
-  "pages.config.dashboard_password_hint",
-  "pages.config.dashboard_password_placeholder",
-  "pages.config.dashboard_password_confirm",
-  "pages.config.dashboard_password_confirm_hint",
-  "pages.config.dashboard_password_confirm_placeholder",
-  "pages.config.dashboard_password_required",
-  "pages.config.dashboard_password_mismatch",
-  "pages.config.dashboard_password_min_length",
-  "pages.config.lan_access",
-  "pages.config.lan_access_hint",
-  "pages.config.allowed_cidrs",
-  "pages.config.allowed_cidrs_hint",
-  "pages.config.allowed_cidrs_placeholder",
-  "pages.config.allow_localhost_bypass",
-  "pages.config.allow_localhost_bypass_hint",
-  "pages.config.trusted_proxy_cidrs",
-  "pages.config.trusted_proxy_cidrs_hint",
-  "pages.config.trusted_proxy_cidrs_placeholder",
-  "pages.config.validation_integer",
-  "pages.config.validation_number",
-  "pages.config.validation_min",
-  "pages.config.validation_max",
-] as const
-
-const PAGES_DONE_PREFIXES = [
-  ...PAGES_BATCH_1,
-  ...PAGES_BATCH_2,
-  ...PAGES_BATCH_3,
-] as readonly string[]
-
 describe("dashboard i18n", () => {
   beforeEach(async () => {
     await i18n.changeLanguage("en")
@@ -319,6 +167,9 @@ describe("translation coverage", () => {
     "channels",
     "chat",
     "credentials",
+    // `pages` was translated in four batches and is now complete, so the whole
+    // namespace is required rather than a list of finished prefixes.
+    "pages",
   ] as const
 
   const bundles: Record<string, unknown> = {
@@ -431,14 +282,6 @@ describe("translation coverage", () => {
     return [...english.keys()].filter((key) => key.startsWith(`${namespace}.`))
   }
 
-  function batchedPagesKeys(english: Map<string, string>) {
-    return [...english.keys()].filter((key) =>
-      PAGES_DONE_PREFIXES.some(
-        (prefix) => key === prefix || key.startsWith(prefix),
-      ),
-    )
-  }
-
   it("has every required key in every locale", () => {
     const english = flatten(enBundleFor("en"), "", new Map())
     const failures: string[] = []
@@ -452,9 +295,34 @@ describe("translation coverage", () => {
           }
         }
       }
-      for (const key of batchedPagesKeys(english)) {
-        if (theirs.get(key) === undefined) {
-          failures.push(`${locale} | pages | ${key} | MISSING`)
+    }
+
+    expect(failures.join("\n"), failures.join("\n")).toBe("")
+  })
+
+  // Interpolation parity across the whole finished namespace: no translation
+  // may drop a {{var}} English uses, invent one it does not have, or rename it.
+  it("preserves placeholder parity with English across all of pages", () => {
+    const placeholders = (value: string) =>
+      [...value.matchAll(/\{\{\s*([A-Za-z0-9_]+)\s*\}\}/g)]
+        .map((match) => match[1])
+        .sort()
+        .join(",")
+
+    const english = flatten(enBundleFor("en"), "", new Map())
+    const failures: string[] = []
+
+    for (const [locale, bundle] of Object.entries(bundles)) {
+      const theirs = flatten(bundle, "", new Map())
+      for (const key of keysOfNamespace(english, "pages")) {
+        const translated = theirs.get(key)
+        if (translated === undefined) continue
+        const want = placeholders(english.get(key) as string)
+        const got = placeholders(translated)
+        if (want !== got) {
+          failures.push(
+            `${locale} | pages | ${key} | placeholders "${want}" vs "${got}"`,
+          )
         }
       }
     }
@@ -468,16 +336,13 @@ describe("translation coverage", () => {
 
     for (const locale of NON_LATIN) {
       const theirs = flatten(enBundleFor(locale), "", new Map())
-      const checked: Array<[string, string[]]> = [
-        ...CHROME.map(
-          (namespace) =>
-            [namespace, keysOfNamespace(english, namespace)] as [
-              string,
-              string[],
-            ],
-        ),
-        ["pages", batchedPagesKeys(english)],
-      ]
+      const checked: Array<[string, string[]]> = CHROME.map(
+        (namespace) =>
+          [namespace, keysOfNamespace(english, namespace)] as [
+            string,
+            string[],
+          ],
+      )
       for (const [namespace, keys] of checked) {
         for (const key of keys) {
           if (PROPER_NOUNS.has(key)) continue
@@ -817,66 +682,6 @@ describe("Credentials route body", () => {
 })
 
 describe("Pages batch 1 — Skills and Logs", () => {
-  // Interpolation parity: every {{var}} English uses must survive translation,
-  // and no translation may invent one English does not have.
-  it("preserves placeholder parity with English for every batch 1 key", async () => {
-    const placeholders = (value: string) =>
-      [...value.matchAll(/\{\{\s*([A-Za-z0-9_]+)\s*\}\}/g)]
-        .map((match) => match[1])
-        .sort()
-
-    const english = i18n.getResourceBundle("en", "translation") as Record<
-      string,
-      unknown
-    >
-    const failures: string[] = []
-
-    const walk = (
-      value: unknown,
-      path: string,
-      visit: (key: string, text: string) => void,
-    ) => {
-      if (value && typeof value === "object") {
-        for (const [key, child] of Object.entries(
-          value as Record<string, unknown>,
-        )) {
-          walk(child, path ? `${path}.${key}` : key, visit)
-        }
-      } else if (typeof value === "string") {
-        visit(path, value)
-      }
-    }
-
-    for (const locale of BATCH_LOCALES) {
-      const bundle = i18n.getResourceBundle(locale, "translation") as Record<
-        string,
-        unknown
-      >
-      for (const group of [
-        ["pages.agent.skills", (english.pages as never)["agent"]["skills"]],
-        ["pages.logs", (english.pages as never)["logs"]],
-      ] as Array<[string, unknown]>) {
-        walk(group[1], "", (key, englishText) => {
-          const path = `${group[0]}.${key}`
-          const translated = i18n.getResource(locale, "translation", path) as
-            | string
-            | undefined
-          if (typeof translated !== "string") return
-          const want = placeholders(englishText).join(",")
-          const got = placeholders(translated).join(",")
-          if (want !== got) {
-            failures.push(
-              `${locale} | pages | ${path} | placeholders "${want}" vs "${got}"`,
-            )
-          }
-        })
-      }
-      void bundle
-    }
-
-    expect(failures.join("\n"), failures.join("\n")).toBe("")
-  })
-
   it("renders translated Skills page body, actions and states", async () => {
     for (const locale of BATCH_LOCALES) {
       await i18n.changeLanguage(locale)
@@ -956,62 +761,6 @@ describe("Pages batch 1 — Skills and Logs", () => {
 })
 
 describe("Pages batch 2 — Tools and Configuration", () => {
-  // Interpolation parity, applied to the batch 2 keys the same way batch 1
-  // applies it to its own: no translation may drop a {{var}} English uses or
-  // invent one it does not.
-  it("preserves placeholder parity with English for every batch 2 key", () => {
-    const placeholders = (value: string) =>
-      [...value.matchAll(/\{\{\s*([A-Za-z0-9_]+)\s*\}\}/g)]
-        .map((match) => match[1])
-        .sort()
-        .join(",")
-
-    const walk = (
-      value: unknown,
-      path: string,
-      visit: (key: string, text: string) => void,
-    ) => {
-      if (value && typeof value === "object") {
-        for (const [key, child] of Object.entries(
-          value as Record<string, unknown>,
-        )) {
-          walk(child, path ? `${path}.${key}` : key, visit)
-        }
-      } else if (typeof value === "string") {
-        visit(path, value)
-      }
-    }
-
-    const english = i18n.getResourceBundle("en", "translation") as Record<
-      string,
-      unknown
-    >
-    const inBatch2 = (key: string) =>
-      PAGES_BATCH_2.some(
-        (prefix) => key === prefix || key.startsWith(prefix as string),
-      )
-
-    const failures: string[] = []
-    walk(english.pages, "pages", (key, englishText) => {
-      if (!inBatch2(key)) return
-      for (const locale of BATCH_LOCALES) {
-        const translated = i18n.getResource(locale, "translation", key) as
-          | string
-          | undefined
-        if (typeof translated !== "string") continue
-        const want = placeholders(englishText)
-        const got = placeholders(translated)
-        if (want !== got) {
-          failures.push(
-            `${locale} | pages | ${key} | placeholders "${want}" vs "${got}"`,
-          )
-        }
-      }
-    })
-
-    expect(failures.join("\n"), failures.join("\n")).toBe("")
-  })
-
   it("renders translated Tools page body, actions and states", async () => {
     for (const locale of BATCH_LOCALES) {
       await i18n.changeLanguage(locale)
@@ -1226,49 +975,6 @@ describe("Pages batch 2 — Tools and Configuration", () => {
 })
 
 describe("Pages batch 3 — Agent tuning, runtime and security", () => {
-  const inBatch3 = (key: string) =>
-    PAGES_BATCH_3.some(
-      (prefix) => key === prefix || key.startsWith(`${prefix}.`),
-    )
-
-  it("preserves placeholder parity with English for every batch 3 key", () => {
-    const placeholders = (value: string) =>
-      [...value.matchAll(/\{\{\s*([A-Za-z0-9_]+)\s*\}\}/g)]
-        .map((match) => match[1])
-        .sort()
-        .join(",")
-
-    const english = i18n.getResourceBundle("en", "translation") as Record<
-      string,
-      unknown
-    >
-    const config = (english.pages as Record<string, unknown>).config as Record<
-      string,
-      string
-    >
-
-    const failures: string[] = []
-    for (const [name, englishText] of Object.entries(config)) {
-      const key = `pages.config.${name}`
-      if (!inBatch3(key) || typeof englishText !== "string") continue
-      for (const locale of BATCH_LOCALES) {
-        const translated = i18n.getResource(locale, "translation", key) as
-          | string
-          | undefined
-        if (typeof translated !== "string") continue
-        const want = placeholders(englishText)
-        const got = placeholders(translated)
-        if (want !== got) {
-          failures.push(
-            `${locale} | pages | ${key} | placeholders "${want}" vs "${got}"`,
-          )
-        }
-      }
-    }
-
-    expect(failures.join("\n"), failures.join("\n")).toBe("")
-  })
-
   it("renders the translated Agent tuning settings", async () => {
     for (const locale of BATCH_LOCALES) {
       await i18n.changeLanguage(locale)
@@ -1452,6 +1158,269 @@ describe("Pages batch 3 — Agent tuning, runtime and security", () => {
       for (const key of [
         "pages.config.session_scope",
         "pages.config.dashboard_password",
+      ]) {
+        expect(i18n.t(key), `${locale} ${key}`).not.toBe(key)
+      }
+    }
+  })
+})
+
+describe("Pages batch 4 — Evolution, MCP and raw JSON", () => {
+  it("renders the translated Evolution settings", async () => {
+    for (const locale of BATCH_LOCALES) {
+      await i18n.changeLanguage(locale)
+
+      // Section description and its main toggle.
+      expect(i18n.t("pages.config.evolution_section_hint"), locale).not.toBe(
+        "Let the agent learn from completed turns and prepare skill improvements.",
+      )
+      expect(i18n.t("pages.config.evolution_enabled"), locale).not.toBe(
+        "Enable Evolution",
+      )
+
+      // The mode selector, its explanation and each of its three modes.
+      expect(i18n.t("pages.config.evolution_mode_hint"), locale).not.toBe(
+        "Observe only records data, Draft prepares candidate skills, Apply can write accepted drafts into workspace skills.",
+      )
+      expect(i18n.t("pages.config.evolution_mode_observe"), locale).not.toBe(
+        "Observe",
+      )
+      expect(i18n.t("pages.config.evolution_mode_draft"), locale).not.toBe(
+        "Draft",
+      )
+      expect(i18n.t("pages.config.evolution_mode_apply"), locale).not.toBe(
+        "Apply",
+      )
+
+      // Numeric fields and the cold-path schedule.
+      expect(
+        i18n.t("pages.config.evolution_min_success_ratio_hint"),
+        locale,
+      ).not.toBe(
+        "Required success ratio for clustered tasks. Use a value greater than 0 and up to 1.",
+      )
+      expect(
+        i18n.t("pages.config.evolution_cold_path_times_hint"),
+        locale,
+      ).not.toBe(
+        "Run times for scheduled cold-path processing. Enter one HH:MM value per line.",
+      )
+      expect(
+        i18n.t("pages.config.evolution_cold_path_after_turn"),
+        locale,
+      ).not.toBe("After each turn")
+    }
+  })
+
+  it("renders the translated MCP settings, form and discovery options", async () => {
+    for (const locale of BATCH_LOCALES) {
+      await i18n.changeLanguage(locale)
+
+      // Section description and toggles.
+      expect(i18n.t("pages.config.mcp_section_hint"), locale).not.toBe(
+        "Configure MCP servers without editing config.json manually.",
+      )
+      expect(i18n.t("pages.config.mcp_enabled_hint"), locale).not.toBe(
+        "Turn MCP server integration on or off.",
+      )
+
+      // Discovery.
+      expect(
+        i18n.t("pages.config.mcp_discovery_enabled_hint"),
+        locale,
+      ).not.toBe("Allow MCP discovery tools to search registered MCP servers.")
+      expect(i18n.t("pages.config.mcp_discovery_use_bm25"), locale).not.toBe(
+        "Use BM25 Ranking",
+      )
+      expect(
+        i18n.t("pages.config.mcp_discovery_max_results_hint"),
+        locale,
+      ).not.toBe("Maximum MCP discovery matches returned per query.")
+
+      // Server list actions.
+      expect(i18n.t("pages.config.mcp_server_add"), locale).not.toBe(
+        "Add server",
+      )
+      expect(i18n.t("pages.config.mcp_server_remove"), locale).not.toBe(
+        "Remove",
+      )
+      expect(
+        i18n.t("pages.config.mcp_server_discovery_mode_inherit"),
+        locale,
+      ).not.toBe("Follow global discovery mode")
+
+      // Form placeholders, including the env and headers JSON fields and the
+      // URL field.
+      expect(
+        i18n.t("pages.config.mcp_server_url_placeholder"),
+        locale,
+      ).not.toBe("Server URL (e.g. https://example.com/mcp)")
+      expect(
+        i18n.t("pages.config.mcp_server_env_placeholder"),
+        locale,
+      ).not.toBe("Environment JSON object")
+      expect(
+        i18n.t("pages.config.mcp_server_headers_placeholder"),
+        locale,
+      ).not.toBe("Headers JSON object")
+    }
+  })
+
+  it("renders the translated raw JSON editor and reset controls", async () => {
+    for (const locale of BATCH_LOCALES) {
+      await i18n.changeLanguage(locale)
+
+      // Editor prose and its placeholder.
+      expect(i18n.t("pages.config.raw_json_title"), locale).not.toBe(
+        "Raw JSON Configuration",
+      )
+      expect(i18n.t("pages.config.json_placeholder"), locale).not.toBe(
+        "Enter valid JSON configuration...",
+      )
+      expect(i18n.t("pages.config.open_raw"), locale).not.toBe("Raw Config")
+
+      // Actions.
+      expect(i18n.t("pages.config.format"), locale).not.toBe("Format")
+      expect(i18n.t("pages.config.factory_reset"), locale).not.toBe(
+        "Factory Reset",
+      )
+
+      // Reset confirmation and its warning.
+      expect(i18n.t("pages.config.reset_confirm_desc"), locale).not.toBe(
+        "Are you sure you want to reset your unsaved changes back to the last saved state?",
+      )
+      expect(
+        i18n.t("pages.config.factory_reset_confirm_desc"),
+        locale,
+      ).not.toBe(
+        "This will reset all configuration to factory defaults. API keys and security credentials will be preserved. A backup of the current config will be created.",
+      )
+
+      // Status and error states.
+      expect(i18n.t("pages.config.unsaved_changes"), locale).not.toBe(
+        "You have unsaved changes.",
+      )
+      expect(i18n.t("pages.config.invalid_json"), locale).not.toBe(
+        "Invalid JSON format.",
+      )
+      expect(i18n.t("pages.config.factory_reset_error"), locale).not.toBe(
+        "Failed to reset configuration.",
+      )
+    }
+  })
+
+  // These are the messages config-page and form-model throw and then render
+  // through toast.error(err.message). They used to be built from template
+  // literals in source; each must now come from the bundle with its values
+  // substituted.
+  it("renders localized MCP and JSON validation messages", async () => {
+    for (const locale of BATCH_LOCALES) {
+      await i18n.changeLanguage(locale)
+
+      const name = "github"
+      const cases: Array<[string, Record<string, string>, string]> = [
+        [
+          "pages.config.mcp_server_url_required",
+          { name },
+          "MCP server github requires a URL.",
+        ],
+        [
+          "pages.config.mcp_server_url_invalid",
+          { name },
+          "MCP server github requires a valid HTTP(S) URL.",
+        ],
+        [
+          "pages.config.mcp_server_command_required",
+          { name },
+          "MCP server github requires a command.",
+        ],
+        [
+          "pages.config.mcp_duplicate_names",
+          { names: "github, gitlab" },
+          "MCP server names must be unique. Duplicates: github, gitlab.",
+        ],
+        [
+          "pages.config.validation_json_invalid",
+          { label: "headers" },
+          "headers must be valid JSON.",
+        ],
+        [
+          "pages.config.validation_json_not_object",
+          { label: "headers" },
+          "headers must be a JSON object.",
+        ],
+      ]
+
+      for (const [key, values, englishText] of cases) {
+        const message = i18n.t(key, values)
+        // Comes from the bundle, not from the key itself.
+        expect(message, `${locale} ${key}`).not.toBe(key)
+        // Interpolated, with nothing left unresolved.
+        expect(message, `${locale} ${key}`).not.toContain("{{")
+        for (const value of Object.values(values)) {
+          expect(message, `${locale} ${key}`).toContain(value)
+        }
+        // And not the English sentence.
+        expect(message, `${locale} ${key}`).not.toBe(englishText)
+      }
+
+      // Two variables in one message.
+      const nested = i18n.t("pages.config.validation_json_value_not_string", {
+        label: "headers",
+        key: "Accept",
+      })
+      expect(nested, locale).toContain("headers")
+      expect(nested, locale).toContain("Accept")
+      expect(nested, locale).not.toContain("{{")
+      expect(nested, locale).not.toBe("headers.Accept must be a string.")
+
+      // Discovery needs a search method — no interpolation, but still prose.
+      expect(
+        i18n.t("pages.config.mcp_discovery_requires_search_method"),
+        locale,
+      ).not.toBe(
+        "MCP discovery requires at least one search method (BM25 or regex).",
+      )
+
+      // The field names those JSON messages quote are translated too.
+      expect(
+        i18n.t("pages.config.mcp_headers_label", { name }),
+        locale,
+      ).not.toBe("MCP server github headers")
+      expect(
+        i18n.t("pages.config.mcp_saved_env_label", { name }),
+        locale,
+      ).not.toBe("Saved MCP server github env")
+    }
+  })
+
+  it("keeps Arabic batch 4 pages right-to-left and translated", async () => {
+    await i18n.changeLanguage("ar")
+    expect(i18n.dir()).toBe("rtl")
+    expect(document.documentElement.getAttribute("dir")).toBe("rtl")
+    // Evolution.
+    expect(i18n.t("pages.config.evolution_mode")).toBe("وضع التطوّر")
+    // MCP.
+    expect(i18n.t("pages.config.mcp_servers")).toBe("خوادم MCP")
+    // Raw JSON and reset.
+    expect(i18n.t("pages.config.raw_json_title")).toBe("إعدادات JSON الخام")
+    expect(i18n.t("pages.config.factory_reset")).toBe(
+      "إعادة الضبط للإعدادات الأصلية",
+    )
+  })
+
+  it("keeps English and the pre-existing locales intact for batch 4", async () => {
+    await i18n.changeLanguage("en")
+    expect(i18n.t("pages.config.mcp_servers")).toBe("MCP Servers")
+    expect(
+      i18n.t("pages.config.mcp_server_url_required", { name: "github" }),
+    ).toBe("MCP server github requires a URL.")
+
+    for (const locale of ["pt", "zh"]) {
+      await i18n.changeLanguage(locale)
+      for (const key of [
+        "pages.config.mcp_servers",
+        "pages.config.raw_json_title",
       ]) {
         expect(i18n.t(key), `${locale} ${key}`).not.toBe(key)
       }

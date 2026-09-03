@@ -448,7 +448,7 @@ export function buildFormFromConfig(config: unknown): CoreConfigForm {
 /// the field name both have to come from the bundle rather than from source.
 export type FieldValidationTranslator = (
   key: string,
-  values: { label: string; min?: number; max?: number },
+  values: Record<string, string | number>,
 ) => string
 
 function checkRange(
@@ -520,6 +520,7 @@ export function parseMultilineList(raw: string): string[] {
 export function parseJSONObjectField(
   rawValue: string,
   label: string,
+  t: FieldValidationTranslator,
 ): Record<string, string> {
   const trimmed = rawValue.trim()
   if (trimmed === "") {
@@ -530,18 +531,20 @@ export function parseJSONObjectField(
   try {
     parsed = JSON.parse(trimmed)
   } catch {
-    throw new Error(`${label} must be valid JSON.`)
+    throw new Error(t("pages.config.validation_json_invalid", { label }))
   }
 
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-    throw new Error(`${label} must be a JSON object.`)
+    throw new Error(t("pages.config.validation_json_not_object", { label }))
   }
 
   const entries = Object.entries(parsed as Record<string, unknown>)
   const result: Record<string, string> = {}
   for (const [key, value] of entries) {
     if (typeof value !== "string") {
-      throw new Error(`${label}.${key} must be a string.`)
+      throw new Error(
+        t("pages.config.validation_json_value_not_string", { label, key }),
+      )
     }
     result[key] = value
   }
