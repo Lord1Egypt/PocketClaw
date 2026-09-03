@@ -361,6 +361,51 @@ func (m *Manager) SendPlaceholder(ctx context.Context, channel, chatID string) b
 	return true
 }
 
+// StartTyping begins the typing indicator for the given channel/chatID and
+// records its stop function, correlated by the lifecycle ID on ctx when there
+// is one. It is the typing counterpart of SendPlaceholder and exists for the
+// same reason: a channel whose messages queue independently must not start a
+// repeating chat-action loop when a message merely arrives, because the request
+// may sit behind a turn that runs for minutes. The agent calls this when the
+// message actually begins executing. Returns true if an indicator was started.
+func (m *Manager) StartTyping(ctx context.Context, channel, chatID string) bool {
+	m.mu.RLock()
+	ch, ok := m.channels[channel]
+	m.mu.RUnlock()
+	if !ok {
+		return false
+	}
+	tc, ok := ch.(TypingCapable)
+	if !ok {
+		return false
+	}
+	stop, err := tc.StartTyping(ctx, chatID)
+	if err != nil || stop == nil {
+		return false
+	}
+	lifecycleID := bus.LifecycleIDFromContext(ctx)
+	if lifecycleID != "" {
+		m.RecordTypingStopForLifecycle(channel, chatID, lifecycleID, stop)
+	} else {
+		m.RecordTypingStop(channel, chatID, stop)
+	}
+	return true
+}
+
+// InvokeTypingStopForLifecycle stops the indicator recorded for one inbound
+// lifecycle. InvokeTypingStop cannot reach these: it looks under the bare
+// "channel:chatID" key, while a correlated recorder stores per lifecycle, so a
+// lifecycle-correlated indicator would otherwise run until its own cap or the
+// TTL janitor expired it. Safe to call when nothing is recorded.
+func (m *Manager) InvokeTypingStopForLifecycle(channel, chatID, lifecycleID string) {
+	key := inboundLifecycleStateKey(channel, chatID, lifecycleID)
+	if v, loaded := m.typingStops.LoadAndDelete(key); loaded {
+		if entry, ok := v.(typingEntry); ok && entry.stop != nil {
+			entry.stop() // idempotent, safe
+		}
+	}
+}
+
 // RecordTypingStop registers a typing stop function for later invocation.
 // Implements PlaceholderRecorder.
 func (m *Manager) RecordTypingStop(channel, chatID string, stop func()) {

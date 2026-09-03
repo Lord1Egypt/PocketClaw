@@ -1,5 +1,67 @@
 # PocketClaw Decisions
 
+## Telegram typing is owned by the running request, not by every received one
+
+- Date: 2026-09-03
+- Decision: for Telegram, `StartTyping` moves off the receipt path and onto the
+  same execution-start boundary the "Thinking…" placeholder already uses. The
+  agent starts it once the worker holds a semaphore slot and this message is the
+  current one, and a deferred stop releases it on every terminal path. The
+  message reaction stays at receipt: it acknowledges arrival rather than
+  claiming work is under way.
+- Reason: `TelegramChannel.StartTyping` spawns a goroutine per call with a
+  four-second ticker, and the channel called it for every message as it arrived.
+  A queued request therefore owned a live chat-action loop while it did nothing.
+  At queue depth 8 that was nine concurrent loops for one chat, roughly two
+  chat actions per second, and Telegram answered with `error_code=429`. The
+  loops were also effectively unstoppable: they are recorded per lifecycle, but
+  the agent's `InvokeTypingStop` looks under the bare `channel:chatID` key, so
+  nothing released them until each hit its own five-minute cap or the TTL
+  janitor expired it.
+- Consequence: a session owns exactly one typing loop at a time, whatever the
+  queue depth, which removes the structural cause of the 429 burst.
+  `Manager.StartTyping` and `Manager.InvokeTypingStopForLifecycle` were added as
+  the typing counterparts of `SendPlaceholder`, correlating by the lifecycle ID
+  on the context exactly as it does. The stop is a `defer` around the turn, so
+  a provider error, a tool failure, cancellation, an empty result, an early
+  return and a panic all release it — delivery is no longer the only path that
+  does. Nothing about the placeholder changed: it was already deferred, and the
+  physical logs confirmed that behaviour is correct.
+- Not addressed here: the unbounded mailbox, `/stop` ordering, restart
+  redelivery and reconciliation, placeholder persistence and TTL cleanup,
+  `StopAll`, update-offset persistence, long-poll headroom, agent wall-clock
+  deadlines, tool-iteration policy, and the HTML formatting fallback. All remain
+  open in `TASKS.md`.
+
+## Telegram "Thinking…" means execution started, not that a message arrived
+
+- Date: 2026-09-03
+- Decision: for Telegram, the channel layer no longer sends the "Thinking… 💭"
+  placeholder on receipt. The agent worker sends it once it holds a worker
+  semaphore slot and that specific message is the one about to run. Typing and
+  the message reaction still fire at receipt, so the user still gets immediate
+  acknowledgement. Every Telegram message remains its own FIFO request; nothing
+  is coalesced, superseded, dropped or reordered.
+- Reason: Telegram messages get an independent response lifecycle, so a message
+  arriving while a turn is running is queued rather than merged. The placeholder
+  was created at receipt, before the message was even published to the bus, so a
+  request sitting sixth in the queue claimed the agent was thinking about it.
+  A long turn made that visibly wrong: six placeholders, minutes of apparent
+  work, nothing actually started.
+- Consequence: the placeholder now lives roughly as long as the turn instead of
+  as long as the queue wait plus the turn. That also shrinks exposure to the
+  ten-minute `placeholderTTL`, which evicts the bookkeeping without editing the
+  Telegram message — a queued request could previously outlive its own
+  placeholder record and be answered in a new message, stranding the original.
+  Coalescing consecutive messages was considered and rejected: it would merge
+  unrelated messages that merely arrived together and discard the per-message
+  reply the independent lifecycle exists to guarantee. The rule lives in
+  `bus.ChannelUsesIndependentResponseLifecycle` so the channel layer and the
+  agent cannot disagree about which channels defer.
+- Not addressed here, and tracked separately in `TASKS.md`: queue durability,
+  the Telegram update offset, `/stop` ordering, the placeholder TTL, and
+  `StopAll` placeholder reconciliation.
+
 ## The runtime catalog advertises only what the Android target can deliver
 
 - Date: 2026-09-03

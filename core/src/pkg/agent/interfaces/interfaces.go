@@ -39,6 +39,15 @@ type ChannelManager interface {
 	// InvokeTypingStop signals that typing has stopped.
 	InvokeTypingStop(channel, chatID string)
 
+	// StartTyping begins the typing indicator, correlated by the lifecycle ID
+	// on ctx. Used where a channel deferred it so a queued request does not
+	// signal activity before it runs.
+	StartTyping(ctx context.Context, channel, chatID string) bool
+
+	// InvokeTypingStopForLifecycle stops the indicator started for one inbound
+	// lifecycle. InvokeTypingStop cannot reach a lifecycle-correlated one.
+	InvokeTypingStopForLifecycle(channel, chatID, lifecycleID string)
+
 	// SendMessage sends a text message to the specified channel and chat.
 	SendMessage(ctx context.Context, msg bus.OutboundMessage) error
 

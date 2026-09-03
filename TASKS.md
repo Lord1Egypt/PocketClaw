@@ -1,5 +1,41 @@
 # PocketClaw Tasks
 
+## FOLLOW-UP: Telegram request lifecycle durability
+
+Found while auditing the queued-"Thinking…" incident on 2026-09-03. The
+placeholder timing itself is fixed; these are the separate defects that audit
+surfaced. None is a regression from that fix, and none should be folded into it.
+
+- [ ] `/stop` from Telegram can be queued behind the very turn it is meant to
+  cancel. `claimSessionMailbox` returns `queued` for a Telegram message on a
+  busy session and the loop `continue`s before `tryHandleStopCommand` is ever
+  reached, so the command lands in the FIFO instead of stopping anything.
+- [ ] The per-session Telegram FIFO is unbounded and in-memory. There is no
+  capacity limit, no backpressure and no TTL, and a Gateway restart loses every
+  queued message.
+- [ ] The Telegram update offset is not persisted. telego advances it in memory
+  the moment an update is read, and confirms it to Telegram only on the next
+  `getUpdates`. Depending on when the process dies, a restart either replays
+  updates already answered or silently drops queued ones.
+- [ ] `placeholderTTL` (10 minutes) deletes the placeholder record without
+  editing or deleting the Telegram message, so the bubble is stranded and the
+  answer arrives as a new message. Deferring the placeholder shrank the window
+  but did not close it.
+- [ ] `StopAll` does not reconcile outstanding placeholders, so every one still
+  in flight is abandoned in the chat on shutdown.
+- [ ] The Telegram long poll asks for a 30s server timeout under a 45s HTTP
+  client cap, leaving only 15s of headroom.
+- [ ] One turn ran 474,024 ms and hit `iterations_total=50`. That is agent and
+  tool efficiency, not a queue defect; no wall-clock deadline and no change to
+  `max_tool_iterations` was made for it.
+- [ ] `editMessageText` still returns 400 for malformed HTML before the
+  plain-text fallback succeeds. Recovered, not fixed.
+
+The typing half of the incident is fixed on
+`fix/telegram-queued-typing-lifecycle`; the persistent-placeholder half was
+already fixed on `fix/telegram-deferred-thinking-placeholder`. Neither branch
+touches anything above.
+
 ## FOLLOW-UP: normalize channel list-field serialization
 
 Not part of the WhatsApp removal or the Web branding cleanup. Recorded here
