@@ -15,6 +15,112 @@
     "config": "Konfiguration",
     "logs": "Protokolle"
   },
+  "launcherLogin": {
+    "title": "Anmelden",
+    "description": "Geben Sie das Dashboard-Passwort ein, um fortzufahren.",
+    "passwordLabel": "Passwort",
+    "passwordPlaceholder": "Passwort eingeben",
+    "submit": "Anmelden",
+    "errorInvalid": "Falsches Passwort. Bitte versuchen Sie es erneut.",
+    "errorNetwork": "Netzwerkfehler. Bitte versuchen Sie es erneut."
+  },
+  "launcherSetup": {
+    "title": "Dashboard-Passwort festlegen",
+    "description": "Wählen Sie ein Passwort, das den Zugang zu diesem Dashboard schützt. Sie geben es bei jeder Anmeldung ein.",
+    "passwordLabel": "Passwort",
+    "passwordPlaceholder": "Mindestens 8 Zeichen",
+    "confirmLabel": "Passwort bestätigen",
+    "confirmPlaceholder": "Passwort wiederholen",
+    "submit": "Passwort festlegen",
+    "errorMismatch": "Die Passwörter stimmen nicht überein.",
+    "errorNetwork": "Netzwerkfehler. Bitte versuchen Sie es erneut."
+  },
+  "chat": {
+    "welcome": "Wie kann ich Ihnen heute helfen?",
+    "welcomeDesc": "Fragen Sie mich nach Wetter, Einstellungen oder anderen Aufgaben. Ich helfe Ihnen gern.",
+    "placeholder": "Neue Nachricht schreiben ...",
+    "disabledPlaceholder": {
+      "gatewayUnknown": "Chat nicht möglich: Der Gateway-Status wird noch geprüft. Bitte warten Sie und aktualisieren Sie dann die Seite oder starten Sie bei Bedarf den Launcher neu.",
+      "gatewayStarting": "Chat nicht möglich: Das Gateway startet gerade. Warten Sie den Start ab und versuchen Sie es erneut.",
+      "gatewayRestarting": "Chat nicht möglich: Das Gateway wird neu gestartet. Bitte warten Sie, bis der Neustart abgeschlossen ist.",
+      "gatewayStopping": "Chat nicht möglich: Das Gateway wird gestoppt. Warten Sie, bis es steht, und starten Sie es dann erneut.",
+      "gatewayStopped": "Chat nicht möglich: Das Gateway ist nicht gestartet. Klicken Sie oben auf „Gateway starten“ und versuchen Sie es erneut.",
+      "gatewayError": "Chat nicht möglich: Das Gateway befindet sich in einem Fehlerzustand. Prüfen Sie die Protokolle und starten Sie Gateway oder Launcher neu.",
+      "websocketConnecting": "Verbindung zum Chatdienst wird hergestellt ... Bitte warten.",
+      "websocketDisconnected": "Chat nicht möglich: Die WebSocket-Verbindung ist getrennt. Prüfen Sie Netzwerk und Gateway-Status, aktualisieren Sie dann die Seite oder starten Sie den Launcher neu.",
+      "websocketError": "Chat nicht möglich: Die WebSocket-Verbindung ist fehlgeschlagen. Prüfen Sie Netzwerk und Gateway-Status und versuchen Sie es erneut.",
+      "noDefaultModel": "Chat nicht möglich: Es ist kein Standardmodell ausgewählt. Legen Sie auf der Seite „Modelle“ ein Standardmodell fest."
+    },
+    "newChat": "Neuer Chat",
+    "notConnected": "Das Gateway läuft nicht. Starten Sie es, um zu chatten.",
+    "thinking": {
+      "step1": "Denkt nach ...",
+      "step2": "Ihre Anfrage wird analysiert ...",
+      "step3": "Antwort wird vorbereitet ...",
+      "step4": "Fast fertig ..."
+    },
+    "reasoningLabel": "Begründung",
+    "toolCallsLabel": "Tool-Aufrufe",
+    "toolCallExplanationLabel": "Aufrufhinweis",
+    "toolCallFunctionLabel": "Aufrufübersicht",
+    "toolCallArgumentsLabel": "Argumente",
+    "showAssistantDetails": "Begründung und Tool-Aufrufe",
+    "assistantDetailVisibility": {
+      "none": "Keines von beidem anzeigen",
+      "thought": "Nur Begründung anzeigen",
+      "toolCalls": "Nur Tool-Aufrufe anzeigen",
+      "all": "Beides anzeigen"
+    },
+    "toolLabel": "Werkzeug",
+    "codeLabel": "Code",
+    "copyMessage": "Nachricht kopieren",
+    "copyCode": "Code kopieren",
+    "copiedLabel": "Kopiert",
+    "enableCodeWrap": "Zeilen umbrechen",
+    "disableCodeWrap": "Umbruch deaktivieren",
+    "expandCode": "Code ausklappen",
+    "collapseCode": "Code einklappen",
+    "history": "Verlauf",
+    "noHistory": "Noch kein Chatverlauf",
+    "historyLoadFailed": "Chatverlauf konnte nicht geladen werden",
+    "historyOpenFailed": "Dieser Chatverlauf konnte nicht geöffnet werden",
+    "loadingMore": "Weitere werden geladen ...",
+    "deleteSession": "Sitzung löschen",
+    "messagesCount": "{{count}} Nachrichten",
+    "noModel": "Modell auswählen",
+    "inputDisabled": {
+      "notConnected": "Das Gateway läuft nicht. Starten Sie es, um zu chatten.",
+      "noModel": "Kein Standardmodell konfiguriert. Legen Sie auf der Seite „Modelle“ eines fest."
+    },
+    "sendMessage": "Nachricht senden",
+    "composeHint": "Enter zum Senden, Umschalt + Enter für eine neue Zeile",
+    "contextTitle": "Kontext",
+    "contextDetail": "Details anzeigen",
+    "contextCompressAt": "Komprimieren bei",
+    "contextSummarizeAt": "Zusammenfassen bei",
+    "attachImage": "Bilder hinzufügen",
+    "dropImagesActive": "Loslassen, um Bilder hinzuzufügen",
+    "removeImage": "Bild entfernen",
+    "uploadedImage": "Angehängtes Bild",
+    "invalidImage": "„{{name}}“ ist keine unterstützte Bilddatei.",
+    "imageTooLarge": "„{{name}}“ überschreitet das Limit von {{size}}.",
+    "imageReadFailed": "„{{name}}“ konnte nicht gelesen werden.",
+    "empty": {
+      "noConfiguredModel": "Kein Modell konfiguriert",
+      "noConfiguredModelDescription": "Sie müssen mindestens ein KI-Modell mit einem API-Schlüssel konfigurieren, bevor Sie chatten können.",
+      "goToModels": "Zu den Modellen",
+      "noSelectedModel": "Kein Modell ausgewählt",
+      "noSelectedModelDescription": "Es sind Modelle konfiguriert, aber keines ist als Standard festgelegt. Wählen Sie eines aus, bevor Sie chatten.",
+      "notRunning": "Gateway läuft nicht",
+      "notRunningDescription": "Starten Sie den Gateway-Dienst, um zu chatten. Nutzen Sie oben die Schaltfläche „Gateway starten“."
+    },
+    "modelGroup": {
+      "apikey": "API-Schlüssel",
+      "oauth": "OAuth",
+      "local": "Lokal"
+    },
+    "downloadFile": "Datei herunterladen"
+  },
   "header": {
     "logout": {
       "tooltip": "Abmelden",
@@ -56,7 +162,10 @@
     "restartFailedTitle": "Gateway-Neustart fehlgeschlagen",
     "restartFailedDesc": "Die {{name}}-Konfiguration wurde gespeichert, aber das Gateway wurde nicht neu gestartet. Verwenden Sie „Gateway neu starten“, um sie anzuwenden.",
     "restartDeferredTitle": "Gespeichert, Gateway noch nicht neu gestartet",
-    "restartDeferredDesc": "Die {{name}}-Konfiguration wurde gespeichert. PocketClaw hat das Gateway nicht neu gestartet, da es noch eine Anfrage bearbeitet. Verwenden Sie „Gateway neu starten“, wenn Sie bereit sind."
+    "restartDeferredDesc": "Die {{name}}-Konfiguration wurde gespeichert. PocketClaw hat das Gateway nicht neu gestartet, da es noch eine Anfrage bearbeitet. Verwenden Sie „Gateway neu starten“, wenn Sie bereit sind.",
+    "language": "Sprache",
+    "lightMode": "Heller Modus",
+    "darkMode": "Dunkler Modus"
   },
   "labels": {
     "loading": "Wird geladen ..."
@@ -66,6 +175,71 @@
     "commit": "Commit",
     "build": "Build",
     "version_unknown": "Unbekannt"
+  },
+  "credentials": {
+    "description": "OAuth- und tokenbasierte Anmeldedaten für unterstützte Anbieter verwalten.",
+    "loading": "Anmeldedaten werden geladen ...",
+    "providers": {
+      "openai": {
+        "description": "Unterstützt Browser-OAuth, Gerätecode und Token-Anmeldung."
+      },
+      "anthropic": {
+        "description": "Nutzt die Token-Anmeldung für den Zugriff auf Claude."
+      },
+      "antigravity": {
+        "description": "Nutzt Browser-OAuth für Google Cloud Code Assist."
+      }
+    },
+    "status": {
+      "connected": "Verbunden",
+      "needsRefresh": "Aktualisierung erforderlich",
+      "expired": "Abgelaufen",
+      "notLoggedIn": "Nicht angemeldet"
+    },
+    "actions": {
+      "browser": "Browser-OAuth",
+      "deviceCode": "Gerätecode",
+      "stopLoading": "Laden abbrechen",
+      "saveToken": "Speichern",
+      "logout": "Abmelden"
+    },
+    "logoutDialog": {
+      "title": "Vom Anbieter abmelden?",
+      "description": "Dadurch werden Ihre gespeicherten Anmeldedaten für {{provider}} entfernt."
+    },
+    "fields": {
+      "openaiToken": "OpenAI-Token",
+      "anthropicToken": "Anthropic-Token"
+    },
+    "labels": {
+      "account": "Konto",
+      "email": "E-Mail",
+      "project": "Projekt"
+    },
+    "errors": {
+      "loadFailed": "Anmeldedaten konnten nicht geladen werden",
+      "flowFailed": "Authentifizierungsablauf konnte nicht geprüft werden",
+      "loginFailed": "Anmeldung fehlgeschlagen",
+      "logoutFailed": "Abmeldung fehlgeschlagen",
+      "invalidBrowserResponse": "Ungültige Antwort der Browser-Anmeldung",
+      "invalidDeviceResponse": "Ungültige Gerätecode-Antwort",
+      "popupBlocked": "Es konnte kein neuer Tab geöffnet werden. Bitte erlauben Sie Pop-ups und versuchen Sie es erneut."
+    },
+    "flow": {
+      "current": "Aktueller Authentifizierungsstatus",
+      "pending": "Warten auf Autorisierung ...",
+      "success": "Authentifizierung erfolgreich",
+      "error": "Authentifizierung fehlgeschlagen",
+      "expired": "Authentifizierungssitzung abgelaufen"
+    },
+    "device": {
+      "title": "OpenAI-Geräteanmeldung",
+      "description": "Öffnen Sie die Bestätigungsseite und geben Sie den untenstehenden Code ein. Diese Seite wird automatisch aktualisiert.",
+      "code": "Benutzercode",
+      "url": "Bestätigungs-URL",
+      "polling": "Anmeldestatus wird abgefragt ...",
+      "open": "Bestätigungsseite öffnen"
+    }
   },
   "models": {
     "fallbacks": {
@@ -486,157 +660,6 @@
       "manualOnlyBody": "Die Bot-Erstellung mit einem Tippen ist in diesem Build nicht verfügbar, daher wird Telegram mit einem BotFather-Token eingerichtet. Fügen Sie das Token unten ein und speichern Sie."
     }
   },
-  "chat": {
-    "welcome": "Wie kann ich Ihnen heute helfen?",
-    "welcomeDesc": "Fragen Sie mich nach Wetter, Einstellungen oder anderen Aufgaben. Ich helfe Ihnen gern.",
-    "placeholder": "Neue Nachricht schreiben ...",
-    "disabledPlaceholder": {
-      "gatewayUnknown": "Chat nicht möglich: Der Gateway-Status wird noch geprüft. Bitte warten Sie und aktualisieren Sie dann die Seite oder starten Sie bei Bedarf den Launcher neu.",
-      "gatewayStarting": "Chat nicht möglich: Das Gateway startet gerade. Warten Sie den Start ab und versuchen Sie es erneut.",
-      "gatewayRestarting": "Chat nicht möglich: Das Gateway wird neu gestartet. Bitte warten Sie, bis der Neustart abgeschlossen ist.",
-      "gatewayStopping": "Chat nicht möglich: Das Gateway wird gestoppt. Warten Sie, bis es steht, und starten Sie es dann erneut.",
-      "gatewayStopped": "Chat nicht möglich: Das Gateway ist nicht gestartet. Klicken Sie oben auf „Gateway starten“ und versuchen Sie es erneut.",
-      "gatewayError": "Chat nicht möglich: Das Gateway befindet sich in einem Fehlerzustand. Prüfen Sie die Protokolle und starten Sie Gateway oder Launcher neu.",
-      "websocketConnecting": "Verbindung zum Chatdienst wird hergestellt ... Bitte warten.",
-      "websocketDisconnected": "Chat nicht möglich: Die WebSocket-Verbindung ist getrennt. Prüfen Sie Netzwerk und Gateway-Status, aktualisieren Sie dann die Seite oder starten Sie den Launcher neu.",
-      "websocketError": "Chat nicht möglich: Die WebSocket-Verbindung ist fehlgeschlagen. Prüfen Sie Netzwerk und Gateway-Status und versuchen Sie es erneut.",
-      "noDefaultModel": "Chat nicht möglich: Es ist kein Standardmodell ausgewählt. Legen Sie auf der Seite „Modelle“ ein Standardmodell fest."
-    },
-    "newChat": "Neuer Chat",
-    "notConnected": "Das Gateway läuft nicht. Starten Sie es, um zu chatten.",
-    "thinking": {
-      "step1": "Denkt nach ...",
-      "step2": "Ihre Anfrage wird analysiert ...",
-      "step3": "Antwort wird vorbereitet ...",
-      "step4": "Fast fertig ..."
-    },
-    "reasoningLabel": "Begründung",
-    "toolCallsLabel": "Tool-Aufrufe",
-    "toolCallExplanationLabel": "Aufrufhinweis",
-    "toolCallFunctionLabel": "Aufrufübersicht",
-    "toolCallArgumentsLabel": "Argumente",
-    "showAssistantDetails": "Begründung und Tool-Aufrufe",
-    "assistantDetailVisibility": {
-      "none": "Keines von beidem anzeigen",
-      "thought": "Nur Begründung anzeigen",
-      "toolCalls": "Nur Tool-Aufrufe anzeigen",
-      "all": "Beides anzeigen"
-    },
-    "toolLabel": "Werkzeug",
-    "codeLabel": "Code",
-    "copyMessage": "Nachricht kopieren",
-    "copyCode": "Code kopieren",
-    "copiedLabel": "Kopiert",
-    "enableCodeWrap": "Zeilen umbrechen",
-    "disableCodeWrap": "Umbruch deaktivieren",
-    "expandCode": "Code ausklappen",
-    "collapseCode": "Code einklappen",
-    "history": "Verlauf",
-    "noHistory": "Noch kein Chatverlauf",
-    "historyLoadFailed": "Chatverlauf konnte nicht geladen werden",
-    "historyOpenFailed": "Dieser Chatverlauf konnte nicht geöffnet werden",
-    "loadingMore": "Weitere werden geladen ...",
-    "deleteSession": "Sitzung löschen",
-    "messagesCount": "{{count}} Nachrichten",
-    "noModel": "Modell auswählen",
-    "inputDisabled": {
-      "notConnected": "Das Gateway läuft nicht. Starten Sie es, um zu chatten.",
-      "noModel": "Kein Standardmodell konfiguriert. Legen Sie auf der Seite „Modelle“ eines fest."
-    },
-    "sendMessage": "Nachricht senden",
-    "composeHint": "Enter zum Senden, Umschalt + Enter für eine neue Zeile",
-    "contextTitle": "Kontext",
-    "contextDetail": "Details anzeigen",
-    "contextCompressAt": "Komprimieren bei",
-    "contextSummarizeAt": "Zusammenfassen bei",
-    "attachImage": "Bilder hinzufügen",
-    "dropImagesActive": "Loslassen, um Bilder hinzuzufügen",
-    "removeImage": "Bild entfernen",
-    "uploadedImage": "Angehängtes Bild",
-    "invalidImage": "„{{name}}“ ist keine unterstützte Bilddatei.",
-    "imageTooLarge": "„{{name}}“ überschreitet das Limit von {{size}}.",
-    "imageReadFailed": "„{{name}}“ konnte nicht gelesen werden.",
-    "empty": {
-      "noConfiguredModel": "Kein Modell konfiguriert",
-      "noConfiguredModelDescription": "Sie müssen mindestens ein KI-Modell mit einem API-Schlüssel konfigurieren, bevor Sie chatten können.",
-      "goToModels": "Zu den Modellen",
-      "noSelectedModel": "Kein Modell ausgewählt",
-      "noSelectedModelDescription": "Es sind Modelle konfiguriert, aber keines ist als Standard festgelegt. Wählen Sie eines aus, bevor Sie chatten.",
-      "notRunning": "Gateway läuft nicht",
-      "notRunningDescription": "Starten Sie den Gateway-Dienst, um zu chatten. Nutzen Sie oben die Schaltfläche „Gateway starten“."
-    },
-    "modelGroup": {
-      "apikey": "API-Schlüssel",
-      "oauth": "OAuth",
-      "local": "Lokal"
-    },
-    "downloadFile": "Datei herunterladen"
-  },
-  "credentials": {
-    "description": "OAuth- und tokenbasierte Anmeldedaten für unterstützte Anbieter verwalten.",
-    "loading": "Anmeldedaten werden geladen ...",
-    "providers": {
-      "openai": {
-        "description": "Unterstützt Browser-OAuth, Gerätecode und Token-Anmeldung."
-      },
-      "anthropic": {
-        "description": "Nutzt die Token-Anmeldung für den Zugriff auf Claude."
-      },
-      "antigravity": {
-        "description": "Nutzt Browser-OAuth für Google Cloud Code Assist."
-      }
-    },
-    "status": {
-      "connected": "Verbunden",
-      "needsRefresh": "Aktualisierung erforderlich",
-      "expired": "Abgelaufen",
-      "notLoggedIn": "Nicht angemeldet"
-    },
-    "actions": {
-      "browser": "Browser-OAuth",
-      "deviceCode": "Gerätecode",
-      "stopLoading": "Laden abbrechen",
-      "saveToken": "Speichern",
-      "logout": "Abmelden"
-    },
-    "logoutDialog": {
-      "title": "Vom Anbieter abmelden?",
-      "description": "Dadurch werden Ihre gespeicherten Anmeldedaten für {{provider}} entfernt."
-    },
-    "fields": {
-      "openaiToken": "OpenAI-Token",
-      "anthropicToken": "Anthropic-Token"
-    },
-    "labels": {
-      "account": "Konto",
-      "email": "E-Mail",
-      "project": "Projekt"
-    },
-    "errors": {
-      "loadFailed": "Anmeldedaten konnten nicht geladen werden",
-      "flowFailed": "Authentifizierungsablauf konnte nicht geprüft werden",
-      "loginFailed": "Anmeldung fehlgeschlagen",
-      "logoutFailed": "Abmeldung fehlgeschlagen",
-      "invalidBrowserResponse": "Ungültige Antwort der Browser-Anmeldung",
-      "invalidDeviceResponse": "Ungültige Gerätecode-Antwort",
-      "popupBlocked": "Es konnte kein neuer Tab geöffnet werden. Bitte erlauben Sie Pop-ups und versuchen Sie es erneut."
-    },
-    "flow": {
-      "current": "Aktueller Authentifizierungsstatus",
-      "pending": "Warten auf Autorisierung ...",
-      "success": "Authentifizierung erfolgreich",
-      "error": "Authentifizierung fehlgeschlagen",
-      "expired": "Authentifizierungssitzung abgelaufen"
-    },
-    "device": {
-      "title": "OpenAI-Geräteanmeldung",
-      "description": "Öffnen Sie die Bestätigungsseite und geben Sie den untenstehenden Code ein. Diese Seite wird automatisch aktualisiert.",
-      "code": "Benutzercode",
-      "url": "Bestätigungs-URL",
-      "polling": "Anmeldestatus wird abgefragt ...",
-      "open": "Bestätigungsseite öffnen"
-    }
-  },
   "pages": {
     "agent": {
       "load_error": "Informationen zur Agent-Unterstützung konnten nicht geladen werden.",
@@ -1008,6 +1031,28 @@
       "log_level_error": "Protokollstufe konnte nicht aktualisiert werden.",
       "clear": "Protokolle leeren",
       "empty": "Warten auf Protokolle ..."
+    }
+  },
+  "tour": {
+    "skip": "Tour überspringen",
+    "prev": "Zurück",
+    "next": "Weiter",
+    "finish": "Fertig",
+    "welcome": {
+      "title": "Willkommen bei PocketClaw",
+      "description": "PocketClaw ist eine leistungsfähige Plattform für KI-Assistenten. Nehmen wir uns ein paar Sekunden für die Grundeinrichtung."
+    },
+    "models": {
+      "title": "Modelle einrichten",
+      "description": "Öffnen Sie links das Menü „Modelle“, um die API-Schlüssel Ihrer KI-Anbieter zu hinterlegen. Nur eingerichtete Modelle lassen sich im Chat verwenden."
+    },
+    "gateway": {
+      "title": "Gateway starten",
+      "description": "Klicken Sie nach dem Einrichten der Modelle oben auf „Gateway starten“, um mit der KI zu chatten."
+    },
+    "docs": {
+      "title": "Dokumentation ansehen",
+      "description": "Brauchen Sie mehr Hilfe? Über die Schaltfläche oben rechts erreichen Sie ausführliche Anleitungen und die Konfigurationsdokumentation."
     }
   }
 }

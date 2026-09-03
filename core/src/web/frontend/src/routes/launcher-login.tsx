@@ -83,7 +83,11 @@ function LauncherLoginPage() {
       <header className="border-border/50 flex h-14 shrink-0 items-center justify-end gap-2 border-b px-4">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="icon" aria-label="Language">
+            <Button
+              variant="outline"
+              size="icon"
+              aria-label={t("common.language")}
+            >
               <IconLanguage className="size-4" />
             </Button>
           </DropdownMenuTrigger>
@@ -101,7 +105,9 @@ function LauncherLoginPage() {
           size="icon"
           type="button"
           onClick={() => toggleTheme()}
-          aria-label={theme === "dark" ? "Light mode" : "Dark mode"}
+          aria-label={
+            theme === "dark" ? t("common.lightMode") : t("common.darkMode")
+          }
         >
           {theme === "dark" ? (
             <IconSun className="size-4" />

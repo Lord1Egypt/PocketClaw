@@ -152,25 +152,36 @@ describe("dashboard i18n", () => {
 
 describe("translation coverage", () => {
   // What this milestone actually delivers: the shared chrome every route shows.
-  // The page bodies are not translated yet and fall back to English per key,
-  // which is why this asserts the chrome rather than the whole bundle.
-  const CHROME = [
-    "common",
-    "navigation",
-    "header",
-    "footer",
-    "labels",
-    // Manage Models and Manage Telegram are first-class entry points from
-    // native Settings, so these namespaces are required in full rather than
-    // falling back to English.
-    "models",
-    "channels",
-    "chat",
-    "credentials",
-    // `pages` was translated in four batches and is now complete, so the whole
-    // namespace is required rather than a list of finished prefixes.
-    "pages",
-  ] as const
+  // Every namespace English ships is now required in every added locale, so the
+  // list is read from the English bundle rather than written out here. A
+  // namespace added to English later is required from the moment it appears,
+  // which is the point: nothing can be introduced and quietly left untranslated.
+  const REQUIRED_NAMESPACES = Object.keys(
+    i18n.getResourceBundle("en", "translation") as Record<string, unknown>,
+  )
+
+  // A cheap guard that the list really was read, and that the namespaces this
+  // milestone finished are among them.
+  it("requires every namespace English ships", () => {
+    expect(REQUIRED_NAMESPACES.length).toBeGreaterThan(10)
+    for (const namespace of [
+      "common",
+      "navigation",
+      "header",
+      "footer",
+      "labels",
+      "models",
+      "channels",
+      "chat",
+      "credentials",
+      "pages",
+      "tour",
+      "launcherSetup",
+      "launcherLogin",
+    ]) {
+      expect(REQUIRED_NAMESPACES, namespace).toContain(namespace)
+    }
+  })
 
   const bundles: Record<string, unknown> = {
     ar: enBundleFor("ar"),
@@ -198,10 +209,10 @@ describe("translation coverage", () => {
     return 1
   }
 
-  it("translates the whole shared chrome and Models in every added locale", () => {
+  it("has the same number of strings as English in every namespace", () => {
     const english = enBundleFor("en")
     for (const [locale, bundle] of Object.entries(bundles)) {
-      for (const namespace of CHROME) {
+      for (const namespace of REQUIRED_NAMESPACES) {
         const theirs = (bundle as Record<string, unknown>)[namespace]
         expect(theirs, `${locale} is missing ${namespace}`).toBeTruthy()
         expect(
@@ -288,11 +299,18 @@ describe("translation coverage", () => {
 
     for (const [locale, bundle] of Object.entries(bundles)) {
       const theirs = flatten(bundle, "", new Map())
-      for (const namespace of CHROME) {
+      for (const namespace of REQUIRED_NAMESPACES) {
         for (const key of keysOfNamespace(english, namespace)) {
           if (theirs.get(key) === undefined) {
             failures.push(`${locale} | ${namespace} | ${key} | MISSING`)
           }
+        }
+      }
+      // A key English does not have is a stale translation or a typo, and it
+      // would never be rendered. Report it rather than letting it accumulate.
+      for (const key of theirs.keys()) {
+        if (english.get(key) === undefined) {
+          failures.push(`${locale} | ${key.split(".")[0]} | ${key} | EXTRA`)
         }
       }
     }
@@ -300,9 +318,9 @@ describe("translation coverage", () => {
     expect(failures.join("\n"), failures.join("\n")).toBe("")
   })
 
-  // Interpolation parity across the whole finished namespace: no translation
-  // may drop a {{var}} English uses, invent one it does not have, or rename it.
-  it("preserves placeholder parity with English across all of pages", () => {
+  // Interpolation parity across every namespace: no translation may drop a
+  // {{var}} English uses, invent one it does not have, or rename it.
+  it("preserves placeholder parity with English across the whole bundle", () => {
     const placeholders = (value: string) =>
       [...value.matchAll(/\{\{\s*([A-Za-z0-9_]+)\s*\}\}/g)]
         .map((match) => match[1])
@@ -314,15 +332,17 @@ describe("translation coverage", () => {
 
     for (const [locale, bundle] of Object.entries(bundles)) {
       const theirs = flatten(bundle, "", new Map())
-      for (const key of keysOfNamespace(english, "pages")) {
-        const translated = theirs.get(key)
-        if (translated === undefined) continue
-        const want = placeholders(english.get(key) as string)
-        const got = placeholders(translated)
-        if (want !== got) {
-          failures.push(
-            `${locale} | pages | ${key} | placeholders "${want}" vs "${got}"`,
-          )
+      for (const namespace of REQUIRED_NAMESPACES) {
+        for (const key of keysOfNamespace(english, namespace)) {
+          const translated = theirs.get(key)
+          if (translated === undefined) continue
+          const want = placeholders(english.get(key) as string)
+          const got = placeholders(translated)
+          if (want !== got) {
+            failures.push(
+              `${locale} | ${namespace} | ${key} | placeholders "${want}" vs "${got}"`,
+            )
+          }
         }
       }
     }
@@ -336,7 +356,7 @@ describe("translation coverage", () => {
 
     for (const locale of NON_LATIN) {
       const theirs = flatten(enBundleFor(locale), "", new Map())
-      const checked: Array<[string, string[]]> = CHROME.map(
+      const checked: Array<[string, string[]]> = REQUIRED_NAMESPACES.map(
         (namespace) =>
           [namespace, keysOfNamespace(english, namespace)] as [
             string,
@@ -1421,6 +1441,136 @@ describe("Pages batch 4 — Evolution, MCP and raw JSON", () => {
       for (const key of [
         "pages.config.mcp_servers",
         "pages.config.raw_json_title",
+      ]) {
+        expect(i18n.t(key), `${locale} ${key}`).not.toBe(key)
+      }
+    }
+  })
+})
+
+describe("Tour, launcher setup and launcher login", () => {
+  it("renders the translated onboarding tour", async () => {
+    for (const locale of BATCH_LOCALES) {
+      await i18n.changeLanguage(locale)
+
+      // Title and body of the first step.
+      expect(i18n.t("tour.welcome.title"), locale).not.toBe(
+        "Welcome to PocketClaw",
+      )
+      expect(i18n.t("tour.welcome.description"), locale).not.toBe(
+        "PocketClaw is a powerful AI assistant platform. Let's take a few seconds to help you complete the basic setup.",
+      )
+
+      // The remaining steps.
+      expect(i18n.t("tour.models.title"), locale).not.toBe("Configure Models")
+      expect(i18n.t("tour.gateway.description"), locale).not.toBe(
+        'After configuring models, click the "Start Gateway" button at the top to begin chatting with AI.',
+      )
+      expect(i18n.t("tour.docs.title"), locale).not.toBe("View Documentation")
+
+      // Navigation actions.
+      expect(i18n.t("tour.skip"), locale).not.toBe("Skip tour")
+      expect(i18n.t("tour.prev"), locale).not.toBe("Previous")
+      expect(i18n.t("tour.next"), locale).not.toBe("Next")
+      expect(i18n.t("tour.finish"), locale).not.toBe("Finish")
+    }
+  })
+
+  it("renders the translated launcher setup screen", async () => {
+    for (const locale of BATCH_LOCALES) {
+      await i18n.changeLanguage(locale)
+
+      // Title and body.
+      expect(i18n.t("launcherSetup.title"), locale).not.toBe(
+        "Set dashboard password",
+      )
+      expect(i18n.t("launcherSetup.description"), locale).not.toBe(
+        "Choose a password to protect access to this dashboard. You will use it every time you sign in.",
+      )
+
+      // Fields and their placeholders.
+      expect(i18n.t("launcherSetup.passwordLabel"), locale).not.toBe("Password")
+      expect(i18n.t("launcherSetup.passwordPlaceholder"), locale).not.toBe(
+        "At least 8 characters",
+      )
+      expect(i18n.t("launcherSetup.confirmLabel"), locale).not.toBe(
+        "Confirm password",
+      )
+
+      // Action.
+      expect(i18n.t("launcherSetup.submit"), locale).not.toBe("Set password")
+
+      // Validation and failure states.
+      expect(i18n.t("launcherSetup.errorMismatch"), locale).not.toBe(
+        "Passwords do not match.",
+      )
+      expect(i18n.t("launcherSetup.errorNetwork"), locale).not.toBe(
+        "Network error. Please try again.",
+      )
+    }
+  })
+
+  it("renders the translated launcher login screen", async () => {
+    for (const locale of BATCH_LOCALES) {
+      await i18n.changeLanguage(locale)
+
+      // Title and body.
+      expect(i18n.t("launcherLogin.title"), locale).not.toBe("Sign in")
+      expect(i18n.t("launcherLogin.description"), locale).not.toBe(
+        "Enter the dashboard password to continue.",
+      )
+
+      // Field and placeholder.
+      expect(i18n.t("launcherLogin.passwordLabel"), locale).not.toBe("Password")
+      expect(i18n.t("launcherLogin.passwordPlaceholder"), locale).not.toBe(
+        "Enter password",
+      )
+
+      // Action.
+      expect(i18n.t("launcherLogin.submit"), locale).not.toBe("Sign in")
+
+      // Failure states.
+      expect(i18n.t("launcherLogin.errorInvalid"), locale).not.toBe(
+        "Incorrect password. Please try again.",
+      )
+      expect(i18n.t("launcherLogin.errorNetwork"), locale).not.toBe(
+        "Network error. Please try again.",
+      )
+    }
+  })
+
+  // The launcher screens carry their own theme and language buttons, whose
+  // accessible names were the last English strings in these routes.
+  it("translates the shared control labels the launcher screens use", async () => {
+    for (const locale of BATCH_LOCALES) {
+      await i18n.changeLanguage(locale)
+      expect(i18n.t("common.language"), locale).not.toBe("Language")
+      expect(i18n.t("common.lightMode"), locale).not.toBe("Light mode")
+      expect(i18n.t("common.darkMode"), locale).not.toBe("Dark mode")
+    }
+  })
+
+  it("keeps Arabic right-to-left across all three", async () => {
+    await i18n.changeLanguage("ar")
+    expect(i18n.dir()).toBe("rtl")
+    expect(document.documentElement.getAttribute("dir")).toBe("rtl")
+    expect(i18n.t("tour.skip")).toBe("تخطّي الجولة")
+    expect(i18n.t("launcherSetup.submit")).toBe("تعيين كلمة المرور")
+    expect(i18n.t("launcherLogin.title")).toBe("تسجيل الدخول")
+  })
+
+  it("keeps English and the pre-existing locales intact", async () => {
+    await i18n.changeLanguage("en")
+    expect(i18n.t("tour.finish")).toBe("Finish")
+    expect(i18n.t("launcherSetup.title")).toBe("Set dashboard password")
+    expect(i18n.t("launcherLogin.submit")).toBe("Sign in")
+
+    for (const locale of ["pt", "zh"]) {
+      await i18n.changeLanguage(locale)
+      for (const key of [
+        "tour.finish",
+        "launcherSetup.title",
+        "launcherLogin.submit",
       ]) {
         expect(i18n.t(key), `${locale} ${key}`).not.toBe(key)
       }

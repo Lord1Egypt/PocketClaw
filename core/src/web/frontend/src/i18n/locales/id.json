@@ -15,6 +15,112 @@
     "config": "Konfigurasi",
     "logs": "Log"
   },
+  "launcherLogin": {
+    "title": "Masuk",
+    "description": "Masukkan kata sandi dasbor untuk melanjutkan.",
+    "passwordLabel": "Kata sandi",
+    "passwordPlaceholder": "Masukkan kata sandi",
+    "submit": "Masuk",
+    "errorInvalid": "Kata sandi salah. Silakan coba lagi.",
+    "errorNetwork": "Kesalahan jaringan. Silakan coba lagi."
+  },
+  "launcherSetup": {
+    "title": "Tetapkan kata sandi dasbor",
+    "description": "Pilih kata sandi untuk melindungi akses ke dasbor ini. Anda akan memakainya setiap kali masuk.",
+    "passwordLabel": "Kata sandi",
+    "passwordPlaceholder": "Minimal 8 karakter",
+    "confirmLabel": "Konfirmasi kata sandi",
+    "confirmPlaceholder": "Ulangi kata sandi",
+    "submit": "Tetapkan kata sandi",
+    "errorMismatch": "Kata sandi tidak cocok.",
+    "errorNetwork": "Kesalahan jaringan. Silakan coba lagi."
+  },
+  "chat": {
+    "welcome": "Ada yang bisa saya bantu hari ini?",
+    "welcomeDesc": "Tanyakan tentang cuaca, pengaturan, atau tugas lainnya. Saya siap membantu.",
+    "placeholder": "Tulis pesan baru...",
+    "disabledPlaceholder": {
+      "gatewayUnknown": "Tidak dapat mengobrol: status gateway masih diperiksa. Harap tunggu, lalu segarkan halaman atau mulai ulang peluncur bila perlu.",
+      "gatewayStarting": "Tidak dapat mengobrol: gateway sedang dijalankan. Tunggu hingga selesai, lalu coba lagi.",
+      "gatewayRestarting": "Tidak dapat mengobrol: gateway sedang dimulai ulang. Harap tunggu hingga selesai.",
+      "gatewayStopping": "Tidak dapat mengobrol: gateway sedang dihentikan. Tunggu hingga berhenti, lalu jalankan lagi.",
+      "gatewayStopped": "Tidak dapat mengobrol: gateway belum dijalankan. Klik Mulai Gateway di bilah atas, lalu coba lagi.",
+      "gatewayError": "Tidak dapat mengobrol: gateway dalam keadaan error. Periksa log, lalu mulai ulang gateway atau peluncur.",
+      "websocketConnecting": "Menghubungkan ke layanan obrolan... Harap tunggu.",
+      "websocketDisconnected": "Tidak dapat mengobrol: koneksi WebSocket terputus. Periksa jaringan dan status gateway, lalu segarkan halaman atau mulai ulang peluncur.",
+      "websocketError": "Tidak dapat mengobrol: koneksi WebSocket gagal. Periksa jaringan dan status gateway, lalu coba lagi.",
+      "noDefaultModel": "Tidak dapat mengobrol: belum ada model default. Tetapkan model default di halaman Model."
+    },
+    "newChat": "Obrolan Baru",
+    "notConnected": "Gateway tidak berjalan. Jalankan untuk mulai mengobrol.",
+    "thinking": {
+      "step1": "Berpikir...",
+      "step2": "Menganalisis permintaan Anda...",
+      "step3": "Menyiapkan jawaban...",
+      "step4": "Hampir selesai..."
+    },
+    "reasoningLabel": "Penalaran",
+    "toolCallsLabel": "Panggilan alat",
+    "toolCallExplanationLabel": "Catatan panggilan",
+    "toolCallFunctionLabel": "Ringkasan panggilan",
+    "toolCallArgumentsLabel": "Argumen",
+    "showAssistantDetails": "Penalaran dan panggilan alat",
+    "assistantDetailVisibility": {
+      "none": "Jangan tampilkan keduanya",
+      "thought": "Tampilkan penalaran saja",
+      "toolCalls": "Tampilkan panggilan alat saja",
+      "all": "Tampilkan keduanya"
+    },
+    "toolLabel": "Alat",
+    "codeLabel": "Kode",
+    "copyMessage": "Salin pesan",
+    "copyCode": "Salin kode",
+    "copiedLabel": "Tersalin",
+    "enableCodeWrap": "Bungkus baris",
+    "disableCodeWrap": "Matikan pembungkusan",
+    "expandCode": "Perluas kode",
+    "collapseCode": "Ciutkan kode",
+    "history": "Riwayat",
+    "noHistory": "Belum ada riwayat obrolan",
+    "historyLoadFailed": "Gagal memuat riwayat obrolan",
+    "historyOpenFailed": "Gagal membuka riwayat obrolan ini",
+    "loadingMore": "Memuat lebih banyak...",
+    "deleteSession": "Hapus sesi",
+    "messagesCount": "{{count}} pesan",
+    "noModel": "Pilih model",
+    "inputDisabled": {
+      "notConnected": "Gateway tidak berjalan. Jalankan untuk mulai mengobrol.",
+      "noModel": "Belum ada model default. Buka halaman Model untuk menetapkannya."
+    },
+    "sendMessage": "Kirim pesan",
+    "composeHint": "Tekan Enter untuk mengirim, Shift + Enter untuk baris baru",
+    "contextTitle": "Konteks",
+    "contextDetail": "Lihat Detail",
+    "contextCompressAt": "Kompres pada",
+    "contextSummarizeAt": "Ringkas pada",
+    "attachImage": "Tambah gambar",
+    "dropImagesActive": "Lepaskan untuk menambah gambar",
+    "removeImage": "Hapus gambar",
+    "uploadedImage": "Gambar terlampir",
+    "invalidImage": "\"{{name}}\" bukan berkas gambar yang didukung.",
+    "imageTooLarge": "\"{{name}}\" melebihi batas {{size}}.",
+    "imageReadFailed": "Gagal membaca \"{{name}}\".",
+    "empty": {
+      "noConfiguredModel": "Belum Ada Model",
+      "noConfiguredModelDescription": "Anda perlu mengonfigurasi setidaknya satu model AI dengan kunci API sebelum dapat mulai mengobrol.",
+      "goToModels": "Buka Model",
+      "noSelectedModel": "Belum Ada Model Dipilih",
+      "noSelectedModelDescription": "Model sudah dikonfigurasi, tetapi belum ada yang menjadi default. Pilih model sebelum mulai mengobrol.",
+      "notRunning": "Gateway Tidak Berjalan",
+      "notRunningDescription": "Jalankan layanan gateway untuk mulai mengobrol. Gunakan tombol Mulai Gateway di bilah atas."
+    },
+    "modelGroup": {
+      "apikey": "Kunci API",
+      "oauth": "OAuth",
+      "local": "Lokal"
+    },
+    "downloadFile": "Unduh berkas"
+  },
   "header": {
     "logout": {
       "tooltip": "Keluar",
@@ -56,7 +162,10 @@
     "restartFailedTitle": "Gagal memulai ulang gateway",
     "restartFailedDesc": "Konfigurasi {{name}} tersimpan, tetapi gateway tidak dimulai ulang. Gunakan Mulai Ulang Gateway untuk menerapkannya.",
     "restartDeferredTitle": "Tersimpan, gateway belum dimulai ulang",
-    "restartDeferredDesc": "Konfigurasi {{name}} tersimpan. PocketClaw belum memulai ulang gateway karena masih menangani permintaan. Gunakan Mulai Ulang Gateway saat Anda siap."
+    "restartDeferredDesc": "Konfigurasi {{name}} tersimpan. PocketClaw belum memulai ulang gateway karena masih menangani permintaan. Gunakan Mulai Ulang Gateway saat Anda siap.",
+    "language": "Bahasa",
+    "lightMode": "Mode terang",
+    "darkMode": "Mode gelap"
   },
   "labels": {
     "loading": "Memuat..."
@@ -66,6 +175,71 @@
     "commit": "Commit",
     "build": "Build",
     "version_unknown": "Tidak diketahui"
+  },
+  "credentials": {
+    "description": "Kelola kredensial OAuth dan berbasis token untuk penyedia yang didukung.",
+    "loading": "Memuat kredensial...",
+    "providers": {
+      "openai": {
+        "description": "Mendukung OAuth peramban, kode perangkat, dan masuk dengan token."
+      },
+      "anthropic": {
+        "description": "Memakai masuk dengan token untuk mengakses Claude."
+      },
+      "antigravity": {
+        "description": "Memakai OAuth peramban untuk Google Cloud Code Assist."
+      }
+    },
+    "status": {
+      "connected": "Terhubung",
+      "needsRefresh": "Perlu disegarkan",
+      "expired": "Kedaluwarsa",
+      "notLoggedIn": "Belum masuk"
+    },
+    "actions": {
+      "browser": "OAuth peramban",
+      "deviceCode": "Kode Perangkat",
+      "stopLoading": "Hentikan Pemuatan",
+      "saveToken": "Simpan",
+      "logout": "Keluar"
+    },
+    "logoutDialog": {
+      "title": "Keluar dari penyedia?",
+      "description": "Tindakan ini akan menghapus kredensial tersimpan untuk {{provider}}."
+    },
+    "fields": {
+      "openaiToken": "Token OpenAI",
+      "anthropicToken": "Token Anthropic"
+    },
+    "labels": {
+      "account": "Akun",
+      "email": "Email",
+      "project": "Proyek"
+    },
+    "errors": {
+      "loadFailed": "Gagal memuat kredensial",
+      "flowFailed": "Gagal memeriksa alur autentikasi",
+      "loginFailed": "Gagal masuk",
+      "logoutFailed": "Gagal keluar",
+      "invalidBrowserResponse": "Respons masuk peramban tidak valid",
+      "invalidDeviceResponse": "Respons kode perangkat tidak valid",
+      "popupBlocked": "Tidak dapat membuka tab baru. Izinkan pop-up lalu coba lagi."
+    },
+    "flow": {
+      "current": "Status autentikasi saat ini",
+      "pending": "Menunggu otorisasi...",
+      "success": "Autentikasi berhasil",
+      "error": "Autentikasi gagal",
+      "expired": "Sesi autentikasi kedaluwarsa"
+    },
+    "device": {
+      "title": "Masuk Perangkat OpenAI",
+      "description": "Buka halaman verifikasi dan masukkan kode di bawah. Halaman ini akan disegarkan otomatis.",
+      "code": "Kode Pengguna",
+      "url": "URL Verifikasi",
+      "polling": "Memeriksa status masuk...",
+      "open": "Buka Halaman Verifikasi"
+    }
   },
   "models": {
     "fallbacks": {
@@ -486,157 +660,6 @@
       "manualOnlyBody": "Pembuatan bot sekali ketuk tidak tersedia pada build ini, jadi Telegram disiapkan dengan token bot dari BotFather. Tempel token di bawah lalu simpan."
     }
   },
-  "chat": {
-    "welcome": "Ada yang bisa saya bantu hari ini?",
-    "welcomeDesc": "Tanyakan tentang cuaca, pengaturan, atau tugas lainnya. Saya siap membantu.",
-    "placeholder": "Tulis pesan baru...",
-    "disabledPlaceholder": {
-      "gatewayUnknown": "Tidak dapat mengobrol: status gateway masih diperiksa. Harap tunggu, lalu segarkan halaman atau mulai ulang peluncur bila perlu.",
-      "gatewayStarting": "Tidak dapat mengobrol: gateway sedang dijalankan. Tunggu hingga selesai, lalu coba lagi.",
-      "gatewayRestarting": "Tidak dapat mengobrol: gateway sedang dimulai ulang. Harap tunggu hingga selesai.",
-      "gatewayStopping": "Tidak dapat mengobrol: gateway sedang dihentikan. Tunggu hingga berhenti, lalu jalankan lagi.",
-      "gatewayStopped": "Tidak dapat mengobrol: gateway belum dijalankan. Klik Mulai Gateway di bilah atas, lalu coba lagi.",
-      "gatewayError": "Tidak dapat mengobrol: gateway dalam keadaan error. Periksa log, lalu mulai ulang gateway atau peluncur.",
-      "websocketConnecting": "Menghubungkan ke layanan obrolan... Harap tunggu.",
-      "websocketDisconnected": "Tidak dapat mengobrol: koneksi WebSocket terputus. Periksa jaringan dan status gateway, lalu segarkan halaman atau mulai ulang peluncur.",
-      "websocketError": "Tidak dapat mengobrol: koneksi WebSocket gagal. Periksa jaringan dan status gateway, lalu coba lagi.",
-      "noDefaultModel": "Tidak dapat mengobrol: belum ada model default. Tetapkan model default di halaman Model."
-    },
-    "newChat": "Obrolan Baru",
-    "notConnected": "Gateway tidak berjalan. Jalankan untuk mulai mengobrol.",
-    "thinking": {
-      "step1": "Berpikir...",
-      "step2": "Menganalisis permintaan Anda...",
-      "step3": "Menyiapkan jawaban...",
-      "step4": "Hampir selesai..."
-    },
-    "reasoningLabel": "Penalaran",
-    "toolCallsLabel": "Panggilan alat",
-    "toolCallExplanationLabel": "Catatan panggilan",
-    "toolCallFunctionLabel": "Ringkasan panggilan",
-    "toolCallArgumentsLabel": "Argumen",
-    "showAssistantDetails": "Penalaran dan panggilan alat",
-    "assistantDetailVisibility": {
-      "none": "Jangan tampilkan keduanya",
-      "thought": "Tampilkan penalaran saja",
-      "toolCalls": "Tampilkan panggilan alat saja",
-      "all": "Tampilkan keduanya"
-    },
-    "toolLabel": "Alat",
-    "codeLabel": "Kode",
-    "copyMessage": "Salin pesan",
-    "copyCode": "Salin kode",
-    "copiedLabel": "Tersalin",
-    "enableCodeWrap": "Bungkus baris",
-    "disableCodeWrap": "Matikan pembungkusan",
-    "expandCode": "Perluas kode",
-    "collapseCode": "Ciutkan kode",
-    "history": "Riwayat",
-    "noHistory": "Belum ada riwayat obrolan",
-    "historyLoadFailed": "Gagal memuat riwayat obrolan",
-    "historyOpenFailed": "Gagal membuka riwayat obrolan ini",
-    "loadingMore": "Memuat lebih banyak...",
-    "deleteSession": "Hapus sesi",
-    "messagesCount": "{{count}} pesan",
-    "noModel": "Pilih model",
-    "inputDisabled": {
-      "notConnected": "Gateway tidak berjalan. Jalankan untuk mulai mengobrol.",
-      "noModel": "Belum ada model default. Buka halaman Model untuk menetapkannya."
-    },
-    "sendMessage": "Kirim pesan",
-    "composeHint": "Tekan Enter untuk mengirim, Shift + Enter untuk baris baru",
-    "contextTitle": "Konteks",
-    "contextDetail": "Lihat Detail",
-    "contextCompressAt": "Kompres pada",
-    "contextSummarizeAt": "Ringkas pada",
-    "attachImage": "Tambah gambar",
-    "dropImagesActive": "Lepaskan untuk menambah gambar",
-    "removeImage": "Hapus gambar",
-    "uploadedImage": "Gambar terlampir",
-    "invalidImage": "\"{{name}}\" bukan berkas gambar yang didukung.",
-    "imageTooLarge": "\"{{name}}\" melebihi batas {{size}}.",
-    "imageReadFailed": "Gagal membaca \"{{name}}\".",
-    "empty": {
-      "noConfiguredModel": "Belum Ada Model",
-      "noConfiguredModelDescription": "Anda perlu mengonfigurasi setidaknya satu model AI dengan kunci API sebelum dapat mulai mengobrol.",
-      "goToModels": "Buka Model",
-      "noSelectedModel": "Belum Ada Model Dipilih",
-      "noSelectedModelDescription": "Model sudah dikonfigurasi, tetapi belum ada yang menjadi default. Pilih model sebelum mulai mengobrol.",
-      "notRunning": "Gateway Tidak Berjalan",
-      "notRunningDescription": "Jalankan layanan gateway untuk mulai mengobrol. Gunakan tombol Mulai Gateway di bilah atas."
-    },
-    "modelGroup": {
-      "apikey": "Kunci API",
-      "oauth": "OAuth",
-      "local": "Lokal"
-    },
-    "downloadFile": "Unduh berkas"
-  },
-  "credentials": {
-    "description": "Kelola kredensial OAuth dan berbasis token untuk penyedia yang didukung.",
-    "loading": "Memuat kredensial...",
-    "providers": {
-      "openai": {
-        "description": "Mendukung OAuth peramban, kode perangkat, dan masuk dengan token."
-      },
-      "anthropic": {
-        "description": "Memakai masuk dengan token untuk mengakses Claude."
-      },
-      "antigravity": {
-        "description": "Memakai OAuth peramban untuk Google Cloud Code Assist."
-      }
-    },
-    "status": {
-      "connected": "Terhubung",
-      "needsRefresh": "Perlu disegarkan",
-      "expired": "Kedaluwarsa",
-      "notLoggedIn": "Belum masuk"
-    },
-    "actions": {
-      "browser": "OAuth peramban",
-      "deviceCode": "Kode Perangkat",
-      "stopLoading": "Hentikan Pemuatan",
-      "saveToken": "Simpan",
-      "logout": "Keluar"
-    },
-    "logoutDialog": {
-      "title": "Keluar dari penyedia?",
-      "description": "Tindakan ini akan menghapus kredensial tersimpan untuk {{provider}}."
-    },
-    "fields": {
-      "openaiToken": "Token OpenAI",
-      "anthropicToken": "Token Anthropic"
-    },
-    "labels": {
-      "account": "Akun",
-      "email": "Email",
-      "project": "Proyek"
-    },
-    "errors": {
-      "loadFailed": "Gagal memuat kredensial",
-      "flowFailed": "Gagal memeriksa alur autentikasi",
-      "loginFailed": "Gagal masuk",
-      "logoutFailed": "Gagal keluar",
-      "invalidBrowserResponse": "Respons masuk peramban tidak valid",
-      "invalidDeviceResponse": "Respons kode perangkat tidak valid",
-      "popupBlocked": "Tidak dapat membuka tab baru. Izinkan pop-up lalu coba lagi."
-    },
-    "flow": {
-      "current": "Status autentikasi saat ini",
-      "pending": "Menunggu otorisasi...",
-      "success": "Autentikasi berhasil",
-      "error": "Autentikasi gagal",
-      "expired": "Sesi autentikasi kedaluwarsa"
-    },
-    "device": {
-      "title": "Masuk Perangkat OpenAI",
-      "description": "Buka halaman verifikasi dan masukkan kode di bawah. Halaman ini akan disegarkan otomatis.",
-      "code": "Kode Pengguna",
-      "url": "URL Verifikasi",
-      "polling": "Memeriksa status masuk...",
-      "open": "Buka Halaman Verifikasi"
-    }
-  },
   "pages": {
     "agent": {
       "load_error": "Gagal memuat informasi dukungan agen.",
@@ -1008,6 +1031,28 @@
       "log_level_error": "Gagal memperbarui level log.",
       "clear": "Bersihkan log",
       "empty": "Menunggu log..."
+    }
+  },
+  "tour": {
+    "skip": "Lewati tur",
+    "prev": "Sebelumnya",
+    "next": "Berikutnya",
+    "finish": "Selesai",
+    "welcome": {
+      "title": "Selamat datang di PocketClaw",
+      "description": "PocketClaw adalah platform asisten AI yang andal. Luangkan beberapa detik untuk menyelesaikan penyiapan dasar."
+    },
+    "models": {
+      "title": "Konfigurasikan Model",
+      "description": "Klik menu «Model» di sebelah kiri untuk mengatur kunci API penyedia AI Anda. Hanya model yang sudah dikonfigurasi yang dapat dipakai untuk mengobrol."
+    },
+    "gateway": {
+      "title": "Mulai Gateway",
+      "description": "Setelah model dikonfigurasi, klik tombol «Mulai Gateway» di bagian atas untuk mulai mengobrol dengan AI."
+    },
+    "docs": {
+      "title": "Lihat Dokumentasi",
+      "description": "Butuh bantuan lain? Klik tombol dokumentasi di pojok kanan atas untuk melihat panduan lengkap dan dokumen konfigurasi."
     }
   }
 }

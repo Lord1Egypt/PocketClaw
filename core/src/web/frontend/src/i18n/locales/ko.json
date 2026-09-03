@@ -15,6 +15,112 @@
     "config": "구성",
     "logs": "로그"
   },
+  "launcherLogin": {
+    "title": "로그인",
+    "description": "계속하려면 대시보드 비밀번호를 입력하세요.",
+    "passwordLabel": "비밀번호",
+    "passwordPlaceholder": "비밀번호 입력",
+    "submit": "로그인",
+    "errorInvalid": "비밀번호가 올바르지 않습니다. 다시 시도해 주세요.",
+    "errorNetwork": "네트워크 오류입니다. 다시 시도해 주세요."
+  },
+  "launcherSetup": {
+    "title": "대시보드 비밀번호 설정",
+    "description": "이 대시보드에 대한 접근을 보호할 비밀번호를 정하세요. 로그인할 때마다 사용하게 됩니다.",
+    "passwordLabel": "비밀번호",
+    "passwordPlaceholder": "8자 이상",
+    "confirmLabel": "비밀번호 확인",
+    "confirmPlaceholder": "비밀번호 다시 입력",
+    "submit": "비밀번호 설정",
+    "errorMismatch": "비밀번호가 일치하지 않습니다.",
+    "errorNetwork": "네트워크 오류입니다. 다시 시도해 주세요."
+  },
+  "chat": {
+    "welcome": "오늘 무엇을 도와드릴까요?",
+    "welcomeDesc": "날씨, 설정 등 무엇이든 물어보세요. 도와드리겠습니다.",
+    "placeholder": "새 메시지 입력...",
+    "disabledPlaceholder": {
+      "gatewayUnknown": "채팅할 수 없습니다: 게이트웨이 상태를 확인하는 중입니다. 잠시 기다린 뒤 페이지를 새로 고치거나 필요하면 런처를 다시 시작하세요.",
+      "gatewayStarting": "채팅할 수 없습니다: 게이트웨이가 시작 중입니다. 시작이 끝난 뒤 다시 시도하세요.",
+      "gatewayRestarting": "채팅할 수 없습니다: 게이트웨이가 재시작 중입니다. 완료될 때까지 기다려 주세요.",
+      "gatewayStopping": "채팅할 수 없습니다: 게이트웨이가 중지 중입니다. 중지된 뒤 다시 시작하세요.",
+      "gatewayStopped": "채팅할 수 없습니다: 게이트웨이가 시작되지 않았습니다. 상단 바에서 게이트웨이 시작을 클릭한 뒤 다시 시도하세요.",
+      "gatewayError": "채팅할 수 없습니다: 게이트웨이가 오류 상태입니다. 로그를 확인한 뒤 게이트웨이나 런처를 다시 시작하세요.",
+      "websocketConnecting": "채팅 서비스에 연결하는 중입니다... 잠시 기다려 주세요.",
+      "websocketDisconnected": "채팅할 수 없습니다: WebSocket 연결이 끊어졌습니다. 네트워크와 게이트웨이 상태를 확인한 뒤 페이지를 새로 고치거나 런처를 다시 시작하세요.",
+      "websocketError": "채팅할 수 없습니다: WebSocket 연결에 실패했습니다. 네트워크와 게이트웨이 상태를 확인한 뒤 다시 시도하세요.",
+      "noDefaultModel": "채팅할 수 없습니다: 기본 모델이 선택되지 않았습니다. 모델 페이지에서 기본 모델을 설정하세요."
+    },
+    "newChat": "새 채팅",
+    "notConnected": "게이트웨이가 실행 중이 아닙니다. 채팅하려면 시작하세요.",
+    "thinking": {
+      "step1": "생각하는 중...",
+      "step2": "요청을 분석하는 중...",
+      "step3": "응답을 준비하는 중...",
+      "step4": "거의 다 됐습니다..."
+    },
+    "reasoningLabel": "추론",
+    "toolCallsLabel": "도구 호출",
+    "toolCallExplanationLabel": "호출 메모",
+    "toolCallFunctionLabel": "호출 요약",
+    "toolCallArgumentsLabel": "인수",
+    "showAssistantDetails": "추론 및 도구 호출",
+    "assistantDetailVisibility": {
+      "none": "모두 표시하지 않음",
+      "thought": "추론만 표시",
+      "toolCalls": "도구 호출만 표시",
+      "all": "모두 표시"
+    },
+    "toolLabel": "도구",
+    "codeLabel": "코드",
+    "copyMessage": "메시지 복사",
+    "copyCode": "코드 복사",
+    "copiedLabel": "복사됨",
+    "enableCodeWrap": "줄 바꿈",
+    "disableCodeWrap": "줄 바꿈 해제",
+    "expandCode": "코드 펼치기",
+    "collapseCode": "코드 접기",
+    "history": "기록",
+    "noHistory": "아직 채팅 기록이 없습니다",
+    "historyLoadFailed": "채팅 기록을 불러오지 못했습니다",
+    "historyOpenFailed": "이 채팅 기록을 열지 못했습니다",
+    "loadingMore": "더 불러오는 중...",
+    "deleteSession": "세션 삭제",
+    "messagesCount": "메시지 {{count}}개",
+    "noModel": "모델 선택",
+    "inputDisabled": {
+      "notConnected": "게이트웨이가 실행 중이 아닙니다. 채팅하려면 시작하세요.",
+      "noModel": "기본 모델이 구성되지 않았습니다. 모델 페이지에서 설정하세요."
+    },
+    "sendMessage": "메시지 보내기",
+    "composeHint": "Enter로 전송, Shift + Enter로 줄 바꿈",
+    "contextTitle": "컨텍스트",
+    "contextDetail": "세부 정보 보기",
+    "contextCompressAt": "압축 기준",
+    "contextSummarizeAt": "요약 기준",
+    "attachImage": "이미지 추가",
+    "dropImagesActive": "놓으면 이미지가 추가됩니다",
+    "removeImage": "이미지 제거",
+    "uploadedImage": "첨부된 이미지",
+    "invalidImage": "\"{{name}}\"은(는) 지원되지 않는 이미지 파일입니다.",
+    "imageTooLarge": "\"{{name}}\"이(가) {{size}} 제한을 초과합니다.",
+    "imageReadFailed": "\"{{name}}\"을(를) 읽지 못했습니다.",
+    "empty": {
+      "noConfiguredModel": "구성된 모델 없음",
+      "noConfiguredModelDescription": "채팅을 시작하려면 API 키가 설정된 AI 모델이 하나 이상 필요합니다.",
+      "goToModels": "모델로 이동",
+      "noSelectedModel": "선택된 모델 없음",
+      "noSelectedModelDescription": "모델은 구성되어 있지만 기본으로 지정된 것이 없습니다. 채팅을 시작하기 전에 모델을 선택하세요.",
+      "notRunning": "게이트웨이가 실행 중이 아님",
+      "notRunningDescription": "채팅을 시작하려면 게이트웨이 서비스를 시작하세요. 상단 바의 게이트웨이 시작 버튼을 사용합니다."
+    },
+    "modelGroup": {
+      "apikey": "API 키",
+      "oauth": "OAuth",
+      "local": "로컬"
+    },
+    "downloadFile": "파일 다운로드"
+  },
   "header": {
     "logout": {
       "tooltip": "로그아웃",
@@ -56,7 +162,10 @@
     "restartFailedTitle": "게이트웨이 재시작 실패",
     "restartFailedDesc": "{{name}} 구성은 저장되었지만 게이트웨이가 재시작되지 않았습니다. 게이트웨이 재시작으로 적용하세요.",
     "restartDeferredTitle": "저장됨, 게이트웨이는 아직 재시작되지 않음",
-    "restartDeferredDesc": "{{name}} 구성이 저장되었습니다. PocketClaw가 아직 요청을 처리 중이라 게이트웨이를 재시작하지 않았습니다. 준비되면 게이트웨이 재시작을 사용하세요."
+    "restartDeferredDesc": "{{name}} 구성이 저장되었습니다. PocketClaw가 아직 요청을 처리 중이라 게이트웨이를 재시작하지 않았습니다. 준비되면 게이트웨이 재시작을 사용하세요.",
+    "language": "언어",
+    "lightMode": "라이트 모드",
+    "darkMode": "다크 모드"
   },
   "labels": {
     "loading": "불러오는 중..."
@@ -66,6 +175,71 @@
     "commit": "커밋",
     "build": "빌드",
     "version_unknown": "알 수 없음"
+  },
+  "credentials": {
+    "description": "지원되는 공급자의 OAuth 및 토큰 기반 자격 증명을 관리합니다.",
+    "loading": "자격 증명을 불러오는 중...",
+    "providers": {
+      "openai": {
+        "description": "브라우저 OAuth, 기기 코드, 토큰 로그인을 지원합니다."
+      },
+      "anthropic": {
+        "description": "Claude 접근에 토큰 로그인을 사용합니다."
+      },
+      "antigravity": {
+        "description": "Google Cloud Code Assist에 브라우저 OAuth를 사용합니다."
+      }
+    },
+    "status": {
+      "connected": "연결됨",
+      "needsRefresh": "갱신 필요",
+      "expired": "만료됨",
+      "notLoggedIn": "로그인하지 않음"
+    },
+    "actions": {
+      "browser": "브라우저 OAuth",
+      "deviceCode": "기기 코드",
+      "stopLoading": "불러오기 중지",
+      "saveToken": "저장",
+      "logout": "로그아웃"
+    },
+    "logoutDialog": {
+      "title": "공급자에서 로그아웃할까요?",
+      "description": "{{provider}}에 저장된 자격 증명이 삭제됩니다."
+    },
+    "fields": {
+      "openaiToken": "OpenAI 토큰",
+      "anthropicToken": "Anthropic 토큰"
+    },
+    "labels": {
+      "account": "계정",
+      "email": "이메일",
+      "project": "프로젝트"
+    },
+    "errors": {
+      "loadFailed": "자격 증명을 불러오지 못했습니다",
+      "flowFailed": "인증 흐름을 확인하지 못했습니다",
+      "loginFailed": "로그인에 실패했습니다",
+      "logoutFailed": "로그아웃에 실패했습니다",
+      "invalidBrowserResponse": "브라우저 로그인 응답이 올바르지 않습니다",
+      "invalidDeviceResponse": "기기 코드 응답이 올바르지 않습니다",
+      "popupBlocked": "새 탭을 열 수 없습니다. 팝업을 허용한 뒤 다시 시도하세요."
+    },
+    "flow": {
+      "current": "현재 인증 상태",
+      "pending": "승인을 기다리는 중...",
+      "success": "인증에 성공했습니다",
+      "error": "인증에 실패했습니다",
+      "expired": "인증 세션이 만료되었습니다"
+    },
+    "device": {
+      "title": "OpenAI 기기 로그인",
+      "description": "확인 페이지를 열고 아래 코드를 입력하세요. 이 페이지는 자동으로 새로 고쳐집니다.",
+      "code": "사용자 코드",
+      "url": "확인 URL",
+      "polling": "로그인 상태를 확인하는 중...",
+      "open": "확인 페이지 열기"
+    }
   },
   "models": {
     "fallbacks": {
@@ -486,157 +660,6 @@
       "manualOnlyBody": "이 빌드에서는 한 번에 봇을 만드는 기능을 사용할 수 없으므로 BotFather의 봇 토큰으로 Telegram을 설정합니다. 아래에 토큰을 붙여 넣고 저장하세요."
     }
   },
-  "chat": {
-    "welcome": "오늘 무엇을 도와드릴까요?",
-    "welcomeDesc": "날씨, 설정 등 무엇이든 물어보세요. 도와드리겠습니다.",
-    "placeholder": "새 메시지 입력...",
-    "disabledPlaceholder": {
-      "gatewayUnknown": "채팅할 수 없습니다: 게이트웨이 상태를 확인하는 중입니다. 잠시 기다린 뒤 페이지를 새로 고치거나 필요하면 런처를 다시 시작하세요.",
-      "gatewayStarting": "채팅할 수 없습니다: 게이트웨이가 시작 중입니다. 시작이 끝난 뒤 다시 시도하세요.",
-      "gatewayRestarting": "채팅할 수 없습니다: 게이트웨이가 재시작 중입니다. 완료될 때까지 기다려 주세요.",
-      "gatewayStopping": "채팅할 수 없습니다: 게이트웨이가 중지 중입니다. 중지된 뒤 다시 시작하세요.",
-      "gatewayStopped": "채팅할 수 없습니다: 게이트웨이가 시작되지 않았습니다. 상단 바에서 게이트웨이 시작을 클릭한 뒤 다시 시도하세요.",
-      "gatewayError": "채팅할 수 없습니다: 게이트웨이가 오류 상태입니다. 로그를 확인한 뒤 게이트웨이나 런처를 다시 시작하세요.",
-      "websocketConnecting": "채팅 서비스에 연결하는 중입니다... 잠시 기다려 주세요.",
-      "websocketDisconnected": "채팅할 수 없습니다: WebSocket 연결이 끊어졌습니다. 네트워크와 게이트웨이 상태를 확인한 뒤 페이지를 새로 고치거나 런처를 다시 시작하세요.",
-      "websocketError": "채팅할 수 없습니다: WebSocket 연결에 실패했습니다. 네트워크와 게이트웨이 상태를 확인한 뒤 다시 시도하세요.",
-      "noDefaultModel": "채팅할 수 없습니다: 기본 모델이 선택되지 않았습니다. 모델 페이지에서 기본 모델을 설정하세요."
-    },
-    "newChat": "새 채팅",
-    "notConnected": "게이트웨이가 실행 중이 아닙니다. 채팅하려면 시작하세요.",
-    "thinking": {
-      "step1": "생각하는 중...",
-      "step2": "요청을 분석하는 중...",
-      "step3": "응답을 준비하는 중...",
-      "step4": "거의 다 됐습니다..."
-    },
-    "reasoningLabel": "추론",
-    "toolCallsLabel": "도구 호출",
-    "toolCallExplanationLabel": "호출 메모",
-    "toolCallFunctionLabel": "호출 요약",
-    "toolCallArgumentsLabel": "인수",
-    "showAssistantDetails": "추론 및 도구 호출",
-    "assistantDetailVisibility": {
-      "none": "모두 표시하지 않음",
-      "thought": "추론만 표시",
-      "toolCalls": "도구 호출만 표시",
-      "all": "모두 표시"
-    },
-    "toolLabel": "도구",
-    "codeLabel": "코드",
-    "copyMessage": "메시지 복사",
-    "copyCode": "코드 복사",
-    "copiedLabel": "복사됨",
-    "enableCodeWrap": "줄 바꿈",
-    "disableCodeWrap": "줄 바꿈 해제",
-    "expandCode": "코드 펼치기",
-    "collapseCode": "코드 접기",
-    "history": "기록",
-    "noHistory": "아직 채팅 기록이 없습니다",
-    "historyLoadFailed": "채팅 기록을 불러오지 못했습니다",
-    "historyOpenFailed": "이 채팅 기록을 열지 못했습니다",
-    "loadingMore": "더 불러오는 중...",
-    "deleteSession": "세션 삭제",
-    "messagesCount": "메시지 {{count}}개",
-    "noModel": "모델 선택",
-    "inputDisabled": {
-      "notConnected": "게이트웨이가 실행 중이 아닙니다. 채팅하려면 시작하세요.",
-      "noModel": "기본 모델이 구성되지 않았습니다. 모델 페이지에서 설정하세요."
-    },
-    "sendMessage": "메시지 보내기",
-    "composeHint": "Enter로 전송, Shift + Enter로 줄 바꿈",
-    "contextTitle": "컨텍스트",
-    "contextDetail": "세부 정보 보기",
-    "contextCompressAt": "압축 기준",
-    "contextSummarizeAt": "요약 기준",
-    "attachImage": "이미지 추가",
-    "dropImagesActive": "놓으면 이미지가 추가됩니다",
-    "removeImage": "이미지 제거",
-    "uploadedImage": "첨부된 이미지",
-    "invalidImage": "\"{{name}}\"은(는) 지원되지 않는 이미지 파일입니다.",
-    "imageTooLarge": "\"{{name}}\"이(가) {{size}} 제한을 초과합니다.",
-    "imageReadFailed": "\"{{name}}\"을(를) 읽지 못했습니다.",
-    "empty": {
-      "noConfiguredModel": "구성된 모델 없음",
-      "noConfiguredModelDescription": "채팅을 시작하려면 API 키가 설정된 AI 모델이 하나 이상 필요합니다.",
-      "goToModels": "모델로 이동",
-      "noSelectedModel": "선택된 모델 없음",
-      "noSelectedModelDescription": "모델은 구성되어 있지만 기본으로 지정된 것이 없습니다. 채팅을 시작하기 전에 모델을 선택하세요.",
-      "notRunning": "게이트웨이가 실행 중이 아님",
-      "notRunningDescription": "채팅을 시작하려면 게이트웨이 서비스를 시작하세요. 상단 바의 게이트웨이 시작 버튼을 사용합니다."
-    },
-    "modelGroup": {
-      "apikey": "API 키",
-      "oauth": "OAuth",
-      "local": "로컬"
-    },
-    "downloadFile": "파일 다운로드"
-  },
-  "credentials": {
-    "description": "지원되는 공급자의 OAuth 및 토큰 기반 자격 증명을 관리합니다.",
-    "loading": "자격 증명을 불러오는 중...",
-    "providers": {
-      "openai": {
-        "description": "브라우저 OAuth, 기기 코드, 토큰 로그인을 지원합니다."
-      },
-      "anthropic": {
-        "description": "Claude 접근에 토큰 로그인을 사용합니다."
-      },
-      "antigravity": {
-        "description": "Google Cloud Code Assist에 브라우저 OAuth를 사용합니다."
-      }
-    },
-    "status": {
-      "connected": "연결됨",
-      "needsRefresh": "갱신 필요",
-      "expired": "만료됨",
-      "notLoggedIn": "로그인하지 않음"
-    },
-    "actions": {
-      "browser": "브라우저 OAuth",
-      "deviceCode": "기기 코드",
-      "stopLoading": "불러오기 중지",
-      "saveToken": "저장",
-      "logout": "로그아웃"
-    },
-    "logoutDialog": {
-      "title": "공급자에서 로그아웃할까요?",
-      "description": "{{provider}}에 저장된 자격 증명이 삭제됩니다."
-    },
-    "fields": {
-      "openaiToken": "OpenAI 토큰",
-      "anthropicToken": "Anthropic 토큰"
-    },
-    "labels": {
-      "account": "계정",
-      "email": "이메일",
-      "project": "프로젝트"
-    },
-    "errors": {
-      "loadFailed": "자격 증명을 불러오지 못했습니다",
-      "flowFailed": "인증 흐름을 확인하지 못했습니다",
-      "loginFailed": "로그인에 실패했습니다",
-      "logoutFailed": "로그아웃에 실패했습니다",
-      "invalidBrowserResponse": "브라우저 로그인 응답이 올바르지 않습니다",
-      "invalidDeviceResponse": "기기 코드 응답이 올바르지 않습니다",
-      "popupBlocked": "새 탭을 열 수 없습니다. 팝업을 허용한 뒤 다시 시도하세요."
-    },
-    "flow": {
-      "current": "현재 인증 상태",
-      "pending": "승인을 기다리는 중...",
-      "success": "인증에 성공했습니다",
-      "error": "인증에 실패했습니다",
-      "expired": "인증 세션이 만료되었습니다"
-    },
-    "device": {
-      "title": "OpenAI 기기 로그인",
-      "description": "확인 페이지를 열고 아래 코드를 입력하세요. 이 페이지는 자동으로 새로 고쳐집니다.",
-      "code": "사용자 코드",
-      "url": "확인 URL",
-      "polling": "로그인 상태를 확인하는 중...",
-      "open": "확인 페이지 열기"
-    }
-  },
   "pages": {
     "agent": {
       "load_error": "에이전트 지원 정보를 불러오지 못했습니다.",
@@ -1008,6 +1031,28 @@
       "log_level_error": "로그 수준을 변경하지 못했습니다.",
       "clear": "로그 지우기",
       "empty": "로그를 기다리는 중..."
+    }
+  },
+  "tour": {
+    "skip": "둘러보기 건너뛰기",
+    "prev": "이전",
+    "next": "다음",
+    "finish": "완료",
+    "welcome": {
+      "title": "PocketClaw에 오신 것을 환영합니다",
+      "description": "PocketClaw는 강력한 AI 어시스턴트 플랫폼입니다. 잠깐만 시간을 내어 기본 설정을 마쳐 보세요."
+    },
+    "models": {
+      "title": "모델 설정",
+      "description": "왼쪽의 「모델」 메뉴를 눌러 AI 제공자의 API 키를 설정하세요. 대화에는 설정을 마친 모델만 사용할 수 있습니다."
+    },
+    "gateway": {
+      "title": "게이트웨이 시작",
+      "description": "모델 설정을 마쳤다면 위쪽의 「게이트웨이 시작」 버튼을 눌러 AI와 대화를 시작하세요."
+    },
+    "docs": {
+      "title": "문서 보기",
+      "description": "도움이 더 필요하신가요? 오른쪽 위의 문서 버튼을 누르면 자세한 안내와 설정 문서를 볼 수 있습니다."
     }
   }
 }

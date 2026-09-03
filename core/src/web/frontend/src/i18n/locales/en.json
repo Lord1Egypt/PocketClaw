@@ -162,7 +162,10 @@
     "restartFailedTitle": "Gateway restart failed",
     "restartFailedDesc": "The {{name}} configuration was saved, but the gateway did not restart. Use Restart Gateway to apply it.",
     "restartDeferredTitle": "Saved, gateway not restarted yet",
-    "restartDeferredDesc": "The {{name}} configuration was saved. PocketClaw did not restart the gateway because it is still handling a request. Use Restart Gateway when you are ready."
+    "restartDeferredDesc": "The {{name}} configuration was saved. PocketClaw did not restart the gateway because it is still handling a request. Use Restart Gateway when you are ready.",
+    "language": "Language",
+    "lightMode": "Light mode",
+    "darkMode": "Dark mode"
   },
   "labels": {
     "loading": "Loading..."

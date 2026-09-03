@@ -15,6 +15,112 @@
     "config": "الإعدادات",
     "logs": "السجلات"
   },
+  "launcherLogin": {
+    "title": "تسجيل الدخول",
+    "description": "أدخل كلمة مرور لوحة التحكم للمتابعة.",
+    "passwordLabel": "كلمة المرور",
+    "passwordPlaceholder": "أدخل كلمة المرور",
+    "submit": "تسجيل الدخول",
+    "errorInvalid": "كلمة المرور غير صحيحة. يُرجى المحاولة مرة أخرى.",
+    "errorNetwork": "خطأ في الشبكة. يُرجى المحاولة مرة أخرى."
+  },
+  "launcherSetup": {
+    "title": "تعيين كلمة مرور لوحة التحكم",
+    "description": "اختر كلمة مرور لحماية الوصول إلى لوحة التحكم هذه. ستستخدمها في كل مرة تسجّل فيها الدخول.",
+    "passwordLabel": "كلمة المرور",
+    "passwordPlaceholder": "8 أحرف على الأقل",
+    "confirmLabel": "تأكيد كلمة المرور",
+    "confirmPlaceholder": "أعد إدخال كلمة المرور",
+    "submit": "تعيين كلمة المرور",
+    "errorMismatch": "كلمتا المرور غير متطابقتين.",
+    "errorNetwork": "خطأ في الشبكة. يُرجى المحاولة مرة أخرى."
+  },
+  "chat": {
+    "welcome": "كيف يمكنني مساعدتك اليوم؟",
+    "welcomeDesc": "اسألني عن الطقس أو الإعدادات أو أي مهمة أخرى. أنا هنا لمساعدتك.",
+    "placeholder": "ابدأ رسالة جديدة...",
+    "disabledPlaceholder": {
+      "gatewayUnknown": "تعذّرت الدردشة: ما زال يجري التحقق من حالة البوابة. انتظر قليلًا ثم حدّث الصفحة أو أعد تشغيل المشغّل عند الحاجة.",
+      "gatewayStarting": "تعذّرت الدردشة: البوابة قيد البدء. انتظر اكتمال التشغيل ثم حاول مجددًا.",
+      "gatewayRestarting": "تعذّرت الدردشة: البوابة قيد إعادة التشغيل. انتظر حتى تكتمل.",
+      "gatewayStopping": "تعذّرت الدردشة: البوابة قيد الإيقاف. انتظر توقفها ثم شغّلها من جديد.",
+      "gatewayStopped": "تعذّرت الدردشة: البوابة غير مُشغّلة. انقر تشغيل البوابة في الشريط العلوي ثم أعد المحاولة.",
+      "gatewayError": "تعذّرت الدردشة: البوابة في حالة خطأ. راجع السجلات ثم أعد تشغيل البوابة أو المشغّل.",
+      "websocketConnecting": "جارٍ الاتصال بخدمة الدردشة... يرجى الانتظار.",
+      "websocketDisconnected": "تعذّرت الدردشة: انقطع اتصال WebSocket. تحقق من الشبكة وحالة البوابة ثم حدّث الصفحة أو أعد تشغيل المشغّل.",
+      "websocketError": "تعذّرت الدردشة: فشل اتصال WebSocket. تحقق من الشبكة وحالة البوابة ثم أعد المحاولة.",
+      "noDefaultModel": "تعذّرت الدردشة: لم يُحدَّد موديل افتراضي. عيّن موديلًا افتراضيًا من صفحة الموديلات."
+    },
+    "newChat": "دردشة جديدة",
+    "notConnected": "البوابة غير مشغّلة. شغّلها لبدء الدردشة.",
+    "thinking": {
+      "step1": "جارٍ التفكير...",
+      "step2": "جارٍ تحليل طلبك...",
+      "step3": "جارٍ تحضير الرد...",
+      "step4": "أوشكنا على الانتهاء..."
+    },
+    "reasoningLabel": "الاستدلال",
+    "toolCallsLabel": "استدعاءات الأدوات",
+    "toolCallExplanationLabel": "ملاحظة الاستدعاء",
+    "toolCallFunctionLabel": "ملخّص الاستدعاء",
+    "toolCallArgumentsLabel": "المعاملات",
+    "showAssistantDetails": "الاستدلال واستدعاءات الأدوات",
+    "assistantDetailVisibility": {
+      "none": "عدم إظهار أي منهما",
+      "thought": "إظهار الاستدلال فقط",
+      "toolCalls": "إظهار استدعاءات الأدوات فقط",
+      "all": "إظهار كليهما"
+    },
+    "toolLabel": "أداة",
+    "codeLabel": "كود",
+    "copyMessage": "نسخ الرسالة",
+    "copyCode": "نسخ الكود",
+    "copiedLabel": "تم النسخ",
+    "enableCodeWrap": "التفاف الأسطر",
+    "disableCodeWrap": "إيقاف الالتفاف",
+    "expandCode": "توسيع الكود",
+    "collapseCode": "طيّ الكود",
+    "history": "السجل",
+    "noHistory": "لا يوجد سجل دردشة بعد",
+    "historyLoadFailed": "تعذّر تحميل سجل الدردشة",
+    "historyOpenFailed": "تعذّر فتح سجل الدردشة هذا",
+    "loadingMore": "جارٍ تحميل المزيد...",
+    "deleteSession": "حذف الجلسة",
+    "messagesCount": "{{count}} رسالة",
+    "noModel": "اختر موديلًا",
+    "inputDisabled": {
+      "notConnected": "البوابة غير مشغّلة. شغّلها لبدء الدردشة.",
+      "noModel": "لا يوجد موديل افتراضي مُعَد. اذهب إلى صفحة الموديلات لتعيين واحد."
+    },
+    "sendMessage": "إرسال الرسالة",
+    "composeHint": "اضغط Enter للإرسال، وShift + Enter لسطر جديد",
+    "contextTitle": "السياق",
+    "contextDetail": "عرض التفاصيل",
+    "contextCompressAt": "الضغط عند",
+    "contextSummarizeAt": "التلخيص عند",
+    "attachImage": "إضافة صور",
+    "dropImagesActive": "أفلت لإضافة الصور",
+    "removeImage": "إزالة الصورة",
+    "uploadedImage": "صورة مرفقة",
+    "invalidImage": "\"{{name}}\" ليس ملف صورة مدعومًا.",
+    "imageTooLarge": "\"{{name}}\" يتجاوز الحد {{size}}.",
+    "imageReadFailed": "تعذّرت قراءة \"{{name}}\".",
+    "empty": {
+      "noConfiguredModel": "لا يوجد موديل مُعَد",
+      "noConfiguredModelDescription": "تحتاج إلى إعداد موديل ذكاء اصطناعي واحد على الأقل بمفتاح API قبل أن تتمكن من بدء الدردشة.",
+      "goToModels": "الذهاب إلى الموديلات",
+      "noSelectedModel": "لم يُحدَّد موديل",
+      "noSelectedModelDescription": "لديك موديلات مُعدّة، لكن لم يُعيَّن أي منها كافتراضي. اختر موديلًا قبل بدء الدردشة.",
+      "notRunning": "البوابة غير مشغّلة",
+      "notRunningDescription": "شغّل خدمة البوابة لبدء الدردشة. استخدم زر تشغيل البوابة في الشريط العلوي."
+    },
+    "modelGroup": {
+      "apikey": "مفتاح API",
+      "oauth": "OAuth",
+      "local": "محلي"
+    },
+    "downloadFile": "تنزيل الملف"
+  },
   "header": {
     "logout": {
       "tooltip": "تسجيل الخروج",
@@ -56,7 +162,10 @@
     "restartFailedTitle": "فشلت إعادة تشغيل البوابة",
     "restartFailedDesc": "تم حفظ إعدادات {{name}} لكن لم تُعد البوابة التشغيل. استخدم إعادة تشغيل البوابة لتطبيقها.",
     "restartDeferredTitle": "تم الحفظ، ولم يُعد تشغيل البوابة بعد",
-    "restartDeferredDesc": "تم حفظ إعدادات {{name}}. لم يُعد PocketClaw تشغيل البوابة لأنها ما زالت تعالج طلبًا. استخدم إعادة تشغيل البوابة عندما تكون جاهزًا."
+    "restartDeferredDesc": "تم حفظ إعدادات {{name}}. لم يُعد PocketClaw تشغيل البوابة لأنها ما زالت تعالج طلبًا. استخدم إعادة تشغيل البوابة عندما تكون جاهزًا.",
+    "language": "اللغة",
+    "lightMode": "الوضع الفاتح",
+    "darkMode": "الوضع الداكن"
   },
   "labels": {
     "loading": "جارٍ التحميل..."
@@ -66,6 +175,71 @@
     "commit": "الالتزام",
     "build": "البناء",
     "version_unknown": "غير معروف"
+  },
+  "credentials": {
+    "description": "إدارة بيانات الاعتماد المعتمدة على OAuth والرموز للمزوّدين المدعومين.",
+    "loading": "جارٍ تحميل بيانات الاعتماد...",
+    "providers": {
+      "openai": {
+        "description": "يدعم مصادقة OAuth عبر المتصفح ورمز الجهاز وتسجيل الدخول بالرمز."
+      },
+      "anthropic": {
+        "description": "يستخدم تسجيل الدخول بالرمز للوصول إلى Claude."
+      },
+      "antigravity": {
+        "description": "يستخدم مصادقة OAuth عبر المتصفح لخدمة Google Cloud Code Assist."
+      }
+    },
+    "status": {
+      "connected": "متصل",
+      "needsRefresh": "يحتاج إلى تحديث",
+      "expired": "منتهي الصلاحية",
+      "notLoggedIn": "لم يتم تسجيل الدخول"
+    },
+    "actions": {
+      "browser": "مصادقة OAuth عبر المتصفح",
+      "deviceCode": "رمز الجهاز",
+      "stopLoading": "إيقاف التحميل",
+      "saveToken": "حفظ",
+      "logout": "تسجيل الخروج"
+    },
+    "logoutDialog": {
+      "title": "تسجيل الخروج من المزوّد؟",
+      "description": "سيؤدي هذا إلى إزالة بيانات الاعتماد المحفوظة لـ {{provider}}."
+    },
+    "fields": {
+      "openaiToken": "رمز OpenAI",
+      "anthropicToken": "رمز Anthropic"
+    },
+    "labels": {
+      "account": "الحساب",
+      "email": "البريد الإلكتروني",
+      "project": "المشروع"
+    },
+    "errors": {
+      "loadFailed": "تعذّر تحميل بيانات الاعتماد",
+      "flowFailed": "تعذّر التحقق من تدفق المصادقة",
+      "loginFailed": "فشل تسجيل الدخول",
+      "logoutFailed": "فشل تسجيل الخروج",
+      "invalidBrowserResponse": "استجابة تسجيل الدخول عبر المتصفح غير صالحة",
+      "invalidDeviceResponse": "استجابة رمز الجهاز غير صالحة",
+      "popupBlocked": "تعذّر فتح تبويب جديد. يرجى السماح بالنوافذ المنبثقة والمحاولة مرة أخرى."
+    },
+    "flow": {
+      "current": "حالة المصادقة الحالية",
+      "pending": "في انتظار التفويض...",
+      "success": "تمت المصادقة بنجاح",
+      "error": "فشلت المصادقة",
+      "expired": "انتهت صلاحية جلسة المصادقة"
+    },
+    "device": {
+      "title": "تسجيل دخول OpenAI عبر الجهاز",
+      "description": "افتح صفحة التحقق وأدخل الرمز أدناه. ستُحدَّث هذه الصفحة تلقائيًا.",
+      "code": "رمز المستخدم",
+      "url": "رابط التحقق",
+      "polling": "جارٍ استعلام حالة تسجيل الدخول...",
+      "open": "فتح صفحة التحقق"
+    }
   },
   "models": {
     "fallbacks": {
@@ -486,157 +660,6 @@
       "manualOnlyBody": "إنشاء الروبوت بنقرة واحدة غير متاح في هذه النسخة، لذا يُعد تيليجرام برمز روبوت من BotFather. الصق الرمز أدناه واحفظ."
     }
   },
-  "chat": {
-    "welcome": "كيف يمكنني مساعدتك اليوم؟",
-    "welcomeDesc": "اسألني عن الطقس أو الإعدادات أو أي مهمة أخرى. أنا هنا لمساعدتك.",
-    "placeholder": "ابدأ رسالة جديدة...",
-    "disabledPlaceholder": {
-      "gatewayUnknown": "تعذّرت الدردشة: ما زال يجري التحقق من حالة البوابة. انتظر قليلًا ثم حدّث الصفحة أو أعد تشغيل المشغّل عند الحاجة.",
-      "gatewayStarting": "تعذّرت الدردشة: البوابة قيد البدء. انتظر اكتمال التشغيل ثم حاول مجددًا.",
-      "gatewayRestarting": "تعذّرت الدردشة: البوابة قيد إعادة التشغيل. انتظر حتى تكتمل.",
-      "gatewayStopping": "تعذّرت الدردشة: البوابة قيد الإيقاف. انتظر توقفها ثم شغّلها من جديد.",
-      "gatewayStopped": "تعذّرت الدردشة: البوابة غير مُشغّلة. انقر تشغيل البوابة في الشريط العلوي ثم أعد المحاولة.",
-      "gatewayError": "تعذّرت الدردشة: البوابة في حالة خطأ. راجع السجلات ثم أعد تشغيل البوابة أو المشغّل.",
-      "websocketConnecting": "جارٍ الاتصال بخدمة الدردشة... يرجى الانتظار.",
-      "websocketDisconnected": "تعذّرت الدردشة: انقطع اتصال WebSocket. تحقق من الشبكة وحالة البوابة ثم حدّث الصفحة أو أعد تشغيل المشغّل.",
-      "websocketError": "تعذّرت الدردشة: فشل اتصال WebSocket. تحقق من الشبكة وحالة البوابة ثم أعد المحاولة.",
-      "noDefaultModel": "تعذّرت الدردشة: لم يُحدَّد موديل افتراضي. عيّن موديلًا افتراضيًا من صفحة الموديلات."
-    },
-    "newChat": "دردشة جديدة",
-    "notConnected": "البوابة غير مشغّلة. شغّلها لبدء الدردشة.",
-    "thinking": {
-      "step1": "جارٍ التفكير...",
-      "step2": "جارٍ تحليل طلبك...",
-      "step3": "جارٍ تحضير الرد...",
-      "step4": "أوشكنا على الانتهاء..."
-    },
-    "reasoningLabel": "الاستدلال",
-    "toolCallsLabel": "استدعاءات الأدوات",
-    "toolCallExplanationLabel": "ملاحظة الاستدعاء",
-    "toolCallFunctionLabel": "ملخّص الاستدعاء",
-    "toolCallArgumentsLabel": "المعاملات",
-    "showAssistantDetails": "الاستدلال واستدعاءات الأدوات",
-    "assistantDetailVisibility": {
-      "none": "عدم إظهار أي منهما",
-      "thought": "إظهار الاستدلال فقط",
-      "toolCalls": "إظهار استدعاءات الأدوات فقط",
-      "all": "إظهار كليهما"
-    },
-    "toolLabel": "أداة",
-    "codeLabel": "كود",
-    "copyMessage": "نسخ الرسالة",
-    "copyCode": "نسخ الكود",
-    "copiedLabel": "تم النسخ",
-    "enableCodeWrap": "التفاف الأسطر",
-    "disableCodeWrap": "إيقاف الالتفاف",
-    "expandCode": "توسيع الكود",
-    "collapseCode": "طيّ الكود",
-    "history": "السجل",
-    "noHistory": "لا يوجد سجل دردشة بعد",
-    "historyLoadFailed": "تعذّر تحميل سجل الدردشة",
-    "historyOpenFailed": "تعذّر فتح سجل الدردشة هذا",
-    "loadingMore": "جارٍ تحميل المزيد...",
-    "deleteSession": "حذف الجلسة",
-    "messagesCount": "{{count}} رسالة",
-    "noModel": "اختر موديلًا",
-    "inputDisabled": {
-      "notConnected": "البوابة غير مشغّلة. شغّلها لبدء الدردشة.",
-      "noModel": "لا يوجد موديل افتراضي مُعَد. اذهب إلى صفحة الموديلات لتعيين واحد."
-    },
-    "sendMessage": "إرسال الرسالة",
-    "composeHint": "اضغط Enter للإرسال، وShift + Enter لسطر جديد",
-    "contextTitle": "السياق",
-    "contextDetail": "عرض التفاصيل",
-    "contextCompressAt": "الضغط عند",
-    "contextSummarizeAt": "التلخيص عند",
-    "attachImage": "إضافة صور",
-    "dropImagesActive": "أفلت لإضافة الصور",
-    "removeImage": "إزالة الصورة",
-    "uploadedImage": "صورة مرفقة",
-    "invalidImage": "\"{{name}}\" ليس ملف صورة مدعومًا.",
-    "imageTooLarge": "\"{{name}}\" يتجاوز الحد {{size}}.",
-    "imageReadFailed": "تعذّرت قراءة \"{{name}}\".",
-    "empty": {
-      "noConfiguredModel": "لا يوجد موديل مُعَد",
-      "noConfiguredModelDescription": "تحتاج إلى إعداد موديل ذكاء اصطناعي واحد على الأقل بمفتاح API قبل أن تتمكن من بدء الدردشة.",
-      "goToModels": "الذهاب إلى الموديلات",
-      "noSelectedModel": "لم يُحدَّد موديل",
-      "noSelectedModelDescription": "لديك موديلات مُعدّة، لكن لم يُعيَّن أي منها كافتراضي. اختر موديلًا قبل بدء الدردشة.",
-      "notRunning": "البوابة غير مشغّلة",
-      "notRunningDescription": "شغّل خدمة البوابة لبدء الدردشة. استخدم زر تشغيل البوابة في الشريط العلوي."
-    },
-    "modelGroup": {
-      "apikey": "مفتاح API",
-      "oauth": "OAuth",
-      "local": "محلي"
-    },
-    "downloadFile": "تنزيل الملف"
-  },
-  "credentials": {
-    "description": "إدارة بيانات الاعتماد المعتمدة على OAuth والرموز للمزوّدين المدعومين.",
-    "loading": "جارٍ تحميل بيانات الاعتماد...",
-    "providers": {
-      "openai": {
-        "description": "يدعم مصادقة OAuth عبر المتصفح ورمز الجهاز وتسجيل الدخول بالرمز."
-      },
-      "anthropic": {
-        "description": "يستخدم تسجيل الدخول بالرمز للوصول إلى Claude."
-      },
-      "antigravity": {
-        "description": "يستخدم مصادقة OAuth عبر المتصفح لخدمة Google Cloud Code Assist."
-      }
-    },
-    "status": {
-      "connected": "متصل",
-      "needsRefresh": "يحتاج إلى تحديث",
-      "expired": "منتهي الصلاحية",
-      "notLoggedIn": "لم يتم تسجيل الدخول"
-    },
-    "actions": {
-      "browser": "مصادقة OAuth عبر المتصفح",
-      "deviceCode": "رمز الجهاز",
-      "stopLoading": "إيقاف التحميل",
-      "saveToken": "حفظ",
-      "logout": "تسجيل الخروج"
-    },
-    "logoutDialog": {
-      "title": "تسجيل الخروج من المزوّد؟",
-      "description": "سيؤدي هذا إلى إزالة بيانات الاعتماد المحفوظة لـ {{provider}}."
-    },
-    "fields": {
-      "openaiToken": "رمز OpenAI",
-      "anthropicToken": "رمز Anthropic"
-    },
-    "labels": {
-      "account": "الحساب",
-      "email": "البريد الإلكتروني",
-      "project": "المشروع"
-    },
-    "errors": {
-      "loadFailed": "تعذّر تحميل بيانات الاعتماد",
-      "flowFailed": "تعذّر التحقق من تدفق المصادقة",
-      "loginFailed": "فشل تسجيل الدخول",
-      "logoutFailed": "فشل تسجيل الخروج",
-      "invalidBrowserResponse": "استجابة تسجيل الدخول عبر المتصفح غير صالحة",
-      "invalidDeviceResponse": "استجابة رمز الجهاز غير صالحة",
-      "popupBlocked": "تعذّر فتح تبويب جديد. يرجى السماح بالنوافذ المنبثقة والمحاولة مرة أخرى."
-    },
-    "flow": {
-      "current": "حالة المصادقة الحالية",
-      "pending": "في انتظار التفويض...",
-      "success": "تمت المصادقة بنجاح",
-      "error": "فشلت المصادقة",
-      "expired": "انتهت صلاحية جلسة المصادقة"
-    },
-    "device": {
-      "title": "تسجيل دخول OpenAI عبر الجهاز",
-      "description": "افتح صفحة التحقق وأدخل الرمز أدناه. ستُحدَّث هذه الصفحة تلقائيًا.",
-      "code": "رمز المستخدم",
-      "url": "رابط التحقق",
-      "polling": "جارٍ استعلام حالة تسجيل الدخول...",
-      "open": "فتح صفحة التحقق"
-    }
-  },
   "pages": {
     "agent": {
       "load_error": "تعذّر تحميل معلومات دعم الوكيل.",
@@ -1008,6 +1031,28 @@
       "log_level_error": "تعذّر تحديث مستوى السجل.",
       "clear": "مسح السجلات",
       "empty": "في انتظار السجلات..."
+    }
+  },
+  "tour": {
+    "skip": "تخطّي الجولة",
+    "prev": "السابق",
+    "next": "التالي",
+    "finish": "إنهاء",
+    "welcome": {
+      "title": "مرحبًا بك في PocketClaw",
+      "description": "‏PocketClaw منصة قوية للمساعد الذكي. لنأخذ بضع ثوانٍ لمساعدتك على إتمام الإعداد الأساسي."
+    },
+    "models": {
+      "title": "إعداد الموديلات",
+      "description": "انقر على قائمة «الموديلات» على اليسار لضبط مفاتيح API لمزوّدي الذكاء الاصطناعي. ولا يمكن استخدام سوى الموديلات المضبوطة في الدردشة."
+    },
+    "gateway": {
+      "title": "تشغيل البوابة",
+      "description": "بعد ضبط الموديلات، انقر على زر «تشغيل البوابة» في الأعلى لبدء الدردشة مع الذكاء الاصطناعي."
+    },
+    "docs": {
+      "title": "عرض التوثيق",
+      "description": "هل تحتاج إلى مزيد من المساعدة؟ انقر على زر التوثيق في الزاوية العلوية لعرض الأدلة التفصيلية ووثائق الإعداد."
     }
   }
 }

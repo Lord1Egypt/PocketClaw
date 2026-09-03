@@ -15,6 +15,112 @@
     "config": "Configuración",
     "logs": "Registros"
   },
+  "launcherLogin": {
+    "title": "Iniciar sesión",
+    "description": "Escribe la contraseña del panel para continuar.",
+    "passwordLabel": "Contraseña",
+    "passwordPlaceholder": "Escribe la contraseña",
+    "submit": "Iniciar sesión",
+    "errorInvalid": "Contraseña incorrecta. Inténtalo de nuevo.",
+    "errorNetwork": "Error de red. Inténtalo de nuevo."
+  },
+  "launcherSetup": {
+    "title": "Establecer la contraseña del panel",
+    "description": "Elige una contraseña para proteger el acceso a este panel. La usarás cada vez que inicies sesión.",
+    "passwordLabel": "Contraseña",
+    "passwordPlaceholder": "Al menos 8 caracteres",
+    "confirmLabel": "Confirmar contraseña",
+    "confirmPlaceholder": "Repite la contraseña",
+    "submit": "Establecer contraseña",
+    "errorMismatch": "Las contraseñas no coinciden.",
+    "errorNetwork": "Error de red. Inténtalo de nuevo."
+  },
+  "chat": {
+    "welcome": "¿En qué puedo ayudarte hoy?",
+    "welcomeDesc": "Pregúntame sobre el tiempo, la configuración o cualquier otra tarea. Estoy aquí para ayudarte.",
+    "placeholder": "Escribe un mensaje nuevo...",
+    "disabledPlaceholder": {
+      "gatewayUnknown": "No se puede chatear: aún se está comprobando el estado de la puerta de enlace. Espera y luego actualiza la página o reinicia el lanzador si hace falta.",
+      "gatewayStarting": "No se puede chatear: la puerta de enlace se está iniciando. Espera a que termine y vuelve a intentarlo.",
+      "gatewayRestarting": "No se puede chatear: la puerta de enlace se está reiniciando. Espera a que finalice.",
+      "gatewayStopping": "No se puede chatear: la puerta de enlace se está deteniendo. Espera a que se detenga y vuelve a iniciarla.",
+      "gatewayStopped": "No se puede chatear: la puerta de enlace no está iniciada. Pulsa «Iniciar puerta de enlace» en la barra superior y vuelve a intentarlo.",
+      "gatewayError": "No se puede chatear: la puerta de enlace está en estado de error. Revisa los registros y reinicia la puerta de enlace o el lanzador.",
+      "websocketConnecting": "Conectando con el servicio de chat... Espera un momento.",
+      "websocketDisconnected": "No se puede chatear: la conexión WebSocket está desconectada. Comprueba la red y el estado de la puerta de enlace, y actualiza la página o reinicia el lanzador.",
+      "websocketError": "No se puede chatear: falló la conexión WebSocket. Comprueba la red y el estado de la puerta de enlace y reinténtalo.",
+      "noDefaultModel": "No se puede chatear: no hay un modelo predeterminado. Establece uno en la página de modelos."
+    },
+    "newChat": "Nuevo chat",
+    "notConnected": "La puerta de enlace no está en ejecución. Iníciala para chatear.",
+    "thinking": {
+      "step1": "Pensando...",
+      "step2": "Analizando tu solicitud...",
+      "step3": "Preparando la respuesta...",
+      "step4": "Casi listo..."
+    },
+    "reasoningLabel": "Razonamiento",
+    "toolCallsLabel": "Llamadas a herramientas",
+    "toolCallExplanationLabel": "Nota de la llamada",
+    "toolCallFunctionLabel": "Resumen de la llamada",
+    "toolCallArgumentsLabel": "Argumentos",
+    "showAssistantDetails": "Razonamiento y llamadas a herramientas",
+    "assistantDetailVisibility": {
+      "none": "No mostrar ninguno",
+      "thought": "Mostrar solo el razonamiento",
+      "toolCalls": "Mostrar solo las llamadas a herramientas",
+      "all": "Mostrar ambos"
+    },
+    "toolLabel": "Herramienta",
+    "codeLabel": "Código",
+    "copyMessage": "Copiar mensaje",
+    "copyCode": "Copiar código",
+    "copiedLabel": "Copiado",
+    "enableCodeWrap": "Ajustar líneas",
+    "disableCodeWrap": "Desactivar ajuste",
+    "expandCode": "Expandir código",
+    "collapseCode": "Contraer código",
+    "history": "Historial",
+    "noHistory": "Aún no hay historial de chat",
+    "historyLoadFailed": "No se pudo cargar el historial de chat",
+    "historyOpenFailed": "No se pudo abrir este historial de chat",
+    "loadingMore": "Cargando más...",
+    "deleteSession": "Eliminar sesión",
+    "messagesCount": "{{count}} mensajes",
+    "noModel": "Seleccionar modelo",
+    "inputDisabled": {
+      "notConnected": "La puerta de enlace no está en ejecución. Iníciala para chatear.",
+      "noModel": "No hay un modelo predeterminado configurado. Ve a la página de modelos para establecer uno."
+    },
+    "sendMessage": "Enviar mensaje",
+    "composeHint": "Pulsa Intro para enviar, Mayús + Intro para una nueva línea",
+    "contextTitle": "Contexto",
+    "contextDetail": "Ver detalles",
+    "contextCompressAt": "Comprimir en",
+    "contextSummarizeAt": "Resumir en",
+    "attachImage": "Añadir imágenes",
+    "dropImagesActive": "Suelta para añadir imágenes",
+    "removeImage": "Quitar imagen",
+    "uploadedImage": "Imagen adjunta",
+    "invalidImage": "«{{name}}» no es un archivo de imagen compatible.",
+    "imageTooLarge": "«{{name}}» supera el límite de {{size}}.",
+    "imageReadFailed": "No se pudo leer «{{name}}».",
+    "empty": {
+      "noConfiguredModel": "Ningún modelo configurado",
+      "noConfiguredModelDescription": "Debes configurar al menos un modelo de IA con una clave de API antes de poder chatear.",
+      "goToModels": "Ir a Modelos",
+      "noSelectedModel": "Ningún modelo seleccionado",
+      "noSelectedModelDescription": "Tienes modelos configurados, pero ninguno está establecido como predeterminado. Selecciona uno antes de chatear.",
+      "notRunning": "La puerta de enlace no está en ejecución",
+      "notRunningDescription": "Inicia el servicio de la puerta de enlace para empezar a chatear. Usa el botón «Iniciar puerta de enlace» de la barra superior."
+    },
+    "modelGroup": {
+      "apikey": "Clave de API",
+      "oauth": "OAuth",
+      "local": "Local"
+    },
+    "downloadFile": "Descargar archivo"
+  },
   "header": {
     "logout": {
       "tooltip": "Cerrar sesión",
@@ -56,7 +162,10 @@
     "restartFailedTitle": "Error al reiniciar la puerta de enlace",
     "restartFailedDesc": "Se guardó la configuración de {{name}}, pero la puerta de enlace no se reinició. Usa Reiniciar puerta de enlace para aplicarla.",
     "restartDeferredTitle": "Guardado, la puerta de enlace aún no se reinició",
-    "restartDeferredDesc": "Se guardó la configuración de {{name}}. PocketClaw no reinició la puerta de enlace porque todavía está atendiendo una solicitud. Usa Reiniciar puerta de enlace cuando quieras."
+    "restartDeferredDesc": "Se guardó la configuración de {{name}}. PocketClaw no reinició la puerta de enlace porque todavía está atendiendo una solicitud. Usa Reiniciar puerta de enlace cuando quieras.",
+    "language": "Idioma",
+    "lightMode": "Modo claro",
+    "darkMode": "Modo oscuro"
   },
   "labels": {
     "loading": "Cargando..."
@@ -66,6 +175,71 @@
     "commit": "Commit",
     "build": "Compilación",
     "version_unknown": "Desconocido"
+  },
+  "credentials": {
+    "description": "Gestiona credenciales OAuth y basadas en token para los proveedores compatibles.",
+    "loading": "Cargando credenciales...",
+    "providers": {
+      "openai": {
+        "description": "Admite OAuth en el navegador, código de dispositivo e inicio de sesión con token."
+      },
+      "anthropic": {
+        "description": "Usa el inicio de sesión con token para acceder a Claude."
+      },
+      "antigravity": {
+        "description": "Usa OAuth en el navegador para Google Cloud Code Assist."
+      }
+    },
+    "status": {
+      "connected": "Conectado",
+      "needsRefresh": "Necesita actualizarse",
+      "expired": "Caducada",
+      "notLoggedIn": "Sin iniciar sesión"
+    },
+    "actions": {
+      "browser": "OAuth en el navegador",
+      "deviceCode": "Código de dispositivo",
+      "stopLoading": "Detener carga",
+      "saveToken": "Guardar",
+      "logout": "Cerrar sesión"
+    },
+    "logoutDialog": {
+      "title": "¿Cerrar sesión del proveedor?",
+      "description": "Esto eliminará la credencial guardada de {{provider}}."
+    },
+    "fields": {
+      "openaiToken": "Token de OpenAI",
+      "anthropicToken": "Token de Anthropic"
+    },
+    "labels": {
+      "account": "Cuenta",
+      "email": "Correo electrónico",
+      "project": "Proyecto"
+    },
+    "errors": {
+      "loadFailed": "No se pudieron cargar las credenciales",
+      "flowFailed": "No se pudo comprobar el flujo de autenticación",
+      "loginFailed": "Error al iniciar sesión",
+      "logoutFailed": "Error al cerrar sesión",
+      "invalidBrowserResponse": "Respuesta de inicio de sesión del navegador no válida",
+      "invalidDeviceResponse": "Respuesta de código de dispositivo no válida",
+      "popupBlocked": "No se pudo abrir una pestaña nueva. Permite las ventanas emergentes e inténtalo de nuevo."
+    },
+    "flow": {
+      "current": "Estado de autenticación actual",
+      "pending": "Esperando la autorización...",
+      "success": "Autenticación correcta",
+      "error": "Error de autenticación",
+      "expired": "La sesión de autenticación ha caducado"
+    },
+    "device": {
+      "title": "Inicio de sesión de dispositivo de OpenAI",
+      "description": "Abre la página de verificación e introduce el código de abajo. Esta página se actualizará automáticamente.",
+      "code": "Código de usuario",
+      "url": "URL de verificación",
+      "polling": "Consultando el estado del inicio de sesión...",
+      "open": "Abrir página de verificación"
+    }
   },
   "models": {
     "fallbacks": {
@@ -486,157 +660,6 @@
       "manualOnlyBody": "La creación del bot con un toque no está disponible en esta versión, así que Telegram se configura con un token de BotFather. Pega el token abajo y guarda."
     }
   },
-  "chat": {
-    "welcome": "¿En qué puedo ayudarte hoy?",
-    "welcomeDesc": "Pregúntame sobre el tiempo, la configuración o cualquier otra tarea. Estoy aquí para ayudarte.",
-    "placeholder": "Escribe un mensaje nuevo...",
-    "disabledPlaceholder": {
-      "gatewayUnknown": "No se puede chatear: aún se está comprobando el estado de la puerta de enlace. Espera y luego actualiza la página o reinicia el lanzador si hace falta.",
-      "gatewayStarting": "No se puede chatear: la puerta de enlace se está iniciando. Espera a que termine y vuelve a intentarlo.",
-      "gatewayRestarting": "No se puede chatear: la puerta de enlace se está reiniciando. Espera a que finalice.",
-      "gatewayStopping": "No se puede chatear: la puerta de enlace se está deteniendo. Espera a que se detenga y vuelve a iniciarla.",
-      "gatewayStopped": "No se puede chatear: la puerta de enlace no está iniciada. Pulsa «Iniciar puerta de enlace» en la barra superior y vuelve a intentarlo.",
-      "gatewayError": "No se puede chatear: la puerta de enlace está en estado de error. Revisa los registros y reinicia la puerta de enlace o el lanzador.",
-      "websocketConnecting": "Conectando con el servicio de chat... Espera un momento.",
-      "websocketDisconnected": "No se puede chatear: la conexión WebSocket está desconectada. Comprueba la red y el estado de la puerta de enlace, y actualiza la página o reinicia el lanzador.",
-      "websocketError": "No se puede chatear: falló la conexión WebSocket. Comprueba la red y el estado de la puerta de enlace y reinténtalo.",
-      "noDefaultModel": "No se puede chatear: no hay un modelo predeterminado. Establece uno en la página de modelos."
-    },
-    "newChat": "Nuevo chat",
-    "notConnected": "La puerta de enlace no está en ejecución. Iníciala para chatear.",
-    "thinking": {
-      "step1": "Pensando...",
-      "step2": "Analizando tu solicitud...",
-      "step3": "Preparando la respuesta...",
-      "step4": "Casi listo..."
-    },
-    "reasoningLabel": "Razonamiento",
-    "toolCallsLabel": "Llamadas a herramientas",
-    "toolCallExplanationLabel": "Nota de la llamada",
-    "toolCallFunctionLabel": "Resumen de la llamada",
-    "toolCallArgumentsLabel": "Argumentos",
-    "showAssistantDetails": "Razonamiento y llamadas a herramientas",
-    "assistantDetailVisibility": {
-      "none": "No mostrar ninguno",
-      "thought": "Mostrar solo el razonamiento",
-      "toolCalls": "Mostrar solo las llamadas a herramientas",
-      "all": "Mostrar ambos"
-    },
-    "toolLabel": "Herramienta",
-    "codeLabel": "Código",
-    "copyMessage": "Copiar mensaje",
-    "copyCode": "Copiar código",
-    "copiedLabel": "Copiado",
-    "enableCodeWrap": "Ajustar líneas",
-    "disableCodeWrap": "Desactivar ajuste",
-    "expandCode": "Expandir código",
-    "collapseCode": "Contraer código",
-    "history": "Historial",
-    "noHistory": "Aún no hay historial de chat",
-    "historyLoadFailed": "No se pudo cargar el historial de chat",
-    "historyOpenFailed": "No se pudo abrir este historial de chat",
-    "loadingMore": "Cargando más...",
-    "deleteSession": "Eliminar sesión",
-    "messagesCount": "{{count}} mensajes",
-    "noModel": "Seleccionar modelo",
-    "inputDisabled": {
-      "notConnected": "La puerta de enlace no está en ejecución. Iníciala para chatear.",
-      "noModel": "No hay un modelo predeterminado configurado. Ve a la página de modelos para establecer uno."
-    },
-    "sendMessage": "Enviar mensaje",
-    "composeHint": "Pulsa Intro para enviar, Mayús + Intro para una nueva línea",
-    "contextTitle": "Contexto",
-    "contextDetail": "Ver detalles",
-    "contextCompressAt": "Comprimir en",
-    "contextSummarizeAt": "Resumir en",
-    "attachImage": "Añadir imágenes",
-    "dropImagesActive": "Suelta para añadir imágenes",
-    "removeImage": "Quitar imagen",
-    "uploadedImage": "Imagen adjunta",
-    "invalidImage": "«{{name}}» no es un archivo de imagen compatible.",
-    "imageTooLarge": "«{{name}}» supera el límite de {{size}}.",
-    "imageReadFailed": "No se pudo leer «{{name}}».",
-    "empty": {
-      "noConfiguredModel": "Ningún modelo configurado",
-      "noConfiguredModelDescription": "Debes configurar al menos un modelo de IA con una clave de API antes de poder chatear.",
-      "goToModels": "Ir a Modelos",
-      "noSelectedModel": "Ningún modelo seleccionado",
-      "noSelectedModelDescription": "Tienes modelos configurados, pero ninguno está establecido como predeterminado. Selecciona uno antes de chatear.",
-      "notRunning": "La puerta de enlace no está en ejecución",
-      "notRunningDescription": "Inicia el servicio de la puerta de enlace para empezar a chatear. Usa el botón «Iniciar puerta de enlace» de la barra superior."
-    },
-    "modelGroup": {
-      "apikey": "Clave de API",
-      "oauth": "OAuth",
-      "local": "Local"
-    },
-    "downloadFile": "Descargar archivo"
-  },
-  "credentials": {
-    "description": "Gestiona credenciales OAuth y basadas en token para los proveedores compatibles.",
-    "loading": "Cargando credenciales...",
-    "providers": {
-      "openai": {
-        "description": "Admite OAuth en el navegador, código de dispositivo e inicio de sesión con token."
-      },
-      "anthropic": {
-        "description": "Usa el inicio de sesión con token para acceder a Claude."
-      },
-      "antigravity": {
-        "description": "Usa OAuth en el navegador para Google Cloud Code Assist."
-      }
-    },
-    "status": {
-      "connected": "Conectado",
-      "needsRefresh": "Necesita actualizarse",
-      "expired": "Caducada",
-      "notLoggedIn": "Sin iniciar sesión"
-    },
-    "actions": {
-      "browser": "OAuth en el navegador",
-      "deviceCode": "Código de dispositivo",
-      "stopLoading": "Detener carga",
-      "saveToken": "Guardar",
-      "logout": "Cerrar sesión"
-    },
-    "logoutDialog": {
-      "title": "¿Cerrar sesión del proveedor?",
-      "description": "Esto eliminará la credencial guardada de {{provider}}."
-    },
-    "fields": {
-      "openaiToken": "Token de OpenAI",
-      "anthropicToken": "Token de Anthropic"
-    },
-    "labels": {
-      "account": "Cuenta",
-      "email": "Correo electrónico",
-      "project": "Proyecto"
-    },
-    "errors": {
-      "loadFailed": "No se pudieron cargar las credenciales",
-      "flowFailed": "No se pudo comprobar el flujo de autenticación",
-      "loginFailed": "Error al iniciar sesión",
-      "logoutFailed": "Error al cerrar sesión",
-      "invalidBrowserResponse": "Respuesta de inicio de sesión del navegador no válida",
-      "invalidDeviceResponse": "Respuesta de código de dispositivo no válida",
-      "popupBlocked": "No se pudo abrir una pestaña nueva. Permite las ventanas emergentes e inténtalo de nuevo."
-    },
-    "flow": {
-      "current": "Estado de autenticación actual",
-      "pending": "Esperando la autorización...",
-      "success": "Autenticación correcta",
-      "error": "Error de autenticación",
-      "expired": "La sesión de autenticación ha caducado"
-    },
-    "device": {
-      "title": "Inicio de sesión de dispositivo de OpenAI",
-      "description": "Abre la página de verificación e introduce el código de abajo. Esta página se actualizará automáticamente.",
-      "code": "Código de usuario",
-      "url": "URL de verificación",
-      "polling": "Consultando el estado del inicio de sesión...",
-      "open": "Abrir página de verificación"
-    }
-  },
   "pages": {
     "agent": {
       "load_error": "No se pudo cargar la información de compatibilidad del agente.",
@@ -1008,6 +1031,28 @@
       "log_level_error": "No se pudo actualizar el nivel de registro.",
       "clear": "Borrar registros",
       "empty": "Esperando registros..."
+    }
+  },
+  "tour": {
+    "skip": "Omitir el recorrido",
+    "prev": "Anterior",
+    "next": "Siguiente",
+    "finish": "Finalizar",
+    "welcome": {
+      "title": "Te damos la bienvenida a PocketClaw",
+      "description": "PocketClaw es una potente plataforma de asistentes de IA. Dedica unos segundos a completar la configuración básica."
+    },
+    "models": {
+      "title": "Configurar los modelos",
+      "description": "Abre el menú «Modelos» de la izquierda para configurar las claves de API de tus proveedores de IA. Solo pueden usarse en el chat los modelos configurados."
+    },
+    "gateway": {
+      "title": "Iniciar la puerta de enlace",
+      "description": "Una vez configurados los modelos, pulsa «Iniciar puerta de enlace» en la parte superior para empezar a chatear con la IA."
+    },
+    "docs": {
+      "title": "Ver la documentación",
+      "description": "¿Necesitas más ayuda? Pulsa el botón de documentación de la esquina superior derecha para consultar guías detalladas y la documentación de configuración."
     }
   }
 }
