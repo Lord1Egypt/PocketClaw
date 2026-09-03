@@ -1,6 +1,6 @@
 {
   "runtime_version": 1,
-  "catalog_version": "2.3.0",
+  "catalog_version": "2.4.0",
   "tools": [
     {
       "tool_id": "cat",
@@ -613,21 +613,6 @@
       "security_class": "system"
     },
     {
-      "tool_id": "traceroute",
-      "display_name": "traceroute",
-      "command_name": "traceroute",
-      "version": "platform",
-      "abi": "arm64-v8a",
-      "delivery_type": "system",
-      "trusted_source": "android-system-image:/system/bin",
-      "capabilities": [
-        "network.diagnose"
-      ],
-      "timeout_profile": "extended",
-      "max_output_bytes": 65536,
-      "security_class": "system"
-    },
-    {
       "tool_id": "ip",
       "display_name": "ip",
       "command_name": "ip",
@@ -814,22 +799,6 @@
       "library_name": "libpocketclaw-sqlite3.so"
     },
     {
-      "tool_id": "zip",
-      "display_name": "zip",
-      "command_name": "zip",
-      "version": "platform",
-      "abi": "arm64-v8a",
-      "delivery_type": "system",
-      "trusted_source": "android-system-image:/system/bin",
-      "capabilities": [
-        "archive.transform",
-        "filesystem.write"
-      ],
-      "timeout_profile": "extended",
-      "max_output_bytes": 262144,
-      "security_class": "system"
-    },
-    {
       "tool_id": "unzip",
       "display_name": "unzip",
       "command_name": "unzip",
@@ -890,21 +859,6 @@
       ],
       "timeout_profile": "quick",
       "max_output_bytes": 262144,
-      "security_class": "system"
-    },
-    {
-      "tool_id": "tree",
-      "display_name": "tree",
-      "command_name": "tree",
-      "version": "platform",
-      "abi": "arm64-v8a",
-      "delivery_type": "system",
-      "trusted_source": "android-system-image:/system/bin",
-      "capabilities": [
-        "filesystem.read"
-      ],
-      "timeout_profile": "standard",
-      "max_output_bytes": 1048576,
       "security_class": "system"
     },
     {

@@ -1,5 +1,24 @@
 # PocketClaw Decisions
 
+## The runtime catalog advertises only what the Android target can deliver
+
+- Date: 2026-09-03
+- Decision: `traceroute`, `zip` and `tree` are removed from the runtime catalog,
+  which goes from 56 entries to 53 at catalog version `2.4.0`. None is bundled
+  as a replacement, and the runtime contract version stays at 1.
+- Reason: the Android 16 system image ships none of the three, measured on the
+  SM-A165F across `/system/bin`, `/system/xbin` and `/vendor/bin`. A `system`
+  entry the platform never provides is a permanently unmet promise, not a probe:
+  it can only ever report unavailable, on every device, forever.
+- Consequence: the device now reports 53 of 53 rather than 53 of 56. Nothing is
+  lost, because each capability is already covered — `ping` and `ip` for the
+  network diagnostics an ordinary app UID can actually perform, `tar` with
+  `gzip` and Python's `zipfile` for archives, `find` for directory listing.
+  Bundling was rejected in all three cases: a payload for a duplicate capability
+  is not worth the APK weight, and `traceroute` additionally needs raw sockets
+  that a normal app UID does not get. `TestEmbeddedCatalogAdvertisesOnlyDeliverableCommands`
+  fails the build if one is re-added.
+
 ## Go owns the Pico channel config; the Android host only injects the token
 
 - Date: 2026-09-03
