@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"os"
 	"sync"
-	"time"
 
 	"github.com/sipeed/picoclaw/pkg/config"
 )
@@ -20,13 +19,20 @@ import (
 //
 // The file is therefore the single source of truth, and this reads it — but
 // only when it has actually changed. Each resolve does one stat; the value is
-// re-decoded only when size or modification time differs from the last read.
-// Nothing polls, no timer runs, and an unchanged file costs a stat and a mutex.
+// re-decoded only when the file is no longer the same file. Nothing polls, no
+// timer runs, and an unchanged file costs a stat and a mutex.
+//
+// Identity, not just size and timestamp, is what makes that safe. SaveConfig
+// writes through fileutil.WriteFileAtomic, which creates a temporary file and
+// renames it over the target, so every save produces a new inode. Two rapid
+// saves of the same length — 17 then 10 — are byte-identical in size and can
+// land in the same coarse timestamp tick, and comparing only size and mtime
+// would miss the second one. os.SameFile compares device and inode, so a
+// replacement is always seen.
 type liveTelegramContextLimit struct {
 	mu       sync.Mutex
 	path     string
-	modTime  time.Time
-	size     int64
+	info     os.FileInfo
 	value    int
 	haveRead bool
 }
@@ -61,7 +67,7 @@ func (l *liveTelegramContextLimit) resolve(fallback int) int {
 	if err != nil {
 		return fallback
 	}
-	if l.haveRead && info.ModTime().Equal(l.modTime) && info.Size() == l.size {
+	if l.haveRead && sameConfigFile(l.info, info) {
 		return l.value
 	}
 
@@ -82,10 +88,23 @@ func (l *liveTelegramContextLimit) resolve(fallback int) int {
 	l.value = config.ResolveTelegramRecentContextMessages(
 		parsed.Agents.Defaults.TelegramRecentContextMessages,
 	)
-	l.modTime = info.ModTime()
-	l.size = info.Size()
+	l.info = info
 	l.haveRead = true
 	return l.value
+}
+
+// sameConfigFile reports whether the cached read is still valid.
+//
+// All three checks matter. os.SameFile catches an atomic replacement whatever
+// its size or timestamp; size catches an in-place rewrite that somehow kept the
+// same inode; and mtime catches an in-place rewrite of identical length.
+func sameConfigFile(cached, current os.FileInfo) bool {
+	if cached == nil || current == nil {
+		return false
+	}
+	return os.SameFile(cached, current) &&
+		cached.Size() == current.Size() &&
+		cached.ModTime().Equal(current.ModTime())
 }
 
 // telegramContextLimit is process-wide because the file is. One agent loop runs

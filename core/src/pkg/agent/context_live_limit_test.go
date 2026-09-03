@@ -2,6 +2,7 @@ package agent
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -225,5 +226,102 @@ func TestLimitChangeLeavesHistoryAndSummaryAlone(t *testing.T) {
 	}
 	if summary != "a persisted rolling summary with EXACT FACTS: NEBULA-9634" {
 		t.Fatal("the summary was modified")
+	}
+}
+
+// The cache must not miss two rapid saves of the same length. "17" and "10"
+// are the same number of bytes, and a coarse filesystem timestamp can place two
+// saves in the same tick; a size-and-mtime key would then answer 17 forever.
+// SaveConfig renames a temporary file over the target, so identity is what
+// actually changes. This writes the two payloads byte-for-byte equal in length
+// and pins the timestamp, so only identity differs.
+func TestSameSizeRapidReplacementIsNotMissed(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.json")
+
+	// Same length by construction: only the two digits differ.
+	const shape = `{"agents":{"defaults":{"telegram_recent_context_messages":%s}}}`
+	writeAtomic := func(limit string) {
+		tmp := filepath.Join(dir, ".tmp-"+limit)
+		if err := os.WriteFile(tmp, []byte(fmt.Sprintf(shape, limit)), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		// The same temp-file-then-rename SaveConfig performs.
+		if err := os.Rename(tmp, path); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	previous := telegramContextLimit
+	telegramContextLimit = &liveTelegramContextLimit{path: path}
+	t.Cleanup(func() { telegramContextLimit = previous })
+
+	writeAtomic("17")
+	before, err := os.Stat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	agent := telegramAgent(15)
+	if got := recentContextLimit(agent, "telegram"); got != 17 {
+		t.Fatalf("limit = %d, want 17", got)
+	}
+
+	writeAtomic("10")
+	if err := os.Chtimes(path, before.ModTime(), before.ModTime()); err != nil {
+		t.Fatal(err)
+	}
+	after, err := os.Stat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if after.Size() != before.Size() {
+		t.Fatalf("fixture is wrong: sizes differ (%d vs %d)", before.Size(), after.Size())
+	}
+	if !after.ModTime().Equal(before.ModTime()) {
+		t.Fatal("could not pin the modification time; the test would prove nothing")
+	}
+
+	if got := recentContextLimit(agent, "telegram"); got != 10 {
+		t.Fatalf("limit = %d after a same-size, same-mtime replacement, want 10", got)
+	}
+}
+
+// os.SameFile is what makes the above work; pin it directly so a future
+// simplification of the cache key cannot silently drop it.
+func TestCacheKeyUsesFileIdentity(t *testing.T) {
+	dir := t.TempDir()
+	first := filepath.Join(dir, "a")
+	second := filepath.Join(dir, "b")
+	if err := os.WriteFile(first, []byte("xx"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(second, []byte("yy"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	infoA, err := os.Stat(first)
+	if err != nil {
+		t.Fatal(err)
+	}
+	infoB, err := os.Stat(second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Identical size, identical timestamp, different files.
+	if err := os.Chtimes(second, infoA.ModTime(), infoA.ModTime()); err != nil {
+		t.Fatal(err)
+	}
+	infoB, err = os.Stat(second)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if infoA.Size() != infoB.Size() || !infoA.ModTime().Equal(infoB.ModTime()) {
+		t.Fatal("the fixture failed to make size and mtime identical")
+	}
+	if sameConfigFile(infoA, infoB) {
+		t.Fatal("two different files compared equal; the cache key ignores identity")
+	}
+	if !sameConfigFile(infoA, infoA) {
+		t.Fatal("a file did not compare equal to itself")
 	}
 }

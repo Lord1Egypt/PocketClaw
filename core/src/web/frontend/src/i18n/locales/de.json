@@ -1,0 +1,70 @@
+{
+  "navigation": {
+    "chat": "Chat",
+    "model_group": "Modelle",
+    "models": "Modelle",
+    "credentials": "Anmeldedaten",
+    "agent_group": "Agent",
+    "hub": "Hub",
+    "skills": "Skills",
+    "tools": "Werkzeuge",
+    "services": "Dienste",
+    "channels_group": "Kanäle",
+    "show_more_channels": "Mehr",
+    "show_less_channels": "Weniger",
+    "config": "Konfiguration",
+    "logs": "Protokolle"
+  },
+  "header": {
+    "logout": {
+      "tooltip": "Abmelden",
+      "confirm": "Abmelden",
+      "description": "Möchten Sie sich wirklich vom Dashboard abmelden?"
+    },
+    "gateway": {
+      "stopDialog": {
+        "title": "Gateway-Dienst stoppen?",
+        "description": "Möchten Sie das Gateway wirklich stoppen? Dadurch werden aktive Chat-Sitzungen getrennt und die Inferenz angehalten.",
+        "confirm": "Gateway stoppen"
+      },
+      "action": {
+        "start": "Gateway starten",
+        "stop": "Gateway stoppen",
+        "restart": "Gateway neu starten"
+      },
+      "status": {
+        "starting": "Gateway wird gestartet ...",
+        "restarting": "Gateway wird neu gestartet ...",
+        "stopping": "Gateway wird gestoppt ..."
+      },
+      "restartRequired": "Konfigurationsänderungen erfordern einen Gateway-Neustart, um wirksam zu werden."
+    }
+  },
+  "common": {
+    "cancel": "Abbrechen",
+    "close": "Schließen",
+    "save": "Speichern",
+    "saving": "Wird gespeichert ...",
+    "reset": "Zurücksetzen",
+    "confirm": "Bestätigen",
+    "fix": "Beheben",
+    "saveChangesTitle": "Sie haben nicht gespeicherte Konfigurationsänderungen",
+    "restartRequiredTitle": "Gateway-Neustart erforderlich",
+    "restartRequiredDesc": "Die neueste {{name}}-Konfiguration wurde gespeichert. Starten Sie das Gateway neu, damit sie wirksam wird.",
+    "restartingGateway": "Gateway wird neu gestartet ...",
+    "restartedGateway": "Gespeichert. Gateway erfolgreich neu gestartet.",
+    "restartFailedTitle": "Gateway-Neustart fehlgeschlagen",
+    "restartFailedDesc": "Die {{name}}-Konfiguration wurde gespeichert, aber das Gateway wurde nicht neu gestartet. Verwenden Sie „Gateway neu starten“, um sie anzuwenden.",
+    "restartDeferredTitle": "Gespeichert, Gateway noch nicht neu gestartet",
+    "restartDeferredDesc": "Die {{name}}-Konfiguration wurde gespeichert. PocketClaw hat das Gateway nicht neu gestartet, da es noch eine Anfrage bearbeitet. Verwenden Sie „Gateway neu starten“, wenn Sie bereit sind."
+  },
+  "labels": {
+    "loading": "Wird geladen ..."
+  },
+  "footer": {
+    "version": "Version",
+    "commit": "Commit",
+    "build": "Build",
+    "version_unknown": "Unbekannt"
+  }
+}

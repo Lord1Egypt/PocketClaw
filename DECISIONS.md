@@ -1,5 +1,45 @@
 # PocketClaw Decisions
 
+## The dashboard resolves every app locale; its page bodies are not translated yet
+
+- Date: 2026-09-03
+- Decision: the console registers all twelve app locales, maps `pt` onto the
+  existing `pt-BR` resource rather than duplicating it, reuses the existing `zh`
+  resource, keeps `bn-IN` and `cs`, and sets `lang` and `dir` on the document
+  root from `i18n.dir()` instead of testing for Arabic in each component. The
+  shared chrome — buttons, navigation, header, gateway actions, footer, loading
+  — is translated in all nine new locales.
+- Reason: with the app in Arabic, opening Manage Models or Manage Telegram
+  landed in an English left-to-right dashboard. `?lng=` alone could not fix that
+  because nine of the twelve locales had no resource to resolve to.
+- Consequence, measured rather than estimated: **48 of 857 keys, 5.6%.** The
+  page bodies fall back to English per key. `pages` (316), `models` (179),
+  `channels` (176), `chat` (71), `credentials` (39), `tour` (12),
+  `launcherSetup` (9) and `launcherLogin` (7) remain untranslated — 809 keys
+  across 9 locales, about 7,300 strings. Nothing is shipped as an English copy
+  pretending to be a translation: the nine new files contain only what is
+  actually translated, and a test fails if any of them copies English.
+- Consequence for Arabic specifically: the dashboard is now genuinely
+  right-to-left with translated navigation, while page content is still English
+  inside that RTL layout. That is a visible half-state, and it is the honest one
+  until the page namespaces are translated.
+
+## The live context-limit cache is keyed on file identity, not size and time
+
+- Date: 2026-09-03
+- Decision: `sameConfigFile` compares `os.SameFile`, size and modification time
+  together. The previous key compared only size and mtime.
+- Reason: `SaveConfig` writes through `WriteFileAtomic`, which renames a
+  temporary file over the target, so a save is a replacement rather than an
+  edit. Saving 17 and then 10 produces payloads of identical length, and two
+  saves can land inside one coarse timestamp tick; the old key would then answer
+  17 for the rest of the process. This was verified, not assumed — reverting to
+  the size-and-mtime key makes
+  `TestSameSizeRapidReplacementIsNotMissed` fail with exactly that symptom.
+- Consequence: identity changes on every atomic replacement, so no save can be
+  missed. The check is still one `os.Stat` per projection with no polling and no
+  extra decode.
+
 ## The Telegram context limit is read from the file, not from a startup snapshot
 
 - Date: 2026-09-03

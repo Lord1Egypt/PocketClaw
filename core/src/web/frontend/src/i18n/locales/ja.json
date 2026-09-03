@@ -1,0 +1,70 @@
+{
+  "navigation": {
+    "chat": "チャット",
+    "model_group": "モデル",
+    "models": "モデル",
+    "credentials": "認証情報",
+    "agent_group": "エージェント",
+    "hub": "ハブ",
+    "skills": "スキル",
+    "tools": "ツール",
+    "services": "サービス",
+    "channels_group": "チャンネル",
+    "show_more_channels": "もっと見る",
+    "show_less_channels": "閉じる",
+    "config": "設定",
+    "logs": "ログ"
+  },
+  "header": {
+    "logout": {
+      "tooltip": "サインアウト",
+      "confirm": "サインアウト",
+      "description": "ダッシュボードからサインアウトしますか？"
+    },
+    "gateway": {
+      "stopDialog": {
+        "title": "ゲートウェイサービスを停止しますか？",
+        "description": "ゲートウェイを停止しますか？ 実行中のチャットセッションが切断され、推論が停止します。",
+        "confirm": "ゲートウェイを停止"
+      },
+      "action": {
+        "start": "ゲートウェイを開始",
+        "stop": "ゲートウェイを停止",
+        "restart": "ゲートウェイを再起動"
+      },
+      "status": {
+        "starting": "ゲートウェイを開始しています...",
+        "restarting": "ゲートウェイを再起動しています...",
+        "stopping": "ゲートウェイを停止しています..."
+      },
+      "restartRequired": "設定変更を反映するにはゲートウェイの再起動が必要です。"
+    }
+  },
+  "common": {
+    "cancel": "キャンセル",
+    "close": "閉じる",
+    "save": "保存",
+    "saving": "保存中...",
+    "reset": "リセット",
+    "confirm": "確認",
+    "fix": "修正",
+    "saveChangesTitle": "保存されていない設定変更があります",
+    "restartRequiredTitle": "ゲートウェイの再起動が必要です",
+    "restartRequiredDesc": "最新の {{name}} 設定を保存しました。反映するにはゲートウェイを再起動してください。",
+    "restartingGateway": "ゲートウェイを再起動しています...",
+    "restartedGateway": "保存しました。ゲートウェイを正常に再起動しました。",
+    "restartFailedTitle": "ゲートウェイの再起動に失敗しました",
+    "restartFailedDesc": "{{name}} 設定は保存されましたが、ゲートウェイは再起動しませんでした。「ゲートウェイを再起動」で適用してください。",
+    "restartDeferredTitle": "保存しました。ゲートウェイはまだ再起動していません",
+    "restartDeferredDesc": "{{name}} 設定を保存しました。PocketClaw はリクエストの処理中のため、ゲートウェイを再起動していません。準備ができたら「ゲートウェイを再起動」を使用してください。"
+  },
+  "labels": {
+    "loading": "読み込み中..."
+  },
+  "footer": {
+    "version": "バージョン",
+    "commit": "コミット",
+    "build": "ビルド",
+    "version_unknown": "不明"
+  }
+}

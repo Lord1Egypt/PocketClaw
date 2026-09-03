@@ -1,0 +1,70 @@
+{
+  "navigation": {
+    "chat": "Chat",
+    "model_group": "Modelos",
+    "models": "Modelos",
+    "credentials": "Credenciales",
+    "agent_group": "Agente",
+    "hub": "Hub",
+    "skills": "Habilidades",
+    "tools": "Herramientas",
+    "services": "Servicios",
+    "channels_group": "Canales",
+    "show_more_channels": "Más",
+    "show_less_channels": "Menos",
+    "config": "Configuración",
+    "logs": "Registros"
+  },
+  "header": {
+    "logout": {
+      "tooltip": "Cerrar sesión",
+      "confirm": "Cerrar sesión",
+      "description": "¿Seguro que quieres cerrar sesión en el panel?"
+    },
+    "gateway": {
+      "stopDialog": {
+        "title": "¿Detener el servicio de la puerta de enlace?",
+        "description": "¿Seguro que quieres detener la puerta de enlace? Esto desconectará las sesiones de chat activas y detendrá la inferencia.",
+        "confirm": "Detener puerta de enlace"
+      },
+      "action": {
+        "start": "Iniciar puerta de enlace",
+        "stop": "Detener puerta de enlace",
+        "restart": "Reiniciar puerta de enlace"
+      },
+      "status": {
+        "starting": "Iniciando la puerta de enlace...",
+        "restarting": "Reiniciando la puerta de enlace...",
+        "stopping": "Deteniendo la puerta de enlace..."
+      },
+      "restartRequired": "Los cambios de configuración requieren reiniciar la puerta de enlace para surtir efecto."
+    }
+  },
+  "common": {
+    "cancel": "Cancelar",
+    "close": "Cerrar",
+    "save": "Guardar",
+    "saving": "Guardando...",
+    "reset": "Restablecer",
+    "confirm": "Confirmar",
+    "fix": "Corregir",
+    "saveChangesTitle": "Tienes cambios de configuración sin guardar",
+    "restartRequiredTitle": "Se requiere reiniciar la puerta de enlace",
+    "restartRequiredDesc": "Se guardó la última configuración de {{name}}. Reinicia la puerta de enlace para que surta efecto.",
+    "restartingGateway": "Reiniciando la puerta de enlace...",
+    "restartedGateway": "Guardado. La puerta de enlace se reinició correctamente.",
+    "restartFailedTitle": "Error al reiniciar la puerta de enlace",
+    "restartFailedDesc": "Se guardó la configuración de {{name}}, pero la puerta de enlace no se reinició. Usa Reiniciar puerta de enlace para aplicarla.",
+    "restartDeferredTitle": "Guardado, la puerta de enlace aún no se reinició",
+    "restartDeferredDesc": "Se guardó la configuración de {{name}}. PocketClaw no reinició la puerta de enlace porque todavía está atendiendo una solicitud. Usa Reiniciar puerta de enlace cuando quieras."
+  },
+  "labels": {
+    "loading": "Cargando..."
+  },
+  "footer": {
+    "version": "Versión",
+    "commit": "Commit",
+    "build": "Compilación",
+    "version_unknown": "Desconocido"
+  }
+}

@@ -1,0 +1,70 @@
+{
+  "navigation": {
+    "chat": "Obrolan",
+    "model_group": "Model",
+    "models": "Model",
+    "credentials": "Kredensial",
+    "agent_group": "Agen",
+    "hub": "Hub",
+    "skills": "Keterampilan",
+    "tools": "Alat",
+    "services": "Layanan",
+    "channels_group": "Saluran",
+    "show_more_channels": "Lainnya",
+    "show_less_channels": "Lebih sedikit",
+    "config": "Konfigurasi",
+    "logs": "Log"
+  },
+  "header": {
+    "logout": {
+      "tooltip": "Keluar",
+      "confirm": "Keluar",
+      "description": "Yakin ingin keluar dari dasbor?"
+    },
+    "gateway": {
+      "stopDialog": {
+        "title": "Hentikan layanan Gateway?",
+        "description": "Yakin ingin menghentikan gateway? Ini akan memutus sesi obrolan aktif dan menghentikan inferensi.",
+        "confirm": "Hentikan Gateway"
+      },
+      "action": {
+        "start": "Mulai Gateway",
+        "stop": "Hentikan Gateway",
+        "restart": "Mulai Ulang Gateway"
+      },
+      "status": {
+        "starting": "Memulai Gateway...",
+        "restarting": "Memulai ulang Gateway...",
+        "stopping": "Menghentikan Gateway..."
+      },
+      "restartRequired": "Perubahan konfigurasi memerlukan mulai ulang gateway agar berlaku."
+    }
+  },
+  "common": {
+    "cancel": "Batal",
+    "close": "Tutup",
+    "save": "Simpan",
+    "saving": "Menyimpan...",
+    "reset": "Setel ulang",
+    "confirm": "Konfirmasi",
+    "fix": "Perbaiki",
+    "saveChangesTitle": "Ada perubahan konfigurasi yang belum disimpan",
+    "restartRequiredTitle": "Perlu memulai ulang Gateway",
+    "restartRequiredDesc": "Konfigurasi {{name}} terbaru telah disimpan. Mulai ulang gateway agar berlaku.",
+    "restartingGateway": "Memulai ulang gateway...",
+    "restartedGateway": "Tersimpan. Gateway berhasil dimulai ulang.",
+    "restartFailedTitle": "Gagal memulai ulang gateway",
+    "restartFailedDesc": "Konfigurasi {{name}} tersimpan, tetapi gateway tidak dimulai ulang. Gunakan Mulai Ulang Gateway untuk menerapkannya.",
+    "restartDeferredTitle": "Tersimpan, gateway belum dimulai ulang",
+    "restartDeferredDesc": "Konfigurasi {{name}} tersimpan. PocketClaw belum memulai ulang gateway karena masih menangani permintaan. Gunakan Mulai Ulang Gateway saat Anda siap."
+  },
+  "labels": {
+    "loading": "Memuat..."
+  },
+  "footer": {
+    "version": "Versi",
+    "commit": "Commit",
+    "build": "Build",
+    "version_unknown": "Tidak diketahui"
+  }
+}

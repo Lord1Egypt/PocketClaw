@@ -1,0 +1,70 @@
+{
+  "navigation": {
+    "chat": "Discussion",
+    "model_group": "Modèles",
+    "models": "Modèles",
+    "credentials": "Identifiants",
+    "agent_group": "Agent",
+    "hub": "Hub",
+    "skills": "Compétences",
+    "tools": "Outils",
+    "services": "Services",
+    "channels_group": "Canaux",
+    "show_more_channels": "Plus",
+    "show_less_channels": "Moins",
+    "config": "Configuration",
+    "logs": "Journaux"
+  },
+  "header": {
+    "logout": {
+      "tooltip": "Se déconnecter",
+      "confirm": "Se déconnecter",
+      "description": "Voulez-vous vraiment vous déconnecter du tableau de bord ?"
+    },
+    "gateway": {
+      "stopDialog": {
+        "title": "Arrêter le service de passerelle ?",
+        "description": "Voulez-vous vraiment arrêter la passerelle ? Cela déconnectera les sessions de discussion actives et interrompra l'inférence.",
+        "confirm": "Arrêter la passerelle"
+      },
+      "action": {
+        "start": "Démarrer la passerelle",
+        "stop": "Arrêter la passerelle",
+        "restart": "Redémarrer la passerelle"
+      },
+      "status": {
+        "starting": "Démarrage de la passerelle...",
+        "restarting": "Redémarrage de la passerelle...",
+        "stopping": "Arrêt de la passerelle..."
+      },
+      "restartRequired": "Les modifications de configuration nécessitent un redémarrage de la passerelle pour prendre effet."
+    }
+  },
+  "common": {
+    "cancel": "Annuler",
+    "close": "Fermer",
+    "save": "Enregistrer",
+    "saving": "Enregistrement...",
+    "reset": "Réinitialiser",
+    "confirm": "Confirmer",
+    "fix": "Corriger",
+    "saveChangesTitle": "Vous avez des modifications de configuration non enregistrées",
+    "restartRequiredTitle": "Redémarrage de la passerelle requis",
+    "restartRequiredDesc": "La dernière configuration {{name}} a été enregistrée. Redémarrez la passerelle pour qu'elle prenne effet.",
+    "restartingGateway": "Redémarrage de la passerelle...",
+    "restartedGateway": "Enregistré. La passerelle a redémarré avec succès.",
+    "restartFailedTitle": "Échec du redémarrage de la passerelle",
+    "restartFailedDesc": "La configuration {{name}} a été enregistrée, mais la passerelle n'a pas redémarré. Utilisez Redémarrer la passerelle pour l'appliquer.",
+    "restartDeferredTitle": "Enregistré, passerelle pas encore redémarrée",
+    "restartDeferredDesc": "La configuration {{name}} a été enregistrée. PocketClaw n'a pas redémarré la passerelle car elle traite encore une requête. Utilisez Redémarrer la passerelle quand vous serez prêt."
+  },
+  "labels": {
+    "loading": "Chargement..."
+  },
+  "footer": {
+    "version": "Version",
+    "commit": "Commit",
+    "build": "Build",
+    "version_unknown": "Inconnu"
+  }
+}
