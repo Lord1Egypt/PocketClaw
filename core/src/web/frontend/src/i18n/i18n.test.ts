@@ -1,4 +1,4 @@
-import { describe, expect, it, beforeEach } from "vitest"
+import { beforeEach, describe, expect, it } from "vitest"
 
 import i18n, { SUPPORTED_LANGUAGES, applyDocumentDirection } from "./index"
 
@@ -95,9 +95,94 @@ const PAGES_BATCH_2 = [
   "pages.config.cron_exec_timeout_hint",
 ] as const
 
+// The Configuration page's Agent tuning, session scope, runtime, launcher and
+// security settings, plus the shared numeric-field validation messages. Listed
+// key by key for the same reason batch 2 is: a `pages.config.` prefix would
+// falsely claim batch 4's evolution, MCP and raw-JSON groups as finished.
+const PAGES_BATCH_3 = [
+  "pages.config.max_tokens",
+  "pages.config.max_tokens_hint",
+  "pages.config.context_window",
+  "pages.config.context_window_hint",
+  "pages.config.max_tool_iterations",
+  "pages.config.max_tool_iterations_hint",
+  "pages.config.summarize_threshold",
+  "pages.config.summarize_threshold_hint",
+  "pages.config.summarize_token_percent",
+  "pages.config.summarize_token_percent_hint",
+  "pages.config.turn_profile",
+  "pages.config.turn_profile_hint",
+  "pages.config.turn_profile_enabled",
+  "pages.config.turn_profile_enabled_hint",
+  "pages.config.turn_profile_mode_default",
+  "pages.config.turn_profile_mode_off",
+  "pages.config.turn_profile_mode_custom",
+  "pages.config.turn_profile_history",
+  "pages.config.turn_profile_history_hint",
+  "pages.config.turn_profile_system_prompt",
+  "pages.config.turn_profile_system_prompt_hint",
+  "pages.config.turn_profile_skills",
+  "pages.config.turn_profile_skills_hint",
+  "pages.config.turn_profile_skills_allow_placeholder",
+  "pages.config.turn_profile_tools",
+  "pages.config.turn_profile_tools_hint",
+  "pages.config.turn_profile_tools_allow_placeholder",
+  "pages.config.session_scope",
+  "pages.config.session_scope_hint",
+  "pages.config.session_scope_required",
+  "pages.config.session_scope_per_channel_peer",
+  "pages.config.session_scope_per_channel_peer_desc",
+  "pages.config.session_scope_per_channel",
+  "pages.config.session_scope_per_channel_desc",
+  "pages.config.session_scope_per_peer",
+  "pages.config.session_scope_per_peer_desc",
+  "pages.config.session_scope_global",
+  "pages.config.session_scope_global_desc",
+  "pages.config.heartbeat_enabled",
+  "pages.config.heartbeat_enabled_hint",
+  "pages.config.heartbeat_interval",
+  "pages.config.heartbeat_interval_hint",
+  "pages.config.devices_enabled",
+  "pages.config.devices_enabled_hint",
+  "pages.config.monitor_usb",
+  "pages.config.monitor_usb_hint",
+  "pages.config.autostart_label",
+  "pages.config.autostart_hint",
+  "pages.config.autostart_unsupported",
+  "pages.config.autostart_load_error",
+  "pages.config.server_port",
+  "pages.config.server_port_hint",
+  "pages.config.launcher_section_hint",
+  "pages.config.gateway_restart_hint",
+  "pages.config.dashboard_password",
+  "pages.config.dashboard_password_hint",
+  "pages.config.dashboard_password_placeholder",
+  "pages.config.dashboard_password_confirm",
+  "pages.config.dashboard_password_confirm_hint",
+  "pages.config.dashboard_password_confirm_placeholder",
+  "pages.config.dashboard_password_required",
+  "pages.config.dashboard_password_mismatch",
+  "pages.config.dashboard_password_min_length",
+  "pages.config.lan_access",
+  "pages.config.lan_access_hint",
+  "pages.config.allowed_cidrs",
+  "pages.config.allowed_cidrs_hint",
+  "pages.config.allowed_cidrs_placeholder",
+  "pages.config.allow_localhost_bypass",
+  "pages.config.allow_localhost_bypass_hint",
+  "pages.config.trusted_proxy_cidrs",
+  "pages.config.trusted_proxy_cidrs_hint",
+  "pages.config.trusted_proxy_cidrs_placeholder",
+  "pages.config.validation_integer",
+  "pages.config.validation_number",
+  "pages.config.validation_min",
+  "pages.config.validation_max",
+] as const
+
 const PAGES_DONE_PREFIXES = [
   ...PAGES_BATCH_1,
   ...PAGES_BATCH_2,
+  ...PAGES_BATCH_3,
 ] as readonly string[]
 
 describe("dashboard i18n", () => {
@@ -309,6 +394,12 @@ describe("translation coverage", () => {
     // Not prose at all: the two sample regular expressions shown greyed out in
     // the custom-pattern textareas. Translating a regex would make it wrong.
     "pages.config.custom_patterns_placeholder",
+    // Also literals rather than copy: web_search and web_fetch are the tools'
+    // actual names, and the CIDR samples are addresses. All three are shown as
+    // the format to type, so translating them would make them wrong.
+    "pages.config.turn_profile_tools_allow_placeholder",
+    "pages.config.allowed_cidrs_placeholder",
+    "pages.config.trusted_proxy_cidrs_placeholder",
   ])
 
   // Latin-script languages legitimately share loanwords with English — German
@@ -339,7 +430,6 @@ describe("translation coverage", () => {
   function keysOfNamespace(english: Map<string, string>, namespace: string) {
     return [...english.keys()].filter((key) => key.startsWith(`${namespace}.`))
   }
-
 
   function batchedPagesKeys(english: Map<string, string>) {
     return [...english.keys()].filter((key) =>
@@ -496,7 +586,17 @@ describe("Channels / Telegram route body", () => {
   })
 
   it("preserves interpolation placeholders", async () => {
-    for (const locale of ["ar", "de", "es", "fr", "hi", "id", "ja", "ko", "ru"]) {
+    for (const locale of [
+      "ar",
+      "de",
+      "es",
+      "fr",
+      "hi",
+      "id",
+      "ja",
+      "ko",
+      "ru",
+    ]) {
       await i18n.changeLanguage(locale)
       expect(
         i18n.t("channels.page.notFound", { name: "telegram" }),
@@ -570,7 +670,10 @@ describe("Chat route body", () => {
       expect(i18n.t("chat.empty.notRunning"), locale).not.toBe(
         "Gateway Not Running",
       )
-      expect(i18n.t("chat.disabledPlaceholder.gatewayStopped"), locale).not.toBe(
+      expect(
+        i18n.t("chat.disabledPlaceholder.gatewayStopped"),
+        locale,
+      ).not.toBe(
         "Unable to chat: Gateway is not started. Click Start Gateway in the top bar, then retry.",
       )
     }
@@ -587,7 +690,9 @@ describe("Chat route body", () => {
   it("preserves Chat interpolation placeholders", async () => {
     for (const locale of CHAT_LOCALES) {
       await i18n.changeLanguage(locale)
-      expect(i18n.t("chat.messagesCount", { count: 12 }), locale).toContain("12")
+      expect(i18n.t("chat.messagesCount", { count: 12 }), locale).toContain(
+        "12",
+      )
       expect(
         i18n.t("chat.invalidImage", { name: "photo.heic" }),
         locale,
@@ -633,9 +738,10 @@ describe("Credentials route body", () => {
       expect(i18n.t("credentials.description"), locale).not.toBe(
         "Manage OAuth and token-based credentials for supported providers.",
       )
-      expect(i18n.t("credentials.providers.anthropic.description"), locale).not.toBe(
-        "Uses token login for Claude access.",
-      )
+      expect(
+        i18n.t("credentials.providers.anthropic.description"),
+        locale,
+      ).not.toBe("Uses token login for Claude access.")
 
       // Field and helper strings.
       expect(i18n.t("credentials.labels.account"), locale).not.toBe("Account")
@@ -690,9 +796,10 @@ describe("Credentials route body", () => {
       expect(i18n.t("credentials.fields.anthropicToken"), locale).toContain(
         "Anthropic",
       )
-      expect(i18n.t("credentials.providers.anthropic.description"), locale).toContain(
-        "Claude",
-      )
+      expect(
+        i18n.t("credentials.providers.anthropic.description"),
+        locale,
+      ).toContain("Claude")
     }
   })
 
@@ -1111,6 +1218,240 @@ describe("Pages batch 2 — Tools and Configuration", () => {
       for (const key of [
         "pages.agent.tools.library_title",
         "pages.config.sections.exec",
+      ]) {
+        expect(i18n.t(key), `${locale} ${key}`).not.toBe(key)
+      }
+    }
+  })
+})
+
+describe("Pages batch 3 — Agent tuning, runtime and security", () => {
+  const inBatch3 = (key: string) =>
+    PAGES_BATCH_3.some(
+      (prefix) => key === prefix || key.startsWith(`${prefix}.`),
+    )
+
+  it("preserves placeholder parity with English for every batch 3 key", () => {
+    const placeholders = (value: string) =>
+      [...value.matchAll(/\{\{\s*([A-Za-z0-9_]+)\s*\}\}/g)]
+        .map((match) => match[1])
+        .sort()
+        .join(",")
+
+    const english = i18n.getResourceBundle("en", "translation") as Record<
+      string,
+      unknown
+    >
+    const config = (english.pages as Record<string, unknown>).config as Record<
+      string,
+      string
+    >
+
+    const failures: string[] = []
+    for (const [name, englishText] of Object.entries(config)) {
+      const key = `pages.config.${name}`
+      if (!inBatch3(key) || typeof englishText !== "string") continue
+      for (const locale of BATCH_LOCALES) {
+        const translated = i18n.getResource(locale, "translation", key) as
+          | string
+          | undefined
+        if (typeof translated !== "string") continue
+        const want = placeholders(englishText)
+        const got = placeholders(translated)
+        if (want !== got) {
+          failures.push(
+            `${locale} | pages | ${key} | placeholders "${want}" vs "${got}"`,
+          )
+        }
+      }
+    }
+
+    expect(failures.join("\n"), failures.join("\n")).toBe("")
+  })
+
+  it("renders the translated Agent tuning settings", async () => {
+    for (const locale of BATCH_LOCALES) {
+      await i18n.changeLanguage(locale)
+
+      // Field labels and helper text.
+      expect(i18n.t("pages.config.max_tokens"), locale).not.toBe("Max Tokens")
+      expect(i18n.t("pages.config.max_tokens_hint"), locale).not.toBe(
+        "Upper token limit per model response.",
+      )
+      expect(i18n.t("pages.config.context_window_hint"), locale).not.toBe(
+        "Model input context capacity in tokens. Leave empty to use the default (4x max tokens).",
+      )
+      expect(i18n.t("pages.config.summarize_threshold"), locale).not.toBe(
+        "Summarize Message Threshold",
+      )
+
+      // The request-context policy, its title, its explanation and its modes.
+      expect(i18n.t("pages.config.turn_profile"), locale).not.toBe(
+        "Request Context Policy",
+      )
+      expect(i18n.t("pages.config.turn_profile_hint"), locale).not.toBe(
+        "Controls what context each request carries. Leave disabled to keep the normal chat behavior.",
+      )
+      expect(i18n.t("pages.config.turn_profile_mode_custom"), locale).not.toBe(
+        "Allow List",
+      )
+      expect(i18n.t("pages.config.turn_profile_history_hint"), locale).not.toBe(
+        "Default includes earlier messages from this session. Off makes the turn behave like a fresh chat and skips saving its result back to history.",
+      )
+
+      // Session scope: the selector, its options and their descriptions.
+      expect(i18n.t("pages.config.session_scope"), locale).not.toBe(
+        "Session Scope",
+      )
+      expect(
+        i18n.t("pages.config.session_scope_per_channel_peer"),
+        locale,
+      ).not.toBe("Per Channel + Peer")
+      expect(
+        i18n.t("pages.config.session_scope_per_channel_peer_desc"),
+        locale,
+      ).not.toBe("Separate context for each user in each channel.")
+    }
+  })
+
+  it("renders the translated runtime, launcher and security settings", async () => {
+    for (const locale of BATCH_LOCALES) {
+      await i18n.changeLanguage(locale)
+
+      // Runtime toggles.
+      expect(i18n.t("pages.config.heartbeat_enabled_hint"), locale).not.toBe(
+        "Send periodic heartbeat messages.",
+      )
+      expect(i18n.t("pages.config.monitor_usb_hint"), locale).not.toBe(
+        "Watch USB plug/unplug events when devices are enabled.",
+      )
+
+      // Launcher.
+      expect(i18n.t("pages.config.autostart_label"), locale).not.toBe(
+        "Launch at Login",
+      )
+      expect(i18n.t("pages.config.server_port"), locale).not.toBe(
+        "Service Port",
+      )
+      expect(i18n.t("pages.config.launcher_section_hint"), locale).not.toBe(
+        "Changes in this section take effect after the launcher restarts.",
+      )
+
+      // Password fields, including their placeholders.
+      expect(i18n.t("pages.config.dashboard_password"), locale).not.toBe(
+        "Login Password",
+      )
+      expect(
+        i18n.t("pages.config.dashboard_password_placeholder"),
+        locale,
+      ).not.toBe("At least 8 characters")
+
+      // Network security.
+      expect(i18n.t("pages.config.lan_access_hint"), locale).not.toBe(
+        "Allow access from other devices on your local network.",
+      )
+      expect(i18n.t("pages.config.allowed_cidrs"), locale).not.toBe(
+        "Allowed Network CIDRs",
+      )
+      expect(
+        i18n.t("pages.config.allow_localhost_bypass_hint"),
+        locale,
+      ).not.toBe(
+        "When enabled, localhost requests are allowed even when they do not match the allowed CIDRs. Disable this when the launcher is behind a same-host proxy.",
+      )
+
+      // Status / error states.
+      expect(i18n.t("pages.config.autostart_unsupported"), locale).not.toBe(
+        "Launch at login is not supported on this platform.",
+      )
+      expect(i18n.t("pages.config.autostart_load_error"), locale).not.toBe(
+        "Failed to load launch-at-login status.",
+      )
+    }
+  })
+
+  // Everything here reaches the user through toast.error(err.message) when a
+  // save is rejected, so each one has to be translated prose, not source text.
+  it("renders translated validation messages with their values interpolated", async () => {
+    for (const locale of BATCH_LOCALES) {
+      await i18n.changeLanguage(locale)
+
+      expect(i18n.t("pages.config.session_scope_required"), locale).not.toBe(
+        "Session scope is required.",
+      )
+      expect(
+        i18n.t("pages.config.dashboard_password_mismatch"),
+        locale,
+      ).not.toBe("The login passwords do not match.")
+      expect(
+        i18n.t("pages.config.dashboard_password_min_length"),
+        locale,
+      ).not.toBe("Login password must be at least 8 characters.")
+
+      // The numeric validators substitute the field's own label and bound.
+      const label = i18n.t("pages.config.max_tokens")
+      const integer = i18n.t("pages.config.validation_integer", { label })
+      expect(integer, locale).toContain(label)
+      expect(integer, locale).not.toContain("{{")
+      expect(integer, locale).not.toBe(`${label} must be an integer.`)
+
+      const min = i18n.t("pages.config.validation_min", { label, min: 1 })
+      expect(min, locale).toContain("1")
+      expect(min, locale).not.toContain("{{")
+
+      const max = i18n.t("pages.config.validation_max", { label, max: 100 })
+      expect(max, locale).toContain("100")
+      expect(max, locale).not.toContain("{{")
+    }
+  })
+
+  // The samples are the format to type, so they must survive translation byte
+  // for byte the way the pattern samples do.
+  it("keeps the tool and CIDR samples identical in every locale", async () => {
+    const literalKeys = [
+      "pages.config.turn_profile_tools_allow_placeholder",
+      "pages.config.allowed_cidrs_placeholder",
+      "pages.config.trusted_proxy_cidrs_placeholder",
+    ]
+    await i18n.changeLanguage("en")
+    const english = Object.fromEntries(
+      literalKeys.map((key) => [key, i18n.t(key)]),
+    )
+    expect(english["pages.config.allowed_cidrs_placeholder"]).toContain(
+      "192.168.1.0/24",
+    )
+
+    for (const locale of BATCH_LOCALES) {
+      await i18n.changeLanguage(locale)
+      for (const key of literalKeys) {
+        expect(i18n.t(key), `${locale} ${key}`).toBe(english[key])
+      }
+    }
+  })
+
+  it("keeps Arabic batch 3 pages right-to-left and translated", async () => {
+    await i18n.changeLanguage("ar")
+    expect(i18n.dir()).toBe("rtl")
+    expect(document.documentElement.getAttribute("dir")).toBe("rtl")
+    expect(i18n.t("pages.config.session_scope")).toBe("نطاق الجلسة")
+    expect(i18n.t("pages.config.dashboard_password")).toBe("كلمة مرور الدخول")
+    expect(i18n.t("pages.config.autostart_label")).toBe(
+      "التشغيل عند تسجيل الدخول",
+    )
+  })
+
+  it("keeps English and the pre-existing locales intact for batch 3", async () => {
+    await i18n.changeLanguage("en")
+    expect(i18n.t("pages.config.session_scope")).toBe("Session Scope")
+    expect(
+      i18n.t("pages.config.validation_min", { label: "Max Tokens", min: 1 }),
+    ).toBe("Max Tokens must be 1 or more.")
+
+    for (const locale of ["pt", "zh"]) {
+      await i18n.changeLanguage(locale)
+      for (const key of [
+        "pages.config.session_scope",
+        "pages.config.dashboard_password",
       ]) {
         expect(i18n.t(key), `${locale} ${key}`).not.toBe(key)
       }

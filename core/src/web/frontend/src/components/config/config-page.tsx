@@ -317,7 +317,7 @@ export function ConfigPage() {
           throw new Error(t("pages.config.workspace_required"))
         }
         if (!dmScope) {
-          throw new Error("Session scope is required.")
+          throw new Error(t("pages.config.session_scope_required"))
         }
 
         if (
@@ -331,51 +331,69 @@ export function ConfigPage() {
           )
         }
 
-        const maxTokens = parseIntField(form.maxTokens, "Max tokens", {
-          min: 1,
-        })
+        const maxTokens = parseIntField(
+          form.maxTokens,
+          t("pages.config.max_tokens"),
+          t,
+          {
+            min: 1,
+          },
+        )
         const contextWindow = form.contextWindow.trim()
-          ? parseIntField(form.contextWindow, "Context window", { min: 1 })
+          ? parseIntField(
+              form.contextWindow,
+              t("pages.config.context_window"),
+              t,
+              { min: 1 },
+            )
           : undefined
         const maxToolIterations = parseIntField(
           form.maxToolIterations,
-          "Max tool iterations",
+          t("pages.config.max_tool_iterations"),
+          t,
           { min: 1 },
         )
         const toolFeedbackMaxArgsLength = parseIntField(
           form.toolFeedbackMaxArgsLength,
-          "Tool feedback max args length",
+          t("pages.config.tool_feedback_max_args_length"),
+          t,
           { min: 0 },
         )
         const summarizeMessageThreshold = parseIntField(
           form.summarizeMessageThreshold,
-          "Summarize message threshold",
+          t("pages.config.summarize_threshold"),
+          t,
           { min: 1 },
         )
         const summarizeTokenPercent = parseIntField(
           form.summarizeTokenPercent,
-          "Summarize token percent",
+          t("pages.config.summarize_token_percent"),
+          t,
           { min: 1, max: 100 },
         )
         const turnProfile = buildTurnProfilePatch(form.turnProfile)
         const heartbeatInterval = parseIntField(
           form.heartbeatInterval,
-          "Heartbeat interval",
+          t("pages.config.heartbeat_interval"),
+          t,
           { min: 1 },
         )
         const cronExecTimeoutMinutes = parseIntField(
           form.cronExecTimeoutMinutes,
-          "Cron exec timeout",
+          t("pages.config.cron_exec_timeout"),
+          t,
           { min: 0 },
         )
         const evolutionMinTaskCount = parseIntField(
           form.evolutionMinTaskCount,
-          "Evolution minimum task count",
+          t("pages.config.evolution_min_task_count"),
+          t,
           { min: 1 },
         )
         const evolutionMinSuccessRatio = parseFloatField(
           form.evolutionMinSuccessRatio,
-          "Evolution minimum success ratio",
+          t("pages.config.evolution_min_success_ratio"),
+          t,
           { min: 0.01, max: 1 },
         )
         const mcpDiscoveryValidationEnabled =
@@ -389,14 +407,16 @@ export function ConfigPage() {
         if (mcpDiscoveryValidationEnabled) {
           mcpDiscoveryPatch.ttl = parseIntField(
             form.mcpDiscoveryTTL,
-            "MCP discovery ttl",
+            t("pages.config.mcp_discovery_ttl"),
+            t,
             {
               min: 1,
             },
           )
           mcpDiscoveryPatch.max_search_results = parseIntField(
             form.mcpDiscoveryMaxSearchResults,
-            "MCP discovery max search results",
+            t("pages.config.mcp_discovery_max_results"),
+            t,
             { min: 1 },
           )
         }
@@ -565,7 +585,8 @@ export function ConfigPage() {
           )
           execConfigPatch.timeout_seconds = parseIntField(
             form.execTimeoutSeconds,
-            "Exec timeout",
+            t("pages.config.exec_timeout_seconds"),
+            t,
             { min: 0 },
           )
 
@@ -640,10 +661,15 @@ export function ConfigPage() {
 
       let savedLauncherForm: LauncherForm | null = null
       if (launcherSettingsDirty) {
-        const port = parseIntField(launcherForm.port, "Service port", {
-          min: 1,
-          max: 65535,
-        })
+        const port = parseIntField(
+          launcherForm.port,
+          t("pages.config.server_port"),
+          t,
+          {
+            min: 1,
+            max: 65535,
+          },
+        )
         const allowedCIDRs = parseCIDRText(launcherForm.allowedCIDRsText)
         const trustedProxyCIDRs = parseCIDRText(
           launcherForm.trustedProxyCIDRsText,

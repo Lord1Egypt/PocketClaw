@@ -443,39 +443,57 @@ export function buildFormFromConfig(config: unknown): CoreConfigForm {
   }
 }
 
+/// Translates the message a field validator rejects with. config-page renders
+/// whatever these throw through toast.error(err.message), so the sentence and
+/// the field name both have to come from the bundle rather than from source.
+export type FieldValidationTranslator = (
+  key: string,
+  values: { label: string; min?: number; max?: number },
+) => string
+
+function checkRange(
+  value: number,
+  label: string,
+  options: { min?: number; max?: number },
+  t: FieldValidationTranslator,
+) {
+  if (options.min !== undefined && value < options.min) {
+    throw new Error(
+      t("pages.config.validation_min", { label, min: options.min }),
+    )
+  }
+  if (options.max !== undefined && value > options.max) {
+    throw new Error(
+      t("pages.config.validation_max", { label, max: options.max }),
+    )
+  }
+}
+
 export function parseIntField(
   rawValue: string,
   label: string,
+  t: FieldValidationTranslator,
   options: { min?: number; max?: number } = {},
 ): number {
   const value = Number(rawValue)
   if (!Number.isInteger(value)) {
-    throw new Error(`${label} must be an integer.`)
+    throw new Error(t("pages.config.validation_integer", { label }))
   }
-  if (options.min !== undefined && value < options.min) {
-    throw new Error(`${label} must be >= ${options.min}.`)
-  }
-  if (options.max !== undefined && value > options.max) {
-    throw new Error(`${label} must be <= ${options.max}.`)
-  }
+  checkRange(value, label, options, t)
   return value
 }
 
 export function parseFloatField(
   rawValue: string,
   label: string,
+  t: FieldValidationTranslator,
   options: { min?: number; max?: number } = {},
 ): number {
   const value = Number(rawValue)
   if (!Number.isFinite(value)) {
-    throw new Error(`${label} must be a number.`)
+    throw new Error(t("pages.config.validation_number", { label }))
   }
-  if (options.min !== undefined && value < options.min) {
-    throw new Error(`${label} must be >= ${options.min}.`)
-  }
-  if (options.max !== undefined && value > options.max) {
-    throw new Error(`${label} must be <= ${options.max}.`)
-  }
+  checkRange(value, label, options, t)
   return value
 }
 
