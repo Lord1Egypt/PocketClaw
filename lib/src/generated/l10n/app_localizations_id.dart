@@ -434,4 +434,62 @@ class AppLocalizationsId extends AppLocalizations {
   @override
   String get credentialAppliesDeferred =>
       'Tersimpan. PocketClaw sedang memulai, jadi ini akan diterapkan otomatis setelah selesai.';
+
+  @override
+  String get whatsNewTitle => 'Apa yang Baru';
+
+  @override
+  String get whatsNewDescription => 'Perubahan utama pada rilis ini.';
+
+  @override
+  String get whatsNewBadge => 'BARU';
+
+  @override
+  String get whatsNewSectionNew => 'Baru';
+
+  @override
+  String get whatsNewSectionImprovements => 'Peningkatan';
+
+  @override
+  String get whatsNewSectionFixes => 'Perbaikan';
+
+  @override
+  String get whatsNew020New1 =>
+      'Managed Runtime memasang dan menjaga agar peralatan bawaan PocketClaw tetap mutakhir.';
+
+  @override
+  String get whatsNew020New2 =>
+      'Peralatan pengembang bawaan: Git, GitHub CLI, curl, ripgrep, jq, dan SQLite.';
+
+  @override
+  String get whatsNew020New3 =>
+      'Dukungan untuk runtime Python 3.14 bawaan PocketClaw.';
+
+  @override
+  String get whatsNew020New4 =>
+      'Masuk ke GitHub secara aman, dipakai bersama oleh Git dan GitHub CLI bawaan.';
+
+  @override
+  String get whatsNew020New5 =>
+      'Integrasi Telegram, disiapkan dari Pengaturan.';
+
+  @override
+  String get whatsNew020Improvement1 =>
+      'Penyedia yang lebih tangguh: permintaan yang gagal tidak lagi mengakhiri giliran.';
+
+  @override
+  String get whatsNew020Improvement2 =>
+      'Katalog Managed Runtime yang lebih akurat.';
+
+  @override
+  String get whatsNew020Improvement3 =>
+      'Identitas PocketClaw yang lebih rapi di antarmuka web dan ruang kerja bawaan.';
+
+  @override
+  String get whatsNew020Fix1 =>
+      'Gateway kini pulih dari catatan proses usang yang ditinggalkan oleh proses sebelumnya.';
+
+  @override
+  String get whatsNew020Fix2 =>
+      'Daftar saluran dengan lebih dari satu entri kini tersimpan dengan benar.';
 }

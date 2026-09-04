@@ -153,5 +153,21 @@
   "githubDisconnectedReport": "تم قطع الاتصال. {outcome}",
   "credentialAppliedNow": "يمكن لـ gh و git استخدامه الآن.",
   "credentialAppliesNextStart": "سيُستخدم عند تشغيل PocketClaw في المرة القادمة.",
-  "credentialAppliesDeferred": "تم الحفظ. PocketClaw مشغول بالبدء، لذا سيُطبَّق تلقائيًا فور انتهاء ذلك."
+  "credentialAppliesDeferred": "تم الحفظ. PocketClaw مشغول بالبدء، لذا سيُطبَّق تلقائيًا فور انتهاء ذلك.",
+  "whatsNewTitle": "ما الجديد",
+  "whatsNewDescription": "أبرز التغييرات في هذا الإصدار.",
+  "whatsNewBadge": "جديد",
+  "whatsNewSectionNew": "جديد",
+  "whatsNewSectionImprovements": "تحسينات",
+  "whatsNewSectionFixes": "إصلاحات",
+  "whatsNew020New1": "يقوم وقت التشغيل المُدار بتثبيت أدوات PocketClaw المضمّنة وتحديثها نيابةً عنك.",
+  "whatsNew020New2": "أدوات تطوير مضمّنة: Git وGitHub CLI وcurl وripgrep وjq وSQLite.",
+  "whatsNew020New3": "دعم وقت تشغيل Python 3.14 المضمّن في PocketClaw.",
+  "whatsNew020New4": "تسجيل دخول آمن إلى GitHub، يشترك فيه Git وGitHub CLI المضمّنان.",
+  "whatsNew020New5": "تكامل مع تيليجرام، يُضبط من الإعدادات.",
+  "whatsNew020Improvement1": "مزوّدون أكثر مرونة: لم يعد فشل الطلب ينهي الدور.",
+  "whatsNew020Improvement2": "فهرس أدق لوقت التشغيل المُدار.",
+  "whatsNew020Improvement3": "هوية PocketClaw أوضح في واجهة الويب ومساحة العمل الافتراضية.",
+  "whatsNew020Fix1": "أصبحت البوابة تتعافى من سجل عملية قديم خلّفه تشغيل سابق.",
+  "whatsNew020Fix2": "يتم الآن حفظ قوائم القنوات التي تحتوي أكثر من عنصر واحد بشكل صحيح."
 }

@@ -153,5 +153,21 @@
   "githubDisconnectedReport": "Déconnecté. {outcome}",
   "credentialAppliedNow": "gh et git peuvent l'utiliser dès maintenant.",
   "credentialAppliesNextStart": "Il sera utilisé au prochain démarrage de PocketClaw.",
-  "credentialAppliesDeferred": "Enregistré. PocketClaw est en cours de démarrage ; le changement s'appliquera automatiquement dès la fin."
+  "credentialAppliesDeferred": "Enregistré. PocketClaw est en cours de démarrage ; le changement s'appliquera automatiquement dès la fin.",
+  "whatsNewTitle": "Nouveautés",
+  "whatsNewDescription": "Les principaux changements de cette version.",
+  "whatsNewBadge": "NOUVEAU",
+  "whatsNewSectionNew": "Nouveautés",
+  "whatsNewSectionImprovements": "Améliorations",
+  "whatsNewSectionFixes": "Corrections",
+  "whatsNew020New1": "L'environnement d'exécution géré installe les outils fournis avec PocketClaw et les maintient à jour.",
+  "whatsNew020New2": "Outils de développement fournis : Git, GitHub CLI, curl, ripgrep, jq et SQLite.",
+  "whatsNew020New3": "Prise en charge de l'environnement Python 3.14 fourni avec PocketClaw.",
+  "whatsNew020New4": "Connexion sécurisée à GitHub, partagée par Git et la CLI GitHub fournis.",
+  "whatsNew020New5": "Intégration de Telegram, à configurer depuis les Paramètres.",
+  "whatsNew020Improvement1": "Des fournisseurs plus robustes : une requête en échec ne met plus fin au tour.",
+  "whatsNew020Improvement2": "Un catalogue de l'environnement d'exécution géré plus précis.",
+  "whatsNew020Improvement3": "Une identité PocketClaw plus nette dans l'interface web et dans l'espace de travail par défaut.",
+  "whatsNew020Fix1": "La passerelle se rétablit désormais après un enregistrement de processus obsolète laissé par une exécution précédente.",
+  "whatsNew020Fix2": "Les listes de canaux comportant plusieurs entrées sont correctement conservées lors de l'enregistrement."
 }

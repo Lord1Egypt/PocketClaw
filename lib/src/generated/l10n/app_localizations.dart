@@ -879,6 +879,102 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Saved. PocketClaw is busy starting, so it will apply automatically as soon as that finishes.'**
   String get credentialAppliesDeferred;
+
+  /// No description provided for @whatsNewTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'What\'s New'**
+  String get whatsNewTitle;
+
+  /// No description provided for @whatsNewDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'The main changes in this release.'**
+  String get whatsNewDescription;
+
+  /// No description provided for @whatsNewBadge.
+  ///
+  /// In en, this message translates to:
+  /// **'NEW'**
+  String get whatsNewBadge;
+
+  /// No description provided for @whatsNewSectionNew.
+  ///
+  /// In en, this message translates to:
+  /// **'New'**
+  String get whatsNewSectionNew;
+
+  /// No description provided for @whatsNewSectionImprovements.
+  ///
+  /// In en, this message translates to:
+  /// **'Improvements'**
+  String get whatsNewSectionImprovements;
+
+  /// No description provided for @whatsNewSectionFixes.
+  ///
+  /// In en, this message translates to:
+  /// **'Fixes'**
+  String get whatsNewSectionFixes;
+
+  /// No description provided for @whatsNew020New1.
+  ///
+  /// In en, this message translates to:
+  /// **'Managed Runtime installs and keeps PocketClaw\'s bundled tools up to date for you.'**
+  String get whatsNew020New1;
+
+  /// No description provided for @whatsNew020New2.
+  ///
+  /// In en, this message translates to:
+  /// **'Bundled developer tools: Git, GitHub CLI, curl, ripgrep, jq and SQLite.'**
+  String get whatsNew020New2;
+
+  /// No description provided for @whatsNew020New3.
+  ///
+  /// In en, this message translates to:
+  /// **'Support for PocketClaw\'s bundled Python 3.14 runtime.'**
+  String get whatsNew020New3;
+
+  /// No description provided for @whatsNew020New4.
+  ///
+  /// In en, this message translates to:
+  /// **'Secure GitHub sign-in, shared by the bundled Git and GitHub CLI.'**
+  String get whatsNew020New4;
+
+  /// No description provided for @whatsNew020New5.
+  ///
+  /// In en, this message translates to:
+  /// **'Telegram integration, set up from Settings.'**
+  String get whatsNew020New5;
+
+  /// No description provided for @whatsNew020Improvement1.
+  ///
+  /// In en, this message translates to:
+  /// **'More resilient providers: a failing request no longer ends the turn.'**
+  String get whatsNew020Improvement1;
+
+  /// No description provided for @whatsNew020Improvement2.
+  ///
+  /// In en, this message translates to:
+  /// **'A more accurate Managed Runtime catalog.'**
+  String get whatsNew020Improvement2;
+
+  /// No description provided for @whatsNew020Improvement3.
+  ///
+  /// In en, this message translates to:
+  /// **'A cleaner PocketClaw identity across the web interface and the default workspace.'**
+  String get whatsNew020Improvement3;
+
+  /// No description provided for @whatsNew020Fix1.
+  ///
+  /// In en, this message translates to:
+  /// **'The Gateway now recovers from a stale process record left behind by an earlier run.'**
+  String get whatsNew020Fix1;
+
+  /// No description provided for @whatsNew020Fix2.
+  ///
+  /// In en, this message translates to:
+  /// **'Channel lists with more than one entry are preserved correctly when settings are saved.'**
+  String get whatsNew020Fix2;
 }
 
 class _AppLocalizationsDelegate

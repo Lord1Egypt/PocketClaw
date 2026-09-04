@@ -439,4 +439,62 @@ class AppLocalizationsEs extends AppLocalizations {
   @override
   String get credentialAppliesDeferred =>
       'Guardado. PocketClaw está iniciándose, así que se aplicará automáticamente en cuanto termine.';
+
+  @override
+  String get whatsNewTitle => 'Novedades';
+
+  @override
+  String get whatsNewDescription => 'Los cambios principales de esta versión.';
+
+  @override
+  String get whatsNewBadge => 'NUEVO';
+
+  @override
+  String get whatsNewSectionNew => 'Novedades';
+
+  @override
+  String get whatsNewSectionImprovements => 'Mejoras';
+
+  @override
+  String get whatsNewSectionFixes => 'Correcciones';
+
+  @override
+  String get whatsNew020New1 =>
+      'El entorno de ejecución gestionado instala y mantiene actualizadas las herramientas incluidas en PocketClaw.';
+
+  @override
+  String get whatsNew020New2 =>
+      'Herramientas de desarrollo incluidas: Git, GitHub CLI, curl, ripgrep, jq y SQLite.';
+
+  @override
+  String get whatsNew020New3 =>
+      'Compatibilidad con el entorno de ejecución de Python 3.14 incluido en PocketClaw.';
+
+  @override
+  String get whatsNew020New4 =>
+      'Inicio de sesión seguro en GitHub, compartido por Git y la CLI de GitHub incluidos.';
+
+  @override
+  String get whatsNew020New5 =>
+      'Integración con Telegram, configurable desde Ajustes.';
+
+  @override
+  String get whatsNew020Improvement1 =>
+      'Proveedores más resistentes: una solicitud fallida ya no interrumpe el turno.';
+
+  @override
+  String get whatsNew020Improvement2 =>
+      'Un catálogo del entorno de ejecución gestionado más preciso.';
+
+  @override
+  String get whatsNew020Improvement3 =>
+      'Una identidad de PocketClaw más clara en la interfaz web y en el espacio de trabajo predeterminado.';
+
+  @override
+  String get whatsNew020Fix1 =>
+      'La puerta de enlace ahora se recupera de un registro de proceso obsoleto dejado por una ejecución anterior.';
+
+  @override
+  String get whatsNew020Fix2 =>
+      'Las listas de canales con más de una entrada se conservan correctamente al guardar los ajustes.';
 }

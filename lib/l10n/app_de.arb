@@ -153,5 +153,21 @@
   "githubDisconnectedReport": "Getrennt. {outcome}",
   "credentialAppliedNow": "gh und git können es jetzt verwenden.",
   "credentialAppliesNextStart": "Es wird beim nächsten Start von PocketClaw verwendet.",
-  "credentialAppliesDeferred": "Gespeichert. PocketClaw startet gerade und wendet es automatisch an, sobald das abgeschlossen ist."
+  "credentialAppliesDeferred": "Gespeichert. PocketClaw startet gerade und wendet es automatisch an, sobald das abgeschlossen ist.",
+  "whatsNewTitle": "Neuerungen",
+  "whatsNewDescription": "Die wichtigsten Änderungen in dieser Version.",
+  "whatsNewBadge": "NEU",
+  "whatsNewSectionNew": "Neu",
+  "whatsNewSectionImprovements": "Verbesserungen",
+  "whatsNewSectionFixes": "Fehlerbehebungen",
+  "whatsNew020New1": "Die verwaltete Laufzeitumgebung installiert die mitgelieferten PocketClaw-Werkzeuge und hält sie aktuell.",
+  "whatsNew020New2": "Mitgelieferte Entwicklerwerkzeuge: Git, GitHub CLI, curl, ripgrep, jq und SQLite.",
+  "whatsNew020New3": "Unterstützung für die mitgelieferte Python-3.14-Laufzeitumgebung von PocketClaw.",
+  "whatsNew020New4": "Sichere GitHub-Anmeldung, gemeinsam genutzt von Git und der GitHub CLI.",
+  "whatsNew020New5": "Telegram-Integration, einrichtbar in den Einstellungen.",
+  "whatsNew020Improvement1": "Robustere Anbieter: Eine fehlgeschlagene Anfrage beendet den Durchgang nicht mehr.",
+  "whatsNew020Improvement2": "Ein genauerer Katalog der verwalteten Laufzeitumgebung.",
+  "whatsNew020Improvement3": "Eine klarere PocketClaw-Identität in der Weboberfläche und im Standard-Arbeitsbereich.",
+  "whatsNew020Fix1": "Das Gateway erholt sich jetzt von einem veralteten Prozesseintrag eines früheren Laufs.",
+  "whatsNew020Fix2": "Kanallisten mit mehreren Einträgen bleiben beim Speichern korrekt erhalten."
 }

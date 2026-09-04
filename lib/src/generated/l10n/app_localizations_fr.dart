@@ -442,4 +442,63 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get credentialAppliesDeferred =>
       'Enregistré. PocketClaw est en cours de démarrage ; le changement s\'appliquera automatiquement dès la fin.';
+
+  @override
+  String get whatsNewTitle => 'Nouveautés';
+
+  @override
+  String get whatsNewDescription =>
+      'Les principaux changements de cette version.';
+
+  @override
+  String get whatsNewBadge => 'NOUVEAU';
+
+  @override
+  String get whatsNewSectionNew => 'Nouveautés';
+
+  @override
+  String get whatsNewSectionImprovements => 'Améliorations';
+
+  @override
+  String get whatsNewSectionFixes => 'Corrections';
+
+  @override
+  String get whatsNew020New1 =>
+      'L\'environnement d\'exécution géré installe les outils fournis avec PocketClaw et les maintient à jour.';
+
+  @override
+  String get whatsNew020New2 =>
+      'Outils de développement fournis : Git, GitHub CLI, curl, ripgrep, jq et SQLite.';
+
+  @override
+  String get whatsNew020New3 =>
+      'Prise en charge de l\'environnement Python 3.14 fourni avec PocketClaw.';
+
+  @override
+  String get whatsNew020New4 =>
+      'Connexion sécurisée à GitHub, partagée par Git et la CLI GitHub fournis.';
+
+  @override
+  String get whatsNew020New5 =>
+      'Intégration de Telegram, à configurer depuis les Paramètres.';
+
+  @override
+  String get whatsNew020Improvement1 =>
+      'Des fournisseurs plus robustes : une requête en échec ne met plus fin au tour.';
+
+  @override
+  String get whatsNew020Improvement2 =>
+      'Un catalogue de l\'environnement d\'exécution géré plus précis.';
+
+  @override
+  String get whatsNew020Improvement3 =>
+      'Une identité PocketClaw plus nette dans l\'interface web et dans l\'espace de travail par défaut.';
+
+  @override
+  String get whatsNew020Fix1 =>
+      'La passerelle se rétablit désormais après un enregistrement de processus obsolète laissé par une exécution précédente.';
+
+  @override
+  String get whatsNew020Fix2 =>
+      'Les listes de canaux comportant plusieurs entrées sont correctement conservées lors de l\'enregistrement.';
 }

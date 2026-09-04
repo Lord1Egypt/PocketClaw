@@ -414,4 +414,53 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get credentialAppliesDeferred => '已保存。PocketClaw 正在启动，完成后将自动生效。';
+
+  @override
+  String get whatsNewTitle => '新功能';
+
+  @override
+  String get whatsNewDescription => '本次发布的主要变化。';
+
+  @override
+  String get whatsNewBadge => '新';
+
+  @override
+  String get whatsNewSectionNew => '新增';
+
+  @override
+  String get whatsNewSectionImprovements => '改进';
+
+  @override
+  String get whatsNewSectionFixes => '修复';
+
+  @override
+  String get whatsNew020New1 => '托管运行时会为你安装并持续更新 PocketClaw 自带的工具。';
+
+  @override
+  String get whatsNew020New2 =>
+      '内置开发工具：Git、GitHub CLI、curl、ripgrep、jq 和 SQLite。';
+
+  @override
+  String get whatsNew020New3 => '支持 PocketClaw 内置的 Python 3.14 运行时。';
+
+  @override
+  String get whatsNew020New4 => '安全的 GitHub 登录，内置的 Git 与 GitHub CLI 共用同一凭据。';
+
+  @override
+  String get whatsNew020New5 => 'Telegram 集成，可在“设置”中配置。';
+
+  @override
+  String get whatsNew020Improvement1 => '更稳健的服务商：单次请求失败不再中断本轮对话。';
+
+  @override
+  String get whatsNew020Improvement2 => '更准确的托管运行时目录。';
+
+  @override
+  String get whatsNew020Improvement3 => '网页界面与默认工作区中的 PocketClaw 标识更加统一。';
+
+  @override
+  String get whatsNew020Fix1 => '网关现在可以从上一次运行遗留的过期进程记录中恢复。';
+
+  @override
+  String get whatsNew020Fix2 => '包含多个条目的频道列表在保存时能够正确保留。';
 }

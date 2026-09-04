@@ -430,4 +430,61 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get credentialAppliesDeferred =>
       'Saved. PocketClaw is busy starting, so it will apply automatically as soon as that finishes.';
+
+  @override
+  String get whatsNewTitle => 'What\'s New';
+
+  @override
+  String get whatsNewDescription => 'The main changes in this release.';
+
+  @override
+  String get whatsNewBadge => 'NEW';
+
+  @override
+  String get whatsNewSectionNew => 'New';
+
+  @override
+  String get whatsNewSectionImprovements => 'Improvements';
+
+  @override
+  String get whatsNewSectionFixes => 'Fixes';
+
+  @override
+  String get whatsNew020New1 =>
+      'Managed Runtime installs and keeps PocketClaw\'s bundled tools up to date for you.';
+
+  @override
+  String get whatsNew020New2 =>
+      'Bundled developer tools: Git, GitHub CLI, curl, ripgrep, jq and SQLite.';
+
+  @override
+  String get whatsNew020New3 =>
+      'Support for PocketClaw\'s bundled Python 3.14 runtime.';
+
+  @override
+  String get whatsNew020New4 =>
+      'Secure GitHub sign-in, shared by the bundled Git and GitHub CLI.';
+
+  @override
+  String get whatsNew020New5 => 'Telegram integration, set up from Settings.';
+
+  @override
+  String get whatsNew020Improvement1 =>
+      'More resilient providers: a failing request no longer ends the turn.';
+
+  @override
+  String get whatsNew020Improvement2 =>
+      'A more accurate Managed Runtime catalog.';
+
+  @override
+  String get whatsNew020Improvement3 =>
+      'A cleaner PocketClaw identity across the web interface and the default workspace.';
+
+  @override
+  String get whatsNew020Fix1 =>
+      'The Gateway now recovers from a stale process record left behind by an earlier run.';
+
+  @override
+  String get whatsNew020Fix2 =>
+      'Channel lists with more than one entry are preserved correctly when settings are saved.';
 }
