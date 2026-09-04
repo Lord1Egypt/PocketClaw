@@ -1,0 +1,664 @@
+<!doctype html>
+<!--
+  PocketClaw Visual Identity — Concept A ("Aperture")
+  ISOLATED DESIGN PROTOTYPE. Not production code.
+
+  Not imported by, referenced from, or reachable from the Flutter app or the
+  web dashboard. Nothing here is wired into production navigation. Open the
+  file directly in a browser to review the direction.
+
+  Self-contained on purpose: no build step, no dependency, no network fetch.
+  See ../VISUAL_IDENTITY_CLAUDE_A.md for the reasoning behind every value.
+-->
+<html lang="en" data-theme="dark" dir="ltr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PocketClaw — Concept A</title>
+<style>
+/* ============================================================
+   1. TOKENS  (§4 of the concept document)
+   Neutrals carry a small chroma at the brand hue. That single
+   decision is what separates this from stock shadcn grey.
+   ============================================================ */
+:root {
+  --pc-bg:            oklch(0.17 0.012 245);
+  --pc-surface-1:     oklch(0.21 0.014 245);
+  --pc-surface-2:     oklch(0.25 0.016 245);
+  --pc-surface-3:     oklch(0.29 0.018 245);
+  --pc-border:        oklch(0.33 0.020 245);
+  --pc-border-strong: oklch(0.44 0.026 245);
+  --pc-text:          oklch(0.97 0.004 245);
+  --pc-text-muted:    oklch(0.74 0.014 245);
+  --pc-text-faint:    oklch(0.60 0.016 245);
+  --pc-primary:       oklch(0.70 0.130 208);
+  --pc-primary-hover: oklch(0.76 0.130 208);
+  --pc-primary-fg:    oklch(0.16 0.020 245);
+  --pc-primary-soft:  oklch(0.70 0.130 208 / 0.14);
+  --pc-primary-line:  oklch(0.70 0.130 208 / 0.40);
+  --pc-signal:        oklch(0.78 0.130 195);
+  --pc-success:       oklch(0.72 0.150 158);
+  --pc-warning:       oklch(0.80 0.140 78);
+  --pc-danger:        oklch(0.64 0.200 25);
+
+  --pc-r-xs: 6px;  --pc-r-sm: 10px; --pc-r-md: 14px;
+  --pc-r-lg: 20px; --pc-r-full: 999px;
+
+  --pc-font-ui: "Inter Variable", Inter, system-ui, -apple-system, sans-serif;
+  --pc-font-mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+
+  --pc-ease: cubic-bezier(0.2, 0, 0, 1);
+  --pc-shadow-3: 0 8px 24px oklch(0 0 0 / 0.32);
+}
+
+:root[data-theme="light"] {
+  --pc-bg:            oklch(0.985 0.003 245);
+  --pc-surface-1:     oklch(1     0     0  );
+  --pc-surface-2:     oklch(0.975 0.004 245);
+  --pc-surface-3:     oklch(0.955 0.006 245);
+  --pc-border:        oklch(0.905 0.008 245);
+  --pc-border-strong: oklch(0.820 0.012 245);
+  --pc-text:          oklch(0.22  0.015 245);
+  --pc-text-muted:    oklch(0.46  0.018 245);
+  --pc-text-faint:    oklch(0.58  0.016 245);
+  --pc-primary:       oklch(0.55  0.135 208);
+  --pc-primary-hover: oklch(0.48  0.135 208);
+  --pc-primary-fg:    oklch(0.99  0.005 208);
+  --pc-signal:        oklch(0.60  0.130 195);
+  --pc-shadow-3:      0 8px 24px oklch(0.4 0.02 245 / 0.12);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--pc-bg);
+  color: var(--pc-text);
+  font-family: var(--pc-font-ui);
+  font-size: 0.9375rem;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  transition: background 240ms var(--pc-ease), color 240ms var(--pc-ease);
+}
+
+/* Focus is the D-pad cursor. It is never removed. (§14) */
+:focus-visible {
+  outline: 2px solid var(--pc-primary);
+  outline-offset: 2px;
+  border-radius: var(--pc-r-xs);
+}
+
+.mono { font-family: var(--pc-font-mono); font-size: 0.8125rem; }
+.micro {
+  font-size: 0.6875rem; font-weight: 600;
+  letter-spacing: 0.06em; text-transform: uppercase;
+}
+
+/* ============================================================
+   2. CONTROL STRIP  (prototype scaffolding only)
+   ============================================================ */
+.strip {
+  display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--pc-border);
+  background: var(--pc-surface-1);
+  position: sticky; top: 0; z-index: 60;
+}
+.strip .label { color: var(--pc-text-faint); margin-inline-end: 4px; }
+
+/* ============================================================
+   3. SHELL
+   ============================================================ */
+.shell { display: flex; min-height: calc(100vh - 57px); }
+
+/* --- Sidebar (§9.2) --- */
+.sidebar {
+  width: 264px; flex: 0 0 264px;
+  background: var(--pc-surface-1);
+  border-inline-end: 1px solid var(--pc-border);
+  display: flex; flex-direction: column;
+}
+.sidebar-header {
+  height: 56px; display: flex; align-items: center; gap: 10px;
+  padding-inline: 16px; border-bottom: 1px solid var(--pc-border);
+}
+.wordmark { font-weight: 600; letter-spacing: -0.02em; font-size: 1.0625rem; }
+.nav { padding: 12px 10px; overflow-y: auto; }
+.group-label {
+  color: var(--pc-text-faint);
+  padding: 20px 8px 8px;
+}
+.group-label:first-child { padding-top: 4px; }
+
+/* The bracket. border-inline-start mirrors in RTL with no branch. (§7) */
+.nav-item {
+  display: flex; align-items: center; gap: 10px;
+  height: 36px; padding-inline: 10px;
+  border-radius: var(--pc-r-sm);
+  border-inline-start: 2px solid transparent;
+  color: var(--pc-text-muted);
+  font-size: 0.875rem; font-weight: 500;
+  cursor: pointer; user-select: none;
+  transition: background 120ms var(--pc-ease), color 120ms var(--pc-ease);
+}
+.nav-item:hover { background: var(--pc-surface-3); color: var(--pc-text); }
+.nav-item.active {
+  background: var(--pc-primary-soft);
+  border-inline-start-color: var(--pc-primary);
+  color: var(--pc-primary);
+}
+.nav-item svg { flex: 0 0 18px; }
+
+/* --- Main --- */
+.main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+
+/* --- Toolbar (§9.3) --- */
+.toolbar {
+  height: 56px; display: flex; align-items: center; gap: 8px;
+  padding-inline: 12px;
+  border-bottom: 1px solid var(--pc-border);
+  background: var(--pc-surface-1);
+}
+.spacer { flex: 1; }
+
+/* The mobile menu button. 44x44, and a real hamburger. (§17) */
+.menu-btn {
+  display: none;
+  width: 44px; height: 44px;
+  align-items: center; justify-content: center;
+  border-radius: var(--pc-r-sm);
+  border: none; background: transparent;
+  color: var(--pc-text-muted); cursor: pointer;
+}
+.menu-btn:hover { background: var(--pc-surface-3); color: var(--pc-text); }
+
+.icon-btn {
+  width: 40px; height: 40px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: var(--pc-r-sm);
+  border: none; background: transparent;
+  color: var(--pc-text-muted); cursor: pointer;
+  transition: background 120ms var(--pc-ease);
+}
+.icon-btn:hover { background: var(--pc-surface-3); color: var(--pc-text); }
+
+/* --- Status chip (§18). Colour never carries meaning alone. --- */
+.chip {
+  display: inline-flex; align-items: center; gap: 7px;
+  height: 32px; padding-inline: 12px;
+  border-radius: var(--pc-r-full);
+  border: 1px solid var(--pc-border);
+  background: var(--pc-surface-1);
+  color: var(--pc-text-muted);
+}
+.dot { width: 6px; height: 6px; border-radius: 50%; flex: none; }
+.dot.live { background: var(--pc-signal); animation: pulse 2.4s ease-in-out infinite; }
+.dot.ok   { background: var(--pc-success); }
+.dot.warn { background: var(--pc-warning); }
+.dot.off  { background: var(--pc-text-faint); }
+@keyframes pulse { 0%,100% { opacity: 1 } 50% { opacity: 0.45 } }
+
+/* --- Buttons (§8.4) --- */
+.btn {
+  height: 40px; padding-inline: 16px;
+  display: inline-flex; align-items: center; gap: 8px;
+  border-radius: var(--pc-r-sm);
+  font: inherit; font-size: 0.875rem; font-weight: 500;
+  cursor: pointer; border: 1px solid transparent;
+  transition: background 120ms var(--pc-ease);
+}
+.btn-primary { background: var(--pc-primary); color: var(--pc-primary-fg); }
+.btn-primary:hover { background: var(--pc-primary-hover); }
+.btn-ghost {
+  background: transparent; border-color: var(--pc-border); color: var(--pc-text);
+}
+.btn-ghost:hover { background: var(--pc-surface-3); }
+
+/* --- Content --- */
+.content { padding: 24px; overflow-y: auto; }
+.page-title { font-size: 1.375rem; font-weight: 600; letter-spacing: -0.01em; }
+.section { max-width: 1200px; }
+h3.heading { font-size: 1.125rem; font-weight: 600; margin-bottom: 4px; }
+.caption { font-size: 0.8125rem; color: var(--pc-text-muted); }
+
+/* --- Cards (§18) --- */
+.card {
+  background: var(--pc-surface-1);
+  border: 1px solid var(--pc-border);
+  border-radius: var(--pc-r-md);
+  padding: 16px;
+  box-shadow: inset 0 1px 0 oklch(1 0 0 / 0.04);
+}
+.card + .card { margin-top: 12px; }
+.card-row { display: flex; align-items: flex-start; gap: 16px; }
+.card-row .grow { flex: 1; min-width: 0; }
+.value-line {
+  margin-top: 10px; padding-inline-start: 10px;
+  border-inline-start: 2px solid var(--pc-primary-line);
+  color: var(--pc-text-muted);
+}
+.card.warn {
+  background: color-mix(in oklab, var(--pc-warning) 10%, var(--pc-surface-1));
+  border-inline-start: 2px solid var(--pc-warning);
+}
+
+/* --- Switch. 44px hit area regardless of visual size. --- */
+.switch {
+  position: relative; width: 44px; height: 44px; flex: none;
+  display: grid; place-items: center;
+  border: none; background: transparent; cursor: pointer; padding: 0;
+}
+.switch::before {
+  content: ""; width: 40px; height: 24px;
+  border-radius: var(--pc-r-full);
+  background: var(--pc-surface-3);
+  border: 1px solid var(--pc-border-strong);
+  transition: background 180ms var(--pc-ease);
+}
+.switch::after {
+  content: ""; position: absolute;
+  inset-inline-start: 4px;
+  width: 18px; height: 18px; border-radius: 50%;
+  background: var(--pc-text-faint);
+  transition: inset-inline-start 180ms var(--pc-ease), background 180ms var(--pc-ease);
+}
+.switch[aria-checked="true"]::before { background: var(--pc-primary); border-color: transparent; }
+.switch[aria-checked="true"]::after  { inset-inline-start: 22px; background: var(--pc-primary-fg); }
+
+/* --- Segmented control (Context Memory, §8.3) --- */
+.segmented {
+  display: inline-flex; padding: 3px; gap: 2px;
+  border: 1px solid var(--pc-border);
+  border-radius: var(--pc-r-sm);
+  background: var(--pc-surface-3);
+}
+.segmented button {
+  height: 34px; padding-inline: 14px;
+  border: none; background: transparent; cursor: pointer;
+  border-radius: var(--pc-r-xs);
+  color: var(--pc-text-muted); font: inherit; font-size: 0.875rem; font-weight: 500;
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.segmented button[aria-pressed="true"] {
+  background: var(--pc-primary-soft); color: var(--pc-primary);
+}
+.badge {
+  border-radius: var(--pc-r-xs); padding: 2px 6px;
+  background: var(--pc-primary); color: var(--pc-primary-fg);
+}
+
+/* ============================================================
+   4. CHAT  (§10)
+   ============================================================ */
+.thread { max-width: 78ch; margin-inline: auto; padding-block: 8px 24px; }
+
+/* User: contained bubble, inline-end. */
+.msg-user {
+  margin-inline-start: auto; width: fit-content; max-width: 88%;
+  background: var(--pc-surface-2);
+  border: 1px solid var(--pc-border);
+  border-radius: var(--pc-r-lg) var(--pc-r-lg) var(--pc-r-sm) var(--pc-r-lg);
+  padding: 10px 14px; margin-block: 20px;
+}
+:root[dir="rtl"] .msg-user {
+  border-radius: var(--pc-r-lg) var(--pc-r-lg) var(--pc-r-lg) var(--pc-r-sm);
+}
+
+/* Assistant: not a bubble. Full measure with a rail. */
+.msg-assistant {
+  border-inline-start: 2px solid var(--pc-primary-line);
+  padding-inline-start: 16px; margin-block: 20px;
+}
+.msg-who { color: var(--pc-primary); margin-bottom: 6px; }
+
+.tool-row {
+  display: flex; align-items: center; gap: 10px;
+  margin-top: 12px; padding: 9px 12px;
+  background: var(--pc-surface-1);
+  border: 1px solid var(--pc-border);
+  border-radius: var(--pc-r-sm);
+  color: var(--pc-text-muted);
+}
+
+/* Composer: the whole well reacts to focus. */
+.composer {
+  max-width: 78ch; margin-inline: auto; width: 100%;
+  background: var(--pc-surface-2);
+  border: 1px solid var(--pc-border);
+  border-radius: var(--pc-r-lg);
+  padding: 12px;
+  transition: border-color 120ms var(--pc-ease), box-shadow 120ms var(--pc-ease);
+}
+.composer:focus-within {
+  border-color: var(--pc-primary);
+  box-shadow: 0 0 0 2px var(--pc-primary-line);
+}
+.composer textarea {
+  width: 100%; border: none; background: transparent; resize: none;
+  color: var(--pc-text); font: inherit; min-height: 46px; outline: none;
+}
+.composer textarea::placeholder { color: var(--pc-text-faint); }
+.composer-foot { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
+.model-pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  height: 32px; padding-inline: 10px;
+  border: 1px solid var(--pc-border); border-radius: var(--pc-r-full);
+  background: var(--pc-surface-1); color: var(--pc-text-muted); cursor: pointer;
+}
+/* Send and Stop share one slot: no reflow mid-response. */
+.send {
+  width: 40px; height: 40px; flex: none;
+  display: grid; place-items: center;
+  border: none; border-radius: var(--pc-r-sm);
+  background: var(--pc-primary); color: var(--pc-primary-fg); cursor: pointer;
+}
+.send[data-state="streaming"] {
+  background: transparent;
+  border: 1px solid var(--pc-signal);
+  color: var(--pc-signal);
+}
+
+.empty { text-align: center; padding-block: 56px; }
+.empty .mark { color: var(--pc-text-faint); }
+.suggestions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 20px; }
+.suggest {
+  height: 36px; padding-inline: 14px;
+  border: 1px solid var(--pc-border); border-radius: var(--pc-r-full);
+  background: var(--pc-surface-1); color: var(--pc-text-muted);
+  font: inherit; font-size: 0.875rem; cursor: pointer;
+}
+.suggest:hover { background: var(--pc-surface-3); color: var(--pc-text); }
+
+/* ============================================================
+   5. SWATCHES
+   ============================================================ */
+.swatches { display: flex; flex-wrap: wrap; gap: 10px; }
+.sw { width: 104px; }
+.sw i {
+  display: block; height: 52px; border-radius: var(--pc-r-sm);
+  border: 1px solid var(--pc-border);
+}
+.sw span { display: block; color: var(--pc-text-faint); margin-top: 6px; }
+
+/* ============================================================
+   6. RESPONSIVE (§11) — mobile is not a squeezed desktop
+   ============================================================ */
+@media (max-width: 860px) {
+  .sidebar { display: none; }
+  .menu-btn { display: inline-flex; }
+  .content { padding: 16px; }
+  .toolbar { padding-inline: 6px; }
+  .hide-sm { display: none !important; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition-duration: 1ms !important; }
+}
+</style>
+</head>
+<body>
+
+<!-- ============ prototype controls (not part of the design) ============ -->
+<div class="strip">
+  <span class="label micro">Prototype</span>
+  <button class="btn btn-ghost" onclick="toggleTheme()">Toggle light / dark</button>
+  <button class="btn btn-ghost" onclick="toggleDir()">Toggle LTR / RTL</button>
+  <span class="caption">Concept A — Aperture · resize below 860px for the mobile menu</span>
+</div>
+
+<div class="shell">
+
+  <!-- ============ sidebar ============ -->
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none"
+           stroke="currentColor" stroke-width="2"
+           stroke-linecap="round" stroke-linejoin="round"
+           style="color: var(--pc-primary)" aria-hidden="true">
+        <!-- the pocket: a squared container, open at the top -->
+        <path d="M4 12 v8 h16 v-8"/>
+        <!-- the claw: two arms rising and splaying outward -->
+        <path d="M8.5 14 V8 L5.5 3.5"/>
+        <path d="M15.5 14 V8 L18.5 3.5"/>
+      </svg>
+      <span class="wordmark">PocketClaw</span>
+    </div>
+    <nav class="nav">
+      <div class="group-label micro">Chat</div>
+      <div class="nav-item active">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a8 8 0 1 1-3.5-6.6L21 4v5h-5"/></svg>
+        Session
+      </div>
+      <div class="group-label micro">Models</div>
+      <div class="nav-item">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3"/></svg>
+        Models
+      </div>
+      <div class="nav-item">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="8" cy="12" r="3"/><path d="M11 12h10M18 12v3"/></svg>
+        Credentials
+      </div>
+      <div class="group-label micro">Agent</div>
+      <div class="nav-item">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l2 5 5 2-5 2-2 5-2-5-5-2 5-2z"/></svg>
+        Skills
+      </div>
+      <div class="nav-item">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 6l4 4-8 8-4-4z"/><path d="M16 4l4 4"/></svg>
+        Tools
+      </div>
+      <div class="group-label micro">Services</div>
+      <div class="nav-item">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 5L2 12l7 2 2 7z"/></svg>
+        Telegram
+      </div>
+      <div class="nav-item">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5h16v12H4z"/><path d="M8 20h8"/></svg>
+        Logs
+      </div>
+    </nav>
+  </aside>
+
+  <!-- ============ main ============ -->
+  <div class="main">
+
+    <!-- toolbar -->
+    <header class="toolbar">
+      <!-- §17: a real hamburger at a 44px target, mobile only -->
+      <button class="menu-btn" aria-label="Open menu">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <path d="M4 7h16M4 12h16M4 17h16"/>
+        </svg>
+      </button>
+
+      <div class="spacer"></div>
+      <!-- the gateway pill: the toolbar's centre of gravity -->
+      <div class="chip"><span class="dot live"></span> Gateway running</div>
+      <div class="spacer"></div>
+
+      <button class="icon-btn hide-sm" aria-label="Language">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 0 1 0 18a15 15 0 0 1 0-18"/></svg>
+      </button>
+      <button class="icon-btn" aria-label="Theme" onclick="toggleTheme()">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 14a8 8 0 1 1-10-10a7 7 0 0 0 10 10z"/></svg>
+      </button>
+    </header>
+
+    <div class="content">
+      <div class="section">
+
+        <!-- ============ chat ============ -->
+        <div class="thread">
+          <div class="msg-user">Check whether the gateway is healthy and summarise the last error.</div>
+
+          <div class="msg-assistant">
+            <div class="msg-who micro">PocketClaw</div>
+            <p>The gateway is running and has been up for 4 hours. One error appeared in the last hour, from the Telegram long poll.</p>
+            <div class="tool-row">
+              <span class="dot ok"></span>
+              <span class="mono grow">read_logs</span>
+              <span class="mono">124&nbsp;ms</span>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg>
+            </div>
+            <div class="tool-row">
+              <span class="dot live"></span>
+              <span class="mono grow">gateway_status</span>
+              <span class="mono">running…</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- composer -->
+        <div class="composer">
+          <textarea placeholder="Message PocketClaw…" rows="1"></textarea>
+          <div class="composer-foot">
+            <button class="icon-btn" aria-label="Attach file" style="width:40px;height:40px">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+            </button>
+            <button class="model-pill mono">claude-opus-5
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+            </button>
+            <div class="spacer"></div>
+            <button class="send" data-state="idle" aria-label="Send" onclick="toggleSend(this)">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- ============ empty state (§10.3) — no opacity wrapper ============ -->
+        <div class="empty">
+          <svg class="mark" width="48" height="48" viewBox="0 0 24 24" fill="none"
+               stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M4 12 v8 h16 v-8"/><path d="M8.5 14 V8 L5.5 3.5"/><path d="M15.5 14 V8 L18.5 3.5"/>
+          </svg>
+          <h3 class="heading" style="margin-top:16px">Ready when you are</h3>
+          <p class="caption">Using <span class="mono">claude-opus-5</span></p>
+          <div class="suggestions">
+            <button class="suggest">Summarise a file</button>
+            <button class="suggest">Check the gateway</button>
+            <button class="suggest">Run a command</button>
+          </div>
+        </div>
+
+        <!-- ============ settings cards (§8.3) ============ -->
+        <h2 class="page-title" style="margin:32px 0 4px">Settings</h2>
+        <div class="group-label micro" style="padding-inline:0">Connection</div>
+
+        <div class="card warn">
+          <div class="card-row">
+            <div class="grow">
+              <h3 class="heading">Public Mode</h3>
+              <p class="caption">Exposes the password-protected Dashboard to your LAN. The Core gateway stays private.</p>
+              <div class="value-line mono">192.168.1.42:8080</div>
+            </div>
+            <button class="switch" role="switch" aria-checked="true" aria-label="Public Mode" onclick="toggleSwitch(this)"></button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-row">
+            <div class="grow">
+              <h3 class="heading">Start Gateway automatically</h3>
+              <p class="caption">Preference on</p>
+              <div style="margin-top:8px"><span class="chip"><span class="dot live"></span> Running</span></div>
+            </div>
+            <button class="switch" role="switch" aria-checked="true" aria-label="Auto-start gateway" onclick="toggleSwitch(this)"></button>
+          </div>
+        </div>
+
+        <div class="group-label micro" style="padding-inline:0">Agent</div>
+        <div class="card">
+          <h3 class="heading">Context Memory</h3>
+          <p class="caption" style="margin-bottom:12px">How many recent messages the agent keeps in view.</p>
+          <div class="segmented">
+            <button>10</button>
+            <button aria-pressed="true">15 <span class="badge micro">Rec</span></button>
+            <button>20</button>
+            <button>25</button>
+            <button>Custom</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-row">
+            <div class="grow">
+              <h3 class="heading">GitHub</h3>
+              <p class="caption"><span class="dot ok" style="display:inline-block"></span> Connected as <span class="mono">@lord1egypt</span></p>
+            </div>
+            <button class="btn btn-ghost">Disconnect</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-row">
+            <div class="grow">
+              <h3 class="heading">What's New <span class="badge micro">New</span></h3>
+              <p class="caption">The main changes in this release.</p>
+            </div>
+            <button class="btn btn-primary">Open</button>
+          </div>
+        </div>
+
+        <!-- ============ palette ============ -->
+        <div class="group-label micro" style="padding-inline:0">Palette</div>
+        <div class="swatches">
+          <div class="sw"><i style="background:var(--pc-bg)"></i><span class="micro">bg</span></div>
+          <div class="sw"><i style="background:var(--pc-surface-1)"></i><span class="micro">surface 1</span></div>
+          <div class="sw"><i style="background:var(--pc-surface-2)"></i><span class="micro">surface 2</span></div>
+          <div class="sw"><i style="background:var(--pc-surface-3)"></i><span class="micro">surface 3</span></div>
+          <div class="sw"><i style="background:var(--pc-primary)"></i><span class="micro">claw 208</span></div>
+          <div class="sw"><i style="background:var(--pc-signal)"></i><span class="micro">signal 195</span></div>
+          <div class="sw"><i style="background:var(--pc-success)"></i><span class="micro">success</span></div>
+          <div class="sw"><i style="background:var(--pc-warning)"></i><span class="micro">warning</span></div>
+          <div class="sw"><i style="background:var(--pc-danger)"></i><span class="micro">danger</span></div>
+        </div>
+
+        <p class="caption" style="margin-top:28px">
+          Isolated prototype. Not wired into production navigation.
+          See <span class="mono">docs/design/VISUAL_IDENTITY_CLAUDE_A.md</span>.
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  function toggleTheme() {
+    const r = document.documentElement;
+    r.dataset.theme = r.dataset.theme === "dark" ? "light" : "dark";
+  }
+  function toggleDir() {
+    const r = document.documentElement;
+    const rtl = r.getAttribute("dir") === "rtl";
+    r.setAttribute("dir", rtl ? "ltr" : "rtl");
+    r.setAttribute("lang", rtl ? "en" : "ar");
+  }
+  function toggleSwitch(el) {
+    el.setAttribute("aria-checked", el.getAttribute("aria-checked") === "true" ? "false" : "true");
+  }
+  function toggleSend(el) {
+    const streaming = el.dataset.state === "streaming";
+    el.dataset.state = streaming ? "idle" : "streaming";
+    el.setAttribute("aria-label", streaming ? "Send" : "Stop");
+    el.innerHTML = streaming
+      ? '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>'
+      : '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>';
+  }
+  // Segmented control: prototype affordance only.
+  document.querySelectorAll(".segmented").forEach(group => {
+    group.addEventListener("click", e => {
+      const btn = e.target.closest("button");
+      if (!btn) return;
+      group.querySelectorAll("button").forEach(b => b.removeAttribute("aria-pressed"));
+      btn.setAttribute("aria-pressed", "true");
+    });
+  });
+  // Sidebar nav: prototype affordance only.
+  document.querySelectorAll(".nav-item").forEach(item => {
+    item.addEventListener("click", () => {
+      document.querySelectorAll(".nav-item").forEach(i => i.classList.remove("active"));
+      item.classList.add("active");
+    });
+  });
+</script>
+</body>
+</html>
