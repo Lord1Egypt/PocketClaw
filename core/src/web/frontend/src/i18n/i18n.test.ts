@@ -385,6 +385,143 @@ describe("translation coverage", () => {
     expect(failures.join("\n"), failures.join("\n")).toBe("")
   })
 
+  // pt-BR and zh predate the nine-locale milestone and were never held to the
+  // English-copy rule, so both had shipped values byte-identical to English for
+  // real prose. They are held to it now. Latin script means an equality check
+  // cannot tell a loanword from an oversight, so unlike NON_LATIN these two get
+  // an exact-key allowance — never a prefix, never a namespace.
+  const IDENTICAL_BY_DESIGN: Record<string, ReadonlySet<string>> = {
+    // Brazilian Portuguese software writes these exactly as English does; the
+    // bundle already uses them untranslated in its own prose.
+    "pt-BR": new Set([
+      // Platform and protocol names.
+      "channels.name.telegram",
+      "channels.name.discord",
+      "channels.name.slack",
+      "channels.name.feishu",
+      "channels.name.dingtalk",
+      "channels.name.line",
+      "channels.name.qq",
+      "channels.name.onebot",
+      "channels.name.wecom",
+      "channels.name.weixin",
+      "channels.name.maixcam",
+      "channels.name.matrix",
+      "channels.name.irc",
+      "channels.name.mqtt",
+      "channels.name.pico",
+      "channels.field.broker",
+      "channels.field.qos",
+      "chat.modelGroup.oauth",
+      "pages.config.sections.mcp",
+      "pages.agent.skills.metadata.url",
+      // Loanwords Brazilian developer interfaces use verbatim. The bundle is
+      // consistent with itself: it already writes "Importar Skill" and
+      // "Configure API Keys" in translated prose.
+      "navigation.chat",
+      "navigation.hub",
+      "navigation.logs",
+      "navigation.skills",
+      "pages.agent.tools.categories.skills",
+      "pages.agent.tools.categories.web",
+      "pages.agent.tools.categories.hardware",
+      "pages.config.sections.runtime",
+      "pages.config.sections.launcher",
+      "pages.config.heartbeat_enabled",
+      "chat.modelGroup.apikey",
+      "models.field.apiKey",
+      "pages.agent.tools.web_search.api_key",
+      "models.test.endpointLabel",
+      "channels.telegram.botLabel",
+      "footer.commit",
+      "footer.build",
+      // Words spelled identically in Portuguese.
+      "chat.modelGroup.local",
+      "models.combobox.local",
+      "models.badge.virtual",
+      "pages.agent.skills.origin.manual",
+      "pages.config.session_scope_global",
+      "channels.telegram.statusLabel",
+      "models.test.status",
+      // Not prose: wire field names, debug output and sample literals shown as
+      // the format to type. Translating them would make them wrong.
+      "channels.mqtt.fieldText",
+      "models.validation.parsed",
+      "pages.config.custom_patterns_placeholder",
+      "pages.config.turn_profile_skills_allow_placeholder",
+      "pages.config.turn_profile_tools_allow_placeholder",
+      "pages.config.allowed_cidrs_placeholder",
+      "pages.config.trusted_proxy_cidrs_placeholder",
+    ]),
+    zh: new Set([
+      // Platform and protocol names.
+      "channels.name.telegram",
+      "channels.name.discord",
+      "channels.name.slack",
+      "channels.name.line",
+      "channels.name.qq",
+      "channels.name.onebot",
+      "channels.name.maixcam",
+      "channels.name.matrix",
+      "channels.name.irc",
+      "channels.name.mqtt",
+      "channels.name.pico",
+      "chat.modelGroup.oauth",
+      "pages.config.sections.mcp",
+      // Written in Latin script in Simplified Chinese technical interfaces,
+      // including this bundle's own prose ("为 AI 服务商配置 API Key").
+      "navigation.hub",
+      "chat.modelGroup.apikey",
+      "models.field.apiKey",
+      // Not prose: wire field names and sample literals.
+      "channels.mqtt.fieldText",
+      "pages.config.custom_patterns_placeholder",
+      "pages.config.turn_profile_skills_allow_placeholder",
+      "pages.config.turn_profile_tools_allow_placeholder",
+      "pages.config.allowed_cidrs_placeholder",
+      "pages.config.trusted_proxy_cidrs_placeholder",
+    ]),
+  }
+
+  it("leaves nothing in English in pt-BR and zh either", () => {
+    const english = flatten(enBundleFor("en"), "", new Map())
+    const failures: string[] = []
+
+    for (const [locale, allowed] of Object.entries(IDENTICAL_BY_DESIGN)) {
+      const theirs = flatten(enBundleFor(locale), "", new Map())
+      for (const key of english.keys()) {
+        if (allowed.has(key)) continue
+        const value = theirs.get(key)
+        if (value !== undefined && value === english.get(key)) {
+          failures.push(`${locale} | ${key} | ENGLISH COPY: "${value}"`)
+        }
+      }
+    }
+
+    expect(failures.join("\n"), failures.join("\n")).toBe("")
+  })
+
+  // An allowance that no longer matches anything is a stale exemption: it would
+  // silently keep covering the key if someone reverted a translation later.
+  it("keeps the pt-BR and zh allowances exact and in use", () => {
+    const english = flatten(enBundleFor("en"), "", new Map())
+    const stale: string[] = []
+
+    for (const [locale, allowed] of Object.entries(IDENTICAL_BY_DESIGN)) {
+      const theirs = flatten(enBundleFor(locale), "", new Map())
+      for (const key of allowed) {
+        expect(english.has(key), `${locale} allows unknown key ${key}`).toBe(
+          true,
+        )
+        if (theirs.get(key) !== english.get(key)) {
+          stale.push(`${locale} | ${key} is translated; drop the allowance`)
+        }
+      }
+    }
+
+    expect(stale.join("\n"), stale.join("\n")).toBe("")
+  })
+
   it("does not ship English copies as if they were translations", () => {
     const english = enBundleFor("en") as Record<string, Record<string, string>>
     for (const [locale, bundle] of Object.entries(bundles)) {

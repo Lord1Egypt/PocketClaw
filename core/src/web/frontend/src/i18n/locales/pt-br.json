@@ -162,12 +162,12 @@
     "saveChangesTitle": "Você tem alterações de configuração não salvas",
     "restartRequiredTitle": "Reinício do gateway necessário",
     "restartRequiredDesc": "A configuração mais recente de {{name}} foi salva. Reinicie o gateway para que tenha efeito.",
-    "restartingGateway": "Restarting gateway...",
-    "restartedGateway": "Saved. Gateway restarted successfully.",
-    "restartFailedTitle": "Gateway restart failed",
-    "restartFailedDesc": "The {{name}} configuration was saved, but the gateway did not restart. Use Restart Gateway to apply it.",
-    "restartDeferredTitle": "Saved, gateway not restarted yet",
-    "restartDeferredDesc": "The {{name}} configuration was saved. PocketClaw did not restart the gateway because it is still handling a request. Use Restart Gateway when you are ready.",
+    "restartingGateway": "Reiniciando o gateway...",
+    "restartedGateway": "Salvo. Gateway reiniciado com sucesso.",
+    "restartFailedTitle": "Falha ao reiniciar o gateway",
+    "restartFailedDesc": "A configuração de {{name}} foi salva, mas o gateway não reiniciou. Use Reiniciar Gateway para aplicá-la.",
+    "restartDeferredTitle": "Salvo, gateway ainda não reiniciado",
+    "restartDeferredDesc": "A configuração de {{name}} foi salva. O PocketClaw não reiniciou o gateway porque ainda está processando uma requisição. Use Reiniciar Gateway quando estiver pronto.",
     "dismiss": "Dispensar",
     "sidebar": "Barra lateral",
     "sidebarDescription": "Exibe a barra lateral móvel.",
@@ -209,7 +209,7 @@
     },
     "actions": {
       "browser": "OAuth via Navegador",
-      "deviceCode": "Device Code",
+      "deviceCode": "Código do Dispositivo",
       "stopLoading": "Parar Carregamento",
       "saveToken": "Salvar",
       "logout": "Sair"
@@ -224,7 +224,7 @@
     },
     "labels": {
       "account": "Conta",
-      "email": "Email",
+      "email": "E-mail",
       "project": "Projeto"
     },
     "errors": {
@@ -306,7 +306,7 @@
       "saveError": "Falha ao adicionar modelo",
       "saveSuccess": "Modelo adicionado.",
       "confirm": "Adicionar Modelo",
-      "modelNameAutoHint": "Optional. Left blank, the model ID is used as the alias."
+      "modelNameAutoHint": "Opcional. Se deixado em branco, o ID do modelo é usado como apelido."
     },
     "delete": {
       "title": "Excluir Modelo?",
@@ -317,7 +317,7 @@
       "toggle": "Opções avançadas"
     },
     "field": {
-      "provider": "Provider",
+      "provider": "Provedor",
       "providerPlaceholder": "Selecione um provider",
       "providerHint": "Escolha um provider do catálogo do backend; o Identificador do Modelo será interpretado como o ID canônico desse provider.",
       "providerInvalid": "O provider atual é inválido. Selecione um provider suportado.",
@@ -353,10 +353,10 @@
       "customHeaders": "Headers Customizados",
       "customHeadersHint": "Headers HTTP adicionais para injetar em cada requisição, ex: {\"X-Source\": \"coding-plan\"}.",
       "invalidJson": "Formato JSON inválido",
-      "apiBaseLocalHint": "The address where this server is reachable from the device. On Android, localhost is the phone itself, so use the LAN or VPS address of your machine.",
-      "apiBasePresetHint": "Leave blank to use the provider's default endpoint. Set this only to override it.",
-      "apiKeyOptionalHint": "Optional. This provider normally accepts requests without a key.",
-      "apiBaseOverrideHint": "This entry uses a custom endpoint instead of the provider default. It is kept as saved."
+      "apiBaseLocalHint": "O endereço em que este servidor pode ser acessado a partir do dispositivo. No Android, localhost é o próprio celular, então use o endereço da rede local ou do VPS da sua máquina.",
+      "apiBasePresetHint": "Deixe em branco para usar o endpoint padrão do provedor. Preencha apenas para substituí-lo.",
+      "apiKeyOptionalHint": "Opcional. Este provedor normalmente aceita requisições sem chave.",
+      "apiBaseOverrideHint": "Esta entrada usa um endpoint personalizado em vez do padrão do provedor. Ela é mantida como foi salva."
     },
     "edit": {
       "title": "Configurar {{name}}",
@@ -368,7 +368,7 @@
     "fetch": {
       "title": "Buscar Modelos Disponíveis",
       "description": "Busque a lista de modelos do provider upstream.",
-      "providerLabel": "Provider:",
+      "providerLabel": "Provedor:",
       "needApiKey": "Digite primeiro uma API Key para buscar modelos.",
       "fetching": "Buscando modelos...",
       "retry": "Tentar novamente",
@@ -439,41 +439,41 @@
       "local": "local"
     },
     "picker": {
-      "title": "Add AI Provider",
-      "addProvider": "Add Provider",
-      "searchPlaceholder": "Search providers",
-      "noMatches": "No provider matches that search. Use Custom OpenAI-Compatible for an endpoint that is not listed.",
-      "statusConfigured": "Already configured",
-      "getApiKey": "Get an API key",
-      "change": "Change",
+      "title": "Adicionar Provedor de IA",
+      "addProvider": "Adicionar Provedor",
+      "searchPlaceholder": "Buscar provedores",
+      "noMatches": "Nenhum provedor corresponde a essa busca. Use Personalizado Compatível com OpenAI para um endpoint que não esteja na lista.",
+      "statusConfigured": "Já configurado",
+      "getApiKey": "Obter uma API Key",
+      "change": "Alterar",
       "category": {
-        "cloud": "Cloud providers",
-        "local": "Local and self-hosted",
-        "custom": "Custom endpoint",
-        "managed": "Managed credentials",
-        "speech": "Speech"
+        "cloud": "Provedores em nuvem",
+        "local": "Local e auto-hospedado",
+        "custom": "Endpoint personalizado",
+        "managed": "Credenciais gerenciadas",
+        "speech": "Voz"
       },
-      "subtitle": "Choose a provider, paste your API key, and pick a model.",
+      "subtitle": "Escolha um provedor, cole sua API Key e selecione um modelo.",
       "description": {
-        "cloud": "Hosted API — needs an API key",
-        "local": "Runs on your own machine or server",
-        "custom": "Any OpenAI-compatible endpoint",
-        "managed": "Uses platform credentials or a local CLI",
-        "speech": "Speech recognition only"
+        "cloud": "API hospedada — precisa de uma API Key",
+        "local": "Roda na sua própria máquina ou servidor",
+        "custom": "Qualquer endpoint compatível com OpenAI",
+        "managed": "Usa credenciais da plataforma ou uma CLI local",
+        "speech": "Somente reconhecimento de voz"
       }
     },
     "fallbacks": {
-      "title": "Fallback Models",
-      "description": "If this model is temporarily unavailable, PocketClaw can try these models in order.",
-      "empty": "No fallback models configured. The default model is used on its own.",
-      "add": "Add fallback model",
-      "remove": "Remove fallback",
-      "moveUp": "Move up",
-      "moveDown": "Move down",
-      "saving": "Saving...",
-      "saved": "Fallback models updated.",
-      "noCandidates": "Configure another model to use it as a fallback.",
-      "missingModel": "This model is no longer configured"
+      "title": "Modelos de Fallback",
+      "description": "Se este modelo estiver temporariamente indisponível, o PocketClaw pode tentar estes modelos na ordem.",
+      "empty": "Nenhum modelo de fallback configurado. O modelo padrão é usado sozinho.",
+      "add": "Adicionar modelo de fallback",
+      "remove": "Remover fallback",
+      "moveUp": "Mover para cima",
+      "moveDown": "Mover para baixo",
+      "saving": "Salvando...",
+      "saved": "Modelos de fallback atualizados.",
+      "noCandidates": "Configure outro modelo para usá-lo como fallback.",
+      "missingModel": "Este modelo não está mais configurado"
     }
   },
   "channels": {
@@ -531,9 +531,9 @@
       "token": "Token do Bot",
       "tokenPlaceholder": "Digite o token do bot",
       "botToken": "Token do Bot",
-      "appToken": "App Token",
-      "appId": "App ID",
-      "appSecret": "App Secret",
+      "appToken": "Token do App",
+      "appId": "ID do App",
+      "appSecret": "Segredo do App",
       "verificationToken": "Token de Verificação",
       "encryptKey": "Chave de Criptografia",
       "baseUrl": "URL Base da API",
@@ -764,7 +764,7 @@
         "metadata": {
           "name": "Nome",
           "description": "Descrição",
-          "registry": "Registry",
+          "registry": "Registro",
           "url": "URL",
           "version": "Versão Instalada",
           "lines": "Quantidade de Linhas",
@@ -882,7 +882,7 @@
       "allow_shell_execution_hint": "Permitir que tarefas agendadas executem comandos por padrão. Quando desabilitado, usuários precisam passar command_confirm=true para agendar uma tarefa de comando.",
       "cron_exec_timeout": "Timeout de Comando Agendado (minutos)",
       "cron_exec_timeout_hint": "Tempo máximo de execução para comandos agendados. Defina 0 para desabilitar o timeout.",
-      "max_tokens": "Max Tokens",
+      "max_tokens": "Máx. de Tokens",
       "max_tokens_hint": "Limite superior de tokens por resposta do modelo.",
       "context_window": "Janela de Contexto",
       "context_window_hint": "Capacidade do contexto de entrada do modelo em tokens. Deixe vazio para usar o padrão (4x max tokens).",
@@ -959,9 +959,9 @@
       "evolution_enabled_hint": "Registrar dados de aprendizado para turnos concluídos. Os modos Draft e Apply também podem gerar atualizações de skills.",
       "evolution_mode": "Modo de Evolução",
       "evolution_mode_hint": "Observe apenas registra dados, Draft prepara skills candidatas, Apply pode gravar drafts aceitos nas skills do workspace.",
-      "evolution_mode_observe": "Observe",
-      "evolution_mode_draft": "Draft",
-      "evolution_mode_apply": "Apply",
+      "evolution_mode_observe": "Observar",
+      "evolution_mode_draft": "Rascunho",
+      "evolution_mode_apply": "Aplicar",
       "evolution_state_dir": "Diretório de Estado",
       "evolution_state_dir_hint": "Diretório opcional para o estado de evolução. Deixe vazio para usar o padrão do workspace.",
       "evolution_min_task_count": "Contagem Mínima de Tarefas",
