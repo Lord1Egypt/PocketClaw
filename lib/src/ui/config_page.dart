@@ -7,6 +7,9 @@ import 'package:pocketclaw/src/generated/l10n/app_localizations.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:pocketclaw/src/core/app_theme.dart';
 import 'package:pocketclaw/src/ui/github_settings_card.dart';
+import 'package:pocketclaw/src/ui/whats_new_page.dart';
+import 'package:pocketclaw/src/whats_new/whats_new_release.dart';
+import 'package:pocketclaw/src/whats_new/whats_new_seen_store.dart';
 import 'context_memory_card.dart';
 import 'models_settings_card.dart';
 import 'package:pocketclaw/src/ui/telegram_settings_card.dart';
@@ -92,6 +95,13 @@ class ConfigPage extends StatefulWidget {
   /// [onManageTelegram]; named generically because more than one card uses it.
   final Future<void> Function(String path)? onManageConsole;
 
+  /// Where the "already read the notes" mark is kept. Injectable so a test can
+  /// drive the badge without a platform preference store.
+  final WhatsNewSeenStore? whatsNewSeenStore;
+
+  /// Resolves the release identity — the versionName, never the versionCode.
+  final Future<String> Function()? whatsNewVersionLoader;
+
   const ConfigPage({
     super.key,
     this.onDirtyChanged,
@@ -99,6 +109,8 @@ class ConfigPage extends StatefulWidget {
     this.aboutInfoLoader,
     this.onManageTelegram,
     this.onManageConsole,
+    this.whatsNewSeenStore,
+    this.whatsNewVersionLoader,
   });
 
   @override
@@ -115,6 +127,7 @@ class ConfigPageState extends State<ConfigPage> with WidgetsBindingObserver {
   final _argsController = TextEditingController();
 
   // Focus nodes for TV navigation
+  final _whatsNewFocusNode = FocusNode();
   final _aboutFocusNode = FocusNode();
   final _contextMemoryFocusNode = FocusNode();
   final _publicModeFocusNode = FocusNode();
@@ -128,6 +141,10 @@ class ConfigPageState extends State<ConfigPage> with WidgetsBindingObserver {
   final _firebaseFocusNode = FocusNode();
   final List<FocusNode> _themeFocusNodes = [];
   bool _firebaseAllowed = false;
+
+  /// The release the notes belong to, and whether the user has read them.
+  String? _whatsNewVersion;
+  bool _whatsNewUnseen = false;
 
   // Dirty tracking
   String _originalHost = '';
@@ -155,6 +172,43 @@ class ConfigPageState extends State<ConfigPage> with WidgetsBindingObserver {
     _argsController.addListener(_markDirty);
 
     _loadConfig();
+    _loadWhatsNewState();
+  }
+
+  WhatsNewSeenStore get _whatsNewStore =>
+      widget.whatsNewSeenStore ?? const SharedPreferencesWhatsNewSeenStore();
+
+  Future<void> _loadWhatsNewState() async {
+    final version =
+        await (widget.whatsNewVersionLoader ?? readWhatsNewReleaseVersion)();
+    final lastSeen = await _whatsNewStore.readLastSeenVersion();
+    if (!mounted) return;
+    setState(() {
+      _whatsNewVersion = version;
+      _whatsNewUnseen = lastSeen != version;
+    });
+  }
+
+  /// Opens the release notes, then records the release as read.
+  ///
+  /// The mark is written once the route is on screen and never on the way in
+  /// to Settings, so the badge survives a user who only passed through.
+  Future<void> _openWhatsNew() async {
+    final version = _whatsNewVersion ?? currentWhatsNewRelease.version;
+    final navigator = Navigator.of(context);
+    final closed = navigator.push(
+      MaterialPageRoute<void>(builder: (_) => const WhatsNewPage()),
+    );
+
+    await _whatsNewStore.writeLastSeenVersion(version);
+    if (mounted) {
+      setState(() => _whatsNewUnseen = false);
+    }
+
+    await closed;
+    if (mounted) {
+      _whatsNewFocusNode.requestFocus();
+    }
   }
 
   String _getLanguageName(String code) {
@@ -229,6 +283,7 @@ class ConfigPageState extends State<ConfigPage> with WidgetsBindingObserver {
     _pathController.dispose();
     _argsController.dispose();
 
+    _whatsNewFocusNode.dispose();
     _aboutFocusNode.dispose();
     _contextMemoryFocusNode.dispose();
     _publicModeFocusNode.dispose();
@@ -537,50 +592,114 @@ class ConfigPageState extends State<ConfigPage> with WidgetsBindingObserver {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
+              // A Wrap, not a Row: the title and the actions each keep their
+              // natural width and drop to a second line when the two cannot
+              // share one. A Row gave the actions their full width first and
+              // left the title whatever remained, which with the unseen NEW
+              // badge showing was nothing at all.
+              Wrap(
+                alignment: WrapAlignment.spaceBetween,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: 12,
+                runSpacing: 12,
                 children: [
                   Text(
                     l10n.settings,
                     style: Theme.of(context).textTheme.titleLarge,
                   ),
-                  const Spacer(),
-                  Tooltip(
-                    message: l10n.about,
-                    child: FocusableButton(
-                      focusNode: _aboutFocusNode,
-                      onPressed: () {
-                        _showAboutDialog();
-                      },
-                      prevFocusNode: _aboutFocusNode,
-                      nextFocusNode: _publicModeFocusNode,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Theme.of(context).colorScheme.surface,
-                        foregroundColor: Theme.of(
-                          context,
-                        ).colorScheme.onSurface,
-                        elevation: 0,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 10,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                          side: BorderSide(
-                            color: Theme.of(
+                  Wrap(
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      Tooltip(
+                        message: l10n.whatsNewDescription,
+                        child: FocusableButton(
+                          focusNode: _whatsNewFocusNode,
+                          onPressed: _openWhatsNew,
+                          prevFocusNode: _whatsNewFocusNode,
+                          nextFocusNode: _aboutFocusNode,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Theme.of(
                               context,
-                            ).colorScheme.outline.withAlpha(60),
+                            ).colorScheme.surface,
+                            foregroundColor: Theme.of(
+                              context,
+                            ).colorScheme.onSurface,
+                            elevation: 0,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 10,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              side: BorderSide(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.outline.withAlpha(60),
+                              ),
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.auto_awesome_outlined, size: 18),
+                              const SizedBox(width: 6),
+                              Flexible(
+                                child: Text(
+                                  l10n.whatsNewTitle,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              if (_whatsNewUnseen) ...[
+                                const SizedBox(width: 6),
+                                _WhatsNewBadge(label: l10n.whatsNewBadge),
+                              ],
+                            ],
                           ),
                         ),
                       ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.info_outline, size: 18),
-                          const SizedBox(width: 6),
-                          Text(l10n.about),
-                        ],
+                      Tooltip(
+                        message: l10n.about,
+                        child: FocusableButton(
+                          focusNode: _aboutFocusNode,
+                          onPressed: () {
+                            _showAboutDialog();
+                          },
+                          prevFocusNode: _whatsNewFocusNode,
+                          nextFocusNode: _publicModeFocusNode,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Theme.of(
+                              context,
+                            ).colorScheme.surface,
+                            foregroundColor: Theme.of(
+                              context,
+                            ).colorScheme.onSurface,
+                            elevation: 0,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 10,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              side: BorderSide(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.outline.withAlpha(60),
+                              ),
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.info_outline, size: 18),
+                              const SizedBox(width: 6),
+                              Text(l10n.about),
+                            ],
+                          ),
+                        ),
                       ),
-                    ),
+                    ],
                   ),
                 ],
               ),
@@ -1130,6 +1249,34 @@ class _FocusableTextFieldState extends State<FocusableTextField> {
             widget.onSubmitted?.call();
           },
           textInputAction: TextInputAction.next,
+        ),
+      ),
+    );
+  }
+}
+
+/// The unread marker on the Settings entry. Shown only until the user opens
+/// the release notes for the installed versionName.
+class _WhatsNewBadge extends StatelessWidget {
+  const _WhatsNewBadge({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: colorScheme.primary,
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(
+        label,
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+          color: colorScheme.onPrimary,
+          fontWeight: FontWeight.w700,
+          height: 1.2,
         ),
       ),
     );

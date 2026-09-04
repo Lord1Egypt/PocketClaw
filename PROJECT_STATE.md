@@ -1,5 +1,127 @@
 # PocketClaw Project State
 
+## What's New — PHYSICALLY VERIFIED and CLOSED
+
+- Status: **PASS on a physical Android device (SM-A165F / Android 16),
+  2026-09-05. Merged to `develop` with `--no-ff`.** `main` untouched, no tags
+  moved, no release.
+- Branch `feature/whats-new`, from `develop` at `09790ac7`. Retained, not
+  deleted.
+- Milestone **CLOSED**. Next milestone is PocketClaw Visual Identity /
+  UI-UX Redesign. **Not started** — nothing in this milestone implements, stubs
+  or prepares it.
+
+Release notes for 0.2.0, reachable from Settings, in all twelve app locales.
+
+### Settings entry
+
+A What's New control in the Settings header, immediately **before** About and
+styled to match it. It carries a localized NEW badge while the notes are
+unread. Tapping it pushes a full page — `Navigator.push`, never an
+`AlertDialog`. The existing D-pad focus chain absorbed one new node and now
+runs `What's New -> About -> public mode toggle`, with What's New at the head
+of the chain as its own predecessor.
+
+### Seen state
+
+- Preference key: `pocketclaw.whats_new.last_seen_version`, through
+  `SharedPreferences`.
+- Release identity is the **versionName only**, read from
+  `PackageInfo.fromPlatform().version`. `buildNumber` — the Android versionCode
+  — is never consulted, because it is bumped for internal candidates that carry
+  nothing new to read. Keying the badge on it would re-announce a release the
+  user has already seen; vc36 and vc37 are exactly that case.
+- The badge shows while the stored value differs from the versionName, so a
+  first install with nothing stored shows it.
+- The mark is written once the route is on screen — never on the way into
+  Settings, and never before the push succeeds.
+- Both the store and the version loader are injected into `ConfigPage`, so the
+  badge is drivable in a test without a platform preference store and without
+  global mutable state.
+
+### Release data
+
+Typed Dart in `lib/src/whats_new/whats_new_release.dart`, not JSON.
+`WhatsNewRelease{version, sections}` over `WhatsNewSection{kind, bullets}`,
+where each bullet is a `String Function(AppLocalizations)`. Structure lives in
+Dart; every user-facing word resolves out of the ARB bundles, so a release note
+cannot ship untranslated English prose.
+
+Sections are **New / Improvements / Fixes**. 0.2.0 advertises Managed Runtime,
+the bundled Git / GitHub CLI / curl / ripgrep / jq / SQLite, PocketClaw's
+bundled Python 3.14 runtime, secure GitHub sign-in and Telegram integration;
+then provider resilience, a more accurate Managed Runtime catalog and the
+PocketClaw identity cleanup; then the stale process-record recovery and the
+multi-entry channel-list fix. A test joins all rendered copy and fails on
+`WhatsApp`, `BlueStacks`, `Auto-Start` or `versionCode`.
+
+### Localization and RTL
+
+Sixteen flat keys in all twelve `.arb` bundles — ar, de, en, es, fr, hi, id,
+ja, ko, pt, ru, zh — with real translations, not English copies. Enforced by a
+test asserting every non-English sentence key differs from English and that the
+nine non-Latin locales' prose is not ASCII. No message takes a placeholder, and
+parity is asserted per locale.
+
+The page uses `EdgeInsetsDirectional` throughout with no hard-coded left/right
+and no Arabic layout branch. Proved by geometry rather than inspection: the
+bullet marker sits left of its text under `en` and right of it under `ar`.
+
+### The Settings header truncation, found physically on vc36
+
+vc36 passed the feature but exposed a layout defect. The header was a `Row`
+whose title sat in an `Expanded`. A `Row` gives its inflexible children their
+natural width first and the `Expanded` only what remains, so the title was last
+in line for space. With the unseen NEW badge widening the What's New button
+there was nothing left: on a 360px-wide phone the title was handed **0px**
+against the 176px it needed and rendered `Setti...`. Opening What's New retired
+the badge, freed the width and hid the defect.
+
+It was never English-specific. Arabic needed 198px and was truncated even in
+the seen state.
+
+The header is now a **`Wrap`**. Title and actions each keep their natural width,
+sit at opposite edges under `WrapAlignment.spaceBetween` while they share a
+line, and drop to a second line when they cannot. The actions are a nested
+`Wrap` so a long locale breaks between the two buttons instead of overflowing.
+Nothing is measured against a specific language, so RTL keeps mirroring on its
+own. Regression-guarded at 360x800 in four cases — English and Arabic, badge
+visible and badge seen — asserting the title's rendered box is at least its
+`getMaxIntrinsicWidth`. All four fail against the pre-fix layout.
+
+### Verification
+
+- `flutter analyze`: no issues.
+- `flutter test`: **203 passed**.
+- Physical: vc36 PASS for the feature, vc37 PASS for the header fix, both on
+  SM-A165F / Android 16 as in-place upgrades with app data preserved.
+
+### Final accepted artifact
+
+- Path: `build/app/outputs/flutter-apk/app-release.apk` (ignored; not committed)
+- Built 2026-09-05 with the canonical command
+
+      cd android && ./gradlew :app:assembleRelease \
+        -Ptarget-platform=android-arm64 \
+        -Pdart-defines=$(printf '%s' \
+          'POCKETCLAW_ONBOARDING_BASE_URL=https://pocketclaw-telegram-setup-bot-83ai.vercel.app' \
+          | base64 -w0)
+
+  with `JAVA_HOME=/home/lordegypt/PocketCLaw/.tooling/jdk-17` and
+  `GRADLE_USER_HOME=/home/lordegypt/PocketClaw-App/.tooling/gradle-stage-a-clean`.
+- Size: 64,543,774 bytes — the ~64 MB arm64 band, not the ~50 MB universal
+  band, so `-Ptarget-platform=android-arm64` was honoured. 167.5 MB of payload
+  sits in `lib/arm64-v8a/` against 286 KB and 123 KB of plugin stubs in
+  `armeabi-v7a` and `x86_64`.
+- SHA-256: `7e617eb7e4e6a0738bf9cc7ce3da56204953911b387fee8781aa59ad363424e1`
+- Package/version: `com.lord1egypt.pocketclaw`, `0.2.0` (version code `37`),
+  minSdk 24, targetSdk 36.
+- Release guard PASS for all eleven required arm64 payloads, plus the appended
+  Python standard library and the `pocketclaw_bootstrap` entry point.
+
+vc37 is also the first physically accepted APK carrying the pt-BR/zh Dashboard
+locale cleanup at `65dfc02`, which vc35 predated.
+
 ## Telegram Context Settings + Dashboard i18n — PHYSICALLY VERIFIED and CLOSED
 
 - Status: **PASS on a physical Android device (SM-A165F / Android 16),

@@ -430,4 +430,61 @@ class AppLocalizationsHi extends AppLocalizations {
   @override
   String get credentialAppliesDeferred =>
       'सहेजा गया। PocketClaw प्रारंभ हो रहा है, इसलिए पूरा होते ही यह स्वतः लागू हो जाएगा।';
+
+  @override
+  String get whatsNewTitle => 'नया क्या है';
+
+  @override
+  String get whatsNewDescription => 'इस रिलीज़ के मुख्य बदलाव.';
+
+  @override
+  String get whatsNewBadge => 'नया';
+
+  @override
+  String get whatsNewSectionNew => 'नया';
+
+  @override
+  String get whatsNewSectionImprovements => 'सुधार';
+
+  @override
+  String get whatsNewSectionFixes => 'समाधान';
+
+  @override
+  String get whatsNew020New1 =>
+      'प्रबंधित रनटाइम PocketClaw के साथ आने वाले टूल इंस्टॉल करता है और उन्हें अद्यतन रखता है.';
+
+  @override
+  String get whatsNew020New2 =>
+      'साथ में दिए गए डेवलपर टूल: Git, GitHub CLI, curl, ripgrep, jq और SQLite.';
+
+  @override
+  String get whatsNew020New3 =>
+      'PocketClaw के साथ दिए गए Python 3.14 रनटाइम का समर्थन.';
+
+  @override
+  String get whatsNew020New4 =>
+      'सुरक्षित GitHub साइन-इन, जिसे साथ दिए गए Git और GitHub CLI दोनों उपयोग करते हैं.';
+
+  @override
+  String get whatsNew020New5 =>
+      'Telegram एकीकरण, सेटिंग्स से सेट किया जा सकता है.';
+
+  @override
+  String get whatsNew020Improvement1 =>
+      'अधिक सुदृढ़ प्रदाता: कोई विफल अनुरोध अब बातचीत को समाप्त नहीं करता.';
+
+  @override
+  String get whatsNew020Improvement2 => 'अधिक सटीक प्रबंधित रनटाइम सूची.';
+
+  @override
+  String get whatsNew020Improvement3 =>
+      'वेब इंटरफ़ेस और डिफ़ॉल्ट कार्यक्षेत्र में अधिक स्पष्ट PocketClaw पहचान.';
+
+  @override
+  String get whatsNew020Fix1 =>
+      'गेटवे अब पिछली बार छूटे हुए पुराने प्रोसेस रिकॉर्ड से उबर जाता है.';
+
+  @override
+  String get whatsNew020Fix2 =>
+      'एक से अधिक प्रविष्टि वाली चैनल सूचियाँ सहेजते समय सही ढंग से बनी रहती हैं.';
 }

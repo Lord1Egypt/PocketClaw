@@ -197,5 +197,21 @@
         "type": "String"
       }
     }
-  }
+  },
+  "whatsNewTitle": "What's New",
+  "whatsNewDescription": "The main changes in this release.",
+  "whatsNewBadge": "NEW",
+  "whatsNewSectionNew": "New",
+  "whatsNewSectionImprovements": "Improvements",
+  "whatsNewSectionFixes": "Fixes",
+  "whatsNew020New1": "Managed Runtime installs and keeps PocketClaw's bundled tools up to date for you.",
+  "whatsNew020New2": "Bundled developer tools: Git, GitHub CLI, curl, ripgrep, jq and SQLite.",
+  "whatsNew020New3": "Support for PocketClaw's bundled Python 3.14 runtime.",
+  "whatsNew020New4": "Secure GitHub sign-in, shared by the bundled Git and GitHub CLI.",
+  "whatsNew020New5": "Telegram integration, set up from Settings.",
+  "whatsNew020Improvement1": "More resilient providers: a failing request no longer ends the turn.",
+  "whatsNew020Improvement2": "A more accurate Managed Runtime catalog.",
+  "whatsNew020Improvement3": "A cleaner PocketClaw identity across the web interface and the default workspace.",
+  "whatsNew020Fix1": "The Gateway now recovers from a stale process record left behind by an earlier run.",
+  "whatsNew020Fix2": "Channel lists with more than one entry are preserved correctly when settings are saved."
 }

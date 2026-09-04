@@ -421,4 +421,56 @@ class AppLocalizationsKo extends AppLocalizations {
   @override
   String get credentialAppliesDeferred =>
       '저장되었습니다. PocketClaw가 시작 중이므로 완료되는 즉시 자동으로 적용됩니다.';
+
+  @override
+  String get whatsNewTitle => '새로운 기능';
+
+  @override
+  String get whatsNewDescription => '이번 릴리스의 주요 변경 사항입니다.';
+
+  @override
+  String get whatsNewBadge => '새 기능';
+
+  @override
+  String get whatsNewSectionNew => '새로운 기능';
+
+  @override
+  String get whatsNewSectionImprovements => '개선 사항';
+
+  @override
+  String get whatsNewSectionFixes => '수정 사항';
+
+  @override
+  String get whatsNew020New1 =>
+      '관리형 런타임이 PocketClaw 기본 제공 도구를 설치하고 최신 상태로 유지합니다.';
+
+  @override
+  String get whatsNew020New2 =>
+      '기본 제공 개발 도구: Git, GitHub CLI, curl, ripgrep, jq, SQLite.';
+
+  @override
+  String get whatsNew020New3 => 'PocketClaw 기본 제공 Python 3.14 런타임을 지원합니다.';
+
+  @override
+  String get whatsNew020New4 =>
+      '안전한 GitHub 로그인. 기본 제공 Git과 GitHub CLI가 함께 사용합니다.';
+
+  @override
+  String get whatsNew020New5 => 'Telegram 연동. 설정에서 구성할 수 있습니다.';
+
+  @override
+  String get whatsNew020Improvement1 => '더 견고해진 공급자: 요청이 실패해도 대화 턴이 끝나지 않습니다.';
+
+  @override
+  String get whatsNew020Improvement2 => '더 정확해진 관리형 런타임 카탈로그.';
+
+  @override
+  String get whatsNew020Improvement3 =>
+      '웹 화면과 기본 작업 공간 전반에서 더 일관된 PocketClaw 표기.';
+
+  @override
+  String get whatsNew020Fix1 => '이전 실행이 남긴 오래된 프로세스 기록에서 게이트웨이가 복구됩니다.';
+
+  @override
+  String get whatsNew020Fix2 => '항목이 두 개 이상인 채널 목록이 저장 시 올바르게 유지됩니다.';
 }

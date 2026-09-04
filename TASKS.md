@@ -37,17 +37,71 @@ moved, no release.
 
 Carried forward, deliberately not done here:
 
-- [ ] Rebuild an APK carrying `65dfc02`. vc35 was built at `1505e33`; the final
-  commit is locale JSON and tests only, so the pt-BR/zh cleanup is on `develop`
-  but not on the installed build.
+- [x] Rebuild an APK carrying `65dfc02`. Done by the What's New milestone: vc36
+  and vc37 both include the pt-BR/zh cleanup, and vc37 is physically accepted.
 - [ ] `TelegramOnboardingStrings` in the Flutter layer remains English in all
   twelve `.arb` locales. That is the native onboarding screen, not the embedded
   dashboard; it is tracked under Milestone D and is untouched by this work.
 
-## NEXT MILESTONE: What's New — NOT STARTED
+## What's New — CLOSED 2026-09-05
 
-To be done on a **new branch cut from the updated `develop`**. Nothing in this
-milestone implements, stubs or prepares it.
+Branch `feature/whats-new`, from `develop` at `09790ac7`, merged with `--no-ff`.
+Physically accepted on SM-A165F / Android 16 as vc37. `main` untouched, no tags
+moved, no release. The feature branch is retained.
+
+- [x] Add a What's New entry to the Settings header, immediately before About
+  and styled to match it.
+- [x] Open a full page with `Navigator.push`, not an `AlertDialog`.
+- [x] Show a localized NEW badge only while the release notes are unread.
+- [x] Key the seen state on `versionName` alone, never on versionCode or
+  buildNumber, under `pocketclaw.whats_new.last_seen_version`.
+- [x] Write the mark once the route is on screen — not on Settings open, not
+  before the push succeeds.
+- [x] Inject the seen store and the version loader so the badge is testable
+  without a platform preference store or global mutable state.
+- [x] Keep the release structure in typed Dart and every user-facing word in
+  the ARB bundles.
+- [x] Ship New / Improvements / Fixes for 0.2.0, advertising only what actually
+  shipped and was accepted.
+- [x] Translate all sixteen keys into all twelve app locales, with no English
+  copies and no placeholder drift.
+- [x] Lay the page out with `EdgeInsetsDirectional` so Arabic mirrors without a
+  locale branch.
+- [x] Absorb one new focus node into the existing D-pad chain:
+  `What's New -> About -> public mode toggle`.
+- [x] Build vc36 (`0.2.0`, SHA-256 `7e237ebb...f046`) and confirm physical
+  acceptance of the What's New feature.
+- [x] Fix the Settings header truncation vc36 exposed: replace the header `Row`
+  with a `Wrap` so the title keeps its natural width instead of receiving only
+  what the action buttons leave.
+- [x] Guard it at 360x800 in four cases — English and Arabic, badge visible and
+  badge seen — asserting the title's box is at least its intrinsic width.
+- [x] Build vc37 (`0.2.0`, SHA-256 `7e617eb7...24e1`) and confirm physical
+  acceptance of the header fix.
+- [x] Close the milestone: merge into `develop` with `--no-ff`.
+
+Carried forward, deliberately not done here:
+
+- [ ] `TelegramOnboardingStrings` in the Flutter layer remains English in all
+  twelve `.arb` locales. That is the native onboarding screen, not the embedded
+  dashboard, and is untouched by this work.
+
+## NEXT MILESTONE: PocketClaw Visual Identity / UI-UX Redesign — NOT STARTED
+
+To be done on a **new branch cut from the updated `develop`**. Nothing in the
+What's New milestone implements, stubs or prepares it. The What's New header
+`Wrap` is a targeted truncation fix within the current visual style, not the
+first step of the redesign.
+
+## BACKLOG: not started, not scheduled
+
+Recorded so they are not rediscovered. None of these is implemented, stubbed or
+prepared, and none belongs to a milestone yet.
+
+- [ ] Remove the remaining user-visible PicoClaw branding in the Dashboard.
+- [ ] Replace the ambiguous mobile sidebar-toggle icon with a clear menu /
+  hamburger icon.
+- [ ] Offer a Vision Model / Image Model routing option.
 
 ## FOLLOW-UP: Telegram request lifecycle durability
 

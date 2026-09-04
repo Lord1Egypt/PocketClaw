@@ -153,5 +153,21 @@
   "githubDisconnectedReport": "Отключено. {outcome}",
   "credentialAppliedNow": "gh и git могут использовать его сейчас.",
   "credentialAppliesNextStart": "Он будет использован при следующем запуске PocketClaw.",
-  "credentialAppliesDeferred": "Сохранено. PocketClaw запускается, изменение применится автоматически сразу после этого."
+  "credentialAppliesDeferred": "Сохранено. PocketClaw запускается, изменение применится автоматически сразу после этого.",
+  "whatsNewTitle": "Что нового",
+  "whatsNewDescription": "Основные изменения в этом выпуске.",
+  "whatsNewBadge": "НОВОЕ",
+  "whatsNewSectionNew": "Новое",
+  "whatsNewSectionImprovements": "Улучшения",
+  "whatsNewSectionFixes": "Исправления",
+  "whatsNew020New1": "Управляемая среда выполнения устанавливает встроенные инструменты PocketClaw и поддерживает их в актуальном состоянии.",
+  "whatsNew020New2": "Встроенные инструменты разработчика: Git, GitHub CLI, curl, ripgrep, jq и SQLite.",
+  "whatsNew020New3": "Поддержка встроенной в PocketClaw среды Python 3.14.",
+  "whatsNew020New4": "Безопасный вход в GitHub, общий для встроенных Git и GitHub CLI.",
+  "whatsNew020New5": "Интеграция с Telegram, настраивается в разделе «Настройки».",
+  "whatsNew020Improvement1": "Более устойчивые провайдеры: неудачный запрос больше не обрывает ход.",
+  "whatsNew020Improvement2": "Более точный каталог управляемой среды выполнения.",
+  "whatsNew020Improvement3": "Более согласованное оформление PocketClaw в веб-интерфейсе и рабочем пространстве по умолчанию.",
+  "whatsNew020Fix1": "Шлюз теперь восстанавливается после устаревшей записи процесса, оставшейся от предыдущего запуска.",
+  "whatsNew020Fix2": "Списки каналов с несколькими записями корректно сохраняются."
 }

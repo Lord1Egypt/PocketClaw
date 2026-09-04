@@ -1,5 +1,66 @@
 # PocketClaw Decisions
 
+## What's New is keyed on versionName, never on versionCode
+
+- Date: 2026-09-05
+- Decision: the release identity behind the What's New badge is
+  `PackageInfo.fromPlatform().version` — the versionName — and nothing else.
+  `buildNumber` is never read. The last release the user has read is stored
+  under `pocketclaw.whats_new.last_seen_version`.
+- Reason: the Android versionCode is bumped for every internal physical
+  candidate, and most of those carry nothing new for a user to read. vc36 and
+  vc37 are the same 0.2.0 release notes; keying the badge on the versionCode
+  would have re-announced them twice to a user who had already read them.
+- Consequence: a versionCode-only rebuild cannot resurface the badge, which is
+  the behavior the seen-state tests assert directly. The cost is that two
+  genuinely different builds sharing a versionName share one set of notes —
+  correct here, since the notes describe the release, not the build.
+
+## The What's New mark is written on open, not on close and not on approach
+
+- Date: 2026-09-05
+- Decision: the seen mark is persisted once the release-notes route is on
+  screen. It is not written when Settings is opened, not before the push
+  succeeds, and not deferred until the user pops back.
+- Reason: writing on approach would clear the badge for a user who only passed
+  through Settings and never saw the notes. Writing on pop would leave the badge
+  lit for a user who read the page and then killed the app from it.
+- Consequence: "successfully opened" is the event, so the push is issued and
+  then awaited separately from the write.
+
+## Release-notes structure lives in Dart; every word lives in the ARB bundles
+
+- Date: 2026-09-05
+- Decision: `WhatsNewRelease` and `WhatsNewSection` are typed Dart, not JSON,
+  and every bullet is a `String Function(AppLocalizations)` rather than a
+  literal.
+- Reason: JSON would move the release shape out of the type system for no gain,
+  and an English literal in a widget is how untranslated prose reaches a user
+  whose locale is complete everywhere else.
+- Consequence: a new release note cannot be added without adding its key to all
+  twelve bundles — the localization test fails otherwise. Section titles resolve
+  through the same path, so New / Improvements / Fixes translate too.
+
+## The Settings header is a Wrap, because a Row starves the title
+
+- Date: 2026-09-05
+- Decision: the Settings header lays out with `Wrap` under
+  `WrapAlignment.spaceBetween`, with the action buttons in a nested `Wrap`. The
+  title is no longer wrapped in `Expanded` and no longer carries
+  `TextOverflow.ellipsis`.
+- Reason: a `Row` lays out its inflexible children at their natural width first
+  and gives an `Expanded` only the remainder. Both action buttons are
+  inflexible, so the title was always last in line for space. With the unseen
+  NEW badge showing, the remainder on a 360px-wide phone was **zero** — the
+  title was handed 0px against the 176px it needed and rendered `Setti...`.
+  Arabic needed 198px and truncated even without the badge.
+- Consequence: when the title and the actions cannot share a line, the actions
+  drop to a second line rather than the title being crushed. Adding anything
+  else to this header must not reintroduce a fixed-width flex child. The
+  regression guard measures the title's rendered box against its intrinsic
+  width at 360x800 in English and Arabic, badge visible and badge seen; all four
+  cases fail against the `Row`.
+
 ## The Telegram context limit is a user setting, default 15, range 5–50
 
 - Date: 2026-09-04

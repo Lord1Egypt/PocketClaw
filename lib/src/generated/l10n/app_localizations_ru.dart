@@ -435,4 +435,62 @@ class AppLocalizationsRu extends AppLocalizations {
   @override
   String get credentialAppliesDeferred =>
       'Сохранено. PocketClaw запускается, изменение применится автоматически сразу после этого.';
+
+  @override
+  String get whatsNewTitle => 'Что нового';
+
+  @override
+  String get whatsNewDescription => 'Основные изменения в этом выпуске.';
+
+  @override
+  String get whatsNewBadge => 'НОВОЕ';
+
+  @override
+  String get whatsNewSectionNew => 'Новое';
+
+  @override
+  String get whatsNewSectionImprovements => 'Улучшения';
+
+  @override
+  String get whatsNewSectionFixes => 'Исправления';
+
+  @override
+  String get whatsNew020New1 =>
+      'Управляемая среда выполнения устанавливает встроенные инструменты PocketClaw и поддерживает их в актуальном состоянии.';
+
+  @override
+  String get whatsNew020New2 =>
+      'Встроенные инструменты разработчика: Git, GitHub CLI, curl, ripgrep, jq и SQLite.';
+
+  @override
+  String get whatsNew020New3 =>
+      'Поддержка встроенной в PocketClaw среды Python 3.14.';
+
+  @override
+  String get whatsNew020New4 =>
+      'Безопасный вход в GitHub, общий для встроенных Git и GitHub CLI.';
+
+  @override
+  String get whatsNew020New5 =>
+      'Интеграция с Telegram, настраивается в разделе «Настройки».';
+
+  @override
+  String get whatsNew020Improvement1 =>
+      'Более устойчивые провайдеры: неудачный запрос больше не обрывает ход.';
+
+  @override
+  String get whatsNew020Improvement2 =>
+      'Более точный каталог управляемой среды выполнения.';
+
+  @override
+  String get whatsNew020Improvement3 =>
+      'Более согласованное оформление PocketClaw в веб-интерфейсе и рабочем пространстве по умолчанию.';
+
+  @override
+  String get whatsNew020Fix1 =>
+      'Шлюз теперь восстанавливается после устаревшей записи процесса, оставшейся от предыдущего запуска.';
+
+  @override
+  String get whatsNew020Fix2 =>
+      'Списки каналов с несколькими записями корректно сохраняются.';
 }

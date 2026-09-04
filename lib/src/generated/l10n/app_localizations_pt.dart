@@ -441,4 +441,62 @@ class AppLocalizationsPt extends AppLocalizations {
   @override
   String get credentialAppliesDeferred =>
       'Salvo. O PocketClaw está iniciando, então será aplicado automaticamente assim que terminar.';
+
+  @override
+  String get whatsNewTitle => 'Novidades';
+
+  @override
+  String get whatsNewDescription => 'As principais mudanças desta versão.';
+
+  @override
+  String get whatsNewBadge => 'NOVO';
+
+  @override
+  String get whatsNewSectionNew => 'Novidades';
+
+  @override
+  String get whatsNewSectionImprovements => 'Melhorias';
+
+  @override
+  String get whatsNewSectionFixes => 'Correções';
+
+  @override
+  String get whatsNew020New1 =>
+      'O tempo de execução gerenciado instala e mantém atualizadas as ferramentas que acompanham o PocketClaw.';
+
+  @override
+  String get whatsNew020New2 =>
+      'Ferramentas de desenvolvimento incluídas: Git, GitHub CLI, curl, ripgrep, jq e SQLite.';
+
+  @override
+  String get whatsNew020New3 =>
+      'Suporte ao tempo de execução Python 3.14 incluído no PocketClaw.';
+
+  @override
+  String get whatsNew020New4 =>
+      'Login seguro no GitHub, compartilhado pelo Git e pela CLI do GitHub incluídos.';
+
+  @override
+  String get whatsNew020New5 =>
+      'Integração com o Telegram, configurada nas Configurações.';
+
+  @override
+  String get whatsNew020Improvement1 =>
+      'Provedores mais resilientes: uma requisição com falha não encerra mais o turno.';
+
+  @override
+  String get whatsNew020Improvement2 =>
+      'Um catálogo do tempo de execução gerenciado mais preciso.';
+
+  @override
+  String get whatsNew020Improvement3 =>
+      'Uma identidade do PocketClaw mais consistente na interface web e no espaço de trabalho padrão.';
+
+  @override
+  String get whatsNew020Fix1 =>
+      'O gateway agora se recupera de um registro de processo obsoleto deixado por uma execução anterior.';
+
+  @override
+  String get whatsNew020Fix2 =>
+      'Listas de canais com mais de uma entrada são preservadas corretamente ao salvar.';
 }

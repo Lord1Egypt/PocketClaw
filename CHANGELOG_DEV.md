@@ -1,5 +1,57 @@
 # Development Changelog
 
+## 2026-09-05 — Settings gets What's New, and a Row that starved its own title
+
+Branch `feature/whats-new`, from `develop` at `09790ac7`, merged with `--no-ff`.
+Two commits, physically accepted as vc37 on SM-A165F / Android 16.
+
+Settings now has a What's New entry immediately before About, opening a full
+page of 0.2.0 release notes in all twelve app locales. A localized NEW badge
+sits on the entry until the notes are read.
+
+The identity question was the one worth getting right. The badge is keyed on
+the versionName and nothing else — `buildNumber` is never read. The Android
+versionCode is bumped for every internal physical candidate, and this milestone
+alone produced two of them for the same release; keying on it would have
+re-announced 0.2.0 to a user who had already read it. The mark is written once
+the route is on screen, so a user who merely passes through Settings keeps their
+badge and a user who reads the page and kills the app from it does not.
+
+Release structure is typed Dart and every user-facing word resolves through the
+ARB bundles, so a release note cannot ship untranslated English. Sixteen keys
+across twelve locales, no placeholder drift, and a test that joins all rendered
+copy and fails on `WhatsApp`, `BlueStacks`, `Auto-Start` or `versionCode` —
+0.2.0 must advertise only what shipped and was accepted. The page is laid out
+with `EdgeInsetsDirectional` and no Arabic branch; the RTL proof is geometric,
+asserting the bullet marker sits left of its text in English and right of it in
+Arabic.
+
+Then vc36 passed the feature and exposed a layout defect worth recording. The
+header was a `Row` with the title in an `Expanded`. A `Row` gives its
+inflexible children their natural width first and the `Expanded` whatever is
+left, so the title was last in line for space every time. With the unseen NEW
+badge widening the What's New button, what was left on a 360px-wide phone was
+**nothing**: the title got 0px against the 176px it needed and rendered
+`Setti...`. Opening What's New retired the badge, returned the width and hid
+the defect — which is exactly why it read as a badge problem. It was not an
+English problem either; Arabic needed 198px and truncated even in the seen
+state.
+
+The header is a `Wrap` now. Title and actions keep their natural widths, sit at
+opposite edges while they share a line, and drop to a second line when they
+cannot; the actions are a nested `Wrap` so a long locale breaks between the two
+buttons instead of overflowing. Nothing is measured against a language, so RTL
+still mirrors on its own. The guard measures the title's rendered box against
+its intrinsic width at 360x800 in English and Arabic, badge visible and badge
+seen, and all four cases fail against the old `Row`.
+
+`flutter analyze` clean, `flutter test` 203 passed. vc36 verified the feature,
+vc37 the fix, both installed in place with app data preserved. Final artifact
+`0.2.0` (versionCode 37), 64,543,774 bytes, SHA-256
+`7e617eb7e4e6a0738bf9cc7ce3da56204953911b387fee8781aa59ad363424e1`, all eleven
+arm64 payload guards passing. vc37 is also the first physically accepted build
+carrying the pt-BR/zh Dashboard locale cleanup at `65dfc02`.
+
 ## 2026-09-04 — Telegram Context Memory becomes a setting, and the console speaks twelve languages
 
 Branch `feature/telegram-context-settings`, merged to `develop` with `--no-ff`.

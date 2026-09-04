@@ -437,4 +437,63 @@ class AppLocalizationsDe extends AppLocalizations {
   @override
   String get credentialAppliesDeferred =>
       'Gespeichert. PocketClaw startet gerade und wendet es automatisch an, sobald das abgeschlossen ist.';
+
+  @override
+  String get whatsNewTitle => 'Neuerungen';
+
+  @override
+  String get whatsNewDescription =>
+      'Die wichtigsten Änderungen in dieser Version.';
+
+  @override
+  String get whatsNewBadge => 'NEU';
+
+  @override
+  String get whatsNewSectionNew => 'Neu';
+
+  @override
+  String get whatsNewSectionImprovements => 'Verbesserungen';
+
+  @override
+  String get whatsNewSectionFixes => 'Fehlerbehebungen';
+
+  @override
+  String get whatsNew020New1 =>
+      'Die verwaltete Laufzeitumgebung installiert die mitgelieferten PocketClaw-Werkzeuge und hält sie aktuell.';
+
+  @override
+  String get whatsNew020New2 =>
+      'Mitgelieferte Entwicklerwerkzeuge: Git, GitHub CLI, curl, ripgrep, jq und SQLite.';
+
+  @override
+  String get whatsNew020New3 =>
+      'Unterstützung für die mitgelieferte Python-3.14-Laufzeitumgebung von PocketClaw.';
+
+  @override
+  String get whatsNew020New4 =>
+      'Sichere GitHub-Anmeldung, gemeinsam genutzt von Git und der GitHub CLI.';
+
+  @override
+  String get whatsNew020New5 =>
+      'Telegram-Integration, einrichtbar in den Einstellungen.';
+
+  @override
+  String get whatsNew020Improvement1 =>
+      'Robustere Anbieter: Eine fehlgeschlagene Anfrage beendet den Durchgang nicht mehr.';
+
+  @override
+  String get whatsNew020Improvement2 =>
+      'Ein genauerer Katalog der verwalteten Laufzeitumgebung.';
+
+  @override
+  String get whatsNew020Improvement3 =>
+      'Eine klarere PocketClaw-Identität in der Weboberfläche und im Standard-Arbeitsbereich.';
+
+  @override
+  String get whatsNew020Fix1 =>
+      'Das Gateway erholt sich jetzt von einem veralteten Prozesseintrag eines früheren Laufs.';
+
+  @override
+  String get whatsNew020Fix2 =>
+      'Kanallisten mit mehreren Einträgen bleiben beim Speichern korrekt erhalten.';
 }

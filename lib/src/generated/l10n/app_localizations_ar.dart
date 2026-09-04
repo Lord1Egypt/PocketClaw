@@ -428,4 +428,60 @@ class AppLocalizationsAr extends AppLocalizations {
   @override
   String get credentialAppliesDeferred =>
       'تم الحفظ. PocketClaw مشغول بالبدء، لذا سيُطبَّق تلقائيًا فور انتهاء ذلك.';
+
+  @override
+  String get whatsNewTitle => 'ما الجديد';
+
+  @override
+  String get whatsNewDescription => 'أبرز التغييرات في هذا الإصدار.';
+
+  @override
+  String get whatsNewBadge => 'جديد';
+
+  @override
+  String get whatsNewSectionNew => 'جديد';
+
+  @override
+  String get whatsNewSectionImprovements => 'تحسينات';
+
+  @override
+  String get whatsNewSectionFixes => 'إصلاحات';
+
+  @override
+  String get whatsNew020New1 =>
+      'يقوم وقت التشغيل المُدار بتثبيت أدوات PocketClaw المضمّنة وتحديثها نيابةً عنك.';
+
+  @override
+  String get whatsNew020New2 =>
+      'أدوات تطوير مضمّنة: Git وGitHub CLI وcurl وripgrep وjq وSQLite.';
+
+  @override
+  String get whatsNew020New3 =>
+      'دعم وقت تشغيل Python 3.14 المضمّن في PocketClaw.';
+
+  @override
+  String get whatsNew020New4 =>
+      'تسجيل دخول آمن إلى GitHub، يشترك فيه Git وGitHub CLI المضمّنان.';
+
+  @override
+  String get whatsNew020New5 => 'تكامل مع تيليجرام، يُضبط من الإعدادات.';
+
+  @override
+  String get whatsNew020Improvement1 =>
+      'مزوّدون أكثر مرونة: لم يعد فشل الطلب ينهي الدور.';
+
+  @override
+  String get whatsNew020Improvement2 => 'فهرس أدق لوقت التشغيل المُدار.';
+
+  @override
+  String get whatsNew020Improvement3 =>
+      'هوية PocketClaw أوضح في واجهة الويب ومساحة العمل الافتراضية.';
+
+  @override
+  String get whatsNew020Fix1 =>
+      'أصبحت البوابة تتعافى من سجل عملية قديم خلّفه تشغيل سابق.';
+
+  @override
+  String get whatsNew020Fix2 =>
+      'يتم الآن حفظ قوائم القنوات التي تحتوي أكثر من عنصر واحد بشكل صحيح.';
 }

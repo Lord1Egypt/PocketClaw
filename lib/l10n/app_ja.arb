@@ -153,5 +153,21 @@
   "githubDisconnectedReport": "切断しました。{outcome}",
   "credentialAppliedNow": "gh と git がすぐに使用できます。",
   "credentialAppliesNextStart": "次に PocketClaw を起動したときに使用されます。",
-  "credentialAppliesDeferred": "保存しました。PocketClaw が起動中のため、完了次第自動的に適用されます。"
+  "credentialAppliesDeferred": "保存しました。PocketClaw が起動中のため、完了次第自動的に適用されます。",
+  "whatsNewTitle": "新機能",
+  "whatsNewDescription": "このリリースの主な変更点です。",
+  "whatsNewBadge": "新着",
+  "whatsNewSectionNew": "新機能",
+  "whatsNewSectionImprovements": "改善",
+  "whatsNewSectionFixes": "修正",
+  "whatsNew020New1": "マネージドランタイムが PocketClaw 同梱ツールの導入と更新を自動で行います。",
+  "whatsNew020New2": "同梱の開発ツール: Git、GitHub CLI、curl、ripgrep、jq、SQLite。",
+  "whatsNew020New3": "PocketClaw 同梱の Python 3.14 ランタイムに対応しました。",
+  "whatsNew020New4": "安全な GitHub サインイン。同梱の Git と GitHub CLI が共通で利用します。",
+  "whatsNew020New5": "Telegram 連携。設定から構成できます。",
+  "whatsNew020Improvement1": "プロバイダーの耐障害性を向上。リクエストが失敗してもターンは終了しません。",
+  "whatsNew020Improvement2": "マネージドランタイムのカタログをより正確にしました。",
+  "whatsNew020Improvement3": "ウェブ画面と既定のワークスペースで PocketClaw の表記を統一しました。",
+  "whatsNew020Fix1": "以前の実行が残した古いプロセス記録からゲートウェイが復帰するようになりました。",
+  "whatsNew020Fix2": "複数の項目を持つチャンネル一覧が保存時に正しく保持されるようになりました。"
 }

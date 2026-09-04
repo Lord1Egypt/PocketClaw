@@ -153,5 +153,21 @@
   "githubDisconnectedReport": "डिस्कनेक्ट हो गया। {outcome}",
   "credentialAppliedNow": "gh और git अब इसका उपयोग कर सकते हैं।",
   "credentialAppliesNextStart": "इसका उपयोग अगली बार PocketClaw शुरू होने पर किया जाएगा।",
-  "credentialAppliesDeferred": "सहेजा गया। PocketClaw प्रारंभ हो रहा है, इसलिए पूरा होते ही यह स्वतः लागू हो जाएगा।"
+  "credentialAppliesDeferred": "सहेजा गया। PocketClaw प्रारंभ हो रहा है, इसलिए पूरा होते ही यह स्वतः लागू हो जाएगा।",
+  "whatsNewTitle": "नया क्या है",
+  "whatsNewDescription": "इस रिलीज़ के मुख्य बदलाव.",
+  "whatsNewBadge": "नया",
+  "whatsNewSectionNew": "नया",
+  "whatsNewSectionImprovements": "सुधार",
+  "whatsNewSectionFixes": "समाधान",
+  "whatsNew020New1": "प्रबंधित रनटाइम PocketClaw के साथ आने वाले टूल इंस्टॉल करता है और उन्हें अद्यतन रखता है.",
+  "whatsNew020New2": "साथ में दिए गए डेवलपर टूल: Git, GitHub CLI, curl, ripgrep, jq और SQLite.",
+  "whatsNew020New3": "PocketClaw के साथ दिए गए Python 3.14 रनटाइम का समर्थन.",
+  "whatsNew020New4": "सुरक्षित GitHub साइन-इन, जिसे साथ दिए गए Git और GitHub CLI दोनों उपयोग करते हैं.",
+  "whatsNew020New5": "Telegram एकीकरण, सेटिंग्स से सेट किया जा सकता है.",
+  "whatsNew020Improvement1": "अधिक सुदृढ़ प्रदाता: कोई विफल अनुरोध अब बातचीत को समाप्त नहीं करता.",
+  "whatsNew020Improvement2": "अधिक सटीक प्रबंधित रनटाइम सूची.",
+  "whatsNew020Improvement3": "वेब इंटरफ़ेस और डिफ़ॉल्ट कार्यक्षेत्र में अधिक स्पष्ट PocketClaw पहचान.",
+  "whatsNew020Fix1": "गेटवे अब पिछली बार छूटे हुए पुराने प्रोसेस रिकॉर्ड से उबर जाता है.",
+  "whatsNew020Fix2": "एक से अधिक प्रविष्टि वाली चैनल सूचियाँ सहेजते समय सही ढंग से बनी रहती हैं."
 }

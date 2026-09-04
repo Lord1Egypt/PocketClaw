@@ -1,5 +1,79 @@
 # PocketClaw Session Handoff
 
+## What's New — PHYSICAL PASS and merged, 2026-09-05
+
+Branch `feature/whats-new`, off `develop` at `09790ac7`. **Physically validated
+on SM-A165F / Android 16 as vc37, then merged to `develop` with `--no-ff`.**
+`main` untouched, no tags moved, no release created. The feature branch is
+retained.
+
+### What this milestone did and did not do
+
+It added release-notes UI and nothing else. It did **not** touch the Telegram
+context algorithm, Context Memory settings, the live-context cache, the Telegram
+FIFO / thinking / typing, Dashboard i18n, the Dashboard sidebar, the provider
+architecture, Managed Runtime, GitHub auth, the Python runtime or any Go code.
+No Core rebuild was needed or performed.
+
+### The entry, and where the badge state lives
+
+A What's New control in the Settings header, immediately before About and
+styled to match it, pushing a full page rather than an `AlertDialog`. It shows
+a localized NEW badge while the notes are unread.
+
+The seen mark is `pocketclaw.whats_new.last_seen_version` in
+`SharedPreferences`, and the release identity behind it is the **versionName
+only** — `PackageInfo.fromPlatform().version`, never `buildNumber`. This is the
+part to not undo. The versionCode is bumped for every internal candidate; this
+milestone alone produced vc36 and vc37 for the same 0.2.0 notes, and keying the
+badge on the versionCode would have re-announced them. The mark is written once
+the route is on screen: not on Settings open, not before the push succeeds, not
+on pop.
+
+Both the store and the version loader are injected into `ConfigPage`, so the
+badge is drivable in tests without a platform preference store.
+
+### The header truncation, and why it looked like a badge bug
+
+vc36 passed the feature but the English Settings title rendered `Setti...`
+whenever the NEW badge was visible, and rendered fully once the badge went away.
+That pointed at the badge; the cause was the `Row`.
+
+A `Row` lays out inflexible children at their natural width first and gives an
+`Expanded` only the remainder. Both action buttons are inflexible, so the title
+was last in line for space. With the badge widening the What's New button, the
+remainder on a 360px-wide phone was **0px** against the 176px the title needed.
+Arabic needed 198px and truncated even in the seen state, so this was never
+English-specific — the English seen state was simply the one case that happened
+to fit.
+
+The header is a `Wrap` now, `spaceBetween`, with the actions in a nested `Wrap`.
+If anything else is ever added to this header, do not reintroduce a fixed-width
+flex child beside the title.
+
+### Verification and artifact
+
+`flutter analyze` clean, `flutter test` 203 passed. vc36 verified the feature,
+vc37 the header fix, both installed with `install -r` and app data preserved
+(`firstInstallTime`, uid and dataDir all unchanged).
+
+Final artifact: `0.2.0`, versionCode 37, 64,543,774 bytes, SHA-256
+`7e617eb7e4e6a0738bf9cc7ce3da56204953911b387fee8781aa59ad363424e1`, built
+through the canonical arm64 Gradle path with all eleven payload guards passing.
+vc37 is also the first physically accepted build carrying the pt-BR/zh Dashboard
+locale cleanup at `65dfc02`.
+
+### Next
+
+The next milestone is **PocketClaw Visual Identity / UI-UX Redesign**, on a new
+branch from the updated `develop`. It is **not started**, and nothing here
+prepares it — the header `Wrap` is a targeted truncation fix inside the current
+visual style, not a first step.
+
+Backlog recorded in `TASKS.md`, none of it started: remaining user-visible
+PicoClaw branding in the Dashboard, the ambiguous mobile sidebar-toggle icon,
+and a Vision / Image model routing option.
+
 ## Telegram Context Settings + Dashboard i18n — PHYSICAL PASS and merged, 2026-09-04
 
 Branch `feature/telegram-context-settings`, off `develop` at `f83699d4`.
