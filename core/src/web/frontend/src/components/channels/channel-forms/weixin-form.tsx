@@ -216,7 +216,7 @@ export function WeixinForm({
           {qrDataURI ? (
             <img
               src={qrDataURI}
-              alt="WeChat QR Code"
+              alt={t("channels.weixin.qrAlt")}
               className="border-border/60 h-48 w-48 rounded-xl border bg-white p-2 shadow-sm"
             />
           ) : (

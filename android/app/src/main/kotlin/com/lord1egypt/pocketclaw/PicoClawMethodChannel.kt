@@ -57,6 +57,8 @@ class PicoClawMethodChannel(
             "http://127.0.0.1:18800/api/pocketclaw/android/telegram"
         private const val NETWORK_MODE_BRIDGE_URL =
             "http://127.0.0.1:18800/api/pocketclaw/android/network-mode"
+        private const val CONTEXT_MEMORY_BRIDGE_URL =
+            "http://127.0.0.1:18800/api/pocketclaw/android/context-memory"
         private const val GITHUB_VALIDATE_BRIDGE_URL =
             "http://127.0.0.1:18800/api/pocketclaw/android/github/validate"
         private const val GITHUB_STATUS_BRIDGE_URL =
@@ -347,6 +349,72 @@ class PicoClawMethodChannel(
                             val reason = e.message ?: "GitHub did not accept this token"
                             mainExecutor.execute {
                                 result.error("GITHUB_CONNECT_FAILED", reason, null)
+                            }
+                        }
+                    }.start()
+                }
+                "getTelegramContextMemory" -> {
+                    // Core owns config.json, so Settings asks Core what the
+                    // effective value is rather than parsing the file here.
+                    Thread {
+                        val mainExecutor = getMainExecutor()
+                        try {
+                            val reply = callGitHubBridge(
+                                url = CONTEXT_MEMORY_BRIDGE_URL,
+                                method = "GET",
+                                body = null,
+                            )
+                            mainExecutor.execute {
+                                result.success(
+                                    mapOf(
+                                        "recentMessages" to reply.optInt("recent_messages"),
+                                        "min" to reply.optInt("min"),
+                                        "max" to reply.optInt("max"),
+                                        "default" to reply.optInt("default"),
+                                    )
+                                )
+                            }
+                        } catch (e: Exception) {
+                            mainExecutor.execute {
+                                result.error(
+                                    "CONTEXT_MEMORY_READ_FAILED",
+                                    e.message ?: "Could not read the context memory setting",
+                                    null,
+                                )
+                            }
+                        }
+                    }.start()
+                }
+                "setTelegramContextMemory" -> {
+                    val recentMessages = call.argument<Number>("recentMessages")?.toInt() ?: 0
+                    Thread {
+                        val mainExecutor = getMainExecutor()
+                        try {
+                            // Core validates the range and rejects anything
+                            // outside it, so the host never has to be the
+                            // authority on what is acceptable.
+                            val reply = callGitHubBridge(
+                                url = CONTEXT_MEMORY_BRIDGE_URL,
+                                method = "PUT",
+                                body = JSONObject().put("recent_messages", recentMessages),
+                            )
+                            mainExecutor.execute {
+                                result.success(
+                                    mapOf(
+                                        "recentMessages" to reply.optInt("recent_messages"),
+                                        "min" to reply.optInt("min"),
+                                        "max" to reply.optInt("max"),
+                                        "default" to reply.optInt("default"),
+                                    )
+                                )
+                            }
+                        } catch (e: Exception) {
+                            mainExecutor.execute {
+                                result.error(
+                                    "CONTEXT_MEMORY_WRITE_FAILED",
+                                    e.message ?: "Core rejected the context memory setting",
+                                    null,
+                                )
                             }
                         }
                     }.start()

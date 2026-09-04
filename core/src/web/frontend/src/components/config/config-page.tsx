@@ -314,10 +314,10 @@ export function ConfigPage() {
         const dmScope = form.dmScope.trim()
 
         if (!workspace) {
-          throw new Error("Workspace path is required.")
+          throw new Error(t("pages.config.workspace_required"))
         }
         if (!dmScope) {
-          throw new Error("Session scope is required.")
+          throw new Error(t("pages.config.session_scope_required"))
         }
 
         if (
@@ -327,55 +327,73 @@ export function ConfigPage() {
           !form.mcpDiscoveryUseRegex
         ) {
           throw new Error(
-            "MCP discovery requires at least one search method (BM25 or regex).",
+            t("pages.config.mcp_discovery_requires_search_method"),
           )
         }
 
-        const maxTokens = parseIntField(form.maxTokens, "Max tokens", {
-          min: 1,
-        })
+        const maxTokens = parseIntField(
+          form.maxTokens,
+          t("pages.config.max_tokens"),
+          t,
+          {
+            min: 1,
+          },
+        )
         const contextWindow = form.contextWindow.trim()
-          ? parseIntField(form.contextWindow, "Context window", { min: 1 })
+          ? parseIntField(
+              form.contextWindow,
+              t("pages.config.context_window"),
+              t,
+              { min: 1 },
+            )
           : undefined
         const maxToolIterations = parseIntField(
           form.maxToolIterations,
-          "Max tool iterations",
+          t("pages.config.max_tool_iterations"),
+          t,
           { min: 1 },
         )
         const toolFeedbackMaxArgsLength = parseIntField(
           form.toolFeedbackMaxArgsLength,
-          "Tool feedback max args length",
+          t("pages.config.tool_feedback_max_args_length"),
+          t,
           { min: 0 },
         )
         const summarizeMessageThreshold = parseIntField(
           form.summarizeMessageThreshold,
-          "Summarize message threshold",
+          t("pages.config.summarize_threshold"),
+          t,
           { min: 1 },
         )
         const summarizeTokenPercent = parseIntField(
           form.summarizeTokenPercent,
-          "Summarize token percent",
+          t("pages.config.summarize_token_percent"),
+          t,
           { min: 1, max: 100 },
         )
         const turnProfile = buildTurnProfilePatch(form.turnProfile)
         const heartbeatInterval = parseIntField(
           form.heartbeatInterval,
-          "Heartbeat interval",
+          t("pages.config.heartbeat_interval"),
+          t,
           { min: 1 },
         )
         const cronExecTimeoutMinutes = parseIntField(
           form.cronExecTimeoutMinutes,
-          "Cron exec timeout",
+          t("pages.config.cron_exec_timeout"),
+          t,
           { min: 0 },
         )
         const evolutionMinTaskCount = parseIntField(
           form.evolutionMinTaskCount,
-          "Evolution minimum task count",
+          t("pages.config.evolution_min_task_count"),
+          t,
           { min: 1 },
         )
         const evolutionMinSuccessRatio = parseFloatField(
           form.evolutionMinSuccessRatio,
-          "Evolution minimum success ratio",
+          t("pages.config.evolution_min_success_ratio"),
+          t,
           { min: 0.01, max: 1 },
         )
         const mcpDiscoveryValidationEnabled =
@@ -389,14 +407,16 @@ export function ConfigPage() {
         if (mcpDiscoveryValidationEnabled) {
           mcpDiscoveryPatch.ttl = parseIntField(
             form.mcpDiscoveryTTL,
-            "MCP discovery ttl",
+            t("pages.config.mcp_discovery_ttl"),
+            t,
             {
               min: 1,
             },
           )
           mcpDiscoveryPatch.max_search_results = parseIntField(
             form.mcpDiscoveryMaxSearchResults,
-            "MCP discovery max search results",
+            t("pages.config.mcp_discovery_max_results"),
+            t,
             { min: 1 },
           )
         }
@@ -437,7 +457,9 @@ export function ConfigPage() {
 
           if (duplicateNames.length > 0) {
             throw new Error(
-              `MCP server names must be unique. Duplicates: ${duplicateNames.join(", ")}.`,
+              t("pages.config.mcp_duplicate_names", {
+                names: duplicateNames.join(", "),
+              }),
             )
           }
 
@@ -466,7 +488,11 @@ export function ConfigPage() {
 
             if (server.type !== "stdio") {
               if (shouldValidateServer && server.url === "") {
-                throw new Error(`MCP server ${server.name} requires a URL.`)
+                throw new Error(
+                  t("pages.config.mcp_server_url_required", {
+                    name: server.name,
+                  }),
+                )
               }
 
               if (shouldValidateServer) {
@@ -480,7 +506,9 @@ export function ConfigPage() {
                   }
                 } catch {
                   throw new Error(
-                    `MCP server ${server.name} requires a valid HTTP(S) URL.`,
+                    t("pages.config.mcp_server_url_invalid", {
+                      name: server.name,
+                    }),
                   )
                 }
               }
@@ -488,7 +516,10 @@ export function ConfigPage() {
               const baselineHeaders = baselineServer
                 ? parseJSONObjectField(
                     baselineServer.headersText,
-                    `Saved MCP server ${server.name} headers`,
+                    t("pages.config.mcp_saved_headers_label", {
+                      name: server.name,
+                    }),
+                    t,
                   )
                 : {}
 
@@ -503,7 +534,10 @@ export function ConfigPage() {
                     shouldValidateServer
                       ? parseJSONObjectField(
                           server.headersText,
-                          `MCP server ${server.name} headers`,
+                          t("pages.config.mcp_headers_label", {
+                            name: server.name,
+                          }),
+                          t,
                         )
                       : baselineHeaders,
                     baselineHeaders,
@@ -517,13 +551,20 @@ export function ConfigPage() {
             }
 
             if (shouldValidateServer && server.command === "") {
-              throw new Error(`MCP server ${server.name} requires a command.`)
+              throw new Error(
+                t("pages.config.mcp_server_command_required", {
+                  name: server.name,
+                }),
+              )
             }
 
             const baselineEnv = baselineServer
               ? parseJSONObjectField(
                   baselineServer.envText,
-                  `Saved MCP server ${server.name} env`,
+                  t("pages.config.mcp_saved_env_label", {
+                    name: server.name,
+                  }),
+                  t,
                 )
               : {}
 
@@ -539,7 +580,10 @@ export function ConfigPage() {
                   shouldValidateServer
                     ? parseJSONObjectField(
                         server.envText,
-                        `MCP server ${server.name} env`,
+                        t("pages.config.mcp_env_label", {
+                          name: server.name,
+                        }),
+                        t,
                       )
                     : baselineEnv,
                   baselineEnv,
@@ -565,7 +609,8 @@ export function ConfigPage() {
           )
           execConfigPatch.timeout_seconds = parseIntField(
             form.execTimeoutSeconds,
-            "Exec timeout",
+            t("pages.config.exec_timeout_seconds"),
+            t,
             { min: 0 },
           )
 
@@ -640,10 +685,15 @@ export function ConfigPage() {
 
       let savedLauncherForm: LauncherForm | null = null
       if (launcherSettingsDirty) {
-        const port = parseIntField(launcherForm.port, "Service port", {
-          min: 1,
-          max: 65535,
-        })
+        const port = parseIntField(
+          launcherForm.port,
+          t("pages.config.server_port"),
+          t,
+          {
+            min: 1,
+            max: 65535,
+          },
+        )
         const allowedCIDRs = parseCIDRText(launcherForm.allowedCIDRsText)
         const trustedProxyCIDRs = parseCIDRText(
           launcherForm.trustedProxyCIDRsText,

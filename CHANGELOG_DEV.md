@@ -1,5 +1,81 @@
 # Development Changelog
 
+## 2026-09-04 — Telegram Context Memory becomes a setting, and the console speaks twelve languages
+
+Branch `feature/telegram-context-settings`, merged to `develop` with `--no-ff`.
+Fifteen commits, physically accepted as vc35 on SM-A165F / Android 16.
+
+The bounded-context algorithm shipped earlier with its window hard-coded at 15.
+That number is now a setting — 10, 15 (Recommended), 20, 25, or a Custom value
+between 5 and 50 — behind an explicit Save that stays disabled until the value
+is both valid and changed. It writes
+`agents.defaults.telegram_recent_context_messages`, and 15 remains the default
+because that is the value the algorithm was validated at.
+
+Saving applies to the next turn. No app restart, no Gateway restart. The bug
+that had to be found first is worth restating: `SaveConfig` writes through
+`WriteFileAtomic`, so a save renames a temporary file over the target rather
+than editing it. Save 17, then save 10, and the two payloads are the same length
+and can land inside one coarse timestamp tick — a cache keyed on size and mtime
+answers 17 for the rest of the process. The key is `os.SameFile` plus size and
+mtime, and reverting it makes `TestSameSizeRapidReplacementIsNotMissed` fail
+with exactly that symptom. On the device, Custom = 17 held at `limit=17` across
+`history_total` 26, 28, 30, 32 and 34.
+
+The embedded console was the other half. With the app in Arabic, Manage Models
+opened an English left-to-right dashboard, because nine of the twelve app
+locales had no resource to resolve to. All twelve resolve now — `pt` onto the
+existing `pt-BR` bundle rather than a duplicate — and every one of the thirteen
+non-English bundles is complete at 907 keys with no placeholder drift. Arabic is
+genuinely right-to-left, from `i18n.dir()` rather than a test for Arabic. The
+pre-existing `bn-IN` and `cs` resources are untouched and still offered.
+
+Two things the structural gate could not see, both caught late:
+
+`pt-BR` and `zh` are *app* locales, and both were 42 keys short — the entire
+Telegram managed-onboarding surface, and the language menu's own labels. The
+nine newer bundles being complete said nothing about them. Parity is now
+measured against the set of locales the app can be set to, which is the only
+set that matters to a phone.
+
+Those same two bundles had never been held to the English-copy rule and were
+shipping real prose byte-identical to English: all of Fallback Models, the
+gateway-restart lifecycle, most of the provider picker. Translated now, in each
+bundle's own conventions rather than a dictionary's — Brazilian rather than
+European phrasing, and the gateway named 服务 in zh to match the 「重启服务」
+button those sentences point at. Because Latin script cannot distinguish a
+loanword from an oversight by equality alone, both locales get an exact-key
+allowance list, and a second test fails any allowance whose key has since been
+translated so a stale exemption cannot sit there covering a regression.
+
+Three hand-written language dropdowns became one shared selector listing every
+app locale by endonym. Endonyms are deliberately not resource keys: a
+"translated" endonym would be wrong.
+
+The last defect came from the device, not the gate. vc34 rendered Arabic
+correctly and put the sidebar trigger at the top right — and then slid the
+drawer in from the left, away from the finger that opened it. `ui/sidebar.tsx`
+hard-coded `side = "left"`, and that one value fed both the mobile Sheet and the
+desktop container, so no page was at fault and no page needed patching. The
+default comes from `i18n.dir()` now, an explicit prop still wins, and a live
+language switch moves the anchor with the drawer open. The sidebar's inner
+border was a physical `border-r`, which lands on the outer screen edge once the
+sidebar moves right; it is the logical `border-e`.
+
+Tests: 237 frontend, up from 112 at the start of the milestone. The new ones
+render real components through real i18next in five locales and assert the
+English wording is *absent*, rather than checking that a key exists. Two static
+guards keep literal accessibility names out of the source and every `t()`
+default backed by a real English key. Each new guard was confirmed to fail
+against the code it replaced. Flutter: 181 tests, `flutter analyze` clean.
+
+vc35 — `0.2.0`, versionCode 35, built at `1505e33`, SHA-256
+`fcec23a5430969fef892bb83ccc784bd35a1a33729fdd926de2869c355282077` — installed
+over the existing install with data preserved, and accepted physically. The
+final commit `65dfc02` is locale JSON and tests only; nothing runtime changed
+after acceptance, so it was deliberately not rebuilt. That does mean the pt-BR
+and zh cleanup is on `develop` but not yet on the device.
+
 ## 2026-09-01 — WhatsApp Self-Chat applies itself
 
 Branch `feature/whatsapp-self-chat`. The device found the one gap the gate

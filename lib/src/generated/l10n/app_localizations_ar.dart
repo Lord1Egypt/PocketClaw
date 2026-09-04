@@ -284,4 +284,148 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get close => 'إغلاق';
+
+  @override
+  String get contextMemoryTitle => 'ذاكرة سياق تيليجرام';
+
+  @override
+  String get contextMemoryDescription =>
+      'تتحكم في عدد رسائل المحادثة الأخيرة المُرسلة إلى الذكاء الاصطناعي. تبقى المحادثات الأقدم في تيليجرام ويُمثّلها الملخّص المتجدّد.';
+
+  @override
+  String get contextMemoryHelp =>
+      'عدد أكبر من الرسائل يمنح سياقًا أحدث لكنه يستهلك رموزًا أكثر. تبقى الرسائل الأقدم في تيليجرام وقد يُحتفظ بها عبر الملخّص المتجدّد.';
+
+  @override
+  String get contextMemoryRecommended => 'موصى به';
+
+  @override
+  String get contextMemoryCustom => 'مخصص';
+
+  @override
+  String get contextMemoryCustomLabel => 'الرسائل';
+
+  @override
+  String contextMemoryRangeError(int min, int max) {
+    return 'أدخل رقمًا صحيحًا بين $min و$max.';
+  }
+
+  @override
+  String get contextMemorySaveFailed => 'تعذّر حفظ هذا الإعداد.';
+
+  @override
+  String get settingsSave => 'حفظ';
+
+  @override
+  String get autoStartServiceTitle => 'تشغيل خدمة PocketClaw تلقائيًا';
+
+  @override
+  String get autoStartGatewayTitle => 'تشغيل البوابة تلقائيًا';
+
+  @override
+  String get autoStartPreferenceOn => 'تفضيل التشغيل التلقائي: مفعّل';
+
+  @override
+  String get autoStartPreferenceOff => 'تفضيل التشغيل التلقائي: معطّل';
+
+  @override
+  String get runtimeRunning => 'حالة التشغيل: قيد التشغيل';
+
+  @override
+  String get runtimeStarting => 'حالة التشغيل: قيد البدء';
+
+  @override
+  String get runtimeStopped => 'حالة التشغيل: متوقّف';
+
+  @override
+  String get gatewayAutoStartHint =>
+      'يُطبَّق عند تشغيل خدمة PocketClaw في المرة القادمة. تُدار حالة تشغيل البوابة من لوحة التحكم.';
+
+  @override
+  String get manageTelegramConnection => 'إدارة اتصال تيليجرام';
+
+  @override
+  String get manageModelsTitle => 'إدارة الموديلات';
+
+  @override
+  String get manageModelsDescription =>
+      'إضافة الموديلات وتعديلها واختبارها واختيار الموديل الافتراضي.';
+
+  @override
+  String get githubChecking => 'جارٍ التحقق…';
+
+  @override
+  String get githubConnected => 'متصل';
+
+  @override
+  String get githubNotConnected => 'غير متصل';
+
+  @override
+  String githubConnectedAs(String login) {
+    return 'متصل باسم $login';
+  }
+
+  @override
+  String get githubDescription =>
+      'يُستخدم بواسطة gh المضمّن وبواسطة Git عبر HTTPS. يُشفَّر الرمز على هذا الجهاز ولا يُعرض مرة أخرى.';
+
+  @override
+  String get githubTestConnection => 'اختبار الاتصال';
+
+  @override
+  String get githubDisconnect => 'قطع الاتصال';
+
+  @override
+  String get githubConnectAction => 'ربط GitHub';
+
+  @override
+  String get githubConnect => 'ربط';
+
+  @override
+  String get githubTokenLabel => 'رمز وصول شخصي';
+
+  @override
+  String get githubTokenHint =>
+      'ألصق رمز وصول شخصي من GitHub بالصلاحيات التي تحتاجها (repo للمستودعات الخاصة).';
+
+  @override
+  String get githubTokenRejected => 'لم يقبل GitHub هذا الرمز.';
+
+  @override
+  String get githubAuthWorking => 'مصادقة GitHub تعمل.';
+
+  @override
+  String get githubAuthNotWorking => 'مصادقة GitHub لا تعمل.';
+
+  @override
+  String githubAuthenticatedAs(String login) {
+    return 'تمت المصادقة باسم $login.';
+  }
+
+  @override
+  String get githubCredentialRemoveFailed => 'تعذّر إزالة بيانات الاعتماد.';
+
+  @override
+  String get githubYourAccount => 'حساب GitHub الخاص بك';
+
+  @override
+  String githubConnectedReport(String who, String outcome) {
+    return 'تم الاتصال باسم $who. $outcome';
+  }
+
+  @override
+  String githubDisconnectedReport(String outcome) {
+    return 'تم قطع الاتصال. $outcome';
+  }
+
+  @override
+  String get credentialAppliedNow => 'يمكن لـ gh و git استخدامه الآن.';
+
+  @override
+  String get credentialAppliesNextStart =>
+      'سيُستخدم عند تشغيل PocketClaw في المرة القادمة.';
+
+  @override
+  String get credentialAppliesDeferred =>
+      'تم الحفظ. PocketClaw مشغول بالبدء، لذا سيُطبَّق تلقائيًا فور انتهاء ذلك.';
 }

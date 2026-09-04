@@ -18,6 +18,30 @@ const AndroidBridgeTokenEnv = "POCKETCLAW_ANDROID_BRIDGE_TOKEN"
 
 const androidTelegramBridgePath = "/api/pocketclaw/android/telegram"
 const androidNetworkModeBridgePath = "/api/pocketclaw/android/network-mode"
+const androidContextMemoryBridgePath = "/api/pocketclaw/android/context-memory"
+
+// Telegram context-memory bounds. Native Settings offers presets inside this
+// range and a custom value; Core is the authority, so the range is enforced
+// here rather than trusted from the host.
+//
+// The floor keeps a turn usable: below a handful of messages the model loses
+// the exchange it is answering. The ceiling keeps the prompt bounded, which is
+// the whole point of the window.
+const (
+	minTelegramRecentContextMessages = config.MinTelegramRecentContextMessages
+	maxTelegramRecentContextMessages = config.MaxTelegramRecentContextMessages
+)
+
+type androidContextMemoryRequest struct {
+	RecentMessages int `json:"recent_messages"`
+}
+
+type androidContextMemoryResponse struct {
+	RecentMessages int `json:"recent_messages"`
+	Min            int `json:"min"`
+	Max            int `json:"max"`
+	Default        int `json:"default"`
+}
 
 // LauncherNetworkModeController is implemented by the Dashboard HTTP runtime.
 // It deliberately has no Core lifecycle methods.
@@ -95,6 +119,22 @@ func (h *Handler) RegisterAndroidBridgeRoutes(mux *http.ServeMux, bridgeToken st
 			return
 		}
 		h.handleAndroidGitHubStatus(w, r)
+	})
+	// Telegram context memory. Native Settings reads and writes it here so Core
+	// stays the only writer of config.json, exactly as Telegram pairing does.
+	mux.HandleFunc("GET "+androidContextMemoryBridgePath, func(w http.ResponseWriter, r *http.Request) {
+		if !authorizedAndroidBridgeRequest(r, bridgeToken) {
+			http.NotFound(w, r)
+			return
+		}
+		h.handleAndroidContextMemoryStatus(w)
+	})
+	mux.HandleFunc("PUT "+androidContextMemoryBridgePath, func(w http.ResponseWriter, r *http.Request) {
+		if !authorizedAndroidBridgeRequest(r, bridgeToken) {
+			http.NotFound(w, r)
+			return
+		}
+		h.handleAndroidContextMemoryApply(w, r)
 	})
 }
 
@@ -269,4 +309,75 @@ func (h *Handler) loadTelegramConfigForUpdate() (*config.Config, *config.Channel
 		}
 	}
 	return cfg, channel, settings, nil
+}
+
+// handleAndroidContextMemoryStatus reports the effective Telegram context
+// memory, so Settings shows what Core will actually use rather than what the
+// file happens to contain. An unset or out-of-range stored value reads as the
+// default, which is the same resolution the agent applies.
+func (h *Handler) handleAndroidContextMemoryStatus(w http.ResponseWriter) {
+	cfg, err := config.LoadConfig(h.configPath)
+	if err != nil {
+		http.Error(w, "Failed to load config", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(androidContextMemoryResponse{
+		RecentMessages: effectiveTelegramRecentContextMessages(cfg),
+		Min:            minTelegramRecentContextMessages,
+		Max:            maxTelegramRecentContextMessages,
+		Default:        config.DefaultTelegramRecentContextMessages,
+	})
+}
+
+// handleAndroidContextMemoryApply stores a new limit through Core's own
+// SaveConfig.
+//
+// It changes one number and nothing else: the loaded config is saved back with
+// only this field altered, so Telegram credentials, channels, models and every
+// other setting are carried through untouched. It deletes no message, clears no
+// summary and touches no session history — the next turn simply projects a
+// different number of recent messages.
+func (h *Handler) handleAndroidContextMemoryApply(w http.ResponseWriter, r *http.Request) {
+	var request androidContextMemoryRequest
+	decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 8<<10))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&request); err != nil {
+		http.Error(w, "Invalid request", http.StatusBadRequest)
+		return
+	}
+	if request.RecentMessages < minTelegramRecentContextMessages ||
+		request.RecentMessages > maxTelegramRecentContextMessages {
+		http.Error(w, "Recent message count is out of range", http.StatusBadRequest)
+		return
+	}
+
+	cfg, err := config.LoadConfig(h.configPath)
+	if err != nil {
+		http.Error(w, "Failed to load config", http.StatusInternalServerError)
+		return
+	}
+	cfg.Agents.Defaults.TelegramRecentContextMessages = request.RecentMessages
+	if err := config.SaveConfig(h.configPath, cfg); err != nil {
+		http.Error(w, "Failed to save config", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(androidContextMemoryResponse{
+		RecentMessages: request.RecentMessages,
+		Min:            minTelegramRecentContextMessages,
+		Max:            maxTelegramRecentContextMessages,
+		Default:        config.DefaultTelegramRecentContextMessages,
+	})
+}
+
+// effectiveTelegramRecentContextMessages resolves what the agent will use.
+func effectiveTelegramRecentContextMessages(cfg *config.Config) int {
+	if cfg == nil {
+		return config.DefaultTelegramRecentContextMessages
+	}
+	return config.ResolveTelegramRecentContextMessages(
+		cfg.Agents.Defaults.TelegramRecentContextMessages,
+	)
 }

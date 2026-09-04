@@ -80,15 +80,23 @@
   "workspaceDirectory": "ワークスペース",
   "logsSavedToMediaLibraryWithName": "ログがダウンロード（Androidメディアライブラリ）に保存されました: {name}",
   "@logsSavedToMediaLibraryWithName": {
-    "placeholders": {"name": {}}
+    "placeholders": {
+      "name": {}
+    }
   },
   "shareFailed": "共有ダイアログを開けませんでした: {error}",
-  "@shareFailed": {"placeholders": {"error": {}}},
+  "@shareFailed": {
+    "placeholders": {
+      "error": {}
+    }
+  },
   "exportLogs": "ログをエクスポート",
   "logEventsCount": "{count} イベント",
   "@logEventsCount": {
     "placeholders": {
-      "count": {"type": "int"}
+      "count": {
+        "type": "int"
+      }
     }
   },
   "unsavedChanges": "未保存の変更",
@@ -103,5 +111,47 @@
   "aboutAppVersionLabel": "PocketClaw バージョン",
   "aboutCoreVersionLabel": "ランタイムのバージョン",
   "aboutVersionUnavailable": "利用できません",
-  "close": "閉じる"
+  "close": "閉じる",
+  "contextMemoryTitle": "Telegram コンテキストメモリ",
+  "contextMemoryDescription": "AI に送信する直近の会話メッセージ数を設定します。それ以前の会話は Telegram に残り、ローリング要約で表現されます。",
+  "contextMemoryHelp": "メッセージを増やすと直近の文脈は充実しますが、トークン消費も増えます。古いメッセージは Telegram に残り、ローリング要約を通じて保持される場合があります。",
+  "contextMemoryRecommended": "推奨",
+  "contextMemoryCustom": "カスタム",
+  "contextMemoryCustomLabel": "メッセージ数",
+  "contextMemoryRangeError": "{min} から {max} までの整数を入力してください。",
+  "contextMemorySaveFailed": "この設定を保存できませんでした。",
+  "settingsSave": "保存",
+  "autoStartServiceTitle": "PocketClaw サービスを自動的に起動",
+  "autoStartGatewayTitle": "ゲートウェイを自動的に起動",
+  "autoStartPreferenceOn": "自動起動の設定: オン",
+  "autoStartPreferenceOff": "自動起動の設定: オフ",
+  "runtimeRunning": "実行状態: 実行中",
+  "runtimeStarting": "実行状態: 起動中",
+  "runtimeStopped": "実行状態: 停止",
+  "gatewayAutoStartHint": "次に PocketClaw サービスを起動したときに適用されます。ゲートウェイの実行状態はダッシュボードで管理します。",
+  "manageTelegramConnection": "Telegram 接続を管理",
+  "manageModelsTitle": "モデルを管理",
+  "manageModelsDescription": "AI モデルの追加・編集・テスト・選択ができます。",
+  "githubChecking": "確認中…",
+  "githubConnected": "接続済み",
+  "githubNotConnected": "未接続",
+  "githubConnectedAs": "{login} として接続済み",
+  "githubDescription": "同梱の gh と HTTPS 経由の Git が使用します。トークンはこの端末で暗号化され、再表示されることはありません。",
+  "githubTestConnection": "接続をテスト",
+  "githubDisconnect": "切断",
+  "githubConnectAction": "GitHub に接続",
+  "githubConnect": "接続",
+  "githubTokenLabel": "個人用アクセストークン",
+  "githubTokenHint": "必要なスコープを持つ GitHub の個人用アクセストークンを貼り付けてください（プライベートリポジトリには repo）。",
+  "githubTokenRejected": "GitHub はこのトークンを受け付けませんでした。",
+  "githubAuthWorking": "GitHub の認証は正常です。",
+  "githubAuthNotWorking": "GitHub の認証が機能していません。",
+  "githubAuthenticatedAs": "{login} として認証されました。",
+  "githubCredentialRemoveFailed": "資格情報を削除できませんでした。",
+  "githubYourAccount": "お使いの GitHub アカウント",
+  "githubConnectedReport": "{who} として接続しました。{outcome}",
+  "githubDisconnectedReport": "切断しました。{outcome}",
+  "credentialAppliedNow": "gh と git がすぐに使用できます。",
+  "credentialAppliesNextStart": "次に PocketClaw を起動したときに使用されます。",
+  "credentialAppliesDeferred": "保存しました。PocketClaw が起動中のため、完了次第自動的に適用されます。"
 }

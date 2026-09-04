@@ -1,5 +1,212 @@
 # PocketClaw Decisions
 
+## The Telegram context limit is a user setting, default 15, range 5–50
+
+- Date: 2026-09-04
+- Decision: the bounded-context limit is exposed in Settings as 10, 15
+  (Recommended), 20, 25 and Custom, with Custom accepting 5–50. It persists to
+  `agents.defaults.telegram_recent_context_messages` and the default stays 15.
+- Reason: the right window depends on how the user talks to the agent and on
+  what their model costs. A single shipped constant serves neither the user who
+  wants a longer memory nor the one paying per token. 15 stays the default
+  because that is the value the bounded-context milestone was validated at.
+- Consequence: the range is bounded on purpose. Below 5 the projection cannot
+  hold a useful exchange; above 50 the cost and latency regress the problem the
+  bounded context was introduced to solve. The setting is Telegram-only, as the
+  algorithm is.
+
+## Changing the context limit does not require a Gateway restart
+
+- Date: 2026-09-04
+- Decision: a saved limit takes effect on the next turn. The projection reads
+  the live value rather than a value captured at startup.
+- Reason: this is a dial a user will try two or three times to find their
+  preference. A restart between attempts costs an interrupted conversation, and
+  every restart is a chance to drop a queued message.
+- Consequence: correctness now depends on cache invalidation rather than on
+  process lifetime, which is why the cache key is file identity — see the
+  existing decision on that. It is one `os.Stat` per projection, with no
+  polling and no watcher.
+
+## The dashboard locale follows the host's `?lng=` first, then i18next persistence
+
+- Date: 2026-09-04
+- Decision: the Flutter host opens the console with its selected locale as
+  `?lng=`. i18next's detector reads the query string ahead of localStorage, so
+  the host wins on every load; the manual selector writes to localStorage and
+  therefore governs everything until the host next reopens the console with an
+  explicit locale.
+- Reason: two surfaces, one language. The app's own locale is the user's stated
+  preference and must not be overridden by a choice they made inside a WebView
+  weeks earlier. But a user who deliberately switches the console's language
+  expects it to survive navigation and reload.
+- Consequence: there is exactly one language state — i18next's. No second store,
+  no bridge message, no synchronisation to get wrong. The contract is locked by
+  a test that boots a fresh instance with a cached `de` and `?lng=ar`.
+
+## The sidebar's edge is semantic, from `i18n.dir()`, not a test for Arabic
+
+- Date: 2026-09-04
+- Decision: the shared `Sidebar` derives its default side from `i18n.dir()` —
+  RTL to the right, LTR to the left. An explicit `side` prop still wins. The
+  inner border is the logical `border-e`.
+- Reason: the drawer belongs on the side its trigger is on, and that is a
+  property of the writing direction, not of one language. Checking for Arabic
+  would be wrong the day a second RTL locale is added, and it would need a
+  second piece of direction state to go out of sync with the document.
+- Consequence: no new state, no observer, no listener. `useTranslation` was
+  already in the component, so `languageChanged` moves the anchor live. Anything
+  else positional in the console should reach for logical properties rather than
+  a conditional for the same reason.
+
+## The dashboard's app-locale set is exactly the twelve PocketClaw app locales
+
+- Date: 2026-09-04
+- Decision: `ar de en es fr hi id ja ko pt ru zh` must each resolve to a real
+  bundle and be offered by the language selector. `pt` maps onto the existing
+  `pt-BR` resource rather than duplicating it.
+- Reason: the host can hand over any of the twelve. A locale the app can be set
+  to but the console cannot render is a silent English fallback on the routes a
+  phone actually reaches.
+- Consequence: the completeness gate is defined against this set, not against
+  "the locales we happened to add". That distinction is what caught `pt-BR` and
+  `zh` sitting 42 keys short while the nine newer bundles were complete.
+- Supersedes the 2026-09-03 entry below, "The dashboard resolves every app
+  locale; its page bodies are not translated yet". That entry recorded an
+  honest half-state at the time — 48 of 857 keys translated — and is kept as
+  written. The page bodies are translated now: 907/907 in every bundle.
+
+## `bn-IN` and `cs` stay supported dashboard resources but are not app locales
+
+- Date: 2026-09-04
+- Decision: both bundles are kept, stay registered, and remain in the selector.
+  Neither is added to the app-locale set, and neither is held to the
+  structural-parity or English-copy gates that the app locales are.
+- Reason: they predate the app's own language setting and someone is using them.
+  Deleting working translations to tidy a test matrix is a regression for those
+  users. Promoting them would claim a level of completeness nobody has verified,
+  and the host cannot request them anyway.
+- Consequence: two tiers, stated rather than implied — app locales are
+  guaranteed complete, these two are best-effort. A future decision to promote
+  them is a deliberate act with its own gate, not a side effect.
+
+## The dashboard resolves every app locale; its page bodies are not translated yet
+
+- Date: 2026-09-03
+- Decision: the console registers all twelve app locales, maps `pt` onto the
+  existing `pt-BR` resource rather than duplicating it, reuses the existing `zh`
+  resource, keeps `bn-IN` and `cs`, and sets `lang` and `dir` on the document
+  root from `i18n.dir()` instead of testing for Arabic in each component. The
+  shared chrome — buttons, navigation, header, gateway actions, footer, loading
+  — is translated in all nine new locales.
+- Reason: with the app in Arabic, opening Manage Models or Manage Telegram
+  landed in an English left-to-right dashboard. `?lng=` alone could not fix that
+  because nine of the twelve locales had no resource to resolve to.
+- Consequence, measured rather than estimated: **48 of 857 keys, 5.6%.** The
+  page bodies fall back to English per key. `pages` (316), `models` (179),
+  `channels` (176), `chat` (71), `credentials` (39), `tour` (12),
+  `launcherSetup` (9) and `launcherLogin` (7) remain untranslated — 809 keys
+  across 9 locales, about 7,300 strings. Nothing is shipped as an English copy
+  pretending to be a translation: the nine new files contain only what is
+  actually translated, and a test fails if any of them copies English.
+- Consequence for Arabic specifically: the dashboard is now genuinely
+  right-to-left with translated navigation, while page content is still English
+  inside that RTL layout. That is a visible half-state, and it is the honest one
+  until the page namespaces are translated.
+
+## The live context-limit cache is keyed on file identity, not size and time
+
+- Date: 2026-09-03
+- Decision: `sameConfigFile` compares `os.SameFile`, size and modification time
+  together. The previous key compared only size and mtime.
+- Reason: `SaveConfig` writes through `WriteFileAtomic`, which renames a
+  temporary file over the target, so a save is a replacement rather than an
+  edit. Saving 17 and then 10 produces payloads of identical length, and two
+  saves can land inside one coarse timestamp tick; the old key would then answer
+  17 for the rest of the process. This was verified, not assumed — reverting to
+  the size-and-mtime key makes
+  `TestSameSizeRapidReplacementIsNotMissed` fail with exactly that symptom.
+- Consequence: identity changes on every atomic replacement, so no save can be
+  missed. The check is still one `os.Stat` per projection with no polling and no
+  extra decode.
+
+## The Telegram context limit is read from the file, not from a startup snapshot
+
+- Date: 2026-09-03
+- Decision: `recentContextLimit` resolves the limit from `config.json` at
+  projection time, behind a modification-time check, instead of reading the
+  value the `AgentInstance` was built with. The agent's startup value remains
+  the fallback when the file cannot be read.
+- Reason: a saved 17 kept projecting 15 until the service was restarted.
+  Settings writes the file in the web/launcher process while the agent runs in
+  the gateway child process, so no in-memory update on one side can reach the
+  other. The agent's config is a startup snapshot and is never reassigned at
+  runtime — `Manager.Reload` exists but sits behind `Gateway.HotReload`, which
+  ships off.
+- Consequence: a saved change applies to the next Telegram turn with no
+  restart, no session reset and no reconnect. Nothing polls: each projection
+  does one `os.Stat`, and the file is decoded again only when size or mtime
+  changed. Only the one field is decoded, deliberately not through
+  `config.LoadConfig`, whose migration and diagnostic logging do not belong on a
+  per-turn path. A malformed read — a save caught mid-write — keeps the previous
+  answer rather than snapping to the default for one turn, and a failed or
+  invalid save moves nothing because the file is the only thing consulted.
+
+## Settings prose is localized; the embedded Dashboard is not, yet
+
+- Date: 2026-09-03
+- Decision: every PocketClaw-added Settings string moves into ARB across all
+  twelve locales, and the app's language is handed to the embedded Dashboard as
+  an `?lng=` query parameter, which the console's existing i18next
+  language-detector already reads.
+- Reason: with the app set to Arabic, the auto-start card, the Telegram
+  shortcut and the whole GitHub card still rendered English.
+- Consequence, stated plainly: **the console ships only five locales** — `en`,
+  `pt-BR`, `bn-IN`, `zh`, `cs` — against the app's twelve. Handing it the app
+  language makes Chinese and Portuguese follow, and leaves Arabic, German,
+  Spanish, French, Hindi, Indonesian, Japanese, Korean and Russian falling back
+  to the console's English resources. Arabic in particular means the Dashboard
+  stays LTR English while Settings is RTL Arabic. Translating the console is a
+  separate milestone; nothing is hard-coded into a Flutter wrapper to disguise
+  the gap.
+
+## Manage Models navigates; it does not manage models
+
+- Date: 2026-09-03
+- Decision: a Settings card opens the console's `/models` route through the same
+  `onManage(path)` mechanism the Telegram shortcut uses.
+- Reason: a beginner should not have to discover Dashboard navigation to reach
+  models.
+- Consequence: providers, API keys, the catalog, the default-model choice and
+  model testing stay in the one place that owns them. A second implementation in
+  native Settings would be a second writer for state Core owns, which is the
+  mistake the dead Pico provisioner removal cleaned up. A test asserts the card
+  renders no field, switch or dropdown — only a navigation row.
+
+## Telegram context memory is a Settings control, written through Core
+
+- Date: 2026-09-03
+- Decision: Settings exposes the Telegram context-memory limit as presets
+  10 / 15 / 20 / 25 plus Custom, defaulting to 15. Native Settings reads and
+  writes it over the existing loopback Android bridge, so Core stays the only
+  writer of `config.json`, exactly as Telegram pairing and the GitHub credential
+  already do.
+- Reason: writing the file from Flutter would reintroduce a second config
+  writer, which is precisely what was removed when the dead Pico provisioner was
+  deleted. The bridge already exists for this purpose, and Core validates the
+  5–50 range itself so the host is never the authority on what is acceptable.
+- Consequence: the control changes one number. It deletes no Telegram message,
+  no stored transcript and no session history, and it does not clear the rolling
+  summary or restart anything — the next turn simply projects a different count.
+  A value outside the range is rejected by Core and the card restores what Core
+  is actually using, so the UI can never show a setting that is not in force. A
+  stored value outside the range reads as the default, matching how the agent
+  resolves it. `DefaultTelegramRecentContextMessages` now lives in `pkg/config`
+  so the agent that applies it and the API that exposes it read one number.
+- Note: the card renders its choices disabled rather than showing a progress
+  indicator while loading. An indeterminate indicator animates forever, which
+  hung every existing ConfigPage widget test the moment the card was added.
+
 ## The rolling summary quotes exact values, and never credentials
 
 - Date: 2026-09-03

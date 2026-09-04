@@ -80,15 +80,23 @@
   "workspaceDirectory": "Ruang kerja",
   "logsSavedToMediaLibraryWithName": "Log disimpan ke Unduhan (perpustakaan media Android): {name}",
   "@logsSavedToMediaLibraryWithName": {
-    "placeholders": {"name": {}}
+    "placeholders": {
+      "name": {}
+    }
   },
   "shareFailed": "Gagal membuka dialog berbagi: {error}",
-  "@shareFailed": {"placeholders": {"error": {}}},
+  "@shareFailed": {
+    "placeholders": {
+      "error": {}
+    }
+  },
   "exportLogs": "Ekspor log",
   "logEventsCount": "{count} PERISTIWA",
   "@logEventsCount": {
     "placeholders": {
-      "count": {"type": "int"}
+      "count": {
+        "type": "int"
+      }
     }
   },
   "unsavedChanges": "Perubahan belum disimpan",
@@ -103,5 +111,47 @@
   "aboutAppVersionLabel": "Versi PocketClaw",
   "aboutCoreVersionLabel": "Versi runtime",
   "aboutVersionUnavailable": "Tidak tersedia",
-  "close": "Tutup"
+  "close": "Tutup",
+  "contextMemoryTitle": "Memori Konteks Telegram",
+  "contextMemoryDescription": "Mengatur berapa banyak pesan percakapan terbaru yang dikirim ke AI. Percakapan lama tetap ada di Telegram dan diwakili oleh ringkasan berjalan.",
+  "contextMemoryHelp": "Lebih banyak pesan memberi konteks terbaru yang lebih kaya tetapi memakai lebih banyak token. Pesan lama tetap ada di Telegram dan dapat dipertahankan melalui ringkasan berjalan.",
+  "contextMemoryRecommended": "Disarankan",
+  "contextMemoryCustom": "Kustom",
+  "contextMemoryCustomLabel": "Pesan",
+  "contextMemoryRangeError": "Masukkan bilangan bulat antara {min} dan {max}.",
+  "contextMemorySaveFailed": "Pengaturan ini tidak dapat disimpan.",
+  "settingsSave": "Simpan",
+  "autoStartServiceTitle": "Jalankan layanan PocketClaw secara otomatis",
+  "autoStartGatewayTitle": "Jalankan Gateway secara otomatis",
+  "autoStartPreferenceOn": "Preferensi mulai otomatis: AKTIF",
+  "autoStartPreferenceOff": "Preferensi mulai otomatis: NONAKTIF",
+  "runtimeRunning": "Runtime: Berjalan",
+  "runtimeStarting": "Runtime: Memulai",
+  "runtimeStopped": "Runtime: Berhenti",
+  "gatewayAutoStartHint": "Berlaku saat layanan PocketClaw dijalankan berikutnya. Runtime Gateway dikelola di Dasbor.",
+  "manageTelegramConnection": "Kelola koneksi Telegram",
+  "manageModelsTitle": "Kelola Model",
+  "manageModelsDescription": "Tambah, ubah, uji, dan pilih model AI.",
+  "githubChecking": "Memeriksa…",
+  "githubConnected": "Terhubung",
+  "githubNotConnected": "Tidak terhubung",
+  "githubConnectedAs": "Terhubung sebagai {login}",
+  "githubDescription": "Digunakan oleh gh bawaan dan oleh Git melalui HTTPS. Token dienkripsi di perangkat ini dan tidak ditampilkan lagi.",
+  "githubTestConnection": "Uji koneksi",
+  "githubDisconnect": "Putuskan",
+  "githubConnectAction": "Hubungkan GitHub",
+  "githubConnect": "Hubungkan",
+  "githubTokenLabel": "Token akses pribadi",
+  "githubTokenHint": "Tempel token akses pribadi GitHub dengan cakupan yang Anda butuhkan (repo untuk repositori privat).",
+  "githubTokenRejected": "GitHub tidak menerima token ini.",
+  "githubAuthWorking": "Autentikasi GitHub berfungsi.",
+  "githubAuthNotWorking": "Autentikasi GitHub tidak berfungsi.",
+  "githubAuthenticatedAs": "Terautentikasi sebagai {login}.",
+  "githubCredentialRemoveFailed": "Kredensial tidak dapat dihapus.",
+  "githubYourAccount": "akun GitHub Anda",
+  "githubConnectedReport": "Terhubung sebagai {who}. {outcome}",
+  "githubDisconnectedReport": "Terputus. {outcome}",
+  "credentialAppliedNow": "gh dan git dapat menggunakannya sekarang.",
+  "credentialAppliesNextStart": "Ini akan digunakan saat PocketClaw dijalankan berikutnya.",
+  "credentialAppliesDeferred": "Tersimpan. PocketClaw sedang memulai, jadi ini akan diterapkan otomatis setelah selesai."
 }

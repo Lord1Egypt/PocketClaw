@@ -116,7 +116,10 @@
       "apikey": "API Key",
       "oauth": "OAuth",
       "local": "Lokální"
-    }
+    },
+    "disableCodeWrap": "Vypnout zalamování",
+    "downloadFile": "Stáhnout soubor",
+    "enableCodeWrap": "Zalamovat řádky"
   },
   "header": {
     "logout": {
@@ -141,6 +144,11 @@
         "stopping": "Zastavování gateway..."
       },
       "restartRequired": "Změny konfigurace se projeví až po restartu gateway."
+    },
+    "logoAlt": "Logo PocketClaw",
+    "authError": {
+      "banner": "Chyba ověřovací služby: {{message}}",
+      "unavailable": "Ověřovací služba není dostupná. Resetujte úložiště hesla řídicího panelu a restartujte aplikaci."
     }
   },
   "common": {
@@ -159,7 +167,16 @@
     "restartFailedTitle": "Gateway restart failed",
     "restartFailedDesc": "The {{name}} configuration was saved, but the gateway did not restart. Use Restart Gateway to apply it.",
     "restartDeferredTitle": "Saved, gateway not restarted yet",
-    "restartDeferredDesc": "The {{name}} configuration was saved. PocketClaw did not restart the gateway because it is still handling a request. Use Restart Gateway when you are ready."
+    "restartDeferredDesc": "The {{name}} configuration was saved. PocketClaw did not restart the gateway because it is still handling a request. Use Restart Gateway when you are ready.",
+    "dismiss": "Zavřít",
+    "sidebar": "Postranní panel",
+    "sidebarDescription": "Zobrazí postranní panel pro mobil.",
+    "toggleSidebar": "Přepnout postranní panel",
+    "crashed": "Konzole přestala odpovídat.",
+    "reload": "Znovu načíst",
+    "darkMode": "Tmavý režim",
+    "language": "Jazyk",
+    "lightMode": "Světlý režim"
   },
   "labels": {
     "loading": "Načítám..."
@@ -382,7 +399,10 @@
       "deselectAll": "Zrušit výběr všech",
       "addSelected": "Přidat {{count}} vybrané",
       "addSuccess": "Přidáno {{count}} modelů do konfigurace.",
-      "needApiKey": "Tyto modely vyžadují API klíč. Po importu bude nutné nastavit přihlašovací údaje."
+      "needApiKey": "Tyto modely vyžadují API klíč. Po importu bude nutné nastavit přihlašovací údaje.",
+      "loadError": "Nepodařilo se načíst katalogy.",
+      "deleteError": "Nepodařilo se smazat katalog.",
+      "addError": "Nepodařilo se přidat modely."
     },
     "test": {
       "title": "Test připojení modelu",
@@ -488,7 +508,8 @@
       "expired": "QR kód vypršel",
       "retry": "Zkusit znovu",
       "refresh": "Obnovit QR",
-      "errorGeneric": "Nastala chyba. Zkuste to znovu."
+      "errorGeneric": "Nastala chyba. Zkuste to znovu.",
+      "qrAlt": "QR kód WeChat"
     },
     "wecom": {
       "bindTitle": "Propojení WeCom",
@@ -503,7 +524,8 @@
       "expired": "QR kód vypršel",
       "retry": "Zkusit znovu",
       "refresh": "Obnovit QR",
-      "errorGeneric": "Nastala chyba. Zkuste to znovu."
+      "errorGeneric": "Nastala chyba. Zkuste to znovu.",
+      "qrAlt": "QR kód WeCom"
     },
     "field": {
       "token": "Bot Token",
@@ -535,7 +557,15 @@
       "allowOriginsPlaceholder": "např. https://example.com, http://localhost:5173",
       "removeListItem": "Odebrat {{value}}",
       "secretPlaceholder": "Zadejte secret",
-      "secretHintSet": "Hodnota je již nastavena. Ponechte prázdné pro zachování beze změny."
+      "secretHintSet": "Hodnota je již nastavena. Ponechte prázdné pro zachování beze změny.",
+      "broker": "Broker",
+      "agentId": "ID agenta",
+      "topicPrefix": "Předpona tématu",
+      "username": "Uživatelské jméno",
+      "password": "Heslo",
+      "clientId": "ID klienta",
+      "keepAlive": "Interval keep-alive",
+      "qos": "QoS"
     },
     "page": {
       "notFound": "Kanál \"{{name}}\" není podporován.",
@@ -612,7 +642,10 @@
         "mqttPassword": "Heslo pro ověření u brokeru (volitelné).",
         "mqttClientId": "ID MQTT klienta. Ponechte prázdné pro automatické generování.",
         "keepAlive": "Interval keepalive v sekundách. Výchozí hodnota je 60.",
-        "qos": "Úroveň QoS zpráv: 0 = nejvýše jednou, 1 = alespoň jednou, 2 = přesně jednou."
+        "qos": "Úroveň QoS zpráv: 0 = nejvýše jednou, 1 = alespoň jednou, 2 = přesně jednou.",
+        "dmPolicy": "Určuje, jak kanál zachází s přímými zprávami.",
+        "groupPolicy": "Určuje, jak kanál zachází se skupinovými zprávami.",
+        "sendThinkingMessage": "Odešle krátké upozornění, dokud asistent připravuje odpověď."
       }
     },
     "validation": {
@@ -633,6 +666,25 @@
       "clientIdPlaceholder": "Automaticky generováno, pokud je prázdné",
       "secretSet": "Již nakonfigurováno. Ponechte prázdné pro zachování stávající hodnoty.",
       "secretEmpty": "Není nakonfigurováno"
+    },
+    "telegram": {
+      "advancedManual": "Pokročilé / ruční nastavení",
+      "advancedSettings": "Pokročilá nastavení",
+      "botLabel": "Bot",
+      "connectBody": "Vytvořte si vlastního bota PocketClaw během pár sekund. Není potřeba kopírovat token z BotFather.",
+      "connectTitle": "Připojit PocketClaw k Telegramu",
+      "connected": "Připojeno",
+      "manualOnlyBody": "Vytvoření bota jedním klepnutím není v tomto sestavení dostupné, Telegram se proto nastavuje pomocí tokenu bota z BotFather. Vložte token níže a uložte jej.",
+      "manualOnlyTitle": "Ruční nastavení",
+      "openChat": "Otevřít chat",
+      "openTelegram": "Otevřít Telegram",
+      "ownerAnyone": "Tomuto botovi může psát kdokoli",
+      "ownerConfigured": "Nastaveno",
+      "ownerLabel": "Vlastník",
+      "reconnect": "Znovu připojit / vytvořit nového bota",
+      "statusLabel": "Stav:",
+      "statusReady": "Připraveno k připojení",
+      "troubleLabel": "Máte potíže?"
     }
   },
   "pages": {
@@ -762,7 +814,9 @@
           "base_url_placeholder": "Volitelné přepsání endpointu",
           "api_key": "API Key / Token",
           "api_key_placeholder": "Zadejte API klíč, ponechte prázdné pro zachování stávajícího",
-          "none": "Nedostupné"
+          "none": "Nedostupné",
+          "model": "Model",
+          "model_placeholder": "Volitelné přepsání modelu"
         },
         "status": {
           "enabled": "Aktivní",
@@ -786,7 +840,8 @@
           "requires_subagent": "Nejprve aktivujte `tools.subagent`, aby nástroj spawn mohl delegovat práci.",
           "requires_mcp_discovery": "Nejprve aktivujte `tools.mcp.discovery`, aby byly nástroje MCP discovery dostupné.",
           "requires_web_search_provider": "Nakonfigurujte alespoň jednoho připraveného externího providera webového vyhledávání."
-        }
+        },
+        "no_results_hint": "Zkuste upravit vyhledávací kritéria nebo filtry stavu."
       }
     },
     "config": {
@@ -979,7 +1034,25 @@
       "factory_reset_confirm_desc": "Tímto obnovíte veškerou konfiguraci na tovární nastavení. API klíče a bezpečnostní údaje budou zachovány. Záloha aktuální konfigurace bude vytvořena.",
       "factory_reset_confirm": "Obnovit výchozí nastavení",
       "factory_reset_success": "Konfigurace byla obnovena na tovární nastavení.",
-      "factory_reset_error": "Obnovení konfigurace selhalo."
+      "factory_reset_error": "Obnovení konfigurace selhalo.",
+      "mcp_discovery_requires_search_method": "Zjišťování MCP vyžaduje alespoň jednu metodu vyhledávání (BM25 nebo regulární výraz).",
+      "mcp_duplicate_names": "Názvy serverů MCP musí být jedinečné. Duplicity: {{names}}.",
+      "mcp_env_label": "Proměnné prostředí serveru MCP {{name}}",
+      "mcp_headers_label": "Hlavičky serveru MCP {{name}}",
+      "mcp_saved_env_label": "Uložené proměnné prostředí serveru MCP {{name}}",
+      "mcp_saved_headers_label": "Uložené hlavičky serveru MCP {{name}}",
+      "mcp_server_command_required": "Server MCP {{name}} vyžaduje příkaz.",
+      "mcp_server_url_invalid": "Server MCP {{name}} vyžaduje platnou adresu HTTP(S).",
+      "mcp_server_url_required": "Server MCP {{name}} vyžaduje adresu URL.",
+      "session_scope_required": "Rozsah relace je povinný.",
+      "validation_integer": "{{label}} musí být celé číslo.",
+      "validation_json_invalid": "{{label}} musí být platný JSON.",
+      "validation_json_not_object": "{{label}} musí být objekt JSON.",
+      "validation_json_value_not_string": "{{label}}.{{key}} musí být řetězec.",
+      "validation_max": "{{label}} musí být {{max}} nebo méně.",
+      "validation_min": "{{label}} musí být {{min}} nebo více.",
+      "validation_number": "{{label}} musí být číslo.",
+      "workspace_required": "Cesta k pracovnímu prostoru je povinná."
     },
     "logs": {
       "log_level_error": "Aktualizace úrovně logování selhala.",

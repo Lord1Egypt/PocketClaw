@@ -97,8 +97,8 @@ class PicoClawChannel {
   }
 
   /// Reads the canonical launch auto-start record from the Android host.
-  static Future<LaunchAutoStartPreferences> getLaunchAutoStartPreferences()
-  async {
+  static Future<LaunchAutoStartPreferences>
+  getLaunchAutoStartPreferences() async {
     final result = await _channel.invokeMethod<Map>(
       'getLaunchAutoStartPreferences',
     );
@@ -123,7 +123,9 @@ class PicoClawChannel {
     return _mapLaunchAutoStart(result);
   }
 
-  static LaunchAutoStartPreferences _mapLaunchAutoStart(Map<dynamic, dynamic>? r) {
+  static LaunchAutoStartPreferences _mapLaunchAutoStart(
+    Map<dynamic, dynamic>? r,
+  ) {
     return LaunchAutoStartPreferences(
       serviceEnabled: r?['serviceEnabled'] as bool? ?? true,
       gatewayEnabled: r?['gatewayEnabled'] as bool? ?? true,
@@ -167,6 +169,32 @@ class PicoClawChannel {
       'ownerUserId': ownerUserId,
     });
     return result ?? false;
+  }
+
+  /// The Telegram context-memory setting, as Core will actually apply it.
+  ///
+  /// Core owns `config.json` and answers with the effective value, so Settings
+  /// never parses or writes that file and there is only ever one writer.
+  static Future<TelegramContextMemory> getTelegramContextMemory() async {
+    final result = await _channel.invokeMapMethod<String, dynamic>(
+      'getTelegramContextMemory',
+    );
+    return TelegramContextMemory.fromMap(result);
+  }
+
+  /// Stores a new Telegram context-memory limit through Core.
+  ///
+  /// Core validates the range and rejects anything outside it, and returns the
+  /// value it stored. Nothing else in the configuration is touched, and no
+  /// message, transcript or summary is removed.
+  static Future<TelegramContextMemory> setTelegramContextMemory(
+    int recentMessages,
+  ) async {
+    final result = await _channel.invokeMapMethod<String, dynamic>(
+      'setTelegramContextMemory',
+      {'recentMessages': recentMessages},
+    );
+    return TelegramContextMemory.fromMap(result);
   }
 
   /// Whether PocketClaw holds a GitHub credential, and for which account.
@@ -356,4 +384,61 @@ class GitHubConnection {
       login: login == null || login.isEmpty ? null : login,
     );
   }
+}
+
+/// The Telegram context-memory setting and the bounds Core enforces.
+class TelegramContextMemory {
+  const TelegramContextMemory({
+    required this.recentMessages,
+    required this.min,
+    required this.max,
+    required this.defaultValue,
+  });
+
+  /// Shipped fallbacks, used when Core has not answered yet. They mirror the
+  /// values Core enforces; Core remains the authority and rejects anything
+  /// outside its own range regardless of what is shown here.
+  static const int fallbackDefault = 15;
+  static const int fallbackMin = 5;
+  static const int fallbackMax = 50;
+
+  static const TelegramContextMemory unknown = TelegramContextMemory(
+    recentMessages: fallbackDefault,
+    min: fallbackMin,
+    max: fallbackMax,
+    defaultValue: fallbackDefault,
+  );
+
+  final int recentMessages;
+  final int min;
+  final int max;
+  final int defaultValue;
+
+  factory TelegramContextMemory.fromMap(Map<String, dynamic>? map) {
+    if (map == null) return unknown;
+    int read(String key, int fallback) {
+      final value = map[key];
+      if (value is int && value > 0) return value;
+      if (value is num && value > 0) return value.toInt();
+      return fallback;
+    }
+
+    return TelegramContextMemory(
+      recentMessages: read('recentMessages', fallbackDefault),
+      min: read('min', fallbackMin),
+      max: read('max', fallbackMax),
+      defaultValue: read('default', fallbackDefault),
+    );
+  }
+
+  TelegramContextMemory copyWith({int? recentMessages}) =>
+      TelegramContextMemory(
+        recentMessages: recentMessages ?? this.recentMessages,
+        min: min,
+        max: max,
+        defaultValue: defaultValue,
+      );
+
+  /// Whether [value] is one Core will accept.
+  bool accepts(int value) => value >= min && value <= max;
 }

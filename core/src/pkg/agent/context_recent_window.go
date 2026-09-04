@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 
+	"github.com/sipeed/picoclaw/pkg/config"
 	"github.com/sipeed/picoclaw/pkg/logger"
 	"github.com/sipeed/picoclaw/pkg/providers"
 )
@@ -19,7 +20,7 @@ import (
 // A future Settings surface offering 10 / 15 / 20 / Custom sets
 // `agents.defaults.telegram_recent_context_messages`; nothing in the context
 // engine needs to change for that.
-const DefaultTelegramRecentContextMessages = 15
+const DefaultTelegramRecentContextMessages = config.DefaultTelegramRecentContextMessages
 
 // uncoveredHoldFactor is how far past the window the history may grow while the
 // summarizer catches up.
@@ -50,7 +51,11 @@ func recentContextLimit(agent *AgentInstance, channel string) int {
 	if agent.TelegramRecentContextMessages <= 0 {
 		return 0
 	}
-	return agent.TelegramRecentContextMessages
+	// The configuration file is the source of truth, and Settings writes it from
+	// a different process. Read the current value rather than the one this agent
+	// started with, so a saved change applies to the next turn without a
+	// restart. The startup value is the fallback when the file cannot be read.
+	return telegramContextLimit.resolve(agent.TelegramRecentContextMessages)
 }
 
 // isConversationalMessage reports whether a stored message counts against the

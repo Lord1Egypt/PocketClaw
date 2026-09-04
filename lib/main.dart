@@ -114,13 +114,34 @@ class _MainShellState extends State<MainShell>
     _saveFn = fn;
   }
 
-  Future<void> _openTelegramConsole(String path) async {
+  /// Opens a Dashboard route in the embedded console tab. Shared by every
+  /// Settings card that hands work to the existing web UI.
+  Future<void> _openConsolePath(String path) async {
     await _onNavTap(1, webPath: path);
   }
 
   String _webUrl(String baseUrl) {
     final base = Uri.parse(baseUrl);
-    return base.replace(path: _webPath).toString();
+    // Hand the app's language to the embedded Dashboard through i18next's own
+    // query-string detector, which the console already configures. The console
+    // ships fewer locales than the app, so an unsupported code simply falls
+    // back to its English resources rather than failing.
+    return base
+        .replace(
+          path: _webPath,
+          queryParameters: {'lng': _consoleLanguageTag()},
+        )
+        .toString();
+  }
+
+  /// The locale tag handed to the embedded Dashboard.
+  String _consoleLanguageTag() {
+    final locale = context.read<ServiceManager>().currentLocale;
+    final country = locale.countryCode;
+    if (country != null && country.isNotEmpty) {
+      return '${locale.languageCode}-$country';
+    }
+    return locale.languageCode;
   }
 
   Future<void> _onNavTap(int index, {String? webPath}) async {
@@ -315,7 +336,8 @@ class _MainShellState extends State<MainShell>
               ConfigPage(
                 onDirtyChanged: _onConfigDirtyChanged,
                 onSaveFnReady: _onSaveFnReady,
-                onManageTelegram: _openTelegramConsole,
+                onManageTelegram: _openConsolePath,
+                onManageConsole: _openConsolePath,
               ),
             ],
           ),

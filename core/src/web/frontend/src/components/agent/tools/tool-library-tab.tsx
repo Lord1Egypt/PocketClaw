@@ -262,7 +262,10 @@ function LibraryEmptyState({ allToolsCount }: { allToolsCount: number }) {
       </h3>
       {allToolsCount !== 0 && (
         <p className="text-muted-foreground text-sm">
-          Try adjusting your search criteria or status filters.
+          {t(
+            "pages.agent.tools.no_results_hint",
+            "Try adjusting your search criteria or status filters.",
+          )}
         </p>
       )}
     </div>

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import 'package:pocketclaw/src/generated/l10n/app_localizations.dart';
 import 'package:flutter/services.dart';
 
 import 'package:pocketclaw/src/core/picoclaw_channel.dart';
@@ -59,6 +61,9 @@ class _GitHubSettingsCardState extends State<GitHubSettingsCard> {
   }
 
   Future<void> _connect() async {
+    // Captured before the first await: reading it afterwards would be a
+    // BuildContext use across an async gap.
+    final l10n = AppLocalizations.of(context)!;
     final token = await showDialog<String>(
       context: context,
       builder: (context) => const _GitHubTokenDialog(),
@@ -73,35 +78,41 @@ class _GitHubSettingsCardState extends State<GitHubSettingsCard> {
       final connection = await PicoClawChannel.connectGitHub(token);
       if (!mounted) return;
       setState(() => _connection = connection);
-      final who = connection.login ?? 'your GitHub account';
-      _report('Connected as $who. ${await _applyOutcome()}');
+      final who = connection.login ?? l10n.githubYourAccount;
+      _report(l10n.githubConnectedReport(who, await _applyOutcome(l10n)));
     } on PlatformException catch (error) {
-      _report(error.message ?? 'GitHub did not accept this token.',
-          isError: true);
+      _report(error.message ?? l10n.githubTokenRejected, isError: true);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
   }
 
   Future<void> _test() async {
+    // Captured before the first await: reading it afterwards would be a
+    // BuildContext use across an async gap.
+    final l10n = AppLocalizations.of(context)!;
     setState(() {
       _busy = true;
       _message = null;
     });
     try {
       final login = await PicoClawChannel.testGitHubConnection();
-      _report(login.isEmpty
-          ? 'GitHub authentication is working.'
-          : 'Authenticated as $login.');
+      _report(
+        login.isEmpty
+            ? l10n.githubAuthWorking
+            : l10n.githubAuthenticatedAs(login),
+      );
     } on PlatformException catch (error) {
-      _report(error.message ?? 'GitHub authentication is not working.',
-          isError: true);
+      _report(error.message ?? l10n.githubAuthNotWorking, isError: true);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
   }
 
   Future<void> _disconnect() async {
+    // Captured before the first await: reading it afterwards would be a
+    // BuildContext use across an async gap.
+    final l10n = AppLocalizations.of(context)!;
     setState(() {
       _busy = true;
       _message = null;
@@ -110,10 +121,12 @@ class _GitHubSettingsCardState extends State<GitHubSettingsCard> {
       await PicoClawChannel.disconnectGitHub();
       if (!mounted) return;
       setState(() => _connection = const GitHubConnection(connected: false));
-      _report('Disconnected. ${await _applyOutcome()}');
+      _report(l10n.githubDisconnectedReport(await _applyOutcome(l10n)));
     } on PlatformException catch (error) {
-      _report(error.message ?? 'Could not remove the credential.',
-          isError: true);
+      _report(
+        error.message ?? l10n.githubCredentialRemoveFailed,
+        isError: true,
+      );
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -122,19 +135,18 @@ class _GitHubSettingsCardState extends State<GitHubSettingsCard> {
   /// Applies the change through the app's normal restart and says what
   /// happened, because "saved" and "in effect" are different states and the
   /// user is about to run a gh command on the strength of this message.
-  Future<String> _applyOutcome() async {
+  Future<String> _applyOutcome(AppLocalizations l10n) async {
     final apply = widget.onCredentialChanged;
     if (apply == null) {
-      return 'It will be used the next time PocketClaw starts.';
+      return l10n.credentialAppliesNextStart;
     }
     switch (await apply()) {
       case CredentialApplyOutcome.applied:
-        return 'gh and git can use it now.';
+        return l10n.credentialAppliedNow;
       case CredentialApplyOutcome.notRunning:
-        return 'It will be used the next time PocketClaw starts.';
+        return l10n.credentialAppliesNextStart;
       case CredentialApplyOutcome.deferred:
-        return 'Saved. PocketClaw is busy starting, so it will apply '
-            'automatically as soon as that finishes.';
+        return l10n.credentialAppliesDeferred;
     }
   }
 
@@ -142,6 +154,7 @@ class _GitHubSettingsCardState extends State<GitHubSettingsCard> {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context)!;
 
     return Card(
       key: const Key('github-settings-card'),
@@ -162,10 +175,12 @@ class _GitHubSettingsCardState extends State<GitHubSettingsCard> {
                       const Text('GitHub'),
                       Text(
                         _loading
-                            ? 'Checking…'
+                            ? l10n.githubChecking
                             : _connection.connected
-                                ? 'Connected${_connection.login == null ? '' : ' as ${_connection.login}'}'
-                                : 'Not connected',
+                            ? (_connection.login == null
+                                  ? l10n.githubConnected
+                                  : l10n.githubConnectedAs(_connection.login!))
+                            : l10n.githubNotConnected,
                         key: const Key('github-connection-state'),
                         style: theme.textTheme.bodySmall,
                       ),
@@ -181,11 +196,7 @@ class _GitHubSettingsCardState extends State<GitHubSettingsCard> {
               ],
             ),
             const SizedBox(height: 4),
-            Text(
-              'Used by the bundled gh and by Git over HTTPS. The token is '
-              'encrypted on this device and is never shown again.',
-              style: theme.textTheme.bodySmall,
-            ),
+            Text(l10n.githubDescription, style: theme.textTheme.bodySmall),
             if (_message != null) ...[
               const SizedBox(height: 8),
               Text(
@@ -206,19 +217,19 @@ class _GitHubSettingsCardState extends State<GitHubSettingsCard> {
                         TextButton(
                           key: const Key('github-test-button'),
                           onPressed: _busy ? null : _test,
-                          child: const Text('Test connection'),
+                          child: Text(l10n.githubTestConnection),
                         ),
                         TextButton(
                           key: const Key('github-disconnect-button'),
                           onPressed: _busy ? null : _disconnect,
-                          child: const Text('Disconnect'),
+                          child: Text(l10n.githubDisconnect),
                         ),
                       ]
                     : [
                         FilledButton(
                           key: const Key('github-connect-button'),
                           onPressed: _busy ? null : _connect,
-                          child: const Text('Connect GitHub'),
+                          child: Text(l10n.githubConnectAction),
                         ),
                       ],
               ),
@@ -254,16 +265,14 @@ class _GitHubTokenDialogState extends State<_GitHubTokenDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return AlertDialog(
-      title: const Text('Connect GitHub'),
+      title: Text(l10n.githubConnectAction),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Paste a GitHub personal access token with the scopes you need '
-            '(repo for private repositories).',
-          ),
+          Text(l10n.githubTokenHint),
           const SizedBox(height: 12),
           TextField(
             key: const Key('github-token-field'),
@@ -271,9 +280,9 @@ class _GitHubTokenDialogState extends State<_GitHubTokenDialog> {
             obscureText: true,
             autocorrect: false,
             enableSuggestions: false,
-            decoration: const InputDecoration(
-              labelText: 'Personal access token',
-              border: OutlineInputBorder(),
+            decoration: InputDecoration(
+              labelText: l10n.githubTokenLabel,
+              border: const OutlineInputBorder(),
             ),
           ),
         ],
@@ -281,7 +290,7 @@ class _GitHubTokenDialogState extends State<_GitHubTokenDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
+          child: Text(l10n.cancel),
         ),
         FilledButton(
           key: const Key('github-token-save'),
@@ -290,7 +299,7 @@ class _GitHubTokenDialogState extends State<_GitHubTokenDialog> {
             _controller.clear();
             Navigator.of(context).pop(token);
           },
-          child: const Text('Connect'),
+          child: Text(l10n.githubConnect),
         ),
       ],
     );

@@ -61,11 +61,13 @@ export function CatalogDialog({
       const res = await getCatalogs()
       setEntries(res.entries || [])
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Failed to load catalogs")
+      toast.error(
+        e instanceof Error ? e.message : t("models.catalog.loadError"),
+      )
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [t])
 
   useEffect(() => {
     if (open) {
@@ -120,7 +122,9 @@ export function CatalogDialog({
       })
       if (expandedId === id) setExpandedId(null)
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Failed to delete catalog")
+      toast.error(
+        e instanceof Error ? e.message : t("models.catalog.deleteError"),
+      )
     }
   }
 
@@ -145,7 +149,7 @@ export function CatalogDialog({
       )
       onModelAdded()
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Failed to add models")
+      toast.error(e instanceof Error ? e.message : t("models.catalog.addError"))
     } finally {
       setAdding(false)
     }
@@ -301,8 +305,7 @@ export function CatalogDialog({
                       </div>
                       {entrySelected.size > 0 && (
                         <div className="mt-2 space-y-2">
-                          {providerDef?.requiresApiKey !==
-                            false && (
+                          {providerDef?.requiresApiKey !== false && (
                             <div className="rounded-lg border border-yellow-500/30 bg-yellow-500/10 p-2 text-xs text-yellow-700 dark:text-yellow-400">
                               {t("models.catalog.needApiKey")}
                             </div>

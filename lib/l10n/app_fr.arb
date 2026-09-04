@@ -80,15 +80,23 @@
   "workspaceDirectory": "Espace de travail",
   "logsSavedToMediaLibraryWithName": "Journaux enregistrés dans Téléchargements (bibliothèque multimédia Android): {name}",
   "@logsSavedToMediaLibraryWithName": {
-    "placeholders": {"name": {}}
+    "placeholders": {
+      "name": {}
+    }
   },
   "shareFailed": "Échec de l'ouverture de la boîte de dialogue de partage: {error}",
-  "@shareFailed": {"placeholders": {"error": {}}},
+  "@shareFailed": {
+    "placeholders": {
+      "error": {}
+    }
+  },
   "exportLogs": "Exporter les journaux",
   "logEventsCount": "{count} ÉVÉNEMENTS",
   "@logEventsCount": {
     "placeholders": {
-      "count": {"type": "int"}
+      "count": {
+        "type": "int"
+      }
     }
   },
   "unsavedChanges": "Modifications non enregistrées",
@@ -103,5 +111,47 @@
   "aboutAppVersionLabel": "Version de PocketClaw",
   "aboutCoreVersionLabel": "Version du runtime",
   "aboutVersionUnavailable": "Indisponible",
-  "close": "Fermer"
+  "close": "Fermer",
+  "contextMemoryTitle": "Mémoire de contexte Telegram",
+  "contextMemoryDescription": "Détermine le nombre de messages récents envoyés à l'IA. Les conversations plus anciennes restent dans Telegram et sont représentées par le résumé évolutif.",
+  "contextMemoryHelp": "Davantage de messages apportent plus de contexte récent mais consomment plus de jetons. Les messages plus anciens restent dans Telegram et peuvent être conservés via le résumé évolutif.",
+  "contextMemoryRecommended": "Recommandé",
+  "contextMemoryCustom": "Personnalisé",
+  "contextMemoryCustomLabel": "Messages",
+  "contextMemoryRangeError": "Saisissez un nombre entier entre {min} et {max}.",
+  "contextMemorySaveFailed": "Impossible d'enregistrer ce paramètre.",
+  "settingsSave": "Enregistrer",
+  "autoStartServiceTitle": "Démarrer le service PocketClaw automatiquement",
+  "autoStartGatewayTitle": "Démarrer la passerelle automatiquement",
+  "autoStartPreferenceOn": "Préférence de démarrage automatique : ACTIVÉE",
+  "autoStartPreferenceOff": "Préférence de démarrage automatique : DÉSACTIVÉE",
+  "runtimeRunning": "Exécution : en cours",
+  "runtimeStarting": "Exécution : démarrage",
+  "runtimeStopped": "Exécution : arrêté",
+  "gatewayAutoStartHint": "S'applique au prochain démarrage du service PocketClaw. L'exécution de la passerelle se gère dans le tableau de bord.",
+  "manageTelegramConnection": "Gérer la connexion Telegram",
+  "manageModelsTitle": "Gérer les modèles",
+  "manageModelsDescription": "Ajoutez, modifiez, testez et choisissez des modèles d'IA.",
+  "githubChecking": "Vérification…",
+  "githubConnected": "Connecté",
+  "githubNotConnected": "Non connecté",
+  "githubConnectedAs": "Connecté en tant que {login}",
+  "githubDescription": "Utilisé par le gh intégré et par Git via HTTPS. Le jeton est chiffré sur cet appareil et n'est plus jamais affiché.",
+  "githubTestConnection": "Tester la connexion",
+  "githubDisconnect": "Déconnecter",
+  "githubConnectAction": "Connecter GitHub",
+  "githubConnect": "Connecter",
+  "githubTokenLabel": "Jeton d'accès personnel",
+  "githubTokenHint": "Collez un jeton d'accès personnel GitHub avec les portées nécessaires (repo pour les dépôts privés).",
+  "githubTokenRejected": "GitHub n'a pas accepté ce jeton.",
+  "githubAuthWorking": "L'authentification GitHub fonctionne.",
+  "githubAuthNotWorking": "L'authentification GitHub ne fonctionne pas.",
+  "githubAuthenticatedAs": "Authentifié en tant que {login}.",
+  "githubCredentialRemoveFailed": "Impossible de supprimer les identifiants.",
+  "githubYourAccount": "votre compte GitHub",
+  "githubConnectedReport": "Connecté en tant que {who}. {outcome}",
+  "githubDisconnectedReport": "Déconnecté. {outcome}",
+  "credentialAppliedNow": "gh et git peuvent l'utiliser dès maintenant.",
+  "credentialAppliesNextStart": "Il sera utilisé au prochain démarrage de PocketClaw.",
+  "credentialAppliesDeferred": "Enregistré. PocketClaw est en cours de démarrage ; le changement s'appliquera automatiquement dès la fin."
 }

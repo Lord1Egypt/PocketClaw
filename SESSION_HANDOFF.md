@@ -1,5 +1,92 @@
 # PocketClaw Session Handoff
 
+## Telegram Context Settings + Dashboard i18n — PHYSICAL PASS and merged, 2026-09-04
+
+Branch `feature/telegram-context-settings`, off `develop` at `f83699d4`.
+**Physically validated on SM-A165F / Android 16, then merged to `develop` with
+`--no-ff`.** `main` untouched, no tags moved, no release created. The feature
+branch is retained.
+
+### What this milestone did and did not do
+
+The bounded-context algorithm was already on `develop` at `f83699d4`. This
+milestone did **not** touch it, nor the rolling summary, exact-fact retention,
+the Telegram FIFO, thinking/typing, `Gateway.HotReload`, `Manager.Reload` or
+the provider/model architecture. It made the limit configurable, made a change
+apply without a restart, and finished the dashboard's localization.
+
+### Context Memory settings
+
+A user-facing control with 10, 15 (Recommended), 20, 25 and Custom; Custom
+accepts 5–50. Save is explicit and localized, disabled until the value is both
+valid and changed, and one action produces exactly one save. It writes
+`agents.defaults.telegram_recent_context_messages`; the default stays 15.
+
+### Live apply, and the cache bug that hid behind it
+
+Saving applies to the next turn with no app or Gateway restart. The failure
+worth remembering: `SaveConfig` writes through `WriteFileAtomic`, which renames
+a temporary file over the target, so a save is a *replacement*. Saving 17 then
+10 produces payloads of identical length, and two saves can land inside one
+coarse timestamp tick — so a cache keyed on size and mtime would keep answering
+17 for the rest of the process. The key is `os.SameFile` plus size and mtime.
+`TestSameSizeRapidReplacementIsNotMissed` fails with exactly that symptom if the
+old key is restored.
+
+Device proof with Custom = 17: `history_total` 26, 28, 30, 32 and 34 all
+projected at `limit=17`.
+
+### Dashboard localization
+
+Twelve app locales resolve (`ar de en es fr hi id ja ko pt ru zh`), `pt` mapping
+onto the existing `pt-BR` bundle. `bn-IN` and `cs` are preserved. All thirteen
+non-English bundles are 907/907 with zero placeholder drift. Arabic is properly
+RTL from `i18n.dir()`.
+
+Two traps found on the way, both worth not repeating:
+
+- The nine new bundles were structurally complete while `pt-BR` and `zh` — both
+  *app* locales — were each 42 keys short, including the whole Telegram
+  managed-onboarding surface and the language menu's own labels. Structural
+  parity across "the new locales" is not the same as parity across "the locales
+  the app can be set to".
+- `pt-BR` and `zh` had also never been held to the English-copy rule and shipped
+  real prose byte-identical to English. Latin script means an equality check
+  cannot tell a loanword from an oversight, so those two locales get an
+  exact-key allowance list, and a second test fails any allowance that is stale.
+
+### RTL sidebar — found only on the device
+
+vc34 rendered Arabic correctly and put the trigger top-right, but the drawer
+still slid in from the left. `ui/sidebar.tsx` hard-coded `side = "left"`, and
+that one value fed both the mobile Sheet and the desktop container — no page was
+at fault and no page needed patching. The default now comes from `i18n.dir()`.
+
+The sidebar's inner border was a physical `border-r`, which lands on the outer
+screen edge once the sidebar moves right. It is the logical `border-e` now. Note
+that `Sidebar` destructures `className` and its mobile branch never applies it,
+so that class only ever reached the desktop container — the mobile drawer's
+border comes from `SheetContent` and was always correct.
+
+### Physical acceptance
+
+vc35 (`0.2.0`, versionCode 35, built at `1505e33`, SHA-256
+`fcec23a5430969fef892bb83ccc784bd35a1a33729fdd926de2869c355282077`) installed
+with `adb install -r` over the existing install. `firstInstallTime` and the app
+UID were unchanged, so data and config were preserved. **User acceptance PASS**
+for Context Memory live apply, Arabic RTL, and the RTL sidebar drawer.
+
+### Open for the next session
+
+- vc35 was built at `1505e33`. The final commit `65dfc02` is locale JSON and
+  tests only — no Core, Flutter or runtime change — and was deliberately not
+  rebuilt. **The pt-BR/zh cleanup is on `develop` but not on the device.**
+- `TelegramOnboardingStrings` in the Flutter layer is still English in all
+  twelve `.arb` locales. That is the native onboarding screen, not the embedded
+  dashboard, and it is untouched by this milestone.
+- `prettier --check` fails on 21 pre-existing frontend files. Unchanged by this
+  milestone; every touched file is formatted.
+
 ## WhatsApp Self-Chat + Chat image attachment — PHYSICAL PASS and merged, 2026-09-01
 
 Branch `feature/whatsapp-self-chat`, off `develop` at `8952c9a5`. **Physically

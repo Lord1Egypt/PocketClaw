@@ -1,5 +1,101 @@
 # PocketClaw Project State
 
+## Telegram Context Settings + Dashboard i18n — PHYSICALLY VERIFIED and CLOSED
+
+- Status: **PASS on a physical Android device (SM-A165F / Android 16),
+  2026-09-04. Merged to `develop` with `--no-ff`.** `main` untouched, no tags
+  moved, no release.
+- Branch `feature/telegram-context-settings`, from `develop` at `f83699d4`.
+- Milestone **CLOSED**. Next milestone is What's New, on a new branch from the
+  updated `develop`. Not started.
+
+The Telegram bounded-context algorithm itself was merged earlier, at
+`f83699d4b6faab73022349c4e48928653a0c05e3`. This milestone makes its limit
+user-configurable, applies a change without a restart, and finishes the
+embedded dashboard's localization.
+
+### Context Memory settings
+
+- Choices: 10, **15 (Recommended)**, 20, 25, Custom. Custom accepts 5–50.
+- An explicit, localized Save button. It stays disabled until the value is both
+  valid and changed, and one action is one save.
+- Backend key: `agents.defaults.telegram_recent_context_messages`. Default
+  remains **15**, unchanged from the bounded-context milestone.
+
+### Live apply — no restart
+
+Saving a new Telegram context limit takes effect on the **next turn**, with no
+app restart and no Gateway restart. The config cache detects an atomic
+same-size replacement by file identity rather than size and mtime, because
+`SaveConfig` renames a temporary file over the target and two saves of
+equal-length payloads can land inside one coarse timestamp tick.
+
+Physically proved on the device with Custom = 17:
+
+| history_total | limit applied |
+| --- | --- |
+| 26 | 17 |
+| 28 | 17 |
+| 30 | 17 |
+| 32 | 17 |
+| 34 | 17 |
+
+### Dashboard localization
+
+- i18next + react-i18next. The Flutter host passes its selected locale as
+  `?lng=`, which wins over the cached value; i18next's own localStorage
+  persistence remains the manual override.
+- Twelve app locales resolve: `ar de en es fr hi id ja ko pt ru zh`. `pt` maps
+  onto the existing `pt-BR` resource rather than duplicating it.
+- The pre-existing dashboard-only resources `bn-IN` and `cs` are preserved and
+  still reachable from the selector.
+- **907/907 keys in all thirteen non-English bundles**, 0 missing, 0 extra, 0
+  placeholder drift.
+- Arabic is genuinely right-to-left: `lang` and `dir` come from `i18n.dir()`,
+  never from a test for Arabic.
+- One shared language selector replaces the three hand-written dropdowns in the
+  app header, Launcher Setup and Launcher Login. Entries are endonyms, so they
+  are not routed through the resource bundles.
+- Localized: Models, Channels (incl. Telegram), Chat, Credentials, all `pages`
+  namespaces, Tour, Launcher Setup and Launcher Login.
+- pt-BR and zh predated the nine-locale work and had never been held to the
+  English-copy rule; their remaining untranslated prose was cleaned up last.
+
+### RTL sidebar
+
+- The shared `Sidebar` derives its default side from `i18n.dir()`: **RTL →
+  right, LTR → left**. An explicit `side` prop still wins.
+- Live language switching moves the anchor with the drawer open. There is no
+  second direction state, no observer and no Arabic-specific check.
+- The sidebar's inner border is the logical `border-e`, correct on the
+  content-facing edge in both directions.
+- Physically verified on vc35.
+
+### Physical candidate
+
+| Field | Value |
+| --- | --- |
+| versionName | `0.2.0` |
+| versionCode | **35** |
+| Commit built | `1505e33` |
+| APK | `build/app/outputs/flutter-apk/app-release.apk`, 64,530,162 bytes |
+| APK SHA-256 | `fcec23a5430969fef892bb83ccc784bd35a1a33729fdd926de2869c355282077` |
+| `libpicoclaw.so` | 37,683,553, `2a6c701b4050bf21d7947e8db990ccaafa349ba196acff6994a93f52681264d5` |
+| `libpicoclaw-web.so` | 25,756,001, `7985589fdadccec24b671dee92de879270f92328ffa1c548770d198d4f944cb2` |
+| Core source fingerprint | `1e44c17368f6433bb914a367670398840e3dd23525f63f4dc31e769049772c08` |
+
+Developer paths in both binaries: 0. Installed with `adb install -r` over the
+existing install; `firstInstallTime` and the app UID were unchanged, so the
+user's data and config were preserved. **User physical acceptance PASS.**
+
+### One thing the installed APK does not carry
+
+vc35 was built at `1505e33`. The final commit, `65dfc02`, changed only locale
+JSON and i18n tests — no Core, Flutter or runtime behaviour — so it was
+deliberately not rebuilt or reinstalled. **The pt-BR and zh translation cleanup
+is therefore in `develop` but not in the APK on the device.** A future build
+picks it up; nothing regressed by leaving it.
+
 ## WhatsApp Self-Chat + Chat image attachment APK — PHYSICALLY VERIFIED
 
 - Status: **PASS on a physical Android device (SM-A165F / Android 16),

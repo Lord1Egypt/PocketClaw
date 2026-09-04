@@ -275,4 +275,143 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get close => '关闭';
+
+  @override
+  String get contextMemoryTitle => 'Telegram 上下文记忆';
+
+  @override
+  String get contextMemoryDescription =>
+      '控制发送给 AI 的最近对话消息数量。更早的对话仍保留在 Telegram 中，并由滚动摘要表示。';
+
+  @override
+  String get contextMemoryHelp =>
+      '消息越多，近期上下文越丰富，但消耗的令牌也越多。更早的消息会保留在 Telegram 中，并可能通过滚动摘要保留下来。';
+
+  @override
+  String get contextMemoryRecommended => '推荐';
+
+  @override
+  String get contextMemoryCustom => '自定义';
+
+  @override
+  String get contextMemoryCustomLabel => '消息数';
+
+  @override
+  String contextMemoryRangeError(int min, int max) {
+    return '请输入 $min 到 $max 之间的整数。';
+  }
+
+  @override
+  String get contextMemorySaveFailed => '无法保存此设置。';
+
+  @override
+  String get settingsSave => '保存';
+
+  @override
+  String get autoStartServiceTitle => '自动启动 PocketClaw 服务';
+
+  @override
+  String get autoStartGatewayTitle => '自动启动网关';
+
+  @override
+  String get autoStartPreferenceOn => '自动启动偏好：开启';
+
+  @override
+  String get autoStartPreferenceOff => '自动启动偏好：关闭';
+
+  @override
+  String get runtimeRunning => '运行状态：运行中';
+
+  @override
+  String get runtimeStarting => '运行状态：正在启动';
+
+  @override
+  String get runtimeStopped => '运行状态：已停止';
+
+  @override
+  String get gatewayAutoStartHint => '将在下次启动 PocketClaw 服务时生效。网关运行状态在仪表板中管理。';
+
+  @override
+  String get manageTelegramConnection => '管理 Telegram 连接';
+
+  @override
+  String get manageModelsTitle => '管理模型';
+
+  @override
+  String get manageModelsDescription => '添加、编辑、测试并选择 AI 模型。';
+
+  @override
+  String get githubChecking => '正在检查…';
+
+  @override
+  String get githubConnected => '已连接';
+
+  @override
+  String get githubNotConnected => '未连接';
+
+  @override
+  String githubConnectedAs(String login) {
+    return '已以 $login 身份连接';
+  }
+
+  @override
+  String get githubDescription =>
+      '由内置的 gh 和通过 HTTPS 的 Git 使用。令牌在本设备上加密存储，不会再次显示。';
+
+  @override
+  String get githubTestConnection => '测试连接';
+
+  @override
+  String get githubDisconnect => '断开连接';
+
+  @override
+  String get githubConnectAction => '连接 GitHub';
+
+  @override
+  String get githubConnect => '连接';
+
+  @override
+  String get githubTokenLabel => '个人访问令牌';
+
+  @override
+  String get githubTokenHint => '粘贴具有所需权限范围的 GitHub 个人访问令牌（私有仓库需要 repo）。';
+
+  @override
+  String get githubTokenRejected => 'GitHub 未接受此令牌。';
+
+  @override
+  String get githubAuthWorking => 'GitHub 身份验证正常。';
+
+  @override
+  String get githubAuthNotWorking => 'GitHub 身份验证未正常工作。';
+
+  @override
+  String githubAuthenticatedAs(String login) {
+    return '已以 $login 身份通过验证。';
+  }
+
+  @override
+  String get githubCredentialRemoveFailed => '无法移除凭据。';
+
+  @override
+  String get githubYourAccount => '您的 GitHub 账户';
+
+  @override
+  String githubConnectedReport(String who, String outcome) {
+    return '已以 $who 身份连接。$outcome';
+  }
+
+  @override
+  String githubDisconnectedReport(String outcome) {
+    return '已断开连接。$outcome';
+  }
+
+  @override
+  String get credentialAppliedNow => 'gh 和 git 现在即可使用。';
+
+  @override
+  String get credentialAppliesNextStart => '将在下次启动 PocketClaw 时使用。';
+
+  @override
+  String get credentialAppliesDeferred => '已保存。PocketClaw 正在启动，完成后将自动生效。';
 }

@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"strconv"
 	"testing"
 	"time"
 
@@ -237,5 +238,218 @@ func TestAndroidNetworkModeBridgeHidesRouteFromUnauthorizedCaller(t *testing.T) 
 	mux.ServeHTTP(recorder, networkModeBridgeRequest(http.MethodPut, `{"public":true}`, "wrong-token"))
 	if recorder.Code != http.StatusNotFound {
 		t.Fatalf("unauthorized status = %d, want 404", recorder.Code)
+	}
+}
+
+func contextMemoryBridgeRequest(method, body, token string) *http.Request {
+	var req *http.Request
+	if body == "" {
+		req = httptest.NewRequest(method, androidContextMemoryBridgePath, nil)
+	} else {
+		req = httptest.NewRequest(
+			method, androidContextMemoryBridgePath, bytes.NewBufferString(body),
+		)
+	}
+	req.RemoteAddr = "127.0.0.1:48123"
+	req.Header.Set("X-PocketClaw-Android-Bridge", token)
+	return req
+}
+
+func decodeContextMemory(t *testing.T, rec *httptest.ResponseRecorder) androidContextMemoryResponse {
+	t.Helper()
+	var body androidContextMemoryResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf("response was not JSON: %v (%s)", err, rec.Body.String())
+	}
+	return body
+}
+
+// A config that never named the setting must read as the shipped default, which
+// is what the agent applies too.
+func TestContextMemoryBridgeReportsTheDefaultWhenUnset(t *testing.T) {
+	path := writeAndroidBridgeTestConfig(t, "existing-token")
+	mux := http.NewServeMux()
+	NewHandler(path).RegisterAndroidBridgeRoutes(mux, testAndroidBridgeToken)
+
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, contextMemoryBridgeRequest(http.MethodGet, "", testAndroidBridgeToken))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+
+	body := decodeContextMemory(t, rec)
+	if body.RecentMessages != config.DefaultTelegramRecentContextMessages {
+		t.Fatalf("recent_messages = %d, want the default %d",
+			body.RecentMessages, config.DefaultTelegramRecentContextMessages)
+	}
+	if body.Min != minTelegramRecentContextMessages || body.Max != maxTelegramRecentContextMessages {
+		t.Fatalf("range = %d..%d, want %d..%d",
+			body.Min, body.Max, minTelegramRecentContextMessages, maxTelegramRecentContextMessages)
+	}
+}
+
+// Each preset and a custom value round-trip exactly.
+func TestContextMemoryBridgeRoundTripsEveryAcceptedValue(t *testing.T) {
+	for _, want := range []int{10, 15, 20, 25, 17, 5, 50} {
+		path := writeAndroidBridgeTestConfig(t, "existing-token")
+		mux := http.NewServeMux()
+		NewHandler(path).RegisterAndroidBridgeRoutes(mux, testAndroidBridgeToken)
+
+		rec := httptest.NewRecorder()
+		mux.ServeHTTP(rec, contextMemoryBridgeRequest(
+			http.MethodPut,
+			`{"recent_messages":`+strconv.Itoa(want)+`}`,
+			testAndroidBridgeToken,
+		))
+		if rec.Code != http.StatusOK {
+			t.Fatalf("%d: status = %d, body = %s", want, rec.Code, rec.Body.String())
+		}
+		if got := decodeContextMemory(t, rec).RecentMessages; got != want {
+			t.Fatalf("response said %d, want %d", got, want)
+		}
+
+		cfg, err := config.LoadConfig(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := cfg.Agents.Defaults.TelegramRecentContextMessages; got != want {
+			t.Fatalf("stored %d, want %d", got, want)
+		}
+
+		readBack := httptest.NewRecorder()
+		mux.ServeHTTP(readBack, contextMemoryBridgeRequest(http.MethodGet, "", testAndroidBridgeToken))
+		if got := decodeContextMemory(t, readBack).RecentMessages; got != want {
+			t.Fatalf("read back %d, want %d", got, want)
+		}
+	}
+}
+
+// Core is the authority on the range, so an out-of-range or malformed value is
+// rejected and the stored configuration is left exactly as it was.
+func TestContextMemoryBridgeRejectsInvalidValues(t *testing.T) {
+	cases := []struct {
+		name string
+		body string
+	}{
+		{"zero", `{"recent_messages":0}`},
+		{"negative", `{"recent_messages":-5}`},
+		{"below minimum", `{"recent_messages":4}`},
+		{"above maximum", `{"recent_messages":51}`},
+		{"absurd", `{"recent_messages":100000}`},
+		{"non numeric", `{"recent_messages":"twenty"}`},
+		{"unknown field", `{"recent":20}`},
+		{"malformed", `{`},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			path := writeAndroidBridgeTestConfig(t, "existing-token")
+			mux := http.NewServeMux()
+			NewHandler(path).RegisterAndroidBridgeRoutes(mux, testAndroidBridgeToken)
+
+			// Establish a known good value first.
+			seed := httptest.NewRecorder()
+			mux.ServeHTTP(seed, contextMemoryBridgeRequest(
+				http.MethodPut, `{"recent_messages":20}`, testAndroidBridgeToken,
+			))
+			if seed.Code != http.StatusOK {
+				t.Fatalf("seed failed: %s", seed.Body.String())
+			}
+
+			rec := httptest.NewRecorder()
+			mux.ServeHTTP(rec, contextMemoryBridgeRequest(
+				http.MethodPut, tc.body, testAndroidBridgeToken,
+			))
+			if rec.Code != http.StatusBadRequest {
+				t.Fatalf("status = %d, want 400 for %s", rec.Code, tc.body)
+			}
+
+			cfg, err := config.LoadConfig(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := cfg.Agents.Defaults.TelegramRecentContextMessages; got != 20 {
+				t.Fatalf("a rejected write changed the stored value to %d", got)
+			}
+		})
+	}
+}
+
+// Changing this number must change only this number.
+func TestContextMemoryBridgeLeavesEverythingElseAlone(t *testing.T) {
+	path := writeAndroidBridgeTestConfig(t, "existing-token")
+	before, beforeChannel, beforeSettings := readTelegramBridgeConfig(t, path)
+
+	mux := http.NewServeMux()
+	NewHandler(path).RegisterAndroidBridgeRoutes(mux, testAndroidBridgeToken)
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, contextMemoryBridgeRequest(
+		http.MethodPut, `{"recent_messages":25}`, testAndroidBridgeToken,
+	))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+
+	after, afterChannel, afterSettings := readTelegramBridgeConfig(t, path)
+	if afterSettings.Token.String() != beforeSettings.Token.String() {
+		t.Fatal("the Telegram credential changed")
+	}
+	if afterChannel.Enabled != beforeChannel.Enabled {
+		t.Fatal("the Telegram channel enabled state changed")
+	}
+	if after.Gateway.Port != before.Gateway.Port {
+		t.Fatalf("gateway port changed from %d to %d", before.Gateway.Port, after.Gateway.Port)
+	}
+	if after.Agents.Defaults.SummarizeMessageThreshold != before.Agents.Defaults.SummarizeMessageThreshold {
+		t.Fatal("the summarization threshold changed")
+	}
+	if after.Agents.Defaults.MaxToolIterations != before.Agents.Defaults.MaxToolIterations {
+		t.Fatal("the tool iteration limit changed")
+	}
+	if len(after.Channels) != len(before.Channels) {
+		t.Fatalf("channel count changed from %d to %d", len(before.Channels), len(after.Channels))
+	}
+}
+
+// The route is invisible without the loopback credential, like its neighbours.
+func TestContextMemoryBridgeHidesRouteFromUnauthorizedCaller(t *testing.T) {
+	path := writeAndroidBridgeTestConfig(t, "existing-token")
+	mux := http.NewServeMux()
+	NewHandler(path).RegisterAndroidBridgeRoutes(mux, testAndroidBridgeToken)
+
+	for _, method := range []string{http.MethodGet, http.MethodPut} {
+		rec := httptest.NewRecorder()
+		body := ""
+		if method == http.MethodPut {
+			body = `{"recent_messages":20}`
+		}
+		mux.ServeHTTP(rec, contextMemoryBridgeRequest(method, body, "wrong-token"))
+		if rec.Code != http.StatusNotFound {
+			t.Fatalf("%s status = %d, want 404", method, rec.Code)
+		}
+	}
+}
+
+// A stored value outside the accepted range reads as the default rather than
+// being reported back as if Core would honour it.
+func TestContextMemoryBridgeNormalizesAnOutOfRangeStoredValue(t *testing.T) {
+	path := writeAndroidBridgeTestConfig(t, "existing-token")
+	cfg, err := config.LoadConfig(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg.Agents.Defaults.TelegramRecentContextMessages = 9999
+	if err := config.SaveConfig(path, cfg); err != nil {
+		t.Fatal(err)
+	}
+
+	mux := http.NewServeMux()
+	NewHandler(path).RegisterAndroidBridgeRoutes(mux, testAndroidBridgeToken)
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, contextMemoryBridgeRequest(http.MethodGet, "", testAndroidBridgeToken))
+
+	if got := decodeContextMemory(t, rec).RecentMessages; got != config.DefaultTelegramRecentContextMessages {
+		t.Fatalf("reported %d for an out-of-range stored value, want the default %d",
+			got, config.DefaultTelegramRecentContextMessages)
 	}
 }

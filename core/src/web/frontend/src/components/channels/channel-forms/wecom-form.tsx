@@ -237,7 +237,7 @@ export function WecomForm({
           {qrDataURI ? (
             <img
               src={qrDataURI}
-              alt="WeCom QR Code"
+              alt={t("channels.wecom.qrAlt")}
               className="border-border/60 h-48 w-48 rounded-xl border bg-white p-2 shadow-sm"
             />
           ) : (

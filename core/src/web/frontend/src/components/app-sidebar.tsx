@@ -175,7 +175,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   return (
     <Sidebar
       {...props}
-      className="bg-background border-r-border/20 border-r pt-3"
+      className="bg-background border-e-border/20 border-e pt-3"
     >
       <SidebarContent className="bg-background">
         {navGroups.map((group) => (

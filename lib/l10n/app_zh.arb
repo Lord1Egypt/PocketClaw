@@ -22,12 +22,10 @@
   "argumentsHint": "例如: config.json",
   "notStarted": "服务暂未启动",
   "startHint": "请先从 Dashboard 主面板启动服务。",
-  "goToDashboard": "去主面板"
-  ,
+  "goToDashboard": "去主面板",
   "back": "后退",
   "forward": "前进",
-  "refresh": "刷新"
-  ,
+  "refresh": "刷新",
   "coreBinaryMissing": "未找到核心二进制文件。请将平台二进制放入 app/bin/ 或在设置中指定路径。",
   "coreStartFailed": "启动核心服务失败。",
   "coreStopFailed": "停止核心服务失败。",
@@ -69,9 +67,7 @@
     "placeholders": {
       "code": {}
     }
-  }
-
-  ,
+  },
   "noLogsToExport": "没有可导出的日志",
   "logsSavedToMediaLibrary": "已保存到“下载”目录（Android 媒体库）",
   "logsSavedToDownloads": "已保存到 Downloads：{path}",
@@ -81,19 +77,26 @@
     }
   },
   "shareLogsText": "PocketClaw 日志",
-  "workspaceDirectory": "工作目录"
-  ,
+  "workspaceDirectory": "工作目录",
   "logsSavedToMediaLibraryWithName": "已保存到“下载”目录（Android 媒体库）：{name}",
   "@logsSavedToMediaLibraryWithName": {
-    "placeholders": {"name": {}}
+    "placeholders": {
+      "name": {}
+    }
   },
   "shareFailed": "打开分享对话框失败：{error}",
-  "@shareFailed": {"placeholders": {"error": {}}},
+  "@shareFailed": {
+    "placeholders": {
+      "error": {}
+    }
+  },
   "exportLogs": "导出日志",
   "logEventsCount": "{count} 条日志",
   "@logEventsCount": {
     "placeholders": {
-      "count": {"type": "int"}
+      "count": {
+        "type": "int"
+      }
     }
   },
   "unsavedChanges": "未保存的更改",
@@ -108,5 +111,47 @@
   "aboutAppVersionLabel": "PocketClaw 版本",
   "aboutCoreVersionLabel": "运行时版本",
   "aboutVersionUnavailable": "不可用",
-  "close": "关闭"
+  "close": "关闭",
+  "contextMemoryTitle": "Telegram 上下文记忆",
+  "contextMemoryDescription": "控制发送给 AI 的最近对话消息数量。更早的对话仍保留在 Telegram 中，并由滚动摘要表示。",
+  "contextMemoryHelp": "消息越多，近期上下文越丰富，但消耗的令牌也越多。更早的消息会保留在 Telegram 中，并可能通过滚动摘要保留下来。",
+  "contextMemoryRecommended": "推荐",
+  "contextMemoryCustom": "自定义",
+  "contextMemoryCustomLabel": "消息数",
+  "contextMemoryRangeError": "请输入 {min} 到 {max} 之间的整数。",
+  "contextMemorySaveFailed": "无法保存此设置。",
+  "settingsSave": "保存",
+  "autoStartServiceTitle": "自动启动 PocketClaw 服务",
+  "autoStartGatewayTitle": "自动启动网关",
+  "autoStartPreferenceOn": "自动启动偏好：开启",
+  "autoStartPreferenceOff": "自动启动偏好：关闭",
+  "runtimeRunning": "运行状态：运行中",
+  "runtimeStarting": "运行状态：正在启动",
+  "runtimeStopped": "运行状态：已停止",
+  "gatewayAutoStartHint": "将在下次启动 PocketClaw 服务时生效。网关运行状态在仪表板中管理。",
+  "manageTelegramConnection": "管理 Telegram 连接",
+  "manageModelsTitle": "管理模型",
+  "manageModelsDescription": "添加、编辑、测试并选择 AI 模型。",
+  "githubChecking": "正在检查…",
+  "githubConnected": "已连接",
+  "githubNotConnected": "未连接",
+  "githubConnectedAs": "已以 {login} 身份连接",
+  "githubDescription": "由内置的 gh 和通过 HTTPS 的 Git 使用。令牌在本设备上加密存储，不会再次显示。",
+  "githubTestConnection": "测试连接",
+  "githubDisconnect": "断开连接",
+  "githubConnectAction": "连接 GitHub",
+  "githubConnect": "连接",
+  "githubTokenLabel": "个人访问令牌",
+  "githubTokenHint": "粘贴具有所需权限范围的 GitHub 个人访问令牌（私有仓库需要 repo）。",
+  "githubTokenRejected": "GitHub 未接受此令牌。",
+  "githubAuthWorking": "GitHub 身份验证正常。",
+  "githubAuthNotWorking": "GitHub 身份验证未正常工作。",
+  "githubAuthenticatedAs": "已以 {login} 身份通过验证。",
+  "githubCredentialRemoveFailed": "无法移除凭据。",
+  "githubYourAccount": "您的 GitHub 账户",
+  "githubConnectedReport": "已以 {who} 身份连接。{outcome}",
+  "githubDisconnectedReport": "已断开连接。{outcome}",
+  "credentialAppliedNow": "gh 和 git 现在即可使用。",
+  "credentialAppliesNextStart": "将在下次启动 PocketClaw 时使用。",
+  "credentialAppliesDeferred": "已保存。PocketClaw 正在启动，完成后将自动生效。"
 }

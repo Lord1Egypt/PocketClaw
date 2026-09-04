@@ -627,6 +627,258 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Close'**
   String get close;
+
+  /// No description provided for @contextMemoryTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Telegram Context Memory'**
+  String get contextMemoryTitle;
+
+  /// No description provided for @contextMemoryDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Controls how many recent conversation messages are sent to the AI. Older conversation stays in Telegram and is represented by the rolling summary.'**
+  String get contextMemoryDescription;
+
+  /// No description provided for @contextMemoryHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'More messages provide more recent context but use more tokens. Older messages remain in Telegram and may be retained through the rolling summary.'**
+  String get contextMemoryHelp;
+
+  /// No description provided for @contextMemoryRecommended.
+  ///
+  /// In en, this message translates to:
+  /// **'Recommended'**
+  String get contextMemoryRecommended;
+
+  /// No description provided for @contextMemoryCustom.
+  ///
+  /// In en, this message translates to:
+  /// **'Custom'**
+  String get contextMemoryCustom;
+
+  /// No description provided for @contextMemoryCustomLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Messages'**
+  String get contextMemoryCustomLabel;
+
+  /// No description provided for @contextMemoryRangeError.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a whole number between {min} and {max}.'**
+  String contextMemoryRangeError(int min, int max);
+
+  /// No description provided for @contextMemorySaveFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not save this setting.'**
+  String get contextMemorySaveFailed;
+
+  /// No description provided for @settingsSave.
+  ///
+  /// In en, this message translates to:
+  /// **'Save'**
+  String get settingsSave;
+
+  /// No description provided for @autoStartServiceTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Start PocketClaw service automatically'**
+  String get autoStartServiceTitle;
+
+  /// No description provided for @autoStartGatewayTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Start Gateway automatically'**
+  String get autoStartGatewayTitle;
+
+  /// No description provided for @autoStartPreferenceOn.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto-start preference: ON'**
+  String get autoStartPreferenceOn;
+
+  /// No description provided for @autoStartPreferenceOff.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto-start preference: OFF'**
+  String get autoStartPreferenceOff;
+
+  /// No description provided for @runtimeRunning.
+  ///
+  /// In en, this message translates to:
+  /// **'Runtime: Running'**
+  String get runtimeRunning;
+
+  /// No description provided for @runtimeStarting.
+  ///
+  /// In en, this message translates to:
+  /// **'Runtime: Starting'**
+  String get runtimeStarting;
+
+  /// No description provided for @runtimeStopped.
+  ///
+  /// In en, this message translates to:
+  /// **'Runtime: Stopped'**
+  String get runtimeStopped;
+
+  /// No description provided for @gatewayAutoStartHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Applies the next time the PocketClaw service starts. Gateway runtime is managed in the Dashboard.'**
+  String get gatewayAutoStartHint;
+
+  /// No description provided for @manageTelegramConnection.
+  ///
+  /// In en, this message translates to:
+  /// **'Manage Telegram connection'**
+  String get manageTelegramConnection;
+
+  /// No description provided for @manageModelsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Manage Models'**
+  String get manageModelsTitle;
+
+  /// No description provided for @manageModelsDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Add, edit, test, and choose AI models.'**
+  String get manageModelsDescription;
+
+  /// No description provided for @githubChecking.
+  ///
+  /// In en, this message translates to:
+  /// **'Checking…'**
+  String get githubChecking;
+
+  /// No description provided for @githubConnected.
+  ///
+  /// In en, this message translates to:
+  /// **'Connected'**
+  String get githubConnected;
+
+  /// No description provided for @githubNotConnected.
+  ///
+  /// In en, this message translates to:
+  /// **'Not connected'**
+  String get githubNotConnected;
+
+  /// No description provided for @githubConnectedAs.
+  ///
+  /// In en, this message translates to:
+  /// **'Connected as {login}'**
+  String githubConnectedAs(String login);
+
+  /// No description provided for @githubDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Used by the bundled gh and by Git over HTTPS. The token is encrypted on this device and is never shown again.'**
+  String get githubDescription;
+
+  /// No description provided for @githubTestConnection.
+  ///
+  /// In en, this message translates to:
+  /// **'Test connection'**
+  String get githubTestConnection;
+
+  /// No description provided for @githubDisconnect.
+  ///
+  /// In en, this message translates to:
+  /// **'Disconnect'**
+  String get githubDisconnect;
+
+  /// No description provided for @githubConnectAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Connect GitHub'**
+  String get githubConnectAction;
+
+  /// No description provided for @githubConnect.
+  ///
+  /// In en, this message translates to:
+  /// **'Connect'**
+  String get githubConnect;
+
+  /// No description provided for @githubTokenLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Personal access token'**
+  String get githubTokenLabel;
+
+  /// No description provided for @githubTokenHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Paste a GitHub personal access token with the scopes you need (repo for private repositories).'**
+  String get githubTokenHint;
+
+  /// No description provided for @githubTokenRejected.
+  ///
+  /// In en, this message translates to:
+  /// **'GitHub did not accept this token.'**
+  String get githubTokenRejected;
+
+  /// No description provided for @githubAuthWorking.
+  ///
+  /// In en, this message translates to:
+  /// **'GitHub authentication is working.'**
+  String get githubAuthWorking;
+
+  /// No description provided for @githubAuthNotWorking.
+  ///
+  /// In en, this message translates to:
+  /// **'GitHub authentication is not working.'**
+  String get githubAuthNotWorking;
+
+  /// No description provided for @githubAuthenticatedAs.
+  ///
+  /// In en, this message translates to:
+  /// **'Authenticated as {login}.'**
+  String githubAuthenticatedAs(String login);
+
+  /// No description provided for @githubCredentialRemoveFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not remove the credential.'**
+  String get githubCredentialRemoveFailed;
+
+  /// No description provided for @githubYourAccount.
+  ///
+  /// In en, this message translates to:
+  /// **'your GitHub account'**
+  String get githubYourAccount;
+
+  /// No description provided for @githubConnectedReport.
+  ///
+  /// In en, this message translates to:
+  /// **'Connected as {who}. {outcome}'**
+  String githubConnectedReport(String who, String outcome);
+
+  /// No description provided for @githubDisconnectedReport.
+  ///
+  /// In en, this message translates to:
+  /// **'Disconnected. {outcome}'**
+  String githubDisconnectedReport(String outcome);
+
+  /// No description provided for @credentialAppliedNow.
+  ///
+  /// In en, this message translates to:
+  /// **'gh and git can use it now.'**
+  String get credentialAppliedNow;
+
+  /// No description provided for @credentialAppliesNextStart.
+  ///
+  /// In en, this message translates to:
+  /// **'It will be used the next time PocketClaw starts.'**
+  String get credentialAppliesNextStart;
+
+  /// No description provided for @credentialAppliesDeferred.
+  ///
+  /// In en, this message translates to:
+  /// **'Saved. PocketClaw is busy starting, so it will apply automatically as soon as that finishes.'**
+  String get credentialAppliesDeferred;
 }
 
 class _AppLocalizationsDelegate

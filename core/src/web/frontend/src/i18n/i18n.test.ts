@@ -1,0 +1,1861 @@
+import fsSync from "node:fs"
+
+import { afterEach, beforeEach, describe, expect, it } from "vitest"
+
+import i18n, {
+  I18N_OPTIONS,
+  SUPPORTED_LANGUAGES,
+  applyDocumentDirection,
+} from "./index"
+
+/// The locales the PocketClaw app can be set to. The dashboard must resolve
+/// every one of them rather than silently falling back to English.
+const APP_LOCALES = [
+  "ar",
+  "de",
+  "en",
+  "es",
+  "fr",
+  "hi",
+  "id",
+  "ja",
+  "ko",
+  "pt",
+  "ru",
+  "zh",
+] as const
+
+/// The nine locales the dashboard localization milestone adds. Every finished
+/// batch must render in all of them.
+const BATCH_LOCALES = [
+  "ar",
+  "de",
+  "es",
+  "fr",
+  "hi",
+  "id",
+  "ja",
+  "ko",
+  "ru",
+] as const
+
+describe("dashboard i18n", () => {
+  beforeEach(async () => {
+    await i18n.changeLanguage("en")
+  })
+
+  it("declares every app locale as supported", () => {
+    for (const locale of APP_LOCALES) {
+      expect(SUPPORTED_LANGUAGES).toContain(locale)
+    }
+  })
+
+  it("keeps the locales the dashboard already shipped", () => {
+    for (const locale of ["bn-IN", "cs", "pt-BR", "zh", "en"]) {
+      expect(SUPPORTED_LANGUAGES).toContain(locale)
+    }
+  })
+
+  it("resolves every app locale to a real resource", async () => {
+    for (const locale of APP_LOCALES) {
+      await i18n.changeLanguage(locale)
+      expect(
+        i18n.resolvedLanguage,
+        `${locale} did not resolve to a bundled resource`,
+      ).toBeTruthy()
+      // navigation.models exists in every bundle; a missing namespace would
+      // return the key itself.
+      expect(i18n.t("navigation.models")).not.toBe("navigation.models")
+    }
+  })
+
+  // "pt" is what the app sends. It must reach the existing Brazilian
+  // Portuguese translations rather than English.
+  it("maps pt onto the existing pt-BR translations", async () => {
+    await i18n.changeLanguage("pt-BR")
+    const brazilian = i18n.t("navigation.models")
+
+    await i18n.changeLanguage("pt")
+    expect(i18n.t("navigation.models")).toBe(brazilian)
+  })
+
+  it("reuses the existing zh resource", async () => {
+    await i18n.changeLanguage("zh")
+    expect(i18n.t("navigation.models")).toBe("模型")
+  })
+
+  it("renders translated navigation in every app locale", async () => {
+    const expected: Record<string, string> = {
+      ar: "الموديلات",
+      de: "Modelle",
+      en: "Models",
+      es: "Modelos",
+      fr: "Modèles",
+      hi: "मॉडल",
+      id: "Model",
+      ja: "モデル",
+      ko: "모델",
+      ru: "Модели",
+      zh: "模型",
+    }
+    for (const [locale, text] of Object.entries(expected)) {
+      await i18n.changeLanguage(locale)
+      expect(i18n.t("navigation.models"), `${locale}`).toBe(text)
+    }
+  })
+
+  it("translates shared buttons rather than leaving them English", async () => {
+    const save: Record<string, string> = {
+      ar: "حفظ",
+      de: "Speichern",
+      es: "Guardar",
+      fr: "Enregistrer",
+      hi: "सहेजें",
+      id: "Simpan",
+      ja: "保存",
+      ko: "저장",
+      ru: "Сохранить",
+    }
+    for (const [locale, text] of Object.entries(save)) {
+      await i18n.changeLanguage(locale)
+      expect(i18n.t("common.save"), `${locale}`).toBe(text)
+    }
+  })
+
+  it("reports Arabic as right-to-left and the others as left-to-right", () => {
+    expect(i18n.dir("ar")).toBe("rtl")
+    for (const locale of APP_LOCALES.filter((l) => l !== "ar")) {
+      expect(i18n.dir(locale), `${locale}`).toBe("ltr")
+    }
+  })
+
+  it("sets the document language and direction, and restores it", async () => {
+    await i18n.changeLanguage("ar")
+    expect(document.documentElement.getAttribute("dir")).toBe("rtl")
+    expect(document.documentElement.getAttribute("lang")).toBe("ar")
+
+    await i18n.changeLanguage("de")
+    expect(document.documentElement.getAttribute("dir")).toBe("ltr")
+    expect(document.documentElement.getAttribute("lang")).toBe("de")
+  })
+
+  it("applies direction directly for a locale it is handed", () => {
+    applyDocumentDirection("ar")
+    expect(document.documentElement.getAttribute("dir")).toBe("rtl")
+    applyDocumentDirection("ja")
+    expect(document.documentElement.getAttribute("dir")).toBe("ltr")
+  })
+
+  // The locale must survive route changes and reloads. i18next persists the
+  // detected language, so a later navigation reads it back instead of
+  // re-detecting from scratch and landing on English.
+  it("persists the chosen language for later navigations", async () => {
+    await i18n.changeLanguage("ja")
+    expect(localStorage.getItem("i18nextLng")).toBe("ja")
+    expect(i18n.t("navigation.models")).toBe("モデル")
+  })
+})
+
+describe("translation coverage", () => {
+  // What this milestone actually delivers: the shared chrome every route shows.
+  // Every namespace English ships is now required in every added locale, so the
+  // list is read from the English bundle rather than written out here. A
+  // namespace added to English later is required from the moment it appears,
+  // which is the point: nothing can be introduced and quietly left untranslated.
+  const REQUIRED_NAMESPACES = Object.keys(
+    i18n.getResourceBundle("en", "translation") as Record<string, unknown>,
+  )
+
+  // A cheap guard that the list really was read, and that the namespaces this
+  // milestone finished are among them.
+  it("requires every namespace English ships", () => {
+    expect(REQUIRED_NAMESPACES.length).toBeGreaterThan(10)
+    for (const namespace of [
+      "common",
+      "navigation",
+      "header",
+      "footer",
+      "labels",
+      "models",
+      "channels",
+      "chat",
+      "credentials",
+      "pages",
+      "tour",
+      "launcherSetup",
+      "launcherLogin",
+    ]) {
+      expect(REQUIRED_NAMESPACES, namespace).toContain(namespace)
+    }
+  })
+
+  const bundles: Record<string, unknown> = {
+    ar: enBundleFor("ar"),
+    de: enBundleFor("de"),
+    es: enBundleFor("es"),
+    fr: enBundleFor("fr"),
+    hi: enBundleFor("hi"),
+    id: enBundleFor("id"),
+    ja: enBundleFor("ja"),
+    ko: enBundleFor("ko"),
+    ru: enBundleFor("ru"),
+  }
+
+  function enBundleFor(lng: string) {
+    return i18n.getResourceBundle(lng, "translation") as Record<string, unknown>
+  }
+
+  function leafCount(value: unknown): number {
+    if (value && typeof value === "object") {
+      return Object.values(value as Record<string, unknown>).reduce<number>(
+        (total, child) => total + leafCount(child),
+        0,
+      )
+    }
+    return 1
+  }
+
+  it("has the same number of strings as English in every namespace", () => {
+    const english = enBundleFor("en")
+    for (const [locale, bundle] of Object.entries(bundles)) {
+      for (const namespace of REQUIRED_NAMESPACES) {
+        const theirs = (bundle as Record<string, unknown>)[namespace]
+        expect(theirs, `${locale} is missing ${namespace}`).toBeTruthy()
+        expect(
+          leafCount(theirs),
+          `${locale}.${namespace} has fewer strings than English`,
+        ).toBe(leafCount((english as Record<string, unknown>)[namespace]))
+      }
+    }
+  })
+
+  // Proper nouns that are identical in every language. Kept deliberately tiny:
+  // a broad whitelist would hide real untranslated work.
+  const PROPER_NOUNS = new Set([
+    "channels.name.telegram",
+    "channels.name.discord",
+    "channels.name.slack",
+    "channels.name.feishu",
+    "channels.name.dingtalk",
+    "channels.name.line",
+    "channels.name.qq",
+    "channels.name.onebot",
+    "channels.name.wecom",
+    "channels.name.maixcam",
+    "channels.name.matrix",
+    "channels.name.irc",
+    "channels.name.weixin",
+    "channels.name.mqtt",
+    // "text" is the wire field name in the MQTT payload, not prose.
+    "channels.mqtt.fieldText",
+    // OAuth is a protocol name. Arabic, Hindi, Japanese, Korean and Russian
+    // technical interfaces all write it "OAuth"; transliterating it would be
+    // less recognisable, not more localized.
+    "chat.modelGroup.oauth",
+    // "URL" is the standard term in Hindi, Japanese, Korean and Russian
+    // technical interfaces; it is a field label beside Name and Description,
+    // not prose. Arabic uses "الرابط" and is unaffected.
+    "pages.agent.skills.metadata.url",
+    // MCP is the protocol's name and is written "MCP" in every one of these
+    // languages, the same way the channel platform names above are.
+    "pages.config.sections.mcp",
+    // Not prose at all: the two sample regular expressions shown greyed out in
+    // the custom-pattern textareas. Translating a regex would make it wrong.
+    "pages.config.custom_patterns_placeholder",
+    // Also literals rather than copy: web_search and web_fetch are the tools'
+    // actual names, and the CIDR samples are addresses. All three are shown as
+    // the format to type, so translating them would make them wrong.
+    "pages.config.turn_profile_tools_allow_placeholder",
+    "pages.config.allowed_cidrs_placeholder",
+    "pages.config.trusted_proxy_cidrs_placeholder",
+  ])
+
+  // Latin-script languages legitimately share loanwords with English — German
+  // "Chat", "Agent" and "Version", French "Services" and "Documentation",
+  // Spanish "Hub" are correct translations that happen to be identical. An
+  // equality check cannot tell those from untranslated strings, so the
+  // English-copy rule is applied where it is unambiguous: in these scripts any
+  // identical Latin string is genuinely untranslated.
+  const NON_LATIN = ["ar", "hi", "ja", "ko", "ru"] as const
+
+  function flatten(
+    value: unknown,
+    prefix: string,
+    out: Map<string, string>,
+  ): Map<string, string> {
+    if (value && typeof value === "object") {
+      for (const [key, child] of Object.entries(
+        value as Record<string, unknown>,
+      )) {
+        flatten(child, prefix ? `${prefix}.${key}` : key, out)
+      }
+    } else if (typeof value === "string") {
+      out.set(prefix, value)
+    }
+    return out
+  }
+
+  function keysOfNamespace(english: Map<string, string>, namespace: string) {
+    return [...english.keys()].filter((key) => key.startsWith(`${namespace}.`))
+  }
+
+  it("has every required key in every locale", () => {
+    const english = flatten(enBundleFor("en"), "", new Map())
+    const failures: string[] = []
+
+    for (const [locale, bundle] of Object.entries(bundles)) {
+      const theirs = flatten(bundle, "", new Map())
+      for (const namespace of REQUIRED_NAMESPACES) {
+        for (const key of keysOfNamespace(english, namespace)) {
+          if (theirs.get(key) === undefined) {
+            failures.push(`${locale} | ${namespace} | ${key} | MISSING`)
+          }
+        }
+      }
+      // A key English does not have is a stale translation or a typo, and it
+      // would never be rendered. Report it rather than letting it accumulate.
+      for (const key of theirs.keys()) {
+        if (english.get(key) === undefined) {
+          failures.push(`${locale} | ${key.split(".")[0]} | ${key} | EXTRA`)
+        }
+      }
+    }
+
+    expect(failures.join("\n"), failures.join("\n")).toBe("")
+  })
+
+  // Interpolation parity across every namespace: no translation may drop a
+  // {{var}} English uses, invent one it does not have, or rename it.
+  it("preserves placeholder parity with English across the whole bundle", () => {
+    const placeholders = (value: string) =>
+      [...value.matchAll(/\{\{\s*([A-Za-z0-9_]+)\s*\}\}/g)]
+        .map((match) => match[1])
+        .sort()
+        .join(",")
+
+    const english = flatten(enBundleFor("en"), "", new Map())
+    const failures: string[] = []
+
+    for (const [locale, bundle] of Object.entries(bundles)) {
+      const theirs = flatten(bundle, "", new Map())
+      for (const namespace of REQUIRED_NAMESPACES) {
+        for (const key of keysOfNamespace(english, namespace)) {
+          const translated = theirs.get(key)
+          if (translated === undefined) continue
+          const want = placeholders(english.get(key) as string)
+          const got = placeholders(translated)
+          if (want !== got) {
+            failures.push(
+              `${locale} | ${namespace} | ${key} | placeholders "${want}" vs "${got}"`,
+            )
+          }
+        }
+      }
+    }
+
+    expect(failures.join("\n"), failures.join("\n")).toBe("")
+  })
+
+  it("leaves nothing in English in the non-Latin locales", () => {
+    const english = flatten(enBundleFor("en"), "", new Map())
+    const failures: string[] = []
+
+    for (const locale of NON_LATIN) {
+      const theirs = flatten(enBundleFor(locale), "", new Map())
+      const checked: Array<[string, string[]]> = REQUIRED_NAMESPACES.map(
+        (namespace) =>
+          [namespace, keysOfNamespace(english, namespace)] as [
+            string,
+            string[],
+          ],
+      )
+      for (const [namespace, keys] of checked) {
+        for (const key of keys) {
+          if (PROPER_NOUNS.has(key)) continue
+          const value = theirs.get(key)
+          if (value !== undefined && value === english.get(key)) {
+            failures.push(
+              `${locale} | ${namespace} | ${key} | ENGLISH COPY: "${value}"`,
+            )
+          }
+        }
+      }
+    }
+
+    expect(failures.join("\n"), failures.join("\n")).toBe("")
+  })
+
+  // pt-BR and zh predate the nine-locale milestone and were never held to the
+  // English-copy rule, so both had shipped values byte-identical to English for
+  // real prose. They are held to it now. Latin script means an equality check
+  // cannot tell a loanword from an oversight, so unlike NON_LATIN these two get
+  // an exact-key allowance — never a prefix, never a namespace.
+  const IDENTICAL_BY_DESIGN: Record<string, ReadonlySet<string>> = {
+    // Brazilian Portuguese software writes these exactly as English does; the
+    // bundle already uses them untranslated in its own prose.
+    "pt-BR": new Set([
+      // Platform and protocol names.
+      "channels.name.telegram",
+      "channels.name.discord",
+      "channels.name.slack",
+      "channels.name.feishu",
+      "channels.name.dingtalk",
+      "channels.name.line",
+      "channels.name.qq",
+      "channels.name.onebot",
+      "channels.name.wecom",
+      "channels.name.weixin",
+      "channels.name.maixcam",
+      "channels.name.matrix",
+      "channels.name.irc",
+      "channels.name.mqtt",
+      "channels.name.pico",
+      "channels.field.broker",
+      "channels.field.qos",
+      "chat.modelGroup.oauth",
+      "pages.config.sections.mcp",
+      "pages.agent.skills.metadata.url",
+      // Loanwords Brazilian developer interfaces use verbatim. The bundle is
+      // consistent with itself: it already writes "Importar Skill" and
+      // "Configure API Keys" in translated prose.
+      "navigation.chat",
+      "navigation.hub",
+      "navigation.logs",
+      "navigation.skills",
+      "pages.agent.tools.categories.skills",
+      "pages.agent.tools.categories.web",
+      "pages.agent.tools.categories.hardware",
+      "pages.config.sections.runtime",
+      "pages.config.sections.launcher",
+      "pages.config.heartbeat_enabled",
+      "chat.modelGroup.apikey",
+      "models.field.apiKey",
+      "pages.agent.tools.web_search.api_key",
+      "models.test.endpointLabel",
+      "channels.telegram.botLabel",
+      "footer.commit",
+      "footer.build",
+      // Words spelled identically in Portuguese.
+      "chat.modelGroup.local",
+      "models.combobox.local",
+      "models.badge.virtual",
+      "pages.agent.skills.origin.manual",
+      "pages.config.session_scope_global",
+      "channels.telegram.statusLabel",
+      "models.test.status",
+      // Not prose: wire field names, debug output and sample literals shown as
+      // the format to type. Translating them would make them wrong.
+      "channels.mqtt.fieldText",
+      "models.validation.parsed",
+      "pages.config.custom_patterns_placeholder",
+      "pages.config.turn_profile_skills_allow_placeholder",
+      "pages.config.turn_profile_tools_allow_placeholder",
+      "pages.config.allowed_cidrs_placeholder",
+      "pages.config.trusted_proxy_cidrs_placeholder",
+    ]),
+    zh: new Set([
+      // Platform and protocol names.
+      "channels.name.telegram",
+      "channels.name.discord",
+      "channels.name.slack",
+      "channels.name.line",
+      "channels.name.qq",
+      "channels.name.onebot",
+      "channels.name.maixcam",
+      "channels.name.matrix",
+      "channels.name.irc",
+      "channels.name.mqtt",
+      "channels.name.pico",
+      "chat.modelGroup.oauth",
+      "pages.config.sections.mcp",
+      // Written in Latin script in Simplified Chinese technical interfaces,
+      // including this bundle's own prose ("为 AI 服务商配置 API Key").
+      "navigation.hub",
+      "chat.modelGroup.apikey",
+      "models.field.apiKey",
+      // Not prose: wire field names and sample literals.
+      "channels.mqtt.fieldText",
+      "pages.config.custom_patterns_placeholder",
+      "pages.config.turn_profile_skills_allow_placeholder",
+      "pages.config.turn_profile_tools_allow_placeholder",
+      "pages.config.allowed_cidrs_placeholder",
+      "pages.config.trusted_proxy_cidrs_placeholder",
+    ]),
+  }
+
+  it("leaves nothing in English in pt-BR and zh either", () => {
+    const english = flatten(enBundleFor("en"), "", new Map())
+    const failures: string[] = []
+
+    for (const [locale, allowed] of Object.entries(IDENTICAL_BY_DESIGN)) {
+      const theirs = flatten(enBundleFor(locale), "", new Map())
+      for (const key of english.keys()) {
+        if (allowed.has(key)) continue
+        const value = theirs.get(key)
+        if (value !== undefined && value === english.get(key)) {
+          failures.push(`${locale} | ${key} | ENGLISH COPY: "${value}"`)
+        }
+      }
+    }
+
+    expect(failures.join("\n"), failures.join("\n")).toBe("")
+  })
+
+  // An allowance that no longer matches anything is a stale exemption: it would
+  // silently keep covering the key if someone reverted a translation later.
+  it("keeps the pt-BR and zh allowances exact and in use", () => {
+    const english = flatten(enBundleFor("en"), "", new Map())
+    const stale: string[] = []
+
+    for (const [locale, allowed] of Object.entries(IDENTICAL_BY_DESIGN)) {
+      const theirs = flatten(enBundleFor(locale), "", new Map())
+      for (const key of allowed) {
+        expect(english.has(key), `${locale} allows unknown key ${key}`).toBe(
+          true,
+        )
+        if (theirs.get(key) !== english.get(key)) {
+          stale.push(`${locale} | ${key} is translated; drop the allowance`)
+        }
+      }
+    }
+
+    expect(stale.join("\n"), stale.join("\n")).toBe("")
+  })
+
+  it("does not ship English copies as if they were translations", () => {
+    const english = enBundleFor("en") as Record<string, Record<string, string>>
+    for (const [locale, bundle] of Object.entries(bundles)) {
+      const common = (bundle as Record<string, Record<string, string>>).common
+      expect(common.save, `${locale} copied the English "Save"`).not.toBe(
+        english.common.save,
+      )
+    }
+  })
+})
+
+describe("Models route body", () => {
+  it("renders translated Models page content in every app locale", async () => {
+    const expected: Record<string, string> = {
+      ar: "إضافة موديل",
+      de: "Modell hinzufügen",
+      es: "Añadir modelo",
+      fr: "Ajouter un modèle",
+      hi: "मॉडल जोड़ें",
+      id: "Tambah Model",
+      ja: "モデルを追加",
+      ko: "모델 추가",
+      ru: "Добавить модель",
+    }
+    for (const [locale, text] of Object.entries(expected)) {
+      await i18n.changeLanguage(locale)
+      expect(i18n.t("models.add.button"), locale).toBe(text)
+      // Body prose, not just a button.
+      expect(i18n.t("models.description"), locale).not.toBe(
+        "Configure API keys for AI providers. Only configured models are available for chat.",
+      )
+      expect(i18n.t("models.field.apiKey"), locale).not.toBe("API Key")
+    }
+  })
+})
+
+describe("Channels / Telegram route body", () => {
+  // Manage Telegram opens /channels/telegram, so its body must be translated,
+  // not merely reachable.
+  it("renders translated Telegram page content in every app locale", async () => {
+    const connectTitle: Record<string, string> = {
+      ar: "اربط PocketClaw بتيليجرام",
+      de: "PocketClaw mit Telegram verbinden",
+      es: "Conecta PocketClaw a Telegram",
+      fr: "Connecter PocketClaw à Telegram",
+      hi: "PocketClaw को Telegram से जोड़ें",
+      id: "Hubungkan PocketClaw ke Telegram",
+      ja: "PocketClaw を Telegram に接続",
+      ko: "PocketClaw를 Telegram에 연결",
+      ru: "Подключить PocketClaw к Telegram",
+    }
+    for (const [locale, text] of Object.entries(connectTitle)) {
+      await i18n.changeLanguage(locale)
+      expect(i18n.t("channels.telegram.connectTitle"), locale).toBe(text)
+
+      // Body prose and form text, not just the headline.
+      expect(i18n.t("channels.telegram.connectBody"), locale).not.toBe(
+        "Create your personal PocketClaw bot in a few seconds. No BotFather token copy/paste required.",
+      )
+      expect(i18n.t("channels.page.enableLabel"), locale).not.toBe(
+        "Enable channel",
+      )
+      expect(i18n.t("channels.form.desc.allowFrom"), locale).not.toBe(
+        "Allowed user or group IDs. Add items one by one, or paste multiple values at once.",
+      )
+      expect(i18n.t("channels.validation.requiredField"), locale).not.toBe(
+        "This field is required.",
+      )
+    }
+  })
+
+  it("keeps English and the pre-existing locales intact", async () => {
+    await i18n.changeLanguage("en")
+    expect(i18n.t("channels.telegram.connected")).toBe("Connected")
+
+    for (const locale of ["pt", "zh"]) {
+      await i18n.changeLanguage(locale)
+      expect(i18n.t("channels.telegram.connectTitle"), locale).toBeTruthy()
+      expect(i18n.t("channels.telegram.connectTitle"), locale).not.toBe(
+        "channels.telegram.connectTitle",
+      )
+    }
+  })
+
+  it("keeps Arabic right-to-left on the Telegram route", async () => {
+    await i18n.changeLanguage("ar")
+    expect(i18n.dir()).toBe("rtl")
+    expect(document.documentElement.getAttribute("dir")).toBe("rtl")
+    expect(i18n.t("channels.telegram.ownerLabel")).toBe("المالك")
+  })
+
+  it("preserves interpolation placeholders", async () => {
+    for (const locale of [
+      "ar",
+      "de",
+      "es",
+      "fr",
+      "hi",
+      "id",
+      "ja",
+      "ko",
+      "ru",
+    ]) {
+      await i18n.changeLanguage(locale)
+      expect(
+        i18n.t("channels.page.notFound", { name: "telegram" }),
+        locale,
+      ).toContain("telegram")
+      expect(
+        i18n.t("channels.field.removeListItem", { value: "123456" }),
+        locale,
+      ).toContain("123456")
+    }
+  })
+
+  it("does not translate platform names", async () => {
+    for (const locale of ["ar", "hi", "ja", "ko", "ru"]) {
+      await i18n.changeLanguage(locale)
+      expect(i18n.t("channels.name.telegram"), locale).toBe("Telegram")
+      expect(i18n.t("channels.name.matrix"), locale).toBe("Matrix")
+    }
+  })
+})
+
+describe("Chat route body", () => {
+  const CHAT_LOCALES = [
+    "ar",
+    "de",
+    "es",
+    "fr",
+    "hi",
+    "id",
+    "ja",
+    "ko",
+    "ru",
+  ] as const
+
+  // Body prose, an action control and a status/empty state — not nav.chat.
+  it("renders translated Chat body, actions and states in every locale", async () => {
+    const welcome: Record<string, string> = {
+      ar: "كيف يمكنني مساعدتك اليوم؟",
+      de: "Wie kann ich Ihnen heute helfen?",
+      es: "¿En qué puedo ayudarte hoy?",
+      fr: "Comment puis-je vous aider aujourd'hui ?",
+      hi: "आज मैं आपकी क्या मदद कर सकता हूँ?",
+      id: "Ada yang bisa saya bantu hari ini?",
+      ja: "今日はどのようなご用件でしょうか？",
+      ko: "오늘 무엇을 도와드릴까요?",
+      ru: "Чем я могу помочь сегодня?",
+    }
+
+    for (const locale of CHAT_LOCALES) {
+      await i18n.changeLanguage(locale)
+
+      // Page/body prose.
+      expect(i18n.t("chat.welcome"), locale).toBe(welcome[locale])
+      expect(i18n.t("chat.welcomeDesc"), locale).not.toBe(
+        "Ask me about weather, settings, or any other tasks. I'm here to assist you.",
+      )
+
+      // Input and action controls.
+      expect(i18n.t("chat.placeholder"), locale).not.toBe(
+        "Start a new message...",
+      )
+      expect(i18n.t("chat.sendMessage"), locale).not.toBe("Send message")
+      expect(i18n.t("chat.newChat"), locale).not.toBe("New Chat")
+
+      // Status, error and empty states.
+      expect(i18n.t("chat.thinking.step1"), locale).not.toBe("Thinking...")
+      expect(i18n.t("chat.historyLoadFailed"), locale).not.toBe(
+        "Failed to load chat history",
+      )
+      expect(i18n.t("chat.noHistory"), locale).not.toBe("No chat history yet")
+      expect(i18n.t("chat.empty.notRunning"), locale).not.toBe(
+        "Gateway Not Running",
+      )
+      expect(
+        i18n.t("chat.disabledPlaceholder.gatewayStopped"),
+        locale,
+      ).not.toBe(
+        "Unable to chat: Gateway is not started. Click Start Gateway in the top bar, then retry.",
+      )
+    }
+  })
+
+  it("keeps Arabic Chat right-to-left with a translated body", async () => {
+    await i18n.changeLanguage("ar")
+    expect(i18n.dir()).toBe("rtl")
+    expect(document.documentElement.getAttribute("dir")).toBe("rtl")
+    expect(i18n.t("chat.newChat")).toBe("دردشة جديدة")
+    expect(i18n.t("chat.empty.noSelectedModel")).toBe("لم يُحدَّد موديل")
+  })
+
+  it("preserves Chat interpolation placeholders", async () => {
+    for (const locale of CHAT_LOCALES) {
+      await i18n.changeLanguage(locale)
+      expect(i18n.t("chat.messagesCount", { count: 12 }), locale).toContain(
+        "12",
+      )
+      expect(
+        i18n.t("chat.invalidImage", { name: "photo.heic" }),
+        locale,
+      ).toContain("photo.heic")
+      const tooLarge = i18n.t("chat.imageTooLarge", {
+        name: "photo.png",
+        size: "5 MB",
+      })
+      expect(tooLarge, locale).toContain("photo.png")
+      expect(tooLarge, locale).toContain("5 MB")
+    }
+  })
+
+  it("keeps English and the pre-existing locales intact for Chat", async () => {
+    await i18n.changeLanguage("en")
+    expect(i18n.t("chat.newChat")).toBe("New Chat")
+
+    for (const locale of ["pt", "zh"]) {
+      await i18n.changeLanguage(locale)
+      expect(i18n.t("chat.newChat"), locale).not.toBe("chat.newChat")
+    }
+  })
+})
+
+describe("Credentials route body", () => {
+  const CRED_LOCALES = [
+    "ar",
+    "de",
+    "es",
+    "fr",
+    "hi",
+    "id",
+    "ja",
+    "ko",
+    "ru",
+  ] as const
+
+  it("renders translated Credentials body, fields, actions and states", async () => {
+    for (const locale of CRED_LOCALES) {
+      await i18n.changeLanguage(locale)
+
+      // Title / description prose.
+      expect(i18n.t("credentials.description"), locale).not.toBe(
+        "Manage OAuth and token-based credentials for supported providers.",
+      )
+      expect(
+        i18n.t("credentials.providers.anthropic.description"),
+        locale,
+      ).not.toBe("Uses token login for Claude access.")
+
+      // Field and helper strings.
+      expect(i18n.t("credentials.labels.account"), locale).not.toBe("Account")
+      expect(i18n.t("credentials.device.description"), locale).not.toBe(
+        "Open the verification page and enter the code below. This page will refresh automatically.",
+      )
+
+      // Action buttons.
+      expect(i18n.t("credentials.actions.saveToken"), locale).not.toBe("Save")
+      expect(i18n.t("credentials.actions.logout"), locale).not.toBe("Logout")
+
+      // Validation / error / status.
+      expect(i18n.t("credentials.errors.loginFailed"), locale).not.toBe(
+        "Login failed",
+      )
+      expect(i18n.t("credentials.errors.popupBlocked"), locale).not.toBe(
+        "Unable to open a new tab. Please allow popups and try again.",
+      )
+      expect(i18n.t("credentials.status.notLoggedIn"), locale).not.toBe(
+        "Not logged in",
+      )
+      expect(i18n.t("credentials.flow.pending"), locale).not.toBe(
+        "Waiting for authorization...",
+      )
+    }
+  })
+
+  it("keeps Arabic Credentials right-to-left with a translated body", async () => {
+    await i18n.changeLanguage("ar")
+    expect(i18n.dir()).toBe("rtl")
+    expect(document.documentElement.getAttribute("dir")).toBe("rtl")
+    expect(i18n.t("credentials.status.connected")).toBe("متصل")
+    expect(i18n.t("credentials.labels.email")).toBe("البريد الإلكتروني")
+  })
+
+  it("preserves the Credentials interpolation placeholder", async () => {
+    for (const locale of CRED_LOCALES) {
+      await i18n.changeLanguage(locale)
+      expect(
+        i18n.t("credentials.logoutDialog.description", { provider: "OpenAI" }),
+        locale,
+      ).toContain("OpenAI")
+    }
+  })
+
+  it("keeps provider and protocol names untranslated", async () => {
+    for (const locale of ["ar", "hi", "ja", "ko", "ru"]) {
+      await i18n.changeLanguage(locale)
+      expect(i18n.t("credentials.fields.openaiToken"), locale).toContain(
+        "OpenAI",
+      )
+      expect(i18n.t("credentials.fields.anthropicToken"), locale).toContain(
+        "Anthropic",
+      )
+      expect(
+        i18n.t("credentials.providers.anthropic.description"),
+        locale,
+      ).toContain("Claude")
+    }
+  })
+
+  it("keeps English and the pre-existing locales intact for Credentials", async () => {
+    await i18n.changeLanguage("en")
+    expect(i18n.t("credentials.status.connected")).toBe("Connected")
+
+    for (const locale of ["pt", "zh"]) {
+      await i18n.changeLanguage(locale)
+      expect(i18n.t("credentials.status.connected"), locale).not.toBe(
+        "credentials.status.connected",
+      )
+    }
+  })
+})
+
+describe("Pages batch 1 — Skills and Logs", () => {
+  it("renders translated Skills page body, actions and states", async () => {
+    for (const locale of BATCH_LOCALES) {
+      await i18n.changeLanguage(locale)
+
+      // Title / description prose.
+      expect(i18n.t("pages.agent.skills.marketplace_title"), locale).not.toBe(
+        "Discover Skills",
+      )
+      expect(
+        i18n.t("pages.agent.skills.marketplace_description"),
+        locale,
+      ).not.toBe(
+        "Search the skill registries and install useful skills into this workspace",
+      )
+
+      // Form / helper content.
+      expect(i18n.t("pages.agent.skills.search_placeholder"), locale).not.toBe(
+        "Search by name, description, or registry",
+      )
+      expect(i18n.t("pages.agent.skills.import_constraints"), locale).not.toBe(
+        "Import a Markdown or ZIP skill file up to 1 MB",
+      )
+
+      // Actions.
+      expect(i18n.t("pages.agent.skills.import"), locale).not.toBe(
+        "Import Skill",
+      )
+      expect(
+        i18n.t("pages.agent.skills.marketplace_install_action"),
+        locale,
+      ).not.toBe("Install")
+
+      // Status / error / empty states.
+      expect(i18n.t("pages.agent.skills.empty"), locale).not.toBe(
+        "No skills are currently available.",
+      )
+      expect(i18n.t("pages.agent.skills.no_results"), locale).not.toBe(
+        "No skills matched the current filters.",
+      )
+      expect(i18n.t("pages.agent.skills.install_error"), locale).not.toBe(
+        "Failed to install skill.",
+      )
+      expect(i18n.t("pages.agent.load_error"), locale).not.toBe(
+        "Failed to load agent support information.",
+      )
+    }
+  })
+
+  it("renders the translated Logs page", async () => {
+    for (const locale of BATCH_LOCALES) {
+      await i18n.changeLanguage(locale)
+      expect(i18n.t("pages.logs.clear"), locale).not.toBe("Clear logs")
+      expect(i18n.t("pages.logs.empty"), locale).not.toBe("Waiting for logs...")
+      expect(i18n.t("pages.logs.log_level_error"), locale).not.toBe(
+        "Failed to update log level.",
+      )
+    }
+  })
+
+  it("keeps Arabic batch 1 pages right-to-left and translated", async () => {
+    await i18n.changeLanguage("ar")
+    expect(i18n.dir()).toBe("rtl")
+    expect(document.documentElement.getAttribute("dir")).toBe("rtl")
+    expect(i18n.t("pages.agent.skills.import")).toBe("استيراد مهارة")
+    expect(i18n.t("pages.logs.clear")).toBe("مسح السجلات")
+  })
+
+  it("keeps English and the pre-existing locales intact for batch 1", async () => {
+    await i18n.changeLanguage("en")
+    expect(i18n.t("pages.logs.clear")).toBe("Clear logs")
+
+    for (const locale of ["pt", "zh"]) {
+      await i18n.changeLanguage(locale)
+      expect(i18n.t("pages.logs.clear"), locale).not.toBe("pages.logs.clear")
+    }
+  })
+})
+
+describe("Pages batch 2 — Tools and Configuration", () => {
+  it("renders translated Tools page body, actions and states", async () => {
+    for (const locale of BATCH_LOCALES) {
+      await i18n.changeLanguage(locale)
+
+      // Title / description prose.
+      expect(i18n.t("pages.agent.tools.library_title"), locale).not.toBe(
+        "Tool Library",
+      )
+      expect(i18n.t("pages.agent.tools.library_description"), locale).not.toBe(
+        "Browse and manage the toolset available to your AI agents.",
+      )
+
+      // Form / helper content.
+      expect(i18n.t("pages.agent.tools.search_placeholder"), locale).not.toBe(
+        "Search tools...",
+      )
+      expect(i18n.t("pages.agent.tools.filter.all"), locale).not.toBe(
+        "All Status",
+      )
+
+      // Status.
+      expect(i18n.t("pages.agent.tools.enable_success"), locale).not.toBe(
+        "Tool enabled.",
+      )
+      expect(i18n.t("pages.agent.tools.status.enabled"), locale).not.toBe(
+        "Enabled",
+      )
+
+      // Empty / no-result states.
+      expect(i18n.t("pages.agent.tools.empty"), locale).not.toBe(
+        "No tools are available.",
+      )
+      expect(i18n.t("pages.agent.tools.no_results"), locale).not.toBe(
+        "No tools match your criteria.",
+      )
+      expect(i18n.t("pages.agent.tools.no_results_hint"), locale).not.toBe(
+        "Try adjusting your search criteria or status filters.",
+      )
+
+      // Errors and the reasons a tool is blocked.
+      expect(i18n.t("pages.agent.tools.toggle_error"), locale).not.toBe(
+        "Failed to update tool state.",
+      )
+      expect(
+        i18n.t("pages.agent.tools.reasons.requires_web_search_provider"),
+        locale,
+      ).not.toBe("Configure at least one ready external web-search provider.")
+    }
+  })
+
+  it("renders the translated Web Search panel", async () => {
+    for (const locale of BATCH_LOCALES) {
+      await i18n.changeLanguage(locale)
+
+      expect(i18n.t("pages.agent.tools.web_search.title"), locale).not.toBe(
+        "Web Search",
+      )
+      expect(
+        i18n.t("pages.agent.tools.web_search.provider_description"),
+        locale,
+      ).not.toBe(
+        "Select the default provider to use when the web search tool handles a request.",
+      )
+
+      // Form helper text.
+      expect(
+        i18n.t("pages.agent.tools.web_search.api_key_placeholder"),
+        locale,
+      ).not.toBe("Enter API key, leave it blank to keep the original key")
+
+      // Actions.
+      expect(i18n.t("pages.agent.tools.web_search.save"), locale).not.toBe(
+        "Save Changes",
+      )
+      expect(
+        i18n.t("pages.agent.tools.web_search.open_settings"),
+        locale,
+      ).not.toBe("Open Settings")
+
+      // Status and error states.
+      expect(
+        i18n.t("pages.agent.tools.web_search.save_success"),
+        locale,
+      ).not.toBe("Settings saved successfully.")
+      expect(
+        i18n.t("pages.agent.tools.web_search.load_error"),
+        locale,
+      ).not.toBe("Failed to load web search configuration.")
+      expect(i18n.t("pages.agent.tools.web_search.none"), locale).not.toBe(
+        "Unavailable",
+      )
+      // "Model" itself is a Latin cognate that several of these languages
+      // legitimately spell the same way, so the field asserted here is its
+      // helper text rather than the one-word label.
+      expect(
+        i18n.t("pages.agent.tools.web_search.model_placeholder"),
+        locale,
+      ).not.toBe("Optional model override")
+    }
+  })
+
+  it("renders the translated Configuration page", async () => {
+    for (const locale of BATCH_LOCALES) {
+      await i18n.changeLanguage(locale)
+
+      // Section tabs. Agent, Runtime, Evolution, MCP and Launcher are the same
+      // word in several of these languages, so the tabs asserted here are the
+      // ones that genuinely differ.
+      expect(i18n.t("pages.config.sections.exec"), locale).not.toBe(
+        "Run Commands",
+      )
+      expect(i18n.t("pages.config.sections.cron"), locale).not.toBe(
+        "Cron Tasks",
+      )
+      expect(i18n.t("pages.config.sections.devices"), locale).not.toBe(
+        "Devices",
+      )
+
+      // Field labels and their helper text.
+      expect(i18n.t("pages.config.workspace"), locale).not.toBe(
+        "Workspace Directory",
+      )
+      expect(i18n.t("pages.config.workspace_hint"), locale).not.toBe(
+        "Base directory for agent file operations.",
+      )
+      expect(i18n.t("pages.config.tool_feedback_enabled"), locale).not.toBe(
+        "Tool Feedback",
+      )
+      expect(i18n.t("pages.config.exec_timeout_seconds_hint"), locale).not.toBe(
+        "Maximum runtime for command requests. Set to 0 to use the default timeout.",
+      )
+      expect(i18n.t("pages.config.cron_exec_timeout"), locale).not.toBe(
+        "Scheduled Command Timeout (minutes)",
+      )
+
+      // The pattern detector: prompt, input placeholder, action and each of
+      // its three verdicts.
+      expect(i18n.t("pages.config.pattern_detector_title"), locale).not.toBe(
+        "Pattern Detection Tool",
+      )
+      expect(
+        i18n.t("pages.config.pattern_detector_input_placeholder"),
+        locale,
+      ).not.toBe("Enter a command to test, e.g., rm -rf /tmp")
+      expect(
+        i18n.t("pages.config.pattern_detector_test_button"),
+        locale,
+      ).not.toBe("Test")
+      expect(
+        i18n.t("pages.config.pattern_detector_result_allowed"),
+        locale,
+      ).not.toBe("Allowed (matches whitelist)")
+      expect(
+        i18n.t("pages.config.pattern_detector_result_blocked"),
+        locale,
+      ).not.toBe("Blocked (matches blacklist)")
+      expect(
+        i18n.t("pages.config.pattern_detector_result_no_match"),
+        locale,
+      ).not.toBe("No match (will use default rules)")
+
+      // Validation and error states.
+      expect(i18n.t("pages.config.workspace_required"), locale).not.toBe(
+        "Workspace path is required.",
+      )
+      expect(i18n.t("pages.config.load_error"), locale).not.toBe(
+        "Failed to load configuration. Please refresh and try again.",
+      )
+    }
+  })
+
+  // The sample regular expressions are code, not copy: they must be byte
+  // identical everywhere or the hint they give would be wrong.
+  it("keeps the pattern samples identical in every locale", async () => {
+    await i18n.changeLanguage("en")
+    const english = i18n.t("pages.config.custom_patterns_placeholder")
+    expect(english).toContain("^rm")
+
+    for (const locale of BATCH_LOCALES) {
+      await i18n.changeLanguage(locale)
+      expect(i18n.t("pages.config.custom_patterns_placeholder"), locale).toBe(
+        english,
+      )
+    }
+  })
+
+  it("keeps Arabic batch 2 pages right-to-left and translated", async () => {
+    await i18n.changeLanguage("ar")
+    expect(i18n.dir()).toBe("rtl")
+    expect(document.documentElement.getAttribute("dir")).toBe("rtl")
+    expect(i18n.t("pages.agent.tools.library_title")).toBe("مكتبة الأدوات")
+    expect(i18n.t("pages.agent.tools.web_search.title")).toBe("البحث على الويب")
+    expect(i18n.t("pages.config.sections.exec")).toBe("تشغيل الأوامر")
+    expect(i18n.t("pages.config.pattern_detector_test_button")).toBe("اختبار")
+  })
+
+  it("keeps English and the pre-existing locales intact for batch 2", async () => {
+    await i18n.changeLanguage("en")
+    expect(i18n.t("pages.agent.tools.library_title")).toBe("Tool Library")
+    expect(i18n.t("pages.config.sections.exec")).toBe("Run Commands")
+
+    for (const locale of ["pt", "zh"]) {
+      await i18n.changeLanguage(locale)
+      for (const key of [
+        "pages.agent.tools.library_title",
+        "pages.config.sections.exec",
+      ]) {
+        expect(i18n.t(key), `${locale} ${key}`).not.toBe(key)
+      }
+    }
+  })
+})
+
+describe("Pages batch 3 — Agent tuning, runtime and security", () => {
+  it("renders the translated Agent tuning settings", async () => {
+    for (const locale of BATCH_LOCALES) {
+      await i18n.changeLanguage(locale)
+
+      // Field labels and helper text.
+      expect(i18n.t("pages.config.max_tokens"), locale).not.toBe("Max Tokens")
+      expect(i18n.t("pages.config.max_tokens_hint"), locale).not.toBe(
+        "Upper token limit per model response.",
+      )
+      expect(i18n.t("pages.config.context_window_hint"), locale).not.toBe(
+        "Model input context capacity in tokens. Leave empty to use the default (4x max tokens).",
+      )
+      expect(i18n.t("pages.config.summarize_threshold"), locale).not.toBe(
+        "Summarize Message Threshold",
+      )
+
+      // The request-context policy, its title, its explanation and its modes.
+      expect(i18n.t("pages.config.turn_profile"), locale).not.toBe(
+        "Request Context Policy",
+      )
+      expect(i18n.t("pages.config.turn_profile_hint"), locale).not.toBe(
+        "Controls what context each request carries. Leave disabled to keep the normal chat behavior.",
+      )
+      expect(i18n.t("pages.config.turn_profile_mode_custom"), locale).not.toBe(
+        "Allow List",
+      )
+      expect(i18n.t("pages.config.turn_profile_history_hint"), locale).not.toBe(
+        "Default includes earlier messages from this session. Off makes the turn behave like a fresh chat and skips saving its result back to history.",
+      )
+
+      // Session scope: the selector, its options and their descriptions.
+      expect(i18n.t("pages.config.session_scope"), locale).not.toBe(
+        "Session Scope",
+      )
+      expect(
+        i18n.t("pages.config.session_scope_per_channel_peer"),
+        locale,
+      ).not.toBe("Per Channel + Peer")
+      expect(
+        i18n.t("pages.config.session_scope_per_channel_peer_desc"),
+        locale,
+      ).not.toBe("Separate context for each user in each channel.")
+    }
+  })
+
+  it("renders the translated runtime, launcher and security settings", async () => {
+    for (const locale of BATCH_LOCALES) {
+      await i18n.changeLanguage(locale)
+
+      // Runtime toggles.
+      expect(i18n.t("pages.config.heartbeat_enabled_hint"), locale).not.toBe(
+        "Send periodic heartbeat messages.",
+      )
+      expect(i18n.t("pages.config.monitor_usb_hint"), locale).not.toBe(
+        "Watch USB plug/unplug events when devices are enabled.",
+      )
+
+      // Launcher.
+      expect(i18n.t("pages.config.autostart_label"), locale).not.toBe(
+        "Launch at Login",
+      )
+      expect(i18n.t("pages.config.server_port"), locale).not.toBe(
+        "Service Port",
+      )
+      expect(i18n.t("pages.config.launcher_section_hint"), locale).not.toBe(
+        "Changes in this section take effect after the launcher restarts.",
+      )
+
+      // Password fields, including their placeholders.
+      expect(i18n.t("pages.config.dashboard_password"), locale).not.toBe(
+        "Login Password",
+      )
+      expect(
+        i18n.t("pages.config.dashboard_password_placeholder"),
+        locale,
+      ).not.toBe("At least 8 characters")
+
+      // Network security.
+      expect(i18n.t("pages.config.lan_access_hint"), locale).not.toBe(
+        "Allow access from other devices on your local network.",
+      )
+      expect(i18n.t("pages.config.allowed_cidrs"), locale).not.toBe(
+        "Allowed Network CIDRs",
+      )
+      expect(
+        i18n.t("pages.config.allow_localhost_bypass_hint"),
+        locale,
+      ).not.toBe(
+        "When enabled, localhost requests are allowed even when they do not match the allowed CIDRs. Disable this when the launcher is behind a same-host proxy.",
+      )
+
+      // Status / error states.
+      expect(i18n.t("pages.config.autostart_unsupported"), locale).not.toBe(
+        "Launch at login is not supported on this platform.",
+      )
+      expect(i18n.t("pages.config.autostart_load_error"), locale).not.toBe(
+        "Failed to load launch-at-login status.",
+      )
+    }
+  })
+
+  // Everything here reaches the user through toast.error(err.message) when a
+  // save is rejected, so each one has to be translated prose, not source text.
+  it("renders translated validation messages with their values interpolated", async () => {
+    for (const locale of BATCH_LOCALES) {
+      await i18n.changeLanguage(locale)
+
+      expect(i18n.t("pages.config.session_scope_required"), locale).not.toBe(
+        "Session scope is required.",
+      )
+      expect(
+        i18n.t("pages.config.dashboard_password_mismatch"),
+        locale,
+      ).not.toBe("The login passwords do not match.")
+      expect(
+        i18n.t("pages.config.dashboard_password_min_length"),
+        locale,
+      ).not.toBe("Login password must be at least 8 characters.")
+
+      // The numeric validators substitute the field's own label and bound.
+      const label = i18n.t("pages.config.max_tokens")
+      const integer = i18n.t("pages.config.validation_integer", { label })
+      expect(integer, locale).toContain(label)
+      expect(integer, locale).not.toContain("{{")
+      expect(integer, locale).not.toBe(`${label} must be an integer.`)
+
+      const min = i18n.t("pages.config.validation_min", { label, min: 1 })
+      expect(min, locale).toContain("1")
+      expect(min, locale).not.toContain("{{")
+
+      const max = i18n.t("pages.config.validation_max", { label, max: 100 })
+      expect(max, locale).toContain("100")
+      expect(max, locale).not.toContain("{{")
+    }
+  })
+
+  // The samples are the format to type, so they must survive translation byte
+  // for byte the way the pattern samples do.
+  it("keeps the tool and CIDR samples identical in every locale", async () => {
+    const literalKeys = [
+      "pages.config.turn_profile_tools_allow_placeholder",
+      "pages.config.allowed_cidrs_placeholder",
+      "pages.config.trusted_proxy_cidrs_placeholder",
+    ]
+    await i18n.changeLanguage("en")
+    const english = Object.fromEntries(
+      literalKeys.map((key) => [key, i18n.t(key)]),
+    )
+    expect(english["pages.config.allowed_cidrs_placeholder"]).toContain(
+      "192.168.1.0/24",
+    )
+
+    for (const locale of BATCH_LOCALES) {
+      await i18n.changeLanguage(locale)
+      for (const key of literalKeys) {
+        expect(i18n.t(key), `${locale} ${key}`).toBe(english[key])
+      }
+    }
+  })
+
+  it("keeps Arabic batch 3 pages right-to-left and translated", async () => {
+    await i18n.changeLanguage("ar")
+    expect(i18n.dir()).toBe("rtl")
+    expect(document.documentElement.getAttribute("dir")).toBe("rtl")
+    expect(i18n.t("pages.config.session_scope")).toBe("نطاق الجلسة")
+    expect(i18n.t("pages.config.dashboard_password")).toBe("كلمة مرور الدخول")
+    expect(i18n.t("pages.config.autostart_label")).toBe(
+      "التشغيل عند تسجيل الدخول",
+    )
+  })
+
+  it("keeps English and the pre-existing locales intact for batch 3", async () => {
+    await i18n.changeLanguage("en")
+    expect(i18n.t("pages.config.session_scope")).toBe("Session Scope")
+    expect(
+      i18n.t("pages.config.validation_min", { label: "Max Tokens", min: 1 }),
+    ).toBe("Max Tokens must be 1 or more.")
+
+    for (const locale of ["pt", "zh"]) {
+      await i18n.changeLanguage(locale)
+      for (const key of [
+        "pages.config.session_scope",
+        "pages.config.dashboard_password",
+      ]) {
+        expect(i18n.t(key), `${locale} ${key}`).not.toBe(key)
+      }
+    }
+  })
+})
+
+describe("Pages batch 4 — Evolution, MCP and raw JSON", () => {
+  it("renders the translated Evolution settings", async () => {
+    for (const locale of BATCH_LOCALES) {
+      await i18n.changeLanguage(locale)
+
+      // Section description and its main toggle.
+      expect(i18n.t("pages.config.evolution_section_hint"), locale).not.toBe(
+        "Let the agent learn from completed turns and prepare skill improvements.",
+      )
+      expect(i18n.t("pages.config.evolution_enabled"), locale).not.toBe(
+        "Enable Evolution",
+      )
+
+      // The mode selector, its explanation and each of its three modes.
+      expect(i18n.t("pages.config.evolution_mode_hint"), locale).not.toBe(
+        "Observe only records data, Draft prepares candidate skills, Apply can write accepted drafts into workspace skills.",
+      )
+      expect(i18n.t("pages.config.evolution_mode_observe"), locale).not.toBe(
+        "Observe",
+      )
+      expect(i18n.t("pages.config.evolution_mode_draft"), locale).not.toBe(
+        "Draft",
+      )
+      expect(i18n.t("pages.config.evolution_mode_apply"), locale).not.toBe(
+        "Apply",
+      )
+
+      // Numeric fields and the cold-path schedule.
+      expect(
+        i18n.t("pages.config.evolution_min_success_ratio_hint"),
+        locale,
+      ).not.toBe(
+        "Required success ratio for clustered tasks. Use a value greater than 0 and up to 1.",
+      )
+      expect(
+        i18n.t("pages.config.evolution_cold_path_times_hint"),
+        locale,
+      ).not.toBe(
+        "Run times for scheduled cold-path processing. Enter one HH:MM value per line.",
+      )
+      expect(
+        i18n.t("pages.config.evolution_cold_path_after_turn"),
+        locale,
+      ).not.toBe("After each turn")
+    }
+  })
+
+  it("renders the translated MCP settings, form and discovery options", async () => {
+    for (const locale of BATCH_LOCALES) {
+      await i18n.changeLanguage(locale)
+
+      // Section description and toggles.
+      expect(i18n.t("pages.config.mcp_section_hint"), locale).not.toBe(
+        "Configure MCP servers without editing config.json manually.",
+      )
+      expect(i18n.t("pages.config.mcp_enabled_hint"), locale).not.toBe(
+        "Turn MCP server integration on or off.",
+      )
+
+      // Discovery.
+      expect(
+        i18n.t("pages.config.mcp_discovery_enabled_hint"),
+        locale,
+      ).not.toBe("Allow MCP discovery tools to search registered MCP servers.")
+      expect(i18n.t("pages.config.mcp_discovery_use_bm25"), locale).not.toBe(
+        "Use BM25 Ranking",
+      )
+      expect(
+        i18n.t("pages.config.mcp_discovery_max_results_hint"),
+        locale,
+      ).not.toBe("Maximum MCP discovery matches returned per query.")
+
+      // Server list actions.
+      expect(i18n.t("pages.config.mcp_server_add"), locale).not.toBe(
+        "Add server",
+      )
+      expect(i18n.t("pages.config.mcp_server_remove"), locale).not.toBe(
+        "Remove",
+      )
+      expect(
+        i18n.t("pages.config.mcp_server_discovery_mode_inherit"),
+        locale,
+      ).not.toBe("Follow global discovery mode")
+
+      // Form placeholders, including the env and headers JSON fields and the
+      // URL field.
+      expect(
+        i18n.t("pages.config.mcp_server_url_placeholder"),
+        locale,
+      ).not.toBe("Server URL (e.g. https://example.com/mcp)")
+      expect(
+        i18n.t("pages.config.mcp_server_env_placeholder"),
+        locale,
+      ).not.toBe("Environment JSON object")
+      expect(
+        i18n.t("pages.config.mcp_server_headers_placeholder"),
+        locale,
+      ).not.toBe("Headers JSON object")
+    }
+  })
+
+  it("renders the translated raw JSON editor and reset controls", async () => {
+    for (const locale of BATCH_LOCALES) {
+      await i18n.changeLanguage(locale)
+
+      // Editor prose and its placeholder.
+      expect(i18n.t("pages.config.raw_json_title"), locale).not.toBe(
+        "Raw JSON Configuration",
+      )
+      expect(i18n.t("pages.config.json_placeholder"), locale).not.toBe(
+        "Enter valid JSON configuration...",
+      )
+      expect(i18n.t("pages.config.open_raw"), locale).not.toBe("Raw Config")
+
+      // Actions.
+      expect(i18n.t("pages.config.format"), locale).not.toBe("Format")
+      expect(i18n.t("pages.config.factory_reset"), locale).not.toBe(
+        "Factory Reset",
+      )
+
+      // Reset confirmation and its warning.
+      expect(i18n.t("pages.config.reset_confirm_desc"), locale).not.toBe(
+        "Are you sure you want to reset your unsaved changes back to the last saved state?",
+      )
+      expect(
+        i18n.t("pages.config.factory_reset_confirm_desc"),
+        locale,
+      ).not.toBe(
+        "This will reset all configuration to factory defaults. API keys and security credentials will be preserved. A backup of the current config will be created.",
+      )
+
+      // Status and error states.
+      expect(i18n.t("pages.config.unsaved_changes"), locale).not.toBe(
+        "You have unsaved changes.",
+      )
+      expect(i18n.t("pages.config.invalid_json"), locale).not.toBe(
+        "Invalid JSON format.",
+      )
+      expect(i18n.t("pages.config.factory_reset_error"), locale).not.toBe(
+        "Failed to reset configuration.",
+      )
+    }
+  })
+
+  // These are the messages config-page and form-model throw and then render
+  // through toast.error(err.message). They used to be built from template
+  // literals in source; each must now come from the bundle with its values
+  // substituted.
+  it("renders localized MCP and JSON validation messages", async () => {
+    for (const locale of BATCH_LOCALES) {
+      await i18n.changeLanguage(locale)
+
+      const name = "github"
+      const cases: Array<[string, Record<string, string>, string]> = [
+        [
+          "pages.config.mcp_server_url_required",
+          { name },
+          "MCP server github requires a URL.",
+        ],
+        [
+          "pages.config.mcp_server_url_invalid",
+          { name },
+          "MCP server github requires a valid HTTP(S) URL.",
+        ],
+        [
+          "pages.config.mcp_server_command_required",
+          { name },
+          "MCP server github requires a command.",
+        ],
+        [
+          "pages.config.mcp_duplicate_names",
+          { names: "github, gitlab" },
+          "MCP server names must be unique. Duplicates: github, gitlab.",
+        ],
+        [
+          "pages.config.validation_json_invalid",
+          { label: "headers" },
+          "headers must be valid JSON.",
+        ],
+        [
+          "pages.config.validation_json_not_object",
+          { label: "headers" },
+          "headers must be a JSON object.",
+        ],
+      ]
+
+      for (const [key, values, englishText] of cases) {
+        const message = i18n.t(key, values)
+        // Comes from the bundle, not from the key itself.
+        expect(message, `${locale} ${key}`).not.toBe(key)
+        // Interpolated, with nothing left unresolved.
+        expect(message, `${locale} ${key}`).not.toContain("{{")
+        for (const value of Object.values(values)) {
+          expect(message, `${locale} ${key}`).toContain(value)
+        }
+        // And not the English sentence.
+        expect(message, `${locale} ${key}`).not.toBe(englishText)
+      }
+
+      // Two variables in one message.
+      const nested = i18n.t("pages.config.validation_json_value_not_string", {
+        label: "headers",
+        key: "Accept",
+      })
+      expect(nested, locale).toContain("headers")
+      expect(nested, locale).toContain("Accept")
+      expect(nested, locale).not.toContain("{{")
+      expect(nested, locale).not.toBe("headers.Accept must be a string.")
+
+      // Discovery needs a search method — no interpolation, but still prose.
+      expect(
+        i18n.t("pages.config.mcp_discovery_requires_search_method"),
+        locale,
+      ).not.toBe(
+        "MCP discovery requires at least one search method (BM25 or regex).",
+      )
+
+      // The field names those JSON messages quote are translated too.
+      expect(
+        i18n.t("pages.config.mcp_headers_label", { name }),
+        locale,
+      ).not.toBe("MCP server github headers")
+      expect(
+        i18n.t("pages.config.mcp_saved_env_label", { name }),
+        locale,
+      ).not.toBe("Saved MCP server github env")
+    }
+  })
+
+  it("keeps Arabic batch 4 pages right-to-left and translated", async () => {
+    await i18n.changeLanguage("ar")
+    expect(i18n.dir()).toBe("rtl")
+    expect(document.documentElement.getAttribute("dir")).toBe("rtl")
+    // Evolution.
+    expect(i18n.t("pages.config.evolution_mode")).toBe("وضع التطوّر")
+    // MCP.
+    expect(i18n.t("pages.config.mcp_servers")).toBe("خوادم MCP")
+    // Raw JSON and reset.
+    expect(i18n.t("pages.config.raw_json_title")).toBe("إعدادات JSON الخام")
+    expect(i18n.t("pages.config.factory_reset")).toBe(
+      "إعادة الضبط للإعدادات الأصلية",
+    )
+  })
+
+  it("keeps English and the pre-existing locales intact for batch 4", async () => {
+    await i18n.changeLanguage("en")
+    expect(i18n.t("pages.config.mcp_servers")).toBe("MCP Servers")
+    expect(
+      i18n.t("pages.config.mcp_server_url_required", { name: "github" }),
+    ).toBe("MCP server github requires a URL.")
+
+    for (const locale of ["pt", "zh"]) {
+      await i18n.changeLanguage(locale)
+      for (const key of [
+        "pages.config.mcp_servers",
+        "pages.config.raw_json_title",
+      ]) {
+        expect(i18n.t(key), `${locale} ${key}`).not.toBe(key)
+      }
+    }
+  })
+})
+
+describe("Tour, launcher setup and launcher login", () => {
+  it("renders the translated onboarding tour", async () => {
+    for (const locale of BATCH_LOCALES) {
+      await i18n.changeLanguage(locale)
+
+      // Title and body of the first step.
+      expect(i18n.t("tour.welcome.title"), locale).not.toBe(
+        "Welcome to PocketClaw",
+      )
+      expect(i18n.t("tour.welcome.description"), locale).not.toBe(
+        "PocketClaw is a powerful AI assistant platform. Let's take a few seconds to help you complete the basic setup.",
+      )
+
+      // The remaining steps.
+      expect(i18n.t("tour.models.title"), locale).not.toBe("Configure Models")
+      expect(i18n.t("tour.gateway.description"), locale).not.toBe(
+        'After configuring models, click the "Start Gateway" button at the top to begin chatting with AI.',
+      )
+      expect(i18n.t("tour.docs.title"), locale).not.toBe("View Documentation")
+
+      // Navigation actions.
+      expect(i18n.t("tour.skip"), locale).not.toBe("Skip tour")
+      expect(i18n.t("tour.prev"), locale).not.toBe("Previous")
+      expect(i18n.t("tour.next"), locale).not.toBe("Next")
+      expect(i18n.t("tour.finish"), locale).not.toBe("Finish")
+    }
+  })
+
+  it("renders the translated launcher setup screen", async () => {
+    for (const locale of BATCH_LOCALES) {
+      await i18n.changeLanguage(locale)
+
+      // Title and body.
+      expect(i18n.t("launcherSetup.title"), locale).not.toBe(
+        "Set dashboard password",
+      )
+      expect(i18n.t("launcherSetup.description"), locale).not.toBe(
+        "Choose a password to protect access to this dashboard. You will use it every time you sign in.",
+      )
+
+      // Fields and their placeholders.
+      expect(i18n.t("launcherSetup.passwordLabel"), locale).not.toBe("Password")
+      expect(i18n.t("launcherSetup.passwordPlaceholder"), locale).not.toBe(
+        "At least 8 characters",
+      )
+      expect(i18n.t("launcherSetup.confirmLabel"), locale).not.toBe(
+        "Confirm password",
+      )
+
+      // Action.
+      expect(i18n.t("launcherSetup.submit"), locale).not.toBe("Set password")
+
+      // Validation and failure states.
+      expect(i18n.t("launcherSetup.errorMismatch"), locale).not.toBe(
+        "Passwords do not match.",
+      )
+      expect(i18n.t("launcherSetup.errorNetwork"), locale).not.toBe(
+        "Network error. Please try again.",
+      )
+    }
+  })
+
+  it("renders the translated launcher login screen", async () => {
+    for (const locale of BATCH_LOCALES) {
+      await i18n.changeLanguage(locale)
+
+      // Title and body.
+      expect(i18n.t("launcherLogin.title"), locale).not.toBe("Sign in")
+      expect(i18n.t("launcherLogin.description"), locale).not.toBe(
+        "Enter the dashboard password to continue.",
+      )
+
+      // Field and placeholder.
+      expect(i18n.t("launcherLogin.passwordLabel"), locale).not.toBe("Password")
+      expect(i18n.t("launcherLogin.passwordPlaceholder"), locale).not.toBe(
+        "Enter password",
+      )
+
+      // Action.
+      expect(i18n.t("launcherLogin.submit"), locale).not.toBe("Sign in")
+
+      // Failure states.
+      expect(i18n.t("launcherLogin.errorInvalid"), locale).not.toBe(
+        "Incorrect password. Please try again.",
+      )
+      expect(i18n.t("launcherLogin.errorNetwork"), locale).not.toBe(
+        "Network error. Please try again.",
+      )
+    }
+  })
+
+  // The launcher screens carry their own theme and language buttons, whose
+  // accessible names were the last English strings in these routes.
+  it("translates the shared control labels the launcher screens use", async () => {
+    for (const locale of BATCH_LOCALES) {
+      await i18n.changeLanguage(locale)
+      expect(i18n.t("common.language"), locale).not.toBe("Language")
+      expect(i18n.t("common.lightMode"), locale).not.toBe("Light mode")
+      expect(i18n.t("common.darkMode"), locale).not.toBe("Dark mode")
+    }
+  })
+
+  it("keeps Arabic right-to-left across all three", async () => {
+    await i18n.changeLanguage("ar")
+    expect(i18n.dir()).toBe("rtl")
+    expect(document.documentElement.getAttribute("dir")).toBe("rtl")
+    expect(i18n.t("tour.skip")).toBe("تخطّي الجولة")
+    expect(i18n.t("launcherSetup.submit")).toBe("تعيين كلمة المرور")
+    expect(i18n.t("launcherLogin.title")).toBe("تسجيل الدخول")
+  })
+
+  it("keeps English and the pre-existing locales intact", async () => {
+    await i18n.changeLanguage("en")
+    expect(i18n.t("tour.finish")).toBe("Finish")
+    expect(i18n.t("launcherSetup.title")).toBe("Set dashboard password")
+    expect(i18n.t("launcherLogin.submit")).toBe("Sign in")
+
+    for (const locale of ["pt", "zh"]) {
+      await i18n.changeLanguage(locale)
+      for (const key of [
+        "tour.finish",
+        "launcherSetup.title",
+        "launcherLogin.submit",
+      ]) {
+        expect(i18n.t(key), `${locale} ${key}`).not.toBe(key)
+      }
+    }
+  })
+})
+
+describe("the Flutter → WebView locale handoff", () => {
+  // The host opens the console with its own selected locale as ?lng=. That has
+  // to beat whatever the previous manual override left in localStorage,
+  // otherwise a user who once picked German in the console would keep seeing
+  // German after switching the app to Arabic.
+  async function detectWith(search: string, cached?: string) {
+    const { createInstance } = await import("i18next")
+    const LanguageDetector = (await import("i18next-browser-languagedetector"))
+      .default
+
+    window.history.replaceState({}, "", `/models${search}`)
+    localStorage.removeItem("i18nextLng")
+    if (cached) localStorage.setItem("i18nextLng", cached)
+
+    const instance = createInstance()
+    await instance.use(LanguageDetector).init(I18N_OPTIONS)
+    return instance
+  }
+
+  afterEach(() => {
+    window.history.replaceState({}, "", "/")
+  })
+
+  it("lets ?lng= override a manually cached language", async () => {
+    const instance = await detectWith("?lng=ar", "de")
+    expect(instance.language).toBe("ar")
+    expect(instance.t("navigation.models")).toBe("الموديلات")
+    expect(instance.dir()).toBe("rtl")
+  })
+
+  it("keeps the manual choice when the host passes no locale", async () => {
+    const instance = await detectWith("", "de")
+    expect(instance.language).toBe("de")
+    expect(instance.t("navigation.models")).toBe("Modelle")
+  })
+
+  it("accepts every app locale from the query string", async () => {
+    for (const locale of APP_LOCALES) {
+      const instance = await detectWith(`?lng=${locale}`, "de")
+      expect(instance.language, locale).toBe(locale)
+      expect(instance.t("navigation.models"), locale).not.toBe(
+        "navigation.models",
+      )
+    }
+  })
+
+  it("resolves the host's pt onto the Brazilian bundle", async () => {
+    const instance = await detectWith("?lng=pt", "de")
+    expect(instance.language).toBe("pt")
+    expect(instance.resolvedLanguage).toBe("pt-BR")
+    expect(instance.t("navigation.models")).toBe("Modelos")
+  })
+})
+
+describe("hard-coded user-facing English", () => {
+  // Two narrow static guards. They are deliberately not a general "find English
+  // in the source" regex: that produces a whitelist longer than the findings.
+  // These two shapes are the ones that actually slipped through review — a
+  // literal accessibility name, and a t() default whose key was never added.
+  const sources = readSourceFiles()
+
+  function readSourceFiles() {
+    const { readdirSync, readFileSync, statSync } = fsSync
+    const files: Array<[string, string]> = []
+    const walk = (dir: string) => {
+      for (const entry of readdirSync(dir)) {
+        const full = `${dir}/${entry}`
+        if (statSync(full).isDirectory()) {
+          walk(full)
+          continue
+        }
+        if (!/\.tsx?$/.test(entry)) continue
+        if (entry.includes(".test.")) continue
+        if (entry === "routeTree.gen.ts") continue
+        files.push([full, readFileSync(full, "utf8")])
+      }
+    }
+    walk(`${process.cwd()}/src`)
+    return files
+  }
+
+  it("reads the frontend sources", () => {
+    expect(sources.length).toBeGreaterThan(50)
+  })
+
+  // A screen reader announces these, so an English literal here is just as
+  // untranslated as visible copy — and far easier to miss.
+  it("routes every accessibility name through i18next", () => {
+    const attribute = /\b(aria-label|alt|title)="([^"]*)"/g
+    const failures: string[] = []
+
+    for (const [file, source] of sources) {
+      for (const match of source.matchAll(attribute)) {
+        const [, name, value] = match
+        // Empty alt marks a decorative image; that is the correct value.
+        if (value.trim() === "") continue
+        const line = source.slice(0, match.index).split("\n").length
+        failures.push(`${file}:${line} ${name}="${value}"`)
+      }
+    }
+
+    expect(failures.join("\n"), failures.join("\n")).toBe("")
+  })
+
+  // t("key", "Some English") renders the key's translation and ignores the
+  // default — unless the key does not exist, in which case every locale
+  // silently shows the English default forever.
+  it("backs every t() default with a real English key", () => {
+    const call = /\bt\(\s*"([a-zA-Z0-9_.]+)"\s*,\s*(?:"|\{\s*defaultValue:)/g
+    const english = i18n.getResourceBundle("en", "translation") as Record<
+      string,
+      unknown
+    >
+    const lookup = (key: string) =>
+      key
+        .split(".")
+        .reduce<unknown>(
+          (node, part) =>
+            node && typeof node === "object"
+              ? (node as Record<string, unknown>)[part]
+              : undefined,
+          english,
+        )
+
+    const failures: string[] = []
+    for (const [file, source] of sources) {
+      for (const match of source.matchAll(call)) {
+        const key = match[1]
+        if (typeof lookup(key) !== "string") {
+          const line = source.slice(0, match.index).split("\n").length
+          failures.push(`${file}:${line} t("${key}", …) has no English key`)
+        }
+      }
+    }
+
+    expect(failures.join("\n"), failures.join("\n")).toBe("")
+  })
+})

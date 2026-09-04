@@ -117,7 +117,9 @@
       "apikey": "API Key",
       "oauth": "OAuth",
       "local": "লোকাল"
-    }
+    },
+    "downloadFile": "ফাইল ডাউনলোড করুন",
+    "dropImagesActive": "ছবি যোগ করতে ছেড়ে দিন"
   },
   "header": {
     "logout": {
@@ -142,6 +144,11 @@
         "stopping": "গেটওয়ে বন্ধ হচ্ছে..."
       },
       "restartRequired": "কনফিগারেশনের পরিবর্তন কার্যকর হতে গেটওয়ে পুনরায় চালু করা প্রয়োজন।"
+    },
+    "logoAlt": "PocketClaw লোগো",
+    "authError": {
+      "banner": "প্রমাণীকরণ পরিষেবা ত্রুটি: {{message}}",
+      "unavailable": "প্রমাণীকরণ পরিষেবা উপলব্ধ নয়। ড্যাশবোর্ড পাসওয়ার্ড সংরক্ষণ রিসেট করে অ্যাপ্লিকেশন পুনরায় চালু করুন।"
     }
   },
   "common": {
@@ -160,7 +167,16 @@
     "restartFailedTitle": "Gateway restart failed",
     "restartFailedDesc": "The {{name}} configuration was saved, but the gateway did not restart. Use Restart Gateway to apply it.",
     "restartDeferredTitle": "Saved, gateway not restarted yet",
-    "restartDeferredDesc": "The {{name}} configuration was saved. PocketClaw did not restart the gateway because it is still handling a request. Use Restart Gateway when you are ready."
+    "restartDeferredDesc": "The {{name}} configuration was saved. PocketClaw did not restart the gateway because it is still handling a request. Use Restart Gateway when you are ready.",
+    "dismiss": "বাতিল করুন",
+    "sidebar": "সাইডবার",
+    "sidebarDescription": "মোবাইল সাইডবার দেখায়।",
+    "toggleSidebar": "সাইডবার টগল করুন",
+    "crashed": "কনসোল সাড়া দেওয়া বন্ধ করেছে।",
+    "reload": "পুনরায় লোড করুন",
+    "darkMode": "ডার্ক মোড",
+    "language": "ভাষা",
+    "lightMode": "লাইট মোড"
   },
   "labels": {
     "loading": "লোড হচ্ছে..."
@@ -383,7 +399,10 @@
       "deselectAll": "সব নির্বাচন বাতিল করুন",
       "addSelected": "{{count}}টি নির্বাচিত যোগ করুন",
       "addSuccess": "কনফিগারেশনে {{count}}টি মডেল যোগ করা হয়েছে।",
-      "needApiKey": "এই মডেলগুলির একটি API কী প্রয়োজন। আমদানির পরে আপনাকে ক্রেডেনশিয়াল কনফিগার করতে হবে।"
+      "needApiKey": "এই মডেলগুলির একটি API কী প্রয়োজন। আমদানির পরে আপনাকে ক্রেডেনশিয়াল কনফিগার করতে হবে।",
+      "loadError": "ক্যাটালগ লোড করা যায়নি।",
+      "deleteError": "ক্যাটালগ মুছে ফেলা যায়নি।",
+      "addError": "মডেল যোগ করা যায়নি।"
     },
     "test": {
       "title": "মডেল সংযোগ পরীক্ষা করুন",
@@ -489,7 +508,8 @@
       "expired": "QR কোডের মেয়াদ শেষ",
       "retry": "আবার চেষ্টা করুন",
       "refresh": "QR রিফ্রেশ করুন",
-      "errorGeneric": "একটি ত্রুটি ঘটেছে। অনুগ্রহ করে আবার চেষ্টা করুন।"
+      "errorGeneric": "একটি ত্রুটি ঘটেছে। অনুগ্রহ করে আবার চেষ্টা করুন।",
+      "qrAlt": "WeChat QR কোড"
     },
     "wecom": {
       "bindTitle": "WeCom বাইন্ডিং",
@@ -504,7 +524,8 @@
       "expired": "QR কোডের মেয়াদ শেষ",
       "retry": "আবার চেষ্টা করুন",
       "refresh": "QR রিফ্রেশ করুন",
-      "errorGeneric": "একটি ত্রুটি ঘটেছে। অনুগ্রহ করে আবার চেষ্টা করুন।"
+      "errorGeneric": "একটি ত্রুটি ঘটেছে। অনুগ্রহ করে আবার চেষ্টা করুন।",
+      "qrAlt": "WeCom QR কোড"
     },
     "field": {
       "token": "Bot Token",
@@ -536,7 +557,15 @@
       "allowOriginsPlaceholder": "যেমন https://example.com, http://localhost:5173",
       "removeListItem": "{{value}} সরান",
       "secretPlaceholder": "সিক্রেট লিখুন",
-      "secretHintSet": "একটি মান ইতিমধ্যে সেট করা হয়েছে। অপরিবর্তিত রাখতে খালি রাখুন।"
+      "secretHintSet": "একটি মান ইতিমধ্যে সেট করা হয়েছে। অপরিবর্তিত রাখতে খালি রাখুন।",
+      "broker": "ব্রোকার",
+      "agentId": "এজেন্ট আইডি",
+      "topicPrefix": "টপিক উপসর্গ",
+      "username": "ব্যবহারকারীর নাম",
+      "password": "পাসওয়ার্ড",
+      "clientId": "ক্লায়েন্ট আইডি",
+      "keepAlive": "কিপ-অ্যালাইভ ব্যবধান",
+      "qos": "QoS (সেবার মান)"
     },
     "page": {
       "notFound": "চ্যানেল \"{{name}}\" সমর্থিত নয়।",
@@ -613,7 +642,10 @@
         "mqttPassword": "ব্রোকার প্রমাণীকরণ পাসওয়ার্ড (ঐচ্ছিক)।",
         "mqttClientId": "MQTT ক্লায়েন্ট ID। স্বয়ংক্রিয়ভাবে তৈরি করতে খালি রাখুন।",
         "keepAlive": "সেকেন্ডে Keepalive ব্যবধান। ডিফল্ট 60।",
-        "qos": "বার্তার সেবার গুণমান স্তর: 0 = সর্বাধিক একবার, 1 = কমপক্ষে একবার, 2 = ঠিক একবার।"
+        "qos": "বার্তার সেবার গুণমান স্তর: 0 = সর্বাধিক একবার, 1 = কমপক্ষে একবার, 2 = ঠিক একবার।",
+        "dmPolicy": "চ্যানেল কীভাবে সরাসরি বার্তা সামলাবে তা নিয়ন্ত্রণ করে।",
+        "groupPolicy": "চ্যানেল কীভাবে গ্রুপ বার্তা সামলাবে তা নিয়ন্ত্রণ করে।",
+        "sendThinkingMessage": "সহকারী উত্তর তৈরি করার সময় একটি সংক্ষিপ্ত বিজ্ঞপ্তি পাঠায়।"
       }
     },
     "validation": {
@@ -634,6 +666,25 @@
       "clientIdPlaceholder": "খালি থাকলে স্বয়ংক্রিয়ভাবে তৈরি",
       "secretSet": "ইতিমধ্যে কনফিগার করা হয়েছে। অপরিবর্তিত রাখতে খালি রাখুন।",
       "secretEmpty": "কনফিগার করা নেই"
+    },
+    "telegram": {
+      "advancedManual": "উন্নত / ম্যানুয়াল সেটআপ",
+      "advancedSettings": "উন্নত সেটিংস",
+      "botLabel": "বট",
+      "connectBody": "কয়েক সেকেন্ডেই আপনার নিজস্ব PocketClaw বট তৈরি করুন। BotFather টোকেন কপি-পেস্ট করার দরকার নেই।",
+      "connectTitle": "PocketClaw-কে Telegram-এর সাথে সংযুক্ত করুন",
+      "connected": "সংযুক্ত",
+      "manualOnlyBody": "এই বিল্ডে এক-ট্যাপে বট তৈরি করা যায় না, তাই BotFather-এর বট টোকেন দিয়ে Telegram সেট আপ করা হয়। নিচে টোকেনটি পেস্ট করে সংরক্ষণ করুন।",
+      "manualOnlyTitle": "ম্যানুয়াল সেটআপ",
+      "openChat": "চ্যাট খুলুন",
+      "openTelegram": "Telegram খুলুন",
+      "ownerAnyone": "যে কেউ এই বটে বার্তা পাঠাতে পারে",
+      "ownerConfigured": "কনফিগার করা হয়েছে",
+      "ownerLabel": "মালিক",
+      "reconnect": "পুনঃসংযোগ / নতুন বট তৈরি করুন",
+      "statusLabel": "স্থিতি:",
+      "statusReady": "সংযোগের জন্য প্রস্তুত",
+      "troubleLabel": "সমস্যা হচ্ছে?"
     }
   },
   "pages": {
@@ -763,7 +814,9 @@
           "base_url_placeholder": "ঐচ্ছিক এন্ডপয়েন্ট ওভাররাইড",
           "api_key": "API কী / টোকেন",
           "api_key_placeholder": "API কী লিখুন, আসল কী রাখতে এটি খালি রাখুন",
-          "none": "অনুপলব্ধ"
+          "none": "অনুপলব্ধ",
+          "model": "মডেল",
+          "model_placeholder": "ঐচ্ছিক মডেল ওভাররাইড"
         },
         "status": {
           "enabled": "সক্ষম",
@@ -787,7 +840,8 @@
           "requires_subagent": "স্প্যান টুল কাজ অর্পণ করার আগে `tools.subagent` সক্ষম করুন।",
           "requires_mcp_discovery": "MCP আবিষ্কার টুল উপলব্ধ হওয়ার আগে `tools.mcp.discovery` সক্ষম করুন।",
           "requires_web_search_provider": "কমপক্ষে একটি প্রস্তুত বাহ্যিক ওয়েব-অনুসন্ধান প্রোভাইডার কনফিগার করুন।"
-        }
+        },
+        "no_results_hint": "অনুসন্ধানের শর্ত বা স্ট্যাটাস ফিল্টার সমন্বয় করে দেখুন।"
       }
     },
     "config": {
@@ -980,7 +1034,25 @@
       "factory_reset_confirm_desc": "এটি সমস্ত কনফিগারেশন ফ্যাক্টরি ডিফল্টে রিসেট করবে। API কী এবং নিরাপত্তা ক্রেডেনশিয়াল সংরক্ষিত থাকবে। বর্তমান কনফিগারেশনের একটি ব্যাকআপ তৈরি করা হবে।",
       "factory_reset_confirm": "ডিফল্টে রিসেট করুন",
       "factory_reset_success": "কনফিগারেশন ফ্যাক্টরি ডিফল্টে রিসেট করা হয়েছে।",
-      "factory_reset_error": "কনফিগারেশন রিসেট করতে ব্যর্থ।"
+      "factory_reset_error": "কনফিগারেশন রিসেট করতে ব্যর্থ।",
+      "mcp_discovery_requires_search_method": "MCP আবিষ্কারের জন্য অন্তত একটি অনুসন্ধান পদ্ধতি (BM25 বা regex) প্রয়োজন।",
+      "mcp_duplicate_names": "MCP সার্ভারের নাম অনন্য হতে হবে। ডুপ্লিকেট: {{names}}।",
+      "mcp_env_label": "MCP সার্ভার {{name}} এনভায়রনমেন্ট",
+      "mcp_headers_label": "MCP সার্ভার {{name}} হেডার",
+      "mcp_saved_env_label": "সংরক্ষিত MCP সার্ভার {{name}} এনভায়রনমেন্ট",
+      "mcp_saved_headers_label": "সংরক্ষিত MCP সার্ভার {{name}} হেডার",
+      "mcp_server_command_required": "MCP সার্ভার {{name}}-এর জন্য একটি কমান্ড প্রয়োজন।",
+      "mcp_server_url_invalid": "MCP সার্ভার {{name}}-এর জন্য বৈধ HTTP(S) URL প্রয়োজন।",
+      "mcp_server_url_required": "MCP সার্ভার {{name}}-এর জন্য একটি URL প্রয়োজন।",
+      "session_scope_required": "সেশন স্কোপ আবশ্যক।",
+      "validation_integer": "{{label}} একটি পূর্ণসংখ্যা হতে হবে।",
+      "validation_json_invalid": "{{label}} বৈধ JSON হতে হবে।",
+      "validation_json_not_object": "{{label}} একটি JSON অবজেক্ট হতে হবে।",
+      "validation_json_value_not_string": "{{label}}.{{key}} একটি স্ট্রিং হতে হবে।",
+      "validation_max": "{{label}} {{max}} বা তার কম হতে হবে।",
+      "validation_min": "{{label}} {{min}} বা তার বেশি হতে হবে।",
+      "validation_number": "{{label}} একটি সংখ্যা হতে হবে।",
+      "workspace_required": "ওয়ার্কস্পেস পাথ আবশ্যক।"
     },
     "logs": {
       "log_level_error": "লগ লেভেল আপডেট করতে ব্যর্থ।",

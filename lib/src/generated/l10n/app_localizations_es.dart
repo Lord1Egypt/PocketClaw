@@ -289,4 +289,154 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get close => 'Cerrar';
+
+  @override
+  String get contextMemoryTitle => 'Memoria de contexto de Telegram';
+
+  @override
+  String get contextMemoryDescription =>
+      'Controla cuántos mensajes recientes de la conversación se envían a la IA. Las conversaciones anteriores permanecen en Telegram y se representan mediante el resumen continuo.';
+
+  @override
+  String get contextMemoryHelp =>
+      'Más mensajes aportan más contexto reciente, pero consumen más tokens. Los mensajes anteriores permanecen en Telegram y pueden conservarse mediante el resumen continuo.';
+
+  @override
+  String get contextMemoryRecommended => 'Recomendado';
+
+  @override
+  String get contextMemoryCustom => 'Personalizado';
+
+  @override
+  String get contextMemoryCustomLabel => 'Mensajes';
+
+  @override
+  String contextMemoryRangeError(int min, int max) {
+    return 'Introduce un número entero entre $min y $max.';
+  }
+
+  @override
+  String get contextMemorySaveFailed =>
+      'No se pudo guardar esta configuración.';
+
+  @override
+  String get settingsSave => 'Guardar';
+
+  @override
+  String get autoStartServiceTitle =>
+      'Iniciar el servicio de PocketClaw automáticamente';
+
+  @override
+  String get autoStartGatewayTitle =>
+      'Iniciar la puerta de enlace automáticamente';
+
+  @override
+  String get autoStartPreferenceOn =>
+      'Preferencia de inicio automático: ACTIVADA';
+
+  @override
+  String get autoStartPreferenceOff =>
+      'Preferencia de inicio automático: DESACTIVADA';
+
+  @override
+  String get runtimeRunning => 'Estado: En ejecución';
+
+  @override
+  String get runtimeStarting => 'Estado: Iniciando';
+
+  @override
+  String get runtimeStopped => 'Estado: Detenido';
+
+  @override
+  String get gatewayAutoStartHint =>
+      'Se aplica la próxima vez que se inicie el servicio de PocketClaw. El estado de la puerta de enlace se gestiona en el panel.';
+
+  @override
+  String get manageTelegramConnection => 'Gestionar la conexión de Telegram';
+
+  @override
+  String get manageModelsTitle => 'Gestionar modelos';
+
+  @override
+  String get manageModelsDescription =>
+      'Añade, edita, prueba y elige modelos de IA.';
+
+  @override
+  String get githubChecking => 'Comprobando…';
+
+  @override
+  String get githubConnected => 'Conectado';
+
+  @override
+  String get githubNotConnected => 'No conectado';
+
+  @override
+  String githubConnectedAs(String login) {
+    return 'Conectado como $login';
+  }
+
+  @override
+  String get githubDescription =>
+      'Lo usan el gh incluido y Git a través de HTTPS. El token se cifra en este dispositivo y no vuelve a mostrarse.';
+
+  @override
+  String get githubTestConnection => 'Probar conexión';
+
+  @override
+  String get githubDisconnect => 'Desconectar';
+
+  @override
+  String get githubConnectAction => 'Conectar GitHub';
+
+  @override
+  String get githubConnect => 'Conectar';
+
+  @override
+  String get githubTokenLabel => 'Token de acceso personal';
+
+  @override
+  String get githubTokenHint =>
+      'Pega un token de acceso personal de GitHub con los permisos que necesites (repo para repositorios privados).';
+
+  @override
+  String get githubTokenRejected => 'GitHub no aceptó este token.';
+
+  @override
+  String get githubAuthWorking => 'La autenticación de GitHub funciona.';
+
+  @override
+  String get githubAuthNotWorking => 'La autenticación de GitHub no funciona.';
+
+  @override
+  String githubAuthenticatedAs(String login) {
+    return 'Autenticado como $login.';
+  }
+
+  @override
+  String get githubCredentialRemoveFailed =>
+      'No se pudo eliminar la credencial.';
+
+  @override
+  String get githubYourAccount => 'tu cuenta de GitHub';
+
+  @override
+  String githubConnectedReport(String who, String outcome) {
+    return 'Conectado como $who. $outcome';
+  }
+
+  @override
+  String githubDisconnectedReport(String outcome) {
+    return 'Desconectado. $outcome';
+  }
+
+  @override
+  String get credentialAppliedNow => 'gh y git ya pueden usarlo.';
+
+  @override
+  String get credentialAppliesNextStart =>
+      'Se usará la próxima vez que se inicie PocketClaw.';
+
+  @override
+  String get credentialAppliesDeferred =>
+      'Guardado. PocketClaw está iniciándose, así que se aplicará automáticamente en cuanto termine.';
 }

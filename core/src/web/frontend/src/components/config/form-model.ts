@@ -443,39 +443,57 @@ export function buildFormFromConfig(config: unknown): CoreConfigForm {
   }
 }
 
+/// Translates the message a field validator rejects with. config-page renders
+/// whatever these throw through toast.error(err.message), so the sentence and
+/// the field name both have to come from the bundle rather than from source.
+export type FieldValidationTranslator = (
+  key: string,
+  values: Record<string, string | number>,
+) => string
+
+function checkRange(
+  value: number,
+  label: string,
+  options: { min?: number; max?: number },
+  t: FieldValidationTranslator,
+) {
+  if (options.min !== undefined && value < options.min) {
+    throw new Error(
+      t("pages.config.validation_min", { label, min: options.min }),
+    )
+  }
+  if (options.max !== undefined && value > options.max) {
+    throw new Error(
+      t("pages.config.validation_max", { label, max: options.max }),
+    )
+  }
+}
+
 export function parseIntField(
   rawValue: string,
   label: string,
+  t: FieldValidationTranslator,
   options: { min?: number; max?: number } = {},
 ): number {
   const value = Number(rawValue)
   if (!Number.isInteger(value)) {
-    throw new Error(`${label} must be an integer.`)
+    throw new Error(t("pages.config.validation_integer", { label }))
   }
-  if (options.min !== undefined && value < options.min) {
-    throw new Error(`${label} must be >= ${options.min}.`)
-  }
-  if (options.max !== undefined && value > options.max) {
-    throw new Error(`${label} must be <= ${options.max}.`)
-  }
+  checkRange(value, label, options, t)
   return value
 }
 
 export function parseFloatField(
   rawValue: string,
   label: string,
+  t: FieldValidationTranslator,
   options: { min?: number; max?: number } = {},
 ): number {
   const value = Number(rawValue)
   if (!Number.isFinite(value)) {
-    throw new Error(`${label} must be a number.`)
+    throw new Error(t("pages.config.validation_number", { label }))
   }
-  if (options.min !== undefined && value < options.min) {
-    throw new Error(`${label} must be >= ${options.min}.`)
-  }
-  if (options.max !== undefined && value > options.max) {
-    throw new Error(`${label} must be <= ${options.max}.`)
-  }
+  checkRange(value, label, options, t)
   return value
 }
 
@@ -502,6 +520,7 @@ export function parseMultilineList(raw: string): string[] {
 export function parseJSONObjectField(
   rawValue: string,
   label: string,
+  t: FieldValidationTranslator,
 ): Record<string, string> {
   const trimmed = rawValue.trim()
   if (trimmed === "") {
@@ -512,18 +531,20 @@ export function parseJSONObjectField(
   try {
     parsed = JSON.parse(trimmed)
   } catch {
-    throw new Error(`${label} must be valid JSON.`)
+    throw new Error(t("pages.config.validation_json_invalid", { label }))
   }
 
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-    throw new Error(`${label} must be a JSON object.`)
+    throw new Error(t("pages.config.validation_json_not_object", { label }))
   }
 
   const entries = Object.entries(parsed as Record<string, unknown>)
   const result: Record<string, string> = {}
   for (const [key, value] of entries) {
     if (typeof value !== "string") {
-      throw new Error(`${label}.${key} must be a string.`)
+      throw new Error(
+        t("pages.config.validation_json_value_not_string", { label, key }),
+      )
     }
     result[key] = value
   }

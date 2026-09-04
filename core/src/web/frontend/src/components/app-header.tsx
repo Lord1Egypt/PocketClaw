@@ -1,5 +1,4 @@
 import {
-  IconLanguage,
   IconLoader2,
   IconLogout,
   IconMenu2,
@@ -14,6 +13,7 @@ import * as React from "react"
 import { useTranslation } from "react-i18next"
 
 import { postLauncherDashboardLogout } from "@/api/launcher-auth"
+import { LanguageMenu } from "@/components/language-menu"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -25,12 +25,6 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog.tsx"
 import { Button } from "@/components/ui/button.tsx"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu.tsx"
 import { Separator } from "@/components/ui/separator.tsx"
 import { SidebarTrigger } from "@/components/ui/sidebar"
 import {
@@ -42,7 +36,7 @@ import { useGateway } from "@/hooks/use-gateway.ts"
 import { useTheme } from "@/hooks/use-theme.ts"
 
 export function AppHeader() {
-  const { i18n, t } = useTranslation()
+  const { t } = useTranslation()
   const { theme, toggleTheme } = useTheme()
   const {
     state: gwState,
@@ -104,7 +98,11 @@ export function AppHeader() {
         </SidebarTrigger>
         <div className="hidden w-36 shrink-0 items-center sm:flex">
           <Link to="/">
-            <img className="w-full" src="/logo_with_text.png" alt="Logo" />
+            <img
+              className="w-full"
+              src="/logo_with_text.png"
+              alt={t("header.logoAlt")}
+            />
           </Link>
         </div>
       </div>
@@ -264,30 +262,7 @@ export function AppHeader() {
         />
 
         {/* Language Switcher */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="size-8">
-              <IconLanguage className="size-4.5" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => i18n.changeLanguage("en")}>
-              English
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => i18n.changeLanguage("pt-BR")}>
-              Português (Brasil)
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => i18n.changeLanguage("bn-IN")}>
-              বাংলা
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => i18n.changeLanguage("zh")}>
-              简体中文
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => i18n.changeLanguage("cs")}>
-              Čeština
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <LanguageMenu className="size-8" />
 
         {/* Theme Toggle */}
         <Button

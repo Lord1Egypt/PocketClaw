@@ -288,4 +288,150 @@ class AppLocalizationsId extends AppLocalizations {
 
   @override
   String get close => 'Tutup';
+
+  @override
+  String get contextMemoryTitle => 'Memori Konteks Telegram';
+
+  @override
+  String get contextMemoryDescription =>
+      'Mengatur berapa banyak pesan percakapan terbaru yang dikirim ke AI. Percakapan lama tetap ada di Telegram dan diwakili oleh ringkasan berjalan.';
+
+  @override
+  String get contextMemoryHelp =>
+      'Lebih banyak pesan memberi konteks terbaru yang lebih kaya tetapi memakai lebih banyak token. Pesan lama tetap ada di Telegram dan dapat dipertahankan melalui ringkasan berjalan.';
+
+  @override
+  String get contextMemoryRecommended => 'Disarankan';
+
+  @override
+  String get contextMemoryCustom => 'Kustom';
+
+  @override
+  String get contextMemoryCustomLabel => 'Pesan';
+
+  @override
+  String contextMemoryRangeError(int min, int max) {
+    return 'Masukkan bilangan bulat antara $min dan $max.';
+  }
+
+  @override
+  String get contextMemorySaveFailed => 'Pengaturan ini tidak dapat disimpan.';
+
+  @override
+  String get settingsSave => 'Simpan';
+
+  @override
+  String get autoStartServiceTitle =>
+      'Jalankan layanan PocketClaw secara otomatis';
+
+  @override
+  String get autoStartGatewayTitle => 'Jalankan Gateway secara otomatis';
+
+  @override
+  String get autoStartPreferenceOn => 'Preferensi mulai otomatis: AKTIF';
+
+  @override
+  String get autoStartPreferenceOff => 'Preferensi mulai otomatis: NONAKTIF';
+
+  @override
+  String get runtimeRunning => 'Runtime: Berjalan';
+
+  @override
+  String get runtimeStarting => 'Runtime: Memulai';
+
+  @override
+  String get runtimeStopped => 'Runtime: Berhenti';
+
+  @override
+  String get gatewayAutoStartHint =>
+      'Berlaku saat layanan PocketClaw dijalankan berikutnya. Runtime Gateway dikelola di Dasbor.';
+
+  @override
+  String get manageTelegramConnection => 'Kelola koneksi Telegram';
+
+  @override
+  String get manageModelsTitle => 'Kelola Model';
+
+  @override
+  String get manageModelsDescription =>
+      'Tambah, ubah, uji, dan pilih model AI.';
+
+  @override
+  String get githubChecking => 'Memeriksa…';
+
+  @override
+  String get githubConnected => 'Terhubung';
+
+  @override
+  String get githubNotConnected => 'Tidak terhubung';
+
+  @override
+  String githubConnectedAs(String login) {
+    return 'Terhubung sebagai $login';
+  }
+
+  @override
+  String get githubDescription =>
+      'Digunakan oleh gh bawaan dan oleh Git melalui HTTPS. Token dienkripsi di perangkat ini dan tidak ditampilkan lagi.';
+
+  @override
+  String get githubTestConnection => 'Uji koneksi';
+
+  @override
+  String get githubDisconnect => 'Putuskan';
+
+  @override
+  String get githubConnectAction => 'Hubungkan GitHub';
+
+  @override
+  String get githubConnect => 'Hubungkan';
+
+  @override
+  String get githubTokenLabel => 'Token akses pribadi';
+
+  @override
+  String get githubTokenHint =>
+      'Tempel token akses pribadi GitHub dengan cakupan yang Anda butuhkan (repo untuk repositori privat).';
+
+  @override
+  String get githubTokenRejected => 'GitHub tidak menerima token ini.';
+
+  @override
+  String get githubAuthWorking => 'Autentikasi GitHub berfungsi.';
+
+  @override
+  String get githubAuthNotWorking => 'Autentikasi GitHub tidak berfungsi.';
+
+  @override
+  String githubAuthenticatedAs(String login) {
+    return 'Terautentikasi sebagai $login.';
+  }
+
+  @override
+  String get githubCredentialRemoveFailed => 'Kredensial tidak dapat dihapus.';
+
+  @override
+  String get githubYourAccount => 'akun GitHub Anda';
+
+  @override
+  String githubConnectedReport(String who, String outcome) {
+    return 'Terhubung sebagai $who. $outcome';
+  }
+
+  @override
+  String githubDisconnectedReport(String outcome) {
+    return 'Terputus. $outcome';
+  }
+
+  @override
+  String get credentialAppliedNow =>
+      'gh dan git dapat menggunakannya sekarang.';
+
+  @override
+  String get credentialAppliesNextStart =>
+      'Ini akan digunakan saat PocketClaw dijalankan berikutnya.';
+
+  @override
+  String get credentialAppliesDeferred =>
+      'Tersimpan. PocketClaw sedang memulai, jadi ini akan diterapkan otomatis setelah selesai.';
 }

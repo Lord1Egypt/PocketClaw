@@ -289,4 +289,150 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get close => 'Закрыть';
+
+  @override
+  String get contextMemoryTitle => 'Память контекста Telegram';
+
+  @override
+  String get contextMemoryDescription =>
+      'Определяет, сколько последних сообщений передаётся ИИ. Более ранняя переписка остаётся в Telegram и отражается в накопительной сводке.';
+
+  @override
+  String get contextMemoryHelp =>
+      'Больше сообщений — больше свежего контекста, но и больше расход токенов. Ранние сообщения остаются в Telegram и могут сохраняться в накопительной сводке.';
+
+  @override
+  String get contextMemoryRecommended => 'Рекомендуется';
+
+  @override
+  String get contextMemoryCustom => 'Вручную';
+
+  @override
+  String get contextMemoryCustomLabel => 'Сообщения';
+
+  @override
+  String contextMemoryRangeError(int min, int max) {
+    return 'Введите целое число от $min до $max.';
+  }
+
+  @override
+  String get contextMemorySaveFailed => 'Не удалось сохранить эту настройку.';
+
+  @override
+  String get settingsSave => 'Сохранить';
+
+  @override
+  String get autoStartServiceTitle =>
+      'Запускать службу PocketClaw автоматически';
+
+  @override
+  String get autoStartGatewayTitle => 'Запускать шлюз автоматически';
+
+  @override
+  String get autoStartPreferenceOn => 'Автозапуск: ВКЛ';
+
+  @override
+  String get autoStartPreferenceOff => 'Автозапуск: ВЫКЛ';
+
+  @override
+  String get runtimeRunning => 'Состояние: Работает';
+
+  @override
+  String get runtimeStarting => 'Состояние: Запускается';
+
+  @override
+  String get runtimeStopped => 'Состояние: Остановлено';
+
+  @override
+  String get gatewayAutoStartHint =>
+      'Применится при следующем запуске службы PocketClaw. Состоянием шлюза управляют в панели управления.';
+
+  @override
+  String get manageTelegramConnection => 'Управление подключением Telegram';
+
+  @override
+  String get manageModelsTitle => 'Управление моделями';
+
+  @override
+  String get manageModelsDescription =>
+      'Добавляйте, изменяйте, проверяйте и выбирайте модели ИИ.';
+
+  @override
+  String get githubChecking => 'Проверка…';
+
+  @override
+  String get githubConnected => 'Подключено';
+
+  @override
+  String get githubNotConnected => 'Не подключено';
+
+  @override
+  String githubConnectedAs(String login) {
+    return 'Подключено как $login';
+  }
+
+  @override
+  String get githubDescription =>
+      'Используется встроенным gh и Git по HTTPS. Токен шифруется на этом устройстве и больше не отображается.';
+
+  @override
+  String get githubTestConnection => 'Проверить подключение';
+
+  @override
+  String get githubDisconnect => 'Отключить';
+
+  @override
+  String get githubConnectAction => 'Подключить GitHub';
+
+  @override
+  String get githubConnect => 'Подключить';
+
+  @override
+  String get githubTokenLabel => 'Персональный токен доступа';
+
+  @override
+  String get githubTokenHint =>
+      'Вставьте персональный токен доступа GitHub с нужными областями (repo для приватных репозиториев).';
+
+  @override
+  String get githubTokenRejected => 'GitHub не принял этот токен.';
+
+  @override
+  String get githubAuthWorking => 'Аутентификация GitHub работает.';
+
+  @override
+  String get githubAuthNotWorking => 'Аутентификация GitHub не работает.';
+
+  @override
+  String githubAuthenticatedAs(String login) {
+    return 'Выполнен вход как $login.';
+  }
+
+  @override
+  String get githubCredentialRemoveFailed =>
+      'Не удалось удалить учётные данные.';
+
+  @override
+  String get githubYourAccount => 'ваша учётная запись GitHub';
+
+  @override
+  String githubConnectedReport(String who, String outcome) {
+    return 'Подключено как $who. $outcome';
+  }
+
+  @override
+  String githubDisconnectedReport(String outcome) {
+    return 'Отключено. $outcome';
+  }
+
+  @override
+  String get credentialAppliedNow => 'gh и git могут использовать его сейчас.';
+
+  @override
+  String get credentialAppliesNextStart =>
+      'Он будет использован при следующем запуске PocketClaw.';
+
+  @override
+  String get credentialAppliesDeferred =>
+      'Сохранено. PocketClaw запускается, изменение применится автоматически сразу после этого.';
 }

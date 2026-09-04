@@ -1,5 +1,54 @@
 # PocketClaw Tasks
 
+## Telegram Context Settings + Dashboard i18n — CLOSED 2026-09-04
+
+Branch `feature/telegram-context-settings`, merged to `develop` with `--no-ff`.
+Physically accepted on SM-A165F / Android 16 as vc35. `main` untouched, no tags
+moved, no release.
+
+- [x] Expose the Telegram context limit in Settings: 10 / 15 (Recommended) /
+  20 / 25 / Custom, Custom accepting 5–50.
+- [x] Give it an explicit localized Save button, disabled until the value is
+  valid and changed, with one action producing one save.
+- [x] Persist to `agents.defaults.telegram_recent_context_messages`, default 15.
+- [x] Apply a saved limit to the next turn with no app and no Gateway restart.
+- [x] Key the config cache on file identity so an atomic same-size replacement
+  cannot be missed.
+- [x] Prove live apply on the device: Custom = 17 held at `limit=17` across
+  `history_total` 26, 28, 30, 32 and 34.
+- [x] Resolve all twelve app locales in the embedded dashboard, mapping `pt`
+  onto the existing `pt-BR` resource.
+- [x] Preserve the pre-existing `bn-IN` and `cs` dashboard resources.
+- [x] Take the Flutter locale over `?lng=`, ahead of the cached value.
+- [x] Localize Models, Channels, Chat, Credentials, every `pages` namespace,
+  Tour, Launcher Setup and Launcher Login.
+- [x] Reach 907/907 in all thirteen non-English bundles with zero placeholder
+  drift.
+- [x] Replace the three hand-written language dropdowns with one shared
+  selector listing every app locale by endonym.
+- [x] Drive Arabic direction from `i18n.dir()` rather than a test for Arabic.
+- [x] Clean up the pt-BR and zh values still byte-identical to English, and
+  extend the English-copy gate to both with exact-key allowances.
+- [x] Mirror the sidebar drawer in RTL from `i18n.dir()`; logical `border-e`
+  for the inner edge.
+- [x] Build vc35 (`0.2.0`, SHA-256 `fcec23a5...82077`) and confirm physical
+  acceptance of Context Memory live apply, Arabic RTL and the RTL drawer.
+- [x] Close the milestone: merge into `develop` with `--no-ff`.
+
+Carried forward, deliberately not done here:
+
+- [ ] Rebuild an APK carrying `65dfc02`. vc35 was built at `1505e33`; the final
+  commit is locale JSON and tests only, so the pt-BR/zh cleanup is on `develop`
+  but not on the installed build.
+- [ ] `TelegramOnboardingStrings` in the Flutter layer remains English in all
+  twelve `.arb` locales. That is the native onboarding screen, not the embedded
+  dashboard; it is tracked under Milestone D and is untouched by this work.
+
+## NEXT MILESTONE: What's New — NOT STARTED
+
+To be done on a **new branch cut from the updated `develop`**. Nothing in this
+milestone implements, stubs or prepares it.
+
 ## FOLLOW-UP: Telegram request lifecycle durability
 
 Found while auditing the queued-"Thinking…" incident on 2026-09-03. The

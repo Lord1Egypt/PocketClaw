@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:pocketclaw/src/generated/l10n/app_localizations.dart';
 import 'package:pocketclaw/src/core/service_manager.dart';
 import 'package:pocketclaw/src/ui/config_page.dart';
 
@@ -16,6 +17,8 @@ void main() {
     ValueChanged<bool>? onGatewayChanged,
   }) => tester.pumpWidget(
     MaterialApp(
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
       home: Scaffold(
         body: AutoStartSettingsCard(
           serviceEnabled: serviceEnabled,
@@ -38,10 +41,7 @@ void main() {
 
     // Preference ON while the runtime is Stopped is a legitimate state, and the
     // card has to say both.
-    expect(
-      find.textContaining('Auto-start preference: ON'),
-      findsNWidgets(2),
-    );
+    expect(find.textContaining('Auto-start preference: ON'), findsNWidgets(2));
     expect(find.textContaining('Runtime: Stopped'), findsOneWidget);
   });
 
@@ -82,9 +82,7 @@ void main() {
       onServiceChanged: changes.add,
     );
 
-    await tester.tap(
-      find.text('Start PocketClaw service automatically'),
-    );
+    await tester.tap(find.text('Start PocketClaw service automatically'));
     await tester.pumpAndSettle();
 
     expect(changes, <bool>[false]);
