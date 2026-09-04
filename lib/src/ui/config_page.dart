@@ -592,99 +592,114 @@ class ConfigPageState extends State<ConfigPage> with WidgetsBindingObserver {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
+              // A Wrap, not a Row: the title and the actions each keep their
+              // natural width and drop to a second line when the two cannot
+              // share one. A Row gave the actions their full width first and
+              // left the title whatever remained, which with the unseen NEW
+              // badge showing was nothing at all.
+              Wrap(
+                alignment: WrapAlignment.spaceBetween,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: 12,
+                runSpacing: 12,
                 children: [
-                  Expanded(
-                    child: Text(
-                      l10n.settings,
-                      style: Theme.of(context).textTheme.titleLarge,
-                      overflow: TextOverflow.ellipsis,
-                    ),
+                  Text(
+                    l10n.settings,
+                    style: Theme.of(context).textTheme.titleLarge,
                   ),
-                  const SizedBox(width: 8),
-                  Tooltip(
-                    message: l10n.whatsNewDescription,
-                    child: FocusableButton(
-                      focusNode: _whatsNewFocusNode,
-                      onPressed: _openWhatsNew,
-                      prevFocusNode: _whatsNewFocusNode,
-                      nextFocusNode: _aboutFocusNode,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Theme.of(context).colorScheme.surface,
-                        foregroundColor: Theme.of(
-                          context,
-                        ).colorScheme.onSurface,
-                        elevation: 0,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 10,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                          side: BorderSide(
-                            color: Theme.of(
+                  Wrap(
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      Tooltip(
+                        message: l10n.whatsNewDescription,
+                        child: FocusableButton(
+                          focusNode: _whatsNewFocusNode,
+                          onPressed: _openWhatsNew,
+                          prevFocusNode: _whatsNewFocusNode,
+                          nextFocusNode: _aboutFocusNode,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Theme.of(
                               context,
-                            ).colorScheme.outline.withAlpha(60),
-                          ),
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.auto_awesome_outlined, size: 18),
-                          const SizedBox(width: 6),
-                          Flexible(
-                            child: Text(
-                              l10n.whatsNewTitle,
-                              overflow: TextOverflow.ellipsis,
+                            ).colorScheme.surface,
+                            foregroundColor: Theme.of(
+                              context,
+                            ).colorScheme.onSurface,
+                            elevation: 0,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 10,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              side: BorderSide(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.outline.withAlpha(60),
+                              ),
                             ),
                           ),
-                          if (_whatsNewUnseen) ...[
-                            const SizedBox(width: 6),
-                            _WhatsNewBadge(label: l10n.whatsNewBadge),
-                          ],
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Tooltip(
-                    message: l10n.about,
-                    child: FocusableButton(
-                      focusNode: _aboutFocusNode,
-                      onPressed: () {
-                        _showAboutDialog();
-                      },
-                      prevFocusNode: _whatsNewFocusNode,
-                      nextFocusNode: _publicModeFocusNode,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Theme.of(context).colorScheme.surface,
-                        foregroundColor: Theme.of(
-                          context,
-                        ).colorScheme.onSurface,
-                        elevation: 0,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 10,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                          side: BorderSide(
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.outline.withAlpha(60),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.auto_awesome_outlined, size: 18),
+                              const SizedBox(width: 6),
+                              Flexible(
+                                child: Text(
+                                  l10n.whatsNewTitle,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              if (_whatsNewUnseen) ...[
+                                const SizedBox(width: 6),
+                                _WhatsNewBadge(label: l10n.whatsNewBadge),
+                              ],
+                            ],
                           ),
                         ),
                       ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.info_outline, size: 18),
-                          const SizedBox(width: 6),
-                          Text(l10n.about),
-                        ],
+                      Tooltip(
+                        message: l10n.about,
+                        child: FocusableButton(
+                          focusNode: _aboutFocusNode,
+                          onPressed: () {
+                            _showAboutDialog();
+                          },
+                          prevFocusNode: _whatsNewFocusNode,
+                          nextFocusNode: _publicModeFocusNode,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Theme.of(
+                              context,
+                            ).colorScheme.surface,
+                            foregroundColor: Theme.of(
+                              context,
+                            ).colorScheme.onSurface,
+                            elevation: 0,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 10,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              side: BorderSide(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.outline.withAlpha(60),
+                              ),
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.info_outline, size: 18),
+                              const SizedBox(width: 6),
+                              Text(l10n.about),
+                            ],
+                          ),
+                        ),
                       ),
-                    ),
+                    ],
                   ),
                 ],
               ),
