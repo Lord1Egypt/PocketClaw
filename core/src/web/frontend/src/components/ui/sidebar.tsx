@@ -148,7 +148,7 @@ function SidebarProvider({
 }
 
 function Sidebar({
-  side = "left",
+  side,
   variant = "sidebar",
   collapsible = "offcanvas",
   className,
@@ -161,7 +161,13 @@ function Sidebar({
   collapsible?: "offcanvas" | "icon" | "none"
 }) {
   const { isMobile, state, openMobile, setOpenMobile } = useSidebar()
-  const { t } = useTranslation()
+  const { i18n, t } = useTranslation()
+  // The drawer belongs on the side the trigger is on, which is the side the
+  // writing direction puts it. Asking i18next rather than testing for Arabic
+  // keeps this to the one direction the app already tracks, and re-renders it
+  // on languageChanged like every other translated node. An explicit `side`
+  // still wins, so a caller that wants a fixed edge can say so.
+  const resolvedSide = side ?? (i18n.dir() === "rtl" ? "right" : "left")
 
   if (collapsible === "none") {
     return (
@@ -192,7 +198,7 @@ function Sidebar({
               "--sidebar-width": SIDEBAR_WIDTH_MOBILE,
             } as React.CSSProperties
           }
-          side={side}
+          side={resolvedSide}
         >
           <SheetHeader className="sr-only">
             <SheetTitle>{t("common.sidebar")}</SheetTitle>
@@ -210,7 +216,7 @@ function Sidebar({
       data-state={state}
       data-collapsible={state === "collapsed" ? collapsible : ""}
       data-variant={variant}
-      data-side={side}
+      data-side={resolvedSide}
       data-slot="sidebar"
     >
       {/* This is what handles the sidebar gap on desktop */}
@@ -227,7 +233,7 @@ function Sidebar({
       />
       <div
         data-slot="sidebar-container"
-        data-side={side}
+        data-side={resolvedSide}
         className={cn(
           "fixed inset-y-0 z-10 hidden h-svh w-(--sidebar-width) transition-[left,right,width] duration-200 ease-linear data-[side=left]:left-0 data-[side=left]:group-data-[collapsible=offcanvas]:left-[calc(var(--sidebar-width)*-1)] data-[side=right]:right-0 data-[side=right]:group-data-[collapsible=offcanvas]:right-[calc(var(--sidebar-width)*-1)] md:flex",
           // Adjust the padding for floating and inset variants.
