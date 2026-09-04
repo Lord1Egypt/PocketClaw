@@ -1,0 +1,1905 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <title>GRIPLINE — PocketClaw visual identity concept</title>
+    <style>
+      :root {
+        --canvas: #f3f4ef;
+        --surface: #ffffff;
+        --raised: #fafbf8;
+        --sunken: #e9ece7;
+        --ink: #121918;
+        --muted: #56615e;
+        --faint: #737e7a;
+        --border: #ced6d1;
+        --border-strong: #9eaaa5;
+        --tidal: #0c6861;
+        --tidal-hover: #095750;
+        --tidal-soft: #d5ece7;
+        --coral: #c84632;
+        --coral-soft: #f8ded7;
+        --focus: #146ef5;
+        --success: #247a4b;
+        --success-soft: #ddf1e4;
+        --warning: #8a5700;
+        --warning-soft: #f7e8c8;
+        --error: #b83b3b;
+        --error-soft: #f6dedd;
+        --code: #111817;
+        --code-ink: #dfe9e5;
+        --shadow-1: 0 1px 0 rgba(18, 25, 24, 0.06);
+        --shadow-2: 0 8px 24px rgba(18, 25, 24, 0.1);
+        --shadow-3: 0 18px 50px rgba(9, 13, 12, 0.18);
+        --font-ui:
+          "Source Sans 3", "Noto Sans Arabic", "Noto Sans", system-ui,
+          sans-serif;
+        --font-mono:
+          "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace;
+      }
+
+      body[data-theme="dark"] {
+        --canvas: #0d1211;
+        --surface: #141b19;
+        --raised: #1a2421;
+        --sunken: #090d0c;
+        --ink: #edf4f0;
+        --muted: #aab7b2;
+        --faint: #7f8e88;
+        --border: #31403b;
+        --border-strong: #52645d;
+        --tidal: #78d9c9;
+        --tidal-hover: #91e4d5;
+        --tidal-soft: #183b35;
+        --coral: #ff876f;
+        --coral-soft: #43251f;
+        --focus: #75a7ff;
+        --success: #72d79a;
+        --success-soft: #173624;
+        --warning: #f5be63;
+        --warning-soft: #3a2c13;
+        --error: #ff8b88;
+        --error-soft: #402020;
+        --code: #090d0c;
+        --code-ink: #dfe9e5;
+        --shadow-1: 0 1px 0 rgba(0, 0, 0, 0.38);
+        --shadow-2: 0 8px 24px rgba(0, 0, 0, 0.32);
+        --shadow-3: 0 18px 50px rgba(0, 0, 0, 0.46);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        height: 100%;
+      }
+
+      body {
+        margin: 0;
+        background: var(--canvas);
+        color: var(--ink);
+        font-family: var(--font-ui);
+        font-size: 16px;
+        line-height: 1.55;
+        transition:
+          background-color 140ms ease,
+          color 140ms ease;
+      }
+
+      button,
+      input,
+      textarea,
+      select {
+        font: inherit;
+      }
+
+      button {
+        color: inherit;
+      }
+
+      button:focus-visible,
+      [tabindex]:focus-visible,
+      textarea:focus-visible {
+        outline: 2px solid var(--focus);
+        outline-offset: 2px;
+      }
+
+      .sr-only {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
+      }
+
+      .icon {
+        width: 20px;
+        height: 20px;
+        flex: 0 0 auto;
+        stroke: currentColor;
+        stroke-width: 1.8;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        fill: none;
+      }
+
+      .app-shell {
+        min-height: 100dvh;
+        display: grid;
+        grid-template-columns: 248px minmax(0, 1fr);
+      }
+
+      .side-nav {
+        position: sticky;
+        inset-block-start: 0;
+        height: 100dvh;
+        display: flex;
+        flex-direction: column;
+        border-inline-end: 1px solid var(--border);
+        background: var(--surface);
+        padding: 20px 14px 14px;
+        z-index: 20;
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        min-height: 42px;
+        padding-inline: 8px;
+        margin-block-end: 24px;
+        color: var(--ink);
+        text-decoration: none;
+      }
+
+      .brand-mark {
+        width: 34px;
+        height: 34px;
+        flex: 0 0 auto;
+      }
+
+      .brand-name {
+        font-size: 20px;
+        letter-spacing: -0.035em;
+        line-height: 1;
+      }
+
+      .brand-name strong {
+        font-weight: 700;
+      }
+      .brand-name span {
+        font-weight: 430;
+      }
+
+      .nav-scroll {
+        overflow: auto;
+        flex: 1;
+      }
+
+      .nav-group {
+        margin-block-end: 18px;
+      }
+
+      .nav-label {
+        display: block;
+        color: var(--faint);
+        font-size: 12px;
+        font-weight: 650;
+        letter-spacing: 0.01em;
+        padding: 0 12px 6px;
+      }
+
+      .nav-item {
+        position: relative;
+        width: 100%;
+        min-height: 40px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        border: 0;
+        border-radius: 8px;
+        background: transparent;
+        color: var(--muted);
+        padding: 7px 12px;
+        margin-block: 2px;
+        text-align: start;
+        cursor: pointer;
+      }
+
+      .nav-item:hover {
+        background: color-mix(in srgb, var(--ink) 6%, transparent);
+        color: var(--ink);
+      }
+
+      .nav-item[aria-current="page"] {
+        background: var(--tidal-soft);
+        color: var(--ink);
+        font-weight: 650;
+      }
+
+      .nav-item[aria-current="page"]::before {
+        content: "";
+        position: absolute;
+        inset-inline-start: 0;
+        inset-block: 9px;
+        width: 3px;
+        border-radius: 3px;
+        background: linear-gradient(
+          to bottom,
+          var(--tidal) 0 47%,
+          transparent 47% 57%,
+          var(--tidal) 57% 75%,
+          transparent 75% 84%,
+          var(--coral) 84% 100%
+        );
+      }
+
+      .nav-meta {
+        margin-inline-start: auto;
+        color: var(--faint);
+        font-size: 11px;
+      }
+
+      .runtime-card {
+        margin-block-start: 12px;
+        border: 1px solid var(--border);
+        border-start-end-radius: 4px;
+        border-start-start-radius: 14px;
+        border-end-start-radius: 14px;
+        border-end-end-radius: 14px;
+        background: var(--raised);
+        padding: 12px;
+        box-shadow: var(--shadow-1);
+      }
+
+      .runtime-state {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 13px;
+        font-weight: 650;
+      }
+
+      .state-shape {
+        width: 16px;
+        height: 16px;
+        border: 2px solid var(--success);
+        border-radius: 50%;
+        display: inline-grid;
+        place-items: center;
+        color: var(--success);
+        font-size: 10px;
+        line-height: 1;
+      }
+
+      .runtime-copy {
+        color: var(--muted);
+        font-size: 12px;
+        margin: 4px 0 10px 24px;
+      }
+
+      .utility-row {
+        display: flex;
+        gap: 6px;
+      }
+
+      .utility-button,
+      .icon-button,
+      .ghost-button,
+      .secondary-button,
+      .primary-button,
+      .menu-button {
+        min-height: 40px;
+        border-radius: 8px;
+        border: 1px solid var(--border);
+        background: var(--surface);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        padding: 8px 12px;
+        font-weight: 650;
+        font-size: 13px;
+        cursor: pointer;
+      }
+
+      .utility-button {
+        flex: 1;
+        min-width: 0;
+        padding-inline: 8px;
+        color: var(--muted);
+      }
+      .utility-button:hover,
+      .secondary-button:hover,
+      .icon-button:hover {
+        border-color: var(--border-strong);
+      }
+
+      .primary-button {
+        border-color: var(--tidal);
+        background: var(--tidal);
+        color: #fff;
+      }
+
+      body[data-theme="dark"] .primary-button {
+        color: #071310;
+      }
+      .primary-button:hover {
+        background: var(--tidal-hover);
+      }
+
+      .secondary-button {
+        background: var(--raised);
+        color: var(--ink);
+      }
+      .ghost-button {
+        border-color: transparent;
+        background: transparent;
+        color: var(--muted);
+      }
+      .ghost-button:hover {
+        background: color-mix(in srgb, var(--ink) 6%, transparent);
+        color: var(--ink);
+      }
+      .icon-button {
+        width: 40px;
+        padding: 8px;
+        color: var(--muted);
+      }
+
+      .content-plane {
+        min-width: 0;
+        height: 100dvh;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+      }
+
+      .mobile-header {
+        display: none;
+      }
+
+      .page-header {
+        min-height: 64px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 10px clamp(18px, 3vw, 40px);
+        border-block-end: 1px solid var(--border);
+        background: var(--canvas);
+      }
+
+      .page-kicker {
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 650;
+      }
+
+      .page-title {
+        margin: 0;
+        font-size: 26px;
+        line-height: 1.15;
+        letter-spacing: -0.025em;
+        font-weight: 680;
+      }
+
+      .header-actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .restart-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        min-height: 36px;
+        border-radius: 999px;
+        padding: 5px 10px;
+        background: var(--warning-soft);
+        color: var(--warning);
+        font-size: 12px;
+        font-weight: 650;
+      }
+
+      .view {
+        flex: 1;
+        min-height: 0;
+        overflow: hidden;
+      }
+      .view[hidden] {
+        display: none;
+      }
+
+      .chat-view {
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+      }
+
+      .conversation {
+        flex: 1;
+        overflow: auto;
+        padding: 30px 20px 190px;
+        scroll-behavior: smooth;
+      }
+
+      .message-list {
+        width: min(100%, 840px);
+        margin: 0 auto;
+      }
+
+      .user-row {
+        display: flex;
+        justify-content: flex-end;
+        margin-block-end: 28px;
+      }
+
+      .user-message {
+        position: relative;
+        max-width: 78%;
+        border: 1px solid var(--border);
+        border-inline-end: 3px solid var(--coral);
+        border-start-start-radius: 14px;
+        border-start-end-radius: 4px;
+        border-end-start-radius: 14px;
+        border-end-end-radius: 14px;
+        background: var(--surface);
+        padding: 12px 15px;
+        box-shadow: var(--shadow-1);
+      }
+
+      .user-message p {
+        margin: 0;
+      }
+
+      .message-meta {
+        color: var(--faint);
+        font-size: 12px;
+        margin-block-start: 7px;
+      }
+
+      .agent-message {
+        display: grid;
+        grid-template-columns: 34px minmax(0, 1fr);
+        gap: 14px;
+        margin-block-end: 28px;
+      }
+
+      .agent-rail {
+        position: relative;
+        width: 34px;
+      }
+      .agent-rail .brand-mark {
+        width: 30px;
+        height: 30px;
+        position: sticky;
+        inset-block-start: 8px;
+      }
+
+      .agent-copy {
+        min-width: 0;
+        font-size: 16px;
+        line-height: 1.65;
+      }
+      .agent-copy > :first-child {
+        margin-block-start: 0;
+      }
+      .agent-copy h2 {
+        font-size: 20px;
+        line-height: 1.35;
+        margin: 24px 0 8px;
+        letter-spacing: -0.015em;
+      }
+      .agent-copy p {
+        margin: 0 0 12px;
+      }
+
+      .execution-ledger {
+        border: 1px solid var(--border);
+        border-start-start-radius: 14px;
+        border-start-end-radius: 4px;
+        border-end-start-radius: 14px;
+        border-end-end-radius: 14px;
+        background: var(--raised);
+        margin: 18px 0;
+        overflow: hidden;
+      }
+
+      .ledger-head {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        min-height: 42px;
+        padding: 8px 12px;
+        border-block-end: 1px solid var(--border);
+        font-size: 13px;
+        font-weight: 650;
+      }
+
+      .ledger-count {
+        margin-inline-start: auto;
+        color: var(--faint);
+        font-weight: 500;
+      }
+
+      .ledger-row {
+        position: relative;
+        display: grid;
+        grid-template-columns: minmax(140px, 0.9fr) minmax(180px, 1.4fr) auto;
+        align-items: center;
+        gap: 12px;
+        min-height: 52px;
+        padding: 8px 12px 8px 16px;
+      }
+
+      [dir="rtl"] .ledger-row {
+        padding: 8px 16px 8px 12px;
+      }
+      .ledger-row + .ledger-row {
+        border-block-start: 1px solid var(--border);
+      }
+
+      .ledger-row::before {
+        content: "";
+        position: absolute;
+        inset-inline-start: 0;
+        inset-block: 12px;
+        width: 3px;
+        border-radius: 3px;
+        background: var(--success);
+      }
+
+      .tool-name {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-family: var(--font-mono);
+        font-size: 12px;
+        font-weight: 650;
+      }
+      .tool-summary {
+        color: var(--muted);
+        font-size: 13px;
+        min-width: 0;
+        overflow-wrap: anywhere;
+      }
+
+      .status-label {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        color: var(--success);
+        font-size: 12px;
+        font-weight: 650;
+        white-space: nowrap;
+      }
+
+      .code-block {
+        margin: 18px 0;
+        border: 1px solid var(--border-strong);
+        border-radius: 10px;
+        overflow: hidden;
+        background: var(--code);
+        color: var(--code-ink);
+      }
+
+      .code-head {
+        min-height: 40px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        border-block-end: 1px solid #31403b;
+        padding: 6px 10px 6px 14px;
+        color: #aab7b2;
+        font: 12px/1.4 var(--font-mono);
+      }
+
+      .code-copy {
+        border: 0;
+        background: transparent;
+        color: inherit;
+        min-height: 32px;
+        border-radius: 6px;
+        padding: 4px 8px;
+        cursor: pointer;
+      }
+      .code-copy:hover {
+        background: rgba(255, 255, 255, 0.08);
+        color: #fff;
+      }
+
+      pre {
+        margin: 0;
+        overflow: auto;
+        padding: 13px 16px 16px;
+        font: 13px/1.6 var(--font-mono);
+        direction: ltr;
+        text-align: left;
+      }
+      .code-key {
+        color: #83d7c8;
+      }
+      .code-string {
+        color: #ff9b86;
+      }
+      .code-number {
+        color: #f5be63;
+      }
+
+      .answer-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 18px 0;
+        font-size: 14px;
+      }
+      .answer-table th,
+      .answer-table td {
+        border-block-end: 1px solid var(--border);
+        padding: 9px 10px;
+        text-align: start;
+      }
+      .answer-table th {
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 650;
+      }
+
+      .composer-wrap {
+        position: absolute;
+        inset-inline: 248px 0;
+        inset-block-end: 0;
+        pointer-events: none;
+        padding: 28px 20px max(18px, env(safe-area-inset-bottom));
+        background: linear-gradient(to bottom, transparent, var(--canvas) 36%);
+      }
+
+      .composer {
+        pointer-events: auto;
+        width: min(100%, 900px);
+        margin: 0 auto;
+        border: 1px solid var(--border-strong);
+        border-start-start-radius: 18px;
+        border-start-end-radius: 4px;
+        border-end-start-radius: 18px;
+        border-end-end-radius: 18px;
+        background: var(--raised);
+        box-shadow: var(--shadow-2);
+        padding: 10px;
+      }
+
+      .attachment-row {
+        display: flex;
+        gap: 8px;
+        padding: 0 2px 8px;
+      }
+
+      .attachment {
+        min-height: 36px;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        border-radius: 8px;
+        background: var(--coral-soft);
+        color: var(--ink);
+        padding: 5px 8px 5px 10px;
+        font-size: 12px;
+        max-width: 240px;
+      }
+
+      .attachment span {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .attachment button {
+        width: 28px;
+        height: 28px;
+        border: 0;
+        border-radius: 6px;
+        background: transparent;
+        color: var(--muted);
+        cursor: pointer;
+      }
+
+      .compose-main {
+        display: grid;
+        grid-template-columns: 42px minmax(0, 1fr) 44px;
+        align-items: end;
+        gap: 7px;
+      }
+
+      .compose-main textarea {
+        width: 100%;
+        min-height: 48px;
+        max-height: 150px;
+        resize: vertical;
+        border: 0;
+        outline: 0;
+        background: transparent;
+        color: var(--ink);
+        padding: 11px 7px;
+        line-height: 1.5;
+      }
+
+      .compose-main textarea::placeholder {
+        color: var(--faint);
+      }
+
+      .attach-button,
+      .send-button {
+        width: 42px;
+        height: 42px;
+        display: inline-grid;
+        place-items: center;
+        border-radius: 8px;
+        cursor: pointer;
+      }
+
+      .attach-button {
+        border: 1px solid transparent;
+        background: transparent;
+        color: var(--muted);
+      }
+      .attach-button:hover {
+        background: var(--sunken);
+        color: var(--ink);
+      }
+      .send-button {
+        border: 1px solid var(--tidal);
+        background: var(--tidal);
+        color: #fff;
+      }
+      body[data-theme="dark"] .send-button {
+        color: #071310;
+      }
+
+      .compose-meta {
+        min-height: 34px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 4px 0;
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .model-chip,
+      .context-chip {
+        min-height: 30px;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        border: 0;
+        border-radius: 7px;
+        background: transparent;
+        color: inherit;
+        padding: 4px 7px;
+        cursor: pointer;
+      }
+
+      .model-chip:hover,
+      .context-chip:hover {
+        background: var(--sunken);
+        color: var(--ink);
+      }
+      .context-chip {
+        margin-inline-start: auto;
+      }
+
+      .context-bar {
+        width: 42px;
+        height: 5px;
+        border-radius: 999px;
+        background: var(--sunken);
+        overflow: hidden;
+      }
+      .context-bar::after {
+        content: "";
+        display: block;
+        width: 42%;
+        height: 100%;
+        background: var(--tidal);
+      }
+
+      .models-scroll {
+        height: 100%;
+        overflow: auto;
+        padding: 28px clamp(18px, 4vw, 48px) 60px;
+      }
+      .models-workbench {
+        width: min(100%, 1120px);
+        margin: 0 auto;
+      }
+
+      .routing-field {
+        border-radius: 18px;
+        background: var(--sunken);
+        padding: 16px;
+        margin-block-end: 30px;
+      }
+
+      .section-heading {
+        display: flex;
+        justify-content: space-between;
+        gap: 16px;
+        align-items: end;
+        margin-block-end: 12px;
+      }
+      .section-heading h2 {
+        margin: 0;
+        font-size: 20px;
+        letter-spacing: -0.015em;
+      }
+      .section-heading p {
+        margin: 2px 0 0;
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .route-card {
+        position: relative;
+        display: grid;
+        grid-template-columns: minmax(130px, 0.7fr) minmax(220px, 1.5fr) auto;
+        gap: 14px;
+        align-items: center;
+        min-height: 72px;
+        border: 1px solid var(--border);
+        border-start-start-radius: 14px;
+        border-start-end-radius: 4px;
+        border-end-start-radius: 14px;
+        border-end-end-radius: 14px;
+        background: var(--surface);
+        padding: 12px 14px 12px 18px;
+        box-shadow: var(--shadow-1);
+      }
+
+      [dir="rtl"] .route-card {
+        padding: 12px 18px 12px 14px;
+      }
+      .route-card::before {
+        content: "";
+        position: absolute;
+        inset-inline-start: 0;
+        inset-block: 16px;
+        width: 3px;
+        background: var(--tidal);
+        border-radius: 3px;
+      }
+      .route-role {
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 650;
+      }
+      .route-model strong {
+        display: block;
+        font-size: 15px;
+      }
+      .technical {
+        font-family: var(--font-mono);
+        direction: ltr;
+        unicode-bidi: isolate;
+        color: var(--muted);
+        font-size: 12px;
+        overflow-wrap: anywhere;
+      }
+
+      .fallbacks {
+        margin-block-start: 10px;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        background: var(--raised);
+        overflow: hidden;
+      }
+      .fallback-row {
+        display: grid;
+        grid-template-columns: 34px minmax(0, 1fr) auto;
+        align-items: center;
+        gap: 10px;
+        min-height: 50px;
+        padding: 8px 12px;
+      }
+      .fallback-row + .fallback-row {
+        border-block-start: 1px solid var(--border);
+      }
+      .order {
+        width: 25px;
+        height: 25px;
+        display: grid;
+        place-items: center;
+        border-radius: 6px;
+        background: var(--sunken);
+        color: var(--muted);
+        font: 12px var(--font-mono);
+      }
+
+      .provider-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+      }
+      .provider-card {
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        background: var(--surface);
+        padding: 14px;
+        box-shadow: var(--shadow-1);
+      }
+      .provider-top {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-block-end: 12px;
+      }
+      .provider-logo {
+        width: 34px;
+        height: 34px;
+        display: grid;
+        place-items: center;
+        border-radius: 9px;
+        background: var(--sunken);
+        font-weight: 750;
+      }
+      .provider-name {
+        font-weight: 650;
+      }
+      .provider-count {
+        color: var(--muted);
+        font-size: 12px;
+      }
+      .provider-model {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        padding-block: 9px;
+        border-block-start: 1px solid var(--border);
+        font-size: 13px;
+      }
+
+      .drawer,
+      .drawer-backdrop {
+        display: none;
+      }
+
+      .prototype-note {
+        position: fixed;
+        inset-inline-end: 14px;
+        inset-block-end: 12px;
+        z-index: 60;
+        pointer-events: none;
+        border: 1px solid var(--border);
+        border-radius: 7px;
+        background: var(--raised);
+        color: var(--muted);
+        padding: 5px 8px;
+        font-size: 11px;
+        box-shadow: var(--shadow-1);
+      }
+
+      @media (max-width: 1023px) and (min-width: 769px) {
+        .app-shell {
+          grid-template-columns: 76px minmax(0, 1fr);
+        }
+        .side-nav {
+          padding-inline: 10px;
+        }
+        .brand {
+          justify-content: center;
+          padding: 0;
+        }
+        .brand-name,
+        .nav-label,
+        .nav-item span,
+        .nav-meta,
+        .runtime-copy,
+        .runtime-card .utility-row {
+          display: none;
+        }
+        .nav-item {
+          justify-content: center;
+          padding: 9px;
+        }
+        .runtime-card {
+          padding: 10px;
+        }
+        .runtime-state {
+          justify-content: center;
+        }
+        .runtime-state > span:last-child {
+          display: none;
+        }
+        .composer-wrap {
+          inset-inline-start: 76px;
+        }
+      }
+
+      @media (max-width: 768px) {
+        .app-shell {
+          display: block;
+        }
+        .side-nav {
+          display: none;
+        }
+        .content-plane {
+          height: 100dvh;
+        }
+        .page-header {
+          min-height: 58px;
+          padding: 8px 14px;
+        }
+        .page-kicker {
+          display: none;
+        }
+        .page-title {
+          font-size: 21px;
+        }
+        .restart-chip span:last-child {
+          display: none;
+        }
+        .restart-chip {
+          width: 36px;
+          justify-content: center;
+          padding: 5px;
+        }
+
+        .mobile-header {
+          min-height: 58px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 10px;
+          border-block-end: 1px solid var(--border);
+          background: var(--surface);
+          padding: 7px 12px;
+        }
+
+        .mobile-brand {
+          display: flex;
+          align-items: center;
+          gap: 7px;
+          font-size: 17px;
+          letter-spacing: -0.02em;
+        }
+        .mobile-brand .brand-mark {
+          width: 28px;
+          height: 28px;
+        }
+        .menu-button {
+          min-height: 44px;
+          border-color: var(--border-strong);
+          background: var(--raised);
+          padding-inline: 12px;
+        }
+        .menu-lines {
+          width: 19px;
+          height: 14px;
+          display: grid;
+          align-content: space-between;
+        }
+        .menu-lines i {
+          display: block;
+          height: 2px;
+          border-radius: 2px;
+          background: currentColor;
+        }
+
+        .conversation {
+          padding: 20px 12px 196px;
+        }
+        .user-message {
+          max-width: 88%;
+        }
+        .agent-message {
+          grid-template-columns: 28px minmax(0, 1fr);
+          gap: 10px;
+        }
+        .agent-rail {
+          width: 28px;
+        }
+        .agent-rail .brand-mark {
+          width: 26px;
+          height: 26px;
+        }
+        .ledger-row {
+          grid-template-columns: minmax(0, 1fr) auto;
+          gap: 6px 10px;
+          padding-block: 10px;
+        }
+        .tool-summary {
+          grid-column: 1 / -1;
+          padding-inline-start: 28px;
+        }
+        .answer-table-wrap {
+          overflow-x: auto;
+        }
+        .answer-table {
+          min-width: 520px;
+        }
+
+        .composer-wrap {
+          inset-inline: 0;
+          padding: 24px 10px max(10px, env(safe-area-inset-bottom));
+        }
+        .composer {
+          border-radius: 15px;
+          border-start-end-radius: 4px;
+        }
+        .compose-meta {
+          flex-wrap: wrap;
+        }
+        .context-chip {
+          margin-inline-start: 0;
+        }
+
+        .models-scroll {
+          padding: 20px 12px 48px;
+        }
+        .routing-field {
+          padding: 10px;
+        }
+        .route-card {
+          grid-template-columns: 1fr auto;
+          gap: 6px 10px;
+        }
+        .route-role {
+          grid-column: 1 / -1;
+        }
+        .route-model {
+          min-width: 0;
+        }
+        .provider-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .drawer-backdrop {
+          display: block;
+          position: fixed;
+          inset: 0;
+          z-index: 80;
+          background: rgba(5, 10, 9, 0.55);
+          opacity: 0;
+          pointer-events: none;
+          transition: opacity 140ms ease;
+        }
+
+        .drawer {
+          display: flex;
+          position: fixed;
+          inset-block: 0;
+          inset-inline-start: 0;
+          z-index: 90;
+          width: min(88vw, 360px);
+          flex-direction: column;
+          background: var(--surface);
+          border-inline-end: 1px solid var(--border);
+          box-shadow: var(--shadow-3);
+          padding: max(14px, env(safe-area-inset-top)) 12px
+            max(14px, env(safe-area-inset-bottom));
+          transform: translateX(-104%);
+          transition: transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+        }
+
+        [dir="rtl"] .drawer {
+          transform: translateX(104%);
+          border-inline-end: 0;
+          border-inline-start: 1px solid var(--border);
+        }
+        body.drawer-open .drawer {
+          transform: translateX(0);
+        }
+        body.drawer-open .drawer-backdrop {
+          opacity: 1;
+          pointer-events: auto;
+        }
+
+        .drawer-head {
+          min-height: 52px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding-inline: 6px;
+          margin-block-end: 15px;
+        }
+        .drawer-close {
+          min-width: 44px;
+          min-height: 44px;
+          border: 0;
+          border-radius: 8px;
+          background: var(--sunken);
+          cursor: pointer;
+          font-size: 20px;
+        }
+        .drawer .nav-scroll {
+          padding-block-end: 12px;
+        }
+        .drawer .runtime-card {
+          margin-block-start: auto;
+        }
+      }
+
+      @media (max-width: 380px) {
+        .mobile-brand .brand-name {
+          display: none;
+        }
+        .page-header .header-actions .icon-button {
+          display: none;
+        }
+        .compose-main {
+          grid-template-columns: 40px minmax(0, 1fr) 42px;
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+          scroll-behavior: auto !important;
+          transition-duration: 0.01ms !important;
+          animation-duration: 0.01ms !important;
+          animation-iteration-count: 1 !important;
+        }
+      }
+    </style>
+  </head>
+  <body data-theme="light">
+    <svg class="sr-only" aria-hidden="true">
+      <defs>
+        <symbol id="pocket-hinge" viewBox="0 0 48 48">
+          <path
+            fill="var(--ink)"
+            d="M8 22h8v8c0 6 2.9 10 8 10s8-4 8-10v-8h8v9c0 10-6.4 15-16 15S8 41 8 31V22Z"
+          />
+          <path fill="var(--tidal)" d="M5 7h10l12 12-6 6-9-9H5V7Z" />
+          <path fill="var(--coral)" d="M43 7H33L21 19l6 6 9-9h7V7Z" />
+          <rect
+            x="20"
+            y="17"
+            width="8"
+            height="8"
+            rx="2.2"
+            fill="var(--surface)"
+            transform="rotate(45 24 21)"
+          />
+        </symbol>
+      </defs>
+    </svg>
+
+    <div class="app-shell">
+      <aside class="side-nav" aria-label="Primary navigation">
+        <a class="brand" href="#" aria-label="PocketClaw home">
+          <svg class="brand-mark" aria-hidden="true">
+            <use href="#pocket-hinge"></use>
+          </svg>
+          <span class="brand-name"
+            ><strong>Pocket</strong><span>Claw</span></span
+          >
+        </a>
+
+        <nav class="nav-scroll">
+          <div class="nav-group">
+            <span class="nav-label">Talk</span>
+            <button
+              class="nav-item"
+              data-view-target="chat"
+              aria-current="page"
+            >
+              <svg class="icon" viewBox="0 0 24 24">
+                <path
+                  d="M6 17 3.5 20V6.5A2.5 2.5 0 0 1 6 4h12a2.5 2.5 0 0 1 2.5 2.5v8A2.5 2.5 0 0 1 18 17H6Z"
+                />
+              </svg>
+              <span>Chat</span>
+            </button>
+          </div>
+
+          <div class="nav-group">
+            <span class="nav-label">Intelligence</span>
+            <button class="nav-item" data-view-target="models">
+              <svg class="icon" viewBox="0 0 24 24">
+                <circle cx="12" cy="12" r="3" />
+                <path
+                  d="M12 2a10 10 0 0 1 0 20M2 12h20M4.5 6.5h15M4.5 17.5h15"
+                />
+              </svg>
+              <span>Models</span>
+            </button>
+            <button class="nav-item">
+              <svg class="icon" viewBox="0 0 24 24">
+                <circle cx="8" cy="15" r="3" />
+                <path d="m10.5 13.5 8-8 2 2-2 2 1.5 1.5-2 2-1.5-1.5-4 4" />
+              </svg>
+              <span>Credentials</span>
+            </button>
+          </div>
+
+          <div class="nav-group">
+            <span class="nav-label">Connections</span>
+            <button class="nav-item">
+              <svg class="icon" viewBox="0 0 24 24">
+                <path d="m21 4-8.2 16-2.6-7-7-2.6L21 4Z" />
+                <path d="m10.2 13 4-4" />
+              </svg>
+              <span>Telegram</span><span class="nav-meta">On</span>
+            </button>
+            <button class="nav-item">
+              <svg class="icon" viewBox="0 0 24 24">
+                <circle cx="12" cy="12" r="9" />
+                <path d="M8 12h8M12 8v8" />
+              </svg>
+              <span>More channels</span><span class="nav-meta">8</span>
+            </button>
+          </div>
+
+          <div class="nav-group">
+            <span class="nav-label">Capabilities</span>
+            <button class="nav-item">
+              <svg class="icon" viewBox="0 0 24 24">
+                <circle cx="10" cy="10" r="6" />
+                <path d="m14.5 14.5 5 5" /></svg
+              ><span>Hub</span>
+            </button>
+            <button class="nav-item">
+              <svg class="icon" viewBox="0 0 24 24">
+                <path
+                  d="m12 3 1.5 5.5L19 10l-5.5 1.5L12 17l-1.5-5.5L5 10l5.5-1.5L12 3Z"
+                /></svg
+              ><span>Skills</span>
+            </button>
+            <button class="nav-item">
+              <svg class="icon" viewBox="0 0 24 24">
+                <path d="m14 6 4 4M5 19l5-5M15 4l5 5-8 8-5-5 8-8Z" /></svg
+              ><span>Tools</span>
+            </button>
+          </div>
+
+          <div class="nav-group">
+            <span class="nav-label">System</span>
+            <button class="nav-item">
+              <svg class="icon" viewBox="0 0 24 24">
+                <circle cx="12" cy="12" r="3" />
+                <path
+                  d="M19 12a7 7 0 0 0-.1-1l2-1.5-2-3.5-2.5 1A7 7 0 0 0 15 6l-.4-2.7h-4L10 6a7 7 0 0 0-1.5 1L6 6 4 9.5 6.1 11a7 7 0 0 0 0 2L4 14.5 6 18l2.5-1a7 7 0 0 0 1.5 1l.5 2.7h4L15 18a7 7 0 0 0 1.5-1l2.5 1 2-3.5-2.1-1.5a7 7 0 0 0 .1-1Z"
+                /></svg
+              ><span>Config</span>
+            </button>
+            <button class="nav-item">
+              <svg class="icon" viewBox="0 0 24 24">
+                <path d="M5 4h14v16H5zM8 8h8M8 12h8M8 16h5" /></svg
+              ><span>Logs</span>
+            </button>
+          </div>
+        </nav>
+
+        <div class="runtime-card">
+          <div class="runtime-state">
+            <span class="state-shape">✓</span><span>Agent Core running</span>
+          </div>
+          <p class="runtime-copy">Local · private endpoint</p>
+          <div class="utility-row">
+            <button class="utility-button" type="button" data-theme-toggle>
+              Theme
+            </button>
+            <button class="utility-button" type="button" data-dir-toggle>
+              RTL
+            </button>
+          </div>
+        </div>
+      </aside>
+
+      <main class="content-plane" id="main-content">
+        <header class="mobile-header">
+          <button
+            class="menu-button"
+            type="button"
+            data-menu-open
+            aria-controls="mobile-drawer"
+            aria-expanded="false"
+            aria-label="Open menu"
+          >
+            <span class="menu-lines" aria-hidden="true"
+              ><i></i><i></i><i></i
+            ></span>
+            <span>Menu</span>
+          </button>
+          <span class="mobile-brand">
+            <svg class="brand-mark" aria-hidden="true">
+              <use href="#pocket-hinge"></use>
+            </svg>
+            <span class="brand-name"
+              ><strong>Pocket</strong><span>Claw</span></span
+            >
+          </span>
+          <button
+            class="icon-button"
+            type="button"
+            data-theme-toggle
+            aria-label="Switch color theme"
+          >
+            ◐
+          </button>
+        </header>
+
+        <header class="page-header">
+          <div>
+            <div class="page-kicker">Personal agent · locally controlled</div>
+            <h1 class="page-title" data-page-title>Chat</h1>
+          </div>
+          <div class="header-actions">
+            <span class="restart-chip" role="status"
+              ><span aria-hidden="true">↻</span
+              ><span>Restart required</span></span
+            >
+            <button
+              class="icon-button"
+              type="button"
+              data-dir-toggle
+              aria-label="Toggle right-to-left layout"
+            >
+              RTL
+            </button>
+            <button
+              class="icon-button"
+              type="button"
+              data-theme-toggle
+              aria-label="Switch color theme"
+            >
+              ◐
+            </button>
+          </div>
+        </header>
+
+        <section
+          class="view chat-view"
+          data-view="chat"
+          aria-label="Chat concept"
+        >
+          <div class="conversation">
+            <div class="message-list">
+              <div class="user-row">
+                <article class="user-message">
+                  <p>
+                    Check the configured tools, then propose a safe release
+                    checklist for this project.
+                  </p>
+                  <div class="message-meta">You · 10:42</div>
+                </article>
+              </div>
+
+              <article class="agent-message">
+                <div class="agent-rail">
+                  <svg class="brand-mark" aria-label="PocketClaw">
+                    <use href="#pocket-hinge"></use>
+                  </svg>
+                </div>
+                <div class="agent-copy">
+                  <p>
+                    I checked the available project tools and grouped the
+                    release work into verification, packaging, and recovery. The
+                    key is to keep the runtime boundary unchanged while
+                    validating the user-visible surfaces.
+                  </p>
+
+                  <div
+                    class="execution-ledger"
+                    aria-label="2 completed tool calls"
+                  >
+                    <div class="ledger-head">
+                      <svg class="icon" viewBox="0 0 24 24">
+                        <path d="m14 6 4 4M5 19l5-5M15 4l5 5-8 8-5-5 8-8Z" />
+                      </svg>
+                      Execution ledger
+                      <span class="ledger-count">2 calls</span>
+                    </div>
+                    <div class="ledger-row">
+                      <div class="tool-name">
+                        <span aria-hidden="true">⌁</span> inspect_workspace
+                      </div>
+                      <div class="tool-summary">
+                        Read project metadata and test commands
+                      </div>
+                      <div class="status-label">
+                        <span class="state-shape">✓</span> Complete
+                      </div>
+                    </div>
+                    <div class="ledger-row">
+                      <div class="tool-name">
+                        <span aria-hidden="true">⌁</span> list_capabilities
+                      </div>
+                      <div class="tool-summary">
+                        Confirmed build and verification tools
+                      </div>
+                      <div class="status-label">
+                        <span class="state-shape">✓</span> Complete
+                      </div>
+                    </div>
+                  </div>
+
+                  <h2>Recommended release gate</h2>
+                  <p>
+                    Run the fast checks first, then produce the artifact only
+                    after the source and localization gates pass.
+                  </p>
+
+                  <div class="code-block">
+                    <div class="code-head">
+                      <span>release-checks.json</span
+                      ><button class="code-copy" type="button">Copy</button>
+                    </div>
+                    <pre><code>{
+  <span class="code-key">"source"</span>: <span class="code-string">"verified"</span>,
+  <span class="code-key">"locales"</span>: <span class="code-number">12</span>,
+  <span class="code-key">"runtime_behavior"</span>: <span class="code-string">"unchanged"</span>
+}</code></pre>
+                  </div>
+
+                  <div
+                    class="answer-table-wrap"
+                    role="region"
+                    aria-label="Release checklist table"
+                    tabindex="0"
+                  >
+                    <table class="answer-table">
+                      <thead>
+                        <tr>
+                          <th>Gate</th>
+                          <th>Evidence</th>
+                          <th>Failure action</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr>
+                          <td>Source</td>
+                          <td>Analyzer and unit tests</td>
+                          <td>Stop packaging</td>
+                        </tr>
+                        <tr>
+                          <td>Localization</td>
+                          <td>Parity and RTL layout</td>
+                          <td>Fix before review</td>
+                        </tr>
+                        <tr>
+                          <td>Runtime</td>
+                          <td>Existing contract tests</td>
+                          <td>Revert behavioral change</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </article>
+            </div>
+          </div>
+
+          <div class="composer-wrap">
+            <form class="composer" onsubmit="return false;">
+              <div class="attachment-row">
+                <div class="attachment">
+                  <span aria-hidden="true">▧</span><span>release-notes.md</span
+                  ><button type="button" aria-label="Remove release-notes.md">
+                    ×
+                  </button>
+                </div>
+              </div>
+              <div class="compose-main">
+                <button
+                  class="attach-button"
+                  type="button"
+                  aria-label="Attach file"
+                >
+                  <svg class="icon" viewBox="0 0 24 24">
+                    <path d="m9 12 6-6a3 3 0 0 1 4 4l-8 8a5 5 0 0 1-7-7l8-8" />
+                  </svg>
+                </button>
+                <textarea
+                  rows="1"
+                  aria-label="Message PocketClaw"
+                  placeholder="Ask PocketClaw…"
+                ></textarea>
+                <button
+                  class="send-button"
+                  type="submit"
+                  aria-label="Send message"
+                >
+                  <svg class="icon" viewBox="0 0 24 24">
+                    <path d="m12 19 0-14M6 11l6-6 6 6" />
+                  </svg>
+                </button>
+              </div>
+              <div class="compose-meta">
+                <button class="model-chip" type="button">
+                  <span aria-hidden="true">◉</span> Qwen 3 Coder
+                  <span aria-hidden="true">⌄</span>
+                </button>
+                <button
+                  class="context-chip"
+                  type="button"
+                  aria-label="Context usage 42 percent"
+                >
+                  <span>Context 42%</span
+                  ><span class="context-bar" aria-hidden="true"></span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </section>
+
+        <section
+          class="view"
+          data-view="models"
+          aria-label="Models concept"
+          hidden
+        >
+          <div class="models-scroll">
+            <div class="models-workbench">
+              <section class="routing-field">
+                <div class="section-heading">
+                  <div>
+                    <h2>Routing</h2>
+                    <p>The agent uses these models in order.</p>
+                  </div>
+                  <button class="secondary-button" type="button">
+                    Edit routing
+                  </button>
+                </div>
+                <div class="route-card">
+                  <div class="route-role">Default model</div>
+                  <div class="route-model">
+                    <strong>Qwen 3 Coder</strong
+                    ><span class="technical" dir="ltr"
+                      >openrouter/qwen3-coder</span
+                    >
+                  </div>
+                  <span class="status-label"
+                    ><span class="state-shape">✓</span> Available</span
+                  >
+                </div>
+                <div class="fallbacks">
+                  <div class="fallback-row">
+                    <span class="order">1</span>
+                    <div>
+                      <strong>Claude Sonnet</strong>
+                      <div class="technical" dir="ltr">
+                        anthropic/claude-sonnet
+                      </div>
+                    </div>
+                    <button class="ghost-button" type="button">Move</button>
+                  </div>
+                  <div class="fallback-row">
+                    <span class="order">2</span>
+                    <div>
+                      <strong>GPT</strong>
+                      <div class="technical" dir="ltr">openai/gpt</div>
+                    </div>
+                    <button class="ghost-button" type="button">Move</button>
+                  </div>
+                </div>
+              </section>
+
+              <div class="section-heading">
+                <div>
+                  <h2>Configured models</h2>
+                  <p>Grouped by provider; routing stays visible above.</p>
+                </div>
+                <button class="primary-button" type="button">Add model</button>
+              </div>
+              <div class="provider-grid">
+                <article class="provider-card">
+                  <div class="provider-top">
+                    <span class="provider-logo">O</span>
+                    <div>
+                      <div class="provider-name">OpenRouter</div>
+                      <div class="provider-count">2 configured</div>
+                    </div>
+                  </div>
+                  <div class="provider-model">
+                    <span>Qwen 3 Coder</span
+                    ><span class="status-label">Default</span>
+                  </div>
+                  <div class="provider-model">
+                    <span>DeepSeek</span
+                    ><span class="technical" dir="ltr">deepseek-v3</span>
+                  </div>
+                </article>
+                <article class="provider-card">
+                  <div class="provider-top">
+                    <span class="provider-logo">A</span>
+                    <div>
+                      <div class="provider-name">Anthropic</div>
+                      <div class="provider-count">1 configured</div>
+                    </div>
+                  </div>
+                  <div class="provider-model">
+                    <span>Claude Sonnet</span
+                    ><span class="technical" dir="ltr">oauth</span>
+                  </div>
+                </article>
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <div class="drawer-backdrop" data-menu-close aria-hidden="true"></div>
+    <aside
+      class="drawer"
+      id="mobile-drawer"
+      aria-label="Main menu"
+      aria-hidden="true"
+    >
+      <div class="drawer-head">
+        <span class="mobile-brand">
+          <svg class="brand-mark" aria-hidden="true">
+            <use href="#pocket-hinge"></use>
+          </svg>
+          <span class="brand-name"
+            ><strong>Pocket</strong><span>Claw</span></span
+          >
+        </span>
+        <button
+          class="drawer-close"
+          type="button"
+          data-menu-close
+          aria-label="Close menu"
+        >
+          ×
+        </button>
+      </div>
+      <nav class="nav-scroll">
+        <div class="nav-group">
+          <span class="nav-label">Talk</span>
+          <button class="nav-item" data-view-target="chat" aria-current="page">
+            <span aria-hidden="true">◫</span><span>Chat</span>
+          </button>
+        </div>
+        <div class="nav-group">
+          <span class="nav-label">Intelligence</span>
+          <button class="nav-item" data-view-target="models">
+            <span aria-hidden="true">◎</span><span>Models</span>
+          </button>
+          <button class="nav-item">
+            <span aria-hidden="true">⌕</span><span>Credentials</span>
+          </button>
+        </div>
+        <div class="nav-group">
+          <span class="nav-label">Connections</span>
+          <button class="nav-item">
+            <span aria-hidden="true">➤</span><span>Telegram</span
+            ><span class="nav-meta">On</span>
+          </button>
+          <button class="nav-item">
+            <span aria-hidden="true">＋</span><span>More channels</span>
+          </button>
+        </div>
+        <div class="nav-group">
+          <span class="nav-label">Capabilities</span>
+          <button class="nav-item">
+            <span aria-hidden="true">⌕</span><span>Hub</span>
+          </button>
+          <button class="nav-item">
+            <span aria-hidden="true">✦</span><span>Skills</span>
+          </button>
+          <button class="nav-item">
+            <span aria-hidden="true">⌁</span><span>Tools</span>
+          </button>
+        </div>
+        <div class="nav-group">
+          <span class="nav-label">System</span>
+          <button class="nav-item">
+            <span aria-hidden="true">⚙</span><span>Config</span>
+          </button>
+          <button class="nav-item">
+            <span aria-hidden="true">≡</span><span>Logs</span>
+          </button>
+        </div>
+      </nav>
+      <div class="runtime-card">
+        <div class="runtime-state">
+          <span class="state-shape">✓</span><span>Agent Core running</span>
+        </div>
+        <p class="runtime-copy">Local · private endpoint</p>
+        <div class="utility-row">
+          <button class="utility-button" type="button" data-theme-toggle>
+            Theme
+          </button>
+          <button class="utility-button" type="button" data-dir-toggle>
+            RTL
+          </button>
+        </div>
+      </div>
+    </aside>
+
+    <div class="prototype-note">
+      Isolated static concept · no production wiring
+    </div>
+
+    <script>
+      const body = document.body;
+      const root = document.documentElement;
+      const drawer = document.querySelector(".drawer");
+      const openButton = document.querySelector("[data-menu-open]");
+      const closeButton = document.querySelector(".drawer-close");
+
+      function closeMenu() {
+        body.classList.remove("drawer-open");
+        drawer.setAttribute("aria-hidden", "true");
+        openButton.setAttribute("aria-expanded", "false");
+        openButton.setAttribute("aria-label", "Open menu");
+      }
+
+      function openMenu() {
+        body.classList.add("drawer-open");
+        drawer.setAttribute("aria-hidden", "false");
+        openButton.setAttribute("aria-expanded", "true");
+        openButton.setAttribute("aria-label", "Close menu");
+        closeButton.focus();
+      }
+
+      openButton.addEventListener("click", openMenu);
+      document.querySelectorAll("[data-menu-close]").forEach((button) =>
+        button.addEventListener("click", () => {
+          closeMenu();
+          openButton.focus();
+        }),
+      );
+
+      document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape" && body.classList.contains("drawer-open")) {
+          closeMenu();
+          openButton.focus();
+        }
+      });
+
+      document.querySelectorAll("[data-theme-toggle]").forEach((button) => {
+        button.addEventListener("click", () => {
+          body.dataset.theme = body.dataset.theme === "dark" ? "light" : "dark";
+        });
+      });
+
+      document.querySelectorAll("[data-dir-toggle]").forEach((button) => {
+        button.addEventListener("click", () => {
+          root.dir = root.dir === "rtl" ? "ltr" : "rtl";
+          document.querySelectorAll("[data-dir-toggle]").forEach((item) => {
+            item.textContent = root.dir === "rtl" ? "LTR" : "RTL";
+          });
+        });
+      });
+
+      document.querySelectorAll("[data-view-target]").forEach((button) => {
+        button.addEventListener("click", () => {
+          const target = button.dataset.viewTarget;
+          document.querySelectorAll("[data-view]").forEach((view) => {
+            view.hidden = view.dataset.view !== target;
+          });
+          document.querySelectorAll("[data-view-target]").forEach((item) => {
+            if (item.dataset.viewTarget === target)
+              item.setAttribute("aria-current", "page");
+            else item.removeAttribute("aria-current");
+          });
+          document.querySelector("[data-page-title]").textContent =
+            target === "models" ? "Models" : "Chat";
+          closeMenu();
+        });
+      });
+
+      document.querySelectorAll(".code-copy").forEach((button) => {
+        button.addEventListener("click", () => {
+          button.textContent = "Copied";
+          window.setTimeout(() => {
+            button.textContent = "Copy";
+          }, 1200);
+        });
+      });
+    </script>
+  </body>
+</html>
