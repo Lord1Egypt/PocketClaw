@@ -49,49 +49,53 @@ export const SUPPORTED_LANGUAGES = [
 dayjs.extend(relativeTime)
 dayjs.extend(localizedFormat)
 
+/// The single init contract, exported so a test can stand up an isolated
+/// instance and assert what the host actually depends on — notably that
+/// LanguageDetector still reads ?lng= ahead of the cached localStorage value.
+/// for all options read: https://www.i18next.com/overview/configuration-options
+export const I18N_OPTIONS = {
+  resources: {
+    en: { translation: en },
+    ar: { translation: ar },
+    de: { translation: de },
+    es: { translation: es },
+    fr: { translation: fr },
+    hi: { translation: hi },
+    id: { translation: id },
+    ja: { translation: ja },
+    ko: { translation: ko },
+    ru: { translation: ru },
+    // The host app sends plain "pt" and "zh"; these carry the existing
+    // Portuguese and Chinese translations rather than duplicating them.
+    "pt-BR": { translation: ptBr },
+    "bn-IN": { translation: bnIn },
+    zh: { translation: zh },
+    cs: { translation: cs },
+  },
+  // "pt" resolves to the existing pt-BR resource instead of falling all the
+  // way back to English, and regional tags land on their base language.
+  fallbackLng: {
+    pt: ["pt-BR", "en"],
+    "pt-PT": ["pt-BR", "en"],
+    bn: ["bn-IN", "en"],
+    default: ["en"],
+  },
+  supportedLngs: SUPPORTED_LANGUAGES,
+  nonExplicitSupportedLngs: true,
+  debug: false,
+
+  interpolation: {
+    escapeValue: false, // not needed for react as it escapes by default
+  },
+}
+
 i18n
   // detect user language
   // learn more: https://github.com/i18next/i18next-browser-languageDetector
   .use(LanguageDetector)
   // pass the i18n instance to react-i18next.
   .use(initReactI18next)
-  // init i18next
-  // for all options read: https://www.i18next.com/overview/configuration-options
-  .init({
-    resources: {
-      en: { translation: en },
-      ar: { translation: ar },
-      de: { translation: de },
-      es: { translation: es },
-      fr: { translation: fr },
-      hi: { translation: hi },
-      id: { translation: id },
-      ja: { translation: ja },
-      ko: { translation: ko },
-      ru: { translation: ru },
-      // The host app sends plain "pt" and "zh"; these carry the existing
-      // Portuguese and Chinese translations rather than duplicating them.
-      "pt-BR": { translation: ptBr },
-      "bn-IN": { translation: bnIn },
-      zh: { translation: zh },
-      cs: { translation: cs },
-    },
-    // "pt" resolves to the existing pt-BR resource instead of falling all the
-    // way back to English, and regional tags land on their base language.
-    fallbackLng: {
-      pt: ["pt-BR", "en"],
-      "pt-PT": ["pt-BR", "en"],
-      bn: ["bn-IN", "en"],
-      default: ["en"],
-    },
-    supportedLngs: SUPPORTED_LANGUAGES,
-    nonExplicitSupportedLngs: true,
-    debug: false,
-
-    interpolation: {
-      escapeValue: false, // not needed for react as it escapes by default
-    },
-  })
+  .init(I18N_OPTIONS)
 
 /// Applies the document language and writing direction.
 ///

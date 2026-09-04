@@ -144,6 +144,11 @@
         "stopping": "Stopping Gateway..."
       },
       "restartRequired": "Configuration changes require a gateway restart to take effect."
+    },
+    "logoAlt": "PocketClaw logo",
+    "authError": {
+      "banner": "Auth service error: {{message}}",
+      "unavailable": "Auth service unavailable. Reset dashboard password storage and restart the application."
     }
   },
   "common": {
@@ -165,7 +170,13 @@
     "restartDeferredDesc": "The {{name}} configuration was saved. PocketClaw did not restart the gateway because it is still handling a request. Use Restart Gateway when you are ready.",
     "language": "Language",
     "lightMode": "Light mode",
-    "darkMode": "Dark mode"
+    "darkMode": "Dark mode",
+    "dismiss": "Dismiss",
+    "sidebar": "Sidebar",
+    "sidebarDescription": "Displays the mobile sidebar.",
+    "toggleSidebar": "Toggle Sidebar",
+    "crashed": "The console stopped responding.",
+    "reload": "Reload"
   },
   "labels": {
     "loading": "Loading..."
@@ -401,7 +412,10 @@
       "deselectAll": "Deselect All",
       "addSelected": "Add {{count}} Selected",
       "addSuccess": "Added {{count}} model(s) to configuration.",
-      "needApiKey": "These models require an API key. You'll need to configure credentials after import."
+      "needApiKey": "These models require an API key. You'll need to configure credentials after import.",
+      "loadError": "Failed to load catalogs.",
+      "deleteError": "Failed to delete catalog.",
+      "addError": "Failed to add models."
     },
     "test": {
       "title": "Test Model Connectivity",
@@ -494,7 +508,8 @@
       "expired": "QR code expired",
       "retry": "Try Again",
       "refresh": "Refresh QR",
-      "errorGeneric": "An error occurred. Please try again."
+      "errorGeneric": "An error occurred. Please try again.",
+      "qrAlt": "WeChat QR code"
     },
     "wecom": {
       "bindTitle": "WeCom Binding",
@@ -509,7 +524,8 @@
       "expired": "QR code expired",
       "retry": "Try Again",
       "refresh": "Refresh QR",
-      "errorGeneric": "An error occurred. Please try again."
+      "errorGeneric": "An error occurred. Please try again.",
+      "qrAlt": "WeCom QR code"
     },
     "field": {
       "token": "Bot Token",
@@ -541,7 +557,15 @@
       "allowOriginsPlaceholder": "e.g. https://example.com, http://localhost:5173",
       "removeListItem": "Remove {{value}}",
       "secretPlaceholder": "Enter secret",
-      "secretHintSet": "A value is already set. Leave blank to keep it unchanged."
+      "secretHintSet": "A value is already set. Leave blank to keep it unchanged.",
+      "broker": "Broker",
+      "agentId": "Agent ID",
+      "topicPrefix": "Topic Prefix",
+      "username": "Username",
+      "password": "Password",
+      "clientId": "Client ID",
+      "keepAlive": "Keep Alive",
+      "qos": "QoS"
     },
     "page": {
       "notFound": "Channel \"{{name}}\" is not supported.",
@@ -618,7 +642,10 @@
         "mqttPassword": "Broker authentication password (optional).",
         "mqttClientId": "MQTT client ID. Leave blank to auto-generate.",
         "keepAlive": "Keepalive interval in seconds. Defaults to 60.",
-        "qos": "Message quality of service level: 0 = at most once, 1 = at least once, 2 = exactly once."
+        "qos": "Message quality of service level: 0 = at most once, 1 = at least once, 2 = exactly once.",
+        "dmPolicy": "Controls how the channel handles direct messages.",
+        "groupPolicy": "Controls how the channel handles group messages.",
+        "sendThinkingMessage": "Send a short notice while the assistant is still working on a reply."
       }
     },
     "validation": {

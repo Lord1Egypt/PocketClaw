@@ -144,6 +144,11 @@
         "stopping": "Deteniendo la puerta de enlace..."
       },
       "restartRequired": "Los cambios de configuración requieren reiniciar la puerta de enlace para surtir efecto."
+    },
+    "logoAlt": "Logotipo de PocketClaw",
+    "authError": {
+      "banner": "Error del servicio de autenticación: {{message}}",
+      "unavailable": "El servicio de autenticación no está disponible. Restablece el almacén de contraseñas del panel y reinicia la aplicación."
     }
   },
   "common": {
@@ -165,7 +170,13 @@
     "restartDeferredDesc": "Se guardó la configuración de {{name}}. PocketClaw no reinició la puerta de enlace porque todavía está atendiendo una solicitud. Usa Reiniciar puerta de enlace cuando quieras.",
     "language": "Idioma",
     "lightMode": "Modo claro",
-    "darkMode": "Modo oscuro"
+    "darkMode": "Modo oscuro",
+    "dismiss": "Descartar",
+    "sidebar": "Barra lateral",
+    "sidebarDescription": "Muestra la barra lateral móvil.",
+    "toggleSidebar": "Alternar barra lateral",
+    "crashed": "La consola dejó de responder.",
+    "reload": "Recargar"
   },
   "labels": {
     "loading": "Cargando..."
@@ -401,7 +412,10 @@
       "deselectAll": "Deseleccionar todo",
       "addSelected": "Añadir {{count}} seleccionados",
       "addSuccess": "Se añadieron {{count}} modelo(s) a la configuración.",
-      "needApiKey": "Estos modelos requieren una clave de API. Tendrás que configurar las credenciales tras la importación."
+      "needApiKey": "Estos modelos requieren una clave de API. Tendrás que configurar las credenciales tras la importación.",
+      "loadError": "No se pudieron cargar los catálogos.",
+      "deleteError": "No se pudo eliminar el catálogo.",
+      "addError": "No se pudieron añadir los modelos."
     },
     "test": {
       "title": "Probar la conexión del modelo",
@@ -494,7 +508,8 @@
       "expired": "El código QR ha caducado",
       "retry": "Reintentar",
       "refresh": "Actualizar QR",
-      "errorGeneric": "Se produjo un error. Inténtalo de nuevo."
+      "errorGeneric": "Se produjo un error. Inténtalo de nuevo.",
+      "qrAlt": "Código QR de WeChat"
     },
     "wecom": {
       "bindTitle": "Vinculación de WeCom",
@@ -509,7 +524,8 @@
       "expired": "El código QR ha caducado",
       "retry": "Reintentar",
       "refresh": "Actualizar QR",
-      "errorGeneric": "Se produjo un error. Inténtalo de nuevo."
+      "errorGeneric": "Se produjo un error. Inténtalo de nuevo.",
+      "qrAlt": "Código QR de WeCom"
     },
     "field": {
       "token": "Token del bot",
@@ -541,7 +557,15 @@
       "allowOriginsPlaceholder": "p. ej. https://example.com, http://localhost:5173",
       "removeListItem": "Quitar {{value}}",
       "secretPlaceholder": "Introduce el secreto",
-      "secretHintSet": "Ya hay un valor configurado. Déjalo en blanco para conservarlo."
+      "secretHintSet": "Ya hay un valor configurado. Déjalo en blanco para conservarlo.",
+      "broker": "Broker",
+      "agentId": "ID del agente",
+      "topicPrefix": "Prefijo de tema",
+      "username": "Nombre de usuario",
+      "password": "Contraseña",
+      "clientId": "ID de cliente",
+      "keepAlive": "Intervalo de keep alive",
+      "qos": "QoS"
     },
     "page": {
       "notFound": "El canal «{{name}}» no es compatible.",
@@ -618,7 +642,10 @@
         "mqttPassword": "Contraseña para la autenticación con el broker (opcional).",
         "mqttClientId": "ID de cliente MQTT. Déjalo en blanco para generarlo automáticamente.",
         "keepAlive": "Intervalo de keepalive en segundos. El valor predeterminado es 60.",
-        "qos": "Nivel de calidad de servicio del mensaje: 0 = como máximo una vez, 1 = al menos una vez, 2 = exactamente una vez."
+        "qos": "Nivel de calidad de servicio del mensaje: 0 = como máximo una vez, 1 = al menos una vez, 2 = exactamente una vez.",
+        "dmPolicy": "Controla cómo el canal gestiona los mensajes directos.",
+        "groupPolicy": "Controla cómo el canal gestiona los mensajes de grupo.",
+        "sendThinkingMessage": "Envía un breve aviso mientras el asistente sigue preparando la respuesta."
       }
     },
     "validation": {

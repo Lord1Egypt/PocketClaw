@@ -1,6 +1,26 @@
 import { Component, type ErrorInfo, type ReactNode } from "react"
 
+import i18n from "@/i18n"
 import { markAppUnhealthy } from "@/lib/app-readiness"
+
+/**
+ * Reads one string out of i18next without depending on React state.
+ *
+ * The boundary renders precisely when the tree below it is broken, so it uses
+ * neither hooks nor context: it asks the already-initialised singleton
+ * directly (`./i18n` runs before the first render, from main.tsx). If i18next
+ * itself is what failed, the throw is swallowed and the English text is shown
+ * — a translated message is worth having, but never at the cost of the
+ * boundary's own ability to render.
+ */
+function emergencyText(key: string, english: string): string {
+  try {
+    const translated = i18n.t(key, { defaultValue: english })
+    return typeof translated === "string" && translated ? translated : english
+  } catch {
+    return english
+  }
+}
 
 interface Props {
   children: ReactNode
@@ -55,7 +75,7 @@ export class AppErrorBoundary extends Component<Props, State> {
         }}
       >
         <p style={{ margin: 0, fontSize: "0.95rem" }}>
-          The console stopped responding.
+          {emergencyText("common.crashed", "The console stopped responding.")}
         </p>
         <button
           type="button"
@@ -69,7 +89,7 @@ export class AppErrorBoundary extends Component<Props, State> {
             font: "inherit",
           }}
         >
-          Reload
+          {emergencyText("common.reload", "Reload")}
         </button>
       </div>
     )

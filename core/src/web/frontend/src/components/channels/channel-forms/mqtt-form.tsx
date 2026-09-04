@@ -1,6 +1,8 @@
+import { useTranslation } from "react-i18next"
+
 import type { ChannelConfig } from "@/api/channels"
-import { MessageCodeBlock } from "@/components/chat/message-code-block"
 import { getSecretInputPlaceholder } from "@/components/channels/channel-config-fields"
+import { MessageCodeBlock } from "@/components/chat/message-code-block"
 import { Field, KeyInput } from "@/components/shared-form"
 import {
   Card,
@@ -10,7 +12,6 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { useTranslation } from "react-i18next"
 
 interface MqttFormProps {
   config: ChannelConfig
@@ -53,7 +54,7 @@ export function MqttForm({
       <Card className="shadow-sm">
         <CardContent className="divide-border/60 divide-y px-6 py-0 [&>div]:py-5">
           <Field
-            label="Broker"
+            label={t("channels.field.broker")}
             required
             hint={t("channels.form.desc.broker")}
             error={fieldErrors.broker}
@@ -66,7 +67,7 @@ export function MqttForm({
           </Field>
 
           <Field
-            label="Agent ID"
+            label={t("channels.field.agentId")}
             required
             hint={t("channels.form.desc.mqttAgentId")}
             error={fieldErrors.agent_id}
@@ -79,7 +80,7 @@ export function MqttForm({
           </Field>
 
           <Field
-            label="Topic Prefix"
+            label={t("channels.field.topicPrefix")}
             hint={t("channels.form.desc.topicPrefix")}
           >
             <Input
@@ -94,7 +95,7 @@ export function MqttForm({
       <Card className="shadow-sm">
         <CardContent className="divide-border/60 divide-y px-6 py-0 [&>div]:py-5">
           <Field
-            label="Username"
+            label={t("channels.field.username")}
             hint={t("channels.form.desc.mqttUsername")}
           >
             <KeyInput
@@ -110,7 +111,7 @@ export function MqttForm({
           </Field>
 
           <Field
-            label="Password"
+            label={t("channels.field.password")}
             hint={t("channels.form.desc.mqttPassword")}
           >
             <KeyInput
@@ -130,7 +131,7 @@ export function MqttForm({
       <Card className="shadow-sm">
         <CardContent className="divide-border/60 divide-y px-6 py-0 [&>div]:py-5">
           <Field
-            label="Client ID"
+            label={t("channels.field.clientId")}
             hint={t("channels.form.desc.mqttClientId")}
           >
             <Input
@@ -141,7 +142,7 @@ export function MqttForm({
           </Field>
 
           <Field
-            label="Keep Alive"
+            label={t("channels.field.keepAlive")}
             hint={t("channels.form.desc.keepAlive")}
           >
             <Input
@@ -153,7 +154,7 @@ export function MqttForm({
           </Field>
 
           <Field
-            label="QoS"
+            label={t("channels.field.qos")}
             hint={t("channels.form.desc.qos")}
           >
             <Input
@@ -171,13 +172,11 @@ export function MqttForm({
           <CardTitle className="text-foreground text-sm font-medium">
             {t("channels.mqtt.protocolTitle")}
           </CardTitle>
-          <CardDescription>
-            {t("channels.mqtt.protocolDesc")}
-          </CardDescription>
+          <CardDescription>{t("channels.mqtt.protocolDesc")}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-5 px-6 py-5">
           <div className="space-y-2">
-            <p className="text-muted-foreground text-xs font-medium uppercase tracking-wide">
+            <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
               {t("channels.mqtt.uplink")}
             </p>
             <CodeLine>{`${topicBase}/request`}</CodeLine>
@@ -199,7 +198,7 @@ export function MqttForm({
           </div>
 
           <div className="space-y-2">
-            <p className="text-muted-foreground text-xs font-medium uppercase tracking-wide">
+            <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
               {t("channels.mqtt.downlink")}
             </p>
             <CodeLine>{`${topicBase}/response`}</CodeLine>
@@ -221,7 +220,7 @@ export function MqttForm({
           </div>
 
           <div className="space-y-2">
-            <p className="text-muted-foreground text-xs font-medium uppercase tracking-wide">
+            <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
               {t("channels.mqtt.topicParams")}
             </p>
             <div className="text-muted-foreground space-y-1 text-xs">

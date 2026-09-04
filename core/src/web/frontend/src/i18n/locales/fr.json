@@ -144,6 +144,11 @@
         "stopping": "Arrêt de la passerelle..."
       },
       "restartRequired": "Les modifications de configuration nécessitent un redémarrage de la passerelle pour prendre effet."
+    },
+    "logoAlt": "Logo PocketClaw",
+    "authError": {
+      "banner": "Erreur du service d'authentification : {{message}}",
+      "unavailable": "Le service d'authentification est indisponible. Réinitialisez le stockage du mot de passe du tableau de bord et redémarrez l'application."
     }
   },
   "common": {
@@ -165,7 +170,13 @@
     "restartDeferredDesc": "La configuration {{name}} a été enregistrée. PocketClaw n'a pas redémarré la passerelle car elle traite encore une requête. Utilisez Redémarrer la passerelle quand vous serez prêt.",
     "language": "Langue",
     "lightMode": "Mode clair",
-    "darkMode": "Mode sombre"
+    "darkMode": "Mode sombre",
+    "dismiss": "Ignorer",
+    "sidebar": "Barre latérale",
+    "sidebarDescription": "Affiche la barre latérale mobile.",
+    "toggleSidebar": "Afficher ou masquer la barre latérale",
+    "crashed": "La console ne répond plus.",
+    "reload": "Recharger"
   },
   "labels": {
     "loading": "Chargement..."
@@ -401,7 +412,10 @@
       "deselectAll": "Tout désélectionner",
       "addSelected": "Ajouter {{count}} sélectionnés",
       "addSuccess": "{{count}} modèle(s) ajouté(s) à la configuration.",
-      "needApiKey": "Ces modèles nécessitent une clé d'API. Vous devrez configurer les identifiants après l'import."
+      "needApiKey": "Ces modèles nécessitent une clé d'API. Vous devrez configurer les identifiants après l'import.",
+      "loadError": "Impossible de charger les catalogues.",
+      "deleteError": "Impossible de supprimer le catalogue.",
+      "addError": "Impossible d'ajouter les modèles."
     },
     "test": {
       "title": "Tester la connexion du modèle",
@@ -494,7 +508,8 @@
       "expired": "QR code expiré",
       "retry": "Réessayer",
       "refresh": "Actualiser le QR",
-      "errorGeneric": "Une erreur s'est produite. Veuillez réessayer."
+      "errorGeneric": "Une erreur s'est produite. Veuillez réessayer.",
+      "qrAlt": "QR code WeChat"
     },
     "wecom": {
       "bindTitle": "Association WeCom",
@@ -509,7 +524,8 @@
       "expired": "QR code expiré",
       "retry": "Réessayer",
       "refresh": "Actualiser le QR",
-      "errorGeneric": "Une erreur s'est produite. Veuillez réessayer."
+      "errorGeneric": "Une erreur s'est produite. Veuillez réessayer.",
+      "qrAlt": "QR code WeCom"
     },
     "field": {
       "token": "Jeton du bot",
@@ -541,7 +557,15 @@
       "allowOriginsPlaceholder": "ex. https://example.com, http://localhost:5173",
       "removeListItem": "Retirer {{value}}",
       "secretPlaceholder": "Saisissez le secret",
-      "secretHintSet": "Une valeur est déjà définie. Laissez vide pour la conserver."
+      "secretHintSet": "Une valeur est déjà définie. Laissez vide pour la conserver.",
+      "broker": "Broker",
+      "agentId": "ID de l'agent",
+      "topicPrefix": "Préfixe de sujet",
+      "username": "Nom d'utilisateur",
+      "password": "Mot de passe",
+      "clientId": "ID client",
+      "keepAlive": "Intervalle keep-alive",
+      "qos": "QoS"
     },
     "page": {
       "notFound": "Le canal « {{name}} » n'est pas pris en charge.",
@@ -618,7 +642,10 @@
         "mqttPassword": "Mot de passe d'authentification du broker (facultatif).",
         "mqttClientId": "ID client MQTT. Laissez vide pour le générer automatiquement.",
         "keepAlive": "Intervalle keepalive en secondes. 60 par défaut.",
-        "qos": "Niveau de qualité de service des messages : 0 = au plus une fois, 1 = au moins une fois, 2 = exactement une fois."
+        "qos": "Niveau de qualité de service des messages : 0 = au plus une fois, 1 = au moins une fois, 2 = exactement une fois.",
+        "dmPolicy": "Détermine la façon dont le canal traite les messages privés.",
+        "groupPolicy": "Détermine la façon dont le canal traite les messages de groupe.",
+        "sendThinkingMessage": "Envoie un bref message pendant que l'assistant prépare encore sa réponse."
       }
     },
     "validation": {

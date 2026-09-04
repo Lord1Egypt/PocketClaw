@@ -148,26 +148,33 @@ export function ContextUsageRing({
           <div className="mt-2 space-y-0.5">
             {usage.history_tokens != null && usage.history_tokens > 0 && (
               <div className="flex items-center justify-between text-[10px]">
-                <span className="text-muted-foreground">History</span>
+                <span className="text-muted-foreground">
+                  {t("chat.history")}
+                </span>
                 <span className="tabular-nums">
                   {formatTokens(usage.history_tokens)}
                 </span>
               </div>
             )}
             <div className="flex items-center justify-between text-[10px]">
-              <span className="text-muted-foreground">{t("chat.contextCompressAt")}</span>
+              <span className="text-muted-foreground">
+                {t("chat.contextCompressAt")}
+              </span>
               <span className="tabular-nums">
                 {formatTokens(usage.compress_at_tokens)}
               </span>
             </div>
-            {usage.summarize_at_tokens != null && usage.summarize_at_tokens > 0 && (
-              <div className="flex items-center justify-between text-[10px]">
-                <span className="text-muted-foreground">{t("chat.contextSummarizeAt")}</span>
-                <span className="tabular-nums">
-                  {formatTokens(usage.summarize_at_tokens)}
-                </span>
-              </div>
-            )}
+            {usage.summarize_at_tokens != null &&
+              usage.summarize_at_tokens > 0 && (
+                <div className="flex items-center justify-between text-[10px]">
+                  <span className="text-muted-foreground">
+                    {t("chat.contextSummarizeAt")}
+                  </span>
+                  <span className="tabular-nums">
+                    {formatTokens(usage.summarize_at_tokens)}
+                  </span>
+                </div>
+              )}
           </div>
 
           <button

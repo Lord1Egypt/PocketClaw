@@ -144,6 +144,11 @@
         "stopping": "ゲートウェイを停止しています..."
       },
       "restartRequired": "設定変更を反映するにはゲートウェイの再起動が必要です。"
+    },
+    "logoAlt": "PocketClaw のロゴ",
+    "authError": {
+      "banner": "認証サービスのエラー: {{message}}",
+      "unavailable": "認証サービスを利用できません。ダッシュボードのパスワード保存領域をリセットしてから、アプリケーションを再起動してください。"
     }
   },
   "common": {
@@ -165,7 +170,13 @@
     "restartDeferredDesc": "{{name}} 設定を保存しました。PocketClaw はリクエストの処理中のため、ゲートウェイを再起動していません。準備ができたら「ゲートウェイを再起動」を使用してください。",
     "language": "言語",
     "lightMode": "ライトモード",
-    "darkMode": "ダークモード"
+    "darkMode": "ダークモード",
+    "dismiss": "閉じる",
+    "sidebar": "サイドバー",
+    "sidebarDescription": "モバイル用サイドバーを表示します。",
+    "toggleSidebar": "サイドバーの表示切り替え",
+    "crashed": "コンソールが応答しなくなりました。",
+    "reload": "再読み込み"
   },
   "labels": {
     "loading": "読み込み中..."
@@ -401,7 +412,10 @@
       "deselectAll": "選択を解除",
       "addSelected": "選択した {{count}} 件を追加",
       "addSuccess": "{{count}} 件のモデルを設定に追加しました。",
-      "needApiKey": "これらのモデルには API キーが必要です。インポート後に認証情報を設定してください。"
+      "needApiKey": "これらのモデルには API キーが必要です。インポート後に認証情報を設定してください。",
+      "loadError": "カタログを読み込めませんでした。",
+      "deleteError": "カタログを削除できませんでした。",
+      "addError": "モデルを追加できませんでした。"
     },
     "test": {
       "title": "モデル接続をテスト",
@@ -494,7 +508,8 @@
       "expired": "QR コードの有効期限が切れました",
       "retry": "再試行",
       "refresh": "QR を更新",
-      "errorGeneric": "エラーが発生しました。もう一度お試しください。"
+      "errorGeneric": "エラーが発生しました。もう一度お試しください。",
+      "qrAlt": "WeChat の QR コード"
     },
     "wecom": {
       "bindTitle": "WeCom の連携",
@@ -509,7 +524,8 @@
       "expired": "QR コードの有効期限が切れました",
       "retry": "再試行",
       "refresh": "QR を更新",
-      "errorGeneric": "エラーが発生しました。もう一度お試しください。"
+      "errorGeneric": "エラーが発生しました。もう一度お試しください。",
+      "qrAlt": "WeCom の QR コード"
     },
     "field": {
       "token": "ボットトークン",
@@ -541,7 +557,15 @@
       "allowOriginsPlaceholder": "例: https://example.com、http://localhost:5173",
       "removeListItem": "{{value}} を削除",
       "secretPlaceholder": "シークレットを入力",
-      "secretHintSet": "値は設定済みです。変更しない場合は空欄のままにしてください。"
+      "secretHintSet": "値は設定済みです。変更しない場合は空欄のままにしてください。",
+      "broker": "ブローカー",
+      "agentId": "エージェント ID",
+      "topicPrefix": "トピックのプレフィックス",
+      "username": "ユーザー名",
+      "password": "パスワード",
+      "clientId": "クライアント ID",
+      "keepAlive": "キープアライブ間隔",
+      "qos": "QoS（品質レベル）"
     },
     "page": {
       "notFound": "チャンネル「{{name}}」はサポートされていません。",
@@ -618,7 +642,10 @@
         "mqttPassword": "ブローカー認証のパスワード（任意）。",
         "mqttClientId": "MQTT クライアント ID。空欄にすると自動生成されます。",
         "keepAlive": "キープアライブ間隔（秒）。既定は 60 です。",
-        "qos": "メッセージの QoS レベル: 0 = 最大 1 回、1 = 少なくとも 1 回、2 = 正確に 1 回。"
+        "qos": "メッセージの QoS レベル: 0 = 最大 1 回、1 = 少なくとも 1 回、2 = 正確に 1 回。",
+        "dmPolicy": "チャンネルがダイレクトメッセージをどう扱うかを指定します。",
+        "groupPolicy": "チャンネルがグループメッセージをどう扱うかを指定します。",
+        "sendThinkingMessage": "アシスタントが返信を作成している間、短い通知を送信します。"
       }
     },
     "validation": {

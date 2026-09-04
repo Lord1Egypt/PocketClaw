@@ -118,7 +118,8 @@
       "apikey": "API Key",
       "oauth": "OAuth",
       "local": "本地模型"
-    }
+    },
+    "downloadFile": "下载文件"
   },
   "header": {
     "logout": {
@@ -143,6 +144,11 @@
         "stopping": "服务停止中..."
       },
       "restartRequired": "配置变更后需要重启服务才能生效。"
+    },
+    "logoAlt": "PocketClaw 徽标",
+    "authError": {
+      "banner": "认证服务错误：{{message}}",
+      "unavailable": "认证服务不可用。请重置控制台密码存储并重启应用。"
     }
   },
   "common": {
@@ -161,7 +167,16 @@
     "restartFailedTitle": "Gateway restart failed",
     "restartFailedDesc": "The {{name}} configuration was saved, but the gateway did not restart. Use Restart Gateway to apply it.",
     "restartDeferredTitle": "Saved, gateway not restarted yet",
-    "restartDeferredDesc": "The {{name}} configuration was saved. PocketClaw did not restart the gateway because it is still handling a request. Use Restart Gateway when you are ready."
+    "restartDeferredDesc": "The {{name}} configuration was saved. PocketClaw did not restart the gateway because it is still handling a request. Use Restart Gateway when you are ready.",
+    "dismiss": "关闭",
+    "sidebar": "侧边栏",
+    "sidebarDescription": "显示移动端侧边栏。",
+    "toggleSidebar": "切换侧边栏",
+    "crashed": "控制台已停止响应。",
+    "reload": "重新加载",
+    "darkMode": "深色模式",
+    "language": "语言",
+    "lightMode": "浅色模式"
   },
   "labels": {
     "loading": "加载中..."
@@ -384,7 +399,10 @@
       "deselectAll": "取消全选",
       "addSelected": "添加 {{count}} 个选中模型",
       "addSuccess": "已添加 {{count}} 个模型到配置中。",
-      "needApiKey": "这些模型需要 API Key。导入后需要配置凭证才能使用。"
+      "needApiKey": "这些模型需要 API Key。导入后需要配置凭证才能使用。",
+      "loadError": "加载目录失败。",
+      "deleteError": "删除目录失败。",
+      "addError": "添加模型失败。"
     },
     "test": {
       "title": "测试模型连通性",
@@ -490,7 +508,8 @@
       "expired": "二维码已过期",
       "retry": "重试",
       "refresh": "刷新二维码",
-      "errorGeneric": "发生错误，请重试。"
+      "errorGeneric": "发生错误，请重试。",
+      "qrAlt": "微信二维码"
     },
     "wecom": {
       "bindTitle": "企业微信绑定",
@@ -505,7 +524,8 @@
       "expired": "二维码已过期",
       "retry": "重试",
       "refresh": "刷新二维码",
-      "errorGeneric": "发生错误，请重试。"
+      "errorGeneric": "发生错误，请重试。",
+      "qrAlt": "企业微信二维码"
     },
     "field": {
       "token": "Bot Token",
@@ -537,7 +557,15 @@
       "allowOriginsPlaceholder": "例如 https://example.com, http://localhost:5173",
       "removeListItem": "删除 {{value}}",
       "secretPlaceholder": "输入密钥",
-      "secretHintSet": "配置已保存，留空表示不修改"
+      "secretHintSet": "配置已保存，留空表示不修改",
+      "broker": "消息代理",
+      "agentId": "智能体 ID",
+      "topicPrefix": "主题前缀",
+      "username": "用户名",
+      "password": "密码",
+      "clientId": "客户端 ID",
+      "keepAlive": "保活间隔",
+      "qos": "QoS 等级"
     },
     "page": {
       "notFound": "不支持频道“{{name}}”。",
@@ -614,7 +642,10 @@
         "mqttPassword": "Broker 认证密码（可选）。",
         "mqttClientId": "MQTT 客户端 ID，留空自动生成。",
         "keepAlive": "心跳间隔（秒），默认 60。",
-        "qos": "消息质量等级：0=最多一次，1=至少一次，2=恰好一次。"
+        "qos": "消息质量等级：0=最多一次，1=至少一次，2=恰好一次。",
+        "dmPolicy": "控制该渠道如何处理私聊消息。",
+        "groupPolicy": "控制该渠道如何处理群聊消息。",
+        "sendThinkingMessage": "在助手仍在生成回复时发送一条简短提示。"
       }
     },
     "validation": {
@@ -635,6 +666,25 @@
       "clientIdPlaceholder": "留空自动生成",
       "secretSet": "已设置，留空表示不修改",
       "secretEmpty": "未配置"
+    },
+    "telegram": {
+      "advancedManual": "高级 / 手动设置",
+      "advancedSettings": "高级设置",
+      "botLabel": "机器人",
+      "connectBody": "几秒钟即可创建你的专属 PocketClaw 机器人，无需复制粘贴 BotFather 令牌。",
+      "connectTitle": "将 PocketClaw 连接到 Telegram",
+      "connected": "已连接",
+      "manualOnlyBody": "当前版本不支持一键创建机器人，因此需要使用 BotFather 提供的机器人令牌配置 Telegram。请在下方粘贴令牌并保存。",
+      "manualOnlyTitle": "手动设置",
+      "openChat": "打开对话",
+      "openTelegram": "打开 Telegram",
+      "ownerAnyone": "任何人都可以向该机器人发送消息",
+      "ownerConfigured": "已配置",
+      "ownerLabel": "所有者",
+      "reconnect": "重新连接 / 创建新机器人",
+      "statusLabel": "状态：",
+      "statusReady": "可以连接",
+      "troubleLabel": "遇到问题？"
     }
   },
   "pages": {
@@ -764,7 +814,9 @@
           "base_url_placeholder": "可选，如果需要代理请覆盖终端地址",
           "api_key": "API 密钥 (Token)",
           "api_key_placeholder": "请输入密钥，留空则保持原密钥不变",
-          "none": "未配置"
+          "none": "未配置",
+          "model": "模型",
+          "model_placeholder": "可选的模型覆盖"
         },
         "status": {
           "enabled": "已启用",
@@ -788,7 +840,8 @@
           "requires_subagent": "需要先启用 `tools.subagent`，`spawn` 才能委派任务。",
           "requires_mcp_discovery": "需要先启用 `tools.mcp.discovery`，MCP 发现工具才会可用。",
           "requires_web_search_provider": "请至少配置一个可用的外部网络搜索 provider。"
-        }
+        },
+        "no_results_hint": "请尝试调整搜索条件或状态筛选。"
       }
     },
     "config": {
@@ -981,7 +1034,25 @@
       "factory_reset_confirm_desc": "这将把所有配置重置为出厂默认值。API 密钥和安全凭证将被保留。当前配置将被备份。",
       "factory_reset_confirm": "确认重置",
       "factory_reset_success": "配置已重置为出厂默认值。",
-      "factory_reset_error": "重置配置失败。"
+      "factory_reset_error": "重置配置失败。",
+      "mcp_discovery_requires_search_method": "MCP 发现至少需要一种搜索方式（BM25 或正则表达式）。",
+      "mcp_duplicate_names": "MCP 服务器名称必须唯一。重复项：{{names}}。",
+      "mcp_env_label": "MCP 服务器 {{name}} 环境变量",
+      "mcp_headers_label": "MCP 服务器 {{name}} 请求头",
+      "mcp_saved_env_label": "已保存的 MCP 服务器 {{name}} 环境变量",
+      "mcp_saved_headers_label": "已保存的 MCP 服务器 {{name}} 请求头",
+      "mcp_server_command_required": "MCP 服务器 {{name}} 需要填写命令。",
+      "mcp_server_url_invalid": "MCP 服务器 {{name}} 需要有效的 HTTP(S) 地址。",
+      "mcp_server_url_required": "MCP 服务器 {{name}} 需要填写地址。",
+      "session_scope_required": "必须选择会话范围。",
+      "validation_integer": "{{label}} 必须是整数。",
+      "validation_json_invalid": "{{label}} 必须是有效的 JSON。",
+      "validation_json_not_object": "{{label}} 必须是 JSON 对象。",
+      "validation_json_value_not_string": "{{label}}.{{key}} 必须是字符串。",
+      "validation_max": "{{label}} 不能大于 {{max}}。",
+      "validation_min": "{{label}} 不能小于 {{min}}。",
+      "validation_number": "{{label}} 必须是数字。",
+      "workspace_required": "必须填写工作区路径。"
     },
     "logs": {
       "log_level_error": "更新日志等级失败。",

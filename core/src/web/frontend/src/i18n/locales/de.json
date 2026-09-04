@@ -144,6 +144,11 @@
         "stopping": "Gateway wird gestoppt ..."
       },
       "restartRequired": "Konfigurationsänderungen erfordern einen Gateway-Neustart, um wirksam zu werden."
+    },
+    "logoAlt": "PocketClaw-Logo",
+    "authError": {
+      "banner": "Fehler im Authentifizierungsdienst: {{message}}",
+      "unavailable": "Der Authentifizierungsdienst ist nicht verfügbar. Setzen Sie den Kennwortspeicher des Dashboards zurück und starten Sie die Anwendung neu."
     }
   },
   "common": {
@@ -165,7 +170,13 @@
     "restartDeferredDesc": "Die {{name}}-Konfiguration wurde gespeichert. PocketClaw hat das Gateway nicht neu gestartet, da es noch eine Anfrage bearbeitet. Verwenden Sie „Gateway neu starten“, wenn Sie bereit sind.",
     "language": "Sprache",
     "lightMode": "Heller Modus",
-    "darkMode": "Dunkler Modus"
+    "darkMode": "Dunkler Modus",
+    "dismiss": "Ausblenden",
+    "sidebar": "Seitenleiste",
+    "sidebarDescription": "Zeigt die mobile Seitenleiste an.",
+    "toggleSidebar": "Seitenleiste umschalten",
+    "crashed": "Die Konsole reagiert nicht mehr.",
+    "reload": "Neu laden"
   },
   "labels": {
     "loading": "Wird geladen ..."
@@ -401,7 +412,10 @@
       "deselectAll": "Auswahl aufheben",
       "addSelected": "{{count}} ausgewählte hinzufügen",
       "addSuccess": "{{count}} Modell(e) zur Konfiguration hinzugefügt.",
-      "needApiKey": "Diese Modelle benötigen einen API-Schlüssel. Nach dem Import müssen Sie Anmeldedaten konfigurieren."
+      "needApiKey": "Diese Modelle benötigen einen API-Schlüssel. Nach dem Import müssen Sie Anmeldedaten konfigurieren.",
+      "loadError": "Kataloge konnten nicht geladen werden.",
+      "deleteError": "Katalog konnte nicht gelöscht werden.",
+      "addError": "Modelle konnten nicht hinzugefügt werden."
     },
     "test": {
       "title": "Modellverbindung testen",
@@ -494,7 +508,8 @@
       "expired": "QR-Code abgelaufen",
       "retry": "Erneut versuchen",
       "refresh": "QR aktualisieren",
-      "errorGeneric": "Ein Fehler ist aufgetreten. Bitte erneut versuchen."
+      "errorGeneric": "Ein Fehler ist aufgetreten. Bitte erneut versuchen.",
+      "qrAlt": "WeChat-QR-Code"
     },
     "wecom": {
       "bindTitle": "WeCom verknüpfen",
@@ -509,7 +524,8 @@
       "expired": "QR-Code abgelaufen",
       "retry": "Erneut versuchen",
       "refresh": "QR aktualisieren",
-      "errorGeneric": "Ein Fehler ist aufgetreten. Bitte erneut versuchen."
+      "errorGeneric": "Ein Fehler ist aufgetreten. Bitte erneut versuchen.",
+      "qrAlt": "WeCom-QR-Code"
     },
     "field": {
       "token": "Bot-Token",
@@ -541,7 +557,15 @@
       "allowOriginsPlaceholder": "z. B. https://example.com, http://localhost:5173",
       "removeListItem": "{{value}} entfernen",
       "secretPlaceholder": "Geheimnis eingeben",
-      "secretHintSet": "Ein Wert ist bereits gesetzt. Leer lassen, um ihn beizubehalten."
+      "secretHintSet": "Ein Wert ist bereits gesetzt. Leer lassen, um ihn beizubehalten.",
+      "broker": "Broker",
+      "agentId": "Agent-ID",
+      "topicPrefix": "Themenpräfix",
+      "username": "Benutzername",
+      "password": "Passwort",
+      "clientId": "Client-ID",
+      "keepAlive": "Keep-Alive-Intervall",
+      "qos": "QoS"
     },
     "page": {
       "notFound": "Kanal „{{name}}“ wird nicht unterstützt.",
@@ -618,7 +642,10 @@
         "mqttPassword": "Passwort für die Broker-Authentifizierung (optional).",
         "mqttClientId": "MQTT-Client-ID. Leer lassen für automatische Erzeugung.",
         "keepAlive": "Keepalive-Intervall in Sekunden. Standard ist 60.",
-        "qos": "Quality-of-Service-Stufe: 0 = höchstens einmal, 1 = mindestens einmal, 2 = genau einmal."
+        "qos": "Quality-of-Service-Stufe: 0 = höchstens einmal, 1 = mindestens einmal, 2 = genau einmal.",
+        "dmPolicy": "Legt fest, wie der Kanal Direktnachrichten behandelt.",
+        "groupPolicy": "Legt fest, wie der Kanal Gruppennachrichten behandelt.",
+        "sendThinkingMessage": "Sendet einen kurzen Hinweis, während der Assistent noch an der Antwort arbeitet."
       }
     },
     "validation": {

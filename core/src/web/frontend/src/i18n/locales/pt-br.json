@@ -118,7 +118,8 @@
       "apikey": "API Key",
       "oauth": "OAuth",
       "local": "Local"
-    }
+    },
+    "downloadFile": "Baixar arquivo"
   },
   "header": {
     "logout": {
@@ -143,6 +144,11 @@
         "stopping": "Parando Gateway..."
       },
       "restartRequired": "Alterações de configuração requerem reiniciar o gateway para ter efeito."
+    },
+    "logoAlt": "Logotipo do PocketClaw",
+    "authError": {
+      "banner": "Erro no serviço de autenticação: {{message}}",
+      "unavailable": "Serviço de autenticação indisponível. Redefina o armazenamento de senha do painel e reinicie o aplicativo."
     }
   },
   "common": {
@@ -161,7 +167,16 @@
     "restartFailedTitle": "Gateway restart failed",
     "restartFailedDesc": "The {{name}} configuration was saved, but the gateway did not restart. Use Restart Gateway to apply it.",
     "restartDeferredTitle": "Saved, gateway not restarted yet",
-    "restartDeferredDesc": "The {{name}} configuration was saved. PocketClaw did not restart the gateway because it is still handling a request. Use Restart Gateway when you are ready."
+    "restartDeferredDesc": "The {{name}} configuration was saved. PocketClaw did not restart the gateway because it is still handling a request. Use Restart Gateway when you are ready.",
+    "dismiss": "Dispensar",
+    "sidebar": "Barra lateral",
+    "sidebarDescription": "Exibe a barra lateral móvel.",
+    "toggleSidebar": "Alternar barra lateral",
+    "crashed": "O console parou de responder.",
+    "reload": "Recarregar",
+    "darkMode": "Modo escuro",
+    "language": "Idioma",
+    "lightMode": "Modo claro"
   },
   "labels": {
     "loading": "Carregando..."
@@ -384,7 +399,10 @@
       "deselectAll": "Desmarcar todos",
       "addSelected": "Adicionar {{count}} Selecionados",
       "addSuccess": "{{count}} modelo(s) adicionados à configuração.",
-      "needApiKey": "Esses modelos exigem uma API key. Será necessário configurar as credenciais após a importação."
+      "needApiKey": "Esses modelos exigem uma API key. Será necessário configurar as credenciais após a importação.",
+      "loadError": "Falha ao carregar catálogos.",
+      "deleteError": "Falha ao excluir catálogo.",
+      "addError": "Falha ao adicionar modelos."
     },
     "test": {
       "title": "Testar Conectividade do Modelo",
@@ -490,7 +508,8 @@
       "expired": "QR code expirado",
       "retry": "Tentar Novamente",
       "refresh": "Atualizar QR",
-      "errorGeneric": "Ocorreu um erro. Tente novamente."
+      "errorGeneric": "Ocorreu um erro. Tente novamente.",
+      "qrAlt": "QR code do WeChat"
     },
     "wecom": {
       "bindTitle": "Vincular WeCom",
@@ -505,7 +524,8 @@
       "expired": "QR code expirado",
       "retry": "Tentar Novamente",
       "refresh": "Atualizar QR",
-      "errorGeneric": "Ocorreu um erro. Tente novamente."
+      "errorGeneric": "Ocorreu um erro. Tente novamente.",
+      "qrAlt": "QR code do WeCom"
     },
     "field": {
       "token": "Token do Bot",
@@ -537,7 +557,15 @@
       "allowOriginsPlaceholder": "ex: https://exemplo.com, http://localhost:5173",
       "removeListItem": "Remover {{value}}",
       "secretPlaceholder": "Digite o segredo",
-      "secretHintSet": "Já existe um valor definido. Deixe em branco para mantê-lo inalterado."
+      "secretHintSet": "Já existe um valor definido. Deixe em branco para mantê-lo inalterado.",
+      "broker": "Broker",
+      "agentId": "ID do agente",
+      "topicPrefix": "Prefixo do tópico",
+      "username": "Nome de usuário",
+      "password": "Senha",
+      "clientId": "ID do cliente",
+      "keepAlive": "Intervalo de keep alive",
+      "qos": "QoS"
     },
     "page": {
       "notFound": "Canal \"{{name}}\" não é suportado.",
@@ -614,7 +642,10 @@
         "mqttPassword": "Senha de autenticação do broker (opcional).",
         "mqttClientId": "ID do cliente MQTT. Deixe em branco para gerar automaticamente.",
         "keepAlive": "Intervalo de keepalive em segundos. O padrão é 60.",
-        "qos": "Nível de qualidade de serviço da mensagem: 0 = no máximo uma vez, 1 = pelo menos uma vez, 2 = exatamente uma vez."
+        "qos": "Nível de qualidade de serviço da mensagem: 0 = no máximo uma vez, 1 = pelo menos uma vez, 2 = exatamente uma vez.",
+        "dmPolicy": "Define como o canal trata mensagens diretas.",
+        "groupPolicy": "Define como o canal trata mensagens de grupo.",
+        "sendThinkingMessage": "Envia um aviso curto enquanto o assistente ainda prepara a resposta."
       }
     },
     "mqtt": {
@@ -635,6 +666,25 @@
     },
     "validation": {
       "requiredField": "Este campo é obrigatório."
+    },
+    "telegram": {
+      "advancedManual": "Configuração avançada / manual",
+      "advancedSettings": "Configurações avançadas",
+      "botLabel": "Bot",
+      "connectBody": "Crie seu bot pessoal do PocketClaw em poucos segundos. Não é preciso copiar e colar um token do BotFather.",
+      "connectTitle": "Conectar o PocketClaw ao Telegram",
+      "connected": "Conectado",
+      "manualOnlyBody": "A criação de bot com um toque não está disponível nesta versão, então o Telegram é configurado com um token de bot do BotFather. Cole o token abaixo e salve.",
+      "manualOnlyTitle": "Configuração manual",
+      "openChat": "Abrir conversa",
+      "openTelegram": "Abrir o Telegram",
+      "ownerAnyone": "Qualquer pessoa pode enviar mensagens a este bot",
+      "ownerConfigured": "Configurado",
+      "ownerLabel": "Proprietário",
+      "reconnect": "Reconectar / criar novo bot",
+      "statusLabel": "Status:",
+      "statusReady": "Pronto para conectar",
+      "troubleLabel": "Está com problemas?"
     }
   },
   "pages": {
@@ -764,7 +814,9 @@
           "base_url_placeholder": "Sobrescrita opcional do endpoint",
           "api_key": "API Key / Token",
           "api_key_placeholder": "Digite a API Key, deixe em branco para manter a chave original",
-          "none": "Indisponível"
+          "none": "Indisponível",
+          "model": "Modelo",
+          "model_placeholder": "Substituição de modelo opcional"
         },
         "status": {
           "enabled": "Habilitada",
@@ -788,7 +840,8 @@
           "requires_subagent": "Habilite `tools.subagent` antes que a ferramenta de spawn possa delegar trabalho.",
           "requires_mcp_discovery": "Habilite `tools.mcp.discovery` antes que as ferramentas de descoberta MCP fiquem disponíveis.",
           "requires_web_search_provider": "Configure ao menos um provedor externo de pesquisa web pronto para uso."
-        }
+        },
+        "no_results_hint": "Tente ajustar os critérios de busca ou os filtros de status."
       }
     },
     "config": {
@@ -981,7 +1034,25 @@
       "factory_reset_confirm_desc": "Isso redefinirá todas as configurações para os padrões de fábrica. As chaves de API e credenciais de segurança serão preservadas. Um backup da configuração atual será criado.",
       "factory_reset_confirm": "Redefinir para Padrões",
       "factory_reset_success": "A configuração foi redefinida para os padrões de fábrica.",
-      "factory_reset_error": "Falha ao redefinir a configuração."
+      "factory_reset_error": "Falha ao redefinir a configuração.",
+      "mcp_discovery_requires_search_method": "A descoberta MCP exige pelo menos um método de busca (BM25 ou regex).",
+      "mcp_duplicate_names": "Os nomes dos servidores MCP devem ser únicos. Duplicados: {{names}}.",
+      "mcp_env_label": "Variáveis de ambiente do servidor MCP {{name}}",
+      "mcp_headers_label": "Cabeçalhos do servidor MCP {{name}}",
+      "mcp_saved_env_label": "Variáveis de ambiente salvas do servidor MCP {{name}}",
+      "mcp_saved_headers_label": "Cabeçalhos salvos do servidor MCP {{name}}",
+      "mcp_server_command_required": "O servidor MCP {{name}} exige um comando.",
+      "mcp_server_url_invalid": "O servidor MCP {{name}} exige uma URL HTTP(S) válida.",
+      "mcp_server_url_required": "O servidor MCP {{name}} exige uma URL.",
+      "session_scope_required": "O escopo de sessão é obrigatório.",
+      "validation_integer": "{{label}} deve ser um número inteiro.",
+      "validation_json_invalid": "{{label}} deve ser um JSON válido.",
+      "validation_json_not_object": "{{label}} deve ser um objeto JSON.",
+      "validation_json_value_not_string": "{{label}}.{{key}} deve ser uma string.",
+      "validation_max": "{{label}} deve ser {{max}} ou menos.",
+      "validation_min": "{{label}} deve ser {{min}} ou mais.",
+      "validation_number": "{{label}} deve ser um número.",
+      "workspace_required": "O caminho do workspace é obrigatório."
     },
     "logs": {
       "log_level_error": "Falha ao atualizar nível de log.",

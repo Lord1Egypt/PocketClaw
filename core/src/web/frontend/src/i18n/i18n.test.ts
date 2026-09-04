@@ -1,6 +1,12 @@
-import { beforeEach, describe, expect, it } from "vitest"
+import fsSync from "node:fs"
 
-import i18n, { SUPPORTED_LANGUAGES, applyDocumentDirection } from "./index"
+import { afterEach, beforeEach, describe, expect, it } from "vitest"
+
+import i18n, {
+  I18N_OPTIONS,
+  SUPPORTED_LANGUAGES,
+  applyDocumentDirection,
+} from "./index"
 
 /// The locales the PocketClaw app can be set to. The dashboard must resolve
 /// every one of them rather than silently falling back to English.
@@ -1575,5 +1581,144 @@ describe("Tour, launcher setup and launcher login", () => {
         expect(i18n.t(key), `${locale} ${key}`).not.toBe(key)
       }
     }
+  })
+})
+
+describe("the Flutter → WebView locale handoff", () => {
+  // The host opens the console with its own selected locale as ?lng=. That has
+  // to beat whatever the previous manual override left in localStorage,
+  // otherwise a user who once picked German in the console would keep seeing
+  // German after switching the app to Arabic.
+  async function detectWith(search: string, cached?: string) {
+    const { createInstance } = await import("i18next")
+    const LanguageDetector = (await import("i18next-browser-languagedetector"))
+      .default
+
+    window.history.replaceState({}, "", `/models${search}`)
+    localStorage.removeItem("i18nextLng")
+    if (cached) localStorage.setItem("i18nextLng", cached)
+
+    const instance = createInstance()
+    await instance.use(LanguageDetector).init(I18N_OPTIONS)
+    return instance
+  }
+
+  afterEach(() => {
+    window.history.replaceState({}, "", "/")
+  })
+
+  it("lets ?lng= override a manually cached language", async () => {
+    const instance = await detectWith("?lng=ar", "de")
+    expect(instance.language).toBe("ar")
+    expect(instance.t("navigation.models")).toBe("الموديلات")
+    expect(instance.dir()).toBe("rtl")
+  })
+
+  it("keeps the manual choice when the host passes no locale", async () => {
+    const instance = await detectWith("", "de")
+    expect(instance.language).toBe("de")
+    expect(instance.t("navigation.models")).toBe("Modelle")
+  })
+
+  it("accepts every app locale from the query string", async () => {
+    for (const locale of APP_LOCALES) {
+      const instance = await detectWith(`?lng=${locale}`, "de")
+      expect(instance.language, locale).toBe(locale)
+      expect(instance.t("navigation.models"), locale).not.toBe(
+        "navigation.models",
+      )
+    }
+  })
+
+  it("resolves the host's pt onto the Brazilian bundle", async () => {
+    const instance = await detectWith("?lng=pt", "de")
+    expect(instance.language).toBe("pt")
+    expect(instance.resolvedLanguage).toBe("pt-BR")
+    expect(instance.t("navigation.models")).toBe("Modelos")
+  })
+})
+
+describe("hard-coded user-facing English", () => {
+  // Two narrow static guards. They are deliberately not a general "find English
+  // in the source" regex: that produces a whitelist longer than the findings.
+  // These two shapes are the ones that actually slipped through review — a
+  // literal accessibility name, and a t() default whose key was never added.
+  const sources = readSourceFiles()
+
+  function readSourceFiles() {
+    const { readdirSync, readFileSync, statSync } = fsSync
+    const files: Array<[string, string]> = []
+    const walk = (dir: string) => {
+      for (const entry of readdirSync(dir)) {
+        const full = `${dir}/${entry}`
+        if (statSync(full).isDirectory()) {
+          walk(full)
+          continue
+        }
+        if (!/\.tsx?$/.test(entry)) continue
+        if (entry.includes(".test.")) continue
+        if (entry === "routeTree.gen.ts") continue
+        files.push([full, readFileSync(full, "utf8")])
+      }
+    }
+    walk(`${process.cwd()}/src`)
+    return files
+  }
+
+  it("reads the frontend sources", () => {
+    expect(sources.length).toBeGreaterThan(50)
+  })
+
+  // A screen reader announces these, so an English literal here is just as
+  // untranslated as visible copy — and far easier to miss.
+  it("routes every accessibility name through i18next", () => {
+    const attribute = /\b(aria-label|alt|title)="([^"]*)"/g
+    const failures: string[] = []
+
+    for (const [file, source] of sources) {
+      for (const match of source.matchAll(attribute)) {
+        const [, name, value] = match
+        // Empty alt marks a decorative image; that is the correct value.
+        if (value.trim() === "") continue
+        const line = source.slice(0, match.index).split("\n").length
+        failures.push(`${file}:${line} ${name}="${value}"`)
+      }
+    }
+
+    expect(failures.join("\n"), failures.join("\n")).toBe("")
+  })
+
+  // t("key", "Some English") renders the key's translation and ignores the
+  // default — unless the key does not exist, in which case every locale
+  // silently shows the English default forever.
+  it("backs every t() default with a real English key", () => {
+    const call = /\bt\(\s*"([a-zA-Z0-9_.]+)"\s*,\s*(?:"|\{\s*defaultValue:)/g
+    const english = i18n.getResourceBundle("en", "translation") as Record<
+      string,
+      unknown
+    >
+    const lookup = (key: string) =>
+      key
+        .split(".")
+        .reduce<unknown>(
+          (node, part) =>
+            node && typeof node === "object"
+              ? (node as Record<string, unknown>)[part]
+              : undefined,
+          english,
+        )
+
+    const failures: string[] = []
+    for (const [file, source] of sources) {
+      for (const match of source.matchAll(call)) {
+        const key = match[1]
+        if (typeof lookup(key) !== "string") {
+          const line = source.slice(0, match.index).split("\n").length
+          failures.push(`${file}:${line} t("${key}", …) has no English key`)
+        }
+      }
+    }
+
+    expect(failures.join("\n"), failures.join("\n")).toBe("")
   })
 })

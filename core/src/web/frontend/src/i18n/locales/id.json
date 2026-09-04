@@ -144,6 +144,11 @@
         "stopping": "Menghentikan Gateway..."
       },
       "restartRequired": "Perubahan konfigurasi memerlukan mulai ulang gateway agar berlaku."
+    },
+    "logoAlt": "Logo PocketClaw",
+    "authError": {
+      "banner": "Kesalahan layanan autentikasi: {{message}}",
+      "unavailable": "Layanan autentikasi tidak tersedia. Setel ulang penyimpanan kata sandi dasbor lalu mulai ulang aplikasi."
     }
   },
   "common": {
@@ -165,7 +170,13 @@
     "restartDeferredDesc": "Konfigurasi {{name}} tersimpan. PocketClaw belum memulai ulang gateway karena masih menangani permintaan. Gunakan Mulai Ulang Gateway saat Anda siap.",
     "language": "Bahasa",
     "lightMode": "Mode terang",
-    "darkMode": "Mode gelap"
+    "darkMode": "Mode gelap",
+    "dismiss": "Tutup",
+    "sidebar": "Bilah sisi",
+    "sidebarDescription": "Menampilkan bilah sisi seluler.",
+    "toggleSidebar": "Alihkan bilah sisi",
+    "crashed": "Konsol berhenti merespons.",
+    "reload": "Muat ulang"
   },
   "labels": {
     "loading": "Memuat..."
@@ -401,7 +412,10 @@
       "deselectAll": "Batalkan Pilihan",
       "addSelected": "Tambah {{count}} Terpilih",
       "addSuccess": "{{count}} model ditambahkan ke konfigurasi.",
-      "needApiKey": "Model ini memerlukan kunci API. Anda perlu mengonfigurasi kredensial setelah impor."
+      "needApiKey": "Model ini memerlukan kunci API. Anda perlu mengonfigurasi kredensial setelah impor.",
+      "loadError": "Gagal memuat katalog.",
+      "deleteError": "Gagal menghapus katalog.",
+      "addError": "Gagal menambahkan model."
     },
     "test": {
       "title": "Uji Konektivitas Model",
@@ -494,7 +508,8 @@
       "expired": "Kode QR kedaluwarsa",
       "retry": "Coba lagi",
       "refresh": "Segarkan QR",
-      "errorGeneric": "Terjadi kesalahan. Silakan coba lagi."
+      "errorGeneric": "Terjadi kesalahan. Silakan coba lagi.",
+      "qrAlt": "Kode QR WeChat"
     },
     "wecom": {
       "bindTitle": "Penautan WeCom",
@@ -509,7 +524,8 @@
       "expired": "Kode QR kedaluwarsa",
       "retry": "Coba lagi",
       "refresh": "Segarkan QR",
-      "errorGeneric": "Terjadi kesalahan. Silakan coba lagi."
+      "errorGeneric": "Terjadi kesalahan. Silakan coba lagi.",
+      "qrAlt": "Kode QR WeCom"
     },
     "field": {
       "token": "Token Bot",
@@ -541,7 +557,15 @@
       "allowOriginsPlaceholder": "mis. https://example.com, http://localhost:5173",
       "removeListItem": "Hapus {{value}}",
       "secretPlaceholder": "Masukkan rahasia",
-      "secretHintSet": "Nilai sudah disetel. Kosongkan untuk mempertahankannya."
+      "secretHintSet": "Nilai sudah disetel. Kosongkan untuk mempertahankannya.",
+      "broker": "Broker",
+      "agentId": "ID Agen",
+      "topicPrefix": "Awalan Topik",
+      "username": "Nama pengguna",
+      "password": "Kata sandi",
+      "clientId": "ID Klien",
+      "keepAlive": "Interval keep alive",
+      "qos": "QoS"
     },
     "page": {
       "notFound": "Saluran \"{{name}}\" tidak didukung.",
@@ -618,7 +642,10 @@
         "mqttPassword": "Kata sandi autentikasi broker (opsional).",
         "mqttClientId": "ID klien MQTT. Kosongkan untuk dibuat otomatis.",
         "keepAlive": "Interval keepalive dalam detik. Bawaannya 60.",
-        "qos": "Tingkat kualitas layanan pesan: 0 = paling banyak sekali, 1 = paling sedikit sekali, 2 = tepat sekali."
+        "qos": "Tingkat kualitas layanan pesan: 0 = paling banyak sekali, 1 = paling sedikit sekali, 2 = tepat sekali.",
+        "dmPolicy": "Menentukan cara saluran menangani pesan langsung.",
+        "groupPolicy": "Menentukan cara saluran menangani pesan grup.",
+        "sendThinkingMessage": "Kirim pemberitahuan singkat saat asisten masih menyiapkan balasan."
       }
     },
     "validation": {

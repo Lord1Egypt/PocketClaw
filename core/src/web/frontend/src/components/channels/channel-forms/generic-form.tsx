@@ -124,14 +124,10 @@ export function GenericForm({
       corp_id: t("channels.form.desc.corpId"),
       bot_id: t("channels.form.desc.appId"),
       websocket_url: t("channels.form.desc.wsUrl"),
-      dm_policy: t("channels.form.desc.genericField", { field: "DM policy" }),
-      group_policy: t("channels.form.desc.genericField", {
-        field: "group policy",
-      }),
+      dm_policy: t("channels.form.desc.dmPolicy"),
+      group_policy: t("channels.form.desc.groupPolicy"),
       group_allow_from: t("channels.form.desc.allowFrom"),
-      send_thinking_message: t("channels.form.desc.genericField", {
-        field: "thinking message behavior",
-      }),
+      send_thinking_message: t("channels.form.desc.sendThinkingMessage"),
       agent_id: t("channels.form.desc.agentId"),
       webhook_url: t("channels.form.desc.webhookUrl"),
       webhook_host: t("channels.form.desc.webhookHost"),

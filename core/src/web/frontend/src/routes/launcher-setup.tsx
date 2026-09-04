@@ -1,9 +1,10 @@
-import { IconLanguage, IconMoon, IconSun } from "@tabler/icons-react"
+import { IconMoon, IconSun } from "@tabler/icons-react"
 import { createFileRoute } from "@tanstack/react-router"
 import * as React from "react"
 import { useTranslation } from "react-i18next"
 
 import { postLauncherDashboardSetup } from "@/api/launcher-auth"
+import { LanguageMenu } from "@/components/language-menu"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -12,18 +13,12 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useTheme } from "@/hooks/use-theme"
 
 function LauncherSetupPage() {
-  const { t, i18n } = useTranslation()
+  const { t } = useTranslation()
   const { theme, toggleTheme } = useTheme()
   const [password, setPassword] = React.useState("")
   const [confirm, setConfirm] = React.useState("")
@@ -55,25 +50,7 @@ function LauncherSetupPage() {
   return (
     <div className="bg-background text-foreground flex min-h-dvh flex-col">
       <header className="border-border/50 flex h-14 shrink-0 items-center justify-end gap-2 border-b px-4">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="outline"
-              size="icon"
-              aria-label={t("common.language")}
-            >
-              <IconLanguage className="size-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => i18n.changeLanguage("en")}>
-              English
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => i18n.changeLanguage("zh")}>
-              简体中文
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <LanguageMenu variant="outline" />
         <Button
           variant="outline"
           size="icon"
