@@ -2101,6 +2101,17 @@ func (m *Manager) Reload(ctx context.Context, cfg *config.Config) error {
 	for _, name := range removed {
 		// Stop all channels
 		channel := m.channels[name]
+		if channel == nil {
+			// The hash map tracks every enabled channel in config, including one
+			// that never became a running instance. Dereferencing that absence
+			// would panic while m.mu is held, deadlocking every later reconcile.
+			logger.InfoCF("channels", "Skipping stop for channel with no running instance",
+				map[string]any{"channel": name})
+			deferFuncs = append(deferFuncs, func() {
+				m.UnregisterChannel(name)
+			})
+			continue
+		}
 		logger.InfoCF("channels", "Stopping channel", map[string]any{
 			"channel": name,
 		})
@@ -2132,6 +2143,26 @@ func (m *Manager) Reload(ctx context.Context, cfg *config.Config) error {
 	}
 	for _, name := range added {
 		channel := m.channels[name]
+		if channel == nil {
+			// The channel is enabled in config but no instance could be built
+			// for it — an unknown type, or settings the factory rejected.
+			// Dereferencing that would panic with m.mu held and take every
+			// other channel down with it, so this one is reported as failed and
+			// the rest of the reconcile continues.
+			logger.ErrorCF("channels", "Channel could not be created from its configuration",
+				map[string]any{"channel": name})
+			m.publishChannelEvent(
+				runtimeevents.KindChannelLifecycleStartFailed,
+				name,
+				runtimeevents.Scope{Channel: name},
+				runtimeevents.SeverityError,
+				ChannelLifecyclePayload{
+					Type:  channelTypeForEvent(m, name),
+					Error: "channel could not be created from its configuration",
+				},
+			)
+			continue
+		}
 		logger.InfoCF("channels", "Starting channel", map[string]any{
 			"channel": name,
 		})

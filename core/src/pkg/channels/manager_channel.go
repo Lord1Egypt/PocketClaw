@@ -9,137 +9,65 @@ import (
 	"github.com/sipeed/picoclaw/pkg/config"
 )
 
+// toChannelHashes fingerprints every enabled channel's runtime-relevant
+// configuration so a reload can tell which channels actually changed.
+//
+// The input is built from the channel's own raw settings rather than from
+// marshalling the channels map. config.Channel serializes from its raw bytes
+// until something decodes it and from the decoded struct afterwards, and the
+// two shapes hash differently — so hashing the same config twice used to
+// produce two different answers and would have restarted every live channel.
 func toChannelHashes(cfg *config.Config) map[string]string {
 	result := make(map[string]string)
-	ch := cfg.Channels
-	marshal, err := json.Marshal(ch)
-	if err != nil {
-		log.Printf("[manager_channel] failed to marshal channels config: %v", err)
-		return result
-	}
-	var channelConfig map[string]map[string]any
-	if err := json.Unmarshal(marshal, &channelConfig); err != nil {
-		log.Printf("[manager_channel] failed to unmarshal channels config: %v", err)
+	if cfg == nil {
 		return result
 	}
 
-	for key, value := range channelConfig {
-		if enabled, ok := value["enabled"].(bool); !ok || !enabled {
+	for name, bc := range cfg.Channels {
+		if bc == nil || !bc.Enabled {
 			continue
 		}
-		hiddenValues(key, value, ch.Get(key))
+
+		value := make(map[string]any)
+		if !bc.SettingsIsEmpty() {
+			if err := json.Unmarshal(bc.Settings, &value); err != nil {
+				log.Printf("[manager_channel] failed to unmarshal channel %s config: %v", name, err)
+				continue
+			}
+		}
+		// Carried explicitly: these are the fields the supervisor itself acts
+		// on, and they do not necessarily appear in the settings payload.
+		value["enabled"] = bc.Enabled
+		value["type"] = bc.Type
+
+		hiddenValues(name, value, bc)
+
 		valueBytes, err := json.Marshal(value)
 		if err != nil {
-			log.Printf("[manager_channel] failed to marshal channel %s config: %v", key, err)
+			log.Printf("[manager_channel] failed to marshal channel %s config: %v", name, err)
 			continue
 		}
 		hash := md5.Sum(valueBytes)
-		result[key] = hex.EncodeToString(hash[:])
+		result[name] = hex.EncodeToString(hash[:])
 	}
 
 	return result
 }
 
-func hiddenValues(key string, value map[string]any, ch *config.Channel) {
-	v, err := ch.GetDecoded()
+// hiddenValues re-introduces the channel's credentials into the map used to
+// compute the reconcile hash.
+//
+// This used to be a hand-maintained switch over channel names, and every
+// channel missing from it — weixin, vk, pico_client — had token changes that
+// the reconcile could not see, so saving a new token never restarted the
+// channel. Walking the decoded settings struct instead covers every channel,
+// including ones added later, and cannot fall out of date.
+func hiddenValues(_ string, value map[string]any, ch *config.Channel) {
+	decoded, err := ch.GetDecoded()
 	if err != nil {
 		return
 	}
-	switch key {
-	case "pico":
-		if settings, ok := v.(*config.PicoSettings); ok {
-			value["token"] = settings.Token.String()
-		}
-	case "telegram":
-		if settings, ok := v.(*config.TelegramSettings); ok {
-			value["token"] = settings.Token.String()
-		}
-	case "discord":
-		if settings, ok := v.(*config.DiscordSettings); ok {
-			value["token"] = settings.Token.String()
-		}
-	case "slack":
-		if settings, ok := v.(*config.SlackSettings); ok {
-			value["bot_token"] = settings.BotToken.String()
-			value["app_token"] = settings.AppToken.String()
-		}
-	case "matrix":
-		if settings, ok := v.(*config.MatrixSettings); ok {
-			value["token"] = settings.AccessToken.String()
-		}
-	case "onebot":
-		if settings, ok := v.(*config.OneBotSettings); ok {
-			value["token"] = settings.AccessToken.String()
-		}
-	case "line":
-		if settings, ok := v.(*config.LINESettings); ok {
-			value["token"] = settings.ChannelAccessToken.String()
-			value["secret"] = settings.ChannelSecret.String()
-		}
-	case "wecom":
-		if settings, ok := v.(*config.WeComSettings); ok {
-			value["secret"] = settings.Secret.String()
-		}
-	case "dingtalk":
-		if settings, ok := v.(*config.DingTalkSettings); ok {
-			value["secret"] = settings.ClientSecret.String()
-		}
-	case "qq":
-		if settings, ok := v.(*config.QQSettings); ok {
-			value["secret"] = settings.AppSecret.String()
-		}
-	case "irc":
-		if settings, ok := v.(*config.IRCSettings); ok {
-			value["password"] = settings.Password.String()
-			value["serv_password"] = settings.NickServPassword.String()
-			value["sasl_password"] = settings.SASLPassword.String()
-		}
-	case "feishu":
-		if settings, ok := v.(*config.FeishuSettings); ok {
-			value["app_secret"] = settings.AppSecret.String()
-			value["encrypt_key"] = settings.EncryptKey.String()
-			value["verification_token"] = settings.VerificationToken.String()
-		}
-	case "teams_webhook":
-		// Expose webhook URLs for hash computation (they contain secrets)
-		vv := value["webhooks"]
-		webhooks := make(map[string]string)
-		if vv != nil {
-			if m, ok := vv.(map[string]string); ok {
-				webhooks = m
-			} else if m, ok := vv.(map[string]any); ok {
-				for k, w := range m {
-					if s, ok := w.(string); ok {
-						webhooks[k] = s
-					}
-				}
-			}
-		}
-		if settings, ok := v.(*config.TeamsWebhookSettings); ok {
-			for name, target := range settings.Webhooks {
-				webhooks[name] = target.WebhookURL.String()
-			}
-		}
-		value["webhooks"] = webhooks
-	case "mqtt":
-		if settings, ok := v.(*config.MQTTSettings); ok {
-			value["username"] = settings.Username.String()
-			value["password"] = settings.Password.String()
-		}
-	case "slack_webhook":
-		// Expose webhook URLs for hash computation (they contain secrets)
-		if settings, ok := v.(*config.SlackWebhookSettings); ok {
-			webhooks := make(map[string]any)
-			for name, target := range settings.Webhooks {
-				webhooks[name] = map[string]any{
-					"webhook_url": target.WebhookURL.String(),
-					"username":    target.Username,
-					"icon_emoji":  target.IconEmoji,
-				}
-			}
-			value["webhooks"] = webhooks
-		}
-	}
+	injectSecretFingerprints(value, decoded)
 }
 
 func compareChannels(old, news map[string]string) (added, removed []string) {
