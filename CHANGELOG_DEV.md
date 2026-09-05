@@ -1,5 +1,63 @@
 # Development Changelog
 
+## 2026-09-05 — Cancellation that waited its turn, and a fallback that answered for the primary
+
+Branch `feature/chat-lifecycle-durability`, from `develop` at `2312f35`. Three
+commits. Not merged, not built, not physically tested.
+
+`/stop` did nothing while a turn was running, which is the only time anyone
+sends it. Telegram is the one channel using the independent response lifecycle,
+so a message arriving while the session is busy is retained in the session
+mailbox and the dispatcher moves on without reading it. The stop handler is
+reached only on the steering path, which Telegram never takes. The command was
+therefore dequeued after the turn it was meant to cancel had finished on its
+own — indistinguishable, from the chat, from nothing happening at all. Control
+traffic now refuses to queue. The cleanup that follows had a second bug behind
+the first: the typing indicator and the "Thinking…" placeholder are recorded per
+inbound lifecycle, so neither was reachable through the /stop message's own
+context. The acknowledgement is published on the cancelled turn's lifecycle
+instead, which stops its indicator and turns its stale placeholder into the
+reply.
+
+Channel reconcile had the shape of a working feature and two defects underneath.
+The reconcile hash was not a pure function of the configuration: `config.Channel`
+serializes from its raw settings until something decodes it and from the decoded
+struct afterwards, the startup hash is taken after `initChannels` has decoded
+every channel, and every reload hash is taken on a config freshly loaded from
+disk. The two shapes never matched, so the first save after startup stopped and
+restarted every enabled channel — a Telegram edit dropping the live Discord
+connection is the opposite of the isolation this is supposed to provide. And
+because a decoded channel's credentials marshal to a placeholder, they were
+re-introduced by a hand-maintained switch over channel names; weixin, vk and
+pico_client were never in it, so their token changes were invisible and the
+channel was never restarted. The hash is now built from the raw settings plus
+the enabled flag and type, with credentials contributed as SHA-256 digests
+recovered by walking the decoded struct — no per-channel list to fall out of
+date, and no plaintext credential in the reconcile state.
+
+The seven-image report was not a provider problem. Seven images succeeded
+against the primary model alone and were rejected with HTTP 400 as soon as
+fallbacks were configured, which is only possible if the request reaching the
+first candidate changed. Per-candidate providers were registered under the
+runtime `provider/model` key and only for the fallbacks. Two model_list entries
+can name the same protocol and model id — a second API key for one model is the
+ordinary reason — so a fallback sharing the primary's pair took ownership of it,
+and the primary's request went to the fallback's endpoint with the fallback's
+credentials and extra body. The same collision made two fallbacks for one model
+collapse onto a single provider, which is why the two DeepSeek entries in the
+report failed identically. Registration is keyed by the entry's stable identity
+now, the primary is registered alongside the fallbacks, and the runtime pair
+survives as a secondary key so a bare `provider/model` reference still resolves.
+
+A regression test states the invariant directly: the same seven-image turn, run
+once with no fallbacks and once with two, must produce a byte-identical
+normalized request for the first candidate. It fails on the old keying.
+
+Exhausted-chain errors stopped being a wall of JSON. The user gets one line per
+candidate naming the model and the classified reason with its status code; the
+raw provider bodies stay in the developer log under the existing redaction
+rules.
+
 ## 2026-09-05 — Thirty providers nobody configured, and the filter that was missing
 
 Branch `feature/configured-model-discovery`, from `develop` at `2b37af2`, merged
