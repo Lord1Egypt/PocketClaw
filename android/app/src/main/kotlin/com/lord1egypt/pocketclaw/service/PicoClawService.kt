@@ -232,6 +232,17 @@ class PicoClawService : Service() {
                 // applied last also means this wins over the file: on Android
                 // hot reload is the product behaviour, not a preference.
                 "PICOCLAW_GATEWAY_HOT_RELOAD" to "true",
+                // The host-bus tools cannot work here and are not part of the
+                // PocketClaw Android product surface: an unrooted phone exposes
+                // no /dev/i2c-*, /dev/spidev* or /dev/tty* to an app UID, and
+                // the app declares no USB host support. Core keeps them for the
+                // Linux boards it targets, so they are forced off at this
+                // boundary rather than by changing that default. Env is applied
+                // after the file, so this also holds for a config imported from
+                // another machine or hand-edited to enable them.
+                "PICOCLAW_TOOLS_I2C_ENABLED" to "false",
+                "PICOCLAW_TOOLS_SPI_ENABLED" to "false",
+                "PICOCLAW_TOOLS_SERIAL_ENABLED" to "false",
                 "TMPDIR" to tmpDir.absolutePath,
                 "PATH" to "/system/bin:/system/xbin",
                 "LANG" to "en_US.UTF-8",

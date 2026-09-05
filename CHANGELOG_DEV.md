@@ -1,5 +1,53 @@
 # Development Changelog
 
+## 2026-09-06 — Three switches that could never work, and a skill that said otherwise
+
+Branch `feature/android-hardware-tool-cleanup` closed at `14a88ba` and merged to
+`develop` with `--no-ff`. Physically accepted as vc45: the user opened the
+Android Tool Library and the hardware tools and their category were gone.
+
+The Tool Library offered `i2c`, `spi` and `serial` on a phone. The investigation
+that preceded the fix is the part worth keeping, because it changed what the fix
+should be. All three are compiled into the Android Core — `GOOS=android`
+satisfies the `linux` build constraint, so `i2c_linux.go` and friends come along
+— but none can work: `adb shell`, which is more privileged than the app UID,
+finds no `/dev/i2c-*`, no `/dev/spidev*` and no `/dev/tty*`, and the app declares
+no USB host support, so serial over USB-OTG would need an Android-native
+implementation rather than a termios wrapper. They also cost nothing worth
+reclaiming: one already-vendored dependency, no permission, no startup or memory.
+
+So the answer was not deletion. It was a product boundary, in three places.
+
+The Tool Library drops the hardware category on Android. The managed Gateway is
+launched with the three tools forced off in its environment, which is what stops
+a config imported from a Linux machine or hand-edited from re-enabling them —
+registration is already gated on `IsToolEnabled`, so a config that resolves as
+disabled is what keeps them out of `ToolRegistry` and out of the definitions the
+model is sent.
+
+The third place mattered most and was nearly missed. `workspace/skills/hardware/
+SKILL.md` is embedded in the Core binary and reached the system prompt on every
+turn, telling the model it could drive I2C and SPI peripherals on Sipeed boards.
+Hiding three Tool Library rows while continuing to tell the model it had the
+capability would have fixed the smaller half. It is filtered at discovery rather
+than at onboarding, because an upgraded installation already has the file on disk
+and declining to copy it for new users would have done nothing for existing ones.
+
+The skill declares `requires: {tools: ["i2c","spi"]}`, which looks like the
+principled hook — and is not. Nothing in the tree parses that metadata; the
+loader reads only `name` and `description`. Teaching it to read and enforce
+`requires.tools` would have changed what every skill means, to solve one product
+question. The bundled skill is identified instead by the two fields already
+parsed, with a guard that loads the real shipped file so a reword upstream fails
+loudly rather than silently ending the filter.
+
+One process note. The first draft of the skill tests passed with the filter
+unwired — they called the policy function directly and never proved discovery
+used it. Deleting the hook and re-running is what caught that. The platform is a
+parameter everywhere now, so non-Android behaviour is asserted for linux, darwin,
+windows and freebsd from a single host rather than for whichever one the suite
+happens to run on.
+
 ## 2026-09-06 — What physical testing found after the code was "done"
 
 Branch `feature/chat-lifecycle-durability` closed at `8024094` and merged to

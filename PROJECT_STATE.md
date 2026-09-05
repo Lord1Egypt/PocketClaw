@@ -1,5 +1,66 @@
 # PocketClaw Project State
 
+## Android Hardware Tool Cleanup — PHYSICALLY VERIFIED AND CLOSED
+
+- Status: **PASS on a physical Android device (SM-A165F / Android 16), 2026-09-06
+  as vc45. Merged to `develop` with `--no-ff`.** `main` untouched, no tags moved,
+  no release created.
+- Branch `feature/android-hardware-tool-cleanup`, from `develop` at `5c767f4`,
+  head `14a88ba`. Retained, not deleted.
+- Milestone **CLOSED**.
+
+### Physical acceptance evidence
+
+The user opened the PocketClaw Android Tool Library and confirmed the hardware
+tools and their category are gone.
+
+| Item | Value |
+| --- | --- |
+| Package / version | `com.lord1egypt.pocketclaw`, 0.2.0, code 45, arm64 |
+| APK SHA-256 | `59ebc6d82ed2f463556e16b1bfe1295f5acff349e3343e7c6be6b57dcef56a63` |
+| Core source fingerprint | `46fb536b9b42b4c775170550bd834971b1e3e2415732d1065eb8c9ddb567f4c4` |
+| `libpicoclaw.so` | `e9b784a08cc42677b89bf97d3ce36867dfdf5bf4510678a4b9bc716375cc7136` |
+| `libpicoclaw-web.so` | `5decd123338539d5c46f82b4c7caaaed2656ecec7e3d9a2054b67979f6b30040` |
+
+Installed with `install -r`; `firstInstallTime`, uid and `dataDir` unchanged. The
+installed permission list is byte-identical before and after — this milestone
+adds none, and the APK declares nothing USB, serial or hardware related.
+
+### Accepted behaviour
+
+- `i2c`, `spi` and `serial` are absent from the Android Tool Library.
+- A persisted config cannot turn them back on: the managed Gateway is launched
+  with `PICOCLAW_TOOLS_I2C_ENABLED`, `PICOCLAW_TOOLS_SPI_ENABLED` and
+  `PICOCLAW_TOOLS_SERIAL_ENABLED` set to `false`, and env is applied after the
+  file. That covers a config imported from a Linux machine or hand-edited.
+- They therefore never register into `ToolRegistry` and never reach the model's
+  tool definitions.
+- The bundled hardware skill is withheld from model-facing discovery on Android,
+  including on an installation upgraded from an earlier PocketClaw that already
+  has `workspace/skills/hardware/SKILL.md` on disk.
+- The dormant upstream implementations and the embedded skill bytes remain in
+  the tree and in the binary. This was product-surface cleanup, not size work.
+- Every other platform is unchanged, and that is now asserted for linux, darwin,
+  windows and freebsd rather than only for whichever platform the suite runs on.
+
+### Why it was hidden rather than deleted
+
+The tools are correct, dependency-free beyond an already-vendored
+`golang.org/x/sys/unix`, and genuinely useful on the Linux boards upstream
+targets. They cost no permission and no measurable startup or memory. What made
+them wrong was the platform: an unrooted phone exposes no `/dev/i2c-*`,
+`/dev/spidev*` or `/dev/tty*` to an app UID — verified on the device, where even
+`adb shell` finds none — and the app declares no USB host support, so serial over
+USB-OTG would need an Android-native implementation rather than these syscall
+wrappers.
+
+The more consequential half was the skill, not the Tool Library. The bundled
+hardware skill was embedded in the Core binary and reached the system prompt on
+every turn, advertising I2C and SPI capability on a device that has neither. It
+is filtered at discovery rather than at onboarding, because an upgraded
+installation already has the file and declining to copy it for new users would
+have fixed nothing for existing ones.
+
 ## Chat Lifecycle Durability — PHYSICALLY VERIFIED AND CLOSED
 
 - Status: **PASS on a physical Android device (SM-A165F / Android 16), 2026-09-06
