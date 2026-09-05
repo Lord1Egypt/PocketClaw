@@ -4794,7 +4794,10 @@ func TestAgentLoop_UserAttachmentRoutesToImageModelAfterMediaResolution(t *testi
 	}
 
 	visionProvider := &resolvedImagePathVisionProvider{expectedPath: pngPath}
-	agent.CandidateProviders[providers.ModelKey("openai", "vision-model")] = visionProvider
+	// Keyed by the image candidate's own stable identity: a candidate resolved
+	// from a model_list entry looks up its provider by that entry, not by the
+	// provider/model pair, which two entries can share.
+	agent.CandidateProviders[agent.ImageCandidates[0].StableKey()] = visionProvider
 
 	timeoutCtx, cancel := context.WithTimeout(context.Background(), responseTimeout)
 	defer cancel()
@@ -4880,7 +4883,10 @@ func TestAgentLoop_TextFollowUpAfterUserAttachmentStaysOnTextModel(t *testing.T)
 	}
 
 	visionProvider := &resolvedImagePathVisionProvider{expectedPath: pngPath}
-	agent.CandidateProviders[providers.ModelKey("openai", "vision-model")] = visionProvider
+	// Keyed by the image candidate's own stable identity: a candidate resolved
+	// from a model_list entry looks up its provider by that entry, not by the
+	// provider/model pair, which two entries can share.
+	agent.CandidateProviders[agent.ImageCandidates[0].StableKey()] = visionProvider
 
 	sessionKey := "agent:main:telegram:direct:user1"
 	timeoutCtx, cancel := context.WithTimeout(context.Background(), responseTimeout)
@@ -4962,7 +4968,10 @@ func TestAgentLoop_GenericImagePlaceholderDoesNotRouteToImageModel(t *testing.T)
 	}
 
 	visionProvider := &unexpectedVisionProvider{}
-	agent.CandidateProviders[providers.ModelKey("openai", "vision-model")] = visionProvider
+	// Keyed by the image candidate's own stable identity: a candidate resolved
+	// from a model_list entry looks up its provider by that entry, not by the
+	// provider/model pair, which two entries can share.
+	agent.CandidateProviders[agent.ImageCandidates[0].StableKey()] = visionProvider
 
 	timeoutCtx, cancel := context.WithTimeout(context.Background(), responseTimeout)
 	defer cancel()
@@ -5038,7 +5047,10 @@ func TestAgentLoop_TextFollowUpAfterLoadImageStaysOnTextModel(t *testing.T) {
 	}
 
 	visionProvider := &visionAnswerProvider{}
-	agent.CandidateProviders[providers.ModelKey("openai", "vision-model")] = visionProvider
+	// Keyed by the image candidate's own stable identity: a candidate resolved
+	// from a model_list entry looks up its provider by that entry, not by the
+	// provider/model pair, which two entries can share.
+	agent.CandidateProviders[agent.ImageCandidates[0].StableKey()] = visionProvider
 
 	sessionKey := "agent:main:telegram:direct:user1"
 	timeoutCtx, cancel := context.WithTimeout(context.Background(), responseTimeout)
@@ -5145,7 +5157,10 @@ func TestAgentLoop_LoadImageFollowUpRoutesToImageModel(t *testing.T) {
 	}
 
 	visionProvider := &visionAnswerProvider{}
-	agent.CandidateProviders[providers.ModelKey("openai", "vision-model")] = visionProvider
+	// Keyed by the image candidate's own stable identity: a candidate resolved
+	// from a model_list entry looks up its provider by that entry, not by the
+	// provider/model pair, which two entries can share.
+	agent.CandidateProviders[agent.ImageCandidates[0].StableKey()] = visionProvider
 
 	timeoutCtx, cancel := context.WithTimeout(context.Background(), responseTimeout)
 	defer cancel()

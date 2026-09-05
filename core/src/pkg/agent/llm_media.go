@@ -153,8 +153,7 @@ func (p *Pipeline) routeMediaTurn(ts *turnState, exec *turnExecution) error {
 		ts.agent,
 		ts.agent.Provider,
 		targetCandidates,
-		firstCandidate.Provider,
-		firstCandidate.Model,
+		firstCandidate,
 	); err != nil {
 		return err
 	} else if provider != nil {
@@ -191,4 +190,34 @@ func (p *Pipeline) routeMediaTurn(ts *turnState, exec *turnExecution) error {
 	})
 
 	return nil
+}
+
+// cloneMessagesForAttempt returns a defensive copy of a conversation for one
+// provider attempt.
+//
+// The fallback chain hands the same slice to every candidate in turn. Copying
+// the per-message slices means an adapter that rewrites what it was given
+// cannot strip the media from the attempt that follows it — the failure mode
+// where a later candidate receives a turn with its images already consumed.
+func cloneMessagesForAttempt(messages []providers.Message) []providers.Message {
+	if messages == nil {
+		return nil
+	}
+	cloned := make([]providers.Message, len(messages))
+	for i, msg := range messages {
+		cloned[i] = msg
+		if msg.Media != nil {
+			cloned[i].Media = append([]string(nil), msg.Media...)
+		}
+		if msg.Attachments != nil {
+			cloned[i].Attachments = append([]providers.Attachment(nil), msg.Attachments...)
+		}
+		if msg.SystemParts != nil {
+			cloned[i].SystemParts = append([]providers.ContentBlock(nil), msg.SystemParts...)
+		}
+		if msg.ToolCalls != nil {
+			cloned[i].ToolCalls = append([]providers.ToolCall(nil), msg.ToolCalls...)
+		}
+	}
+	return cloned
 }
