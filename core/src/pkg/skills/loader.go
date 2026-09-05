@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
 
 	"github.com/gomarkdown/markdown"
@@ -95,6 +96,12 @@ func NewSkillsLoader(workspace string, globalSkills string, builtinSkills string
 }
 
 func (sl *SkillsLoader) ListSkills() []SkillInfo {
+	return sl.listSkillsForPlatform(runtime.GOOS)
+}
+
+// listSkillsForPlatform takes the platform as an argument so the discovery rule
+// can be exercised for a platform the test is not running on.
+func (sl *SkillsLoader) listSkillsForPlatform(goos string) []SkillInfo {
 	skills := make([]SkillInfo, 0)
 	seen := make(map[string]bool)
 
@@ -126,6 +133,9 @@ func (sl *SkillsLoader) ListSkills() []SkillInfo {
 			}
 			if err := info.validate(); err != nil {
 				slog.Warn("invalid skill from "+source, "name", info.Name, "error", err)
+				continue
+			}
+			if skillHiddenOnPlatform(goos, info) {
 				continue
 			}
 			if seen[info.Name] {

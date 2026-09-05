@@ -240,8 +240,35 @@ func (h *Handler) handleUpdateToolState(w http.ResponseWriter, r *http.Request) 
 }
 
 func buildToolSupport(cfg *config.Config) []toolSupportItem {
+	return buildToolSupportForPlatform(cfg, runtime.GOOS)
+}
+
+// toolCategoryHardware groups the tools that speak to host buses: i2c, spi and
+// serial.
+const toolCategoryHardware = "hardware"
+
+// hardwareToolsOfferedOn reports whether a platform should offer the hardware
+// tool category at all.
+//
+// PocketClaw Android does not: an unrooted phone exposes no /dev/i2c-*,
+// /dev/spidev* or /dev/tty* nodes to an app UID, there is no USB host support in
+// the app, and serial over USB-OTG would need an Android-native implementation
+// rather than these syscall wrappers. Offering three switches that cannot work
+// is worse than offering none. Every other platform is unchanged — the tools are
+// genuinely useful on the Linux boards upstream targets.
+func hardwareToolsOfferedOn(goos string) bool {
+	return goos != "android"
+}
+
+// buildToolSupportForPlatform takes the platform as an argument so the rule can
+// be tested for a platform the test is not running on.
+func buildToolSupportForPlatform(cfg *config.Config, goos string) []toolSupportItem {
+	offerHardware := hardwareToolsOfferedOn(goos)
 	items := make([]toolSupportItem, 0, len(toolCatalog))
 	for _, entry := range toolCatalog {
+		if entry.Category == toolCategoryHardware && !offerHardware {
+			continue
+		}
 		status := "disabled"
 		reasonCode := ""
 
@@ -271,9 +298,9 @@ func buildToolSupport(cfg *config.Config) []toolSupportItem {
 		case "web_search":
 			status, reasonCode = resolveWebSearchToolSupport(cfg)
 		case "i2c", "spi":
-			status, reasonCode = resolveHardwareToolSupport(cfg.Tools.IsToolEnabled(entry.ConfigKey))
+			status, reasonCode = resolveHardwareToolSupport(cfg.Tools.IsToolEnabled(entry.ConfigKey), goos)
 		case "serial":
-			status, reasonCode = resolveSerialToolSupport(cfg.Tools.IsToolEnabled(entry.ConfigKey))
+			status, reasonCode = resolveSerialToolSupport(cfg.Tools.IsToolEnabled(entry.ConfigKey), goos)
 		default:
 			if cfg.Tools.IsToolEnabled(entry.ConfigKey) {
 				status = "enabled"
@@ -292,21 +319,24 @@ func buildToolSupport(cfg *config.Config) []toolSupportItem {
 	return items
 }
 
-func resolveHardwareToolSupport(enabled bool) (string, string) {
+// The platform is a parameter rather than a call to runtime.GOOS so the rule can
+// be tested for a platform the test is not running on. Behaviour is unchanged:
+// the caller passes runtime.GOOS.
+func resolveHardwareToolSupport(enabled bool, goos string) (string, string) {
 	if !enabled {
 		return "disabled", ""
 	}
-	if runtime.GOOS != "linux" {
+	if goos != "linux" {
 		return "blocked", "requires_linux"
 	}
 	return "enabled", ""
 }
 
-func resolveSerialToolSupport(enabled bool) (string, string) {
+func resolveSerialToolSupport(enabled bool, goos string) (string, string) {
 	if !enabled {
 		return "disabled", ""
 	}
-	switch runtime.GOOS {
+	switch goos {
 	case "linux", "darwin", "windows":
 		return "enabled", ""
 	default:

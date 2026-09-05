@@ -84,3 +84,70 @@ func TestCoreHotReloadDefaultStaysOff(t *testing.T) {
 			"must not change it for other deployments")
 	}
 }
+
+// The host-bus tools are not part of the PocketClaw Android product surface:
+// an unrooted phone exposes no /dev/i2c-*, /dev/spidev* or /dev/tty* to an app
+// UID, and the app declares no USB host support. Core keeps them for the Linux
+// boards it targets, so Android forces them off through the environment its
+// managed Gateway inherits.
+//
+// The Go side asserts what a config loaded with those variables resolves to.
+// This asserts that the Android service actually sets them, so the two halves
+// cannot drift apart.
+func TestAndroidManagedGatewayDisablesHostBusTools(t *testing.T) {
+	root := repoRoot()
+	if root == "" {
+		t.Skip("not running inside a PocketClaw checkout")
+	}
+
+	servicePath := filepath.Join(root, "android", "app", "src", "main", "kotlin",
+		"com", "lord1egypt", "pocketclaw", "service", "PicoClawService.kt")
+	service, err := os.ReadFile(servicePath)
+	if err != nil {
+		t.Fatalf("cannot read the Android service: %v", err)
+	}
+
+	envStart := strings.Index(string(service), "val environment = mutableMapOf(")
+	if envStart < 0 {
+		t.Fatal("the managed-process environment map is gone; this guard is stale")
+	}
+	envEnd := strings.Index(string(service)[envStart:], "\n            )")
+	if envEnd < 0 {
+		t.Fatal("cannot delimit the environment map; this guard is stale")
+	}
+	envBlock := string(service)[envStart : envStart+envEnd]
+
+	for _, name := range []string{
+		"PICOCLAW_TOOLS_I2C_ENABLED",
+		"PICOCLAW_TOOLS_SPI_ENABLED",
+		"PICOCLAW_TOOLS_SERIAL_ENABLED",
+	} {
+		pattern := regexp.MustCompile(`"` + name + `"\s*to\s*"false"`)
+		if !pattern.MatchString(envBlock) {
+			t.Errorf("the Android managed Gateway environment does not set %s=false; "+
+				"a config enabling that tool would register it and advertise a "+
+				"capability the device cannot provide", name)
+		}
+	}
+}
+
+// Core keeps the tools available for the platforms they work on. Android hides
+// them at its own boundary, and must not remove them for everyone else.
+func TestCoreKeepsHardwareToolsAvailableOffAndroid(t *testing.T) {
+	root := repoRoot()
+	if root == "" {
+		t.Skip("not running inside a PocketClaw checkout")
+	}
+
+	for _, rel := range []string{
+		filepath.Join("core", "src", "pkg", "tools", "hardware", "i2c_linux.go"),
+		filepath.Join("core", "src", "pkg", "tools", "hardware", "spi_linux.go"),
+		filepath.Join("core", "src", "pkg", "tools", "hardware", "serial_unix.go"),
+		filepath.Join("core", "src", "pkg", "tools", "hardware_facade.go"),
+	} {
+		if _, err := os.Stat(filepath.Join(root, rel)); err != nil {
+			t.Errorf("%s is gone; the upstream hardware implementation must stay, "+
+				"this milestone is product-surface cleanup and not a removal", rel)
+		}
+	}
+}
