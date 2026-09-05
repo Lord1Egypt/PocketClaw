@@ -3,6 +3,10 @@ import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 
 import { type ModelInfo, getModels, setDefaultModel } from "@/api/models"
+import {
+  isConfiguredEntry,
+  isRoutableEntry,
+} from "@/lib/configured-model-source"
 import { applyGatewayConfigIfRequired } from "@/lib/restart-required"
 
 interface UseChatModelsOptions {
@@ -83,11 +87,12 @@ export function useChatModels({ isConnected }: UseChatModelsOptions) {
     [defaultModelName, syncDefaultModelName, t],
   )
 
+  // Selectability comes from the shared source, so the Default selector and the
+  // Fallback picker cannot disagree about what counts as a configured model.
+  // The shipped keyless provider templates fail `isConfiguredEntry` and never
+  // reach any selector.
   const defaultSelectableModels = useMemo(
-    () =>
-      modelList.filter(
-        (m) => m.default_model_allowed !== false && m.is_virtual !== true,
-      ),
+    () => modelList.filter((m) => isRoutableEntry(m) && isConfiguredEntry(m)),
     [modelList],
   )
 

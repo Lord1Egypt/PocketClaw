@@ -478,6 +478,26 @@
         "managed": "Nutzt Plattform-Anmeldedaten oder ein lokales CLI",
         "speech": "Nur Spracherkennung"
       }
+    },
+    "discovery": {
+      "heading": "Aus deinen Anbietern hinzufügen",
+      "configured": "Konfiguriert",
+      "discovered": "Gefunden",
+      "refresh": "Modellliste aktualisieren",
+      "retry": "Erneut versuchen",
+      "failed": "Dieser Anbieter war nicht erreichbar",
+      "noModels": "Für diesen Anbieter wurden keine Modelle gefunden.",
+      "empty": "Noch keine konfigurierten Anbieter. Füge einen Anbieter hinzu, um hier Modelle zu wählen.",
+      "adding": "Wird hinzugefügt...",
+      "searchPlaceholder": "Modelle filtern",
+      "unsupported": "Dieser Anbieter veröffentlicht keine Modellliste.",
+      "addedModel": "{{model}} steht jetzt als Modell zur Verfügung."
+    },
+    "defaultModel": {
+      "title": "Standardmodell",
+      "description": "Das Modell, mit dem PocketClaw antwortet. Wähle aus deinen konfigurierten Anbietern.",
+      "none": "Kein Standardmodell ausgewählt.",
+      "change": "Standardmodell ändern"
     }
   },
   "channels": {

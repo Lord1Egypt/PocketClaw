@@ -1,5 +1,106 @@
 # PocketClaw Project State
 
+## Configured Model Discovery — PHYSICALLY VERIFIED AND CLOSED
+
+- Status: **PASS on a physical Android device (SM-A165F / Android 16),
+  2026-09-05 as vc41. Merged to `develop` with `--no-ff`.** `main` untouched,
+  no tags moved, no release created.
+- Branch `feature/configured-model-discovery`, from `develop` at `2b37af2`.
+  Retained, not deleted.
+- Milestone **CLOSED**.
+
+### The defect this closes
+
+The Fallback Models picker offered Azure, Cerebras, Anthropic, Groq, Ollama and
+Volcengine to a user who had configured only OpenCode and Gemini. The picker was
+not inventing a catalog: `config.DefaultConfig()` seeds `model_list` with thirty
+keyless provider templates, the backend already marked every one of them
+`status: "unconfigured"`, and the Fallback picker was the one selector that never
+read that flag. The chat Default selector filtered on `available` and hid them.
+Two selectors, two filters over one list, and they disagreed.
+
+The fix was not a third filter. There is now one shared source.
+
+### Delivered behaviour
+
+- **Default Model and Fallback Models draw from one configured-provider model
+  source** — `core/src/web/frontend/src/lib/configured-model-source.ts`. A
+  structural test fails the suite if either selector re-implements the rule,
+  imports the provider preset registry, or reads `common_models`.
+- **Only actually configured provider instances participate.** A provider with
+  no resolvable credentials contributes no group at all.
+- **Live model discovery uses the configured provider's own API**, through the
+  existing `POST /api/models/fetch`.
+- **Discovery is isolated per provider.** Under `Promise.allSettled`, one
+  provider timing out shows a retry on that group, keeps its configured entries,
+  and leaves every other group's results intact.
+- **Discovered models can be materialized on selection** through
+  `POST /api/models/materialize`, which finds or creates the entry and applies a
+  role in a single config write.
+- **Model identity is provider-scoped** — normalized provider, normalized API
+  base and model id together — so two providers exposing `deepseek-chat` stay
+  distinct rather than one routing through the other's credential.
+- **API credentials remain server-side.** The discovery request carries a
+  `model_index` and never a key; the backend resolves the stored credential
+  after verifying the provider and base match, and materialization copies the
+  stored `SecureStrings` without decrypting it.
+- **The unconfigured DefaultConfig provider templates never appear in a
+  selector**, including when discovery fails — there is no consolation fallback
+  to the global catalog.
+- **Providers without model-list support still expose their explicitly
+  configured entries**, rather than being dropped or padded from presets.
+- **Fallback materialization and chain Save remain separate operations by
+  design.** A discovered fallback is materialized first and the ordered chain is
+  saved by the existing Save flow. If that save later fails the model remains a
+  valid, reusable configured entry outside the chain. This is deliberate and is
+  not described anywhere as atomic. Default-model materialization is atomic.
+
+### Product decision: no dedicated Vision / Image Model selector
+
+**PocketClaw does not expose a Vision / Image Model control.** The product-facing
+model configuration is **Default Model and Fallback Models**, and nothing else. A
+user who needs image support chooses a multimodal model as their Default Model.
+
+A Vision surface was built on this branch and removed at the user's decision:
+`bc7c3ff` and `c9c0db2`, reverted by `66d80ee`. **Dedicated Vision routing is not
+a delivered product feature and must not be listed as one.**
+
+Core's `agents.defaults.image_model`, `agents.defaults.image_model_fallbacks` and
+`routeMediaTurn` predate this branch, are load-bearing upstream behaviour, and
+were left byte-identical to `develop` — verified file by file at merge time. They
+remain reachable by editing the config file. **They must not be removed merely
+because the Dashboard does not expose them.**
+
+### Verification
+
+- Frontend: `tsc -b` clean, `eslint` clean, **391 tests passed**.
+- Go: `web/backend/...`, `pkg/agent` and `pkg/config` suites pass.
+- Core: source-freshness, fingerprint, staged-core, developer-path, runtime
+  payload and Python payload guards pass. The Gradle arm64 release guard verified
+  all eleven native payloads.
+
+### Final accepted artifact
+
+- Built 2026-09-05 through the canonical Gradle release path.
+- Package/version: `com.lord1egypt.pocketclaw`, `0.2.0` (version code `41`),
+  minSdk 24, targetSdk 36.
+- Size: 64,211,166 bytes — the arm64 band.
+- SHA-256: `4fd3c201bb9a07017a954ade90f5eb471b97d281e057a58fad4b7e18cf76e7ec`
+- Staged Core:
+  `libpicoclaw.so` `e05de9f687f98acfc33e6a05d2b82f05216258f18a2aeb3302b30a1c7e273a66`,
+  `libpicoclaw-web.so` `fbcf467c269be121c02d889564fee582f3e888189b347b3e0005f1d7af67a593`.
+  `libpicoclaw-web.so` returning to its exact pre-Vision byte count is the
+  embedded frontend confirming that removal rather than the source tree claiming
+  it.
+- Installed with `install -r`; app data preserved (`firstInstallTime`, uid and
+  `dataDir` unchanged).
+
+### Known pre-existing test failure — not caused by this branch
+
+`TestNoUserFacingWhatsAppSurface` fails over
+`test/widgets/whats_new_page_test.dart`, unchanged from the `develop` baseline
+and unrelated to this work. Recorded, not fixed.
+
 ## APERTURE Visual Redesign — PHYSICALLY / VISUALLY VERIFIED AND CLOSED
 
 - Status: **PASS on a physical Android device (SM-A165F / Android 16),

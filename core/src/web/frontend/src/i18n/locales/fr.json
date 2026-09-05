@@ -478,6 +478,26 @@
         "managed": "Utilise les identifiants de la plateforme ou une CLI locale",
         "speech": "Reconnaissance vocale uniquement"
       }
+    },
+    "discovery": {
+      "heading": "Ajouter depuis vos fournisseurs",
+      "configured": "Configuré",
+      "discovered": "Découvert",
+      "refresh": "Actualiser la liste des modèles",
+      "retry": "Réessayer",
+      "failed": "Impossible de joindre ce fournisseur",
+      "noModels": "Aucun modèle trouvé pour ce fournisseur.",
+      "empty": "Aucun fournisseur configuré pour l'instant. Ajoutez-en un pour choisir des modèles ici.",
+      "adding": "Ajout...",
+      "searchPlaceholder": "Filtrer les modèles",
+      "unsupported": "Ce fournisseur ne publie pas de liste de modèles.",
+      "addedModel": "{{model}} est maintenant disponible comme modèle."
+    },
+    "defaultModel": {
+      "title": "Modèle par défaut",
+      "description": "Le modèle avec lequel PocketClaw répond. Choisissez parmi vos fournisseurs configurés.",
+      "none": "Aucun modèle par défaut sélectionné.",
+      "change": "Changer le modèle par défaut"
     }
   },
   "channels": {

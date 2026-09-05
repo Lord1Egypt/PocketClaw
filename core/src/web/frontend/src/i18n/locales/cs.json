@@ -478,6 +478,26 @@
       "saved": "Fallback models updated.",
       "noCandidates": "Configure another model to use it as a fallback.",
       "missingModel": "This model is no longer configured"
+    },
+    "discovery": {
+      "heading": "Přidat od vašich poskytovatelů",
+      "configured": "Nakonfigurováno",
+      "discovered": "Nalezeno",
+      "refresh": "Obnovit seznam modelů",
+      "retry": "Zkusit znovu",
+      "failed": "Poskytovatele se nepodařilo kontaktovat",
+      "noModels": "Pro tohoto poskytovatele nebyly nalezeny žádné modely.",
+      "empty": "Zatím nemáte nakonfigurované poskytovatele. Přidejte poskytovatele a vyberte zde modely.",
+      "adding": "Přidávání...",
+      "searchPlaceholder": "Filtrovat modely",
+      "unsupported": "Tento poskytovatel nezveřejňuje seznam modelů.",
+      "addedModel": "{{model}} je nyní k dispozici jako model."
+    },
+    "defaultModel": {
+      "title": "Výchozí model",
+      "description": "Model, kterým PocketClaw odpovídá. Vyberte z poskytovatelů, které máte nakonfigurované.",
+      "none": "Není vybrán žádný výchozí model.",
+      "change": "Změnit výchozí model"
     }
   },
   "channels": {

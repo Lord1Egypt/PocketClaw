@@ -251,4 +251,47 @@ export async function deleteCatalog(id: string): Promise<void> {
   )
 }
 
+/** A role a materialized model can be given in the same operation. */
+export type ModelRole = "" | "default" | "fallback"
+
+export interface MaterializeModelRequest {
+  /**
+   * The configured model_list entry whose provider identity and credential the
+   * new entry inherits. An index, never a key: the secret is read from stored
+   * config on the backend and never crosses this boundary.
+   */
+  source_index: number
+  model: string
+  role: ModelRole
+  model_name?: string
+}
+
+export interface MaterializeModelResponse {
+  status: string
+  model_name: string
+  index: number
+  /** False when an entry for this provider instance and id already existed. */
+  created: boolean
+  role: ModelRole
+  default_model: string
+  model_fallbacks: string[]
+}
+
+/**
+ * Makes a discovered model routable and applies a role to it, in one call.
+ *
+ * Default and fallback references must name a model_list entry — that invariant
+ * is enforced by the backend and is not relaxed. Both halves happen in one
+ * request so a rejected role cannot leave a stray entry behind.
+ */
+export async function materializeModel(
+  req: MaterializeModelRequest,
+): Promise<MaterializeModelResponse> {
+  return request<MaterializeModelResponse>("/api/models/materialize", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(req),
+  })
+}
+
 export type { ModelsListResponse, ModelActionResponse }

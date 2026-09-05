@@ -478,6 +478,26 @@
         "managed": "Usa credenciales de la plataforma o una CLI local",
         "speech": "Solo reconocimiento de voz"
       }
+    },
+    "discovery": {
+      "heading": "Añadir desde tus proveedores",
+      "configured": "Configurado",
+      "discovered": "Descubierto",
+      "refresh": "Actualizar lista de modelos",
+      "retry": "Reintentar",
+      "failed": "No se pudo contactar con este proveedor",
+      "noModels": "No se encontraron modelos para este proveedor.",
+      "empty": "Aún no hay proveedores configurados. Añade uno para elegir modelos aquí.",
+      "adding": "Añadiendo...",
+      "searchPlaceholder": "Filtrar modelos",
+      "unsupported": "Este proveedor no publica una lista de modelos.",
+      "addedModel": "{{model}} ya está disponible como modelo."
+    },
+    "defaultModel": {
+      "title": "Modelo predeterminado",
+      "description": "El modelo con el que responde PocketClaw. Elige entre los proveedores que has configurado.",
+      "none": "No hay modelo predeterminado seleccionado.",
+      "change": "Cambiar modelo predeterminado"
     }
   },
   "channels": {

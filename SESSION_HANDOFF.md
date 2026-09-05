@@ -1,5 +1,75 @@
 # PocketClaw Session Handoff
 
+## Configured Model Discovery — PHYSICAL PASS and merged, 2026-09-05
+
+Branch `feature/configured-model-discovery`, off `develop` at `2b37af2`.
+**Physically validated on SM-A165F / Android 16 as vc41, then merged to
+`develop` with `--no-ff`.** `main` untouched, no tags moved, no release created.
+The feature branch is retained.
+
+Four commits, and the shape matters: `5d08e14` is the milestone, `bc7c3ff` and
+`c9c0db2` added a Vision surface that was then rejected, `66d80ee` reverted both,
+and `9fae0ad` rebuilt the staged Core. History was preserved rather than
+rewritten, so the branch reads as what actually happened.
+
+### The three things worth not undoing
+
+**The rule lives in one file.** `lib/configured-model-source.ts` decides what any
+routing selector may offer. The original defect was the chat Default selector
+filtering on `available` while the Fallback picker filtered only on
+virtual/duplicate/self, so thirty keyless provider templates from
+`config.DefaultConfig()` appeared in one and not the other. A third filter would
+have reproduced it. `components/models/routing-selectors.test.ts` fails the suite
+if a selector re-implements the rule, imports `provider-registry`, or reads
+`common_models`.
+
+**A routing role must name a `model_list` entry.** `normalizeModelFallbacks` and
+`validateDefaultModelSelection` both reject anything else, and that invariant was
+not relaxed. It is why `POST /api/models/materialize` exists: it finds or creates
+the entry *and* applies the role against one in-memory config with a single
+`SaveConfig`, so a rejected role writes nothing rather than leaving a stray
+model behind.
+
+**Discovery carries an index, never a key.** `POST /api/models/fetch` takes
+`model_index`; the backend resolves the stored credential itself after checking
+the provider and API base match. Materialization copies the stored
+`SecureStrings` across without decrypting it. Tests assert `api_key` is absent
+from every request the frontend makes.
+
+### The product decision recorded here so it is not rebuilt
+
+**PocketClaw exposes no dedicated Vision / Image Model selector.** The model
+configuration surface is Default Model and Fallback Models. A user needing image
+support picks a multimodal Default Model.
+
+Core's `agents.defaults.image_model`, `image_model_fallbacks` and
+`routeMediaTurn` predate this branch and were left byte-identical to `develop`.
+They are still reachable by editing the config file. **Do not remove them just
+because nothing in the Dashboard writes them,** and do not list Vision routing as
+a delivered feature.
+
+### One deliberate non-atomicity
+
+A discovered *fallback* is materialized first, then the ordered chain is saved by
+the section's existing Save. Those are two operations. If the save fails the
+model stays a valid configured entry outside the chain. That is intentional — the
+alternative was a server-side append that would silently clobber unsaved
+reordering — and it is not called atomic anywhere. Default-model materialization
+*is* a single write.
+
+### Verification and artifact
+
+Frontend `tsc`, `eslint` and 391 tests green; `web/backend/...`, `pkg/agent` and
+`pkg/config` Go suites pass; Core freshness, fingerprint, staged-core,
+developer-path, runtime payload and Python payload guards pass.
+
+Final artifact: `0.2.0`, versionCode 41, 64,211,166 bytes, SHA-256
+`4fd3c201bb9a07017a954ade90f5eb471b97d281e057a58fad4b7e18cf76e7ec`, installed in
+place with app data preserved.
+
+`TestNoUserFacingWhatsAppSurface` still fails identically to the develop
+baseline. Not caused by this branch and not fixed here.
+
 ## APERTURE Visual Redesign — PHYSICAL PASS and merged, 2026-09-05
 
 Branch `feature/visual-redesign-aperture`, off `develop` at `9877365`.

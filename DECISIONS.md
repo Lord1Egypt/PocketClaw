@@ -1,5 +1,84 @@
 # PocketClaw Decisions
 
+## One source decides what any model selector may offer
+
+- Date: 2026-09-05
+- Decision: `core/src/web/frontend/src/lib/configured-model-source.ts` is the
+  single implementation of "which models may be selected". Default Model and
+  Fallback Models both read it, and a structural test fails the suite if either
+  re-implements the rule, imports `provider-registry`, or reads `common_models`.
+- Reason: the reported defect was not a picker inventing a catalog. The chat
+  Default selector filtered on `available` and the Fallback picker did not, so
+  the thirty keyless provider templates `config.DefaultConfig()` seeds into
+  `model_list` appeared in one selector and not the other. Two filters over one
+  list is what produced it, and a third filter would have produced it again.
+- Consequence: adding a routing role means extending the shared source and the
+  materialize role switch, never giving a new selector its own catalog. The
+  seeded templates stay in `DefaultConfig` — they are a documented starting
+  point, and removing them is a separate Core decision with migration
+  implications nobody has taken.
+
+## Model identity is the provider instance, never the model id alone
+
+- Date: 2026-09-05
+- Decision: a model is identified by normalized provider + normalized API base +
+  model id, in both the picker and the backend's find-or-create.
+- Reason: two configured providers can each expose `deepseek-chat`. They are
+  different models reached with different credentials, and deduplicating on the
+  id would route one provider's model through the other's key.
+- Consequence: selecting the same id from a second provider creates a second
+  entry, and selecting one already configured for that instance reuses it rather
+  than duplicating. Both directions are tested.
+
+## Discovery names an index; the credential never leaves the backend
+
+- Date: 2026-09-05
+- Decision: model discovery posts `{provider, api_base, model_index}` to
+  `POST /api/models/fetch` and never an API key. The backend resolves the stored
+  credential itself after verifying the provider and base match the entry at
+  that index. Materialization copies the stored `SecureStrings` across without
+  decrypting it.
+- Reason: a browser that never holds a key cannot leak one — into state, a URL,
+  a log or an error report. The index is enough for the server to do the lookup
+  and is meaningless to anyone who intercepts it.
+- Consequence: tests assert `api_key` is absent from every request the frontend
+  makes. A future selector must reuse this path rather than accepting a key.
+
+## A discovered fallback is materialized separately from saving the chain
+
+- Date: 2026-09-05
+- Decision: selecting a discovered model in the Fallback picker materializes it
+  into `model_list` immediately, and the ordered chain is written later by the
+  section's existing Save. These are two operations, deliberately.
+- Reason: the section holds a reorder/remove draft. Appending server-side would
+  apply to the *saved* chain and silently discard unsaved reordering. Choosing
+  the draft keeps one save path and one place the chain is validated.
+- Consequence: if the later save fails, the model remains a valid, reusable
+  configured entry that is not in the chain. That is recoverable and is the
+  accepted trade. **It is not atomic and must not be documented as such.**
+  Default-model materialization, which has no draft, *is* a single write.
+
+## PocketClaw exposes no dedicated Vision / Image Model selector
+
+- Date: 2026-09-05
+- Decision: the model routing surface is **Default Model and Fallback Models**,
+  and nothing else. A user who needs image support chooses a multimodal model as
+  their Default Model. A Vision / Image Model control was built on
+  `feature/configured-model-discovery` and removed before merge; the commits
+  that added it, `bc7c3ff` and `c9c0db2`, were reverted.
+- Reason: image capability is a property of the provider and the model, not a
+  routing problem the product needs a second selector for. Two model roles is
+  the amount of configuration this product wants a user to carry, and a third
+  one earns its place only if choosing a multimodal default turns out not to
+  work.
+- Consequence: **Vision routing is not a delivered PocketClaw feature and must
+  not be described as one.** Core's `agents.defaults.image_model`,
+  `agents.defaults.image_model_fallbacks` and `routeMediaTurn` predate this
+  branch, are load-bearing upstream behaviour, and were deliberately left
+  byte-identical to `develop` — they stay reachable by editing the config file,
+  with no Dashboard or API surface. Removing them is a separate decision nobody
+  has made.
+
 ## APERTURE is the accepted PocketClaw visual identity
 
 - Date: 2026-09-05

@@ -1,28 +1,29 @@
-import {
-  IconArrowDown,
-  IconArrowUp,
-  IconPlus,
-  IconX,
-} from "@tabler/icons-react"
-import { useEffect, useState } from "react"
+import { IconArrowDown, IconArrowUp, IconPlus, IconX } from "@tabler/icons-react"
+import { useEffect, useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 
-import { type ModelInfo, setModelFallbacks } from "@/api/models"
-import { Button } from "@/components/ui/button"
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
+  type ModelInfo,
+  type ModelProviderOption,
+  materializeModel,
+  setModelFallbacks,
+} from "@/api/models"
+import { ConfiguredModelPicker } from "@/components/models/configured-model-picker"
+import { Button } from "@/components/ui/button"
+import { useConfiguredModels } from "@/hooks/use-configured-models"
+import {
+  type ConfiguredProviderGroup,
+  type SelectableModel,
+  modelKey,
+} from "@/lib/configured-model-source"
 import { saveAndApplyGatewayConfig } from "@/lib/restart-required"
 
 interface FallbackModelsSectionProps {
   models: ModelInfo[]
   fallbacks: string[]
   defaultModelName?: string
+  providerOptions?: ModelProviderOption[]
   onSaved: () => Promise<void> | void
 }
 
@@ -37,11 +38,22 @@ export function FallbackModelsSection({
   models,
   fallbacks,
   defaultModelName,
+  providerOptions,
   onSaved,
 }: FallbackModelsSectionProps) {
   const { t } = useTranslation()
   const [draft, setDraft] = useState<string[]>(fallbacks)
   const [saving, setSaving] = useState(false)
+  const [adding, setAdding] = useState(false)
+
+  // The one source every routing selector uses. It is what stops the shipped
+  // keyless provider templates — azure, groq, cerebras, ollama and the rest —
+  // from appearing here at all.
+  const { groups, discover, discoverAll } = useConfiguredModels({
+    models,
+    providerOptions,
+    defaultModelName,
+  })
 
   // Re-sync when the page reloads its model list, so a save elsewhere does not
   // leave this section showing stale entries.
@@ -49,16 +61,30 @@ export function FallbackModelsSection({
     setDraft(fallbacks)
   }, [fallbacks])
 
-  // A model can be a fallback if it is a real chat model, is not already in the
-  // chain, and is not the primary itself. The last exclusion matters: a primary
-  // listed as its own fallback would make the chain retry the candidate that
-  // just failed.
-  const selectable = models.filter(
-    (model) =>
-      !model.is_virtual &&
-      model.default_model_allowed !== false &&
-      model.model_name !== defaultModelName &&
-      !draft.includes(model.model_name),
+  // Populate the picker once the configured providers are known, so opening it
+  // does not start with an empty list. Each provider is queried independently.
+  useEffect(() => {
+    void discoverAll()
+  }, [discoverAll])
+
+  // A model cannot be a fallback if it is already in the chain or is the
+  // primary itself: a primary listed as its own fallback would make the chain
+  // retry the candidate that just failed. Everything else about selectability
+  // — configured provider, routable entry — is decided by the shared source.
+  const takenKeys = useMemo(() => {
+    const taken = new Set<string>()
+    for (const model of models) {
+      const excluded =
+        draft.includes(model.model_name) || model.model_name === defaultModelName
+      if (excluded) {
+        taken.add(modelKey(model.provider, model.api_base, model.model))
+      }
+    }
+    return taken
+  }, [models, draft, defaultModelName])
+
+  const hasCandidates = groups.some((group) =>
+    group.models.some((model) => !takenKeys.has(model.key)),
   )
 
   const dirty =
@@ -71,6 +97,45 @@ export function FallbackModelsSection({
     const next = [...draft]
     ;[next[index], next[target]] = [next[target], next[index]]
     setDraft(next)
+  }
+
+  const handlePick = async (
+    model: SelectableModel,
+    group: ConfiguredProviderGroup,
+  ) => {
+    if (model.origin === "configured" && model.modelName) {
+      setDraft([...draft, model.modelName])
+      return
+    }
+
+    // A fallback references model_list by name, and that invariant is not
+    // relaxed for discovery — the entry has to exist first. The backend
+    // creates it from the provider instance the model was discovered through,
+    // inheriting that provider's base URL and stored credential; the key never
+    // passes through here.
+    setAdding(true)
+    try {
+      const res = await materializeModel({
+        source_index: group.sourceIndex,
+        model: model.model,
+        // No role: the chain is applied by the single Save below, so a
+        // half-applied role is not a state this can reach.
+        role: "",
+      })
+      setDraft((current) =>
+        current.includes(res.model_name) ? current : [...current, res.model_name],
+      )
+      if (res.created) {
+        toast.success(
+          t("models.discovery.addedModel", { model: res.model_name }),
+        )
+      }
+      await onSaved()
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : t("models.loadError"))
+    } finally {
+      setAdding(false)
+    }
   }
 
   const handleSave = async () => {
@@ -170,27 +235,16 @@ export function FallbackModelsSection({
       )}
 
       <div className="mt-3 flex flex-wrap items-center gap-2">
-        <Select
-          value=""
-          onValueChange={(name) => setDraft([...draft, name])}
-          disabled={selectable.length === 0}
-        >
-          <SelectTrigger className="w-64" aria-label={t("models.fallbacks.add")}>
-            <SelectValue placeholder={t("models.fallbacks.add")} />
-          </SelectTrigger>
-          <SelectContent>
-            {selectable.map((model) => (
-              <SelectItem key={model.model_name} value={model.model_name}>
-                {model.model_name}
-                <span className="text-pc-faint ms-2 text-xs">
-                  {[model.provider, model.model].filter(Boolean).join(" · ")}
-                </span>
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <ConfiguredModelPicker
+          groups={groups}
+          takenKeys={takenKeys}
+          triggerLabel={t("models.fallbacks.add")}
+          busy={adding}
+          onSelect={(model, group) => void handlePick(model, group)}
+          onRefresh={(groupKey) => void discover(groupKey)}
+        />
 
-        {selectable.length === 0 && draft.length === 0 && (
+        {!hasCandidates && draft.length === 0 && (
           <span className="text-pc-muted text-sm">
             {t("models.fallbacks.noCandidates")}
           </span>

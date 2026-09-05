@@ -478,6 +478,26 @@
       "saved": "Fallback models updated.",
       "noCandidates": "Configure another model to use it as a fallback.",
       "missingModel": "This model is no longer configured"
+    },
+    "discovery": {
+      "heading": "আপনার প্রোভাইডার থেকে যোগ করুন",
+      "configured": "কনফিগার করা",
+      "discovered": "আবিষ্কৃত",
+      "refresh": "মডেল তালিকা রিফ্রেশ করুন",
+      "retry": "আবার চেষ্টা করুন",
+      "failed": "এই প্রোভাইডারে পৌঁছানো যায়নি",
+      "noModels": "এই প্রোভাইডারের জন্য কোনো মডেল পাওয়া যায়নি।",
+      "empty": "এখনও কোনো কনফিগার করা প্রোভাইডার নেই। এখানে মডেল বাছতে একটি প্রোভাইডার যোগ করুন।",
+      "adding": "যোগ করা হচ্ছে...",
+      "searchPlaceholder": "মডেল ফিল্টার করুন",
+      "unsupported": "এই প্রোভাইডার মডেল তালিকা প্রকাশ করে না।",
+      "addedModel": "{{model}} এখন একটি মডেল হিসেবে উপলব্ধ।"
+    },
+    "defaultModel": {
+      "title": "ডিফল্ট মডেল",
+      "description": "PocketClaw যে মডেল দিয়ে উত্তর দেয়। আপনার কনফিগার করা প্রোভাইডার থেকে বাছুন।",
+      "none": "কোনো ডিফল্ট মডেল নির্বাচিত নেই।",
+      "change": "ডিফল্ট মডেল পরিবর্তন করুন"
     }
   },
   "channels": {

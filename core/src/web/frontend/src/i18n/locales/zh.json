@@ -478,6 +478,26 @@
       "saved": "备用模型已更新。",
       "noCandidates": "请先配置另一个模型，才能将其用作备用模型。",
       "missingModel": "该模型已不在配置中"
+    },
+    "discovery": {
+      "heading": "从已配置的服务商添加",
+      "configured": "已配置",
+      "discovered": "已发现",
+      "refresh": "刷新模型列表",
+      "retry": "重试",
+      "failed": "无法连接该服务商",
+      "noModels": "未找到该服务商的模型。",
+      "empty": "尚未配置任何服务商。添加服务商后即可在此选择模型。",
+      "adding": "正在添加...",
+      "searchPlaceholder": "筛选模型",
+      "unsupported": "该服务商不提供模型列表。",
+      "addedModel": "{{model}} 现在可作为模型使用。"
+    },
+    "defaultModel": {
+      "title": "默认模型",
+      "description": "PocketClaw 用于回答的模型。从你已配置的服务商中选择。",
+      "none": "尚未选择默认模型。",
+      "change": "更改默认模型"
     }
   },
   "channels": {

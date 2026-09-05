@@ -1,5 +1,68 @@
 # Development Changelog
 
+## 2026-09-05 — Thirty providers nobody configured, and the filter that was missing
+
+Branch `feature/configured-model-discovery`, from `develop` at `2b37af2`, merged
+with `--no-ff`. Four commits, physically accepted as vc41.
+
+The Fallback Models picker offered Azure, Cerebras, Anthropic, Groq, Ollama and
+Volcengine to a user who had configured OpenCode and Gemini. The obvious reading
+was that the picker was showing the built-in provider catalog. It was not.
+`config.DefaultConfig()` seeds `model_list` with thirty keyless provider
+templates — they ship in every fresh config — and the backend already labelled
+every one of them `status: "unconfigured"`. The chat Default selector read that
+flag and hid them. The Fallback picker filtered on virtual, duplicate and
+self-reference, and never on whether the provider existed. One list, two
+filters, and only one of them was right.
+
+Adding a third filter would have set the same trap again, so the rule moved into
+`lib/configured-model-source.ts` and every routing selector was pointed at it. A
+structural test now fails the suite if a selector re-implements the rule, imports
+the provider preset registry, or reads `common_models` — the guard is the part
+that makes this stay fixed.
+
+Live discovery then had somewhere safe to live. `POST /api/models/fetch` already
+existed and already took a `model_index` instead of a key, resolving the stored
+credential on the server after checking the provider and base match; the work was
+to call it per configured provider and merge the results. Under
+`Promise.allSettled`, not `Promise.all` — one provider timing out shows a retry
+on that group and leaves the others' results standing, which is the difference
+between a degraded picker and an empty one. Nothing falls back to the global
+catalog, on failure or otherwise.
+
+Selecting a discovered model needed one more thing. Default and fallback
+references are validated against `model_list` by name, and that invariant was
+not worth relaxing for a picker, so `POST /api/models/materialize` finds or
+creates the entry *and* applies the role against a single in-memory config with
+one `SaveConfig`. A rejected role writes nothing at all. Identity is the provider
+instance plus the id — normalized provider, normalized API base, model id —
+because two configured providers can both expose `deepseek-chat` and collapsing
+them would route one through the other's credential.
+
+A dedicated Vision / Image Model surface was built on this branch and then
+rejected. It turned out Core had carried `agents.defaults.image_model` and
+`routeMediaTurn` all along and the only gap was the API never reporting the
+field, but the product answer was that two model roles is enough: a user who
+needs images picks a multimodal default. The surface was reverted in `66d80ee`,
+the whole tree returned byte-identical to the discovery commit, and
+`libpicoclaw-web.so` came back to its exact pre-Vision byte count — the embedded
+frontend confirming the removal rather than the source tree claiming it. Core's
+image fields and routing were left untouched and remain config-file reachable.
+
+One thing is deliberately not atomic and is documented as such: a discovered
+*fallback* is materialized first and the ordered chain is saved by the existing
+Save flow. Appending server-side would have silently clobbered unsaved
+reordering. If the save fails, the model is a valid configured entry outside the
+chain — a recoverable state, not a broken one.
+
+Frontend `tsc`, `eslint` and 391 tests green. `web/backend/...`, `pkg/agent` and
+`pkg/config` Go suites pass. Final artifact `0.2.0` versionCode 41, 64,211,166
+bytes, SHA-256
+`4fd3c201bb9a07017a954ade90f5eb471b97d281e057a58fad4b7e18cf76e7ec`.
+
+`TestNoUserFacingWhatsAppSurface` still fails identically to the develop
+baseline. Unrelated, and not fixed here.
+
 ## 2026-09-05 — APERTURE, and four defects that were never a matter of taste
 
 Branch `feature/visual-redesign-aperture`, from `develop` at `9877365`, merged
