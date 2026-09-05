@@ -508,7 +508,7 @@
       "clear": "Standardmodell verwenden",
       "capabilityUnknown": "Bildunterstützung unbekannt",
       "visionCapable": "Unterstützt Bilder",
-      "note": "Nur das Modell dieser Anfrage ändert sich. Sitzung, Tools und Fallback-Kette bleiben gleich."
+      "note": "Nur das Modell dieser Anfrage ändert sich — Sitzung, Tools und Kontext bleiben gleich. Die Fallback-Modelle unten gelten nicht für Bildanfragen."
     }
   },
   "channels": {

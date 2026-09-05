@@ -508,7 +508,7 @@
       "clear": "Použít výchozí model",
       "capabilityUnknown": "Podpora obrázků neznámá",
       "visionCapable": "Podporuje obrázky",
-      "note": "Mění se jen model pro daný tah. Relace, nástroje a záložní řetěz zůstávají."
+      "note": "Mění se jen model pro daný tah — relace, nástroje a kontext zůstávají. Záložní modely níže se na obrázkové tahy nevztahují."
     }
   },
   "channels": {

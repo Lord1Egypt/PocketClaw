@@ -508,7 +508,7 @@
       "clear": "Usar o modelo padrão",
       "capabilityUnknown": "Suporte a imagens desconhecido",
       "visionCapable": "Suporta imagens",
-      "note": "Só o modelo daquele turno muda. Sessão, ferramentas e cadeia de fallback permanecem."
+      "note": "Só o modelo daquele turno muda — sessão, ferramentas e contexto permanecem. Os modelos de fallback abaixo não se aplicam a turnos com imagem."
     }
   },
   "channels": {

@@ -17,8 +17,16 @@ import (
 //	POST /api/models/vision   {"model_name": ""}     clear
 //
 // Clearing is a real state, not an error: with no dedicated vision model an
-// image turn goes to the default model exactly as it does today. That is the
-// behaviour every existing install already has, and it stays the default.
+// image turn goes to the default model exactly as it does today, and keeps the
+// normal fallback chain behind it. That is the behaviour every existing install
+// already has, and it stays the default.
+//
+// Setting one changes which chain an image turn walks, not just its first
+// entry: the agent builds image candidates from image_model plus
+// image_model_fallbacks and routeMediaTurn substitutes that list wholesale, so
+// the Fallback Models configured for text turns do not stand behind a vision
+// model. Nothing writes image_model_fallbacks yet, so a vision model set here
+// runs without a fallback.
 //
 // Selecting a model that is already in model_list is this endpoint. Selecting a
 // discovered model is `POST /api/models/materialize` with role "vision", which

@@ -508,7 +508,7 @@
       "clear": "Use the default model",
       "capabilityUnknown": "Vision support unknown",
       "visionCapable": "Supports images",
-      "note": "Only the model changes for that turn. The session, tools and fallback chain are unchanged."
+      "note": "Only the model changes for that turn — session, tools and context are unchanged. The Fallback Models below do not apply to image turns."
     }
   },
   "channels": {

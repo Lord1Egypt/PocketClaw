@@ -508,7 +508,7 @@
       "clear": "Utiliser le modèle par défaut",
       "capabilityUnknown": "Prise en charge des images inconnue",
       "visionCapable": "Prend en charge les images",
-      "note": "Seul le modèle de ce tour change. La session, les outils et la chaîne de repli restent identiques."
+      "note": "Seul le modèle de ce tour change — session, outils et contexte restent identiques. Les modèles de repli ci-dessous ne s'appliquent pas aux tours avec image."
     }
   },
   "channels": {

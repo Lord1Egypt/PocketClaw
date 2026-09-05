@@ -508,7 +508,7 @@
       "clear": "Usar el modelo predeterminado",
       "capabilityUnknown": "Compatibilidad con imágenes desconocida",
       "visionCapable": "Admite imágenes",
-      "note": "Solo cambia el modelo de ese turno. La sesión, las herramientas y la cadena de reserva no cambian."
+      "note": "Solo cambia el modelo de ese turno: la sesión, las herramientas y el contexto no cambian. Los modelos de reserva de abajo no se aplican a los turnos con imagen."
     }
   },
   "channels": {

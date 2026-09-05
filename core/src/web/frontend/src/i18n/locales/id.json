@@ -508,7 +508,7 @@
       "clear": "Pakai model bawaan",
       "capabilityUnknown": "Dukungan gambar tidak diketahui",
       "visionCapable": "Mendukung gambar",
-      "note": "Hanya model giliran itu yang berubah. Sesi, alat, dan rantai cadangan tetap."
+      "note": "Hanya model giliran itu yang berubah — sesi, alat, dan konteks tetap. Model cadangan di bawah tidak berlaku untuk giliran bergambar."
     }
   },
   "channels": {

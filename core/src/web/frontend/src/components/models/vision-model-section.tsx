@@ -35,9 +35,18 @@ interface VisionModelSectionProps {
  * reads as "Auto" rather than as something unconfigured.
  *
  * Only the model for that turn changes. The session, the rolling summary, the
- * tool set, the system prompt and the fallback chain are untouched, and a text
- * turn following an image turn goes back to the default — the routing decision
- * reads the current turn only.
+ * tool set and the system prompt are untouched, and a text turn following an
+ * image turn goes back to the default — the routing decision reads the current
+ * turn only.
+ *
+ * The fallback chain is the one thing that is *not* shared. An image turn walks
+ * `image_model` plus `image_model_fallbacks`, not the Fallback Models list
+ * below; the two chains are separate in `instance.go` and `routeMediaTurn`
+ * replaces the active candidate set outright. Since this control writes only
+ * `image_model`, a vision model configured here has no fallback behind it — if
+ * it is unavailable the image turn fails rather than falling through to the
+ * text chain. `image_model_fallbacks` is real and already honoured, but nothing
+ * in the Dashboard writes it yet.
  *
  * Selection comes from the same configured-provider source as the Default and
  * Fallback selectors, so an unconfigured provider template can no more appear
