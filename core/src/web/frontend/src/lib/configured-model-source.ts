@@ -42,6 +42,16 @@ export interface SelectableModel {
   available: boolean
   status?: ModelInfo["status"]
   isDefault: boolean
+  /**
+   * Whether the provider reported that this model accepts images.
+   *
+   * `undefined` means the provider did not say, which today is every model:
+   * the discovery response carries only `id` and `owned_by`. It is deliberately
+   * not inferred from the name — a model called `-vision` may not be one, and a
+   * routing decision made from a substring is a routing bug. When a provider
+   * starts reporting capabilities this is where they land.
+   */
+  visionCapable?: boolean
 }
 
 /** Whether a provider instance's live discovery has run, and how it went. */
@@ -156,6 +166,11 @@ export interface BuildGroupsInput {
   providerOptions?: ModelProviderOption[]
   /** Live discovery results, keyed by provider instance. */
   discovered?: Record<string, string[]>
+  /**
+   * Provider-reported vision capability, keyed by model key. Only populated
+   * from what a provider actually says; never inferred.
+   */
+  visionCapable?: Record<string, boolean>
   /** Discovery state, keyed by provider instance. */
   discoveryState?: Record<string, DiscoveryState>
   defaultModelName?: string
@@ -174,6 +189,7 @@ export function buildConfiguredProviderGroups({
   providerOptions,
   discovered = {},
   discoveryState = {},
+  visionCapable = {},
   defaultModelName,
 }: BuildGroupsInput): ConfiguredProviderGroup[] {
   const groups = new Map<string, ConfiguredProviderGroup>()
@@ -216,6 +232,7 @@ export function buildConfiguredProviderGroups({
       available: model.available,
       status: model.status,
       isDefault: model.model_name === defaultModelName,
+      visionCapable: visionCapable[modelKey(provider, model.api_base, bare)],
     })
   }
 
@@ -237,6 +254,7 @@ export function buildConfiguredProviderGroups({
         sourceIndex: group.sourceIndex,
         available: true,
         isDefault: false,
+        visionCapable: visionCapable[key],
       })
     }
   }

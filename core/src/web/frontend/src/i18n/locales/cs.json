@@ -498,6 +498,17 @@
       "description": "Model, kterým PocketClaw odpovídá. Vyberte z poskytovatelů, které máte nakonfigurované.",
       "none": "Není vybrán žádný výchozí model.",
       "change": "Změnit výchozí model"
+    },
+    "visionModel": {
+      "title": "Model pro obrázky",
+      "description": "Model, který odpovídá na tahy obsahující obrázek. Ponechte na Auto, aby obrázkové tahy šly na výchozí model.",
+      "auto": "Auto — použít výchozí model",
+      "autoHint": "Obrázkové tahy jdou na výchozí model, jako dosud.",
+      "change": "Vybrat model pro obrázky",
+      "clear": "Použít výchozí model",
+      "capabilityUnknown": "Podpora obrázků neznámá",
+      "visionCapable": "Podporuje obrázky",
+      "note": "Mění se jen model pro daný tah. Relace, nástroje a záložní řetěz zůstávají."
     }
   },
   "channels": {

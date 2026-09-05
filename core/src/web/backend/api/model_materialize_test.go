@@ -308,14 +308,23 @@ func TestMaterializeModel_CreatesNoDuplicateWhenTheRoleIsRejected(t *testing.T) 
 	}
 }
 
+// Roles fail closed: anything the switch does not name writes nothing at all,
+// rather than creating the entry and quietly assigning no role.
 func TestMaterializeModel_RejectsUnknownRole(t *testing.T) {
 	configPath, mux := materializeTestEnv(t)
-	rec := postMaterialize(t, mux, `{"source_index": 0, "model": "x", "role": "vision"}`)
-	if rec.Code != http.StatusBadRequest {
-		t.Fatalf("status = %d, want 400", rec.Code)
-	}
-	if got := len(loadConfigForTest(t, configPath).ModelList); got != 3 {
-		t.Fatalf("model_list changed: %d entries", got)
+	for _, role := range []string{"embedding", "audio", "Default", "vision-model"} {
+		rec := postMaterialize(t, mux,
+			`{"source_index": 0, "model": "x", "role": "`+role+`"}`)
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("role %q: status = %d, want 400", role, rec.Code)
+		}
+		cfg := loadConfigForTest(t, configPath)
+		if got := len(cfg.ModelList); got != 3 {
+			t.Fatalf("role %q: model_list changed to %d entries", role, got)
+		}
+		if cfg.Agents.Defaults.ImageModel != "" {
+			t.Fatalf("role %q: image_model was set", role)
+		}
 	}
 }
 

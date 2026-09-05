@@ -498,6 +498,17 @@
       "description": "O modelo com que o PocketClaw responde. Escolha entre os provedores que você configurou.",
       "none": "Nenhum modelo padrão selecionado.",
       "change": "Alterar modelo padrão"
+    },
+    "visionModel": {
+      "title": "Modelo de visão / imagem",
+      "description": "O modelo que responde a turnos com imagem. Deixe em Automático para enviar turnos com imagem ao seu modelo padrão.",
+      "auto": "Automático — usar o modelo padrão",
+      "autoHint": "Turnos com imagem vão para o seu modelo padrão, como hoje.",
+      "change": "Escolher modelo de visão",
+      "clear": "Usar o modelo padrão",
+      "capabilityUnknown": "Suporte a imagens desconhecido",
+      "visionCapable": "Suporta imagens",
+      "note": "Só o modelo daquele turno muda. Sessão, ferramentas e cadeia de fallback permanecem."
     }
   },
   "channels": {

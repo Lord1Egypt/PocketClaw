@@ -30,6 +30,7 @@ func (h *Handler) registerModelRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/models", h.handleAddModel)
 	mux.HandleFunc("POST /api/models/default", h.handleSetDefaultModel)
 	mux.HandleFunc("POST /api/models/fallbacks", h.handleSetModelFallbacks)
+	mux.HandleFunc("POST /api/models/vision", h.handleSetVisionModel)
 	mux.HandleFunc("POST /api/models/materialize", h.handleMaterializeModel)
 	mux.HandleFunc("PUT /api/models/{index}", h.handleUpdateModel)
 	mux.HandleFunc("DELETE /api/models/{index}", h.handleDeleteModel)
@@ -307,10 +308,14 @@ func (h *Handler) handleListModels(w http.ResponseWriter, r *http.Request) {
 		fallbacks = []string{}
 	}
 	json.NewEncoder(w).Encode(map[string]any{
-		"models":           models,
-		"total":            len(models),
-		"default_model":    defaultModel,
-		"model_fallbacks":  fallbacks,
+		"models":          models,
+		"total":           len(models),
+		"default_model":   defaultModel,
+		"model_fallbacks": fallbacks,
+		// The dedicated model for turns that carry an image. Empty means no
+		// dedicated model is configured and image turns go to the default,
+		// which is the behaviour every existing install already has.
+		"image_model":      strings.TrimSpace(cfg.Agents.Defaults.ImageModel),
 		"provider_options": modelProviderOptionsForResponse(),
 	})
 }
@@ -532,6 +537,19 @@ func (h *Handler) handleDeleteModel(w http.ResponseWriter, r *http.Request) {
 		cfg.Agents.Defaults.ModelName = ""
 	}
 
+	// Same for the vision model. A dangling reference does not degrade to the
+	// default: an unresolvable name is parsed as a bare model ref and becomes a
+	// candidate with no credential of its own, so every image turn would fail
+	// at call time. Clearing it restores the unset behaviour, where image turns
+	// go to the default.
+	//
+	// The fallback chain is deliberately not cleared here: a missing entry is
+	// rendered as a removable row, so the user can see and fix it, and that is
+	// pre-existing behaviour this change does not alter.
+	if cfg.Agents.Defaults.ImageModel == deletedModelName {
+		cfg.Agents.Defaults.ImageModel = ""
+	}
+
 	if err := config.SaveConfig(h.configPath, cfg); err != nil {
 		http.Error(w, fmt.Sprintf("Failed to save config: %v", err), http.StatusInternalServerError)
 		return
@@ -647,20 +665,38 @@ func (h *Handler) handleSetModelFallbacks(w http.ResponseWriter, r *http.Request
 
 // validateDefaultModelSelection reports why a model_name may not become the
 // default chat model, or "" when it may.
-//
-// The default, the fallback chain and any future routing role all reference
-// model_list by name. This is the single implementation of that check: a second
-// copy alongside it is how one caller ends up more permissive than the other.
 func validateDefaultModelSelection(cfg *config.Config, modelName string) string {
+	return validateRoutingModelSelection(cfg, modelName, "default")
+}
+
+// validateVisionModelSelection reports why a model_name may not become the
+// dedicated vision model, or "" when it may.
+//
+// The rules are the same as the default model's, and deliberately so: the
+// vision model is a primary for image turns and runs the same tool loop, the
+// same session and the same fallback chain. A virtual entry has no upstream and
+// a non-chat entry cannot answer a turn, whichever role it is holding.
+func validateVisionModelSelection(cfg *config.Config, modelName string) string {
+	return validateRoutingModelSelection(cfg, modelName, "vision")
+}
+
+// validateRoutingModelSelection is the single implementation behind every
+// routing role.
+//
+// The default, the vision model and the fallback chain all reference model_list
+// by name and all need the same three things to be true. One implementation is
+// what stops one caller from becoming more permissive than the others, which is
+// exactly how the fallback picker and the default selector drifted apart.
+func validateRoutingModelSelection(cfg *config.Config, modelName, role string) string {
 	for _, m := range cfg.ModelList {
 		if m == nil || m.ModelName != modelName {
 			continue
 		}
 		if m.IsVirtual() {
-			return fmt.Sprintf("Cannot set virtual model %q as default", modelName)
+			return fmt.Sprintf("Cannot set virtual model %q as %s", modelName, role)
 		}
 		if !defaultModelAllowedForModelConfig(m) {
-			return fmt.Sprintf("Model %q cannot be used as the default chat model", modelName)
+			return fmt.Sprintf("Model %q cannot be used as the %s chat model", modelName, role)
 		}
 		return ""
 	}
