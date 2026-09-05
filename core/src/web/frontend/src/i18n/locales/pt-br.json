@@ -478,6 +478,26 @@
       "saved": "Modelos de fallback atualizados.",
       "noCandidates": "Configure outro modelo para usá-lo como fallback.",
       "missingModel": "Este modelo não está mais configurado"
+    },
+    "discovery": {
+      "heading": "Adicionar dos seus provedores",
+      "configured": "Configurado",
+      "discovered": "Descoberto",
+      "refresh": "Atualizar lista de modelos",
+      "retry": "Tentar novamente",
+      "failed": "Não foi possível contatar este provedor",
+      "noModels": "Nenhum modelo encontrado para este provedor.",
+      "empty": "Nenhum provedor configurado ainda. Adicione um provedor para escolher modelos aqui.",
+      "adding": "Adicionando...",
+      "searchPlaceholder": "Filtrar modelos",
+      "unsupported": "Este provedor não publica uma lista de modelos.",
+      "addedModel": "{{model}} agora está disponível como modelo."
+    },
+    "defaultModel": {
+      "title": "Modelo padrão",
+      "description": "O modelo com que o PocketClaw responde. Escolha entre os provedores que você configurou.",
+      "none": "Nenhum modelo padrão selecionado.",
+      "change": "Alterar modelo padrão"
     }
   },
   "channels": {

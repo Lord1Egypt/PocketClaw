@@ -22,6 +22,7 @@ import { AddModelSheet } from "./add-model-sheet"
 import { CatalogDialog } from "./catalog-dialog"
 import { DeleteModelDialog } from "./delete-model-dialog"
 import { EditModelSheet } from "./edit-model-sheet"
+import { DefaultModelSection } from "./default-model-section"
 import { FallbackModelsSection } from "./fallback-models-section"
 import {
   getCanonicalProviderKey,
@@ -212,10 +213,20 @@ export function ModelsPage() {
             own list.
           */}
           {!loading && models.length > 0 && (
+            <DefaultModelSection
+              models={models}
+              defaultModelName={defaultModel?.model_name}
+              providerOptions={providerOptions}
+              onSaved={fetchModels}
+            />
+          )}
+
+          {!loading && models.length > 0 && (
             <FallbackModelsSection
               models={models}
               fallbacks={fallbacks}
               defaultModelName={defaultModel?.model_name}
+              providerOptions={providerOptions}
               onSaved={fetchModels}
             />
           )}

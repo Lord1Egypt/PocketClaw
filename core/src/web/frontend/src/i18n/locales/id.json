@@ -478,6 +478,26 @@
         "managed": "Memakai kredensial platform atau CLI lokal",
         "speech": "Hanya pengenalan ucapan"
       }
+    },
+    "discovery": {
+      "heading": "Tambah dari penyedia Anda",
+      "configured": "Terkonfigurasi",
+      "discovered": "Ditemukan",
+      "refresh": "Segarkan daftar model",
+      "retry": "Coba lagi",
+      "failed": "Tidak dapat menghubungi penyedia ini",
+      "noModels": "Tidak ada model untuk penyedia ini.",
+      "empty": "Belum ada penyedia terkonfigurasi. Tambahkan penyedia untuk memilih model di sini.",
+      "adding": "Menambahkan...",
+      "searchPlaceholder": "Saring model",
+      "unsupported": "Penyedia ini tidak menerbitkan daftar model.",
+      "addedModel": "{{model}} kini tersedia sebagai model."
+    },
+    "defaultModel": {
+      "title": "Model Bawaan",
+      "description": "Model yang dipakai PocketClaw untuk menjawab. Pilih dari penyedia yang sudah Anda konfigurasi.",
+      "none": "Belum ada model bawaan yang dipilih.",
+      "change": "Ubah model bawaan"
     }
   },
   "channels": {

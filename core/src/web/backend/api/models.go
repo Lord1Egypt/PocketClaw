@@ -30,6 +30,7 @@ func (h *Handler) registerModelRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/models", h.handleAddModel)
 	mux.HandleFunc("POST /api/models/default", h.handleSetDefaultModel)
 	mux.HandleFunc("POST /api/models/fallbacks", h.handleSetModelFallbacks)
+	mux.HandleFunc("POST /api/models/materialize", h.handleMaterializeModel)
 	mux.HandleFunc("PUT /api/models/{index}", h.handleUpdateModel)
 	mux.HandleFunc("DELETE /api/models/{index}", h.handleDeleteModel)
 	mux.HandleFunc("POST /api/models/{index}/test", h.handleTestModel)
@@ -570,36 +571,13 @@ func (h *Handler) handleSetDefaultModel(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	// Verify the model_name exists in model_list and is not a virtual model
-	found := false
-	isVirtual := false
-	for _, m := range cfg.ModelList {
-		if m.ModelName == req.ModelName {
-			found = true
-			isVirtual = m.IsVirtual()
-			break
+	if reason := validateDefaultModelSelection(cfg, req.ModelName); reason != "" {
+		status := http.StatusBadRequest
+		if strings.Contains(reason, "not found in model_list") {
+			status = http.StatusNotFound
 		}
-	}
-	if !found {
-		http.Error(w, fmt.Sprintf("Model %q not found in model_list", req.ModelName), http.StatusNotFound)
+		http.Error(w, reason, status)
 		return
-	}
-	if isVirtual {
-		http.Error(w, fmt.Sprintf("Cannot set virtual model %q as default", req.ModelName), http.StatusBadRequest)
-		return
-	}
-	for _, m := range cfg.ModelList {
-		if m.ModelName == req.ModelName {
-			if !defaultModelAllowedForModelConfig(m) {
-				http.Error(
-					w,
-					fmt.Sprintf("Model %q cannot be used as the default chat model", req.ModelName),
-					http.StatusBadRequest,
-				)
-				return
-			}
-			break
-		}
 	}
 
 	cfg.Agents.Defaults.ModelName = req.ModelName
@@ -665,6 +643,28 @@ func (h *Handler) handleSetModelFallbacks(w http.ResponseWriter, r *http.Request
 		"status":    "ok",
 		"fallbacks": normalized,
 	})
+}
+
+// validateDefaultModelSelection reports why a model_name may not become the
+// default chat model, or "" when it may.
+//
+// The default, the fallback chain and any future routing role all reference
+// model_list by name. This is the single implementation of that check: a second
+// copy alongside it is how one caller ends up more permissive than the other.
+func validateDefaultModelSelection(cfg *config.Config, modelName string) string {
+	for _, m := range cfg.ModelList {
+		if m == nil || m.ModelName != modelName {
+			continue
+		}
+		if m.IsVirtual() {
+			return fmt.Sprintf("Cannot set virtual model %q as default", modelName)
+		}
+		if !defaultModelAllowedForModelConfig(m) {
+			return fmt.Sprintf("Model %q cannot be used as the default chat model", modelName)
+		}
+		return ""
+	}
+	return fmt.Sprintf("Model %q not found in model_list", modelName)
 }
 
 // normalizeModelFallbacks validates an ordered fallback list against the

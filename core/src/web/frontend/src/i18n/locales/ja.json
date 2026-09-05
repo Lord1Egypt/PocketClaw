@@ -478,6 +478,26 @@
         "managed": "プラットフォームの認証情報またはローカル CLI を使用",
         "speech": "音声認識のみ"
       }
+    },
+    "discovery": {
+      "heading": "設定済みプロバイダーから追加",
+      "configured": "設定済み",
+      "discovered": "検出",
+      "refresh": "モデル一覧を更新",
+      "retry": "再試行",
+      "failed": "このプロバイダーに接続できませんでした",
+      "noModels": "このプロバイダーのモデルが見つかりません。",
+      "empty": "設定済みのプロバイダーがありません。プロバイダーを追加するとここでモデルを選べます。",
+      "adding": "追加中...",
+      "searchPlaceholder": "モデルを絞り込む",
+      "unsupported": "このプロバイダーはモデル一覧を公開していません。",
+      "addedModel": "{{model}} をモデルとして利用できるようになりました。"
+    },
+    "defaultModel": {
+      "title": "デフォルトモデル",
+      "description": "PocketClaw が応答に使うモデルです。設定済みのプロバイダーから選択します。",
+      "none": "デフォルトモデルが選択されていません。",
+      "change": "デフォルトモデルを変更"
     }
   },
   "channels": {

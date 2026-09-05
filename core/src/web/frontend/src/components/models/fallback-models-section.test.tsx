@@ -5,9 +5,13 @@ import type { ModelInfo } from "@/api/models"
 
 const setModelFallbacks = vi.fn()
 const saveAndApplyGatewayConfig = vi.fn()
+const materializeModel = vi.fn()
+const fetchUpstreamModels = vi.fn()
 
 vi.mock("@/api/models", () => ({
   setModelFallbacks: (...args: unknown[]) => setModelFallbacks(...args),
+  materializeModel: (...args: unknown[]) => materializeModel(...args),
+  fetchUpstreamModels: (...args: unknown[]) => fetchUpstreamModels(...args),
 }))
 
 vi.mock("@/lib/restart-required", () => ({
@@ -67,6 +71,10 @@ describe("FallbackModelsSection", () => {
   beforeEach(() => {
     vi.clearAllMocks()
     setModelFallbacks.mockResolvedValue({ status: "ok", fallbacks: [] })
+    // No provider in this fixture advertises supports_fetch, so discovery is
+    // never invoked; a rejection here would surface as a group-level error
+    // rather than as a failure of the chain under test.
+    fetchUpstreamModels.mockResolvedValue({ models: [], total: 0 })
   })
 
   it("shows an explicit empty state when no fallback is configured", async () => {

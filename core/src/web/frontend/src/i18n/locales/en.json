@@ -478,6 +478,26 @@
         "managed": "Uses platform credentials or a local CLI",
         "speech": "Speech recognition only"
       }
+    },
+    "discovery": {
+      "heading": "Add from your providers",
+      "configured": "Configured",
+      "discovered": "Discovered",
+      "refresh": "Refresh model list",
+      "retry": "Retry",
+      "failed": "Could not reach this provider",
+      "noModels": "No models found for this provider.",
+      "empty": "No configured providers yet. Add a provider to choose models here.",
+      "adding": "Adding...",
+      "searchPlaceholder": "Filter models",
+      "unsupported": "This provider does not publish a model list.",
+      "addedModel": "{{model}} is now available as a model."
+    },
+    "defaultModel": {
+      "title": "Default Model",
+      "description": "The model PocketClaw answers with. Choose from the providers you have configured.",
+      "none": "No default model selected.",
+      "change": "Change default model"
     }
   },
   "channels": {
