@@ -75,19 +75,25 @@ export function AssistantMessage({
     <div className="group flex w-full flex-col gap-1.5">
       {!isCollapsedBlock && (
         <div className="text-pc-faint flex items-center justify-between gap-2 text-xs">
-          <div className="flex items-center gap-2 ps-4">
+          <div className="flex min-w-0 items-center gap-2 ps-4">
             <PocketClawMark className="text-pc-claw size-3.5" />
             <span className="font-medium">PocketClaw</span>
             {trimmedModelName && (
               <>
                 <span aria-hidden="true">·</span>
-                <span className="pc-mono">{trimmedModelName}</span>
+                <span className="pc-mono truncate" dir="ltr">
+                  {trimmedModelName}
+                </span>
               </>
             )}
             {formattedTimestamp && (
               <>
-                <span aria-hidden="true">·</span>
-                <span>{formattedTimestamp}</span>
+                <span aria-hidden="true" className="hidden sm:inline">
+                  ·
+                </span>
+                <span className="hidden shrink-0 sm:inline">
+                  {formattedTimestamp}
+                </span>
               </>
             )}
           </div>
@@ -105,16 +111,16 @@ export function AssistantMessage({
         >
           {isCollapsedBlock && (
             <div
-              className="text-pc-faint hover:text-pc-muted flex cursor-pointer items-center justify-between px-3 py-2 text-[12px] font-medium transition-colors select-none"
+              className="text-pc-muted hover:text-pc-text hover:bg-pc-surface-2 flex cursor-pointer items-center justify-between gap-2 px-3 py-2 text-[12px] font-medium transition-colors select-none"
               onClick={() => setIsExpanded(!isExpanded)}
             >
               <div className="flex items-center gap-1.5">
                 {isThought ? (
-                  <IconBrain className="size-3.5" />
+                  <IconBrain className="text-pc-faint size-3.5" />
                 ) : (
-                  <IconTool className="size-3.5" />
+                  <IconTool className="text-pc-faint size-3.5" />
                 )}
-                <span>{collapsedLabel}</span>
+                <span className="font-medium">{collapsedLabel}</span>
                 {trimmedModelName && (
                   <span className="pc-mono text-pc-faint">
                     {trimmedModelName}
@@ -127,7 +133,7 @@ export function AssistantMessage({
                 )}
                 <IconChevronDown
                   className={cn(
-                    "size-3.5 opacity-0 transition-all duration-200 group-hover:opacity-100",
+                    "size-3.5 shrink-0 transition-transform duration-200",
                     isExpanded ? "rotate-180" : "",
                   )}
                 />
@@ -216,7 +222,20 @@ export function AssistantMessage({
           {(!isCollapsedBlock || isExpanded) && !isToolCalls && hasText && (
             <div
               className={cn(
-                "prose dark:prose-invert prose-pre:my-2 prose-pre:overflow-x-auto prose-pre:rounded-lg prose-pre:border prose-pre:bg-pc-surface-1 prose-pre:border-pc-line prose-pre:p-0 max-w-none [overflow-wrap:anywhere] break-words",
+                "prose dark:prose-invert max-w-none [overflow-wrap:anywhere] break-words",
+                // Headings inside an answer are section markers, not page
+                // titles: they step down in size but keep the body's colour.
+                "prose-headings:font-semibold prose-headings:tracking-[-0.01em] prose-h1:text-[1.125rem] prose-h2:text-[1.0625rem] prose-h3:text-[1rem]",
+                "prose-strong:text-pc-text prose-headings:text-pc-text prose-li:marker:text-pc-faint",
+                // Inline code is a machine value sitting inside prose, so it
+                // gets the mono face and a surface, not a colour change.
+                "prose-code:bg-pc-surface-3 prose-code:text-pc-text prose-code:rounded-[4px] prose-code:px-1 prose-code:py-0.5 prose-code:font-normal prose-code:before:content-none prose-code:after:content-none",
+                "prose-pre:my-3 prose-pre:overflow-x-auto prose-pre:rounded-lg prose-pre:border-0 prose-pre:bg-transparent prose-pre:p-0",
+                // A wide table scrolls in its own box; the thread never does.
+                "prose-table:my-3 prose-table:block prose-table:w-full prose-table:overflow-x-auto prose-table:text-sm",
+                "prose-th:text-pc-faint prose-th:border-pc-line prose-th:whitespace-nowrap prose-td:border-pc-line prose-td:align-top",
+                "prose-a:text-pc-claw prose-a:underline-offset-2",
+                "prose-blockquote:border-s-2 prose-blockquote:border-s-pc-line prose-blockquote:border-e-0 prose-blockquote:not-italic prose-blockquote:text-pc-muted",
                 isThought
                   ? "prose-p:my-1.5 prose-p:whitespace-pre-wrap px-3 pt-0 pb-3 text-[13px] leading-relaxed opacity-70"
                   : "prose-p:my-2 prose-p:whitespace-pre-wrap p-4 text-[15px] leading-relaxed",

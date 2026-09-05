@@ -64,10 +64,9 @@ export function ModelCard({
   return (
     <div
       className={[
-        "group/card hover:bg-muted/30 relative flex w-full max-w-[36rem] flex-col gap-3 justify-self-start rounded-xl border p-4 transition-colors hover:shadow-xs",
-        model.available
-          ? "border-border/60 bg-card"
-          : "border-border/50 bg-card/60",
+        "group/card border-pc-line bg-pc-surface-1 hover:bg-pc-surface-2 relative flex w-full flex-col gap-3 justify-self-stretch rounded-xl border border-s-2 p-4 transition-colors",
+        model.is_default ? "border-s-pc-claw" : "border-s-pc-line",
+        model.available ? "" : "opacity-75",
       ].join(" ")}
     >
       <div className="flex items-start justify-between gap-2">
@@ -75,35 +74,38 @@ export function ModelCard({
           <span
             className={[
               "mt-0.5 h-2 w-2 shrink-0 rounded-full",
-              model.is_default
-                ? "bg-green-400 shadow-[0_0_0_2px_rgba(74,222,128,0.35)]"
-                : status === "available"
-                  ? "bg-green-500"
-                  : status === "unreachable"
-                    ? "bg-amber-500"
-                    : "bg-muted-foreground/25",
+              status === "available"
+                ? "bg-pc-success"
+                : status === "unreachable"
+                  ? "bg-pc-warning"
+                  : "bg-pc-faint",
             ].join(" ")}
             title={statusLabel}
           />
-          <span className="text-foreground truncate text-sm font-semibold">
+          <span className="text-pc-text truncate text-sm font-semibold">
             {model.model_name}
           </span>
-          {model.is_default && (
-            <span className="bg-primary/10 text-primary shrink-0 rounded px-1.5 py-0.5 text-[10px] leading-none font-medium">
-              {t("models.badge.default")}
-            </span>
-          )}
-          {model.is_virtual && (
-            <span className="bg-muted text-muted-foreground shrink-0 rounded px-1.5 py-0.5 text-[10px] leading-none font-medium">
-              {t("models.badge.virtual")}
-            </span>
-          )}
+          {/* Role badges. More than one role can apply to a model, so this
+              is a wrapping row rather than a single slot — a later routing
+              role lands here as a sibling, not as a redesign. */}
+          <div className="flex shrink-0 flex-wrap items-center gap-1">
+            {model.is_default && (
+              <span className="bg-pc-claw-soft text-pc-claw pc-micro shrink-0 rounded-xs px-1.5 py-0.5">
+                {t("models.badge.default")}
+              </span>
+            )}
+            {model.is_virtual && (
+              <span className="bg-pc-surface-3 text-pc-muted pc-micro shrink-0 rounded-xs px-1.5 py-0.5">
+                {t("models.badge.virtual")}
+              </span>
+            )}
+          </div>
         </div>
 
         <div className="flex shrink-0 items-center gap-0.5">
           {model.is_default ? (
             <span
-              className="text-primary p-1"
+              className="text-pc-claw p-1"
               title={t("models.badge.default")}
             >
               <IconStarFilled className="size-3.5" />
@@ -180,7 +182,7 @@ export function ModelCard({
                   disabled={deleteDisabled}
                   aria-label={deleteLabel}
                   title={deleteLabel}
-                  className="text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                  className="text-pc-muted hover:text-pc-danger hover:bg-pc-danger-soft"
                 >
                   <IconTrash className="size-3.5" />
                 </Button>
@@ -191,24 +193,27 @@ export function ModelCard({
         </div>
       </div>
 
-      <p className="text-muted-foreground truncate font-mono text-xs leading-snug">
+      <p
+        className="text-pc-muted pc-mono truncate text-xs leading-snug"
+        dir="ltr"
+      >
         {model.model}
       </p>
 
       <div className="flex items-center gap-2">
         {isOAuth ? (
-          <span className="text-muted-foreground bg-muted rounded px-1.5 py-0.5 text-[10px] font-medium">
+          <span className="text-pc-muted bg-pc-surface-3 pc-micro rounded-xs px-1.5 py-0.5">
             OAuth
           </span>
         ) : status === "available" && model.api_key ? (
-          <span className="text-muted-foreground/70 flex items-center gap-1 font-mono text-[11px]">
-            <IconKey className="size-3" />
-            {model.api_key}
+          <span className="text-pc-faint pc-mono flex items-center gap-1 text-[11px]">
+            <IconKey className="size-3 shrink-0" />
+            <span className="truncate" dir="ltr">
+              {model.api_key}
+            </span>
           </span>
         ) : (
-          <span className="text-muted-foreground/50 text-[11px]">
-            {statusLabel}
-          </span>
+          <span className="text-pc-faint text-[11px]">{statusLabel}</span>
         )}
       </div>
     </div>

@@ -96,8 +96,8 @@ export function ChatComposer({
   }
 
   return (
-    <div className="before:bg-background pointer-events-none relative z-10 -mt-[24px] shrink-0 [scrollbar-gutter:stable] overflow-y-auto px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] before:pointer-events-none before:absolute before:inset-x-0 before:top-[24px] before:bottom-0 before:content-[''] md:px-8 md:pb-8 lg:px-24 xl:px-48">
-      <div className="pointer-events-auto mx-auto flex max-w-[1000px] flex-col items-end">
+    <div className="before:bg-background pointer-events-none relative z-10 -mt-[24px] shrink-0 [scrollbar-gutter:stable] overflow-y-auto px-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] before:pointer-events-none before:absolute before:inset-x-0 before:top-[24px] before:bottom-0 before:content-[''] md:px-8 md:pb-6">
+      <div className="pointer-events-auto mx-auto flex w-full max-w-[78ch] flex-col items-stretch">
         <div
           className={cn(
             "bg-pc-surface-2 border-pc-line focus-within:border-pc-claw focus-within:ring-pc-claw-line relative flex w-full flex-col rounded-2xl border p-3 transition-colors focus-within:ring-2",
@@ -157,20 +157,20 @@ export function ChatComposer({
             disabled={!canInput}
             title={disabledMessage || undefined}
             className={cn(
-              "placeholder:text-pc-faint text-pc-text max-h-[200px] min-h-[64px] resize-none border-0 bg-transparent px-2 py-1 text-[15px] shadow-none transition-colors focus-visible:ring-0 focus-visible:outline-none dark:bg-transparent",
+              "placeholder:text-pc-faint text-pc-text max-h-[40vh] min-h-[48px] resize-none border-0 bg-transparent px-2 py-1.5 text-[15px] leading-relaxed shadow-none transition-colors focus-visible:ring-0 focus-visible:outline-none dark:bg-transparent",
               !canInput && "cursor-not-allowed",
             )}
             minRows={1}
             maxRows={8}
           />
 
-          <div className="mt-2 flex items-center justify-between px-1">
-            <div className="flex items-center gap-1">
+          <div className="border-t-pc-line/70 -mx-3 -mb-3 mt-2 flex items-center justify-between gap-2 border-t px-2 py-1.5">
+            <div className="flex min-w-0 items-center gap-1">
               <Button
                 type="button"
                 variant="ghost"
                 size="icon"
-                className="text-pc-muted hover:text-pc-text hover:bg-pc-surface-3 size-11 rounded-full"
+                className="text-pc-muted hover:text-pc-text hover:bg-pc-surface-3 size-10 rounded-full"
                 onClick={onAddImages}
                 disabled={!canInput}
                 aria-label={t("chat.attachImage")}
@@ -187,20 +187,21 @@ export function ChatComposer({
                   onDetailClick={onContextDetail}
                 />
               )}
-              {canInput ? (
-                <span tabIndex={!canSend ? 0 : undefined}>
-                  <Button
-                    type="button"
-                    size="icon"
-                    className="bg-pc-claw text-pc-claw-ink hover:bg-pc-claw-hover size-11 rounded-full transition-colors active:scale-95"
-                    onClick={onSend}
-                    disabled={!canSend}
-                    aria-label={t("chat.sendMessage")}
-                  >
-                    <IconArrowUp className="size-5" />
-                  </Button>
-                </span>
-              ) : null}
+              {/* One slot, one footprint. The button is disabled rather
+                  than unmounted when input is blocked, so the footer keeps
+                  its height and nothing jumps. */}
+              <span tabIndex={canInput && !canSend ? 0 : undefined}>
+                <Button
+                  type="button"
+                  size="icon"
+                  className="bg-pc-claw text-pc-claw-ink hover:bg-pc-claw-hover size-10 rounded-full transition-colors active:scale-95 disabled:opacity-40"
+                  onClick={onSend}
+                  disabled={!canInput || !canSend}
+                  aria-label={t("chat.sendMessage")}
+                >
+                  <IconArrowUp className="size-5" />
+                </Button>
+              </span>
             </div>
           </div>
         </div>
@@ -208,7 +209,7 @@ export function ChatComposer({
         <div
           aria-hidden={!hasInput}
           className={cn(
-            "border-pc-line bg-pc-surface-1 text-pc-faint mt-2 inline-flex items-center rounded-md border px-3 py-1 text-[11px] transition-all duration-200",
+            "border-pc-line bg-pc-surface-1 text-pc-faint mx-auto mt-2 inline-flex items-center rounded-md border px-3 py-1 text-[11px] transition-all duration-200",
             hasInput
               ? "translate-y-0 opacity-100"
               : "pointer-events-none -translate-y-1 opacity-0",

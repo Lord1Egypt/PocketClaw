@@ -135,7 +135,7 @@ function ProviderCard({
               {providerLabel}
             </span>
             {settings.enabled ? (
-              <span className="inline-block rounded-md bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold tracking-wider text-emerald-600 uppercase dark:text-emerald-400">
+              <span className="inline-block rounded-md bg-pc-success-soft px-2 py-0.5 text-[10px] font-bold tracking-wider text-pc-success uppercase">
                 {t("pages.agent.tools.filter.enabled", "Enabled")}
               </span>
             ) : (

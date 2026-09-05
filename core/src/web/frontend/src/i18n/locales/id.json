@@ -147,6 +147,7 @@
       "restartRequired": "Perubahan konfigurasi memerlukan mulai ulang gateway agar berlaku."
     },
     "logoAlt": "Logo PocketClaw",
+    "moreActions": "Tindakan lainnya",
     "authError": {
       "banner": "Kesalahan layanan autentikasi: {{message}}",
       "unavailable": "Layanan autentikasi tidak tersedia. Setel ulang penyimpanan kata sandi dasbor lalu mulai ulang aplikasi."

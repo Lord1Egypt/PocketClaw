@@ -147,6 +147,7 @@
       "restartRequired": "Alterações de configuração requerem reiniciar o gateway para ter efeito."
     },
     "logoAlt": "Logotipo do PocketClaw",
+    "moreActions": "Mais ações",
     "authError": {
       "banner": "Erro no serviço de autenticação: {{message}}",
       "unavailable": "Serviço de autenticação indisponível. Redefina o armazenamento de senha do painel e reinicie o aplicativo."

@@ -71,11 +71,11 @@ export function LogsPanel({ logs }: LogsPanelProps) {
   }, [logs])
 
   return (
-    <div className="relative flex-1 overflow-hidden rounded-lg border border-zinc-800 bg-zinc-950 text-zinc-100">
+    <div className="border-pc-line bg-pc-canvas text-pc-text relative flex-1 overflow-hidden rounded-lg border">
       <ScrollArea ref={scrollAreaRef} className="h-full">
         <div className="relative p-4 font-mono text-sm leading-relaxed [overflow-anchor:none]">
           {visibleLogs.length === 0 ? (
-            <div className="text-zinc-500 italic">{t("pages.logs.empty")}</div>
+            <div className="text-pc-faint italic">{t("pages.logs.empty")}</div>
           ) : (
             visibleLogs.map((log) => (
               <PlainLogLine key={log.id} id={log.id} line={log.line} />

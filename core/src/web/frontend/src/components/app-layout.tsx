@@ -11,11 +11,12 @@ export function AppLayout({ children }: { children: ReactNode }) {
   return (
     <TooltipProvider>
       <SidebarProvider className="flex h-dvh flex-col overflow-hidden">
-        <AppHeader />
-
         <div className="flex flex-1 overflow-hidden">
+          {/* Full height on desktop, so the lockup in its header is the one
+              persistent brand anchor and the top bar is purely utility. */}
           <AppSidebar />
-          <div className="flex w-full flex-col overflow-hidden">
+          <div className="flex w-full min-w-0 flex-col overflow-hidden">
+            <AppHeader />
             <main className="flex min-h-0 w-full max-w-full flex-1 flex-col overflow-hidden">
               {children}
             </main>

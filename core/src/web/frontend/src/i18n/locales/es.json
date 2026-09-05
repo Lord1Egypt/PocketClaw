@@ -147,6 +147,7 @@
       "restartRequired": "Los cambios de configuración requieren reiniciar la puerta de enlace para surtir efecto."
     },
     "logoAlt": "Logotipo de PocketClaw",
+    "moreActions": "Más acciones",
     "authError": {
       "banner": "Error del servicio de autenticación: {{message}}",
       "unavailable": "El servicio de autenticación no está disponible. Restablece el almacén de contraseñas del panel y reinicia la aplicación."

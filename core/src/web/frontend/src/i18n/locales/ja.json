@@ -147,6 +147,7 @@
       "restartRequired": "設定変更を反映するにはゲートウェイの再起動が必要です。"
     },
     "logoAlt": "PocketClaw のロゴ",
+    "moreActions": "その他の操作",
     "authError": {
       "banner": "認証サービスのエラー: {{message}}",
       "unavailable": "認証サービスを利用できません。ダッシュボードのパスワード保存領域をリセットしてから、アプリケーションを再起動してください。"

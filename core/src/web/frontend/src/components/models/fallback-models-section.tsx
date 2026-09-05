@@ -103,14 +103,16 @@ export function FallbackModelsSection({
   }
 
   return (
-    <section className="mt-6 rounded-lg border px-4 py-4">
-      <h3 className="text-sm font-medium">{t("models.fallbacks.title")}</h3>
-      <p className="text-muted-foreground mt-1 text-sm">
+    <section className="border-pc-line bg-pc-surface-1 mt-6 rounded-xl border px-4 py-4">
+      <h3 className="text-pc-text text-[1rem] font-semibold">
+        {t("models.fallbacks.title")}
+      </h3>
+      <p className="text-pc-muted mt-1 text-sm">
         {t("models.fallbacks.description")}
       </p>
 
       {draft.length === 0 && (
-        <p className="text-muted-foreground mt-3 text-sm">
+        <p className="text-pc-faint mt-3 text-sm">
           {t("models.fallbacks.empty")}
         </p>
       )}
@@ -122,14 +124,14 @@ export function FallbackModelsSection({
             return (
               <li
                 key={name}
-                className="flex items-center gap-3 rounded-md border px-3 py-2"
+                className="border-pc-line bg-pc-surface-2 flex items-center gap-3 rounded-md border px-3 py-2"
               >
-                <span className="text-muted-foreground w-5 shrink-0 text-sm tabular-nums">
+                <span className="text-pc-faint pc-mono w-5 shrink-0 text-sm">
                   {index + 1}
                 </span>
                 <div className="min-w-0 flex-1">
-                  <div className="truncate text-sm">{title}</div>
-                  <div className="text-muted-foreground truncate text-xs">
+                  <div className="text-pc-text truncate text-sm">{title}</div>
+                  <div className="text-pc-faint pc-mono truncate text-xs" dir="ltr">
                     {detail}
                   </div>
                 </div>
@@ -180,7 +182,7 @@ export function FallbackModelsSection({
             {selectable.map((model) => (
               <SelectItem key={model.model_name} value={model.model_name}>
                 {model.model_name}
-                <span className="text-muted-foreground ml-2 text-xs">
+                <span className="text-pc-faint ms-2 text-xs">
                   {[model.provider, model.model].filter(Boolean).join(" · ")}
                 </span>
               </SelectItem>
@@ -189,7 +191,7 @@ export function FallbackModelsSection({
         </Select>
 
         {selectable.length === 0 && draft.length === 0 && (
-          <span className="text-muted-foreground text-sm">
+          <span className="text-pc-muted text-sm">
             {t("models.fallbacks.noCandidates")}
           </span>
         )}
@@ -200,7 +202,7 @@ export function FallbackModelsSection({
         </Button>
 
         {dirty && !saving && (
-          <span className="text-muted-foreground text-sm">
+          <span className="text-pc-muted text-sm">
             {t("models.unsavedPrompt")}
           </span>
         )}

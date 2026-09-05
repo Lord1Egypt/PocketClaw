@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:pocketclaw/src/core/service_manager.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:pocketclaw/src/core/aperture_theme.dart';
 import 'package:pocketclaw/src/generated/l10n/app_localizations.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:remixicon/remixicon.dart';
@@ -16,6 +17,8 @@ class DashboardPage extends StatelessWidget {
     final service = context.watch<ServiceManager>();
     final l10n = AppLocalizations.of(context)!;
     final colorScheme = Theme.of(context).colorScheme;
+    final tokens = context.aperture;
+    final isRunning = service.status == ServiceStatus.running;
 
     final connectableUrl = service.connectableDashboardUrl;
 
@@ -31,82 +34,89 @@ class DashboardPage extends StatelessWidget {
             elevation: 0,
             centerTitle: false,
             title: Text(
-              l10n.run.toUpperCase(),
+              l10n.run,
               style: GoogleFonts.inter(
-                fontWeight: FontWeight.w800,
-                fontSize: 24,
-                letterSpacing: -0.5,
+                fontWeight: FontWeight.w600,
+                fontSize: 22,
+                letterSpacing: -0.3,
+                color: tokens.text,
               ),
             ),
             actions: [
               _buildStatusIndicator(context, service.status),
-              const SizedBox(width: 24),
+              const SizedBox(width: ApertureTheme.spaceMd),
             ],
           ),
           SliverPadding(
             padding: const EdgeInsets.symmetric(
-              horizontal: 32.0,
-              vertical: 24.0,
+              horizontal: ApertureTheme.spaceMd,
+              vertical: ApertureTheme.spaceMd,
             ),
             sliver: SliverList(
               delegate: SliverChildListDelegate([
                 // High-Impact Control Center
                 Padding(
-                  padding: const EdgeInsets.only(bottom: 32.0),
+                  padding: const EdgeInsets.only(bottom: ApertureTheme.spaceLg),
                   child: Row(
                     children: [
                       Expanded(
                         child: TVFocusable(
-                          onTap: service.status == ServiceStatus.running
-                              ? service.stop
-                              : service.start,
-                          borderRadius: BorderRadius.circular(24),
-                          focusBorderColor:
-                              service.status == ServiceStatus.running
-                              ? colorScheme.error
-                              : colorScheme.secondary,
+                          onTap: isRunning ? service.stop : service.start,
+                          borderRadius: BorderRadius.circular(
+                            ApertureTheme.radiusMd,
+                          ),
+                          focusBorderColor: isRunning
+                              ? tokens.danger
+                              : tokens.accent,
                           child: Container(
                             padding: const EdgeInsets.symmetric(
-                              vertical: 24,
-                              horizontal: 32,
+                              vertical: 20,
+                              horizontal: 24,
                             ),
                             decoration: BoxDecoration(
-                              color: service.status == ServiceStatus.running
-                                  ? colorScheme.error.withAlpha(
-                                      ((0.06).clamp(0.0, 1.0) * 255).round(),
-                                    )
-                                  : colorScheme.secondary.withAlpha(
-                                      ((0.08).clamp(0.0, 1.0) * 255).round(),
-                                    ),
-                              borderRadius: BorderRadius.circular(24),
+                              // Start is the primary action, so it is filled
+                              // with the accent. Stop is destructive, so it
+                              // wears Danger as an outline until it is used —
+                              // an outlined destructive control is harder to
+                              // hit by accident than a filled one.
+                              color: isRunning
+                                  ? tokens.dangerSoft
+                                  : tokens.accent,
+                              borderRadius: BorderRadius.circular(
+                                ApertureTheme.radiusMd,
+                              ),
+                              border: Border.all(
+                                color: isRunning
+                                    ? tokens.danger
+                                    : tokens.accent,
+                                width: isRunning ? 1.5 : 1,
+                              ),
                             ),
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
                                 Icon(
-                                  service.status == ServiceStatus.running
+                                  isRunning
                                       ? Remix.stop_circle_fill
                                       : Remix.play_circle_fill,
-                                  size: 42,
-                                  color: service.status == ServiceStatus.running
-                                      ? colorScheme.error
-                                      : colorScheme.secondary,
+                                  size: 28,
+                                  color: isRunning
+                                      ? tokens.danger
+                                      : tokens.accentInk,
                                 ),
-                                const SizedBox(width: 20),
+                                const SizedBox(width: 14),
                                 Flexible(
                                   child: Text(
-                                    service.status == ServiceStatus.running
+                                    isRunning
                                         ? l10n.stopService
                                         : l10n.launchService,
                                     style: GoogleFonts.inter(
-                                      fontSize: 22,
-                                      fontWeight: FontWeight.w900,
-                                      letterSpacing: 1.5,
-                                      color:
-                                          service.status ==
-                                              ServiceStatus.running
-                                          ? colorScheme.error
-                                          : colorScheme.secondary,
+                                      fontSize: 17,
+                                      fontWeight: FontWeight.w600,
+                                      letterSpacing: 0.2,
+                                      color: isRunning
+                                          ? tokens.danger
+                                          : tokens.accentInk,
                                     ),
                                     overflow: TextOverflow.ellipsis,
                                   ),
@@ -140,15 +150,11 @@ class DashboardPage extends StatelessWidget {
 
                     return Container(
                       decoration: BoxDecoration(
-                        color: colorScheme.surface.withAlpha(
-                          ((0.4).clamp(0.0, 1.0) * 255).round(),
+                        color: tokens.surface1,
+                        borderRadius: BorderRadius.circular(
+                          ApertureTheme.radiusMd,
                         ),
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                          color: colorScheme.onSurface.withAlpha(
-                            ((0.08).clamp(0.0, 1.0) * 255).round(),
-                          ),
-                        ),
+                        border: Border.all(color: tokens.border),
                       ),
                       clipBehavior: Clip.antiAlias,
                       child: isNarrow
@@ -159,9 +165,7 @@ class DashboardPage extends StatelessWidget {
                                 Container(
                                   width: double.infinity,
                                   height: 1,
-                                  color: colorScheme.onSurface.withAlpha(
-                                    ((0.05).clamp(0.0, 1.0) * 255).round(),
-                                  ),
+                                  color: tokens.border,
                                 ),
                                 Center(child: qrSection),
                               ],
@@ -173,9 +177,7 @@ class DashboardPage extends StatelessWidget {
                                 Container(
                                   width: 1,
                                   height: 240,
-                                  color: colorScheme.onSurface.withAlpha(
-                                    ((0.05).clamp(0.0, 1.0) * 255).round(),
-                                  ),
+                                  color: tokens.border,
                                 ),
                                 qrSection,
                               ],
@@ -190,19 +192,12 @@ class DashboardPage extends StatelessWidget {
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: BoxDecoration(
-                          color: colorScheme.secondary.withAlpha(0),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Icon(
-                          Icons.lightbulb_outline,
-                          size: 20,
-                          color: colorScheme.secondary,
-                        ),
+                      Icon(
+                        Icons.lightbulb_outline,
+                        size: 18,
+                        color: tokens.textFaint,
                       ),
-                      const SizedBox(width: 12),
+                      const SizedBox(width: 10),
                       Flexible(
                         child: Text(
                           service.publicMode
@@ -210,9 +205,7 @@ class DashboardPage extends StatelessWidget {
                               : l10n.localModeHint,
                           style: TextStyle(
                             fontSize: 14,
-                            color: colorScheme.onSurface.withAlpha(
-                              ((0.7).clamp(0.0, 1.0) * 255).round(),
-                            ),
+                            color: tokens.textMuted,
                             height: 1.5,
                           ),
                         ),
@@ -235,8 +228,9 @@ class DashboardPage extends StatelessWidget {
     ColorScheme colorScheme,
     AppLocalizations l10n,
   ) {
+    final tokens = context.aperture;
     return Padding(
-      padding: const EdgeInsets.all(32),
+      padding: const EdgeInsets.all(ApertureTheme.spaceLg),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
@@ -244,30 +238,24 @@ class DashboardPage extends StatelessWidget {
           Row(
             children: [
               Container(
-                padding: const EdgeInsets.all(8),
+                width: 32,
+                height: 32,
+                alignment: Alignment.center,
                 decoration: BoxDecoration(
-                  color: colorScheme.secondary.withAlpha(
-                    ((0.1).clamp(0.0, 1.0) * 255).round(),
-                  ),
-                  borderRadius: BorderRadius.circular(8),
+                  color: tokens.surface3,
+                  borderRadius: BorderRadius.circular(ApertureTheme.radiusXs),
                 ),
-                child: Icon(
-                  Remix.link_m,
-                  color: colorScheme.secondary,
-                  size: 18,
-                ),
+                child: Icon(Remix.link_m, color: tokens.accent, size: 16),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 10),
               Flexible(
                 child: Text(
                   l10n.endpoint,
                   style: GoogleFonts.inter(
                     fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 1.5,
-                    color: colorScheme.onSurface.withAlpha(
-                      ((0.5).clamp(0.0, 1.0) * 255).round(),
-                    ),
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.9,
+                    color: tokens.textFaint,
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -281,8 +269,8 @@ class DashboardPage extends StatelessWidget {
             children: [
               Icon(
                 service.publicMode ? Icons.public : Icons.lock_outline,
-                size: 16,
-                color: colorScheme.secondary,
+                size: 15,
+                color: service.publicMode ? tokens.warning : tokens.textMuted,
               ),
               const SizedBox(width: 6),
               Flexible(
@@ -290,8 +278,10 @@ class DashboardPage extends StatelessWidget {
                   service.publicMode ? l10n.publicModeEnabled : l10n.localMode,
                   style: TextStyle(
                     fontSize: 13,
-                    color: colorScheme.secondary,
-                    fontWeight: FontWeight.bold,
+                    color: service.publicMode
+                        ? tokens.warning
+                        : tokens.textMuted,
+                    fontWeight: FontWeight.w600,
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -315,8 +305,8 @@ class DashboardPage extends StatelessWidget {
                         Text(
                           l10n.unableToGetDeviceIp,
                           style: GoogleFonts.firaCode(
-                            fontSize: 20,
-                            color: colorScheme.secondary,
+                            fontSize: 16,
+                            color: tokens.warning,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -331,12 +321,17 @@ class DashboardPage extends StatelessWidget {
                 borderRadius: BorderRadius.circular(8),
                 child: Padding(
                   padding: const EdgeInsets.symmetric(vertical: 4),
-                  child: Text(
-                    displayUrl,
-                    style: GoogleFonts.firaCode(
-                      fontSize: 20,
-                      color: colorScheme.secondary,
-                      fontWeight: FontWeight.w600,
+                  // A URL is a machine value: it stays left-to-right even
+                  // in Arabic, because a reversed host is a bug.
+                  child: Directionality(
+                    textDirection: TextDirection.ltr,
+                    child: Text(
+                      displayUrl,
+                      style: GoogleFonts.firaCode(
+                        fontSize: 18,
+                        color: tokens.accent,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
                 ),
@@ -346,12 +341,7 @@ class DashboardPage extends StatelessWidget {
           const SizedBox(height: 16),
           Text(
             l10n.webAdmin,
-            style: TextStyle(
-              color: colorScheme.onSurface.withAlpha(
-                ((0.4).clamp(0.0, 1.0) * 255).round(),
-              ),
-              fontSize: 13,
-            ),
+            style: TextStyle(color: tokens.textFaint, fontSize: 13),
           ),
         ],
       ),
@@ -363,35 +353,25 @@ class DashboardPage extends StatelessWidget {
     String? qrData,
     ColorScheme colorScheme,
   ) {
+    final tokens = context.aperture;
     return Container(
       width: 200,
       height: 240,
-      decoration: BoxDecoration(
-        color: colorScheme.onSurface.withAlpha(
-          ((0.03).clamp(0.0, 1.0) * 255).round(),
-        ),
-      ),
+      color: tokens.surface2,
       child: Center(
         child: Container(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
+            // The quiet zone stays white in both themes: a tinted or dark
+            // ground behind a QR is a scan failure, not a style choice.
             color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withAlpha(
-                  ((0.1).clamp(0.0, 1.0) * 255).round(),
-                ),
-                blurRadius: 20,
-                spreadRadius: 5,
-              ),
-            ],
+            borderRadius: BorderRadius.circular(ApertureTheme.radiusSm),
           ),
           child: qrData == null
-              ? Icon(
+              ? const Icon(
                   Icons.wifi_off_rounded,
-                  size: 72,
-                  color: colorScheme.surfaceContainerHighest,
+                  size: 64,
+                  color: Color(0xFFBFC7CF),
                 )
               : DashboardAccessQrCode(data: qrData),
         ),
@@ -399,35 +379,30 @@ class DashboardPage extends StatelessWidget {
     );
   }
 
+  /// The status chip: a dot and a word, never a dot alone.
+  ///
+  /// Running is genuinely live machine state, which is the one thing Signal is
+  /// reserved for. Starting is transitional, so it is Warning. Stopped is not
+  /// an error and does not get a colour at all.
   Widget _buildStatusIndicator(BuildContext context, ServiceStatus status) {
-    final colorScheme = Theme.of(context).colorScheme;
+    final tokens = context.aperture;
     final l10n = AppLocalizations.of(context)!;
-    Color color;
-    String label;
-    switch (status) {
-      case ServiceStatus.running:
-        color = const Color(0xFF10B981); // Modern Emerald
-        label = l10n.statusActive;
-        break;
-      case ServiceStatus.starting:
-        color = const Color(0xFFF59E0B); // Modern Amber
-        label = l10n.statusSyncing;
-        break;
-      case ServiceStatus.stopped:
-        color = colorScheme.onSurface.withAlpha(
-          ((0.3).clamp(0.0, 1.0) * 255).round(),
-        );
-        label = l10n.statusIdle;
-        break;
-    }
+    final (Color color, String label) = switch (status) {
+      ServiceStatus.running => (tokens.signal, l10n.statusActive),
+      ServiceStatus.starting => (tokens.warning, l10n.statusSyncing),
+      ServiceStatus.stopped => (tokens.textFaint, l10n.statusIdle),
+    };
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      padding: const EdgeInsetsDirectional.only(
+        start: 8,
+        end: 10,
+        top: 5,
+        bottom: 5,
+      ),
       decoration: BoxDecoration(
-        color: color.withAlpha(((0.08).clamp(0.0, 1.0) * 255).round()),
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(
-          color: color.withAlpha(((0.2).clamp(0.0, 1.0) * 255).round()),
-        ),
+        color: tokens.surface1,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: tokens.border),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -435,29 +410,16 @@ class DashboardPage extends StatelessWidget {
           Container(
             width: 6,
             height: 6,
-            decoration: BoxDecoration(
-              color: color,
-              shape: BoxShape.circle,
-              boxShadow: [
-                if (status == ServiceStatus.running)
-                  BoxShadow(
-                    color: color.withAlpha(
-                      ((0.6).clamp(0.0, 1.0) * 255).round(),
-                    ),
-                    blurRadius: 8,
-                    spreadRadius: 1,
-                  ),
-              ],
-            ),
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
           ),
-          const SizedBox(width: 6),
+          const SizedBox(width: 7),
           Text(
             label,
             style: GoogleFonts.inter(
               color: color,
-              fontWeight: FontWeight.w800,
-              fontSize: 10,
-              letterSpacing: 1.2,
+              fontWeight: FontWeight.w600,
+              fontSize: 11,
+              letterSpacing: 0.5,
             ),
           ),
         ],

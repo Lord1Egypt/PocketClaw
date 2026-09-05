@@ -306,7 +306,7 @@ export function CatalogDialog({
                       {entrySelected.size > 0 && (
                         <div className="mt-2 space-y-2">
                           {providerDef?.requiresApiKey !== false && (
-                            <div className="rounded-lg border border-yellow-500/30 bg-yellow-500/10 p-2 text-xs text-yellow-700 dark:text-yellow-400">
+                            <div className="rounded-lg border border-pc-warning/30 bg-pc-warning-soft p-2 text-xs text-pc-warning">
                               {t("models.catalog.needApiKey")}
                             </div>
                           )}

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'package:pocketclaw/src/core/aperture_theme.dart';
 import 'package:pocketclaw/src/generated/l10n/app_localizations.dart';
 import 'package:pocketclaw/src/whats_new/whats_new_release.dart';
 
@@ -58,9 +59,17 @@ class _WhatsNewSectionCard extends StatelessWidget {
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
 
-    return Card(
-      margin: const EdgeInsetsDirectional.only(bottom: 12),
-      child: Padding(
+    final tokens = context.aperture;
+    return Padding(
+      padding: const EdgeInsetsDirectional.only(bottom: 12),
+      // The bracket is the same device as active navigation and the assistant
+      // rail, tinted by what the section is: what was fixed, what is new, what
+      // improved. It is drawn on a logical edge, so Arabic mirrors it.
+      child: ApertureBracket(
+        fill: tokens.surface1,
+        bracket: _accentFor(tokens),
+        borderColor: tokens.border,
+        borderWidth: 1,
         padding: const EdgeInsetsDirectional.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -79,6 +88,12 @@ class _WhatsNewSectionCard extends StatelessWidget {
       ),
     );
   }
+
+  Color _accentFor(ApertureColors tokens) => switch (section.kind) {
+    WhatsNewSectionKind.added => tokens.accent,
+    WhatsNewSectionKind.improved => tokens.warning,
+    WhatsNewSectionKind.fixed => tokens.success,
+  };
 }
 
 class _WhatsNewBullet extends StatelessWidget {

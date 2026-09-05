@@ -147,6 +147,7 @@
       "restartRequired": "Konfigurationsänderungen erfordern einen Gateway-Neustart, um wirksam zu werden."
     },
     "logoAlt": "PocketClaw-Logo",
+    "moreActions": "Weitere Aktionen",
     "authError": {
       "banner": "Fehler im Authentifizierungsdienst: {{message}}",
       "unavailable": "Der Authentifizierungsdienst ist nicht verfügbar. Setzen Sie den Kennwortspeicher des Dashboards zurück und starten Sie die Anwendung neu."

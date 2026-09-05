@@ -23,14 +23,14 @@ describe("the PicoClaw lobster is gone from the shipped assets", () => {
     expect(fsSync.existsSync(`${PUBLIC}/logo_with_text.png`)).toBe(false)
   })
 
-  it("renders the header brand as inline SVG, not as an image file", () => {
-    const header = fsSync.readFileSync(
-      `${process.cwd()}/src/components/app-header.tsx`,
+  it("renders the brand as inline SVG, not as an image file", () => {
+    const sidebar = fsSync.readFileSync(
+      `${process.cwd()}/src/components/app-sidebar.tsx`,
       "utf8",
     )
-    expect(header).not.toContain("logo_with_text")
-    expect(header).not.toMatch(/<img\b/)
-    expect(header).toContain("PocketClawLockup")
+    expect(sidebar).not.toContain("logo_with_text")
+    expect(sidebar).not.toMatch(/<img\b/)
+    expect(sidebar).toContain("PocketClawLockup")
   })
 
   it("keeps the whole shipped source free of the old wordmark reference", () => {
@@ -78,7 +78,10 @@ describe("the icon family is the PocketClaw mark", () => {
     const svg = fsSync.readFileSync(`${PUBLIC}/favicon.svg`, "utf8")
     expect(svg.length).toBeLessThan(2048)
     expect(svg).toContain("<title>PocketClaw</title>")
-    expect(svg).toContain("M4 12v8h16v-8")
+    // The lipped mouth: the optical fix that stops the mark reading as a
+    // crown below 24px. If this path changes, the rasters must be
+    // regenerated from the same geometry in the same commit.
+    expect(svg).toContain("M7.5 12H4v8h16v-8h-3.5")
     expect(svg).not.toMatch(/<image\b|base64/)
   })
 
@@ -121,6 +124,77 @@ describe("the web manifest identifies the product", () => {
         `${icon.src} is missing`,
       ).toBe(true)
     }
+  })
+})
+
+describe("one geometry, three copies", () => {
+  // The component, the SVG favicon and the raster pipeline are three copies of
+  // one geometry. They drifted the moment the mark was refined, so hold them
+  // to the same three paths.
+  it("keeps the component, the favicon and the raster script on one geometry", () => {
+    const paths = ["M7.5 12H4v8h16v-8h-3.5", "M10 13.5V10", "M14 13.5V10"]
+    const component = fsSync.readFileSync(
+      `${process.cwd()}/src/components/brand/pocketclaw-mark.tsx`,
+      "utf8",
+    )
+    const svg = fsSync.readFileSync(`${PUBLIC}/favicon.svg`, "utf8")
+    const script = fsSync.readFileSync(
+      `${process.cwd()}/scripts/generate-brand-assets.py`,
+      "utf8",
+    )
+    for (const path of paths) {
+      expect(component, `component is missing ${path}`).toContain(path)
+      expect(svg, `favicon.svg is missing ${path}`).toContain(path)
+    }
+    // The script draws polylines rather than path data, so assert the two
+    // numbers the refinement actually moved.
+    expect(script).toContain("(7.5, 12)")
+    expect(script).toContain("(10, 13.5)")
+  })
+})
+
+describe("the brand is anchored once", () => {
+  const header = fsSync.readFileSync(
+    `${process.cwd()}/src/components/app-header.tsx`,
+    "utf8",
+  )
+  const sidebar = fsSync.readFileSync(
+    `${process.cwd()}/src/components/app-sidebar.tsx`,
+    "utf8",
+  )
+
+  // Desktop showed PocketClaw twice: once in the top chrome and again in the
+  // sidebar header directly beneath it. The sidebar is the persistent anchor;
+  // the top bar is utility chrome.
+  it("puts the full lockup in the sidebar and nowhere else in the shell", () => {
+    expect(sidebar).toContain("PocketClawLockup")
+    expect(header).not.toContain("PocketClawLockup")
+  })
+
+  // A mark-only presence in the header is allowed exactly where it earns its
+  // place: phone width, where the sidebar holding the lockup is off-canvas.
+  it("keeps a mark in the header only at phone width", () => {
+    const brandLink = header.match(
+      /<Link[\s\S]*?PocketClawMark[\s\S]*?<\/Link>/,
+    )?.[0]
+    expect(brandLink, "the header no longer renders the mark").toBeTruthy()
+    expect(brandLink).toContain("sm:hidden")
+  })
+
+  it("stops offsetting the sidebar beneath a full-width header", () => {
+    const css = fsSync.readFileSync(`${process.cwd()}/src/index.css`, "utf8")
+    expect(css).not.toContain('[data-slot="sidebar-container"]')
+    expect(css).not.toContain("100svh - 3.5rem")
+  })
+
+  it("nests the header inside the content column, beside the sidebar", () => {
+    const layout = fsSync.readFileSync(
+      `${process.cwd()}/src/components/app-layout.tsx`,
+      "utf8",
+    )
+    expect(layout.indexOf("<AppSidebar />")).toBeLessThan(
+      layout.indexOf("<AppHeader />"),
+    )
   })
 })
 

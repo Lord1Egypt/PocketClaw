@@ -143,6 +143,78 @@ describe("the dark palette specifically", () => {
   })
 })
 
+// Phase 1 was reviewed in dark mode. Light mode has to be the same product,
+// not a white shadcn default that happens to be legible.
+describe("light mode is designed, not defaulted", () => {
+  it("separates the canvas from the surfaces that sit on it", () => {
+    const canvas = oklch(light["--pc-bg"])[0][0]
+    const surface = light["--pc-surface-1"]
+    // Cards lift by being lighter than the canvas, which is the inversion of
+    // the dark-mode rule and the reason both modes read as deliberate.
+    expect(surface).toContain("oklch(1 0 0)")
+    expect(canvas).toBeLessThan(1)
+    expect(canvas).toBeGreaterThan(0.95)
+  })
+
+  it("steps its surfaces monotonically away from white", () => {
+    const steps = [
+      "--pc-surface-1",
+      "--pc-surface-2",
+      "--pc-surface-3",
+      "--pc-border",
+      "--pc-border-strong",
+    ].map((token) => oklch(light[token])[0][0])
+    for (let i = 1; i < steps.length; i++) {
+      expect(steps[i], `${i} is not darker than ${i - 1}`).toBeLessThan(
+        steps[i - 1],
+      )
+    }
+  })
+
+  it("keeps every text role clearly darker than every surface", () => {
+    const darkestSurface = oklch(light["--pc-surface-3"])[0][0]
+    for (const token of ["--pc-text", "--pc-text-muted", "--pc-text-faint"]) {
+      expect(
+        oklch(light[token])[0][0],
+        `${token} is not dark enough for a light surface`,
+      ).toBeLessThan(darkestSurface - 0.3)
+    }
+  })
+
+  it("darkens the accent rather than reusing the dark-mode one", () => {
+    // Reusing the dark accent on white is the single most common way a light
+    // theme ends up looking unfinished.
+    expect(light["--pc-primary"]).not.toBe(dark["--pc-primary"])
+    expect(oklch(light["--pc-primary"])[0][0]).toBeLessThan(
+      oklch(dark["--pc-primary"])[0][0],
+    )
+  })
+
+  it("keeps the status colours dark enough to read on a light surface", () => {
+    for (const token of [
+      "--pc-signal",
+      "--pc-success",
+      "--pc-warning",
+      "--pc-danger",
+    ]) {
+      const lightness = oklch(light[token])[0][0]
+      expect(lightness, `${token} is too pale on white`).toBeLessThan(0.7)
+      expect(lightness, `${token} is too dark to read as a status`).toBeGreaterThan(0.4)
+    }
+  })
+
+  it("carries less chroma than dark mode, as the palette says it should", () => {
+    const lightChroma = oklch(light["--pc-surface-3"])[0][1]
+    const darkChroma = oklch(dark["--pc-surface-3"])[0][1]
+    expect(lightChroma).toBeLessThan(darkChroma)
+  })
+
+  it("draws its own hairline shadows rather than reusing the dark ones", () => {
+    expect(light["--pc-shadow-3"]).not.toBe(dark["--pc-shadow-3"])
+    expect(light["--pc-shadow-3"]).toContain("oklch(0.22 0.015 245")
+  })
+})
+
 describe("the shared devices", () => {
   // The bracket, the rail and the sheet entry are all logical edges, which is
   // why the whole system mirrors in Arabic with no locale branch anywhere.

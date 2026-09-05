@@ -147,6 +147,7 @@
       "restartRequired": "구성 변경을 적용하려면 게이트웨이를 재시작해야 합니다."
     },
     "logoAlt": "PocketClaw 로고",
+    "moreActions": "추가 작업",
     "authError": {
       "banner": "인증 서비스 오류: {{message}}",
       "unavailable": "인증 서비스를 사용할 수 없습니다. 대시보드 비밀번호 저장소를 재설정한 뒤 애플리케이션을 다시 시작하세요."

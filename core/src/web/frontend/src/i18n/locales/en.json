@@ -147,6 +147,7 @@
       "restartRequired": "Configuration changes require a gateway restart to take effect."
     },
     "logoAlt": "PocketClaw logo",
+    "moreActions": "More actions",
     "authError": {
       "banner": "Auth service error: {{message}}",
       "unavailable": "Auth service unavailable. Reset dashboard password storage and restart the application."

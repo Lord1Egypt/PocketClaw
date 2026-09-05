@@ -176,7 +176,7 @@ export function DetailSheet({
               </div>
 
               {detailView === "preview" ? (
-                <div className="prose prose-zinc dark:prose-invert prose-sm sm:prose-base prose-pre:rounded-xl prose-pre:border prose-pre:border-border/40 prose-pre:bg-zinc-100 prose-pre:p-0 prose-pre:shadow-sm dark:prose-pre:bg-zinc-950/90 prose-headings:tracking-tight prose-a:text-primary prose-a:no-underline hover:prose-a:underline max-w-none">
+                <div className="prose dark:prose-invert prose-sm sm:prose-base prose-pre:rounded-lg prose-pre:border prose-pre:border-pc-line prose-pre:bg-pc-canvas prose-pre:p-0 prose-headings:tracking-tight prose-headings:text-pc-text prose-a:text-pc-claw prose-a:no-underline hover:prose-a:underline prose-code:bg-pc-surface-3 prose-code:rounded-[4px] prose-code:px-1 prose-code:before:content-none prose-code:after:content-none max-w-none">
                   <ReactMarkdown
                     remarkPlugins={[remarkGfm]}
                     rehypePlugins={[rehypeRaw, rehypeSanitize, rehypeHighlight]}

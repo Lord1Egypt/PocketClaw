@@ -35,14 +35,17 @@ CLAW = (0, 180, 200, 255)
 SS = 16
 
 # The mark on its 24x24 grid: three polylines, round caps and joins.
+# The pocket's mouth turns inward. Without that lip the container ends in two
+# bare stroke caps and, below about 24px, the four verticals read at equal
+# weight — the mark looks like a crown rather than a pocket.
 STROKES = [
-    [(4, 12), (4, 20), (20, 20), (20, 12)],
-    [(8.5, 14), (8.5, 8), (5.5, 3.5)],
-    [(15.5, 14), (15.5, 8), (18.5, 3.5)],
+    [(7.5, 12), (4, 12), (4, 20), (20, 20), (20, 12), (16.5, 12)],
+    [(10, 13.5), (10, 10), (6.5, 4.5)],
+    [(14, 13.5), (14, 10), (17.5, 4.5)],
 ]
 STROKE_WIDTH = 2.0
 # The drawn extent of the mark within the grid, used to centre it optically.
-INK_BOX = (4 - 1, 3.5 - 1, 20 + 1, 20 + 1)
+INK_BOX = (4 - 1, 4.5 - 1, 20 + 1, 20 + 1)
 
 
 def draw_mark(size: int, scale: float, colour: tuple[int, int, int, int]) -> Image.Image:
@@ -101,9 +104,9 @@ SVG = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" 
     @media (prefers-color-scheme: dark) { .mark { stroke: #00b4c8; } }
   </style>
   <g class="mark" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M4 12v8h16v-8"/>
-    <path d="M8.5 14V8L5.5 3.5"/>
-    <path d="M15.5 14V8l3-4.5"/>
+    <path d="M7.5 12H4v8h16v-8h-3.5"/>
+    <path d="M10 13.5V10L6.5 4.5"/>
+    <path d="M14 13.5V10l3.5-5.5"/>
   </g>
 </svg>
 """

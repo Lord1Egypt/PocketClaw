@@ -109,9 +109,22 @@ class AutoStartSettingsCard extends StatelessWidget {
         children: [
           SwitchListTile.adaptive(
             title: Text(l10n.autoStartServiceTitle),
-            subtitle: Text(
-              '${serviceEnabled ? l10n.autoStartPreferenceOn : l10n.autoStartPreferenceOff}\n'
-              '${runtimeLabel(l10n, serviceStatus)}',
+            isThreeLine: true,
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  serviceEnabled
+                      ? l10n.autoStartPreferenceOn
+                      : l10n.autoStartPreferenceOff,
+                ),
+                const SizedBox(height: 4),
+                _RuntimeStatusChip(
+                  label: runtimeLabel(l10n, serviceStatus),
+                  status: serviceStatus,
+                ),
+              ],
             ),
             value: serviceEnabled,
             onChanged: onServiceChanged,
@@ -119,15 +132,66 @@ class AutoStartSettingsCard extends StatelessWidget {
           const Divider(height: 1),
           SwitchListTile.adaptive(
             title: Text(l10n.autoStartGatewayTitle),
-            subtitle: Text(
-              '${gatewayEnabled ? l10n.autoStartPreferenceOn : l10n.autoStartPreferenceOff}\n'
-              '${l10n.gatewayAutoStartHint}',
+            isThreeLine: true,
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  gatewayEnabled
+                      ? l10n.autoStartPreferenceOn
+                      : l10n.autoStartPreferenceOff,
+                ),
+                const SizedBox(height: 2),
+                Text(l10n.gatewayAutoStartHint),
+              ],
             ),
             value: gatewayEnabled,
             onChanged: onGatewayChanged,
           ),
         ],
       ),
+    );
+  }
+}
+
+/// The runtime half of an Auto-Start row: a dot and the word it already said.
+///
+/// Running is live machine state, which is the one thing Signal is reserved
+/// for. The label is always present — the dot never carries the meaning alone.
+class _RuntimeStatusChip extends StatelessWidget {
+  const _RuntimeStatusChip({required this.label, required this.status});
+
+  final String label;
+  final ServiceStatus status;
+
+  @override
+  Widget build(BuildContext context) {
+    final tokens = context.aperture;
+    final color = switch (status) {
+      ServiceStatus.running => tokens.signal,
+      ServiceStatus.starting => tokens.warning,
+      ServiceStatus.stopped => tokens.textFaint,
+    };
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 6,
+          height: 6,
+          margin: const EdgeInsetsDirectional.only(end: 6),
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        Flexible(
+          child: Text(
+            label,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: color,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

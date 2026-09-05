@@ -147,6 +147,7 @@
       "restartRequired": "配置变更后需要重启服务才能生效。"
     },
     "logoAlt": "PocketClaw 徽标",
+    "moreActions": "更多操作",
     "authError": {
       "banner": "认证服务错误：{{message}}",
       "unavailable": "认证服务不可用。请重置控制台密码存储并重启应用。"

@@ -147,6 +147,7 @@
       "restartRequired": "Les modifications de configuration nécessitent un redémarrage de la passerelle pour prendre effet."
     },
     "logoAlt": "Logo PocketClaw",
+    "moreActions": "Autres actions",
     "authError": {
       "banner": "Erreur du service d'authentification : {{message}}",
       "unavailable": "Le service d'authentification est indisponible. Réinitialisez le stockage du mot de passe du tableau de bord et redémarrez l'application."

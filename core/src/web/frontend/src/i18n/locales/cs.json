@@ -147,6 +147,7 @@
       "restartRequired": "Změny konfigurace se projeví až po restartu gateway."
     },
     "logoAlt": "Logo PocketClaw",
+    "moreActions": "Další akce",
     "authError": {
       "banner": "Chyba ověřovací služby: {{message}}",
       "unavailable": "Ověřovací služba není dostupná. Resetujte úložiště hesla řídicího panelu a restartujte aplikaci."

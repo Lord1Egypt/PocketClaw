@@ -189,6 +189,59 @@ describe("sidebar chrome uses a logical border edge", () => {
   )
 })
 
+// The Phase 2 header keeps the drawer contract it inherited: the trigger sits
+// at the inline-start edge and the drawer enters from the side the writing
+// direction puts it. A hamburger is direction-neutral and needs no mirroring;
+// what must not drift is the placement around it.
+describe("the mobile header stays RTL-safe", () => {
+  beforeEach(async () => {
+    isMobile.mockReturnValue(true)
+    await i18n.changeLanguage("en")
+  })
+
+  const header = fsSync.readFileSync(
+    `${process.cwd()}/src/components/app-header.tsx`,
+    "utf8",
+  )
+
+  it("declares no physical direction in the header chrome", () => {
+    expect(header).not.toMatch(/\b(ml|mr|pl|pr)-\d/)
+    expect(header).not.toMatch(/\bmx-4\b.*orientation="vertical"/)
+    expect(header).not.toContain("left-1/2")
+  })
+
+  it("keeps the drawer on the writing direction's side with the new header", async () => {
+    for (const [locale, side] of [
+      ["ar", "right"],
+      ["en", "left"],
+    ] as const) {
+      await i18n.changeLanguage(locale)
+      const view = render(
+        <SidebarProvider>
+          <Sidebar>
+            <p>sidebar content</p>
+          </Sidebar>
+          <SidebarTrigger label="menu" />
+        </SidebarProvider>,
+      )
+      fireEvent.click(screen.getByRole("button", { name: "menu" }))
+      expect(drawerSide(), locale).toBe(side)
+      view.unmount()
+    }
+  })
+
+  // The overflow menu anchors to the inline-end edge in both directions,
+  // which Radix resolves from the document dir rather than from a locale test.
+  it("anchors the utility menu to an edge, not to a hard-coded side", () => {
+    const menu = fsSync.readFileSync(
+      `${process.cwd()}/src/components/header-utility-menu.tsx`,
+      "utf8",
+    )
+    expect(menu).toContain('align="end"')
+    expect(menu).not.toMatch(/align="(left|right)"/)
+  })
+})
+
 // Changing the sidebar's own chrome must not reach the sheets that share the
 // primitive but anchor themselves.
 describe("unrelated sheets are untouched", () => {

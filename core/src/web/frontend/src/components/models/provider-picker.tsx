@@ -86,7 +86,7 @@ export function ProviderPicker({
                           {provider.label}
                         </span>
                         {configured && (
-                          <IconCheck className="size-3.5 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                          <IconCheck className="size-3.5 shrink-0 text-pc-success" />
                         )}
                       </span>
                       <span className="text-muted-foreground mt-0.5 block truncate text-xs">

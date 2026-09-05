@@ -58,7 +58,7 @@ export function MarketSkillCard({
       size="sm"
     >
       {result.installed && (
-        <div className="absolute inset-x-0 top-0 h-1 bg-emerald-500/20" />
+        <div className="absolute inset-x-0 top-0 h-1 bg-pc-success-soft" />
       )}
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between gap-4">
@@ -71,7 +71,7 @@ export function MarketSkillCard({
                 {result.registry_name}
               </span>
               {result.installed ? (
-                <span className="inline-flex items-center rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-600 ring-1 ring-emerald-500/20 ring-inset">
+                <span className="inline-flex items-center rounded-full bg-pc-success-soft px-2 py-0.5 text-[10px] font-medium text-pc-success ring-1 ring-pc-success/20 ring-inset">
                   {t("pages.agent.skills.marketplace_installed")}
                 </span>
               ) : null}
@@ -146,7 +146,7 @@ export function MarketSkillCard({
       </CardHeader>
       {result.installed_name ? (
         <CardContent className="pt-0 pb-4">
-          <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-3 py-2 text-xs text-emerald-700 dark:text-emerald-400">
+          <div className="rounded-lg border border-pc-success/20 bg-pc-success-soft px-3 py-2 text-xs text-pc-success">
             {t("pages.agent.skills.marketplace_installed_hint", {
               name: result.installed_name,
             })}

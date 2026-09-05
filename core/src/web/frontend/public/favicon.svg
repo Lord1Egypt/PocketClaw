@@ -5,8 +5,8 @@
     @media (prefers-color-scheme: dark) { .mark { stroke: #00b4c8; } }
   </style>
   <g class="mark" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M4 12v8h16v-8"/>
-    <path d="M8.5 14V8L5.5 3.5"/>
-    <path d="M15.5 14V8l3-4.5"/>
+    <path d="M7.5 12H4v8h16v-8h-3.5"/>
+    <path d="M10 13.5V10L6.5 4.5"/>
+    <path d="M14 13.5V10l3.5-5.5"/>
   </g>
 </svg>

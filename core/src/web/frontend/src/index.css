@@ -294,16 +294,6 @@
   }
 }
 
-/* Offset sidebar below the full-width header */
-[data-slot="sidebar-container"] {
-  top: 3.5rem !important;
-  height: calc(100svh - 3.5rem) !important;
-}
-
-[data-slot="sidebar-gap"] {
-  height: calc(100svh - 3.5rem);
-}
-
 /*
  * The one repeated Aperture device: a 2px bracket on the inline-start edge,
  * used for active navigation, the assistant message rail and card accents.
