@@ -14,8 +14,18 @@ import (
 	"github.com/sipeed/picoclaw/pkg/providers"
 )
 
-// cancelBlockingProvider holds a turn open until the test releases it, so /stop can
-// be delivered while a turn is genuinely in flight rather than racing setup.
+// cancellationWaitBudget bounds every "wait for progress" loop in this file.
+//
+// It is deliberately generous. These tests assert that something happens, never
+// that it happens within a particular time, so the only thing a tight deadline
+// buys is a failure when the machine is busy — which is how this file produced
+// one unreproducible red run. A passing assertion returns as soon as its
+// condition holds and never spends this budget. Waits that assert the absence
+// of something stay short, and are not written in terms of this constant.
+const cancellationWaitBudget = 15 * time.Second
+
+// cancelBlockingProvider holds a turn open until the test releases it, so /stop
+// can be delivered while a turn is genuinely in flight rather than racing setup.
 type cancelBlockingProvider struct {
 	entered  chan struct{}
 	release  chan struct{}
@@ -131,7 +141,7 @@ func newCancellationHarness(t *testing.T, response string) *cancellationHarness 
 			if err != nil {
 				t.Errorf("Run() error = %v", err)
 			}
-		case <-time.After(3 * time.Second):
+		case <-time.After(cancellationWaitBudget):
 			t.Error("Run() did not stop")
 		}
 		loop.Close()
@@ -162,14 +172,14 @@ func (h *cancellationHarness) waitForTurnStart(t *testing.T) {
 	t.Helper()
 	select {
 	case <-h.provider.entered:
-	case <-time.After(2 * time.Second):
+	case <-time.After(cancellationWaitBudget):
 		t.Fatal("turn never reached the provider")
 	}
 }
 
 func waitForSends(t *testing.T, ch *typingTestChannel, count int) []string {
 	t.Helper()
-	deadline := time.Now().Add(2 * time.Second)
+	deadline := time.Now().Add(cancellationWaitBudget)
 	for time.Now().Before(deadline) {
 		_, sends := ch.snapshot()
 		if len(sends) >= count {
@@ -184,7 +194,7 @@ func waitForSends(t *testing.T, ch *typingTestChannel, count int) []string {
 
 func waitForDeliveryCount(t *testing.T, ch *typingTestChannel, count int) ([]lifecycleDelivery, []string) {
 	t.Helper()
-	deadline := time.Now().Add(2 * time.Second)
+	deadline := time.Now().Add(cancellationWaitBudget)
 	for time.Now().Before(deadline) {
 		edits, sends := ch.snapshot()
 		if len(edits)+len(sends) >= count {
@@ -211,7 +221,7 @@ func TestTelegramNormalMessagesPreserveFIFO(t *testing.T) {
 		time.Sleep(5 * time.Millisecond)
 	}
 
-	deadline := time.Now().Add(3 * time.Second)
+	deadline := time.Now().Add(cancellationWaitBudget)
 	var edits []lifecycleDelivery
 	for time.Now().Before(deadline) {
 		edits, _ = h.channel.snapshot()
@@ -301,7 +311,7 @@ func TestTelegramCancellationClearsThinkingAndTypingState(t *testing.T) {
 	h.send(t, "A", "long running request")
 	h.waitForTurnStart(t)
 
-	deadline := time.Now().Add(2 * time.Second)
+	deadline := time.Now().Add(cancellationWaitBudget)
 	for time.Now().Before(deadline) {
 		if started, _ := h.channel.typingCounts(); started > 0 {
 			break
@@ -316,7 +326,7 @@ func TestTelegramCancellationClearsThinkingAndTypingState(t *testing.T) {
 	h.send(t, "S", "/stop")
 	waitForDeliveryCount(t, h.channel, 1)
 
-	deadline = time.Now().Add(2 * time.Second)
+	deadline = time.Now().Add(cancellationWaitBudget)
 	for time.Now().Before(deadline) {
 		if _, stopped := h.channel.typingCounts(); stopped >= started {
 			break
@@ -357,7 +367,7 @@ func TestTelegramMessageAfterCancellationRunsNormally(t *testing.T) {
 	manager.RecordPlaceholderForLifecycle("telegram", "chat", "N", "ph-N")
 	h.send(t, "N", "next question")
 
-	deadline := time.Now().Add(3 * time.Second)
+	deadline := time.Now().Add(cancellationWaitBudget)
 	for time.Now().Before(deadline) {
 		edits, _ := h.channel.snapshot()
 		for _, e := range edits {
@@ -421,7 +431,7 @@ func TestTelegramHTTPTimeoutIsNotAnAgentTurnTimeout(t *testing.T) {
 	time.Sleep(300 * time.Millisecond)
 	h.provider.releaseAll()
 
-	deadline := time.Now().Add(3 * time.Second)
+	deadline := time.Now().Add(cancellationWaitBudget)
 	for time.Now().Before(deadline) {
 		edits, _ := h.channel.snapshot()
 		for _, e := range edits {
