@@ -484,4 +484,16 @@ class AppLocalizationsAr extends AppLocalizations {
   @override
   String get whatsNew020Fix2 =>
       'يتم الآن حفظ قوائم القنوات التي تحتوي أكثر من عنصر واحد بشكل صحيح.';
+
+  @override
+  String get settingsGroupConnection => 'الاتصال';
+
+  @override
+  String get settingsGroupAgent => 'الوكيل';
+
+  @override
+  String get settingsGroupIntegrations => 'التكاملات';
+
+  @override
+  String get settingsGroupAppearance => 'المظهر';
 }

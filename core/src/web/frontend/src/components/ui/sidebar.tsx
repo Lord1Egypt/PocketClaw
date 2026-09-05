@@ -259,8 +259,13 @@ function Sidebar({
 function SidebarTrigger({
   className,
   onClick,
+  children,
+  label,
   ...props
-}: React.ComponentProps<typeof Button>) {
+}: React.ComponentProps<typeof Button> & {
+  /** Accessible name. Defaults to the panel-collapse wording. */
+  label?: string
+}) {
   const { toggleSidebar } = useSidebar()
   const { t } = useTranslation()
 
@@ -277,8 +282,11 @@ function SidebarTrigger({
       }}
       {...props}
     >
-      <IconLayoutSidebar />
-      <span className="sr-only">{t("common.toggleSidebar")}</span>
+      {/* A caller that supplies an icon means it. Children written between the
+          tags win over children arriving through the spread, so hard-coding a
+          glyph here silently discarded the one the header already passed. */}
+      {children ?? <IconLayoutSidebar />}
+      <span className="sr-only">{label ?? t("common.toggleSidebar")}</span>
     </Button>
   )
 }

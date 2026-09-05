@@ -139,6 +139,7 @@
         "restart": "Restartovat gateway"
       },
       "status": {
+        "running": "Běží",
         "starting": "Spouštění gateway...",
         "restarting": "Restartování gateway...",
         "stopping": "Zastavování gateway..."
@@ -172,6 +173,8 @@
     "sidebar": "Postranní panel",
     "sidebarDescription": "Zobrazí postranní panel pro mobil.",
     "toggleSidebar": "Přepnout postranní panel",
+    "openMenu": "Otevřít nabídku",
+    "closeMenu": "Zavřít nabídku",
     "crashed": "Konzole přestala odpovídat.",
     "reload": "Znovu načíst",
     "darkMode": "Tmavý režim",

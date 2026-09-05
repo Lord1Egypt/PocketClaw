@@ -496,4 +496,16 @@ class AppLocalizationsDe extends AppLocalizations {
   @override
   String get whatsNew020Fix2 =>
       'Kanallisten mit mehreren Einträgen bleiben beim Speichern korrekt erhalten.';
+
+  @override
+  String get settingsGroupConnection => 'Verbindung';
+
+  @override
+  String get settingsGroupAgent => 'Agent';
+
+  @override
+  String get settingsGroupIntegrations => 'Integrationen';
+
+  @override
+  String get settingsGroupAppearance => 'Darstellung';
 }

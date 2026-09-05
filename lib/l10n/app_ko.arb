@@ -169,5 +169,9 @@
   "whatsNew020Improvement2": "더 정확해진 관리형 런타임 카탈로그.",
   "whatsNew020Improvement3": "웹 화면과 기본 작업 공간 전반에서 더 일관된 PocketClaw 표기.",
   "whatsNew020Fix1": "이전 실행이 남긴 오래된 프로세스 기록에서 게이트웨이가 복구됩니다.",
-  "whatsNew020Fix2": "항목이 두 개 이상인 채널 목록이 저장 시 올바르게 유지됩니다."
+  "whatsNew020Fix2": "항목이 두 개 이상인 채널 목록이 저장 시 올바르게 유지됩니다.",
+  "settingsGroupConnection": "연결",
+  "settingsGroupAgent": "에이전트",
+  "settingsGroupIntegrations": "연동",
+  "settingsGroupAppearance": "모양"
 }

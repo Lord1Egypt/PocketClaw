@@ -139,6 +139,7 @@
         "restart": "Gateway neu starten"
       },
       "status": {
+        "running": "Aktiv",
         "starting": "Gateway wird gestartet ...",
         "restarting": "Gateway wird neu gestartet ...",
         "stopping": "Gateway wird gestoppt ..."
@@ -175,6 +176,8 @@
     "sidebar": "Seitenleiste",
     "sidebarDescription": "Zeigt die mobile Seitenleiste an.",
     "toggleSidebar": "Seitenleiste umschalten",
+    "openMenu": "Menü öffnen",
+    "closeMenu": "Menü schließen",
     "crashed": "Die Konsole reagiert nicht mehr.",
     "reload": "Neu laden"
   },

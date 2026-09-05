@@ -499,4 +499,16 @@ class AppLocalizationsPt extends AppLocalizations {
   @override
   String get whatsNew020Fix2 =>
       'Listas de canais com mais de uma entrada são preservadas corretamente ao salvar.';
+
+  @override
+  String get settingsGroupConnection => 'Conexão';
+
+  @override
+  String get settingsGroupAgent => 'Agente';
+
+  @override
+  String get settingsGroupIntegrations => 'Integrações';
+
+  @override
+  String get settingsGroupAppearance => 'Aparência';
 }

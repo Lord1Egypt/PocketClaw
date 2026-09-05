@@ -151,7 +151,12 @@ describe("sidebar chrome uses a logical border edge", () => {
       `${process.cwd()}/src/components/app-sidebar.tsx`,
       "utf8",
     )
-    const chrome = source.match(/className="bg-background[^"]*"/)?.[0] ?? ""
+    // Read the chrome off the <Sidebar> element itself rather than off one
+    // colour utility, so restyling the surface cannot quietly empty the match
+    // and turn this into an assertion about nothing.
+    const chrome =
+      source.match(/<Sidebar\b[^>]*className="([^"]*)"/s)?.[1] ?? ""
+    expect(chrome).not.toBe("")
     expect(chrome).toContain("border-e")
     expect(chrome).not.toMatch(/border-[rl]\b/)
     expect(chrome).not.toMatch(/border-[rl]-/)
@@ -168,7 +173,7 @@ describe("sidebar chrome uses a logical border edge", () => {
       await i18n.changeLanguage(locale)
       render(
         <SidebarProvider>
-          <Sidebar className="bg-background border-e-border/20 border-e pt-3">
+          <Sidebar className="bg-pc-surface-1 border-e-border border-e">
             <p>sidebar content</p>
           </Sidebar>
         </SidebarProvider>,

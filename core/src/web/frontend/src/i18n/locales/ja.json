@@ -139,6 +139,7 @@
         "restart": "ゲートウェイを再起動"
       },
       "status": {
+        "running": "実行中",
         "starting": "ゲートウェイを開始しています...",
         "restarting": "ゲートウェイを再起動しています...",
         "stopping": "ゲートウェイを停止しています..."
@@ -175,6 +176,8 @@
     "sidebar": "サイドバー",
     "sidebarDescription": "モバイル用サイドバーを表示します。",
     "toggleSidebar": "サイドバーの表示切り替え",
+    "openMenu": "メニューを開く",
+    "closeMenu": "メニューを閉じる",
     "crashed": "コンソールが応答しなくなりました。",
     "reload": "再読み込み"
   },

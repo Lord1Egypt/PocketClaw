@@ -473,4 +473,16 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get whatsNew020Fix2 => '항목이 두 개 이상인 채널 목록이 저장 시 올바르게 유지됩니다.';
+
+  @override
+  String get settingsGroupConnection => '연결';
+
+  @override
+  String get settingsGroupAgent => '에이전트';
+
+  @override
+  String get settingsGroupIntegrations => '연동';
+
+  @override
+  String get settingsGroupAppearance => '모양';
 }

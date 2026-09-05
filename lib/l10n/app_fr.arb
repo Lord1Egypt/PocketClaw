@@ -169,5 +169,9 @@
   "whatsNew020Improvement2": "Un catalogue de l'environnement d'exécution géré plus précis.",
   "whatsNew020Improvement3": "Une identité PocketClaw plus nette dans l'interface web et dans l'espace de travail par défaut.",
   "whatsNew020Fix1": "La passerelle se rétablit désormais après un enregistrement de processus obsolète laissé par une exécution précédente.",
-  "whatsNew020Fix2": "Les listes de canaux comportant plusieurs entrées sont correctement conservées lors de l'enregistrement."
+  "whatsNew020Fix2": "Les listes de canaux comportant plusieurs entrées sont correctement conservées lors de l'enregistrement.",
+  "settingsGroupConnection": "Connexion",
+  "settingsGroupAgent": "Agent",
+  "settingsGroupIntegrations": "Intégrations",
+  "settingsGroupAppearance": "Apparence"
 }

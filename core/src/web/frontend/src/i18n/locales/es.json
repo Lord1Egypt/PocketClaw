@@ -139,6 +139,7 @@
         "restart": "Reiniciar puerta de enlace"
       },
       "status": {
+        "running": "En ejecución",
         "starting": "Iniciando la puerta de enlace...",
         "restarting": "Reiniciando la puerta de enlace...",
         "stopping": "Deteniendo la puerta de enlace..."
@@ -175,6 +176,8 @@
     "sidebar": "Barra lateral",
     "sidebarDescription": "Muestra la barra lateral móvil.",
     "toggleSidebar": "Alternar barra lateral",
+    "openMenu": "Abrir menú",
+    "closeMenu": "Cerrar menú",
     "crashed": "La consola dejó de responder.",
     "reload": "Recargar"
   },

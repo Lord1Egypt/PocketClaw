@@ -1,43 +1,25 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
-/// Central Material 3 tokens for PocketClaw-owned UI.
+import 'package:pocketclaw/src/core/aperture_theme.dart';
+import 'package:pocketclaw/src/core/app_theme.dart';
+
+/// Layout tokens for PocketClaw-owned UI.
+///
+/// This used to generate light mode from a Material 3 seed while `AppTheme`
+/// generated dark mode from an unrelated system. Both brightnesses now come
+/// from [ApertureTheme], so the spacing and radius constants here — which the
+/// onboarding page and several cards already use — line up with the theme
+/// rather than describing a second, conflicting one.
 abstract final class PocketClawDesign {
   static const seed = Color(0xFF00B8D9);
-  static const darkSurface = Color(0xFF08111F);
-  static const lightSurface = Color(0xFFF7FAFC);
-  static const radiusSmall = 10.0;
-  static const radiusMedium = 16.0;
-  static const spaceSmall = 8.0;
-  static const spaceMedium = 16.0;
-  static const spaceLarge = 24.0;
+  static const radiusSmall = ApertureTheme.radiusSm;
+  static const radiusMedium = ApertureTheme.radiusMd;
+  static const spaceSmall = ApertureTheme.spaceSm;
+  static const spaceMedium = ApertureTheme.spaceMd;
+  static const spaceLarge = ApertureTheme.spaceLg;
 
-  static ThemeData lightTheme() => _theme(Brightness.light);
-  static ThemeData darkTheme() => _theme(Brightness.dark);
-
-  static ThemeData _theme(Brightness brightness) {
-    final scheme = ColorScheme.fromSeed(
-      seedColor: seed,
-      brightness: brightness,
-      surface: brightness == Brightness.dark ? darkSurface : lightSurface,
-    );
-    return ThemeData(
-      useMaterial3: true,
-      brightness: brightness,
-      colorScheme: scheme,
-      scaffoldBackgroundColor: scheme.surface,
-      textTheme: GoogleFonts.interTextTheme(),
-      cardTheme: CardThemeData(
-        elevation: 0,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(radiusMedium),
-        ),
-      ),
-      inputDecorationTheme: InputDecorationTheme(
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(radiusSmall),
-        ),
-      ),
-    );
-  }
+  static ThemeData lightTheme([AppThemeMode mode = AppThemeMode.carbon]) =>
+      ApertureTheme.light(mode);
+  static ThemeData darkTheme([AppThemeMode mode = AppThemeMode.carbon]) =>
+      ApertureTheme.dark(mode);
 }

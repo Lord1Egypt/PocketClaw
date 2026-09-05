@@ -169,5 +169,9 @@
   "whatsNew020Improvement2": "更准确的托管运行时目录。",
   "whatsNew020Improvement3": "网页界面与默认工作区中的 PocketClaw 标识更加统一。",
   "whatsNew020Fix1": "网关现在可以从上一次运行遗留的过期进程记录中恢复。",
-  "whatsNew020Fix2": "包含多个条目的频道列表在保存时能够正确保留。"
+  "whatsNew020Fix2": "包含多个条目的频道列表在保存时能够正确保留。",
+  "settingsGroupConnection": "连接",
+  "settingsGroupAgent": "智能体",
+  "settingsGroupIntegrations": "集成",
+  "settingsGroupAppearance": "外观"
 }

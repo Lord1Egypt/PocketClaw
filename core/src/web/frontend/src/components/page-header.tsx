@@ -1,4 +1,3 @@
-import { IconMenu2 } from "@tabler/icons-react"
 import type { ReactNode } from "react"
 
 import { SidebarTrigger } from "@/components/ui/sidebar"
@@ -25,10 +24,11 @@ export function PageHeader({
       )}
     >
       <div className="flex items-center gap-4">
-        <SidebarTrigger className="border-border/60 bg-background text-muted-foreground hover:bg-accent hover:text-foreground hidden h-9 w-9 rounded-lg border sm:flex [&>svg]:size-5">
-          <IconMenu2 />
-        </SidebarTrigger>
-        <h2 className="text-foreground/90 text-xl font-medium tracking-tight">
+        {/* Desktop only. Here the sidebar genuinely is a collapsible panel,
+            so this keeps the panel glyph and the panel wording; the mobile
+            control in the app header is the one that navigates. */}
+        <SidebarTrigger className="border-pc-line bg-pc-surface-1 text-pc-muted hover:bg-pc-surface-3 hover:text-pc-text hidden size-9 rounded-md border sm:flex [&>svg]:size-5" />
+        <h2 className="text-pc-text text-[1.375rem] font-semibold tracking-[-0.01em]">
           {title}
         </h2>
         {titleExtra}

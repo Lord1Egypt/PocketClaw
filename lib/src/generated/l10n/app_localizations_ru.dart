@@ -493,4 +493,16 @@ class AppLocalizationsRu extends AppLocalizations {
   @override
   String get whatsNew020Fix2 =>
       'Списки каналов с несколькими записями корректно сохраняются.';
+
+  @override
+  String get settingsGroupConnection => 'Подключение';
+
+  @override
+  String get settingsGroupAgent => 'Агент';
+
+  @override
+  String get settingsGroupIntegrations => 'Интеграции';
+
+  @override
+  String get settingsGroupAppearance => 'Оформление';
 }

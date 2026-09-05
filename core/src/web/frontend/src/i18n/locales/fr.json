@@ -139,6 +139,7 @@
         "restart": "Redémarrer la passerelle"
       },
       "status": {
+        "running": "En cours",
         "starting": "Démarrage de la passerelle...",
         "restarting": "Redémarrage de la passerelle...",
         "stopping": "Arrêt de la passerelle..."
@@ -175,6 +176,8 @@
     "sidebar": "Barre latérale",
     "sidebarDescription": "Affiche la barre latérale mobile.",
     "toggleSidebar": "Afficher ou masquer la barre latérale",
+    "openMenu": "Ouvrir le menu",
+    "closeMenu": "Fermer le menu",
     "crashed": "La console ne répond plus.",
     "reload": "Recharger"
   },

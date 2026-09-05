@@ -169,5 +169,9 @@
   "whatsNew020Improvement2": "Un catálogo del entorno de ejecución gestionado más preciso.",
   "whatsNew020Improvement3": "Una identidad de PocketClaw más clara en la interfaz web y en el espacio de trabajo predeterminado.",
   "whatsNew020Fix1": "La puerta de enlace ahora se recupera de un registro de proceso obsoleto dejado por una ejecución anterior.",
-  "whatsNew020Fix2": "Las listas de canales con más de una entrada se conservan correctamente al guardar los ajustes."
+  "whatsNew020Fix2": "Las listas de canales con más de una entrada se conservan correctamente al guardar los ajustes.",
+  "settingsGroupConnection": "Conexión",
+  "settingsGroupAgent": "Agente",
+  "settingsGroupIntegrations": "Integraciones",
+  "settingsGroupAppearance": "Apariencia"
 }

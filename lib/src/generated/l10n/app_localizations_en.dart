@@ -487,4 +487,16 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get whatsNew020Fix2 =>
       'Channel lists with more than one entry are preserved correctly when settings are saved.';
+
+  @override
+  String get settingsGroupConnection => 'Connection';
+
+  @override
+  String get settingsGroupAgent => 'Agent';
+
+  @override
+  String get settingsGroupIntegrations => 'Integrations';
+
+  @override
+  String get settingsGroupAppearance => 'Appearance';
 }

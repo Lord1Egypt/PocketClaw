@@ -139,6 +139,7 @@
         "restart": "Reiniciar Gateway"
       },
       "status": {
+        "running": "Em execução",
         "starting": "Iniciando Gateway...",
         "restarting": "Reiniciando Gateway...",
         "stopping": "Parando Gateway..."
@@ -172,6 +173,8 @@
     "sidebar": "Barra lateral",
     "sidebarDescription": "Exibe a barra lateral móvel.",
     "toggleSidebar": "Alternar barra lateral",
+    "openMenu": "Abrir menu",
+    "closeMenu": "Fechar menu",
     "crashed": "O console parou de responder.",
     "reload": "Recarregar",
     "darkMode": "Modo escuro",

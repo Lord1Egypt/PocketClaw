@@ -139,6 +139,7 @@
         "restart": "Restart Gateway"
       },
       "status": {
+        "running": "Running",
         "starting": "Starting Gateway...",
         "restarting": "Restarting Gateway...",
         "stopping": "Stopping Gateway..."
@@ -175,6 +176,8 @@
     "sidebar": "Sidebar",
     "sidebarDescription": "Displays the mobile sidebar.",
     "toggleSidebar": "Toggle Sidebar",
+    "openMenu": "Open menu",
+    "closeMenu": "Close menu",
     "crashed": "The console stopped responding.",
     "reload": "Reload"
   },

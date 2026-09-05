@@ -487,4 +487,16 @@ class AppLocalizationsHi extends AppLocalizations {
   @override
   String get whatsNew020Fix2 =>
       'एक से अधिक प्रविष्टि वाली चैनल सूचियाँ सहेजते समय सही ढंग से बनी रहती हैं.';
+
+  @override
+  String get settingsGroupConnection => 'कनेक्शन';
+
+  @override
+  String get settingsGroupAgent => 'एजेंट';
+
+  @override
+  String get settingsGroupIntegrations => 'एकीकरण';
+
+  @override
+  String get settingsGroupAppearance => 'रूप';
 }

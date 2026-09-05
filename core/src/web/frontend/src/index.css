@@ -6,14 +6,40 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/*
+ * APERTURE — PocketClaw visual foundation.
+ *
+ * Three hues on one spine and nothing else in the core system:
+ *   Graphite 245  every neutral: canvas, surfaces, hairlines, text
+ *   Claw     208  the one interactive accent: intent, selection, focus
+ *   Signal   195  live machine state only: gateway running, agent streaming
+ *
+ * Every neutral carries a small chroma at the Graphite hue. A chroma-0 grey is
+ * the default of every framework, which is precisely why it reads as one. The
+ * chroma rises as the surface darkens, the way physical dark materials behave.
+ *
+ * Product code addresses the `--pc-*` semantic layer. The shadcn variables are
+ * remapped onto it rather than deleted, so every existing component inherits
+ * the identity without being edited.
+ */
+
 @theme inline {
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
-  --radius-2xl: calc(var(--radius) + 8px);
-  --radius-3xl: calc(var(--radius) + 12px);
-  --radius-4xl: calc(var(--radius) + 16px);
+  /* Aperture radii. Buttons and inputs use rounded-md, cards and dialogs
+     rounded-xl, the composer and message bubbles rounded-2xl — so the scale is
+     declared to land those three on 10 / 14 / 20 rather than derived from one
+     base that lands none of them. */
+  --radius-xs: 6px;
+  --radius-sm: 8px;
+  --radius-md: 10px;
+  --radius-lg: 12px;
+  --radius-xl: 14px;
+  --radius-2xl: 20px;
+  --radius-3xl: 24px;
+  --radius-4xl: 28px;
+
+  --font-sans: "Inter Variable", Inter, system-ui, sans-serif;
+  --font-mono: var(--pc-font-mono);
+
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -45,86 +71,207 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+
+  /* The Aperture semantic layer, exposed as utilities. */
+  --color-pc-canvas: var(--pc-bg);
+  --color-pc-surface-1: var(--pc-surface-1);
+  --color-pc-surface-2: var(--pc-surface-2);
+  --color-pc-surface-3: var(--pc-surface-3);
+  --color-pc-line: var(--pc-border);
+  --color-pc-line-strong: var(--pc-border-strong);
+  --color-pc-text: var(--pc-text);
+  --color-pc-muted: var(--pc-text-muted);
+  --color-pc-faint: var(--pc-text-faint);
+  --color-pc-claw: var(--pc-primary);
+  --color-pc-claw-hover: var(--pc-primary-hover);
+  --color-pc-claw-ink: var(--pc-primary-fg);
+  --color-pc-claw-soft: var(--pc-primary-soft);
+  --color-pc-claw-line: var(--pc-primary-line);
+  --color-pc-signal: var(--pc-signal);
+  --color-pc-signal-soft: var(--pc-signal-soft);
+  --color-pc-success: var(--pc-success);
+  --color-pc-success-soft: var(--pc-success-soft);
+  --color-pc-warning: var(--pc-warning);
+  --color-pc-warning-soft: var(--pc-warning-soft);
+  --color-pc-danger: var(--pc-danger);
+  --color-pc-danger-soft: var(--pc-danger-soft);
 }
 
 :root {
-  --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --pc-font-mono:
+    ui-monospace, "SF Mono", "JetBrains Mono", "Cascadia Mono", Menlo, Consolas,
+    monospace;
+
+  /* Light mode is a first-class target, not an inversion: the same three hues
+     with roughly 30% less chroma and cards that lift by being lighter than the
+     canvas rather than darker. */
+  --pc-bg: oklch(0.985 0.003 245);
+  --pc-surface-1: oklch(1 0 0);
+  --pc-surface-2: oklch(0.975 0.004 245);
+  --pc-surface-3: oklch(0.955 0.006 245);
+  --pc-border: oklch(0.905 0.008 245);
+  --pc-border-strong: oklch(0.82 0.012 245);
+  --pc-text: oklch(0.22 0.015 245);
+  --pc-text-muted: oklch(0.46 0.018 245);
+  --pc-text-faint: oklch(0.58 0.016 245);
+
+  --pc-primary: oklch(0.55 0.135 208);
+  --pc-primary-hover: oklch(0.49 0.135 208);
+  --pc-primary-fg: oklch(0.99 0.005 208);
+  --pc-primary-soft: oklch(0.55 0.135 208 / 0.12);
+  --pc-primary-line: oklch(0.55 0.135 208 / 0.4);
+
+  --pc-signal: oklch(0.6 0.13 195);
+  --pc-signal-soft: oklch(0.6 0.13 195 / 0.14);
+  --pc-success: oklch(0.55 0.14 158);
+  --pc-success-soft: oklch(0.55 0.14 158 / 0.14);
+  --pc-warning: oklch(0.62 0.14 68);
+  --pc-warning-soft: oklch(0.62 0.14 68 / 0.14);
+  --pc-danger: oklch(0.55 0.2 25);
+  --pc-danger-soft: oklch(0.55 0.2 25 / 0.12);
+
+  /* Depth is drawn. A shadow appears only above level 2, where a real
+     occlusion cue is warranted. */
+  --pc-bevel: inset 0 1px 0 oklch(1 0 0 / 0.6);
+  --pc-shadow-3: 0 8px 24px oklch(0.22 0.015 245 / 0.1);
+  --pc-shadow-4: 0 24px 64px oklch(0.22 0.015 245 / 0.16);
+
+  --pc-nav-active-bg: var(--pc-primary-soft);
+  --pc-nav-active-marker: var(--pc-primary);
+  --pc-nav-hover-bg: var(--pc-surface-3);
+  --pc-field-bg: var(--pc-surface-1);
+  --pc-field-border: var(--pc-border);
+  --pc-field-border-focus: var(--pc-primary);
+  --pc-msg-user-bg: var(--pc-surface-3);
+  --pc-msg-assistant-rail: var(--pc-primary-line);
+  --pc-focus: var(--pc-primary);
+
+  --radius: 0.875rem;
+  --background: var(--pc-bg);
+  --foreground: var(--pc-text);
+  --card: var(--pc-surface-1);
+  --card-foreground: var(--pc-text);
+  --popover: var(--pc-surface-1);
+  --popover-foreground: var(--pc-text);
+  --primary: var(--pc-primary);
+  --primary-foreground: var(--pc-primary-fg);
+  --secondary: var(--pc-surface-3);
+  --secondary-foreground: var(--pc-text);
+  --muted: var(--pc-surface-3);
+  --muted-foreground: var(--pc-text-muted);
+  --accent: var(--pc-surface-3);
+  --accent-foreground: var(--pc-text);
+  --destructive: var(--pc-danger);
+  --border: var(--pc-border);
+  --input: var(--pc-border);
+  --ring: var(--pc-focus);
+  /* The chart sequence shares the hue spine, ordered so the two most-used
+     series are on brand. */
+  --chart-1: oklch(0.55 0.135 208);
+  --chart-2: oklch(0.6 0.13 195);
+  --chart-3: oklch(0.58 0.12 172);
+  --chart-4: oklch(0.52 0.16 285);
+  --chart-5: oklch(0.65 0.14 78);
+  --sidebar: var(--pc-surface-1);
+  --sidebar-foreground: var(--pc-text);
+  --sidebar-primary: var(--pc-primary);
+  --sidebar-primary-foreground: var(--pc-primary-fg);
+  --sidebar-accent: var(--pc-primary-soft);
+  --sidebar-accent-foreground: var(--pc-text);
+  --sidebar-border: var(--pc-border);
+  --sidebar-ring: var(--pc-focus);
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  /* Never pure black, never chroma 0. */
+  --pc-bg: oklch(0.17 0.012 245);
+  --pc-surface-1: oklch(0.21 0.014 245);
+  --pc-surface-2: oklch(0.25 0.016 245);
+  --pc-surface-3: oklch(0.29 0.018 245);
+  --pc-border: oklch(0.33 0.02 245);
+  --pc-border-strong: oklch(0.44 0.026 245);
+  --pc-text: oklch(0.97 0.004 245);
+  --pc-text-muted: oklch(0.74 0.014 245);
+  --pc-text-faint: oklch(0.6 0.016 245);
+
+  /* The accent sits at L 0.70, so its ink is dark. Dark ink on a bright accent
+     is also what makes a primary button read as illuminated, not painted. */
+  --pc-primary: oklch(0.7 0.13 208);
+  --pc-primary-hover: oklch(0.76 0.13 208);
+  --pc-primary-fg: oklch(0.16 0.02 245);
+  --pc-primary-soft: oklch(0.7 0.13 208 / 0.14);
+  --pc-primary-line: oklch(0.7 0.13 208 / 0.4);
+
+  --pc-signal: oklch(0.78 0.13 195);
+  --pc-signal-soft: oklch(0.78 0.13 195 / 0.14);
+  --pc-success: oklch(0.72 0.15 158);
+  --pc-success-soft: oklch(0.72 0.15 158 / 0.14);
+  --pc-warning: oklch(0.8 0.14 78);
+  --pc-warning-soft: oklch(0.8 0.14 78 / 0.14);
+  --pc-danger: oklch(0.64 0.2 25);
+  --pc-danger-soft: oklch(0.64 0.2 25 / 0.14);
+
+  --pc-bevel: inset 0 1px 0 oklch(1 0 0 / 0.04);
+  --pc-shadow-3: 0 8px 24px oklch(0 0 0 / 0.32);
+  --pc-shadow-4: 0 24px 64px oklch(0 0 0 / 0.44);
+
+  --pc-nav-hover-bg: var(--pc-surface-2);
+  --pc-field-bg: var(--pc-surface-3);
+  --pc-msg-user-bg: var(--pc-surface-2);
+
+  --background: var(--pc-bg);
+  --foreground: var(--pc-text);
+  --card: var(--pc-surface-1);
+  --card-foreground: var(--pc-text);
+  --popover: var(--pc-surface-2);
+  --popover-foreground: var(--pc-text);
+  --primary: var(--pc-primary);
+  --primary-foreground: var(--pc-primary-fg);
+  --secondary: var(--pc-surface-3);
+  --secondary-foreground: var(--pc-text);
+  --muted: var(--pc-surface-3);
+  --muted-foreground: var(--pc-text-muted);
+  --accent: var(--pc-surface-3);
+  --accent-foreground: var(--pc-text);
+  --destructive: var(--pc-danger);
+  --border: var(--pc-border);
+  --input: var(--pc-border);
+  --ring: var(--pc-focus);
+  --chart-1: oklch(0.7 0.13 208);
+  --chart-2: oklch(0.78 0.13 195);
+  --chart-3: oklch(0.74 0.12 172);
+  --chart-4: oklch(0.68 0.16 285);
+  --chart-5: oklch(0.8 0.14 78);
+  --sidebar: var(--pc-surface-1);
+  --sidebar-foreground: var(--pc-text);
+  --sidebar-primary: var(--pc-primary);
+  --sidebar-primary-foreground: var(--pc-primary-fg);
+  --sidebar-accent: var(--pc-primary-soft);
+  --sidebar-accent-foreground: var(--pc-text);
+  --sidebar-border: var(--pc-border);
+  --sidebar-ring: var(--pc-focus);
 }
 
 @layer base {
   * {
     @apply border-border outline-ring/50;
     scrollbar-width: thin;
-    scrollbar-color: var(--border) transparent;
+    scrollbar-color: var(--pc-border) transparent;
   }
 
   body {
     @apply bg-background text-foreground;
+    font-feature-settings:
+      "cv02" 1,
+      "cv03" 1,
+      "cv04" 1;
+  }
+
+  /* Focus is the cursor on a keyboard and on a TV remote. It is a shape
+     change, never a colour change alone, and it is never removed. */
+  :focus-visible {
+    outline: 2px solid var(--pc-focus);
+    outline-offset: 2px;
   }
 
   /* WebKit Custom Scrollbar */
@@ -138,12 +285,12 @@
   }
 
   ::-webkit-scrollbar-thumb {
-    background: var(--border);
+    background: var(--pc-border);
     border-radius: 4px;
   }
 
   ::-webkit-scrollbar-thumb:hover {
-    background: var(--muted-foreground);
+    background: var(--pc-border-strong);
   }
 }
 
@@ -155,6 +302,51 @@
 
 [data-slot="sidebar-gap"] {
   height: calc(100svh - 3.5rem);
+}
+
+/*
+ * The one repeated Aperture device: a 2px bracket on the inline-start edge,
+ * used for active navigation, the assistant message rail and card accents.
+ * Because it is a logical edge it mirrors in Arabic with no locale branch.
+ */
+.pc-bracket {
+  border-inline-start: 2px solid var(--pc-primary);
+}
+
+.pc-rail {
+  border-inline-start: 2px solid var(--pc-msg-assistant-rail);
+}
+
+/* Machine values a human may need to compare character by character. */
+.pc-mono {
+  font-family: var(--pc-font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.9375em;
+}
+
+/* Group labels give a long sidebar or a long form real structure. */
+.pc-micro {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/* Live machine state, and only that. Not a button, not a link, not a heading. */
+@keyframes pcSignalPulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.45;
+  }
+}
+
+.pc-signal-pulse {
+  animation: pcSignalPulse 2.4s ease-in-out infinite;
 }
 
 /* Typing indicator animations */
@@ -177,5 +369,20 @@
   100% {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .pc-signal-pulse {
+    animation: none;
   }
 }

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'package:pocketclaw/src/core/aperture_theme.dart';
 import 'package:pocketclaw/src/generated/l10n/app_localizations.dart';
 
 /// The console route that manages models, providers and the default selection.
@@ -19,16 +20,29 @@ class ModelsSettingsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
+    final tokens = context.aperture;
     final l10n = AppLocalizations.of(context)!;
     return Card(
       margin: EdgeInsets.zero,
       child: ListTile(
         key: const Key('models-settings-card'),
-        leading: Icon(Icons.auto_awesome_outlined, color: scheme.primary),
+        leading: Container(
+          width: 40,
+          height: 40,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: tokens.surface3,
+            borderRadius: BorderRadius.circular(ApertureTheme.radiusSm),
+          ),
+          child: Icon(
+            Icons.auto_awesome_outlined,
+            color: tokens.accent,
+            size: 20,
+          ),
+        ),
         title: Text(l10n.manageModelsTitle),
         subtitle: Text(l10n.manageModelsDescription),
-        trailing: const Icon(Icons.chevron_right_rounded),
+        trailing: Icon(Icons.chevron_right_rounded, color: tokens.textFaint),
         onTap: onManage == null
             ? null
             : () => onManage!(canonicalModelsConsolePath),

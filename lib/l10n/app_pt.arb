@@ -169,5 +169,9 @@
   "whatsNew020Improvement2": "Um catálogo do tempo de execução gerenciado mais preciso.",
   "whatsNew020Improvement3": "Uma identidade do PocketClaw mais consistente na interface web e no espaço de trabalho padrão.",
   "whatsNew020Fix1": "O gateway agora se recupera de um registro de processo obsoleto deixado por uma execução anterior.",
-  "whatsNew020Fix2": "Listas de canais com mais de uma entrada são preservadas corretamente ao salvar."
+  "whatsNew020Fix2": "Listas de canais com mais de uma entrada são preservadas corretamente ao salvar.",
+  "settingsGroupConnection": "Conexão",
+  "settingsGroupAgent": "Agente",
+  "settingsGroupIntegrations": "Integrações",
+  "settingsGroupAppearance": "Aparência"
 }

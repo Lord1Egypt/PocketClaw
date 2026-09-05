@@ -139,6 +139,7 @@
         "restart": "Mulai Ulang Gateway"
       },
       "status": {
+        "running": "Berjalan",
         "starting": "Memulai Gateway...",
         "restarting": "Memulai ulang Gateway...",
         "stopping": "Menghentikan Gateway..."
@@ -175,6 +176,8 @@
     "sidebar": "Bilah sisi",
     "sidebarDescription": "Menampilkan bilah sisi seluler.",
     "toggleSidebar": "Alihkan bilah sisi",
+    "openMenu": "Buka menu",
+    "closeMenu": "Tutup menu",
     "crashed": "Konsol berhenti merespons.",
     "reload": "Muat ulang"
   },
