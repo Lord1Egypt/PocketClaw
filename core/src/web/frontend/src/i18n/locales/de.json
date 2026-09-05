@@ -498,17 +498,6 @@
       "description": "Das Modell, mit dem PocketClaw antwortet. Wähle aus deinen konfigurierten Anbietern.",
       "none": "Kein Standardmodell ausgewählt.",
       "change": "Standardmodell ändern"
-    },
-    "visionModel": {
-      "title": "Vision-/Bildmodell",
-      "description": "Das Modell, das Anfragen mit einem Bild beantwortet. Auf Auto belassen, damit Bildanfragen an dein Standardmodell gehen.",
-      "auto": "Auto — Standardmodell verwenden",
-      "autoHint": "Bildanfragen gehen an dein Standardmodell, wie bisher.",
-      "change": "Vision-Modell wählen",
-      "clear": "Standardmodell verwenden",
-      "capabilityUnknown": "Bildunterstützung unbekannt",
-      "visionCapable": "Unterstützt Bilder",
-      "note": "Nur das Modell dieser Anfrage ändert sich — Sitzung, Tools und Kontext bleiben gleich. Die Fallback-Modelle unten gelten nicht für Bildanfragen."
     }
   },
   "channels": {

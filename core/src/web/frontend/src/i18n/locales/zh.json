@@ -498,17 +498,6 @@
       "description": "PocketClaw 用于回答的模型。从你已配置的服务商中选择。",
       "none": "尚未选择默认模型。",
       "change": "更改默认模型"
-    },
-    "visionModel": {
-      "title": "视觉 / 图像模型",
-      "description": "回答包含图片的对话轮次的模型。保持“自动”则图片轮次交给默认模型。",
-      "auto": "自动 — 使用默认模型",
-      "autoHint": "图片轮次交给默认模型，与现在一致。",
-      "change": "选择视觉模型",
-      "clear": "使用默认模型",
-      "capabilityUnknown": "图像支持情况未知",
-      "visionCapable": "支持图像",
-      "note": "只有该轮次的模型会改变——会话、工具和上下文保持不变。下面的回退模型不适用于图片轮次。"
     }
   },
   "channels": {

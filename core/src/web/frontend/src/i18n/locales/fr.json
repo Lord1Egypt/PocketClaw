@@ -498,17 +498,6 @@
       "description": "Le modèle avec lequel PocketClaw répond. Choisissez parmi vos fournisseurs configurés.",
       "none": "Aucun modèle par défaut sélectionné.",
       "change": "Changer le modèle par défaut"
-    },
-    "visionModel": {
-      "title": "Modèle vision / image",
-      "description": "Le modèle qui répond aux tours contenant une image. Laissez sur Auto pour envoyer les tours avec image à votre modèle par défaut.",
-      "auto": "Auto — utiliser le modèle par défaut",
-      "autoHint": "Les tours avec image vont à votre modèle par défaut, comme aujourd'hui.",
-      "change": "Choisir le modèle vision",
-      "clear": "Utiliser le modèle par défaut",
-      "capabilityUnknown": "Prise en charge des images inconnue",
-      "visionCapable": "Prend en charge les images",
-      "note": "Seul le modèle de ce tour change — session, outils et contexte restent identiques. Les modèles de repli ci-dessous ne s'appliquent pas aux tours avec image."
     }
   },
   "channels": {

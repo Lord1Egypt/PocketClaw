@@ -64,12 +64,6 @@ interface ModelsListResponse {
    * configured" rather than "unsupported by this build".
    */
   model_fallbacks: string[]
-  /**
-   * The dedicated model for turns that carry an image. Empty means no
-   * dedicated model is configured and image turns go to the default, which is
-   * what every install did before this field existed.
-   */
-  image_model: string
   provider_options: ModelProviderOption[]
 }
 
@@ -258,7 +252,7 @@ export async function deleteCatalog(id: string): Promise<void> {
 }
 
 /** A role a materialized model can be given in the same operation. */
-export type ModelRole = "" | "default" | "vision" | "fallback"
+export type ModelRole = "" | "default" | "fallback"
 
 export interface MaterializeModelRequest {
   /**
@@ -280,7 +274,6 @@ export interface MaterializeModelResponse {
   created: boolean
   role: ModelRole
   default_model: string
-  image_model: string
   model_fallbacks: string[]
 }
 
@@ -299,30 +292,6 @@ export async function materializeModel(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(req),
   })
-}
-
-/**
- * Points the dedicated vision model at an existing entry, or clears it.
- *
- * An empty name is a real state, not an error: with no vision model configured
- * an image turn goes to the default model, exactly as it did before this
- * setting existed. Selecting a *discovered* model instead goes through
- * `materializeModel` with role "vision", which creates the entry and assigns
- * the role in one write.
- */
-export async function setVisionModel(
-  modelName: string,
-): Promise<{ status: string; image_model: string }> {
-  const res = await request<{ status: string; image_model: string }>(
-    "/api/models/vision",
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ model_name: modelName }),
-    },
-  )
-  await refreshGatewayState()
-  return res
 }
 
 export type { ModelsListResponse, ModelActionResponse }

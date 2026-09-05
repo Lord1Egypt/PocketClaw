@@ -24,7 +24,6 @@ import { DeleteModelDialog } from "./delete-model-dialog"
 import { EditModelSheet } from "./edit-model-sheet"
 import { DefaultModelSection } from "./default-model-section"
 import { FallbackModelsSection } from "./fallback-models-section"
-import { VisionModelSection } from "./vision-model-section"
 import {
   getCanonicalProviderKey,
   getProviderCatalogMap,
@@ -44,8 +43,6 @@ export function ModelsPage() {
   const { t } = useTranslation()
   const [models, setModels] = useState<ModelInfo[]>([])
   const [fallbacks, setFallbacks] = useState<string[]>([])
-  // Empty means no dedicated vision model: image turns go to the default.
-  const [visionModelName, setVisionModelName] = useState("")
   const [providerOptions, setProviderOptions] = useState<
     ModelProviderOption[]
   >([])
@@ -79,7 +76,6 @@ export function ModelsPage() {
       })
       setModels(sorted)
       setFallbacks(data.model_fallbacks || [])
-      setVisionModelName(data.image_model || "")
       setProviderOptions(data.provider_options || [])
       setFetchError("")
     } catch (e) {
@@ -219,16 +215,6 @@ export function ModelsPage() {
           {!loading && models.length > 0 && (
             <DefaultModelSection
               models={models}
-              defaultModelName={defaultModel?.model_name}
-              providerOptions={providerOptions}
-              onSaved={fetchModels}
-            />
-          )}
-
-          {!loading && models.length > 0 && (
-            <VisionModelSection
-              models={models}
-              visionModelName={visionModelName}
               defaultModelName={defaultModel?.model_name}
               providerOptions={providerOptions}
               onSaved={fetchModels}

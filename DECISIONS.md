@@ -1,5 +1,26 @@
 # PocketClaw Decisions
 
+## PocketClaw exposes no dedicated Vision / Image Model selector
+
+- Date: 2026-09-05
+- Decision: the model routing surface is **Default Model and Fallback Models**,
+  and nothing else. A user who needs image support chooses a multimodal model as
+  their Default Model. A Vision / Image Model control was built on
+  `feature/configured-model-discovery` and removed before merge; the commits
+  that added it, `bc7c3ff` and `c9c0db2`, were reverted.
+- Reason: image capability is a property of the provider and the model, not a
+  routing problem the product needs a second selector for. Two model roles is
+  the amount of configuration this product wants a user to carry, and a third
+  one earns its place only if choosing a multimodal default turns out not to
+  work.
+- Consequence: **Vision routing is not a delivered PocketClaw feature and must
+  not be described as one.** Core's `agents.defaults.image_model`,
+  `agents.defaults.image_model_fallbacks` and `routeMediaTurn` predate this
+  branch, are load-bearing upstream behaviour, and were deliberately left
+  byte-identical to `develop` — they stay reachable by editing the config file,
+  with no Dashboard or API surface. Removing them is a separate decision nobody
+  has made.
+
 ## APERTURE is the accepted PocketClaw visual identity
 
 - Date: 2026-09-05

@@ -498,17 +498,6 @@
       "description": "Model yang dipakai PocketClaw untuk menjawab. Pilih dari penyedia yang sudah Anda konfigurasi.",
       "none": "Belum ada model bawaan yang dipilih.",
       "change": "Ubah model bawaan"
-    },
-    "visionModel": {
-      "title": "Model Vision / Gambar",
-      "description": "Model yang menjawab giliran yang berisi gambar. Biarkan Auto agar giliran bergambar dikirim ke model bawaan Anda.",
-      "auto": "Auto — pakai model bawaan",
-      "autoHint": "Giliran bergambar menuju model bawaan Anda, seperti sekarang.",
-      "change": "Pilih model vision",
-      "clear": "Pakai model bawaan",
-      "capabilityUnknown": "Dukungan gambar tidak diketahui",
-      "visionCapable": "Mendukung gambar",
-      "note": "Hanya model giliran itu yang berubah — sesi, alat, dan konteks tetap. Model cadangan di bawah tidak berlaku untuk giliran bergambar."
     }
   },
   "channels": {

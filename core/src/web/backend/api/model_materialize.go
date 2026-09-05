@@ -15,7 +15,6 @@ import (
 const (
 	materializeRoleNone     = ""
 	materializeRoleDefault  = "default"
-	materializeRoleVision   = "vision"
 	materializeRoleFallback = "fallback"
 )
 
@@ -64,13 +63,8 @@ func (h *Handler) handleMaterializeModel(w http.ResponseWriter, r *http.Request)
 	}
 
 	switch req.Role {
-	case materializeRoleNone,
-		materializeRoleDefault,
-		materializeRoleVision,
-		materializeRoleFallback:
+	case materializeRoleNone, materializeRoleDefault, materializeRoleFallback:
 	default:
-		// Fail closed: an unrecognised role writes nothing rather than
-		// falling through to "create the entry and assign nothing".
 		http.Error(w, fmt.Sprintf("Unknown role %q", req.Role), http.StatusBadRequest)
 		return
 	}
@@ -113,12 +107,6 @@ func (h *Handler) handleMaterializeModel(w http.ResponseWriter, r *http.Request)
 			return
 		}
 		cfg.Agents.Defaults.ModelName = entry.ModelName
-	case materializeRoleVision:
-		if reason := validateVisionModelSelection(cfg, entry.ModelName); reason != "" {
-			http.Error(w, reason, http.StatusBadRequest)
-			return
-		}
-		cfg.Agents.Defaults.ImageModel = entry.ModelName
 	case materializeRoleFallback:
 		appended := append(append([]string{}, cfg.Agents.Defaults.ModelFallbacks...), entry.ModelName)
 		normalized, reason := normalizeModelFallbacks(cfg, appended)
@@ -147,7 +135,6 @@ func (h *Handler) handleMaterializeModel(w http.ResponseWriter, r *http.Request)
 		"created":         created,
 		"role":            req.Role,
 		"default_model":   cfg.Agents.Defaults.GetModelName(),
-		"image_model":     strings.TrimSpace(cfg.Agents.Defaults.ImageModel),
 		"model_fallbacks": fallbacks,
 	})
 }

@@ -25,7 +25,6 @@ const DISCOVERY_HOOK = "src/hooks/use-configured-models.ts"
 const ROUTING_SELECTORS = [
   "src/components/models/fallback-models-section.tsx",
   "src/components/models/default-model-section.tsx",
-  "src/components/models/vision-model-section.tsx",
   "src/hooks/use-chat-models.ts",
 ]
 
@@ -97,7 +96,6 @@ describe("materialization goes through the transactional endpoint", () => {
   it.each([
     "src/components/models/fallback-models-section.tsx",
     "src/components/models/default-model-section.tsx",
-    "src/components/models/vision-model-section.tsx",
   ])("%s uses materializeModel rather than addModel", (file) => {
     const source = read(file)
     expect(source).toContain("materializeModel")
@@ -109,40 +107,5 @@ describe("materialization goes through the transactional endpoint", () => {
   it("assigns the default role in the same call that creates the entry", () => {
     const source = read("src/components/models/default-model-section.tsx")
     expect(source).toContain('role: "default"')
-  })
-
-  it("assigns the vision role in the same call that creates the entry", () => {
-    const source = read("src/components/models/vision-model-section.tsx")
-    expect(source).toContain('role: "vision"')
-  })
-})
-
-describe("vision capability is never guessed", () => {
-  // No provider reports capabilities today; the discovery response carries only
-  // an id and an owner. A badge inferred from a substring would be a claim the
-  // user could route on, and it would be wrong for any model whose name says
-  // vision without accepting images — or the reverse.
-  it("infers nothing from the model name", () => {
-    for (const file of [
-      "src/lib/configured-model-source.ts",
-      "src/components/models/vision-model-section.tsx",
-      "src/hooks/use-configured-models.ts",
-    ]) {
-      const source = read(file)
-      expect(source).not.toMatch(/includes\(["'`](vision|vl|image)["'`]\)/i)
-      expect(source).not.toMatch(/\/vision|vl|image\//i)
-    }
-  })
-
-  it("keeps no hard-coded capability table", () => {
-    const source = read("src/lib/configured-model-source.ts")
-    // A table would look like a list of model ids mapped to capabilities.
-    expect(source).not.toMatch(/gpt-4|claude-|gemini-\d|qwen/i)
-  })
-
-  it("reads capability only from what a provider reported", () => {
-    const source = read("src/lib/configured-model-source.ts")
-    expect(source).toContain("visionCapable")
-    expect(source).toContain("visionCapable[")
   })
 })

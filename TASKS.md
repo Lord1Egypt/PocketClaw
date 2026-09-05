@@ -1,5 +1,48 @@
 # PocketClaw Tasks
 
+## Configured-provider model discovery — on `feature/configured-model-discovery`
+
+Branch from `develop` at `2b37af2`. **Not merged.** Physically validated as vc41.
+
+The milestone is live model discovery scoped to the providers the user has
+actually configured. The reported defect was a Fallback picker offering Azure,
+Cerebras, Anthropic, Groq, Ollama and Volcengine to someone who had configured
+only OpenCode and Gemini — `config.DefaultConfig()` seeds `model_list` with
+thirty keyless provider templates, and that picker was the one selector that
+never read the backend's `unconfigured` status.
+
+- [x] One shared source, `lib/configured-model-source.ts`, that decides what any
+  routing selector may offer.
+- [x] Live discovery per configured provider through the existing secure
+  `POST /api/models/fetch` — a `model_index`, never a key.
+- [x] Per-provider isolation under `Promise.allSettled`, with refresh and retry.
+- [x] Configured and discovered entries distinguished, grouped by provider.
+- [x] Provider-scoped identity: normalized provider + normalized API base +
+  model id, so two providers exposing the same id stay distinct.
+- [x] Materialise-on-selection through `POST /api/models/materialize`, which
+  finds or creates the entry and applies a role in one config write.
+- [x] Default Model and Fallback Models both drawn from that one source.
+- [x] Providers with no `/models` endpoint still offer their configured entries.
+- [x] Never any fall back to the global template catalog, including on failure.
+
+### Product decision: no dedicated Vision / Image Model UI
+
+**PocketClaw does not expose a Vision / Image Model selector.** The model
+routing surface is Default Model and Fallback Models, and nothing else. A user
+who needs image support chooses a multimodal model as their Default Model;
+image capability is a provider and model concern rather than something the
+product solves with a second routing control.
+
+A dedicated Vision surface was built on this branch and then removed at the
+user's decision — commits `bc7c3ff` and `c9c0db2`, reverted. **Vision routing is
+not a delivered PocketClaw feature and must not be described as one.**
+
+What that removal did **not** touch: Core has had `agents.defaults.image_model`,
+`agents.defaults.image_model_fallbacks` and `routeMediaTurn` since before this
+branch existed. Those fields and that routing are upstream, load-bearing and
+byte-identical to `develop`. They remain reachable by editing the config file
+directly; there is simply no Dashboard or API surface for them.
+
 ## APERTURE Visual Redesign — CLOSED 2026-09-05
 
 Branch `feature/visual-redesign-aperture`, merged to `develop` with `--no-ff`.
@@ -150,13 +193,13 @@ prepared, and none belongs to a milestone yet.
   Done in the APERTURE redesign, 2026-09-05.
 - [x] Replace the ambiguous mobile sidebar-toggle icon with a clear menu /
   hamburger icon. Done in the APERTURE redesign, 2026-09-05.
-- [ ] Offer a dedicated Vision / Image Model routing option. The conceptual
-  future structure is three roles a model can hold — Default Model, Vision
-  Model, Fallback Models. **Not implemented, not stubbed, not prepared.** The
-  APERTURE Models card reserves a wrapping role-badge row so a second role can
-  land as a sibling badge rather than as another redesign; that is conceptual
-  room only, and no routing control, role selector, data model or string
-  exists.
+- [ ] A dedicated Vision / Image Model routing option was built and then
+  **rejected as out of scope** on 2026-09-05: PocketClaw stays at Default Model
+  plus Fallback Models, and a user needing images picks a multimodal default.
+  **Not implemented, not stubbed, not prepared.** Core's pre-existing
+  `image_model` / `image_model_fallbacks` fields and `routeMediaTurn` are
+  untouched and still config-file reachable; only the product surface was
+  removed. Do not list Vision routing as a delivered feature.
 - [ ] Re-render the Android launcher icon from the refined APERTURE mark
   geometry. Out of scope for the redesign milestone, which changed no launcher
   asset.

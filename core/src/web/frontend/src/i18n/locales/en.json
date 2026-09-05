@@ -498,17 +498,6 @@
       "description": "The model PocketClaw answers with. Choose from the providers you have configured.",
       "none": "No default model selected.",
       "change": "Change default model"
-    },
-    "visionModel": {
-      "title": "Vision / Image Model",
-      "description": "The model that answers turns containing an image. Leave this on Auto to send image turns to your default model.",
-      "auto": "Auto — use the default model",
-      "autoHint": "Image turns go to your default model, as they do today.",
-      "change": "Choose vision model",
-      "clear": "Use the default model",
-      "capabilityUnknown": "Vision support unknown",
-      "visionCapable": "Supports images",
-      "note": "Only the model changes for that turn — session, tools and context are unchanged. The Fallback Models below do not apply to image turns."
     }
   },
   "channels": {
