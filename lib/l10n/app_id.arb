@@ -169,5 +169,9 @@
   "whatsNew020Improvement2": "Katalog Managed Runtime yang lebih akurat.",
   "whatsNew020Improvement3": "Identitas PocketClaw yang lebih rapi di antarmuka web dan ruang kerja bawaan.",
   "whatsNew020Fix1": "Gateway kini pulih dari catatan proses usang yang ditinggalkan oleh proses sebelumnya.",
-  "whatsNew020Fix2": "Daftar saluran dengan lebih dari satu entri kini tersimpan dengan benar."
+  "whatsNew020Fix2": "Daftar saluran dengan lebih dari satu entri kini tersimpan dengan benar.",
+  "settingsGroupConnection": "Koneksi",
+  "settingsGroupAgent": "Agen",
+  "settingsGroupIntegrations": "Integrasi",
+  "settingsGroupAppearance": "Tampilan"
 }

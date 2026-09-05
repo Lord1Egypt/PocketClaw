@@ -169,5 +169,9 @@
   "whatsNew020Improvement2": "अधिक सटीक प्रबंधित रनटाइम सूची.",
   "whatsNew020Improvement3": "वेब इंटरफ़ेस और डिफ़ॉल्ट कार्यक्षेत्र में अधिक स्पष्ट PocketClaw पहचान.",
   "whatsNew020Fix1": "गेटवे अब पिछली बार छूटे हुए पुराने प्रोसेस रिकॉर्ड से उबर जाता है.",
-  "whatsNew020Fix2": "एक से अधिक प्रविष्टि वाली चैनल सूचियाँ सहेजते समय सही ढंग से बनी रहती हैं."
+  "whatsNew020Fix2": "एक से अधिक प्रविष्टि वाली चैनल सूचियाँ सहेजते समय सही ढंग से बनी रहती हैं.",
+  "settingsGroupConnection": "कनेक्शन",
+  "settingsGroupAgent": "एजेंट",
+  "settingsGroupIntegrations": "एकीकरण",
+  "settingsGroupAppearance": "रूप"
 }

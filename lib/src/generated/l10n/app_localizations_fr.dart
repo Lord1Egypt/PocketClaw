@@ -501,4 +501,16 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get whatsNew020Fix2 =>
       'Les listes de canaux comportant plusieurs entrées sont correctement conservées lors de l\'enregistrement.';
+
+  @override
+  String get settingsGroupConnection => 'Connexion';
+
+  @override
+  String get settingsGroupAgent => 'Agent';
+
+  @override
+  String get settingsGroupIntegrations => 'Intégrations';
+
+  @override
+  String get settingsGroupAppearance => 'Apparence';
 }

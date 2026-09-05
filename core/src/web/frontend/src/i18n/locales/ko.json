@@ -139,6 +139,7 @@
         "restart": "게이트웨이 재시작"
       },
       "status": {
+        "running": "실행 중",
         "starting": "게이트웨이를 시작하는 중...",
         "restarting": "게이트웨이를 재시작하는 중...",
         "stopping": "게이트웨이를 중지하는 중..."
@@ -146,6 +147,7 @@
       "restartRequired": "구성 변경을 적용하려면 게이트웨이를 재시작해야 합니다."
     },
     "logoAlt": "PocketClaw 로고",
+    "moreActions": "추가 작업",
     "authError": {
       "banner": "인증 서비스 오류: {{message}}",
       "unavailable": "인증 서비스를 사용할 수 없습니다. 대시보드 비밀번호 저장소를 재설정한 뒤 애플리케이션을 다시 시작하세요."
@@ -175,6 +177,8 @@
     "sidebar": "사이드바",
     "sidebarDescription": "모바일 사이드바를 표시합니다.",
     "toggleSidebar": "사이드바 전환",
+    "openMenu": "메뉴 열기",
+    "closeMenu": "메뉴 닫기",
     "crashed": "콘솔이 응답하지 않습니다.",
     "reload": "새로 고침"
   },

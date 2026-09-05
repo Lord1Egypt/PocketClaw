@@ -162,7 +162,7 @@ export function WeixinForm({
       if (isBound) {
         return (
           <div className="flex flex-col items-center gap-3 py-6">
-            <div className="flex items-center gap-2 rounded-full bg-emerald-500/10 px-4 py-2 text-sm font-medium text-emerald-600 dark:text-emerald-400">
+            <div className="flex items-center gap-2 rounded-full bg-pc-success-soft px-4 py-2 text-sm font-medium text-pc-success">
               <IconCheck size={16} />
               {t("channels.weixin.bound")}
             </div>
@@ -228,7 +228,7 @@ export function WeixinForm({
             </div>
           )}
           {bindState === "scaned" ? (
-            <div className="flex items-center gap-2 rounded-full bg-amber-500/10 px-4 py-2 text-sm font-medium text-amber-600 dark:text-amber-400">
+            <div className="flex items-center gap-2 rounded-full bg-pc-warning-soft px-4 py-2 text-sm font-medium text-pc-warning">
               <IconLoader2 size={14} className="animate-spin" />
               {t("channels.weixin.scanned")}
             </div>
@@ -253,13 +253,13 @@ export function WeixinForm({
     if (bindState === "confirmed") {
       return (
         <div className="flex flex-col items-center gap-3 py-6">
-          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500/10">
+          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-pc-success-soft">
             <IconCheck
               size={28}
-              className="text-emerald-600 dark:text-emerald-400"
+              className="text-pc-success"
             />
           </div>
-          <p className="text-sm font-medium text-emerald-600 dark:text-emerald-400">
+          <p className="text-sm font-medium text-pc-success">
             {t("channels.weixin.bound")}
           </p>
           {accountID && (
@@ -283,10 +283,10 @@ export function WeixinForm({
     if (bindState === "expired") {
       return (
         <div className="flex flex-col items-center gap-4 py-6">
-          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-amber-500/10">
-            <IconX size={28} className="text-amber-600 dark:text-amber-400" />
+          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-pc-warning-soft">
+            <IconX size={28} className="text-pc-warning" />
           </div>
-          <p className="text-sm text-amber-600 dark:text-amber-400">
+          <p className="text-sm text-pc-warning">
             {t("channels.weixin.expired")}
           </p>
           <Button onClick={handleRebind} className="gap-2">

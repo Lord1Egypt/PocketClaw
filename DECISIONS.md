@@ -1,5 +1,132 @@
 # PocketClaw Decisions
 
+## APERTURE is the accepted PocketClaw visual identity
+
+- Date: 2026-09-05
+- Decision: APERTURE, proposed as Concept A in
+  `docs/design/VISUAL_IDENTITY_CLAUDE_A.md`, is the visual system PocketClaw
+  builds on. Three hues on one spine: Graphite 245 for every neutral, Claw 208
+  for interaction, Signal 195 for live machine state. It was physically
+  reviewed twice on the device, as vc38 and vc39, and accepted both times.
+- Reason: the alternative was not "a different taste" but four measurable
+  defects — a chroma-0 token set that was literally the framework default, two
+  unrelated theme systems for the two brightnesses, two unrelated brand marks,
+  and no mark with a working small form. APERTURE fixes all four with tokens
+  and assets rather than with a rewrite.
+- Consequence: further UI work extends this system rather than proposing
+  another. The competing GRIPLINE/Sol concept on `design/sol-concept-b` stays a
+  reference-only branch and is not merged; its Execution Ledger, Workbench,
+  Telemetry and Pocket Hinge ideas are not adopted.
+
+## Neutrals carry the brand, and a raw Tailwind colour is a bug
+
+- Date: 2026-09-05
+- Decision: every neutral carries a small chroma at hue 245, and product code
+  addresses the `--pc-*` semantic layer. A raw `bg-emerald-500`-style utility,
+  a hex colour in a `className`, or a `dark:` variant of an Aperture token
+  fails the test suite.
+- Reason: chroma-0 grey is the default of every framework, which is precisely
+  why it reads as one — this was the single highest-leverage line of arithmetic
+  in the whole redesign. And a raw colour cannot resolve per theme the way a
+  token does, so a component using one has opted out of both themes at once; a
+  `dark:` override of a token is a second source of truth for a value that
+  already resolves.
+- Consequence: adding a colour means asking first whether the existing semantic
+  system already expresses it. 112 such utilities across nineteen files were
+  replaced during the redesign, and the guard is what stops them coming back.
+
+## Claw means interaction; Signal means live machine state
+
+- Date: 2026-09-05
+- Decision: Claw (208) is spent on interactive intent, selection and focus.
+  Signal (195) is applied only to things that are genuinely running right
+  now — the gateway, and a response streaming. It is never a button, never a
+  link, never a heading. A test names the two files allowed to use it.
+- Reason: a screen where four things are coloured is a screen where nothing is
+  emphasised, and letting a bright cyan mean both "clickable" and "live" is how
+  a considered dark mode drifts into a gaming aesthetic.
+- Consequence: status still never depends on colour alone — every state carries
+  a word or a shape as well, which is also what keeps it readable for the ~8%
+  of users with colour-vision deficiency.
+
+## The desktop sidebar is the persistent brand anchor
+
+- Date: 2026-09-05
+- Decision: the full PocketClaw lockup lives in the sidebar header and nowhere
+  else in the desktop shell. The top bar is utility chrome. A mark-only link
+  appears in the header exclusively at phone width, where the sidebar holding
+  the lockup is off-canvas.
+- Reason: the shell showed the brand twice, and the cause was structural — the
+  header spanned the full viewport and the sidebar was pushed down 3.5rem by an
+  `!important` override to clear it, which manufactured a second brand slot
+  directly above the sidebar's own. Moving the header into the content column
+  removed both the duplication and the override.
+- Consequence: a test asserts the lockup is in the sidebar and not in the
+  header, that the header's mark is `sm:hidden`, and that the offset override
+  has not returned.
+
+## Mobile navigation uses a hamburger, and says so
+
+- Date: 2026-09-05
+- Decision: the mobile control is a hamburger with a 44px hit area, announced
+  as opening and closing a menu. The desktop rail keeps the panel glyph and the
+  panel wording, because there the sidebar genuinely is a collapsible panel.
+  Mobile and desktop are not required to match — the semantics differ.
+- Reason: `SidebarTrigger` hard-coded its own glyph between its tags, and JSX
+  children written between the tags override children passed through a spread,
+  so the `IconMenu2` the header already supplied was silently discarded. The
+  control had been authored correctly and swallowed by the component.
+- Consequence: `SidebarTrigger` renders `children ?? default`, so every other
+  call site keeps today's icon. Putting a glyph back between those tags would
+  reintroduce the same silent discard, and a test guards it.
+
+## Chat presentation is intentionally asymmetric
+
+- Date: 2026-09-05
+- Decision: the user's turn is a contained bubble on the inline-end edge. The
+  assistant's turn is not a bubble at all — full measure, no fill, a 2px
+  accent rail down the inline-start edge.
+- Reason: two bubbles facing each other is a messaging app; PocketClaw is an
+  agent session. The asymmetry gives long answers, code and tables the width
+  they need and creates a readable rhythm down the thread.
+- Consequence: a test fails if the assistant turn regains a bubble. The measure
+  is capped at 78ch and the composer shares it, so the well lines up with the
+  messages above it rather than being pinned by gutters.
+
+## Only user-visible PicoClaw branding was removed
+
+- Date: 2026-09-05
+- Decision: the PICOCLAW wordmark, the lobster mark and the stale manifest
+  identity are gone from every user-facing surface. `picoclaw-web`, the
+  `localStorage` and state keys, the Go package paths, the `/pico/*` routes,
+  `PicoOwnerPrincipal`, `PICOCLAW_DNS_SERVER`, `libpicoclaw.so` and
+  `libpicoclaw-web.so` are retained.
+- Reason: those identifiers are load-bearing. Renaming the storage keys
+  silently discards every user's saved preference, and the `.so` names, Go
+  paths and channel identifiers are contracts other code depends on.
+- Consequence: a namespace migration is a separate piece of work needing its
+  own migration path and its own proof. It must not ride along with a visual
+  change, and a guard keeps the visible assets from regressing meanwhile.
+
+## The mark's mouth lip is a constraint, not a flourish
+
+- Date: 2026-09-05
+- Decision: the PocketClaw mark's pocket turns inward 3.5 units at the mouth,
+  and the claw arms are short. The geometry is stored in three files —
+  the React component, `favicon.svg` and the raster script — which must change
+  together.
+- Reason: without the lip, the two pocket walls and the two claw arms render as
+  four verticals of equal weight below about 24px and the mark reads as a crown
+  or a fork. This was found by rasterising at 16x supersampling and reading
+  scanlines back, not by eye. Raising the walls instead — the obvious first
+  idea — makes it measurably worse.
+- Consequence: a conservative optical cleanup shipped because it was better at
+  all six tested sizes; a filled-pocket variant did not, because a solid mark
+  beside an all-stroke icon set is a brand decision rather than an optical fix.
+  Both alternatives are kept in
+  `docs/design/prototype/aperture-mark-refinement.html`. A test fails if the
+  three copies of the geometry drift.
+
 ## What's New is keyed on versionName, never on versionCode
 
 - Date: 2026-09-05

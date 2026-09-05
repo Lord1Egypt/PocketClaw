@@ -975,6 +975,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Channel lists with more than one entry are preserved correctly when settings are saved.'**
   String get whatsNew020Fix2;
+
+  /// Settings section label above the address, port and public mode controls
+  ///
+  /// In en, this message translates to:
+  /// **'Connection'**
+  String get settingsGroupConnection;
+
+  /// Settings section label above the models and context memory controls
+  ///
+  /// In en, this message translates to:
+  /// **'Agent'**
+  String get settingsGroupAgent;
+
+  /// Settings section label above the Telegram and GitHub controls
+  ///
+  /// In en, this message translates to:
+  /// **'Integrations'**
+  String get settingsGroupIntegrations;
+
+  /// Settings section label above the theme controls
+  ///
+  /// In en, this message translates to:
+  /// **'Appearance'**
+  String get settingsGroupAppearance;
 }
 
 class _AppLocalizationsDelegate

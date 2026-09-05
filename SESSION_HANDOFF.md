@@ -1,5 +1,74 @@
 # PocketClaw Session Handoff
 
+## APERTURE Visual Redesign — PHYSICAL PASS and merged, 2026-09-05
+
+Branch `feature/visual-redesign-aperture`, off `develop` at `9877365`.
+**Physically validated on SM-A165F / Android 16 as vc38 and vc39, then merged
+to `develop` with `--no-ff`.** `main` untouched, no tags moved, no release
+created. The feature branch is retained.
+
+Two commits: `e51b1cb` established the visual foundation, `082cc57` polished it
+after the vc38 physical review. The design source stays reference-only on
+`design/claude-concept-a` at `2907752`.
+
+### What this milestone did and did not do
+
+It was a token, asset and styling milestone. It did **not** touch Telegram, the
+FIFO, thinking/typing, the bounded-context algorithm, the rolling summary,
+exact-fact retention, Context Memory, live config apply, model or provider
+routing, provider resilience, Managed Runtime, the Python runtime, GitHub auth,
+Dashboard auth, gateway networking or security, What's New seen-state, or
+session persistence. Where it touched structure it did so in four places and
+each is documented: `SidebarTrigger` rendering its children, one Flutter theme
+source instead of two, the header moving inside the content column, and the
+narrow toolbar's utility overflow.
+
+### The two things worth not undoing
+
+**The mobile menu was already authored correctly and swallowed by the
+component.** `app-header.tsx` passed `<IconMenu2 />` to `SidebarTrigger`, but
+the trigger hard-coded `<IconLayoutSidebar />` between its own tags — and JSX
+children written between the tags override children arriving through a spread.
+The fix is `{children ?? <IconLayoutSidebar />}`. If a future edit puts a glyph
+back between those tags, every caller's icon is discarded again in silence.
+
+**A rounded Flutter surface cannot carry an accent edge as a border side.**
+`Border`/`BorderDirectional` with per-side colours plus a `borderRadius` throws
+at paint time, and `flutter analyze` does not see it — only a widget test that
+actually paints does. The Aperture selection bracket goes through
+`ApertureBracket` in `lib/src/core/aperture_theme.dart`, which is a uniform
+border plus a clipped `PositionedDirectional` strip.
+
+### The mark, and why its mouth has a lip
+
+The first geometry read as a crown below about 24px, and the reason is
+measurable rather than aesthetic: the two pocket walls and the two claw arms
+rendered as four verticals of equal weight, over walls only eight units tall
+that ended in bare stroke caps. The mouth now turns inward 3.5 units each side.
+Evidence, and the two rejected alternatives, are in
+`docs/design/prototype/aperture-mark-refinement.html`.
+
+The geometry lives in three files that must move together —
+`src/components/brand/pocketclaw-mark.tsx`, `public/favicon.svg` and
+`scripts/generate-brand-assets.py` — and a test fails if they drift. Run the
+script to regenerate the rasters. **The Android launcher icon was deliberately
+not re-rendered in this milestone.**
+
+### Verification and artifact
+
+Frontend `tsc`, `eslint` and 349 tests green; `flutter analyze` clean and 223
+Flutter tests green; Core freshness, fingerprint, staged-core, developer-path,
+runtime payload and Python payload guards pass.
+
+Final artifact: `0.2.0`, versionCode 39, 64,200,254 bytes, SHA-256
+`5e576b541ddb8158ac4e94bdf0aeb3f770403f20721f34fc4f47337bac0ac636`, installed
+in place with app data preserved.
+
+`TestNoUserFacingWhatsAppSurface` still fails over
+`test/widgets/whats_new_page_test.dart`. It was reproduced on `develop` at
+`9877365` before this branch existed and is not caused by it. Do not fold a fix
+for it into visual work.
+
 ## What's New — PHYSICAL PASS and merged, 2026-09-05
 
 Branch `feature/whats-new`, off `develop` at `09790ac7`. **Physically validated

@@ -327,8 +327,8 @@ export function ChatPage() {
           )
         }
       >
-        <div className="border-border/60 hidden items-center gap-2 rounded-lg border px-3 py-1.5 sm:flex">
-          <span className="text-muted-foreground text-sm">
+        <div className="border-pc-line bg-pc-surface-1 hidden items-center gap-2 rounded-md border ps-3 pe-1 py-1 sm:flex">
+          <span className="text-pc-faint pc-micro">
             {t("chat.showAssistantDetails")}
           </span>
           <Select
@@ -340,7 +340,7 @@ export function ChatPage() {
             <SelectTrigger
               size="sm"
               aria-label={t("chat.showAssistantDetails")}
-              className="text-muted-foreground hover:text-foreground focus-visible:border-input h-8 min-w-[104px] bg-transparent shadow-none focus-visible:ring-0"
+              className="text-pc-text hover:text-pc-text focus-visible:border-pc-claw h-8 min-w-[104px] border-0 bg-transparent shadow-none focus-visible:ring-0"
             >
               <SelectValue />
             </SelectTrigger>
@@ -384,9 +384,9 @@ export function ChatPage() {
       <div
         ref={scrollRef}
         onScroll={handleScroll}
-        className="min-h-0 flex-1 [scrollbar-gutter:stable] overflow-y-auto px-4 py-6 md:px-8 lg:px-24 xl:px-48"
+        className="min-h-0 flex-1 [scrollbar-gutter:stable] overflow-y-auto px-4 py-6 md:px-8"
       >
-        <div className="mx-auto flex w-full max-w-250 flex-col gap-8 pb-8">
+        <div className="mx-auto flex w-full max-w-[78ch] flex-col gap-7 pb-8">
           {messages.length === 0 && !isTyping && (
             <ChatEmptyState
               hasAvailableModels={hasAvailableModels}
@@ -403,7 +403,7 @@ export function ChatPage() {
             }
 
             return (
-              <div key={msg.id} className="flex w-full">
+              <div key={msg.id} className="flex w-full min-w-0">
                 {msg.role === "assistant" ? (
                   <AssistantMessage
                     content={msg.content}

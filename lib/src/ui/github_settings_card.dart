@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'package:pocketclaw/src/core/aperture_theme.dart';
 import 'package:pocketclaw/src/generated/l10n/app_localizations.dart';
 import 'package:flutter/services.dart';
 
@@ -152,8 +153,8 @@ class _GitHubSettingsCardState extends State<GitHubSettingsCard> {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     final theme = Theme.of(context);
+    final tokens = context.aperture;
     final l10n = AppLocalizations.of(context)!;
 
     return Card(
@@ -166,23 +167,50 @@ class _GitHubSettingsCardState extends State<GitHubSettingsCard> {
           children: [
             Row(
               children: [
-                Icon(Icons.code_rounded, color: scheme.primary),
+                Container(
+                  width: 40,
+                  height: 40,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: tokens.surface3,
+                    borderRadius: BorderRadius.circular(ApertureTheme.radiusSm),
+                  ),
+                  child: Icon(
+                    Icons.code_rounded,
+                    color: tokens.accent,
+                    size: 20,
+                  ),
+                ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('GitHub'),
                       Text(
-                        _loading
-                            ? l10n.githubChecking
-                            : _connection.connected
-                            ? (_connection.login == null
-                                  ? l10n.githubConnected
-                                  : l10n.githubConnectedAs(_connection.login!))
-                            : l10n.githubNotConnected,
-                        key: const Key('github-connection-state'),
-                        style: theme.textTheme.bodySmall,
+                        'GitHub',
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      // Connection is state, so it carries a dot and a word.
+                      // The dot never speaks alone.
+                      Row(
+                        children: [
+                          Container(
+                            width: 6,
+                            height: 6,
+                            margin: const EdgeInsetsDirectional.only(end: 6),
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: _loading
+                                  ? tokens.textFaint
+                                  : _connection.connected
+                                  ? tokens.success
+                                  : tokens.textFaint,
+                            ),
+                          ),
+                          Expanded(child: _connectionText(l10n, theme)),
+                        ],
                       ),
                     ],
                   ),
@@ -195,7 +223,7 @@ class _GitHubSettingsCardState extends State<GitHubSettingsCard> {
                   ),
               ],
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 8),
             Text(l10n.githubDescription, style: theme.textTheme.bodySmall),
             if (_message != null) ...[
               const SizedBox(height: 8),
@@ -203,13 +231,13 @@ class _GitHubSettingsCardState extends State<GitHubSettingsCard> {
                 _message!,
                 key: const Key('github-card-message'),
                 style: theme.textTheme.bodySmall?.copyWith(
-                  color: _messageIsError ? scheme.error : scheme.primary,
+                  color: _messageIsError ? tokens.danger : tokens.accent,
                 ),
               ),
             ],
             const SizedBox(height: 4),
             Align(
-              alignment: Alignment.centerRight,
+              alignment: AlignmentDirectional.centerEnd,
               child: Wrap(
                 spacing: 8,
                 children: _connection.connected
@@ -239,6 +267,20 @@ class _GitHubSettingsCardState extends State<GitHubSettingsCard> {
       ),
     );
   }
+
+  /// The connection sentence. The widget key is part of the test contract and
+  /// does not move.
+  Widget _connectionText(AppLocalizations l10n, ThemeData theme) => Text(
+    _loading
+        ? l10n.githubChecking
+        : _connection.connected
+        ? (_connection.login == null
+              ? l10n.githubConnected
+              : l10n.githubConnectedAs(_connection.login!))
+        : l10n.githubNotConnected,
+    key: const Key('github-connection-state'),
+    style: theme.textTheme.bodySmall,
+  );
 }
 
 /// Collects a personal access token and returns it once.

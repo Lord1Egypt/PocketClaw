@@ -139,6 +139,7 @@
         "restart": "Reiniciar Gateway"
       },
       "status": {
+        "running": "Em execução",
         "starting": "Iniciando Gateway...",
         "restarting": "Reiniciando Gateway...",
         "stopping": "Parando Gateway..."
@@ -146,6 +147,7 @@
       "restartRequired": "Alterações de configuração requerem reiniciar o gateway para ter efeito."
     },
     "logoAlt": "Logotipo do PocketClaw",
+    "moreActions": "Mais ações",
     "authError": {
       "banner": "Erro no serviço de autenticação: {{message}}",
       "unavailable": "Serviço de autenticação indisponível. Redefina o armazenamento de senha do painel e reinicie o aplicativo."
@@ -172,6 +174,8 @@
     "sidebar": "Barra lateral",
     "sidebarDescription": "Exibe a barra lateral móvel.",
     "toggleSidebar": "Alternar barra lateral",
+    "openMenu": "Abrir menu",
+    "closeMenu": "Fechar menu",
     "crashed": "O console parou de responder.",
     "reload": "Recarregar",
     "darkMode": "Modo escuro",

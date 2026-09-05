@@ -169,5 +169,9 @@
   "whatsNew020Improvement2": "Ein genauerer Katalog der verwalteten Laufzeitumgebung.",
   "whatsNew020Improvement3": "Eine klarere PocketClaw-Identität in der Weboberfläche und im Standard-Arbeitsbereich.",
   "whatsNew020Fix1": "Das Gateway erholt sich jetzt von einem veralteten Prozesseintrag eines früheren Laufs.",
-  "whatsNew020Fix2": "Kanallisten mit mehreren Einträgen bleiben beim Speichern korrekt erhalten."
+  "whatsNew020Fix2": "Kanallisten mit mehreren Einträgen bleiben beim Speichern korrekt erhalten.",
+  "settingsGroupConnection": "Verbindung",
+  "settingsGroupAgent": "Agent",
+  "settingsGroupIntegrations": "Integrationen",
+  "settingsGroupAppearance": "Darstellung"
 }

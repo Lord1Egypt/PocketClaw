@@ -139,6 +139,7 @@
         "restart": "Mulai Ulang Gateway"
       },
       "status": {
+        "running": "Berjalan",
         "starting": "Memulai Gateway...",
         "restarting": "Memulai ulang Gateway...",
         "stopping": "Menghentikan Gateway..."
@@ -146,6 +147,7 @@
       "restartRequired": "Perubahan konfigurasi memerlukan mulai ulang gateway agar berlaku."
     },
     "logoAlt": "Logo PocketClaw",
+    "moreActions": "Tindakan lainnya",
     "authError": {
       "banner": "Kesalahan layanan autentikasi: {{message}}",
       "unavailable": "Layanan autentikasi tidak tersedia. Setel ulang penyimpanan kata sandi dasbor lalu mulai ulang aplikasi."
@@ -175,6 +177,8 @@
     "sidebar": "Bilah sisi",
     "sidebarDescription": "Menampilkan bilah sisi seluler.",
     "toggleSidebar": "Alihkan bilah sisi",
+    "openMenu": "Buka menu",
+    "closeMenu": "Tutup menu",
     "crashed": "Konsol berhenti merespons.",
     "reload": "Muat ulang"
   },

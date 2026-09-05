@@ -52,6 +52,14 @@ export function ContextUsageRing({
   }, [])
 
   const percent = Math.min(usage.used_percent, 100)
+  // Under 60% is unremarkable, so it stays neutral; the accent is spent only
+  // once the window is worth noticing.
+  const usageTone =
+    percent >= 85
+      ? { stroke: "stroke-pc-danger", text: "text-pc-danger", fill: "bg-pc-danger" }
+      : percent >= 60
+        ? { stroke: "stroke-pc-warning", text: "text-pc-warning", fill: "bg-pc-warning" }
+        : { stroke: "stroke-pc-faint", text: "text-pc-faint", fill: "bg-pc-claw" }
   const radius = 8
   const circumference = 2 * Math.PI * radius
   const offset = circumference - (percent / 100) * circumference
@@ -99,7 +107,7 @@ export function ContextUsageRing({
             cy="10"
             r={radius}
             fill="none"
-            className="stroke-muted-foreground/30"
+            className="stroke-pc-line"
             strokeWidth="2"
           />
           <circle
@@ -107,30 +115,32 @@ export function ContextUsageRing({
             cy="10"
             r={radius}
             fill="none"
-            className="stroke-muted-foreground"
+            className={usageTone.stroke}
             strokeWidth="2"
             strokeLinecap="round"
             strokeDasharray={circumference}
             strokeDashoffset={offset}
           />
         </svg>
-        <span className="text-muted-foreground absolute text-[8px] font-medium tabular-nums">
+        <span
+          className={`absolute text-[8px] font-semibold tabular-nums ${usageTone.text}`}
+        >
           {percent}
         </span>
       </button>
 
       {visible && (
         <div
-          className={`bg-popover text-popover-foreground absolute right-0 bottom-full z-50 mb-3 w-[220px] rounded-xl border p-4 shadow-lg transition-all duration-150 ${
+          className={`bg-popover text-popover-foreground border-pc-line absolute end-0 bottom-full z-50 mb-3 w-[220px] rounded-xl border p-4 shadow-[var(--pc-shadow-3)] transition-all duration-150 ${
             animated
               ? "scale-100 opacity-100"
               : "pointer-events-none scale-95 opacity-0"
           }`}
         >
-          <div className="bg-popover absolute right-3 -bottom-1.5 h-3 w-3 rotate-45 border-r border-b" />
+          <div className="bg-popover border-pc-line absolute end-3 -bottom-1.5 h-3 w-3 rotate-45 border-e border-b" />
 
           <div className="flex items-center justify-between">
-            <span className="text-muted-foreground text-xs">
+            <span className="text-pc-muted text-xs">
               {t("chat.contextTitle")}
             </span>
             <span className="text-xs font-medium">
@@ -138,9 +148,9 @@ export function ContextUsageRing({
               {formatTokens(usage.compress_at_tokens)}
             </span>
           </div>
-          <div className="bg-muted mt-1.5 h-1.5 w-full overflow-hidden rounded-full">
+          <div className="bg-pc-surface-3 mt-1.5 h-1.5 w-full overflow-hidden rounded-full">
             <div
-              className="h-full rounded-full bg-violet-500 transition-all"
+              className={`h-full rounded-full transition-all ${usageTone.fill}`}
               style={{ width: `${barPercent}%` }}
             />
           </div>
@@ -148,7 +158,7 @@ export function ContextUsageRing({
           <div className="mt-2 space-y-0.5">
             {usage.history_tokens != null && usage.history_tokens > 0 && (
               <div className="flex items-center justify-between text-[10px]">
-                <span className="text-muted-foreground">
+                <span className="text-pc-faint">
                   {t("chat.history")}
                 </span>
                 <span className="tabular-nums">
@@ -157,7 +167,7 @@ export function ContextUsageRing({
               </div>
             )}
             <div className="flex items-center justify-between text-[10px]">
-              <span className="text-muted-foreground">
+              <span className="text-pc-faint">
                 {t("chat.contextCompressAt")}
               </span>
               <span className="tabular-nums">
@@ -167,7 +177,7 @@ export function ContextUsageRing({
             {usage.summarize_at_tokens != null &&
               usage.summarize_at_tokens > 0 && (
                 <div className="flex items-center justify-between text-[10px]">
-                  <span className="text-muted-foreground">
+                  <span className="text-pc-faint">
                     {t("chat.contextSummarizeAt")}
                   </span>
                   <span className="tabular-nums">
@@ -181,7 +191,7 @@ export function ContextUsageRing({
             type="button"
             onClick={handleDetail}
             disabled={cooldown}
-            className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-violet-600 transition-opacity hover:opacity-70 disabled:opacity-40 dark:text-violet-400"
+            className="text-pc-claw mt-3 inline-flex items-center gap-1 text-xs font-medium transition-opacity hover:opacity-70 disabled:opacity-40"
           >
             {t("chat.contextDetail")}
             <IconArrowRight className="h-3 w-3" />

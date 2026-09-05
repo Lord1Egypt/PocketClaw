@@ -138,7 +138,7 @@ export function TelegramPanel({
         <Card className="shadow-sm">
           <CardContent className="space-y-4 px-6 py-5">
             <div className="flex items-center gap-2">
-              <IconCircleCheckFilled className="size-5 text-emerald-500" />
+              <IconCircleCheckFilled className="size-5 text-pc-success" />
               <p className="text-base font-semibold">
                 {t("channels.telegram.connected")}
               </p>

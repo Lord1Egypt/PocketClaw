@@ -6,9 +6,8 @@ import 'package:pocketclaw/src/generated/l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
 import 'package:pocketclaw/src/core/service_manager.dart';
 import 'package:pocketclaw/src/core/background_service.dart';
-import 'package:pocketclaw/src/core/app_theme.dart';
+import 'package:pocketclaw/src/core/aperture_theme.dart';
 import 'package:pocketclaw/src/core/app_identity.dart';
-import 'package:pocketclaw/src/core/pocketclaw_design.dart';
 import 'package:pocketclaw/src/ui/dashboard_page.dart';
 import 'package:pocketclaw/src/ui/config_page.dart';
 import 'package:pocketclaw/src/ui/webview_page.dart';
@@ -75,8 +74,11 @@ class MainApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: AppIdentity.productName,
-      theme: PocketClawDesign.lightTheme(),
-      darkTheme: AppTheme.getTheme(service.currentThemeMode),
+      // One design system emits both brightnesses. Light mode used to come
+      // from PocketClawDesign and dark mode from an unrelated FlexColorScheme
+      // theme, so toggling did not adjust PocketClaw, it swapped products.
+      theme: ApertureTheme.light(service.currentThemeMode),
+      darkTheme: ApertureTheme.dark(service.currentThemeMode),
       themeMode: ThemeMode.system,
       locale: service.currentLocale,
       localizationsDelegates: const [
@@ -275,8 +277,6 @@ class _MainShellState extends State<MainShell>
     context.watch<ServiceManager>();
 
     // was previously used to decide rail vs bottom bar; handled by AdaptiveActionBar
-    final colorScheme = Theme.of(context).colorScheme;
-
     // Build actions that mirror previous NavigationRail / NavigationBar
     final actions = <Widget>[
       _buildNavButton(
@@ -284,28 +284,24 @@ class _MainShellState extends State<MainShell>
         tooltip: 'Status',
         icon: Icons.dashboard_outlined,
         selectedIcon: Icons.dashboard,
-        colorScheme: colorScheme,
       ),
       _buildNavButton(
         index: 1,
         tooltip: 'Web',
         icon: Icons.language_outlined,
         selectedIcon: Icons.language,
-        colorScheme: colorScheme,
       ),
       _buildNavButton(
         index: 2,
         tooltip: 'Logs',
         icon: Icons.article_outlined,
         selectedIcon: Icons.article,
-        colorScheme: colorScheme,
       ),
       _buildNavButton(
         index: 3,
         tooltip: 'Settings',
         icon: Icons.settings_outlined,
         selectedIcon: Icons.settings,
-        colorScheme: colorScheme,
       ),
     ];
 
@@ -347,51 +343,57 @@ class _MainShellState extends State<MainShell>
     );
   }
 
-  /// Build navigation button with clear focus and selected state indicators
+  /// Build navigation button with clear focus and selected state indicators.
+  ///
+  /// Selection and focus stay two different shapes and must never be merged:
+  /// a control can be focused and not selected, selected and not focused, or
+  /// both, and all four have to be distinguishable. On a TV the focus ring is
+  /// the cursor, so [TVFocusable] keeps drawing it exactly as before; Aperture
+  /// only changes what *selected* looks like.
   Widget _buildNavButton({
     required int index,
     required String tooltip,
     required IconData icon,
     required IconData selectedIcon,
-    required ColorScheme colorScheme,
   }) {
     final isSelected = _selectedIndex == index;
-    final iconSize = isSelected ? 28.0 : 24.0;
-
-    // 使用与导航栏背景色(primary)形成高对比的颜色
-    // 选中时使用 primaryContainer（通常是浅色）作为背景，与导航栏深色形成强对比
-    // 未选中时使用 onSurface（通常是浅色文字）
-    final selectedBgColor = colorScheme.surface;
-    final selectedIconColor = colorScheme.secondary;
-    final unselectedIconColor = colorScheme.onSurface.withAlpha(179);
+    final tokens = context.aperture;
 
     return TVFocusable(
       autofocus: index == 0,
       onTap: () => _onNavTap(index),
-      borderRadius: BorderRadius.circular(10),
+      borderRadius: BorderRadius.circular(ApertureTheme.radiusSm),
       focusBorderWidth: 2.5,
-      focusBorderColor: colorScheme.onSurface,
-      focusBackgroundColor: colorScheme.secondary.withAlpha(31),
+      focusBorderColor: tokens.accent,
+      focusBackgroundColor: tokens.accentSoft,
       child: Container(
         width: 48,
         height: 48,
         decoration: BoxDecoration(
-          color: isSelected ? selectedBgColor : Colors.transparent,
-          borderRadius: BorderRadius.circular(10),
-          boxShadow: isSelected
-              ? [
-                  BoxShadow(
-                    color: Colors.black.withAlpha(51),
-                    blurRadius: 4,
-                    offset: const Offset(0, 2),
-                  ),
-                ]
-              : null,
+          color: isSelected ? tokens.accentSoft : Colors.transparent,
+          borderRadius: BorderRadius.circular(ApertureTheme.radiusSm),
         ),
-        child: Icon(
-          isSelected ? selectedIcon : icon,
-          color: isSelected ? selectedIconColor : unselectedIconColor,
-          size: iconSize,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            // The bracket, rotated for a bottom bar. It is a separate strip
+            // rather than a border side because Flutter refuses a
+            // borderRadius on a border whose sides differ in colour.
+            Container(
+              width: 22,
+              height: 2,
+              margin: const EdgeInsets.only(bottom: 6),
+              decoration: BoxDecoration(
+                color: isSelected ? tokens.accent : Colors.transparent,
+                borderRadius: BorderRadius.circular(1),
+              ),
+            ),
+            Icon(
+              isSelected ? selectedIcon : icon,
+              color: isSelected ? tokens.accent : tokens.textFaint,
+              size: 24,
+            ),
+          ],
         ),
       ),
     );

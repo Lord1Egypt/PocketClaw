@@ -139,6 +139,7 @@
         "restart": "Gateway neu starten"
       },
       "status": {
+        "running": "Aktiv",
         "starting": "Gateway wird gestartet ...",
         "restarting": "Gateway wird neu gestartet ...",
         "stopping": "Gateway wird gestoppt ..."
@@ -146,6 +147,7 @@
       "restartRequired": "Konfigurationsänderungen erfordern einen Gateway-Neustart, um wirksam zu werden."
     },
     "logoAlt": "PocketClaw-Logo",
+    "moreActions": "Weitere Aktionen",
     "authError": {
       "banner": "Fehler im Authentifizierungsdienst: {{message}}",
       "unavailable": "Der Authentifizierungsdienst ist nicht verfügbar. Setzen Sie den Kennwortspeicher des Dashboards zurück und starten Sie die Anwendung neu."
@@ -175,6 +177,8 @@
     "sidebar": "Seitenleiste",
     "sidebarDescription": "Zeigt die mobile Seitenleiste an.",
     "toggleSidebar": "Seitenleiste umschalten",
+    "openMenu": "Menü öffnen",
+    "closeMenu": "Menü schließen",
     "crashed": "Die Konsole reagiert nicht mehr.",
     "reload": "Neu laden"
   },

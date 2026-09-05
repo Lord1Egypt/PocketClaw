@@ -169,5 +169,9 @@
   "whatsNew020Improvement2": "マネージドランタイムのカタログをより正確にしました。",
   "whatsNew020Improvement3": "ウェブ画面と既定のワークスペースで PocketClaw の表記を統一しました。",
   "whatsNew020Fix1": "以前の実行が残した古いプロセス記録からゲートウェイが復帰するようになりました。",
-  "whatsNew020Fix2": "複数の項目を持つチャンネル一覧が保存時に正しく保持されるようになりました。"
+  "whatsNew020Fix2": "複数の項目を持つチャンネル一覧が保存時に正しく保持されるようになりました。",
+  "settingsGroupConnection": "接続",
+  "settingsGroupAgent": "エージェント",
+  "settingsGroupIntegrations": "連携",
+  "settingsGroupAppearance": "外観"
 }

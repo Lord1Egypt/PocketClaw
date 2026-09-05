@@ -1000,9 +1000,9 @@ export function ExecSection({ form, onFieldChange }: ExecSectionProps) {
                 <div
                   className={`rounded-md p-2 text-sm ${
                     testResult.allowed
-                      ? "bg-green-500/10 text-green-600"
+                      ? "bg-pc-success-soft text-pc-success"
                       : testResult.blocked
-                        ? "bg-red-500/10 text-red-600"
+                        ? "bg-pc-danger-soft text-pc-danger"
                         : "bg-muted text-muted-foreground"
                   }`}
                 >

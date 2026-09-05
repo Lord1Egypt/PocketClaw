@@ -173,7 +173,7 @@ function ToolCard({
       className={cn(
         "group bg-card border-border/40 flex flex-col shadow-none transition-all duration-300 sm:rounded-2xl",
         isBlocked
-          ? "border-amber-500/30 bg-amber-50/20 dark:border-amber-900/40 dark:bg-amber-950/20"
+          ? "border-pc-warning/30 bg-pc-warning-soft"
           : "hover:border-border/80 hover:-translate-y-[2px] hover:shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] dark:hover:shadow-[0_4px_20px_-4px_rgba(255,255,255,0.02)]",
         isDisabled && "opacity-[0.80] hover:opacity-100",
       )}
@@ -208,7 +208,7 @@ function ToolCard({
               onCheckedChange={(checked) => onToggleTool(tool.name, checked)}
               className={cn(
                 "shrink-0",
-                isEnabled && "shadow-xs ring-1 ring-emerald-500/20",
+                isEnabled && "shadow-xs ring-1 ring-pc-success/20",
               )}
             />
           </div>
@@ -220,7 +220,7 @@ function ToolCard({
 
         {reasonText && (
           <div className="border-border/40 mt-4 border-t pt-4">
-            <div className="inline-flex rounded-lg border border-amber-200/50 bg-amber-50/80 px-3 py-2 text-[13px] font-medium text-amber-600 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-400">
+            <div className="inline-flex rounded-lg border border-pc-warning/50 bg-pc-warning/80 px-3 py-2 text-[13px] font-medium text-pc-warning">
               {reasonText}
             </div>
           </div>

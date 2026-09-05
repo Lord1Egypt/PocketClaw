@@ -1,5 +1,87 @@
 # Development Changelog
 
+## 2026-09-05 — APERTURE, and four defects that were never a matter of taste
+
+Branch `feature/visual-redesign-aperture`, from `develop` at `9877365`, merged
+with `--no-ff`. Two commits, physically accepted as vc38 and vc39 on
+SM-A165F / Android 16.
+
+The console did not merely resemble every other shadcn admin panel; it was one.
+`index.css` defined every neutral at chroma 0 and, in dark mode, a near-white
+primary, so there was no brand hue anywhere in the token set. That is the
+finding the whole redesign turns on, and the fix is one line of arithmetic
+repeated across a ramp: give every grey a small chroma at the brand hue, rising
+as the surface darkens, the way physical dark materials behave. Nothing else in
+this milestone bought as much for as little.
+
+Three more defects sat beside it. `main.dart` drew light mode from
+`PocketClawDesign` and dark mode from `AppTheme` — a Material 3 seed and a
+FlexColorScheme theme, two unrelated systems — so toggling the theme did not
+adjust PocketClaw, it swapped products. The web still shipped the PicoClaw
+lobster and a PICOCLAW wordmark while Android shipped something else entirely.
+And neither mark had a flat 16px form, so neither could actually be a favicon.
+
+APERTURE answers all four with tokens and assets. Three hues on one spine:
+Graphite 245 for neutrals, Claw 208 for interaction, Signal 195 for live
+machine state and nothing else. The existing shadcn variables are remapped onto
+the new layer rather than deleted, so every component inherited the identity
+without being edited — which is what made a change this broad tractable at all.
+One Flutter theme now emits both brightnesses, and the six user-selectable
+modes survive intact: same enum, same order, same persisted index, re-based
+from six products into six accents over one structure.
+
+The mobile menu turned out to be a component bug rather than a design gap. The
+header already passed `<IconMenu2 />` to `SidebarTrigger`; the trigger
+hard-coded `<IconLayoutSidebar />` between its own tags, and JSX children
+written between the tags win over children arriving through a spread. The icon
+had been supplied correctly and silently discarded for as long as the component
+existed. Rendering `children ?? default` fixes every call site at once.
+
+The vc38 review then found the desktop brand appearing twice, and that was
+structural too: the header spanned the whole viewport while the sidebar was
+pushed 3.5rem down by an `!important` override to clear it, manufacturing a
+brand slot directly above the sidebar's own. Moving the header into the content
+column removed the duplication and the override together.
+
+The mark's small-size problem was the one place measurement beat opinion. Users
+described it as reading like a crown; rasterising at 16x and reading scanlines
+back showed why — two pocket walls and two claw arms presenting as four
+verticals of equal weight over walls that ended in bare stroke caps. Four evenly
+spaced prongs is a fork. An inward lip at the mouth fixes it at every tested
+size; deepening the pocket, the obvious first idea, makes it worse. Both the
+evidence and the rejected variants are kept as an artifact rather than
+described.
+
+Chat keeps its asymmetry deliberately: a contained bubble for the user, an
+editorial block on a logical-start rail for the assistant. Two bubbles facing
+each other is a messaging app. Everything Aperture repeats — the active-nav
+bracket, the assistant rail, the card accent, the composer's attachment edge —
+is expressed with logical properties, which is why Arabic mirrors the entire
+system with no locale branch anywhere.
+
+112 raw Tailwind colour utilities across nineteen files were replaced with the
+tokens they were approximating, and their `dark:` duplicates deleted — a token
+already resolves per theme, so a second declaration for dark mode was a second
+source of truth. A guard now fails the suite on any of that coming back.
+
+Light mode was never physically reviewed, so it is held by arithmetic instead:
+surfaces step monotonically, every text role clears the darkest surface by 0.3
+lightness, the accent is genuinely darkened rather than reused from dark mode,
+and the status colours stay inside a readable band on white.
+
+Frontend `tsc`, `eslint` and 349 tests green. `flutter analyze` clean, 223
+Flutter tests green. Core freshness, fingerprint, staged-core, developer-path,
+runtime payload and Python payload guards pass; the Gradle arm64 release guard
+verified all eleven native payloads. Final artifact `0.2.0` versionCode 39,
+64,200,254 bytes, SHA-256
+`5e576b541ddb8158ac4e94bdf0aeb3f770403f20721f34fc4f47337bac0ac636`.
+
+`TestNoUserFacingWhatsAppSurface` still fails over
+`test/widgets/whats_new_page_test.dart`. It was reproduced in a clean worktree
+of `develop` at `9877365` before this branch existed, and that file is
+byte-unchanged here. Recorded, not fixed — folding it into a visual merge would
+have hidden it.
+
 ## 2026-09-05 — Settings gets What's New, and a Row that starved its own title
 
 Branch `feature/whats-new`, from `develop` at `09790ac7`, merged with `--no-ff`.

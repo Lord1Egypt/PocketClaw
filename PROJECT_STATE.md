@@ -1,5 +1,116 @@
 # PocketClaw Project State
 
+## APERTURE Visual Redesign — PHYSICALLY / VISUALLY VERIFIED AND CLOSED
+
+- Status: **PASS on a physical Android device (SM-A165F / Android 16),
+  2026-09-05. Merged to `develop` with `--no-ff`.** `main` untouched, no tags
+  moved, no release created.
+- Branch `feature/visual-redesign-aperture`, from `develop` at `9877365`.
+  Retained, not deleted.
+- Two accepted implementation commits: `e51b1cb` (visual foundation) and
+  `082cc57` (product polish). Reviewed physically as vc38 and vc39.
+- Milestone **CLOSED**.
+
+This closes the PocketClaw Visual Identity / UI-UX Redesign milestone the
+What's New entry named as next. The design source is
+`docs/design/VISUAL_IDENTITY_CLAUDE_A.md` on `design/claude-concept-a` at
+`2907752`, which stays a reference-only branch and is not merged.
+
+### The four findings this answered
+
+None of them was a matter of taste, which is why each has a guard now.
+
+The web dashboard was running unmodified shadcn defaults: every neutral at
+chroma 0 and a near-white dark-mode primary, so there was no brand hue in the
+token set at all. `main.dart` drew light mode from `PocketClawDesign` and dark
+mode from `AppTheme`, two unrelated design systems, so toggling the theme did
+not adjust PocketClaw — it swapped products. The web wordmark and every favicon
+were still the PicoClaw lobster while Android shipped a different mark. And
+neither mark had a flat, single-colour, 16px form, so neither could function as
+one.
+
+### The accepted production state
+
+- One APERTURE visual system across both surfaces.
+- A chromatic Graphite neutral family — every neutral carries a small chroma at
+  hue 245, rising as the surface darkens. Chroma-0 grey is the default of every
+  framework, which is exactly why it read as one.
+- **Claw** (hue 208) is the single interactive accent: intent, selection, focus.
+- **Signal** (hue 195) is reserved for live machine state — the gateway running
+  and a response streaming, and nothing else.
+- Danger for destructive, Warning for exposure and risk, Success for confirmed.
+- One Flutter theme emitting both brightnesses from the same tokens. All six
+  user-selectable modes are preserved, along with the enum order and the
+  persisted preference index; they became six accents over one structure rather
+  than six products. `obsidian` keeps its true-black canvas for AMOLED and
+  `sakura` still resolves light in both slots.
+- A vector-first PocketClaw identity: one geometry, under 2 KB, legible at
+  16px, correct in monochrome and in both themes from a single asset.
+- The visible PicoClaw wordmark and lobster are gone from every user-facing
+  surface, and the favicon family, touch icon, PWA icons and web manifest all
+  carry PocketClaw branding.
+- The mobile menu renders a real hamburger with a 44px hit area and an honest
+  accessible name, and the narrow toolbar collects its low-frequency utilities
+  behind one labelled overflow control.
+- The desktop sidebar is the persistent brand anchor. There is no second full
+  PocketClaw wordmark in the top chrome.
+- Chat is deliberately asymmetric: the user's turn is a contained bubble, the
+  assistant's is an editorial block on a logical-start rail, with polished
+  composer, code, table and tool-call presentation.
+- Flutter and the Models / Web pages carry the same component language.
+- Arabic RTL and the accessibility contract are preserved throughout.
+
+### What was deliberately not renamed
+
+Only user-visible branding was removed. `picoclaw-web`, the `localStorage`
+keys, the Go package paths, the `/pico/*` routes, `PicoOwnerPrincipal`,
+`PICOCLAW_DNS_SERVER`, `libpicoclaw.so` and `libpicoclaw-web.so` are
+load-bearing and stay. Renaming the storage keys silently discards every user's
+saved preference and needs its own migration and its own proof.
+
+### Verification
+
+- Frontend: `tsc -b` clean, `eslint` clean, **349 tests passed**.
+- Flutter: `flutter analyze` no issues, **223 tests passed**.
+- Core: source-freshness, fingerprint-input, staged-core, developer-path,
+  runtime payload and Python payload guards all pass. The Gradle arm64 release
+  guard verified all eleven native payloads, the appended Python standard
+  library and the `pocketclaw_bootstrap` entry point.
+- One pre-existing failure is recorded and **not** fixed here — see below.
+
+### Final accepted artifact
+
+- Built 2026-09-05 with the canonical command
+
+      cd android && ./gradlew :app:assembleRelease \
+        -Ptarget-platform=android-arm64 \
+        -Pdart-defines=$(printf '%s' \
+          'POCKETCLAW_ONBOARDING_BASE_URL=https://pocketclaw-telegram-setup-bot-83ai.vercel.app' \
+          | base64 -w0)
+
+- Size: 64,200,254 bytes — the ~64 MB arm64 band, so
+  `-Ptarget-platform=android-arm64` was honoured. 166.9 MB of payload in
+  `lib/arm64-v8a/` against 286 KB and 123 KB of plugin stubs.
+- SHA-256: `5e576b541ddb8158ac4e94bdf0aeb3f770403f20721f34fc4f47337bac0ac636`
+- Package/version: `com.lord1egypt.pocketclaw`, `0.2.0` (version code `39`),
+  minSdk 24, targetSdk 36.
+- Installed with `install -r`; app data preserved (`firstInstallTime`, uid and
+  `dataDir` all unchanged).
+- Embedded Core rebuilt for this candidate:
+  `libpicoclaw.so` `b6fc9a8e64f396cfb5e3d49a97f8cae2a92da2ead0d78aa02748020693ed81a4`,
+  `libpicoclaw-web.so` `e32264d884909ec03d598456a45497080cf689061ba20389b5363fb3c090fda6`,
+  both stamped with source fingerprint `1e44c173…` and carrying zero
+  developer-machine paths.
+
+### Known pre-existing test failure — not caused by this branch
+
+`TestNoUserFacingWhatsAppSurface` fails on
+`test/widgets/whats_new_page_test.dart`, which lists `'WhatsApp'` among the
+words the release notes must never advertise. It was independently reproduced
+in a clean worktree of `develop` at `9877365` and that file is byte-unchanged
+on this branch. It is recorded, not fixed: it belongs to whoever owns that
+guard, and folding it into a visual merge would hide it.
+
 ## What's New — PHYSICALLY VERIFIED and CLOSED
 
 - Status: **PASS on a physical Android device (SM-A165F / Android 16),

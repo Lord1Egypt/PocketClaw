@@ -27,21 +27,21 @@ export function ProviderSection({
   const [open, setOpen] = useState(true)
 
   return (
-    <section className="my-8">
+    <section className="my-7">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
         className="mb-3 grid w-full grid-cols-[1fr_auto_1fr_auto] items-center gap-2 px-1 py-1.5 text-left"
         aria-expanded={open}
       >
-        <div className="border-border/40 border-t" />
-        <span className="text-foreground/80 text-center text-xs font-semibold tracking-wide uppercase">
-          <span className="bg-background inline-flex items-center gap-1.5 px-2">
+        <div className="border-pc-line border-t" />
+        <span className="text-pc-faint pc-micro text-center">
+          <span className="bg-pc-canvas inline-flex items-center gap-1.5 px-2">
             <ProviderIcon provider={provider} />
             {provider.label}
           </span>
         </span>
-        <div className="border-border/40 border-t" />
+        <div className="border-pc-line border-t" />
         <span className="flex justify-end">
           <IconChevronDown
             className={[
@@ -53,7 +53,7 @@ export function ProviderSection({
       </button>
 
       {open && (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
           {models.map((model) => (
             <ModelCard
               key={model.model_name}

@@ -139,6 +139,7 @@
         "restart": "Reiniciar puerta de enlace"
       },
       "status": {
+        "running": "En ejecución",
         "starting": "Iniciando la puerta de enlace...",
         "restarting": "Reiniciando la puerta de enlace...",
         "stopping": "Deteniendo la puerta de enlace..."
@@ -146,6 +147,7 @@
       "restartRequired": "Los cambios de configuración requieren reiniciar la puerta de enlace para surtir efecto."
     },
     "logoAlt": "Logotipo de PocketClaw",
+    "moreActions": "Más acciones",
     "authError": {
       "banner": "Error del servicio de autenticación: {{message}}",
       "unavailable": "El servicio de autenticación no está disponible. Restablece el almacén de contraseñas del panel y reinicia la aplicación."
@@ -175,6 +177,8 @@
     "sidebar": "Barra lateral",
     "sidebarDescription": "Muestra la barra lateral móvil.",
     "toggleSidebar": "Alternar barra lateral",
+    "openMenu": "Abrir menú",
+    "closeMenu": "Cerrar menú",
     "crashed": "La consola dejó de responder.",
     "reload": "Recargar"
   },

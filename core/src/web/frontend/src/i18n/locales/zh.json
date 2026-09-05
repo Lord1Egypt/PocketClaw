@@ -139,6 +139,7 @@
         "restart": "重启服务"
       },
       "status": {
+        "running": "运行中",
         "starting": "服务启动中...",
         "restarting": "服务重启中...",
         "stopping": "服务停止中..."
@@ -146,6 +147,7 @@
       "restartRequired": "配置变更后需要重启服务才能生效。"
     },
     "logoAlt": "PocketClaw 徽标",
+    "moreActions": "更多操作",
     "authError": {
       "banner": "认证服务错误：{{message}}",
       "unavailable": "认证服务不可用。请重置控制台密码存储并重启应用。"
@@ -172,6 +174,8 @@
     "sidebar": "侧边栏",
     "sidebarDescription": "显示移动端侧边栏。",
     "toggleSidebar": "切换侧边栏",
+    "openMenu": "打开菜单",
+    "closeMenu": "关闭菜单",
     "crashed": "控制台已停止响应。",
     "reload": "重新加载",
     "darkMode": "深色模式",

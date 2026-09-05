@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart';
+import 'package:pocketclaw/src/core/aperture_theme.dart';
 import 'package:pocketclaw/src/core/ui_constants.dart';
 
 /// AdaptiveActionBar
@@ -24,11 +25,11 @@ class AdaptiveActionBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final theme = Theme.of(context);
         final isWide = constraints.maxWidth >= breakpoint;
         final orientation = MediaQuery.of(context).orientation;
         final useBottom = !isWide || orientation == Orientation.portrait;
-        final shellColor = theme.colorScheme.surface;
+        final tokens = context.aperture;
+        final shellColor = tokens.canvas;
         final overlayStyle = _systemUiOverlayStyleFor(shellColor);
 
         if (useBottom) {
@@ -40,9 +41,11 @@ class AdaptiveActionBar extends StatelessWidget {
                 child: Column(
                   children: [
                     Expanded(child: content),
-                    Material(
-                      elevation: 0,
-                      color: shellColor,
+                    DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: tokens.surface1,
+                        border: Border(top: BorderSide(color: tokens.border)),
+                      ),
                       child: Padding(
                         padding: const EdgeInsets.symmetric(
                           vertical: 8,
@@ -51,7 +54,7 @@ class AdaptiveActionBar extends StatelessWidget {
                         child: _ActionPanel(
                           actions: actions,
                           isBottom: true,
-                          shellColor: shellColor,
+                          shellColor: tokens.surface1,
                         ),
                       ),
                     ),
@@ -72,8 +75,8 @@ class AdaptiveActionBar extends StatelessWidget {
                     _ActionPanel(
                       actions: actions,
                       isBottom: false,
-                      shellColor: shellColor,
-                      scaffoldBackgroundColor: theme.scaffoldBackgroundColor,
+                      shellColor: tokens.surface1,
+                      scaffoldBackgroundColor: tokens.surface1,
                     ),
                   ],
                 ),
@@ -179,7 +182,9 @@ class _ActionPanelState extends State<_ActionPanel> {
         padding: const EdgeInsets.symmetric(vertical: 12),
         decoration: BoxDecoration(
           color: scaffoldBg,
-          boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 6)],
+          border: BorderDirectional(
+            start: BorderSide(color: context.aperture.border),
+          ),
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,

@@ -492,4 +492,16 @@ class AppLocalizationsId extends AppLocalizations {
   @override
   String get whatsNew020Fix2 =>
       'Daftar saluran dengan lebih dari satu entri kini tersimpan dengan benar.';
+
+  @override
+  String get settingsGroupConnection => 'Koneksi';
+
+  @override
+  String get settingsGroupAgent => 'Agen';
+
+  @override
+  String get settingsGroupIntegrations => 'Integrasi';
+
+  @override
+  String get settingsGroupAppearance => 'Tampilan';
 }

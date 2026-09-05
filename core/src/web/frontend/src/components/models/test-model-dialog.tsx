@@ -149,7 +149,7 @@ export function TestModelDialog({
               <div
                 className={`rounded-lg p-4 text-sm ${
                   result.success
-                    ? "bg-green-500/10 text-green-700 dark:text-green-400"
+                    ? "bg-pc-success-soft text-pc-success"
                     : "bg-destructive/10 text-destructive"
                 }`}
               >

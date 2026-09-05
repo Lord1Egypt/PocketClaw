@@ -169,5 +169,9 @@
   "whatsNew020Improvement2": "فهرس أدق لوقت التشغيل المُدار.",
   "whatsNew020Improvement3": "هوية PocketClaw أوضح في واجهة الويب ومساحة العمل الافتراضية.",
   "whatsNew020Fix1": "أصبحت البوابة تتعافى من سجل عملية قديم خلّفه تشغيل سابق.",
-  "whatsNew020Fix2": "يتم الآن حفظ قوائم القنوات التي تحتوي أكثر من عنصر واحد بشكل صحيح."
+  "whatsNew020Fix2": "يتم الآن حفظ قوائم القنوات التي تحتوي أكثر من عنصر واحد بشكل صحيح.",
+  "settingsGroupConnection": "الاتصال",
+  "settingsGroupAgent": "الوكيل",
+  "settingsGroupIntegrations": "التكاملات",
+  "settingsGroupAppearance": "المظهر"
 }

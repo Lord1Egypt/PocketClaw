@@ -463,4 +463,16 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get whatsNew020Fix2 => '包含多个条目的频道列表在保存时能够正确保留。';
+
+  @override
+  String get settingsGroupConnection => '连接';
+
+  @override
+  String get settingsGroupAgent => '智能体';
+
+  @override
+  String get settingsGroupIntegrations => '集成';
+
+  @override
+  String get settingsGroupAppearance => '外观';
 }

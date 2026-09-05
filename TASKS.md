@@ -1,5 +1,53 @@
 # PocketClaw Tasks
 
+## APERTURE Visual Redesign — CLOSED 2026-09-05
+
+Branch `feature/visual-redesign-aperture`, merged to `develop` with `--no-ff`.
+Physically accepted on SM-A165F / Android 16 as vc38 and vc39. `main` untouched,
+no tags moved, no release.
+
+- [x] Replace the stock shadcn token set with the APERTURE layer, remapping the
+  existing shadcn variables onto it rather than deleting them, so every
+  component inherits the identity without being edited.
+- [x] Give every neutral a small chroma at hue 245, rising as the surface
+  darkens.
+- [x] Reserve Claw (208) for interactive intent and Signal (195) for live
+  machine state, and guard that Signal is used nowhere else.
+- [x] Emit both Flutter brightnesses from one theme, keeping all six modes, the
+  enum order and the persisted preference index.
+- [x] Keep `obsidian` true-black for AMOLED and `sakura` light in both slots.
+- [x] Draw a vector-first PocketClaw mark that works at 16px, in monochrome and
+  in both themes from one asset.
+- [x] Delete the visible PICOCLAW wordmark and lobster, and rebrand the favicon
+  family, touch icon, PWA icons and web manifest.
+- [x] Keep every load-bearing internal Pico identifier; no namespace migration.
+- [x] Make `SidebarTrigger` render the icon its caller supplies, give the mobile
+  control a 44px hit area, and announce it as opening and closing a menu.
+- [x] Collect the low-frequency header utilities behind one labelled, keyboard-
+  accessible overflow at phone width, without removing any action.
+- [x] Make the desktop sidebar the single brand anchor and remove the second
+  wordmark from the top chrome.
+- [x] Keep chat deliberately asymmetric: contained user bubble, editorial
+  assistant block on a logical-start rail.
+- [x] Polish the composer into one control well with a stable footer and a
+  single send/stop slot.
+- [x] Re-tokenise code wells, tables, inline code, tool rows, the streaming
+  indicator and the context ring.
+- [x] Apply the component language to Models, Credentials, Channels, Telegram,
+  Hub, Skills, Tools, Config and Logs without restructuring any route.
+- [x] Refine the Flutter Run screen, Settings, Public Mode, Auto-Start,
+  Telegram, Context Memory, GitHub, Models, What's New and About.
+- [x] Correct the mark's optics so it stops reading as a crown below 24px, with
+  the evidence and the rejected variants kept as an artifact.
+- [x] Preserve the D-pad focus chain, the RTL drawer sides and the
+  accessibility contract.
+- [x] Hold all of it with tests: token integrity, light-mode integrity, token
+  discipline, brand guards, mark-geometry consistency, mobile header structure,
+  overflow accessibility and focus restoration, chat structure, RTL.
+
+Not done here, and deliberately: the Android launcher icon was not re-rendered
+from the refined geometry, and no Sol/GRIPLINE concept was read or implemented.
+
 ## Telegram Context Settings + Dashboard i18n — CLOSED 2026-09-04
 
 Branch `feature/telegram-context-settings`, merged to `develop` with `--no-ff`.
@@ -98,10 +146,20 @@ first step of the redesign.
 Recorded so they are not rediscovered. None of these is implemented, stubbed or
 prepared, and none belongs to a milestone yet.
 
-- [ ] Remove the remaining user-visible PicoClaw branding in the Dashboard.
-- [ ] Replace the ambiguous mobile sidebar-toggle icon with a clear menu /
-  hamburger icon.
-- [ ] Offer a Vision Model / Image Model routing option.
+- [x] Remove the remaining user-visible PicoClaw branding in the Dashboard.
+  Done in the APERTURE redesign, 2026-09-05.
+- [x] Replace the ambiguous mobile sidebar-toggle icon with a clear menu /
+  hamburger icon. Done in the APERTURE redesign, 2026-09-05.
+- [ ] Offer a dedicated Vision / Image Model routing option. The conceptual
+  future structure is three roles a model can hold — Default Model, Vision
+  Model, Fallback Models. **Not implemented, not stubbed, not prepared.** The
+  APERTURE Models card reserves a wrapping role-badge row so a second role can
+  land as a sibling badge rather than as another redesign; that is conceptual
+  room only, and no routing control, role selector, data model or string
+  exists.
+- [ ] Re-render the Android launcher icon from the refined APERTURE mark
+  geometry. Out of scope for the redesign milestone, which changed no launcher
+  asset.
 
 ## FOLLOW-UP: Telegram request lifecycle durability
 

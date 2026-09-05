@@ -1,0 +1,294 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Aperture mark — optical refinement</title>
+<style>
+  :root {
+    --bg: oklch(0.17 0.012 245);
+    --surface: oklch(0.21 0.014 245);
+    --surface-2: oklch(0.25 0.016 245);
+    --line: oklch(0.33 0.020 245);
+    --text: oklch(0.97 0.004 245);
+    --muted: oklch(0.74 0.014 245);
+    --faint: oklch(0.60 0.016 245);
+    --claw: oklch(0.70 0.130 208);
+    --claw-light: oklch(0.55 0.135 208);
+    --success: oklch(0.72 0.150 158);
+    --warning: oklch(0.80 0.140 78);
+    --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 40px 24px 96px;
+    background: var(--bg);
+    color: var(--text);
+    font: 400 15px/1.55 "Inter", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1120px; margin: 0 auto; }
+  h1 { font-size: 1.75rem; letter-spacing: -0.02em; margin: 0 0 4px; }
+  h2 {
+    font-size: 1.125rem; letter-spacing: -0.01em; font-weight: 600;
+    margin: 48px 0 4px; padding-inline-start: 10px;
+    border-inline-start: 2px solid var(--claw);
+  }
+  p { color: var(--muted); margin: 6px 0 0; max-width: 70ch; }
+  .lede { font-size: 1rem; }
+  .micro {
+    font-size: 0.6875rem; font-weight: 600; letter-spacing: 0.06em;
+    text-transform: uppercase; color: var(--faint);
+  }
+  code, .mono { font-family: var(--mono); font-size: 0.875em; }
+
+  .grid { display: grid; gap: 16px; margin-top: 20px; }
+  @media (min-width: 900px) { .grid { grid-template-columns: repeat(2, 1fr); } }
+
+  .card {
+    background: var(--surface); border: 1px solid var(--line);
+    border-radius: 14px; padding: 20px; min-width: 0;
+  }
+  .card.shipped { border-inline-start: 2px solid var(--success); }
+  .card.review  { border-inline-start: 2px solid var(--warning); }
+  .card.legacy  { border-inline-start: 2px solid var(--faint); }
+
+  .card-head {
+    display: flex; align-items: baseline; justify-content: space-between;
+    gap: 12px; flex-wrap: wrap; margin-bottom: 4px;
+  }
+  .card-head h3 { margin: 0; font-size: 1rem; font-weight: 600; }
+  .tag {
+    font-size: 0.6875rem; font-weight: 600; letter-spacing: 0.06em;
+    text-transform: uppercase; border-radius: 999px;
+    padding: 3px 8px; white-space: nowrap;
+  }
+  .tag.ship   { background: color-mix(in oklch, var(--success) 16%, transparent); color: var(--success); }
+  .tag.hold   { background: color-mix(in oklch, var(--warning) 16%, transparent); color: var(--warning); }
+  .tag.before { background: var(--surface-2); color: var(--faint); }
+
+  .ramp {
+    display: flex; align-items: flex-end; gap: 20px; flex-wrap: wrap;
+    padding: 20px 16px; margin-top: 16px; border-radius: 10px;
+  }
+  .ramp.dark  { background: var(--bg);      color: var(--claw); }
+  .ramp.light { background: oklch(0.985 0.003 245); color: var(--claw-light); }
+  .ramp.mono-dark  { background: var(--bg);               color: var(--text); }
+  .ramp.mono-light { background: oklch(0.985 0.003 245);  color: oklch(0.22 0.015 245); }
+  .spec { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  .spec span { font-size: 0.625rem; color: var(--faint); font-family: var(--mono); }
+  .ramp.light .spec span, .ramp.mono-light .spec span { color: oklch(0.46 0.018 245); }
+  svg { display: block; }
+
+  table { border-collapse: collapse; width: 100%; margin-top: 16px; font-size: 0.875rem; }
+  th, td { text-align: start; padding: 9px 12px; border-bottom: 1px solid var(--line); }
+  th { color: var(--faint); font-weight: 600; font-size: 0.75rem;
+       text-transform: uppercase; letter-spacing: 0.06em; }
+  td.num { font-family: var(--mono); }
+  .ok   { color: var(--success); }
+  .bad  { color: var(--warning); }
+
+  .note {
+    margin-top: 20px; padding: 16px; border-radius: 10px;
+    background: var(--surface); border: 1px solid var(--line);
+    border-inline-start: 2px solid var(--claw);
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <p class="micro">Aperture · isolated comparison</p>
+  <h1>PocketClaw mark — optical refinement</h1>
+  <p class="lede">
+    The vc38 review found the mark reads slightly like a crown or a fork at
+    small sizes rather than unmistakably pocket&nbsp;+&nbsp;claw. This page is
+    the evidence for what changed and what did not. The concept is not under
+    review here — only its optics.
+  </p>
+
+  <h2>What the small sizes actually showed</h2>
+  <p>
+    Rendered at 16px, the original geometry puts four verticals of equal weight
+    across the middle band: the two pocket walls at <code>x=4</code> and
+    <code>x=20</code>, and the two claw arms at <code>x=8.5</code> and
+    <code>x=15.5</code>. The container's walls are only eight units tall and end
+    in bare stroke caps, so nothing tells the eye which pair is the container.
+    Four evenly spaced prongs is a fork. That is the whole defect, and it is
+    geometric rather than a matter of taste.
+  </p>
+
+  <div class="grid">
+
+    <div class="card legacy">
+      <div class="card-head">
+        <h3>Current — shipped in vc38</h3>
+        <span class="tag before">Before</span>
+      </div>
+      <p>Open container, no lip. Arms tower well above a shallow tray.</p>
+      <div class="ramp dark">
+        <div class="spec"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8h16v-8"/><path d="M8.5 14V8L5.5 3.5"/><path d="M15.5 14V8l3-4.5"/></svg><span>16</span></div>
+        <div class="spec"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8h16v-8"/><path d="M8.5 14V8L5.5 3.5"/><path d="M15.5 14V8l3-4.5"/></svg><span>20</span></div>
+        <div class="spec"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8h16v-8"/><path d="M8.5 14V8L5.5 3.5"/><path d="M15.5 14V8l3-4.5"/></svg><span>24</span></div>
+        <div class="spec"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8h16v-8"/><path d="M8.5 14V8L5.5 3.5"/><path d="M15.5 14V8l3-4.5"/></svg><span>32</span></div>
+        <div class="spec"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8h16v-8"/><path d="M8.5 14V8L5.5 3.5"/><path d="M15.5 14V8l3-4.5"/></svg><span>48</span></div>
+        <div class="spec"><svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8h16v-8"/><path d="M8.5 14V8L5.5 3.5"/><path d="M15.5 14V8l3-4.5"/></svg><span>64</span></div>
+      </div>
+      <div class="ramp light">
+        <div class="spec"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8h16v-8"/><path d="M8.5 14V8L5.5 3.5"/><path d="M15.5 14V8l3-4.5"/></svg><span>16</span></div>
+        <div class="spec"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8h16v-8"/><path d="M8.5 14V8L5.5 3.5"/><path d="M15.5 14V8l3-4.5"/></svg><span>24</span></div>
+        <div class="spec"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8h16v-8"/><path d="M8.5 14V8L5.5 3.5"/><path d="M15.5 14V8l3-4.5"/></svg><span>48</span></div>
+      </div>
+    </div>
+
+    <div class="card shipped">
+      <div class="card-head">
+        <h3>Refinement A — lipped mouth</h3>
+        <span class="tag ship">Shipped in vc39</span>
+      </div>
+      <p>
+        The mouth turns inward 3.5 units on each side and the arms are shorter,
+        so the container closes optically and the claw reads as rising out of
+        it. Same concept, same stroke weight, same grid.
+      </p>
+      <div class="ramp dark">
+        <div class="spec"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.5 12H4v8h16v-8h-3.5"/><path d="M10 13.5V10L6.5 4.5"/><path d="M14 13.5V10l3.5-5.5"/></svg><span>16</span></div>
+        <div class="spec"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.5 12H4v8h16v-8h-3.5"/><path d="M10 13.5V10L6.5 4.5"/><path d="M14 13.5V10l3.5-5.5"/></svg><span>20</span></div>
+        <div class="spec"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.5 12H4v8h16v-8h-3.5"/><path d="M10 13.5V10L6.5 4.5"/><path d="M14 13.5V10l3.5-5.5"/></svg><span>24</span></div>
+        <div class="spec"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.5 12H4v8h16v-8h-3.5"/><path d="M10 13.5V10L6.5 4.5"/><path d="M14 13.5V10l3.5-5.5"/></svg><span>32</span></div>
+        <div class="spec"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.5 12H4v8h16v-8h-3.5"/><path d="M10 13.5V10L6.5 4.5"/><path d="M14 13.5V10l3.5-5.5"/></svg><span>48</span></div>
+        <div class="spec"><svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.5 12H4v8h16v-8h-3.5"/><path d="M10 13.5V10L6.5 4.5"/><path d="M14 13.5V10l3.5-5.5"/></svg><span>64</span></div>
+      </div>
+      <div class="ramp light">
+        <div class="spec"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.5 12H4v8h16v-8h-3.5"/><path d="M10 13.5V10L6.5 4.5"/><path d="M14 13.5V10l3.5-5.5"/></svg><span>16</span></div>
+        <div class="spec"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.5 12H4v8h16v-8h-3.5"/><path d="M10 13.5V10L6.5 4.5"/><path d="M14 13.5V10l3.5-5.5"/></svg><span>24</span></div>
+        <div class="spec"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.5 12H4v8h16v-8h-3.5"/><path d="M10 13.5V10L6.5 4.5"/><path d="M14 13.5V10l3.5-5.5"/></svg><span>48</span></div>
+      </div>
+    </div>
+
+    <div class="card review">
+      <div class="card-head">
+        <h3>Refinement B — filled pocket</h3>
+        <span class="tag hold">Not shipped · your call</span>
+      </div>
+      <p>
+        The strongest silhouette at 16px by a clear margin, but it is a
+        different treatment, not an optical fix: a solid mark next to an
+        all-stroke icon set. Held for you rather than decided here.
+      </p>
+      <div class="ramp dark">
+        <div class="spec"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11.5h5.2v2.6h5.6v-2.6H20a1.5 1.5 0 0 1 1.5 1.5v6a1.5 1.5 0 0 1-1.5 1.5H4a1.5 1.5 0 0 1-1.5-1.5v-6A1.5 1.5 0 0 1 4 11.5z" fill="currentColor" stroke="none"/><path d="M10 13V9.5L6.5 4"/><path d="M14 13V9.5L17.5 4"/></svg><span>16</span></div>
+        <div class="spec"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11.5h5.2v2.6h5.6v-2.6H20a1.5 1.5 0 0 1 1.5 1.5v6a1.5 1.5 0 0 1-1.5 1.5H4a1.5 1.5 0 0 1-1.5-1.5v-6A1.5 1.5 0 0 1 4 11.5z" fill="currentColor" stroke="none"/><path d="M10 13V9.5L6.5 4"/><path d="M14 13V9.5L17.5 4"/></svg><span>20</span></div>
+        <div class="spec"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11.5h5.2v2.6h5.6v-2.6H20a1.5 1.5 0 0 1 1.5 1.5v6a1.5 1.5 0 0 1-1.5 1.5H4a1.5 1.5 0 0 1-1.5-1.5v-6A1.5 1.5 0 0 1 4 11.5z" fill="currentColor" stroke="none"/><path d="M10 13V9.5L6.5 4"/><path d="M14 13V9.5L17.5 4"/></svg><span>24</span></div>
+        <div class="spec"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11.5h5.2v2.6h5.6v-2.6H20a1.5 1.5 0 0 1 1.5 1.5v6a1.5 1.5 0 0 1-1.5 1.5H4a1.5 1.5 0 0 1-1.5-1.5v-6A1.5 1.5 0 0 1 4 11.5z" fill="currentColor" stroke="none"/><path d="M10 13V9.5L6.5 4"/><path d="M14 13V9.5L17.5 4"/></svg><span>32</span></div>
+        <div class="spec"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11.5h5.2v2.6h5.6v-2.6H20a1.5 1.5 0 0 1 1.5 1.5v6a1.5 1.5 0 0 1-1.5 1.5H4a1.5 1.5 0 0 1-1.5-1.5v-6A1.5 1.5 0 0 1 4 11.5z" fill="currentColor" stroke="none"/><path d="M10 13V9.5L6.5 4"/><path d="M14 13V9.5L17.5 4"/></svg><span>48</span></div>
+        <div class="spec"><svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11.5h5.2v2.6h5.6v-2.6H20a1.5 1.5 0 0 1 1.5 1.5v6a1.5 1.5 0 0 1-1.5 1.5H4a1.5 1.5 0 0 1-1.5-1.5v-6A1.5 1.5 0 0 1 4 11.5z" fill="currentColor" stroke="none"/><path d="M10 13V9.5L6.5 4"/><path d="M14 13V9.5L17.5 4"/></svg><span>64</span></div>
+      </div>
+      <div class="ramp light">
+        <div class="spec"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11.5h5.2v2.6h5.6v-2.6H20a1.5 1.5 0 0 1 1.5 1.5v6a1.5 1.5 0 0 1-1.5 1.5H4a1.5 1.5 0 0 1-1.5-1.5v-6A1.5 1.5 0 0 1 4 11.5z" fill="currentColor" stroke="none"/><path d="M10 13V9.5L6.5 4"/><path d="M14 13V9.5L17.5 4"/></svg><span>16</span></div>
+        <div class="spec"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11.5h5.2v2.6h5.6v-2.6H20a1.5 1.5 0 0 1 1.5 1.5v6a1.5 1.5 0 0 1-1.5 1.5H4a1.5 1.5 0 0 1-1.5-1.5v-6A1.5 1.5 0 0 1 4 11.5z" fill="currentColor" stroke="none"/><path d="M10 13V9.5L6.5 4"/><path d="M14 13V9.5L17.5 4"/></svg><span>24</span></div>
+        <div class="spec"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11.5h5.2v2.6h5.6v-2.6H20a1.5 1.5 0 0 1 1.5 1.5v6a1.5 1.5 0 0 1-1.5 1.5H4a1.5 1.5 0 0 1-1.5-1.5v-6A1.5 1.5 0 0 1 4 11.5z" fill="currentColor" stroke="none"/><path d="M10 13V9.5L6.5 4"/><path d="M14 13V9.5L17.5 4"/></svg><span>48</span></div>
+      </div>
+    </div>
+
+    <div class="card review">
+      <div class="card-head">
+        <h3>Refinement C — deeper pocket</h3>
+        <span class="tag hold">Rejected</span>
+      </div>
+      <p>
+        Taller walls to make the container dominate. It does the opposite:
+        raising the walls to <code>y=9.5</code> puts four full-height verticals
+        across the middle and makes the fork reading <em>worse</em>, not better.
+        Included because it is the obvious first idea and it does not work.
+      </p>
+      <div class="ramp dark">
+        <div class="spec"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9.5V20h16V9.5"/><path d="M9.7 14v-3L7 6"/><path d="M14.3 14v-3L17 6"/></svg><span>16</span></div>
+        <div class="spec"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9.5V20h16V9.5"/><path d="M9.7 14v-3L7 6"/><path d="M14.3 14v-3L17 6"/></svg><span>20</span></div>
+        <div class="spec"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9.5V20h16V9.5"/><path d="M9.7 14v-3L7 6"/><path d="M14.3 14v-3L17 6"/></svg><span>24</span></div>
+        <div class="spec"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9.5V20h16V9.5"/><path d="M9.7 14v-3L7 6"/><path d="M14.3 14v-3L17 6"/></svg><span>32</span></div>
+        <div class="spec"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9.5V20h16V9.5"/><path d="M9.7 14v-3L7 6"/><path d="M14.3 14v-3L17 6"/></svg><span>48</span></div>
+        <div class="spec"><svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9.5V20h16V9.5"/><path d="M9.7 14v-3L7 6"/><path d="M14.3 14v-3L17 6"/></svg><span>64</span></div>
+      </div>
+      <div class="ramp light">
+        <div class="spec"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9.5V20h16V9.5"/><path d="M9.7 14v-3L7 6"/><path d="M14.3 14v-3L17 6"/></svg><span>16</span></div>
+        <div class="spec"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9.5V20h16V9.5"/><path d="M9.7 14v-3L7 6"/><path d="M14.3 14v-3L17 6"/></svg><span>24</span></div>
+        <div class="spec"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9.5V20h16V9.5"/><path d="M9.7 14v-3L7 6"/><path d="M14.3 14v-3L17 6"/></svg><span>48</span></div>
+      </div>
+    </div>
+
+  </div>
+
+  <h2>Monochrome</h2>
+  <p>
+    The mark has to survive with no accent colour at all — a status glyph, a
+    printed page, an embroidered patch. Both brightnesses, shipped geometry.
+  </p>
+  <div class="ramp mono-dark">
+    <div class="spec"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.5 12H4v8h16v-8h-3.5"/><path d="M10 13.5V10L6.5 4.5"/><path d="M14 13.5V10l3.5-5.5"/></svg><span>16</span></div>
+    <div class="spec"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.5 12H4v8h16v-8h-3.5"/><path d="M10 13.5V10L6.5 4.5"/><path d="M14 13.5V10l3.5-5.5"/></svg><span>24</span></div>
+    <div class="spec"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.5 12H4v8h16v-8h-3.5"/><path d="M10 13.5V10L6.5 4.5"/><path d="M14 13.5V10l3.5-5.5"/></svg><span>32</span></div>
+    <div class="spec"><svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.5 12H4v8h16v-8h-3.5"/><path d="M10 13.5V10L6.5 4.5"/><path d="M14 13.5V10l3.5-5.5"/></svg><span>64</span></div>
+    <div class="spec" style="align-self:center">
+      <span style="display:inline-flex;align-items:center;gap:8px;font:600 15px/1 Inter,system-ui,sans-serif;letter-spacing:-0.02em">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.5 12H4v8h16v-8h-3.5"/><path d="M10 13.5V10L6.5 4.5"/><path d="M14 13.5V10l3.5-5.5"/></svg>
+        PocketClaw
+      </span>
+      <span>lockup</span>
+    </div>
+  </div>
+  <div class="ramp mono-light">
+    <div class="spec"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.5 12H4v8h16v-8h-3.5"/><path d="M10 13.5V10L6.5 4.5"/><path d="M14 13.5V10l3.5-5.5"/></svg><span>16</span></div>
+    <div class="spec"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.5 12H4v8h16v-8h-3.5"/><path d="M10 13.5V10L6.5 4.5"/><path d="M14 13.5V10l3.5-5.5"/></svg><span>24</span></div>
+    <div class="spec"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.5 12H4v8h16v-8h-3.5"/><path d="M10 13.5V10L6.5 4.5"/><path d="M14 13.5V10l3.5-5.5"/></svg><span>32</span></div>
+    <div class="spec"><svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.5 12H4v8h16v-8h-3.5"/><path d="M10 13.5V10L6.5 4.5"/><path d="M14 13.5V10l3.5-5.5"/></svg><span>64</span></div>
+  </div>
+
+  <h2>Measured, not judged</h2>
+  <p>
+    Each variant was rasterised at 16× supersampling and read back. Two numbers
+    decide it: how many separate inked runs cross the middle band (four equal
+    ones is the fork), and how wide the unbroken floor run is relative to the
+    icon (a container needs one).
+  </p>
+  <table>
+    <thead>
+      <tr><th>Variant</th><th>Mouth closes</th><th>Middle band @16px</th><th>Reads as</th><th>Verdict</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Current</td><td class="num">no lip</td><td class="num">4 equal verticals</td>
+        <td>crown / fork</td><td class="bad">superseded</td>
+      </tr>
+      <tr>
+        <td>A — lipped mouth</td><td class="num">3.5u each side</td><td class="num">2 prongs over a lip</td>
+        <td>pocket + claw</td><td class="ok">shipped</td>
+      </tr>
+      <tr>
+        <td>B — filled pocket</td><td class="num">solid</td><td class="num">2 prongs over a mass</td>
+        <td>pocket + claw</td><td class="bad">different treatment</td>
+      </tr>
+      <tr>
+        <td>C — deeper pocket</td><td class="num">no lip</td><td class="num">4 full-height verticals</td>
+        <td>fork, more so</td><td class="bad">rejected</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="note">
+    <p class="micro" style="margin:0 0 6px">What shipped, and what did not</p>
+    <p style="color:var(--text)">
+      Only refinement <strong>A</strong> is in vc39, because it is the one change
+      that is an optical correction rather than a new brand decision: same
+      concept, same 24-unit grid, same 2-unit stroke, same three paths. The web
+      favicons and PWA icons are re-rendered from it by
+      <code>scripts/generate-brand-assets.py</code>. <strong>The Android launcher
+      icon is untouched in this phase.</strong> B and C are here for you to look
+      at and are not wired to anything.
+    </p>
+  </div>
+
+</div>
+</body>
+</html>

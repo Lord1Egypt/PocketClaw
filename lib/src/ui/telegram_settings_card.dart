@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'package:pocketclaw/src/core/aperture_theme.dart';
 import 'package:pocketclaw/src/generated/l10n/app_localizations.dart';
 import 'package:pocketclaw/src/telegram/telegram_onboarding_strings.dart';
 
@@ -17,16 +18,25 @@ class TelegramSettingsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
+    final tokens = context.aperture;
     final l10n = AppLocalizations.of(context)!;
     return Card(
       margin: EdgeInsets.zero,
       child: ListTile(
         key: const Key('telegram-settings-card'),
-        leading: Icon(Icons.send_rounded, color: scheme.primary),
+        leading: Container(
+          width: 40,
+          height: 40,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: tokens.surface3,
+            borderRadius: BorderRadius.circular(ApertureTheme.radiusSm),
+          ),
+          child: Icon(Icons.send_rounded, color: tokens.accent, size: 20),
+        ),
         title: const Text(TelegramOnboardingStrings.title),
         subtitle: Text(l10n.manageTelegramConnection),
-        trailing: const Icon(Icons.chevron_right_rounded),
+        trailing: Icon(Icons.chevron_right_rounded, color: tokens.textFaint),
         onTap: onManage == null
             ? null
             : () => onManage!(canonicalTelegramConsolePath),

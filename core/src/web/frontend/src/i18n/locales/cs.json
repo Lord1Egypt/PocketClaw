@@ -139,6 +139,7 @@
         "restart": "Restartovat gateway"
       },
       "status": {
+        "running": "Běží",
         "starting": "Spouštění gateway...",
         "restarting": "Restartování gateway...",
         "stopping": "Zastavování gateway..."
@@ -146,6 +147,7 @@
       "restartRequired": "Změny konfigurace se projeví až po restartu gateway."
     },
     "logoAlt": "Logo PocketClaw",
+    "moreActions": "Další akce",
     "authError": {
       "banner": "Chyba ověřovací služby: {{message}}",
       "unavailable": "Ověřovací služba není dostupná. Resetujte úložiště hesla řídicího panelu a restartujte aplikaci."
@@ -172,6 +174,8 @@
     "sidebar": "Postranní panel",
     "sidebarDescription": "Zobrazí postranní panel pro mobil.",
     "toggleSidebar": "Přepnout postranní panel",
+    "openMenu": "Otevřít nabídku",
+    "closeMenu": "Zavřít nabídku",
     "crashed": "Konzole přestala odpovídat.",
     "reload": "Znovu načíst",
     "darkMode": "Tmavý režim",

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:pocketclaw/src/core/service_manager.dart';
+import 'package:pocketclaw/src/core/aperture_theme.dart';
 import 'package:pocketclaw/src/generated/l10n/app_localizations.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:pocketclaw/src/core/app_theme.dart';
@@ -28,6 +29,54 @@ class AboutInfo {
 /// The preference and the runtime are shown as two separate lines on purpose:
 /// a preference that is ON does not mean the component is running, and a
 /// component the user stopped by hand stays stopped until the next app launch.
+/// A group label above a run of Settings cards.
+///
+/// Uppercase is used at exactly one size in Aperture, and this is it. The
+/// label sizes to its content and wraps, so a long German or Russian
+/// translation lengthens the block instead of clipping.
+/// The Settings header actions: ghost buttons on a hairline, never filled.
+/// Only a card's single primary action earns the accent fill.
+ButtonStyle _ghostActionStyle(BuildContext context) {
+  final tokens = context.aperture;
+  return ElevatedButton.styleFrom(
+    backgroundColor: tokens.surface1,
+    foregroundColor: tokens.text,
+    elevation: 0,
+    minimumSize: const Size(0, ApertureTheme.minTouchTarget),
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(ApertureTheme.radiusSm),
+      side: BorderSide(color: tokens.border),
+    ),
+  );
+}
+
+class SettingsSectionLabel extends StatelessWidget {
+  const SettingsSectionLabel(this.label, {super.key});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsetsDirectional.only(
+        start: 4,
+        top: ApertureTheme.spaceSm,
+        bottom: ApertureTheme.spaceSm,
+      ),
+      child: Text(
+        label.toUpperCase(),
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+          color: context.aperture.textFaint,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 0.9,
+          height: 1.2,
+        ),
+      ),
+    );
+  }
+}
+
 class AutoStartSettingsCard extends StatelessWidget {
   const AutoStartSettingsCard({
     super.key,
@@ -60,9 +109,22 @@ class AutoStartSettingsCard extends StatelessWidget {
         children: [
           SwitchListTile.adaptive(
             title: Text(l10n.autoStartServiceTitle),
-            subtitle: Text(
-              '${serviceEnabled ? l10n.autoStartPreferenceOn : l10n.autoStartPreferenceOff}\n'
-              '${runtimeLabel(l10n, serviceStatus)}',
+            isThreeLine: true,
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  serviceEnabled
+                      ? l10n.autoStartPreferenceOn
+                      : l10n.autoStartPreferenceOff,
+                ),
+                const SizedBox(height: 4),
+                _RuntimeStatusChip(
+                  label: runtimeLabel(l10n, serviceStatus),
+                  status: serviceStatus,
+                ),
+              ],
             ),
             value: serviceEnabled,
             onChanged: onServiceChanged,
@@ -70,15 +132,66 @@ class AutoStartSettingsCard extends StatelessWidget {
           const Divider(height: 1),
           SwitchListTile.adaptive(
             title: Text(l10n.autoStartGatewayTitle),
-            subtitle: Text(
-              '${gatewayEnabled ? l10n.autoStartPreferenceOn : l10n.autoStartPreferenceOff}\n'
-              '${l10n.gatewayAutoStartHint}',
+            isThreeLine: true,
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  gatewayEnabled
+                      ? l10n.autoStartPreferenceOn
+                      : l10n.autoStartPreferenceOff,
+                ),
+                const SizedBox(height: 2),
+                Text(l10n.gatewayAutoStartHint),
+              ],
             ),
             value: gatewayEnabled,
             onChanged: onGatewayChanged,
           ),
         ],
       ),
+    );
+  }
+}
+
+/// The runtime half of an Auto-Start row: a dot and the word it already said.
+///
+/// Running is live machine state, which is the one thing Signal is reserved
+/// for. The label is always present — the dot never carries the meaning alone.
+class _RuntimeStatusChip extends StatelessWidget {
+  const _RuntimeStatusChip({required this.label, required this.status});
+
+  final String label;
+  final ServiceStatus status;
+
+  @override
+  Widget build(BuildContext context) {
+    final tokens = context.aperture;
+    final color = switch (status) {
+      ServiceStatus.running => tokens.signal,
+      ServiceStatus.starting => tokens.warning,
+      ServiceStatus.stopped => tokens.textFaint,
+    };
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 6,
+          height: 6,
+          margin: const EdgeInsetsDirectional.only(end: 6),
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        Flexible(
+          child: Text(
+            label,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: color,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -410,8 +523,9 @@ class ConfigPageState extends State<ConfigPage> with WidgetsBindingObserver {
     required String value,
   }) {
     final textTheme = Theme.of(context).textTheme;
+    final tokens = context.aperture;
     return Padding(
-      padding: const EdgeInsets.only(top: 8),
+      padding: const EdgeInsetsDirectional.only(top: 8),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -420,11 +534,28 @@ class ConfigPageState extends State<ConfigPage> with WidgetsBindingObserver {
             child: Text(
               label,
               style: textTheme.bodyMedium?.copyWith(
+                color: tokens.textMuted,
                 fontWeight: FontWeight.w600,
               ),
             ),
           ),
-          Expanded(child: Text(value, style: textTheme.bodyMedium)),
+          // A version, a commit and a build stamp are values a human compares
+          // character by character, which is exactly what mono is for. They
+          // stay left-to-right in Arabic: a reversed digest is a bug, not
+          // localization.
+          Expanded(
+            child: Directionality(
+              textDirection: TextDirection.ltr,
+              child: Text(
+                value,
+                style: textTheme.bodyMedium?.copyWith(
+                  fontFamily: 'monospace',
+                  fontFamilyFallback: const ['Menlo', 'Consolas'],
+                  color: tokens.text,
+                ),
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -619,27 +750,7 @@ class ConfigPageState extends State<ConfigPage> with WidgetsBindingObserver {
                           onPressed: _openWhatsNew,
                           prevFocusNode: _whatsNewFocusNode,
                           nextFocusNode: _aboutFocusNode,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Theme.of(
-                              context,
-                            ).colorScheme.surface,
-                            foregroundColor: Theme.of(
-                              context,
-                            ).colorScheme.onSurface,
-                            elevation: 0,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 10,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
-                              side: BorderSide(
-                                color: Theme.of(
-                                  context,
-                                ).colorScheme.outline.withAlpha(60),
-                              ),
-                            ),
-                          ),
+                          style: _ghostActionStyle(context),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
@@ -668,27 +779,7 @@ class ConfigPageState extends State<ConfigPage> with WidgetsBindingObserver {
                           },
                           prevFocusNode: _whatsNewFocusNode,
                           nextFocusNode: _publicModeFocusNode,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Theme.of(
-                              context,
-                            ).colorScheme.surface,
-                            foregroundColor: Theme.of(
-                              context,
-                            ).colorScheme.onSurface,
-                            elevation: 0,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 10,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
-                              side: BorderSide(
-                                color: Theme.of(
-                                  context,
-                                ).colorScheme.outline.withAlpha(60),
-                              ),
-                            ),
-                          ),
+                          style: _ghostActionStyle(context),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
@@ -703,7 +794,9 @@ class ConfigPageState extends State<ConfigPage> with WidgetsBindingObserver {
                   ),
                 ],
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 8),
+
+              SettingsSectionLabel(l10n.settingsGroupConnection),
 
               Selector<ServiceManager, ({bool isPublic, bool isApplying})>(
                 selector: (_, s) => (
@@ -752,8 +845,8 @@ class ConfigPageState extends State<ConfigPage> with WidgetsBindingObserver {
 
               Text(
                 l10n.address,
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurface.withAlpha(153),
+                style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                  color: context.aperture.textMuted,
                 ),
               ),
               const SizedBox(height: 8),
@@ -782,8 +875,8 @@ class ConfigPageState extends State<ConfigPage> with WidgetsBindingObserver {
 
               Text(
                 l10n.port,
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurface.withAlpha(153),
+                style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                  color: context.aperture.textMuted,
                 ),
               ),
               const SizedBox(height: 8),
@@ -805,8 +898,11 @@ class ConfigPageState extends State<ConfigPage> with WidgetsBindingObserver {
               ),
               const SizedBox(height: 16),
 
+              SettingsSectionLabel(l10n.settingsGroupIntegrations),
               TelegramSettingsCard(onManage: widget.onManageTelegram),
-              const SizedBox(height: 12),
+              const SizedBox(height: 24),
+
+              SettingsSectionLabel(l10n.settingsGroupAgent),
               ContextMemoryCard(focusNode: _contextMemoryFocusNode),
               const SizedBox(height: 12),
               ModelsSettingsCard(onManage: widget.onManageConsole),
@@ -815,7 +911,7 @@ class ConfigPageState extends State<ConfigPage> with WidgetsBindingObserver {
                 onCredentialChanged: () =>
                     context.read<ServiceManager>().applyCredentialChange(),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 24),
 
               if (!Platform.isWindows &&
                   !Platform.isAndroid &&
@@ -1114,12 +1210,13 @@ class ConfigPageState extends State<ConfigPage> with WidgetsBindingObserver {
               ),
               const SizedBox(height: 16),
               const Divider(),
-              const SizedBox(height: 16),
+              const SizedBox(height: 8),
+              SettingsSectionLabel(l10n.settingsGroupAppearance),
               Text(
                 l10n.themeSelection,
-                style: Theme.of(context).textTheme.titleLarge,
+                style: Theme.of(context).textTheme.titleMedium,
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 12),
               ThemeModeSelector(
                 themeFocusNodes: _themeFocusNodes,
                 saveFocusNode: _saveFocusNode,
@@ -1264,18 +1361,19 @@ class _WhatsNewBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
+    final tokens = context.aperture;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
       decoration: BoxDecoration(
-        color: colorScheme.primary,
-        borderRadius: BorderRadius.circular(6),
+        color: tokens.accent,
+        borderRadius: BorderRadius.circular(999),
       ),
       child: Text(
-        label,
+        label.toUpperCase(),
         style: Theme.of(context).textTheme.labelSmall?.copyWith(
-          color: colorScheme.onPrimary,
+          color: tokens.accentInk,
           fontWeight: FontWeight.w700,
+          letterSpacing: 0.7,
           height: 1.2,
         ),
       ),
@@ -1416,6 +1514,7 @@ class _PublicModeToggleState extends State<PublicModeToggle> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final tokens = context.aperture;
 
     return Focus(
       focusNode: widget.focusNode,
@@ -1439,53 +1538,40 @@ class _PublicModeToggleState extends State<PublicModeToggle> {
       },
       child: GestureDetector(
         onTap: widget.isApplying ? null : widget.onToggle,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          decoration: BoxDecoration(
-            color: _isFocused
-                ? Theme.of(context).colorScheme.secondary.withAlpha(40)
-                : (widget.isPublicMode
-                      ? Theme.of(context).colorScheme.secondary.withAlpha(15)
-                      : null),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: _isFocused
-                  ? Theme.of(context).colorScheme.secondary
-                  : (widget.isPublicMode
-                        ? Theme.of(context).colorScheme.secondary
-                        : Theme.of(context).dividerColor),
-              width: _isFocused ? 2 : (widget.isPublicMode ? 2 : 1),
-            ),
-            boxShadow: _isFocused
-                ? [
-                    BoxShadow(
-                      color: Theme.of(
-                        context,
-                      ).colorScheme.secondary.withAlpha(40),
-                      blurRadius: 8,
-                      spreadRadius: 2,
-                    ),
-                  ]
-                : null,
+        // Public Mode exposes the Dashboard on the LAN. Warning colour is the
+        // honest one for network exposure, and it is deliberately not the
+        // accent — this is the one card allowed to differ.
+        child: ApertureBracket(
+          fill: widget.isPublicMode
+              ? tokens.warning.withValues(alpha: 0.12)
+              : tokens.surface1,
+          bracket: widget.isPublicMode ? tokens.warning : null,
+          borderColor: _isFocused ? tokens.accent : tokens.border,
+          borderWidth: _isFocused ? 2 : 1,
+          padding: const EdgeInsetsDirectional.only(
+            start: 16,
+            end: 16,
+            top: 12,
+            bottom: 12,
           ),
           child: Row(
             children: [
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                padding: const EdgeInsets.all(8),
+              Container(
+                width: 40,
+                height: 40,
+                alignment: Alignment.center,
                 decoration: BoxDecoration(
-                  color: (widget.isPublicMode || _isFocused)
-                      ? Theme.of(context).colorScheme.secondary.withAlpha(40)
-                      : null,
-                  borderRadius: BorderRadius.circular(8),
+                  color: widget.isPublicMode
+                      ? tokens.warning.withValues(alpha: 0.16)
+                      : tokens.surface3,
+                  borderRadius: BorderRadius.circular(ApertureTheme.radiusSm),
                 ),
                 child: Icon(
                   widget.isPublicMode ? Icons.public : Icons.public_off,
-                  color: widget.isPublicMode || _isFocused
-                      ? Theme.of(context).colorScheme.secondary
-                      : Theme.of(context).colorScheme.onSurface.withAlpha(150),
-                  size: 24,
+                  color: widget.isPublicMode
+                      ? tokens.warning
+                      : tokens.textMuted,
+                  size: 22,
                 ),
               ),
               const SizedBox(width: 12),
@@ -1496,21 +1582,20 @@ class _PublicModeToggleState extends State<PublicModeToggle> {
                     Text(
                       l10n.publicMode,
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: _isFocused
-                            ? Theme.of(context).colorScheme.secondary
-                            : (widget.isPublicMode
-                                  ? Theme.of(context).colorScheme.secondary
-                                  : null),
-                        fontWeight: (_isFocused || widget.isPublicMode)
-                            ? FontWeight.bold
-                            : FontWeight.normal,
+                        color: widget.isPublicMode
+                            ? tokens.warning
+                            : tokens.text,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
+                    const SizedBox(height: 2),
                     Text(
                       widget.isApplying
                           ? l10n.publicModeApplying
                           : l10n.publicModeHintDesc,
-                      style: Theme.of(context).textTheme.bodySmall,
+                      style: Theme.of(
+                        context,
+                      ).textTheme.bodySmall?.copyWith(color: tokens.textMuted),
                     ),
                   ],
                 ),
@@ -1526,32 +1611,32 @@ class _PublicModeToggleState extends State<PublicModeToggle> {
                   width: 48,
                   height: 28,
                   decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: BorderRadius.circular(999),
                     color: widget.isPublicMode
-                        ? Theme.of(context).colorScheme.secondary
-                        : Theme.of(
-                            context,
-                          ).colorScheme.secondary.withAlpha(100),
+                        ? tokens.warning
+                        : tokens.surface3,
+                    border: Border.all(
+                      color: widget.isPublicMode
+                          ? tokens.warning
+                          : tokens.border,
+                    ),
                   ),
                   child: AnimatedAlign(
                     duration: const Duration(milliseconds: 200),
+                    // Directional, so the thumb travels toward the end edge in
+                    // Arabic exactly as it does in English.
                     alignment: widget.isPublicMode
-                        ? Alignment.centerRight
-                        : Alignment.centerLeft,
+                        ? AlignmentDirectional.centerEnd
+                        : AlignmentDirectional.centerStart,
                     child: Container(
-                      width: 24,
-                      height: 24,
+                      width: 22,
+                      height: 22,
                       margin: const EdgeInsets.all(2),
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: Theme.of(context).colorScheme.surface,
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withAlpha(30),
-                            blurRadius: 2,
-                            offset: const Offset(0, 1),
-                          ),
-                        ],
+                        color: widget.isPublicMode
+                            ? tokens.accentInk
+                            : tokens.textFaint,
                       ),
                     ),
                   ),
@@ -1616,6 +1701,7 @@ class _ThemeButtonState extends State<ThemeButton> {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.aperture;
     return Focus(
       focusNode: widget.focusNode,
       canRequestFocus: true,
@@ -1643,48 +1729,39 @@ class _ThemeButtonState extends State<ThemeButton> {
         onTap: widget.onSelect,
         child: MouseRegion(
           cursor: SystemMouseCursors.click,
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: BoxDecoration(
-              color: widget.isSelected
-                  ? widget.theme.colorScheme.secondary
-                  : widget.theme.colorScheme.primaryContainer,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: Colors.black.withAlpha(0),
-                width: _isFocused ? 6 : 2,
-              ),
-              boxShadow: _isFocused
-                  ? [
-                      BoxShadow(
-                        color: Theme.of(
-                          context,
-                        ).colorScheme.primary.withValues(alpha: 0.2),
-                        blurRadius: 8,
-                        spreadRadius: 2,
-                      ),
-                    ]
-                  : null,
+          // Selection is the bracket and a soft fill; focus is the ring.
+          // Both can be true at once and stay distinguishable.
+          child: ApertureBracket(
+            radius: ApertureTheme.radiusSm,
+            fill: widget.isSelected ? tokens.accentSoft : tokens.surface1,
+            bracket: widget.isSelected ? tokens.accent : null,
+            borderColor: _isFocused ? tokens.accent : tokens.border,
+            borderWidth: _isFocused ? 2 : 1,
+            padding: const EdgeInsetsDirectional.only(
+              start: 14,
+              end: 14,
+              top: 12,
+              bottom: 12,
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(
-                  Icons.palette_outlined,
-                  size: 18,
-                  color: widget.isSelected
-                      ? widget.theme.colorScheme.onSecondary
-                      : widget.theme.colorScheme.onPrimaryContainer,
+                // The mode's own accent, previewed as a dot.
+                Container(
+                  width: 12,
+                  height: 12,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: widget.theme.colorScheme.primary,
+                  ),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: 10),
                 Text(
                   widget.mode.name.toUpperCase(),
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: widget.isSelected
-                        ? widget.theme.colorScheme.onSecondary
-                        : widget.theme.colorScheme.onPrimaryContainer,
+                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.7,
+                    color: widget.isSelected ? tokens.accent : tokens.text,
                   ),
                 ),
               ],

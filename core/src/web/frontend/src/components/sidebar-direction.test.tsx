@@ -151,7 +151,12 @@ describe("sidebar chrome uses a logical border edge", () => {
       `${process.cwd()}/src/components/app-sidebar.tsx`,
       "utf8",
     )
-    const chrome = source.match(/className="bg-background[^"]*"/)?.[0] ?? ""
+    // Read the chrome off the <Sidebar> element itself rather than off one
+    // colour utility, so restyling the surface cannot quietly empty the match
+    // and turn this into an assertion about nothing.
+    const chrome =
+      source.match(/<Sidebar\b[^>]*className="([^"]*)"/s)?.[1] ?? ""
+    expect(chrome).not.toBe("")
     expect(chrome).toContain("border-e")
     expect(chrome).not.toMatch(/border-[rl]\b/)
     expect(chrome).not.toMatch(/border-[rl]-/)
@@ -168,7 +173,7 @@ describe("sidebar chrome uses a logical border edge", () => {
       await i18n.changeLanguage(locale)
       render(
         <SidebarProvider>
-          <Sidebar className="bg-background border-e-border/20 border-e pt-3">
+          <Sidebar className="bg-pc-surface-1 border-e-border border-e">
             <p>sidebar content</p>
           </Sidebar>
         </SidebarProvider>,
@@ -182,6 +187,59 @@ describe("sidebar chrome uses a logical border edge", () => {
       expect(container?.className).not.toMatch(/\bborder-r\b/)
     },
   )
+})
+
+// The Phase 2 header keeps the drawer contract it inherited: the trigger sits
+// at the inline-start edge and the drawer enters from the side the writing
+// direction puts it. A hamburger is direction-neutral and needs no mirroring;
+// what must not drift is the placement around it.
+describe("the mobile header stays RTL-safe", () => {
+  beforeEach(async () => {
+    isMobile.mockReturnValue(true)
+    await i18n.changeLanguage("en")
+  })
+
+  const header = fsSync.readFileSync(
+    `${process.cwd()}/src/components/app-header.tsx`,
+    "utf8",
+  )
+
+  it("declares no physical direction in the header chrome", () => {
+    expect(header).not.toMatch(/\b(ml|mr|pl|pr)-\d/)
+    expect(header).not.toMatch(/\bmx-4\b.*orientation="vertical"/)
+    expect(header).not.toContain("left-1/2")
+  })
+
+  it("keeps the drawer on the writing direction's side with the new header", async () => {
+    for (const [locale, side] of [
+      ["ar", "right"],
+      ["en", "left"],
+    ] as const) {
+      await i18n.changeLanguage(locale)
+      const view = render(
+        <SidebarProvider>
+          <Sidebar>
+            <p>sidebar content</p>
+          </Sidebar>
+          <SidebarTrigger label="menu" />
+        </SidebarProvider>,
+      )
+      fireEvent.click(screen.getByRole("button", { name: "menu" }))
+      expect(drawerSide(), locale).toBe(side)
+      view.unmount()
+    }
+  })
+
+  // The overflow menu anchors to the inline-end edge in both directions,
+  // which Radix resolves from the document dir rather than from a locale test.
+  it("anchors the utility menu to an edge, not to a hard-coded side", () => {
+    const menu = fsSync.readFileSync(
+      `${process.cwd()}/src/components/header-utility-menu.tsx`,
+      "utf8",
+    )
+    expect(menu).toContain('align="end"')
+    expect(menu).not.toMatch(/align="(left|right)"/)
+  })
 })
 
 // Changing the sidebar's own chrome must not reach the sheets that share the
