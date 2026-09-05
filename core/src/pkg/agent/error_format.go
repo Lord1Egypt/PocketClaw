@@ -3,11 +3,20 @@ package agent
 import (
 	"errors"
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/sipeed/picoclaw/pkg/providers"
 )
 
+// formatProcessingError renders a failed turn for the chat window.
+//
+// A provider's own response text never reaches the user. It is written for an
+// API client, not a person: raw JSON, billing links, request ids and account
+// internals, none of which help someone decide what to do next, and some of
+// which should not be repeated into a chat at all. Everything that is not the
+// provider's own words still passes through — an unsupported-media explanation
+// or a configuration error is guidance the user needs verbatim.
 func formatProcessingError(err error) string {
 	if err == nil {
 		return ""
@@ -22,15 +31,64 @@ func formatProcessingError(err error) string {
 		return formatFallbackExhausted(exhausted)
 	}
 
-	if kind, ok := providers.ClassifyAuthError(err); ok {
-		return fmt.Sprintf(
-			"Error processing message: %s\n\nOriginal error:\n%s",
-			authErrorFriendlyMessage(kind),
-			err.Error(),
-		)
+	// A single configured model fails through this path instead, and it used to
+	// append the provider's whole response under an "Original error:" heading.
+	if summary, ok := formatProviderFailure(err); ok {
+		return summary
 	}
 
 	return fmt.Sprintf("Error processing message: %v", err)
+}
+
+// formatProviderFailure summarises a failure that is the provider's, reporting
+// false for anything else.
+//
+// The distinction is what keeps this safe without making it useless: an error
+// PocketClaw itself raised carries advice worth reading, while an error the
+// provider returned carries a response body worth suppressing.
+func formatProviderFailure(err error) (string, bool) {
+	authKind, isAuth := providers.ClassifyAuthError(err)
+	failErr := providers.ClassifyError(err, "", "")
+	if !isAuth && failErr == nil {
+		return "", false
+	}
+
+	if isAuth || (failErr != nil && failErr.Reason == providers.FailoverAuth) {
+		return authErrorFriendlyMessage(resolveAuthErrorKind(authKind, isAuth, err)), true
+	}
+
+	summary := failureSummary(failErr.Reason, failErr.Status)
+	if failErr.Status > 0 {
+		return fmt.Sprintf("The model could not complete this request: %s (%d).", summary, failErr.Status), true
+	}
+	return fmt.Sprintf("The model could not complete this request: %s.", summary), true
+}
+
+// accountBalancePattern recognises a rejection that is about money rather than
+// credentials. Providers commonly return both as 401.
+var accountBalancePattern = regexp.MustCompile(
+	`(?i)\b(?:insufficient|inadequate|negative|zero|no|out\s+of|low)\s+(?:account\s+)?` +
+		`(?:balance|credit|credits|funds)\b|\bcredits?\s*error\b|\bcredit\s+balance\b|` +
+		`\bbalance\s+(?:is\s+)?(?:too\s+)?low\b|\btop[-\s]?up\b`,
+)
+
+// resolveAuthErrorKind picks the advice to give for an authentication failure.
+//
+// A 401 whose body says the account ran out of credit is not a bad key. Telling
+// the user their API key is invalid sends them to replace a key that works,
+// which is worse than saying nothing specific at all.
+func resolveAuthErrorKind(
+	kind providers.AuthErrorKind,
+	classified bool,
+	err error,
+) providers.AuthErrorKind {
+	if !classified || kind == "" {
+		kind = providers.AuthErrorGeneric
+	}
+	if kind == providers.AuthErrorInvalidAPIKey && accountBalancePattern.MatchString(err.Error()) {
+		return providers.AuthErrorGeneric
+	}
+	return kind
 }
 
 func authErrorFriendlyMessage(kind providers.AuthErrorKind) string {
@@ -42,7 +100,10 @@ func authErrorFriendlyMessage(kind providers.AuthErrorKind) string {
 	case providers.AuthErrorExpiredToken:
 		return "Authentication failed: the saved login or token appears to be expired. Re-authenticate the provider."
 	default:
-		return "Authentication failed: check the API key, token, OAuth login, or provider permissions for this model."
+		// Deliberately names the balance: a credit-exhausted account and a bad
+		// key both arrive as 401, and this branch is where the ambiguous ones
+		// land.
+		return "Authentication failed: check the API key, account balance, or provider permissions for this model."
 	}
 }
 
@@ -90,11 +151,23 @@ func attemptFailureSummary(attempt providers.FallbackAttempt) string {
 		return "request failed"
 	}
 
-	summary := failoverReasonSummary(failErr.Reason)
+	summary := failureSummary(failErr.Reason, failErr.Status)
 	if failErr.Status > 0 {
 		return fmt.Sprintf("%s (%d)", summary, failErr.Status)
 	}
 	return summary
+}
+
+// failureSummary words a classified failure for a person.
+//
+// The classifier folds a bare 500 into the timeout bucket because timeout is
+// the safest transient read for a retry decision. It is the wrong word to show
+// a user, who did not experience a timeout and would go looking for one.
+func failureSummary(reason providers.FailoverReason, status int) string {
+	if status == 500 && reason == providers.FailoverTimeout {
+		return "provider error"
+	}
+	return failoverReasonSummary(reason)
 }
 
 func failoverReasonSummary(reason providers.FailoverReason) string {
