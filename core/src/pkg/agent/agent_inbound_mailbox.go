@@ -34,6 +34,14 @@ func (al *AgentLoop) claimSessionMailbox(
 		al.sessionMailboxes[sessionKey] = mailbox
 		return mailbox, true, false
 	}
+	if isControlPlaneMessage(msg) {
+		// Control traffic is never queued. /stop exists to cancel the turn that
+		// owns this mailbox, so waiting behind that turn would make it useless:
+		// it would be dequeued only after the work it was meant to stop had
+		// already completed. Reported as neither claimed nor queued, so the
+		// dispatcher handles it out of band on the control path.
+		return mailbox, false, false
+	}
 	if !requiresIndependentResponseLifecycle(msg) {
 		// clearActiveTurn runs while a panicking worker unwinds, just before its
 		// mailbox defer. Do not mistake that stale mailbox for a live owner and

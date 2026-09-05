@@ -7,6 +7,7 @@ import (
 
 	"github.com/sipeed/picoclaw/pkg/bus"
 	"github.com/sipeed/picoclaw/pkg/commands"
+	"github.com/sipeed/picoclaw/pkg/logger"
 )
 
 func (al *AgentLoop) tryHandleStopCommand(
@@ -17,6 +18,16 @@ func (al *AgentLoop) tryHandleStopCommand(
 	cmdName, ok := commands.CommandName(msg.Content)
 	if !ok || cmdName != "stop" {
 		return false
+	}
+
+	// Resolve the running turn's delivery target before cancelling it: once the
+	// turn is aborted its state is released and the lifecycle that owns the
+	// typing indicator and the "Thinking…" placeholder is no longer reachable.
+	targetChannel, targetChatID, targetInbound, hadActiveTurn := al.activeTurnDeliveryTarget(sessionKey)
+	if hadActiveTurn {
+		traceRequestLifecycle("cancel_requested", targetInbound, map[string]any{
+			"requested_by": bus.InboundLifecycleID(&msg.Context),
+		})
 	}
 
 	result, err := al.stopActiveTurnForSession(sessionKey)
@@ -41,12 +52,57 @@ func (al *AgentLoop) tryHandleStopCommand(
 		reply = "Failed to stop task: " + err.Error()
 	}
 
-	if al.channelManager != nil {
-		al.channelManager.InvokeTypingStop(msg.Channel, msg.ChatID)
-	}
+	al.finalizeCancelledTurnActivity(msg, targetChannel, targetChatID, targetInbound, hadActiveTurn)
 	al.resetMessageToolRound(sessionKey)
-	al.PublishResponseIfNeeded(ctx, msg.Channel, msg.ChatID, sessionKey, reply)
+
+	// Deliver the acknowledgement on the cancelled turn's lifecycle so the
+	// channel layer edits its stale "Thinking…" placeholder into this reply
+	// instead of leaving it in the chat until its TTL expires. Falls back to the
+	// /stop message's own context when no turn was running.
+	deliverChannel, deliverChatID, deliverInbound := msg.Channel, msg.ChatID, (*bus.InboundContext)(nil)
+	if hadActiveTurn && targetChannel == msg.Channel && targetChatID == msg.ChatID {
+		deliverInbound = targetInbound
+	}
+	if publishErr := al.publishResponseForContext(
+		ctx, deliverChannel, deliverChatID, sessionKey, deliverInbound, reply,
+	); publishErr != nil {
+		logger.ErrorCF("agent", "Cancellation acknowledgement delivery failed", map[string]any{
+			"channel": deliverChannel,
+			"error":   publishErr.Error(),
+		})
+	}
+	if hadActiveTurn {
+		traceRequestLifecycle("cancelled", targetInbound, map[string]any{
+			"stopped": result.Stopped,
+		})
+	}
 	return true
+}
+
+// finalizeCancelledTurnActivity clears the transient chat activity a cancelled
+// turn leaves behind. It is idempotent: every stop primitive it calls tolerates
+// being invoked when nothing is recorded, so repeated /stop commands and a
+// concurrent natural turn completion cannot conflict.
+func (al *AgentLoop) finalizeCancelledTurnActivity(
+	msg bus.InboundMessage,
+	targetChannel, targetChatID string,
+	targetInbound *bus.InboundContext,
+	hadActiveTurn bool,
+) {
+	if al.channelManager == nil {
+		return
+	}
+	// The /stop message's own indicator, keyed without a lifecycle.
+	al.channelManager.InvokeTypingStop(msg.Channel, msg.ChatID)
+	if !hadActiveTurn || targetChannel == "" || targetChatID == "" {
+		return
+	}
+	al.channelManager.InvokeTypingStop(targetChannel, targetChatID)
+	// Telegram records the indicator per inbound lifecycle, so the bare key
+	// above cannot reach the one the cancelled turn started.
+	if lifecycleID := bus.InboundLifecycleID(targetInbound); lifecycleID != "" {
+		al.channelManager.InvokeTypingStopForLifecycle(targetChannel, targetChatID, lifecycleID)
+	}
 }
 
 func (al *AgentLoop) stopActiveTurnForSession(sessionKey string) (commands.StopResult, error) {
