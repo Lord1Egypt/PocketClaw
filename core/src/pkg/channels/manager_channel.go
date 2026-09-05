@@ -12,11 +12,13 @@ import (
 // toChannelHashes fingerprints every enabled channel's runtime-relevant
 // configuration so a reload can tell which channels actually changed.
 //
-// The input is built from the channel's own raw settings rather than from
-// marshalling the channels map. config.Channel serializes from its raw bytes
-// until something decodes it and from the decoded struct afterwards, and the
-// two shapes hash differently — so hashing the same config twice used to
-// produce two different answers and would have restarted every live channel.
+// The settings half of the input is built from the channel's own raw bytes
+// rather than from marshalling the channels map. config.Channel serializes from
+// its raw bytes until something decodes it and from the decoded struct
+// afterwards, and the two shapes hash differently — so hashing the same config
+// twice used to produce two different answers and would have restarted every
+// live channel. The common fields are read from the struct, where they always
+// live, so they are decode-state independent by construction.
 func toChannelHashes(cfg *config.Config) map[string]string {
 	result := make(map[string]string)
 	if cfg == nil {
@@ -35,10 +37,18 @@ func toChannelHashes(cfg *config.Config) map[string]string {
 				continue
 			}
 		}
-		// Carried explicitly: these are the fields the supervisor itself acts
-		// on, and they do not necessarily appear in the settings payload.
+		// Carried explicitly: config.Channel keeps these beside Settings rather
+		// than inside it, so a hash built only from the settings payload cannot
+		// see them. Leaving them out made a Typing Indicator change — and every
+		// other common field — invisible to the reconcile, so saving one never
+		// restarted the channel.
 		value["enabled"] = bc.Enabled
 		value["type"] = bc.Type
+		value["typing"] = bc.Typing
+		value["placeholder"] = bc.Placeholder
+		value["allow_from"] = bc.AllowFrom
+		value["reasoning_channel_id"] = bc.ReasoningChannelID
+		value["group_trigger"] = bc.GroupTrigger
 
 		hiddenValues(name, value, bc)
 

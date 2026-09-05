@@ -368,11 +368,38 @@ func (m *Manager) SendPlaceholder(ctx context.Context, channel, chatID string) b
 // repeating chat-action loop when a message merely arrives, because the request
 // may sit behind a turn that runs for minutes. The agent calls this when the
 // message actually begins executing. Returns true if an indicator was started.
+// typingEnabled reports whether the channel's typing indicator is switched on.
+//
+// This is the single gate for it. A channel that defers its activity signals to
+// the agent — Telegram is the one today — never runs the BaseChannel code that
+// would otherwise be the place to check, so a per-channel check would have to be
+// duplicated into every such channel and would be forgotten by the next one.
+// IRC keeps its own check because it starts typing from its own send path rather
+// than through this entry point.
+//
+// An unknown channel is treated as enabled: absence of configuration is not a
+// user asking for the indicator to be off.
+func (m *Manager) typingEnabled(channelName string) bool {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	if m.config == nil {
+		return true
+	}
+	bc := m.config.Channels.Get(channelName)
+	if bc == nil {
+		return true
+	}
+	return bc.Typing.Enabled
+}
+
 func (m *Manager) StartTyping(ctx context.Context, channel, chatID string) bool {
 	m.mu.RLock()
 	ch, ok := m.channels[channel]
 	m.mu.RUnlock()
 	if !ok {
+		return false
+	}
+	if !m.typingEnabled(channel) {
 		return false
 	}
 	tc, ok := ch.(TypingCapable)
