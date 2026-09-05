@@ -1,5 +1,83 @@
 # PocketClaw Project State
 
+## Chat Lifecycle Durability — PHYSICALLY VERIFIED AND CLOSED
+
+- Status: **PASS on a physical Android device (SM-A165F / Android 16), 2026-09-06
+  across vc42, vc43 and vc44. Merged to `develop` with `--no-ff`.** `main`
+  untouched, no tags moved, no release created.
+- Branch `feature/chat-lifecycle-durability`, from `develop` at `2312f35`,
+  head `8024094`. Retained, not deleted.
+- Milestone **CLOSED**.
+
+### Physical acceptance evidence
+
+| Area | Candidate | Result |
+| --- | --- | --- |
+| Telegram `/stop` cancellation | vc42 | PASS |
+| Telegram FIFO ordering | vc42 | PASS |
+| Multi-image + fallback preservation | vc42 | PASS |
+| Safe user-facing provider errors | vc43 | PASS |
+| Telegram live channel reconciliation | vc44 | PASS — typing indicator OFF **and** ON both applied live, with no Gateway restart |
+
+Accepted artifacts: vc42 `181ef4c5…`, vc43 `d9da1af8…`, vc44
+`d37a8661f1c45efe8a200f05a586589c582b2fae3220cae190fdf217e72c780b`
+(`com.lord1egypt.pocketclaw` 0.2.0, code 44, arm64). vc44 Core:
+`libpicoclaw.so` `726ea74e…`, `libpicoclaw-web.so` `41c6a69c…`, source
+fingerprint `59082e67b86a060869bd55118a221d5ac4395b8d05e42e7d8fd822ff92a2247b`.
+Installed with `install -r`; `firstInstallTime`, uid and `dataDir` unchanged
+across every install.
+
+### The four defects this closes
+
+**`/stop` was queued behind the turn it existed to cancel.** Telegram is the only
+channel using the independent response lifecycle, so a message arriving mid-turn
+is retained in the session mailbox and the dispatcher moves on without reading
+it. The stop handler is reached only on the steering path, which Telegram never
+takes, so `/stop` during a long turn produced no reply at all until that turn
+finished on its own. Control traffic no longer queues. Cleanup also had to move:
+the typing indicator and the "Thinking…" placeholder are recorded per inbound
+lifecycle, so neither was reachable through the `/stop` message's own context —
+the acknowledgement is published on the cancelled turn's lifecycle instead.
+
+**Configuring a fallback changed the request sent to the primary.** Seven images
+succeeded against the primary alone and were rejected with HTTP 400 as soon as
+fallbacks were configured. Per-candidate providers were registered under the
+runtime `provider/model` key and only for the fallbacks, so a fallback naming the
+same protocol and model id took ownership of the primary's key and the primary's
+request went to the fallback's endpoint with its credentials. Registration is
+keyed by model_list identity now.
+
+**Provider response text reached the chat.** A single model failing with 401 put
+the whole response into Telegram under an "Original error:" heading — raw JSON,
+account message, billing link. Both the single-model and exhausted-chain paths
+now go through one rule, and a 401 about money no longer blames the API key.
+
+**Channel settings did not apply live.** Three independent faults, each
+sufficient alone: `gateway.hot_reload` defaults to off so the config watcher was
+never armed; the reconcile hash had been narrowed to the settings payload and
+could not see any common `Channel` field including `typing`; and
+`Channel.Typing.Enabled` had exactly one reader in the tree — IRC. All three are
+fixed, with hot reload enabled at the Android host boundary rather than by
+changing the Core default.
+
+### Deferred, recorded and deliberately not implemented
+
+- **Stale "Gateway restart required" banner after a successful hot reload.**
+  `gateway.bootConfigSignature` is assigned only when the launcher starts or
+  attaches to a gateway process; nothing refreshes it after an in-process
+  reload, so the banner stays on although the change has already applied.
+  Cosmetic, non-blocking, and a real subsystem change to fix — it needs a
+  reload-completion signal from gateway to launcher that does not exist today.
+- **`BaseChannel` typing inconsistency for non-Telegram channels.** The gate
+  went into `Manager.StartTyping`, which today only Telegram reaches. Discord,
+  Slack, Matrix and Feishu still start typing through `BaseChannel` without
+  consulting `Typing.Enabled`, and their defaults leave it `false` — so gating
+  them there would switch off an indicator nobody asked to lose. Needs a
+  defaults decision first, not a code change first.
+- **Android hardware tools cleanup.** i2c / spi / serial should be hidden or
+  unregistered at the PocketClaw Android surface rather than deleted from
+  upstream Core, which would diverge the vendored tree for no runtime benefit.
+
 ## Configured Model Discovery — PHYSICALLY VERIFIED AND CLOSED
 
 - Status: **PASS on a physical Android device (SM-A165F / Android 16),

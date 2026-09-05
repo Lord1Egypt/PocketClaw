@@ -1,5 +1,44 @@
 # PocketClaw Tasks
 
+## Chat Lifecycle Durability — CLOSED 2026-09-06
+
+Branch `feature/chat-lifecycle-durability`, head `8024094`, merged to `develop`
+with `--no-ff`. Physically accepted on SM-A165F / Android 16 across vc42, vc43
+and vc44. `main` untouched, no tags moved, no release. Branch retained.
+
+- [x] `/stop` is control-plane traffic and never queues behind the turn it
+  cancels; cleanup addresses the cancelled turn's lifecycle, not the command's.
+- [x] Ordinary Telegram messages keep strict FIFO, one turn per conversation.
+- [x] Configuring fallbacks cannot change the request sent to the first
+  candidate; per-candidate providers keyed by model_list identity.
+- [x] Every candidate receives the whole turn, media included; each attempt gets
+  its own copy so a consuming adapter cannot empty the next one.
+- [x] Exhausted-chain and single-model failures both render concise, safe
+  errors — no raw bodies, billing URLs or "Original error:".
+- [x] A 401 about credits no longer blames the API key.
+- [x] Every common `Channel` field participates in the reconcile hash, so saving
+  one restarts only that channel.
+- [x] `Typing.Enabled` honoured centrally in `Manager.StartTyping`.
+- [x] PocketClaw Android's managed Gateway runs with hot reload on, enabled at
+  the host boundary; the Core-wide default stays off and is guarded.
+
+### Follow-up — recorded, not started
+
+- [ ] **Stale "Gateway restart required" banner after a successful hot reload.**
+  Non-blocking and cosmetic. `gateway.bootConfigSignature` is set only when the
+  launcher starts or attaches to a gateway; nothing refreshes it after an
+  in-process reload. Fixing it needs a reload-completion signal from gateway to
+  launcher that does not exist today — a subsystem change, not a one-liner. Do
+  not redesign it opportunistically.
+- [ ] **`BaseChannel` typing inconsistency for non-Telegram channels.** Discord,
+  Slack, Matrix and Feishu start typing through `BaseChannel` without consulting
+  `Typing.Enabled`, and `defaultChannels()` leaves the field `false` for them.
+  Gating there today would switch the indicator off for users who never chose
+  that. Decide the defaults first.
+- [ ] **Android hardware tools cleanup (i2c / spi / serial).** Hide or
+  unregister them at the PocketClaw Android surface. Do not delete the upstream
+  Core implementations — that diverges the vendored tree for no runtime gain.
+
 ## Configured Model Discovery — CLOSED 2026-09-05
 
 Branch `feature/configured-model-discovery`, merged to `develop` with `--no-ff`.

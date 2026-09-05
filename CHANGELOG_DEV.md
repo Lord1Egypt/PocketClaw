@@ -1,9 +1,61 @@
 # Development Changelog
 
+## 2026-09-06 — What physical testing found after the code was "done"
+
+Branch `feature/chat-lifecycle-durability` closed at `8024094` and merged to
+`develop` with `--no-ff`. Physically accepted on SM-A165F / Android 16 across
+vc42, vc43 and vc44: `/stop`, FIFO, multi-image fallback, safe error text, and
+live channel reconciliation with the typing indicator toggled both ways.
+
+Two defects survived a green suite and were found only on the device, which is
+the part worth remembering.
+
+The first was error formatting. The exhausted-chain path had been made concise;
+the single-model path had not, and that is the path an ordinary default-model
+setup takes. A 401 from one configured model put the provider's whole response
+into Telegram under an "Original error:" heading — raw JSON, the account
+message, a billing link. Three existing tests asserted that heading was present:
+they encoded the leak as the contract, which is why the suite was green. Both
+paths go through one rule now, and a 401 whose body is about money no longer
+tells the user their API key is invalid — that would send them to replace a key
+that works. A bare 500 also stopped being described as a timeout; the classifier
+folds it into the timeout bucket because that is the safest transient read for a
+retry decision, which is right for failover and wrong for a person.
+
+The second was the reconcile itself, and it was a regression from this very
+milestone. Disabling Telegram's Typing Indicator did nothing until the Gateway
+was restarted by hand — and restarting would not have helped either. Three
+independent faults, each sufficient alone. `f55668a` had rebuilt the reconcile
+hash from the channel's raw settings to make it independent of decode state, and
+in narrowing it dropped every field `config.Channel` keeps *beside* `Settings`:
+`typing`, `placeholder`, `allow_from`, `reasoning_channel_id`, `group_trigger`.
+All five were visible before that commit and none after. The milestone's own
+reconcile tests never caught it because they only ever varied settings JSON and
+credentials — never a common field. Underneath that, `Channel.Typing.Enabled`
+had exactly one reader in the entire tree: IRC. Telegram defers its activity
+signals to the agent and so never runs the `BaseChannel` code that would have
+been the natural place to check, and `Manager.StartTyping` started the indicator
+unconditionally. And underneath *that*, `gateway.hot_reload` defaults to off, so
+the config watcher was never armed and `Manager.Reload` never ran at all.
+
+The hot-reload default is a Core decision that should stay as it is — a server
+deployment should not reload itself. PocketClaw Android wants the opposite, so
+the managed Gateway is handed `PICOCLAW_GATEWAY_HOT_RELOAD=true` in the
+environment the launcher already builds for it. Guards pin both halves: the
+Android env entry, and the Core default staying `false`.
+
+One thing is deliberately still broken. The Dashboard shows "Gateway restart
+required" after a successful hot reload, because `bootConfigSignature` is set
+only when the launcher starts or attaches to a gateway and nothing refreshes it
+when the gateway reloads itself in-process. It is cosmetic, it was reported
+rather than fixed, and fixing it needs a reload-completion signal between two
+processes that do not have one.
+
 ## 2026-09-05 — Cancellation that waited its turn, and a fallback that answered for the primary
 
 Branch `feature/chat-lifecycle-durability`, from `develop` at `2312f35`. Three
-commits. Not merged, not built, not physically tested.
+commits at the time of writing; see the 2026-09-06 entry for what physical
+testing then found and how the milestone closed.
 
 `/stop` did nothing while a turn was running, which is the only time anyone
 sends it. Telegram is the one channel using the independent response lifecycle,
