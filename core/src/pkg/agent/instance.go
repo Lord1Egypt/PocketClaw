@@ -237,7 +237,13 @@ func NewAgentInstance(
 	)
 
 	candidateProviders := make(map[string]providers.LLMProvider)
-	populateCandidateProvidersFromNames(cfg, workspace, fallbacks, candidateProviders)
+	// The primary is registered alongside the fallbacks so it always resolves to
+	// its own model_list entry. Registering only the fallbacks meant a fallback
+	// sharing the primary's provider/model key silently took ownership of it,
+	// and the primary's request was then sent to the fallback's endpoint with
+	// the fallback's credentials.
+	populateCandidateProvidersFromNames(
+		cfg, workspace, append([]string{model}, fallbacks...), candidateProviders)
 	if strings.TrimSpace(defaults.ImageModel) != "" {
 		imageNames := append([]string{defaults.ImageModel}, defaults.ImageModelFallbacks...)
 		populateCandidateProvidersFromNames(cfg, workspace, imageNames, candidateProviders)
@@ -315,6 +321,21 @@ func NewAgentInstance(
 	}
 }
 
+// candidateProviderKey is the identity a candidate's provider is registered
+// under. It must agree with providers.FallbackCandidate.StableKey, or a
+// candidate looks up a provider built for a different model_list entry.
+//
+// Two entries can name the same protocol and model id and still be distinct
+// candidates — the usual reason is a second API key for the same model — so
+// provider/model alone is not an identity.
+func candidateProviderKey(mc *config.ModelConfig) string {
+	if identity := modelConfigIdentityKey(mc); identity != "" {
+		return identity
+	}
+	protocol, modelID := providers.ExtractProtocol(mc)
+	return providers.ModelKey(protocol, modelID)
+}
+
 // populateCandidateProvidersFromNames resolves each model name (alias or
 // "provider/model") via resolvedModelConfig and creates a dedicated LLMProvider
 // for it. This reuses the canonical config resolution path (GetModelConfig) so
@@ -331,23 +352,36 @@ func populateCandidateProvidersFromNames(
 	for _, name := range names {
 		mc, err := resolvedModelConfig(cfg, strings.TrimSpace(name), workspace)
 		if err != nil {
-			logger.WarnCF("agent",
-				"fallback provider: no model_list entry found; will inherit primary provider credentials",
+			// The primary is resolved here too, so this covers both. A model
+			// with no model_list entry inherits the agent's active provider.
+			logger.DebugCF("agent",
+				"candidate provider: no model_list entry found; will inherit the active provider",
 				map[string]any{"name": name, "error": err.Error()})
 			continue
 		}
-		protocol, modelID := providers.ExtractProtocol(mc)
-		key := providers.ModelKey(protocol, modelID)
-		if _, exists := out[key]; exists {
+		identityKey := candidateProviderKey(mc)
+		if _, exists := out[identityKey]; exists {
 			continue
 		}
 		p, _, err := providers.CreateProviderFromConfig(mc)
 		if err != nil {
-			logger.WarnCF("agent", "fallback provider: failed to create provider",
+			logger.WarnCF("agent", "candidate provider: failed to create provider",
 				map[string]any{"model": mc.Model, "error": err.Error()})
 			continue
 		}
-		out[key] = p
+		out[identityKey] = p
+
+		// Also register under the runtime provider/model key. A candidate built
+		// from a bare "provider/model" reference carries no model_list identity
+		// and StableKey falls back to this pair — but only the first entry may
+		// claim it, so two entries naming the same model still resolve to their
+		// own providers through their identities.
+		protocol, modelID := providers.ExtractProtocol(mc)
+		if runtimeKey := providers.ModelKey(protocol, modelID); runtimeKey != identityKey {
+			if _, exists := out[runtimeKey]; !exists {
+				out[runtimeKey] = p
+			}
+		}
 	}
 }
 

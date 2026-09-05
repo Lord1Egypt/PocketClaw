@@ -368,11 +368,38 @@ func (m *Manager) SendPlaceholder(ctx context.Context, channel, chatID string) b
 // repeating chat-action loop when a message merely arrives, because the request
 // may sit behind a turn that runs for minutes. The agent calls this when the
 // message actually begins executing. Returns true if an indicator was started.
+// typingEnabled reports whether the channel's typing indicator is switched on.
+//
+// This is the single gate for it. A channel that defers its activity signals to
+// the agent — Telegram is the one today — never runs the BaseChannel code that
+// would otherwise be the place to check, so a per-channel check would have to be
+// duplicated into every such channel and would be forgotten by the next one.
+// IRC keeps its own check because it starts typing from its own send path rather
+// than through this entry point.
+//
+// An unknown channel is treated as enabled: absence of configuration is not a
+// user asking for the indicator to be off.
+func (m *Manager) typingEnabled(channelName string) bool {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	if m.config == nil {
+		return true
+	}
+	bc := m.config.Channels.Get(channelName)
+	if bc == nil {
+		return true
+	}
+	return bc.Typing.Enabled
+}
+
 func (m *Manager) StartTyping(ctx context.Context, channel, chatID string) bool {
 	m.mu.RLock()
 	ch, ok := m.channels[channel]
 	m.mu.RUnlock()
 	if !ok {
+		return false
+	}
+	if !m.typingEnabled(channel) {
 		return false
 	}
 	tc, ok := ch.(TypingCapable)
@@ -2101,6 +2128,17 @@ func (m *Manager) Reload(ctx context.Context, cfg *config.Config) error {
 	for _, name := range removed {
 		// Stop all channels
 		channel := m.channels[name]
+		if channel == nil {
+			// The hash map tracks every enabled channel in config, including one
+			// that never became a running instance. Dereferencing that absence
+			// would panic while m.mu is held, deadlocking every later reconcile.
+			logger.InfoCF("channels", "Skipping stop for channel with no running instance",
+				map[string]any{"channel": name})
+			deferFuncs = append(deferFuncs, func() {
+				m.UnregisterChannel(name)
+			})
+			continue
+		}
 		logger.InfoCF("channels", "Stopping channel", map[string]any{
 			"channel": name,
 		})
@@ -2132,6 +2170,26 @@ func (m *Manager) Reload(ctx context.Context, cfg *config.Config) error {
 	}
 	for _, name := range added {
 		channel := m.channels[name]
+		if channel == nil {
+			// The channel is enabled in config but no instance could be built
+			// for it — an unknown type, or settings the factory rejected.
+			// Dereferencing that would panic with m.mu held and take every
+			// other channel down with it, so this one is reported as failed and
+			// the rest of the reconcile continues.
+			logger.ErrorCF("channels", "Channel could not be created from its configuration",
+				map[string]any{"channel": name})
+			m.publishChannelEvent(
+				runtimeevents.KindChannelLifecycleStartFailed,
+				name,
+				runtimeevents.Scope{Channel: name},
+				runtimeevents.SeverityError,
+				ChannelLifecyclePayload{
+					Type:  channelTypeForEvent(m, name),
+					Error: "channel could not be created from its configuration",
+				},
+			)
+			continue
+		}
 		logger.InfoCF("channels", "Starting channel", map[string]any{
 			"channel": name,
 		})

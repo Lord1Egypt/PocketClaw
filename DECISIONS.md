@@ -1,5 +1,85 @@
 # PocketClaw Decisions
 
+## Control commands are not conversational turns
+
+- Date: 2026-09-05
+- Decision: a command whose purpose is to act on a running turn — `/stop` today,
+  listed in `controlPlaneCommands` — is never placed in the session mailbox.
+  `claimSessionMailbox` reports it as neither claimed nor queued so the
+  dispatcher handles it out of band while the turn is still executing.
+- Reason: Telegram is the only channel using the independent response lifecycle,
+  and that path retains a message arriving mid-turn instead of steering it. A
+  control command took the same path, so it was dequeued only after the work it
+  existed to cancel had already finished.
+- Consequence: ordinary messages keep strict FIFO and one conversational turn per
+  conversation remains the default. Adding a control command means adding it to
+  that map, not adding another branch to the dispatcher. A control command must
+  stay cheap and non-blocking: it runs on the inbound goroutine.
+
+## Cancellation cleanup addresses the cancelled turn, not the command
+
+- Date: 2026-09-05
+- Decision: the /stop acknowledgement is published on the cancelled turn's
+  inbound lifecycle, and its typing indicator is stopped through that lifecycle.
+- Reason: Telegram records both the typing indicator and the "Thinking…"
+  placeholder per inbound lifecycle. The /stop message has a different lifecycle,
+  so cleanup issued under it reaches nothing and the placeholder survives until
+  the TTL janitor removes it.
+- Consequence: the acknowledgement consumes the stale placeholder instead of
+  adding a message beside it. Every primitive involved is idempotent, so repeated
+  /stop and a turn completing naturally at the same moment cannot conflict.
+
+## A candidate resolves its provider by config identity, never by provider/model
+
+- Date: 2026-09-05
+- Decision: `CandidateProviders` is keyed by the model_list entry's identity
+  (`model_name:<entry>`), matching `FallbackCandidate.StableKey`. The runtime
+  `provider/model` pair is registered only as a secondary key, claimed by the
+  first entry that uses it, for candidates built from a bare `provider/model`
+  reference that carry no identity.
+- Reason: two entries can name the same protocol and model id — a second API key
+  for one model is the ordinary case. Keying on that pair let one entry answer
+  for the other, so configuring a fallback changed which endpoint and credentials
+  the *primary* used, and two fallbacks for one model collapsed onto one
+  provider.
+- Consequence: the primary is registered alongside the fallbacks so it always
+  resolves to its own entry. Any new code that resolves a candidate's provider
+  must go through `providerForFallbackCandidate` with the whole candidate;
+  reconstructing one from a provider and model string discards the identity that
+  makes the lookup correct.
+
+## Configuring a fallback may not change the request sent to the first candidate
+
+- Date: 2026-09-05
+- Decision: for one turn and one primary model, the normalized request the first
+  candidate receives — messages, image count and order, tools, generation
+  parameters, model id — must be identical whether or not fallbacks are
+  configured. `TestConfiguringFallbacksDoesNotChangeThePrimaryRequest` compares
+  the two serialized requests and fails on any difference.
+- Reason: seven images succeeded against the primary alone and were rejected as
+  soon as fallbacks were configured. Three separate divergences were found on
+  that path, and each was invisible until the invariant was stated as a test.
+- Consequence: the fallback path may add only what orchestration strictly needs.
+  Each attempt gets its own copy of the conversation, so an adapter that rewrites
+  the slice it was handed cannot empty the turn for the candidate after it.
+
+## The reconcile hash is a pure function of the configuration
+
+- Date: 2026-09-05
+- Decision: `toChannelHashes` builds its input from the channel's raw settings
+  plus its enabled flag and type, and contributes credentials as SHA-256 digests
+  walked out of the decoded settings struct by reflection.
+- Reason: `config.Channel` serializes from raw bytes until something decodes it
+  and from the decoded struct afterwards. The startup hash is taken after
+  `initChannels` has decoded every channel and every reload hash on a config
+  freshly loaded from disk, so the first save after startup restarted every
+  enabled channel. The hand-maintained switch that re-introduced credentials for
+  the decoded shape omitted weixin, vk and pico_client entirely, so their token
+  changes never reconciled at all.
+- Consequence: a new channel needs no reconcile code. Do not reintroduce a
+  per-channel list, and do not put a plaintext credential into the hash input —
+  change detection needs a digest and nothing more.
+
 ## One source decides what any model selector may offer
 
 - Date: 2026-09-05

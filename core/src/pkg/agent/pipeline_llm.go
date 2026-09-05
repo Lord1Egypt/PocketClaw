@@ -174,8 +174,7 @@ func (p *Pipeline) CallLLM(
 				ts.agent,
 				exec.activeProvider,
 				exec.activeCandidates,
-				candidate.Provider,
-				candidate.Model,
+				candidate,
 			)
 			if err != nil {
 				return nil, err
@@ -189,10 +188,21 @@ func (p *Pipeline) CallLLM(
 				candidate.Model,
 				p.Cfg.Agents.Defaults.Provider,
 			)
-			candidateThinking := thinkingSettingsFromModelConfig(candidateCfg)
+			// activeThinkingSettings, not the model config alone: the direct
+			// single-candidate path falls back to the agent's thinking level
+			// when the candidate has no configured one, and the first candidate
+			// must not be sent different generation parameters just because a
+			// fallback exists.
+			candidateThinking := activeThinkingSettings(ts.agent, candidateCfg)
 			applyThinkingOption(callOpts, candidateProvider, candidateThinking, true, ts.agent.ID)
 			exec.suppressReasoning = shouldSuppressReasoningFor(candidateThinking)
-			return candidateProvider.Chat(ctx, messagesForCall, toolDefsForCall, candidate.Model, callOpts)
+			// Each attempt gets its own copy of the conversation. A provider
+			// adapter that rewrote the slice it was handed would otherwise
+			// corrupt what the next candidate sees, and the media attached to
+			// the turn is exactly the content that would be lost.
+			return candidateProvider.Chat(
+				ctx, cloneMessagesForAttempt(messagesForCall), toolDefsForCall, candidate.Model, callOpts,
+			)
 		}
 
 		if len(exec.activeCandidates) > 1 && p.Fallback != nil {
@@ -201,19 +211,14 @@ func (p *Pipeline) CallLLM(
 				fbErr    error
 			)
 			if hasMediaRefs(messagesForCall) {
-				fbResult, fbErr = p.Fallback.ExecuteImage(
+				// ExecuteImageCandidate, not ExecuteImage: recovering the
+				// candidate by matching provider and model cannot tell two
+				// model_list entries for the same model apart, and would hand
+				// both attempts the same configuration.
+				fbResult, fbErr = p.Fallback.ExecuteImageCandidate(
 					providerCtx,
 					exec.activeCandidates,
-					func(ctx context.Context, provider, model string) (*providers.LLMResponse, error) {
-						candidate := providers.FallbackCandidate{Provider: provider, Model: model}
-						for _, configured := range exec.activeCandidates {
-							if configured.Provider == provider && configured.Model == model {
-								candidate = configured
-								break
-							}
-						}
-						return runCandidate(ctx, candidate)
-					},
+					runCandidate,
 				)
 			} else {
 				fbResult, fbErr = p.Fallback.WithToolTurn(len(toolDefsForCall) > 0).ExecuteCandidate(
@@ -797,20 +802,26 @@ func (p *Pipeline) applyBeforeLLMModelRewrite(ts *turnState, exec *turnExecution
 	exec.activeModelConfig = resolveActiveModelConfig(p.Cfg, ts.agent.Workspace, candidates, rawModel, defaultProvider)
 }
 
+// providerForFallbackCandidate resolves the provider a candidate must be called
+// through.
+//
+// The lookup is by the candidate's stable identity, not by provider/model: two
+// model_list entries can name the same protocol and model id, and keying on
+// that pair let one of them answer for the other. That is how configuring a
+// fallback changed the request sent to the primary.
 func providerForFallbackCandidate(
 	agent *AgentInstance,
 	activeProvider providers.LLMProvider,
 	activeCandidates []providers.FallbackCandidate,
-	provider string,
-	model string,
+	candidate providers.FallbackCandidate,
 ) (providers.LLMProvider, error) {
 	if agent != nil {
-		if cp, ok := agent.CandidateProviders[providers.ModelKey(provider, model)]; ok && cp != nil {
+		if cp, ok := agent.CandidateProviders[candidate.StableKey()]; ok && cp != nil {
 			return cp, nil
 		}
 	}
 	if activeProvider == nil {
-		return nil, fmt.Errorf("fallback model %q has no active provider", model)
+		return nil, fmt.Errorf("fallback model %q has no active provider", candidate.Model)
 	}
 	return activeProvider, nil
 }

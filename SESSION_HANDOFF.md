@@ -1,5 +1,51 @@
 # PocketClaw Session Handoff
 
+## Chat Lifecycle Durability — PHYSICAL PASS and merged, 2026-09-06
+
+Branch `feature/chat-lifecycle-durability`, off `develop` at `2312f35`, head
+`8024094`. **Physically validated on SM-A165F / Android 16 across vc42, vc43 and
+vc44, then merged to `develop` with `--no-ff`.** `main` untouched, no tags moved,
+no release created. The feature branch is retained.
+
+Ten commits. The shape is worth reading: three behaviour fixes, one
+error-formatting fix found by physical testing after the first build, one
+reconcile fix found by physical testing after the second, and four staged-Core
+commits — one per candidate — so any of them can be rebuilt from its own tree.
+
+### The four things worth not undoing
+
+**Control commands never queue.** `claimSessionMailbox` reports `/stop` as
+neither claimed nor queued so the dispatcher handles it out of band. Telegram is
+the only channel on the independent response lifecycle, and that path retains a
+mid-turn message instead of steering it — which is precisely why `/stop` used to
+do nothing. Ordinary messages keep FIFO.
+
+**A candidate resolves its provider by config identity, never by
+provider/model.** Two model_list entries can name the same protocol and model id;
+keying on that pair let one answer for the other, so adding a fallback changed
+which endpoint and credentials the *primary* used. Anything resolving a
+candidate's provider must go through `providerForFallbackCandidate` with the
+whole candidate.
+
+**The reconcile hash is a pure function of the configuration, and it includes the
+common fields.** It is built from raw settings plus the fields `config.Channel`
+keeps beside `Settings` — `typing`, `placeholder`, `allow_from`,
+`reasoning_channel_id`, `group_trigger` — with credentials as digests. Narrowing
+it to the settings payload is what made the Typing Indicator toggle need a manual
+restart; do not narrow it again.
+
+**Hot reload is a PocketClaw Android product behaviour, set at the host
+boundary.** `PicoClawService.buildEnvironment()` exports
+`PICOCLAW_GATEWAY_HOT_RELOAD=true`; the gateway child inherits it and
+`LoadConfig` applies env last. The Core-wide default stays `false` for server
+deployments, and a guard pins both halves.
+
+### What the next session should know
+
+The Dashboard still shows "Gateway restart required" after a successful live
+reload. It is cosmetic and deliberately unfixed — see `TASKS.md`. Judge channel
+reconcile by behaviour, not by the banner.
+
 ## Configured Model Discovery — PHYSICAL PASS and merged, 2026-09-05
 
 Branch `feature/configured-model-discovery`, off `develop` at `2b37af2`.

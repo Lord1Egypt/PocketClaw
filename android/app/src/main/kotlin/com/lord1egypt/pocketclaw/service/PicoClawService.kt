@@ -220,6 +220,18 @@ class PicoClawService : Service() {
                 "POCKETCLAW_RUNTIME_DIR" to runtimeMetadataDir.absolutePath,
                 "POCKETCLAW_ANDROID_BRIDGE_TOKEN" to androidBridgeToken,
                 "PICOCLAW_CHANNELS_PICO_TOKEN" to picoTokenForHost(context),
+                // Live channel reconciliation is a PocketClaw product behaviour:
+                // saving a channel setting in the Dashboard must apply without
+                // the user stopping and starting the Gateway by hand. Core
+                // leaves gateway.hot_reload off by default for server
+                // deployments, so this is enabled here, at the host boundary,
+                // rather than by changing that default for everyone. The
+                // gateway child inherits this environment from the launcher and
+                // LoadConfig applies env last, so a normal install gets live
+                // reconciliation with nothing written into config.json. Being
+                // applied last also means this wins over the file: on Android
+                // hot reload is the product behaviour, not a preference.
+                "PICOCLAW_GATEWAY_HOT_RELOAD" to "true",
                 "TMPDIR" to tmpDir.absolutePath,
                 "PATH" to "/system/bin:/system/xbin",
                 "LANG" to "en_US.UTF-8",

@@ -327,6 +327,26 @@ func (fc *FallbackChain) ExecuteImage(
 	candidates []FallbackCandidate,
 	run func(ctx context.Context, provider, model string) (*LLMResponse, error),
 ) (*FallbackResult, error) {
+	return fc.ExecuteImageCandidate(
+		ctx,
+		candidates,
+		func(ctx context.Context, candidate FallbackCandidate) (*LLMResponse, error) {
+			return run(ctx, candidate.Provider, candidate.Model)
+		},
+	)
+}
+
+// ExecuteImageCandidate runs the image chain and passes the complete candidate
+// to the caller.
+//
+// Provider and model alone are not an identity: two model_list entries can name
+// the same model, and a caller recovering the candidate from that pair would
+// give both attempts the configuration of whichever one it matched first.
+func (fc *FallbackChain) ExecuteImageCandidate(
+	ctx context.Context,
+	candidates []FallbackCandidate,
+	run func(ctx context.Context, candidate FallbackCandidate) (*LLMResponse, error),
+) (*FallbackResult, error) {
 	if len(candidates) == 0 {
 		return nil, fmt.Errorf("image fallback: no candidates configured")
 	}
@@ -369,7 +389,7 @@ func (fc *FallbackChain) ExecuteImage(
 		}
 
 		start := time.Now()
-		resp, err := run(ctx, candidate.Provider, candidate.Model)
+		resp, err := run(ctx, candidate)
 		elapsed := time.Since(start)
 
 		if err == nil {
