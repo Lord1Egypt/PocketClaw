@@ -1,5 +1,46 @@
 # PocketClaw Session Handoff
 
+## Android Hardware Tool Cleanup — PHYSICAL PASS and merged, 2026-09-06
+
+Branch `feature/android-hardware-tool-cleanup`, off `develop` at `5c767f4`, head
+`14a88ba`. **Physically validated on SM-A165F / Android 16 as vc45, then merged
+to `develop` with `--no-ff`.** `main` untouched, no tags moved, no release. The
+feature branch is retained.
+
+Two commits: the fix, and the staged Core it was built with.
+
+### The three things worth not undoing
+
+**Nothing upstream was deleted.** The i2c, spi and serial implementations and the
+bundled hardware skill are still in the tree and still in the binary. They are
+correct, they cost one already-vendored dependency and no permission, and they
+work on the Linux boards upstream targets. Every exclusion is at PocketClaw
+Android's own boundary. `TestCoreKeepsHardwareToolsAvailableOffAndroid` fails if
+someone deletes them later.
+
+**The skill filter runs at discovery, not at onboarding.** An installation
+upgraded from an earlier PocketClaw already has
+`workspace/skills/hardware/SKILL.md` on disk, so declining to copy it for new
+users would have left every existing user still advertising I2C and SPI to the
+model. The bundled skill is identified by name plus the boards its description
+names — a skill a user wrote and called `hardware` is untouched — and a guard
+reads the real shipped file so a reword fails loudly instead of silently
+lapsing.
+
+**`requires.tools` is deliberately not enforced.** The bundled skill declares it,
+nothing in the tree parses it, and teaching the loader to enforce it would change
+what every other skill means. The narrow platform filter was the right size for
+this; if skill eligibility ever becomes a feature, retire the filter into it.
+
+### Platform rules are parameterized now
+
+`buildToolSupportForPlatform`, `resolveHardwareToolSupport`,
+`resolveSerialToolSupport`, `listSkillsForPlatform` and `skillHiddenOnPlatform`
+all take the platform as an argument, with thin `runtime.GOOS` wrappers. That is
+what lets non-Android behaviour be asserted for four platforms from one host
+instead of only for the one the suite happens to run on. Keep new platform rules
+in that shape.
+
 ## Chat Lifecycle Durability — PHYSICAL PASS and merged, 2026-09-06
 
 Branch `feature/chat-lifecycle-durability`, off `develop` at `2312f35`, head

@@ -1,5 +1,46 @@
 # PocketClaw Tasks
 
+## Android Hardware Tool Cleanup — CLOSED 2026-09-06
+
+Branch `feature/android-hardware-tool-cleanup`, head `14a88ba`, merged to
+`develop` with `--no-ff`. Physically accepted on SM-A165F / Android 16 as vc45,
+APK `59ebc6d8…`. `main` untouched, no tags moved, no release. Branch retained.
+
+- [x] The Android Tool Library offers no hardware category; `i2c`, `spi` and
+  `serial` are absent rather than shown as three switches that cannot work.
+- [x] The status resolvers take the platform as an argument instead of reading
+  `runtime.GOOS` inside logic no test could reach; behaviour off Android is
+  unchanged and asserted for linux, darwin, windows and freebsd.
+- [x] The managed Gateway is launched with the three tools forced off, so a
+  persisted, imported or hand-edited config cannot re-enable them.
+- [x] They therefore never register into `ToolRegistry` and never reach the
+  model's tool definitions — asserted end to end.
+- [x] The bundled hardware skill is withheld from discovery on Android, for an
+  upgraded workspace as well as a fresh one, because the filter runs at listing
+  rather than at onboarding.
+- [x] A skill a user wrote and happened to call `hardware` stays visible: the
+  bundled one is identified by the two frontmatter fields the loader already
+  parses, and a guard fails if the shipped file is reworded out of that match.
+- [x] Upstream implementations and embedded skill bytes intact; no new Android
+  permission — the installed permission list is identical before and after.
+
+### Follow-up — recorded, not started
+
+- [ ] **Stale "Gateway restart required" banner after a successful hot reload.**
+  Non-blocking and cosmetic. `gateway.bootConfigSignature` is set only when the
+  launcher starts or attaches to a gateway; nothing refreshes it after an
+  in-process reload. Needs a reload-completion signal between two processes that
+  do not have one.
+- [ ] **`BaseChannel` typing inconsistency for non-Telegram channels.** Discord,
+  Slack, Matrix and Feishu start typing through `BaseChannel` without consulting
+  `Typing.Enabled`, and `defaultChannels()` leaves the field `false` for them.
+  Decide the defaults first.
+- [ ] **`requires.tools` skill metadata is parsed by nothing.** The bundled
+  hardware skill declares it and the Android filter deliberately does not use
+  it, because enforcing it would change what every other skill means. If skill
+  eligibility ever becomes a real feature, that is where it belongs — and the
+  narrow Android filter should then be retired into it.
+
 ## Chat Lifecycle Durability — CLOSED 2026-09-06
 
 Branch `feature/chat-lifecycle-durability`, head `8024094`, merged to `develop`
@@ -35,9 +76,9 @@ and vc44. `main` untouched, no tags moved, no release. Branch retained.
   `Typing.Enabled`, and `defaultChannels()` leaves the field `false` for them.
   Gating there today would switch the indicator off for users who never chose
   that. Decide the defaults first.
-- [ ] **Android hardware tools cleanup (i2c / spi / serial).** Hide or
-  unregister them at the PocketClaw Android surface. Do not delete the upstream
-  Core implementations — that diverges the vendored tree for no runtime gain.
+- [x] **Android hardware tools cleanup (i2c / spi / serial).** Done and
+  physically accepted as vc45 — see the milestone below. Hidden at the
+  PocketClaw Android boundary; the upstream Core implementations stay.
 
 ## Configured Model Discovery — CLOSED 2026-09-05
 
