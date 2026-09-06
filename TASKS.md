@@ -1,5 +1,72 @@
 # PocketClaw Tasks
 
+## Telegram Command UX Phase A — CLOSED 2026-09-06
+
+Branch `feature/telegram-command-ux`, head `896021f`, merged to `develop` with
+`--no-ff`. Physically accepted on SM-A165F / Android 16 as vc46, APK
+`0d430478…`. `main` untouched, no tags moved, no release. Branch retained.
+
+- [x] Raw CLI grammar removed as the primary no-argument response for `/switch`,
+  `/show` and `/list`, at the executor presentation layer rather than per
+  command.
+- [x] Exact usage retained for genuinely invalid advanced syntax.
+- [x] `/subagents` struct leak fixed at the type boundary: `UserMessage`,
+  `SessionKey`, `ChatID` and the turn identifiers are unreachable from the
+  formatting code, not merely unprinted.
+- [x] Zero-value timestamps no longer rendered; unknown status tokens dropped.
+- [x] `/help` is a product overview with no command grammar.
+- [x] `/btw` answers a bare invocation with a sentence.
+- [x] Command descriptions rewritten for people, which also updates Telegram's
+  native "/" menu through the existing `RegisterCommands` mechanism.
+- [x] `/switch` no longer points at `/list models`, which enumerates nothing to
+  switch to.
+- [x] Advanced textual forms unchanged; `/stop` lifecycle untouched.
+- [x] Deliberately **not** done: interactive buttons, callbacks, `/model`.
+
+## Telegram Interactive Menus — Phase B, NEXT
+
+Branch `feature/telegram-interactive-menus`, from the Phase A merge. Not started.
+
+**Acceptance criterion:** from `/model`, a user who knows nothing about
+PocketClaw's configuration must be able to change model without typing anything
+and without seeing an internal identifier.
+
+- [ ] Shared Go configured-model eligibility source. The rule lives in the
+  console frontend today, and its Go analogue is in `web/backend/api` where
+  `pkg/commands` cannot import it.
+- [ ] Additive outbound interactive-menu payload.
+- [ ] Optional Telegram inline-menu capability, following the existing
+  optional-capability pattern.
+- [ ] `callback_query` inbound handling — PocketClaw's first interactive input
+  route; no channel handles any interactive component today.
+- [ ] Callback authorization using the same owner rules as commands.
+- [ ] Callback acknowledgement so the spinner always clears.
+- [ ] Opaque, TTL'd callback identity; no model name, base URL, key or internal
+  identifier in `callback_data`.
+- [ ] Stale callback rejection that fails safely.
+- [ ] `/model` picker: current model shown and marked, configured models as
+  direct buttons, tap switches through the existing `/switch model to <name>`
+  semantics, concise confirmation, explicit cancel.
+- [ ] Only after `/model` proves the architecture: `/switch`, `/show`, `/list`,
+  `/use`, `/check`.
+- [ ] Physically re-verify `/stop`, FIFO, multi-image fallback, safe provider
+  errors and live channel reconcile — the send path grows a payload exactly
+  where placeholder, typing and streaming already interact.
+
+### Follow-up — recorded, not started
+
+- [ ] **Stale "Gateway restart required" banner after a successful hot reload.**
+  Cosmetic. `gateway.bootConfigSignature` is set only when the launcher starts
+  or attaches to a gateway; nothing refreshes it after an in-process reload.
+- [ ] **`BaseChannel` typing inconsistency for non-Telegram channels.** Decide
+  the defaults before gating them.
+- [ ] **`requires.tools` skill metadata is parsed by nothing.** If skill
+  eligibility becomes a feature, retire the narrow Android hardware-skill filter
+  into it.
+- [ ] **`/list models` enumerates nothing.** It reports the current model and
+  says to edit config.json. The Phase B configured-model source is what would
+  let it list real choices.
+
 ## Android Hardware Tool Cleanup — CLOSED 2026-09-06
 
 Branch `feature/android-hardware-tool-cleanup`, head `14a88ba`, merged to

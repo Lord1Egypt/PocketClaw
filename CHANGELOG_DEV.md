@@ -1,5 +1,54 @@
 # Development Changelog
 
+## 2026-09-06 — Prose instead of grammar, and a struct that was never meant to be read
+
+Branch `feature/telegram-command-ux` closed at `896021f` and merged to `develop`
+with `--no-ff`. Physically accepted as vc46.
+
+Phase A of two, and the split is the point. This one was text and privacy; the
+interaction model is Phase B and was deliberately left alone.
+
+The defect worth writing down is `/subagents`. It printed the agent's active-turn
+struct with `%+v`, and that struct carries `UserMessage` — the user's own prompt
+— along with their session key and their chat id. So a command that looks like a
+debugging convenience was echoing private routing state back into Telegram, with
+a year 1 timestamp attached for any turn that had not started. Fixing the format
+string would have left the next person one `%+v` away from the same thing, so
+the fix moved to the type boundary instead: the runtime hands `pkg/commands` a
+`SubagentInfo` carrying a status, a duration and a nesting depth, and the agent
+maps the fields across one at a time. The sensitive fields are not unprinted;
+they are unreachable. Turns are numbered rather than named for the same reason —
+the only human label a turn carries is the prompt.
+
+The `Usage:` responses had a single source: the executor's empty-sub-command
+branch. That made the fix small and the right shape — a `Definition` field the
+executor consumes, so a new command writes a sentence rather than another
+special case. Wrong arguments still get the exact usage string, because there
+the grammar genuinely is the answer.
+
+`/help` was every command rendered as its usage expression, which is where all
+the angle brackets and pipes live. It is an overview now. Command descriptions
+had been written for a developer reading source; they are also what Telegram's
+native "/" menu shows, so rewording them fixed both surfaces through the
+mechanism that already existed.
+
+Two existing tests asserted the old behaviour — that `/help` contains
+`/show [model|channel|agents|mcp <server>]`, and that a bare `/btw` answers
+`Usage: /btw <question>`. They had pinned the thing being removed. A third
+correction came from a test I wrote: the first `/switch` guidance suggested
+`/list models` for browsing, and `/list models` enumerates nothing — it reports
+the current model and says to edit config.json. Sending someone there would have
+been a dead end dressed as help.
+
+What Phase A did not do is the part to be clear about. A bare `/switch` answers
+with prose now instead of grammar, but the user still reads, then types, then
+has to know a model name. That is a different problem and it needs an
+interaction subsystem PocketClaw does not have — no channel here handles any
+interactive component, and `bus.OutboundMessage` carries only text. Phase B
+starts there, with `/model` as the only proving ground, against an explicit
+criterion: change model without typing anything and without seeing an internal
+identifier.
+
 ## 2026-09-06 — Three switches that could never work, and a skill that said otherwise
 
 Branch `feature/android-hardware-tool-cleanup` closed at `14a88ba` and merged to

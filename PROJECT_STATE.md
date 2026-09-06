@@ -1,5 +1,90 @@
 # PocketClaw Project State
 
+## Telegram Command UX Phase A — PHYSICALLY VERIFIED AND CLOSED
+
+- Status: **PASS on a physical Android device (SM-A165F / Android 16), 2026-09-06
+  as vc46. Merged to `develop` with `--no-ff`.** `main` untouched, no tags moved,
+  no release created.
+- Branch `feature/telegram-command-ux`, from `develop` at `2f863d2`, head
+  `896021f`. Retained, not deleted.
+- Phase A **CLOSED**. Phase B is the next milestone — see below.
+
+### Physical acceptance evidence
+
+| Observed | Result |
+| --- | --- |
+| `/help` renders a readable product-oriented overview | PASS |
+| `/switch` no longer dumps raw usage grammar | PASS |
+| `/show` no longer dumps raw usage grammar | PASS |
+| `/subagents` renders human-readable status, not a `%+v` struct | PASS |
+| No `TurnID` / `SessionKey` / `ChatID` / `UserMessage` leak observed | PASS |
+| `/context` remains readable and useful | PASS |
+
+| Item | Value |
+| --- | --- |
+| Package / version | `com.lord1egypt.pocketclaw`, 0.2.0, code 46, arm64 |
+| APK SHA-256 | `0d4304787dbe8e2226b146b247c5014ab0151939694fe4ca3bf3762a04f2fa34` |
+| Core source fingerprint | `31d5277ecadf6f3f7e81de1d61e542da489e8a8d9e8b10fc50e9b404024016d7` |
+| `libpicoclaw.so` | `c0ca79f377202fb9ec1ebc76b16529ec55f0a121291b11591817d5b973bc0e2f` |
+| `libpicoclaw-web.so` | `f616ab7bd72f942dc650b2a6b16bda60f2f43b0d930e02b6147e4bb950377719` |
+
+Installed with `install -r`; `firstInstallTime`, uid and `dataDir` unchanged, and
+the installed permission list is identical before and after.
+
+### What Phase A delivered
+
+- **Raw CLI grammar is no longer the primary no-argument response.** A bare
+  `/switch`, `/show` or `/list` used to answer with its parser grammar —
+  `Usage: /switch [model to <name>|channel]`. Each now answers with a sentence
+  naming its choices and a concrete example. This lives in a `Definition` field
+  consumed by the executor, so it is presentation rather than a per-command
+  special case. A genuinely wrong argument still gets the exact usage line,
+  because there the grammar is the answer.
+- **The `/subagents` privacy leak is fixed at the type boundary.** The command
+  printed the agent's active-turn struct with `%+v`, which carried the user's
+  own message, their session key and their chat id into Telegram along with a
+  year 1 timestamp. The runtime now hands `pkg/commands` a `SubagentInfo` with a
+  status, a duration and a nesting depth and nothing else, so those fields are
+  not reachable from the formatting code at all. Turns are numbered rather than
+  named because the only label a turn carries is the user's prompt.
+- **`/help` is a product overview.** It no longer prints `EffectiveUsage` for
+  every command, which is where all the angle brackets and pipes lived.
+- **Command descriptions were rewritten for people.** `RegisterCommands` already
+  derives Telegram's native "/" menu from `Definition.Description`, so this
+  reached both surfaces through the mechanism that already existed.
+
+### What Phase A deliberately did not do
+
+No interactive buttons, no callback handling, and **no `/model`**. Those need an
+interaction subsystem PocketClaw does not have, and a temporary text-only model
+selector would have created a second model-selection state to unpick later.
+
+The command-to-tap gap that remains is **not** a Phase A failure. Phase A moved
+the answer from grammar to prose; it did not change who does the work, and it
+was never scoped to. That is Phase B.
+
+### Next milestone — Telegram Interactive Menus
+
+Branch `feature/telegram-interactive-menus`, from this merge.
+
+Acceptance criterion, agreed verbatim: **from `/model`, a user who knows nothing
+about PocketClaw's configuration must be able to change model without typing
+anything and without seeing an internal identifier.**
+
+`/model` is the only proving ground. `/switch`, `/show`, `/list`, `/use` and
+`/check` adopt the pattern only after it holds. Direct model buttons, with a
+provider tier left unbuilt until a configured set is genuinely unwieldy —
+PocketClaw shows only configured, usable models, so the list is short by design.
+
+The prerequisites are known and none of them exist yet: no channel in PocketClaw
+handles any interactive component, `bus.OutboundMessage` carries only text, the
+Telegram channel has one inbound route, and the configured-model eligibility rule
+lives in the console frontend with its Go analogue stranded in `web/backend/api`
+where `pkg/commands` cannot reach it. The five physically accepted Telegram
+behaviours — `/stop`, FIFO, multi-image fallback, safe provider errors, live
+channel reconcile — must be re-verified afterwards, because the send path grows
+a payload exactly where placeholder, typing and streaming already interact.
+
 ## Android Hardware Tool Cleanup — PHYSICALLY VERIFIED AND CLOSED
 
 - Status: **PASS on a physical Android device (SM-A165F / Android 16), 2026-09-06
