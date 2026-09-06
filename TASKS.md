@@ -87,6 +87,16 @@ not to Telegram".
   source; `web/backend/api` has the rule but `pkg/commands` cannot import it.
   Note that listing is not selecting: chat may report what the Dashboard has
   configured, but choosing the default stays in the Dashboard.
+- [ ] **Release hardening: Core builds are not byte-reproducible by default.**
+  `core/src/Makefile` derives `BUILD_TIME` from `date` unless `BUILD_TIME_RAW`
+  is pinned, so two builds of identical source differ. Observed twice on
+  2026-09-06: the same tree produced `373c914b…` then `248bc5bd…`, and again
+  `5a1eceb4…` then `a2faf15e…`, purely from the timestamp. The source
+  fingerprint is unaffected — it is content-addressed and deliberately excludes
+  anything time-varying — so staleness detection is sound either way. This
+  matters only for independently reproducing a released artifact from its
+  source. Recorded, not fixed: do not change build reproducibility as a side
+  effect of another task.
 
 ## Android Hardware Tool Cleanup — CLOSED 2026-09-06
 
