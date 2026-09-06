@@ -68,7 +68,7 @@ func (e *Executor) executeDefinition(ctx context.Context, req Request, def Defin
 	// Sub-command routing
 	subName := nthToken(req.Text, 1)
 	if subName == "" {
-		err := req.Reply("Usage: " + def.EffectiveUsage())
+		err := req.Reply(def.NoArgsMessage())
 		return ExecuteResult{Outcome: OutcomeHandled, Command: def.Name, Err: err}
 	}
 

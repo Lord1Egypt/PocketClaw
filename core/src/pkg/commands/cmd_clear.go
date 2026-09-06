@@ -5,7 +5,7 @@ import "context"
 func clearCommand() Definition {
 	return Definition{
 		Name:        "clear",
-		Description: "Clear the chat history",
+		Description: "Clear this chat history",
 		Usage:       "/clear",
 		Handler: func(_ context.Context, req Request, rt *Runtime) error {
 			if rt == nil || rt.ClearHistory == nil {

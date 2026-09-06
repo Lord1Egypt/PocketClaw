@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/sipeed/picoclaw/pkg/bus"
 	"github.com/sipeed/picoclaw/pkg/commands"
@@ -257,12 +258,12 @@ func (al *AgentLoop) buildCommandsRuntime(
 			}
 			return al.channelManager.GetEnabledChannels()
 		},
-		GetActiveTurn: func() any {
+		ListSubagents: func() []commands.SubagentInfo {
 			info := al.GetActiveTurn()
 			if info == nil {
 				return nil
 			}
-			return info
+			return []commands.SubagentInfo{safeSubagentInfo(*info)}
 		},
 		SwitchChannel: func(value string) error {
 			if al.channelManager == nil {
@@ -498,4 +499,26 @@ func (al *AgentLoop) clearPendingSkills(sessionKey string) {
 		return
 	}
 	al.pendingSkills.Delete(sessionKey)
+}
+
+// safeSubagentInfo narrows an active turn to what a user may see.
+//
+// ActiveTurnInfo carries the user's own message, their session key, their chat
+// id and internal turn identifiers. The mapping is explicit — field by field,
+// nothing copied wholesale — so a field added to ActiveTurnInfo later cannot
+// reach a chat window by default.
+func safeSubagentInfo(info ActiveTurnInfo) commands.SubagentInfo {
+	safe := commands.SubagentInfo{
+		Status: string(info.Phase),
+		Depth:  info.Depth,
+	}
+	// A turn that has not recorded a start time has no duration. Reporting one
+	// would print time since the zero instant, which is how the old output
+	// showed a year 1 timestamp.
+	if !info.StartedAt.IsZero() {
+		if elapsed := time.Since(info.StartedAt); elapsed > 0 {
+			safe.Duration = elapsed
+		}
+	}
+	return safe
 }

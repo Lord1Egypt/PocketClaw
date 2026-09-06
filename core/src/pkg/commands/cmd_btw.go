@@ -8,7 +8,7 @@ import (
 func btwCommand() Definition {
 	return Definition{
 		Name:        "btw",
-		Description: "Ask a side question without changing session history",
+		Description: "Ask a quick question without affecting this chat",
 		Usage:       "/btw <question>",
 		Handler: func(ctx context.Context, req Request, rt *Runtime) error {
 			// Neutral wording on purpose: a contentless answer is not evidence
@@ -22,7 +22,10 @@ func btwCommand() Definition {
 
 			question := sideQuestionText(req.Text)
 			if question == "" {
-				return req.Reply("Usage: /btw <question>")
+				// A free-form command has nothing to offer as choices, so this
+				// stays a sentence rather than becoming a menu.
+				return req.Reply("Ask your side question after /btw — " +
+					"for example: /btw what time zone are you using?")
 			}
 
 			answer, err := rt.AskSideQuestion(ctx, question)

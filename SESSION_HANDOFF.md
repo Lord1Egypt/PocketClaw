@@ -1,5 +1,45 @@
 # PocketClaw Session Handoff
 
+## Telegram Command UX Phase A — PHYSICAL PASS and merged, 2026-09-06
+
+Branch `feature/telegram-command-ux`, off `develop` at `2f863d2`, head
+`896021f`. **Physically validated on SM-A165F / Android 16 as vc46, then merged
+to `develop` with `--no-ff`.** `main` untouched, no tags moved, no release. The
+branch is retained.
+
+Four commits: the cleanup, a wording correction, and the staged Core.
+
+### The two things worth not undoing
+
+**`SubagentInfo` exists to make a leak impossible, not unlikely.** `/subagents`
+used to print the agent's active-turn struct with `%+v`, which carried the
+user's own message, their session key and their chat id. The fix is the type
+boundary: `pkg/commands` receives a status, a duration and a depth, and the
+mapping in `agent_command.go` is field by field. Do not widen that struct, and
+do not pass the agent's own type across — a field added to `ActiveTurnInfo`
+later would otherwise reach a chat window by default.
+
+**No-argument guidance is a `Definition` field, not a per-command branch.**
+`NoArgsHelp` is consumed by the executor. Adding a command means writing one
+sentence, not another special case — and a wrong argument still gets the exact
+usage line, deliberately.
+
+### What Phase A is not
+
+It did not close the command-to-tap gap, and was not scoped to. A bare `/switch`
+now answers with prose instead of grammar, but the user still reads, then types.
+The agreed target for Phase B is: from `/model`, someone who knows nothing about
+the configuration changes model **without typing anything and without seeing an
+internal identifier**.
+
+### Starting Phase B
+
+Branch `feature/telegram-interactive-menus` from this merge. `/model` only,
+until it works. The prerequisites are in `TASKS.md`; the honest summary is that
+PocketClaw has no interactive input path at all today, so this is the first one,
+and the send path it touches is the one the five accepted Telegram behaviours
+run through.
+
 ## Android Hardware Tool Cleanup — PHYSICAL PASS and merged, 2026-09-06
 
 Branch `feature/android-hardware-tool-cleanup`, off `develop` at `5c767f4`, head

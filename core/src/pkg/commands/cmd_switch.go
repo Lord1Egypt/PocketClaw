@@ -8,7 +8,16 @@ import (
 func switchCommand() Definition {
 	return Definition{
 		Name:        "switch",
-		Description: "Switch model",
+		Description: "Switch model or channel",
+		// No pointer to /list models here on purpose: it reports the current
+		// model and tells you to edit config.json rather than enumerating what
+		// you could switch to, so sending someone there to browse would be a
+		// dead end. A picker belongs to the interactive command UI.
+		NoArgsHelp: "🔄 You can switch your model or your channel.\n\n" +
+			"To change model, name it after 'to' — for example: " +
+			"/switch model to gemini-2.5-flash\n" +
+			"To change channel: /switch channel\n\n" +
+			"A simpler model picker is coming in the interactive command UI.",
 		SubCommands: []SubCommand{
 			{
 				Name:        "model",

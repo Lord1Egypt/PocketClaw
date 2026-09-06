@@ -9,7 +9,7 @@ import (
 func stopCommand() Definition {
 	return Definition{
 		Name:        "stop",
-		Description: "Stop the current task",
+		Description: "Stop what PocketClaw is doing now",
 		Usage:       "/stop",
 		Handler: func(_ context.Context, req Request, rt *Runtime) error {
 			if rt == nil || rt.StopActiveTurn == nil {

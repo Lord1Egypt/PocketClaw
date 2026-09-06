@@ -8,7 +8,10 @@ import (
 func showCommand() Definition {
 	return Definition{
 		Name:        "show",
-		Description: "Show current configuration",
+		Description: "View your current setup",
+		NoArgsHelp: "👁 You can view your current model, your current channel, " +
+			"your agents, or your MCP servers.\n\n" +
+			"For example: /show model",
 		SubCommands: []SubCommand{
 			{
 				Name:        "model",

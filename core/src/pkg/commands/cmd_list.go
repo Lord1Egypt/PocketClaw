@@ -9,7 +9,10 @@ import (
 func listCommand() Definition {
 	return Definition{
 		Name:        "list",
-		Description: "List available options",
+		Description: "Browse what is available",
+		NoArgsHelp: "📋 You can list models, channels, agents, skills, or " +
+			"MCP servers.\n\n" +
+			"For example: /list skills",
 		SubCommands: []SubCommand{
 			{
 				Name:        "models",
