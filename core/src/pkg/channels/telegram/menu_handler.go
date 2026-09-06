@@ -64,13 +64,6 @@ func (c *TelegramChannel) handleCallbackQuery(ctx context.Context, query telego.
 		return nil
 	}
 
-	if entry.action == menuActionCancel {
-		c.callbacks.invalidateMessage(chatID, messageID)
-		c.answerCallback(ctx, query.ID, "Cancelled.")
-		c.clearKeyboard(ctx, query.Message.GetChat().ID, query.Message.GetMessageID())
-		return nil
-	}
-
 	result, handled := c.Bus().RunMenuAction(ctx, bus.MenuActionRequest{
 		Channel:  c.Name(),
 		ChatID:   chatID,
@@ -89,6 +82,9 @@ func (c *TelegramChannel) handleCallbackQuery(ctx context.Context, query telego.
 	// conversation, so it leaves no new message behind — the message the user
 	// tapped becomes the record of what changed.
 	c.callbacks.invalidateMessage(chatID, messageID)
+	if entry.action == menuActionCancel {
+		c.callbacks.clearActivePicker(chatID, messageID)
+	}
 	if result.Menu == nil && result.Text == "" {
 		c.clearKeyboard(ctx, query.Message.GetChat().ID, query.Message.GetMessageID())
 		return nil
@@ -204,3 +200,24 @@ func (c *TelegramChannel) clearKeyboard(ctx context.Context, chatID int64, messa
 			map[string]any{"error": err.Error()})
 	}
 }
+
+// retirePicker turns a superseded picker into a closed card: its body says so
+// and its buttons are gone.
+//
+// It edits the existing message rather than sending anything, because closing
+// an old card must not add to the conversation, and rather than deleting it,
+// because a message vanishing from a chat is more startling than one that says
+// it is finished. A failure is logged and dropped — the handles are already
+// invalidated, so the stale card is inert either way.
+func (c *TelegramChannel) retirePicker(ctx context.Context, chatID int64, messageID string) {
+	id, err := strconv.Atoi(messageID)
+	if err != nil {
+		return
+	}
+	c.updatePicker(ctx, chatID, id, agentMenuTextPickerClosed, nil)
+}
+
+// agentMenuTextPickerClosed mirrors agent.MenuTextPickerClosed. It is repeated
+// rather than imported so the channel keeps no dependency on the agent, the
+// same way the cancel action name is.
+const agentMenuTextPickerClosed = "Model selection closed."

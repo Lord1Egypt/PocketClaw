@@ -358,8 +358,8 @@ func TestAlreadySelectedLeavesThePickerUntouched(t *testing.T) {
 	}
 }
 
-// Cancel says so in the toast and asks for no rewrite of the body.
-func TestCancelProducesNoPickerText(t *testing.T) {
+// Cancel asks for no keyboard: the card is closed, not re-offered.
+func TestCancelRequestsNoKeyboard(t *testing.T) {
 	cfg := menuTestConfig(t, "Alpha", configuredEntry("Alpha", "openai", "gpt-alpha"))
 	loop := NewAgentLoop(cfg, bus.NewMessageBus(), &mockProvider{})
 	defer loop.Close()
@@ -368,7 +368,44 @@ func TestCancelProducesNoPickerText(t *testing.T) {
 		Channel: "telegram", ChatID: "chat-1", SenderID: "user-1",
 		Action: MenuActionCancel,
 	})
-	if result.Text != "" || result.Menu != nil || result.Changed {
-		t.Fatalf("cancel asked for a picker rewrite: %+v", result)
+	if result.Menu != nil || result.Changed {
+		t.Fatalf("cancel offered a keyboard or reported a change: %+v", result)
+	}
+}
+
+// Cancel closes the card rather than beheading it. Clearing only the buttons
+// left the body still reading "Choose a model:", which looks like a live picker
+// that has stopped working.
+func TestCancelRewritesThePickerIntoAClosedState(t *testing.T) {
+	cfg := menuTestConfig(t, "Alpha",
+		configuredEntry("Alpha", "openai", "gpt-alpha"),
+		configuredEntry("Beta", "openai", "gpt-beta"),
+	)
+	loop := NewAgentLoop(cfg, bus.NewMessageBus(), &mockProvider{})
+	defer loop.Close()
+	agent := loop.registry.GetDefaultAgent()
+
+	result := loop.RunMenuAction(context.Background(), bus.MenuActionRequest{
+		Channel: "telegram", ChatID: "chat-1", SenderID: "user-1",
+		Action: MenuActionCancel,
+	})
+
+	if strings.TrimSpace(result.Text) == "" {
+		t.Fatal("cancel left the picker body untouched, so the old card remains")
+	}
+	if strings.Contains(result.Text, "Choose a model") {
+		t.Fatalf("the closed card still invites a choice: %q", result.Text)
+	}
+	if strings.Contains(result.Text, "Current model") {
+		t.Fatalf("the closed card still reads as a live picker: %q", result.Text)
+	}
+	if result.Menu != nil {
+		t.Fatal("a closed picker must carry no keyboard")
+	}
+	if result.Changed || agent.Model != "Alpha" {
+		t.Fatal("cancel changed model state")
+	}
+	if strings.TrimSpace(result.Message) == "" {
+		t.Fatal("cancel must still acknowledge the callback")
 	}
 }

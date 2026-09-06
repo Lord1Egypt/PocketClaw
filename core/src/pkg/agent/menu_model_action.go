@@ -107,7 +107,13 @@ func buildModelMenu(models []selectableModel) *bus.InteractiveMenu {
 func (al *AgentLoop) RunMenuAction(ctx context.Context, req bus.MenuActionRequest) bus.MenuActionResult {
 	switch req.Action {
 	case MenuActionCancel:
-		return bus.MenuActionResult{Message: "Cancelled."}
+		// The picker becomes a closed card rather than a headless one. Clearing
+		// only the buttons left the body still saying "Choose a model:", which
+		// reads as a live picker that has stopped working.
+		return bus.MenuActionResult{
+			Message: "Cancelled.",
+			Text:    "✕ Model selection cancelled.",
+		}
 	case MenuActionSelectModel:
 		return al.runSelectModelAction(req)
 	default:
@@ -249,3 +255,7 @@ func modelPickerText(agent *AgentInstance, cfg *config.Config, models []selectab
 	}
 	return header + "\n\nChoose a model:"
 }
+
+// MenuTextPickerClosed retires a picker that a newer one has replaced. It is
+// stated here, with the rest of the menu wording, rather than in the channel.
+const MenuTextPickerClosed = "Model selection closed."

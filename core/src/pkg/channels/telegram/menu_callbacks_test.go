@@ -173,3 +173,92 @@ func TestKeyboardRendersLabelsAndOpaqueHandles(t *testing.T) {
 		t.Fatalf("the wire carries the model name: %q", rows[0][0].Data)
 	}
 }
+
+// Opening a second picker makes the first one a dead card. Its handles stop
+// working, and the caller is told which message to retire so the conversation
+// does not accumulate cards still saying "Choose a model:".
+func TestOpeningANewPickerRetiresTheOldOne(t *testing.T) {
+	r := testRegistry()
+
+	first := mintFor(t, r, "model.select", "Alpha", "chat-1", "user-1")
+	r.bindMessage(first, "chat-1", "100")
+	if previous := r.replaceActivePicker("chat-1", "100"); previous != "" {
+		t.Fatalf("the first picker displaced %q; there was nothing before it", previous)
+	}
+	if _, ok := r.resolve(first); !ok {
+		t.Fatal("the live picker's buttons should work")
+	}
+
+	second := mintFor(t, r, "model.select", "Beta", "chat-1", "user-1")
+	r.bindMessage(second, "chat-1", "200")
+	previous := r.replaceActivePicker("chat-1", "200")
+
+	if previous != "100" {
+		t.Fatalf("the displaced picker was reported as %q, want 100 — it would be "+
+			"left in the chat as a dead card", previous)
+	}
+	if _, ok := r.resolve(first); ok {
+		t.Fatal("the old picker is still actionable after being replaced")
+	}
+	if _, ok := r.resolve(second); !ok {
+		t.Fatal("replacing invalidated the new picker's own buttons")
+	}
+	if live := r.activePicker("chat-1"); live != "200" {
+		t.Fatalf("live picker = %q, want 200", live)
+	}
+}
+
+// One chat's picker does not disturb another's.
+func TestPickerReplacementIsPerChat(t *testing.T) {
+	r := testRegistry()
+
+	other := mintFor(t, r, "model.select", "Alpha", "chat-2", "user-2")
+	r.bindMessage(other, "chat-2", "900")
+	r.replaceActivePicker("chat-2", "900")
+
+	mine := mintFor(t, r, "model.select", "Alpha", "chat-1", "user-1")
+	r.bindMessage(mine, "chat-1", "100")
+	r.replaceActivePicker("chat-1", "100")
+	r.replaceActivePicker("chat-1", "200")
+
+	if _, ok := r.resolve(other); !ok {
+		t.Fatal("replacing a picker in one chat killed another chat's picker")
+	}
+	if live := r.activePicker("chat-2"); live != "900" {
+		t.Fatalf("chat-2 live picker = %q, want 900", live)
+	}
+}
+
+// Re-registering the same message is not a replacement, so nothing is retired.
+func TestReRegisteringTheSamePickerRetiresNothing(t *testing.T) {
+	r := testRegistry()
+	handle := mintFor(t, r, "model.select", "Alpha", "chat-1", "user-1")
+	r.bindMessage(handle, "chat-1", "100")
+
+	r.replaceActivePicker("chat-1", "100")
+	if previous := r.replaceActivePicker("chat-1", "100"); previous != "" {
+		t.Fatalf("the same picker reported itself as displaced: %q", previous)
+	}
+	if _, ok := r.resolve(handle); !ok {
+		t.Fatal("re-registering invalidated the picker's own buttons")
+	}
+}
+
+// A cancelled picker stops being the chat's live one, so the next picker has
+// nothing to retire.
+func TestCancellingClearsTheLivePicker(t *testing.T) {
+	r := testRegistry()
+	handle := mintFor(t, r, "model.select", "Alpha", "chat-1", "user-1")
+	r.bindMessage(handle, "chat-1", "100")
+	r.replaceActivePicker("chat-1", "100")
+
+	r.invalidateMessage("chat-1", "100")
+	r.clearActivePicker("chat-1", "100")
+
+	if live := r.activePicker("chat-1"); live != "" {
+		t.Fatalf("a cancelled picker is still the live one: %q", live)
+	}
+	if previous := r.replaceActivePicker("chat-1", "200"); previous != "" {
+		t.Fatalf("the next picker tried to retire a closed card: %q", previous)
+	}
+}

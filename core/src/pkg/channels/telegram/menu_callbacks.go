@@ -51,12 +51,17 @@ type callbackEntry struct {
 type callbackRegistry struct {
 	mu      sync.Mutex
 	entries map[string]callbackEntry
-	now     func() time.Time
+	// active records the one live picker per chat. A second picker makes the
+	// first one a dead card: its buttons stop working, and without this it
+	// would sit in the conversation still saying "Choose a model".
+	active map[string]string
+	now    func() time.Time
 }
 
 func newCallbackRegistry() *callbackRegistry {
 	return &callbackRegistry{
 		entries: make(map[string]callbackEntry),
+		active:  make(map[string]string),
 		now:     time.Now,
 	}
 }
@@ -218,4 +223,48 @@ func inlineKeyboardMarkup(rows [][]inlineButton) *telego.InlineKeyboardMarkup {
 		keyboard = append(keyboard, buttons)
 	}
 	return &telego.InlineKeyboardMarkup{InlineKeyboard: keyboard}
+}
+
+// replaceActivePicker records messageID as the chat's live picker and returns
+// the one it displaces, whose handles are invalidated in the same step.
+//
+// Returning the displaced id is what lets the caller retire that card visually.
+// An empty return means there was nothing live to retire.
+func (r *callbackRegistry) replaceActivePicker(chatID, messageID string) string {
+	if chatID == "" || messageID == "" {
+		return ""
+	}
+
+	r.mu.Lock()
+	previous := r.active[chatID]
+	r.active[chatID] = messageID
+	if previous == messageID {
+		previous = ""
+	}
+	if previous != "" {
+		for handle, entry := range r.entries {
+			if entry.chatID == chatID && entry.messageID == previous {
+				delete(r.entries, handle)
+			}
+		}
+	}
+	r.mu.Unlock()
+	return previous
+}
+
+// clearActivePicker forgets the chat's live picker, for when it is closed
+// rather than replaced.
+func (r *callbackRegistry) clearActivePicker(chatID, messageID string) {
+	r.mu.Lock()
+	if r.active[chatID] == messageID {
+		delete(r.active, chatID)
+	}
+	r.mu.Unlock()
+}
+
+// activePicker reports the chat's live picker, if any.
+func (r *callbackRegistry) activePicker(chatID string) string {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.active[chatID]
 }

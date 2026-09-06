@@ -371,6 +371,12 @@ func (c *TelegramChannel) Send(ctx context.Context, msg bus.OutboundMessage) ([]
 			for _, handle := range mintedHandles {
 				c.callbacks.bindMessage(handle, msg.ChatID, msgID)
 			}
+			// One live picker per chat. A second one makes the first a dead
+			// card, so it is retired rather than left in the conversation
+			// still inviting a choice it can no longer act on.
+			if previous := c.callbacks.replaceActivePicker(msg.ChatID, msgID); previous != "" {
+				c.retirePicker(ctx, chatID, previous)
+			}
 		}
 		// Only the first chunk should be a reply; subsequent chunks are normal messages.
 		replyToID = ""
