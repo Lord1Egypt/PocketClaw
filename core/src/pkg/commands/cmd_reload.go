@@ -5,7 +5,7 @@ import "context"
 func reloadCommand() Definition {
 	return Definition{
 		Name:        "reload",
-		Description: "Reload the configuration file",
+		Description: "Apply saved configuration changes",
 		Usage:       "/reload",
 		Handler: func(_ context.Context, req Request, rt *Runtime) error {
 			if rt == nil || rt.ReloadConfig == nil {

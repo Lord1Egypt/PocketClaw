@@ -2,6 +2,7 @@ package commands
 
 import (
 	"context"
+	"time"
 
 	"github.com/sipeed/picoclaw/pkg/config"
 )
@@ -38,6 +39,26 @@ type ContextStats struct {
 	MessageCount      int
 }
 
+// SubagentInfo is the user-facing view of one active turn.
+//
+// It exists so the agent's internal turn state cannot reach a chat window. The
+// runtime used to hand this package the whole *agent.ActiveTurnInfo behind an
+// `any`, and /subagents printed it with %+v — which put the user's own prompt,
+// their session key and their chat id into Telegram. Those fields are absent
+// here by construction rather than by remembering not to print them.
+//
+// There is deliberately no name field: the only human-readable label the turn
+// carries is the user's message, which is exactly what must not be shown.
+type SubagentInfo struct {
+	// Status is a short lifecycle word such as "Running" or "Waiting".
+	Status string
+	// Duration is how long the turn has been running. Zero means the start
+	// time was not set, and callers must omit it rather than render an epoch.
+	Duration time.Duration
+	// Depth is 0 for a root turn and greater for a nested one.
+	Depth int
+}
+
 // StopResult describes the outcome of a stop request for the current session.
 type StopResult struct {
 	Stopped  bool
@@ -57,11 +78,14 @@ type Runtime struct {
 	ListMCPServers     func(ctx context.Context) []MCPServerInfo
 	ListMCPTools       func(ctx context.Context, serverName string) ([]MCPToolInfo, error)
 	GetEnabledChannels func() []string
-	GetActiveTurn      func() any // Returning any to avoid circular dependency with agent package
-	GetContextStats    func() *ContextStats
-	SwitchModel        func(value string) (oldModel string, err error)
-	SwitchChannel      func(value string) error
-	ClearHistory       func() error
-	ReloadConfig       func() error
-	StopActiveTurn     func() (StopResult, error)
+	// ListSubagents returns the safe view of the turns currently running. It
+	// returns a commands-owned type rather than the agent's own struct so the
+	// internals cannot be reached, let alone formatted, from here.
+	ListSubagents   func() []SubagentInfo
+	GetContextStats func() *ContextStats
+	SwitchModel     func(value string) (oldModel string, err error)
+	SwitchChannel   func(value string) error
+	ClearHistory    func() error
+	ReloadConfig    func() error
+	StopActiveTurn  func() (StopResult, error)
 }

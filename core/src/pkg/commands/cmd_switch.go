@@ -8,7 +8,11 @@ import (
 func switchCommand() Definition {
 	return Definition{
 		Name:        "switch",
-		Description: "Switch model",
+		Description: "Switch model or channel",
+		NoArgsHelp: "🔄 You can switch your model or your channel.\n\n" +
+			"To change model, name it after 'to' — for example: " +
+			"/switch model to gemini-2.5-flash\n" +
+			"Not sure what is available? Try /list models",
 		SubCommands: []SubCommand{
 			{
 				Name:        "model",

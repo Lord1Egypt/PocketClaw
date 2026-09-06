@@ -8,7 +8,7 @@ import (
 func checkCommand() Definition {
 	return Definition{
 		Name:        "check",
-		Description: "Check channel availability",
+		Description: "Check whether a channel is reachable",
 		SubCommands: []SubCommand{
 			{
 				Name:        "channel",

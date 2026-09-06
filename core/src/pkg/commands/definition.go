@@ -27,6 +27,25 @@ type Definition struct {
 	Aliases     []string
 	SubCommands []SubCommand // optional; when set, Executor routes to sub-command handlers
 	Handler     Handler      // for simple commands without sub-commands
+
+	// NoArgsHelp is what a user sees when they send the command with nothing
+	// after it. That is the common case for someone exploring, and answering it
+	// with "Usage: /show [model|channel|agents|mcp <server>]" asks them to read
+	// command grammar before they can do anything.
+	//
+	// It replaces the usage line only for that case. Genuinely wrong advanced
+	// syntax still gets the precise usage string, because there the grammar is
+	// the answer.
+	NoArgsHelp string
+}
+
+// NoArgsMessage returns what to send when the command arrives with no
+// sub-command, preferring the human wording when a command supplies one.
+func (d Definition) NoArgsMessage() string {
+	if help := strings.TrimSpace(d.NoArgsHelp); help != "" {
+		return help
+	}
+	return "Usage: " + d.EffectiveUsage()
 }
 
 // EffectiveUsage returns the usage string. When SubCommands are present,

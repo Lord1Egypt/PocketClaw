@@ -8,7 +8,7 @@ import (
 func contextCommand() Definition {
 	return Definition{
 		Name:        "context",
-		Description: "Show current session context and token usage",
+		Description: "See how much of the conversation is in context",
 		Usage:       "/context",
 		Handler: func(_ context.Context, req Request, rt *Runtime) error {
 			if rt == nil || rt.GetContextStats == nil {
