@@ -70,6 +70,43 @@ type StreamDelegate interface {
 	GetStreamer(ctx context.Context, channel, chatID, sessionKey string) (Streamer, bool)
 }
 
+// MenuActionDelegate is implemented by the agent loop so a channel can run a
+// control action a user tapped, without opening a conversational turn.
+//
+// It is the mirror of StreamDelegate: that one lets the agent reach a channel's
+// streaming, this one lets a channel reach the agent's configuration
+// operations. A tapped button is configuration, not conversation — routing it
+// through a turn would give it a "Thinking…" placeholder, a queue position
+// behind whatever is running, and a place in the session history, none of which
+// belong to changing a setting.
+type MenuActionDelegate interface {
+	// RunMenuAction performs the action a button carried. The channel has
+	// already authorized the user; the delegate re-validates the action against
+	// current configuration before applying it.
+	RunMenuAction(ctx context.Context, req MenuActionRequest) MenuActionResult
+}
+
+// MenuActionRequest describes a tapped button, in PocketClaw's own terms.
+type MenuActionRequest struct {
+	Channel  string
+	ChatID   string
+	SenderID string
+	Action   string
+	Value    string
+}
+
+// MenuActionResult is what the user should be told, and whether anything moved.
+//
+// Message is user-facing text: short, already safe to display, and never a raw
+// internal error.
+type MenuActionResult struct {
+	Message string
+	Changed bool
+	// Menu, when set, replaces the menu on the message the button belonged to,
+	// so the picker can re-render with the new selection marked.
+	Menu *InteractiveMenu
+}
+
 // Streamer pushes incremental content to a streaming-capable channel.
 // Defined here so the agent loop can use it without importing pkg/channels.
 type Streamer interface {
@@ -99,18 +136,19 @@ type MessageBus struct {
 	audioChunks   chan AudioChunk
 	voiceControls chan VoiceControl
 
-	closeOnce      sync.Once
-	done           chan struct{}
-	closed         atomic.Bool
-	wg             sync.WaitGroup
-	publishMu      sync.Mutex
-	streamDelegate atomic.Value // stores StreamDelegate
-	eventPublisher atomic.Value // stores EventPublisher
-	inboundStats   streamStats
-	outboundStats  streamStats
-	mediaStats     streamStats
-	audioStats     streamStats
-	voiceStats     streamStats
+	closeOnce          sync.Once
+	done               chan struct{}
+	closed             atomic.Bool
+	wg                 sync.WaitGroup
+	publishMu          sync.Mutex
+	streamDelegate     atomic.Value // stores StreamDelegate
+	menuActionDelegate atomic.Value // stores MenuActionDelegate
+	eventPublisher     atomic.Value // stores EventPublisher
+	inboundStats       streamStats
+	outboundStats      streamStats
+	mediaStats         streamStats
+	audioStats         streamStats
+	voiceStats         streamStats
 }
 
 // EventPublisher is the minimal runtime event publisher used by MessageBus.
@@ -317,6 +355,20 @@ func (mb *MessageBus) VoiceControlsChan() <-chan VoiceControl {
 // SetStreamDelegate registers a StreamDelegate (typically the channel Manager).
 func (mb *MessageBus) SetStreamDelegate(d StreamDelegate) {
 	mb.streamDelegate.Store(d)
+}
+
+// SetMenuActionDelegate registers a MenuActionDelegate (the agent loop).
+func (mb *MessageBus) SetMenuActionDelegate(d MenuActionDelegate) {
+	mb.menuActionDelegate.Store(d)
+}
+
+// RunMenuAction dispatches a tapped button to the delegate. Reports false when
+// no delegate is registered, so a channel can say so rather than fail silently.
+func (mb *MessageBus) RunMenuAction(ctx context.Context, req MenuActionRequest) (MenuActionResult, bool) {
+	if d, ok := mb.menuActionDelegate.Load().(MenuActionDelegate); ok && d != nil {
+		return d.RunMenuAction(ctx, req), true
+	}
+	return MenuActionResult{}, false
 }
 
 // SetEventPublisher registers a runtime event publisher for bus errors and lifecycle events.

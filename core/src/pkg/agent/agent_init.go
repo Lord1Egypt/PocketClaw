@@ -103,6 +103,13 @@ func NewAgentLoop(
 	// Register shared tools to all agents (now that al is created)
 	registerSharedTools(al, cfg, msgBus, registry, provider)
 
+	// A channel that renders a tappable menu needs somewhere to send the tap.
+	// This is the mirror of the manager registering itself as the stream
+	// delegate, and it is what keeps a button press out of the turn machinery.
+	if msgBus != nil {
+		msgBus.SetMenuActionDelegate(al)
+	}
+
 	return al
 }
 

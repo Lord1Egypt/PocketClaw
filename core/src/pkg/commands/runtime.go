@@ -59,6 +59,25 @@ type SubagentInfo struct {
 	Depth int
 }
 
+// ModelChoice is one model a user may pick from the interactive picker.
+//
+// Label is what the reader sees. Name is the product-facing model name the
+// switch operation takes — the same string a user would type after
+// "/switch model to". Neither carries a credential, an endpoint or a registry
+// key, and the channel never transmits either to the platform.
+type ModelChoice struct {
+	Name    string
+	Label   string
+	Current bool
+}
+
+// ModelPicker is the data a /model response is built from.
+type ModelPicker struct {
+	CurrentModel    string
+	CurrentProvider string
+	Choices         []ModelChoice
+}
+
 // StopResult describes the outcome of a stop request for the current session.
 type StopResult struct {
 	Stopped  bool
@@ -84,8 +103,12 @@ type Runtime struct {
 	ListSubagents   func() []SubagentInfo
 	GetContextStats func() *ContextStats
 	SwitchModel     func(value string) (oldModel string, err error)
-	SwitchChannel   func(value string) error
-	ClearHistory    func() error
-	ReloadConfig    func() error
-	StopActiveTurn  func() (StopResult, error)
+	// GetModelPicker returns the models a user may switch to, using the same
+	// eligibility rule the Dashboard applies. Nil when the runtime cannot
+	// answer, which the command reports rather than guessing.
+	GetModelPicker func() *ModelPicker
+	SwitchChannel  func(value string) error
+	ClearHistory   func() error
+	ReloadConfig   func() error
+	StopActiveTurn func() (StopResult, error)
 }

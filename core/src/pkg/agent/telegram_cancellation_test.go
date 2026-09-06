@@ -444,3 +444,51 @@ func TestTelegramHTTPTimeoutIsNotAnAgentTurnTimeout(t *testing.T) {
 	edits, sends := h.channel.snapshot()
 	t.Fatalf("a turn held open past the HTTP budget did not complete; edits=%+v sends=%v", edits, sends)
 }
+
+// V. /model answers from local state, so it must not stage the activity
+// signals a model call needs. A configuration action that opens with a thinking
+// bubble reads as a conversation.
+//
+// The placeholder is deliberately not pre-registered here: in production
+// nothing records one unless the agent sends it, and pre-recording would test
+// the harness rather than the shortcut.
+func TestModelCommandDoesNotStageActivitySignals(t *testing.T) {
+	h := newCancellationHarness(t, "unused")
+	h.provider.releaseAll()
+
+	h.send(t, "M", "/model")
+	sends := waitForSends(t, h.channel, 1)
+
+	if started, _ := h.channel.typingCounts(); started != 0 {
+		t.Fatalf("/model started %d typing indicators; a local answer needs none", started)
+	}
+	edits, _ := h.channel.snapshot()
+	if len(edits) != 0 {
+		t.Fatalf("/model edited a message, so something was staged first: %+v", edits)
+	}
+	if h.provider.calls.Load() != 0 {
+		t.Fatal("/model reached the model; it must answer from local state")
+	}
+	if !strings.Contains(sends[0], "model") && !strings.Contains(sends[0], "Model") {
+		t.Fatalf("unexpected /model reply: %q", sends[0])
+	}
+}
+
+// An ordinary message must keep its activity signals: the instant-command
+// shortcut must not have disabled them generally.
+func TestOrdinaryMessageStillGetsItsActivitySignals(t *testing.T) {
+	h := newCancellationHarness(t, "an answer")
+	h.manager.RecordPlaceholderForLifecycle("telegram", "chat", "A", "ph-A")
+
+	h.send(t, "A", "an ordinary question")
+	h.waitForTurnStart(t)
+
+	deadline := time.Now().Add(cancellationWaitBudget)
+	for time.Now().Before(deadline) {
+		if started, _ := h.channel.typingCounts(); started > 0 {
+			return
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	t.Fatal("an ordinary turn no longer starts its typing indicator")
+}

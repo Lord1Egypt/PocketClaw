@@ -54,6 +54,19 @@ func (al *AgentLoop) publishResponseForContext(
 	inbound *bus.InboundContext,
 	response string,
 ) error {
+	return al.publishResponseWithMenu(ctx, channel, chatID, sessionKey, inbound, response, nil)
+}
+
+// publishResponseWithMenu is publishResponseForContext with optional choices
+// attached. The menu rides along as an additive field, so a nil menu produces
+// exactly the message the text-only path always produced.
+func (al *AgentLoop) publishResponseWithMenu(
+	ctx context.Context,
+	channel, chatID, sessionKey string,
+	inbound *bus.InboundContext,
+	response string,
+	menu *bus.InteractiveMenu,
+) error {
 	if response == "" {
 		return nil
 	}
@@ -98,6 +111,7 @@ func (al *AgentLoop) publishResponseForContext(
 		),
 		SessionKey: sessionKey,
 		Content:    response,
+		Menu:       menu,
 	}
 	if sessionKey != "" {
 		msg.ContextUsage = computeContextUsage(al.agentForSession(sessionKey), sessionKey)

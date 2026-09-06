@@ -28,6 +28,11 @@ type Definition struct {
 	SubCommands []SubCommand // optional; when set, Executor routes to sub-command handlers
 	Handler     Handler      // for simple commands without sub-commands
 
+	// Instant marks a command that answers from local state without calling the
+	// model. Those need no "Thinking…" placeholder, and showing one for a
+	// configuration action makes a setting change look like a conversation.
+	Instant bool
+
 	// NoArgsHelp is what a user sees when they send the command with nothing
 	// after it. That is the common case for someone exploring, and answering it
 	// with "Usage: /show [model|channel|agents|mcp <server>]" asks them to read
