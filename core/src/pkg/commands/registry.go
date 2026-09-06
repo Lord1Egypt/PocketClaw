@@ -53,17 +53,3 @@ func registerCommandName(index map[string]int, name string, defIndex int) {
 	}
 	index[key] = defIndex
 }
-
-// IsInstantCommand reports whether the input names a command that answers from
-// local state, so a caller can skip the activity signals a model call needs.
-func (r *Registry) IsInstantCommand(input string) bool {
-	if r == nil {
-		return false
-	}
-	name, ok := parseCommandName(input)
-	if !ok {
-		return false
-	}
-	def, found := r.Lookup(name)
-	return found && def.Instant
-}

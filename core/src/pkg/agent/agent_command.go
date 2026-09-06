@@ -50,12 +50,6 @@ func (al *AgentLoop) handleCommand(
 			commandReply = text
 			return nil
 		},
-		// A menu answer is published here rather than returned, because the
-		// normal return path carries text only. Returning "" afterwards leaves
-		// nothing further to publish.
-		ReplyMenu: func(text string, menu *commands.Menu) error {
-			return al.publishMenuResponse(ctx, msg, text, menu)
-		},
 	})
 
 	switch result.Outcome {
@@ -304,23 +298,36 @@ func (al *AgentLoop) buildCommandsRuntime(
 			return agent.Model, resolvedCandidateProvider(agent.Candidates, cfg.Agents.Defaults.Provider)
 		}
 		rt.SwitchModel = func(value string) (string, error) {
-			return switchAgentModel(cfg, agent, value)
-		}
-		rt.GetModelPicker = func() *commands.ModelPicker {
-			models := listSelectableModels(cfg, agent.Model)
-			choices := make([]commands.ModelChoice, 0, len(models))
-			for _, model := range models {
-				choices = append(choices, commands.ModelChoice{
-					Name:    model.Name,
-					Label:   model.Label,
-					Current: model.Current,
-				})
+			value = strings.TrimSpace(value)
+			modelCfg, err := resolvedModelConfig(cfg, value, agent.Workspace)
+			if err != nil {
+				return "", err
 			}
-			return &commands.ModelPicker{
-				CurrentModel:    agent.Model,
-				CurrentProvider: resolvedCandidateProvider(agent.Candidates, cfg.Agents.Defaults.Provider),
-				Choices:         choices,
+
+			nextProvider, _, err := providers.CreateProviderFromConfig(modelCfg)
+			if err != nil {
+				return "", fmt.Errorf("failed to initialize model %q: %w", value, err)
 			}
+
+			nextCandidates := resolveModelCandidates(cfg, cfg.Agents.Defaults.Provider, value, agent.Fallbacks)
+			if len(nextCandidates) == 0 {
+				return "", fmt.Errorf("model %q did not resolve to any provider candidates", value)
+			}
+
+			oldModel := agent.Model
+			oldProvider := agent.Provider
+			agent.Model = value
+			agent.Provider = nextProvider
+			agent.Candidates = nextCandidates
+			agent.ThinkingLevel = parseThinkingLevel(modelCfg.ThinkingLevel)
+			agent.ThinkingLevelConfigured = isConfiguredThinkingLevel(modelCfg.ThinkingLevel)
+
+			if oldProvider != nil && oldProvider != nextProvider {
+				if stateful, ok := oldProvider.(providers.StatefulProvider); ok {
+					stateful.Close()
+				}
+			}
+			return oldModel, nil
 		}
 
 		rt.ClearHistory = func() error {
@@ -514,45 +521,4 @@ func safeSubagentInfo(info ActiveTurnInfo) commands.SubagentInfo {
 		}
 	}
 	return safe
-}
-
-// switchAgentModel is the model switch, extracted so the textual
-// "/switch model to <name>" command and a tapped model button perform the same
-// operation rather than two that drift.
-//
-// The scope is the running agent instance: it rebinds the agent's model,
-// provider, candidates and thinking level in memory. It writes nothing to
-// config.json and touches no session state, so the change lasts until the agent
-// is rebuilt — which is exactly what the textual command has always done.
-func switchAgentModel(cfg *config.Config, agent *AgentInstance, value string) (string, error) {
-	value = strings.TrimSpace(value)
-	modelCfg, err := resolvedModelConfig(cfg, value, agent.Workspace)
-	if err != nil {
-		return "", err
-	}
-
-	nextProvider, _, err := providers.CreateProviderFromConfig(modelCfg)
-	if err != nil {
-		return "", fmt.Errorf("failed to initialize model %q: %w", value, err)
-	}
-
-	nextCandidates := resolveModelCandidates(cfg, cfg.Agents.Defaults.Provider, value, agent.Fallbacks)
-	if len(nextCandidates) == 0 {
-		return "", fmt.Errorf("model %q did not resolve to any provider candidates", value)
-	}
-
-	oldModel := agent.Model
-	oldProvider := agent.Provider
-	agent.Model = value
-	agent.Provider = nextProvider
-	agent.Candidates = nextCandidates
-	agent.ThinkingLevel = parseThinkingLevel(modelCfg.ThinkingLevel)
-	agent.ThinkingLevelConfigured = isConfiguredThinkingLevel(modelCfg.ThinkingLevel)
-
-	if oldProvider != nil && oldProvider != nextProvider {
-		if stateful, ok := oldProvider.(providers.StatefulProvider); ok {
-			stateful.Close()
-		}
-	}
-	return oldModel, nil
 }

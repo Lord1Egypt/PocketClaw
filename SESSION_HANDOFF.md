@@ -27,18 +27,30 @@ usage line, deliberately.
 ### What Phase A is not
 
 It did not close the command-to-tap gap, and was not scoped to. A bare `/switch`
-now answers with prose instead of grammar, but the user still reads, then types.
-The agreed target for Phase B is: from `/model`, someone who knows nothing about
-the configuration changes model **without typing anything and without seeing an
-internal identifier**.
+answers with prose instead of grammar, but the user still reads, then types.
 
-### Starting Phase B
+### The command-to-tap gap stays open, on purpose
 
-Branch `feature/telegram-interactive-menus` from this merge. `/model` only,
-until it works. The prerequisites are in `TASKS.md`; the honest summary is that
-PocketClaw has no interactive input path at all today, so this is the first one,
-and the send path it touches is the one the five accepted Telegram behaviours
-run through.
+Phase B — the Telegram interactive `/model` picker — was built on
+`feature/telegram-interactive-menus`, physically verified as vc47 and vc48, and
+then **abandoned by product decision on 2026-09-06.** Nothing of it reached
+`develop`.
+
+Do not rebuild it, and do not read the abandonment as "the implementation was
+not good enough". It worked on the device. The defect was in the product: the
+Dashboard owns the configured default in `config.json`, the picker moved only
+the running `AgentInstance`, and so the two surfaces could disagree about which
+model was selected with nothing telling the user which had won. Model selection
+and configuration belong to the Dashboard. Telegram is a conversation and control
+surface.
+
+`/switch model to <name>` remains as an advanced compatibility command against
+the running agent, described in `/help` as "Advanced runtime controls". If you
+are tempted to add a friendlier model command to chat, the answer is no — that
+is exactly what was removed, and adding persistence or a synchronization
+mechanism to justify it was explicitly rejected. See DECISIONS.md, "Model
+selection belongs to the Dashboard, not to Telegram", and the PROJECT_STATE.md
+section of the same name.
 
 ## Android Hardware Tool Cleanup — PHYSICAL PASS and merged, 2026-09-06
 

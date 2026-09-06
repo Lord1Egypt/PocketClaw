@@ -17,7 +17,6 @@ import (
 	"golang.org/x/sync/singleflight"
 
 	"github.com/sipeed/picoclaw/pkg/config"
-	"github.com/sipeed/picoclaw/pkg/modelaccess"
 	"github.com/sipeed/picoclaw/pkg/providers"
 )
 
@@ -85,10 +84,66 @@ func (s *modelProbeCacheState) resetForTest() {
 	s.nextTTLGCAt = time.Time{}
 }
 
-// hasModelConfiguration defers to the shared rule so the Dashboard and the
-// Telegram model picker cannot disagree about what "configured" means.
 func hasModelConfiguration(m *config.ModelConfig) bool {
-	return modelaccess.IsConfigured(m)
+	protocol := modelProtocol(m)
+	authMethod := strings.ToLower(strings.TrimSpace(m.AuthMethod))
+	apiKey := strings.TrimSpace(m.APIKey())
+
+	if authMethod == "oauth" || authMethod == "token" {
+		if configured, checked := hasStoredOAuthCredential(m); checked {
+			return configured
+		}
+	}
+
+	if authMethod == "" && providerUsesImplicitOAuth(protocol) {
+		if configured, checked := hasStoredOAuthCredential(m); checked {
+			return configured
+		}
+	}
+
+	if providerUsesAmbientCredentials(protocol) {
+		return true
+	}
+
+	if requiresRuntimeProbe(m) {
+		return true
+	}
+
+	return apiKey != ""
+}
+
+func hasStoredOAuthCredential(m *config.ModelConfig) (bool, bool) {
+	provider, ok := oauthProviderForModel(m)
+	if !ok {
+		return false, false
+	}
+	cred, err := oauthGetCredential(provider)
+	if err != nil || cred == nil {
+		return false, true
+	}
+	return strings.TrimSpace(cred.AccessToken) != "" || strings.TrimSpace(cred.RefreshToken) != "", true
+}
+
+func providerUsesImplicitOAuth(protocol string) bool {
+	switch protocol {
+	case "antigravity":
+		return true
+	default:
+		return false
+	}
+}
+
+func providerUsesAmbientCredentials(protocol string) bool {
+	switch protocol {
+	case "bedrock":
+		// Bedrock relies on the AWS SDK credential chain instead of an explicit
+		// API key stored in ModelConfig. We cannot reliably preflight every AWS
+		// credential source here, so avoid misclassifying valid environments as
+		// "unconfigured" and defer concrete credential failures to runtime.
+		return true
+	default:
+		return false
+	}
 }
 
 func modelConfigurationStatus(m *config.ModelConfig) modelConfigurationSummary {
@@ -105,7 +160,28 @@ func modelConfigurationStatus(m *config.ModelConfig) modelConfigurationSummary {
 }
 
 func requiresRuntimeProbe(m *config.ModelConfig) bool {
-	return modelaccess.RequiresRuntimeProbe(m)
+	authMethod := strings.ToLower(strings.TrimSpace(m.AuthMethod))
+	if authMethod == "local" {
+		return true
+	}
+
+	protocol := modelProtocol(m)
+
+	switch protocol {
+	case "claude-cli", "codex-cli", "github-copilot":
+		return true
+	}
+
+	if providers.IsHTTPAPIProtocol(protocol) && providers.IsEmptyAPIKeyAllowedForProtocol(protocol) {
+		apiBase := strings.TrimSpace(m.APIBase)
+		return apiBase == "" || hasLocalAPIBase(apiBase)
+	}
+
+	if hasLocalAPIBase(m.APIBase) {
+		return true
+	}
+
+	return false
 }
 
 func probeLocalModelAvailability(m *config.ModelConfig) bool {

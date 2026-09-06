@@ -69,10 +69,6 @@ type TelegramChannel struct {
 	mediaGroupMu    sync.Mutex
 	mediaGroups     map[string]*telegramMediaGroup
 	mediaGroupDelay time.Duration
-
-	// callbacks maps the opaque handles carried in callback_data to the actions
-	// they stand for. Nothing about a model reaches Telegram itself.
-	callbacks *callbackRegistry
 }
 
 type telegramMediaGroup struct {
@@ -145,7 +141,6 @@ func NewTelegramChannel(
 
 		mediaGroups:     make(map[string]*telegramMediaGroup),
 		mediaGroupDelay: telegramMediaGroupDelay(telegramCfg),
-		callbacks:       newCallbackRegistry(),
 	}
 	ch.progress = channels.NewToolFeedbackAnimator(ch.EditMessage)
 	return ch, nil
@@ -181,13 +176,6 @@ func (c *TelegramChannel) Start(ctx context.Context) error {
 	bh.HandleMessage(func(ctx *th.Context, message telego.Message) error {
 		return c.handleMessage(ctx, &message)
 	}, th.AnyMessage())
-
-	// The same long-polling stream, one more branch. Callback updates arrive on
-	// it already; before this they were simply dropped, which is why a tapped
-	// button did nothing.
-	bh.HandleCallbackQuery(func(ctx *th.Context, query telego.CallbackQuery) error {
-		return c.handleCallbackQuery(ctx, query)
-	}, th.AnyCallbackQuery())
 
 	c.SetRunning(true)
 	logger.InfoCF("telegram", "Telegram bot connected", map[string]any{
@@ -272,10 +260,6 @@ func (c *TelegramChannel) Send(ctx context.Context, msg bus.OutboundMessage) ([]
 	// so msg.Content is guaranteed to be within that limit. We still need to
 	// check if HTML expansion pushes it beyond Telegram's 4096-char API limit.
 	replyToID := msg.ReplyToMessageID
-	// Choices are minted per send, bound to this chat and the person the reply
-	// is for, and attached to the final chunk so a split message keeps its
-	// buttons at the bottom where they belong.
-	keyboard, mintedHandles := c.menuToKeyboard(msg.Menu, msg.ChatID, msg.Context.SenderID)
 	var messageIDs []string
 	queue := []string{msg.Content}
 	if isToolFeedback {
@@ -345,13 +329,6 @@ func (c *TelegramChannel) Send(ctx context.Context, msg bus.OutboundMessage) ([]
 			continue
 		}
 
-		// The buttons belong on the last chunk, so they sit under the whole
-		// answer rather than in the middle of it.
-		var chunkKeyboard [][]inlineButton
-		if len(queue) == 0 {
-			chunkKeyboard = keyboard
-		}
-
 		msgID, err := c.sendChunk(ctx, sendChunkParams{
 			chatID:        chatID,
 			threadID:      threadID,
@@ -359,25 +336,11 @@ func (c *TelegramChannel) Send(ctx context.Context, msg bus.OutboundMessage) ([]
 			replyToID:     replyToID,
 			mdFallback:    chunk,
 			useMarkdownV2: useMarkdownV2,
-			keyboard:      chunkKeyboard,
 		})
 		if err != nil {
 			return nil, err
 		}
 		messageIDs = append(messageIDs, msgID)
-		if len(chunkKeyboard) > 0 {
-			// Bind the handles to the message they now live on, so closing or
-			// replacing that picker can invalidate exactly its own buttons.
-			for _, handle := range mintedHandles {
-				c.callbacks.bindMessage(handle, msg.ChatID, msgID)
-			}
-			// One live picker per chat. A second one makes the first a dead
-			// card, so it is retired rather than left in the conversation
-			// still inviting a choice it can no longer act on.
-			if previous := c.callbacks.replaceActivePicker(msg.ChatID, msgID); previous != "" {
-				c.retirePicker(ctx, chatID, previous)
-			}
-		}
 		// Only the first chunk should be a reply; subsequent chunks are normal messages.
 		replyToID = ""
 	}
@@ -398,8 +361,6 @@ type sendChunkParams struct {
 	replyToID     string
 	mdFallback    string
 	useMarkdownV2 bool
-	// keyboard, when present, renders the message's choices as inline buttons.
-	keyboard [][]inlineButton
 }
 
 // sendChunk sends a single HTML/MarkdownV2 message, falling back to the original
@@ -422,10 +383,6 @@ func (c *TelegramChannel) sendChunk(
 				MessageID: mid,
 			}
 		}
-	}
-
-	if markup := inlineKeyboardMarkup(params.keyboard); markup != nil {
-		tgMsg.ReplyMarkup = markup
 	}
 
 	pMsg, err := c.bot.SendMessage(ctx, tgMsg)

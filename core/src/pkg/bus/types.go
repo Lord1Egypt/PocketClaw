@@ -124,40 +124,6 @@ type OutboundMessage struct {
 	Content          string         `json:"content"`
 	ReplyToMessageID string         `json:"reply_to_message_id,omitempty"`
 	ContextUsage     *ContextUsage  `json:"context_usage,omitempty"`
-
-	// Menu offers the reader a set of choices to tap instead of a command to
-	// type. It is optional and additive: a channel that cannot render choices
-	// ignores it and sends Content as it always has, so this changes nothing
-	// for messages that do not set it.
-	Menu *InteractiveMenu `json:"menu,omitempty"`
-}
-
-// InteractiveMenu is a set of tappable choices attached to a message.
-//
-// It is deliberately not a UI framework. It describes one flat list of labelled
-// buttons and nothing else — no nesting, no styling, no layout engine — because
-// one inline choice menu is all PocketClaw needs, and a generic abstraction
-// would have to guess at what every channel's UI can express.
-type InteractiveMenu struct {
-	Rows []MenuRow `json:"rows"`
-}
-
-// MenuRow is one row of buttons, rendered side by side where the channel allows.
-type MenuRow struct {
-	Buttons []MenuButton `json:"buttons"`
-}
-
-// MenuButton is one choice.
-//
-// Label is what the reader sees. Action and Value say what tapping it means, in
-// PocketClaw's own terms — never a credential, an API base or a registry key.
-// The channel converts these into whatever opaque handle its platform needs;
-// they are not themselves transmitted to the platform.
-type MenuButton struct {
-	Label   string `json:"label"`
-	Action  string `json:"action"`
-	Value   string `json:"value,omitempty"`
-	Current bool   `json:"current,omitempty"`
 }
 
 // MediaPart describes a single media attachment to send.

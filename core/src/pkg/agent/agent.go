@@ -556,14 +556,6 @@ func (al *AgentLoop) runTurnWithDeferredActivity(
 	ctx context.Context,
 	msg bus.InboundMessage,
 ) error {
-	// A command that answers from local state never reaches the model, so the
-	// activity signals would be theatre: a "Thinking…" placeholder for a
-	// configuration action makes changing a setting look like a conversation,
-	// and the reply arrives before the indicator would mean anything.
-	if al.cmdRegistry != nil && al.cmdRegistry.IsInstantCommand(msg.Content) {
-		return al.runTurnWithSteering(ctx, msg)
-	}
-
 	defer al.stopDeferredTyping(msg)
 	al.startDeferredTyping(ctx, msg)
 	al.sendDeferredPlaceholder(ctx, msg)

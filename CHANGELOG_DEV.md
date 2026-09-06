@@ -1,5 +1,58 @@
 # Development Changelog
 
+## 2026-09-06 — The picker worked; the product it implied did not
+
+`feature/telegram-interactive-menus` is abandoned by product decision and
+converged back to `develop`. Not merged, not reverted-after-merge — nothing of
+it ever entered `develop`, so the branch was simply brought back to `develop`
+plus one test fix.
+
+It is worth being precise about what failed, because it was not the code. The
+`/model` picker shipped as vc47 and vc48 and was used on the device. Buttons
+listed only models PocketClaw could actually switch to, a tap revalidated before
+switching, callback payloads were opaque handles with a TTL that carried no
+model name or credential, taps were bound to the chat and sender that opened the
+picker, the answer edited the picker in place instead of stacking cards in the
+conversation, cancel closed it, and opening a second picker retired the first.
+Every one of those had a test that was shown to fail when its protection was
+removed, and every one of them behaved on the phone.
+
+What physical use exposed is that "the model" meant two different things. The
+Dashboard configures the default that lives in `config.json`. The picker moved
+the running `AgentInstance` and nothing else. So the Dashboard could show a model
+the picker never offered, and a model picked in Telegram never became the
+default — two places to set one thing, disagreeing, with no indication to the
+user which one had won. The only repairs are synchronizing runtime state back
+into configuration or making the Dashboard follow the runtime, and neither is
+worth building for a convenience this size. Model management stays
+Dashboard-owned; Telegram stays a conversation and control surface.
+
+Removal was total on purpose. `bus.InteractiveMenu` and the `OutboundMessage.Menu`
+field, the menu-action delegate, the Telegram callback registry with its TTL
+handles and picker retirement, `commands.Menu` and `ReplyMenu`,
+`Definition.Instant`, `Runtime.GetModelPicker`, `BaseChannel.Bus()` — all gone.
+None of it had a user outside the picker, and generic interaction plumbing left
+in place "for later" is just code nobody is testing against a real requirement.
+
+`pkg/modelaccess` went too, which deserves an explanation since it was the one
+piece that looked reusable. It was a verbatim lift of `hasModelConfiguration`
+and `requiresRuntimeProbe` out of `web/backend/api` so `pkg/commands` could
+import them. With the picker gone its only consumer is the package it came from,
+and the lift had left `hasLocalAPIBase` implemented in both places — the exact
+drift the shared package was justified as preventing. A shared package with one
+consumer that also duplicates a rule is not an improvement, so the Dashboard's
+eligibility logic went back where it is owned.
+
+Two things were kept. `harnessWorkspace` replaces `t.TempDir()` in the Telegram
+cancellation harness: a turn released during teardown writes its session while
+`t.TempDir()` is removing the directory, so a passing suite went red on a
+filesystem detail. That race is latent on `develop` and the fix is test-only.
+And `/switch` is now described as "Advanced runtime controls" rather than
+"Switch model or channel", with its no-argument guidance pointing at the
+Dashboard for choosing a default instead of promising a picker that is not
+coming. The advanced form still works and still moves the running agent; it just
+no longer advertises chat as the place to choose a model.
+
 ## 2026-09-06 — Prose instead of grammar, and a struct that was never meant to be read
 
 Branch `feature/telegram-command-ux` closed at `896021f` and merged to `develop`

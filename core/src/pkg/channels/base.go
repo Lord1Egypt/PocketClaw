@@ -55,10 +55,6 @@ type Channel interface {
 	ReasoningChannelID() string
 }
 
-// Bus exposes the message bus so a channel can reach delegates registered on
-// it — the menu-action delegate the agent registers, for example.
-func (c *BaseChannel) Bus() *bus.MessageBus { return c.bus }
-
 // BaseChannelOption is a functional option for configuring a BaseChannel.
 type BaseChannelOption func(*BaseChannel)
 
