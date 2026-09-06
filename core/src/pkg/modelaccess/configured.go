@@ -167,3 +167,30 @@ func hasLocalAPIBase(raw string) bool {
 		return false
 	}
 }
+
+// IsSelectable reports whether an entry can be switched to right now, which is
+// a stricter question than IsConfigured.
+//
+// IsConfigured answers "is there enough configuration here to try", which is
+// what the Dashboard needs before it probes an endpoint or lists a candidate.
+// A picker needs more: every button a user can tap has to mean a model
+// PocketClaw can switch to, not one that might work if a local service happens
+// to be running.
+//
+// The difference is the probe-required entries — Ollama, LM Studio, vLLM and
+// the CLI-backed providers. Those are configured by being reachable rather than
+// by holding a key, and reachability is a network round trip. The probe cache
+// that answers it lives in the launcher process with a thirty-minute TTL; the
+// gateway, where a chat command runs, cannot see it and must not open its own.
+//
+// So Enabled is the evidence, and it is a real one rather than a proxy: the
+// seeded provider templates ship with it absent, and the materialize endpoint
+// sets it when a user turns a discovered model into a routable entry. An
+// enabled probe-based model is one somebody deliberately materialized, not one
+// that came with the install.
+func IsSelectable(m *config.ModelConfig) bool {
+	if m == nil || !m.Enabled {
+		return false
+	}
+	return IsConfigured(m)
+}

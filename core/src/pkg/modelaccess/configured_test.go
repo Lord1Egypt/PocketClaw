@@ -113,3 +113,95 @@ func TestStoredOAuthCredentialConfiguresTheEntry(t *testing.T) {
 		t.Fatal("an entry with a stored OAuth credential must be configured")
 	}
 }
+
+// A picker must only offer models that can be switched to now. The seeded
+// probe-based templates ship disabled, so nothing has established that the
+// local runtime behind them exists.
+func TestSeededProbeTemplatesAreNotSelectable(t *testing.T) {
+	withoutCredentials(t)
+
+	probeSeeds := map[string]bool{
+		"llama3": true, "local-model": true, "lmstudio-local": true, "copilot-gpt-5.4": true,
+	}
+	found := 0
+	for _, entry := range config.DefaultConfig().ModelList {
+		if entry == nil || !probeSeeds[entry.ModelName] {
+			continue
+		}
+		found++
+		if !RequiresRuntimeProbe(entry) {
+			t.Errorf("%q is expected to be probe-based", entry.ModelName)
+		}
+		// The Dashboard still gets to consider it a probe candidate...
+		if !IsConfigured(entry) {
+			t.Errorf("%q should remain configured enough for the Dashboard to probe", entry.ModelName)
+		}
+		// ...but a picker must not offer it.
+		if IsSelectable(entry) {
+			t.Errorf("%q is offered for switching though nothing proved it available", entry.ModelName)
+		}
+	}
+	if found != len(probeSeeds) {
+		t.Fatalf("found %d of the %d probe-based seeds", found, len(probeSeeds))
+	}
+}
+
+// Every seeded template is unselectable on a fresh install: the picker starts
+// empty rather than full of things that cannot be chosen.
+func TestNoSeededTemplateIsSelectable(t *testing.T) {
+	withoutCredentials(t)
+
+	for _, entry := range config.DefaultConfig().ModelList {
+		if entry != nil && IsSelectable(entry) {
+			t.Errorf("seeded template %q is selectable on a fresh install", entry.ModelName)
+		}
+	}
+}
+
+// A model the user materialized is enabled, and that is the evidence a picker
+// acts on — including for a local runtime.
+func TestMaterializedModelsAreSelectable(t *testing.T) {
+	withoutCredentials(t)
+
+	keyed := modelEntry("Gemini", "gemini", "gemini-2.5-flash", "k-live")
+	keyed.Enabled = true
+	if !IsSelectable(keyed) {
+		t.Fatal("a configured, enabled model must be selectable")
+	}
+
+	local := modelEntry("My Ollama", "ollama", "llama3", "")
+	local.Enabled = true
+	if !RequiresRuntimeProbe(local) {
+		t.Fatal("this entry should be probe-based")
+	}
+	if !IsSelectable(local) {
+		t.Fatal("a deliberately materialized local model must remain selectable")
+	}
+}
+
+// Enabling is not enough on its own: an entry with no way to authenticate stays
+// out regardless.
+func TestEnabledButUnconfiguredIsNotSelectable(t *testing.T) {
+	withoutCredentials(t)
+
+	entry := modelEntry("Groq", "groq", "llama-3.3", "")
+	entry.Enabled = true
+	if IsSelectable(entry) {
+		t.Fatal("an enabled entry with no credentials must not be selectable")
+	}
+}
+
+// The Dashboard's question is unchanged by the picker's stricter one.
+func TestSelectableDoesNotChangeConfiguredSemantics(t *testing.T) {
+	withoutCredentials(t)
+
+	for _, entry := range config.DefaultConfig().ModelList {
+		if entry == nil {
+			continue
+		}
+		if IsSelectable(entry) && !IsConfigured(entry) {
+			t.Errorf("%q is selectable but not configured; selectable must be the stricter rule",
+				entry.ModelName)
+		}
+	}
+}

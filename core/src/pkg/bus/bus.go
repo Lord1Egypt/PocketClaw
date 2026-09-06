@@ -100,10 +100,15 @@ type MenuActionRequest struct {
 // Message is user-facing text: short, already safe to display, and never a raw
 // internal error.
 type MenuActionResult struct {
+	// Message is the short acknowledgement shown where the platform puts one —
+	// Telegram's callback toast. It is not a chat message: changing a setting
+	// should not leave a trail in the conversation.
 	Message string
 	Changed bool
-	// Menu, when set, replaces the menu on the message the button belonged to,
-	// so the picker can re-render with the new selection marked.
+	// Text, when set, replaces the body of the message the button belonged to,
+	// so the picker's header can state the new selection.
+	Text string
+	// Menu, when set, replaces that message's choices, so the tick moves.
 	Menu *InteractiveMenu
 }
 

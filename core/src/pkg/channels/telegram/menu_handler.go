@@ -85,31 +85,25 @@ func (c *TelegramChannel) handleCallbackQuery(ctx context.Context, query telego.
 
 	c.answerCallback(ctx, query.ID, callbackToast(result.Message))
 
-	// The old picker still claims the previous selection, so replace its
-	// buttons rather than leaving a menu that disagrees with reality.
+	// The picker updates in place. A model switch is configuration, not
+	// conversation, so it leaves no new message behind — the message the user
+	// tapped becomes the record of what changed.
 	c.callbacks.invalidateMessage(chatID, messageID)
-	if result.Menu != nil {
-		rows, handles := c.menuToKeyboard(result.Menu, chatID, senderID)
-		if c.replaceKeyboard(ctx, query.Message.GetChat().ID, query.Message.GetMessageID(), rows) {
-			for _, handle := range handles {
-				c.callbacks.bindMessage(handle, chatID, messageID)
-			}
-		}
-	} else {
+	if result.Menu == nil && result.Text == "" {
 		c.clearKeyboard(ctx, query.Message.GetChat().ID, query.Message.GetMessageID())
+		return nil
 	}
 
-	if result.Changed && strings.TrimSpace(result.Message) != "" {
-		if _, err := c.sendChunk(ctx, sendChunkParams{
-			chatID:  query.Message.GetChat().ID,
-			content: parseContent(result.Message, c.tgCfg.UseMarkdownV2),
-			// The confirmation is PocketClaw's own words, so the fallback is
-			// the same text rather than a re-render.
-			mdFallback:    result.Message,
-			useMarkdownV2: c.tgCfg.UseMarkdownV2,
-		}); err != nil {
-			logger.WarnCF("telegram", "Failed to confirm menu action",
-				map[string]any{"error": err.Error()})
+	rows, handles := c.menuToKeyboard(result.Menu, chatID, senderID)
+	if c.updatePicker(
+		ctx,
+		query.Message.GetChat().ID,
+		query.Message.GetMessageID(),
+		result.Text,
+		rows,
+	) {
+		for _, handle := range handles {
+			c.callbacks.bindMessage(handle, chatID, messageID)
 		}
 	}
 	return nil
@@ -145,26 +139,54 @@ func (c *TelegramChannel) answerCallback(ctx context.Context, queryID, text stri
 	}
 }
 
-// replaceKeyboard swaps a picker's buttons in place. Reports whether it worked,
-// so the caller only binds new handles to a message that actually carries them.
-func (c *TelegramChannel) replaceKeyboard(
+// updatePicker rewrites the tapped message in place — its body, its buttons, or
+// both. Reports whether it worked, so the caller only binds new handles to a
+// message that actually carries them.
+//
+// Editing text and markup together is one Telegram call; markup alone is
+// another. Both are edits of the same message, which is what keeps a switch
+// from adding to the chat.
+func (c *TelegramChannel) updatePicker(
 	ctx context.Context,
 	chatID int64,
 	messageID int,
+	text string,
 	rows [][]inlineButton,
 ) bool {
 	markup := inlineKeyboardMarkup(rows)
-	if markup == nil {
-		c.clearKeyboard(ctx, chatID, messageID)
-		return false
+
+	if strings.TrimSpace(text) == "" {
+		if markup == nil {
+			c.clearKeyboard(ctx, chatID, messageID)
+			return false
+		}
+		_, err := c.bot.EditMessageReplyMarkup(ctx, &telego.EditMessageReplyMarkupParams{
+			ChatID:      tu.ID(chatID),
+			MessageID:   messageID,
+			ReplyMarkup: markup,
+		})
+		if err != nil {
+			logger.DebugCF("telegram", "Failed to update menu keyboard",
+				map[string]any{"error": err.Error()})
+			return false
+		}
+		return true
 	}
-	_, err := c.bot.EditMessageReplyMarkup(ctx, &telego.EditMessageReplyMarkupParams{
-		ChatID:      tu.ID(chatID),
-		MessageID:   messageID,
-		ReplyMarkup: markup,
-	})
-	if err != nil {
-		logger.DebugCF("telegram", "Failed to update menu keyboard",
+
+	params := &telego.EditMessageTextParams{
+		ChatID:    tu.ID(chatID),
+		MessageID: messageID,
+		Text:      parseContent(text, c.tgCfg.UseMarkdownV2),
+	}
+	if c.tgCfg.UseMarkdownV2 {
+		params.ParseMode = telego.ModeMarkdownV2
+	} else {
+		params.ParseMode = telego.ModeHTML
+	}
+	params.ReplyMarkup = markup
+
+	if _, err := c.bot.EditMessageText(ctx, params); err != nil {
+		logger.DebugCF("telegram", "Failed to update picker text",
 			map[string]any{"error": err.Error()})
 		return false
 	}

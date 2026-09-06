@@ -31,11 +31,11 @@ type selectableModel struct {
 
 // listSelectableModels returns the models a user may switch to.
 //
-// Eligibility comes from pkg/modelaccess, the same rule the Dashboard's model
-// list uses, so a model offered here is one the Dashboard would also call
-// configured. Entries seeded into model_list without credentials — the thirty
-// keyless provider templates DefaultConfig ships — are configured by nobody and
-// are not offered.
+// Eligibility is modelaccess.IsSelectable, which builds on the same configured
+// rule the Dashboard uses and then asks the stricter question a picker needs:
+// can this be switched to now. Seeded provider templates are excluded whether
+// they are keyless or probe-based, because every button here has to mean a
+// model PocketClaw can actually select.
 func listSelectableModels(cfg *config.Config, currentModel string) []selectableModel {
 	if cfg == nil {
 		return nil
@@ -45,14 +45,11 @@ func listSelectableModels(cfg *config.Config, currentModel string) []selectableM
 	models := make([]selectableModel, 0, len(cfg.ModelList))
 
 	for _, entry := range cfg.ModelList {
-		if entry == nil || !entry.Enabled {
+		if entry == nil || !modelaccess.IsSelectable(entry) {
 			continue
 		}
 		name := strings.TrimSpace(entry.ModelName)
 		if name == "" || seen[name] {
-			continue
-		}
-		if !modelaccess.IsConfigured(entry) {
 			continue
 		}
 		seen[name] = true
@@ -146,11 +143,8 @@ func (al *AgentLoop) runSelectModelAction(req bus.MenuActionRequest) bus.MenuAct
 
 	if chosen.Current {
 		// Tapping what is already active is not an error and must not rebind a
-		// working provider for nothing.
-		return bus.MenuActionResult{
-			Message: "Already using " + chosen.Label + ".",
-			Menu:    buildModelMenu(models),
-		}
+		// working provider for nothing. The picker is left exactly as it is.
+		return bus.MenuActionResult{Message: "Already using " + chosen.Label}
 	}
 
 	if _, err := switchAgentModel(cfg, agent, chosen.Name); err != nil {
@@ -160,10 +154,15 @@ func (al *AgentLoop) runSelectModelAction(req bus.MenuActionRequest) bus.MenuAct
 		return bus.MenuActionResult{Message: "Could not switch to " + chosen.Label + "."}
 	}
 
+	// The picker updates in place: its header names the new model and the tick
+	// moves. No second chat message — this is configuration, and a switch does
+	// not belong in the conversation as a separate entry.
+	updated := listSelectableModels(cfg, agent.Model)
 	return bus.MenuActionResult{
-		Message: "✅ Switched to " + chosen.Label,
+		Message: "Switched to " + chosen.Label,
 		Changed: true,
-		Menu:    buildModelMenu(listSelectableModels(cfg, agent.Model)),
+		Text:    modelPickerText(agent, cfg, updated),
+		Menu:    buildModelMenu(updated),
 	}
 }
 
@@ -236,4 +235,17 @@ func busMenuFromCommandMenu(menu *commands.Menu) *bus.InteractiveMenu {
 		out.Rows = append(out.Rows, bus.MenuRow{Buttons: buttons})
 	}
 	return out
+}
+
+// modelPickerText renders the picker body, so an updated picker reads exactly
+// like a freshly requested one.
+func modelPickerText(agent *AgentInstance, cfg *config.Config, models []selectableModel) string {
+	header := "🤖 Current model\n" + agent.Model
+	if provider := resolvedCandidateProvider(agent.Candidates, cfg.Agents.Defaults.Provider); provider != "" {
+		header += "\nProvider: " + provider
+	}
+	if len(models) == 0 {
+		return header
+	}
+	return header + "\n\nChoose a model:"
 }
