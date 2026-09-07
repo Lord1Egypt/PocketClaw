@@ -10,6 +10,7 @@ import 'device_feedback_models.dart';
 import 'firebase_device_reporter.dart';
 import 'picoclaw_channel.dart';
 import 'plain_text_log_sanitizer.dart';
+import 'status_snapshot.dart';
 import 'umeng_device_reporter.dart';
 import '../native/core_service_adapter_factory.dart';
 import '../native/core_service_adapter.dart';
@@ -168,6 +169,7 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
   int _deviceFeedbackRetryAttempt = 0;
   bool _deviceFeedbackConfigurationNoticeEmitted = false;
   String _cachedAppVersion = 'unknown';
+  String _cachedCoreVersion = '';
   DeviceTelemetrySnapshot? _lastTelemetrySnapshot;
   final List<StreamSubscription<ProcessSignal>> _signalSubscriptions = [];
 
@@ -202,6 +204,13 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
   int _nativePid = -1;
   String _healthStatus = '';
   String _healthUptime = '';
+
+  // Status detail is opt-in. The base health poll below is shared by Start/Stop
+  // and must keep running whatever screen is visible, so what is gated is the
+  // extra work inside it, not the timer itself. When Status is not on screen
+  // this stays false and the poll costs exactly what it always did.
+  bool _statusDetailWanted = false;
+  StatusSnapshot? _statusSnapshot;
   bool _autoStart = false;
   LaunchAutoStartPreferences _launchAutoStart =
       LaunchAutoStartPreferences.defaults;
@@ -210,6 +219,28 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
   int get nativePid => _nativePid;
   String get healthStatus => _healthStatus;
   String get healthUptime => _healthUptime;
+
+  /// The latest Status snapshot, or null when detail has not been requested,
+  /// the gateway is stopped, or the host could not obtain it. Null means
+  /// unavailable and the screen says so rather than showing zeroes.
+  StatusSnapshot? get statusSnapshot => _statusSnapshot;
+
+  /// Whether the Status screen is asking for the detailed payload.
+  bool get statusDetailWanted => _statusDetailWanted;
+
+  /// Turns the detailed Status payload on or off.
+  ///
+  /// Called when the Status tab is shown and hidden. Turning it off drops the
+  /// retained snapshot so a stale reading can never be shown as current on the
+  /// next visit.
+  void setStatusDetailWanted(bool wanted) {
+    if (_statusDetailWanted == wanted) return;
+    _statusDetailWanted = wanted;
+    if (!wanted) {
+      _statusSnapshot = null;
+    }
+    notifyListeners();
+  }
   bool get autoStart => _autoStart;
 
   /// Cached mirror of the Android host's canonical launch auto-start record.
@@ -705,7 +736,27 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
 
   Future<String> getCoreVersion() async {
     _syncAdapterConfiguration();
-    return _adapter.getCoreVersion();
+    final version = await _adapter.getCoreVersion();
+    if (version.isNotEmpty && version != _cachedCoreVersion) {
+      _cachedCoreVersion = version;
+      notifyListeners();
+    }
+    return version;
+  }
+
+  /// App version for display, or an empty string until it has been read.
+  String get appVersion => _cachedAppVersion == 'unknown' ? '' : _cachedAppVersion;
+
+  /// Core version for display, read once and cached.
+  ///
+  /// Reading it means invoking the Core binary, so it is fetched on demand
+  /// rather than on every poll: a version does not change while the process
+  /// runs.
+  String get coreVersionLabel {
+    if (_cachedCoreVersion.isEmpty) {
+      unawaited(getCoreVersion());
+    }
+    return _cachedCoreVersion;
   }
 
   Future<String> _readAppVersion() async {
@@ -974,24 +1025,35 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
         _addLog(line);
       }
 
+      final hadSnapshot = _statusSnapshot != null;
       if (isRunning) {
         try {
-          final health = await PicoClawChannel.checkHealth();
+          final health = await PicoClawChannel.checkHealth(
+            detail: _statusDetailWanted,
+          );
           final isHealthy = health['isHealthy'] as bool? ?? false;
           _healthStatus = isHealthy ? 'Healthy' : 'Starting...';
           _healthUptime = health['uptime'] as String? ?? '';
           if (health['pid'] != null && (health['pid'] as int) > 0) {
             _nativePid = health['pid'] as int;
           }
+          _statusSnapshot = _statusDetailWanted
+              ? StatusSnapshot.tryParse(health['detail'] as String?)
+              : null;
         } catch (_) {
           _healthStatus = 'Starting...';
+          _statusSnapshot = null;
         }
       } else {
         _healthStatus = '';
         _healthUptime = '';
+        _statusSnapshot = null;
       }
 
-      if (oldStatus != _status) {
+      // The Status screen reads a fresh snapshot every poll, so it has to be
+      // told about a new one even when the service status itself is unchanged.
+      if (oldStatus != _status ||
+          (_statusDetailWanted && (_statusSnapshot != null || hadSnapshot))) {
         notifyListeners();
       }
     } catch (e) {

@@ -8,9 +8,62 @@ import 'package:pocketclaw/src/generated/l10n/app_localizations.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:remixicon/remixicon.dart';
 import 'package:pocketclaw/src/ui/widgets/tv_focusable.dart';
+import 'package:pocketclaw/src/ui/status_sections.dart';
 
-class DashboardPage extends StatelessWidget {
-  const DashboardPage({super.key});
+class DashboardPage extends StatefulWidget {
+  const DashboardPage({super.key, this.detailEnabled = true});
+
+  /// Whether this page is the selected tab. The detailed Status payload is
+  /// only requested while it is, so an unwatched Status tab leaves the shared
+  /// health poll costing exactly what it always did.
+  final bool detailEnabled;
+
+  @override
+  State<DashboardPage> createState() => _DashboardPageState();
+}
+
+class _DashboardPageState extends State<DashboardPage> {
+  // Held so dispose can turn detail off without looking up an ancestor on an
+  // already-deactivated element, which is not allowed at that point.
+  ServiceManager? _service;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _service = context.read<ServiceManager>();
+    _syncDetailRequest();
+  }
+
+  @override
+  void didUpdateWidget(covariant DashboardPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.detailEnabled != widget.detailEnabled) {
+      _syncDetailRequest();
+    }
+  }
+
+  @override
+  void dispose() {
+    // Leaving Status stops the detailed request. The page is kept alive by an
+    // IndexedStack, so dispose alone would not be enough — detailEnabled is
+    // what actually turns it off when the tab changes — but stopping here too
+    // means no path can leave detail running with nothing to display it.
+    _service?.setStatusDetailWanted(false);
+    super.dispose();
+  }
+
+  void _syncDetailRequest() {
+    final service = _service;
+    if (service == null) return;
+    final enabled = widget.detailEnabled;
+    // Deferred past the current build: setStatusDetailWanted notifies
+    // listeners, and notifying while this page is building would rebuild it
+    // mid-frame.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (enabled && !mounted) return;
+      service.setStatusDetailWanted(enabled);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -34,7 +87,7 @@ class DashboardPage extends StatelessWidget {
             elevation: 0,
             centerTitle: false,
             title: Text(
-              l10n.run,
+              l10n.statusTitle,
               style: GoogleFonts.inter(
                 fontWeight: FontWeight.w600,
                 fontSize: 22,
@@ -157,8 +210,17 @@ class DashboardPage extends StatelessWidget {
                         border: Border.all(color: tokens.border),
                       ),
                       clipBehavior: Clip.antiAlias,
-                      child: isNarrow
-                          ? Column(
+                      // Endpoint, QR and the steps for using them are one
+                      // access section. The steps used to sit at the very
+                      // bottom of the page, below the Status metrics, where
+                      // they read as a footnote about nothing in particular
+                      // rather than as instructions for the QR directly above
+                      // them.
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (isNarrow)
+                            Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 infoSection,
@@ -170,7 +232,8 @@ class DashboardPage extends StatelessWidget {
                                 Center(child: qrSection),
                               ],
                             )
-                          : Row(
+                          else
+                            Row(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Expanded(flex: 3, child: infoSection),
@@ -182,38 +245,33 @@ class DashboardPage extends StatelessWidget {
                                 qrSection,
                               ],
                             ),
+                          Container(
+                            width: double.infinity,
+                            height: 1,
+                            color: tokens.border,
+                          ),
+                          _buildAccessHint(context, service, l10n),
+                        ],
+                      ),
                     );
                   },
                 ),
-                const SizedBox(height: 32),
-                // Hint at bottom center
-                Center(
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Icon(
-                        Icons.lightbulb_outline,
-                        size: 18,
-                        color: tokens.textFaint,
-                      ),
-                      const SizedBox(width: 10),
-                      Flexible(
-                        child: Text(
-                          service.publicMode
-                              ? l10n.publicModeHint
-                              : l10n.localModeHint,
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: tokens.textMuted,
-                            height: 1.5,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
+                const SizedBox(height: ApertureTheme.spaceLg),
+                StatusSections(
+                  gatewayRunning: isRunning,
+                  appVersion: service.appVersion,
+                  coreVersion: service.coreVersionLabel,
+                  snapshot: service.statusSnapshot,
                 ),
-                const SizedBox(height: 100),
+                // No bottom reservation for the navigation bar. AdaptiveActionBar
+                // lays the shell out as SafeArea(Column[Expanded(content), bar]),
+                // so the bar is a sibling below this scroll view rather than an
+                // overlay, and the system inset is consumed there — reserving it
+                // again here would double-count it. A 100px spacer used to sit
+                // here for a bar that never overlapped; it was invisible only
+                // while the access hint still rendered inside it, and became a
+                // dead band once that moved into the access card. The
+                // page-bottom gap is the SliverPadding above.
               ]),
             ),
           ),
@@ -342,6 +400,39 @@ class DashboardPage extends StatelessWidget {
           Text(
             l10n.webAdmin,
             style: TextStyle(color: tokens.textFaint, fontSize: 13),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// The steps for reaching PocketClaw, rendered inside the access card
+  /// directly under the QR they describe.
+  ///
+  /// Which steps apply depends on Public Mode, which is why this reads the
+  /// service rather than taking a fixed string.
+  Widget _buildAccessHint(
+    BuildContext context,
+    ServiceManager service,
+    AppLocalizations l10n,
+  ) {
+    final tokens = context.aperture;
+    return Padding(
+      padding: const EdgeInsets.all(ApertureTheme.spaceMd),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.lightbulb_outline, size: 18, color: tokens.textFaint),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              service.publicMode ? l10n.publicModeHint : l10n.localModeHint,
+              style: TextStyle(
+                fontSize: 14,
+                color: tokens.textMuted,
+                height: 1.5,
+              ),
+            ),
           ),
         ],
       ),

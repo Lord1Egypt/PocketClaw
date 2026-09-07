@@ -50,6 +50,7 @@ import (
 	"github.com/sipeed/picoclaw/pkg/pid"
 	"github.com/sipeed/picoclaw/pkg/providers"
 	"github.com/sipeed/picoclaw/pkg/state"
+	"github.com/sipeed/picoclaw/pkg/status"
 	"github.com/sipeed/picoclaw/pkg/tools"
 )
 
@@ -502,6 +503,19 @@ func setupAndStartServices(
 	// configuration restart until the gateway is idle instead of cutting off a
 	// running answer.
 	runningServices.HealthServer.SetActiveRequestsProbe(agentLoop.ActiveRequests)
+	// Detail mode assembles its snapshot on demand, inside the request, so
+	// nothing here samples, buffers or retains anything between polls.
+	runningServices.HealthServer.SetStatusProbe(func() status.Snapshot {
+		snapshot := status.Snapshot{
+			Activity:  agentLoop.StatusActivity(),
+			Model:     agentLoop.StatusModel(),
+			Resources: status.ReadResources(),
+		}
+		if runningServices.ChannelManager != nil {
+			snapshot.Channels = runningServices.ChannelManager.SnapshotChannels()
+		}
+		return snapshot
+	})
 
 	var listenAddr string
 	if len(listenResult.Listeners) > 0 {

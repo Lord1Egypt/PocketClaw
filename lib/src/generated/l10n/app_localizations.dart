@@ -999,6 +999,222 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Appearance'**
   String get settingsGroupAppearance;
+
+  /// Title of the Status screen
+  ///
+  /// In en, this message translates to:
+  /// **'Status'**
+  String get statusTitle;
+
+  /// No description provided for @statusSectionSystem.
+  ///
+  /// In en, this message translates to:
+  /// **'System'**
+  String get statusSectionSystem;
+
+  /// No description provided for @statusSectionAi.
+  ///
+  /// In en, this message translates to:
+  /// **'AI'**
+  String get statusSectionAi;
+
+  /// No description provided for @statusSectionActivity.
+  ///
+  /// In en, this message translates to:
+  /// **'Activity'**
+  String get statusSectionActivity;
+
+  /// No description provided for @statusSectionChannels.
+  ///
+  /// In en, this message translates to:
+  /// **'Channels'**
+  String get statusSectionChannels;
+
+  /// No description provided for @statusSectionResources.
+  ///
+  /// In en, this message translates to:
+  /// **'Resources'**
+  String get statusSectionResources;
+
+  /// Caption clarifying that the activity counters reset when the Gateway restarts
+  ///
+  /// In en, this message translates to:
+  /// **'Since Gateway start'**
+  String get statusSinceGatewayStart;
+
+  /// No description provided for @statusGateway.
+  ///
+  /// In en, this message translates to:
+  /// **'Gateway'**
+  String get statusGateway;
+
+  /// No description provided for @statusUptime.
+  ///
+  /// In en, this message translates to:
+  /// **'Uptime'**
+  String get statusUptime;
+
+  /// No description provided for @statusAppVersion.
+  ///
+  /// In en, this message translates to:
+  /// **'App version'**
+  String get statusAppVersion;
+
+  /// No description provided for @statusCoreVersion.
+  ///
+  /// In en, this message translates to:
+  /// **'Core version'**
+  String get statusCoreVersion;
+
+  /// No description provided for @statusActiveModel.
+  ///
+  /// In en, this message translates to:
+  /// **'Active model'**
+  String get statusActiveModel;
+
+  /// No description provided for @statusConfiguredDefault.
+  ///
+  /// In en, this message translates to:
+  /// **'Configured default'**
+  String get statusConfiguredDefault;
+
+  /// No description provided for @statusProvider.
+  ///
+  /// In en, this message translates to:
+  /// **'Provider'**
+  String get statusProvider;
+
+  /// No description provided for @statusFallbacks.
+  ///
+  /// In en, this message translates to:
+  /// **'Fallbacks'**
+  String get statusFallbacks;
+
+  /// No description provided for @statusActiveTurns.
+  ///
+  /// In en, this message translates to:
+  /// **'Active turns'**
+  String get statusActiveTurns;
+
+  /// No description provided for @statusActiveSubagents.
+  ///
+  /// In en, this message translates to:
+  /// **'Active subagents'**
+  String get statusActiveSubagents;
+
+  /// No description provided for @statusWaiting.
+  ///
+  /// In en, this message translates to:
+  /// **'Waiting'**
+  String get statusWaiting;
+
+  /// No description provided for @statusCompleted.
+  ///
+  /// In en, this message translates to:
+  /// **'Completed'**
+  String get statusCompleted;
+
+  /// No description provided for @statusFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed'**
+  String get statusFailed;
+
+  /// No description provided for @statusCancelled.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancelled'**
+  String get statusCancelled;
+
+  /// No description provided for @statusToolCalls.
+  ///
+  /// In en, this message translates to:
+  /// **'Tool calls'**
+  String get statusToolCalls;
+
+  /// No description provided for @statusToolCallsFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Tool calls failed'**
+  String get statusToolCallsFailed;
+
+  /// No description provided for @statusLastActivity.
+  ///
+  /// In en, this message translates to:
+  /// **'Last activity'**
+  String get statusLastActivity;
+
+  /// No description provided for @statusCoreMemory.
+  ///
+  /// In en, this message translates to:
+  /// **'Core memory'**
+  String get statusCoreMemory;
+
+  /// No description provided for @statusCoreCpuTime.
+  ///
+  /// In en, this message translates to:
+  /// **'Core CPU time'**
+  String get statusCoreCpuTime;
+
+  /// No description provided for @statusNoChannels.
+  ///
+  /// In en, this message translates to:
+  /// **'No channels configured'**
+  String get statusNoChannels;
+
+  /// Shown when the detailed Status payload could not be obtained
+  ///
+  /// In en, this message translates to:
+  /// **'Detailed status is unavailable'**
+  String get statusDetailUnavailable;
+
+  /// No description provided for @statusJustNow.
+  ///
+  /// In en, this message translates to:
+  /// **'Just now'**
+  String get statusJustNow;
+
+  /// Relative time since the last activity
+  ///
+  /// In en, this message translates to:
+  /// **'{minutes}m ago'**
+  String statusMinutesAgo(int minutes);
+
+  /// Relative time since the last activity
+  ///
+  /// In en, this message translates to:
+  /// **'{hours}h ago'**
+  String statusHoursAgo(int hours);
+
+  /// Relative time since the last activity
+  ///
+  /// In en, this message translates to:
+  /// **'{days}d ago'**
+  String statusDaysAgo(int days);
+
+  /// Compact uptime duration shown on the Status screen
+  ///
+  /// In en, this message translates to:
+  /// **'{seconds}s'**
+  String statusDurationSeconds(int seconds);
+
+  /// Compact uptime duration shown on the Status screen
+  ///
+  /// In en, this message translates to:
+  /// **'{minutes}m {seconds}s'**
+  String statusDurationMinutes(int minutes, int seconds);
+
+  /// Compact uptime duration shown on the Status screen
+  ///
+  /// In en, this message translates to:
+  /// **'{hours}h {minutes}m'**
+  String statusDurationHours(int hours, int minutes);
+
+  /// Compact uptime duration shown on the Status screen
+  ///
+  /// In en, this message translates to:
+  /// **'{days}d {hours}h'**
+  String statusDurationDays(int days, int hours);
 }
 
 class _AppLocalizationsDelegate

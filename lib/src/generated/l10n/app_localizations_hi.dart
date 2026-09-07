@@ -499,4 +499,126 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String get settingsGroupAppearance => 'रूप';
+
+  @override
+  String get statusTitle => 'स्थिति';
+
+  @override
+  String get statusSectionSystem => 'सिस्टम';
+
+  @override
+  String get statusSectionAi => 'एआई';
+
+  @override
+  String get statusSectionActivity => 'गतिविधि';
+
+  @override
+  String get statusSectionChannels => 'चैनल';
+
+  @override
+  String get statusSectionResources => 'संसाधन';
+
+  @override
+  String get statusSinceGatewayStart => 'गेटवे शुरू होने से';
+
+  @override
+  String get statusGateway => 'गेटवे';
+
+  @override
+  String get statusUptime => 'अपटाइम';
+
+  @override
+  String get statusAppVersion => 'ऐप संस्करण';
+
+  @override
+  String get statusCoreVersion => 'कोर संस्करण';
+
+  @override
+  String get statusActiveModel => 'सक्रिय मॉडल';
+
+  @override
+  String get statusConfiguredDefault => 'कॉन्फ़िगर किया गया डिफ़ॉल्ट';
+
+  @override
+  String get statusProvider => 'प्रदाता';
+
+  @override
+  String get statusFallbacks => 'फ़ॉलबैक';
+
+  @override
+  String get statusActiveTurns => 'सक्रिय टर्न';
+
+  @override
+  String get statusActiveSubagents => 'सक्रिय सबएजेंट';
+
+  @override
+  String get statusWaiting => 'प्रतीक्षारत';
+
+  @override
+  String get statusCompleted => 'पूर्ण';
+
+  @override
+  String get statusFailed => 'विफल';
+
+  @override
+  String get statusCancelled => 'रद्द';
+
+  @override
+  String get statusToolCalls => 'टूल कॉल';
+
+  @override
+  String get statusToolCallsFailed => 'विफल टूल कॉल';
+
+  @override
+  String get statusLastActivity => 'अंतिम गतिविधि';
+
+  @override
+  String get statusCoreMemory => 'कोर मेमोरी';
+
+  @override
+  String get statusCoreCpuTime => 'कोर सीपीयू समय';
+
+  @override
+  String get statusNoChannels => 'कोई चैनल कॉन्फ़िगर नहीं';
+
+  @override
+  String get statusDetailUnavailable => 'विस्तृत स्थिति उपलब्ध नहीं है';
+
+  @override
+  String get statusJustNow => 'अभी';
+
+  @override
+  String statusMinutesAgo(int minutes) {
+    return '$minutes मि. पहले';
+  }
+
+  @override
+  String statusHoursAgo(int hours) {
+    return '$hours घं. पहले';
+  }
+
+  @override
+  String statusDaysAgo(int days) {
+    return '$days दि. पहले';
+  }
+
+  @override
+  String statusDurationSeconds(int seconds) {
+    return '$seconds से';
+  }
+
+  @override
+  String statusDurationMinutes(int minutes, int seconds) {
+    return '$minutes मि $seconds से';
+  }
+
+  @override
+  String statusDurationHours(int hours, int minutes) {
+    return '$hours घं $minutes मि';
+  }
+
+  @override
+  String statusDurationDays(int days, int hours) {
+    return '$days दि $hours घं';
+  }
 }

@@ -28,6 +28,7 @@ import (
 	"github.com/sipeed/picoclaw/pkg/health"
 	"github.com/sipeed/picoclaw/pkg/logger"
 	"github.com/sipeed/picoclaw/pkg/media"
+	"github.com/sipeed/picoclaw/pkg/status"
 	"github.com/sipeed/picoclaw/pkg/utils"
 )
 
@@ -2096,6 +2097,63 @@ func (m *Manager) GetStatus() map[string]any {
 		}
 	}
 	return status
+}
+
+// SnapshotChannels reports each configured channel's runtime state.
+//
+// It exists instead of GetStatus because that map reports a hardcoded
+// enabled:true, which conflates "the manager holds this channel" with "this
+// channel is usable". Status needs the three facts kept apart:
+//
+//   - Configured: the manager holds the channel.
+//   - Started: Start returned without error, so StartAll created a worker.
+//     A channel that failed to start stays in m.channels with no worker.
+//   - Running: the channel's own flag.
+//
+// Nothing here probes the network, so no reachability is claimed. Names are
+// display names carrying channel identity only — never a bot username,
+// account or chat id.
+func (m *Manager) SnapshotChannels() []status.Channel {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	names := make([]string, 0, len(m.channels))
+	for name := range m.channels {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+
+	snapshots := make([]status.Channel, 0, len(names))
+	for _, name := range names {
+		channel := m.channels[name]
+		_, started := m.workers[name]
+		running := false
+		if channel != nil {
+			running = channel.IsRunning()
+		}
+		snapshots = append(snapshots, status.Channel{
+			Name:       StatusDisplayName(name),
+			Configured: true,
+			Started:    started,
+			// A channel that never started cannot be running. Reporting the
+			// flag unconditionally would let a stale latched value present a
+			// failed channel as healthy.
+			Running: started && running,
+		})
+	}
+	return snapshots
+}
+
+// StatusDisplayName maps a channel's internal id to the name users see.
+//
+// `pico` is the internal protocol id for PocketClaw's own Web Console
+// transport; the runtime identity stays internal, exactly as the gateway
+// startup banner already does it.
+func StatusDisplayName(name string) string {
+	if name == config.ChannelPico {
+		return "pocketclaw"
+	}
+	return name
 }
 
 func (m *Manager) GetEnabledChannels() []string {

@@ -32,6 +32,7 @@ func (al *AgentLoop) runTurn(ctx context.Context, ts *turnState, pipeline *Pipel
 
 	turnStatus := TurnEndStatusCompleted
 	defer func() {
+		al.recordTurnOutcome(turnStatus)
 		attemptedSkills := ts.attemptedSkillsSnapshot()
 		skillContextSnapshots := ts.skillContextSnapshotsSnapshot()
 		finalSuccessfulPath := []string(nil)
@@ -80,6 +81,11 @@ func (al *AgentLoop) runTurn(ctx context.Context, ts *turnState, pipeline *Pipel
 	// SetupTurn extracts the one-time initialization phase.
 	exec, err := pipeline.SetupTurn(turnCtx, ts)
 	if err != nil {
+		// turnStatus still holds its optimistic initial value here. Returning
+		// without correcting it reported a failed setup as turn.end{completed}
+		// — the one terminal path that never reached the classification the
+		// rest of this function is careful to set.
+		turnStatus = TurnEndStatusError
 		return turnResult{}, err
 	}
 

@@ -475,4 +475,126 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get settingsGroupAppearance => '外观';
+
+  @override
+  String get statusTitle => '状态';
+
+  @override
+  String get statusSectionSystem => '系统';
+
+  @override
+  String get statusSectionAi => 'AI';
+
+  @override
+  String get statusSectionActivity => '活动';
+
+  @override
+  String get statusSectionChannels => '频道';
+
+  @override
+  String get statusSectionResources => '资源';
+
+  @override
+  String get statusSinceGatewayStart => '自网关启动起';
+
+  @override
+  String get statusGateway => '网关';
+
+  @override
+  String get statusUptime => '运行时间';
+
+  @override
+  String get statusAppVersion => '应用版本';
+
+  @override
+  String get statusCoreVersion => 'Core 版本';
+
+  @override
+  String get statusActiveModel => '当前模型';
+
+  @override
+  String get statusConfiguredDefault => '配置的默认模型';
+
+  @override
+  String get statusProvider => '提供方';
+
+  @override
+  String get statusFallbacks => '备用模型';
+
+  @override
+  String get statusActiveTurns => '进行中的轮次';
+
+  @override
+  String get statusActiveSubagents => '活动子代理';
+
+  @override
+  String get statusWaiting => '等待中';
+
+  @override
+  String get statusCompleted => '已完成';
+
+  @override
+  String get statusFailed => '失败';
+
+  @override
+  String get statusCancelled => '已取消';
+
+  @override
+  String get statusToolCalls => '工具调用';
+
+  @override
+  String get statusToolCallsFailed => '失败的工具调用';
+
+  @override
+  String get statusLastActivity => '最近活动';
+
+  @override
+  String get statusCoreMemory => 'Core 内存';
+
+  @override
+  String get statusCoreCpuTime => 'Core CPU 时间';
+
+  @override
+  String get statusNoChannels => '未配置频道';
+
+  @override
+  String get statusDetailUnavailable => '详细状态不可用';
+
+  @override
+  String get statusJustNow => '刚刚';
+
+  @override
+  String statusMinutesAgo(int minutes) {
+    return '$minutes 分钟前';
+  }
+
+  @override
+  String statusHoursAgo(int hours) {
+    return '$hours 小时前';
+  }
+
+  @override
+  String statusDaysAgo(int days) {
+    return '$days 天前';
+  }
+
+  @override
+  String statusDurationSeconds(int seconds) {
+    return '$seconds 秒';
+  }
+
+  @override
+  String statusDurationMinutes(int minutes, int seconds) {
+    return '$minutes 分 $seconds 秒';
+  }
+
+  @override
+  String statusDurationHours(int hours, int minutes) {
+    return '$hours 小时 $minutes 分';
+  }
+
+  @override
+  String statusDurationDays(int days, int hours) {
+    return '$days 天 $hours 小时';
+  }
 }

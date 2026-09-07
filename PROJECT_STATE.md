@@ -1,5 +1,72 @@
 # PocketClaw Project State
 
+## Status Dashboard v1 — PHYSICALLY VERIFIED AND CLOSED
+
+- Status: **PASS on a physical Android device (SM-A165F / Android 16), 2026-09-07
+  as vc53. Merged to `develop` with `--no-ff`.** `main` untouched, no tags moved,
+  no release created.
+- Branch `feature/status-dashboard-v1`, from `develop` at `a7d13b7`, head
+  `85eb93a`. Retained, not deleted.
+- Six commits: the Status implementation, the semantic audit corrections, the
+  vc52 Core, the QR placement fix, the uptime contract, and the bottom-spacing
+  polish.
+
+### Physical acceptance evidence
+
+Accepted across three device passes; vc53 is the artifact that closed it.
+
+| Observed | Result |
+| --- | --- |
+| Status metrics render on the integrated tab-0 Dashboard | PASS |
+| Telegram activity moves the counters correctly | PASS |
+| Channels render with truthful Running/Stopped state | PASS |
+| Model, provider and fallback count render correctly | PASS |
+| Resources render Core RSS and cumulative CPU time | PASS |
+| QR instructions render inside the QR access card | PASS |
+| Gateway uptime renders as a human-readable duration | PASS |
+| No large empty band below the Resources card | PASS |
+| Navigation remains four destinations | PASS |
+
+| Item | Value |
+| --- | --- |
+| versionName / versionCode | 0.2.0 / 53 |
+| APK SHA-256 | `6469e9f103109505c9d05c9b47534e033a633d1da36c636621ecfa550196e857` |
+| Core source fingerprint | `f4a3f913014034c974df39a63214c34fb66d4e8b08d848115b58db4723c12104` |
+| `libpicoclaw.so` | `bf4fb01faf2741ccc402f3c07b4925e6cd4ebdd7d581d8775ab1744d50b8fc44` |
+| `libpicoclaw-web.so` | `bd84eaba705f3d0ec0e71e8cfbefe5cf392668b4a53807b8b9bafb5d89422280` |
+
+Core was built for vc52 from source `207c372` and reused byte-for-byte in vc53,
+which changed only Dart. Three earlier device passes — vc51, vc52, vc53 — each
+closed one review round: metrics, then uptime and QR placement, then spacing.
+
+### What the architecture actually is
+
+Status reads one authenticated snapshot per health poll. The gateway assembles
+it inside the request from state that already exists — `activeTurnStates` ranged
+by depth, session mailbox lengths, the channel manager's own maps, the agent's
+resolved candidates — plus six atomics incremented at the two lifecycle points
+that already classify the work. Nothing samples, buffers, retains or persists.
+
+Deriving the counters from the runtime event bus was considered and rejected:
+its subscriptions drop events under backpressure, so bus-derived counters would
+undercount exactly when the numbers matter.
+
+The payload is flat scalar DTOs in `pkg/status`, mapped field by field — the
+same boundary `commands.SubagentInfo` draws for `/subagents`, drawn again
+because Status has a wider audience than one chat window. A golden serialization
+test fills the runtime with sensitive-looking values and proves none can reach
+the JSON; it rejected a new top-level field on its first run after the uptime
+work, which is the guard behaving correctly.
+
+### Open, recorded, not fixed here
+
+The Android gateway PID/auth token lives under the PocketClaw home, which
+resolves to shared external storage when that storage mode is in use, and POSIX
+0600 is not honoured there. Pre-existing; it already guards `/reload` and is
+reused unchanged for read-only detailed Status. Recorded in `TASKS.md` for
+Release Hardening. Do not weaken detailed-status authentication to work around
+it.
+
 ## Telegram Command UX Phase A — PHYSICALLY VERIFIED AND CLOSED
 
 - Status: **PASS on a physical Android device (SM-A165F / Android 16), 2026-09-06

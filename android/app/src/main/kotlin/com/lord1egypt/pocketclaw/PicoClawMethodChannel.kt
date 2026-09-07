@@ -90,7 +90,7 @@ class PicoClawMethodChannel(
     }
 
     private val channel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL_NAME)
-    private val healthChecker = HealthChecker()
+    private val healthChecker = HealthChecker.forHost(context)
 
     private fun getMainExecutor(): Executor {
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
@@ -216,17 +216,25 @@ class PicoClawMethodChannel(
                     ))
                 }
                 "checkHealth" -> {
+                    // `detail` is opt-in and only the Status screen asks for
+                    // it, so an unwatched Status tab costs exactly what this
+                    // poll has always cost.
+                    val wantDetail = call.argument<Boolean>("detail") ?: false
                     Thread {
                         val mainExecutor = getMainExecutor()
 
                         try {
-                            val status = healthChecker.check()
+                            val status = healthChecker.check(wantDetail)
                             val resultMap = mapOf(
                                 "isHealthy" to status.isHealthy,
                                 "status" to status.status,
                                 "uptime" to status.uptime,
                                 "pid" to status.pid,
-                                "error" to (status.error ?: "")
+                                "error" to (status.error ?: ""),
+                                // Raw Status JSON, or null when detail was not
+                                // requested or not available. The bearer token
+                                // used to fetch it never crosses this boundary.
+                                "detail" to status.detailJson
                             )
                             mainExecutor.execute {
                                 result.success(resultMap)

@@ -511,4 +511,126 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String get settingsGroupAppearance => 'Aparência';
+
+  @override
+  String get statusTitle => 'Estado';
+
+  @override
+  String get statusSectionSystem => 'Sistema';
+
+  @override
+  String get statusSectionAi => 'IA';
+
+  @override
+  String get statusSectionActivity => 'Atividade';
+
+  @override
+  String get statusSectionChannels => 'Canais';
+
+  @override
+  String get statusSectionResources => 'Recursos';
+
+  @override
+  String get statusSinceGatewayStart => 'Desde o início do Gateway';
+
+  @override
+  String get statusGateway => 'Gateway';
+
+  @override
+  String get statusUptime => 'Tempo ativo';
+
+  @override
+  String get statusAppVersion => 'Versão do app';
+
+  @override
+  String get statusCoreVersion => 'Versão do Core';
+
+  @override
+  String get statusActiveModel => 'Modelo ativo';
+
+  @override
+  String get statusConfiguredDefault => 'Padrão configurado';
+
+  @override
+  String get statusProvider => 'Provedor';
+
+  @override
+  String get statusFallbacks => 'Alternativas';
+
+  @override
+  String get statusActiveTurns => 'Turnos ativos';
+
+  @override
+  String get statusActiveSubagents => 'Subagentes ativos';
+
+  @override
+  String get statusWaiting => 'Aguardando';
+
+  @override
+  String get statusCompleted => 'Concluídos';
+
+  @override
+  String get statusFailed => 'Falhados';
+
+  @override
+  String get statusCancelled => 'Cancelados';
+
+  @override
+  String get statusToolCalls => 'Chamadas de ferramentas';
+
+  @override
+  String get statusToolCallsFailed => 'Chamadas com falha';
+
+  @override
+  String get statusLastActivity => 'Última atividade';
+
+  @override
+  String get statusCoreMemory => 'Memória do Core';
+
+  @override
+  String get statusCoreCpuTime => 'Tempo de CPU do Core';
+
+  @override
+  String get statusNoChannels => 'Nenhum canal configurado';
+
+  @override
+  String get statusDetailUnavailable => 'Estado detalhado indisponível';
+
+  @override
+  String get statusJustNow => 'Agora mesmo';
+
+  @override
+  String statusMinutesAgo(int minutes) {
+    return 'há $minutes min';
+  }
+
+  @override
+  String statusHoursAgo(int hours) {
+    return 'há $hours h';
+  }
+
+  @override
+  String statusDaysAgo(int days) {
+    return 'há $days d';
+  }
+
+  @override
+  String statusDurationSeconds(int seconds) {
+    return '$seconds s';
+  }
+
+  @override
+  String statusDurationMinutes(int minutes, int seconds) {
+    return '$minutes min $seconds s';
+  }
+
+  @override
+  String statusDurationHours(int hours, int minutes) {
+    return '$hours h $minutes min';
+  }
+
+  @override
+  String statusDurationDays(int days, int hours) {
+    return '$days d $hours h';
+  }
 }

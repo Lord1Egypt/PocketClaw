@@ -483,4 +483,126 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get settingsGroupAppearance => '外観';
+
+  @override
+  String get statusTitle => 'ステータス';
+
+  @override
+  String get statusSectionSystem => 'システム';
+
+  @override
+  String get statusSectionAi => 'AI';
+
+  @override
+  String get statusSectionActivity => 'アクティビティ';
+
+  @override
+  String get statusSectionChannels => 'チャンネル';
+
+  @override
+  String get statusSectionResources => 'リソース';
+
+  @override
+  String get statusSinceGatewayStart => 'ゲートウェイ起動以降';
+
+  @override
+  String get statusGateway => 'ゲートウェイ';
+
+  @override
+  String get statusUptime => '稼働時間';
+
+  @override
+  String get statusAppVersion => 'アプリのバージョン';
+
+  @override
+  String get statusCoreVersion => 'Core のバージョン';
+
+  @override
+  String get statusActiveModel => '使用中のモデル';
+
+  @override
+  String get statusConfiguredDefault => '設定されたデフォルト';
+
+  @override
+  String get statusProvider => 'プロバイダー';
+
+  @override
+  String get statusFallbacks => 'フォールバック';
+
+  @override
+  String get statusActiveTurns => '実行中のターン';
+
+  @override
+  String get statusActiveSubagents => '実行中のサブエージェント';
+
+  @override
+  String get statusWaiting => '待機中';
+
+  @override
+  String get statusCompleted => '完了';
+
+  @override
+  String get statusFailed => '失敗';
+
+  @override
+  String get statusCancelled => 'キャンセル';
+
+  @override
+  String get statusToolCalls => 'ツール呼び出し';
+
+  @override
+  String get statusToolCallsFailed => '失敗したツール呼び出し';
+
+  @override
+  String get statusLastActivity => '最終アクティビティ';
+
+  @override
+  String get statusCoreMemory => 'Core のメモリ';
+
+  @override
+  String get statusCoreCpuTime => 'Core の CPU 時間';
+
+  @override
+  String get statusNoChannels => '設定されたチャンネルはありません';
+
+  @override
+  String get statusDetailUnavailable => '詳細ステータスは利用できません';
+
+  @override
+  String get statusJustNow => 'たった今';
+
+  @override
+  String statusMinutesAgo(int minutes) {
+    return '$minutes 分前';
+  }
+
+  @override
+  String statusHoursAgo(int hours) {
+    return '$hours 時間前';
+  }
+
+  @override
+  String statusDaysAgo(int days) {
+    return '$days 日前';
+  }
+
+  @override
+  String statusDurationSeconds(int seconds) {
+    return '$seconds 秒';
+  }
+
+  @override
+  String statusDurationMinutes(int minutes, int seconds) {
+    return '$minutes 分 $seconds 秒';
+  }
+
+  @override
+  String statusDurationHours(int hours, int minutes) {
+    return '$hours 時間 $minutes 分';
+  }
+
+  @override
+  String statusDurationDays(int days, int hours) {
+    return '$days 日 $hours 時間';
+  }
 }

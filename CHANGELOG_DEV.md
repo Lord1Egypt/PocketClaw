@@ -1,5 +1,66 @@
 # Development Changelog
 
+## 2026-09-07 — A status page is only worth having if you can believe it
+
+`feature/status-dashboard-v1` merged to `develop` with `--no-ff` at head
+`85eb93a`, physically accepted as vc53. The feature is small — one screen of
+numbers — and almost all of the work went into making sure each number means
+what its label says.
+
+The investigation found the metrics were mostly already in memory. Active turns
+and subagents are `activeTurnStates` ranged by depth. Queued work is the length
+of the session mailboxes. Channel state is three maps the manager already keeps.
+What had to be added was six atomics and a place to put them, and the places
+chose themselves: `runTurn`'s terminal defer already owns a turn's final
+classification, and `recordToolExecution` already owns a tool's.
+
+Deriving them from the runtime event bus looked cleaner and is wrong. Its
+subscriptions have a sixteen-event buffer and a drop policy, so a bus-derived
+counter undercounts under exactly the load that makes someone open a status
+page.
+
+Three numbers shipped in the first draft claiming more than the code knows, and
+an audit caught each one.
+
+**"Failed to start" was a guess.** A channel with no worker might have failed,
+or might simply not have been started yet — `StartAll` keeps its failures in a
+local variable for a log line and throws them away. Both states produce the same
+snapshot, so any label naming one a failure mislabels the other. The label is
+gone; there is a test asserting the two snapshots are byte-identical, which is
+where to start if a retained failure state is ever added.
+
+**"Fallbacks" was off by one for every agent.** `resolveModelCandidates` puts
+the primary first and `ExecuteCandidate` walks the whole list, so index 0 is the
+model in use. An agent configured with no fallbacks was being told it had one.
+
+**`active_requests` is not turns.** The health server's own comment says agent
+turns; the increments are around `provider.Chat`, including background
+summarization. It is the right signal for "is a restart safe" and the wrong one
+for anything a person reads. Status counts turns separately and leaves that
+field to the launcher.
+
+Then the device found two more. Uptime rendered as `27.707765309s` because Go's
+`Duration.String()` was piped through four boundaries as opaque text and handed
+to a `Text` widget — nothing on that path had ever parsed it, so no locale could
+render it properly. The fix is a number with a unit,
+`detail.system.uptime_seconds`, leaving the legacy `/health` string untouched
+for the launcher. And a 100px spacer that had reserved room for a navigation bar
+that never overlapped the content sat invisible for as long as the page ended
+with the access hint; moving that hint into the QR card left the reservation
+behind as an empty band.
+
+The security shape is worth recording. The detailed payload is richer process
+information than `/health` has ever exposed anonymously, so it is authenticated
+with the gateway bearer token that already guards `/reload` — no second
+credential — and it fails closed rather than downgrading to a basic response.
+The token stays in Kotlin. Anonymous `/health` is byte-identical to what it
+always returned, which is what made the change safe to ship at all.
+
+One thing that did not change: the numbers are in memory and reset with the
+gateway, and the screen says "Since Gateway start". A restart showing
+`Completed: 0` is correct, and adding a database to avoid that would have been
+the largest thing in the milestone by far.
+
 ## 2026-09-07 — The command still exists; it just points somewhere else
 
 `feature/telegram-interactive-menus` merged to `develop` with `--no-ff` at head

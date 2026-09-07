@@ -1,5 +1,60 @@
 # PocketClaw Session Handoff
 
+## Status Dashboard v1 — PHYSICAL PASS and merged, 2026-09-07
+
+Branch `feature/status-dashboard-v1`, off `develop` at `a7d13b7`, head
+`85eb93a`. **Physically validated on SM-A165F / Android 16 as vc53, then merged
+to `develop` with `--no-ff`.** `main` untouched, no tags moved, no release. The
+branch is retained.
+
+### The things worth not undoing
+
+**Status states only what the runtime can prove.** Three numbers were corrected
+after an audit because the first version claimed more than the code knows.
+Channels are Running or Stopped only — nothing retains a start failure, so a
+failed channel and a not-yet-started one are indistinguishable and neither may
+be accused. Fallbacks is `len(candidates)-1` because index 0 is the model in
+use. `/health`'s `active_requests` counts provider calls including background
+summarization, so it is not a count of turns and must never be labelled one.
+Each of these has a test that fails if it is reversed, including one asserting
+that a failed and a not-yet-started channel produce *identical* snapshots — if
+a retained failure state is ever added, that test is where to start.
+
+**The privacy boundary is structural, not editorial.** `pkg/status` holds flat
+scalar DTOs mapped field by field from runtime state, the same technique
+`commands.SubagentInfo` uses for `/subagents`. Do not widen them, and do not
+return an internal struct to be filtered in Flutter. The golden test rejected a
+new top-level field the first time one was added, which is the point.
+
+**Counters live at the lifecycle points that already classify the work.**
+`runTurn`'s terminal defer owns the turn's final status, and
+`recordToolExecution` owns the tool's. Do not move them, and do not rebuild them
+on the event bus: its subscriptions drop under backpressure, so the numbers
+would be wrong precisely under load.
+
+**Uptime crosses the wire as a number with a unit.** The screen used to print
+Go's `Duration.String()` verbatim because nothing on the path ever parsed it.
+`detail.system.uptime_seconds` is whole seconds; formatting is a localized
+decision that belongs in Dart. The legacy `/health` `uptime` string keeps its
+exact shape for the launcher and the host — do not "tidy" it.
+
+**Detail is authenticated and fails closed.** It reuses the gateway bearer token
+that already guards `/reload`; the Android host reads it from the PID file and
+never passes it to Dart, a URL or a log. Anonymous `/health` is byte-identical
+to what it always returned, which is what the launcher depends on.
+
+### Two product decisions that were reversed mid-milestone
+
+Status was investigated as a fifth navigation tab and then explicitly kept as
+the existing tab-0 destination. The QR instructions were moved out of a detached
+page footer and into the access card. Both are settled; see `DECISIONS.md`.
+
+### Next
+
+Release Hardening remains open, and the Android token-storage item is recorded
+there. Do not fix it as a side effect of another task, and do not weaken
+detailed-status authentication to work around it.
+
 ## Telegram Command UX Phase A — PHYSICAL PASS and merged, 2026-09-06
 
 Branch `feature/telegram-command-ux`, off `develop` at `2f863d2`, head

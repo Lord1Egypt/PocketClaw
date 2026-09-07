@@ -485,4 +485,126 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get settingsGroupAppearance => '모양';
+
+  @override
+  String get statusTitle => '상태';
+
+  @override
+  String get statusSectionSystem => '시스템';
+
+  @override
+  String get statusSectionAi => 'AI';
+
+  @override
+  String get statusSectionActivity => '활동';
+
+  @override
+  String get statusSectionChannels => '채널';
+
+  @override
+  String get statusSectionResources => '리소스';
+
+  @override
+  String get statusSinceGatewayStart => '게이트웨이 시작 이후';
+
+  @override
+  String get statusGateway => '게이트웨이';
+
+  @override
+  String get statusUptime => '가동 시간';
+
+  @override
+  String get statusAppVersion => '앱 버전';
+
+  @override
+  String get statusCoreVersion => 'Core 버전';
+
+  @override
+  String get statusActiveModel => '활성 모델';
+
+  @override
+  String get statusConfiguredDefault => '구성된 기본값';
+
+  @override
+  String get statusProvider => '제공자';
+
+  @override
+  String get statusFallbacks => '대체 모델';
+
+  @override
+  String get statusActiveTurns => '활성 턴';
+
+  @override
+  String get statusActiveSubagents => '활성 서브에이전트';
+
+  @override
+  String get statusWaiting => '대기 중';
+
+  @override
+  String get statusCompleted => '완료';
+
+  @override
+  String get statusFailed => '실패';
+
+  @override
+  String get statusCancelled => '취소됨';
+
+  @override
+  String get statusToolCalls => '도구 호출';
+
+  @override
+  String get statusToolCallsFailed => '실패한 도구 호출';
+
+  @override
+  String get statusLastActivity => '마지막 활동';
+
+  @override
+  String get statusCoreMemory => 'Core 메모리';
+
+  @override
+  String get statusCoreCpuTime => 'Core CPU 시간';
+
+  @override
+  String get statusNoChannels => '구성된 채널 없음';
+
+  @override
+  String get statusDetailUnavailable => '상세 상태를 사용할 수 없습니다';
+
+  @override
+  String get statusJustNow => '방금';
+
+  @override
+  String statusMinutesAgo(int minutes) {
+    return '$minutes분 전';
+  }
+
+  @override
+  String statusHoursAgo(int hours) {
+    return '$hours시간 전';
+  }
+
+  @override
+  String statusDaysAgo(int days) {
+    return '$days일 전';
+  }
+
+  @override
+  String statusDurationSeconds(int seconds) {
+    return '$seconds초';
+  }
+
+  @override
+  String statusDurationMinutes(int minutes, int seconds) {
+    return '$minutes분 $seconds초';
+  }
+
+  @override
+  String statusDurationHours(int hours, int minutes) {
+    return '$hours시간 $minutes분';
+  }
+
+  @override
+  String statusDurationDays(int days, int hours) {
+    return '$days일 $hours시간';
+  }
 }

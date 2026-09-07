@@ -367,8 +367,12 @@ class DesktopCoreServiceAdapter implements CoreServiceAdapter {
   }
 
   @override
-  Future<Map<String, dynamic>> checkHealth() async {
+  Future<Map<String, dynamic>> checkHealth({bool detail = false}) async {
     try {
+      // Detail is an Android-host capability: the credential lives with the
+      // host, not here. Desktop reports basic health and leaves `detail` null,
+      // which the Status screen renders as unavailable rather than as empty
+      // measurements.
       final uri = Uri.parse('http://127.0.0.1:$port/health');
       final client = HttpClient();
       final req = await client.getUrl(uri);
