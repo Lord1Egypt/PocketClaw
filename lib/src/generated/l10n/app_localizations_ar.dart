@@ -467,6 +467,10 @@ class AppLocalizationsAr extends AppLocalizations {
   String get whatsNew020New5 => 'تكامل مع تيليجرام، يُضبط من الإعدادات.';
 
   @override
+  String get whatsNew020New6 =>
+      'عرض الحالة في لوحة التحكم: الأعمال الجارية والقنوات والنموذج المستخدم وموارد التشغيل.';
+
+  @override
   String get whatsNew020Improvement1 =>
       'مزوّدون أكثر مرونة: لم يعد فشل الطلب ينهي الدور.';
 
@@ -476,6 +480,14 @@ class AppLocalizationsAr extends AppLocalizations {
   @override
   String get whatsNew020Improvement3 =>
       'هوية PocketClaw أوضح في واجهة الويب ومساحة العمل الافتراضية.';
+
+  @override
+  String get whatsNew020Improvement4 =>
+      'أيقونة تطبيق جديدة وشاشة «حول» محدّثة بتصميم Aperture من PocketClaw.';
+
+  @override
+  String get whatsNew020Improvement5 =>
+      'ردود المساعد أصبحت أكثر طبيعية، بلا توقيع ثابت في نهايتها.';
 
   @override
   String get whatsNew020Fix1 =>

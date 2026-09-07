@@ -469,6 +469,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get whatsNew020New5 => 'Telegram integration, set up from Settings.';
 
   @override
+  String get whatsNew020New6 =>
+      'A Status view on the Dashboard: active work, channels, the model in use and runtime resources.';
+
+  @override
   String get whatsNew020Improvement1 =>
       'More resilient providers: a failing request no longer ends the turn.';
 
@@ -479,6 +483,14 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get whatsNew020Improvement3 =>
       'A cleaner PocketClaw identity across the web interface and the default workspace.';
+
+  @override
+  String get whatsNew020Improvement4 =>
+      'A new app icon and a refreshed About screen, drawn from PocketClaw\'s Aperture design.';
+
+  @override
+  String get whatsNew020Improvement5 =>
+      'Assistant replies read more naturally, without a fixed sign-off at the end.';
 
   @override
   String get whatsNew020Fix1 =>

@@ -503,6 +503,16 @@ prepared, and none belongs to a milestone yet.
   `image_model` / `image_model_fallbacks` fields and `routeMediaTurn` are
   untouched and still config-file reachable; only the product surface was
   removed. Do not list Vision routing as a delivered feature.
+- [x] Remove the deterministic lobster from the shared kernel identity prompt so
+  the model stops signing replies with it. Done on
+  `feature/final-user-facing-polish`, 2026-09-07.
+  **PHYSICALLY ACCEPTED on SM-A165F / Android 16 as vc55, 2026-09-08.** A fresh
+  neutral message produced a reply with no fixed sign-off. No output filter was
+  added and normal emoji use is untouched.
+- [x] Modernize the About dialog onto Aperture tokens and a responsive version
+  layout. Done on `feature/final-user-facing-polish`, 2026-09-07.
+  **PHYSICALLY ACCEPTED on SM-A165F / Android 16 as vc55, 2026-09-08**, in both
+  English and Arabic.
 - [x] Re-render the Android launcher icon from the refined APERTURE mark
   geometry. Done on `feature/final-launcher-icon`, 2026-09-07.
   **PHYSICALLY ACCEPTED on SM-A165F / Android 16 as vc54, then merged to
@@ -1021,6 +1031,18 @@ supplied by the user.
   authorization; do not create `v0.2.0-rc1` yet.
 - [ ] Security hygiene: confirm manager bot token rotation externally. Never
   retrieve or record the token.
+- [ ] **DEFERRED — Release Hardening / post-stable architecture:** a versioned,
+  non-destructive bootstrap update strategy for existing installs. Embedded
+  workspace templates are seeded with `keepExisting=true`, so `AGENT.md`,
+  `SOUL.md`, `USER.md` and `MEMORY.md` are written once and never refreshed. An
+  install created before a default was improved keeps the old text forever: the
+  device validated on 2026-09-08 still carries an `AGENT.md` predating the
+  Managed Runtime guidance, so that agent has never been told the Managed
+  Runtime exists. Any fix must preserve user edits rather than overwrite the
+  file — track a template version, merge or offer the delta, or surface it as a
+  prompt the user can accept. Do not blindly overwrite, and do not rewrite user
+  memory. Found during the vc55 lobster-signature investigation; not fixed
+  there.
 - [ ] FINAL RELEASE HARDENING: controlled Dart generated-source URI strategy.
 - [ ] Future milestone only: Background & Battery page.
 - [ ] Future milestone only: local Runtime / Statistics bottom tab.

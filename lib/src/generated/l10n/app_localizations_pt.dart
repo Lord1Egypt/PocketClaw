@@ -481,6 +481,10 @@ class AppLocalizationsPt extends AppLocalizations {
       'Integração com o Telegram, configurada nas Configurações.';
 
   @override
+  String get whatsNew020New6 =>
+      'Uma visão de Status no painel: trabalho ativo, canais, o modelo em uso e os recursos de execução.';
+
+  @override
   String get whatsNew020Improvement1 =>
       'Provedores mais resilientes: uma requisição com falha não encerra mais o turno.';
 
@@ -491,6 +495,14 @@ class AppLocalizationsPt extends AppLocalizations {
   @override
   String get whatsNew020Improvement3 =>
       'Uma identidade do PocketClaw mais consistente na interface web e no espaço de trabalho padrão.';
+
+  @override
+  String get whatsNew020Improvement4 =>
+      'Um novo ícone do app e uma tela Sobre renovada, com o design Aperture do PocketClaw.';
+
+  @override
+  String get whatsNew020Improvement5 =>
+      'As respostas do assistente ficam mais naturais, sem uma assinatura fixa no final.';
 
   @override
   String get whatsNew020Fix1 =>

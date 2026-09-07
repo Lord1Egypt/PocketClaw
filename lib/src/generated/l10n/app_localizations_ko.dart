@@ -459,6 +459,9 @@ class AppLocalizationsKo extends AppLocalizations {
   String get whatsNew020New5 => 'Telegram 연동. 설정에서 구성할 수 있습니다.';
 
   @override
+  String get whatsNew020New6 => '대시보드의 상태 보기: 진행 중인 작업, 채널, 사용 중인 모델, 런타임 리소스.';
+
+  @override
   String get whatsNew020Improvement1 => '더 견고해진 공급자: 요청이 실패해도 대화 턴이 끝나지 않습니다.';
 
   @override
@@ -467,6 +470,14 @@ class AppLocalizationsKo extends AppLocalizations {
   @override
   String get whatsNew020Improvement3 =>
       '웹 화면과 기본 작업 공간 전반에서 더 일관된 PocketClaw 표기.';
+
+  @override
+  String get whatsNew020Improvement4 =>
+      'PocketClaw의 Aperture 디자인을 적용한 새 앱 아이콘과 정보 화면.';
+
+  @override
+  String get whatsNew020Improvement5 =>
+      '어시스턴트 답변이 더 자연스러워졌고, 끝에 고정된 서명이 붙지 않습니다.';
 
   @override
   String get whatsNew020Fix1 => '이전 실행이 남긴 오래된 프로세스 기록에서 게이트웨이가 복구됩니다.';

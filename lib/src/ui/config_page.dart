@@ -517,47 +517,97 @@ class ConfigPageState extends State<ConfigPage> with WidgetsBindingObserver {
     return normalized;
   }
 
+  /// One labelled version line.
+  ///
+  /// Label above value rather than beside it: the old layout reserved a fixed
+  /// 148px label column, which a longer translation overflows and a narrow
+  /// phone cannot afford. Stacking has no width to get wrong, and it mirrors
+  /// for Arabic without a second layout.
   Widget _buildAboutVersionRow(
     BuildContext context, {
     required String label,
-    required String value,
+    required Widget value,
   }) {
     final textTheme = Theme.of(context).textTheme;
     final tokens = context.aperture;
-    return Padding(
-      padding: const EdgeInsetsDirectional.only(top: 8),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 148,
-            child: Text(
-              label,
-              style: textTheme.bodyMedium?.copyWith(
-                color: tokens.textMuted,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: textTheme.bodySmall?.copyWith(
+            color: tokens.textMuted,
+            fontWeight: FontWeight.w600,
           ),
-          // A version, a commit and a build stamp are values a human compares
-          // character by character, which is exactly what mono is for. They
-          // stay left-to-right in Arabic: a reversed digest is a bug, not
-          // localization.
-          Expanded(
-            child: Directionality(
-              textDirection: TextDirection.ltr,
-              child: Text(
-                value,
-                style: textTheme.bodyMedium?.copyWith(
-                  fontFamily: 'monospace',
-                  fontFamilyFallback: const ['Menlo', 'Consolas'],
-                  color: tokens.text,
-                ),
-              ),
-            ),
-          ),
-        ],
+        ),
+        const SizedBox(height: ApertureTheme.spaceXs),
+        value,
+      ],
+    );
+  }
+
+  Widget _buildAboutVersionValue(BuildContext context, String value) {
+    final textTheme = Theme.of(context).textTheme;
+    final tokens = context.aperture;
+    // A version, a commit and a build stamp are values a human compares
+    // character by character, which is exactly what mono is for. They
+    // stay left-to-right in Arabic: a reversed digest is a bug, not
+    // localization.
+    return Directionality(
+      textDirection: TextDirection.ltr,
+      child: Text(
+        value,
+        style: textTheme.bodyMedium?.copyWith(
+          fontFamily: 'monospace',
+          fontFamilyFallback: const ['Menlo', 'Consolas'],
+          color: tokens.text,
+        ),
       ),
+    );
+  }
+
+  /// The value slot while the versions are still being read.
+  ///
+  /// It occupies one line, the same as the value that replaces it, so the
+  /// dialog does not resize when the future resolves.
+  Widget _buildAboutVersionPending(BuildContext context) {
+    final lineHeight = Theme.of(context).textTheme.bodyMedium?.fontSize ?? 14.0;
+    return SizedBox(
+      height: lineHeight * 1.4,
+      child: Align(
+        alignment: AlignmentDirectional.centerStart,
+        child: const SizedBox(
+          width: 14,
+          height: 14,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAboutIdentity(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    final tokens = context.aperture;
+    return Row(
+      children: [
+        Container(
+          width: 40,
+          height: 40,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: tokens.accentSoft,
+            borderRadius: BorderRadius.circular(ApertureTheme.radiusSm),
+          ),
+          child: Icon(Icons.camera, size: 22, color: tokens.accent),
+        ),
+        const SizedBox(width: ApertureTheme.spaceMd),
+        Expanded(
+          child: Text(
+            _aboutProjectName,
+            style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+          ),
+        ),
+      ],
     );
   }
 
@@ -567,66 +617,81 @@ class ConfigPageState extends State<ConfigPage> with WidgetsBindingObserver {
 
     await showDialog<void>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(l10n.about),
-        content: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 420),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                _aboutProjectName,
-                style: Theme.of(
-                  ctx,
-                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 12),
-              Text(l10n.aboutDescription),
-              const SizedBox(height: 16),
-              FutureBuilder<AboutInfo>(
-                future: aboutInfoFuture,
-                builder: (ctx, snapshot) {
-                  if (!snapshot.hasData && !snapshot.hasError) {
-                    return const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 8),
-                      child: Center(child: CircularProgressIndicator()),
-                    );
-                  }
-
-                  final info =
-                      snapshot.data ??
-                      AboutInfo(
-                        appVersion: l10n.aboutVersionUnavailable,
-                        coreVersion: l10n.aboutVersionUnavailable,
+      builder: (ctx) {
+        final tokens = ctx.aperture;
+        return AlertDialog(
+          title: Text(l10n.about),
+          content: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 420),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildAboutIdentity(ctx),
+                const SizedBox(height: ApertureTheme.spaceMd),
+                Text(
+                  l10n.aboutDescription,
+                  style: Theme.of(
+                    ctx,
+                  ).textTheme.bodyMedium?.copyWith(color: tokens.textMuted),
+                ),
+                const SizedBox(height: ApertureTheme.spaceMd),
+                // The versions are grouped into one card so they read as a
+                // block of provenance rather than as two more sentences.
+                ApertureBracket(
+                  fill: tokens.surface1,
+                  borderColor: tokens.border,
+                  borderWidth: 1,
+                  padding: const EdgeInsetsDirectional.all(
+                    ApertureTheme.spaceMd,
+                  ),
+                  child: FutureBuilder<AboutInfo>(
+                    future: aboutInfoFuture,
+                    builder: (ctx, snapshot) {
+                      final loading = !snapshot.hasData && !snapshot.hasError;
+                      final info =
+                          snapshot.data ??
+                          AboutInfo(
+                            appVersion: l10n.aboutVersionUnavailable,
+                            coreVersion: l10n.aboutVersionUnavailable,
+                          );
+                      Widget valueFor(String raw) => loading
+                          ? _buildAboutVersionPending(ctx)
+                          : _buildAboutVersionValue(
+                              ctx,
+                              _normalizeAboutVersion(raw, l10n),
+                            );
+                      return Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildAboutVersionRow(
+                            ctx,
+                            label: l10n.aboutAppVersionLabel,
+                            value: valueFor(info.appVersion),
+                          ),
+                          const SizedBox(height: ApertureTheme.spaceMd),
+                          _buildAboutVersionRow(
+                            ctx,
+                            label: l10n.aboutCoreVersionLabel,
+                            value: valueFor(info.coreVersion),
+                          ),
+                        ],
                       );
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildAboutVersionRow(
-                        ctx,
-                        label: l10n.aboutAppVersionLabel,
-                        value: _normalizeAboutVersion(info.appVersion, l10n),
-                      ),
-                      _buildAboutVersionRow(
-                        ctx,
-                        label: l10n.aboutCoreVersionLabel,
-                        value: _normalizeAboutVersion(info.coreVersion, l10n),
-                      ),
-                    ],
-                  );
-                },
-              ),
-            ],
+                    },
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: Text(l10n.close),
-          ),
-        ],
-      ),
+          actions: [
+            FilledButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: Text(l10n.close),
+            ),
+          ],
+        );
+      },
     );
 
     if (mounted) {

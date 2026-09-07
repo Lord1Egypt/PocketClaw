@@ -1,5 +1,60 @@
 # Development Changelog
 
+## 2026-09-08 — The prompt was clean and the reply still signed itself
+
+`feature/final-user-facing-polish` merged to `develop` with `--no-ff`,
+physically accepted as vc55. Two changes: the About dialog moved onto the
+Aperture tokens, and the shared kernel identity stopped carrying a mascot emoji.
+
+The About work was the smaller half and the more ordinary. The dialog had been
+redesigned around the edges but still had a fixed 148px label column inside it,
+which a longer translation overflows and a narrow phone cannot afford. Stacking
+each label over its value removes the width there was to get wrong; the values
+keep their left-to-right monospace so a build stamp cannot reverse in Arabic.
+Rendering both labels before the versions arrive stopped the dialog resizing
+mid-open, which is the kind of thing nobody reports and everybody notices.
+
+The identity change is the one worth writing down. `kernel.identity` is the
+single prompt part every agent on every channel receives on every turn, so a
+decorative character in it is not decoration — it is an instruction to imitate,
+and the model was mirroring it at the end of replies. Deleting it from the
+header is a one-character fix and the correct one; a formatter that strips the
+character from generated text would also strip it from text a user asked for.
+
+Then vc55 shipped, the Core was verified on the device to carry the new header,
+and the first reply still signed off with the mascot.
+
+The instinct at that point is to distrust the fix. The useful move was to
+distrust the *scope* instead: the identity is one of about nine things that
+reach the model, and only one of them is compiled in. Tracing all of them found
+the shipped binary clean, every repository default clean, every persisted
+persona file on the device clean, the skill catalog clean — it emits only names
+and descriptions — and no session file carrying a system message at all. The
+failing turn was a two-message session created after the install, so there was
+no earlier reply to copy either.
+
+What was left was the user's own long-term memory file, loaded verbatim into the
+prompt on every turn, with exactly one mascot emoji in a Markdown heading that
+happens to sit directly above the passage about who the assistant is. The reply
+had also quoted two project names that appear only in that file, which is how we
+knew it was in the prompt. Removing that single character — in the user's own
+runtime file, not in the repository — was enough; the next neutral message came
+back without a sign-off, and with a different emoji it chose for itself, which is
+exactly the behaviour we wanted.
+
+The general lesson is that "the source is fixed" and "the running system is
+fixed" are different claims, and persisted user state is where they come apart.
+The specific rule is narrower: no migration rewrites a user's memory, and no
+filter edits a model's output.
+
+That trace also caught something unrelated and real. Seeded workspace templates
+are copied only when absent, so an install created before a default improved
+keeps the old text indefinitely — the validated device is still running an
+`AGENT.md` that predates the Managed Runtime section, meaning that agent has
+never been told the Managed Runtime exists. Fixing it properly means versioning
+the templates and merging rather than overwriting, so it is deferred rather than
+patched in a closeout.
+
 ## 2026-09-07 — The launcher icon had to stop being its own drawing
 
 `feature/final-launcher-icon` merged to `develop` with `--no-ff` at head

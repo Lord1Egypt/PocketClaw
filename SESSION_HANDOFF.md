@@ -1,5 +1,65 @@
 # PocketClaw Session Handoff
 
+## Final User-Facing Polish — PHYSICAL PASS and merged, 2026-09-08
+
+Branch `feature/final-user-facing-polish`, off `develop` at `1db809e`.
+**Physically accepted on SM-A165F / Android 16 as vc55, then merged to `develop`
+with `--no-ff`.** `main` untouched, no tags moved, no release. The branch is
+retained.
+
+### The lobster took two steps, and only the first was code
+
+The source fix landed and shipped correctly — the installed vc55 Core carries
+`# PocketClaw (%s)` and no occurrence of the old header. The first physical test
+still signed off with the mascot, and the reason was outside the repository: the
+device's own persisted long-term memory file carried one decorative emoji in a
+Markdown heading, and that file is loaded verbatim into the prompt on every turn.
+Removing that single character from the user's own runtime file fixed it; the
+next neutral message came back with no fixed sign-off.
+
+**Do not turn that into code.** No migration may rewrite a user's memory file, no
+output filter may strip characters from generated text, and normal emoji use
+stays permitted — the accepted reply used a different emoji and that is correct.
+A clean install needs none of this: the shipped identity and every seeded
+default are already free of the mascot.
+
+### The things worth not undoing
+
+**The lobster fix is a prompt change, not a filter.** The kernel identity header
+is `# PocketClaw (%s)`; there is no response formatter between a turn and the
+channel and none may be added. `TestFinalResponseIsDeliveredVerbatimIncludingEmoji`
+runs a real turn and asserts the delivered text is byte-identical to the model's,
+using a reply containing the lobster. The lobster is still correct in `Logo`,
+the terminal presentation, `/help`, skill metadata, docs and assets — do not
+sweep them.
+
+**About stacks its version labels over their values.** The old fixed 148px label
+column is what a longer translation overflowed and a narrow phone could not
+afford. Do not reintroduce a fixed label width. Values stay `Directionality.ltr`
+monospace so a digest cannot reverse in Arabic.
+
+**About renders both labels before the versions arrive.** The pending value slot
+is one line high, so the dialog does not resize when the future resolves. A test
+asserts the two heights differ by less than 4dp; a spinner that replaces the
+whole block is what that test exists to reject.
+
+**No release number belongs in About.** The app version comes from
+`ServiceManager.getAppVersion()` and the runtime version from `getCoreVersion()`.
+A test fails if `0.2.0` or `0.3.1` ever appears in the dialog.
+
+### The upgrade defect this uncovered
+
+Seeded workspace templates are copied with `keepExisting=true`, so `AGENT.md`,
+`SOUL.md`, `USER.md` and `MEMORY.md` are written once and never refreshed. The
+validated device still runs an `AGENT.md` that predates the Managed Runtime
+guidance, so that agent has never been told the Managed Runtime exists. Deferred
+to Release Hardening and recorded in `TASKS.md`; whatever fixes it must preserve
+user edits rather than overwrite the file.
+
+### Next
+
+Production Release Hardening.
+
 ## Final Launcher Icon — PHYSICAL PASS and merged, 2026-09-07
 
 Branch `feature/final-launcher-icon`, off `develop` at `c927243`, head `7df0bf7`.

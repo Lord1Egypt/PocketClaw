@@ -946,6 +946,12 @@ abstract class AppLocalizations {
   /// **'Telegram integration, set up from Settings.'**
   String get whatsNew020New5;
 
+  /// No description provided for @whatsNew020New6.
+  ///
+  /// In en, this message translates to:
+  /// **'A Status view on the Dashboard: active work, channels, the model in use and runtime resources.'**
+  String get whatsNew020New6;
+
   /// No description provided for @whatsNew020Improvement1.
   ///
   /// In en, this message translates to:
@@ -963,6 +969,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'A cleaner PocketClaw identity across the web interface and the default workspace.'**
   String get whatsNew020Improvement3;
+
+  /// No description provided for @whatsNew020Improvement4.
+  ///
+  /// In en, this message translates to:
+  /// **'A new app icon and a refreshed About screen, drawn from PocketClaw\'s Aperture design.'**
+  String get whatsNew020Improvement4;
+
+  /// No description provided for @whatsNew020Improvement5.
+  ///
+  /// In en, this message translates to:
+  /// **'Assistant replies read more naturally, without a fixed sign-off at the end.'**
+  String get whatsNew020Improvement5;
 
   /// No description provided for @whatsNew020Fix1.
   ///

@@ -474,6 +474,10 @@ class AppLocalizationsId extends AppLocalizations {
       'Integrasi Telegram, disiapkan dari Pengaturan.';
 
   @override
+  String get whatsNew020New6 =>
+      'Tampilan Status di Dasbor: pekerjaan aktif, saluran, model yang dipakai, dan sumber daya runtime.';
+
+  @override
   String get whatsNew020Improvement1 =>
       'Penyedia yang lebih tangguh: permintaan yang gagal tidak lagi mengakhiri giliran.';
 
@@ -484,6 +488,14 @@ class AppLocalizationsId extends AppLocalizations {
   @override
   String get whatsNew020Improvement3 =>
       'Identitas PocketClaw yang lebih rapi di antarmuka web dan ruang kerja bawaan.';
+
+  @override
+  String get whatsNew020Improvement4 =>
+      'Ikon aplikasi baru dan layar Tentang yang disegarkan, mengikuti desain Aperture PocketClaw.';
+
+  @override
+  String get whatsNew020Improvement5 =>
+      'Balasan asisten terasa lebih alami, tanpa tanda tangan tetap di akhir.';
 
   @override
   String get whatsNew020Fix1 =>

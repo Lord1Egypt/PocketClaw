@@ -1,5 +1,37 @@
 # PocketClaw Decisions
 
+## The lobster leaves the identity prompt, and nothing filters replies
+
+- Date: 2026-09-07
+- Decision: `getIdentity()` emits `# PocketClaw (%s)` instead of
+  `# PocketClaw 🦞 (%s)`. No response formatter, suffix stripper or emoji
+  filter was added, and the lobster stays everywhere else it is used — `Logo` in
+  `pkg/env.go`, the `cmd/picoclaw` terminal presentation, `/help` branding,
+  skill metadata, documentation and assets.
+- Reason: `kernel.identity` is the one prompt part every agent on every channel
+  receives on every turn. A decorative character in a system prompt is an
+  instruction to imitate, and the model was mirroring it at the end of replies.
+  The cause is the prompt, so the prompt is where it is fixed. The alternative —
+  stripping the character out of generated text — would also strip it from text a
+  user asked for, and would put a mutation between the model and the channel
+  where there has never been one.
+- Consequence: replies still reach the channel byte-for-byte as the model wrote
+  them, which `TestFinalResponseIsDeliveredVerbatimIncludingEmoji` asserts with a
+  reply that contains the lobster. If the identity ever needs decoration again,
+  it is a product decision to reopen here, not a formatting detail.
+- Amended 2026-09-08, after vc55: shipping the clean identity was necessary and
+  not sufficient. The device still signed its replies because its own persisted
+  long-term memory carried one decorative lobster in a heading, and that file is
+  loaded verbatim into the prompt on every turn. It was corrected once, in the
+  user's own runtime file. **No code may do that.** PocketClaw does not ship a
+  migration that rewrites a user's memory or workspace content to change how the
+  assistant sounds: that is the user's data, and an upgrade that edits it to win
+  an argument about tone is data loss. The lever for assistant tone is the
+  shipped prompt, which is already clean for every new install. Normal emoji use
+  in a reply remains permitted and is not a defect — the accepted vc55 response
+  chose a different emoji of its own, which is the behaviour this decision
+  wanted.
+
 ## The Android launcher is a derived artifact, not a fourth geometry copy
 
 - Date: 2026-09-07

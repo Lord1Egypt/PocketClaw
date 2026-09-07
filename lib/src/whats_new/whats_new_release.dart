@@ -42,6 +42,7 @@ final WhatsNewRelease whatsNewRelease020 = WhatsNewRelease(
         (l10n) => l10n.whatsNew020New3,
         (l10n) => l10n.whatsNew020New4,
         (l10n) => l10n.whatsNew020New5,
+        (l10n) => l10n.whatsNew020New6,
       ],
     ),
     WhatsNewSection(
@@ -50,6 +51,8 @@ final WhatsNewRelease whatsNewRelease020 = WhatsNewRelease(
         (l10n) => l10n.whatsNew020Improvement1,
         (l10n) => l10n.whatsNew020Improvement2,
         (l10n) => l10n.whatsNew020Improvement3,
+        (l10n) => l10n.whatsNew020Improvement4,
+        (l10n) => l10n.whatsNew020Improvement5,
       ],
     ),
     WhatsNewSection(
