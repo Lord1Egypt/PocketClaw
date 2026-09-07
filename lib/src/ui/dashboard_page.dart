@@ -263,7 +263,15 @@ class _DashboardPageState extends State<DashboardPage> {
                   coreVersion: service.coreVersionLabel,
                   snapshot: service.statusSnapshot,
                 ),
-                const SizedBox(height: 100),
+                // No bottom reservation for the navigation bar. AdaptiveActionBar
+                // lays the shell out as SafeArea(Column[Expanded(content), bar]),
+                // so the bar is a sibling below this scroll view rather than an
+                // overlay, and the system inset is consumed there — reserving it
+                // again here would double-count it. A 100px spacer used to sit
+                // here for a bar that never overlapped; it was invisible only
+                // while the access hint still rendered inside it, and became a
+                // dead band once that moved into the access card. The
+                // page-bottom gap is the SliverPadding above.
               ]),
             ),
           ),
