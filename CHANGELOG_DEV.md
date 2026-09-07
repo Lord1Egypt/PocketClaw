@@ -1,5 +1,35 @@
 # Development Changelog
 
+## 2026-09-07 — The launcher icon had to stop being its own drawing
+
+`feature/final-launcher-icon` merged to `develop` with `--no-ff` at head
+`7df0bf7`, physically accepted as vc54. The Android launcher was the glossy 3D
+mark, and the visible problem was that it does not survive being 48px: gradients,
+bevels and a specular orb mush at the size mdpi actually draws. The flat APERTURE
+mark was refined specifically to hold together small, and it is the identity on
+every other surface.
+
+Two defects surfaced underneath the artwork question. The pre-26 icons had been
+generated from a transparent source, so they carried no background tile — and
+`minSdk` is 24, so on API 24/25 the launcher drew a floating mark on the
+wallpaper. The adaptive path masked that from API 26 up, which is why nobody had
+seen it. And `flutter_launcher_icons` still pointed its Android source at the 3D
+mark, so any future run would have silently reverted the launcher no matter what
+was committed.
+
+The interesting decision was where the geometry lives. The mark already existed
+in exactly three files, held together by a Core test, precisely because it
+drifted the last time it was refined. Writing the paths again to emit Android
+PNGs would have made a fourth copy of a thing with a known drift history. Core
+was read-only in this milestone, so the export could not be added there either.
+`tool/generate_android_launcher_icons.py` imports the canonical
+`generate-brand-assets.py` by path and calls its `draw_mark`, which adds an
+output without adding a source; the result is byte-reproducible.
+
+`flutter_launcher_icons` was disabled for Android rather than repointed, because
+an opaque legacy tile and a transparent adaptive foreground are different
+pictures and it only takes one.
+
 ## 2026-09-07 — A status page is only worth having if you can believe it
 
 `feature/status-dashboard-v1` merged to `develop` with `--no-ff` at head

@@ -1,12 +1,30 @@
 # PocketClaw Project State
 
-## Final Launcher Icon — IMPLEMENTED — AWAITING PHYSICAL ACCEPTANCE
+## Final Launcher Icon — PHYSICALLY ACCEPTED AND CLOSED
 
-- Status: **implemented on `feature/final-launcher-icon`, 2026-09-07. Not
-  merged, not physically accepted.** No APK was built and nothing was installed;
-  the launcher has not been seen on a device. `develop`, `main`, tags and
-  releases are untouched, and Core was neither rebuilt nor modified.
-- Branch from `develop` at `c927243`.
+- Status: **PASS on a physical Android device (SM-A165F / Android 16), 2026-09-07
+  as vc54. Merged to `develop` with `--no-ff`.** `main` untouched, no tags moved,
+  no release created. Core was neither rebuilt nor modified for this milestone.
+- Branch `feature/final-launcher-icon`, from `develop` at `c927243`, head
+  `7df0bf7`. Retained, not deleted.
+
+### Physical acceptance evidence
+
+    versionName 0.2.0, versionCode 54, arm64
+    APK  3716ffc75790668f4811b56408c9b2ee329d5827047931672b9358abecfa2c3c
+    libpicoclaw.so     bf4fb01faf2741ccc402f3c07b4925e6cd4ebdd7d581d8775ab1744d50b8fc44
+    libpicoclaw-web.so bd84eaba705f3d0ec0e71e8cfbefe5cf392668b4a53807b8b9bafb5d89422280
+
+Core was built for vc52 from source `207c372` and reused byte-for-byte in vc53
+and vc54, neither of which changed Go source.
+
+| Observed | Result |
+| --- | --- |
+| The launcher icon on the device home screen is the flat APERTURE mark | PASS |
+
+Accepted by direct visual inspection of the installed launcher icon. The
+observation this milestone existed to make is the one the user made.
+
 - The Android launcher is now the flat APERTURE mark on the Aperture canvas
   (`#0b1014`), replacing the glossy 3D mark. Every raster is derived from the
   one canonical geometry by `tool/generate_android_launcher_icons.py`, which
@@ -22,9 +40,10 @@
   same geometry.
 - `android:roundIcon` stays absent by decision; the corrected opaque legacy icon
   serves the API 25 launchers a round-icon family would have.
-- Verified statically, not physically: the mark's farthest ink sits 32.23dp from
-  centre once the 16% adaptive inset is applied, inside Android's 33dp mask-safe
-  radius. `test/unit/launcher_icon_test.dart` re-measures this from the PNG.
+- Held by test as well as by the device: the mark's farthest ink sits 32.23dp
+  from centre once the 16% adaptive inset is applied, inside Android's 33dp
+  mask-safe radius. `test/unit/launcher_icon_test.dart` re-measures this from the
+  PNG.
 - Still open, deliberately: `assets/app_icon.png` and `assets/icon.ico` are the
   orange PicoClaw lobster and remain the Windows/macOS icon source and the
   desktop window icon. They are not Android launcher resources; they belong to

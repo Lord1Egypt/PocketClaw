@@ -505,7 +505,8 @@ prepared, and none belongs to a milestone yet.
   removed. Do not list Vision routing as a delivered feature.
 - [x] Re-render the Android launcher icon from the refined APERTURE mark
   geometry. Done on `feature/final-launcher-icon`, 2026-09-07.
-  **IMPLEMENTED — AWAITING PHYSICAL ACCEPTANCE.**
+  **PHYSICALLY ACCEPTED on SM-A165F / Android 16 as vc54, then merged to
+  `develop` with `--no-ff`.**
 
 ## FOLLOW-UP: Telegram request lifecycle durability
 
