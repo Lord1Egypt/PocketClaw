@@ -5,8 +5,20 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     
-    <!-- 友盟统计需要 - 获取设备信息 -->
-    <uses-permission android:name="android.permission.READ_PHONE_STATE" />
+    <!--
+      READ_PHONE_STATE is deliberately not declared here.
+
+      It was requested app-wide for the Umeng device probe, which the default
+      build does not package and never calls. A dangerous telephony permission
+      in the manifest of a build that cannot use it costs the user a prompt and
+      costs the listing a policy justification, for nothing. It cannot be made
+      conditional in place: tools:node is resolved before manifest placeholders,
+      so it takes no build-time value.
+
+      An analytics build gets whatever the analytics SDK's own AAR manifest
+      declares. If that SDK ever genuinely needs an app-level declaration, add it
+      to the analytics build's own manifest, not to this one.
+    -->
 
     <!-- 前台服务 -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />

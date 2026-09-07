@@ -507,6 +507,10 @@ class AppLocalizationsFr extends AppLocalizations {
       'Les réponses de l\'assistant paraissent plus naturelles, sans signature fixe à la fin.';
 
   @override
+  String get whatsNew020Improvement6 =>
+      'PocketClaw ne demande plus l\'autorisation Téléphone : rien dans l\'application ne s\'en servait.';
+
+  @override
   String get whatsNew020Fix1 =>
       'La passerelle se rétablit désormais après un enregistrement de processus obsolète laissé par une exécution précédente.';
 

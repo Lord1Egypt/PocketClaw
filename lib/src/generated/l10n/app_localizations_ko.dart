@@ -480,6 +480,10 @@ class AppLocalizationsKo extends AppLocalizations {
       '어시스턴트 답변이 더 자연스러워졌고, 끝에 고정된 서명이 붙지 않습니다.';
 
   @override
+  String get whatsNew020Improvement6 =>
+      '이제 전화 권한을 요청하지 않습니다. 앱의 어떤 기능도 사용하지 않았습니다.';
+
+  @override
   String get whatsNew020Fix1 => '이전 실행이 남긴 오래된 프로세스 기록에서 게이트웨이가 복구됩니다.';
 
   @override

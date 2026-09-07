@@ -1043,6 +1043,24 @@ supplied by the user.
   prompt the user can accept. Do not blindly overwrite, and do not rewrite user
   memory. Found during the vc55 lobster-signature investigation; not fixed
   there.
+- [x] **Release Hardening A1: signing fails closed, Core secrets leave Android
+  backup, the version is tracked, and unused analytics surface is gone.** Done on
+  `feature/release-hardening-a1`, 2026-09-08.
+  **IMPLEMENTED — AWAITING VALIDATION / PHYSICAL BUILD.**
+- [ ] **Produce the production signing key and switch to it.** Deliberately not
+  done in A1: the test device runs a debug-signed install and changing signers
+  forces an uninstall and a data reset. Until then every artifact must be built
+  with `-PallowDebugSigning=true` and is not releasable.
+- [ ] **Decide whether Firebase Analytics belongs in the default build.** A1
+  measured the merged manifest and found `AD_ID`,
+  `ACCESS_ADSERVICES_AD_ID`, `ACCESS_ADSERVICES_ATTRIBUTION` and
+  `BIND_GET_INSTALL_REFERRER_SERVICE` come from `play-services-measurement` via
+  the `firebase_analytics` plugin, not from Umeng, and they remain. Firebase is
+  also unconfigured by default, so it is the same class of problem — an SDK
+  costing permissions it never uses — but its plugins register from
+  `pubspec.yaml` and removing them touches Dart, the device-feedback surface and
+  the Settings toggle. Out of A1's scope by design; do not remove those
+  permissions on a guess.
 - [ ] FINAL RELEASE HARDENING: controlled Dart generated-source URI strategy.
 - [ ] Future milestone only: Background & Battery page.
 - [ ] Future milestone only: local Runtime / Statistics bottom tab.

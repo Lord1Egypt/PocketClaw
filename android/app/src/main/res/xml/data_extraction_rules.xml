@@ -1,17 +1,28 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
   Android 12 and later. Cloud backup and device-to-device transfer are separate
-  decisions, and the credential is excluded from both.
+  decisions, and both directories are excluded from both.
 
-  Device transfer is excluded even though it never leaves the user's own
-  devices: the Keystore key does not travel with it, so what would arrive is an
-  undecryptable blob presented as a working connection.
+  credentials/ is excluded from device transfer even though it never leaves the
+  user's own devices: the Keystore key does not travel with it, so what would
+  arrive is an undecryptable blob presented as a working connection.
+
+  picoclaw/ is Core's private state — config.json and .security.yml, the latter
+  holding provider API keys and channel bot tokens in plaintext because Android
+  onboarding declines credential encryption. App-private storage stops another
+  app reading them; it does not stop a backup copying them off the device.
+
+  RECHECK AFTER THE PICOCLAW -> POCKETCLAW NAMESPACE MIGRATION: this path is
+  matched by name, and a rename would silently unprotect it. See
+  backup_rules_test.dart, and the matching note in backup_rules.xml.
 -->
 <data-extraction-rules>
     <cloud-backup>
         <exclude domain="file" path="credentials/" />
+        <exclude domain="file" path="picoclaw/" />
     </cloud-backup>
     <device-transfer>
         <exclude domain="file" path="credentials/" />
+        <exclude domain="file" path="picoclaw/" />
     </device-transfer>
 </data-extraction-rules>

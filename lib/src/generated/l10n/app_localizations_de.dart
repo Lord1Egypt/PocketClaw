@@ -502,6 +502,10 @@ class AppLocalizationsDe extends AppLocalizations {
       'Antworten des Assistenten wirken natürlicher, ohne feste Signatur am Ende.';
 
   @override
+  String get whatsNew020Improvement6 =>
+      'PocketClaw fordert die Telefonberechtigung nicht mehr an — sie wurde nie genutzt.';
+
+  @override
   String get whatsNew020Fix1 =>
       'Das Gateway erholt sich jetzt von einem veralteten Prozesseintrag eines früheren Laufs.';
 

@@ -1,5 +1,46 @@
 # PocketClaw Decisions
 
+## A release states its signer, its version and its dependencies, or it fails
+
+- Date: 2026-09-08
+- Decision: four release properties stop having silent defaults.
+  1. **Release builds never silently debug-sign.** Production signing material is
+     read from `KEYSTORE_PATH` / `KEYSTORE_PASSWORD` / `KEY_ALIAS` /
+     `KEY_PASSWORD` in the environment. When it is absent the release
+     `signingConfig` is `null` and `validateReleaseSigning` fails the build
+     before anything is compiled.
+  2. **Local debug signing of a release-shaped APK requires
+     `-PallowDebugSigning=true`.** It is announced in the build log and it is
+     never inferred.
+  3. **Production signing material stays outside this repository.** No keystore,
+     no `key.properties`, nothing in `local.properties` or `gradle.properties`,
+     and nothing printed — the build log says which mode was chosen and no more.
+  4. **`pubspec.yaml` is the tracked app version source of truth.** Gradle reads
+     it directly; a version in the gitignored `local.properties` is rejected
+     rather than obeyed, and `-PversionCode` / `-PversionName` are the explicit,
+     validated override.
+  5. **Core's app-private state is excluded from Android backup and device
+     transfer.** `files/picoclaw/` joins `files/credentials/` in both
+     `backup_rules.xml` and `data_extraction_rules.xml`.
+  6. **The default build does not ship analytics it never runs.** The Umeng SDK
+     is `compileOnly` unless `PICOCLAW_ANALYTICS_PROVIDER=umeng`, and
+     `READ_PHONE_STATE` is no longer declared at all.
+- Reason: each of the six had a default that produced a wrong artifact without
+  failing. The signing fallback shipped every build so far under the Android
+  debug key, whose private half is in every SDK install. The Flutter Gradle
+  plugin defaults `flutter.versionCode` to 1 when `local.properties` omits it,
+  so a clean checkout would have built 1 against a released 55. And the backup
+  rules excluded exactly one directory while Core's plaintext provider keys and
+  bot tokens sat in another, going to Google's backup transport verbatim —
+  app-private storage stops another app reading a file, not a backup copying it.
+- Consequence: the version is reproducible from git alone, and a release either
+  carries an authentic signature or does not exist. The one thing to watch is
+  path-matched: **the backup exclusion names `picoclaw/` literally**, so the
+  PicoClaw to PocketClaw namespace migration would silently unprotect every
+  secret. `android_backup_exclusion_test.dart` asserts the rules and
+  `PicoClawService.buildEnvironment` against the same string so that rename
+  fails there first.
+
 ## The lobster leaves the identity prompt, and nothing filters replies
 
 - Date: 2026-09-07

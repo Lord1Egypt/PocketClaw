@@ -505,6 +505,10 @@ class AppLocalizationsPt extends AppLocalizations {
       'As respostas do assistente ficam mais naturais, sem uma assinatura fixa no final.';
 
   @override
+  String get whatsNew020Improvement6 =>
+      'O PocketClaw não pede mais a permissão de Telefone — nada no app a usava.';
+
+  @override
   String get whatsNew020Fix1 =>
       'O gateway agora se recupera de um registro de processo obsoleto deixado por uma execução anterior.';
 

@@ -469,6 +469,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get whatsNew020Improvement5 => '助手的回复更自然，末尾不再附带固定签名。';
 
   @override
+  String get whatsNew020Improvement6 => 'PocketClaw 不再申请电话权限——应用中没有任何功能使用它。';
+
+  @override
   String get whatsNew020Fix1 => '网关现在可以从上一次运行遗留的过期进程记录中恢复。';
 
   @override

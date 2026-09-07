@@ -1,5 +1,50 @@
 # PocketClaw Session Handoff
 
+## Release Hardening A1 — IMPLEMENTED, not merged, 2026-09-08
+
+Branch `feature/release-hardening-a1`, off `develop` at `941f45a`. **Not merged,
+no APK built, nothing installed.** Core untouched and not rebuilt.
+
+### Read this before building anything
+
+**Every release build now needs a decision about signing.** With no `KEYSTORE_*`
+environment the build fails on purpose. Until a production key exists, local
+device builds must say so:
+
+    ./gradlew :app:assembleRelease -Ptarget-platform=android-arm64 \
+        -PallowDebugSigning=true
+
+**`android/local.properties` must not declare a version.** The two
+`flutter.version*` lines were removed from this machine's copy; putting them
+back makes every Gradle invocation fail with an explanatory error. The version
+lives in `pubspec.yaml`, now `0.2.0+55`.
+
+### The things worth not undoing
+
+**The backup exclusion is matched by path name.** `files/picoclaw/` is excluded
+because that is what `PicoClawService.buildEnvironment` calls `internalHome`.
+Rename either side alone and every provider key and bot token becomes
+backup-eligible again with nothing else breaking.
+`android_backup_exclusion_test.dart` asserts both sides against one string so
+the namespace migration fails there first. This is the single highest-value
+thing in the milestone to keep.
+
+**Umeng is `compileOnly`, not deleted.** `AnalyticsReporter` still compiles
+against it in every configuration and is guarded at runtime by
+`isUmengProviderEnabled()`. Setting `PICOCLAW_ANALYTICS_PROVIDER=umeng` restores
+the real dependency. Do not "clean up" the `compileOnly` lines — removing them
+breaks `compileReleaseKotlin`.
+
+**The ad permissions that remain are Firebase's, not Umeng's.** Measured, not
+assumed: merging the manifest with and without Umeng showed it contributes only
+`freemme.permission.msa`. Do not remove `AD_ID` or the AdServices pair believing
+they are analytics residue from this milestone.
+
+### Next
+
+Either produce the production signing key — which forces an uninstall on the
+test device — or carry on with debug-signed test builds and the explicit flag.
+
 ## Final User-Facing Polish — PHYSICAL PASS and merged, 2026-09-08
 
 Branch `feature/final-user-facing-polish`, off `develop` at `1db809e`.

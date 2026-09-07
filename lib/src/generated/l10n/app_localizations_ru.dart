@@ -499,6 +499,10 @@ class AppLocalizationsRu extends AppLocalizations {
       'Ответы ассистента звучат естественнее — без фиксированной подписи в конце.';
 
   @override
+  String get whatsNew020Improvement6 =>
+      'PocketClaw больше не запрашивает разрешение «Телефон» — оно нигде не использовалось.';
+
+  @override
   String get whatsNew020Fix1 =>
       'Шлюз теперь восстанавливается после устаревшей записи процесса, оставшейся от предыдущего запуска.';
 

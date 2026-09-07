@@ -1,5 +1,68 @@
 # Development Changelog
 
+## 2026-09-08 — Four defaults that produced the wrong artifact without failing
+
+`feature/release-hardening-a1`, the first Production Release Hardening
+milestone. Nothing in it is a feature; all four items are the same shape — a
+default that quietly did the wrong thing and never said so.
+
+The signing one is the worst. The release `signingConfig` selected the
+production keystore if `storeFile?.exists()`, and otherwise fell through to
+`signingConfigs.getByName("debug")`. With no `KEYSTORE_*` in the environment
+that branch always won, so every artifact this project has produced — vc55
+included, the one physically accepted two days ago — is signed with the Android
+debug key, whose private half ships inside every SDK install. The build printed
+nothing. It now resolves to a real signer, or to debug **only** under
+`-PallowDebugSigning=true`, or to `null` with `validateReleaseSigning` failing
+before anything compiles. The production key is deliberately not created yet:
+the test device runs a debug-signed install and changing signers forces an
+uninstall, so that is its own scheduled step rather than a side effect of this
+one.
+
+The version had the same shape. `pubspec.yaml` said `0.2.0+13` while the device
+ran 55, because the Flutter Gradle plugin reads `flutter.versionCode` from the
+gitignored `local.properties` and **defaults it to 1** when absent. So the
+tracked file was wrong, the authoritative value was untracked, and a clean
+checkout would have built versionCode 1 — an artifact Android refuses to install
+over 55, for reasons that would have taken an hour to work out on a device.
+Gradle now reads `pubspec.yaml` directly and rejects a version in
+`local.properties` rather than obeying it.
+
+The backup finding is the one with real data at stake. Core writes
+`.security.yml` next to `config.json` under `files/picoclaw/`, and Android
+onboarding answers "n" to credential encryption, so that file holds provider API
+keys and channel bot tokens in plaintext. It is 0600 and app-private, which is
+the right answer to "can another app read it" and no answer at all to "does it
+leave the device". `allowBackup` is true and the rules excluded exactly one
+directory — `credentials/` — so every provider key went to Google's backup
+transport and to device-to-device transfer verbatim. One line in each of two
+files fixes it. The interesting part is what keeps it fixed: the exclusion is
+matched by path name, and the coming namespace migration renames exactly that
+name, so the test asserts the rule files and
+`PicoClawService.buildEnvironment` against the same literal.
+
+The analytics item is where the audit turned out to be wrong, which is the
+useful part. The hypothesis was that the unconditional Umeng dependency was
+dragging in `AD_ID`, the AdServices pair and the Play install-referrer service.
+Merging the release manifest with and without the dependency settled it: Umeng
+contributes **one** entry, `freemme.permission.msa`, and `READ_PHONE_STATE` came
+from our own manifest, not from the SDK. The four advertising permissions are
+Firebase Analytics's, via `play-services-measurement`, and they stayed. Firebase
+is unconfigured by default too, so it is the same problem — but its plugins
+register from `pubspec.yaml` and unwinding them touches Dart and the
+device-feedback surface, so it is recorded as its own decision instead of being
+removed on a guess. Proving attribution took two Gradle manifest merges and
+changed the answer.
+
+Umeng itself is `compileOnly` rather than deleted. `AnalyticsReporter` compiles
+against it unchanged and is already guarded at runtime, so the SDK stays off the
+runtime classpath — and therefore out of the merged manifest — while an
+analytics build asks for it by name and gets the real dependency.
+
+One user-visible line came out of all this and went into What's New: the app no
+longer asks for the Phone permission. Everything else here is invisible by
+design, and release notes are not a changelog.
+
 ## 2026-09-08 — The prompt was clean and the reply still signed itself
 
 `feature/final-user-facing-polish` merged to `develop` with `--no-ff`,

@@ -1,5 +1,64 @@
 # PocketClaw Project State
 
+## Production Release Hardening A1 — IMPLEMENTED — AWAITING VALIDATION / PHYSICAL BUILD
+
+- Status: **implemented on `feature/release-hardening-a1`, 2026-09-08. Not
+  merged, not physically built.** No APK was built and nothing was installed.
+  `develop`, `main`, tags and releases are untouched. Core source and the staged
+  vc55 binaries are byte-for-byte unchanged and were not rebuilt.
+- Branch from `develop` at `941f45a`.
+- Four areas, nothing else: release signing, backup exclusion, version source of
+  truth, and the unused analytics surface.
+
+### Signing now fails closed
+
+The release `signingConfig` used to fall through to the debug key whenever the
+`KEYSTORE_*` environment was incomplete, silently. Every artifact to date,
+vc55 included, is therefore debug-signed. It now resolves to the production
+signer, or to the debug key **only** under `-PallowDebugSigning=true`, or to
+`null` — and `validateReleaseSigning`, wired to `preReleaseBuild`,
+`packageRelease` and `bundleRelease`, fails the build before anything compiles.
+No production key was created: the device under test still runs a debug-signed
+install, and switching signers would force an uninstall and data reset.
+
+### Core secrets are out of Android backup
+
+`files/picoclaw/` — `config.json` and the plaintext `.security.yml` holding
+provider API keys and channel bot tokens — is now excluded from full backup,
+cloud backup and device transfer, alongside the existing `credentials/`.
+`allowBackup` stays `true` by decision; non-secret state remains restorable.
+
+### The version is reproducible from git
+
+`pubspec.yaml` moves from `0.2.0+13` to `0.2.0+55`, matching the physically
+accepted build, and Gradle reads it directly. The Flutter Gradle plugin defaults
+`flutter.versionCode` to 1 when the gitignored `local.properties` omits it, so a
+clean checkout would have built versionCode 1; a version declared there is now
+rejected with an error rather than silently obeyed. `-PversionCode` /
+`-PversionName` are the explicit override and are validated against a floor of
+55.
+
+### Analytics attribution, measured rather than assumed
+
+The Umeng SDK is `compileOnly` unless `PICOCLAW_ANALYTICS_PROVIDER=umeng`, and
+`READ_PHONE_STATE` is no longer declared. Merging the release manifest with and
+without the dependency showed the SDK contributes **exactly one** entry,
+`freemme.permission.msa`. `READ_PHONE_STATE` came only from our own manifest.
+
+Correcting the audit: `AD_ID`, `ACCESS_ADSERVICES_AD_ID`,
+`ACCESS_ADSERVICES_ATTRIBUTION` and `BIND_GET_INSTALL_REFERRER_SERVICE` are
+**not** Umeng's. They come from Firebase Analytics via
+`play-services-measurement`, they are unchanged by this milestone, and they were
+left alone rather than removed on a guess. Firebase is also unconfigured by
+default, so the same question applies to it — but its plugins are registered
+from `pubspec.yaml` and removing them touches Dart, so it is its own decision
+and is recorded in `TASKS.md`.
+
+### Still open
+
+`main` still has no authentic signing key. Producing one, and the uninstall it
+forces on the test device, is a deliberate later step.
+
 ## Final User-Facing Polish — PHYSICALLY ACCEPTED AND CLOSED
 
 - Status: **PASS on a physical Android device (SM-A165F / Android 16), 2026-09-08

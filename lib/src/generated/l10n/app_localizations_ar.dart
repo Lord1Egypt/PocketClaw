@@ -490,6 +490,10 @@ class AppLocalizationsAr extends AppLocalizations {
       'ردود المساعد أصبحت أكثر طبيعية، بلا توقيع ثابت في نهايتها.';
 
   @override
+  String get whatsNew020Improvement6 =>
+      'لم يعد PocketClaw يطلب إذن الهاتف — لم يكن أي جزء من التطبيق يستخدمه.';
+
+  @override
   String get whatsNew020Fix1 =>
       'أصبحت البوابة تتعافى من سجل عملية قديم خلّفه تشغيل سابق.';
 

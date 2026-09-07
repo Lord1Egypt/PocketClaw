@@ -498,6 +498,10 @@ class AppLocalizationsId extends AppLocalizations {
       'Balasan asisten terasa lebih alami, tanpa tanda tangan tetap di akhir.';
 
   @override
+  String get whatsNew020Improvement6 =>
+      'PocketClaw tidak lagi meminta izin Telepon — tidak ada bagian aplikasi yang memakainya.';
+
+  @override
   String get whatsNew020Fix1 =>
       'Gateway kini pulih dari catatan proses usang yang ditinggalkan oleh proses sebelumnya.';
 
