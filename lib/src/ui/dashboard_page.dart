@@ -210,8 +210,17 @@ class _DashboardPageState extends State<DashboardPage> {
                         border: Border.all(color: tokens.border),
                       ),
                       clipBehavior: Clip.antiAlias,
-                      child: isNarrow
-                          ? Column(
+                      // Endpoint, QR and the steps for using them are one
+                      // access section. The steps used to sit at the very
+                      // bottom of the page, below the Status metrics, where
+                      // they read as a footnote about nothing in particular
+                      // rather than as instructions for the QR directly above
+                      // them.
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (isNarrow)
+                            Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 infoSection,
@@ -223,7 +232,8 @@ class _DashboardPageState extends State<DashboardPage> {
                                 Center(child: qrSection),
                               ],
                             )
-                          : Row(
+                          else
+                            Row(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Expanded(flex: 3, child: infoSection),
@@ -235,6 +245,14 @@ class _DashboardPageState extends State<DashboardPage> {
                                 qrSection,
                               ],
                             ),
+                          Container(
+                            width: double.infinity,
+                            height: 1,
+                            color: tokens.border,
+                          ),
+                          _buildAccessHint(context, service, l10n),
+                        ],
+                      ),
                     );
                   },
                 ),
@@ -245,34 +263,6 @@ class _DashboardPageState extends State<DashboardPage> {
                   appVersion: service.appVersion,
                   coreVersion: service.coreVersionLabel,
                   snapshot: service.statusSnapshot,
-                ),
-                const SizedBox(height: 12),
-                // Hint at bottom center
-                Center(
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Icon(
-                        Icons.lightbulb_outline,
-                        size: 18,
-                        color: tokens.textFaint,
-                      ),
-                      const SizedBox(width: 10),
-                      Flexible(
-                        child: Text(
-                          service.publicMode
-                              ? l10n.publicModeHint
-                              : l10n.localModeHint,
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: tokens.textMuted,
-                            height: 1.5,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
                 ),
                 const SizedBox(height: 100),
               ]),
@@ -403,6 +393,39 @@ class _DashboardPageState extends State<DashboardPage> {
           Text(
             l10n.webAdmin,
             style: TextStyle(color: tokens.textFaint, fontSize: 13),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// The steps for reaching PocketClaw, rendered inside the access card
+  /// directly under the QR they describe.
+  ///
+  /// Which steps apply depends on Public Mode, which is why this reads the
+  /// service rather than taking a fixed string.
+  Widget _buildAccessHint(
+    BuildContext context,
+    ServiceManager service,
+    AppLocalizations l10n,
+  ) {
+    final tokens = context.aperture;
+    return Padding(
+      padding: const EdgeInsets.all(ApertureTheme.spaceMd),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.lightbulb_outline, size: 18, color: tokens.textFaint),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              service.publicMode ? l10n.publicModeHint : l10n.localModeHint,
+              style: TextStyle(
+                fontSize: 14,
+                color: tokens.textMuted,
+                height: 1.5,
+              ),
+            ),
           ),
         ],
       ),
