@@ -1,5 +1,35 @@
 # PocketClaw Project State
 
+## Final Launcher Icon — IMPLEMENTED — AWAITING PHYSICAL ACCEPTANCE
+
+- Status: **implemented on `feature/final-launcher-icon`, 2026-09-07. Not
+  merged, not physically accepted.** No APK was built and nothing was installed;
+  the launcher has not been seen on a device. `develop`, `main`, tags and
+  releases are untouched, and Core was neither rebuilt nor modified.
+- Branch from `develop` at `c927243`.
+- The Android launcher is now the flat APERTURE mark on the Aperture canvas
+  (`#0b1014`), replacing the glossy 3D mark. Every raster is derived from the
+  one canonical geometry by `tool/generate_android_launcher_icons.py`, which
+  imports `core/src/web/frontend/scripts/generate-brand-assets.py` read-only —
+  there is no second copy of the mark to drift.
+- Two defects were fixed alongside the artwork. The legacy pre-26 icons had a
+  transparent background, so on API 24/25 — and `minSdk` is 24 — the launcher
+  drew a floating mark with no tile; they are now opaque RGB tiles with no alpha
+  channel at all. And `flutter_launcher_icons` still pointed its Android source
+  at the 3D mark, so any future run would have reverted the launcher; Android
+  generation is now disabled there with the reason recorded in `pubspec.yaml`.
+- A `<monochrome>` layer was added for Android 13+ themed icons, drawn from the
+  same geometry.
+- `android:roundIcon` stays absent by decision; the corrected opaque legacy icon
+  serves the API 25 launchers a round-icon family would have.
+- Verified statically, not physically: the mark's farthest ink sits 32.23dp from
+  centre once the 16% adaptive inset is applied, inside Android's 33dp mask-safe
+  radius. `test/unit/launcher_icon_test.dart` re-measures this from the PNG.
+- Still open, deliberately: `assets/app_icon.png` and `assets/icon.ico` are the
+  orange PicoClaw lobster and remain the Windows/macOS icon source and the
+  desktop window icon. They are not Android launcher resources; they belong to
+  the deferred namespace / branding migration recorded in `TASKS.md`.
+
 ## Status Dashboard v1 — PHYSICALLY VERIFIED AND CLOSED
 
 - Status: **PASS on a physical Android device (SM-A165F / Android 16), 2026-09-07

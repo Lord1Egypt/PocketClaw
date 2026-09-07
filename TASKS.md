@@ -503,9 +503,9 @@ prepared, and none belongs to a milestone yet.
   `image_model` / `image_model_fallbacks` fields and `routeMediaTurn` are
   untouched and still config-file reachable; only the product surface was
   removed. Do not list Vision routing as a delivered feature.
-- [ ] Re-render the Android launcher icon from the refined APERTURE mark
-  geometry. Out of scope for the redesign milestone, which changed no launcher
-  asset.
+- [x] Re-render the Android launcher icon from the refined APERTURE mark
+  geometry. Done on `feature/final-launcher-icon`, 2026-09-07.
+  **IMPLEMENTED — AWAITING PHYSICAL ACCEPTANCE.**
 
 ## FOLLOW-UP: Telegram request lifecycle durability
 
@@ -966,6 +966,17 @@ supplied by the user.
   QR code and/or deep link when valid, with manual bot-token entry retained as
   an advanced/fallback option. This is the next milestone and was deliberately
   kept out of Milestone C.
+
+- [ ] **Full PicoClaw → PocketClaw namespace / branding migration.** Carries the
+  load-bearing internal identifiers — `libpicoclaw.so`, `libpicoclaw-web.so`,
+  `PICOCLAW_*` placeholders, `/pico/*`, `.picoclaw`, the Go module paths, the
+  JNI and method-channel names, the Kotlin `PicoClawApp` / `PicoClawService`
+  classes — none of which is user-visible and each of which needs its own
+  migration path. It also carries the last user-visible PicoClaw artwork:
+  `assets/app_icon.png` and `assets/icon.ico` are still the orange lobster and
+  are still the Windows/macOS icon source and the desktop window icon
+  (`lib/main.dart`). The Android launcher milestone found them and deliberately
+  left them; they are not Android launcher resources.
 
 ## CODEX SOL HANDOFF — PRE-RELEASE FIX
 

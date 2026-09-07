@@ -1,4 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  The APERTURE mark on the Aperture canvas. Every raster layer below is derived
+  from the canonical geometry by tool/generate_android_launcher_icons.py; edit
+  the mark in Core and re-run that script rather than touching these files.
+
+  The 16% inset puts the mark's farthest ink 32.2dp from centre, inside
+  Android's 33dp mask-safe radius. test/unit/launcher_icon_test.dart measures
+  that from the PNGs on every run.
+-->
 <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
   <background android:drawable="@color/ic_launcher_background"/>
   <foreground>
@@ -6,4 +15,9 @@
           android:drawable="@drawable/ic_launcher_foreground"
           android:inset="16%" />
   </foreground>
+  <monochrome>
+      <inset
+          android:drawable="@drawable/ic_launcher_monochrome"
+          android:inset="16%" />
+  </monochrome>
 </adaptive-icon>
