@@ -59,8 +59,31 @@ val firebaseStorageBucket = dartDefines["PICOCLAW_FIREBASE_STORAGE_BUCKET"] ?: "
 // default that produced a wrong artifact without failing.
 // ---------------------------------------------------------------------------
 
-/** Lowest versionCode that has been installed on a device. */
-val acceptedVersionCodeFloor = 55
+/**
+ * The last versionCode that passed physical acceptance, and therefore the
+ * lowest a new build may carry.
+ *
+ * Read from a tracked file rather than written here so it advances with the
+ * product: a constant 55 would keep accepting 56 long after 120 had shipped.
+ * `android/release-baseline.properties` says when and how it moves.
+ */
+fun readAcceptedVersionCodeFloor(baseline: File): Int {
+    if (!baseline.isFile) {
+        throw GradleException(
+            "Cannot determine the release baseline: ${baseline.path} is missing. " +
+                "It records the last physically accepted versionCode."
+        )
+    }
+    val properties = Properties()
+    baseline.reader(Charsets.UTF_8).use(properties::load)
+    val raw = properties.getProperty("lastAcceptedVersionCode")?.trim()
+        ?: throw GradleException("${baseline.path} declares no lastAcceptedVersionCode.")
+    return raw.toIntOrNull()
+        ?: throw GradleException("${baseline.path} lastAcceptedVersionCode=\"$raw\" is not an integer.")
+}
+
+val acceptedVersionCodeFloor =
+    readAcceptedVersionCodeFloor(rootProject.file("release-baseline.properties"))
 
 /**
  * The tracked application version, read from `pubspec.yaml`.
@@ -119,8 +142,9 @@ fun resolveOverriddenVersionCode(project: Project, tracked: Int): Int {
         ?: throw GradleException("-PversionCode=$raw is not an integer.")
     if (override < acceptedVersionCodeFloor) {
         throw GradleException(
-            "-PversionCode=$override is below $acceptedVersionCodeFloor, which is already " +
-                "installed. Android refuses to install a lower versionCode over a higher one."
+            "-PversionCode=$override is below $acceptedVersionCodeFloor, the last " +
+                "physically accepted build. Android refuses to install a lower " +
+                "versionCode over a higher one."
         )
     }
     return override
@@ -131,9 +155,10 @@ assertLocalPropertiesCarriesNoVersion(rootProject.file("local.properties"))
 val trackedAppVersion = readTrackedAppVersion(rootProject.file("../pubspec.yaml"))
 if (trackedAppVersion.code < acceptedVersionCodeFloor) {
     throw GradleException(
-        "pubspec.yaml declares versionCode ${trackedAppVersion.code}, below the " +
-            "$acceptedVersionCodeFloor already installed on a device. Android refuses to " +
-            "install a lower versionCode over a higher one."
+        "pubspec.yaml declares versionCode ${trackedAppVersion.code}, below " +
+            "$acceptedVersionCodeFloor, the last physically accepted build recorded in " +
+            "android/release-baseline.properties. Android refuses to install a lower " +
+            "versionCode over a higher one."
     )
 }
 
@@ -146,8 +171,8 @@ val resolvedVersionName =
 //
 // Production signing material is read from the environment and never lives in
 // this repository. When it is absent a release build FAILS: it used to fall
-// through to the debug key silently, which shipped artifacts signed with a key
-// whose private half is in every Android SDK install.
+// through to the debug key silently, which shipped artifacts carrying a local
+// development identity rather than a release one.
 //
 // Local physical testing still needs a release-shaped APK, so debug signing
 // stays reachable — but only by asking for it in the command line, where it is
@@ -205,6 +230,12 @@ android {
         versionCode = resolvedVersionCode
         versionName = resolvedVersionName
         buildConfigField("String", "PICOCLAW_ANALYTICS_PROVIDER", analyticsProvider.toQuotedBuildConfigValue())
+        // Whether this APK actually packages the analytics SDK. It is set from
+        // the same value that decides the dependency below, so the runtime
+        // guard cannot drift away from what was built: a build that did not
+        // package the SDK reports false, and AnalyticsReporter refuses to touch
+        // a class that is not there.
+        buildConfigField("boolean", "PICOCLAW_UMENG_PACKAGED", umengAnalyticsRequested.toString())
         buildConfigField("String", "PICOCLAW_UMENG_APP_KEY", umengAppKey.toQuotedBuildConfigValue())
         buildConfigField("String", "PICOCLAW_UMENG_CHANNEL", umengChannel.toQuotedBuildConfigValue())
         buildConfigField("String", "PICOCLAW_UMENG_LINK_SCHEME", umengLinkScheme.toQuotedBuildConfigValue())
@@ -235,7 +266,9 @@ android {
             // explicit local opt-in is present the config stays null and
             // validateReleaseSigning fails the build before anything is
             // packaged — an unsigned or debug-signed release must never be a
-            // silent outcome.
+            // silent outcome. Debug signing is a development identity: it is
+            // not a release identity, and an artifact signed with a different
+            // key cannot update an existing installation in place.
             signingConfig = when {
                 releaseSigningMaterialUsable -> signingConfigs.getByName("release")
                 allowDebugSigning -> signingConfigs.getByName("debug")
@@ -320,8 +353,10 @@ tasks.register("validateReleaseSigning") {
         }
         if (allowDebugSigning) {
             println("Release signing: DEBUG KEY, by explicit -PallowDebugSigning=true.")
-            println("  This artifact is for local device testing only. It is not releasable:")
-            println("  the debug key's private half ships with every Android SDK install.")
+            println("  For local development and testing only; not a production release")
+            println("  identity. Debug signing material differs between development")
+            println("  environments, and an artifact signed with a different key is not an")
+            println("  in-place update of an existing installation.")
             return@doLast
         }
         throw GradleException(
@@ -338,10 +373,13 @@ tasks.register("validateReleaseSigning") {
                 }
                 appendLine()
                 appendLine("Debug signing is no longer an implicit fallback. To build a")
-                appendLine("release-shaped APK for local device testing, ask for it:")
+                appendLine("release-shaped APK for local development and testing, ask for it:")
                 appendLine("  ./gradlew :app:assembleRelease -Ptarget-platform=android-arm64 \\")
                 appendLine("      -PallowDebugSigning=true")
-                appendLine("Such an artifact is for testing only and must never be published.")
+                appendLine("That artifact is not a production release identity: debug signing")
+                appendLine("material differs between development environments, and an artifact")
+                appendLine("signed with a different key is not an in-place update of an")
+                appendLine("existing installation.")
             }
         )
     }

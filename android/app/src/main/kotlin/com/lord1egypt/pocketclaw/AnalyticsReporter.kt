@@ -25,7 +25,29 @@ object AnalyticsReporter {
     private val umengChannel: String
         get() = BuildConfig.PICOCLAW_UMENG_CHANNEL.ifBlank { "official" }
 
+    /**
+     * Whether the analytics SDK is part of this APK at all.
+     *
+     * Set by the same Gradle value that decides the dependency, so a build that
+     * left the SDK out reports false here. Without this the guard was a
+     * coincidence: it happened to imply the packaging condition, and a later
+     * edit to either side could have let a runtime provider selection reach a
+     * class the APK does not contain.
+     */
+    private val umengPackaged: Boolean
+        get() = BuildConfig.PICOCLAW_UMENG_PACKAGED
+
     private fun isUmengProviderEnabled(): Boolean {
+        if (!umengPackaged) {
+            // Not an error and not a crash: an optional capability that this
+            // build does not have. Callers already treat false as "disabled".
+            android.util.Log.d(
+                "AnalyticsReporter",
+                "isUmengProviderEnabled: SDK not packaged in this build, analytics disabled",
+            )
+            initError = "Analytics SDK is not packaged in this build."
+            return false
+        }
         val enabled = provider == "umeng" && umengAppKey.isNotBlank()
         android.util.Log.d("AnalyticsReporter", "isUmengProviderEnabled: provider=$provider, appKeyEmpty=${umengAppKey.isBlank()}, enabled=$enabled")
         return enabled
@@ -56,6 +78,11 @@ object AnalyticsReporter {
         } catch (e: Exception) {
             initError = e.message
             android.util.Log.e("AnalyticsReporter", "Failed to preInit Umeng SDK: ${e.message}", e)
+        } catch (e: LinkageError) {
+            // Belt and braces for the one failure the packaging flag exists to
+            // prevent. A missing class is an absent capability, not a crash.
+            initError = "Analytics SDK is not available in this build."
+            android.util.Log.w("AnalyticsReporter", "Analytics SDK absent: ${e.message}")
         }
     }
     

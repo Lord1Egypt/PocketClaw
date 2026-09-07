@@ -15,9 +15,17 @@ void main() {
   const pubspec = 'pubspec.yaml';
   const localProperties = 'android/local.properties';
 
-  /// The lowest versionCode installed on a device. Android refuses to install
-  /// anything lower over it.
-  const acceptedVersionCodeFloor = 55;
+  const baselineFile = 'android/release-baseline.properties';
+
+  /// The last physically accepted versionCode, read from the same tracked file
+  /// the build reads. Hard-coding it here would let the two drift, and would
+  /// reintroduce exactly the permanent floor this contract replaces.
+  int readAcceptedVersionCodeFloor() {
+    final line = File(baselineFile).readAsLinesSync().firstWhere(
+      (line) => line.startsWith('lastAcceptedVersionCode='),
+    );
+    return int.parse(line.split('=')[1].trim());
+  }
 
   String read(String path) => File(path).readAsStringSync();
 
@@ -27,8 +35,8 @@ void main() {
 
       // The defect: `else { signingConfigs.getByName("debug") }` as the tail of
       // the release signingConfig selection. Every artifact built without
-      // KEYSTORE_* in the environment was signed with the Android debug key,
-      // whose private half ships with every SDK install, and nothing said so.
+      // KEYSTORE_* in the environment carried a local development signing
+      // identity rather than a release one, and nothing said so.
       expect(
         source,
         isNot(contains('// Fallback to debug signing for local development')),
@@ -77,6 +85,28 @@ void main() {
         source,
         contains('-PallowDebugSigning=true'),
         reason: 'the error must name the one supported way to proceed',
+      );
+    });
+
+    test('what the build says about debug signing is accurate', () {
+      final source = read(gradle);
+
+      // Debug signing material is local development material. It is not one
+      // universal key distributed with the SDK, and the build must not say so.
+      expect(
+        source.toLowerCase(),
+        isNot(contains('private half')),
+        reason: 'inaccurate claim about a shared debug key',
+      );
+      expect(
+        source,
+        contains('differs between development'),
+        reason: 'the accurate reason must be stated: keys vary per environment',
+      );
+      expect(
+        source,
+        contains('in-place update of an existing installation'),
+        reason: 'the practical consequence is what a reader needs',
       );
     });
 
@@ -157,12 +187,13 @@ void main() {
         '0.2.0',
         reason: 'this milestone does not change the product version',
       );
+      final floor = readAcceptedVersionCodeFloor();
       expect(
         int.parse(version.group(2)!),
-        greaterThanOrEqualTo(acceptedVersionCodeFloor),
+        greaterThanOrEqualTo(floor),
         reason:
-            'versionCode must not regress below $acceptedVersionCodeFloor, '
-            'which is already installed on a device',
+            'versionCode must not regress below $floor, the last physically '
+            'accepted build recorded in $baselineFile',
       );
     });
 
@@ -208,11 +239,73 @@ void main() {
     test('an explicit override is validated against the same floor', () {
       final source = read(gradle);
       expect(source, contains('findProperty("versionCode")'));
-      expect(source, contains('acceptedVersionCodeFloor'));
+      expect(source, contains('override < acceptedVersionCodeFloor'));
+    });
+
+    test('the floor advances with acceptance instead of being pinned', () {
+      // A constant in the build file would keep waving through 56 long after
+      // 120 had shipped. The floor is one tracked number that moves when a
+      // build is physically accepted.
+      final source = read(gradle);
       expect(
         source,
-        contains('val acceptedVersionCodeFloor = $acceptedVersionCodeFloor'),
+        isNot(contains('val acceptedVersionCodeFloor = 55')),
+        reason: 'the floor must not be pinned in the build file',
       );
+      expect(
+        source,
+        contains(
+          'readAcceptedVersionCodeFloor(rootProject.file("release-baseline.properties"))',
+        ),
+      );
+
+      final baseline = File(baselineFile);
+      expect(baseline.existsSync(), isTrue, reason: '$baselineFile is missing');
+      final contents = baseline.readAsStringSync();
+      expect(contents, contains('lastAcceptedVersionCode='));
+      expect(
+        contents.toLowerCase(),
+        contains('physically accepted'),
+        reason: '$baselineFile must say when the number advances',
+      );
+      expect(readAcceptedVersionCodeFloor(), greaterThanOrEqualTo(55));
+    });
+  });
+
+  group('analytics capability', () {
+    const reporter =
+        'android/app/src/main/kotlin/com/lord1egypt/pocketclaw/AnalyticsReporter.kt';
+
+    test('the runtime guard is tied to what was packaged', () {
+      // Before this, the guard only checked the provider name and app key. It
+      // happened to imply the packaging condition, so no crash was reachable —
+      // but the safety was a coincidence between two independently editable
+      // conditions rather than a stated invariant.
+      expect(
+        read(gradle),
+        contains(
+          'buildConfigField("boolean", "PICOCLAW_UMENG_PACKAGED", umengAnalyticsRequested.toString())',
+        ),
+        reason: 'the flag must come from the value that decides the dependency',
+      );
+      expect(read(reporter), contains('BuildConfig.PICOCLAW_UMENG_PACKAGED'));
+      expect(read(reporter), contains('if (!umengPackaged) {'));
+    });
+
+    test('an unpackaged SDK is a disabled capability, never a crash', () {
+      final source = read(reporter);
+      // Every entry point already returns early on isUmengProviderEnabled(),
+      // which now returns false when the SDK is absent. LinkageError is the
+      // backstop for the one failure that flag exists to prevent.
+      expect(source, contains('catch (e: LinkageError)'));
+      expect(source, contains('Analytics SDK is not available in this build.'));
+      for (final entryPoint in const [
+        'fun preInit(',
+        'fun submitConsent(',
+        'fun uploadDeviceReport(',
+      ]) {
+        expect(source, contains(entryPoint));
+      }
     });
   });
 
@@ -272,10 +365,18 @@ void main() {
       ).allMatches(source).map((match) => match.group(1)!).toSet();
 
       // Attributed to the analytics SDK by building the merged manifest with
-      // and without it: these two are the entire difference.
+      // and without it: the first two are the entire difference the SDK makes.
+      // The rest come from play-services-measurement via firebase_analytics and
+      // are removed by the documented manifest opt-out — Firebase itself stays,
+      // because device feedback is a real feature that logs a custom event and
+      // needs none of the advertising surface.
       for (final permission in const [
         'android.permission.READ_PHONE_STATE',
         'freemme.permission.msa',
+        'com.google.android.gms.permission.AD_ID',
+        'android.permission.ACCESS_ADSERVICES_AD_ID',
+        'android.permission.ACCESS_ADSERVICES_ATTRIBUTION',
+        'com.google.android.finsky.permission.BIND_GET_INSTALL_REFERRER_SERVICE',
       ]) {
         expect(
           permissions,

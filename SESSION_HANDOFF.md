@@ -35,10 +35,26 @@ against it in every configuration and is guarded at runtime by
 the real dependency. Do not "clean up" the `compileOnly` lines — removing them
 breaks `compileReleaseKotlin`.
 
-**The ad permissions that remain are Firebase's, not Umeng's.** Measured, not
-assumed: merging the manifest with and without Umeng showed it contributes only
-`freemme.permission.msa`. Do not remove `AD_ID` or the AdServices pair believing
-they are analytics residue from this milestone.
+**Firebase is kept and its advertising surface is opted out.** Merging the
+manifest with and without Umeng showed Umeng contributes only
+`freemme.permission.msa`; `AD_ID`, both `ACCESS_ADSERVICES_*` and the Play
+install-referrer permission are Firebase's, via `play-services-measurement`.
+Firebase itself stays — device feedback is a real feature behind a Settings
+toggle — and those four are removed with `tools:node="remove"`, which is
+Google's documented opt-out and leaves custom event logging working. Do not
+delete the `firebase_analytics` plugin to shorten the permission list, and do
+not restore the install-referrer line unless Play campaign attribution becomes
+a real requirement.
+
+**The version floor lives in `android/release-baseline.properties`.** It is the
+last physically accepted versionCode, and it advances by hand in the commit that
+records the acceptance. Bump it there, not in `build.gradle.kts`; a constant
+would keep accepting 56 after 120 had shipped.
+
+**`BuildConfig.PICOCLAW_UMENG_PACKAGED` must keep coming from the same value as
+the dependency decision.** That is what stops a runtime provider selection
+reaching an SDK class the APK does not contain. It was safe before by
+coincidence; do not turn it back into one.
 
 ### Next
 

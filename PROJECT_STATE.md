@@ -54,6 +54,43 @@ default, so the same question applies to it — but its plugins are registered
 from `pubspec.yaml` and removing them touches Dart, so it is its own decision
 and is recorded in `TASKS.md`.
 
+### Review follow-up, 2026-09-08
+
+Three corrections after the implementation was accepted in principle.
+
+- **Signing wording.** The build claimed the debug key's "private half ships
+  with every Android SDK install". That is wrong and is gone. Debug signing
+  material is local development material that differs between environments, and
+  the practical consequence — an artifact signed with a different key is not an
+  in-place update of an existing installation — is what the message now says.
+  The fail-closed behaviour is unchanged.
+- **The version floor advances.** `acceptedVersionCodeFloor` was a constant 55
+  in the build file, which would still have accepted 56 after 120 shipped. It
+  now reads `lastAcceptedVersionCode` from
+  `android/release-baseline.properties`, advanced by hand in the commit that
+  records a physical acceptance. Verified by setting the baseline to 120 and
+  watching versionCode 55 and an override of 56 both be rejected.
+- **Firebase kept, its advertising surface removed.** Traced the dependency
+  rather than guessing: `firebase_analytics` and `firebase_core` are in
+  `pubspec.yaml`, used only by `lib/src/core/firebase_device_reporter.dart`,
+  behind the device-feedback Settings toggle. Firebase initializes only when all
+  four `PICOCLAW_FIREBASE_*` dart-defines are set; they are empty by default and
+  there is no `google-services.json`, so it is inert in the default build but is
+  a real feature, not dead code. It logs one custom event and needs no
+  advertising ID, so `AD_ID`, both `ACCESS_ADSERVICES_*` and the Play
+  install-referrer permission are removed with `tools:node="remove"`. Firebase's
+  components are untouched and the feature still works when configured.
+
+The default merged manifest is now **13 permissions**, down from 19 at vc55:
+`READ_PHONE_STATE`, `freemme.permission.msa` and those four advertising entries
+are gone, and every one that remains is product-required.
+
+An analytics capability that was not packaged can no longer be selected at
+runtime. `BuildConfig.PICOCLAW_UMENG_PACKAGED` comes from the same value that
+decides the dependency, so the guard cannot drift from what was built. No crash
+path existed beforehand — the guard already implied the packaging condition —
+but it did so by coincidence rather than by contract.
+
 ### Still open
 
 `main` still has no authentic signing key. Producing one, and the uninstall it

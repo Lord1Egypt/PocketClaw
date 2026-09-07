@@ -10,9 +10,8 @@ The signing one is the worst. The release `signingConfig` selected the
 production keystore if `storeFile?.exists()`, and otherwise fell through to
 `signingConfigs.getByName("debug")`. With no `KEYSTORE_*` in the environment
 that branch always won, so every artifact this project has produced — vc55
-included, the one physically accepted two days ago — is signed with the Android
-debug key, whose private half ships inside every SDK install. The build printed
-nothing. It now resolves to a real signer, or to debug **only** under
+included, the one physically accepted two days ago — carries a local development
+signing identity rather than a release one. The build printed nothing. It now resolves to a real signer, or to debug **only** under
 `-PallowDebugSigning=true`, or to `null` with `validateReleaseSigning` failing
 before anything compiles. The production key is deliberately not created yet:
 the test device runs a debug-signed install and changing signers forces an
@@ -62,6 +61,41 @@ analytics build asks for it by name and gets the real dependency.
 One user-visible line came out of all this and went into What's New: the app no
 longer asks for the Phone permission. Everything else here is invisible by
 design, and release notes are not a changelog.
+
+Review sent three things back. The build's own explanation of debug signing was
+wrong — it said the debug key's private half ships with every SDK install, which
+is not how Android debug signing works. Debug material is local development
+material that varies between environments; the consequence worth stating is that
+an artifact signed with a different key cannot update an existing installation in
+place, and that is what the message says now.
+
+The version floor was pinned at 55 in the build file, which would have kept
+accepting 56 long after 120 shipped — a floor that never moves stops being one.
+It now reads `lastAcceptedVersionCode` from a tracked
+`android/release-baseline.properties`, advanced by hand in the commit that
+records a physical acceptance. Setting it to 120 and watching both versionCode
+55 and an override of 56 be rejected is the whole proof.
+
+And the Firebase question got the trace it deserved rather than a guess.
+`firebase_analytics` and `firebase_core` are used by exactly one file, behind
+the device-feedback Settings toggle, and Firebase initializes only when four
+dart-defines are set — all empty by default, with no `google-services.json`
+anywhere. So it is inert in the default build but is a real feature, not dead
+code, and deleting the plugin would have removed a feature to shorten a
+permission list. The feature logs one custom event and needs no advertising ID,
+so the four advertising permissions came out through `tools:node="remove"` —
+Google's documented opt-out — with the components untouched. The default merged
+manifest is 13 permissions now, down from 19 at vc55, and every one that is left
+is doing a job.
+
+The last item was a failure mode nobody had hit. Could a runtime provider
+selection reach an SDK the APK did not package? It could not: the Kotlin guard
+checked the same BuildConfig string that decided the Gradle dependency, and its
+condition was strictly stronger. But that is a coincidence between two
+independently editable conditions, not a contract, so the packaging decision now
+sets `BuildConfig.PICOCLAW_UMENG_PACKAGED` and the guard reads it, with a
+`LinkageError` catch behind that. An optional capability that was not built is
+disabled, and says so.
 
 ## 2026-09-08 — The prompt was clean and the reply still signed itself
 

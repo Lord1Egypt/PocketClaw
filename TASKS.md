@@ -1045,22 +1045,32 @@ supplied by the user.
   there.
 - [x] **Release Hardening A1: signing fails closed, Core secrets leave Android
   backup, the version is tracked, and unused analytics surface is gone.** Done on
-  `feature/release-hardening-a1`, 2026-09-08.
+  `feature/release-hardening-a1`, 2026-09-08, with a review follow-up the same
+  day correcting the debug-signing wording, making the version floor advance
+  from `android/release-baseline.properties`, and removing the Firebase
+  advertising surface while keeping the feature.
   **IMPLEMENTED — AWAITING VALIDATION / PHYSICAL BUILD.**
+- [ ] **Advance `lastAcceptedVersionCode` in `android/release-baseline.properties`
+  whenever a build passes physical acceptance**, in the same commit that records
+  the acceptance in `PROJECT_STATE.md`. It is the floor every later build is
+  checked against; leaving it behind makes the check meaningless.
 - [ ] **Produce the production signing key and switch to it.** Deliberately not
   done in A1: the test device runs a debug-signed install and changing signers
   forces an uninstall and a data reset. Until then every artifact must be built
   with `-PallowDebugSigning=true` and is not releasable.
-- [ ] **Decide whether Firebase Analytics belongs in the default build.** A1
-  measured the merged manifest and found `AD_ID`,
-  `ACCESS_ADSERVICES_AD_ID`, `ACCESS_ADSERVICES_ATTRIBUTION` and
-  `BIND_GET_INSTALL_REFERRER_SERVICE` come from `play-services-measurement` via
-  the `firebase_analytics` plugin, not from Umeng, and they remain. Firebase is
-  also unconfigured by default, so it is the same class of problem — an SDK
-  costing permissions it never uses — but its plugins register from
-  `pubspec.yaml` and removing them touches Dart, the device-feedback surface and
-  the Settings toggle. Out of A1's scope by design; do not remove those
-  permissions on a guess.
+- [x] **Decide whether Firebase Analytics belongs in the default build.**
+  Resolved in the A1 follow-up, 2026-09-08: **kept.** `firebase_analytics` and
+  `firebase_core` back the device-feedback feature, which has a Settings toggle
+  and its own telemetry state machine; it is unconfigured by default rather than
+  unused, so removing the plugin would delete a feature to shorten a permission
+  list. The advertising surface it contributed — `AD_ID`, both
+  `ACCESS_ADSERVICES_*` and the Play install-referrer permission — is removed
+  with Google's documented `tools:node="remove"` opt-out instead. Custom event
+  logging, which is all this feature does, is unaffected.
+- [ ] **If Play campaign attribution ever becomes a requirement**, restore
+  `com.google.android.finsky.permission.BIND_GET_INSTALL_REFERRER_SERVICE` in
+  `AndroidManifest.xml`. It was removed because PocketClaw does no install-source
+  attribution, not because it conflicts with anything.
 - [ ] FINAL RELEASE HARDENING: controlled Dart generated-source URI strategy.
 - [ ] Future milestone only: Background & Battery page.
 - [ ] Future milestone only: local Runtime / Statistics bottom tab.

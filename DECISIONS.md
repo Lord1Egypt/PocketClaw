@@ -26,8 +26,10 @@
      is `compileOnly` unless `PICOCLAW_ANALYTICS_PROVIDER=umeng`, and
      `READ_PHONE_STATE` is no longer declared at all.
 - Reason: each of the six had a default that produced a wrong artifact without
-  failing. The signing fallback shipped every build so far under the Android
-  debug key, whose private half is in every SDK install. The Flutter Gradle
+  failing. The signing fallback shipped every build so far under a local
+  development signing identity rather than a release one, and debug signing
+  material differs between development environments — so such an artifact cannot
+  update an existing installation in place. The Flutter Gradle
   plugin defaults `flutter.versionCode` to 1 when `local.properties` omits it,
   so a clean checkout would have built 1 against a released 55. And the backup
   rules excluded exactly one directory while Core's plaintext provider keys and
@@ -40,6 +42,25 @@
   secret. `android_backup_exclusion_test.dart` asserts the rules and
   `PicoClawService.buildEnvironment` against the same string so that rename
   fails there first.
+- Amended 2026-09-08, three corrections after review.
+  - **The version floor advances rather than being pinned.** It lives in
+    `android/release-baseline.properties` as `lastAcceptedVersionCode` and moves
+    by hand in the commit that records a physical acceptance. A constant 55 in
+    the build file would have kept waving through 56 long after 120 had shipped.
+    Deliberately one tracked number, not a release database.
+  - **Firebase Analytics stays; its advertising surface does not.** Device
+    feedback is a real feature with a Settings toggle and a `firebase_analytics`
+    provider, so removing the plugin would delete a feature to shorten a
+    permission list. It logs one custom event and needs no advertising ID, so
+    `AD_ID`, both `ACCESS_ADSERVICES_*` and the Play install-referrer permission
+    are dropped with `tools:node="remove"` — Google's documented opt-out. Restore
+    the install-referrer line only if Play campaign attribution becomes real.
+  - **An optional SDK that was not packaged is a disabled capability, never a
+    crash.** `BuildConfig.PICOCLAW_UMENG_PACKAGED` is set from the same value
+    that decides the dependency, and `AnalyticsReporter` checks it before
+    touching an SDK class. No crash path existed — the old guard happened to
+    imply the packaging condition — but the safety was a coincidence between two
+    independently editable conditions, and is now an invariant.
 
 ## The lobster leaves the identity prompt, and nothing filters replies
 
