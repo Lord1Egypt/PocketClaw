@@ -478,6 +478,10 @@ class AppLocalizationsJa extends AppLocalizations {
   String get whatsNew020Improvement5 => 'アシスタントの返信がより自然になり、末尾の固定の署名がなくなりました。';
 
   @override
+  String get whatsNew020Improvement6 =>
+      '電話の権限を要求しなくなりました。アプリのどの機能も使用していませんでした。';
+
+  @override
   String get whatsNew020Fix1 => '以前の実行が残した古いプロセス記録からゲートウェイが復帰するようになりました。';
 
   @override

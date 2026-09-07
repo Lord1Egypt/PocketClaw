@@ -1,5 +1,79 @@
 # PocketClaw Session Handoff
 
+## Release Hardening A1 — PHYSICAL PASS and merged, 2026-09-08
+
+Branch `feature/release-hardening-a1`, off `develop` at `941f45a`. **Physically
+accepted on SM-A165F / Android 16 as vc56, then merged to `develop` with
+`--no-ff`.** `main` untouched, no tags moved, no release. The branch is
+retained. Core untouched and not rebuilt.
+
+    APK eea28fbe13c25e05f687d78e1a43c5ace40faea9ced63942479358ed4cef7b25
+
+vc56 was built from `pubspec.yaml` alone — no `-PversionCode`, no version in
+`local.properties` — so its `versionCode=56` is itself the evidence that the
+tracked source is authoritative. The upgrade kept the same signing certificate,
+so `install -r` was a real in-place update and application data survived.
+
+### Read this before building anything
+
+**Every release build now needs a decision about signing.** With no `KEYSTORE_*`
+environment the build fails on purpose. Until a production key exists, local
+device builds must say so:
+
+    ./gradlew :app:assembleRelease -Ptarget-platform=android-arm64 \
+        -PallowDebugSigning=true
+
+**`android/local.properties` must not declare a version.** The two
+`flutter.version*` lines were removed from this machine's copy; putting them
+back makes every Gradle invocation fail with an explanatory error. The version
+lives in `pubspec.yaml`, now `0.2.0+55`.
+
+### The things worth not undoing
+
+**The backup exclusion is matched by path name.** `files/picoclaw/` is excluded
+because that is what `PicoClawService.buildEnvironment` calls `internalHome`.
+Rename either side alone and every provider key and bot token becomes
+backup-eligible again with nothing else breaking.
+`android_backup_exclusion_test.dart` asserts both sides against one string so
+the namespace migration fails there first. This is the single highest-value
+thing in the milestone to keep.
+
+**Umeng is `compileOnly`, not deleted.** `AnalyticsReporter` still compiles
+against it in every configuration and is guarded at runtime by
+`isUmengProviderEnabled()`. Setting `PICOCLAW_ANALYTICS_PROVIDER=umeng` restores
+the real dependency. Do not "clean up" the `compileOnly` lines — removing them
+breaks `compileReleaseKotlin`.
+
+**Firebase is kept and its advertising surface is opted out.** Merging the
+manifest with and without Umeng showed Umeng contributes only
+`freemme.permission.msa`; `AD_ID`, both `ACCESS_ADSERVICES_*` and the Play
+install-referrer permission are Firebase's, via `play-services-measurement`.
+Firebase itself stays — device feedback is a real feature behind a Settings
+toggle — and those four are removed with `tools:node="remove"`, which is
+Google's documented opt-out and leaves custom event logging working. Do not
+delete the `firebase_analytics` plugin to shorten the permission list, and do
+not restore the install-referrer line unless Play campaign attribution becomes
+a real requirement.
+
+**The version floor lives in `android/release-baseline.properties`.** It is the
+last physically accepted versionCode — now 56 — and it advances by hand in the
+commit that records the acceptance. Bump it there, not in `build.gradle.kts`; a
+constant would keep accepting 56 after 120 had shipped. The pattern to repeat:
+bump `pubspec.yaml` before building a candidate, and bump the baseline only once
+that candidate has passed on a device.
+
+**`BuildConfig.PICOCLAW_UMENG_PACKAGED` must keep coming from the same value as
+the dependency decision.** That is what stops a runtime provider selection
+reaching an SDK class the APK does not contain. It was safe before by
+coincidence; do not turn it back into one.
+
+### Next
+
+Hardening A2. Either produce the production signing key — which forces an
+uninstall on the test device, because a different signer cannot update an
+installation in place — or carry on with locally-signed test builds and the
+explicit `-PallowDebugSigning=true` flag.
+
 ## Final User-Facing Polish — PHYSICAL PASS and merged, 2026-09-08
 
 Branch `feature/final-user-facing-polish`, off `develop` at `1db809e`.

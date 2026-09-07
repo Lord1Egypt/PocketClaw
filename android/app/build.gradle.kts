@@ -1,4 +1,5 @@
 import java.util.Base64
+import java.util.Properties
 import java.util.zip.ZipFile
 
 plugins {
@@ -49,6 +50,160 @@ val firebaseProjectId = dartDefines["PICOCLAW_FIREBASE_PROJECT_ID"] ?: ""
 val firebaseMessagingSenderId = dartDefines["PICOCLAW_FIREBASE_MESSAGING_SENDER_ID"] ?: ""
 val firebaseStorageBucket = dartDefines["PICOCLAW_FIREBASE_STORAGE_BUCKET"] ?: ""
 
+// ---------------------------------------------------------------------------
+// Release contract. See DECISIONS.md, "Release integrity".
+//
+// Three separate things used to be implicit here and are now stated: how a
+// release is signed, where its version number comes from, and whether the
+// analytics SDK is part of the build at all. Each of the three had a silent
+// default that produced a wrong artifact without failing.
+// ---------------------------------------------------------------------------
+
+/**
+ * The last versionCode that passed physical acceptance, and therefore the
+ * lowest a new build may carry.
+ *
+ * Read from a tracked file rather than written here so it advances with the
+ * product: a constant 55 would keep accepting 56 long after 120 had shipped.
+ * `android/release-baseline.properties` says when and how it moves.
+ */
+fun readAcceptedVersionCodeFloor(baseline: File): Int {
+    if (!baseline.isFile) {
+        throw GradleException(
+            "Cannot determine the release baseline: ${baseline.path} is missing. " +
+                "It records the last physically accepted versionCode."
+        )
+    }
+    val properties = Properties()
+    baseline.reader(Charsets.UTF_8).use(properties::load)
+    val raw = properties.getProperty("lastAcceptedVersionCode")?.trim()
+        ?: throw GradleException("${baseline.path} declares no lastAcceptedVersionCode.")
+    return raw.toIntOrNull()
+        ?: throw GradleException("${baseline.path} lastAcceptedVersionCode=\"$raw\" is not an integer.")
+}
+
+val acceptedVersionCodeFloor =
+    readAcceptedVersionCodeFloor(rootProject.file("release-baseline.properties"))
+
+/**
+ * The tracked application version, read from `pubspec.yaml`.
+ *
+ * The Flutter Gradle plugin reads `flutter.versionCode` / `flutter.versionName`
+ * from `android/local.properties`, which is gitignored, and silently defaults
+ * to 1 / "1.0" when they are absent — so a clean checkout built with Gradle
+ * produced versionCode 1 while the released artifact was 55. Reading the
+ * tracked file directly makes the version reproducible from git alone.
+ */
+data class TrackedAppVersion(val name: String, val code: Int)
+
+fun readTrackedAppVersion(pubspec: File): TrackedAppVersion {
+    if (!pubspec.isFile) {
+        throw GradleException("Cannot determine the app version: ${pubspec.path} is missing.")
+    }
+    val line = pubspec.readLines()
+        .firstOrNull { it.startsWith("version:") }
+        ?: throw GradleException("Cannot determine the app version: ${pubspec.path} declares no version.")
+    val raw = line.removePrefix("version:").trim()
+    val match = Regex("""^(\d+\.\d+\.\d+)\+(\d+)$""").matchEntire(raw)
+        ?: throw GradleException(
+            "Cannot parse the app version \"$raw\" in ${pubspec.path}. " +
+                "Expected the form <name>+<code>, for example 0.2.0+55."
+        )
+    return TrackedAppVersion(match.groupValues[1], match.groupValues[2].toInt())
+}
+
+/**
+ * Rejects a version declared in the gitignored local.properties.
+ *
+ * Leaving it readable would reintroduce exactly the split this contract
+ * removes: two sources for one number, only one of them in git.
+ */
+fun assertLocalPropertiesCarriesNoVersion(localProperties: File) {
+    if (!localProperties.isFile) return
+    val properties = Properties()
+    localProperties.reader(Charsets.UTF_8).use(properties::load)
+    val declared = listOf("flutter.versionCode", "flutter.versionName").filter(properties::containsKey)
+    if (declared.isNotEmpty()) {
+        throw GradleException(
+            buildString {
+                appendLine("${localProperties.path} declares ${declared.joinToString(" and ")}.")
+                appendLine("The app version is tracked in pubspec.yaml and nowhere else; a version")
+                appendLine("in this gitignored file would override it invisibly.")
+                appendLine("Remove those lines. To build a one-off version, pass it explicitly:")
+                appendLine("  ./gradlew :app:assembleRelease -PversionCode=<n> -PversionName=<x.y.z>")
+            }
+        )
+    }
+}
+
+fun resolveOverriddenVersionCode(project: Project, tracked: Int): Int {
+    val raw = (project.findProperty("versionCode") as String?)?.trim() ?: return tracked
+    val override = raw.toIntOrNull()
+        ?: throw GradleException("-PversionCode=$raw is not an integer.")
+    if (override < acceptedVersionCodeFloor) {
+        throw GradleException(
+            "-PversionCode=$override is below $acceptedVersionCodeFloor, the last " +
+                "physically accepted build. Android refuses to install a lower " +
+                "versionCode over a higher one."
+        )
+    }
+    return override
+}
+
+assertLocalPropertiesCarriesNoVersion(rootProject.file("local.properties"))
+
+val trackedAppVersion = readTrackedAppVersion(rootProject.file("../pubspec.yaml"))
+if (trackedAppVersion.code < acceptedVersionCodeFloor) {
+    throw GradleException(
+        "pubspec.yaml declares versionCode ${trackedAppVersion.code}, below " +
+            "$acceptedVersionCodeFloor, the last physically accepted build recorded in " +
+            "android/release-baseline.properties. Android refuses to install a lower " +
+            "versionCode over a higher one."
+    )
+}
+
+val resolvedVersionCode = resolveOverriddenVersionCode(project, trackedAppVersion.code)
+val resolvedVersionName =
+    (project.findProperty("versionName") as String?)?.trim()?.takeIf(String::isNotEmpty)
+        ?: trackedAppVersion.name
+
+// --- Signing -------------------------------------------------------------
+//
+// Production signing material is read from the environment and never lives in
+// this repository. When it is absent a release build FAILS: it used to fall
+// through to the debug key silently, which shipped artifacts carrying a local
+// development identity rather than a release one.
+//
+// Local physical testing still needs a release-shaped APK, so debug signing
+// stays reachable — but only by asking for it in the command line, where it is
+// visible in the build log and in shell history.
+val releaseKeystorePath = System.getenv("KEYSTORE_PATH").orEmpty().trim()
+val releaseKeystorePassword = System.getenv("KEYSTORE_PASSWORD").orEmpty()
+val releaseKeyAlias = System.getenv("KEY_ALIAS").orEmpty().trim()
+val releaseKeyPassword = System.getenv("KEY_PASSWORD").orEmpty()
+
+val releaseSigningMaterialDeclared =
+    releaseKeystorePath.isNotEmpty() &&
+        releaseKeystorePassword.isNotEmpty() &&
+        releaseKeyAlias.isNotEmpty() &&
+        releaseKeyPassword.isNotEmpty()
+
+val releaseSigningMaterialUsable =
+    releaseSigningMaterialDeclared && file(releaseKeystorePath).isFile
+
+val allowDebugSigning =
+    (project.findProperty("allowDebugSigning") as String?)?.toBoolean() == true
+
+// --- Analytics -----------------------------------------------------------
+//
+// The Umeng SDK used to be an unconditional dependency, so its manifest
+// contributions — advertising ID, AdServices attribution, the Play install
+// referrer service and an OEM push permission — merged into every build, and
+// the app declared READ_PHONE_STATE for its device probe. None of that runs
+// when the provider is "none", which is the default and the only configuration
+// PocketClaw ships. An unused SDK must not cost the user a permission prompt.
+val umengAnalyticsRequested = analyticsProvider.equals("umeng", ignoreCase = true)
+
 android {
     namespace = "com.lord1egypt.pocketclaw"
     compileSdk = flutter.compileSdkVersion
@@ -71,9 +226,16 @@ android {
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
-        versionCode = flutter.versionCode
-        versionName = flutter.versionName
+        // Tracked in pubspec.yaml, never in the gitignored local.properties.
+        versionCode = resolvedVersionCode
+        versionName = resolvedVersionName
         buildConfigField("String", "PICOCLAW_ANALYTICS_PROVIDER", analyticsProvider.toQuotedBuildConfigValue())
+        // Whether this APK actually packages the analytics SDK. It is set from
+        // the same value that decides the dependency below, so the runtime
+        // guard cannot drift away from what was built: a build that did not
+        // package the SDK reports false, and AnalyticsReporter refuses to touch
+        // a class that is not there.
+        buildConfigField("boolean", "PICOCLAW_UMENG_PACKAGED", umengAnalyticsRequested.toString())
         buildConfigField("String", "PICOCLAW_UMENG_APP_KEY", umengAppKey.toQuotedBuildConfigValue())
         buildConfigField("String", "PICOCLAW_UMENG_CHANNEL", umengChannel.toQuotedBuildConfigValue())
         buildConfigField("String", "PICOCLAW_UMENG_LINK_SCHEME", umengLinkScheme.toQuotedBuildConfigValue())
@@ -85,30 +247,32 @@ android {
 
     signingConfigs {
         create("release") {
-            // Signing configuration loaded from environment variables
-            // For CI/CD: set KEYSTORE_PATH, KEYSTORE_PASSWORD, KEY_ALIAS, KEY_PASSWORD as secrets
-            val keystorePath = System.getenv("KEYSTORE_PATH") ?: ""
-            val keystorePassword = System.getenv("KEYSTORE_PASSWORD") ?: ""
-            val keyAlias = System.getenv("KEY_ALIAS") ?: ""
-            val keyPassword = System.getenv("KEY_PASSWORD") ?: ""
-            
-            if (keystorePath.isNotEmpty() && keystorePassword.isNotEmpty() && 
-                keyAlias.isNotEmpty() && keyPassword.isNotEmpty()) {
-                storeFile = file(keystorePath)
-                storePassword = keystorePassword
-                this.keyAlias = keyAlias
-                this.keyPassword = keyPassword
+            // Production signing material comes from the environment and is
+            // never stored in this repository: set KEYSTORE_PATH,
+            // KEYSTORE_PASSWORD, KEY_ALIAS and KEY_PASSWORD as CI secrets or in
+            // an OS keychain. Nothing here is echoed to the build log.
+            if (releaseSigningMaterialUsable) {
+                storeFile = file(releaseKeystorePath)
+                storePassword = releaseKeystorePassword
+                this.keyAlias = releaseKeyAlias
+                this.keyPassword = releaseKeyPassword
             }
         }
     }
 
     buildTypes {
         release {
-            signingConfig = if (signingConfigs.named("release").get().storeFile?.exists() == true) {
-                signingConfigs.getByName("release")
-            } else {
-                // Fallback to debug signing for local development
-                signingConfigs.getByName("debug")
+            // There is no third branch. When neither a real signer nor the
+            // explicit local opt-in is present the config stays null and
+            // validateReleaseSigning fails the build before anything is
+            // packaged — an unsigned or debug-signed release must never be a
+            // silent outcome. Debug signing is a development identity: it is
+            // not a release identity, and an artifact signed with a different
+            // key cannot update an existing installation in place.
+            signingConfig = when {
+                releaseSigningMaterialUsable -> signingConfigs.getByName("release")
+                allowDebugSigning -> signingConfigs.getByName("debug")
+                else -> null
             }
             isMinifyEnabled = true
             isShrinkResources = true
@@ -155,12 +319,78 @@ flutter {
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
     implementation("androidx.core:core-ktx:1.18.0")
-    implementation("com.umeng.umsdk:common:9.9.1")
-    implementation("com.umeng.umsdk:asms:1.8.7.2")
+    // AnalyticsReporter compiles against Umeng in every configuration and is
+    // guarded at runtime by isUmengProviderEnabled(). compileOnly keeps that
+    // compilation working while keeping the AAR — and therefore its manifest
+    // contributions — out of a build that will never call it. An analytics
+    // build asks for it by name and gets the real dependency.
+    if (umengAnalyticsRequested) {
+        implementation("com.umeng.umsdk:common:9.9.1")
+        implementation("com.umeng.umsdk:asms:1.8.7.2")
+    } else {
+        compileOnly("com.umeng.umsdk:common:9.9.1")
+        compileOnly("com.umeng.umsdk:asms:1.8.7.2")
+    }
+    // Referenced by Apache Tika, which arrives transitively with Umeng. Kept
+    // unconditional: it contributes no manifest entry and no permission, and
+    // dropping it would change what R8 sees in the analytics build for no gain.
     implementation("javax.xml.stream:stax-api:1.0-2")
     // The credential store's destroy-or-preserve rule is a pure function of the
     // failure, so it is checked on the JVM rather than only on a device.
     testImplementation("junit:junit:4.13.2")
+}
+
+// Fail a release build that has no authentic signer.
+//
+// This runs before anything is compiled, so the failure arrives in seconds
+// rather than after a three-minute build, and it names the one way to proceed
+// on purpose.
+tasks.register("validateReleaseSigning") {
+    doLast {
+        if (releaseSigningMaterialUsable) {
+            println("Release signing: production keystore (from the environment).")
+            return@doLast
+        }
+        if (allowDebugSigning) {
+            println("Release signing: DEBUG KEY, by explicit -PallowDebugSigning=true.")
+            println("  For local development and testing only; not a production release")
+            println("  identity. Debug signing material differs between development")
+            println("  environments, and an artifact signed with a different key is not an")
+            println("  in-place update of an existing installation.")
+            return@doLast
+        }
+        throw GradleException(
+            buildString {
+                appendLine("Release signing material is missing, so this release cannot be signed.")
+                appendLine()
+                if (releaseSigningMaterialDeclared) {
+                    appendLine("KEYSTORE_PATH is set but names no readable file.")
+                } else {
+                    appendLine("Set KEYSTORE_PATH, KEYSTORE_PASSWORD, KEY_ALIAS and KEY_PASSWORD")
+                    appendLine("in the environment. They are secrets: keep them in CI secret storage")
+                    appendLine("or an OS keychain, never in this repository, local.properties or")
+                    appendLine("gradle.properties.")
+                }
+                appendLine()
+                appendLine("Debug signing is no longer an implicit fallback. To build a")
+                appendLine("release-shaped APK for local development and testing, ask for it:")
+                appendLine("  ./gradlew :app:assembleRelease -Ptarget-platform=android-arm64 \\")
+                appendLine("      -PallowDebugSigning=true")
+                appendLine("That artifact is not a production release identity: debug signing")
+                appendLine("material differs between development environments, and an artifact")
+                appendLine("signed with a different key is not an in-place update of an")
+                appendLine("existing installation.")
+            }
+        )
+    }
+}
+
+afterEvaluate {
+    // preBuild is the earliest hook that still belongs to the release variant;
+    // the packaging tasks are belt-and-braces for anyone invoking them directly.
+    listOf("preReleaseBuild", "packageRelease", "bundleRelease").forEach { name ->
+        tasks.findByName(name)?.dependsOn("validateReleaseSigning")
+    }
 }
 
 // Generate Firebase resources from dart-define

@@ -53,6 +53,7 @@ final WhatsNewRelease whatsNewRelease020 = WhatsNewRelease(
         (l10n) => l10n.whatsNew020Improvement3,
         (l10n) => l10n.whatsNew020Improvement4,
         (l10n) => l10n.whatsNew020Improvement5,
+        (l10n) => l10n.whatsNew020Improvement6,
       ],
     ),
     WhatsNewSection(

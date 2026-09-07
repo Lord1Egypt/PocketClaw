@@ -982,6 +982,12 @@ abstract class AppLocalizations {
   /// **'Assistant replies read more naturally, without a fixed sign-off at the end.'**
   String get whatsNew020Improvement5;
 
+  /// No description provided for @whatsNew020Improvement6.
+  ///
+  /// In en, this message translates to:
+  /// **'PocketClaw no longer asks for the Phone permission — nothing in the app used it.'**
+  String get whatsNew020Improvement6;
+
   /// No description provided for @whatsNew020Fix1.
   ///
   /// In en, this message translates to:

@@ -1,5 +1,156 @@
 # PocketClaw Project State
 
+## Production Release Hardening A1 — PHYSICALLY ACCEPTED AND CLOSED
+
+- Status: **PASS on a physical Android device (SM-A165F / Android 16), 2026-09-08
+  as vc56. Merged to `develop` with `--no-ff`.** `main` untouched, no tags moved,
+  no release created. Core source and the staged vc55 binaries are byte-for-byte
+  unchanged and were not rebuilt for this milestone.
+- Branch `feature/release-hardening-a1`, from `develop` at `941f45a`. Retained,
+  not deleted.
+- Four areas, nothing else: release signing, backup exclusion, version source of
+  truth, and the unused analytics surface.
+
+### Physical acceptance evidence
+
+    versionName 0.2.0, versionCode 56, arm64
+    APK  eea28fbe13c25e05f687d78e1a43c5ace40faea9ced63942479358ed4cef7b25
+
+Built with `-Ptarget-platform=android-arm64 -PallowDebugSigning=true` and no
+`-PversionCode` override; `android/local.properties` carries no version, so the
+manifest's `versionCode=56` came from `pubspec.yaml` alone. That is the proof
+the tracked source is authoritative. Installed with `adb install -r`, no
+uninstall and no clear-data.
+
+| Observed | Result |
+| --- | --- |
+| Release build fails closed without the signing opt-in | PASS |
+| The opt-in announces debug signing in the build output | PASS |
+| versionCode 56 / versionName 0.2.0 from the tracked source | PASS |
+| Signing certificate identical before and after the upgrade | PASS |
+| firstInstallTime, dataDir, uid and application data preserved | PASS |
+| Installed `base.apk` hash matches the staged artifact exactly | PASS |
+| Six permissions removed, none added | PASS |
+| Packaged backup rules exclude `credentials/` and `picoclaw/` | PASS |
+| Packaged Core byte-identical to the staged vc55 Core | PASS |
+
+The upgrade kept its signing identity: the certificate was
+`15cf75f9…` before and after, which is what made `install -r` a real in-place
+update rather than a reinstall.
+
+### Permissions: 13 declared, 11 requested on this device
+
+The APK declares 13 `uses-permission` entries; the device reports 11. The two
+missing are `WRITE_EXTERNAL_STORAGE` (`maxSdkVersion=28`) and
+`READ_EXTERNAL_STORAGE` (`maxSdkVersion=32`), which Android drops on an API 36
+device. vc55 showed the same two-entry gap (19 declared, 17 requested), so the
+behaviour is unchanged — 11 is the intended set, not a shortfall.
+
+On-device diff, vc55 to vc56 — six removed, nothing added:
+
+    android.permission.READ_PHONE_STATE
+    com.google.android.gms.permission.AD_ID
+    android.permission.ACCESS_ADSERVICES_AD_ID
+    android.permission.ACCESS_ADSERVICES_ATTRIBUTION
+    com.google.android.finsky.permission.BIND_GET_INSTALL_REFERRER_SERVICE
+    freemme.permission.msa
+
+### The accepted baseline advanced
+
+`android/release-baseline.properties` moves to `lastAcceptedVersionCode=56` in
+this closeout, which is the commit that records the acceptance. `pubspec.yaml`
+stays at `0.2.0+56`: the candidate became the accepted build, so the two now
+agree, and the next build is the one that bumps pubspec again.
+
+### Signing now fails closed
+
+The release `signingConfig` used to fall through to the debug key whenever the
+`KEYSTORE_*` environment was incomplete, silently. Every artifact to date,
+vc55 included, is therefore debug-signed. It now resolves to the production
+signer, or to the debug key **only** under `-PallowDebugSigning=true`, or to
+`null` — and `validateReleaseSigning`, wired to `preReleaseBuild`,
+`packageRelease` and `bundleRelease`, fails the build before anything compiles.
+No production key was created: the device under test still runs a debug-signed
+install, and switching signers would force an uninstall and data reset.
+
+### Core secrets are out of Android backup
+
+`files/picoclaw/` — `config.json` and the plaintext `.security.yml` holding
+provider API keys and channel bot tokens — is now excluded from full backup,
+cloud backup and device transfer, alongside the existing `credentials/`.
+`allowBackup` stays `true` by decision; non-secret state remains restorable.
+
+### The version is reproducible from git
+
+`pubspec.yaml` moves from `0.2.0+13` to `0.2.0+55`, matching the physically
+accepted build, and Gradle reads it directly. The Flutter Gradle plugin defaults
+`flutter.versionCode` to 1 when the gitignored `local.properties` omits it, so a
+clean checkout would have built versionCode 1; a version declared there is now
+rejected with an error rather than silently obeyed. `-PversionCode` /
+`-PversionName` are the explicit override and are validated against a floor of
+55.
+
+### Analytics attribution, measured rather than assumed
+
+The Umeng SDK is `compileOnly` unless `PICOCLAW_ANALYTICS_PROVIDER=umeng`, and
+`READ_PHONE_STATE` is no longer declared. Merging the release manifest with and
+without the dependency showed the SDK contributes **exactly one** entry,
+`freemme.permission.msa`. `READ_PHONE_STATE` came only from our own manifest.
+
+Correcting the audit: `AD_ID`, `ACCESS_ADSERVICES_AD_ID`,
+`ACCESS_ADSERVICES_ATTRIBUTION` and `BIND_GET_INSTALL_REFERRER_SERVICE` are
+**not** Umeng's. They come from Firebase Analytics via
+`play-services-measurement`, they are unchanged by this milestone, and they were
+left alone rather than removed on a guess. Firebase is also unconfigured by
+default, so the same question applies to it — but its plugins are registered
+from `pubspec.yaml` and removing them touches Dart, so it is its own decision
+and is recorded in `TASKS.md`.
+
+### Review follow-up, 2026-09-08
+
+Three corrections after the implementation was accepted in principle.
+
+- **Signing wording.** The build claimed the debug key's "private half ships
+  with every Android SDK install". That is wrong and is gone. Debug signing
+  material is local development material that differs between environments, and
+  the practical consequence — an artifact signed with a different key is not an
+  in-place update of an existing installation — is what the message now says.
+  The fail-closed behaviour is unchanged.
+- **The version floor advances.** `acceptedVersionCodeFloor` was a constant 55
+  in the build file, which would still have accepted 56 after 120 shipped. It
+  now reads `lastAcceptedVersionCode` from
+  `android/release-baseline.properties`, advanced by hand in the commit that
+  records a physical acceptance. Verified by setting the baseline to 120 and
+  watching versionCode 55 and an override of 56 both be rejected.
+- **Firebase kept, its advertising surface removed.** Traced the dependency
+  rather than guessing: `firebase_analytics` and `firebase_core` are in
+  `pubspec.yaml`, used only by `lib/src/core/firebase_device_reporter.dart`,
+  behind the device-feedback Settings toggle. Firebase initializes only when all
+  four `PICOCLAW_FIREBASE_*` dart-defines are set; they are empty by default and
+  there is no `google-services.json`, so it is inert in the default build but is
+  a real feature, not dead code. It logs one custom event and needs no
+  advertising ID, so `AD_ID`, both `ACCESS_ADSERVICES_*` and the Play
+  install-referrer permission are removed with `tools:node="remove"`. Firebase's
+  components are untouched and the feature still works when configured.
+
+The default merged manifest is now **13 permissions**, down from 19 at vc55:
+`READ_PHONE_STATE`, `freemme.permission.msa` and those four advertising entries
+are gone, and every one that remains is product-required.
+
+An analytics capability that was not packaged can no longer be selected at
+runtime. `BuildConfig.PICOCLAW_UMENG_PACKAGED` comes from the same value that
+decides the dependency, so the guard cannot drift from what was built. No crash
+path existed beforehand — the guard already implied the packaging condition —
+but it did so by coincidence rather than by contract.
+
+### Still open
+
+`main` still has no authentic signing key. Every artifact so far, vc56 included,
+carries a local development signing identity and is not releasable. Producing a
+production key — and the uninstall it forces on the test device, since a
+different signer cannot update an installation in place — is a deliberate later
+step, tracked in `TASKS.md`.
+
 ## Final User-Facing Polish — PHYSICALLY ACCEPTED AND CLOSED
 
 - Status: **PASS on a physical Android device (SM-A165F / Android 16), 2026-09-08

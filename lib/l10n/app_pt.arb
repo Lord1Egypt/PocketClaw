@@ -171,6 +171,7 @@
   "whatsNew020Improvement3": "Uma identidade do PocketClaw mais consistente na interface web e no espaço de trabalho padrão.",
   "whatsNew020Improvement4": "Um novo ícone do app e uma tela Sobre renovada, com o design Aperture do PocketClaw.",
   "whatsNew020Improvement5": "As respostas do assistente ficam mais naturais, sem uma assinatura fixa no final.",
+  "whatsNew020Improvement6": "O PocketClaw não pede mais a permissão de Telefone — nada no app a usava.",
   "whatsNew020Fix1": "O gateway agora se recupera de um registro de processo obsoleto deixado por uma execução anterior.",
   "whatsNew020Fix2": "Listas de canais com mais de uma entrada são preservadas corretamente ao salvar.",
   "settingsGroupConnection": "Conexão",

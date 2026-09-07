@@ -5,8 +5,42 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     
-    <!-- 友盟统计需要 - 获取设备信息 -->
-    <uses-permission android:name="android.permission.READ_PHONE_STATE" />
+    <!--
+      READ_PHONE_STATE is deliberately not declared here.
+
+      It was requested app-wide for the Umeng device probe, which the default
+      build does not package and never calls. A dangerous telephony permission
+      in the manifest of a build that cannot use it costs the user a prompt and
+      costs the listing a policy justification, for nothing. It cannot be made
+      conditional in place: tools:node is resolved before manifest placeholders,
+      so it takes no build-time value.
+
+      An analytics build gets whatever the analytics SDK's own AAR manifest
+      declares. If that SDK ever genuinely needs an app-level declaration, add it
+      to the analytics build's own manifest, not to this one.
+    -->
+
+    <!--
+      Advertising and attribution surface removed from the merged manifest.
+
+      These four are contributed by play-services-measurement, which arrives
+      with the firebase_analytics plugin. Firebase is kept: device feedback is a
+      real product feature with a Settings toggle, and it logs one custom event.
+      That event needs none of these — they exist for advertising-ID collection
+      and install-campaign attribution, neither of which PocketClaw does.
+
+      Removing the advertising ID this way is Google's documented opt-out and
+      leaves event logging working. Restore the install-referrer line only if
+      Play campaign attribution ever becomes a real requirement.
+    -->
+    <uses-permission android:name="com.google.android.gms.permission.AD_ID"
+        tools:node="remove" />
+    <uses-permission android:name="android.permission.ACCESS_ADSERVICES_AD_ID"
+        tools:node="remove" />
+    <uses-permission android:name="android.permission.ACCESS_ADSERVICES_ATTRIBUTION"
+        tools:node="remove" />
+    <uses-permission android:name="com.google.android.finsky.permission.BIND_GET_INSTALL_REFERRER_SERVICE"
+        tools:node="remove" />
 
     <!-- 前台服务 -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />

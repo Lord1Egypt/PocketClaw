@@ -2,13 +2,29 @@
 <!--
   Android 11 and earlier backup rules.
 
-  The GitHub credential is encrypted under a key that lives in the Android
-  Keystore and never leaves the device, so a restored copy on another device
-  could not be decrypted anyway. Excluding it keeps that from being the user's
-  problem to discover: they would see "Connected" against a credential that
-  fails closed on first use. It also keeps the ciphertext out of Google's backup
-  transport entirely, which is the stronger property.
+  Two directories are excluded, for two different reasons.
+
+  credentials/ holds the GitHub credential, encrypted under a key that lives in
+  the Android Keystore and never leaves the device, so a restored copy on
+  another device could not be decrypted anyway. Excluding it keeps that from
+  being the user's problem to discover: they would see "Connected" against a
+  credential that fails closed on first use. It also keeps the ciphertext out of
+  Google's backup transport entirely, which is the stronger property.
+
+  picoclaw/ is Core's private state directory: config.json and .security.yml.
+  Android onboarding declines credential encryption, so .security.yml holds
+  provider API keys and channel bot tokens as plaintext. Those are 0600 and
+  app-private, which stops another app reading them — but says nothing about
+  backup, and without this exclusion they were copied verbatim into Google's
+  cloud backup and into device-to-device transfer.
+
+  RECHECK AFTER THE PICOCLAW -> POCKETCLAW NAMESPACE MIGRATION. This path is
+  matched by name. If PicoClawService.buildEnvironment's internalHome is ever
+  renamed from "picoclaw", this line silently stops matching and every secret
+  becomes backup-eligible again with no test failing on its own.
+  backup_rules_test.dart is what makes that failure loud.
 -->
 <full-backup-content>
     <exclude domain="file" path="credentials/" />
+    <exclude domain="file" path="picoclaw/" />
 </full-backup-content>

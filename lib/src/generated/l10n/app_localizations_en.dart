@@ -493,6 +493,10 @@ class AppLocalizationsEn extends AppLocalizations {
       'Assistant replies read more naturally, without a fixed sign-off at the end.';
 
   @override
+  String get whatsNew020Improvement6 =>
+      'PocketClaw no longer asks for the Phone permission — nothing in the app used it.';
+
+  @override
   String get whatsNew020Fix1 =>
       'The Gateway now recovers from a stale process record left behind by an earlier run.';
 

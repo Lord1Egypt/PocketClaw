@@ -493,6 +493,10 @@ class AppLocalizationsHi extends AppLocalizations {
       'सहायक के उत्तर अधिक स्वाभाविक लगते हैं, अंत में किसी निश्चित हस्ताक्षर के बिना.';
 
   @override
+  String get whatsNew020Improvement6 =>
+      'PocketClaw अब फ़ोन अनुमति नहीं मांगता — ऐप में इसका कोई उपयोग नहीं था.';
+
+  @override
   String get whatsNew020Fix1 =>
       'गेटवे अब पिछली बार छूटे हुए पुराने प्रोसेस रिकॉर्ड से उबर जाता है.';
 

@@ -503,6 +503,10 @@ class AppLocalizationsEs extends AppLocalizations {
       'Las respuestas del asistente resultan más naturales, sin una firma fija al final.';
 
   @override
+  String get whatsNew020Improvement6 =>
+      'PocketClaw ya no pide el permiso de Teléfono: nada en la aplicación lo usaba.';
+
+  @override
   String get whatsNew020Fix1 =>
       'La puerta de enlace ahora se recupera de un registro de proceso obsoleto dejado por una ejecución anterior.';
 

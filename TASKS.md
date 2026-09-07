@@ -1043,6 +1043,38 @@ supplied by the user.
   prompt the user can accept. Do not blindly overwrite, and do not rewrite user
   memory. Found during the vc55 lobster-signature investigation; not fixed
   there.
+- [x] **Release Hardening A1: signing fails closed, Core secrets leave Android
+  backup, the version is tracked, and unused analytics surface is gone.** Done on
+  `feature/release-hardening-a1`, 2026-09-08, with a review follow-up the same
+  day correcting the debug-signing wording, making the version floor advance
+  from `android/release-baseline.properties`, and removing the Firebase
+  advertising surface while keeping the feature.
+  **PHYSICALLY ACCEPTED on SM-A165F / Android 16 as vc56, 2026-09-08, then
+  merged to `develop` with `--no-ff`.** The upgrade preserved its signing
+  identity, install time, dataDir, uid and application data, and dropped six
+  permissions without adding any.
+- [ ] **Advance `lastAcceptedVersionCode` in `android/release-baseline.properties`
+  whenever a build passes physical acceptance**, in the same commit that records
+  the acceptance in `PROJECT_STATE.md`. It is the floor every later build is
+  checked against; leaving it behind makes the check meaningless. Done once so
+  far: 55 to 56 at the A1 closeout.
+- [ ] **Produce the production signing key and switch to it.** Deliberately not
+  done in A1: the test device runs a debug-signed install and changing signers
+  forces an uninstall and a data reset. Until then every artifact must be built
+  with `-PallowDebugSigning=true` and is not releasable.
+- [x] **Decide whether Firebase Analytics belongs in the default build.**
+  Resolved in the A1 follow-up, 2026-09-08: **kept.** `firebase_analytics` and
+  `firebase_core` back the device-feedback feature, which has a Settings toggle
+  and its own telemetry state machine; it is unconfigured by default rather than
+  unused, so removing the plugin would delete a feature to shorten a permission
+  list. The advertising surface it contributed — `AD_ID`, both
+  `ACCESS_ADSERVICES_*` and the Play install-referrer permission — is removed
+  with Google's documented `tools:node="remove"` opt-out instead. Custom event
+  logging, which is all this feature does, is unaffected.
+- [ ] **If Play campaign attribution ever becomes a requirement**, restore
+  `com.google.android.finsky.permission.BIND_GET_INSTALL_REFERRER_SERVICE` in
+  `AndroidManifest.xml`. It was removed because PocketClaw does no install-source
+  attribution, not because it conflicts with anything.
 - [ ] FINAL RELEASE HARDENING: controlled Dart generated-source URI strategy.
 - [ ] Future milestone only: Background & Battery page.
 - [ ] Future milestone only: local Runtime / Statistics bottom tab.
