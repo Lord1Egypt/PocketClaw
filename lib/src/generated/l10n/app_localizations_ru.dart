@@ -475,6 +475,10 @@ class AppLocalizationsRu extends AppLocalizations {
       'Интеграция с Telegram, настраивается в разделе «Настройки».';
 
   @override
+  String get whatsNew020New6 =>
+      'Раздел «Состояние» на панели: текущая работа, каналы, используемая модель и ресурсы среды выполнения.';
+
+  @override
   String get whatsNew020Improvement1 =>
       'Более устойчивые провайдеры: неудачный запрос больше не обрывает ход.';
 
@@ -485,6 +489,14 @@ class AppLocalizationsRu extends AppLocalizations {
   @override
   String get whatsNew020Improvement3 =>
       'Более согласованное оформление PocketClaw в веб-интерфейсе и рабочем пространстве по умолчанию.';
+
+  @override
+  String get whatsNew020Improvement4 =>
+      'Новый значок приложения и обновлённый экран «О программе» в оформлении Aperture.';
+
+  @override
+  String get whatsNew020Improvement5 =>
+      'Ответы ассистента звучат естественнее — без фиксированной подписи в конце.';
 
   @override
   String get whatsNew020Fix1 =>

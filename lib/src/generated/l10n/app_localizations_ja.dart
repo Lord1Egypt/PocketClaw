@@ -457,6 +457,10 @@ class AppLocalizationsJa extends AppLocalizations {
   String get whatsNew020New5 => 'Telegram 連携。設定から構成できます。';
 
   @override
+  String get whatsNew020New6 =>
+      'ダッシュボードのステータス表示。実行中の処理、チャネル、使用中のモデル、実行リソースを確認できます。';
+
+  @override
   String get whatsNew020Improvement1 => 'プロバイダーの耐障害性を向上。リクエストが失敗してもターンは終了しません。';
 
   @override
@@ -465,6 +469,13 @@ class AppLocalizationsJa extends AppLocalizations {
   @override
   String get whatsNew020Improvement3 =>
       'ウェブ画面と既定のワークスペースで PocketClaw の表記を統一しました。';
+
+  @override
+  String get whatsNew020Improvement4 =>
+      'PocketClaw の Aperture デザインに合わせた新しいアプリアイコンと「情報」画面。';
+
+  @override
+  String get whatsNew020Improvement5 => 'アシスタントの返信がより自然になり、末尾の固定の署名がなくなりました。';
 
   @override
   String get whatsNew020Fix1 => '以前の実行が残した古いプロセス記録からゲートウェイが復帰するようになりました。';

@@ -450,6 +450,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get whatsNew020New5 => 'Telegram 集成，可在“设置”中配置。';
 
   @override
+  String get whatsNew020New6 => '仪表板新增状态视图：进行中的工作、渠道、正在使用的模型和运行资源。';
+
+  @override
   String get whatsNew020Improvement1 => '更稳健的服务商：单次请求失败不再中断本轮对话。';
 
   @override
@@ -457,6 +460,13 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get whatsNew020Improvement3 => '网页界面与默认工作区中的 PocketClaw 标识更加统一。';
+
+  @override
+  String get whatsNew020Improvement4 =>
+      '采用 PocketClaw Aperture 设计的全新应用图标与“关于”界面。';
+
+  @override
+  String get whatsNew020Improvement5 => '助手的回复更自然，末尾不再附带固定签名。';
 
   @override
   String get whatsNew020Fix1 => '网关现在可以从上一次运行遗留的过期进程记录中恢复。';

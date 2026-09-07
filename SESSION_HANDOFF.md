@@ -1,17 +1,27 @@
 # PocketClaw Session Handoff
 
-## Final User-Facing Polish — IMPLEMENTED, not merged, 2026-09-07
+## Final User-Facing Polish — PHYSICAL PASS and merged, 2026-09-08
 
-Branch `feature/final-user-facing-polish`, off `develop` at `1db809e`. **Not
-merged and not physically accepted.** No APK was built and nothing was installed.
+Branch `feature/final-user-facing-polish`, off `develop` at `1db809e`.
+**Physically accepted on SM-A165F / Android 16 as vc55, then merged to `develop`
+with `--no-ff`.** `main` untouched, no tags moved, no release. The branch is
+retained.
 
-### Read this before building anything
+### The lobster took two steps, and only the first was code
 
-**The staged Core is stale on purpose.** This branch changed
-`core/src/pkg/agent/context.go`, so `TestStagedCoreWasBuiltFromTheCurrentSource`
-fails by design. Run `./core/build-android-arm64.sh` before the next physical
-APK, or the device will run a Core that still carries the old identity prompt
-and the change will look like it did not work.
+The source fix landed and shipped correctly — the installed vc55 Core carries
+`# PocketClaw (%s)` and no occurrence of the old header. The first physical test
+still signed off with the mascot, and the reason was outside the repository: the
+device's own persisted long-term memory file carried one decorative emoji in a
+Markdown heading, and that file is loaded verbatim into the prompt on every turn.
+Removing that single character from the user's own runtime file fixed it; the
+next neutral message came back with no fixed sign-off.
+
+**Do not turn that into code.** No migration may rewrite a user's memory file, no
+output filter may strip characters from generated text, and normal emoji use
+stays permitted — the accepted reply used a different emoji and that is correct.
+A clean install needs none of this: the shipped identity and every seeded
+default are already free of the mascot.
 
 ### The things worth not undoing
 
@@ -37,9 +47,18 @@ whole block is what that test exists to reject.
 `ServiceManager.getAppVersion()` and the runtime version from `getCoreVersion()`.
 A test fails if `0.2.0` or `0.3.1` ever appears in the dialog.
 
+### The upgrade defect this uncovered
+
+Seeded workspace templates are copied with `keepExisting=true`, so `AGENT.md`,
+`SOUL.md`, `USER.md` and `MEMORY.md` are written once and never refreshed. The
+validated device still runs an `AGENT.md` that predates the Managed Runtime
+guidance, so that agent has never been told the Managed Runtime exists. Deferred
+to Release Hardening and recorded in `TASKS.md`; whatever fixes it must preserve
+user edits rather than overwrite the file.
+
 ### Next
 
-Physical acceptance of both changes on a device, after a Core rebuild.
+Production Release Hardening.
 
 ## Final Launcher Icon — PHYSICAL PASS and merged, 2026-09-07
 

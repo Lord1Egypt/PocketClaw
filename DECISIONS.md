@@ -19,6 +19,18 @@
   them, which `TestFinalResponseIsDeliveredVerbatimIncludingEmoji` asserts with a
   reply that contains the lobster. If the identity ever needs decoration again,
   it is a product decision to reopen here, not a formatting detail.
+- Amended 2026-09-08, after vc55: shipping the clean identity was necessary and
+  not sufficient. The device still signed its replies because its own persisted
+  long-term memory carried one decorative lobster in a heading, and that file is
+  loaded verbatim into the prompt on every turn. It was corrected once, in the
+  user's own runtime file. **No code may do that.** PocketClaw does not ship a
+  migration that rewrites a user's memory or workspace content to change how the
+  assistant sounds: that is the user's data, and an upgrade that edits it to win
+  an argument about tone is data loss. The lever for assistant tone is the
+  shipped prompt, which is already clean for every new install. Normal emoji use
+  in a reply remains permitted and is not a defect — the accepted vc55 response
+  chose a different emoji of its own, which is the behaviour this decision
+  wanted.
 
 ## The Android launcher is a derived artifact, not a fourth geometry copy
 

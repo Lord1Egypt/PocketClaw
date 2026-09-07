@@ -478,6 +478,10 @@ class AppLocalizationsDe extends AppLocalizations {
       'Telegram-Integration, einrichtbar in den Einstellungen.';
 
   @override
+  String get whatsNew020New6 =>
+      'Eine Statusansicht im Dashboard: laufende Arbeit, Kanäle, das genutzte Modell und die Laufzeitressourcen.';
+
+  @override
   String get whatsNew020Improvement1 =>
       'Robustere Anbieter: Eine fehlgeschlagene Anfrage beendet den Durchgang nicht mehr.';
 
@@ -488,6 +492,14 @@ class AppLocalizationsDe extends AppLocalizations {
   @override
   String get whatsNew020Improvement3 =>
       'Eine klarere PocketClaw-Identität in der Weboberfläche und im Standard-Arbeitsbereich.';
+
+  @override
+  String get whatsNew020Improvement4 =>
+      'Ein neues App-Symbol und ein überarbeiteter Info-Bildschirm im Aperture-Design von PocketClaw.';
+
+  @override
+  String get whatsNew020Improvement5 =>
+      'Antworten des Assistenten wirken natürlicher, ohne feste Signatur am Ende.';
 
   @override
   String get whatsNew020Fix1 =>

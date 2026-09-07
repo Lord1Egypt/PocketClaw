@@ -470,6 +470,10 @@ class AppLocalizationsHi extends AppLocalizations {
       'Telegram एकीकरण, सेटिंग्स से सेट किया जा सकता है.';
 
   @override
+  String get whatsNew020New6 =>
+      'डैशबोर्ड पर स्थिति दृश्य: चल रहा काम, चैनल, उपयोग में मॉडल और रनटाइम संसाधन.';
+
+  @override
   String get whatsNew020Improvement1 =>
       'अधिक सुदृढ़ प्रदाता: कोई विफल अनुरोध अब बातचीत को समाप्त नहीं करता.';
 
@@ -479,6 +483,14 @@ class AppLocalizationsHi extends AppLocalizations {
   @override
   String get whatsNew020Improvement3 =>
       'वेब इंटरफ़ेस और डिफ़ॉल्ट कार्यक्षेत्र में अधिक स्पष्ट PocketClaw पहचान.';
+
+  @override
+  String get whatsNew020Improvement4 =>
+      'PocketClaw के Aperture डिज़ाइन पर आधारित नया ऐप आइकन और नया परिचय स्क्रीन.';
+
+  @override
+  String get whatsNew020Improvement5 =>
+      'सहायक के उत्तर अधिक स्वाभाविक लगते हैं, अंत में किसी निश्चित हस्ताक्षर के बिना.';
 
   @override
   String get whatsNew020Fix1 =>

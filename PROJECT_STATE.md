@@ -1,12 +1,36 @@
 # PocketClaw Project State
 
-## Final User-Facing Polish — IMPLEMENTED — AWAITING PHYSICAL ACCEPTANCE
+## Final User-Facing Polish — PHYSICALLY ACCEPTED AND CLOSED
 
-- Status: **implemented on `feature/final-user-facing-polish`, 2026-09-07. Not
-  merged, not physically accepted.** No APK was built and nothing was installed.
-  `develop`, `main`, tags and releases are untouched.
-- Branch from `develop` at `1db809e`, the Final Launcher Icon merge.
+- Status: **PASS on a physical Android device (SM-A165F / Android 16), 2026-09-08
+  as vc55. Merged to `develop` with `--no-ff`.** `main` untouched, no tags moved,
+  no release created.
+- Branch `feature/final-user-facing-polish`, from `develop` at `1db809e`, the
+  Final Launcher Icon merge. Retained, not deleted.
 - Two focused changes, nothing else.
+
+### Physical acceptance evidence
+
+    versionName 0.2.0, versionCode 55, arm64
+    APK  cf7ae7858ae69162f2e421bc293e4438a2b2df5cd859908130066b65ff3e32d8
+
+Core was rebuilt for vc55 because this milestone changed Go source; the staged
+binaries and the ones the APK packages are byte-identical, and the installed
+`base.apk` hashes to the built artifact. Installed as an upgrade, preserving
+application data.
+
+| Observed | Result |
+| --- | --- |
+| About renders in the Aperture visual language | PASS |
+| About renders correctly in Arabic, right-to-left | PASS |
+| The app version renders correctly | PASS |
+| The runtime version renders correctly | PASS |
+| No overflow, no visible loading or layout defect | PASS |
+| Close dismisses the dialog | PASS |
+| A neutral message produces a reply with no fixed sign-off | PASS |
+
+The assistant used a different, contextually chosen emoji in that reply, which
+is the intended behaviour: there is no output filter and no emoji ban.
 
 ### About dialog
 
@@ -54,13 +78,31 @@ The legitimate uses are unrelated and remain: `pkg/env.go`'s `Logo`, the
 `cmd/picoclaw` terminal presentation, `/help` branding, workspace skill
 metadata, documentation and assets.
 
-### Core is intentionally stale
+### Core was rebuilt for vc55
 
-This milestone changed `core/src`, so the staged Core binaries no longer match
-the source. `TestStagedCoreWasBuiltFromTheCurrentSource` fails by design,
-expecting fingerprint `0541887128…`. **The next physical APK requires a Core
-rebuild** via `./core/build-android-arm64.sh`; nothing was rebuilt or re-staged
-in this session.
+This milestone changed `core/src`, which made the staged Core stale by design.
+It was rebuilt through `./core/build-android-arm64.sh` and staged in its own
+commit; the freshness guard passes and the installed Core carries the new
+identity header.
+
+### One runtime correction outside the repository
+
+After vc55 was installed, a first physical test still produced a reply ending
+with the mascot emoji. A read-only investigation traced every prompt part that
+can reach the model and found the shipped Core and every repository default
+already clean; the last remaining occurrence was a single decorative emoji in a
+Markdown heading inside this device's own persisted long-term memory file, which
+is loaded verbatim into the prompt. That one character was removed in place, in
+the user's own runtime file, with no other line touched and no restart needed.
+
+**No source change was made for this, and none should be.** Do not add code that
+rewrites a user's memory file, and do not add an upgrade migration that edits
+arbitrary user content. A clean install is unaffected: the shipped identity and
+every seeded workspace default contain no mascot emoji.
+
+The investigation also surfaced a separate upgrade defect — seeded workspace
+templates are never refreshed on an existing install — recorded as deferred in
+`TASKS.md`. It was not fixed here.
 
 ## Final Launcher Icon — PHYSICALLY ACCEPTED AND CLOSED
 
