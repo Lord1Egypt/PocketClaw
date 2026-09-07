@@ -76,6 +76,19 @@ type AgentLoop struct {
 
 	turnSeq atomic.Uint64
 
+	// Status counters are cumulative for the life of this gateway process and
+	// are never persisted. They are incremented at the lifecycle points that
+	// already classify the work — the runTurn terminal defer and
+	// recordToolExecution — rather than derived from the runtime event bus,
+	// whose subscriptions drop events under backpressure and would therefore
+	// undercount exactly when the numbers matter most.
+	turnsCompleted   atomic.Uint64
+	turnsFailed      atomic.Uint64
+	turnsCancelled   atomic.Uint64
+	toolCalls        atomic.Uint64
+	toolCallsFailed  atomic.Uint64
+	lastActivityUnix atomic.Int64
+
 	// activeReqMu/activeReqCond/activeReqCount replace sync.WaitGroup to
 	// avoid the "WaitGroup is reused before previous Wait has returned" panic
 	// that occurs when Add(1) races with a goroutine-launched Wait().

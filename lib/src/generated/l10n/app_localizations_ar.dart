@@ -496,4 +496,109 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get settingsGroupAppearance => 'المظهر';
+
+  @override
+  String get statusTitle => 'الحالة';
+
+  @override
+  String get statusSectionSystem => 'النظام';
+
+  @override
+  String get statusSectionAi => 'الذكاء الاصطناعي';
+
+  @override
+  String get statusSectionActivity => 'النشاط';
+
+  @override
+  String get statusSectionChannels => 'القنوات';
+
+  @override
+  String get statusSectionResources => 'الموارد';
+
+  @override
+  String get statusSinceGatewayStart => 'منذ بدء البوابة';
+
+  @override
+  String get statusGateway => 'البوابة';
+
+  @override
+  String get statusUptime => 'مدة التشغيل';
+
+  @override
+  String get statusAppVersion => 'إصدار التطبيق';
+
+  @override
+  String get statusCoreVersion => 'إصدار النواة';
+
+  @override
+  String get statusActiveModel => 'النموذج النشط';
+
+  @override
+  String get statusConfiguredDefault => 'الافتراضي المهيّأ';
+
+  @override
+  String get statusProvider => 'المزوّد';
+
+  @override
+  String get statusFallbacks => 'البدائل';
+
+  @override
+  String get statusActiveTurns => 'الأدوار النشطة';
+
+  @override
+  String get statusActiveSubagents => 'الوكلاء الفرعيون النشطون';
+
+  @override
+  String get statusWaiting => 'في الانتظار';
+
+  @override
+  String get statusCompleted => 'مكتملة';
+
+  @override
+  String get statusFailed => 'فاشلة';
+
+  @override
+  String get statusCancelled => 'مُلغاة';
+
+  @override
+  String get statusToolCalls => 'استدعاءات الأدوات';
+
+  @override
+  String get statusToolCallsFailed => 'استدعاءات أدوات فاشلة';
+
+  @override
+  String get statusLastActivity => 'آخر نشاط';
+
+  @override
+  String get statusCoreMemory => 'ذاكرة النواة';
+
+  @override
+  String get statusCoreCpuTime => 'زمن معالج النواة';
+
+  @override
+  String get statusChannelFailedToStart => 'فشل البدء';
+
+  @override
+  String get statusNoChannels => 'لا توجد قنوات مهيّأة';
+
+  @override
+  String get statusDetailUnavailable => 'الحالة التفصيلية غير متاحة';
+
+  @override
+  String get statusJustNow => 'الآن';
+
+  @override
+  String statusMinutesAgo(int minutes) {
+    return 'قبل $minutes د';
+  }
+
+  @override
+  String statusHoursAgo(int hours) {
+    return 'قبل $hours س';
+  }
+
+  @override
+  String statusDaysAgo(int days) {
+    return 'قبل $days ي';
+  }
 }

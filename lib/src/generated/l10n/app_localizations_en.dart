@@ -499,4 +499,109 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get settingsGroupAppearance => 'Appearance';
+
+  @override
+  String get statusTitle => 'Status';
+
+  @override
+  String get statusSectionSystem => 'System';
+
+  @override
+  String get statusSectionAi => 'AI';
+
+  @override
+  String get statusSectionActivity => 'Activity';
+
+  @override
+  String get statusSectionChannels => 'Channels';
+
+  @override
+  String get statusSectionResources => 'Resources';
+
+  @override
+  String get statusSinceGatewayStart => 'Since Gateway start';
+
+  @override
+  String get statusGateway => 'Gateway';
+
+  @override
+  String get statusUptime => 'Uptime';
+
+  @override
+  String get statusAppVersion => 'App version';
+
+  @override
+  String get statusCoreVersion => 'Core version';
+
+  @override
+  String get statusActiveModel => 'Active model';
+
+  @override
+  String get statusConfiguredDefault => 'Configured default';
+
+  @override
+  String get statusProvider => 'Provider';
+
+  @override
+  String get statusFallbacks => 'Fallbacks';
+
+  @override
+  String get statusActiveTurns => 'Active turns';
+
+  @override
+  String get statusActiveSubagents => 'Active subagents';
+
+  @override
+  String get statusWaiting => 'Waiting';
+
+  @override
+  String get statusCompleted => 'Completed';
+
+  @override
+  String get statusFailed => 'Failed';
+
+  @override
+  String get statusCancelled => 'Cancelled';
+
+  @override
+  String get statusToolCalls => 'Tool calls';
+
+  @override
+  String get statusToolCallsFailed => 'Tool calls failed';
+
+  @override
+  String get statusLastActivity => 'Last activity';
+
+  @override
+  String get statusCoreMemory => 'Core memory';
+
+  @override
+  String get statusCoreCpuTime => 'Core CPU time';
+
+  @override
+  String get statusChannelFailedToStart => 'Failed to start';
+
+  @override
+  String get statusNoChannels => 'No channels configured';
+
+  @override
+  String get statusDetailUnavailable => 'Detailed status is unavailable';
+
+  @override
+  String get statusJustNow => 'Just now';
+
+  @override
+  String statusMinutesAgo(int minutes) {
+    return '${minutes}m ago';
+  }
+
+  @override
+  String statusHoursAgo(int hours) {
+    return '${hours}h ago';
+  }
+
+  @override
+  String statusDaysAgo(int days) {
+    return '${days}d ago';
+  }
 }

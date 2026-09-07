@@ -505,4 +505,109 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get settingsGroupAppearance => 'Оформление';
+
+  @override
+  String get statusTitle => 'Состояние';
+
+  @override
+  String get statusSectionSystem => 'Система';
+
+  @override
+  String get statusSectionAi => 'ИИ';
+
+  @override
+  String get statusSectionActivity => 'Активность';
+
+  @override
+  String get statusSectionChannels => 'Каналы';
+
+  @override
+  String get statusSectionResources => 'Ресурсы';
+
+  @override
+  String get statusSinceGatewayStart => 'С момента запуска шлюза';
+
+  @override
+  String get statusGateway => 'Шлюз';
+
+  @override
+  String get statusUptime => 'Время работы';
+
+  @override
+  String get statusAppVersion => 'Версия приложения';
+
+  @override
+  String get statusCoreVersion => 'Версия Core';
+
+  @override
+  String get statusActiveModel => 'Активная модель';
+
+  @override
+  String get statusConfiguredDefault => 'Модель по умолчанию';
+
+  @override
+  String get statusProvider => 'Провайдер';
+
+  @override
+  String get statusFallbacks => 'Резервные модели';
+
+  @override
+  String get statusActiveTurns => 'Активные ходы';
+
+  @override
+  String get statusActiveSubagents => 'Активные субагенты';
+
+  @override
+  String get statusWaiting => 'В очереди';
+
+  @override
+  String get statusCompleted => 'Завершено';
+
+  @override
+  String get statusFailed => 'Ошибок';
+
+  @override
+  String get statusCancelled => 'Отменено';
+
+  @override
+  String get statusToolCalls => 'Вызовы инструментов';
+
+  @override
+  String get statusToolCallsFailed => 'Неудачные вызовы';
+
+  @override
+  String get statusLastActivity => 'Последняя активность';
+
+  @override
+  String get statusCoreMemory => 'Память Core';
+
+  @override
+  String get statusCoreCpuTime => 'Процессорное время Core';
+
+  @override
+  String get statusChannelFailedToStart => 'Не запустился';
+
+  @override
+  String get statusNoChannels => 'Каналы не настроены';
+
+  @override
+  String get statusDetailUnavailable => 'Подробный статус недоступен';
+
+  @override
+  String get statusJustNow => 'Только что';
+
+  @override
+  String statusMinutesAgo(int minutes) {
+    return '$minutes мин назад';
+  }
+
+  @override
+  String statusHoursAgo(int hours) {
+    return '$hours ч назад';
+  }
+
+  @override
+  String statusDaysAgo(int days) {
+    return '$days дн назад';
+  }
 }

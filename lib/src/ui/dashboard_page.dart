@@ -8,9 +8,62 @@ import 'package:pocketclaw/src/generated/l10n/app_localizations.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:remixicon/remixicon.dart';
 import 'package:pocketclaw/src/ui/widgets/tv_focusable.dart';
+import 'package:pocketclaw/src/ui/status_sections.dart';
 
-class DashboardPage extends StatelessWidget {
-  const DashboardPage({super.key});
+class DashboardPage extends StatefulWidget {
+  const DashboardPage({super.key, this.detailEnabled = true});
+
+  /// Whether this page is the selected tab. The detailed Status payload is
+  /// only requested while it is, so an unwatched Status tab leaves the shared
+  /// health poll costing exactly what it always did.
+  final bool detailEnabled;
+
+  @override
+  State<DashboardPage> createState() => _DashboardPageState();
+}
+
+class _DashboardPageState extends State<DashboardPage> {
+  // Held so dispose can turn detail off without looking up an ancestor on an
+  // already-deactivated element, which is not allowed at that point.
+  ServiceManager? _service;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _service = context.read<ServiceManager>();
+    _syncDetailRequest();
+  }
+
+  @override
+  void didUpdateWidget(covariant DashboardPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.detailEnabled != widget.detailEnabled) {
+      _syncDetailRequest();
+    }
+  }
+
+  @override
+  void dispose() {
+    // Leaving Status stops the detailed request. The page is kept alive by an
+    // IndexedStack, so dispose alone would not be enough — detailEnabled is
+    // what actually turns it off when the tab changes — but stopping here too
+    // means no path can leave detail running with nothing to display it.
+    _service?.setStatusDetailWanted(false);
+    super.dispose();
+  }
+
+  void _syncDetailRequest() {
+    final service = _service;
+    if (service == null) return;
+    final enabled = widget.detailEnabled;
+    // Deferred past the current build: setStatusDetailWanted notifies
+    // listeners, and notifying while this page is building would rebuild it
+    // mid-frame.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (enabled && !mounted) return;
+      service.setStatusDetailWanted(enabled);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -34,7 +87,7 @@ class DashboardPage extends StatelessWidget {
             elevation: 0,
             centerTitle: false,
             title: Text(
-              l10n.run,
+              l10n.statusTitle,
               style: GoogleFonts.inter(
                 fontWeight: FontWeight.w600,
                 fontSize: 22,
@@ -185,7 +238,15 @@ class DashboardPage extends StatelessWidget {
                     );
                   },
                 ),
-                const SizedBox(height: 32),
+                const SizedBox(height: ApertureTheme.spaceLg),
+                StatusSections(
+                  gatewayRunning: isRunning,
+                  uptime: service.healthUptime,
+                  appVersion: service.appVersion,
+                  coreVersion: service.coreVersionLabel,
+                  snapshot: service.statusSnapshot,
+                ),
+                const SizedBox(height: 12),
                 // Hint at bottom center
                 Center(
                   child: Row(

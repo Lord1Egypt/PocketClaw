@@ -350,6 +350,7 @@ toolLoop:
 						toolErrorSummary(hookResult),
 						inferSkillNamesFromToolCall(ts, toolName, toolArgs),
 					)
+					al.recordToolOutcome(!hookResult.IsError)
 
 					messages = append(messages, toolResultMsg)
 					if !ts.opts.NoHistory {
@@ -750,6 +751,7 @@ toolLoop:
 			toolErrorSummary(toolResult),
 			inferSkillNamesFromToolCall(ts, toolName, toolArgs),
 		)
+		al.recordToolOutcome(!toolResult.IsError)
 		messages = append(messages, toolResultMsg)
 		// Recorded before the loop can reach another provider request, so the
 		// committed result is what any later attempt sees.

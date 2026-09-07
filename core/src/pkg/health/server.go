@@ -11,6 +11,8 @@ import (
 	"strconv"
 	"sync"
 	"time"
+
+	"github.com/sipeed/picoclaw/pkg/status"
 )
 
 type Server struct {
@@ -21,6 +23,11 @@ type Server struct {
 	startTime  time.Time
 	reloadFunc func() error
 	authToken  string // optional bearer token for protected endpoints
+
+	// statusProbe supplies the detailed Status snapshot. It is nil until the
+	// gateway installs one, and a nil probe makes detail mode unavailable
+	// rather than empty.
+	statusProbe func() status.Snapshot
 
 	// activeRequests reports how many agent turns are currently in flight.
 	// The launcher reads it to avoid restarting the gateway mid-answer; nil
@@ -42,14 +49,25 @@ type StatusResponse struct {
 	PID    int              `json:"pid,omitempty"`
 	Checks map[string]Check `json:"checks,omitempty"`
 
-	// ActiveRequests is the number of agent turns in flight, and Busy is
+	// ActiveRequests is the number of in-flight provider calls, and Busy is
 	// whether that number is above zero.
 	//
 	// Both are pointers so "the gateway did not report" is distinguishable
 	// from "the gateway reported zero". A restart decision must not read a
 	// missing field as an idle gateway and interrupt someone's answer.
+	//
+	// This is not a count of agent turns. It is incremented around each
+	// provider request, including background summarization, so it is the
+	// right signal for "is it safe to restart" and the wrong one for any
+	// user-facing "running" number. Status reports turns separately.
 	ActiveRequests *int  `json:"active_requests,omitempty"`
 	Busy           *bool `json:"busy,omitempty"`
+
+	// Detail carries the Status snapshot, and only when a request both asked
+	// for it and presented the gateway credential. It is omitted entirely
+	// otherwise, which is what keeps the anonymous /health response
+	// byte-identical to what it has always been.
+	Detail *status.Snapshot `json:"detail,omitempty"`
 }
 
 func NewServer(host string, port int, token string) *Server {
@@ -118,10 +136,10 @@ func (s *Server) RegisterCheck(name string, checkFn func() (bool, string)) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	status, msg := checkFn()
+	ok, msg := checkFn()
 	s.checks[name] = Check{
 		Name:      name,
-		Status:    statusString(status),
+		Status:    statusString(ok),
 		Message:   msg,
 		Timestamp: time.Now(),
 	}
@@ -181,8 +199,22 @@ func (s *Server) reloadHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) healthHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
+	// Detail is opt-in and authenticated. The basic response stays exactly as
+	// it was — same fields, same anonymous access — because the launcher and
+	// the Android host both poll it for liveness, and because widening what an
+	// unauthenticated caller learns about the process is not a side effect a
+	// new screen should have.
+	detailRequested := r.URL.Query().Get("detail") == "1"
+	if detailRequested && !s.authorized(r) {
+		// Fail closed: an unauthorized detail request is refused, never
+		// quietly downgraded to a basic response. Silently serving less than
+		// was asked for would hide a broken credential until someone noticed
+		// the screen was empty.
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusUnauthorized)
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": "unauthorized"})
+		return
+	}
 
 	uptime := time.Since(s.startTime)
 	resp := StatusResponse{
@@ -193,6 +225,7 @@ func (s *Server) healthHandler(w http.ResponseWriter, r *http.Request) {
 
 	s.mu.RLock()
 	probe := s.activeRequests
+	statusProbe := s.statusProbe
 	s.mu.RUnlock()
 	if probe != nil {
 		active := probe()
@@ -200,8 +233,43 @@ func (s *Server) healthHandler(w http.ResponseWriter, r *http.Request) {
 		resp.ActiveRequests = &active
 		resp.Busy = &busy
 	}
+	if detailRequested && statusProbe != nil {
+		snapshot := statusProbe()
+		resp.Detail = &snapshot
+	}
 
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
 	_ = json.NewEncoder(w).Encode(resp)
+}
+
+// authorized reports whether a request carries the gateway bearer credential.
+//
+// This is the same token that already guards /reload, read from the same
+// field: detail mode reuses the existing gateway credential rather than
+// introducing a second one. When no token is configured the gateway has no
+// credential to check against, and detail mode is refused rather than opened
+// to everyone.
+func (s *Server) authorized(r *http.Request) bool {
+	s.mu.RLock()
+	required := s.authToken
+	s.mu.RUnlock()
+
+	if required == "" {
+		return false
+	}
+	given := extractBearerToken(r.Header.Get("Authorization"))
+	if given == "" {
+		return false
+	}
+	return subtle.ConstantTimeCompare([]byte(given), []byte(required)) == 1
+}
+
+// SetStatusProbe supplies the snapshot served in detail mode.
+func (s *Server) SetStatusProbe(probe func() status.Snapshot) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.statusProbe = probe
 }
 
 // SetActiveRequestsProbe supplies the in-flight turn count reported by /health.

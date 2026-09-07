@@ -46,8 +46,10 @@ class AndroidCoreServiceAdapter implements CoreServiceAdapter {
   }
 
   @override
-  Future<Map<String, dynamic>> checkHealth() async {
-    final res = await _channel.invokeMethod<dynamic>('checkHealth');
+  Future<Map<String, dynamic>> checkHealth({bool detail = false}) async {
+    final res = await _channel.invokeMethod<dynamic>('checkHealth', {
+      'detail': detail,
+    });
     return Map<String, dynamic>.from(res as Map);
   }
 

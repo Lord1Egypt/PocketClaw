@@ -320,7 +320,11 @@ class _MainShellState extends State<MainShell>
             key: ValueKey<int>(_selectedIndex),
             index: _selectedIndex,
             children: [
-              const DashboardPage(),
+              // Detail is requested only while Status is the selected tab.
+              // The pages live in an IndexedStack and are never disposed on a
+              // tab change, so the flag — not the widget lifecycle — is what
+              // stops the extra work.
+              DashboardPage(detailEnabled: _selectedIndex == 0),
               Consumer<ServiceManager>(
                 builder: (context, service, _) => WebViewPage(
                   key: ValueKey<String>(_webPath),

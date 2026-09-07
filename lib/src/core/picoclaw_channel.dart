@@ -88,8 +88,10 @@ class PicoClawChannel {
   }
 
   /// 检查 /health 端点
-  static Future<Map<String, dynamic>> checkHealth() async {
-    final result = await _channel.invokeMethod<Map>('checkHealth');
+  static Future<Map<String, dynamic>> checkHealth({bool detail = false}) async {
+    final result = await _channel.invokeMethod<Map>('checkHealth', {
+      'detail': detail,
+    });
     if (result == null) {
       return {'isHealthy': false, 'error': 'No response'};
     }

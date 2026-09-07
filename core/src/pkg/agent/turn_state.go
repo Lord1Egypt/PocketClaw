@@ -390,6 +390,14 @@ func (ts *turnState) setPhase(phase TurnPhase) {
 	ts.phase = phase
 }
 
+// currentDepth reports the turn's nesting level: 0 for a root turn, greater
+// for a sub-turn spawned by one.
+func (ts *turnState) currentDepth() int {
+	ts.mu.RLock()
+	defer ts.mu.RUnlock()
+	return ts.depth
+}
+
 func (ts *turnState) setIteration(iteration int) {
 	ts.mu.Lock()
 	defer ts.mu.Unlock()

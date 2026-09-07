@@ -508,4 +508,109 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get settingsGroupAppearance => 'Darstellung';
+
+  @override
+  String get statusTitle => 'Status';
+
+  @override
+  String get statusSectionSystem => 'System';
+
+  @override
+  String get statusSectionAi => 'KI';
+
+  @override
+  String get statusSectionActivity => 'Aktivität';
+
+  @override
+  String get statusSectionChannels => 'Kanäle';
+
+  @override
+  String get statusSectionResources => 'Ressourcen';
+
+  @override
+  String get statusSinceGatewayStart => 'Seit Gateway-Start';
+
+  @override
+  String get statusGateway => 'Gateway';
+
+  @override
+  String get statusUptime => 'Laufzeit';
+
+  @override
+  String get statusAppVersion => 'App-Version';
+
+  @override
+  String get statusCoreVersion => 'Core-Version';
+
+  @override
+  String get statusActiveModel => 'Aktives Modell';
+
+  @override
+  String get statusConfiguredDefault => 'Konfigurierter Standard';
+
+  @override
+  String get statusProvider => 'Anbieter';
+
+  @override
+  String get statusFallbacks => 'Ausweichmodelle';
+
+  @override
+  String get statusActiveTurns => 'Aktive Durchläufe';
+
+  @override
+  String get statusActiveSubagents => 'Aktive Subagenten';
+
+  @override
+  String get statusWaiting => 'Wartend';
+
+  @override
+  String get statusCompleted => 'Abgeschlossen';
+
+  @override
+  String get statusFailed => 'Fehlgeschlagen';
+
+  @override
+  String get statusCancelled => 'Abgebrochen';
+
+  @override
+  String get statusToolCalls => 'Tool-Aufrufe';
+
+  @override
+  String get statusToolCallsFailed => 'Fehlgeschlagene Tool-Aufrufe';
+
+  @override
+  String get statusLastActivity => 'Letzte Aktivität';
+
+  @override
+  String get statusCoreMemory => 'Core-Speicher';
+
+  @override
+  String get statusCoreCpuTime => 'Core-CPU-Zeit';
+
+  @override
+  String get statusChannelFailedToStart => 'Start fehlgeschlagen';
+
+  @override
+  String get statusNoChannels => 'Keine Kanäle konfiguriert';
+
+  @override
+  String get statusDetailUnavailable => 'Detailstatus nicht verfügbar';
+
+  @override
+  String get statusJustNow => 'Gerade eben';
+
+  @override
+  String statusMinutesAgo(int minutes) {
+    return 'vor $minutes Min.';
+  }
+
+  @override
+  String statusHoursAgo(int hours) {
+    return 'vor $hours Std.';
+  }
+
+  @override
+  String statusDaysAgo(int days) {
+    return 'vor $days Tg.';
+  }
 }

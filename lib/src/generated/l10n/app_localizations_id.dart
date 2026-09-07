@@ -504,4 +504,109 @@ class AppLocalizationsId extends AppLocalizations {
 
   @override
   String get settingsGroupAppearance => 'Tampilan';
+
+  @override
+  String get statusTitle => 'Status';
+
+  @override
+  String get statusSectionSystem => 'Sistem';
+
+  @override
+  String get statusSectionAi => 'AI';
+
+  @override
+  String get statusSectionActivity => 'Aktivitas';
+
+  @override
+  String get statusSectionChannels => 'Kanal';
+
+  @override
+  String get statusSectionResources => 'Sumber Daya';
+
+  @override
+  String get statusSinceGatewayStart => 'Sejak Gateway dimulai';
+
+  @override
+  String get statusGateway => 'Gateway';
+
+  @override
+  String get statusUptime => 'Waktu aktif';
+
+  @override
+  String get statusAppVersion => 'Versi aplikasi';
+
+  @override
+  String get statusCoreVersion => 'Versi Core';
+
+  @override
+  String get statusActiveModel => 'Model aktif';
+
+  @override
+  String get statusConfiguredDefault => 'Default terkonfigurasi';
+
+  @override
+  String get statusProvider => 'Penyedia';
+
+  @override
+  String get statusFallbacks => 'Cadangan';
+
+  @override
+  String get statusActiveTurns => 'Giliran aktif';
+
+  @override
+  String get statusActiveSubagents => 'Subagen aktif';
+
+  @override
+  String get statusWaiting => 'Menunggu';
+
+  @override
+  String get statusCompleted => 'Selesai';
+
+  @override
+  String get statusFailed => 'Gagal';
+
+  @override
+  String get statusCancelled => 'Dibatalkan';
+
+  @override
+  String get statusToolCalls => 'Panggilan alat';
+
+  @override
+  String get statusToolCallsFailed => 'Panggilan alat gagal';
+
+  @override
+  String get statusLastActivity => 'Aktivitas terakhir';
+
+  @override
+  String get statusCoreMemory => 'Memori Core';
+
+  @override
+  String get statusCoreCpuTime => 'Waktu CPU Core';
+
+  @override
+  String get statusChannelFailedToStart => 'Gagal memulai';
+
+  @override
+  String get statusNoChannels => 'Tidak ada kanal terkonfigurasi';
+
+  @override
+  String get statusDetailUnavailable => 'Status rinci tidak tersedia';
+
+  @override
+  String get statusJustNow => 'Baru saja';
+
+  @override
+  String statusMinutesAgo(int minutes) {
+    return '$minutes mnt lalu';
+  }
+
+  @override
+  String statusHoursAgo(int hours) {
+    return '$hours jam lalu';
+  }
+
+  @override
+  String statusDaysAgo(int days) {
+    return '$days hr lalu';
+  }
 }

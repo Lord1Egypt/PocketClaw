@@ -4,7 +4,13 @@ abstract class CoreServiceAdapter {
   Future<bool> startService({int? port, String? args});
   Future<bool> stopService();
   Future<Map<String, dynamic>> getServiceStatus();
-  Future<Map<String, dynamic>> checkHealth();
+  /// Polls the gateway's health endpoint.
+  ///
+  /// When [detail] is true the richer Status snapshot is requested as well.
+  /// That request is authenticated by the host with the gateway's own
+  /// credential, which never crosses into Dart, and it is only asked for while
+  /// the Status screen is visible.
+  Future<Map<String, dynamic>> checkHealth({bool detail = false});
   Future<bool> setAutoStart(bool enabled);
   Future<bool> getAutoStart();
   Future<String> getCoreVersion();

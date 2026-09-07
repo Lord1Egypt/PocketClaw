@@ -229,5 +229,74 @@
   "settingsGroupAppearance": "Appearance",
   "@settingsGroupAppearance": {
     "description": "Settings section label above the theme controls"
+  },
+  "statusTitle": "Status",
+  "@statusTitle": {
+    "description": "Title of the Status screen"
+  },
+  "statusSectionSystem": "System",
+  "statusSectionAi": "AI",
+  "statusSectionActivity": "Activity",
+  "statusSectionChannels": "Channels",
+  "statusSectionResources": "Resources",
+  "statusSinceGatewayStart": "Since Gateway start",
+  "@statusSinceGatewayStart": {
+    "description": "Caption clarifying that the activity counters reset when the Gateway restarts"
+  },
+  "statusGateway": "Gateway",
+  "statusUptime": "Uptime",
+  "statusAppVersion": "App version",
+  "statusCoreVersion": "Core version",
+  "statusActiveModel": "Active model",
+  "statusConfiguredDefault": "Configured default",
+  "statusProvider": "Provider",
+  "statusFallbacks": "Fallbacks",
+  "statusActiveTurns": "Active turns",
+  "statusActiveSubagents": "Active subagents",
+  "statusWaiting": "Waiting",
+  "statusCompleted": "Completed",
+  "statusFailed": "Failed",
+  "statusCancelled": "Cancelled",
+  "statusToolCalls": "Tool calls",
+  "statusToolCallsFailed": "Tool calls failed",
+  "statusLastActivity": "Last activity",
+  "statusCoreMemory": "Core memory",
+  "statusCoreCpuTime": "Core CPU time",
+  "statusChannelFailedToStart": "Failed to start",
+  "@statusChannelFailedToStart": {
+    "description": "Channel state shown when Start returned an error"
+  },
+  "statusNoChannels": "No channels configured",
+  "statusDetailUnavailable": "Detailed status is unavailable",
+  "@statusDetailUnavailable": {
+    "description": "Shown when the detailed Status payload could not be obtained"
+  },
+  "statusJustNow": "Just now",
+  "statusMinutesAgo": "{minutes}m ago",
+  "@statusMinutesAgo": {
+    "description": "Relative time since the last activity",
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "statusHoursAgo": "{hours}h ago",
+  "@statusHoursAgo": {
+    "description": "Relative time since the last activity",
+    "placeholders": {
+      "hours": {
+        "type": "int"
+      }
+    }
+  },
+  "statusDaysAgo": "{days}d ago",
+  "@statusDaysAgo": {
+    "description": "Relative time since the last activity",
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
   }
 }

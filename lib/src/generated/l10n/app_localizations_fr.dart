@@ -513,4 +513,110 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get settingsGroupAppearance => 'Apparence';
+
+  @override
+  String get statusTitle => 'État';
+
+  @override
+  String get statusSectionSystem => 'Système';
+
+  @override
+  String get statusSectionAi => 'IA';
+
+  @override
+  String get statusSectionActivity => 'Activité';
+
+  @override
+  String get statusSectionChannels => 'Canaux';
+
+  @override
+  String get statusSectionResources => 'Ressources';
+
+  @override
+  String get statusSinceGatewayStart => 'Depuis le démarrage de la passerelle';
+
+  @override
+  String get statusGateway => 'Passerelle';
+
+  @override
+  String get statusUptime => 'Temps de fonctionnement';
+
+  @override
+  String get statusAppVersion => 'Version de l\'application';
+
+  @override
+  String get statusCoreVersion => 'Version du Core';
+
+  @override
+  String get statusActiveModel => 'Modèle actif';
+
+  @override
+  String get statusConfiguredDefault => 'Valeur par défaut configurée';
+
+  @override
+  String get statusProvider => 'Fournisseur';
+
+  @override
+  String get statusFallbacks => 'Solutions de repli';
+
+  @override
+  String get statusActiveTurns => 'Tours actifs';
+
+  @override
+  String get statusActiveSubagents => 'Sous-agents actifs';
+
+  @override
+  String get statusWaiting => 'En attente';
+
+  @override
+  String get statusCompleted => 'Terminés';
+
+  @override
+  String get statusFailed => 'Échoués';
+
+  @override
+  String get statusCancelled => 'Annulés';
+
+  @override
+  String get statusToolCalls => 'Appels d\'outils';
+
+  @override
+  String get statusToolCallsFailed => 'Appels d\'outils échoués';
+
+  @override
+  String get statusLastActivity => 'Dernière activité';
+
+  @override
+  String get statusCoreMemory => 'Mémoire du Core';
+
+  @override
+  String get statusCoreCpuTime => 'Temps CPU du Core';
+
+  @override
+  String get statusChannelFailedToStart => 'Échec du démarrage';
+
+  @override
+  String get statusNoChannels => 'Aucun canal configuré';
+
+  @override
+  String get statusDetailUnavailable =>
+      'L\'état détaillé n\'est pas disponible';
+
+  @override
+  String get statusJustNow => 'À l\'instant';
+
+  @override
+  String statusMinutesAgo(int minutes) {
+    return 'il y a $minutes min';
+  }
+
+  @override
+  String statusHoursAgo(int hours) {
+    return 'il y a $hours h';
+  }
+
+  @override
+  String statusDaysAgo(int days) {
+    return 'il y a $days j';
+  }
 }
