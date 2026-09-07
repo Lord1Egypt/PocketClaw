@@ -2,6 +2,7 @@ package agent
 
 import (
 	"context"
+	"os"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -119,7 +120,7 @@ func newCancellationHarness(t *testing.T, response string) *cancellationHarness 
 	t.Helper()
 
 	cfg := config.DefaultConfig()
-	cfg.Agents.Defaults.Workspace = t.TempDir()
+	cfg.Agents.Defaults.Workspace = harnessWorkspace(t)
 	cfg.Agents.Defaults.MaxParallelTurns = 1
 	cfg.Agents.Defaults.MaxLLMRetries = 0
 
@@ -443,4 +444,22 @@ func TestTelegramHTTPTimeoutIsNotAnAgentTurnTimeout(t *testing.T) {
 	}
 	edits, sends := h.channel.snapshot()
 	t.Fatalf("a turn held open past the HTTP budget did not complete; edits=%+v sends=%v", edits, sends)
+}
+
+// harnessWorkspace gives the loop a scratch directory that is not torn down
+// under it.
+//
+// t.TempDir removes its directory as a cleanup and fails the test if anything
+// is still there. A turn released during teardown finishes and writes its
+// session, which races that removal — so the suite went red on a filesystem
+// detail while the behaviour under test had already passed. Removal here is
+// best-effort for the same reason.
+func harnessWorkspace(t *testing.T) string {
+	t.Helper()
+	dir, err := os.MkdirTemp("", "pocketclaw-telegram-harness-")
+	if err != nil {
+		t.Fatalf("MkdirTemp: %v", err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(dir) })
+	return dir
 }

@@ -23,35 +23,77 @@ Branch `feature/telegram-command-ux`, head `896021f`, merged to `develop` with
 - [x] Advanced textual forms unchanged; `/stop` lifecycle untouched.
 - [x] Deliberately **not** done: interactive buttons, callbacks, `/model`.
 
-## Telegram Interactive Menus — Phase B, NEXT
+## Telegram Model Command — CLOSED 2026-09-07
 
-Branch `feature/telegram-interactive-menus`, from the Phase A merge. Not started.
+Branch `feature/telegram-interactive-menus`, head `39450df`, merged to `develop`
+with `--no-ff`. Physically accepted on SM-A165F / Android 16 as vc50, APK
+`71ac692f…`, Core fingerprint `16a78423…`. `main` untouched, no tags moved, no
+release. Branch retained.
 
-**Acceptance criterion:** from `/model`, a user who knows nothing about
-PocketClaw's configuration must be able to change model without typing anything
-and without seeing an internal identifier.
+What shipped is a fixed informational `/model`:
 
-- [ ] Shared Go configured-model eligibility source. The rule lives in the
-  console frontend today, and its Go analogue is in `web/backend/api` where
-  `pkg/commands` cannot import it.
-- [ ] Additive outbound interactive-menu payload.
-- [ ] Optional Telegram inline-menu capability, following the existing
-  optional-capability pattern.
-- [ ] `callback_query` inbound handling — PocketClaw's first interactive input
-  route; no channel handles any interactive component today.
-- [ ] Callback authorization using the same owner rules as commands.
-- [ ] Callback acknowledgement so the spinner always clears.
-- [ ] Opaque, TTL'd callback identity; no model name, base URL, key or internal
-  identifier in `callback_data`.
-- [ ] Stale callback rejection that fails safely.
-- [ ] `/model` picker: current model shown and marked, configured models as
-  direct buttons, tap switches through the existing `/switch model to <name>`
-  semantics, concise confirmation, explicit cancel.
-- [ ] Only after `/model` proves the architecture: `/switch`, `/show`, `/list`,
-  `/use`, `/check`.
-- [ ] Physically re-verify `/stop`, FIFO, multi-image fallback, safe provider
-  errors and live channel reconcile — the send path grows a payload exactly
-  where placeholder, typing and streaming already interact.
+    🤖 Model selection is managed from PocketClaw Settings.
+
+- [x] `/model` is a real registered command, so Telegram's native "/" menu lists
+  it through the existing `RegisterCommands` mechanism.
+- [x] Informational by construction: the handler discards the `Runtime`, so the
+  switcher and the current-model reader are unreachable rather than merely
+  unused, and the reply is a constant that names no model, provider or endpoint.
+- [x] No LLM call and no history entry — a handled command returns before
+  `runAgentLoop`. Proven with an ordinary message as the control that does both.
+- [x] No buttons, no callbacks. A structural test fails if `Request` grows a
+  menu, button or callback field.
+- [x] `/help` lists it as "Manage models from PocketClaw Settings"; `/switch` is
+  "Advanced runtime controls".
+- [x] Phase A intact: `/help`, `NoArgsHelp`, `/subagents` privacy boundary, and
+  the advanced textual `/switch model to <name>`.
+
+### Phase B interactive menus — ABANDONED BY PRODUCT DECISION 2026-09-06
+
+Built, tested and physically verified as vc47 and vc48. **Not merged, and it
+will not be.** The branch was converged back to `develop` instead: every Phase B
+file was removed and the only source that survives is noted below.
+
+**This was not a failed implementation.** `/model` worked. Configured-model
+eligibility, tap-time revalidation, opaque TTL'd callback handles, chat/sender
+binding, single-message editing, cancel and picker retirement all passed their
+tests and their physical interaction test on the device.
+
+**What was rejected was the product semantics**, and only physical use exposed
+it: the Dashboard and the picker meant different things by "the model".
+The Dashboard owns the configured default in `config.json`; the picker moved
+only the running `AgentInstance`. A model configured in the Dashboard could be
+missing from the picker, and a model chosen in the picker never became the
+configured default. That is two sources of truth for one setting, and
+synchronizing them is far more machinery than the convenience is worth.
+
+**Model management remains Dashboard-owned.** Telegram stays a conversation and
+control surface. See DECISIONS.md, "Model selection belongs to the Dashboard,
+not to Telegram".
+
+- [x] Removed: `/model`, the inline picker, the callback registry and TTL
+  handles, the menu-action delegate, `bus.InteractiveMenu` and the
+  `OutboundMessage.Menu` field, Telegram `callback_query` handling, same-message
+  picker editing and retirement, `commands.Menu`/`ReplyMenu`, `Definition.Instant`
+  and `Registry.IsInstantCommand`, `Runtime.GetModelPicker`, `BaseChannel.Bus()`,
+  `publishResponseWithMenu`, `pkg/modelaccess`, and all their tests.
+- [x] `pkg/modelaccess` reverted too, deliberately. It was a verbatim move of
+  `hasModelConfiguration`/`requiresRuntimeProbe` out of `web/backend/api`, which
+  is their only consumer once the picker is gone — and the move left
+  `hasLocalAPIBase` implemented in both packages, which is the drift it claimed
+  to prevent. The Dashboard rule is back where it is owned and used.
+- [x] Retained: the `harnessWorkspace` fix in
+  `pkg/agent/telegram_cancellation_test.go`. `t.TempDir()` races a turn that
+  finishes during teardown and writes its session, which turned a passing suite
+  red on a filesystem detail. Test-only, independently valuable, latent on
+  `develop` before Phase B.
+- [x] Retained: `/switch` is described as "Advanced runtime controls" and no
+  longer promises a picker. It still performs `/switch model to <name>` against
+  the running agent and now says so, and points at the Dashboard for choosing the
+  default.
+- [x] Deliberately not done: no replacement model command, no persistence, no
+  synchronization of runtime selection into configuration, no interactive-menu
+  infrastructure kept for later.
 
 ### Follow-up — recorded, not started
 
@@ -64,8 +106,20 @@ and without seeing an internal identifier.
   eligibility becomes a feature, retire the narrow Android hardware-skill filter
   into it.
 - [ ] **`/list models` enumerates nothing.** It reports the current model and
-  says to edit config.json. The Phase B configured-model source is what would
-  let it list real choices.
+  says to edit config.json. Listing real choices needs a Go-side configured-model
+  source; `web/backend/api` has the rule but `pkg/commands` cannot import it.
+  Note that listing is not selecting: chat may report what the Dashboard has
+  configured, but choosing the default stays in the Dashboard.
+- [ ] **Release hardening: Core builds are not byte-reproducible by default.**
+  `core/src/Makefile` derives `BUILD_TIME` from `date` unless `BUILD_TIME_RAW`
+  is pinned, so two builds of identical source differ. Observed twice on
+  2026-09-06: the same tree produced `373c914b…` then `248bc5bd…`, and again
+  `5a1eceb4…` then `a2faf15e…`, purely from the timestamp. The source
+  fingerprint is unaffected — it is content-addressed and deliberately excludes
+  anything time-varying — so staleness detection is sound either way. This
+  matters only for independently reproducing a released artifact from its
+  source. Recorded, not fixed: do not change build reproducibility as a side
+  effect of another task.
 
 ## Android Hardware Tool Cleanup — CLOSED 2026-09-06
 

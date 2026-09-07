@@ -27,7 +27,7 @@ func helpCommand() Definition {
 // order they are most likely to want them. Anything registered but not named
 // here still appears, after these, so a new command cannot go missing.
 var helpOrder = []string{
-	"stop", "clear", "context", "show", "list", "use", "btw", "subagents", "reload",
+	"stop", "clear", "context", "show", "list", "model", "use", "btw", "subagents", "reload",
 }
 
 // formatHelpMessage renders the command overview a user actually reads.

@@ -7,7 +7,8 @@
   no release created.
 - Branch `feature/telegram-command-ux`, from `develop` at `2f863d2`, head
   `896021f`. Retained, not deleted.
-- Phase A **CLOSED**. Phase B is the next milestone — see below.
+- Phase A **CLOSED** and still intact. Phase B was built, physically verified,
+  and then abandoned by product decision — see below.
 
 ### Physical acceptance evidence
 
@@ -63,27 +64,93 @@ The command-to-tap gap that remains is **not** a Phase A failure. Phase A moved
 the answer from grammar to prose; it did not change who does the work, and it
 was never scoped to. That is Phase B.
 
-### Next milestone — Telegram Interactive Menus
+## Telegram Model Command — PHYSICALLY VERIFIED AND CLOSED
 
-Branch `feature/telegram-interactive-menus`, from this merge.
+- Status: **PASS on a physical Android device (SM-A165F / Android 16), 2026-09-07
+  as vc50. Merged to `develop` with `--no-ff`.** `main` untouched, no tags moved,
+  no release created.
+- Branch `feature/telegram-interactive-menus`, from the Phase A merge at
+  `0acac8e`, head `39450df`. Retained, not deleted.
+- The milestone that shipped is **not** the one the branch was opened for. The
+  interactive picker was built, physically verified as vc47 and vc48, and then
+  removed; what merged is its replacement, a fixed informational `/model`.
 
-Acceptance criterion, agreed verbatim: **from `/model`, a user who knows nothing
-about PocketClaw's configuration must be able to change model without typing
-anything and without seeing an internal identifier.**
+### What shipped — `/model` as a pointer, not a picker
 
-`/model` is the only proving ground. `/switch`, `/show`, `/list`, `/use` and
-`/check` adopt the pattern only after it holds. Direct model buttons, with a
-provider tier left unbuilt until a configured set is genuinely unwieldy —
-PocketClaw shows only configured, usable models, so the list is short by design.
+`/model` answers with one fixed sentence and nothing else:
 
-The prerequisites are known and none of them exist yet: no channel in PocketClaw
-handles any interactive component, `bus.OutboundMessage` carries only text, the
-Telegram channel has one inbound route, and the configured-model eligibility rule
-lives in the console frontend with its Go analogue stranded in `web/backend/api`
-where `pkg/commands` cannot reach it. The five physically accepted Telegram
-behaviours — `/stop`, FIFO, multi-image fallback, safe provider errors, live
-channel reconcile — must be re-verified afterwards, because the send path grows
-a payload exactly where placeholder, typing and streaming already interact.
+    🤖 Model selection is managed from PocketClaw Settings.
+
+It is informational by construction rather than by care: the handler discards
+the command `Runtime`, so the model switcher and the current-model reader are
+unreachable from it, and the answer is a constant that cannot name a model,
+provider or endpoint. A handled command returns before `runAgentLoop`, so there
+is no LLM call and no history entry.
+
+### Physical acceptance evidence — vc50
+
+| Observed | Result |
+| --- | --- |
+| `/model` returns the fixed informational response | PASS |
+| No interactive picker, no buttons | PASS |
+| No callback infrastructure reachable | PASS |
+| No "Thinking…" lifecycle for `/model` | PASS |
+| No model or provider identifier visible | PASS |
+| Telegram does not change the selected model | PASS |
+| Dashboard remains the canonical model-selection surface | PASS |
+| Phase A `/help`, `NoArgsHelp`, `/subagents` privacy still intact | PASS |
+| `/switch model to <name>` still works for advanced use | PASS |
+
+| Item | Value |
+| --- | --- |
+| Package / version | `com.lord1egypt.pocketclaw`, 0.2.0, code 50, arm64 |
+| APK SHA-256 | `71ac692f724ad2454e7c08e4b6a3103e22b4cae7263127f109ab6a36fffaf2eb` |
+| Core source fingerprint | `16a784237c5cf67a585746b34aa0d5adc597339b6e7b2d34f4e5a089eba9025c` |
+| `libpicoclaw.so` | `4cc375fe4aefc89cf9108b964ad1a6ab34a0d89ca5a36608449ab35590222d5c` |
+| `libpicoclaw-web.so` | `e8767e774d7dece2c061bf6609e52714ea96475db5434707fdffc5db5f9ec0d9` |
+
+### The interactive picker — ABANDONED BY PRODUCT DECISION
+
+#### This was not a failed implementation
+
+`/model` worked, and the physical interaction test passed. Configured-model
+eligibility filtering, revalidation at tap time, opaque TTL'd callback handles
+that carried no model name or credential, chat and sender binding, editing the
+same message instead of appending to the conversation, explicit cancel, and
+retirement of a displaced picker were all implemented, covered by tests that
+were each shown to fail when their protection was removed, and confirmed by use
+on the device.
+
+#### What was rejected is the product semantics
+
+Physical use exposed a scope mismatch that no test asserted, because nothing had
+said which scope was correct:
+
+- The **PocketClaw Dashboard** owns the configured default in `config.json`.
+- The **picker** moved only the running `AgentInstance`.
+- So a model configured in the Dashboard could be absent from the picker, and a
+  model chosen from Telegram never became the configured default.
+
+That is two sources of truth for one setting. The only fixes are to synchronize
+runtime selection back into configuration or to make the Dashboard follow
+runtime state — both large mechanisms for a small convenience, and both were
+rejected.
+
+#### Final product direction
+
+**Model selection and configuration belong to the PocketClaw Dashboard.**
+Telegram remains a conversation and control surface, not a model-configuration
+surface. `/model` says so and does nothing else, which is what makes the
+direction discoverable from the place people ask the question.
+`/switch model to <name>` survives as an advanced compatibility command
+that plainly moves the running agent; its `/help` description is now "Advanced
+runtime controls", so chat does not present itself as the place to choose a
+model. There is no replacement *picker*, no persistence, no synchronization
+mechanism, and no callback or interactive-menu runtime retained for later use —
+PocketClaw again has no interactive input path in any channel. A future
+interactive Telegram surface is designed when a real product requirement asks
+for one. See DECISIONS.md, "Model selection belongs to the Dashboard, not
+to Telegram".
 
 ## Android Hardware Tool Cleanup — PHYSICALLY VERIFIED AND CLOSED
 

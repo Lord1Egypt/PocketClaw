@@ -1,5 +1,40 @@
 # PocketClaw Decisions
 
+## Model selection belongs to the Dashboard, not to Telegram
+
+- Date: 2026-09-06
+- Decision: PocketClaw does not offer an interactive model picker in Telegram.
+  The Telegram Interactive Model Picker built on `feature/telegram-interactive-menus`
+  (physically tested as vc47 and vc48) is abandoned by product decision and its
+  code is removed rather than merged. Telegram remains a conversation and control
+  surface; it is not a model-configuration surface.
+- Reason: the picker and the Dashboard described different scopes of the same
+  word. The Dashboard owns the configured default in `config.json`; the picker
+  moved only the running `AgentInstance`. So a model configured in the Dashboard
+  could be absent from the picker, and a model chosen in the picker never became
+  the configured default — two places to choose a model that could disagree with
+  each other. Reconciling them would mean synchronizing runtime state back into
+  configuration, which is a large mechanism for a small convenience.
+- Consequence: Telegram still answers the question, it just does not act on it.
+  `/model` is a registered command that replies with one fixed sentence —
+  "🤖 Model selection is managed from PocketClaw Settings." — and touches
+  nothing: the handler discards the command `Runtime`, so the switcher and the
+  current-model reader are unreachable from it, and the constant reply cannot
+  name a model, provider or endpoint. Physically accepted as vc50 on 2026-09-07.
+  Pointing at the Dashboard from the place people ask is what makes a
+  single-source-of-truth decision discoverable instead of merely enforced.
+- Consequence: this is not a failed implementation. The picker worked: eligibility
+  filtering, tap-time revalidation, callback secrecy, chat/sender binding, handle
+  TTL, single-message editing and picker retirement all passed their tests and
+  their physical interaction test on the device. What was rejected was the product
+  semantics, discovered only by using it. `/switch model to <name>` survives as an
+  advanced compatibility command that plainly moves the running agent, and its
+  `/help` description is now "Advanced runtime controls" so chat does not advertise
+  itself as the place to choose a model. Nothing synchronizes runtime selection
+  back into configuration, and no interactive-menu infrastructure is kept "for
+  later" — a future interactive surface is designed when a product requirement
+  asks for one.
+
 ## Control commands are not conversational turns
 
 - Date: 2026-09-05

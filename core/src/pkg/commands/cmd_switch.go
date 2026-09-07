@@ -7,17 +7,23 @@ import (
 
 func switchCommand() Definition {
 	return Definition{
-		Name:        "switch",
-		Description: "Switch model or channel",
+		Name: "switch",
+		// Deliberately not "Switch model": model selection belongs to the
+		// PocketClaw Dashboard, which owns the configured default. Chat can
+		// only move the running agent, so promoting it in /help would offer a
+		// second place to choose a model that the Dashboard would not agree
+		// with. The command stays for people who already rely on it.
+		Description: "Advanced runtime controls",
 		// No pointer to /list models here on purpose: it reports the current
 		// model and tells you to edit config.json rather than enumerating what
 		// you could switch to, so sending someone there to browse would be a
-		// dead end. A picker belongs to the interactive command UI.
-		NoArgsHelp: "🔄 You can switch your model or your channel.\n\n" +
-			"To change model, name it after 'to' — for example: " +
-			"/switch model to gemini-2.5-flash\n" +
+		// dead end.
+		NoArgsHelp: "🔄 Advanced runtime controls.\n\n" +
+			"To change the model for this running agent, name it after 'to' — " +
+			"for example: /switch model to gemini-2.5-flash\n" +
 			"To change channel: /switch channel\n\n" +
-			"A simpler model picker is coming in the interactive command UI.",
+			"Choosing which model PocketClaw uses by default is done in the " +
+			"PocketClaw Dashboard, not from chat.",
 		SubCommands: []SubCommand{
 			{
 				Name:        "model",
