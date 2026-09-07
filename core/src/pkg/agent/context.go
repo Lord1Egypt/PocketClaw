@@ -173,7 +173,7 @@ func (cb *ContextBuilder) getIdentity(includeToolUseRule bool) string {
 	}
 
 	return fmt.Sprintf(
-		`# PocketClaw 🦞 (%s)
+		`# PocketClaw (%s)
 
 You are PocketClaw, a helpful AI assistant.
 

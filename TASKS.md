@@ -503,6 +503,14 @@ prepared, and none belongs to a milestone yet.
   `image_model` / `image_model_fallbacks` fields and `routeMediaTurn` are
   untouched and still config-file reachable; only the product surface was
   removed. Do not list Vision routing as a delivered feature.
+- [x] Remove the deterministic lobster from the shared kernel identity prompt so
+  the model stops signing replies with it. Done on
+  `feature/final-user-facing-polish`, 2026-09-07.
+  **IMPLEMENTED — AWAITING PHYSICAL ACCEPTANCE.** Requires a Core rebuild
+  before the next physical APK.
+- [x] Modernize the About dialog onto Aperture tokens and a responsive version
+  layout. Done on `feature/final-user-facing-polish`, 2026-09-07.
+  **IMPLEMENTED — AWAITING PHYSICAL ACCEPTANCE.**
 - [x] Re-render the Android launcher icon from the refined APERTURE mark
   geometry. Done on `feature/final-launcher-icon`, 2026-09-07.
   **PHYSICALLY ACCEPTED on SM-A165F / Android 16 as vc54, then merged to

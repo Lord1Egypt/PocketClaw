@@ -1,5 +1,46 @@
 # PocketClaw Session Handoff
 
+## Final User-Facing Polish — IMPLEMENTED, not merged, 2026-09-07
+
+Branch `feature/final-user-facing-polish`, off `develop` at `1db809e`. **Not
+merged and not physically accepted.** No APK was built and nothing was installed.
+
+### Read this before building anything
+
+**The staged Core is stale on purpose.** This branch changed
+`core/src/pkg/agent/context.go`, so `TestStagedCoreWasBuiltFromTheCurrentSource`
+fails by design. Run `./core/build-android-arm64.sh` before the next physical
+APK, or the device will run a Core that still carries the old identity prompt
+and the change will look like it did not work.
+
+### The things worth not undoing
+
+**The lobster fix is a prompt change, not a filter.** The kernel identity header
+is `# PocketClaw (%s)`; there is no response formatter between a turn and the
+channel and none may be added. `TestFinalResponseIsDeliveredVerbatimIncludingEmoji`
+runs a real turn and asserts the delivered text is byte-identical to the model's,
+using a reply containing the lobster. The lobster is still correct in `Logo`,
+the terminal presentation, `/help`, skill metadata, docs and assets — do not
+sweep them.
+
+**About stacks its version labels over their values.** The old fixed 148px label
+column is what a longer translation overflowed and a narrow phone could not
+afford. Do not reintroduce a fixed label width. Values stay `Directionality.ltr`
+monospace so a digest cannot reverse in Arabic.
+
+**About renders both labels before the versions arrive.** The pending value slot
+is one line high, so the dialog does not resize when the future resolves. A test
+asserts the two heights differ by less than 4dp; a spinner that replaces the
+whole block is what that test exists to reject.
+
+**No release number belongs in About.** The app version comes from
+`ServiceManager.getAppVersion()` and the runtime version from `getCoreVersion()`.
+A test fails if `0.2.0` or `0.3.1` ever appears in the dialog.
+
+### Next
+
+Physical acceptance of both changes on a device, after a Core rebuild.
+
 ## Final Launcher Icon — PHYSICAL PASS and merged, 2026-09-07
 
 Branch `feature/final-launcher-icon`, off `develop` at `c927243`, head `7df0bf7`.

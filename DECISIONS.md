@@ -1,5 +1,25 @@
 # PocketClaw Decisions
 
+## The lobster leaves the identity prompt, and nothing filters replies
+
+- Date: 2026-09-07
+- Decision: `getIdentity()` emits `# PocketClaw (%s)` instead of
+  `# PocketClaw 🦞 (%s)`. No response formatter, suffix stripper or emoji
+  filter was added, and the lobster stays everywhere else it is used — `Logo` in
+  `pkg/env.go`, the `cmd/picoclaw` terminal presentation, `/help` branding,
+  skill metadata, documentation and assets.
+- Reason: `kernel.identity` is the one prompt part every agent on every channel
+  receives on every turn. A decorative character in a system prompt is an
+  instruction to imitate, and the model was mirroring it at the end of replies.
+  The cause is the prompt, so the prompt is where it is fixed. The alternative —
+  stripping the character out of generated text — would also strip it from text a
+  user asked for, and would put a mutation between the model and the channel
+  where there has never been one.
+- Consequence: replies still reach the channel byte-for-byte as the model wrote
+  them, which `TestFinalResponseIsDeliveredVerbatimIncludingEmoji` asserts with a
+  reply that contains the lobster. If the identity ever needs decoration again,
+  it is a product decision to reopen here, not a formatting detail.
+
 ## The Android launcher is a derived artifact, not a fourth geometry copy
 
 - Date: 2026-09-07

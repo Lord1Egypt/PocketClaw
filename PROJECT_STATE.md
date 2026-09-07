@@ -1,5 +1,67 @@
 # PocketClaw Project State
 
+## Final User-Facing Polish — IMPLEMENTED — AWAITING PHYSICAL ACCEPTANCE
+
+- Status: **implemented on `feature/final-user-facing-polish`, 2026-09-07. Not
+  merged, not physically accepted.** No APK was built and nothing was installed.
+  `develop`, `main`, tags and releases are untouched.
+- Branch from `develop` at `1db809e`, the Final Launcher Icon merge.
+- Two focused changes, nothing else.
+
+### About dialog
+
+Still a `showDialog` + `AlertDialog`; no Settings page was created and no new
+artwork was added. What changed is the pre-redesign detail underneath it.
+
+- Raw `SizedBox(height: 12 / 16)` spacing became `ApertureTheme.spaceXs` and
+  `spaceMd`, and the version block is an `ApertureBracket` on `surface1` with
+  the standard border and radius — the same card device the What's New sections
+  and the Public Mode card use.
+- The hardcoded 148px label column is gone. A version row now stacks its label
+  over its value, which has no width to get wrong: a long translation cannot
+  overflow it, a narrow phone cannot squeeze it, and Arabic mirrors it with no
+  second layout. The values themselves stay `Directionality.ltr` monospace, as
+  before — a reversed digest is a bug, not localization.
+- A 40dp `accentSoft` icon tile with `Icons.camera` in the accent leads the
+  PocketClaw title, matching the icon-tile treatment already used on the
+  Public Mode card.
+- The dialog no longer resizes when the versions arrive. Both labels render
+  immediately and each value slot holds a one-line-high 14dp indicator until it
+  is replaced, so loading and loaded are the same height.
+- `Close` is a themed `FilledButton` rather than a bare `TextButton`.
+- Unchanged on purpose: the app version still comes from
+  `ServiceManager.getAppVersion()` and the runtime version from
+  `getCoreVersion()`, `_normalizeAboutVersion` still handles empty/unknown, and
+  focus still returns to the About button on dismissal. No release number is
+  written into the dialog, and a test asserts none appears.
+
+### The shared kernel identity no longer carries the lobster emoji
+
+`getIdentity()` in `core/src/pkg/agent/context.go` built the header
+`# PocketClaw <lobster> (%s)`. That is the `kernel.identity` prompt part, which
+every agent on every channel receives on every turn, so a decorative character
+in it reads as a signature to imitate — and the model mirrored it at the end of
+replies. The header is now `# PocketClaw (%s)`. Nothing else changed:
+`You are PocketClaw, a helpful AI assistant.` is untouched.
+
+There is no response formatter and none was added. A model's reply reaches the
+channel byte-for-byte as written, and
+`TestFinalResponseIsDeliveredVerbatimIncludingEmoji` runs a real turn through
+the bus to prove it, using a reply that contains the lobster. Stripping a
+character from generated text would also strip it from text a user asked for.
+
+The legitimate uses are unrelated and remain: `pkg/env.go`'s `Logo`, the
+`cmd/picoclaw` terminal presentation, `/help` branding, workspace skill
+metadata, documentation and assets.
+
+### Core is intentionally stale
+
+This milestone changed `core/src`, so the staged Core binaries no longer match
+the source. `TestStagedCoreWasBuiltFromTheCurrentSource` fails by design,
+expecting fingerprint `0541887128…`. **The next physical APK requires a Core
+rebuild** via `./core/build-android-arm64.sh`; nothing was rebuilt or re-staged
+in this session.
+
 ## Final Launcher Icon — PHYSICALLY ACCEPTED AND CLOSED
 
 - Status: **PASS on a physical Android device (SM-A165F / Android 16), 2026-09-07
