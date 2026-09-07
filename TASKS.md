@@ -1,5 +1,82 @@
 # PocketClaw Tasks
 
+## Status Dashboard v1 — CLOSED 2026-09-07
+
+Branch `feature/status-dashboard-v1`, head `85eb93a`, merged to `develop` with
+`--no-ff`. Physically accepted on SM-A165F / Android 16 as vc53, APK
+`6469e9f1…`, Core fingerprint `f4a3f913…`. `main` untouched, no tags moved, no
+release. Branch retained.
+
+| Item | Value |
+| --- | --- |
+| versionName / versionCode | 0.2.0 / 53 |
+| APK SHA-256 | `6469e9f103109505c9d05c9b47534e033a633d1da36c636621ecfa550196e857` |
+| Core source fingerprint | `f4a3f913014034c974df39a63214c34fb66d4e8b08d848115b58db4723c12104` |
+| `libpicoclaw.so` | `bf4fb01faf2741ccc402f3c07b4925e6cd4ebdd7d581d8775ab1744d50b8fc44` |
+| `libpicoclaw-web.so` | `bd84eaba705f3d0ec0e71e8cfbefe5cf392668b4a53807b8b9bafb5d89422280` |
+
+Core was built for vc52 and reused byte-for-byte in vc53, which changed only
+Dart. The fingerprint is unchanged across both.
+
+- [x] Status is the existing tab-0 destination, not a fifth tab. Navigation
+  remains four destinations.
+- [x] The access section keeps Start/Stop, Public Mode state, endpoint, QR and
+  the QR instructions together in one card.
+- [x] SYSTEM, AI, ACTIVITY, CHANNELS, RESOURCES render from one authenticated
+  snapshot.
+- [x] Counters are in-memory and gateway-process lifetime, incremented at the
+  two lifecycle points that already classify the work — `runTurn`'s terminal
+  defer and `recordToolExecution`. No database, no metrics file, no history.
+- [x] Detail rides the existing 3-second health poll and is requested only while
+  tab 0 is selected. No new timer, no WebSocket, no SSE.
+- [x] `/health?detail=1` requires the gateway bearer token that already guards
+  `/reload` and fails closed. Anonymous `/health` is byte-identical to what it
+  always returned.
+- [x] `detail.system.uptime_seconds` is whole seconds as a number; Flutter
+  renders a localized duration. The legacy `uptime` duration string is
+  unchanged for the launcher and the host.
+- [x] The obsolete 100px footer reservation is gone; the bottom gap is the
+  card margin plus the scroll view's own padding.
+
+### Truthful semantics — do not regress these
+
+These were each corrected after an audit found the first version overstated what
+the runtime knows. Changing any of them needs a reason better than convenience.
+
+- **Channels are Running or Stopped, nothing else.** Running requires *both* a
+  worker and the channel's running flag. There is no "Failed to start": nothing
+  retains a start failure — `StartAll` and `Reload` keep theirs in local
+  variables for a log line and a returned error — so a channel that failed and
+  one the gateway has not started yet are indistinguishable from here. Naming
+  one a failure would necessarily mislabel the other. "Connected", "Healthy" and
+  "Reachable" are not claimed at all, because nothing probes the network.
+- **Fallbacks is `max(len(candidates)-1, 0)`.** `resolveModelCandidates` builds
+  the list as the primary followed by its fallbacks and `ExecuteCandidate` walks
+  the whole list in order, so index 0 is the model in use. Reporting the raw
+  length credited every agent with one fallback more than it had, including
+  agents configured with none.
+- **Active turns and active subagents are separate gauges**, split by turn depth
+  in `activeTurnStates`. They are never summed into an "operations" number, and
+  neither is a tool call or a queued message.
+- **`/health`'s `active_requests` counts provider calls, not turns.** It includes
+  background summarization. It is right for deciding whether a restart is safe
+  and wrong for any user-facing "running" number.
+- **Activity counters reset with the gateway process**, which the screen states
+  as "Since Gateway start".
+- **Uptime is transported as a number with a unit.** Piping Go's
+  `Duration.String()` to the screen is what produced an unreadable,
+  unlocalizable value; nothing on that path had ever parsed it.
+- **Status is read-only about models.** It reports the runtime model, and the
+  configured default beside it only when `/switch` has moved them apart. It
+  reports the divergence and does not resolve it.
+
+### Deliberately not built
+
+Live CPU percentage, app-process RAM, a recent-activity feed, charts,
+sparklines, historical metrics, persistent counters, token or cost accounting,
+per-tool breakdowns, tool durations, channel message counts, channel
+reachability probes, MCP health, and a web-console Status page.
+
 ## Telegram Command UX Phase A — CLOSED 2026-09-06
 
 Branch `feature/telegram-command-ux`, head `896021f`, merged to `develop` with
@@ -120,6 +197,14 @@ not to Telegram".
   matters only for independently reproducing a released artifact from its
   source. Recorded, not fixed: do not change build reproducibility as a side
   effect of another task.
+- [ ] **`TestNoUserFacingWhatsAppSurface` fails on the `develop` baseline.** The
+  guard reports `test/widgets/whats_new_page_test.dart still references WhatsApp
+  outside a comment`. It predates the Status milestone, reproduces on `develop`
+  unchanged, and has been carried as non-blocking through vc46 to vc53. It is
+  the only failure in `pkg/coresource`. Recorded, not fixed: do not modify or
+  bypass the guard as a side effect of another task — either the test file's
+  reference is legitimate and the guard needs narrowing, or the reference should
+  go, and that is its own decision.
 - [ ] **Release hardening / security review: on Android the gateway bearer token
   lives on shared storage.** `pid.WritePidFile` writes `.picoclaw.pid` — which
   carries the gateway's `token` — into `PICOCLAW_HOME`, and on Android

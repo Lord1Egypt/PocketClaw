@@ -1,5 +1,45 @@
 # PocketClaw Decisions
 
+## Status lives on the Dashboard destination, not on a tab of its own
+
+- Date: 2026-09-07
+- Decision: PocketClaw's navigation keeps four destinations. Operational status
+  renders on the existing tab-0 Dashboard, below the access card, rather than as
+  a fifth navigation destination or a separate page.
+- Reason: the investigation recommended reusing tab 0 because that slot was
+  already tooltipped "Status"; a later review asked for a fifth tab to separate
+  controlling PocketClaw from monitoring it; physical use then settled it the
+  other way. On a phone the two jobs are read together — whether the gateway is
+  running, and what it is doing — and splitting them meant two destinations that
+  are each half a screen. Five bottom destinations also spend width that four
+  already use comfortably.
+- Consequence: `DashboardPage` carries both the access section and the Status
+  sections, and the detailed status poll is gated on tab 0 being selected. A
+  test counts the destination builders in `main.dart` and fails if a fifth
+  appears. Adding one later means re-deciding this, not just adding a button.
+
+## Status reports what the runtime can prove, and nothing more
+
+- Date: 2026-09-07
+- Decision: every value on the Status screen must be derivable from state the
+  runtime actually holds. Where a distinction is not represented in memory, the
+  screen does not draw it.
+- Reason: three metrics in the first draft claimed more than the code knew. A
+  channel with no worker was labelled "Failed to start" when it may simply not
+  have been started yet, because nothing retains a start failure. "Fallbacks"
+  reported the resolved candidate list, which begins with the model in use, so
+  every agent was credited with one fallback too many. And `/health`'s
+  `active_requests` counts provider calls including background summarization,
+  which is not a count of turns. A status page that is confidently wrong is
+  worse than one that omits the field.
+- Consequence: channels are Running or Stopped only; "Connected", "Healthy" and
+  "Reachable" are not claimed because nothing probes the network. Fallbacks is
+  `max(len(candidates)-1, 0)`. Turns, subagents, tool calls and queued messages
+  are separate counts and are never summed into an "operations" total. Counters
+  are gateway-process lifetime and the screen says so. Adding a metric means
+  first identifying the state that proves it — and if that state does not exist,
+  the answer is to leave the field out, not to infer it.
+
 ## Model selection belongs to the Dashboard, not to Telegram
 
 - Date: 2026-09-06
