@@ -1,5 +1,40 @@
 # Development Changelog
 
+## 2026-09-08 — vc56 proved the version came from the file we said it did
+
+Release Hardening A1 merged to `develop` with `--no-ff`, physically accepted as
+vc56 on SM-A165F. The interesting thing about the validation build is what it
+did *not* pass on the command line.
+
+vc56 was built with `-Ptarget-platform=android-arm64 -PallowDebugSigning=true`
+and nothing else. No `-PversionCode`. No version in `local.properties` — those
+two lines were deleted during A1. So the `versionCode=56` in the packaged
+manifest could only have come from `pubspec.yaml`, and that is the entire proof
+that the tracked source is now authoritative. A build that produced 1, or 55,
+would have failed the milestone on its own terms.
+
+The upgrade also had a gate worth keeping. Before installing, the signing
+certificate of the built APK was compared against the certificate of the
+`base.apk` pulled off the device — both `15cf75f9…`, so `install -r` was a real
+in-place update and `firstInstallTime`, `dataDir`, uid and application data all
+survived. That check is not ceremony: the moment a production key exists, it
+will fail, and it should, because a different signer cannot update an
+installation in place. Better to learn that from a gate than from a device.
+
+On permissions the device reported 11 where the APK declares 13, which looks
+like a discrepancy and is not. `WRITE_EXTERNAL_STORAGE` caps at API 28 and
+`READ_EXTERNAL_STORAGE` at 32, and the validation device is API 36, so Android
+drops both from the requested set. vc55 had the same two-entry gap. What changed
+is the six that went away — the telephony permission, the advertising ID, the
+two AdServices entries, the Play install-referrer binding and the OEM push
+permission — with nothing added in their place.
+
+The accepted baseline advanced from 55 to 56 in the closeout commit, which is
+the only place it is allowed to move. Bump `pubspec.yaml` to build a candidate;
+bump `android/release-baseline.properties` when that candidate survives a
+device. Keeping those two events apart is what stops the floor from being a
+number that agrees with whatever was built last.
+
 ## 2026-09-08 — Four defaults that produced the wrong artifact without failing
 
 `feature/release-hardening-a1`, the first Production Release Hardening

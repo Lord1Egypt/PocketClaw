@@ -61,6 +61,14 @@
     touching an SDK class. No crash path existed — the old guard happened to
     imply the packaging condition — but the safety was a coincidence between two
     independently editable conditions, and is now an invariant.
+- Accepted on a device 2026-09-08 as vc56, which is what turned these from
+  intentions into contracts. Two of them are only meaningful when exercised, so
+  the exercise is recorded here: the build fails closed without
+  `-PallowDebugSigning=true`, and `versionCode=56` reached the manifest with no
+  `-PversionCode` and no version in `local.properties`, so it can only have come
+  from `pubspec.yaml`. The accepted baseline advances **only** in the commit
+  that records a physical acceptance — 55 to 56 here — because a floor that
+  moves with every build is not a floor.
 
 ## The lobster leaves the identity prompt, and nothing filters replies
 

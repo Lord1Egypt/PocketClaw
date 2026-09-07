@@ -1049,11 +1049,15 @@ supplied by the user.
   day correcting the debug-signing wording, making the version floor advance
   from `android/release-baseline.properties`, and removing the Firebase
   advertising surface while keeping the feature.
-  **IMPLEMENTED — AWAITING VALIDATION / PHYSICAL BUILD.**
+  **PHYSICALLY ACCEPTED on SM-A165F / Android 16 as vc56, 2026-09-08, then
+  merged to `develop` with `--no-ff`.** The upgrade preserved its signing
+  identity, install time, dataDir, uid and application data, and dropped six
+  permissions without adding any.
 - [ ] **Advance `lastAcceptedVersionCode` in `android/release-baseline.properties`
   whenever a build passes physical acceptance**, in the same commit that records
   the acceptance in `PROJECT_STATE.md`. It is the floor every later build is
-  checked against; leaving it behind makes the check meaningless.
+  checked against; leaving it behind makes the check meaningless. Done once so
+  far: 55 to 56 at the A1 closeout.
 - [ ] **Produce the production signing key and switch to it.** Deliberately not
   done in A1: the test device runs a debug-signed install and changing signers
   forces an uninstall and a data reset. Until then every artifact must be built

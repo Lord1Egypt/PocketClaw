@@ -1,14 +1,66 @@
 # PocketClaw Project State
 
-## Production Release Hardening A1 — IMPLEMENTED — AWAITING VALIDATION / PHYSICAL BUILD
+## Production Release Hardening A1 — PHYSICALLY ACCEPTED AND CLOSED
 
-- Status: **implemented on `feature/release-hardening-a1`, 2026-09-08. Not
-  merged, not physically built.** No APK was built and nothing was installed.
-  `develop`, `main`, tags and releases are untouched. Core source and the staged
-  vc55 binaries are byte-for-byte unchanged and were not rebuilt.
-- Branch from `develop` at `941f45a`.
+- Status: **PASS on a physical Android device (SM-A165F / Android 16), 2026-09-08
+  as vc56. Merged to `develop` with `--no-ff`.** `main` untouched, no tags moved,
+  no release created. Core source and the staged vc55 binaries are byte-for-byte
+  unchanged and were not rebuilt for this milestone.
+- Branch `feature/release-hardening-a1`, from `develop` at `941f45a`. Retained,
+  not deleted.
 - Four areas, nothing else: release signing, backup exclusion, version source of
   truth, and the unused analytics surface.
+
+### Physical acceptance evidence
+
+    versionName 0.2.0, versionCode 56, arm64
+    APK  eea28fbe13c25e05f687d78e1a43c5ace40faea9ced63942479358ed4cef7b25
+
+Built with `-Ptarget-platform=android-arm64 -PallowDebugSigning=true` and no
+`-PversionCode` override; `android/local.properties` carries no version, so the
+manifest's `versionCode=56` came from `pubspec.yaml` alone. That is the proof
+the tracked source is authoritative. Installed with `adb install -r`, no
+uninstall and no clear-data.
+
+| Observed | Result |
+| --- | --- |
+| Release build fails closed without the signing opt-in | PASS |
+| The opt-in announces debug signing in the build output | PASS |
+| versionCode 56 / versionName 0.2.0 from the tracked source | PASS |
+| Signing certificate identical before and after the upgrade | PASS |
+| firstInstallTime, dataDir, uid and application data preserved | PASS |
+| Installed `base.apk` hash matches the staged artifact exactly | PASS |
+| Six permissions removed, none added | PASS |
+| Packaged backup rules exclude `credentials/` and `picoclaw/` | PASS |
+| Packaged Core byte-identical to the staged vc55 Core | PASS |
+
+The upgrade kept its signing identity: the certificate was
+`15cf75f9…` before and after, which is what made `install -r` a real in-place
+update rather than a reinstall.
+
+### Permissions: 13 declared, 11 requested on this device
+
+The APK declares 13 `uses-permission` entries; the device reports 11. The two
+missing are `WRITE_EXTERNAL_STORAGE` (`maxSdkVersion=28`) and
+`READ_EXTERNAL_STORAGE` (`maxSdkVersion=32`), which Android drops on an API 36
+device. vc55 showed the same two-entry gap (19 declared, 17 requested), so the
+behaviour is unchanged — 11 is the intended set, not a shortfall.
+
+On-device diff, vc55 to vc56 — six removed, nothing added:
+
+    android.permission.READ_PHONE_STATE
+    com.google.android.gms.permission.AD_ID
+    android.permission.ACCESS_ADSERVICES_AD_ID
+    android.permission.ACCESS_ADSERVICES_ATTRIBUTION
+    com.google.android.finsky.permission.BIND_GET_INSTALL_REFERRER_SERVICE
+    freemme.permission.msa
+
+### The accepted baseline advanced
+
+`android/release-baseline.properties` moves to `lastAcceptedVersionCode=56` in
+this closeout, which is the commit that records the acceptance. `pubspec.yaml`
+stays at `0.2.0+56`: the candidate became the accepted build, so the two now
+agree, and the next build is the one that bumps pubspec again.
 
 ### Signing now fails closed
 
@@ -93,8 +145,11 @@ but it did so by coincidence rather than by contract.
 
 ### Still open
 
-`main` still has no authentic signing key. Producing one, and the uninstall it
-forces on the test device, is a deliberate later step.
+`main` still has no authentic signing key. Every artifact so far, vc56 included,
+carries a local development signing identity and is not releasable. Producing a
+production key — and the uninstall it forces on the test device, since a
+different signer cannot update an installation in place — is a deliberate later
+step, tracked in `TASKS.md`.
 
 ## Final User-Facing Polish — PHYSICALLY ACCEPTED AND CLOSED
 

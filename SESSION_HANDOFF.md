@@ -1,9 +1,18 @@
 # PocketClaw Session Handoff
 
-## Release Hardening A1 — IMPLEMENTED, not merged, 2026-09-08
+## Release Hardening A1 — PHYSICAL PASS and merged, 2026-09-08
 
-Branch `feature/release-hardening-a1`, off `develop` at `941f45a`. **Not merged,
-no APK built, nothing installed.** Core untouched and not rebuilt.
+Branch `feature/release-hardening-a1`, off `develop` at `941f45a`. **Physically
+accepted on SM-A165F / Android 16 as vc56, then merged to `develop` with
+`--no-ff`.** `main` untouched, no tags moved, no release. The branch is
+retained. Core untouched and not rebuilt.
+
+    APK eea28fbe13c25e05f687d78e1a43c5ace40faea9ced63942479358ed4cef7b25
+
+vc56 was built from `pubspec.yaml` alone — no `-PversionCode`, no version in
+`local.properties` — so its `versionCode=56` is itself the evidence that the
+tracked source is authoritative. The upgrade kept the same signing certificate,
+so `install -r` was a real in-place update and application data survived.
 
 ### Read this before building anything
 
@@ -47,9 +56,11 @@ not restore the install-referrer line unless Play campaign attribution becomes
 a real requirement.
 
 **The version floor lives in `android/release-baseline.properties`.** It is the
-last physically accepted versionCode, and it advances by hand in the commit that
-records the acceptance. Bump it there, not in `build.gradle.kts`; a constant
-would keep accepting 56 after 120 had shipped.
+last physically accepted versionCode — now 56 — and it advances by hand in the
+commit that records the acceptance. Bump it there, not in `build.gradle.kts`; a
+constant would keep accepting 56 after 120 had shipped. The pattern to repeat:
+bump `pubspec.yaml` before building a candidate, and bump the baseline only once
+that candidate has passed on a device.
 
 **`BuildConfig.PICOCLAW_UMENG_PACKAGED` must keep coming from the same value as
 the dependency decision.** That is what stops a runtime provider selection
@@ -58,8 +69,10 @@ coincidence; do not turn it back into one.
 
 ### Next
 
-Either produce the production signing key — which forces an uninstall on the
-test device — or carry on with debug-signed test builds and the explicit flag.
+Hardening A2. Either produce the production signing key — which forces an
+uninstall on the test device, because a different signer cannot update an
+installation in place — or carry on with locally-signed test builds and the
+explicit `-PallowDebugSigning=true` flag.
 
 ## Final User-Facing Polish — PHYSICAL PASS and merged, 2026-09-08
 
