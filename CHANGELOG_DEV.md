@@ -1,5 +1,48 @@
 # Development Changelog
 
+## 2026-09-07 — The command still exists; it just points somewhere else
+
+`feature/telegram-interactive-menus` merged to `develop` with `--no-ff` at head
+`39450df`, physically accepted as vc50. The milestone that shipped is not the
+one the branch was opened for, which is the whole story: the interactive `/model`
+picker was built, verified on the device as vc47 and vc48, removed on product
+grounds, and then `/model` came back as four dozen bytes of constant.
+
+    🤖 Model selection is managed from PocketClaw Settings.
+
+Deleting `/model` outright was the obvious move after the picker was rejected,
+and it was the wrong one. `/model` is the command people type when they want to
+change the model; leaving it unregistered sent that question to the LLM, which
+would answer it with a guess. A decision that model selection is Dashboard-owned
+is only useful if it is discoverable from the place the question gets asked.
+
+What makes the replacement safe is that it is informational by construction
+rather than by care. The handler signature is `func(_ context.Context, req
+Request, _ *Runtime) error` — it discards the `Runtime`, so `SwitchModel` and
+`GetModelInfo` are unreachable from it, not merely unused. The reply is a
+constant, so it cannot leak a model, provider or endpoint no matter what the
+config holds. And a handled command returns from `handleCommand` before
+`runAgentLoop`, so there is no LLM call and no history entry. Arguments are
+ignored: `/model gpt-4o` gets the same sentence, because a command that reads its
+arguments is one refactor away from acting on them.
+
+The tests are written the same way. Rather than asserting on the reply — which a
+command that switched the model and then printed this sentence would also pass —
+the runtime handed in fails the test if `SwitchModel` or `GetModelInfo` is ever
+called, and a structural test fails if `Request` grows a menu, button or callback
+field. At the agent level the no-call and no-history assertions are followed by
+an ordinary message as a control that must do both, so they cannot pass by the
+harness recording nothing. Each guard was checked by removing what it protects.
+
+One process note worth keeping. After the picker removal I reported that no Core
+rebuild was needed, on the strength of a freshness-guard run that had happened
+*before* the `/switch` wording change and was never re-run. The guard was right
+and the report was wrong: `cmd_switch.go` is fingerprint input 246 of 536, the
+staged Core still carried the old "Switch model or channel" string, and
+substituting only that one file's blob hash reproduces the old fingerprint
+exactly. A green result is evidence about the tree it ran against, and nothing
+else.
+
 ## 2026-09-06 — The picker worked; the product it implied did not
 
 `feature/telegram-interactive-menus` is abandoned by product decision and

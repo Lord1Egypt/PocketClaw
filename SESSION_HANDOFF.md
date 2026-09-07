@@ -44,13 +44,19 @@ model was selected with nothing telling the user which had won. Model selection
 and configuration belong to the Dashboard. Telegram is a conversation and control
 surface.
 
-`/switch model to <name>` remains as an advanced compatibility command against
-the running agent, described in `/help` as "Advanced runtime controls". If you
-are tempted to add a friendlier model command to chat, the answer is no — that
-is exactly what was removed, and adding persistence or a synchronization
-mechanism to justify it was explicitly rejected. See DECISIONS.md, "Model
-selection belongs to the Dashboard, not to Telegram", and the PROJECT_STATE.md
-section of the same name.
+What shipped instead is a fixed informational `/model`, physically accepted as
+vc50 on 2026-09-07 and merged: it replies "🤖 Model selection is managed from
+PocketClaw Settings." and does nothing else. The handler discards the `Runtime`,
+so the switcher and the current-model reader are unreachable from it rather than
+merely unused — keep it that way. `/switch model to <name>` remains as an
+advanced compatibility command against the running agent, described in `/help`
+as "Advanced runtime controls".
+
+If you are tempted to make `/model` do something — list models, show the current
+one, offer a picker — the answer is no. That is exactly what was removed, and
+adding persistence or a synchronization mechanism to justify it was explicitly
+rejected. See DECISIONS.md, "Model selection belongs to the Dashboard, not to
+Telegram", and the PROJECT_STATE.md section "Telegram Model Command".
 
 ## Android Hardware Tool Cleanup — PHYSICAL PASS and merged, 2026-09-06
 

@@ -23,13 +23,36 @@ Branch `feature/telegram-command-ux`, head `896021f`, merged to `develop` with
 - [x] Advanced textual forms unchanged; `/stop` lifecycle untouched.
 - [x] Deliberately **not** done: interactive buttons, callbacks, `/model`.
 
-## Telegram Interactive Menus — Phase B — ABANDONED BY PRODUCT DECISION 2026-09-06
+## Telegram Model Command — CLOSED 2026-09-07
 
-Branch `feature/telegram-interactive-menus`. Built, tested and physically
-verified on SM-A165F / Android 16 as vc47 and vc48. **Not merged, and it will
-not be.** The branch was converged back to `develop` instead: every Phase B
-file is removed and the only source that survives is noted below. `main`
-untouched, no tags moved, no release.
+Branch `feature/telegram-interactive-menus`, head `39450df`, merged to `develop`
+with `--no-ff`. Physically accepted on SM-A165F / Android 16 as vc50, APK
+`71ac692f…`, Core fingerprint `16a78423…`. `main` untouched, no tags moved, no
+release. Branch retained.
+
+What shipped is a fixed informational `/model`:
+
+    🤖 Model selection is managed from PocketClaw Settings.
+
+- [x] `/model` is a real registered command, so Telegram's native "/" menu lists
+  it through the existing `RegisterCommands` mechanism.
+- [x] Informational by construction: the handler discards the `Runtime`, so the
+  switcher and the current-model reader are unreachable rather than merely
+  unused, and the reply is a constant that names no model, provider or endpoint.
+- [x] No LLM call and no history entry — a handled command returns before
+  `runAgentLoop`. Proven with an ordinary message as the control that does both.
+- [x] No buttons, no callbacks. A structural test fails if `Request` grows a
+  menu, button or callback field.
+- [x] `/help` lists it as "Manage models from PocketClaw Settings"; `/switch` is
+  "Advanced runtime controls".
+- [x] Phase A intact: `/help`, `NoArgsHelp`, `/subagents` privacy boundary, and
+  the advanced textual `/switch model to <name>`.
+
+### Phase B interactive menus — ABANDONED BY PRODUCT DECISION 2026-09-06
+
+Built, tested and physically verified as vc47 and vc48. **Not merged, and it
+will not be.** The branch was converged back to `develop` instead: every Phase B
+file was removed and the only source that survives is noted below.
 
 **This was not a failed implementation.** `/model` worked. Configured-model
 eligibility, tap-time revalidation, opaque TTL'd callback handles, chat/sender

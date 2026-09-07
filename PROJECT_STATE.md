@@ -7,8 +7,8 @@
   no release created.
 - Branch `feature/telegram-command-ux`, from `develop` at `2f863d2`, head
   `896021f`. Retained, not deleted.
-- Phase A **CLOSED**. Phase B was built and then abandoned by product decision —
-  see below.
+- Phase A **CLOSED** and still intact. Phase B was built, physically verified,
+  and then abandoned by product decision — see below.
 
 ### Physical acceptance evidence
 
@@ -64,15 +64,54 @@ The command-to-tap gap that remains is **not** a Phase A failure. Phase A moved
 the answer from grammar to prose; it did not change who does the work, and it
 was never scoped to. That is Phase B.
 
-## Telegram Interactive Model Picker — ABANDONED BY PRODUCT DECISION
+## Telegram Model Command — PHYSICALLY VERIFIED AND CLOSED
 
-- Status: **built, tested, and physically verified on SM-A165F / Android 16 as
-  vc47 and vc48 — then removed by product decision, 2026-09-06.** Never merged.
-  `main` untouched, no tags moved, no release created, `develop` unchanged by it.
+- Status: **PASS on a physical Android device (SM-A165F / Android 16), 2026-09-07
+  as vc50. Merged to `develop` with `--no-ff`.** `main` untouched, no tags moved,
+  no release created.
 - Branch `feature/telegram-interactive-menus`, from the Phase A merge at
-  `0acac8e`. Converged back to `develop`; the picker source is gone.
+  `0acac8e`, head `39450df`. Retained, not deleted.
+- The milestone that shipped is **not** the one the branch was opened for. The
+  interactive picker was built, physically verified as vc47 and vc48, and then
+  removed; what merged is its replacement, a fixed informational `/model`.
 
-### This was not a failed implementation
+### What shipped — `/model` as a pointer, not a picker
+
+`/model` answers with one fixed sentence and nothing else:
+
+    🤖 Model selection is managed from PocketClaw Settings.
+
+It is informational by construction rather than by care: the handler discards
+the command `Runtime`, so the model switcher and the current-model reader are
+unreachable from it, and the answer is a constant that cannot name a model,
+provider or endpoint. A handled command returns before `runAgentLoop`, so there
+is no LLM call and no history entry.
+
+### Physical acceptance evidence — vc50
+
+| Observed | Result |
+| --- | --- |
+| `/model` returns the fixed informational response | PASS |
+| No interactive picker, no buttons | PASS |
+| No callback infrastructure reachable | PASS |
+| No "Thinking…" lifecycle for `/model` | PASS |
+| No model or provider identifier visible | PASS |
+| Telegram does not change the selected model | PASS |
+| Dashboard remains the canonical model-selection surface | PASS |
+| Phase A `/help`, `NoArgsHelp`, `/subagents` privacy still intact | PASS |
+| `/switch model to <name>` still works for advanced use | PASS |
+
+| Item | Value |
+| --- | --- |
+| Package / version | `com.lord1egypt.pocketclaw`, 0.2.0, code 50, arm64 |
+| APK SHA-256 | `71ac692f724ad2454e7c08e4b6a3103e22b4cae7263127f109ab6a36fffaf2eb` |
+| Core source fingerprint | `16a784237c5cf67a585746b34aa0d5adc597339b6e7b2d34f4e5a089eba9025c` |
+| `libpicoclaw.so` | `4cc375fe4aefc89cf9108b964ad1a6ab34a0d89ca5a36608449ab35590222d5c` |
+| `libpicoclaw-web.so` | `e8767e774d7dece2c061bf6609e52714ea96475db5434707fdffc5db5f9ec0d9` |
+
+### The interactive picker — ABANDONED BY PRODUCT DECISION
+
+#### This was not a failed implementation
 
 `/model` worked, and the physical interaction test passed. Configured-model
 eligibility filtering, revalidation at tap time, opaque TTL'd callback handles
@@ -82,7 +121,7 @@ retirement of a displaced picker were all implemented, covered by tests that
 were each shown to fail when their protection was removed, and confirmed by use
 on the device.
 
-### What was rejected is the product semantics
+#### What was rejected is the product semantics
 
 Physical use exposed a scope mismatch that no test asserted, because nothing had
 said which scope was correct:
@@ -97,17 +136,20 @@ runtime selection back into configuration or to make the Dashboard follow
 runtime state — both large mechanisms for a small convenience, and both were
 rejected.
 
-### Final product direction
+#### Final product direction
 
 **Model selection and configuration belong to the PocketClaw Dashboard.**
 Telegram remains a conversation and control surface, not a model-configuration
-surface. `/switch model to <name>` survives as an advanced compatibility command
+surface. `/model` says so and does nothing else, which is what makes the
+direction discoverable from the place people ask the question.
+`/switch model to <name>` survives as an advanced compatibility command
 that plainly moves the running agent; its `/help` description is now "Advanced
 runtime controls", so chat does not present itself as the place to choose a
-model. There is no replacement command, no persistence, no synchronization
-mechanism, and no interactive-menu infrastructure retained for later use. A
-future interactive Telegram surface is designed when a real product requirement
-asks for one. See DECISIONS.md, "Model selection belongs to the Dashboard, not
+model. There is no replacement *picker*, no persistence, no synchronization
+mechanism, and no callback or interactive-menu runtime retained for later use —
+PocketClaw again has no interactive input path in any channel. A future
+interactive Telegram surface is designed when a real product requirement asks
+for one. See DECISIONS.md, "Model selection belongs to the Dashboard, not
 to Telegram".
 
 ## Android Hardware Tool Cleanup — PHYSICALLY VERIFIED AND CLOSED

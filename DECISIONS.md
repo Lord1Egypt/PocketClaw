@@ -15,6 +15,14 @@
   the configured default — two places to choose a model that could disagree with
   each other. Reconciling them would mean synchronizing runtime state back into
   configuration, which is a large mechanism for a small convenience.
+- Consequence: Telegram still answers the question, it just does not act on it.
+  `/model` is a registered command that replies with one fixed sentence —
+  "🤖 Model selection is managed from PocketClaw Settings." — and touches
+  nothing: the handler discards the command `Runtime`, so the switcher and the
+  current-model reader are unreachable from it, and the constant reply cannot
+  name a model, provider or endpoint. Physically accepted as vc50 on 2026-09-07.
+  Pointing at the Dashboard from the place people ask is what makes a
+  single-source-of-truth decision discoverable instead of merely enforced.
 - Consequence: this is not a failed implementation. The picker worked: eligibility
   filtering, tap-time revalidation, callback secrecy, chat/sender binding, handle
   TTL, single-message editing and picker retirement all passed their tests and
