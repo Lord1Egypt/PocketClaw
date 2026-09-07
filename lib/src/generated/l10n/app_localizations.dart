@@ -1156,12 +1156,6 @@ abstract class AppLocalizations {
   /// **'Core CPU time'**
   String get statusCoreCpuTime;
 
-  /// Channel state shown when Start returned an error
-  ///
-  /// In en, this message translates to:
-  /// **'Failed to start'**
-  String get statusChannelFailedToStart;
-
   /// No description provided for @statusNoChannels.
   ///
   /// In en, this message translates to:

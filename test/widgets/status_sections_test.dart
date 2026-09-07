@@ -101,6 +101,9 @@ void main() {
     expect(find.text('12'), findsOneWidget);
     expect(find.text('48'), findsOneWidget);
     expect(find.text('84 MB'), findsOneWidget);
+    // Three configured fallbacks are reported as three, not as a candidate
+    // count that silently includes the active model.
+    expect(find.text('3'), findsOneWidget);
     expect(find.text('4m 13s'), findsOneWidget);
     expect(find.text('telegram'), findsOneWidget);
   });
@@ -172,7 +175,7 @@ void main() {
     expect(find.text('mimo-v2.5'), findsOneWidget);
   });
 
-  testWidgets('a channel that failed to start is never shown as running', (
+  testWidgets('a channel without a worker is never shown as running', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -205,9 +208,43 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Failed to start'), findsNWidgets(2));
+    expect(find.text('Stopped'), findsNWidgets(2));
     // Only the gateway row says Running.
     expect(find.text('Running'), findsOneWidget);
+  });
+
+  // Status cannot tell a channel that failed to start from one that has simply
+  // not been started yet: the runtime retains no failure state, so both look
+  // the same from here. It must therefore never accuse either of failing.
+  testWidgets('a not-yet-started channel is not accused of failing', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _host(
+        StatusSections(
+          gatewayRunning: true,
+          uptime: '1s',
+          appVersion: '0.2.0',
+          coreVersion: '0.2.0',
+          snapshot: _snapshot(const {
+            'channels': [
+              {
+                'name': 'telegram',
+                'configured': true,
+                'started': false,
+                'running': false,
+              },
+            ],
+          }),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Stopped'), findsOneWidget);
+    // "Failed to start" was removed outright; the Activity section's own
+    // "Failed" row is a turn counter and is unrelated to any channel.
+    expect(find.text('Failed to start'), findsNothing);
   });
 
   testWidgets('lays out under an RTL locale without overflowing', (

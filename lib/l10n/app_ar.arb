@@ -200,7 +200,6 @@
   "statusLastActivity": "آخر نشاط",
   "statusCoreMemory": "ذاكرة النواة",
   "statusCoreCpuTime": "زمن معالج النواة",
-  "statusChannelFailedToStart": "فشل البدء",
   "statusNoChannels": "لا توجد قنوات مهيّأة",
   "statusDetailUnavailable": "الحالة التفصيلية غير متاحة",
   "statusJustNow": "الآن",

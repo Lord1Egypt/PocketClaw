@@ -65,7 +65,10 @@ type Model struct {
 	ActiveModel     string `json:"active_model"`
 	ConfiguredModel string `json:"configured_model"`
 	Provider        string `json:"provider"`
-	FallbackCount   int    `json:"fallback_count"`
+	// FallbackCount is how many fallback choices back the active model — the
+	// resolved candidate list excluding the model being used, not the length of
+	// that list. An agent with no fallbacks reports 0.
+	FallbackCount int `json:"fallback_count"`
 }
 
 // Channel reports one configured channel.

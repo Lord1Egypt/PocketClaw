@@ -120,6 +120,21 @@ not to Telegram".
   matters only for independently reproducing a released artifact from its
   source. Recorded, not fixed: do not change build reproducibility as a side
   effect of another task.
+- [ ] **Release hardening / security review: on Android the gateway bearer token
+  lives on shared storage.** `pid.WritePidFile` writes `.picoclaw.pid` — which
+  carries the gateway's `token` — into `PICOCLAW_HOME`, and on Android
+  `PicoClawService.getWorkspacePath` resolves that to
+  `Download/pocketclaw` on shared external storage whenever
+  MANAGE_EXTERNAL_STORAGE is granted. The file is created 0600, but external
+  storage does not honour POSIX modes, so any app with storage access can read
+  it. This is pre-existing and already guards `POST /reload`, which triggers a
+  config reload; as of the Status milestone the same token also authenticates
+  the read-only `GET /health?detail=1`. Reusing it was the smallest compatible
+  design and does not widen the exposure — a reader of that file could already
+  reload the gateway — but the storage location itself should be reviewed
+  before release. Recorded, not fixed: do not redesign token storage as a side
+  effect of another task, and do not weaken detailed-status authentication to
+  work around it.
 
 ## Android Hardware Tool Cleanup — CLOSED 2026-09-06
 

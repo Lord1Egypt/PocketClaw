@@ -262,10 +262,6 @@
   "statusLastActivity": "Last activity",
   "statusCoreMemory": "Core memory",
   "statusCoreCpuTime": "Core CPU time",
-  "statusChannelFailedToStart": "Failed to start",
-  "@statusChannelFailedToStart": {
-    "description": "Channel state shown when Start returned an error"
-  },
   "statusNoChannels": "No channels configured",
   "statusDetailUnavailable": "Detailed status is unavailable",
   "@statusDetailUnavailable": {

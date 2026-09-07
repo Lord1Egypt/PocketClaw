@@ -200,7 +200,6 @@
   "statusLastActivity": "마지막 활동",
   "statusCoreMemory": "Core 메모리",
   "statusCoreCpuTime": "Core CPU 시간",
-  "statusChannelFailedToStart": "시작 실패",
   "statusNoChannels": "구성된 채널 없음",
   "statusDetailUnavailable": "상세 상태를 사용할 수 없습니다",
   "statusJustNow": "방금",

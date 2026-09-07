@@ -555,9 +555,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get statusCoreCpuTime => 'Core CPU 时间';
 
   @override
-  String get statusChannelFailedToStart => '启动失败';
-
-  @override
   String get statusNoChannels => '未配置频道';
 
   @override

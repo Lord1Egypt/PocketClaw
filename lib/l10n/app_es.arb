@@ -200,7 +200,6 @@
   "statusLastActivity": "Última actividad",
   "statusCoreMemory": "Memoria del Core",
   "statusCoreCpuTime": "Tiempo de CPU del Core",
-  "statusChannelFailedToStart": "No se pudo iniciar",
   "statusNoChannels": "No hay canales configurados",
   "statusDetailUnavailable": "El estado detallado no está disponible",
   "statusJustNow": "Justo ahora",

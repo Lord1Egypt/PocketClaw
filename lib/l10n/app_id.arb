@@ -200,7 +200,6 @@
   "statusLastActivity": "Aktivitas terakhir",
   "statusCoreMemory": "Memori Core",
   "statusCoreCpuTime": "Waktu CPU Core",
-  "statusChannelFailedToStart": "Gagal memulai",
   "statusNoChannels": "Tidak ada kanal terkonfigurasi",
   "statusDetailUnavailable": "Status rinci tidak tersedia",
   "statusJustNow": "Baru saja",

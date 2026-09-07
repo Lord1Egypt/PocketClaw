@@ -200,7 +200,6 @@
   "statusLastActivity": "अंतिम गतिविधि",
   "statusCoreMemory": "कोर मेमोरी",
   "statusCoreCpuTime": "कोर सीपीयू समय",
-  "statusChannelFailedToStart": "शुरू नहीं हो सका",
   "statusNoChannels": "कोई चैनल कॉन्फ़िगर नहीं",
   "statusDetailUnavailable": "विस्तृत स्थिति उपलब्ध नहीं है",
   "statusJustNow": "अभी",

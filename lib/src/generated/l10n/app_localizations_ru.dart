@@ -585,9 +585,6 @@ class AppLocalizationsRu extends AppLocalizations {
   String get statusCoreCpuTime => 'Процессорное время Core';
 
   @override
-  String get statusChannelFailedToStart => 'Не запустился';
-
-  @override
   String get statusNoChannels => 'Каналы не настроены';
 
   @override

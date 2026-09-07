@@ -4,6 +4,9 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
+
+	"github.com/sipeed/picoclaw/pkg/config"
+	"github.com/sipeed/picoclaw/pkg/providers"
 )
 
 // newCounterLoop returns an AgentLoop usable for counter assertions only.
@@ -200,5 +203,89 @@ func TestStatusSnapshotCannotLeakSensitiveRuntimeFields(t *testing.T) {
 	// an empty payload.
 	if !strings.Contains(payload, `"active_turns":1`) {
 		t.Fatalf("Status payload lost its counts: %s", payload)
+	}
+}
+
+// TestFallbackCountReportsFallbacksNotCandidates pins the meaning of the
+// "Fallbacks" number.
+//
+// resolveModelCandidates builds its list as the primary followed by its
+// fallbacks, and FallbackChain walks that whole list in order, so the list
+// length is one greater than the number of fallbacks. Reporting the raw length
+// would tell an agent with no fallbacks at all that it has one.
+func TestFallbackCountReportsFallbacksNotCandidates(t *testing.T) {
+	candidate := func(model string) providers.FallbackCandidate {
+		return providers.FallbackCandidate{Provider: "openai", Model: model}
+	}
+
+	tests := []struct {
+		name       string
+		candidates []providers.FallbackCandidate
+		want       int
+	}{
+		{"no candidates at all", nil, 0},
+		{
+			"primary only, no fallbacks",
+			[]providers.FallbackCandidate{candidate("primary")},
+			0,
+		},
+		{
+			"primary plus one fallback",
+			[]providers.FallbackCandidate{candidate("primary"), candidate("f1")},
+			1,
+		},
+		{
+			"primary plus three fallbacks",
+			[]providers.FallbackCandidate{
+				candidate("primary"), candidate("f1"), candidate("f2"), candidate("f3"),
+			},
+			3,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := fallbackChoiceCount(tc.candidates); got != tc.want {
+				t.Fatalf("fallbackChoiceCount = %d, want %d", got, tc.want)
+			}
+		})
+	}
+}
+
+// TestStatusModelReportsConfiguredFallbackCount drives the real resolution
+// path: an agent configured with one primary model and three fallbacks must
+// report exactly three.
+func TestStatusModelReportsConfiguredFallbackCount(t *testing.T) {
+	const primary = "openai/primary-model"
+	fallbacks := []string{"openai/fallback-a", "openai/fallback-b", "openai/fallback-c"}
+
+	candidates := resolveModelCandidates(&config.Config{}, "openai", primary, fallbacks)
+	// Guard the premise: the resolver really does put the primary in the list.
+	if len(candidates) != len(fallbacks)+1 {
+		t.Fatalf("resolved %d candidates for 1 primary + %d fallbacks; the "+
+			"list no longer includes the primary and the count below must be "+
+			"re-derived", len(candidates), len(fallbacks))
+	}
+
+	al := &AgentLoop{
+		cfg: &config.Config{},
+		registry: &AgentRegistry{
+			agents: map[string]*AgentInstance{
+				"main": {
+					ID:         "main",
+					Model:      primary,
+					Fallbacks:  fallbacks,
+					Candidates: candidates,
+				},
+			},
+		},
+	}
+
+	got := al.StatusModel()
+	if got.FallbackCount != len(fallbacks) {
+		t.Fatalf("FallbackCount = %d, want %d", got.FallbackCount, len(fallbacks))
+	}
+	if got.ActiveModel != primary {
+		t.Fatalf("ActiveModel = %q, want %q", got.ActiveModel, primary)
 	}
 }

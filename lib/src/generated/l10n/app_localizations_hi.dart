@@ -579,9 +579,6 @@ class AppLocalizationsHi extends AppLocalizations {
   String get statusCoreCpuTime => 'कोर सीपीयू समय';
 
   @override
-  String get statusChannelFailedToStart => 'शुरू नहीं हो सका';
-
-  @override
   String get statusNoChannels => 'कोई चैनल कॉन्फ़िगर नहीं';
 
   @override

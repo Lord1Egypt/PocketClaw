@@ -576,9 +576,6 @@ class AppLocalizationsAr extends AppLocalizations {
   String get statusCoreCpuTime => 'زمن معالج النواة';
 
   @override
-  String get statusChannelFailedToStart => 'فشل البدء';
-
-  @override
   String get statusNoChannels => 'لا توجد قنوات مهيّأة';
 
   @override

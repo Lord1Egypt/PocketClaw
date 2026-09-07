@@ -200,7 +200,6 @@
   "statusLastActivity": "最終アクティビティ",
   "statusCoreMemory": "Core のメモリ",
   "statusCoreCpuTime": "Core の CPU 時間",
-  "statusChannelFailedToStart": "起動に失敗",
   "statusNoChannels": "設定されたチャンネルはありません",
   "statusDetailUnavailable": "詳細ステータスは利用できません",
   "statusJustNow": "たった今",

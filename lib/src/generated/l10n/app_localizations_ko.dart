@@ -565,9 +565,6 @@ class AppLocalizationsKo extends AppLocalizations {
   String get statusCoreCpuTime => 'Core CPU 시간';
 
   @override
-  String get statusChannelFailedToStart => '시작 실패';
-
-  @override
   String get statusNoChannels => '구성된 채널 없음';
 
   @override

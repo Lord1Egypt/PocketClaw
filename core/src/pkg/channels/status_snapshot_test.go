@@ -60,6 +60,11 @@ func snapshotByName(t *testing.T, snapshots []status.Channel, name string) statu
 // thing this screen could do: tell someone a channel is running when it never
 // started. A channel that fails to start stays in the manager's configured
 // set, so only the absence of a worker distinguishes it.
+//
+// Note what the snapshot does not claim. Started=false records that no worker
+// exists, which is all the runtime knows; it is not evidence of a failure,
+// because StartAll keeps its failures in local variables and nothing retains
+// them. The Status screen therefore renders this as Stopped, never as failed.
 func TestSnapshotChannelsReportsFailedStartTruthfully(t *testing.T) {
 	m := newTestManager()
 	m.config = &config.Config{}
@@ -142,5 +147,52 @@ func TestSnapshotChannelsExposesOnlySafeFields(t *testing.T) {
 	want := status.Channel{Name: "telegram", Configured: true, Started: false, Running: false}
 	if got != want {
 		t.Fatalf("snapshot = %+v, want %+v", got, want)
+	}
+}
+
+// TestSnapshotChannelsDoesNotDistinguishFailureFromNotStarted documents why the
+// Status screen has no "failed to start" state.
+//
+// A channel that failed to start and one that StartAll has not reached yet
+// produce byte-identical snapshots, because the only difference between them —
+// the error StartAll saw — is discarded. Any label that named one of these a
+// failure would necessarily also name the other one, so neither is named.
+//
+// If a retained start-failure state is ever added to the Manager, this test is
+// the place that should start failing.
+func TestSnapshotChannelsDoesNotDistinguishFailureFromNotStarted(t *testing.T) {
+	failed := newTestManager()
+	failed.config = &config.Config{}
+	failed.channels["telegram"] = &snapshotTestChannel{
+		name:     "telegram",
+		startErr: errSnapshotStartFailed,
+	}
+	// A single failing channel makes StartAll return an error, which is the
+	// only place the failure exists; nothing of it survives the call.
+	_ = failed.StartAll(context.Background())
+	t.Cleanup(func() { _ = failed.StopAll(context.Background()) })
+
+	neverStarted := newTestManager()
+	neverStarted.config = &config.Config{}
+	neverStarted.channels["telegram"] = &snapshotTestChannel{name: "telegram"}
+	// StartAll is deliberately not called: this is the boot window, before
+	// channels have been started at all.
+
+	afterFailure := failed.SnapshotChannels()
+	beforeStart := neverStarted.SnapshotChannels()
+
+	if len(afterFailure) != 1 || len(beforeStart) != 1 {
+		t.Fatalf("expected one snapshot each, got %+v and %+v", afterFailure, beforeStart)
+	}
+	if afterFailure[0] != beforeStart[0] {
+		t.Fatalf(
+			"a failed channel and a not-yet-started one are now distinguishable "+
+				"(%+v vs %+v); if the Manager retains start failures, Status may "+
+				"report them — update this test and the screen together",
+			afterFailure[0], beforeStart[0],
+		)
+	}
+	if afterFailure[0].Running {
+		t.Errorf("a channel with no worker reported Running: %+v", afterFailure[0])
 	}
 }

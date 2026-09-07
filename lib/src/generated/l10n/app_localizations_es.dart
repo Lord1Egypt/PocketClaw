@@ -589,9 +589,6 @@ class AppLocalizationsEs extends AppLocalizations {
   String get statusCoreCpuTime => 'Tiempo de CPU del Core';
 
   @override
-  String get statusChannelFailedToStart => 'No se pudo iniciar';
-
-  @override
   String get statusNoChannels => 'No hay canales configurados';
 
   @override

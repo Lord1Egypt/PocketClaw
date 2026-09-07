@@ -200,7 +200,6 @@
   "statusLastActivity": "最近活动",
   "statusCoreMemory": "Core 内存",
   "statusCoreCpuTime": "Core CPU 时间",
-  "statusChannelFailedToStart": "启动失败",
   "statusNoChannels": "未配置频道",
   "statusDetailUnavailable": "详细状态不可用",
   "statusJustNow": "刚刚",

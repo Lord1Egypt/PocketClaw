@@ -563,9 +563,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get statusCoreCpuTime => 'Core の CPU 時間';
 
   @override
-  String get statusChannelFailedToStart => '起動に失敗';
-
-  @override
   String get statusNoChannels => '設定されたチャンネルはありません';
 
   @override

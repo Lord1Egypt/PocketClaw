@@ -200,7 +200,6 @@
   "statusLastActivity": "Последняя активность",
   "statusCoreMemory": "Память Core",
   "statusCoreCpuTime": "Процессорное время Core",
-  "statusChannelFailedToStart": "Не запустился",
   "statusNoChannels": "Каналы не настроены",
   "statusDetailUnavailable": "Подробный статус недоступен",
   "statusJustNow": "Только что",

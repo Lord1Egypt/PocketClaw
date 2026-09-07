@@ -150,24 +150,30 @@ class StatusSections extends StatelessWidget {
     );
   }
 
-  /// A channel is Running only when it both started and reports running.
+  /// A channel reads as Running only when it both started and reports running;
+  /// everything else reads as Stopped.
   ///
-  /// `started` is checked first on purpose. The running flag is latched by the
-  /// channel itself and Core already refuses to pair it with a missing worker,
-  /// but this screen must not be the place where a stale flag becomes a claim:
-  /// a channel that never started reads as failed here regardless of what its
-  /// own flag says. Anything else configured but not running is stopped.
+  /// There is deliberately no "failed to start" state. Nothing in the runtime
+  /// retains one: StartAll and Reload collect their failures in local variables
+  /// for a log line and a returned error, and the only other trace is a
+  /// fire-and-forget lifecycle event on a bus that drops under backpressure.
+  /// All Status can see is that no worker exists, and that is also true of a
+  /// channel StartAll has not reached yet and of one registered without a
+  /// worker — so calling it a failure would be a guess, and a channel that is
+  /// merely not started yet would be reported as broken. Distinguishing the two
+  /// would mean retaining failure history, which Status will not add.
   static String _channelState(AppLocalizations l10n, StatusChannel channel) {
-    if (!channel.started) return l10n.statusChannelFailedToStart;
-    if (channel.running) return l10n.statusRunning;
-    return l10n.statusStopped;
+    return _isRunning(channel) ? l10n.statusRunning : l10n.statusStopped;
   }
 
-  static _Tone _channelTone(StatusChannel channel) {
-    if (!channel.started) return _Tone.bad;
-    if (channel.running) return _Tone.good;
-    return _Tone.muted;
-  }
+  static _Tone _channelTone(StatusChannel channel) =>
+      _isRunning(channel) ? _Tone.good : _Tone.muted;
+
+  /// `started` is checked first on purpose. The running flag is latched by the
+  /// channel itself and Core already refuses to pair it with a missing worker,
+  /// but this screen must not be the place where a stale flag becomes a claim.
+  static bool _isRunning(StatusChannel channel) =>
+      channel.started && channel.running;
 
   static String _relativeTime(AppLocalizations l10n, DateTime? at) {
     if (at == null) return _unavailable;
