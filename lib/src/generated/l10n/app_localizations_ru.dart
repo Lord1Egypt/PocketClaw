@@ -607,4 +607,24 @@ class AppLocalizationsRu extends AppLocalizations {
   String statusDaysAgo(int days) {
     return '$days дн назад';
   }
+
+  @override
+  String statusDurationSeconds(int seconds) {
+    return '$seconds с';
+  }
+
+  @override
+  String statusDurationMinutes(int minutes, int seconds) {
+    return '$minutes мин $seconds с';
+  }
+
+  @override
+  String statusDurationHours(int hours, int minutes) {
+    return '$hours ч $minutes мин';
+  }
+
+  @override
+  String statusDurationDays(int days, int hours) {
+    return '$days дн $hours ч';
+  }
 }

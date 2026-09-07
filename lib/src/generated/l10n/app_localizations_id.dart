@@ -606,4 +606,24 @@ class AppLocalizationsId extends AppLocalizations {
   String statusDaysAgo(int days) {
     return '$days hr lalu';
   }
+
+  @override
+  String statusDurationSeconds(int seconds) {
+    return '$seconds dtk';
+  }
+
+  @override
+  String statusDurationMinutes(int minutes, int seconds) {
+    return '$minutes mnt $seconds dtk';
+  }
+
+  @override
+  String statusDurationHours(int hours, int minutes) {
+    return '$hours jam $minutes mnt';
+  }
+
+  @override
+  String statusDurationDays(int days, int hours) {
+    return '$days hr $hours jam';
+  }
 }

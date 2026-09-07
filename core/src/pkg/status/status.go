@@ -15,10 +15,27 @@ package status
 
 // Snapshot is the whole Status payload.
 type Snapshot struct {
+	System    System    `json:"system"`
 	Activity  Activity  `json:"activity"`
 	Model     Model     `json:"model"`
 	Channels  []Channel `json:"channels"`
 	Resources Resources `json:"resources"`
+}
+
+// System reports gateway-process facts.
+type System struct {
+	// UptimeSeconds is how long the gateway process has been serving, in whole
+	// seconds.
+	//
+	// It is a number with a stated unit, not a preformatted string. The legacy
+	// /health "uptime" field is Go's Duration.String() — "27.707765309s",
+	// "1h24m0s" — which no consumer parsed: it was carried across three
+	// boundaries as opaque text and printed verbatim, so the screen showed
+	// nanosecond precision in an English-only format that no locale could
+	// render properly. That field keeps its exact shape for the launcher and
+	// the host, which already depend on it; this one is what the Status screen
+	// reads, and the formatting decision belongs to the UI.
+	UptimeSeconds int64 `json:"uptime_seconds"`
 }
 
 // Activity reports turn, subagent and tool activity.

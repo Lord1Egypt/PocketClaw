@@ -205,5 +205,9 @@
   "statusJustNow": "Justo ahora",
   "statusMinutesAgo": "hace {minutes} min",
   "statusHoursAgo": "hace {hours} h",
-  "statusDaysAgo": "hace {days} d"
+  "statusDaysAgo": "hace {days} d",
+  "statusDurationSeconds": "{seconds} s",
+  "statusDurationMinutes": "{minutes} min {seconds} s",
+  "statusDurationHours": "{hours} h {minutes} min",
+  "statusDurationDays": "{days} d {hours} h"
 }

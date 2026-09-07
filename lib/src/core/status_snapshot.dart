@@ -9,12 +9,14 @@ import 'dart:convert';
 /// added here.
 class StatusSnapshot {
   const StatusSnapshot({
+    required this.system,
     required this.activity,
     required this.model,
     required this.channels,
     required this.resources,
   });
 
+  final StatusSystem system;
   final StatusActivity activity;
   final StatusModel model;
   final List<StatusChannel> channels;
@@ -32,6 +34,7 @@ class StatusSnapshot {
       final decoded = jsonDecode(raw);
       if (decoded is! Map<String, dynamic>) return null;
       return StatusSnapshot(
+        system: StatusSystem._fromJson(_mapOf(decoded['system'])),
         activity: StatusActivity._fromJson(_mapOf(decoded['activity'])),
         model: StatusModel._fromJson(_mapOf(decoded['model'])),
         channels: _channelsOf(decoded['channels']),
@@ -52,6 +55,24 @@ class StatusSnapshot {
         .map(StatusChannel._fromJson)
         .toList(growable: false);
   }
+}
+
+/// Gateway-process facts.
+class StatusSystem {
+  const StatusSystem({required this.uptimeSeconds});
+
+  /// How long the gateway process has been serving, in whole seconds.
+  ///
+  /// A number with a stated unit. The legacy /health `uptime` field is Go's
+  /// own duration text ("27.707765309s"), which this deliberately does not
+  /// read: piping that to the screen is what produced an unreadable,
+  /// unlocalizable value. Zero is a real reading — a gateway that started a
+  /// moment ago — and is distinct from having no snapshot at all, which is
+  /// what "detail unavailable" looks like.
+  final int uptimeSeconds;
+
+  factory StatusSystem._fromJson(Map<String, dynamic> json) =>
+      StatusSystem(uptimeSeconds: _int(json['uptime_seconds']));
 }
 
 /// Turn, subagent and tool activity.

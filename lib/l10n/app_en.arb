@@ -294,5 +294,50 @@
         "type": "int"
       }
     }
+  },
+  "statusDurationSeconds": "{seconds}s",
+  "@statusDurationSeconds": {
+    "description": "Compact uptime duration shown on the Status screen",
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "statusDurationMinutes": "{minutes}m {seconds}s",
+  "@statusDurationMinutes": {
+    "description": "Compact uptime duration shown on the Status screen",
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      },
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "statusDurationHours": "{hours}h {minutes}m",
+  "@statusDurationHours": {
+    "description": "Compact uptime duration shown on the Status screen",
+    "placeholders": {
+      "hours": {
+        "type": "int"
+      },
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "statusDurationDays": "{days}d {hours}h",
+  "@statusDurationDays": {
+    "description": "Compact uptime duration shown on the Status screen",
+    "placeholders": {
+      "days": {
+        "type": "int"
+      },
+      "hours": {
+        "type": "int"
+      }
+    }
   }
 }

@@ -1191,6 +1191,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{days}d ago'**
   String statusDaysAgo(int days);
+
+  /// Compact uptime duration shown on the Status screen
+  ///
+  /// In en, this message translates to:
+  /// **'{seconds}s'**
+  String statusDurationSeconds(int seconds);
+
+  /// Compact uptime duration shown on the Status screen
+  ///
+  /// In en, this message translates to:
+  /// **'{minutes}m {seconds}s'**
+  String statusDurationMinutes(int minutes, int seconds);
+
+  /// Compact uptime duration shown on the Status screen
+  ///
+  /// In en, this message translates to:
+  /// **'{hours}h {minutes}m'**
+  String statusDurationHours(int hours, int minutes);
+
+  /// Compact uptime duration shown on the Status screen
+  ///
+  /// In en, this message translates to:
+  /// **'{days}d {hours}h'**
+  String statusDurationDays(int days, int hours);
 }
 
 class _AppLocalizationsDelegate

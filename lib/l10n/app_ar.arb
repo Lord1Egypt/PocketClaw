@@ -205,5 +205,9 @@
   "statusJustNow": "الآن",
   "statusMinutesAgo": "قبل {minutes} د",
   "statusHoursAgo": "قبل {hours} س",
-  "statusDaysAgo": "قبل {days} ي"
+  "statusDaysAgo": "قبل {days} ي",
+  "statusDurationSeconds": "{seconds} ث",
+  "statusDurationMinutes": "{minutes} د {seconds} ث",
+  "statusDurationHours": "{hours} س {minutes} د",
+  "statusDurationDays": "{days} ي {hours} س"
 }

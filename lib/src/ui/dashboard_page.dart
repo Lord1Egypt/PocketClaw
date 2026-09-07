@@ -259,7 +259,6 @@ class _DashboardPageState extends State<DashboardPage> {
                 const SizedBox(height: ApertureTheme.spaceLg),
                 StatusSections(
                   gatewayRunning: isRunning,
-                  uptime: service.healthUptime,
                   appVersion: service.appVersion,
                   coreVersion: service.coreVersionLabel,
                   snapshot: service.statusSnapshot,

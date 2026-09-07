@@ -205,5 +205,9 @@
   "statusJustNow": "Baru saja",
   "statusMinutesAgo": "{minutes} mnt lalu",
   "statusHoursAgo": "{hours} jam lalu",
-  "statusDaysAgo": "{days} hr lalu"
+  "statusDaysAgo": "{days} hr lalu",
+  "statusDurationSeconds": "{seconds} dtk",
+  "statusDurationMinutes": "{minutes} mnt {seconds} dtk",
+  "statusDurationHours": "{hours} jam {minutes} mnt",
+  "statusDurationDays": "{days} hr {hours} jam"
 }

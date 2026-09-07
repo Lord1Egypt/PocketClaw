@@ -577,4 +577,24 @@ class AppLocalizationsZh extends AppLocalizations {
   String statusDaysAgo(int days) {
     return '$days 天前';
   }
+
+  @override
+  String statusDurationSeconds(int seconds) {
+    return '$seconds 秒';
+  }
+
+  @override
+  String statusDurationMinutes(int minutes, int seconds) {
+    return '$minutes 分 $seconds 秒';
+  }
+
+  @override
+  String statusDurationHours(int hours, int minutes) {
+    return '$hours 小时 $minutes 分';
+  }
+
+  @override
+  String statusDurationDays(int days, int hours) {
+    return '$days 天 $hours 小时';
+  }
 }

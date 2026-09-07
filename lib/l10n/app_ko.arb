@@ -205,5 +205,9 @@
   "statusJustNow": "방금",
   "statusMinutesAgo": "{minutes}분 전",
   "statusHoursAgo": "{hours}시간 전",
-  "statusDaysAgo": "{days}일 전"
+  "statusDaysAgo": "{days}일 전",
+  "statusDurationSeconds": "{seconds}초",
+  "statusDurationMinutes": "{minutes}분 {seconds}초",
+  "statusDurationHours": "{hours}시간 {minutes}분",
+  "statusDurationDays": "{days}일 {hours}시간"
 }

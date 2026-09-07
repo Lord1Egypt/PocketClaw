@@ -610,4 +610,24 @@ class AppLocalizationsDe extends AppLocalizations {
   String statusDaysAgo(int days) {
     return 'vor $days Tg.';
   }
+
+  @override
+  String statusDurationSeconds(int seconds) {
+    return '$seconds S.';
+  }
+
+  @override
+  String statusDurationMinutes(int minutes, int seconds) {
+    return '$minutes Min. $seconds S.';
+  }
+
+  @override
+  String statusDurationHours(int hours, int minutes) {
+    return '$hours Std. $minutes Min.';
+  }
+
+  @override
+  String statusDurationDays(int days, int hours) {
+    return '$days T. $hours Std.';
+  }
 }

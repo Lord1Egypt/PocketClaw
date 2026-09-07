@@ -205,5 +205,9 @@
   "statusJustNow": "Gerade eben",
   "statusMinutesAgo": "vor {minutes} Min.",
   "statusHoursAgo": "vor {hours} Std.",
-  "statusDaysAgo": "vor {days} Tg."
+  "statusDaysAgo": "vor {days} Tg.",
+  "statusDurationSeconds": "{seconds} S.",
+  "statusDurationMinutes": "{minutes} Min. {seconds} S.",
+  "statusDurationHours": "{hours} Std. {minutes} Min.",
+  "statusDurationDays": "{days} T. {hours} Std."
 }

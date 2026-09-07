@@ -179,3 +179,114 @@ func TestUptimeIsMonotonic(t *testing.T) {
 		t.Fatal("uptime never advanced")
 	}
 }
+
+// TestBasicHealthKeepsLegacyUptimeString pins the field existing consumers
+// already read.
+//
+// The launcher and the Android host both parse /health, and the anonymous
+// response must keep Go's duration formatting exactly as it always was. The
+// numeric field added for Status is additive and lives only in the
+// authenticated detail payload.
+func TestBasicHealthKeepsLegacyUptimeString(t *testing.T) {
+	s := newDetailServer(t, testGatewayToken)
+	s.startTime = time.Now().Add(-27707765309 * time.Nanosecond)
+
+	rec := httptest.NewRecorder()
+	s.healthHandler(rec, httptest.NewRequest(http.MethodGet, "/health", nil))
+
+	body := rec.Body.String()
+	if strings.Contains(body, "uptime_seconds") {
+		t.Fatalf("the numeric field leaked into the anonymous response: %s", body)
+	}
+
+	resp := decodeHealth(t, body)
+	// Still a Go duration string, still parseable as one.
+	if !strings.HasSuffix(resp.Uptime, "s") {
+		t.Errorf("legacy Uptime lost its duration formatting: %q", resp.Uptime)
+	}
+	parsed, err := time.ParseDuration(resp.Uptime)
+	if err != nil {
+		t.Fatalf("legacy Uptime is no longer a Go duration string: %q (%v)", resp.Uptime, err)
+	}
+	if parsed < 27*time.Second || parsed > 29*time.Second {
+		t.Errorf("legacy Uptime = %q, want about 27.7s", resp.Uptime)
+	}
+}
+
+// TestDetailUptimeIsWholeSeconds is the regression test for the value the
+// Status screen used to render.
+//
+// 27.707765309s must reach the screen as 27. Not 27707765309, which is that
+// duration's nanosecond count, and not "27.707765309s", which is what the
+// screen used to print verbatim because nothing on the path ever parsed it.
+func TestDetailUptimeIsWholeSeconds(t *testing.T) {
+	tests := []struct {
+		name string
+		age  time.Duration
+		want int64
+	}{
+		{"the observed 27.7 seconds", 27707765309 * time.Nanosecond, 27},
+		{"sub-second floors to zero", 940 * time.Millisecond, 0},
+		{"four minutes twelve", 4*time.Minute + 12*time.Second, 252},
+		{"one hour twenty-four", time.Hour + 24*time.Minute, 5040},
+		{"two days three hours", 2*24*time.Hour + 3*time.Hour, 183600},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			s := newDetailServer(t, testGatewayToken)
+			s.startTime = time.Now().Add(-tc.age)
+
+			req := httptest.NewRequest(http.MethodGet, "/health?detail=1", nil)
+			req.Header.Set("Authorization", "Bearer "+testGatewayToken)
+			rec := httptest.NewRecorder()
+			s.healthHandler(rec, req)
+
+			if rec.Code != http.StatusOK {
+				t.Fatalf("status = %d, want 200", rec.Code)
+			}
+			body := rec.Body.String()
+
+			// The nanosecond count must never appear anywhere in the payload.
+			if strings.Contains(body, "27707765309") {
+				t.Fatalf("a nanosecond count reached the payload: %s", body)
+			}
+
+			resp := decodeHealth(t, body)
+			if resp.Detail == nil {
+				t.Fatal("no detail in an authorized response")
+			}
+			got := resp.Detail.System.UptimeSeconds
+			// Allow one second for the time that passes during the request.
+			if got != tc.want && got != tc.want+1 {
+				t.Fatalf("UptimeSeconds = %d, want %d", got, tc.want)
+			}
+		})
+	}
+}
+
+// The field must be a JSON number, not a string: the whole point is that the
+// unit is carried by the contract rather than by text a reader has to parse.
+func TestDetailUptimeSerializesAsANumber(t *testing.T) {
+	s := newDetailServer(t, testGatewayToken)
+	s.startTime = time.Now().Add(-252 * time.Second)
+
+	req := httptest.NewRequest(http.MethodGet, "/health?detail=1", nil)
+	req.Header.Set("Authorization", "Bearer "+testGatewayToken)
+	rec := httptest.NewRecorder()
+	s.healthHandler(rec, req)
+
+	var generic map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &generic); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	detail, _ := generic["detail"].(map[string]any)
+	system, _ := detail["system"].(map[string]any)
+	raw, present := system["uptime_seconds"]
+	if !present {
+		t.Fatalf("uptime_seconds missing from detail.system: %s", rec.Body.String())
+	}
+	if _, ok := raw.(float64); !ok {
+		t.Fatalf("uptime_seconds is %T (%v), want a JSON number", raw, raw)
+	}
+}

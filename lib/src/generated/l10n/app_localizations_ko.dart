@@ -587,4 +587,24 @@ class AppLocalizationsKo extends AppLocalizations {
   String statusDaysAgo(int days) {
     return '$days일 전';
   }
+
+  @override
+  String statusDurationSeconds(int seconds) {
+    return '$seconds초';
+  }
+
+  @override
+  String statusDurationMinutes(int minutes, int seconds) {
+    return '$minutes분 $seconds초';
+  }
+
+  @override
+  String statusDurationHours(int hours, int minutes) {
+    return '$hours시간 $minutes분';
+  }
+
+  @override
+  String statusDurationDays(int days, int hours) {
+    return '$days일 $hours시간';
+  }
 }

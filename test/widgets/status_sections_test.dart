@@ -63,7 +63,6 @@ void main() {
       _host(
         const StatusSections(
           gatewayRunning: false,
-          uptime: '',
           appVersion: '',
           coreVersion: '',
           snapshot: null,
@@ -86,7 +85,6 @@ void main() {
       _host(
         StatusSections(
           gatewayRunning: true,
-          uptime: '1h24m0s',
           appVersion: '0.2.0',
           coreVersion: '0.2.0',
           snapshot: _snapshot(const {}),
@@ -113,7 +111,6 @@ void main() {
       _host(
         StatusSections(
           gatewayRunning: true,
-          uptime: '0s',
           appVersion: '0.2.0',
           coreVersion: '0.2.0',
           snapshot: _snapshot(const {
@@ -140,7 +137,6 @@ void main() {
       _host(
         StatusSections(
           gatewayRunning: true,
-          uptime: '1m',
           appVersion: '0.2.0',
           coreVersion: '0.2.0',
           snapshot: _snapshot(const {}),
@@ -154,7 +150,6 @@ void main() {
       _host(
         StatusSections(
           gatewayRunning: true,
-          uptime: '1m',
           appVersion: '0.2.0',
           coreVersion: '0.2.0',
           snapshot: _snapshot(const {
@@ -182,7 +177,6 @@ void main() {
       _host(
         StatusSections(
           gatewayRunning: true,
-          uptime: '1m',
           appVersion: '0.2.0',
           coreVersion: '0.2.0',
           snapshot: _snapshot(const {
@@ -223,7 +217,6 @@ void main() {
       _host(
         StatusSections(
           gatewayRunning: true,
-          uptime: '1s',
           appVersion: '0.2.0',
           coreVersion: '0.2.0',
           snapshot: _snapshot(const {
@@ -254,7 +247,6 @@ void main() {
       _host(
         StatusSections(
           gatewayRunning: true,
-          uptime: '1h24m0s',
           appVersion: '0.2.0',
           coreVersion: '0.2.0',
           snapshot: _snapshot(const {}),
@@ -271,5 +263,65 @@ void main() {
     );
     expect(find.text('النشاط'), findsOneWidget);
     expect(find.text('منذ بدء البوابة'), findsOneWidget);
+  });
+
+  testWidgets('uptime renders as a duration, never as raw Go text', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _host(
+        StatusSections(
+          gatewayRunning: true,
+          appVersion: '0.2.0',
+          coreVersion: '0.2.0',
+          snapshot: _snapshot(const {
+            'system': {'uptime_seconds': 5040},
+          }),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('1h 24m'), findsOneWidget);
+    expect(find.textContaining('27707765309'), findsNothing);
+    expect(find.textContaining('h24m0s'), findsNothing);
+  });
+
+  // A gateway that started a moment ago has a real reading of zero. That is a
+  // different thing from having no detailed payload at all, and the two must
+  // not look the same.
+  testWidgets('a just-started gateway shows 0s, not a dash', (tester) async {
+    await tester.pumpWidget(
+      _host(
+        StatusSections(
+          gatewayRunning: true,
+          appVersion: '0.2.0',
+          coreVersion: '0.2.0',
+          snapshot: _snapshot(const {
+            'system': {'uptime_seconds': 0},
+          }),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('0s'), findsOneWidget);
+  });
+
+  testWidgets('an unavailable snapshot shows a dash, not 0s', (tester) async {
+    await tester.pumpWidget(
+      _host(
+        const StatusSections(
+          gatewayRunning: true,
+          appVersion: '0.2.0',
+          coreVersion: '0.2.0',
+          snapshot: null,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('0s'), findsNothing);
+    expect(find.text('—'), findsWidgets);
   });
 }

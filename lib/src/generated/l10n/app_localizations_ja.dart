@@ -585,4 +585,24 @@ class AppLocalizationsJa extends AppLocalizations {
   String statusDaysAgo(int days) {
     return '$days 日前';
   }
+
+  @override
+  String statusDurationSeconds(int seconds) {
+    return '$seconds 秒';
+  }
+
+  @override
+  String statusDurationMinutes(int minutes, int seconds) {
+    return '$minutes 分 $seconds 秒';
+  }
+
+  @override
+  String statusDurationHours(int hours, int minutes) {
+    return '$hours 時間 $minutes 分';
+  }
+
+  @override
+  String statusDurationDays(int days, int hours) {
+    return '$days 日 $hours 時間';
+  }
 }

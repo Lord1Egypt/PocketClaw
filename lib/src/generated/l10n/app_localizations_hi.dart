@@ -601,4 +601,24 @@ class AppLocalizationsHi extends AppLocalizations {
   String statusDaysAgo(int days) {
     return '$days दि. पहले';
   }
+
+  @override
+  String statusDurationSeconds(int seconds) {
+    return '$seconds से';
+  }
+
+  @override
+  String statusDurationMinutes(int minutes, int seconds) {
+    return '$minutes मि $seconds से';
+  }
+
+  @override
+  String statusDurationHours(int hours, int minutes) {
+    return '$hours घं $minutes मि';
+  }
+
+  @override
+  String statusDurationDays(int days, int hours) {
+    return '$days दि $hours घं';
+  }
 }

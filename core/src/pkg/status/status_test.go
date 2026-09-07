@@ -15,6 +15,7 @@ import (
 // credential to any of these structs fails here.
 func TestSnapshotSerializesOnlySafeScalars(t *testing.T) {
 	snapshot := Snapshot{
+		System: System{UptimeSeconds: 5040},
 		Activity: Activity{
 			ActiveTurns: 1, ActiveSubagents: 2, Waiting: 3,
 			Completed: 4, Failed: 5, Cancelled: 6,
@@ -41,11 +42,28 @@ func TestSnapshotSerializesOnlySafeScalars(t *testing.T) {
 		t.Fatalf("unmarshal: %v", err)
 	}
 
-	wantTop := map[string]bool{"activity": true, "model": true, "channels": true, "resources": true}
+	wantTop := map[string]bool{
+		"system": true, "activity": true, "model": true,
+		"channels": true, "resources": true,
+	}
 	for key := range generic {
 		if !wantTop[key] {
 			t.Errorf("unexpected top-level Status field %q", key)
 		}
+	}
+
+	system, _ := generic["system"].(map[string]any)
+	for key := range system {
+		if key != "uptime_seconds" {
+			t.Errorf("unexpected system field %q", key)
+		}
+	}
+	// Uptime is a number of seconds, not preformatted text: the unit belongs to
+	// the contract, and rendering belongs to the UI.
+	if raw, ok := system["uptime_seconds"]; !ok {
+		t.Error("uptime_seconds missing from the system block")
+	} else if _, isNumber := raw.(float64); !isNumber {
+		t.Errorf("uptime_seconds is %T, want a JSON number", raw)
 	}
 
 	activity, _ := generic["activity"].(map[string]any)

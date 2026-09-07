@@ -235,6 +235,11 @@ func (s *Server) healthHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	if detailRequested && statusProbe != nil {
 		snapshot := statusProbe()
+		// Uptime is filled in here rather than by the probe because this server
+		// owns startTime. Seconds, as an integer: the legacy Uptime string
+		// above keeps Go's duration formatting for the callers that already
+		// read it, and Status reads this instead of trying to parse that.
+		snapshot.System.UptimeSeconds = int64(uptime / time.Second)
 		resp.Detail = &snapshot
 	}
 

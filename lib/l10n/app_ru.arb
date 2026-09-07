@@ -205,5 +205,9 @@
   "statusJustNow": "Только что",
   "statusMinutesAgo": "{minutes} мин назад",
   "statusHoursAgo": "{hours} ч назад",
-  "statusDaysAgo": "{days} дн назад"
+  "statusDaysAgo": "{days} дн назад",
+  "statusDurationSeconds": "{seconds} с",
+  "statusDurationMinutes": "{minutes} мин {seconds} с",
+  "statusDurationHours": "{hours} ч {minutes} мин",
+  "statusDurationDays": "{days} дн {hours} ч"
 }

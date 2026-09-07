@@ -598,4 +598,24 @@ class AppLocalizationsAr extends AppLocalizations {
   String statusDaysAgo(int days) {
     return 'قبل $days ي';
   }
+
+  @override
+  String statusDurationSeconds(int seconds) {
+    return '$seconds ث';
+  }
+
+  @override
+  String statusDurationMinutes(int minutes, int seconds) {
+    return '$minutes د $seconds ث';
+  }
+
+  @override
+  String statusDurationHours(int hours, int minutes) {
+    return '$hours س $minutes د';
+  }
+
+  @override
+  String statusDurationDays(int days, int hours) {
+    return '$days ي $hours س';
+  }
 }

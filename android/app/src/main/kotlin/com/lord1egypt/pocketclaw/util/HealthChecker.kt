@@ -78,6 +78,14 @@ class HealthChecker(
                         status = json.optString("status", "ok"),
                         uptime = json.optString("uptime", ""),
                         pid = json.optInt("pid", -1),
+                        // Forwarded verbatim as JSON. The Status payload
+                        // carries uptime as a number of seconds
+                        // (detail.system.uptime_seconds); it must reach Dart
+                        // as that number. Do not read it out and reformat it
+                        // here — rendering a duration is a localized decision
+                        // and belongs to the UI, which is exactly what went
+                        // wrong when the legacy `uptime` duration string was
+                        // piped straight to the screen.
                         detailJson = json.optJSONObject("detail")?.toString(),
                     )
                 } else {

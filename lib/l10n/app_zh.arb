@@ -205,5 +205,9 @@
   "statusJustNow": "刚刚",
   "statusMinutesAgo": "{minutes} 分钟前",
   "statusHoursAgo": "{hours} 小时前",
-  "statusDaysAgo": "{days} 天前"
+  "statusDaysAgo": "{days} 天前",
+  "statusDurationSeconds": "{seconds} 秒",
+  "statusDurationMinutes": "{minutes} 分 {seconds} 秒",
+  "statusDurationHours": "{hours} 小时 {minutes} 分",
+  "statusDurationDays": "{days} 天 {hours} 小时"
 }

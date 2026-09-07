@@ -17,14 +17,12 @@ class StatusSections extends StatelessWidget {
   const StatusSections({
     super.key,
     required this.gatewayRunning,
-    required this.uptime,
     required this.appVersion,
     required this.coreVersion,
     required this.snapshot,
   });
 
   final bool gatewayRunning;
-  final String uptime;
   final String appVersion;
   final String coreVersion;
 
@@ -53,7 +51,7 @@ class StatusSections extends StatelessWidget {
               gatewayRunning ? l10n.statusRunning : l10n.statusStopped,
               tone: gatewayRunning ? _Tone.good : _Tone.muted,
             ),
-            _Row(l10n.statusUptime, _orDash(uptime)),
+            _Row(l10n.statusUptime, _uptimeLabel(l10n, detail)),
             _Row(l10n.statusAppVersion, _orDash(appVersion)),
             _Row(l10n.statusCoreVersion, _orDash(coreVersion)),
           ],
@@ -174,6 +172,37 @@ class StatusSections extends StatelessWidget {
   /// but this screen must not be the place where a stale flag becomes a claim.
   static bool _isRunning(StatusChannel channel) =>
       channel.started && channel.running;
+
+  /// Uptime for display, or an em dash when there is no snapshot to read it
+  /// from.
+  ///
+  /// A missing snapshot means the detailed payload is unavailable, which is a
+  /// different thing from a gateway that started a second ago. The latter has
+  /// a real reading of zero and is shown as such; only the former shows a dash.
+  static String _uptimeLabel(AppLocalizations l10n, StatusSnapshot? detail) {
+    if (detail == null) return _unavailable;
+    return formatUptime(l10n, detail.system.uptimeSeconds);
+  }
+
+  /// Formats a whole number of seconds as a compact, localized duration.
+  ///
+  /// Granularity drops one unit at a time — 27s, 4m 12s, 1h 24m, 2d 3h — so the
+  /// value stays readable at every scale and never shows precision the 3-second
+  /// refresh could not justify. Negative input is treated as zero rather than
+  /// rendering a negative duration.
+  ///
+  /// Public so the formatting contract can be tested directly.
+  static String formatUptime(AppLocalizations l10n, int seconds) {
+    if (seconds < 0) seconds = 0;
+    if (seconds < 60) return l10n.statusDurationSeconds(seconds);
+    if (seconds < 3600) {
+      return l10n.statusDurationMinutes(seconds ~/ 60, seconds % 60);
+    }
+    if (seconds < 86400) {
+      return l10n.statusDurationHours(seconds ~/ 3600, (seconds % 3600) ~/ 60);
+    }
+    return l10n.statusDurationDays(seconds ~/ 86400, (seconds % 86400) ~/ 3600);
+  }
 
   static String _relativeTime(AppLocalizations l10n, DateTime? at) {
     if (at == null) return _unavailable;

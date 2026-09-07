@@ -205,5 +205,9 @@
   "statusJustNow": "अभी",
   "statusMinutesAgo": "{minutes} मि. पहले",
   "statusHoursAgo": "{hours} घं. पहले",
-  "statusDaysAgo": "{days} दि. पहले"
+  "statusDaysAgo": "{days} दि. पहले",
+  "statusDurationSeconds": "{seconds} से",
+  "statusDurationMinutes": "{minutes} मि {seconds} से",
+  "statusDurationHours": "{hours} घं {minutes} मि",
+  "statusDurationDays": "{days} दि {hours} घं"
 }
