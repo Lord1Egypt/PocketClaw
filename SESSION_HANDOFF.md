@@ -1,5 +1,39 @@
 # PocketClaw Session Handoff
 
+## Final Launcher Icon — PHYSICAL PASS and merged, 2026-09-07
+
+Branch `feature/final-launcher-icon`, off `develop` at `c927243`, head `7df0bf7`.
+**Physically accepted on SM-A165F / Android 16 as vc54, then merged to `develop`
+with `--no-ff`.** `main` untouched, no tags moved, no release. The branch is
+retained. Core was not modified and not rebuilt.
+
+### The things worth not undoing
+
+**The launcher is a derived artifact.** Every Android raster comes out of
+`tool/generate_android_launcher_icons.py`, which imports Core's
+`generate-brand-assets.py` by path and calls its `draw_mark`. It defines no
+geometry. To change the launcher, change the mark in Core and re-run the script.
+Do not hand-edit a PNG and do not restate the paths: the mark drifted the last
+time it lived in more than one place.
+
+**`flutter_launcher_icons` no longer generates Android, on purpose.** It cannot
+express an opaque legacy tile and a transparent adaptive foreground from a single
+source image, and a run would overwrite the verified inset and the monochrome
+layer. `pubspec.yaml` records why.
+
+**The legacy API 24/25 icons are opaque RGB with no alpha channel.** Their
+opacity is a property of the file format, not of pixels that happen to be opaque
+today. `minSdk` is 24, so a transparent legacy icon is a floating mark on the
+wallpaper — which is exactly the defect this milestone fixed.
+
+**`android:roundIcon` stays absent by decision.** The corrected opaque legacy
+icon serves the launchers a round family would have, and a second artwork set is
+a second thing to keep in step.
+
+The orange PicoClaw lobster in `assets/app_icon.png` and `assets/icon.ico` is
+still the Windows/macOS icon source. It is not an Android launcher resource and
+belongs to the deferred namespace / branding migration.
+
 ## Status Dashboard v1 — PHYSICAL PASS and merged, 2026-09-07
 
 Branch `feature/status-dashboard-v1`, off `develop` at `a7d13b7`, head
