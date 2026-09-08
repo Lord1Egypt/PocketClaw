@@ -54,14 +54,56 @@ match is by digest and not by heading.
 
 Estimated with the repository's own heuristic (2.5 characters per token).
 
-    managed guidance part                              2081 chars   831 tokens
-    install that already carried PocketClaw's copy     1287 -> 1289   +2 tokens
-    fresh install, old template vs new                 1735 -> 1737   +2 tokens
-    install that never had the guidance                 454 -> 1289 +835 tokens
+    managed guidance part                              1563 chars   624 tokens
+    install that already carried PocketClaw's copy     1263 -> 1058  -205 tokens
+    fresh install, old template vs new                 1711 -> 1506  -205 tokens
+    install that never had the guidance                 430 -> 1058  +628 tokens
 
-The first two are the same install shape seen twice: dropping the duplicate
-almost exactly offsets adding the part. The last is the whole point — those
-installs were missing 835 tokens of instructions they needed.
+The first two are the same install shape seen twice: the old inline copy is
+dropped and the shorter managed part replaces it, so those installs get smaller.
+The last is the whole point — those installs were missing the guidance
+altogether.
+
+The guidance went through one editorial pass: 2081 chars to 1563 (-25%), 831
+estimated tokens to 624. The prose that went was framing and repetition — "Four
+things to hold on to", a seven-row markdown table restating what `action=list`
+returns, and a second sentence saying again that a tool absent from PATH may
+still exist. Every operational rule survived, and a test pins each one by
+substring so a future pass cannot quietly drop one. What deliberately stayed is
+the short reason that installing is impossible: without it a model treats
+"unavailable" as an obstacle to work around and burns a turn trying.
+
+### Prompt order, and who wins a disagreement
+
+The assembled system prompt, asserted in `TestSystemPromptPartOrder` rather than
+merely described, because the order is part of the mechanism:
+
+    1  kernel       identity       runtime.kernel             kernel.identity
+    2  instruction  workspace      workspace.definition       instruction.workspace
+    3  capability   tooling        runtime.managed_guidance   capability.managed_runtime
+    4  capability   skill_catalog  skill:index                capability.skill_catalog
+    5  context      memory         memory:workspace           context.memory
+    6  context      output         runtime.output             context.output_policy.split_on_marker
+
+The managed guidance sits at 3: after the workspace text it must outrank, and
+before the skill catalog, whose skills may name tools that do not exist on this
+device.
+
+Ownership is split, and the split is narrow:
+
+| Owned by the workspace | Owned by the managed guidance |
+|---|---|
+| persona and tone | what the runtime currently provides |
+| the user's preferences | which bundled and system tools exist |
+| the user's own operating instructions | what this build can and cannot do |
+
+When a user's `AGENT.md` carries a stale capability claim — "PocketClaw has no
+`jq`", "install what you need with apt" — nothing of theirs is edited or
+removed. The current facts follow their text and say so explicitly: *these facts
+describe the build you are running and are authoritative for what this device
+can do … Persona, tone and the user's preferences remain the workspace's.* Both
+halves are tested, including one that fails if the guidance ever acquires
+broad-override language like "ignore the workspace".
 
 ### The bootstrap record
 
@@ -74,11 +116,32 @@ only files a run actually wrote, so a workspace that already had `AGENT.md` gets
 no entry rather than a false claim, and a rerun that writes nothing leaves the
 file byte-identical.
 
-`bootstrap.UserOwns` answers the question a future upgrade must ask. It has no
-production caller yet, deliberately: the upgrade experience is still deferred in
-`TASKS.md`, and what is settled here is the record it will consult and the rule
-it must obey. `MEMORY.md` returns true unconditionally, so no upgrade path can
-reach it even by mistake.
+**The record is advisory. It is not an authorization boundary.** It lives in the
+workspace, which the user can edit and which on Android may sit on shared
+storage, so it is untrusted input. It may inform a non-destructive migration, an
+offer to upgrade, a guess that a default is untouched, or a diagnostic. It may
+never, by itself, authorize overwriting or deleting a user-owned file — anyone
+who can edit the record can make any document look pristine by recording the
+digest of its current contents. That is not an escalation, since they could edit
+the document directly, but it must not become a way to make PocketClaw destroy
+the document for them. No function in the package returns "you may overwrite
+this", and none should be added.
+
+`bootstrap.Provenance` reports one of three states and `UserOwns` is its safe
+reading. Every ambiguity collapses to hands-off: no record, an unreadable or
+malformed one, an empty file, a JSON array where an object belongs, a schema
+version this build does not know, a missing or empty entry, a digest that does
+not match, an unreadable document, an untracked path. Nine of those are pinned
+by name in `TestAmbiguousProvenanceAlwaysMeansHandsOff`; a corrupt record is
+also never silently rewritten, because a record we cannot read is exactly when
+we know least.
+
+Neither function has a production caller yet, deliberately: the upgrade
+experience is still deferred in `TASKS.md`, and what is settled here is the
+record it will consult and the rule it must obey. `MEMORY.md` reports
+`ProvenanceUnknown` even when its recorded digest matches the file on disk, so
+it cannot become an upgrade candidate even if a later change forgets that it
+must not.
 
 ### RECHECK AFTER FULL NAMESPACE MIGRATION
 
@@ -89,7 +152,12 @@ reach it even by mistake.
 - Tracked template names `AGENT.md`, `SOUL.md`, `USER.md`, `memory/MEMORY.md`.
 - The superseded digest `47b63011a55eaa659470f2ab09d05532e9942800848020a1cfe443e6f21aca76`
   pins text containing the word PocketClaw. It describes bytes already on users'
-  devices and must **not** be regenerated to match a renamed string.
+  devices and must **not** be regenerated to match a renamed string. The text it
+  digests is now pinned as the literal `legacyManagedRuntimeSectionV1` in
+  `core/src/pkg/agent/managed_guidance_legacy.go`, extracted from git history
+  rather than derived from the live guidance — deriving it was a latent bug that
+  the first editorial pass would have triggered, silently redefining "the bytes
+  on a user's device" to mean the current wording.
 - The managed guidance text names the `runtime` tool and `action=list`, plus
   `git`, `gh`, `rg`, `jq`, `sqlite3`, `curl` — user-visible product surface.
 - Go import path `github.com/sipeed/picoclaw/pkg/bootstrap`, which carries the

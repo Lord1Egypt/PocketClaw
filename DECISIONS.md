@@ -35,9 +35,35 @@
   workspace that already had `AGENT.md` gets no entry for it rather than a false
   claim. `MEMORY.md` is recorded and never read: `UserOwns` returns true for it
   unconditionally, so no upgrade path can ever consider touching it.
-- `bootstrap.UserOwns` has no production caller yet, deliberately. The upgrade
-  experience — offering a delta, or asking — is still deferred in `TASKS.md`;
-  what is settled here is the record it will consult and the rule it must obey.
+- **The bootstrap record is advisory, not an authorization boundary.** It sits
+  in the workspace, which the user can edit and which on Android may be shared
+  storage, so it is untrusted input. It may inform a non-destructive migration,
+  an offer, a guess that a default is untouched, or a diagnostic; it may never
+  by itself authorize overwriting or deleting a user-owned file. Anyone who can
+  edit it can make any document look pristine by recording its current digest —
+  not an escalation, since they could edit the document directly, but it must
+  not become a way to make PocketClaw destroy it for them. No function returns
+  "you may overwrite this", and none should be added: that decision needs the
+  user at the time, which a file on disk cannot stand in for.
+  `Provenance` reports unknown / user-modified / matches-seed, and every
+  ambiguity — absent, unreadable, malformed, empty, wrong JSON shape, unknown
+  schema version, missing or empty entry, digest mismatch, unreadable document,
+  untracked path — resolves to hands-off.
+- `bootstrap.UserOwns` and `Provenance` have no production caller yet,
+  deliberately. The upgrade experience — offering a delta, or asking — is still
+  deferred in `TASKS.md`; what is settled here is the record it will consult and
+  the rule it must obey.
+- The managed guidance is authoritative **for capability facts only**. It is
+  placed after the workspace text it must outrank and says so in one sentence,
+  with an explicit disclaimer that persona, tone and the user's preferences stay
+  the workspace's. A test fails if it ever acquires broad-override wording.
+  Order and recency point the same way as the explicit rule; either alone would
+  be weaker.
+- The historical seeded section is pinned as a literal extracted from git
+  history, not derived from the live guidance. Deriving it was a latent bug: the
+  first editorial pass to the guidance would have silently redefined what "the
+  bytes already on users' devices" means, and the digest would then have been
+  regenerated to match text nobody has.
 - **RECHECK AFTER FULL NAMESPACE MIGRATION.** Compatibility identifiers
   introduced or touched here: the metadata directory `.pocketclaw/` and file
   `bootstrap.json` (deliberately named PocketClaw already, so it needs no

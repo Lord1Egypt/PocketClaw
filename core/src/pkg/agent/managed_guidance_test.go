@@ -20,6 +20,20 @@ func TestManagedGuidanceIsIndependentOfTheWorkspace(t *testing.T) {
 	if !strings.Contains(part.Content, "Managed Runtime") {
 		t.Error("managed guidance no longer describes the Managed Runtime")
 	}
+	// The operational rules that must survive any future editorial pass.
+	for _, rule := range []string{
+		"action=list",
+		"Nothing can be installed.",
+		"never make a file executable",
+		"managed runtime directories",
+		"is not evidence that the tool exists here",
+		"run without a shell",
+		"Never put a credential in an argument",
+	} {
+		if !strings.Contains(part.Content, rule) {
+			t.Errorf("managed guidance lost the rule %q", rule)
+		}
+	}
 	if part.Layer != PromptLayerCapability || part.Slot != PromptSlotTooling {
 		t.Errorf("placement = %s/%s, want capability/tooling", part.Layer, part.Slot)
 	}
@@ -108,21 +122,23 @@ func TestSupersededDigestMatchesTheTextThatWasShipped(t *testing.T) {
 	}
 }
 
-// legacyManagedRuntimeSection is the "## Managed Runtime" section exactly as
-// PocketClaw seeded it into AGENT.md up to and including 0.2.0+58. It is
-// reproduced here rather than read from the template because the template no
-// longer contains it — that is the change this file is testing — and because an
-// existing install still has these bytes on disk.
+// legacyManagedRuntimeSection is the historical text, read from the pinned
+// literal rather than derived from the live guidance. Deriving it was a latent
+// bug: rewording the guidance would have silently redefined what "the bytes on
+// a user's device" means, and the digest would then have been regenerated to
+// match text nobody has.
 func legacyManagedRuntimeSection(t *testing.T) string {
 	t.Helper()
-	return "## Managed Runtime\n" + strings.TrimPrefix(managedRuntimeGuidance, "# Managed Runtime\n")
+	return legacyManagedRuntimeSectionV1
 }
 
 // The whole point, assembled: an install whose AGENT.md predates the Managed
 // Runtime gets the guidance, and an install that already has PocketClaw's copy
 // of it gets it exactly once.
 func TestAssembledPromptDeliversManagedGuidanceExactlyOnce(t *testing.T) {
-	const marker = "Do not assume \"command not found\". Ask the runtime first."
+	// A phrase both the current guidance and the historical seeded section
+	// contain exactly once, so the same count is meaningful across both.
+	const marker = "managed runtime directories"
 
 	t.Run("workspace predating the guidance", func(t *testing.T) {
 		dir := t.TempDir()

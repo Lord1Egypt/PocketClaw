@@ -1,5 +1,52 @@
 # Development Changelog
 
+## 2026-09-08 — Three review points, and a bug hiding in a test helper
+
+Review asked for three things. The third one found a fourth.
+
+**The record is untrusted.** `.pocketclaw/bootstrap.json` sits in the workspace,
+which the user can edit and which on Android may be shared storage. Anyone who
+can edit it can make any document look pristine by writing the digest of its
+current contents. That is not an escalation — they could edit the document
+directly — but it must not become a way to make PocketClaw destroy the document
+on their behalf. So the package returns descriptions, never permission:
+`Provenance` says unknown, user-modified or matches-seed, and matches-seed is
+documented as a hint that still needs a decision from the user at the time.
+Nine ambiguity shapes are pinned by name, including a JSON array where an object
+belongs and a schema version from the future. A corrupt record is never silently
+rewritten either, on the grounds that a record we cannot read is exactly when we
+know least.
+
+**Who wins a disagreement.** The managed part sits third, after the workspace
+text and before the skill catalog, and the order is now asserted rather than
+described. Authority is one sentence and it is narrow: these facts are
+authoritative for what this device can do, and persona, tone and preferences
+remain the workspace's. A user file claiming "PocketClaw has no `jq`, install
+what you need with apt" keeps every byte, on disk and in the prompt, and is
+simply outranked on the capability question. There is a test that fails if the
+guidance ever grows an "ignore the workspace" clause, because that is the easy
+way to win an argument and the wrong one.
+
+**The compression pass.** 2081 characters to 1563, 831 estimated tokens to 624.
+What went was framing and repetition: "Four things to hold on to", a seven-row
+table restating what `action=list` returns anyway, and a second sentence saying
+again that a tool missing from PATH may still exist. What stayed is every
+operational rule, each now pinned by substring so a future pass cannot quietly
+drop one, and the short reason that installing is impossible — without it a model
+treats "unavailable" as an obstacle to route around and spends a turn trying.
+Every install shape is now better off than before the pass: the ones that
+already had the text get 205 tokens back, the ones that never had it pay 628
+instead of 835.
+
+And the fourth thing. The test helper for "the section PocketClaw historically
+seeded" **derived** it from the current guidance. Compressing the guidance would
+have redefined history: the digest test would have failed, and the obvious fix —
+regenerate the digest — would have produced a value matching text on nobody's
+device, silently restoring the duplicate for every existing install. The bytes
+are pinned as a literal from git history now. It is a good argument for writing
+the constant down rather than computing it: a derived constant is only correct
+until one of its inputs is allowed to change.
+
 ## 2026-09-08 — The file we were never allowed to fix
 
 The bug is easy to state and awkward to fix. Seeding writes a bundled template

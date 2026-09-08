@@ -19,6 +19,31 @@
 // Nothing here modifies a workspace file, and memory is recorded but never
 // inspected: MEMORY.md is the user's, and a bootstrap step has no business
 // reading it.
+//
+// # This record is advisory, not an authorization boundary
+//
+// The file lives in the workspace, which the user can read, edit and delete,
+// and which on Android may sit on shared storage. It is therefore **untrusted
+// input**. It may describe what PocketClaw previously seeded; it may never, on
+// its own, authorize overwriting, replacing or deleting a user-owned file.
+//
+// Legitimate uses: deciding a non-destructive migration, offering an upgrade,
+// noticing a probably-untouched default, diagnostics.
+//
+// Not a legitimate use: treating ProvenanceMatchesSeed as permission to write.
+// Anyone who can edit this file can make any document look pristine simply by
+// recording the digest of its current contents. That is not an escalation —
+// they could edit the document directly — but it must not become a way to make
+// *PocketClaw* destroy the document on their behalf. Nothing in this package
+// returns "you may overwrite this", and nothing should be added that does: a
+// destructive change needs a decision from the user at the time, which a file
+// on disk cannot stand in for.
+//
+// Every ambiguity resolves the same way. Missing record, unreadable file,
+// malformed JSON, a schema version this build does not know, no entry for the
+// document, an entry whose digest does not match, an unreadable document — all
+// of them mean ProvenanceUnknown or ProvenanceUserModified, and both mean leave
+// it alone.
 package bootstrap
 
 import (
@@ -172,28 +197,67 @@ func Record(workspace string, guidanceVersion int, seeded map[string][]byte) err
 	return save(workspace, meta)
 }
 
-// UserOwns reports whether a tracked template must not be touched by an
-// automatic upgrade: either the user has edited it since it was seeded, or its
-// provenance is unrecorded and therefore unknown.
+// ProvenanceState is what the record can say about one document. It is a
+// description, never a permission — see the package comment.
+type ProvenanceState string
+
+const (
+	// ProvenanceUnknown means nothing here can be relied on: no record, an
+	// unreadable or malformed one, a schema version this build does not
+	// understand, no entry for this document, or a document that cannot be
+	// read. Treat the document as the user's.
+	ProvenanceUnknown ProvenanceState = "unknown"
+	// ProvenanceUserModified means the document differs from what PocketClaw
+	// seeded. It is theirs.
+	ProvenanceUserModified ProvenanceState = "user-modified"
+	// ProvenanceMatchesSeed means the document is byte-identical to what
+	// PocketClaw recorded seeding.
+	//
+	// This is a hint for offering an upgrade, and it is not permission to
+	// perform one. The record is user-writable, so this state can be
+	// manufactured; a destructive change needs the user's decision as well.
+	ProvenanceMatchesSeed ProvenanceState = "matches-seed"
+)
+
+// Provenance answers what is known about one tracked document.
 //
-// It answers conservatively. Any error, any missing record, any digest mismatch
-// is "the user owns this", because the cost of being wrong in that direction is
-// a stale default and the cost of being wrong in the other is destroying
-// someone's work.
-func (m Metadata) UserOwns(workspace, rel string) bool {
+// It never reports ProvenanceMatchesSeed for memory: MEMORY.md is recorded so
+// the seed is accounted for and is deliberately never read here, so it cannot
+// become an upgrade candidate even if something later forgets that it must not.
+func (m Metadata) Provenance(workspace, rel string) ProvenanceState {
+	// A schema this build does not understand may mean the fields do not mean
+	// what they appear to. Refuse to interpret it.
+	if m.BootstrapVersion <= 0 || m.BootstrapVersion > Version {
+		return ProvenanceUnknown
+	}
+	if _, tracked := TrackedTemplates[rel]; !tracked {
+		return ProvenanceUnknown
+	}
 	record, recorded := m.Templates[rel]
 	if !recorded || record.SeededSHA256 == "" {
-		return true
+		return ProvenanceUnknown
 	}
 	if record.Owner == OwnerUserPrivate {
-		return true
+		return ProvenanceUnknown
 	}
 	data, err := os.ReadFile(filepath.Join(workspace, filepath.FromSlash(rel)))
 	if err != nil {
-		return true
+		return ProvenanceUnknown
 	}
 	sum := sha256.Sum256(data)
-	return hex.EncodeToString(sum[:]) != record.SeededSHA256
+	if hex.EncodeToString(sum[:]) != record.SeededSHA256 {
+		return ProvenanceUserModified
+	}
+	return ProvenanceMatchesSeed
+}
+
+// UserOwns reports whether a tracked template must not be touched by an
+// automatic upgrade. It is the safe reading of Provenance: everything that is
+// not positively "this is the text we wrote, untouched" counts as the user's.
+//
+// Being false is still not permission to write — see the package comment.
+func (m Metadata) UserOwns(workspace, rel string) bool {
+	return m.Provenance(workspace, rel) != ProvenanceMatchesSeed
 }
 
 func save(workspace string, meta Metadata) error {

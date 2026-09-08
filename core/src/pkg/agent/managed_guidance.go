@@ -40,48 +40,31 @@ const managedGuidanceVersion = 1
 // COMPATIBILITY: the tool name, the directory wording and the `runtime` action
 // names below are user-visible product surface.
 // RECHECK AFTER FULL NAMESPACE MIGRATION.
-const managedRuntimeGuidance = `# Managed Runtime
+const managedRuntimeGuidance = "# Managed Runtime\n" + `
+This device provides a fixed catalog of verified command-line tools through the
+` + "`runtime`" + ` tool. ` + "`action=list`" + ` is the authority on what exists here.
 
-PocketClaw has a Managed Runtime: a catalog of verified command-line tools you
-reach through the ` + "`runtime`" + ` tool. Use ` + "`action=list`" + ` to see what this device
-actually provides before concluding that a command is missing. A tool that is
-not on your PATH may still be available through the runtime.
+- Before concluding that a command is missing, check ` + "`action=list`" + `. A tool absent
+  from PATH may still be in the catalog — typically ` + "`git`" + `, ` + "`gh`" + `, ` + "`rg`" + `, ` + "`jq`" + `,
+  ` + "`sqlite3`" + ` and ` + "`curl`" + `, alongside the standard system tools.
+- Nothing can be installed. Executables run only from the app package or the
+  system image, both fixed when PocketClaw was installed. "Unavailable" is
+  final: solve the task with what is there, or tell the user plainly that this
+  device cannot do it. Never download a binary, never make a file executable.
+- Never modify anything under the managed runtime directories.
+- A Skill describing a tool is not evidence that the tool exists here. Check
+  ` + "`action=list`" + `, and say so accurately when it does not.
+- Runtime tools run without a shell. Arguments pass through verbatim, so pipes,
+  redirection, globs and ` + "`$(...)`" + ` do nothing; use several calls rather than one
+  composed command line.
+- Never put a credential in an argument: no token inside a URL, no ` + "`-u`" + `, no
+  ` + "`--password`" + `. PocketClaw supplies GitHub credentials to ` + "`git`" + ` and ` + "`gh`" + ` itself.
+  If a command needs authentication and none is configured, say so.
 
-Four things to hold on to:
-
-- Do not assume "command not found". Ask the runtime first.
-- The runtime cannot install software, and neither can you. On Android an
-  executable runs only from the app package or the system image, both fixed when
-  PocketClaw was installed. When the runtime reports a tool unavailable, that is
-  final: solve the task with what is available, or tell the user plainly that
-  this device cannot do it. Never download a binary, and never try to make a
-  file executable.
-- Do not modify anything under the managed runtime directories.
-- A Skill's instructions are knowledge, not proof. A Skill that describes using
-  ` + "`gh`" + ` does not mean ` + "`gh`" + ` exists here — ask the runtime, and report accurately if
-  it does not.
-
-Reason about the runtime by capability rather than by remembering binary names:
-
-| You need | Ask the runtime for |
-|---|---|
-| repository history, clone, commit, diff | ` + "`git`" + ` |
-| GitHub issues, pull requests, releases, API | ` + "`gh`" + ` |
-| recursive search across a source tree | ` + "`rg`" + ` |
-| JSON queries and transforms | ` + "`jq`" + ` |
-| a local SQLite database | ` + "`sqlite3`" + ` |
-| an HTTP or HTTPS request | ` + "`curl`" + ` |
-| everyday file and text work | the system tools in ` + "`action=list`" + ` |
-
-Runtime tools run without a shell. Arguments are passed through exactly as you
-write them, so pipes, redirection, globs and ` + "`$(...)`" + ` do nothing; use several
-calls instead of one composed command line.
-
-Never put a credential in an argument. Do not write a token into a URL such as
-` + "`https://TOKEN@github.com/...`" + `, and do not pass one with ` + "`-u`" + ` or ` + "`--password`" + `.
-PocketClaw supplies GitHub credentials to ` + "`git`" + ` and ` + "`gh`" + ` itself when they are
-configured; if a command needs authentication and none is configured, say so
-rather than trying to supply one yourself.`
+These facts describe the build you are running and are authoritative for what
+this device can do: where a workspace file says otherwise about PocketClaw's
+tools or runtime, it is out of date. Persona, tone and the user's preferences
+remain the workspace's.`
 
 // managedGuidancePart is the prompt part carrying the text above.
 func managedGuidancePart() PromptPart {
@@ -112,7 +95,12 @@ func managedGuidancePart() PromptPart {
 // alongside them — because at that point it is their instruction, not ours.
 var supersededManagedSections = map[string]int{
 	// AGENT.md "## Managed Runtime" as seeded from the first Managed Runtime
-	// release through 0.2.0+58.
+	// release through 0.2.0+58. The literal it digests is pinned in
+	// managed_guidance_legacy.go and must never be regenerated from the current
+	// wording — it names bytes already on users' devices.
+	//
+	// COMPATIBILITY: RECHECK AFTER FULL NAMESPACE MIGRATION, and do not rewrite
+	// the entry then either.
 	"47b63011a55eaa659470f2ab09d05532e9942800848020a1cfe443e6f21aca76": 1,
 }
 
