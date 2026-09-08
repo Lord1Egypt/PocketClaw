@@ -1,5 +1,92 @@
 # PocketClaw Project State
 
+## Namespace Migration N3A — implemented, NOT merged, NOT physically accepted
+
+- Status: **implemented on `feature/namespace-n3-native-binaries`, 2026-09-09.
+  NOT merged, NOT physically accepted.** Branch cut from `develop` at
+  `b6a098f`. N3B owns the physical candidate. `0.2.0+59`, baseline 59, no
+  candidate, no What's New entry.
+
+### The canonical Android native identity
+
+    libpicoclaw.so       →  libpocketclaw.so
+    libpicoclaw-web.so   →  libpocketclaw-web.so
+
+That name is not cosmetic: it is what reaches `nativeLibraryDir`, the APK
+payload and `/proc/<pid>/comm`, so the build script, the launcher, Gradle
+packaging, the release gate and Core's process-ownership check all moved
+together. The Managed Runtime payloads were already `libpocketclaw-*.so`, so
+Core now matches the convention its own siblings already used.
+
+**Upstream build identity is deliberately unchanged.** `core/src/Makefile` still
+emits `picoclaw-android-arm64` and `picoclaw-launcher-android-arm64`,
+`BINARY_NAME=picoclaw`, `cmd/picoclaw` and the Go module are untouched, and the
+Makefile's own `build-android-bundle` staging target still writes the old names
+because it is upstream's universal-zip path, not PocketClaw's shipping path. The
+rename happens at the install destination in `core/build-android-arm64.sh` —
+the boundary between upstream's artifact and PocketClaw's package.
+
+### Process ownership — the part that had to change
+
+`pkg/pid/classifyProcComm` matched the substring `"picoclaw"`. `libpocketclaw.so`
+does not contain it, so without this change the launcher would have read its own
+live gateway as a foreign process and deleted a valid pid file. It now matches
+`ownedProcessName = "pocketclaw"`.
+
+**The old name is deliberately not an accepted alias.** A stale `.picoclaw.pid`
+can name a PID the kernel has since handed to something else, and every extra
+accepted name is another way for that process to be honoured as ours and wedge
+startup behind it. N0's conclusion that no fallback loader is needed was
+re-verified against the implementation: Android replaces `nativeLibraryDir`
+wholesale on package update, so nothing can still be running under the old name.
+Tests pin the live match, the reused-PID rejection, the stale pre-N3 name as
+foreign, and that the shared PID record still carries no credential.
+
+`looksLikeGatewayCommandLine` needed no change — it matches the `gateway`
+subcommand token, not the executable filename, and was already name-agnostic.
+
+### Core source fingerprint moved, and the cause was measured
+
+    e7acbff7…  develop
+    4a88a400…  with only pkg/pid/pidfile_unix.go changed
+    259e3422…  current, adding a one-line comment in pkg/coresource/fingerprint.go
+
+Both are fingerprinted source. The ownership change had to happen; the comment
+did not have to, but the rebuild was already required so its marginal cost was
+zero, and the fingerprint is content-addressed over source bytes and
+deliberately does not try to tell comments from code.
+
+### The build
+
+    build-input commit  d520e1e8188c38fea9617611efe4d178f3125fe2
+    epoch               1788905005
+    BuildTime           2026-09-08T22:03:25+0000
+    fingerprint         259e342283c78537fdeb5d3392ee64dec45ec63abaddca0afa0090df7263ef4f
+    libpocketclaw.so     5c4d8e6c0546705932fcb1f9b11c6cc09839415167202204a59cf2379f9406a2  37,683,553
+    libpocketclaw-web.so d6307859e174770e97772effd9c0c89e954452ca086b4b51b79719701362b17a  25,493,857
+
+Both stripped, NX stack, 64 KiB aligned, zero developer paths, zero Go VCS
+stamps, and both carry the same embedded BuildTime. `core/build-android-arm64.sh`
+is a canonical BuildTime input, so N3 moving the timestamp is expected and not
+a reuse of the vc59 value. Staged at `ef40299`; resolving before and after that
+commit gave the identical value. A rebuild at the same explicit epoch reproduced
+both binaries byte for byte.
+
+Only the PocketClaw-named binaries are staged — the pre-N3 files were removed
+from the tree rather than left beside them, so no APK can carry both.
+
+### Old-name references that remain, and why
+
+Upstream Makefile bundle target; the comment in `pidfile_unix.go` explaining why
+the old name is rejected; the negative ownership tests; the historical incident
+comment in `gateway_test.go`; and two log-redaction fixtures
+(`logs-page.test.tsx`, `user_visible_log_contract.json`) that exercise hiding
+*upstream* identity from user-visible output. The sanitizer strips the whole
+parenthesised path regardless of filename, so redaction covers the new name too.
+
+`core/src/pkg/pcruntime/manifest.go` is unformatted on `develop` already and was
+left alone rather than swept into this diff.
+
 ## Namespace Migration N2 — CLOSED
 
 - Status: **closed on `feature/namespace-n2-brand-assets`, 2026-09-09, merged to

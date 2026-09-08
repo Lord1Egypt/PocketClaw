@@ -88,7 +88,7 @@ void main() {
     test('upstream Core build identity is unchanged', () {
       final makefile = read('core/src/Makefile');
       expect(makefile, contains('BINARY_NAME=picoclaw'));
-      expect(File('core/src/cmd/picoclaw').existsSync(), isTrue);
+      expect(Directory('core/src/cmd/picoclaw').existsSync(), isTrue);
       expect(read('core/src/go.mod'), contains('github.com/sipeed/picoclaw'));
     });
 
