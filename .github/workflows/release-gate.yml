@@ -1,0 +1,54 @@
+# Invokes the repo-local release gate. It does not reimplement any of it.
+#
+# tool/release_gate.py is the source of truth for what "releasable" means, so
+# the same command runs here and on a developer's machine and cannot disagree
+# with itself. This workflow only decides when to call it.
+#
+# Deliberately the --no-tests phase: the delegated suites need the Go
+# toolchain, the Flutter SDK and the Android SDK, and installing and pinning
+# those is its own piece of work rather than a side effect of adding CI. What
+# runs here needs Python, git and binutils, and still catches a version-identity
+# regression, a missing lockfile, a broken reproducible-timestamp resolver or a
+# developer path in the staged Core on every pull request.
+#
+# Running the full gate in CI is tracked as the follow-up in TASKS.md.
+#
+# No secrets. No signing. No artifacts published. No tags or releases touched.
+name: Release gate
+
+on:
+  pull_request:
+  push:
+    branches: [develop]
+
+permissions:
+  contents: read
+
+jobs:
+  verify-source:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The gate derives the build timestamp from the HEAD commit when
+          # SOURCE_DATE_EPOCH is unset, so the commit must actually be present.
+          fetch-depth: 1
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Run the repo-local release gate (source phase)
+        run: python3 tool/release_gate.py --verify-source --no-tests
+
+      - name: Verify the build timestamp is reproducible
+        run: |
+          set -euo pipefail
+          first="$(SOURCE_DATE_EPOCH=1700000000 ./core/resolve-build-time.sh)"
+          sleep 2
+          second="$(SOURCE_DATE_EPOCH=1700000000 ./core/resolve-build-time.sh)"
+          if [ "$first" != "$second" ]; then
+            echo "resolver is not deterministic: $first != $second" >&2
+            exit 1
+          fi
+          echo "resolved deterministically: $first"

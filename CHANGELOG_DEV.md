@@ -1,5 +1,62 @@
 # Development Changelog
 
+## 2026-09-08 — Build engineering, and what a gate finds when you write one
+
+Release Hardening A3: make the Core build reproducible, and build one command
+that decides whether an artifact is releasable.
+
+The reproducibility half was smaller than it looked. `BUILD_TIME_RAW := $(shell
+date …)` meant identical source produced different binaries because the clock
+had moved — the source fingerprint stayed honest, but nobody could reproduce a
+released artifact byte for byte. The fix is one script that takes
+`SOURCE_DATE_EPOCH` or the HEAD commit timestamp, and refuses to run when it has
+neither. Refusing matters more than it sounds: a silent `date` fallback would
+look exactly like reproducibility right up until someone tried to verify a
+release.
+
+Two Make details were worth getting right rather than assuming. `:=` ignores the
+environment, so exporting the variable would have done nothing at all — the
+value has to arrive as a command-line assignment, which is what the build script
+now does, for both binaries so they cannot disagree with each other. And the
+Makefile's own default switched to a recursive `=` so the subprocess is skipped
+entirely when a caller passes the value in.
+
+Then two builds, seconds apart, same epoch: byte-identical. That is the whole
+claim, and it is cheap to check, so it got checked rather than argued.
+
+The gate half was where the interesting part was, because writing a checker
+means discovering what your artifact actually contains. Three of its first four
+failures were my own bugs — comparing against a version I had never read, a
+too-strict ABI rule that did not know Flutter ships plugin stubs for
+armeabi-v7a and x86_64, and an apksigner invocation with no JDK on its PATH that
+cheerfully reported a well-signed APK as unsigned. That last one is the sort of
+false failure that teaches people to ignore a gate, which is worse than not
+having one.
+
+The fourth was real, and splits in two. `libapp.so` embeds a generated-source
+URI pointing at the build machine — precisely the "controlled Dart
+generated-source URI strategy" item that has been sitting in the backlog. And
+`libpocketclaw-gh.so` carries `/home/runner/work/` paths, which turn out to be
+GitHub Actions' own directories from upstream's build of the `gh` CLI, plus Go
+module paths from sigstore. The second is not our path and not ours to fix; the
+first is ours and is not fixed yet. So the strict zero-developer-paths rule is
+scoped to Core, where the build script already enforces it, and the Dart
+snapshot is reported as `PENDING_FINAL_HARDENING`. Failing the whole gate on it
+would block every build on something this milestone deliberately does not do;
+passing silently would pretend it were solved. Naming it is the only honest
+third option.
+
+The signing classes are explicit for the same reason. `test` accepts the
+development signer and can never report a production release; `production`
+rejects it unconditionally. The caller says which it wants. A gate that infers
+its own strictness from context is a gate that can be talked into the wrong
+answer.
+
+CI got the minimal version: a workflow that invokes the repo-local gate's
+source phase and nothing else. Running the delegated suites needs Go, Flutter
+and the Android SDK in the runner, and installing and pinning those is its own
+piece of work rather than something to smuggle in here.
+
 ## 2026-09-08 — The password still worked, which is the only proof that counts
 
 Release Hardening A2 merged to `develop` with `--no-ff`, physically accepted as

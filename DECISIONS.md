@@ -1,5 +1,29 @@
 # PocketClaw Decisions
 
+## The build timestamp comes from the source, and one command decides releasable
+
+- Date: 2026-09-08
+- Decision: `core/resolve-build-time.sh` is the single source of Core's
+  `BuildTime`. It takes `SOURCE_DATE_EPOCH`, else the HEAD commit timestamp, and
+  **fails** when it has neither rather than using the wall clock. The canonical
+  build script resolves once and passes `BUILD_TIME=` on the make command line.
+  Separately, `tool/release_gate.py` is the one authority on whether an artifact
+  is releasable; CI invokes it and never reimplements it.
+- Reason: `BUILD_TIME_RAW := $(shell date …)` meant identical source produced
+  different binaries because the clock had moved, so a released artifact could
+  not be reproduced from its source. A wall-clock fallback is worse than no
+  guarantee, because it looks like reproducibility until someone checks. The
+  command-line assignment is not a style choice either: `:=` in Make ignores the
+  environment, so exporting the variable silently does nothing.
+- Consequence: two canonical builds with the same epoch are byte-identical,
+  proven rather than asserted. The gate's signing class is always chosen by the
+  caller — `test` can never report a production release, `production` rejects the
+  development signer unconditionally — because a gate that guesses is a gate
+  that can be talked into the wrong answer. Unresolved work is labelled
+  `PENDING_FINAL_HARDENING` and never presented as solved.
+- **RECHECK AFTER THE NAMESPACE MIGRATION.** The gate's expected package id,
+  Core library names and staged-Core path are all compatibility names.
+
 ## The workspace is the user's; the runtime's control state is not
 
 - Date: 2026-09-08

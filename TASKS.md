@@ -187,7 +187,13 @@ not to Telegram".
   source; `web/backend/api` has the rule but `pkg/commands` cannot import it.
   Note that listing is not selecting: chat may report what the Dashboard has
   configured, but choosing the default stays in the Dashboard.
-- [ ] **Release hardening: Core builds are not byte-reproducible by default.**
+- [x] **Release hardening: Core builds are not byte-reproducible by default.**
+  Fixed in A3 on `feature/release-hardening-a3`, 2026-09-08:
+  `core/resolve-build-time.sh` is the single source of the build timestamp,
+  taking `SOURCE_DATE_EPOCH` or the HEAD commit and failing rather than using
+  the wall clock. Two consecutive canonical builds with the same epoch produced
+  byte-identical binaries. **IMPLEMENTED — AWAITING REVIEW.** Original entry:
+  ~~**Core builds are not byte-reproducible by default.**~~
   `core/src/Makefile` derives `BUILD_TIME` from `date` unless `BUILD_TIME_RAW`
   is pinned, so two builds of identical source differ. Observed twice on
   2026-09-06: the same tree produced `373c914b…` then `248bc5bd…`, and again
@@ -1113,7 +1119,23 @@ supplied by the user.
   directory the backup rules exclude, and the `pico` channel name. Renaming one
   side alone puts the credential, the logs or the backup exclusion back where
   they were without breaking anything visible.
+- [x] **Release Hardening A3: deterministic Core builds and a release gate.**
+  Done on `feature/release-hardening-a3`, 2026-09-08. `tool/release_gate.py` is
+  the single authority on whether an artifact is releasable, with explicit
+  `test` and `production` signing classes and a JSON release manifest.
+  **IMPLEMENTED — AWAITING REVIEW.** Core is intentionally stale: the Makefile
+  is a fingerprint input, so the fingerprint moved `3a9ae19c…` → `0f601437…`.
+- [ ] **Run the full release gate in CI.** `.github/workflows/release-gate.yml`
+  currently invokes only `--verify-source --no-tests`, which needs just Python
+  and binutils. The delegated suites need the Go toolchain, the Flutter SDK and
+  the Android SDK; installing and pinning those is its own piece of work rather
+  than a side effect of adding CI. The workflow must keep invoking the
+  repo-local gate rather than reimplementing any of it.
 - [ ] FINAL RELEASE HARDENING: controlled Dart generated-source URI strategy.
+  Confirmed present in the vc58 artifact by the A3 release gate: the packaged
+  `libapp.so` embeds one generated-source URI. The gate reports it as
+  `PENDING_FINAL_HARDENING` rather than failing on it, so it stays visible
+  without blocking every build.
 - [ ] Future milestone only: Background & Battery page.
 - [ ] Future milestone only: local Runtime / Statistics bottom tab.
 

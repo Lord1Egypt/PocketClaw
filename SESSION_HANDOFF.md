@@ -1,5 +1,55 @@
 # PocketClaw Session Handoff
 
+## Release Hardening A3 — IMPLEMENTED, not merged, 2026-09-08
+
+Branch `feature/release-hardening-a3`, off `develop` at `b68f86d`. **Not merged,
+no candidate built, no device touched.** Version unchanged at `0.2.0+58`,
+baseline 58.
+
+### Read this before building anything
+
+**The staged Core is stale on purpose, and must stay that way.** `core/src/Makefile`
+is a fingerprint input, so changing it moved the fingerprint `3a9ae19c…` →
+`0f601437…`. The staged binaries are deliberately still the **accepted vc58
+artifact**: restaging them would make the tree green by discarding the
+acceptance evidence for a build nobody has validated. Rebuild Core when a
+physical candidate is actually wanted.
+
+### The things worth not undoing
+
+**`core/resolve-build-time.sh` is the only thing that decides BuildTime.** If a
+second derivation appears — in the Makefile, in a script, in CI — the two will
+disagree and reproducibility quietly stops meaning anything.
+
+**It fails rather than falling back to the wall clock.** That is the entire
+point. A silent `date` fallback is invisible precisely when it matters.
+
+**The build script passes `BUILD_TIME=` on the make command line.** Exporting it
+does not work: `BUILD_TIME_RAW` used `:=`, and Make ignores the environment for
+those. Both make invocations get the same value so the gateway and the launcher
+cannot carry different timestamps.
+
+**`tool/release_gate.py` delegates; it does not reimplement.** It shells out to
+the staged-Core freshness test, the A1 contract guards, the A2 placement guards
+and the Gradle payload verifiers. Restating any of those rules in Python gives
+two implementations that drift.
+
+**The signing class is chosen by the caller, never inferred.** `test` accepts the
+development signer and can never report a production release; `production`
+rejects it unconditionally. Verified both ways against vc58.
+
+**Two findings the gate reports rather than hides.** `libapp.so` embeds one
+generated-source URI — the tracked Dart URI item — reported as
+`PENDING_FINAL_HARDENING`. And `libpocketclaw-gh.so` carries `/home/runner/work/`
+from upstream's CI, which is not our path and not ours to fix, so the strict
+zero-developer-paths rule is scoped to Core.
+
+### Next
+
+Review, then a physical candidate if wanted. CI currently runs only the
+`--no-tests` source phase; running the full gate needs Go, Flutter and the
+Android SDK in the runner and is tracked in `TASKS.md`.
+
 ## Release Hardening A2 — PHYSICAL PASS and merged, 2026-09-08
 
 Branch `feature/release-hardening-a2`, off `develop` at `e62f083`. **Physically

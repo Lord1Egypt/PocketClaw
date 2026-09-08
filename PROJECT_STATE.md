@@ -1,5 +1,89 @@
 # PocketClaw Project State
 
+## Production Release Hardening A3 — IMPLEMENTED — AWAITING REVIEW
+
+- Status: **implemented on `feature/release-hardening-a3`, 2026-09-08. Not
+  merged.** No physical candidate was built and no device was touched.
+  `develop`, `main`, tags and releases are untouched.
+- Branch from `develop` at `b68f86d`. Version unchanged: `pubspec.yaml`
+  `0.2.0+58`, `lastAcceptedVersionCode=58`.
+- Two areas: deterministic Core builds, and a release gate.
+
+### The Core build is reproducible
+
+`core/src/Makefile` derived `BUILD_TIME_RAW` from `date`, so identical source
+produced different binaries purely because the clock had moved. The source
+fingerprint was unaffected — it is content-addressed and excludes anything
+time-varying — but nobody could reproduce a released artifact byte for byte.
+
+`core/resolve-build-time.sh` is now the only thing that decides that value. It
+takes `SOURCE_DATE_EPOCH` when given, validates it, and otherwise uses the HEAD
+commit timestamp — a property of the source rather than of the machine. With
+neither available it **fails** rather than falling back to the wall clock, which
+is the failure mode that would be hardest to notice. Output is `%FT%T%z` fixed
+to UTC, so the historical format is preserved and the builder's timezone cannot
+change it.
+
+`core/build-android-arm64.sh` resolves once and passes `BUILD_TIME=` explicitly
+into both make invocations, so the gateway and the launcher cannot carry
+different timestamps. That detail matters: `BUILD_TIME_RAW` was a `:=`
+assignment, which Make does **not** let an exported environment variable
+override — only a command-line assignment works. The Makefile's own default now
+calls the same resolver through a recursive `=`, so a bare `make` is
+deterministic too and the subprocess is skipped entirely when the value is
+passed in.
+
+**Proven, not asserted:** two consecutive canonical Core builds with the same
+`SOURCE_DATE_EPOCH`, seconds apart, produced byte-identical binaries —
+`eec55fa303393e20ef99c757295ec27a0805ca969b79fa54e0762f4a5f00b719` and
+`4a2f76772be8f1af65235301e90a88596807fff594a675374c94edf8d20d6253` both times.
+
+### The release gate
+
+`tool/release_gate.py` is one command that decides whether an artifact is
+releasable, so the answer does not depend on who is asking. It delegates to the
+authoritative guards — the staged-Core freshness test, the A1 signing and
+version contracts, the A2 private-storage guards, the Gradle payload verifiers —
+rather than restating their logic, because a second implementation of a rule is
+a second thing to get wrong.
+
+    tool/release_gate.py --verify-source
+    tool/release_gate.py --verify-artifact <apk>
+    tool/release_gate.py --full <apk>
+    --release-class test|production   --manifest <path>   --no-tests
+
+Two signing classes, chosen by the caller and never guessed: `test` permits the
+known development signer and can never report a production release; `production`
+treats that signer as an unconditional failure. Verified both ways on the
+accepted vc58 artifact — PASS as `test`, FAIL as `production`.
+
+Every check reports PASS, FAIL or SKIPPED, a failure names expected and
+observed, and the exit code is non-zero when any selected check fails. A JSON
+release manifest records package id, version, APK hash, Core fingerprints and
+hashes, ABI, signer fingerprint, permission contract, timestamp input, result
+and classification — and no secrets or machine paths.
+
+### What the gate found
+
+Writing it surfaced two things worth recording rather than hiding. The packaged
+`libapp.so` embeds one generated-source URI, which is exactly the tracked
+"controlled Dart generated-source URI strategy" item; the gate reports it as
+`PENDING_FINAL_HARDENING` rather than failing every build on it or passing
+silently. And `libpocketclaw-gh.so` carries `/home/runner/work/` paths from
+upstream's own CI — not this machine's, and not ours to fix — so the strict
+zero-developer-paths rule is scoped to Core, where the build script already
+enforces it and where it holds.
+
+### Core is intentionally stale
+
+`core/src/Makefile` is a fingerprint input, so changing it moved the fingerprint
+from the accepted `3a9ae19c…` to `0f601437…`.
+`TestStagedCoreWasBuiltFromTheCurrentSource` fails by design. The staged
+binaries are deliberately **left as the accepted vc58 artifact** rather than
+restaged to make the tree green — restaging would discard the acceptance
+evidence for a build nobody has validated. The next physical candidate rebuilds
+Core.
+
 ## Production Release Hardening A2 — PHYSICALLY ACCEPTED AND CLOSED
 
 - Status: **PASS on a physical Android device (SM-A165F / Android 16), 2026-09-08
