@@ -41,13 +41,18 @@ func TestRedactsProviderCredentialForms(t *testing.T) {
 		},
 		{
 			"OpenAI-style prefix",
-			"401 from provider using sk-Aa0Bb1Cc2Dd3Ee4Ff5Gg6Hh7",
-			"sk-Aa0Bb1Cc2Dd3Ee4Ff5Gg6Hh7",
+			"401 from provider using sk-Aa0Bb1Cc2Dd3Ee4Ff5Gg6Hh7Ii8Jj9Kk0Ll1Mm2",
+			"sk-Aa0Bb1Cc2Dd3Ee4Ff5Gg6Hh7Ii8Jj9Kk0Ll1Mm2",
+		},
+		{
+			"OpenAI project-scoped prefix",
+			"401 from provider using sk-proj-Aa0Bb1Cc2-Dd3Ee4Ff5_Gg6Hh7",
+			"sk-proj-Aa0Bb1Cc2-Dd3Ee4Ff5_Gg6Hh7",
 		},
 		{
 			"Anthropic-style prefix",
-			"auth error for sk-ant-Aa0Bb1Cc2Dd3Ee4Ff5",
-			"sk-ant-Aa0Bb1Cc2Dd3Ee4Ff5",
+			"auth error for sk-ant-api03-Aa0Bb1Cc2Dd3Ee4Ff5",
+			"sk-ant-api03-Aa0Bb1Cc2Dd3Ee4Ff5",
 		},
 		{
 			"Google-style prefix",
@@ -86,6 +91,36 @@ func TestRedactsProviderCredentialForms(t *testing.T) {
 				t.Fatalf("nothing was redacted:\n  in:  %s\n  out: %s", tc.input, got)
 			}
 		})
+	}
+}
+
+// A prefix is not evidence. These are the strings a rule keyed on "sk-" alone,
+// or on length alone, would destroy — and a log that has destroyed its own
+// diagnostic value is not a safer log.
+func TestRedactionDoesNotFireOnCredentialShapedProse(t *testing.T) {
+	for _, input := range []string{
+		// "sk-" as a substring of an ordinary word: the leading word boundary
+		// is what keeps these intact.
+		"disk-cache eviction ran after 200ms",
+		"risk-score 0.82 exceeded the threshold",
+		"task-key not found in the mailbox",
+		"whisk-broom-attachment missing from the payload",
+		"the disk-cache-directory-path setting was wrong",
+		// Prefixed but far too short to be a credential.
+		"sk-test rejected",
+		"sk-test-1 profile selected",
+		"AIzaShort is not a key",
+		"ghp_short is not a token",
+		"xoxb-1 is not a token",
+		// Long, hyphenated, and still obviously not a credential: the bare sk-
+		// form forbids hyphens in the body precisely so English cannot reach
+		// the length floor.
+		"sk-test-configuration-value-for-the-integration-suite",
+		"sk-local-development-environment-override",
+	} {
+		if got := redactSecrets(input); got != input {
+			t.Errorf("prose was redacted as a credential:\n  in:  %s\n  out: %s", input, got)
+		}
 	}
 }
 

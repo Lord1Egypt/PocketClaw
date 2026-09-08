@@ -3,7 +3,9 @@ package api
 import (
 	"encoding/json"
 	"net/http"
+	"os"
 	"reflect"
+	"strings"
 
 	"github.com/sipeed/picoclaw/pkg/config"
 )
@@ -84,6 +86,30 @@ func (h *Handler) handleGetChannelConfig(w http.ResponseWriter, r *http.Request)
 	}
 }
 
+// hideHostManagedChannelFields drops settings the user cannot meaningfully
+// change because the host owns them.
+//
+// Only allow_token_query on the realtime channel, and only when the credential
+// arrives through the environment — which is how the Android host injects one
+// it generated and owns. The runtime refuses query-string authentication for
+// such a credential outright, so showing a toggle for it would offer a choice
+// that does not exist.
+//
+// Deliberately scoped to that case rather than hidden in the frontend: a
+// self-managed deployment, where a browser client genuinely cannot set a
+// header, keeps both the capability and the control. The form renders this
+// toggle only for a field the response carries, so omitting it here is all that
+// hiding requires.
+func hideHostManagedChannelFields(settings map[string]any, channelName string) {
+	if channelName != "pico" {
+		return
+	}
+	if strings.TrimSpace(os.Getenv(config.EnvChannelsPicoToken)) == "" {
+		return
+	}
+	delete(settings, "allow_token_query")
+}
+
 func findChannelCatalogItem(name string) (channelCatalogItem, bool) {
 	for _, item := range channelCatalog {
 		if item.Name == name {
@@ -144,6 +170,7 @@ func buildChannelConfigResponse(cfg *config.Config, item channelCatalogItem) cha
 	for _, key := range secrets {
 		delete(settings, key)
 	}
+	hideHostManagedChannelFields(settings, item.Name)
 	addChannelCommonConfig(settings, bc)
 	resp.Config = settings
 

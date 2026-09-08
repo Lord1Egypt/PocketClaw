@@ -1088,7 +1088,7 @@ supplied by the user.
   realtime authentication is constant-time.** Done on
   `feature/release-hardening-a2`, 2026-09-08.
   **IMPLEMENTED — AWAITING PHYSICAL VALIDATION.** Requires a Core rebuild before
-  the next physical APK; expected fingerprint `807c9fbf…`.
+  the next physical APK; expected fingerprint `34555d86…`.
 - [ ] **RECHECK AFTER THE NAMESPACE MIGRATION: every A2 contract is keyed on a
   compatibility name.** `.picoclaw.pid`, `PICOCLAW_GATEWAY_TOKEN_FILE`,
   `PICOCLAW_LOG_DIR`, `PICOCLAW_CHANNELS_PICO_TOKEN`, the `picoclaw` private

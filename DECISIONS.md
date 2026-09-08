@@ -30,6 +30,21 @@
   `picoclaw` private directory the backup rules already exclude, and the `pico`
   channel. Renaming one side alone puts the credential or the logs back on
   shared storage without failing anything visible.
+- Amended 2026-09-08, after review.
+  - **The log bound is enforced while the process runs, not when it starts.**
+    The active file counts the bytes it writes and rotates on crossing the
+    threshold. Checking the size only on open is not a bound for a process that
+    stays up for days, and is how the unbounded file arose in the first place.
+  - **Hiding a control is the backend's decision, not the frontend's.**
+    `allow_token_query` is omitted from the realtime channel's config response
+    when the credential is host-managed, so the toggle disappears exactly where
+    it would be a lie. Blanking it in the frontend removed the capability from
+    self-managed deployments that legitimately have it, which was wrong.
+  - **A credential prefix is not evidence of a credential.** Redaction requires
+    a credential-shaped body as well as a prefix: `sk-` is a substring of
+    ordinary words, so the patterns carry a word boundary, a length floor, and —
+    for the bare `sk-` form — no hyphens in the body, so English cannot reach
+    the floor by accumulating words.
 
 ## A release states its signer, its version and its dependencies, or it fails
 

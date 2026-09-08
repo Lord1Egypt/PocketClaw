@@ -10,7 +10,7 @@ no APK built, nothing installed, no device touched.** Version unchanged at
 
 **The staged Core is stale on purpose.** This branch changed `core/src`, so
 `TestStagedCoreWasBuiltFromTheCurrentSource` fails by design, expecting
-`807c9fbf…`. Run `./core/build-android-arm64.sh` before the next physical APK,
+`34555d86…`. Run `./core/build-android-arm64.sh` before the next physical APK,
 or the device will run a Core that still writes the credential into shared
 storage and the whole milestone will look like it did nothing.
 
@@ -43,13 +43,22 @@ all it held. It runs after the runtime is up. Widening it to anything that
 resolves under `Download/pocketclaw` risks user content, which is the one thing
 this cleanup must never touch.
 
-**Redaction rules are narrow on purpose.** A rule like "redact any long token"
-would eat session keys, fingerprints, model names and paths, and there is a test
-asserting exactly those survive. Add shapes, not breadth.
+**Redaction rules are narrow on purpose.** A vendor prefix alone is not
+evidence — `sk-` is a substring of `disk-cache` and `risk-score`, so the
+patterns require a word boundary *and* a credential-shaped body, and the bare
+`sk-` form forbids hyphens so English cannot reach the length floor. There are
+negative tests for exactly those strings. Add shapes, not breadth.
+
+**Log rotation is a counting writer, not a check on open.** The size is tracked
+as bytes are written so the bound holds inside one long-lived gateway process;
+rotating only at startup is the bug this replaced, and it is what produced the
+18 MB file. Do not "simplify" it back to a stat on open.
 
 **Query-string auth is refused for a host-supplied credential, in the runtime.**
 Hiding the Dashboard toggle alone would leave a config file able to re-enable
-it. Compatibility is deliberately kept for deployments that set no host token.
+it. The toggle is hidden too, but only when the credential is host-managed, and
+by the backend omitting the field rather than the frontend blanking it for
+everyone — a self-managed deployment keeps the capability and the control.
 
 ### RECHECK AFTER THE NAMESPACE MIGRATION
 

@@ -1,5 +1,44 @@
 # Development Changelog
 
+## 2026-09-08 — A bound that only applies at startup is not a bound
+
+Three corrections to A2, all from review, and the first was the one that
+mattered.
+
+Rotation was checked when the log file was opened. That reads fine until you
+remember what the gateway is: a process that runs for days. It would have
+appended past 2 MiB for as long as it stayed up and rotated only on the next
+restart — which is not a bound, and is precisely the mechanism that produced the
+18 MB file this work exists to prevent. The fix is a counting writer: the file
+tracks its own size, seeded from what it inherited, and rotates when a write
+crosses the threshold. No stat in the path of a log line, a mutex so two
+goroutines cannot rotate at once and leave one writing to a renamed descriptor,
+and the crossing record completing in the old file so a line is never split
+across two. Every failure path is silent and non-fatal, because this code sits
+underneath the logger and cannot report a problem by logging one. The tests now
+write three thresholds' worth through a single open writer and never close it,
+which is what the old test should have done.
+
+The second was a scope error I made and the review caught. Android must not use
+query-string auth for a credential the host owns — but I hid the toggle in the
+frontend, which removed the capability from every deployment, including
+self-managed ones where a browser client genuinely cannot set a header. The
+frontend cannot know whether a credential is host-managed; the backend can. So
+the backend now omits `allow_token_query` from the realtime channel's config
+response when the token arrives through the environment, and the form already
+renders that control only for a field the response carries. Nothing was added to
+detect platforms. There is a test for each side, because getting one right and
+the other wrong is the actual risk.
+
+The third was about how much a prefix proves. `sk-` is a substring of
+`disk-cache`, `risk-score` and `task-key`, and a redactor that fires on the
+prefix alone would eat all three. The word boundary already handled those, but
+a long hyphenated identifier could still reach the length floor by accumulating
+English, so the bare `sk-` form now forbids hyphens in its body — a real key of
+that family is a dense alphanumeric run — and the prefixed variants that
+legitimately contain hyphens are enumerated instead. The negative tests are the
+point of this one.
+
 ## 2026-09-08 — Two things were in the same directory for no reason
 
 Release Hardening A2. The workspace, the gateway credential and the diagnostic

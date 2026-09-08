@@ -37,10 +37,17 @@ never adopts a token left behind in an old shared record.
 
 `PICOCLAW_LOG_DIR` overrides the historical `PICOCLAW_HOME/logs` for both the
 gateway and the launcher backend; the Android host points it at private
-no-backup storage. Rotation was added where there was none: 2 MiB per file, two
-retained generations, oldest deleted — bounded at roughly 6 MiB, against an
-18 MiB file observed on a real install. Files are created 0600 in a 0700
-directory.
+no-backup storage. Rotation was added where there was none. The active file is a
+counting writer: it tracks bytes as it writes, seeded from the file's existing
+size, and rotates when it crosses 2 MiB — within one process lifetime, not only
+when the file is opened. A gateway is long-lived, and rotating only at startup
+would have let it append past the threshold for as long as it ran, which is how
+the 18 MiB file observed on a real install came about. Two retained generations,
+oldest deleted, bounded at roughly 6 MiB; the record that crosses the threshold
+completes in the old file so no line is ever split. The writer is mutex-guarded
+for concurrent callers, and every rotation failure path is silent and non-fatal
+because this code runs underneath the logger and cannot report a problem by
+logging one. Files are created 0600 in a 0700 directory.
 
 The in-app Logs screen is unaffected: it reads an in-memory 200-line buffer fed
 from the child process's stdout, never the file. Nothing in Dart or Kotlin ever
@@ -61,8 +68,12 @@ parameters, and unambiguous vendor prefixes — with a guard test proving ordina
 diagnostic text, session keys and fingerprints survive untouched. The realtime
 channel now compares credentials with `subtle.ConstantTimeCompare`, matching the
 health server, and refuses query-string authentication outright whenever the
-credential was supplied by the host; the Dashboard toggle is hidden for that
-channel, and the config field remains for deployments that genuinely need it.
+credential was supplied by the host. The Dashboard toggle is hidden **only in
+that case** — the backend omits `allow_token_query` from the realtime channel's
+config response when `PICOCLAW_CHANNELS_PICO_TOKEN` is set, and the form already
+renders the control only for a field the response carries. A self-managed
+deployment, where a browser client genuinely cannot set a header, keeps both the
+capability and the control.
 
 ### RECHECK AFTER FULL NAMESPACE MIGRATION
 
@@ -76,7 +87,7 @@ silently undo the separation without failing anything else.
 
 `core/src` changed, so the staged Core no longer matches.
 `TestStagedCoreWasBuiltFromTheCurrentSource` fails by design, expecting
-fingerprint `807c9fbf641d9e1ebe642e19315f5cf125ad865c791b22adb15d09d2690bc45a`.
+fingerprint `34555d86ffe6d0148d48bca058d4e7c029411fec0fb5acb8b8db66e2560da17c`.
 **The next physical APK requires a Core rebuild** via
 `./core/build-android-arm64.sh`; nothing was rebuilt or re-staged here.
 
