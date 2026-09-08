@@ -126,6 +126,16 @@
   5. a canonical build outside git — or in a shallow clone, where the graft
      boundary makes every path look introduced by the tip — requires an explicit
      `SOURCE_DATE_EPOCH` and fails otherwise;
+  5a. **amended 2026-09-09:** Core `*_test.go` files are excluded from the
+     default BuildTime history query, matching the fingerprint rule that already
+     excluded them. A test edit cannot change the shipped binary, and the two
+     guards had begun to disagree about the same tree — the fingerprint and
+     staged freshness stayed green while `core.staged_build_time` went red. The
+     exclusion is exactly `:(exclude,glob)core/src/**/*_test.go` and nothing
+     more: build scripts, the resolver itself, production Go source, config and
+     embedded assets all remain provenance-bearing, so editing any of them still
+     moves the timestamp and still requires a rebuild. The resolver's own
+     self-provenance is the load-bearing half of that and has its own test;
   6. the source fingerprint and the build-input revision are distinct concepts
      answering different questions, and are allowed to differ;
   7. the staged Core carries a verifiable embedded BuildTime, checked in both
@@ -148,6 +158,17 @@
   Nothing else in the tree notices if the flag is dropped — the binary still
   builds, runs, and carries the right fingerprint and BuildTime — so there is a
   test on the recipe and a `core.no_vcs_stamp` check on the artifact.
+- The `_test.go` asymmetry was the second time two A3 mechanisms disagreed about
+  the same tree, and the first time the disagreement was *between* guards rather
+  than between a guard and reality. `fingerprint.go` had always excluded test
+  files, with the reasoning written down: demanding a Core rebuild for a test
+  edit "would train people to ignore the guard". The BuildTime query never
+  adopted that rule, so the first test-only `core/src` commit after A3 shipped
+  produced an unchanged fingerprint, a green staged-freshness check and a red
+  staged-BuildTime check simultaneously. Aligning the two was the fix; the
+  temptation to exclude the resolver from its own query, so the alignment
+  wouldn't cost a rebuild, was not taken — a dating rule that does not date
+  itself is how provenance quietly stops meaning anything.
 - Shallow clones were the one way left to reintroduce the defect the path
   scoping removed. Git treats the graft boundary as a root commit, so
   `git log -1 -- <build inputs>` returns the *tip*, and a CI checkout at

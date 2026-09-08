@@ -14,7 +14,8 @@
 #                                convention, so a downstream reproducer already
 #                                knows to pass it.
 #   SOURCE_DATE_EPOCH unset    → the timestamp of the most recent commit that
-#                                touched a canonical Core build input. Not HEAD:
+#                                touched a canonical Core build input, ignoring
+#                                Core *_test.go. Not HEAD:
 #                                HEAD moves for documentation, staged binaries
 #                                and unrelated application changes, which would
 #                                give the same Core source a different timestamp
@@ -57,6 +58,23 @@ BUILD_INPUTS=(
     "core/resolve-build-time.sh"
 )
 
+# Go test files under core/src are excluded, for the same reason the Core source
+# fingerprint excludes them (see pkg/coresource/fingerprint.go): a test edit
+# cannot change the shipped binary, so demanding a rebuild for one teaches people
+# to ignore the guard rather than to trust it. Before this exclusion the two
+# rules disagreed — a four-line test edit left the fingerprint identical and
+# staged freshness green while core.staged_build_time went red against binaries
+# that provably could not differ.
+#
+# The exclusion is exactly and only *_test.go under core/src. Everything that
+# takes part in producing the binary stays in, including this script and the
+# build script: a change to how the build is defined is a change to the build,
+# so editing either still moves the timestamp and still requires a rebuild.
+# That self-provenance is deliberate and is covered by a test.
+BUILD_INPUT_EXCLUDES=(
+    ":(exclude,glob)core/src/**/*_test.go"
+)
+
 fail() {
     echo "resolve-build-time: $1" >&2
     exit 1
@@ -89,8 +107,10 @@ else
     SOURCE_DATE_EPOCH=<seconds> ./core/build-android-arm64.sh"
     fi
     # Path-scoped: a documentation or staged-binary commit must not move this.
-    epoch="$(git -C "$repo_root" log -1 --format=%ct -- "${BUILD_INPUTS[@]}" 2>/dev/null || true)"
-    build_input_commit="$(git -C "$repo_root" log -1 --format=%H -- "${BUILD_INPUTS[@]}" 2>/dev/null || true)"
+    epoch="$(git -C "$repo_root" log -1 --format=%ct -- \
+        "${BUILD_INPUTS[@]}" "${BUILD_INPUT_EXCLUDES[@]}" 2>/dev/null || true)"
+    build_input_commit="$(git -C "$repo_root" log -1 --format=%H -- \
+        "${BUILD_INPUTS[@]}" "${BUILD_INPUT_EXCLUDES[@]}" 2>/dev/null || true)"
     case "$epoch" in
         ''|*[!0-9]*)
             fail "no SOURCE_DATE_EPOCH and no usable canonical Core build-input commit.
