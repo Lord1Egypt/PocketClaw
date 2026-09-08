@@ -17,13 +17,13 @@ object AnalyticsReporter {
     private var initError: String? = null
 
     private val provider: String
-        get() = BuildConfig.PICOCLAW_ANALYTICS_PROVIDER.lowercase()
+        get() = BuildConfig.POCKETCLAW_ANALYTICS_PROVIDER.lowercase()
 
     private val umengAppKey: String
-        get() = BuildConfig.PICOCLAW_UMENG_APP_KEY
+        get() = BuildConfig.POCKETCLAW_UMENG_APP_KEY
 
     private val umengChannel: String
-        get() = BuildConfig.PICOCLAW_UMENG_CHANNEL.ifBlank { "official" }
+        get() = BuildConfig.POCKETCLAW_UMENG_CHANNEL.ifBlank { "official" }
 
     /**
      * Whether the analytics SDK is part of this APK at all.
@@ -35,7 +35,7 @@ object AnalyticsReporter {
      * class the APK does not contain.
      */
     private val umengPackaged: Boolean
-        get() = BuildConfig.PICOCLAW_UMENG_PACKAGED
+        get() = BuildConfig.POCKETCLAW_UMENG_PACKAGED
 
     private fun isUmengProviderEnabled(): Boolean {
         if (!umengPackaged) {

@@ -259,7 +259,7 @@
      transfer.** `files/picoclaw/` joins `files/credentials/` in both
      `backup_rules.xml` and `data_extraction_rules.xml`.
   6. **The default build does not ship analytics it never runs.** The Umeng SDK
-     is `compileOnly` unless `PICOCLAW_ANALYTICS_PROVIDER=umeng`, and
+     is `compileOnly` unless `POCKETCLAW_ANALYTICS_PROVIDER=umeng`, and
      `READ_PHONE_STATE` is no longer declared at all.
 - Reason: each of the six had a default that produced a wrong artifact without
   failing. The signing fallback shipped every build so far under a local
@@ -292,7 +292,7 @@
     are dropped with `tools:node="remove"` — Google's documented opt-out. Restore
     the install-referrer line only if Play campaign attribution becomes real.
   - **An optional SDK that was not packaged is a disabled capability, never a
-    crash.** `BuildConfig.PICOCLAW_UMENG_PACKAGED` is set from the same value
+    crash.** `BuildConfig.POCKETCLAW_UMENG_PACKAGED` is set from the same value
     that decides the dependency, and `AnalyticsReporter` checks it before
     touching an SDK class. No crash path existed — the old guard happened to
     imply the packaging condition — but the safety was a coincidence between two

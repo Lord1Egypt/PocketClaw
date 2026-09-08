@@ -16,7 +16,7 @@ import android.provider.Settings
 import android.util.Log
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
-import com.lord1egypt.pocketclaw.service.PicoClawService
+import com.lord1egypt.pocketclaw.service.PocketClawService
 import com.lord1egypt.pocketclaw.service.LaunchAutoStartPreferences
 import com.lord1egypt.pocketclaw.util.HealthChecker
 import org.json.JSONObject
@@ -42,15 +42,15 @@ import java.util.concurrent.Executor
  * - getAutoStart: 获取开机自启设置
  * - getWebPort: 获取 Web Console 端口号
  */
-class PicoClawMethodChannel(
+class PocketClawMethodChannel(
     private val context: Context,
     flutterEngine: FlutterEngine,
     /** Absent on hosts with no Activity to receive a picker result. */
     private val chatImagePicker: ChatImagePicker? = null
 ) {
     companion object {
-        private const val TAG = "PicoClawMethodChannel"
-        private const val CHANNEL_NAME = "com.lord1egypt.pocketclaw/picoclaw"
+        private const val TAG = "PocketClawMethodChannel"
+        private const val CHANNEL_NAME = "com.lord1egypt.pocketclaw/pocketclaw"
         private const val PREF_NAME = "picoclaw_prefs"
         private const val KEY_AUTO_START = "auto_start"
         private const val TELEGRAM_BRIDGE_URL =
@@ -113,7 +113,7 @@ class PicoClawMethodChannel(
                         val prefs = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
                         prefs.edit().putBoolean("public_mode", publicMode).apply()
                         Log.d(TAG, "Starting service with publicMode=$publicMode (args: $args)")
-                        PicoClawService.start(context, publicMode)
+                        PocketClawService.start(context, publicMode)
                         result.success(true)
                     } catch (e: Exception) {
                         result.error("START_FAILED", e.message, null)
@@ -202,7 +202,7 @@ class PicoClawMethodChannel(
                 }
                 "stopService" -> {
                     try {
-                        PicoClawService.stop(context)
+                        PocketClawService.stop(context)
                         result.success(true)
                     } catch (e: Exception) {
                         result.error("STOP_FAILED", e.message, null)
@@ -210,9 +210,9 @@ class PicoClawMethodChannel(
                 }
                 "getServiceStatus" -> {
                     result.success(mapOf(
-                        "isRunning" to PicoClawService.isRunning,
-                        "pid" to PicoClawService.processId,
-                        "lastLog" to PicoClawService.lastLog
+                        "isRunning" to PocketClawService.isRunning,
+                        "pid" to PocketClawService.processId,
+                        "lastLog" to PocketClawService.lastLog
                     ))
                 }
                 "checkHealth" -> {
@@ -270,11 +270,11 @@ class PicoClawMethodChannel(
                     }
                 }
                 "getFullLog" -> {
-                    result.success(PicoClawService.lastLog)
+                    result.success(PocketClawService.lastLog)
                 }
                 "takeNewLogs" -> {
-                    // Each line is delivered once. See PicoClawService.publishLog.
-                    result.success(PicoClawService.takeNewLogs())
+                    // Each line is delivered once. See PocketClawService.publishLog.
+                    result.success(PocketClawService.takeNewLogs())
                 }
                 "configureTelegram" -> {
                     val token = call.argument<String>("token") ?: ""
@@ -511,7 +511,7 @@ class PicoClawMethodChannel(
                     Thread {
                         val mainExecutor = getMainExecutor()
                         try {
-                            val version = PicoClawService.readCoreVersion(context)
+                            val version = PocketClawService.readCoreVersion(context)
                             mainExecutor.execute {
                                 result.success(version)
                             }
@@ -528,7 +528,7 @@ class PicoClawMethodChannel(
                     result.success(configFile.absolutePath)
                 }
                 "getHomePath" -> {
-                    result.success(PicoClawService.getWorkspacePath(context))
+                    result.success(PocketClawService.getWorkspacePath(context))
                 }
                 "isStorageManagerGranted" -> {
                     val granted = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
@@ -560,7 +560,7 @@ class PicoClawMethodChannel(
                     }
                 }
                 "getPicoToken" -> {
-                    result.success(PicoClawService.picoTokenForHost(context))
+                    result.success(PocketClawService.picoTokenForHost(context))
                 }
                 "getSafeDeviceInfo" -> {
                     val packageInfo = context.packageManager.getPackageInfo(context.packageName, 0)
@@ -711,7 +711,7 @@ class PicoClawMethodChannel(
             readTimeout = 5_000
             setRequestProperty(
                 "X-PocketClaw-Android-Bridge",
-                PicoClawService.bridgeTokenForHost()
+                PocketClawService.bridgeTokenForHost()
             )
             setRequestProperty("Accept", "application/json")
             if (body != null) {
@@ -750,7 +750,7 @@ class PicoClawMethodChannel(
             readTimeout = 30_000
             setRequestProperty(
                 "X-PocketClaw-Android-Bridge",
-                PicoClawService.bridgeTokenForHost(),
+                PocketClawService.bridgeTokenForHost(),
             )
             setRequestProperty("Accept", "application/json")
             if (body != null) {
@@ -804,7 +804,7 @@ class PicoClawMethodChannel(
             readTimeout = 2_000
             setRequestProperty(
                 "X-PocketClaw-Android-Bridge",
-                PicoClawService.bridgeTokenForHost(),
+                PocketClawService.bridgeTokenForHost(),
             )
             setRequestProperty("Accept", "application/json")
             if (body != null) {

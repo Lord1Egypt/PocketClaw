@@ -1058,6 +1058,13 @@ supplied by the user.
 - [x] **Bootstrap architecture PHYSICALLY ACCEPTED as vc59 and CLOSED,
   2026-09-08**, merged to `develop` with `--no-ff`; baseline advanced 58 → 59.
   The upgrade experience remains open, below.
+- [ ] **DECISION NEEDED — N1 blocker:** `core/src/pkg/coresource/android_hot_reload_test.go`
+  hard-codes `PicoClawService.kt` at lines 38 and 104 and fails after the N1
+  Kotlin rename. The file is PocketClaw-authored, not upstream, and `_test.go`
+  is excluded from the Core fingerprint, so the two-line path fix costs no
+  rebuild and no restage. It was not made because N1's scope excludes
+  `core/src`. Either authorize the edit as an N1 amendment, or fold it into the
+  first phase that legitimately touches `core/src`.
 - [ ] **Non-blocking security review: the launcher/web console listens on
   `0.0.0.0:18800`.** Observed during vc59 machine validation. The Core gateway
   is correctly loopback-only on 18790; the console is not. This predates the

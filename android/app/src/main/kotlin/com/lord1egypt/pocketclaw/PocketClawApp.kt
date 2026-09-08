@@ -4,7 +4,7 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import io.flutter.app.FlutterApplication
 
-class PicoClawApp : FlutterApplication() {
+class PocketClawApp : FlutterApplication() {
 
     companion object {
         const val CHANNEL_ID = "picoclaw_service"

@@ -17,7 +17,7 @@ void main() {
       'android/app/src/main/res/xml/data_extraction_rules.xml';
   const manifest = 'android/app/src/main/AndroidManifest.xml';
   const service =
-      'android/app/src/main/kotlin/com/lord1egypt/pocketclaw/service/PicoClawService.kt';
+      'android/app/src/main/kotlin/com/lord1egypt/pocketclaw/service/PocketClawService.kt';
   const credentialStore =
       'android/app/src/main/kotlin/com/lord1egypt/pocketclaw/security/GitHubCredentialStore.kt';
 
@@ -37,7 +37,7 @@ void main() {
       read(service),
       contains('File(context.filesDir, "$corePrivateDirectory")'),
       reason:
-          'PicoClawService no longer puts Core state in files/$corePrivateDirectory/. '
+          'PocketClawService no longer puts Core state in files/$corePrivateDirectory/. '
           'Update backup_rules.xml and data_extraction_rules.xml to match, '
           'or every provider key and bot token becomes backup-eligible again.',
     );

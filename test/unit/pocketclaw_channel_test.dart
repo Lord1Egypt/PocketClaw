@@ -1,11 +1,11 @@
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:pocketclaw/src/core/picoclaw_channel.dart';
+import 'package:pocketclaw/src/core/pocketclaw_channel.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  const channel = MethodChannel('com.lord1egypt.pocketclaw/picoclaw');
+  const channel = MethodChannel('com.lord1egypt.pocketclaw/pocketclaw');
 
   tearDown(() async {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
@@ -24,7 +24,7 @@ void main() {
           };
         });
 
-    final prefs = await PicoClawChannel.getLaunchAutoStartPreferences();
+    final prefs = await PocketClawChannel.getLaunchAutoStartPreferences();
 
     expect(prefs.serviceEnabled, isFalse);
     expect(prefs.gatewayEnabled, isTrue);
@@ -35,7 +35,7 @@ void main() {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(channel, (call) async => null);
 
-    final prefs = await PicoClawChannel.getLaunchAutoStartPreferences();
+    final prefs = await PocketClawChannel.getLaunchAutoStartPreferences();
 
     expect(prefs.serviceEnabled, isTrue);
     expect(prefs.gatewayEnabled, isTrue);
@@ -55,7 +55,7 @@ void main() {
           };
         });
 
-    final prefs = await PicoClawChannel.setLaunchAutoStartPreferences(
+    final prefs = await PocketClawChannel.setLaunchAutoStartPreferences(
       gatewayEnabled: false,
     );
 
@@ -78,7 +78,7 @@ void main() {
           };
         });
 
-    final prefs = await PicoClawChannel.setLaunchAutoStartPreferences(
+    final prefs = await PocketClawChannel.setLaunchAutoStartPreferences(
       serviceEnabled: true,
     );
 
@@ -96,7 +96,7 @@ void main() {
 
     // A refused write must not be reported as a saved preference.
     await expectLater(
-      PicoClawChannel.setLaunchAutoStartPreferences(serviceEnabled: false),
+      PocketClawChannel.setLaunchAutoStartPreferences(serviceEnabled: false),
       throwsA(isA<PlatformException>()),
     );
   });
@@ -108,7 +108,7 @@ void main() {
           return null;
         });
 
-    expect(await PicoClawChannel.getCoreVersion(), '0.24.1');
+    expect(await PocketClawChannel.getCoreVersion(), '0.24.1');
   });
 
   test('getCoreVersion falls back to unknown on native failure', () async {
@@ -117,7 +117,7 @@ void main() {
           throw PlatformException(code: 'ERR', message: 'boom');
         });
 
-    expect(await PicoClawChannel.getCoreVersion(), 'unknown');
+    expect(await PocketClawChannel.getCoreVersion(), 'unknown');
   });
 
   test('getCoreVersion maps blank or null native values to unknown', () async {
@@ -127,14 +127,14 @@ void main() {
           return null;
         });
 
-    expect(await PicoClawChannel.getCoreVersion(), 'unknown');
+    expect(await PocketClawChannel.getCoreVersion(), 'unknown');
 
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(channel, (call) async {
           return null;
         });
 
-    expect(await PicoClawChannel.getCoreVersion(), 'unknown');
+    expect(await PocketClawChannel.getCoreVersion(), 'unknown');
   });
 
   test('getLanIpv4Address returns active native LAN address', () async {
@@ -144,14 +144,14 @@ void main() {
           return null;
         });
 
-    expect(await PicoClawChannel.getLanIpv4Address(), '10.0.0.24');
+    expect(await PocketClawChannel.getLanIpv4Address(), '10.0.0.24');
   });
 
   test('getLanIpv4Address maps blank native result to unavailable', () async {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(channel, (_) async => '  ');
 
-    expect(await PicoClawChannel.getLanIpv4Address(), isNull);
+    expect(await PocketClawChannel.getLanIpv4Address(), isNull);
   });
 
   test('applyPublicMode returns the launcher actual mode and result', () async {
@@ -166,7 +166,7 @@ void main() {
           };
         });
 
-    final result = await PicoClawChannel.applyPublicMode(true);
+    final result = await PocketClawChannel.applyPublicMode(true);
     expect(result.success, isTrue);
     expect(result.publicMode, isTrue);
     expect(result.message, isEmpty);
@@ -182,7 +182,7 @@ void main() {
           };
         });
 
-    final result = await PicoClawChannel.applyPublicMode(true);
+    final result = await PocketClawChannel.applyPublicMode(true);
     expect(result.success, isFalse);
     expect(result.publicMode, isFalse);
     expect(result.message, contains('Could not enable'));
@@ -198,7 +198,7 @@ void main() {
             return 'content://media/picker/0/com.android.providers.media.photopicker/media/42';
           });
 
-      final uri = await PicoClawChannel.pickChatImage(
+      final uri = await PocketClawChannel.pickChatImage(
         acceptTypes: const <String>['image/jpeg', 'image/png'],
       );
 
@@ -213,7 +213,7 @@ void main() {
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
           .setMockMethodCallHandler(channel, (call) async => null);
 
-      expect(await PicoClawChannel.pickChatImage(), isNull);
+      expect(await PocketClawChannel.pickChatImage(), isNull);
     });
   });
 }

@@ -6,7 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:web_socket_channel/io.dart';
-import 'package:pocketclaw/src/core/picoclaw_channel.dart';
+import 'package:pocketclaw/src/core/pocketclaw_channel.dart';
 
 /// 聊天页面 - 通过 WebSocket 与 PicoClaw Gateway 的 Pico Protocol 通信
 class ChatPage extends StatefulWidget {
@@ -42,7 +42,7 @@ class _ChatPageState extends State<ChatPage> {
   Future<void> _initChat() async {
     _sessionId = await _getOrCreateSessionId();
     try {
-      _picoToken = await PicoClawChannel.getPicoToken();
+      _picoToken = await PocketClawChannel.getPicoToken();
     } catch (_) {
       _addMessage(_ChatMessage('无法验证本机连接。', _Role.assistant));
       return;

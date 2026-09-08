@@ -14,7 +14,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  const channel = MethodChannel('com.lord1egypt.pocketclaw/picoclaw');
+  const channel = MethodChannel('com.lord1egypt.pocketclaw/pocketclaw');
   const staleWarning =
       'WRN api gateway.go:298 > removed stale pid file for PID 12302';
 

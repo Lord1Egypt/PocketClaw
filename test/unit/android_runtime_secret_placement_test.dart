@@ -11,7 +11,7 @@ import 'package:flutter_test/flutter_test.dart';
 /// exists to catch.
 void main() {
   const service =
-      'android/app/src/main/kotlin/com/lord1egypt/pocketclaw/service/PicoClawService.kt';
+      'android/app/src/main/kotlin/com/lord1egypt/pocketclaw/service/PocketClawService.kt';
   const healthChecker =
       'android/app/src/main/kotlin/com/lord1egypt/pocketclaw/util/HealthChecker.kt';
 
@@ -45,7 +45,7 @@ void main() {
         expect(source, contains('gatewayTokenFileProvider'));
         expect(
           source,
-          contains('PicoClawService.gatewayTokenFilePath(context)'),
+          contains('PocketClawService.gatewayTokenFilePath(context)'),
         );
         // The old reader opened the pid record in the workspace and pulled the
         // "token" field out of it. The prose above still explains that

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:pocketclaw/src/core/picoclaw_channel.dart';
+import 'package:pocketclaw/src/core/pocketclaw_channel.dart';
 import 'package:pocketclaw/src/generated/l10n/app_localizations.dart';
 import 'package:pocketclaw/src/ui/context_memory_card.dart';
 

@@ -13,7 +13,7 @@ import android.os.PowerManager
 import android.util.Base64
 import android.util.Log
 import androidx.core.app.NotificationCompat
-import com.lord1egypt.pocketclaw.PicoClawApp
+import com.lord1egypt.pocketclaw.PocketClawApp
 import com.lord1egypt.pocketclaw.MainActivity
 import java.io.BufferedReader
 import java.io.File
@@ -22,10 +22,10 @@ import java.io.InputStreamReader
 import java.security.SecureRandom
 import java.util.zip.ZipFile
 
-class PicoClawService : Service() {
+class PocketClawService : Service() {
 
     companion object {
-        private const val TAG = "PicoClawService"
+        private const val TAG = "PocketClawService"
         private const val NOTIFICATION_ID = 1
         private const val GATEWAY_BINARY_NAME = "libpicoclaw.so"
         private const val WEB_BINARY_NAME = "libpicoclaw-web.so"
@@ -181,7 +181,7 @@ class PicoClawService : Service() {
             private set
 
         fun start(context: Context, publicMode: Boolean = false) {
-            val intent = Intent(context, PicoClawService::class.java).apply {
+            val intent = Intent(context, PocketClawService::class.java).apply {
                 action = ACTION_START
                 putExtra(EXTRA_PUBLIC_MODE, publicMode)
             }
@@ -189,7 +189,7 @@ class PicoClawService : Service() {
         }
 
         fun stop(context: Context) {
-            val intent = Intent(context, PicoClawService::class.java).apply {
+            val intent = Intent(context, PocketClawService::class.java).apply {
                 action = ACTION_STOP
             }
             context.startService(intent)
@@ -958,7 +958,7 @@ class PicoClawService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        val stopIntent = Intent(this, PicoClawService::class.java).apply {
+        val stopIntent = Intent(this, PocketClawService::class.java).apply {
             action = ACTION_STOP
         }
         val stopPendingIntent = PendingIntent.getService(
@@ -966,7 +966,7 @@ class PicoClawService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        return NotificationCompat.Builder(this, PicoClawApp.CHANNEL_ID)
+        return NotificationCompat.Builder(this, PocketClawApp.CHANNEL_ID)
             .setContentTitle("PocketClaw")
             .setContentText(status)
             .setSmallIcon(com.lord1egypt.pocketclaw.R.drawable.ic_stat_pocketclaw)

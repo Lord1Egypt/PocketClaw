@@ -1,5 +1,37 @@
 # PocketClaw Session Handoff
 
+## Namespace Migration N1 — implemented, NOT merged, one open decision
+
+Branch `feature/namespace-n1-source-identities` off `develop` at `75377f8`.
+`core/src` untouched, fingerprint `e7acbff7…` unchanged, staged Core FRESH,
+version `0.2.0+59`, baseline 59, no candidate.
+
+### Read this before merging
+
+**Two guards are red.** `core/src/pkg/coresource/android_hot_reload_test.go`
+hard-codes `PicoClawService.kt` at lines 38 and 104. It is PocketClaw-authored,
+the fix is two path constants, and `_test.go` is fingerprint-excluded so it
+costs no rebuild — but N1's scope excludes `core/src`, so it was left alone and
+handed over as a decision rather than a silent widening.
+
+### The discipline this phase was meant to establish
+
+A source symbol may become PocketClaw while its serialized value stays legacy.
+Those are different things and must not be coupled. N1 renamed
+`PicoClawChannel` and the Kotlin classes; it did **not** touch `"pico"`,
+`"pico-user"`, `/pico/*`, `picoclaw_foreground`, `picoclaw_launcher_auth`,
+`.picoclaw.pid` or `filesDir/picoclaw/`. A future `PicoOwnerPrincipal` →
+`PocketClawOwnerPrincipal` rename likewise does not imply `"pico-user"` changes.
+
+**Do not write a repository-wide "no picoclaw" guard.** It would be wrong by
+architecture: most of what remains is upstream module identity, on-disk
+compatibility, or Sipeed's copyright. `test/unit/namespace_n1_boundary_test.dart`
+is two-sided on purpose — it pins the renames *and* the preservations.
+
+**The desktop adapter keeps `picoclaw-launcher` and `picoclaw`.** Those are the
+filenames `core/src/Makefile` produces, not our identity. A comment says so at
+the call site so the next person does not "finish the job".
+
 ## Bootstrap Architecture — PHYSICALLY ACCEPTED and CLOSED on vc59, 2026-09-08
 
 Branch `feature/bootstrap-architecture`, off `develop` at `01495dc`, merged with
@@ -274,7 +306,7 @@ thing in the milestone to keep.
 
 **Umeng is `compileOnly`, not deleted.** `AnalyticsReporter` still compiles
 against it in every configuration and is guarded at runtime by
-`isUmengProviderEnabled()`. Setting `PICOCLAW_ANALYTICS_PROVIDER=umeng` restores
+`isUmengProviderEnabled()`. Setting `POCKETCLAW_ANALYTICS_PROVIDER=umeng` restores
 the real dependency. Do not "clean up" the `compileOnly` lines — removing them
 breaks `compileReleaseKotlin`.
 
@@ -296,7 +328,7 @@ constant would keep accepting 56 after 120 had shipped. The pattern to repeat:
 bump `pubspec.yaml` before building a candidate, and bump the baseline only once
 that candidate has passed on a device.
 
-**`BuildConfig.PICOCLAW_UMENG_PACKAGED` must keep coming from the same value as
+**`BuildConfig.POCKETCLAW_UMENG_PACKAGED` must keep coming from the same value as
 the dependency decision.** That is what stops a runtime provider selection
 reaching an SDK class the APK does not contain. It was safe before by
 coincidence; do not turn it back into one.

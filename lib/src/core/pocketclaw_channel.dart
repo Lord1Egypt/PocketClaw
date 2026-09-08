@@ -41,8 +41,8 @@ class PublicModeApplyResult {
 
 /// PicoClaw 原生 MethodChannel 客户端。
 /// 仅在 Android 平台可用，用于与 Kotlin 原生服务层通信。
-class PicoClawChannel {
-  static const _channel = MethodChannel('com.lord1egypt.pocketclaw/picoclaw');
+class PocketClawChannel {
+  static const _channel = MethodChannel('com.lord1egypt.pocketclaw/pocketclaw');
 
   /// 启动 PicoClaw 前台服务
   static Future<bool> startService({int port = 18800, String args = ''}) async {
@@ -323,9 +323,9 @@ class PicoClawChannel {
   static Future<Map<String, dynamic>> uploadUmengDeviceReport(
     Map<String, Object?> payload,
   ) async {
-    debugPrint('[PicoClawChannel] === uploadUmengDeviceReport START ===');
+    debugPrint('[PocketClawChannel] === uploadUmengDeviceReport START ===');
     debugPrint(
-      '[PicoClawChannel] Calling native method with payload keys: ${payload.keys.toList()}',
+      '[PocketClawChannel] Calling native method with payload keys: ${payload.keys.toList()}',
     );
 
     try {
@@ -333,10 +333,10 @@ class PicoClawChannel {
           .invokeMethod<Map>('uploadUmengDeviceReport', payload)
           .timeout(const Duration(seconds: 8));
 
-      debugPrint('[PicoClawChannel] Native method returned');
+      debugPrint('[PocketClawChannel] Native method returned');
 
       if (result == null) {
-        debugPrint('[PicoClawChannel] ERROR: Native returned null');
+        debugPrint('[PocketClawChannel] ERROR: Native returned null');
         return const {
           'success': false,
           'message': 'No response from native Umeng bridge.',
@@ -345,13 +345,13 @@ class PicoClawChannel {
 
       final mappedResult = Map<String, dynamic>.from(result);
       debugPrint(
-        '[PicoClawChannel] Result: success=${mappedResult['success']}, message=${mappedResult['message']}',
+        '[PocketClawChannel] Result: success=${mappedResult['success']}, message=${mappedResult['message']}',
       );
-      debugPrint('[PicoClawChannel] === uploadUmengDeviceReport END ===');
+      debugPrint('[PocketClawChannel] === uploadUmengDeviceReport END ===');
       return mappedResult;
     } catch (e) {
-      debugPrint('[PicoClawChannel] ERROR: Exception caught: $e');
-      debugPrint('[PicoClawChannel] === uploadUmengDeviceReport FAILED ===');
+      debugPrint('[PocketClawChannel] ERROR: Exception caught: $e');
+      debugPrint('[PocketClawChannel] === uploadUmengDeviceReport FAILED ===');
       return {'success': false, 'message': 'Exception: $e'};
     }
   }

@@ -19,7 +19,7 @@
   cloud backup and into device-to-device transfer.
 
   RECHECK AFTER THE PICOCLAW -> POCKETCLAW NAMESPACE MIGRATION. This path is
-  matched by name. If PicoClawService.buildEnvironment's internalHome is ever
+  matched by name. If PocketClawService.buildEnvironment's internalHome is ever
   renamed from "picoclaw", this line silently stops matching and every secret
   becomes backup-eligible again with no test failing on its own.
   backup_rules_test.dart is what makes that failure loud.

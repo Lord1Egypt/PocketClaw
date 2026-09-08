@@ -8,7 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 
 import 'device_feedback_models.dart';
-import 'picoclaw_channel.dart';
+import 'pocketclaw_channel.dart';
 
 class FirebaseDeviceReporter {
   static const _prefsInstallIdKey = 'firebase_install_id';
@@ -26,7 +26,7 @@ class FirebaseDeviceReporter {
     final packageInfo = await _readPackageInfo();
     if (Platform.isAndroid) {
       try {
-        final info = await PicoClawChannel.getSafeDeviceInfo();
+        final info = await PocketClawChannel.getSafeDeviceInfo();
         return {
           'deviceModel': info['deviceModel'] ?? 'unknown',
           'osVersion': info['osVersion'] ?? 'unknown',

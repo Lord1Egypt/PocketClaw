@@ -1,5 +1,39 @@
 # Development Changelog
 
+## 2026-09-08 — N1, and the guard that lived on the wrong side of the fence
+
+The renames themselves were dull, which is the point of doing N0 first: Dart
+channel class and file, the in-process MethodChannel value, three Kotlin
+classes, and eleven PocketClaw-owned build-time defines. Nothing persisted,
+nothing on the wire, nothing upstream. No alias was needed anywhere — both ends
+of the MethodChannel ship in one APK, and no tracked workflow passes the old
+define names.
+
+The interesting part was the one thing that would not move.
+`core/src/pkg/coresource/android_hot_reload_test.go` reads the Android service
+by absolute path and hard-codes `PicoClawService.kt`. Rename the Kotlin file and
+two guards fail with "no such file or directory".
+
+It is a PocketClaw-authored test — it appears nowhere in the upstream divergence
+patch — and the fix is two string constants, and `_test.go` files are excluded
+from the Core fingerprint by design, so it would not even cost a rebuild. Every
+reason points at just doing it. The scope said `core/src` is untouched in this
+phase, so it is untouched, and the branch is being handed over with two red
+guards and a note rather than a quietly widened boundary.
+
+That is the whole argument for writing the boundary down in advance. A rule you
+can talk yourself out of in the one case where it is inconvenient is not a rule,
+and this was a genuinely inconvenient case: small fix, no risk, obviously right.
+The reason to stop anyway is that "small, no risk, obviously right" is exactly
+what every unplanned scope expansion feels like from the inside.
+
+The new boundary guard is deliberately two-sided. It pins what N1 renamed and
+what N1 must not have touched — the Core env variables, the native library
+names, the backup-exclusion literal, the notification channel id, the upstream
+artifact lookups. A plain "no picoclaw in the repository" check would have been
+easier to write and would have been wrong by architecture: most of what is left
+is upstream identity, on-disk compatibility or someone else's copyright.
+
 ## 2026-09-08 — vc59, and the evidence that nothing happened
 
 The Bootstrap Architecture is physically accepted. The proof is a set of

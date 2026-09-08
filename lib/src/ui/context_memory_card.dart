@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import 'package:pocketclaw/src/core/picoclaw_channel.dart';
+import 'package:pocketclaw/src/core/pocketclaw_channel.dart';
 import 'package:pocketclaw/src/generated/l10n/app_localizations.dart';
 
 /// The preset choices offered before Custom. Core accepts any value in its own
@@ -60,7 +60,7 @@ class _ContextMemoryCardState extends State<ContextMemoryCard> {
   }
 
   Future<void> _loadSetting() async {
-    final loader = widget.load ?? PicoClawChannel.getTelegramContextMemory;
+    final loader = widget.load ?? PocketClawChannel.getTelegramContextMemory;
     TelegramContextMemory loaded;
     try {
       loaded = await loader();
@@ -94,7 +94,7 @@ class _ContextMemoryCardState extends State<ContextMemoryCard> {
       _error = null;
     });
 
-    final saver = widget.save ?? PicoClawChannel.setTelegramContextMemory;
+    final saver = widget.save ?? PocketClawChannel.setTelegramContextMemory;
     try {
       final stored = await saver(value);
       if (!mounted) return;

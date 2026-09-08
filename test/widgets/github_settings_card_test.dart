@@ -8,7 +8,7 @@ import 'package:pocketclaw/src/ui/github_settings_card.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  const channel = MethodChannel('com.lord1egypt.pocketclaw/picoclaw');
+  const channel = MethodChannel('com.lord1egypt.pocketclaw/pocketclaw');
   const canary = 'ghp_canary_widget_must_never_render_this';
 
   final calls = <MethodCall>[];

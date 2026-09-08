@@ -1,5 +1,71 @@
 # PocketClaw Project State
 
+## Namespace Migration N1 — source identities renamed, one blocker
+
+- Status: **implemented on `feature/namespace-n1-source-identities`, 2026-09-08.
+  NOT merged.** Branch cut from `develop` at `75377f8`. No version bump, no
+  candidate: `0.2.0+59`, baseline 59.
+- **`core/src` is untouched.** Core fingerprint is still
+  `e7acbff7000bb58ac8074bfaf290528326df115bf1fae4bb6242defbf78d9a23` and the
+  staged Core remains FRESH. No rebuild, no restage, no APK, no ADB.
+
+### Renamed — PocketClaw-owned source identity with no persistence
+
+| From | To |
+|---|---|
+| `lib/src/core/picoclaw_channel.dart` | `pocketclaw_channel.dart` |
+| `PicoClawChannel` | `PocketClawChannel` |
+| `com.lord1egypt.pocketclaw/picoclaw` | `com.lord1egypt.pocketclaw/pocketclaw` |
+| `PicoClawApp.kt` / `PicoClawApp` | `PocketClawApp.kt` / `PocketClawApp` |
+| `PicoClawService.kt` / `PicoClawService` | `PocketClawService.kt` / `PocketClawService` |
+| `PicoClawMethodChannel.kt` / class | `PocketClawMethodChannel.kt` / class |
+| `PICOCLAW_ANALYTICS_PROVIDER` | `POCKETCLAW_ANALYTICS_PROVIDER` |
+| `PICOCLAW_UMENG_*` (5 defines) | `POCKETCLAW_UMENG_*` |
+| `PICOCLAW_FIREBASE_*` (5 defines) | `POCKETCLAW_FIREBASE_*` |
+
+The MethodChannel needed no alias: both ends ship in one APK and upgrade
+together. The dart-defines needed no legacy fallback either — no tracked
+workflow supplies them, and `POCKETCLAW_ONBOARDING_BASE_URL` had already set the
+naming precedent.
+
+### BLOCKER — two guards inside `core/src` name the old Kotlin file
+
+`core/src/pkg/coresource/android_hot_reload_test.go:38,104` hard-code
+`.../service/PicoClawService.kt` and `t.Fatalf` when it cannot be read. After
+the rename both `TestAndroidManagedGatewayEnablesHotReload` and
+`TestAndroidManagedGatewayDisablesHostBusTools` fail with "no such file or
+directory".
+
+The file is **PocketClaw-authored**, not upstream — it appears nowhere in
+`core/pocketclaw-core-v0.3.1.patch`. The fix is two path constants. It is also
+**fingerprint-neutral**: `coresource/fingerprint.go:159-161` excludes `_test.go`
+deliberately, so the edit needs no Core rebuild and no restage.
+
+It was not made, because N1's scope says `core/src` must not be touched and
+that widening the phase silently is not acceptable. **This needs an explicit
+decision before N1 can be merged**, since the branch currently leaves those two
+guards red.
+
+### Deliberately preserved
+
+Upstream identity (`github.com/sipeed/picoclaw`, `cmd/picoclaw`,
+`BINARY_NAME=picoclaw`, `picoclaw-launcher`); Core runtime env
+(`PICOCLAW_HOME`, `_CONFIG`, `_GATEWAY_TOKEN_FILE`, `_LOG_DIR`,
+`_DASHBOARD_AUTH_DIR`, `_CHANNELS_PICO_TOKEN`, `_DNS_SERVER` and the ~200
+upstream tags); native binaries `libpicoclaw.so` / `libpicoclaw-web.so`;
+persisted and wire values `.picoclaw.pid`, `filesDir/picoclaw/`,
+`picoclaw_foreground`, `picoclaw_launcher_auth`, `"pico"`, `"pico_client"`,
+`/pico/*`, `"pico-user"`; user state; the historical digest `47b63011…`; all
+legal and provenance strings; and `wecomQRSourceID` / IRC `nick`.
+
+The desktop adapter keeps `picoclaw-launcher` and `picoclaw`: those are the
+filenames `core/src/Makefile` actually produces, so they are artifact lookups
+rather than our identity, and a comment now says so in place.
+
+`test/unit/namespace_n1_boundary_test.dart` asserts both halves — what N1
+renamed and what it must not have touched. A blanket "no picoclaw anywhere"
+guard would be wrong by architecture and is deliberately absent.
+
 ## Bootstrap Architecture — PHYSICALLY ACCEPTED and CLOSED on vc59
 
 - Status: **closed on `feature/bootstrap-architecture`, 2026-09-08. Merged to
@@ -745,7 +811,7 @@ rejected with an error rather than silently obeyed. `-PversionCode` /
 
 ### Analytics attribution, measured rather than assumed
 
-The Umeng SDK is `compileOnly` unless `PICOCLAW_ANALYTICS_PROVIDER=umeng`, and
+The Umeng SDK is `compileOnly` unless `POCKETCLAW_ANALYTICS_PROVIDER=umeng`, and
 `READ_PHONE_STATE` is no longer declared. Merging the release manifest with and
 without the dependency showed the SDK contributes **exactly one** entry,
 `freemme.permission.msa`. `READ_PHONE_STATE` came only from our own manifest.
@@ -779,7 +845,7 @@ Three corrections after the implementation was accepted in principle.
   rather than guessing: `firebase_analytics` and `firebase_core` are in
   `pubspec.yaml`, used only by `lib/src/core/firebase_device_reporter.dart`,
   behind the device-feedback Settings toggle. Firebase initializes only when all
-  four `PICOCLAW_FIREBASE_*` dart-defines are set; they are empty by default and
+  four `POCKETCLAW_FIREBASE_*` dart-defines are set; they are empty by default and
   there is no `google-services.json`, so it is inert in the default build but is
   a real feature, not dead code. It logs one custom event and needs no
   advertising ID, so `AD_ID`, both `ACCESS_ADSERVICES_*` and the Play
@@ -791,7 +857,7 @@ The default merged manifest is now **13 permissions**, down from 19 at vc55:
 are gone, and every one that remains is product-required.
 
 An analytics capability that was not packaged can no longer be selected at
-runtime. `BuildConfig.PICOCLAW_UMENG_PACKAGED` comes from the same value that
+runtime. `BuildConfig.POCKETCLAW_UMENG_PACKAGED` comes from the same value that
 decides the dependency, so the guard cannot drift from what was built. No crash
 path existed beforehand — the guard already implied the packaging condition —
 but it did so by coincidence rather than by contract.
