@@ -10,7 +10,7 @@ no APK built, nothing installed, no device touched.** Version unchanged at
 
 **The staged Core is stale on purpose.** This branch changed `core/src`, so
 `TestStagedCoreWasBuiltFromTheCurrentSource` fails by design, expecting
-`34555d86…`. Run `./core/build-android-arm64.sh` before the next physical APK,
+`c27f81a1…`. Run `./core/build-android-arm64.sh` before the next physical APK,
 or the device will run a Core that still writes the credential into shared
 storage and the whole milestone will look like it did nothing.
 
@@ -60,10 +60,28 @@ it. The toggle is hidden too, but only when the credential is host-managed, and
 by the backend omitting the field rather than the frontend blanking it for
 everyone — a self-managed deployment keeps the capability and the control.
 
+**The Dashboard credential database moved too, and migration is the delicate
+part.** `launcher-auth.db` is now under `noBackupFilesDir/auth/`. The one-time
+migration must keep working: it refuses to overwrite an existing private
+database, copies rather than renames (shared storage and app-private storage are
+different filesystems, so `os.Rename` would fail with a cross-device error),
+validates the destination through the real store, and only then deletes the
+legacy file. **Every failure path keeps the legacy database**, because it is the
+only thing that can verify the user's password — silently resetting it would
+lock someone out of their own Dashboard.
+
+**The file copy is safe only because the store uses the rollback journal, not
+WAL.** That was measured from the database header, not assumed, and
+`TestStoreUsesRollbackJournalAndLeavesNoSidecars` fails if the mode ever changes.
+If someone enables WAL, the migration must switch to SQLite backup semantics
+first — copying the main file alone would drop committed data sitting in a
+`-wal` sidecar.
+
 ### RECHECK AFTER THE NAMESPACE MIGRATION
 
 Every contract here is keyed on a compatibility name: `.picoclaw.pid`,
 `PICOCLAW_GATEWAY_TOKEN_FILE`, `PICOCLAW_LOG_DIR`,
+`PICOCLAW_DASHBOARD_AUTH_DIR`, the legacy `launcher-auth.db` filename,
 `PICOCLAW_CHANNELS_PICO_TOKEN`, the `picoclaw` private directory the backup
 rules exclude, and the `pico` channel name. Rename one side only and the
 credential, the logs or the backup exclusion quietly go back to where they were.

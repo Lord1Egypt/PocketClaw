@@ -63,6 +63,20 @@ const (
 	// authentication for it.
 	EnvChannelsPicoToken = "PICOCLAW_CHANNELS_PICO_TOKEN"
 
+	// EnvDashboardAuthDir overrides the directory holding the Dashboard
+	// credential database.
+	//
+	// launcher-auth.db holds a bcrypt verifier — no plaintext and no session
+	// token — so reading it buys an attacker little. Writing it is the problem:
+	// under PICOCLAW_HOME on Android it sits on shared external storage, where
+	// an app with storage write access can replace the stored verifier with one
+	// for a password it chose and then log in normally over loopback, which
+	// Android does not isolate between apps. That is an authentication bypass
+	// that never has to break bcrypt at all. Pointing this at app-private
+	// storage removes the write vector along with the read one.
+	// Default: PICOCLAW_HOME
+	EnvDashboardAuthDir = "PICOCLAW_DASHBOARD_AUTH_DIR"
+
 	// EnvLogDir overrides the directory holding gateway.log and the panic log.
 	//
 	// Both default to a "logs" directory under PICOCLAW_HOME. On Android that
@@ -74,6 +88,18 @@ const (
 	// Default: $PICOCLAW_HOME/logs
 	EnvLogDir = "PICOCLAW_LOG_DIR"
 )
+
+// ResolveDashboardAuthDir returns the directory holding launcher-auth.db.
+//
+// homePath is the caller's PICOCLAW_HOME, which stays the default so desktop
+// and server installs are unchanged. A host that can offer private storage says
+// so through EnvDashboardAuthDir.
+func ResolveDashboardAuthDir(homePath string) string {
+	if dir := strings.TrimSpace(os.Getenv(EnvDashboardAuthDir)); dir != "" {
+		return dir
+	}
+	return homePath
+}
 
 // ResolveLogDir returns the directory for gateway.log and the panic log.
 //

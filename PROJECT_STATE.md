@@ -15,9 +15,18 @@
 
 **User data stays where the user can reach it. Runtime control state does not.**
 `Download/pocketclaw/workspace` is deliberately user-visible and is unchanged.
-What moved out of that directory is the gateway bearer credential and the
-diagnostic log — neither of which is user content, and both of which were
-readable by any app holding storage access.
+Three things moved out of that directory, none of them user content: the gateway
+bearer credential, the diagnostic log, and the Dashboard credential database.
+
+On Android, all security-sensitive runtime and auth state is now app-private and
+no-backup:
+
+| State | Location |
+| --- | --- |
+| Gateway bearer credential | `noBackupFilesDir/gateway_auth` |
+| Gateway diagnostic logs | `noBackupFilesDir/logs/` |
+| Dashboard credential verifier | `noBackupFilesDir/auth/launcher-auth.db` |
+| User workspace | `Download/pocketclaw/workspace` — unchanged, user-accessible |
 
 ### Gateway credential
 
@@ -75,19 +84,53 @@ renders the control only for a field the response carries. A self-managed
 deployment, where a browser client genuinely cannot set a header, keeps both the
 capability and the control.
 
+### Dashboard credential database
+
+Found by a source-only audit after vc57 passed, and fixed before A2 closes
+because it is the same boundary and a stronger vector than the one already
+fixed. `launcher-auth.db` holds a single bcrypt verifier (cost 12) — no
+plaintext, no session token, and sessions are in-memory only, so **reading** it
+grants nothing directly. **Writing** it is the problem: on shared storage an app
+with storage write access can replace the verifier with one for a password it
+chose, then authenticate normally over loopback, which Android does not isolate
+between apps. That is an authentication bypass that never has to break bcrypt.
+
+`PICOCLAW_DASHBOARD_AUTH_DIR` moves it; unset, the store stays under
+PICOCLAW_HOME exactly as before, so desktop and server installs are unchanged.
+Authentication semantics are untouched: same bcrypt cost, same verification,
+same rate limiting, same 24-hour in-memory sessions, same login UX, no schema
+change and no new crypto.
+
+An existing password survives via a one-time migration that runs before the
+store is opened. It refuses to overwrite an existing private database — private
+state wins, so a rollback to attacker-controlled shared state is not one file
+copy away — opens the legacy database through the real store first so SQLite
+settles any journal a crashed writer left, copies to a temp file inside the
+destination and fsyncs it, renames within that one filesystem (`os.Rename`
+across `/sdcard` and app-private storage would be a cross-device error), then
+validates the destination through the same store contract, and only then deletes
+the legacy file. Every failure path leaves the legacy database intact and
+authoritative rather than locking the user out of their own Dashboard.
+
+The plain file copy is safe because the store uses SQLite's default rollback
+journal, not WAL — measured from the database header rather than assumed, and
+asserted by `TestStoreUsesRollbackJournalAndLeavesNoSidecars`, which fails if
+the mode ever changes and makes a main-file copy lossy.
+
 ### RECHECK AFTER FULL NAMESPACE MIGRATION
 
 Every one of these is keyed on a compatibility name that migration will change:
 `.picoclaw.pid`, `PICOCLAW_GATEWAY_TOKEN_FILE`, `PICOCLAW_LOG_DIR`,
-`PICOCLAW_CHANNELS_PICO_TOKEN`, the `picoclaw` private directory name already
-guarded for backup, and the `pico` channel name. A rename on one side only would
+`PICOCLAW_DASHBOARD_AUTH_DIR`, the legacy `launcher-auth.db` filename the
+migration matches by name, `PICOCLAW_CHANNELS_PICO_TOKEN`, the `picoclaw`
+private directory name already guarded for backup, and the `pico` channel name. A rename on one side only would
 silently undo the separation without failing anything else.
 
 ### Core is intentionally stale
 
 `core/src` changed, so the staged Core no longer matches.
 `TestStagedCoreWasBuiltFromTheCurrentSource` fails by design, expecting
-fingerprint `34555d86ffe6d0148d48bca058d4e7c029411fec0fb5acb8b8db66e2560da17c`.
+fingerprint `c27f81a18e330c7ce761de47eb5c1492b200d44731d4106bc93cd5bbb68996ef`.
 **The next physical APK requires a Core rebuild** via
 `./core/build-android-arm64.sh`; nothing was rebuilt or re-staged here.
 

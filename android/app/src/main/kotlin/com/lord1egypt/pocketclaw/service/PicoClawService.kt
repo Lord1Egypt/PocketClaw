@@ -57,6 +57,19 @@ class PicoClawService : Service() {
         private const val PRIVATE_LOG_DIR = "logs"
 
         /**
+         * Private directory for the Dashboard credential database.
+         *
+         * launcher-auth.db holds a bcrypt verifier — no plaintext, no session
+         * token — so reading it buys an attacker little. Writing it is the
+         * problem: under PICOCLAW_HOME it sits on shared external storage,
+         * where an app with storage write access can replace the verifier with
+         * one for a password it chose and then log in normally over loopback,
+         * which Android does not isolate between apps. That is an
+         * authentication bypass that never has to break bcrypt at all.
+         */
+        private const val PRIVATE_AUTH_DIR = "auth"
+
+        /**
          * Legacy log files this app wrote to shared storage before the logs
          * moved. Matched by exact name: only files PocketClaw is known to have
          * produced are removed, and nothing is matched by pattern or extension.
@@ -247,6 +260,13 @@ class PicoClawService : Service() {
             return dir
         }
 
+        /** Private directory for the Dashboard credential database. */
+        private fun privateAuthDir(context: Context): File {
+            val dir = File(context.applicationContext.noBackupFilesDir, PRIVATE_AUTH_DIR)
+            dir.mkdirs()
+            return dir
+        }
+
         /**
          * Deletes the log files this app previously wrote to shared storage.
          *
@@ -311,11 +331,12 @@ class PicoClawService : Service() {
                 "HOME" to context.filesDir.absolutePath,
                 "PICOCLAW_HOME" to workspace.absolutePath,
                 // The workspace stays where the user can reach it. The
-                // credential and the diagnostic log do not: both move to
+                // credentials and the diagnostic log do not: all three move to
                 // app-private no-backup storage, which is the boundary that
                 // separates user data from runtime control state.
                 "PICOCLAW_GATEWAY_TOKEN_FILE" to gatewayTokenFile(context).absolutePath,
                 "PICOCLAW_LOG_DIR" to privateLogDir(context).absolutePath,
+                "PICOCLAW_DASHBOARD_AUTH_DIR" to privateAuthDir(context).absolutePath,
                 "PICOCLAW_CONFIG" to configPath,
                 "PICOCLAW_BINARY" to gatewayBinaryPath,
                 "POCKETCLAW_RUNTIME_LIB_DIR" to runtimeLibDir,

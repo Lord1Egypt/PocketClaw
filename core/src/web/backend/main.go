@@ -591,8 +591,25 @@ func main() {
 
 	dashboardSessions := middleware.NewLauncherDashboardSessions(0)
 
+	// The credential verifier moves to private storage where the host offers
+	// one. Migration runs before the store is opened so an existing password
+	// survives; if it fails, the legacy database is left untouched and still
+	// authoritative rather than locking the user out of their own Dashboard.
+	dashboardAuthDir := config.ResolveDashboardAuthDir(picoHome)
+	if migration, err := dashboardauth.MigrateLegacyDatabase(
+		context.Background(), picoHome, dashboardAuthDir,
+	); err != nil {
+		logger.ErrorC("web", fmt.Sprintf(
+			"Dashboard credential migration skipped, continuing with the existing store: %v", err))
+		dashboardAuthDir = picoHome
+	} else if migration.Migrated {
+		logger.InfoC("web", fmt.Sprintf(
+			"Migrated the Dashboard credential store to private storage (legacy removed: %t)",
+			migration.LegacyRemoved))
+	}
+
 	// Open the bcrypt password store (creates the DB file on first run).
-	authStore, authStoreErr := dashboardauth.New(picoHome)
+	authStore, authStoreErr := dashboardauth.New(dashboardAuthDir)
 	var passwordStore api.PasswordStore
 	if authStoreErr == nil {
 		passwordStore = authStore

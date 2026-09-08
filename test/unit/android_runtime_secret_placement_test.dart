@@ -101,6 +101,46 @@ void main() {
     });
   });
 
+  group('dashboard credential store', () {
+    test('is placed in app-private no-backup storage', () {
+      final source = read(service);
+      expect(source, contains('PICOCLAW_DASHBOARD_AUTH_DIR'));
+      expect(
+        source,
+        contains(
+          'File(context.applicationContext.noBackupFilesDir, PRIVATE_AUTH_DIR)',
+        ),
+        reason: 'the verifier must not be writable through shared storage',
+      );
+      // Never assembled from the workspace path.
+      expect(
+        source,
+        isNot(contains(r'File(getWorkspacePath(context), PRIVATE_AUTH_DIR)')),
+      );
+    });
+
+    test('no auth secret or verifier crosses into Dart', () {
+      final dartSources = Directory('lib')
+          .listSync(recursive: true)
+          .whereType<File>()
+          .where((file) => file.path.endsWith('.dart'));
+      for (final file in dartSources) {
+        final body = file.readAsStringSync();
+        for (final forbidden in const [
+          'PICOCLAW_DASHBOARD_AUTH_DIR',
+          'launcher-auth.db',
+          'bcrypt_hash',
+        ]) {
+          expect(
+            body,
+            isNot(contains(forbidden)),
+            reason: '${file.path} references the Dashboard credential store',
+          );
+        }
+      }
+    });
+  });
+
   group('gateway logs', () {
     test('are written to app-private storage', () {
       final source = read(service);

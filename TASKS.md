@@ -1088,10 +1088,19 @@ supplied by the user.
   realtime authentication is constant-time.** Done on
   `feature/release-hardening-a2`, 2026-09-08.
   **IMPLEMENTED — AWAITING PHYSICAL VALIDATION.** Requires a Core rebuild before
-  the next physical APK; expected fingerprint `34555d86…`.
+  the next physical APK; expected fingerprint `c27f81a1…`.
+- [x] **Dashboard credential database on shared storage.** Found by source audit
+  after vc57, fixed in A2 before close: `launcher-auth.db` holds only a bcrypt
+  verifier, but on shared storage it can be *written*, and replacing the verifier
+  yields a working Dashboard login without breaking bcrypt.
+  `PICOCLAW_DASHBOARD_AUTH_DIR` moves it to app-private no-backup storage, with a
+  crash-safe one-time migration that preserves the existing password.
+  **IMPLEMENTED — AWAITING PHYSICAL VALIDATION.**
 - [ ] **RECHECK AFTER THE NAMESPACE MIGRATION: every A2 contract is keyed on a
   compatibility name.** `.picoclaw.pid`, `PICOCLAW_GATEWAY_TOKEN_FILE`,
-  `PICOCLAW_LOG_DIR`, `PICOCLAW_CHANNELS_PICO_TOKEN`, the `picoclaw` private
+  `PICOCLAW_LOG_DIR`, `PICOCLAW_DASHBOARD_AUTH_DIR`, the legacy
+  `launcher-auth.db` filename the migration matches by name,
+  `PICOCLAW_CHANNELS_PICO_TOKEN`, the `picoclaw` private
   directory the backup rules exclude, and the `pico` channel name. Renaming one
   side alone puts the credential, the logs or the backup exclusion back where
   they were without breaking anything visible.

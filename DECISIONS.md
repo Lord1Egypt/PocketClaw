@@ -25,11 +25,23 @@
   or a log. Cleanup of the old logs is narrow by construction: three exact
   filenames, no pattern, no recursion, and the directory removed only when
   nothing else is in it, because everything else under that path is the user's.
+- Extended 2026-09-08 to the Dashboard credential database, after a source audit
+  found the same boundary carrying a stronger vector. `launcher-auth.db` holds
+  only a bcrypt verifier, so reading it grants nothing — but on shared storage it
+  can be *written*, and replacing the verifier with one for a chosen password
+  yields a working Dashboard login over loopback without breaking bcrypt at all.
+  `PICOCLAW_DASHBOARD_AUTH_DIR` moves it to app-private no-backup storage; unset,
+  behaviour is unchanged. Authentication itself is untouched — same cost, same
+  verification, same rate limiting, same in-memory sessions. The rule this
+  settles: **on Android every security-sensitive runtime and auth artifact is
+  app-private, and the workspace is the only thing that stays shared.**
 - **RECHECK AFTER THE NAMESPACE MIGRATION.** All of this is keyed on names the
-  migration will change — `.picoclaw.pid`, the `PICOCLAW_*` variables, the
-  `picoclaw` private directory the backup rules already exclude, and the `pico`
-  channel. Renaming one side alone puts the credential or the logs back on
-  shared storage without failing anything visible.
+  migration will change — `.picoclaw.pid`, the `PICOCLAW_*` variables including
+  `PICOCLAW_DASHBOARD_AUTH_DIR`, the legacy `launcher-auth.db` filename the
+  migration matches by name, the `picoclaw` private directory the backup rules
+  already exclude, and the `pico` channel. Renaming one side alone puts a
+  credential or the logs back on shared storage without failing anything
+  visible.
 - Amended 2026-09-08, after review.
   - **The log bound is enforced while the process runs, not when it starts.**
     The active file counts the bytes it writes and rotates on crossing the

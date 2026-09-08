@@ -1,5 +1,50 @@
 # Development Changelog
 
+## 2026-09-08 — The dangerous verb was write, not read
+
+vc57 passed everything — machine checks, Status, Logs. The shared home was down
+to four entries, and one of them was `launcher-auth.db`. It had been there the
+whole time and was never in A2's scope, so the honest thing was to audit it from
+source before deciding whether it belonged.
+
+The reading is reassuring. One SQLite table, one row, one column: a bcrypt
+verifier at cost 12. No plaintext, no session token, no signing key. Dashboard
+sessions are 32 random bytes in a `map[string]time.Time` that dies with the
+process, so there is nothing in that file to replay and nothing to forge a
+session with. An attacker who reads it gets an offline guessing problem against
+bcrypt, and that is all.
+
+Then you ask what *writing* it buys, and the answer is different. Shared storage
+grants write, not just read. Replace the stored verifier with a bcrypt hash of a
+password you chose, log in over loopback — which Android does not isolate
+between apps — and you have a real Dashboard session. Nothing has to break
+bcrypt. That is a full authentication bypass, and it is strictly worse than the
+gateway-token vector A2 had just fixed two directories over.
+
+So it moves, and the fix is the shape A2 already established: an env override,
+private no-backup storage on Android, unchanged behaviour everywhere else. What
+took the thought was the migration, because the file being moved is the only
+thing that can verify the user's password. Get it wrong and you lock someone out
+of their own Dashboard.
+
+Three things shaped the design. `os.Rename` cannot be used: `/sdcard` and
+app-private storage are different filesystems and the call would fail with a
+cross-device error, so it has to be copy, fsync, rename-within-destination.
+Private state has to win unconditionally — if a legacy shared copy could
+overwrite an existing private database, the rollback to attacker-controlled
+state would be one file copy away. And every failure path has to keep the legacy
+file, because a half-migrated credential store that deleted its source is the
+one outcome worse than not migrating at all.
+
+The last question was whether copying the main database file is even sound. That
+depends on the journal mode, and guessing was not acceptable, so it got measured:
+the store sets no pragmas, SQLite's default is the rollback journal rather than
+WAL, and the header's write/read format versions come back as 1. A closed
+database is self-contained in one file. The migration still opens the legacy
+store first so SQLite can settle a journal a crashed writer might have left, and
+a test now reads those header bytes — if anyone enables WAL later, it fails and
+says that a main-file copy has become lossy.
+
 ## 2026-09-08 — A bound that only applies at startup is not a bound
 
 Three corrections to A2, all from review, and the first was the one that
