@@ -191,8 +191,10 @@ not to Telegram".
   Fixed in A3 on `feature/release-hardening-a3`, 2026-09-08:
   `core/resolve-build-time.sh` is the single source of the build timestamp,
   taking `SOURCE_DATE_EPOCH` or the HEAD commit and failing rather than using
-  the wall clock. Two consecutive canonical builds with the same epoch produced
-  byte-identical binaries. **IMPLEMENTED — AWAITING REVIEW.** Original entry:
+  the wall clock, and scoping the default epoch to canonical build inputs so a
+  documentation or staging commit cannot redate the build. Two consecutive
+  canonical builds produced byte-identical binaries on both the explicit-epoch
+  and the default path. **IMPLEMENTED — AWAITING REVIEW.** Original entry:
   ~~**Core builds are not byte-reproducible by default.**~~
   `core/src/Makefile` derives `BUILD_TIME` from `date` unless `BUILD_TIME_RAW`
   is pinned, so two builds of identical source differ. Observed twice on

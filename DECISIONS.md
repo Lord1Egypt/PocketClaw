@@ -9,6 +9,18 @@
   build script resolves once and passes `BUILD_TIME=` on the make command line.
   Separately, `tool/release_gate.py` is the one authority on whether an artifact
   is releasable; CI invokes it and never reimplements it.
+- Amended 2026-09-08, after review: the default is the timestamp of the most
+  recent commit touching a **canonical Core build input** — `core/src`,
+  `core/build-android-arm64.sh`, `core/resolve-build-time.sh` — not HEAD. Dating
+  from HEAD meant a documentation or staged-binary commit redated the build, so
+  identical Core source produced different bytes on the next unrelated commit:
+  the guarantee would have held only until someone wrote a README. The set is
+  intentionally wider than the source fingerprint, because the canonical build
+  also produces the launcher binary from `core/src/web` and stamps both with one
+  timestamp; the two sets answer different questions. The release gate also
+  verifies the BuildTime **embedded in the binary** against what this tree would
+  produce, since recording only the input would pass an artifact built before
+  the contract existed.
 - Reason: `BUILD_TIME_RAW := $(shell date …)` meant identical source produced
   different binaries because the clock had moved, so a released artifact could
   not be reproduced from its source. A wall-clock fallback is worse than no

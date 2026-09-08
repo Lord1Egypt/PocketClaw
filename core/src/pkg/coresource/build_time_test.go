@@ -1,6 +1,7 @@
 package coresource
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -196,5 +197,179 @@ func TestCanonicalBuildPassesBuildTimeExplicitly(t *testing.T) {
 	}
 	if strings.Contains(body, "export BUILD_TIME") {
 		t.Error("exporting BUILD_TIME does not override a Make assignment; pass it on the command line")
+	}
+}
+
+// gitInit creates a throwaway repository containing a copy of the resolver at
+// the same relative location it occupies in the real tree, so the script's own
+// repo-root discovery works unchanged.
+func gitInit(t *testing.T) string {
+	t.Helper()
+	root := t.TempDir()
+	for _, args := range [][]string{
+		{"init", "-q"},
+		{"config", "user.email", "test@example.invalid"},
+		{"config", "user.name", "Test"},
+		{"config", "commit.gpgsign", "false"},
+	} {
+		cmd := exec.Command("git", args...)
+		cmd.Dir = root
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("git %v: %v\n%s", args, err, out)
+		}
+	}
+	if err := os.MkdirAll(filepath.Join(root, "core/src/pkg"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	source, err := os.ReadFile(resolverPath(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "core/resolve-build-time.sh"), source, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	return root
+}
+
+// commit writes a file and commits it at a fixed author/committer date, so the
+// test controls the timestamps it is asserting about.
+func commit(t *testing.T, root, relPath, content string, epoch int64) {
+	t.Helper()
+	full := filepath.Join(root, relPath)
+	if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(full, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	add := exec.Command("git", "add", "-A")
+	add.Dir = root
+	if out, err := add.CombinedOutput(); err != nil {
+		t.Fatalf("git add: %v\n%s", err, out)
+	}
+	stamp := fmt.Sprintf("%d +0000", epoch)
+	c := exec.Command("git", "commit", "-q", "-m", "change "+relPath)
+	c.Dir = root
+	c.Env = append(os.Environ(),
+		"GIT_AUTHOR_DATE="+stamp, "GIT_COMMITTER_DATE="+stamp)
+	if out, err := c.CombinedOutput(); err != nil {
+		t.Fatalf("git commit: %v\n%s", err, out)
+	}
+}
+
+func resolveEpochIn(t *testing.T, root string) string {
+	t.Helper()
+	cmd := exec.Command(filepath.Join(root, "core/resolve-build-time.sh"), "--print-epoch")
+	cmd.Dir = root
+	env := []string{}
+	for _, kv := range os.Environ() {
+		if !strings.HasPrefix(kv, "SOURCE_DATE_EPOCH=") {
+			env = append(env, kv)
+		}
+	}
+	cmd.Env = env
+	out, err := cmd.Output()
+	if err != nil {
+		t.Fatalf("resolver failed in %s: %v", root, err)
+	}
+	return strings.TrimSpace(string(out))
+}
+
+// The defect the path scoping exists to fix.
+//
+// An unscoped `git log -1` dated the build from HEAD, so committing
+// documentation — or the staged binaries themselves — gave identical Core source
+// a different timestamp and therefore different bytes. The guarantee would have
+// held only until the next unrelated commit, which is worse than not claiming
+// it.
+func TestDefaultEpochIgnoresCommitsThatAreNotBuildInputs(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git is not available")
+	}
+	root := gitInit(t)
+
+	const (
+		buildInputEpoch = 1700000000
+		unrelatedEpoch  = 1800000000
+		laterInputEpoch = 1900000000
+	)
+
+	// A — a real canonical Core build input.
+	commit(t, root, "core/src/pkg/thing.go", "package thing\n", buildInputEpoch)
+	atA := resolveEpochIn(t, root)
+	if atA != fmt.Sprint(buildInputEpoch) {
+		t.Fatalf("after the build-input commit the epoch is %s, want %d", atA, buildInputEpoch)
+	}
+
+	// B — documentation, an acceptance baseline, a staged binary and an
+	// application file. None of these changes what the canonical build
+	// compiles, so none may move the timestamp.
+	for _, path := range []string{
+		"docs/notes.md",
+		"android/release-baseline.properties",
+		"android/app/src/main/jniLibs/arm64-v8a/libpicoclaw.so",
+		"lib/main.dart",
+		"PROJECT_STATE.md",
+	} {
+		commit(t, root, path, "unrelated change to "+path+"\n", unrelatedEpoch)
+	}
+	atB := resolveEpochIn(t, root)
+	if atB != atA {
+		t.Fatalf("an unrelated commit moved the build timestamp: %s then %s\n"+
+			"identical Core source would now produce different bytes", atA, atB)
+	}
+
+	// C — a canonical build input again. Now it must advance.
+	commit(t, root, "core/src/Makefile", "# changed\n", laterInputEpoch)
+	atC := resolveEpochIn(t, root)
+	if atC != fmt.Sprint(laterInputEpoch) {
+		t.Fatalf("a build-input commit did not advance the epoch: got %s, want %d",
+			atC, laterInputEpoch)
+	}
+}
+
+// The staging commit is the specific case that motivated this: the accepted
+// binaries land in a commit of their own, which must not redate the build that
+// produced them.
+func TestStagingCommitDoesNotChangeTheBuildTimestamp(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git is not available")
+	}
+	root := gitInit(t)
+
+	commit(t, root, "core/src/pkg/core.go", "package core\n", 1700000000)
+	before := resolveEpochIn(t, root)
+
+	// Exactly the shape of a real staging commit: the built binaries, then the
+	// documentation that records their acceptance.
+	commit(t, root, "android/app/src/main/jniLibs/arm64-v8a/libpicoclaw.so", "ELF\n", 1750000000)
+	commit(t, root, "android/app/src/main/jniLibs/arm64-v8a/libpicoclaw-web.so", "ELF\n", 1750000001)
+	commit(t, root, "PROJECT_STATE.md", "accepted\n", 1750000002)
+
+	after := resolveEpochIn(t, root)
+	if after != before {
+		t.Fatalf("staging the build output redated the build: %s then %s", before, after)
+	}
+}
+
+// The build recipe itself is a build input: changing how the binary is produced
+// must move the timestamp even though the Go source did not change.
+func TestBuildRecipeChangesAdvanceTheEpoch(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git is not available")
+	}
+	root := gitInit(t)
+
+	commit(t, root, "core/src/pkg/core.go", "package core\n", 1700000000)
+	before := resolveEpochIn(t, root)
+
+	commit(t, root, "core/build-android-arm64.sh", "#!/bin/sh\n# changed recipe\n", 1800000000)
+	after := resolveEpochIn(t, root)
+
+	if after == before {
+		t.Fatal("a change to the canonical build recipe did not move the build timestamp")
+	}
+	if after != "1800000000" {
+		t.Fatalf("epoch = %s, want the recipe commit's timestamp", after)
 	}
 }

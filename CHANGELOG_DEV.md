@@ -1,5 +1,51 @@
 # Development Changelog
 
+## 2026-09-08 — Reproducible until someone writes a README
+
+The A3 resolver dated the build from `git log -1`. Review caught what that
+actually means: HEAD moves for documentation, for the staged binaries, for any
+unrelated application change. So identical Core source would have produced
+different bytes the moment anyone committed a README — the guarantee held right
+up until the first commit that had nothing to do with the build.
+
+The fix is a path-scoped query over an explicit set: `core/src`,
+`core/build-android-arm64.sh`, `core/resolve-build-time.sh`. Choosing that set
+was the only real thinking. It is deliberately *wider* than the Core source
+fingerprint, which names only what reaches the gateway compiler — because the
+canonical build also produces the launcher binary from `core/src/web` and stamps
+both with one timestamp, so `web/` affects the bytes being dated even though it
+is not Core source. The two sets answer different questions and are allowed to
+differ. And it deliberately excludes the staged binaries: folding build *output*
+into the timestamp would mean every staging commit redated the build that
+produced it.
+
+Over-inclusion is safe here and under-inclusion is not, which settles most of
+the borderline calls. An extra path means the timestamp moves slightly more
+often than strictly necessary; a missing one means a real build-input change
+that does not move it at all.
+
+Proving it needed real history rather than reading the script, so the test
+builds a throwaway repository: commit a build input, then commit documentation
+and a baseline file and a staged binary and a Dart file, and assert the epoch
+has not moved — then commit a build input again and assert it has. The
+staging-commit case got its own test because that is the shape that actually
+occurs in this repository every other milestone.
+
+Then the default path got the same treatment the fixed-epoch path already had:
+two canonical builds with `SOURCE_DATE_EPOCH` unset, 65 seconds of wall clock
+between them, byte-identical.
+
+Two gate gaps closed alongside. A dirty worktree now fails a production
+verification, because an artifact built from uncommitted edits proves nothing
+about anything anyone else can obtain — and the timestamp itself comes from
+committed history, so a dirty tree can produce bytes whose inputs no longer
+exist. And the gate now reads the BuildTime *embedded in the binary* rather than
+recording only what the input would have been. That distinction matters more
+than it sounds: running it against vc58 showed an embedded
+`2026-09-08T06:11:35+0300` — local time, the exact timezone dependence the UTC
+fix removed — where this tree expects `…04:02:42+0000`. Recording the input
+alone would have said nothing at all.
+
 ## 2026-09-08 — Build engineering, and what a gate finds when you write one
 
 Release Hardening A3: make the Core build reproducible, and build one command

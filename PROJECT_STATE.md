@@ -17,12 +17,31 @@ fingerprint was unaffected — it is content-addressed and excludes anything
 time-varying — but nobody could reproduce a released artifact byte for byte.
 
 `core/resolve-build-time.sh` is now the only thing that decides that value. It
-takes `SOURCE_DATE_EPOCH` when given, validates it, and otherwise uses the HEAD
-commit timestamp — a property of the source rather than of the machine. With
-neither available it **fails** rather than falling back to the wall clock, which
-is the failure mode that would be hardest to notice. Output is `%FT%T%z` fixed
-to UTC, so the historical format is preserved and the builder's timezone cannot
-change it.
+takes `SOURCE_DATE_EPOCH` when given and validates it, and otherwise uses **the
+most recent commit that touched a canonical Core build input**. Not HEAD: HEAD
+moves for documentation, staged binaries and unrelated application changes, so
+dating from it would give identical Core source a different timestamp on the
+next unrelated commit and quietly undo the guarantee. With neither available it
+**fails** rather than falling back to the wall clock, which is the failure mode
+that would be hardest to notice. Output is `%FT%T%z` fixed to UTC, so the
+historical format is preserved and the builder's timezone cannot change it.
+
+The build-input path set is explicit and documented in the script:
+
+    core/src
+    core/build-android-arm64.sh
+    core/resolve-build-time.sh
+
+Deliberately broader than the Core *source fingerprint*, which names only
+`cmd/`, `pkg/`, `workspace/`, `go.mod`, `go.sum` and the `Makefile` because
+those are what reach the Core gateway compiler. The canonical build also
+produces `libpicoclaw-web.so` from `core/src/web` and stamps both binaries with
+one timestamp, so `web/` materially affects the bytes being dated. The two sets
+answer different questions and are allowed to differ. Deliberately excluded: the
+staged JNI binaries (build output — folding them in would make every staging
+commit redate the build that produced them), documentation, the acceptance
+baseline, and the Flutter application. Over-inclusion is safe here and
+under-inclusion is not.
 
 `core/build-android-arm64.sh` resolves once and passes `BUILD_TIME=` explicitly
 into both make invocations, so the gateway and the launcher cannot carry
@@ -33,10 +52,21 @@ calls the same resolver through a recursive `=`, so a bare `make` is
 deterministic too and the subprocess is skipped entirely when the value is
 passed in.
 
-**Proven, not asserted:** two consecutive canonical Core builds with the same
-`SOURCE_DATE_EPOCH`, seconds apart, produced byte-identical binaries —
-`eec55fa303393e20ef99c757295ec27a0805ca969b79fa54e0762f4a5f00b719` and
-`4a2f76772be8f1af65235301e90a88596807fff594a675374c94edf8d20d6253` both times.
+**Proven, not asserted, on both paths.** With an explicit
+`SOURCE_DATE_EPOCH=1700000000`, two consecutive canonical builds produced
+`eec55fa3…` and `4a2f7677…` both times. With `SOURCE_DATE_EPOCH` **unset** —
+the default path, which is what anyone reproducing a release will actually use —
+two builds separated by 65 seconds of wall clock produced
+`f2a76b38941ebffa49a886465ceb44b8625e7bce8d7e108115caa93606b2fa81` and
+`e6dd1a3b3a52bec592587796153e2401f301bb59332dedbb348e9a58818203b2` both times,
+`cmp`-identical. The accepted vc58 binaries were restored afterwards.
+
+Commit scoping is proven against real git history rather than by reading the
+script: a temporary repository commits a build input, then documentation, an
+acceptance baseline, a staged binary and an application file, and asserts the
+resolved epoch does not move — then commits a build input again and asserts it
+does. The staging-commit case has its own test, because that is the shape that
+actually occurs.
 
 ### The release gate
 
@@ -57,11 +87,35 @@ known development signer and can never report a production release; `production`
 treats that signer as an unconditional failure. Verified both ways on the
 accepted vc58 artifact — PASS as `test`, FAIL as `production`.
 
+Two further gates close the gaps that recording inputs alone would leave.
+
+**Clean worktree.** Verifying an artifact built from uncommitted edits proves
+nothing about anything anyone else can obtain, and the build timestamp is
+derived from committed history — so a dirty tree can produce bytes whose inputs
+no longer exist. Git's own porcelain status decides what is dirty, so ignored
+caches stay ignored without a second rule. Production fails; a test build is
+classified NON-RELEASABLE.
+
+**Embedded BuildTime.** The gate reads the timestamp actually stamped in the
+packaged Core and compares it against what a canonical build of this tree would
+produce. Recording only the *input* would have missed the entire class of
+failure this milestone is about — a binary built before the contract, or by a
+`make` that fell back to `dev`, looks fine from outside. A mismatch fails
+production and is reported as LEGACY/NON-RELEASABLE for a test artifact;
+`BuildTime=dev`, an unreadable stamp, or an expected value that could not be
+computed all fail production. `--full <apk> --release-class production` can
+never skip it.
+
+Running it against vc58 demonstrated the point: that artifact's embedded stamp
+is `2026-09-08T06:11:35+0300` — in local time, which is exactly the timezone
+dependence the UTC fix removes — against an expected `2026-09-08T04:02:42+0000`.
+
 Every check reports PASS, FAIL or SKIPPED, a failure names expected and
-observed, and the exit code is non-zero when any selected check fails. A JSON
+observed, and the exit code is non-zero when any selected check fails. The JSON
 release manifest records package id, version, APK hash, Core fingerprints and
-hashes, ABI, signer fingerprint, permission contract, timestamp input, result
-and classification — and no secrets or machine paths.
+hashes, `coreBuildInputCommit`, `buildTimeExpected`/`buildTimeObserved`/
+`buildTimeDerivation`, ABI, signer fingerprint, permission contract, result and
+classification — and no secrets or machine paths.
 
 ### What the gate found
 

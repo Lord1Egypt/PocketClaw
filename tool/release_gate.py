@@ -172,6 +172,95 @@ def find_sdk_tool(name: str) -> Path | None:
 
 
 # --------------------------------------------------------------------------
+# Build-time verification
+# --------------------------------------------------------------------------
+
+BUILD_TIME_PATTERN = re.compile(rb"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{4}")
+
+
+def record_expected_build_time(gate: Gate):
+    """Records the BuildTime a canonical build of this tree should produce."""
+    resolver = REPO / "core/resolve-build-time.sh"
+    explicit = os.environ.get("SOURCE_DATE_EPOCH", "").strip()
+    rc, out = run([str(resolver)])
+    if rc == 0 and out.strip():
+        gate.facts["buildTimeExpected"] = out.strip()
+    rc, out = run([str(resolver), "--print-commit"])
+    if rc == 0 and out.strip():
+        gate.facts["coreBuildInputCommit"] = out.strip()
+    gate.facts["buildTimeDerivation"] = (
+        f"explicit SOURCE_DATE_EPOCH={explicit}" if explicit
+        else "canonical Core build-input commit timestamp")
+
+
+def embedded_build_time(blob: bytes) -> str | None:
+    """Reads the BuildTime stamped into a Core binary.
+
+    The linker writes it as a plain string, so the timestamp is recoverable
+    from the binary without running it. `dev` is the Makefile's marker for a
+    build whose timestamp could not be derived deterministically.
+    """
+    if b"dev" in blob:
+        # Only meaningful alongside the absence of a real stamp; checked after.
+        pass
+    match = BUILD_TIME_PATTERN.search(blob)
+    return match.group(0).decode() if match else None
+
+
+def build_time_gate(gate: Gate, core_blob: bytes, release_class: str):
+    """Verifies what is actually stamped in the binary, not merely what the
+    build *would* produce.
+
+    Recording the input and stopping there would have missed the whole class of
+    failure this milestone is about: a binary built before the deterministic
+    contract, or by a `make` that fell back to `dev`, looks fine from the
+    outside.
+    """
+    expected = gate.facts.get("buildTimeExpected")
+    observed = embedded_build_time(core_blob)
+    gate.facts["buildTimeObserved"] = observed or "unreadable"
+
+    if observed is None:
+        # No parseable timestamp at all: either `dev` or something unreadable.
+        is_dev = b"dev" in core_blob
+        detail = "BuildTime=dev (non-deterministic developer build)" if is_dev \
+            else "no readable BuildTime"
+        if release_class == "production":
+            gate.check("artifact.build_time", False,
+                       expected="a deterministic BuildTime", observed=detail)
+        else:
+            gate.facts["releasable"] = False
+            gate.record("artifact.build_time", SKIP, f"{detail} — NON-RELEASABLE (test class)")
+        return
+
+    if expected is None:
+        if release_class == "production":
+            gate.check("artifact.build_time", False,
+                       expected="a resolvable expected BuildTime",
+                       observed=f"embedded {observed}, expected unknown")
+        else:
+            gate.record("artifact.build_time", SKIP,
+                        f"embedded {observed}; expected value unavailable")
+        return
+
+    if observed == expected:
+        gate.check("artifact.build_time", True, observed=observed)
+        return
+
+    # A mismatch means the artifact was not built from this tree's build inputs.
+    # For a test-class artifact predating the contract that is information, not
+    # a defect; for a production artifact it is disqualifying.
+    if release_class == "production":
+        gate.check("artifact.build_time", False,
+                   expected=expected, observed=observed)
+    else:
+        gate.facts["releasable"] = False
+        gate.record("artifact.build_time", SKIP,
+                    f"embedded {observed} != expected {expected} — "
+                    "LEGACY artifact, predates this tree's build inputs (NON-RELEASABLE)")
+
+
+# --------------------------------------------------------------------------
 # Source-level gates
 # --------------------------------------------------------------------------
 
@@ -192,7 +281,40 @@ def tracked_version(gate: Gate):
     return name, code
 
 
-def source_gates(gate: Gate, run_tests: bool):
+def worktree_gate(gate: Gate, release_class: str):
+    """A release must be reproducible from a committed state.
+
+    Verifying an artifact built from uncommitted edits proves nothing about
+    anything anyone else can obtain, and the build timestamp itself is derived
+    from committed history — so a dirty tree can produce bytes whose inputs no
+    longer exist. Git's own porcelain status decides what counts as dirty, so
+    ignored caches and generated files stay ignored without a second rule here.
+    """
+    rc, out = run(["git", "status", "--porcelain"])
+    if rc != 0:
+        gate.record("repo.clean_worktree", SKIP, "not a git checkout")
+        return
+    dirty = [line for line in out.splitlines() if line.strip()]
+    if not dirty:
+        gate.check("repo.clean_worktree", True, observed="clean")
+        return
+
+    summary = ", ".join(line[3:] for line in dirty[:5])
+    if len(dirty) > 5:
+        summary += f", +{len(dirty) - 5} more"
+    if release_class == "production":
+        gate.check("repo.clean_worktree", False,
+                   expected="a clean worktree", observed=f"{len(dirty)} change(s): {summary}")
+    else:
+        # A local test build from a dirty tree is a normal thing to do; it just
+        # can never be a release.
+        gate.facts["releasable"] = False
+        gate.record("repo.clean_worktree", SKIP,
+                    f"{len(dirty)} uncommitted change(s) — NON-RELEASABLE (test class)")
+
+
+def source_gates(gate: Gate, run_tests: bool, release_class: str = "test"):
+    worktree_gate(gate, release_class)
     _, code = tracked_version(gate)
 
     baseline_file = REPO / "android/release-baseline.properties"
@@ -227,10 +349,10 @@ def source_gates(gate: Gate, run_tests: bool):
         rc1, out1 = run([str(resolver)], env={"SOURCE_DATE_EPOCH": "1700000000"})
         rc2, out2 = run([str(resolver)], env={"SOURCE_DATE_EPOCH": "1700000000"})
         stable = rc1 == 0 and rc2 == 0 and out1.strip() == out2.strip()
-        gate.facts["buildTimeInput"] = "SOURCE_DATE_EPOCH or HEAD commit timestamp"
         gate.check("build.reproducible_timestamp", stable,
                    expected="same epoch resolves identically",
                    observed=out1.strip() or "resolver failed")
+        record_expected_build_time(gate)
     else:
         gate.check("build.reproducible_timestamp", False,
                    expected="core/resolve-build-time.sh", observed="missing")
@@ -411,6 +533,15 @@ def artifact_gates(gate: Gate, apk: Path, release_class: str):
         gate.check("artifact.core_matches_staged", not mismatched,
                    expected="packaged Core byte-identical to staged Core",
                    observed=", ".join(mismatched) or "identical")
+
+        if core_entry in names:
+            if "buildTimeExpected" not in gate.facts:
+                record_expected_build_time(gate)
+            build_time_gate(gate, archive.read(core_entry), release_class)
+        else:
+            gate.check("artifact.build_time", False,
+                       expected="a packaged Core to read BuildTime from",
+                       observed="missing")
 
         # Managed Runtime payload and the Python stdlib survival check are
         # already enforced by the Gradle packaging verifiers; re-assert presence
@@ -602,7 +733,8 @@ def main() -> int:
     gate.facts["pendingFinalHardening"] = PENDING_FINAL_HARDENING
 
     if args.verify_source or args.full:
-        source_gates(gate, run_tests=not args.no_tests)
+        source_gates(gate, run_tests=not args.no_tests,
+                     release_class=args.release_class)
     apk = args.full or args.verify_artifact
     if apk:
         if "versionCode" not in gate.facts:

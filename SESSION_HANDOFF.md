@@ -21,6 +21,22 @@ physical candidate is actually wanted.
 second derivation appears — in the Makefile, in a script, in CI — the two will
 disagree and reproducibility quietly stops meaning anything.
 
+**The default epoch is scoped to canonical build inputs, not HEAD.** `core/src`,
+`core/build-android-arm64.sh`, `core/resolve-build-time.sh`. Dating from HEAD
+was the original defect: a documentation or staging commit redated the build, so
+identical source produced different bytes on the next unrelated commit. The set
+is deliberately broader than the source fingerprint (it includes `core/src/web`,
+which builds the launcher binary the same command stamps) and deliberately
+excludes the staged binaries, docs, the baseline and the Flutter app.
+Over-inclusion is safe; under-inclusion is a blind spot. There are temp-git
+tests for invariance and for advancement — change the set and they will tell
+you.
+
+**The gate verifies the BuildTime embedded in the binary, not just the input.**
+Recording the input alone would pass a binary built before the contract, or one
+where `make` fell back to `dev`. `--release-class production` can never skip
+that check.
+
 **It fails rather than falling back to the wall clock.** That is the entire
 point. A silent `date` fallback is invisible precisely when it matters.
 
