@@ -217,7 +217,11 @@ function isConfigured(
 function getHiddenFieldKeys(channelName: string): string[] {
   switch (channelName) {
     case "pico":
-      return ["allow_from"]
+      // allow_token_query is hidden, not removed: the realtime credential is
+      // host-managed on PocketClaw and the runtime refuses query-string
+      // authentication for it anyway, so the toggle could only ever mislead.
+      // Other deployments that genuinely need it still have the config field.
+      return ["allow_from", "allow_token_query"]
     default:
       return []
   }

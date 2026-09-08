@@ -108,7 +108,9 @@ func TestRun_StartupFailuresReturnErrorAndEmitStructuredLog(t *testing.T) {
 				t.Fatalf("helper output missing expected error substring %q:\n%s", tt.wantErr, out)
 			}
 
-			logData, readErr := os.ReadFile(filepath.Join(homeDir, logPath, logFile))
+			// The log directory is resolved rather than assumed: a host can
+			// point it somewhere private, which is exactly what Android does.
+			logData, readErr := os.ReadFile(filepath.Join(config.ResolveLogDir(homeDir), logFile))
 			if readErr != nil {
 				t.Fatalf("ReadFile(gateway.log) error = %v", readErr)
 			}

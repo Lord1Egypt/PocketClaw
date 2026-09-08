@@ -205,8 +205,15 @@ not to Telegram".
   bypass the guard as a side effect of another task — either the test file's
   reference is legitimate and the guard needs narrowing, or the reference should
   go, and that is its own decision.
-- [ ] **Release hardening / security review: on Android the gateway bearer token
-  lives on shared storage.** `pid.WritePidFile` writes `.picoclaw.pid` — which
+- [x] **Release hardening / security review: on Android the gateway bearer token
+  lives on shared storage.** Fixed in A2 on `feature/release-hardening-a2`,
+  2026-09-08: `PICOCLAW_GATEWAY_TOKEN_FILE` moves the credential to app-private
+  no-backup storage and the shared record is written token-free. Core still
+  generates it per gateway start, so rotation is unchanged, and non-Android
+  deployments are untouched.
+  **IMPLEMENTED — AWAITING PHYSICAL VALIDATION.**
+  The original diagnosis, kept because it explains what the fix had to preserve:
+  `pid.WritePidFile` wrote `.picoclaw.pid` — which
   carries the gateway's `token` — into `PICOCLAW_HOME`, and on Android
   `PicoClawService.getWorkspacePath` resolves that to
   `Download/pocketclaw` on shared external storage whenever
@@ -219,7 +226,8 @@ not to Telegram".
   reload the gateway — but the storage location itself should be reviewed
   before release. Recorded, not fixed: do not redesign token storage as a side
   effect of another task, and do not weaken detailed-status authentication to
-  work around it.
+  work around it. A2 did neither: `/reload` and detailed `/health` still share
+  one credential and still fail closed; only where it is stored changed.
 
 ## Android Hardware Tool Cleanup — CLOSED 2026-09-06
 
@@ -1075,6 +1083,18 @@ supplied by the user.
   `com.google.android.finsky.permission.BIND_GET_INSTALL_REFERRER_SERVICE` in
   `AndroidManifest.xml`. It was removed because PocketClaw does no install-source
   attribution, not because it conflicts with anything.
+- [x] **Release Hardening A2: the gateway credential and the diagnostic log
+  leave shared storage, secret redaction covers provider credentials, and
+  realtime authentication is constant-time.** Done on
+  `feature/release-hardening-a2`, 2026-09-08.
+  **IMPLEMENTED — AWAITING PHYSICAL VALIDATION.** Requires a Core rebuild before
+  the next physical APK; expected fingerprint `807c9fbf…`.
+- [ ] **RECHECK AFTER THE NAMESPACE MIGRATION: every A2 contract is keyed on a
+  compatibility name.** `.picoclaw.pid`, `PICOCLAW_GATEWAY_TOKEN_FILE`,
+  `PICOCLAW_LOG_DIR`, `PICOCLAW_CHANNELS_PICO_TOKEN`, the `picoclaw` private
+  directory the backup rules exclude, and the `pico` channel name. Renaming one
+  side alone puts the credential, the logs or the backup exclusion back where
+  they were without breaking anything visible.
 - [ ] FINAL RELEASE HARDENING: controlled Dart generated-source URI strategy.
 - [ ] Future milestone only: Background & Battery page.
 - [ ] Future milestone only: local Runtime / Statistics bottom tab.

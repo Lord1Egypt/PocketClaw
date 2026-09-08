@@ -189,15 +189,60 @@ func SetLevelFromString(s string) {
 	}
 }
 
+// Log rotation bounds.
+//
+// The log had no rotation at all and was pure append, so a long-lived install
+// accumulated an unbounded file — one observed at 18 MB, still carrying lines a
+// much older build had written. These numbers are deliberately small: this is a
+// phone, the value of a gateway log is almost entirely in its recent tail, and
+// anything older is a liability rather than an asset.
+const (
+	// maxLogFileBytes is the size at which the active log is rotated.
+	maxLogFileBytes = 2 << 20 // 2 MiB
+
+	// maxLogRotations is how many previous files are kept beside it, as
+	// gateway.log.1 … gateway.log.N. Older ones are deleted, bounding the whole
+	// directory at (maxLogRotations + 1) * maxLogFileBytes.
+	maxLogRotations = 2
+)
+
+// rotateLogFileIfLarge renames the log aside when it has grown past the bound
+// and deletes the oldest generation.
+//
+// Called on open rather than on every write: a gateway restart is frequent
+// enough on a phone to keep the file bounded, and checking the size on each
+// line would put a stat in the path of every log statement.
+func rotateLogFileIfLarge(filePath string) {
+	info, err := os.Stat(filePath)
+	if err != nil || info.Size() < maxLogFileBytes {
+		return
+	}
+
+	// Drop the oldest, then shift each generation down one.
+	os.Remove(fmt.Sprintf("%s.%d", filePath, maxLogRotations))
+	for i := maxLogRotations - 1; i >= 1; i-- {
+		os.Rename(fmt.Sprintf("%s.%d", filePath, i), fmt.Sprintf("%s.%d", filePath, i+1))
+	}
+	if err := os.Rename(filePath, filePath+".1"); err != nil {
+		// Rotation failing must not stop logging. Truncating instead keeps the
+		// bound, which is the property that matters.
+		os.Truncate(filePath, 0)
+	}
+}
+
 func EnableFileLogging(filePath string) error {
 	mu.Lock()
 	defer mu.Unlock()
 
-	if err := os.MkdirAll(filepath.Dir(filePath), 0o755); err != nil {
+	// 0o700: on a private log directory nothing else has any business reading
+	// these, and on a shared one the mode is advisory anyway.
+	if err := os.MkdirAll(filepath.Dir(filePath), 0o700); err != nil {
 		return fmt.Errorf("failed to create log directory: %w", err)
 	}
 
-	newFile, err := os.OpenFile(filePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
+	rotateLogFileIfLarge(filePath)
+
+	newFile, err := os.OpenFile(filePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600)
 	if err != nil {
 		return fmt.Errorf("failed to open log file: %w", err)
 	}

@@ -172,6 +172,7 @@
   "whatsNew020Improvement4": "Ikon aplikasi baru dan layar Tentang yang disegarkan, mengikuti desain Aperture PocketClaw.",
   "whatsNew020Improvement5": "Balasan asisten terasa lebih alami, tanpa tanda tangan tetap di akhir.",
   "whatsNew020Improvement6": "PocketClaw tidak lagi meminta izin Telepon — tidak ada bagian aplikasi yang memakainya.",
+  "whatsNew020Improvement7": "Log diagnostik kini disimpan secara privat di dalam aplikasi, bukan di folder Unduhan. Ruang kerja Anda tetap di tempatnya.",
   "whatsNew020Fix1": "Gateway kini pulih dari catatan proses usang yang ditinggalkan oleh proses sebelumnya.",
   "whatsNew020Fix2": "Daftar saluran dengan lebih dari satu entri kini tersimpan dengan benar.",
   "settingsGroupConnection": "Koneksi",

@@ -1,5 +1,36 @@
 # PocketClaw Decisions
 
+## The workspace is the user's; the runtime's control state is not
+
+- Date: 2026-09-08
+- Decision: `Download/pocketclaw/workspace` stays user-visible on shared storage,
+  and the gateway bearer credential and the diagnostic log move out of that
+  directory into app-private no-backup storage. Core writes the credential to
+  `PICOCLAW_GATEWAY_TOKEN_FILE` when a host names one and omits it from the
+  shared `.picoclaw.pid` record; `PICOCLAW_LOG_DIR` relocates `gateway.log` and
+  the panic log, which are now rotated at 2 MiB with two retained generations.
+  Legacy shared logs are deleted once, by exact filename.
+- Reason: the two things were in one directory because they started in one
+  directory, not because they belong together. A user browsing their workspace
+  is a product feature; an app with storage access reading the credential that
+  authenticates `/reload` and detailed `/health` is not, and Android does not
+  isolate loopback sockets between apps, so that credential was one file read
+  away from being used. The log is the same shape of problem with a longer tail:
+  it never rotated, and older builds wrote full LLM requests and system-prompt
+  previews into it, so an upgraded install can still be carrying prompt text in
+  a public place.
+- Consequence: Core keeps generating the token per gateway start, so rotation is
+  unchanged and a desktop or server install — where PICOCLAW_HOME is already
+  private — behaves exactly as before. The credential never enters Dart, a URL
+  or a log. Cleanup of the old logs is narrow by construction: three exact
+  filenames, no pattern, no recursion, and the directory removed only when
+  nothing else is in it, because everything else under that path is the user's.
+- **RECHECK AFTER THE NAMESPACE MIGRATION.** All of this is keyed on names the
+  migration will change — `.picoclaw.pid`, the `PICOCLAW_*` variables, the
+  `picoclaw` private directory the backup rules already exclude, and the `pico`
+  channel. Renaming one side alone puts the credential or the logs back on
+  shared storage without failing anything visible.
+
 ## A release states its signer, its version and its dependencies, or it fails
 
 - Date: 2026-09-08

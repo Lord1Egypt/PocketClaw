@@ -8,6 +8,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/sipeed/picoclaw/pkg"
 )
@@ -41,7 +42,50 @@ const (
 	// EnvGatewayHost overrides the host address for the gateway server.
 	// Default: "localhost"
 	EnvGatewayHost = "PICOCLAW_GATEWAY_HOST"
+
+	// EnvGatewayTokenFile moves the gateway's bearer credential out of the
+	// PID record and into a file of its own.
+	//
+	// The PID record is a discovery artifact and lives in PICOCLAW_HOME, which
+	// on Android is a user-visible directory on shared external storage where
+	// POSIX modes are not honoured. A credential must not be in it. When this
+	// is set the token is written here instead — with the record left
+	// token-free — and the host reads it from a location only the app can
+	// reach. Unset, the token stays in the record exactly as before, which is
+	// the correct behaviour on a desktop or server where PICOCLAW_HOME is
+	// already private.
+	// Default: unset.
+	EnvGatewayTokenFile = "PICOCLAW_GATEWAY_TOKEN_FILE"
+
+	// EnvChannelsPicoToken supplies the realtime channel credential from the
+	// host rather than from config. Its presence also means the credential is
+	// host-managed, which is what lets the channel refuse query-string
+	// authentication for it.
+	EnvChannelsPicoToken = "PICOCLAW_CHANNELS_PICO_TOKEN"
+
+	// EnvLogDir overrides the directory holding gateway.log and the panic log.
+	//
+	// Both default to a "logs" directory under PICOCLAW_HOME. On Android that
+	// is shared external storage, readable by any app holding storage access,
+	// and the file has never rotated — so a long-lived install accumulates an
+	// unbounded diagnostic record in a public place. Pointing this at
+	// app-private storage keeps the workspace user-visible, as intended, while
+	// the logs are not.
+	// Default: $PICOCLAW_HOME/logs
+	EnvLogDir = "PICOCLAW_LOG_DIR"
 )
+
+// ResolveLogDir returns the directory for gateway.log and the panic log.
+//
+// homePath is the caller's PICOCLAW_HOME. EnvLogDir wins when set, so a host
+// that has somewhere better to put logs than the user's workspace can say so
+// without every caller re-deriving the rule.
+func ResolveLogDir(homePath string) string {
+	if dir := strings.TrimSpace(os.Getenv(EnvLogDir)); dir != "" {
+		return dir
+	}
+	return filepath.Join(homePath, "logs")
+}
 
 // ResolveConfigPath returns the JSON config file this process reads, applying
 // the same precedence the CLI uses: EnvConfig when set, otherwise

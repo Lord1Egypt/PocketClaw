@@ -172,6 +172,7 @@
   "whatsNew020Improvement4": "PocketClaw의 Aperture 디자인을 적용한 새 앱 아이콘과 정보 화면.",
   "whatsNew020Improvement5": "어시스턴트 답변이 더 자연스러워졌고, 끝에 고정된 서명이 붙지 않습니다.",
   "whatsNew020Improvement6": "이제 전화 권한을 요청하지 않습니다. 앱의 어떤 기능도 사용하지 않았습니다.",
+  "whatsNew020Improvement7": "진단 로그를 다운로드 폴더가 아닌 앱 내부에 비공개로 저장합니다. 작업 공간의 위치는 그대로입니다.",
   "whatsNew020Fix1": "이전 실행이 남긴 오래된 프로세스 기록에서 게이트웨이가 복구됩니다.",
   "whatsNew020Fix2": "항목이 두 개 이상인 채널 목록이 저장 시 올바르게 유지됩니다.",
   "settingsGroupConnection": "연결",

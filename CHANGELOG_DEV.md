@@ -1,5 +1,64 @@
 # Development Changelog
 
+## 2026-09-08 — Two things were in the same directory for no reason
+
+Release Hardening A2. The workspace, the gateway credential and the diagnostic
+log all lived under `Download/pocketclaw` because they all started there, not
+because they belong together. One of those three is a product feature; the other
+two were a credential and a prompt archive sitting where any app with storage
+access could read them.
+
+The credential is the sharper problem. It authenticates `POST /reload` and
+detailed `/health`, and it is well made — CSPRNG, rotated every gateway start,
+never logged, never in a URL, compared constant-time. The defect was purely
+placement: it was a field inside `.picoclaw.pid`, and that file is on shared
+external storage where the 0600 it is written with is synthesised by the
+filesystem rather than enforced. Android does not isolate loopback sockets
+between apps either, so reading that file was one step from using it.
+
+Splitting it was mostly a question of who owns the secret. Core keeps generating
+it, which is what preserves per-start rotation and leaves desktop and server
+installs untouched; it writes to `PICOCLAW_GATEWAY_TOKEN_FILE` when a host names
+one, and the record is then serialised from a copy with the token cleared. The
+`omitempty` on that field is the entire mechanism, which is worth saying out
+loud because deleting one struct tag would silently undo the milestone. The
+Android host names a path under `noBackupFilesDir` — the same boundary the
+realtime credential already used — and `HealthChecker` reads a bare token from
+it rather than parsing JSON, so there is no adjacent field to pick up by
+accident.
+
+The logs turned out easier than expected, and the reason is worth recording:
+nothing reads the file. The in-app Logs screen reads a 200-line in-memory buffer
+fed from the child process's stdout, and no Dart or Kotlin code opens
+`gateway.log` at all. So moving it was a one-line resolver plus an environment
+variable, with no UI consequence. What it did need was rotation, because there
+was none — pure append, which is how a real install ended up with an 18 MB file
+still holding lines an August build had written, including full LLM requests and
+system-prompt previews from before the logger was cleaned up.
+
+That history is why the cleanup exists, and why it is as narrow as it is: three
+exact filenames, no pattern matching, no recursion, and the directory removed
+only if those were all it contained. Everything else under that path is the
+user's, and the rule from the lobster investigation still stands — application
+output can be deleted, user content cannot.
+
+Redaction got three rules rather than one. The temptation is a single "redact
+anything long and random" pattern, which would eat session keys, source
+fingerprints, model names and file paths; there is now a test asserting exactly
+those survive, alongside one asserting a dozen fabricated credential shapes do
+not.
+
+The realtime channel's `==` became `subtle.ConstantTimeCompare`, matching what
+the health server has always done, and query-string authentication is now
+refused outright when the credential came from the host. The Dashboard toggle is
+hidden too, but the runtime check is the real fix: hiding a control leaves a
+config file able to re-enable it.
+
+Everything here is keyed on a compatibility name the coming migration will
+rename. That is written down in three places, because a rename on one side only
+puts the credential and the logs back where they were without breaking anything
+anybody would notice.
+
 ## 2026-09-08 — vc56 proved the version came from the file we said it did
 
 Release Hardening A1 merged to `develop` with `--no-ff`, physically accepted as

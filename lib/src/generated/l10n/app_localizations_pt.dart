@@ -509,6 +509,10 @@ class AppLocalizationsPt extends AppLocalizations {
       'O PocketClaw não pede mais a permissão de Telefone — nada no app a usava.';
 
   @override
+  String get whatsNew020Improvement7 =>
+      'Os registros de diagnóstico agora ficam guardados de forma privada dentro do app, não na pasta de downloads. Seu espaço de trabalho continua onde estava.';
+
+  @override
   String get whatsNew020Fix1 =>
       'O gateway agora se recupera de um registro de processo obsoleto deixado por uma execução anterior.';
 

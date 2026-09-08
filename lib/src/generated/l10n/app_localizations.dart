@@ -988,6 +988,12 @@ abstract class AppLocalizations {
   /// **'PocketClaw no longer asks for the Phone permission — nothing in the app used it.'**
   String get whatsNew020Improvement6;
 
+  /// No description provided for @whatsNew020Improvement7.
+  ///
+  /// In en, this message translates to:
+  /// **'Diagnostic logs are now kept privately inside the app instead of in your Downloads folder. Your workspace stays where it was.'**
+  String get whatsNew020Improvement7;
+
   /// No description provided for @whatsNew020Fix1.
   ///
   /// In en, this message translates to:

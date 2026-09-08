@@ -2,6 +2,7 @@ package pico
 
 import (
 	"context"
+	"crypto/subtle"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -1037,7 +1038,7 @@ func (c *PicoChannel) authenticate(r *http.Request) bool {
 	// Check Authorization header
 	auth := r.Header.Get("Authorization")
 	if after, ok := strings.CutPrefix(auth, "Bearer "); ok {
-		if after == token {
+		if credentialsMatch(after, token) {
 			return true
 		}
 	}
@@ -1047,9 +1048,10 @@ func (c *PicoChannel) authenticate(r *http.Request) bool {
 		return true
 	}
 
-	// Check query parameter only when explicitly allowed
-	if c.config.AllowTokenQuery {
-		if r.URL.Query().Get("token") == token {
+	// Check query parameter only when explicitly allowed, and never for a
+	// host-managed credential.
+	if c.tokenQueryAllowed() {
+		if credentialsMatch(r.URL.Query().Get("token"), token) {
 			return true
 		}
 	}
@@ -1057,12 +1059,45 @@ func (c *PicoChannel) authenticate(r *http.Request) bool {
 	return false
 }
 
+// tokenQueryAllowed reports whether the credential may be presented in a query
+// string.
+//
+// The setting stays supported for deployments that need it — a browser or an
+// embedded client that cannot set a header is a real case. It is refused
+// outright when the token was supplied through the environment, which is how
+// the Android host injects a credential it generated and owns: putting that
+// into a URL would spread it into request logs, referrers and history for no
+// benefit, and nothing on that platform needs it there.
+//
+// Enforced here rather than by hiding the toggle, so a stale config file or a
+// hand-edited one cannot re-enable it either.
+func (c *PicoChannel) tokenQueryAllowed() bool {
+	if !c.config.AllowTokenQuery {
+		return false
+	}
+	return strings.TrimSpace(os.Getenv(config.EnvChannelsPicoToken)) == ""
+}
+
+// credentialsMatch compares a presented credential against the configured one
+// without leaking its length or contents through timing.
+//
+// The health server has always used subtle.ConstantTimeCompare for the gateway
+// bearer; this path used == and was the odd one out. The length check is
+// deliberate and safe: ConstantTimeCompare returns 0 for unequal lengths
+// anyway, and the token length is not the secret.
+func credentialsMatch(presented, expected string) bool {
+	if presented == "" || expected == "" {
+		return false
+	}
+	return subtle.ConstantTimeCompare([]byte(presented), []byte(expected)) == 1
+}
+
 // matchedSubprotocol returns the "token.<value>" subprotocol that matches
 // the configured token, or "" if none do.
 func (c *PicoChannel) matchedSubprotocol(r *http.Request) string {
 	token := c.config.Token.String()
 	for _, proto := range websocket.Subprotocols(r) {
-		if after, ok := strings.CutPrefix(proto, "token."); ok && after == token {
+		if after, ok := strings.CutPrefix(proto, "token."); ok && credentialsMatch(after, token) {
 			return proto
 		}
 	}

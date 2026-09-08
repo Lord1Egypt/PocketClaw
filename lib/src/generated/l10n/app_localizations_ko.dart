@@ -484,6 +484,10 @@ class AppLocalizationsKo extends AppLocalizations {
       '이제 전화 권한을 요청하지 않습니다. 앱의 어떤 기능도 사용하지 않았습니다.';
 
   @override
+  String get whatsNew020Improvement7 =>
+      '진단 로그를 다운로드 폴더가 아닌 앱 내부에 비공개로 저장합니다. 작업 공간의 위치는 그대로입니다.';
+
+  @override
   String get whatsNew020Fix1 => '이전 실행이 남긴 오래된 프로세스 기록에서 게이트웨이가 복구됩니다.';
 
   @override

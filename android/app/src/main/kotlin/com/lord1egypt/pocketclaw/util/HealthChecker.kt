@@ -15,15 +15,20 @@ import java.net.URL
  * changed.
  *
  * The Status screen's richer payload is requested with `?detail=1` and carries
- * the gateway's own bearer credential, read from the PID file the gateway
- * writes at startup. That credential is deliberately confined to this class —
- * it is never returned across the method channel, put in a URL, logged, or
- * persisted anywhere the Dart side can reach.
+ * the gateway's own bearer credential, which the gateway writes at startup to a
+ * private file this host names for it. That credential is deliberately confined
+ * to this class — it is never returned across the method channel, put in a URL,
+ * logged, or persisted anywhere the Dart side can reach.
+ *
+ * It used to be read out of `.picoclaw.pid` in the user-visible workspace on
+ * shared storage. That is why the provider below is a token *file* path rather
+ * than a workspace path: the credential and the workspace are now different
+ * places on purpose, and nothing here should be able to conflate them again.
  */
 class HealthChecker(
     private val host: String = "127.0.0.1",
     private val port: Int = 18790,
-    private val workspacePathProvider: () -> String? = { null },
+    private val gatewayTokenFileProvider: () -> String? = { null },
 ) {
     data class HealthStatus(
         val isHealthy: Boolean,
@@ -102,33 +107,35 @@ class HealthChecker(
     }
 
     /**
-     * Reads the gateway's bearer token from the PID file it writes at startup.
+     * Reads the gateway's bearer token from the private file it writes at
+     * startup.
      *
      * This is the credential that already guards /reload — detail mode reuses
      * it rather than introducing a second one. Returns null when the gateway
      * is not running or the file is unreadable, which closes detail mode
      * instead of opening it.
+     *
+     * The file holds the token and nothing else, so there is no JSON to parse
+     * and no adjacent field to leak by accident.
      */
     private fun gatewayToken(): String? {
         return try {
-            val workspace = workspacePathProvider() ?: return null
-            val pidFile = File(workspace, PID_FILE_NAME)
-            if (!pidFile.isFile) return null
-            JSONObject(pidFile.readText(Charsets.UTF_8))
-                .optString("token", "")
-                .takeIf { it.isNotBlank() }
+            val path = gatewayTokenFileProvider() ?: return null
+            val tokenFile = File(path)
+            if (!tokenFile.isFile) return null
+            tokenFile.readText(Charsets.UTF_8).trim().takeIf { it.isNotBlank() }
         } catch (_: Exception) {
             null
         }
     }
 
     companion object {
-        private const val PID_FILE_NAME = ".picoclaw.pid"
-
-        /** Builds a checker bound to this installation's workspace. */
+        /** Builds a checker bound to this installation's private credential. */
         fun forHost(context: android.content.Context): HealthChecker =
             HealthChecker(
-                workspacePathProvider = { PicoClawService.getWorkspacePath(context) },
+                gatewayTokenFileProvider = {
+                    PicoClawService.gatewayTokenFilePath(context)
+                },
             )
     }
 }

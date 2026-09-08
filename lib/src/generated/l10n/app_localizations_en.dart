@@ -497,6 +497,10 @@ class AppLocalizationsEn extends AppLocalizations {
       'PocketClaw no longer asks for the Phone permission — nothing in the app used it.';
 
   @override
+  String get whatsNew020Improvement7 =>
+      'Diagnostic logs are now kept privately inside the app instead of in your Downloads folder. Your workspace stays where it was.';
+
+  @override
   String get whatsNew020Fix1 =>
       'The Gateway now recovers from a stale process record left behind by an earlier run.';
 

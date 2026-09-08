@@ -1,5 +1,85 @@
 # PocketClaw Project State
 
+## Production Release Hardening A2 — IMPLEMENTED — AWAITING PHYSICAL VALIDATION
+
+- Status: **implemented on `feature/release-hardening-a2`, 2026-09-08. Not
+  merged, not physically validated.** No APK was built, nothing was installed,
+  and no device was touched. `develop`, `main`, tags and releases are untouched.
+- Branch from `develop` at `e62f083`.
+- Version unchanged: `pubspec.yaml` `0.2.0+56`, `lastAcceptedVersionCode=56`.
+  The physical candidate will be vc57 in a separate build step.
+- Four areas: the gateway credential, log placement, secret redaction, and
+  realtime authentication.
+
+### The invariant this milestone establishes
+
+**User data stays where the user can reach it. Runtime control state does not.**
+`Download/pocketclaw/workspace` is deliberately user-visible and is unchanged.
+What moved out of that directory is the gateway bearer credential and the
+diagnostic log — neither of which is user content, and both of which were
+readable by any app holding storage access.
+
+### Gateway credential
+
+Core still generates it per gateway start, so rotation is unchanged. When
+`PICOCLAW_GATEWAY_TOKEN_FILE` is set the token is written to that path alone and
+the shared `.picoclaw.pid` record is written **without** a token field; the
+record keeps its discovery fields. Unset — desktop and server, where
+PICOCLAW_HOME is already private — behaviour is exactly as before.
+
+The Android host names that path under `noBackupFilesDir`, the same boundary the
+realtime credential already used, and `HealthChecker` reads the credential from
+there instead of parsing the pid record. The file holds the bare token and
+nothing else, is 0600, and is removed when the gateway shuts down. A new start
+never adopts a token left behind in an old shared record.
+
+### Logs
+
+`PICOCLAW_LOG_DIR` overrides the historical `PICOCLAW_HOME/logs` for both the
+gateway and the launcher backend; the Android host points it at private
+no-backup storage. Rotation was added where there was none: 2 MiB per file, two
+retained generations, oldest deleted — bounded at roughly 6 MiB, against an
+18 MiB file observed on a real install. Files are created 0600 in a 0700
+directory.
+
+The in-app Logs screen is unaffected: it reads an in-memory 200-line buffer fed
+from the child process's stdout, never the file. Nothing in Dart or Kotlin ever
+read `gateway.log`.
+
+Legacy shared logs are deleted once, after the runtime is up and writing to the
+private directory. Only three exact filenames are matched —
+`gateway.log`, `gateway_panic.log`, `launcher_panic.log` — nothing by pattern,
+nothing recursive, and the containing directory is removed only if those were
+all it held. Best effort, idempotent, and never fatal to service start. This is
+application output, not user content: older builds wrote full LLM requests and
+system-prompt previews into it.
+
+### Redaction and realtime authentication
+
+Central redaction gained three narrow rules — api-key headers, credential query
+parameters, and unambiguous vendor prefixes — with a guard test proving ordinary
+diagnostic text, session keys and fingerprints survive untouched. The realtime
+channel now compares credentials with `subtle.ConstantTimeCompare`, matching the
+health server, and refuses query-string authentication outright whenever the
+credential was supplied by the host; the Dashboard toggle is hidden for that
+channel, and the config field remains for deployments that genuinely need it.
+
+### RECHECK AFTER FULL NAMESPACE MIGRATION
+
+Every one of these is keyed on a compatibility name that migration will change:
+`.picoclaw.pid`, `PICOCLAW_GATEWAY_TOKEN_FILE`, `PICOCLAW_LOG_DIR`,
+`PICOCLAW_CHANNELS_PICO_TOKEN`, the `picoclaw` private directory name already
+guarded for backup, and the `pico` channel name. A rename on one side only would
+silently undo the separation without failing anything else.
+
+### Core is intentionally stale
+
+`core/src` changed, so the staged Core no longer matches.
+`TestStagedCoreWasBuiltFromTheCurrentSource` fails by design, expecting
+fingerprint `807c9fbf641d9e1ebe642e19315f5cf125ad865c791b22adb15d09d2690bc45a`.
+**The next physical APK requires a Core rebuild** via
+`./core/build-android-arm64.sh`; nothing was rebuilt or re-staged here.
+
 ## Production Release Hardening A1 — PHYSICALLY ACCEPTED AND CLOSED
 
 - Status: **PASS on a physical Android device (SM-A165F / Android 16), 2026-09-08

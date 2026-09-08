@@ -1,5 +1,68 @@
 # PocketClaw Session Handoff
 
+## Release Hardening A2 — IMPLEMENTED, not merged, 2026-09-08
+
+Branch `feature/release-hardening-a2`, off `develop` at `e62f083`. **Not merged,
+no APK built, nothing installed, no device touched.** Version unchanged at
+`0.2.0+56`, baseline still 56.
+
+### Read this before building anything
+
+**The staged Core is stale on purpose.** This branch changed `core/src`, so
+`TestStagedCoreWasBuiltFromTheCurrentSource` fails by design, expecting
+`807c9fbf…`. Run `./core/build-android-arm64.sh` before the next physical APK,
+or the device will run a Core that still writes the credential into shared
+storage and the whole milestone will look like it did nothing.
+
+### The one sentence to keep
+
+**User data stays where the user can reach it; runtime control state does not.**
+`Download/pocketclaw/workspace` is deliberately user-visible and did not move.
+The gateway credential and the diagnostic log did, because neither is user
+content and both were readable by any app with storage access.
+
+### The things worth not undoing
+
+**Core still generates the gateway token.** It writes it to
+`PICOCLAW_GATEWAY_TOKEN_FILE` when the host sets one, and to the pid record when
+it does not. That split is what keeps per-start rotation, keeps Core working on
+a desktop unchanged, and keeps the secret out of Dart. Do not move generation to
+the host to "simplify" it.
+
+**The pid record's `token` field is `omitempty` for a reason.** That is the
+mechanism that lets the shared record be written without a credential. Removing
+the tag, or writing the field unconditionally, silently reverses the milestone.
+
+**The Logs screen never read the log file.** It reads an in-memory 200-line
+buffer fed from the child's stdout. That is why moving the file was safe, and
+why "fixing" the Logs screen to read the private file would be a step backwards.
+
+**Legacy log cleanup matches three exact filenames.** Not a pattern, not an
+extension, not a recursive walk, and the directory is removed only if those were
+all it held. It runs after the runtime is up. Widening it to anything that
+resolves under `Download/pocketclaw` risks user content, which is the one thing
+this cleanup must never touch.
+
+**Redaction rules are narrow on purpose.** A rule like "redact any long token"
+would eat session keys, fingerprints, model names and paths, and there is a test
+asserting exactly those survive. Add shapes, not breadth.
+
+**Query-string auth is refused for a host-supplied credential, in the runtime.**
+Hiding the Dashboard toggle alone would leave a config file able to re-enable
+it. Compatibility is deliberately kept for deployments that set no host token.
+
+### RECHECK AFTER THE NAMESPACE MIGRATION
+
+Every contract here is keyed on a compatibility name: `.picoclaw.pid`,
+`PICOCLAW_GATEWAY_TOKEN_FILE`, `PICOCLAW_LOG_DIR`,
+`PICOCLAW_CHANNELS_PICO_TOKEN`, the `picoclaw` private directory the backup
+rules exclude, and the `pico` channel name. Rename one side only and the
+credential, the logs or the backup exclusion quietly go back to where they were.
+
+### Next
+
+Rebuild Core, build vc57, and validate on a device.
+
 ## Release Hardening A1 — PHYSICAL PASS and merged, 2026-09-08
 
 Branch `feature/release-hardening-a1`, off `develop` at `941f45a`. **Physically

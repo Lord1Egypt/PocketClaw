@@ -40,7 +40,6 @@ import (
 const (
 	appName = "PocketClaw"
 
-	logPath   = "logs"
 	panicFile = "launcher_panic.log"
 	logFile   = "launcher.log"
 )
@@ -455,7 +454,7 @@ func main() {
 	// Initialize logger
 	picoHome := utils.GetPicoclawHome()
 
-	f := filepath.Join(picoHome, logPath, panicFile)
+	f := filepath.Join(config.ResolveLogDir(picoHome), panicFile)
 	panicFunc, err := logger.InitPanic(f)
 	if err != nil {
 		panic(fmt.Sprintf("error initializing panic log: %v", err))
@@ -470,7 +469,7 @@ func main() {
 			logger.DisableConsole()
 		}
 
-		f := filepath.Join(picoHome, logPath, logFile)
+		f := filepath.Join(config.ResolveLogDir(picoHome), logFile)
 		if err = logger.EnableFileLogging(f); err != nil {
 			panic(fmt.Sprintf("error enabling file logging: %v", err))
 		}

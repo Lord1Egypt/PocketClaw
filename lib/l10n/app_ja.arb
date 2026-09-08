@@ -172,6 +172,7 @@
   "whatsNew020Improvement4": "PocketClaw の Aperture デザインに合わせた新しいアプリアイコンと「情報」画面。",
   "whatsNew020Improvement5": "アシスタントの返信がより自然になり、末尾の固定の署名がなくなりました。",
   "whatsNew020Improvement6": "電話の権限を要求しなくなりました。アプリのどの機能も使用していませんでした。",
+  "whatsNew020Improvement7": "診断ログをダウンロードフォルダーではなくアプリ内に非公開で保存するようになりました。ワークスペースの場所は変わりません。",
   "whatsNew020Fix1": "以前の実行が残した古いプロセス記録からゲートウェイが復帰するようになりました。",
   "whatsNew020Fix2": "複数の項目を持つチャンネル一覧が保存時に正しく保持されるようになりました。",
   "settingsGroupConnection": "接続",
