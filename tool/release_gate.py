@@ -444,8 +444,11 @@ def source_gates(gate: Gate, run_tests: bool, release_class: str = "test"):
         if not path.is_file():
             stamped.append(f"{lib}: missing")
             continue
+        # Go encodes build settings as "build\t<key>=<value>", so the tab is
+        # what separates "build" from "vcs.revision" — anchoring on a literal
+        # "build.vcs." matches nothing and the check passes on a stamped binary.
         rc, out = run(["sh", "-c",
-                       f"strings -a '{path}' | grep -c -E '^build\\.vcs\\.' || true"])
+                       f"strings -a '{path}' | grep -c -E 'build.vcs\\.(revision|time|modified)' || true"])
         if out.strip() not in ("0", ""):
             stamped.append(f"{lib}: {out.strip()}")
     gate.check("core.no_vcs_stamp", not stamped,
