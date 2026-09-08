@@ -172,6 +172,7 @@
   "whatsNew020Improvement4": "Ein neues App-Symbol und ein überarbeiteter Info-Bildschirm im Aperture-Design von PocketClaw.",
   "whatsNew020Improvement5": "Antworten des Assistenten wirken natürlicher, ohne feste Signatur am Ende.",
   "whatsNew020Improvement6": "PocketClaw fordert die Telefonberechtigung nicht mehr an — sie wurde nie genutzt.",
+  "whatsNew020Improvement7": "Diagnoseprotokolle liegen jetzt privat in der App statt im Downloads-Ordner. Ihr Arbeitsbereich bleibt, wo er war.",
   "whatsNew020Fix1": "Das Gateway erholt sich jetzt von einem veralteten Prozesseintrag eines früheren Laufs.",
   "whatsNew020Fix2": "Kanallisten mit mehreren Einträgen bleiben beim Speichern korrekt erhalten.",
   "settingsGroupConnection": "Verbindung",

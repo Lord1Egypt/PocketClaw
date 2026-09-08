@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -20,12 +21,62 @@ const pidFileName = ".picoclaw.pid"
 var errInvalidPidFile = errors.New("invalid pid file")
 
 // PidFileData is the JSON structure stored in the PID file.
+//
+// Everything here except Token is discovery metadata: which process, which
+// build, where to reach it. Token is a credential, and `omitempty` is what lets
+// the record be written without one — see writeTokenSink.
 type PidFileData struct {
 	PID     int    `json:"pid"`
-	Token   string `json:"token"`
+	Token   string `json:"token,omitempty"`
 	Version string `json:"version"`
 	Port    int    `json:"port"`
 	Host    string `json:"host"`
+}
+
+// writeTokenSink writes the bearer credential to the path named by
+// EnvGatewayTokenFile and reports whether it took ownership of it.
+//
+// The PID record lives in PICOCLAW_HOME. On Android that is a user-visible
+// directory on shared external storage, where the 0600 the record is written
+// with is synthesised by the filesystem rather than enforced — so any app with
+// storage access can read whatever is in it. The credential therefore goes to a
+// separate file the host places somewhere only the app can reach.
+//
+// Returns false when no sink is configured, which is the desktop and server
+// case: PICOCLAW_HOME is already private there and the token stays in the
+// record, exactly as before.
+func writeTokenSink(token string) bool {
+	path := strings.TrimSpace(os.Getenv(config.EnvGatewayTokenFile))
+	if path == "" {
+		return false
+	}
+
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		logger.Warnf("gateway token sink directory unavailable: %v", err)
+		return false
+	}
+	// Written and renamed rather than truncated in place, so a reader never
+	// sees a half-written credential.
+	tmp := path + ".tmp"
+	if err := os.WriteFile(tmp, []byte(token), 0o600); err != nil {
+		logger.Warnf("failed to write gateway token file: %v", err)
+		return false
+	}
+	if err := os.Rename(tmp, path); err != nil {
+		os.Remove(tmp)
+		logger.Warnf("failed to install gateway token file: %v", err)
+		return false
+	}
+	return true
+}
+
+// removeTokenSink deletes the private credential file, if one is configured.
+func removeTokenSink() {
+	path := strings.TrimSpace(os.Getenv(config.EnvGatewayTokenFile))
+	if path == "" {
+		return
+	}
+	os.Remove(path)
 }
 
 var pidMu sync.Mutex
@@ -89,7 +140,16 @@ func WritePidFile(homePath, host string, port int) (*PidFileData, error) {
 	token := generateToken()
 	data.Token = token
 
-	raw, err := json.MarshalIndent(data, "", "  ")
+	// The caller needs the token in memory to configure the health server. The
+	// record on disk is a different question: when a private sink is
+	// configured the credential goes there and is cleared from the copy that
+	// gets serialised, so nothing under PICOCLAW_HOME ever carries it.
+	record := *data
+	if writeTokenSink(token) {
+		record.Token = ""
+	}
+
+	raw, err := json.MarshalIndent(record, "", "  ")
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal pid file: %w", err)
 	}
@@ -169,6 +229,7 @@ func RemovePidFile(homePath string) {
 
 	logger.Infof("remove pid file: %s", pidPath)
 	os.Remove(pidPath)
+	removeTokenSink()
 }
 
 // RemovePidFileIfPID deletes the PID file only when the recorded PID matches

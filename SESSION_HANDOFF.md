@@ -1,5 +1,114 @@
 # PocketClaw Session Handoff
 
+## Release Hardening A2 — PHYSICAL PASS and merged, 2026-09-08
+
+Branch `feature/release-hardening-a2`, off `develop` at `e62f083`. **Physically
+accepted on SM-A165F / Android 16 as vc58, then merged to `develop` with
+`--no-ff`.** `main` untouched, no tags moved, no release. The branch is
+retained.
+
+    APK a039dde854c1199f54f118a5e2f40827eecb7fc2b4a066f6d2d9db6448250e95
+    Core fingerprint 3a9ae19c12041ff104f1344081dc3e645553791e2e84d6e603ee503ec035f06d
+
+**vc57 was superseded, not accepted.** It proved the gateway credential, the log
+move and the legacy log cleanup, but the Dashboard verifier move landed after
+it. The baseline therefore advanced 56 → 58 directly, and no acceptance record
+exists for 57. A candidate that is never accepted never becomes the floor.
+
+The acceptance that mattered most was the Dashboard login: the user's existing
+password still worked after the verifier moved from shared to private storage,
+which is the only end-to-end proof that the migration preserved it.
+
+### The one sentence to keep
+
+**User data stays where the user can reach it; runtime control state does not.**
+`Download/pocketclaw/workspace` is deliberately user-visible and did not move.
+The gateway credential and the diagnostic log did, because neither is user
+content and both were readable by any app with storage access.
+
+### The things worth not undoing
+
+**Core still generates the gateway token.** It writes it to
+`PICOCLAW_GATEWAY_TOKEN_FILE` when the host sets one, and to the pid record when
+it does not. That split is what keeps per-start rotation, keeps Core working on
+a desktop unchanged, and keeps the secret out of Dart. Do not move generation to
+the host to "simplify" it.
+
+**The pid record's `token` field is `omitempty` for a reason.** That is the
+mechanism that lets the shared record be written without a credential. Removing
+the tag, or writing the field unconditionally, silently reverses the milestone.
+
+**The Logs screen never read the log file.** It reads an in-memory 200-line
+buffer fed from the child's stdout. That is why moving the file was safe, and
+why "fixing" the Logs screen to read the private file would be a step backwards.
+
+**Legacy log cleanup matches three exact filenames.** Not a pattern, not an
+extension, not a recursive walk, and the directory is removed only if those were
+all it held. It runs after the runtime is up. Widening it to anything that
+resolves under `Download/pocketclaw` risks user content, which is the one thing
+this cleanup must never touch.
+
+**Redaction rules are narrow on purpose.** A vendor prefix alone is not
+evidence — `sk-` is a substring of `disk-cache` and `risk-score`, so the
+patterns require a word boundary *and* a credential-shaped body, and the bare
+`sk-` form forbids hyphens so English cannot reach the length floor. There are
+negative tests for exactly those strings. Add shapes, not breadth.
+
+**Log rotation is a counting writer, not a check on open.** The size is tracked
+as bytes are written so the bound holds inside one long-lived gateway process;
+rotating only at startup is the bug this replaced, and it is what produced the
+18 MB file. Do not "simplify" it back to a stat on open.
+
+**Query-string auth is refused for a host-supplied credential, in the runtime.**
+Hiding the Dashboard toggle alone would leave a config file able to re-enable
+it. The toggle is hidden too, but only when the credential is host-managed, and
+by the backend omitting the field rather than the frontend blanking it for
+everyone — a self-managed deployment keeps the capability and the control.
+
+**The Dashboard credential database moved too, and migration is the delicate
+part.** `launcher-auth.db` is now under `noBackupFilesDir/auth/`. The one-time
+migration must keep working: it refuses to overwrite an existing private
+database, copies rather than renames (shared storage and app-private storage are
+different filesystems, so `os.Rename` would fail with a cross-device error),
+validates the destination through the real store, and only then deletes the
+legacy file. **Every failure path keeps the legacy database**, because it is the
+only thing that can verify the user's password — silently resetting it would
+lock someone out of their own Dashboard.
+
+**When `PICOCLAW_DASHBOARD_AUTH_DIR` is set, there is no fallback.** A failed
+migration or an unusable private store fails launcher startup. That is
+deliberate: reopening the shared database after a failure would hand authority
+straight back to the attacker-writable file the override exists to escape. Do
+not "improve" this into a graceful degradation. Without the override, desktop
+and server keep the old `picoHome` behaviour exactly.
+
+**A validated private database retires the shared one.** Existing private state
+is validated, not trusted for existing; once it opens, the superseded shared
+copy is deleted best-effort so no rollback artifact remains. A cleanup failure is
+harmless — authority already sits with the private store. A private database that
+fails to validate promotes nothing: the legacy file is kept for recovery and
+startup fails closed.
+
+**The file copy is safe only because the store uses the rollback journal, not
+WAL.** That was measured from the database header, not assumed, and
+`TestStoreUsesRollbackJournalAndLeavesNoSidecars` fails if the mode ever changes.
+If someone enables WAL, the migration must switch to SQLite backup semantics
+first — copying the main file alone would drop committed data sitting in a
+`-wal` sidecar.
+
+### RECHECK AFTER THE NAMESPACE MIGRATION
+
+Every contract here is keyed on a compatibility name: `.picoclaw.pid`,
+`PICOCLAW_GATEWAY_TOKEN_FILE`, `PICOCLAW_LOG_DIR`,
+`PICOCLAW_DASHBOARD_AUTH_DIR`, the legacy `launcher-auth.db` filename,
+`PICOCLAW_CHANNELS_PICO_TOKEN`, the `picoclaw` private directory the backup
+rules exclude, and the `pico` channel name. Rename one side only and the
+credential, the logs or the backup exclusion quietly go back to where they were.
+
+### Next
+
+The next production hardening milestone. Nothing in A2 is outstanding.
+
 ## Release Hardening A1 — PHYSICAL PASS and merged, 2026-09-08
 
 Branch `feature/release-hardening-a1`, off `develop` at `941f45a`. **Physically

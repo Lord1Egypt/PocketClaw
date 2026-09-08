@@ -36,6 +36,49 @@ class PicoClawService : Service() {
             "(?<!\\d)v?(\\d+\\.\\d+\\.\\d+(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?)(?!\\d)"
         )
         private const val REALTIME_AUTH_FILE = "realtime_auth"
+
+        /**
+         * Where Core writes the gateway bearer credential.
+         *
+         * It used to live inside `.picoclaw.pid` in PICOCLAW_HOME, which on
+         * this platform is `Download/pocketclaw` — user-visible shared storage,
+         * where the 0600 Core writes with is synthesised by the filesystem
+         * rather than enforced. Any app holding storage access could read it,
+         * and Android does not isolate loopback sockets between apps, so that
+         * credential was one file read away from authenticating to the gateway.
+         *
+         * no-backup app-private storage is the same boundary the realtime
+         * credential already uses. The PID record keeps its discovery fields
+         * and is written without a token.
+         */
+        private const val GATEWAY_AUTH_FILE = "gateway_auth"
+
+        /** Private directory for gateway.log and the panic log. */
+        private const val PRIVATE_LOG_DIR = "logs"
+
+        /**
+         * Private directory for the Dashboard credential database.
+         *
+         * launcher-auth.db holds a bcrypt verifier — no plaintext, no session
+         * token — so reading it buys an attacker little. Writing it is the
+         * problem: under PICOCLAW_HOME it sits on shared external storage,
+         * where an app with storage write access can replace the verifier with
+         * one for a password it chose and then log in normally over loopback,
+         * which Android does not isolate between apps. That is an
+         * authentication bypass that never has to break bcrypt at all.
+         */
+        private const val PRIVATE_AUTH_DIR = "auth"
+
+        /**
+         * Legacy log files this app wrote to shared storage before the logs
+         * moved. Matched by exact name: only files PocketClaw is known to have
+         * produced are removed, and nothing is matched by pattern or extension.
+         */
+        private val LEGACY_SHARED_LOG_FILES = listOf(
+            "gateway.log",
+            "gateway_panic.log",
+            "launcher_panic.log",
+        )
         private val realtimeAuthLock = Any()
 
         const val ACTION_START = "com.lord1egypt.pocketclaw.action.START"
@@ -186,6 +229,79 @@ class PicoClawService : Service() {
             return resolveBinaryFile(context, GATEWAY_BINARY_NAME)
         }
 
+        /**
+         * Private path Core writes the gateway bearer credential to.
+         *
+         * The directory, not the file, is created here: Core writes the file
+         * itself on every gateway start, which is what keeps the credential
+         * rotating with the process that uses it.
+         */
+        /**
+         * Absolute path of the private gateway credential, for the one caller
+         * that legitimately needs to read it.
+         *
+         * Exposing the path rather than the token keeps this class the only
+         * thing that decides where the credential lives, and keeps the value
+         * itself out of every signature.
+         */
+        fun gatewayTokenFilePath(context: Context): String =
+            gatewayTokenFile(context).absolutePath
+
+        private fun gatewayTokenFile(context: Context): File {
+            val dir = context.applicationContext.noBackupFilesDir
+            dir.mkdirs()
+            return File(dir, GATEWAY_AUTH_FILE)
+        }
+
+        /** Private directory for gateway logs. */
+        private fun privateLogDir(context: Context): File {
+            val dir = File(context.applicationContext.noBackupFilesDir, PRIVATE_LOG_DIR)
+            dir.mkdirs()
+            return dir
+        }
+
+        /** Private directory for the Dashboard credential database. */
+        private fun privateAuthDir(context: Context): File {
+            val dir = File(context.applicationContext.noBackupFilesDir, PRIVATE_AUTH_DIR)
+            dir.mkdirs()
+            return dir
+        }
+
+        /**
+         * Deletes the log files this app previously wrote to shared storage.
+         *
+         * Those files are application output, not user content, and older
+         * builds wrote full LLM requests and system-prompt previews into them —
+         * so an upgraded install can be carrying prompt text in a directory any
+         * app with storage access can read. Nothing else under
+         * `Download/pocketclaw` is touched: not the workspace, not memory, not
+         * a file whose origin cannot be established.
+         *
+         * Best effort and idempotent. It runs after the private log directory
+         * has been prepared, and a failure here must never stop the service
+         * starting.
+         */
+        private fun removeLegacySharedLogs(context: Context) {
+            try {
+                val legacyDir = File(getWorkspacePath(context), "logs")
+                if (!legacyDir.isDirectory) return
+                LEGACY_SHARED_LOG_FILES.forEach { name ->
+                    val file = File(legacyDir, name)
+                    if (file.isFile) {
+                        val removed = file.delete()
+                        Log.i(TAG, "legacy shared log ${'$'}name removed=${'$'}removed")
+                    }
+                }
+                // Only if our own files were all that was in it. A directory
+                // holding anything else is left exactly as it is.
+                if (legacyDir.list()?.isEmpty() == true) {
+                    legacyDir.delete()
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "legacy shared log cleanup skipped: ${'$'}{e.message}")
+            }
+        }
+
         fun buildEnvironment(context: Context): Map<String, String> {
             val internalHome = File(context.filesDir, "picoclaw")
             internalHome.mkdirs()
@@ -214,6 +330,13 @@ class PicoClawService : Service() {
             val environment = mutableMapOf(
                 "HOME" to context.filesDir.absolutePath,
                 "PICOCLAW_HOME" to workspace.absolutePath,
+                // The workspace stays where the user can reach it. The
+                // credentials and the diagnostic log do not: all three move to
+                // app-private no-backup storage, which is the boundary that
+                // separates user data from runtime control state.
+                "PICOCLAW_GATEWAY_TOKEN_FILE" to gatewayTokenFile(context).absolutePath,
+                "PICOCLAW_LOG_DIR" to privateLogDir(context).absolutePath,
+                "PICOCLAW_DASHBOARD_AUTH_DIR" to privateAuthDir(context).absolutePath,
                 "PICOCLAW_CONFIG" to configPath,
                 "PICOCLAW_BINARY" to gatewayBinaryPath,
                 "POCKETCLAW_RUNTIME_LIB_DIR" to runtimeLibDir,
@@ -627,6 +750,11 @@ class PicoClawService : Service() {
             process = proc
             isRunning = true
         }
+
+        // The runtime is up and its environment already points at the private
+        // log directory, so anything it writes from here lands there. Only now
+        // is it safe to remove what the old shared location still holds.
+        removeLegacySharedLogs(this)
 
         processId = try {
             val pidField = proc.javaClass.getDeclaredField("pid")

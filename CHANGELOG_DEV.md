@@ -1,5 +1,214 @@
 # Development Changelog
 
+## 2026-09-08 — The password still worked, which is the only proof that counts
+
+Release Hardening A2 merged to `develop` with `--no-ff`, physically accepted as
+vc58. Five areas: the gateway credential, log placement and rotation, provider
+secret redaction, realtime authentication, and — added late, after the rest had
+already passed on a device — the Dashboard credential verifier.
+
+That late addition is why vc57 exists and is not the accepted baseline. It
+proved the first four on hardware and was superseded before acceptance, so the
+floor moved 56 → 58 and skipped it entirely. A candidate that is never accepted
+never becomes the floor; inventing an acceptance record for 57 to make the
+numbers contiguous would have made the baseline mean less, not more.
+
+Most of the machine-side validation is negative evidence, which is the awkward
+kind to report: a shared record with four keys and no fifth, a directory that is
+absent, a log file that was not recreated after the gateway had been running for
+a minute. The satisfying number is the shared home going from six entries to
+three — the workspace, the model catalog, and a discovery record carrying
+nothing but pid, version, port and host.
+
+The one genuinely positive proof was the Dashboard login. Everything else about
+the verifier migration can be checked without knowing whether it worked: the old
+database is gone, the new one is somewhere I deliberately never looked. Whether
+the *credential* survived the move is only answerable by someone typing their
+existing password, and it worked. A migration that had silently reset it would
+have passed every other check in this milestone.
+
+Worth recording what the fail-closed design bought here, because it is invisible
+when it works: with `PICOCLAW_DASHBOARD_AUTH_DIR` set, a failed migration or an
+unusable private store kills launcher startup. So the backend running at all was
+already evidence that the private store had been established and validated
+before anyone touched the UI. The alternative design — falling back to the
+shared file — would have started cleanly and looked identical while leaving the
+attacker-writable database in authority.
+
+## 2026-09-08 — A fallback that re-arms the vector is not a fallback
+
+Two corrections to the Dashboard auth move, both about what happens when things
+go wrong rather than when they go right.
+
+The first was mine and it was straightforwardly wrong. On migration failure I
+logged the error and fell back to opening the store under `picoHome` — which is
+the shared, attacker-writable location the entire change exists to escape. A
+fallback that restores the vulnerable state is not a safety net; it is the
+vulnerability with an apology attached. When `PICOCLAW_DASHBOARD_AUTH_DIR` is
+set it is a boundary, not a preference, so failure now fails startup, naming the
+directory and the reason, with the legacy database left untouched for recovery
+and the password never reset. Without the override, desktop and server keep the
+old behaviour exactly — that path was never the problem.
+
+The second is subtler. Private precedence was right: an existing private
+database is never overwritten from shared state. But "never overwritten" left the
+shared file sitting there indefinitely, which is a rollback artifact waiting for
+someone to restore it. Now a private database that validates through the real
+store contract also retires the shared copy, best-effort, by exact filename. And
+it has to *validate* rather than merely exist — trusting a filename would let a
+corrupt or planted private file trigger deletion of the only working verifier.
+When validation fails, nothing is promoted, nothing is deleted, the corrupt file
+is left as evidence, and startup fails closed.
+
+The result is a six-case matrix, and the tests are named for the cases rather
+than for the functions, because the thing worth checking is the decision each
+outcome forces: no override, clean migration, failed migration, private-wins,
+corrupt-private, and cleanup-failure. Two of those six are the ones that would
+quietly restore shared authority if anyone rewrote this later.
+
+## 2026-09-08 — The dangerous verb was write, not read
+
+vc57 passed everything — machine checks, Status, Logs. The shared home was down
+to four entries, and one of them was `launcher-auth.db`. It had been there the
+whole time and was never in A2's scope, so the honest thing was to audit it from
+source before deciding whether it belonged.
+
+The reading is reassuring. One SQLite table, one row, one column: a bcrypt
+verifier at cost 12. No plaintext, no session token, no signing key. Dashboard
+sessions are 32 random bytes in a `map[string]time.Time` that dies with the
+process, so there is nothing in that file to replay and nothing to forge a
+session with. An attacker who reads it gets an offline guessing problem against
+bcrypt, and that is all.
+
+Then you ask what *writing* it buys, and the answer is different. Shared storage
+grants write, not just read. Replace the stored verifier with a bcrypt hash of a
+password you chose, log in over loopback — which Android does not isolate
+between apps — and you have a real Dashboard session. Nothing has to break
+bcrypt. That is a full authentication bypass, and it is strictly worse than the
+gateway-token vector A2 had just fixed two directories over.
+
+So it moves, and the fix is the shape A2 already established: an env override,
+private no-backup storage on Android, unchanged behaviour everywhere else. What
+took the thought was the migration, because the file being moved is the only
+thing that can verify the user's password. Get it wrong and you lock someone out
+of their own Dashboard.
+
+Three things shaped the design. `os.Rename` cannot be used: `/sdcard` and
+app-private storage are different filesystems and the call would fail with a
+cross-device error, so it has to be copy, fsync, rename-within-destination.
+Private state has to win unconditionally — if a legacy shared copy could
+overwrite an existing private database, the rollback to attacker-controlled
+state would be one file copy away. And every failure path has to keep the legacy
+file, because a half-migrated credential store that deleted its source is the
+one outcome worse than not migrating at all.
+
+The last question was whether copying the main database file is even sound. That
+depends on the journal mode, and guessing was not acceptable, so it got measured:
+the store sets no pragmas, SQLite's default is the rollback journal rather than
+WAL, and the header's write/read format versions come back as 1. A closed
+database is self-contained in one file. The migration still opens the legacy
+store first so SQLite can settle a journal a crashed writer might have left, and
+a test now reads those header bytes — if anyone enables WAL later, it fails and
+says that a main-file copy has become lossy.
+
+## 2026-09-08 — A bound that only applies at startup is not a bound
+
+Three corrections to A2, all from review, and the first was the one that
+mattered.
+
+Rotation was checked when the log file was opened. That reads fine until you
+remember what the gateway is: a process that runs for days. It would have
+appended past 2 MiB for as long as it stayed up and rotated only on the next
+restart — which is not a bound, and is precisely the mechanism that produced the
+18 MB file this work exists to prevent. The fix is a counting writer: the file
+tracks its own size, seeded from what it inherited, and rotates when a write
+crosses the threshold. No stat in the path of a log line, a mutex so two
+goroutines cannot rotate at once and leave one writing to a renamed descriptor,
+and the crossing record completing in the old file so a line is never split
+across two. Every failure path is silent and non-fatal, because this code sits
+underneath the logger and cannot report a problem by logging one. The tests now
+write three thresholds' worth through a single open writer and never close it,
+which is what the old test should have done.
+
+The second was a scope error I made and the review caught. Android must not use
+query-string auth for a credential the host owns — but I hid the toggle in the
+frontend, which removed the capability from every deployment, including
+self-managed ones where a browser client genuinely cannot set a header. The
+frontend cannot know whether a credential is host-managed; the backend can. So
+the backend now omits `allow_token_query` from the realtime channel's config
+response when the token arrives through the environment, and the form already
+renders that control only for a field the response carries. Nothing was added to
+detect platforms. There is a test for each side, because getting one right and
+the other wrong is the actual risk.
+
+The third was about how much a prefix proves. `sk-` is a substring of
+`disk-cache`, `risk-score` and `task-key`, and a redactor that fires on the
+prefix alone would eat all three. The word boundary already handled those, but
+a long hyphenated identifier could still reach the length floor by accumulating
+English, so the bare `sk-` form now forbids hyphens in its body — a real key of
+that family is a dense alphanumeric run — and the prefixed variants that
+legitimately contain hyphens are enumerated instead. The negative tests are the
+point of this one.
+
+## 2026-09-08 — Two things were in the same directory for no reason
+
+Release Hardening A2. The workspace, the gateway credential and the diagnostic
+log all lived under `Download/pocketclaw` because they all started there, not
+because they belong together. One of those three is a product feature; the other
+two were a credential and a prompt archive sitting where any app with storage
+access could read them.
+
+The credential is the sharper problem. It authenticates `POST /reload` and
+detailed `/health`, and it is well made — CSPRNG, rotated every gateway start,
+never logged, never in a URL, compared constant-time. The defect was purely
+placement: it was a field inside `.picoclaw.pid`, and that file is on shared
+external storage where the 0600 it is written with is synthesised by the
+filesystem rather than enforced. Android does not isolate loopback sockets
+between apps either, so reading that file was one step from using it.
+
+Splitting it was mostly a question of who owns the secret. Core keeps generating
+it, which is what preserves per-start rotation and leaves desktop and server
+installs untouched; it writes to `PICOCLAW_GATEWAY_TOKEN_FILE` when a host names
+one, and the record is then serialised from a copy with the token cleared. The
+`omitempty` on that field is the entire mechanism, which is worth saying out
+loud because deleting one struct tag would silently undo the milestone. The
+Android host names a path under `noBackupFilesDir` — the same boundary the
+realtime credential already used — and `HealthChecker` reads a bare token from
+it rather than parsing JSON, so there is no adjacent field to pick up by
+accident.
+
+The logs turned out easier than expected, and the reason is worth recording:
+nothing reads the file. The in-app Logs screen reads a 200-line in-memory buffer
+fed from the child process's stdout, and no Dart or Kotlin code opens
+`gateway.log` at all. So moving it was a one-line resolver plus an environment
+variable, with no UI consequence. What it did need was rotation, because there
+was none — pure append, which is how a real install ended up with an 18 MB file
+still holding lines an August build had written, including full LLM requests and
+system-prompt previews from before the logger was cleaned up.
+
+That history is why the cleanup exists, and why it is as narrow as it is: three
+exact filenames, no pattern matching, no recursion, and the directory removed
+only if those were all it contained. Everything else under that path is the
+user's, and the rule from the lobster investigation still stands — application
+output can be deleted, user content cannot.
+
+Redaction got three rules rather than one. The temptation is a single "redact
+anything long and random" pattern, which would eat session keys, source
+fingerprints, model names and file paths; there is now a test asserting exactly
+those survive, alongside one asserting a dozen fabricated credential shapes do
+not.
+
+The realtime channel's `==` became `subtle.ConstantTimeCompare`, matching what
+the health server has always done, and query-string authentication is now
+refused outright when the credential came from the host. The Dashboard toggle is
+hidden too, but the runtime check is the real fix: hiding a control leaves a
+config file able to re-enable it.
+
+Everything here is keyed on a compatibility name the coming migration will
+rename. That is written down in three places, because a rename on one side only
+puts the credential and the logs back where they were without breaking anything
+anybody would notice.
+
 ## 2026-09-08 — vc56 proved the version came from the file we said it did
 
 Release Hardening A1 merged to `develop` with `--no-ff`, physically accepted as

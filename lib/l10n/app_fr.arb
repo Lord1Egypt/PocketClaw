@@ -172,6 +172,7 @@
   "whatsNew020Improvement4": "Une nouvelle icône d'application et un écran À propos redessiné, dans le design Aperture de PocketClaw.",
   "whatsNew020Improvement5": "Les réponses de l'assistant paraissent plus naturelles, sans signature fixe à la fin.",
   "whatsNew020Improvement6": "PocketClaw ne demande plus l'autorisation Téléphone : rien dans l'application ne s'en servait.",
+  "whatsNew020Improvement7": "Les journaux de diagnostic sont désormais conservés en privé dans l'application plutôt que dans le dossier Téléchargements. Votre espace de travail ne bouge pas.",
   "whatsNew020Fix1": "La passerelle se rétablit désormais après un enregistrement de processus obsolète laissé par une exécution précédente.",
   "whatsNew020Fix2": "Les listes de canaux comportant plusieurs entrées sont correctement conservées lors de l'enregistrement.",
   "settingsGroupConnection": "Connexion",

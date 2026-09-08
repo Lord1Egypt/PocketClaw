@@ -511,6 +511,10 @@ class AppLocalizationsFr extends AppLocalizations {
       'PocketClaw ne demande plus l\'autorisation Téléphone : rien dans l\'application ne s\'en servait.';
 
   @override
+  String get whatsNew020Improvement7 =>
+      'Les journaux de diagnostic sont désormais conservés en privé dans l\'application plutôt que dans le dossier Téléchargements. Votre espace de travail ne bouge pas.';
+
+  @override
   String get whatsNew020Fix1 =>
       'La passerelle se rétablit désormais après un enregistrement de processus obsolète laissé par une exécution précédente.';
 

@@ -494,6 +494,10 @@ class AppLocalizationsAr extends AppLocalizations {
       'لم يعد PocketClaw يطلب إذن الهاتف — لم يكن أي جزء من التطبيق يستخدمه.';
 
   @override
+  String get whatsNew020Improvement7 =>
+      'أصبحت سجلات التشخيص تُحفظ داخل التطبيق بشكل خاص بدلاً من مجلد التنزيلات. مساحة عملك تبقى في مكانها.';
+
+  @override
   String get whatsNew020Fix1 =>
       'أصبحت البوابة تتعافى من سجل عملية قديم خلّفه تشغيل سابق.';
 

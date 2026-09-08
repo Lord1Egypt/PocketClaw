@@ -482,6 +482,10 @@ class AppLocalizationsJa extends AppLocalizations {
       '電話の権限を要求しなくなりました。アプリのどの機能も使用していませんでした。';
 
   @override
+  String get whatsNew020Improvement7 =>
+      '診断ログをダウンロードフォルダーではなくアプリ内に非公開で保存するようになりました。ワークスペースの場所は変わりません。';
+
+  @override
   String get whatsNew020Fix1 => '以前の実行が残した古いプロセス記録からゲートウェイが復帰するようになりました。';
 
   @override

@@ -17,6 +17,46 @@ var (
 	telegramBotURLTokenPattern = regexp.MustCompile(`(?i)\bbot\d{6,}(?::|%3A)[A-Za-z0-9_-]{10,}`)
 	telegramBareTokenPattern   = regexp.MustCompile(`(?i)\b\d{6,}(?::|%3A)[A-Za-z0-9_-]{10,}\b`)
 	authorizationPattern       = regexp.MustCompile(`(?i)(authorization[=:][ \t]*)(?:\[?(?:bearer|basic)[ \t]+)[A-Za-z0-9._~+/%:=-]+\]?`)
+
+	// Provider credentials reach a log the same way a Telegram token does:
+	// inside a string some upstream library built. An SDK error that echoes the
+	// request, a 401 body quoting the offending header, a URL with the key in
+	// the query — none of those go through a field this logger controls.
+	//
+	// Three narrow shapes, not one broad one. A rule like "redact any long
+	// token" would eat request IDs, model names, hashes and file paths, and a
+	// log that has destroyed its own diagnostic value is not a safer log.
+
+	// api-key: value / x-api-key = value, in a header or a struct dump.
+	apiKeyHeaderPattern = regexp.MustCompile(
+		`(?i)((?:x-)?api[-_]?key["']?\s*[=:]\s*["']?)[A-Za-z0-9._~+/-]{8,}`)
+
+	// ?key=… / &api_key=… / &access_token=… in a URL or form body.
+	apiKeyQueryPattern = regexp.MustCompile(
+		`(?i)([?&](?:api[-_]?key|access[-_]?token|key)=)[A-Za-z0-9._~+/-]{8,}`)
+
+	// Vendor prefixes, each requiring a credential-shaped body rather than just
+	// the prefix.
+	//
+	// A prefix alone is not evidence. "sk-" in particular is a substring of
+	// ordinary words, so the leading \b keeps disk-cache, risk-score, task-key
+	// and whisk-broom out, and the length floors keep short identifiers like
+	// sk-test out. The bare sk- form additionally forbids hyphens and
+	// underscores in the body, so a long hyphenated identifier such as
+	// "sk-test-configuration-value" cannot reach the threshold by accumulating
+	// English words — a real key of that family is a dense alphanumeric run.
+	// The prefixed forms that legitimately contain hyphens are enumerated
+	// instead of being allowed for everything.
+	vendorTokenPattern = regexp.MustCompile(
+		`(?i)\b(?:` +
+			`sk-ant-[A-Za-z0-9_-]{16,}` + `|` +
+			`sk-proj-[A-Za-z0-9_-]{16,}` + `|` +
+			`sk-[A-Za-z0-9]{20,}` + `|` +
+			`AIza[A-Za-z0-9_-]{20,}` + `|` +
+			`gh[pousr]_[A-Za-z0-9]{20,}` + `|` +
+			`xox[bapsr]-[A-Za-z0-9-]{10,}` + `|` +
+			`xapp-[A-Za-z0-9-]{10,}` +
+			`)`)
 	telegramAPICallPattern     = regexp.MustCompile(`(?i)^API call to: "https?://[^"\s]*/bot<redacted>/(?:test/)?([A-Za-z][A-Za-z0-9_]*)"`)
 	telegramSafeAPICallPattern = regexp.MustCompile(`(?i)^Telegram API call: ([A-Za-z][A-Za-z0-9_]*)(?:, with data:.*)?$`)
 	telegramAPIOperation       = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9_]*$`)
@@ -28,6 +68,9 @@ var (
 // but no credential fragment reaches stdout or a downstream log store.
 func redactSecrets(s string) string {
 	s = authorizationPattern.ReplaceAllString(s, "${1}<redacted>")
+	s = apiKeyHeaderPattern.ReplaceAllString(s, "${1}<redacted>")
+	s = apiKeyQueryPattern.ReplaceAllString(s, "${1}<redacted>")
+	s = vendorTokenPattern.ReplaceAllString(s, "<redacted>")
 	s = telegramBotURLTokenPattern.ReplaceAllString(s, "bot<redacted>")
 	return telegramBareTokenPattern.ReplaceAllString(s, "<redacted>")
 }

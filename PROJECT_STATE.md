@@ -1,5 +1,205 @@
 # PocketClaw Project State
 
+## Production Release Hardening A2 — PHYSICALLY ACCEPTED AND CLOSED
+
+- Status: **PASS on a physical Android device (SM-A165F / Android 16), 2026-09-08
+  as vc58. Merged to `develop` with `--no-ff`.** `main` untouched, no tags moved,
+  no release created.
+- Branch `feature/release-hardening-a2`, from `develop` at `e62f083`. Retained,
+  not deleted.
+- Five areas: the gateway credential, log placement and rotation, secret
+  redaction, realtime authentication, and the Dashboard credential verifier.
+
+### Physical acceptance evidence
+
+    versionName 0.2.0, versionCode 58, arm64
+    APK  a039dde854c1199f54f118a5e2f40827eecb7fc2b4a066f6d2d9db6448250e95
+    source fingerprint 3a9ae19c12041ff104f1344081dc3e645553791e2e84d6e603ee503ec035f06d
+    libpicoclaw.so     e42677a25caf2498c74dcd3cbfac4d0b4b700177706977b4b9042d23d8771164
+    libpicoclaw-web.so b500427ec6cf6927671ab87fa83e8fea75e83bdc6247568670ee17f3ccc51779
+
+Installed with `adb install -r` — no uninstall, no clear-data — preserving
+install time, dataDir, uid and application data.
+
+| Observed | Result |
+| --- | --- |
+| Shared `.picoclaw.pid` carries only pid, version, port, host | PASS |
+| No credential key or credential-shaped value in the shared record | PASS |
+| Gateway credential reached the private no-backup contract | PASS |
+| No production Gateway log under `Download/pocketclaw/logs` | PASS |
+| The three legacy shared logs removed, directory removed | PASS |
+| No new shared `gateway.log` recreated while running | PASS |
+| Shared `launcher-auth.db` and all exact sidecars retired | PASS |
+| The existing Dashboard password still authenticates | PASS |
+| Detailed Status metrics populate | PASS |
+| Runtime logs still visible in the app after the file moved | PASS |
+| Workspace present and user-accessible, contents untouched | PASS |
+
+The Dashboard login is the load-bearing one: it is the end-to-end proof that the
+verifier survived the move from shared to private storage. A migration that had
+silently reset or lost it would have failed exactly there.
+
+**vc57 was superseded, not accepted.** It proved the gateway credential, log
+placement and legacy log cleanup, but the Dashboard verifier move landed after
+it, so the baseline advances directly 56 → 58 and no acceptance record exists
+for vc57.
+
+### The final invariant
+
+On Android:
+
+| Shared, user-accessible | App-private, no-backup |
+| --- | --- |
+| `Download/pocketclaw/workspace` | Gateway bearer credential |
+| `.picoclaw.pid` — safe discovery metadata only | Gateway persistent diagnostic logs |
+| | Dashboard credential verifier database |
+
+### The invariant this milestone establishes
+
+**User data stays where the user can reach it. Runtime control state does not.**
+`Download/pocketclaw/workspace` is deliberately user-visible and is unchanged.
+Three things moved out of that directory, none of them user content: the gateway
+bearer credential, the diagnostic log, and the Dashboard credential database.
+
+On Android, all security-sensitive runtime and auth state is now app-private and
+no-backup:
+
+| State | Location |
+| --- | --- |
+| Gateway bearer credential | `noBackupFilesDir/gateway_auth` |
+| Gateway diagnostic logs | `noBackupFilesDir/logs/` |
+| Dashboard credential verifier | `noBackupFilesDir/auth/launcher-auth.db` |
+| User workspace | `Download/pocketclaw/workspace` — unchanged, user-accessible |
+
+### Gateway credential
+
+Core still generates it per gateway start, so rotation is unchanged. When
+`PICOCLAW_GATEWAY_TOKEN_FILE` is set the token is written to that path alone and
+the shared `.picoclaw.pid` record is written **without** a token field; the
+record keeps its discovery fields. Unset — desktop and server, where
+PICOCLAW_HOME is already private — behaviour is exactly as before.
+
+The Android host names that path under `noBackupFilesDir`, the same boundary the
+realtime credential already used, and `HealthChecker` reads the credential from
+there instead of parsing the pid record. The file holds the bare token and
+nothing else, is 0600, and is removed when the gateway shuts down. A new start
+never adopts a token left behind in an old shared record.
+
+### Logs
+
+`PICOCLAW_LOG_DIR` overrides the historical `PICOCLAW_HOME/logs` for both the
+gateway and the launcher backend; the Android host points it at private
+no-backup storage. Rotation was added where there was none. The active file is a
+counting writer: it tracks bytes as it writes, seeded from the file's existing
+size, and rotates when it crosses 2 MiB — within one process lifetime, not only
+when the file is opened. A gateway is long-lived, and rotating only at startup
+would have let it append past the threshold for as long as it ran, which is how
+the 18 MiB file observed on a real install came about. Two retained generations,
+oldest deleted, bounded at roughly 6 MiB; the record that crosses the threshold
+completes in the old file so no line is ever split. The writer is mutex-guarded
+for concurrent callers, and every rotation failure path is silent and non-fatal
+because this code runs underneath the logger and cannot report a problem by
+logging one. Files are created 0600 in a 0700 directory.
+
+The in-app Logs screen is unaffected: it reads an in-memory 200-line buffer fed
+from the child process's stdout, never the file. Nothing in Dart or Kotlin ever
+read `gateway.log`.
+
+Legacy shared logs are deleted once, after the runtime is up and writing to the
+private directory. Only three exact filenames are matched —
+`gateway.log`, `gateway_panic.log`, `launcher_panic.log` — nothing by pattern,
+nothing recursive, and the containing directory is removed only if those were
+all it held. Best effort, idempotent, and never fatal to service start. This is
+application output, not user content: older builds wrote full LLM requests and
+system-prompt previews into it.
+
+### Redaction and realtime authentication
+
+Central redaction gained three narrow rules — api-key headers, credential query
+parameters, and unambiguous vendor prefixes — with a guard test proving ordinary
+diagnostic text, session keys and fingerprints survive untouched. The realtime
+channel now compares credentials with `subtle.ConstantTimeCompare`, matching the
+health server, and refuses query-string authentication outright whenever the
+credential was supplied by the host. The Dashboard toggle is hidden **only in
+that case** — the backend omits `allow_token_query` from the realtime channel's
+config response when `PICOCLAW_CHANNELS_PICO_TOKEN` is set, and the form already
+renders the control only for a field the response carries. A self-managed
+deployment, where a browser client genuinely cannot set a header, keeps both the
+capability and the control.
+
+### Dashboard credential database
+
+Found by a source-only audit after vc57 passed, and fixed before A2 closes
+because it is the same boundary and a stronger vector than the one already
+fixed. `launcher-auth.db` holds a single bcrypt verifier (cost 12) — no
+plaintext, no session token, and sessions are in-memory only, so **reading** it
+grants nothing directly. **Writing** it is the problem: on shared storage an app
+with storage write access can replace the verifier with one for a password it
+chose, then authenticate normally over loopback, which Android does not isolate
+between apps. That is an authentication bypass that never has to break bcrypt.
+
+`PICOCLAW_DASHBOARD_AUTH_DIR` moves it; unset, the store stays under
+PICOCLAW_HOME exactly as before, so desktop and server installs are unchanged.
+Authentication semantics are untouched: same bcrypt cost, same verification,
+same rate limiting, same 24-hour in-memory sessions, same login UX, no schema
+change and no new crypto.
+
+An existing password survives via a one-time migration that runs before the
+store is opened. It refuses to overwrite an existing private database — private
+state wins, so a rollback to attacker-controlled shared state is not one file
+copy away — opens the legacy database through the real store first so SQLite
+settles any journal a crashed writer left, copies to a temp file inside the
+destination and fsyncs it, renames within that one filesystem (`os.Rename`
+across `/sdcard` and app-private storage would be a cross-device error), then
+validates the destination through the same store contract, and only then deletes
+the legacy file. Every failure path leaves the legacy database intact for
+recovery, and never resets the user's password.
+
+**When the override is set, failure is fatal rather than a fallback.**
+`PICOCLAW_DASHBOARD_AUTH_DIR` is a security boundary, not a preference: reopening
+the shared store after a failed migration would re-arm exactly the
+attacker-writable state the override exists to escape. So the launcher refuses
+to start, naming the directory and the reason, with the legacy database left
+untouched. Without the override — desktop and server — the historical
+`picoHome` behaviour is unchanged.
+
+**A validated private database also retires the shared one.** An existing
+private database is validated through the store contract rather than trusted for
+existing; once it opens, the superseded shared copy and its exact sidecars are
+deleted best-effort, so no rollback artifact is left lying around. A cleanup
+failure cannot move authority back, because the private store is already
+authoritative. A private database that does *not* validate promotes nothing: the
+legacy file is kept for recovery, the corrupt file is left as evidence, and
+startup fails closed.
+
+The plain file copy is safe because the store uses SQLite's default rollback
+journal, not WAL — measured from the database header rather than assumed, and
+asserted by `TestStoreUsesRollbackJournalAndLeavesNoSidecars`, which fails if
+the mode ever changes and makes a main-file copy lossy.
+
+### RECHECK AFTER FULL NAMESPACE MIGRATION
+
+Every one of these is keyed on a compatibility name that migration will change:
+`.picoclaw.pid`, `PICOCLAW_GATEWAY_TOKEN_FILE`, `PICOCLAW_LOG_DIR`,
+`PICOCLAW_DASHBOARD_AUTH_DIR`, the legacy `launcher-auth.db` filename the
+migration matches by name, `PICOCLAW_CHANNELS_PICO_TOKEN`, the `picoclaw`
+private directory name already guarded for backup, and the `pico` channel name. A rename on one side only would
+silently undo the separation without failing anything else.
+
+### Core was rebuilt for vc58
+
+Rebuilt through `./core/build-android-arm64.sh` and staged in its own commit.
+The freshness guard passes, the packaged binaries are byte-identical to the
+staged ones, both carry zero developer-machine paths, and both are stripped,
+non-executable-stack and 64 KiB aligned.
+
+### The accepted baseline advanced
+
+`android/release-baseline.properties` moves `lastAcceptedVersionCode=56` to
+`58` in this closeout — the commit that records the acceptance, which is the
+only place it may move. `pubspec.yaml` stays at `0.2.0+58`: the candidate became
+the accepted build, so the two now agree.
+
 ## Production Release Hardening A1 — PHYSICALLY ACCEPTED AND CLOSED
 
 - Status: **PASS on a physical Android device (SM-A165F / Android 16), 2026-09-08

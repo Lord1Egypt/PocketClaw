@@ -472,6 +472,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get whatsNew020Improvement6 => 'PocketClaw 不再申请电话权限——应用中没有任何功能使用它。';
 
   @override
+  String get whatsNew020Improvement7 => '诊断日志现在私密地保存在应用内部，而不是下载文件夹中。工作区位置保持不变。';
+
+  @override
   String get whatsNew020Fix1 => '网关现在可以从上一次运行遗留的过期进程记录中恢复。';
 
   @override

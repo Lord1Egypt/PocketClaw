@@ -506,6 +506,10 @@ class AppLocalizationsDe extends AppLocalizations {
       'PocketClaw fordert die Telefonberechtigung nicht mehr an — sie wurde nie genutzt.';
 
   @override
+  String get whatsNew020Improvement7 =>
+      'Diagnoseprotokolle liegen jetzt privat in der App statt im Downloads-Ordner. Ihr Arbeitsbereich bleibt, wo er war.';
+
+  @override
   String get whatsNew020Fix1 =>
       'Das Gateway erholt sich jetzt von einem veralteten Prozesseintrag eines früheren Laufs.';
 

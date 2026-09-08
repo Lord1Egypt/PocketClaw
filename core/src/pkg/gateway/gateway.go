@@ -59,7 +59,6 @@ const (
 	providerReloadTimeout   = 30 * time.Second
 	gracefulShutdownTimeout = 15 * time.Second
 
-	logPath   = "logs"
 	panicFile = "gateway_panic.log"
 	logFile   = "gateway.log"
 )
@@ -134,14 +133,18 @@ func (p *startupBlockedProvider) GetDefaultModel() string {
 // Run starts the gateway runtime using the configuration loaded from configPath.
 func Run(debug bool, homePath, configPath string, allowEmptyStartup bool) (runErr error) {
 	startedAt := time.Now()
-	panicPath := filepath.Join(homePath, logPath, panicFile)
+	// EnvLogDir when the host has somewhere private to put these; otherwise
+	// the historical homePath/logs. On Android the default is shared external
+	// storage, which is the wrong place for a diagnostic record.
+	logDir := config.ResolveLogDir(homePath)
+	panicPath := filepath.Join(logDir, panicFile)
 	panicFunc, err := logger.InitPanic(panicPath)
 	if err != nil {
 		return fmt.Errorf("error initializing panic log: %w", err)
 	}
 	defer panicFunc()
 
-	if err = logger.EnableFileLogging(filepath.Join(homePath, logPath, logFile)); err != nil {
+	if err = logger.EnableFileLogging(filepath.Join(logDir, logFile)); err != nil {
 		logger.Fatal(fmt.Sprintf("error enabling file logging: %v", err))
 	}
 	defer logger.DisableFileLogging()

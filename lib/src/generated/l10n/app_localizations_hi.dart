@@ -497,6 +497,10 @@ class AppLocalizationsHi extends AppLocalizations {
       'PocketClaw अब फ़ोन अनुमति नहीं मांगता — ऐप में इसका कोई उपयोग नहीं था.';
 
   @override
+  String get whatsNew020Improvement7 =>
+      'डायग्नोस्टिक लॉग अब डाउनलोड फ़ोल्डर के बजाय ऐप के अंदर निजी रूप से रखे जाते हैं. आपका कार्यक्षेत्र वहीं रहता है.';
+
+  @override
   String get whatsNew020Fix1 =>
       'गेटवे अब पिछली बार छूटे हुए पुराने प्रोसेस रिकॉर्ड से उबर जाता है.';
 

@@ -217,6 +217,12 @@ function isConfigured(
 function getHiddenFieldKeys(channelName: string): string[] {
   switch (channelName) {
     case "pico":
+      // allow_token_query is deliberately NOT hidden here. Hiding it in the
+      // frontend would remove the capability from every deployment, including
+      // the self-managed ones that legitimately have it. The backend omits the
+      // field from this channel's config when the credential is host-managed,
+      // which is the only case where the toggle would be a lie — and this form
+      // already renders the control only for a field the response contains.
       return ["allow_from"]
     default:
       return []

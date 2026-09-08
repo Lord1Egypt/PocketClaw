@@ -38,7 +38,7 @@ var (
 
 	currentLevel  = INFO
 	logger        zerolog.Logger
-	logFile       *os.File
+	logFile       *rotatingFile
 	once          sync.Once
 	mu            sync.RWMutex
 	writers       []io.Writer
@@ -189,17 +189,149 @@ func SetLevelFromString(s string) {
 	}
 }
 
+// Log rotation bounds.
+//
+// The log had no rotation at all and was pure append, so a long-lived install
+// accumulated an unbounded file — one observed at 18 MB, still carrying lines a
+// much older build had written. These numbers are deliberately small: this is a
+// phone, the value of a gateway log is almost entirely in its recent tail, and
+// anything older is a liability rather than an asset.
+const (
+	// maxLogFileBytes is the size at which the active log is rotated.
+	maxLogFileBytes = 2 << 20 // 2 MiB
+
+	// maxLogRotations is how many previous files are kept beside it, as
+	// gateway.log.1 … gateway.log.N. Older ones are deleted, bounding the whole
+	// directory at roughly (maxLogRotations + 1) * maxLogFileBytes.
+	maxLogRotations = 2
+)
+
+// rotatingFile is the log sink: an append-only file that rotates itself once it
+// crosses maxLogFileBytes.
+//
+// Checking the size when the file is opened is not enough. The gateway is a
+// long-lived process, so a build that only rotated at startup would append past
+// the threshold for as long as the process ran — which is precisely how the
+// unbounded file this bound exists to prevent came about. The counter makes the
+// bound hold within one process lifetime.
+//
+// The size is tracked rather than stat'd so there is no filesystem call in the
+// path of a log line; it is seeded from the existing file so an append to a
+// file inherited from a previous run is accounted for.
+//
+// The record that crosses the threshold is written to the *old* file, then the
+// rotation happens. That keeps every record whole — a log line is never split
+// across two files — and bounds the active file at threshold plus one record.
+type rotatingFile struct {
+	mu   sync.Mutex
+	path string
+	file *os.File
+	size int64
+}
+
+func openRotatingFile(path string) (*rotatingFile, error) {
+	// 0o700: on a private log directory nothing else has any business reading
+	// these, and on a shared one the mode is advisory anyway.
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		return nil, fmt.Errorf("failed to create log directory: %w", err)
+	}
+	file, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open log file: %w", err)
+	}
+	var size int64
+	if info, statErr := file.Stat(); statErr == nil {
+		size = info.Size()
+	}
+	rf := &rotatingFile{path: path, file: file, size: size}
+	// A file inherited over the threshold rotates immediately rather than
+	// waiting for one more full threshold's worth of writes.
+	rf.mu.Lock()
+	if rf.size >= maxLogFileBytes {
+		rf.rotateLocked()
+	}
+	rf.mu.Unlock()
+	return rf, nil
+}
+
+// Write appends to the active file and rotates when the threshold is crossed.
+//
+// The mutex is what makes concurrent writers safe: without it two goroutines
+// could rotate at once and one would go on writing to a descriptor whose file
+// has been renamed out from under it.
+func (r *rotatingFile) Write(p []byte) (int, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if r.file == nil {
+		return len(p), nil
+	}
+	n, err := r.file.Write(p)
+	r.size += int64(n)
+	if r.size >= maxLogFileBytes {
+		r.rotateLocked()
+	}
+	// The write itself is reported honestly; a rotation problem is not the
+	// caller's to handle and must never surface as a failed log statement.
+	return n, err
+}
+
+func (r *rotatingFile) Close() error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.file == nil {
+		return nil
+	}
+	err := r.file.Close()
+	r.file = nil
+	return err
+}
+
+// rotateLocked shifts the generations and reopens an empty active file.
+//
+// Every failure path here is deliberately silent and non-fatal: this runs
+// underneath the logger, so it cannot report a problem by logging one, and a
+// gateway must not die because a log file could not be renamed. Whatever
+// happens, the counter is reset — otherwise a persistent failure would attempt
+// a rotation on every subsequent write.
+func (r *rotatingFile) rotateLocked() {
+	defer func() { r.size = 0 }()
+
+	if r.file != nil {
+		r.file.Close()
+		r.file = nil
+	}
+
+	// Drop the oldest, then shift each generation down one.
+	os.Remove(fmt.Sprintf("%s.%d", r.path, maxLogRotations))
+	for i := maxLogRotations - 1; i >= 1; i-- {
+		os.Rename(fmt.Sprintf("%s.%d", r.path, i), fmt.Sprintf("%s.%d", r.path, i+1))
+	}
+	if err := os.Rename(r.path, r.path+".1"); err != nil {
+		// Truncating instead still keeps the bound, which is the property that
+		// matters when the rename cannot be done.
+		os.Truncate(r.path, 0)
+	}
+
+	file, err := os.OpenFile(r.path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600)
+	if err != nil {
+		// Logging stops rather than the process. The next EnableFileLogging
+		// re-establishes it.
+		return
+	}
+	r.file = file
+	if info, statErr := file.Stat(); statErr == nil {
+		r.size = info.Size()
+	}
+}
+
 func EnableFileLogging(filePath string) error {
 	mu.Lock()
 	defer mu.Unlock()
 
-	if err := os.MkdirAll(filepath.Dir(filePath), 0o755); err != nil {
-		return fmt.Errorf("failed to create log directory: %w", err)
-	}
-
-	newFile, err := os.OpenFile(filePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
+	newFile, err := openRotatingFile(filePath)
 	if err != nil {
-		return fmt.Errorf("failed to open log file: %w", err)
+		return err
 	}
 
 	// Close old file if exists

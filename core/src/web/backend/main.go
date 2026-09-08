@@ -40,7 +40,6 @@ import (
 const (
 	appName = "PocketClaw"
 
-	logPath   = "logs"
 	panicFile = "launcher_panic.log"
 	logFile   = "launcher.log"
 )
@@ -455,7 +454,7 @@ func main() {
 	// Initialize logger
 	picoHome := utils.GetPicoclawHome()
 
-	f := filepath.Join(picoHome, logPath, panicFile)
+	f := filepath.Join(config.ResolveLogDir(picoHome), panicFile)
 	panicFunc, err := logger.InitPanic(f)
 	if err != nil {
 		panic(fmt.Sprintf("error initializing panic log: %v", err))
@@ -470,7 +469,7 @@ func main() {
 			logger.DisableConsole()
 		}
 
-		f := filepath.Join(picoHome, logPath, logFile)
+		f := filepath.Join(config.ResolveLogDir(picoHome), logFile)
 		if err = logger.EnableFileLogging(f); err != nil {
 			panic(fmt.Sprintf("error enabling file logging: %v", err))
 		}
@@ -592,8 +591,53 @@ func main() {
 
 	dashboardSessions := middleware.NewLauncherDashboardSessions(0)
 
+	// The credential verifier moves to private storage where the host demands
+	// one. Migration runs before the store is opened so an existing password
+	// survives the move.
+	//
+	// When PICOCLAW_DASHBOARD_AUTH_DIR is set it is a security boundary, not a
+	// preference: on Android the shared location is writable by any app with
+	// storage access, and an attacker who replaces the stored verifier there
+	// can log in with a password of their choosing. So a failure to establish
+	// the private store fails startup rather than falling back — falling back
+	// would re-arm precisely the vector the override exists to remove. The
+	// user's password is never reset and the legacy database is left intact for
+	// recovery.
+	dashboardAuthDir := config.ResolveDashboardAuthDir(picoHome)
+	privateAuthRequired := config.DashboardAuthDirOverridden()
+	migration, migrationErr := dashboardauth.MigrateLegacyDatabase(
+		context.Background(), picoHome, dashboardAuthDir,
+	)
+	switch {
+	case migrationErr != nil && privateAuthRequired:
+		logger.Fatalf(
+			"Dashboard authentication requires private storage and it could not be "+
+				"established at %s: %v. The existing credential database was left "+
+				"untouched; shared storage will not be used as the active verifier.",
+			dashboardAuthDir, migrationErr)
+	case migrationErr != nil:
+		// No private storage was demanded, so this is the historical desktop
+		// and server behaviour: keep using the home directory.
+		logger.ErrorC("web", fmt.Sprintf(
+			"Dashboard credential migration skipped, continuing with the existing store: %v",
+			migrationErr))
+		dashboardAuthDir = picoHome
+	case !migration.PrivateReady && privateAuthRequired:
+		logger.Fatalf(
+			"Dashboard authentication requires private storage at %s and it is not "+
+				"ready (%s). Shared storage will not be used as the active verifier.",
+			dashboardAuthDir, migration.Reason)
+	case migration.Migrated:
+		logger.InfoC("web", fmt.Sprintf(
+			"Migrated the Dashboard credential store to private storage (legacy removed: %t)",
+			migration.LegacyRemoved))
+	case migration.LegacyRemoved:
+		logger.InfoC("web",
+			"Removed the superseded Dashboard credential database from shared storage")
+	}
+
 	// Open the bcrypt password store (creates the DB file on first run).
-	authStore, authStoreErr := dashboardauth.New(picoHome)
+	authStore, authStoreErr := dashboardauth.New(dashboardAuthDir)
 	var passwordStore api.PasswordStore
 	if authStoreErr == nil {
 		passwordStore = authStore

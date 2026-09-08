@@ -172,6 +172,7 @@
   "whatsNew020Improvement4": "采用 PocketClaw Aperture 设计的全新应用图标与“关于”界面。",
   "whatsNew020Improvement5": "助手的回复更自然，末尾不再附带固定签名。",
   "whatsNew020Improvement6": "PocketClaw 不再申请电话权限——应用中没有任何功能使用它。",
+  "whatsNew020Improvement7": "诊断日志现在私密地保存在应用内部，而不是下载文件夹中。工作区位置保持不变。",
   "whatsNew020Fix1": "网关现在可以从上一次运行遗留的过期进程记录中恢复。",
   "whatsNew020Fix2": "包含多个条目的频道列表在保存时能够正确保留。",
   "settingsGroupConnection": "连接",

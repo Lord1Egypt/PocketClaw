@@ -1,5 +1,81 @@
 # PocketClaw Decisions
 
+## The workspace is the user's; the runtime's control state is not
+
+- Date: 2026-09-08
+- Decision: `Download/pocketclaw/workspace` stays user-visible on shared storage,
+  and the gateway bearer credential and the diagnostic log move out of that
+  directory into app-private no-backup storage. Core writes the credential to
+  `PICOCLAW_GATEWAY_TOKEN_FILE` when a host names one and omits it from the
+  shared `.picoclaw.pid` record; `PICOCLAW_LOG_DIR` relocates `gateway.log` and
+  the panic log, which are now rotated at 2 MiB with two retained generations.
+  Legacy shared logs are deleted once, by exact filename.
+- Reason: the two things were in one directory because they started in one
+  directory, not because they belong together. A user browsing their workspace
+  is a product feature; an app with storage access reading the credential that
+  authenticates `/reload` and detailed `/health` is not, and Android does not
+  isolate loopback sockets between apps, so that credential was one file read
+  away from being used. The log is the same shape of problem with a longer tail:
+  it never rotated, and older builds wrote full LLM requests and system-prompt
+  previews into it, so an upgraded install can still be carrying prompt text in
+  a public place.
+- Consequence: Core keeps generating the token per gateway start, so rotation is
+  unchanged and a desktop or server install — where PICOCLAW_HOME is already
+  private — behaves exactly as before. The credential never enters Dart, a URL
+  or a log. Cleanup of the old logs is narrow by construction: three exact
+  filenames, no pattern, no recursion, and the directory removed only when
+  nothing else is in it, because everything else under that path is the user's.
+- Extended 2026-09-08 to the Dashboard credential database, after a source audit
+  found the same boundary carrying a stronger vector. `launcher-auth.db` holds
+  only a bcrypt verifier, so reading it grants nothing — but on shared storage it
+  can be *written*, and replacing the verifier with one for a chosen password
+  yields a working Dashboard login over loopback without breaking bcrypt at all.
+  `PICOCLAW_DASHBOARD_AUTH_DIR` moves it to app-private no-backup storage; unset,
+  behaviour is unchanged. Authentication itself is untouched — same cost, same
+  verification, same rate limiting, same in-memory sessions. The rule this
+  settles: **on Android every security-sensitive runtime and auth artifact is
+  app-private, and the workspace is the only thing that stays shared.**
+- Accepted on a device 2026-09-08 as vc58. The proof that mattered was the
+  user's existing Dashboard password still authenticating after the verifier
+  moved: a migration that reset or lost it would have failed exactly there, and
+  no other check would have caught it. The shared database and every exact
+  sidecar were retired on first start, and the shared home is now down to the
+  workspace, the model catalog and a discovery record carrying only pid,
+  version, port and host.
+- Hardened 2026-09-08, same day, after review: when the override is set there is
+  **no fallback to shared storage**. A failed migration, or a private database
+  that will not validate, fails launcher startup rather than reopening the
+  shared file — falling back would hand authority straight back to the
+  attacker-writable state the override exists to escape. The user's password is
+  never reset and the legacy database is retained for recovery. Conversely a
+  private database that *does* validate retires the superseded shared copy
+  best-effort, so no rollback artifact is left behind; a cleanup failure cannot
+  move authority back, because the private store already holds it. Stated as one
+  invariant: **while the private-auth override is active, no active Dashboard
+  credential verifier is ever read from shared PICOCLAW_HOME.**
+- **RECHECK AFTER THE NAMESPACE MIGRATION.** All of this is keyed on names the
+  migration will change — `.picoclaw.pid`, the `PICOCLAW_*` variables including
+  `PICOCLAW_DASHBOARD_AUTH_DIR`, the legacy `launcher-auth.db` filename the
+  migration matches by name, the `picoclaw` private directory the backup rules
+  already exclude, and the `pico` channel. Renaming one side alone puts a
+  credential or the logs back on shared storage without failing anything
+  visible.
+- Amended 2026-09-08, after review.
+  - **The log bound is enforced while the process runs, not when it starts.**
+    The active file counts the bytes it writes and rotates on crossing the
+    threshold. Checking the size only on open is not a bound for a process that
+    stays up for days, and is how the unbounded file arose in the first place.
+  - **Hiding a control is the backend's decision, not the frontend's.**
+    `allow_token_query` is omitted from the realtime channel's config response
+    when the credential is host-managed, so the toggle disappears exactly where
+    it would be a lie. Blanking it in the frontend removed the capability from
+    self-managed deployments that legitimately have it, which was wrong.
+  - **A credential prefix is not evidence of a credential.** Redaction requires
+    a credential-shaped body as well as a prefix: `sk-` is a substring of
+    ordinary words, so the patterns carry a word boundary, a length floor, and —
+    for the bare `sk-` form — no hyphens in the body, so English cannot reach
+    the floor by accumulating words.
+
 ## A release states its signer, its version and its dependencies, or it fails
 
 - Date: 2026-09-08
