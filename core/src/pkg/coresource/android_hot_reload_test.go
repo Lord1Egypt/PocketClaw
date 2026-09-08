@@ -35,7 +35,7 @@ func TestAndroidManagedGatewayEnablesHotReload(t *testing.T) {
 	}
 
 	servicePath := filepath.Join(root, "android", "app", "src", "main", "kotlin",
-		"com", "lord1egypt", "pocketclaw", "service", "PicoClawService.kt")
+		"com", "lord1egypt", "pocketclaw", "service", "PocketClawService.kt")
 	service, err := os.ReadFile(servicePath)
 	if err != nil {
 		t.Fatalf("cannot read the Android service: %v", err)
@@ -101,7 +101,7 @@ func TestAndroidManagedGatewayDisablesHostBusTools(t *testing.T) {
 	}
 
 	servicePath := filepath.Join(root, "android", "app", "src", "main", "kotlin",
-		"com", "lord1egypt", "pocketclaw", "service", "PicoClawService.kt")
+		"com", "lord1egypt", "pocketclaw", "service", "PocketClawService.kt")
 	service, err := os.ReadFile(servicePath)
 	if err != nil {
 		t.Fatalf("cannot read the Android service: %v", err)
