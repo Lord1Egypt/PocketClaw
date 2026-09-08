@@ -7,6 +7,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"testing"
 )
@@ -221,4 +222,144 @@ func TestReadPidFileWithCheckInvisibleReusedPID(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(dir, pidFileName)); !os.IsNotExist(err) {
 		t.Error("a dead PID's pid file should be removed")
 	}
+}
+
+// taskCommLen is the kernel's comm buffer, including the NUL terminator, so a
+// process name is visible through /proc/<pid>/comm only up to 15 bytes.
+//
+// This is not a detail we can round off. The packaged gateway is
+// libpocketclaw.so — 16 characters — so the name this code matches against is
+// *always* truncated on a real device, and the pre-N3 name it replaced was 14
+// characters and never was. Verified against a live process rather than taken
+// from the header: exec'ing a binary copied to each of these names and reading
+// its comm produces exactly the strings below.
+const taskCommLen = 16
+
+// commFor is what the kernel will show for an executable of the given name.
+func commFor(execName string) string {
+	if len(execName) > taskCommLen-1 {
+		return execName[:taskCommLen-1]
+	}
+	return execName
+}
+
+func TestCommTruncationKeepsOwnershipDecidable(t *testing.T) {
+	// The truncation itself, so a future rename cannot silently move the cut
+	// into the part of the name ownership depends on.
+	for _, tc := range []struct {
+		execName string
+		wantComm string
+	}{
+		{"libpocketclaw.so", "libpocketclaw.s"},
+		{"libpocketclaw-web.so", "libpocketclaw-w"},
+		{"libpicoclaw.so", "libpicoclaw.so"},
+	} {
+		if got := commFor(tc.execName); got != tc.wantComm {
+			t.Errorf("commFor(%q) = %q, want %q", tc.execName, got, tc.wantComm)
+		}
+	}
+
+	// ownedProcessName has to survive that cut. "lib" + "pocketclaw" ends at
+	// byte 13 of 15, so there are two bytes of headroom: a longer prefix than
+	// "lib" would start eating into the match.
+	if idx := strings.Index("libpocketclaw.so", ownedProcessName); idx < 0 ||
+		idx+len(ownedProcessName) > taskCommLen-1 {
+		t.Fatalf("%q does not fit inside a %d-byte comm of the packaged name",
+			ownedProcessName, taskCommLen-1)
+	}
+}
+
+// The ownership verdict against the comm strings a device actually reports.
+func TestOwnershipAgainstRealTruncatedComm(t *testing.T) {
+	tests := []struct {
+		name     string
+		execName string
+		want     bool
+		why      string
+	}{
+		{
+			name:     "truncated gateway is ours",
+			execName: "libpocketclaw.so",
+			want:     true,
+			why:      "comm is libpocketclaw.s on every device; the match must survive it",
+		},
+		{
+			name:     "truncated launcher is ours",
+			execName: "libpocketclaw-web.so",
+			want:     true,
+			why:      "comm is libpocketclaw-w; the launcher is a PocketClaw runtime too",
+		},
+		{
+			name:     "pre-N3 gateway name is foreign",
+			execName: "libpicoclaw.so",
+			want:     false,
+			why:      "short enough not to truncate, and deliberately not an alias",
+		},
+		{
+			name:     "unrelated long process is foreign",
+			execName: "system_server_and_more.so",
+			want:     false,
+			why:      "truncation must not turn an unrelated name into a match",
+		},
+		{
+			name:     "unrelated short process is foreign",
+			execName: "system_server",
+			want:     false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			stubProcComm(t, []byte(commFor(tt.execName)+"\n"), nil)
+			if got := isPicoclawProcess(1234); got != tt.want {
+				t.Errorf("isPicoclawProcess() for comm %q = %v, want %v; %s",
+					commFor(tt.execName), got, tt.want, tt.why)
+			}
+		})
+	}
+}
+
+// comm alone does not grant ownership, and truncation does not lose it.
+//
+// WritePidFile honours an existing pid file only when the recorded PID is not
+// 1, the process is alive, and comm names our runtime. A test that exercised
+// only classifyProcComm would pass just as happily against an implementation
+// that had dropped the other two gates, so these drive the real path.
+func TestRecordedPidOwnershipThroughTheRealPath(t *testing.T) {
+	alivePID := os.Getppid()
+	if alivePID <= 1 || alivePID == os.Getpid() {
+		t.Skip("no suitable live parent PID for this test")
+	}
+
+	t.Run("a live gateway with truncated comm still blocks a second start", func(t *testing.T) {
+		dir := tmpDir(t)
+		writeStalePidFile(t, dir, alivePID)
+		stubProcComm(t, []byte(commFor("libpocketclaw.so")+"\n"), nil)
+
+		if _, err := WritePidFile(dir, "127.0.0.1", 18790); err == nil {
+			t.Error("a live PocketClaw gateway must still be honoured when its " +
+				"comm is truncated to libpocketclaw.s")
+		}
+	})
+
+	t.Run("PID 1 is stale however well its comm matches", func(t *testing.T) {
+		dir := tmpDir(t)
+		writeStalePidFile(t, dir, 1)
+		stubProcComm(t, []byte(commFor("libpocketclaw.so")+"\n"), nil)
+
+		if _, err := WritePidFile(dir, "127.0.0.1", 18790); err != nil {
+			t.Errorf("PID 1 must be treated as stale even with a matching comm: %v", err)
+		}
+	})
+
+	t.Run("a live process with the pre-N3 comm does not block", func(t *testing.T) {
+		dir := tmpDir(t)
+		writeStalePidFile(t, dir, alivePID)
+		stubProcComm(t, []byte(commFor("libpicoclaw.so")+"\n"), nil)
+
+		if _, err := WritePidFile(dir, "127.0.0.1", 18790); err != nil {
+			t.Errorf("a stale .picoclaw.pid naming a reused PID must not wedge "+
+				"startup: %v", err)
+		}
+	})
 }
