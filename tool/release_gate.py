@@ -428,6 +428,33 @@ def source_gates(gate: Gate, run_tests: bool, release_class: str = "test"):
     gate.check("core.no_developer_paths", not leaked,
                expected="0 developer paths", observed=", ".join(leaked) or "0")
 
+    # Staged Core must carry no toolchain VCS stamp.
+    #
+    # Go writes build.vcs.revision, build.vcs.time and build.vcs.modified into
+    # the binary automatically, reading the enclosing repository's HEAD. That
+    # bypasses core/resolve-build-time.sh completely, so identical build inputs
+    # produced different bytes after any unrelated commit — including the commit
+    # that stages the binaries, which means a staged Core could never be
+    # reproduced from the commit containing it. -buildvcs=false removes it, and
+    # this check is how we know the flag is still there: nothing else in the
+    # tree fails if it is dropped, and the resulting binary looks correct.
+    stamped = []
+    for lib in CORE_LIBS:
+        path = STAGED_CORE_DIR / lib
+        if not path.is_file():
+            stamped.append(f"{lib}: missing")
+            continue
+        # Go encodes build settings as "build\t<key>=<value>", so the tab is
+        # what separates "build" from "vcs.revision" — anchoring on a literal
+        # "build.vcs." matches nothing and the check passes on a stamped binary.
+        rc, out = run(["sh", "-c",
+                       f"strings -a '{path}' | grep -c -E 'build.vcs\\.(revision|time|modified)' || true"])
+        if out.strip() not in ("0", ""):
+            stamped.append(f"{lib}: {out.strip()}")
+    gate.check("core.no_vcs_stamp", not stamped,
+               expected="0 build.vcs stamps (-buildvcs=false)",
+               observed=", ".join(stamped) or "0")
+
     for lib in CORE_LIBS:
         path = STAGED_CORE_DIR / lib
         if path.is_file():
@@ -453,13 +480,14 @@ def source_gates(gate: Gate, run_tests: bool, release_class: str = "test"):
                expected="staged Core matches current source fingerprint",
                observed="PASS" if rc == 0 else out.strip().splitlines()[-1] if out.strip() else "FAIL")
 
-    rc, out = run(["go", "test", "-tags", "stdjson goolm",
-                   "./pkg/coresource/", "-run",
-                   "TestSourceDateEpoch|TestResolution|TestMalformed|TestNonGit|"
-                   "TestMakefileTakes|TestCanonicalBuild"],
+    # The whole package, deliberately, rather than a list of test names. The
+    # earlier name filter had already gone stale: the path-scoping tests that
+    # are the core of this contract did not match it and were never run here.
+    rc, out = run(["go", "test", "-tags", "stdjson goolm", "./pkg/coresource/"],
                   cwd=REPO / "core/src", env=go_env)
     gate.check("build.reproducibility_tests", rc == 0,
-               expected="deterministic build-time plumbing", observed="PASS" if rc == 0 else "FAIL")
+               expected="deterministic build plumbing",
+               observed="PASS" if rc == 0 else out.strip().splitlines()[-1] if out.strip() else "FAIL")
 
     rc, out = run(["go", "test", "-tags", "stdjson goolm",
                    "./pkg/pid/", "./pkg/logger/", "./pkg/config/",

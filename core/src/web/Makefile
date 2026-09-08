@@ -7,6 +7,19 @@ WEB_GO?=$(GO)
 CGO_ENABLED?=0
 GO_BUILD_TAGS?=goolm,stdjson
 GOFLAGS?=-v -tags $(GO_BUILD_TAGS)
+
+# Flags that make the canonical Android build reproducible.
+#
+# -trimpath removes the builder's absolute paths. -buildvcs=false removes Go's
+# automatic VCS stamping, which reads the enclosing repository's HEAD and writes
+# build.vcs.revision, build.vcs.time and build.vcs.modified into the binary.
+# That stamping bypasses core/resolve-build-time.sh entirely: it re-dates the
+# binary from whichever commit is checked out, so committing documentation — or
+# the staged binaries themselves — changed the bytes even though every build
+# input was identical. This build states its own provenance through -X
+# config.GitCommit and coresource.Stamped, which are pinned and verifiable, so
+# the toolchain's version is redundant as well as harmful.
+REPRODUCIBLE_BUILD_FLAGS=-trimpath -buildvcs=false
 GOCACHE?=$(abspath ../.cache/go-build)
 GOMODCACHE?=$(abspath ../.cache/go-mod)
 GOTOOLCHAIN?=local
@@ -150,7 +163,7 @@ ifeq ($(OS),Windows_NT)
 else
 	@mkdir -p $(BUILD_DIR)
 endif
-	GOOS=android GOARCH=arm64 $(GO) build -trimpath -tags stdjson -ldflags "$(LDFLAGS)" -o "$(OUTPUT_ANDROID_ARM64)" ./$(BACKEND_DIR)/
+	GOOS=android GOARCH=arm64 $(GO) build $(REPRODUCIBLE_BUILD_FLAGS) -tags stdjson -ldflags "$(LDFLAGS)" -o "$(OUTPUT_ANDROID_ARM64)" ./$(BACKEND_DIR)/
 
 # Build launcher for all Android architectures
 build-android-bundle: build-frontend
@@ -159,7 +172,7 @@ ifeq ($(OS),Windows_NT)
 else
 	@mkdir -p $(BUILD_DIR)
 endif
-	GOOS=android GOARCH=arm64 $(GO) build -trimpath -tags stdjson -ldflags "$(LDFLAGS)" -o "$(BUILD_DIR)/picoclaw-launcher-android-arm64" ./$(BACKEND_DIR)/
+	GOOS=android GOARCH=arm64 $(GO) build $(REPRODUCIBLE_BUILD_FLAGS) -tags stdjson -ldflags "$(LDFLAGS)" -o "$(BUILD_DIR)/picoclaw-launcher-android-arm64" ./$(BACKEND_DIR)/
 	@echo "All Android launcher builds complete"
 
 build-frontend:

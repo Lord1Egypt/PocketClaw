@@ -18,12 +18,12 @@ The first Core built under the new contract, with `SOURCE_DATE_EPOCH`
 deliberately **unset** so it exercises the default path rather than a special
 case:
 
-    build-input commit 426b53d61c25a3903a2cb18c2bea7e3f850de183
-    epoch              1788845802
-    BuildTime          2026-09-08T05:36:42+0000
-    source fingerprint 0f6014378d1400d94465a1ddb57535daea03fad9851cdc718e6e9192a55d074f
-    libpicoclaw.so     649d8842ed956b56ed0b21bb0f1b8934fbb25ffef2fb32418cadcde275ddb2a8  37683553 bytes
-    libpicoclaw-web.so ee4828db47a3b8a528517e474bdce3a663919a4d50625d85bbaf149bf5f98422  25493857 bytes
+    build-input commit e9e68d5979a3737ddfaba75fe24082d02cf4c7a6
+    epoch              1788884697
+    BuildTime          2026-09-08T16:24:57+0000
+    source fingerprint 5d6f00cd381d1c792a956642dd4746056cdd86f12942685b0f512bde55aacbb9
+    libpicoclaw.so     714d7a126309697c881d7e6564e3cf97ac878b567965c1d789c7137a6b1eca0c  37683553 bytes
+    libpicoclaw-web.so c6376b6dee76116eebbf037fd0af3b0f8b6e2b4e0d8117fa976d15624bd331b4  25493857 bytes
 
 Both binaries carry that same BuildTime — the property the resolve-once design
 exists to guarantee. Staged freshness passes, both are stripped,
@@ -32,11 +32,18 @@ the fingerprint is stamped in `libpicoclaw.so`. The launcher does not carry that
 stamp by design: the fingerprint describes the Core gateway's source, and the
 build script asserts it only where it belongs.
 
-**Staging proved the point it was meant to.** Resolving the BuildTime before and
-after the commit that staged those binaries gave the identical value, in the
-real repository. Build output is not a build input, so staging a binary cannot
-redate the build that produced it — which is exactly what the old unscoped-HEAD
-derivation got wrong.
+Both binaries also carry **no toolchain VCS stamp**, which is the second half of
+the guarantee and the part that was missing until the final verification pass —
+see below.
+
+**Staging proved the point it was meant to, and then proved a stronger one.**
+Resolving the BuildTime before and after the commit that staged those binaries
+gave the identical value, in the real repository: build output is not a build
+input, so staging cannot redate the build that produced it. Then the rebuild
+from that moved HEAD — two commits past the build-input commit — reproduced both
+binaries **byte for byte**. That is the comparison that matters, because it is
+the one a person reproducing a release actually performs, and it is the one that
+failed before `-buildvcs=false`.
 
 ### The Core build is reproducible
 
@@ -81,14 +88,15 @@ calls the same resolver through a recursive `=`, so a bare `make` is
 deterministic too and the subprocess is skipped entirely when the value is
 passed in.
 
-**Proven, not asserted, on both paths.** With an explicit
-`SOURCE_DATE_EPOCH=1700000000`, two consecutive canonical builds produced
-`eec55fa3…` and `4a2f7677…` both times. With `SOURCE_DATE_EPOCH` **unset** —
-the default path, which is what anyone reproducing a release will actually use —
-two builds separated by 65 seconds of wall clock produced
-`f2a76b38941ebffa49a886465ceb44b8625e7bce8d7e108115caa93606b2fa81` and
-`e6dd1a3b3a52bec592587796153e2401f301bb59332dedbb348e9a58818203b2` both times,
-`cmp`-identical. The accepted vc58 binaries were restored afterwards.
+**Proven, not asserted — and the first two proofs were not enough.** Two
+consecutive builds at a fixed `SOURCE_DATE_EPOCH` matched, and two builds on the
+default path 65 seconds apart matched. Both pairs ran at the same HEAD, so both
+were blind to the toolchain's VCS stamp. The proof the contract now rests on is
+the one that crosses a commit: build, commit the binaries, rebuild from the
+moved HEAD, and compare. That produced
+`714d7a126309697c881d7e6564e3cf97ac878b567965c1d789c7137a6b1eca0c` and
+`c6376b6dee76116eebbf037fd0af3b0f8b6e2b4e0d8117fa976d15624bd331b4` on both
+sides of the staging commit, byte for byte.
 
 Commit scoping is proven against real git history rather than by reading the
 script: a temporary repository commits a build input, then documentation, an
@@ -96,6 +104,36 @@ acceptance baseline, a staged binary and an application file, and asserts the
 resolved epoch does not move — then commits a build input again and asserts it
 does. The staging-commit case has its own test, because that is the shape that
 actually occurs.
+
+### Two ways the guarantee was still escaping
+
+Both were found by verification rather than by review, and both were silent.
+
+**The Go toolchain was stamping HEAD in behind the resolver.** `go build` writes
+`build.vcs.revision`, `build.vcs.time` and `build.vcs.modified` into every binary
+automatically, reading the enclosing repository's HEAD. Identical build inputs
+therefore produced different bytes after any unrelated commit — including the
+staging commit itself, so a staged Core could never be reproduced from the
+commit containing it. The earlier byte-identity proofs had passed because both
+builds in each pair ran at the same HEAD, which held the stamp constant.
+
+The canonical Android recipes build with `-buildvcs=false`, through a named
+`REPRODUCIBLE_BUILD_FLAGS` so a later edit cannot drop it by writing `-trimpath`
+back in. Provenance is unaffected: the build pins `-X config.GitCommit` and
+stamps the source fingerprint, both verifiable, so the toolchain's copy was
+redundant before it was harmful. Dropping the flag is invisible — the binary
+still builds, runs, and carries the right fingerprint and BuildTime — so it is
+enforced twice, by a test on the recipe and by `core.no_vcs_stamp` on the
+artifact.
+
+**A shallow clone silently restored the unscoped-HEAD behaviour.** Git treats a
+shallow graft boundary as a root commit, so every path looks introduced by the
+tip and the path-scoped query returns the tip's timestamp. The release-gate
+workflow checked out at `fetch-depth: 1`, so CI would have dated every build by
+whatever documentation or merge commit it was running on. Worse than the non-git
+case, which fails loudly: this succeeded with a plausible wrong answer. The
+resolver refuses a shallow clone now — an explicit `SOURCE_DATE_EPOCH` still
+works there — and the workflow fetches full history.
 
 ### The release gate
 

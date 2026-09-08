@@ -22,7 +22,9 @@
 #   neither available          → FAIL. Falling back to the wall clock is what
 #                                this script exists to prevent, and a silent
 #                                fallback would make the guarantee worthless
-#                                exactly when it is hardest to notice.
+#                                exactly when it is hardest to notice. A shallow
+#                                clone counts as unavailable: it has no history
+#                                to scope the query against.
 #
 # Prints one timestamp on stdout, in the same format the build has always
 # emitted (`%FT%T%z`), fixed to UTC so the output does not depend on the
@@ -73,6 +75,19 @@ if [ -n "$epoch" ]; then
 else
     source_of_truth="canonical Core build-input commit"
     repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+    # A shallow clone has no history to scope against. Git treats the graft
+    # boundary as a root commit, so every path looks introduced by the tip and
+    # the query below returns the tip's timestamp — silently restoring the
+    # unscoped-HEAD behaviour this scoping exists to remove, and dating a build
+    # by whatever documentation or merge commit happens to be checked out.
+    # Wrong-but-plausible is the worst outcome here, so refuse.
+    if [ "$(git -C "$repo_root" rev-parse --is-shallow-repository 2>/dev/null)" = "true" ]; then
+        fail "refusing to derive the build timestamp from a shallow clone.
+  Every path appears to originate at the tip commit, so the timestamp would be
+  the tip's rather than the canonical Core build input's. Either fetch the full
+  history (actions/checkout with fetch-depth: 0) or supply the timestamp:
+    SOURCE_DATE_EPOCH=<seconds> ./core/build-android-arm64.sh"
+    fi
     # Path-scoped: a documentation or staged-binary commit must not move this.
     epoch="$(git -C "$repo_root" log -1 --format=%ct -- "${BUILD_INPUTS[@]}" 2>/dev/null || true)"
     build_input_commit="$(git -C "$repo_root" log -1 --format=%H -- "${BUILD_INPUTS[@]}" 2>/dev/null || true)"

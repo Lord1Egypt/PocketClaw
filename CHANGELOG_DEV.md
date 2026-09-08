@@ -1,5 +1,69 @@
 # Development Changelog
 
+## 2026-09-08 — The toolchain had its own opinion about when this was built
+
+The reproducibility proof failed. Same epoch, same source, different bytes —
+156 of them, all inside the Go build ID and one string: `build.vcs.revision`,
+`build.vcs.time`, `build.vcs.modified`. Go stamps those into every binary
+automatically, reading the enclosing repository's HEAD, and it had been doing so
+underneath the entire milestone.
+
+Which means the earlier byte-identity proofs were true and useless. Both builds
+in each pair ran at the same HEAD, so the stamp was constant and the comparison
+passed. The one comparison that mattered — build, commit the binaries, rebuild —
+is the one nobody had run, and it is the one that fails, because the staging
+commit moves HEAD. A staged Core could never have been reproduced from the
+commit that contains it. The resolver was correct throughout; the toolchain was
+writing its own timestamp in behind it.
+
+`-buildvcs=false` on the canonical Android recipes. The build already states its
+provenance twice over, through a pinned `-X config.GitCommit` and the source
+fingerprint, both verifiable; the toolchain's copy was redundant before it was
+harmful.
+
+The uncomfortable part is how quiet it was. Drop the flag and the binary still
+builds, still runs, still carries the right fingerprint and the right BuildTime,
+and passes every check that existed. Only its bytes stop being reproducible. So
+the flag now has a test on the recipe and a `core.no_vcs_stamp` check on the
+artifact, because an invariant nothing enforces is a comment.
+
+Widened one more thing while here: `build.reproducibility_tests` ran a list of
+test names, and the path-scoping tests — the core of the whole contract — did
+not match it and had never run under the gate. It runs the package now. A filter
+that silently omits its most important case is the same failure as the stamp.
+
+## 2026-09-08 — The fix that CI would have quietly undone
+
+Checking the CI wrapper meant running its actual command, not reading it. The
+workflow checks out at `fetch-depth: 1`, and in that clone the resolver returned
+the merge commit's timestamp instead of the build input's.
+
+Git treats a shallow clone's graft boundary as a root commit, so every path
+looks like it was introduced by the tip. `git log -1 -- <build inputs>` then
+matches the tip and returns its date — the unscoped-HEAD behaviour the previous
+entry describes removing, restored in the one environment nobody runs by hand.
+Worse than the non-git case, which at least fails loudly: this succeeded, and
+the wrong answer looked like every right answer.
+
+So the resolver refuses a shallow clone rather than answering. Explicit
+`SOURCE_DATE_EPOCH` still works there, which keeps the escape hatch open for
+anyone who genuinely wants a shallow build. The workflow fetches full history,
+because a path-scoped query over one commit is not a query. Its comment had also
+still described the old HEAD derivation, which is how a stale comment earns its
+reputation.
+
+The regression test clones a throwaway repository at depth 1 and asserts the
+resolver fails; with the guard removed it returns the documentation commit's
+epoch, which is the defect stated as a number. That is the check worth having —
+a test that only proves the guard fires would have passed against a resolver
+that was right by accident.
+
+The guard lives in a canonical build input, so committing it advanced the epoch
+and the freshly staged Core went stale immediately. Rebuilt once, restaged, and
+the staging-invariance proof run again on the new pair. Fingerprint unchanged at
+`0f601437…`, correctly — the only Go change was a test file, and test files do
+not reach the compiled bytes.
+
 ## 2026-09-08 — Closing A3, and a guard that had been failing on its ally
 
 Release Hardening A3 merged to `develop` with `--no-ff`. No physical candidate

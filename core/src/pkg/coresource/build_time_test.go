@@ -373,3 +373,114 @@ func TestBuildRecipeChangesAdvanceTheEpoch(t *testing.T) {
 		t.Fatalf("epoch = %s, want the recipe commit's timestamp", after)
 	}
 }
+
+// A shallow clone is the same defect wearing a disguise.
+//
+// Git treats the graft boundary as a root commit, so every path looks like it
+// was introduced by the tip and the path-scoped query returns the tip's
+// timestamp — exactly the unscoped-HEAD behaviour the scoping removed. It is
+// worse than the non-git case because it succeeds and produces a plausible
+// wrong answer, so the resolver has to refuse it rather than date a build by
+// whichever documentation or merge commit is checked out.
+func TestShallowCloneFailsRatherThanDatingFromTheTip(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git is not available")
+	}
+	root := gitInit(t)
+
+	const (
+		buildInputEpoch = 1700000000
+		docsEpoch       = 1800000000
+	)
+	commit(t, root, "core/src/pkg/thing.go", "package thing\n", buildInputEpoch)
+	commit(t, root, "docs/NOTES.md", "notes\n", docsEpoch)
+
+	if got := resolveEpochIn(t, root); got != fmt.Sprint(buildInputEpoch) {
+		t.Fatalf("full clone: expected the build-input epoch %d, got %s", buildInputEpoch, got)
+	}
+
+	shallow := filepath.Join(t.TempDir(), "shallow")
+	clone := exec.Command("git", "clone", "-q", "--depth", "1", "file://"+root, shallow)
+	if out, err := clone.CombinedOutput(); err != nil {
+		t.Skipf("shallow clone unavailable in this environment: %v\n%s", err, out)
+	}
+
+	cmd := exec.Command(filepath.Join(shallow, "core/resolve-build-time.sh"), "--print-epoch")
+	cmd.Dir = shallow
+	env := []string{}
+	for _, kv := range os.Environ() {
+		if !strings.HasPrefix(kv, "SOURCE_DATE_EPOCH=") {
+			env = append(env, kv)
+		}
+	}
+	cmd.Env = env
+	out, err := cmd.CombinedOutput()
+	if err == nil {
+		t.Fatalf("shallow clone resolved instead of failing, giving %q", strings.TrimSpace(string(out)))
+	}
+	if !strings.Contains(string(out), "shallow") {
+		t.Errorf("failure does not name the cause:\n%s", out)
+	}
+	if strings.Contains(string(out), fmt.Sprint(docsEpoch)) {
+		t.Errorf("resolver leaked the tip's epoch %d into a shallow clone:\n%s", docsEpoch, out)
+	}
+
+	// The documented escape hatch still works there, so a shallow CI checkout
+	// is inconvenienced, not blocked.
+	explicit := exec.Command(filepath.Join(shallow, "core/resolve-build-time.sh"), "--print-epoch")
+	explicit.Dir = shallow
+	explicit.Env = append(env, "SOURCE_DATE_EPOCH="+fmt.Sprint(buildInputEpoch))
+	got, err := explicit.Output()
+	if err != nil {
+		t.Fatalf("explicit epoch failed in a shallow clone: %v", err)
+	}
+	if strings.TrimSpace(string(got)) != fmt.Sprint(buildInputEpoch) {
+		t.Errorf("explicit epoch: got %s, want %d", strings.TrimSpace(string(got)), buildInputEpoch)
+	}
+}
+
+// The toolchain had its own opinion about when this was built.
+//
+// Go stamps build.vcs.revision, build.vcs.time and build.vcs.modified into a
+// binary automatically, reading the enclosing repository's HEAD. It ignores the
+// resolver entirely, so identical build inputs produced different bytes after
+// any unrelated commit — including the staging commit itself, which meant a
+// staged Core could never be reproduced from the commit that contained it.
+//
+// Nothing else in the tree notices if the flag is dropped: the binary still
+// builds, still runs, still carries the right fingerprint and the right
+// BuildTime. Only its bytes stop being reproducible, silently. Hence a test on
+// the recipe and a gate check on the artifact.
+func TestCanonicalBuildDisablesToolchainVCSStamping(t *testing.T) {
+	for _, makefile := range []string{
+		filepath.Join("..", "..", "Makefile"),
+		filepath.Join("..", "..", "web", "Makefile"),
+	} {
+		body, err := os.ReadFile(makefile)
+		if err != nil {
+			t.Fatalf("read %s: %v", makefile, err)
+		}
+		text := string(body)
+
+		if !strings.Contains(text, "REPRODUCIBLE_BUILD_FLAGS=-trimpath -buildvcs=false") {
+			t.Errorf("%s does not define the reproducible build flags", makefile)
+		}
+		// Every android/arm64 recipe must go through that variable. A literal
+		// -trimpath on one of them is the exact regression this catches: it
+		// looks deliberate and drops the VCS stamping fix.
+		for _, line := range strings.Split(text, "\n") {
+			if !strings.Contains(line, "GOOS=android") || !strings.Contains(line, "GOARCH=arm64") {
+				continue
+			}
+			if strings.Contains(line, "-trimpath") {
+				t.Errorf("%s: android/arm64 recipe uses -trimpath directly instead of "+
+					"$(REPRODUCIBLE_BUILD_FLAGS), which silently drops -buildvcs=false:\n  %s",
+					makefile, strings.TrimSpace(line))
+			}
+			if !strings.Contains(line, "REPRODUCIBLE_BUILD_FLAGS") {
+				t.Errorf("%s: android/arm64 recipe does not use $(REPRODUCIBLE_BUILD_FLAGS):\n  %s",
+					makefile, strings.TrimSpace(line))
+			}
+		}
+	}
+}

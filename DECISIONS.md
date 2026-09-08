@@ -38,9 +38,12 @@
   2. an explicit `SOURCE_DATE_EPOCH` is supported and validated;
   3. the default BuildTime derives from canonical Core **build-input** history —
      `core/src`, `core/build-android-arm64.sh`, `core/resolve-build-time.sh`;
-  4. documentation, staging and unrelated commits therefore do not alter it;
-  5. a canonical build outside git requires an explicit `SOURCE_DATE_EPOCH` and
-     fails otherwise;
+  4. documentation, staging and unrelated commits alter neither the timestamp
+     nor the resulting bytes — the second half of that needs `-buildvcs=false`,
+     because the toolchain otherwise stamps HEAD in behind the resolver's back;
+  5. a canonical build outside git — or in a shallow clone, where the graft
+     boundary makes every path look introduced by the tip — requires an explicit
+     `SOURCE_DATE_EPOCH` and fails otherwise;
   6. the source fingerprint and the build-input revision are distinct concepts
      answering different questions, and are allowed to differ;
   7. the staged Core carries a verifiable embedded BuildTime, checked in both
@@ -51,6 +54,26 @@
   10. production full verification requires Git provenance and a clean worktree;
   11. the release manifest carries verification metadata only, never secrets;
   12. CI is a wrapper around the repo-local gate and never a second copy of it.
+- The Go toolchain was stamping its own answer over ours. `go build` writes
+  `build.vcs.revision`, `build.vcs.time` and `build.vcs.modified` into the
+  binary from the enclosing repository's HEAD, ignoring the resolver entirely,
+  so identical build inputs produced different bytes after any unrelated commit
+  — including the staging commit, which meant a staged Core could never be
+  reproduced from the commit containing it. The canonical Android recipes build
+  with `-buildvcs=false` now. This build states its own provenance through
+  `-X config.GitCommit` (pinned by the build script) and `coresource.Stamped`,
+  both verifiable, so the toolchain's version was redundant as well as wrong.
+  Nothing else in the tree notices if the flag is dropped — the binary still
+  builds, runs, and carries the right fingerprint and BuildTime — so there is a
+  test on the recipe and a `core.no_vcs_stamp` check on the artifact.
+- Shallow clones were the one way left to reintroduce the defect the path
+  scoping removed. Git treats the graft boundary as a root commit, so
+  `git log -1 -- <build inputs>` returns the *tip*, and a CI checkout at
+  `fetch-depth: 1` would have dated every build by whatever documentation or
+  merge commit it was running on — succeeding, with a plausible wrong answer.
+  The resolver refuses a shallow clone rather than answering, and the workflow
+  fetches full history. Found by running the workflow's own command against a
+  real depth-1 clone instead of trusting that it matched the local run.
 - **RECHECK AFTER THE NAMESPACE MIGRATION.** The gate's expected package id,
   Core library names and staged-Core path are all compatibility names, and so is
   the build-input path set in `core/resolve-build-time.sh`.
