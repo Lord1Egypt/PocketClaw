@@ -1,16 +1,69 @@
 # PocketClaw Project State
 
-## Bootstrap Architecture — IMPLEMENTED, awaiting review
+## Bootstrap Architecture — PHYSICALLY ACCEPTED and CLOSED on vc59
 
-- Status: **implemented on `feature/bootstrap-architecture`, 2026-09-08. NOT
-  merged**, awaiting review before the namespace migration. Branch cut from
-  `develop` at `01495dc`.
-- **No version bump and no physical candidate.** `pubspec.yaml` stays
-  `0.2.0+58` and `lastAcceptedVersionCode` stays `58`.
-- **Core is deliberately not rebuilt or restaged.** `core/src/workspace/AGENT.md`
-  is fingerprinted source, so the staged Core is now correctly STALE: it carries
-  `5d6f00cd…` while the tree computes `83038b71…`. That is expected and is the
-  one failing check on this branch.
+- Status: **closed on `feature/bootstrap-architecture`, 2026-09-08. Merged to
+  `develop` with `--no-ff`.** `main` untouched, no tags moved, no release.
+  Branch cut from `develop` at `01495dc`, retained.
+- **Physically accepted as vc59** (`0.2.0`, versionCode 59) on SM-A165F /
+  Android 16, installed with `adb install -r`. No uninstall, no clear-data;
+  UID, dataDir and firstInstallTime preserved. `lastAcceptedVersionCode`
+  advanced 58 → 59 in the acceptance commit. `pubspec.yaml` stays `0.2.0+59`.
+  No What's New entry: this fixes prompt and bootstrap ownership.
+
+### The accepted artifact
+
+    APK            44101679d94a97ad12b96dd756afb5dd412fe53fa636aee0dbf780cbbae1ffa3
+                   63,565,050 bytes, com.lord1egypt.pocketclaw 0.2.0 (59)
+    local signer   15cf75f9945d5354e75707e0326b7cffc60ac51a68df38156db318ef4578a27c
+    fingerprint    e7acbff7000bb58ac8074bfaf290528326df115bf1fae4bb6242defbf78d9a23
+    BuildTime      2026-09-08T18:36:44+0000  (build-input commit 08781fe)
+    libpicoclaw.so 0a4d9c856d0d4a260349cdee8b3ac0c0be8fff2f2ee9fb23952f82c8c62cdef1  37,683,553
+    libpicoclaw-web.so 7f693fd0de6f5e6bb32df986b804b5adfbb012961c74596ee1e005dbdb47a8a0  25,493,857
+
+The signer is the local-test development key, by explicit
+`-PallowDebugSigning=true`. vc59 is a physically accepted **local test**
+artifact, not a production release artifact; no production signing material was
+created.
+
+### Physical acceptance evidence
+
+Machine checks, all pass: app, launcher backend and Core gateway all started;
+the gateway is loopback-only on `127.0.0.1:18790` and `[::1]:18790`; the shared
+PID record carries exactly `host`, `pid`, `port`, `version` and no credential;
+application identity and the 10-permission set were preserved across the update.
+
+The decisive evidence is what did **not** happen. The workspace at
+`/sdcard/Download/pocketclaw/workspace` already held `AGENT.md` (2026-09-03),
+`SOUL.md` and `USER.md` (2026-08-26) and `memory/MEMORY.md` (2026-09-08 00:38).
+Every one of those timestamps predates the vc59 run, which wrote its bootstrap
+record at 22:06:18. The app started, recorded what it had done, and modified no
+user file. No file content was read during validation.
+
+The record it wrote has `bootstrapVersion` 1, `managedGuidanceVersion` 1, and an
+**empty** `templates` map, because this run seeded nothing. An empty record on a
+populated workspace is the correct answer: PocketClaw must not claim provenance
+for files it did not write.
+
+Chat acceptance confirmed the managed guidance actually governs behaviour: the
+agent treats `action=list` as the authority on what exists, derives tool
+availability from the runtime inventory rather than from a Skill naming a tool,
+refuses to download or install a missing tool, and reports unavailability
+plainly. No-shell semantics were confirmed too — `|`, `>`, `*` and `$(...)` are
+not interpreted, arguments pass verbatim, and compound work is split across
+calls.
+
+A2 invariants re-checked and intact: no `launcher-auth.db` (or `-wal`, `-shm`,
+`-journal`) on shared storage at either the home or workspace root, no shared
+`logs/` or `gateway.log`, private runtime state still starting correctly.
+
+### Non-blocking security-review backlog
+
+The launcher/web console was observed listening on `0.0.0.0:18800`, where the
+Core gateway is correctly loopback-only. **This predates this branch and was not
+introduced by vc59** — the diff against `develop` touches nothing under
+`core/src/web`, `core/src/pkg/config` or `android/app/src`. Recorded for a later
+security review; deliberately not fixed in this closeout.
 
 ### What moved, and why it had to
 
@@ -162,6 +215,13 @@ must not.
   `git`, `gh`, `rg`, `jq`, `sqlite3`, `curl` — user-visible product surface.
 - Go import path `github.com/sipeed/picoclaw/pkg/bootstrap`, which carries the
   upstream module name like every other package.
+- `$PICOCLAW_HOME` and its `workspace/` subdirectory, the shared PID record
+  `.picoclaw.pid`, and the staged library names `libpicoclaw.so` /
+  `libpicoclaw-web.so` — all compatibility PicoClaw identifiers that remain.
+
+`.pocketclaw/bootstrap.json` is already PocketClaw-named and must not be
+gratuitously renamed; it is the one piece of new on-disk state the migration
+does not have to touch.
 
 ## Production Release Hardening A3 — CLOSED
 

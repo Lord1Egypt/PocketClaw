@@ -64,6 +64,11 @@
   first editorial pass to the guidance would have silently redefined what "the
   bytes already on users' devices" means, and the digest would then have been
   regenerated to match text nobody has.
+- **Physically accepted as vc59, 2026-09-08**, and closed. The accepted
+  behaviour is the ownership rule working on a populated device: every tracked
+  template predated the run and was left untouched, and the record was written
+  with an empty `templates` map. That is the contract, not an omission — a
+  record may describe only what PocketClaw actually wrote.
 - **RECHECK AFTER FULL NAMESPACE MIGRATION.** Compatibility identifiers
   introduced or touched here: the metadata directory `.pocketclaw/` and file
   `bootstrap.json` (deliberately named PocketClaw already, so it needs no

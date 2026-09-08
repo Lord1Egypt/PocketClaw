@@ -1,5 +1,63 @@
 # PocketClaw Session Handoff
 
+## Bootstrap Architecture — PHYSICALLY ACCEPTED and CLOSED on vc59, 2026-09-08
+
+Branch `feature/bootstrap-architecture`, off `develop` at `01495dc`, merged with
+`--no-ff`. Accepted as **vc59** (`0.2.0`, versionCode 59) on SM-A165F. Baseline
+advanced 58 → 59 in the acceptance commit. No What's New entry: this fixes
+prompt and bootstrap ownership, it is not a feature announcement.
+
+### The one idea
+
+Seeding writes a bundled template only when the file is absent, so `AGENT.md` is
+written once and never refreshed. That rule is right — the file is the user's —
+and it means an install seeded before a default improved keeps the old text
+forever. Every fix beginning "refresh the file" destroys work that is not ours.
+So the file stopped being the delivery mechanism: what the product needs the
+model to know now ships in the binary as `capability.managed_runtime`, from the
+`runtime.managed_guidance` source. Upgrading the app upgrades the guidance
+everywhere, with nothing to migrate.
+
+### The things worth not undoing
+
+**The bootstrap record is advisory, never write authorization.**
+`.pocketclaw/bootstrap.json` lives in the workspace, so it is untrusted input.
+Anyone who can edit it can make any document look pristine by recording its
+current digest. Missing, corrupt, unknown-schema, mismatched or tampered all
+mean the same thing: leave the file alone. Even `matches-seed` is a hint, not
+permission. Do not add a function that returns "you may overwrite this".
+
+**The record must never claim provenance for files it did not write.** vc59
+proved this physically: every tracked template already existed, so the record
+was written with an empty `templates` map. An empty record on a populated
+workspace is the correct answer, not a bug to fix.
+
+**`MEMORY.md` is never touched by bootstrap logic** — not overwritten, deleted,
+normalized, search-replaced or migrated by prose matching, and never used to
+infer ownership. `Provenance` returns `unknown` for it even when its digest
+matches. The one-off heading cleanup done by hand earlier was user-directed
+maintenance and must never become automatic migration.
+
+**The historical digest `47b63011…` identifies bytes already on user devices.**
+It digests the pinned literal `legacyManagedRuntimeSectionV1`, extracted from
+git history rather than derived from the live guidance — deriving it was a
+latent bug the first editorial pass would have triggered. Never regenerate it,
+including at the namespace migration: the bytes on a user's disk do not change
+when the namespace does.
+
+**Managed guidance is authoritative for capability facts only.** It sits after
+the workspace text and says so in one sentence, with an explicit disclaimer that
+persona, tone and preferences remain the workspace's. Do not broaden it into a
+generic override of user instructions; a test fails if it acquires wording like
+"ignore the workspace".
+
+### Where the workspace actually is
+
+`/sdcard/Download/pocketclaw/workspace`, i.e. `$PICOCLAW_HOME/workspace` — not
+`$PICOCLAW_HOME`. The PID record and the workspace live at different levels, and
+probing the wrong one during vc59 validation produced a confident and wrong
+"all templates absent" reading before it was caught.
+
 ## Release Hardening A3 — CLOSED and merged, 2026-09-08
 
 Branch `feature/release-hardening-a3`, off `develop` at `b68f86d`, merged with

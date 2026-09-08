@@ -1,5 +1,41 @@
 # Development Changelog
 
+## 2026-09-08 — vc59, and the evidence that nothing happened
+
+The Bootstrap Architecture is physically accepted. The proof is a set of
+timestamps that did not move.
+
+The workspace on the device already held `AGENT.md` from 2026-09-03, `SOUL.md`
+and `USER.md` from 2026-08-26, and `MEMORY.md` from this morning. vc59
+installed, started, wrote its bootstrap record at 22:06:18, and left every one
+of those files exactly as it found them. The record it wrote has an empty
+`templates` map, because it seeded nothing and therefore claims nothing. An
+empty record on a full workspace looks like a bug for about two seconds and is
+in fact the entire point: PocketClaw must not claim provenance for files it did
+not write, and a record that flatters itself is worse than no record.
+
+The chat side confirmed the other half — that guidance shipped in a binary
+actually governs behaviour. The agent treats `action=list` as the authority on
+what exists rather than guessing from a Skill that names a tool, declines to
+download or install anything, and says plainly when the device cannot do
+something. No-shell semantics held: pipes, redirection, globs and `$(...)` are
+not interpreted, and compound work gets split across calls.
+
+One embarrassment worth recording, because it nearly became a false conclusion.
+The pre-install baseline probed `$PICOCLAW_HOME` and reported all four templates
+absent, which would have made this a first-seed run and a much weaker test. The
+workspace is `$PICOCLAW_HOME/workspace`. The PID record and the workspace live
+at different levels, and the wrong one produced a confident, tidy, wrong answer
+that survived a whole report before the seeded files turned up one directory
+down. The lesson is not "check the path" — it is that ABSENT is a claim about
+where you looked, and a baseline of absences deserves the same scepticism as a
+baseline of surprises.
+
+Also noted, not fixed: the web console listens on `0.0.0.0:18800` while the Core
+gateway is correctly loopback-only. It predates this branch — the diff touches
+nothing under `core/src/web` — so it goes to the security backlog rather than
+into a closeout that has no business changing it.
+
 ## 2026-09-08 — Three review points, and a bug hiding in a test helper
 
 Review asked for three things. The third one found a fourth.
