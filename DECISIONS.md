@@ -1,5 +1,56 @@
 # PocketClaw Decisions
 
+## Product guidance ships in the binary; workspace files belong to the user
+
+- Date: 2026-09-08
+- Decision: guidance splits by **owner**, not by topic. What the assistant *is*
+  — `AGENT.md`, `SOUL.md`, `USER.md`, and memory — is seeded once and owned by
+  the user from then on. What this build's own capabilities *do* ships inside
+  the binary as a prompt part, so upgrading the app upgrades the guidance on
+  every install with no file to migrate. The Managed Runtime section is the
+  first thing to move: it is now `capability.managed_runtime`, contributed by
+  the `runtime.managed_guidance` prompt source at capability/tooling.
+- Reason: seeding is deliberately one-directional — a bundled template is
+  written only when the file is absent — which keeps user edits safe and means
+  an install seeded before a default improved keeps the old text forever. The
+  device validated on 2026-09-08 still carried an `AGENT.md` predating the
+  Managed Runtime, so that agent had never been told the Managed Runtime exists.
+  Refreshing the file would have been the obvious fix and the wrong one: it
+  overwrites work that is not ours. Moving the text out of the file removes the
+  need to refresh anything.
+- Consequence: an install that never had the guidance gains it (+835 estimated
+  tokens — instructions it was missing). An install that already carries
+  PocketClaw's own copy is neutral (+2 tokens), because the assembler drops that
+  copy from the prompt. It drops it **only** when the section is byte-for-byte
+  what PocketClaw seeded, matched by sha256; one edited character and the user's
+  version is kept and the managed part is added alongside it, because at that
+  point it is their instruction and not ours. The file on disk is never touched
+  either way.
+- The bootstrap record, `.pocketclaw/bootstrap.json`, stores the digest of what
+  PocketClaw actually wrote — not of the file as it stands — for the four
+  tracked documents. That makes three states distinguishable without diffing
+  prose or keeping every historical template: recorded and matching (ours,
+  untouched), recorded and differing (the user's), unrecorded (provenance
+  unknown, assume the user's). It records only files a run actually wrote, so a
+  workspace that already had `AGENT.md` gets no entry for it rather than a false
+  claim. `MEMORY.md` is recorded and never read: `UserOwns` returns true for it
+  unconditionally, so no upgrade path can ever consider touching it.
+- `bootstrap.UserOwns` has no production caller yet, deliberately. The upgrade
+  experience — offering a delta, or asking — is still deferred in `TASKS.md`;
+  what is settled here is the record it will consult and the rule it must obey.
+- **RECHECK AFTER FULL NAMESPACE MIGRATION.** Compatibility identifiers
+  introduced or touched here: the metadata directory `.pocketclaw/` and file
+  `bootstrap.json` (deliberately named PocketClaw already, so it needs no
+  rename — the only new on-disk state that does not); the prompt source id
+  `runtime.managed_guidance` and part id `capability.managed_runtime`; the
+  tracked template names `AGENT.md`, `SOUL.md`, `USER.md`, `memory/MEMORY.md`;
+  the superseded-section digest
+  `47b63011a55eaa659470f2ab09d05532e9942800848020a1cfe443e6f21aca76`, which
+  pins text containing the word PocketClaw and must not be regenerated to match
+  a renamed string; and the Go import path
+  `github.com/sipeed/picoclaw/pkg/bootstrap`, which still carries the upstream
+  module name like every other package.
+
 ## The build timestamp comes from the source, and one command decides releasable
 
 - Date: 2026-09-08

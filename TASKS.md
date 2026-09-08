@@ -1055,6 +1055,19 @@ supplied by the user.
   authorization; do not create `v0.2.0-rc1` yet.
 - [ ] Security hygiene: confirm manager bot token rotation externally. Never
   retrieve or record the token.
+- [~] **Bootstrap architecture implemented 2026-09-08 on
+  `feature/bootstrap-architecture`; the upgrade experience is still open.**
+  PocketClaw-managed capability guidance no longer lives in `AGENT.md`: it ships
+  in the binary as the `capability.managed_runtime` prompt part, so every
+  install receives it on upgrade with no file to migrate. `.pocketclaw/
+  bootstrap.json` records the digest of what seeding actually wrote for
+  `AGENT.md`, `SOUL.md`, `USER.md` and `memory/MEMORY.md`, which is what makes
+  "has the user touched this?" answerable later. **Still open:** what to do when
+  a tracked template is pristine and its bundled default has since improved —
+  offering the delta, or asking. `bootstrap.UserOwns` is the predicate that
+  decision must consult; it has no production caller until that work is done.
+  `MEMORY.md` is out of scope permanently, by design.
+  Original entry, kept for the reasoning:
 - [ ] **DEFERRED — Release Hardening / post-stable architecture:** a versioned,
   non-destructive bootstrap update strategy for existing installs. Embedded
   workspace templates are seeded with `keepExisting=true`, so `AGENT.md`,

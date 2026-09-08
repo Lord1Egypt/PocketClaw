@@ -11,6 +11,8 @@ import (
 
 	"github.com/sipeed/picoclaw/cmd/picoclaw/internal"
 	"github.com/sipeed/picoclaw/cmd/picoclaw/internal/cliui"
+	"github.com/sipeed/picoclaw/pkg/agent"
+	"github.com/sipeed/picoclaw/pkg/bootstrap"
 	"github.com/sipeed/picoclaw/pkg/config"
 	"github.com/sipeed/picoclaw/pkg/credential"
 )
@@ -191,6 +193,11 @@ func copyEmbeddedToTargetMode(targetDir string, keepExisting bool) error {
 		return fmt.Errorf("Failed to create target directory: %w", err)
 	}
 
+	// What this run actually wrote, so the bootstrap record describes reality
+	// rather than what the bundle contains. A file that was already present is
+	// not in here, because PocketClaw did not put it there.
+	written := map[string][]byte{}
+
 	// Walk through all files in embed.FS
 	err := fs.WalkDir(embeddedFiles, "workspace", func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
@@ -236,9 +243,20 @@ func copyEmbeddedToTargetMode(targetDir string, keepExisting bool) error {
 		if err := os.WriteFile(targetPath, data, 0o644); err != nil {
 			return fmt.Errorf("Failed to write file %s: %w", targetPath, err)
 		}
+		written[filepath.ToSlash(new_path)] = data
 
 		return nil
 	})
+	if err != nil {
+		return err
+	}
 
-	return err
+	// Record what was seeded. A failure here must not fail onboarding: the
+	// workspace is already correct, and the record only affects what a future
+	// upgrade is willing to assume — which, without it, is nothing.
+	if recordErr := bootstrap.Record(targetDir, agent.ManagedGuidanceVersion(), written); recordErr != nil {
+		fmt.Printf("Warning: could not record workspace bootstrap metadata: %v\n", recordErr)
+	}
+
+	return nil
 }

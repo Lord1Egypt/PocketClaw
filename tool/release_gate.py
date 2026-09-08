@@ -857,6 +857,13 @@ def main() -> int:
 
     if args.release_class == "test":
         print("\nPASS — local test candidate. NOT releasable as production.")
+    elif args.verify_source:
+        # Source mode checks the tree, not a package. Calling this a verified
+        # production artifact would claim the artifact gates ran when no
+        # artifact was even named — the signing, permission, ABI, packaged-Core
+        # and payload checks all live in --verify-artifact.
+        print("\nPASS — production source contracts. "
+              "NOT a verified production artifact: run --full <apk> for that.")
     else:
         print("\nPASS — production release candidate.")
     print("Pending final hardening: " + "; ".join(PENDING_FINAL_HARDENING))

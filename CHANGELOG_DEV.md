@@ -1,5 +1,48 @@
 # Development Changelog
 
+## 2026-09-08 — The file we were never allowed to fix
+
+The bug is easy to state and awkward to fix. Seeding writes a bundled template
+only when the file is absent, so `AGENT.md` is written once and never again.
+That is the correct rule — it is the user's file — and it means an install
+seeded a year ago keeps a year-old default. The device validated this morning
+still carried an `AGENT.md` predating the Managed Runtime. That agent had never
+been told the Managed Runtime exists, and no upgrade would ever tell it.
+
+Every fix that starts with "refresh the file" is wrong, because by then the file
+may contain the user's own work, and you cannot tell which parts. Merging prose
+is guesswork. Prompting on every upgrade is a nag.
+
+So the file stops being the delivery mechanism. Guidance splits by owner rather
+than topic: who the assistant is stays in the workspace and belongs to the user;
+what this build's capabilities do moves into the binary as a prompt part.
+Upgrading the app upgrades the guidance everywhere, and there is nothing to
+migrate because nothing on disk holds it.
+
+That leaves duplication for the installs that already have PocketClaw's copy
+inline. The assembler drops that copy from the prompt — never from the file —
+and only when it hashes to exactly what PocketClaw seeded. Change one character
+and it is yours: kept, with the managed part alongside it, because at that point
+it is your instruction and not ours. Matching by heading would have been simpler
+and would have quietly deleted the notes of anyone who wrote their own "Managed
+Runtime" section.
+
+Measured, since moving text around invites hand-waving. The guidance is 831
+estimated tokens. An install that already had it: +2, effectively nothing. An
+install that never had it: +835 — the instructions it should have had all along.
+
+The other half is `.pocketclaw/bootstrap.json`, which records the digest of what
+seeding actually wrote. Not of the file now — of what we wrote. That is the
+distinction that makes a later upgrade decidable: matching means ours and
+untouched, differing means the user edited it, absent means we never wrote it
+and must assume nothing. A workspace that already had `AGENT.md` gets no entry
+for it, which is the honest answer rather than a convenient one.
+
+`MEMORY.md` is recorded and never read. `UserOwns` returns true for it whatever
+its digest says, so no future upgrade path can reach it even by accident. It
+seemed worth spending a branch in the code to make that unreachable rather than
+merely undone.
+
 ## 2026-09-08 — The toolchain had its own opinion about when this was built
 
 The reproducibility proof failed. Same epoch, same source, different bytes —
