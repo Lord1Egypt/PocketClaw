@@ -1,5 +1,38 @@
 # Development Changelog
 
+## 2026-09-09 — The rule that had to cost something
+
+Two guards disagreed about the same tree. The fingerprint said a four-line test
+edit changed nothing about the shipped binary, which was true. The BuildTime
+query said the build inputs had moved, which was also true, because it scoped to
+`core/src` as a whole. Same commit, green and red simultaneously.
+
+The fix is one pathspec: `:(exclude,glob)core/src/**/*_test.go`, adopting the
+exclusion the fingerprint had carried since A3 along with the reasoning already
+written beside it — demanding a rebuild for a test edit "would train people to
+ignore the guard".
+
+The interesting part was the temptation that came with it. `resolve-build-time.sh`
+is itself a canonical build input, so changing it moves the timestamp and forces
+a rebuild. There was an obvious way to avoid that: exclude the resolver from its
+own query too. It would have worked, this commit would have been free, and the
+argument writes itself — the resolver doesn't ship, so why should it count?
+
+Because a dating rule that does not date itself is how provenance quietly stops
+meaning anything. The next person to change how builds are timestamped would
+have done so without any record in the thing being timestamped. So the resolver
+stays in, the rebuild happened, and there is now a test that fails if anyone
+takes the shortcut later. Six cases, each pinning one rule: a Core test file
+does not move the epoch, production source does, a file merely named
+`testdata_loader.go` does, the build script does, the resolver does, an explicit
+epoch still overrides everything.
+
+The rebuild produced binaries differing from the accepted vc59 Core in exactly
+the embedded timestamp — same fingerprint, same program logic — which is why no
+physical candidate was needed and also why the check that demanded it was right
+to demand it. "Provably identical" is a claim; the gate's job is to not take
+claims.
+
 ## 2026-09-08 — N1, and the guard that lived on the wrong side of the fence
 
 The renames themselves were dull, which is the point of doing N0 first: Dart

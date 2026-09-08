@@ -1,13 +1,18 @@
 # PocketClaw Project State
 
-## Namespace Migration N1 — source identities renamed, one blocker
+## Namespace Migration N1 — CLOSED
 
-- Status: **implemented on `feature/namespace-n1-source-identities`, 2026-09-08.
-  NOT merged.** Branch cut from `develop` at `75377f8`. No version bump, no
-  candidate: `0.2.0+59`, baseline 59.
-- **`core/src` is untouched.** Core fingerprint is still
-  `e7acbff7000bb58ac8074bfaf290528326df115bf1fae4bb6242defbf78d9a23` and the
-  staged Core remains FRESH. No rebuild, no restage, no APK, no ADB.
+- Status: **closed on `feature/namespace-n1-source-identities`, 2026-09-09,
+  merged to `develop` with `--no-ff`.** Branch cut from `develop` at `75377f8`,
+  retained. `main` untouched, no tags moved, no release. No version bump and no
+  physical candidate: `0.2.0+59`, baseline 59, no What's New entry.
+- **One test-only `core/src` change**, authorized as a narrow amendment:
+  `android_hot_reload_test.go` follows the renamed Android service filename.
+  Plus the A3 build-input alignment below. The Core **source fingerprint is
+  unchanged** at `e7acbff7000bb58ac8074bfaf290528326df115bf1fae4bb6242defbf78d9a23`
+  — shipped program logic is identical to the accepted vc59 Core — but the Core
+  was rebuilt and restaged once because the *build contract* changed. No APK, no
+  ADB, no physical candidate.
 
 ### Renamed — PocketClaw-owned source identity with no persistence
 
@@ -28,7 +33,44 @@ together. The dart-defines needed no legacy fallback either — no tracked
 workflow supplies them, and `POCKETCLAW_ONBOARDING_BASE_URL` had already set the
 naming precedent.
 
-### AMENDMENT — the guard was fixed; a second blocker appeared
+### RESOLVED — the A3 build-input rule now matches the fingerprint rule
+
+Both blockers are closed. `5c81160` updated the two path constants in
+`android_hot_reload_test.go`; `c4fbe02` then aligned the A3 rule that the first
+fix exposed.
+
+**The rule, stated once:** Core `*_test.go` files are excluded from **both** the
+Core source fingerprint and the default BuildTime history query, because they
+cannot change the shipped binary. Everything that does take part in producing it
+stays provenance-bearing — production Go source, config, embedded assets,
+`core/build-android-arm64.sh`, and `core/resolve-build-time.sh` itself. Editing
+any of those still moves the timestamp and still requires a rebuild.
+
+The resolver's self-provenance is the load-bearing half. Exempting it from its
+own query would have made the alignment commit free, which is precisely why it
+was not done: a dating rule that does not date itself is how provenance quietly
+stops meaning anything. `TestBuildTimeInputRules` pins all six cases
+independently, and removing the exclusion fails exactly the two that should fail.
+
+The rebuild that followed is the honest cost of that choice:
+
+    build-input commit e7acbff7-source, resolver commit c4fbe02
+    epoch              1788901472
+    BuildTime          2026-09-08T21:04:32+0000
+    fingerprint        e7acbff7000bb58ac8074bfaf290528326df115bf1fae4bb6242defbf78d9a23  (unchanged)
+    libpicoclaw.so     af5ebc9244c716e139906a9eeddb9c24340cf1ac5ebac3d229e76106deeabbf2  37,683,553
+    libpicoclaw-web.so c829cc90c8d3ddb1938935cb06350fe11ea7a25c9e1eed9f9d4255fdd015676e  25,493,857
+
+Both stripped, NX stack, 64 KiB aligned, zero developer paths, zero Go VCS
+stamps. Staged at `5c0a52a`; resolving before and after that commit gave the
+identical value, so staging still does not redate the build.
+
+The upstream divergence patch was deliberately **not** regenerated: it was last
+written 2026-08-30 and already predates A2, A3 and Bootstrap, so regenerating it
+here would sweep unrelated history into N1. That remains a separate
+upstream-review concern.
+
+### Superseded — the original blocker
 
 `5c81160` updated the two path constants, authorized as a narrow N1 amendment.
 Both guards pass, the Core fingerprint is unchanged at `e7acbff7…` and staged

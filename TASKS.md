@@ -1058,8 +1058,8 @@ supplied by the user.
 - [x] **Bootstrap architecture PHYSICALLY ACCEPTED as vc59 and CLOSED,
   2026-09-08**, merged to `develop` with `--no-ff`; baseline advanced 58 → 59.
   The upgrade experience remains open, below.
-- [ ] **DECISION NEEDED — `BUILD_INPUTS` and the source fingerprint disagree
-  about `_test.go`.** Surfaced 2026-09-08 by the first test-only `core/src`
+- [x] **RESOLVED 2026-09-09 (`c4fbe02`): `BUILD_INPUTS` now matches the
+  fingerprint rule on `_test.go`.** Originally recorded as: Surfaced 2026-09-08 by the first test-only `core/src`
   commit since A3 (`5c81160`, four lines in `android_hot_reload_test.go`).
   `coresource/fingerprint.go:159-161` excludes `_test.go` deliberately, on the
   grounds that "a test edit does not change the shipped binary and demanding a

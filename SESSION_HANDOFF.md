@@ -1,18 +1,22 @@
 # PocketClaw Session Handoff
 
-## Namespace Migration N1 — implemented, NOT merged, one open decision
+## Namespace Migration N1 — CLOSED and merged, 2026-09-09
 
 Branch `feature/namespace-n1-source-identities` off `develop` at `75377f8`.
 `core/src` untouched, fingerprint `e7acbff7…` unchanged, staged Core FRESH,
 version `0.2.0+59`, baseline 59, no candidate.
 
-### Read this before merging
+### The A3 rule this phase settled
 
-**Two guards are red.** `core/src/pkg/coresource/android_hot_reload_test.go`
-hard-codes `PicoClawService.kt` at lines 38 and 104. It is PocketClaw-authored,
-the fix is two path constants, and `_test.go` is fingerprint-excluded so it
-costs no rebuild — but N1's scope excludes `core/src`, so it was left alone and
-handed over as a decision rather than a silent widening.
+**Core `*_test.go` is excluded from both the source fingerprint and the default
+BuildTime query.** It could not change the shipped binary, and before the
+alignment the two guards contradicted each other on the same tree.
+
+**Everything else that builds the binary stays provenance-bearing, including
+`core/resolve-build-time.sh` itself.** Do not exempt the resolver from its own
+query to avoid a rebuild — that was available, obvious, and refused. A dating
+rule that does not date itself stops meaning anything. `TestBuildTimeInputRules`
+pins all six cases; the resolver case is the one that matters.
 
 ### The discipline this phase was meant to establish
 
