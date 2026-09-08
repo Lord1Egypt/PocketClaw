@@ -58,6 +58,19 @@ WEB_GO?=$(GO)
 CGO_ENABLED?=0
 GO_BUILD_TAGS?=goolm,stdjson
 GOFLAGS?=-v -tags $(GO_BUILD_TAGS)
+
+# Flags that make the canonical Android build reproducible.
+#
+# -trimpath removes the builder's absolute paths. -buildvcs=false removes Go's
+# automatic VCS stamping, which reads the enclosing repository's HEAD and writes
+# build.vcs.revision, build.vcs.time and build.vcs.modified into the binary.
+# That stamping bypasses core/resolve-build-time.sh entirely: it re-dates the
+# binary from whichever commit is checked out, so committing documentation — or
+# the staged binaries themselves — changed the bytes even though every build
+# input was identical. This build states its own provenance through -X
+# config.GitCommit and coresource.Stamped, which are pinned and verifiable, so
+# the toolchain's version is redundant as well as harmful.
+REPRODUCIBLE_BUILD_FLAGS=-trimpath -buildvcs=false
 GOCACHE?=$(CURDIR)/.cache/go-build
 GOMODCACHE?=$(CURDIR)/.cache/go-mod
 GOTOOLCHAIN?=local
@@ -301,7 +314,7 @@ build-linux-mipsle: generate
 build-android-arm64: generate
 	@echo "Building for android/arm64..."
 	@mkdir -p $(BUILD_DIR)
-	GOOS=android GOARCH=arm64 $(GO) build -trimpath -tags stdjson -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-android-arm64 ./$(CMD_DIR)
+	GOOS=android GOARCH=arm64 $(GO) build $(REPRODUCIBLE_BUILD_FLAGS) -tags stdjson -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-android-arm64 ./$(CMD_DIR)
 	@echo "Build complete: $(BUILD_DIR)/$(BINARY_NAME)-android-arm64"
 
 ## build-launcher-android-arm64: Build launcher for Android ARM64
@@ -318,7 +331,7 @@ build-launcher-android-arm64:
 build-android-bundle: generate
 	@echo "Building core for all Android architectures..."
 	@mkdir -p $(BUILD_DIR)
-	GOOS=android GOARCH=arm64 $(GO) build -trimpath -tags stdjson -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-android-arm64 ./$(CMD_DIR)
+	GOOS=android GOARCH=arm64 $(GO) build $(REPRODUCIBLE_BUILD_FLAGS) -tags stdjson -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-android-arm64 ./$(CMD_DIR)
 	@echo "Building launcher for Android arm64..."
 	@$(MAKE) build-launcher-android-arm64
 	@echo "Staging JNI libs..."

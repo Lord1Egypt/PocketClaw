@@ -438,3 +438,49 @@ func TestShallowCloneFailsRatherThanDatingFromTheTip(t *testing.T) {
 		t.Errorf("explicit epoch: got %s, want %d", strings.TrimSpace(string(got)), buildInputEpoch)
 	}
 }
+
+// The toolchain had its own opinion about when this was built.
+//
+// Go stamps build.vcs.revision, build.vcs.time and build.vcs.modified into a
+// binary automatically, reading the enclosing repository's HEAD. It ignores the
+// resolver entirely, so identical build inputs produced different bytes after
+// any unrelated commit — including the staging commit itself, which meant a
+// staged Core could never be reproduced from the commit that contained it.
+//
+// Nothing else in the tree notices if the flag is dropped: the binary still
+// builds, still runs, still carries the right fingerprint and the right
+// BuildTime. Only its bytes stop being reproducible, silently. Hence a test on
+// the recipe and a gate check on the artifact.
+func TestCanonicalBuildDisablesToolchainVCSStamping(t *testing.T) {
+	for _, makefile := range []string{
+		filepath.Join("..", "..", "Makefile"),
+		filepath.Join("..", "..", "web", "Makefile"),
+	} {
+		body, err := os.ReadFile(makefile)
+		if err != nil {
+			t.Fatalf("read %s: %v", makefile, err)
+		}
+		text := string(body)
+
+		if !strings.Contains(text, "REPRODUCIBLE_BUILD_FLAGS=-trimpath -buildvcs=false") {
+			t.Errorf("%s does not define the reproducible build flags", makefile)
+		}
+		// Every android/arm64 recipe must go through that variable. A literal
+		// -trimpath on one of them is the exact regression this catches: it
+		// looks deliberate and drops the VCS stamping fix.
+		for _, line := range strings.Split(text, "\n") {
+			if !strings.Contains(line, "GOOS=android") || !strings.Contains(line, "GOARCH=arm64") {
+				continue
+			}
+			if strings.Contains(line, "-trimpath") {
+				t.Errorf("%s: android/arm64 recipe uses -trimpath directly instead of "+
+					"$(REPRODUCIBLE_BUILD_FLAGS), which silently drops -buildvcs=false:\n  %s",
+					makefile, strings.TrimSpace(line))
+			}
+			if !strings.Contains(line, "REPRODUCIBLE_BUILD_FLAGS") {
+				t.Errorf("%s: android/arm64 recipe does not use $(REPRODUCIBLE_BUILD_FLAGS):\n  %s",
+					makefile, strings.TrimSpace(line))
+			}
+		}
+	}
+}
