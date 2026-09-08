@@ -16,16 +16,30 @@ endif
 ifeq ($(OS),Windows_NT)
 	VERSION_RAW:=$(strip $(shell git describe --tags --always --dirty 2>NUL))
 	GIT_COMMIT_RAW:=$(strip $(shell git rev-parse --short=8 HEAD 2>NUL))
-	BUILD_TIME_RAW:=$(strip $(shell powershell -NoProfile -Command "Get-Date -Format 'yyyy-MM-ddTHH:mm:ssK'"))
 	GO_VERSION_RAW:=$(strip $(shell go env GOVERSION 2>NUL))
 else
 	VERSION_RAW:=$(strip $(shell git describe --tags --always --dirty 2>/dev/null))
 	GIT_COMMIT_RAW:=$(strip $(shell git rev-parse --short=8 HEAD 2>/dev/null))
-	BUILD_TIME_RAW:=$(strip $(shell date +%FT%T%z))
 	GO_VERSION_RAW:=$(strip $(shell go env GOVERSION 2>/dev/null))
 endif
 VERSION?=$(if $(VERSION_RAW),$(VERSION_RAW),dev)
 GIT_COMMIT=$(if $(GIT_COMMIT_RAW),$(GIT_COMMIT_RAW),dev)
+
+# BuildTime is resolved by exactly one thing: core/resolve-build-time.sh, which
+# takes SOURCE_DATE_EPOCH or the HEAD commit timestamp and never the wall clock.
+#
+# This used to be `BUILD_TIME_RAW := $(shell date …)`, so identical source
+# produced different binaries purely because the clock had moved. Note the
+# recursive `=` rather than `:=`: it defers the subprocess so a caller passing
+# BUILD_TIME on the command line — which is what build-android-arm64.sh does —
+# never pays for it. An exported environment variable would *not* override a
+# `:=` assignment, which is the trap this shape avoids.
+#
+# `dev` when the resolver cannot answer: a marker that is obviously not a
+# timestamp, rather than a wall clock masquerading as reproducible. The
+# canonical Android build fails outright instead of reaching this.
+BUILD_TIME_RESOLVER=$(CURDIR)/../resolve-build-time.sh
+BUILD_TIME_RAW=$(strip $(shell "$(BUILD_TIME_RESOLVER)" 2>/dev/null))
 BUILD_TIME=$(if $(BUILD_TIME_RAW),$(BUILD_TIME_RAW),dev)
 GO_VERSION=$(if $(GO_VERSION_RAW),$(firstword $(GO_VERSION_RAW)),unknown)
 CONFIG_PKG=github.com/sipeed/picoclaw/pkg/config

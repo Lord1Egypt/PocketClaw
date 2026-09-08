@@ -46,15 +46,27 @@ cd "$CORE_SRC"
 # this runs on the build host, not on the Android target.
 SOURCE_FINGERPRINT="$(GOOS= GOARCH= go run ./cmd/corefingerprint .)"
 
+# The build timestamp is resolved once, here, and passed explicitly into both
+# make invocations. Resolving it in the Makefile instead would let the two
+# binaries carry different timestamps, and exporting it would not work at all:
+# a `:=` assignment in Make ignores the environment, so only a command-line
+# assignment overrides. See core/resolve-build-time.sh for where the value
+# comes from; it fails rather than falling back to the wall clock, and `set -e`
+# means that failure stops the build here.
+BUILD_TIME="$("$REPO_ROOT/core/resolve-build-time.sh")"
+
 echo "PocketClaw Core build"
 echo "  source:  $CORE_SRC"
 echo "  version: $CORE_VERSION ($CORE_GIT_COMMIT)"
 echo "  source fingerprint: $SOURCE_FINGERPRINT"
+echo "  build time: $BUILD_TIME${SOURCE_DATE_EPOCH:+ (SOURCE_DATE_EPOCH=$SOURCE_DATE_EPOCH)}"
 echo
 
 make build-android-arm64          VERSION="$CORE_VERSION" GIT_COMMIT="$CORE_GIT_COMMIT" \
+                                  BUILD_TIME="$BUILD_TIME" \
                                   SOURCE_FINGERPRINT="$SOURCE_FINGERPRINT"
 make build-launcher-android-arm64 VERSION="$CORE_VERSION" GIT_COMMIT="$CORE_GIT_COMMIT" \
+                                  BUILD_TIME="$BUILD_TIME" \
                                   SOURCE_FINGERPRINT="$SOURCE_FINGERPRINT"
 
 install -m 0755 "$CORE_SRC/build/picoclaw-android-arm64"          "$JNI_LIBS/libpicoclaw.so"

@@ -1,5 +1,148 @@
 # Development Changelog
 
+## 2026-09-08 — Closing A3, and a guard that had been failing on its ally
+
+Release Hardening A3 merged to `develop` with `--no-ff`. No physical candidate
+and no version bump: it changes how the build and the release are verified, not
+what the app does, so there is nothing a device could tell us.
+
+The satisfying part was staging the first deterministically-built Core and then
+proving the thing the whole milestone was for. Resolve the BuildTime, commit the
+binaries, resolve it again — identical. Build output is not a build input, so
+staging a binary cannot redate the build that produced it. That is one command
+either side of a commit, and it is the difference between believing the design
+and knowing it.
+
+Two gate gaps closed on the way. A non-git checkout was reported SKIPPED in
+every mode; that is right for inspecting an artifact on your laptop and wrong
+for a release, because outside a worktree there is no revision, no cleanliness
+and no build-input commit, so nothing can say what a canonical build would have
+produced. And the gate now checks the BuildTime stamped in the *staged* Core,
+not only in a packaged one — the fingerprint answers "is this the right content"
+and says nothing about "was it built from the inputs currently committed".
+
+Then the WhatsApp guard, red since vc46 and carried as known-non-blocking
+through a dozen milestones. It was never a product regression. The guard scans
+`test/` for the word outside a comment; `whats_new_page_test.dart` declares a
+`forbiddenSubstrings` list naming WhatsApp precisely so release notes can never
+advertise it. One guard was reading another guard's prohibition as a breach of
+that same prohibition — the enforcement mechanism flagged as the offence.
+
+The fix had to be narrow in a specific way. Exempting `test/` wholesale would
+have removed real coverage, since a reintroduced surface would plausibly show up
+in a test first. So a file declares itself enforcement data with an explicit
+marker, and only marked files are skipped. Opt-in and greppable, so putting that
+marker on a product file is a visible act someone would question in review —
+and there is a test asserting exactly one file in the tree claims it, because a
+narrow exemption becomes a blanket one by spreading quietly.
+
+The source gate now exits 0 with fifteen checks green and nothing skipped, which
+is the first time in this sequence of milestones that the canonical command has
+had no failure needing a paragraph of explanation.
+
+## 2026-09-08 — Reproducible until someone writes a README
+
+The A3 resolver dated the build from `git log -1`. Review caught what that
+actually means: HEAD moves for documentation, for the staged binaries, for any
+unrelated application change. So identical Core source would have produced
+different bytes the moment anyone committed a README — the guarantee held right
+up until the first commit that had nothing to do with the build.
+
+The fix is a path-scoped query over an explicit set: `core/src`,
+`core/build-android-arm64.sh`, `core/resolve-build-time.sh`. Choosing that set
+was the only real thinking. It is deliberately *wider* than the Core source
+fingerprint, which names only what reaches the gateway compiler — because the
+canonical build also produces the launcher binary from `core/src/web` and stamps
+both with one timestamp, so `web/` affects the bytes being dated even though it
+is not Core source. The two sets answer different questions and are allowed to
+differ. And it deliberately excludes the staged binaries: folding build *output*
+into the timestamp would mean every staging commit redated the build that
+produced it.
+
+Over-inclusion is safe here and under-inclusion is not, which settles most of
+the borderline calls. An extra path means the timestamp moves slightly more
+often than strictly necessary; a missing one means a real build-input change
+that does not move it at all.
+
+Proving it needed real history rather than reading the script, so the test
+builds a throwaway repository: commit a build input, then commit documentation
+and a baseline file and a staged binary and a Dart file, and assert the epoch
+has not moved — then commit a build input again and assert it has. The
+staging-commit case got its own test because that is the shape that actually
+occurs in this repository every other milestone.
+
+Then the default path got the same treatment the fixed-epoch path already had:
+two canonical builds with `SOURCE_DATE_EPOCH` unset, 65 seconds of wall clock
+between them, byte-identical.
+
+Two gate gaps closed alongside. A dirty worktree now fails a production
+verification, because an artifact built from uncommitted edits proves nothing
+about anything anyone else can obtain — and the timestamp itself comes from
+committed history, so a dirty tree can produce bytes whose inputs no longer
+exist. And the gate now reads the BuildTime *embedded in the binary* rather than
+recording only what the input would have been. That distinction matters more
+than it sounds: running it against vc58 showed an embedded
+`2026-09-08T06:11:35+0300` — local time, the exact timezone dependence the UTC
+fix removed — where this tree expects `…04:02:42+0000`. Recording the input
+alone would have said nothing at all.
+
+## 2026-09-08 — Build engineering, and what a gate finds when you write one
+
+Release Hardening A3: make the Core build reproducible, and build one command
+that decides whether an artifact is releasable.
+
+The reproducibility half was smaller than it looked. `BUILD_TIME_RAW := $(shell
+date …)` meant identical source produced different binaries because the clock
+had moved — the source fingerprint stayed honest, but nobody could reproduce a
+released artifact byte for byte. The fix is one script that takes
+`SOURCE_DATE_EPOCH` or the HEAD commit timestamp, and refuses to run when it has
+neither. Refusing matters more than it sounds: a silent `date` fallback would
+look exactly like reproducibility right up until someone tried to verify a
+release.
+
+Two Make details were worth getting right rather than assuming. `:=` ignores the
+environment, so exporting the variable would have done nothing at all — the
+value has to arrive as a command-line assignment, which is what the build script
+now does, for both binaries so they cannot disagree with each other. And the
+Makefile's own default switched to a recursive `=` so the subprocess is skipped
+entirely when a caller passes the value in.
+
+Then two builds, seconds apart, same epoch: byte-identical. That is the whole
+claim, and it is cheap to check, so it got checked rather than argued.
+
+The gate half was where the interesting part was, because writing a checker
+means discovering what your artifact actually contains. Three of its first four
+failures were my own bugs — comparing against a version I had never read, a
+too-strict ABI rule that did not know Flutter ships plugin stubs for
+armeabi-v7a and x86_64, and an apksigner invocation with no JDK on its PATH that
+cheerfully reported a well-signed APK as unsigned. That last one is the sort of
+false failure that teaches people to ignore a gate, which is worse than not
+having one.
+
+The fourth was real, and splits in two. `libapp.so` embeds a generated-source
+URI pointing at the build machine — precisely the "controlled Dart
+generated-source URI strategy" item that has been sitting in the backlog. And
+`libpocketclaw-gh.so` carries `/home/runner/work/` paths, which turn out to be
+GitHub Actions' own directories from upstream's build of the `gh` CLI, plus Go
+module paths from sigstore. The second is not our path and not ours to fix; the
+first is ours and is not fixed yet. So the strict zero-developer-paths rule is
+scoped to Core, where the build script already enforces it, and the Dart
+snapshot is reported as `PENDING_FINAL_HARDENING`. Failing the whole gate on it
+would block every build on something this milestone deliberately does not do;
+passing silently would pretend it were solved. Naming it is the only honest
+third option.
+
+The signing classes are explicit for the same reason. `test` accepts the
+development signer and can never report a production release; `production`
+rejects it unconditionally. The caller says which it wants. A gate that infers
+its own strictness from context is a gate that can be talked into the wrong
+answer.
+
+CI got the minimal version: a workflow that invokes the repo-local gate's
+source phase and nothing else. Running the delegated suites needs Go, Flutter
+and the Android SDK in the runner, and installing and pinning those is its own
+piece of work rather than something to smuggle in here.
+
 ## 2026-09-08 — The password still worked, which is the only proof that counts
 
 Release Hardening A2 merged to `develop` with `--no-ff`, physically accepted as
