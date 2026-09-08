@@ -33,8 +33,27 @@
   development signer unconditionally — because a gate that guesses is a gate
   that can be talked into the wrong answer. Unresolved work is labelled
   `PENDING_FINAL_HARDENING` and never presented as solved.
+- Closed 2026-09-08. The standing contracts, in one place:
+  1. the canonical Core build never uses wall-clock time implicitly;
+  2. an explicit `SOURCE_DATE_EPOCH` is supported and validated;
+  3. the default BuildTime derives from canonical Core **build-input** history —
+     `core/src`, `core/build-android-arm64.sh`, `core/resolve-build-time.sh`;
+  4. documentation, staging and unrelated commits therefore do not alter it;
+  5. a canonical build outside git requires an explicit `SOURCE_DATE_EPOCH` and
+     fails otherwise;
+  6. the source fingerprint and the build-input revision are distinct concepts
+     answering different questions, and are allowed to differ;
+  7. the staged Core carries a verifiable embedded BuildTime, checked in both
+     source and artifact modes;
+  8. one repo-local gate, `tool/release_gate.py`, is the release-verification
+     source of truth;
+  9. production classification rejects debug signing unconditionally;
+  10. production full verification requires Git provenance and a clean worktree;
+  11. the release manifest carries verification metadata only, never secrets;
+  12. CI is a wrapper around the repo-local gate and never a second copy of it.
 - **RECHECK AFTER THE NAMESPACE MIGRATION.** The gate's expected package id,
-  Core library names and staged-Core path are all compatibility names.
+  Core library names and staged-Core path are all compatibility names, and so is
+  the build-input path set in `core/resolve-build-time.sh`.
 
 ## The workspace is the user's; the runtime's control state is not
 

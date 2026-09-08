@@ -1,13 +1,42 @@
 # PocketClaw Project State
 
-## Production Release Hardening A3 — IMPLEMENTED — AWAITING REVIEW
+## Production Release Hardening A3 — CLOSED
 
-- Status: **implemented on `feature/release-hardening-a3`, 2026-09-08. Not
-  merged.** No physical candidate was built and no device was touched.
-  `develop`, `main`, tags and releases are untouched.
-- Branch from `develop` at `b68f86d`. Version unchanged: `pubspec.yaml`
-  `0.2.0+58`, `lastAcceptedVersionCode=58`.
+- Status: **closed on `feature/release-hardening-a3`, 2026-09-08. Merged to
+  `develop` with `--no-ff`.** `main` untouched, no tags moved, no release.
+- **No physical candidate and no version bump are associated with A3.** It
+  changes build and release engineering, not runtime behaviour, so there is
+  nothing a device could validate. `pubspec.yaml` stays `0.2.0+58` and
+  `lastAcceptedVersionCode` stays `58`; vc58 remains the accepted **A2**
+  artifact and is not an A3 artifact.
+- Branch from `develop` at `b68f86d`. Retained, not deleted.
 - Two areas: deterministic Core builds, and a release gate.
+
+### The deterministically-built Core is staged
+
+The first Core built under the new contract, with `SOURCE_DATE_EPOCH`
+deliberately **unset** so it exercises the default path rather than a special
+case:
+
+    build-input commit 426b53d61c25a3903a2cb18c2bea7e3f850de183
+    epoch              1788845802
+    BuildTime          2026-09-08T05:36:42+0000
+    source fingerprint 0f6014378d1400d94465a1ddb57535daea03fad9851cdc718e6e9192a55d074f
+    libpicoclaw.so     649d8842ed956b56ed0b21bb0f1b8934fbb25ffef2fb32418cadcde275ddb2a8  37683553 bytes
+    libpicoclaw-web.so ee4828db47a3b8a528517e474bdce3a663919a4d50625d85bbaf149bf5f98422  25493857 bytes
+
+Both binaries carry that same BuildTime — the property the resolve-once design
+exists to guarantee. Staged freshness passes, both are stripped,
+non-executable-stack and 64 KiB aligned with zero developer-machine paths, and
+the fingerprint is stamped in `libpicoclaw.so`. The launcher does not carry that
+stamp by design: the fingerprint describes the Core gateway's source, and the
+build script asserts it only where it belongs.
+
+**Staging proved the point it was meant to.** Resolving the BuildTime before and
+after the commit that staged those binaries gave the identical value, in the
+real repository. Build output is not a build input, so staging a binary cannot
+redate the build that produced it — which is exactly what the old unscoped-HEAD
+derivation got wrong.
 
 ### The Core build is reproducible
 
@@ -128,15 +157,40 @@ upstream's own CI — not this machine's, and not ours to fix — so the strict
 zero-developer-paths rule is scoped to Core, where the build script already
 enforces it and where it holds.
 
-### Core is intentionally stale
+### The source gate passes, with nothing unexplained
 
-`core/src/Makefile` is a fingerprint input, so changing it moved the fingerprint
-from the accepted `3a9ae19c…` to `0f601437…`.
-`TestStagedCoreWasBuiltFromTheCurrentSource` fails by design. The staged
-binaries are deliberately **left as the accepted vc58 artifact** rather than
-restaged to make the tree green — restaging would discard the acceptance
-evidence for a build nobody has validated. The next physical candidate rebuilds
-Core.
+From the clean committed branch, `python3 tool/release_gate.py --verify-source`
+exits **0** with 15 checks PASS and no SKIPPED: clean worktree, tracked version,
+accepted baseline, no `local.properties` version identity, three lockfiles,
+deterministic build-time contract, staged-Core embedded BuildTime, developer-path
+guard, staged-Core freshness, the reproducibility tests, and the delegated A1
+and A2 guards. `--release-class production` also passes in source mode.
+
+Two gate semantics were tightened to get there. **Production requires Git
+provenance:** a non-git checkout used to be SKIPPED in every mode, which is fine
+for inspecting an artifact locally and wrong for a release — outside a worktree
+there is no revision, no cleanliness and no build-input commit, so there is no
+way to say what a canonical build would have produced. And the gate now verifies
+the **staged** Core's embedded BuildTime, not only a packaged one: the
+fingerprint answers "is this the right content" but not "was it built from the
+inputs currently committed".
+
+### The WhatsApp guard self-conflict is resolved
+
+`TestNoUserFacingWhatsAppSurface` had been red since vc46. The cause was not a
+product regression: it scans `test/` for the word outside a comment, and
+`whats_new_page_test.dart` declares a `forbiddenSubstrings` list naming WhatsApp
+precisely in order to forbid it in release notes. One guard was reading another
+guard's prohibition as a violation of that same prohibition.
+
+Test-only fix: a file may declare itself enforcement data with an explicit
+`WHATSAPP-GUARD-ENFORCEMENT-DATA` marker, and the surface scan skips only files
+carrying it. Opt-in and greppable rather than a blanket `test/` exemption, so
+marking a real product file would be a visible act a reviewer would question.
+No production code changed and the prohibition is not weakened — regression
+tests hold that a genuine surface is still detected, an *unmarked* file naming
+WhatsApp is still a violation, a comment recording the removal is still not a
+surface, and **exactly one** file in the tree may claim the exemption.
 
 ## Production Release Hardening A2 — PHYSICALLY ACCEPTED AND CLOSED
 

@@ -205,7 +205,13 @@ not to Telegram".
   matters only for independently reproducing a released artifact from its
   source. Recorded, not fixed: do not change build reproducibility as a side
   effect of another task.
-- [ ] **`TestNoUserFacingWhatsAppSurface` fails on the `develop` baseline.** The
+- [x] **`TestNoUserFacingWhatsAppSurface` fails on the `develop` baseline.**
+  Resolved in A3, 2026-09-08, test-only. It was a guard self-conflict, not a
+  product regression: the What's New guard's `forbiddenSubstrings` list names
+  WhatsApp in order to forbid it, and the surface scan read that as a violation.
+  A file may now declare itself enforcement data with an explicit
+  `WHATSAPP-GUARD-ENFORCEMENT-DATA` marker; exactly one file claims it, asserted
+  by a test. Original entry: ~~**fails on the `develop` baseline.**~~ The
   guard reports `test/widgets/whats_new_page_test.dart still references WhatsApp
   outside a comment`. It predates the Status milestone, reproduces on `develop`
   unchanged, and has been carried as non-blocking through vc46 to vc53. It is
@@ -1125,8 +1131,11 @@ supplied by the user.
   Done on `feature/release-hardening-a3`, 2026-09-08. `tool/release_gate.py` is
   the single authority on whether an artifact is releasable, with explicit
   `test` and `production` signing classes and a JSON release manifest.
-  **IMPLEMENTED — AWAITING REVIEW.** Core is intentionally stale: the Makefile
-  is a fingerprint input, so the fingerprint moved `3a9ae19c…` → `0f601437…`.
+  **CLOSED, 2026-09-08, merged to `develop` with `--no-ff`.** No physical
+  candidate and no version bump: A3 changes build and release engineering, not
+  runtime behaviour. The first deterministically-built Core is staged
+  (fingerprint `0f601437…`, BuildTime `2026-09-08T05:36:42+0000`), and
+  `--verify-source` exits 0 with no unexplained failures.
 - [ ] **Run the full release gate in CI.** `.github/workflows/release-gate.yml`
   currently invokes only `--verify-source --no-tests`, which needs just Python
   and binutils. The delegated suites need the Go toolchain, the Flutter SDK and

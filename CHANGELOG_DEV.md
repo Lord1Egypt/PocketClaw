@@ -1,5 +1,45 @@
 # Development Changelog
 
+## 2026-09-08 — Closing A3, and a guard that had been failing on its ally
+
+Release Hardening A3 merged to `develop` with `--no-ff`. No physical candidate
+and no version bump: it changes how the build and the release are verified, not
+what the app does, so there is nothing a device could tell us.
+
+The satisfying part was staging the first deterministically-built Core and then
+proving the thing the whole milestone was for. Resolve the BuildTime, commit the
+binaries, resolve it again — identical. Build output is not a build input, so
+staging a binary cannot redate the build that produced it. That is one command
+either side of a commit, and it is the difference between believing the design
+and knowing it.
+
+Two gate gaps closed on the way. A non-git checkout was reported SKIPPED in
+every mode; that is right for inspecting an artifact on your laptop and wrong
+for a release, because outside a worktree there is no revision, no cleanliness
+and no build-input commit, so nothing can say what a canonical build would have
+produced. And the gate now checks the BuildTime stamped in the *staged* Core,
+not only in a packaged one — the fingerprint answers "is this the right content"
+and says nothing about "was it built from the inputs currently committed".
+
+Then the WhatsApp guard, red since vc46 and carried as known-non-blocking
+through a dozen milestones. It was never a product regression. The guard scans
+`test/` for the word outside a comment; `whats_new_page_test.dart` declares a
+`forbiddenSubstrings` list naming WhatsApp precisely so release notes can never
+advertise it. One guard was reading another guard's prohibition as a breach of
+that same prohibition — the enforcement mechanism flagged as the offence.
+
+The fix had to be narrow in a specific way. Exempting `test/` wholesale would
+have removed real coverage, since a reintroduced surface would plausibly show up
+in a test first. So a file declares itself enforcement data with an explicit
+marker, and only marked files are skipped. Opt-in and greppable, so putting that
+marker on a product file is a visible act someone would question in review —
+and there is a test asserting exactly one file in the tree claims it, because a
+narrow exemption becomes a blanket one by spreading quietly.
+
+The source gate now exits 0 with fifteen checks green and nothing skipped, which
+is the first time in this sequence of milestones that the canonical command has
+had no failure needing a paragraph of explanation.
+
 ## 2026-09-08 — Reproducible until someone writes a README
 
 The A3 resolver dated the build from `git log -1`. Review caught what that

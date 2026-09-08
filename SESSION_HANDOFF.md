@@ -1,19 +1,20 @@
 # PocketClaw Session Handoff
 
-## Release Hardening A3 — IMPLEMENTED, not merged, 2026-09-08
+## Release Hardening A3 — CLOSED and merged, 2026-09-08
 
-Branch `feature/release-hardening-a3`, off `develop` at `b68f86d`. **Not merged,
-no candidate built, no device touched.** Version unchanged at `0.2.0+58`,
-baseline 58.
+Branch `feature/release-hardening-a3`, off `develop` at `b68f86d`, merged with
+`--no-ff`. **No physical candidate and no version bump**: A3 is build and
+release engineering, so there is nothing a device could validate. Version stays
+`0.2.0+58`, baseline 58. vc58 remains the accepted **A2** artifact — it packages
+the pre-A3 Core, so do not run the artifact gate against it expecting
+packaged-vs-staged identity, and never weaken the gate to make it pass.
 
-### Read this before building anything
+### The staged Core
 
-**The staged Core is stale on purpose, and must stay that way.** `core/src/Makefile`
-is a fingerprint input, so changing it moved the fingerprint `3a9ae19c…` →
-`0f601437…`. The staged binaries are deliberately still the **accepted vc58
-artifact**: restaging them would make the tree green by discarding the
-acceptance evidence for a build nobody has validated. Rebuild Core when a
-physical candidate is actually wanted.
+First build under the deterministic contract, `SOURCE_DATE_EPOCH` unset:
+BuildTime `2026-09-08T05:36:42+0000` from build-input commit `426b53d`,
+fingerprint `0f601437…`, `649d8842…` / `ee4828db…`. Both binaries carry the same
+stamp.
 
 ### The things worth not undoing
 
@@ -62,9 +63,9 @@ zero-developer-paths rule is scoped to Core.
 
 ### Next
 
-Review, then a physical candidate if wanted. CI currently runs only the
-`--no-tests` source phase; running the full gate needs Go, Flutter and the
-Android SDK in the runner and is tracked in `TASKS.md`.
+The next pre-namespace milestone. CI still runs only the `--no-tests` source
+phase; running the full gate needs Go, Flutter and the Android SDK in the runner
+and is tracked in `TASKS.md`.
 
 ## Release Hardening A2 — PHYSICAL PASS and merged, 2026-09-08
 
