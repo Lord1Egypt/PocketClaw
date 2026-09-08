@@ -193,6 +193,48 @@ def record_expected_build_time(gate: Gate):
         else "canonical Core build-input commit timestamp")
 
 
+def staged_build_time_gate(gate: Gate, release_class: str):
+    """Verifies the BuildTime stamped into the *staged* Core.
+
+    The artifact check needs an APK; this one does not, and it answers the
+    question that matters between releases: do the binaries in the tree actually
+    correspond to the build inputs currently committed? A stale stamp here means
+    the staged Core predates the source it is supposed to have been built from,
+    which the fingerprint guard catches for content but not for time.
+
+    Both binaries are checked, because the whole point of resolving the
+    timestamp once and passing it to both make invocations is that they agree.
+    """
+    expected = gate.facts.get("buildTimeExpected")
+    if not expected:
+        gate.record("core.staged_build_time", SKIP, "expected BuildTime unavailable")
+        return
+
+    observed = {}
+    for lib in CORE_LIBS:
+        path = STAGED_CORE_DIR / lib
+        if not path.is_file():
+            observed[lib] = "missing"
+            continue
+        observed[lib] = embedded_build_time(path.read_bytes()) or "unreadable"
+    gate.facts["stagedCoreBuildTime"] = observed
+
+    mismatched = {lib: value for lib, value in observed.items() if value != expected}
+    if not mismatched:
+        gate.check("core.staged_build_time", True,
+                   observed=f"both binaries stamped {expected}")
+        return
+
+    detail = ", ".join(f"{lib}={value}" for lib, value in mismatched.items())
+    if release_class == "production":
+        gate.check("core.staged_build_time", False,
+                   expected=expected, observed=detail)
+    else:
+        gate.facts["releasable"] = False
+        gate.record("core.staged_build_time", SKIP,
+                    f"expected {expected}, got {detail} — NON-RELEASABLE (test class)")
+
+
 def embedded_build_time(blob: bytes) -> str | None:
     """Reads the BuildTime stamped into a Core binary.
 
@@ -367,6 +409,7 @@ def source_gates(gate: Gate, run_tests: bool, release_class: str = "test"):
                    expected="same epoch resolves identically",
                    observed=out1.strip() or "resolver failed")
         record_expected_build_time(gate)
+        staged_build_time_gate(gate, release_class)
     else:
         gate.check("build.reproducible_timestamp", False,
                    expected="core/resolve-build-time.sh", observed="missing")
