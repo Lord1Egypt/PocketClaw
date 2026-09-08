@@ -287,12 +287,12 @@ android {
         buildConfig = true
     }
 
-    // jniLibs 打包配置：libpicoclaw*.so 是 Go 静态链接的可执行文件
+    // jniLibs 打包配置：libpocketclaw*.so 是 Go 静态链接的可执行文件
     packaging {
         jniLibs {
-            // 不要 strip libpicoclaw*.so（它们不是标准动态库）
-            keepDebugSymbols += "**/libpicoclaw.so"
-            keepDebugSymbols += "**/libpicoclaw-web.so"
+            // 不要 strip libpocketclaw*.so（它们不是标准动态库）
+            keepDebugSymbols += "**/libpocketclaw.so"
+            keepDebugSymbols += "**/libpocketclaw-web.so"
             // Managed Runtime payloads are executables, not shared libraries.
             // Gradle's strip would rewrite the file and break the SHA-256 the
             // runtime catalog pins, so the tool would resolve as a corrupt
@@ -486,8 +486,8 @@ afterEvaluate {
 // survives every local clean.
 val requiredArm64NativeLibraries = listOf(
     "lib/arm64-v8a/libdartjni.so",
-    "lib/arm64-v8a/libpicoclaw.so",
-    "lib/arm64-v8a/libpicoclaw-web.so",
+    "lib/arm64-v8a/libpocketclaw.so",
+    "lib/arm64-v8a/libpocketclaw-web.so",
     // Managed Runtime payloads. Each must be packaged under lib/<abi>/lib*.so or
     // the installer never unpacks it into nativeLibraryDir, and nativeLibraryDir
     // is the only directory an app targeting API 29+ may execute from.

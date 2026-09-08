@@ -2403,13 +2403,13 @@ func TestClassifyGatewayCommandLine(t *testing.T) {
 	}{
 		{
 			name:          "android bare executable name is inconclusive",
-			psOutput:      "libpicoclaw.so",
+			psOutput:      "libpocketclaw.so",
 			wantIsGateway: false,
 			wantInspected: false,
 		},
 		{
 			name:          "android launch line with argv is owned",
-			psOutput:      "/data/app/lib/arm64/libpicoclaw.so gateway -E --no-color",
+			psOutput:      "/data/app/lib/arm64/libpocketclaw.so gateway -E --no-color",
 			wantIsGateway: true,
 			wantInspected: true,
 		},

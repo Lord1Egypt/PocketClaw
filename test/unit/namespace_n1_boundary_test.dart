@@ -87,13 +87,13 @@ void main() {
       }
     });
 
-    test('the native Core library names are unchanged', () {
+    test('the native Core library names are the N3 canonical ones', () {
       final service = read(
         'android/app/src/main/kotlin/com/lord1egypt/pocketclaw/service/'
         'PocketClawService.kt',
       );
-      expect(service, contains('libpicoclaw.so'));
-      expect(service, contains('libpicoclaw-web.so'));
+      expect(service, contains('libpocketclaw.so'));
+      expect(service, contains('libpocketclaw-web.so'));
     });
 
     test('the backup exclusion still matches Core private state', () {

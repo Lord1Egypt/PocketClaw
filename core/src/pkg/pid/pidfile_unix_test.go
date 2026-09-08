@@ -34,13 +34,23 @@ func TestClassifyProcComm(t *testing.T) {
 	}{
 		{
 			name: "same-UID live PocketClaw gateway",
-			data: []byte("libpicoclaw.so\n"),
+			data: []byte("libpocketclaw.so\n"),
 			want: procMatch,
 		},
 		{
 			name: "same-UID launcher also matches",
-			data: []byte("libpicoclaw-web.so\n"),
+			data: []byte("libpocketclaw-web.so\n"),
 			want: procMatch,
+		},
+		{
+			// The pre-N3 packaged name. A stale .picoclaw.pid can name a PID
+			// the kernel has since reused; if the old name still matched, that
+			// reused process would be honoured as our own gateway and wedge
+			// startup behind it. Android replaces nativeLibraryDir wholesale on
+			// update, so nothing can legitimately still be running under it.
+			name: "the pre-N3 executable name is foreign, not ours",
+			data: []byte("libpicoclaw.so\n"),
+			want: procForeign,
 		},
 		{
 			name: "PID reused by an unrelated process",
@@ -90,7 +100,8 @@ func TestIsPicoclawProcess(t *testing.T) {
 		err  error
 		want bool
 	}{
-		{name: "live PocketClaw process is honoured", data: []byte("libpicoclaw.so\n"), want: true},
+		{name: "live PocketClaw process is honoured", data: []byte("libpocketclaw.so\n"), want: true},
+		{name: "stale pre-N3 name is not honoured", data: []byte("libpicoclaw.so\n"), want: false},
 		{name: "reused PID is not honoured", data: []byte("system_server\n"), want: false},
 		{name: "missing PID is not honoured", err: pathErr(syscall.ENOENT), want: false},
 		{name: "hidepid-invisible PID is not honoured", err: pathErr(syscall.EACCES), want: false},
@@ -186,7 +197,7 @@ func TestWritePidFilePreservesLiveGateway(t *testing.T) {
 	}
 	writeStalePidFile(t, dir, alivePID)
 
-	stubProcComm(t, []byte("libpicoclaw.so\n"), nil)
+	stubProcComm(t, []byte("libpocketclaw.so\n"), nil)
 
 	if _, err := WritePidFile(dir, "127.0.0.1", 18790); err == nil {
 		t.Fatal("a live PocketClaw gateway's pid file must block a second start")

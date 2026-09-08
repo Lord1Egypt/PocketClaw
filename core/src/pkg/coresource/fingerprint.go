@@ -1,7 +1,7 @@
 // Package coresource fingerprints the source that produces the Core binary.
 //
 // The Core is a committed artifact: android/app/src/main/jniLibs/arm64-v8a/
-// libpicoclaw.so is checked in, and the Gradle build packages whatever is
+// libpocketclaw.so is checked in, and the Gradle build packages whatever is
 // staged there. Nothing in the Flutter or Gradle build compiles Go, so an edit
 // under core/src changes a device's behaviour only after
 // core/build-android-arm64.sh is re-run.

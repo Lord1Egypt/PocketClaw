@@ -41,7 +41,7 @@ set -euo pipefail
 # Deliberately broader than the Core *source fingerprint*, which names only
 # cmd/, pkg/, workspace/, go.mod, go.sum and the Makefile because those are what
 # reach the Core gateway compiler. The canonical build also produces
-# libpicoclaw-web.so from core/src/web, and stamps both binaries with one
+# libpocketclaw-web.so from core/src/web, and stamps both binaries with one
 # timestamp, so web/ materially affects the bytes this script is dating. The two
 # sets answer different questions and are allowed to differ.
 #

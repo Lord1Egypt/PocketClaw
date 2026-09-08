@@ -27,8 +27,8 @@ class PocketClawService : Service() {
     companion object {
         private const val TAG = "PocketClawService"
         private const val NOTIFICATION_ID = 1
-        private const val GATEWAY_BINARY_NAME = "libpicoclaw.so"
-        private const val WEB_BINARY_NAME = "libpicoclaw-web.so"
+        private const val GATEWAY_BINARY_NAME = "libpocketclaw.so"
+        private const val WEB_BINARY_NAME = "libpocketclaw-web.so"
         private const val GATEWAY_PORT = 18790
         private const val WEB_PORT = 18800
         private val ANSI_ESCAPE_REGEX = Regex("\\u001B(?:[@-Z\\\\-_]|\\[[0-?]*[ -/]*[@-~])")
@@ -700,7 +700,7 @@ class PocketClawService : Service() {
     }
 
     /**
-     * 运行 web 服务进程（libpicoclaw-web.so）
+     * 运行 web 服务进程（libpocketclaw-web.so）
      * web 服务会通过 TryAutoStartGateway() 自动启动并管理 gateway
      */
     private fun runWebService() {

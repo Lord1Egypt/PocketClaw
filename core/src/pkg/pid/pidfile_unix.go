@@ -53,6 +53,22 @@ var readProcComm = func(pid int) ([]byte, error) {
 	return os.ReadFile(fmt.Sprintf("/proc/%d/comm", pid))
 }
 
+// ownedProcessName is the executable name PocketClaw's own Core runs under.
+//
+// On Android /proc/<pid>/comm is the bare packaged filename, which is what
+// core/build-android-arm64.sh installs into nativeLibraryDir. It is matched as
+// a substring rather than compared exactly because comm is truncated to 15
+// bytes by the kernel and desktop builds run the binary under other paths.
+//
+// The pre-N3 name, libpicoclaw.so, is deliberately NOT accepted. It is not a
+// harmless extra alias: a stale .picoclaw.pid can name a PID the kernel has
+// since handed to an unrelated process, and every additional accepted name is
+// another way for that reused PID to be mistaken for our own gateway and
+// wedge startup behind it. Android replaces nativeLibraryDir wholesale on
+// package update, so no process can still be running under the old name by the
+// time this build is executing.
+const ownedProcessName = "pocketclaw"
+
 // classifyProcComm turns one /proc/<pid>/comm read into an ownership verdict.
 //
 // A "not visible" error is evidence of foreignness, not an inconclusive
@@ -64,7 +80,7 @@ var readProcComm = func(pid int) ([]byte, error) {
 // wedged startup behind a dead gateway's pid file.
 func classifyProcComm(data []byte, err error) procVerdict {
 	if err == nil {
-		if strings.Contains(strings.TrimSpace(string(data)), "picoclaw") {
+		if strings.Contains(strings.TrimSpace(string(data)), ownedProcessName) {
 			return procMatch
 		}
 		return procForeign

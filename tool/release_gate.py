@@ -74,7 +74,7 @@ FORBIDDEN_PERMISSIONS = {
     "freemme.permission.msa",
 }
 
-CORE_LIBS = ("libpicoclaw.so", "libpicoclaw-web.so")
+CORE_LIBS = ("libpocketclaw.so", "libpocketclaw-web.so")
 STAGED_CORE_DIR = REPO / "android/app/src/main/jniLibs" / EXPECTED_ABI
 
 # The Android debug signing certificate this project's local test builds carry.
@@ -573,7 +573,7 @@ def artifact_gates(gate: Gate, apk: Path, release_class: str):
         # Managed Runtime — is arm64 only. Flutter plugins ship small stubs for
         # other ABIs (libdartjni, libdatastore_shared_counter); those are an
         # accepted baseline and are recorded rather than failed.
-        product_prefixes = ("libpicoclaw", "libpocketclaw-")
+        product_prefixes = ("libpocketclaw",)
         misplaced = sorted(
             n for n in names
             if n.startswith("lib/") and n.count("/") >= 2
@@ -605,7 +605,7 @@ def artifact_gates(gate: Gate, apk: Path, release_class: str):
         # The fingerprint the artifact actually carries, read from the stamp in
         # the packaged binary rather than recomputed from a tree that may have
         # moved on since the build.
-        core_entry = f"lib/{EXPECTED_ABI}/libpicoclaw.so"
+        core_entry = f"lib/{EXPECTED_ABI}/libpocketclaw.so"
         if core_entry in names:
             blob = archive.read(core_entry)
             stamped = re.findall(rb"[0-9a-f]{64}", blob)

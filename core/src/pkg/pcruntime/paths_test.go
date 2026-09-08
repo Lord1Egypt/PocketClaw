@@ -49,7 +49,7 @@ func TestBundlePayloadDirectoryIsDerivedFromTheCoreBinaryPath(t *testing.T) {
 	t.Setenv(EnvWorkspace, filepath.Join(root, "workspace"))
 	t.Setenv(EnvRuntimeDir, filepath.Join(root, "runtime"))
 	t.Setenv(EnvLibDir, "")
-	t.Setenv(EnvCoreBinary, filepath.Join(libDir, "libpicoclaw.so"))
+	t.Setenv(EnvCoreBinary, filepath.Join(libDir, "libpocketclaw.so"))
 
 	paths, err := ResolvePaths()
 	if err != nil {

@@ -307,7 +307,7 @@ func TestDefaultEpochIgnoresCommitsThatAreNotBuildInputs(t *testing.T) {
 	for _, path := range []string{
 		"docs/notes.md",
 		"android/release-baseline.properties",
-		"android/app/src/main/jniLibs/arm64-v8a/libpicoclaw.so",
+		"android/app/src/main/jniLibs/arm64-v8a/libpocketclaw.so",
 		"lib/main.dart",
 		"PROJECT_STATE.md",
 	} {
@@ -342,8 +342,8 @@ func TestStagingCommitDoesNotChangeTheBuildTimestamp(t *testing.T) {
 
 	// Exactly the shape of a real staging commit: the built binaries, then the
 	// documentation that records their acceptance.
-	commit(t, root, "android/app/src/main/jniLibs/arm64-v8a/libpicoclaw.so", "ELF\n", 1750000000)
-	commit(t, root, "android/app/src/main/jniLibs/arm64-v8a/libpicoclaw-web.so", "ELF\n", 1750000001)
+	commit(t, root, "android/app/src/main/jniLibs/arm64-v8a/libpocketclaw.so", "ELF\n", 1750000000)
+	commit(t, root, "android/app/src/main/jniLibs/arm64-v8a/libpocketclaw-web.so", "ELF\n", 1750000001)
 	commit(t, root, "PROJECT_STATE.md", "accepted\n", 1750000002)
 
 	after := resolveEpochIn(t, root)
