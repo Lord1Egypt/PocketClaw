@@ -1,5 +1,82 @@
 # PocketClaw Project State
 
+## Namespace Migration N2 — CLOSED
+
+- Status: **closed on `feature/namespace-n2-brand-assets`, 2026-09-09, merged to
+  `develop` with `--no-ff`.** Branch cut from `develop` at `43500bf`, retained.
+  `main` untouched, no tags moved, no release.
+- **`core/src` untouched.** Core fingerprint remains
+  `e7acbff7000bb58ac8074bfaf290528326df115bf1fae4bb6242defbf78d9a23`, staged
+  Core FRESH, no rebuild, no restage, no APK, no ADB. `0.2.0+59`, baseline 59.
+- **No What's New entry**, and the inspection says why: the two assets are
+  declared Flutter assets, so they were bundled into every APK, but nothing on
+  Android reads them — `main.dart` gates the tray behind
+  `!Platform.isAndroid && !Platform.isIOS`. No Android user has ever seen them.
+
+### What changed
+
+`assets/app_icon.png` and `assets/icon.ico` were the last PicoClaw lobster
+artwork in the tree, and they were shipping: 149,251 bytes of another product's
+crustacean inside every APK, unread. They are now derived from the same
+canonical APERTURE geometry as the launcher and Core's own favicon.
+
+    before  app_icon.png  512×512 RGBA   104,580 bytes  PicoClaw FUI lobster
+            icon.ico      1 frame, 256    44,671 bytes  PicoClaw FUI lobster
+    after   app_icon.png  512×512 RGBA    20,797 bytes  APERTURE rounded tile
+            icon.ico      7 frames 16–256 23,078 bytes  APERTURE rounded tile
+
+105,376 bytes smaller in every APK, as a side effect rather than the goal.
+
+The ICO gained the frames Windows actually asks for. A single 256px frame — what
+the lobster file had — leaves a 16px tray request to be downscaled at draw time
+by whoever is asking; rendering the frames from the geometry is the only way
+they are anti-aliased rather than resampled from a bitmap.
+
+### Source of truth
+
+`tool/generate_android_launcher_icons.py` was extended rather than joined by a
+second script, and it still imports the geometry from
+`core/src/web/frontend/scripts/generate-brand-assets.py` read-only. The
+composition is the canonical tab-icon idiom — `icon(size, radius_fraction=0.22,
+scale=0.66)` — taken from the brand module's own use for `favicon.ico`, not
+invented here. There is still exactly one place that decides what the mark looks
+like and exactly one that decides how it is framed. The full chain is documented
+in `docs/ASSET_INVENTORY.md`.
+
+The generator gained a `--check` mode: it regenerates every artifact in memory
+and compares bytes, writing nothing. That is what the guard runs, so proving the
+assets are derived needs no perceptual image comparison — either the bytes match
+or the tree is stale. Verified in both directions: `--check` passes on the
+committed tree and fails on a deliberately perturbed asset.
+
+### The re-audit says N0 was right
+
+Every tracked raster and vector outside `core/src` — 20 files — is now either
+APERTURE-derived or PocketClaw-original. Those two were the last stale ones.
+`licenses/sipeed-picoclaw-fui-MIT.txt` and the `THIRD_PARTY_NOTICES.md` entry
+**stay**: the FUI licence covers the origin of the Flutter application itself,
+not merely those two images.
+
+### The standing rule
+
+`assets/app_icon.png` and `assets/icon.ico` are **generated artifacts**. Do not
+hand-maintain them, do not hand-edit them, and do not define APERTURE strokes or
+geometry anywhere outside
+`core/src/web/frontend/scripts/generate-brand-assets.py`. The repo-level
+generator stays deterministic and offline-capable.
+`test/unit/brand_asset_contract_test.dart` enforces all of that, including that
+the generator never grows its own `STROKES` table.
+
+Final accepted artifacts:
+
+    assets/app_icon.png  512×512 RGBA, transparent  20,797 bytes
+                         354e1749b138bb7f199b86e3cbadc16dd51ec83dd75963557bc32e39aa34467d
+    assets/icon.ico      7 frames, 16–256, RGBA     23,078 bytes
+                         4d48c41354557804b7696dd818ddb8eec25fe353a6ef2856ef10b1df65c36b8f
+
+The historical lobster digests stay pinned in the guard as values these files
+must never carry again, so restoring either from git history fails a test.
+
 ## Namespace Migration N1 — CLOSED
 
 - Status: **closed on `feature/namespace-n1-source-identities`, 2026-09-09,

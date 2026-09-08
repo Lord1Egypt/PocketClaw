@@ -1,5 +1,46 @@
 # Development Changelog
 
+## 2026-09-09 — 105KB of someone else's lobster
+
+The two files were easy to dismiss. `assets/app_icon.png` and `assets/icon.ico`
+feed a desktop tray on a platform this repository does not build — there is no
+`linux/`, `windows/` or `macos/` directory — so the obvious reading is dead
+code with dated artwork.
+
+They were in the APK. Flutter bundles what `pubspec.yaml` declares as an asset,
+platform be damned, so every install since the beginning has carried 149,251
+bytes of PicoClaw's orange crustacean that nothing on Android will ever read.
+`main.dart` gates the tray behind `!Platform.isAndroid && !Platform.isIOS`, so
+it was invisible dead weight rather than a visible branding bug — which is why
+it survived a branding audit that was looking at what users see.
+
+Generating them was almost anticlimactic, because the pipeline already existed:
+`tool/generate_android_launcher_icons.py` imports the APERTURE geometry from
+Core read-only and writes the launcher rasters. Adding two outputs to it was
+correct precisely because the alternative — a second script, a second idea of
+how the mark is framed — is how brand assets drift. The composition is the
+canonical `icon(size, radius_fraction=0.22, scale=0.66)` that Core already uses
+for its own `favicon.ico`, copied as a call rather than as values.
+
+The ICO is better than what it replaced in a way worth noting. The lobster file
+held one 256px frame, so a 16px tray request was downscaled at draw time by
+whatever was asking. It now carries seven frames from 16 to 256, each
+anti-aliased from the geometry instead of resampled from a bitmap.
+
+The guard is a `--check` mode on the generator: regenerate everything in memory,
+compare bytes, write nothing. That is a better test than any image comparison,
+because it asserts the thing that actually matters — these files are outputs,
+not sources — and it fails on a hand-edit rather than on a rendering difference
+nobody can interpret. Verified in both directions, including against a
+deliberately perturbed asset.
+
+Two things stayed. `licenses/sipeed-picoclaw-fui-MIT.txt` and its notice cover
+the origin of the Flutter application itself, not merely those two images, so
+removing them because the last FUI-derived pictures are gone would have been a
+legal claim dressed as a cleanup. And `assets/branding/pocketclaw-mark.png` is
+PocketClaw's own earlier mark — a design source, not a lobster, and not N2's
+business.
+
 ## 2026-09-09 — The rule that had to cost something
 
 Two guards disagreed about the same tree. The fingerprint said a four-line test
