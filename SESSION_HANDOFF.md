@@ -1,5 +1,42 @@
 # PocketClaw Session Handoff
 
+## Namespace Migration N2 — CLOSED and merged, 2026-09-09
+
+Branch `feature/namespace-n2-brand-assets` off `develop` at `43500bf`, merged
+`--no-ff`. `core/src` untouched, Core fingerprint `e7acbff7…` unchanged, staged
+Core FRESH, `0.2.0+59`, baseline 59, no candidate, no What's New entry.
+
+The last PicoClaw lobster artwork is gone: `assets/app_icon.png` and
+`assets/icon.ico` are derived from the canonical APERTURE geometry.
+
+### Do not undo these
+
+**They are generated artifacts.** Never hand-edit them, never treat either as a
+design source again. Change the mark in
+`core/src/web/frontend/scripts/generate-brand-assets.py` and re-run
+`python3 tool/generate_android_launcher_icons.py`.
+
+**Never duplicate the APERTURE geometry.** The repo-level generator imports the
+Core brand module by path, read-only, and a guard fails if a `STROKES` table
+appears in it. A second copy drifts the first time the mark is refined.
+
+**`--check` is the proof, not image comparison.** It regenerates every artifact
+in memory and compares bytes, writing nothing. If it fails the tree is stale —
+run the generator, do not adjust the test.
+
+**The FUI licence stays.** `licenses/sipeed-picoclaw-fui-MIT.txt` and its
+`THIRD_PARTY_NOTICES.md` entry cover the origin of the Flutter application
+itself, not the two replaced images.
+
+### Worth knowing for future asset work
+
+The old files were **inside every APK** — Flutter bundles whatever
+`pubspec.yaml` declares as an asset, regardless of platform — while nothing on
+Android read them, because the tray is gated behind
+`!Platform.isAndroid && !Platform.isIOS`. Invisible, not absent. A branding
+audit that only looks at what users see misses that class of thing; check the
+packaged artifact.
+
 ## Namespace Migration N1 — CLOSED and merged, 2026-09-09
 
 Branch `feature/namespace-n1-source-identities` off `develop` at `75377f8`.
