@@ -28,7 +28,28 @@ together. The dart-defines needed no legacy fallback either — no tracked
 workflow supplies them, and `POCKETCLAW_ONBOARDING_BASE_URL` had already set the
 naming precedent.
 
-### BLOCKER — two guards inside `core/src` name the old Kotlin file
+### AMENDMENT — the guard was fixed; a second blocker appeared
+
+`5c81160` updated the two path constants, authorized as a narrow N1 amendment.
+Both guards pass, the Core fingerprint is unchanged at `e7acbff7…` and staged
+freshness still passes — the `_test.go` fingerprint exclusion held exactly as
+predicted.
+
+**But the production source gate is now red on `core.staged_build_time`.**
+`core/resolve-build-time.sh` scopes `BUILD_INPUTS` to `core/src` as a whole,
+while `coresource/fingerprint.go:159-161` excludes `_test.go`. A four-line test
+edit therefore moves the build-input epoch from `08781fe`/`2026-09-08T18:36:44`
+to `5c81160`/`2026-09-08T20:52:05`, and the gate compares that against staged
+binaries that provably cannot differ. Two A3 guards now disagree about the same
+tree.
+
+Excluding `':!core/src/**/*_test.go'` from the `BUILD_INPUTS` query restores the
+epoch and turns the gate green — verified by hand, not applied, because
+`resolve-build-time.sh` is itself a canonical build input and an A3 contract.
+**N1 is therefore NOT closed and NOT merged**: the closeout was conditional on a
+green production source gate. See `TASKS.md`.
+
+### Original blocker — two guards inside `core/src` named the old Kotlin file
 
 `core/src/pkg/coresource/android_hot_reload_test.go:38,104` hard-code
 `.../service/PicoClawService.kt` and `t.Fatalf` when it cannot be read. After
