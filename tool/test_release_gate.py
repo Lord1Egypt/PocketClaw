@@ -123,11 +123,24 @@ class CleanWorktree(unittest.TestCase):
         self.assertEqual(status_of(gate, "repo.clean_worktree"), SKIP)
         self.assertFalse(gate.facts["releasable"])
 
-    def test_non_git_checkout_is_skipped_not_failed(self):
+    def test_non_git_checkout_fails_production(self):
+        # Provenance is not optional for a release: outside a worktree there is
+        # no revision, no cleanliness and no build-input commit, so there is no
+        # way to say what a canonical build would have produced.
         self._with_status("fatal: not a git repository", rc=128)
         gate = Gate()
         gate_module.worktree_gate(gate, "production")
+        self.assertEqual(status_of(gate, "repo.clean_worktree"), FAIL)
+        self.assertIn("provenance", detail_of(gate, "repo.clean_worktree"))
+
+    def test_non_git_checkout_is_non_releasable_for_a_test_inspection(self):
+        # Inspecting an artifact outside a checkout stays useful; it just can
+        # never be reported as a release.
+        self._with_status("fatal: not a git repository", rc=128)
+        gate = Gate()
+        gate_module.worktree_gate(gate, "test")
         self.assertEqual(status_of(gate, "repo.clean_worktree"), SKIP)
+        self.assertFalse(gate.facts["releasable"])
 
 
 if __name__ == "__main__":

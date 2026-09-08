@@ -115,6 +115,21 @@ func TestNoUserFacingWhatsAppSurface(t *testing.T) {
 			if strings.Contains(filepath.Base(path), "no_whatsapp") {
 				return nil
 			}
+			// So do guards elsewhere that enumerate prohibited names as
+			// enforcement data — a forbidden-substring list is the mechanism of
+			// the prohibition, not a surface that violates it. Reading one as a
+			// violation is this guard failing on its own allies, which is what
+			// it did to whats_new_page_test.dart.
+			//
+			// Opt-in and greppable rather than a basename heuristic: a file
+			// must say so, so adding the marker to a real product file is a
+			// visible act a reviewer would question. Checked against the raw
+			// bytes because the marker lives in a comment, which the surface
+			// check below deliberately strips.
+			if raw, readErr := os.ReadFile(path); readErr == nil &&
+				bytes.Contains(raw, []byte(enforcementDataMarker)) {
+				return nil
+			}
 			switch filepath.Ext(path) {
 			case ".go", ".dart", ".kt", ".ts", ".tsx", ".json", ".xml":
 			default:
@@ -137,6 +152,15 @@ func TestNoUserFacingWhatsAppSurface(t *testing.T) {
 		}
 	}
 }
+
+// enforcementDataMarker exempts a file that enumerates prohibited names as the
+// data behind its own prohibition.
+//
+// Deliberately a long, distinctive phrase: it must be impossible to write by
+// accident and obvious in a diff. It exempts the file from the *surface* scan
+// only; nothing about the product prohibition changes, and every other file in
+// every scanned tree is checked exactly as before.
+const enforcementDataMarker = "WHATSAPP-GUARD-ENFORCEMENT-DATA"
 
 // stripComments blanks //, /* */ and <!-- --> comments so the surface check
 // reads code rather than prose. It is deliberately crude: a comment marker
@@ -169,4 +193,71 @@ func stripComments(data []byte) []byte {
 		}
 	}
 	return out
+}
+
+// The guard must still fail on a real user-facing surface, and must not be
+// weakened by the enforcement-data exemption it now honours.
+//
+// These exercise the decision directly rather than the whole tree walk, because
+// what needed proving is the rule, not the traversal.
+func TestWhatsAppSurfaceDetectionIsNotWeakenedByTheEnforcementExemption(t *testing.T) {
+	// A real surface: a widget label a user would actually read. It carries no
+	// marker, so it must be caught.
+	surface := []byte(`Text(l10n.channelWhatsAppTitle)`)
+	if !bytes.Contains(bytes.ToLower(stripComments(surface)), []byte("whatsapp")) {
+		t.Fatal("a genuine user-facing WhatsApp surface is no longer detected")
+	}
+	if bytes.Contains(surface, []byte(enforcementDataMarker)) {
+		t.Fatal("a product file must not carry the enforcement-data marker")
+	}
+
+	// A prohibition's own data, which names WhatsApp precisely in order to
+	// forbid it. Marked, and therefore exempt.
+	enforcement := []byte(`
+// ` + enforcementDataMarker + ` — this list is the prohibition, not a breach.
+const forbidden = ['WhatsApp'];
+`)
+	if !bytes.Contains(enforcement, []byte(enforcementDataMarker)) {
+		t.Fatal("the enforcement list is no longer recognised as enforcement data")
+	}
+
+	// The exemption is opt-in and cannot be reached by accident: an unmarked
+	// file naming WhatsApp outside a comment is still a violation.
+	unmarked := []byte(`const forbidden = ['WhatsApp'];`)
+	if bytes.Contains(unmarked, []byte(enforcementDataMarker)) {
+		t.Fatal("an unmarked file was treated as enforcement data")
+	}
+	if !bytes.Contains(bytes.ToLower(stripComments(unmarked)), []byte("whatsapp")) {
+		t.Fatal("an unmarked WhatsApp reference is no longer detected")
+	}
+
+	// And a comment still is not a surface: the note explaining the removal is
+	// exactly what should survive.
+	comment := []byte(`// WhatsApp was removed in the cleanup milestone.`)
+	if bytes.Contains(bytes.ToLower(stripComments(comment)), []byte("whatsapp")) {
+		t.Fatal("a comment recording the removal is being treated as a surface")
+	}
+}
+
+// Exactly one file may claim the exemption. A second would mean the marker had
+// started spreading, which is how a narrow exemption becomes a blanket one.
+func TestOnlyTheKnownEnforcementListClaimsTheExemption(t *testing.T) {
+	root := repoRoot()
+	var marked []string
+	for _, rel := range []string{"lib", "test", filepath.Join("android", "app", "src")} {
+		_ = filepath.Walk(filepath.Join(root, rel), func(path string, info os.FileInfo, err error) error {
+			if err != nil || info.IsDir() {
+				return nil //nolint:nilerr // a missing tree is not this test's concern
+			}
+			if data, readErr := os.ReadFile(path); readErr == nil &&
+				bytes.Contains(data, []byte(enforcementDataMarker)) {
+				marked = append(marked, strings.TrimPrefix(path, root+string(os.PathSeparator)))
+			}
+			return nil
+		})
+	}
+	want := filepath.Join("test", "widgets", "whats_new_page_test.dart")
+	if len(marked) != 1 || marked[0] != want {
+		t.Fatalf("enforcement-data exemption claimed by %v, want exactly [%s]", marked, want)
+	}
 }

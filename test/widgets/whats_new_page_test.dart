@@ -7,6 +7,12 @@ import 'package:pocketclaw/src/whats_new/whats_new_release.dart';
 /// Words this release must never advertise. Some name work that was removed,
 /// some name work that was abandoned, and some are internal build detail no
 /// user should read in release notes.
+///
+/// WHATSAPP-GUARD-ENFORCEMENT-DATA — this list is the mechanism of the
+/// prohibition, not a surface that breaks it. The Core-side guard that scans
+/// for a returning WhatsApp surface reads this marker and skips this file;
+/// without it, the enforcement list flagged itself. Do not add this marker to a
+/// file that is not itself enforcing a prohibition.
 const List<String> forbiddenSubstrings = <String>[
   'WhatsApp',
   'BlueStacks',

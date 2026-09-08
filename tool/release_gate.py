@@ -292,7 +292,21 @@ def worktree_gate(gate: Gate, release_class: str):
     """
     rc, out = run(["git", "status", "--porcelain"])
     if rc != 0:
-        gate.record("repo.clean_worktree", SKIP, "not a git checkout")
+        # A production verification has to be able to establish provenance:
+        # which revision this is, whether it is clean, which commit last touched
+        # a build input, and therefore what BuildTime a canonical build would
+        # produce. None of that exists outside a git worktree, so "unknown" is
+        # a failure rather than something to wave through. Local inspection of
+        # an artifact still works — it just cannot claim to be a release.
+        if release_class == "production":
+            gate.check("repo.clean_worktree", False,
+                       expected="a usable git worktree (provenance is required "
+                                "for a production release)",
+                       observed="not a git checkout")
+        else:
+            gate.facts["releasable"] = False
+            gate.record("repo.clean_worktree", SKIP,
+                        "not a git checkout — NON-RELEASABLE (test class)")
         return
     dirty = [line for line in out.splitlines() if line.strip()]
     if not dirty:
