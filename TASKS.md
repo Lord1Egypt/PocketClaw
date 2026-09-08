@@ -211,7 +211,9 @@ not to Telegram".
   no-backup storage and the shared record is written token-free. Core still
   generates it per gateway start, so rotation is unchanged, and non-Android
   deployments are untouched.
-  **IMPLEMENTED — AWAITING PHYSICAL VALIDATION.**
+  **PHYSICALLY ACCEPTED as vc57 and again as vc58:** the shared record carries
+  only pid, version, port and host, with no credential key or credential-shaped
+  value.
   The original diagnosis, kept because it explains what the fix had to preserve:
   `pid.WritePidFile` wrote `.picoclaw.pid` — which
   carries the gateway's `token` — into `PICOCLAW_HOME`, and on Android
@@ -1064,8 +1066,10 @@ supplied by the user.
 - [ ] **Advance `lastAcceptedVersionCode` in `android/release-baseline.properties`
   whenever a build passes physical acceptance**, in the same commit that records
   the acceptance in `PROJECT_STATE.md`. It is the floor every later build is
-  checked against; leaving it behind makes the check meaningless. Done once so
-  far: 55 to 56 at the A1 closeout.
+  checked against; leaving it behind makes the check meaningless. Done twice so
+  far: 55 to 56 at the A1 closeout, and 56 to 58 at the A2 closeout — jumping 57,
+  which was superseded before acceptance. A candidate that is never accepted
+  never becomes the floor.
 - [ ] **Produce the production signing key and switch to it.** Deliberately not
   done in A1: the test device runs a debug-signed install and changing signers
   forces an uninstall and a data reset. Until then every artifact must be built
@@ -1083,19 +1087,24 @@ supplied by the user.
   `com.google.android.finsky.permission.BIND_GET_INSTALL_REFERRER_SERVICE` in
   `AndroidManifest.xml`. It was removed because PocketClaw does no install-source
   attribution, not because it conflicts with anything.
-- [x] **Release Hardening A2: the gateway credential and the diagnostic log
-  leave shared storage, secret redaction covers provider credentials, and
-  realtime authentication is constant-time.** Done on
+- [x] **Release Hardening A2: the gateway credential, the diagnostic log and the
+  Dashboard credential verifier leave shared storage, secret redaction covers
+  provider credentials, and realtime authentication is constant-time.** Done on
   `feature/release-hardening-a2`, 2026-09-08.
-  **IMPLEMENTED — AWAITING PHYSICAL VALIDATION.** Requires a Core rebuild before
-  the next physical APK; expected fingerprint `3a9ae19c…`.
+  **PHYSICALLY ACCEPTED on SM-A165F / Android 16 as vc58, 2026-09-08, then
+  merged to `develop` with `--no-ff`.** The existing Dashboard password survived
+  the verifier migration, Status and Logs both pass, and the upgrade preserved
+  install time, dataDir, uid and application data. vc57 was superseded before
+  acceptance, so the baseline advanced directly 56 → 58.
 - [x] **Dashboard credential database on shared storage.** Found by source audit
   after vc57, fixed in A2 before close: `launcher-auth.db` holds only a bcrypt
   verifier, but on shared storage it can be *written*, and replacing the verifier
   yields a working Dashboard login without breaking bcrypt.
   `PICOCLAW_DASHBOARD_AUTH_DIR` moves it to app-private no-backup storage, with a
   crash-safe one-time migration that preserves the existing password.
-  **IMPLEMENTED — AWAITING PHYSICAL VALIDATION.**
+  **PHYSICALLY ACCEPTED as vc58, 2026-09-08:** the shared database and every
+  exact sidecar were retired on first start, and the user's existing Dashboard
+  password still authenticated.
 - [ ] **RECHECK AFTER THE NAMESPACE MIGRATION: every A2 contract is keyed on a
   compatibility name.** `.picoclaw.pid`, `PICOCLAW_GATEWAY_TOKEN_FILE`,
   `PICOCLAW_LOG_DIR`, `PICOCLAW_DASHBOARD_AUTH_DIR`, the legacy

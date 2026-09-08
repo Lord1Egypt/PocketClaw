@@ -1,5 +1,40 @@
 # Development Changelog
 
+## 2026-09-08 — The password still worked, which is the only proof that counts
+
+Release Hardening A2 merged to `develop` with `--no-ff`, physically accepted as
+vc58. Five areas: the gateway credential, log placement and rotation, provider
+secret redaction, realtime authentication, and — added late, after the rest had
+already passed on a device — the Dashboard credential verifier.
+
+That late addition is why vc57 exists and is not the accepted baseline. It
+proved the first four on hardware and was superseded before acceptance, so the
+floor moved 56 → 58 and skipped it entirely. A candidate that is never accepted
+never becomes the floor; inventing an acceptance record for 57 to make the
+numbers contiguous would have made the baseline mean less, not more.
+
+Most of the machine-side validation is negative evidence, which is the awkward
+kind to report: a shared record with four keys and no fifth, a directory that is
+absent, a log file that was not recreated after the gateway had been running for
+a minute. The satisfying number is the shared home going from six entries to
+three — the workspace, the model catalog, and a discovery record carrying
+nothing but pid, version, port and host.
+
+The one genuinely positive proof was the Dashboard login. Everything else about
+the verifier migration can be checked without knowing whether it worked: the old
+database is gone, the new one is somewhere I deliberately never looked. Whether
+the *credential* survived the move is only answerable by someone typing their
+existing password, and it worked. A migration that had silently reset it would
+have passed every other check in this milestone.
+
+Worth recording what the fail-closed design bought here, because it is invisible
+when it works: with `PICOCLAW_DASHBOARD_AUTH_DIR` set, a failed migration or an
+unusable private store kills launcher startup. So the backend running at all was
+already evidence that the private store had been established and validated
+before anyone touched the UI. The alternative design — falling back to the
+shared file — would have started cleanly and looked identical while leaving the
+attacker-writable database in authority.
+
 ## 2026-09-08 — A fallback that re-arms the vector is not a fallback
 
 Two corrections to the Dashboard auth move, both about what happens when things

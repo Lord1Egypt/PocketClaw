@@ -35,6 +35,13 @@
   verification, same rate limiting, same in-memory sessions. The rule this
   settles: **on Android every security-sensitive runtime and auth artifact is
   app-private, and the workspace is the only thing that stays shared.**
+- Accepted on a device 2026-09-08 as vc58. The proof that mattered was the
+  user's existing Dashboard password still authenticating after the verifier
+  moved: a migration that reset or lost it would have failed exactly there, and
+  no other check would have caught it. The shared database and every exact
+  sidecar were retired on first start, and the shared home is now down to the
+  workspace, the model catalog and a discovery record carrying only pid,
+  version, port and host.
 - Hardened 2026-09-08, same day, after review: when the override is set there is
   **no fallback to shared storage**. A failed migration, or a private database
   that will not validate, fails launcher startup rather than reopening the

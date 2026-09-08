@@ -1,15 +1,58 @@
 # PocketClaw Project State
 
-## Production Release Hardening A2 — IMPLEMENTED — AWAITING PHYSICAL VALIDATION
+## Production Release Hardening A2 — PHYSICALLY ACCEPTED AND CLOSED
 
-- Status: **implemented on `feature/release-hardening-a2`, 2026-09-08. Not
-  merged, not physically validated.** No APK was built, nothing was installed,
-  and no device was touched. `develop`, `main`, tags and releases are untouched.
-- Branch from `develop` at `e62f083`.
-- Version unchanged: `pubspec.yaml` `0.2.0+56`, `lastAcceptedVersionCode=56`.
-  The physical candidate will be vc57 in a separate build step.
-- Four areas: the gateway credential, log placement, secret redaction, and
-  realtime authentication.
+- Status: **PASS on a physical Android device (SM-A165F / Android 16), 2026-09-08
+  as vc58. Merged to `develop` with `--no-ff`.** `main` untouched, no tags moved,
+  no release created.
+- Branch `feature/release-hardening-a2`, from `develop` at `e62f083`. Retained,
+  not deleted.
+- Five areas: the gateway credential, log placement and rotation, secret
+  redaction, realtime authentication, and the Dashboard credential verifier.
+
+### Physical acceptance evidence
+
+    versionName 0.2.0, versionCode 58, arm64
+    APK  a039dde854c1199f54f118a5e2f40827eecb7fc2b4a066f6d2d9db6448250e95
+    source fingerprint 3a9ae19c12041ff104f1344081dc3e645553791e2e84d6e603ee503ec035f06d
+    libpicoclaw.so     e42677a25caf2498c74dcd3cbfac4d0b4b700177706977b4b9042d23d8771164
+    libpicoclaw-web.so b500427ec6cf6927671ab87fa83e8fea75e83bdc6247568670ee17f3ccc51779
+
+Installed with `adb install -r` — no uninstall, no clear-data — preserving
+install time, dataDir, uid and application data.
+
+| Observed | Result |
+| --- | --- |
+| Shared `.picoclaw.pid` carries only pid, version, port, host | PASS |
+| No credential key or credential-shaped value in the shared record | PASS |
+| Gateway credential reached the private no-backup contract | PASS |
+| No production Gateway log under `Download/pocketclaw/logs` | PASS |
+| The three legacy shared logs removed, directory removed | PASS |
+| No new shared `gateway.log` recreated while running | PASS |
+| Shared `launcher-auth.db` and all exact sidecars retired | PASS |
+| The existing Dashboard password still authenticates | PASS |
+| Detailed Status metrics populate | PASS |
+| Runtime logs still visible in the app after the file moved | PASS |
+| Workspace present and user-accessible, contents untouched | PASS |
+
+The Dashboard login is the load-bearing one: it is the end-to-end proof that the
+verifier survived the move from shared to private storage. A migration that had
+silently reset or lost it would have failed exactly there.
+
+**vc57 was superseded, not accepted.** It proved the gateway credential, log
+placement and legacy log cleanup, but the Dashboard verifier move landed after
+it, so the baseline advances directly 56 → 58 and no acceptance record exists
+for vc57.
+
+### The final invariant
+
+On Android:
+
+| Shared, user-accessible | App-private, no-backup |
+| --- | --- |
+| `Download/pocketclaw/workspace` | Gateway bearer credential |
+| `.picoclaw.pid` — safe discovery metadata only | Gateway persistent diagnostic logs |
+| | Dashboard credential verifier database |
 
 ### The invariant this milestone establishes
 
@@ -143,13 +186,19 @@ migration matches by name, `PICOCLAW_CHANNELS_PICO_TOKEN`, the `picoclaw`
 private directory name already guarded for backup, and the `pico` channel name. A rename on one side only would
 silently undo the separation without failing anything else.
 
-### Core is intentionally stale
+### Core was rebuilt for vc58
 
-`core/src` changed, so the staged Core no longer matches.
-`TestStagedCoreWasBuiltFromTheCurrentSource` fails by design, expecting
-fingerprint `3a9ae19c12041ff104f1344081dc3e645553791e2e84d6e603ee503ec035f06d`.
-**The next physical APK requires a Core rebuild** via
-`./core/build-android-arm64.sh`; nothing was rebuilt or re-staged here.
+Rebuilt through `./core/build-android-arm64.sh` and staged in its own commit.
+The freshness guard passes, the packaged binaries are byte-identical to the
+staged ones, both carry zero developer-machine paths, and both are stripped,
+non-executable-stack and 64 KiB aligned.
+
+### The accepted baseline advanced
+
+`android/release-baseline.properties` moves `lastAcceptedVersionCode=56` to
+`58` in this closeout — the commit that records the acceptance, which is the
+only place it may move. `pubspec.yaml` stays at `0.2.0+58`: the candidate became
+the accepted build, so the two now agree.
 
 ## Production Release Hardening A1 — PHYSICALLY ACCEPTED AND CLOSED
 

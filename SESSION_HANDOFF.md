@@ -1,18 +1,23 @@
 # PocketClaw Session Handoff
 
-## Release Hardening A2 — IMPLEMENTED, not merged, 2026-09-08
+## Release Hardening A2 — PHYSICAL PASS and merged, 2026-09-08
 
-Branch `feature/release-hardening-a2`, off `develop` at `e62f083`. **Not merged,
-no APK built, nothing installed, no device touched.** Version unchanged at
-`0.2.0+56`, baseline still 56.
+Branch `feature/release-hardening-a2`, off `develop` at `e62f083`. **Physically
+accepted on SM-A165F / Android 16 as vc58, then merged to `develop` with
+`--no-ff`.** `main` untouched, no tags moved, no release. The branch is
+retained.
 
-### Read this before building anything
+    APK a039dde854c1199f54f118a5e2f40827eecb7fc2b4a066f6d2d9db6448250e95
+    Core fingerprint 3a9ae19c12041ff104f1344081dc3e645553791e2e84d6e603ee503ec035f06d
 
-**The staged Core is stale on purpose.** This branch changed `core/src`, so
-`TestStagedCoreWasBuiltFromTheCurrentSource` fails by design, expecting
-`3a9ae19c…`. Run `./core/build-android-arm64.sh` before the next physical APK,
-or the device will run a Core that still writes the credential into shared
-storage and the whole milestone will look like it did nothing.
+**vc57 was superseded, not accepted.** It proved the gateway credential, the log
+move and the legacy log cleanup, but the Dashboard verifier move landed after
+it. The baseline therefore advanced 56 → 58 directly, and no acceptance record
+exists for 57. A candidate that is never accepted never becomes the floor.
+
+The acceptance that mattered most was the Dashboard login: the user's existing
+password still worked after the verifier moved from shared to private storage,
+which is the only end-to-end proof that the migration preserved it.
 
 ### The one sentence to keep
 
@@ -102,7 +107,7 @@ credential, the logs or the backup exclusion quietly go back to where they were.
 
 ### Next
 
-Rebuild Core, build vc57, and validate on a device.
+The next production hardening milestone. Nothing in A2 is outstanding.
 
 ## Release Hardening A1 — PHYSICAL PASS and merged, 2026-09-08
 
