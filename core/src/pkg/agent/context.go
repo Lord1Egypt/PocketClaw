@@ -274,6 +274,17 @@ func (cb *ContextBuilder) buildSystemPromptParts(opts systemPromptBuildOptions) 
 		})
 	}
 
+	// PocketClaw-managed capability guidance. Ships in the binary rather than in
+	// a workspace file, so an install seeded before this text existed still
+	// receives it. See managed_guidance.go for why that ownership split exists.
+	//
+	// Omitted when the caller has restricted tools to a set without `runtime`:
+	// a sub-turn profile that cannot reach the runtime should not be told to
+	// ask it first. An unrestricted caller always gets it.
+	if promptAllowsTool(PromptBuildRequest{AllowedTools: opts.AllowedTools}, "runtime") {
+		add(managedGuidancePart())
+	}
+
 	// Skills - show summary, AI can read full content with read_file tool
 	skillsSummary := ""
 	if opts.IncludeSkillCatalog {
@@ -750,7 +761,20 @@ func (cb *ContextBuilder) LoadBootstrapFiles() string {
 		if label == "" {
 			label = relativeWorkspacePath(cb.workspace, agentDefinition.Agent.Path)
 		}
-		fmt.Fprintf(&sb, "## %s\n\n%s\n\n", label, agentDefinition.Agent.Body)
+		// A workspace seeded before this guidance moved into the binary still
+		// carries PocketClaw's own copy of it. Drop that copy from the prompt —
+		// only when it is byte-for-byte what PocketClaw wrote — so the managed
+		// part does not arrive alongside a stale duplicate of itself. The file
+		// on disk is never modified.
+		body, dropped := stripSupersededManagedGuidance(agentDefinition.Agent.Body)
+		if len(dropped) > 0 {
+			logger.DebugCF("agent", "Superseded managed guidance omitted from workspace prompt",
+				map[string]any{
+					"file":     label,
+					"versions": dropped,
+				})
+		}
+		fmt.Fprintf(&sb, "## %s\n\n%s\n\n", label, body)
 	}
 	if agentDefinition.Soul != nil {
 		fmt.Fprintf(

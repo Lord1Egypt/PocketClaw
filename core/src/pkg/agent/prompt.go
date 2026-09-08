@@ -57,12 +57,16 @@ const (
 	PromptSourceToolRegistry   PromptSourceID = "tool_registry:native"
 	PromptSourceToolDiscovery  PromptSourceID = "tool_registry:discovery"
 	PromptSourceOutputPolicy   PromptSourceID = "runtime.output"
-	PromptSourceSubTurnProfile PromptSourceID = "subturn.profile"
-	PromptSourceUserMessage    PromptSourceID = "turn:user_message"
-	PromptSourceSteering       PromptSourceID = "turn:steering"
-	PromptSourceSubTurnResult  PromptSourceID = "turn:subturn_result"
-	PromptSourceToolResult     PromptSourceID = "turn:tool_result"
-	PromptSourceInterrupt      PromptSourceID = "turn:interrupt"
+	// PromptSourceManagedGuidance carries product guidance that ships in the
+	// binary rather than in a user-owned workspace file, so that upgrading the
+	// app upgrades the guidance on every install.
+	PromptSourceManagedGuidance PromptSourceID = "runtime.managed_guidance"
+	PromptSourceSubTurnProfile  PromptSourceID = "subturn.profile"
+	PromptSourceUserMessage     PromptSourceID = "turn:user_message"
+	PromptSourceSteering        PromptSourceID = "turn:steering"
+	PromptSourceSubTurnResult   PromptSourceID = "turn:subturn_result"
+	PromptSourceToolResult      PromptSourceID = "turn:tool_result"
+	PromptSourceInterrupt       PromptSourceID = "turn:interrupt"
 )
 
 type PromptCachePolicy string
@@ -175,6 +179,13 @@ func builtinPromptSources() []PromptSourceDescriptor {
 			Owner:           "workspace",
 			Description:     "Workspace and agent definition files",
 			Allowed:         []PromptPlacement{{Layer: PromptLayerInstruction, Slot: PromptSlotWorkspace}},
+			StableByDefault: true,
+		},
+		{
+			ID:              PromptSourceManagedGuidance,
+			Owner:           "agent",
+			Description:     "PocketClaw-managed capability guidance shipped with the binary",
+			Allowed:         []PromptPlacement{{Layer: PromptLayerCapability, Slot: PromptSlotTooling}},
 			StableByDefault: true,
 		},
 		{

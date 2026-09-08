@@ -1,5 +1,228 @@
 # PocketClaw Project State
 
+## Bootstrap Architecture — PHYSICALLY ACCEPTED and CLOSED on vc59
+
+- Status: **closed on `feature/bootstrap-architecture`, 2026-09-08. Merged to
+  `develop` with `--no-ff`.** `main` untouched, no tags moved, no release.
+  Branch cut from `develop` at `01495dc`, retained.
+- **Physically accepted as vc59** (`0.2.0`, versionCode 59) on SM-A165F /
+  Android 16, installed with `adb install -r`. No uninstall, no clear-data;
+  UID, dataDir and firstInstallTime preserved. `lastAcceptedVersionCode`
+  advanced 58 → 59 in the acceptance commit. `pubspec.yaml` stays `0.2.0+59`.
+  No What's New entry: this fixes prompt and bootstrap ownership.
+
+### The accepted artifact
+
+    APK            44101679d94a97ad12b96dd756afb5dd412fe53fa636aee0dbf780cbbae1ffa3
+                   63,565,050 bytes, com.lord1egypt.pocketclaw 0.2.0 (59)
+    local signer   15cf75f9945d5354e75707e0326b7cffc60ac51a68df38156db318ef4578a27c
+    fingerprint    e7acbff7000bb58ac8074bfaf290528326df115bf1fae4bb6242defbf78d9a23
+    BuildTime      2026-09-08T18:36:44+0000  (build-input commit 08781fe)
+    libpicoclaw.so 0a4d9c856d0d4a260349cdee8b3ac0c0be8fff2f2ee9fb23952f82c8c62cdef1  37,683,553
+    libpicoclaw-web.so 7f693fd0de6f5e6bb32df986b804b5adfbb012961c74596ee1e005dbdb47a8a0  25,493,857
+
+The signer is the local-test development key, by explicit
+`-PallowDebugSigning=true`. vc59 is a physically accepted **local test**
+artifact, not a production release artifact; no production signing material was
+created.
+
+### Physical acceptance evidence
+
+Machine checks, all pass: app, launcher backend and Core gateway all started;
+the gateway is loopback-only on `127.0.0.1:18790` and `[::1]:18790`; the shared
+PID record carries exactly `host`, `pid`, `port`, `version` and no credential;
+application identity and the 10-permission set were preserved across the update.
+
+The decisive evidence is what did **not** happen. The workspace at
+`/sdcard/Download/pocketclaw/workspace` already held `AGENT.md` (2026-09-03),
+`SOUL.md` and `USER.md` (2026-08-26) and `memory/MEMORY.md` (2026-09-08 00:38).
+Every one of those timestamps predates the vc59 run, which wrote its bootstrap
+record at 22:06:18. The app started, recorded what it had done, and modified no
+user file. No file content was read during validation.
+
+The record it wrote has `bootstrapVersion` 1, `managedGuidanceVersion` 1, and an
+**empty** `templates` map, because this run seeded nothing. An empty record on a
+populated workspace is the correct answer: PocketClaw must not claim provenance
+for files it did not write.
+
+Chat acceptance confirmed the managed guidance actually governs behaviour: the
+agent treats `action=list` as the authority on what exists, derives tool
+availability from the runtime inventory rather than from a Skill naming a tool,
+refuses to download or install a missing tool, and reports unavailability
+plainly. No-shell semantics were confirmed too — `|`, `>`, `*` and `$(...)` are
+not interpreted, arguments pass verbatim, and compound work is split across
+calls.
+
+A2 invariants re-checked and intact: no `launcher-auth.db` (or `-wal`, `-shm`,
+`-journal`) on shared storage at either the home or workspace root, no shared
+`logs/` or `gateway.log`, private runtime state still starting correctly.
+
+### Non-blocking security-review backlog
+
+The launcher/web console was observed listening on `0.0.0.0:18800`, where the
+Core gateway is correctly loopback-only. **This predates this branch and was not
+introduced by vc59** — the diff against `develop` touches nothing under
+`core/src/web`, `core/src/pkg/config` or `android/app/src`. Recorded for a later
+security review; deliberately not fixed in this closeout.
+
+### What moved, and why it had to
+
+Seeding writes a bundled template only when the file is absent, so `AGENT.md`
+is written once and never refreshed. That rule is right — the file is the
+user's — and its consequence is that an install seeded before a default improved
+keeps the old text forever. The device validated on 2026-09-08 still carried an
+`AGENT.md` predating the Managed Runtime, so that agent had never been told the
+Managed Runtime exists.
+
+Guidance now splits by **owner** rather than by topic:
+
+| Kind | Where it lives | Lifecycle |
+|---|---|---|
+| `AGENT.md`, `SOUL.md`, `USER.md` | workspace | seeded once, user-owned, never rewritten |
+| `memory/MEMORY.md` | workspace | seeded once, never read or migrated by bootstrap |
+| skills and their assets | workspace | product content, replaceable, not tracked |
+| capability guidance | the binary | upgrades with the app, nothing to migrate |
+
+The Managed Runtime section is the first to move. It is `capability.managed_runtime`,
+contributed by the new `runtime.managed_guidance` prompt source at
+capability/tooling, and it has been removed from the seeded template so a fresh
+workspace does not receive a second copy that would then age on its own.
+
+Being a prompt part rather than a file also made it conditional, which it never
+was before: a sub-turn restricted to a tool set without `runtime` no longer
+receives instructions to ask the runtime first. An unrestricted caller always
+does.
+
+### Existing installs keep their copy on disk and lose it from the prompt
+
+An install seeded before this change still has PocketClaw's own Managed Runtime
+text inside its `AGENT.md`. The assembler drops that section from the prompt —
+never from the file — and only when it hashes to exactly what PocketClaw seeded
+(`47b63011…`). One edited character and the user's version is kept, with the
+managed part alongside it, because at that point it is their instruction. A
+same-named section the user wrote themselves is never touched, which is why the
+match is by digest and not by heading.
+
+### Measured prompt impact
+
+Estimated with the repository's own heuristic (2.5 characters per token).
+
+    managed guidance part                              1563 chars   624 tokens
+    install that already carried PocketClaw's copy     1263 -> 1058  -205 tokens
+    fresh install, old template vs new                 1711 -> 1506  -205 tokens
+    install that never had the guidance                 430 -> 1058  +628 tokens
+
+The first two are the same install shape seen twice: the old inline copy is
+dropped and the shorter managed part replaces it, so those installs get smaller.
+The last is the whole point — those installs were missing the guidance
+altogether.
+
+The guidance went through one editorial pass: 2081 chars to 1563 (-25%), 831
+estimated tokens to 624. The prose that went was framing and repetition — "Four
+things to hold on to", a seven-row markdown table restating what `action=list`
+returns, and a second sentence saying again that a tool absent from PATH may
+still exist. Every operational rule survived, and a test pins each one by
+substring so a future pass cannot quietly drop one. What deliberately stayed is
+the short reason that installing is impossible: without it a model treats
+"unavailable" as an obstacle to work around and burns a turn trying.
+
+### Prompt order, and who wins a disagreement
+
+The assembled system prompt, asserted in `TestSystemPromptPartOrder` rather than
+merely described, because the order is part of the mechanism:
+
+    1  kernel       identity       runtime.kernel             kernel.identity
+    2  instruction  workspace      workspace.definition       instruction.workspace
+    3  capability   tooling        runtime.managed_guidance   capability.managed_runtime
+    4  capability   skill_catalog  skill:index                capability.skill_catalog
+    5  context      memory         memory:workspace           context.memory
+    6  context      output         runtime.output             context.output_policy.split_on_marker
+
+The managed guidance sits at 3: after the workspace text it must outrank, and
+before the skill catalog, whose skills may name tools that do not exist on this
+device.
+
+Ownership is split, and the split is narrow:
+
+| Owned by the workspace | Owned by the managed guidance |
+|---|---|
+| persona and tone | what the runtime currently provides |
+| the user's preferences | which bundled and system tools exist |
+| the user's own operating instructions | what this build can and cannot do |
+
+When a user's `AGENT.md` carries a stale capability claim — "PocketClaw has no
+`jq`", "install what you need with apt" — nothing of theirs is edited or
+removed. The current facts follow their text and say so explicitly: *these facts
+describe the build you are running and are authoritative for what this device
+can do … Persona, tone and the user's preferences remain the workspace's.* Both
+halves are tested, including one that fails if the guidance ever acquires
+broad-override language like "ignore the workspace".
+
+### The bootstrap record
+
+`.pocketclaw/bootstrap.json` stores, for each tracked document, the digest of
+**what PocketClaw wrote** rather than of the file as it now stands. That makes
+three states distinguishable without diffing prose or retaining every historical
+template: recorded and matching (ours, untouched), recorded and differing (the
+user edited it), unrecorded (provenance unknown — assume the user's). It records
+only files a run actually wrote, so a workspace that already had `AGENT.md` gets
+no entry rather than a false claim, and a rerun that writes nothing leaves the
+file byte-identical.
+
+**The record is advisory. It is not an authorization boundary.** It lives in the
+workspace, which the user can edit and which on Android may sit on shared
+storage, so it is untrusted input. It may inform a non-destructive migration, an
+offer to upgrade, a guess that a default is untouched, or a diagnostic. It may
+never, by itself, authorize overwriting or deleting a user-owned file — anyone
+who can edit the record can make any document look pristine by recording the
+digest of its current contents. That is not an escalation, since they could edit
+the document directly, but it must not become a way to make PocketClaw destroy
+the document for them. No function in the package returns "you may overwrite
+this", and none should be added.
+
+`bootstrap.Provenance` reports one of three states and `UserOwns` is its safe
+reading. Every ambiguity collapses to hands-off: no record, an unreadable or
+malformed one, an empty file, a JSON array where an object belongs, a schema
+version this build does not know, a missing or empty entry, a digest that does
+not match, an unreadable document, an untracked path. Nine of those are pinned
+by name in `TestAmbiguousProvenanceAlwaysMeansHandsOff`; a corrupt record is
+also never silently rewritten, because a record we cannot read is exactly when
+we know least.
+
+Neither function has a production caller yet, deliberately: the upgrade
+experience is still deferred in `TASKS.md`, and what is settled here is the
+record it will consult and the rule it must obey. `MEMORY.md` reports
+`ProvenanceUnknown` even when its recorded digest matches the file on disk, so
+it cannot become an upgrade candidate even if a later change forgets that it
+must not.
+
+### RECHECK AFTER FULL NAMESPACE MIGRATION
+
+- `.pocketclaw/` and `bootstrap.json` — new state, already PocketClaw-named on
+  purpose, so this is the one piece of on-disk state the migration does not have
+  to rename. Verify nothing later re-derives it from the package id.
+- Prompt source id `runtime.managed_guidance`, part id `capability.managed_runtime`.
+- Tracked template names `AGENT.md`, `SOUL.md`, `USER.md`, `memory/MEMORY.md`.
+- The superseded digest `47b63011a55eaa659470f2ab09d05532e9942800848020a1cfe443e6f21aca76`
+  pins text containing the word PocketClaw. It describes bytes already on users'
+  devices and must **not** be regenerated to match a renamed string. The text it
+  digests is now pinned as the literal `legacyManagedRuntimeSectionV1` in
+  `core/src/pkg/agent/managed_guidance_legacy.go`, extracted from git history
+  rather than derived from the live guidance — deriving it was a latent bug that
+  the first editorial pass would have triggered, silently redefining "the bytes
+  on a user's device" to mean the current wording.
+- The managed guidance text names the `runtime` tool and `action=list`, plus
+  `git`, `gh`, `rg`, `jq`, `sqlite3`, `curl` — user-visible product surface.
+- Go import path `github.com/sipeed/picoclaw/pkg/bootstrap`, which carries the
+  upstream module name like every other package.
+- `$PICOCLAW_HOME` and its `workspace/` subdirectory, the shared PID record
+  `.picoclaw.pid`, and the staged library names `libpicoclaw.so` /
+  `libpicoclaw-web.so` — all compatibility PicoClaw identifiers that remain.
+
+`.pocketclaw/bootstrap.json` is already PocketClaw-named and must not be
+gratuitously renamed; it is the one piece of new on-disk state the migration
+does not have to touch.
+
 ## Production Release Hardening A3 — CLOSED
 
 - Status: **closed on `feature/release-hardening-a3`, 2026-09-08. Merged to

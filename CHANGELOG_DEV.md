@@ -1,5 +1,131 @@
 # Development Changelog
 
+## 2026-09-08 — vc59, and the evidence that nothing happened
+
+The Bootstrap Architecture is physically accepted. The proof is a set of
+timestamps that did not move.
+
+The workspace on the device already held `AGENT.md` from 2026-09-03, `SOUL.md`
+and `USER.md` from 2026-08-26, and `MEMORY.md` from this morning. vc59
+installed, started, wrote its bootstrap record at 22:06:18, and left every one
+of those files exactly as it found them. The record it wrote has an empty
+`templates` map, because it seeded nothing and therefore claims nothing. An
+empty record on a full workspace looks like a bug for about two seconds and is
+in fact the entire point: PocketClaw must not claim provenance for files it did
+not write, and a record that flatters itself is worse than no record.
+
+The chat side confirmed the other half — that guidance shipped in a binary
+actually governs behaviour. The agent treats `action=list` as the authority on
+what exists rather than guessing from a Skill that names a tool, declines to
+download or install anything, and says plainly when the device cannot do
+something. No-shell semantics held: pipes, redirection, globs and `$(...)` are
+not interpreted, and compound work gets split across calls.
+
+One embarrassment worth recording, because it nearly became a false conclusion.
+The pre-install baseline probed `$PICOCLAW_HOME` and reported all four templates
+absent, which would have made this a first-seed run and a much weaker test. The
+workspace is `$PICOCLAW_HOME/workspace`. The PID record and the workspace live
+at different levels, and the wrong one produced a confident, tidy, wrong answer
+that survived a whole report before the seeded files turned up one directory
+down. The lesson is not "check the path" — it is that ABSENT is a claim about
+where you looked, and a baseline of absences deserves the same scepticism as a
+baseline of surprises.
+
+Also noted, not fixed: the web console listens on `0.0.0.0:18800` while the Core
+gateway is correctly loopback-only. It predates this branch — the diff touches
+nothing under `core/src/web` — so it goes to the security backlog rather than
+into a closeout that has no business changing it.
+
+## 2026-09-08 — Three review points, and a bug hiding in a test helper
+
+Review asked for three things. The third one found a fourth.
+
+**The record is untrusted.** `.pocketclaw/bootstrap.json` sits in the workspace,
+which the user can edit and which on Android may be shared storage. Anyone who
+can edit it can make any document look pristine by writing the digest of its
+current contents. That is not an escalation — they could edit the document
+directly — but it must not become a way to make PocketClaw destroy the document
+on their behalf. So the package returns descriptions, never permission:
+`Provenance` says unknown, user-modified or matches-seed, and matches-seed is
+documented as a hint that still needs a decision from the user at the time.
+Nine ambiguity shapes are pinned by name, including a JSON array where an object
+belongs and a schema version from the future. A corrupt record is never silently
+rewritten either, on the grounds that a record we cannot read is exactly when we
+know least.
+
+**Who wins a disagreement.** The managed part sits third, after the workspace
+text and before the skill catalog, and the order is now asserted rather than
+described. Authority is one sentence and it is narrow: these facts are
+authoritative for what this device can do, and persona, tone and preferences
+remain the workspace's. A user file claiming "PocketClaw has no `jq`, install
+what you need with apt" keeps every byte, on disk and in the prompt, and is
+simply outranked on the capability question. There is a test that fails if the
+guidance ever grows an "ignore the workspace" clause, because that is the easy
+way to win an argument and the wrong one.
+
+**The compression pass.** 2081 characters to 1563, 831 estimated tokens to 624.
+What went was framing and repetition: "Four things to hold on to", a seven-row
+table restating what `action=list` returns anyway, and a second sentence saying
+again that a tool missing from PATH may still exist. What stayed is every
+operational rule, each now pinned by substring so a future pass cannot quietly
+drop one, and the short reason that installing is impossible — without it a model
+treats "unavailable" as an obstacle to route around and spends a turn trying.
+Every install shape is now better off than before the pass: the ones that
+already had the text get 205 tokens back, the ones that never had it pay 628
+instead of 835.
+
+And the fourth thing. The test helper for "the section PocketClaw historically
+seeded" **derived** it from the current guidance. Compressing the guidance would
+have redefined history: the digest test would have failed, and the obvious fix —
+regenerate the digest — would have produced a value matching text on nobody's
+device, silently restoring the duplicate for every existing install. The bytes
+are pinned as a literal from git history now. It is a good argument for writing
+the constant down rather than computing it: a derived constant is only correct
+until one of its inputs is allowed to change.
+
+## 2026-09-08 — The file we were never allowed to fix
+
+The bug is easy to state and awkward to fix. Seeding writes a bundled template
+only when the file is absent, so `AGENT.md` is written once and never again.
+That is the correct rule — it is the user's file — and it means an install
+seeded a year ago keeps a year-old default. The device validated this morning
+still carried an `AGENT.md` predating the Managed Runtime. That agent had never
+been told the Managed Runtime exists, and no upgrade would ever tell it.
+
+Every fix that starts with "refresh the file" is wrong, because by then the file
+may contain the user's own work, and you cannot tell which parts. Merging prose
+is guesswork. Prompting on every upgrade is a nag.
+
+So the file stops being the delivery mechanism. Guidance splits by owner rather
+than topic: who the assistant is stays in the workspace and belongs to the user;
+what this build's capabilities do moves into the binary as a prompt part.
+Upgrading the app upgrades the guidance everywhere, and there is nothing to
+migrate because nothing on disk holds it.
+
+That leaves duplication for the installs that already have PocketClaw's copy
+inline. The assembler drops that copy from the prompt — never from the file —
+and only when it hashes to exactly what PocketClaw seeded. Change one character
+and it is yours: kept, with the managed part alongside it, because at that point
+it is your instruction and not ours. Matching by heading would have been simpler
+and would have quietly deleted the notes of anyone who wrote their own "Managed
+Runtime" section.
+
+Measured, since moving text around invites hand-waving. The guidance is 831
+estimated tokens. An install that already had it: +2, effectively nothing. An
+install that never had it: +835 — the instructions it should have had all along.
+
+The other half is `.pocketclaw/bootstrap.json`, which records the digest of what
+seeding actually wrote. Not of the file now — of what we wrote. That is the
+distinction that makes a later upgrade decidable: matching means ours and
+untouched, differing means the user edited it, absent means we never wrote it
+and must assume nothing. A workspace that already had `AGENT.md` gets no entry
+for it, which is the honest answer rather than a convenient one.
+
+`MEMORY.md` is recorded and never read. `UserOwns` returns true for it whatever
+its digest says, so no future upgrade path can reach it even by accident. It
+seemed worth spending a branch in the code to make that unreachable rather than
+merely undone.
+
 ## 2026-09-08 — The toolchain had its own opinion about when this was built
 
 The reproducibility proof failed. Same epoch, same source, different bytes —

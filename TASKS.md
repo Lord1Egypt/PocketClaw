@@ -1055,6 +1055,28 @@ supplied by the user.
   authorization; do not create `v0.2.0-rc1` yet.
 - [ ] Security hygiene: confirm manager bot token rotation externally. Never
   retrieve or record the token.
+- [x] **Bootstrap architecture PHYSICALLY ACCEPTED as vc59 and CLOSED,
+  2026-09-08**, merged to `develop` with `--no-ff`; baseline advanced 58 → 59.
+  The upgrade experience remains open, below.
+- [ ] **Non-blocking security review: the launcher/web console listens on
+  `0.0.0.0:18800`.** Observed during vc59 machine validation. The Core gateway
+  is correctly loopback-only on 18790; the console is not. This predates the
+  bootstrap branch and was not introduced by vc59, so it was deliberately not
+  fixed in that closeout. Decide whether the console should bind loopback-only,
+  and what that costs anyone reaching it from another device on the network.
+- [~] **Bootstrap architecture implemented 2026-09-08 on
+  `feature/bootstrap-architecture`; the upgrade experience is still open.**
+  PocketClaw-managed capability guidance no longer lives in `AGENT.md`: it ships
+  in the binary as the `capability.managed_runtime` prompt part, so every
+  install receives it on upgrade with no file to migrate. `.pocketclaw/
+  bootstrap.json` records the digest of what seeding actually wrote for
+  `AGENT.md`, `SOUL.md`, `USER.md` and `memory/MEMORY.md`, which is what makes
+  "has the user touched this?" answerable later. **Still open:** what to do when
+  a tracked template is pristine and its bundled default has since improved —
+  offering the delta, or asking. `bootstrap.UserOwns` is the predicate that
+  decision must consult; it has no production caller until that work is done.
+  `MEMORY.md` is out of scope permanently, by design.
+  Original entry, kept for the reasoning:
 - [ ] **DEFERRED — Release Hardening / post-stable architecture:** a versioned,
   non-destructive bootstrap update strategy for existing installs. Embedded
   workspace templates are seeded with `keepExisting=true`, so `AGENT.md`,
