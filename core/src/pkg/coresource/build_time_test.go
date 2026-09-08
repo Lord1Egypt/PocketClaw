@@ -373,3 +373,68 @@ func TestBuildRecipeChangesAdvanceTheEpoch(t *testing.T) {
 		t.Fatalf("epoch = %s, want the recipe commit's timestamp", after)
 	}
 }
+
+// A shallow clone is the same defect wearing a disguise.
+//
+// Git treats the graft boundary as a root commit, so every path looks like it
+// was introduced by the tip and the path-scoped query returns the tip's
+// timestamp — exactly the unscoped-HEAD behaviour the scoping removed. It is
+// worse than the non-git case because it succeeds and produces a plausible
+// wrong answer, so the resolver has to refuse it rather than date a build by
+// whichever documentation or merge commit is checked out.
+func TestShallowCloneFailsRatherThanDatingFromTheTip(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git is not available")
+	}
+	root := gitInit(t)
+
+	const (
+		buildInputEpoch = 1700000000
+		docsEpoch       = 1800000000
+	)
+	commit(t, root, "core/src/pkg/thing.go", "package thing\n", buildInputEpoch)
+	commit(t, root, "docs/NOTES.md", "notes\n", docsEpoch)
+
+	if got := resolveEpochIn(t, root); got != fmt.Sprint(buildInputEpoch) {
+		t.Fatalf("full clone: expected the build-input epoch %d, got %s", buildInputEpoch, got)
+	}
+
+	shallow := filepath.Join(t.TempDir(), "shallow")
+	clone := exec.Command("git", "clone", "-q", "--depth", "1", "file://"+root, shallow)
+	if out, err := clone.CombinedOutput(); err != nil {
+		t.Skipf("shallow clone unavailable in this environment: %v\n%s", err, out)
+	}
+
+	cmd := exec.Command(filepath.Join(shallow, "core/resolve-build-time.sh"), "--print-epoch")
+	cmd.Dir = shallow
+	env := []string{}
+	for _, kv := range os.Environ() {
+		if !strings.HasPrefix(kv, "SOURCE_DATE_EPOCH=") {
+			env = append(env, kv)
+		}
+	}
+	cmd.Env = env
+	out, err := cmd.CombinedOutput()
+	if err == nil {
+		t.Fatalf("shallow clone resolved instead of failing, giving %q", strings.TrimSpace(string(out)))
+	}
+	if !strings.Contains(string(out), "shallow") {
+		t.Errorf("failure does not name the cause:\n%s", out)
+	}
+	if strings.Contains(string(out), fmt.Sprint(docsEpoch)) {
+		t.Errorf("resolver leaked the tip's epoch %d into a shallow clone:\n%s", docsEpoch, out)
+	}
+
+	// The documented escape hatch still works there, so a shallow CI checkout
+	// is inconvenienced, not blocked.
+	explicit := exec.Command(filepath.Join(shallow, "core/resolve-build-time.sh"), "--print-epoch")
+	explicit.Dir = shallow
+	explicit.Env = append(env, "SOURCE_DATE_EPOCH="+fmt.Sprint(buildInputEpoch))
+	got, err := explicit.Output()
+	if err != nil {
+		t.Fatalf("explicit epoch failed in a shallow clone: %v", err)
+	}
+	if strings.TrimSpace(string(got)) != fmt.Sprint(buildInputEpoch) {
+		t.Errorf("explicit epoch: got %s, want %d", strings.TrimSpace(string(got)), buildInputEpoch)
+	}
+}

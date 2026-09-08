@@ -30,9 +30,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          # The gate derives the build timestamp from the HEAD commit when
-          # SOURCE_DATE_EPOCH is unset, so the commit must actually be present.
-          fetch-depth: 1
+          # Full history, not a shallow clone. With SOURCE_DATE_EPOCH unset the
+          # timestamp comes from the most recent commit touching a canonical
+          # Core build input, and a shallow clone makes every path look like it
+          # originated at the tip — which would date the build by whatever
+          # documentation or merge commit CI happens to be running on. The
+          # resolver refuses a shallow clone outright, so this is required, not
+          # an optimisation.
+          fetch-depth: 0
 
       - uses: actions/setup-python@v5
         with:

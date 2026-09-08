@@ -39,8 +39,9 @@
   3. the default BuildTime derives from canonical Core **build-input** history —
      `core/src`, `core/build-android-arm64.sh`, `core/resolve-build-time.sh`;
   4. documentation, staging and unrelated commits therefore do not alter it;
-  5. a canonical build outside git requires an explicit `SOURCE_DATE_EPOCH` and
-     fails otherwise;
+  5. a canonical build outside git — or in a shallow clone, where the graft
+     boundary makes every path look introduced by the tip — requires an explicit
+     `SOURCE_DATE_EPOCH` and fails otherwise;
   6. the source fingerprint and the build-input revision are distinct concepts
      answering different questions, and are allowed to differ;
   7. the staged Core carries a verifiable embedded BuildTime, checked in both
@@ -51,6 +52,14 @@
   10. production full verification requires Git provenance and a clean worktree;
   11. the release manifest carries verification metadata only, never secrets;
   12. CI is a wrapper around the repo-local gate and never a second copy of it.
+- Shallow clones were the one way left to reintroduce the defect the path
+  scoping removed. Git treats the graft boundary as a root commit, so
+  `git log -1 -- <build inputs>` returns the *tip*, and a CI checkout at
+  `fetch-depth: 1` would have dated every build by whatever documentation or
+  merge commit it was running on — succeeding, with a plausible wrong answer.
+  The resolver refuses a shallow clone rather than answering, and the workflow
+  fetches full history. Found by running the workflow's own command against a
+  real depth-1 clone instead of trusting that it matched the local run.
 - **RECHECK AFTER THE NAMESPACE MIGRATION.** The gate's expected package id,
   Core library names and staged-Core path are all compatibility names, and so is
   the build-input path set in `core/resolve-build-time.sh`.
