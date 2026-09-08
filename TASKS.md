@@ -1002,6 +1002,11 @@ supplied by the user.
   an advanced/fallback option. This is the next milestone and was deliberately
   kept out of Milestone C.
 
+- [x] **DONE 2026-09-09 (N2, `feature/namespace-n2-brand-assets`): the stale
+  lobster assets are gone.** `assets/app_icon.png` and `assets/icon.ico` are
+  now derived from the canonical APERTURE geometry by
+  `tool/generate_android_launcher_icons.py`, which gained a `--check` mode so
+  a hand-edit fails a test. Original entry, kept for the reasoning:
 - [ ] **Full PicoClaw → PocketClaw namespace / branding migration.** Carries the
   load-bearing internal identifiers — `libpicoclaw.so`, `libpicoclaw-web.so`,
   `PICOCLAW_*` placeholders, `/pico/*`, `.picoclaw`, the Go module paths, the
@@ -1013,7 +1018,7 @@ supplied by the user.
   (`lib/main.dart`). The Android launcher milestone found them and deliberately
   left them; they are not Android launcher resources.
 
-## CODEX SOL HANDOFF — PRE-RELEASE FIX
+  ## CODEX SOL HANDOFF — PRE-RELEASE FIX
 
 - [x] Create and push rollback branch/tag at exact pre-Codex commit `e5b88ff`.
 - [x] Make native Settings Telegram a neutral shortcut to Core console
