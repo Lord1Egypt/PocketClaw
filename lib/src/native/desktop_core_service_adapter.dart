@@ -26,6 +26,11 @@ class DesktopCoreServiceAdapter implements CoreServiceAdapter {
   });
   String? _lastErrorCode;
 
+  // `picoclaw-launcher` and `picoclaw` are the filenames the upstream Core
+  // build actually produces — core/src/Makefile's BINARY_NAME and its launcher
+  // target. They are artifact names to look up on disk, not PocketClaw source
+  // identity, so they stay as they are while that build produces them.
+  // Renaming them here would only stop the adapter finding the binaries.
   bool _isLauncherPath(String path) {
     final baseName = p.basename(path).toLowerCase();
     return baseName == 'picoclaw-launcher' ||

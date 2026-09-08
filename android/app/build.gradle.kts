@@ -34,9 +34,9 @@ fun decodedDartDefines(project: Project): Map<String, String> {
 }
 
 val dartDefines = decodedDartDefines(project)
-val analyticsProvider = dartDefines["PICOCLAW_ANALYTICS_PROVIDER"] ?: "none"
-val umengAppKey = dartDefines["PICOCLAW_UMENG_APP_KEY"] ?: ""
-val umengChannel = dartDefines["PICOCLAW_UMENG_CHANNEL"] ?: "official"
+val analyticsProvider = dartDefines["POCKETCLAW_ANALYTICS_PROVIDER"] ?: "none"
+val umengAppKey = dartDefines["POCKETCLAW_UMENG_APP_KEY"] ?: ""
+val umengChannel = dartDefines["POCKETCLAW_UMENG_CHANNEL"] ?: "official"
 val umengLinkScheme = if (umengAppKey.isNotBlank()) {
     "um.$umengAppKey"
 } else {
@@ -44,11 +44,11 @@ val umengLinkScheme = if (umengAppKey.isNotBlank()) {
 }
 
 // Firebase Configuration from dart-define
-val firebaseAppId = dartDefines["PICOCLAW_FIREBASE_APP_ID"] ?: ""
-val firebaseApiKey = dartDefines["PICOCLAW_FIREBASE_API_KEY"] ?: ""
-val firebaseProjectId = dartDefines["PICOCLAW_FIREBASE_PROJECT_ID"] ?: ""
-val firebaseMessagingSenderId = dartDefines["PICOCLAW_FIREBASE_MESSAGING_SENDER_ID"] ?: ""
-val firebaseStorageBucket = dartDefines["PICOCLAW_FIREBASE_STORAGE_BUCKET"] ?: ""
+val firebaseAppId = dartDefines["POCKETCLAW_FIREBASE_APP_ID"] ?: ""
+val firebaseApiKey = dartDefines["POCKETCLAW_FIREBASE_API_KEY"] ?: ""
+val firebaseProjectId = dartDefines["POCKETCLAW_FIREBASE_PROJECT_ID"] ?: ""
+val firebaseMessagingSenderId = dartDefines["POCKETCLAW_FIREBASE_MESSAGING_SENDER_ID"] ?: ""
+val firebaseStorageBucket = dartDefines["POCKETCLAW_FIREBASE_STORAGE_BUCKET"] ?: ""
 
 // ---------------------------------------------------------------------------
 // Release contract. See DECISIONS.md, "Release integrity".
@@ -229,20 +229,20 @@ android {
         // Tracked in pubspec.yaml, never in the gitignored local.properties.
         versionCode = resolvedVersionCode
         versionName = resolvedVersionName
-        buildConfigField("String", "PICOCLAW_ANALYTICS_PROVIDER", analyticsProvider.toQuotedBuildConfigValue())
+        buildConfigField("String", "POCKETCLAW_ANALYTICS_PROVIDER", analyticsProvider.toQuotedBuildConfigValue())
         // Whether this APK actually packages the analytics SDK. It is set from
         // the same value that decides the dependency below, so the runtime
         // guard cannot drift away from what was built: a build that did not
         // package the SDK reports false, and AnalyticsReporter refuses to touch
         // a class that is not there.
-        buildConfigField("boolean", "PICOCLAW_UMENG_PACKAGED", umengAnalyticsRequested.toString())
-        buildConfigField("String", "PICOCLAW_UMENG_APP_KEY", umengAppKey.toQuotedBuildConfigValue())
-        buildConfigField("String", "PICOCLAW_UMENG_CHANNEL", umengChannel.toQuotedBuildConfigValue())
-        buildConfigField("String", "PICOCLAW_UMENG_LINK_SCHEME", umengLinkScheme.toQuotedBuildConfigValue())
+        buildConfigField("boolean", "POCKETCLAW_UMENG_PACKAGED", umengAnalyticsRequested.toString())
+        buildConfigField("String", "POCKETCLAW_UMENG_APP_KEY", umengAppKey.toQuotedBuildConfigValue())
+        buildConfigField("String", "POCKETCLAW_UMENG_CHANNEL", umengChannel.toQuotedBuildConfigValue())
+        buildConfigField("String", "POCKETCLAW_UMENG_LINK_SCHEME", umengLinkScheme.toQuotedBuildConfigValue())
         // Pass values to AndroidManifest.xml via manifestPlaceholders
-        manifestPlaceholders["PICOCLAW_UMENG_APP_KEY"] = umengAppKey
-        manifestPlaceholders["PICOCLAW_UMENG_CHANNEL"] = umengChannel
-        manifestPlaceholders["PICOCLAW_UMENG_LINK_SCHEME"] = umengLinkScheme
+        manifestPlaceholders["POCKETCLAW_UMENG_APP_KEY"] = umengAppKey
+        manifestPlaceholders["POCKETCLAW_UMENG_CHANNEL"] = umengChannel
+        manifestPlaceholders["POCKETCLAW_UMENG_LINK_SCHEME"] = umengLinkScheme
     }
 
     signingConfigs {

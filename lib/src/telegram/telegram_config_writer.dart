@@ -1,4 +1,4 @@
-import '../core/picoclaw_channel.dart';
+import '../core/pocketclaw_channel.dart';
 import 'telegram_onboarding_models.dart';
 
 typedef TelegramCredentialSink =
@@ -43,7 +43,7 @@ class TelegramConfigWriter {
   }
 
   static Future<bool> _writeThroughCore(TelegramBotCredentials credentials) =>
-      PicoClawChannel.configureTelegram(
+      PocketClawChannel.configureTelegram(
         token: credentials.token,
         ownerUserId: credentials.ownerUserId,
       );

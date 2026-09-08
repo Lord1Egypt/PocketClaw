@@ -1058,6 +1058,30 @@ supplied by the user.
 - [x] **Bootstrap architecture PHYSICALLY ACCEPTED as vc59 and CLOSED,
   2026-09-08**, merged to `develop` with `--no-ff`; baseline advanced 58 → 59.
   The upgrade experience remains open, below.
+- [x] **RESOLVED 2026-09-09 (`c4fbe02`): `BUILD_INPUTS` now matches the
+  fingerprint rule on `_test.go`.** Originally recorded as: Surfaced 2026-09-08 by the first test-only `core/src`
+  commit since A3 (`5c81160`, four lines in `android_hot_reload_test.go`).
+  `coresource/fingerprint.go:159-161` excludes `_test.go` deliberately, on the
+  grounds that "a test edit does not change the shipped binary and demanding a
+  Core rebuild for one would train people to ignore the guard". But
+  `core/resolve-build-time.sh` scopes `BUILD_INPUTS` to `core/src` as a whole,
+  so the same edit moves the build-input epoch — `08781fe`/18:36:44 becomes
+  `5c81160`/20:52:05 — and `core.staged_build_time` then fails against staged
+  binaries that provably cannot differ. `core.staged_freshness` passes and the
+  fingerprint is unchanged, so the two guards now disagree about the same tree.
+  Excluding `':!core/src/**/*_test.go'` from the `BUILD_INPUTS` query restores
+  the epoch to `18:36:44` and turns the gate green; verified by hand, not
+  applied, because `resolve-build-time.sh` is itself a canonical build input and
+  an A3 contract. Decide: align the two rules, or accept that any test-only
+  `core/src` commit costs a Core rebuild.
+- [x] **RESOLVED 2026-09-08 (`5c81160`), authorized as a narrow N1 amendment:**
+  `core/src/pkg/coresource/android_hot_reload_test.go`
+  hard-coded `PicoClawService.kt` at lines 38 and 104 and failed after the N1
+  Kotlin rename. The file is PocketClaw-authored, not upstream, and `_test.go`
+  is excluded from the Core fingerprint, so the two-line path fix costs no
+  rebuild and no restage. It was not made because N1's scope excludes
+  `core/src`. Either authorize the edit as an N1 amendment, or fold it into the
+  first phase that legitimately touches `core/src`.
 - [ ] **Non-blocking security review: the launcher/web console listens on
   `0.0.0.0:18800`.** Observed during vc59 machine validation. The Core gateway
   is correctly loopback-only on 18790; the console is not. This predates the

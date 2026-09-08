@@ -284,11 +284,11 @@ void main() {
       expect(
         read(gradle),
         contains(
-          'buildConfigField("boolean", "PICOCLAW_UMENG_PACKAGED", umengAnalyticsRequested.toString())',
+          'buildConfigField("boolean", "POCKETCLAW_UMENG_PACKAGED", umengAnalyticsRequested.toString())',
         ),
         reason: 'the flag must come from the value that decides the dependency',
       );
-      expect(read(reporter), contains('BuildConfig.PICOCLAW_UMENG_PACKAGED'));
+      expect(read(reporter), contains('BuildConfig.POCKETCLAW_UMENG_PACKAGED'));
       expect(read(reporter), contains('if (!umengPackaged) {'));
     });
 

@@ -484,3 +484,147 @@ func TestCanonicalBuildDisablesToolchainVCSStamping(t *testing.T) {
 		}
 	}
 }
+
+// What counts as a build input, stated one rule at a time.
+//
+// The exclusion of Core *_test.go arrived after the two guards disagreed in
+// practice: a four-line edit to a test file left the source fingerprint
+// identical and staged freshness green, while core.staged_build_time went red
+// against binaries that provably could not differ. The fingerprint had always
+// excluded _test.go; the timestamp had not. These pin both halves of the fixed
+// rule, and in particular that the exclusion did not quietly widen.
+func TestBuildTimeInputRules(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git is not available")
+	}
+
+	const (
+		baseEpoch  = 1700000000
+		laterEpoch = 1800000000
+	)
+
+	cases := []struct {
+		name    string
+		relPath string
+		content string
+		moves   bool
+		because string
+	}{
+		{
+			name:    "a Core test file does not move it",
+			relPath: "core/src/pkg/thing/thing_test.go",
+			content: "package thing\n\nfunc TestX(*testing.T) {}\n",
+			moves:   false,
+			because: "a test edit cannot change the shipped binary",
+		},
+		{
+			name:    "a Core test file in another package does not move it either",
+			relPath: "core/src/web/backend/api/gateway_test.go",
+			content: "package api\n",
+			moves:   false,
+			because: "the rule is about *_test.go under core/src, not one directory",
+		},
+		{
+			name:    "production Core source moves it",
+			relPath: "core/src/pkg/thing/thing.go",
+			content: "package thing\n\nvar X = 1\n",
+			moves:   true,
+			because: "it is compiled into the binary",
+		},
+		{
+			name:    "a file merely named like a test does not get excluded",
+			relPath: "core/src/pkg/thing/testdata_loader.go",
+			content: "package thing\n",
+			moves:   true,
+			because: "only the _test.go suffix is excluded, not anything test-ish",
+		},
+		{
+			name:    "the build script moves it",
+			relPath: "core/build-android-arm64.sh",
+			content: "#!/usr/bin/env bash\necho rebuilt\n",
+			moves:   true,
+			because: "changing how the build runs changes the build",
+		},
+		{
+			name:    "the resolver itself moves it",
+			relPath: "core/resolve-build-time.sh",
+			content: "",
+			moves:   true,
+			because: "the resolver must be self-provenancing; excluding it would let " +
+				"a change to the dating rule go unrecorded in what it dates",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			root := gitInit(t)
+			commit(t, root, "core/src/pkg/base/base.go", "package base\n", baseEpoch)
+			atBase := resolveEpochIn(t, root)
+			if atBase != fmt.Sprint(baseEpoch) {
+				t.Fatalf("baseline epoch = %s, want %d", atBase, baseEpoch)
+			}
+
+			content := tc.content
+			if tc.relPath == "core/resolve-build-time.sh" {
+				// Keep it a working resolver; change only a comment.
+				source, err := os.ReadFile(resolverPath(t))
+				if err != nil {
+					t.Fatal(err)
+				}
+				content = string(source) + "\n# touched by a test\n"
+			}
+			commit(t, root, tc.relPath, content, laterEpoch)
+
+			got := resolveEpochIn(t, root)
+			want := fmt.Sprint(baseEpoch)
+			if tc.moves {
+				want = fmt.Sprint(laterEpoch)
+			}
+			if got != want {
+				verb := "should not have moved"
+				if tc.moves {
+					verb = "should have moved"
+				}
+				t.Errorf("committing %s: epoch = %s, want %s — it %s, because %s",
+					tc.relPath, got, want, verb, tc.because)
+			}
+		})
+	}
+}
+
+// The exclusion must not reach past Core's own tests.
+func TestTestExclusionDoesNotLeakOutsideCoreSrc(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git is not available")
+	}
+	root := gitInit(t)
+	commit(t, root, "core/src/pkg/base/base.go", "package base\n", 1700000000)
+
+	// A test file outside core/src is not a build input at all, so it cannot
+	// move the epoch — for a different reason than the exclusion, and the
+	// result must be the same.
+	commit(t, root, "test/unit/something_test.dart", "void main() {}\n", 1800000000)
+	if got := resolveEpochIn(t, root); got != "1700000000" {
+		t.Errorf("a non-Core test moved the epoch: %s", got)
+	}
+}
+
+// An explicit epoch still wins over everything above.
+func TestExplicitEpochStillOverridesTheInputRules(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git is not available")
+	}
+	root := gitInit(t)
+	commit(t, root, "core/src/pkg/base/base.go", "package base\n", 1700000000)
+
+	cmd := exec.Command(filepath.Join(root, "core/resolve-build-time.sh"), "--print-epoch")
+	cmd.Dir = root
+	cmd.Env = append(os.Environ(), "SOURCE_DATE_EPOCH=1234567890")
+	out, err := cmd.Output()
+	if err != nil {
+		t.Fatalf("resolver failed: %v", err)
+	}
+	if got := strings.TrimSpace(string(out)); got != "1234567890" {
+		t.Errorf("explicit epoch = %s, want 1234567890", got)
+	}
+}

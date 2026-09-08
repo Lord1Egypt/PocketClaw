@@ -16,7 +16,7 @@ class MainActivity : FlutterActivity() {
         private const val TAG = "MainActivity"
     }
 
-    private var methodChannel: PicoClawMethodChannel? = null
+    private var methodChannel: PocketClawMethodChannel? = null
 
     /**
      * Owns the Chat attachment picker, because only an Activity receives an
@@ -35,7 +35,7 @@ class MainActivity : FlutterActivity() {
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
-        methodChannel = PicoClawMethodChannel(this, flutterEngine, chatImagePicker)
+        methodChannel = PocketClawMethodChannel(this, flutterEngine, chatImagePicker)
     }
 
     @Suppress("DEPRECATION")
@@ -88,7 +88,7 @@ class MainActivity : FlutterActivity() {
 
     private fun logIncomingIntent(intent: Intent?) {
         val data = intent?.data ?: return
-        if (data.scheme == BuildConfig.PICOCLAW_UMENG_LINK_SCHEME) {
+        if (data.scheme == BuildConfig.POCKETCLAW_UMENG_LINK_SCHEME) {
             Log.i(TAG, "Received Umeng link: $data")
         }
     }

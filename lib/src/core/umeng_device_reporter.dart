@@ -6,7 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 
 import 'device_feedback_models.dart';
-import 'picoclaw_channel.dart';
+import 'pocketclaw_channel.dart';
 
 class UmengDeviceReporter {
   static const _prefsInstallIdKey = 'umeng_install_id';
@@ -19,7 +19,7 @@ class UmengDeviceReporter {
   Future<Map<String, String>> collectSafeDeviceInfo() async {
     if (Platform.isAndroid) {
       try {
-        final info = await PicoClawChannel.getSafeDeviceInfo();
+        final info = await PocketClawChannel.getSafeDeviceInfo();
         return {
           'platform': info['platform'] ?? 'android',
           'deviceModel': info['deviceModel'] ?? 'unknown',
@@ -70,7 +70,7 @@ class UmengDeviceReporter {
 
     await prefs.setBool(_prefsUploadAllowedKey, true);
     if (Platform.isAndroid) {
-      await PicoClawChannel.setUmengAnalyticsConsent(true);
+      await PocketClawChannel.setUmengAnalyticsConsent(true);
     }
   }
 
@@ -78,7 +78,7 @@ class UmengDeviceReporter {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_prefsUploadAllowedKey, allowed);
     if (Platform.isAndroid) {
-      await PicoClawChannel.setUmengAnalyticsConsent(allowed);
+      await PocketClawChannel.setUmengAnalyticsConsent(allowed);
     }
   }
 
@@ -151,7 +151,7 @@ class UmengDeviceReporter {
         channel: channel,
         telemetrySnapshot: telemetrySnapshot,
       );
-      final result = await PicoClawChannel.uploadUmengDeviceReport(payload);
+      final result = await PocketClawChannel.uploadUmengDeviceReport(payload);
 
       final success = result['success'] == true;
       final message = result['message']?.toString() ?? 'Unknown Umeng error.';

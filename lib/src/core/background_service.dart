@@ -4,7 +4,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter/foundation.dart';
 
 /// 初始化 Flutter 后台服务。
-/// 在 Android 上，主要的 Go 二进制由原生 PicoClawService 前台服务管理，
+/// 在 Android 上，主要的 Go 二进制由原生 PocketClawService 前台服务管理，
 /// 此处的 flutter_background_service 仅作为辅助保活机制。
 Future<void> initializeBackgroundService() async {
   final service = FlutterBackgroundService();

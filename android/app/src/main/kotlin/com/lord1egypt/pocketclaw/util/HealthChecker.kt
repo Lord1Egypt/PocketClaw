@@ -1,6 +1,6 @@
 package com.lord1egypt.pocketclaw.util
 
-import com.lord1egypt.pocketclaw.service.PicoClawService
+import com.lord1egypt.pocketclaw.service.PocketClawService
 import org.json.JSONObject
 import java.io.File
 import java.net.HttpURLConnection
@@ -134,7 +134,7 @@ class HealthChecker(
         fun forHost(context: android.content.Context): HealthChecker =
             HealthChecker(
                 gatewayTokenFileProvider = {
-                    PicoClawService.gatewayTokenFilePath(context)
+                    PocketClawService.gatewayTokenFilePath(context)
                 },
             )
     }

@@ -1,12 +1,12 @@
 import 'dart:async';
 import 'package:flutter/services.dart';
 
-import '../core/picoclaw_channel.dart';
+import '../core/pocketclaw_channel.dart';
 import 'core_service_adapter.dart';
 
 class AndroidCoreServiceAdapter implements CoreServiceAdapter {
   static const MethodChannel _channel = MethodChannel(
-    'com.lord1egypt.pocketclaw/picoclaw',
+    'com.lord1egypt.pocketclaw/pocketclaw',
   );
   String? _lastErrorCode;
   // Stored log handler (not used on Android native adapter, but kept for API compatibility)
@@ -79,7 +79,7 @@ class AndroidCoreServiceAdapter implements CoreServiceAdapter {
 
   @override
   Future<String> getCoreVersion() async {
-    return PicoClawChannel.getCoreVersion();
+    return PocketClawChannel.getCoreVersion();
   }
 
   @override

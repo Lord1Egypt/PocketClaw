@@ -4,7 +4,7 @@ import 'package:pocketclaw/src/core/aperture_theme.dart';
 import 'package:pocketclaw/src/generated/l10n/app_localizations.dart';
 import 'package:flutter/services.dart';
 
-import 'package:pocketclaw/src/core/picoclaw_channel.dart';
+import 'package:pocketclaw/src/core/pocketclaw_channel.dart';
 import 'package:pocketclaw/src/core/service_manager.dart';
 
 /// GitHub authentication for the bundled `gh` and for Git over HTTPS.
@@ -41,7 +41,7 @@ class _GitHubSettingsCardState extends State<GitHubSettingsCard> {
 
   Future<void> _refresh() async {
     try {
-      final connection = await PicoClawChannel.getGitHubStatus();
+      final connection = await PocketClawChannel.getGitHubStatus();
       if (!mounted) return;
       setState(() {
         _connection = connection;
@@ -76,7 +76,7 @@ class _GitHubSettingsCardState extends State<GitHubSettingsCard> {
       _message = null;
     });
     try {
-      final connection = await PicoClawChannel.connectGitHub(token);
+      final connection = await PocketClawChannel.connectGitHub(token);
       if (!mounted) return;
       setState(() => _connection = connection);
       final who = connection.login ?? l10n.githubYourAccount;
@@ -97,7 +97,7 @@ class _GitHubSettingsCardState extends State<GitHubSettingsCard> {
       _message = null;
     });
     try {
-      final login = await PicoClawChannel.testGitHubConnection();
+      final login = await PocketClawChannel.testGitHubConnection();
       _report(
         login.isEmpty
             ? l10n.githubAuthWorking
@@ -119,7 +119,7 @@ class _GitHubSettingsCardState extends State<GitHubSettingsCard> {
       _message = null;
     });
     try {
-      await PicoClawChannel.disconnectGitHub();
+      await PocketClawChannel.disconnectGitHub();
       if (!mounted) return;
       setState(() => _connection = const GitHubConnection(connected: false));
       _report(l10n.githubDisconnectedReport(await _applyOutcome(l10n)));

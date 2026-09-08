@@ -8,7 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  const channel = MethodChannel('com.lord1egypt.pocketclaw/picoclaw');
+  const channel = MethodChannel('com.lord1egypt.pocketclaw/pocketclaw');
 
   late ServiceManager service;
   late List<String> nativeCalls;

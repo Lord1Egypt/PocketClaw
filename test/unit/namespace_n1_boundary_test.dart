@@ -1,0 +1,118 @@
+import 'dart:io';
+
+import 'package:flutter_test/flutter_test.dart';
+
+/// The N1 boundary, asserted rather than described.
+///
+/// A repository-wide "no picoclaw" guard would be wrong by architecture: most
+/// remaining occurrences are upstream identity, on-disk compatibility or legal
+/// provenance, and forbidding them wholesale would either fail immediately or
+/// pressure someone into renaming something that must not change. So this
+/// guard is two-sided — it pins what N1 renamed *and* what N1 must not have
+/// touched.
+void main() {
+  String read(String path) {
+    final file = File(path);
+    expect(file.existsSync(), isTrue, reason: '$path is missing');
+    return file.readAsStringSync();
+  }
+
+  group('renamed by N1', () {
+    test('no PocketClaw-owned Dart source still declares PicoClawChannel', () {
+      final offenders = <String>[];
+      for (final entity in Directory('lib').listSync(recursive: true)) {
+        if (entity is! File || !entity.path.endsWith('.dart')) continue;
+        if (entity.readAsStringSync().contains('PicoClawChannel')) {
+          offenders.add(entity.path);
+        }
+      }
+      expect(offenders, isEmpty);
+    });
+
+    test('the old Dart channel file is gone', () {
+      expect(File('lib/src/core/picoclaw_channel.dart').existsSync(), isFalse);
+      expect(File('lib/src/core/pocketclaw_channel.dart').existsSync(), isTrue);
+    });
+
+    test('PocketClaw-owned build-time defines are POCKETCLAW_*', () {
+      final gradle = read('android/app/build.gradle.kts');
+      for (final name in [
+        'POCKETCLAW_ANALYTICS_PROVIDER',
+        'POCKETCLAW_UMENG_APP_KEY',
+        'POCKETCLAW_FIREBASE_APP_ID',
+      ]) {
+        expect(gradle, contains(name));
+      }
+      for (final stale in [
+        'PICOCLAW_ANALYTICS_PROVIDER',
+        'PICOCLAW_UMENG_',
+        'PICOCLAW_FIREBASE_',
+      ]) {
+        expect(gradle, isNot(contains(stale)),
+            reason: '$stale is PocketClaw-owned and was renamed in N1');
+      }
+    });
+
+    test('no component-name compatibility shim was introduced', () {
+      // N0 established that Android resolves these from the manifest and from
+      // compile-time class literals, so a shim would be dead code pretending
+      // to protect something.
+      for (final entity in Directory('android/app/src/main/kotlin')
+          .listSync(recursive: true)) {
+        if (entity is! File || !entity.path.endsWith('.kt')) continue;
+        expect(entity.path, isNot(contains('PicoClaw')),
+            reason: 'a legacy-named Kotlin file remains');
+      }
+    });
+  });
+
+  group('deliberately preserved by N1', () {
+    test('upstream Core runtime environment variables are unchanged', () {
+      final service = read(
+        'android/app/src/main/kotlin/com/lord1egypt/pocketclaw/service/'
+        'PocketClawService.kt',
+      );
+      for (final env in [
+        'PICOCLAW_HOME',
+        'PICOCLAW_CONFIG',
+        'PICOCLAW_GATEWAY_TOKEN_FILE',
+        'PICOCLAW_LOG_DIR',
+        'PICOCLAW_DASHBOARD_AUTH_DIR',
+        'PICOCLAW_CHANNELS_PICO_TOKEN',
+        'PICOCLAW_DNS_SERVER',
+      ]) {
+        expect(service, contains(env),
+            reason: '$env is Core\'s own interface, not PocketClaw source '
+                'identity; renaming it fails the Gateway closed');
+      }
+    });
+
+    test('the native Core library names are unchanged', () {
+      final service = read(
+        'android/app/src/main/kotlin/com/lord1egypt/pocketclaw/service/'
+        'PocketClawService.kt',
+      );
+      expect(service, contains('libpicoclaw.so'));
+      expect(service, contains('libpicoclaw-web.so'));
+    });
+
+    test('the backup exclusion still matches Core private state', () {
+      // A rename here fails silently by sending secrets to cloud backup.
+      expect(read('android/app/src/main/res/xml/backup_rules.xml'),
+          contains('path="picoclaw/"'));
+      expect(read('android/app/src/main/res/xml/data_extraction_rules.xml'),
+          contains('path="picoclaw/"'));
+    });
+
+    test('the persisted notification channel id is unchanged', () {
+      expect(read('lib/src/core/background_service.dart'),
+          contains('picoclaw_foreground'));
+    });
+
+    test('the desktop adapter still looks up upstream artifact names', () {
+      // These are filenames core/src/Makefile produces, not our identity.
+      final adapter = read('lib/src/native/desktop_core_service_adapter.dart');
+      expect(adapter, contains('picoclaw-launcher'));
+    });
+  });
+}

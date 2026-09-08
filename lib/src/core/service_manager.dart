@@ -8,7 +8,7 @@ import '../generated/l10n/app_localizations.dart';
 import 'app_theme.dart';
 import 'device_feedback_models.dart';
 import 'firebase_device_reporter.dart';
-import 'picoclaw_channel.dart';
+import 'pocketclaw_channel.dart';
 import 'plain_text_log_sanitizer.dart';
 import 'status_snapshot.dart';
 import 'umeng_device_reporter.dart';
@@ -95,7 +95,7 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
   static const String _prefsTelemetryReachabilityLost =
       'telemetry_reachability_lost';
   static const String _rawAnalyticsProvider = String.fromEnvironment(
-    'PICOCLAW_ANALYTICS_PROVIDER',
+    'POCKETCLAW_ANALYTICS_PROVIDER',
     defaultValue: 'none',
   );
   static final DeviceFeedbackProvider _requestedDeviceFeedbackProvider =
@@ -110,26 +110,26 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
         umengAppKey: _umengAppKey,
       );
   static const String _firebaseProjectId = String.fromEnvironment(
-    'PICOCLAW_FIREBASE_PROJECT_ID',
+    'POCKETCLAW_FIREBASE_PROJECT_ID',
   );
   static const String _firebaseApiKey = String.fromEnvironment(
-    'PICOCLAW_FIREBASE_API_KEY',
+    'POCKETCLAW_FIREBASE_API_KEY',
   );
   static const String _firebaseAppId = String.fromEnvironment(
-    'PICOCLAW_FIREBASE_APP_ID',
+    'POCKETCLAW_FIREBASE_APP_ID',
   );
   static const String _firebaseMessagingSenderId = String.fromEnvironment(
-    'PICOCLAW_FIREBASE_MESSAGING_SENDER_ID',
+    'POCKETCLAW_FIREBASE_MESSAGING_SENDER_ID',
   );
   static const String _firebaseStorageBucket = String.fromEnvironment(
-    'PICOCLAW_FIREBASE_STORAGE_BUCKET',
+    'POCKETCLAW_FIREBASE_STORAGE_BUCKET',
     defaultValue: '',
   );
   static const String _umengAppKey = String.fromEnvironment(
-    'PICOCLAW_UMENG_APP_KEY',
+    'POCKETCLAW_UMENG_APP_KEY',
   );
   static const String _umengChannel = String.fromEnvironment(
-    'PICOCLAW_UMENG_CHANNEL',
+    'POCKETCLAW_UMENG_CHANNEL',
     defaultValue: 'official',
   );
   static const String _distributionChannel = String.fromEnvironment(
@@ -312,7 +312,7 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
   Future<String?> getDeviceIpAddress() async {
     try {
       if (Platform.isAndroid) {
-        return await PicoClawChannel.getLanIpv4Address();
+        return await PocketClawChannel.getLanIpv4Address();
       }
       final interfaces = await NetworkInterface.list(
         type: InternetAddressType.IPv4,
@@ -454,13 +454,13 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
       _port = 18800;
       _host = _publicMode ? '0.0.0.0' : '127.0.0.1';
       try {
-        _autoStart = await PicoClawChannel.getAutoStart();
+        _autoStart = await PocketClawChannel.getAutoStart();
         _workspacePath = await _adapter.getWorkspacePath();
         await _syncNativeServiceStatus();
         // Read last: the launch auto-start decision needs an accurate runtime
         // status more than it needs the preference, and this call must not be
         // able to skip the status sync above.
-        _launchAutoStart = await PicoClawChannel.getLaunchAutoStartPreferences();
+        _launchAutoStart = await PocketClawChannel.getLaunchAutoStartPreferences();
       } catch (_) {}
       _startNativePolling();
     }
@@ -1001,7 +1001,7 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
 
   Future<void> _syncNativeServiceStatus() async {
     try {
-      final status = await PicoClawChannel.getServiceStatus();
+      final status = await PocketClawChannel.getServiceStatus();
       final isRunning = status['isRunning'] as bool? ?? false;
       _nativePid = status['pid'] as int? ?? -1;
 
@@ -1021,14 +1021,14 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
       // sticky snapshot of the most recent line, so appending it here re-added
       // the same entry every three seconds until it filled the Logs screen and
       // evicted the real history.
-      for (final line in await PicoClawChannel.takeNewLogs()) {
+      for (final line in await PocketClawChannel.takeNewLogs()) {
         _addLog(line);
       }
 
       final hadSnapshot = _statusSnapshot != null;
       if (isRunning) {
         try {
-          final health = await PicoClawChannel.checkHealth(
+          final health = await PocketClawChannel.checkHealth(
             detail: _statusDetailWanted,
           );
           final isHealthy = health['isHealthy'] as bool? ?? false;
@@ -1071,7 +1071,7 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
 
   Future<void> setAutoStart(bool enabled) async {
     if (Platform.isAndroid) {
-      await PicoClawChannel.setAutoStart(enabled);
+      await PocketClawChannel.setAutoStart(enabled);
       _autoStart = enabled;
       notifyListeners();
     }
@@ -1091,7 +1091,7 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
     try {
       // Adopt the host's post-commit readback, never the requested value, so
       // the switch can only settle on state that actually reached the disk.
-      _launchAutoStart = await PicoClawChannel.setLaunchAutoStartPreferences(
+      _launchAutoStart = await PocketClawChannel.setLaunchAutoStartPreferences(
         serviceEnabled: serviceEnabled,
         gatewayEnabled: gatewayEnabled,
       );
@@ -1101,7 +1101,7 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
       _addLog('Could not save the auto-start preference');
       debugPrint('Failed to persist launch auto-start preferences: $e');
       try {
-        _launchAutoStart = await PicoClawChannel.getLaunchAutoStartPreferences();
+        _launchAutoStart = await PocketClawChannel.getLaunchAutoStartPreferences();
       } catch (_) {}
     }
     notifyListeners();
@@ -1277,21 +1277,21 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
           result = const DeviceFeedbackUploadResult(
             success: false,
             message:
-                'Missing PICOCLAW_FIREBASE_PROJECT_ID build configuration.',
+                'Missing POCKETCLAW_FIREBASE_PROJECT_ID build configuration.',
           );
           break;
         }
         if (_firebaseApiKey.trim().isEmpty) {
           result = const DeviceFeedbackUploadResult(
             success: false,
-            message: 'Missing PICOCLAW_FIREBASE_API_KEY build configuration.',
+            message: 'Missing POCKETCLAW_FIREBASE_API_KEY build configuration.',
           );
           break;
         }
         if (_firebaseAppId.trim().isEmpty) {
           result = const DeviceFeedbackUploadResult(
             success: false,
-            message: 'Missing PICOCLAW_FIREBASE_APP_ID build configuration.',
+            message: 'Missing POCKETCLAW_FIREBASE_APP_ID build configuration.',
           );
           break;
         }
@@ -1299,7 +1299,7 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
           result = const DeviceFeedbackUploadResult(
             success: false,
             message:
-                'Missing PICOCLAW_FIREBASE_MESSAGING_SENDER_ID build configuration.',
+                'Missing POCKETCLAW_FIREBASE_MESSAGING_SENDER_ID build configuration.',
           );
           break;
         }
@@ -1318,7 +1318,7 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
         if (_umengAppKey.trim().isEmpty) {
           result = const DeviceFeedbackUploadResult(
             success: false,
-            message: 'Missing PICOCLAW_UMENG_APP_KEY build configuration.',
+            message: 'Missing POCKETCLAW_UMENG_APP_KEY build configuration.',
           );
           break;
         }
@@ -1490,7 +1490,7 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
     _isApplyingPublicMode = true;
     notifyListeners();
     try {
-      final result = await PicoClawChannel.applyPublicMode(value);
+      final result = await PocketClawChannel.applyPublicMode(value);
       await updateConfig(
         result.publicMode ? '0.0.0.0' : '127.0.0.1',
         port,

@@ -69,7 +69,7 @@
 
     <application
         android:label="PocketClaw"
-        android:name=".PicoClawApp"
+        android:name=".PocketClawApp"
         android:icon="@mipmap/ic_launcher"
         android:networkSecurityConfig="@xml/network_security_config"
         android:allowBackup="true"
@@ -99,13 +99,13 @@
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="${PICOCLAW_UMENG_LINK_SCHEME}" />
+                <data android:scheme="${POCKETCLAW_UMENG_LINK_SCHEME}" />
             </intent-filter>
         </activity>
 
         <!-- PicoClaw 原生前台服务（运行 Go 二进制） -->
         <service
-            android:name=".service.PicoClawService"
+            android:name=".service.PocketClawService"
             android:exported="false"
             android:foregroundServiceType="specialUse" />
 
@@ -133,10 +133,10 @@
         <!-- 友盟统计配置 - 从 build.gradle 的 buildConfigField 读取 -->
         <meta-data
             android:name="UMENG_APPKEY"
-            android:value="${PICOCLAW_UMENG_APP_KEY}" />
+            android:value="${POCKETCLAW_UMENG_APP_KEY}" />
         <meta-data
             android:name="UMENG_CHANNEL"
-            android:value="${PICOCLAW_UMENG_CHANNEL}" />
+            android:value="${POCKETCLAW_UMENG_CHANNEL}" />
         
         <!-- Firebase Analytics Configuration - 必须配置才能启用 Analytics -->
         <!-- 从 Firebase Console 的 google-services.json 获取这些值 -->

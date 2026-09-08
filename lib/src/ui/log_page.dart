@@ -294,7 +294,7 @@ class _LogPageState extends State<LogPage> {
           // We received a content:// URI (Android MediaStore) — share via XFile with URI
           try {
             // Try to copy content URI to app cache so share_plus can access it reliably
-            final channel = MethodChannel('com.lord1egypt.pocketclaw/picoclaw');
+            final channel = MethodChannel('com.lord1egypt.pocketclaw/pocketclaw');
             String? cachePath;
             try {
               cachePath = await channel.invokeMethod<String>(

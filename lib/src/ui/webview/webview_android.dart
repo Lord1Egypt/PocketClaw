@@ -7,7 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:webview_flutter_android/webview_flutter_android.dart';
 
-import 'package:pocketclaw/src/core/picoclaw_channel.dart';
+import 'package:pocketclaw/src/core/pocketclaw_channel.dart';
 
 import 'package:pocketclaw/src/telegram/telegram_onboarding_config.dart';
 import 'package:pocketclaw/src/ui/telegram_onboarding_launcher.dart';
@@ -176,7 +176,7 @@ class _WebViewAndroidState extends State<WebViewAndroid>
   /// Neither the chosen URI nor the file's contents are logged.
   Future<List<String>> _onShowFileSelector(FileSelectorParams params) async {
     try {
-      final uri = await PicoClawChannel.pickChatImage(
+      final uri = await PocketClawChannel.pickChatImage(
         acceptTypes: params.acceptTypes,
       );
       if (uri == null || uri.isEmpty) {

@@ -1,5 +1,72 @@
 # Development Changelog
 
+## 2026-09-09 — The rule that had to cost something
+
+Two guards disagreed about the same tree. The fingerprint said a four-line test
+edit changed nothing about the shipped binary, which was true. The BuildTime
+query said the build inputs had moved, which was also true, because it scoped to
+`core/src` as a whole. Same commit, green and red simultaneously.
+
+The fix is one pathspec: `:(exclude,glob)core/src/**/*_test.go`, adopting the
+exclusion the fingerprint had carried since A3 along with the reasoning already
+written beside it — demanding a rebuild for a test edit "would train people to
+ignore the guard".
+
+The interesting part was the temptation that came with it. `resolve-build-time.sh`
+is itself a canonical build input, so changing it moves the timestamp and forces
+a rebuild. There was an obvious way to avoid that: exclude the resolver from its
+own query too. It would have worked, this commit would have been free, and the
+argument writes itself — the resolver doesn't ship, so why should it count?
+
+Because a dating rule that does not date itself is how provenance quietly stops
+meaning anything. The next person to change how builds are timestamped would
+have done so without any record in the thing being timestamped. So the resolver
+stays in, the rebuild happened, and there is now a test that fails if anyone
+takes the shortcut later. Six cases, each pinning one rule: a Core test file
+does not move the epoch, production source does, a file merely named
+`testdata_loader.go` does, the build script does, the resolver does, an explicit
+epoch still overrides everything.
+
+The rebuild produced binaries differing from the accepted vc59 Core in exactly
+the embedded timestamp — same fingerprint, same program logic — which is why no
+physical candidate was needed and also why the check that demanded it was right
+to demand it. "Provably identical" is a claim; the gate's job is to not take
+claims.
+
+## 2026-09-08 — N1, and the guard that lived on the wrong side of the fence
+
+The renames themselves were dull, which is the point of doing N0 first: Dart
+channel class and file, the in-process MethodChannel value, three Kotlin
+classes, and eleven PocketClaw-owned build-time defines. Nothing persisted,
+nothing on the wire, nothing upstream. No alias was needed anywhere — both ends
+of the MethodChannel ship in one APK, and no tracked workflow passes the old
+define names.
+
+The interesting part was the one thing that would not move.
+`core/src/pkg/coresource/android_hot_reload_test.go` reads the Android service
+by absolute path and hard-codes `PicoClawService.kt`. Rename the Kotlin file and
+two guards fail with "no such file or directory".
+
+It is a PocketClaw-authored test — it appears nowhere in the upstream divergence
+patch — and the fix is two string constants, and `_test.go` files are excluded
+from the Core fingerprint by design, so it would not even cost a rebuild. Every
+reason points at just doing it. The scope said `core/src` is untouched in this
+phase, so it is untouched, and the branch is being handed over with two red
+guards and a note rather than a quietly widened boundary.
+
+That is the whole argument for writing the boundary down in advance. A rule you
+can talk yourself out of in the one case where it is inconvenient is not a rule,
+and this was a genuinely inconvenient case: small fix, no risk, obviously right.
+The reason to stop anyway is that "small, no risk, obviously right" is exactly
+what every unplanned scope expansion feels like from the inside.
+
+The new boundary guard is deliberately two-sided. It pins what N1 renamed and
+what N1 must not have touched — the Core env variables, the native library
+names, the backup-exclusion literal, the notification channel id, the upstream
+artifact lookups. A plain "no picoclaw in the repository" check would have been
+easier to write and would have been wrong by architecture: most of what is left
+is upstream identity, on-disk compatibility or someone else's copyright.
+
 ## 2026-09-08 — vc59, and the evidence that nothing happened
 
 The Bootstrap Architecture is physically accepted. The proof is a set of

@@ -5,7 +5,7 @@ import 'package:flutter/services.dart';
 /// Writes the Logs screen's already-sanitized plain text as a UTF-8 file.
 abstract final class LogExportWriter {
   static const MethodChannel _channel = MethodChannel(
-    'com.lord1egypt.pocketclaw/picoclaw',
+    'com.lord1egypt.pocketclaw/pocketclaw',
   );
 
   /// Uses UTF-8 rather than truncating Dart's UTF-16 code units to bytes.

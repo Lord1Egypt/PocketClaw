@@ -4,7 +4,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.util.Log
-import com.lord1egypt.pocketclaw.service.PicoClawService
+import com.lord1egypt.pocketclaw.service.PocketClawService
 
 /**
  * 设备启动后自动启动 PicoClaw 服务（如果已开启自动启动）。
@@ -25,7 +25,7 @@ class BootReceiver : BroadcastReceiver() {
 
         if (autoStart) {
             Log.i(TAG, "Boot completed, auto-starting PicoClaw service")
-            PicoClawService.start(context)
+            PocketClawService.start(context)
         } else {
             Log.i(TAG, "Boot completed, auto-start is disabled")
         }
