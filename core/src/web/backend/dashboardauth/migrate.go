@@ -25,6 +25,11 @@ type MigrationResult struct {
 	Migrated bool
 	// LegacyRemoved is true when the legacy database was deleted afterwards.
 	LegacyRemoved bool
+	// PrivateReady reports that the destination is usable as the authoritative
+	// credential store. A caller that demanded private storage must refuse to
+	// start when this is false: the alternative is reopening the shared store,
+	// which is the attacker-writable state the override exists to escape.
+	PrivateReady bool
 	// Reason explains a no-op, for the log line.
 	Reason string
 }
@@ -61,21 +66,44 @@ type MigrationResult struct {
 // rather than locking the user out of their own Dashboard.
 func MigrateLegacyDatabase(ctx context.Context, legacyDir, privateDir string) (MigrationResult, error) {
 	if legacyDir == "" || privateDir == "" || filepath.Clean(legacyDir) == filepath.Clean(privateDir) {
-		return MigrationResult{Reason: "no separate private directory configured"}, nil
+		// No separate private location, so there is nothing to move and the
+		// caller's existing store is the only one there is.
+		return MigrationResult{
+			PrivateReady: true,
+			Reason:       "no separate private directory configured",
+		}, nil
 	}
 
+	legacy := filepath.Join(legacyDir, DBFilename)
 	destination := filepath.Join(privateDir, DBFilename)
+
 	if _, err := os.Stat(destination); err == nil {
-		// Private state is authoritative. Idempotent on every later start.
-		return MigrationResult{Reason: "private database already present"}, nil
+		// Private state is authoritative and is never replaced from shared
+		// state — that path would be the rollback an attacker wants. But it
+		// only earns that authority if it actually opens, so it is validated
+		// rather than trusted for existing.
+		if err := validateStore(ctx, destination); err != nil {
+			// Do not delete the legacy database and do not promote it: a
+			// caller demanding private storage must fail closed, with the old
+			// file left intact for recovery.
+			return MigrationResult{
+				Reason: "private database present but unusable",
+			}, fmt.Errorf("validate private database: %w", err)
+		}
+		// A stale shared copy must not sit there indefinitely as a rollback
+		// artifact. Best effort: failing to remove it cannot move authority
+		// back to it, because the private store is already authoritative.
+		result := MigrationResult{PrivateReady: true, Reason: "private database already present"}
+		result.LegacyRemoved = retireLegacyDatabase(legacy)
+		return result, nil
 	} else if !errors.Is(err, os.ErrNotExist) {
 		return MigrationResult{}, fmt.Errorf("stat destination: %w", err)
 	}
 
-	legacy := filepath.Join(legacyDir, DBFilename)
 	legacyInfo, err := os.Stat(legacy)
 	if errors.Is(err, os.ErrNotExist) {
-		return MigrationResult{Reason: "no legacy database to migrate"}, nil
+		// Nothing to carry across; the store will be created privately.
+		return MigrationResult{PrivateReady: true, Reason: "no legacy database to migrate"}, nil
 	} else if err != nil {
 		return MigrationResult{}, fmt.Errorf("stat legacy database: %w", err)
 	}
@@ -138,16 +166,42 @@ func MigrateLegacyDatabase(ctx context.Context, legacyDir, privateDir string) (M
 			"migrated database does not carry the credential the legacy one had")
 	}
 
-	result := MigrationResult{Migrated: true}
-	if err := os.Remove(legacy); err == nil {
-		result.LegacyRemoved = true
-	}
-	// Only sidecars of this exact database, by exact name. Nothing else in the
-	// shared directory is touched.
+	result := MigrationResult{Migrated: true, PrivateReady: true}
+	result.LegacyRemoved = retireLegacyDatabase(legacy)
+	return result, nil
+}
+
+// retireLegacyDatabase deletes the shared database and its sidecars once the
+// private store is authoritative, so no rollback artifact is left behind.
+//
+// Best effort by design. It is only ever called after the private store has
+// been validated, so a deletion failure leaves a file that is no longer
+// consulted — it cannot move authority back to shared state.
+//
+// Only this exact database and its exact sidecar names. Nothing is matched by
+// pattern, nothing recurses, and nothing else in the shared directory is
+// touched: everything else there is the user's.
+func retireLegacyDatabase(legacy string) bool {
+	removed := os.Remove(legacy) == nil
 	for _, suffix := range legacySidecarSuffixes {
 		os.Remove(legacy + suffix)
 	}
-	return result, nil
+	return removed
+}
+
+// validateStore opens path through the real store contract and confirms it can
+// answer the one question authentication depends on.
+func validateStore(ctx context.Context, path string) error {
+	store, err := Open(path)
+	if err != nil {
+		return err
+	}
+	_, readErr := store.IsInitialized(ctx)
+	closeErr := store.Close()
+	if readErr != nil {
+		return readErr
+	}
+	return closeErr
 }
 
 // copyFileSynced copies src to dst and forces the result to disk.

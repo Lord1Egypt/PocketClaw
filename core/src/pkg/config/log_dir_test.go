@@ -37,6 +37,30 @@ func TestResolveDashboardAuthDir(t *testing.T) {
 	})
 }
 
+// The override is a security boundary, not a preference: a caller must be able
+// to tell that private storage was demanded, so it can fail closed instead of
+// falling back to the shared location on error.
+func TestDashboardAuthDirOverridden(t *testing.T) {
+	t.Run("unset", func(t *testing.T) {
+		t.Setenv(EnvDashboardAuthDir, "")
+		if DashboardAuthDirOverridden() {
+			t.Error("an unset override was reported as demanded")
+		}
+	})
+	t.Run("blank is not an override", func(t *testing.T) {
+		t.Setenv(EnvDashboardAuthDir, "   ")
+		if DashboardAuthDirOverridden() {
+			t.Error("whitespace was treated as a demand for private storage")
+		}
+	})
+	t.Run("set", func(t *testing.T) {
+		t.Setenv(EnvDashboardAuthDir, t.TempDir())
+		if !DashboardAuthDirOverridden() {
+			t.Error("a set override was not reported")
+		}
+	})
+}
+
 // Gateway logs default to the user's workspace, which on Android is shared
 // external storage. A host with somewhere private to put them says so through
 // the environment rather than every caller re-deriving the rule.

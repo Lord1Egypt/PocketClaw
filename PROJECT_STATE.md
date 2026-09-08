@@ -109,8 +109,25 @@ settles any journal a crashed writer left, copies to a temp file inside the
 destination and fsyncs it, renames within that one filesystem (`os.Rename`
 across `/sdcard` and app-private storage would be a cross-device error), then
 validates the destination through the same store contract, and only then deletes
-the legacy file. Every failure path leaves the legacy database intact and
-authoritative rather than locking the user out of their own Dashboard.
+the legacy file. Every failure path leaves the legacy database intact for
+recovery, and never resets the user's password.
+
+**When the override is set, failure is fatal rather than a fallback.**
+`PICOCLAW_DASHBOARD_AUTH_DIR` is a security boundary, not a preference: reopening
+the shared store after a failed migration would re-arm exactly the
+attacker-writable state the override exists to escape. So the launcher refuses
+to start, naming the directory and the reason, with the legacy database left
+untouched. Without the override — desktop and server — the historical
+`picoHome` behaviour is unchanged.
+
+**A validated private database also retires the shared one.** An existing
+private database is validated through the store contract rather than trusted for
+existing; once it opens, the superseded shared copy and its exact sidecars are
+deleted best-effort, so no rollback artifact is left lying around. A cleanup
+failure cannot move authority back, because the private store is already
+authoritative. A private database that does *not* validate promotes nothing: the
+legacy file is kept for recovery, the corrupt file is left as evidence, and
+startup fails closed.
 
 The plain file copy is safe because the store uses SQLite's default rollback
 journal, not WAL — measured from the database header rather than assumed, and
@@ -130,7 +147,7 @@ silently undo the separation without failing anything else.
 
 `core/src` changed, so the staged Core no longer matches.
 `TestStagedCoreWasBuiltFromTheCurrentSource` fails by design, expecting
-fingerprint `c27f81a18e330c7ce761de47eb5c1492b200d44731d4106bc93cd5bbb68996ef`.
+fingerprint `3a9ae19c12041ff104f1344081dc3e645553791e2e84d6e603ee503ec035f06d`.
 **The next physical APK requires a Core rebuild** via
 `./core/build-android-arm64.sh`; nothing was rebuilt or re-staged here.
 

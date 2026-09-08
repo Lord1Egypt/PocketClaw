@@ -1088,7 +1088,7 @@ supplied by the user.
   realtime authentication is constant-time.** Done on
   `feature/release-hardening-a2`, 2026-09-08.
   **IMPLEMENTED — AWAITING PHYSICAL VALIDATION.** Requires a Core rebuild before
-  the next physical APK; expected fingerprint `c27f81a1…`.
+  the next physical APK; expected fingerprint `3a9ae19c…`.
 - [x] **Dashboard credential database on shared storage.** Found by source audit
   after vc57, fixed in A2 before close: `launcher-auth.db` holds only a bcrypt
   verifier, but on shared storage it can be *written*, and replacing the verifier

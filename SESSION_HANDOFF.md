@@ -10,7 +10,7 @@ no APK built, nothing installed, no device touched.** Version unchanged at
 
 **The staged Core is stale on purpose.** This branch changed `core/src`, so
 `TestStagedCoreWasBuiltFromTheCurrentSource` fails by design, expecting
-`c27f81a1…`. Run `./core/build-android-arm64.sh` before the next physical APK,
+`3a9ae19c…`. Run `./core/build-android-arm64.sh` before the next physical APK,
 or the device will run a Core that still writes the credential into shared
 storage and the whole milestone will look like it did nothing.
 
@@ -69,6 +69,20 @@ validates the destination through the real store, and only then deletes the
 legacy file. **Every failure path keeps the legacy database**, because it is the
 only thing that can verify the user's password — silently resetting it would
 lock someone out of their own Dashboard.
+
+**When `PICOCLAW_DASHBOARD_AUTH_DIR` is set, there is no fallback.** A failed
+migration or an unusable private store fails launcher startup. That is
+deliberate: reopening the shared database after a failure would hand authority
+straight back to the attacker-writable file the override exists to escape. Do
+not "improve" this into a graceful degradation. Without the override, desktop
+and server keep the old `picoHome` behaviour exactly.
+
+**A validated private database retires the shared one.** Existing private state
+is validated, not trusted for existing; once it opens, the superseded shared
+copy is deleted best-effort so no rollback artifact remains. A cleanup failure is
+harmless — authority already sits with the private store. A private database that
+fails to validate promotes nothing: the legacy file is kept for recovery and
+startup fails closed.
 
 **The file copy is safe only because the store uses the rollback journal, not
 WAL.** That was measured from the database header, not assumed, and

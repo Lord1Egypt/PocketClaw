@@ -267,3 +267,183 @@ func contains(haystack, needle string) bool {
 	}
 	return false
 }
+
+// The migration failure matrix.
+//
+// Each case names the decision a caller has to make from the result, because
+// getting one of them wrong puts the shared, attacker-writable database back in
+// authority — which is the whole thing this milestone removes.
+
+// CASE A — no private override: desktop and server behaviour is unchanged.
+func TestCaseA_NoOverridePreservesHomeBehaviour(t *testing.T) {
+	dir := t.TempDir()
+	seedLegacy(t, dir, fakePassword)
+
+	result, err := MigrateLegacyDatabase(context.Background(), dir, dir)
+	if err != nil {
+		t.Fatalf("MigrateLegacyDatabase() error = %v", err)
+	}
+	if result.Migrated || result.LegacyRemoved {
+		t.Fatalf("a same-directory call moved something: %+v", result)
+	}
+	if !result.PrivateReady {
+		t.Error("the caller's own store must remain usable without an override")
+	}
+	if !verifies(t, dir, fakePassword) {
+		t.Error("the existing password stopped verifying")
+	}
+}
+
+// CASE B — override set, legacy valid, private absent: migrate and retire.
+func TestCaseB_MigratesAndRetiresLegacy(t *testing.T) {
+	legacy, private := t.TempDir(), filepath.Join(t.TempDir(), "auth")
+	seedLegacy(t, legacy, fakePassword)
+
+	result, err := MigrateLegacyDatabase(context.Background(), legacy, private)
+	if err != nil {
+		t.Fatalf("MigrateLegacyDatabase() error = %v", err)
+	}
+	if !result.Migrated || !result.PrivateReady || !result.LegacyRemoved {
+		t.Fatalf("unexpected result: %+v", result)
+	}
+	if !verifies(t, private, fakePassword) {
+		t.Error("the password did not survive the move")
+	}
+	if _, err := os.Stat(filepath.Join(legacy, DBFilename)); !os.IsNotExist(err) {
+		t.Error("the legacy database survived a successful migration")
+	}
+}
+
+// CASE C — override set, migration fails: legacy kept, private not ready, so a
+// caller that demanded private storage must refuse to start.
+func TestCaseC_FailedMigrationDoesNotYieldSharedAuthority(t *testing.T) {
+	legacy := t.TempDir()
+	seedLegacy(t, legacy, fakePassword)
+
+	blocked := filepath.Join(t.TempDir(), "auth")
+	if err := os.WriteFile(blocked, []byte("not a directory"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := MigrateLegacyDatabase(context.Background(), legacy, blocked)
+	if err == nil {
+		t.Fatal("an impossible migration reported success")
+	}
+	if result.PrivateReady {
+		t.Fatal("a failed migration claimed the private store was ready")
+	}
+	if result.Migrated || result.LegacyRemoved {
+		t.Fatalf("a failed migration claimed progress: %+v", result)
+	}
+	// Retained for recovery — it is still the only working verifier.
+	if !verifies(t, legacy, fakePassword) {
+		t.Fatal("a failed migration destroyed the legacy credential verifier")
+	}
+}
+
+// CASE D — override set, private valid, legacy also present: private wins
+// unchanged, and the shared copy is retired so no rollback artifact remains.
+func TestCaseD_PrivateWinsAndLegacyIsRetired(t *testing.T) {
+	legacy, private := t.TempDir(), t.TempDir()
+	seedLegacy(t, legacy, fakeOtherPassword)
+	seedLegacy(t, private, fakePassword)
+
+	before, err := os.ReadFile(filepath.Join(private, DBFilename))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := MigrateLegacyDatabase(context.Background(), legacy, private)
+	if err != nil {
+		t.Fatalf("MigrateLegacyDatabase() error = %v", err)
+	}
+	if result.Migrated {
+		t.Fatal("the legacy database overwrote the private one")
+	}
+	if !result.PrivateReady {
+		t.Fatal("a valid private database was not reported ready")
+	}
+	if !result.LegacyRemoved {
+		t.Error("the superseded shared database was left as a rollback artifact")
+	}
+	if _, err := os.Stat(filepath.Join(legacy, DBFilename)); !os.IsNotExist(err) {
+		t.Error("the shared database still exists")
+	}
+
+	after, err := os.ReadFile(filepath.Join(private, DBFilename))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(after) != string(before) {
+		t.Error("the private database was modified while retiring the legacy one")
+	}
+	if !verifies(t, private, fakePassword) || verifies(t, private, fakeOtherPassword) {
+		t.Error("the private verifier changed")
+	}
+}
+
+// CASE E — override set, private corrupt, legacy valid: the legacy database is
+// never promoted back to authority, and it is kept for recovery.
+func TestCaseE_CorruptPrivateNeverPromotesLegacy(t *testing.T) {
+	legacy, private := t.TempDir(), t.TempDir()
+	seedLegacy(t, legacy, fakePassword)
+
+	// Not a SQLite database at all.
+	corrupt := filepath.Join(private, DBFilename)
+	if err := os.WriteFile(corrupt, []byte("this is not a database"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := MigrateLegacyDatabase(context.Background(), legacy, private)
+	if err == nil {
+		t.Fatal("a corrupt private database was accepted as authoritative")
+	}
+	if result.PrivateReady {
+		t.Fatal("a corrupt private database was reported ready")
+	}
+	if result.Migrated {
+		t.Fatal("the legacy database was promoted over a corrupt private one")
+	}
+	if result.LegacyRemoved {
+		t.Fatal("the legacy database was deleted merely because a private filename existed")
+	}
+	if !verifies(t, legacy, fakePassword) {
+		t.Fatal("the legacy verifier was destroyed and recovery is impossible")
+	}
+	// The corrupt file is left in place as evidence rather than silently
+	// replaced, which would look like a working store with no password.
+	if _, err := os.Stat(corrupt); err != nil {
+		t.Error("the corrupt private database was removed, destroying the evidence")
+	}
+}
+
+// CASE F — override set, private valid, legacy deletion impossible: private
+// stays authoritative and startup is still safe.
+func TestCaseF_LegacyCleanupFailureCannotRestoreSharedAuthority(t *testing.T) {
+	legacyDir, private := t.TempDir(), t.TempDir()
+	seedLegacy(t, private, fakePassword)
+
+	// A directory at the legacy database's name: os.Remove cannot delete a
+	// non-empty directory, so cleanup is guaranteed to fail.
+	legacyPath := filepath.Join(legacyDir, DBFilename)
+	if err := os.Mkdir(legacyPath, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(legacyPath, "occupied"), []byte("x"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := MigrateLegacyDatabase(context.Background(), legacyDir, private)
+	if err != nil {
+		t.Fatalf("a cleanup failure was reported as a migration failure: %v", err)
+	}
+	if !result.PrivateReady {
+		t.Fatal("a cleanup failure moved authority away from the private store")
+	}
+	if result.LegacyRemoved {
+		t.Error("cleanup reported success when the path could not be removed")
+	}
+	if !verifies(t, private, fakePassword) {
+		t.Error("the private verifier was disturbed by a failed cleanup")
+	}
+}

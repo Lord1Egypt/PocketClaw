@@ -101,6 +101,17 @@ func ResolveDashboardAuthDir(homePath string) string {
 	return homePath
 }
 
+// DashboardAuthDirOverridden reports whether a host has demanded private
+// storage for the Dashboard credential verifier.
+//
+// This is a security boundary, not a preference. When it is set the shared
+// location must never be used as the active verifier — not as a convenience,
+// and not as a fallback after a failed migration, because falling back is
+// exactly the attacker-writable state the override exists to escape.
+func DashboardAuthDirOverridden() bool {
+	return strings.TrimSpace(os.Getenv(EnvDashboardAuthDir)) != ""
+}
+
 // ResolveLogDir returns the directory for gateway.log and the panic log.
 //
 // homePath is the caller's PICOCLAW_HOME. EnvLogDir wins when set, so a host

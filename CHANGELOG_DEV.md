@@ -1,5 +1,36 @@
 # Development Changelog
 
+## 2026-09-08 — A fallback that re-arms the vector is not a fallback
+
+Two corrections to the Dashboard auth move, both about what happens when things
+go wrong rather than when they go right.
+
+The first was mine and it was straightforwardly wrong. On migration failure I
+logged the error and fell back to opening the store under `picoHome` — which is
+the shared, attacker-writable location the entire change exists to escape. A
+fallback that restores the vulnerable state is not a safety net; it is the
+vulnerability with an apology attached. When `PICOCLAW_DASHBOARD_AUTH_DIR` is
+set it is a boundary, not a preference, so failure now fails startup, naming the
+directory and the reason, with the legacy database left untouched for recovery
+and the password never reset. Without the override, desktop and server keep the
+old behaviour exactly — that path was never the problem.
+
+The second is subtler. Private precedence was right: an existing private
+database is never overwritten from shared state. But "never overwritten" left the
+shared file sitting there indefinitely, which is a rollback artifact waiting for
+someone to restore it. Now a private database that validates through the real
+store contract also retires the shared copy, best-effort, by exact filename. And
+it has to *validate* rather than merely exist — trusting a filename would let a
+corrupt or planted private file trigger deletion of the only working verifier.
+When validation fails, nothing is promoted, nothing is deleted, the corrupt file
+is left as evidence, and startup fails closed.
+
+The result is a six-case matrix, and the tests are named for the cases rather
+than for the functions, because the thing worth checking is the decision each
+outcome forces: no override, clean migration, failed migration, private-wins,
+corrupt-private, and cleanup-failure. Two of those six are the ones that would
+quietly restore shared authority if anyone rewrote this later.
+
 ## 2026-09-08 — The dangerous verb was write, not read
 
 vc57 passed everything — machine checks, Status, Logs. The shared home was down

@@ -35,6 +35,17 @@
   verification, same rate limiting, same in-memory sessions. The rule this
   settles: **on Android every security-sensitive runtime and auth artifact is
   app-private, and the workspace is the only thing that stays shared.**
+- Hardened 2026-09-08, same day, after review: when the override is set there is
+  **no fallback to shared storage**. A failed migration, or a private database
+  that will not validate, fails launcher startup rather than reopening the
+  shared file — falling back would hand authority straight back to the
+  attacker-writable state the override exists to escape. The user's password is
+  never reset and the legacy database is retained for recovery. Conversely a
+  private database that *does* validate retires the superseded shared copy
+  best-effort, so no rollback artifact is left behind; a cleanup failure cannot
+  move authority back, because the private store already holds it. Stated as one
+  invariant: **while the private-auth override is active, no active Dashboard
+  credential verifier is ever read from shared PICOCLAW_HOME.**
 - **RECHECK AFTER THE NAMESPACE MIGRATION.** All of this is keyed on names the
   migration will change — `.picoclaw.pid`, the `PICOCLAW_*` variables including
   `PICOCLAW_DASHBOARD_AUTH_DIR`, the legacy `launcher-auth.db` filename the
