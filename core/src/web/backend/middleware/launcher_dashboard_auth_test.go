@@ -162,12 +162,12 @@ func TestLauncherDashboardAuth_LocalAutoLogin(t *testing.T) {
 	if rec.Code != http.StatusSeeOther || rec.Header().Get("Location") != "/" {
 		t.Fatalf("local auto-login code=%d loc=%q", rec.Code, rec.Header().Get("Location"))
 	}
-	cookies := rec.Result().Cookies()
-	if len(cookies) != 1 || cookies[0].Name != LauncherDashboardCookieName || cookies[0].Value != cookieVal {
-		t.Fatalf("cookies = %#v", cookies)
+	session := middlewareSessionCookie(t, rec.Result().Cookies())
+	if session.Value != cookieVal {
+		t.Fatalf("session cookie value = %q, want the issued session", session.Value)
 	}
-	if cookies[0].MaxAge != 24*3600 {
-		t.Fatalf("session cookie MaxAge = %d, want 24 hours", cookies[0].MaxAge)
+	if session.MaxAge != 24*3600 {
+		t.Fatalf("session cookie MaxAge = %d, want 24 hours", session.MaxAge)
 	}
 
 	rec = httptest.NewRecorder()
@@ -211,9 +211,10 @@ func TestLauncherDashboardAuth_LocalAutoLoginRequiresValidNonceAndUnexpired(t *t
 	req.RemoteAddr = "192.168.1.50:12345"
 	req.Host = "192.168.1.50:18800"
 	newHandler(autoLogin).ServeHTTP(rec, req)
-	if rec.Code != http.StatusSeeOther || len(rec.Result().Cookies()) != 1 {
+	if rec.Code != http.StatusSeeOther {
 		t.Fatalf("capability auto-login code=%d cookies=%#v", rec.Code, rec.Result().Cookies())
 	}
+	middlewareSessionCookie(t, rec.Result().Cookies())
 
 	expired := mustLocalAutoLogin(t, -time.Second)
 	h := newHandler(expired)
@@ -397,4 +398,30 @@ func TestLauncherDashboardAuth_WebSocketRequiresAuthenticatedSameOrigin(t *testi
 	if called != 1 {
 		t.Fatalf("downstream calls = %d, want exactly one authorized request", called)
 	}
+}
+
+// middlewareSessionCookie is sessionCookie for this package: the canonical
+// session, with the only other permitted cookie being the legacy deletion.
+func middlewareSessionCookie(t *testing.T, cookies []*http.Cookie) *http.Cookie {
+	t.Helper()
+	var session *http.Cookie
+	for _, c := range cookies {
+		switch c.Name {
+		case LauncherDashboardCookieName:
+			if session != nil {
+				t.Fatalf("more than one session cookie: %#v", cookies)
+			}
+			session = c
+		case legacyLauncherDashboardCookieName:
+			if c.Value != "" || c.MaxAge >= 0 {
+				t.Fatalf("the legacy cookie was issued rather than expired: %#v", c)
+			}
+		default:
+			t.Fatalf("unexpected cookie %q: %#v", c.Name, cookies)
+		}
+	}
+	if session == nil {
+		t.Fatalf("no session cookie: %#v", cookies)
+	}
+	return session
 }

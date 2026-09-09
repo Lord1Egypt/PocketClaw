@@ -146,10 +146,16 @@ void main() {
     });
 
     test('deferred surfaces are untouched', () {
-      // The cookie name belongs to its own phase, and so do the remaining
-      // build-time and upstream defaults.
-      expect(read('$core/web/backend/middleware/launcher_dashboard_auth.go'),
-          contains('picoclaw_launcher_auth'));
+      // The dashboard cookie was this group's remaining deferral and N4J took
+      // it: the canonical name is what the middleware issues, and the legacy
+      // name survives only as the constant used to expire an old cookie. The
+      // build-time and upstream defaults are still deferred.
+      final auth = read('$core/web/backend/middleware/launcher_dashboard_auth.go');
+      expect(auth,
+          contains('LauncherDashboardCookieName = "pocketclaw_launcher_auth"'));
+      expect(auth,
+          contains('legacyLauncherDashboardCookieName = "picoclaw_launcher_auth"'),
+          reason: 'an old cookie is still expired, never issued');
       expect(read('lib/src/core/service_manager.dart'),
           contains('PICOCLAW_DISTRIBUTION_CHANNEL'));
     });

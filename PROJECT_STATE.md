@@ -1,5 +1,83 @@
 # PocketClaw Project State
 
+## Zero-Pico N4J — dashboard session cookie, NOT closed
+
+- Status: **implemented on `feature/zero-pico-runtime`, 2026-09-09. NOT merged.**
+  `0.2.0+61`, baseline 59, no candidate, no What's New entry.
+- Core source fingerprint **did not move**, legitimately: `db8deae0…` before and
+  after. See "The fingerprint does not cover this change" below — this is a real
+  gap in the staleness guard, not a sign the edit failed to land.
+  **Staged Core remains EXPECTED STALE — FINAL ZERO-PICO CORE REBUILD PENDING.**
+
+### Canonical and legacy
+
+    pocketclaw_launcher_auth   canonical; the only name this build ever issues
+    picoclaw_launcher_auth     LEGACY READ-ONLY SESSION HANDOFF
+
+Both are declared once, in
+`core/src/web/backend/middleware/launcher_dashboard_auth.go`. The legacy name is
+a single unexported constant, and the only thing production does with it is
+write an expiry.
+
+### There is no session handoff, on purpose
+
+The brief allowed reissuing a verified legacy session under the canonical name.
+That was rejected after reading the session store: `LauncherDashboardSessions`
+is an in-memory `map[string]time.Time` built fresh at process start, so a cookie
+issued by an older build names a session in a process that is gone. No legacy
+value can ever be validated. Honouring one would mean trusting a bearer token
+with no server-side record — precisely the bypass the store exists to prevent.
+
+So the upgrade costs **one dashboard login**, which is what it already cost: the
+session store has never survived a restart under either name. This is the
+brief's "prefer forcing ONE login rather than weakening the session model" arm.
+
+### Precedence
+
+`validLauncherDashboardAuth` reads the canonical cookie and nothing else. The
+legacy name is never a fallback — not when the canonical cookie is absent
+(pointless), and above all not when it is present but invalid, which would let
+an old cookie rescue a rejected session. The server-side store stays the sole
+authority.
+
+    valid canonical                    → authenticated
+    valid canonical + any legacy       → authenticated, legacy expired
+    legacy only, any value             → unauthenticated
+    invalid canonical + valid legacy   → unauthenticated
+
+### Unchanged
+
+Cookie attributes are the pre-N4J contract exactly: `HttpOnly`, `SameSite=Lax`,
+`Path=/`, host-only, `MaxAge` 24h, `Secure` from the same detector. Migration
+extends no lifetime and creates no second session. Logout still revokes the
+server-side session first and now expires both names; the legacy expiry uses
+`Path=/` and the original attributes, because a deletion whose Path does not
+match silently leaves the cookie in place. Auth scope and routing are untouched:
+`/pocketclaw/*` and `/api/pocketclaw/*` are exactly as N4I left them.
+
+### The fingerprint does not cover this change
+
+`pkg/coresource` fingerprints `cmd/`, `pkg/`, `workspace/` and three root files.
+It deliberately excludes `web/`, on the documented ground that the Core imports
+none of it — and `go list -deps ./cmd/picoclaw` confirms no `picoclaw/web`
+package is reachable, so for `libpocketclaw.so` that is correct.
+
+But `core/build-android-arm64.sh` stages **two** binaries, and the second,
+`libpocketclaw-web.so`, is built from `./web/backend` by
+`build-launcher-android-arm64`. That is the dashboard, and it ships on the
+device. A change to dashboard auth middleware therefore moves no fingerprint and
+raises no staleness signal, even though the staged artifact is now behind the
+tree. N4J is such a change.
+
+Nothing was altered here — widening the fingerprint mid-phase would have
+invalidated the staged-Core baseline the whole Zero-Pico sequence is tracking.
+It is recorded as a gap for the final rebuild phase to close, most likely by
+fingerprinting the launcher's inputs separately from the Core's.
+
+### Deferred
+
+`PICOCLAW_DISTRIBUTION_CHANNEL`, the IRC default nick and the WeCom source id.
+
 ## Zero-Pico N4I — realtime routes and log sanitization, NOT closed
 
 - Status: **implemented on `feature/zero-pico-runtime`, 2026-09-09. NOT merged.**
@@ -80,8 +158,8 @@ uses.
 
 ### Deferred
 
-`picoclaw_launcher_auth` (cookie name), `PICOCLAW_DISTRIBUTION_CHANNEL`, the IRC
-default nick and the WeCom source id.
+`PICOCLAW_DISTRIBUTION_CHANNEL`, the IRC default nick and the WeCom source id.
+The `picoclaw_launcher_auth` cookie name was deferred here and taken by N4J.
 
 ## Zero-Pico N4H — channel, client and owner canonical, NOT closed
 

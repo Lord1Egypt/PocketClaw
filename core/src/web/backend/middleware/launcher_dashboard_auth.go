@@ -16,7 +16,21 @@ import (
 )
 
 // LauncherDashboardCookieName is the HttpOnly cookie set after a successful password login.
-const LauncherDashboardCookieName = "picoclaw_launcher_auth"
+const LauncherDashboardCookieName = "pocketclaw_launcher_auth"
+
+// legacyLauncherDashboardCookieName is LEGACY READ-ONLY SESSION HANDOFF.
+//
+// It is never issued and never consulted for authentication. It is named here
+// only so a cookie left in the browser by an older build can be expired.
+//
+// There is deliberately no session handoff from it. Sessions live in
+// LauncherDashboardSessions, which is an in-memory map created fresh at process
+// start: the process that issued a legacy cookie is by definition gone, so no
+// legacy value can name a live session. Accepting one would mean trusting a
+// bearer token with no server-side record — the exact bypass this cookie exists
+// to prevent — and an upgrade already costs one dashboard login, because the
+// session store has never survived a restart under either name.
+const legacyLauncherDashboardCookieName = "picoclaw_launcher_auth"
 
 // launcherDashboardSessionMaxAgeSec is the dashboard session cookie lifetime.
 const launcherDashboardSessionMaxAgeSec = 24 * 3600
@@ -188,6 +202,35 @@ func SetLauncherDashboardSessionCookie(
 		SameSite: http.SameSiteLaxMode,
 		Secure:   secure(r),
 	})
+	// Login is the moment the browser is known to be presenting whatever it
+	// still holds, so it is where a cookie from an older build is retired.
+	expireLegacyLauncherDashboardSessionCookie(w, r, secure)
+}
+
+// expireLegacyLauncherDashboardSessionCookie removes a cookie left by a build
+// from before the name migration.
+//
+// Path and the security attributes match what that build set, because a
+// deletion whose Path does not match the original leaves the cookie in place
+// and silently does nothing.
+func expireLegacyLauncherDashboardSessionCookie(
+	w http.ResponseWriter,
+	r *http.Request,
+	secure func(*http.Request) bool,
+) {
+	if secure == nil {
+		secure = DefaultLauncherDashboardSecureCookie
+	}
+	http.SetCookie(w, &http.Cookie{
+		Name:     legacyLauncherDashboardCookieName,
+		Value:    "",
+		Path:     "/",
+		MaxAge:   -1,
+		HttpOnly: true,
+		SameSite: http.SameSiteLaxMode,
+		Secure:   secure(r),
+		Expires:  time.Unix(0, 0),
+	})
 }
 
 // ClearLauncherDashboardSessionCookie clears the dashboard session (e.g. logout).
@@ -205,6 +248,9 @@ func ClearLauncherDashboardSessionCookie(w http.ResponseWriter, r *http.Request,
 		Secure:   secure(r),
 		Expires:  time.Unix(0, 0),
 	})
+	// Logout retires both names, so a browser that still carries the old one
+	// does not keep an inert cookie for the rest of its life.
+	expireLegacyLauncherDashboardSessionCookie(w, r, secure)
 }
 
 // LauncherDashboardAuth requires a valid session cookie before calling next.
@@ -378,6 +424,12 @@ func isPublicLauncherDashboardStatic(method, p string) bool {
 	}
 }
 
+// validLauncherDashboardAuth reports whether the request carries a live session.
+//
+// The canonical cookie only. A legacy cookie is never a fallback: falling back
+// when the canonical one is absent would be pointless (no legacy value can name
+// a live in-memory session), and falling back when it is present but invalid
+// would let an old cookie rescue a rejected session, which is an auth bypass.
 func validLauncherDashboardAuth(r *http.Request, cfg LauncherDashboardAuthConfig) bool {
 	if c, err := r.Cookie(LauncherDashboardCookieName); err == nil {
 		if cfg.Sessions != nil {
