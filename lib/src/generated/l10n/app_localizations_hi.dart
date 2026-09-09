@@ -501,6 +501,22 @@ class AppLocalizationsHi extends AppLocalizations {
       'डायग्नोस्टिक लॉग अब डाउनलोड फ़ोल्डर के बजाय ऐप के अंदर निजी रूप से रखे जाते हैं. आपका कार्यक्षेत्र वहीं रहता है.';
 
   @override
+  String get whatsNew020Improvement8 =>
+      'PocketClaw अपनी स्थिति कैसे सहेजता है और अपनी सेवाएँ कैसे चलाता है, इसमें एक बड़ा सुधार — रोज़मर्रा की विश्वसनीयता के लिए.';
+
+  @override
+  String get whatsNew020Improvement9 =>
+      'इस अपडेट के बाद डैशबोर्ड आपसे एक बार फिर साइन इन करने को कहेगा.';
+
+  @override
+  String get whatsNew020Improvement10 =>
+      'इस अपडेट के बाद वेब चैट चैनल एक नई बातचीत शुरू करता है.';
+
+  @override
+  String get whatsNew020Improvement11 =>
+      'इस अपडेट के बाद अपनी सूचना प्राथमिकताएँ एक बार जाँच लेना बेहतर रहेगा.';
+
+  @override
   String get whatsNew020Fix1 =>
       'गेटवे अब पिछली बार छूटे हुए पुराने प्रोसेस रिकॉर्ड से उबर जाता है.';
 

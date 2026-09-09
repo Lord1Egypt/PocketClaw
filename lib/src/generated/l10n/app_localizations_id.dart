@@ -506,6 +506,22 @@ class AppLocalizationsId extends AppLocalizations {
       'Log diagnostik kini disimpan secara privat di dalam aplikasi, bukan di folder Unduhan. Ruang kerja Anda tetap di tempatnya.';
 
   @override
+  String get whatsNew020Improvement8 =>
+      'Peningkatan besar pada cara PocketClaw menyimpan statusnya dan menjalankan layanannya, demi keandalan sehari-hari yang lebih stabil.';
+
+  @override
+  String get whatsNew020Improvement9 =>
+      'Setelah pembaruan ini, Dasbor meminta Anda masuk sekali lagi.';
+
+  @override
+  String get whatsNew020Improvement10 =>
+      'Setelah pembaruan ini, kanal obrolan Web memulai percakapan baru.';
+
+  @override
+  String get whatsNew020Improvement11 =>
+      'Setelah pembaruan ini, ada baiknya memeriksa sekali preferensi notifikasi Anda.';
+
+  @override
   String get whatsNew020Fix1 =>
       'Gateway kini pulih dari catatan proses usang yang ditinggalkan oleh proses sebelumnya.';
 

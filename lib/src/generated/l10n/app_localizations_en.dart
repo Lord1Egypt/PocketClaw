@@ -501,6 +501,22 @@ class AppLocalizationsEn extends AppLocalizations {
       'Diagnostic logs are now kept privately inside the app instead of in your Downloads folder. Your workspace stays where it was.';
 
   @override
+  String get whatsNew020Improvement8 =>
+      'A substantial upgrade to how PocketClaw keeps its state and runs its services, for steadier day-to-day reliability.';
+
+  @override
+  String get whatsNew020Improvement9 =>
+      'After this update, the Dashboard asks you to sign in once more.';
+
+  @override
+  String get whatsNew020Improvement10 =>
+      'After this update, the Web chat channel starts a new conversation.';
+
+  @override
+  String get whatsNew020Improvement11 =>
+      'After this update, it is worth checking your notification preferences once.';
+
+  @override
   String get whatsNew020Fix1 =>
       'The Gateway now recovers from a stale process record left behind by an earlier run.';
 

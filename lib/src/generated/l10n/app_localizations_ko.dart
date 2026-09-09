@@ -488,6 +488,19 @@ class AppLocalizationsKo extends AppLocalizations {
       '진단 로그를 다운로드 폴더가 아닌 앱 내부에 비공개로 저장합니다. 작업 공간의 위치는 그대로입니다.';
 
   @override
+  String get whatsNew020Improvement8 =>
+      'PocketClaw가 상태를 저장하고 서비스를 실행하는 방식을 크게 개선하여 일상적인 안정성이 높아졌습니다.';
+
+  @override
+  String get whatsNew020Improvement9 => '이번 업데이트 후 대시보드에서 한 번 다시 로그인해야 합니다.';
+
+  @override
+  String get whatsNew020Improvement10 => '이번 업데이트 후 웹 채팅 채널은 새 대화를 시작합니다.';
+
+  @override
+  String get whatsNew020Improvement11 => '이번 업데이트 후 알림 환경설정을 한 번 확인해 보시기 바랍니다.';
+
+  @override
   String get whatsNew020Fix1 => '이전 실행이 남긴 오래된 프로세스 기록에서 게이트웨이가 복구됩니다.';
 
   @override

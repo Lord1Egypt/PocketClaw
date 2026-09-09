@@ -486,6 +486,19 @@ class AppLocalizationsJa extends AppLocalizations {
       '診断ログをダウンロードフォルダーではなくアプリ内に非公開で保存するようになりました。ワークスペースの場所は変わりません。';
 
   @override
+  String get whatsNew020Improvement8 =>
+      'PocketClaw の状態の保存方法とサービスの実行方法を大幅に見直し、日常の動作がより安定しました。';
+
+  @override
+  String get whatsNew020Improvement9 => 'このアップデート後、ダッシュボードでもう一度サインインが必要になります。';
+
+  @override
+  String get whatsNew020Improvement10 => 'このアップデート後、Web チャットチャンネルは新しい会話を開始します。';
+
+  @override
+  String get whatsNew020Improvement11 => 'このアップデート後、通知の設定を一度ご確認いただくことをおすすめします。';
+
+  @override
   String get whatsNew020Fix1 => '以前の実行が残した古いプロセス記録からゲートウェイが復帰するようになりました。';
 
   @override
