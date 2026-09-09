@@ -124,7 +124,7 @@ class PocketClawService : Service() {
          * no-backup storage; it is never copied into the public workspace,
          * included in Android backup, or written to logs.
          */
-        fun picoTokenForHost(context: Context): String {
+        fun pocketClawTokenForHost(context: Context): String {
             synchronized(realtimeAuthLock) {
                 val tokenFile = File(
                     context.applicationContext.noBackupFilesDir,
@@ -347,7 +347,7 @@ class PocketClawService : Service() {
                 // not emit that name: Core's canonical-env adapter translates
                 // this key onto the tag. The channel itself is renamed in a
                 // later phase, and the adapter table moves with it.
-                "POCKETCLAW_CHANNELS_POCKETCLAW_TOKEN" to picoTokenForHost(context),
+                "POCKETCLAW_CHANNELS_POCKETCLAW_TOKEN" to pocketClawTokenForHost(context),
                 // Live channel reconciliation is a PocketClaw product behaviour:
                 // saving a channel setting in the Dashboard must apply without
                 // the user stopping and starting the Gateway by hand. Core

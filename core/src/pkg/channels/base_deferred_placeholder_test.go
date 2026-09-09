@@ -167,7 +167,7 @@ func TestTelegramDefersPlaceholderToTheAgent(t *testing.T) {
 // Every other channel merges a message arriving mid-turn into the running turn
 // as steering input, so its placeholder is still correct at receipt.
 func TestNonTelegramChannelStillSendsPlaceholderOnReceipt(t *testing.T) {
-	for _, name := range []string{"discord", "slack", "matrix", "pico"} {
+	for _, name := range []string{"discord", "slack", "matrix", "pocketclaw"} {
 		t.Run(name, func(t *testing.T) {
 			ch, recorder := newDeferredPlaceholderChannel(t, name)
 
@@ -223,7 +223,7 @@ func TestChannelUsesIndependentResponseLifecycle(t *testing.T) {
 			t.Errorf("%q should use an independent response lifecycle", name)
 		}
 	}
-	for _, name := range []string{"discord", "slack", "pico", "cli", "", "telegramish"} {
+	for _, name := range []string{"discord", "slack", "pocketclaw", "cli", "", "telegramish"} {
 		if bus.ChannelUsesIndependentResponseLifecycle(name) {
 			t.Errorf("%q should not use an independent response lifecycle", name)
 		}

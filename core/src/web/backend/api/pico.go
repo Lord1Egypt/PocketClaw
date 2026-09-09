@@ -103,19 +103,19 @@ func (h *Handler) gatewayAvailableForProxy() bool {
 	return available
 }
 
-func decodePicoSettings(cfg *config.Config) (config.PicoSettings, bool) {
+func decodePocketClawSettings(cfg *config.Config) (config.PocketClawSettings, bool) {
 	if cfg == nil {
-		return config.PicoSettings{}, false
+		return config.PocketClawSettings{}, false
 	}
 
-	bc := cfg.Channels.GetByType(config.ChannelPico)
+	bc := cfg.Channels.GetByType(config.ChannelPocketClaw)
 	if bc == nil {
-		return config.PicoSettings{}, false
+		return config.PocketClawSettings{}, false
 	}
 
-	var picoCfg config.PicoSettings
+	var picoCfg config.PocketClawSettings
 	if err := bc.Decode(&picoCfg); err != nil {
-		return config.PicoSettings{}, false
+		return config.PocketClawSettings{}, false
 	}
 
 	return picoCfg, bc.Enabled
@@ -127,7 +127,7 @@ func (h *Handler) writePicoInfoResponse(
 	cfg *config.Config,
 	changed *bool,
 ) {
-	picoCfg, enabled := decodePicoSettings(cfg)
+	picoCfg, enabled := decodePocketClawSettings(cfg)
 
 	resp := map[string]any{
 		"ws_url":  h.buildWsURL(r),
@@ -222,10 +222,10 @@ func (h *Handler) handleRegenPicoToken(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failed to generate Pico credential", http.StatusInternalServerError)
 		return
 	}
-	if bc := cfg.Channels.GetByType(config.ChannelPico); bc != nil {
+	if bc := cfg.Channels.GetByType(config.ChannelPocketClaw); bc != nil {
 		decoded, err := bc.GetDecoded()
 		if err == nil && decoded != nil {
-			if settings, ok := decoded.(*config.PicoSettings); ok {
+			if settings, ok := decoded.(*config.PocketClawSettings); ok {
 				settings.Token = *config.NewSecureString(token)
 			}
 		}
@@ -243,9 +243,9 @@ func (h *Handler) handleRegenPicoToken(w http.ResponseWriter, r *http.Request) {
 	h.writePicoInfoResponse(w, r, cfg, nil)
 }
 
-// EnsurePicoChannel enables the Pico channel with sane defaults if it isn't
+// EnsurePocketClawChannel enables the Pico channel with sane defaults if it isn't
 // already configured. Returns true when the config was modified.
-func (h *Handler) EnsurePicoChannel() (bool, error) {
+func (h *Handler) EnsurePocketClawChannel() (bool, error) {
 	cfg, err := config.LoadConfig(h.configPath)
 	if err != nil {
 		return false, fmt.Errorf("failed to load config: %w", err)
@@ -253,24 +253,24 @@ func (h *Handler) EnsurePicoChannel() (bool, error) {
 
 	changed := false
 
-	bc := cfg.Channels.GetByType(config.ChannelPico)
+	bc := cfg.Channels.GetByType(config.ChannelPocketClaw)
 	if bc == nil {
-		bc = &config.Channel{Type: config.ChannelPico}
-		cfg.Channels["pico"] = bc
+		bc = &config.Channel{Type: config.ChannelPocketClaw}
+		cfg.Channels[config.ChannelPocketClaw] = bc
 	}
 
 	if !bc.Enabled {
 		bc.Enabled = true
 		changed = true
 	}
-	ownerAllowFrom := config.FlexibleStringSlice{config.PicoOwnerPrincipal}
-	if len(bc.AllowFrom) != 1 || bc.AllowFrom[0] != config.PicoOwnerPrincipal {
+	ownerAllowFrom := config.FlexibleStringSlice{config.PocketClawOwnerPrincipal}
+	if len(bc.AllowFrom) != 1 || bc.AllowFrom[0] != config.PocketClawOwnerPrincipal {
 		bc.AllowFrom = ownerAllowFrom
 		changed = true
 	}
 
 	if decoded, err := bc.GetDecoded(); err == nil && decoded != nil {
-		if picoCfg, ok := decoded.(*config.PicoSettings); ok {
+		if picoCfg, ok := decoded.(*config.PocketClawSettings); ok {
 			if picoCfg.Token.String() == "" {
 				token, tokenErr := generateSecureToken()
 				if tokenErr != nil {
@@ -295,13 +295,13 @@ func (h *Handler) EnsurePicoChannel() (bool, error) {
 //
 //	POST /api/pico/setup
 func (h *Handler) handlePicoSetup(w http.ResponseWriter, r *http.Request) {
-	changed, err := h.EnsurePicoChannel()
+	changed, err := h.EnsurePocketClawChannel()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	// Reload config (EnsurePicoChannel may have modified it).
+	// Reload config (EnsurePocketClawChannel may have modified it).
 	cfg, err := config.LoadConfig(h.configPath)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Failed to load config: %v", err), http.StatusInternalServerError)

@@ -26,12 +26,12 @@ func TestEnsurePicoChannel_FreshConfig(t *testing.T) {
 	configPath := filepath.Join(t.TempDir(), "config.json")
 	h := NewHandler(configPath)
 
-	changed, err := h.EnsurePicoChannel()
+	changed, err := h.EnsurePocketClawChannel()
 	if err != nil {
-		t.Fatalf("EnsurePicoChannel() error = %v", err)
+		t.Fatalf("EnsurePocketClawChannel() error = %v", err)
 	}
 	if !changed {
-		t.Fatal("EnsurePicoChannel() should report changed on a fresh config")
+		t.Fatal("EnsurePocketClawChannel() should report changed on a fresh config")
 	}
 
 	cfg, err := config.LoadConfig(configPath)
@@ -39,19 +39,19 @@ func TestEnsurePicoChannel_FreshConfig(t *testing.T) {
 		t.Fatalf("LoadConfig() error = %v", err)
 	}
 
-	bc := cfg.Channels["pico"]
+	bc := cfg.Channels["pocketclaw"]
 	decoded, err := bc.GetDecoded()
 	if err != nil {
 		t.Fatalf("GetDecoded() error = %v", err)
 	}
-	picoCfg := decoded.(*config.PicoSettings)
+	picoCfg := decoded.(*config.PocketClawSettings)
 	if !bc.Enabled {
 		t.Error("expected Pico to be enabled after setup")
 	}
 	if picoCfg.Token.String() == "" {
 		t.Error("expected a non-empty token after setup")
 	}
-	if len(bc.AllowFrom) != 1 || bc.AllowFrom[0] != config.PicoOwnerPrincipal {
+	if len(bc.AllowFrom) != 1 || bc.AllowFrom[0] != config.PocketClawOwnerPrincipal {
 		t.Fatalf("allow_from = %#v, want owner-only principal", bc.AllowFrom)
 	}
 }
@@ -60,8 +60,8 @@ func TestEnsurePicoChannel_DoesNotEnableTokenQuery(t *testing.T) {
 	configPath := filepath.Join(t.TempDir(), "config.json")
 	h := NewHandler(configPath)
 
-	if _, err := h.EnsurePicoChannel(); err != nil {
-		t.Fatalf("EnsurePicoChannel() error = %v", err)
+	if _, err := h.EnsurePocketClawChannel(); err != nil {
+		t.Fatalf("EnsurePocketClawChannel() error = %v", err)
 	}
 
 	cfg, err := config.LoadConfig(configPath)
@@ -69,12 +69,12 @@ func TestEnsurePicoChannel_DoesNotEnableTokenQuery(t *testing.T) {
 		t.Fatalf("LoadConfig() error = %v", err)
 	}
 
-	bc := cfg.Channels["pico"]
+	bc := cfg.Channels["pocketclaw"]
 	decoded, err := bc.GetDecoded()
 	if err != nil {
 		t.Fatalf("GetDecoded() error = %v", err)
 	}
-	picoCfg := decoded.(*config.PicoSettings)
+	picoCfg := decoded.(*config.PocketClawSettings)
 	if picoCfg.AllowTokenQuery {
 		t.Error("setup must not enable allow_token_query by default")
 	}
@@ -84,8 +84,8 @@ func TestEnsurePicoChannel_LeavesAllowOriginsEmptyByDefault(t *testing.T) {
 	configPath := filepath.Join(t.TempDir(), "config.json")
 	h := NewHandler(configPath)
 
-	if _, err := h.EnsurePicoChannel(); err != nil {
-		t.Fatalf("EnsurePicoChannel() error = %v", err)
+	if _, err := h.EnsurePocketClawChannel(); err != nil {
+		t.Fatalf("EnsurePocketClawChannel() error = %v", err)
 	}
 
 	cfg, err := config.LoadConfig(configPath)
@@ -93,12 +93,12 @@ func TestEnsurePicoChannel_LeavesAllowOriginsEmptyByDefault(t *testing.T) {
 		t.Fatalf("LoadConfig() error = %v", err)
 	}
 
-	bc := cfg.Channels["pico"]
+	bc := cfg.Channels["pocketclaw"]
 	decoded, err := bc.GetDecoded()
 	if err != nil {
 		t.Fatalf("GetDecoded() error = %v", err)
 	}
-	picoCfg := decoded.(*config.PicoSettings)
+	picoCfg := decoded.(*config.PocketClawSettings)
 	if len(picoCfg.AllowOrigins) != 0 {
 		t.Errorf("allow_origins = %v, want empty", picoCfg.AllowOrigins)
 	}
@@ -108,8 +108,8 @@ func TestEnsurePicoChannel_NoOriginConfigurationRequired(t *testing.T) {
 	configPath := filepath.Join(t.TempDir(), "config.json")
 	h := NewHandler(configPath)
 
-	if _, err := h.EnsurePicoChannel(); err != nil {
-		t.Fatalf("EnsurePicoChannel() error = %v", err)
+	if _, err := h.EnsurePocketClawChannel(); err != nil {
+		t.Fatalf("EnsurePocketClawChannel() error = %v", err)
 	}
 
 	cfg, err := config.LoadConfig(configPath)
@@ -117,12 +117,12 @@ func TestEnsurePicoChannel_NoOriginConfigurationRequired(t *testing.T) {
 		t.Fatalf("LoadConfig() error = %v", err)
 	}
 
-	bc := cfg.Channels["pico"]
+	bc := cfg.Channels["pocketclaw"]
 	decoded, err := bc.GetDecoded()
 	if err != nil {
 		t.Fatalf("GetDecoded() error = %v", err)
 	}
-	picoCfg := decoded.(*config.PicoSettings)
+	picoCfg := decoded.(*config.PocketClawSettings)
 	if len(picoCfg.AllowOrigins) != 0 {
 		t.Errorf("allow_origins = %v, want empty", picoCfg.AllowOrigins)
 	}
@@ -133,29 +133,29 @@ func TestEnsurePicoChannel_PreservesUserSettings(t *testing.T) {
 
 	// Pre-configure with custom user settings
 	cfg := config.DefaultConfig()
-	bc := cfg.Channels["pico"]
+	bc := cfg.Channels["pocketclaw"]
 	decoded, err := bc.GetDecoded()
 	if err != nil {
 		t.Fatalf("GetDecoded() error = %v", err)
 	}
-	picoCfg := decoded.(*config.PicoSettings)
+	picoCfg := decoded.(*config.PocketClawSettings)
 	bc.Enabled = true
 	picoCfg.SetToken("user-custom-token")
 	picoCfg.AllowTokenQuery = true
 	picoCfg.AllowOrigins = []string{"https://myapp.example.com"}
-	bc.AllowFrom = config.FlexibleStringSlice{config.PicoOwnerPrincipal}
+	bc.AllowFrom = config.FlexibleStringSlice{config.PocketClawOwnerPrincipal}
 	if err = config.SaveConfig(configPath, cfg); err != nil {
 		t.Fatalf("SaveConfig() error = %v", err)
 	}
 
 	h := NewHandler(configPath)
 
-	changed, err := h.EnsurePicoChannel()
+	changed, err := h.EnsurePocketClawChannel()
 	if err != nil {
-		t.Fatalf("EnsurePicoChannel() error = %v", err)
+		t.Fatalf("EnsurePocketClawChannel() error = %v", err)
 	}
 	if changed {
-		t.Error("EnsurePicoChannel() should not change a fully configured config")
+		t.Error("EnsurePocketClawChannel() should not change a fully configured config")
 	}
 
 	cfg, err = config.LoadConfig(configPath)
@@ -163,12 +163,12 @@ func TestEnsurePicoChannel_PreservesUserSettings(t *testing.T) {
 		t.Fatalf("LoadConfig() error = %v", err)
 	}
 
-	bc = cfg.Channels["pico"]
+	bc = cfg.Channels["pocketclaw"]
 	decoded, err = bc.GetDecoded()
 	if err != nil {
 		t.Fatalf("GetDecoded() error = %v", err)
 	}
-	picoCfg = decoded.(*config.PicoSettings)
+	picoCfg = decoded.(*config.PocketClawSettings)
 	if picoCfg.Token.String() != "user-custom-token" {
 		t.Errorf("token = %q, want %q", picoCfg.Token.String(), "user-custom-token")
 	}
@@ -183,19 +183,19 @@ func TestEnsurePicoChannel_PreservesUserSettings(t *testing.T) {
 func TestEnsurePicoChannel_ReplacesOpenAllowlist(t *testing.T) {
 	configPath := filepath.Join(t.TempDir(), "config.json")
 	cfg := config.DefaultConfig()
-	bc := cfg.Channels["pico"]
+	bc := cfg.Channels["pocketclaw"]
 	bc.Enabled = true
 	bc.AllowFrom = config.FlexibleStringSlice{"*"}
 	decoded, err := bc.GetDecoded()
 	if err != nil {
 		t.Fatal(err)
 	}
-	decoded.(*config.PicoSettings).SetToken("existing-token")
+	decoded.(*config.PocketClawSettings).SetToken("existing-token")
 	if err := config.SaveConfig(configPath, cfg); err != nil {
 		t.Fatal(err)
 	}
 
-	changed, err := NewHandler(configPath).EnsurePicoChannel()
+	changed, err := NewHandler(configPath).EnsurePocketClawChannel()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -206,8 +206,8 @@ func TestEnsurePicoChannel_ReplacesOpenAllowlist(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	bc = cfg.Channels["pico"]
-	if len(bc.AllowFrom) != 1 || bc.AllowFrom[0] != config.PicoOwnerPrincipal {
+	bc = cfg.Channels["pocketclaw"]
+	if len(bc.AllowFrom) != 1 || bc.AllowFrom[0] != config.PocketClawOwnerPrincipal {
 		t.Fatalf("allow_from = %#v, want owner-only principal", bc.AllowFrom)
 	}
 }
@@ -226,12 +226,12 @@ func TestEnsurePicoChannel_ExistingConfigWithoutSecurityFile(t *testing.T) {
 
 	h := NewHandler(configPath)
 
-	changed, err := h.EnsurePicoChannel()
+	changed, err := h.EnsurePocketClawChannel()
 	if err != nil {
-		t.Fatalf("EnsurePicoChannel() error = %v", err)
+		t.Fatalf("EnsurePocketClawChannel() error = %v", err)
 	}
 	if !changed {
-		t.Fatal("EnsurePicoChannel() should report changed when pico is missing")
+		t.Fatal("EnsurePocketClawChannel() should report changed when pico is missing")
 	}
 
 	cfg, err = config.LoadConfig(configPath)
@@ -239,12 +239,12 @@ func TestEnsurePicoChannel_ExistingConfigWithoutSecurityFile(t *testing.T) {
 		t.Fatalf("LoadConfig() error = %v", err)
 	}
 
-	bc := cfg.Channels["pico"]
+	bc := cfg.Channels["pocketclaw"]
 	decoded, err := bc.GetDecoded()
 	if err != nil {
 		t.Fatalf("GetDecoded() error = %v", err)
 	}
-	picoCfg := decoded.(*config.PicoSettings)
+	picoCfg := decoded.(*config.PocketClawSettings)
 	if !bc.Enabled {
 		t.Error("expected Pico to be enabled after setup")
 	}
@@ -266,8 +266,8 @@ func TestEnsurePicoChannel_ConfiguresPicoWithoutGateway(t *testing.T) {
 	}
 
 	h := NewHandler(configPath)
-	if _, err := h.EnsurePicoChannel(); err != nil {
-		t.Fatalf("EnsurePicoChannel() error = %v", err)
+	if _, err := h.EnsurePocketClawChannel(); err != nil {
+		t.Fatalf("EnsurePocketClawChannel() error = %v", err)
 	}
 
 	cfg, err := config.LoadConfig(configPath)
@@ -275,12 +275,12 @@ func TestEnsurePicoChannel_ConfiguresPicoWithoutGateway(t *testing.T) {
 		t.Fatalf("LoadConfig() error = %v", err)
 	}
 
-	bc := cfg.Channels["pico"]
+	bc := cfg.Channels["pocketclaw"]
 	decoded, err := bc.GetDecoded()
 	if err != nil {
 		t.Fatalf("GetDecoded() error = %v", err)
 	}
-	picoCfg := decoded.(*config.PicoSettings)
+	picoCfg := decoded.(*config.PocketClawSettings)
 	if !bc.Enabled {
 		t.Error("expected Pico to be enabled after launcher startup setup")
 	}
@@ -294,35 +294,35 @@ func TestEnsurePicoChannel_Idempotent(t *testing.T) {
 	h := NewHandler(configPath)
 
 	// First call sets things up
-	if _, err := h.EnsurePicoChannel(); err != nil {
-		t.Fatalf("first EnsurePicoChannel() error = %v", err)
+	if _, err := h.EnsurePocketClawChannel(); err != nil {
+		t.Fatalf("first EnsurePocketClawChannel() error = %v", err)
 	}
 
 	cfg1, _ := config.LoadConfig(configPath)
-	bc := cfg1.Channels["pico"]
+	bc := cfg1.Channels["pocketclaw"]
 	decoded, err := bc.GetDecoded()
 	if err != nil {
 		t.Fatalf("GetDecoded() error = %v", err)
 	}
-	picoCfg := decoded.(*config.PicoSettings)
+	picoCfg := decoded.(*config.PocketClawSettings)
 	token1 := picoCfg.Token.String()
 
 	// Second call should be a no-op
-	changed, err := h.EnsurePicoChannel()
+	changed, err := h.EnsurePocketClawChannel()
 	if err != nil {
-		t.Fatalf("second EnsurePicoChannel() error = %v", err)
+		t.Fatalf("second EnsurePocketClawChannel() error = %v", err)
 	}
 	if changed {
-		t.Error("second EnsurePicoChannel() should not report changed")
+		t.Error("second EnsurePocketClawChannel() should not report changed")
 	}
 
 	cfg2, _ := config.LoadConfig(configPath)
-	bc = cfg2.Channels["pico"]
+	bc = cfg2.Channels["pocketclaw"]
 	decoded, err = bc.GetDecoded()
 	if err != nil {
 		t.Fatalf("GetDecoded() error = %v", err)
 	}
-	picoCfg = decoded.(*config.PicoSettings)
+	picoCfg = decoded.(*config.PocketClawSettings)
 	if picoCfg.Token.String() != token1 {
 		t.Error("token should not change on subsequent calls")
 	}
@@ -347,12 +347,12 @@ func TestHandlePicoSetup_DoesNotPersistRequestOrigin(t *testing.T) {
 		t.Fatalf("LoadConfig() error = %v", err)
 	}
 
-	bc := cfg.Channels["pico"]
+	bc := cfg.Channels["pocketclaw"]
 	decoded, err := bc.GetDecoded()
 	if err != nil {
 		t.Fatalf("GetDecoded() error = %v", err)
 	}
-	picoCfg := decoded.(*config.PicoSettings)
+	picoCfg := decoded.(*config.PocketClawSettings)
 	if len(picoCfg.AllowOrigins) != 0 {
 		t.Errorf("allow_origins = %v, want empty", picoCfg.AllowOrigins)
 	}
@@ -397,8 +397,8 @@ func TestHandleGetPicoInfo_OmitsToken(t *testing.T) {
 	configPath := filepath.Join(t.TempDir(), "config.json")
 	h := NewHandler(configPath)
 
-	if _, err := h.EnsurePicoChannel(); err != nil {
-		t.Fatalf("EnsurePicoChannel() error = %v", err)
+	if _, err := h.EnsurePocketClawChannel(); err != nil {
+		t.Fatalf("EnsurePocketClawChannel() error = %v", err)
 	}
 
 	req := httptest.NewRequest(http.MethodGet, "http://launcher.local/api/pico/info", nil)
@@ -433,8 +433,8 @@ func TestHandleRegenPicoToken_RefreshesGatewayTokenCache(t *testing.T) {
 	configPath := filepath.Join(t.TempDir(), "config.json")
 	h := NewHandler(configPath)
 
-	if _, err := h.EnsurePicoChannel(); err != nil {
-		t.Fatalf("EnsurePicoChannel() error = %v", err)
+	if _, err := h.EnsurePocketClawChannel(); err != nil {
+		t.Fatalf("EnsurePocketClawChannel() error = %v", err)
 	}
 
 	origPicoToken := gateway.picoToken
@@ -461,12 +461,12 @@ func TestHandleRegenPicoToken_RefreshesGatewayTokenCache(t *testing.T) {
 		t.Fatalf("LoadConfig() error = %v", err)
 	}
 
-	bc := cfg.Channels["pico"]
+	bc := cfg.Channels["pocketclaw"]
 	decoded, err := bc.GetDecoded()
 	if err != nil {
 		t.Fatalf("GetDecoded() error = %v", err)
 	}
-	token := decoded.(*config.PicoSettings).Token.String()
+	token := decoded.(*config.PocketClawSettings).Token.String()
 	if token == "" {
 		t.Fatal("expected regenerated pico token to be persisted")
 	}
@@ -539,7 +539,7 @@ func TestHandleWebSocketProxyReloadsGatewayTargetFromConfig(t *testing.T) {
 	})
 
 	gateway.pidData = &ppid.PidFileData{}
-	gateway.picoToken = "pico"
+	gateway.picoToken = "pocketclaw"
 	req1 := newPicoProxyRequest(http.MethodGet, "/pico/ws")
 	rec1 := httptest.NewRecorder()
 	handler(rec1, req1)
@@ -592,12 +592,12 @@ func TestHandleWebSocketProxyLoadsCachedPicoTokenWhenMissing(t *testing.T) {
 	cfg := config.DefaultConfig()
 	cfg.Gateway.Host = "127.0.0.1"
 	cfg.Gateway.Port = mustGatewayTestPort(t, server.URL)
-	bc := cfg.Channels["pico"]
+	bc := cfg.Channels["pocketclaw"]
 	decoded, err := bc.GetDecoded()
 	if err != nil {
 		t.Fatalf("GetDecoded() error = %v", err)
 	}
-	picoCfg := decoded.(*config.PicoSettings)
+	picoCfg := decoded.(*config.PocketClawSettings)
 	bc.Enabled = true
 	picoCfg.SetToken("cached-token")
 	if err := config.SaveConfig(configPath, cfg); err != nil {
@@ -669,13 +669,13 @@ func TestHandleWebSocketProxyLoadsPidDataOnDemand(t *testing.T) {
 	cfg := config.DefaultConfig()
 	cfg.Gateway.Host = "127.0.0.1"
 	cfg.Gateway.Port = mustGatewayTestPort(t, server.URL)
-	bc := cfg.Channels["pico"]
+	bc := cfg.Channels["pocketclaw"]
 	bc.Enabled = true
 	decoded, err := bc.GetDecoded()
 	if err != nil {
 		t.Fatalf("GetDecoded() error = %v", err)
 	}
-	decoded.(*config.PicoSettings).SetToken("ui-token")
+	decoded.(*config.PocketClawSettings).SetToken("ui-token")
 	if err := config.SaveConfig(configPath, cfg); err != nil {
 		t.Fatalf("SaveConfig() error = %v", err)
 	}
@@ -745,13 +745,13 @@ func TestCreatePicoHTTPProxyInjectsGatewayAuth(t *testing.T) {
 	cfg := config.DefaultConfig()
 	cfg.Gateway.Host = "127.0.0.1"
 	cfg.Gateway.Port = 18790
-	bc := cfg.Channels["pico"]
+	bc := cfg.Channels["pocketclaw"]
 	bc.Enabled = true
 	decoded, err := bc.GetDecoded()
 	if err != nil {
 		t.Fatalf("GetDecoded() error = %v", err)
 	}
-	decoded.(*config.PicoSettings).SetToken("ui-token")
+	decoded.(*config.PocketClawSettings).SetToken("ui-token")
 	if err := config.SaveConfig(configPath, cfg); err != nil {
 		t.Fatalf("SaveConfig() error = %v", err)
 	}
@@ -809,13 +809,13 @@ func TestHandlePicoMediaProxyUsesRawBearerToken(t *testing.T) {
 	cfg := config.DefaultConfig()
 	cfg.Gateway.Host = "127.0.0.1"
 	cfg.Gateway.Port = mustGatewayTestPort(t, server.URL)
-	bc := cfg.Channels["pico"]
+	bc := cfg.Channels["pocketclaw"]
 	bc.Enabled = true
 	decoded, err := bc.GetDecoded()
 	if err != nil {
 		t.Fatalf("GetDecoded() error = %v", err)
 	}
-	decoded.(*config.PicoSettings).SetToken("ui-token")
+	decoded.(*config.PocketClawSettings).SetToken("ui-token")
 	if err := config.SaveConfig(configPath, cfg); err != nil {
 		t.Fatalf("SaveConfig() error = %v", err)
 	}
@@ -867,13 +867,13 @@ func TestHandleWebSocketProxyRejectsStalePidDataAfterProcessExit(t *testing.T) {
 	handler := h.handleWebSocketProxy()
 
 	cfg := config.DefaultConfig()
-	bc := cfg.Channels["pico"]
+	bc := cfg.Channels["pocketclaw"]
 	bc.Enabled = true
 	decoded, err := bc.GetDecoded()
 	if err != nil {
 		t.Fatalf("GetDecoded() error = %v", err)
 	}
-	decoded.(*config.PicoSettings).SetToken("ui-token")
+	decoded.(*config.PocketClawSettings).SetToken("ui-token")
 	if err := config.SaveConfig(configPath, cfg); err != nil {
 		t.Fatalf("SaveConfig() error = %v", err)
 	}
@@ -942,13 +942,13 @@ func TestHandleWebSocketProxy_AllowsArbitraryOrigin(t *testing.T) {
 	cfg := config.DefaultConfig()
 	cfg.Gateway.Host = "127.0.0.1"
 	cfg.Gateway.Port = mustGatewayTestPort(t, server.URL)
-	bc := cfg.Channels["pico"]
+	bc := cfg.Channels["pocketclaw"]
 	bc.Enabled = true
 	decoded, err := bc.GetDecoded()
 	if err != nil {
 		t.Fatalf("GetDecoded() error = %v", err)
 	}
-	decoded.(*config.PicoSettings).SetToken("ui-token")
+	decoded.(*config.PocketClawSettings).SetToken("ui-token")
 	if err := config.SaveConfig(configPath, cfg); err != nil {
 		t.Fatalf("SaveConfig() error = %v", err)
 	}

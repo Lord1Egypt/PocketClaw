@@ -1,4 +1,4 @@
-package pico
+package pocketclaw
 
 import (
 	"context"
@@ -18,8 +18,8 @@ import (
 )
 
 func TestNewPicoClientChannel_MissingURL(t *testing.T) {
-	bc := &config.Channel{Type: config.ChannelPicoClient, Enabled: true}
-	_, err := NewPicoClientChannel(bc, &config.PicoClientSettings{}, bus.NewMessageBus())
+	bc := &config.Channel{Type: config.ChannelPocketClawClient, Enabled: true}
+	_, err := NewPocketClawClientChannel(bc, &config.PocketClawClientSettings{}, bus.NewMessageBus())
 	if err == nil {
 		t.Fatal("expected error for missing URL")
 	}
@@ -29,21 +29,21 @@ func TestNewPicoClientChannel_MissingURL(t *testing.T) {
 }
 
 func TestNewPicoClientChannel_OK(t *testing.T) {
-	bc := &config.Channel{Type: config.ChannelPicoClient, Enabled: true}
-	ch, err := NewPicoClientChannel(bc, &config.PicoClientSettings{
+	bc := &config.Channel{Type: config.ChannelPocketClawClient, Enabled: true}
+	ch, err := NewPocketClawClientChannel(bc, &config.PocketClawClientSettings{
 		URL: "ws://localhost:9999/ws",
 	}, bus.NewMessageBus())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if ch.Name() != "pico_client" {
+	if ch.Name() != "pocketclaw_client" {
 		t.Fatalf("name = %q, want pico_client", ch.Name())
 	}
 }
 
 func TestSend_NotRunning(t *testing.T) {
-	bc := &config.Channel{Type: config.ChannelPicoClient, Enabled: true}
-	ch, err := NewPicoClientChannel(bc, &config.PicoClientSettings{
+	bc := &config.Channel{Type: config.ChannelPocketClawClient, Enabled: true}
+	ch, err := NewPocketClawClientChannel(bc, &config.PocketClawClientSettings{
 		URL: "ws://localhost:9999/ws",
 	}, bus.NewMessageBus())
 	if err != nil {
@@ -82,7 +82,7 @@ func testServer(t *testing.T, token string) *httptest.Server {
 				return
 			}
 
-			var msg PicoMessage
+			var msg PocketClawMessage
 			if err := json.Unmarshal(raw, &msg); err != nil {
 				continue
 			}
@@ -107,8 +107,8 @@ func TestClientChannel_ConnectAndSend(t *testing.T) {
 	defer srv.Close()
 
 	mb := bus.NewMessageBus()
-	bc := &config.Channel{Type: config.ChannelPicoClient, Enabled: true}
-	ch, err := NewPicoClientChannel(bc, &config.PicoClientSettings{
+	bc := &config.Channel{Type: config.ChannelPocketClawClient, Enabled: true}
+	ch, err := NewPocketClawClientChannel(bc, &config.PocketClawClientSettings{
 		URL:          wsURL(srv.URL),
 		Token:        *config.NewSecureString("test-token"),
 		SessionID:    "sess-1",
@@ -129,7 +129,7 @@ func TestClientChannel_ConnectAndSend(t *testing.T) {
 
 	// Send a message
 	_, err = ch.Send(ctx, bus.OutboundMessage{
-		ChatID:  "pico_client:sess-1",
+		ChatID:  "pocketclaw_client:sess-1",
 		Content: "hello",
 	})
 	if err != nil {
@@ -141,8 +141,8 @@ func TestClientChannel_AuthFailure(t *testing.T) {
 	srv := testServer(t, "correct-token")
 	defer srv.Close()
 
-	bc := &config.Channel{Type: config.ChannelPicoClient, Enabled: true}
-	ch, err := NewPicoClientChannel(bc, &config.PicoClientSettings{
+	bc := &config.Channel{Type: config.ChannelPocketClawClient, Enabled: true}
+	ch, err := NewPocketClawClientChannel(bc, &config.PocketClawClientSettings{
 		URL:   wsURL(srv.URL),
 		Token: *config.NewSecureString("wrong-token"),
 	}, bus.NewMessageBus())
@@ -166,8 +166,8 @@ func TestClientChannel_ReceivesServerMessage(t *testing.T) {
 
 	mb := bus.NewMessageBus()
 
-	bc := &config.Channel{Type: config.ChannelPicoClient, Enabled: true}
-	ch, err := NewPicoClientChannel(bc, &config.PicoClientSettings{
+	bc := &config.Channel{Type: config.ChannelPocketClawClient, Enabled: true}
+	ch, err := NewPocketClawClientChannel(bc, &config.PocketClawClientSettings{
 		URL:         wsURL(srv.URL),
 		SessionID:   "sess-echo",
 		ReadTimeout: 10,
@@ -186,7 +186,7 @@ func TestClientChannel_ReceivesServerMessage(t *testing.T) {
 
 	// Send a message; the echo server replies with message.create
 	_, err = ch.Send(ctx, bus.OutboundMessage{
-		ChatID:  "pico_client:sess-echo",
+		ChatID:  "pocketclaw_client:sess-echo",
 		Content: "ping",
 	})
 	if err != nil {
@@ -209,8 +209,8 @@ func TestClientChannel_StartTyping(t *testing.T) {
 	srv := testServer(t, "")
 	defer srv.Close()
 
-	bc := &config.Channel{Type: config.ChannelPicoClient, Enabled: true}
-	ch, err := NewPicoClientChannel(bc, &config.PicoClientSettings{
+	bc := &config.Channel{Type: config.ChannelPocketClawClient, Enabled: true}
+	ch, err := NewPocketClawClientChannel(bc, &config.PocketClawClientSettings{
 		URL:         wsURL(srv.URL),
 		SessionID:   "sess-type",
 		ReadTimeout: 10,
@@ -227,7 +227,7 @@ func TestClientChannel_StartTyping(t *testing.T) {
 	}
 	defer ch.Stop(ctx)
 
-	stop, err := ch.StartTyping(ctx, "pico_client:sess-type")
+	stop, err := ch.StartTyping(ctx, "pocketclaw_client:sess-type")
 	if err != nil {
 		t.Fatalf("StartTyping: %v", err)
 	}
@@ -238,8 +238,8 @@ func TestSend_ClosedConnection(t *testing.T) {
 	srv := testServer(t, "")
 	defer srv.Close()
 
-	bc := &config.Channel{Type: config.ChannelPicoClient, Enabled: true}
-	ch, err := NewPicoClientChannel(bc, &config.PicoClientSettings{
+	bc := &config.Channel{Type: config.ChannelPocketClawClient, Enabled: true}
+	ch, err := NewPocketClawClientChannel(bc, &config.PocketClawClientSettings{
 		URL:         wsURL(srv.URL),
 		SessionID:   "sess-close",
 		ReadTimeout: 10,
@@ -261,7 +261,7 @@ func TestSend_ClosedConnection(t *testing.T) {
 	ch.mu.Unlock()
 
 	_, err = ch.Send(ctx, bus.OutboundMessage{
-		ChatID:  "pico_client:sess-close",
+		ChatID:  "pocketclaw_client:sess-close",
 		Content: "should fail",
 	})
 	if !errors.Is(err, channels.ErrSendFailed) {
@@ -305,12 +305,12 @@ func TestParseInlineImageMedia_Attachments(t *testing.T) {
 
 func TestPicoChannel_HandleMessageSend_AllowsMediaOnly(t *testing.T) {
 	mb := bus.NewMessageBus()
-	bc := &config.Channel{Type: "pico", Enabled: true}
-	ch, err := NewPicoChannel(bc, &config.PicoSettings{
+	bc := &config.Channel{Type: "pocketclaw", Enabled: true}
+	ch, err := NewPocketClawChannel(bc, &config.PocketClawSettings{
 		Token: *config.NewSecureString("test-token"),
 	}, mb)
 	if err != nil {
-		t.Fatalf("NewPicoChannel() error = %v", err)
+		t.Fatalf("NewPocketClawChannel() error = %v", err)
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -321,8 +321,8 @@ func TestPicoChannel_HandleMessageSend_AllowsMediaOnly(t *testing.T) {
 	}
 	defer ch.Stop(ctx)
 
-	pc := &picoConn{id: "conn-1", sessionID: "sess-1"}
-	ch.handleMessageSend(pc, PicoMessage{
+	pc := &pocketClawConn{id: "conn-1", sessionID: "sess-1"}
+	ch.handleMessageSend(pc, PocketClawMessage{
 		ID: "msg-1",
 		Payload: map[string]any{
 			"media": []any{
@@ -344,16 +344,16 @@ func TestPicoChannel_HandleMessageSend_AllowsMediaOnly(t *testing.T) {
 	}
 }
 
-func newTestPicoClientChannel(t *testing.T) (*PicoClientChannel, *bus.MessageBus) {
+func newTestPicoClientChannel(t *testing.T) (*PocketClawClientChannel, *bus.MessageBus) {
 	t.Helper()
 
 	mb := bus.NewMessageBus()
-	bc := &config.Channel{Type: config.ChannelPicoClient, Enabled: true}
-	ch, err := NewPicoClientChannel(bc, &config.PicoClientSettings{
+	bc := &config.Channel{Type: config.ChannelPocketClawClient, Enabled: true}
+	ch, err := NewPocketClawClientChannel(bc, &config.PocketClawClientSettings{
 		URL: "ws://localhost:8080/ws",
 	}, mb)
 	if err != nil {
-		t.Fatalf("NewPicoClientChannel() error = %v", err)
+		t.Fatalf("NewPocketClawClientChannel() error = %v", err)
 	}
 	ch.ctx = context.Background()
 
@@ -389,10 +389,10 @@ func assertInboundMessage(
 
 func TestPicoClientChannel_HandleServerMessage_ForwardsMedia(t *testing.T) {
 	ch, mb := newTestPicoClientChannel(t)
-	pc := &picoConn{sessionID: "sess-media"}
+	pc := &pocketClawConn{sessionID: "sess-media"}
 	imageURL := "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+X2ioAAAAASUVORK5CYII="
 
-	ch.handleServerMessage(pc, PicoMessage{
+	ch.handleServerMessage(pc, PocketClawMessage{
 		Type: TypeMessageCreate,
 		Payload: map[string]any{
 			PayloadKeyContent: "describe this",
@@ -416,10 +416,10 @@ func TestPicoClientChannel_HandleServerMessage_ForwardsMedia(t *testing.T) {
 
 func TestPicoClientChannel_HandleInbound_ForwardsMediaCreate(t *testing.T) {
 	ch, mb := newTestPicoClientChannel(t)
-	pc := &picoConn{sessionID: "sess-media-create"}
+	pc := &pocketClawConn{sessionID: "sess-media-create"}
 	imageURL := "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+X2ioAAAAASUVORK5CYII="
 
-	ch.handleInbound(pc, PicoMessage{
+	ch.handleInbound(pc, PocketClawMessage{
 		Type: TypeMediaCreate,
 		Payload: map[string]any{
 			PayloadKeyContent: "describe media.create",
@@ -443,18 +443,18 @@ func TestPicoClientChannel_HandleInbound_ForwardsMediaCreate(t *testing.T) {
 
 func TestPicoClientChannel_HandleServerMessage_ForwardsTextWithDownloadAttachment(t *testing.T) {
 	mb := bus.NewMessageBus()
-	bc := &config.Channel{Type: config.ChannelPicoClient, Enabled: true}
-	ch, err := NewPicoClientChannel(bc, &config.PicoClientSettings{
+	bc := &config.Channel{Type: config.ChannelPocketClawClient, Enabled: true}
+	ch, err := NewPocketClawClientChannel(bc, &config.PocketClawClientSettings{
 		URL: "ws://localhost:8080/ws",
 	}, mb)
 	if err != nil {
-		t.Fatalf("NewPicoClientChannel() error = %v", err)
+		t.Fatalf("NewPocketClawClientChannel() error = %v", err)
 	}
 
 	ch.ctx = context.Background()
-	pc := &picoConn{sessionID: "sess-download-attachment"}
+	pc := &pocketClawConn{sessionID: "sess-download-attachment"}
 
-	ch.handleServerMessage(pc, PicoMessage{
+	ch.handleServerMessage(pc, PocketClawMessage{
 		Type: TypeMessageCreate,
 		Payload: map[string]any{
 			PayloadKeyContent: "see attached",
@@ -484,18 +484,18 @@ func TestPicoClientChannel_HandleServerMessage_ForwardsTextWithDownloadAttachmen
 
 func TestPicoClientChannel_HandleServerMessage_ForwardsTextWithInvalidMediaPayload(t *testing.T) {
 	mb := bus.NewMessageBus()
-	bc := &config.Channel{Type: config.ChannelPicoClient, Enabled: true}
-	ch, err := NewPicoClientChannel(bc, &config.PicoClientSettings{
+	bc := &config.Channel{Type: config.ChannelPocketClawClient, Enabled: true}
+	ch, err := NewPocketClawClientChannel(bc, &config.PocketClawClientSettings{
 		URL: "ws://localhost:8080/ws",
 	}, mb)
 	if err != nil {
-		t.Fatalf("NewPicoClientChannel() error = %v", err)
+		t.Fatalf("NewPocketClawClientChannel() error = %v", err)
 	}
 
 	ch.ctx = context.Background()
-	pc := &picoConn{sessionID: "sess-invalid-media"}
+	pc := &pocketClawConn{sessionID: "sess-invalid-media"}
 
-	ch.handleServerMessage(pc, PicoMessage{
+	ch.handleServerMessage(pc, PocketClawMessage{
 		Type: TypeMessageCreate,
 		Payload: map[string]any{
 			PayloadKeyContent: "hello despite invalid media",
@@ -570,18 +570,18 @@ func TestIsThoughtPayload(t *testing.T) {
 
 func TestPicoClientChannel_HandleServerMessage_IgnoresThought(t *testing.T) {
 	mb := bus.NewMessageBus()
-	bc := &config.Channel{Type: config.ChannelPicoClient, Enabled: true}
-	ch, err := NewPicoClientChannel(bc, &config.PicoClientSettings{
+	bc := &config.Channel{Type: config.ChannelPocketClawClient, Enabled: true}
+	ch, err := NewPocketClawClientChannel(bc, &config.PocketClawClientSettings{
 		URL: "ws://localhost:8080/ws",
 	}, mb)
 	if err != nil {
-		t.Fatalf("NewPicoClientChannel() error = %v", err)
+		t.Fatalf("NewPocketClawClientChannel() error = %v", err)
 	}
 
 	ch.ctx = context.Background()
-	pc := &picoConn{sessionID: "sess-thought"}
+	pc := &pocketClawConn{sessionID: "sess-thought"}
 
-	ch.handleServerMessage(pc, PicoMessage{
+	ch.handleServerMessage(pc, PocketClawMessage{
 		Type: TypeMessageCreate,
 		Payload: map[string]any{
 			PayloadKeyContent: "internal reasoning",
@@ -598,18 +598,18 @@ func TestPicoClientChannel_HandleServerMessage_IgnoresThought(t *testing.T) {
 
 func TestPicoClientChannel_HandleServerMessage_IgnoresLegacyThoughtBool(t *testing.T) {
 	mb := bus.NewMessageBus()
-	bc := &config.Channel{Type: config.ChannelPicoClient, Enabled: true}
-	ch, err := NewPicoClientChannel(bc, &config.PicoClientSettings{
+	bc := &config.Channel{Type: config.ChannelPocketClawClient, Enabled: true}
+	ch, err := NewPocketClawClientChannel(bc, &config.PocketClawClientSettings{
 		URL: "ws://localhost:8080/ws",
 	}, mb)
 	if err != nil {
-		t.Fatalf("NewPicoClientChannel() error = %v", err)
+		t.Fatalf("NewPocketClawClientChannel() error = %v", err)
 	}
 
 	ch.ctx = context.Background()
-	pc := &picoConn{sessionID: "sess-thought-legacy"}
+	pc := &pocketClawConn{sessionID: "sess-thought-legacy"}
 
-	ch.handleServerMessage(pc, PicoMessage{
+	ch.handleServerMessage(pc, PocketClawMessage{
 		Type: TypeMessageCreate,
 		Payload: map[string]any{
 			PayloadKeyContent: "legacy internal reasoning",

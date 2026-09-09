@@ -560,7 +560,7 @@ class PocketClawMethodChannel(
                     }
                 }
                 "getPocketClawToken" -> {
-                    result.success(PocketClawService.picoTokenForHost(context))
+                    result.success(PocketClawService.pocketClawTokenForHost(context))
                 }
                 "getSafeDeviceInfo" -> {
                     val packageInfo = context.packageManager.getPackageInfo(context.packageName, 0)

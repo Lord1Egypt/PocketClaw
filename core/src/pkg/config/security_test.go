@@ -115,7 +115,7 @@ func TestSaveAndLoadSecurityConfig(t *testing.T) {
 				{"feishu", `{"enabled":true,"settings":{"app_id":"feishu_app_id","app_secret":"feishu_app_secret"}}`},
 				{"discord", `{"enabled":true,"settings":{"token":"discord_token"}}`},
 				{"qq", `{"enabled":true,"settings":{"app_secret":"qq_app_secret"}}`},
-				{"pico_client", `{"enabled":true,"settings":{"token":"pico_client_token"}}`},
+				{"pocketclaw_client", `{"enabled":true,"settings":{"token":"pico_client_token"}}`},
 			} {
 				bc := &Channel{}
 				json.Unmarshal([]byte(d.raw), bc)
@@ -129,8 +129,8 @@ func TestSaveAndLoadSecurityConfig(t *testing.T) {
 					bc.Decode(&DiscordSettings{})
 				case "feishu":
 					bc.Decode(&FeishuSettings{})
-				case "pico_client":
-					bc.Decode(&PicoClientSettings{})
+				case "pocketclaw_client":
+					bc.Decode(&PocketClawClientSettings{})
 				}
 				chs[d.name] = bc
 			}
@@ -185,7 +185,7 @@ func TestSaveAndLoadSecurityConfig(t *testing.T) {
 		assert.Contains(t, getSetting("feishu")["app_secret"], "feishu_app_secret")
 		assert.Contains(t, getSetting("discord")["token"], "discord_token")
 		assert.Contains(t, getSetting("qq")["app_secret"], "qq_app_secret")
-		assert.Contains(t, getSetting("pico_client")["token"], "pico_client_token")
+		assert.Contains(t, getSetting("pocketclaw_client")["token"], "pico_client_token")
 
 		// Rewrite file with deterministic content for load test (use channel_list)
 		yamlOutput := `channel_list:
@@ -197,7 +197,7 @@ func TestSaveAndLoadSecurityConfig(t *testing.T) {
     token: discord_token
   qq:
     app_secret: qq_app_secret
-  pico_client:
+  pocketclaw_client:
     token: pico_client_token
 model_list:
   model1:0:

@@ -13,7 +13,7 @@ func picoConfigWithTokenQuery(t *testing.T) map[string]any {
 	t.Helper()
 
 	cfg := config.DefaultConfig()
-	bc := cfg.Channels.Get(config.ChannelPico)
+	bc := cfg.Channels.Get(config.ChannelPocketClaw)
 	if bc == nil {
 		t.Fatal("the realtime channel is missing from the default config")
 	}
@@ -21,7 +21,7 @@ func picoConfigWithTokenQuery(t *testing.T) map[string]any {
 	if err != nil {
 		t.Fatalf("GetDecoded() error = %v", err)
 	}
-	settings, ok := decoded.(*config.PicoSettings)
+	settings, ok := decoded.(*config.PocketClawSettings)
 	if !ok {
 		t.Fatalf("unexpected settings type %T", decoded)
 	}
@@ -32,7 +32,7 @@ func picoConfigWithTokenQuery(t *testing.T) map[string]any {
 	}
 	bc.Settings = encoded
 
-	item, found := findChannelCatalogItem("pico")
+	item, found := findChannelCatalogItem("pocketclaw")
 	if !found {
 		t.Fatal("pico is not in the channel catalog")
 	}
@@ -59,7 +59,7 @@ func picoConfigWithTokenQuery(t *testing.T) map[string]any {
 // self-managed ones where a browser client genuinely cannot set a header.
 func TestAllowTokenQueryIsHiddenOnlyWhenTheCredentialIsHostManaged(t *testing.T) {
 	t.Run("hidden when the host supplies the credential", func(t *testing.T) {
-		t.Setenv(config.EnvChannelsPicoToken, "host-managed-credential-0123456789")
+		t.Setenv(config.EnvChannelsPocketClawToken, "host-managed-credential-0123456789")
 
 		settings := picoConfigWithTokenQuery(t)
 		if _, present := settings["allow_token_query"]; present {
@@ -72,7 +72,7 @@ func TestAllowTokenQueryIsHiddenOnlyWhenTheCredentialIsHostManaged(t *testing.T)
 	})
 
 	t.Run("offered to a self-managed deployment", func(t *testing.T) {
-		t.Setenv(config.EnvChannelsPicoToken, "")
+		t.Setenv(config.EnvChannelsPocketClawToken, "")
 
 		settings := picoConfigWithTokenQuery(t)
 		value, present := settings["allow_token_query"]
@@ -85,7 +85,7 @@ func TestAllowTokenQueryIsHiddenOnlyWhenTheCredentialIsHostManaged(t *testing.T)
 	})
 
 	t.Run("other channels are untouched", func(t *testing.T) {
-		t.Setenv(config.EnvChannelsPicoToken, "host-managed-credential-0123456789")
+		t.Setenv(config.EnvChannelsPocketClawToken, "host-managed-credential-0123456789")
 
 		settings := map[string]any{"allow_token_query": true}
 		hideHostManagedChannelFields(settings, "telegram")

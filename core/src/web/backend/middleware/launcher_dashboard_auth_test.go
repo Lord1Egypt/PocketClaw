@@ -377,7 +377,7 @@ func TestLauncherDashboardAuth_WebSocketRequiresAuthenticatedSameOrigin(t *testi
 		{name: "missing origin", cookie: token, want: http.StatusForbidden},
 		{name: "foreign origin", origin: "https://evil.example", cookie: token, want: http.StatusForbidden},
 		{name: "revoked session", origin: "http://launcher.local:18800", cookie: revokedToken, want: http.StatusUnauthorized},
-		{name: "forged cookie", origin: "http://launcher.local:18800", cookie: "pico-user", want: http.StatusUnauthorized},
+		{name: "forged cookie", origin: "http://launcher.local:18800", cookie: "pocketclaw-user", want: http.StatusUnauthorized},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			rec := httptest.NewRecorder()

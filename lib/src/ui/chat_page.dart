@@ -8,7 +8,7 @@ import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:web_socket_channel/io.dart';
 import 'package:pocketclaw/src/core/pocketclaw_channel.dart';
 
-/// 聊天页面 - 通过 WebSocket 与 PicoClaw Gateway 的 Pico Protocol 通信
+/// 聊天页面 - 通过 WebSocket 与 PocketClaw Gateway 的实时通道通信
 class ChatPage extends StatefulWidget {
   const ChatPage({super.key});
 
@@ -31,7 +31,7 @@ class _ChatPageState extends State<ChatPage> {
   bool _isConnected = false;
   bool _isSending = false;
   late String _sessionId;
-  String _picoToken = '';
+  String _realtimeToken = '';
 
   @override
   void initState() {
@@ -42,7 +42,7 @@ class _ChatPageState extends State<ChatPage> {
   Future<void> _initChat() async {
     _sessionId = await _getOrCreateSessionId();
     try {
-      _picoToken = await PocketClawChannel.getPocketClawToken();
+      _realtimeToken = await PocketClawChannel.getPocketClawToken();
     } catch (_) {
       _addMessage(_ChatMessage('无法验证本机连接。', _Role.assistant));
       return;
@@ -68,7 +68,7 @@ class _ChatPageState extends State<ChatPage> {
       );
       _channel = IOWebSocketChannel.connect(
         uri,
-        headers: {'Authorization': 'Bearer $_picoToken'},
+        headers: {'Authorization': 'Bearer $_realtimeToken'},
       );
 
       _subscription = _channel!.stream.listen(
@@ -214,8 +214,8 @@ class _ChatPageState extends State<ChatPage> {
     _addMessage(_ChatMessage('正在思考...', _Role.assistant, isThinking: true));
     setState(() => _isSending = true);
 
-    // 通过 WebSocket 发送 Pico Protocol 消息
-    final picoMsg = jsonEncode({
+    // 通过 WebSocket 发送实时通道消息
+    final realtimeMessage = jsonEncode({
       'type': 'message.send',
       'id': _uuid.v4(),
       'session_id': _sessionId,
@@ -223,7 +223,7 @@ class _ChatPageState extends State<ChatPage> {
     });
 
     try {
-      _channel?.sink.add(picoMsg);
+      _channel?.sink.add(realtimeMessage);
     } catch (e) {
       setState(() {
         _removeThinkingMessage();

@@ -142,9 +142,7 @@ void main() {
 
     test('deferred surfaces are untouched', () {
       // The PID record name went to N4G; pkg/pid's tests own it now.
-      expect(service, contains('picoTokenForHost'),
-          reason: 'the serialized "pico" channel is renamed with the channel');
-      expect(Directory('core/src/pkg/channels/pico').existsSync(), isTrue);
+      // The channel identity went to N4H; zero_pico_n4h_test.dart owns it.
     });
   });
 }

@@ -1,5 +1,89 @@
 # PocketClaw Project State
 
+## Zero-Pico N4H — channel, client and owner canonical, NOT closed
+
+- Status: **implemented on `feature/zero-pico-runtime`, 2026-09-09. NOT merged.**
+  `0.2.0+61`, baseline 59, no candidate, no What's New entry.
+- Core source fingerprint moved `2b06b4a8…` → `eb3c8b4d…`.
+  **Staged Core remains EXPECTED STALE — FINAL ZERO-PICO CORE REBUILD PENDING.**
+
+### Canonical identities
+
+    pocketclaw          managed realtime channel type and config key
+    pocketclaw_client   its client half
+    pocketclaw-user     owner principal, the only value owner-only accepts
+
+`pico`, `pico_client` and `pico-user` are migration input only, declared once in
+`pkg/config/channel_legacy.go`. No writer emits them; a test walks every
+production Go file to prove it, exempting only the deferred log-component call
+shape.
+
+### Migration, and why it edits the document
+
+`migrateChannelIdentities` runs at the top of `LoadConfig`, before channel
+construction, owner authorization or the token lookup. It is a **targeted edit of
+the serialized config**, not a load-and-save: `SaveConfig` marshals the typed
+`Config` and is lossy for anything the struct does not model, and a namespace
+migration is the wrong moment to discover that. Unrelated entries are carried as
+raw bytes and keys keep their order, so the user's file changes on exactly the
+lines the identity does.
+
+It covers both `channel_list` (current) and `channels` (pre-v3), and it covers
+**`.security.yml` as well** — the channel token is filed there under the channel
+name and merged back by name at load, so renaming only `config.json` would leave
+the credential under a name nothing looks for. The credential file is written
+first: a crash between the two writes leaves a legacy config with a canonical
+security file, which migrates again on the next start; the other order would
+silently lose the token.
+
+    legacy only        rename key, type and owner principal
+    canonical only     untouched, byte for byte
+    both, identical    canonical wins, legacy key dropped
+    both, differing    FAIL CLOSED — nothing changed, load refused
+
+Two differing definitions can carry two different tokens, and nothing on disk
+says which the user meant. `ErrChannelMigrationConflict` is fatal to the load
+rather than resolved by guessing.
+
+### Owner principal
+
+Rewritten only inside a channel's `allow_from`, never as a global string
+replacement. Both spellings in one list collapse to one owner — a rename, not a
+widening, and the list never grows. Owner-only enforcement compares against
+`PocketClawOwnerPrincipal` alone, and the legacy label is now explicitly in the
+rejection set alongside `PICO-USER`, `pocketclaw_user` and the rest.
+
+### Sessions re-key. This is unavoidable and intentional.
+
+`CanonicalScopeSignature` includes `channel=`, so renaming the channel changes
+the session key for the Web channel. **Existing Web-channel conversation history
+is not carried across.** No amount of chat-id compatibility avoids it — the
+channel name alone re-keys the hash — so the conversation-id prefix moved too,
+with legacy-tolerant parsing so a message already in flight still routes. Other
+channels are unaffected.
+
+### Deferred to the route/sanitizer phase — explicitly
+
+    /pico/, /pico/ws, /pico/events, /pico/send, /pico/media/*
+    /api/pico/info | token | setup
+    logger component "pico" / "pico_client"
+    web/backend/api/pico.go, frontend api/pico.ts, use-pico-chat
+
+These travel through one redaction path. The Go sanitizer keys `path=/pico/`
+against the channel field, and the frontend matches the component token and the
+caller filename. Splitting them leaves a build whose internal route stops being
+redacted, so they move as one piece. Both sanitizers were extended here to
+accept the canonical channel beside the legacy route, and the frontend's caller
+pattern now matches `pocketclaw.go` — the file moved with its package.
+
+### Env token
+
+Unchanged by decision: `POCKETCLAW_CHANNELS_POCKETCLAW_TOKEN` still resolves
+through the canonical-env adapter onto the upstream tag
+`PICOCLAW_CHANNELS_PICO_TOKEN`. **Zero struct tags renamed.** Retagging that one
+field would put a single canonical name among ~175 legacy ones and drop legacy
+env support for it, for no behavioural gain.
+
 ## Zero-Pico N4G — `.pocketclaw.pid` canonical, NOT closed
 
 - Status: **implemented on `feature/zero-pico-runtime`, 2026-09-09. NOT merged.**

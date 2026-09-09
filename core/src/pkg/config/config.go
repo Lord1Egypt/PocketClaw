@@ -646,7 +646,7 @@ func (c *WeixinSettings) SetToken(token string) {
 	c.Token = *NewSecureString(token)
 }
 
-type PicoSettings struct {
+type PocketClawSettings struct {
 	Token           SecureString        `json:"token,omitzero"              yaml:"token,omitempty" env:"PICOCLAW_CHANNELS_PICO_TOKEN"`
 	AllowTokenQuery bool                `json:"allow_token_query,omitempty" yaml:"-"`
 	AllowOrigins    FlexibleStringSlice `json:"allow_origins,omitempty"     yaml:"-"`
@@ -658,11 +658,11 @@ type PicoSettings struct {
 }
 
 // SetToken sets the Pico token and marks it as dirty for security saving
-func (c *PicoSettings) SetToken(token string) {
+func (c *PocketClawSettings) SetToken(token string) {
 	c.Token = *NewSecureString(token)
 }
 
-type PicoClientSettings struct {
+type PocketClawClientSettings struct {
 	URL          string       `json:"url"                     yaml:"-"               env:"PICOCLAW_CHANNELS_PICO_CLIENT_URL"`
 	Token        SecureString `json:"token,omitzero"          yaml:"token,omitempty" env:"PICOCLAW_CHANNELS_PICO_CLIENT_TOKEN"`
 	SessionID    string       `json:"session_id,omitempty"    yaml:"-"`
@@ -1272,6 +1272,20 @@ func (c *MCPConfig) GetMaxInlineTextChars() int {
 
 func LoadConfig(path string) (*Config, error) {
 	updateResolver(filepath.Dir(path))
+
+	// Before anything reads the channels. Managed channel construction, owner
+	// authorization and the token lookup all key on the channel's name, so an
+	// installation written before the channel migration has to be normalized
+	// here rather than by the user editing config.json by hand. A conflict is
+	// fatal: continuing would mean picking one of two channel definitions, and
+	// they can carry different tokens.
+	if _, err := migrateChannelIdentities(path); err != nil {
+		logger.ErrorCF("config", "channel identity migration failed", map[string]any{
+			"path":  path,
+			"error": err,
+		})
+		return nil, err
+	}
 
 	data, err := os.ReadFile(path)
 	if err != nil {

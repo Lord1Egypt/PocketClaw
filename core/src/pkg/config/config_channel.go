@@ -16,35 +16,36 @@ import (
 
 // Channel type constants — single source of truth for all channel type names.
 const (
-	ChannelPico = "pico"
-	// PicoOwnerPrincipal is the Core-derived owner identity for PocketClaw's
-	// internal realtime channel. It is an authorization label, not a secret.
-	PicoOwnerPrincipal    = "pico-user"
-	ChannelPicoClient     = "pico_client"
-	ChannelTelegram       = "telegram"
-	ChannelDiscord        = "discord"
-	ChannelFeishu         = "feishu"
-	ChannelWeixin         = "weixin"
-	ChannelWeCom          = "wecom"
-	ChannelDingTalk       = "dingtalk"
-	ChannelSlack          = "slack"
-	ChannelMatrix         = "matrix"
-	ChannelLINE           = "line"
-	ChannelOneBot         = "onebot"
-	ChannelQQ             = "qq"
-	ChannelIRC            = "irc"
-	ChannelVK             = "vk"
-	ChannelMaixCam        = "maixcam"
-	ChannelWhatsApp       = "whatsapp"
-	ChannelWhatsAppNative = "whatsapp_native"
-	ChannelTeamsWebHook   = "teams_webhook"
-	ChannelMQTT           = "mqtt"
-	ChannelSlackWebHook   = "slack_webhook"
+	ChannelPocketClaw = "pocketclaw"
+	// PocketClawOwnerPrincipal is the Core-derived owner identity for
+	// PocketClaw's internal realtime channel. It is an authorization label, not
+	// a secret, and it is the only value owner-only enforcement accepts.
+	PocketClawOwnerPrincipal = "pocketclaw-user"
+	ChannelPocketClawClient  = "pocketclaw_client"
+	ChannelTelegram          = "telegram"
+	ChannelDiscord           = "discord"
+	ChannelFeishu            = "feishu"
+	ChannelWeixin            = "weixin"
+	ChannelWeCom             = "wecom"
+	ChannelDingTalk          = "dingtalk"
+	ChannelSlack             = "slack"
+	ChannelMatrix            = "matrix"
+	ChannelLINE              = "line"
+	ChannelOneBot            = "onebot"
+	ChannelQQ                = "qq"
+	ChannelIRC               = "irc"
+	ChannelVK                = "vk"
+	ChannelMaixCam           = "maixcam"
+	ChannelWhatsApp          = "whatsapp"
+	ChannelWhatsAppNative    = "whatsapp_native"
+	ChannelTeamsWebHook      = "teams_webhook"
+	ChannelMQTT              = "mqtt"
+	ChannelSlackWebHook      = "slack_webhook"
 )
 
 func initChannel() {
-	registerSingletonChannel(ChannelPico)
-	registerSingletonChannel(ChannelPicoClient)
+	registerSingletonChannel(ChannelPocketClaw)
+	registerSingletonChannel(ChannelPocketClawClient)
 }
 
 // singletonRegistry stores which channel types are singletons (only allow one instance).
@@ -661,27 +662,27 @@ func filterSecureFields(r RawNode, secureFields map[string]struct{}) RawNode {
 var channelSettingsMu sync.RWMutex
 
 var channelSettingsFactory = map[string]any{
-	ChannelPico:           (PicoSettings{}),
-	ChannelPicoClient:     (PicoClientSettings{}),
-	ChannelTelegram:       (TelegramSettings{}),
-	ChannelDiscord:        (DiscordSettings{}),
-	ChannelFeishu:         (FeishuSettings{}),
-	ChannelWeixin:         (WeixinSettings{}),
-	ChannelWeCom:          (WeComSettings{}),
-	ChannelDingTalk:       (DingTalkSettings{}),
-	ChannelSlack:          (SlackSettings{}),
-	ChannelMatrix:         (MatrixSettings{}),
-	ChannelLINE:           (LINESettings{}),
-	ChannelOneBot:         (OneBotSettings{}),
-	ChannelQQ:             (QQSettings{}),
-	ChannelIRC:            (IRCSettings{}),
-	ChannelVK:             (VKSettings{}),
-	ChannelMaixCam:        (MaixCamSettings{}),
-	ChannelWhatsApp:       (WhatsAppSettings{}),
-	ChannelWhatsAppNative: (WhatsAppSettings{}),
-	ChannelTeamsWebHook:   (TeamsWebhookSettings{}),
-	ChannelMQTT:           (MQTTSettings{}),
-	ChannelSlackWebHook:   (SlackWebhookSettings{}),
+	ChannelPocketClaw:       (PocketClawSettings{}),
+	ChannelPocketClawClient: (PocketClawClientSettings{}),
+	ChannelTelegram:         (TelegramSettings{}),
+	ChannelDiscord:          (DiscordSettings{}),
+	ChannelFeishu:           (FeishuSettings{}),
+	ChannelWeixin:           (WeixinSettings{}),
+	ChannelWeCom:            (WeComSettings{}),
+	ChannelDingTalk:         (DingTalkSettings{}),
+	ChannelSlack:            (SlackSettings{}),
+	ChannelMatrix:           (MatrixSettings{}),
+	ChannelLINE:             (LINESettings{}),
+	ChannelOneBot:           (OneBotSettings{}),
+	ChannelQQ:               (QQSettings{}),
+	ChannelIRC:              (IRCSettings{}),
+	ChannelVK:               (VKSettings{}),
+	ChannelMaixCam:          (MaixCamSettings{}),
+	ChannelWhatsApp:         (WhatsAppSettings{}),
+	ChannelWhatsAppNative:   (WhatsAppSettings{}),
+	ChannelTeamsWebHook:     (TeamsWebhookSettings{}),
+	ChannelMQTT:             (MQTTSettings{}),
+	ChannelSlackWebHook:     (SlackWebhookSettings{}),
 }
 
 // RegisterChannelSettings registers a settings struct prototype for a custom
@@ -736,7 +737,7 @@ var retiredChannelTypes = map[string]string{
 //  1. Validates that each channel has a non-empty Type
 //  2. Validates singleton constraints
 //  3. Decodes Settings into the correct typed struct based on Type,
-//     so that b.extend contains the actual settings (e.g., PicoSettings)
+//     so that b.extend contains the actual settings (e.g., PocketClawSettings)
 //
 // After calling this method, callers can safely use b.extend via Decode()
 // without re-parsing raw Settings.
@@ -815,7 +816,7 @@ func applyTelegramStreamingEnvCompat(target any) {
 func validateChannelStreamingConfig(channelName string, target any) error {
 	var streaming StreamingConfig
 	switch settings := target.(type) {
-	case *PicoSettings:
+	case *PocketClawSettings:
 		streaming = settings.Streaming
 	case *TelegramSettings:
 		streaming = settings.Streaming

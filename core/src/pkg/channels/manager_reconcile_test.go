@@ -33,7 +33,7 @@ func secretBearingChannels() []channelWithSecret {
 		{"discord", config.ChannelDiscord, simpleToken("")},
 		{"vk", config.ChannelVK, simpleToken(`,"group_id":7`)},
 		{"weixin", config.ChannelWeixin, simpleToken("")},
-		{"pico", config.ChannelPico, simpleToken("")},
+		{"pocketclaw", config.ChannelPocketClaw, simpleToken("")},
 		{"slack", config.ChannelSlack, func(secret string) string {
 			return `{"enabled":true,"bot_token":"` + secret + `","app_token":"xapp-1"}`
 		}},

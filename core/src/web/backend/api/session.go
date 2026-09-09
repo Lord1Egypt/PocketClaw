@@ -64,11 +64,17 @@ type sessionChatAttachment struct {
 	ContentType string `json:"content_type,omitempty"`
 }
 
-// legacyPicoSessionPrefix is the legacy key prefix used by older Pico JSON/JSONL
-// sessions before structured scope metadata existed.
+// Session key prefixes for the managed realtime channel's direct sessions,
+// from before structured scope metadata existed.
+//
+// Both are LEGACY READ-ONLY: this alias shape is not written any more. The
+// second is older still — it carries the channel's pre-migration name, and an
+// installation that has been upgraded twice has sessions under both.
 const (
-	legacyPicoSessionPrefix = "agent:main:pico:direct:pico:"
-	picoSessionPrefix       = legacyPicoSessionPrefix
+	legacyPicoSessionPrefix    = "agent:main:pico:direct:pico:"
+	legacyManagedSessionPrefix = "agent:main:" + config.ChannelPocketClaw +
+		":direct:" + config.ChannelPocketClaw + ":"
+	picoSessionPrefix = legacyPicoSessionPrefix
 
 	// Keep the session API aligned with the shared JSONL store reader limit in
 	// pkg/memory/jsonl.go so oversized lines fail consistently everywhere.
@@ -83,11 +89,13 @@ func defaultToolFeedbackMaxArgsLength() int {
 	return defaults.GetToolFeedbackMaxArgsLength()
 }
 
-// extractLegacyPicoSessionID extracts the session UUID from an old Pico key.
-// Returns the UUID and true if the key matches the Pico session pattern.
+// extractLegacyPicoSessionID extracts the session UUID from an old alias key,
+// under either spelling of the channel.
 func extractLegacyPicoSessionID(key string) (string, bool) {
-	if strings.HasPrefix(key, legacyPicoSessionPrefix) {
-		return strings.TrimPrefix(key, legacyPicoSessionPrefix), true
+	for _, prefix := range []string{legacyManagedSessionPrefix, legacyPicoSessionPrefix} {
+		if rest, found := strings.CutPrefix(key, prefix); found {
+			return rest, true
+		}
 	}
 	return "", false
 }
@@ -216,8 +224,10 @@ type picoLegacySessionRef struct {
 	Path string
 }
 
-func extractPicoSessionIDFromScope(scope session.SessionScope) (string, bool) {
-	if !strings.EqualFold(strings.TrimSpace(scope.Channel), "pico") {
+func extractPocketClawSessionIDFromScope(scope session.SessionScope) (string, bool) {
+	channel := strings.TrimSpace(scope.Channel)
+	if !strings.EqualFold(channel, config.ChannelPocketClaw) &&
+		!strings.EqualFold(channel, config.LegacyChannelPocketClaw) {
 		return "", false
 	}
 
@@ -229,8 +239,18 @@ func extractPicoSessionIDFromScope(scope session.SessionScope) (string, bool) {
 		if candidate == "" {
 			continue
 		}
-		if idx := strings.Index(candidate, "pico:"); idx >= 0 {
-			sessionID := strings.TrimSpace(candidate[idx+len("pico:"):])
+		// The conversation id carries the channel's name. A scope stored
+		// before the channel migration still uses the old one, so both are
+		// recognised on the way in; only the canonical one is ever written.
+		for _, prefix := range []string{
+			config.ChannelPocketClaw + ":",
+			config.LegacyChannelPocketClaw + ":",
+		} {
+			idx := strings.Index(candidate, prefix)
+			if idx < 0 {
+				continue
+			}
+			sessionID := strings.TrimSpace(candidate[idx+len(prefix):])
 			if sessionID != "" {
 				return sessionID, true
 			}
@@ -255,7 +275,7 @@ func sessionRefFromMeta(meta memory.SessionMeta) (picoJSONLSessionRef, bool) {
 	if err := json.Unmarshal(meta.Scope, &scope); err != nil {
 		return picoJSONLSessionRef{}, false
 	}
-	sessionID, ok := extractPicoSessionIDFromScope(scope)
+	sessionID, ok := extractPocketClawSessionIDFromScope(scope)
 	if !ok {
 		if legacySessionID, ok := extractLegacyPicoSessionID(meta.Key); ok {
 			return picoJSONLSessionRef{ID: legacySessionID, Key: meta.Key}, true

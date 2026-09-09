@@ -27,7 +27,7 @@ import (
 	_ "github.com/sipeed/picoclaw/pkg/channels/maixcam"
 	_ "github.com/sipeed/picoclaw/pkg/channels/mqtt"
 	_ "github.com/sipeed/picoclaw/pkg/channels/onebot"
-	_ "github.com/sipeed/picoclaw/pkg/channels/pico"
+	_ "github.com/sipeed/picoclaw/pkg/channels/pocketclaw"
 	_ "github.com/sipeed/picoclaw/pkg/channels/qq"
 	_ "github.com/sipeed/picoclaw/pkg/channels/slack"
 	_ "github.com/sipeed/picoclaw/pkg/channels/slack_webhook"
@@ -105,7 +105,7 @@ func userVisibleEnabledChannels(names []string) []string {
 	displayNames := make([]string, len(names))
 	for i, name := range names {
 		switch name {
-		case config.ChannelPico:
+		case config.ChannelPocketClaw:
 			// `pico` is the internal protocol/config ID for PocketClaw's Web
 			// Console transport. Keep the runtime identity internal.
 			displayNames[i] = "pocketclaw"

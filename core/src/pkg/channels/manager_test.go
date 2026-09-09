@@ -68,7 +68,7 @@ func TestSetupHTTPServerNormalizesInternalPicoWebhookRouteInStartupLog(t *testin
 	}
 
 	webhook := &mockPicoWebhookChannel{}
-	manager := &Manager{channels: map[string]Channel{"pico": webhook}}
+	manager := &Manager{channels: map[string]Channel{"pocketclaw": webhook}}
 	manager.SetupHTTPServer(":0", nil)
 
 	recorder := httptest.NewRecorder()

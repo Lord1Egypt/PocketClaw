@@ -1,4 +1,4 @@
-package pico
+package pocketclaw
 
 import (
 	"context"
@@ -21,15 +21,15 @@ import (
 	"github.com/sipeed/picoclaw/pkg/media"
 )
 
-func newTestPicoChannel(t *testing.T) *PicoChannel {
+func newTestPicoChannel(t *testing.T) *PocketClawChannel {
 	t.Helper()
 
-	bc := &config.Channel{Type: config.ChannelPico, Enabled: true}
-	cfg := &config.PicoSettings{}
+	bc := &config.Channel{Type: config.ChannelPocketClaw, Enabled: true}
+	cfg := &config.PocketClawSettings{}
 	cfg.SetToken("test-token")
-	ch, err := NewPicoChannel(bc, cfg, bus.NewMessageBus())
+	ch, err := NewPocketClawChannel(bc, cfg, bus.NewMessageBus())
 	if err != nil {
-		t.Fatalf("NewPicoChannel: %v", err)
+		t.Fatalf("NewPocketClawChannel: %v", err)
 	}
 
 	ch.ctx = context.Background()
@@ -38,16 +38,16 @@ func newTestPicoChannel(t *testing.T) *PicoChannel {
 
 func TestHandleMessageSend_ForwardsMessageMetadata(t *testing.T) {
 	msgBus := bus.NewMessageBus()
-	bc := &config.Channel{Type: config.ChannelPico, Enabled: true}
-	cfg := &config.PicoSettings{}
+	bc := &config.Channel{Type: config.ChannelPocketClaw, Enabled: true}
+	cfg := &config.PocketClawSettings{}
 	cfg.SetToken("test-token")
-	ch, err := NewPicoChannel(bc, cfg, msgBus)
+	ch, err := NewPocketClawChannel(bc, cfg, msgBus)
 	if err != nil {
-		t.Fatalf("NewPicoChannel: %v", err)
+		t.Fatalf("NewPocketClawChannel: %v", err)
 	}
 	ch.ctx = context.Background()
 
-	ch.handleMessageSend(&picoConn{id: "conn-1", sessionID: "sess-1"}, PicoMessage{
+	ch.handleMessageSend(&pocketClawConn{id: "conn-1", sessionID: "sess-1"}, PocketClawMessage{
 		Type:      TypeMessageSend,
 		ID:        "msg-1",
 		SessionID: "sess-1",
@@ -72,19 +72,19 @@ func TestHandleMessageSend_ForwardsMessageMetadata(t *testing.T) {
 func TestHandleMessageSend_IgnoresClientForgedIdentityAndSession(t *testing.T) {
 	msgBus := bus.NewMessageBus()
 	bc := &config.Channel{
-		Type:      config.ChannelPico,
+		Type:      config.ChannelPocketClaw,
 		Enabled:   true,
 		AllowFrom: config.FlexibleStringSlice{"*"},
 	}
-	cfg := &config.PicoSettings{}
+	cfg := &config.PocketClawSettings{}
 	cfg.SetToken("test-token")
-	ch, err := NewPicoChannel(bc, cfg, msgBus)
+	ch, err := NewPocketClawChannel(bc, cfg, msgBus)
 	if err != nil {
 		t.Fatal(err)
 	}
 	ch.ctx = context.Background()
 
-	ch.handleMessageSend(&picoConn{id: "conn-1", sessionID: "server-session"}, PicoMessage{
+	ch.handleMessageSend(&pocketClawConn{id: "conn-1", sessionID: "server-session"}, PocketClawMessage{
 		Type:      TypeMessageSend,
 		ID:        "msg-1",
 		SessionID: "client-forged-session",
@@ -104,7 +104,7 @@ func TestHandleMessageSend_IgnoresClientForgedIdentityAndSession(t *testing.T) {
 		if inbound.SenderID != OwnerPrincipal || inbound.Context.SenderID != OwnerPrincipal {
 			t.Fatalf("effective sender = %q/%q, want server owner", inbound.SenderID, inbound.Context.SenderID)
 		}
-		if inbound.ChatID != "pico:server-session" || inbound.Context.ChatID != "pico:server-session" {
+		if inbound.ChatID != "pocketclaw:server-session" || inbound.Context.ChatID != "pocketclaw:server-session" {
 			t.Fatalf("effective chat = %q/%q, want connection-bound session", inbound.ChatID, inbound.Context.ChatID)
 		}
 		if got := inbound.Context.Raw["session_id"]; got != "server-session" {
@@ -117,39 +117,39 @@ func TestHandleMessageSend_IgnoresClientForgedIdentityAndSession(t *testing.T) {
 
 func TestNewPicoChannelEnforcesOnlyServerOwnerPrincipal(t *testing.T) {
 	bc := &config.Channel{
-		Type:      config.ChannelPico,
+		Type:      config.ChannelPocketClaw,
 		Enabled:   true,
 		AllowFrom: config.FlexibleStringSlice{"*"},
 	}
-	cfg := &config.PicoSettings{}
+	cfg := &config.PocketClawSettings{}
 	cfg.SetToken("test-token")
-	ch, err := NewPicoChannel(bc, cfg, bus.NewMessageBus())
+	ch, err := NewPocketClawChannel(bc, cfg, bus.NewMessageBus())
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !ch.IsAllowedSender(bus.SenderInfo{Platform: "pico", PlatformID: OwnerPrincipal}) {
+	if !ch.IsAllowedSender(bus.SenderInfo{Platform: "pocketclaw", PlatformID: OwnerPrincipal}) {
 		t.Fatal("server-derived owner principal was rejected")
 	}
-	if ch.IsAllowedSender(bus.SenderInfo{Platform: "pico", PlatformID: "attacker"}) {
+	if ch.IsAllowedSender(bus.SenderInfo{Platform: "pocketclaw", PlatformID: "attacker"}) {
 		t.Fatal("stale wildcard config bypassed owner-only authorization")
 	}
 }
 
 func TestFinalizeTrackedToolFeedbackMessage_StopsTrackingBeforeEdit(t *testing.T) {
-	ch := &PicoChannel{
+	ch := &PocketClawChannel{
 		progress: channels.NewToolFeedbackAnimator(nil),
 	}
-	ch.RecordToolFeedbackMessage("pico:chat-1", "msg-1", "🔧 `read_file`")
+	ch.RecordToolFeedbackMessage("pocketclaw:chat-1", "msg-1", "🔧 `read_file`")
 
 	msgIDs, handled := ch.finalizeTrackedToolFeedbackMessage(
 		context.Background(),
-		"pico:chat-1",
+		"pocketclaw:chat-1",
 		"final reply",
 		func(_ context.Context, chatID, messageID string, payload map[string]any, contextUsage *bus.ContextUsage) error {
 			if _, ok := ch.currentToolFeedbackMessage(chatID); ok {
 				t.Fatal("expected tracked tool feedback to be stopped before edit")
 			}
-			if chatID != "pico:chat-1" || messageID != "msg-1" {
+			if chatID != "pocketclaw:chat-1" || messageID != "msg-1" {
 				t.Fatalf("unexpected edit args: %s %s", chatID, messageID)
 			}
 			if got := payload[PayloadKeyContent]; got != "final reply" {
@@ -172,10 +172,10 @@ func TestFinalizeTrackedToolFeedbackMessage_StopsTrackingBeforeEdit(t *testing.T
 }
 
 func TestDismissTrackedToolFeedbackMessage_DeletesProgressMessage(t *testing.T) {
-	ch := &PicoChannel{
+	ch := &PocketClawChannel{
 		progress: channels.NewToolFeedbackAnimator(nil),
 	}
-	ch.RecordToolFeedbackMessage("pico:chat-1", "msg-1", "🔧 `read_file`")
+	ch.RecordToolFeedbackMessage("pocketclaw:chat-1", "msg-1", "🔧 `read_file`")
 
 	var deleted struct {
 		chatID    string
@@ -187,12 +187,12 @@ func TestDismissTrackedToolFeedbackMessage_DeletesProgressMessage(t *testing.T) 
 		return nil
 	}
 
-	ch.DismissToolFeedbackMessage(context.Background(), "pico:chat-1")
+	ch.DismissToolFeedbackMessage(context.Background(), "pocketclaw:chat-1")
 
-	if deleted.chatID != "pico:chat-1" || deleted.messageID != "msg-1" {
+	if deleted.chatID != "pocketclaw:chat-1" || deleted.messageID != "msg-1" {
 		t.Fatalf("unexpected delete target: %+v", deleted)
 	}
-	if _, ok := ch.currentToolFeedbackMessage("pico:chat-1"); ok {
+	if _, ok := ch.currentToolFeedbackMessage("pocketclaw:chat-1"); ok {
 		t.Fatal("expected tracked tool feedback to be cleared after dismissal")
 	}
 }
@@ -207,16 +207,16 @@ func TestSend_ThoughtMessageDoesNotFinalizeTrackedToolFeedback(t *testing.T) {
 
 	clientConn, received, cleanup := newTestPicoWebSocket(t)
 	defer cleanup()
-	ch.addConnForTest(&picoConn{id: "conn-1", conn: clientConn, sessionID: "sess-1"})
+	ch.addConnForTest(&pocketClawConn{id: "conn-1", conn: clientConn, sessionID: "sess-1"})
 
-	ch.RecordToolFeedbackMessage("pico:sess-1", "msg-progress", "🔧 `read_file`\nReading config")
+	ch.RecordToolFeedbackMessage("pocketclaw:sess-1", "msg-progress", "🔧 `read_file`\nReading config")
 
 	if _, err := ch.Send(context.Background(), bus.OutboundMessage{
-		ChatID:  "pico:sess-1",
+		ChatID:  "pocketclaw:sess-1",
 		Content: "thinking trace",
 		Context: bus.InboundContext{
-			Channel: "pico",
-			ChatID:  "pico:sess-1",
+			Channel: "pocketclaw",
+			ChatID:  "pocketclaw:sess-1",
 			Raw: map[string]string{
 				"message_kind":      MessageKindThought,
 				PayloadKeyModelName: "gpt-5.4-mini",
@@ -248,16 +248,16 @@ func TestSend_ThoughtMessageDoesNotFinalizeTrackedToolFeedback(t *testing.T) {
 		t.Fatal("expected thought message to be delivered")
 	}
 
-	if msgID, ok := ch.currentToolFeedbackMessage("pico:sess-1"); !ok || msgID != "msg-progress" {
+	if msgID, ok := ch.currentToolFeedbackMessage("pocketclaw:sess-1"); !ok || msgID != "msg-progress" {
 		t.Fatalf("tracked tool feedback = (%q, %v), want (msg-progress, true)", msgID, ok)
 	}
 
 	if _, err := ch.Send(context.Background(), bus.OutboundMessage{
-		ChatID:  "pico:sess-1",
+		ChatID:  "pocketclaw:sess-1",
 		Content: "final reply",
 		Context: bus.InboundContext{
-			Channel: "pico",
-			ChatID:  "pico:sess-1",
+			Channel: "pocketclaw",
+			ChatID:  "pocketclaw:sess-1",
 			Raw: map[string]string{
 				PayloadKeyModelName: "gpt-5.4",
 			},
@@ -301,7 +301,7 @@ func TestSend_ThoughtMessageDoesNotFinalizeTrackedToolFeedback(t *testing.T) {
 		t.Fatal("expected final reply to finalize tracked tool feedback")
 	}
 
-	if _, ok := ch.currentToolFeedbackMessage("pico:sess-1"); ok {
+	if _, ok := ch.currentToolFeedbackMessage("pocketclaw:sess-1"); ok {
 		t.Fatal("expected tracked tool feedback to be cleared after final reply")
 	}
 }
@@ -316,14 +316,14 @@ func TestSend_ToolCallsMessageIncludesModelName(t *testing.T) {
 
 	clientConn, received, cleanup := newTestPicoWebSocket(t)
 	defer cleanup()
-	ch.addConnForTest(&picoConn{id: "conn-1", conn: clientConn, sessionID: "sess-1"})
+	ch.addConnForTest(&pocketClawConn{id: "conn-1", conn: clientConn, sessionID: "sess-1"})
 
 	if _, err := ch.Send(context.Background(), bus.OutboundMessage{
-		ChatID:  "pico:sess-1",
+		ChatID:  "pocketclaw:sess-1",
 		Content: "",
 		Context: bus.InboundContext{
-			Channel: "pico",
-			ChatID:  "pico:sess-1",
+			Channel: "pocketclaw",
+			ChatID:  "pocketclaw:sess-1",
 			Raw: map[string]string{
 				"message_kind":      MessageKindToolCalls,
 				PayloadKeyModelName: "gpt-5.4",
@@ -365,9 +365,9 @@ func TestSendPlaceholder_EmitsNormalMessageWithoutKind(t *testing.T) {
 
 	clientConn, received, cleanup := newTestPicoWebSocket(t)
 	defer cleanup()
-	ch.addConnForTest(&picoConn{id: "conn-1", conn: clientConn, sessionID: "sess-1"})
+	ch.addConnForTest(&pocketClawConn{id: "conn-1", conn: clientConn, sessionID: "sess-1"})
 
-	msgID, err := ch.SendPlaceholder(context.Background(), "pico:sess-1")
+	msgID, err := ch.SendPlaceholder(context.Background(), "pocketclaw:sess-1")
 	if err != nil {
 		t.Fatalf("SendPlaceholder() error = %v", err)
 	}
@@ -412,9 +412,9 @@ func TestBeginStream_CreatesAndUpdatesSameMessage(t *testing.T) {
 
 	clientConn, received, cleanup := newTestPicoWebSocket(t)
 	defer cleanup()
-	ch.addConnForTest(&picoConn{id: "conn-1", conn: clientConn, sessionID: "sess-1"})
+	ch.addConnForTest(&pocketClawConn{id: "conn-1", conn: clientConn, sessionID: "sess-1"})
 
-	streamer, err := ch.BeginStream(context.Background(), "pico:sess-1")
+	streamer, err := ch.BeginStream(context.Background(), "pocketclaw:sess-1")
 	if err != nil {
 		t.Fatalf("BeginStream() error = %v", err)
 	}
@@ -439,7 +439,7 @@ func TestBeginStream_CreatesAndUpdatesSameMessage(t *testing.T) {
 		t.Fatalf("first model_name = %#v, want %q", got, "gpt-5.4")
 	}
 
-	rawStreamer := streamer.(*picoStreamer)
+	rawStreamer := streamer.(*pocketClawStreamer)
 	rawStreamer.mu.Lock()
 	rawStreamer.lastAt = time.Now().Add(-2 * time.Second)
 	rawStreamer.mu.Unlock()
@@ -472,9 +472,9 @@ func TestBeginStream_DefaultStreamingShowsSmallIncrements(t *testing.T) {
 
 	clientConn, received, cleanup := newTestPicoWebSocket(t)
 	defer cleanup()
-	ch.addConnForTest(&picoConn{id: "conn-1", conn: clientConn, sessionID: "sess-1"})
+	ch.addConnForTest(&pocketClawConn{id: "conn-1", conn: clientConn, sessionID: "sess-1"})
 
-	streamer, err := ch.BeginStream(context.Background(), "pico:sess-1")
+	streamer, err := ch.BeginStream(context.Background(), "pocketclaw:sess-1")
 	if err != nil {
 		t.Fatalf("BeginStream() error = %v", err)
 	}
@@ -515,9 +515,9 @@ func TestBeginStream_StreamsReasoningAsThoughtUpdates(t *testing.T) {
 
 	clientConn, received, cleanup := newTestPicoWebSocket(t)
 	defer cleanup()
-	ch.addConnForTest(&picoConn{id: "conn-1", conn: clientConn, sessionID: "sess-1"})
+	ch.addConnForTest(&pocketClawConn{id: "conn-1", conn: clientConn, sessionID: "sess-1"})
 
-	streamer, err := ch.BeginStream(context.Background(), "pico:sess-1")
+	streamer, err := ch.BeginStream(context.Background(), "pocketclaw:sess-1")
 	if err != nil {
 		t.Fatalf("BeginStream() error = %v", err)
 	}
@@ -584,9 +584,9 @@ func TestBeginStream_ThrottlesIntermediateUpdatesAndFinalFlushes(t *testing.T) {
 
 	clientConn, received, cleanup := newTestPicoWebSocket(t)
 	defer cleanup()
-	ch.addConnForTest(&picoConn{id: "conn-1", conn: clientConn, sessionID: "sess-1"})
+	ch.addConnForTest(&pocketClawConn{id: "conn-1", conn: clientConn, sessionID: "sess-1"})
 
-	streamer, err := ch.BeginStream(context.Background(), "pico:sess-1")
+	streamer, err := ch.BeginStream(context.Background(), "pocketclaw:sess-1")
 	if err != nil {
 		t.Fatalf("BeginStream() error = %v", err)
 	}
@@ -607,7 +607,7 @@ func TestBeginStream_ThrottlesIntermediateUpdatesAndFinalFlushes(t *testing.T) {
 	msgID, _ := first.Payload["message_id"].(string)
 	assertNoPicoMessage(t, received)
 
-	rawStreamer := streamer.(*picoStreamer)
+	rawStreamer := streamer.(*pocketClawStreamer)
 	rawStreamer.mu.Lock()
 	rawStreamer.lastAt = time.Now().Add(-61 * time.Second)
 	rawStreamer.mu.Unlock()
@@ -646,9 +646,9 @@ func TestBeginStream_FinalizeIncludesContextUsage(t *testing.T) {
 
 	clientConn, received, cleanup := newTestPicoWebSocket(t)
 	defer cleanup()
-	ch.addConnForTest(&picoConn{id: "conn-1", conn: clientConn, sessionID: "sess-1"})
+	ch.addConnForTest(&pocketClawConn{id: "conn-1", conn: clientConn, sessionID: "sess-1"})
 
-	streamer, err := ch.BeginStream(context.Background(), "pico:sess-1")
+	streamer, err := ch.BeginStream(context.Background(), "pocketclaw:sess-1")
 	if err != nil {
 		t.Fatalf("BeginStream() error = %v", err)
 	}
@@ -783,14 +783,14 @@ func TestRemoveConnection_CleansBothIndexes(t *testing.T) {
 func TestBroadcastToSession_TargetsOnlyRequestedSession(t *testing.T) {
 	ch := newTestPicoChannel(t)
 
-	target := &picoConn{id: "target", sessionID: "s-target"}
+	target := &pocketClawConn{id: "target", sessionID: "s-target"}
 	target.closed.Store(true)
 	ch.addConnForTest(target)
 
-	other := &picoConn{id: "other", sessionID: "s-other"}
+	other := &pocketClawConn{id: "other", sessionID: "s-other"}
 	ch.addConnForTest(other)
 
-	err := ch.broadcastToSession("pico:s-target", newMessage(TypeMessageCreate, map[string]any{"content": "hello"}))
+	err := ch.broadcastToSession("pocketclaw:s-target", newMessage(TypeMessageCreate, map[string]any{"content": "hello"}))
 	if err == nil {
 		t.Fatal("expected send failure due to closed target connection")
 	}
@@ -822,12 +822,12 @@ func TestSendMedia_ResolvesMediaBeforeDelivery(t *testing.T) {
 		t.Fatalf("Store() error = %v", err)
 	}
 
-	closedConn := &picoConn{id: "closed", sessionID: "sess-1"}
+	closedConn := &pocketClawConn{id: "closed", sessionID: "sess-1"}
 	closedConn.closed.Store(true)
 	ch.addConnForTest(closedConn)
 
 	_, err = ch.SendMedia(context.Background(), bus.OutboundMediaMessage{
-		ChatID: "pico:sess-1",
+		ChatID: "pocketclaw:sess-1",
 		Parts: []bus.MediaPart{{
 			Ref:         ref,
 			Type:        "file",
@@ -852,7 +852,7 @@ func TestSendMedia_DismissesTrackedToolFeedbackMessage(t *testing.T) {
 
 	clientConn, received, cleanup := newTestPicoWebSocket(t)
 	defer cleanup()
-	ch.addConnForTest(&picoConn{id: "conn-1", conn: clientConn, sessionID: "sess-1"})
+	ch.addConnForTest(&pocketClawConn{id: "conn-1", conn: clientConn, sessionID: "sess-1"})
 
 	localPath := filepath.Join(t.TempDir(), "report.txt")
 	if err := os.WriteFile(localPath, []byte("attachment body"), 0o600); err != nil {
@@ -867,7 +867,7 @@ func TestSendMedia_DismissesTrackedToolFeedbackMessage(t *testing.T) {
 		t.Fatalf("Store() error = %v", err)
 	}
 
-	ch.RecordToolFeedbackMessage("pico:sess-1", "msg-progress", "🔧 `read_file`")
+	ch.RecordToolFeedbackMessage("pocketclaw:sess-1", "msg-progress", "🔧 `read_file`")
 
 	var deleted struct {
 		chatID    string
@@ -880,7 +880,7 @@ func TestSendMedia_DismissesTrackedToolFeedbackMessage(t *testing.T) {
 	}
 
 	_, err = ch.SendMedia(context.Background(), bus.OutboundMediaMessage{
-		ChatID: "pico:sess-1",
+		ChatID: "pocketclaw:sess-1",
 		Parts: []bus.MediaPart{{
 			Ref:         ref,
 			Type:        "file",
@@ -901,10 +901,10 @@ func TestSendMedia_DismissesTrackedToolFeedbackMessage(t *testing.T) {
 		t.Fatal("expected media message to be delivered")
 	}
 
-	if deleted.chatID != "pico:sess-1" || deleted.messageID != "msg-progress" {
+	if deleted.chatID != "pocketclaw:sess-1" || deleted.messageID != "msg-progress" {
 		t.Fatalf("unexpected delete target: %+v", deleted)
 	}
-	if _, ok := ch.currentToolFeedbackMessage("pico:sess-1"); ok {
+	if _, ok := ch.currentToolFeedbackMessage("pocketclaw:sess-1"); ok {
 		t.Fatal("expected tracked tool feedback to be cleared after media delivery")
 	}
 }
@@ -921,7 +921,7 @@ func TestSendMedia_IncludesCaptionAndAttachmentsInSinglePayload(t *testing.T) {
 
 	clientConn, received, cleanup := newTestPicoWebSocket(t)
 	defer cleanup()
-	ch.addConnForTest(&picoConn{id: "conn-1", conn: clientConn, sessionID: "sess-1"})
+	ch.addConnForTest(&pocketClawConn{id: "conn-1", conn: clientConn, sessionID: "sess-1"})
 
 	localPath := filepath.Join(t.TempDir(), "photo.png")
 	if err := os.WriteFile(localPath, []byte("png-body"), 0o600); err != nil {
@@ -937,7 +937,7 @@ func TestSendMedia_IncludesCaptionAndAttachmentsInSinglePayload(t *testing.T) {
 	}
 
 	_, err = ch.SendMedia(context.Background(), bus.OutboundMediaMessage{
-		ChatID: "pico:sess-1",
+		ChatID: "pocketclaw:sess-1",
 		Parts: []bus.MediaPart{{
 			Ref:         ref,
 			Type:        "image",
@@ -979,12 +979,12 @@ func TestSendMedia_IncludesCaptionAndAttachmentsInSinglePayload(t *testing.T) {
 }
 
 func TestPicoDownloadURLForRef(t *testing.T) {
-	got, err := picoDownloadURLForRef("media://attachment-1")
+	got, err := pocketClawDownloadURLForRef("media://attachment-1")
 	if err != nil {
-		t.Fatalf("picoDownloadURLForRef() error = %v", err)
+		t.Fatalf("pocketClawDownloadURLForRef() error = %v", err)
 	}
 	if got != "/pico/media/attachment-1" {
-		t.Fatalf("picoDownloadURLForRef() = %q, want %q", got, "/pico/media/attachment-1")
+		t.Fatalf("pocketClawDownloadURLForRef() = %q, want %q", got, "/pico/media/attachment-1")
 	}
 }
 
@@ -1029,7 +1029,7 @@ func TestHandleMediaDownload_ServesStoredFile(t *testing.T) {
 	}
 }
 
-func mustReceivePicoMessage(t *testing.T, received <-chan PicoMessage) PicoMessage {
+func mustReceivePicoMessage(t *testing.T, received <-chan PocketClawMessage) PocketClawMessage {
 	t.Helper()
 	select {
 	case msg := <-received:
@@ -1037,10 +1037,10 @@ func mustReceivePicoMessage(t *testing.T, received <-chan PicoMessage) PicoMessa
 	case <-time.After(time.Second):
 		t.Fatal("expected pico message")
 	}
-	return PicoMessage{}
+	return PocketClawMessage{}
 }
 
-func assertNoPicoMessage(t *testing.T, received <-chan PicoMessage) {
+func assertNoPicoMessage(t *testing.T, received <-chan PocketClawMessage) {
 	t.Helper()
 	select {
 	case msg := <-received:
@@ -1049,14 +1049,14 @@ func assertNoPicoMessage(t *testing.T, received <-chan PicoMessage) {
 	}
 }
 
-func (c *PicoChannel) addConnForTest(pc *picoConn) {
+func (c *PocketClawChannel) addConnForTest(pc *pocketClawConn) {
 	c.connsMu.Lock()
 	defer c.connsMu.Unlock()
 	if c.connections == nil {
-		c.connections = make(map[string]*picoConn)
+		c.connections = make(map[string]*pocketClawConn)
 	}
 	if c.sessionConnections == nil {
-		c.sessionConnections = make(map[string]map[string]*picoConn)
+		c.sessionConnections = make(map[string]map[string]*pocketClawConn)
 	}
 	if _, exists := c.connections[pc.id]; exists {
 		panic(fmt.Sprintf("duplicate conn id in test: %s", pc.id))
@@ -1064,16 +1064,16 @@ func (c *PicoChannel) addConnForTest(pc *picoConn) {
 	c.connections[pc.id] = pc
 	bySession, ok := c.sessionConnections[pc.sessionID]
 	if !ok {
-		bySession = make(map[string]*picoConn)
+		bySession = make(map[string]*pocketClawConn)
 		c.sessionConnections[pc.sessionID] = bySession
 	}
 	bySession[pc.id] = pc
 }
 
-func newTestPicoWebSocket(t *testing.T) (*websocket.Conn, <-chan PicoMessage, func()) {
+func newTestPicoWebSocket(t *testing.T) (*websocket.Conn, <-chan PocketClawMessage, func()) {
 	t.Helper()
 
-	received := make(chan PicoMessage, 4)
+	received := make(chan PocketClawMessage, 4)
 	upgrader := websocket.Upgrader{}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		conn, err := upgrader.Upgrade(w, r, nil)
@@ -1083,7 +1083,7 @@ func newTestPicoWebSocket(t *testing.T) (*websocket.Conn, <-chan PicoMessage, fu
 		}
 		defer conn.Close()
 		for {
-			var msg PicoMessage
+			var msg PocketClawMessage
 			if err := conn.ReadJSON(&msg); err != nil {
 				return
 			}

@@ -58,11 +58,11 @@ const (
 	// Default: unset.
 	EnvGatewayTokenFile = "PICOCLAW_GATEWAY_TOKEN_FILE"
 
-	// EnvChannelsPicoToken supplies the realtime channel credential from the
+	// EnvChannelsPocketClawToken supplies the realtime channel credential from the
 	// host rather than from config. Its presence also means the credential is
 	// host-managed, which is what lets the channel refuse query-string
 	// authentication for it.
-	EnvChannelsPicoToken = "PICOCLAW_CHANNELS_PICO_TOKEN"
+	EnvChannelsPocketClawToken = "PICOCLAW_CHANNELS_PICO_TOKEN"
 
 	// EnvDashboardAuthDir overrides the directory holding the Dashboard
 	// credential database.

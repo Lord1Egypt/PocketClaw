@@ -1,4 +1,4 @@
-package pico
+package pocketclaw
 
 import (
 	"github.com/sipeed/picoclaw/pkg/bus"
@@ -8,44 +8,44 @@ import (
 
 func init() {
 	channels.RegisterFactory(
-		config.ChannelPico,
+		config.ChannelPocketClaw,
 		func(channelName, channelType string, cfg *config.Config, b *bus.MessageBus) (channels.Channel, error) {
 			bc := cfg.Channels[channelName]
 			decoded, err := bc.GetDecoded()
 			if err != nil {
 				return nil, err
 			}
-			c, ok := decoded.(*config.PicoSettings)
+			c, ok := decoded.(*config.PocketClawSettings)
 			if !ok {
 				return nil, channels.ErrSendFailed
 			}
-			ch, err := NewPicoChannel(bc, c, b)
+			ch, err := NewPocketClawChannel(bc, c, b)
 			if err != nil {
 				return nil, err
 			}
-			if channelName != config.ChannelPico {
+			if channelName != config.ChannelPocketClaw {
 				ch.SetName(channelName)
 			}
 			return ch, nil
 		},
 	)
 	channels.RegisterFactory(
-		config.ChannelPicoClient,
+		config.ChannelPocketClawClient,
 		func(channelName, channelType string, cfg *config.Config, b *bus.MessageBus) (channels.Channel, error) {
 			bc := cfg.Channels[channelName]
 			decoded, err := bc.GetDecoded()
 			if err != nil {
 				return nil, err
 			}
-			c, ok := decoded.(*config.PicoClientSettings)
+			c, ok := decoded.(*config.PocketClawClientSettings)
 			if !ok {
 				return nil, channels.ErrSendFailed
 			}
-			ch, err := NewPicoClientChannel(bc, c, b)
+			ch, err := NewPocketClawClientChannel(bc, c, b)
 			if err != nil {
 				return nil, err
 			}
-			if channelName != config.ChannelPicoClient {
+			if channelName != config.ChannelPocketClawClient {
 				ch.SetName(channelName)
 			}
 			return ch, nil

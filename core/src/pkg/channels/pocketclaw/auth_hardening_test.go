@@ -1,4 +1,4 @@
-package pico
+package pocketclaw
 
 import (
 	"net/http/httptest"
@@ -7,10 +7,10 @@ import (
 	"github.com/sipeed/picoclaw/pkg/config"
 )
 
-func channelWithToken(token string, allowQuery bool) *PicoChannel {
-	settings := &config.PicoSettings{AllowTokenQuery: allowQuery}
+func channelWithToken(token string, allowQuery bool) *PocketClawChannel {
+	settings := &config.PocketClawSettings{AllowTokenQuery: allowQuery}
 	settings.SetToken(token)
-	return &PicoChannel{config: settings}
+	return &PocketClawChannel{config: settings}
 }
 
 // The health server has always compared the gateway bearer with
@@ -61,7 +61,7 @@ func TestHostManagedCredentialRefusesQueryStringAuth(t *testing.T) {
 	const token = "host-managed-credential-0123456789"
 
 	t.Run("refused when the host supplied the credential", func(t *testing.T) {
-		t.Setenv(config.EnvChannelsPicoToken, token)
+		t.Setenv(config.EnvChannelsPocketClawToken, token)
 		c := channelWithToken(token, true)
 
 		r := httptest.NewRequest("GET", "/pico/ws?token="+token, nil)
@@ -81,7 +81,7 @@ func TestHostManagedCredentialRefusesQueryStringAuth(t *testing.T) {
 	// Compatibility is not removed globally: a deployment whose client cannot
 	// set a header still has the option, and it is off by default.
 	t.Run("still available to a self-managed deployment", func(t *testing.T) {
-		t.Setenv(config.EnvChannelsPicoToken, "")
+		t.Setenv(config.EnvChannelsPocketClawToken, "")
 		c := channelWithToken(token, true)
 		r := httptest.NewRequest("GET", "/pico/ws?token="+token, nil)
 		if !c.authenticate(r) {
@@ -90,7 +90,7 @@ func TestHostManagedCredentialRefusesQueryStringAuth(t *testing.T) {
 	})
 
 	t.Run("off by default", func(t *testing.T) {
-		t.Setenv(config.EnvChannelsPicoToken, "")
+		t.Setenv(config.EnvChannelsPocketClawToken, "")
 		c := channelWithToken(token, false)
 		r := httptest.NewRequest("GET", "/pico/ws?token="+token, nil)
 		if c.authenticate(r) {

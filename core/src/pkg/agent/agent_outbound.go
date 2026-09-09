@@ -14,6 +14,8 @@ import (
 	"github.com/sipeed/picoclaw/pkg/providers"
 	"github.com/sipeed/picoclaw/pkg/tools"
 	"github.com/sipeed/picoclaw/pkg/utils"
+
+	"github.com/sipeed/picoclaw/pkg/config"
 )
 
 func (al *AgentLoop) maybePublishError(ctx context.Context, channel, chatID, sessionKey string, err error) bool {
@@ -157,7 +159,7 @@ func (al *AgentLoop) publishPicoReasoning(
 
 	if err := al.bus.PublishOutbound(pubCtx, bus.OutboundMessage{
 		Context: bus.InboundContext{
-			Channel: "pico",
+			Channel: config.ChannelPocketClaw,
 			ChatID:  chatID,
 			Raw:     raw,
 		},
@@ -167,12 +169,12 @@ func (al *AgentLoop) publishPicoReasoning(
 		if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) ||
 			errors.Is(err, bus.ErrBusClosed) {
 			logger.DebugCF("agent", "Pico reasoning publish skipped (timeout/cancel)", map[string]any{
-				"channel": "pico",
+				"channel": config.ChannelPocketClaw,
 				"error":   err.Error(),
 			})
 		} else {
 			logger.WarnCF("agent", "Failed to publish pico reasoning (best-effort)", map[string]any{
-				"channel": "pico",
+				"channel": config.ChannelPocketClaw,
 				"error":   err.Error(),
 			})
 		}

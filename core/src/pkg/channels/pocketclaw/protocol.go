@@ -1,4 +1,4 @@
-package pico
+package pocketclaw
 
 import (
 	"strings"
@@ -33,8 +33,8 @@ const (
 	MessageKindToolCalls = "tool_calls"
 )
 
-// PicoMessage is the wire format for all Pico Protocol messages.
-type PicoMessage struct {
+// PocketClawMessage is the wire format for all Pico Protocol messages.
+type PocketClawMessage struct {
 	Type      string         `json:"type"`
 	ID        string         `json:"id,omitempty"`
 	SessionID string         `json:"session_id,omitempty"`
@@ -42,9 +42,9 @@ type PicoMessage struct {
 	Payload   map[string]any `json:"payload,omitempty"`
 }
 
-// newMessage creates a PicoMessage with the given type and payload.
-func newMessage(msgType string, payload map[string]any) PicoMessage {
-	return PicoMessage{
+// newMessage creates a PocketClawMessage with the given type and payload.
+func newMessage(msgType string, payload map[string]any) PocketClawMessage {
+	return PocketClawMessage{
 		Type:      msgType,
 		Timestamp: time.Now().UnixMilli(),
 		Payload:   payload,
@@ -63,7 +63,7 @@ func isThoughtPayload(payload map[string]any) bool {
 	return thought
 }
 
-func newErrorWithPayload(code, message string, extra map[string]any) PicoMessage {
+func newErrorWithPayload(code, message string, extra map[string]any) PocketClawMessage {
 	payload := map[string]any{
 		"code":    code,
 		"message": message,
@@ -74,7 +74,7 @@ func newErrorWithPayload(code, message string, extra map[string]any) PicoMessage
 	return newMessage(TypeError, payload)
 }
 
-// newError creates an error PicoMessage.
-func newError(code, message string) PicoMessage {
+// newError creates an error PocketClawMessage.
+func newError(code, message string) PocketClawMessage {
 	return newErrorWithPayload(code, message, nil)
 }

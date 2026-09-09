@@ -28,7 +28,7 @@ const LEGACY_GATEWAY_START_PATTERN = /Starting gateway process \([^\r\n)]*\)/g
 const PICO_LOGGER_COMPONENT_PATTERN =
   /(^|[ \t])([A-Z]{3}) pico ([^ \t]+:[0-9]+)([ \t]+>)/gm
 const PICO_LOGGER_CALLER_PATTERN =
-  /(^|[ \t])([A-Z]{3}) ([^ \t]+) pico\.go:([0-9]+)([ \t]+>)/gm
+  /(^|[ \t])([A-Z]{3}) ([^ \t]+) (?:pico|pocketclaw)\.go:([0-9]+)([ \t]+>)/gm
 const TELEGRAM_BOT_API_URL_PATTERN =
   /https?:\/\/[^\s"']*\/bot[^/\s"']+\/(?:test\/)?([A-Za-z][A-Za-z0-9_]*)/gi
 const TELEGRAM_API_CALL_WRAPPER_PATTERN =
@@ -256,7 +256,9 @@ function normalizePicoStructuredFields(input: string): string {
   return input
     .split("\n")
     .map((line) => {
-      const internalChannel = hasExactLogToken(line, "channel=pico")
+      const internalChannel =
+        hasExactLogToken(line, "channel=pocketclaw") ||
+        hasExactLogToken(line, "channel=pico")
       let result = line
       for (const field of [
         "channel",

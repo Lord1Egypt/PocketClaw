@@ -15,7 +15,7 @@ function ChannelsLayout() {
   })
 
   if (pathname === "/channels") {
-    return <Navigate to="/channels/$name" params={{ name: "pico" }} />
+    return <Navigate to="/channels/$name" params={{ name: "pocketclaw" }} />
   }
 
   return <Outlet />

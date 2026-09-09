@@ -296,7 +296,7 @@ func TestStartGatewayLocked_UsesReloadedConfigForBootSignature(t *testing.T) {
 
 	configPath := filepath.Join(t.TempDir(), "config.json")
 	cfg := config.DefaultConfig()
-	delete(cfg.Channels, "pico")
+	delete(cfg.Channels, "pocketclaw")
 	if err := config.SaveConfig(configPath, cfg); err != nil {
 		t.Fatalf("SaveConfig() error = %v", err)
 	}
@@ -335,7 +335,7 @@ func TestStartGatewayLocked_UsesReloadedConfigForBootSignature(t *testing.T) {
 	}
 	expectedSignature := computeConfigSignature(updatedCfg)
 	if expectedSignature == originalSignature {
-		t.Fatal("expected EnsurePicoChannel() to change the config signature during gateway start")
+		t.Fatal("expected EnsurePocketClawChannel() to change the config signature during gateway start")
 	}
 	if bootSignature != expectedSignature {
 		t.Fatalf("bootConfigSignature = %q, want %q", bootSignature, expectedSignature)

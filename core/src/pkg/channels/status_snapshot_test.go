@@ -118,19 +118,23 @@ func TestSnapshotChannelsIgnoresStaleRunningFlagWithoutWorker(t *testing.T) {
 	}
 }
 
-// The internal `pico` id is PocketClaw's own Web Console transport and must
-// reach the screen under its product name.
+// PocketClaw's own Web Console transport must reach the screen under its
+// product name. Since the channel migration the internal id is that name; what
+// this still has to prove is that a legacy id never gets there, which is what a
+// channel built from pre-migration configuration would carry.
 func TestSnapshotChannelsUsesPocketClawDisplayName(t *testing.T) {
-	m := newTestManager()
-	m.channels[config.ChannelPico] = &snapshotTestChannel{name: config.ChannelPico}
+	for _, id := range []string{config.ChannelPocketClaw, config.LegacyChannelPocketClaw} {
+		m := newTestManager()
+		m.channels[id] = &snapshotTestChannel{name: id}
 
-	snapshots := m.SnapshotChannels()
-	for _, s := range snapshots {
-		if s.Name == config.ChannelPico {
-			t.Fatalf("internal channel id leaked to the Status payload: %+v", snapshots)
+		snapshots := m.SnapshotChannels()
+		for _, s := range snapshots {
+			if s.Name == config.LegacyChannelPocketClaw {
+				t.Fatalf("a legacy channel id reached the Status payload: %+v", snapshots)
+			}
 		}
+		snapshotByName(t, snapshots, config.ChannelPocketClaw)
 	}
-	snapshotByName(t, snapshots, "pocketclaw")
 }
 
 // The snapshot must carry channel identity only — never an account, bot

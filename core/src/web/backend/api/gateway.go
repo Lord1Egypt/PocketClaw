@@ -54,11 +54,11 @@ func refreshPicoTokensLocked(configPath string) {
 	if err != nil {
 		return
 	}
-	var picoCfg config.PicoSettings
-	if bc := cfg.Channels.GetByType(config.ChannelPico); bc != nil {
+	var picoCfg config.PocketClawSettings
+	if bc := cfg.Channels.GetByType(config.ChannelPocketClaw); bc != nil {
 		decoded, err := bc.GetDecoded()
 		if err == nil && decoded != nil {
-			if p, ok := decoded.(*config.PicoSettings); ok {
+			if p, ok := decoded.(*config.PocketClawSettings); ok {
 				picoCfg = *p
 			}
 		}
@@ -1193,12 +1193,12 @@ func (h *Handler) startGatewayLocked(initialStatus string, existingPid int) (int
 	gateway.logs.Reset()
 
 	// Ensure Pico Channel is configured before starting gateway
-	changed, err := h.EnsurePicoChannel()
+	changed, err := h.EnsurePocketClawChannel()
 	if err != nil {
 		logger.ErrorC("gateway", fmt.Sprintf("Warning: failed to ensure pico channel: %v", err))
 		// Non-fatal: gateway can still start without pico channel
 	}
-	// Refresh cached pico token in case EnsurePicoChannel generated a new one.
+	// Refresh cached pico token in case EnsurePocketClawChannel generated a new one.
 	// Already holding gateway.mu from caller.
 	if changed {
 		refreshPicoTokensLocked(h.configPath)
@@ -1294,11 +1294,11 @@ func (h *Handler) startGatewayLocked(initialStatus string, existingPid int) (int
 				gateway.mu.Lock()
 				if gateway.cmd == cmd {
 					gateway.pidData = pd
-					var picoCfg config.PicoSettings
-					if bc := cfg.Channels.GetByType(config.ChannelPico); bc != nil {
+					var picoCfg config.PocketClawSettings
+					if bc := cfg.Channels.GetByType(config.ChannelPocketClaw); bc != nil {
 						decoded, err := bc.GetDecoded()
 						if err == nil && decoded != nil {
-							if p, ok := decoded.(*config.PicoSettings); ok {
+							if p, ok := decoded.(*config.PocketClawSettings); ok {
 								picoCfg = *p
 							}
 						}

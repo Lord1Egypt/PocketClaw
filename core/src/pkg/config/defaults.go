@@ -609,7 +609,7 @@ func defaultChannels() ChannelsConfig {
 				"cdn_base_url": "https://novac2c.cdn.weixin.qq.com/c2c",
 			},
 		},
-		"pico": map[string]any{
+		"pocketclaw": map[string]any{
 			"settings": map[string]any{
 				"ping_interval":   30,
 				"read_timeout":    60,

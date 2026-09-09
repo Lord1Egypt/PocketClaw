@@ -14,6 +14,8 @@ import (
 	runtimeevents "github.com/sipeed/picoclaw/pkg/events"
 	"github.com/sipeed/picoclaw/pkg/logger"
 	"github.com/sipeed/picoclaw/pkg/providers"
+
+	"github.com/sipeed/picoclaw/pkg/config"
 )
 
 // CallLLM performs an LLM call with fallback support, hook invocation, and retry logic.
@@ -617,11 +619,11 @@ func (p *Pipeline) CallLLM(
 		exec.response.ReasoningDetails = nil
 	}
 	reasoningContent := responseReasoningContent(exec.response)
-	shouldPublishPicoToolCallInterim := ts.channel == "pico" && len(exec.response.ToolCalls) > 0
-	if shouldPublishPicoToolCallInterim {
+	shouldPublishPocketClawToolCallInterim := ts.channel == config.ChannelPocketClaw && len(exec.response.ToolCalls) > 0
+	if shouldPublishPocketClawToolCallInterim {
 		// Pico tool-call turns publish their reasoning/content/tool summary as a
 		// structured sequence after the tool-call payload is normalized below.
-	} else if ts.channel == "pico" {
+	} else if ts.channel == config.ChannelPocketClaw {
 		if exec.streamingPublisher != nil && exec.streamingPublisher.ReasoningPublished() {
 			if err := exec.streamingPublisher.FinalizeReasoning(turnCtx, reasoningContent); err != nil {
 				logger.WarnCF("agent", "Failed to finalize streamed pico reasoning", map[string]any{
@@ -674,7 +676,7 @@ func (p *Pipeline) CallLLM(
 	// No-tool-call path: steering check and direct response
 	if len(exec.response.ToolCalls) == 0 || exec.gracefulTerminal {
 		responseContent := exec.response.Content
-		if responseContent == "" && exec.response.ReasoningContent != "" && ts.channel != "pico" {
+		if responseContent == "" && exec.response.ReasoningContent != "" && ts.channel != config.ChannelPocketClaw {
 			responseContent = exec.response.ReasoningContent
 		}
 		if steerMsgs := al.dequeueSteeringMessagesForScope(ts.sessionKey); len(steerMsgs) > 0 {
@@ -765,7 +767,7 @@ func (p *Pipeline) CallLLM(
 		ts.recordPersistedMessage(assistantMsg)
 		ts.ingestMessage(turnCtx, al, assistantMsg)
 	}
-	if shouldPublishPicoToolCallInterim {
+	if shouldPublishPocketClawToolCallInterim {
 		al.publishPicoToolCallInterim(
 			turnCtx,
 			ts,

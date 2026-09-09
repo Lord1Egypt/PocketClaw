@@ -151,15 +151,34 @@ func TestSanitizeFieldsForLogDoesNotRewritePicoSubstrings(t *testing.T) {
 
 	original := map[string]any{
 		"route_channel": "pico-test",
-		"channel":       "pocketclaw",
-		"path":          "/pico/",
 		"component":     "picometer",
 		"filename":      "my-pico-notes.txt",
+		"path":          "/picorder/status",
 	}
 	safe := sanitizeFieldsForLog(original)
 	for key, want := range original {
 		if safe[key] != want {
 			t.Errorf("%s = %v, want unchanged %v", key, safe[key], want)
+		}
+	}
+}
+
+// The canonical channel name reaches this function too. Before the channel
+// migration only the legacy value did, so a record already carrying the display
+// label alongside the internal route escaped redaction; it no longer does.
+func TestSanitizeFieldsForLogRedactsTheInternalRouteUnderEitherChannelName(t *testing.T) {
+	t.Parallel()
+
+	for _, channel := range []string{"pocketclaw", "pico"} {
+		safe := sanitizeFieldsForLog(map[string]any{
+			"channel": channel,
+			"path":    "/pico/",
+		})
+		if safe["path"] != "<internal>" {
+			t.Errorf("channel %q: path = %v, want <internal>", channel, safe["path"])
+		}
+		if safe["channel"] != "pocketclaw" {
+			t.Errorf("channel %q: display label = %v, want pocketclaw", channel, safe["channel"])
 		}
 	}
 }

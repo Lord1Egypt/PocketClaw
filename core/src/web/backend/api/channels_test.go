@@ -187,7 +187,7 @@ func TestHandleGetChannelConfig_ReturnsConfiguredStreaming(t *testing.T) {
 	if err != nil {
 		t.Fatalf("LoadConfig() error = %v", err)
 	}
-	pico := cfg.Channels.Get(config.ChannelPico)
+	pico := cfg.Channels.Get(config.ChannelPocketClaw)
 	if pico == nil {
 		t.Fatal("missing pico channel")
 	}
@@ -203,13 +203,13 @@ func TestHandleGetChannelConfig_ReturnsConfiguredStreaming(t *testing.T) {
 	mux := http.NewServeMux()
 	h.RegisterRoutes(mux)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/channels/pico/config", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/channels/pocketclaw/config", nil)
 	rec := httptest.NewRecorder()
 	mux.ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusOK {
 		t.Fatalf(
-			"GET /api/channels/pico/config status = %d, want %d, body=%s",
+			"GET /api/channels/pocketclaw/config status = %d, want %d, body=%s",
 			rec.Code,
 			http.StatusOK,
 			rec.Body.String(),

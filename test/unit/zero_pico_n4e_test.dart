@@ -119,11 +119,9 @@ void main() {
       // The PID record name was pinned here as deferred. N4G migrated it, and
       // pkg/pid's own tests own it now — including a guard that fails if any
       // production file outside the migration owner names the old record.
-      expect(service, contains('picoTokenForHost'),
-          reason: 'the serialized "pico" channel is renamed with the channel');
-      expect(File('core/src/pkg/channels/pico').existsSync(), isFalse);
-      expect(Directory('core/src/pkg/channels/pico').existsSync(), isTrue,
-          reason: 'the Core channel package is untouched in N4E');
+      // The channel identity and its token provider were pinned here as
+      // deferred. N4H migrated both; zero_pico_n4h_test.dart owns them now,
+      // together with the Core-side migration tests in pkg/config.
     });
   });
 

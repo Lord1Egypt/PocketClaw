@@ -26,10 +26,12 @@ import "os"
 // POCKETCLAW_RUNTIME_DIR, POCKETCLAW_ANDROID_BRIDGE_TOKEN and the rest — and
 // any one of those could collide with a real upstream name added later.
 //
-// The channel token is the one entry whose suffix also changes. PocketClaw
-// cannot emit a canonical name that itself contains PICO, while the serialized
-// channel is still called "pico" until the channel migration phase, so the two
-// halves differ on purpose.
+// The channel token is the one entry whose suffix also changes. The channel is
+// called pocketclaw everywhere it is configured and routed; what still says
+// PICO is the upstream struct tag that reads this variable, and retagging it
+// would put a single canonical name among ~175 legacy ones for no behavioural
+// gain. The two halves differ because the tag has not moved, not because the
+// channel has not.
 var aliases = map[string]string{
 	"POCKETCLAW_HOME":                      "PICOCLAW_HOME",
 	"POCKETCLAW_CONFIG":                    "PICOCLAW_CONFIG",

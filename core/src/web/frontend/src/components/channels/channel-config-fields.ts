@@ -31,7 +31,7 @@ const CHANNEL_SECRET_FIELDS: Record<string, string[]> = {
   qq: ["app_secret"],
   onebot: ["access_token"],
   wecom: ["secret"],
-  pico: ["token"],
+  pocketclaw: ["token"],
   matrix: ["access_token"],
   irc: ["password", "nickserv_password", "sasl_password"],
   mqtt: ["username", "password"],

@@ -196,7 +196,7 @@ func TestRecentContextLimitIsTelegramOnly(t *testing.T) {
 			t.Errorf("%q limit = %d, want 15", channel, got)
 		}
 	}
-	for _, channel := range []string{"pico", "discord", "slack", "matrix", "cli", "web", ""} {
+	for _, channel := range []string{"pocketclaw", "discord", "slack", "matrix", "cli", "web", ""} {
 		if got := recentContextLimit(agent, channel); got != 0 {
 			t.Errorf("%q limit = %d, want 0: only Telegram is bounded", channel, got)
 		}
@@ -255,7 +255,7 @@ func TestProjectRecentContextReservesTheCurrentMessage(t *testing.T) {
 
 func TestProjectRecentContextLeavesOtherChannelsAlone(t *testing.T) {
 	history := conversation(100)
-	for _, channel := range []string{"pico", "discord", "slack", "matrix", "cli"} {
+	for _, channel := range []string{"pocketclaw", "discord", "slack", "matrix", "cli"} {
 		ts := &turnState{
 			agent:      &AgentInstance{TelegramRecentContextMessages: 15},
 			sessionKey: "s1",
@@ -519,7 +519,7 @@ func TestCoverageRequestToleratesNoContextManager(t *testing.T) {
 
 // Other channels never request coverage and are never held or cut.
 func TestOtherChannelsNeitherHeldNorCoverageRequested(t *testing.T) {
-	for _, channel := range []string{"pico", "discord", "slack", "matrix", "cli"} {
+	for _, channel := range []string{"pocketclaw", "discord", "slack", "matrix", "cli"} {
 		cm := &recordingContextManager{}
 		ts := telegramTurn(15)
 		ts.opts.Channel = channel

@@ -1,4 +1,4 @@
-package pico
+package pocketclaw
 
 import (
 	"context"
@@ -29,8 +29,8 @@ import (
 	"github.com/sipeed/picoclaw/pkg/canonicalenv"
 )
 
-// picoConn represents a single WebSocket connection.
-type picoConn struct {
+// pocketClawConn represents a single WebSocket connection.
+type pocketClawConn struct {
 	id        string
 	conn      *websocket.Conn
 	sessionID string
@@ -49,7 +49,26 @@ var allowedInlineImageMIMETypes = map[string]struct{}{
 
 // OwnerPrincipal is the server-derived identity used by PocketClaw's internal
 // realtime channel. Clients cannot select or override this principal.
-const OwnerPrincipal = config.PicoOwnerPrincipal
+const OwnerPrincipal = config.PocketClawOwnerPrincipal
+
+// chatIDPrefix namespaces a browser session into a conversation id.
+const chatIDPrefix = config.ChannelPocketClaw + ":"
+
+// legacyChatIDPrefix is LEGACY READ-ONLY MIGRATION.
+//
+// A conversation id minted before the channel migration. It is still parsed so
+// a message already in flight when the Gateway restarts still reaches its
+// connection; nothing mints one.
+const legacyChatIDPrefix = config.LegacyChannelPocketClaw + ":"
+
+// sessionIDFromChatID recovers the browser session from a conversation id in
+// either form.
+func sessionIDFromChatID(chatID string) string {
+	if rest, found := strings.CutPrefix(chatID, chatIDPrefix); found {
+		return rest
+	}
+	return strings.TrimPrefix(chatID, legacyChatIDPrefix)
+}
 
 func outboundMessageIsThought(msg bus.OutboundMessage) bool {
 	if len(msg.Context.Raw) == 0 {
@@ -79,7 +98,7 @@ func outboundMessageFinalizesTrackedToolFeedback(msg bus.OutboundMessage) bool {
 }
 
 // writeJSON sends a JSON message to the connection with write locking.
-func (pc *picoConn) writeJSON(v any) error {
+func (pc *pocketClawConn) writeJSON(v any) error {
 	if pc.closed.Load() {
 		return fmt.Errorf("connection closed")
 	}
@@ -89,7 +108,7 @@ func (pc *picoConn) writeJSON(v any) error {
 }
 
 // close closes the connection.
-func (pc *picoConn) close() {
+func (pc *pocketClawConn) close() {
 	if pc.closed.CompareAndSwap(false, true) {
 		if pc.cancel != nil {
 			pc.cancel()
@@ -98,15 +117,15 @@ func (pc *picoConn) close() {
 	}
 }
 
-// PicoChannel implements the native Pico Protocol WebSocket channel.
+// PocketClawChannel implements the native Pico Protocol WebSocket channel.
 // It serves as the reference implementation for all optional capability interfaces.
-type PicoChannel struct {
+type PocketClawChannel struct {
 	*channels.BaseChannel
 	bc                 *config.Channel
-	config             *config.PicoSettings
+	config             *config.PocketClawSettings
 	upgrader           websocket.Upgrader
-	connections        map[string]*picoConn            // connID -> *picoConn
-	sessionConnections map[string]map[string]*picoConn // sessionID -> connID -> *picoConn
+	connections        map[string]*pocketClawConn            // connID -> *pocketClawConn
+	sessionConnections map[string]map[string]*pocketClawConn // sessionID -> connID -> *pocketClawConn
 	connsMu            sync.RWMutex
 	ctx                context.Context
 	cancel             context.CancelFunc
@@ -114,19 +133,19 @@ type PicoChannel struct {
 	deleteMessageFn    func(context.Context, string, string) error
 }
 
-// NewPicoChannel creates a new Pico Protocol channel.
-func NewPicoChannel(
+// NewPocketClawChannel creates a new Pico Protocol channel.
+func NewPocketClawChannel(
 	bc *config.Channel,
-	cfg *config.PicoSettings,
+	cfg *config.PocketClawSettings,
 	messageBus *bus.MessageBus,
-) (*PicoChannel, error) {
+) (*PocketClawChannel, error) {
 	if cfg.Token.String() == "" {
 		return nil, fmt.Errorf("pico token is required")
 	}
 
 	// The internal realtime channel is owner-only regardless of client payload
 	// fields or a stale/permissive on-disk allowlist.
-	base := channels.NewBaseChannel("pico", cfg, messageBus, config.FlexibleStringSlice{OwnerPrincipal})
+	base := channels.NewBaseChannel(config.ChannelPocketClaw, cfg, messageBus, config.FlexibleStringSlice{OwnerPrincipal})
 
 	allowOrigins := cfg.AllowOrigins
 	checkOrigin := func(r *http.Request) bool {
@@ -142,7 +161,7 @@ func NewPicoChannel(
 		return false
 	}
 
-	ch := &PicoChannel{
+	ch := &PocketClawChannel{
 		BaseChannel: base,
 		bc:          bc,
 		config:      cfg,
@@ -151,8 +170,8 @@ func NewPicoChannel(
 			ReadBufferSize:  1024,
 			WriteBufferSize: 1024,
 		},
-		connections:        make(map[string]*picoConn),
-		sessionConnections: make(map[string]map[string]*picoConn),
+		connections:        make(map[string]*pocketClawConn),
+		sessionConnections: make(map[string]map[string]*pocketClawConn),
 	}
 	ch.progress = channels.NewToolFeedbackAnimator(ch.EditMessage)
 	ch.deleteMessageFn = ch.DeleteMessage
@@ -160,7 +179,7 @@ func NewPicoChannel(
 }
 
 // createAndAddConnection checks MaxConnections and registers a connection atomically.
-func (c *PicoChannel) createAndAddConnection(conn *websocket.Conn, sessionID string, maxConns int) (*picoConn, error) {
+func (c *PocketClawChannel) createAndAddConnection(conn *websocket.Conn, sessionID string, maxConns int) (*pocketClawConn, error) {
 	c.connsMu.Lock()
 	defer c.connsMu.Unlock()
 	if len(c.connections) >= maxConns {
@@ -175,7 +194,7 @@ func (c *PicoChannel) createAndAddConnection(conn *websocket.Conn, sessionID str
 		}
 	}
 
-	pc := &picoConn{
+	pc := &pocketClawConn{
 		id:        connID,
 		conn:      conn,
 		sessionID: sessionID,
@@ -184,7 +203,7 @@ func (c *PicoChannel) createAndAddConnection(conn *websocket.Conn, sessionID str
 	c.connections[pc.id] = pc
 	bySession, ok := c.sessionConnections[pc.sessionID]
 	if !ok {
-		bySession = make(map[string]*picoConn)
+		bySession = make(map[string]*pocketClawConn)
 		c.sessionConnections[pc.sessionID] = bySession
 	}
 	bySession[pc.id] = pc
@@ -193,7 +212,7 @@ func (c *PicoChannel) createAndAddConnection(conn *websocket.Conn, sessionID str
 }
 
 // removeConnection deletes a connection from indexes and returns it when found.
-func (c *PicoChannel) removeConnection(connID string) *picoConn {
+func (c *PocketClawChannel) removeConnection(connID string) *pocketClawConn {
 	c.connsMu.Lock()
 	defer c.connsMu.Unlock()
 
@@ -214,11 +233,11 @@ func (c *PicoChannel) removeConnection(connID string) *picoConn {
 }
 
 // takeAllConnections snapshots and clears all connection indexes.
-func (c *PicoChannel) takeAllConnections() []*picoConn {
+func (c *PocketClawChannel) takeAllConnections() []*pocketClawConn {
 	c.connsMu.Lock()
 	defer c.connsMu.Unlock()
 
-	all := make([]*picoConn, 0, len(c.connections))
+	all := make([]*pocketClawConn, 0, len(c.connections))
 	for _, pc := range c.connections {
 		all = append(all, pc)
 	}
@@ -229,7 +248,7 @@ func (c *PicoChannel) takeAllConnections() []*picoConn {
 }
 
 // sessionConnectionsSnapshot returns all active connections for a session.
-func (c *PicoChannel) sessionConnectionsSnapshot(sessionID string) []*picoConn {
+func (c *PocketClawChannel) sessionConnectionsSnapshot(sessionID string) []*pocketClawConn {
 	c.connsMu.RLock()
 	defer c.connsMu.RUnlock()
 
@@ -238,7 +257,7 @@ func (c *PicoChannel) sessionConnectionsSnapshot(sessionID string) []*picoConn {
 		return nil
 	}
 
-	conns := make([]*picoConn, 0, len(bySession))
+	conns := make([]*pocketClawConn, 0, len(bySession))
 	for _, pc := range bySession {
 		conns = append(conns, pc)
 	}
@@ -246,14 +265,14 @@ func (c *PicoChannel) sessionConnectionsSnapshot(sessionID string) []*picoConn {
 }
 
 // currentConnCount returns a lock-protected snapshot of active connection count.
-func (c *PicoChannel) currentConnCount() int {
+func (c *PocketClawChannel) currentConnCount() int {
 	c.connsMu.RLock()
 	defer c.connsMu.RUnlock()
 	return len(c.connections)
 }
 
 // Start implements Channel.
-func (c *PicoChannel) Start(ctx context.Context) error {
+func (c *PocketClawChannel) Start(ctx context.Context) error {
 	logger.InfoC("pico", "Starting Pico Protocol channel")
 	c.ctx, c.cancel = context.WithCancel(ctx)
 	c.SetRunning(true)
@@ -262,7 +281,7 @@ func (c *PicoChannel) Start(ctx context.Context) error {
 }
 
 // Stop implements Channel.
-func (c *PicoChannel) Stop(ctx context.Context) error {
+func (c *PocketClawChannel) Stop(ctx context.Context) error {
 	logger.InfoC("pico", "Stopping Pico Protocol channel")
 	c.SetRunning(false)
 
@@ -283,10 +302,10 @@ func (c *PicoChannel) Stop(ctx context.Context) error {
 }
 
 // WebhookPath implements channels.WebhookHandler.
-func (c *PicoChannel) WebhookPath() string { return "/pico/" }
+func (c *PocketClawChannel) WebhookPath() string { return "/pico/" }
 
 // ServeHTTP implements http.Handler for the shared HTTP server.
-func (c *PicoChannel) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (c *PocketClawChannel) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	path := strings.TrimPrefix(r.URL.Path, "/pico")
 
 	switch path {
@@ -302,7 +321,7 @@ func (c *PicoChannel) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 // Send implements Channel — sends a message to the appropriate WebSocket connection.
-func (c *PicoChannel) Send(ctx context.Context, msg bus.OutboundMessage) ([]string, error) {
+func (c *PocketClawChannel) Send(ctx context.Context, msg bus.OutboundMessage) ([]string, error) {
 	if !c.IsRunning() {
 		return nil, channels.ErrNotRunning
 	}
@@ -348,7 +367,7 @@ func (c *PicoChannel) Send(ctx context.Context, msg bus.OutboundMessage) ([]stri
 
 	case isToolCalls:
 		payload[PayloadKeyKind] = MessageKindToolCalls
-		if toolCalls, ok := picoToolCallsPayload(msg); ok {
+		if toolCalls, ok := pocketClawToolCallsPayload(msg); ok {
 			payload[PayloadKeyToolCalls] = toolCalls
 		}
 	}
@@ -367,11 +386,11 @@ func (c *PicoChannel) Send(ctx context.Context, msg bus.OutboundMessage) ([]stri
 }
 
 // EditMessage implements channels.MessageEditor.
-func (c *PicoChannel) EditMessage(ctx context.Context, chatID string, messageID string, content string) error {
+func (c *PocketClawChannel) EditMessage(ctx context.Context, chatID string, messageID string, content string) error {
 	return c.editMessage(ctx, chatID, messageID, content, nil)
 }
 
-func (c *PicoChannel) EditMessageWithPayload(
+func (c *PocketClawChannel) EditMessageWithPayload(
 	ctx context.Context,
 	chatID string,
 	messageID string,
@@ -381,42 +400,42 @@ func (c *PicoChannel) EditMessageWithPayload(
 }
 
 // DeleteMessage implements channels.MessageDeleter.
-func (c *PicoChannel) DeleteMessage(ctx context.Context, chatID string, messageID string) error {
+func (c *PocketClawChannel) DeleteMessage(ctx context.Context, chatID string, messageID string) error {
 	outMsg := newMessage(TypeMessageDelete, map[string]any{
 		"message_id": messageID,
 	})
 	return c.broadcastToSession(chatID, outMsg)
 }
 
-func (c *PicoChannel) currentToolFeedbackMessage(chatID string) (string, bool) {
+func (c *PocketClawChannel) currentToolFeedbackMessage(chatID string) (string, bool) {
 	if c.progress == nil {
 		return "", false
 	}
 	return c.progress.Current(chatID)
 }
 
-func (c *PicoChannel) takeToolFeedbackMessage(chatID string) (string, string, bool) {
+func (c *PocketClawChannel) takeToolFeedbackMessage(chatID string) (string, string, bool) {
 	if c.progress == nil {
 		return "", "", false
 	}
 	return c.progress.Take(chatID)
 }
 
-func (c *PicoChannel) RecordToolFeedbackMessage(chatID, messageID, content string) {
+func (c *PocketClawChannel) RecordToolFeedbackMessage(chatID, messageID, content string) {
 	if c.progress == nil {
 		return
 	}
 	c.progress.Record(chatID, messageID, content)
 }
 
-func (c *PicoChannel) ClearToolFeedbackMessage(chatID string) {
+func (c *PocketClawChannel) ClearToolFeedbackMessage(chatID string) {
 	if c.progress == nil {
 		return
 	}
 	c.progress.Clear(chatID)
 }
 
-func (c *PicoChannel) DismissToolFeedbackMessage(ctx context.Context, chatID string) {
+func (c *PocketClawChannel) DismissToolFeedbackMessage(ctx context.Context, chatID string) {
 	msgID, ok := c.currentToolFeedbackMessage(chatID)
 	if !ok {
 		return
@@ -424,7 +443,7 @@ func (c *PicoChannel) DismissToolFeedbackMessage(ctx context.Context, chatID str
 	c.dismissTrackedToolFeedbackMessage(ctx, chatID, msgID)
 }
 
-func (c *PicoChannel) dismissTrackedToolFeedbackMessage(ctx context.Context, chatID, messageID string) {
+func (c *PocketClawChannel) dismissTrackedToolFeedbackMessage(ctx context.Context, chatID, messageID string) {
 	if strings.TrimSpace(chatID) == "" || strings.TrimSpace(messageID) == "" {
 		return
 	}
@@ -436,7 +455,7 @@ func (c *PicoChannel) dismissTrackedToolFeedbackMessage(ctx context.Context, cha
 	_ = deleteFn(ctx, chatID, messageID)
 }
 
-func (c *PicoChannel) finalizeTrackedToolFeedbackMessage(
+func (c *PocketClawChannel) finalizeTrackedToolFeedbackMessage(
 	ctx context.Context,
 	chatID string,
 	content string,
@@ -463,7 +482,7 @@ func (c *PicoChannel) finalizeTrackedToolFeedbackMessage(
 	return []string{msgID}, true
 }
 
-func (c *PicoChannel) FinalizeToolFeedbackMessage(ctx context.Context, msg bus.OutboundMessage) ([]string, bool) {
+func (c *PocketClawChannel) FinalizeToolFeedbackMessage(ctx context.Context, msg bus.OutboundMessage) ([]string, bool) {
 	if !outboundMessageFinalizesTrackedToolFeedback(msg) {
 		return nil, false
 	}
@@ -484,7 +503,7 @@ func (c *PicoChannel) FinalizeToolFeedbackMessage(ctx context.Context, msg bus.O
 }
 
 // StartTyping implements channels.TypingCapable.
-func (c *PicoChannel) StartTyping(ctx context.Context, chatID string) (func(), error) {
+func (c *PocketClawChannel) StartTyping(ctx context.Context, chatID string) (func(), error) {
 	startMsg := newMessage(TypeTypingStart, nil)
 	if err := c.broadcastToSession(chatID, startMsg); err != nil {
 		return func() {}, err
@@ -498,7 +517,7 @@ func (c *PicoChannel) StartTyping(ctx context.Context, chatID string) (func(), e
 // SendPlaceholder implements channels.PlaceholderCapable.
 // It sends a placeholder message via the Pico Protocol that will later be
 // edited to the actual response via EditMessage (channels.MessageEditor).
-func (c *PicoChannel) SendPlaceholder(ctx context.Context, chatID string) (string, error) {
+func (c *PocketClawChannel) SendPlaceholder(ctx context.Context, chatID string) (string, error) {
 	if !c.bc.Placeholder.Enabled {
 		return "", nil
 	}
@@ -520,7 +539,7 @@ func (c *PicoChannel) SendPlaceholder(ctx context.Context, chatID string) (strin
 }
 
 // BeginStream implements channels.StreamingCapable for Pico WebUI.
-func (c *PicoChannel) BeginStream(ctx context.Context, chatID string) (channels.Streamer, error) {
+func (c *PocketClawChannel) BeginStream(ctx context.Context, chatID string) (channels.Streamer, error) {
 	if c == nil || c.config == nil || !c.config.Streaming.Enabled {
 		return nil, fmt.Errorf("streaming disabled in config")
 	}
@@ -528,7 +547,7 @@ func (c *PicoChannel) BeginStream(ctx context.Context, chatID string) (channels.
 		return nil, channels.ErrNotRunning
 	}
 	streamCfg := c.config.Streaming.WithDefaults(0, 1)
-	return &picoStreamer{
+	return &pocketClawStreamer{
 		channel:          c,
 		chatID:           chatID,
 		throttleInterval: time.Duration(streamCfg.ThrottleSeconds) * time.Second,
@@ -536,8 +555,8 @@ func (c *PicoChannel) BeginStream(ctx context.Context, chatID string) (channels.
 	}, nil
 }
 
-type picoStreamer struct {
-	channel          *PicoChannel
+type pocketClawStreamer struct {
+	channel          *PocketClawChannel
 	chatID           string
 	modelName        string
 	messageID        string
@@ -553,7 +572,7 @@ type picoStreamer struct {
 	mu               sync.Mutex
 }
 
-func (s *picoStreamer) SetModelName(modelName string) {
+func (s *pocketClawStreamer) SetModelName(modelName string) {
 	if s == nil {
 		return
 	}
@@ -562,35 +581,35 @@ func (s *picoStreamer) SetModelName(modelName string) {
 	s.modelName = strings.TrimSpace(modelName)
 }
 
-func (s *picoStreamer) Update(ctx context.Context, content string) error {
+func (s *pocketClawStreamer) Update(ctx context.Context, content string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.updateLocked(ctx, content, false, nil)
 }
 
-func (s *picoStreamer) Finalize(ctx context.Context, content string) error {
+func (s *pocketClawStreamer) Finalize(ctx context.Context, content string) error {
 	return s.FinalizeWithContext(ctx, content, nil)
 }
 
-func (s *picoStreamer) FinalizeWithContext(ctx context.Context, content string, contextUsage *bus.ContextUsage) error {
+func (s *pocketClawStreamer) FinalizeWithContext(ctx context.Context, content string, contextUsage *bus.ContextUsage) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.updateLocked(ctx, content, true, contextUsage)
 }
 
-func (s *picoStreamer) UpdateReasoning(ctx context.Context, content string) error {
+func (s *pocketClawStreamer) UpdateReasoning(ctx context.Context, content string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.updateReasoningLocked(ctx, content, false)
 }
 
-func (s *picoStreamer) FinalizeReasoning(ctx context.Context, content string) error {
+func (s *pocketClawStreamer) FinalizeReasoning(ctx context.Context, content string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.updateReasoningLocked(ctx, content, true)
 }
 
-func (s *picoStreamer) Cancel(ctx context.Context) {
+func (s *pocketClawStreamer) Cancel(ctx context.Context) {
 	if s == nil {
 		return
 	}
@@ -611,7 +630,7 @@ func (s *picoStreamer) Cancel(ctx context.Context) {
 	}
 }
 
-func (s *picoStreamer) updateLocked(
+func (s *pocketClawStreamer) updateLocked(
 	ctx context.Context,
 	content string,
 	force bool,
@@ -636,7 +655,7 @@ func (s *picoStreamer) updateLocked(
 	return s.sendLocked(ctx, content, contextUsage)
 }
 
-func (s *picoStreamer) updateReasoningLocked(ctx context.Context, content string, force bool) error {
+func (s *pocketClawStreamer) updateReasoningLocked(ctx context.Context, content string, force bool) error {
 	if s == nil || s.channel == nil {
 		return fmt.Errorf("streamer is not initialized")
 	}
@@ -656,7 +675,7 @@ func (s *picoStreamer) updateReasoningLocked(ctx context.Context, content string
 	return s.sendReasoningLocked(ctx, content)
 }
 
-func (s *picoStreamer) sendLocked(ctx context.Context, content string, contextUsage *bus.ContextUsage) error {
+func (s *pocketClawStreamer) sendLocked(ctx context.Context, content string, contextUsage *bus.ContextUsage) error {
 	now := time.Now()
 	contentLen := len([]rune(content))
 
@@ -693,7 +712,7 @@ func (s *picoStreamer) sendLocked(ctx context.Context, content string, contextUs
 	return nil
 }
 
-func (s *picoStreamer) sendReasoningLocked(ctx context.Context, content string) error {
+func (s *pocketClawStreamer) sendReasoningLocked(ctx context.Context, content string) error {
 	now := time.Now()
 	contentLen := len([]rune(content))
 
@@ -737,7 +756,7 @@ func (s *picoStreamer) sendReasoningLocked(ctx context.Context, content string) 
 // SendMedia implements channels.MediaSender for the Pico web UI.
 // Media is delivered as a normal assistant message carrying structured
 // attachments plus an authenticated same-origin download URL.
-func (c *PicoChannel) SendMedia(ctx context.Context, msg bus.OutboundMediaMessage) ([]string, error) {
+func (c *PocketClawChannel) SendMedia(ctx context.Context, msg bus.OutboundMediaMessage) ([]string, error) {
 	if !c.IsRunning() {
 		return nil, channels.ErrNotRunning
 	}
@@ -779,10 +798,10 @@ func (c *PicoChannel) SendMedia(ctx context.Context, msg bus.OutboundMediaMessag
 
 		attachmentType := strings.TrimSpace(part.Type)
 		if attachmentType == "" {
-			attachmentType = picoInferAttachmentType(filename, contentType)
+			attachmentType = pocketClawInferAttachmentType(filename, contentType)
 		}
 
-		attachmentURL, err := picoDownloadURLForRef(part.Ref)
+		attachmentURL, err := pocketClawDownloadURLForRef(part.Ref)
 		if err != nil {
 			logger.ErrorCF("pico", "Failed to build media download URL", map[string]any{
 				"ref":   part.Ref,
@@ -827,15 +846,15 @@ func (c *PicoChannel) SendMedia(ctx context.Context, msg bus.OutboundMediaMessag
 	return []string{msgID}, nil
 }
 
-func picoDownloadURLForRef(ref string) (string, error) {
-	refID, err := picoMediaRefID(ref)
+func pocketClawDownloadURLForRef(ref string) (string, error) {
+	refID, err := pocketClawMediaRefID(ref)
 	if err != nil {
 		return "", err
 	}
 	return "/pico/media/" + url.PathEscape(refID), nil
 }
 
-func picoMediaRefID(ref string) (string, error) {
+func pocketClawMediaRefID(ref string) (string, error) {
 	refID := strings.TrimSpace(strings.TrimPrefix(ref, "media://"))
 	if refID == "" || strings.Contains(refID, "/") {
 		return "", fmt.Errorf("invalid media ref %q", ref)
@@ -843,7 +862,7 @@ func picoMediaRefID(ref string) (string, error) {
 	return refID, nil
 }
 
-func picoInferAttachmentType(filename, contentType string) string {
+func pocketClawInferAttachmentType(filename, contentType string) string {
 	contentType = strings.ToLower(strings.TrimSpace(contentType))
 	filename = strings.ToLower(strings.TrimSpace(filename))
 
@@ -868,7 +887,7 @@ func picoInferAttachmentType(filename, contentType string) string {
 	}
 }
 
-func picoAllowsInlineDisplay(filename, contentType string) bool {
+func pocketClawAllowsInlineDisplay(filename, contentType string) bool {
 	contentType = strings.ToLower(strings.TrimSpace(contentType))
 	filename = strings.ToLower(strings.TrimSpace(filename))
 
@@ -876,10 +895,10 @@ func picoAllowsInlineDisplay(filename, contentType string) bool {
 		return false
 	}
 
-	return picoInferAttachmentType(filename, contentType) == "image"
+	return pocketClawInferAttachmentType(filename, contentType) == "image"
 }
 
-func (c *PicoChannel) handleMediaDownload(w http.ResponseWriter, r *http.Request) {
+func (c *PocketClawChannel) handleMediaDownload(w http.ResponseWriter, r *http.Request) {
 	if !c.IsRunning() {
 		http.Error(w, "channel not running", http.StatusServiceUnavailable)
 		return
@@ -930,7 +949,7 @@ func (c *PicoChannel) handleMediaDownload(w http.ResponseWriter, r *http.Request
 	}
 
 	dispositionType := "attachment"
-	if picoAllowsInlineDisplay(filename, contentType) {
+	if pocketClawAllowsInlineDisplay(filename, contentType) {
 		dispositionType = "inline"
 	}
 
@@ -942,9 +961,8 @@ func (c *PicoChannel) handleMediaDownload(w http.ResponseWriter, r *http.Request
 }
 
 // broadcastToSession sends a message to all connections with a matching session.
-func (c *PicoChannel) broadcastToSession(chatID string, msg PicoMessage) error {
-	// chatID format: "pico:<sessionID>"
-	sessionID := strings.TrimPrefix(chatID, "pico:")
+func (c *PocketClawChannel) broadcastToSession(chatID string, msg PocketClawMessage) error {
+	sessionID := sessionIDFromChatID(chatID)
 	msg.SessionID = sessionID
 
 	var sent bool
@@ -966,7 +984,7 @@ func (c *PicoChannel) broadcastToSession(chatID string, msg PicoMessage) error {
 }
 
 // handleWebSocket upgrades the HTTP connection and manages the WebSocket lifecycle.
-func (c *PicoChannel) handleWebSocket(w http.ResponseWriter, r *http.Request) {
+func (c *PocketClawChannel) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 	if !c.IsRunning() {
 		http.Error(w, "channel not running", http.StatusServiceUnavailable)
 		return
@@ -1031,7 +1049,7 @@ func (c *PicoChannel) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 //  1. Authorization: Bearer <token> header
 //  2. Sec-WebSocket-Protocol "token.<value>" (for browsers that can't set headers)
 //  3. Query parameter "token" (only when AllowTokenQuery is on)
-func (c *PicoChannel) authenticate(r *http.Request) bool {
+func (c *PocketClawChannel) authenticate(r *http.Request) bool {
 	token := c.config.Token.String()
 	if token == "" {
 		return false
@@ -1073,11 +1091,11 @@ func (c *PicoChannel) authenticate(r *http.Request) bool {
 //
 // Enforced here rather than by hiding the toggle, so a stale config file or a
 // hand-edited one cannot re-enable it either.
-func (c *PicoChannel) tokenQueryAllowed() bool {
+func (c *PocketClawChannel) tokenQueryAllowed() bool {
 	if !c.config.AllowTokenQuery {
 		return false
 	}
-	return strings.TrimSpace(canonicalenv.Getenv(config.EnvChannelsPicoToken)) == ""
+	return strings.TrimSpace(canonicalenv.Getenv(config.EnvChannelsPocketClawToken)) == ""
 }
 
 // credentialsMatch compares a presented credential against the configured one
@@ -1096,7 +1114,7 @@ func credentialsMatch(presented, expected string) bool {
 
 // matchedSubprotocol returns the "token.<value>" subprotocol that matches
 // the configured token, or "" if none do.
-func (c *PicoChannel) matchedSubprotocol(r *http.Request) string {
+func (c *PocketClawChannel) matchedSubprotocol(r *http.Request) string {
 	token := c.config.Token.String()
 	for _, proto := range websocket.Subprotocols(r) {
 		if after, ok := strings.CutPrefix(proto, "token."); ok && credentialsMatch(after, token) {
@@ -1107,7 +1125,7 @@ func (c *PicoChannel) matchedSubprotocol(r *http.Request) string {
 }
 
 // readLoop reads messages from a WebSocket connection.
-func (c *PicoChannel) readLoop(pc *picoConn) {
+func (c *PocketClawChannel) readLoop(pc *pocketClawConn) {
 	defer func() {
 		pc.close()
 		if removed := c.removeConnection(pc.id); removed != nil {
@@ -1156,7 +1174,7 @@ func (c *PicoChannel) readLoop(pc *picoConn) {
 
 		_ = pc.conn.SetReadDeadline(time.Now().Add(readTimeout))
 
-		var msg PicoMessage
+		var msg PocketClawMessage
 		if err := json.Unmarshal(rawMsg, &msg); err != nil {
 			errMsg := newError("invalid_message", "failed to parse message")
 			pc.writeJSON(errMsg)
@@ -1168,7 +1186,7 @@ func (c *PicoChannel) readLoop(pc *picoConn) {
 }
 
 // pingLoop sends periodic ping frames to keep the connection alive.
-func (c *PicoChannel) pingLoop(pc *picoConn, interval time.Duration) {
+func (c *PocketClawChannel) pingLoop(pc *pocketClawConn, interval time.Duration) {
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
@@ -1191,7 +1209,7 @@ func (c *PicoChannel) pingLoop(pc *picoConn, interval time.Duration) {
 }
 
 // handleMessage processes an inbound Pico Protocol message.
-func (c *PicoChannel) handleMessage(pc *picoConn, msg PicoMessage) {
+func (c *PocketClawChannel) handleMessage(pc *pocketClawConn, msg PocketClawMessage) {
 	switch msg.Type {
 	case TypePing:
 		pong := newMessage(TypePong, nil)
@@ -1211,7 +1229,7 @@ func (c *PicoChannel) handleMessage(pc *picoConn, msg PicoMessage) {
 }
 
 // handleMessageSend processes an inbound message.send from a client.
-func (c *PicoChannel) handleMessageSend(pc *picoConn, msg PicoMessage) {
+func (c *PocketClawChannel) handleMessageSend(pc *pocketClawConn, msg PocketClawMessage) {
 	content, _ := msg.Payload["content"].(string)
 	media, err := parseInlineImageMedia(msg.Payload)
 	if err != nil {
@@ -1235,11 +1253,11 @@ func (c *PicoChannel) handleMessageSend(pc *picoConn, msg PicoMessage) {
 	// effective authorization identity or conversation routing key.
 	sessionID := pc.sessionID
 
-	chatID := "pico:" + sessionID
+	chatID := chatIDPrefix + sessionID
 	senderID := OwnerPrincipal
 
 	metadata := map[string]string{
-		"platform":   "pico",
+		"platform":   config.ChannelPocketClaw,
 		"session_id": sessionID,
 		"conn_id":    pc.id,
 	}
@@ -1250,9 +1268,9 @@ func (c *PicoChannel) handleMessageSend(pc *picoConn, msg PicoMessage) {
 	})
 
 	sender := bus.SenderInfo{
-		Platform:    "pico",
+		Platform:    config.ChannelPocketClaw,
 		PlatformID:  senderID,
-		CanonicalID: identity.BuildCanonicalID("pico", senderID),
+		CanonicalID: identity.BuildCanonicalID(config.ChannelPocketClaw, senderID),
 	}
 
 	if !c.IsAllowedSender(sender) {
@@ -1260,7 +1278,7 @@ func (c *PicoChannel) handleMessageSend(pc *picoConn, msg PicoMessage) {
 	}
 
 	inboundCtx := bus.InboundContext{
-		Channel:   "pico",
+		Channel:   config.ChannelPocketClaw,
 		ChatID:    chatID,
 		ChatType:  "direct",
 		SenderID:  senderID,
@@ -1445,7 +1463,7 @@ func setContextUsagePayload(payload map[string]any, u *bus.ContextUsage) {
 	}
 }
 
-func picoToolCallsPayload(msg bus.OutboundMessage) ([]utils.VisibleToolCall, bool) {
+func pocketClawToolCallsPayload(msg bus.OutboundMessage) ([]utils.VisibleToolCall, bool) {
 	raw := strings.TrimSpace(msg.Context.Raw[PayloadKeyToolCalls])
 	if raw == "" {
 		return nil, false
@@ -1458,7 +1476,7 @@ func picoToolCallsPayload(msg bus.OutboundMessage) ([]utils.VisibleToolCall, boo
 	return toolCalls, true
 }
 
-func (c *PicoChannel) editMessage(
+func (c *PocketClawChannel) editMessage(
 	ctx context.Context,
 	chatID string,
 	messageID string,
@@ -1470,7 +1488,7 @@ func (c *PicoChannel) editMessage(
 	}, contextUsage)
 }
 
-func (c *PicoChannel) editMessagePayload(
+func (c *PocketClawChannel) editMessagePayload(
 	ctx context.Context,
 	chatID string,
 	messageID string,

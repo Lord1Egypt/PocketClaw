@@ -1,4 +1,4 @@
-package pico
+package pocketclaw
 
 import (
 	"context"
@@ -19,36 +19,36 @@ import (
 	"github.com/sipeed/picoclaw/pkg/logger"
 )
 
-// PicoClientChannel connects to a remote Pico Protocol WebSocket server.
-type PicoClientChannel struct {
+// PocketClawClientChannel connects to a remote Pico Protocol WebSocket server.
+type PocketClawClientChannel struct {
 	*channels.BaseChannel
-	config *config.PicoClientSettings
-	conn   *picoConn
+	config *config.PocketClawClientSettings
+	conn   *pocketClawConn
 	mu     sync.Mutex
 	ctx    context.Context
 	cancel context.CancelFunc
 }
 
-// NewPicoClientChannel creates a new Pico Protocol client channel.
-func NewPicoClientChannel(
+// NewPocketClawClientChannel creates a new Pico Protocol client channel.
+func NewPocketClawClientChannel(
 	bc *config.Channel,
-	cfg *config.PicoClientSettings,
+	cfg *config.PocketClawClientSettings,
 	messageBus *bus.MessageBus,
-) (*PicoClientChannel, error) {
+) (*PocketClawClientChannel, error) {
 	if cfg.URL == "" {
 		return nil, fmt.Errorf("pico_client url is required")
 	}
 
-	base := channels.NewBaseChannel("pico_client", cfg, messageBus, bc.AllowFrom)
+	base := channels.NewBaseChannel(config.ChannelPocketClawClient, cfg, messageBus, bc.AllowFrom)
 
-	return &PicoClientChannel{
+	return &PocketClawClientChannel{
 		BaseChannel: base,
 		config:      cfg,
 	}, nil
 }
 
 // Start dials the remote server and begins reading.
-func (c *PicoClientChannel) Start(ctx context.Context) error {
+func (c *PocketClawClientChannel) Start(ctx context.Context) error {
 	logger.InfoC("pico_client", "Starting Pico Client channel")
 	c.ctx, c.cancel = context.WithCancel(ctx)
 
@@ -65,7 +65,7 @@ func (c *PicoClientChannel) Start(ctx context.Context) error {
 }
 
 // Stop closes the connection.
-func (c *PicoClientChannel) Stop(ctx context.Context) error {
+func (c *PocketClawClientChannel) Stop(ctx context.Context) error {
 	logger.InfoC("pico_client", "Stopping Pico Client channel")
 	c.SetRunning(false)
 	if c.cancel != nil {
@@ -80,7 +80,7 @@ func (c *PicoClientChannel) Stop(ctx context.Context) error {
 	return nil
 }
 
-func (c *PicoClientChannel) dial() error {
+func (c *PocketClawClientChannel) dial() error {
 	header := http.Header{}
 	if c.config.Token.String() != "" {
 		header.Set("Authorization", "Bearer "+c.config.Token.String())
@@ -96,7 +96,7 @@ func (c *PicoClientChannel) dial() error {
 
 	connCtx, connCancel := context.WithCancel(c.ctx)
 
-	pc := &picoConn{
+	pc := &pocketClawConn{
 		id:        uuid.New().String(),
 		conn:      ws,
 		sessionID: c.config.SessionID,
@@ -115,7 +115,7 @@ func (c *PicoClientChannel) dial() error {
 }
 
 // reconnectLoop re-dials when the connection drops.
-func (c *PicoClientChannel) reconnectLoop() {
+func (c *PocketClawClientChannel) reconnectLoop() {
 	for {
 		select {
 		case <-c.ctx.Done():
@@ -152,7 +152,7 @@ func (c *PicoClientChannel) reconnectLoop() {
 	}
 }
 
-func (c *PicoClientChannel) readLoop(connCtx context.Context, pc *picoConn) {
+func (c *PocketClawClientChannel) readLoop(connCtx context.Context, pc *pocketClawConn) {
 	defer pc.close()
 
 	readTimeout := time.Duration(c.config.ReadTimeout) * time.Second
@@ -194,7 +194,7 @@ func (c *PicoClientChannel) readLoop(connCtx context.Context, pc *picoConn) {
 
 		_ = pc.conn.SetReadDeadline(time.Now().Add(readTimeout))
 
-		var msg PicoMessage
+		var msg PocketClawMessage
 		if err := json.Unmarshal(raw, &msg); err != nil {
 			continue
 		}
@@ -203,7 +203,7 @@ func (c *PicoClientChannel) readLoop(connCtx context.Context, pc *picoConn) {
 	}
 }
 
-func (c *PicoClientChannel) pingLoop(connCtx context.Context, pc *picoConn, interval time.Duration) {
+func (c *PocketClawClientChannel) pingLoop(connCtx context.Context, pc *pocketClawConn, interval time.Duration) {
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 	for {
@@ -228,7 +228,7 @@ func (c *PicoClientChannel) pingLoop(connCtx context.Context, pc *picoConn, inte
 // In client mode the server sends message.create (responses) and the client
 // sends message.send (user input). We treat message.create from the server
 // as inbound user messages to feed into the agent loop.
-func (c *PicoClientChannel) handleInbound(pc *picoConn, msg PicoMessage) {
+func (c *PocketClawClientChannel) handleInbound(pc *pocketClawConn, msg PocketClawMessage) {
 	switch msg.Type {
 	case TypePong:
 		// response to our ping, ignore
@@ -244,7 +244,7 @@ func (c *PicoClientChannel) handleInbound(pc *picoConn, msg PicoMessage) {
 	}
 }
 
-func (c *PicoClientChannel) handleServerMessage(pc *picoConn, msg PicoMessage) {
+func (c *PocketClawClientChannel) handleServerMessage(pc *pocketClawConn, msg PocketClawMessage) {
 	if isThoughtPayload(msg.Payload) {
 		return
 	}
@@ -272,9 +272,9 @@ func (c *PicoClientChannel) handleServerMessage(pc *picoConn, msg PicoMessage) {
 	chatID := "pico_client:" + sessionID
 	senderID := "pico-remote"
 	sender := bus.SenderInfo{
-		Platform:    "pico_client",
+		Platform:    config.ChannelPocketClawClient,
 		PlatformID:  senderID,
-		CanonicalID: identity.BuildCanonicalID("pico_client", senderID),
+		CanonicalID: identity.BuildCanonicalID(config.ChannelPocketClawClient, senderID),
 	}
 
 	if !c.IsAllowedSender(sender) {
@@ -282,13 +282,13 @@ func (c *PicoClientChannel) handleServerMessage(pc *picoConn, msg PicoMessage) {
 	}
 
 	inboundCtx := bus.InboundContext{
-		Channel:   "pico_client",
+		Channel:   config.ChannelPocketClawClient,
 		ChatID:    chatID,
 		ChatType:  "direct",
 		SenderID:  senderID,
 		MessageID: msg.ID,
 		Raw: map[string]string{
-			"platform":   "pico_client",
+			"platform":   config.ChannelPocketClawClient,
 			"session_id": sessionID,
 		},
 	}
@@ -297,7 +297,7 @@ func (c *PicoClientChannel) handleServerMessage(pc *picoConn, msg PicoMessage) {
 }
 
 // Send sends a message to the remote server.
-func (c *PicoClientChannel) Send(ctx context.Context, msg bus.OutboundMessage) ([]string, error) {
+func (c *PocketClawClientChannel) Send(ctx context.Context, msg bus.OutboundMessage) ([]string, error) {
 	if !c.IsRunning() {
 		return nil, channels.ErrNotRunning
 	}
@@ -316,7 +316,7 @@ func (c *PicoClientChannel) Send(ctx context.Context, msg bus.OutboundMessage) (
 }
 
 // StartTyping implements channels.TypingCapable.
-func (c *PicoClientChannel) StartTyping(ctx context.Context, chatID string) (func(), error) {
+func (c *PocketClawClientChannel) StartTyping(ctx context.Context, chatID string) (func(), error) {
 	c.mu.Lock()
 	pc := c.conn
 	c.mu.Unlock()
