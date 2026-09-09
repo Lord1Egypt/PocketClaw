@@ -88,7 +88,9 @@ PENDING_FINAL_HARDENING = [
     "production signing key not created",
     "Dart obfuscation and split debug info not enabled",
     "R8 keep rules not narrowed",
-    "PicoClaw to PocketClaw namespace migration outstanding",
+    # The namespace migration was listed here until the sweep finished and
+    # namespace.no_active_pico started enforcing it on every run. A standing
+    # note that a solved problem is outstanding is as misleading as the reverse.
     "versioned non-destructive bootstrap update strategy outstanding",
 ]
 
