@@ -111,10 +111,11 @@ void main() {
     });
 
     test('runtime environment and on-disk compatibility names are unchanged', () {
-      final service = read(
-        'android/app/src/main/kotlin/com/lord1egypt/pocketclaw/service/'
-        'PocketClawService.kt',
-      );
+      // N4E moved the emitted names to POCKETCLAW_* and gave the Core an
+      // adapter that still accepts these. What N3 pinned — that renaming the
+      // native binaries did not disturb the environment contract — is checked
+      // against the adapter now; zero_pico_n4e_test.dart owns the emitted set.
+      final adapter = read('core/src/pkg/canonicalenv/canonicalenv.go');
       for (final env in [
         'PICOCLAW_HOME',
         'PICOCLAW_CONFIG',
@@ -124,7 +125,7 @@ void main() {
         'PICOCLAW_CHANNELS_PICO_TOKEN',
         'PICOCLAW_DNS_SERVER',
       ]) {
-        expect(service, contains(env));
+        expect(adapter, contains(env));
       }
       expect(read('android/app/src/main/res/xml/backup_rules.xml'),
           contains('path="picoclaw/"'));

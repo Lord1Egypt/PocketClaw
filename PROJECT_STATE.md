@@ -1,5 +1,92 @@
 # PocketClaw Project State
 
+## Zero-Pico N4E — canonical `POCKETCLAW_*` environment, NOT closed
+
+- Status: **implemented on `feature/zero-pico-runtime`, 2026-09-09. NOT merged.**
+  `0.2.0+61`, baseline 59, no candidate, no What's New entry.
+- **Key names changed. No value moved.** Core state is still written to
+  `filesDir/picoclaw/`, the config is still `filesDir/picoclaw/config.json`, and
+  the workspace, gateway token, logs and Dashboard verifier are all in exactly
+  the places A2 put them.
+- Core source fingerprint moved `f015c644…` → `369d0892…`.
+  **Staged Core is EXPECTED STALE — FINAL ZERO-PICO CORE REBUILD PENDING.**
+
+### The split
+
+The Android host emits only `POCKETCLAW_*`. The vendored Core still reads
+`PICOCLAW_*` — 175 struct tags and a dozen direct lookups — and a canonical
+adapter translates between them. Renaming upstream's tags would be a permanent
+divergence for no behavioural gain, so the translation is one table instead:
+
+    core/src/pkg/canonicalenv/canonicalenv.go
+
+That file is the entire compatibility surface, which is what lets the final
+Zero-Pico guard allowlist it precisely rather than chase scattered literals.
+Legacy names there are input this build still accepts, never output it produces.
+
+### The twelve
+
+    POCKETCLAW_HOME                        PICOCLAW_HOME
+    POCKETCLAW_CONFIG                      PICOCLAW_CONFIG
+    POCKETCLAW_BINARY                      PICOCLAW_BINARY
+    POCKETCLAW_GATEWAY_TOKEN_FILE          PICOCLAW_GATEWAY_TOKEN_FILE
+    POCKETCLAW_LOG_DIR                     PICOCLAW_LOG_DIR
+    POCKETCLAW_DASHBOARD_AUTH_DIR          PICOCLAW_DASHBOARD_AUTH_DIR
+    POCKETCLAW_DNS_SERVER                  PICOCLAW_DNS_SERVER
+    POCKETCLAW_GATEWAY_HOT_RELOAD          PICOCLAW_GATEWAY_HOT_RELOAD
+    POCKETCLAW_TOOLS_I2C_ENABLED           PICOCLAW_TOOLS_I2C_ENABLED
+    POCKETCLAW_TOOLS_SPI_ENABLED           PICOCLAW_TOOLS_SPI_ENABLED
+    POCKETCLAW_TOOLS_SERIAL_ENABLED        PICOCLAW_TOOLS_SERIAL_ENABLED
+    POCKETCLAW_CHANNELS_POCKETCLAW_TOKEN   PICOCLAW_CHANNELS_PICO_TOKEN
+
+The token is the one pair whose suffix also changes. PocketClaw cannot emit a
+canonical name containing PICO, and the serialized channel is still called
+"pico" until the channel phase, so the halves differ on purpose.
+
+### Two reader classes, not one
+
+N4A's map found two `caarlos0/env` decode points. It did not find the second
+class: seven of the twelve are read by direct `os.Getenv`, not by a struct tag —
+`HOME`, `CONFIG`, `BINARY`, `GATEWAY_TOKEN_FILE`, `LOG_DIR`,
+`DASHBOARD_AUTH_DIR`, `DNS_SERVER`. A parser-only adapter would have left those
+seven unread the moment the host went canonical-only, silently returning three
+A2 security boundaries — the gateway token file, the private log directory and
+the Dashboard verifier directory — to their shared-storage defaults. Both
+classes go through the same table.
+
+### Precedence
+
+Canonical wins when set. Legacy still works when canonical is absent, so
+existing upstream installs are unaffected. **Presence decides, not emptiness**:
+`POCKETCLAW_LOG_DIR=""` is set and beats a non-empty `PICOCLAW_LOG_DIR`, because
+a host that blanks a variable is saying something and falling through would
+restore exactly what it was turning off.
+
+### No global mutation
+
+The adapter never calls `os.Setenv`. The parser gets a constructed map through
+`env.ParseWithOptions`; direct readers ask the resolver. `os.Getenv` of a legacy
+name returns what it always did, including nothing when it was never set. Had
+the shim written legacy names into the live environment they would have been
+inherited by every child the Core spawns — reintroducing the namespace being
+removed, one process deeper.
+
+### Guards that changed owner
+
+`namespace_n1_boundary_test.dart`, `namespace_n3_native_identity_test.dart`,
+`zero_pico_n4b_test.dart` and `zero_pico_n4c_test.dart` each pinned legacy env
+names as proof their own phase had not widened. N4E migrated those names, so
+each guard failed, and each was amended with a note naming the new owner rather
+than quietly deleted. `zero_pico_n4e_test.dart` owns the emitted set now; the
+private directory stays pinned where it was, because it is still deferred.
+
+### Deferred, deliberately
+
+`filesDir/picoclaw/`, `pocketclaw-core/`, `.picoclaw.pid`, the serialized "pico"
+channel, `picoTokenForHost` and the other Android-local `pico` identifiers, and
+`PICOCLAW_DISTRIBUTION_CHANNEL` — a compile-time dart-define no build supplies,
+so not an emission and not in this phase.
+
 ## Zero-Pico N4D + N4D-R — private-path protection map, NOT closed
 
 - Status: **implemented on `feature/zero-pico-runtime`, 2026-09-09. NOT merged.**

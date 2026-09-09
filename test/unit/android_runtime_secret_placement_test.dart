@@ -20,7 +20,7 @@ void main() {
   group('gateway credential', () {
     test('is written to app-private no-backup storage', () {
       final source = read(service);
-      expect(source, contains('PICOCLAW_GATEWAY_TOKEN_FILE'));
+      expect(source, contains('POCKETCLAW_GATEWAY_TOKEN_FILE'));
       expect(
         source,
         contains('noBackupFilesDir'),
@@ -70,6 +70,7 @@ void main() {
       for (final file in dartSources) {
         final body = file.readAsStringSync();
         for (final forbidden in const [
+          'POCKETCLAW_GATEWAY_TOKEN_FILE',
           'PICOCLAW_GATEWAY_TOKEN_FILE',
           'gatewayToken',
           'gateway_auth',
@@ -104,7 +105,7 @@ void main() {
   group('dashboard credential store', () {
     test('is placed in app-private no-backup storage', () {
       final source = read(service);
-      expect(source, contains('PICOCLAW_DASHBOARD_AUTH_DIR'));
+      expect(source, contains('POCKETCLAW_DASHBOARD_AUTH_DIR'));
       expect(
         source,
         contains(
@@ -127,6 +128,7 @@ void main() {
       for (final file in dartSources) {
         final body = file.readAsStringSync();
         for (final forbidden in const [
+          'POCKETCLAW_DASHBOARD_AUTH_DIR',
           'PICOCLAW_DASHBOARD_AUTH_DIR',
           'launcher-auth.db',
           'bcrypt_hash',
@@ -144,7 +146,7 @@ void main() {
   group('gateway logs', () {
     test('are written to app-private storage', () {
       final source = read(service);
-      expect(source, contains('PICOCLAW_LOG_DIR'));
+      expect(source, contains('POCKETCLAW_LOG_DIR'));
       expect(
         source,
         contains('private fun privateLogDir(context: Context): File'),
@@ -203,7 +205,7 @@ void main() {
       // workspace staying user-visible is the product decision this milestone
       // is careful not to reverse.
       expect(source, contains('DIRECTORY_DOWNLOADS'));
-      expect(source, contains('"PICOCLAW_HOME" to workspace.absolutePath'));
+      expect(source, contains('"POCKETCLAW_HOME" to workspace.absolutePath'));
     });
   });
 }

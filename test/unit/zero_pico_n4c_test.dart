@@ -140,8 +140,11 @@ void main() {
   });
 
   test('no other Zero-Pico phase was widened', () {
+    // The environment key was pinned here as a marker of what N4C had not
+    // touched. N4E migrated it, and this failing is how that was declared;
+    // zero_pico_n4e_test.dart owns the emitted names. The private directory is
+    // still deferred, so it stays.
     expect(service, contains('File(context.filesDir, "picoclaw")'));
-    expect(service, contains('"PICOCLAW_HOME"'));
     expect(File('android/app/src/main/res/xml/backup_rules.xml').readAsStringSync(),
         contains('path="picoclaw/"'));
     expect(File('$kotlin/PocketClawPreferences.kt').readAsStringSync(),

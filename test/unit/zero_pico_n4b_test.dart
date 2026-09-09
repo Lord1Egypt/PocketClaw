@@ -162,9 +162,13 @@ void main() {
     // The two notification channel ids used to be asserted here too. N4C moved
     // them, and this guard failing is how that scope change had to be declared
     // rather than absorbed silently; zero_pico_n4c_test.dart owns them now.
+    //
+    // The environment key names were asserted here too. N4E took them, and this
+    // guard failing is again how that was declared rather than absorbed;
+    // zero_pico_n4e_test.dart owns them now. The private directory they point
+    // at is still deferred, so that half stays.
     final service = File('$kotlin/service/PocketClawService.kt').readAsStringSync();
     expect(service, contains('File(context.filesDir, "picoclaw")'));
-    expect(service, contains('"PICOCLAW_HOME"'));
     expect(File('android/app/src/main/res/xml/backup_rules.xml').readAsStringSync(),
         contains('path="picoclaw/"'));
   });

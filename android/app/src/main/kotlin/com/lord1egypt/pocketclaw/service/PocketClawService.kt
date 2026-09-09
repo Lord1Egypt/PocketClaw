@@ -40,7 +40,7 @@ class PocketClawService : Service() {
         /**
          * Where Core writes the gateway bearer credential.
          *
-         * It used to live inside `.picoclaw.pid` in PICOCLAW_HOME, which on
+         * It used to live inside `.picoclaw.pid` in POCKETCLAW_HOME, which on
          * this platform is `Download/pocketclaw` — user-visible shared storage,
          * where the 0600 Core writes with is synthesised by the filesystem
          * rather than enforced. Any app holding storage access could read it,
@@ -61,7 +61,7 @@ class PocketClawService : Service() {
          *
          * launcher-auth.db holds a bcrypt verifier — no plaintext, no session
          * token — so reading it buys an attacker little. Writing it is the
-         * problem: under PICOCLAW_HOME it sits on shared external storage,
+         * problem: under POCKETCLAW_HOME it sits on shared external storage,
          * where an app with storage write access can replace the verifier with
          * one for a password it chose and then log in normally over loopback,
          * which Android does not isolate between apps. That is an
@@ -329,20 +329,25 @@ class PocketClawService : Service() {
 
             val environment = mutableMapOf(
                 "HOME" to context.filesDir.absolutePath,
-                "PICOCLAW_HOME" to workspace.absolutePath,
+                "POCKETCLAW_HOME" to workspace.absolutePath,
                 // The workspace stays where the user can reach it. The
                 // credentials and the diagnostic log do not: all three move to
                 // app-private no-backup storage, which is the boundary that
                 // separates user data from runtime control state.
-                "PICOCLAW_GATEWAY_TOKEN_FILE" to gatewayTokenFile(context).absolutePath,
-                "PICOCLAW_LOG_DIR" to privateLogDir(context).absolutePath,
-                "PICOCLAW_DASHBOARD_AUTH_DIR" to privateAuthDir(context).absolutePath,
-                "PICOCLAW_CONFIG" to configPath,
-                "PICOCLAW_BINARY" to gatewayBinaryPath,
+                "POCKETCLAW_GATEWAY_TOKEN_FILE" to gatewayTokenFile(context).absolutePath,
+                "POCKETCLAW_LOG_DIR" to privateLogDir(context).absolutePath,
+                "POCKETCLAW_DASHBOARD_AUTH_DIR" to privateAuthDir(context).absolutePath,
+                "POCKETCLAW_CONFIG" to configPath,
+                "POCKETCLAW_BINARY" to gatewayBinaryPath,
                 "POCKETCLAW_RUNTIME_LIB_DIR" to runtimeLibDir,
                 "POCKETCLAW_RUNTIME_DIR" to runtimeMetadataDir.absolutePath,
                 "POCKETCLAW_ANDROID_BRIDGE_TOKEN" to androidBridgeToken,
-                "PICOCLAW_CHANNELS_PICO_TOKEN" to picoTokenForHost(context),
+                // The serialized Core channel is still named "pico", so its
+                // struct tag reads PICOCLAW_CHANNELS_PICO_TOKEN. The host does
+                // not emit that name: Core's canonical-env adapter translates
+                // this key onto the tag. The channel itself is renamed in a
+                // later phase, and the adapter table moves with it.
+                "POCKETCLAW_CHANNELS_POCKETCLAW_TOKEN" to picoTokenForHost(context),
                 // Live channel reconciliation is a PocketClaw product behaviour:
                 // saving a channel setting in the Dashboard must apply without
                 // the user stopping and starting the Gateway by hand. Core
@@ -354,7 +359,7 @@ class PocketClawService : Service() {
                 // reconciliation with nothing written into config.json. Being
                 // applied last also means this wins over the file: on Android
                 // hot reload is the product behaviour, not a preference.
-                "PICOCLAW_GATEWAY_HOT_RELOAD" to "true",
+                "POCKETCLAW_GATEWAY_HOT_RELOAD" to "true",
                 // The host-bus tools cannot work here and are not part of the
                 // PocketClaw Android product surface: an unrooted phone exposes
                 // no /dev/i2c-*, /dev/spidev* or /dev/tty* to an app UID, and
@@ -363,9 +368,9 @@ class PocketClawService : Service() {
                 // boundary rather than by changing that default. Env is applied
                 // after the file, so this also holds for a config imported from
                 // another machine or hand-edited to enable them.
-                "PICOCLAW_TOOLS_I2C_ENABLED" to "false",
-                "PICOCLAW_TOOLS_SPI_ENABLED" to "false",
-                "PICOCLAW_TOOLS_SERIAL_ENABLED" to "false",
+                "POCKETCLAW_TOOLS_I2C_ENABLED" to "false",
+                "POCKETCLAW_TOOLS_SPI_ENABLED" to "false",
+                "POCKETCLAW_TOOLS_SERIAL_ENABLED" to "false",
                 "TMPDIR" to tmpDir.absolutePath,
                 "PATH" to "/system/bin:/system/xbin",
                 "LANG" to "en_US.UTF-8",
@@ -376,7 +381,7 @@ class PocketClawService : Service() {
                 "SSL_CERT_DIR" to "/system/etc/security/cacerts",
             )
             activeNetworkDnsServers(context).takeIf { it.isNotEmpty() }?.let {
-                environment["PICOCLAW_DNS_SERVER"] = it
+                environment["POCKETCLAW_DNS_SERVER"] = it
             }
             // The GitHub credential is decrypted here and nowhere else: the
             // Keystore key never leaves the Keystore, and the plaintext exists
@@ -963,7 +968,7 @@ class PocketClawService : Service() {
 
     /**
      * 构建子进程环境变量
-     * 关键：设置 PICOCLAW_BINARY 指向 gateway 二进制，让 web 服务能找到并启动 gateway
+     * 关键：设置 POCKETCLAW_BINARY 指向 gateway 二进制，让 web 服务能找到并启动 gateway
      */
     private fun buildEnvironment(): Map<String, String> {
         return Companion.buildEnvironment(this).toMutableMap().apply {
