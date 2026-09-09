@@ -280,7 +280,7 @@ void main() {
     expect(find.text('Manual Telegram setup'), findsOneWidget);
     await tester.enterText(
       find.widgetWithText(TextField, 'Bot token'),
-      '123456789:AAmanualtokenvaluethatislongenough',
+      '1234567890:AAEXAMPLE-not-a-real-bot-token-for-tests',
     );
     await tester.enterText(
       find.widgetWithText(TextField, 'Owner Telegram numeric user ID'),
@@ -291,7 +291,7 @@ void main() {
 
     expect(
       f.savedCredentials?.token,
-      '123456789:AAmanualtokenvaluethatislongenough',
+      '1234567890:AAEXAMPLE-not-a-real-bot-token-for-tests',
     );
     expect(f.savedCredentials?.ownerUserId, 777);
     expect(f.savedCredentials?.botUsername, 'manual');
@@ -347,7 +347,7 @@ void main() {
 
     await tester.enterText(
       find.widgetWithText(TextField, 'Bot token'),
-      '123456789:AAmanualtokenvaluethatislongenough',
+      '1234567890:AAEXAMPLE-not-a-real-bot-token-for-tests',
     );
     await tester.tap(find.text('Save and connect'));
     await tester.pumpAndSettle();
