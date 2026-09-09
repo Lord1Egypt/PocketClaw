@@ -1,6 +1,6 @@
 # PocketClaw Project State
 
-## Zero-Pico N4D — dual backup exclusion, NOT closed
+## Zero-Pico N4D + N4D-R — private-path protection map, NOT closed
 
 - Status: **implemented on `feature/zero-pico-runtime`, 2026-09-09. NOT merged.**
   `0.2.0+61`, baseline 59, no candidate, no What's New entry. `core/src`
@@ -9,13 +9,26 @@
   `filesDir/picoclaw/`, `PICOCLAW_CONFIG` is unchanged, nothing was moved,
   created or deleted, and the runtime behaves exactly as before.
 
-### Both paths are now protected, in every section
+### The path contract, corrected
 
-    backup_rules.xml            full-backup-content   credentials/ pocketclaw/ picoclaw/
-    data_extraction_rules.xml   cloud-backup          credentials/ pocketclaw/ picoclaw/
-    data_extraction_rules.xml   device-transfer       credentials/ pocketclaw/ picoclaw/
+    files/pocketclaw/        USER WORKSPACE FALLBACK — the user's AGENT.md,
+                             SOUL.md, USER.md and memory/ when external storage
+                             access is unavailable. Not Core state. Not migrated,
+                             not deleted, not backup-excluded.
 
-`pocketclaw/` has exactly the coverage `picoclaw/` had — three sites, same
+    files/picoclaw/          LEGACY Core private state — config.json,
+                             .security.yml. Read / migrate / protect only.
+
+    files/pocketclaw-core/   CANONICAL Core private state. Protected now,
+                             created later.
+
+### Protected in every section
+
+    backup_rules.xml            full-backup-content   credentials/ pocketclaw-core/ picoclaw/
+    data_extraction_rules.xml   cloud-backup          credentials/ pocketclaw-core/ picoclaw/
+    data_extraction_rules.xml   device-transfer       credentials/ pocketclaw-core/ picoclaw/
+
+`pocketclaw-core/` has exactly the coverage `picoclaw/` had — three sites, same
 `domain="file"`, same schema per file. Nothing was weakened, and the two files
 keep their different structures because Android's formats differ.
 
@@ -38,27 +51,33 @@ The standing policy this phase establishes: **PocketClaw never creates active
 Pico state, but it may still protect or read legacy Pico state during
 migration.**
 
-### Finding for the private-directory phase: a path collision
+### The collision, and the correction (N4D-R)
 
-`filesDir/pocketclaw/` is **already in use** — as the *workspace* fallback at
-`PocketClawService.kt:222`, taken when `MANAGE_EXTERNAL_STORAGE` is denied. It
-holds the user's `AGENT.md`, `SOUL.md`, `USER.md` and `memory/MEMORY.md`, not
-Core's secrets.
+Writing N4D's guard failed, because `filesDir/pocketclaw/` **already existed**:
+the workspace fallback at `PocketClawService.kt:222`, taken when
+`MANAGE_EXTERNAL_STORAGE` is denied. It holds the user's `AGENT.md`, `SOUL.md`,
+`USER.md` and `memory/`, not Core's secrets.
 
-Two consequences the private-directory phase must resolve rather than discover:
+So the originally planned target was wrong twice over. Moving Core state there
+would have mixed `config.json` and `.security.yml` into the user's documents on
+permission-denied installs; and N4D's exclusion of `pocketclaw/` silently
+changed that fallback's backup semantics as a side effect of a namespace
+migration. Whether a private workspace fallback should be backed up is a privacy
+decision on its own terms — it contains `MEMORY.md`, which the Bootstrap
+contract treats as the user's private data — and it is not this migration's to
+make.
 
-1. **The intended migration target collides with it.** Moving Core private state
-   to `filesDir/pocketclaw/` would put `config.json` and `.security.yml` in the
-   same directory as the user's workspace on permission-denied installs. That
-   needs a decision — a distinct name such as `pocketclaw-core/`, or moving the
-   workspace fallback — before any data is moved.
-2. **N4D changes behaviour for those installs today.** Their workspace fallback
-   was backup-eligible and is now excluded. That is defensible on its own terms
-   — a workspace contains `MEMORY.md`, which the Bootstrap contract treats as
-   the user's private data — but it is a real behavioural change, recorded here
-   rather than left to be noticed later. On the validated SM-A165F,
-   `MANAGE_EXTERNAL_STORAGE` is granted, the workspace lives at
-   `/sdcard/Download/pocketclaw`, and the fallback is not in use.
+**Cancelled:** `files/picoclaw/` → `files/pocketclaw/`.
+**Adopted:** `files/picoclaw/` → `files/pocketclaw-core/`.
+
+The `pocketclaw/` exclusion was reverted **before any data migration**, so the
+fallback's pre-N4D backup behaviour is restored exactly. No user file was moved,
+read or modified; no secret or runtime state was moved; `PICOCLAW_CONFIG` and
+every environment variable are unchanged. A guard now asserts the fallback is
+absent from the Core-private exclusion contract, so it cannot be swept back in.
+
+On the validated SM-A165F the permission is granted, the workspace lives at
+`/sdcard/Download/pocketclaw`, and the fallback is not in use there.
 
 ## Zero-Pico N4C — notification channels, NOT closed
 

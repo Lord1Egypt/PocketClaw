@@ -38,8 +38,17 @@ void main() {
   /// interrupted migration or a downgrade can leave files behind, and changing
   /// where PocketClaw writes must not make what is already there
   /// backup-eligible.
-  const canonicalPrivateDirectory = 'pocketclaw';
+  ///
+  /// The canonical name is `pocketclaw-core`, not `pocketclaw`.
+  /// [workspaceFallbackDirectory] already exists and belongs to the user — it
+  /// is the workspace used when external storage access is unavailable, holding
+  /// AGENT.md, SOUL.md, USER.md and memory/. It is deliberately **not** in the
+  /// Core-private exclusion contract: whether a private workspace fallback
+  /// should be backed up is a privacy decision on its own terms, not a side
+  /// effect of moving Core's secrets.
+  const canonicalPrivateDirectory = 'pocketclaw-core';
   const legacyPrivateDirectory = 'picoclaw';
+  const workspaceFallbackDirectory = 'pocketclaw';
   const credentialDirectory = 'credentials';
 
   test('the host writes Core private state where the rules exclude it', () {
@@ -120,7 +129,7 @@ void main() {
   });
 
   test('Core private state has not moved to the canonical path yet', () {
-    // N4D is protection, not migration: the exclusion for pocketclaw/ exists so
+    // Protection, not migration: the exclusion for the canonical path exists so
     // the later move cannot create an unprotected directory even for an
     // instant. Core state must still be written to the legacy path here.
     final source = read(service);
@@ -132,14 +141,37 @@ void main() {
     expect(
       source,
       contains('File(filesDir, "$legacyPrivateDirectory/config.json")'),
-      reason: 'the config path must not have moved in N4D',
+      reason: 'the config path must not have moved yet',
+    );
+    expect(
+      source,
+      isNot(contains('"$canonicalPrivateDirectory"')),
+      reason: 'nothing may create files/$canonicalPrivateDirectory/ before the '
+          'phase that migrates into it',
+    );
+  });
+
+  test('the workspace fallback is the user\'s and is left alone', () {
+    // files/pocketclaw/ pre-dates this work: it holds AGENT.md, SOUL.md,
+    // USER.md and memory/ when external storage access is unavailable. Moving
+    // Core secrets into it, or changing its backup semantics as a side effect
+    // of a namespace migration, would both be wrong.
+    expect(
+      read(service),
+      contains('?: File(context.filesDir, "$workspaceFallbackDirectory")'),
+      reason: 'the workspace fallback path must not change here',
     );
 
-    // files/pocketclaw/ is already referenced — as the *workspace* fallback
-    // used when MANAGE_EXTERNAL_STORAGE is denied, not as Core private state.
-    // That collision is recorded for the private-directory phase; here it only
-    // means the new exclusion already covers a real path.
-    expect(source, contains('?: File(context.filesDir, "$canonicalPrivateDirectory")'));
+    for (final path in const [backupRules, extractionRules]) {
+      expect(
+        read(path),
+        isNot(contains('path="$workspaceFallbackDirectory/"')),
+        reason:
+            '$path excludes the user workspace fallback from backup. That is a '
+            'privacy decision to make deliberately, not a side effect of moving '
+            'Core private state.',
+      );
+    }
   });
 
   test('the legacy exclusion is classified, not left as an oversight', () {

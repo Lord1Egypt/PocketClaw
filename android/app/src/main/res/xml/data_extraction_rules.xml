@@ -7,13 +7,17 @@
   user's own devices: the Keystore key does not travel with it, so what would
   arrive is an undecryptable blob presented as a working connection.
 
-  pocketclaw/ and picoclaw/ are Core's private state — config.json and
+  pocketclaw-core/ and picoclaw/ are Core's private state — config.json and
   .security.yml, the latter holding provider API keys and channel bot tokens in
   plaintext because Android onboarding declines credential encryption.
   App-private storage stops another app reading them; it does not stop a backup
   copying them off the device.
 
-  pocketclaw/ is the canonical path, protected here before any code creates it.
+  pocketclaw-core/ is the canonical path, protected here before any code creates
+  it. It is not called "pocketclaw" because files/pocketclaw/ already exists as
+  the user's workspace fallback; that directory is not Core state and its backup
+  semantics are not this migration's to change.
+
   picoclaw/ is a LEGACY SECURITY EXCLUSION kept on purpose: an interrupted
   migration or a downgrade can leave secrets in the historical directory, and
   changing where PocketClaw writes must not make what is already there
@@ -29,12 +33,12 @@
 <data-extraction-rules>
     <cloud-backup>
         <exclude domain="file" path="credentials/" />
-        <exclude domain="file" path="pocketclaw/" />
+        <exclude domain="file" path="pocketclaw-core/" />
         <exclude domain="file" path="picoclaw/" />
     </cloud-backup>
     <device-transfer>
         <exclude domain="file" path="credentials/" />
-        <exclude domain="file" path="pocketclaw/" />
+        <exclude domain="file" path="pocketclaw-core/" />
         <exclude domain="file" path="picoclaw/" />
     </device-transfer>
 </data-extraction-rules>
