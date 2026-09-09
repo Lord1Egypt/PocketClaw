@@ -12,7 +12,17 @@ android/build/
 android/app/build/
 *.keystore
 *.jks
+*.p12
+*.pfx
+*.pem
 key.properties
+
+# Release hardening output. Obfuscation and split debug info are the next
+# milestone; a symbols archive is the one artifact that must never be committed,
+# because it undoes the obfuscation it accompanies.
+split-debug-info/
+symbols/
+*.symbols.zip
 
 # Local configuration, credentials, and tooling
 .env
@@ -20,6 +30,13 @@ key.properties
 !.env.example
 .tooling/
 local.properties
+
+# Logs and scratch output
+*.log
+*.tmp
+*.bak
+*.orig
+*.rej
 
 # IDE and OS files
 .idea/

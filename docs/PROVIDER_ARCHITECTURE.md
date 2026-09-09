@@ -20,12 +20,12 @@ feedback switch. A repository-wide search for provider/API-key/model handling in
 
 All AI provider and model configuration is served by the **embedded web
 console**, which is the Core web frontend compiled into
-`libpicoclaw-web.so` and displayed inside the Flutter WebView
+`libpocketclaw-web.so` and displayed inside the Flutter WebView
 (`lib/src/ui/webview_page.dart`).
 
 Consequence for Milestone C: provider-catalog work is a **Core change** (Go
 backend plus the React frontend), delivered through a rebuilt
-`libpicoclaw-web.so`/`libpicoclaw.so`, not a Flutter change. Building a second
+`libpocketclaw-web.so`/`libpocketclaw.so`, not a Flutter change. Building a second
 provider UI in Flutter would duplicate the console and is explicitly not the
 approach taken.
 
@@ -179,7 +179,8 @@ missing discovery endpoint are **not** yet distinguished.
 ### 5.3 Android DNS
 
 Discovery runs inside the Core process, so it inherits the verified Android
-active-network DNS bridge (`PICOCLAW_DNS_SERVER`). No separate resolver path
+active-network DNS bridge (`POCKETCLAW_DNS_SERVER`; the Core still accepts the
+upstream `PICOCLAW_DNS_SERVER` as legacy input). No separate resolver path
 exists in the fetch code, and none may be introduced.
 
 ## 6. API key storage and exposure
@@ -188,7 +189,8 @@ exists in the fetch code, and none may be introduced.
   A `SecureString` keeps a resolved value and a raw persisted form which may be
   plaintext, `file://…`, or `enc://…`.
 - **At rest:** `SaveConfig` encrypts plaintext API keys to `enc://` ciphertext,
-  but only when `PICOCLAW_KEY_PASSPHRASE` is set together with an SSH key;
+  but only when `PICOCLAW_KEY_PASSPHRASE` — an upstream name with no canonical
+  alias — is set together with an SSH key;
   `file://` references are left as references. With no passphrase configured —
   **which is the normal Android situation** — keys are written as plaintext
   into the workspace config file, and `enc://` values from another environment

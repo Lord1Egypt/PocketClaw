@@ -1,5 +1,5 @@
 name: pocketclaw
-description: "A new Flutter project."
+description: "A private AI agent that runs on your Android device — on-device gateway, bundled arm64 tooling, and a local web dashboard."
 publish_to: "none"
 version: 0.2.0+62
 
