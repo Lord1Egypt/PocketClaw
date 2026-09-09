@@ -21,6 +21,7 @@ the credentials — lives on the device you are holding.
 ![Go](https://img.shields.io/badge/Go-1.25-00ADD8?logo=go&logoColor=white)
 ![Version](https://img.shields.io/badge/version-0.2.0%20(62)-blue)
 ![Status](https://img.shields.io/badge/status-pre--release-orange)
+![License](https://img.shields.io/badge/license-MIT-green)
 
 </div>
 
@@ -227,6 +228,8 @@ upstream commits and licence texts are in
 [`UPSTREAM_BASELINE.md`](UPSTREAM_BASELINE.md) and
 [`licenses/`](licenses/).
 
-> **Note** — PocketClaw's own licence has not been declared yet. Until a
-> `LICENSE` file exists at the repository root, no licence is granted for this
-> project's own code; the vendored upstream remains under its own MIT terms.
+## Licence
+
+PocketClaw's own code is [MIT licensed](LICENSE). Third-party and upstream
+components keep their own licences and copyright notices — see
+[`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) and [`licenses/`](licenses/).
