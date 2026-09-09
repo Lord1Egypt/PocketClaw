@@ -1,5 +1,65 @@
 # PocketClaw Project State
 
+## Zero-Pico N4D — dual backup exclusion, NOT closed
+
+- Status: **implemented on `feature/zero-pico-runtime`, 2026-09-09. NOT merged.**
+  `0.2.0+61`, baseline 59, no candidate, no What's New entry. `core/src`
+  untouched; fingerprint `f015c644…`, staged Core FRESH.
+- **Protection only. No data was migrated.** Core state is still written to
+  `filesDir/picoclaw/`, `PICOCLAW_CONFIG` is unchanged, nothing was moved,
+  created or deleted, and the runtime behaves exactly as before.
+
+### Both paths are now protected, in every section
+
+    backup_rules.xml            full-backup-content   credentials/ pocketclaw/ picoclaw/
+    data_extraction_rules.xml   cloud-backup          credentials/ pocketclaw/ picoclaw/
+    data_extraction_rules.xml   device-transfer       credentials/ pocketclaw/ picoclaw/
+
+`pocketclaw/` has exactly the coverage `picoclaw/` had — three sites, same
+`domain="file"`, same schema per file. Nothing was weakened, and the two files
+keep their different structures because Android's formats differ.
+
+The ordering is the point. The exclusion for the canonical path exists *before*
+any code creates that directory. A migration that ran first would leave secrets
+in an unprotected path for as long as it took the rules to catch up, and an
+interrupted one would leave them there indefinitely.
+
+### `picoclaw/` is a LEGACY SECURITY EXCLUSION, kept deliberately
+
+It is no longer an active product path, and it is **not** a Zero-Pico failure.
+An interrupted migration or a downgrade to an older build can leave sensitive
+files in the historical directory, and changing where PocketClaw writes must not
+make what is already there backup-eligible. Both rule files now say so in those
+words, and a test asserts the classification is present — so a later Zero-Pico
+sweep cannot delete the line as leftover namespace. It is retired only when the
+migration compatibility window is intentionally closed in a later release.
+
+The standing policy this phase establishes: **PocketClaw never creates active
+Pico state, but it may still protect or read legacy Pico state during
+migration.**
+
+### Finding for the private-directory phase: a path collision
+
+`filesDir/pocketclaw/` is **already in use** — as the *workspace* fallback at
+`PocketClawService.kt:222`, taken when `MANAGE_EXTERNAL_STORAGE` is denied. It
+holds the user's `AGENT.md`, `SOUL.md`, `USER.md` and `memory/MEMORY.md`, not
+Core's secrets.
+
+Two consequences the private-directory phase must resolve rather than discover:
+
+1. **The intended migration target collides with it.** Moving Core private state
+   to `filesDir/pocketclaw/` would put `config.json` and `.security.yml` in the
+   same directory as the user's workspace on permission-denied installs. That
+   needs a decision — a distinct name such as `pocketclaw-core/`, or moving the
+   workspace fallback — before any data is moved.
+2. **N4D changes behaviour for those installs today.** Their workspace fallback
+   was backup-eligible and is now excluded. That is defensible on its own terms
+   — a workspace contains `MEMORY.md`, which the Bootstrap contract treats as
+   the user's private data — but it is a real behavioural change, recorded here
+   rather than left to be noticed later. On the validated SM-A165F,
+   `MANAGE_EXTERNAL_STORAGE` is granted, the workspace lives at
+   `/sdcard/Download/pocketclaw`, and the fallback is not in use.
+
 ## Zero-Pico N4C — notification channels, NOT closed
 
 - Status: **implemented on `feature/zero-pico-runtime`, 2026-09-09. NOT merged.**
