@@ -1,5 +1,57 @@
 # Development Changelog
 
+## 2026-09-09 — the rename that was mostly not a rename
+
+The Zero-Pico migration closed today as `0.2.0+62`, accepted on the device, and
+the interesting part is how little of it was renaming.
+
+Most of the word `pico` in this repository is not ours. The Go module is
+`github.com/sipeed/picoclaw`. The copyright belongs to PicoClaw contributors.
+The Core binary the Makefile emits is still called `picoclaw` before the build
+script installs it as `libpocketclaw.so`. A repository-wide find-and-replace
+would have forked an upstream baseline this project deliberately tracks, and it
+would have deleted the migration code that lets an install made last month keep
+its config, its sessions and its notification settings.
+
+So the rule became a rule about direction. Nothing PocketClaw owns may *write*
+a Pico identity; reading, migrating and retiring one is the job. That
+distinction is what `tool/no_active_pico.py` encodes, and it is why the
+allowlist has categories rather than a list of files to ignore.
+
+Three findings were worth the trouble of looking properly.
+
+The IRC channel ships in the Core, and its default nick was `picoclaw`. Nobody
+had noticed because nobody had enabled IRC — but a user who did, without
+choosing a nick, would have introduced this product to a public IRC network
+under the old name. That is not a source-code cosmetic; it is an outward
+emission, and it moved.
+
+The Managed Runtime metadata fallback created a directory called `picoclaw`.
+The Android host always sets `POCKETCLAW_RUNTIME_DIR`, so the shipped product
+never reached it — but the fallback would have recreated, on a desktop or in
+development, the exact directory the migration exists to retire.
+
+And the dashboard's i18n bundle still keyed the channel label on `pico` while
+the channel itself had been renamed to `pocketclaw` phases earlier. The lookup
+had been quietly falling back to a title-cased key ever since. Removing the old
+identity fixed a regression nobody had reported.
+
+The provenance work was the other half. The build stages two binaries and only
+one of them was fingerprinted, so a change to dashboard auth middleware moved no
+fingerprint and left a stale binary that no guard would mention. Worse, the
+launcher carried no source stamp at all: the `-X` flag reached it, but nothing
+in `web/backend` read the variable, and the linker drops an unused one along
+with its value. The flag succeeded and the binary carried nothing. Both halves
+are fixed, and the freshness check now names which of the two binaries is stale.
+
+Two of the guards in this sequence were caught by their own tests rather than by
+review. The Core provenance pair check could not pass under `--verify-artifact`
+at all, because it read a fact only the source path ever set — it failed on a
+correct APK. And the test that was supposed to prove the real dashboard source
+was in scope was checking a predicate rather than the walk, so it passed happily
+while the walk never reached those files. A guard that cannot fail is not a
+guard, and both were only visible because something tried to use them in anger.
+
 ## 2026-09-09 — 105KB of someone else's lobster
 
 The two files were easy to dismiss. `assets/app_icon.png` and `assets/icon.ico`

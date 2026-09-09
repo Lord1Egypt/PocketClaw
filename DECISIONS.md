@@ -1,5 +1,61 @@
 # PocketClaw Decisions
 
+## Zero Active Pico is a rule about direction, not about spelling
+
+- Date: 2026-09-09
+- Decision: the namespace rule PocketClaw enforces is that no owned production
+  surface may **write, issue, default to, emit, register or advertise** a
+  Pico-family identity. Reading, parsing, migrating, deleting, expiring,
+  redacting and backup-excluding the old names is required and stays.
+  `tool/no_active_pico.py` enforces it with a categorized allowlist —
+  `upstream`, `legal`, `historical`, `legacy_migration`,
+  `external_compatibility` — where every entry carries a reason, and an entry
+  that stops matching anything fails the build.
+- Why: the obvious rule, "no `pico` anywhere", would have been wrong by
+  architecture. The Go module is still `github.com/sipeed/picoclaw`, the
+  copyright is still PicoClaw contributors, and several on-disk names must stay
+  readable or an upgraded install loses its state. A ban on the *word* would
+  have forced deleting the migration code that makes the rename survivable. A
+  ban on the *direction* leaves that code in place and still guarantees a user
+  never sees the old identity.
+- Consequence: a stale exemption is treated as a failure, not as harmless
+  tidiness, because an allowlist entry that no longer matches silently
+  re-permits whatever moves back under it later.
+
+## The WeCom source id is preserved, because it is not ours to rename
+
+- Date: 2026-09-09
+- Decision: `wecomQRSourceID = "picoclaw"` stays, classified
+  `external_compatibility`, in both copies — the upstream CLI's and the
+  dashboard's.
+- Why: it is sent to `https://work.weixin.qq.com/ai/qc/generate` as the `source`
+  and `sourceID` query parameters. It is not this project's name for itself; it
+  is what a third-party service was registered to recognise. Changing it is not
+  a rename, it is a claim to someone else's system, and an unregistered value
+  would break WeCom QR login rather than fail loudly.
+- Note: the second copy, in `web/backend/api/wecom.go`, was found by the guard's
+  own test rather than by reading the brief. That copy ships in
+  `libpocketclaw-web.so`, so the value really does reach Tencent from the
+  product and not only from an upstream CLI subcommand. The disposition was
+  decided on that evidence, not on the assumption that it was CLI-only.
+
+## Both shipping native binaries are one provenance unit
+
+- Date: 2026-09-09
+- Decision: one source fingerprint covers `cmd/` and `web/`, both binaries are
+  stamped with it, both are checked for staleness, and both must carry the same
+  value in a packaged artifact.
+- Why: the canonical build stages two binaries. The fingerprint covered only the
+  gateway's inputs, so a dashboard change moved nothing and a stale
+  `libpocketclaw-web.so` had no guard at all — which is exactly what happened
+  when N4J changed dashboard auth middleware. A second, independent fingerprint
+  universe for the launcher was rejected: two provenance systems disagree
+  eventually, and one of them is always the one nobody reads.
+- Consequence: `web/backend/dist` is deliberately **not** a fingerprint input.
+  It is a build output, and the fingerprint covers `web/frontend/` instead. That
+  is only sound because the Makefile regenerates the bundle on every canonical
+  build, so that dependency is now pinned by a test rather than left as a habit.
+
 ## Product guidance ships in the binary; workspace files belong to the user
 
 - Date: 2026-09-08

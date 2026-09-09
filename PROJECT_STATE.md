@@ -1,10 +1,93 @@
 # PocketClaw Project State
 
-## vc62 — Zero-Pico candidate, BUILT, VERIFIED AND INSTALLED, not yet accepted
+## Zero-Pico namespace migration — CLOSED / ACCEPTED
 
-- Status: **built, gated, pushed and installed on the device, 2026-09-09. NOT
-  accepted, NOT merged.** `0.2.0+62`, `lastAcceptedVersionCode` stays **59** —
-  acceptance waits on the manual run.
+- **Accepted build: PocketClaw `0.2.0+62`.** Accepted baseline **62**, previously
+  59. APK `1470e02d43039e78c6507a1fb12e1c9368033903a8b99c2e2f56014eb0c002e2`.
+- Merged to `develop` with a true `--no-ff` merge. `main`, tags and releases
+  untouched; there is still no `v0.2.0` stable tag, and there should not be one
+  until production hardening lands.
+- Feature branches `feature/zero-pico-runtime` and
+  `feature/namespace-n3-native-binaries` are retained for provenance.
+
+### Candidate history
+
+    vc60   SUPERSEDED during N3 physical validation — a broad native-process
+           ownership classification regression
+    vc61   N3 native identity physically PASS, but not accepted as baseline:
+           the Zero-Pico migration was still in progress
+    vc62   final Zero-Pico candidate. Machine migration validation PASS,
+           manual user acceptance PASS. ACCEPTED.
+
+### The current namespace contract
+
+    native binaries      libpocketclaw.so, libpocketclaw-web.so
+    Core private state   filesDir/pocketclaw-core/
+    workspace            the external canonical workspace, with a
+                         filesDir/pocketclaw/ fallback
+    PID record           .pocketclaw.pid
+    environment emitted  POCKETCLAW_*
+    managed channel      pocketclaw
+    client channel       pocketclaw_client
+    owner principal      pocketclaw-user
+    realtime routes      the pocketclaw route namespace
+    dashboard cookie     pocketclaw_launcher_auth
+    notification channel pocketclaw_service
+    SharedPreferences    pocketclaw_prefs
+    IRC default nick     pocketclaw
+
+### Legacy Pico policy
+
+**ZERO ACTIVE PICO: COMPLETE.** No PocketClaw-owned production surface writes,
+issues, defaults to, emits, registers or advertises a Pico-family identity.
+What remains is permitted only as upstream identity, legal attribution,
+historical evidence, legacy migration (read, parse, normalize, migrate, delete,
+expire, redact, or protect from backup), or explicit external compatibility.
+`tool/no_active_pico.py` enforces this on every gate run.
+
+`wecomQRSourceID` stays as it is, deliberately: it is sent to
+`work.weixin.qq.com` as `source`/`sourceID`, so it is what a third party was
+registered to recognise rather than this project's name for itself. The
+immutable historical digest
+`47b63011a55eaa659470f2ab09d05532e9942800848020a1cfe443e6f21aca76` is unchanged.
+
+### Physical acceptance evidence (vc62, SM-A165F / Android 16)
+
+    package        com.lord1egypt.pocketclaw, versionCode 62
+    processes      gypt.pocketclaw · libpocketclaw.s · libpocketclaw-w
+    Core config    …/files/pocketclaw-core/config.json, physically in use
+    PID record     .pocketclaw.pid — host, pid, port, version only; token-free
+                   .picoclaw.pid ABSENT
+    Gateway        127.0.0.1:18790 and [::1]:18790, loopback only
+    native legacy  libpicoclaw* ABSENT
+    Managed Runtime 8 payloads
+    notifications  pocketclaw_service ACTIVE; picoclaw_service and
+                   picoclaw_foreground both deleted tombstones
+
+User confirmed manually: Running PASS, Dashboard PASS (with the expected
+one-time re-login), Web Chat PASS, notification behaviour PASS.
+
+No private config or token contents were read at any point.
+
+### Still open, and deliberately not touched here
+
+Namespace acceptance is not production hardening. The web console binding
+`0.0.0.0:18800` remains tracked separately; the production signing key does not
+exist yet; the Dart snapshot-path item, R8/ProGuard narrowing, obfuscation and
+split debug info are all still outstanding.
+
+### Next milestone
+
+**Final production release hardening** — real production signing, Dart
+obfuscation and split debug info, a symbols archive, R8/ProGuard review, a final
+secrets and config audit, full APK/AAB inspection, a production-class release
+gate, a final stable physical smoke, and only then a tag and release.
+
+## vc62 — Zero-Pico candidate, ACCEPTED
+
+- Status: **accepted on the device, 2026-09-09.** `0.2.0+62`,
+  `lastAcceptedVersionCode` advanced **59 → 62** in the same commit that records
+  the acceptance, which is what keeps that floor meaningful.
 - Installed in place on `RK8Y6016N5V` (Samsung SM-A165F, Android 16, arm64-v8a)
   with `adb install -r` over Windows adb 37.0.1. No uninstall, no clear data, no
   permission reset. The device was absent on the first attempt and attached
