@@ -9,73 +9,160 @@ F-Droid submission, and what must be true before one is made.
 
 ---
 
-## 1. The blocker, found by audit
+## 1. Firebase and Google Play Services — REMOVED
 
-**PocketClaw cannot be accepted into official F-Droid as it is built today.**
+H1 found Firebase Analytics and Google Play Services packaged unconditionally in
+the shipping APK. **H1.5 removed them from the canonical build.**
 
-The shipped `0.2.0+62` APK contains Google Play Services and Firebase. Verified
-by inspecting the artifact, not by reading the dependency list:
+They came from `firebase_analytics` and `firebase_core` in `pubspec.yaml`, plus
+two `<meta-data>` entries in the app's own `AndroidManifest.xml` referencing
+`@string/google_app_id`, and a Gradle task that generated those Firebase string
+resources from dart-defines.
 
-```
-firebase-analytics.properties
-play-services-ads-identifier.properties        (+ 10 further GMS entries)
-com.google.android.gms.ads.APPLICATION_ID
-com.google.android.gms.measurement.AppMeasurementService
-com.google.firebase.analytics.connector.internal.AnalyticsConnectorRegistrar
-```
+A contributing root cause was on the Dart side: `DeviceFeedbackProvider`
+fell through to **Firebase for any unrecognised value**, so a build that simply
+did not pass `POCKETCLAW_ANALYTICS_PROVIDER` selected an analytics provider by
+accident. The default is now `none`.
 
-These come from `firebase_analytics` and `firebase_core` in `pubspec.yaml`.
-F-Droid's inclusion policy requires that an app build from free source with free
-dependencies; Google Play Services and Firebase are proprietary binaries, and
-analytics plus an advertising identifier additionally attract the *Tracking* and
-*NonFreeDep* anti-features.
+### What was removed
 
-**This is a dependency problem, not a behaviour problem.** Firebase is already
-disabled at runtime unless `POCKETCLAW_FIREBASE_APP_ID` is supplied at build
-time — but F-Droid judges what is *in the binary*, and the AAR is packaged
-unconditionally because a Flutter plugin listed in `pubspec.yaml` is contributed
-to the Android build by the Flutter Gradle plugin whether or not any Dart code
-calls it.
-
-### Recommended resolution — and why it is not a flavor
-
-The instinctive fix is an `fdroid` product flavor. **That is not the
-recommendation.** A flavor would mean two build configurations, two things to
-verify, and a reproducibility story that has to be told twice.
-
-The better fix already exists in this repository as a precedent. Umeng
-analytics was once an unconditional dependency and is now `compileOnly` by
-default, promoted to a real `implementation` only when
-`-PanalyticsProvider=umeng` asks for it, so the default build carries neither
-its classes nor its manifest contributions. The same shape applies to Firebase,
-with one extra step: because it arrives as a Flutter plugin rather than a Gradle
-coordinate, it must first come *out* of `pubspec.yaml` and be reached through a
-narrow platform interface instead — the reporter in
-`lib/src/core/firebase_device_reporter.dart` is already the only caller, which
-makes that boundary small.
-
-The outcome is **one canonical source and build configuration** that serves all
-three channels, with the proprietary path absent by default and requested
-explicitly for the Play build if it is wanted there at all.
-
-That work is a hardening phase of its own. It is not H1, and it must not be done
-by half.
-
-### Other dependencies reviewed
-
-| Dependency | Status |
+| Removed | Why |
 | --- | --- |
-| `firebase_analytics`, `firebase_core` | **Blocker** — proprietary, packaged unconditionally. |
-| Umeng analytics | Clear. `compileOnly` by default; absent from the default APK (verified: 0 entries). |
-| `google_fonts` | Review. Fetches fonts over the network at runtime unless bundled; F-Droid dislikes runtime downloads of non-packaged assets. |
-| Managed Runtime payloads (`python`, `git`, `gh`, `curl`, `rg`, `jq`, `sqlite3`) | Review, and likely the second real discussion. They are prebuilt binaries committed to the repository. F-Droid requires building from source, so either they are built in the F-Droid pipeline or their presence must be declared and justified. |
-| Vendored Core (`core/src`, Go) | Clear. Source is in-repo, MIT, and built by `core/build-android-arm64.sh`. |
-| Everything else in `pubspec.yaml` | No known proprietary component. |
+| `firebase_analytics`, `firebase_core` (pubspec) | Proprietary SDK; pulled in Google Play Services. |
+| `lib/src/core/firebase_device_reporter.dart` | Its only purpose was uploading device reports to Firebase. |
+| The `firebase` arm of `DeviceFeedbackProvider` | No SDK left to reach. |
+| 5 `POCKETCLAW_FIREBASE_*` dart-defines | Configured a dependency that no longer exists. |
+| `generateFirebaseResources` / `cleanupFirebaseResources` Gradle tasks | Generated `google_app_id` and friends. |
+| Two GMS `<meta-data>` manifest entries | Referenced the generated resources. |
 
-> The Managed Runtime is the item most likely to need a conversation with
-> F-Droid rather than a code change. Committed prebuilt binaries are exactly what
-> a source-building distribution exists to avoid, even when their sources are
-> free.
+**Nothing replaced it.** Optional device feedback still exists with the Umeng
+provider (`compileOnly` and absent by default) and `none`. No tracking SDK was
+substituted: PocketClaw does not need one to work, and swapping one for another
+would have missed the point.
+
+### Verified in the artifact, not in the dependency list
+
+A release-shaped local-test APK was rebuilt and inspected:
+
+```
+DEX class scan  com/google/firebase        0 classes
+                com/google/android/gms     0 classes
+packaged entries  firebase* 0   play-services* 0   gms* 0
+                  measurement* 0   admob/ads-identifier* 0   umeng* 0
+merged manifest   com.google.android.gms.* / com.google.firebase.*   none
+```
+
+The APK also shrank from 63,493,154 to 62,887,336 bytes. Package, ABI policy,
+the Core pair, all eight Managed Runtime payloads and the permission set are
+unchanged.
+
+Gate checks now enforce this on every artifact run:
+`artifact.fdroid_no_firebase`, `..._no_gms`, `..._no_admob`,
+`..._no_measurement`, plus `source.fdroid_no_proprietary_sdk` on the source side
+so a removed dependency cannot return via `pubspec.yaml`.
+
+### No F-Droid flavor is necessary
+
+There is now **one canonical build** for direct APK, Google Play and F-Droid.
+The proprietary dependency was removed rather than hidden behind a flavor, a
+build type or a scanignore entry.
+
+## 1b. Remaining item — google_fonts
+
+**Open, and the one thing standing between this build and an F-Droid
+submission.**
+
+`google_fonts` 8.2.1 is used across the UI (Inter, Fira Code) with **no bundled
+font files**. Verified in the package source: `allowRuntimeFetching` defaults to
+`true` and PocketClaw never sets it, so the fonts are fetched from Google's
+servers at first use and cached on device.
+
+That is a runtime download of non-packaged assets, a network dependency for
+ordinary UI rendering, and a call to a Google server from an app that describes
+itself as private-first.
+
+**Remedy** — bundle the fonts, do not drop the design:
+
+1. Add Inter and Fira Code (both SIL OFL 1.1, redistributable) as tracked
+   assets, with their licence text.
+2. Declare them in `pubspec.yaml` under `flutter: fonts:`.
+3. Set `GoogleFonts.config.allowRuntimeFetching = false` at startup so a missing
+   font is a loud failure rather than a silent network call.
+
+Not done in H1.5 because fetching the font files needs network access this phase
+did not have, and doing half of it — disabling fetching without bundling — would
+degrade the UI to fallback fonts. It is a small, bounded task with a known
+shape.
+
+## 1c. Managed Runtime — provenance audit
+
+All eight tools have **in-repo, from-source cross-compilation recipes** with
+checksum verification. This is a considerably stronger position than H1 assumed.
+
+| Tool | Version | Licence | Upstream source | Recipe | Class |
+| --- | --- | --- | --- | --- | --- |
+| `python` | 3.14.7 | PSF-2.0 | python.org/ftp | `runtime/build-python-android-arm64.sh` | A |
+| `git` | 2.51.0 | GPL-2.0-only | github.com/git/git | `runtime/build-git-android-arm64.sh` | A |
+| `git-remote-http` | (with git) | GPL-2.0-only | github.com/git/git | same recipe | A |
+| `gh` | 2.82.1 | MIT | github.com/cli/cli | `runtime/build-gh-android-arm64.sh` | A |
+| `curl` | 8.11.1 | curl (MIT-like) | github.com/curl/curl | `runtime/build-curl-android-arm64.sh` (+ mbedTLS) | A |
+| `rg` | 14.1.1 | MIT OR Unlicense | github.com/BurntSushi/ripgrep | `runtime/build-ripgrep-android-arm64.sh` | A |
+| `jq` | 1.7.1 | MIT | github.com/jqlang/jq | `runtime/build-jq-android-arm64.sh` | A |
+| `sqlite3` | 3.50.4 | Public domain | sqlite.org | `runtime/build-sqlite3-android-arm64.sh` | A |
+
+**Classification: all eight are class A — reproducibly source-buildable now**,
+from checksum-verified upstream tarballs, by scripts already in this repository.
+
+The open question is not *can they be built from source* but **whether F-Droid's
+build server will run those recipes**, since they need the Android NDK, plus Rust
+for ripgrep and Go for gh. That is a conversation with F-Droid about build
+requirements, not a code change, and it should happen before submission rather
+than during review.
+
+The binaries are currently **committed** to the repository as
+`android/app/src/main/jniLibs/arm64-v8a/libpocketclaw-*.so`. Committed prebuilts
+are exactly what a source-building distribution exists to avoid, even when the
+sources are free and the recipes are present. Expect to be asked to build them
+in-pipeline.
+
+## 1d. Post-install executable downloads — none, structurally
+
+**PocketClaw cannot download and execute a binary.** This is not a policy it
+follows; it is a thing the platform will not permit, and the runtime documents
+it as the reason no download path exists to audit:
+
+> Since API 29 an app may not `execve()` a file in its own writable data
+> directory, and `File.setExecutable(true)` does not change that: the
+> restriction is enforced on the app's SELinux domain, not by the file mode.
+
+The only two delivery routes are therefore:
+
+- `system` — binaries the OS itself ships in `/system/bin` (46 catalog entries).
+- `bundled` — `lib*.so` in the APK, unpacked by the package manager into
+  `nativeLibraryDir` at install time (the 7 manifest entries covering the 8
+  shipped tools).
+
+`EnsureTool` reports capability-unavailable for anything outside the catalog
+rather than acquiring it. There is no fetch, no checksum-on-download step to
+review, and no update channel for executables.
+
+## 1e. Providers and Anti-Features
+
+PocketClaw connects to whatever AI provider the user configures. Declared
+honestly rather than concealed:
+
+| Service | Status |
+| --- | --- |
+| Anthropic, OpenAI-compatible, Azure OpenAI, AWS Bedrock | **Optional, user-selected.** Proprietary network services. |
+| OpenAI-compatible endpoints generally | Covers self-hosted and FLOSS servers — this is the escape hatch that keeps the app usable without any proprietary service. |
+| Telegram, GitHub | Optional integrations the user turns on. |
+| Managed-bot onboarding service | Optional convenience for Telegram setup; manual token entry is the alternative. |
+
+**No provider is required for the app to function**, and none is promoted as a
+default that must be accepted. The likely F-Droid anti-feature declaration is
+`NonFreeNet` (optional use of proprietary network services). `Tracking` and
+`NonFreeDep` no longer apply after the Firebase removal, and `NonFreeAdd` does
+not apply.
 
 ## 2. Package identity
 
@@ -171,8 +258,12 @@ None of this exists yet and none of it should be created before §1 is resolved:
 
 | Question | Answer |
 | --- | --- |
-| Is a separate F-Droid flavor necessary? | **No** — and it should be avoided. Make the proprietary dependency optional instead, following the Umeng precedent. |
-| Is there a concrete blocker? | **Yes** — Firebase and Google Play Services are packaged unconditionally. |
-| Is the build reproducible today? | The Core and frontend, yes and proven. The full APK, not yet verified. |
-| Can direct and F-Droid share a signature? | Yes, if reproducibility holds. That is the design target. |
+| Is a separate F-Droid flavor necessary? | **No.** The proprietary dependency was removed, not hidden. One canonical build serves all three channels. |
+| Firebase / Google Play Services? | **Removed and verified absent** from the DEX, the manifest and the packaged entries. |
+| Remaining blocker? | **`google_fonts` runtime fetching** (§1b). Small, bounded, needs network to bundle the font files. |
+| Managed Runtime buildable from source? | **Yes, all eight**, by recipes already in `runtime/`. Open question is whether F-Droid's builders will run them. |
+| Does it download executables after install? | **No — structurally impossible** on targetSdk 36 (§1d). |
+| Anti-features to declare? | `NonFreeNet` for optional proprietary providers. Not `Tracking`, not `NonFreeDep`. |
+| Is the build reproducible today? | Core and frontend, yes and proven. Full APK, not yet verified. |
+| Can direct and F-Droid share a signature? | Yes, if APK reproducibility holds. That is the design target. |
 | Can Play share it? | No, under Play App Signing. Accepted. |

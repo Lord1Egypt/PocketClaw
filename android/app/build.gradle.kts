@@ -44,12 +44,6 @@ val umengLinkScheme = if (umengAppKey.isNotBlank()) {
     "um.placeholder"
 }
 
-// Firebase Configuration from dart-define
-val firebaseAppId = dartDefines["POCKETCLAW_FIREBASE_APP_ID"] ?: ""
-val firebaseApiKey = dartDefines["POCKETCLAW_FIREBASE_API_KEY"] ?: ""
-val firebaseProjectId = dartDefines["POCKETCLAW_FIREBASE_PROJECT_ID"] ?: ""
-val firebaseMessagingSenderId = dartDefines["POCKETCLAW_FIREBASE_MESSAGING_SENDER_ID"] ?: ""
-val firebaseStorageBucket = dartDefines["POCKETCLAW_FIREBASE_STORAGE_BUCKET"] ?: ""
 
 // ---------------------------------------------------------------------------
 // Release contract. See DECISIONS.md, "Release integrity".
@@ -470,87 +464,6 @@ afterEvaluate {
     }
 }
 
-// Generate Firebase resources from dart-define
-tasks.register("generateFirebaseResources") {
-    doLast {
-        val resDir = file("src/main/res/values")
-        resDir.mkdirs()
-        
-        val stringsXml = file("$resDir/strings.xml")
-        
-        // Build the content - always generate required fields even if empty
-        // to prevent AAPT errors when AndroidManifest references them
-        val content = buildString {
-            appendLine("<?xml version=\"1.0\" encoding=\"utf-8\"?>")
-            appendLine("<resources>")
-            appendLine("    <!-- Auto-generated from dart-define, do not edit manually -->")
-            
-            // Always generate google_app_id (required by AndroidManifest.xml)
-            appendLine("    <string name=\"google_app_id\" translatable=\"false\">${firebaseAppId.xmlEscape()}</string>")
-            
-            if (firebaseApiKey.isNotEmpty()) {
-                appendLine("    <string name=\"google_api_key\" translatable=\"false\">${firebaseApiKey.xmlEscape()}</string>")
-            }
-            if (firebaseProjectId.isNotEmpty()) {
-                appendLine("    <string name=\"project_id\" translatable=\"false\">${firebaseProjectId.xmlEscape()}</string>")
-                appendLine("    <string name=\"firebase_database_url\" translatable=\"false\">https://${firebaseProjectId.xmlEscape()}.firebaseio.com</string>")
-            }
-            if (firebaseMessagingSenderId.isNotEmpty()) {
-                appendLine("    <string name=\"gcm_defaultSenderId\" translatable=\"false\">${firebaseMessagingSenderId.xmlEscape()}</string>")
-            }
-            if (firebaseStorageBucket.isNotEmpty()) {
-                appendLine("    <string name=\"google_storage_bucket\" translatable=\"false\">${firebaseStorageBucket.xmlEscape()}</string>")
-            } else if (firebaseProjectId.isNotEmpty()) {
-                appendLine("    <string name=\"google_storage_bucket\" translatable=\"false\">${firebaseProjectId.xmlEscape()}.appspot.com</string>")
-            }
-            
-            appendLine("</resources>")
-        }
-        
-        stringsXml.writeText(content)
-        println("Generated Firebase resources at: ${stringsXml.absolutePath}")
-        println("Firebase Config: appId=${firebaseAppId.isNotEmpty()}, apiKey=${firebaseApiKey.isNotEmpty()}, projectId=${firebaseProjectId.isNotEmpty()}")
-    }
-}
-
-// Helper function to escape XML
-fun String.xmlEscape(): String {
-    return this
-        .replace("&", "&amp;")
-        .replace("<", "&lt;")
-        .replace(">", "&gt;")
-        .replace("\"", "&quot;")
-        .replace("'", "&apos;")
-}
-
-// Ensure resources are generated before any resource processing
-afterEvaluate {
-    // Hook into resource processing tasks which happen before AAPT linking
-    tasks.findByName("mergeDebugResources")?.dependsOn("generateFirebaseResources")
-    tasks.findByName("mergeReleaseResources")?.dependsOn("generateFirebaseResources")
-    tasks.findByName("processDebugResources")?.dependsOn("generateFirebaseResources")
-    tasks.findByName("processReleaseResources")?.dependsOn("generateFirebaseResources")
-    // Also hook into pre-build tasks as fallback
-    tasks.findByName("preBuild")?.dependsOn("generateFirebaseResources")
-}
-
-// Clean up sensitive resources after build
-tasks.register("cleanupFirebaseResources") {
-    doLast {
-        val stringsXml = file("src/main/res/values/strings.xml")
-        if (stringsXml.exists()) {
-            stringsXml.delete()
-            println("Cleaned up Firebase resources for security")
-        }
-    }
-}
-
-// Run cleanup after build completion - use afterEvaluate to ensure tasks exist
-afterEvaluate {
-    tasks.findByName("assembleDebug")?.finalizedBy("cleanupFirebaseResources")
-    tasks.findByName("assembleRelease")?.finalizedBy("cleanupFirebaseResources")
-    tasks.findByName("bundleRelease")?.finalizedBy("cleanupFirebaseResources")
-}
 
 // Fail the release build if the arm64 native payload is incomplete.
 //

@@ -23,15 +23,16 @@
     <!--
       Advertising and attribution surface removed from the merged manifest.
 
-      These four are contributed by play-services-measurement, which arrives
-      with the firebase_analytics plugin. Firebase is kept: device feedback is a
-      real product feature with a Settings toggle, and it logs one custom event.
-      That event needs none of these — they exist for advertising-ID collection
-      and install-campaign attribution, neither of which PocketClaw does.
+      These four used to arrive with play-services-measurement, pulled in by the
+      firebase_analytics plugin. H1.5 removed Firebase and Google Play Services
+      from the build entirely — proprietary SDKs are disqualifying for official
+      F-Droid, and F-Droid judges what is in the binary rather than what the
+      code decides at runtime — so nothing contributes them any more and these
+      four removals are currently no-ops.
 
-      Removing the advertising ID this way is Google's documented opt-out and
-      leaves event logging working. Restore the install-referrer line only if
-      Play campaign attribution ever becomes a real requirement.
+      They are kept deliberately. They cost nothing, and if a future dependency
+      ever reintroduces the advertising and attribution surface, it will arrive
+      already stripped rather than quietly widening the permission set.
     -->
     <uses-permission android:name="com.google.android.gms.permission.AD_ID"
         tools:node="remove" />
@@ -137,15 +138,6 @@
         <meta-data
             android:name="UMENG_CHANNEL"
             android:value="${POCKETCLAW_UMENG_CHANNEL}" />
-        
-        <!-- Firebase Analytics Configuration - 必须配置才能启用 Analytics -->
-        <!-- 从 Firebase Console 的 google-services.json 获取这些值 -->
-        <meta-data
-            android:name="com.google.android.gms.google_app_id"
-            android:value="@string/google_app_id" />
-        <meta-data
-            android:name="com.google.android.gms.ads.APPLICATION_ID"
-            android:value="@string/google_app_id" />
     </application>
 
     <queries>

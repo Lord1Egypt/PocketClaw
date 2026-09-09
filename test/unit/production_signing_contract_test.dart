@@ -276,12 +276,37 @@ void main() {
       expect(doc.existsSync(), isTrue);
     });
 
-    test('it records the concrete blocker rather than a vague concern', () {
+    test('it records findings rather than vague concerns', () {
       final body = doc.readAsStringSync();
       expect(body, contains('com.lord1egypt.pocketclaw'));
-      expect(body.toLowerCase(), contains('firebase'));
-      expect(body.toLowerCase(), contains('play services'));
       expect(body, contains('SOURCE_DATE_EPOCH'));
+      // H1.5 removed Firebase; the document must say so rather than still
+      // describing it as the outstanding blocker.
+      expect(body, contains('REMOVED'));
+      expect(body.toLowerCase(), contains('google_fonts'),
+          reason: 'the remaining blocker must be named');
+    });
+
+    test('the Firebase removal is real, not just documented', () {
+      final pubspec = File('pubspec.yaml').readAsStringSync();
+      expect(pubspec, isNot(contains('firebase_analytics')));
+      expect(pubspec, isNot(contains('firebase_core')));
+      expect(File('lib/src/core/firebase_device_reporter.dart').existsSync(), isFalse);
+      final manifest =
+          File('android/app/src/main/AndroidManifest.xml').readAsStringSync();
+      expect(manifest, isNot(contains('google_app_id')));
+      final gradle = File('android/app/build.gradle.kts').readAsStringSync();
+      expect(gradle, isNot(contains('FIREBASE')));
+    });
+
+    test('device feedback defaults to off rather than to a provider', () {
+      // The old fall-through meant a build that omitted the dart-define picked
+      // an analytics provider by accident.
+      final models =
+          File('lib/src/core/device_feedback_models.dart').readAsStringSync();
+      expect(models, isNot(contains('firebase,')),
+          reason: 'the Firebase arm must be gone from the enum');
+      expect(models, contains('return DeviceFeedbackProvider.none;'));
     });
 
     test('it does not preemptively introduce an F-Droid flavor', () {
@@ -296,7 +321,11 @@ void main() {
     test('the reproducibility objective is tracked by the gate', () {
       final gate = File('tool/release_gate.py').readAsStringSync();
       expect(gate, contains('reproducibility not yet proven'));
-      expect(gate, contains('blocks official F-Droid'));
+      // The Firebase entry was retired when the dependency was; the remaining
+      // F-Droid item is the font fetching.
+      expect(gate, contains('google_fonts fetches fonts at runtime'));
+      expect(gate, isNot(contains('Firebase/GMS packaged unconditionally')),
+          reason: 'a solved blocker must not still be listed as outstanding');
     });
 
     test('the Umeng precedent it points at is real', () {

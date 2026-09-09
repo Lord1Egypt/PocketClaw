@@ -251,9 +251,9 @@ class ConfigPageState extends State<ConfigPage> with WidgetsBindingObserver {
   final _checkFocusNode = FocusNode();
   final _argsFocusNode = FocusNode();
   final _saveFocusNode = FocusNode();
-  final _firebaseFocusNode = FocusNode();
+  final _deviceFeedbackFocusNode = FocusNode();
   final List<FocusNode> _themeFocusNodes = [];
-  bool _firebaseAllowed = false;
+  bool _deviceFeedbackAllowed = false;
 
   /// The release the notes belong to, and whether the user has read them.
   String? _whatsNewVersion;
@@ -370,7 +370,7 @@ class ConfigPageState extends State<ConfigPage> with WidgetsBindingObserver {
         _portController.text = service.port.toString();
         _pathController.text = service.binaryPath;
         _argsController.text = service.arguments;
-        _firebaseAllowed = allowed;
+        _deviceFeedbackAllowed = allowed;
         _originalHost = _hostController.text;
         _originalPort = _portController.text;
         _originalPath = _pathController.text;
@@ -406,7 +406,7 @@ class ConfigPageState extends State<ConfigPage> with WidgetsBindingObserver {
     _browseFocusNode.dispose();
     _checkFocusNode.dispose();
     _argsFocusNode.dispose();
-    _firebaseFocusNode.dispose();
+    _deviceFeedbackFocusNode.dispose();
     for (final node in _themeFocusNodes) {
       node.dispose();
     }
@@ -699,20 +699,20 @@ class ConfigPageState extends State<ConfigPage> with WidgetsBindingObserver {
     }
   }
 
-  Future<void> _toggleFirebase(BuildContext context) async {
+  Future<void> _toggleDeviceFeedback(BuildContext context) async {
     final service = context.read<ServiceManager>();
-    final newValue = !_firebaseAllowed;
+    final newValue = !_deviceFeedbackAllowed;
     final l10n = AppLocalizations.of(context)!;
 
     debugPrint(
-      '[ConfigPage] Toggling device feedback: newValue=$newValue (current=$_firebaseAllowed)',
+      '[ConfigPage] Toggling device feedback: newValue=$newValue (current=$_deviceFeedbackAllowed)',
     );
 
     if (newValue) {
       debugPrint('[ConfigPage] Enabling device feedback...');
       await service.setDeviceFeedbackUploadAllowed(true);
       setState(() {
-        _firebaseAllowed = true;
+        _deviceFeedbackAllowed = true;
       });
       debugPrint('[ConfigPage] Triggering background upload...');
       service.triggerDeviceFeedbackUploadInBackground();
@@ -727,7 +727,7 @@ class ConfigPageState extends State<ConfigPage> with WidgetsBindingObserver {
 
     if (!newValue) {
       setState(() {
-        _firebaseAllowed = false;
+        _deviceFeedbackAllowed = false;
       });
     }
   }
@@ -1163,10 +1163,10 @@ class ConfigPageState extends State<ConfigPage> with WidgetsBindingObserver {
                   return Selector<ServiceManager, String?>(
                     selector: (_, s) => s.lastDeviceFeedbackSyncMessage,
                     builder: (_, msg, _) => DeviceFeedbackToggle(
-                      focusNode: _firebaseFocusNode,
-                      isAllowed: _firebaseAllowed,
+                      focusNode: _deviceFeedbackFocusNode,
+                      isAllowed: _deviceFeedbackAllowed,
                       statusMessage: msg,
-                      onToggle: () => _toggleFirebase(context),
+                      onToggle: () => _toggleDeviceFeedback(context),
                       onArrowDown: () => _saveFocusNode.requestFocus(),
                       onArrowUp: () => _saveFocusNode.requestFocus(),
                     ),

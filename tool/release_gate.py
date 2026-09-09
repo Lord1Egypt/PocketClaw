@@ -115,7 +115,7 @@ PENDING_FINAL_HARDENING = [
     # direct and F-Droid channels without uninstalling. Every hardening step
     # above is a candidate for breaking it; see docs/FDROID_RELEASE.md.
     "APK-level reproducibility not yet proven (required for F-Droid)",
-    "Firebase/GMS packaged unconditionally, which blocks official F-Droid",
+    "google_fonts fetches fonts at runtime; bundle them before F-Droid submission",
     # The namespace migration was listed here until the sweep finished and
     # namespace.no_active_pico started enforcing it on every run. A standing
     # note that a solved problem is outstanding is as misleading as the reverse.
@@ -523,6 +523,19 @@ def source_gates(gate: Gate, run_tests: bool, release_class: str = "test"):
                expected="no unclassified Pico identity in owned production source",
                observed="PASS" if rc == 0 else summary)
 
+    # Source side of the same rule. A dependency removed from the artifact but
+    # left in pubspec would come back on the next `pub get`.
+    proprietary = []
+    for name, path in (("firebase_analytics", "pubspec.yaml"),
+                       ("firebase_core", "pubspec.yaml"),
+                       ("google_app_id", "android/app/src/main/AndroidManifest.xml")):
+        target = REPO / path
+        if target.is_file() and name in target.read_text(encoding="utf-8"):
+            proprietary.append(f"{name} in {path}")
+    gate.check("source.fdroid_no_proprietary_sdk", not proprietary,
+               expected="no proprietary Google SDK declared in the build",
+               observed=", ".join(proprietary) or "clean")
+
     # Whether a production signer has been enrolled at all. Reported rather than
     # failed: before the key ceremony "none" is the correct state, and a source
     # gate that went red for it would be red for weeks and stop being read.
@@ -793,6 +806,7 @@ def artifact_gates(gate: Gate, apk: Path, release_class: str):
             gate.record("artifact.backup_exclusions", SKIP, "aapt2 not found")
 
     native_gates(gate, apk)
+    fdroid_artifact_gate(gate, apk)
     signing_gate(gate, apk, release_class)
 
 
@@ -859,6 +873,39 @@ def native_gates(gate: Gate, apk: Path):
                     "PENDING_FINAL_HARDENING (controlled Dart generated-source URI strategy)")
     else:
         gate.record("artifact.dart_snapshot_paths", PASS, "no generated-source paths")
+
+
+# Proprietary SDKs that disqualify an app from the official F-Droid repository.
+# Matched against DEX class names and packaged entries, because F-Droid judges
+# what is in the binary — a runtime feature flag is not an answer to it.
+PROPRIETARY_SDK_MARKERS = {
+    "firebase": rb"com/google/firebase",
+    "gms": rb"com/google/android/gms",
+    "admob": rb"com/google/android/gms/ads",
+    "measurement": rb"com/google/android/gms/measurement",
+}
+
+
+def fdroid_artifact_gate(gate: Gate, apk: Path):
+    """No proprietary Google SDK in the packaged artifact.
+
+    Reported per marker rather than as one verdict, so a regression names the
+    thing that came back instead of saying "F-Droid: no".
+    """
+    with zipfile.ZipFile(apk) as archive:
+        names = archive.namelist()
+        dex = b"".join(archive.read(n) for n in names if n.endswith(".dex"))
+
+    for label, marker in PROPRIETARY_SDK_MARKERS.items():
+        in_dex = marker in dex
+        token = marker.decode().rsplit("/", 1)[-1]
+        in_entries = [n for n in names if token in n.lower()]
+        gate.check(f"artifact.fdroid_no_{label}", not in_dex and not in_entries,
+                   expected=f"no {label} SDK packaged",
+                   observed="clean" if not in_dex and not in_entries
+                   else f"present ({'dex' if in_dex else ''}"
+                        f"{' and ' if in_dex and in_entries else ''}"
+                        f"{f'{len(in_entries)} entries' if in_entries else ''})")
 
 
 def signing_gate(gate: Gate, apk: Path, release_class: str):

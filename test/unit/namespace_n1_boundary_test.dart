@@ -39,10 +39,14 @@ void main() {
       for (final name in [
         'POCKETCLAW_ANALYTICS_PROVIDER',
         'POCKETCLAW_UMENG_APP_KEY',
-        'POCKETCLAW_FIREBASE_APP_ID',
       ]) {
         expect(gradle, contains(name));
       }
+      // The Firebase defines were renamed by N1 and then removed entirely by
+      // H1.5 along with the SDK they configured. Their absence is the point:
+      // a define that no longer exists cannot be misnamed.
+      expect(gradle, isNot(contains('FIREBASE')),
+          reason: 'the Firebase build configuration was removed, not renamed');
       for (final stale in [
         'PICOCLAW_ANALYTICS_PROVIDER',
         'PICOCLAW_UMENG_',

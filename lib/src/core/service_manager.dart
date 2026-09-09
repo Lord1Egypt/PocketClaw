@@ -7,7 +7,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../generated/l10n/app_localizations.dart';
 import 'app_theme.dart';
 import 'device_feedback_models.dart';
-import 'firebase_device_reporter.dart';
 import 'pocketclaw_channel.dart';
 import 'plain_text_log_sanitizer.dart';
 import 'status_snapshot.dart';
@@ -103,28 +102,8 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
   static final DeviceFeedbackProvider _deviceFeedbackProvider =
       resolveDeviceFeedbackProvider(
         requested: _requestedDeviceFeedbackProvider,
-        firebaseProjectId: _firebaseProjectId,
-        firebaseApiKey: _firebaseApiKey,
-        firebaseAppId: _firebaseAppId,
-        firebaseMessagingSenderId: _firebaseMessagingSenderId,
         umengAppKey: _umengAppKey,
       );
-  static const String _firebaseProjectId = String.fromEnvironment(
-    'POCKETCLAW_FIREBASE_PROJECT_ID',
-  );
-  static const String _firebaseApiKey = String.fromEnvironment(
-    'POCKETCLAW_FIREBASE_API_KEY',
-  );
-  static const String _firebaseAppId = String.fromEnvironment(
-    'POCKETCLAW_FIREBASE_APP_ID',
-  );
-  static const String _firebaseMessagingSenderId = String.fromEnvironment(
-    'POCKETCLAW_FIREBASE_MESSAGING_SENDER_ID',
-  );
-  static const String _firebaseStorageBucket = String.fromEnvironment(
-    'POCKETCLAW_FIREBASE_STORAGE_BUCKET',
-    defaultValue: '',
-  );
   static const String _umengAppKey = String.fromEnvironment(
     'POCKETCLAW_UMENG_APP_KEY',
   );
@@ -160,7 +139,6 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   final CoreServiceAdapter _adapter = CoreServiceAdapterFactory.create();
-  final FirebaseDeviceReporter _firebaseReporter = FirebaseDeviceReporter();
   final UmengDeviceReporter _umengReporter = UmengDeviceReporter();
   String? _lastErrorCode;
   String? _lastDeviceFeedbackSyncMessage;
@@ -260,30 +238,15 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
   DeviceFeedbackProvider get deviceFeedbackProvider => _deviceFeedbackProvider;
   bool get isDeviceFeedbackEnabled => switch (_deviceFeedbackProvider) {
     DeviceFeedbackProvider.none => false,
-    DeviceFeedbackProvider.firebase => Platform.isAndroid || Platform.isIOS,
     DeviceFeedbackProvider.umeng => Platform.isAndroid,
   };
 
   @visibleForTesting
   static DeviceFeedbackProvider resolveDeviceFeedbackProvider({
     required DeviceFeedbackProvider requested,
-    required String firebaseProjectId,
-    required String firebaseApiKey,
-    required String firebaseAppId,
-    required String firebaseMessagingSenderId,
     required String umengAppKey,
   }) {
     switch (requested) {
-      case DeviceFeedbackProvider.firebase:
-        final configured = [
-          firebaseProjectId,
-          firebaseApiKey,
-          firebaseAppId,
-          firebaseMessagingSenderId,
-        ].every((value) => value.trim().isNotEmpty);
-        return configured
-            ? DeviceFeedbackProvider.firebase
-            : DeviceFeedbackProvider.none;
       case DeviceFeedbackProvider.umeng:
         return umengAppKey.trim().isNotEmpty
             ? DeviceFeedbackProvider.umeng
@@ -496,8 +459,6 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
     }
     _deviceFeedbackConfigurationNoticeEmitted = true;
     final message = switch (_requestedDeviceFeedbackProvider) {
-      DeviceFeedbackProvider.firebase =>
-        'Device feedback disabled: Firebase build configuration not provided.',
       DeviceFeedbackProvider.umeng =>
         'Device feedback disabled: Umeng build configuration not provided.',
       DeviceFeedbackProvider.none => '',
@@ -1173,8 +1134,6 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
 
   Future<Map<String, String>> getDeviceFeedbackDeviceInfo() async {
     switch (_deviceFeedbackProvider) {
-      case DeviceFeedbackProvider.firebase:
-        return _firebaseReporter.collectSafeDeviceInfo();
       case DeviceFeedbackProvider.umeng:
         return _umengReporter.collectSafeDeviceInfo();
       case DeviceFeedbackProvider.none:
@@ -1184,8 +1143,6 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
 
   Future<bool> isDeviceFeedbackAllowed() async {
     switch (_deviceFeedbackProvider) {
-      case DeviceFeedbackProvider.firebase:
-        return _firebaseReporter.isUploadAllowed();
       case DeviceFeedbackProvider.umeng:
         return _umengReporter.isUploadAllowed();
       case DeviceFeedbackProvider.none:
@@ -1208,7 +1165,6 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
         snapshot.lastUploadedSignature != snapshot.buildUploadSignature();
 
     final providerRequestedUpload = switch (_deviceFeedbackProvider) {
-      DeviceFeedbackProvider.firebase => _firebaseReporter.shouldUpload(),
       DeviceFeedbackProvider.umeng => _umengReporter.shouldUpload(),
       DeviceFeedbackProvider.none => Future<bool>.value(false),
     };
@@ -1223,9 +1179,6 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
       _resetDeviceFeedbackRetryState();
     }
     switch (_deviceFeedbackProvider) {
-      case DeviceFeedbackProvider.firebase:
-        await _firebaseReporter.setUploadAllowed(allowed);
-        return;
       case DeviceFeedbackProvider.umeng:
         await _umengReporter.setUploadAllowed(allowed);
         return;
@@ -1272,48 +1225,6 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
     final telemetrySnapshot = await getDeviceTelemetrySnapshot(now: attemptAt);
     late final DeviceFeedbackUploadResult result;
     switch (_deviceFeedbackProvider) {
-      case DeviceFeedbackProvider.firebase:
-        if (_firebaseProjectId.trim().isEmpty) {
-          result = const DeviceFeedbackUploadResult(
-            success: false,
-            message:
-                'Missing POCKETCLAW_FIREBASE_PROJECT_ID build configuration.',
-          );
-          break;
-        }
-        if (_firebaseApiKey.trim().isEmpty) {
-          result = const DeviceFeedbackUploadResult(
-            success: false,
-            message: 'Missing POCKETCLAW_FIREBASE_API_KEY build configuration.',
-          );
-          break;
-        }
-        if (_firebaseAppId.trim().isEmpty) {
-          result = const DeviceFeedbackUploadResult(
-            success: false,
-            message: 'Missing POCKETCLAW_FIREBASE_APP_ID build configuration.',
-          );
-          break;
-        }
-        if (_firebaseMessagingSenderId.trim().isEmpty) {
-          result = const DeviceFeedbackUploadResult(
-            success: false,
-            message:
-                'Missing POCKETCLAW_FIREBASE_MESSAGING_SENDER_ID build configuration.',
-          );
-          break;
-        }
-        result = await _firebaseReporter.uploadDeviceReport(
-          appId: _firebaseAppId,
-          projectId: _firebaseProjectId,
-          apiKey: _firebaseApiKey,
-          messagingSenderId: _firebaseMessagingSenderId,
-          storageBucket: _firebaseStorageBucket.isEmpty
-              ? null
-              : _firebaseStorageBucket,
-          telemetrySnapshot: telemetrySnapshot,
-        );
-        break;
       case DeviceFeedbackProvider.umeng:
         if (_umengAppKey.trim().isEmpty) {
           result = const DeviceFeedbackUploadResult(
@@ -1408,30 +1319,6 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
     if (notify) {
       notifyListeners();
     }
-  }
-
-  Future<Map<String, String>> getFirebaseDeviceInfo() {
-    return getDeviceFeedbackDeviceInfo();
-  }
-
-  Future<bool> isFirebaseUploadAllowed() {
-    return isDeviceFeedbackAllowed();
-  }
-
-  Future<bool> shouldAskForFirebaseUpload() {
-    return shouldAskForDeviceFeedbackUpload();
-  }
-
-  Future<bool> shouldAutoUploadFirebaseDeviceReport() {
-    return shouldAutoUploadDeviceFeedbackReport();
-  }
-
-  Future<void> setFirebaseUploadAllowed(bool allowed) {
-    return setDeviceFeedbackUploadAllowed(allowed);
-  }
-
-  Future<DeviceFeedbackUploadResult> uploadFirebaseDeviceReport() {
-    return uploadDeviceFeedbackReport();
   }
 
   Future<void> updateConfig(

@@ -114,7 +114,7 @@ void main() {
         now: now,
       );
 
-      final firebase = snapshot.toFirebaseParameters();
+      final firebase = snapshot.toAnalyticsParameters();
       final umeng = snapshot.toUmengPayload();
 
       expect(firebase['telemetry_state'], 'active');
