@@ -14,6 +14,8 @@ import (
 
 	"github.com/sipeed/picoclaw/pkg/config"
 	"github.com/sipeed/picoclaw/pkg/logger"
+
+	"github.com/sipeed/picoclaw/pkg/canonicalenv"
 )
 
 const pidFileName = ".picoclaw.pid"
@@ -46,7 +48,7 @@ type PidFileData struct {
 // case: PICOCLAW_HOME is already private there and the token stays in the
 // record, exactly as before.
 func writeTokenSink(token string) bool {
-	path := strings.TrimSpace(os.Getenv(config.EnvGatewayTokenFile))
+	path := strings.TrimSpace(canonicalenv.Getenv(config.EnvGatewayTokenFile))
 	if path == "" {
 		return false
 	}
@@ -72,7 +74,7 @@ func writeTokenSink(token string) bool {
 
 // removeTokenSink deletes the private credential file, if one is configured.
 func removeTokenSink() {
-	path := strings.TrimSpace(os.Getenv(config.EnvGatewayTokenFile))
+	path := strings.TrimSpace(canonicalenv.Getenv(config.EnvGatewayTokenFile))
 	if path == "" {
 		return
 	}

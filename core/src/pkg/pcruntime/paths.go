@@ -5,6 +5,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/sipeed/picoclaw/pkg/canonicalenv"
 )
 
 // Environment keys the Android Service and the desktop host use to tell the
@@ -51,11 +53,11 @@ type Paths struct {
 // workspace: user Skills write freely there, and runtime inventory that a Skill
 // can rewrite is worse than no inventory at all.
 func ResolvePaths() (*Paths, error) {
-	workspace := strings.TrimSpace(os.Getenv(EnvWorkspace))
+	workspace := strings.TrimSpace(canonicalenv.Getenv(EnvWorkspace))
 
 	libDir := strings.TrimSpace(os.Getenv(EnvLibDir))
 	if libDir == "" {
-		if coreBinary := strings.TrimSpace(os.Getenv(EnvCoreBinary)); coreBinary != "" {
+		if coreBinary := strings.TrimSpace(canonicalenv.Getenv(EnvCoreBinary)); coreBinary != "" {
 			libDir = filepath.Dir(coreBinary)
 		}
 	}

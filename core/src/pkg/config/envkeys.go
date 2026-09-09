@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/sipeed/picoclaw/pkg"
+	"github.com/sipeed/picoclaw/pkg/canonicalenv"
 )
 
 // Runtime environment variable keys for the picoclaw process.
@@ -95,7 +96,7 @@ const (
 // and server installs are unchanged. A host that can offer private storage says
 // so through EnvDashboardAuthDir.
 func ResolveDashboardAuthDir(homePath string) string {
-	if dir := strings.TrimSpace(os.Getenv(EnvDashboardAuthDir)); dir != "" {
+	if dir := strings.TrimSpace(canonicalenv.Getenv(EnvDashboardAuthDir)); dir != "" {
 		return dir
 	}
 	return homePath
@@ -109,7 +110,7 @@ func ResolveDashboardAuthDir(homePath string) string {
 // and not as a fallback after a failed migration, because falling back is
 // exactly the attacker-writable state the override exists to escape.
 func DashboardAuthDirOverridden() bool {
-	return strings.TrimSpace(os.Getenv(EnvDashboardAuthDir)) != ""
+	return strings.TrimSpace(canonicalenv.Getenv(EnvDashboardAuthDir)) != ""
 }
 
 // ResolveLogDir returns the directory for gateway.log and the panic log.
@@ -118,7 +119,7 @@ func DashboardAuthDirOverridden() bool {
 // that has somewhere better to put logs than the user's workspace can say so
 // without every caller re-deriving the rule.
 func ResolveLogDir(homePath string) string {
-	if dir := strings.TrimSpace(os.Getenv(EnvLogDir)); dir != "" {
+	if dir := strings.TrimSpace(canonicalenv.Getenv(EnvLogDir)); dir != "" {
 		return dir
 	}
 	return filepath.Join(homePath, "logs")
@@ -130,7 +131,7 @@ func ResolveLogDir(homePath string) string {
 // edits made by the web console — rather than a snapshot taken at start —
 // reload from this path.
 func ResolveConfigPath() string {
-	if configPath := os.Getenv(EnvConfig); configPath != "" {
+	if configPath := canonicalenv.Getenv(EnvConfig); configPath != "" {
 		return configPath
 	}
 	return filepath.Join(GetHome(), "config.json")
@@ -138,8 +139,8 @@ func ResolveConfigPath() string {
 
 func GetHome() string {
 	homePath, _ := os.UserHomeDir()
-	if picoclawHome := os.Getenv(EnvHome); picoclawHome != "" {
-		homePath = picoclawHome
+	if homeOverride := canonicalenv.Getenv(EnvHome); homeOverride != "" {
+		homePath = homeOverride
 	} else if homePath != "" {
 		homePath = filepath.Join(homePath, pkg.DefaultPicoClawHome)
 	}

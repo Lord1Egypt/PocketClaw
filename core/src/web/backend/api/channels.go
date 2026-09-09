@@ -3,11 +3,12 @@ package api
 import (
 	"encoding/json"
 	"net/http"
-	"os"
 	"reflect"
 	"strings"
 
 	"github.com/sipeed/picoclaw/pkg/config"
+
+	"github.com/sipeed/picoclaw/pkg/canonicalenv"
 )
 
 type channelCatalogItem struct {
@@ -104,7 +105,7 @@ func hideHostManagedChannelFields(settings map[string]any, channelName string) {
 	if channelName != "pico" {
 		return
 	}
-	if strings.TrimSpace(os.Getenv(config.EnvChannelsPicoToken)) == "" {
+	if strings.TrimSpace(canonicalenv.Getenv(config.EnvChannelsPicoToken)) == "" {
 		return
 	}
 	delete(settings, "allow_token_query")

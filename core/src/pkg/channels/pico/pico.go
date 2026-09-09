@@ -25,6 +25,8 @@ import (
 	"github.com/sipeed/picoclaw/pkg/identity"
 	"github.com/sipeed/picoclaw/pkg/logger"
 	"github.com/sipeed/picoclaw/pkg/utils"
+
+	"github.com/sipeed/picoclaw/pkg/canonicalenv"
 )
 
 // picoConn represents a single WebSocket connection.
@@ -1075,7 +1077,7 @@ func (c *PicoChannel) tokenQueryAllowed() bool {
 	if !c.config.AllowTokenQuery {
 		return false
 	}
-	return strings.TrimSpace(os.Getenv(config.EnvChannelsPicoToken)) == ""
+	return strings.TrimSpace(canonicalenv.Getenv(config.EnvChannelsPicoToken)) == ""
 }
 
 // credentialsMatch compares a presented credential against the configured one

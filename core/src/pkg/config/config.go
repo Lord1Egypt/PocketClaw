@@ -13,8 +13,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/caarlos0/env/v11"
-
 	"github.com/sipeed/picoclaw/pkg"
 	"github.com/sipeed/picoclaw/pkg/fileutil"
 	"github.com/sipeed/picoclaw/pkg/logger"
@@ -1497,7 +1495,7 @@ func LoadConfig(path string) (*Config, error) {
 
 	gatewayHostBeforeEnv := cfg.Gateway.Host
 
-	if err = env.Parse(cfg); err != nil {
+	if err = parseEnv(cfg); err != nil {
 		return nil, err
 	}
 	applySkillsRegistryEnvCompat(cfg)

@@ -9,7 +9,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/caarlos0/env/v11"
 	"gopkg.in/yaml.v3"
 
 	"github.com/sipeed/picoclaw/pkg/logger"
@@ -772,7 +771,7 @@ func InitChannelList(channels ChannelsConfig) error {
 				return fmt.Errorf("channel %q failed to decode settings: %w", name, err)
 			}
 			// Apply env overrides for channel-specific fields via struct tags
-			if err := env.Parse(target); err != nil {
+			if err := parseEnv(target); err != nil {
 				// Non-fatal: some env vars may not apply
 			}
 			applyTelegramStreamingEnvCompat(target)
