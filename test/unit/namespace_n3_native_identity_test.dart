@@ -70,15 +70,27 @@ void main() {
       );
     });
 
-    test('Core owns only the current process name', () {
-      // Security-sensitive: a stale .picoclaw.pid can name a PID the kernel
-      // has since reused, and every accepted name is another way for that
-      // process to be honoured as our own gateway.
+    test('Core owns only the two Core executables', () {
+      // Security-sensitive, and corrected after vc60 physical validation: the
+      // Android app process reports comm gypt.pocketclaw, so a substring rule
+      // classified PocketClaw's own UI as a live Core runtime and a recycled
+      // PID would have blocked gateway startup. Ownership compares whole comm
+      // values against the two Core executables.
       final unix = read('core/src/pkg/pid/pidfile_unix.go');
-      expect(unix, contains('ownedProcessName = "pocketclaw"'));
       expect(
         unix,
-        isNot(contains('Contains(strings.TrimSpace(string(data)), "picoclaw")')),
+        contains('ownedProcessNames = []string{"libpocketclaw.so", "libpocketclaw-web.so"}'),
+      );
+      expect(unix, contains('func isOwnedComm('));
+      expect(
+        unix,
+        isNot(contains('strings.Contains(strings.TrimSpace(string(data)), "pocketclaw")')),
+        reason: 'a substring rule also accepts the Android app process and '
+            'every libpocketclaw-* Managed Runtime payload',
+      );
+      expect(
+        unix,
+        isNot(contains('"picoclaw"')),
         reason: 'the pre-N3 name must not be an accepted alias',
       );
     });
