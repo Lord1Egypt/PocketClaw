@@ -18,8 +18,6 @@ import (
 	"github.com/sipeed/picoclaw/pkg/canonicalenv"
 )
 
-const pidFileName = ".picoclaw.pid"
-
 var errInvalidPidFile = errors.New("invalid pid file")
 
 // PidFileData is the JSON structure stored in the PID file.
@@ -83,9 +81,12 @@ func removeTokenSink() {
 
 var pidMu sync.Mutex
 
-// pidFilePath returns the absolute path for the PID file given the home directory.
+// pidFilePath returns the absolute path of the record this build writes.
+//
+// Only the canonical name. The legacy record is discovered through
+// resolvePidRecords and is never a write target.
 func pidFilePath(homePath string) string {
-	return filepath.Join(homePath, pidFileName)
+	return filepath.Join(homePath, CanonicalPidFileName)
 }
 
 // generateToken creates a cryptographically random 32-character hex token.
@@ -107,29 +108,33 @@ func WritePidFile(homePath, host string, port int) (*PidFileData, error) {
 
 	pidPath := pidFilePath(homePath)
 
-	// Check for existing PID file → singleton enforcement.
-	if data, err := readPidFileUnlocked(pidPath); err == nil {
-		if os.Getpid() != data.PID {
-			logger.Infof("found pid file (PID: %d, version: %s)", data.PID, data.Version)
-			// PID 1 is typically init/systemd on the host or the entrypoint
-			// inside a container. When a container stops and leaves behind a
-			// PID file on a shared volume, the host's PID 1 (init) would
-			// pass the isProcessRunning check, blocking new gateway starts.
-			// Treat recorded PID 1 as always stale.
-			if data.PID != 1 && isProcessRunning(data.PID) {
-				// Verify the process is actually a picoclaw instance.
-				// If the PID was reused by an unrelated process
-				// (e.g. systemd-resolved after a kill -9), treat
-				// the PID file as stale and proceed with startup.
-				if isPicoclawProcess(data.PID) {
-					return nil, fmt.Errorf("gateway is already running (PID: %d, version: %s)", data.PID, data.Version)
-				}
-				logger.Warnf("found pid file (PID: %d) but the process is not the PocketClaw runtime", data.PID)
-			}
-			logger.Warnf("not running (PID: %d) so will remove the pid file: %s", data.PID, pidPath)
+	// Singleton enforcement across both record names. An older build's Gateway
+	// is still a running Gateway, so its record blocks a duplicate start just
+	// as the canonical one does — and its file is left where it is, because
+	// that process will remove it itself and knows it by no other name.
+	canonical, legacy := resolvePidRecords(homePath, runningAndOwned)
+	active, err := activeRecord(canonical, legacy)
+	if err != nil {
+		// Two live Gateways, two records, and nothing on disk to choose
+		// between them. Killing one, overwriting a record or starting a third
+		// are all worse than reporting it.
+		return nil, fmt.Errorf("%w: %s names PID %d and %s names PID %d",
+			err, canonical.path, canonical.data.PID, legacy.path, legacy.data.PID)
+	}
+	for _, record := range []pidRecord{canonical, legacy} {
+		if record.state == recordStale {
+			logger.Warnf("not running (PID: %d) so will remove the pid file: %s",
+				record.data.PID, record.path)
 		}
-		// Stale PID file; process no longer exists → clean up.
-		os.Remove(pidPath)
+	}
+	// Superseded records go whether or not we go on to start, so a rejected
+	// start still leaves one record for one Gateway. Our own is overwritten
+	// below rather than removed first, so there is no window with none at all.
+	cleanSupersededRecords(active, canonical, legacy)
+
+	if active.live() && active.data.PID != os.Getpid() {
+		return nil, fmt.Errorf("gateway is already running (PID: %d, version: %s)",
+			active.data.PID, active.data.Version)
 	}
 
 	data := &PidFileData{
@@ -183,36 +188,25 @@ func ReadPidFileWithCheck(homePath string) *PidFileData {
 	pidMu.Lock()
 	defer pidMu.Unlock()
 
-	pidPath := pidFilePath(homePath)
-	data, err := readPidFileUnlocked(pidPath)
+	// Liveness here is "the PID is alive", which is what this API asked before
+	// the migration and what the console reports on. Startup applies the
+	// stricter ownership rule; both share the migration and cleanup policy.
+	canonical, legacy := resolvePidRecords(homePath, runningOnly)
+	active, err := activeRecord(canonical, legacy)
 	if err != nil {
-		if os.IsNotExist(err) {
-			return nil
-		}
-		if errors.Is(err, errInvalidPidFile) {
-			logger.Warnf("invalid pid file, remove it: %s (%v)", pidPath, err)
-			_ = os.Remove(pidPath)
-			return nil
-		}
-		logger.Debugf("failed to read pid file: %s", err)
+		// Reporting one of two live Gateways as "the" Gateway would be a guess.
+		// Nothing is removed, and a caller that acts on this gets the same
+		// conflict from WritePidFile rather than a silent third instance.
+		logger.Warnf("conflicting gateway pid records: %s names PID %d and %s names PID %d",
+			canonical.path, canonical.data.PID, legacy.path, legacy.data.PID)
 		return nil
 	}
 
-	// Treat PID 1 as stale when we are not PID 1 ourselves (container
-	// leftover on a shared volume — host PID 1 is init, not gateway).
-	if data.PID == 1 && os.Getpid() != 1 {
-		logger.Debugf("stale container PID 1, remove pid file: %s", pidPath)
-		os.Remove(pidPath)
+	cleanSupersededRecords(active, canonical, legacy)
+	if !active.live() {
 		return nil
 	}
-
-	if !isProcessRunning(data.PID) {
-		logger.Debugf("process not running, remove pid file: %s", pidPath)
-		os.Remove(pidPath)
-		return nil
-	}
-
-	return data
+	return active.data
 }
 
 // RemovePidFile deletes the PID file (e.g. on graceful shutdown).
@@ -244,18 +238,23 @@ func RemovePidFileIfPID(homePath string, expectedPID int) bool {
 	pidMu.Lock()
 	defer pidMu.Unlock()
 
-	pidPath := pidFilePath(homePath)
-	data, err := readPidFileUnlocked(pidPath)
-	if err != nil {
-		return false
+	// Whichever name the record carries. The console calls this after stopping
+	// a Gateway it started, and one started by an older build left its record
+	// under the legacy name — the process is gone either way.
+	removed := false
+	for _, path := range []string{
+		filepath.Join(homePath, CanonicalPidFileName),
+		filepath.Join(homePath, legacyPidFileName),
+	} {
+		data, err := readPidFileUnlocked(path)
+		if err != nil || data.PID != expectedPID {
+			continue
+		}
+		if err := os.Remove(path); err == nil {
+			removed = true
+		}
 	}
-	if data.PID != expectedPID {
-		return false
-	}
-	if err := os.Remove(pidPath); err != nil {
-		return false
-	}
-	return true
+	return removed
 }
 
 // readPidFileUnlocked reads the PID file without acquiring the lock.

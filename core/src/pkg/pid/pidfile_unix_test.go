@@ -152,7 +152,7 @@ func writeStalePidFile(t *testing.T, dir string, pid int) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, pidFileName), raw, 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, CanonicalPidFileName), raw, 0o600); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -204,7 +204,7 @@ func TestWritePidFilePreservesLiveGateway(t *testing.T) {
 	}
 
 	// The pid file must survive the rejection.
-	if _, err := os.Stat(filepath.Join(dir, pidFileName)); err != nil {
+	if _, err := os.Stat(filepath.Join(dir, CanonicalPidFileName)); err != nil {
 		t.Errorf("pid file of a live gateway must not be removed: %v", err)
 	}
 }
@@ -218,7 +218,7 @@ func TestReadPidFileWithCheckInvisibleReusedPID(t *testing.T) {
 	if got := ReadPidFileWithCheck(dir); got != nil {
 		t.Errorf("a dead PID must read as no pid file, got %+v", got)
 	}
-	if _, err := os.Stat(filepath.Join(dir, pidFileName)); !os.IsNotExist(err) {
+	if _, err := os.Stat(filepath.Join(dir, CanonicalPidFileName)); !os.IsNotExist(err) {
 		t.Error("a dead PID's pid file should be removed")
 	}
 }

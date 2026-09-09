@@ -1,5 +1,78 @@
 # PocketClaw Project State
 
+## Zero-Pico N4G — `.pocketclaw.pid` canonical, NOT closed
+
+- Status: **implemented on `feature/zero-pico-runtime`, 2026-09-09. NOT merged.**
+  `0.2.0+61`, baseline 59, no candidate, no What's New entry.
+- Core source fingerprint moved `369d0892…` → `2b06b4a8…`.
+  **Staged Core remains EXPECTED STALE — FINAL ZERO-PICO CORE REBUILD PENDING.**
+
+### What changed, and what did not
+
+`.pocketclaw.pid` is the only record this build writes. `.picoclaw.pid` is
+discovery input and cleanup target only: read to find a Gateway an older build
+started, removed once that Gateway is gone, never written, never recreated,
+never symlinked, never copied back to.
+
+The record's contents and security scope are untouched — `host`, `pid`, `port`,
+`version`, and no credential — and it stays in `POCKETCLAW_HOME` beside the
+workspace. This is a rename, not a relocation: it did not move to
+`pocketclaw-core/`, `credentials/`, `logs/` or `auth/`.
+
+### One resolver
+
+`pkg/pid/pidfile_migration.go` holds both names and the whole policy. Startup,
+the status API, shutdown and the console's cleanup all reach the records through
+`resolvePidRecords` + `activeRecord`, so migration, precedence and stale rules
+cannot drift apart per caller.
+
+There are deliberately **two liveness predicates over one policy**. Startup asks
+"is this PID a live Core executable", because wrongly honouring a recycled PID
+wedges the Gateway behind a record for a process that is not it. The status API
+asks only "is this PID alive", which is exactly what it asked before N4G;
+tightening it there would change what the console reports, and this phase is a
+filename migration. The difference is the predicate only.
+
+### State machine
+
+    neither                       write canonical
+    canonical only                unchanged behaviour
+    legacy only, live             honour it, block a duplicate start,
+                                  leave the file, fabricate no canonical record
+    legacy only, stale/malformed  clean it, write canonical
+    both, same live PID           canonical wins, legacy removed as redundant
+    canonical live, legacy stale  canonical used, stale legacy removed
+    canonical stale, legacy live  live legacy honoured, stale canonical removed,
+                                  legacy NOT converted behind the running process
+    both live, different PIDs     FAIL CLOSED
+    both stale                    clean both, write canonical
+
+A live legacy record is never removed, renamed or rewritten. The process holding
+it knows itself by no other name, and moving the file out from under it would
+leave its shutdown removing a name that no longer exists while its record
+lingered forever.
+
+Two live Gateways is a split-brain discovery state. Nothing on disk can say which
+is meant, so `WritePidFile` returns a conflict naming both PIDs and paths, and
+`ReadPidFileWithCheck` returns nothing rather than picking one. Neither process
+is killed, neither record is overwritten, and no third Gateway is started.
+
+### Ownership is unchanged
+
+The N3 exact-executable rule stands: `libpocketclaw.so` / `libpocketclaw-web.so`
+and their 15-byte truncated comm forms, nothing else. The Android app process
+`gypt.pocketclaw`, all eight Managed Runtime payloads, unrelated processes, and
+the pre-N3 `libpicoclaw.so` / `libpicoclaw-web.so` are all foreign — now proven
+through the legacy record path as well as the canonical one.
+
+### History is kept
+
+`.picoclaw.pid` stays in the tests, in the physical vc61 evidence and in the
+Kotlin comments that explain why the gateway credential left it. That the file
+once existed and once named the live Gateway is a fact about this project, and
+the guard is written against filename literals in production Go rather than
+against the word, so the reasoning that records it is not itself a violation.
+
 ## Zero-Pico N4F — Core private state at `pocketclaw-core`, NOT closed
 
 - Status: **implemented on `feature/zero-pico-runtime`, 2026-09-09. NOT merged.**

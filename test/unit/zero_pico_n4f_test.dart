@@ -141,8 +141,7 @@ void main() {
     });
 
     test('deferred surfaces are untouched', () {
-      expect(service, contains('.picoclaw.pid'),
-          reason: 'the PID record name migrates with the Core');
+      // The PID record name went to N4G; pkg/pid's tests own it now.
       expect(service, contains('picoTokenForHost'),
           reason: 'the serialized "pico" channel is renamed with the channel');
       expect(Directory('core/src/pkg/channels/pico').existsSync(), isTrue);

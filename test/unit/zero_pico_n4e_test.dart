@@ -116,8 +116,9 @@ void main() {
     test('no deferred migration was pulled forward', () {
       // Each of these belongs to a later phase and each would be invisible in
       // a diff full of environment-key renames.
-      expect(service, contains('.picoclaw.pid'),
-          reason: 'the PID record name is migrated with the Core, not here');
+      // The PID record name was pinned here as deferred. N4G migrated it, and
+      // pkg/pid's own tests own it now — including a guard that fails if any
+      // production file outside the migration owner names the old record.
       expect(service, contains('picoTokenForHost'),
           reason: 'the serialized "pico" channel is renamed with the channel');
       expect(File('core/src/pkg/channels/pico').existsSync(), isFalse);
