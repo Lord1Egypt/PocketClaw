@@ -82,12 +82,40 @@ STAGED_CORE_DIR = REPO / "android/app/src/main/jniLibs" / EXPECTED_ABI
 # accepted as a release.
 DEV_SIGNER_SHA256 = "15cf75f9945d5354e75707e0326b7cffc60ac51a68df38156db318ef4578a27c"
 
+# Where the production signing certificate's public fingerprint is enrolled.
+# Public metadata, deliberately tracked: it is the certificate, never the key.
+PRODUCTION_CERT_FILE = REPO / "android/release-signing-cert.sha256"
+
+
+def enrolled_production_signer() -> str | None:
+    """The enrolled production certificate digest, or None before the ceremony.
+
+    The file is comment-heavy on purpose, so anything that is not a bare
+    64-character lowercase hex line is ignored. Before a key exists there is no
+    such line, and production verification is supposed to fail — a placeholder
+    that could accidentally match is worse than no answer at all.
+    """
+    if not PRODUCTION_CERT_FILE.is_file():
+        return None
+    for line in PRODUCTION_CERT_FILE.read_text(encoding="utf-8").splitlines():
+        candidate = line.strip()
+        if re.fullmatch(r"[0-9a-f]{64}", candidate):
+            return candidate
+    return None
+
 # Real work that is not done yet. The gate names these rather than implying the
 # release is fully hardened; it must not pretend they are solved.
 PENDING_FINAL_HARDENING = [
     "production signing key not created",
     "Dart obfuscation and split debug info not enabled",
     "R8 keep rules not narrowed",
+    # Distribution is direct APK + Google Play + official F-Droid. F-Droid will
+    # only publish the developer-signed artifact for a build it can reproduce,
+    # so reproducibility is what decides whether a user can move between the
+    # direct and F-Droid channels without uninstalling. Every hardening step
+    # above is a candidate for breaking it; see docs/FDROID_RELEASE.md.
+    "APK-level reproducibility not yet proven (required for F-Droid)",
+    "Firebase/GMS packaged unconditionally, which blocks official F-Droid",
     # The namespace migration was listed here until the sweep finished and
     # namespace.no_active_pico started enforcing it on every run. A standing
     # note that a solved problem is outstanding is as misleading as the reverse.
@@ -495,6 +523,14 @@ def source_gates(gate: Gate, run_tests: bool, release_class: str = "test"):
                expected="no unclassified Pico identity in owned production source",
                observed="PASS" if rc == 0 else summary)
 
+    # Whether a production signer has been enrolled at all. Reported rather than
+    # failed: before the key ceremony "none" is the correct state, and a source
+    # gate that went red for it would be red for weeks and stop being read.
+    enrolled = enrolled_production_signer()
+    gate.record("signing.enrolled_signer", PASS,
+                detail=f"{enrolled[:16]}…" if enrolled
+                else "none yet — production artifacts cannot pass until H2 enrolls one")
+
     # What the repository *says*, alongside what it does. A reader arriving at
     # the README should meet PocketClaw, not a rename in progress.
     rc, out = run([sys.executable, str(REPO / "tool/no_active_pico.py"), "--public"],
@@ -546,6 +582,11 @@ def source_gates(gate: Gate, run_tests: bool, release_class: str = "test"):
                        "test/unit/android_backup_exclusion_test.dart"])
         gate.check("a1.contracts", rc == 0,
                    expected="signing fail-closed, version source, backup exclusions",
+                   observed="PASS" if rc == 0 else "FAIL")
+        rc, out = run([flutter, "test",
+                       "test/unit/production_signing_contract_test.dart"])
+        gate.check("signing.production_contract", rc == 0,
+                   expected="production signing fails closed and pins its signer",
                    observed="PASS" if rc == 0 else "FAIL")
         rc, out = run([flutter, "test",
                        "test/unit/android_runtime_secret_placement_test.dart"])
@@ -835,7 +876,19 @@ def signing_gate(gate: Gate, apk: Path, release_class: str):
         if jdk:
             env["JAVA_HOME"] = str(jdk)
             env["PATH"] = f"{jdk / 'bin'}{os.pathsep}{os.environ.get('PATH', '')}"
-    rc, out = run([str(apksigner), "verify", "--print-certs", str(apk)], env=env)
+    rc, out = run([str(apksigner), "verify", "--print-certs", "--verbose", str(apk)], env=env)
+
+    # Recorded, not enforced. Which schemes AGP emits depends on minSdk and on
+    # the signing config, and hard-failing on a scheme here would either
+    # duplicate a decision that belongs in the build or invent a requirement
+    # nothing has agreed to. The fact is worth having in the report; the
+    # judgement belongs to whoever reads it.
+    schemes = sorted(
+        name for name, ok in re.findall(
+            r"Verified using (v[\d.]+) scheme[^:]*:\s*(true|false)", out)
+        if ok == "true")
+    if schemes:
+        gate.facts["signatureSchemes"] = schemes
     match = re.search(r"certificate SHA-256 digest:\s*([0-9a-f]+)", out)
     if rc != 0 or not match:
         first_line = next((l for l in out.splitlines() if l.strip()), "no output")
@@ -843,22 +896,40 @@ def signing_gate(gate: Gate, apk: Path, release_class: str):
                    expected="a verifiable signature",
                    observed=f"apksigner failed: {first_line.strip()[:120]}")
         return
+    signers = re.findall(r"certificate SHA-256 digest:\s*([0-9a-f]+)", out)
     signer = match.group(1)
     gate.facts["signerSha256"] = signer
     is_dev = signer == DEV_SIGNER_SHA256
 
     if release_class == "production":
-        # No heuristics: a development signer is an unconditional failure, and
-        # an artifact signed with a different key cannot update an existing
-        # installation in place either.
-        gate.check("artifact.signing", not is_dev,
-                   expected="a production signing identity",
-                   observed="development signer" if is_dev else "non-development signer")
-        gate.facts["releasable"] = not is_dev
+        enrolled = enrolled_production_signer()
+        gate.facts["enrolledProductionSigner"] = enrolled or "none"
+
+        # Four separate ways to be wrong, reported as the one that applies.
+        # The digest is authoritative throughout: a certificate subject is
+        # attacker-chosen text, so "CN=Android Debug" is a hint and never a
+        # check.
+        if is_dev:
+            reason = "development signer — never a production identity"
+        elif enrolled is None:
+            reason = ("no production signer enrolled yet: "
+                      "android/release-signing-cert.sha256 carries no digest")
+        elif len(set(signers)) > 1:
+            reason = f"{len(set(signers))} distinct signers; exactly one is expected"
+        elif signer != enrolled:
+            reason = "signer does not match the enrolled production certificate"
+        else:
+            reason = None
+
+        gate.check("artifact.signing", reason is None,
+                   expected="signed by the enrolled PocketClaw production certificate",
+                   observed=reason or "enrolled production signer")
+        gate.facts["releasable"] = reason is None
     else:
         gate.record("artifact.signing", PASS,
-                    detail="development signer accepted for a local test artifact"
-                    if is_dev else "non-development signer on a test artifact")
+                    detail="LOCAL TEST / NON-RELEASABLE — development signer"
+                    if is_dev else
+                    "LOCAL TEST / NON-RELEASABLE — non-development signer")
         gate.facts["releasable"] = False
 
 

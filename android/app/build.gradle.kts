@@ -1,3 +1,4 @@
+import java.io.File
 import java.util.Base64
 import java.util.Properties
 import java.util.zip.ZipFile
@@ -182,14 +183,49 @@ val releaseKeystorePassword = System.getenv("KEYSTORE_PASSWORD").orEmpty()
 val releaseKeyAlias = System.getenv("KEY_ALIAS").orEmpty().trim()
 val releaseKeyPassword = System.getenv("KEY_PASSWORD").orEmpty()
 
-val releaseSigningMaterialDeclared =
-    releaseKeystorePath.isNotEmpty() &&
-        releaseKeystorePassword.isNotEmpty() &&
-        releaseKeyAlias.isNotEmpty() &&
-        releaseKeyPassword.isNotEmpty()
+// The four fields, named once. The names are safe to print; the values never
+// are, so only the keys of this map ever reach a log or an error message.
+val releaseSigningFields = linkedMapOf(
+    "KEYSTORE_PATH" to releaseKeystorePath,
+    "KEYSTORE_PASSWORD" to releaseKeystorePassword,
+    "KEY_ALIAS" to releaseKeyAlias,
+    "KEY_PASSWORD" to releaseKeyPassword,
+)
+
+val missingReleaseSigningFields = releaseSigningFields.filterValues { it.isEmpty() }.keys.toList()
+
+val releaseSigningMaterialDeclared = missingReleaseSigningFields.isEmpty()
+
+// Some but not all. This is the dangerous shape: it says someone meant to sign
+// for production and got a name wrong, so it must never resolve to anything —
+// least of all to the debug key, which would hand back a plausible-looking
+// artifact carrying a development identity.
+val releaseSigningPartiallyDeclared =
+    missingReleaseSigningFields.isNotEmpty() &&
+        missingReleaseSigningFields.size < releaseSigningFields.size
+
+// A production keystore inside the repository is refused outright.
+//
+// .gitignore stops an accidental `git add`; it does nothing about `git add -f`,
+// a future pattern change, or a keystore copied in "just for this build" and
+// forgotten. The signing path is the last place that can still say no, so it
+// does. Resolved canonically, because a relative path or a symlink out and back
+// in would otherwise walk straight past a prefix comparison.
+val repositoryRoot = rootProject.projectDir.parentFile.canonicalFile
+
+fun keystoreIsInsideRepository(path: String): Boolean {
+    if (path.isEmpty()) return false
+    val candidate = File(path).let { if (it.isAbsolute) it else File(rootProject.projectDir, path) }
+    val resolved = runCatching { candidate.canonicalFile }.getOrElse { return false }
+    return generateSequence(resolved) { it.parentFile }.any { it == repositoryRoot }
+}
+
+val releaseKeystoreInsideRepository = keystoreIsInsideRepository(releaseKeystorePath)
 
 val releaseSigningMaterialUsable =
-    releaseSigningMaterialDeclared && file(releaseKeystorePath).isFile
+    releaseSigningMaterialDeclared &&
+        !releaseKeystoreInsideRepository &&
+        file(releaseKeystorePath).isFile
 
 val allowDebugSigning =
     (project.findProperty("allowDebugSigning") as String?)?.toBoolean() == true
@@ -269,8 +305,14 @@ android {
             // silent outcome. Debug signing is a development identity: it is
             // not a release identity, and an artifact signed with a different
             // key cannot update an existing installation in place.
+            // Partial production material outranks the debug opt-in: someone
+            // who set three of the four fields was aiming at a production
+            // build, and quietly giving them a debug-signed one instead is the
+            // silent downgrade this whole arrangement exists to prevent.
             signingConfig = when {
                 releaseSigningMaterialUsable -> signingConfigs.getByName("release")
+                releaseSigningPartiallyDeclared -> null
+                releaseKeystoreInsideRepository -> null
                 allowDebugSigning -> signingConfigs.getByName("debug")
                 else -> null
             }
@@ -350,6 +392,41 @@ tasks.register("validateReleaseSigning") {
         if (releaseSigningMaterialUsable) {
             println("Release signing: production keystore (from the environment).")
             return@doLast
+        }
+        // Checked before the debug opt-in, deliberately. Both of these mean
+        // "production signing was intended and is wrong", and answering them
+        // with a debug-signed artifact would be answering a different question.
+        if (releaseKeystoreInsideRepository) {
+            throw GradleException(
+                buildString {
+                    appendLine("KEYSTORE_PATH points inside this repository.")
+                    appendLine()
+                    appendLine("A production keystore must live outside the working tree. Ignoring")
+                    appendLine("it is not protection: `git add -f`, a changed ignore pattern or a")
+                    appendLine("copy left behind after a build would all commit it, and a signing")
+                    appendLine("key in history cannot be un-published — it can only be rotated,")
+                    appendLine("which invalidates every update path for already-installed apps.")
+                    appendLine()
+                    appendLine("Move the keystore somewhere outside the repository and point")
+                    appendLine("KEYSTORE_PATH at it. See docs/RELEASE_SIGNING.md.")
+                }
+            )
+        }
+        if (releaseSigningPartiallyDeclared) {
+            throw GradleException(
+                buildString {
+                    appendLine("Production signing is partially configured, so this build stops.")
+                    appendLine()
+                    appendLine("Missing: " + missingReleaseSigningFields.joinToString(", "))
+                    appendLine()
+                    appendLine("Field names only — no value is read back or printed. Some of the")
+                    appendLine("four are set, which means production signing was intended; a")
+                    appendLine("typo in one name would otherwise fall through to the debug key")
+                    appendLine("and hand back an artifact that looks like a release and is not.")
+                    appendLine("-PallowDebugSigning=true does not apply here: fix the")
+                    appendLine("configuration, or unset all four to build a local test artifact.")
+                }
+            )
         }
         if (allowDebugSigning) {
             println("Release signing: DEBUG KEY, by explicit -PallowDebugSigning=true.")

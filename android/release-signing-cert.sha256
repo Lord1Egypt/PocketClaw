@@ -1,0 +1,43 @@
+# PocketClaw production signing certificate — SHA-256 fingerprint.
+#
+# PUBLIC METADATA. This file holds one thing: the SHA-256 digest of the
+# production signing *certificate*. A certificate is the public half. It is not
+# a key, it carries no password, and publishing it is normal — Google Play shows
+# it, and anyone can read it out of a signed APK with apksigner. Committing it
+# is the point: it is what lets the release gate prove that an artifact was
+# signed by the key this project intends to ship with, and not by some other key
+# that also happens to verify.
+#
+# NEVER put the keystore, an alias password, or any key material in this file or
+# anywhere else in this repository. See docs/RELEASE_SIGNING.md.
+#
+# --------------------------------------------------------------------------
+# STATUS: NOT ENROLLED
+# --------------------------------------------------------------------------
+#
+# No production signing key has been created yet, so there is deliberately no
+# digest below. This is not an oversight and it must not be "filled in to make
+# the gate pass": until a real key exists, production artifact verification is
+# supposed to fail, and it reports this file's absence of an enrolled signer as
+# the reason.
+#
+# A placeholder digest here would be worse than nothing. It would either fail
+# against every real artifact for a confusing reason, or — if someone chose a
+# value that matched something — quietly certify the wrong key.
+#
+# To enroll after the key ceremony (H2), add exactly one line below containing
+# the 64-character lowercase hex digest and nothing else:
+#
+#     0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+#
+# Read it from the keystore you just created with:
+#
+#     keytool -list -v -keystore <keystore> -alias <alias> \
+#       | grep -A1 'SHA256:' 
+#
+# or from a signed artifact with:
+#
+#     apksigner verify --print-certs <apk> | grep 'SHA-256 digest'
+#
+# keytool prints it colon-separated and uppercase; this file wants it lowercase
+# with the colons removed.
