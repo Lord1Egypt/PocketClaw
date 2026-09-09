@@ -461,7 +461,7 @@ func TestPicoClientChannel_HandleServerMessage_ForwardsTextWithDownloadAttachmen
 			"attachments": []any{
 				map[string]any{
 					"type":         "image",
-					"url":          "/pico/media/abc",
+					"url":          "/pocketclaw/media/abc",
 					"filename":     "image.png",
 					"content_type": "image/png",
 				},

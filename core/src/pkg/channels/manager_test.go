@@ -41,7 +41,7 @@ type mockPicoWebhookChannel struct {
 	mockChannel
 }
 
-func (m *mockPicoWebhookChannel) WebhookPath() string { return "/pico/" }
+func (m *mockPicoWebhookChannel) WebhookPath() string { return "/pocketclaw/" }
 
 func (m *mockPicoWebhookChannel) ServeHTTP(w http.ResponseWriter, _ *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
@@ -74,7 +74,7 @@ func TestSetupHTTPServerNormalizesInternalPicoWebhookRouteInStartupLog(t *testin
 	recorder := httptest.NewRecorder()
 	manager.httpServer.Handler.ServeHTTP(
 		recorder,
-		httptest.NewRequest(http.MethodGet, "/pico/", nil),
+		httptest.NewRequest(http.MethodGet, "/pocketclaw/", nil),
 	)
 	if recorder.Code != http.StatusNoContent {
 		t.Fatalf("actual /pico/ route status = %d, want %d", recorder.Code, http.StatusNoContent)

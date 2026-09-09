@@ -983,8 +983,8 @@ func TestPicoDownloadURLForRef(t *testing.T) {
 	if err != nil {
 		t.Fatalf("pocketClawDownloadURLForRef() error = %v", err)
 	}
-	if got != "/pico/media/attachment-1" {
-		t.Fatalf("pocketClawDownloadURLForRef() = %q, want %q", got, "/pico/media/attachment-1")
+	if got != "/pocketclaw/media/attachment-1" {
+		t.Fatalf("pocketClawDownloadURLForRef() = %q, want %q", got, "/pocketclaw/media/attachment-1")
 	}
 }
 
@@ -1012,7 +1012,7 @@ func TestHandleMediaDownload_ServesStoredFile(t *testing.T) {
 	}
 
 	refID := strings.TrimPrefix(ref, "media://")
-	req := httptest.NewRequest("GET", "/pico/media/"+refID, nil)
+	req := httptest.NewRequest("GET", "/pocketclaw/media/"+refID, nil)
 	req.Header.Set("Authorization", "Bearer test-token")
 	rec := httptest.NewRecorder()
 

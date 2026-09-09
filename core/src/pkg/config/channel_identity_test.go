@@ -148,18 +148,30 @@ func TestTheChannelPackageLivesUnderItsCanonicalPath(t *testing.T) {
 	}
 }
 
-// The HTTP surface is deliberately still on the legacy prefix: routes and the
-// log sanitizer that redacts them move together in a later phase, and splitting
-// them would leave a window where the internal path stops being recognised.
-func TestTheRouteSurfaceIsIntentionallyUnchanged(t *testing.T) {
+// The HTTP surface derives from the channel identity, so a rename cannot leave
+// the route behind. This guard used to pin the opposite — that the route had
+// deliberately not moved yet — and flipping it is how that deferral was closed.
+func TestTheRouteSurfaceFollowsTheChannelIdentity(t *testing.T) {
+	if RealtimeRoutePrefix != "/"+ChannelPocketClaw+"/" {
+		t.Errorf("RealtimeRoutePrefix = %q, want it derived from the channel name", RealtimeRoutePrefix)
+	}
+	for name, got := range map[string]string{
+		"websocket": RealtimeWebSocketPath,
+		"media":     RealtimeMediaPrefix,
+		"api":       RealtimeAPIPrefix,
+	} {
+		if strings.Contains(got, "pico/") {
+			t.Errorf("%s route %q is still in the legacy namespace", name, got)
+		}
+	}
+
 	root := moduleRootForConfig(t)
 	raw, err := os.ReadFile(filepath.Join(root, "pkg/channels/pocketclaw/pocketclaw.go"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(raw), `func (c *PocketClawChannel) WebhookPath() string { return "/pico/" }`) {
-		t.Error("the realtime route moved; it belongs to the route/sanitizer phase, " +
-			"together with the redaction rules keyed on it")
+	if !strings.Contains(string(raw), "RoutePrefix      = config.RealtimeRoutePrefix") {
+		t.Error("the channel no longer derives its route from the shared constant")
 	}
 }
 

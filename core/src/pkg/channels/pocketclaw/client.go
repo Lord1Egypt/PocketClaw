@@ -30,13 +30,33 @@ type PocketClawClientChannel struct {
 }
 
 // NewPocketClawClientChannel creates a new Pico Protocol client channel.
+// Identity for conversations this channel opens against a remote Gateway.
+const (
+	clientChatIDPrefix = config.ChannelPocketClawClient + ":"
+	clientSenderID     = config.ChannelPocketClaw + "-remote"
+
+	// legacyClientChatIDPrefix is LEGACY READ-ONLY MIGRATION: a conversation id
+	// minted before the realtime namespace migration. Parsed so a message
+	// already in flight still resolves; never minted.
+	legacyClientChatIDPrefix = config.LegacyChannelPocketClawClient + ":"
+)
+
+// clientSessionIDFromChatID recovers the remote session from a conversation id
+// in either form.
+func clientSessionIDFromChatID(chatID string) string {
+	if rest, found := strings.CutPrefix(chatID, clientChatIDPrefix); found {
+		return rest
+	}
+	return strings.TrimPrefix(chatID, legacyClientChatIDPrefix)
+}
+
 func NewPocketClawClientChannel(
 	bc *config.Channel,
 	cfg *config.PocketClawClientSettings,
 	messageBus *bus.MessageBus,
 ) (*PocketClawClientChannel, error) {
 	if cfg.URL == "" {
-		return nil, fmt.Errorf("pico_client url is required")
+		return nil, fmt.Errorf("%s url is required", config.ChannelPocketClawClient)
 	}
 
 	base := channels.NewBaseChannel(config.ChannelPocketClawClient, cfg, messageBus, bc.AllowFrom)
@@ -49,24 +69,24 @@ func NewPocketClawClientChannel(
 
 // Start dials the remote server and begins reading.
 func (c *PocketClawClientChannel) Start(ctx context.Context) error {
-	logger.InfoC("pico_client", "Starting Pico Client channel")
+	logger.InfoC(config.ChannelPocketClawClient, "Starting PocketClaw client channel")
 	c.ctx, c.cancel = context.WithCancel(ctx)
 
 	if err := c.dial(); err != nil {
 		c.cancel()
-		return fmt.Errorf("pico_client initial connect: %w", err)
+		return fmt.Errorf("%s initial connect: %w", config.ChannelPocketClawClient, err)
 	}
 
 	c.SetRunning(true)
 	go c.reconnectLoop()
 
-	logger.InfoCF("pico_client", "Connected", map[string]any{"url": c.config.URL})
+	logger.InfoCF(config.ChannelPocketClawClient, "Connected", map[string]any{"url": c.config.URL})
 	return nil
 }
 
 // Stop closes the connection.
 func (c *PocketClawClientChannel) Stop(ctx context.Context) error {
-	logger.InfoC("pico_client", "Stopping Pico Client channel")
+	logger.InfoC(config.ChannelPocketClawClient, "Stopping PocketClaw client channel")
 	c.SetRunning(false)
 	if c.cancel != nil {
 		c.cancel()
@@ -76,7 +96,7 @@ func (c *PocketClawClientChannel) Stop(ctx context.Context) error {
 		c.conn.close()
 	}
 	c.mu.Unlock()
-	logger.InfoC("pico_client", "Pico Client channel stopped")
+	logger.InfoC(config.ChannelPocketClawClient, "PocketClaw client channel stopped")
 	return nil
 }
 
@@ -129,9 +149,9 @@ func (c *PocketClawClientChannel) reconnectLoop() {
 
 		if pc == nil || pc.closed.Load() {
 			backoff := 5 * time.Second
-			logger.InfoC("pico_client", "Reconnecting...")
+			logger.InfoC(config.ChannelPocketClawClient, "Reconnecting...")
 			if err := c.dial(); err != nil {
-				logger.WarnCF("pico_client", "Reconnect failed", map[string]any{
+				logger.WarnCF(config.ChannelPocketClawClient, "Reconnect failed", map[string]any{
 					"error": err.Error(),
 				})
 				select {
@@ -141,7 +161,7 @@ func (c *PocketClawClientChannel) reconnectLoop() {
 				}
 				continue
 			}
-			logger.InfoC("pico_client", "Reconnected")
+			logger.InfoC(config.ChannelPocketClawClient, "Reconnected")
 		}
 
 		select {
@@ -185,7 +205,7 @@ func (c *PocketClawClientChannel) readLoop(connCtx context.Context, pc *pocketCl
 				websocket.CloseGoingAway,
 				websocket.CloseNormalClosure,
 			) {
-				logger.DebugCF("pico_client", "Read error", map[string]any{
+				logger.DebugCF(config.ChannelPocketClawClient, "Read error", map[string]any{
 					"error": err.Error(),
 				})
 			}
@@ -238,7 +258,7 @@ func (c *PocketClawClientChannel) handleInbound(pc *pocketClawConn, msg PocketCl
 	case TypeMediaCreate:
 		c.handleServerMessage(pc, msg)
 	default:
-		logger.DebugCF("pico_client", "Ignoring message type", map[string]any{
+		logger.DebugCF(config.ChannelPocketClawClient, "Ignoring message type", map[string]any{
 			"type": msg.Type,
 		})
 	}
@@ -252,7 +272,7 @@ func (c *PocketClawClientChannel) handleServerMessage(pc *pocketClawConn, msg Po
 	content, _ := msg.Payload[PayloadKeyContent].(string)
 	media, err := parseInlineImageMedia(msg.Payload)
 	if err != nil {
-		logger.WarnCF("pico_client", "Ignoring invalid media payload", map[string]any{
+		logger.WarnCF(config.ChannelPocketClawClient, "Ignoring invalid media payload", map[string]any{
 			"error": err.Error(),
 		})
 		if strings.TrimSpace(content) == "" {
@@ -269,8 +289,8 @@ func (c *PocketClawClientChannel) handleServerMessage(pc *pocketClawConn, msg Po
 		sessionID = pc.sessionID
 	}
 
-	chatID := "pico_client:" + sessionID
-	senderID := "pico-remote"
+	chatID := clientChatIDPrefix + sessionID
+	senderID := clientSenderID
 	sender := bus.SenderInfo{
 		Platform:    config.ChannelPocketClawClient,
 		PlatformID:  senderID,
@@ -311,7 +331,7 @@ func (c *PocketClawClientChannel) Send(ctx context.Context, msg bus.OutboundMess
 	outMsg := newMessage(TypeMessageSend, map[string]any{
 		PayloadKeyContent: msg.Content,
 	})
-	outMsg.SessionID = strings.TrimPrefix(msg.ChatID, "pico_client:")
+	outMsg.SessionID = clientSessionIDFromChatID(msg.ChatID)
 	return nil, pc.writeJSON(outMsg)
 }
 
@@ -325,7 +345,7 @@ func (c *PocketClawClientChannel) StartTyping(ctx context.Context, chatID string
 	}
 
 	startMsg := newMessage(TypeTypingStart, nil)
-	startMsg.SessionID = strings.TrimPrefix(chatID, "pico_client:")
+	startMsg.SessionID = clientSessionIDFromChatID(chatID)
 	if err := pc.writeJSON(startMsg); err != nil {
 		return func() {}, err
 	}
@@ -337,7 +357,7 @@ func (c *PocketClawClientChannel) StartTyping(ctx context.Context, chatID string
 			return
 		}
 		stopMsg := newMessage(TypeTypingStop, nil)
-		stopMsg.SessionID = strings.TrimPrefix(chatID, "pico_client:")
+		stopMsg.SessionID = clientSessionIDFromChatID(chatID)
 		currentPC.writeJSON(stopMsg)
 	}, nil
 }

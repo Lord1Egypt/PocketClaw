@@ -626,7 +626,7 @@ func (p *Pipeline) CallLLM(
 	} else if ts.channel == config.ChannelPocketClaw {
 		if exec.streamingPublisher != nil && exec.streamingPublisher.ReasoningPublished() {
 			if err := exec.streamingPublisher.FinalizeReasoning(turnCtx, reasoningContent); err != nil {
-				logger.WarnCF("agent", "Failed to finalize streamed pico reasoning", map[string]any{
+				logger.WarnCF("agent", "Failed to finalize streamed realtime reasoning", map[string]any{
 					"channel": ts.channel,
 					"chat_id": ts.chatID,
 					"error":   err.Error(),

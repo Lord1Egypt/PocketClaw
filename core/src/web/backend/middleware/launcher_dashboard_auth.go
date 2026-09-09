@@ -11,6 +11,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/sipeed/picoclaw/pkg/config"
 )
 
 // LauncherDashboardCookieName is the HttpOnly cookie set after a successful password login.
@@ -219,7 +221,7 @@ func LauncherDashboardAuth(cfg LauncherDashboardAuthConfig, next http.Handler) h
 			return
 		}
 		if validLauncherDashboardAuth(r, cfg) {
-			if p == "/pico/ws" && !validLauncherWebSocketOrigin(r) {
+			if p == config.RealtimeWebSocketPath && !validLauncherWebSocketOrigin(r) {
 				http.Error(w, "forbidden", http.StatusForbidden)
 				return
 			}
@@ -405,7 +407,7 @@ func validLauncherWebSocketOrigin(r *http.Request) bool {
 }
 
 func rejectLauncherDashboardAuth(w http.ResponseWriter, r *http.Request, canonicalPath string) {
-	if canonicalPath == "/pico/ws" {
+	if canonicalPath == config.RealtimeWebSocketPath {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}

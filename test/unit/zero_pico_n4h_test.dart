@@ -80,30 +80,10 @@ void main() {
     });
   });
 
-  group('deferred to the route and sanitizer phase', () {
-    // Named here so the next phase's scope is a fact in the tests rather than a
-    // note in a report, and so removing one of them fails loudly.
-    test('the realtime HTTP routes are unchanged', () {
-      expect(read('$core/pkg/channels/pocketclaw/pocketclaw.go'),
-          contains('WebhookPath() string { return "/pico/" }'));
-      expect(read('$core/web/backend/middleware/middleware.go'),
-          contains('"/pico/ws"'));
-    });
-
-    test('the log sanitizer still recognises the internal route', () {
-      // The route is legacy and the channel is canonical, so redaction has to
-      // accept the pair. If either side moves without the other, the internal
-      // path stops being redacted and nothing fails except this.
-      final logger = read('$core/pkg/logger/logger.go');
-      expect(logger, contains('internalRealtimeRoutePrefix = "/pico/"'));
-      expect(logger, contains('realtimeChannelName = "pocketclaw"'));
-      expect(logger, contains('legacyRealtimeChannelName = "pico"'));
-
-      final frontend = read('$core/web/frontend/src/lib/plain-text-log.ts');
-      expect(frontend, contains('hasExactLogToken(line, "channel=pocketclaw")'));
-      expect(frontend, contains('hasExactLogToken(line, "channel=pico")'));
-      expect(frontend, contains('(?:pico|pocketclaw)\\.go:'));
-    });
+  group('phase boundaries', () {
+    // The realtime route surface and the sanitizers keyed on it were pinned
+    // here as deferred. N4I moved them as one piece;
+    // zero_pico_n4i_test.dart owns them now.
 
     test('other Zero-Pico phases were not pulled forward', () {
       expect(read('$kotlin/PocketClawCoreState.kt'),

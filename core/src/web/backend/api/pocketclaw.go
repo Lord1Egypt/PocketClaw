@@ -13,19 +13,25 @@ import (
 	ppid "github.com/sipeed/picoclaw/pkg/pid"
 )
 
-// registerPicoRoutes binds Pico Channel management endpoints to the ServeMux.
-func (h *Handler) registerPicoRoutes(mux *http.ServeMux) {
-	mux.HandleFunc("GET /api/pico/info", h.handleGetPicoInfo)
-	mux.HandleFunc("POST /api/pico/token", h.handleRegenPicoToken)
-	mux.HandleFunc("POST /api/pico/setup", h.handlePicoSetup)
+// registerPocketClawRoutes binds the managed realtime channel's management
+// endpoints to the ServeMux.
+func (h *Handler) registerPocketClawRoutes(mux *http.ServeMux) {
+	mux.HandleFunc("GET "+config.RealtimeAPIPrefix+"info", h.handleGetPocketClawInfo)
+	mux.HandleFunc("POST "+config.RealtimeAPIPrefix+"token", h.handleRegenPocketClawToken)
+	mux.HandleFunc("POST "+config.RealtimeAPIPrefix+"setup", h.handlePocketClawSetup)
 
-	// WebSocket proxy: forward /pico/ws to gateway
-	// This allows the frontend to connect via the same port as the web UI,
-	// avoiding the need to expose extra ports for WebSocket communication.
-	mux.HandleFunc("GET /pico/ws", h.handleWebSocketProxy())
-	mux.HandleFunc("GET /pico/media/{id}", h.handlePicoMediaProxy())
-	mux.HandleFunc("HEAD /pico/media/{id}", h.handlePicoMediaProxy())
+	// WebSocket proxy: forward the realtime socket to the gateway. This lets
+	// the frontend connect on the same port as the web UI, so no extra port has
+	// to be exposed for WebSocket traffic.
+	mux.HandleFunc("GET "+config.RealtimeWebSocketPath, h.handleWebSocketProxy())
+	mux.HandleFunc("GET "+realtimeMediaPattern, h.handlePocketClawMediaProxy())
+	mux.HandleFunc("HEAD "+realtimeMediaPattern, h.handlePocketClawMediaProxy())
 }
+
+// realtimeMediaPattern is the ServeMux pattern for the media proxy. The paths
+// themselves come from pkg/config, which is also where the channel and the
+// middleware read them.
+const realtimeMediaPattern = config.RealtimeMediaPrefix + "{id}"
 
 // createWsProxy creates a reverse proxy to the current gateway WebSocket endpoint.
 // The gateway bind host and port are resolved from the latest configuration.
@@ -121,7 +127,7 @@ func decodePocketClawSettings(cfg *config.Config) (config.PocketClawSettings, bo
 	return picoCfg, bc.Enabled
 }
 
-func (h *Handler) writePicoInfoResponse(
+func (h *Handler) writePocketClawInfoResponse(
 	w http.ResponseWriter,
 	r *http.Request,
 	cfg *config.Config,
@@ -171,7 +177,7 @@ func (h *Handler) handleWebSocketProxy() http.HandlerFunc {
 	}
 }
 
-func (h *Handler) handlePicoMediaProxy() http.HandlerFunc {
+func (h *Handler) handlePocketClawMediaProxy() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if !h.gatewayAvailableForProxy() {
 			logger.Warnf("Gateway not available for Pico media proxy")
@@ -193,24 +199,24 @@ func (h *Handler) handlePicoMediaProxy() http.HandlerFunc {
 	}
 }
 
-// handleGetPicoInfo returns non-secret Pico connection info for the launcher UI.
+// handleGetPocketClawInfo returns non-secret Pico connection info for the launcher UI.
 //
-//	GET /api/pico/info
-func (h *Handler) handleGetPicoInfo(w http.ResponseWriter, r *http.Request) {
+//	GET /api/pocketclaw/info
+func (h *Handler) handleGetPocketClawInfo(w http.ResponseWriter, r *http.Request) {
 	cfg, err := config.LoadConfig(h.configPath)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Failed to load config: %v", err), http.StatusInternalServerError)
 		return
 	}
 
-	h.writePicoInfoResponse(w, r, cfg, nil)
+	h.writePocketClawInfoResponse(w, r, cfg, nil)
 }
 
-// handleRegenPicoToken rotates the raw Pico WebSocket token and returns
+// handleRegenPocketClawToken rotates the raw Pico WebSocket token and returns
 // non-secret connection info for the launcher UI.
 //
-//	POST /api/pico/token
-func (h *Handler) handleRegenPicoToken(w http.ResponseWriter, r *http.Request) {
+//	POST /api/pocketclaw/token
+func (h *Handler) handleRegenPocketClawToken(w http.ResponseWriter, r *http.Request) {
 	cfg, err := config.LoadConfig(h.configPath)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Failed to load config: %v", err), http.StatusInternalServerError)
@@ -240,7 +246,7 @@ func (h *Handler) handleRegenPicoToken(w http.ResponseWriter, r *http.Request) {
 	gateway.picoToken = token
 	gateway.mu.Unlock()
 
-	h.writePicoInfoResponse(w, r, cfg, nil)
+	h.writePocketClawInfoResponse(w, r, cfg, nil)
 }
 
 // EnsurePocketClawChannel enables the Pico channel with sane defaults if it isn't
@@ -291,10 +297,10 @@ func (h *Handler) EnsurePocketClawChannel() (bool, error) {
 	return changed, nil
 }
 
-// handlePicoSetup automatically configures everything needed for the Pico Channel to work.
+// handlePocketClawSetup automatically configures everything needed for the Pico Channel to work.
 //
-//	POST /api/pico/setup
-func (h *Handler) handlePicoSetup(w http.ResponseWriter, r *http.Request) {
+//	POST /api/pocketclaw/setup
+func (h *Handler) handlePocketClawSetup(w http.ResponseWriter, r *http.Request) {
 	changed, err := h.EnsurePocketClawChannel()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -308,7 +314,7 @@ func (h *Handler) handlePicoSetup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.writePicoInfoResponse(w, r, cfg, &changed)
+	h.writePocketClawInfoResponse(w, r, cfg, &changed)
 }
 
 // generateSecureToken creates a random 32-character hex string. Credential

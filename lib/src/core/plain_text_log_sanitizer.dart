@@ -24,21 +24,21 @@ abstract final class PlainTextLogSanitizer {
     r'\[(?:\?[0-9:;]+|[0-9][0-9:;]*)[ ]*[ABCDEFGHJKSTfmnsu]',
   );
   static final RegExp _otherEscape = RegExp(r'\x1B[ -/]*[@-~]');
-  static final RegExp _routinePicoWebSocket = RegExp(
-    r'(?:^| > )GET /pico/ws (?:101|2[0-9]{2})(?:\s|$)',
+  static final RegExp _routineRealtimeWebSocket = RegExp(
+    r'(?:^| > )GET /(?:pocketclaw|pico)/ws (?:101|2[0-9]{2})(?:\s|$)',
   );
-  static final RegExp _picoWebSocketRequest = RegExp(
-    r'((?:^| > )[A-Z]+) /pico/ws ([0-9]{3})(\s|$)',
+  static final RegExp _realtimeWebSocketRequest = RegExp(
+    r'((?:^| > )[A-Z]+) /(?:pocketclaw|pico)/ws ([0-9]{3})(\s|$)',
   );
   static final RegExp _legacyGatewayStart = RegExp(
     r'Starting gateway process \([^\r\n)]*\)',
   );
-  static final RegExp _picoLoggerComponent = RegExp(
-    r'(^|[ \t])([A-Z]{3}) pico ([^ \t]+:[0-9]+)([ \t]+>)',
+  static final RegExp _realtimeLoggerComponent = RegExp(
+    r'(^|[ \t])([A-Z]{3}) (?:pocketclaw|pico) ([^ \t]+:[0-9]+)([ \t]+>)',
     multiLine: true,
   );
-  static final RegExp _picoLoggerCaller = RegExp(
-    r'(^|[ \t])([A-Z]{3}) ([^ \t]+) pico\.go:([0-9]+)([ \t]+>)',
+  static final RegExp _realtimeLoggerCaller = RegExp(
+    r'(^|[ \t])([A-Z]{3}) ([^ \t]+) (?:pocketclaw|pico)\.go:([0-9]+)([ \t]+>)',
     multiLine: true,
   );
   static final RegExp _routineTelegramGetUpdatesCall = RegExp(
@@ -156,13 +156,13 @@ abstract final class PlainTextLogSanitizer {
       'Starting gateway process',
     );
     result = result.replaceAllMapped(
-      _picoLoggerComponent,
+      _realtimeLoggerComponent,
       (match) =>
           '${match.group(1)}${match.group(2)} realtime '
           '${match.group(3)}${match.group(4)}',
     );
     result = result.replaceAllMapped(
-      _picoLoggerCaller,
+      _realtimeLoggerCaller,
       (match) =>
           '${match.group(1)}${match.group(2)} ${match.group(3)} '
           'realtime.go:${match.group(4)}${match.group(5)}',
@@ -174,14 +174,14 @@ abstract final class PlainTextLogSanitizer {
       (match) => '${match.group(1)} none',
     );
     result = _normalizePrivateStructuredFields(result);
-    result = _normalizePicoStructuredFields(result);
+    result = _normalizeRealtimeStructuredFields(result);
     if (_routineTelegramGetUpdatesCall.hasMatch(result) ||
         _routineEmptyGetUpdatesResponse.hasMatch(result)) {
       return '';
     }
-    if (_routinePicoWebSocket.hasMatch(result)) return '';
+    if (_routineRealtimeWebSocket.hasMatch(result)) return '';
     result = result.replaceAllMapped(
-      _picoWebSocketRequest,
+      _realtimeWebSocketRequest,
       (match) =>
           '${match.group(1)} /internal realtime connection '
           '${match.group(2)}${match.group(3)}',
@@ -278,7 +278,7 @@ abstract final class PlainTextLogSanitizer {
     );
   }
 
-  static String _normalizePicoStructuredFields(String input) {
+  static String _normalizeRealtimeStructuredFields(String input) {
     const channelFields = <String>[
       'channel',
       'inbound_channel',

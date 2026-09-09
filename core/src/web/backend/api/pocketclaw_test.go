@@ -332,11 +332,11 @@ func TestHandlePicoSetup_DoesNotPersistRequestOrigin(t *testing.T) {
 	configPath := filepath.Join(t.TempDir(), "config.json")
 	h := NewHandler(configPath)
 
-	req := httptest.NewRequest("POST", "/api/pico/setup", nil)
+	req := httptest.NewRequest("POST", "/api/pocketclaw/setup", nil)
 	req.Header.Set("Origin", "http://10.0.0.5:3000")
 	rec := httptest.NewRecorder()
 
-	h.handlePicoSetup(rec, req)
+	h.handlePocketClawSetup(rec, req)
 
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
@@ -362,10 +362,10 @@ func TestHandlePicoSetup_Response(t *testing.T) {
 	configPath := filepath.Join(t.TempDir(), "config.json")
 	h := NewHandler(configPath)
 
-	req := httptest.NewRequest("POST", "/api/pico/setup", nil)
+	req := httptest.NewRequest("POST", "/api/pocketclaw/setup", nil)
 	rec := httptest.NewRecorder()
 
-	h.handlePicoSetup(rec, req)
+	h.handlePocketClawSetup(rec, req)
 
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
@@ -401,10 +401,10 @@ func TestHandleGetPicoInfo_OmitsToken(t *testing.T) {
 		t.Fatalf("EnsurePocketClawChannel() error = %v", err)
 	}
 
-	req := httptest.NewRequest(http.MethodGet, "http://launcher.local/api/pico/info", nil)
+	req := httptest.NewRequest(http.MethodGet, "http://launcher.local/api/pocketclaw/info", nil)
 	rec := httptest.NewRecorder()
 
-	h.handleGetPicoInfo(rec, req)
+	h.handleGetPocketClawInfo(rec, req)
 
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
@@ -448,9 +448,9 @@ func TestHandleRegenPicoToken_RefreshesGatewayTokenCache(t *testing.T) {
 	gateway.picoToken = "stale-token"
 	gateway.mu.Unlock()
 
-	req := httptest.NewRequest(http.MethodPost, "http://launcher.local/api/pico/token", nil)
+	req := httptest.NewRequest(http.MethodPost, "http://launcher.local/api/pocketclaw/token", nil)
 	rec := httptest.NewRecorder()
-	h.handleRegenPicoToken(rec, req)
+	h.handleRegenPocketClawToken(rec, req)
 
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
@@ -494,8 +494,8 @@ func TestHandleWebSocketProxyReloadsGatewayTargetFromConfig(t *testing.T) {
 	handler := h.handleWebSocketProxy()
 
 	server1 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/pico/ws" {
-			t.Fatalf("server1 path = %q, want %q", r.URL.Path, "/pico/ws")
+		if r.URL.Path != "/pocketclaw/ws" {
+			t.Fatalf("server1 path = %q, want %q", r.URL.Path, "/pocketclaw/ws")
 		}
 		w.WriteHeader(http.StatusOK)
 		_, _ = io.WriteString(w, "server1")
@@ -503,8 +503,8 @@ func TestHandleWebSocketProxyReloadsGatewayTargetFromConfig(t *testing.T) {
 	defer server1.Close()
 
 	server2 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/pico/ws" {
-			t.Fatalf("server2 path = %q, want %q", r.URL.Path, "/pico/ws")
+		if r.URL.Path != "/pocketclaw/ws" {
+			t.Fatalf("server2 path = %q, want %q", r.URL.Path, "/pocketclaw/ws")
 		}
 		w.WriteHeader(http.StatusOK)
 		_, _ = io.WriteString(w, "server2")
@@ -540,7 +540,7 @@ func TestHandleWebSocketProxyReloadsGatewayTargetFromConfig(t *testing.T) {
 
 	gateway.pidData = &ppid.PidFileData{}
 	gateway.picoToken = "pocketclaw"
-	req1 := newPicoProxyRequest(http.MethodGet, "/pico/ws")
+	req1 := newPicoProxyRequest(http.MethodGet, "/pocketclaw/ws")
 	rec1 := httptest.NewRecorder()
 	handler(rec1, req1)
 
@@ -556,7 +556,7 @@ func TestHandleWebSocketProxyReloadsGatewayTargetFromConfig(t *testing.T) {
 		t.Fatalf("SaveConfig() error = %v", err)
 	}
 
-	req2 := newPicoProxyRequest(http.MethodGet, "/pico/ws")
+	req2 := newPicoProxyRequest(http.MethodGet, "/pocketclaw/ws")
 	rec2 := httptest.NewRecorder()
 	handler(rec2, req2)
 
@@ -581,8 +581,8 @@ func TestHandleWebSocketProxyLoadsCachedPicoTokenWhenMissing(t *testing.T) {
 	handler := h.handleWebSocketProxy()
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/pico/ws" {
-			t.Fatalf("path = %q, want %q", r.URL.Path, "/pico/ws")
+		if r.URL.Path != "/pocketclaw/ws" {
+			t.Fatalf("path = %q, want %q", r.URL.Path, "/pocketclaw/ws")
 		}
 		w.WriteHeader(http.StatusOK)
 		_, _ = io.WriteString(w, "proxied")
@@ -630,7 +630,7 @@ func TestHandleWebSocketProxyLoadsCachedPicoTokenWhenMissing(t *testing.T) {
 	gateway.pidData = &ppid.PidFileData{}
 	gateway.picoToken = ""
 
-	req := newPicoProxyRequest(http.MethodGet, "/pico/ws?session_id=test-session")
+	req := newPicoProxyRequest(http.MethodGet, "/pocketclaw/ws?session_id=test-session")
 	rec := httptest.NewRecorder()
 	handler(rec, req)
 
@@ -658,8 +658,8 @@ func TestHandleWebSocketProxyLoadsPidDataOnDemand(t *testing.T) {
 	handler := h.handleWebSocketProxy()
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/pico/ws" {
-			t.Fatalf("path = %q, want %q", r.URL.Path, "/pico/ws")
+		if r.URL.Path != "/pocketclaw/ws" {
+			t.Fatalf("path = %q, want %q", r.URL.Path, "/pocketclaw/ws")
 		}
 		w.WriteHeader(http.StatusOK)
 		_, _ = io.WriteString(w, r.Header.Get(protocolKey))
@@ -715,7 +715,7 @@ func TestHandleWebSocketProxyLoadsPidDataOnDemand(t *testing.T) {
 	setGatewayRuntimeStatusLocked("stopped")
 	gateway.mu.Unlock()
 
-	req := newPicoProxyRequest(http.MethodGet, "/pico/ws?session_id=test-session")
+	req := newPicoProxyRequest(http.MethodGet, "/pocketclaw/ws?session_id=test-session")
 	rec := httptest.NewRecorder()
 	handler(rec, req)
 
@@ -770,15 +770,15 @@ func TestCreatePicoHTTPProxyInjectsGatewayAuth(t *testing.T) {
 		}, nil
 	})
 
-	req := httptest.NewRequest(http.MethodGet, "/pico/media/attachment-1", nil)
+	req := httptest.NewRequest(http.MethodGet, "/pocketclaw/media/attachment-1", nil)
 	rec := httptest.NewRecorder()
 	proxy.ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
 	}
-	if capturedPath != "/pico/media/attachment-1" {
-		t.Fatalf("capturedPath = %q, want %q", capturedPath, "/pico/media/attachment-1")
+	if capturedPath != "/pocketclaw/media/attachment-1" {
+		t.Fatalf("capturedPath = %q, want %q", capturedPath, "/pocketclaw/media/attachment-1")
 	}
 	expected := "Bearer ui-token"
 	if capturedAuth != expected {
@@ -792,11 +792,11 @@ func TestHandlePicoMediaProxyUsesRawBearerToken(t *testing.T) {
 
 	configPath := filepath.Join(t.TempDir(), "config.json")
 	h := NewHandler(configPath)
-	handler := h.handlePicoMediaProxy()
+	handler := h.handlePocketClawMediaProxy()
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/pico/media/attachment-1" {
-			t.Fatalf("path = %q, want %q", r.URL.Path, "/pico/media/attachment-1")
+		if r.URL.Path != "/pocketclaw/media/attachment-1" {
+			t.Fatalf("path = %q, want %q", r.URL.Path, "/pocketclaw/media/attachment-1")
 		}
 		if got := r.Header.Get("Authorization"); got != "Bearer ui-token" {
 			t.Fatalf("Authorization = %q, want %q", got, "Bearer ui-token")
@@ -845,7 +845,7 @@ func TestHandlePicoMediaProxyUsesRawBearerToken(t *testing.T) {
 	gateway.cmd = cmd
 	gateway.mu.Unlock()
 
-	req := newPicoProxyRequest(http.MethodGet, "/pico/media/attachment-1")
+	req := newPicoProxyRequest(http.MethodGet, "/pocketclaw/media/attachment-1")
 	rec := httptest.NewRecorder()
 	handler(rec, req)
 
@@ -904,7 +904,7 @@ func TestHandleWebSocketProxyRejectsStalePidDataAfterProcessExit(t *testing.T) {
 	setGatewayRuntimeStatusLocked("running")
 	gateway.mu.Unlock()
 
-	req := newPicoProxyRequest(http.MethodGet, "/pico/ws?session_id=test-session")
+	req := newPicoProxyRequest(http.MethodGet, "/pocketclaw/ws?session_id=test-session")
 	rec := httptest.NewRecorder()
 	handler(rec, req)
 
@@ -931,8 +931,8 @@ func TestHandleWebSocketProxy_AllowsArbitraryOrigin(t *testing.T) {
 	handler := h.handleWebSocketProxy()
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/pico/ws" {
-			t.Fatalf("path = %q, want %q", r.URL.Path, "/pico/ws")
+		if r.URL.Path != "/pocketclaw/ws" {
+			t.Fatalf("path = %q, want %q", r.URL.Path, "/pocketclaw/ws")
 		}
 		w.WriteHeader(http.StatusOK)
 		_, _ = io.WriteString(w, "proxied")
@@ -980,7 +980,7 @@ func TestHandleWebSocketProxy_AllowsArbitraryOrigin(t *testing.T) {
 	gateway.pidData = &ppid.PidFileData{}
 	gateway.picoToken = "ui-token"
 
-	req := httptest.NewRequest(http.MethodGet, "http://launcher.local/pico/ws?session_id=test-session", nil)
+	req := httptest.NewRequest(http.MethodGet, "http://launcher.local/pocketclaw/ws?session_id=test-session", nil)
 	req.Header.Set("Origin", "http://evil.example")
 	rec := httptest.NewRecorder()
 	handler(rec, req)

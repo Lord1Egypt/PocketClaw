@@ -140,7 +140,7 @@ func NewPocketClawChannel(
 	messageBus *bus.MessageBus,
 ) (*PocketClawChannel, error) {
 	if cfg.Token.String() == "" {
-		return nil, fmt.Errorf("pico token is required")
+		return nil, fmt.Errorf("%s token is required", config.ChannelPocketClaw)
 	}
 
 	// The internal realtime channel is owner-only regardless of client payload
@@ -273,16 +273,16 @@ func (c *PocketClawChannel) currentConnCount() int {
 
 // Start implements Channel.
 func (c *PocketClawChannel) Start(ctx context.Context) error {
-	logger.InfoC("pico", "Starting Pico Protocol channel")
+	logger.InfoC(config.ChannelPocketClaw, "Starting PocketClaw realtime channel")
 	c.ctx, c.cancel = context.WithCancel(ctx)
 	c.SetRunning(true)
-	logger.InfoC("pico", "Pico Protocol channel started")
+	logger.InfoC(config.ChannelPocketClaw, "PocketClaw realtime channel started")
 	return nil
 }
 
 // Stop implements Channel.
 func (c *PocketClawChannel) Stop(ctx context.Context) error {
-	logger.InfoC("pico", "Stopping Pico Protocol channel")
+	logger.InfoC(config.ChannelPocketClaw, "Stopping PocketClaw realtime channel")
 	c.SetRunning(false)
 
 	// Close all connections
@@ -297,16 +297,24 @@ func (c *PocketClawChannel) Stop(ctx context.Context) error {
 		c.progress.StopAll()
 	}
 
-	logger.InfoC("pico", "Pico Protocol channel stopped")
+	logger.InfoC(config.ChannelPocketClaw, "PocketClaw realtime channel stopped")
 	return nil
 }
 
 // WebhookPath implements channels.WebhookHandler.
-func (c *PocketClawChannel) WebhookPath() string { return "/pico/" }
+// The handler is registered under RoutePrefix, media URLs are built from
+// MediaRoutePrefix and inbound paths are parsed back against both, so all of
+// them move together or none do.
+const (
+	RoutePrefix      = config.RealtimeRoutePrefix
+	MediaRoutePrefix = config.RealtimeMediaPrefix
+)
+
+func (c *PocketClawChannel) WebhookPath() string { return RoutePrefix }
 
 // ServeHTTP implements http.Handler for the shared HTTP server.
 func (c *PocketClawChannel) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	path := strings.TrimPrefix(r.URL.Path, "/pico")
+	path := strings.TrimPrefix(r.URL.Path, strings.TrimSuffix(RoutePrefix, "/"))
 
 	switch path {
 	case "/ws", "/ws/":
@@ -773,7 +781,7 @@ func (c *PocketClawChannel) SendMedia(ctx context.Context, msg bus.OutboundMedia
 	for _, part := range msg.Parts {
 		localPath, meta, err := store.ResolveWithMeta(part.Ref)
 		if err != nil {
-			logger.ErrorCF("pico", "Failed to resolve media ref", map[string]any{
+			logger.ErrorCF(config.ChannelPocketClaw, "Failed to resolve media ref", map[string]any{
 				"ref":   part.Ref,
 				"error": err.Error(),
 			})
@@ -803,7 +811,7 @@ func (c *PocketClawChannel) SendMedia(ctx context.Context, msg bus.OutboundMedia
 
 		attachmentURL, err := pocketClawDownloadURLForRef(part.Ref)
 		if err != nil {
-			logger.ErrorCF("pico", "Failed to build media download URL", map[string]any{
+			logger.ErrorCF(config.ChannelPocketClaw, "Failed to build media download URL", map[string]any{
 				"ref":   part.Ref,
 				"error": err.Error(),
 			})
@@ -851,7 +859,7 @@ func pocketClawDownloadURLForRef(ref string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return "/pico/media/" + url.PathEscape(refID), nil
+	return MediaRoutePrefix + url.PathEscape(refID), nil
 }
 
 func pocketClawMediaRefID(ref string) (string, error) {
@@ -908,7 +916,7 @@ func (c *PocketClawChannel) handleMediaDownload(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	refID := strings.TrimSpace(strings.TrimPrefix(strings.TrimPrefix(r.URL.Path, "/pico/media/"), "/"))
+	refID := strings.TrimSpace(strings.TrimPrefix(strings.TrimPrefix(r.URL.Path, MediaRoutePrefix), "/"))
 	if refID == "" {
 		http.NotFound(w, r)
 		return
@@ -968,7 +976,7 @@ func (c *PocketClawChannel) broadcastToSession(chatID string, msg PocketClawMess
 	var sent bool
 	for _, pc := range c.sessionConnectionsSnapshot(sessionID) {
 		if err := pc.writeJSON(msg); err != nil {
-			logger.DebugCF("pico", "Write to connection failed", map[string]any{
+			logger.DebugCF(config.ChannelPocketClaw, "Write to connection failed", map[string]any{
 				"conn_id": pc.id,
 				"error":   err.Error(),
 			})
@@ -1014,7 +1022,7 @@ func (c *PocketClawChannel) handleWebSocket(w http.ResponseWriter, r *http.Reque
 
 	conn, err := c.upgrader.Upgrade(w, r, responseHeader)
 	if err != nil {
-		logger.ErrorCF("pico", "WebSocket upgrade failed", map[string]any{
+		logger.ErrorCF(config.ChannelPocketClaw, "WebSocket upgrade failed", map[string]any{
 			"error": err.Error(),
 		})
 		return
@@ -1037,7 +1045,7 @@ func (c *PocketClawChannel) handleWebSocket(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	logger.InfoCF("pico", "WebSocket client connected", map[string]any{
+	logger.InfoCF(config.ChannelPocketClaw, "WebSocket client connected", map[string]any{
 		"conn_id":    pc.id,
 		"session_id": sessionID,
 	})
@@ -1129,7 +1137,7 @@ func (c *PocketClawChannel) readLoop(pc *pocketClawConn) {
 	defer func() {
 		pc.close()
 		if removed := c.removeConnection(pc.id); removed != nil {
-			logger.InfoCF("pico", "WebSocket client disconnected", map[string]any{
+			logger.InfoCF(config.ChannelPocketClaw, "WebSocket client disconnected", map[string]any{
 				"conn_id":    removed.id,
 				"session_id": removed.sessionID,
 			})
@@ -1164,7 +1172,7 @@ func (c *PocketClawChannel) readLoop(pc *pocketClawConn) {
 		_, rawMsg, err := pc.conn.ReadMessage()
 		if err != nil {
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseNormalClosure) {
-				logger.DebugCF("pico", "WebSocket read error", map[string]any{
+				logger.DebugCF(config.ChannelPocketClaw, "WebSocket read error", map[string]any{
 					"conn_id": pc.id,
 					"error":   err.Error(),
 				})
@@ -1262,7 +1270,7 @@ func (c *PocketClawChannel) handleMessageSend(pc *pocketClawConn, msg PocketClaw
 		"conn_id":    pc.id,
 	}
 
-	logger.DebugCF("pico", "Received message", map[string]any{
+	logger.DebugCF(config.ChannelPocketClaw, "Received message", map[string]any{
 		"content_chars": len([]rune(content)),
 		"media":         len(media),
 	})

@@ -1,5 +1,88 @@
 # PocketClaw Project State
 
+## Zero-Pico N4I — realtime routes and log sanitization, NOT closed
+
+- Status: **implemented on `feature/zero-pico-runtime`, 2026-09-09. NOT merged.**
+  `0.2.0+61`, baseline 59, no candidate.
+- Core source fingerprint moved `eb3c8b4d…` → `db8deae0…`.
+  **Staged Core remains EXPECTED STALE — FINAL ZERO-PICO CORE REBUILD PENDING.**
+- **FLAG FOR FINAL RELEASE NOTES** (not written yet): PocketClaw's internal
+  realtime namespace changed, and an existing Web-channel conversation starts a
+  new PocketClaw session after the upgrade. No implementation or security detail
+  in the eventual user-facing wording.
+
+### Canonical routes
+
+    /pocketclaw/ws            realtime socket (gateway, and the console proxy)
+    /pocketclaw/media/{id}    attachment download
+    /api/pocketclaw/info      console management API
+    /api/pocketclaw/token
+    /api/pocketclaw/setup
+
+`/pico/events` and `/pico/send` were **not** carried across: nothing called their
+URL builders and no handler ever served them. They are removed rather than
+renamed into a namespace they never reached.
+
+`pkg/config/realtime_routes.go` derives all of them from `ChannelPocketClaw`, and
+the channel, the console proxy and the middleware read them from there. Before
+this, the same strings were written out in three packages.
+
+### No alias, on purpose
+
+There is no `/pico/*` compatibility route. The gateway, the console frontend and
+the app ship in one artifact, so the only client that can still ask for the old
+path is a browser tab left open across the upgrade, which reloads. A legacy
+request now 404s, and a test asserts that rather than leaving it to inspection.
+
+### Redaction moved in the same change
+
+The route is what redaction keys on, so it moved together with:
+
+    pkg/logger/logger.go                     internal-route field redaction
+    web/backend/api/user_visible_log.go      plain-text normalizer
+    web/frontend/src/lib/plain-text-log.ts   console log view
+    lib/src/core/plain_text_log_sanitizer.dart   app Logs screen
+
+Every pattern accepts both spellings. The canonical arm is what this build
+emits; the legacy arm is what a log file written before the upgrade contains,
+and dropping it would make old logs *less* redacted than they were.
+
+`pkg/logger` cannot import `pkg/config` — config imports logger — so it keeps a
+pinned copy of the prefix, marked as such, with a test holding the two together.
+
+The sanitizer tests are behavioural: real lines through the real sanitizer, on
+all four surfaces. They also assert the opposite property — that ordinary lines,
+`/pocketclawish/ws` and a `picometer` component come through untouched — because
+a sanitizer broad enough to hide the route by hiding everything would pass the
+positive tests and be worthless.
+
+### Components and messages
+
+The realtime log components are `pocketclaw` and `pocketclaw_client`. Seven
+agent log messages that still said "pico" now emit the wording the sanitizers
+were already rewriting them to, so the user-visible text is unchanged and Core
+stops emitting the word at all. The compatibility maps keep those entries for
+older log files.
+
+The client channel's conversation id is `pocketclaw_client:` and its remote
+sender is `pocketclaw-remote`, both with legacy-tolerant parsing that mints
+nothing.
+
+### Auth and media unchanged
+
+The dashboard-auth WebSocket origin check and the unauthorized-response shape
+now key on the canonical path via the shared constant. Nothing was broadened:
+the legacy path is no longer special-cased at all, which the middleware tests
+prove by no longer reaching the WebSocket branch. Media path extraction,
+traversal validation, authorization and content-type behaviour are untouched;
+only the prefix constant changed, and it is the same constant the URL builder
+uses.
+
+### Deferred
+
+`picoclaw_launcher_auth` (cookie name), `PICOCLAW_DISTRIBUTION_CHANNEL`, the IRC
+default nick and the WeCom source id.
+
 ## Zero-Pico N4H — channel, client and owner canonical, NOT closed
 
 - Status: **implemented on `feature/zero-pico-runtime`, 2026-09-09. NOT merged.**

@@ -106,7 +106,7 @@ export function handlePicoMessage(
   switch (message.type) {
     case "message.create":
     case "media.create": {
-      const messageId = (payload.message_id as string) || `pico-${Date.now()}`
+      const messageId = (payload.message_id as string) || `pocketclaw-${Date.now()}`
       const { content, kind, toolCalls } =
         parseAssistantMessageCreateState(payload)
       const attachments = parseAttachments(payload)
@@ -246,6 +246,6 @@ export function handlePicoMessage(
       break
 
     default:
-      console.log("Unknown pico message type:", message.type)
+      console.log("Unknown realtime message type:", message.type)
   }
 }

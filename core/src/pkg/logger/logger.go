@@ -542,10 +542,17 @@ const (
 	// build before the channel migration wrote into its log records.
 	legacyRealtimeChannelName = "pico"
 
-	// internalRealtimeRoutePrefix is the channel's HTTP route. It is still the
-	// legacy spelling: the HTTP surface moves as one piece in a later phase,
-	// and redaction must key on what is actually being logged today.
-	internalRealtimeRoutePrefix = "/pico/"
+	// internalRealtimeRoutePrefix is the channel's HTTP route.
+	//
+	// Duplicated from config.RealtimeRoutePrefix, which cannot be imported here
+	// because pkg/config imports this package. A test in pkg/config pins the two
+	// together, because a route that moves without this constant stops being
+	// redacted and nothing else fails.
+	internalRealtimeRoutePrefix = "/pocketclaw/"
+
+	// legacyInternalRealtimeRoutePrefix is the pre-migration route. A log record
+	// written by an older build still carries it, and it must still redact.
+	legacyInternalRealtimeRoutePrefix = "/pico/"
 )
 
 // sanitizeFieldsForLog enforces the normal log privacy contract before any
@@ -565,7 +572,8 @@ func sanitizeFieldsForLog(fields map[string]any) map[string]any {
 	// with the rest of the HTTP surface in a later phase — while the channel is
 	// already canonical, and a log line from a build on either side of that
 	// split must still have its path redacted.
-	internalRoute := fields["path"] == internalRealtimeRoutePrefix &&
+	internalRoute := (fields["path"] == internalRealtimeRoutePrefix ||
+		fields["path"] == legacyInternalRealtimeRoutePrefix) &&
 		(fields["channel"] == realtimeChannelName ||
 			fields["channel"] == legacyRealtimeChannelName)
 

@@ -389,3 +389,131 @@ func TestLoadConfigNormalizesALegacyInstallation(t *testing.T) {
 		t.Error("the legacy channel type is still reachable after migration")
 	}
 }
+
+// The credential file is written before the config, so a crash between the two
+// leaves a canonical .security.yml beside a still-legacy config.json. That is
+// the only inconsistent state this migration can produce, and the next start
+// has to finish the job without touching the token.
+func TestCrashBetweenTheSecurityAndConfigWrites(t *testing.T) {
+	dir := t.TempDir()
+	path := writeConfig(t, dir, legacyConfigJSON)
+	// What the interrupted run had already committed.
+	canonicalSecurity := `channel_list:
+  pocketclaw:
+    settings:
+      token: SECRET-TOKEN-VALUE
+  telegram:
+    settings:
+      token: OTHER-TOKEN
+`
+	if err := os.WriteFile(securityPath(path), []byte(canonicalSecurity), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	changed, err := migrateChannelIdentities(path)
+	if err != nil {
+		t.Fatalf("the interrupted migration must complete, not fail: %v", err)
+	}
+	if !changed {
+		t.Fatal("the still-legacy config should have been migrated")
+	}
+
+	channels := channelsOf(t, path)
+	if _, present := channels["pico"]; present {
+		t.Error("the config was left half-migrated")
+	}
+	if _, present := channels["pocketclaw"]; !present {
+		t.Fatal("the managed channel is not under its canonical key")
+	}
+
+	// The credential is the thing that must not move. It was already canonical
+	// and correct; finishing the migration must not rewrite, re-key or replace
+	// it, and certainly must not mint a new token.
+	security, err := os.ReadFile(securityPath(path))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(security) != canonicalSecurity {
+		t.Errorf("the already-migrated credential file was rewritten:\n%s", security)
+	}
+
+	// And the finished state loads, with the token reaching the channel.
+	loadable := strings.Replace(legacyConfigJSON, `  "unknown_future_top_level": {
+    "kept": true
+  },
+`, "", 1)
+	loadPath := writeConfig(t, t.TempDir(), loadable)
+	if err := os.WriteFile(securityPath(loadPath), []byte(canonicalSecurity), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := LoadConfig(loadPath)
+	if err != nil {
+		t.Fatalf("the recovered installation must load: %v", err)
+	}
+	channel := cfg.Channels.GetByType(ChannelPocketClaw)
+	if channel == nil {
+		t.Fatal("the managed channel did not survive the recovery")
+	}
+	decoded, err := channel.GetDecoded()
+	if err != nil {
+		t.Fatalf("GetDecoded: %v", err)
+	}
+	settings, ok := decoded.(*PocketClawSettings)
+	if !ok {
+		t.Fatalf("settings are %T, want *PocketClawSettings", decoded)
+	}
+	if got := settings.Token.String(); got != "SECRET-TOKEN-VALUE" {
+		t.Errorf("channel token = %q, want the credential written before the crash", got)
+	}
+}
+
+// The reverse order cannot happen with the current write sequence, but a file
+// restored from a backup can produce it, and it must also converge.
+func TestLegacySecurityBesideACanonicalConfig(t *testing.T) {
+	dir := t.TempDir()
+	canonical := strings.NewReplacer(
+		`"pico"`, `"pocketclaw"`,
+		`"pico_client"`, `"pocketclaw_client"`,
+		`"pico-user"`, `"pocketclaw-user"`,
+	).Replace(legacyConfigJSON)
+	path := writeConfig(t, dir, canonical)
+	legacySecurity := `channel_list:
+  pico:
+    settings:
+      token: SECRET-TOKEN-VALUE
+`
+	if err := os.WriteFile(securityPath(path), []byte(legacySecurity), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	changed, err := migrateChannelIdentities(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !changed {
+		t.Fatal("the legacy credential key should have been migrated")
+	}
+
+	security, err := os.ReadFile(securityPath(path))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(security), "pocketclaw:") {
+		t.Errorf("the credential key did not migrate:\n%s", security)
+	}
+	if !strings.Contains(string(security), "SECRET-TOKEN-VALUE") {
+		t.Errorf("the token was lost:\n%s", security)
+	}
+	if string(canonical) != readFileString(t, path) {
+		t.Error("the already-canonical config was rewritten")
+	}
+}
+
+func readFileString(t *testing.T, path string) string {
+	t.Helper()
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(raw)
+}

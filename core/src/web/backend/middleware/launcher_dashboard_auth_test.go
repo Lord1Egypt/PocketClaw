@@ -79,7 +79,7 @@ func TestLauncherDashboardAuth_AllowsPublicPaths(t *testing.T) {
 		{http.MethodPost, "/api/auth/logout", http.StatusTeapot},
 		{http.MethodGet, "/api/auth/logout", http.StatusUnauthorized},
 		{http.MethodGet, "/api/config", http.StatusUnauthorized},
-		{http.MethodGet, "/pico/ws", http.StatusUnauthorized},
+		{http.MethodGet, "/pocketclaw/ws", http.StatusUnauthorized},
 	} {
 		rec := httptest.NewRecorder()
 		req := httptest.NewRequest(tc.method, tc.path, nil)
@@ -279,7 +279,7 @@ func TestLauncherDashboardAuth_WebSocketUnauthorizedDoesNotRedirect(t *testing.T
 	h := LauncherDashboardAuth(cfg, next)
 
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/pico/ws", nil)
+	req := httptest.NewRequest(http.MethodGet, "/pocketclaw/ws", nil)
 	h.ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusUnauthorized {
@@ -336,7 +336,7 @@ func TestLauncherDashboardAuth_AuthenticatedLANWebSocketWorks(t *testing.T) {
 		},
 	))
 
-	req := httptest.NewRequest(http.MethodGet, "/pico/ws", nil)
+	req := httptest.NewRequest(http.MethodGet, "/pocketclaw/ws", nil)
 	req.RemoteAddr = "10.0.0.50:40002"
 	req.Host = "10.0.0.24:18800"
 	req.Header.Set("Origin", "http://10.0.0.24:18800")
@@ -381,7 +381,7 @@ func TestLauncherDashboardAuth_WebSocketRequiresAuthenticatedSameOrigin(t *testi
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			rec := httptest.NewRecorder()
-			req := httptest.NewRequest(http.MethodGet, "http://launcher.local:18800/pico/ws", nil)
+			req := httptest.NewRequest(http.MethodGet, "http://launcher.local:18800/pocketclaw/ws", nil)
 			if tc.origin != "" {
 				req.Header.Set("Origin", tc.origin)
 			}

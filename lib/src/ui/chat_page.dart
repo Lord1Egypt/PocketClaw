@@ -64,7 +64,7 @@ class _ChatPageState extends State<ChatPage> {
   void _connectToGateway() {
     try {
       final uri = Uri.parse(
-        'ws://$_gatewayHost:$_gatewayPort/pico/ws?session_id=$_sessionId',
+        'ws://$_gatewayHost:$_gatewayPort/pocketclaw/ws?session_id=$_sessionId',
       );
       _channel = IOWebSocketChannel.connect(
         uri,

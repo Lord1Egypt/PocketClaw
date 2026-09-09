@@ -20,7 +20,7 @@ func TestRealtimeAuthUsesConstantTimeComparison(t *testing.T) {
 
 	t.Run("the correct credential is accepted", func(t *testing.T) {
 		c := channelWithToken(token, false)
-		r := httptest.NewRequest("GET", "/pico/ws", nil)
+		r := httptest.NewRequest("GET", "/pocketclaw/ws", nil)
 		r.Header.Set("Authorization", "Bearer "+token)
 		if !c.authenticate(r) {
 			t.Fatal("a valid credential was rejected")
@@ -36,7 +36,7 @@ func TestRealtimeAuthUsesConstantTimeComparison(t *testing.T) {
 	} {
 		t.Run("rejects "+wrong, func(t *testing.T) {
 			c := channelWithToken(token, false)
-			r := httptest.NewRequest("GET", "/pico/ws", nil)
+			r := httptest.NewRequest("GET", "/pocketclaw/ws", nil)
 			r.Header.Set("Authorization", "Bearer "+wrong)
 			if c.authenticate(r) {
 				t.Fatalf("an invalid credential was accepted: %q", wrong)
@@ -48,7 +48,7 @@ func TestRealtimeAuthUsesConstantTimeComparison(t *testing.T) {
 	// another empty string.
 	t.Run("an unconfigured channel authenticates nobody", func(t *testing.T) {
 		c := channelWithToken("", true)
-		r := httptest.NewRequest("GET", "/pico/ws?token=", nil)
+		r := httptest.NewRequest("GET", "/pocketclaw/ws?token=", nil)
 		if c.authenticate(r) {
 			t.Fatal("an unconfigured channel accepted a request")
 		}
@@ -64,14 +64,14 @@ func TestHostManagedCredentialRefusesQueryStringAuth(t *testing.T) {
 		t.Setenv(config.EnvChannelsPocketClawToken, token)
 		c := channelWithToken(token, true)
 
-		r := httptest.NewRequest("GET", "/pico/ws?token="+token, nil)
+		r := httptest.NewRequest("GET", "/pocketclaw/ws?token="+token, nil)
 		if c.authenticate(r) {
 			t.Fatal("a host-managed credential was accepted from a query string")
 		}
 
 		// The header remains the supported way to present it, so the managed
 		// channel keeps working.
-		r = httptest.NewRequest("GET", "/pico/ws", nil)
+		r = httptest.NewRequest("GET", "/pocketclaw/ws", nil)
 		r.Header.Set("Authorization", "Bearer "+token)
 		if !c.authenticate(r) {
 			t.Fatal("the header path must keep working for a managed credential")
@@ -83,7 +83,7 @@ func TestHostManagedCredentialRefusesQueryStringAuth(t *testing.T) {
 	t.Run("still available to a self-managed deployment", func(t *testing.T) {
 		t.Setenv(config.EnvChannelsPocketClawToken, "")
 		c := channelWithToken(token, true)
-		r := httptest.NewRequest("GET", "/pico/ws?token="+token, nil)
+		r := httptest.NewRequest("GET", "/pocketclaw/ws?token="+token, nil)
 		if !c.authenticate(r) {
 			t.Fatal("query-string auth was removed for deployments that opt into it")
 		}
@@ -92,7 +92,7 @@ func TestHostManagedCredentialRefusesQueryStringAuth(t *testing.T) {
 	t.Run("off by default", func(t *testing.T) {
 		t.Setenv(config.EnvChannelsPocketClawToken, "")
 		c := channelWithToken(token, false)
-		r := httptest.NewRequest("GET", "/pico/ws?token="+token, nil)
+		r := httptest.NewRequest("GET", "/pocketclaw/ws?token="+token, nil)
 		if c.authenticate(r) {
 			t.Fatal("query-string auth worked without being enabled")
 		}
