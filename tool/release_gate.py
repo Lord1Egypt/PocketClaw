@@ -491,7 +491,7 @@ def source_gates(gate: Gate, run_tests: bool, release_class: str = "test"):
 
     rc, out = run(["go", "test", "-tags", "stdjson goolm",
                    "./pkg/pid/", "./pkg/logger/", "./pkg/config/",
-                   "./pkg/channels/pico/", "./web/backend/dashboardauth/"],
+                   "./pkg/channels/pocketclaw/", "./web/backend/dashboardauth/"],
                   cwd=REPO / "core/src", env=go_env)
     gate.check("a2.private_storage_contracts", rc == 0,
                expected="A2 credential, log and auth guards pass",
