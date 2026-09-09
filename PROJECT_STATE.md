@@ -1,5 +1,80 @@
 # PocketClaw Project State
 
+## vc62 — Zero-Pico candidate, BUILT AND VERIFIED, install pending
+
+- Status: **built, gated and pushed on `feature/zero-pico-runtime`, 2026-09-09.
+  NOT installed, NOT accepted, NOT merged.** `0.2.0+62`,
+  `lastAcceptedVersionCode` stays **59** — vc61 remains the last physically
+  accepted build, and vc62 has not been on a device.
+- **Install did not happen: no device was attached.** Windows adb
+  (`Google.PlatformTools` WinGet, 37.0.1) started its daemon and listed no
+  devices; a targeted probe for `RK8Y6016N5V` returned *device not found*.
+  usbipd was deliberately not used — the instruction reserves it for a device
+  Windows adb genuinely cannot see, not for one that is unplugged.
+
+### Candidate artifact
+
+    path      build/app/outputs/flutter-apk/app-release.apk
+    size      63493154 bytes
+    sha256    1470e02d43039e78c6507a1fb12e1c9368033903a8b99c2e2f56014eb0c002e2
+    package   com.lord1egypt.pocketclaw
+    version   0.2.0 (62)
+    signer    CN=Android Debug, SHA-256
+              15cf75f9945d5354e75707e0326b7cffc60ac51a68df38156db318ef4578a27c
+              local-test only; no production signing material exists yet
+
+Built with the repository toolchain (JDK 17, Flutter 3.47.1) via
+`:app:assembleRelease -Ptarget-platform=android-arm64 -PallowDebugSigning=true`.
+Gradle exit 0 and BUILD SUCCESSFUL were checked independently of each other, and
+the APK was confirmed to carry versionCode 62 by inspection rather than by
+assuming the bump reached it.
+
+### The Core pair was not rebuilt
+
+Packaged against staged, byte for byte:
+
+    libpocketclaw.so       37749089  9e85e471…  identical to staged
+    libpocketclaw-web.so   25559393  479003e0…  identical to staged
+
+Both carry fingerprint `6e2382ae…` and BuildTime `2026-09-09T18:30:34+0000`. No
+`libpicoclaw*.so` is packaged and no alias was created. Managed Runtime is
+exactly 8 payloads (curl, gh, git, git-remote-http, jq, python, rg, sqlite3);
+`libpocketclaw-web.so` is Core, not a runtime tool, and is not counted as one.
+
+### Gates
+
+Production source gate: **exit 0, 17/17 PASS**. Artifact gate (`--release-class
+test`): **exit 0**, every check PASS with one SKIP —
+`artifact.dart_snapshot_paths`, the established PENDING_FINAL_HARDENING item,
+left at its documented status rather than weakened for this candidate.
+
+### A gate defect this phase found
+
+`artifact.core_provenance_pair` failed on the first artifact run, reporting both
+binaries as "present (not matched to source)". The binaries were fine; the check
+was not. It read `gate.facts["coreSourceFingerprint"]`, which only
+`source_gates` ever set, so under `--verify-artifact` the fact was absent and
+the comparison had nothing to compare against — the check could not pass in the
+one mode where it matters most, inspecting an artifact you did not just build.
+Introduced in N4K-A and missed there because that phase only ran
+`--verify-source`. Fixed in `84080a5`: one helper resolves the fingerprint on
+demand and caches it, so both paths read the same value from the same code.
+`tool/` is not packaged and is not a build input, so no rebuild followed.
+
+### What's New
+
+Four bullets in all twelve locales, on the existing mechanism: steadier
+reliability, and the three one-time effects of upgrading — one more Dashboard
+sign-in, a fresh Web chat conversation, notification preferences worth one
+check. No old product name, paths, cookies, routes, environment variables or
+security internals; a release note is not a changelog for its authors.
+
+### Next
+
+Attach the device, install with `adb install -r` (no uninstall, no clear data),
+confirm preservation of appId/UID, dataDir and firstInstallTime, then hand over
+for manual start and physical Zero-Pico migration validation.
+
 ## Final Zero-Pico Core rebuild — staged, NOT a candidate yet
 
 - Status: **built and staged on `feature/zero-pico-runtime`, 2026-09-09. NOT
