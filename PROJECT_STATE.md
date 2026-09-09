@@ -1,18 +1,110 @@
 # PocketClaw Project State
 
+## Zero-Pico N4K-A — dual-binary Core provenance, NOT closed
+
+- Status: **implemented on `feature/zero-pico-runtime`, 2026-09-09. NOT merged.**
+  `0.2.0+61`, baseline 59, no candidate, no What's New entry.
+- Core source fingerprint moved `db8deae0…` → `b9742fe0…`, because the input set
+  itself changed rather than the source. It is not a built identity yet.
+  **Staged Core remains EXPECTED STALE — FINAL ZERO-PICO CORE REBUILD PENDING.**
+
+### The gap
+
+The canonical build stages **two** native binaries and ships both:
+
+    libpocketclaw.so       Core gateway,  built from ./cmd/picoclaw
+    libpocketclaw-web.so   dashboard,     built from ./web/backend
+
+`pkg/coresource` fingerprinted only `cmd/`, `pkg/`, `workspace/` and three root
+files. `web/` was excluded on the true but insufficient ground that the Core
+imports none of it — it does not have to, being separately compiled and
+separately shipped. N4J changed dashboard auth middleware, moved no fingerprint,
+and left a stale dashboard binary that no guard would report. `core/staged_*`
+went green on the strength of a binary that was not the one at issue.
+
+### One provenance unit
+
+`includedRoots` now names `web` alongside `cmd`, `pkg` and `workspace`, and one
+fingerprint speaks for both binaries. Under `web/`, everything counts except:
+
+    web/backend/dist/**              the generated bundle
+    web/frontend/node_modules/**     installed, not tracked
+    *_test.go, *.test.ts, *.test.tsx tests reach neither binary
+
+`dist/` is the compiled frontend, written by `pnpm build:backend` and untracked
+apart from a `.gitkeep`. Hashing it would fold a build output into the
+fingerprint of its own inputs and make the value depend on whether the builder
+had run pnpm, so it is covered through `web/frontend/` instead — a stronger
+relation, not a weaker one: editing a component moves the fingerprint at once,
+without anyone rebuilding the bundle first. `TestEveryEmbeddedAssetIsAFingerprintInput`
+knows about that indirection through `generatedEmbedSources` and asserts the
+generator is covered, so the exemption cannot become a hole.
+
+The frontend rule is deliberately coarser than the Core's. Deciding exactly
+which of Vite's inputs can alter the emitted bundle means re-deriving Vite's
+behaviour by hand and being wrong quietly; an over-broad rule costs an
+occasional unnecessary rebuild, and an under-broad one is what N4J walked into.
+
+### Both binaries are now verifiable
+
+`-X coresource.Stamped` already reached the launcher build through the LDFLAGS
+the root Makefile passes down, but nothing in `web/backend` read it, and the
+linker drops an `-X` target with no live reader — value and all. So the flag
+succeeded and the binary carried nothing. `web/backend/main.go` now logs
+`coresource.Describe()` at startup, which is what keeps it. Verified directly: a
+host build carries the fingerprint, and the same build with the reader removed
+does not.
+
+`core/build-android-arm64.sh` now checks the stamp in **both** staged binaries,
+and `web/Makefile` carries its own `SOURCE_FINGERPRINT` plumbing so a direct
+`make -C web build-android-arm64` cannot emit an unstamped dashboard.
+
+### Freshness and the gate
+
+`TestStagedCoreWasBuiltFromTheCurrentSource` iterates `StagedCoreBinaries` and
+fails per binary, so a stale dashboard can no longer pass on the Core's
+freshness. The release gate's artifact check gained
+`artifact.core_provenance_pair`: both packaged binaries must carry the *same*
+fingerprint, and it must be the one the current source produces.
+
+### BuildTime was already right
+
+`core/resolve-build-time.sh` has covered all of `core/src` — web included —
+since it was written, and its comment documented the asymmetry as deliberate.
+The asymmetry is what allowed the gap, so the comment is corrected rather than
+the scope. The only behavioural change is excluding `*.test.ts` / `*.test.tsx`
+under `web/frontend`, which brings its test-exclusion into line with the
+fingerprint's; `TestBuildTimeCoversEverythingTheFingerprintDoes` holds the two
+together from now on.
+
+### Cookie classification (N4J correction)
+
+`picoclaw_launcher_auth` is **LEGACY COOKIE CLEANUP ONLY**, not "read-only
+session handoff". Nothing reads its value: it is never issued, never validated
+and never consulted for authentication, and the only production use is writing
+an expiry. The runtime behaviour was already correct; only the wording
+overstated it. A test now fails on the word "handoff".
+
+### Not in this phase
+
+`PICOCLAW_DISTRIBUTION_CHANNEL`, the IRC default nick, the WeCom source id, the
+remaining source-only Pico identifiers and the final active-Pico guard are
+N4K-B. The deterministic byte-level rebuild of both binaries is the final phase.
+
 ## Zero-Pico N4J — dashboard session cookie, NOT closed
 
 - Status: **implemented on `feature/zero-pico-runtime`, 2026-09-09. NOT merged.**
   `0.2.0+61`, baseline 59, no candidate, no What's New entry.
-- Core source fingerprint **did not move**, legitimately: `db8deae0…` before and
-  after. See "The fingerprint does not cover this change" below — this is a real
-  gap in the staleness guard, not a sign the edit failed to land.
+- Core source fingerprint **did not move**: `db8deae0…` before and after. That
+  was not a sign the edit failed to land — it was a real gap in the staleness
+  guard, described under "The fingerprint does not cover this change" below and
+  closed by N4K-A.
   **Staged Core remains EXPECTED STALE — FINAL ZERO-PICO CORE REBUILD PENDING.**
 
 ### Canonical and legacy
 
     pocketclaw_launcher_auth   canonical; the only name this build ever issues
-    picoclaw_launcher_auth     LEGACY READ-ONLY SESSION HANDOFF
+    picoclaw_launcher_auth     LEGACY COOKIE CLEANUP ONLY
 
 Both are declared once, in
 `core/src/web/backend/middleware/launcher_dashboard_auth.go`. The legacy name is
@@ -69,10 +161,9 @@ device. A change to dashboard auth middleware therefore moves no fingerprint and
 raises no staleness signal, even though the staged artifact is now behind the
 tree. N4J is such a change.
 
-Nothing was altered here — widening the fingerprint mid-phase would have
-invalidated the staged-Core baseline the whole Zero-Pico sequence is tracking.
-It is recorded as a gap for the final rebuild phase to close, most likely by
-fingerprinting the launcher's inputs separately from the Core's.
+Nothing was altered in N4J itself. **N4K-A closed this**, by widening the one
+canonical fingerprint to cover both binaries rather than giving the launcher a
+second fingerprint universe. See the N4K-A section at the top of this file.
 
 ### Deferred
 

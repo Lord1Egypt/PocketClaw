@@ -18,12 +18,14 @@ import (
 // LauncherDashboardCookieName is the HttpOnly cookie set after a successful password login.
 const LauncherDashboardCookieName = "pocketclaw_launcher_auth"
 
-// legacyLauncherDashboardCookieName is LEGACY READ-ONLY SESSION HANDOFF.
+// legacyLauncherDashboardCookieName is LEGACY COOKIE CLEANUP ONLY.
 //
-// It is never issued and never consulted for authentication. It is named here
-// only so a cookie left in the browser by an older build can be expired.
+// It is never issued, never read for authentication and never validated. It is
+// named here for exactly one purpose: expiring a cookie an older build left in
+// the browser.
 //
-// There is deliberately no session handoff from it. Sessions live in
+// "Handoff" would overstate it, which is why the classification says cleanup.
+// There is no session handoff from it, not even a rejected one. Sessions live in
 // LauncherDashboardSessions, which is an in-memory map created fresh at process
 // start: the process that issued a legacy cookie is by definition gone, so no
 // legacy value can name a live session. Accepting one would mean trusting a

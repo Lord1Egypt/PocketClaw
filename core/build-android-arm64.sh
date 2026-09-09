@@ -103,12 +103,21 @@ fi
 # The stamp is what the test gate greps for. A build that produced a binary
 # without it would pass here and fail the gate with a confusing message, so
 # check it where the cause is still obvious.
-if ! grep -qa "$SOURCE_FINGERPRINT" "$JNI_LIBS/libpocketclaw.so"; then
-    echo "error: the staged Core does not carry its source fingerprint" >&2
-    exit 1
-fi
+#
+# Both binaries, because both ship. Checking only libpocketclaw.so is what let a
+# dashboard change escape provenance until N4K-A: the -X flag reaches the
+# launcher build through the LDFLAGS passed above, but a linker drops an -X
+# target that no live code reads, so the flag succeeding says nothing about the
+# binary carrying it. web/backend/main.go reads it back at startup; this is what
+# proves that stayed true.
+for lib in libpocketclaw.so libpocketclaw-web.so; do
+    if ! grep -qa "$SOURCE_FINGERPRINT" "$JNI_LIBS/$lib"; then
+        echo "error: staged $lib does not carry its source fingerprint" >&2
+        exit 1
+    fi
+done
 echo
-echo "  source fingerprint stamped: $SOURCE_FINGERPRINT"
+echo "  source fingerprint stamped in both binaries: $SOURCE_FINGERPRINT"
 
 echo
 echo "Core build complete. Package with:"

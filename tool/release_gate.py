@@ -603,17 +603,39 @@ def artifact_gates(gate: Gate, apk: Path, release_class: str):
         gate.facts["packagedCore"] = packaged_core
 
         # The fingerprint the artifact actually carries, read from the stamp in
-        # the packaged binary rather than recomputed from a tree that may have
+        # the packaged binaries rather than recomputed from a tree that may have
         # moved on since the build.
+        #
+        # Both shipping binaries, because both are the product. Reading only
+        # libpocketclaw.so is the hole N4K-A closed: the dashboard is compiled
+        # separately from core/src/web and can be from other source entirely
+        # while the Core's stamp looks right.
         core_entry = f"lib/{EXPECTED_ABI}/libpocketclaw.so"
-        if core_entry in names:
-            blob = archive.read(core_entry)
-            stamped = re.findall(rb"[0-9a-f]{64}", blob)
-            expected = gate.facts.get("coreSourceFingerprint")
+        expected = gate.facts.get("coreSourceFingerprint")
+        carried = {}
+        unstamped = []
+        for lib in CORE_LIBS:
+            entry = f"lib/{EXPECTED_ABI}/{lib}"
+            if entry not in names:
+                continue
+            blob = archive.read(entry)
             if expected and expected.encode() in blob:
-                gate.facts["packagedCoreFingerprint"] = expected
-            elif stamped:
-                gate.facts["packagedCoreFingerprint"] = "present (not matched to source)"
+                carried[lib] = expected
+            elif re.search(rb"[0-9a-f]{64}", blob):
+                carried[lib] = "present (not matched to source)"
+                unstamped.append(lib)
+            else:
+                carried[lib] = "absent"
+                unstamped.append(lib)
+        gate.facts["packagedCoreFingerprint"] = carried
+
+        # One provenance unit: both binaries must carry the *same* fingerprint,
+        # and it must be the one the current source produces.
+        gate.check("artifact.core_provenance_pair",
+                   bool(carried) and not unstamped and len(set(carried.values())) == 1,
+                   expected="both shipping binaries stamped with the current source fingerprint",
+                   observed=", ".join(f"{k}: {v}" for k, v in sorted(carried.items()))
+                   or "no Core binaries packaged")
 
         gate.check("artifact.core_matches_staged", not mismatched,
                    expected="packaged Core byte-identical to staged Core",

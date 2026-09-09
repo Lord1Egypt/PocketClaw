@@ -28,6 +28,7 @@ import (
 
 	"github.com/sipeed/picoclaw/pkg/androiddns"
 	"github.com/sipeed/picoclaw/pkg/config"
+	"github.com/sipeed/picoclaw/pkg/coresource"
 	"github.com/sipeed/picoclaw/pkg/logger"
 	"github.com/sipeed/picoclaw/pkg/netbind"
 	"github.com/sipeed/picoclaw/web/backend/api"
@@ -503,6 +504,11 @@ func main() {
 	}
 
 	logger.InfoC("web", fmt.Sprintf("%s launcher starting (version %s)...", appName, appVersion))
+	// The source this binary was built from. This is also what keeps
+	// coresource.Stamped referenced by live code: the linker drops an unused
+	// variable and takes the -X value with it, which would leave the staged
+	// dashboard unverifiable while the build reported success.
+	logger.InfoC("web", fmt.Sprintf("%s core source: %s", appName, coresource.Describe()))
 	logger.InfoC("web", fmt.Sprintf("%s Home: %s", appName, picoHome))
 	if debug {
 		logger.InfoC("web", "Debug mode enabled")

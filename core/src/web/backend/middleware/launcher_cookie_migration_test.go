@@ -241,8 +241,14 @@ func TestNoProductionCodeIssuesTheLegacyCookie(t *testing.T) {
 	if got := len(legacy.FindAll(raw, -1)); got != 1 {
 		t.Errorf("the legacy cookie literal appears %d times in the migration owner, want 1", got)
 	}
-	if !strings.Contains(string(raw), "LEGACY READ-ONLY SESSION HANDOFF") {
-		t.Error("the legacy constant is not classified")
+	// The classification is cleanup, not handoff: nothing reads the legacy
+	// cookie's value, so calling it a handoff would describe behaviour the code
+	// deliberately does not have.
+	if !strings.Contains(string(raw), "LEGACY COOKIE CLEANUP ONLY") {
+		t.Error("the legacy constant is not classified as cleanup-only")
+	}
+	if strings.Contains(string(raw), "SESSION HANDOFF") {
+		t.Error("the legacy constant still claims a session handoff that does not exist")
 	}
 }
 

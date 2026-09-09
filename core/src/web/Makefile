@@ -63,7 +63,18 @@ GIT_COMMIT=$(if $(GIT_COMMIT_RAW),$(GIT_COMMIT_RAW),dev)
 BUILD_TIME=$(if $(BUILD_TIME_RAW),$(BUILD_TIME_RAW),dev)
 GO_VERSION=$(if $(GO_VERSION_RAW),$(GO_VERSION_RAW),unknown)
 CONFIG_PKG=github.com/sipeed/picoclaw/pkg/config
-LDFLAGS=-X $(CONFIG_PKG).Version=$(VERSION) -X $(CONFIG_PKG).GitCommit=$(GIT_COMMIT) -X $(CONFIG_PKG).BuildTime=$(BUILD_TIME) -X $(CONFIG_PKG).GoVersion=$(GO_VERSION) -s -w
+
+# Source provenance, mirroring the root Makefile. The canonical build passes its
+# own LDFLAGS in on the command line, which overrides this whole variable, so
+# this matters for a direct `make -C web build-android-arm64`: without it that
+# path would emit an unstamped dashboard binary, which the staged-freshness gate
+# treats exactly like a stale one. main.go reads it back through
+# coresource.Describe(); an -X target with no live reader is dropped by the
+# linker, value and all.
+CORESOURCE_PKG=github.com/sipeed/picoclaw/pkg/coresource
+SOURCE_FINGERPRINT?=
+SOURCE_FINGERPRINT_LDFLAG=$(if $(SOURCE_FINGERPRINT),-X $(CORESOURCE_PKG).Stamped=$(SOURCE_FINGERPRINT),)
+LDFLAGS=-X $(CONFIG_PKG).Version=$(VERSION) -X $(CONFIG_PKG).GitCommit=$(GIT_COMMIT) -X $(CONFIG_PKG).BuildTime=$(BUILD_TIME) -X $(CONFIG_PKG).GoVersion=$(GO_VERSION) $(SOURCE_FINGERPRINT_LDFLAG) -s -w
 
 
 # OS detection
