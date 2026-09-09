@@ -3,17 +3,17 @@ import githubLightCss from "highlight.js/styles/github.css?inline"
 import { useEffect } from "react"
 
 const THEME_STYLE_ID = "hljs-theme-style"
-const THEME_STYLE_OWNER_ATTR = "data-picoclaw-highlight-theme"
+const THEME_STYLE_OWNER_ATTR = "data-pocketclaw-highlight-theme"
 const THEME_STYLE_OWNER_VALUE = "true"
 const MANAGED_THEME_STYLE_SELECTOR = `style[${THEME_STYLE_OWNER_ATTR}="${THEME_STYLE_OWNER_VALUE}"]`
 const ID_THEME_STYLE_SELECTOR = `style#${THEME_STYLE_ID}`
 const CHAT_CODE_BLOCK_OVERRIDES = `
-[data-picoclaw-code-block] .hljs {
+[data-pocketclaw-code-block] .hljs {
   background: transparent !important;
 }
 
-[data-picoclaw-code-block] pre code.hljs,
-[data-picoclaw-code-block] code.hljs {
+[data-pocketclaw-code-block] pre code.hljs,
+[data-pocketclaw-code-block] code.hljs {
   padding: 0 !important;
   background: transparent !important;
 }

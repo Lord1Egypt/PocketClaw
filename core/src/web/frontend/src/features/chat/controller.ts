@@ -5,7 +5,7 @@ import {
   loadSessionMessages,
   mergeHistoryMessages,
 } from "@/features/chat/history"
-import { type PicoMessage, handlePicoMessage } from "@/features/chat/protocol"
+import { type PocketClawMessage, handlePocketClawMessage } from "@/features/chat/protocol"
 import {
   clearStoredSessionId,
   generateSessionId,
@@ -181,8 +181,8 @@ export async function connectChat() {
       }
 
       try {
-        const message = JSON.parse(event.data) as PicoMessage
-        handlePicoMessage(message, sessionId)
+        const message = JSON.parse(event.data) as PocketClawMessage
+        handlePocketClawMessage(message, sessionId)
       } catch {
         console.warn("Non-JSON message from the realtime channel:", event.data)
       }

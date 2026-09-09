@@ -117,7 +117,7 @@ func (pc *pocketClawConn) close() {
 	}
 }
 
-// PocketClawChannel implements the native Pico Protocol WebSocket channel.
+// PocketClawChannel implements the native PocketClaw realtime WebSocket channel.
 // It serves as the reference implementation for all optional capability interfaces.
 type PocketClawChannel struct {
 	*channels.BaseChannel
@@ -133,7 +133,7 @@ type PocketClawChannel struct {
 	deleteMessageFn    func(context.Context, string, string) error
 }
 
-// NewPocketClawChannel creates a new Pico Protocol channel.
+// NewPocketClawChannel creates a new PocketClaw realtime channel.
 func NewPocketClawChannel(
 	bc *config.Channel,
 	cfg *config.PocketClawSettings,
@@ -523,7 +523,7 @@ func (c *PocketClawChannel) StartTyping(ctx context.Context, chatID string) (fun
 }
 
 // SendPlaceholder implements channels.PlaceholderCapable.
-// It sends a placeholder message via the Pico Protocol that will later be
+// It sends a placeholder message over the realtime protocol that will later be
 // edited to the actual response via EditMessage (channels.MessageEditor).
 func (c *PocketClawChannel) SendPlaceholder(ctx context.Context, chatID string) (string, error) {
 	if !c.bc.Placeholder.Enabled {
@@ -546,7 +546,7 @@ func (c *PocketClawChannel) SendPlaceholder(ctx context.Context, chatID string) 
 	return msgID, nil
 }
 
-// BeginStream implements channels.StreamingCapable for Pico WebUI.
+// BeginStream implements channels.StreamingCapable for the web UI.
 func (c *PocketClawChannel) BeginStream(ctx context.Context, chatID string) (channels.Streamer, error) {
 	if c == nil || c.config == nil || !c.config.Streaming.Enabled {
 		return nil, fmt.Errorf("streaming disabled in config")
@@ -761,7 +761,7 @@ func (s *pocketClawStreamer) sendReasoningLocked(ctx context.Context, content st
 	return nil
 }
 
-// SendMedia implements channels.MediaSender for the Pico web UI.
+// SendMedia implements channels.MediaSender for the web UI.
 // Media is delivered as a normal assistant message carrying structured
 // attachments plus an authenticated same-origin download URL.
 func (c *PocketClawChannel) SendMedia(ctx context.Context, msg bus.OutboundMediaMessage) ([]string, error) {
@@ -1216,7 +1216,7 @@ func (c *PocketClawChannel) pingLoop(pc *pocketClawConn, interval time.Duration)
 	}
 }
 
-// handleMessage processes an inbound Pico Protocol message.
+// handleMessage processes an inbound PocketClaw realtime message.
 func (c *PocketClawChannel) handleMessage(pc *pocketClawConn, msg PocketClawMessage) {
 	switch msg.Type {
 	case TypePing:

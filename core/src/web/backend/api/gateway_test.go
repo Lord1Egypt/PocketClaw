@@ -126,11 +126,11 @@ func TestPicoGatewayProtocol(t *testing.T) {
 	resetGatewayTestState(t)
 
 	gateway.mu.Lock()
-	gateway.picoToken = "ui-token"
+	gateway.pocketClawToken = "ui-token"
 	gateway.mu.Unlock()
 
-	if got := picoGatewayProtocol(); got != tokenPrefix+"ui-token" {
-		t.Fatalf("picoGatewayProtocol() = %q, want %q", got, tokenPrefix+"ui-token")
+	if got := pocketClawGatewayProtocol(); got != tokenPrefix+"ui-token" {
+		t.Fatalf("pocketClawGatewayProtocol() = %q, want %q", got, tokenPrefix+"ui-token")
 	}
 }
 

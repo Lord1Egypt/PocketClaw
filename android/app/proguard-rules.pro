@@ -11,7 +11,7 @@
 -keep class com.google.firebase.** { *; }
 -dontwarn io.flutter.embedding.**
 
-# PicoClaw
+# PocketClaw
 -keep class com.lord1egypt.pocketclaw.** { *; }
 
 # Umeng Analytics

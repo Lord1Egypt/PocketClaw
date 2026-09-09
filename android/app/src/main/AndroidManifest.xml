@@ -103,7 +103,7 @@
             </intent-filter>
         </activity>
 
-        <!-- PicoClaw 原生前台服务（运行 Go 二进制） -->
+        <!-- PocketClaw 原生前台服务（运行 Go 二进制） -->
         <service
             android:name=".service.PocketClawService"
             android:exported="false"

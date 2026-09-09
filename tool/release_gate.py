@@ -466,6 +466,16 @@ def source_gates(gate: Gate, run_tests: bool, release_class: str = "test"):
     if re.fullmatch(r"[0-9a-f]{64}", fingerprint):
         gate.facts["coreSourceFingerprint"] = fingerprint
 
+    # Source, not artifact, and deliberately above the --no-tests return: a new
+    # active Pico identity has to be caught before it is compiled, because after
+    # that the only evidence is a string inside a .so nobody greps. It reads the
+    # tree and runs in under a second, so there is no reason to skip it.
+    rc, out = run([sys.executable, str(REPO / "tool/no_active_pico.py")], cwd=REPO)
+    summary = out.strip().splitlines()[-1] if out.strip() else "FAIL"
+    gate.check("namespace.no_active_pico", rc == 0,
+               expected="no unclassified Pico identity in owned production source",
+               observed="PASS" if rc == 0 else summary)
+
     if not run_tests:
         gate.record("tests", SKIP, "not requested (--no-tests)")
         return
@@ -496,6 +506,7 @@ def source_gates(gate: Gate, run_tests: bool, release_class: str = "test"):
     gate.check("a2.private_storage_contracts", rc == 0,
                expected="A2 credential, log and auth guards pass",
                observed="PASS" if rc == 0 else "FAIL")
+
 
     flutter = shutil.which("flutter")
     if not flutter:

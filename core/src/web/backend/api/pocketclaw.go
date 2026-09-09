@@ -62,7 +62,7 @@ func (h *Handler) createWsProxy(origProtocol string, upstreamProtocol string) *h
 	return wsProxy
 }
 
-func (h *Handler) createPicoHTTPProxy(token string) *httputil.ReverseProxy {
+func (h *Handler) createPocketClawHTTPProxy(token string) *httputil.ReverseProxy {
 	return &httputil.ReverseProxy{
 		Rewrite: func(r *httputil.ProxyRequest) {
 			target := h.gatewayProxyURL()
@@ -70,7 +70,7 @@ func (h *Handler) createPicoHTTPProxy(token string) *httputil.ReverseProxy {
 			r.Out.Header.Set("Authorization", "Bearer "+token)
 		},
 		ErrorHandler: func(w http.ResponseWriter, r *http.Request, err error) {
-			logger.Errorf("Failed to proxy Pico HTTP request: %v", err)
+			logger.Errorf("Failed to proxy PocketClaw HTTP request: %v", err)
 			http.Error(w, "Gateway unavailable: "+err.Error(), http.StatusBadGateway)
 		},
 	}
@@ -78,7 +78,7 @@ func (h *Handler) createPicoHTTPProxy(token string) *httputil.ReverseProxy {
 
 func (h *Handler) gatewayAvailableForProxy() bool {
 	gateway.mu.Lock()
-	ensurePicoTokenCachedLocked(h.configPath)
+	ensurePocketClawTokenCachedLocked(h.configPath)
 	cachedPID := gateway.pidData
 	trackedCmd := gateway.cmd
 	gateway.mu.Unlock()
@@ -119,12 +119,12 @@ func decodePocketClawSettings(cfg *config.Config) (config.PocketClawSettings, bo
 		return config.PocketClawSettings{}, false
 	}
 
-	var picoCfg config.PocketClawSettings
-	if err := bc.Decode(&picoCfg); err != nil {
+	var pocketClawCfg config.PocketClawSettings
+	if err := bc.Decode(&pocketClawCfg); err != nil {
 		return config.PocketClawSettings{}, false
 	}
 
-	return picoCfg, bc.Enabled
+	return pocketClawCfg, bc.Enabled
 }
 
 func (h *Handler) writePocketClawInfoResponse(
@@ -133,7 +133,7 @@ func (h *Handler) writePocketClawInfoResponse(
 	cfg *config.Config,
 	changed *bool,
 ) {
-	picoCfg, enabled := decodePocketClawSettings(cfg)
+	pocketClawCfg, enabled := decodePocketClawSettings(cfg)
 
 	resp := map[string]any{
 		"ws_url":  h.buildWsURL(r),
@@ -142,7 +142,7 @@ func (h *Handler) writePocketClawInfoResponse(
 	if changed != nil {
 		resp["changed"] = *changed
 	}
-	if picoCfg.Token.String() != "" {
+	if pocketClawCfg.Token.String() != "" {
 		resp["configured"] = true
 	}
 
@@ -151,7 +151,7 @@ func (h *Handler) writePocketClawInfoResponse(
 }
 
 // handleWebSocketProxy wraps a reverse proxy to handle WebSocket connections.
-// It relies on launcher dashboard auth, then injects the raw pico token only
+// It relies on launcher dashboard auth, then injects the raw PocketClaw token only
 // on the upstream gateway request.
 func (h *Handler) handleWebSocketProxy() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -161,10 +161,10 @@ func (h *Handler) handleWebSocketProxy() http.HandlerFunc {
 			return
 		}
 
-		upstreamProtocol := picoGatewayProtocol()
+		upstreamProtocol := pocketClawGatewayProtocol()
 		if upstreamProtocol == "" {
-			logger.Warn("Pico token unavailable for WebSocket proxy")
-			http.Error(w, "Pico channel not configured", http.StatusServiceUnavailable)
+			logger.Warn("PocketClaw token unavailable for WebSocket proxy")
+			http.Error(w, "PocketClaw channel not configured", http.StatusServiceUnavailable)
 			return
 		}
 
@@ -180,26 +180,26 @@ func (h *Handler) handleWebSocketProxy() http.HandlerFunc {
 func (h *Handler) handlePocketClawMediaProxy() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if !h.gatewayAvailableForProxy() {
-			logger.Warnf("Gateway not available for Pico media proxy")
+			logger.Warnf("Gateway not available for PocketClaw media proxy")
 			http.Error(w, "Gateway not available", http.StatusServiceUnavailable)
 			return
 		}
 
 		gateway.mu.Lock()
-		picoToken := gateway.picoToken
+		pocketClawToken := gateway.pocketClawToken
 		gateway.mu.Unlock()
 
-		if picoToken == "" {
-			logger.Warnf("Missing Pico token for media proxy")
-			http.Error(w, "Invalid Pico token", http.StatusForbidden)
+		if pocketClawToken == "" {
+			logger.Warnf("Missing PocketClaw token for media proxy")
+			http.Error(w, "Invalid PocketClaw token", http.StatusForbidden)
 			return
 		}
 
-		h.createPicoHTTPProxy(picoToken).ServeHTTP(w, r)
+		h.createPocketClawHTTPProxy(pocketClawToken).ServeHTTP(w, r)
 	}
 }
 
-// handleGetPocketClawInfo returns non-secret Pico connection info for the launcher UI.
+// handleGetPocketClawInfo returns non-secret PocketClaw connection info for the launcher UI.
 //
 //	GET /api/pocketclaw/info
 func (h *Handler) handleGetPocketClawInfo(w http.ResponseWriter, r *http.Request) {
@@ -212,7 +212,7 @@ func (h *Handler) handleGetPocketClawInfo(w http.ResponseWriter, r *http.Request
 	h.writePocketClawInfoResponse(w, r, cfg, nil)
 }
 
-// handleRegenPocketClawToken rotates the raw Pico WebSocket token and returns
+// handleRegenPocketClawToken rotates the raw PocketClaw WebSocket token and returns
 // non-secret connection info for the launcher UI.
 //
 //	POST /api/pocketclaw/token
@@ -225,7 +225,7 @@ func (h *Handler) handleRegenPocketClawToken(w http.ResponseWriter, r *http.Requ
 
 	token, err := generateSecureToken()
 	if err != nil {
-		http.Error(w, "Failed to generate Pico credential", http.StatusInternalServerError)
+		http.Error(w, "Failed to generate PocketClaw credential", http.StatusInternalServerError)
 		return
 	}
 	if bc := cfg.Channels.GetByType(config.ChannelPocketClaw); bc != nil {
@@ -243,13 +243,13 @@ func (h *Handler) handleRegenPocketClawToken(w http.ResponseWriter, r *http.Requ
 	}
 
 	gateway.mu.Lock()
-	gateway.picoToken = token
+	gateway.pocketClawToken = token
 	gateway.mu.Unlock()
 
 	h.writePocketClawInfoResponse(w, r, cfg, nil)
 }
 
-// EnsurePocketClawChannel enables the Pico channel with sane defaults if it isn't
+// EnsurePocketClawChannel enables the PocketClaw channel with sane defaults if it isn't
 // already configured. Returns true when the config was modified.
 func (h *Handler) EnsurePocketClawChannel() (bool, error) {
 	cfg, err := config.LoadConfig(h.configPath)
@@ -276,13 +276,13 @@ func (h *Handler) EnsurePocketClawChannel() (bool, error) {
 	}
 
 	if decoded, err := bc.GetDecoded(); err == nil && decoded != nil {
-		if picoCfg, ok := decoded.(*config.PocketClawSettings); ok {
-			if picoCfg.Token.String() == "" {
+		if pocketClawCfg, ok := decoded.(*config.PocketClawSettings); ok {
+			if pocketClawCfg.Token.String() == "" {
 				token, tokenErr := generateSecureToken()
 				if tokenErr != nil {
-					return false, fmt.Errorf("failed to generate pico credential: %w", tokenErr)
+					return false, fmt.Errorf("failed to generate PocketClaw credential: %w", tokenErr)
 				}
-				picoCfg.Token = *config.NewSecureString(token)
+				pocketClawCfg.Token = *config.NewSecureString(token)
 				changed = true
 			}
 		}
@@ -297,7 +297,7 @@ func (h *Handler) EnsurePocketClawChannel() (bool, error) {
 	return changed, nil
 }
 
-// handlePocketClawSetup automatically configures everything needed for the Pico Channel to work.
+// handlePocketClawSetup automatically configures everything needed for the PocketClaw channel to work.
 //
 //	POST /api/pocketclaw/setup
 func (h *Handler) handlePocketClawSetup(w http.ResponseWriter, r *http.Request) {

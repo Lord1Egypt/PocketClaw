@@ -11,7 +11,7 @@ import {
   updateChatStore,
 } from "@/store/chat"
 
-export interface PicoMessage {
+export interface PocketClawMessage {
   type: string
   id?: string
   session_id?: string
@@ -93,8 +93,8 @@ function parseModelName(payload: Record<string, unknown>): string | undefined {
   return modelName || undefined
 }
 
-export function handlePicoMessage(
-  message: PicoMessage,
+export function handlePocketClawMessage(
+  message: PocketClawMessage,
   expectedSessionId: string,
 ) {
   if (message.session_id && message.session_id !== expectedSessionId) {
@@ -229,7 +229,7 @@ export function handlePicoMessage(
       const errorMessage =
         typeof payload.message === "string" ? payload.message : ""
 
-      console.error("Pico error:", payload)
+      console.error("PocketClaw error:", payload)
       if (errorMessage) {
         toast.error(errorMessage)
       }

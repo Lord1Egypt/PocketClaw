@@ -39,7 +39,7 @@ class PublicModeApplyResult {
   final String message;
 }
 
-/// PicoClaw 原生 MethodChannel 客户端。
+/// PocketClaw 原生 MethodChannel 客户端。
 /// 仅在 Android 平台可用，用于与 Kotlin 原生服务层通信。
 class PocketClawChannel {
   static const _channel = MethodChannel('com.lord1egypt.pocketclaw/pocketclaw');

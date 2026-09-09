@@ -133,7 +133,7 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
     defaultValue: 'official',
   );
   static const String _distributionChannel = String.fromEnvironment(
-    'PICOCLAW_DISTRIBUTION_CHANNEL',
+    'POCKETCLAW_DISTRIBUTION_CHANNEL',
     defaultValue: _umengChannel,
   );
   static final bool _isTestEnvironment =

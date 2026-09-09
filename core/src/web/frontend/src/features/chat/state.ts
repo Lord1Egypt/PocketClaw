@@ -1,4 +1,4 @@
-const LAST_SESSION_STORAGE_KEY = "picoclaw:last-session-id"
+const LAST_SESSION_STORAGE_KEY = "pocketclaw:last-session-id"
 const UNIX_MS_THRESHOLD = 1e12
 
 function readStorageValue() {

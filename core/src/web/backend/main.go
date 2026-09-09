@@ -1,6 +1,6 @@
-// PicoClaw Web Console - Web-based chat and management interface
+// PocketClaw Web Console - Web-based chat and management interface
 //
-// Provides a web UI for chatting with PicoClaw via the Pico Channel WebSocket,
+// Provides a web UI for chatting with PocketClaw over the realtime channel,
 // with configuration management and gateway process control.
 //
 // Usage:

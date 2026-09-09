@@ -1,7 +1,7 @@
 package dashboardauth
 
 const (
-	// DBFilename is the SQLite database file stored under the PicoClaw home directory.
+	// DBFilename is the SQLite database file stored under the PocketClaw home directory.
 	DBFilename = "launcher-auth.db"
 
 	sqliteDriver = "sqlite"

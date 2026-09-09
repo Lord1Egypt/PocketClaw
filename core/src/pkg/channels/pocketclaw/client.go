@@ -19,7 +19,7 @@ import (
 	"github.com/sipeed/picoclaw/pkg/logger"
 )
 
-// PocketClawClientChannel connects to a remote Pico Protocol WebSocket server.
+// PocketClawClientChannel connects to a remote PocketClaw realtime WebSocket server.
 type PocketClawClientChannel struct {
 	*channels.BaseChannel
 	config *config.PocketClawClientSettings
@@ -29,7 +29,7 @@ type PocketClawClientChannel struct {
 	cancel context.CancelFunc
 }
 
-// NewPocketClawClientChannel creates a new Pico Protocol client channel.
+// NewPocketClawClientChannel creates a new PocketClaw realtime client channel.
 // Identity for conversations this channel opens against a remote Gateway.
 const (
 	clientChatIDPrefix = config.ChannelPocketClawClient + ":"

@@ -110,7 +110,7 @@ export function MessageCodeBlock({
 
   return (
     <div
-      data-picoclaw-code-block=""
+      data-pocketclaw-code-block=""
       className={cn(
         "not-prose border-pc-line bg-pc-canvas text-pc-text my-4 overflow-hidden rounded-lg border",
         className,

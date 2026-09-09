@@ -276,8 +276,11 @@ func TestHandleGetChannelConfig_ReturnsDefaultShapeForMissingChannel(t *testing.
 	if got := resp.Config["server"]; got != "" {
 		t.Fatalf("config.server = %#v, want empty string", got)
 	}
-	if got := resp.Config["nick"]; got != "picoclaw" {
-		t.Fatalf("config.nick = %#v, want %q", got, "picoclaw")
+	// The default nick this product ships. A user who enables IRC without
+	// choosing one makes the Core send it on the wire, so it states the current
+	// identity rather than the upstream one.
+	if got := resp.Config["nick"]; got != "pocketclaw" {
+		t.Fatalf("config.nick = %#v, want %q", got, "pocketclaw")
 	}
 	if got := resp.Config["enabled"]; got != false {
 		t.Fatalf("config.enabled = %#v, want false", got)

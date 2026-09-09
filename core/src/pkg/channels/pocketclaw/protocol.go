@@ -33,7 +33,7 @@ const (
 	MessageKindToolCalls = "tool_calls"
 )
 
-// PocketClawMessage is the wire format for all Pico Protocol messages.
+// PocketClawMessage is the wire format for all PocketClaw realtime messages.
 type PocketClawMessage struct {
 	Type      string         `json:"type"`
 	ID        string         `json:"id,omitempty"`

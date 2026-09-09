@@ -159,13 +159,13 @@ func TestPicoSettings_StreamingConfig(t *testing.T) {
 		Settings: raw,
 	}
 	ch.SetName("pocketclaw")
-	var picoCfg PocketClawSettings
-	if err := ch.Decode(&picoCfg); err != nil {
+	var pocketClawCfg PocketClawSettings
+	if err := ch.Decode(&pocketClawCfg); err != nil {
 		t.Fatalf("Decode() error = %v", err)
 	}
-	assert.True(t, picoCfg.Streaming.Enabled)
-	assert.Equal(t, 2, picoCfg.Streaming.ThrottleSeconds)
-	assert.Equal(t, 80, picoCfg.Streaming.MinGrowthChars)
+	assert.True(t, pocketClawCfg.Streaming.Enabled)
+	assert.Equal(t, 2, pocketClawCfg.Streaming.ThrottleSeconds)
+	assert.Equal(t, 80, pocketClawCfg.Streaming.MinGrowthChars)
 }
 
 func TestWeComSettings_StreamingConfig(t *testing.T) {
@@ -243,10 +243,10 @@ func TestInitChannelList_TelegramStreamingEnvCompatibility(t *testing.T) {
 	if err != nil {
 		t.Fatalf("pico GetDecoded() error = %v", err)
 	}
-	picoCfg := picoDecoded.(*PocketClawSettings)
-	assert.False(t, picoCfg.Streaming.Enabled)
-	assert.Equal(t, 0, picoCfg.Streaming.ThrottleSeconds)
-	assert.Equal(t, 0, picoCfg.Streaming.MinGrowthChars)
+	pocketClawCfg := picoDecoded.(*PocketClawSettings)
+	assert.False(t, pocketClawCfg.Streaming.Enabled)
+	assert.Equal(t, 0, pocketClawCfg.Streaming.ThrottleSeconds)
+	assert.Equal(t, 0, pocketClawCfg.Streaming.MinGrowthChars)
 }
 
 func TestInitChannelList_RejectsNegativeStreamingDeliveryValues(t *testing.T) {

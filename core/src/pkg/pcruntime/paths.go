@@ -71,7 +71,12 @@ func ResolvePaths() (*Paths, error) {
 				EnvRuntimeDir,
 			)
 		}
-		metadataDir = filepath.Join(home, "picoclaw", "runtime")
+		// The shipped product never reaches this: the Android host always
+		// passes POCKETCLAW_RUNTIME_DIR. It is the desktop and development
+		// fallback, and it is canonical because creating a directory under the
+		// pre-migration name would mint the very identity the migration
+		// retires, beside the legacy home the host moves state out of.
+		metadataDir = filepath.Join(home, "pocketclaw", "runtime")
 	}
 
 	paths := &Paths{

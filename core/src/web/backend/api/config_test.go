@@ -409,13 +409,13 @@ func TestHandlePatchConfig_NormalizesStringChannelArrayFields(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetDecoded() pico error = %v", err)
 	}
-	picoCfg := decoded.(*config.PocketClawSettings)
-	if len(picoCfg.AllowOrigins) != 2 ||
-		picoCfg.AllowOrigins[0] != "https://a.example.com" ||
-		picoCfg.AllowOrigins[1] != "http://localhost:5173" {
+	pocketClawCfg := decoded.(*config.PocketClawSettings)
+	if len(pocketClawCfg.AllowOrigins) != 2 ||
+		pocketClawCfg.AllowOrigins[0] != "https://a.example.com" ||
+		pocketClawCfg.AllowOrigins[1] != "http://localhost:5173" {
 		t.Fatalf(
 			"pico allow_origins = %#v, want [\"https://a.example.com\", \"http://localhost:5173\"]",
-			picoCfg.AllowOrigins,
+			pocketClawCfg.AllowOrigins,
 		)
 	}
 
@@ -787,9 +787,9 @@ func setupPicoEnabledEnv(t *testing.T) (string, func()) {
 	if err != nil {
 		t.Fatalf("GetDecoded() error = %v", err)
 	}
-	picoCfg := decoded.(*config.PocketClawSettings)
+	pocketClawCfg := decoded.(*config.PocketClawSettings)
 	bc.Enabled = true
-	picoCfg.Token = *config.NewSecureString("test-pico-token")
+	pocketClawCfg.Token = *config.NewSecureString("test-pico-token")
 
 	configPath := filepath.Join(tmp, "config.json")
 	if err := config.SaveConfig(configPath, cfg); err != nil {

@@ -44,11 +44,11 @@ func TestEnsurePicoChannel_FreshConfig(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetDecoded() error = %v", err)
 	}
-	picoCfg := decoded.(*config.PocketClawSettings)
+	pocketClawCfg := decoded.(*config.PocketClawSettings)
 	if !bc.Enabled {
 		t.Error("expected Pico to be enabled after setup")
 	}
-	if picoCfg.Token.String() == "" {
+	if pocketClawCfg.Token.String() == "" {
 		t.Error("expected a non-empty token after setup")
 	}
 	if len(bc.AllowFrom) != 1 || bc.AllowFrom[0] != config.PocketClawOwnerPrincipal {
@@ -74,8 +74,8 @@ func TestEnsurePicoChannel_DoesNotEnableTokenQuery(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetDecoded() error = %v", err)
 	}
-	picoCfg := decoded.(*config.PocketClawSettings)
-	if picoCfg.AllowTokenQuery {
+	pocketClawCfg := decoded.(*config.PocketClawSettings)
+	if pocketClawCfg.AllowTokenQuery {
 		t.Error("setup must not enable allow_token_query by default")
 	}
 }
@@ -98,9 +98,9 @@ func TestEnsurePicoChannel_LeavesAllowOriginsEmptyByDefault(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetDecoded() error = %v", err)
 	}
-	picoCfg := decoded.(*config.PocketClawSettings)
-	if len(picoCfg.AllowOrigins) != 0 {
-		t.Errorf("allow_origins = %v, want empty", picoCfg.AllowOrigins)
+	pocketClawCfg := decoded.(*config.PocketClawSettings)
+	if len(pocketClawCfg.AllowOrigins) != 0 {
+		t.Errorf("allow_origins = %v, want empty", pocketClawCfg.AllowOrigins)
 	}
 }
 
@@ -122,9 +122,9 @@ func TestEnsurePicoChannel_NoOriginConfigurationRequired(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetDecoded() error = %v", err)
 	}
-	picoCfg := decoded.(*config.PocketClawSettings)
-	if len(picoCfg.AllowOrigins) != 0 {
-		t.Errorf("allow_origins = %v, want empty", picoCfg.AllowOrigins)
+	pocketClawCfg := decoded.(*config.PocketClawSettings)
+	if len(pocketClawCfg.AllowOrigins) != 0 {
+		t.Errorf("allow_origins = %v, want empty", pocketClawCfg.AllowOrigins)
 	}
 }
 
@@ -138,11 +138,11 @@ func TestEnsurePicoChannel_PreservesUserSettings(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetDecoded() error = %v", err)
 	}
-	picoCfg := decoded.(*config.PocketClawSettings)
+	pocketClawCfg := decoded.(*config.PocketClawSettings)
 	bc.Enabled = true
-	picoCfg.SetToken("user-custom-token")
-	picoCfg.AllowTokenQuery = true
-	picoCfg.AllowOrigins = []string{"https://myapp.example.com"}
+	pocketClawCfg.SetToken("user-custom-token")
+	pocketClawCfg.AllowTokenQuery = true
+	pocketClawCfg.AllowOrigins = []string{"https://myapp.example.com"}
 	bc.AllowFrom = config.FlexibleStringSlice{config.PocketClawOwnerPrincipal}
 	if err = config.SaveConfig(configPath, cfg); err != nil {
 		t.Fatalf("SaveConfig() error = %v", err)
@@ -168,15 +168,15 @@ func TestEnsurePicoChannel_PreservesUserSettings(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetDecoded() error = %v", err)
 	}
-	picoCfg = decoded.(*config.PocketClawSettings)
-	if picoCfg.Token.String() != "user-custom-token" {
-		t.Errorf("token = %q, want %q", picoCfg.Token.String(), "user-custom-token")
+	pocketClawCfg = decoded.(*config.PocketClawSettings)
+	if pocketClawCfg.Token.String() != "user-custom-token" {
+		t.Errorf("token = %q, want %q", pocketClawCfg.Token.String(), "user-custom-token")
 	}
-	if !picoCfg.AllowTokenQuery {
+	if !pocketClawCfg.AllowTokenQuery {
 		t.Error("user's allow_token_query=true must be preserved")
 	}
-	if len(picoCfg.AllowOrigins) != 1 || picoCfg.AllowOrigins[0] != "https://myapp.example.com" {
-		t.Errorf("allow_origins = %v, want [https://myapp.example.com]", picoCfg.AllowOrigins)
+	if len(pocketClawCfg.AllowOrigins) != 1 || pocketClawCfg.AllowOrigins[0] != "https://myapp.example.com" {
+		t.Errorf("allow_origins = %v, want [https://myapp.example.com]", pocketClawCfg.AllowOrigins)
 	}
 }
 
@@ -244,11 +244,11 @@ func TestEnsurePicoChannel_ExistingConfigWithoutSecurityFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetDecoded() error = %v", err)
 	}
-	picoCfg := decoded.(*config.PocketClawSettings)
+	pocketClawCfg := decoded.(*config.PocketClawSettings)
 	if !bc.Enabled {
 		t.Error("expected Pico to be enabled after setup")
 	}
-	if picoCfg.Token.String() == "" {
+	if pocketClawCfg.Token.String() == "" {
 		t.Error("expected a non-empty token after setup")
 	}
 	if _, err := os.Stat(filepath.Join(filepath.Dir(configPath), config.SecurityConfigFile)); err != nil {
@@ -280,11 +280,11 @@ func TestEnsurePicoChannel_ConfiguresPicoWithoutGateway(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetDecoded() error = %v", err)
 	}
-	picoCfg := decoded.(*config.PocketClawSettings)
+	pocketClawCfg := decoded.(*config.PocketClawSettings)
 	if !bc.Enabled {
 		t.Error("expected Pico to be enabled after launcher startup setup")
 	}
-	if picoCfg.Token.String() == "" {
+	if pocketClawCfg.Token.String() == "" {
 		t.Error("expected a non-empty token after launcher startup setup")
 	}
 }
@@ -304,8 +304,8 @@ func TestEnsurePicoChannel_Idempotent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetDecoded() error = %v", err)
 	}
-	picoCfg := decoded.(*config.PocketClawSettings)
-	token1 := picoCfg.Token.String()
+	pocketClawCfg := decoded.(*config.PocketClawSettings)
+	token1 := pocketClawCfg.Token.String()
 
 	// Second call should be a no-op
 	changed, err := h.EnsurePocketClawChannel()
@@ -322,8 +322,8 @@ func TestEnsurePicoChannel_Idempotent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetDecoded() error = %v", err)
 	}
-	picoCfg = decoded.(*config.PocketClawSettings)
-	if picoCfg.Token.String() != token1 {
+	pocketClawCfg = decoded.(*config.PocketClawSettings)
+	if pocketClawCfg.Token.String() != token1 {
 		t.Error("token should not change on subsequent calls")
 	}
 }
@@ -352,9 +352,9 @@ func TestHandlePicoSetup_DoesNotPersistRequestOrigin(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetDecoded() error = %v", err)
 	}
-	picoCfg := decoded.(*config.PocketClawSettings)
-	if len(picoCfg.AllowOrigins) != 0 {
-		t.Errorf("allow_origins = %v, want empty", picoCfg.AllowOrigins)
+	pocketClawCfg := decoded.(*config.PocketClawSettings)
+	if len(pocketClawCfg.AllowOrigins) != 0 {
+		t.Errorf("allow_origins = %v, want empty", pocketClawCfg.AllowOrigins)
 	}
 }
 
@@ -437,15 +437,15 @@ func TestHandleRegenPicoToken_RefreshesGatewayTokenCache(t *testing.T) {
 		t.Fatalf("EnsurePocketClawChannel() error = %v", err)
 	}
 
-	origPicoToken := gateway.picoToken
+	origPicoToken := gateway.pocketClawToken
 	t.Cleanup(func() {
 		gateway.mu.Lock()
-		gateway.picoToken = origPicoToken
+		gateway.pocketClawToken = origPicoToken
 		gateway.mu.Unlock()
 	})
 
 	gateway.mu.Lock()
-	gateway.picoToken = "stale-token"
+	gateway.pocketClawToken = "stale-token"
 	gateway.mu.Unlock()
 
 	req := httptest.NewRequest(http.MethodPost, "http://launcher.local/api/pocketclaw/token", nil)
@@ -476,8 +476,8 @@ func TestHandleRegenPicoToken_RefreshesGatewayTokenCache(t *testing.T) {
 
 	gateway.mu.Lock()
 	defer gateway.mu.Unlock()
-	if gateway.picoToken != token {
-		t.Fatalf("gateway.picoToken = %q, want %q", gateway.picoToken, token)
+	if gateway.pocketClawToken != token {
+		t.Fatalf("gateway.pocketClawToken = %q, want %q", gateway.pocketClawToken, token)
 	}
 }
 
@@ -531,15 +531,15 @@ func TestHandleWebSocketProxyReloadsGatewayTargetFromConfig(t *testing.T) {
 		Port:  cfg.Gateway.Port,
 	})
 	origPidData := gateway.pidData
-	origPicoToken := gateway.picoToken
+	origPicoToken := gateway.pocketClawToken
 	t.Cleanup(func() {
 		ppid.RemovePidFile(globalConfigDir())
 		gateway.pidData = origPidData
-		gateway.picoToken = origPicoToken
+		gateway.pocketClawToken = origPicoToken
 	})
 
 	gateway.pidData = &ppid.PidFileData{}
-	gateway.picoToken = "pocketclaw"
+	gateway.pocketClawToken = "pocketclaw"
 	req1 := newPicoProxyRequest(http.MethodGet, "/pocketclaw/ws")
 	rec1 := httptest.NewRecorder()
 	handler(rec1, req1)
@@ -597,9 +597,9 @@ func TestHandleWebSocketProxyLoadsCachedPicoTokenWhenMissing(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetDecoded() error = %v", err)
 	}
-	picoCfg := decoded.(*config.PocketClawSettings)
+	pocketClawCfg := decoded.(*config.PocketClawSettings)
 	bc.Enabled = true
-	picoCfg.SetToken("cached-token")
+	pocketClawCfg.SetToken("cached-token")
 	if err := config.SaveConfig(configPath, cfg); err != nil {
 		t.Fatalf("SaveConfig() error = %v", err)
 	}
@@ -621,14 +621,14 @@ func TestHandleWebSocketProxyLoadsCachedPicoTokenWhenMissing(t *testing.T) {
 	})
 
 	origPidData := gateway.pidData
-	origPicoToken := gateway.picoToken
+	origPicoToken := gateway.pocketClawToken
 	t.Cleanup(func() {
 		gateway.pidData = origPidData
-		gateway.picoToken = origPicoToken
+		gateway.pocketClawToken = origPicoToken
 	})
 
 	gateway.pidData = &ppid.PidFileData{}
-	gateway.picoToken = ""
+	gateway.pocketClawToken = ""
 
 	req := newPicoProxyRequest(http.MethodGet, "/pocketclaw/ws?session_id=test-session")
 	rec := httptest.NewRecorder()
@@ -640,8 +640,8 @@ func TestHandleWebSocketProxyLoadsCachedPicoTokenWhenMissing(t *testing.T) {
 	if body := rec.Body.String(); body != "proxied" {
 		t.Fatalf("body = %q, want %q", body, "proxied")
 	}
-	if gateway.picoToken != "cached-token" {
-		t.Fatalf("gateway.picoToken = %q, want %q", gateway.picoToken, "cached-token")
+	if gateway.pocketClawToken != "cached-token" {
+		t.Fatalf("gateway.pocketClawToken = %q, want %q", gateway.pocketClawToken, "cached-token")
 	}
 }
 
@@ -699,19 +699,19 @@ func TestHandleWebSocketProxyLoadsPidDataOnDemand(t *testing.T) {
 	})
 
 	origPidData := gateway.pidData
-	origPicoToken := gateway.picoToken
+	origPicoToken := gateway.pocketClawToken
 	origStatus := gateway.runtimeStatus
 	t.Cleanup(func() {
 		gateway.mu.Lock()
 		gateway.pidData = origPidData
-		gateway.picoToken = origPicoToken
+		gateway.pocketClawToken = origPicoToken
 		gateway.runtimeStatus = origStatus
 		gateway.mu.Unlock()
 	})
 
 	gateway.mu.Lock()
 	gateway.pidData = nil
-	gateway.picoToken = ""
+	gateway.pocketClawToken = ""
 	setGatewayRuntimeStatusLocked("stopped")
 	gateway.mu.Unlock()
 
@@ -756,7 +756,7 @@ func TestCreatePicoHTTPProxyInjectsGatewayAuth(t *testing.T) {
 		t.Fatalf("SaveConfig() error = %v", err)
 	}
 
-	proxy := h.createPicoHTTPProxy("ui-token")
+	proxy := h.createPocketClawHTTPProxy("ui-token")
 	var capturedPath string
 	var capturedAuth string
 	proxy.Transport = roundTripFunc(func(req *http.Request) (*http.Response, error) {
@@ -829,19 +829,19 @@ func TestHandlePicoMediaProxyUsesRawBearerToken(t *testing.T) {
 	})
 
 	origPidData := gateway.pidData
-	origPicoToken := gateway.picoToken
+	origPicoToken := gateway.pocketClawToken
 	origCmd := gateway.cmd
 	t.Cleanup(func() {
 		gateway.mu.Lock()
 		gateway.pidData = origPidData
-		gateway.picoToken = origPicoToken
+		gateway.pocketClawToken = origPicoToken
 		gateway.cmd = origCmd
 		gateway.mu.Unlock()
 	})
 
 	gateway.mu.Lock()
 	gateway.pidData = &ppid.PidFileData{PID: cmd.Process.Pid}
-	gateway.picoToken = "ui-token"
+	gateway.pocketClawToken = "ui-token"
 	gateway.cmd = cmd
 	gateway.mu.Unlock()
 
@@ -885,13 +885,13 @@ func TestHandleWebSocketProxyRejectsStalePidDataAfterProcessExit(t *testing.T) {
 	_ = cmd.Wait()
 
 	origPidData := gateway.pidData
-	origPicoToken := gateway.picoToken
+	origPicoToken := gateway.pocketClawToken
 	origCmd := gateway.cmd
 	origStatus := gateway.runtimeStatus
 	t.Cleanup(func() {
 		gateway.mu.Lock()
 		gateway.pidData = origPidData
-		gateway.picoToken = origPicoToken
+		gateway.pocketClawToken = origPicoToken
 		gateway.cmd = origCmd
 		gateway.runtimeStatus = origStatus
 		gateway.mu.Unlock()
@@ -899,7 +899,7 @@ func TestHandleWebSocketProxyRejectsStalePidDataAfterProcessExit(t *testing.T) {
 
 	gateway.mu.Lock()
 	gateway.pidData = &ppid.PidFileData{PID: cmd.Process.Pid, Token: "stale-token"}
-	gateway.picoToken = "ui-token"
+	gateway.pocketClawToken = "ui-token"
 	gateway.cmd = cmd
 	setGatewayRuntimeStatusLocked("running")
 	gateway.mu.Unlock()
@@ -971,14 +971,14 @@ func TestHandleWebSocketProxy_AllowsArbitraryOrigin(t *testing.T) {
 	})
 
 	origPidData := gateway.pidData
-	origPicoToken := gateway.picoToken
+	origPicoToken := gateway.pocketClawToken
 	t.Cleanup(func() {
 		gateway.pidData = origPidData
-		gateway.picoToken = origPicoToken
+		gateway.pocketClawToken = origPicoToken
 	})
 
 	gateway.pidData = &ppid.PidFileData{}
-	gateway.picoToken = "ui-token"
+	gateway.pocketClawToken = "ui-token"
 
 	req := httptest.NewRequest(http.MethodGet, "http://launcher.local/pocketclaw/ws?session_id=test-session", nil)
 	req.Header.Set("Origin", "http://evil.example")
