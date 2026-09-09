@@ -994,6 +994,30 @@ abstract class AppLocalizations {
   /// **'Diagnostic logs are now kept privately inside the app instead of in your Downloads folder. Your workspace stays where it was.'**
   String get whatsNew020Improvement7;
 
+  /// No description provided for @whatsNew020Improvement8.
+  ///
+  /// In en, this message translates to:
+  /// **'A substantial upgrade to how PocketClaw keeps its state and runs its services, for steadier day-to-day reliability.'**
+  String get whatsNew020Improvement8;
+
+  /// No description provided for @whatsNew020Improvement9.
+  ///
+  /// In en, this message translates to:
+  /// **'After this update, the Dashboard asks you to sign in once more.'**
+  String get whatsNew020Improvement9;
+
+  /// No description provided for @whatsNew020Improvement10.
+  ///
+  /// In en, this message translates to:
+  /// **'After this update, the Web chat channel starts a new conversation.'**
+  String get whatsNew020Improvement10;
+
+  /// No description provided for @whatsNew020Improvement11.
+  ///
+  /// In en, this message translates to:
+  /// **'After this update, it is worth checking your notification preferences once.'**
+  String get whatsNew020Improvement11;
+
   /// No description provided for @whatsNew020Fix1.
   ///
   /// In en, this message translates to:

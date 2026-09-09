@@ -39,13 +39,13 @@ func TestLoggerSuppressesOnlyRoutineSuccessfulGatewayPolls(t *testing.T) {
 	}{
 		{name: "logs success", method: http.MethodGet, path: "/api/gateway/logs", status: http.StatusOK},
 		{name: "status success", method: http.MethodGet, path: "/api/gateway/status", status: http.StatusOK},
-		{name: "websocket success", method: http.MethodGet, path: "/pico/ws", status: http.StatusOK},
-		{name: "websocket upgrade", method: http.MethodGet, path: "/pico/ws", status: http.StatusSwitchingProtocols},
+		{name: "websocket success", method: http.MethodGet, path: "/pocketclaw/ws", status: http.StatusOK},
+		{name: "websocket upgrade", method: http.MethodGet, path: "/pocketclaw/ws", status: http.StatusSwitchingProtocols},
 		{name: "logs failure", method: http.MethodGet, path: "/api/gateway/logs", status: http.StatusInternalServerError, emitted: true},
 		{name: "status failure", method: http.MethodGet, path: "/api/gateway/status", status: http.StatusInternalServerError, emitted: true},
-		{name: "websocket client failure", method: http.MethodGet, path: "/pico/ws", status: http.StatusBadRequest, emitted: true},
-		{name: "websocket server failure", method: http.MethodGet, path: "/pico/ws", status: http.StatusInternalServerError, emitted: true},
-		{name: "unexpected websocket method", method: http.MethodPost, path: "/pico/ws", status: http.StatusOK, emitted: true},
+		{name: "websocket client failure", method: http.MethodGet, path: "/pocketclaw/ws", status: http.StatusBadRequest, emitted: true},
+		{name: "websocket server failure", method: http.MethodGet, path: "/pocketclaw/ws", status: http.StatusInternalServerError, emitted: true},
+		{name: "unexpected websocket method", method: http.MethodPost, path: "/pocketclaw/ws", status: http.StatusOK, emitted: true},
 		{name: "config patch", method: http.MethodPatch, path: "/api/config", status: http.StatusOK, emitted: true},
 		{name: "models", method: http.MethodGet, path: "/api/models", status: http.StatusOK, emitted: true},
 		{name: "unknown route", method: http.MethodGet, path: "/api/unknown", status: http.StatusNotFound, emitted: true},
@@ -70,7 +70,7 @@ func TestLoggerSuppressesOnlyRoutineSuccessfulGatewayPolls(t *testing.T) {
 	output := string(raw)
 	for _, tt := range tests {
 		visiblePath := tt.path
-		if visiblePath == "/pico/ws" {
+		if visiblePath == "/pocketclaw/ws" {
 			visiblePath = "/internal realtime connection"
 		}
 		needle := tt.method + " " + visiblePath + " " + strconv.Itoa(tt.status)
@@ -78,7 +78,7 @@ func TestLoggerSuppressesOnlyRoutineSuccessfulGatewayPolls(t *testing.T) {
 			t.Errorf("%s emitted = %v, want %v; logs:\n%s", tt.name, got, tt.emitted, output)
 		}
 	}
-	if strings.Contains(output, "/pico/ws") {
+	if strings.Contains(output, "/pocketclaw/ws") {
 		t.Fatalf("internal compatibility route leaked into user-visible logs:\n%s", output)
 	}
 }

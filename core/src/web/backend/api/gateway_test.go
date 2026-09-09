@@ -126,11 +126,11 @@ func TestPicoGatewayProtocol(t *testing.T) {
 	resetGatewayTestState(t)
 
 	gateway.mu.Lock()
-	gateway.picoToken = "ui-token"
+	gateway.pocketClawToken = "ui-token"
 	gateway.mu.Unlock()
 
-	if got := picoGatewayProtocol(); got != tokenPrefix+"ui-token" {
-		t.Fatalf("picoGatewayProtocol() = %q, want %q", got, tokenPrefix+"ui-token")
+	if got := pocketClawGatewayProtocol(); got != tokenPrefix+"ui-token" {
+		t.Fatalf("pocketClawGatewayProtocol() = %q, want %q", got, tokenPrefix+"ui-token")
 	}
 }
 
@@ -296,7 +296,7 @@ func TestStartGatewayLocked_UsesReloadedConfigForBootSignature(t *testing.T) {
 
 	configPath := filepath.Join(t.TempDir(), "config.json")
 	cfg := config.DefaultConfig()
-	delete(cfg.Channels, "pico")
+	delete(cfg.Channels, "pocketclaw")
 	if err := config.SaveConfig(configPath, cfg); err != nil {
 		t.Fatalf("SaveConfig() error = %v", err)
 	}
@@ -335,7 +335,7 @@ func TestStartGatewayLocked_UsesReloadedConfigForBootSignature(t *testing.T) {
 	}
 	expectedSignature := computeConfigSignature(updatedCfg)
 	if expectedSignature == originalSignature {
-		t.Fatal("expected EnsurePicoChannel() to change the config signature during gateway start")
+		t.Fatal("expected EnsurePocketClawChannel() to change the config signature during gateway start")
 	}
 	if bootSignature != expectedSignature {
 		t.Fatalf("bootConfigSignature = %q, want %q", bootSignature, expectedSignature)
@@ -2403,13 +2403,13 @@ func TestClassifyGatewayCommandLine(t *testing.T) {
 	}{
 		{
 			name:          "android bare executable name is inconclusive",
-			psOutput:      "libpicoclaw.so",
+			psOutput:      "libpocketclaw.so",
 			wantIsGateway: false,
 			wantInspected: false,
 		},
 		{
 			name:          "android launch line with argv is owned",
-			psOutput:      "/data/app/lib/arm64/libpicoclaw.so gateway -E --no-color",
+			psOutput:      "/data/app/lib/arm64/libpocketclaw.so gateway -E --no-color",
 			wantIsGateway: true,
 			wantInspected: true,
 		},

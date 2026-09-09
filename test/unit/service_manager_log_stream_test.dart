@@ -157,7 +157,7 @@ void main() {
         '12:00 DBG http middleware.go:67 > GET /pico/ws 200 53.616µs',
         '12:01 DBG http middleware.go:67 > GET /pico/ws 500 1.2ms',
         '12:02 INF gateway gateway.go:1033 > Starting gateway process '
-            '(/data/app/lib/arm64/libpicoclaw.so)',
+            '(/data/app/lib/arm64/libpocketclaw.so)',
         '12:03 INF pico pico.go:1013 > WebSocket client connected',
         '\x1b[38;2;1;2;3mمدة 53.616µs ✅\x1b[0m',
       ]);
@@ -167,7 +167,7 @@ void main() {
 
       final exportedRepresentation = appendedLogs().join('\n');
       expect(exportedRepresentation, isNot(contains('/pico/ws')));
-      expect(exportedRepresentation, isNot(contains('libpicoclaw.so')));
+      expect(exportedRepresentation, isNot(contains('libpocketclaw.so')));
       expect(exportedRepresentation, isNot(contains('\x1b')));
       expect(
         exportedRepresentation,

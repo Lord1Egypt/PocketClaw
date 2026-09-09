@@ -79,7 +79,7 @@ func TestLauncherDashboardAuth_AllowsPublicPaths(t *testing.T) {
 		{http.MethodPost, "/api/auth/logout", http.StatusTeapot},
 		{http.MethodGet, "/api/auth/logout", http.StatusUnauthorized},
 		{http.MethodGet, "/api/config", http.StatusUnauthorized},
-		{http.MethodGet, "/pico/ws", http.StatusUnauthorized},
+		{http.MethodGet, "/pocketclaw/ws", http.StatusUnauthorized},
 	} {
 		rec := httptest.NewRecorder()
 		req := httptest.NewRequest(tc.method, tc.path, nil)
@@ -162,12 +162,12 @@ func TestLauncherDashboardAuth_LocalAutoLogin(t *testing.T) {
 	if rec.Code != http.StatusSeeOther || rec.Header().Get("Location") != "/" {
 		t.Fatalf("local auto-login code=%d loc=%q", rec.Code, rec.Header().Get("Location"))
 	}
-	cookies := rec.Result().Cookies()
-	if len(cookies) != 1 || cookies[0].Name != LauncherDashboardCookieName || cookies[0].Value != cookieVal {
-		t.Fatalf("cookies = %#v", cookies)
+	session := middlewareSessionCookie(t, rec.Result().Cookies())
+	if session.Value != cookieVal {
+		t.Fatalf("session cookie value = %q, want the issued session", session.Value)
 	}
-	if cookies[0].MaxAge != 24*3600 {
-		t.Fatalf("session cookie MaxAge = %d, want 24 hours", cookies[0].MaxAge)
+	if session.MaxAge != 24*3600 {
+		t.Fatalf("session cookie MaxAge = %d, want 24 hours", session.MaxAge)
 	}
 
 	rec = httptest.NewRecorder()
@@ -211,9 +211,10 @@ func TestLauncherDashboardAuth_LocalAutoLoginRequiresValidNonceAndUnexpired(t *t
 	req.RemoteAddr = "192.168.1.50:12345"
 	req.Host = "192.168.1.50:18800"
 	newHandler(autoLogin).ServeHTTP(rec, req)
-	if rec.Code != http.StatusSeeOther || len(rec.Result().Cookies()) != 1 {
+	if rec.Code != http.StatusSeeOther {
 		t.Fatalf("capability auto-login code=%d cookies=%#v", rec.Code, rec.Result().Cookies())
 	}
+	middlewareSessionCookie(t, rec.Result().Cookies())
 
 	expired := mustLocalAutoLogin(t, -time.Second)
 	h := newHandler(expired)
@@ -279,7 +280,7 @@ func TestLauncherDashboardAuth_WebSocketUnauthorizedDoesNotRedirect(t *testing.T
 	h := LauncherDashboardAuth(cfg, next)
 
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/pico/ws", nil)
+	req := httptest.NewRequest(http.MethodGet, "/pocketclaw/ws", nil)
 	h.ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusUnauthorized {
@@ -336,7 +337,7 @@ func TestLauncherDashboardAuth_AuthenticatedLANWebSocketWorks(t *testing.T) {
 		},
 	))
 
-	req := httptest.NewRequest(http.MethodGet, "/pico/ws", nil)
+	req := httptest.NewRequest(http.MethodGet, "/pocketclaw/ws", nil)
 	req.RemoteAddr = "10.0.0.50:40002"
 	req.Host = "10.0.0.24:18800"
 	req.Header.Set("Origin", "http://10.0.0.24:18800")
@@ -377,11 +378,11 @@ func TestLauncherDashboardAuth_WebSocketRequiresAuthenticatedSameOrigin(t *testi
 		{name: "missing origin", cookie: token, want: http.StatusForbidden},
 		{name: "foreign origin", origin: "https://evil.example", cookie: token, want: http.StatusForbidden},
 		{name: "revoked session", origin: "http://launcher.local:18800", cookie: revokedToken, want: http.StatusUnauthorized},
-		{name: "forged cookie", origin: "http://launcher.local:18800", cookie: "pico-user", want: http.StatusUnauthorized},
+		{name: "forged cookie", origin: "http://launcher.local:18800", cookie: "pocketclaw-user", want: http.StatusUnauthorized},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			rec := httptest.NewRecorder()
-			req := httptest.NewRequest(http.MethodGet, "http://launcher.local:18800/pico/ws", nil)
+			req := httptest.NewRequest(http.MethodGet, "http://launcher.local:18800/pocketclaw/ws", nil)
 			if tc.origin != "" {
 				req.Header.Set("Origin", tc.origin)
 			}
@@ -397,4 +398,30 @@ func TestLauncherDashboardAuth_WebSocketRequiresAuthenticatedSameOrigin(t *testi
 	if called != 1 {
 		t.Fatalf("downstream calls = %d, want exactly one authorized request", called)
 	}
+}
+
+// middlewareSessionCookie is sessionCookie for this package: the canonical
+// session, with the only other permitted cookie being the legacy deletion.
+func middlewareSessionCookie(t *testing.T, cookies []*http.Cookie) *http.Cookie {
+	t.Helper()
+	var session *http.Cookie
+	for _, c := range cookies {
+		switch c.Name {
+		case LauncherDashboardCookieName:
+			if session != nil {
+				t.Fatalf("more than one session cookie: %#v", cookies)
+			}
+			session = c
+		case legacyLauncherDashboardCookieName:
+			if c.Value != "" || c.MaxAge >= 0 {
+				t.Fatalf("the legacy cookie was issued rather than expired: %#v", c)
+			}
+		default:
+			t.Fatalf("unexpected cookie %q: %#v", c.Name, cookies)
+		}
+	}
+	if session == nil {
+		t.Fatalf("no session cookie: %#v", cookies)
+	}
+	return session
 }

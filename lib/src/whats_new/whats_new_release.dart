@@ -55,6 +55,13 @@ final WhatsNewRelease whatsNewRelease020 = WhatsNewRelease(
         (l10n) => l10n.whatsNew020Improvement5,
         (l10n) => l10n.whatsNew020Improvement6,
         (l10n) => l10n.whatsNew020Improvement7,
+        (l10n) => l10n.whatsNew020Improvement8,
+        // The three one-time effects of upgrading into this release. They are
+        // here rather than in Fixes because nothing was broken: they are what
+        // the user should expect to see once, and then not again.
+        (l10n) => l10n.whatsNew020Improvement9,
+        (l10n) => l10n.whatsNew020Improvement10,
+        (l10n) => l10n.whatsNew020Improvement11,
       ],
     ),
     WhatsNewSection(

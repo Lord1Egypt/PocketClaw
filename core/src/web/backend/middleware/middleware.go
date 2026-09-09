@@ -8,6 +8,7 @@ import (
 	"runtime/debug"
 	"time"
 
+	"github.com/sipeed/picoclaw/pkg/config"
 	"github.com/sipeed/picoclaw/pkg/logger"
 )
 
@@ -76,7 +77,7 @@ func isRoutineSuccessfulInternalRequest(method, path string, statusCode int) boo
 	switch path {
 	case "/api/gateway/logs", "/api/gateway/status":
 		return statusCode >= http.StatusOK && statusCode < http.StatusMultipleChoices
-	case "/pico/ws":
+	case config.RealtimeWebSocketPath:
 		// Hijacked WebSocket responses commonly remain at the recorder's default
 		// 200, while test and alternate writers may report the actual 101.
 		return statusCode == http.StatusSwitchingProtocols ||
@@ -87,7 +88,7 @@ func isRoutineSuccessfulInternalRequest(method, path string, statusCode int) boo
 }
 
 func userVisibleRequestPath(path string) string {
-	if path == "/pico/ws" {
+	if path == config.RealtimeWebSocketPath {
 		return "/internal realtime connection"
 	}
 	return path

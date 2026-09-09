@@ -21,7 +21,7 @@ import (
 func TestUserVisibleEnabledChannelsMapsOnlyInternalPicoTransport(t *testing.T) {
 	internalNames := []string{
 		config.ChannelTelegram,
-		config.ChannelPico,
+		config.ChannelPocketClaw,
 	}
 
 	got := userVisibleEnabledChannels(internalNames)
@@ -32,14 +32,14 @@ func TestUserVisibleEnabledChannelsMapsOnlyInternalPicoTransport(t *testing.T) {
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("userVisibleEnabledChannels() = %v, want %v", got, want)
 	}
-	if internalNames[1] != config.ChannelPico {
+	if internalNames[1] != config.ChannelPocketClaw {
 		t.Fatalf("internal channel identity changed: %v", internalNames)
 	}
 	if summary := fmt.Sprintf("✓ Channels enabled: %s", got); summary != "✓ Channels enabled: [telegram pocketclaw]" {
 		t.Fatalf("summary = %q", summary)
 	}
 
-	unrelatedNames := []string{config.ChannelPicoClient, "picophone"}
+	unrelatedNames := []string{config.ChannelPocketClawClient, "picophone"}
 	if got := userVisibleEnabledChannels(unrelatedNames); !reflect.DeepEqual(got, unrelatedNames) {
 		t.Fatalf("substring/global replacement changed unrelated names: %v", got)
 	}

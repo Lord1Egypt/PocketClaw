@@ -110,7 +110,7 @@ func TestStagedCoreEmbedsTheCurrentCatalog(t *testing.T) {
 		t.Skip("not running inside a PocketClaw checkout; there is no staged Core to compare")
 	}
 	corePath := filepath.Join(root, "android", "app", "src", "main", "jniLibs",
-		"arm64-v8a", "libpicoclaw.so")
+		"arm64-v8a", "libpocketclaw.so")
 	core, err := os.ReadFile(corePath)
 	if err != nil {
 		t.Skipf("no staged Core binary to check: %v", err)

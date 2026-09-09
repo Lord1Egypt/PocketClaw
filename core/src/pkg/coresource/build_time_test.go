@@ -307,7 +307,7 @@ func TestDefaultEpochIgnoresCommitsThatAreNotBuildInputs(t *testing.T) {
 	for _, path := range []string{
 		"docs/notes.md",
 		"android/release-baseline.properties",
-		"android/app/src/main/jniLibs/arm64-v8a/libpicoclaw.so",
+		"android/app/src/main/jniLibs/arm64-v8a/libpocketclaw.so",
 		"lib/main.dart",
 		"PROJECT_STATE.md",
 	} {
@@ -342,8 +342,8 @@ func TestStagingCommitDoesNotChangeTheBuildTimestamp(t *testing.T) {
 
 	// Exactly the shape of a real staging commit: the built binaries, then the
 	// documentation that records their acceptance.
-	commit(t, root, "android/app/src/main/jniLibs/arm64-v8a/libpicoclaw.so", "ELF\n", 1750000000)
-	commit(t, root, "android/app/src/main/jniLibs/arm64-v8a/libpicoclaw-web.so", "ELF\n", 1750000001)
+	commit(t, root, "android/app/src/main/jniLibs/arm64-v8a/libpocketclaw.so", "ELF\n", 1750000000)
+	commit(t, root, "android/app/src/main/jniLibs/arm64-v8a/libpocketclaw-web.so", "ELF\n", 1750000001)
 	commit(t, root, "PROJECT_STATE.md", "accepted\n", 1750000002)
 
 	after := resolveEpochIn(t, root)
@@ -539,6 +539,27 @@ func TestBuildTimeInputRules(t *testing.T) {
 			because: "only the _test.go suffix is excluded, not anything test-ish",
 		},
 		{
+			name:    "dashboard production source moves it",
+			relPath: "core/src/web/backend/middleware/auth.go",
+			content: "package middleware\n\nconst cookie = \"pocketclaw_launcher_auth\"\n",
+			moves:   true,
+			because: "it is compiled into libpocketclaw-web.so, which ships",
+		},
+		{
+			name:    "a frontend source file moves it",
+			relPath: "core/src/web/frontend/src/app.tsx",
+			content: "export const App = () => null\n",
+			moves:   true,
+			because: "it is compiled into the bundle libpocketclaw-web.so embeds",
+		},
+		{
+			name:    "a frontend test file does not move it",
+			relPath: "core/src/web/frontend/src/app.test.tsx",
+			content: "it('is a test', () => {})\n",
+			moves:   false,
+			because: "vite build does not emit test files, so it cannot reach the binary",
+		},
+		{
 			name:    "the build script moves it",
 			relPath: "core/build-android-arm64.sh",
 			content: "#!/usr/bin/env bash\necho rebuilt\n",
@@ -589,6 +610,56 @@ func TestBuildTimeInputRules(t *testing.T) {
 					tc.relPath, got, want, verb, tc.because)
 			}
 		})
+	}
+}
+
+// The timestamp and the source fingerprint must describe the same production
+// universe.
+//
+// They did not before N4K-A: this resolver already covered all of core/src
+// while the fingerprint named only cmd/, pkg/, workspace/ and three root files.
+// A dashboard change moved the timestamp and not the fingerprint, so
+// core.staged_build_time went red while core.staged_freshness stayed green —
+// the two guards disagreeing about the same binaries, which is how the N4J gap
+// stayed invisible. This holds them together in the direction that matters:
+// anything the fingerprint calls a production input must also date the build.
+func TestBuildTimeCoversEverythingTheFingerprintDoes(t *testing.T) {
+	source, err := os.ReadFile(resolverPath(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	resolver := string(source)
+
+	// BUILD_INPUTS covers core/src wholesale, so every fingerprint root is in
+	// by construction. State it, so narrowing BUILD_INPUTS later fails here.
+	if !strings.Contains(resolver, `"core/src"`) {
+		t.Fatal("BUILD_INPUTS no longer covers core/src wholesale; every fingerprint " +
+			"root must still be a build-time input")
+	}
+
+	// And the exclusions must not remove anything the fingerprint keeps. The
+	// fingerprint excludes exactly test files; so must this.
+	for _, excluded := range []string{
+		"core/src/**/*_test.go",
+		"core/src/web/frontend/**/*.test.ts",
+		"core/src/web/frontend/**/*.test.tsx",
+	} {
+		if !strings.Contains(resolver, excluded) {
+			t.Errorf("the resolver does not exclude %s, but the fingerprint does; "+
+				"a test edit would move the timestamp against binaries that cannot differ",
+				excluded)
+		}
+	}
+
+	// The pairing, checked against covers() rather than restated by hand.
+	for _, relative := range []string{
+		"web/backend/middleware/launcher_dashboard_auth.go",
+		"web/frontend/src/app.tsx",
+		"cmd/picoclaw/main.go",
+	} {
+		if !covers(relative) {
+			t.Errorf("%s is a build-time input but not a fingerprint input", relative)
+		}
 	}
 }
 

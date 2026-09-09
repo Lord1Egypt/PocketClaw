@@ -31,8 +31,8 @@ import java.util.concurrent.Executor
  * Flutter MethodChannel 桥接层，将 Kotlin 原生功能暴露给 Dart 端。
  *
  * 支持的方法：
- * - startService: 启动 PicoClaw 前台服务
- * - stopService: 停止 PicoClaw 前台服务
+ * - startService: 启动 PocketClaw 前台服务
+ * - stopService: 停止 PocketClaw 前台服务
  * - getServiceStatus: 获取服务状态（isRunning, pid, lastLog）
  * - checkHealth: 检查 /health 端点
  * - getConfig: 读取 config.json 内容
@@ -51,7 +51,6 @@ class PocketClawMethodChannel(
     companion object {
         private const val TAG = "PocketClawMethodChannel"
         private const val CHANNEL_NAME = "com.lord1egypt.pocketclaw/pocketclaw"
-        private const val PREF_NAME = "picoclaw_prefs"
         private const val KEY_AUTO_START = "auto_start"
         private const val TELEGRAM_BRIDGE_URL =
             "http://127.0.0.1:18800/api/pocketclaw/android/telegram"
@@ -110,7 +109,7 @@ class PocketClawMethodChannel(
                         val args = call.argument<String>("args") ?: ""
                         val publicMode = args.contains("-public")
                         // 保存 publicMode 到 SharedPreferences
-                        val prefs = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
+                        val prefs = PocketClawPreferences.open(context)
                         prefs.edit().putBoolean("public_mode", publicMode).apply()
                         Log.d(TAG, "Starting service with publicMode=$publicMode (args: $args)")
                         PocketClawService.start(context, publicMode)
@@ -121,7 +120,7 @@ class PocketClawMethodChannel(
                 }
                 "getPublicMode" -> {
                     try {
-                        val prefs = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
+                        val prefs = PocketClawPreferences.open(context)
                         result.success(prefs.getBoolean("public_mode", false))
                     } catch (e: Exception) {
                         result.error("GET_PUBLIC_MODE_FAILED", e.message, null)
@@ -131,8 +130,7 @@ class PocketClawMethodChannel(
                     val publicMode = call.argument<Boolean>("public") ?: false
                     Thread {
                         val mainExecutor = getMainExecutor()
-                        val previousMode = context
-                            .getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
+                        val previousMode = PocketClawPreferences.open(context)
                             .getBoolean("public_mode", false)
                         try {
                             val accepted = callNetworkModeBridge(
@@ -172,7 +170,7 @@ class PocketClawMethodChannel(
                             val success = state.optString("status") == "succeeded" &&
                                 actualMode == publicMode
                             if (success) {
-                                context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
+                                PocketClawPreferences.open(context)
                                     .edit()
                                     .putBoolean("public_mode", actualMode)
                                     .apply()
@@ -248,7 +246,7 @@ class PocketClawMethodChannel(
                 }
                 "getConfig" -> {
                     try {
-                        val configFile = File(context.filesDir, "picoclaw/config.json")
+                        val configFile = PocketClawCoreState.configFile(context)
                         if (configFile.exists()) {
                             result.success(configFile.readText())
                         } else {
@@ -261,8 +259,7 @@ class PocketClawMethodChannel(
                 "saveConfig" -> {
                     try {
                         val content = call.argument<String>("content") ?: ""
-                        val configFile = File(context.filesDir, "picoclaw/config.json")
-                        configFile.parentFile?.mkdirs()
+                        val configFile = PocketClawCoreState.configFile(context)
                         configFile.writeText(content)
                         result.success(true)
                     } catch (e: Exception) {
@@ -492,7 +489,7 @@ class PocketClawMethodChannel(
                 "setAutoStart" -> {
                     try {
                         val enabled = call.argument<Boolean>("enabled") ?: false
-                        val prefs = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
+                        val prefs = PocketClawPreferences.open(context)
                         prefs.edit().putBoolean(KEY_AUTO_START, enabled).apply()
                         result.success(true)
                     } catch (e: Exception) {
@@ -501,7 +498,7 @@ class PocketClawMethodChannel(
                 }
                 "getAutoStart" -> {
                     try {
-                        val prefs = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
+                        val prefs = PocketClawPreferences.open(context)
                         result.success(prefs.getBoolean(KEY_AUTO_START, false))
                     } catch (e: Exception) {
                         result.error("GET_AUTO_START_FAILED", e.message, null)
@@ -524,8 +521,11 @@ class PocketClawMethodChannel(
                     }.start()
                 }
                 "getConfigPath" -> {
-                    val configFile = File(context.filesDir, "picoclaw/config.json")
-                    result.success(configFile.absolutePath)
+                    try {
+                        result.success(PocketClawCoreState.configFile(context).absolutePath)
+                    } catch (e: Exception) {
+                        result.error("CORE_STATE_UNAVAILABLE", e.message, null)
+                    }
                 }
                 "getHomePath" -> {
                     result.success(PocketClawService.getWorkspacePath(context))
@@ -559,8 +559,8 @@ class PocketClawMethodChannel(
                         result.success(true) // 低版本无需此权限
                     }
                 }
-                "getPicoToken" -> {
-                    result.success(PocketClawService.picoTokenForHost(context))
+                "getPocketClawToken" -> {
+                    result.success(PocketClawService.pocketClawTokenForHost(context))
                 }
                 "getSafeDeviceInfo" -> {
                     val packageInfo = context.packageManager.getPackageInfo(context.packageName, 0)
@@ -589,16 +589,16 @@ class PocketClawMethodChannel(
                     }
                 }
                 "uploadUmengDeviceReport" -> {
-                    android.util.Log.d("PicoClawChannel", "=== uploadUmengDeviceReport called ===")
+                    android.util.Log.d("PocketClawChannel", "=== uploadUmengDeviceReport called ===")
                     try {
                         val payload = call.arguments<Map<String, Any?>>() ?: emptyMap()
-                        android.util.Log.d("PicoClawChannel", "Payload received with ${payload.size} fields")
+                        android.util.Log.d("PocketClawChannel", "Payload received with ${payload.size} fields")
                         val reportResult = AnalyticsReporter.uploadDeviceReport(context, payload)
-                        android.util.Log.d("PicoClawChannel", "AnalyticsReporter returned: success=${reportResult["success"]}, message=${reportResult["message"]}")
+                        android.util.Log.d("PocketClawChannel", "AnalyticsReporter returned: success=${reportResult["success"]}, message=${reportResult["message"]}")
                         result.success(reportResult)
-                        android.util.Log.d("PicoClawChannel", "=== uploadUmengDeviceReport completed ===")
+                        android.util.Log.d("PocketClawChannel", "=== uploadUmengDeviceReport completed ===")
                     } catch (e: Exception) {
-                        android.util.Log.e("PicoClawChannel", "uploadUmengDeviceReport failed: ${e.message}", e)
+                        android.util.Log.e("PocketClawChannel", "uploadUmengDeviceReport failed: ${e.message}", e)
                         result.error("UPLOAD_UMENG_REPORT_FAILED", e.message, null)
                     }
                 }
@@ -611,7 +611,7 @@ class PocketClawMethodChannel(
                 "saveToDownloads" -> {
                     // args: filename: String, bytes: Uint8List
                     try {
-                        val filename = call.argument<String>("filename") ?: "picoclaw_logs.txt"
+                        val filename = call.argument<String>("filename") ?: "pocketclaw_logs.txt"
                         val bytes = call.argument<ByteArray>("bytes")
                         if (bytes == null) {
                             result.error("NO_BYTES", "No bytes provided", null)
@@ -627,7 +627,7 @@ class PocketClawMethodChannel(
                 "copyContentUriToCache" -> {
                     try {
                         val uriStr = call.argument<String>("uri") ?: ""
-                        val name = call.argument<String>("filename") ?: "picoclaw_logs.txt"
+                        val name = call.argument<String>("filename") ?: "pocketclaw_logs.txt"
                         val path = copyContentUriToCache(uriStr, name)
                         result.success(path)
                     } catch (e: Exception) {

@@ -1,5 +1,1404 @@
 # PocketClaw Project State
 
+## Zero-Pico namespace migration — CLOSED / ACCEPTED
+
+- **Accepted build: PocketClaw `0.2.0+62`.** Accepted baseline **62**, previously
+  59. APK `1470e02d43039e78c6507a1fb12e1c9368033903a8b99c2e2f56014eb0c002e2`.
+- Merged to `develop` with a true `--no-ff` merge. `main`, tags and releases
+  untouched; there is still no `v0.2.0` stable tag, and there should not be one
+  until production hardening lands.
+- Feature branches `feature/zero-pico-runtime` and
+  `feature/namespace-n3-native-binaries` are retained for provenance.
+
+### Candidate history
+
+    vc60   SUPERSEDED during N3 physical validation — a broad native-process
+           ownership classification regression
+    vc61   N3 native identity physically PASS, but not accepted as baseline:
+           the Zero-Pico migration was still in progress
+    vc62   final Zero-Pico candidate. Machine migration validation PASS,
+           manual user acceptance PASS. ACCEPTED.
+
+### The current namespace contract
+
+    native binaries      libpocketclaw.so, libpocketclaw-web.so
+    Core private state   filesDir/pocketclaw-core/
+    workspace            the external canonical workspace, with a
+                         filesDir/pocketclaw/ fallback
+    PID record           .pocketclaw.pid
+    environment emitted  POCKETCLAW_*
+    managed channel      pocketclaw
+    client channel       pocketclaw_client
+    owner principal      pocketclaw-user
+    realtime routes      the pocketclaw route namespace
+    dashboard cookie     pocketclaw_launcher_auth
+    notification channel pocketclaw_service
+    SharedPreferences    pocketclaw_prefs
+    IRC default nick     pocketclaw
+
+### Legacy Pico policy
+
+**ZERO ACTIVE PICO: COMPLETE.** No PocketClaw-owned production surface writes,
+issues, defaults to, emits, registers or advertises a Pico-family identity.
+What remains is permitted only as upstream identity, legal attribution,
+historical evidence, legacy migration (read, parse, normalize, migrate, delete,
+expire, redact, or protect from backup), or explicit external compatibility.
+`tool/no_active_pico.py` enforces this on every gate run.
+
+`wecomQRSourceID` stays as it is, deliberately: it is sent to
+`work.weixin.qq.com` as `source`/`sourceID`, so it is what a third party was
+registered to recognise rather than this project's name for itself. The
+immutable historical digest
+`47b63011a55eaa659470f2ab09d05532e9942800848020a1cfe443e6f21aca76` is unchanged.
+
+### Physical acceptance evidence (vc62, SM-A165F / Android 16)
+
+    package        com.lord1egypt.pocketclaw, versionCode 62
+    processes      gypt.pocketclaw · libpocketclaw.s · libpocketclaw-w
+    Core config    …/files/pocketclaw-core/config.json, physically in use
+    PID record     .pocketclaw.pid — host, pid, port, version only; token-free
+                   .picoclaw.pid ABSENT
+    Gateway        127.0.0.1:18790 and [::1]:18790, loopback only
+    native legacy  libpicoclaw* ABSENT
+    Managed Runtime 8 payloads
+    notifications  pocketclaw_service ACTIVE; picoclaw_service and
+                   picoclaw_foreground both deleted tombstones
+
+User confirmed manually: Running PASS, Dashboard PASS (with the expected
+one-time re-login), Web Chat PASS, notification behaviour PASS.
+
+No private config or token contents were read at any point.
+
+### Still open, and deliberately not touched here
+
+Namespace acceptance is not production hardening. The web console binding
+`0.0.0.0:18800` remains tracked separately; the production signing key does not
+exist yet; the Dart snapshot-path item, R8/ProGuard narrowing, obfuscation and
+split debug info are all still outstanding.
+
+### Next milestone
+
+**Final production release hardening** — real production signing, Dart
+obfuscation and split debug info, a symbols archive, R8/ProGuard review, a final
+secrets and config audit, full APK/AAB inspection, a production-class release
+gate, a final stable physical smoke, and only then a tag and release.
+
+## vc62 — Zero-Pico candidate, ACCEPTED
+
+- Status: **accepted on the device, 2026-09-09.** `0.2.0+62`,
+  `lastAcceptedVersionCode` advanced **59 → 62** in the same commit that records
+  the acceptance, which is what keeps that floor meaningful.
+- Installed in place on `RK8Y6016N5V` (Samsung SM-A165F, Android 16, arm64-v8a)
+  with `adb install -r` over Windows adb 37.0.1. No uninstall, no clear data, no
+  permission reset. The device was absent on the first attempt and attached
+  partway through; usbipd was never used.
+
+### Candidate artifact
+
+    path      build/app/outputs/flutter-apk/app-release.apk
+    size      63493154 bytes
+    sha256    1470e02d43039e78c6507a1fb12e1c9368033903a8b99c2e2f56014eb0c002e2
+    package   com.lord1egypt.pocketclaw
+    version   0.2.0 (62)
+    signer    CN=Android Debug, SHA-256
+              15cf75f9945d5354e75707e0326b7cffc60ac51a68df38156db318ef4578a27c
+              local-test only; no production signing material exists yet
+
+Built with the repository toolchain (JDK 17, Flutter 3.47.1) via
+`:app:assembleRelease -Ptarget-platform=android-arm64 -PallowDebugSigning=true`.
+Gradle exit 0 and BUILD SUCCESSFUL were checked independently of each other, and
+the APK was confirmed to carry versionCode 62 by inspection rather than by
+assuming the bump reached it.
+
+### The Core pair was not rebuilt
+
+Packaged against staged, byte for byte:
+
+    libpocketclaw.so       37749089  9e85e471…  identical to staged
+    libpocketclaw-web.so   25559393  479003e0…  identical to staged
+
+Both carry fingerprint `6e2382ae…` and BuildTime `2026-09-09T18:30:34+0000`. No
+`libpicoclaw*.so` is packaged and no alias was created. Managed Runtime is
+exactly 8 payloads (curl, gh, git, git-remote-http, jq, python, rg, sqlite3);
+`libpocketclaw-web.so` is Core, not a runtime tool, and is not counted as one.
+
+### Gates
+
+Production source gate: **exit 0, 17/17 PASS**. Artifact gate (`--release-class
+test`): **exit 0**, every check PASS with one SKIP —
+`artifact.dart_snapshot_paths`, the established PENDING_FINAL_HARDENING item,
+left at its documented status rather than weakened for this candidate.
+
+### A gate defect this phase found
+
+`artifact.core_provenance_pair` failed on the first artifact run, reporting both
+binaries as "present (not matched to source)". The binaries were fine; the check
+was not. It read `gate.facts["coreSourceFingerprint"]`, which only
+`source_gates` ever set, so under `--verify-artifact` the fact was absent and
+the comparison had nothing to compare against — the check could not pass in the
+one mode where it matters most, inspecting an artifact you did not just build.
+Introduced in N4K-A and missed there because that phase only ran
+`--verify-source`. Fixed in `84080a5`: one helper resolves the fingerprint on
+demand and caches it, so both paths read the same value from the same code.
+`tool/` is not packaged and is not a build input, so no rebuild followed.
+
+### What's New
+
+Four bullets in all twelve locales, on the existing mechanism: steadier
+reliability, and the three one-time effects of upgrading — one more Dashboard
+sign-in, a fresh Web chat conversation, notification preferences worth one
+check. No old product name, paths, cookies, routes, environment variables or
+security internals; a release note is not a changelog for its authors.
+
+### Install and preservation
+
+    Success (streamed install)
+    versionCode      61 -> 62,  versionName 0.2.0 unchanged
+    appId            10666                         preserved
+    dataDir          /data/user/0/com.lord1egypt.pocketclaw   preserved
+    firstInstallTime 2026-08-26 05:21:06           preserved
+    lastUpdateTime   04:04:31 -> 22:10:03          changed, as expected
+    permissions      11 requested, identical set
+    installed base.apk sha256 == the candidate's, 1470e02d…
+
+Installed `nativeLibraryDir` carries both Core binaries and exactly the 8
+Managed Runtime payloads. No `libpicoclaw*.so`.
+
+### The migration ran, and it was observed rather than provoked
+
+Package replacement started the application on its own — the app process and
+both Core binaries (`libpocketclaw.so`, `libpocketclaw-web.so`) were running
+afterwards. Nothing was launched over adb, no UI was touched, no service was
+started by hand.
+
+Notification channels, read straight from `dumpsys`:
+
+    picoclaw_service       mDeleted=true    retired
+    picoclaw_foreground    mDeleted=true    retired, dead channel, no twin
+    pocketclaw_service     mDeleted=false   live, mImportance=2
+
+That is the `KEEP_CANONICAL_DELETE_LEGACY` path in
+`PocketClawNotificationChannels`, and the importance carried across from the
+legacy channel rather than resetting to a default. Deleted channels stay in the
+dump because Android keeps the record — an app must not be able to resurrect a
+channel to wipe a user's settings — so their continued presence is the expected
+shape of a completed migration, not an incomplete one.
+
+SharedPreferences migration (`picoclaw_prefs` → `pocketclaw_prefs`) could not be
+observed: `run-as` refuses a non-debuggable release build, which is correct, and
+root was not used to work around it.
+
+Pre-install state, for comparison: `picoclaw_service` and `picoclaw_foreground`
+both live, `pocketclaw_service` absent. The shared workspace directory was
+already canonically named and held neither pid record.
+
+### Next
+
+The user opens PocketClaw, starts the Service/Gateway, waits for Running. Then
+physical Zero-Pico migration validation, and only then does the baseline move to
+62.
+
+## Final Zero-Pico Core rebuild — staged, NOT a candidate yet
+
+- Status: **built and staged on `feature/zero-pico-runtime`, 2026-09-09. NOT
+  merged, NOT a candidate.** `0.2.0+61`, baseline 59, no vc62, no What's New.
+- **The staged Core is no longer intentionally stale.** This is the first
+  canonical rebuild since the Zero-Pico Core-source migration began, and the
+  production source gate is green end to end for the first time since N4E.
+
+### Canonical build evidence
+
+    build-input commit   5558220   (not the staging commit; see invariance)
+    epoch                1788978634   (SOURCE_DATE_EPOCH unset; resolver-derived)
+    BuildTime            2026-09-09T18:30:34+0000
+    source fingerprint   6e2382aee9d3fa4beef32ed34678ee08eed0a9db43288c8b879db3c5276d6b1f
+
+    libpocketclaw.so       37749089 bytes
+      9e85e471164b53bfee2888f219c5329275a854f3ee7ca6ffdc872d3da3e98d89
+    libpocketclaw-web.so   25559393 bytes
+      479003e0ed315431153764e7b0b8eb58e857b9cff0fec162aad490a3f342d918
+
+Both binaries carry that one fingerprint and that one BuildTime, verified by
+reading the staged bytes rather than trusting the build log. That is what N4K-A
+was for: before it the launcher carried no stamp at all, because nothing in
+web/backend read the `-X` target and the linker dropped it, value and all.
+
+Built by `./core/build-android-arm64.sh`, exit 0, with the repository toolchain.
+No ad-hoc `go build`.
+
+### The embedded bundle was rebuilt, not reused
+
+`web/backend/dist` was emptied to its tracked `.gitkeep` before the build, and
+the canonical path regenerated it through `pnpm build:backend`. The bundle that
+had been sitting there hashed `039c2d35…`; what the build produced hashes
+`d77fe654…`, so the old one really was stale and really would have shipped.
+
+### Reproducibility, both binaries
+
+A second build from the same source with `SOURCE_DATE_EPOCH` pinned to the
+resolved epoch — and `dist` emptied again first, so the frontend went through
+the full contract on that run too — produced:
+
+    libpocketclaw.so       byte-identical
+    libpocketclaw-web.so   byte-identical
+    web/backend/dist       identical digest (d77fe654…)
+
+### Freshness now discriminates between the two binaries
+
+The N4J failure shape was: web/backend changes, the staged launcher goes stale,
+the gateway is current, and every check stays green. Proven impossible now — with
+the gateway untouched and only the staged launcher de-stamped,
+`TestStagedCoreWasBuiltFromTheCurrentSource` fails naming `libpocketclaw-web.so`.
+The canonical pair was restored and re-verified against its recorded hashes
+afterwards.
+
+### Native hardening, both binaries
+
+ARM aarch64, PIE, stripped, `BuildID` present; `GNU_STACK` is RW, never RWX;
+maximum `LOAD` `p_align` is `0x10000` (64 KiB), which satisfies Android's 16 KiB
+page requirement; zero developer absolute paths; zero Go VCS stamps
+(`-buildvcs=false` held); no `.symtab` or `.debug_*` sections. No
+`libpicoclaw*.so` is staged, and no compatibility alias was created.
+
+### Staging invariance
+
+The staging commit moved HEAD to `13a2bc3`, and the build-input commit stayed
+`5558220`, the BuildTime stayed `2026-09-09T18:30:34+0000`, and the fingerprint
+stayed `6e2382ae…`. Committing binaries does not re-date the build, and no
+rebuild is implied by HEAD moving. `version.txt` and the guard allowlist changed
+alongside; neither is a fingerprint or BuildTime input.
+
+### Gate
+
+`tool/release_gate.py --verify-source --release-class production` exits 0 with
+all 17 checks PASS and nothing skipped, including `a1.contracts` and
+`a2.placement_guards`, which needed the repository toolchain Flutter on PATH —
+they had been silently skipping. `namespace.no_active_pico` PASS: 0 unclassified
+occurrences, 19 allowlist entries all in use (upstream 9, legacy_migration 9,
+external_compatibility 1).
+
+The gate's `PENDING_FINAL_HARDENING` list no longer claims the namespace
+migration is outstanding; it has a dedicated check now, and the standing note
+contradicted it.
+
+### Toolchain
+
+Flutter lives at `/home/lordegypt/PocketCLaw/.tooling/flutter/bin`, not on the
+default PATH. Flutter 3.47.1 / Dart 3.13.1. `flutter analyze lib/ test/` clean
+and all 433 Dart tests pass, including the Zero-Pico phase guards. Nothing in
+the source needed correcting for that — N4K-B's Dart edit was already right; only
+the invocation had been missing.
+
+### Next
+
+vc62: bump, canonical APK, artifact gate, then device acceptance. The Core is
+evidence-complete; nothing here is physically verified yet.
+
+## Zero-Pico N4K-B — final active sweep and enforcement guard, NOT closed
+
+- Status: **implemented on `feature/zero-pico-runtime`, 2026-09-09. NOT merged.**
+  `0.2.0+61`, baseline 59, no candidate, no What's New entry.
+- Core source fingerprint moved `b9742fe0…` → `6e2382ae…`.
+  **Staged Core remains EXPECTED STALE — FINAL ZERO-PICO CORE REBUILD PENDING.**
+
+### The policy
+
+**Zero Active Pico.** No PocketClaw-owned production surface may write, issue,
+default to, emit, register or advertise a Pico-family identity. A remaining
+occurrence is legitimate only as one of: upstream identity, legal attribution,
+historical evidence, legacy migration (read/parse/normalize/migrate/delete/
+expire/redact), or external compatibility with named evidence.
+
+This is not a repository-wide rename, and a repository-wide grep would be wrong:
+the Go module is still `github.com/sipeed/picoclaw`, the copyright is still
+PicoClaw contributors, and several on-disk names must stay readable so an
+upgraded install keeps working.
+
+### What moved
+
+    POCKETCLAW_DISTRIBUTION_CHANNEL   was PICOCLAW_; no build supplied the old
+                                      name, so it moved without an alias
+    irc nick default "pocketclaw"     was "picoclaw"; IRC is compiled into the
+                                      shipped Core, so an enabled channel with
+                                      no chosen nick sent the old identity on
+                                      the wire. Only the default moved — a nick
+                                      already in a user's config is their data
+    channels.name.pocketclaw          the i18n key was still `pico` while the
+                                      channel became `pocketclaw` in N4H, so the
+                                      dashboard had silently lost the "Web"
+                                      label and fell back to a title-cased key
+    <home>/pocketclaw/runtime         the Managed Runtime metadata fallback
+                                      created a directory named picoclaw. The
+                                      Android host always sets
+                                      POCKETCLAW_RUNTIME_DIR so the shipped
+                                      product never reached it, but the fallback
+                                      recreated the very directory the migration
+                                      retires
+    pocketclaw-oauth-result           postMessage type, moved on both sides at
+                                      once (Go emitter and dashboard listener)
+    data-pocketclaw-code-block        DOM attributes the dashboard writes, with
+    data-pocketclaw-highlight-theme   their CSS selectors
+    pocketclaw:* browser keys         last-session-id, code-block-wrap, tour
+                                      state, assistant-detail-visibility
+    pocketclaw-web                    the frontend package id (private, unlisted
+                                      in the lockfile)
+
+Go and TypeScript symbols followed: `pocketClawToken`, `pocketClawCfg`,
+`createPocketClawHTTPProxy`, `refreshPocketClawTokensLocked`,
+`ensurePocketClawTokenCachedLocked`, `pocketClawGatewayProtocol`,
+`findJSONLSession(s)`, `jsonlSessionRef`, `PocketClawMessage`,
+`handlePocketClawMessage`. User-visible log and HTTP error strings that said
+"Pico" now say PocketClaw. The misleading `picoSessionPrefix` alias — a
+test-only name for a legacy constant that read as current — was deleted rather
+than renamed.
+
+Per-browser dashboard preferences reset once on upgrade. That is the whole cost:
+the tour reappears, code-block wrap returns to its default, and the chat opens a
+new session. Nothing server-side is touched.
+
+### What stays, and why
+
+    upstream            github.com/sipeed/picoclaw, cmd/picoclaw, BINARY_NAME,
+                        picoclaw/picoclaw.exe process lookups, the macOS and IRC
+                        upstream scripts, desktop launch-at-login identifiers
+                        (unreachable: runtime.GOOS is "android" on the product)
+    legal               upstream file headers and copyright
+    historical          the vc60/vc61 Managed Runtime digest
+                        47b63011a55eaa659470f2ab09d05532e9942800848020a1cfe443e6f21aca76,
+                        unchanged, and the migration record in this file
+    legacy_migration    .picoclaw.pid, filesDir/picoclaw/, picoclaw_prefs, the
+                        legacy notification channel ids, picoclaw_launcher_auth,
+                        PICOCLAW_* env inputs, pico/pico_client/pico-user, the
+                        /pico route redaction arms, the legacy session prefix
+    external_compat     wecomQRSourceID = "picoclaw"
+
+### WeCom: preserved, on evidence
+
+`wecomQRSourceID` is sent to `https://work.weixin.qq.com/ai/qc/generate` as the
+`source` and `sourceID` query parameters. It is not this project's name for
+itself — it is what a third-party service was registered to recognise, so
+changing it is a claim to someone else's system rather than a rename, and an
+unregistered value would break WeCom QR login rather than fail loudly.
+
+There are **two** independent copies of the constant. The one in
+`cmd/picoclaw/internal/auth/wecom.go` is upstream CLI only, but the one in
+`web/backend/api/wecom.go` is the dashboard, which ships — so this value really
+does reach Tencent from the product. That was found by the guard's own test, not
+assumed. Both are pinned, and held identical, by `tool/test_no_active_pico.py`.
+
+### The guard
+
+`tool/no_active_pico.py` scans tracked PocketClaw-owned **production** source
+and requires every Pico-family match to be claimed by an allowlist entry
+carrying a category and a reason. Unclaimed matches fail; so does an entry that
+matches nothing, because a stale exemption silently re-permits whatever moves
+back under it. 18 entries, all in use.
+
+Out of scope, deliberately and stated in the tool: the vendored upstream tree
+(renaming it forks the baseline), documentation (it has to name the old
+identities to describe them), tests (a test proving Pico is gone must write the
+word), staged binaries (build output), and the guard's own two files — a rule
+listing what it forbids cannot be scanned by itself without either flagging its
+allowlist or claiming its own patterns and looking clean by construction.
+
+The gate runs it as `namespace.no_active_pico`, placed **above** the
+`--no-tests` early return: it is a source scan, not a test suite, and skipping
+tests must not skip it. Proven end to end — injecting
+`picoclaw_test_output` into a production file turns the gate red, and removing
+it turns it green.
+
+The lexical guard complements the semantic ones from N4B–N4J; it does not
+replace them. Those still prove direction — that `.picoclaw.pid` is never
+written, that the legacy cookie is never issued, that Android emits only
+`POCKETCLAW_*`.
+
+### Generated web bundle freshness
+
+`libpocketclaw-web.so` embeds `web/backend/dist`, which the fingerprint
+deliberately excludes and covers through `web/frontend/` instead. That trade is
+only sound if the canonical build always regenerates the bundle from those
+sources — otherwise a source edit would move the fingerprint, the build would
+succeed, and the embedded UI would still be the previous one.
+
+The existing Makefile already guarantees it: `build-android-arm64` depends on
+`build-frontend`, whose `pnpm build:backend` runs unconditionally (only the
+dependency install is guarded), and `vite build --outDir ../backend/dist
+--emptyOutDir` wipes the directory first so a removed file cannot survive.
+Nothing needed fixing; `web_bundle_freshness_test.go` pins the chain. Both
+mutations were proven: dropping the `build-frontend` dependency, and moving the
+bundler inside the conditional, each turn it red.
+
+### Next
+
+The final deterministic rebuild of both binaries, then vc62.
+
+## Zero-Pico N4K-A — dual-binary Core provenance, NOT closed
+
+- Status: **implemented on `feature/zero-pico-runtime`, 2026-09-09. NOT merged.**
+  `0.2.0+61`, baseline 59, no candidate, no What's New entry.
+- Core source fingerprint moved `db8deae0…` → `b9742fe0…`, because the input set
+  itself changed rather than the source. It is not a built identity yet.
+  **Staged Core remains EXPECTED STALE — FINAL ZERO-PICO CORE REBUILD PENDING.**
+
+### The gap
+
+The canonical build stages **two** native binaries and ships both:
+
+    libpocketclaw.so       Core gateway,  built from ./cmd/picoclaw
+    libpocketclaw-web.so   dashboard,     built from ./web/backend
+
+`pkg/coresource` fingerprinted only `cmd/`, `pkg/`, `workspace/` and three root
+files. `web/` was excluded on the true but insufficient ground that the Core
+imports none of it — it does not have to, being separately compiled and
+separately shipped. N4J changed dashboard auth middleware, moved no fingerprint,
+and left a stale dashboard binary that no guard would report. `core/staged_*`
+went green on the strength of a binary that was not the one at issue.
+
+### One provenance unit
+
+`includedRoots` now names `web` alongside `cmd`, `pkg` and `workspace`, and one
+fingerprint speaks for both binaries. Under `web/`, everything counts except:
+
+    web/backend/dist/**              the generated bundle
+    web/frontend/node_modules/**     installed, not tracked
+    *_test.go, *.test.ts, *.test.tsx tests reach neither binary
+
+`dist/` is the compiled frontend, written by `pnpm build:backend` and untracked
+apart from a `.gitkeep`. Hashing it would fold a build output into the
+fingerprint of its own inputs and make the value depend on whether the builder
+had run pnpm, so it is covered through `web/frontend/` instead — a stronger
+relation, not a weaker one: editing a component moves the fingerprint at once,
+without anyone rebuilding the bundle first. `TestEveryEmbeddedAssetIsAFingerprintInput`
+knows about that indirection through `generatedEmbedSources` and asserts the
+generator is covered, so the exemption cannot become a hole.
+
+The frontend rule is deliberately coarser than the Core's. Deciding exactly
+which of Vite's inputs can alter the emitted bundle means re-deriving Vite's
+behaviour by hand and being wrong quietly; an over-broad rule costs an
+occasional unnecessary rebuild, and an under-broad one is what N4J walked into.
+
+### Both binaries are now verifiable
+
+`-X coresource.Stamped` already reached the launcher build through the LDFLAGS
+the root Makefile passes down, but nothing in `web/backend` read it, and the
+linker drops an `-X` target with no live reader — value and all. So the flag
+succeeded and the binary carried nothing. `web/backend/main.go` now logs
+`coresource.Describe()` at startup, which is what keeps it. Verified directly: a
+host build carries the fingerprint, and the same build with the reader removed
+does not.
+
+`core/build-android-arm64.sh` now checks the stamp in **both** staged binaries,
+and `web/Makefile` carries its own `SOURCE_FINGERPRINT` plumbing so a direct
+`make -C web build-android-arm64` cannot emit an unstamped dashboard.
+
+### Freshness and the gate
+
+`TestStagedCoreWasBuiltFromTheCurrentSource` iterates `StagedCoreBinaries` and
+fails per binary, so a stale dashboard can no longer pass on the Core's
+freshness. The release gate's artifact check gained
+`artifact.core_provenance_pair`: both packaged binaries must carry the *same*
+fingerprint, and it must be the one the current source produces.
+
+### BuildTime was already right
+
+`core/resolve-build-time.sh` has covered all of `core/src` — web included —
+since it was written, and its comment documented the asymmetry as deliberate.
+The asymmetry is what allowed the gap, so the comment is corrected rather than
+the scope. The only behavioural change is excluding `*.test.ts` / `*.test.tsx`
+under `web/frontend`, which brings its test-exclusion into line with the
+fingerprint's; `TestBuildTimeCoversEverythingTheFingerprintDoes` holds the two
+together from now on.
+
+### Cookie classification (N4J correction)
+
+`picoclaw_launcher_auth` is **LEGACY COOKIE CLEANUP ONLY**, not "read-only
+session handoff". Nothing reads its value: it is never issued, never validated
+and never consulted for authentication, and the only production use is writing
+an expiry. The runtime behaviour was already correct; only the wording
+overstated it. A test now fails on the word "handoff".
+
+### Not in this phase
+
+`PICOCLAW_DISTRIBUTION_CHANNEL`, the IRC default nick, the WeCom source id, the
+remaining source-only Pico identifiers and the final active-Pico guard are
+N4K-B. The deterministic byte-level rebuild of both binaries is the final phase.
+
+## Zero-Pico N4J — dashboard session cookie, NOT closed
+
+- Status: **implemented on `feature/zero-pico-runtime`, 2026-09-09. NOT merged.**
+  `0.2.0+61`, baseline 59, no candidate, no What's New entry.
+- Core source fingerprint **did not move**: `db8deae0…` before and after. That
+  was not a sign the edit failed to land — it was a real gap in the staleness
+  guard, described under "The fingerprint does not cover this change" below and
+  closed by N4K-A.
+  **Staged Core remains EXPECTED STALE — FINAL ZERO-PICO CORE REBUILD PENDING.**
+
+### Canonical and legacy
+
+    pocketclaw_launcher_auth   canonical; the only name this build ever issues
+    picoclaw_launcher_auth     LEGACY COOKIE CLEANUP ONLY
+
+Both are declared once, in
+`core/src/web/backend/middleware/launcher_dashboard_auth.go`. The legacy name is
+a single unexported constant, and the only thing production does with it is
+write an expiry.
+
+### There is no session handoff, on purpose
+
+The brief allowed reissuing a verified legacy session under the canonical name.
+That was rejected after reading the session store: `LauncherDashboardSessions`
+is an in-memory `map[string]time.Time` built fresh at process start, so a cookie
+issued by an older build names a session in a process that is gone. No legacy
+value can ever be validated. Honouring one would mean trusting a bearer token
+with no server-side record — precisely the bypass the store exists to prevent.
+
+So the upgrade costs **one dashboard login**, which is what it already cost: the
+session store has never survived a restart under either name. This is the
+brief's "prefer forcing ONE login rather than weakening the session model" arm.
+
+### Precedence
+
+`validLauncherDashboardAuth` reads the canonical cookie and nothing else. The
+legacy name is never a fallback — not when the canonical cookie is absent
+(pointless), and above all not when it is present but invalid, which would let
+an old cookie rescue a rejected session. The server-side store stays the sole
+authority.
+
+    valid canonical                    → authenticated
+    valid canonical + any legacy       → authenticated, legacy expired
+    legacy only, any value             → unauthenticated
+    invalid canonical + valid legacy   → unauthenticated
+
+### Unchanged
+
+Cookie attributes are the pre-N4J contract exactly: `HttpOnly`, `SameSite=Lax`,
+`Path=/`, host-only, `MaxAge` 24h, `Secure` from the same detector. Migration
+extends no lifetime and creates no second session. Logout still revokes the
+server-side session first and now expires both names; the legacy expiry uses
+`Path=/` and the original attributes, because a deletion whose Path does not
+match silently leaves the cookie in place. Auth scope and routing are untouched:
+`/pocketclaw/*` and `/api/pocketclaw/*` are exactly as N4I left them.
+
+### The fingerprint does not cover this change
+
+`pkg/coresource` fingerprints `cmd/`, `pkg/`, `workspace/` and three root files.
+It deliberately excludes `web/`, on the documented ground that the Core imports
+none of it — and `go list -deps ./cmd/picoclaw` confirms no `picoclaw/web`
+package is reachable, so for `libpocketclaw.so` that is correct.
+
+But `core/build-android-arm64.sh` stages **two** binaries, and the second,
+`libpocketclaw-web.so`, is built from `./web/backend` by
+`build-launcher-android-arm64`. That is the dashboard, and it ships on the
+device. A change to dashboard auth middleware therefore moves no fingerprint and
+raises no staleness signal, even though the staged artifact is now behind the
+tree. N4J is such a change.
+
+Nothing was altered in N4J itself. **N4K-A closed this**, by widening the one
+canonical fingerprint to cover both binaries rather than giving the launcher a
+second fingerprint universe. See the N4K-A section at the top of this file.
+
+### Deferred
+
+`PICOCLAW_DISTRIBUTION_CHANNEL`, the IRC default nick and the WeCom source id.
+
+## Zero-Pico N4I — realtime routes and log sanitization, NOT closed
+
+- Status: **implemented on `feature/zero-pico-runtime`, 2026-09-09. NOT merged.**
+  `0.2.0+61`, baseline 59, no candidate.
+- Core source fingerprint moved `eb3c8b4d…` → `db8deae0…`.
+  **Staged Core remains EXPECTED STALE — FINAL ZERO-PICO CORE REBUILD PENDING.**
+- **FLAG FOR FINAL RELEASE NOTES** (not written yet): PocketClaw's internal
+  realtime namespace changed, and an existing Web-channel conversation starts a
+  new PocketClaw session after the upgrade. No implementation or security detail
+  in the eventual user-facing wording.
+
+### Canonical routes
+
+    /pocketclaw/ws            realtime socket (gateway, and the console proxy)
+    /pocketclaw/media/{id}    attachment download
+    /api/pocketclaw/info      console management API
+    /api/pocketclaw/token
+    /api/pocketclaw/setup
+
+`/pico/events` and `/pico/send` were **not** carried across: nothing called their
+URL builders and no handler ever served them. They are removed rather than
+renamed into a namespace they never reached.
+
+`pkg/config/realtime_routes.go` derives all of them from `ChannelPocketClaw`, and
+the channel, the console proxy and the middleware read them from there. Before
+this, the same strings were written out in three packages.
+
+### No alias, on purpose
+
+There is no `/pico/*` compatibility route. The gateway, the console frontend and
+the app ship in one artifact, so the only client that can still ask for the old
+path is a browser tab left open across the upgrade, which reloads. A legacy
+request now 404s, and a test asserts that rather than leaving it to inspection.
+
+### Redaction moved in the same change
+
+The route is what redaction keys on, so it moved together with:
+
+    pkg/logger/logger.go                     internal-route field redaction
+    web/backend/api/user_visible_log.go      plain-text normalizer
+    web/frontend/src/lib/plain-text-log.ts   console log view
+    lib/src/core/plain_text_log_sanitizer.dart   app Logs screen
+
+Every pattern accepts both spellings. The canonical arm is what this build
+emits; the legacy arm is what a log file written before the upgrade contains,
+and dropping it would make old logs *less* redacted than they were.
+
+`pkg/logger` cannot import `pkg/config` — config imports logger — so it keeps a
+pinned copy of the prefix, marked as such, with a test holding the two together.
+
+The sanitizer tests are behavioural: real lines through the real sanitizer, on
+all four surfaces. They also assert the opposite property — that ordinary lines,
+`/pocketclawish/ws` and a `picometer` component come through untouched — because
+a sanitizer broad enough to hide the route by hiding everything would pass the
+positive tests and be worthless.
+
+### Components and messages
+
+The realtime log components are `pocketclaw` and `pocketclaw_client`. Seven
+agent log messages that still said "pico" now emit the wording the sanitizers
+were already rewriting them to, so the user-visible text is unchanged and Core
+stops emitting the word at all. The compatibility maps keep those entries for
+older log files.
+
+The client channel's conversation id is `pocketclaw_client:` and its remote
+sender is `pocketclaw-remote`, both with legacy-tolerant parsing that mints
+nothing.
+
+### Auth and media unchanged
+
+The dashboard-auth WebSocket origin check and the unauthorized-response shape
+now key on the canonical path via the shared constant. Nothing was broadened:
+the legacy path is no longer special-cased at all, which the middleware tests
+prove by no longer reaching the WebSocket branch. Media path extraction,
+traversal validation, authorization and content-type behaviour are untouched;
+only the prefix constant changed, and it is the same constant the URL builder
+uses.
+
+### Deferred
+
+`PICOCLAW_DISTRIBUTION_CHANNEL`, the IRC default nick and the WeCom source id.
+The `picoclaw_launcher_auth` cookie name was deferred here and taken by N4J.
+
+## Zero-Pico N4H — channel, client and owner canonical, NOT closed
+
+- Status: **implemented on `feature/zero-pico-runtime`, 2026-09-09. NOT merged.**
+  `0.2.0+61`, baseline 59, no candidate, no What's New entry.
+- Core source fingerprint moved `2b06b4a8…` → `eb3c8b4d…`.
+  **Staged Core remains EXPECTED STALE — FINAL ZERO-PICO CORE REBUILD PENDING.**
+
+### Canonical identities
+
+    pocketclaw          managed realtime channel type and config key
+    pocketclaw_client   its client half
+    pocketclaw-user     owner principal, the only value owner-only accepts
+
+`pico`, `pico_client` and `pico-user` are migration input only, declared once in
+`pkg/config/channel_legacy.go`. No writer emits them; a test walks every
+production Go file to prove it, exempting only the deferred log-component call
+shape.
+
+### Migration, and why it edits the document
+
+`migrateChannelIdentities` runs at the top of `LoadConfig`, before channel
+construction, owner authorization or the token lookup. It is a **targeted edit of
+the serialized config**, not a load-and-save: `SaveConfig` marshals the typed
+`Config` and is lossy for anything the struct does not model, and a namespace
+migration is the wrong moment to discover that. Unrelated entries are carried as
+raw bytes and keys keep their order, so the user's file changes on exactly the
+lines the identity does.
+
+It covers both `channel_list` (current) and `channels` (pre-v3), and it covers
+**`.security.yml` as well** — the channel token is filed there under the channel
+name and merged back by name at load, so renaming only `config.json` would leave
+the credential under a name nothing looks for. The credential file is written
+first: a crash between the two writes leaves a legacy config with a canonical
+security file, which migrates again on the next start; the other order would
+silently lose the token.
+
+    legacy only        rename key, type and owner principal
+    canonical only     untouched, byte for byte
+    both, identical    canonical wins, legacy key dropped
+    both, differing    FAIL CLOSED — nothing changed, load refused
+
+Two differing definitions can carry two different tokens, and nothing on disk
+says which the user meant. `ErrChannelMigrationConflict` is fatal to the load
+rather than resolved by guessing.
+
+### Owner principal
+
+Rewritten only inside a channel's `allow_from`, never as a global string
+replacement. Both spellings in one list collapse to one owner — a rename, not a
+widening, and the list never grows. Owner-only enforcement compares against
+`PocketClawOwnerPrincipal` alone, and the legacy label is now explicitly in the
+rejection set alongside `PICO-USER`, `pocketclaw_user` and the rest.
+
+### Sessions re-key. This is unavoidable and intentional.
+
+`CanonicalScopeSignature` includes `channel=`, so renaming the channel changes
+the session key for the Web channel. **Existing Web-channel conversation history
+is not carried across.** No amount of chat-id compatibility avoids it — the
+channel name alone re-keys the hash — so the conversation-id prefix moved too,
+with legacy-tolerant parsing so a message already in flight still routes. Other
+channels are unaffected.
+
+### Deferred to the route/sanitizer phase — explicitly
+
+    /pico/, /pico/ws, /pico/events, /pico/send, /pico/media/*
+    /api/pico/info | token | setup
+    logger component "pico" / "pico_client"
+    web/backend/api/pico.go, frontend api/pico.ts, use-pico-chat
+
+These travel through one redaction path. The Go sanitizer keys `path=/pico/`
+against the channel field, and the frontend matches the component token and the
+caller filename. Splitting them leaves a build whose internal route stops being
+redacted, so they move as one piece. Both sanitizers were extended here to
+accept the canonical channel beside the legacy route, and the frontend's caller
+pattern now matches `pocketclaw.go` — the file moved with its package.
+
+### Env token
+
+Unchanged by decision: `POCKETCLAW_CHANNELS_POCKETCLAW_TOKEN` still resolves
+through the canonical-env adapter onto the upstream tag
+`PICOCLAW_CHANNELS_PICO_TOKEN`. **Zero struct tags renamed.** Retagging that one
+field would put a single canonical name among ~175 legacy ones and drop legacy
+env support for it, for no behavioural gain.
+
+## Zero-Pico N4G — `.pocketclaw.pid` canonical, NOT closed
+
+- Status: **implemented on `feature/zero-pico-runtime`, 2026-09-09. NOT merged.**
+  `0.2.0+61`, baseline 59, no candidate, no What's New entry.
+- Core source fingerprint moved `369d0892…` → `2b06b4a8…`.
+  **Staged Core remains EXPECTED STALE — FINAL ZERO-PICO CORE REBUILD PENDING.**
+
+### What changed, and what did not
+
+`.pocketclaw.pid` is the only record this build writes. `.picoclaw.pid` is
+discovery input and cleanup target only: read to find a Gateway an older build
+started, removed once that Gateway is gone, never written, never recreated,
+never symlinked, never copied back to.
+
+The record's contents and security scope are untouched — `host`, `pid`, `port`,
+`version`, and no credential — and it stays in `POCKETCLAW_HOME` beside the
+workspace. This is a rename, not a relocation: it did not move to
+`pocketclaw-core/`, `credentials/`, `logs/` or `auth/`.
+
+### One resolver
+
+`pkg/pid/pidfile_migration.go` holds both names and the whole policy. Startup,
+the status API, shutdown and the console's cleanup all reach the records through
+`resolvePidRecords` + `activeRecord`, so migration, precedence and stale rules
+cannot drift apart per caller.
+
+There are deliberately **two liveness predicates over one policy**. Startup asks
+"is this PID a live Core executable", because wrongly honouring a recycled PID
+wedges the Gateway behind a record for a process that is not it. The status API
+asks only "is this PID alive", which is exactly what it asked before N4G;
+tightening it there would change what the console reports, and this phase is a
+filename migration. The difference is the predicate only.
+
+### State machine
+
+    neither                       write canonical
+    canonical only                unchanged behaviour
+    legacy only, live             honour it, block a duplicate start,
+                                  leave the file, fabricate no canonical record
+    legacy only, stale/malformed  clean it, write canonical
+    both, same live PID           canonical wins, legacy removed as redundant
+    canonical live, legacy stale  canonical used, stale legacy removed
+    canonical stale, legacy live  live legacy honoured, stale canonical removed,
+                                  legacy NOT converted behind the running process
+    both live, different PIDs     FAIL CLOSED
+    both stale                    clean both, write canonical
+
+A live legacy record is never removed, renamed or rewritten. The process holding
+it knows itself by no other name, and moving the file out from under it would
+leave its shutdown removing a name that no longer exists while its record
+lingered forever.
+
+Two live Gateways is a split-brain discovery state. Nothing on disk can say which
+is meant, so `WritePidFile` returns a conflict naming both PIDs and paths, and
+`ReadPidFileWithCheck` returns nothing rather than picking one. Neither process
+is killed, neither record is overwritten, and no third Gateway is started.
+
+### Ownership is unchanged
+
+The N3 exact-executable rule stands: `libpocketclaw.so` / `libpocketclaw-web.so`
+and their 15-byte truncated comm forms, nothing else. The Android app process
+`gypt.pocketclaw`, all eight Managed Runtime payloads, unrelated processes, and
+the pre-N3 `libpicoclaw.so` / `libpicoclaw-web.so` are all foreign — now proven
+through the legacy record path as well as the canonical one.
+
+### History is kept
+
+`.picoclaw.pid` stays in the tests, in the physical vc61 evidence and in the
+Kotlin comments that explain why the gateway credential left it. That the file
+once existed and once named the live Gateway is a fact about this project, and
+the guard is written against filename literals in production Go rather than
+against the word, so the reasoning that records it is not itself a violation.
+
+## Zero-Pico N4F — Core private state at `pocketclaw-core`, NOT closed
+
+- Status: **implemented on `feature/zero-pico-runtime`, 2026-09-09. NOT merged.**
+  `0.2.0+61`, baseline 59, no candidate, no What's New entry.
+- **`core/src` untouched.** Fingerprint stays `369d0892…`.
+  **Staged Core remains EXPECTED STALE — FINAL ZERO-PICO CORE REBUILD PENDING.**
+
+### The path contract, now in force
+
+    Download/pocketclaw/workspace   USER WORKSPACE — POCKETCLAW_HOME. Unchanged.
+    files/pocketclaw/               USER WORKSPACE FALLBACK when external storage
+                                    is unavailable. The user's documents. Untouched.
+    files/pocketclaw-core/          CANONICAL Core private state. config.json,
+                                    .security.yml, runtime/ metadata.
+    files/picoclaw/                 LEGACY. Migration input only.
+    noBackupFilesDir/               Gateway token, logs/, auth/. Unchanged.
+
+Three storage boundaries, still three. Nothing moved into `pocketclaw-core/` for
+namespace symmetry: the workspace is the user's, the credentials and logs and
+Dashboard verifier are A2's, and only Core's config directory moved.
+
+### One owner
+
+`PocketClawCoreState` holds both names. Every consumer — `buildEnvironment` and
+so every spawn path, onboarding, the web service, and `getConfig` / `saveConfig`
+/ `getConfigPath` on the method channel — asks it for the directory rather than
+spelling a path, so no caller can reach a directory whose migration has not run.
+A guard fails if any other Kotlin file builds a path from either name.
+
+### The state machine
+
+    legacy only        rename to pocketclaw-core, verify both sides
+    canonical only     use it
+    neither            create pocketclaw-core; never create picoclaw
+    both               FAIL CLOSED — no merge, no overwrite, no delete
+
+Both-present is an interrupted migration or a downgrade, and the two directories
+can hold different provider keys and channel tokens. Nothing on disk says which
+the user meant, so it is reported rather than guessed at.
+
+### Rename, and deliberately no copy fallback
+
+Both directories are direct children of `filesDir`, so they are always on one
+filesystem and the move is a single `rename(2)`: the tree arrives whole or not at
+all, including hidden files, unknown files and nested directories. Nothing
+enumerates the contents, so nothing can migrate a subset — the JVM test seeds
+`.hidden-state`, `unknown-future-file.dat` and `runtime/nested/deeper/leaf.txt`
+and reads all three back on the other side.
+
+There is no copy fallback by choice. A recursive copy would have to reproduce
+the permissions on `.security.yml`, which holds provider API keys and channel bot
+tokens in plaintext because Android onboarding declines credential encryption,
+and Java's file APIs cannot express those modes or fsync a directory. The honest
+outcomes were a second plaintext copy of the user's secrets in a
+partially-written tree, or a delete of the original after an unverifiable copy.
+Since the two paths cannot be on different filesystems, a failed rename means a
+real filesystem or permission fault — so it fails closed, having changed nothing.
+
+### Fail closed, everywhere
+
+`directory()` throws rather than returning a usable-looking path. A caller handed
+a fresh empty directory after a failed migration would let Core onboard into it,
+and the user would see an install with no providers, no channels and no memory:
+a factory reset presented as a successful start, with the real state still on
+disk and nothing pointing at it. The method channel surfaces
+`CORE_STATE_UNAVAILABLE` instead of an empty config for the same reason.
+
+### One-way, on purpose
+
+After migration, an older APK that only knows `files/picoclaw/` will not see the
+migrated state. **No second copy is kept to support downgrade.** That would be an
+active write to the legacy path and would create two directories that disagree —
+which is precisely the both-present state this phase refuses to resolve
+automatically. This is an intentional one-way storage migration, and no
+seamless-downgrade claim is made.
+
+`picoclaw/` stays in both backup rule files as a LEGACY SECURITY EXCLUSION:
+an interrupted migration or a downgrade can leave secrets there, and changing
+where PocketClaw writes must not make what is already there backup-eligible.
+
+### `POCKETCLAW_CONFIG`
+
+Now `files/pocketclaw-core/config.json`. `.security.yml` follows it without being
+named anywhere: Core derives that path from the config file's own directory
+(`securityPath(configPath)`), which is why the directory rather than the file is
+the unit that moves. `POCKETCLAW_RUNTIME_DIR` likewise moves to
+`pocketclaw-core/runtime`, carried by the same rename.
+
+### Deferred
+
+`.picoclaw.pid`, the serialized "pico" channel and `picoTokenForHost` — path
+analysis puts the token on the channel, not on this directory —
+`pkg/channels/pico`, and `PICOCLAW_DISTRIBUTION_CHANNEL`.
+
+## Zero-Pico N4E — canonical `POCKETCLAW_*` environment, NOT closed
+
+- Status: **implemented on `feature/zero-pico-runtime`, 2026-09-09. NOT merged.**
+  `0.2.0+61`, baseline 59, no candidate, no What's New entry.
+- **Key names changed. No value moved.** Core state is still written to
+  `filesDir/picoclaw/`, the config is still `filesDir/picoclaw/config.json`, and
+  the workspace, gateway token, logs and Dashboard verifier are all in exactly
+  the places A2 put them.
+- Core source fingerprint moved `f015c644…` → `369d0892…`.
+  **Staged Core is EXPECTED STALE — FINAL ZERO-PICO CORE REBUILD PENDING.**
+
+### The split
+
+The Android host emits only `POCKETCLAW_*`. The vendored Core still reads
+`PICOCLAW_*` — 175 struct tags and a dozen direct lookups — and a canonical
+adapter translates between them. Renaming upstream's tags would be a permanent
+divergence for no behavioural gain, so the translation is one table instead:
+
+    core/src/pkg/canonicalenv/canonicalenv.go
+
+That file is the entire compatibility surface, which is what lets the final
+Zero-Pico guard allowlist it precisely rather than chase scattered literals.
+Legacy names there are input this build still accepts, never output it produces.
+
+### The twelve
+
+    POCKETCLAW_HOME                        PICOCLAW_HOME
+    POCKETCLAW_CONFIG                      PICOCLAW_CONFIG
+    POCKETCLAW_BINARY                      PICOCLAW_BINARY
+    POCKETCLAW_GATEWAY_TOKEN_FILE          PICOCLAW_GATEWAY_TOKEN_FILE
+    POCKETCLAW_LOG_DIR                     PICOCLAW_LOG_DIR
+    POCKETCLAW_DASHBOARD_AUTH_DIR          PICOCLAW_DASHBOARD_AUTH_DIR
+    POCKETCLAW_DNS_SERVER                  PICOCLAW_DNS_SERVER
+    POCKETCLAW_GATEWAY_HOT_RELOAD          PICOCLAW_GATEWAY_HOT_RELOAD
+    POCKETCLAW_TOOLS_I2C_ENABLED           PICOCLAW_TOOLS_I2C_ENABLED
+    POCKETCLAW_TOOLS_SPI_ENABLED           PICOCLAW_TOOLS_SPI_ENABLED
+    POCKETCLAW_TOOLS_SERIAL_ENABLED        PICOCLAW_TOOLS_SERIAL_ENABLED
+    POCKETCLAW_CHANNELS_POCKETCLAW_TOKEN   PICOCLAW_CHANNELS_PICO_TOKEN
+
+The token is the one pair whose suffix also changes. PocketClaw cannot emit a
+canonical name containing PICO, and the serialized channel is still called
+"pico" until the channel phase, so the halves differ on purpose.
+
+### Two reader classes, not one
+
+N4A's map found two `caarlos0/env` decode points. It did not find the second
+class: seven of the twelve are read by direct `os.Getenv`, not by a struct tag —
+`HOME`, `CONFIG`, `BINARY`, `GATEWAY_TOKEN_FILE`, `LOG_DIR`,
+`DASHBOARD_AUTH_DIR`, `DNS_SERVER`. A parser-only adapter would have left those
+seven unread the moment the host went canonical-only, silently returning three
+A2 security boundaries — the gateway token file, the private log directory and
+the Dashboard verifier directory — to their shared-storage defaults. Both
+classes go through the same table.
+
+### Precedence
+
+Canonical wins when set. Legacy still works when canonical is absent, so
+existing upstream installs are unaffected. **Presence decides, not emptiness**:
+`POCKETCLAW_LOG_DIR=""` is set and beats a non-empty `PICOCLAW_LOG_DIR`, because
+a host that blanks a variable is saying something and falling through would
+restore exactly what it was turning off.
+
+### No global mutation
+
+The adapter never calls `os.Setenv`. The parser gets a constructed map through
+`env.ParseWithOptions`; direct readers ask the resolver. `os.Getenv` of a legacy
+name returns what it always did, including nothing when it was never set. Had
+the shim written legacy names into the live environment they would have been
+inherited by every child the Core spawns — reintroducing the namespace being
+removed, one process deeper.
+
+### Guards that changed owner
+
+`namespace_n1_boundary_test.dart`, `namespace_n3_native_identity_test.dart`,
+`zero_pico_n4b_test.dart` and `zero_pico_n4c_test.dart` each pinned legacy env
+names as proof their own phase had not widened. N4E migrated those names, so
+each guard failed, and each was amended with a note naming the new owner rather
+than quietly deleted. `zero_pico_n4e_test.dart` owns the emitted set now; the
+private directory stays pinned where it was, because it is still deferred.
+
+### Deferred, deliberately
+
+`filesDir/picoclaw/`, `pocketclaw-core/`, `.picoclaw.pid`, the serialized "pico"
+channel, `picoTokenForHost` and the other Android-local `pico` identifiers, and
+`PICOCLAW_DISTRIBUTION_CHANNEL` — a compile-time dart-define no build supplies,
+so not an emission and not in this phase.
+
+## Zero-Pico N4D + N4D-R — private-path protection map, NOT closed
+
+- Status: **implemented on `feature/zero-pico-runtime`, 2026-09-09. NOT merged.**
+  `0.2.0+61`, baseline 59, no candidate, no What's New entry. `core/src`
+  untouched; fingerprint `f015c644…`, staged Core FRESH.
+- **Protection only. No data was migrated.** Core state is still written to
+  `filesDir/picoclaw/`, `PICOCLAW_CONFIG` is unchanged, nothing was moved,
+  created or deleted, and the runtime behaves exactly as before.
+
+### The path contract, corrected
+
+    files/pocketclaw/        USER WORKSPACE FALLBACK — the user's AGENT.md,
+                             SOUL.md, USER.md and memory/ when external storage
+                             access is unavailable. Not Core state. Not migrated,
+                             not deleted, not backup-excluded.
+
+    files/picoclaw/          LEGACY Core private state — config.json,
+                             .security.yml. Read / migrate / protect only.
+
+    files/pocketclaw-core/   CANONICAL Core private state. Protected now,
+                             created later.
+
+### Protected in every section
+
+    backup_rules.xml            full-backup-content   credentials/ pocketclaw-core/ picoclaw/
+    data_extraction_rules.xml   cloud-backup          credentials/ pocketclaw-core/ picoclaw/
+    data_extraction_rules.xml   device-transfer       credentials/ pocketclaw-core/ picoclaw/
+
+`pocketclaw-core/` has exactly the coverage `picoclaw/` had — three sites, same
+`domain="file"`, same schema per file. Nothing was weakened, and the two files
+keep their different structures because Android's formats differ.
+
+The ordering is the point. The exclusion for the canonical path exists *before*
+any code creates that directory. A migration that ran first would leave secrets
+in an unprotected path for as long as it took the rules to catch up, and an
+interrupted one would leave them there indefinitely.
+
+### `picoclaw/` is a LEGACY SECURITY EXCLUSION, kept deliberately
+
+It is no longer an active product path, and it is **not** a Zero-Pico failure.
+An interrupted migration or a downgrade to an older build can leave sensitive
+files in the historical directory, and changing where PocketClaw writes must not
+make what is already there backup-eligible. Both rule files now say so in those
+words, and a test asserts the classification is present — so a later Zero-Pico
+sweep cannot delete the line as leftover namespace. It is retired only when the
+migration compatibility window is intentionally closed in a later release.
+
+The standing policy this phase establishes: **PocketClaw never creates active
+Pico state, but it may still protect or read legacy Pico state during
+migration.**
+
+### The collision, and the correction (N4D-R)
+
+Writing N4D's guard failed, because `filesDir/pocketclaw/` **already existed**:
+the workspace fallback at `PocketClawService.kt:222`, taken when
+`MANAGE_EXTERNAL_STORAGE` is denied. It holds the user's `AGENT.md`, `SOUL.md`,
+`USER.md` and `memory/`, not Core's secrets.
+
+So the originally planned target was wrong twice over. Moving Core state there
+would have mixed `config.json` and `.security.yml` into the user's documents on
+permission-denied installs; and N4D's exclusion of `pocketclaw/` silently
+changed that fallback's backup semantics as a side effect of a namespace
+migration. Whether a private workspace fallback should be backed up is a privacy
+decision on its own terms — it contains `MEMORY.md`, which the Bootstrap
+contract treats as the user's private data — and it is not this migration's to
+make.
+
+**Cancelled:** `files/picoclaw/` → `files/pocketclaw/`.
+**Adopted:** `files/picoclaw/` → `files/pocketclaw-core/`.
+
+The `pocketclaw/` exclusion was reverted **before any data migration**, so the
+fallback's pre-N4D backup behaviour is restored exactly. No user file was moved,
+read or modified; no secret or runtime state was moved; `PICOCLAW_CONFIG` and
+every environment variable are unchanged. A guard now asserts the fallback is
+absent from the Core-private exclusion contract, so it cannot be swept back in.
+
+On the validated SM-A165F the permission is granted, the workspace lives at
+`/sdcard/Download/pocketclaw`, and the fallback is not in use there.
+
+## Zero-Pico N4C — notification channels, NOT closed
+
+- Status: **implemented on `feature/zero-pico-runtime`, 2026-09-09. NOT merged.**
+  `0.2.0+61`, baseline 59, no candidate, no What's New entry. `core/src`
+  untouched; fingerprint stays `f015c644…`, staged Core FRESH.
+
+### The audit came back with one live channel and one dead one
+
+`picoclaw_service` is **active**: `PocketClawService.kt:993` builds every
+foreground-service notification against it. Migrated to `pocketclaw_service`.
+
+`picoclaw_foreground` is **dead**. `initializeBackgroundService()` created it and
+handed it to `flutter_background_service`, but that service is configured
+`autoStart: false` and `startService()` is called nowhere in `lib/` — nothing has
+ever posted a notification on it. It is deleted on upgrade and **no
+`pocketclaw_foreground` twin is created**: a replacement would add a second,
+permanently empty entry to the user's notification settings purely for
+namespace symmetry. The Flutter configuration now points at the one real
+channel, so it stays valid if that service is ever actually started.
+
+### Migration
+
+`PocketClawNotificationChannels` owns both the canonical id and the only
+permitted mentions of the legacy ones, and runs from `PocketClawApp.onCreate()`
+before anything can post. The decision is a pure function over
+(legacy exists, canonical exists):
+
+| legacy | canonical | action |
+|---|---|---|
+| yes | no | copy settings → create → **verify** → delete legacy |
+| yes | yes | canonical wins untouched, delete legacy |
+| no | no | create canonical |
+| no | yes | nothing |
+
+The legacy channel is the only record of the user's settings until the
+replacement exists, so it is deleted last and only after a read-back confirms
+the new channel is there.
+
+**Transferred:** importance, description, group, sound URI and audio
+attributes, vibration enable and pattern, lights enable and colour, show-badge,
+lockscreen visibility. `bypassDnd` is copied best-effort and is silently ignored
+by Android unless the app holds DND policy access, which PocketClaw does not
+request and will not start requesting for this.
+
+**Cannot be transferred, and is not pretended otherwise:** a channel the user
+blocked or muted through system UI, any Do Not Disturb override we lack policy
+access to set, and the deletion history Android keeps against the retired id.
+Changing a channel id resets some channel-specific settings; that is the cost of
+an id Android will not rename, and the product requirement takes precedence.
+
+### Also fixed here
+
+`PocketClawApp` constructed a `NotificationChannel` with **no API-26 guard**
+despite `minSdk 24`, so application start would have thrown on API 24–25. The
+migration owner is guarded and the construction now lives behind it.
+
+### Legacy read-only
+
+`picoclaw_service` and `picoclaw_foreground` survive only inside
+`PocketClawNotificationChannels`, both marked `LEGACY READ-ONLY MIGRATION`, used
+only to read settings and to delete. No current code creates either.
+
+Channel groups: **none exist**, so nothing to migrate.
+
+Two earlier boundary guards pinned `picoclaw_foreground` as proof that N1 and N3
+had not touched persisted state. N4C legitimately retires it, and those guards
+failing is how the scope change was declared rather than absorbed silently; the
+assertions moved to `zero_pico_n4c_test.dart`.
+
+## Zero-Pico N4B — Android-local identities, NOT closed
+
+- Status: **implemented on `feature/zero-pico-runtime`, 2026-09-09. NOT merged.**
+  Child branch of `feature/namespace-n3-native-binaries` at `904388f2`, which is
+  itself unmerged: N3 native identity is physically proven on vc61 but
+  deliberately not accepted while Zero-Pico continues. `0.2.0+61`, baseline 59,
+  no candidate, no What's New entry.
+- **`core/src` untouched.** Fingerprint stays
+  `f015c6445d6e19deb9a47c9a41249001fcf5c51265dfae55cd8767a68e560f03`, staged
+  Core FRESH, no rebuild, no restage, no APK, no ADB.
+
+### What N4B changed
+
+| Surface | From | To |
+|---|---|---|
+| SharedPreferences store | `picoclaw_prefs` | `pocketclaw_prefs` |
+| Wake-lock tag | `PicoClaw::ServiceWakeLock` | `PocketClaw::ServiceWakeLock` |
+| Log-reader thread | `picoclaw-web-log-reader` | `pocketclaw-web-log-reader` |
+| logcat tag | `PicoClawChannel` | `PocketClawChannel` |
+| Export filename default | `picoclaw_logs.txt` | `pocketclaw_logs.txt` |
+| MethodChannel method | `getPicoToken` | `getPocketClawToken` |
+| Orphan cleanup | `killPicoClawOrphanProcesses` | `killPocketClawOrphanProcesses` |
+
+**`picoclaw_prefs` is LEGACY READ-ONLY MIGRATION from now on.** It is read once
+to carry an existing install's values across and is never created or written
+again. All current reads and writes use `pocketclaw_prefs`.
+
+`PocketClawPreferences` is the single place that names the store — three files
+declared it independently before, which is how a rename lands in two of them.
+Every call site goes through `open()`, so the migration cannot be bypassed by a
+caller reaching for `getSharedPreferences` directly. That matters most for
+`BootReceiver`: on the first boot after upgrade it would otherwise read an empty
+canonical store and silently revert the user's auto-start choice.
+
+Migration order is the design. Copy → synchronous `commit()` → read back and
+verify every value → only then `deleteSharedPreferences` on the legacy store.
+The legacy file is the only copy of those settings until the new one is proven
+durable, so it is deleted last. If both stores exist, canonical wins; a legacy
+store that agrees entirely is redundant and removed, and one that disagrees is
+**preserved with a logged conflict** rather than merged or discarded.
+
+### The N3 regression this phase fixes
+
+`killPicoClawOrphanProcesses` matched `cmdline.contains("picoclaw")`. After N3
+the command line is `libpocketclaw.so`, which does not contain that substring,
+so orphan cleanup had silently been matching nothing since the native rename.
+
+It now compares the **basename of argv[0]** against `GATEWAY_BINARY_NAME` and
+`WEB_BINARY_NAME` — the same constants used to spawn Core, so cleanup and the
+names it cleans up cannot drift apart. Exact comparison, deliberately:
+`contains("pocketclaw")` or a `libpocketclaw` prefix would sweep in all eight
+Managed Runtime payloads, and killing `gh` or `python` mid-operation would
+surface as a random tool failure.
+
+### Deferred, and asserted as deferred
+
+Notification channel IDs `picoclaw_service` and `picoclaw_foreground`
+(N4C — Android channel IDs are persisted system objects whose user settings
+cannot be transferred perfectly), `filesDir/picoclaw/`, the backup exclusion
+rules, `.picoclaw.pid`, the `PICOCLAW_*` environment, `"pico"`/`pico_client`,
+`pico-user`, `/pico/*`, `picoclaw_launcher_auth`, the IRC default, the WeCom
+source id, and upstream module and build identity. A test asserts five of these
+are still Pico, so N4B cannot have quietly widened.
+
+No repository-wide Zero-Pico guard yet — that belongs to the final phase, when
+the remaining surfaces have actually moved.
+
+## Namespace Migration N3 — vc60 SUPERSEDED, corrections applied, NOT closed
+
+- Status: **corrections on `feature/namespace-n3-native-binaries`, 2026-09-09.
+  NOT merged, NOT accepted.** Baseline stays **59**; `pubspec.yaml` stays
+  `0.2.0+60` — vc61 is created only after this corrected source and Core pass
+  review.
+
+### vc60 — SUPERSEDED DURING PHYSICAL VALIDATION
+
+    APK  83ba7e2c47df2afc501a2b6f1889dd7c9ce96606388cdcd932bbe0d2ed8f75df
+
+Not accepted. It proved the native rename works physically and, in doing so,
+exposed a runtime ownership regression. Its hash stays here as the historical
+evidence that produced that finding.
+
+**What vc60 proved.** Installed over vc59 with identity preserved. The device
+reports exactly the comm values TASK_COMM_LEN predicts:
+
+    Core gateway  pid 1261  comm = libpocketclaw.s
+    launcher/web  pid 1188  comm = libpocketclaw-w
+    Android app   pid 23674 comm = gypt.pocketclaw
+
+Gateway loopback-only on `127.0.0.1:18790` and `[::1]:18790`; `.picoclaw.pid`
+carrying exactly `host`, `pid`, `port`, `version` with `pid` matching the live
+gateway; no `libpicoclaw` process anywhere; installed `nativeLibraryDir` holding
+only the new names.
+
+**What it exposed.** Android truncates an *application* process name from the
+**left**, so `com.lord1egypt.pocketclaw` becomes `gypt.pocketclaw` — which
+contains `pocketclaw`. The substring ownership rule therefore classified
+PocketClaw's own UI process as a live Core runtime. A stale `.picoclaw.pid`
+whose PID the kernel recycled onto the app would have been honoured and the
+gateway would have refused to start, losing the self-healing that existed before
+N3 (`gypt.pocketclaw` does not contain `picoclaw`).
+
+### Correction 1 — ownership compares whole names, not fragments
+
+The authorized fix was a `libpocketclaw` prefix. Inspection against the real
+payload showed that is **not** the narrowest rule: every Managed Runtime binary
+is `libpocketclaw-*`, so `gh`, `git`, `python`, `curl`, `rg`, `jq`, `sqlite3`
+and `git-remote-http` would still have counted as the runtime a pid file refers
+to — the same bug one size smaller. Ownership now compares the whole comm
+against the two canonical Core executables, in truncated and full form, with the
+truncation derived in one place.
+
+Twenty cases pin it, every comm value read from the device or produced by the
+kernel's own truncation, and the stale-PID recoveries run through
+`WritePidFile` rather than the classifier alone. Removing the fix fails exactly
+the six that should fail. `libpicoclaw.so` and the upstream desktop name are
+**not** aliases.
+
+### Correction 2 — the Managed Runtime count stopped counting
+
+`libpocketclaw-web.so` matches the Managed Runtime prefix, so vc60's gate
+reported 9 payloads where 8 exist. It passed, which was the problem: the check
+is a floor, so seven real tools plus the launcher would also have reached 8 and
+the guard had quietly lost the ability to notice a dropped payload. `CORE_LIBS`
+is the exclusion authority now. Four cases pin it. Tooling only — no Core
+provenance effect, which the build input confirms by pointing at the pid fix
+rather than the gate commit.
+
+### The corrected Core
+
+    build-input commit  d01f47ade57f34c69a478440c1f015bbd494db0f
+    epoch               1788914581
+    BuildTime           2026-09-09T00:43:01+0000
+    fingerprint         f015c6445d6e19deb9a47c9a41249001fcf5c51265dfae55cd8767a68e560f03
+    libpocketclaw.so     fecde504c094a15c5396728add388fea3f88a626d833e10797777b4842b9a583  37,683,553
+    libpocketclaw-web.so 2b433058551f64a07ff7979641fc3261af37028756c1da5d3f476b85fb4df517  25,493,857
+
+Both stripped, NX stack, 64 KiB aligned, zero developer paths, zero Go VCS
+stamps, both carrying the same embedded BuildTime, fingerprint stamped in
+`libpocketclaw.so`. No `libpicoclaw*.so` staged. Fingerprint moved from
+`259e3422…` because the ownership fix is shipping production Go source.
+
+## Namespace Migration N3A — implemented, NOT merged, NOT physically accepted
+
+- Status: **implemented on `feature/namespace-n3-native-binaries`, 2026-09-09.
+  NOT merged, NOT physically accepted.** Branch cut from `develop` at
+  `b6a098f`. N3B owns the physical candidate. `0.2.0+59`, baseline 59, no
+  candidate, no What's New entry.
+
+### The canonical Android native identity
+
+    libpicoclaw.so       →  libpocketclaw.so
+    libpicoclaw-web.so   →  libpocketclaw-web.so
+
+That name is not cosmetic: it is what reaches `nativeLibraryDir`, the APK
+payload and `/proc/<pid>/comm`, so the build script, the launcher, Gradle
+packaging, the release gate and Core's process-ownership check all moved
+together. The Managed Runtime payloads were already `libpocketclaw-*.so`, so
+Core now matches the convention its own siblings already used.
+
+**Upstream build identity is deliberately unchanged.** `core/src/Makefile` still
+emits `picoclaw-android-arm64` and `picoclaw-launcher-android-arm64`,
+`BINARY_NAME=picoclaw`, `cmd/picoclaw` and the Go module are untouched, and the
+Makefile's own `build-android-bundle` staging target still writes the old names
+because it is upstream's universal-zip path, not PocketClaw's shipping path. The
+rename happens at the install destination in `core/build-android-arm64.sh` —
+the boundary between upstream's artifact and PocketClaw's package.
+
+### Process ownership — the part that had to change
+
+`pkg/pid/classifyProcComm` matched the substring `"picoclaw"`. `libpocketclaw.so`
+does not contain it, so without this change the launcher would have read its own
+live gateway as a foreign process and deleted a valid pid file. It now matches
+`ownedProcessName = "pocketclaw"`.
+
+**The old name is deliberately not an accepted alias.** A stale `.picoclaw.pid`
+can name a PID the kernel has since handed to something else, and every extra
+accepted name is another way for that process to be honoured as ours and wedge
+startup behind it. N0's conclusion that no fallback loader is needed was
+re-verified against the implementation: Android replaces `nativeLibraryDir`
+wholesale on package update, so nothing can still be running under the old name.
+Tests pin the live match, the reused-PID rejection, the stale pre-N3 name as
+foreign, and that the shared PID record still carries no credential.
+
+`looksLikeGatewayCommandLine` needed no change — it matches the `gateway`
+subcommand token, not the executable filename, and was already name-agnostic.
+
+### Core source fingerprint moved, and the cause was measured
+
+    e7acbff7…  develop
+    4a88a400…  with only pkg/pid/pidfile_unix.go changed
+    259e3422…  current, adding a one-line comment in pkg/coresource/fingerprint.go
+
+Both are fingerprinted source. The ownership change had to happen; the comment
+did not have to, but the rebuild was already required so its marginal cost was
+zero, and the fingerprint is content-addressed over source bytes and
+deliberately does not try to tell comments from code.
+
+### The build
+
+    build-input commit  d520e1e8188c38fea9617611efe4d178f3125fe2
+    epoch               1788905005
+    BuildTime           2026-09-08T22:03:25+0000
+    fingerprint         259e342283c78537fdeb5d3392ee64dec45ec63abaddca0afa0090df7263ef4f
+    libpocketclaw.so     5c4d8e6c0546705932fcb1f9b11c6cc09839415167202204a59cf2379f9406a2  37,683,553
+    libpocketclaw-web.so d6307859e174770e97772effd9c0c89e954452ca086b4b51b79719701362b17a  25,493,857
+
+Both stripped, NX stack, 64 KiB aligned, zero developer paths, zero Go VCS
+stamps, and both carry the same embedded BuildTime. `core/build-android-arm64.sh`
+is a canonical BuildTime input, so N3 moving the timestamp is expected and not
+a reuse of the vc59 value. Staged at `ef40299`; resolving before and after that
+commit gave the identical value. A rebuild at the same explicit epoch reproduced
+both binaries byte for byte.
+
+Only the PocketClaw-named binaries are staged — the pre-N3 files were removed
+from the tree rather than left beside them, so no APK can carry both.
+
+### Old-name references that remain, and why
+
+Upstream Makefile bundle target; the comment in `pidfile_unix.go` explaining why
+the old name is rejected; the negative ownership tests; the historical incident
+comment in `gateway_test.go`; and two log-redaction fixtures
+(`logs-page.test.tsx`, `user_visible_log_contract.json`) that exercise hiding
+*upstream* identity from user-visible output. The sanitizer strips the whole
+parenthesised path regardless of filename, so redaction covers the new name too.
+
+`core/src/pkg/pcruntime/manifest.go` is unformatted on `develop` already and was
+left alone rather than swept into this diff.
+
 ## Namespace Migration N2 — CLOSED
 
 - Status: **closed on `feature/namespace-n2-brand-assets`, 2026-09-09, merged to

@@ -1245,7 +1245,7 @@ func (m *Manager) getChannelConfigAndEnabled(channelName string) (*config.Channe
 		return bc, settings.Homeserver != "" && settings.UserID != "" && settings.AccessToken.String() != ""
 	case *config.WeComSettings:
 		return bc, settings.BotID != "" && settings.Secret.String() != ""
-	case *config.PicoClientSettings:
+	case *config.PocketClawClientSettings:
 		return bc, settings.URL != ""
 	case *config.DingTalkSettings:
 		return bc, settings.ClientID != ""
@@ -1253,7 +1253,7 @@ func (m *Manager) getChannelConfigAndEnabled(channelName string) (*config.Channe
 		return bc, settings.BotToken.String() != ""
 	case *config.WeixinSettings:
 		return bc, settings.Token.String() != ""
-	case *config.PicoSettings:
+	case *config.PocketClawSettings:
 		return bc, settings.Token.String() != ""
 	case *config.IRCSettings:
 		return bc, settings.Server != ""
@@ -2150,8 +2150,12 @@ func (m *Manager) SnapshotChannels() []status.Channel {
 // transport; the runtime identity stays internal, exactly as the gateway
 // startup banner already does it.
 func StatusDisplayName(name string) string {
-	if name == config.ChannelPico {
-		return "pocketclaw"
+	// The internal id and the product name are the same word now. What is left
+	// to map is a legacy id: a channel built from configuration written before
+	// the channel migration, which must still reach the screen as PocketClaw
+	// rather than as a name the user has never seen.
+	if name == config.LegacyChannelPocketClaw {
+		return config.ChannelPocketClaw
 	}
 	return name
 }

@@ -475,6 +475,19 @@ class AppLocalizationsZh extends AppLocalizations {
   String get whatsNew020Improvement7 => '诊断日志现在私密地保存在应用内部，而不是下载文件夹中。工作区位置保持不变。';
 
   @override
+  String get whatsNew020Improvement8 =>
+      'PocketClaw 保存状态和运行服务的方式经过了一次重要升级，日常运行更加稳定可靠。';
+
+  @override
+  String get whatsNew020Improvement9 => '本次更新后，控制台会要求您重新登录一次。';
+
+  @override
+  String get whatsNew020Improvement10 => '本次更新后，网页聊天频道会开始一段新的会话。';
+
+  @override
+  String get whatsNew020Improvement11 => '本次更新后，建议检查一次您的通知偏好设置。';
+
+  @override
   String get whatsNew020Fix1 => '网关现在可以从上一次运行遗留的过期进程记录中恢复。';
 
   @override

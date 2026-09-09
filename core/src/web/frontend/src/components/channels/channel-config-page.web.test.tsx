@@ -63,12 +63,16 @@ const { ChannelConfigPage } = await import(
   "@/components/channels/channel-config-page"
 )
 
-const WEB_CHANNEL = { name: "pico", display_name: "Web", config_key: "pico" }
+const WEB_CHANNEL = {
+  name: "pocketclaw",
+  display_name: "Web",
+  config_key: "pocketclaw",
+}
 
 /** What a provisioned install actually has on disk. */
 const PROVISIONED_CONFIG = {
   enabled: true,
-  allow_from: ["pico-user"],
+  allow_from: ["pocketclaw-user"],
   token: "",
   port: 18790,
 }
@@ -78,12 +82,12 @@ function arrange(config: Record<string, unknown> = PROVISIONED_CONFIG) {
   getChannelConfig.mockResolvedValue({
     config,
     configured_secrets: ["token"],
-    config_key: "pico",
+    config_key: "pocketclaw",
   })
 }
 
 async function renderWebPage() {
-  render(<ChannelConfigPage channelName="pico" />)
+  render(<ChannelConfigPage channelName="pocketclaw" />)
   await waitFor(() =>
     expect(screen.getByRole("heading", { name: "Web" })).toBeDefined(),
   )
@@ -102,24 +106,26 @@ describe("Channels → Web", () => {
     expect(screen.queryByText(en.channels.form.desc.allowFrom)).toBeNull()
   })
 
-  it("shows no pico-user value anywhere on the page", async () => {
-    const { container } = render(<ChannelConfigPage channelName="pico" />)
+  it("shows no owner principal value anywhere on the page", async () => {
+    const { container } = render(<ChannelConfigPage channelName="pocketclaw" />)
     arrange()
     await waitFor(() =>
       expect(screen.getByRole("heading", { name: "Web" })).toBeDefined(),
     )
 
+    expect(container.textContent).not.toContain("pocketclaw-user")
     expect(container.textContent).not.toContain("pico-user")
   })
 
   it("shows no PicoClaw branding in the Web channel UI", async () => {
     arrange()
-    const { container } = render(<ChannelConfigPage channelName="pico" />)
+    const { container } = render(<ChannelConfigPage channelName="pocketclaw" />)
     await waitFor(() =>
       expect(screen.getAllByRole("heading", { name: "Web" }).length).toBeGreaterThan(0),
     )
 
-    // "Pico" is the upstream name for this transport; the user sees "Web".
+    // The channel is called pocketclaw internally; the user sees "Web", and
+    // neither the internal name nor the owner principal belongs on screen.
     expect(container.textContent).not.toMatch(/picoclaw/i)
     expect(container.textContent).not.toMatch(/\bpico[-_]/i)
   })
@@ -148,12 +154,12 @@ describe("Channels → Web", () => {
 
     await waitFor(() => expect(patchAppConfig).toHaveBeenCalledTimes(1))
     const payload = patchAppConfig.mock.calls[0][0] as {
-      channel_list: { pico: Record<string, unknown> }
+      channel_list: { pocketclaw: Record<string, unknown> }
     }
     // List fields submit as canonical JSON arrays. What matters here is that
     // the principal survived the save rather than being cleared by a control
     // the user can no longer see.
-    expect(payload.channel_list.pico.allow_from).toEqual(["pico-user"])
+    expect(payload.channel_list.pocketclaw.allow_from).toEqual(["pocketclaw-user"])
   })
 
   it("still shows Allow From for channels where it is a real setting", async () => {

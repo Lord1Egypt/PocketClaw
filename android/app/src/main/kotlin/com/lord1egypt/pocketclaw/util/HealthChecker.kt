@@ -7,7 +7,7 @@ import java.net.HttpURLConnection
 import java.net.URL
 
 /**
- * 轮询 PicoClaw /health 端点检查服务状态。
+ * 轮询 PocketClaw /health 端点检查服务状态。
  * 使用 HttpURLConnection 避免额外依赖。
  *
  * Basic checks stay anonymous, exactly as they always have been: the launcher

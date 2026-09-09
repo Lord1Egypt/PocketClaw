@@ -11,7 +11,7 @@ import {
   updateChatStore,
 } from "@/store/chat"
 
-export interface PicoMessage {
+export interface PocketClawMessage {
   type: string
   id?: string
   session_id?: string
@@ -93,8 +93,8 @@ function parseModelName(payload: Record<string, unknown>): string | undefined {
   return modelName || undefined
 }
 
-export function handlePicoMessage(
-  message: PicoMessage,
+export function handlePocketClawMessage(
+  message: PocketClawMessage,
   expectedSessionId: string,
 ) {
   if (message.session_id && message.session_id !== expectedSessionId) {
@@ -106,7 +106,7 @@ export function handlePicoMessage(
   switch (message.type) {
     case "message.create":
     case "media.create": {
-      const messageId = (payload.message_id as string) || `pico-${Date.now()}`
+      const messageId = (payload.message_id as string) || `pocketclaw-${Date.now()}`
       const { content, kind, toolCalls } =
         parseAssistantMessageCreateState(payload)
       const attachments = parseAttachments(payload)
@@ -229,7 +229,7 @@ export function handlePicoMessage(
       const errorMessage =
         typeof payload.message === "string" ? payload.message : ""
 
-      console.error("Pico error:", payload)
+      console.error("PocketClaw error:", payload)
       if (errorMessage) {
         toast.error(errorMessage)
       }
@@ -246,6 +246,6 @@ export function handlePicoMessage(
       break
 
     default:
-      console.log("Unknown pico message type:", message.type)
+      console.log("Unknown realtime message type:", message.type)
   }
 }

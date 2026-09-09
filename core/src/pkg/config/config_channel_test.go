@@ -154,18 +154,18 @@ func TestPicoSettings_StreamingConfig(t *testing.T) {
 		}
 	}`)
 	ch := &Channel{
-		Type:     ChannelPico,
+		Type:     ChannelPocketClaw,
 		Enabled:  true,
 		Settings: raw,
 	}
-	ch.SetName("pico")
-	var picoCfg PicoSettings
-	if err := ch.Decode(&picoCfg); err != nil {
+	ch.SetName("pocketclaw")
+	var pocketClawCfg PocketClawSettings
+	if err := ch.Decode(&pocketClawCfg); err != nil {
 		t.Fatalf("Decode() error = %v", err)
 	}
-	assert.True(t, picoCfg.Streaming.Enabled)
-	assert.Equal(t, 2, picoCfg.Streaming.ThrottleSeconds)
-	assert.Equal(t, 80, picoCfg.Streaming.MinGrowthChars)
+	assert.True(t, pocketClawCfg.Streaming.Enabled)
+	assert.Equal(t, 2, pocketClawCfg.Streaming.ThrottleSeconds)
+	assert.Equal(t, 80, pocketClawCfg.Streaming.MinGrowthChars)
 }
 
 func TestWeComSettings_StreamingConfig(t *testing.T) {
@@ -220,8 +220,8 @@ func TestInitChannelList_TelegramStreamingEnvCompatibility(t *testing.T) {
 			Enabled:  true,
 			Settings: RawNode(`{"token":"telegram-token"}`),
 		},
-		"pico": {
-			Type:     ChannelPico,
+		"pocketclaw": {
+			Type:     ChannelPocketClaw,
 			Enabled:  true,
 			Settings: RawNode(`{"token":"pico-token"}`),
 		},
@@ -239,14 +239,14 @@ func TestInitChannelList_TelegramStreamingEnvCompatibility(t *testing.T) {
 	assert.Equal(t, 3, tgCfg.Streaming.ThrottleSeconds)
 	assert.Equal(t, 120, tgCfg.Streaming.MinGrowthChars)
 
-	picoDecoded, err := channels["pico"].GetDecoded()
+	picoDecoded, err := channels["pocketclaw"].GetDecoded()
 	if err != nil {
 		t.Fatalf("pico GetDecoded() error = %v", err)
 	}
-	picoCfg := picoDecoded.(*PicoSettings)
-	assert.False(t, picoCfg.Streaming.Enabled)
-	assert.Equal(t, 0, picoCfg.Streaming.ThrottleSeconds)
-	assert.Equal(t, 0, picoCfg.Streaming.MinGrowthChars)
+	pocketClawCfg := picoDecoded.(*PocketClawSettings)
+	assert.False(t, pocketClawCfg.Streaming.Enabled)
+	assert.Equal(t, 0, pocketClawCfg.Streaming.ThrottleSeconds)
+	assert.Equal(t, 0, pocketClawCfg.Streaming.MinGrowthChars)
 }
 
 func TestInitChannelList_RejectsNegativeStreamingDeliveryValues(t *testing.T) {
@@ -257,12 +257,12 @@ func TestInitChannelList_RejectsNegativeStreamingDeliveryValues(t *testing.T) {
 	}{
 		{
 			name:        "pico throttle",
-			channelType: ChannelPico,
+			channelType: ChannelPocketClaw,
 			settings:    `{"token":"pico-token","streaming":{"enabled":true,"throttle_seconds":-1}}`,
 		},
 		{
 			name:        "pico growth",
-			channelType: ChannelPico,
+			channelType: ChannelPocketClaw,
 			settings:    `{"token":"pico-token","streaming":{"enabled":true,"min_growth_chars":-1}}`,
 		},
 		{
@@ -338,11 +338,11 @@ func TestChannel_JSON_Marshal_SecureMasked(t *testing.T) {
 func TestChannel_JSON_Marshal_OmitsUnconfiguredStreaming(t *testing.T) {
 	ch := Channel{
 		Enabled:  true,
-		Type:     ChannelPico,
-		name:     "pico",
+		Type:     ChannelPocketClaw,
+		name:     "pocketclaw",
 		Settings: mustParseRawNode(`{"ping_interval":30}`),
 	}
-	var cfg PicoSettings
+	var cfg PocketClawSettings
 	require.NoError(t, ch.Decode(&cfg))
 
 	data, err := json.MarshalIndent(ch, "", "  ")

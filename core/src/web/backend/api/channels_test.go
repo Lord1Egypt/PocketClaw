@@ -187,7 +187,7 @@ func TestHandleGetChannelConfig_ReturnsConfiguredStreaming(t *testing.T) {
 	if err != nil {
 		t.Fatalf("LoadConfig() error = %v", err)
 	}
-	pico := cfg.Channels.Get(config.ChannelPico)
+	pico := cfg.Channels.Get(config.ChannelPocketClaw)
 	if pico == nil {
 		t.Fatal("missing pico channel")
 	}
@@ -203,13 +203,13 @@ func TestHandleGetChannelConfig_ReturnsConfiguredStreaming(t *testing.T) {
 	mux := http.NewServeMux()
 	h.RegisterRoutes(mux)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/channels/pico/config", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/channels/pocketclaw/config", nil)
 	rec := httptest.NewRecorder()
 	mux.ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusOK {
 		t.Fatalf(
-			"GET /api/channels/pico/config status = %d, want %d, body=%s",
+			"GET /api/channels/pocketclaw/config status = %d, want %d, body=%s",
 			rec.Code,
 			http.StatusOK,
 			rec.Body.String(),
@@ -276,8 +276,11 @@ func TestHandleGetChannelConfig_ReturnsDefaultShapeForMissingChannel(t *testing.
 	if got := resp.Config["server"]; got != "" {
 		t.Fatalf("config.server = %#v, want empty string", got)
 	}
-	if got := resp.Config["nick"]; got != "picoclaw" {
-		t.Fatalf("config.nick = %#v, want %q", got, "picoclaw")
+	// The default nick this product ships. A user who enables IRC without
+	// choosing one makes the Core send it on the wire, so it states the current
+	// identity rather than the upstream one.
+	if got := resp.Config["nick"]; got != "pocketclaw" {
+		t.Fatalf("config.nick = %#v, want %q", got, "pocketclaw")
 	}
 	if got := resp.Config["enabled"]; got != false {
 		t.Fatalf("config.enabled = %#v, want false", got)

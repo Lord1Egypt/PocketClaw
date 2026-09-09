@@ -38,12 +38,15 @@ set -euo pipefail
 # BUILD_INPUTS is the path set whose history decides the default timestamp:
 # everything a canonical `./core/build-android-arm64.sh` actually consumes.
 #
-# Deliberately broader than the Core *source fingerprint*, which names only
-# cmd/, pkg/, workspace/, go.mod, go.sum and the Makefile because those are what
-# reach the Core gateway compiler. The canonical build also produces
-# libpicoclaw-web.so from core/src/web, and stamps both binaries with one
-# timestamp, so web/ materially affects the bytes this script is dating. The two
-# sets answer different questions and are allowed to differ.
+# This set and the Core *source fingerprint* now describe the same production
+# universe. They did not until N4K-A: the fingerprint named only cmd/, pkg/,
+# workspace/, go.mod, go.sum and the Makefile — what reaches the Core gateway
+# compiler — while this script already covered all of core/src because the
+# canonical build also produces libpocketclaw-web.so from core/src/web and
+# stamps both binaries with one timestamp. That gap meant a dashboard change
+# moved the timestamp but not the fingerprint, so staged freshness stayed green
+# against a binary that provably differed. The fingerprint now covers web/ too;
+# keep the two in step, and prefer widening both to narrowing either.
 #
 # Deliberately excludes the staged JNI binaries (build *output*, and folding
 # them in would make every staging commit move the timestamp), documentation,
@@ -66,13 +69,21 @@ BUILD_INPUTS=(
 # staged freshness green while core.staged_build_time went red against binaries
 # that provably could not differ.
 #
-# The exclusion is exactly and only *_test.go under core/src. Everything that
-# takes part in producing the binary stays in, including this script and the
+# The dashboard frontend has tests too, and they are Vitest files rather than Go
+# ones: *.test.ts / *.test.tsx under core/src/web/frontend. `vite build` does not
+# emit them, so they cannot reach libpocketclaw-web.so, and the same reasoning
+# that excludes *_test.go excludes these. pkg/coresource excludes exactly this
+# set; a test holds the two rules together.
+#
+# The exclusion is exactly and only test files under core/src. Everything that
+# takes part in producing the binaries stays in, including this script and the
 # build script: a change to how the build is defined is a change to the build,
 # so editing either still moves the timestamp and still requires a rebuild.
 # That self-provenance is deliberate and is covered by a test.
 BUILD_INPUT_EXCLUDES=(
     ":(exclude,glob)core/src/**/*_test.go"
+    ":(exclude,glob)core/src/web/frontend/**/*.test.ts"
+    ":(exclude,glob)core/src/web/frontend/**/*.test.tsx"
 )
 
 fail() {

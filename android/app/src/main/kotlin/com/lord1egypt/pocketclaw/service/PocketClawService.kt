@@ -1,5 +1,6 @@
 package com.lord1egypt.pocketclaw.service
 
+import com.lord1egypt.pocketclaw.PocketClawCoreState
 import com.lord1egypt.pocketclaw.security.GitHubCredentialStore
 import android.app.Notification
 import android.app.PendingIntent
@@ -27,8 +28,8 @@ class PocketClawService : Service() {
     companion object {
         private const val TAG = "PocketClawService"
         private const val NOTIFICATION_ID = 1
-        private const val GATEWAY_BINARY_NAME = "libpicoclaw.so"
-        private const val WEB_BINARY_NAME = "libpicoclaw-web.so"
+        private const val GATEWAY_BINARY_NAME = "libpocketclaw.so"
+        private const val WEB_BINARY_NAME = "libpocketclaw-web.so"
         private const val GATEWAY_PORT = 18790
         private const val WEB_PORT = 18800
         private val ANSI_ESCAPE_REGEX = Regex("\\u001B(?:[@-Z\\\\-_]|\\[[0-?]*[ -/]*[@-~])")
@@ -40,7 +41,7 @@ class PocketClawService : Service() {
         /**
          * Where Core writes the gateway bearer credential.
          *
-         * It used to live inside `.picoclaw.pid` in PICOCLAW_HOME, which on
+         * It used to live inside `.picoclaw.pid` in POCKETCLAW_HOME, which on
          * this platform is `Download/pocketclaw` — user-visible shared storage,
          * where the 0600 Core writes with is synthesised by the filesystem
          * rather than enforced. Any app holding storage access could read it,
@@ -61,7 +62,7 @@ class PocketClawService : Service() {
          *
          * launcher-auth.db holds a bcrypt verifier — no plaintext, no session
          * token — so reading it buys an attacker little. Writing it is the
-         * problem: under PICOCLAW_HOME it sits on shared external storage,
+         * problem: under POCKETCLAW_HOME it sits on shared external storage,
          * where an app with storage write access can replace the verifier with
          * one for a password it chose and then log in normally over loopback,
          * which Android does not isolate between apps. That is an
@@ -123,7 +124,7 @@ class PocketClawService : Service() {
          * no-backup storage; it is never copied into the public workspace,
          * included in Android backup, or written to logs.
          */
-        fun picoTokenForHost(context: Context): String {
+        fun pocketClawTokenForHost(context: Context): String {
             synchronized(realtimeAuthLock) {
                 val tokenFile = File(
                     context.applicationContext.noBackupFilesDir,
@@ -303,8 +304,7 @@ class PocketClawService : Service() {
         }
 
         fun buildEnvironment(context: Context): Map<String, String> {
-            val internalHome = File(context.filesDir, "picoclaw")
-            internalHome.mkdirs()
+            val coreState = PocketClawCoreState.directory(context)
 
             val workspace = File(getWorkspacePath(context))
             workspace.mkdirs()
@@ -317,32 +317,37 @@ class PocketClawService : Service() {
             } catch (e: Exception) {
                 File(context.applicationInfo.nativeLibraryDir, GATEWAY_BINARY_NAME).absolutePath
             }
-            val configPath = File(internalHome, "config.json").absolutePath
+            val configPath = PocketClawCoreState.configFile(context).absolutePath
 
             // Managed Runtime storage. Executables live in nativeLibraryDir,
             // which the installer unpacked and the app cannot write; metadata
             // lives app-private and outside the user workspace, so a Skill
             // writing into Download/pocketclaw cannot reach runtime state.
             val runtimeLibDir = context.applicationInfo.nativeLibraryDir
-            val runtimeMetadataDir = File(internalHome, "runtime")
+            val runtimeMetadataDir = File(coreState, "runtime")
             runtimeMetadataDir.mkdirs()
 
             val environment = mutableMapOf(
                 "HOME" to context.filesDir.absolutePath,
-                "PICOCLAW_HOME" to workspace.absolutePath,
+                "POCKETCLAW_HOME" to workspace.absolutePath,
                 // The workspace stays where the user can reach it. The
                 // credentials and the diagnostic log do not: all three move to
                 // app-private no-backup storage, which is the boundary that
                 // separates user data from runtime control state.
-                "PICOCLAW_GATEWAY_TOKEN_FILE" to gatewayTokenFile(context).absolutePath,
-                "PICOCLAW_LOG_DIR" to privateLogDir(context).absolutePath,
-                "PICOCLAW_DASHBOARD_AUTH_DIR" to privateAuthDir(context).absolutePath,
-                "PICOCLAW_CONFIG" to configPath,
-                "PICOCLAW_BINARY" to gatewayBinaryPath,
+                "POCKETCLAW_GATEWAY_TOKEN_FILE" to gatewayTokenFile(context).absolutePath,
+                "POCKETCLAW_LOG_DIR" to privateLogDir(context).absolutePath,
+                "POCKETCLAW_DASHBOARD_AUTH_DIR" to privateAuthDir(context).absolutePath,
+                "POCKETCLAW_CONFIG" to configPath,
+                "POCKETCLAW_BINARY" to gatewayBinaryPath,
                 "POCKETCLAW_RUNTIME_LIB_DIR" to runtimeLibDir,
                 "POCKETCLAW_RUNTIME_DIR" to runtimeMetadataDir.absolutePath,
                 "POCKETCLAW_ANDROID_BRIDGE_TOKEN" to androidBridgeToken,
-                "PICOCLAW_CHANNELS_PICO_TOKEN" to picoTokenForHost(context),
+                // The serialized Core channel is still named "pico", so its
+                // struct tag reads PICOCLAW_CHANNELS_PICO_TOKEN. The host does
+                // not emit that name: Core's canonical-env adapter translates
+                // this key onto the tag. The channel itself is renamed in a
+                // later phase, and the adapter table moves with it.
+                "POCKETCLAW_CHANNELS_POCKETCLAW_TOKEN" to pocketClawTokenForHost(context),
                 // Live channel reconciliation is a PocketClaw product behaviour:
                 // saving a channel setting in the Dashboard must apply without
                 // the user stopping and starting the Gateway by hand. Core
@@ -354,7 +359,7 @@ class PocketClawService : Service() {
                 // reconciliation with nothing written into config.json. Being
                 // applied last also means this wins over the file: on Android
                 // hot reload is the product behaviour, not a preference.
-                "PICOCLAW_GATEWAY_HOT_RELOAD" to "true",
+                "POCKETCLAW_GATEWAY_HOT_RELOAD" to "true",
                 // The host-bus tools cannot work here and are not part of the
                 // PocketClaw Android product surface: an unrooted phone exposes
                 // no /dev/i2c-*, /dev/spidev* or /dev/tty* to an app UID, and
@@ -363,9 +368,9 @@ class PocketClawService : Service() {
                 // boundary rather than by changing that default. Env is applied
                 // after the file, so this also holds for a config imported from
                 // another machine or hand-edited to enable them.
-                "PICOCLAW_TOOLS_I2C_ENABLED" to "false",
-                "PICOCLAW_TOOLS_SPI_ENABLED" to "false",
-                "PICOCLAW_TOOLS_SERIAL_ENABLED" to "false",
+                "POCKETCLAW_TOOLS_I2C_ENABLED" to "false",
+                "POCKETCLAW_TOOLS_SPI_ENABLED" to "false",
+                "POCKETCLAW_TOOLS_SERIAL_ENABLED" to "false",
                 "TMPDIR" to tmpDir.absolutePath,
                 "PATH" to "/system/bin:/system/xbin",
                 "LANG" to "en_US.UTF-8",
@@ -376,7 +381,7 @@ class PocketClawService : Service() {
                 "SSL_CERT_DIR" to "/system/etc/security/cacerts",
             )
             activeNetworkDnsServers(context).takeIf { it.isNotEmpty() }?.let {
-                environment["PICOCLAW_DNS_SERVER"] = it
+                environment["POCKETCLAW_DNS_SERVER"] = it
             }
             // The GitHub credential is decrypted here and nowhere else: the
             // Keystore key never leaves the Keystore, and the plaintext exists
@@ -606,7 +611,7 @@ class PocketClawService : Service() {
                     testBinary(gatewayBinary)
                     ensureOnboarded(gatewayBinary)
                     // 启动前先清理可能残留的旧进程
-                    killPicoClawOrphanProcesses()
+                    killPocketClawOrphanProcesses()
                     runWebService()
                 } catch (e: Exception) {
                     if (!stopped) {
@@ -666,11 +671,10 @@ class PocketClawService : Service() {
     }
 
     /**
-     * 运行 `picoclaw onboard` 初始化配置和工作区
+     * 运行 Core 的 `onboard` 初始化配置和工作区
      */
     private fun ensureOnboarded(binaryFile: File) {
-        val picoHome = File(filesDir, "picoclaw")
-        val configFile = File(picoHome, "config.json")
+        val configFile = PocketClawCoreState.configFile(this)
 
         if (configFile.exists()) {
             Log.i(TAG, "Config already exists, skipping onboard")
@@ -700,7 +704,7 @@ class PocketClawService : Service() {
     }
 
     /**
-     * 运行 web 服务进程（libpicoclaw-web.so）
+     * 运行 web 服务进程（libpocketclaw-web.so）
      * web 服务会通过 TryAutoStartGateway() 自动启动并管理 gateway
      */
     private fun runWebService() {
@@ -711,7 +715,7 @@ class PocketClawService : Service() {
         }
 
         val webBinaryFile = getWebBinaryFile()
-        val configFile = File(filesDir, "picoclaw/config.json")
+        val configFile = PocketClawCoreState.configFile(this)
         val env = buildEnvironment()
 
         val cmdList = mutableListOf(
@@ -782,7 +786,7 @@ class PocketClawService : Service() {
                     Log.w(TAG, "Log reader interrupted", e)
                 }
             }
-        }, "picoclaw-web-log-reader").apply {
+        }, "pocketclaw-web-log-reader").apply {
             isDaemon = true
             start()
         }
@@ -816,7 +820,7 @@ class PocketClawService : Service() {
             }
             Log.i(TAG, "Scheduling restart in 5 seconds... (attempt $restartCount/$maxRestartAttempts)")
             // 清理可能残留的占用端口的进程
-            killPicoClawOrphanProcesses()
+            killPocketClawOrphanProcesses()
             Thread.sleep(5000)
             // 再次检查是否被要求停止
             if (stopped) {
@@ -832,12 +836,36 @@ class PocketClawService : Service() {
      * 用于某些设备（特别是 TV）so 文件没有被自动解压到 nativeLibraryDir 的情况
      */
     /**
-     * 杀掉属于当前应用的所有 picoclaw 残留子进程。
+     * 杀掉属于当前应用的所有 PocketClaw Core 残留子进程。
      *
      * 通过 UID 匹配（而非 ppid），因为 force-stop 后 app 重启 PID 会变，
      * 旧的孤儿进程的 ppid 可能已变为 1（被 init 收养），无法通过 ppid 找到。
      */
-    private fun killPicoClawOrphanProcesses() {
+    /**
+     * Whether a /proc/<pid>/cmdline belongs to one of PocketClaw's own Core
+     * executables.
+     *
+     * Matched on the basename of argv[0] against [GATEWAY_BINARY_NAME] and
+     * [WEB_BINARY_NAME] — the same constants used to spawn them, so orphan
+     * cleanup and the names it is cleaning up cannot drift apart.
+     *
+     * Exact comparison, deliberately. `contains("picoclaw")` is what this
+     * replaced and it stopped matching anything once the binaries were renamed
+     * in N3. `contains("pocketclaw")` or a "libpocketclaw" prefix would swing
+     * the other way and sweep in every Managed Runtime payload — gh, git,
+     * python, curl, rg, jq, sqlite3, git-remote-http are all libpocketclaw-*
+     * and are ours, but they are not orphaned Core processes and killing one
+     * mid-operation would look like a random tool failure. The application
+     * process is excluded for the same reason.
+     */
+    private fun isCoreExecutableCommandLine(cmdline: String): Boolean {
+        val argv0 = cmdline.substringBefore('\u0000').trim()
+        if (argv0.isEmpty()) return false
+        val basename = argv0.substringAfterLast('/')
+        return basename == GATEWAY_BINARY_NAME || basename == WEB_BINARY_NAME
+    }
+
+    private fun killPocketClawOrphanProcesses() {
         try {
             val myPid = android.os.Process.myPid()
             val myUid = android.os.Process.myUid()
@@ -860,19 +888,19 @@ class PocketClawService : Service() {
                     // 只处理属于同一 UID（同一应用）的进程
                     if (processUid != myUid) return@forEach
 
-                    // 检查 cmdline 是否包含 picoclaw
+                    // 只匹配 Core 可执行文件本身，按 argv[0] 的 basename 精确比对。
                     val cmdlineFile = File(pidDir, "cmdline")
                     if (!cmdlineFile.canRead()) return@forEach
                     val cmdline = cmdlineFile.readText()
-                    if (!cmdline.contains("picoclaw")) return@forEach
+                    if (!isCoreExecutableCommandLine(cmdline)) return@forEach
 
-                    Log.i(TAG, "Killing orphan picoclaw process: PID=$pid, UID=$processUid, cmd=$cmdline")
+                    Log.i(TAG, "Killing orphan PocketClaw Core process: PID=$pid, UID=$processUid, cmd=$cmdline")
                     android.os.Process.killProcess(pid)
                 } catch (e: Exception) {
                     // 忽略无权限的进程
                 }
             }
-            Log.i(TAG, "Cleaned up orphan picoclaw processes")
+            Log.i(TAG, "Cleaned up orphan PocketClaw Core processes")
         } catch (e: Exception) {
             Log.w(TAG, "Failed to cleanup orphan processes: ${e.message}")
         }
@@ -927,7 +955,7 @@ class PocketClawService : Service() {
         serviceThread = null
 
         // 清理可能残留的孤儿进程（包括 web 服务自己启动的 gateway）
-        killPicoClawOrphanProcesses()
+        killPocketClawOrphanProcesses()
 
         // 重置重启计数
         restartCount = 0
@@ -939,7 +967,7 @@ class PocketClawService : Service() {
 
     /**
      * 构建子进程环境变量
-     * 关键：设置 PICOCLAW_BINARY 指向 gateway 二进制，让 web 服务能找到并启动 gateway
+     * 关键：设置 POCKETCLAW_BINARY 指向 gateway 二进制，让 web 服务能找到并启动 gateway
      */
     private fun buildEnvironment(): Map<String, String> {
         return Companion.buildEnvironment(this).toMutableMap().apply {
@@ -994,7 +1022,7 @@ class PocketClawService : Service() {
         val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
         wakeLock = pm.newWakeLock(
             PowerManager.PARTIAL_WAKE_LOCK,
-            "PicoClaw::ServiceWakeLock"
+            "PocketClaw::ServiceWakeLock"
         ).apply {
             acquire(24 * 60 * 60 * 1000L) // 24 小时上限
         }

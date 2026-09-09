@@ -1,12 +1,13 @@
 package internal
 
 import (
-	"os"
 	"path/filepath"
 
 	"github.com/sipeed/picoclaw/pkg"
 	"github.com/sipeed/picoclaw/pkg/config"
 	"github.com/sipeed/picoclaw/pkg/logger"
+
+	"github.com/sipeed/picoclaw/pkg/canonicalenv"
 )
 
 const Logo = pkg.Logo
@@ -18,7 +19,7 @@ func GetPicoclawHome() string {
 }
 
 func GetConfigPath() string {
-	if configPath := os.Getenv(config.EnvConfig); configPath != "" {
+	if configPath := canonicalenv.Getenv(config.EnvConfig); configPath != "" {
 		return configPath
 	}
 	return filepath.Join(GetPicoclawHome(), "config.json")

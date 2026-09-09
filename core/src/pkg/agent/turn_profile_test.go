@@ -203,10 +203,10 @@ func TestTurnProfile_ProcessMessageUsesEnabledTurnProfile(t *testing.T) {
 
 	_, err := al.processMessage(context.Background(), bus.InboundMessage{
 		Context: bus.InboundContext{
-			Channel:  "pico",
-			ChatID:   "pico:sess-1",
+			Channel:  "pocketclaw",
+			ChatID:   "pocketclaw:sess-1",
 			ChatType: "direct",
-			SenderID: "pico-user",
+			SenderID: "pocketclaw-user",
 		},
 		Content: "hello from pico",
 	})
@@ -251,10 +251,10 @@ func TestTurnProfile_BtwCommandUsesEnabledTurnProfile(t *testing.T) {
 
 	_, err := al.processMessage(context.Background(), bus.InboundMessage{
 		Context: bus.InboundContext{
-			Channel:  "pico",
-			ChatID:   "pico:btw",
+			Channel:  "pocketclaw",
+			ChatID:   "pocketclaw:btw",
 			ChatType: "direct",
-			SenderID: "pico-user",
+			SenderID: "pocketclaw-user",
 		},
 		Content: "/btw explain privately",
 	})
@@ -313,10 +313,10 @@ func TestTurnProfile_BtwCommandDoesNotAddToolFallbackWhenSystemPromptOff(t *test
 
 	_, err := al.processMessage(context.Background(), bus.InboundMessage{
 		Context: bus.InboundContext{
-			Channel:  "pico",
-			ChatID:   "pico:btw-system-off",
+			Channel:  "pocketclaw",
+			ChatID:   "pocketclaw:btw-system-off",
 			ChatType: "direct",
-			SenderID: "pico-user",
+			SenderID: "pocketclaw-user",
 		},
 		Content: "/btw explain privately",
 	})
@@ -361,10 +361,10 @@ func TestTurnProfile_BtwHookCannotReenableNativeSearchWhenToolsOff(t *testing.T)
 
 	_, err := al.processMessage(context.Background(), bus.InboundMessage{
 		Context: bus.InboundContext{
-			Channel:  "pico",
-			ChatID:   "pico:btw-native-search",
+			Channel:  "pocketclaw",
+			ChatID:   "pocketclaw:btw-native-search",
 			ChatType: "direct",
-			SenderID: "pico-user",
+			SenderID: "pocketclaw-user",
 		},
 		Content: "/btw search privately",
 	})

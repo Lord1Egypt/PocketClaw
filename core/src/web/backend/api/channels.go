@@ -3,11 +3,12 @@ package api
 import (
 	"encoding/json"
 	"net/http"
-	"os"
 	"reflect"
 	"strings"
 
 	"github.com/sipeed/picoclaw/pkg/config"
+
+	"github.com/sipeed/picoclaw/pkg/canonicalenv"
 )
 
 type channelCatalogItem struct {
@@ -31,7 +32,7 @@ var channelCatalog = []channelCatalogItem{
 	// exist in vendored upstream Core and still run for an install that already
 	// configured one by hand, but PocketClaw offers no WhatsApp channel:
 	// Telegram is the supported remote agent channel.
-	{Name: "pico", ConfigKey: "pico"},
+	{Name: config.ChannelPocketClaw, ConfigKey: config.ChannelPocketClaw},
 	{Name: "maixcam", ConfigKey: "maixcam"},
 	{Name: "matrix", ConfigKey: "matrix"},
 	{Name: "irc", ConfigKey: "irc"},
@@ -101,10 +102,10 @@ func (h *Handler) handleGetChannelConfig(w http.ResponseWriter, r *http.Request)
 // toggle only for a field the response carries, so omitting it here is all that
 // hiding requires.
 func hideHostManagedChannelFields(settings map[string]any, channelName string) {
-	if channelName != "pico" {
+	if channelName != config.ChannelPocketClaw {
 		return
 	}
-	if strings.TrimSpace(os.Getenv(config.EnvChannelsPicoToken)) == "" {
+	if strings.TrimSpace(canonicalenv.Getenv(config.EnvChannelsPocketClawToken)) == "" {
 		return
 	}
 	delete(settings, "allow_token_query")
@@ -120,21 +121,21 @@ func findChannelCatalogItem(name string) (channelCatalogItem, bool) {
 }
 
 var channelSecretFieldMap = map[string][]string{
-	"weixin":   {"token"},
-	"telegram": {"token"},
-	"discord":  {"token"},
-	"slack":    {"bot_token", "app_token"},
-	"feishu":   {"app_secret", "encrypt_key", "verification_token"},
-	"dingtalk": {"client_secret"},
-	"line":     {"channel_secret", "channel_access_token"},
-	"qq":       {"app_secret"},
-	"onebot":   {"access_token"},
-	"wecom":    {"secret"},
-	"pico":     {"token"},
-	"matrix":   {"access_token"},
-	"irc":      {"password", "nickserv_password", "sasl_password"},
-	"maixcam":  {},
-	"mqtt":     {"username", "password"},
+	"weixin":     {"token"},
+	"telegram":   {"token"},
+	"discord":    {"token"},
+	"slack":      {"bot_token", "app_token"},
+	"feishu":     {"app_secret", "encrypt_key", "verification_token"},
+	"dingtalk":   {"client_secret"},
+	"line":       {"channel_secret", "channel_access_token"},
+	"qq":         {"app_secret"},
+	"onebot":     {"access_token"},
+	"wecom":      {"secret"},
+	"pocketclaw": {"token"},
+	"matrix":     {"access_token"},
+	"irc":        {"password", "nickserv_password", "sasl_password"},
+	"maixcam":    {},
+	"mqtt":       {"username", "password"},
 }
 
 func buildChannelConfigResponse(cfg *config.Config, item channelCatalogItem) channelConfigResponse {

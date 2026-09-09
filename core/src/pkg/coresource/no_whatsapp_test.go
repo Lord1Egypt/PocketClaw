@@ -48,7 +48,7 @@ func TestStagedCoreDoesNotLinkWhatsmeow(t *testing.T) {
 		t.Skip("not running inside a PocketClaw checkout")
 	}
 	core, err := os.ReadFile(filepath.Join(root, "android", "app", "src", "main",
-		"jniLibs", "arm64-v8a", "libpicoclaw.so"))
+		"jniLibs", "arm64-v8a", "libpocketclaw.so"))
 	if err != nil {
 		t.Skipf("no staged Core binary to check: %v", err)
 	}

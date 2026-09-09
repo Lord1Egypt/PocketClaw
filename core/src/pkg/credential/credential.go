@@ -38,6 +38,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/sipeed/picoclaw/pkg/canonicalenv"
 )
 
 // PassphraseEnvVar is the environment variable that holds the encryption passphrase.
@@ -263,7 +265,7 @@ func allowedSSHKeyPath(path string) bool {
 	}
 
 	// Within PICOCLAW_HOME.
-	if picoHome := os.Getenv(picoclawHome); picoHome != "" {
+	if picoHome := canonicalenv.Getenv(picoclawHome); picoHome != "" {
 		if isWithinDir(clean, picoHome) {
 			return true
 		}

@@ -35,7 +35,7 @@ func TestGatewayTokenIsNotWrittenIntoTheSharedPidRecord(t *testing.T) {
 		t.Fatal("the caller still needs the token in memory to configure the health server")
 	}
 
-	raw, err := os.ReadFile(filepath.Join(home, pidFileName))
+	raw, err := os.ReadFile(filepath.Join(home, CanonicalPidFileName))
 	if err != nil {
 		t.Fatalf("read pid record: %v", err)
 	}
@@ -115,7 +115,7 @@ func TestWithoutASinkTheTokenStaysInTheRecord(t *testing.T) {
 	}
 	defer RemovePidFile(home)
 
-	raw, err := os.ReadFile(filepath.Join(home, pidFileName))
+	raw, err := os.ReadFile(filepath.Join(home, CanonicalPidFileName))
 	if err != nil {
 		t.Fatalf("read pid record: %v", err)
 	}
@@ -131,7 +131,7 @@ func TestANewStartDoesNotReuseALegacySharedToken(t *testing.T) {
 	tokenPath := filepath.Join(t.TempDir(), "gateway_auth")
 
 	legacy := `{"pid":999999,"token":"legacy-token-from-an-older-build","version":"v0","port":18790,"host":"127.0.0.1"}`
-	if err := os.WriteFile(filepath.Join(home, pidFileName), []byte(legacy), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(home, CanonicalPidFileName), []byte(legacy), 0o600); err != nil {
 		t.Fatalf("seed legacy record: %v", err)
 	}
 
@@ -145,7 +145,7 @@ func TestANewStartDoesNotReuseALegacySharedToken(t *testing.T) {
 	if data.Token == "legacy-token-from-an-older-build" {
 		t.Fatal("the new gateway adopted a credential from the old shared record")
 	}
-	raw, err := os.ReadFile(filepath.Join(home, pidFileName))
+	raw, err := os.ReadFile(filepath.Join(home, CanonicalPidFileName))
 	if err != nil {
 		t.Fatalf("read pid record: %v", err)
 	}

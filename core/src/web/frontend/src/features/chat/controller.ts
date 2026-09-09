@@ -5,7 +5,7 @@ import {
   loadSessionMessages,
   mergeHistoryMessages,
 } from "@/features/chat/history"
-import { type PicoMessage, handlePicoMessage } from "@/features/chat/protocol"
+import { type PocketClawMessage, handlePocketClawMessage } from "@/features/chat/protocol"
 import {
   clearStoredSessionId,
   generateSessionId,
@@ -138,7 +138,7 @@ export async function connectChat() {
     }
 
     const wsScheme = window.location.protocol === "https:" ? "wss:" : "ws:"
-    const wsUrl = `${wsScheme}//${window.location.host}/pico/ws`
+    const wsUrl = `${wsScheme}//${window.location.host}/pocketclaw/ws`
     const url = `${wsUrl}?session_id=${encodeURIComponent(sessionId)}`
     const socket = new WebSocket(url)
 
@@ -181,10 +181,10 @@ export async function connectChat() {
       }
 
       try {
-        const message = JSON.parse(event.data) as PicoMessage
-        handlePicoMessage(message, sessionId)
+        const message = JSON.parse(event.data) as PocketClawMessage
+        handlePocketClawMessage(message, sessionId)
       } catch {
-        console.warn("Non-JSON message from pico:", event.data)
+        console.warn("Non-JSON message from the realtime channel:", event.data)
       }
     }
 
@@ -234,7 +234,7 @@ export async function connectChat() {
       isConnecting = false
       return
     }
-    console.error("Failed to connect to pico:", error)
+    console.error("Failed to connect to the realtime channel:", error)
     updateChatStore({ connectionState: "error" })
     isConnecting = false
     scheduleReconnect(generation, activeSessionIdRef)
@@ -371,7 +371,7 @@ export function sendChatMessage({
     )
     return true
   } catch (error) {
-    console.error("Failed to send pico message:", error)
+    console.error("Failed to send a realtime message:", error)
     updateChatStore((prev) => ({
       messages: prev.messages.filter((message) => message.id !== id),
       isTyping: false,

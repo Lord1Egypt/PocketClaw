@@ -69,12 +69,18 @@ make build-launcher-android-arm64 VERSION="$CORE_VERSION" GIT_COMMIT="$CORE_GIT_
                                   BUILD_TIME="$BUILD_TIME" \
                                   SOURCE_FINGERPRINT="$SOURCE_FINGERPRINT"
 
-install -m 0755 "$CORE_SRC/build/picoclaw-android-arm64"          "$JNI_LIBS/libpicoclaw.so"
-install -m 0755 "$CORE_SRC/build/picoclaw-launcher-android-arm64" "$JNI_LIBS/libpicoclaw-web.so"
+# The upstream build emits picoclaw-android-arm64 and
+# picoclaw-launcher-android-arm64; those intermediate names stay as upstream
+# writes them. What PocketClaw packages is its own identity, so the install
+# destination — the name that reaches nativeLibraryDir, /proc/<pid>/comm and the
+# APK payload — is libpocketclaw*.so. Renaming here rather than in the Makefile
+# keeps the upstream build recipe untouched.
+install -m 0755 "$CORE_SRC/build/picoclaw-android-arm64"          "$JNI_LIBS/libpocketclaw.so"
+install -m 0755 "$CORE_SRC/build/picoclaw-launcher-android-arm64" "$JNI_LIBS/libpocketclaw-web.so"
 
 echo
 echo "Installed into $JNI_LIBS:"
-for lib in libpicoclaw.so libpicoclaw-web.so; do
+for lib in libpocketclaw.so libpocketclaw-web.so; do
     printf '  %-20s %12d bytes  %s\n' "$lib" \
         "$(stat -c%s "$JNI_LIBS/$lib")" \
         "$(sha256sum "$JNI_LIBS/$lib" | cut -d' ' -f1)"
@@ -84,7 +90,7 @@ done
 # -trimpath is what keeps this true; this check is what proves it stayed true.
 echo
 leaked=0
-for lib in libpicoclaw.so libpicoclaw-web.so; do
+for lib in libpocketclaw.so libpocketclaw-web.so; do
     hits="$(strings -a "$JNI_LIBS/$lib" | grep -c -E '/home/|/Users/|/root/' || true)"
     printf '  %-20s developer paths: %s\n' "$lib" "$hits"
     [ "$hits" -eq 0 ] || leaked=1
@@ -97,12 +103,21 @@ fi
 # The stamp is what the test gate greps for. A build that produced a binary
 # without it would pass here and fail the gate with a confusing message, so
 # check it where the cause is still obvious.
-if ! grep -qa "$SOURCE_FINGERPRINT" "$JNI_LIBS/libpicoclaw.so"; then
-    echo "error: the staged Core does not carry its source fingerprint" >&2
-    exit 1
-fi
+#
+# Both binaries, because both ship. Checking only libpocketclaw.so is what let a
+# dashboard change escape provenance until N4K-A: the -X flag reaches the
+# launcher build through the LDFLAGS passed above, but a linker drops an -X
+# target that no live code reads, so the flag succeeding says nothing about the
+# binary carrying it. web/backend/main.go reads it back at startup; this is what
+# proves that stayed true.
+for lib in libpocketclaw.so libpocketclaw-web.so; do
+    if ! grep -qa "$SOURCE_FINGERPRINT" "$JNI_LIBS/$lib"; then
+        echo "error: staged $lib does not carry its source fingerprint" >&2
+        exit 1
+    fi
+done
 echo
-echo "  source fingerprint stamped: $SOURCE_FINGERPRINT"
+echo "  source fingerprint stamped in both binaries: $SOURCE_FINGERPRINT"
 
 echo
 echo "Core build complete. Package with:"

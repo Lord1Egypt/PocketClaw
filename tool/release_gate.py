@@ -74,7 +74,7 @@ FORBIDDEN_PERMISSIONS = {
     "freemme.permission.msa",
 }
 
-CORE_LIBS = ("libpicoclaw.so", "libpicoclaw-web.so")
+CORE_LIBS = ("libpocketclaw.so", "libpocketclaw-web.so")
 STAGED_CORE_DIR = REPO / "android/app/src/main/jniLibs" / EXPECTED_ABI
 
 # The Android debug signing certificate this project's local test builds carry.
@@ -88,7 +88,9 @@ PENDING_FINAL_HARDENING = [
     "production signing key not created",
     "Dart obfuscation and split debug info not enabled",
     "R8 keep rules not narrowed",
-    "PicoClaw to PocketClaw namespace migration outstanding",
+    # The namespace migration was listed here until the sweep finished and
+    # namespace.no_active_pico started enforcing it on every run. A standing
+    # note that a solved problem is outstanding is as misleading as the reverse.
     "versioned non-destructive bootstrap update strategy outstanding",
 ]
 
@@ -369,6 +371,27 @@ def worktree_gate(gate: Gate, release_class: str):
                     f"{len(dirty)} uncommitted change(s) — NON-RELEASABLE (test class)")
 
 
+def core_source_fingerprint(gate: Gate) -> str:
+    """The fingerprint the current core/src produces, computed once per run.
+
+    Both the source and the artifact paths need it, and only one of them may be
+    running: --verify-artifact does not call source_gates at all. Caching it on
+    the gate rather than setting it in one path and reading it in the other is
+    what keeps artifact.core_provenance_pair able to pass on its own — it could
+    not, until this existed.
+    """
+    cached = gate.facts.get("coreSourceFingerprint")
+    if cached:
+        return cached
+    _, out = run(["go", "run", "./cmd/corefingerprint", "."],
+                 cwd=REPO / "core/src", env={"GOOS": "", "GOARCH": ""})
+    fingerprint = out.strip().splitlines()[-1] if out.strip() else ""
+    if re.fullmatch(r"[0-9a-f]{64}", fingerprint):
+        gate.facts["coreSourceFingerprint"] = fingerprint
+        return fingerprint
+    return ""
+
+
 def source_gates(gate: Gate, run_tests: bool, release_class: str = "test"):
     worktree_gate(gate, release_class)
     _, code = tracked_version(gate)
@@ -460,11 +483,17 @@ def source_gates(gate: Gate, run_tests: bool, release_class: str = "test"):
         if path.is_file():
             gate.facts.setdefault("stagedCore", {})[lib] = sha256(path)
 
-    rc, out = run(["go", "run", "./cmd/corefingerprint", "."],
-                  cwd=REPO / "core/src", env={"GOOS": "", "GOARCH": ""})
-    fingerprint = out.strip().splitlines()[-1] if out.strip() else ""
-    if re.fullmatch(r"[0-9a-f]{64}", fingerprint):
-        gate.facts["coreSourceFingerprint"] = fingerprint
+    core_source_fingerprint(gate)
+
+    # Source, not artifact, and deliberately above the --no-tests return: a new
+    # active Pico identity has to be caught before it is compiled, because after
+    # that the only evidence is a string inside a .so nobody greps. It reads the
+    # tree and runs in under a second, so there is no reason to skip it.
+    rc, out = run([sys.executable, str(REPO / "tool/no_active_pico.py")], cwd=REPO)
+    summary = out.strip().splitlines()[-1] if out.strip() else "FAIL"
+    gate.check("namespace.no_active_pico", rc == 0,
+               expected="no unclassified Pico identity in owned production source",
+               observed="PASS" if rc == 0 else summary)
 
     if not run_tests:
         gate.record("tests", SKIP, "not requested (--no-tests)")
@@ -491,11 +520,12 @@ def source_gates(gate: Gate, run_tests: bool, release_class: str = "test"):
 
     rc, out = run(["go", "test", "-tags", "stdjson goolm",
                    "./pkg/pid/", "./pkg/logger/", "./pkg/config/",
-                   "./pkg/channels/pico/", "./web/backend/dashboardauth/"],
+                   "./pkg/channels/pocketclaw/", "./web/backend/dashboardauth/"],
                   cwd=REPO / "core/src", env=go_env)
     gate.check("a2.private_storage_contracts", rc == 0,
                expected="A2 credential, log and auth guards pass",
                observed="PASS" if rc == 0 else "FAIL")
+
 
     flutter = shutil.which("flutter")
     if not flutter:
@@ -573,7 +603,7 @@ def artifact_gates(gate: Gate, apk: Path, release_class: str):
         # Managed Runtime — is arm64 only. Flutter plugins ship small stubs for
         # other ABIs (libdartjni, libdatastore_shared_counter); those are an
         # accepted baseline and are recorded rather than failed.
-        product_prefixes = ("libpicoclaw", "libpocketclaw-")
+        product_prefixes = ("libpocketclaw",)
         misplaced = sorted(
             n for n in names
             if n.startswith("lib/") and n.count("/") >= 2
@@ -603,17 +633,39 @@ def artifact_gates(gate: Gate, apk: Path, release_class: str):
         gate.facts["packagedCore"] = packaged_core
 
         # The fingerprint the artifact actually carries, read from the stamp in
-        # the packaged binary rather than recomputed from a tree that may have
+        # the packaged binaries rather than recomputed from a tree that may have
         # moved on since the build.
-        core_entry = f"lib/{EXPECTED_ABI}/libpicoclaw.so"
-        if core_entry in names:
-            blob = archive.read(core_entry)
-            stamped = re.findall(rb"[0-9a-f]{64}", blob)
-            expected = gate.facts.get("coreSourceFingerprint")
+        #
+        # Both shipping binaries, because both are the product. Reading only
+        # libpocketclaw.so is the hole N4K-A closed: the dashboard is compiled
+        # separately from core/src/web and can be from other source entirely
+        # while the Core's stamp looks right.
+        core_entry = f"lib/{EXPECTED_ABI}/libpocketclaw.so"
+        expected = core_source_fingerprint(gate)
+        carried = {}
+        unstamped = []
+        for lib in CORE_LIBS:
+            entry = f"lib/{EXPECTED_ABI}/{lib}"
+            if entry not in names:
+                continue
+            blob = archive.read(entry)
             if expected and expected.encode() in blob:
-                gate.facts["packagedCoreFingerprint"] = expected
-            elif stamped:
-                gate.facts["packagedCoreFingerprint"] = "present (not matched to source)"
+                carried[lib] = expected
+            elif re.search(rb"[0-9a-f]{64}", blob):
+                carried[lib] = "present (not matched to source)"
+                unstamped.append(lib)
+            else:
+                carried[lib] = "absent"
+                unstamped.append(lib)
+        gate.facts["packagedCoreFingerprint"] = carried
+
+        # One provenance unit: both binaries must carry the *same* fingerprint,
+        # and it must be the one the current source produces.
+        gate.check("artifact.core_provenance_pair",
+                   bool(carried) and not unstamped and len(set(carried.values())) == 1,
+                   expected="both shipping binaries stamped with the current source fingerprint",
+                   observed=", ".join(f"{k}: {v}" for k, v in sorted(carried.items()))
+                   or "no Core binaries packaged")
 
         gate.check("artifact.core_matches_staged", not mismatched,
                    expected="packaged Core byte-identical to staged Core",
@@ -631,8 +683,16 @@ def artifact_gates(gate: Gate, apk: Path, release_class: str):
         # Managed Runtime payload and the Python stdlib survival check are
         # already enforced by the Gradle packaging verifiers; re-assert presence
         # here so an artifact built elsewhere cannot skip them.
+        # CORE_LIBS is the exclusion authority rather than a second literal:
+        # libpocketclaw-web.so matches the Managed Runtime prefix but is Core's
+        # launcher, and counting it inflated this to 9. That mattered because
+        # the threshold is a floor — seven real tools plus the launcher would
+        # also have reached 8 and the check would have stopped noticing a
+        # dropped payload.
+        core_names = set(CORE_LIBS)
         runtime_libs = [n for n in names
-                        if n.startswith(f"lib/{EXPECTED_ABI}/libpocketclaw-")]
+                        if n.startswith(f"lib/{EXPECTED_ABI}/libpocketclaw-")
+                        and Path(n).name not in core_names]
         gate.check("artifact.managed_runtime", len(runtime_libs) >= 8,
                    expected=">=8 managed runtime payloads",
                    observed=str(len(runtime_libs)))

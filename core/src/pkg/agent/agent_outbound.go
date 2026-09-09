@@ -14,6 +14,8 @@ import (
 	"github.com/sipeed/picoclaw/pkg/providers"
 	"github.com/sipeed/picoclaw/pkg/tools"
 	"github.com/sipeed/picoclaw/pkg/utils"
+
+	"github.com/sipeed/picoclaw/pkg/config"
 )
 
 func (al *AgentLoop) maybePublishError(ctx context.Context, channel, chatID, sessionKey string, err error) bool {
@@ -157,7 +159,7 @@ func (al *AgentLoop) publishPicoReasoning(
 
 	if err := al.bus.PublishOutbound(pubCtx, bus.OutboundMessage{
 		Context: bus.InboundContext{
-			Channel: "pico",
+			Channel: config.ChannelPocketClaw,
 			ChatID:  chatID,
 			Raw:     raw,
 		},
@@ -166,13 +168,13 @@ func (al *AgentLoop) publishPicoReasoning(
 	}); err != nil {
 		if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) ||
 			errors.Is(err, bus.ErrBusClosed) {
-			logger.DebugCF("agent", "Pico reasoning publish skipped (timeout/cancel)", map[string]any{
-				"channel": "pico",
+			logger.DebugCF("agent", "Realtime reasoning publish skipped (timeout/cancel)", map[string]any{
+				"channel": config.ChannelPocketClaw,
 				"error":   err.Error(),
 			})
 		} else {
-			logger.WarnCF("agent", "Failed to publish pico reasoning (best-effort)", map[string]any{
-				"channel": "pico",
+			logger.WarnCF("agent", "Failed to publish realtime reasoning (best-effort)", map[string]any{
+				"channel": config.ChannelPocketClaw,
 				"error":   err.Error(),
 			})
 		}
@@ -208,7 +210,7 @@ func (al *AgentLoop) publishPicoToolCallInterim(
 		if err != nil && !errors.Is(err, context.DeadlineExceeded) &&
 			!errors.Is(err, context.Canceled) &&
 			!errors.Is(err, bus.ErrBusClosed) {
-			logger.WarnCF("agent", "Failed to publish pico reasoning", map[string]any{
+			logger.WarnCF("agent", "Failed to publish realtime reasoning", map[string]any{
 				"channel": ts.channel,
 				"chat_id": ts.chatID,
 				"error":   err.Error(),
@@ -239,7 +241,7 @@ func (al *AgentLoop) publishPicoToolCallInterim(
 		if err != nil && !errors.Is(err, context.DeadlineExceeded) &&
 			!errors.Is(err, context.Canceled) &&
 			!errors.Is(err, bus.ErrBusClosed) {
-			logger.WarnCF("agent", "Failed to publish pico interim assistant content", map[string]any{
+			logger.WarnCF("agent", "Failed to publish realtime interim assistant content", map[string]any{
 				"channel": ts.channel,
 				"chat_id": ts.chatID,
 				"error":   err.Error(),
@@ -253,7 +255,7 @@ func (al *AgentLoop) publishPicoToolCallInterim(
 
 	rawToolCalls, err := json.Marshal(visibleToolCalls)
 	if err != nil {
-		logger.WarnCF("agent", "Failed to serialize pico tool calls", map[string]any{
+		logger.WarnCF("agent", "Failed to serialize realtime tool calls", map[string]any{
 			"channel": ts.channel,
 			"chat_id": ts.chatID,
 			"error":   err.Error(),
@@ -275,7 +277,7 @@ func (al *AgentLoop) publishPicoToolCallInterim(
 	if err != nil && !errors.Is(err, context.DeadlineExceeded) &&
 		!errors.Is(err, context.Canceled) &&
 		!errors.Is(err, bus.ErrBusClosed) {
-		logger.WarnCF("agent", "Failed to publish pico tool calls", map[string]any{
+		logger.WarnCF("agent", "Failed to publish realtime tool calls", map[string]any{
 			"channel": ts.channel,
 			"chat_id": ts.chatID,
 			"error":   err.Error(),

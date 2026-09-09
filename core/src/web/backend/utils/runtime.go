@@ -11,6 +11,8 @@ import (
 
 	"github.com/sipeed/picoclaw/pkg/config"
 	"github.com/sipeed/picoclaw/pkg/logger"
+
+	"github.com/sipeed/picoclaw/pkg/canonicalenv"
 )
 
 // GetPicoclawHome returns the picoclaw home directory.
@@ -21,7 +23,7 @@ func GetPicoclawHome() string {
 
 // GetDefaultConfigPath returns the default path to the picoclaw config file.
 func GetDefaultConfigPath() string {
-	if configPath := os.Getenv(config.EnvConfig); configPath != "" {
+	if configPath := canonicalenv.Getenv(config.EnvConfig); configPath != "" {
 		return configPath
 	}
 	return filepath.Join(GetPicoclawHome(), "config.json")
@@ -38,7 +40,7 @@ func FindPicoclawBinary() string {
 		binaryName = "picoclaw.exe"
 	}
 
-	if p := os.Getenv(config.EnvBinary); p != "" {
+	if p := canonicalenv.Getenv(config.EnvBinary); p != "" {
 		if info, _ := os.Stat(p); info != nil && !info.IsDir() {
 			return p
 		}

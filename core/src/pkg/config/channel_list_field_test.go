@@ -16,8 +16,8 @@ func TestChannelListFieldAcceptsBothShapes(t *testing.T) {
 		want []string
 	}{
 		{name: "canonical array", raw: `["123","456"]`, want: []string{"123", "456"}},
-		{name: "canonical single-entry array", raw: `["pico-user"]`, want: []string{"pico-user"}},
-		{name: "legacy bare string", raw: `"pico-user"`, want: []string{"pico-user"}},
+		{name: "canonical single-entry array", raw: `["pocketclaw-user"]`, want: []string{"pocketclaw-user"}},
+		{name: "legacy bare string", raw: `"pocketclaw-user"`, want: []string{"pocketclaw-user"}},
 		{name: "numeric identifier", raw: `123`, want: []string{"123"}},
 		{name: "mixed array", raw: `["abc",123]`, want: []string{"abc", "123"}},
 		{name: "null is empty", raw: `null`, want: nil},
@@ -84,7 +84,7 @@ func TestPicoAllowOriginsAcceptsBothShapes(t *testing.T) {
 		`{"allow_origins":["https://a.example"]}`,
 		`{"allow_origins":"https://a.example"}`,
 	} {
-		var p PicoSettings
+		var p PocketClawSettings
 		if err := json.Unmarshal([]byte(raw), &p); err != nil {
 			t.Fatalf("Unmarshal(%s) error = %v", raw, err)
 		}
@@ -113,7 +113,7 @@ func TestOneBotGroupTriggerPrefixAcceptsBothShapes(t *testing.T) {
 // channel block carrying the legacy value must decode, keeping the channel
 // usable rather than failing the surrounding config.
 func TestChannelAllowFromLegacyStringLoads(t *testing.T) {
-	raw := `{"enabled":true,"type":"pico","allow_from":"pico-user",` +
+	raw := `{"enabled":true,"type":"pocketclaw","allow_from":"pocketclaw-user",` +
 		`"group_trigger":{"prefixes":"!"},` +
 		`"settings":{"allow_origins":"https://a.example"}}`
 
@@ -121,7 +121,7 @@ func TestChannelAllowFromLegacyStringLoads(t *testing.T) {
 	if err := json.Unmarshal([]byte(raw), &ch); err != nil {
 		t.Fatalf("Unmarshal(channel) error = %v", err)
 	}
-	if len(ch.AllowFrom) != 1 || ch.AllowFrom[0] != "pico-user" {
+	if len(ch.AllowFrom) != 1 || ch.AllowFrom[0] != "pocketclaw-user" {
 		t.Errorf("AllowFrom = %#v, want [pico-user]", []string(ch.AllowFrom))
 	}
 	if len(ch.GroupTrigger.Prefixes) != 1 {

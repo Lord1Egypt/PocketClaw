@@ -8,7 +8,7 @@ export interface TourState {
   isActive: boolean
 }
 
-const STORAGE_KEY = "picoclaw-tour-state"
+const STORAGE_KEY = "pocketclaw-tour-state"
 
 const DEFAULT_TOUR_STATE: TourState = {
   currentStep: "welcome",

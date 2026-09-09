@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next"
 
 import { Button } from "@/components/ui/button"
 import { useCopyToClipboard } from "@/hooks/use-copy-to-clipboard"
-import { formatMessageTime } from "@/hooks/use-pico-chat"
+import { formatMessageTime } from "@/hooks/use-pocketclaw-chat"
 import { cn } from "@/lib/utils"
 import type { ChatAttachment } from "@/store/chat"
 

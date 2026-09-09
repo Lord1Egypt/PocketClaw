@@ -352,12 +352,12 @@ func validateConfig(cfg *config.Config) []string {
 		}
 	}
 
-	// Pico channel: token required when enabled
+	// PocketClaw channel: token required when enabled
 	{
-		bc := cfg.Channels.GetByType(config.ChannelPico)
+		bc := cfg.Channels.GetByType(config.ChannelPocketClaw)
 		if bc != nil && bc.Enabled {
 			if decoded, err := bc.GetDecoded(); err == nil && decoded != nil {
-				if c, ok := decoded.(*config.PicoSettings); ok && c.Token.String() == "" {
+				if c, ok := decoded.(*config.PocketClawSettings); ok && c.Token.String() == "" {
 					errs = append(errs, "channels.pico.token is required when pico channel is enabled")
 				}
 			}

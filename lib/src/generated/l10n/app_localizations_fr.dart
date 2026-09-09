@@ -515,6 +515,22 @@ class AppLocalizationsFr extends AppLocalizations {
       'Les journaux de diagnostic sont désormais conservés en privé dans l\'application plutôt que dans le dossier Téléchargements. Votre espace de travail ne bouge pas.';
 
   @override
+  String get whatsNew020Improvement8 =>
+      'Une mise à niveau importante de la façon dont PocketClaw conserve son état et exécute ses services, pour une fiabilité plus régulière au quotidien.';
+
+  @override
+  String get whatsNew020Improvement9 =>
+      'Après cette mise à jour, le tableau de bord vous demande de vous reconnecter une fois.';
+
+  @override
+  String get whatsNew020Improvement10 =>
+      'Après cette mise à jour, le canal de discussion Web démarre une nouvelle conversation.';
+
+  @override
+  String get whatsNew020Improvement11 =>
+      'Après cette mise à jour, il vaut la peine de vérifier une fois vos préférences de notification.';
+
+  @override
   String get whatsNew020Fix1 =>
       'La passerelle se rétablit désormais après un enregistrement de processus obsolète laissé par une exécution précédente.';
 

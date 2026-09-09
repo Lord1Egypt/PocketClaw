@@ -22,7 +22,7 @@ import (
 // every non-Android deployment.
 
 var androidHotReloadEnvPattern = regexp.MustCompile(
-	`"PICOCLAW_GATEWAY_HOT_RELOAD"\s*to\s*"true"`,
+	`"POCKETCLAW_GATEWAY_HOT_RELOAD"\s*to\s*"true"`,
 )
 
 // TestAndroidManagedGatewayEnablesHotReload proves a normal PocketClaw Android
@@ -43,7 +43,7 @@ func TestAndroidManagedGatewayEnablesHotReload(t *testing.T) {
 
 	if !androidHotReloadEnvPattern.Match(service) {
 		t.Error("the Android managed Gateway environment does not set " +
-			"PICOCLAW_GATEWAY_HOT_RELOAD=true; live channel reconciliation would " +
+			"POCKETCLAW_GATEWAY_HOT_RELOAD=true; live channel reconciliation would " +
 			"not run and every channel setting would need a manual Gateway restart")
 	}
 
@@ -60,7 +60,7 @@ func TestAndroidManagedGatewayEnablesHotReload(t *testing.T) {
 		t.Fatal("cannot delimit the environment map; this guard is stale")
 	}
 	if !androidHotReloadEnvPattern.MatchString(string(service)[envStart : envStart+envEnd]) {
-		t.Error("PICOCLAW_GATEWAY_HOT_RELOAD is set somewhere other than the " +
+		t.Error("POCKETCLAW_GATEWAY_HOT_RELOAD is set somewhere other than the " +
 			"managed-process environment map, so the Gateway may not inherit it")
 	}
 }
@@ -118,9 +118,9 @@ func TestAndroidManagedGatewayDisablesHostBusTools(t *testing.T) {
 	envBlock := string(service)[envStart : envStart+envEnd]
 
 	for _, name := range []string{
-		"PICOCLAW_TOOLS_I2C_ENABLED",
-		"PICOCLAW_TOOLS_SPI_ENABLED",
-		"PICOCLAW_TOOLS_SERIAL_ENABLED",
+		"POCKETCLAW_TOOLS_I2C_ENABLED",
+		"POCKETCLAW_TOOLS_SPI_ENABLED",
+		"POCKETCLAW_TOOLS_SERIAL_ENABLED",
 	} {
 		pattern := regexp.MustCompile(`"` + name + `"\s*to\s*"false"`)
 		if !pattern.MatchString(envBlock) {

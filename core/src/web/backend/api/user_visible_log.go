@@ -6,6 +6,8 @@ import (
 	"unicode/utf8"
 
 	corelogger "github.com/sipeed/picoclaw/pkg/logger"
+
+	"github.com/sipeed/picoclaw/pkg/config"
 )
 
 var (
@@ -16,11 +18,11 @@ var (
 	csiPattern                       = regexp.MustCompile(`(?:\x1B\[|\x{009B})[0-?]*[ -/]*[@-~]`)
 	orphanedCSIPattern               = regexp.MustCompile(`\[(?:\?[0-9:;]+|[0-9][0-9:;]*)[ ]*[ABCDEFGHJKSTfmnsu]`)
 	otherEscapePattern               = regexp.MustCompile(`\x1B[ -/]*[@-~]`)
-	routinePicoWSPattern             = regexp.MustCompile(`(?:^| > )GET /pico/ws (?:101|2[0-9]{2})(?:\s|$)`)
-	picoWSRequestPattern             = regexp.MustCompile(`((?:^| > )[A-Z]+) /pico/ws ([0-9]{3})(\s|$)`)
+	routineRealtimeWSPattern         = regexp.MustCompile(`(?:^| > )GET /(?:pocketclaw|pico)/ws (?:101|2[0-9]{2})(?:\s|$)`)
+	realtimeWSRequestPattern         = regexp.MustCompile(`((?:^| > )[A-Z]+) /(?:pocketclaw|pico)/ws ([0-9]{3})(\s|$)`)
 	legacyGatewayStartPattern        = regexp.MustCompile(`Starting gateway process \([^\r\n)]*\)`)
-	picoLoggerComponentPattern       = regexp.MustCompile(`(?m)(^|[ \t])([A-Z]{3}) pico ([^ \t]+:[0-9]+)([ \t]+>)`)
-	picoLoggerCallerPattern          = regexp.MustCompile(`(?m)(^|[ \t])([A-Z]{3}) ([^ \t]+) pico\.go:([0-9]+)([ \t]+>)`)
+	realtimeLoggerComponentPattern   = regexp.MustCompile(`(?m)(^|[ \t])([A-Z]{3}) (?:pocketclaw|pico) ([^ \t]+:[0-9]+)([ \t]+>)`)
+	realtimeLoggerCallerPattern      = regexp.MustCompile(`(?m)(^|[ \t])([A-Z]{3}) ([^ \t]+) (?:pocketclaw|pico)\.go:([0-9]+)([ \t]+>)`)
 	telegramBotAPIURLPattern         = regexp.MustCompile(`(?i)https?://[^\s"']*/bot[^/\s"']+/(?:test/)?([A-Za-z][A-Za-z0-9_]*)`)
 	telegramAPICallWrapperPattern    = regexp.MustCompile(`(?i)API call to: "Telegram API call: ([A-Za-z][A-Za-z0-9_]*)"`)
 	authorizationCredentialPattern   = regexp.MustCompile(`(?i)(authorization[=:][ \t]*)(?:\[?(?:bearer|basic)[ \t]+)[A-Za-z0-9._~+/%:=-]+\]?`)
@@ -103,8 +105,8 @@ func normalizeUserVisibleLog(input string) string {
 	flushLine(false)
 
 	result := legacyGatewayStartPattern.ReplaceAllString(output.String(), "Starting gateway process")
-	result = picoLoggerComponentPattern.ReplaceAllString(result, "${1}${2} realtime ${3}${4}")
-	result = picoLoggerCallerPattern.ReplaceAllString(result, "${1}${2} ${3} realtime.go:${4}${5}")
+	result = realtimeLoggerComponentPattern.ReplaceAllString(result, "${1}${2} realtime ${3}${4}")
+	result = realtimeLoggerCallerPattern.ReplaceAllString(result, "${1}${2} ${3} realtime.go:${4}${5}")
 	result = telegramBotAPIURLPattern.ReplaceAllString(result, "Telegram API call: $1")
 	result = telegramAPICallWrapperPattern.ReplaceAllString(result, "Telegram API call: $1")
 	result = authorizationCredentialPattern.ReplaceAllString(result, "${1}<redacted>")
@@ -115,15 +117,15 @@ func normalizeUserVisibleLog(input string) string {
 	}
 	result = telegramSuccessfulNilError.ReplaceAllString(result, "${1} none")
 	result = normalizePrivateStructuredFields(result)
-	result = normalizePicoStructuredFields(result)
+	result = normalizeRealtimeStructuredFields(result)
 	result = normalizeExactCompatibilityMessages(result)
 	if routineTelegramGetUpdatesCall.MatchString(result) || routineEmptyGetUpdatesResponse.MatchString(result) {
 		return ""
 	}
-	if routinePicoWSPattern.MatchString(result) {
+	if routineRealtimeWSPattern.MatchString(result) {
 		return ""
 	}
-	return picoWSRequestPattern.ReplaceAllString(result, "$1 /internal realtime connection $2$3")
+	return realtimeWSRequestPattern.ReplaceAllString(result, "$1 /internal realtime connection $2$3")
 }
 
 func normalizeTelegramMessageInLine(input string) string {
@@ -144,18 +146,29 @@ func normalizePrivateStructuredFields(input string) string {
 	return rawContentFieldPattern.ReplaceAllString(result, "${1}${2}=<redacted>")
 }
 
-func normalizePicoStructuredFields(input string) string {
+func normalizeRealtimeStructuredFields(input string) string {
 	lines := strings.Split(input, "\n")
 	for i, line := range lines {
-		internalChannel := hasExactLogToken(line, "channel=pico")
+		internalChannel := hasExactLogToken(line, "channel="+config.ChannelPocketClaw) ||
+			hasExactLogToken(line, "channel="+config.LegacyChannelPocketClaw)
 		for _, field := range []string{
 			"channel", "inbound_channel", "route_channel", "scope_channel", "target_channel",
 		} {
-			line = replaceExactLogToken(line, field+"=pico", field+"=pocketclaw")
+			line = replaceExactLogToken(line,
+				field+"="+config.LegacyChannelPocketClaw,
+				field+"="+config.ChannelPocketClaw)
 		}
-		line = replaceExactLogToken(line, "type=pico", "type=pocketclaw")
+		line = replaceExactLogToken(line,
+			"type="+config.LegacyChannelPocketClaw, "type="+config.ChannelPocketClaw)
 		if internalChannel {
-			line = replaceExactLogToken(line, "path=/pico/", "path=<internal>")
+			// Both prefixes: the route is canonical now, and a log written
+			// before the migration still carries the old one.
+			for _, prefix := range []string{
+				config.RealtimeRoutePrefix,
+				"/" + config.LegacyChannelPocketClaw + "/",
+			} {
+				line = replaceExactLogToken(line, "path="+prefix, "path=<internal>")
+			}
 		}
 		lines[i] = line
 	}

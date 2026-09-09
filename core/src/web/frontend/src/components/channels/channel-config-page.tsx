@@ -180,7 +180,7 @@ function isConfigured(
       return hasValue("account_id")
     case "wecom":
       return hasValue("bot_id")
-    case "pico":
+    case "pocketclaw":
       return hasValue("token")
     case "maixcam":
       return hasValue("host")
@@ -202,7 +202,7 @@ function isConfigured(
 /**
  * Fields the form must not offer, per channel.
  *
- * The Web channel's allow-list is not a setting. `pkg/channels/pico` stamps
+ * The Web channel's allow-list is not a setting. `pkg/channels/pocketclaw` stamps
  * every inbound message's sender itself and enforces a hardcoded owner
  * allow-list "regardless of client payload fields or a stale/permissive on-disk
  * allowlist", so the value in config.json is never consulted for authorization.
@@ -216,7 +216,7 @@ function isConfigured(
  */
 function getHiddenFieldKeys(channelName: string): string[] {
   switch (channelName) {
-    case "pico":
+    case "pocketclaw":
       // allow_token_query is deliberately NOT hidden here. Hiding it in the
       // frontend would remove the capability from every deployment, including
       // the self-managed ones that legitimately have it. The backend omits the
@@ -249,7 +249,7 @@ function getRequiredFieldKeys(channelName: string): string[] {
       return ["ws_url"]
     case "wecom":
       return []
-    case "pico":
+    case "pocketclaw":
       return ["token"]
     case "maixcam":
       return ["host"]
@@ -653,7 +653,7 @@ export function ChannelConfigPage({ channelName }: ChannelConfigPageProps) {
             configuredSecrets={configuredSecrets}
             hiddenKeys={hiddenKeys}
             requiredKeys={requiredKeys}
-            supportsStreaming={channel?.name === "pico"}
+            supportsStreaming={channel?.name === "pocketclaw"}
             fieldErrors={fieldErrors}
             registerArrayFieldFlusher={registerArrayFieldFlusher}
             arrayFieldResetVersion={arrayFieldResetVersion}

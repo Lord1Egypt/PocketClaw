@@ -17,6 +17,8 @@ import (
 	"github.com/sipeed/picoclaw/pkg/providers"
 	"github.com/sipeed/picoclaw/pkg/tools"
 	"github.com/sipeed/picoclaw/pkg/utils"
+
+	"github.com/sipeed/picoclaw/pkg/config"
 )
 
 func toolErrorSummary(result *tools.ToolResult) string {
@@ -223,7 +225,7 @@ toolLoop:
 						},
 					)
 
-					if shouldPublishToolFeedback(al.cfg, ts) && ts.channel != "pico" {
+					if shouldPublishToolFeedback(al.cfg, ts) && ts.channel != config.ChannelPocketClaw {
 						toolFeedbackMaxLen := al.cfg.Agents.Defaults.GetToolFeedbackMaxArgsLength()
 						toolFeedbackExplanation := toolFeedbackExplanationForToolCall(
 							exec.response,
@@ -514,7 +516,7 @@ toolLoop:
 			},
 		)
 
-		if shouldPublishToolFeedback(al.cfg, ts) && ts.channel != "pico" {
+		if shouldPublishToolFeedback(al.cfg, ts) && ts.channel != config.ChannelPocketClaw {
 			toolFeedbackMaxLen := al.cfg.Agents.Defaults.GetToolFeedbackMaxArgsLength()
 			toolFeedbackExplanation := toolFeedbackExplanationForToolCall(
 				exec.response,

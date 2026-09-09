@@ -446,7 +446,7 @@ func TestPublishResponseIfNeeded_MarksFinalOutbound(t *testing.T) {
 	defer cleanup()
 	_ = provider
 
-	al.PublishResponseIfNeeded(context.Background(), "pico", "pico:session-1", "session-1", "final reply")
+	al.PublishResponseIfNeeded(context.Background(), "pocketclaw", "pocketclaw:session-1", "session-1", "final reply")
 
 	select {
 	case outbound := <-msgBus.OutboundChan():
@@ -473,7 +473,7 @@ func TestPublishPicoReasoningIncludesSessionKey(t *testing.T) {
 
 	select {
 	case outbound := <-msgBus.OutboundChan():
-		if outbound.Channel != "pico" || outbound.ChatID != "pico-chat" {
+		if outbound.Channel != "pocketclaw" || outbound.ChatID != "pico-chat" {
 			t.Fatalf("unexpected outbound target: %+v", outbound)
 		}
 		if outbound.Content != "reasoning" {
@@ -559,7 +559,7 @@ func TestProcessMessage_DoesNotPassImplicitThinkingOffToCapableProvider(t *testi
 	al := NewAgentLoop(cfg, bus.NewMessageBus(), provider)
 
 	response, err := al.processMessage(context.Background(), testInboundMessage(bus.InboundMessage{
-		Channel: "pico",
+		Channel: "pocketclaw",
 		ChatID:  "chat-1",
 		Content: "hello",
 	}))
@@ -595,7 +595,7 @@ func TestProcessMessage_PassesExplicitThinkingOffToCapableProvider(t *testing.T)
 	al := NewAgentLoop(cfg, bus.NewMessageBus(), provider)
 
 	response, err := al.processMessage(context.Background(), testInboundMessage(bus.InboundMessage{
-		Channel: "pico",
+		Channel: "pocketclaw",
 		ChatID:  "chat-1",
 		Content: "hello",
 	}))
@@ -631,7 +631,7 @@ func TestProcessMessage_PassesExplicitThinkingOffToProviderWithoutThinkingCapabi
 	al := NewAgentLoop(cfg, bus.NewMessageBus(), provider)
 
 	response, err := al.processMessage(context.Background(), testInboundMessage(bus.InboundMessage{
-		Channel: "pico",
+		Channel: "pocketclaw",
 		ChatID:  "chat-1",
 		Content: "hello",
 	}))
@@ -668,7 +668,7 @@ func TestProcessMessage_PassesDeepSeekThinkingLevelToThinkingCapableProvider(t *
 	al := NewAgentLoop(cfg, bus.NewMessageBus(), provider)
 
 	response, err := al.processMessage(context.Background(), testInboundMessage(bus.InboundMessage{
-		Channel: "pico",
+		Channel: "pocketclaw",
 		ChatID:  "chat-1",
 		Content: "hello",
 	}))
@@ -708,7 +708,7 @@ func TestProcessMessage_SuppressesReasoningWhenThinkingOff(t *testing.T) {
 		al.GetRegistry().GetDefaultAgent(),
 		processOptions{
 			SessionKey:      "agent:main:pico:chat-1",
-			Channel:         "pico",
+			Channel:         "pocketclaw",
 			ChatID:          "chat-1",
 			UserMessage:     "hello",
 			SendResponse:    false,
@@ -760,9 +760,9 @@ func TestProcessMessage_BeforeLLMModelRewriteReevaluatesThinkingOff(t *testing.T
 	}
 
 	response, err := al.processMessage(context.Background(), bus.InboundMessage{
-		Channel:  "pico",
+		Channel:  "pocketclaw",
 		SenderID: "user1",
-		ChatID:   "pico:test-session",
+		ChatID:   "pocketclaw:test-session",
 		Content:  "hello",
 	})
 	if err != nil {
@@ -812,9 +812,9 @@ func TestProcessMessage_BeforeLLMModelRewriteDoesNotLeakThinkingOff(t *testing.T
 	}
 
 	response, err := al.processMessage(context.Background(), bus.InboundMessage{
-		Channel:  "pico",
+		Channel:  "pocketclaw",
 		SenderID: "user1",
-		ChatID:   "pico:test-session",
+		ChatID:   "pocketclaw:test-session",
 		Content:  "hello",
 	})
 	if err != nil {
@@ -5724,9 +5724,9 @@ func TestProcessMessage_PicoPublishesReasoningAsThoughtMessage(t *testing.T) {
 	al := NewAgentLoop(cfg, msgBus, provider)
 
 	response, err := al.processMessage(context.Background(), bus.InboundMessage{
-		Channel:  "pico",
+		Channel:  "pocketclaw",
 		SenderID: "user1",
-		ChatID:   "pico:test-session",
+		ChatID:   "pocketclaw:test-session",
 		Content:  "hello",
 	})
 	if err != nil {
@@ -5751,7 +5751,7 @@ func TestProcessMessage_PicoPublishesReasoningAsThoughtMessage(t *testing.T) {
 		}
 	}
 
-	if thoughtMsg.Channel != "pico" || thoughtMsg.ChatID != "pico:test-session" {
+	if thoughtMsg.Channel != "pocketclaw" || thoughtMsg.ChatID != "pocketclaw:test-session" {
 		t.Fatalf("thought message route = %s/%s, want pico/pico:test-session", thoughtMsg.Channel, thoughtMsg.ChatID)
 	}
 	if thoughtMsg.Context.Raw[metadataKeyMessageKind] != messageKindThought {
@@ -5918,9 +5918,9 @@ func TestProcessMessage_PersistsReasoningContentInSessionHistory(t *testing.T) {
 	al := NewAgentLoop(cfg, msgBus, provider)
 
 	response, err := al.processMessage(context.Background(), bus.InboundMessage{
-		Channel:  "pico",
+		Channel:  "pocketclaw",
 		SenderID: "user1",
-		ChatID:   "pico:test-session",
+		ChatID:   "pocketclaw:test-session",
 		Content:  "hello",
 	})
 	if err != nil {
@@ -6284,7 +6284,7 @@ func TestRun_PicoPublishesAssistantContentDuringToolCallsWithoutFinalDuplicate(t
 	}()
 
 	if err := msgBus.PublishInbound(context.Background(), bus.InboundMessage{
-		Channel:  "pico",
+		Channel:  "pocketclaw",
 		SenderID: "user-1",
 		ChatID:   "session-1",
 		Content:  "run with tools",
@@ -6361,7 +6361,7 @@ func TestRunAgentLoop_PicoSkipsInterimPublishWhenNotAllowed(t *testing.T) {
 
 	response, err := al.runAgentLoop(context.Background(), agent, processOptions{
 		SessionKey:              "agent:main:pico:session-1",
-		Channel:                 "pico",
+		Channel:                 "pocketclaw",
 		ChatID:                  "session-1",
 		UserMessage:             "run with tools",
 		DefaultResponse:         defaultResponse,
@@ -6420,7 +6420,7 @@ func TestRun_PicoToolFeedbackSuppressesDuplicateInterimAssistantContent(t *testi
 	}()
 
 	if err := msgBus.PublishInbound(context.Background(), bus.InboundMessage{
-		Channel:  "pico",
+		Channel:  "pocketclaw",
 		SenderID: "user-1",
 		ChatID:   "session-1",
 		Content:  "run with tools",

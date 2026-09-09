@@ -21,7 +21,7 @@ import {
 } from "@/components/chat/message-code-block"
 import { Button } from "@/components/ui/button"
 import { useCopyToClipboard } from "@/hooks/use-copy-to-clipboard"
-import { formatMessageTime } from "@/hooks/use-pico-chat"
+import { formatMessageTime } from "@/hooks/use-pocketclaw-chat"
 import { PocketClawMark } from "@/components/brand/pocketclaw-mark"
 import { cn } from "@/lib/utils"
 import {

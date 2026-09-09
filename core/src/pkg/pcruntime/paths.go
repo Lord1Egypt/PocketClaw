@@ -5,6 +5,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/sipeed/picoclaw/pkg/canonicalenv"
 )
 
 // Environment keys the Android Service and the desktop host use to tell the
@@ -51,11 +53,11 @@ type Paths struct {
 // workspace: user Skills write freely there, and runtime inventory that a Skill
 // can rewrite is worse than no inventory at all.
 func ResolvePaths() (*Paths, error) {
-	workspace := strings.TrimSpace(os.Getenv(EnvWorkspace))
+	workspace := strings.TrimSpace(canonicalenv.Getenv(EnvWorkspace))
 
 	libDir := strings.TrimSpace(os.Getenv(EnvLibDir))
 	if libDir == "" {
-		if coreBinary := strings.TrimSpace(os.Getenv(EnvCoreBinary)); coreBinary != "" {
+		if coreBinary := strings.TrimSpace(canonicalenv.Getenv(EnvCoreBinary)); coreBinary != "" {
 			libDir = filepath.Dir(coreBinary)
 		}
 	}
@@ -69,7 +71,12 @@ func ResolvePaths() (*Paths, error) {
 				EnvRuntimeDir,
 			)
 		}
-		metadataDir = filepath.Join(home, "picoclaw", "runtime")
+		// The shipped product never reaches this: the Android host always
+		// passes POCKETCLAW_RUNTIME_DIR. It is the desktop and development
+		// fallback, and it is canonical because creating a directory under the
+		// pre-migration name would mint the very identity the migration
+		// retires, beside the legacy home the host moves state out of.
+		metadataDir = filepath.Join(home, "pocketclaw", "runtime")
 	}
 
 	paths := &Paths{

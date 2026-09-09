@@ -39,41 +39,41 @@ var gateway = struct {
 	runtimeStatus       string
 	startupDeadline     time.Time
 	logs                *LogBuffer
-	pidData             *ppid.PidFileData // pid file data read from picoclaw.pid.json
-	picoToken           string            // cached raw pico token for upstream gateway proxy injection
+	pidData             *ppid.PidFileData // pid file data read from .pocketclaw.pid
+	pocketClawToken     string            // cached raw PocketClaw token for gateway proxy injection
 	lastStartupError    string            // sanitized reason the last start attempt failed
 }{
 	runtimeStatus: "stopped",
 	logs:          NewLogBuffer(200),
 }
 
-// refreshPicoTokensLocked reads the pico token from config and caches it.
+// refreshPocketClawTokensLocked reads the PocketClaw token from config and caches it.
 // Caller must hold gateway.mu (or be sole writer).
-func refreshPicoTokensLocked(configPath string) {
+func refreshPocketClawTokensLocked(configPath string) {
 	cfg, err := config.LoadConfig(configPath)
 	if err != nil {
 		return
 	}
-	var picoCfg config.PicoSettings
-	if bc := cfg.Channels.GetByType(config.ChannelPico); bc != nil {
+	var pocketClawCfg config.PocketClawSettings
+	if bc := cfg.Channels.GetByType(config.ChannelPocketClaw); bc != nil {
 		decoded, err := bc.GetDecoded()
 		if err == nil && decoded != nil {
-			if p, ok := decoded.(*config.PicoSettings); ok {
-				picoCfg = *p
+			if p, ok := decoded.(*config.PocketClawSettings); ok {
+				pocketClawCfg = *p
 			}
 		}
 	}
-	gateway.picoToken = picoCfg.Token.String()
+	gateway.pocketClawToken = pocketClawCfg.Token.String()
 }
 
-// ensurePicoTokenCachedLocked lazily fills the in-memory pico token cache when
+// ensurePocketClawTokenCachedLocked lazily fills the in-memory PocketClaw token cache when
 // the launcher has already discovered a running gateway via pidData, but has
 // not yet refreshed the token into memory.
-func ensurePicoTokenCachedLocked(configPath string) {
-	if gateway.picoToken != "" {
+func ensurePocketClawTokenCachedLocked(configPath string) {
+	if gateway.pocketClawToken != "" {
 		return
 	}
-	refreshPicoTokensLocked(configPath)
+	refreshPocketClawTokensLocked(configPath)
 }
 
 func (h *Handler) gatewayCommandArgs() []string {
@@ -91,15 +91,15 @@ const (
 	tokenPrefix = "token."
 )
 
-// picoGatewayProtocol returns the gateway-facing pico subprotocol that the
+// pocketClawGatewayProtocol returns the gateway-facing PocketClaw subprotocol that the
 // launcher should inject when proxying browser traffic upstream.
-func picoGatewayProtocol() string {
+func pocketClawGatewayProtocol() string {
 	gateway.mu.Lock()
 	defer gateway.mu.Unlock()
-	if gateway.picoToken == "" {
+	if gateway.pocketClawToken == "" {
 		return ""
 	}
-	return tokenPrefix + gateway.picoToken
+	return tokenPrefix + gateway.pocketClawToken
 }
 
 var (
@@ -460,7 +460,7 @@ func (h *Handler) TryAutoStartGateway() {
 			logger.ErrorC("gateway", fmt.Sprintf("Failed to attach to running gateway (PID: %d): %v", pid, err))
 		} else {
 			gateway.pidData = pidData
-			refreshPicoTokensLocked(h.configPath)
+			refreshPocketClawTokensLocked(h.configPath)
 			logger.InfoC("gateway", fmt.Sprintf("Attached to running gateway via PID file (PID: %d)", pid))
 		}
 		gateway.mu.Unlock()
@@ -1192,19 +1192,19 @@ func (h *Handler) startGatewayLocked(initialStatus string, existingPid int) (int
 	// Clear old logs for this new run
 	gateway.logs.Reset()
 
-	// Ensure Pico Channel is configured before starting gateway
-	changed, err := h.EnsurePicoChannel()
+	// Ensure the PocketClaw channel is configured before starting gateway
+	changed, err := h.EnsurePocketClawChannel()
 	if err != nil {
-		logger.ErrorC("gateway", fmt.Sprintf("Warning: failed to ensure pico channel: %v", err))
-		// Non-fatal: gateway can still start without pico channel
+		logger.ErrorC("gateway", fmt.Sprintf("Warning: failed to ensure PocketClaw channel: %v", err))
+		// Non-fatal: gateway can still start without the PocketClaw channel
 	}
-	// Refresh cached pico token in case EnsurePicoChannel generated a new one.
+	// Refresh the cached PocketClaw token in case EnsurePocketClawChannel generated a new one.
 	// Already holding gateway.mu from caller.
 	if changed {
-		refreshPicoTokensLocked(h.configPath)
+		refreshPocketClawTokensLocked(h.configPath)
 		cfg, err = config.LoadConfig(h.configPath)
 		if err != nil {
-			return 0, fmt.Errorf("failed to reload config after ensuring pico channel: %w", err)
+			return 0, fmt.Errorf("failed to reload config after ensuring the PocketClaw channel: %w", err)
 		}
 		defaultModelName = strings.TrimSpace(cfg.Agents.Defaults.GetModelName())
 	}
@@ -1294,16 +1294,16 @@ func (h *Handler) startGatewayLocked(initialStatus string, existingPid int) (int
 				gateway.mu.Lock()
 				if gateway.cmd == cmd {
 					gateway.pidData = pd
-					var picoCfg config.PicoSettings
-					if bc := cfg.Channels.GetByType(config.ChannelPico); bc != nil {
+					var pocketClawCfg config.PocketClawSettings
+					if bc := cfg.Channels.GetByType(config.ChannelPocketClaw); bc != nil {
 						decoded, err := bc.GetDecoded()
 						if err == nil && decoded != nil {
-							if p, ok := decoded.(*config.PicoSettings); ok {
-								picoCfg = *p
+							if p, ok := decoded.(*config.PocketClawSettings); ok {
+								pocketClawCfg = *p
 							}
 						}
 					}
-					gateway.picoToken = picoCfg.Token.String()
+					gateway.pocketClawToken = pocketClawCfg.Token.String()
 					setGatewayRuntimeStatusLocked("running")
 				}
 				gateway.mu.Unlock()

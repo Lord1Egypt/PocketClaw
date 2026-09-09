@@ -1,5 +1,36 @@
 # PocketClaw Tasks
 
+## Zero-Pico namespace migration — CLOSED 2026-09-09
+
+Branch `feature/zero-pico-runtime`, head `9910042`, merged to `develop` with
+`--no-ff`. Physically accepted on SM-A165F / Android 16 as vc62, APK
+`1470e02d…`, Core fingerprint `6e2382ae…`. `main` untouched, no tags moved, no
+release. Branches retained.
+
+| Item | Value |
+| --- | --- |
+| versionName / versionCode | 0.2.0 / 62 |
+| accepted baseline | 62 (was 59) |
+| Core source fingerprint | `6e2382ae…` |
+| Core BuildTime | 2026-09-09T18:30:34+0000 |
+| Core build-input commit | `5558220` |
+| staged binaries | libpocketclaw.so, libpocketclaw-web.so — both stamped, both FRESH |
+| source gate | 17/17 PASS |
+| artifact gate | PASS (one documented SKIP) |
+| Zero Active Pico guard | PASS, 19 allowlist entries, all in use |
+
+Phases N4A–N4K-B closed the runtime, storage, PID, environment, channel, owner,
+route, redaction, cookie and provenance surfaces in turn; the final canonical
+Core rebuild produced the accepted dual-binary pair, and vc62 carried it to the
+device.
+
+### Backlog, unchanged by this closeout
+
+Namespace acceptance is not production hardening. Still open: the web console
+binding `0.0.0.0:18800` (tracked separately), the production signing key, the
+Dart snapshot-path final-hardening item, R8/ProGuard narrowing, obfuscation and
+split debug info, and the versioned non-destructive bootstrap update strategy.
+
 ## Status Dashboard v1 — CLOSED 2026-09-07
 
 Branch `feature/status-dashboard-v1`, head `85eb93a`, merged to `develop` with

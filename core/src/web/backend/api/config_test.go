@@ -348,8 +348,8 @@ func TestHandlePatchConfig_NormalizesStringChannelArrayFields(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodPatch, "/api/config", bytes.NewBufferString(`{
 		"channel_list": {
-			"pico": {
-				"type": "pico",
+			"pocketclaw": {
+				"type": "pocketclaw",
 				"allow_from": " ou_a\u200b，\u2060ou_b\tou_c\u202e，ou_a ",
 				"group_trigger": {
 					"prefixes": "/，!;\n?，/"
@@ -385,7 +385,7 @@ func TestHandlePatchConfig_NormalizesStringChannelArrayFields(t *testing.T) {
 		t.Fatalf("LoadConfig() error = %v", err)
 	}
 
-	picoChannel := cfg.Channels[config.ChannelPico]
+	picoChannel := cfg.Channels[config.ChannelPocketClaw]
 	if len(picoChannel.AllowFrom) != 3 ||
 		picoChannel.AllowFrom[0] != "ou_a" ||
 		picoChannel.AllowFrom[1] != "ou_b" ||
@@ -409,13 +409,13 @@ func TestHandlePatchConfig_NormalizesStringChannelArrayFields(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetDecoded() pico error = %v", err)
 	}
-	picoCfg := decoded.(*config.PicoSettings)
-	if len(picoCfg.AllowOrigins) != 2 ||
-		picoCfg.AllowOrigins[0] != "https://a.example.com" ||
-		picoCfg.AllowOrigins[1] != "http://localhost:5173" {
+	pocketClawCfg := decoded.(*config.PocketClawSettings)
+	if len(pocketClawCfg.AllowOrigins) != 2 ||
+		pocketClawCfg.AllowOrigins[0] != "https://a.example.com" ||
+		pocketClawCfg.AllowOrigins[1] != "http://localhost:5173" {
 		t.Fatalf(
 			"pico allow_origins = %#v, want [\"https://a.example.com\", \"http://localhost:5173\"]",
-			picoCfg.AllowOrigins,
+			pocketClawCfg.AllowOrigins,
 		)
 	}
 
@@ -585,7 +585,7 @@ func TestHandlePatchConfig_RejectsNegativeStreamingDeliveryValues(t *testing.T) 
 
 	req := httptest.NewRequest(http.MethodPatch, "/api/config", bytes.NewBufferString(`{
 		"channel_list": {
-			"pico": {
+			"pocketclaw": {
 				"settings": {
 					"streaming": {
 						"enabled": true,
@@ -782,14 +782,14 @@ func setupPicoEnabledEnv(t *testing.T) (string, func()) {
 		APIKeys:   config.SimpleSecureStrings("sk-default"),
 	}}
 	cfg.Agents.Defaults.ModelName = "custom-default"
-	bc := cfg.Channels["pico"]
+	bc := cfg.Channels["pocketclaw"]
 	decoded, err := bc.GetDecoded()
 	if err != nil {
 		t.Fatalf("GetDecoded() error = %v", err)
 	}
-	picoCfg := decoded.(*config.PicoSettings)
+	pocketClawCfg := decoded.(*config.PocketClawSettings)
 	bc.Enabled = true
-	picoCfg.Token = *config.NewSecureString("test-pico-token")
+	pocketClawCfg.Token = *config.NewSecureString("test-pico-token")
 
 	configPath := filepath.Join(tmp, "config.json")
 	if err := config.SaveConfig(configPath, cfg); err != nil {
@@ -825,7 +825,7 @@ func TestHandleUpdateConfig_SucceedsWhenPicoTokenInSecurityOnly(t *testing.T) {
 			}
 		},
 		"channels": {
-			"pico": {
+			"pocketclaw": {
 				"enabled": true,
 				"ping_interval": 30,
 				"read_timeout": 60,

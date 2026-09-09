@@ -21,14 +21,15 @@ const CSI_PATTERN = new RegExp(
 const ORPHANED_CSI_PATTERN =
   /\[(?:\?[0-9:;]+|[0-9][0-9:;]*)[ ]*[ABCDEFGHJKSTfmnsu]/g
 const OTHER_ESCAPE_PATTERN = new RegExp(String.raw`\u001B[ -/]*[@-~]`, "g")
-const ROUTINE_PICO_WS_PATTERN =
-  /(?:^| > )GET \/pico\/ws (?:101|2[0-9]{2})(?:\s|$)/
-const PICO_WS_REQUEST_PATTERN = /((?:^| > )[A-Z]+) \/pico\/ws ([0-9]{3})(\s|$)/g
+const ROUTINE_REALTIME_WS_PATTERN =
+  /(?:^| > )GET \/(?:pocketclaw|pico)\/ws (?:101|2[0-9]{2})(?:\s|$)/
+const REALTIME_WS_REQUEST_PATTERN =
+  /((?:^| > )[A-Z]+) \/(?:pocketclaw|pico)\/ws ([0-9]{3})(\s|$)/g
 const LEGACY_GATEWAY_START_PATTERN = /Starting gateway process \([^\r\n)]*\)/g
-const PICO_LOGGER_COMPONENT_PATTERN =
-  /(^|[ \t])([A-Z]{3}) pico ([^ \t]+:[0-9]+)([ \t]+>)/gm
-const PICO_LOGGER_CALLER_PATTERN =
-  /(^|[ \t])([A-Z]{3}) ([^ \t]+) pico\.go:([0-9]+)([ \t]+>)/gm
+const REALTIME_LOGGER_COMPONENT_PATTERN =
+  /(^|[ \t])([A-Z]{3}) (?:pocketclaw|pico) ([^ \t]+:[0-9]+)([ \t]+>)/gm
+const REALTIME_LOGGER_CALLER_PATTERN =
+  /(^|[ \t])([A-Z]{3}) ([^ \t]+) (?:pocketclaw|pico)\.go:([0-9]+)([ \t]+>)/gm
 const TELEGRAM_BOT_API_URL_PATTERN =
   /https?:\/\/[^\s"']*\/bot[^/\s"']+\/(?:test\/)?([A-Za-z][A-Za-z0-9_]*)/gi
 const TELEGRAM_API_CALL_WRAPPER_PATTERN =
@@ -163,9 +164,9 @@ export function normalizeUserVisibleLog(input: string): string {
     LEGACY_GATEWAY_START_PATTERN,
     "Starting gateway process",
   )
-  result = result.replace(PICO_LOGGER_COMPONENT_PATTERN, "$1$2 realtime $3$4")
+  result = result.replace(REALTIME_LOGGER_COMPONENT_PATTERN, "$1$2 realtime $3$4")
   result = result.replace(
-    PICO_LOGGER_CALLER_PATTERN,
+    REALTIME_LOGGER_CALLER_PATTERN,
     "$1$2 $3 realtime.go:$4$5",
   )
   result = result.replace(TELEGRAM_BOT_API_URL_PATTERN, "Telegram API call: $1")
@@ -179,7 +180,7 @@ export function normalizeUserVisibleLog(input: string): string {
   if (!result) return ""
   result = result.replace(TELEGRAM_SUCCESSFUL_NIL_ERROR, "$1 none")
   result = normalizePrivateStructuredFields(result)
-  result = normalizePicoStructuredFields(result)
+  result = normalizeRealtimeStructuredFields(result)
   result = normalizeExactCompatibilityMessages(result)
   if (
     ROUTINE_TELEGRAM_GET_UPDATES_CALL.test(result) ||
@@ -187,9 +188,9 @@ export function normalizeUserVisibleLog(input: string): string {
   ) {
     return ""
   }
-  if (ROUTINE_PICO_WS_PATTERN.test(result)) return ""
+  if (ROUTINE_REALTIME_WS_PATTERN.test(result)) return ""
   result = result.replace(
-    PICO_WS_REQUEST_PATTERN,
+    REALTIME_WS_REQUEST_PATTERN,
     "$1 /internal realtime connection $2$3",
   )
   return result
@@ -252,11 +253,13 @@ function normalizePrivateStructuredFields(input: string): string {
     .replace(RAW_CONTENT_FIELD_PATTERN, "$1$2=<redacted>")
 }
 
-function normalizePicoStructuredFields(input: string): string {
+function normalizeRealtimeStructuredFields(input: string): string {
   return input
     .split("\n")
     .map((line) => {
-      const internalChannel = hasExactLogToken(line, "channel=pico")
+      const internalChannel =
+        hasExactLogToken(line, "channel=pocketclaw") ||
+        hasExactLogToken(line, "channel=pico")
       let result = line
       for (const field of [
         "channel",
@@ -273,7 +276,13 @@ function normalizePicoStructuredFields(input: string): string {
       }
       result = replaceExactLogToken(result, "type=pico", "type=pocketclaw")
       if (internalChannel) {
-        result = replaceExactLogToken(result, "path=/pico/", "path=<internal>")
+        for (const prefix of ["/pocketclaw/", "/pico/"]) {
+          result = replaceExactLogToken(
+            result,
+            `path=${prefix}`,
+            "path=<internal>",
+          )
+        }
       }
       return result
     })

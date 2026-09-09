@@ -511,6 +511,22 @@ class AppLocalizationsEs extends AppLocalizations {
       'Los registros de diagnóstico ahora se guardan de forma privada dentro de la aplicación, no en la carpeta de descargas. Tu espacio de trabajo sigue donde estaba.';
 
   @override
+  String get whatsNew020Improvement8 =>
+      'Una mejora importante en la forma en que PocketClaw guarda su estado y ejecuta sus servicios, para una fiabilidad más constante en el día a día.';
+
+  @override
+  String get whatsNew020Improvement9 =>
+      'Tras esta actualización, el panel te pedirá iniciar sesión una vez más.';
+
+  @override
+  String get whatsNew020Improvement10 =>
+      'Tras esta actualización, el canal de chat Web inicia una conversación nueva.';
+
+  @override
+  String get whatsNew020Improvement11 =>
+      'Tras esta actualización, conviene revisar una vez tus preferencias de notificaciones.';
+
+  @override
   String get whatsNew020Fix1 =>
       'La puerta de enlace ahora se recupera de un registro de proceso obsoleto dejado por una ejecución anterior.';
 

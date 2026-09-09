@@ -2,7 +2,7 @@
 <!--
   Android 11 and earlier backup rules.
 
-  Two directories are excluded, for two different reasons.
+  Three paths are excluded, for three different reasons.
 
   credentials/ holds the GitHub credential, encrypted under a key that lives in
   the Android Keystore and never leaves the device, so a restored copy on
@@ -11,20 +11,44 @@
   credential that fails closed on first use. It also keeps the ciphertext out of
   Google's backup transport entirely, which is the stronger property.
 
-  picoclaw/ is Core's private state directory: config.json and .security.yml.
-  Android onboarding declines credential encryption, so .security.yml holds
-  provider API keys and channel bot tokens as plaintext. Those are 0600 and
-  app-private, which stops another app reading them — but says nothing about
-  backup, and without this exclusion they were copied verbatim into Google's
-  cloud backup and into device-to-device transfer.
+  pocketclaw-core/ and picoclaw/ are the same thing at two points in time:
+  Core's private state directory, holding config.json and .security.yml. Android
+  onboarding declines credential encryption, so .security.yml holds provider API
+  keys and channel bot tokens as plaintext. Those are 0600 and app-private,
+  which stops another app reading them — but says nothing about backup, and
+  without these exclusions they were copied verbatim into Google's cloud backup
+  and into device-to-device transfer.
 
-  RECHECK AFTER THE PICOCLAW -> POCKETCLAW NAMESPACE MIGRATION. This path is
-  matched by name. If PocketClawService.buildEnvironment's internalHome is ever
-  renamed from "picoclaw", this line silently stops matching and every secret
-  becomes backup-eligible again with no test failing on its own.
-  backup_rules_test.dart is what makes that failure loud.
+  pocketclaw-core/ is the canonical path, and its exclusion is here BEFORE any
+  code creates that directory. That is the only safe ordering: a migration that
+  ran first would leave secrets unprotected until the rules caught up, and an
+  interrupted one would leave them there indefinitely.
+
+  The name is deliberately not "pocketclaw". files/pocketclaw/ already exists
+  and belongs to the user: it is the workspace fallback used when external
+  storage access is unavailable, holding AGENT.md, SOUL.md, USER.md and memory/.
+  Putting Core's secrets there would mix runtime state into the user's documents
+  and would change that directory's backup semantics as a side effect of a
+  namespace migration. It is left exactly as it was.
+
+  picoclaw/ is a LEGACY SECURITY EXCLUSION, deliberately retained. It is not an
+  active product path any more, and it is not a Zero-Pico failure. A migration
+  that is interrupted, or a downgrade to an older build, can leave sensitive
+  files in the historical directory; Android must not be allowed to back those
+  up merely because PocketClaw changed where it writes. It is removed only when
+  the migration compatibility window is intentionally retired in a later
+  release, not as part of namespace cleanup.
+
+  Both Core paths are matched by name, so a rename on either side silently
+  unprotects it with nothing else failing.
+  android_backup_exclusion_test.dart is what makes that loud.
+
+  RECHECK AFTER THE PRIVATE-DIRECTORY MIGRATION: once Core state actually lives
+  in pocketclaw-core/ and the compatibility window is closed, the picoclaw/ line
+  is retired deliberately — and only then.
 -->
 <full-backup-content>
     <exclude domain="file" path="credentials/" />
+    <exclude domain="file" path="pocketclaw-core/" />
     <exclude domain="file" path="picoclaw/" />
 </full-backup-content>

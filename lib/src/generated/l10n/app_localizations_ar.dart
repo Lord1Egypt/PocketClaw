@@ -498,6 +498,22 @@ class AppLocalizationsAr extends AppLocalizations {
       'أصبحت سجلات التشخيص تُحفظ داخل التطبيق بشكل خاص بدلاً من مجلد التنزيلات. مساحة عملك تبقى في مكانها.';
 
   @override
+  String get whatsNew020Improvement8 =>
+      'ترقية كبيرة لطريقة حفظ PocketClaw لحالته وتشغيله لخدماته، من أجل موثوقية أثبت في الاستخدام اليومي.';
+
+  @override
+  String get whatsNew020Improvement9 =>
+      'بعد هذا التحديث، ستطلب منك لوحة التحكم تسجيل الدخول مرة أخرى.';
+
+  @override
+  String get whatsNew020Improvement10 =>
+      'بعد هذا التحديث، تبدأ قناة محادثة الويب محادثة جديدة.';
+
+  @override
+  String get whatsNew020Improvement11 =>
+      'بعد هذا التحديث، من المفيد مراجعة تفضيلات الإشعارات مرة واحدة.';
+
+  @override
   String get whatsNew020Fix1 =>
       'أصبحت البوابة تتعافى من سجل عملية قديم خلّفه تشغيل سابق.';
 

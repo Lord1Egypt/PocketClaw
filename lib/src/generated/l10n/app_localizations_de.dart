@@ -510,6 +510,22 @@ class AppLocalizationsDe extends AppLocalizations {
       'Diagnoseprotokolle liegen jetzt privat in der App statt im Downloads-Ordner. Ihr Arbeitsbereich bleibt, wo er war.';
 
   @override
+  String get whatsNew020Improvement8 =>
+      'Ein umfassendes Upgrade dafür, wie PocketClaw seinen Zustand speichert und seine Dienste ausführt — für mehr Zuverlässigkeit im Alltag.';
+
+  @override
+  String get whatsNew020Improvement9 =>
+      'Nach diesem Update meldet sich das Dashboard einmalig neu an.';
+
+  @override
+  String get whatsNew020Improvement10 =>
+      'Nach diesem Update beginnt der Web-Chat eine neue Unterhaltung.';
+
+  @override
+  String get whatsNew020Improvement11 =>
+      'Nach diesem Update lohnt es sich, Ihre Benachrichtigungseinstellungen einmal zu prüfen.';
+
+  @override
   String get whatsNew020Fix1 =>
       'Das Gateway erholt sich jetzt von einem veralteten Prozesseintrag eines früheren Laufs.';
 

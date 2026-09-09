@@ -159,7 +159,7 @@ func TestMissingConfigFallsBackToTheStartupValue(t *testing.T) {
 func TestLiveLimitIsStillTelegramOnly(t *testing.T) {
 	liveLimitFixture(t, 25)
 	agent := telegramAgent(15)
-	for _, channel := range []string{"pico", "discord", "slack", "matrix", "cli"} {
+	for _, channel := range []string{"pocketclaw", "discord", "slack", "matrix", "cli"} {
 		if got := recentContextLimit(agent, channel); got != 0 {
 			t.Errorf("%s limit = %d, want 0", channel, got)
 		}

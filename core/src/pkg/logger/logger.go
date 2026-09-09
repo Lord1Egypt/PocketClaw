@@ -530,6 +530,31 @@ var (
 	}
 )
 
+// The realtime channel's identity, spelled here rather than imported.
+//
+// pkg/config imports this package, so the constants cannot come from there.
+// These are the only channel values this file matches on, and they are matched
+// exactly — unrelated strings that merely contain them are left alone.
+const (
+	realtimeChannelName = "pocketclaw"
+
+	// legacyRealtimeChannelName is LEGACY READ-ONLY MIGRATION: the value a
+	// build before the channel migration wrote into its log records.
+	legacyRealtimeChannelName = "pico"
+
+	// internalRealtimeRoutePrefix is the channel's HTTP route.
+	//
+	// Duplicated from config.RealtimeRoutePrefix, which cannot be imported here
+	// because pkg/config imports this package. A test in pkg/config pins the two
+	// together, because a route that moves without this constant stops being
+	// redacted and nothing else fails.
+	internalRealtimeRoutePrefix = "/pocketclaw/"
+
+	// legacyInternalRealtimeRoutePrefix is the pre-migration route. A log record
+	// written by an older build still carries it, and it must still redact.
+	legacyInternalRealtimeRoutePrefix = "/pico/"
+)
+
 // sanitizeFieldsForLog enforces the normal log privacy contract before any
 // console or file writer sees structured values. It deliberately matches
 // exact field names and exact compatibility values; runtime routing data is
@@ -541,8 +566,16 @@ func sanitizeFieldsForLog(fields map[string]any) map[string]any {
 
 	// Capture this relationship before channel display names are normalized.
 	// Otherwise the downstream user-visible sanitizer can no longer tell that
-	// /pico/ belongs to the internal realtime channel.
-	internalPicoRoute := fields["channel"] == "pico" && fields["path"] == "/pico/"
+	// the internal route belongs to the realtime channel.
+	//
+	// Both channel spellings are accepted. The route is still /pico/ — it moves
+	// with the rest of the HTTP surface in a later phase — while the channel is
+	// already canonical, and a log line from a build on either side of that
+	// split must still have its path redacted.
+	internalRoute := (fields["path"] == internalRealtimeRoutePrefix ||
+		fields["path"] == legacyInternalRealtimeRoutePrefix) &&
+		(fields["channel"] == realtimeChannelName ||
+			fields["channel"] == legacyRealtimeChannelName)
 
 	safe := make(map[string]any, len(fields))
 	for key, value := range fields {
@@ -560,11 +593,15 @@ func sanitizeFieldsForLog(fields map[string]any) map[string]any {
 
 		switch typed := value.(type) {
 		case string:
-			if internalPicoRoute && key == "path" {
+			if internalRoute && key == "path" {
 				typed = "<internal>"
 			}
-			if _, channelField := channelDisplayFields[key]; channelField && typed == "pico" {
-				typed = "pocketclaw"
+			// A legacy channel value can still reach here from a record
+			// written before the channel migration; the display name has been
+			// pocketclaw all along.
+			if _, channelField := channelDisplayFields[key]; channelField &&
+				typed == legacyRealtimeChannelName {
+				typed = realtimeChannelName
 			}
 			safe[key] = redactSecrets(typed)
 		case error:

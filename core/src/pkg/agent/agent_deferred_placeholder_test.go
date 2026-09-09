@@ -139,7 +139,7 @@ func TestSendDeferredPlaceholderCorrelatesTheExecutingMessage(t *testing.T) {
 // Only the channels whose placeholder the channel layer deferred may receive
 // one here; every other channel already sent its own on receipt.
 func TestSendDeferredPlaceholderSkipsNonDeferringChannels(t *testing.T) {
-	for _, channel := range []string{"discord", "slack", "pico", "cli"} {
+	for _, channel := range []string{"discord", "slack", "pocketclaw", "cli"} {
 		t.Run(channel, func(t *testing.T) {
 			cm := &placeholderRecordingManager{}
 			al := &AgentLoop{channelManager: cm}
@@ -457,7 +457,7 @@ func TestCancelledWorkerSendsNoPlaceholder(t *testing.T) {
 // Only the channels whose activity signals the channel layer deferred may have
 // typing started here.
 func TestStartDeferredTypingOnlyForIndependentLifecycleChannels(t *testing.T) {
-	for _, channel := range []string{"telegram", "discord", "slack", "pico", "cli"} {
+	for _, channel := range []string{"telegram", "discord", "slack", "pocketclaw", "cli"} {
 		cm := &placeholderRecordingManager{}
 		al := &AgentLoop{channelManager: cm}
 

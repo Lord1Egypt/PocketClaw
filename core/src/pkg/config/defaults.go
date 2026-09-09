@@ -609,7 +609,7 @@ func defaultChannels() ChannelsConfig {
 				"cdn_base_url": "https://novac2c.cdn.weixin.qq.com/c2c",
 			},
 		},
-		"pico": map[string]any{
+		"pocketclaw": map[string]any{
 			"settings": map[string]any{
 				"ping_interval":   30,
 				"read_timeout":    60,
@@ -620,9 +620,16 @@ func defaultChannels() ChannelsConfig {
 		},
 		"irc": map[string]any{
 			"settings": map[string]any{
-				"server":   "",
-				"tls":      true,
-				"nick":     "picoclaw",
+				"server": "",
+				"tls":    true,
+				// PocketClaw divergence from upstream, which defaults to
+				// "picoclaw". IRC is compiled into the shipped Core, and a user
+				// who enables it without choosing a nick makes the Core send
+				// NICK on the wire — an outward emission of this product's
+				// identity, so it states the current one. Only the default
+				// moves: a nick already saved in a user's config is their data
+				// and is never rewritten.
+				"nick":     "pocketclaw",
 				"channels": []string{},
 			},
 		},

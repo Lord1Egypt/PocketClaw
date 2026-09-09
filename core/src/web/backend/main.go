@@ -1,6 +1,6 @@
-// PicoClaw Web Console - Web-based chat and management interface
+// PocketClaw Web Console - Web-based chat and management interface
 //
-// Provides a web UI for chatting with PicoClaw via the Pico Channel WebSocket,
+// Provides a web UI for chatting with PocketClaw over the realtime channel,
 // with configuration management and gateway process control.
 //
 // Usage:
@@ -28,6 +28,7 @@ import (
 
 	"github.com/sipeed/picoclaw/pkg/androiddns"
 	"github.com/sipeed/picoclaw/pkg/config"
+	"github.com/sipeed/picoclaw/pkg/coresource"
 	"github.com/sipeed/picoclaw/pkg/logger"
 	"github.com/sipeed/picoclaw/pkg/netbind"
 	"github.com/sipeed/picoclaw/web/backend/api"
@@ -503,6 +504,11 @@ func main() {
 	}
 
 	logger.InfoC("web", fmt.Sprintf("%s launcher starting (version %s)...", appName, appVersion))
+	// The source this binary was built from. This is also what keeps
+	// coresource.Stamped referenced by live code: the linker drops an unused
+	// variable and takes the -X value with it, which would leave the staged
+	// dashboard unverifiable while the build reported success.
+	logger.InfoC("web", fmt.Sprintf("%s core source: %s", appName, coresource.Describe()))
 	logger.InfoC("web", fmt.Sprintf("%s Home: %s", appName, picoHome))
 	if debug {
 		logger.InfoC("web", "Debug mode enabled")
@@ -707,7 +713,7 @@ func main() {
 	// API Routes (e.g. /api/status)
 	apiHandler = api.NewHandler(absPath)
 	apiHandler.SetDebug(debug)
-	if _, err = apiHandler.EnsurePicoChannel(); err != nil {
+	if _, err = apiHandler.EnsurePocketClawChannel(); err != nil {
 		logger.ErrorC("web", fmt.Sprintf("Warning: failed to ensure pico channel on startup: %v", err))
 	}
 	apiHandler.SetServerOptions(portNum, effectivePublic, explicitPublic, launcherCfg.AllowedCIDRs)

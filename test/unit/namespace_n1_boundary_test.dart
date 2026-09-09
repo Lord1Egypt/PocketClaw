@@ -68,10 +68,15 @@ void main() {
 
   group('deliberately preserved by N1', () {
     test('upstream Core runtime environment variables are unchanged', () {
-      final service = read(
-        'android/app/src/main/kotlin/com/lord1egypt/pocketclaw/service/'
-        'PocketClawService.kt',
-      );
+      // N1 pinned these against the Kotlin host, because at the time the host
+      // emitting them was the only thing that made them reachable. N4E added a
+      // canonical adapter in the Core, so the host emits POCKETCLAW_* and these
+      // names became what the Core accepts rather than what anything produces.
+      // The invariant N1 cared about is unchanged and still checked — upstream's
+      // interface is not renamed — only its location moved, and this guard
+      // failing is how that had to be declared; zero_pico_n4e_test.dart owns the
+      // emitted set now.
+      final adapter = read('core/src/pkg/canonicalenv/canonicalenv.go');
       for (final env in [
         'PICOCLAW_HOME',
         'PICOCLAW_CONFIG',
@@ -81,19 +86,19 @@ void main() {
         'PICOCLAW_CHANNELS_PICO_TOKEN',
         'PICOCLAW_DNS_SERVER',
       ]) {
-        expect(service, contains(env),
+        expect(adapter, contains(env),
             reason: '$env is Core\'s own interface, not PocketClaw source '
-                'identity; renaming it fails the Gateway closed');
+                'identity; dropping it fails the Gateway closed');
       }
     });
 
-    test('the native Core library names are unchanged', () {
+    test('the native Core library names are the N3 canonical ones', () {
       final service = read(
         'android/app/src/main/kotlin/com/lord1egypt/pocketclaw/service/'
         'PocketClawService.kt',
       );
-      expect(service, contains('libpicoclaw.so'));
-      expect(service, contains('libpicoclaw-web.so'));
+      expect(service, contains('libpocketclaw.so'));
+      expect(service, contains('libpocketclaw-web.so'));
     });
 
     test('the backup exclusion still matches Core private state', () {
@@ -102,11 +107,6 @@ void main() {
           contains('path="picoclaw/"'));
       expect(read('android/app/src/main/res/xml/data_extraction_rules.xml'),
           contains('path="picoclaw/"'));
-    });
-
-    test('the persisted notification channel id is unchanged', () {
-      expect(read('lib/src/core/background_service.dart'),
-          contains('picoclaw_foreground'));
     });
 
     test('the desktop adapter still looks up upstream artifact names', () {

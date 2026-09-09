@@ -511,7 +511,7 @@ func TestHandleGetSession_SkipsTransientThoughtMessages(t *testing.T) {
 		t.Fatalf("NewJSONLStore() error = %v", err)
 	}
 
-	sessionKey := picoSessionPrefix + "detail-transient-thought"
+	sessionKey := legacyPicoSessionPrefix + "detail-transient-thought"
 	for _, msg := range []providers.Message{
 		{Role: "user", Content: "hello"},
 		{Role: "assistant", ReasoningContent: "internal chain of thought"},
@@ -561,7 +561,7 @@ func TestHandleGetSession_ReconstructsThoughtFromAssistantReasoningContent(t *te
 		t.Fatalf("NewJSONLStore() error = %v", err)
 	}
 
-	sessionKey := picoSessionPrefix + "detail-reasoning-content"
+	sessionKey := legacyPicoSessionPrefix + "detail-reasoning-content"
 	for _, msg := range []providers.Message{
 		{Role: "user", Content: "hello"},
 		{Role: "assistant", Content: "final visible answer", ModelName: "gpt-5.4", ReasoningContent: "internal chain of thought"},
@@ -618,7 +618,7 @@ func TestHandleGetSession_ReconstructsRefreshMatrixForThoughtAndToolSummary(t *t
 		t.Fatalf("NewJSONLStore() error = %v", err)
 	}
 
-	sessionKey := picoSessionPrefix + "detail-refresh-matrix"
+	sessionKey := legacyPicoSessionPrefix + "detail-refresh-matrix"
 	for _, msg := range []providers.Message{
 		{Role: "user", Content: "turn1"},
 		{Role: "assistant", Content: "plain visible", ReasoningContent: "plain thought"},
@@ -727,7 +727,7 @@ func TestHandleGetSession_ReconstructsVisibleMessageToolOutputWithoutDuplicateSu
 		t.Fatalf("NewJSONLStore() error = %v", err)
 	}
 
-	sessionKey := picoSessionPrefix + "detail-message-tool"
+	sessionKey := legacyPicoSessionPrefix + "detail-message-tool"
 	for _, msg := range []providers.Message{
 		{Role: "user", Content: "test"},
 		{
@@ -799,7 +799,7 @@ func TestHandleGetSession_PreservesFinalAssistantReplyAfterMessageToolOutput(t *
 		t.Fatalf("NewJSONLStore() error = %v", err)
 	}
 
-	sessionKey := picoSessionPrefix + "detail-message-tool-final-reply"
+	sessionKey := legacyPicoSessionPrefix + "detail-message-tool-final-reply"
 	for _, msg := range []providers.Message{
 		{Role: "user", Content: "test"},
 		{
@@ -866,7 +866,7 @@ func TestHandleListSessions_MessageCountUsesVisibleTranscript(t *testing.T) {
 		t.Fatalf("NewJSONLStore() error = %v", err)
 	}
 
-	sessionKey := picoSessionPrefix + "list-visible-count"
+	sessionKey := legacyPicoSessionPrefix + "list-visible-count"
 	for _, msg := range []providers.Message{
 		{Role: "user", Content: "test"},
 		{
@@ -924,7 +924,7 @@ func TestHandleListSessions_DeduplicatesAssistantToolCallContentFromVisibleTrans
 		t.Fatalf("NewJSONLStore() error = %v", err)
 	}
 
-	sessionKey := picoSessionPrefix + "list-deduped-tool-content"
+	sessionKey := legacyPicoSessionPrefix + "list-deduped-tool-content"
 	for _, msg := range []providers.Message{
 		{Role: "user", Content: "check file"},
 		{
@@ -985,7 +985,7 @@ func TestHandleGetSession_DoesNotDuplicateAssistantToolCallContent(t *testing.T)
 		t.Fatalf("NewJSONLStore() error = %v", err)
 	}
 
-	sessionKey := picoSessionPrefix + "detail-tool-summary-and-content"
+	sessionKey := legacyPicoSessionPrefix + "detail-tool-summary-and-content"
 	for _, msg := range []providers.Message{
 		{Role: "user", Content: "check file"},
 		{
@@ -1053,7 +1053,7 @@ func TestHandleGetSession_PreservesDistinctAssistantToolCallContent(t *testing.T
 		t.Fatalf("NewJSONLStore() error = %v", err)
 	}
 
-	sessionKey := picoSessionPrefix + "detail-tool-summary-distinct-content"
+	sessionKey := legacyPicoSessionPrefix + "detail-tool-summary-distinct-content"
 	for _, msg := range []providers.Message{
 		{Role: "user", Content: "check file"},
 		{
@@ -1117,7 +1117,7 @@ func TestHandleGetSession_PreservesMediaWhenAssistantToolCallContentDuplicatesSu
 		t.Fatalf("NewJSONLStore() error = %v", err)
 	}
 
-	sessionKey := picoSessionPrefix + "detail-tool-summary-duplicate-content-with-media"
+	sessionKey := legacyPicoSessionPrefix + "detail-tool-summary-duplicate-content-with-media"
 	for _, msg := range []providers.Message{
 		{Role: "user", Content: "check screenshot"},
 		{
@@ -1187,7 +1187,7 @@ func TestHandleGetSession_PreservesAttachmentsWhenAssistantToolCallContentDuplic
 		t.Fatalf("NewJSONLStore() error = %v", err)
 	}
 
-	sessionKey := picoSessionPrefix + "detail-tool-summary-duplicate-content-with-attachments"
+	sessionKey := legacyPicoSessionPrefix + "detail-tool-summary-duplicate-content-with-attachments"
 	for _, msg := range []providers.Message{
 		{Role: "user", Content: "check report"},
 		{
@@ -1281,7 +1281,7 @@ func TestHandleGetSession_UsesConfiguredToolFeedbackMaxArgsLength(t *testing.T) 
 
 	argsJSON := `{"path":"README.md","start_line":1,"end_line":10,"extra":"abcdefghijklmnopqrstuvwxyz"}`
 	explanation := "Read README.md first to confirm the current project structure before editing the config example."
-	sessionKey := picoSessionPrefix + "detail-tool-summary-max-args"
+	sessionKey := legacyPicoSessionPrefix + "detail-tool-summary-max-args"
 	err = store.AddFullMessage(nil, sessionKey, providers.Message{Role: "user", Content: "check file"})
 	if err != nil {
 		t.Fatalf("AddFullMessage(user) error = %v", err)
@@ -1360,7 +1360,7 @@ func TestHandleGetSession_FallsBackToLegacyToolArgumentsWhenExplanationMissing(t
 	}
 
 	argsJSON := `{"path":"README.md","start_line":1,"end_line":10,"extra":"abcdefghijklmnopqrstuvwxyz"}`
-	sessionKey := picoSessionPrefix + "detail-tool-summary-legacy-args"
+	sessionKey := legacyPicoSessionPrefix + "detail-tool-summary-legacy-args"
 	if err := store.AddFullMessage(
 		nil,
 		sessionKey,
@@ -1423,7 +1423,7 @@ func TestHandleGetSession_IncludesMediaOnlyMessages(t *testing.T) {
 		t.Fatalf("NewJSONLStore() error = %v", err)
 	}
 
-	sessionKey := picoSessionPrefix + "detail-media-only"
+	sessionKey := legacyPicoSessionPrefix + "detail-media-only"
 	if err := store.AddFullMessage(nil, sessionKey, providers.Message{
 		Role:  "user",
 		Media: []string{"data:image/png;base64,abc123"},
@@ -1471,7 +1471,7 @@ func TestHandleSessions_SupportsJSONLMessagesUpToStoreCap(t *testing.T) {
 		t.Fatalf("NewJSONLStore() error = %v", err)
 	}
 
-	sessionKey := picoSessionPrefix + "detail-large-jsonl"
+	sessionKey := legacyPicoSessionPrefix + "detail-large-jsonl"
 	largeContent := strings.Repeat("x", 9*1024*1024)
 	if err := store.AddFullMessage(nil, sessionKey, providers.Message{
 		Role:    "user",
@@ -1543,7 +1543,7 @@ func TestHandleListSessions_UsesImagePreviewForMediaOnlyMessage(t *testing.T) {
 		t.Fatalf("NewJSONLStore() error = %v", err)
 	}
 
-	sessionKey := picoSessionPrefix + "preview-media-only"
+	sessionKey := legacyPicoSessionPrefix + "preview-media-only"
 	if err := store.AddFullMessage(nil, sessionKey, providers.Message{
 		Role:  "user",
 		Media: []string{"data:image/png;base64,abc123"},

@@ -1,5 +1,47 @@
 # PocketClaw Session Handoff
 
+## Zero-Pico namespace migration — CLOSED and merged, 2026-09-09
+
+Branch `feature/zero-pico-runtime`, head `9910042`, merged to `develop` with
+`--no-ff`. Accepted as `0.2.0+62` on SM-A165F / Android 16, APK
+`1470e02d…`, baseline advanced 59 → 62. Core fingerprint `6e2382ae…`,
+BuildTime `2026-09-09T18:30:34+0000`, staged Core FRESH. `main` untouched, no
+tags moved, no release. Both feature branches retained.
+
+PocketClaw no longer emits a Pico identity anywhere a user, a disk, a wire or a
+screen can see. What is left of the word is upstream identity, legal
+attribution, historical evidence, legacy migration, or the WeCom external
+source id.
+
+### Do not undo these
+
+**Do not "tidy up" the remaining Pico names.** They are load-bearing.
+`.picoclaw.pid`, `filesDir/picoclaw/`, `picoclaw_prefs`, the legacy
+notification channel ids, `picoclaw_launcher_auth`, `PICOCLAW_*` env inputs and
+the serialized `pico` / `pico_client` / `pico-user` values are how an install
+made before the migration is read, migrated and retired. Deleting them strands
+that user's state. `tool/no_active_pico.py` will tell you which category each
+one is in and why.
+
+**Do not rename `wecomQRSourceID`.** It goes to `work.weixin.qq.com` as
+`source`/`sourceID`. It names this application to Tencent, and there are two
+copies — the upstream CLI's and the dashboard's, which ships. Changing it does
+not rename anything; it makes a false claim to someone else's service and
+breaks WeCom QR login.
+
+**Do not fingerprint `web/backend/dist`.** It is a build output. The fingerprint
+covers `web/frontend/` instead, and the Makefile guarantees the bundle is
+regenerated on every canonical build. Hashing the output would fold it into the
+fingerprint of its own inputs and make the value depend on whether pnpm had run.
+
+**Do not treat a deleted notification channel as a live one.** Android keeps
+tombstones so an app cannot resurrect a channel to reset a user's settings.
+`mDeleted=true` is a completed migration, not an incomplete one.
+
+**Do not advance `lastAcceptedVersionCode` without a physical acceptance.** It
+is the install floor, and it moves by hand in the commit that records the
+acceptance it represents.
+
 ## Namespace Migration N2 — CLOSED and merged, 2026-09-09
 
 Branch `feature/namespace-n2-brand-assets` off `develop` at `43500bf`, merged

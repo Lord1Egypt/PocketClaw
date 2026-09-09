@@ -7,6 +7,8 @@ import (
 	"strings"
 
 	"github.com/sipeed/picoclaw/pkg/androiddns"
+
+	"github.com/sipeed/picoclaw/pkg/canonicalenv"
 )
 
 // Environment keys for the credentials the git and gh profiles inject. Both are
@@ -179,7 +181,7 @@ func (m *Manager) applyGHProfile(prepared *preparedEnvironment, helperDir string
 	// gh is the only bundled tool that resolves names in Go. curl, git and its
 	// transport helper go through bionic and Android's own resolver, so widening
 	// this would add reach without adding capability.
-	if servers := strings.TrimSpace(os.Getenv(androiddns.EnvServer)); servers != "" {
+	if servers := strings.TrimSpace(canonicalenv.Getenv(androiddns.EnvServer)); servers != "" {
 		prepared.set(androiddns.EnvServer, servers)
 	}
 

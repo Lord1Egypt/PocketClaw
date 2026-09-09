@@ -42,27 +42,29 @@ func TestStagedCoreWasBuiltFromTheCurrentSource(t *testing.T) {
 	if root == "" {
 		t.Skip("not running inside a PocketClaw checkout; there is no staged Core to compare")
 	}
-	corePath := filepath.Join(root, "android", "app", "src", "main", "jniLibs",
-		"arm64-v8a", "libpicoclaw.so")
-	core, err := os.ReadFile(corePath)
-	if err != nil {
-		t.Skipf("no staged Core binary to check: %v", err)
-	}
 
 	fingerprint, err := Fingerprint(filepath.Join(root, "core", "src"))
 	if err != nil {
 		t.Fatalf("cannot fingerprint the Core source: %v", err)
 	}
 
-	if !StagedCoreMatches(core, fingerprint) {
-		t.Errorf(
-			"the staged Core does not match the current core/src source fingerprint.\n"+
-				"  expected: %s\n"+
-				"It was built from different source, or built outside the canonical\n"+
-				"script, and would ship code that is not in this working tree.\n"+
-				"Rebuild and re-stage it:\n"+
-				"  %s",
-			fingerprint, RebuildInstruction,
-		)
+	for _, lib := range StagedCoreBinaries {
+		path := filepath.Join(root, "android", "app", "src", "main", "jniLibs",
+			"arm64-v8a", lib)
+		binary, err := os.ReadFile(path)
+		if err != nil {
+			t.Skipf("no staged %s to check: %v", lib, err)
+		}
+		if !StagedCoreMatches(binary, fingerprint) {
+			t.Errorf(
+				"staged %s does not match the current core/src source fingerprint.\n"+
+					"  expected: %s\n"+
+					"It was built from different source, or built outside the canonical\n"+
+					"script, and would ship code that is not in this working tree.\n"+
+					"Rebuild and re-stage it:\n"+
+					"  %s",
+				lib, fingerprint, RebuildInstruction,
+			)
+		}
 	}
 }

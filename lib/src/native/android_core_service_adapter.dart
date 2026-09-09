@@ -117,7 +117,7 @@ class AndroidCoreServiceAdapter implements CoreServiceAdapter {
 
   @override
   Future<bool> setWorkspacePath(String path) async {
-    // Workspace is controlled by the native service via PICOCLAW_HOME env var.
+    // Workspace is controlled by the native service via POCKETCLAW_HOME env var.
     // The GUI does not modify it.
     return false;
   }

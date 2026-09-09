@@ -80,10 +80,7 @@ func TestLauncherAuthLoginAndStatus(t *testing.T) {
 		if rec.Code != http.StatusOK {
 			t.Fatalf("login code = %d body=%s", rec.Code, rec.Body.String())
 		}
-		cookies := rec.Result().Cookies()
-		if len(cookies) != 1 || cookies[0].Name != middleware.LauncherDashboardCookieName {
-			t.Fatalf("cookies = %#v", cookies)
-		}
+		sessionCookie(t, rec.Result().Cookies())
 	})
 
 	t.Run("status_authenticated", func(t *testing.T) {
@@ -117,10 +114,10 @@ func TestLauncherAuthLogoutRevokesServerSession(t *testing.T) {
 	login.RemoteAddr = "127.0.0.1:12345"
 	loginRec := httptest.NewRecorder()
 	mux.ServeHTTP(loginRec, login)
-	if loginRec.Code != http.StatusOK || len(loginRec.Result().Cookies()) != 1 {
+	if loginRec.Code != http.StatusOK {
 		t.Fatalf("login status=%d cookies=%#v", loginRec.Code, loginRec.Result().Cookies())
 	}
-	cookie := loginRec.Result().Cookies()[0]
+	cookie := sessionCookie(t, loginRec.Result().Cookies())
 	if !sessions.Valid(cookie.Value) {
 		t.Fatal("issued login session is not active")
 	}
@@ -396,4 +393,31 @@ func TestLauncherAuthLogoutRejectsTrailingJSON(t *testing.T) {
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("want 400 got %d %s", rec.Code, rec.Body.String())
 	}
+}
+
+// sessionCookie returns the response's canonical session cookie, asserting that
+// the only other cookie set is the deletion of the legacy name — never a second
+// session, and never a legacy session.
+func sessionCookie(t *testing.T, cookies []*http.Cookie) *http.Cookie {
+	t.Helper()
+	var session *http.Cookie
+	for _, c := range cookies {
+		switch c.Name {
+		case middleware.LauncherDashboardCookieName:
+			if session != nil {
+				t.Fatalf("more than one session cookie: %#v", cookies)
+			}
+			session = c
+		case "picoclaw_launcher_auth":
+			if c.Value != "" || c.MaxAge >= 0 {
+				t.Fatalf("the legacy cookie was issued rather than expired: %#v", c)
+			}
+		default:
+			t.Fatalf("unexpected cookie %q: %#v", c.Name, cookies)
+		}
+	}
+	if session == nil {
+		t.Fatalf("no session cookie: %#v", cookies)
+	}
+	return session
 }

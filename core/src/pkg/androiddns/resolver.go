@@ -10,11 +10,12 @@ import (
 	"context"
 	"net"
 	"net/http"
-	"os"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/sipeed/picoclaw/pkg/canonicalenv"
 )
 
 // EnvServer carries the DNS servers the Android host read from
@@ -31,7 +32,7 @@ var configureOnce sync.Once
 // host did not supply DNS information.
 func ConfigureDefaultResolverFromEnvironment() {
 	configureOnce.Do(func() {
-		servers := parseServers(os.Getenv(EnvServer))
+		servers := parseServers(canonicalenv.Getenv(EnvServer))
 		if len(servers) == 0 {
 			return
 		}

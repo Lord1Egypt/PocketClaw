@@ -53,6 +53,59 @@ var readProcComm = func(pid int) ([]byte, error) {
 	return os.ReadFile(fmt.Sprintf("/proc/%d/comm", pid))
 }
 
+// commVisibleBytes is how much of a process name /proc/<pid>/comm shows.
+//
+// The kernel's buffer is TASK_COMM_LEN, 16 bytes including the terminator, so
+// 15 characters are visible. This is not a rounding detail here: the packaged
+// gateway is libpocketclaw.so, 16 characters, so on a real device it is *always*
+// truncated. Measured on the validated Samsung, not taken from a header —
+// libpocketclaw.so reports libpocketclaw.s and libpocketclaw-web.so reports
+// libpocketclaw-w.
+const commVisibleBytes = 15
+
+// ownedProcessNames are the two packaged Core executables whose live process a
+// pid file may legitimately be referring to: the gateway and the launcher.
+//
+// COMPATIBILITY: these are the canonical staged names installed by
+// core/build-android-arm64.sh. RECHECK AFTER FULL NAMESPACE MIGRATION.
+var ownedProcessNames = []string{"libpocketclaw.so", "libpocketclaw-web.so"}
+
+// commForm is what the kernel will show for an executable of this name.
+func commForm(execName string) string {
+	if len(execName) > commVisibleBytes {
+		return execName[:commVisibleBytes]
+	}
+	return execName
+}
+
+// isOwnedComm reports whether a /proc/<pid>/comm value names one of our two
+// Core executables.
+//
+// It compares against the whole name rather than searching for the product
+// inside it, and that distinction is the fix for a real regression. A substring
+// rule accepted anything containing "pocketclaw", and Android truncates an app
+// process name from the *left*: com.lord1egypt.pocketclaw reports
+// gypt.pocketclaw, so PocketClaw's own UI process was classified as a live Core
+// runtime. A stale pid file whose PID the kernel had recycled onto the app
+// would then have been honoured, and the gateway would have refused to start —
+// losing exactly the self-healing this code exists to provide.
+//
+// A "libpocketclaw" prefix would have fixed that case and kept a narrower
+// version of the same bug: every Managed Runtime payload is libpocketclaw-*,
+// so gh, git, python and the rest would still have counted as the runtime a pid
+// file refers to. They are ours, but they are not the gateway.
+//
+// Both the truncated and the full form are accepted, because the same binary is
+// visible under its full name wherever the name is short enough.
+func isOwnedComm(comm string) bool {
+	for _, name := range ownedProcessNames {
+		if comm == name || comm == commForm(name) {
+			return true
+		}
+	}
+	return false
+}
+
 // classifyProcComm turns one /proc/<pid>/comm read into an ownership verdict.
 //
 // A "not visible" error is evidence of foreignness, not an inconclusive
@@ -64,7 +117,7 @@ var readProcComm = func(pid int) ([]byte, error) {
 // wedged startup behind a dead gateway's pid file.
 func classifyProcComm(data []byte, err error) procVerdict {
 	if err == nil {
-		if strings.Contains(strings.TrimSpace(string(data)), "picoclaw") {
+		if isOwnedComm(strings.TrimSpace(string(data))) {
 			return procMatch
 		}
 		return procForeign

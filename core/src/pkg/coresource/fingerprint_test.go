@@ -27,6 +27,24 @@ func syntheticCore(t *testing.T) string {
 		"pkg/pcruntime/manifest.json":   "{\"catalog_version\": \"2026.08.31\"}\n",
 		"pkg/pcruntime/README.md":       "documentation, not a build input\n",
 		"workspace/SKILL.md":            "an embedded workspace file\n",
+
+		// The dashboard binary: Go source, the frontend that becomes its
+		// embedded bundle, and the bundle itself as a build output.
+		"web/Makefile":                            "build:\n\tgo build ./backend/\n",
+		"web/backend/main.go":                     "package main\n\nfunc main() {}\n",
+		"web/backend/middleware/auth.go":          "package middleware\n\nconst cookie = \"before\"\n",
+		"web/backend/middleware/auth_test.go":     "package middleware\n\n// a test, not shipped\n",
+		"web/backend/icon.png":                    "PNG bytes, embedded\n",
+		"web/frontend/package.json":               "{\"name\": \"console\"}\n",
+		"web/frontend/pnpm-lock.yaml":             "lockfileVersion: 9.0\n",
+		"web/frontend/vite.config.ts":             "export default {}\n",
+		"web/frontend/index.html":                 "<!doctype html>\n",
+		"web/frontend/src/app.tsx":                "export const App = () => null\n",
+		"web/frontend/src/app.test.tsx":           "it('is a test', () => {})\n",
+		"web/frontend/public/favicon.svg":         "<svg/>\n",
+		"web/backend/dist/index.html":             "<!doctype html><!-- generated -->\n",
+		"web/backend/dist/assets/index-abc123.js": "console.log('generated bundle')\n",
+		"web/frontend/node_modules/dep/index.js":  "installed dependency\n",
 	}
 	for relative, content := range files {
 		full := filepath.Join(root, filepath.FromSlash(relative))
@@ -235,6 +253,19 @@ func TestEveryEmbeddedAssetIsAFingerprintInput(t *testing.T) {
 	coreSrc := filepath.Join(root, "core", "src")
 
 	for _, directive := range embedDirectives(t, coreSrc) {
+		if generator, generated := generatedEmbedSources[directive.target]; generated {
+			// A generated bundle is covered through its generator rather than
+			// directly; see generatedEmbedSources. Assert that, so exempting it
+			// here cannot become a hole of its own.
+			if !covers(generator) {
+				t.Errorf(
+					"%s embeds the generated %q, whose source tree %q is not a "+
+						"fingerprint input. Nothing then covers the bundle.",
+					directive.source, directive.target, generator,
+				)
+			}
+			continue
+		}
 		if !covers(directive.target) {
 			t.Errorf(
 				"%s embeds %q, which is not a fingerprint input.\n"+
@@ -244,6 +275,23 @@ func TestEveryEmbeddedAssetIsAFingerprintInput(t *testing.T) {
 			)
 		}
 	}
+}
+
+// generatedEmbedSources maps an embedded *build output* to the tracked tree
+// that produces it.
+//
+// web/backend/dist is the compiled dashboard frontend: `pnpm build:backend`
+// runs Vite over web/frontend/ and writes it, and it is untracked apart from a
+// .gitkeep. Fingerprinting it directly would fold a build output into the
+// fingerprint of its own inputs and make the value depend on whether pnpm had
+// been run, so it is covered through web/frontend instead — which is a
+// stronger relation, not a weaker one: editing a component moves the
+// fingerprint immediately, without anyone having to rebuild the bundle first.
+//
+// Only genuinely generated targets belong here. Anything tracked and embedded
+// must be a fingerprint input in its own right.
+var generatedEmbedSources = map[string]string{
+	"web/backend/dist": "web/frontend",
 }
 
 type embedDirective struct {

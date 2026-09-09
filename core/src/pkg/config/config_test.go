@@ -1002,7 +1002,7 @@ func TestDefaultConfig_ChannelStreamingDisabled(t *testing.T) {
 		t.Fatal("DefaultConfig().telegram.settings.streaming.enabled should be false")
 	}
 
-	pico := cfg.Channels.Get(ChannelPico)
+	pico := cfg.Channels.Get(ChannelPocketClaw)
 	if pico == nil {
 		t.Fatal("DefaultConfig() missing pico channel")
 	}
@@ -1010,9 +1010,9 @@ func TestDefaultConfig_ChannelStreamingDisabled(t *testing.T) {
 	if err != nil {
 		t.Fatalf("pico GetDecoded() error = %v", err)
 	}
-	picoSettings, ok := decoded.(*PicoSettings)
+	picoSettings, ok := decoded.(*PocketClawSettings)
 	if !ok {
-		t.Fatalf("pico settings type = %T, want *PicoSettings", decoded)
+		t.Fatalf("pico settings type = %T, want *PocketClawSettings", decoded)
 	}
 	if !picoSettings.Streaming.Enabled {
 		t.Fatal("DefaultConfig().pico.settings.streaming.enabled should be true")
@@ -1021,8 +1021,8 @@ func TestDefaultConfig_ChannelStreamingDisabled(t *testing.T) {
 
 func TestValidateSingletonChannels_RejectsMultipleInstances(t *testing.T) {
 	channels := ChannelsConfig{
-		"pico1": &Channel{Enabled: true, Type: ChannelPico},
-		"pico2": &Channel{Enabled: true, Type: ChannelPico},
+		"pico1": &Channel{Enabled: true, Type: ChannelPocketClaw},
+		"pico2": &Channel{Enabled: true, Type: ChannelPocketClaw},
 	}
 	err := validateSingletonChannels(channels)
 	if err == nil {
@@ -1035,7 +1035,7 @@ func TestValidateSingletonChannels_RejectsMultipleInstances(t *testing.T) {
 
 func TestValidateSingletonChannels_AllowsSingleInstance(t *testing.T) {
 	channels := ChannelsConfig{
-		"pico1": &Channel{Enabled: true, Type: ChannelPico},
+		"pico1": &Channel{Enabled: true, Type: ChannelPocketClaw},
 	}
 	err := validateSingletonChannels(channels)
 	if err != nil {
@@ -1045,8 +1045,8 @@ func TestValidateSingletonChannels_AllowsSingleInstance(t *testing.T) {
 
 func TestValidateSingletonChannels_IgnoresDisabledInstances(t *testing.T) {
 	channels := ChannelsConfig{
-		"pico1": &Channel{Enabled: true, Type: ChannelPico},
-		"pico2": &Channel{Enabled: false, Type: ChannelPico},
+		"pico1": &Channel{Enabled: true, Type: ChannelPocketClaw},
+		"pico2": &Channel{Enabled: false, Type: ChannelPocketClaw},
 	}
 	err := validateSingletonChannels(channels)
 	if err != nil {
@@ -1163,7 +1163,7 @@ func TestSaveConfig_PreservesExplicitDisabledPicoStreaming(t *testing.T) {
 	path := filepath.Join(tmpDir, "config.json")
 
 	cfg := DefaultConfig()
-	pico := cfg.Channels.Get(ChannelPico)
+	pico := cfg.Channels.Get(ChannelPocketClaw)
 	if pico == nil {
 		t.Fatal("DefaultConfig() missing pico channel")
 	}
@@ -1184,7 +1184,7 @@ func TestSaveConfig_PreservesExplicitDisabledPicoStreaming(t *testing.T) {
 	if err != nil {
 		t.Fatalf("LoadConfig failed: %v", err)
 	}
-	loadedPico := loaded.Channels.Get(ChannelPico)
+	loadedPico := loaded.Channels.Get(ChannelPocketClaw)
 	if loadedPico == nil {
 		t.Fatal("loaded config missing pico channel")
 	}
@@ -1192,9 +1192,9 @@ func TestSaveConfig_PreservesExplicitDisabledPicoStreaming(t *testing.T) {
 	if err != nil {
 		t.Fatalf("pico GetDecoded() error = %v", err)
 	}
-	settings, ok := decoded.(*PicoSettings)
+	settings, ok := decoded.(*PocketClawSettings)
 	if !ok {
-		t.Fatalf("pico settings type = %T, want *PicoSettings", decoded)
+		t.Fatalf("pico settings type = %T, want *PocketClawSettings", decoded)
 	}
 	if settings.Streaming.Enabled {
 		t.Fatal("explicit disabled pico streaming should remain disabled after SaveConfig/LoadConfig round-trip")
@@ -3220,7 +3220,7 @@ func testChannelsConfigWithTokens() ChannelsConfig {
 		{"dingtalk", DingTalkSettings{ClientSecret: *NewSecureString("dingtalk-client-secret")}},
 		{"onebot", OneBotSettings{AccessToken: *NewSecureString("onebot-access-token")}},
 		{"wecom", WeComSettings{Secret: *NewSecureString("wecom-secret")}},
-		{"pico", PicoSettings{Token: *NewSecureString("pico-token-abc123")}},
+		{"pocketclaw", PocketClawSettings{Token: *NewSecureString("pico-token-abc123")}},
 		{
 			"irc",
 			IRCSettings{

@@ -80,8 +80,8 @@ const (
 )
 
 var knownEnvironmentProfiles = map[EnvironmentProfile]struct{}{
-	EnvironmentProfileNone: {},
-	EnvironmentProfileGit:  {},
+	EnvironmentProfileNone:   {},
+	EnvironmentProfileGit:    {},
 	EnvironmentProfileGH:     {},
 	EnvironmentProfilePython: {},
 }
