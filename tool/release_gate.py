@@ -371,6 +371,27 @@ def worktree_gate(gate: Gate, release_class: str):
                     f"{len(dirty)} uncommitted change(s) — NON-RELEASABLE (test class)")
 
 
+def core_source_fingerprint(gate: Gate) -> str:
+    """The fingerprint the current core/src produces, computed once per run.
+
+    Both the source and the artifact paths need it, and only one of them may be
+    running: --verify-artifact does not call source_gates at all. Caching it on
+    the gate rather than setting it in one path and reading it in the other is
+    what keeps artifact.core_provenance_pair able to pass on its own — it could
+    not, until this existed.
+    """
+    cached = gate.facts.get("coreSourceFingerprint")
+    if cached:
+        return cached
+    _, out = run(["go", "run", "./cmd/corefingerprint", "."],
+                 cwd=REPO / "core/src", env={"GOOS": "", "GOARCH": ""})
+    fingerprint = out.strip().splitlines()[-1] if out.strip() else ""
+    if re.fullmatch(r"[0-9a-f]{64}", fingerprint):
+        gate.facts["coreSourceFingerprint"] = fingerprint
+        return fingerprint
+    return ""
+
+
 def source_gates(gate: Gate, run_tests: bool, release_class: str = "test"):
     worktree_gate(gate, release_class)
     _, code = tracked_version(gate)
@@ -462,11 +483,7 @@ def source_gates(gate: Gate, run_tests: bool, release_class: str = "test"):
         if path.is_file():
             gate.facts.setdefault("stagedCore", {})[lib] = sha256(path)
 
-    rc, out = run(["go", "run", "./cmd/corefingerprint", "."],
-                  cwd=REPO / "core/src", env={"GOOS": "", "GOARCH": ""})
-    fingerprint = out.strip().splitlines()[-1] if out.strip() else ""
-    if re.fullmatch(r"[0-9a-f]{64}", fingerprint):
-        gate.facts["coreSourceFingerprint"] = fingerprint
+    core_source_fingerprint(gate)
 
     # Source, not artifact, and deliberately above the --no-tests return: a new
     # active Pico identity has to be caught before it is compiled, because after
@@ -624,7 +641,7 @@ def artifact_gates(gate: Gate, apk: Path, release_class: str):
         # separately from core/src/web and can be from other source entirely
         # while the Core's stamp looks right.
         core_entry = f"lib/{EXPECTED_ABI}/libpocketclaw.so"
-        expected = gate.facts.get("coreSourceFingerprint")
+        expected = core_source_fingerprint(gate)
         carried = {}
         unstamped = []
         for lib in CORE_LIBS:
