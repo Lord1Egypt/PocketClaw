@@ -283,8 +283,8 @@ void main() {
       // H1.5 removed Firebase; the document must say so rather than still
       // describing it as the outstanding blocker.
       expect(body, contains('REMOVED'));
-      expect(body.toLowerCase(), contains('google_fonts'),
-          reason: 'the remaining blocker must be named');
+      expect(body, contains('BUNDLED'),
+          reason: 'the font resolution must be recorded as closed');
     });
 
     test('the Firebase removal is real, not just documented', () {
@@ -323,7 +323,9 @@ void main() {
       expect(gate, contains('reproducibility not yet proven'));
       // The Firebase entry was retired when the dependency was; the remaining
       // F-Droid item is the font fetching.
-      expect(gate, contains('google_fonts fetches fonts at runtime'));
+      expect(gate, contains('committed gh payload predates its source'));
+      expect(gate, isNot(contains('google_fonts fetches fonts at runtime')),
+          reason: 'the font blocker was closed; it must not still be listed');
       expect(gate, isNot(contains('Firebase/GMS packaged unconditionally')),
           reason: 'a solved blocker must not still be listed as outstanding');
     });

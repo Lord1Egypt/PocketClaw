@@ -67,63 +67,109 @@ There is now **one canonical build** for direct APK, Google Play and F-Droid.
 The proprietary dependency was removed rather than hidden behind a flavor, a
 build type or a scanignore entry.
 
-## 1b. Remaining item — google_fonts
+## 1b. Fonts — BUNDLED, no runtime fetching
 
-**Open, and the one thing standing between this build and an F-Droid
-submission.**
+**Closed.** `google_fonts` is gone from `pubspec.yaml` and from the lockfile.
+Inter and Fira Code are now bundled application assets and resolve entirely
+offline.
 
-`google_fonts` 8.2.1 is used across the UI (Inter, Fira Code) with **no bundled
-font files**. Verified in the package source: `allowRuntimeFetching` defaults to
-`true` and PocketClaw never sets it, so the fonts are fetched from Google's
-servers at first use and cached on device.
+| Family | Weights bundled | Upstream | Licence |
+| --- | --- | --- | --- |
+| Inter | 400, 500, 600, 700, 800, 900 | [rsms/inter](https://github.com/rsms/inter) `v4.1` | OFL-1.1 |
+| Fira Code | 400, 600 | [tonsky/FiraCode](https://github.com/tonsky/FiraCode) `6.2` | OFL-1.1 |
 
-That is a runtime download of non-packaged assets, a network dependency for
-ordinary UI rendering, and a call to a Google server from an app that describes
-itself as private-first.
+Per-file digests and the source archive hashes are recorded in
+[`assets/fonts/README.md`](../assets/fonts/README.md). Both OFL texts are
+committed **and packaged into the APK** — OFL-1.1 asks the licence to travel
+with the font software, and an APK is a redistribution.
 
-**Remedy** — bundle the fonts, do not drop the design:
+`lib/src/core/app_fonts.dart` replaced the `GoogleFonts.*` call sites with
+`TextStyle(fontFamily: ...)` against the declared families, so there is no fetch
+path left to disable rather than a fetch path that happens to be turned off.
+`test/unit/bundled_fonts_contract_test.dart` holds the line: no
+`fonts.googleapis.com` or `fonts.gstatic.com` anywhere in `lib/`, no
+`google_fonts` in the lockfile, every declared asset present and a real
+TrueType file, every weight the code asks for actually bundled, and the OFL
+texts both committed and declared as packaged assets.
 
-1. Add Inter and Fira Code (both SIL OFL 1.1, redistributable) as tracked
-   assets, with their licence text.
-2. Declare them in `pubspec.yaml` under `flutter: fonts:`.
-3. Set `GoogleFonts.config.allowRuntimeFetching = false` at startup so a missing
-   font is a loud failure rather than a silent network call.
+## 1c. Managed Runtime — source build demonstrated end to end
 
-Not done in H1.5 because fetching the font files needs network access this phase
-did not have, and doing half of it — disabling fetching without bundling — would
-degrade the UI to fallback fonts. It is a small, bounded task with a known
-shape.
+All eight tools were **rebuilt from source on a tree with the committed
+payloads physically removed**, so nothing could be silently reused.
 
-## 1c. Managed Runtime — provenance audit
+### Demonstrated ordering
 
-All eight tools have **in-repo, from-source cross-compilation recipes** with
-checksum verification. This is a considerably stronger position than H1 assumed.
+```
+source checkout
+  → quarantine the eight committed lib*.so out of jniLibs/
+  → confirm only the Core pair remains
+  → run runtime/build-<tool>-android-arm64.sh for each
+  → verify arch / format / stripped / size / SHA-256
+  → package into the canonical APK
+  → verify the artifact
+```
 
-| Tool | Version | Licence | Upstream source | Recipe | Class |
-| --- | --- | --- | --- | --- | --- |
-| `python` | 3.14.7 | PSF-2.0 | python.org/ftp | `runtime/build-python-android-arm64.sh` | A |
-| `git` | 2.51.0 | GPL-2.0-only | github.com/git/git | `runtime/build-git-android-arm64.sh` | A |
-| `git-remote-http` | (with git) | GPL-2.0-only | github.com/git/git | same recipe | A |
-| `gh` | 2.82.1 | MIT | github.com/cli/cli | `runtime/build-gh-android-arm64.sh` | A |
-| `curl` | 8.11.1 | curl (MIT-like) | github.com/curl/curl | `runtime/build-curl-android-arm64.sh` (+ mbedTLS) | A |
-| `rg` | 14.1.1 | MIT OR Unlicense | github.com/BurntSushi/ripgrep | `runtime/build-ripgrep-android-arm64.sh` | A |
-| `jq` | 1.7.1 | MIT | github.com/jqlang/jq | `runtime/build-jq-android-arm64.sh` | A |
-| `sqlite3` | 3.50.4 | Public domain | sqlite.org | `runtime/build-sqlite3-android-arm64.sh` | A |
+### Toolchain used
 
-**Classification: all eight are class A — reproducibly source-buildable now**,
-from checksum-verified upstream tarballs, by scripts already in this repository.
+NDK 28.2.13676358 (API 24 sysroot), Rust 1.94.1, the repository Go toolchain,
+Python 3.13 host interpreter, autoconf 2.71, make 4.3, cmake 3.28.3. Sources are
+pinned upstream tarballs, checksum-verified by each recipe.
 
-The open question is not *can they be built from source* but **whether F-Droid's
-build server will run those recipes**, since they need the Android NDK, plus Rust
-for ripgrep and Go for gh. That is a conversation with F-Droid about build
-requirements, not a code change, and it should happen before submission rather
-than during review.
+### Result — all eight built; six byte-identical
 
-The binaries are currently **committed** to the repository as
-`android/app/src/main/jniLibs/arm64-v8a/libpocketclaw-*.so`. Committed prebuilts
-are exactly what a source-building distribution exists to avoid, even when the
-sources are free and the recipes are present. Expect to be asked to build them
-in-pipeline.
+| Tool | Version | Built | vs committed |
+| --- | --- | --- | --- |
+| `curl` | 8.11.1 | yes | **identical** |
+| `git` | 2.51.0 | yes | **identical** |
+| `git-remote-http` | 2.51.0 | yes | **identical** |
+| `jq` | 1.7.1 | yes | **identical** |
+| `rg` | 14.1.1 | yes | **identical** |
+| `sqlite3` | 3.50.4 | yes | **identical** |
+| `gh` | 2.82.1 | yes, after a recipe fix | differs — explained below |
+| `python` | 3.14.7 | yes, after a determinism fix | differs — explained below |
+
+Six rebuilding **bit-for-bit** from files that had been deleted first is the
+strongest available evidence that they come from source and that the recipes are
+deterministic.
+
+### Two defects this exercise found
+
+**`gh` could no longer be built at all.** Its recipe copies
+`core/src/pkg/androiddns/resolver.go` into the gh tree so gh resolves DNS on
+Android, and guards that the copied file imports only the standard library. The
+Zero-Pico work gave that file a `pkg/canonicalenv` import, so the guard fired
+and the build stopped — correctly. It means the *committed* gh binary cannot be
+reproduced from current source. Fixed by vendoring `canonicalenv` alongside the
+resolver, since it is itself a std-lib-only leaf; the guard now allows that one
+import and nothing else. The rebuilt gh therefore differs from the committed one
+because its input genuinely changed.
+
+**`python` was not reproducible.** The appended stdlib zip embedded wall-clock
+timestamps, so every build produced a different binary. Fixed in
+`runtime/python-lite-stdlib.py`: entries are written with a fixed timestamp from
+`SOURCE_DATE_EPOCH` (falling back to the zip epoch), fixed permissions and a
+sorted walk. **Proven** — two consecutive builds with the epoch pinned produced
+byte-identical output, `96b34067…`.
+
+### What was deliberately not changed
+
+The regenerated `gh` and `python` were **not** adopted. Their checksums are
+pinned in `core/src/pkg/pcruntime/manifest.json`, which is a Core fingerprint
+input, so adopting them would move the Core fingerprint and require a Core
+rebuild and restage — outside this phase's remit. All eight committed payloads
+were restored byte-identical, and the Core fingerprint is unchanged.
+
+**Owner decision required.** The committed `gh` is stale with respect to current
+source: it predates the `canonicalenv` import and cannot be reproduced by the
+current recipe. Adopting the regenerated `gh` and `python` needs a manifest
+checksum update plus a Core rebuild.
+
+### Remaining F-Droid question
+
+Not *can these be built from source* — that is now demonstrated — but whether
+F-Droid's build server will run recipes needing the Android NDK, Rust and Go.
+That is a conversation to have before submission. The payloads also remain
+committed, which a source-building distribution will likely challenge.
 
 ## 1d. Post-install executable downloads — none, structurally
 
@@ -259,11 +305,12 @@ None of this exists yet and none of it should be created before §1 is resolved:
 | Question | Answer |
 | --- | --- |
 | Is a separate F-Droid flavor necessary? | **No.** The proprietary dependency was removed, not hidden. One canonical build serves all three channels. |
-| Firebase / Google Play Services? | **Removed and verified absent** from the DEX, the manifest and the packaged entries. |
-| Remaining blocker? | **`google_fonts` runtime fetching** (§1b). Small, bounded, needs network to bundle the font files. |
-| Managed Runtime buildable from source? | **Yes, all eight**, by recipes already in `runtime/`. Open question is whether F-Droid's builders will run them. |
+| Firebase / Google Play Services? | **Removed**, verified absent from DEX, manifest and packaged entries. |
+| Runtime font fetching? | **Closed.** Inter and Fira Code are bundled; `google_fonts` is gone from the lockfile. |
+| Managed Runtime buildable from source? | **Demonstrated for all eight**, with the committed payloads quarantined first. Six rebuild byte-identical. |
+| Are the recipes deterministic? | Six proven identical; `python` made reproducible in this phase and proven over two runs. |
 | Does it download executables after install? | **No — structurally impossible** on targetSdk 36 (§1d). |
 | Anti-features to declare? | `NonFreeNet` for optional proprietary providers. Not `Tracking`, not `NonFreeDep`. |
-| Is the build reproducible today? | Core and frontend, yes and proven. Full APK, not yet verified. |
+| Outstanding before submission | Owner decision on adopting the regenerated `gh`/`python` (needs a Core rebuild); whether F-Droid's builders will run NDK/Rust/Go recipes; committed prebuilts; full-APK reproducibility. |
 | Can direct and F-Droid share a signature? | Yes, if APK reproducibility holds. That is the design target. |
 | Can Play share it? | No, under Play App Signing. Accepted. |

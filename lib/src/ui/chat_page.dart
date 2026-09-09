@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../core/app_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
@@ -266,7 +266,7 @@ class _ChatPageState extends State<ChatPage> {
       appBar: AppBar(
         title: Text(
           'AI Chat',
-          style: GoogleFonts.inter(fontWeight: FontWeight.w700),
+          style: AppFonts.inter(fontWeight: FontWeight.w700),
         ),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),

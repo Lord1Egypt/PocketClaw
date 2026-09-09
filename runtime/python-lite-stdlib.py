@@ -16,7 +16,37 @@ import py_compile
 import shutil
 import sys
 import tempfile
+import time
 import zipfile
+
+
+# Every zip entry carries the file's mtime, so the appended stdlib made the
+# python payload different on every build even from identical source. That is a
+# reproducibility defect rather than a cosmetic one: F-Droid will only publish a
+# developer-signed artifact for a build it can reproduce, which is what lets the
+# direct APK and the F-Droid APK share a signing identity.
+#
+# SOURCE_DATE_EPOCH is the cross-ecosystem convention for exactly this, and the
+# canonical Core build already resolves one. Falling back to the zip format's
+# own epoch keeps the output deterministic even when the variable is absent.
+_ZIP_EPOCH = (1980, 1, 1, 0, 0, 0)
+
+
+def _deterministic_date_time():
+    raw = os.environ.get("SOURCE_DATE_EPOCH", "").strip()
+    if not raw.isdigit():
+        return _ZIP_EPOCH
+    return time.gmtime(int(raw))[:6]
+
+
+def _add_deterministic(archive, source_path, arcname):
+    """Add one file with a fixed timestamp and fixed permissions."""
+    info = zipfile.ZipInfo(arcname, date_time=_deterministic_date_time())
+    info.compress_type = zipfile.ZIP_DEFLATED
+    # A stable mode too: the umask of whoever ran the build is not a build input.
+    info.external_attr = 0o644 << 16
+    with open(source_path, "rb") as handle:
+        archive.writestr(info, handle.read(), compresslevel=9)
 
 # Extension modules the Lite interpreter does not contain, either disabled in
 # Modules/Setup.local or unavailable on Android.
@@ -132,7 +162,7 @@ def main():
     py_zip = os.path.join(out, "stdlib-py.zip")
     with zipfile.ZipFile(py_zip, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as z:
         for rel in files:
-            z.write(os.path.join(lib, rel), rel)
+            _add_deterministic(z, os.path.join(lib, rel), rel)
 
     staging = tempfile.mkdtemp()
     failures = []
@@ -147,10 +177,10 @@ def main():
                 failures.append(f"{rel}: {exc}")
         pyc_zip = os.path.join(out, "stdlib-pyc.zip")
         with zipfile.ZipFile(pyc_zip, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as z:
-            for root, _, names in os.walk(staging):
-                for name in names:
+            for root, _, names in sorted(os.walk(staging)):
+                for name in sorted(names):
                     full = os.path.join(root, name)
-                    z.write(full, os.path.relpath(full, staging))
+                    _add_deterministic(z, full, os.path.relpath(full, staging))
         raw_pyc = sum(os.path.getsize(os.path.join(r, n))
                       for r, _, ns in os.walk(staging) for n in ns)
     finally:
