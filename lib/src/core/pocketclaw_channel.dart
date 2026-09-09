@@ -44,7 +44,7 @@ class PublicModeApplyResult {
 class PocketClawChannel {
   static const _channel = MethodChannel('com.lord1egypt.pocketclaw/pocketclaw');
 
-  /// 启动 PicoClaw 前台服务
+  /// 启动 PocketClaw 前台服务
   static Future<bool> startService({int port = 18800, String args = ''}) async {
     final result = await _channel.invokeMethod<bool>('startService', {
       'port': port,
@@ -53,7 +53,7 @@ class PocketClawChannel {
     return result ?? false;
   }
 
-  /// 停止 PicoClaw 前台服务
+  /// 停止 PocketClaw 前台服务
   static Future<bool> stopService() async {
     final result = await _channel.invokeMethod<bool>('stopService');
     return result ?? false;
@@ -297,9 +297,9 @@ class PocketClawChannel {
     return address.isEmpty ? null : address;
   }
 
-  /// 获取 Pico Channel token
-  static Future<String> getPicoToken() async {
-    final result = await _channel.invokeMethod<String>('getPicoToken');
+  /// 获取 PocketClaw Channel token
+  static Future<String> getPocketClawToken() async {
+    final result = await _channel.invokeMethod<String>('getPocketClawToken');
     return result ?? '';
   }
 

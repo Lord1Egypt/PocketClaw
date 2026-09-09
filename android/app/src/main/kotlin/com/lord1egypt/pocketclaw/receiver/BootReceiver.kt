@@ -13,14 +13,13 @@ class BootReceiver : BroadcastReceiver() {
 
     companion object {
         private const val TAG = "BootReceiver"
-        private const val PREF_NAME = "picoclaw_prefs"
         private const val KEY_AUTO_START = "auto_start"
     }
 
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action != Intent.ACTION_BOOT_COMPLETED) return
 
-        val prefs = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
+        val prefs = com.lord1egypt.pocketclaw.PocketClawPreferences.open(context)
         val autoStart = prefs.getBoolean(KEY_AUTO_START, false)
 
         if (autoStart) {

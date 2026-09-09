@@ -606,7 +606,7 @@ class PocketClawService : Service() {
                     testBinary(gatewayBinary)
                     ensureOnboarded(gatewayBinary)
                     // 启动前先清理可能残留的旧进程
-                    killPicoClawOrphanProcesses()
+                    killPocketClawOrphanProcesses()
                     runWebService()
                 } catch (e: Exception) {
                     if (!stopped) {
@@ -782,7 +782,7 @@ class PocketClawService : Service() {
                     Log.w(TAG, "Log reader interrupted", e)
                 }
             }
-        }, "picoclaw-web-log-reader").apply {
+        }, "pocketclaw-web-log-reader").apply {
             isDaemon = true
             start()
         }
@@ -816,7 +816,7 @@ class PocketClawService : Service() {
             }
             Log.i(TAG, "Scheduling restart in 5 seconds... (attempt $restartCount/$maxRestartAttempts)")
             // 清理可能残留的占用端口的进程
-            killPicoClawOrphanProcesses()
+            killPocketClawOrphanProcesses()
             Thread.sleep(5000)
             // 再次检查是否被要求停止
             if (stopped) {
@@ -832,12 +832,36 @@ class PocketClawService : Service() {
      * 用于某些设备（特别是 TV）so 文件没有被自动解压到 nativeLibraryDir 的情况
      */
     /**
-     * 杀掉属于当前应用的所有 picoclaw 残留子进程。
+     * 杀掉属于当前应用的所有 PocketClaw Core 残留子进程。
      *
      * 通过 UID 匹配（而非 ppid），因为 force-stop 后 app 重启 PID 会变，
      * 旧的孤儿进程的 ppid 可能已变为 1（被 init 收养），无法通过 ppid 找到。
      */
-    private fun killPicoClawOrphanProcesses() {
+    /**
+     * Whether a /proc/<pid>/cmdline belongs to one of PocketClaw's own Core
+     * executables.
+     *
+     * Matched on the basename of argv[0] against [GATEWAY_BINARY_NAME] and
+     * [WEB_BINARY_NAME] — the same constants used to spawn them, so orphan
+     * cleanup and the names it is cleaning up cannot drift apart.
+     *
+     * Exact comparison, deliberately. `contains("picoclaw")` is what this
+     * replaced and it stopped matching anything once the binaries were renamed
+     * in N3. `contains("pocketclaw")` or a "libpocketclaw" prefix would swing
+     * the other way and sweep in every Managed Runtime payload — gh, git,
+     * python, curl, rg, jq, sqlite3, git-remote-http are all libpocketclaw-*
+     * and are ours, but they are not orphaned Core processes and killing one
+     * mid-operation would look like a random tool failure. The application
+     * process is excluded for the same reason.
+     */
+    private fun isCoreExecutableCommandLine(cmdline: String): Boolean {
+        val argv0 = cmdline.substringBefore('\u0000').trim()
+        if (argv0.isEmpty()) return false
+        val basename = argv0.substringAfterLast('/')
+        return basename == GATEWAY_BINARY_NAME || basename == WEB_BINARY_NAME
+    }
+
+    private fun killPocketClawOrphanProcesses() {
         try {
             val myPid = android.os.Process.myPid()
             val myUid = android.os.Process.myUid()
@@ -860,19 +884,19 @@ class PocketClawService : Service() {
                     // 只处理属于同一 UID（同一应用）的进程
                     if (processUid != myUid) return@forEach
 
-                    // 检查 cmdline 是否包含 picoclaw
+                    // 只匹配 Core 可执行文件本身，按 argv[0] 的 basename 精确比对。
                     val cmdlineFile = File(pidDir, "cmdline")
                     if (!cmdlineFile.canRead()) return@forEach
                     val cmdline = cmdlineFile.readText()
-                    if (!cmdline.contains("picoclaw")) return@forEach
+                    if (!isCoreExecutableCommandLine(cmdline)) return@forEach
 
-                    Log.i(TAG, "Killing orphan picoclaw process: PID=$pid, UID=$processUid, cmd=$cmdline")
+                    Log.i(TAG, "Killing orphan PocketClaw Core process: PID=$pid, UID=$processUid, cmd=$cmdline")
                     android.os.Process.killProcess(pid)
                 } catch (e: Exception) {
                     // 忽略无权限的进程
                 }
             }
-            Log.i(TAG, "Cleaned up orphan picoclaw processes")
+            Log.i(TAG, "Cleaned up orphan PocketClaw Core processes")
         } catch (e: Exception) {
             Log.w(TAG, "Failed to cleanup orphan processes: ${e.message}")
         }
@@ -927,7 +951,7 @@ class PocketClawService : Service() {
         serviceThread = null
 
         // 清理可能残留的孤儿进程（包括 web 服务自己启动的 gateway）
-        killPicoClawOrphanProcesses()
+        killPocketClawOrphanProcesses()
 
         // 重置重启计数
         restartCount = 0
@@ -994,7 +1018,7 @@ class PocketClawService : Service() {
         val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
         wakeLock = pm.newWakeLock(
             PowerManager.PARTIAL_WAKE_LOCK,
-            "PicoClaw::ServiceWakeLock"
+            "PocketClaw::ServiceWakeLock"
         ).apply {
             acquire(24 * 60 * 60 * 1000L) // 24 小时上限
         }

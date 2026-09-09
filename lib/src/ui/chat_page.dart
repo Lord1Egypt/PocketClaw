@@ -42,7 +42,7 @@ class _ChatPageState extends State<ChatPage> {
   Future<void> _initChat() async {
     _sessionId = await _getOrCreateSessionId();
     try {
-      _picoToken = await PocketClawChannel.getPicoToken();
+      _picoToken = await PocketClawChannel.getPocketClawToken();
     } catch (_) {
       _addMessage(_ChatMessage('无法验证本机连接。', _Role.assistant));
       return;

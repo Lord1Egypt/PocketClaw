@@ -2,6 +2,8 @@ package com.lord1egypt.pocketclaw.service
 
 import android.content.Context
 
+import com.lord1egypt.pocketclaw.PocketClawPreferences
+
 data class LaunchAutoStartSnapshot(
     val serviceEnabled: Boolean,
     val gatewayEnabled: Boolean,
@@ -22,14 +24,13 @@ data class LaunchAutoStartSnapshot(
  * before a subsequent manual Service start can consume it.
  */
 object LaunchAutoStartPreferences {
-    private const val PREF_NAME = "picoclaw_prefs"
     private const val KEY_INITIALIZED = "launch_auto_start_initialized_v1"
     private const val KEY_SERVICE = "service_launch_auto_start"
     private const val KEY_GATEWAY = "gateway_launch_auto_start"
 
     @Synchronized
     fun read(context: Context): LaunchAutoStartSnapshot {
-        val prefs = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
+        val prefs = PocketClawPreferences.open(context)
         return LaunchAutoStartSnapshot(
             serviceEnabled = prefs.getBoolean(KEY_SERVICE, true),
             gatewayEnabled = prefs.getBoolean(KEY_GATEWAY, true),
@@ -47,7 +48,7 @@ object LaunchAutoStartPreferences {
         val current = read(context)
         val nextService = serviceEnabled ?: current.serviceEnabled
         val nextGateway = gatewayEnabled ?: current.gatewayEnabled
-        val committed = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
+        val committed = PocketClawPreferences.open(context)
             .edit()
             .putBoolean(KEY_SERVICE, nextService)
             .putBoolean(KEY_GATEWAY, nextGateway)

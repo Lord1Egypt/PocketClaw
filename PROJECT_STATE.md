@@ -1,5 +1,72 @@
 # PocketClaw Project State
 
+## Zero-Pico N4B — Android-local identities, NOT closed
+
+- Status: **implemented on `feature/zero-pico-runtime`, 2026-09-09. NOT merged.**
+  Child branch of `feature/namespace-n3-native-binaries` at `904388f2`, which is
+  itself unmerged: N3 native identity is physically proven on vc61 but
+  deliberately not accepted while Zero-Pico continues. `0.2.0+61`, baseline 59,
+  no candidate, no What's New entry.
+- **`core/src` untouched.** Fingerprint stays
+  `f015c6445d6e19deb9a47c9a41249001fcf5c51265dfae55cd8767a68e560f03`, staged
+  Core FRESH, no rebuild, no restage, no APK, no ADB.
+
+### What N4B changed
+
+| Surface | From | To |
+|---|---|---|
+| SharedPreferences store | `picoclaw_prefs` | `pocketclaw_prefs` |
+| Wake-lock tag | `PicoClaw::ServiceWakeLock` | `PocketClaw::ServiceWakeLock` |
+| Log-reader thread | `picoclaw-web-log-reader` | `pocketclaw-web-log-reader` |
+| logcat tag | `PicoClawChannel` | `PocketClawChannel` |
+| Export filename default | `picoclaw_logs.txt` | `pocketclaw_logs.txt` |
+| MethodChannel method | `getPicoToken` | `getPocketClawToken` |
+| Orphan cleanup | `killPicoClawOrphanProcesses` | `killPocketClawOrphanProcesses` |
+
+**`picoclaw_prefs` is LEGACY READ-ONLY MIGRATION from now on.** It is read once
+to carry an existing install's values across and is never created or written
+again. All current reads and writes use `pocketclaw_prefs`.
+
+`PocketClawPreferences` is the single place that names the store — three files
+declared it independently before, which is how a rename lands in two of them.
+Every call site goes through `open()`, so the migration cannot be bypassed by a
+caller reaching for `getSharedPreferences` directly. That matters most for
+`BootReceiver`: on the first boot after upgrade it would otherwise read an empty
+canonical store and silently revert the user's auto-start choice.
+
+Migration order is the design. Copy → synchronous `commit()` → read back and
+verify every value → only then `deleteSharedPreferences` on the legacy store.
+The legacy file is the only copy of those settings until the new one is proven
+durable, so it is deleted last. If both stores exist, canonical wins; a legacy
+store that agrees entirely is redundant and removed, and one that disagrees is
+**preserved with a logged conflict** rather than merged or discarded.
+
+### The N3 regression this phase fixes
+
+`killPicoClawOrphanProcesses` matched `cmdline.contains("picoclaw")`. After N3
+the command line is `libpocketclaw.so`, which does not contain that substring,
+so orphan cleanup had silently been matching nothing since the native rename.
+
+It now compares the **basename of argv[0]** against `GATEWAY_BINARY_NAME` and
+`WEB_BINARY_NAME` — the same constants used to spawn Core, so cleanup and the
+names it cleans up cannot drift apart. Exact comparison, deliberately:
+`contains("pocketclaw")` or a `libpocketclaw` prefix would sweep in all eight
+Managed Runtime payloads, and killing `gh` or `python` mid-operation would
+surface as a random tool failure.
+
+### Deferred, and asserted as deferred
+
+Notification channel IDs `picoclaw_service` and `picoclaw_foreground`
+(N4C — Android channel IDs are persisted system objects whose user settings
+cannot be transferred perfectly), `filesDir/picoclaw/`, the backup exclusion
+rules, `.picoclaw.pid`, the `PICOCLAW_*` environment, `"pico"`/`pico_client`,
+`pico-user`, `/pico/*`, `picoclaw_launcher_auth`, the IRC default, the WeCom
+source id, and upstream module and build identity. A test asserts five of these
+are still Pico, so N4B cannot have quietly widened.
+
+No repository-wide Zero-Pico guard yet — that belongs to the final phase, when
+the remaining surfaces have actually moved.
+
 ## Namespace Migration N3 — vc60 SUPERSEDED, corrections applied, NOT closed
 
 - Status: **corrections on `feature/namespace-n3-native-binaries`, 2026-09-09.
