@@ -112,6 +112,41 @@ class MutationTest(unittest.TestCase):
             guard.ALLOWLIST.pop()
 
 
+class PublicSurfaceTest(unittest.TestCase):
+    """What the repository says, as distinct from what it does."""
+
+    def test_public_surfaces_are_currently_clean(self):
+        self.assertEqual(guard.scan_public(), [],
+                         "Pico branding on a public surface outside attribution")
+
+    def test_branding_outside_the_attribution_section_is_caught(self):
+        readme = REPO / "README.md"
+        original = readme.read_text(encoding="utf-8")
+        readme.write_text(
+            original.replace("## What it is", "## What it is\n\nPicoClaw is the product.", 1),
+            encoding="utf-8")
+        try:
+            findings = guard.scan_public()
+            self.assertTrue(any(f["path"] == "README.md" for f in findings),
+                            "branding in the product description was not caught")
+        finally:
+            readme.write_text(original, encoding="utf-8")
+
+    def test_the_attribution_section_may_name_upstream(self):
+        # The exception has to actually work, or the only way to pass the guard
+        # is to drop the credit — which would be worse than the branding.
+        readme = (REPO / "README.md").read_text(encoding="utf-8")
+        self.assertRegex(readme, r"(?im)^#{1,6}\s.*\b(attribution|upstream)\b",
+                         "no attribution heading for the exception to key on")
+        self.assertIn("PicoClaw", readme,
+                      "upstream is not credited anywhere in the README")
+        self.assertEqual(guard.scan_public(), [])
+
+    def test_the_guard_may_be_named_in_contributor_docs(self):
+        # Telling a contributor which tool to run is not branding.
+        self.assertFalse(guard.PUBLIC_ALLOWED.sub("", "run tool/no_active_pico.py").count("pico"))
+
+
 class PinnedDispositionTest(unittest.TestCase):
     """Decisions the guard's scope deliberately does not reach."""
 

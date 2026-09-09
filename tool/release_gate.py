@@ -495,6 +495,15 @@ def source_gates(gate: Gate, run_tests: bool, release_class: str = "test"):
                expected="no unclassified Pico identity in owned production source",
                observed="PASS" if rc == 0 else summary)
 
+    # What the repository *says*, alongside what it does. A reader arriving at
+    # the README should meet PocketClaw, not a rename in progress.
+    rc, out = run([sys.executable, str(REPO / "tool/no_active_pico.py"), "--public"],
+                  cwd=REPO)
+    summary = out.strip().splitlines()[-1] if out.strip() else "FAIL"
+    gate.check("namespace.no_public_pico", rc == 0,
+               expected="no Pico branding on public surfaces outside attribution",
+               observed="PASS" if rc == 0 else summary)
+
     if not run_tests:
         gate.record("tests", SKIP, "not requested (--no-tests)")
         return

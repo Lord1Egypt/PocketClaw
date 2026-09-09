@@ -1,0 +1,46 @@
+name: Bug report
+description: Something behaves differently from how it should
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        For anything security-related, stop here and read
+        [SECURITY.md](../blob/develop/SECURITY.md) instead — please do not file
+        it publicly.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you saw, and what you expected instead.
+    validations: { required: true }
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1.
+        2.
+        3.
+    validations: { required: true }
+  - type: input
+    id: version
+    attributes:
+      label: App version
+      description: From Settings → About — both the version name and the build number.
+      placeholder: 0.2.0 (62)
+    validations: { required: true }
+  - type: input
+    id: device
+    attributes:
+      label: Device and Android version
+      placeholder: Samsung SM-A165F, Android 16
+    validations: { required: true }
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: >
+        Optional. Redact anything sensitive first — API keys, bot tokens and
+        workspace contents are not needed to reproduce a bug.
+      render: text

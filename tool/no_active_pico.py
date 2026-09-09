@@ -239,7 +239,8 @@ ALLOWLIST: list[dict] = [
     },
     {
         "pattern": r"picoclaw/|PicoClaw to PocketClaw namespace migration"
-                   r"|PicoClaw lobster|no_active_pico|Pico identity",
+                   r"|PicoClaw lobster|no_active_pico|no_public_pico"
+                   r"|Pico identity|Pico branding",
         "category": "legacy_migration",
         "reason": "the release gate's own checks and messages about the "
                   "migration: the legacy backup-exclusion path it verifies, the "
@@ -297,6 +298,71 @@ ALLOWLIST: list[dict] = [
 ]
 
 
+# ---------------------------------------------------------------------------
+# Public surfaces
+#
+# The runtime rule above is about what the product *does*. This one is about
+# what the repository *says*. A reader arriving at the README should meet
+# PocketClaw, not a rename in progress — so the public surfaces carry no
+# Pico-family branding at all, with exactly one exception: the section that
+# credits upstream, which cannot do its job without naming it.
+
+PUBLIC_SURFACES = (
+    "README.md",
+    "CONTRIBUTING.md",
+    "SECURITY.md",
+    ".github/",
+)
+
+# A heading whose text contains any of these opens the attribution section.
+# Pico may be named there, and only there, until the next heading at the same
+# or a higher level.
+ATTRIBUTION_HEADING = re.compile(r"^(#{1,6})\s.*\b(attribution|upstream|licen[cs]e|credits?)\b",
+                                 re.IGNORECASE)
+HEADING = re.compile(r"^(#{1,6})\s")
+
+# Named exceptions outside the attribution section. Kept deliberately tiny: a
+# public document may refer to this guard by its filename, because telling a
+# contributor which tool to run is not branding.
+PUBLIC_ALLOWED = re.compile(r"no_active_pico(\.py)?")
+
+
+def is_public_surface(path: str) -> bool:
+    return path in PUBLIC_SURFACES or path.startswith(".github/")
+
+
+def scan_public() -> list[dict]:
+    """Pico-family branding on public surfaces, outside the attribution section."""
+    findings: list[dict] = []
+    for rel in tracked_files():
+        if not rel or not is_public_surface(rel):
+            continue
+        try:
+            body = (REPO / rel).read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            continue
+
+        in_attribution = False
+        attribution_level = 0
+        for lineno, line in enumerate(body.splitlines(), 1):
+            heading = HEADING.match(line)
+            if heading:
+                level = len(heading.group(1))
+                if ATTRIBUTION_HEADING.match(line):
+                    in_attribution, attribution_level = True, level
+                elif in_attribution and level <= attribution_level:
+                    in_attribution = False
+
+            if in_attribution:
+                continue
+            residue = NOT_THE_PRODUCT.sub("", line)
+            residue = PUBLIC_ALLOWED.sub("", residue)
+            if PICO.search(residue):
+                findings.append({"path": rel, "line": lineno,
+                                 "text": line.strip()[:160]})
+    return findings
+
+
 def tracked_files() -> list[str]:
     out = subprocess.run(
         ["git", "-C", str(REPO), "ls-files"],
@@ -351,6 +417,9 @@ def main() -> int:
     parser.add_argument("--list", action="store_true",
                         help="print the allowlist and the scope note")
     parser.add_argument("--json", action="store_true", help="machine-readable output")
+    parser.add_argument("--public", action="store_true",
+                        help="check public surfaces (README, .github, contributor "
+                             "docs) for Pico branding outside the attribution section")
     args = parser.parse_args()
 
     if args.list:
@@ -360,6 +429,21 @@ def main() -> int:
             print(f"[{entry['category']}] {entry['pattern'][:70]}\n"
                   f"    where:  {where}\n    reason: {entry['reason']}\n")
         return 0
+
+    if args.public:
+        findings = scan_public()
+        if args.json:
+            print(json.dumps({"findings": findings}, indent=2))
+        else:
+            for f in findings:
+                print(f"PUBLIC PICO  {f['path']}:{f['line']}: {f['text']}")
+            if not findings:
+                surfaces = ", ".join(PUBLIC_SURFACES)
+                print(f"no Pico branding on public surfaces outside the attribution "
+                      f"section ({surfaces})")
+            else:
+                print(f"\n{len(findings)} public Pico occurrence(s)")
+        return 1 if findings else 0
 
     problems: list[str] = []
 
