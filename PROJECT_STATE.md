@@ -1,5 +1,101 @@
 # PocketClaw Project State
 
+## Final Zero-Pico Core rebuild — staged, NOT a candidate yet
+
+- Status: **built and staged on `feature/zero-pico-runtime`, 2026-09-09. NOT
+  merged, NOT a candidate.** `0.2.0+61`, baseline 59, no vc62, no What's New.
+- **The staged Core is no longer intentionally stale.** This is the first
+  canonical rebuild since the Zero-Pico Core-source migration began, and the
+  production source gate is green end to end for the first time since N4E.
+
+### Canonical build evidence
+
+    build-input commit   5558220   (not the staging commit; see invariance)
+    epoch                1788978634   (SOURCE_DATE_EPOCH unset; resolver-derived)
+    BuildTime            2026-09-09T18:30:34+0000
+    source fingerprint   6e2382aee9d3fa4beef32ed34678ee08eed0a9db43288c8b879db3c5276d6b1f
+
+    libpocketclaw.so       37749089 bytes
+      9e85e471164b53bfee2888f219c5329275a854f3ee7ca6ffdc872d3da3e98d89
+    libpocketclaw-web.so   25559393 bytes
+      479003e0ed315431153764e7b0b8eb58e857b9cff0fec162aad490a3f342d918
+
+Both binaries carry that one fingerprint and that one BuildTime, verified by
+reading the staged bytes rather than trusting the build log. That is what N4K-A
+was for: before it the launcher carried no stamp at all, because nothing in
+web/backend read the `-X` target and the linker dropped it, value and all.
+
+Built by `./core/build-android-arm64.sh`, exit 0, with the repository toolchain.
+No ad-hoc `go build`.
+
+### The embedded bundle was rebuilt, not reused
+
+`web/backend/dist` was emptied to its tracked `.gitkeep` before the build, and
+the canonical path regenerated it through `pnpm build:backend`. The bundle that
+had been sitting there hashed `039c2d35…`; what the build produced hashes
+`d77fe654…`, so the old one really was stale and really would have shipped.
+
+### Reproducibility, both binaries
+
+A second build from the same source with `SOURCE_DATE_EPOCH` pinned to the
+resolved epoch — and `dist` emptied again first, so the frontend went through
+the full contract on that run too — produced:
+
+    libpocketclaw.so       byte-identical
+    libpocketclaw-web.so   byte-identical
+    web/backend/dist       identical digest (d77fe654…)
+
+### Freshness now discriminates between the two binaries
+
+The N4J failure shape was: web/backend changes, the staged launcher goes stale,
+the gateway is current, and every check stays green. Proven impossible now — with
+the gateway untouched and only the staged launcher de-stamped,
+`TestStagedCoreWasBuiltFromTheCurrentSource` fails naming `libpocketclaw-web.so`.
+The canonical pair was restored and re-verified against its recorded hashes
+afterwards.
+
+### Native hardening, both binaries
+
+ARM aarch64, PIE, stripped, `BuildID` present; `GNU_STACK` is RW, never RWX;
+maximum `LOAD` `p_align` is `0x10000` (64 KiB), which satisfies Android's 16 KiB
+page requirement; zero developer absolute paths; zero Go VCS stamps
+(`-buildvcs=false` held); no `.symtab` or `.debug_*` sections. No
+`libpicoclaw*.so` is staged, and no compatibility alias was created.
+
+### Staging invariance
+
+The staging commit moved HEAD to `13a2bc3`, and the build-input commit stayed
+`5558220`, the BuildTime stayed `2026-09-09T18:30:34+0000`, and the fingerprint
+stayed `6e2382ae…`. Committing binaries does not re-date the build, and no
+rebuild is implied by HEAD moving. `version.txt` and the guard allowlist changed
+alongside; neither is a fingerprint or BuildTime input.
+
+### Gate
+
+`tool/release_gate.py --verify-source --release-class production` exits 0 with
+all 17 checks PASS and nothing skipped, including `a1.contracts` and
+`a2.placement_guards`, which needed the repository toolchain Flutter on PATH —
+they had been silently skipping. `namespace.no_active_pico` PASS: 0 unclassified
+occurrences, 19 allowlist entries all in use (upstream 9, legacy_migration 9,
+external_compatibility 1).
+
+The gate's `PENDING_FINAL_HARDENING` list no longer claims the namespace
+migration is outstanding; it has a dedicated check now, and the standing note
+contradicted it.
+
+### Toolchain
+
+Flutter lives at `/home/lordegypt/PocketCLaw/.tooling/flutter/bin`, not on the
+default PATH. Flutter 3.47.1 / Dart 3.13.1. `flutter analyze lib/ test/` clean
+and all 433 Dart tests pass, including the Zero-Pico phase guards. Nothing in
+the source needed correcting for that — N4K-B's Dart edit was already right; only
+the invocation had been missing.
+
+### Next
+
+vc62: bump, canonical APK, artifact gate, then device acceptance. The Core is
+evidence-complete; nothing here is physically verified yet.
+
 ## Zero-Pico N4K-B — final active sweep and enforcement guard, NOT closed
 
 - Status: **implemented on `feature/zero-pico-runtime`, 2026-09-09. NOT merged.**
