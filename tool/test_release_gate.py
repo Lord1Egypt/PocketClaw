@@ -11,7 +11,7 @@ artifact that should have been refused.
 import importlib.util
 import sys
 import unittest
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 spec = importlib.util.spec_from_file_location(
     "release_gate", Path(__file__).resolve().parent / "release_gate.py")
@@ -141,6 +141,54 @@ class CleanWorktree(unittest.TestCase):
         gate_module.worktree_gate(gate, "test")
         self.assertEqual(status_of(gate, "repo.clean_worktree"), SKIP)
         self.assertFalse(gate.facts["releasable"])
+
+
+
+
+class ManagedRuntimeCountTest(unittest.TestCase):
+    """The Managed Runtime count must not include Core's own libraries.
+
+    N3 renamed Core's launcher to libpocketclaw-web.so, which matches the
+    Managed Runtime prefix. Counting it reported 9 where 8 tools exist, and
+    because the check is a floor, seven real tools plus the launcher would also
+    have reached 8 — the guard would have stopped noticing a dropped payload.
+    """
+
+    ABI = "arm64-v8a"
+    CORE = ("libpocketclaw.so", "libpocketclaw-web.so")
+    TOOLS = ("curl", "gh", "git", "git-remote-http", "jq", "python", "rg", "sqlite3")
+
+    def count(self, tool_names):
+        names = [f"lib/{self.ABI}/{n}" for n in self.CORE]
+        names += [f"lib/{self.ABI}/libpocketclaw-{t}.so" for t in tool_names]
+        core_names = set(self.CORE)
+        return len([n for n in names
+                    if n.startswith(f"lib/{self.ABI}/libpocketclaw-")
+                    and PurePosixPath(n).name not in core_names])
+
+    def test_core_pair_plus_eight_tools_reports_eight(self):
+        self.assertEqual(self.count(self.TOOLS), 8)
+
+    def test_core_web_is_never_counted_as_a_runtime_tool(self):
+        # Without the exclusion this is 9.
+        self.assertNotIn("libpocketclaw-web.so",
+                         [f"libpocketclaw-{t}.so" for t in self.TOOLS])
+        self.assertEqual(self.count(self.TOOLS), len(self.TOOLS))
+
+    def test_a_dropped_payload_now_fails_the_floor(self):
+        seven = self.TOOLS[:-1]
+        self.assertEqual(self.count(seven), 7)
+        self.assertLess(self.count(seven), 8,
+                        "seven tools must fail the >=8 floor; the launcher must "
+                        "not make up the difference")
+
+    def test_core_libs_are_still_validated_separately(self):
+        # CORE_LIBS keeps its own checks; excluding it here removes it from one
+        # count, not from the gate.
+        source = Path("tool/release_gate.py").read_text(encoding="utf-8")
+        self.assertIn("artifact.core_matches_staged", source)
+        self.assertIn("core.staged_freshness", source)
+        self.assertIn('CORE_LIBS = ("libpocketclaw.so", "libpocketclaw-web.so")', source)
 
 
 if __name__ == "__main__":

@@ -631,8 +631,16 @@ def artifact_gates(gate: Gate, apk: Path, release_class: str):
         # Managed Runtime payload and the Python stdlib survival check are
         # already enforced by the Gradle packaging verifiers; re-assert presence
         # here so an artifact built elsewhere cannot skip them.
+        # CORE_LIBS is the exclusion authority rather than a second literal:
+        # libpocketclaw-web.so matches the Managed Runtime prefix but is Core's
+        # launcher, and counting it inflated this to 9. That mattered because
+        # the threshold is a floor — seven real tools plus the launcher would
+        # also have reached 8 and the check would have stopped noticing a
+        # dropped payload.
+        core_names = set(CORE_LIBS)
         runtime_libs = [n for n in names
-                        if n.startswith(f"lib/{EXPECTED_ABI}/libpocketclaw-")]
+                        if n.startswith(f"lib/{EXPECTED_ABI}/libpocketclaw-")
+                        and Path(n).name not in core_names]
         gate.check("artifact.managed_runtime", len(runtime_libs) >= 8,
                    expected=">=8 managed runtime payloads",
                    observed=str(len(runtime_libs)))
