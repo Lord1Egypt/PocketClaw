@@ -1,7 +1,20 @@
 PicoClaw Core v0.3.1 (source 2cf030d2), built for PocketClaw from
 core/src/ in this repository.
-android/arm64, stripped (-s -w), -trimpath, Go 1.25.11
-Includes the Android active-network DNS integration, PocketClaw
-product-visible wording, the Milestone C provider catalog, and the
-OpenCode Zen/Go presets with per-model protocol routing.
+android/arm64, stripped (-s -w), -trimpath, -buildvcs=false, Go 1.25.11
+
+Two binaries, one provenance unit:
+  libpocketclaw.so       gateway,   built from ./cmd/picoclaw
+  libpocketclaw-web.so   dashboard, built from ./web/backend, embedding the
+                         frontend bundle built from web/frontend/
+
+Both carry the same canonical source fingerprint and the same BuildTime.
+The runtime, storage, routes, channel identity and dashboard cookie are
+canonical PocketClaw. Names from the upstream project that remain are
+upstream identity, legal attribution, historical evidence, legacy
+migration, or the WeCom external source id; each is classified and
+enforced by the namespace guard in tool/.
+
+Also includes the Android active-network DNS integration, the Milestone C
+provider catalog, and the OpenCode Zen/Go presets with per-model protocol
+routing.
 See core/README.md for the build, UPSTREAM_BASELINE.md for hashes.

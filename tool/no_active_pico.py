@@ -265,6 +265,13 @@ ALLOWLIST: list[dict] = [
         "paths": ["core/*.sh", "android/app/src/main/jniLibs/**"],
     },
     {
+        "pattern": r"\./cmd/picoclaw",
+        "category": "upstream",
+        "reason": "the upstream build root the gateway binary is compiled from, "
+                  "named in the staged pair's provenance note.",
+        "paths": ["android/app/src/main/jniLibs/**"],
+    },
+    {
         "pattern": r"LEGACY_DIR_NAME|Pico identity|Zero-Pico|contains\(\"picoclaw\"\)",
         "category": "legacy_migration",
         "reason": "Android host migration code and the comments explaining why "
