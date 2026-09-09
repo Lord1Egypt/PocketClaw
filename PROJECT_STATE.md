@@ -1,5 +1,99 @@
 # PocketClaw Project State
 
+## Zero-Pico N4F — Core private state at `pocketclaw-core`, NOT closed
+
+- Status: **implemented on `feature/zero-pico-runtime`, 2026-09-09. NOT merged.**
+  `0.2.0+61`, baseline 59, no candidate, no What's New entry.
+- **`core/src` untouched.** Fingerprint stays `369d0892…`.
+  **Staged Core remains EXPECTED STALE — FINAL ZERO-PICO CORE REBUILD PENDING.**
+
+### The path contract, now in force
+
+    Download/pocketclaw/workspace   USER WORKSPACE — POCKETCLAW_HOME. Unchanged.
+    files/pocketclaw/               USER WORKSPACE FALLBACK when external storage
+                                    is unavailable. The user's documents. Untouched.
+    files/pocketclaw-core/          CANONICAL Core private state. config.json,
+                                    .security.yml, runtime/ metadata.
+    files/picoclaw/                 LEGACY. Migration input only.
+    noBackupFilesDir/               Gateway token, logs/, auth/. Unchanged.
+
+Three storage boundaries, still three. Nothing moved into `pocketclaw-core/` for
+namespace symmetry: the workspace is the user's, the credentials and logs and
+Dashboard verifier are A2's, and only Core's config directory moved.
+
+### One owner
+
+`PocketClawCoreState` holds both names. Every consumer — `buildEnvironment` and
+so every spawn path, onboarding, the web service, and `getConfig` / `saveConfig`
+/ `getConfigPath` on the method channel — asks it for the directory rather than
+spelling a path, so no caller can reach a directory whose migration has not run.
+A guard fails if any other Kotlin file builds a path from either name.
+
+### The state machine
+
+    legacy only        rename to pocketclaw-core, verify both sides
+    canonical only     use it
+    neither            create pocketclaw-core; never create picoclaw
+    both               FAIL CLOSED — no merge, no overwrite, no delete
+
+Both-present is an interrupted migration or a downgrade, and the two directories
+can hold different provider keys and channel tokens. Nothing on disk says which
+the user meant, so it is reported rather than guessed at.
+
+### Rename, and deliberately no copy fallback
+
+Both directories are direct children of `filesDir`, so they are always on one
+filesystem and the move is a single `rename(2)`: the tree arrives whole or not at
+all, including hidden files, unknown files and nested directories. Nothing
+enumerates the contents, so nothing can migrate a subset — the JVM test seeds
+`.hidden-state`, `unknown-future-file.dat` and `runtime/nested/deeper/leaf.txt`
+and reads all three back on the other side.
+
+There is no copy fallback by choice. A recursive copy would have to reproduce
+the permissions on `.security.yml`, which holds provider API keys and channel bot
+tokens in plaintext because Android onboarding declines credential encryption,
+and Java's file APIs cannot express those modes or fsync a directory. The honest
+outcomes were a second plaintext copy of the user's secrets in a
+partially-written tree, or a delete of the original after an unverifiable copy.
+Since the two paths cannot be on different filesystems, a failed rename means a
+real filesystem or permission fault — so it fails closed, having changed nothing.
+
+### Fail closed, everywhere
+
+`directory()` throws rather than returning a usable-looking path. A caller handed
+a fresh empty directory after a failed migration would let Core onboard into it,
+and the user would see an install with no providers, no channels and no memory:
+a factory reset presented as a successful start, with the real state still on
+disk and nothing pointing at it. The method channel surfaces
+`CORE_STATE_UNAVAILABLE` instead of an empty config for the same reason.
+
+### One-way, on purpose
+
+After migration, an older APK that only knows `files/picoclaw/` will not see the
+migrated state. **No second copy is kept to support downgrade.** That would be an
+active write to the legacy path and would create two directories that disagree —
+which is precisely the both-present state this phase refuses to resolve
+automatically. This is an intentional one-way storage migration, and no
+seamless-downgrade claim is made.
+
+`picoclaw/` stays in both backup rule files as a LEGACY SECURITY EXCLUSION:
+an interrupted migration or a downgrade can leave secrets there, and changing
+where PocketClaw writes must not make what is already there backup-eligible.
+
+### `POCKETCLAW_CONFIG`
+
+Now `files/pocketclaw-core/config.json`. `.security.yml` follows it without being
+named anywhere: Core derives that path from the config file's own directory
+(`securityPath(configPath)`), which is why the directory rather than the file is
+the unit that moves. `POCKETCLAW_RUNTIME_DIR` likewise moves to
+`pocketclaw-core/runtime`, carried by the same rename.
+
+### Deferred
+
+`.picoclaw.pid`, the serialized "pico" channel and `picoTokenForHost` — path
+analysis puts the token on the channel, not on this directory —
+`pkg/channels/pico`, and `PICOCLAW_DISTRIBUTION_CHANNEL`.
+
 ## Zero-Pico N4E — canonical `POCKETCLAW_*` environment, NOT closed
 
 - Status: **implemented on `feature/zero-pico-runtime`, 2026-09-09. NOT merged.**

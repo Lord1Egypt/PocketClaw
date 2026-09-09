@@ -246,7 +246,7 @@ class PocketClawMethodChannel(
                 }
                 "getConfig" -> {
                     try {
-                        val configFile = File(context.filesDir, "picoclaw/config.json")
+                        val configFile = PocketClawCoreState.configFile(context)
                         if (configFile.exists()) {
                             result.success(configFile.readText())
                         } else {
@@ -259,8 +259,7 @@ class PocketClawMethodChannel(
                 "saveConfig" -> {
                     try {
                         val content = call.argument<String>("content") ?: ""
-                        val configFile = File(context.filesDir, "picoclaw/config.json")
-                        configFile.parentFile?.mkdirs()
+                        val configFile = PocketClawCoreState.configFile(context)
                         configFile.writeText(content)
                         result.success(true)
                     } catch (e: Exception) {
@@ -522,8 +521,11 @@ class PocketClawMethodChannel(
                     }.start()
                 }
                 "getConfigPath" -> {
-                    val configFile = File(context.filesDir, "picoclaw/config.json")
-                    result.success(configFile.absolutePath)
+                    try {
+                        result.success(PocketClawCoreState.configFile(context).absolutePath)
+                    } catch (e: Exception) {
+                        result.error("CORE_STATE_UNAVAILABLE", e.message, null)
+                    }
                 }
                 "getHomePath" -> {
                     result.success(PocketClawService.getWorkspacePath(context))

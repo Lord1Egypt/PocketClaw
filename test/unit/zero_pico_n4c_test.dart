@@ -140,11 +140,11 @@ void main() {
   });
 
   test('no other Zero-Pico phase was widened', () {
-    // The environment key was pinned here as a marker of what N4C had not
-    // touched. N4E migrated it, and this failing is how that was declared;
-    // zero_pico_n4e_test.dart owns the emitted names. The private directory is
-    // still deferred, so it stays.
-    expect(service, contains('File(context.filesDir, "picoclaw")'));
+    // Two markers of what N4C had not touched used to be pinned here: the
+    // environment key, taken by N4E, and the private directory, taken by N4F.
+    // Each guard failing is how the hand-off was declared rather than absorbed.
+    // zero_pico_n4e_test.dart owns the emitted names;
+    // android_backup_exclusion_test.dart owns the private path.
     expect(File('android/app/src/main/res/xml/backup_rules.xml').readAsStringSync(),
         contains('path="picoclaw/"'));
     expect(File('$kotlin/PocketClawPreferences.kt').readAsStringSync(),

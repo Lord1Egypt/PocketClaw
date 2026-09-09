@@ -6,7 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 /// to copy off the device.
 ///
 /// Core keeps `config.json` and `.security.yml` under the app-private
-/// `files/picoclaw/` directory. Android onboarding declines credential
+/// `files/pocketclaw-core/` directory. Android onboarding declines credential
 /// encryption, so `.security.yml` holds provider API keys and channel bot
 /// tokens as plaintext. App-private storage stops another app reading them; it
 /// says nothing about backup, and until these exclusions existed both files
@@ -18,6 +18,8 @@ void main() {
   const manifest = 'android/app/src/main/AndroidManifest.xml';
   const service =
       'android/app/src/main/kotlin/com/lord1egypt/pocketclaw/service/PocketClawService.kt';
+  const coreState =
+      'android/app/src/main/kotlin/com/lord1egypt/pocketclaw/PocketClawCoreState.kt';
   const credentialStore =
       'android/app/src/main/kotlin/com/lord1egypt/pocketclaw/security/GitHubCredentialStore.kt';
 
@@ -52,11 +54,14 @@ void main() {
   const credentialDirectory = 'credentials';
 
   test('the host writes Core private state where the rules exclude it', () {
+    // N4F moved Core state to the canonical directory and gave it a single
+    // owner. The guard follows it there: the name the owner declares is the
+    // name the rules must exclude, and the host no longer spells either path.
     expect(
-      read(service),
-      contains('File(context.filesDir, "$legacyPrivateDirectory")'),
+      read(coreState),
+      contains("CANONICAL_DIR_NAME = \"$canonicalPrivateDirectory\""),
       reason:
-          'PocketClawService no longer puts Core state in files/$legacyPrivateDirectory/. '
+          'Core private state is no longer at files/$canonicalPrivateDirectory/. '
           'Update backup_rules.xml and data_extraction_rules.xml to match, '
           'or every provider key and bot token becomes backup-eligible again.',
     );
@@ -128,26 +133,34 @@ void main() {
     );
   });
 
-  test('Core private state has not moved to the canonical path yet', () {
-    // Protection, not migration: the exclusion for the canonical path exists so
-    // the later move cannot create an unprotected directory even for an
-    // instant. Core state must still be written to the legacy path here.
-    final source = read(service);
-    expect(
-      source,
-      contains('val internalHome = File(context.filesDir, "$legacyPrivateDirectory")'),
-      reason: 'the private-directory migration belongs to a later phase',
+  test('Core private state has moved, and only the owner names the old path', () {
+    // This guard used to assert the opposite: that Core state was still written
+    // to the legacy path, because the canonical exclusion had to exist before
+    // anything could create that directory. N4F is the phase it was waiting
+    // for, so it now checks the other end of the same ordering — the move
+    // happened, and it happened into a path the rules already excluded.
+    // Matched on the shape that builds a path, not on the word: the orphan
+    // cleanup in PocketClawService explains in a comment why it stopped
+    // matching `contains("picoclaw")`, and a guard that forbade its own
+    // reasoning would be answered by deleting the reasoning.
+    final legacyPath = RegExp(
+      'File\\([A-Za-z.]*filesDir, *"$legacyPrivateDirectory|'
+      '"$legacyPrivateDirectory/',
     );
+    for (final entity in Directory('android/app/src/main/kotlin').listSync(recursive: true)) {
+      if (entity is! File || !entity.path.endsWith('.kt')) continue;
+      if (entity.path.endsWith('PocketClawCoreState.kt')) continue;
+      expect(
+        legacyPath.hasMatch(entity.readAsStringSync()),
+        isFalse,
+        reason: '${entity.path} builds a path in the legacy directory; it must '
+            'ask PocketClawCoreState, the only place allowed to know that name',
+      );
+    }
     expect(
-      source,
-      contains('File(filesDir, "$legacyPrivateDirectory/config.json")'),
-      reason: 'the config path must not have moved yet',
-    );
-    expect(
-      source,
-      isNot(contains('"$canonicalPrivateDirectory"')),
-      reason: 'nothing may create files/$canonicalPrivateDirectory/ before the '
-          'phase that migrates into it',
+      read(coreState),
+      contains('LEGACY_DIR_NAME = "$legacyPrivateDirectory"'),
+      reason: 'the legacy name survives only as migration input, in one place',
     );
   });
 

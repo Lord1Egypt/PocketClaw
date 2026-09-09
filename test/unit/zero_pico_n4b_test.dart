@@ -167,8 +167,9 @@ void main() {
     // guard failing is again how that was declared rather than absorbed;
     // zero_pico_n4e_test.dart owns them now. The private directory they point
     // at is still deferred, so that half stays.
-    final service = File('$kotlin/service/PocketClawService.kt').readAsStringSync();
-    expect(service, contains('File(context.filesDir, "picoclaw")'));
+    // The private directory was pinned here too, until N4F migrated it.
+    // android_backup_exclusion_test.dart owns that path now, together with the
+    // backup rules that have to move with it.
     expect(File('android/app/src/main/res/xml/backup_rules.xml').readAsStringSync(),
         contains('path="picoclaw/"'));
   });

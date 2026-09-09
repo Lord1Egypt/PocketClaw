@@ -91,18 +91,12 @@ void main() {
   });
 
   group('N4E renames keys and moves no values', () {
-    test('the Core-private home is still filesDir/picoclaw', () {
-      expect(service, contains('File(context.filesDir, "picoclaw")'));
-      expect(service, contains('File(filesDir, "picoclaw/config.json")'));
-    });
-
-    test('nothing points at the future pocketclaw-core directory', () {
-      // The private-directory migration is a separate phase. Doing it here
-      // would move live state under cover of a rename, with no install to
-      // prove the old location was read first.
-      expect(service, isNot(contains('pocketclaw-core')));
-    });
-
+    // N4E renamed the keys and left the values alone, and pinned the private
+    // directory here to prove it. N4F is the phase that moved it, so those two
+    // assertions went with it to android_backup_exclusion_test.dart. What N4E
+    // still owns is the separation the rename could have quietly collapsed:
+    // POCKETCLAW_HOME is the user's workspace and is not Core's state
+    // directory, whatever that directory is called this phase.
     test('POCKETCLAW_HOME still resolves to the user workspace', () {
       expect(service, contains('"POCKETCLAW_HOME" to workspace.absolutePath'));
     });

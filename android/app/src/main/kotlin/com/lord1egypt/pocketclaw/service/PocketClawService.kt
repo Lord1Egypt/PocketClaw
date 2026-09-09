@@ -1,5 +1,6 @@
 package com.lord1egypt.pocketclaw.service
 
+import com.lord1egypt.pocketclaw.PocketClawCoreState
 import com.lord1egypt.pocketclaw.security.GitHubCredentialStore
 import android.app.Notification
 import android.app.PendingIntent
@@ -303,8 +304,7 @@ class PocketClawService : Service() {
         }
 
         fun buildEnvironment(context: Context): Map<String, String> {
-            val internalHome = File(context.filesDir, "picoclaw")
-            internalHome.mkdirs()
+            val coreState = PocketClawCoreState.directory(context)
 
             val workspace = File(getWorkspacePath(context))
             workspace.mkdirs()
@@ -317,14 +317,14 @@ class PocketClawService : Service() {
             } catch (e: Exception) {
                 File(context.applicationInfo.nativeLibraryDir, GATEWAY_BINARY_NAME).absolutePath
             }
-            val configPath = File(internalHome, "config.json").absolutePath
+            val configPath = PocketClawCoreState.configFile(context).absolutePath
 
             // Managed Runtime storage. Executables live in nativeLibraryDir,
             // which the installer unpacked and the app cannot write; metadata
             // lives app-private and outside the user workspace, so a Skill
             // writing into Download/pocketclaw cannot reach runtime state.
             val runtimeLibDir = context.applicationInfo.nativeLibraryDir
-            val runtimeMetadataDir = File(internalHome, "runtime")
+            val runtimeMetadataDir = File(coreState, "runtime")
             runtimeMetadataDir.mkdirs()
 
             val environment = mutableMapOf(
@@ -671,11 +671,10 @@ class PocketClawService : Service() {
     }
 
     /**
-     * 运行 `picoclaw onboard` 初始化配置和工作区
+     * 运行 Core 的 `onboard` 初始化配置和工作区
      */
     private fun ensureOnboarded(binaryFile: File) {
-        val picoHome = File(filesDir, "picoclaw")
-        val configFile = File(picoHome, "config.json")
+        val configFile = PocketClawCoreState.configFile(this)
 
         if (configFile.exists()) {
             Log.i(TAG, "Config already exists, skipping onboard")
@@ -716,7 +715,7 @@ class PocketClawService : Service() {
         }
 
         val webBinaryFile = getWebBinaryFile()
-        val configFile = File(filesDir, "picoclaw/config.json")
+        val configFile = PocketClawCoreState.configFile(this)
         val env = buildEnvironment()
 
         val cmdList = mutableListOf(
