@@ -1,5 +1,80 @@
 # PocketClaw Project State
 
+## Namespace Migration N3 — vc60 SUPERSEDED, corrections applied, NOT closed
+
+- Status: **corrections on `feature/namespace-n3-native-binaries`, 2026-09-09.
+  NOT merged, NOT accepted.** Baseline stays **59**; `pubspec.yaml` stays
+  `0.2.0+60` — vc61 is created only after this corrected source and Core pass
+  review.
+
+### vc60 — SUPERSEDED DURING PHYSICAL VALIDATION
+
+    APK  83ba7e2c47df2afc501a2b6f1889dd7c9ce96606388cdcd932bbe0d2ed8f75df
+
+Not accepted. It proved the native rename works physically and, in doing so,
+exposed a runtime ownership regression. Its hash stays here as the historical
+evidence that produced that finding.
+
+**What vc60 proved.** Installed over vc59 with identity preserved. The device
+reports exactly the comm values TASK_COMM_LEN predicts:
+
+    Core gateway  pid 1261  comm = libpocketclaw.s
+    launcher/web  pid 1188  comm = libpocketclaw-w
+    Android app   pid 23674 comm = gypt.pocketclaw
+
+Gateway loopback-only on `127.0.0.1:18790` and `[::1]:18790`; `.picoclaw.pid`
+carrying exactly `host`, `pid`, `port`, `version` with `pid` matching the live
+gateway; no `libpicoclaw` process anywhere; installed `nativeLibraryDir` holding
+only the new names.
+
+**What it exposed.** Android truncates an *application* process name from the
+**left**, so `com.lord1egypt.pocketclaw` becomes `gypt.pocketclaw` — which
+contains `pocketclaw`. The substring ownership rule therefore classified
+PocketClaw's own UI process as a live Core runtime. A stale `.picoclaw.pid`
+whose PID the kernel recycled onto the app would have been honoured and the
+gateway would have refused to start, losing the self-healing that existed before
+N3 (`gypt.pocketclaw` does not contain `picoclaw`).
+
+### Correction 1 — ownership compares whole names, not fragments
+
+The authorized fix was a `libpocketclaw` prefix. Inspection against the real
+payload showed that is **not** the narrowest rule: every Managed Runtime binary
+is `libpocketclaw-*`, so `gh`, `git`, `python`, `curl`, `rg`, `jq`, `sqlite3`
+and `git-remote-http` would still have counted as the runtime a pid file refers
+to — the same bug one size smaller. Ownership now compares the whole comm
+against the two canonical Core executables, in truncated and full form, with the
+truncation derived in one place.
+
+Twenty cases pin it, every comm value read from the device or produced by the
+kernel's own truncation, and the stale-PID recoveries run through
+`WritePidFile` rather than the classifier alone. Removing the fix fails exactly
+the six that should fail. `libpicoclaw.so` and the upstream desktop name are
+**not** aliases.
+
+### Correction 2 — the Managed Runtime count stopped counting
+
+`libpocketclaw-web.so` matches the Managed Runtime prefix, so vc60's gate
+reported 9 payloads where 8 exist. It passed, which was the problem: the check
+is a floor, so seven real tools plus the launcher would also have reached 8 and
+the guard had quietly lost the ability to notice a dropped payload. `CORE_LIBS`
+is the exclusion authority now. Four cases pin it. Tooling only — no Core
+provenance effect, which the build input confirms by pointing at the pid fix
+rather than the gate commit.
+
+### The corrected Core
+
+    build-input commit  d01f47ade57f34c69a478440c1f015bbd494db0f
+    epoch               1788914581
+    BuildTime           2026-09-09T00:43:01+0000
+    fingerprint         f015c6445d6e19deb9a47c9a41249001fcf5c51265dfae55cd8767a68e560f03
+    libpocketclaw.so     fecde504c094a15c5396728add388fea3f88a626d833e10797777b4842b9a583  37,683,553
+    libpocketclaw-web.so 2b433058551f64a07ff7979641fc3261af37028756c1da5d3f476b85fb4df517  25,493,857
+
+Both stripped, NX stack, 64 KiB aligned, zero developer paths, zero Go VCS
+stamps, both carrying the same embedded BuildTime, fingerprint stamped in
+`libpocketclaw.so`. No `libpicoclaw*.so` staged. Fingerprint moved from
+`259e3422…` because the ownership fix is shipping production Go source.
+
 ## Namespace Migration N3A — implemented, NOT merged, NOT physically accepted
 
 - Status: **implemented on `feature/namespace-n3-native-binaries`, 2026-09-09.
