@@ -1,16 +1,14 @@
 # PocketClaw Project State
 
-## vc62 — Zero-Pico candidate, BUILT AND VERIFIED, install pending
+## vc62 — Zero-Pico candidate, BUILT, VERIFIED AND INSTALLED, not yet accepted
 
-- Status: **built, gated and pushed on `feature/zero-pico-runtime`, 2026-09-09.
-  NOT installed, NOT accepted, NOT merged.** `0.2.0+62`,
-  `lastAcceptedVersionCode` stays **59** — vc61 remains the last physically
-  accepted build, and vc62 has not been on a device.
-- **Install did not happen: no device was attached.** Windows adb
-  (`Google.PlatformTools` WinGet, 37.0.1) started its daemon and listed no
-  devices; a targeted probe for `RK8Y6016N5V` returned *device not found*.
-  usbipd was deliberately not used — the instruction reserves it for a device
-  Windows adb genuinely cannot see, not for one that is unplugged.
+- Status: **built, gated, pushed and installed on the device, 2026-09-09. NOT
+  accepted, NOT merged.** `0.2.0+62`, `lastAcceptedVersionCode` stays **59** —
+  acceptance waits on the manual run.
+- Installed in place on `RK8Y6016N5V` (Samsung SM-A165F, Android 16, arm64-v8a)
+  with `adb install -r` over Windows adb 37.0.1. No uninstall, no clear data, no
+  permission reset. The device was absent on the first attempt and attached
+  partway through; usbipd was never used.
 
 ### Candidate artifact
 
@@ -69,11 +67,53 @@ sign-in, a fresh Web chat conversation, notification preferences worth one
 check. No old product name, paths, cookies, routes, environment variables or
 security internals; a release note is not a changelog for its authors.
 
+### Install and preservation
+
+    Success (streamed install)
+    versionCode      61 -> 62,  versionName 0.2.0 unchanged
+    appId            10666                         preserved
+    dataDir          /data/user/0/com.lord1egypt.pocketclaw   preserved
+    firstInstallTime 2026-08-26 05:21:06           preserved
+    lastUpdateTime   04:04:31 -> 22:10:03          changed, as expected
+    permissions      11 requested, identical set
+    installed base.apk sha256 == the candidate's, 1470e02d…
+
+Installed `nativeLibraryDir` carries both Core binaries and exactly the 8
+Managed Runtime payloads. No `libpicoclaw*.so`.
+
+### The migration ran, and it was observed rather than provoked
+
+Package replacement started the application on its own — the app process and
+both Core binaries (`libpocketclaw.so`, `libpocketclaw-web.so`) were running
+afterwards. Nothing was launched over adb, no UI was touched, no service was
+started by hand.
+
+Notification channels, read straight from `dumpsys`:
+
+    picoclaw_service       mDeleted=true    retired
+    picoclaw_foreground    mDeleted=true    retired, dead channel, no twin
+    pocketclaw_service     mDeleted=false   live, mImportance=2
+
+That is the `KEEP_CANONICAL_DELETE_LEGACY` path in
+`PocketClawNotificationChannels`, and the importance carried across from the
+legacy channel rather than resetting to a default. Deleted channels stay in the
+dump because Android keeps the record — an app must not be able to resurrect a
+channel to wipe a user's settings — so their continued presence is the expected
+shape of a completed migration, not an incomplete one.
+
+SharedPreferences migration (`picoclaw_prefs` → `pocketclaw_prefs`) could not be
+observed: `run-as` refuses a non-debuggable release build, which is correct, and
+root was not used to work around it.
+
+Pre-install state, for comparison: `picoclaw_service` and `picoclaw_foreground`
+both live, `pocketclaw_service` absent. The shared workspace directory was
+already canonically named and held neither pid record.
+
 ### Next
 
-Attach the device, install with `adb install -r` (no uninstall, no clear data),
-confirm preservation of appId/UID, dataDir and firstInstallTime, then hand over
-for manual start and physical Zero-Pico migration validation.
+The user opens PocketClaw, starts the Service/Gateway, waits for Running. Then
+physical Zero-Pico migration validation, and only then does the baseline move to
+62.
 
 ## Final Zero-Pico Core rebuild — staged, NOT a candidate yet
 
