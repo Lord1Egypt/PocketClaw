@@ -1,5 +1,74 @@
 # PocketClaw Project State
 
+## Zero-Pico N4C — notification channels, NOT closed
+
+- Status: **implemented on `feature/zero-pico-runtime`, 2026-09-09. NOT merged.**
+  `0.2.0+61`, baseline 59, no candidate, no What's New entry. `core/src`
+  untouched; fingerprint stays `f015c644…`, staged Core FRESH.
+
+### The audit came back with one live channel and one dead one
+
+`picoclaw_service` is **active**: `PocketClawService.kt:993` builds every
+foreground-service notification against it. Migrated to `pocketclaw_service`.
+
+`picoclaw_foreground` is **dead**. `initializeBackgroundService()` created it and
+handed it to `flutter_background_service`, but that service is configured
+`autoStart: false` and `startService()` is called nowhere in `lib/` — nothing has
+ever posted a notification on it. It is deleted on upgrade and **no
+`pocketclaw_foreground` twin is created**: a replacement would add a second,
+permanently empty entry to the user's notification settings purely for
+namespace symmetry. The Flutter configuration now points at the one real
+channel, so it stays valid if that service is ever actually started.
+
+### Migration
+
+`PocketClawNotificationChannels` owns both the canonical id and the only
+permitted mentions of the legacy ones, and runs from `PocketClawApp.onCreate()`
+before anything can post. The decision is a pure function over
+(legacy exists, canonical exists):
+
+| legacy | canonical | action |
+|---|---|---|
+| yes | no | copy settings → create → **verify** → delete legacy |
+| yes | yes | canonical wins untouched, delete legacy |
+| no | no | create canonical |
+| no | yes | nothing |
+
+The legacy channel is the only record of the user's settings until the
+replacement exists, so it is deleted last and only after a read-back confirms
+the new channel is there.
+
+**Transferred:** importance, description, group, sound URI and audio
+attributes, vibration enable and pattern, lights enable and colour, show-badge,
+lockscreen visibility. `bypassDnd` is copied best-effort and is silently ignored
+by Android unless the app holds DND policy access, which PocketClaw does not
+request and will not start requesting for this.
+
+**Cannot be transferred, and is not pretended otherwise:** a channel the user
+blocked or muted through system UI, any Do Not Disturb override we lack policy
+access to set, and the deletion history Android keeps against the retired id.
+Changing a channel id resets some channel-specific settings; that is the cost of
+an id Android will not rename, and the product requirement takes precedence.
+
+### Also fixed here
+
+`PocketClawApp` constructed a `NotificationChannel` with **no API-26 guard**
+despite `minSdk 24`, so application start would have thrown on API 24–25. The
+migration owner is guarded and the construction now lives behind it.
+
+### Legacy read-only
+
+`picoclaw_service` and `picoclaw_foreground` survive only inside
+`PocketClawNotificationChannels`, both marked `LEGACY READ-ONLY MIGRATION`, used
+only to read settings and to delete. No current code creates either.
+
+Channel groups: **none exist**, so nothing to migrate.
+
+Two earlier boundary guards pinned `picoclaw_foreground` as proof that N1 and N3
+had not touched persisted state. N4C legitimately retires it, and those guards
+failing is how the scope change was declared rather than absorbed silently; the
+assertions moved to `zero_pico_n4c_test.dart`.
+
 ## Zero-Pico N4B — Android-local identities, NOT closed
 
 - Status: **implemented on `feature/zero-pico-runtime`, 2026-09-09. NOT merged.**

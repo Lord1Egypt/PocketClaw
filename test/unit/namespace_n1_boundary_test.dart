@@ -104,11 +104,6 @@ void main() {
           contains('path="picoclaw/"'));
     });
 
-    test('the persisted notification channel id is unchanged', () {
-      expect(read('lib/src/core/background_service.dart'),
-          contains('picoclaw_foreground'));
-    });
-
     test('the desktop adapter still looks up upstream artifact names', () {
       // These are filenames core/src/Makefile produces, not our identity.
       final adapter = read('lib/src/native/desktop_core_service_adapter.dart');

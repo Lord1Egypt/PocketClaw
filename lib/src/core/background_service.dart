@@ -1,7 +1,5 @@
 import 'dart:async';
 import 'package:flutter_background_service/flutter_background_service.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:flutter/foundation.dart';
 
 /// 初始化 Flutter 后台服务。
 /// 在 Android 上，主要的 Go 二进制由原生 PocketClawService 前台服务管理，
@@ -9,35 +7,20 @@ import 'package:flutter/foundation.dart';
 Future<void> initializeBackgroundService() async {
   final service = FlutterBackgroundService();
 
-  // 创建通知渠道（Android 需要）
-  try {
-    if (defaultTargetPlatform == TargetPlatform.android) {
-      const AndroidNotificationChannel channel = AndroidNotificationChannel(
-        'picoclaw_foreground',
-        'PocketClaw service',
-        description: 'Keep PocketClaw running in the background.',
-        importance: Importance.low,
-      );
-
-      final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
-          FlutterLocalNotificationsPlugin();
-
-      await flutterLocalNotificationsPlugin
-          .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin
-          >()
-          ?.createNotificationChannel(channel);
-    }
-  } catch (e) {
-    // 通知初始化失败不影响服务启动
-  }
+  // No channel is created here. This service is configured with
+  // `autoStart: false` and `startService()` is never called, so the channel it
+  // used to create — `picoclaw_foreground` — was only ever an empty entry in
+  // the user's notification settings. The native side owns the one real
+  // channel; see PocketClawNotificationChannels, which also deletes the dead
+  // one on upgrade. The configuration below points at that channel so it stays
+  // valid if this service is ever actually started.
 
   await service.configure(
     androidConfiguration: AndroidConfiguration(
       onStart: onStart,
       autoStart: false, // 不自动启动，由原生服务管理
       isForegroundMode: true,
-      notificationChannelId: 'picoclaw_foreground',
+      notificationChannelId: 'pocketclaw_service',
       initialNotificationTitle: 'PocketClaw',
       initialNotificationContent: 'PocketClaw service is running',
       foregroundServiceNotificationId: 888,

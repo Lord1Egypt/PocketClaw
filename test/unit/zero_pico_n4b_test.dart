@@ -158,11 +158,11 @@ void main() {
 
   test('deferred phases are deliberately untouched', () {
     // Proves N4B did not quietly widen: these must all still be Pico.
+    //
+    // The two notification channel ids used to be asserted here too. N4C moved
+    // them, and this guard failing is how that scope change had to be declared
+    // rather than absorbed silently; zero_pico_n4c_test.dart owns them now.
     final service = File('$kotlin/service/PocketClawService.kt').readAsStringSync();
-    expect(File('$kotlin/PocketClawApp.kt').readAsStringSync(),
-        contains('"picoclaw_service"'));
-    expect(File('lib/src/core/background_service.dart').readAsStringSync(),
-        contains('picoclaw_foreground'));
     expect(service, contains('File(context.filesDir, "picoclaw")'));
     expect(service, contains('"PICOCLAW_HOME"'));
     expect(File('android/app/src/main/res/xml/backup_rules.xml').readAsStringSync(),

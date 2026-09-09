@@ -128,8 +128,8 @@ void main() {
       }
       expect(read('android/app/src/main/res/xml/backup_rules.xml'),
           contains('path="picoclaw/"'));
-      expect(read('lib/src/core/background_service.dart'),
-          contains('picoclaw_foreground'));
+      // The notification channel id was pinned here too. N4C retired it;
+      // zero_pico_n4c_test.dart owns that surface now.
     });
 
     test('the shared PID record still carries no credential', () {
