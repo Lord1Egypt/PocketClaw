@@ -1,5 +1,11 @@
 # PocketClaw Session Handoff
 
+> **HISTORICAL SESSION ARCHIVE.** The current entry point is
+> [`docs/AI_HANDOFF.md`](docs/AI_HANDOFF.md), and the current-state authority is
+> [`PROJECT_STATE.md`](PROJECT_STATE.md). Every entry below records the state at
+> its own date; older “no release,” “next milestone,” or unresolved-status text
+> must not be read as current project state.
+
 ## H2 developer app-signing key — CLOSED, 2026-09-11
 
 Branch `feature/final-release-hardening`. The owner created the permanent

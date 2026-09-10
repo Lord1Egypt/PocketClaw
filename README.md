@@ -196,18 +196,19 @@ provider/Telegram/Firebase credentials.
 ## Project status
 
 **Pre-release.** Version `0.2.0+62`, physically accepted on a Samsung SM-A165F
-running Android 16. Not on Google Play, and not yet production-signed.
+running Android 16. Developer production signing has been privately validated;
+no production artifact has been published or accepted as a release, and the
+accepted physical baseline remains vc62.
 
 ## Roadmap
 
-The next milestone is production release hardening:
+H2 production signing is closed. H3 Dart binary hardening is next and has not
+started. The authoritative phase sequence is in
+[`docs/ROADMAP.md`](docs/ROADMAP.md).
 
-- [ ] Production signing key
-- [ ] Dart obfuscation and split debug info, with a symbols archive
-- [ ] Narrowed R8 / ProGuard keep rules
-- [ ] Final secrets and configuration audit
-- [ ] Move the local web console off its current `0.0.0.0` binding
-- [ ] Versioned, non-destructive bootstrap update strategy
+Engineering agents and maintainers should begin with
+[`docs/AI_HANDOFF.md`](docs/AI_HANDOFF.md), which defines the repository read
+order and milestone protocol.
 
 ## Contributing
 

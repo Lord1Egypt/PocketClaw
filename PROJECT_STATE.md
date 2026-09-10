@@ -1,5 +1,122 @@
 # PocketClaw Project State
 
+## Authoritative current snapshot — PC-1
+
+This section is the current project-state authority. It is verified against Git,
+tracked release inputs, the production signer enrollment, and current GitHub
+release metadata. Detailed milestone narratives below are immutable historical
+evidence and describe the state at the date of each entry.
+
+| Field | Current fact |
+| --- | --- |
+| Working branch | `feature/final-release-hardening` |
+| PC-1 state-basis HEAD | `0be6afbd92209953d918d5c0516662bc54f0d081` (PC-1's verified starting commit; the documentation-only closeout commit necessarily follows it) |
+| Version | `0.2.0+62` |
+| Accepted physical baseline | vc62 / `lastAcceptedVersionCode=62` |
+| Current phase | Final Production Release Hardening; H2 and PC-1 closed; H3 not started |
+| Developer production signer | `176dca6b198b9552fb4d9ad3ca18da8d6f23c0a3f5ed4bd6b75a0700f9f0efcf` |
+| Core fingerprint | `876b87f5950452ba903301b6cce4cc96502ab4ff25d90d13e31b9da537e24b44` |
+| Distribution targets | Direct APK, Google Play, Official F-Droid |
+| Next authorized milestone | H3 — Dart Binary Hardening, prompt/review first; implementation not started |
+
+The H2 production validation APK has SHA-256
+`f0d83298c2ce061c01a9fc931ad29676e4d4b646bb5b204a9bf0002b11a7f46f`
+and signer SHA-256
+`176dca6b198b9552fb4d9ad3ca18da8d6f23c0a3f5ed4bd6b75a0700f9f0efcf`.
+Its production artifact gate result is 20 PASS / 0 FAIL / 1 SKIPPED, with
+`artifact.dart_snapshot_paths` the one known skip. It is private validation
+evidence only: not published, not installed, not accepted, and not a final
+release.
+
+Private keystores, keys, passwords, tokens, and recovery secrets are external to
+Git. The repository carries only the public certificate digest and public build
+evidence. The owner confirmed a separate backup of the developer production
+keystore exists.
+
+### Completed major milestones
+
+- vc62 Zero-Pico namespace closeout: physically accepted and merged.
+- Repository polish: closed and merged to `develop`.
+- H1 production-signing architecture: closed.
+- H1.5 canonical/F-Droid cleanup: closed.
+- H1.5D source-built runtime adoption: closed.
+- Safety checkpoints: created and unchanged.
+- H2 production signer enrollment and private validation: closed.
+- PC-1 continuity protocol: represented by this documentation closeout.
+
+See [`docs/ROADMAP.md`](docs/ROADMAP.md) for the phase sequence and
+[`docs/AI_HANDOFF.md`](docs/AI_HANDOFF.md) for the mandatory read order.
+
+### Pending hardening and deferred work
+
+- H3 Dart obfuscation, split debug info, and generated-source URI strategy.
+- R8 / ProGuard review and narrowing.
+- Native hardening, symbol policy, and symbol archive.
+- Secrets/configuration plus APK/AAB exposure audit.
+- Full APK/AAB production inspection and production-class gate.
+- APK-level reproducibility for the target F-Droid path.
+- External-view reverse-engineering audit and final Samsung physical smoke.
+- Deferred non-release work is tracked in
+  [`docs/DEFECT_LOG.md`](docs/DEFECT_LOG.md).
+
+### Rollback and checkpoint refs
+
+| Ref | Commit/object | State |
+| --- | --- | --- |
+| `develop` | `47cde00cecb44cb672fa1ae5d8633a3283a1e830` | Unchanged by H1/H2/PC-1 |
+| `main` | `100a51de6a88a485ee109406ca96172285de4c4e` | Unchanged |
+| `checkpoint/vc62-accepted` | `47cde00cecb44cb672fa1ae5d8633a3283a1e830` | Accepted-source rollback branch |
+| `checkpoint/pre-h2` | `fb38c7d3c3fd31420c45a1977e1c1425ede3a378` | Pre-enrollment hardening checkpoint |
+| annotated tag `checkpoint-vc62-accepted` | object `fafb19a88511f8dcfa96a628a89d87a12324537f`; target `47cde00cecb44cb672fa1ae5d8633a3283a1e830` | Unchanged, not a release tag |
+
+### Tags and GitHub prereleases
+
+Current annotated tags and peeled targets:
+
+| Tag | Tag object | Target commit | Meaning |
+| --- | --- | --- | --- |
+| `phase2-milestone-b` | `d9125659b0e889fe77dc6f79d3b30cb115e50f18` | `225be3c31a025131d5c130cd337b47dc786f530e` | Historical milestone |
+| `phase2-milestone-c` | `e3f8cf751f21df5efd13f384e90d4b2246b0e925` | `36bc88de299d61064f5119c65aa208b6ba60609d` | Historical milestone |
+| `phase2-milestone-d` | `f6731dafe9da780d843328f282a3d99afbc06b17` | `8f861bca1c82b43b306e95b14e277269260bbab0` | Historical milestone |
+| `pre-codex-sol-prerelease-fix-20260826` | `6024dadea5d86d003885b564136022848558a0d3` | `e5b88ff1a4c8f76e321c07af97eff5ca23d59d78` | Historical checkpoint |
+| `v0.2.0-rc1` | `8959e579deb9a3191a0d6ed307163041f60caf45` | `e470bb62cce924f17c9f6d46705d513c2765c2aa` | Published prerelease tag |
+| `v0.2.0-rc2` | `a523562c2488bda5fd47d15757b01799069570fc` | `404ef44af5a58fe306690828fac617c07e89ef85` | Published prerelease tag |
+| `v0.2.0-rc3` | `eb3a8381c4a682265b52423954df5963227ad76c` | `2312f355a33ea3f9d975fa6ad59c6c25a55064a1` | Published prerelease tag |
+| `checkpoint-vc62-accepted` | `fafb19a88511f8dcfa96a628a89d87a12324537f` | `47cde00cecb44cb672fa1ae5d8633a3283a1e830` | Source checkpoint, not a release |
+
+GitHub currently has exactly three releases, all prereleases:
+
+| GitHub name | Tag | Published (UTC) | Current metadata update (UTC) |
+| --- | --- | --- | --- |
+| PocketClaw v0.2.0-rc1 | `v0.2.0-rc1` | 2026-08-28 23:29:50 | 2026-08-28 23:29:50 |
+| PocketClaw v0.2.0-rc2 | `v0.2.0-rc2` | 2026-08-30 01:25:43 | 2026-08-30 01:25:43 |
+| PocketClaw v0.2.0-rc3 | `v0.2.0-rc3` | 2026-09-05 17:42:14 | 2026-09-05 17:42:14 |
+
+The final-hardening branch begins from `47cde00` and its first H1 commit is dated
+2026-09-10. All three prereleases and their annotated tags therefore predate
+H1/H2. GitHub reports no metadata update after each original publication, and
+the H1/H2 commit range contains no tag or release operation. The supported
+conclusion is that H1/H2 did not modify them.
+
+Older entries saying “no release” describe what a particular milestone did, or
+the repository state before RC publication. They are historical facts, not the
+current release inventory.
+
+### Exact next action
+
+Prepare an explicit H3 milestone prompt from
+[`docs/prompts/PROMPT_TEMPLATE.md`](docs/prompts/PROMPT_TEMPLATE.md), review it
+against [`docs/prompts/REVIEW_PROTOCOL.md`](docs/prompts/REVIEW_PROTOCOL.md), and
+wait for owner authorization before implementation. Do not start H3 as part of
+PC-1.
+
+# Historical milestone archive
+
+Everything below this heading is phase-scoped evidence preserved from earlier
+closeouts. When an older statement conflicts with the authoritative snapshot,
+read it as “true at that milestone,” not as current state. Do not rewrite an
+accepted historical record to make it sound current.
+
 ## Final Production Release Hardening H2 — CLOSED
 
 The developer production signing path was privately validated on 2026-09-11 on

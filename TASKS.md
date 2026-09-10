@@ -1,5 +1,11 @@
 # PocketClaw Tasks
 
+> **DETAILED BACKLOG AND HISTORICAL MILESTONE ARCHIVE.** Current phase order and
+> status live in [`docs/ROADMAP.md`](docs/ROADMAP.md); current facts live in
+> [`PROJECT_STATE.md`](PROJECT_STATE.md); open defects are consolidated in
+> [`docs/DEFECT_LOG.md`](docs/DEFECT_LOG.md). Phase-scoped “still open” and “no
+> release” statements below remain evidence of their date, not current state.
+
 ## Zero-Pico namespace migration — CLOSED 2026-09-09
 
 Branch `feature/zero-pico-runtime`, head `9910042`, merged to `develop` with
