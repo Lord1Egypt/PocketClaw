@@ -12,32 +12,29 @@
 # anywhere else in this repository. See docs/RELEASE_SIGNING.md.
 #
 # --------------------------------------------------------------------------
-# STATUS: NOT ENROLLED
+# STATUS: ENROLLED
 # --------------------------------------------------------------------------
 #
-# No production signing key has been created yet, so there is deliberately no
-# digest below. This is not an oversight and it must not be "filled in to make
-# the gate pass": until a real key exists, production artifact verification is
-# supposed to fail, and it reports this file's absence of an enrolled signer as
-# the reason.
+# The developer app-signing key was created by the owner at the H2 ceremony on
+# 2026-09-10. The keystore and both passwords are owner-held and live outside
+# this repository; nothing but the digest below is, or ever will be, committed.
 #
-# A placeholder digest here would be worse than nothing. It would either fail
-# against every real artifact for a confusing reason, or — if someone chose a
-# value that matched something — quietly certify the wrong key.
+# One digest, and only one. A second enrolled signer would mean the gate
+# accepted either of two identities without saying which, which is the opposite
+# of what enrolling a fingerprint is for. Rotating the key means replacing this
+# line, not adding another.
 #
-# To enroll after the key ceremony (H2), add exactly one line below containing
-# the 64-character lowercase hex digest and nothing else:
+# The certificate subject is deliberately not a trust input. Subjects are
+# self-asserted and anyone can mint a certificate claiming one; the digest is
+# what actually identifies the key.
 #
-#     0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+# Re-read it from the keystore at any time — this prints exactly the form below,
+# and asks for the keystore password, which it never stores:
 #
-# Read it from the keystore you just created with:
+#     tool/create_release_keystore.sh --print-fingerprint <keystore> <alias>
 #
-#     keytool -list -v -keystore <keystore> -alias <alias> \
-#       | grep -A1 'SHA256:' 
-#
-# or from a signed artifact with:
+# or from a signed artifact:
 #
 #     apksigner verify --print-certs <apk> | grep 'SHA-256 digest'
 #
-# keytool prints it colon-separated and uppercase; this file wants it lowercase
-# with the colons removed.
+176dca6b198b9552fb4d9ad3ca18da8d6f23c0a3f5ed4bd6b75a0700f9f0efcf

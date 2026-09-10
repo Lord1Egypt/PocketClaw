@@ -1,5 +1,41 @@
 # PocketClaw Session Handoff
 
+## H2 developer app-signing key — ENROLLED, validation build outstanding, 2026-09-10
+
+Branch `feature/final-release-hardening`. The owner created the permanent
+PocketClaw developer app-signing key and holds the keystore and both passwords
+outside this repository. The public certificate
+`176dca6b198b9552fb4d9ad3ca18da8d6f23c0a3f5ed4bd6b75a0700f9f0efcf` is enrolled
+as the single bare line in `android/release-signing-cert.sha256`, and the source
+gate reports one enrolled signer.
+
+Nothing has been signed with it yet. That build needs the passwords, so it is
+the owner's to run, and until then the production path is verified by contract,
+not demonstrated. **No production APK or AAB has been built, signed or
+accepted.** `vc62` remains the accepted physical baseline at
+`lastAcceptedVersionCode=62`; it is developer-signed. Version stays `0.2.0+62`,
+Core fingerprint stays `876b87f5…`, Core and the Managed Runtime were not
+rebuilt. H3 has not started: no Dart obfuscation, no split debug info, no R8
+narrowing, no native hardening.
+
+### Do not undo these
+
+**One enrolled digest, not a list.** Two would mean the gate accepted either
+identity without saying which. Rotation replaces the line; it never appends.
+
+**The subject is not the identity.** A certificate subject is attacker-chosen
+text. `CN=`, `O=` and friends are pinned *out* of the enrollment file by test,
+so nothing can quietly start trusting one.
+
+**Never record where the keystore lives.** The repository has no path to it and
+must not acquire one, in a doc, a script default or an example.
+
+**The helper's stderr stays unredirected.** That single `2>/dev/null` is what
+made the real ceremony print an empty fingerprint under its own heading: it hid
+keytool's password prompt, and keytool answers a missing password by listing the
+entry without its certificate and exiting 0. Shape-check the result; an exit
+status is not evidence a fingerprint was produced.
+
 ## Zero-Pico namespace migration — CLOSED and merged, 2026-09-09
 
 Branch `feature/zero-pico-runtime`, head `9910042`, merged to `develop` with

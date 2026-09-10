@@ -27,6 +27,59 @@ command -v keytool >/dev/null 2>&1 || die \
 "keytool is not on PATH. It ships with the JDK; set JAVA_HOME/bin on PATH.
   This project's toolchain JDK: \$REPO_ROOT/../PocketCLaw/.tooling/jdk-17"
 
+# print_certificate_fingerprint <keystore> <alias>
+#
+# Prints the certificate's SHA-256 in the form android/release-signing-cert.sha256
+# wants: 64 lowercase hex characters, no colons. Public data — this reads the
+# certificate, never the key.
+#
+# It exists as a function, and as the --print-fingerprint mode below, so the
+# ceremony and anyone re-reading the value later run the same code. Two copies
+# of this would drift, and the way it fails is the whole point.
+#
+# The first version discarded stderr and piped stdout into awk. keytool sends
+# its password prompt and its warnings to stderr and only the listing to stdout,
+# so the owner was never shown the prompt. keytool does not treat the missing
+# password as an error: it prints an integrity warning nobody could see, lists
+# the entry with "Certificate chain length: 0" — no certificate, so no SHA256
+# line — and exits 0. awk matched nothing, the pipeline ended in tr and still
+# succeeded, so the `|| ...` fallback could not fire either, and the ceremony
+# printed an empty fingerprint under its own heading. A real key was created and
+# the one public value the owner needed was silently missing.
+#
+# So: stderr is left alone, and the result is checked for shape rather than
+# trusted because a command exited 0.
+print_certificate_fingerprint() {
+    local keystore="$1" alias="$2" fingerprint
+
+    fingerprint="$(keytool -list -v -keystore "$keystore" -alias "$alias" \
+        | awk '/SHA256:/ { print $2; exit }' \
+        | tr -d ':' | tr 'A-F' 'a-f' || true)"
+
+    if [ "${#fingerprint}" -ne 64 ] || [ -n "${fingerprint//[0-9a-f]/}" ]; then
+        echo "error: could not read a SHA-256 certificate fingerprint from" >&2
+        echo "       $keystore (alias $alias)." >&2
+        echo >&2
+        echo "  Nothing is wrong with the keystore itself. The usual cause is a" >&2
+        echo "  keystore password that was not entered or not accepted: keytool" >&2
+        echo "  then lists the entry without its certificate and still exits 0." >&2
+        echo "  Re-read it with:" >&2
+        echo >&2
+        echo "    $0 --print-fingerprint '$keystore' '$alias'" >&2
+        return 1
+    fi
+
+    printf '%s\n' "$fingerprint"
+}
+
+# Non-interactive re-read, for enrolling later or for the regression test. It
+# creates nothing.
+if [ "${1:-}" = "--print-fingerprint" ]; then
+    [ -n "${2:-}" ] || die "usage: $0 --print-fingerprint <keystore> [alias]"
+    print_certificate_fingerprint "$2" "${3:-pocketclaw-release}"
+    exit $?
+fi
+
 cat <<'INTRO'
 PocketClaw production signing key
 =================================
@@ -128,10 +181,9 @@ Certificate SHA-256 fingerprint
 EOF
 
 # The public half. Printing it is safe and is the point of the last step.
-keytool -list -v -keystore "$DEST_RESOLVED" -alias "$ALIAS" 2>/dev/null \
-    | awk '/SHA256:/ { print $2; exit }' \
-    | tr -d ':' | tr 'A-F' 'a-f' \
-    || echo "(re-run: keytool -list -v -keystore '$DEST_RESOLVED' -alias '$ALIAS')"
+# keytool asks for the keystore password again here; that prompt is on stderr
+# and must reach the terminal, so nothing is redirected.
+print_certificate_fingerprint "$DEST_RESOLVED" "$ALIAS" || true
 
 cat <<EOF
 

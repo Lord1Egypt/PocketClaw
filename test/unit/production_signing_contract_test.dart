@@ -164,13 +164,31 @@ void main() {
           reason: 'a tracked signing file must carry no password value');
     });
 
-    test('no production fingerprint is enrolled yet, and none is faked', () {
-      // A bare 64-hex line is what the gate reads. Before the key ceremony
-      // there must be none: a placeholder would either fail confusingly or,
-      // worse, certify a key nobody chose.
+    test('exactly one production fingerprint is enrolled', () {
+      // A bare 64-hex line is what the gate reads. H1 required there to be
+      // none, because a placeholder would either fail confusingly or, worse,
+      // certify a key nobody chose. H2 created the real key, so there is now
+      // exactly one — and one is the contract, not a minimum. Two would mean
+      // the gate accepted either identity without saying which, and rotation
+      // replaces this line rather than appending to it.
       final digestLine = RegExp(r'^[0-9a-f]{64}$', multiLine: true);
-      expect(digestLine.hasMatch(certFile.readAsStringSync()), isFalse,
-          reason: 'H1 must not enroll a fingerprint; H2 does that with a real key');
+      final enrolled = digestLine
+          .allMatches(certFile.readAsStringSync())
+          .map((m) => m.group(0))
+          .toList();
+      expect(enrolled, hasLength(1),
+          reason: 'the production signer is one identity: found $enrolled');
+    });
+
+    test('the enrolled identity is the digest, not the subject', () {
+      // Subjects are self-asserted; anyone can mint a certificate claiming one.
+      // If the file ever starts carrying a subject the gate might match on,
+      // the identity has quietly stopped being cryptographic.
+      final body = certFile.readAsStringSync();
+      for (final subjectish in ['CN=', 'OU=', 'O=', 'issuer', 'Subject:']) {
+        expect(body, isNot(contains(subjectish)),
+            reason: 'a certificate subject must not become a trust input');
+      }
     });
 
     test('no private key material is tracked anywhere', () {
@@ -224,6 +242,28 @@ void main() {
       }
       expect(body, contains('keytool -genkeypair'),
           reason: 'keytool prompts for the passwords itself');
+    });
+
+    test('the helper cannot print an empty fingerprint and call it success', () {
+      // The real ceremony created the production key and then printed its
+      // "Certificate SHA-256 fingerprint" heading with nothing under it. The
+      // listing had stderr discarded, so keytool's password prompt never
+      // reached the terminal; with no password it lists the entry without its
+      // certificate and still exits 0, so awk matched nothing and the pipeline
+      // still succeeded. The owner was left with a key and no way to enroll it.
+      final body = helper.readAsStringSync();
+      expect(RegExp(r'keytool -list[^\n]*2>/dev/null').hasMatch(body), isFalse,
+          reason: 'discarding stderr hides the password prompt and the '
+              'integrity warning, which is what produced the blank output');
+      expect(body, contains('print_certificate_fingerprint'),
+          reason: 'one implementation, shared by the ceremony and the '
+              '--print-fingerprint re-read');
+      expect(body, contains(r'[ "${#fingerprint}" -ne 64 ]'),
+          reason: 'the result must be checked for shape; a command exiting 0 '
+              'is not evidence that it produced a fingerprint');
+      expect(body, contains('--print-fingerprint'),
+          reason: 'the owner must be able to re-read the value without '
+              'rerunning a key ceremony');
     });
 
     test('the helper proposes modern parameters and no obsolete algorithm', () {

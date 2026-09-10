@@ -81,16 +81,57 @@ project's toolchain.
 baked in permanently and is a choice about identity — a personal name, a project
 name or an organisation — that belongs to the owner, at ceremony time.
 
-## 5. The ceremony (H2 — not yet performed)
+## 5. The ceremony (H2 — performed 2026-09-10)
 
-A helper exists: [`tool/create_release_keystore.sh`](../tool/create_release_keystore.sh).
-It is interactive, refuses a destination inside the repository, never takes a
-password as a command-line argument, and prints the certificate fingerprint at
-the end. **H1 does not run it.**
+The owner ran [`tool/create_release_keystore.sh`](../tool/create_release_keystore.sh)
+and created the permanent PocketClaw developer app-signing key. The helper is
+interactive, refuses a destination inside the repository, and never takes a
+password as a command-line argument.
 
-Afterwards, enroll the *public* fingerprint by adding one bare 64-character
-lowercase hex line to `android/release-signing-cert.sha256`, and commit that.
-Nothing else from the ceremony gets committed, ever.
+The keystore and both passwords are **owner-held and outside this repository**.
+Nobody else has them, which is the point, and it is also why the production
+signing path cannot be exercised by anyone but the owner. This repository has no
+record of where the keystore lives and must not acquire one.
+
+The *public* certificate SHA-256 is enrolled as the single bare line in
+`android/release-signing-cert.sha256`:
+
+    176dca6b198b9552fb4d9ad3ca18da8d6f23c0a3f5ed4bd6b75a0700f9f0efcf
+
+That is the only thing from the ceremony that is committed, ever.
+
+### The defect the real ceremony found
+
+The first run created the key correctly and then printed its "Certificate
+SHA-256 fingerprint" heading with **nothing underneath**, leaving the owner
+holding a key they could not enroll.
+
+`keytool` sends its password prompt and its warnings to stderr and only the
+listing to stdout. The helper discarded stderr and piped stdout into `awk`, so
+the prompt never reached the terminal. keytool does not treat a missing password
+as an error: it prints an integrity warning nobody could see, lists the entry
+with `Certificate chain length: 0` — no certificate, therefore no `SHA256:` line
+— and exits 0. `awk` matched nothing, the pipeline ended in `tr` and so still
+succeeded, which meant the `|| ...` fallback could not fire either.
+
+Fixed by leaving stderr alone and checking the result's shape instead of
+trusting an exit status. There is now one implementation, reachable
+non-interactively so the value can be re-read without another ceremony:
+
+```bash
+tool/create_release_keystore.sh --print-fingerprint <keystore> <alias>
+```
+
+It prints 64 lowercase hex characters, or fails and says why. A blank success is
+no longer reachable, and `tool/test_create_release_keystore.py` builds a
+disposable keystore and proves both halves.
+
+### Still outstanding — owner only
+
+No artifact has yet been signed with this key. The validation build requires the
+passwords, so it is the owner's to run, and until it happens the production path
+is verified by contract rather than demonstrated. `vc62` remains the accepted
+physical baseline; it is developer-signed, not production-signed.
 
 ## 6. Building with the production key
 
@@ -153,8 +194,11 @@ usual source of an unrecoverable mistake:
 
 ### A — the PocketClaw developer app-signing key
 
-This is the key created at the H2 ceremony. It is the app identity for every
-channel PocketClaw controls directly.
+This is the key created at the H2 ceremony on 2026-09-10, certificate
+`176dca6b198b9552fb4d9ad3ca18da8d6f23c0a3f5ed4bd6b75a0700f9f0efcf`. It exists,
+it is enrolled, and it is the app identity for every channel PocketClaw controls
+directly. The Play upload key (B below) does **not** exist and is not part of
+this milestone.
 
 **Signing continuity is the goal:**
 
@@ -212,12 +256,17 @@ generated.
 # From a built artifact
 apksigner verify --print-certs --verbose <apk>
 
-# From the keystore (prompts for the password; never pass it as an argument)
+# From the keystore, already in the form the enrollment file wants
+# (prompts for the password; never pass it as an argument)
+tool/create_release_keystore.sh --print-fingerprint <keystore> <alias>
+
+# Or raw, if you want to see the whole certificate
 keytool -list -v -keystore <keystore> -alias <alias>
 ```
 
 `keytool` prints the digest uppercase and colon-separated; the enrollment file
-wants it lowercase with colons removed.
+wants it lowercase with colons removed, which is what `--print-fingerprint`
+emits. If it prints nothing it now fails and says so — see §5.
 
 The gate does this for you:
 
@@ -252,8 +301,8 @@ while it still does not matter.
 ## 11. Note on the accepted vc62 install
 
 The accepted `0.2.0+62` build on the test device is signed with the **local test
-certificate**. Once a production key exists, a production-signed build **cannot**
-`adb install -r` over it — Android requires signing continuity, and this is the
+certificate**. The production key now exists, so a production-signed build
+**cannot** `adb install -r` over it — Android requires signing continuity, and this is the
 protection working, not a bug.
 
 Do not weaken production signing to preserve that install, and do not reuse the
