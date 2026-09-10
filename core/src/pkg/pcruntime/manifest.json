@@ -707,7 +707,7 @@
       "abi": "arm64-v8a",
       "delivery_type": "bundled",
       "trusted_source": "https://github.com/cli/cli/archive/refs/tags/v2.82.1.tar.gz",
-      "sha256": "3f56431f1fdd1497e9529f1c844090881abbfd5dd47a5e6a40abb7611bf8b9d8",
+      "sha256": "fe97fb29f2b2036c71a7626b0fd3c9611cd3c746a7911a6e3b074cf7b20fdf96",
       "capabilities": [
         "github.api",
         "github.repository",
@@ -869,7 +869,7 @@
       "abi": "arm64-v8a",
       "delivery_type": "bundled",
       "trusted_source": "https://www.python.org/ftp/python/3.14.7/Python-3.14.7.tgz",
-      "sha256": "dfa19e41ac57edfdaa7ba2d94de7d1c9fa8ce8e30db2c3385f1559c1d576848d",
+      "sha256": "4f98d0e31d0d0d35bf063c28da80b03a202af3c1acfefe3f05bda68f1e9d084d",
       "capabilities": [
         "script.execute",
         "text.transform",
