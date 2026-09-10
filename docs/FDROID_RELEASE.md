@@ -125,8 +125,8 @@ pinned upstream tarballs, checksum-verified by each recipe.
 | `jq` | 1.7.1 | yes | **identical** |
 | `rg` | 14.1.1 | yes | **identical** |
 | `sqlite3` | 3.50.4 | yes | **identical** |
-| `gh` | 2.82.1 | yes, after a recipe fix | differs — explained below |
-| `python` | 3.14.7 | yes, after a determinism fix | differs — explained below |
+| `gh` | 2.82.1 | yes, after a recipe fix | differed — adopted in H1.5D |
+| `python` | 3.14.7 | yes, after a determinism fix | differed — adopted in H1.5D |
 
 Six rebuilding **bit-for-bit** from files that had been deleted first is the
 strongest available evidence that they come from source and that the recipes are
@@ -151,18 +151,32 @@ timestamps, so every build produced a different binary. Fixed in
 sorted walk. **Proven** — two consecutive builds with the epoch pinned produced
 byte-identical output, `96b34067…`.
 
-### What was deliberately not changed
+### Adopted — H1.5D, 2026-09-10
 
-The regenerated `gh` and `python` were **not** adopted. Their checksums are
-pinned in `core/src/pkg/pcruntime/manifest.json`, which is a Core fingerprint
-input, so adopting them would move the Core fingerprint and require a Core
-rebuild and restage — outside this phase's remit. All eight committed payloads
-were restored byte-identical, and the Core fingerprint is unchanged.
+The owner took the two corrected payloads. Both were rebuilt from the current
+recipes and installed; the other six were not rebuilt and not touched, which is
+what makes "only these two changed" a `git diff` fact rather than a claim.
 
-**Owner decision required.** The committed `gh` is stale with respect to current
-source: it predates the `canonicalenv` import and cannot be reproduced by the
-current recipe. Adopting the regenerated `gh` and `python` needs a manifest
-checksum update plus a Core rebuild.
+| Payload | Was | Is |
+| --- | --- | --- |
+| `libpocketclaw-gh.so` | `3f56431f…` | `fe97fb29…` |
+| `libpocketclaw-python.so` | `dfa19e41…` | `4f98d0e3…` |
+
+Two consecutive gh builds from the current recipe produced identical bytes, so
+the adopted gh is reproducible as well as current.
+
+`manifest.json` is a canonical Core build input, so the two checksum edits moved
+the Core source fingerprint `6e2382ae…` → `876b87f5…` and both Core binaries
+were rebuilt and restaged. That is not bookkeeping: Core embeds the catalog it
+verifies payloads against, so a Core built before the edit would have rejected
+both adopted payloads at resolve time as corrupt.
+
+The chain is verified end to end for each of the two — source-built output, the
+committed payload, the manifest checksum and the payload unpacked from the APK
+are one value.
+
+The accepted physical baseline stays **vc62**. The H1.5D APK is a local test
+build, was not installed, and does not supersede it.
 
 ### Remaining F-Droid question
 
@@ -307,10 +321,10 @@ None of this exists yet and none of it should be created before §1 is resolved:
 | Is a separate F-Droid flavor necessary? | **No.** The proprietary dependency was removed, not hidden. One canonical build serves all three channels. |
 | Firebase / Google Play Services? | **Removed**, verified absent from DEX, manifest and packaged entries. |
 | Runtime font fetching? | **Closed.** Inter and Fira Code are bundled; `google_fonts` is gone from the lockfile. |
-| Managed Runtime buildable from source? | **Demonstrated for all eight**, with the committed payloads quarantined first. Six rebuild byte-identical. |
-| Are the recipes deterministic? | Six proven identical; `python` made reproducible in this phase and proven over two runs. |
+| Managed Runtime buildable from source? | **Demonstrated for all eight**, with the committed payloads quarantined first. Six rebuild byte-identical; the other two were corrected and adopted in H1.5D. |
+| Are the recipes deterministic? | Six proven identical; `python` made reproducible and proven over two runs; `gh` proven over two runs at adoption. |
 | Does it download executables after install? | **No — structurally impossible** on targetSdk 36 (§1d). |
 | Anti-features to declare? | `NonFreeNet` for optional proprietary providers. Not `Tracking`, not `NonFreeDep`. |
-| Outstanding before submission | Owner decision on adopting the regenerated `gh`/`python` (needs a Core rebuild); whether F-Droid's builders will run NDK/Rust/Go recipes; committed prebuilts; full-APK reproducibility. |
+| Outstanding before submission | Whether F-Droid's builders will run NDK/Rust/Go recipes; committed prebuilts; full-APK reproducibility. |
 | Can direct and F-Droid share a signature? | Yes, if APK reproducibility holds. That is the design target. |
 | Can Play share it? | No, under Play App Signing. Accepted. |

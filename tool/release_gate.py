@@ -115,7 +115,6 @@ PENDING_FINAL_HARDENING = [
     # direct and F-Droid channels without uninstalling. Every hardening step
     # above is a candidate for breaking it; see docs/FDROID_RELEASE.md.
     "APK-level reproducibility not yet proven (required for F-Droid)",
-    "committed gh payload predates its source; adopting the rebuilt one needs a Core rebuild",
     # The namespace migration was listed here until the sweep finished and
     # namespace.no_active_pico started enforcing it on every run. A standing
     # note that a solved problem is outstanding is as misleading as the reverse.
