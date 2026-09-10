@@ -149,7 +149,7 @@ one private validation APK:
 
 Independent `apksigner` inspection reported one signer, matching the enrolled
 production certificate and differing from the development certificate. The
-production artifact gate passed with 21 PASS, 0 FAIL and one SKIP:
+production artifact gate passed with 20 PASS, 0 FAIL and one SKIP:
 `artifact.dart_snapshot_paths`, still pending final binary hardening.
 
 This artifact is private validation evidence. It was not installed or

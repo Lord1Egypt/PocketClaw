@@ -1169,7 +1169,7 @@ supplied by the user.
 - [x] **Produce and privately validate the developer production signing key.**
   H2 closed on 2026-09-11: the owner confirmed a separate backup, Gradle
   production-signing validation passed, a private arm64 APK was signed by the
-  enrolled certificate, and the production artifact gate passed with 21 PASS,
+  enrolled certificate, and the production artifact gate passed with 20 PASS,
   0 FAIL and the expected `artifact.dart_snapshot_paths` SKIP. The APK was not
   installed, published or accepted; vc62 / baseline 62 remains unchanged.
 - [x] **Decide whether Firebase Analytics belongs in the default build.**

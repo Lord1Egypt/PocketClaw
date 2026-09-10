@@ -13,7 +13,7 @@ The owner entered both passwords through hidden local terminal input into a
 temporary helper outside the repository. Gradle production-signing validation
 passed, one private arm64 validation APK was built, and independent `apksigner`
 inspection found exactly one signer matching the enrolled certificate. The
-production artifact gate passed with 21 PASS, 0 FAIL and the expected one SKIP
+production artifact gate passed with 20 PASS, 0 FAIL and the expected one SKIP
 for `artifact.dart_snapshot_paths`.
 
 The private APK is `64359287` bytes with SHA-256

@@ -18,7 +18,7 @@ local terminal input. Gradle selected production signing and built
 
 Independent `apksigner` inspection found exactly one signer and matched it to
 the enrolled production certificate; the development signer was not used. The
-production artifact gate passed with **21 PASS, 0 FAIL, 1 SKIP**. The skip is
+production artifact gate passed with **20 PASS, 0 FAIL, 1 SKIP**. The skip is
 `artifact.dart_snapshot_paths`, retained for H3 binary hardening rather than
 waived or claimed complete. No new defect was found.
 
