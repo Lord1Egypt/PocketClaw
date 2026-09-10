@@ -1,22 +1,30 @@
 # PocketClaw Session Handoff
 
-## H2 developer app-signing key — ENROLLED, validation build outstanding, 2026-09-10
+## H2 developer app-signing key — CLOSED, 2026-09-11
 
 Branch `feature/final-release-hardening`. The owner created the permanent
-PocketClaw developer app-signing key and holds the keystore and both passwords
-outside this repository. The public certificate
+PocketClaw developer app-signing key, confirmed a separate backup exists, and
+holds the keystore and both passwords outside this repository. The public certificate
 `176dca6b198b9552fb4d9ad3ca18da8d6f23c0a3f5ed4bd6b75a0700f9f0efcf` is enrolled
 as the single bare line in `android/release-signing-cert.sha256`, and the source
 gate reports one enrolled signer.
 
-Nothing has been signed with it yet. That build needs the passwords, so it is
-the owner's to run, and until then the production path is verified by contract,
-not demonstrated. **No production APK or AAB has been built, signed or
-accepted.** `vc62` remains the accepted physical baseline at
-`lastAcceptedVersionCode=62`; it is developer-signed. Version stays `0.2.0+62`,
-Core fingerprint stays `876b87f5…`, Core and the Managed Runtime were not
-rebuilt. H3 has not started: no Dart obfuscation, no split debug info, no R8
-narrowing, no native hardening.
+The owner entered both passwords through hidden local terminal input into a
+temporary helper outside the repository. Gradle production-signing validation
+passed, one private arm64 validation APK was built, and independent `apksigner`
+inspection found exactly one signer matching the enrolled certificate. The
+production artifact gate passed with 21 PASS, 0 FAIL and the expected one SKIP
+for `artifact.dart_snapshot_paths`.
+
+The private APK is `64359287` bytes with SHA-256
+`f0d83298c2ce061c01a9fc931ad29676e4d4b646bb5b204a9bf0002b11a7f46f`.
+It was not installed, published or accepted. `vc62` remains the accepted
+physical baseline at `lastAcceptedVersionCode=62`; it uses the historical local
+test signer. Version stays `0.2.0+62`, Core fingerprint stays
+`876b87f5950452ba903301b6cce4cc96502ab4ff25d90d13e31b9da537e24b44`,
+and Core and the Managed Runtime were not rebuilt. H2 is complete. H3 has not
+started: no Dart obfuscation, split debug info, R8 narrowing or native
+hardening.
 
 ### Do not undo these
 

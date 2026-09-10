@@ -1,5 +1,35 @@
 # PocketClaw Project State
 
+## Final Production Release Hardening H2 — CLOSED
+
+The developer production signing path was privately validated on 2026-09-11 on
+`feature/final-release-hardening`. The owner confirmed that a separate backup of
+the production keystore exists and supplied both passwords only through hidden
+local terminal input. Gradle selected production signing and built
+`build/app/outputs/apk/release/app-release.apk` from
+`:app:assembleRelease -Ptarget-platform=android-arm64`.
+
+    size       64359287 bytes
+    sha256     f0d83298c2ce061c01a9fc931ad29676e4d4b646bb5b204a9bf0002b11a7f46f
+    package    com.lord1egypt.pocketclaw
+    version    0.2.0 (62)
+    product ABI arm64-v8a; plugin stubs armeabi-v7a and x86_64
+    signer     176dca6b198b9552fb4d9ad3ca18da8d6f23c0a3f5ed4bd6b75a0700f9f0efcf
+
+Independent `apksigner` inspection found exactly one signer and matched it to
+the enrolled production certificate; the development signer was not used. The
+production artifact gate passed with **21 PASS, 0 FAIL, 1 SKIP**. The skip is
+`artifact.dart_snapshot_paths`, retained for H3 binary hardening rather than
+waived or claimed complete. No new defect was found.
+
+This is a private validation artifact. It was not installed, published or
+accepted, and no device or emulator was touched. The accepted physical baseline
+remains vc62 / `lastAcceptedVersionCode=62`; version remains `0.2.0+62`; Core
+fingerprint remains
+`876b87f5950452ba903301b6cce4cc96502ab4ff25d90d13e31b9da537e24b44`.
+Core and Managed Runtime payloads were unchanged. H2 is complete. H3 has not
+started.
+
 ## Zero-Pico namespace migration — CLOSED / ACCEPTED
 
 - **Accepted build: PocketClaw `0.2.0+62`.** Accepted baseline **62**, previously

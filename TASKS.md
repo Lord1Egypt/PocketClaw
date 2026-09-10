@@ -1166,10 +1166,12 @@ supplied by the user.
   far: 55 to 56 at the A1 closeout, and 56 to 58 at the A2 closeout — jumping 57,
   which was superseded before acceptance. A candidate that is never accepted
   never becomes the floor.
-- [ ] **Produce the production signing key and switch to it.** Deliberately not
-  done in A1: the test device runs a debug-signed install and changing signers
-  forces an uninstall and a data reset. Until then every artifact must be built
-  with `-PallowDebugSigning=true` and is not releasable.
+- [x] **Produce and privately validate the developer production signing key.**
+  H2 closed on 2026-09-11: the owner confirmed a separate backup, Gradle
+  production-signing validation passed, a private arm64 APK was signed by the
+  enrolled certificate, and the production artifact gate passed with 21 PASS,
+  0 FAIL and the expected `artifact.dart_snapshot_paths` SKIP. The APK was not
+  installed, published or accepted; vc62 / baseline 62 remains unchanged.
 - [x] **Decide whether Firebase Analytics belongs in the default build.**
   Resolved in the A1 follow-up, 2026-09-08: **kept.** `firebase_analytics` and
   `firebase_core` back the device-feedback feature, which has a Settings toggle

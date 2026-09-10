@@ -106,10 +106,6 @@ def enrolled_production_signer() -> str | None:
 # Real work that is not done yet. The gate names these rather than implying the
 # release is fully hardened; it must not pretend they are solved.
 PENDING_FINAL_HARDENING = [
-    # The key itself exists and its certificate is enrolled. What has not
-    # happened is a build actually signed with it: only the owner holds the
-    # passwords, so no artifact has yet proven the production path end to end.
-    "no artifact has been signed with the enrolled production key yet",
     "Dart obfuscation and split debug info not enabled",
     "R8 keep rules not narrowed",
     # Distribution is direct APK + Google Play + official F-Droid. F-Droid will

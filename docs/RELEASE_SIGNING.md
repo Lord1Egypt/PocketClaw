@@ -3,9 +3,10 @@
 Operational guide for creating, storing and using PocketClaw's production
 signing key. Read it before the key ceremony, not during.
 
-> **Status: no production key exists yet.** Nothing here has been executed.
-> `android/release-signing-cert.sha256` carries no fingerprint, and production
-> artifact verification fails by design until it does.
+> **Status: H2 closed on 2026-09-11.** The developer production key exists, the
+> owner confirmed a separate backup, its public certificate is enrolled, and a
+> private production-signed validation APK passed artifact verification. It was
+> not installed, published or accepted as a release.
 
 ---
 
@@ -126,12 +127,35 @@ It prints 64 lowercase hex characters, or fails and says why. A blank success is
 no longer reachable, and `tool/test_create_release_keystore.py` builds a
 disposable keystore and proves both halves.
 
-### Still outstanding — owner only
+### Private signing validation (H2 — performed 2026-09-11)
 
-No artifact has yet been signed with this key. The validation build requires the
-passwords, so it is the owner's to run, and until it happens the production path
-is verified by contract rather than demonstrated. `vc62` remains the accepted
-physical baseline; it is developer-signed, not production-signed.
+The owner confirmed that a separate backup of the production keystore exists,
+then entered both passwords through hidden local terminal input. A temporary
+helper outside the repository exported them only inside its own process and
+unset all four signing variables on exit. No secret value entered a command
+line, repository file, Gradle property, log or report.
+
+Gradle's `validateReleaseSigning` task selected the production keystore from the
+environment. `:app:assembleRelease -Ptarget-platform=android-arm64` then built
+one private validation APK:
+
+    path       build/app/outputs/apk/release/app-release.apk
+    size       64359287 bytes
+    sha256     f0d83298c2ce061c01a9fc931ad29676e4d4b646bb5b204a9bf0002b11a7f46f
+    package    com.lord1egypt.pocketclaw
+    version    0.2.0 (62)
+    product ABI arm64-v8a; plugin stubs also present for armeabi-v7a and x86_64
+    signer     176dca6b198b9552fb4d9ad3ca18da8d6f23c0a3f5ed4bd6b75a0700f9f0efcf
+
+Independent `apksigner` inspection reported one signer, matching the enrolled
+production certificate and differing from the development certificate. The
+production artifact gate passed with 21 PASS, 0 FAIL and one SKIP:
+`artifact.dart_snapshot_paths`, still pending final binary hardening.
+
+This artifact is private validation evidence. It was not installed or
+published, is not an accepted release, and does not advance the physical
+baseline. `vc62` / `lastAcceptedVersionCode=62` remains accepted. H2 is complete
+and H3 has not started.
 
 ## 6. Building with the production key
 
@@ -276,8 +300,9 @@ python3 tool/release_gate.py --verify-artifact <apk> --release-class production
 
 ### Signature schemes
 
-Observed on the current toolchain (AGP 8.11.1, apksigner 0.9): the local test
-artifact verifies under **v2 only**. v1 is not expected — `minSdk` is 24, and
+Observed on the current toolchain (AGP 8.11.1, apksigner 0.9): both the local
+test artifact and the H2 private production validation artifact verify under
+**v2 only**. v1 is not expected — `minSdk` is 24, and
 JAR signing is only needed below API 24. v3 enables key *rotation* and v4
 supports incremental install; both are worth revisiting when the production key
 exists, since the choice interacts with the key itself. The gate records which
