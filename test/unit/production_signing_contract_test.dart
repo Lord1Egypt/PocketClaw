@@ -321,11 +321,14 @@ void main() {
     test('the reproducibility objective is tracked by the gate', () {
       final gate = File('tool/release_gate.py').readAsStringSync();
       expect(gate, contains('reproducibility not yet proven'));
-      // The Firebase entry was retired when the dependency was; the remaining
-      // F-Droid item is the font fetching.
-      expect(gate, contains('committed gh payload predates its source'));
+      // Entries are retired as the blockers are: Firebase with the dependency,
+      // the fonts when they were bundled, and the stale gh payload when H1.5D
+      // adopted the source-built one.
       expect(gate, isNot(contains('google_fonts fetches fonts at runtime')),
           reason: 'the font blocker was closed; it must not still be listed');
+      expect(gate, isNot(contains('committed gh payload predates its source')),
+          reason: 'the gh payload was adopted in H1.5D; it must not still be '
+              'listed as outstanding');
       expect(gate, isNot(contains('Firebase/GMS packaged unconditionally')),
           reason: 'a solved blocker must not still be listed as outstanding');
     });
