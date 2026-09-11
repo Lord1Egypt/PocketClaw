@@ -7,34 +7,94 @@ only reconstructable examples belong here.
 
 ## Open / deferred
 
-### PC-DEF-008 — Reverify the Dart intermediate strip boundary during native hardening
+### PC-DEF-009 — Managed Git HTTP helper carries a build-only RUNPATH
 
-- **Discovered:** Post-H3B packaged-DWARF inspection, 2026-09-11.
-- **Component:** Dart AOT intermediate / Android native-library packaging.
-- **Severity:** Non-blocking release-hardening verification item.
-- **Description:** Dart `gen_snapshot` warns that its generated ELF contains
-  unobfuscated DWARF because the split-debug-info build does not pass
-  `gen_snapshot --strip`. The warning applies to the ignored 9,149,696-byte
-  Flutter intermediate, which contains `.debug_abbrev`, `.debug_info`,
-  `.debug_line`, `.symtab`, and `.strtab`. AGP's existing
-  `stripReleaseDebugSymbols` step produces the 5,702,536-byte `libapp.so`
-  packaged in the H3B APK. That packaged ELF is marked stripped and contains
-  none of those sections, compressed debug data, source paths, or sampled
-  application identifiers. Its only unwind metadata is a 45-byte `.eh_frame`.
-- **Evidence:** H3B APK SHA-256
-  `ceef6640d8abd9d084c3ff37d8e903aaf3c82b287de65ec15a37d91124bdebe6`;
-  packaged Dart AOT SHA-256
-  `c7b2a885ff843a20c57097a0d16ba07c728bd64cf17455a1ce61e6f463a5ae77`.
-  GNU `readelf`/`objdump`, pinned NDK `llvm-objdump`, and byte comparison prove
-  the APK entry equals AGP's stripped output. The external private DWARF remains
-  separate and retains the expected symbolization information.
-- **Reason deferred:** There is no distributed-DWARF exposure to correct in
-  H3B or R8 work. The later native-hardening/symbol-policy milestone must
-  revalidate that AGP stripping remains active and decide whether stripping the
-  ignored intermediate earlier is useful without harming private
-  symbolization or reproducibility.
-- **Target milestone:** Native hardening / symbol policy and symbol archive.
-- **Status:** DEFERRED / NON-BLOCKING; H3B remains closed.
+- **Discovered:** H5A native/ELF audit, 2026-09-11.
+- **Component:** Managed Runtime `libpocketclaw-git-remote-http.so`.
+- **Severity:** Release-hardening defect; non-blocking for the audit-only H5A
+  milestone and blocking for final native-policy enforcement.
+- **Description:** The packaged PIE contains `DT_RUNPATH` set to
+  `/tmp/pocketclaw-runtime-build/deps/lib`. It is a build-host search path and
+  has no runtime purpose on Android. The executable currently resolves only
+  Android platform libraries, but a distributed artifact must not retain the
+  build-only loader directive.
+- **Evidence:** Exact H4B APK SHA-256
+  `14ba7d138a4092aefe264c7e2af6240c97fc1b782ded69918cbf545351eb5eb2`;
+  `readelf -dW` finds the one RUNPATH while all other 17 packaged ELF entries
+  have no RPATH/RUNPATH. `tool/native_elf_audit.py` reports the same finding.
+- **Reason deferred:** H5A may inspect but may not rebuild or rewrite native
+  payloads. The correction belongs at the source/link step and must be followed
+  by reproducibility and runtime-contract validation.
+- **Target milestone:** H5B targeted native hardening.
+- **Status:** OPEN / DIRECTLY RELATED / DEFERRED TO H5B.
+
+### PC-DEF-010 — Three runtime payloads retain the neutral build root
+
+- **Discovered:** H5A native/ELF audit, 2026-09-11.
+- **Component:** Managed Runtime curl, Git HTTP helper, and Python payloads.
+- **Severity:** Low exposure / release metadata hygiene; blocks the final H5B
+  no-build-path policy.
+- **Description:** The fixed neutral root prevents owner-home disclosure, but
+  it still leaves avoidable build identifiers in shipped bytes. Curl and the
+  Git HTTP helper each contain ten mbedTLS source paths rooted at
+  `/tmp/pocketclaw-runtime-build/mbedtls-3.6.4/`; the Git helper also carries
+  the RUNPATH tracked by `PC-DEF-009`. Python contains
+  `/tmp/pocketclaw-runtime-build/python/cpython` despite its existing
+  `-ffile-prefix-map` setting. No ELF contains `/home/lordegypt` or the
+  PocketClaw checkout path.
+- **Evidence:** Exact H4B APK and the H5A `strings` inventory reproduced by
+  `tool/native_elf_audit.py`: 10 curl hits, 11 Git HTTP hits, and one Python
+  hit. Intentional runtime/documentation strings such as `/tmp/perf-%jd.map`,
+  Core's `/tmp/project1` examples, and upstream `gh` `/home/runner/work/` data
+  are recorded but are not classified as this build machine's source paths.
+- **Reason deferred:** Fixing prefix maps requires source rebuilds, which H5A
+  expressly forbids.
+- **Target milestone:** H5B targeted native hardening.
+- **Status:** OPEN / DIRECTLY RELATED / DEFERRED TO H5B.
+
+### PC-DEF-011 — Native private symbol companions are not preserved
+
+- **Discovered:** H5A native/ELF audit, 2026-09-11.
+- **Component:** PocketClaw Core and Managed Runtime build recipes.
+- **Severity:** Release-support gap; blocks final native symbol-archive policy.
+- **Description:** All packaged payloads are stripped, which is correct for
+  distribution, but the tracked recipes do not preserve a private unstripped
+  twin or separate debug companion before stripping. Core and `gh` currently
+  build with Go `-s -w`; the shared runtime installer applies
+  `llvm-strip --strip-unneeded`; Python strips before appending its standard
+  library. Existing build IDs are absent from six C/Rust runtime payloads.
+- **Evidence:** H5A found no `.debug_*`, `.symtab`, or `.strtab` in any of the 18
+  packaged ELFs and found build IDs in 12. The build scripts show that stripped
+  outputs are installed directly without archiving a symbol-capable precursor.
+- **Reason deferred:** H5A defines policy but may not change flags or rebuild
+  Core/runtime. Each language/toolchain needs its own derivation and
+  symbolization proof; Python's appended ZIP requires ordering care.
+- **Target milestone:** H5B targeted native hardening and private archive.
+- **Status:** OPEN / DIRECTLY RELATED / DEFERRED TO H5B.
+
+### PC-DEF-012 — Broad dependency export surfaces need reachability evidence
+
+- **Discovered:** H5A native/ELF audit, 2026-09-11.
+- **Component:** Dart JNI plugin, embedded Python, and dependency-native ELF.
+- **Severity:** Hardening review item; no demonstrated functional or security
+  failure.
+- **Description:** Arm64 `libdartjni.so` exports 313 symbols (214
+  `globalEnv_*`, 42 Dart DL, seven Java/JNI, and 50 other); packaged Dart AOT
+  contains 11 matching names. The Python executable exports 2,261 dynamic
+  symbols. Datastore exports four required Java methods plus five C++ helpers.
+  These are wider surfaces than the app-owned entry points, but FFI lookups,
+  JNI name binding, statically linked modules, and upstream consumer contracts
+  make blind visibility changes unsafe.
+- **Evidence:** Dynamic-symbol and packaged-AOT comparison from the exact H4B
+  APK; required Java/JNI symbols and Dart snapshot exports are asserted by the
+  H5A audit tool.
+- **Reason deferred:** Static counts do not establish that an export is safe to
+  remove. Narrowing requires dependency-specific call/reachability evidence and
+  runtime validation.
+- **Target milestone:** Evaluate in H5B; preserve unless evidence supports a
+  narrow export map. Any remaining dependency surface must be explicitly
+  accepted or assigned a later dependency-focused milestone.
+- **Status:** OPEN / FUTURE EVIDENCE REQUIRED.
 
 ### PC-DEF-002 — Web console listens on `0.0.0.0:18800`
 
@@ -125,6 +185,32 @@ only reconstructable examples belong here.
 - **Status:** OPEN.
 
 ## Resolved
+
+### PC-DEF-008 — Dart intermediate strip boundary verified
+
+- **Phase discovered:** Post-H3B packaged-DWARF inspection.
+- **Component:** Dart AOT intermediate / Android native-library packaging.
+- **Problem:** Flutter warned that `gen_snapshot` emitted unobfuscated DWARF,
+  raising the question whether source-level debug data reached the APK.
+- **Resolution/conclusion:** H5A rechecked the exact H4B APK. Its 5,702,536-byte
+  `libapp.so` is byte-identical to the H3/H4 Dart AOT evidence and is stripped:
+  it has no `.debug_*`, `.zdebug_*`, `.symtab`, `.strtab`, source path, or
+  application-name exposure. Its only dynamic exports are the three Flutter
+  snapshot symbols; its 45-byte `.eh_frame` is unwind metadata. The ignored
+  intermediate may contain DWARF, while the required private Dart split-debug
+  file remains external.
+- **Verification:** APK SHA-256
+  `14ba7d138a4092aefe264c7e2af6240c97fc1b782ded69918cbf545351eb5eb2`;
+  packaged `libapp.so` SHA-256
+  `c7b2a885ff843a20c57097a0d16ba07c728bd64cf17455a1ce61e6f463a5ae77`;
+  `readelf`, `file`, `strings`, and the H5A automated audit agree.
+  `gen_snapshot --strip` would not reduce distributed exposure because AGP
+  already produces the desired packaged result; enabling it could interfere
+  with the established external symbol/reproducibility contract without a
+  demonstrated release benefit.
+- **Commit:** H5A audit/closeout commit containing this record.
+- **Status:** RESOLVED / VERIFIED NON-BLOCKING. Future Flutter/AGP changes must
+  retain the packaged-DWARF regression check.
 
 ### PC-DEF-R013 — Release manifest still listed H4B as pending after validation
 

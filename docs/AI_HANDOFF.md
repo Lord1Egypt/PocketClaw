@@ -41,17 +41,19 @@ phase-scoped statement in them does not override the current snapshot.
 ## Current handoff
 
 H2 developer production signing, H3A/H3B Dart hardening, and H4A/H4B
-R8/ProGuard hardening are closed.
+R8/ProGuard hardening are closed. H5A native/ELF audit and symbol policy is
+also closed; it made no native binary change.
 Their artifacts are private validation evidence; none was installed, published,
 or accepted. The accepted physical baseline remains vc62 / versionCode 62.
 
-The next authorized engineering milestone is **native/ELF hardening, symbol
-policy, and private symbol archive**, but implementation must wait for an
-explicit prompt. H4B proved H4A's narrowed rules, shrinking, renaming, and
-private mapping contract under the enrolled production signer. Do not treat
-its validation APK as a final release or accepted physical baseline.
-Native/ELF hardening has not started; `PC-DEF-008` remains deferred to that
-phase and must be reverified there.
+The next authorized engineering milestone is **H5B targeted native hardening
+and private native-symbol archive**, but implementation must wait for an
+explicit prompt. H5A's exact 18-entry ELF inventory, category policy, four
+target-policy findings, and ordered H5B plan are in
+[`prompts/history/H5A_NATIVE_ELF_AUDIT.md`](prompts/history/H5A_NATIVE_ELF_AUDIT.md).
+`PC-DEF-008` is resolved as verified non-blocking; `PC-DEF-009` through
+`PC-DEF-012` define the remaining native targets. Do not treat the H4B
+validation APK as a final release or accepted physical baseline.
 
 Do not create a stable tag, publish a release, access a device, rebuild Core or
 Managed Runtime, or advance the accepted baseline without explicit milestone

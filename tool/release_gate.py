@@ -602,6 +602,11 @@ def source_gates(gate: Gate, run_tests: bool, release_class: str = "test"):
                expected="minify/shrink enabled, narrow rules, fresh private mapping evidence",
                observed="PASS" if rc == 0 else out.strip().splitlines()[-1] if out.strip() else "FAIL")
 
+    rc, out = run([sys.executable, str(REPO / "tool/test_native_elf_audit.py")])
+    gate.check("native.elf_audit_contract", rc == 0,
+               expected="read-only category-aware ELF audit regression suite",
+               observed="PASS" if rc == 0 else out.strip().splitlines()[-1] if out.strip() else "FAIL")
+
 
     flutter = shutil.which("flutter")
     if not flutter:

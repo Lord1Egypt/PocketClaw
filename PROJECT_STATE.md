@@ -1,6 +1,6 @@
 # PocketClaw Project State
 
-## Authoritative current snapshot — H4B
+## Authoritative current snapshot — H5A
 
 This section is the current project-state authority. It is verified against Git,
 tracked release inputs, the production signer enrollment, and current GitHub
@@ -15,13 +15,14 @@ evidence and describe the state at the date of each entry.
 | H3B state-basis HEAD | `6491ccc6f611c7513506d622dbb1ad4a75c93a43` (verified H3B starting commit; the H3B defect fix and closeout commit follow it) |
 | H4A state-basis HEAD | `30ec1951cb91df2d3ab80ce09d3e1176611242f7` (verified H4A starting commit; the H4A closeout commit follows it) |
 | H4B state-basis HEAD | `a6034c065becccc0a01ed7e734dad6b2558a0ef1` (verified H4B starting commit; the H4B closeout commit follows it) |
+| H5A state-basis HEAD | `9aa7066cb30ca00800291b980de34e0ebccdce89` (verified H5A starting commit; the audit-only closeout commit follows it) |
 | Version | `0.2.0+62` |
 | Accepted physical baseline | vc62 / `lastAcceptedVersionCode=62` |
-| Current phase | Final Production Release Hardening; H4B production-signed R8/ProGuard validation closed |
+| Current phase | Final Production Release Hardening; H5A native/ELF audit and symbol policy closed |
 | Developer production signer | `176dca6b198b9552fb4d9ad3ca18da8d6f23c0a3f5ed4bd6b75a0700f9f0efcf` |
 | Core fingerprint | `876b87f5950452ba903301b6cce4cc96502ab4ff25d90d13e31b9da537e24b44` |
 | Distribution targets | Direct APK, Google Play, Official F-Droid |
-| Next authorized milestone | Native/ELF hardening, symbol policy, and private symbol archive; it has not started |
+| Next authorized milestone | H5B targeted native hardening and private native-symbol archive; it has not started |
 
 The H2 production validation APK has SHA-256
 `f0d83298c2ce061c01a9fc931ad29676e4d4b646bb5b204a9bf0002b11a7f46f`
@@ -127,6 +128,33 @@ and Dart symbols remain ignored, untracked, external to the APK, and private.
 The APK was not installed, published, accepted, or committed and does not
 advance vc62.
 
+H5A audited all 18 ELF entries in that exact H4B APK without rebuilding or
+modifying any binary. All have correct ABI/type/entrypoint roles, at least
+16 KiB-compatible PT_LOAD alignment, non-executable stacks, no writable plus
+executable load segment, no TEXTREL, and no packaged source DWARF, `.symtab`, or
+`.strtab`. Imported dynamic ELFs have GNU RELRO plus BIND_NOW; static PIE
+payloads have no lazy-binding surface. `PC-DEF-008` is resolved as verified
+non-blocking because packaged `libapp.so` remains stripped and its private Dart
+DWARF remains external.
+
+The audit records four final-policy findings for H5B: one build-only RUNPATH in
+`libpocketclaw-git-remote-http.so`, and neutral
+`/tmp/pocketclaw-runtime-build` strings in curl, Git HTTP, and Python. No ELF
+contains `/home/lordegypt` or the PocketClaw checkout path. Current Core/runtime
+recipes also lack a private symbol-capable companion, and broad dependency
+exports require reachability evidence before any safe narrowing. These are
+tracked as `PC-DEF-009` through `PC-DEF-012`; none blocks the completed
+audit-only H5A, but `PC-DEF-009` through `011` must be addressed before final
+native-policy acceptance.
+
+The durable native policy is category-specific. Private support artifacts will
+live under ignored `build/private-symbols/native/android-arm64/`, with hashes,
+build IDs, source/toolchain inputs, and the exact shipped APK association in a
+private manifest. No native support artifact was created, packaged, published,
+or committed in H5A. The full inventory, per-entry hashes/build IDs, security
+matrix, export analysis, and ordered H5B plan are in
+[`docs/prompts/history/H5A_NATIVE_ELF_AUDIT.md`](docs/prompts/history/H5A_NATIVE_ELF_AUDIT.md).
+
 ### Completed major milestones
 
 - vc62 Zero-Pico namespace closeout: physically accepted and merged.
@@ -141,13 +169,14 @@ advance vc62.
 - H3B production-signed Dart-hardening validation: closed.
 - H4A R8/ProGuard hardening and non-releasable validation: closed.
 - H4B production-signed R8/ProGuard validation: closed.
+- H5A native/ELF audit and private-symbol policy: closed.
 
 See [`docs/ROADMAP.md`](docs/ROADMAP.md) for the phase sequence and
 [`docs/AI_HANDOFF.md`](docs/AI_HANDOFF.md) for the mandatory read order.
 
 ### Pending hardening and deferred work
 
-- Native hardening, symbol policy, and symbol archive.
+- H5B targeted native hardening and private native-symbol archive.
 - Secrets/configuration plus APK/AAB exposure audit.
 - Full APK/AAB production inspection and production-class gate.
 - APK-level reproducibility for the target F-Droid path.
@@ -200,13 +229,14 @@ current release inventory.
 
 ### Exact next action
 
-Prepare and review an explicit native/ELF hardening, symbol-policy, and private
-symbol-archive prompt from
+Prepare and review an explicit H5B targeted native-hardening and private
+native-symbol-archive prompt from
 [`docs/prompts/PROMPT_TEMPLATE.md`](docs/prompts/PROMPT_TEMPLATE.md),
 review it against
 [`docs/prompts/REVIEW_PROTOCOL.md`](docs/prompts/REVIEW_PROTOCOL.md), and wait
-for owner authorization. Reverify the `PC-DEF-008` strip boundary within that
-scope. Do not begin native hardening from this closeout.
+for owner authorization. Its implementation targets are `PC-DEF-009` through
+`PC-DEF-012` and the ordered plan in the H5A operating record. Do not begin H5B
+from this closeout.
 
 # Historical milestone archive
 

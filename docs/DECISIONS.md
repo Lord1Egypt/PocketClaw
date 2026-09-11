@@ -191,3 +191,32 @@ decision journal and supplies the underlying engineering narratives.
   preserved; focused R8 tests and 30/30 local-test artifact gate. H4B retained
   the same DEX bytes and mapping under the enrolled production signer and
   passed 30/30 production artifact checks.
+
+## PC-D013 — Apply native hardening by ELF role and archive support privately
+
+- **Status:** Accepted by H5A for implementation and validation in H5B.
+- **Decision:** Inspect every packaged ELF and classify Dart AOT, JNI/plugin
+  libraries, Core executable payloads, Managed Runtime executable payloads, and
+  dependency-native artifacts before enforcing release rules. Shipped outputs
+  must be stripped of source DWARF/static symbol tables and satisfy role-aware
+  NX, W^X, TEXTREL, RELRO, search-path, alignment, architecture, path-privacy,
+  and required-export checks. Preserve symbol-capable native support artifacts
+  under ignored `build/private-symbols/native/android-arm64/`, with a private
+  manifest linking support hashes and build IDs to shipped payload and APK
+  hashes. Do not publish or package these artifacts by default.
+- **Rationale:** The exact H4B APK contains ordinary shared libraries, Dart
+  AOT, and executable programs that use `.so` solely to reach Android's
+  executable `nativeLibraryDir`. One blanket strip/export rule would break
+  executable/catalog behavior or JNI/FFI entry points. Existing builds already
+  strip every packaged ELF but preserve no adequate private native companion;
+  the audit also found one RUNPATH and three build-root-bearing payloads.
+- **Consequences:** H5B must derive private and shipped outputs from the same
+  inputs for each toolchain, preserve Python's appended ZIP ordering, prove
+  meaningful symbolization and reproducibility, and remove build paths/RUNPATH
+  at the source/link step. Dependency exports remain until reachability and
+  runtime evidence supports a narrower contract. Build IDs assist lookup, but
+  exact hashes are the authority.
+- **Evidence:** Exact H4B APK SHA-256
+  `14ba7d138a4092aefe264c7e2af6240c97fc1b782ded69918cbf545351eb5eb2`;
+  18-entry H5A inventory, security matrix, automated audit and H5B plan in
+  [`prompts/history/H5A_NATIVE_ELF_AUDIT.md`](prompts/history/H5A_NATIVE_ELF_AUDIT.md).

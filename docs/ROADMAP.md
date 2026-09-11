@@ -22,31 +22,39 @@ not that PocketClaw is a final release.
 | H3B production-signed Dart-hardening validation | **Closed by this H3B closeout** | Production APK `ceef6640d8abd9d084c3ff37d8e903aaf3c82b287de65ec15a37d91124bdebe6`; 25/25 production artifact checks PASS; closeout commit containing the H3B record |
 | H4A R8/ProGuard hardening and local validation | **Closed by this H4A closeout** | Project blanket keeps removed; non-releasable APK `db7fa8cb190fcebc160b2c718d9c120de296efb378d8a1196a5ff722ba3e1f78`; private mapping `14d49fad46e773e32da69b7b2336b7a968808cd1130f0319f7806ca4d09c1beb`; 30/30 artifact checks PASS |
 | H4B production-signed R8/ProGuard validation | **Closed by this H4B closeout** | Production-validation APK `14ba7d138a4092aefe264c7e2af6240c97fc1b782ded69918cbf545351eb5eb2`; H4A-identical DEX/mapping/Dart payloads; enrolled signer; 30/30 production artifact checks PASS |
+| H5A native/ELF audit and symbol policy | **Closed by this H5A closeout** | Exact H4B APK; 18 ELF entries classified and inspected; category-specific policy and read-only audit; `PC-DEF-008` resolved; four target-policy findings assigned to H5B |
 
 ## Authorized next milestone
 
-### Native/ELF hardening, symbol policy, and private symbol archive
+### H5B targeted native hardening and private native-symbol archive
 
 Status: **not started; an explicit milestone prompt is required**.
 
 Expected scope:
 
-- audit only native/ELF hardening and symbol handling;
-- reverify the existing AGP strip boundary tracked by `PC-DEF-008`;
-- define and validate the private native symbol archive policy;
+- remove the build-only Git HTTP RUNPATH at its source/link step;
+- remap the three remaining neutral build-root exposures;
+- implement category-aware private support artifacts for owned Core/runtime
+  payloads and prove representative symbolization;
+- preserve or narrow dependency/JNI exports only from reachability and runtime
+  evidence;
+- require the H5A native audit's target-policy mode and prove equivalent native
+  builds reproducible;
 - preserve the validated Dart/R8, Core, runtime, version, signer-enrollment, and
   baseline contracts.
 
-H4B proved the H4A R8 result under production signing. Its APK remains private,
-uninstalled, unpublished, and outside the accepted physical baseline.
+H5A made no binary change and used no signing material. The H4B APK remains
+private, uninstalled, unpublished, and outside the accepted physical baseline.
+The exact ordered H5B plan is in
+[`prompts/history/H5A_NATIVE_ELF_AUDIT.md`](prompts/history/H5A_NATIVE_ELF_AUDIT.md).
 
-## Required sequence after H4B
+## Required sequence after H5A
 
 Do not collapse these into one milestone. Each receives its own prompt, evidence,
 review result, documentation closeout, and `STOP`.
 
-1. Native hardening, symbol policy, and symbol archive, including the deferred
-   `PC-DEF-008` strip-boundary recheck.
+1. H5B targeted native hardening and private native-symbol archive, addressing
+   `PC-DEF-009` through `PC-DEF-012`. `PC-DEF-008` is already resolved by H5A.
 2. Secrets/configuration and APK/AAB exposure audit.
 3. APK and AAB production inspection.
 4. Run the full production-class release gate after all hardening phases.

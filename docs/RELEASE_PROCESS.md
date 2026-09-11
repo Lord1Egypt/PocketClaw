@@ -145,6 +145,43 @@ deobfuscation. They remain ignored by Git, outside APK/AAB files, absent from
 public release assets by default, and are not F-Droid payloads. Supply mapping
 evidence to artifact inspection with `--r8-mapping <private-mapping.txt>`.
 
+## Native ELF and private-symbol policy
+
+Run the read-only packaged-ELF inventory before accepting a native-hardened
+candidate:
+
+```text
+python3 tool/native_elf_audit.py --apk <exact-apk> \
+  --manifest <private-or-temporary-json> --enforce-target
+```
+
+The final native policy is category-specific. Packaged Dart AOT carries only
+the required snapshot exports and unwind data; JNI/plugin libraries retain
+their proven Java/FFI/engine entry points; Core and Managed Runtime entries are
+PIE executables packaged with `.so` names and must not be treated as ordinary
+shared libraries; upstream dependency ELFs retain their pinned contracts unless
+source and runtime evidence supports a narrower one. Every shipped ELF must
+match its ABI/type role, use at least 16 KiB-compatible load alignment, have a
+non-executable stack, have no writable+executable segment or TEXTREL, and expose
+no source DWARF, static symbol table, developer checkout path, prohibited build
+root, or RPATH/RUNPATH. Dynamic imports require full RELRO; static PIEs with no
+lazy-binding relocations treat BIND_NOW as not applicable.
+
+Native support material lives under ignored
+`build/private-symbols/native/android-arm64/`. Preserve a symbol-capable
+unstripped twin or separate debug companion when technically possible, grouped
+by shipped payload. The private per-build manifest records the shipped payload
+SHA-256/build ID, support-file path/size/SHA-256, source and toolchain inputs,
+and final APK hash. Native support artifacts follow the same policy as Dart
+split-debug-info and R8 mapping: private, untracked, outside APK/AAB files, not
+public release assets by default, and not F-Droid payloads. Python support data
+must be captured before stripping and before appending its standard-library
+ZIP. Build IDs aid association but byte hashes remain authoritative.
+
+The H5A audit record in
+[`prompts/history/H5A_NATIVE_ELF_AUDIT.md`](prompts/history/H5A_NATIVE_ELF_AUDIT.md)
+contains the exact H4B inventory and ordered H5B implementation targets.
+
 ## Channel paths
 
 ### Direct APK
@@ -174,3 +211,25 @@ APK/AAB inspection, production gate, external-view exposure audit, and final
 Samsung physical smoke all pass and the owner explicitly authorizes release.
 Creating a candidate, signing it, or passing an artifact gate does not itself
 grant publication authority.
+
+## Golden final physical-validation workflow
+
+This workflow is documentation for a future explicitly authorized final-device
+milestone. It is not authority to access or change a device.
+
+- Stage in WSL at `/mnt/c/temp/pocketclaw`, corresponding to Windows
+  `C:\temp\pocketclaw`.
+- Use Windows ADB only for this device workflow:
+  `/mnt/c/Users/MohamedMounir/AppData/Local/Microsoft/WinGet/Packages/Google.PlatformTools_Microsoft.Winget.Source_8wekyb3d8bbwe/platform-tools/adb.exe`.
+- Expected physical target: device `RK8Y6016N5V`, Samsung `SM-A165F`.
+- Hash the exact artifact before and after Windows staging.
+- The implementation agent installs only when a future milestone explicitly
+  authorizes it. The owner performs manual UI and functional acceptance.
+- Do not use screenshots or UI automation unless explicitly requested. Do not
+  uninstall or clear data during a same-signer upgrade test.
+- Never use `adb install -r` across different signing identities.
+
+The accepted vc62 installation and current developer production certificate are
+different signing identities. A future production-signer device transition
+therefore requires its own authorized migration/clean-install and data-safeguard
+plan before any installation attempt.
