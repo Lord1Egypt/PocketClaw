@@ -13,6 +13,7 @@ import hashlib
 import json
 import os
 import shlex
+import shutil
 import subprocess
 import sys
 import zipfile
@@ -22,6 +23,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parent.parent
 ANDROID = REPO / "android"
 PACKAGE_CONFIG = REPO / ".dart_tool/package_config.json"
+FLUTTER_BUILD_DIR = REPO / ".dart_tool/flutter_build"
 APK = REPO / "build/app/outputs/apk/release/app-release.apk"
 DEFAULT_SYMBOLS_DIR = Path("build/private-symbols/dart/android-arm64")
 GENERATED_PACKAGE = {
@@ -129,6 +131,32 @@ def resolve_symbols_dir(raw: str) -> tuple[str, Path]:
     return (raw if not candidate.is_absolute() else str(resolved), resolved)
 
 
+def reset_generated_build_outputs(
+    apk: Path = APK,
+    symbols: Path | None = None,
+    flutter_build_dir: Path = FLUTTER_BUILD_DIR,
+) -> None:
+    """Force Flutter to regenerate AOT and its external DWARF as one pair.
+
+    Flutter 3.47.1's incremental build cache tracks ``app.so`` but not the
+    split-debug-info file written beside the build.  Reusing that cache after
+    deleting the private DWARF therefore produces a valid AOT library without
+    recreating its required symbol companion.  A hardened build clears only
+    Flutter's generated build cache before assembly so ``gen_snapshot`` must
+    emit both outputs again.
+    """
+    if flutter_build_dir.is_symlink():
+        raise HardeningError(f"refusing to clear symlinked Flutter build cache: {flutter_build_dir}")
+    if flutter_build_dir.exists():
+        if not flutter_build_dir.is_dir():
+            raise HardeningError(f"Flutter build cache is not a directory: {flutter_build_dir}")
+        shutil.rmtree(flutter_build_dir)
+    if symbols is not None and symbols.exists():
+        symbols.unlink()
+    if apk.exists():
+        apk.unlink()
+
+
 def gradle_command(signing: str, symbols_property: str) -> list[str]:
     command = [
         str(ANDROID / "gradlew"),
@@ -230,11 +258,8 @@ def main() -> int:
         symbols_property, symbols_dir = resolve_symbols_dir(args.symbols_dir)
         changed = prepare_generated_source_package()
         symbols = symbols_dir / "app.android-arm64.symbols"
+        reset_generated_build_outputs(APK, symbols)
         symbols_dir.mkdir(parents=True, exist_ok=True)
-        if symbols.exists():
-            symbols.unlink()
-        if APK.exists():
-            APK.unlink()
 
         environment = dict(os.environ)
         if args.signing == "local-test":
@@ -246,6 +271,10 @@ def main() -> int:
                 "Prepared stable package:pocketclaw_generated mapping in generated package config.",
                 flush=True,
             )
+        print(
+            "Invalidated generated Flutter build cache; AOT and private symbols will be regenerated.",
+            flush=True,
+        )
         classification = (
             "LOCAL TEST / NON-RELEASABLE" if args.signing == "local-test" else "PRODUCTION"
         )

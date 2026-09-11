@@ -3,6 +3,7 @@
 
 import importlib.util
 import json
+import os
 import sys
 import tempfile
 import unittest
@@ -87,6 +88,60 @@ class SigningModeTest(unittest.TestCase):
     def test_production_requires_all_variable_names_without_reading_values(self):
         with self.assertRaises(hardening.HardeningError):
             hardening.validate_signing_environment("production", {"KEYSTORE_PATH": "/outside"})
+
+
+class GeneratedOutputResetTest(unittest.TestCase):
+    def test_clears_cached_aot_and_stale_outputs_but_preserves_package_config(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            flutter_build = root / ".dart_tool/flutter_build"
+            cached_aot = flutter_build / "cache-key/arm64-v8a/app.so"
+            cached_aot.parent.mkdir(parents=True)
+            cached_aot.write_bytes(b"cached aot")
+            package_config = root / ".dart_tool/package_config.json"
+            package_config.write_text("{}", encoding="utf-8")
+            apk = root / "build/app-release.apk"
+            symbols = root / "build/private-symbols/app.android-arm64.symbols"
+            apk.parent.mkdir(parents=True)
+            symbols.parent.mkdir(parents=True)
+            apk.write_bytes(b"old apk")
+            symbols.write_bytes(b"old symbols")
+
+            hardening.reset_generated_build_outputs(apk, symbols, flutter_build)
+
+            self.assertFalse(flutter_build.exists())
+            self.assertFalse(apk.exists())
+            self.assertFalse(symbols.exists())
+            self.assertTrue(package_config.is_file())
+
+    def test_refuses_a_symlinked_flutter_build_cache(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            target = root / "outside"
+            target.mkdir()
+            flutter_build = root / "flutter_build"
+            flutter_build.symlink_to(target, target_is_directory=True)
+            with self.assertRaises(hardening.HardeningError):
+                hardening.reset_generated_build_outputs(
+                    root / "app.apk", root / "app.symbols", flutter_build
+                )
+            self.assertTrue(target.is_dir())
+
+    def test_relative_symbol_contract_does_not_depend_on_callers_cwd(self):
+        original = Path.cwd()
+        try:
+            with tempfile.TemporaryDirectory() as tmp:
+                os.chdir(tmp)
+                property_value, resolved = hardening.resolve_symbols_dir(
+                    "build/private-symbols/dart/android-arm64"
+                )
+        finally:
+            os.chdir(original)
+        self.assertEqual(property_value, "build/private-symbols/dart/android-arm64")
+        self.assertEqual(
+            resolved,
+            (hardening.REPO / "build/private-symbols/dart/android-arm64").resolve(),
+        )
 
 
 class OutputInspectionTest(unittest.TestCase):

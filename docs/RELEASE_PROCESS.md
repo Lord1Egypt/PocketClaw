@@ -26,6 +26,14 @@ SHA-256 is
 It carries the local development signer and is LOCAL TEST / NON-RELEASABLE. It
 was not installed, published, accepted, or signed with the production key.
 
+The H3B APK is a **production validation artifact** with the same hardened Dart
+payload and the enrolled developer signer. Its SHA-256 is
+`ceef6640d8abd9d084c3ff37d8e903aaf3c82b287de65ec15a37d91124bdebe6`.
+Its 25 production artifact checks pass with no failure or skip, but later R8,
+native, exposure, APK/AAB, external-view, and physical milestones remain. It is
+private, uninstalled, unpublished, unaccepted evidence rather than a stable
+release or hardened production candidate.
+
 ## Three signing identities
 
 1. **PocketClaw developer app-signing key.** Long-lived Android application
@@ -65,10 +73,9 @@ python3 tool/build_hardened_android.py --signing local-test --clean
 ```
 
 The local-test mode refuses any declared production-signing environment field
-and passes the existing explicit `-PallowDebugSigning=true` opt-in. A later
-authorized production validation uses `--signing production` after owner-only
-hidden secret entry; credentials remain environment-only and never appear in
-the command.
+and passes the existing explicit `-PallowDebugSigning=true` opt-in. Production
+validation uses `--signing production` after owner-only hidden secret entry;
+credentials remain environment-only and never appear in the command.
 
 The helper invokes `:app:assembleRelease` for `android-arm64` and passes the
 exact Flutter 3.47.1 Gradle properties `dart-obfuscation=true` and
@@ -77,6 +84,12 @@ mapping required for the stable
 `package:pocketclaw_generated/dart_plugin_registrant.dart` URI. Gradle fails
 before Dart compilation if the mode marker, flags, arm64 target, private output
 location, or mapping is absent or malformed.
+
+Before every hardened assembly, the helper clears only the generated
+`.dart_tool/flutter_build` cache. Flutter 3.47.1 tracks cached `app.so` but does
+not treat external split DWARF as a required incremental output; invalidating
+that cache guarantees AOT and its private symbol companion are regenerated
+together. The package configuration remains intact.
 
 The default Dart support artifact is
 `build/private-symbols/dart/android-arm64/app.android-arm64.symbols`. It is

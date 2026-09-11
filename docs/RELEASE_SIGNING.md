@@ -156,8 +156,42 @@ This artifact is private validation evidence. It was not installed or
 published, is not an accepted release, and does not advance the physical
 baseline. `vc62` / `lastAcceptedVersionCode=62` remains accepted. H2 is
 complete. H3A later established the Dart-hardening build path with a separate
-development-signed artifact; H3B production-signed hardening validation remains
-pending.
+development-signed artifact; H3B later validated that hardened path with the
+same enrolled production identity.
+
+### Production-signed Dart-hardening validation (H3B — performed 2026-09-11)
+
+The owner entered both passwords only through hidden local input in a temporary
+helper outside the repository. The corrected helper completed Java 17 and all
+other non-secret prerequisites first, validated `:app:validateReleaseSigning`,
+and invoked the canonical command:
+
+```text
+python3 tool/build_hardened_android.py --signing production --clean
+```
+
+The resulting private APK is 63,787,907 bytes with SHA-256
+`ceef6640d8abd9d084c3ff37d8e903aaf3c82b287de65ec15a37d91124bdebe6`.
+Independent inspection found one v2 signer matching
+`176dca6b198b9552fb4d9ad3ca18da8d6f23c0a3f5ed4bd6b75a0700f9f0efcf`.
+Dart AOT SHA-256 is
+`c7b2a885ff843a20c57097a0d16ba07c728bd64cf17455a1ce61e6f463a5ae77`
+and private split-DWARF SHA-256 is
+`0f52873bc712fe0c17d636f5bdb7d08ee80cdacfe633cf6a786dd2c6d93b8acc`,
+both byte-identical to H3A. The production artifact gate passed 25 / 25.
+
+The APK and private symbols were not committed, installed, or published. The
+accepted physical baseline remains vc62 / 62. H3B does not authorize later
+hardening or release work.
+
+### Owner-local prerequisite ordering
+
+Any helper that collects owner signing passwords must finish all non-secret
+prerequisites before its first hidden prompt. At minimum it verifies the
+required JDK version and `JAVA_HOME`, Python, the Gradle wrapper, repository and
+canonical build-helper paths, and external keystore presence. A prerequisite
+failure must exit without requesting either password. Only then may the helper
+use hidden terminal input and export credentials inside the trapped process.
 
 ## 6. Building with the production key
 

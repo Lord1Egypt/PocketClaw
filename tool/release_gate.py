@@ -115,7 +115,6 @@ def enrolled_production_signer() -> str | None:
 # Real work that is not done yet. The gate names these rather than implying the
 # release is fully hardened; it must not pretend they are solved.
 PENDING_FINAL_HARDENING = [
-    "H3B production-signed Dart-hardening validation not yet performed",
     "R8 keep rules not narrowed",
     # Distribution is direct APK + Google Play + official F-Droid. F-Droid will
     # only publish the developer-signed artifact for a build it can reproduce,

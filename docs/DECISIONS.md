@@ -138,7 +138,7 @@ decision journal and supplies the underlying engineering narratives.
 
 ## PC-D011 — Build Dart-hardened Android artifacts through one fail-closed contract
 
-- **Status:** Accepted by H3A; production-signing validation remains H3B.
+- **Status:** Accepted by H3A and production-validated by H3B.
 - **Decision:** `tool/build_hardened_android.py` is the canonical Android
   release entry point. It couples arm64 release compilation, Dart obfuscation,
   external split debug info, and Flutter's generated-source package mapping.
@@ -155,6 +155,10 @@ decision journal and supplies the underlying engineering narratives.
   packaged into it. It is preserved privately for crash symbolization and is
   not a signing secret, Git input, or public release asset. Any future Flutter
   upgrade must revalidate the generated-package mechanism and artifact checks.
+  The helper clears only Flutter's generated build cache before assembly because
+  Flutter 3.47.1 does not track external split DWARF as an incremental output;
+  this keeps the AOT and its private symbol companion from separating.
 - **Evidence:** H3A helper and Gradle guard; focused Python/Dart tests; two clean
   builds with byte-identical `libapp.so` and split DWARF across different output
-  roots; H3A local-test artifact gate 25 PASS / 0 FAIL / 0 SKIPPED.
+  roots; H3A local-test and H3B production artifact gates each 25 PASS / 0 FAIL
+  / 0 SKIPPED.

@@ -1,6 +1,6 @@
 # PocketClaw Project State
 
-## Authoritative current snapshot — H3A
+## Authoritative current snapshot — H3B
 
 This section is the current project-state authority. It is verified against Git,
 tracked release inputs, the production signer enrollment, and current GitHub
@@ -12,13 +12,14 @@ evidence and describe the state at the date of each entry.
 | Working branch | `feature/final-release-hardening` |
 | PC-1 state-basis HEAD | `0be6afbd92209953d918d5c0516662bc54f0d081` (PC-1's verified starting commit; the documentation-only closeout commit necessarily follows it) |
 | H3A state-basis HEAD | `9a5a5dd9fd4a0697451d27948efe2c5be6e5c028` (verified H3A starting commit; the H3A closeout commit follows it) |
+| H3B state-basis HEAD | `6491ccc6f611c7513506d622dbb1ad4a75c93a43` (verified H3B starting commit; the H3B defect fix and closeout commit follow it) |
 | Version | `0.2.0+62` |
 | Accepted physical baseline | vc62 / `lastAcceptedVersionCode=62` |
-| Current phase | Final Production Release Hardening; H3A implemented and locally validated; production validation pending |
+| Current phase | Final Production Release Hardening; H3B production-signed Dart-hardening validation closed |
 | Developer production signer | `176dca6b198b9552fb4d9ad3ca18da8d6f23c0a3f5ed4bd6b75a0700f9f0efcf` |
 | Core fingerprint | `876b87f5950452ba903301b6cce4cc96502ab4ff25d90d13e31b9da537e24b44` |
 | Distribution targets | Direct APK, Google Play, Official F-Droid |
-| Next authorized milestone | H3B — owner production-signed Dart-hardening validation; explicit prompt and hidden local secret entry required |
+| Next authorized milestone | R8 / ProGuard final hardening review; explicit milestone prompt required and work has not started |
 
 The H2 production validation APK has SHA-256
 `f0d83298c2ce061c01a9fc931ad29676e4d4b646bb5b204a9bf0002b11a7f46f`
@@ -42,8 +43,27 @@ is `c7b2a885ff843a20c57097a0d16ba07c728bd64cf17455a1ce61e6f463a5ae77`.
 The external private DWARF SHA-256 is
 `0f52873bc712fe0c17d636f5bdb7d08ee80cdacfe633cf6a786dd2c6d93b8acc`.
 Neither this APK nor its symbols are committed, installed, published, accepted,
-or production-signed. H3B must still validate the same contract with the
-enrolled production signer.
+or production-signed. It remains the H3A local-test evidence that H3B later
+validated under the enrolled production signer.
+
+H3B validated the same Dart-hardening contract with the enrolled production
+signer. The private validation APK is
+`build/app/outputs/apk/release/app-release.apk`, 63,787,907 bytes, SHA-256
+`ceef6640d8abd9d084c3ff37d8e903aaf3c82b287de65ec15a37d91124bdebe6`,
+package `com.lord1egypt.pocketclaw`, version `0.2.0` (62), with an arm64 product
+payload and the already accepted plugin ABI stubs. Independent `apksigner`
+inspection found exactly one v2 signer with certificate SHA-256
+`176dca6b198b9552fb4d9ad3ca18da8d6f23c0a3f5ed4bd6b75a0700f9f0efcf`.
+The production artifact gate passed 25 checks with 0 failures and 0 skips.
+
+Its Dart AOT SHA-256 is
+`c7b2a885ff843a20c57097a0d16ba07c728bd64cf17455a1ce61e6f463a5ae77`,
+byte-identical to H3A. The private split DWARF is 3,513,592 bytes with SHA-256
+`0f52873bc712fe0c17d636f5bdb7d08ee80cdacfe633cf6a786dd2c6d93b8acc`,
+also byte-identical to H3A. Every ZIP entry payload matches H3A; the whole APK
+hash differs because the signing block differs. Private symbols remain ignored,
+external to the APK, untracked, and unpublished. The APK was not installed,
+published, accepted, or committed, and it does not advance vc62.
 
 Private keystores, keys, passwords, tokens, and recovery secrets are external to
 Git. The repository carries only the public certificate digest and public build
@@ -61,13 +81,13 @@ keystore exists.
 - H2 production signer enrollment and private validation: closed.
 - PC-1 continuity protocol: represented by this documentation closeout.
 - H3A Dart binary hardening architecture and non-releasable validation: closed.
+- H3B production-signed Dart-hardening validation: closed.
 
 See [`docs/ROADMAP.md`](docs/ROADMAP.md) for the phase sequence and
 [`docs/AI_HANDOFF.md`](docs/AI_HANDOFF.md) for the mandatory read order.
 
 ### Pending hardening and deferred work
 
-- H3B owner production-signed Dart-hardening validation.
 - R8 / ProGuard review and narrowing.
 - Native hardening, symbol policy, and symbol archive.
 - Secrets/configuration plus APK/AAB exposure audit.
@@ -122,14 +142,32 @@ current release inventory.
 
 ### Exact next action
 
-Prepare and review an explicit H3B production-validation prompt from
+Prepare and review an explicit R8 / ProGuard hardening prompt from
 [`docs/prompts/PROMPT_TEMPLATE.md`](docs/prompts/PROMPT_TEMPLATE.md), review it
-against [`docs/prompts/REVIEW_PROTOCOL.md`](docs/prompts/REVIEW_PROTOCOL.md), and
-wait for owner authorization. H3B must use hidden local secret input; no signing
-password enters chat, Git, argv, a report, or a repository file. Do not begin
-R8/ProGuard or native hardening.
+against [`docs/prompts/REVIEW_PROTOCOL.md`](docs/prompts/REVIEW_PROTOCOL.md),
+and wait for owner authorization. Do not begin R8/ProGuard or native hardening
+from this closeout.
 
 # Historical milestone archive
+
+## Final Production Release Hardening H3B — CLOSED / PRIVATE VALIDATION
+
+H3B started from `6491ccc6f611c7513506d622dbb1ad4a75c93a43` and validated
+the H3A Dart-hardening contract under the enrolled production signer. The exact
+APK, AOT, private-DWARF, signer, and gate evidence is recorded in the current
+snapshot and the H3B reconstructed operating record.
+
+The first owner run exposed a directly related cache defect: Flutter 3.47.1
+could reuse cached AOT after the helper deleted external split debug info,
+because that external file is not a tracked cache output. The canonical helper
+now clears only `.dart_tool/flutter_build` before assembly so AOT and DWARF are
+regenerated together. The corrected owner helper also completes Java and other
+non-secret prerequisite checks before requesting hidden signing input. Both
+defects were re-tested and resolved during H3B.
+
+This APK is private validation evidence. It was not installed, published,
+accepted, or committed. The accepted physical baseline remains vc62 / 62.
+R8/ProGuard and native hardening have not started.
 
 Everything below this heading is phase-scoped evidence preserved from earlier
 closeouts. When an older statement conflicts with the authoritative snapshot,

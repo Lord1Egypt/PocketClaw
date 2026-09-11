@@ -19,28 +19,27 @@ not that PocketClaw is a final release.
 | H2 private production-signing validation | **Closed** | `7f19309fdf4261224fd9b323a7f2663f59b37545`, corrected by `0be6afbd92209953d918d5c0516662bc54f0d081` |
 | PC-1 repository continuity protocol | **Closed** | `9a5a5dd9fd4a0697451d27948efe2c5be6e5c028` |
 | H3A Dart hardening architecture and local validation | **Closed by this H3A closeout** | Canonical helper and Gradle guard; non-releasable APK `23dbaa24f375057faf30b469b3a8cafb1a1c235c9afacea15f944df41ad63894`; commit containing this record |
+| H3B production-signed Dart-hardening validation | **Closed by this H3B closeout** | Production APK `ceef6640d8abd9d084c3ff37d8e903aaf3c82b287de65ec15a37d91124bdebe6`; 25/25 production artifact checks PASS; closeout commit containing the H3B record |
 
 ## Authorized next milestone
 
-### H3B — Production-signed Dart-hardening validation
+### R8 / ProGuard final hardening review
 
-Status: **owner action remains; implementation must wait for an explicit H3B
+Status: **not started; implementation must wait for an explicit milestone
 prompt**.
 
 Expected scope:
 
-- use the H3A canonical build contract without changing it;
-- obtain owner signing passwords only through hidden local input;
-- build and inspect one private production-signed hardened validation APK;
-- match its signer to the enrolled developer production certificate;
-- run the Dart-aware production artifact gate and preserve private symbols;
-- keep the artifact private, uninstalled, unpublished, and unaccepted.
+- inspect the current Java/Kotlin shrinker configuration and actual artifact;
+- review broad keep rules against pinned plugin/runtime requirements;
+- narrow only rules supported by focused evidence and regression coverage;
+- preserve the validated H3B Dart, signing, Core, runtime, version, and baseline
+  contracts.
 
-H3A already proved controlled obfuscation, external split debug info, the stable
-`package:pocketclaw_generated/dart_plugin_registrant.dart` strategy, a real
-`artifact.dart_snapshot_paths` PASS, and byte-identical Dart AOT/DWARF across
-two clean builds with different symbol-output roots. It did not use the
-production signer and does not authorize H3B automatically.
+H3B proved controlled Dart obfuscation, regenerated external split debug info,
+the stable `package:pocketclaw_generated/dart_plugin_registrant.dart` strategy,
+and a 25/25 production artifact gate under the enrolled production signer. It
+does not authorize R8 / ProGuard work automatically.
 
 ## Required sequence after H3B
 

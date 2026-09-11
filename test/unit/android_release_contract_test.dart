@@ -462,5 +462,16 @@ void main() {
       expect(source, contains('.debug_info'));
       expect(source, contains('.debug_line'));
     });
+
+    test('canonical builds regenerate cached AOT and split symbols together', () {
+      final source = read(helper);
+      expect(source, contains('FLUTTER_BUILD_DIR'));
+      expect(source, contains('reset_generated_build_outputs(APK, symbols)'));
+      expect(source, contains('shutil.rmtree(flutter_build_dir)'));
+      expect(
+        source,
+        contains('AOT and private symbols will be regenerated'),
+      );
+    });
   });
 }

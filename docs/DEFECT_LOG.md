@@ -97,6 +97,48 @@ only reconstructable examples belong here.
 
 ## Resolved
 
+### PC-DEF-R009 — Cached Dart AOT could outlive its deleted split debug info
+
+- **Phase discovered:** H3B owner production-signing validation.
+- **Component:** Canonical Dart-hardened Android build helper / Flutter 3.47.1
+  incremental build cache.
+- **Problem/root cause:** The helper deleted the expected private DWARF before
+  the build, but `:app:clean` did not invalidate `.dart_tool/flutter_build`.
+  Flutter reused cached `app.so` because signing does not change Dart AOT inputs
+  and the external split-debug-info file is not a tracked cache output. The APK
+  assembled correctly while the required private symbol file was not recreated.
+- **Resolution:** Clear only Flutter's generated `.dart_tool/flutter_build`
+  cache before every hardened assembly so `gen_snapshot` must regenerate AOT
+  and private DWARF as one pair. Refuse a symlinked cache path.
+- **Verification:** The first diagnostic APK was production-signed and carried
+  H3A-identical AOT but had no symbol file; its gate was 23 PASS / 2 FAIL / 0
+  SKIP. After the fix, the owner rerun produced APK SHA-256
+  `ceef6640d8abd9d084c3ff37d8e903aaf3c82b287de65ec15a37d91124bdebe6`
+  with H3A-identical AOT and DWARF. The production artifact gate passed 25 / 25.
+  Focused tests cover stale-cache removal, package-config preservation, symlink
+  refusal, and cwd-independent symbol resolution.
+- **Commit:** H3B closeout commit containing this record.
+- **Status:** RESOLVED.
+
+### PC-DEF-R010 — Owner signing helper prompted before Java preflight
+
+- **Phase discovered:** H3B owner production-signing validation.
+- **Component:** Temporary owner-local signing helper.
+- **Problem/root cause:** The first temporary helper collected both owner
+  passwords before checking `JAVA_HOME` and Java availability. Its trap still
+  cleared the environment and no value was printed or stored, but the secret
+  prompts occurred before all non-secret prerequisites had passed.
+- **Resolution:** The corrected external helper validates JDK 17, Python,
+  Gradle, repository/helper paths, and keystore presence before its first hidden
+  prompt. The durable signing policy now requires this ordering for every future
+  owner-secret helper.
+- **Verification:** A missing-Java dry run exited before any prompt; a
+  correctly configured EOF-only dry run completed all non-secret checks and did
+  not begin a build. The subsequent owner rerun completed the production build,
+  and the helper's exit trap cleared all four signing variables.
+- **Commit:** H3B closeout commit containing this record.
+- **Status:** RESOLVED.
+
 ### PC-DEF-R008 — Dart snapshot exposed an absolute generated-source URI
 
 - **Phase discovered:** H2 artifact inspection; resolved in H3A.
@@ -119,8 +161,8 @@ only reconstructable examples belong here.
   the H3A artifact gate records `artifact.dart_snapshot_paths` PASS and 25 PASS
   / 0 FAIL / 0 SKIPPED overall.
 - **Commit:** H3A closeout commit containing this record.
-- **Status:** RESOLVED for the build contract and non-releasable artifact;
-  H3B production-signed validation remains required.
+- **Status:** RESOLVED; H3B subsequently validated the same contract under the
+  enrolled production signer.
 
 ### PC-DEF-R001 — Keystore helper could report a blank fingerprint as success
 
