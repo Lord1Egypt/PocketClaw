@@ -33,3 +33,4 @@ boundary.
 - [`H2 — Private production-signing validation`](history/H2_PRODUCTION_VALIDATION.md)
 - [`H3A — Dart hardening architecture and non-releasable validation`](history/H3A_DART_BINARY_HARDENING.md)
 - [`H3B — Production-signed Dart-hardening validation`](history/H3B_PRODUCTION_DART_HARDENING_VALIDATION.md)
+- [`H4A — R8/ProGuard hardening and non-releasable validation`](history/H4A_R8_PROGUARD_HARDENING.md)

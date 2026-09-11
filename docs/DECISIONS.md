@@ -162,3 +162,30 @@ decision journal and supplies the underlying engineering narratives.
   builds with byte-identical `libapp.so` and split DWARF across different output
   roots; H3A local-test and H3B production artifact gates each 25 PASS / 0 FAIL
   / 0 SKIPPED.
+
+## PC-D012 — Keep application R8 rules narrow and mappings private
+
+- **Status:** Accepted by H4A; production validation pending in H4B.
+- **Decision:** Release builds keep R8 minification, resource shrinking, and
+  optimized defaults enabled. PocketClaw adds no application-wide keep rule;
+  manifest/aapt rules, Flutter's pinned embedding contract, annotations, and
+  dependency consumer rules retain actual entry points. Every future custom
+  keep must cite a concrete reflection, JNI, or framework need and have focused
+  regression coverage. Fresh `mapping.txt` and `usage.txt` are mandatory
+  hardened-build evidence.
+- **Rationale:** The former project rule retained all PocketClaw, Flutter, and
+  plugin classes, leaving application implementation names unchanged even
+  though R8 executed. The merged H4A configuration proved the four Android
+  components already have generated constructor keeps and found no app-owned
+  reflective serialization or JNI entry point needing a blanket rule.
+- **Consequences:** The R8 mapping and sibling reports live under ignored
+  `build/app/outputs/mapping/release/`, remain outside APK/AAB files and public
+  assets, and must be preserved privately with a production release for
+  Java/Kotlin deobfuscation. Dependency-owned broad consumer rules remain
+  visible audit boundaries and are not overridden without dependency-specific
+  evidence.
+- **Evidence:** H4A mapping SHA-256
+  `14d49fad46e773e32da69b7b2336b7a968808cd1130f0319f7806ca4d09c1beb`;
+  DEX reduction of 614,820 bytes from H3B; six sampled internal descriptors
+  renamed/removed/folded and absent from DEX; four manifest components
+  preserved; focused R8 tests and 30/30 local-test artifact gate.

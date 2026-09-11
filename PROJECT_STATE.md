@@ -1,6 +1,6 @@
 # PocketClaw Project State
 
-## Authoritative current snapshot — H3B
+## Authoritative current snapshot — H4A
 
 This section is the current project-state authority. It is verified against Git,
 tracked release inputs, the production signer enrollment, and current GitHub
@@ -13,13 +13,14 @@ evidence and describe the state at the date of each entry.
 | PC-1 state-basis HEAD | `0be6afbd92209953d918d5c0516662bc54f0d081` (PC-1's verified starting commit; the documentation-only closeout commit necessarily follows it) |
 | H3A state-basis HEAD | `9a5a5dd9fd4a0697451d27948efe2c5be6e5c028` (verified H3A starting commit; the H3A closeout commit follows it) |
 | H3B state-basis HEAD | `6491ccc6f611c7513506d622dbb1ad4a75c93a43` (verified H3B starting commit; the H3B defect fix and closeout commit follow it) |
+| H4A state-basis HEAD | `30ec1951cb91df2d3ab80ce09d3e1176611242f7` (verified H4A starting commit; the H4A closeout commit follows it) |
 | Version | `0.2.0+62` |
 | Accepted physical baseline | vc62 / `lastAcceptedVersionCode=62` |
-| Current phase | Final Production Release Hardening; H3B production-signed Dart-hardening validation closed |
+| Current phase | Final Production Release Hardening; H4A R8/ProGuard hardening and non-releasable validation closed |
 | Developer production signer | `176dca6b198b9552fb4d9ad3ca18da8d6f23c0a3f5ed4bd6b75a0700f9f0efcf` |
 | Core fingerprint | `876b87f5950452ba903301b6cce4cc96502ab4ff25d90d13e31b9da537e24b44` |
 | Distribution targets | Direct APK, Google Play, Official F-Droid |
-| Next authorized milestone | R8 / ProGuard final hardening review; explicit milestone prompt required and work has not started |
+| Next authorized milestone | H4B production-signed R8/ProGuard validation; owner-local hidden signing input will be required and H4B has not started |
 
 The H2 production validation APK has SHA-256
 `f0d83298c2ce061c01a9fc931ad29676e4d4b646bb5b204a9bf0002b11a7f46f`
@@ -70,6 +71,36 @@ Git. The repository carries only the public certificate digest and public build
 evidence. The owner confirmed a separate backup of the developer production
 keystore exists.
 
+H4A removed PocketClaw's blanket application, Flutter, plugin, Firebase, Umeng,
+Tika, JSON-constructor, enum, and resource keep rules. The project application
+rules file is intentionally empty of active rules: aapt keeps manifest-created
+components, Flutter 3.47.1 supplies its embedding rule, and dependencies supply
+their consumer rules. The inherited file-picker/Tika, background-service, and
+Dart-JNI broad consumer rules remain dependency-owned runtime contracts and
+were not overridden without evidence.
+
+The clean H4A LOCAL TEST / NON-RELEASABLE APK is
+`build/app/outputs/apk/release/app-release.apk`, 63,556,335 bytes, SHA-256
+`db7fa8cb190fcebc160b2c718d9c120de296efb378d8a1196a5ff722ba3e1f78`,
+signed by the development certificate
+`15cf75f9945d5354e75707e0326b7cffc60ac51a68df38156db318ef4578a27c`.
+Its two DEX entries total 2,283,480 bytes, 614,820 bytes below the H3B DEX
+baseline. Three sampled internal PocketClaw classes are renamed and three are
+removed or folded; all six clear descriptors are absent from DEX, while the
+four manifest components remain preserved. The private R8 mapping is
+`build/app/outputs/mapping/release/mapping.txt`, 13,630,085 bytes, SHA-256
+`14d49fad46e773e32da69b7b2336b7a968808cd1130f0319f7806ca4d09c1beb`.
+It is ignored, untracked, external to the APK, and unpublished. The local-test
+artifact gate passed 30 checks with 0 failures and 0 skips.
+
+H3 Dart hardening is unchanged: H4A AOT SHA-256 remains
+`c7b2a885ff843a20c57097a0d16ba07c728bd64cf17455a1ce61e6f463a5ae77`,
+the controlled generated URI and `artifact.dart_snapshot_paths` pass, and the
+external Dart symbol SHA-256 remains
+`0f52873bc712fe0c17d636f5bdb7d08ee80cdacfe633cf6a786dd2c6d93b8acc`.
+The APK and both private support artifacts were not installed, committed,
+published, or accepted. The production signer was not accessed.
+
 ### Completed major milestones
 
 - vc62 Zero-Pico namespace closeout: physically accepted and merged.
@@ -82,13 +113,14 @@ keystore exists.
 - PC-1 continuity protocol: represented by this documentation closeout.
 - H3A Dart binary hardening architecture and non-releasable validation: closed.
 - H3B production-signed Dart-hardening validation: closed.
+- H4A R8/ProGuard hardening and non-releasable validation: closed.
 
 See [`docs/ROADMAP.md`](docs/ROADMAP.md) for the phase sequence and
 [`docs/AI_HANDOFF.md`](docs/AI_HANDOFF.md) for the mandatory read order.
 
 ### Pending hardening and deferred work
 
-- R8 / ProGuard review and narrowing.
+- H4B production-signed R8/ProGuard validation.
 - Native hardening, symbol policy, and symbol archive.
 - Secrets/configuration plus APK/AAB exposure audit.
 - Full APK/AAB production inspection and production-class gate.
@@ -142,13 +174,29 @@ current release inventory.
 
 ### Exact next action
 
-Prepare and review an explicit R8 / ProGuard hardening prompt from
-[`docs/prompts/PROMPT_TEMPLATE.md`](docs/prompts/PROMPT_TEMPLATE.md), review it
-against [`docs/prompts/REVIEW_PROTOCOL.md`](docs/prompts/REVIEW_PROTOCOL.md),
-and wait for owner authorization. Do not begin R8/ProGuard or native hardening
-from this closeout.
+Prepare and review an explicit H4B production-signed R8/ProGuard validation
+prompt from [`docs/prompts/PROMPT_TEMPLATE.md`](docs/prompts/PROMPT_TEMPLATE.md),
+review it against
+[`docs/prompts/REVIEW_PROTOCOL.md`](docs/prompts/REVIEW_PROTOCOL.md), and wait
+for owner authorization. H4B must use owner-local hidden signing input. Do not
+begin H4B or native hardening from this closeout.
 
 # Historical milestone archive
+
+## Final Production Release Hardening H4A — CLOSED / NON-RELEASABLE
+
+H4A started from `30ec1951cb91df2d3ab80ce09d3e1176611242f7` and removed
+the project-owned blanket R8 keeps after the merged configuration proved the
+framework, manifest, and dependency rules independently retain their actual
+entry points. The canonical helper now invalidates stale R8 reports and requires
+fresh private mapping/shrinking evidence plus artifact-level proof of real
+renaming or removal. Exact evidence is recorded in the current snapshot and
+the H4A reconstructed operating record.
+
+This artifact uses the explicit local development signer and is LOCAL TEST /
+NON-RELEASABLE. It was not installed, published, accepted, or committed. The
+production key was not accessed. `PC-DEF-008` remains deferred to native/symbol
+hardening, which H4A did not start. H4B production validation has not started.
 
 ## Final Production Release Hardening H3B — CLOSED / PRIVATE VALIDATION
 

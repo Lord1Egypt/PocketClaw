@@ -20,34 +20,34 @@ not that PocketClaw is a final release.
 | PC-1 repository continuity protocol | **Closed** | `9a5a5dd9fd4a0697451d27948efe2c5be6e5c028` |
 | H3A Dart hardening architecture and local validation | **Closed by this H3A closeout** | Canonical helper and Gradle guard; non-releasable APK `23dbaa24f375057faf30b469b3a8cafb1a1c235c9afacea15f944df41ad63894`; commit containing this record |
 | H3B production-signed Dart-hardening validation | **Closed by this H3B closeout** | Production APK `ceef6640d8abd9d084c3ff37d8e903aaf3c82b287de65ec15a37d91124bdebe6`; 25/25 production artifact checks PASS; closeout commit containing the H3B record |
+| H4A R8/ProGuard hardening and local validation | **Closed by this H4A closeout** | Project blanket keeps removed; non-releasable APK `db7fa8cb190fcebc160b2c718d9c120de296efb378d8a1196a5ff722ba3e1f78`; private mapping `14d49fad46e773e32da69b7b2336b7a968808cd1130f0319f7806ca4d09c1beb`; 30/30 artifact checks PASS |
 
 ## Authorized next milestone
 
-### R8 / ProGuard final hardening review
+### H4B production-signed R8 / ProGuard validation
 
-Status: **not started; implementation must wait for an explicit milestone
-prompt**.
+Status: **not started; owner-local hidden signing input and an explicit
+milestone prompt are required**.
 
 Expected scope:
 
-- inspect the current Java/Kotlin shrinker configuration and actual artifact;
-- review broad keep rules against pinned plugin/runtime requirements;
-- narrow only rules supported by focused evidence and regression coverage;
-- preserve the validated H3B Dart, signing, Core, runtime, version, and baseline
-  contracts.
+- run the canonical hardened build with the enrolled production signer;
+- verify the signer, R8 mapping/shrinking evidence, renamed/removed application
+  classes, and preserved Android entry points on the exact artifact;
+- keep the mapping private and outside the APK/Git;
+- preserve the validated Dart, Core, runtime, version, and baseline contracts.
 
-H3B proved controlled Dart obfuscation, regenerated external split debug info,
-the stable `package:pocketclaw_generated/dart_plugin_registrant.dart` strategy,
-and a 25/25 production artifact gate under the enrolled production signer. It
-does not authorize R8 / ProGuard work automatically.
+H4A proved project-owned R8 narrowing using a local-test signed artifact. It did
+not access the production signer and does not authorize H4B automatically.
 
-## Required sequence after H3B
+## Required sequence after H4A
 
 Do not collapse these into one milestone. Each receives its own prompt, evidence,
 review result, documentation closeout, and `STOP`.
 
-1. R8 / ProGuard review and keep-rule narrowing.
-2. Native hardening, symbol policy, and symbol archive.
+1. H4B production-signed R8 / ProGuard validation.
+2. Native hardening, symbol policy, and symbol archive, including the deferred
+   `PC-DEF-008` strip-boundary recheck.
 3. Secrets/configuration and APK/AAB exposure audit.
 4. APK and AAB production inspection.
 5. Run the full production-class release gate after all hardening phases.

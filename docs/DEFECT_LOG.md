@@ -126,6 +126,25 @@ only reconstructable examples belong here.
 
 ## Resolved
 
+### PC-DEF-R011 — H4A output assertion mistook R8 removal for missing obfuscation
+
+- **Phase discovered:** H4A local-test validation.
+- **Component:** Canonical hardened-build R8 evidence checker.
+- **Problem/root cause:** The first H4A post-build assertion required at least
+  four exact internal class entries in `mapping.txt`. R8 correctly renamed
+  three probe classes and removed or folded three others, so the Gradle build
+  and APK were valid but the new assertion reported only three mappings.
+- **Resolution:** Account for each probe through its exact renamed mapping or
+  through `usage.txt`/nested mapping evidence of removal or folding, and require
+  every original clear DEX descriptor to be absent. Manifest components remain
+  a separate exact-name preservation check.
+- **Verification:** The already-built fresh APK passes the corrected output
+  inspection and 30/30 local-test artifact gates. Focused fixtures cover both
+  renaming and removal/folding, missing mapping/usage output, packaged mapping,
+  blanket rules, and disabled minification/resource shrinking.
+- **Commit:** H4A closeout commit containing this record.
+- **Status:** RESOLVED.
+
 ### PC-DEF-R009 — Cached Dart AOT could outlive its deleted split debug info
 
 - **Phase discovered:** H3B owner production-signing validation.

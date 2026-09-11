@@ -12,7 +12,10 @@ import importlib.util
 import sys
 import tempfile
 import unittest
+import zipfile
 from pathlib import Path, PurePosixPath
+
+import r8_contract
 
 spec = importlib.util.spec_from_file_location(
     "release_gate", Path(__file__).resolve().parent / "release_gate.py")
@@ -243,6 +246,45 @@ class DartHardeningEvidenceTest(unittest.TestCase):
                 symbols,
             )
             self.assertEqual(status_of(gate, "artifact.dart_symbols_private"), FAIL)
+
+
+class R8HardeningEvidenceTest(unittest.TestCase):
+    def make_outputs(self, directory: Path, packaged_mapping=False):
+        apk = directory / "app-release.apk"
+        mapping = directory / "mapping.txt"
+        lines = [f"{name} -> {name}:" for name in r8_contract.REQUIRED_COMPONENTS]
+        lines += [
+            f"{name} -> gate.{index}:"
+            for index, name in enumerate(r8_contract.INTERNAL_CLASSES)
+        ]
+        mapping.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        mapping.with_name("usage.txt").write_text("removed.Class\n", encoding="utf-8")
+        with zipfile.ZipFile(apk, "w") as archive:
+            archive.writestr("classes.dex", b"dex\n035\0obfuscated")
+            if packaged_mapping:
+                archive.writestr("assets/mapping.txt", mapping.read_bytes())
+        return apk, mapping
+
+    def test_gate_records_effective_private_r8_evidence(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            apk, mapping = self.make_outputs(Path(tmp))
+            gate = Gate()
+            gate_module.r8_hardening_gates(gate, apk, mapping)
+            for name in (
+                "artifact.r8_mapping",
+                "artifact.r8_shrinking",
+                "artifact.r8_obfuscation",
+                "artifact.r8_entry_points",
+                "artifact.r8_mapping_private",
+            ):
+                self.assertEqual(status_of(gate, name), PASS)
+
+    def test_gate_refuses_packaged_mapping(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            apk, mapping = self.make_outputs(Path(tmp), packaged_mapping=True)
+            gate = Gate()
+            gate_module.r8_hardening_gates(gate, apk, mapping)
+            self.assertEqual(status_of(gate, "artifact.r8_contract"), FAIL)
 
 
 if __name__ == "__main__":

@@ -19,6 +19,7 @@ Modes:
     --release-class test|production
     --dart-symbols <path>        require H3 Dart hardening evidence from the
                                  private split-debug-info file or directory
+    --r8-mapping <path>          require H4 R8 mapping/shrinking evidence
 
 `test` permits the known development signer and can never report a production
 release. `production` treats a development signer as an unconditional failure.
@@ -41,6 +42,8 @@ import sys
 import zipfile
 from dataclasses import dataclass, field
 from pathlib import Path
+
+from r8_contract import R8ContractError, inspect_outputs as inspect_r8_outputs
 
 REPO = Path(__file__).resolve().parent.parent
 PACKAGE_ID = "com.lord1egypt.pocketclaw"
@@ -115,7 +118,7 @@ def enrolled_production_signer() -> str | None:
 # Real work that is not done yet. The gate names these rather than implying the
 # release is fully hardened; it must not pretend they are solved.
 PENDING_FINAL_HARDENING = [
-    "R8 keep rules not narrowed",
+    "R8 production-signed validation pending",
     # Distribution is direct APK + Google Play + official F-Droid. F-Droid will
     # only publish the developer-signed artifact for a build it can reproduce,
     # so reproducibility is what decides whether a user can move between the
@@ -595,6 +598,11 @@ def source_gates(gate: Gate, run_tests: bool, release_class: str = "test"):
                expected="obfuscation, split-info, generated-URI and signing-mode guards",
                observed="PASS" if rc == 0 else out.strip().splitlines()[-1] if out.strip() else "FAIL")
 
+    rc, out = run([sys.executable, str(REPO / "tool/test_r8_hardening.py")])
+    gate.check("r8.hardening_contract", rc == 0,
+               expected="minify/shrink enabled, narrow rules, fresh private mapping evidence",
+               observed="PASS" if rc == 0 else out.strip().splitlines()[-1] if out.strip() else "FAIL")
+
 
     flutter = shutil.which("flutter")
     if not flutter:
@@ -624,7 +632,8 @@ def source_gates(gate: Gate, run_tests: bool, release_class: str = "test"):
 # --------------------------------------------------------------------------
 
 def artifact_gates(gate: Gate, apk: Path, release_class: str,
-                   dart_symbols: Path | None = None):
+                   dart_symbols: Path | None = None,
+                   r8_mapping: Path | None = None):
     if not apk.is_file():
         gate.check("artifact.present", False, expected=str(apk), observed="missing")
         return
@@ -820,6 +829,31 @@ def artifact_gates(gate: Gate, apk: Path, release_class: str,
     native_gates(gate, apk, dart_symbols)
     fdroid_artifact_gate(gate, apk)
     signing_gate(gate, apk, release_class)
+    if r8_mapping is not None:
+        r8_hardening_gates(gate, apk, r8_mapping)
+
+
+def r8_hardening_gates(gate: Gate, apk: Path, mapping: Path):
+    """Require effective R8 output and keep its deobfuscation data private."""
+    try:
+        evidence = inspect_r8_outputs(apk, mapping)
+    except R8ContractError as error:
+        gate.check("artifact.r8_contract", False,
+                   expected="fresh, effective, private R8 output",
+                   observed=str(error))
+        return
+    gate.facts.update(evidence)
+    gate.check("artifact.r8_mapping", True,
+               observed=f"{mapping.name}: {evidence['r8MappingBytes']} bytes")
+    gate.check("artifact.r8_shrinking", True,
+               observed=f"usage.txt: {evidence['r8UsageBytes']} bytes")
+    gate.check("artifact.r8_obfuscation", True,
+               observed=(f"{len(evidence['r8RenamedInternalClasses'])} PocketClaw classes renamed; "
+                         f"{len(evidence['r8RemovedOrFoldedInternalClasses'])} removed/folded"))
+    gate.check("artifact.r8_entry_points", True,
+               observed=f"{len(evidence['r8RequiredEntryPoints'])} manifest components preserved")
+    gate.check("artifact.r8_mapping_private", True,
+               observed="external, untracked, and absent from APK")
 
 
 def native_gates(gate: Gate, apk: Path, dart_symbols: Path | None = None):
@@ -1073,6 +1107,10 @@ def main() -> int:
         "--dart-symbols", metavar="PATH",
         help="verify Dart hardening against this private .symbols file or directory",
     )
+    parser.add_argument(
+        "--r8-mapping", metavar="PATH",
+        help="verify R8 hardening against this private mapping.txt",
+    )
     args = parser.parse_args()
 
     if not (args.verify_source or args.verify_artifact or args.full):
@@ -1097,6 +1135,7 @@ def main() -> int:
             Path(apk).resolve(),
             args.release_class,
             Path(args.dart_symbols).resolve() if args.dart_symbols else None,
+            Path(args.r8_mapping).resolve() if args.r8_mapping else None,
         )
 
     width = max(len(r.name) for r in gate.results)

@@ -34,6 +34,14 @@ native, exposure, APK/AAB, external-view, and physical milestones remain. It is
 private, uninstalled, unpublished, unaccepted evidence rather than a stable
 release or hardened production candidate.
 
+The H4A APK is a **development/test artifact** with Dart hardening and narrowed
+project-owned R8 rules. Its SHA-256 is
+`db7fa8cb190fcebc160b2c718d9c120de296efb378d8a1196a5ff722ba3e1f78`.
+It carries the local development signer and is LOCAL TEST / NON-RELEASABLE. It
+was not installed, published, accepted, or signed with the production key.
+H4B must validate the same R8 contract under production signing before the R8
+phase closes for production use.
+
 ## Three signing identities
 
 1. **PocketClaw developer app-signing key.** Long-lived Android application
@@ -85,11 +93,13 @@ mapping required for the stable
 before Dart compilation if the mode marker, flags, arm64 target, private output
 location, or mapping is absent or malformed.
 
-Before every hardened assembly, the helper clears only the generated
-`.dart_tool/flutter_build` cache. Flutter 3.47.1 tracks cached `app.so` but does
-not treat external split DWARF as a required incremental output; invalidating
-that cache guarantees AOT and its private symbol companion are regenerated
-together. The package configuration remains intact.
+Before every hardened assembly, the helper clears the generated
+`.dart_tool/flutter_build` cache and the prior R8 mapping reports. Flutter
+3.47.1 tracks cached `app.so` but does not treat external split DWARF as a
+required incremental output; invalidating that cache guarantees AOT and its
+private symbol companion are regenerated together. Removing the R8 reports
+ensures a prior mapping cannot satisfy the post-build assertion. The package
+configuration remains intact.
 
 The default Dart support artifact is
 `build/private-symbols/dart/android-arm64/app.android-arm64.symbols`. It is
@@ -110,6 +120,21 @@ This verifies that application-level names moved out of `libapp.so`, the split
 DWARF exists externally, the generated URI is controlled, private symbols are
 not packaged/tracked, and host checkout paths are absent from the packaged Dart
 AOT payload.
+
+Release builds keep `isMinifyEnabled = true`, `isShrinkResources = true`, and
+the optimized Android defaults. PocketClaw's application rules file contains no
+active blanket keep: generated aapt rules preserve manifest components, Flutter
+supplies its embedding/plugin contract, and dependencies supply their consumer
+rules. The helper requires the fresh R8 reports at
+`build/app/outputs/mapping/release/`, then proves sampled internal PocketClaw
+classes were renamed, removed, or folded while the four manifest entry points
+remain preserved.
+
+`mapping.txt` and its sibling reports are private release-support material.
+Preserve the mapping privately with the exact release for Java/Kotlin stack
+deobfuscation. They remain ignored by Git, outside APK/AAB files, absent from
+public release assets by default, and are not F-Droid payloads. Supply mapping
+evidence to artifact inspection with `--r8-mapping <private-mapping.txt>`.
 
 ## Channel paths
 

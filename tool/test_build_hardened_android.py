@@ -10,6 +10,8 @@ import unittest
 import zipfile
 from pathlib import Path
 
+import r8_contract
+
 
 spec = importlib.util.spec_from_file_location(
     "build_hardened_android", Path(__file__).resolve().parent / "build_hardened_android.py"
@@ -102,16 +104,22 @@ class GeneratedOutputResetTest(unittest.TestCase):
             package_config.write_text("{}", encoding="utf-8")
             apk = root / "build/app-release.apk"
             symbols = root / "build/private-symbols/app.android-arm64.symbols"
+            mapping = root / "build/app/outputs/mapping/release/mapping.txt"
             apk.parent.mkdir(parents=True)
             symbols.parent.mkdir(parents=True)
+            mapping.parent.mkdir(parents=True)
             apk.write_bytes(b"old apk")
             symbols.write_bytes(b"old symbols")
+            mapping.write_bytes(b"old mapping")
+            mapping.with_name("usage.txt").write_bytes(b"old usage")
 
-            hardening.reset_generated_build_outputs(apk, symbols, flutter_build)
+            hardening.reset_generated_build_outputs(apk, symbols, flutter_build, mapping)
 
             self.assertFalse(flutter_build.exists())
             self.assertFalse(apk.exists())
             self.assertFalse(symbols.exists())
+            self.assertFalse(mapping.exists())
+            self.assertFalse(mapping.with_name("usage.txt").exists())
             self.assertTrue(package_config.is_file())
 
     def test_refuses_a_symlinked_flutter_build_cache(self):
@@ -156,14 +164,23 @@ class OutputInspectionTest(unittest.TestCase):
         app_bytes = app if app is not None else b"\x7fELF" + hardening.GENERATED_REGISTRANT_URI
         with zipfile.ZipFile(apk, "w") as archive:
             archive.writestr("lib/arm64-v8a/libapp.so", app_bytes)
+            archive.writestr("classes.dex", b"dex\n035\0obfuscated")
             if packaged_symbol:
                 archive.writestr("assets/private-symbols/app.android-arm64.symbols", symbol_bytes)
-        return apk, symbols
+        mapping = directory / "mapping.txt"
+        lines = [f"{name} -> {name}:" for name in r8_contract.REQUIRED_COMPONENTS]
+        lines += [
+            f"{name} -> h3.{index}:"
+            for index, name in enumerate(r8_contract.INTERNAL_CLASSES)
+        ]
+        mapping.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        mapping.with_name("usage.txt").write_text("removed.Class\n", encoding="utf-8")
+        return apk, symbols, mapping
 
     def test_accepts_obfuscated_aot_with_external_split_info(self):
         with tempfile.TemporaryDirectory() as tmp:
-            apk, symbols = self.make_outputs(Path(tmp))
-            evidence = hardening.inspect_hardened_outputs(apk, symbols)
+            apk, symbols, mapping = self.make_outputs(Path(tmp))
+            evidence = hardening.inspect_hardened_outputs(apk, symbols, r8_mapping=mapping)
             self.assertEqual(
                 evidence["generatedSourceUri"],
                 "package:pocketclaw_generated/dart_plugin_registrant.dart",
@@ -177,15 +194,15 @@ class OutputInspectionTest(unittest.TestCase):
                 + hardening.GENERATED_REGISTRANT_URI
                 + hardening.APP_SYMBOL_MARKERS[0]
             )
-            apk, symbols = self.make_outputs(Path(tmp), app=bad)
+            apk, symbols, mapping = self.make_outputs(Path(tmp), app=bad)
             with self.assertRaises(hardening.HardeningError):
-                hardening.inspect_hardened_outputs(apk, symbols)
+                hardening.inspect_hardened_outputs(apk, symbols, r8_mapping=mapping)
 
     def test_refuses_private_symbols_packaged_in_apk(self):
         with tempfile.TemporaryDirectory() as tmp:
-            apk, symbols = self.make_outputs(Path(tmp), packaged_symbol=True)
+            apk, symbols, mapping = self.make_outputs(Path(tmp), packaged_symbol=True)
             with self.assertRaises(hardening.HardeningError):
-                hardening.inspect_hardened_outputs(apk, symbols)
+                hardening.inspect_hardened_outputs(apk, symbols, r8_mapping=mapping)
 
 
 if __name__ == "__main__":

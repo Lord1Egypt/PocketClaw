@@ -466,7 +466,10 @@ void main() {
     test('canonical builds regenerate cached AOT and split symbols together', () {
       final source = read(helper);
       expect(source, contains('FLUTTER_BUILD_DIR'));
-      expect(source, contains('reset_generated_build_outputs(APK, symbols)'));
+      expect(
+        source,
+        contains('reset_generated_build_outputs(APK, symbols, r8_mapping=R8_MAPPING)'),
+      );
       expect(source, contains('shutil.rmtree(flutter_build_dir)'));
       expect(
         source,

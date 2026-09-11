@@ -19,6 +19,10 @@ import sys
 import zipfile
 from pathlib import Path
 
+from r8_contract import MAPPING as R8_MAPPING
+from r8_contract import R8ContractError, inspect_outputs as inspect_r8_outputs
+from r8_contract import source_contract as inspect_r8_source_contract
+
 
 REPO = Path(__file__).resolve().parent.parent
 ANDROID = REPO / "android"
@@ -135,6 +139,7 @@ def reset_generated_build_outputs(
     apk: Path = APK,
     symbols: Path | None = None,
     flutter_build_dir: Path = FLUTTER_BUILD_DIR,
+    r8_mapping: Path | None = None,
 ) -> None:
     """Force Flutter to regenerate AOT and its external DWARF as one pair.
 
@@ -155,6 +160,12 @@ def reset_generated_build_outputs(
         symbols.unlink()
     if apk.exists():
         apk.unlink()
+    # Do not let a previous release satisfy the post-build R8 assertions.
+    if r8_mapping is not None and r8_mapping.parent.exists():
+        for report in ("mapping.txt", "usage.txt", "seeds.txt", "configuration.txt"):
+            candidate = r8_mapping.with_name(report)
+            if candidate.exists():
+                candidate.unlink()
 
 
 def gradle_command(signing: str, symbols_property: str) -> list[str]:
@@ -186,7 +197,10 @@ def validate_signing_environment(signing: str, environ: dict[str, str]) -> None:
 
 
 def inspect_hardened_outputs(
-    apk: Path, symbols: Path, classification: str = "LOCAL TEST / NON-RELEASABLE"
+    apk: Path,
+    symbols: Path,
+    classification: str = "LOCAL TEST / NON-RELEASABLE",
+    r8_mapping: Path = R8_MAPPING,
 ) -> dict[str, object]:
     if not apk.is_file():
         raise HardeningError(f"Gradle completed without producing {apk}")
@@ -225,7 +239,7 @@ def inspect_hardened_outputs(
     if exposed:
         raise HardeningError("Dart obfuscation did not remove application symbols: " + ", ".join(exposed))
 
-    return {
+    evidence = {
         "apk": str(apk),
         "apkBytes": apk.stat().st_size,
         "apkSha256": sha256_file(apk),
@@ -237,6 +251,8 @@ def inspect_hardened_outputs(
         "generatedSourceUri": GENERATED_REGISTRANT_URI.decode(),
         "classification": classification,
     }
+    evidence.update(inspect_r8_outputs(apk, r8_mapping))
+    return evidence
 
 
 def parse_args() -> argparse.Namespace:
@@ -254,11 +270,12 @@ def parse_args() -> argparse.Namespace:
 def main() -> int:
     args = parse_args()
     try:
+        inspect_r8_source_contract()
         validate_signing_environment(args.signing, dict(os.environ))
         symbols_property, symbols_dir = resolve_symbols_dir(args.symbols_dir)
         changed = prepare_generated_source_package()
         symbols = symbols_dir / "app.android-arm64.symbols"
-        reset_generated_build_outputs(APK, symbols)
+        reset_generated_build_outputs(APK, symbols, r8_mapping=R8_MAPPING)
         symbols_dir.mkdir(parents=True, exist_ok=True)
 
         environment = dict(os.environ)
@@ -292,7 +309,7 @@ def main() -> int:
         evidence = inspect_hardened_outputs(APK, symbols, classification)
         print(json.dumps(evidence, indent=2, sort_keys=True))
         return 0
-    except (HardeningError, subprocess.CalledProcessError) as error:
+    except (HardeningError, R8ContractError, subprocess.CalledProcessError) as error:
         print(f"Hardened Android build FAILED: {error}", file=sys.stderr)
         return 1
 
