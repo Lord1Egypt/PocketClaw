@@ -17,25 +17,32 @@ not that PocketClaw is a final release.
 | Safety checkpoints | **Closed** | `checkpoint/vc62-accepted`, annotated tag `checkpoint-vc62-accepted`, and `checkpoint/pre-h2` |
 | H2 signer enrollment | **Closed** | `78d33fd5b179dd52c7cd8118a5d23ec19c8368ec` |
 | H2 private production-signing validation | **Closed** | `7f19309fdf4261224fd9b323a7f2663f59b37545`, corrected by `0be6afbd92209953d918d5c0516662bc54f0d081` |
-| PC-1 repository continuity protocol | **Closed by this documentation closeout** | The commit containing this document; final hash belongs in the PC-1 report |
+| PC-1 repository continuity protocol | **Closed** | `9a5a5dd9fd4a0697451d27948efe2c5be6e5c028` |
+| H3A Dart hardening architecture and local validation | **Closed by this H3A closeout** | Canonical helper and Gradle guard; non-releasable APK `23dbaa24f375057faf30b469b3a8cafb1a1c235c9afacea15f944df41ad63894`; commit containing this record |
 
 ## Authorized next milestone
 
-### H3 — Dart Binary Hardening
+### H3B — Production-signed Dart-hardening validation
 
-Status: **authorized for prompt preparation and review; implementation not
-started**.
+Status: **owner action remains; implementation must wait for an explicit H3B
+prompt**.
 
 Expected scope:
 
-- controlled Dart obfuscation;
-- `--split-debug-info` with symbols kept outside Git and release binaries;
-- a controlled generated-source URI strategy;
-- the controlled strategy and evidence needed for the later
-  `artifact.dart_snapshot_paths` closure, without silently waiving the gate;
-- an explicit reproducibility assessment for identical inputs.
+- use the H3A canonical build contract without changing it;
+- obtain owner signing passwords only through hidden local input;
+- build and inspect one private production-signed hardened validation APK;
+- match its signer to the enrolled developer production certificate;
+- run the Dart-aware production artifact gate and preserve private symbols;
+- keep the artifact private, uninstalled, unpublished, and unaccepted.
 
-## Required sequence after H3
+H3A already proved controlled obfuscation, external split debug info, the stable
+`package:pocketclaw_generated/dart_plugin_registrant.dart` strategy, a real
+`artifact.dart_snapshot_paths` PASS, and byte-identical Dart AOT/DWARF across
+two clean builds with different symbol-output roots. It did not use the
+production signer and does not authorize H3B automatically.
+
+## Required sequence after H3B
 
 Do not collapse these into one milestone. Each receives its own prompt, evidence,
 review result, documentation closeout, and `STOP`.
@@ -44,12 +51,11 @@ review result, documentation closeout, and `STOP`.
 2. Native hardening, symbol policy, and symbol archive.
 3. Secrets/configuration and APK/AAB exposure audit.
 4. APK and AAB production inspection.
-5. Close `artifact.dart_snapshot_paths` on artifact evidence.
-6. Run the full production-class release gate.
-7. Perform an external-view reverse-engineering exposure audit.
-8. Run the final Samsung physical-device smoke test under an explicitly
+5. Run the full production-class release gate after all hardening phases.
+6. Perform an external-view reverse-engineering exposure audit.
+7. Run the final Samsung physical-device smoke test under an explicitly
    authorized device milestone.
-9. Create the stable tag and GitHub Release only after owner authorization.
+8. Create the stable tag and GitHub Release only after owner authorization.
 
 ## Distribution targets preserved throughout
 

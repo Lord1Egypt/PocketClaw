@@ -7,21 +7,6 @@ only reconstructable examples belong here.
 
 ## Open / deferred
 
-### PC-DEF-001 — Dart snapshot exposes one generated-source path
-
-- **Discovered:** Final Production Release Hardening / artifact inspection.
-- **Component:** Dart release artifact.
-- **Severity:** Final-hardening blocker; no runtime failure reported.
-- **Description:** `libapp.so` contains one generated-source path.
-- **Evidence:** `tool/release_gate.py` reports
-  `artifact.dart_snapshot_paths` as `SKIPPED` with one path; H2 production gate
-  recorded 20 PASS / 0 FAIL / 1 SKIPPED.
-- **Reason deferred:** It belongs to the controlled Dart hardening strategy and
-  was explicitly excluded from H2 signing validation.
-- **Target milestone:** H3 establishes the strategy; final closure follows
-  APK/AAB production inspection as sequenced in `ROADMAP.md`.
-- **Status:** OPEN.
-
 ### PC-DEF-002 — Web console listens on `0.0.0.0:18800`
 
 - **Discovered:** vc59 machine validation, 2026-09-08.
@@ -111,6 +96,31 @@ only reconstructable examples belong here.
 - **Status:** OPEN.
 
 ## Resolved
+
+### PC-DEF-R008 — Dart snapshot exposed an absolute generated-source URI
+
+- **Phase discovered:** H2 artifact inspection; resolved in H3A.
+- **Component:** Flutter/Dart release artifact and Gradle build path.
+- **Problem/root cause:** `libapp.so` embedded
+  `file:///home/lordegypt/PocketClaw-App/.dart_tool/flutter_build/dart_plugin_registrant.dart`.
+  Flutter 3.47.1's Gradle plugin reads `filesystem-roots` and
+  `filesystem-scheme` but does not forward those task fields to `flutter
+  assemble`; direct and extra-frontend trials therefore left the absolute URI
+  unchanged. The generated registrant also sits outside every package URI root
+  in Pub's normal package config.
+- **Resolution:** The canonical helper adds a deterministic generated-only
+  package mapping before Gradle configuration. Flutter's own
+  `toPackageUriForWorkspace` path then emits
+  `package:pocketclaw_generated/dart_plugin_registrant.dart`. Gradle rejects a
+  hardened compile without that exact mapping.
+- **Verification:** Two clean local-test builds with different split-info roots
+  produced identical Dart AOT SHA-256
+  `c7b2a885ff843a20c57097a0d16ba07c728bd64cf17455a1ce61e6f463a5ae77`;
+  the H3A artifact gate records `artifact.dart_snapshot_paths` PASS and 25 PASS
+  / 0 FAIL / 0 SKIPPED overall.
+- **Commit:** H3A closeout commit containing this record.
+- **Status:** RESOLVED for the build contract and non-releasable artifact;
+  H3B production-signed validation remains required.
 
 ### PC-DEF-R001 — Keystore helper could report a blank fingerprint as success
 

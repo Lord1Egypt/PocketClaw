@@ -135,3 +135,26 @@ decision journal and supplies the underlying engineering narratives.
   require explicit milestone authority and a factual annotation.
 - **Evidence:** `checkpoint/vc62-accepted` and annotated tag
   `checkpoint-vc62-accepted` at `47cde00`; `checkpoint/pre-h2` at `fb38c7d`.
+
+## PC-D011 — Build Dart-hardened Android artifacts through one fail-closed contract
+
+- **Status:** Accepted by H3A; production-signing validation remains H3B.
+- **Decision:** `tool/build_hardened_android.py` is the canonical Android
+  release entry point. It couples arm64 release compilation, Dart obfuscation,
+  external split debug info, and Flutter's generated-source package mapping.
+  Gradle refuses release compilation when that contract is absent or malformed.
+- **Rationale:** Flutter 3.47.1 accepts `dart-obfuscation` and
+  `split-debug-info` through its Gradle plugin, but its filesystem root/scheme
+  task fields do not reach `flutter assemble`. Pub's normal package config also
+  leaves the generated Dart plugin registrant outside a package URI root,
+  producing an absolute checkout URI in `libapp.so`.
+- **Consequences:** The generated registrant is identified as
+  `package:pocketclaw_generated/dart_plugin_registrant.dart`. Dart DWARF lives
+  by default under ignored `build/private-symbols/dart/android-arm64/`, remains
+  private release-support material, and is verified beside the APK rather than
+  packaged into it. It is preserved privately for crash symbolization and is
+  not a signing secret, Git input, or public release asset. Any future Flutter
+  upgrade must revalidate the generated-package mechanism and artifact checks.
+- **Evidence:** H3A helper and Gradle guard; focused Python/Dart tests; two clean
+  builds with byte-identical `libapp.so` and split DWARF across different output
+  roots; H3A local-test artifact gate 25 PASS / 0 FAIL / 0 SKIPPED.

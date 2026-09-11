@@ -154,8 +154,10 @@ production artifact gate passed with 20 PASS, 0 FAIL and one SKIP:
 
 This artifact is private validation evidence. It was not installed or
 published, is not an accepted release, and does not advance the physical
-baseline. `vc62` / `lastAcceptedVersionCode=62` remains accepted. H2 is complete
-and H3 has not started.
+baseline. `vc62` / `lastAcceptedVersionCode=62` remains accepted. H2 is
+complete. H3A later established the Dart-hardening build path with a separate
+development-signed artifact; H3B production-signed hardening validation remains
+pending.
 
 ## 6. Building with the production key
 
@@ -169,7 +171,7 @@ export KEY_ALIAS='pocketclaw-release'
 read -rs KEYSTORE_PASSWORD   && export KEYSTORE_PASSWORD
 read -rs KEY_PASSWORD        && export KEY_PASSWORD
 
-cd android && ./gradlew :app:assembleRelease -Ptarget-platform=android-arm64
+python3 tool/build_hardened_android.py --signing production --clean
 ```
 
 Prefer a method that keeps the values out of shell history — a password

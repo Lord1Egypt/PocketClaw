@@ -265,8 +265,8 @@ and each must be assessed before it lands:
 | --- | --- |
 | R8 / ProGuard | Generally deterministic for fixed inputs and rules, but the mapping file is an output that must not feed back into inputs. Verify. |
 | Resource shrinking | Usually deterministic. Verify alongside R8. |
-| Dart obfuscation | **Highest risk.** Symbol renaming must be deterministic for identical inputs; confirm empirically before adopting. |
-| `--split-debug-info` | Produces a separate symbols artifact. Keep it out of the APK and out of the repository; confirm the APK itself is unchanged by its presence. |
+| Dart obfuscation | H3A adopted it after two clean equivalent builds produced byte-identical `libapp.so`. This is scoped Dart evidence; full-APK proof remains open. |
+| `--split-debug-info` | H3A produced byte-identical private DWARF from two different output roots and verified it stayed outside the APK/Git. The two debug-signed APK hashes differed, so this does not claim the full APK is unchanged or reproducible. |
 | Native stripping | Already deterministic here — `-trimpath`, `-buildvcs=false`, `-s -w`, and a fixed BuildTime. Do not regress it. |
 | AAB generation | Bundletool output has historically been less reproducible than APK output. Play uses AAB; F-Droid uses APK. Do not let the AAB path dictate the APK path. |
 

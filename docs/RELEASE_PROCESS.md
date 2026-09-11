@@ -20,6 +20,12 @@ The H2 APK is a **production validation artifact**. Its SHA-256 is
 `f0d83298c2ce061c01a9fc931ad29676e4d4b646bb5b204a9bf0002b11a7f46f`.
 It was not installed or published and is not the accepted vc62 artifact.
 
+The H3A APK is a **development/test artifact** with hardened Dart payload. Its
+SHA-256 is
+`23dbaa24f375057faf30b469b3a8cafb1a1c235c9afacea15f944df41ad63894`.
+It carries the local development signer and is LOCAL TEST / NON-RELEASABLE. It
+was not installed, published, accepted, or signed with the production key.
+
 ## Three signing identities
 
 1. **PocketClaw developer app-signing key.** Long-lived Android application
@@ -49,6 +55,48 @@ Git. A certificate digest is public identity evidence; it is not a secret.
 8. Obtain reviewer `PASS`. Stop.
 9. Use separate authorization for physical-device acceptance, baseline advance,
    tag creation, publication, or store submission.
+
+## Canonical Dart-hardened Android build
+
+Use one entry point for release-variant Dart compilation:
+
+```text
+python3 tool/build_hardened_android.py --signing local-test --clean
+```
+
+The local-test mode refuses any declared production-signing environment field
+and passes the existing explicit `-PallowDebugSigning=true` opt-in. A later
+authorized production validation uses `--signing production` after owner-only
+hidden secret entry; credentials remain environment-only and never appear in
+the command.
+
+The helper invokes `:app:assembleRelease` for `android-arm64` and passes the
+exact Flutter 3.47.1 Gradle properties `dart-obfuscation=true` and
+`split-debug-info=<private directory>`. It also prepares the generated package
+mapping required for the stable
+`package:pocketclaw_generated/dart_plugin_registrant.dart` URI. Gradle fails
+before Dart compilation if the mode marker, flags, arm64 target, private output
+location, or mapping is absent or malformed.
+
+The default Dart support artifact is
+`build/private-symbols/dart/android-arm64/app.android-arm64.symbols`. It is
+ignored private DWARF for crash deobfuscation/symbolization. Preserve the
+artifact privately with the exact release it supports. Do not commit it, put it
+inside APK/AAB files, attach it to public GitHub releases by default, or submit
+it to F-Droid as a public payload. It is sensitive release-support material,
+but it is not an application-signing secret.
+
+Artifact inspection supplies the private path explicitly:
+
+```text
+python3 tool/release_gate.py --verify-artifact <apk> \
+  --release-class <test|production> --dart-symbols <private-symbol-directory>
+```
+
+This verifies that application-level names moved out of `libapp.so`, the split
+DWARF exists externally, the generated URI is controlled, private symbols are
+not packaged/tracked, and host checkout paths are absent from the packaged Dart
+AOT payload.
 
 ## Channel paths
 

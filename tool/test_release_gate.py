@@ -10,6 +10,7 @@ artifact that should have been refused.
 
 import importlib.util
 import sys
+import tempfile
 import unittest
 from pathlib import Path, PurePosixPath
 
@@ -189,6 +190,59 @@ class ManagedRuntimeCountTest(unittest.TestCase):
         self.assertIn("artifact.core_matches_staged", source)
         self.assertIn("core.staged_freshness", source)
         self.assertIn('CORE_LIBS = ("libpocketclaw.so", "libpocketclaw-web.so")', source)
+
+
+class DartHardeningEvidenceTest(unittest.TestCase):
+    def make_symbols(self, directory):
+        path = Path(directory) / "app.android-arm64.symbols"
+        path.write_bytes(
+            b"\x7fELF.debug_info.debug_line\0"
+            + b"\0".join(gate_module.DART_APP_SYMBOL_MARKERS)
+        )
+        return path
+
+    def test_hardened_artifact_requires_both_public_and_private_evidence(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            symbols = self.make_symbols(tmp)
+            app = b"\x7fELF" + gate_module.DART_GENERATED_REGISTRANT_URI
+            gate = Gate()
+            gate_module.dart_hardening_gates(gate, app, ["lib/arm64-v8a/libapp.so"], symbols)
+            for name in (
+                "artifact.dart_split_debug_info",
+                "artifact.dart_generated_source_uri",
+                "artifact.dart_obfuscation",
+                "artifact.dart_symbols_private",
+            ):
+                self.assertEqual(status_of(gate, name), PASS)
+
+    def test_host_uri_strategy_cannot_pass_without_controlled_package_uri(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            symbols = self.make_symbols(tmp)
+            app = b"file:///home/person/checkout/dart_plugin_registrant.dart"
+            gate = Gate()
+            gate_module.dart_hardening_gates(gate, app, ["lib/arm64-v8a/libapp.so"], symbols)
+            self.assertEqual(status_of(gate, "artifact.dart_generated_source_uri"), FAIL)
+
+    def test_unobfuscated_name_fails_even_when_split_info_exists(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            symbols = self.make_symbols(tmp)
+            app = gate_module.DART_GENERATED_REGISTRANT_URI + gate_module.DART_APP_SYMBOL_MARKERS[0]
+            gate = Gate()
+            gate_module.dart_hardening_gates(gate, app, ["lib/arm64-v8a/libapp.so"], symbols)
+            self.assertEqual(status_of(gate, "artifact.dart_obfuscation"), FAIL)
+
+    def test_packaged_private_symbols_fail(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            symbols = self.make_symbols(tmp)
+            app = gate_module.DART_GENERATED_REGISTRANT_URI
+            gate = Gate()
+            gate_module.dart_hardening_gates(
+                gate,
+                app,
+                ["lib/arm64-v8a/libapp.so", "assets/private-symbols/app.android-arm64.symbols"],
+                symbols,
+            )
+            self.assertEqual(status_of(gate, "artifact.dart_symbols_private"), FAIL)
 
 
 if __name__ == "__main__":

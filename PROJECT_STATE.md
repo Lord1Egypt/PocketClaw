@@ -1,6 +1,6 @@
 # PocketClaw Project State
 
-## Authoritative current snapshot — PC-1
+## Authoritative current snapshot — H3A
 
 This section is the current project-state authority. It is verified against Git,
 tracked release inputs, the production signer enrollment, and current GitHub
@@ -11,13 +11,14 @@ evidence and describe the state at the date of each entry.
 | --- | --- |
 | Working branch | `feature/final-release-hardening` |
 | PC-1 state-basis HEAD | `0be6afbd92209953d918d5c0516662bc54f0d081` (PC-1's verified starting commit; the documentation-only closeout commit necessarily follows it) |
+| H3A state-basis HEAD | `9a5a5dd9fd4a0697451d27948efe2c5be6e5c028` (verified H3A starting commit; the H3A closeout commit follows it) |
 | Version | `0.2.0+62` |
 | Accepted physical baseline | vc62 / `lastAcceptedVersionCode=62` |
-| Current phase | Final Production Release Hardening; H2 and PC-1 closed; H3 not started |
+| Current phase | Final Production Release Hardening; H3A implemented and locally validated; production validation pending |
 | Developer production signer | `176dca6b198b9552fb4d9ad3ca18da8d6f23c0a3f5ed4bd6b75a0700f9f0efcf` |
 | Core fingerprint | `876b87f5950452ba903301b6cce4cc96502ab4ff25d90d13e31b9da537e24b44` |
 | Distribution targets | Direct APK, Google Play, Official F-Droid |
-| Next authorized milestone | H3 — Dart Binary Hardening, prompt/review first; implementation not started |
+| Next authorized milestone | H3B — owner production-signed Dart-hardening validation; explicit prompt and hidden local secret entry required |
 
 The H2 production validation APK has SHA-256
 `f0d83298c2ce061c01a9fc931ad29676e4d4b646bb5b204a9bf0002b11a7f46f`
@@ -27,6 +28,22 @@ Its production artifact gate result is 20 PASS / 0 FAIL / 1 SKIPPED, with
 `artifact.dart_snapshot_paths` the one known skip. It is private validation
 evidence only: not published, not installed, not accepted, and not a final
 release.
+
+H3A established the canonical hardened Android build command in
+`tool/build_hardened_android.py`. Its second clean LOCAL TEST / NON-RELEASABLE
+APK is `build/app/outputs/apk/release/app-release.apk`, 63,783,811 bytes, SHA-256
+`23dbaa24f375057faf30b469b3a8cafb1a1c235c9afacea15f944df41ad63894`, signed
+by the development certificate
+`15cf75f9945d5354e75707e0326b7cffc60ac51a68df38156db318ef4578a27c`.
+The test artifact gate is 25 PASS / 0 FAIL / 0 SKIPPED. In that artifact,
+`artifact.dart_snapshot_paths` passes, the stable generated URI is
+`package:pocketclaw_generated/dart_plugin_registrant.dart`, and Dart AOT SHA-256
+is `c7b2a885ff843a20c57097a0d16ba07c728bd64cf17455a1ce61e6f463a5ae77`.
+The external private DWARF SHA-256 is
+`0f52873bc712fe0c17d636f5bdb7d08ee80cdacfe633cf6a786dd2c6d93b8acc`.
+Neither this APK nor its symbols are committed, installed, published, accepted,
+or production-signed. H3B must still validate the same contract with the
+enrolled production signer.
 
 Private keystores, keys, passwords, tokens, and recovery secrets are external to
 Git. The repository carries only the public certificate digest and public build
@@ -43,13 +60,14 @@ keystore exists.
 - Safety checkpoints: created and unchanged.
 - H2 production signer enrollment and private validation: closed.
 - PC-1 continuity protocol: represented by this documentation closeout.
+- H3A Dart binary hardening architecture and non-releasable validation: closed.
 
 See [`docs/ROADMAP.md`](docs/ROADMAP.md) for the phase sequence and
 [`docs/AI_HANDOFF.md`](docs/AI_HANDOFF.md) for the mandatory read order.
 
 ### Pending hardening and deferred work
 
-- H3 Dart obfuscation, split debug info, and generated-source URI strategy.
+- H3B owner production-signed Dart-hardening validation.
 - R8 / ProGuard review and narrowing.
 - Native hardening, symbol policy, and symbol archive.
 - Secrets/configuration plus APK/AAB exposure audit.
@@ -104,11 +122,12 @@ current release inventory.
 
 ### Exact next action
 
-Prepare an explicit H3 milestone prompt from
+Prepare and review an explicit H3B production-validation prompt from
 [`docs/prompts/PROMPT_TEMPLATE.md`](docs/prompts/PROMPT_TEMPLATE.md), review it
 against [`docs/prompts/REVIEW_PROTOCOL.md`](docs/prompts/REVIEW_PROTOCOL.md), and
-wait for owner authorization before implementation. Do not start H3 as part of
-PC-1.
+wait for owner authorization. H3B must use hidden local secret input; no signing
+password enters chat, Git, argv, a report, or a repository file. Do not begin
+R8/ProGuard or native hardening.
 
 # Historical milestone archive
 
@@ -116,6 +135,22 @@ Everything below this heading is phase-scoped evidence preserved from earlier
 closeouts. When an older statement conflicts with the authoritative snapshot,
 read it as “true at that milestone,” not as current state. Do not rewrite an
 accepted historical record to make it sound current.
+
+## Final Production Release Hardening H3A — CLOSED / NON-RELEASABLE
+
+H3A started from `9a5a5dd9fd4a0697451d27948efe2c5be6e5c028` and established a
+fail-closed Gradle/Flutter 3.47.1 Dart-hardening contract: obfuscation, external
+split debug info, arm64 product target, and a stable package URI for Flutter's
+generated Dart plugin registrant. Two clean equivalent builds using different
+symbol-output roots produced byte-identical `libapp.so` and byte-identical
+split DWARF. This is scoped Dart evidence, not full-APK reproducibility.
+
+The exact validation APK and hashes are recorded in the current snapshot. It
+uses the explicit development signer and is LOCAL TEST / NON-RELEASABLE. The
+production signer and owner signing secrets were not accessed. No artifact was
+installed, published, accepted, or committed. `artifact.dart_snapshot_paths`
+is resolved on real H3A artifact evidence; H3B production validation remains
+required. R8/ProGuard and native hardening have not started.
 
 ## Final Production Release Hardening H2 — CLOSED
 

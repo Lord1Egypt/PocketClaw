@@ -40,15 +40,17 @@ phase-scoped statement in them does not override the current snapshot.
 
 ## Current handoff
 
-H2 developer production signing is closed. The private validation APK proved
-the enrolled signer path but was not installed, published, or accepted. The
-accepted physical baseline remains vc62 / versionCode 62.
+H2 developer production signing and H3A Dart-hardening architecture/local
+validation are closed. The H2 production-signed APK and H3A debug-signed
+hardened APK are private validation evidence; neither was installed, published,
+or accepted. The accepted physical baseline remains vc62 / versionCode 62.
 
-The next authorized engineering milestone is **H3 — Dart Binary Hardening**, but
-implementation must wait for an explicit H3 milestone prompt and review. Its
-expected scope is controlled Dart obfuscation, split debug info, and the
-generated-source URI strategy needed to close
-`artifact.dart_snapshot_paths`.
+The next authorized engineering milestone is **H3B — production-signed Dart
+hardening validation**, but implementation must wait for an explicit H3B prompt
+and owner-controlled hidden local secret entry. H3A already established the
+canonical helper, obfuscation, external split debug info, stable generated
+package URI, and a local artifact gate with `artifact.dart_snapshot_paths`
+passing. Do not treat that development-signed artifact as production evidence.
 
 Do not create a stable tag, publish a release, access a device, rebuild Core or
 Managed Runtime, or advance the accepted baseline without explicit milestone

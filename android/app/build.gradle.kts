@@ -2,6 +2,7 @@ import java.io.File
 import java.util.Base64
 import java.util.Properties
 import java.util.zip.ZipFile
+import groovy.json.JsonSlurper
 
 plugins {
     id("com.android.application")
@@ -224,6 +225,73 @@ val releaseSigningMaterialUsable =
 val allowDebugSigning =
     (project.findProperty("allowDebugSigning") as String?)?.toBoolean() == true
 
+// --- Dart release hardening ---------------------------------------------
+//
+// Flutter 3.47.1's Gradle plugin consumes the target, obfuscation, and split
+// properties below. PocketClaw adds one explicit mode marker so a release
+// compile cannot be mistaken for a hardened compile merely because one flag
+// happened to be set. The canonical entry point is
+// tool/build_hardened_android.py.
+val dartHardeningMode = (project.findProperty("pocketclawDartHardening") as String?)?.trim()
+val dartObfuscationProperty = (project.findProperty("dart-obfuscation") as String?)?.trim()
+val splitDebugInfoProperty = (project.findProperty("split-debug-info") as String?)?.trim()
+val dartTargetPlatformProperty = (project.findProperty("target-platform") as String?)?.trim()
+
+fun validateGeneratedDartPackageMapping(packageConfig: File) {
+    if (!packageConfig.isFile) {
+        throw GradleException(
+            "${packageConfig.path} is missing. Run the pinned `flutter pub get`, then use " +
+                "tool/build_hardened_android.py."
+        )
+    }
+    val parsed = runCatching { JsonSlurper().parse(packageConfig) as Map<*, *> }
+        .getOrElse { error ->
+            throw GradleException("Cannot parse ${packageConfig.path}: ${error.message}")
+        }
+    val packages = parsed["packages"] as? List<*>
+        ?: throw GradleException("${packageConfig.path} has no package list.")
+    val mappings = packages
+        .filterIsInstance<Map<*, *>>()
+        .filter { entry -> entry["name"] == "pocketclaw_generated" }
+    val mappingIsControlled = mappings.size == 1 &&
+        mappings.single()["rootUri"] == "flutter_build/" &&
+        mappings.single()["packageUri"] == "./"
+    if (!mappingIsControlled) {
+        throw GradleException(
+            buildString {
+                appendLine("The controlled generated-Dart package mapping is absent or malformed.")
+                appendLine("A release compile would embed the checkout-specific absolute URI for")
+                appendLine(".dart_tool/flutter_build/dart_plugin_registrant.dart.")
+                appendLine("Use tool/build_hardened_android.py; it prepares the deterministic")
+                appendLine("package:pocketclaw_generated mapping before Gradle starts.")
+            }
+        )
+    }
+}
+
+fun validatePrivateDartSymbolDirectory(raw: String) {
+    val repository = rootProject.projectDir.parentFile.canonicalFile
+    val requested = File(raw).let { candidate ->
+        if (candidate.isAbsolute) candidate else File(repository, raw)
+    }.canonicalFile
+    if (requested == repository || generateSequence(repository) { it.parentFile }.any { it == requested }) {
+        throw GradleException("split-debug-info cannot name the repository or one of its parents.")
+    }
+    if (generateSequence(requested) { it.parentFile }.any { it == repository }) {
+        val relative = requested.relativeTo(repository).invariantSeparatorsPath
+        val safelyIgnored = relative == "build/private-symbols" ||
+            relative.startsWith("build/private-symbols/") ||
+            relative == "split-debug-info" || relative.startsWith("split-debug-info/") ||
+            relative == "symbols" || relative.startsWith("symbols/")
+        if (!safelyIgnored) {
+            throw GradleException(
+                "Repository-local split-debug-info must be under build/private-symbols/, " +
+                    "split-debug-info/, or symbols/."
+            )
+        }
+    }
+}
+
 // --- Analytics -----------------------------------------------------------
 //
 // The Umeng SDK used to be an unconditional dependency, so its manifest
@@ -376,6 +444,56 @@ dependencies {
     testImplementation("junit:junit:4.13.2")
 }
 
+// Fail every release compile unless the complete H3A Dart-hardening contract is
+// selected. Debug builds are unaffected. The Python entry point also verifies
+// the actual APK and split artifact after assembly; this task protects direct
+// Gradle callers before the compiler does expensive work.
+tasks.register("validateDartHardening") {
+    doLast {
+        if (dartHardeningMode != "true") {
+            throw GradleException(
+                buildString {
+                    appendLine("Dart-hardened release mode was not selected.")
+                    appendLine("Release compilation is supported through:")
+                    appendLine("  python3 tool/build_hardened_android.py --signing <local-test|production>")
+                    appendLine("That entry point enables obfuscation, split debug info, and the")
+                    appendLine("controlled generated-source URI as one fail-closed contract.")
+                }
+            )
+        }
+        if (dartObfuscationProperty != "true") {
+            throw GradleException(
+                "Hardened mode requires the exact project property -Pdart-obfuscation=true."
+            )
+        }
+        val splitDebugInfo = splitDebugInfoProperty
+        if (splitDebugInfo.isNullOrEmpty()) {
+            throw GradleException(
+                "Hardened mode requires a non-empty -Psplit-debug-info directory."
+            )
+        }
+        if (dartTargetPlatformProperty != "android-arm64") {
+            throw GradleException(
+                "Hardened PocketClaw APKs require -Ptarget-platform=android-arm64."
+            )
+        }
+        val competingUriProperties = listOf(
+            "filesystem-roots",
+            "filesystem-scheme",
+            "extra-front-end-options",
+        ).filter(project::hasProperty)
+        if (competingUriProperties.isNotEmpty()) {
+            throw GradleException(
+                "Hardened mode rejects competing generated-source options: " +
+                    competingUriProperties.joinToString(", ")
+            )
+        }
+        validatePrivateDartSymbolDirectory(splitDebugInfo)
+        validateGeneratedDartPackageMapping(rootProject.file("../.dart_tool/package_config.json"))
+        println("Dart hardening: obfuscation + private split debug info + controlled package URI.")
+    }
+}
+
 // Fail a release build that has no authentic signer.
 //
 // This runs before anything is compiled, so the failure arrives in seconds
@@ -462,6 +580,10 @@ afterEvaluate {
     listOf("preReleaseBuild", "packageRelease", "bundleRelease").forEach { name ->
         tasks.findByName(name)?.dependsOn("validateReleaseSigning")
     }
+    listOf("preReleaseBuild", "compileFlutterBuildRelease", "packageRelease", "bundleRelease")
+        .forEach { name ->
+            tasks.findByName(name)?.dependsOn("validateDartHardening")
+        }
 }
 
 

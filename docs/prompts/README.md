@@ -31,3 +31,4 @@ boundary.
 - [`Safety checkpoints before H2`](history/SAFETY_CHECKPOINTS.md)
 - [`H2 — Developer production signer enrollment`](history/H2_ENROLLMENT.md)
 - [`H2 — Private production-signing validation`](history/H2_PRODUCTION_VALIDATION.md)
+- [`H3A — Dart hardening architecture and non-releasable validation`](history/H3A_DART_BINARY_HARDENING.md)

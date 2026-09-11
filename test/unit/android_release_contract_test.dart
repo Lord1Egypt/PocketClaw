@@ -396,4 +396,71 @@ void main() {
       }
     });
   });
+
+  group('Dart release hardening', () {
+    const helper = 'tool/build_hardened_android.py';
+
+    test('release compilation is fail-closed around one complete contract', () {
+      final source = read(gradle);
+      expect(source, contains('tasks.register("validateDartHardening")'));
+      expect(source, contains('dartHardeningMode != "true"'));
+      expect(source, contains('dartObfuscationProperty != "true"'));
+      expect(source, contains('splitDebugInfoProperty'));
+      expect(source, contains('dartTargetPlatformProperty != "android-arm64"'));
+      expect(source, contains('dependsOn("validateDartHardening")'));
+      expect(source, contains('"compileFlutterBuildRelease"'));
+    });
+
+    test('the canonical helper passes the exact pinned Flutter properties', () {
+      final source = read(helper);
+      for (final property in const [
+        '-PpocketclawDartHardening=true',
+        '-Pdart-obfuscation=true',
+        '-Psplit-debug-info=',
+        '-Ptarget-platform=android-arm64',
+      ]) {
+        expect(source, contains(property));
+      }
+      expect(source, contains('DEFAULT_SYMBOLS_DIR'));
+      expect(source, contains('build/private-symbols/dart/android-arm64'));
+    });
+
+    test('the generated registrant uses a stable package URI', () {
+      final gradleSource = read(gradle);
+      final helperSource = read(helper);
+      expect(gradleSource, contains('pocketclaw_generated'));
+      expect(gradleSource, contains('rootUri'));
+      expect(helperSource, contains('"rootUri": "flutter_build/"'));
+      expect(helperSource, contains('"packageUri": "./"'));
+      expect(
+        helperSource,
+        contains('package:pocketclaw_generated/dart_plugin_registrant.dart'),
+      );
+      expect(
+        gradleSource,
+        contains('competing generated-source options'),
+        reason: 'the pinned plugin must not silently accept a second URI path',
+      );
+    });
+
+    test('local validation cannot accidentally select production material', () {
+      final source = read(helper);
+      expect(source, contains('LOCAL TEST mode refuses declared production'));
+      expect(source, contains('environment.pop(name, None)'));
+      expect(source, contains('-PallowDebugSigning=true'));
+      expect(source, contains('LOCAL TEST / NON-RELEASABLE'));
+    });
+
+    test('private symbols are ignored and verified outside the APK', () {
+      final ignore = read('.gitignore');
+      final source = read(helper);
+      expect(ignore, contains('build/'));
+      expect(ignore, contains('split-debug-info/'));
+      expect(ignore, contains('symbols/'));
+      expect(source, contains('private Dart symbols were packaged'));
+      expect(source, contains('app.android-arm64.symbols'));
+      expect(source, contains('.debug_info'));
+      expect(source, contains('.debug_line'));
+    });
+  });
 }

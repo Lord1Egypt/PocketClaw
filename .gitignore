@@ -20,9 +20,9 @@ signing.properties
 keystore.properties
 *.keystore.properties
 
-# Release hardening output. Obfuscation and split debug info are the next
-# milestone; a symbols archive is the one artifact that must never be committed,
-# because it undoes the obfuscation it accompanies.
+# Private Dart release-support output. Split debug info preserves the names and
+# source metadata removed from the APK, so it must never enter Git or public
+# release assets. The canonical local output lives under build/private-symbols/.
 split-debug-info/
 symbols/
 *.symbols.zip

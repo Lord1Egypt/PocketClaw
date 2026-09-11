@@ -17,6 +17,8 @@ Modes:
     --verify-artifact <apk>      inspect a built APK
     --full <apk>                 both
     --release-class test|production
+    --dart-symbols <path>        require H3 Dart hardening evidence from the
+                                 private split-debug-info file or directory
 
 `test` permits the known development signer and can never report a production
 release. `production` treats a development signer as an unconditional failure.
@@ -76,6 +78,13 @@ FORBIDDEN_PERMISSIONS = {
 
 CORE_LIBS = ("libpocketclaw.so", "libpocketclaw-web.so")
 STAGED_CORE_DIR = REPO / "android/app/src/main/jniLibs" / EXPECTED_ABI
+DART_GENERATED_REGISTRANT_URI = b"package:pocketclaw_generated/dart_plugin_registrant.dart"
+DART_APP_SYMBOL_MARKERS = (
+    b"TelegramOnboardingController",
+    b"TelegramOnboardingClient",
+    b"_MainShellState",
+    b"StatusSnapshot",
+)
 
 # The Android debug signing certificate this project's local test builds carry.
 # Recorded so a development artifact can be *classified*, never so it can be
@@ -106,7 +115,7 @@ def enrolled_production_signer() -> str | None:
 # Real work that is not done yet. The gate names these rather than implying the
 # release is fully hardened; it must not pretend they are solved.
 PENDING_FINAL_HARDENING = [
-    "Dart obfuscation and split debug info not enabled",
+    "H3B production-signed Dart-hardening validation not yet performed",
     "R8 keep rules not narrowed",
     # Distribution is direct APK + Google Play + official F-Droid. F-Droid will
     # only publish the developer-signed artifact for a build it can reproduce,
@@ -582,6 +591,11 @@ def source_gates(gate: Gate, run_tests: bool, release_class: str = "test"):
                expected="A2 credential, log and auth guards pass",
                observed="PASS" if rc == 0 else "FAIL")
 
+    rc, out = run([sys.executable, str(REPO / "tool/test_build_hardened_android.py")])
+    gate.check("dart.hardening_contract", rc == 0,
+               expected="obfuscation, split-info, generated-URI and signing-mode guards",
+               observed="PASS" if rc == 0 else out.strip().splitlines()[-1] if out.strip() else "FAIL")
+
 
     flutter = shutil.which("flutter")
     if not flutter:
@@ -610,7 +624,8 @@ def source_gates(gate: Gate, run_tests: bool, release_class: str = "test"):
 # Artifact-level gates
 # --------------------------------------------------------------------------
 
-def artifact_gates(gate: Gate, apk: Path, release_class: str):
+def artifact_gates(gate: Gate, apk: Path, release_class: str,
+                   dart_symbols: Path | None = None):
     if not apk.is_file():
         gate.check("artifact.present", False, expected=str(apk), observed="missing")
         return
@@ -803,12 +818,12 @@ def artifact_gates(gate: Gate, apk: Path, release_class: str):
         else:
             gate.record("artifact.backup_exclusions", SKIP, "aapt2 not found")
 
-    native_gates(gate, apk)
+    native_gates(gate, apk, dart_symbols)
     fdroid_artifact_gate(gate, apk)
     signing_gate(gate, apk, release_class)
 
 
-def native_gates(gate: Gate, apk: Path):
+def native_gates(gate: Gate, apk: Path, dart_symbols: Path | None = None):
     """ELF hardening for every native library, and build-path privacy for ours.
 
     The strip / non-executable-stack / alignment rules apply to everything the
@@ -831,12 +846,18 @@ def native_gates(gate: Gate, apk: Path):
     import tempfile
     problems = []
     dart_snapshot_paths = 0
+    dart_app_blob = None
+    archive_names = []
     with tempfile.TemporaryDirectory() as tmp, zipfile.ZipFile(apk) as archive:
+        archive_names = archive.namelist()
         for entry in (n for n in archive.namelist()
                       if n.startswith("lib/") and n.endswith(".so")):
             name = Path(entry).name
             path = Path(tmp) / name
-            path.write_bytes(archive.read(entry))
+            blob = archive.read(entry)
+            path.write_bytes(blob)
+            if name == "libapp.so" and entry == "lib/arm64-v8a/libapp.so":
+                dart_app_blob = blob
 
             rc, out = run(["readelf", "-lW", str(path)])
             aligns = re.findall(r"LOAD.*?(0x[0-9a-f]+)\s*$", out, re.M)
@@ -871,6 +892,62 @@ def native_gates(gate: Gate, apk: Path):
                     "PENDING_FINAL_HARDENING (controlled Dart generated-source URI strategy)")
     else:
         gate.record("artifact.dart_snapshot_paths", PASS, "no generated-source paths")
+
+    if dart_symbols is not None:
+        dart_hardening_gates(gate, dart_app_blob, archive_names, dart_symbols)
+
+
+def dart_hardening_gates(gate: Gate, app_blob: bytes | None,
+                         archive_names: list[str], symbols_path: Path):
+    """Prove H3 Dart hardening using the APK and its private support artifact."""
+    symbols = symbols_path
+    if symbols.is_dir():
+        symbols = symbols / "app.android-arm64.symbols"
+    present = symbols.is_file() and symbols.stat().st_size > 0
+    symbol_blob = symbols.read_bytes() if present else b""
+    split_shape = (
+        present
+        and symbol_blob.startswith(b"\x7fELF")
+        and b".debug_info" in symbol_blob
+        and b".debug_line" in symbol_blob
+    )
+    retained = [marker for marker in DART_APP_SYMBOL_MARKERS if marker in symbol_blob]
+    gate.check("artifact.dart_split_debug_info", split_shape and len(retained) >= 3,
+               expected="external arm64 ELF with Dart DWARF and application symbols",
+               observed=(f"{symbols.name}: {len(retained)} known private symbols retained"
+                         if present else f"missing: {symbols}"))
+
+    generated_uri = app_blob is not None and DART_GENERATED_REGISTRANT_URI in app_blob
+    gate.check("artifact.dart_generated_source_uri", generated_uri,
+               expected=DART_GENERATED_REGISTRANT_URI.decode(),
+               observed="controlled package URI" if generated_uri else "missing")
+
+    exposed = ([marker.decode() for marker in DART_APP_SYMBOL_MARKERS if marker in app_blob]
+               if app_blob is not None else ["libapp.so missing"])
+    gate.check("artifact.dart_obfuscation", not exposed and len(retained) >= 3,
+               expected="application names absent from libapp.so and retained privately",
+               observed="obfuscated" if not exposed and len(retained) >= 3
+               else ", ".join(exposed) or "private symbol evidence insufficient")
+
+    packaged = [name for name in archive_names
+                if name.endswith((".symbols", ".dwarf")) or "private-symbols" in name]
+    tracked = False
+    if present:
+        try:
+            relative = symbols.resolve().relative_to(REPO)
+        except ValueError:
+            relative = None
+        if relative is not None:
+            rc, _ = run(["git", "ls-files", "--error-unmatch", str(relative)])
+            tracked = rc == 0
+    gate.check("artifact.dart_symbols_private", not packaged and not tracked,
+               expected="split debug info external to APK and untracked",
+               observed=(", ".join(packaged) if packaged else
+                         "tracked by Git" if tracked else "external and untracked"))
+    if present:
+        gate.facts["dartSymbols"] = str(symbols)
+        gate.facts["dartSymbolsBytes"] = symbols.stat().st_size
+        gate.facts["dartSymbolsSha256"] = sha256(symbols)
 
 
 # Proprietary SDKs that disqualify an app from the official F-Droid repository.
@@ -993,6 +1070,10 @@ def main() -> int:
                         help="skip delegated test suites (source phase)")
     parser.add_argument("--manifest", metavar="PATH",
                         help="write the JSON release manifest here")
+    parser.add_argument(
+        "--dart-symbols", metavar="PATH",
+        help="verify Dart hardening against this private .symbols file or directory",
+    )
     args = parser.parse_args()
 
     if not (args.verify_source or args.verify_artifact or args.full):
@@ -1012,7 +1093,12 @@ def main() -> int:
             # source phase was not requested, so an APK can never be validated
             # against nothing.
             tracked_version(gate)
-        artifact_gates(gate, Path(apk).resolve(), args.release_class)
+        artifact_gates(
+            gate,
+            Path(apk).resolve(),
+            args.release_class,
+            Path(args.dart_symbols).resolve() if args.dart_symbols else None,
+        )
 
     width = max(len(r.name) for r in gate.results)
     print(f"PocketClaw release gate — class: {args.release_class}")
