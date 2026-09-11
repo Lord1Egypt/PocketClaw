@@ -7,6 +7,35 @@ only reconstructable examples belong here.
 
 ## Open / deferred
 
+### PC-DEF-008 — Reverify the Dart intermediate strip boundary during native hardening
+
+- **Discovered:** Post-H3B packaged-DWARF inspection, 2026-09-11.
+- **Component:** Dart AOT intermediate / Android native-library packaging.
+- **Severity:** Non-blocking release-hardening verification item.
+- **Description:** Dart `gen_snapshot` warns that its generated ELF contains
+  unobfuscated DWARF because the split-debug-info build does not pass
+  `gen_snapshot --strip`. The warning applies to the ignored 9,149,696-byte
+  Flutter intermediate, which contains `.debug_abbrev`, `.debug_info`,
+  `.debug_line`, `.symtab`, and `.strtab`. AGP's existing
+  `stripReleaseDebugSymbols` step produces the 5,702,536-byte `libapp.so`
+  packaged in the H3B APK. That packaged ELF is marked stripped and contains
+  none of those sections, compressed debug data, source paths, or sampled
+  application identifiers. Its only unwind metadata is a 45-byte `.eh_frame`.
+- **Evidence:** H3B APK SHA-256
+  `ceef6640d8abd9d084c3ff37d8e903aaf3c82b287de65ec15a37d91124bdebe6`;
+  packaged Dart AOT SHA-256
+  `c7b2a885ff843a20c57097a0d16ba07c728bd64cf17455a1ce61e6f463a5ae77`.
+  GNU `readelf`/`objdump`, pinned NDK `llvm-objdump`, and byte comparison prove
+  the APK entry equals AGP's stripped output. The external private DWARF remains
+  separate and retains the expected symbolization information.
+- **Reason deferred:** There is no distributed-DWARF exposure to correct in
+  H3B or R8 work. The later native-hardening/symbol-policy milestone must
+  revalidate that AGP stripping remains active and decide whether stripping the
+  ignored intermediate earlier is useful without harming private
+  symbolization or reproducibility.
+- **Target milestone:** Native hardening / symbol policy and symbol archive.
+- **Status:** DEFERRED / NON-BLOCKING; H3B remains closed.
+
 ### PC-DEF-002 — Web console listens on `0.0.0.0:18800`
 
 - **Discovered:** vc59 machine validation, 2026-09-08.
