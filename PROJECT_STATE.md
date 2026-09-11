@@ -1,6 +1,6 @@
 # PocketClaw Project State
 
-## Authoritative current snapshot — H4A
+## Authoritative current snapshot — H4B
 
 This section is the current project-state authority. It is verified against Git,
 tracked release inputs, the production signer enrollment, and current GitHub
@@ -14,13 +14,14 @@ evidence and describe the state at the date of each entry.
 | H3A state-basis HEAD | `9a5a5dd9fd4a0697451d27948efe2c5be6e5c028` (verified H3A starting commit; the H3A closeout commit follows it) |
 | H3B state-basis HEAD | `6491ccc6f611c7513506d622dbb1ad4a75c93a43` (verified H3B starting commit; the H3B defect fix and closeout commit follow it) |
 | H4A state-basis HEAD | `30ec1951cb91df2d3ab80ce09d3e1176611242f7` (verified H4A starting commit; the H4A closeout commit follows it) |
+| H4B state-basis HEAD | `a6034c065becccc0a01ed7e734dad6b2558a0ef1` (verified H4B starting commit; the H4B closeout commit follows it) |
 | Version | `0.2.0+62` |
 | Accepted physical baseline | vc62 / `lastAcceptedVersionCode=62` |
-| Current phase | Final Production Release Hardening; H4A R8/ProGuard hardening and non-releasable validation closed |
+| Current phase | Final Production Release Hardening; H4B production-signed R8/ProGuard validation closed |
 | Developer production signer | `176dca6b198b9552fb4d9ad3ca18da8d6f23c0a3f5ed4bd6b75a0700f9f0efcf` |
 | Core fingerprint | `876b87f5950452ba903301b6cce4cc96502ab4ff25d90d13e31b9da537e24b44` |
 | Distribution targets | Direct APK, Google Play, Official F-Droid |
-| Next authorized milestone | H4B production-signed R8/ProGuard validation; owner-local hidden signing input will be required and H4B has not started |
+| Next authorized milestone | Native/ELF hardening, symbol policy, and private symbol archive; it has not started |
 
 The H2 production validation APK has SHA-256
 `f0d83298c2ce061c01a9fc931ad29676e4d4b646bb5b204a9bf0002b11a7f46f`
@@ -101,6 +102,31 @@ external Dart symbol SHA-256 remains
 The APK and both private support artifacts were not installed, committed,
 published, or accepted. The production signer was not accessed.
 
+H4B validated the exact H4A R8/ProGuard contract under the enrolled production
+signer. The private production-validation APK is
+`build/app/outputs/apk/release/app-release.apk`, 63,560,431 bytes, SHA-256
+`14ba7d138a4092aefe264c7e2af6240c97fc1b782ded69918cbf545351eb5eb2`,
+package `com.lord1egypt.pocketclaw`, version `0.2.0` (62), with an arm64 product
+payload and accepted plugin ABI stubs. Independent `apksigner` inspection found
+exactly one v2 signer with certificate SHA-256
+`176dca6b198b9552fb4d9ad3ca18da8d6f23c0a3f5ed4bd6b75a0700f9f0efcf`;
+the development signer was not used. The production artifact gate passed 30
+checks with 0 failures and 0 skips.
+
+Both DEX entries are byte-identical to H4A: `classes.dex` is 2,069,524 bytes,
+SHA-256 `6de32319f187e9dd26d8313a4a44cb8f94f2f08c2e0773bd9d5f0e4e067a386b`,
+and `classes2.dex` is 213,956 bytes, SHA-256
+`e16d9e1acfb5180aab18d10942562486710c53636daec37606f4f0d3a18e6e5f`.
+The 13,630,085-byte private mapping remains byte-identical to H4A at SHA-256
+`14d49fad46e773e32da69b7b2336b7a968808cd1130f0319f7806ca4d09c1beb`.
+The Dart AOT and private-symbol hashes also remain the H3/H4 values
+`c7b2a885ff843a20c57097a0d16ba07c728bd64cf17455a1ce61e6f463a5ae77`
+and `0f52873bc712fe0c17d636f5bdb7d08ee80cdacfe633cf6a786dd2c6d93b8acc`.
+Core and all eight Managed Runtime payloads are byte-identical to H4A. Mapping
+and Dart symbols remain ignored, untracked, external to the APK, and private.
+The APK was not installed, published, accepted, or committed and does not
+advance vc62.
+
 ### Completed major milestones
 
 - vc62 Zero-Pico namespace closeout: physically accepted and merged.
@@ -114,13 +140,13 @@ published, or accepted. The production signer was not accessed.
 - H3A Dart binary hardening architecture and non-releasable validation: closed.
 - H3B production-signed Dart-hardening validation: closed.
 - H4A R8/ProGuard hardening and non-releasable validation: closed.
+- H4B production-signed R8/ProGuard validation: closed.
 
 See [`docs/ROADMAP.md`](docs/ROADMAP.md) for the phase sequence and
 [`docs/AI_HANDOFF.md`](docs/AI_HANDOFF.md) for the mandatory read order.
 
 ### Pending hardening and deferred work
 
-- H4B production-signed R8/ProGuard validation.
 - Native hardening, symbol policy, and symbol archive.
 - Secrets/configuration plus APK/AAB exposure audit.
 - Full APK/AAB production inspection and production-class gate.
@@ -174,14 +200,40 @@ current release inventory.
 
 ### Exact next action
 
-Prepare and review an explicit H4B production-signed R8/ProGuard validation
-prompt from [`docs/prompts/PROMPT_TEMPLATE.md`](docs/prompts/PROMPT_TEMPLATE.md),
+Prepare and review an explicit native/ELF hardening, symbol-policy, and private
+symbol-archive prompt from
+[`docs/prompts/PROMPT_TEMPLATE.md`](docs/prompts/PROMPT_TEMPLATE.md),
 review it against
 [`docs/prompts/REVIEW_PROTOCOL.md`](docs/prompts/REVIEW_PROTOCOL.md), and wait
-for owner authorization. H4B must use owner-local hidden signing input. Do not
-begin H4B or native hardening from this closeout.
+for owner authorization. Reverify the `PC-DEF-008` strip boundary within that
+scope. Do not begin native hardening from this closeout.
 
 # Historical milestone archive
+
+## Final Production Release Hardening H4B — CLOSED / PRIVATE VALIDATION
+
+H4B started from `a6034c065becccc0a01ed7e734dad6b2558a0ef1` and validated
+the exact H4A R8/ProGuard contract under the enrolled production signer. The
+APK, signer, DEX, mapping, Dart, Core, runtime, test, and gate evidence is
+recorded in the current snapshot and the H4B reconstructed operating record.
+
+The first owner run exposed a temporary-helper routing defect: its signing
+validation invoked the Android wrapper while leaving Gradle's project root at
+the repository root. The corrected external helper uses `-p android` for every
+Gradle invocation and exercises that exact validation route before prompting
+for secrets. The corrected owner run completed successfully. The helper trap
+cleared all four signing variables, and no secret was printed, stored, or
+committed.
+
+The first passing artifact manifest still labeled H4B as pending. That stale
+status was removed as `PC-DEF-R013` with a regression test while the remaining
+open F-Droid reproducibility and bootstrap-strategy items stayed intact. The
+metadata-only correction did not require an APK rebuild.
+
+This APK is private validation evidence. It was not installed, published,
+accepted, or committed. The accepted physical baseline remains vc62 / 62.
+`PC-DEF-006` remains open, `PC-DEF-008` remains deferred, and native hardening
+has not started.
 
 ## Final Production Release Hardening H4A — CLOSED / NON-RELEASABLE
 

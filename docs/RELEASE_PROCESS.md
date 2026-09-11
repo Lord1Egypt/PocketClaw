@@ -39,8 +39,17 @@ project-owned R8 rules. Its SHA-256 is
 `db7fa8cb190fcebc160b2c718d9c120de296efb378d8a1196a5ff722ba3e1f78`.
 It carries the local development signer and is LOCAL TEST / NON-RELEASABLE. It
 was not installed, published, accepted, or signed with the production key.
-H4B must validate the same R8 contract under production signing before the R8
-phase closes for production use.
+H4B subsequently validated the same R8 contract under production signing.
+
+The H4B APK is a **production validation artifact** with Dart and R8 hardening.
+Its SHA-256 is
+`14ba7d138a4092aefe264c7e2af6240c97fc1b782ded69918cbf545351eb5eb2`.
+Its DEX payload, private mapping, Dart AOT, private Dart symbols, Core, and
+Managed Runtime payloads match H4A byte for byte; its one v2 signer is the
+enrolled developer certificate. All 30 production artifact checks pass. It is
+private, uninstalled, unpublished, unaccepted evidence. Native and later
+hardening milestones remain, so it is not a final hardened production
+candidate.
 
 ## Three signing identities
 

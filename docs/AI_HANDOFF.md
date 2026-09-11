@@ -40,18 +40,18 @@ phase-scoped statement in them does not override the current snapshot.
 
 ## Current handoff
 
-H2 developer production signing, H3A/H3B Dart hardening, and H4A R8/ProGuard
-hardening with non-releasable validation are closed.
+H2 developer production signing, H3A/H3B Dart hardening, and H4A/H4B
+R8/ProGuard hardening are closed.
 Their artifacts are private validation evidence; none was installed, published,
 or accepted. The accepted physical baseline remains vc62 / versionCode 62.
 
-The next authorized engineering milestone is **H4B production-signed R8 /
-ProGuard validation**, but implementation must wait for an explicit prompt and
-owner-local hidden signing input. H4A removed project blanket keeps and proved
-real shrinking/renaming with private mapping evidence under the local
-development signer. Do not treat any validation APK as a final release or
-accepted physical baseline. Native/ELF hardening has not started; `PC-DEF-008`
-remains deferred to that later phase.
+The next authorized engineering milestone is **native/ELF hardening, symbol
+policy, and private symbol archive**, but implementation must wait for an
+explicit prompt. H4B proved H4A's narrowed rules, shrinking, renaming, and
+private mapping contract under the enrolled production signer. Do not treat
+its validation APK as a final release or accepted physical baseline.
+Native/ELF hardening has not started; `PC-DEF-008` remains deferred to that
+phase and must be reverified there.
 
 Do not create a stable tag, publish a release, access a device, rebuild Core or
 Managed Runtime, or advance the accepted baseline without explicit milestone

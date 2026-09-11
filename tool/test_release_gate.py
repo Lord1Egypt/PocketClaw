@@ -33,6 +33,18 @@ STAMPED = b"\x00padding\x00" + b"2026-09-08T04:02:42+0000" + b"\x00more\x00"
 DEV_ONLY = b"\x00padding\x00" + b"dev" + b"\x00more\x00"
 
 
+class PendingHardeningState(unittest.TestCase):
+    def test_h4b_is_not_reported_pending_after_production_validation(self):
+        self.assertNotIn(
+            "R8 production-signed validation pending",
+            gate_module.PENDING_FINAL_HARDENING,
+        )
+        self.assertIn(
+            "APK-level reproducibility not yet proven (required for F-Droid)",
+            gate_module.PENDING_FINAL_HARDENING,
+        )
+
+
 def status_of(gate, name):
     return next(r.status for r in gate.results if r.name == name)
 

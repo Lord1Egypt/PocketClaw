@@ -165,7 +165,7 @@ decision journal and supplies the underlying engineering narratives.
 
 ## PC-D012 — Keep application R8 rules narrow and mappings private
 
-- **Status:** Accepted by H4A; production validation pending in H4B.
+- **Status:** Accepted by H4A and production-validated by H4B.
 - **Decision:** Release builds keep R8 minification, resource shrinking, and
   optimized defaults enabled. PocketClaw adds no application-wide keep rule;
   manifest/aapt rules, Flutter's pinned embedding contract, annotations, and
@@ -188,4 +188,6 @@ decision journal and supplies the underlying engineering narratives.
   `14d49fad46e773e32da69b7b2336b7a968808cd1130f0319f7806ca4d09c1beb`;
   DEX reduction of 614,820 bytes from H3B; six sampled internal descriptors
   renamed/removed/folded and absent from DEX; four manifest components
-  preserved; focused R8 tests and 30/30 local-test artifact gate.
+  preserved; focused R8 tests and 30/30 local-test artifact gate. H4B retained
+  the same DEX bytes and mapping under the enrolled production signer and
+  passed 30/30 production artifact checks.

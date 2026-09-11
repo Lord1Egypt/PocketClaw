@@ -21,40 +21,39 @@ not that PocketClaw is a final release.
 | H3A Dart hardening architecture and local validation | **Closed by this H3A closeout** | Canonical helper and Gradle guard; non-releasable APK `23dbaa24f375057faf30b469b3a8cafb1a1c235c9afacea15f944df41ad63894`; commit containing this record |
 | H3B production-signed Dart-hardening validation | **Closed by this H3B closeout** | Production APK `ceef6640d8abd9d084c3ff37d8e903aaf3c82b287de65ec15a37d91124bdebe6`; 25/25 production artifact checks PASS; closeout commit containing the H3B record |
 | H4A R8/ProGuard hardening and local validation | **Closed by this H4A closeout** | Project blanket keeps removed; non-releasable APK `db7fa8cb190fcebc160b2c718d9c120de296efb378d8a1196a5ff722ba3e1f78`; private mapping `14d49fad46e773e32da69b7b2336b7a968808cd1130f0319f7806ca4d09c1beb`; 30/30 artifact checks PASS |
+| H4B production-signed R8/ProGuard validation | **Closed by this H4B closeout** | Production-validation APK `14ba7d138a4092aefe264c7e2af6240c97fc1b782ded69918cbf545351eb5eb2`; H4A-identical DEX/mapping/Dart payloads; enrolled signer; 30/30 production artifact checks PASS |
 
 ## Authorized next milestone
 
-### H4B production-signed R8 / ProGuard validation
+### Native/ELF hardening, symbol policy, and private symbol archive
 
-Status: **not started; owner-local hidden signing input and an explicit
-milestone prompt are required**.
+Status: **not started; an explicit milestone prompt is required**.
 
 Expected scope:
 
-- run the canonical hardened build with the enrolled production signer;
-- verify the signer, R8 mapping/shrinking evidence, renamed/removed application
-  classes, and preserved Android entry points on the exact artifact;
-- keep the mapping private and outside the APK/Git;
-- preserve the validated Dart, Core, runtime, version, and baseline contracts.
+- audit only native/ELF hardening and symbol handling;
+- reverify the existing AGP strip boundary tracked by `PC-DEF-008`;
+- define and validate the private native symbol archive policy;
+- preserve the validated Dart/R8, Core, runtime, version, signer-enrollment, and
+  baseline contracts.
 
-H4A proved project-owned R8 narrowing using a local-test signed artifact. It did
-not access the production signer and does not authorize H4B automatically.
+H4B proved the H4A R8 result under production signing. Its APK remains private,
+uninstalled, unpublished, and outside the accepted physical baseline.
 
-## Required sequence after H4A
+## Required sequence after H4B
 
 Do not collapse these into one milestone. Each receives its own prompt, evidence,
 review result, documentation closeout, and `STOP`.
 
-1. H4B production-signed R8 / ProGuard validation.
-2. Native hardening, symbol policy, and symbol archive, including the deferred
+1. Native hardening, symbol policy, and symbol archive, including the deferred
    `PC-DEF-008` strip-boundary recheck.
-3. Secrets/configuration and APK/AAB exposure audit.
-4. APK and AAB production inspection.
-5. Run the full production-class release gate after all hardening phases.
-6. Perform an external-view reverse-engineering exposure audit.
-7. Run the final Samsung physical-device smoke test under an explicitly
+2. Secrets/configuration and APK/AAB exposure audit.
+3. APK and AAB production inspection.
+4. Run the full production-class release gate after all hardening phases.
+5. Perform an external-view reverse-engineering exposure audit.
+6. Run the final Samsung physical-device smoke test under an explicitly
    authorized device milestone.
-8. Create the stable tag and GitHub Release only after owner authorization.
+7. Create the stable tag and GitHub Release only after owner authorization.
 
 ## Distribution targets preserved throughout
 

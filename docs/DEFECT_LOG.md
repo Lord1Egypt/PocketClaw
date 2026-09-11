@@ -126,6 +126,44 @@ only reconstructable examples belong here.
 
 ## Resolved
 
+### PC-DEF-R013 — Release manifest still listed H4B as pending after validation
+
+- **Phase discovered:** H4B production artifact inspection.
+- **Component:** Release-gate status metadata.
+- **Problem/root cause:** All 30 production artifact checks passed, but the
+  manifest's static pending-hardening list still said R8 production-signed
+  validation was pending. That completed-milestone text would make a valid H4B
+  closeout internally contradictory.
+- **Resolution:** Remove only the completed H4B item. Keep the independently
+  open APK reproducibility and bootstrap-strategy items unchanged.
+- **Verification:** A focused regression test requires the H4B item to be
+  absent and the F-Droid reproducibility item to remain. The exact existing APK
+  then passes the production artifact gate again without a rebuild.
+- **Commit:** H4B closeout commit containing this record.
+- **Status:** RESOLVED.
+
+### PC-DEF-R012 — H4B helper selected the repository root as the Gradle project
+
+- **Phase discovered:** H4B owner production-signing validation.
+- **Component:** Temporary owner-local signing helper.
+- **Problem/root cause:** The first helper invoked `android/gradlew` while its
+  working directory remained the repository root. A Gradle wrapper locates its
+  distribution but does not make its own directory the project root, so
+  `:app:validateReleaseSigning` failed before assembly because the repository
+  root is not a Gradle build.
+- **Resolution:** Every helper Gradle invocation uses the canonical Android
+  project explicitly with `android/gradlew -p android`. Before the first hidden
+  prompt, the helper now verifies the Android settings and app build files and
+  executes that exact validation route without signing variables, requiring
+  the expected missing-material failure from `:app:validateReleaseSigning`.
+- **Verification:** Twelve focused structural/order assertions and an EOF dry
+  run proved the repository root is not selected, the Android project root is
+  canonical, the validation task reaches `:app`, and all non-secret checks run
+  before either password prompt. The corrected owner run then completed the
+  production build and the exact APK passed 30/30 production artifact checks.
+- **Commit:** H4B closeout commit containing this record.
+- **Status:** RESOLVED.
+
 ### PC-DEF-R011 — H4A output assertion mistook R8 removal for missing obfuscation
 
 - **Phase discovered:** H4A local-test validation.
