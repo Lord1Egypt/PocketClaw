@@ -466,9 +466,18 @@ void main() {
     test('canonical builds regenerate cached AOT and split symbols together', () {
       final source = read(helper);
       expect(source, contains('FLUTTER_BUILD_DIR'));
+      // The reset is called for whichever artifact this run packages. Asserting
+      // the call and its arguments rather than one literal spelling: PC-DEF-021
+      // parameterised the target so the same helper can package an AAB, and a
+      // literal match on `(APK, symbols, ...)` failed while the guarantee it
+      // exists for — cached AOT and split symbols are invalidated together, for
+      // whatever is being built — was intact.
+      expect(source, contains('reset_generated_build_outputs('));
+      expect(source, contains('symbols, r8_mapping=R8_MAPPING)'));
       expect(
         source,
-        contains('reset_generated_build_outputs(APK, symbols, r8_mapping=R8_MAPPING)'),
+        contains("BUNDLE if args.package == \"bundle\" else APK"),
+        reason: 'the reset must clear the artifact this run actually packages',
       );
       expect(source, contains('shutil.rmtree(flutter_build_dir)'));
       expect(

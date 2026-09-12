@@ -31,8 +31,9 @@ evidence and describe the state at the date of each entry.
 | Core fingerprint | `2692de41b2fe2487475911b62cec519193d581b25cf6d0ebe935fc63973229df`; the staged Core pair carries it — moved by the `PC-DEF-020` fix |
 | Distribution targets | Direct APK, Google Play, Official F-Droid |
 | Exposure-audit state-basis HEAD | `25753cef5fa4d956e11d37b5a6176cdef977f015` (verified PC-DEF-019 closeout; the audit closeout commit follows it) |
-| Final release exposure audit | **RUN, BLOCKED.** Blockers were `PC-DEF-020` (now RESOLVED) and `PC-DEF-021` (still open). `PC-DEF-022`..`PC-DEF-025` open |
-| Next authorized milestone | Fix `PC-DEF-021` under its own prompt, then re-run the exposure audit to closure. No production candidate may be built before then |
+| Final release exposure audit | **RUN, BLOCKED.** Both blockers are now RESOLVED: `PC-DEF-020` and `PC-DEF-021`. `PC-DEF-022`..`PC-DEF-025` open |
+| Next authorized milestone | Fix `PC-DEF-025` under its own prompt, then re-run the exposure audit to closure. No production candidate may be built before then |
+| Public release asset policy | APK only. An AAB is a Play-upload artifact and is never a public release asset — `PC-DEF-021` |
 
 The H2 production validation APK has SHA-256
 `f0d83298c2ce061c01a9fc931ad29676e4d4b646bb5b204a9bf0002b11a7f46f`
@@ -389,6 +390,60 @@ both private companions likewise. Native contract 22 PASS / 0 FAIL for the pair;
 no Managed Runtime payload rebuilt. Evidence is in
 [`docs/prompts/history/PC-DEF-020_PUBLIC_MODE_AUTHORITY.md`](docs/prompts/history/PC-DEF-020_PUBLIC_MODE_AUTHORITY.md).
 
+`PC-DEF-021` is **RESOLVED**, and the framing changed in the process. The defect
+was never that AGP writes the R8 mapping and native debug symbols into a
+bundle's `BUNDLE-METADATA/` — Google Play consumes those to symbolicate crashes
+and never delivers them to an installed client, so deleting them would remove
+Play's ability to read a stack trace and fix nothing. The defect was that
+PocketClaw had no way to say what an artifact was **for**, and so published AABs
+while treating that same material as private, wrote a policy requiring it to
+stay "outside APK/AAB files" that AGP cannot satisfy for a bundle, and shipped an
+`artifact.r8_mapping_private` check that was a hardcoded `True`.
+
+Purpose is now declared. `tool/artifact_policy.py` defines `public-release`,
+`play-upload` and `non-publish-audit`; `--artifact-class` is required for every
+artifact phase and has no default, so an unclassified artifact fails closed
+rather than being assumed publishable. **An AAB may never be `public-release`**,
+and the refusal does not depend on contents — a bundle with no metadata at all
+is still forbidden, because what makes the format unpublishable is what it is
+for. Detection reads the archive rather than the extension, so renaming a bundle
+to `.apk` does not launder it. For `play-upload` the metadata is expected and
+the gate names it by entry, size and category instead of passing over it in
+silence. Unrelated private material — keystores, `.env`, the private support
+tree, `.debug`/`.dwarf`, `.symbols`, signing helpers — still fails in every
+class, and the metadata exemption covers exactly two known AGP entry shapes
+after this milestone's own tests proved a directory-wide exemption would have
+let a keystore through.
+
+`artifact.r8_mapping_private` now reads the artifact and cites what it scanned,
+and it runs standalone before the R8 contract — which raises early, so the named
+check had been unreachable in the one case it existed for. Demonstrated on two
+real APKs: the fresh one reports `496 archive entries scanned, deobfuscation
+entries = 0`, and the same code fails the same APK once a mapping is injected. A
+public release asset allowlist, checkable via `--release-assets`, forbids
+`*.aab`, mapping and usage reports, native companions, `.symbols`, symbol and
+private-support archives, keystores and `.env`, while leaving the APK,
+checksums, notices, licences and source archives permitted.
+
+`tool/build_hardened_android.py --package bundle` is now the repository-owned
+hardened bundle path, running `:app:bundleRelease` through the same hardening
+contract as the APK and sharing the Dart verification helpers rather than
+duplicating them. Both artifacts built LOCAL TEST from this tree and carry the
+PC-DEF-020 Core pair: APK 63,560,039 bytes `7155de0a…`, audit AAB 74,028,994
+bytes `00bde2c9…`. Against that real bundle, `public-release` fails (exit 1),
+`play-upload` passes and reports 1 mapping plus 5 debug-symbol entries totalling
+39,584,662 bytes as allowed, `non-publish-audit` passes with the NOT
+PLAY-READY / NOT PUBLIC-RELEASE-SAFE / NOT A GITHUB RELEASE ASSET notice, and an
+unclassified run is refused.
+
+**`PocketClaw-v0.2.0-rc1.aab` and `-rc2.aab` were deliberately left in place.**
+This milestone had no authority to mutate published releases, so nothing was
+deleted and no history was rewritten. They predate Dart obfuscation and R8, so
+what they disclose is not the current mapping, but they are the practice this
+policy retires. The exact owner action for removal, and what it does and does
+not achieve, is recorded in `docs/RELEASE_PROCESS.md`. Full evidence is in
+[`docs/prompts/history/PC-DEF-021_AAB_RELEASE_POLICY.md`](docs/prompts/history/PC-DEF-021_AAB_RELEASE_POLICY.md).
+
 ### Completed major milestones
 
 - vc62 Zero-Pico namespace closeout: physically accepted and merged.
@@ -411,6 +466,7 @@ no Managed Runtime payload rebuilt. Evidence is in
 - PC-DEF-019 Core rebuild and re-stage: resolved (artifact prerequisite, not a release milestone).
 - Final release exposure audit: run and BLOCKED on `PC-DEF-020` and `PC-DEF-021`; not closed.
 - PC-DEF-020 Public Mode authority fix: resolved (release blocker cleared; not a release milestone).
+- PC-DEF-021 AAB privacy and release-artifact policy: resolved (second release blocker cleared).
 
 See [`docs/ROADMAP.md`](docs/ROADMAP.md) for the phase sequence and
 [`docs/AI_HANDOFF.md`](docs/AI_HANDOFF.md) for the mandatory read order.
@@ -472,16 +528,17 @@ current release inventory.
 
 ### Exact next action
 
-`PC-DEF-020` is cleared. One release blocker remains, under its own authorized
-prompt:
+Both exposure-audit release blockers are cleared. The next planned milestone is:
 
-1. `PC-DEF-021` — correct the mapping/symbol policy for bundles, forbid the AAB
-   as a public release asset, and give the release gate a real
-   `artifact.r8_mapping_private` check plus an AAB mode.
+1. `PC-DEF-025` — re-point the stale assertion in
+   `namespace_n3_native_identity_test.dart` at the artifact names the build
+   script actually installs, and add a gate item that runs the whole Flutter
+   suite instead of three named files. Until that lands, `flutter test` is red
+   by one test and no gate notices.
 
 Then re-run the exposure audit to closure, and only then build a
-production-signed candidate. `PC-DEF-022` through `PC-DEF-025` are open and
-scheduled after that unless the owner reorders them.
+production-signed candidate. `PC-DEF-022`, `PC-DEF-023` and `PC-DEF-024` are
+open and scheduled after that unless the owner reorders them.
 
 Prepare and review an explicit final release exposure audit prompt —
 secrets/configuration plus full APK and AAB inspection — from

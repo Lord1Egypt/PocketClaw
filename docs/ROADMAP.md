@@ -31,8 +31,8 @@ not that PocketClaw is a final release.
 ### Final release exposure audit
 
 Status: **run at `25753ce`; BLOCKED, not closed.** Two release blockers proven
-(`PC-DEF-020`, since resolved, and `PC-DEF-021`, still open) plus four further
-defects (`PC-DEF-022` through `PC-DEF-025`), each needing its own prompt. `PC-DEF-002` resolved as
+(`PC-DEF-020` and `PC-DEF-021`, both since resolved) plus four further defects
+(`PC-DEF-022` through `PC-DEF-025`), each needing its own prompt. `PC-DEF-002` resolved as
 explained. Evidence:
 [`prompts/history/EXPOSURE_AUDIT.md`](prompts/history/EXPOSURE_AUDIT.md).
 Re-running it to closure requires a fresh prompt after the blockers are fixed.
@@ -62,7 +62,11 @@ review result, documentation closeout, and `STOP`.
 1a. Fix `PC-DEF-020` (Public Mode durability) — **DONE**, resolved 2026-09-12;
     evidence in
     [`prompts/history/PC-DEF-020_PUBLIC_MODE_AUTHORITY.md`](prompts/history/PC-DEF-020_PUBLIC_MODE_AUTHORITY.md).
-1b. Fix `PC-DEF-021` (bundle mapping/symbol policy and gate) — own prompt, next.
+1b. Fix `PC-DEF-021` (bundle mapping/symbol policy and gate) — **DONE**,
+    resolved 2026-09-12; evidence in
+    [`prompts/history/PC-DEF-021_AAB_RELEASE_POLICY.md`](prompts/history/PC-DEF-021_AAB_RELEASE_POLICY.md).
+1c-pre. Fix `PC-DEF-025` (stale Flutter assertion; gate runs three files, not
+    the suite) — own prompt, next.
 1c. Re-run the exposure audit to closure.
 2. APK and AAB production inspection. Blocked until 1c closes: no
    production-signed candidate may be built before then, and the owner signing
@@ -79,7 +83,8 @@ review result, documentation closeout, and `STOP`.
 
 - **Direct APK:** developer-signed artifact distributed directly.
 - **Google Play:** AAB/upload flow, with Google Play App Signing as its own
-  signing lineage.
+  signing lineage. The bundle is a Play-upload artifact only and is never a
+  public release asset — `PC-DEF-021`.
 - **Official F-Droid:** reproducible, developer-signed APK is the target so it
   remains update-compatible with direct APK installs.
 

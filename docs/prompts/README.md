@@ -42,3 +42,4 @@ boundary.
 - [`PC-DEF-019 — Core rebuild and re-stage`](history/PC-DEF-019_CORE_REBUILD_RESTAGE.md)
 - [`Final release exposure audit`](history/EXPOSURE_AUDIT.md)
 - [`PC-DEF-020 — Public Mode authority fix`](history/PC-DEF-020_PUBLIC_MODE_AUTHORITY.md)
+- [`PC-DEF-021 — AAB privacy and release-artifact policy`](history/PC-DEF-021_AAB_RELEASE_POLICY.md)

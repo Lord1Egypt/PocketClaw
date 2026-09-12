@@ -86,8 +86,8 @@ still bound to the H5C candidate and is rebound at the next artifact build.
 relabelled; the next artifact build is the first to contain the current Core
 pair, and it needs its own validation.
 
-`PC-DEF-009` through `PC-DEF-011`, `PC-DEF-013` through `PC-DEF-019` and
-`PC-DEF-020` are resolved. `PC-DEF-012` stays open by decision — no reachability evidence, so no
+`PC-DEF-009` through `PC-DEF-011`, `PC-DEF-013` through `PC-DEF-019`,
+`PC-DEF-020` and `PC-DEF-021` are resolved. `PC-DEF-012` stays open by decision — no reachability evidence, so no
 export narrowing; the exposure audit produced none and did not narrow anything.
 
 Full evidence is in
@@ -103,7 +103,7 @@ part that does not depend on the production signing identity, opened six
 defects and fixed none.
 
     PC-DEF-020  Public Mode OFF is not durable across a restart      RESOLVED
-    PC-DEF-021  AAB embeds the private R8 mapping and Dart symbols   RELEASE BLOCKER (publication)
+    PC-DEF-021  AAB embeds the private R8 mapping and Dart symbols   RESOLVED
     PC-DEF-022  /api/update fetches an arbitrary URL unverified      open
     PC-DEF-023  third-party Google OAuth client secret embedded      open
     PC-DEF-024  dead analytics deep link exported in the manifest    open
@@ -118,14 +118,36 @@ repairs a stale stored `true`. That fix moved the Core source fingerprint to
 pair is `602ce034…` / `b5cce071…`, BuildTime `2026-09-12T18:54:26+0000`, rebuilt
 and re-staged under the two-commit rule.
 
+**`PC-DEF-021` is now RESOLVED.** Every artifact phase declares what the
+artifact is FOR — `--artifact-class public-release | play-upload |
+non-publish-audit` — and has no default, so an unclassified artifact fails
+closed. **An AAB may never be `public-release`**, regardless of what it
+contains, and detection reads the archive rather than the file extension.
+
+    # Publish this
+    python3 tool/release_gate.py --full <apk> --release-class production \
+      --artifact-class public-release
+    # Upload this to Play, and nowhere else
+    python3 tool/release_gate.py --verify-bundle <aab> --artifact-class play-upload
+    # Never valid
+    python3 tool/release_gate.py --verify-bundle <aab> --artifact-class public-release
+
+**Never attach an AAB to a public release.** The hardened APK is the only
+public Android binary. `tool/release_gate.py --release-assets <names…>` checks a
+proposed asset list, and `tool/build_hardened_android.py --package bundle
+--artifact-class …` is the repository-owned hardened bundle path.
+
+`PocketClaw-v0.2.0-rc1.aab` and `-rc2.aab` are still attached to their published
+pre-releases. That was left alone deliberately — mutating published releases was
+not authorized — and the owner action for removal is recorded in
+`RELEASE_PROCESS.md`.
+
 **Do not build a production-signed candidate yet, and do not request the owner
-signing ceremony.** `PC-DEF-021` is still a blocker, and a candidate built
-before it is fixed would be superseded along with its hash, native-support
-binding and gate evidence. The audit's structural evidence came from a fresh
-LOCAL TEST / NON-RELEASABLE APK (`5460d86a…`), which was sound because H5C
-proved the production and development builds of one tree differ only by the
-signing block — note that APK predates the `PC-DEF-020` Core generation and is
-no longer current.
+signing ceremony.** The exposure audit must be re-run to closure first, and
+`PC-DEF-025` is the planned milestone before it. The audit's structural evidence
+came from a LOCAL TEST APK (`5460d86a…`) that predates the `PC-DEF-020` Core
+generation and is no longer current; the fresh pair from this milestone is APK
+`7155de0a…` and audit AAB `00bde2c9…`, both LOCAL TEST and neither publishable.
 
 **Do not publish an AAB as a release asset.** `PocketClaw-v0.2.0-rc1.aab` and
 `-rc2.aab` already are, and a hardened bundle carries the complete R8
@@ -138,10 +160,14 @@ nothing else, and the Core gateway stays loopback-only in both states — with
 `PC-DEF-020` as its one actionable residue. `PC-DEF-006` stays open: one
 artifact was built, not two compared.
 
-The next milestone is `PC-DEF-021` under its own explicit prompt, then a re-run
-of the exposure audit to closure. Full evidence is in
-[`prompts/history/EXPOSURE_AUDIT.md`](prompts/history/EXPOSURE_AUDIT.md) and
-[`prompts/history/PC-DEF-020_PUBLIC_MODE_AUTHORITY.md`](prompts/history/PC-DEF-020_PUBLIC_MODE_AUTHORITY.md).
+The next milestone is `PC-DEF-025` under its own explicit prompt, then a re-run
+of the exposure audit to closure. **`flutter test` is red by one test until then**
+— the stale literal in `namespace_n3_native_identity_test.dart` — and no gate
+notices, because the gate runs three named Flutter files rather than the suite.
+Full evidence is in
+[`prompts/history/EXPOSURE_AUDIT.md`](prompts/history/EXPOSURE_AUDIT.md),
+[`prompts/history/PC-DEF-020_PUBLIC_MODE_AUTHORITY.md`](prompts/history/PC-DEF-020_PUBLIC_MODE_AUTHORITY.md)
+and [`prompts/history/PC-DEF-021_AAB_RELEASE_POLICY.md`](prompts/history/PC-DEF-021_AAB_RELEASE_POLICY.md).
 
 Do not create a stable tag, publish a release, access a device, rebuild Core or
 Managed Runtime, or advance the accepted baseline without explicit milestone

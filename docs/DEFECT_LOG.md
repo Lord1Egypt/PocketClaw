@@ -8,53 +8,6 @@ only reconstructable examples belong here.
 ## Open / deferred
 
 
-### PC-DEF-021 — The AAB embeds the private R8 mapping and native debug symbols
-
-- **Discovered:** final release exposure audit, 2026-09-12.
-- **Component:** Android App Bundle packaging; release-asset policy; release gate.
-- **Severity:** **RELEASE BLOCKER for any path that publishes the AAB.** No
-  impact on the APK or on installed devices.
-- **Description:** `:app:bundleRelease` writes release-support material that the
-  APK correctly excludes into `BUNDLE-METADATA/`:
-
-      18,776,264  BUNDLE-METADATA/com.android.tools.build.debugsymbols/arm64-v8a/libflutter.so.sym
-      13,630,085  BUNDLE-METADATA/com.android.tools.build.obfuscation/proguard.map
-       6,763,120  BUNDLE-METADATA/com.android.tools.build.debugsymbols/arm64-v8a/libapp.so.sym
-         159,016  .../debugsymbols/arm64-v8a/libdartjni.so.sym
-         134,544  .../debugsymbols/x86_64/libdartjni.so.sym
-         109,380  .../debugsymbols/armeabi-v7a/libdartjni.so.sym
-
-  `proguard.map` is SHA-256
-  `14d49fad46e773e32da69b7b2336b7a968808cd1130f0319f7806ca4d09c1beb` —
-  byte-identical to the private `mapping.txt`. `libapp.so.sym` is native debug
-  data for the obfuscated Dart AOT library. Roughly 39.5 MB of the bundle is
-  material H3A/H3B/H4A/H4B exist to keep out of distributed artifacts. This is
-  AGP's intended design — Play consumes `BUNDLE-METADATA/` for crash
-  symbolication and strips it from delivered splits — so it is correct for a
-  Play upload and wrong for anything else.
-- **Why it is not theoretical:** attaching the AAB to a public GitHub
-  pre-release is this project's established practice.
-  `PocketClaw-v0.2.0-rc1.aab` and `PocketClaw-v0.2.0-rc2.aab` are published
-  assets today. Repeating that for a hardened release would publish the complete
-  Java/Kotlin deobfuscation map and the Dart AOT symbols.
-- **Why no gate caught it:** `RELEASE_PROCESS.md` states this material stays
-  "outside APK/AAB files", which AGP cannot satisfy for a bundle, and
-  `artifact.r8_mapping_private` in `tool/release_gate.py:864` is a hardcoded
-  `True` whose observation reads "absent from APK" — it verifies nothing and is
-  scoped to the APK. The repository also has no AAB build or inspection path at
-  all: `tool/build_hardened_android.py` only runs `:app:assembleRelease`, and
-  neither the release gate nor the native audit accepts a bundle.
-- **Narrow fix plan:** (1) correct the policy text — the mapping and symbols are
-  private and must never appear in a **published** artifact; inside a
-  Play-destined AAB is permitted and expected. (2) Add an explicit rule that an
-  AAB is a Play-upload artifact only and is never a public release asset; retire
-  the practice that published rc1/rc2. (3) Give the release gate a real
-  `artifact.r8_mapping_private` check, and an AAB mode that enumerates
-  `BUNDLE-METADATA/` and fails if a bundle is classified for public
-  distribution. (4) Decide separately whether the already-published rc1/rc2
-  bundles should be removed. **No fix applied: policy and tooling change,
-  separate authorization required.**
-- **Status:** OPEN / RELEASE BLOCKER for AAB publication.
 
 ### PC-DEF-022 — `/api/update` fetches and extracts an arbitrary URL with no provenance check
 
@@ -324,6 +277,119 @@ only reconstructable examples belong here.
 - **Status:** OPEN.
 
 ## Resolved
+
+### PC-DEF-021 — The AAB embeds the private R8 mapping and native debug symbols
+
+- **Discovered:** final release exposure audit, 2026-09-12.
+- **Component:** Android App Bundle packaging; release-asset policy; release gate.
+- **Severity:** **RELEASE BLOCKER for any path that publishes the AAB.** No
+  impact on the APK or on installed devices.
+- **Description:** `:app:bundleRelease` writes release-support material that the
+  APK correctly excludes into `BUNDLE-METADATA/`:
+
+      18,776,264  BUNDLE-METADATA/com.android.tools.build.debugsymbols/arm64-v8a/libflutter.so.sym
+      13,630,085  BUNDLE-METADATA/com.android.tools.build.obfuscation/proguard.map
+       6,763,120  BUNDLE-METADATA/com.android.tools.build.debugsymbols/arm64-v8a/libapp.so.sym
+         159,016  .../debugsymbols/arm64-v8a/libdartjni.so.sym
+         134,544  .../debugsymbols/x86_64/libdartjni.so.sym
+         109,380  .../debugsymbols/armeabi-v7a/libdartjni.so.sym
+
+  `proguard.map` is SHA-256
+  `14d49fad46e773e32da69b7b2336b7a968808cd1130f0319f7806ca4d09c1beb` —
+  byte-identical to the private `mapping.txt`. `libapp.so.sym` is native debug
+  data for the obfuscated Dart AOT library. Roughly 39.5 MB of the bundle is
+  material H3A/H3B/H4A/H4B exist to keep out of distributed artifacts. This is
+  AGP's intended design — Play consumes `BUNDLE-METADATA/` for crash
+  symbolication and strips it from delivered splits — so it is correct for a
+  Play upload and wrong for anything else.
+- **Why it is not theoretical:** attaching the AAB to a public GitHub
+  pre-release is this project's established practice.
+  `PocketClaw-v0.2.0-rc1.aab` and `PocketClaw-v0.2.0-rc2.aab` are published
+  assets today. Repeating that for a hardened release would publish the complete
+  Java/Kotlin deobfuscation map and the Dart AOT symbols.
+- **Why no gate caught it:** `RELEASE_PROCESS.md` states this material stays
+  "outside APK/AAB files", which AGP cannot satisfy for a bundle, and
+  `artifact.r8_mapping_private` in `tool/release_gate.py:864` is a hardcoded
+  `True` whose observation reads "absent from APK" — it verifies nothing and is
+  scoped to the APK. The repository also has no AAB build or inspection path at
+  all: `tool/build_hardened_android.py` only runs `:app:assembleRelease`, and
+  neither the release gate nor the native audit accepts a bundle.
+- **Fix applied, 2026-09-12.** All four parts of the plan, and the framing
+  changed: the defect is not that AGP writes those entries, it is that
+  PocketClaw had no way to say what an artifact was *for*. Contents cannot be
+  judged without purpose, so purpose is now declared.
+
+  **(1) Policy corrected.** `RELEASE_PROCESS.md` no longer claims the mapping
+  and symbols stay "outside APK/AAB files", which AGP cannot satisfy for a
+  bundle and was therefore a rule nothing could obey. It now says: absent from
+  every APK, never a public release asset, and expected inside a Play-destined
+  bundle's `BUNDLE-METADATA/`. It also says explicitly not to strip them —
+  that would remove Play's ability to symbolicate a crash and fix nothing.
+
+  **(2) Distribution classes.** `tool/artifact_policy.py` defines
+  `public-release`, `play-upload` and `non-publish-audit`. An AAB may never be
+  `public-release`, and the refusal does not depend on what the bundle contains:
+  a bundle with no mapping at all is still forbidden, because the prohibition is
+  about what the format is for. Detection reads archive contents, not the file
+  extension, so renaming a bundle to `.apk` does not launder it — a test covers
+  that. A new public release asset allowlist rejects `*.aab`, mapping and usage
+  reports, `.debug`/`.sym`/`.dwarf` companions, `.symbols`, symbol and
+  private-support archives, keystores and key files, and `.env`, while leaving
+  the APK, checksums, notices and source archives permitted.
+
+  **(3) Real gate checks.** `artifact.r8_mapping_private` reads the archive and
+  reports what it scanned — `"N archive entries scanned, deobfuscation entries =
+  0"` — instead of the hardcoded `True` whose observation read "absent from
+  APK". A test asserts the vacuous form cannot come back and that the same code
+  answers differently for two different archives. `--verify-bundle` inventories
+  modules, ABIs, manifests, native entries and every `BUNDLE-METADATA/` entry by
+  name, size, category and Play-acceptability; `--artifact-class` is required for
+  any artifact phase and has no default, so an unclassified artifact fails
+  closed rather than being assumed public-safe. `--release-assets` checks a
+  proposed asset list.
+
+  **(4) rc1/rc2 left in place**, deliberately, and recorded — see below.
+
+  Unrelated private material still fails in **every** class including a Play
+  upload. The `BUNDLE-METADATA/` exemption covers exactly two known AGP entry
+  shapes, `obfuscation/proguard.map` and `debugsymbols/<abi>/<lib>.so.sym`. That
+  narrowing came from this milestone's own test suite: the first implementation
+  exempted the whole directory, so a keystore dropped beside the mapping passed.
+  It now fails.
+
+  A repository-owned hardened bundle path was added rather than left to an ad-hoc
+  Gradle invocation: `tool/build_hardened_android.py --package bundle` runs
+  `:app:bundleRelease` through the same hardening contract as the APK — same
+  obfuscation, split-debug-info, controlled generated URI, R8, shrinking and
+  arm64 target — sharing the Dart verification helpers instead of duplicating
+  them. It requires `--artifact-class` and does not offer `public-release`.
+- **Verification:** `tool/test_artifact_policy.py`, 32 tests, covering all
+  twelve required cases: a clean APK passes and an APK carrying a mapping fails;
+  an AAB classified public fails, including one with no metadata at all; a
+  Play-upload AAB passes and its expected `proguard.map` and native debug
+  metadata are reported as allowed rather than as leakage; a non-publish audit
+  AAB passes with the classification notice; a missing or unrecognised class
+  fails closed; a Play AAB carrying unrelated private material fails; the asset
+  allowlist rejects `*.aab`, mapping files, `.debug`, symbol archives and
+  keystore-like material while permitting ordinary assets; and
+  `artifact.r8_mapping_private` is shown to be content-derived. Six of those run
+  the real gate CLI end to end. `tool/test_release_gate.py` (23 tests) still
+  passes unchanged.
+- **Historical exposure, not remediated here:** `PocketClaw-v0.2.0-rc1.aab` and
+  `PocketClaw-v0.2.0-rc2.aab` remain attached to their published pre-releases.
+  They predate Dart obfuscation and R8 minification, so what they disclose is
+  not the current hardened mapping, but they are the practice this policy
+  retires. This milestone had no authority to mutate published releases, so
+  nothing was deleted and no release history was rewritten. The exact owner
+  action, if removal is wanted, is recorded in `RELEASE_PROCESS.md` along with
+  what it does and does not achieve: it ends ongoing public availability and
+  cannot revoke a copy already downloaded, and each asset shows a recorded
+  download.
+- **Core impact:** none. Only tooling, tests and documentation changed; the Core
+  source fingerprint is unchanged at
+  `2692de41b2fe2487475911b62cec519193d581b25cf6d0ebe935fc63973229df` and Core
+  was not rebuilt.
+- **Status:** RESOLVED, 2026-09-12.
 
 ### PC-DEF-020 — Public Mode OFF does not guarantee a loopback-only console
 

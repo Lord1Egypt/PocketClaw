@@ -16,7 +16,10 @@ Modes:
     --verify-source              repository and source contracts only
     --verify-artifact <apk>      inspect a built APK
     --full <apk>                 both
+    --verify-bundle <aab>        inspect an Android App Bundle
+    --release-assets <name...>   check proposed public release asset names
     --release-class test|production
+    --artifact-class public-release|play-upload|non-publish-audit
     --dart-symbols <path>        require H3 Dart hardening evidence from the
                                  private split-debug-info file or directory
     --r8-mapping <path>          require H4 R8 mapping/shrinking evidence
@@ -24,6 +27,14 @@ Modes:
 `test` permits the known development signer and can never report a production
 release. `production` treats a development signer as an unconditional failure.
 The caller chooses; the gate never guesses from context.
+
+`--release-class` is about *signing*; `--artifact-class` is about *purpose*, and
+they answer different questions. An artifact phase requires the latter and it
+has no default, because the one thing PC-DEF-021 proved is that guessing
+"publishable" is the guess that costs something: a hardened AAB carries the R8
+mapping and native debug symbols for Google Play to consume, so it is a valid
+Play upload and never a valid public download. The gate refuses an unclassified
+artifact rather than picking the permissive reading.
 
 Exit 0 when every selected check passes, non-zero otherwise. Every check reports
 PASS, FAIL or SKIPPED, and a SKIPPED check is always named.
@@ -44,6 +55,21 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from r8_contract import R8ContractError, inspect_outputs as inspect_r8_outputs
+from artifact_policy import (
+    AAB,
+    APK as ARTIFACT_APK,
+    DISTRIBUTION_CLASSES,
+    NON_PUBLISH_AUDIT,
+    PLAY_UPLOAD,
+    PUBLIC_RELEASE,
+    ArtifactPolicyError,
+    detect_artifact_kind,
+    distribution_verdict,
+    inspect_bundle,
+    packaged_r8_mapping_entries,
+    private_material_violations,
+    public_release_asset_violations,
+)
 
 REPO = Path(__file__).resolve().parent.parent
 PACKAGE_ID = "com.lord1egypt.pocketclaw"
@@ -842,6 +868,138 @@ def artifact_gates(gate: Gate, apk: Path, release_class: str,
         r8_hardening_gates(gate, apk, r8_mapping)
 
 
+def deobfuscation_privacy_gate(gate: Gate, artifact: Path):
+    """Is anything that could deobfuscate the shipped code inside the artifact?
+
+    This is a property of the artifact alone, so it runs on its own rather than
+    behind ``--r8-mapping``: an APK built without mapping evidence to compare
+    against is exactly the one nobody would notice shipping a mapping. It also
+    runs before the R8 contract, which raises and returns early — this check
+    was previously unreachable in the one case it was written for, and reported
+    a hardcoded True with the observation "absent from APK". See PC-DEF-021.
+    """
+    with zipfile.ZipFile(artifact) as archive:
+        names = archive.namelist()
+    packaged = packaged_r8_mapping_entries(names)
+    gate.facts["r8MappingPackagedEntries"] = packaged
+    gate.facts["r8MappingScannedEntries"] = len(names)
+    gate.check(
+        "artifact.r8_mapping_private", not packaged,
+        expected="no R8 deobfuscation entry packaged in the artifact",
+        observed=(", ".join(packaged) if packaged else
+                  f"{len(names)} archive entries scanned, deobfuscation entries = 0"),
+    )
+
+
+def distribution_gates(gate: Gate, artifact: Path, distribution: str | None):
+    """Decide whether this artifact format may serve this distribution purpose.
+
+    The first gate any artifact meets, and the one PC-DEF-021 was missing. It is
+    about purpose rather than contents: a bundle with no mapping at all is still
+    forbidden as a public asset, because what makes the bundle unpublishable is
+    what the format is for.
+    """
+    try:
+        kind = detect_artifact_kind(artifact)
+    except ArtifactPolicyError as error:
+        gate.check("artifact.kind", False,
+                   expected="an APK or an AAB", observed=str(error))
+        return None
+    gate.facts["artifactKind"] = kind
+    gate.check("artifact.kind", True, observed=kind.upper())
+
+    gate.facts["distributionClass"] = distribution
+    ok, message = distribution_verdict(kind, distribution or "")
+    gate.check("artifact.distribution_class", ok,
+               expected="a declared distribution class the format may serve",
+               observed=message)
+    return kind
+
+
+def bundle_gates(gate: Gate, bundle: Path, distribution: str):
+    """Inspect an AAB and hold it to its declared purpose.
+
+    Expected AGP metadata is inventoried deliberately rather than ignored: for a
+    Play upload the mapping and native symbols under BUNDLE-METADATA/ are the
+    point, and a gate that stayed silent about them would teach a reader that
+    the bundle contains no such thing.
+    """
+    inventory = inspect_bundle(bundle)
+    gate.facts["bundle"] = bundle.name
+    gate.facts["bundleSha256"] = sha256(bundle)
+    gate.facts["bundleBytes"] = bundle.stat().st_size
+    gate.facts["bundleModules"] = inventory["modules"]
+    gate.facts["bundleAbis"] = inventory["abis"]
+    gate.facts["bundleMetadata"] = inventory["bundleMetadata"]
+    gate.facts["bundleMetadataBytes"] = inventory["bundleMetadataBytes"]
+
+    gate.check("bundle.modules", bool(inventory["modules"]),
+               expected="at least one bundle module",
+               observed=", ".join(inventory["modules"]) or "none")
+    gate.check("bundle.manifests", bool(inventory["manifests"]),
+               expected="a module manifest",
+               observed=f"{len(inventory['manifests'])} manifest(s)")
+
+    abis = list(inventory["abis"])
+    product = sorted(
+        name for name, _ in inventory["nativeEntries"]
+        if "/libpocketclaw" in name and "/arm64-v8a/" not in name
+    )
+    gate.check("bundle.abi", not product,
+               expected="the PocketClaw product payload is arm64-v8a only",
+               observed=f"{', '.join(abis)}" if not product
+               else f"non-arm64 product payload: {', '.join(product)}")
+    gate.facts["bundleNativeEntryCount"] = len(inventory["nativeEntries"])
+    gate.check("bundle.native_inventory", bool(inventory["nativeEntries"]),
+               expected="packaged native entries",
+               observed=f"{len(inventory['nativeEntries'])} entries across {len(abis)} ABI(s)")
+
+    metadata = inventory["bundleMetadata"]
+    unrecognised = [item["entry"] for item in metadata if not item["allowedForPlayUpload"]]
+    mapping_entries = [item for item in metadata
+                       if item["category"] == "r8 deobfuscation mapping"]
+    symbol_entries = [item for item in metadata if item["category"] == "native debug symbols"]
+
+    if distribution == PLAY_UPLOAD:
+        # Expected, verified, and named — not tolerated by silence.
+        gate.check("bundle.play_metadata_expected", bool(mapping_entries or symbol_entries),
+                   expected="AGP release-support metadata Play consumes",
+                   observed=(f"{len(mapping_entries)} mapping + {len(symbol_entries)} "
+                             f"debug-symbol entries, {inventory['bundleMetadataBytes']:,} bytes "
+                             "— allowed and expected for a Play upload"))
+    else:
+        gate.record("bundle.play_metadata_expected", SKIP,
+                    f"not a Play upload (class: {distribution})")
+
+    gate.check("bundle.metadata_recognised", not unrecognised,
+               expected="every BUNDLE-METADATA entry is known AGP output",
+               observed=", ".join(unrecognised) or f"{len(metadata)} entries, all recognised")
+
+    leaks = private_material_violations(inventory["entryNames"], kind=AAB)
+    gate.check("bundle.no_unrelated_private_material", not leaks,
+               expected="no packaged private material beyond expected AGP metadata",
+               observed="; ".join(f"{name} ({reason})" for name, reason in leaks)
+               or "none")
+
+    if distribution == NON_PUBLISH_AUDIT:
+        gate.facts["bundleClassificationNotice"] = (
+            "NOT PLAY-READY; NOT PUBLIC-RELEASE-SAFE; NOT A GITHUB RELEASE ASSET"
+        )
+        gate.check("bundle.non_publish_notice", True,
+                   observed="NOT PLAY-READY / NOT PUBLIC-RELEASE-SAFE / NOT A GITHUB RELEASE ASSET")
+
+
+def release_asset_gates(gate: Gate, assets):
+    """Hold a proposed set of public release assets to the allowlist."""
+    names = [str(a) for a in assets]
+    gate.facts["publicReleaseAssets"] = names
+    violations = public_release_asset_violations(names)
+    gate.check("release.public_asset_allowlist", not violations,
+               expected="only public-safe assets attached to a public release",
+               observed="; ".join(f"{name} ({reason})" for name, reason in violations)
+               or f"{len(names)} asset(s), all permitted")
+
+
 def r8_hardening_gates(gate: Gate, apk: Path, mapping: Path):
     """Require effective R8 output and keep its deobfuscation data private."""
     try:
@@ -861,8 +1019,6 @@ def r8_hardening_gates(gate: Gate, apk: Path, mapping: Path):
                          f"{len(evidence['r8RemovedOrFoldedInternalClasses'])} removed/folded"))
     gate.check("artifact.r8_entry_points", True,
                observed=f"{len(evidence['r8RequiredEntryPoints'])} manifest components preserved")
-    gate.check("artifact.r8_mapping_private", True,
-               observed="external, untracked, and absent from APK")
 
 
 def native_gates(gate: Gate, apk: Path, dart_symbols: Path | None = None):
@@ -1120,10 +1276,38 @@ def main() -> int:
         "--r8-mapping", metavar="PATH",
         help="verify R8 hardening against this private mapping.txt",
     )
+    parser.add_argument(
+        "--verify-bundle", metavar="AAB",
+        help="inspect an Android App Bundle and hold it to its distribution class",
+    )
+    parser.add_argument(
+        "--artifact-class", choices=DISTRIBUTION_CLASSES, default=None,
+        help="what the artifact is FOR. Required for any artifact phase and "
+             "deliberately has no default: an unclassified artifact fails "
+             "closed rather than being assumed public-safe. "
+             f"{PUBLIC_RELEASE}=published; {PLAY_UPLOAD}=Google Play upload "
+             f"only; {NON_PUBLISH_AUDIT}=inspection evidence only",
+    )
+    parser.add_argument(
+        "--release-assets", metavar="NAME", nargs="+", default=None,
+        help="check these proposed public release asset names against the allowlist",
+    )
     args = parser.parse_args()
 
-    if not (args.verify_source or args.verify_artifact or args.full):
-        parser.error("choose --verify-source, --verify-artifact <apk>, or --full <apk>")
+    if not (args.verify_source or args.verify_artifact or args.full
+            or args.verify_bundle or args.release_assets):
+        parser.error("choose --verify-source, --verify-artifact <apk>, --full <apk>, "
+                     "--verify-bundle <aab>, or --release-assets <name...>")
+
+    # Fail closed. An artifact whose purpose was not stated cannot be judged,
+    # and guessing "public" would be the permissive guess in the one place
+    # PC-DEF-021 proved that is unsafe.
+    if (args.verify_artifact or args.full or args.verify_bundle) and not args.artifact_class:
+        parser.error(
+            "--artifact-class is required with an artifact phase and has no default: "
+            "an unclassified artifact fails closed. Choose one of "
+            + ", ".join(DISTRIBUTION_CLASSES)
+        )
 
     gate = Gate()
     gate.facts["releaseClass"] = args.release_class
@@ -1139,13 +1323,24 @@ def main() -> int:
             # source phase was not requested, so an APK can never be validated
             # against nothing.
             tracked_version(gate)
-        artifact_gates(
-            gate,
-            Path(apk).resolve(),
-            args.release_class,
-            Path(args.dart_symbols).resolve() if args.dart_symbols else None,
-            Path(args.r8_mapping).resolve() if args.r8_mapping else None,
-        )
+        apk_path = Path(apk).resolve()
+        if distribution_gates(gate, apk_path, args.artifact_class) is not None:
+            deobfuscation_privacy_gate(gate, apk_path)
+            artifact_gates(
+                gate,
+                apk_path,
+                args.release_class,
+                Path(args.dart_symbols).resolve() if args.dart_symbols else None,
+                Path(args.r8_mapping).resolve() if args.r8_mapping else None,
+            )
+
+    if args.verify_bundle:
+        bundle_path = Path(args.verify_bundle).resolve()
+        if distribution_gates(gate, bundle_path, args.artifact_class) is not None:
+            bundle_gates(gate, bundle_path, args.artifact_class)
+
+    if args.release_assets:
+        release_asset_gates(gate, args.release_assets)
 
     width = max(len(r.name) for r in gate.results)
     print(f"PocketClaw release gate — class: {args.release_class}")

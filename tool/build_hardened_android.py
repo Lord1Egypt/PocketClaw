@@ -23,12 +23,24 @@ from r8_contract import MAPPING as R8_MAPPING
 from r8_contract import R8ContractError, inspect_outputs as inspect_r8_outputs
 from r8_contract import source_contract as inspect_r8_source_contract
 
+from artifact_policy import (
+    NON_PUBLISH_AUDIT,
+    PLAY_UPLOAD,
+    PUBLIC_RELEASE,
+    detect_artifact_kind,
+    distribution_verdict,
+    inspect_bundle,
+    packaged_r8_mapping_entries,
+    private_material_violations,
+)
+
 
 REPO = Path(__file__).resolve().parent.parent
 ANDROID = REPO / "android"
 PACKAGE_CONFIG = REPO / ".dart_tool/package_config.json"
 FLUTTER_BUILD_DIR = REPO / ".dart_tool/flutter_build"
 APK = REPO / "build/app/outputs/apk/release/app-release.apk"
+BUNDLE = REPO / "build/app/outputs/bundle/release/app-release.aab"
 DEFAULT_SYMBOLS_DIR = Path("build/private-symbols/dart/android-arm64")
 GENERATED_PACKAGE = {
     "name": "pocketclaw_generated",
@@ -168,10 +180,24 @@ def reset_generated_build_outputs(
                 candidate.unlink()
 
 
-def gradle_command(signing: str, symbols_property: str) -> list[str]:
+# One build contract, two packaging tasks. The hardening properties are the
+# contract and are identical for both: an AAB that was not obfuscated, shrunk
+# and split-debug-stripped the same way the APK is would not be the same product
+# in a different container.
+GRADLE_TASKS = {
+    "apk": ":app:assembleRelease",
+    "bundle": ":app:bundleRelease",
+}
+
+
+def gradle_command(signing: str, symbols_property: str, package: str = "apk") -> list[str]:
+    try:
+        task = GRADLE_TASKS[package]
+    except KeyError as error:
+        raise HardeningError(f"unknown package type: {package}") from error
     command = [
         str(ANDROID / "gradlew"),
-        ":app:assembleRelease",
+        task,
         "-Ptarget-platform=android-arm64",
         "-PpocketclawDartHardening=true",
         "-Pdart-obfuscation=true",
@@ -196,6 +222,124 @@ def validate_signing_environment(signing: str, environ: dict[str, str]) -> None:
         )
 
 
+def verify_private_dart_symbols(symbols: Path) -> list[str]:
+    """Prove the private split-debug-info is usable for deobfuscation.
+
+    Shared by both packaging paths: the symbols come from one Dart compilation,
+    so checking them twice differently would be two chances to be wrong.
+    """
+    symbol_bytes = symbols.read_bytes()
+    if not symbol_bytes.startswith(b"\x7fELF"):
+        raise HardeningError(f"{symbols} is not an ELF split-debug-info artifact")
+    if b".debug_info" not in symbol_bytes or b".debug_line" not in symbol_bytes:
+        raise HardeningError(f"{symbols} lacks expected Dart DWARF sections")
+    retained = [marker.decode() for marker in APP_SYMBOL_MARKERS if marker in symbol_bytes]
+    if len(retained) < 3:
+        raise HardeningError(
+            "split debug info does not retain enough known application symbols to support deobfuscation"
+        )
+    return retained
+
+
+def verify_packaged_dart_aot(app: bytes) -> None:
+    """The obfuscation, path-privacy and generated-URI contract for libapp.so."""
+    leaked = [marker.decode() for marker in HOST_PATH_MARKERS if marker in app]
+    if leaked:
+        raise HardeningError(
+            "packaged Dart AOT contains host-specific path markers: " + ", ".join(leaked))
+    if GENERATED_REGISTRANT_URI not in app:
+        raise HardeningError("packaged Dart AOT lacks the controlled generated-source package URI")
+    exposed = [marker.decode() for marker in APP_SYMBOL_MARKERS if marker in app]
+    if exposed:
+        raise HardeningError(
+            "Dart obfuscation did not remove application symbols: " + ", ".join(exposed))
+
+
+def inspect_hardened_bundle(
+    bundle: Path,
+    symbols: Path,
+    distribution: str,
+    classification: str = "LOCAL TEST / NON-PUBLISH",
+    r8_mapping: Path = R8_MAPPING,
+) -> dict[str, object]:
+    """Verify a hardened AAB and record what its distribution class permits.
+
+    The bundle is held to the same Dart contract as the APK, and then to a
+    different privacy contract — because the two are not the same artifact for
+    the same audience. AGP writes the R8 mapping and native debug symbols into
+    BUNDLE-METADATA/ for Google Play to consume, so they are expected here and
+    are inventoried rather than treated as leakage. What is *not* permitted in
+    any class is unrelated private material, and what is never permitted at all
+    is calling this thing publishable.
+    """
+    if not bundle.is_file():
+        raise HardeningError(f"Gradle completed without producing {bundle}")
+    if not symbols.is_file() or symbols.stat().st_size == 0:
+        raise HardeningError(f"split debug info was not produced at {symbols}")
+
+    kind = detect_artifact_kind(bundle)
+    allowed, message = distribution_verdict(kind, distribution)
+    if not allowed:
+        raise HardeningError(message)
+
+    retained = verify_private_dart_symbols(symbols)
+    inventory = inspect_bundle(bundle)
+
+    app_entry = "base/lib/arm64-v8a/libapp.so"
+    with zipfile.ZipFile(bundle) as archive:
+        names = archive.namelist()
+        if app_entry not in names:
+            raise HardeningError(f"{bundle} does not package {app_entry}")
+        app = archive.read(app_entry)
+    verify_packaged_dart_aot(app)
+
+    leaks = private_material_violations(names, kind=kind)
+    if leaks:
+        raise HardeningError(
+            "bundle packages private material no distribution class permits: "
+            + ", ".join(f"{name} ({reason})" for name, reason in leaks))
+
+    mapping_entries = [item for item in inventory["bundleMetadata"]
+                       if item["category"] == "r8 deobfuscation mapping"]
+    symbol_entries = [item for item in inventory["bundleMetadata"]
+                      if item["category"] == "native debug symbols"]
+    unrecognised = [item["entry"] for item in inventory["bundleMetadata"]
+                    if not item["allowedForPlayUpload"]]
+    if unrecognised:
+        raise HardeningError(
+            "bundle carries unrecognised BUNDLE-METADATA entries: " + ", ".join(unrecognised))
+
+    evidence = {
+        "bundle": str(bundle),
+        "bundleBytes": bundle.stat().st_size,
+        "bundleSha256": sha256_file(bundle),
+        "dartAotSha256": sha256_bytes(app),
+        "symbols": str(symbols),
+        "symbolsBytes": symbols.stat().st_size,
+        "symbolsSha256": sha256_file(symbols),
+        "retainedPrivateMarkers": len(retained),
+        "generatedSourceUri": GENERATED_REGISTRANT_URI.decode(),
+        "classification": classification,
+        "distributionClass": distribution,
+        "distributionVerdict": message,
+        "modules": inventory["modules"],
+        "abis": inventory["abis"],
+        "nativeEntryCount": len(inventory["nativeEntries"]),
+        "bundleMetadata": inventory["bundleMetadata"],
+        "bundleMetadataBytes": inventory["bundleMetadataBytes"],
+        "r8MappingEntriesInBundle": [item["entry"] for item in mapping_entries],
+        "nativeDebugSymbolEntriesInBundle": [item["entry"] for item in symbol_entries],
+        "publicReleaseSafe": False,
+        "playReady": distribution == PLAY_UPLOAD,
+        "notice": (
+            "NOT PLAY-READY; NOT PUBLIC-RELEASE-SAFE; NOT A GITHUB RELEASE ASSET"
+            if distribution == NON_PUBLISH_AUDIT else
+            "PLAY UPLOAD ONLY; NOT PUBLIC-RELEASE-SAFE; NOT A GITHUB RELEASE ASSET"
+        ),
+    }
+    return evidence
+
+
 def inspect_hardened_outputs(
     apk: Path,
     symbols: Path,
@@ -207,16 +351,7 @@ def inspect_hardened_outputs(
     if not symbols.is_file() or symbols.stat().st_size == 0:
         raise HardeningError(f"split debug info was not produced at {symbols}")
 
-    symbol_bytes = symbols.read_bytes()
-    if not symbol_bytes.startswith(b"\x7fELF"):
-        raise HardeningError(f"{symbols} is not an ELF split-debug-info artifact")
-    if b".debug_info" not in symbol_bytes or b".debug_line" not in symbol_bytes:
-        raise HardeningError(f"{symbols} lacks expected Dart DWARF sections")
-    retained = [marker.decode() for marker in APP_SYMBOL_MARKERS if marker in symbol_bytes]
-    if len(retained) < 3:
-        raise HardeningError(
-            "split debug info does not retain enough known application symbols to support deobfuscation"
-        )
+    retained = verify_private_dart_symbols(symbols)
 
     with zipfile.ZipFile(apk) as archive:
         names = archive.namelist()
@@ -230,14 +365,7 @@ def inspect_hardened_outputs(
         ]
     if packaged_symbols:
         raise HardeningError("private Dart symbols were packaged: " + ", ".join(packaged_symbols))
-    leaked = [marker.decode() for marker in HOST_PATH_MARKERS if marker in app]
-    if leaked:
-        raise HardeningError("packaged Dart AOT contains host-specific path markers: " + ", ".join(leaked))
-    if GENERATED_REGISTRANT_URI not in app:
-        raise HardeningError("packaged Dart AOT lacks the controlled generated-source package URI")
-    exposed = [marker.decode() for marker in APP_SYMBOL_MARKERS if marker in app]
-    if exposed:
-        raise HardeningError("Dart obfuscation did not remove application symbols: " + ", ".join(exposed))
+    verify_packaged_dart_aot(app)
 
     evidence = {
         "apk": str(apk),
@@ -264,7 +392,29 @@ def parse_args() -> argparse.Namespace:
         help="private split-debug-info directory (default: %(default)s)",
     )
     parser.add_argument("--clean", action="store_true", help="run :app:clean before assembly")
-    return parser.parse_args()
+    parser.add_argument(
+        "--package", choices=tuple(GRADLE_TASKS), default="apk",
+        help="what to package (default: %(default)s). Both use the same "
+             "hardening contract; only the Gradle task and the privacy contract "
+             "of the output differ",
+    )
+    parser.add_argument(
+        "--artifact-class", choices=(PLAY_UPLOAD, NON_PUBLISH_AUDIT), default=None,
+        help="required with --package bundle, and has no default: an "
+             "unclassified bundle fails closed. A bundle can never be "
+             f"{PUBLIC_RELEASE}, so that choice is not offered here",
+    )
+    args = parser.parse_args()
+    if args.package == "bundle" and not args.artifact_class:
+        parser.error(
+            "--artifact-class is required with --package bundle and has no "
+            "default: a hardened bundle carries the R8 mapping and native debug "
+            "symbols for Google Play, so what it is FOR decides whether that is "
+            f"acceptable. Choose {PLAY_UPLOAD} or {NON_PUBLISH_AUDIT}."
+        )
+    if args.package == "apk" and args.artifact_class:
+        parser.error("--artifact-class applies to --package bundle only")
+    return args
 
 
 def main() -> int:
@@ -275,7 +425,8 @@ def main() -> int:
         symbols_property, symbols_dir = resolve_symbols_dir(args.symbols_dir)
         changed = prepare_generated_source_package()
         symbols = symbols_dir / "app.android-arm64.symbols"
-        reset_generated_build_outputs(APK, symbols, r8_mapping=R8_MAPPING)
+        reset_generated_build_outputs(
+            BUNDLE if args.package == "bundle" else APK, symbols, r8_mapping=R8_MAPPING)
         symbols_dir.mkdir(parents=True, exist_ok=True)
 
         environment = dict(os.environ)
@@ -303,9 +454,19 @@ def main() -> int:
             clean = [str(ANDROID / "gradlew"), ":app:clean"]
             print("Build step: " + shlex.join(clean), flush=True)
             subprocess.run(clean, cwd=ANDROID, env=environment, check=True)
-        command = gradle_command(args.signing, symbols_property)
+        command = gradle_command(args.signing, symbols_property, args.package)
         print("Build step: " + shlex.join(command), flush=True)
         subprocess.run(command, cwd=ANDROID, env=environment, check=True)
+        if args.package == "bundle":
+            bundle_classification = (
+                "LOCAL TEST / NON-PUBLISH" if args.signing == "local-test"
+                else "PRODUCTION / NON-PUBLISH"
+            )
+            evidence = inspect_hardened_bundle(
+                BUNDLE, symbols, args.artifact_class, bundle_classification)
+            print(json.dumps(evidence, indent=2, sort_keys=True))
+            print("\n" + evidence["notice"], flush=True)
+            return 0
         evidence = inspect_hardened_outputs(APK, symbols, classification)
         print(json.dumps(evidence, indent=2, sort_keys=True))
         return 0

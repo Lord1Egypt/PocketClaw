@@ -113,17 +113,25 @@ configuration remains intact.
 The default Dart support artifact is
 `build/private-symbols/dart/android-arm64/app.android-arm64.symbols`. It is
 ignored private DWARF for crash deobfuscation/symbolization. Preserve the
-artifact privately with the exact release it supports. Do not commit it, put it
-inside APK/AAB files, attach it to public GitHub releases by default, or submit
-it to F-Droid as a public payload. It is sensitive release-support material,
-but it is not an application-signing secret.
+artifact privately with the exact release it supports. Do not commit it, do not
+package it in an APK, never attach it to a public GitHub release, and do not
+submit it to F-Droid as a public payload. It is sensitive release-support
+material, but it is not an application-signing secret.
+
+AGP writes equivalent native debug data into a **bundle's** `BUNDLE-METADATA/`,
+which is expected and is covered by the artifact-class policy below rather than
+by this paragraph.
 
 Artifact inspection supplies the private path explicitly:
 
 ```text
 python3 tool/release_gate.py --verify-artifact <apk> \
-  --release-class <test|production> --dart-symbols <private-symbol-directory>
+  --release-class <test|production> --artifact-class <distribution-class> \
+  --dart-symbols <private-symbol-directory>
 ```
+
+`--release-class` is about signing; `--artifact-class` is about purpose. Both
+are required for an artifact phase and neither has a permissive default.
 
 This verifies that application-level names moved out of `libapp.so`, the split
 DWARF exists externally, the generated URI is controlled, private symbols are
@@ -141,9 +149,17 @@ remain preserved.
 
 `mapping.txt` and its sibling reports are private release-support material.
 Preserve the mapping privately with the exact release for Java/Kotlin stack
-deobfuscation. They remain ignored by Git, outside APK/AAB files, absent from
-public release assets by default, and are not F-Droid payloads. Supply mapping
-evidence to artifact inspection with `--r8-mapping <private-mapping.txt>`.
+deobfuscation. They remain ignored by Git, **absent from every APK**, never a
+public release asset, and not F-Droid payloads. Supply mapping evidence to
+artifact inspection with `--r8-mapping <private-mapping.txt>`;
+`artifact.r8_mapping_private` reads the artifact and reports what it scanned.
+
+A hardened **AAB is the exception, and it is not a leak**: AGP copies the same
+mapping into `BUNDLE-METADATA/com.android.tools.build.obfuscation/proguard.map`
+so Google Play can symbolicate crashes, and Play does not deliver
+`BUNDLE-METADATA/` to installed clients. Do not strip it to make the bundle
+resemble an APK — that would remove Play's ability to read a stack trace and fix
+nothing. The rule that matters is the one below: a bundle is never published.
 
 ## Native ELF and private-symbol policy
 
@@ -173,14 +189,105 @@ unstripped twin or separate debug companion when technically possible, grouped
 by shipped payload. The private per-build manifest records the shipped payload
 SHA-256/build ID, support-file path/size/SHA-256, source and toolchain inputs,
 and final APK hash. Native support artifacts follow the same policy as Dart
-split-debug-info and R8 mapping: private, untracked, outside APK/AAB files, not
-public release assets by default, and not F-Droid payloads. Python support data
+split-debug-info and R8 mapping: private, untracked, absent from every APK,
+never public release assets, and not F-Droid payloads. As with the mapping, a
+bundle's own `BUNDLE-METADATA/` native debug symbols are AGP output for Play and
+are governed by the artifact-class policy below. Python support data
 must be captured before stripping and before appending its standard-library
 ZIP. Build IDs aid association but byte hashes remain authoritative.
 
 The H5A audit record in
 [`prompts/history/H5A_NATIVE_ELF_AUDIT.md`](prompts/history/H5A_NATIVE_ELF_AUDIT.md)
 contains the exact H4B inventory and ordered H5B implementation targets.
+
+## Artifact class: what an artifact is FOR
+
+`PC-DEF-021`. An artifact's contents cannot be judged without knowing its
+purpose, so every artifact phase declares one. There is no default, because the
+only unsafe guess is the permissive one.
+
+| Class | Meaning | Android binary |
+| --- | --- | --- |
+| `public-release` | Attached to a GitHub Release, or served as a direct public download | **APK only** |
+| `play-upload` | Uploaded to Google Play and nowhere else | AAB |
+| `non-publish-audit` | Inspection evidence; published nowhere | APK or AAB |
+
+**An AAB is never a public release artifact.** Not because a particular bundle
+happens to contain the mapping, but because of what the format is for: AGP puts
+the R8 deobfuscation mapping and native debug symbols in `BUNDLE-METADATA/` for
+Google Play to consume, and a bundle with none of that is still a Play-upload
+artifact rather than a public download. The gate refuses `aab` +
+`public-release` unconditionally, and the refusal is keyed on archive contents
+rather than the file extension, so renaming a bundle to `.apk` does not launder
+it.
+
+For `play-upload`, the `BUNDLE-METADATA/` mapping and debug symbols are
+**expected and permitted**, and the gate inventories them by name, size and
+category rather than passing them over in silence. Do not delete them to make a
+bundle look like an APK: Play uses them to symbolicate crash reports, they never
+reach an installed client, and removing them buys nothing.
+
+What is forbidden in **every** class, including a Play upload, is unrelated
+private material: keystores and key files, `.env` files, private native
+`.debug`/`.dwarf` companions, Dart `.symbols`, the private support tree, signing
+helpers, VCS metadata and credential stores. The `BUNDLE-METADATA/` exemption
+covers exactly two known AGP entry shapes — `obfuscation/proguard.map` and
+`debugsymbols/<abi>/<lib>.so.sym` — and nothing else in those directories, so a
+keystore dropped beside the mapping still fails.
+
+    # Play upload: bundle permitted, AGP metadata inventoried and accepted
+    python3 tool/release_gate.py --verify-bundle <aab> --artifact-class play-upload
+
+    # Structural inspection with no distribution intent
+    python3 tool/release_gate.py --verify-bundle <aab> --artifact-class non-publish-audit
+
+    # Refused, always
+    python3 tool/release_gate.py --verify-bundle <aab> --artifact-class public-release
+
+## Public release asset allowlist
+
+What may be attached to a public PocketClaw release. Machine-checkable:
+
+```text
+python3 tool/release_gate.py --release-assets <name> [<name> ...]
+```
+
+Permitted: the hardened APK, checksum files, notices, changelogs, licences and
+the source archives GitHub generates.
+
+Forbidden, and each for the same reason — it hands a reader deobfuscation power
+or signing material:
+
+- `*.aab` — Android App Bundles
+- `mapping.txt`, `usage.txt`, `seeds.txt`, `configuration.txt`, `proguard.map`
+- `*.debug`, `*.dbg`, `*.sym`, `*.dwarf`, `*.dwp` native companions
+- `*.symbols` Dart split debug info
+- symbol or private-support archives
+- `*.jks`, `*.p12`, `*.keystore`, `*.pfx`, `*.pem`, `*.ppk`, `*.key`
+- `.env` files
+
+### The rc1/rc2 bundles are a known historical exposure
+
+`PocketClaw-v0.2.0-rc1.aab` and `PocketClaw-v0.2.0-rc2.aab` are attached to
+published GitHub pre-releases today. They predate Dart obfuscation and R8
+minification, so what they disclose is not the current hardened mapping — but
+they are the practice this policy retires, and they are the reason `PC-DEF-021`
+was not a theoretical finding.
+
+They are **left in place deliberately**. Removing a published asset is an
+owner decision about historical releases, not a side effect of a policy change,
+and it was not authorized when this policy was written.
+
+If the owner later decides to remove them, the exact action is:
+
+```text
+gh release delete-asset v0.2.0-rc1 PocketClaw-v0.2.0-rc1.aab
+gh release delete-asset v0.2.0-rc2 PocketClaw-v0.2.0-rc2.aab
+```
+
+Be clear about what that buys: it ends ongoing public availability. It cannot
+revoke a copy already downloaded, and each asset shows a recorded download. Treat
+any mapping or symbol data those bundles contain as disclosed regardless.
 
 ## Channel paths
 
@@ -192,11 +299,23 @@ publish only after stable-release authorization.
 
 ### Google Play
 
-Produce and inspect the production AAB after the APK path is hardened. Create
-and enroll a separate upload key only in its authorized milestone. Play App
-Signing determines the certificate on user-delivered Play artifacts.
+Produce and inspect the production AAB after the APK path is hardened, with
+`--artifact-class play-upload`. Create and enroll a separate upload key only in
+its authorized milestone. Play App Signing determines the certificate on
+user-delivered Play artifacts.
+
+The bundle goes to Play and nowhere else. Google Play retains the
+`BUNDLE-METADATA/` mapping and native debug symbols to symbolicate crash
+reports, and installed splits do not carry `BUNDLE-METADATA/` at all — which is
+precisely why the same file is safe as a Play upload and unsafe as a download.
+Never attach it to a GitHub Release, mirror it, or hand it to a third party as a
+general artifact.
 
 ### Official F-Droid
+
+F-Droid is an **APK** path and has nothing to do with the Play bundle; the two
+must not be conflated. See [`FDROID_RELEASE.md`](FDROID_RELEASE.md) for its
+build, source and reproducibility requirements.
 
 The target is a developer-signed APK that F-Droid can reproduce bit-for-bit and
 pin through `AllowedAPKSigningKeys`, preserving update continuity with Direct

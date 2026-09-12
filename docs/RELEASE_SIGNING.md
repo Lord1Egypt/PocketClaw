@@ -369,8 +369,14 @@ emits. If it prints nothing it now fails and says so — see §5.
 The gate does this for you:
 
 ```bash
-python3 tool/release_gate.py --verify-artifact <apk> --release-class production
+python3 tool/release_gate.py --verify-artifact <apk> \
+  --release-class production --artifact-class public-release
 ```
+
+`--release-class` names the signing identity the artifact must carry;
+`--artifact-class` names what it is for. Both are required and neither defaults
+— see [`RELEASE_PROCESS.md`](RELEASE_PROCESS.md), "Artifact class". A bundle can
+never take `public-release`.
 
 ### Signature schemes
 

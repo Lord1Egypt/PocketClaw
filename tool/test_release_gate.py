@@ -287,9 +287,30 @@ class R8HardeningEvidenceTest(unittest.TestCase):
                 "artifact.r8_shrinking",
                 "artifact.r8_obfuscation",
                 "artifact.r8_entry_points",
-                "artifact.r8_mapping_private",
             ):
                 self.assertEqual(status_of(gate, name), PASS)
+
+    def test_mapping_privacy_is_checked_independently_of_mapping_evidence(self):
+        """PC-DEF-021: it is a property of the artifact, so it stands alone.
+
+        It used to live inside r8_hardening_gates, which meant it only ran when
+        --r8-mapping was supplied and never ran at all when the R8 contract
+        raised first — the one case it was written for.
+        """
+        with tempfile.TemporaryDirectory() as tmp:
+            clean, _ = self.make_outputs(Path(tmp))
+            gate = Gate()
+            gate_module.deobfuscation_privacy_gate(gate, clean)
+            self.assertEqual(status_of(gate, "artifact.r8_mapping_private"), PASS)
+            self.assertIn("entries scanned",
+                          next(r.observed for r in gate.results
+                               if r.name == "artifact.r8_mapping_private"))
+
+        with tempfile.TemporaryDirectory() as tmp:
+            leaky, _ = self.make_outputs(Path(tmp), packaged_mapping=True)
+            gate = Gate()
+            gate_module.deobfuscation_privacy_gate(gate, leaky)
+            self.assertEqual(status_of(gate, "artifact.r8_mapping_private"), FAIL)
 
     def test_gate_refuses_packaged_mapping(self):
         with tempfile.TemporaryDirectory() as tmp:
