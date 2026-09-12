@@ -21,17 +21,18 @@ evidence and describe the state at the date of each entry.
 | H5C state-basis HEAD | `33f0db672eab86985986a76598b66f968e2f44a8` (verified H5C starting commit; the closeout commit follows it) |
 | PC-DEF-019 state-basis HEAD | `ea43369289c8b6c618faa08f7b91355882fc050c` (verified UI-1 closeout; the Core staging/closeout commit follows it) |
 | PC-DEF-019 canonical Core build-input commit | `ea43369289c8b6c618faa08f7b91355882fc050c` |
-| Staged Core pair | `libpocketclaw.so` `602ce034…` 37,724,640 bytes; `libpocketclaw-web.so` `b5cce071…` 25,517,952 bytes; BuildTime `2026-09-12T18:54:26+0000` |
+| Staged Core pair | `libpocketclaw.so` `7ebeebd1…` 37,724,640 bytes; `libpocketclaw-web.so` `b682b76d…` 25,385,088 bytes; BuildTime `2026-09-12T23:25:34+0000` |
+| PC-DEF-022 canonical Core build-input commit | `a0be2a705c1b255c5bd2fe1d8c9f44c094019627` |
 | PC-DEF-020 state-basis HEAD | `76064c91033860653de1e11a08e29d7245061ec1` (verified exposure-audit closeout; source and Core-staging commits follow it) |
 | PC-DEF-020 canonical Core build-input commit | `f8bc52a0757f7b0a9f6c0704d2a3586db929e33f` |
 | Version | `0.2.0+62` |
 | Accepted physical baseline | vc62 / `lastAcceptedVersionCode=62` |
 | Current phase | Final Production Release Hardening; H5C production-signed native/ELF validation closed |
 | Developer production signer | `176dca6b198b9552fb4d9ad3ca18da8d6f23c0a3f5ed4bd6b75a0700f9f0efcf` |
-| Core fingerprint | `2692de41b2fe2487475911b62cec519193d581b25cf6d0ebe935fc63973229df`; the staged Core pair carries it — moved by the `PC-DEF-020` fix |
+| Core fingerprint | `6f00359dc9e8bf7ee24f9d170754b2792a41fb880d9da4f34a8600dd8f99df00`; the staged Core pair carries it — moved by the `PC-DEF-022` removal |
 | Distribution targets | Direct APK, Google Play, Official F-Droid |
 | Exposure-audit state-basis HEAD | `25753cef5fa4d956e11d37b5a6176cdef977f015` (verified PC-DEF-019 closeout; the audit closeout commit follows it) |
-| Final release exposure audit | **CLOSED / PASS** on the re-run at `6031898`. No release blocker remains for the GitHub / direct APK release. `PC-DEF-022`..`PC-DEF-024`, `PC-DEF-006` and `PC-DEF-012` remain open and non-blocking for that path |
+| Final release exposure audit | **CLOSED / PASS** on the re-run at `6031898`. No release blocker remains for the GitHub / direct APK release. `PC-DEF-022` has since been RESOLVED; `PC-DEF-023`, `PC-DEF-024`, `PC-DEF-006` and `PC-DEF-012` remain open and non-blocking for that path |
 | Next authorized milestone | Production-signed release candidate: owner signing ceremony, `--release-class production --artifact-class public-release`, then the final physical smoke. Requires its own explicit prompt |
 | Flutter suite | Green — 490 passed, 0 failed — and the **complete** suite is now a release gate (`flutter.suite`) |
 | Public release asset policy | APK only. An AAB is a Play-upload artifact and is never a public release asset — `PC-DEF-021` |
@@ -520,6 +521,42 @@ production-signed candidate has not been built or gated under
 `--release-class production`. That is the next milestone. Evidence is in
 [`docs/prompts/history/EXPOSURE_AUDIT_RERUN.md`](docs/prompts/history/EXPOSURE_AUDIT_RERUN.md).
 
+`PC-DEF-022` is **RESOLVED by removal**. `POST /api/update` took a
+caller-supplied URL, downloaded it, extracted the archive and handed the result
+to `selfupdate.Apply`. It required a dashboard session, no PocketClaw UI ever
+called it, and on Android the apply step could not succeed against the read-only
+install directory — but it remained an authenticated arbitrary-URL fetch and
+archive-extraction surface on a route the product does not use. Securing an
+unused self-update subsystem would have been the wrong repair.
+
+`api/update.go` is deleted and `router.go` no longer registers it. No special
+response was invented: `embed.go` already answers an unknown `/api/` path with
+`http.NotFound`, so the route is now an ordinary 404. **`pkg/updater` stays** —
+`cmd/picoclaw` registers its CLI update command, a legitimate non-HTTP consumer,
+and the library's archive-traversal guards and tests are untouched.
+
+The binaries confirm it independently: `/api/update` occurs zero times in either
+Core binary, and `libpocketclaw-web.so` shrank by 132,864 bytes as the linker
+dropped the unreachable paths. Tests pin the removal across five HTTP methods,
+an authenticated request past the auth wall, six plausible renames, the
+unauthenticated allowlist and the handler file's absence — and are
+mutation-tested by restoring the route.
+
+The fix touched `core/src`, so the fingerprint moved from `2692de41…` to
+`6f00359dc9e8bf7ee24f9d170754b2792a41fb880d9da4f34a8600dd8f99df00` and the pair
+was rebuilt and re-staged under the two-commit rule from build-input commit
+`a0be2a7`:
+
+    libpocketclaw.so       37,724,640  7ebeebd1…  build ID 512ed36a…
+    libpocketclaw-web.so   25,385,088  b682b76d…  build ID 4eeb1385…
+    BuildTime              2026-09-12T23:25:34+0000
+
+Byte-identical in three independent output roots, one with a cold Go cache;
+both companions likewise. Native contract 22 PASS / 0 FAIL; no Managed Runtime
+payload rebuilt. Public Mode, the session wall, the WebSocket boundary and the
+gateway's loopback pin are unchanged. Evidence is in
+[`docs/prompts/history/PC-DEF-022_UPDATE_SURFACE_REMOVAL.md`](docs/prompts/history/PC-DEF-022_UPDATE_SURFACE_REMOVAL.md).
+
 ### Completed major milestones
 
 - vc62 Zero-Pico namespace closeout: physically accepted and merged.
@@ -545,6 +582,7 @@ production-signed candidate has not been built or gated under
 - PC-DEF-021 AAB privacy and release-artifact policy: resolved (second release blocker cleared).
 - PC-DEF-025 Flutter suite and release-gate integrity: resolved (the full suite is now a gate).
 - Final release exposure audit: **CLOSED / PASS** on re-run; no release blocker remains.
+- PC-DEF-022 update-surface removal: resolved (the unused self-update route is gone).
 
 See [`docs/ROADMAP.md`](docs/ROADMAP.md) for the phase sequence and
 [`docs/AI_HANDOFF.md`](docs/AI_HANDOFF.md) for the mandatory read order.
@@ -617,9 +655,9 @@ is the one that needs the owner:
    development-signed, so the production transition needs its migration /
    clean-install / data-safeguard plan.
 
-`PC-DEF-022`, `PC-DEF-023` and `PC-DEF-024` are open, non-blocking cleanup the
-owner may schedule before or after that. `PC-DEF-006` gates the F-Droid path
-only; `PC-DEF-012` awaits reachability evidence.
+`PC-DEF-023` and `PC-DEF-024` are open, non-blocking cleanup the owner may
+schedule before or after that; `PC-DEF-022` is now resolved. `PC-DEF-006` gates
+the F-Droid path only; `PC-DEF-012` awaits reachability evidence.
 
 Prepare and review an explicit final release exposure audit prompt —
 secrets/configuration plus full APK and AAB inspection — from

@@ -86,8 +86,17 @@ still bound to the H5C candidate and is rebound at the next artifact build.
 relabelled; the next artifact build is the first to contain the current Core
 pair, and it needs its own validation.
 
-`PC-DEF-009` through `PC-DEF-011`, `PC-DEF-013` through `PC-DEF-021` and
-`PC-DEF-025` are resolved. `PC-DEF-012` stays open by decision — no reachability evidence, so no
+`PC-DEF-009` through `PC-DEF-011`, `PC-DEF-013` through `PC-DEF-022` and
+`PC-DEF-025` are resolved.
+
+**`PC-DEF-022` was resolved by removing the route, not by hardening it.**
+`POST /api/update` is gone from source and from both Core binaries; `embed.go`'s
+existing not-found path makes it an ordinary 404. `pkg/updater` stays because
+`cmd/picoclaw` registers its CLI update command — do not delete the library, and
+do not reintroduce an HTTP download endpoint under any name. That Core
+generation is fingerprint
+`6f00359dc9e8bf7ee24f9d170754b2792a41fb880d9da4f34a8600dd8f99df00`, staged pair
+`7ebeebd1…` / `b682b76d…`, BuildTime `2026-09-12T23:25:34+0000`. `PC-DEF-012` stays open by decision — no reachability evidence, so no
 export narrowing; the exposure audit produced none and did not narrow anything.
 
 Full evidence is in
@@ -104,7 +113,7 @@ defects and fixed none.
 
     PC-DEF-020  Public Mode OFF is not durable across a restart      RESOLVED
     PC-DEF-021  AAB embeds the private R8 mapping and Dart symbols   RESOLVED
-    PC-DEF-022  /api/update fetches an arbitrary URL unverified      open
+    PC-DEF-022  /api/update fetches an arbitrary URL unverified      RESOLVED (removed)
     PC-DEF-023  third-party Google OAuth client secret embedded      open
     PC-DEF-024  dead analytics deep link exported in the manifest    open
     PC-DEF-025  flutter test red since H5B; no gate runs the suite   RESOLVED
@@ -150,7 +159,9 @@ than a premature one — but it still requires its own explicit prompt. Build wi
 public-release`.
 
 Everything the audit inspected was **development-signed**: APK `113a8382…` and
-audit AAB `d45efcbf…`, both LOCAL TEST and neither publishable. H5C proved that
+audit AAB `d45efcbf…`, both LOCAL TEST and neither publishable. Both predate the
+`PC-DEF-022` Core generation, so the next candidate must be rebuilt rather than
+compared against them. H5C proved that
 production and development builds of one tree differ only by the signing block,
 so the structural findings transfer — but the production candidate itself has
 not been built or gated, and that is not something the audit established.

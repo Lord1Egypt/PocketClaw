@@ -45,3 +45,4 @@ boundary.
 - [`PC-DEF-021 — AAB privacy and release-artifact policy`](history/PC-DEF-021_AAB_RELEASE_POLICY.md)
 - [`PC-DEF-025 — Flutter suite and release-gate integrity`](history/PC-DEF-025_FLUTTER_SUITE_GATE.md)
 - [`Final release exposure audit — closure re-run`](history/EXPOSURE_AUDIT_RERUN.md)
+- [`PC-DEF-022 — update-surface removal`](history/PC-DEF-022_UPDATE_SURFACE_REMOVAL.md)

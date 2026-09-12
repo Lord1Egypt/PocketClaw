@@ -9,42 +9,6 @@ only reconstructable examples belong here.
 
 
 
-### PC-DEF-022 — `/api/update` fetches and extracts an arbitrary URL with no provenance check
-
-- **Discovered:** final release exposure audit, 2026-09-12.
-- **Component:** `core/src/web/backend/api/update.go`; `core/src/pkg/updater`.
-- **Severity:** Authenticated attack surface. Not a release blocker.
-- **Description:** `POST /api/update` takes a caller-supplied `url`, hands it to
-  `updater.UpdateSelfFromRelease`, which downloads the named asset, extracts the
-  archive, `chmod 0755`s the binary it finds and calls `selfupdate.Apply` on the
-  running executable. The SHA-256 it computes comes from the same
-  caller-controlled release document, so it authenticates nothing; there is no
-  host allowlist and no signature check. The route is registered unconditionally
-  for every platform, including Android.
-- **Mitigations that bound it:** the route is behind the dashboard session wall
-  (it is absent from `isPublicLauncherDashboardPath`); archive extraction is
-  guarded against path traversal in both the zip and tar paths
-  (`updater.go:558-562`, `635-638`); and on Android `os.Executable()` is inside
-  the read-only install directory, so the replace step cannot succeed. What
-  remains is an authenticated arbitrary-URL fetch with archive extraction to a
-  temporary directory. Nothing in PocketClaw's own UI calls it — no Flutter,
-  Kotlin or dashboard code references `/api/update` — so it is inherited
-  upstream desktop surface with no product use.
-- **Interaction with `PC-DEF-020`:** in Public Mode the route is LAN-reachable.
-  `PC-DEF-020` is now resolved, so Public Mode can no longer be active while the
-  UI reports it off; the route is reachable only when the user has deliberately
-  enabled LAN access.
-- **Re-confirmed by the exposure-audit closure re-run, 2026-09-13:** still
-  registered unconditionally, still absent from the unauthenticated allowlist,
-  still takes a caller-supplied URL, both traversal guards intact, still called
-  by no PocketClaw UI, and the Android apply step still cannot succeed against
-  the read-only install directory. Classification unchanged; **not a release
-  blocker for the GitHub APK path.**
-- **Narrow fix plan:** remove the route from the Android/Core build, or pin it to
-  an allowlisted release host and verify a detached signature before applying.
-  Removal is preferable: the product does not use it.
-  **No fix applied: product change, separate authorization required.**
-- **Status:** OPEN.
 
 ### PC-DEF-023 — A third-party Google OAuth client secret is embedded in both Core binaries
 
@@ -278,6 +242,96 @@ only reconstructable examples belong here.
 - **Status:** OPEN.
 
 ## Resolved
+
+### PC-DEF-022 — `/api/update` fetches and extracts an arbitrary URL with no provenance check
+
+- **Discovered:** final release exposure audit, 2026-09-12.
+- **Component:** `core/src/web/backend/api/update.go`; `core/src/pkg/updater`.
+- **Severity:** Authenticated attack surface. Not a release blocker.
+- **Description:** `POST /api/update` takes a caller-supplied `url`, hands it to
+  `updater.UpdateSelfFromRelease`, which downloads the named asset, extracts the
+  archive, `chmod 0755`s the binary it finds and calls `selfupdate.Apply` on the
+  running executable. The SHA-256 it computes comes from the same
+  caller-controlled release document, so it authenticates nothing; there is no
+  host allowlist and no signature check. The route is registered unconditionally
+  for every platform, including Android.
+- **Mitigations that bound it:** the route is behind the dashboard session wall
+  (it is absent from `isPublicLauncherDashboardPath`); archive extraction is
+  guarded against path traversal in both the zip and tar paths
+  (`updater.go:558-562`, `635-638`); and on Android `os.Executable()` is inside
+  the read-only install directory, so the replace step cannot succeed. What
+  remains is an authenticated arbitrary-URL fetch with archive extraction to a
+  temporary directory. Nothing in PocketClaw's own UI calls it — no Flutter,
+  Kotlin or dashboard code references `/api/update` — so it is inherited
+  upstream desktop surface with no product use.
+- **Interaction with `PC-DEF-020`:** in Public Mode the route is LAN-reachable.
+  `PC-DEF-020` is now resolved, so Public Mode can no longer be active while the
+  UI reports it off; the route is reachable only when the user has deliberately
+  enabled LAN access.
+- **Re-confirmed by the exposure-audit closure re-run, 2026-09-13:** still
+  registered unconditionally, still absent from the unauthenticated allowlist,
+  still takes a caller-supplied URL, both traversal guards intact, still called
+  by no PocketClaw UI, and the Android apply step still cannot succeed against
+  the read-only install directory. Classification unchanged; **not a release
+  blocker for the GitHub APK path.**
+- **Fix applied, 2026-09-13 — removed.** Securing an unused self-update
+  subsystem would have been the wrong repair, so the exposed route is gone
+  rather than hardened.
+
+  `core/src/web/backend/api/update.go` is deleted and `router.go` no longer
+  calls `registerUpdateRoutes`. No special response was invented: `embed.go`
+  already answers an unknown `/api/` path with `http.NotFound`, so
+  `POST /api/update` is now an ordinary 404 with no information-leaking envelope
+  and no misleading fake success.
+
+  **`pkg/updater` stays.** `cmd/picoclaw/main.go` registers its CLI update
+  command, a legitimate non-HTTP consumer, and the library's archive-traversal
+  guards and tests are untouched. The acceptance criterion was removal of the
+  exposed product route, not maximum source deletion.
+
+  Everything was re-proved before the change rather than taken from the audit
+  report: the route was registered at `api/update.go:12`, it was absent from the
+  unauthenticated allowlist so a live session was required, and a search across
+  Dart, Kotlin, TypeScript and TSX found **zero** callers anywhere outside the
+  backend package.
+- **Verification:** `core/src/web/backend/api/no_update_route_test.go` — the
+  route resolves to no registered pattern under five HTTP methods; an
+  authenticated request driven through the routed mux, past any auth wall and so
+  matching this route's actual threat model, returns 404 with no handler
+  envelope; six plausible renames (`/api/updates`, `/api/self-update`,
+  `/api/system/update`, `/api/upgrade`, `/api/download` and others) are checked
+  so an arbitrary-download surface cannot reappear under a different name; the
+  auth middleware is asserted not to name the path, so removal cannot have
+  widened the unauthenticated surface; and the handler file's absence is
+  asserted so a revert cannot restore dead code that reads as live product.
+  Mutation-tested: restoring `update.go` and its registration fails them.
+
+  The shipped binaries confirm it independently — `/api/update` occurs **zero**
+  times in both `libpocketclaw.so` and `libpocketclaw-web.so`, and the web
+  binary shrank by 132,864 bytes as the linker dropped the now-unreachable
+  paths.
+
+  No regression in the network or auth boundary: `web/backend`, `api`,
+  `middleware`, `dashboardauth`, `launcherconfig`, `netbind`, `gateway` and
+  `updater` all pass. Public Mode semantics, the dashboard session wall, the
+  WebSocket session-plus-origin check and the gateway's loopback pin were not
+  touched.
+- **Core impact:** `core/src` changed, so the source fingerprint moved from
+  `2692de41b2fe2487475911b62cec519193d581b25cf6d0ebe935fc63973229df` to
+  `6f00359dc9e8bf7ee24f9d170754b2792a41fb880d9da4f34a8600dd8f99df00` and the
+  pair was rebuilt and re-staged under the two-commit rule from build-input
+  commit `a0be2a705c1b255c5bd2fe1d8c9f44c094019627`:
+
+      libpocketclaw.so       37,724,640  7ebeebd1…  build ID 512ed36a…
+      libpocketclaw-web.so   25,385,088  b682b76d…  build ID 4eeb1385…
+      BuildTime              2026-09-12T23:25:34+0000
+
+  Byte-identical in three independent output roots, one with a cold Go cache;
+  both private companions likewise. Native contract 22 PASS / 0 FAIL. No Managed
+  Runtime payload was rebuilt. The private support manifest's `apk` field still
+  names the exposure-audit APK `113a8382…`, which no longer contains this pair —
+  the established pre-artifact state, rebound at the next artifact build.
+- **Status:** RESOLVED, 2026-09-13.
 
 ### PC-DEF-025 — `flutter test` has been failing since H5B and no gate runs it
 

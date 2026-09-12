@@ -75,6 +75,9 @@ review result, documentation closeout, and `STOP`.
     the suite) — **DONE**, resolved 2026-09-13; evidence in
     [`prompts/history/PC-DEF-025_FLUTTER_SUITE_GATE.md`](prompts/history/PC-DEF-025_FLUTTER_SUITE_GATE.md).
 1c. Re-run the exposure audit to closure — **DONE**, CLOSED / PASS 2026-09-13.
+1d. `PC-DEF-022` update-surface removal — **DONE**, resolved 2026-09-13;
+    evidence in
+    [`prompts/history/PC-DEF-022_UPDATE_SURFACE_REMOVAL.md`](prompts/history/PC-DEF-022_UPDATE_SURFACE_REMOVAL.md).
 2. APK and AAB production inspection. Blocked until 1c closes: no
    production-signed candidate may be built before then, and the owner signing
    ceremony must not be requested for a candidate that will be superseded.
