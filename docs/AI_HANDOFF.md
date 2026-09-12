@@ -86,8 +86,8 @@ still bound to the H5C candidate and is rebound at the next artifact build.
 relabelled; the next artifact build is the first to contain the current Core
 pair, and it needs its own validation.
 
-`PC-DEF-009` through `PC-DEF-011` and `PC-DEF-013` through `PC-DEF-019` are
-resolved. `PC-DEF-012` stays open by decision — no reachability evidence, so no
+`PC-DEF-009` through `PC-DEF-011`, `PC-DEF-013` through `PC-DEF-019` and
+`PC-DEF-020` are resolved. `PC-DEF-012` stays open by decision — no reachability evidence, so no
 export narrowing; the exposure audit produced none and did not narrow anything.
 
 Full evidence is in
@@ -102,20 +102,30 @@ The **final release exposure audit has run and is BLOCKED.** It completed every
 part that does not depend on the production signing identity, opened six
 defects and fixed none.
 
-    PC-DEF-020  Public Mode OFF is not durable across a restart      RELEASE BLOCKER
+    PC-DEF-020  Public Mode OFF is not durable across a restart      RESOLVED
     PC-DEF-021  AAB embeds the private R8 mapping and Dart symbols   RELEASE BLOCKER (publication)
     PC-DEF-022  /api/update fetches an arbitrary URL unverified      open
     PC-DEF-023  third-party Google OAuth client secret embedded      open
     PC-DEF-024  dead analytics deep link exported in the manifest    open
     PC-DEF-025  flutter test red since H5B; no gate runs the suite   open
 
+**`PC-DEF-020` is now RESOLVED.** The Android host always states the Public Mode
+decision (`-public=true` / `-public=false`), so the persisted
+`launcher-config.json` `public` field is never consulted there and "off"
+survives every restart. The Config page reports the effective mode and a save
+repairs a stale stored `true`. That fix moved the Core source fingerprint to
+`2692de41b2fe2487475911b62cec519193d581b25cf6d0ebe935fc63973229df`; the staged
+pair is `602ce034…` / `b5cce071…`, BuildTime `2026-09-12T18:54:26+0000`, rebuilt
+and re-staged under the two-commit rule.
+
 **Do not build a production-signed candidate yet, and do not request the owner
-signing ceremony.** The audit deliberately did not: a candidate built before
-`PC-DEF-020` and `PC-DEF-021` are fixed must be rebuilt, and its hash,
-native-support binding and gate evidence would all be superseded. It audited a
-fresh LOCAL TEST / NON-RELEASABLE APK from the same tree instead
-(`5460d86a…`), which is sound because H5C proved the production and development
-builds of one tree differ only by the signing block.
+signing ceremony.** `PC-DEF-021` is still a blocker, and a candidate built
+before it is fixed would be superseded along with its hash, native-support
+binding and gate evidence. The audit's structural evidence came from a fresh
+LOCAL TEST / NON-RELEASABLE APK (`5460d86a…`), which was sound because H5C
+proved the production and development builds of one tree differ only by the
+signing block — note that APK predates the `PC-DEF-020` Core generation and is
+no longer current.
 
 **Do not publish an AAB as a release asset.** `PocketClaw-v0.2.0-rc1.aab` and
 `-rc2.aab` already are, and a hardened bundle carries the complete R8
@@ -128,9 +138,10 @@ nothing else, and the Core gateway stays loopback-only in both states — with
 `PC-DEF-020` as its one actionable residue. `PC-DEF-006` stays open: one
 artifact was built, not two compared.
 
-The next milestones are `PC-DEF-020` and `PC-DEF-021`, each under its own
-explicit prompt, then a re-run of the exposure audit to closure. Full evidence
-is in [`prompts/history/EXPOSURE_AUDIT.md`](prompts/history/EXPOSURE_AUDIT.md).
+The next milestone is `PC-DEF-021` under its own explicit prompt, then a re-run
+of the exposure audit to closure. Full evidence is in
+[`prompts/history/EXPOSURE_AUDIT.md`](prompts/history/EXPOSURE_AUDIT.md) and
+[`prompts/history/PC-DEF-020_PUBLIC_MODE_AUTHORITY.md`](prompts/history/PC-DEF-020_PUBLIC_MODE_AUTHORITY.md).
 
 Do not create a stable tag, publish a release, access a device, rebuild Core or
 Managed Runtime, or advance the accepted baseline without explicit milestone

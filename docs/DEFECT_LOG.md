@@ -7,55 +7,6 @@ only reconstructable examples belong here.
 
 ## Open / deferred
 
-### PC-DEF-020 — Public Mode OFF does not guarantee a loopback-only console
-
-- **Discovered:** final release exposure audit, 2026-09-12.
-- **Component:** Dashboard listener; Android Public Mode toggle; `launcher-config.json`.
-- **Severity:** **RELEASE BLOCKER.** The product's stated network posture can
-  differ from the listener it actually opens.
-- **Description:** The dashboard's public/loopback decision has two persisted
-  authorities that are never reconciled. Android stores the user's choice in
-  SharedPreferences `public_mode` and passes `-public` only when it is on. When
-  it is off the flag is absent, so `web/backend/main.go` takes
-  `effectivePublic = launcherCfg.Public` — the `public` field of
-  `launcher-config.json`. Nothing on the Android OFF path ever writes that file:
-  `handleAndroidNetworkModeApply` and `launcherHTTPRuntime.ApplyPublicMode`
-  rebind the live listener and update in-memory state only, and
-  `PUT /api/system/launcher-config` is the single writer of the file. The
-  console's own Config page does send `public`, so saving that page while LAN
-  access is on persists `public: true`. After that, turning Public Mode off in
-  the native UI rebinds the listener to loopback for the life of the process and
-  leaves the file saying `true`; the next service start — app restart, service
-  kill, device reboot — binds the console to all interfaces while the native
-  toggle still reports OFF.
-- **Evidence:** `core/src/web/backend/main.go:550-556` (`if !explicitPublic {
-  effectivePublic = launcherCfg.Public }`);
-  `core/src/web/backend/api/android_bridge.go:154-212` (no config write);
-  `core/src/web/backend/launcher_http_runtime.go:134-161` (no config write);
-  `core/src/web/backend/api/launcher_config.go:84-96` (the only writer);
-  `core/src/web/frontend/src/components/config/config-page.tsx:701-706` (sends
-  `public`). Reproducible bind evidence from the shipped `pkg/netbind` with the
-  same default-mode selection `openLauncherListeners` applies:
-
-      PUBLIC OFF (no -public, no host)   bindHosts=[::1 127.0.0.1]
-      PUBLIC ON  (-public, no host)      bindHosts=[:: 0.0.0.0]
-      host override 127.0.0.1 + -public  bindHosts=[127.0.0.1]
-      gateway (host=localhost)           bindHosts=[::1 127.0.0.1]  in BOTH states
-
-  The dashboard password wall is unaffected in every state, so this is exposure
-  of a password-protected surface, not an unauthenticated one. The Core gateway
-  on 18790 stays loopback-only regardless: `openGatewayListeners` always passes
-  `netbind.DefaultLoopback` and never sees the launcher's public flag.
-- **Narrow fix plan:** make the Android choice the single authority for the
-  Android listener. Either (a) have the network-mode bridge persist the decision
-  through the same `launcherconfig.Save` path it already rebinds, so file and
-  listener cannot disagree, or (b) have the Android host always pass the flag
-  explicitly — `-public` or a `-public=false` equivalent — so `explicitPublic`
-  is always true and the file is never consulted on Android. (b) is smaller and
-  touches no Core storage behaviour; (a) also fixes the console's own display.
-  Add a test that asserts the OFF path cannot resolve to an unspecified bind
-  host. **No fix applied: product change, separate authorization required.**
-- **Status:** OPEN / RELEASE BLOCKER.
 
 ### PC-DEF-021 — The AAB embeds the private R8 mapping and native debug symbols
 
@@ -373,6 +324,106 @@ only reconstructable examples belong here.
 - **Status:** OPEN.
 
 ## Resolved
+
+### PC-DEF-020 — Public Mode OFF does not guarantee a loopback-only console
+
+- **Discovered:** final release exposure audit, 2026-09-12.
+- **Component:** Dashboard listener; Android Public Mode toggle; `launcher-config.json`.
+- **Severity:** **RELEASE BLOCKER.** The product's stated network posture can
+  differ from the listener it actually opens.
+- **Description:** The dashboard's public/loopback decision has two persisted
+  authorities that are never reconciled. Android stores the user's choice in
+  SharedPreferences `public_mode` and passes `-public` only when it is on. When
+  it is off the flag is absent, so `web/backend/main.go` takes
+  `effectivePublic = launcherCfg.Public` — the `public` field of
+  `launcher-config.json`. Nothing on the Android OFF path ever writes that file:
+  `handleAndroidNetworkModeApply` and `launcherHTTPRuntime.ApplyPublicMode`
+  rebind the live listener and update in-memory state only, and
+  `PUT /api/system/launcher-config` is the single writer of the file. The
+  console's own Config page does send `public`, so saving that page while LAN
+  access is on persists `public: true`. After that, turning Public Mode off in
+  the native UI rebinds the listener to loopback for the life of the process and
+  leaves the file saying `true`; the next service start — app restart, service
+  kill, device reboot — binds the console to all interfaces while the native
+  toggle still reports OFF.
+- **Evidence:** `core/src/web/backend/main.go:550-556` (`if !explicitPublic {
+  effectivePublic = launcherCfg.Public }`);
+  `core/src/web/backend/api/android_bridge.go:154-212` (no config write);
+  `core/src/web/backend/launcher_http_runtime.go:134-161` (no config write);
+  `core/src/web/backend/api/launcher_config.go:84-96` (the only writer);
+  `core/src/web/frontend/src/components/config/config-page.tsx:701-706` (sends
+  `public`). Reproducible bind evidence from the shipped `pkg/netbind` with the
+  same default-mode selection `openLauncherListeners` applies:
+
+      PUBLIC OFF (no -public, no host)   bindHosts=[::1 127.0.0.1]
+      PUBLIC ON  (-public, no host)      bindHosts=[:: 0.0.0.0]
+      host override 127.0.0.1 + -public  bindHosts=[127.0.0.1]
+      gateway (host=localhost)           bindHosts=[::1 127.0.0.1]  in BOTH states
+
+  The dashboard password wall is unaffected in every state, so this is exposure
+  of a password-protected surface, not an unauthenticated one. The Core gateway
+  on 18790 stays loopback-only regardless: `openGatewayListeners` always passes
+  `netbind.DefaultLoopback` and never sees the launcher's public flag.
+- **Fix applied, 2026-09-12** — option (b), plus the display half of (a).
+  `PocketClawService` now passes `-public=true` or `-public=false` rather than
+  the flag or nothing, so `flag.Visit` always reports the decision as supplied
+  and the persisted field is never consulted on Android. `main.go`'s inline
+  resolution moved into `resolveLauncherPublicMode` and its `flag.Visit` block
+  into `launcherExplicitFlags`, so the state matrix is testable rather than
+  arguable. Desktop is unchanged by construction: with no flag supplied the
+  stored field is still the authority, which is the only way Public Mode can be
+  set where there is no native toggle.
+
+  The Config page was the second half. Making the host authoritative for the
+  listener left the page reading and writing the stored field directly, so it
+  could display a value the running listener contradicts and saving it rewrote
+  the stale value. Where the host owns the decision the page now reports the
+  effective mode and persists that instead of the submitted one, which also
+  repairs a file that had already drifted. `effectiveLauncherPublic` already
+  encoded the precedence and had no product caller; it is wired up rather than
+  duplicated, and extended to prefer a runtime rebind over the startup flag
+  because `ApplyPublicMode` replaces the listeners without rewriting
+  `serverPublic`. The frontend is untouched — the field is informational under a
+  host-owned decision by virtue of what the API reports, not by a redesign of
+  Settings.
+
+  Contract: `-public=<bool>`, always supplied by the Android host. An explicit
+  `false` and an omitted flag are distinguishable because `flag.Visit` reports
+  only flags that were `Set`; a test pins that, since the whole fix is inert
+  without it.
+- **Verification:** the required state matrix is covered by
+  `core/src/web/backend/public_mode_authority_test.go` (fresh install off;
+  native on; native on with a stored true; native off with a stored true for
+  every subsequent process; a stored true predating startup; a stored false with
+  native on; host-override precedence in all three public states; the gateway
+  loopback for every gateway host value; and the end-to-end case that a stale
+  stored true with an explicit off opens loopback sockets and nothing else),
+  `core/src/web/backend/api/launcher_config_authority_test.go` (the page reports
+  the effective mode, follows a runtime rebind, cannot override a host-owned
+  decision, repairs a stale stored true on save, reports off under an explicit
+  host, and stays writable on desktop), and
+  `test/unit/android_public_mode_authority_test.dart` (the host always states
+  the decision and never emits a bare `-public`). The live ON→OFF rebind was
+  already covered by
+  `TestLauncherHTTPRuntimeAppliesPublicModeWithoutReplacingHandler` and is not
+  duplicated. No change to authentication, session handling, the WebSocket
+  origin check, the unauthenticated path allowlist, the gateway's loopback pin,
+  or Public Mode ON semantics; the middleware, dashboardauth, api,
+  launcherconfig, netbind and gateway suites all pass.
+- **Core impact:** `core/src` changed, so the source fingerprint moved from
+  `bd4a8629a2682e2f05aa3859a400be8a77fb4954ad14994e5703ccbe365d05ec` to
+  `2692de41b2fe2487475911b62cec519193d581b25cf6d0ebe935fc63973229df` and the
+  pair was rebuilt and re-staged under the two-commit rule from build-input
+  commit `f8bc52a0757f7b0a9f6c0704d2a3586db929e33f`:
+
+      libpocketclaw.so       37,724,640  602ce034…  build ID ed130bed…
+      libpocketclaw-web.so   25,517,952  b5cce071…  build ID f61a369f…
+      BuildTime              2026-09-12T18:54:26+0000
+
+  Byte-identical in three independent output roots, one with a cold Go cache;
+  both private companions likewise. Native contract 22 PASS / 0 FAIL for the
+  pair. No Managed Runtime payload was rebuilt.
+- **Status:** RESOLVED, 2026-09-12.
 
 ### PC-DEF-019 — Staged Core predates the guided-tour dashboard change
 

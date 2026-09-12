@@ -21,16 +21,18 @@ evidence and describe the state at the date of each entry.
 | H5C state-basis HEAD | `33f0db672eab86985986a76598b66f968e2f44a8` (verified H5C starting commit; the closeout commit follows it) |
 | PC-DEF-019 state-basis HEAD | `ea43369289c8b6c618faa08f7b91355882fc050c` (verified UI-1 closeout; the Core staging/closeout commit follows it) |
 | PC-DEF-019 canonical Core build-input commit | `ea43369289c8b6c618faa08f7b91355882fc050c` |
-| Staged Core pair | `libpocketclaw.so` `f273b9ce…` 37,724,640 bytes; `libpocketclaw-web.so` `900c43fc…` 25,517,952 bytes; BuildTime `2026-09-12T07:27:12+0000` |
+| Staged Core pair | `libpocketclaw.so` `602ce034…` 37,724,640 bytes; `libpocketclaw-web.so` `b5cce071…` 25,517,952 bytes; BuildTime `2026-09-12T18:54:26+0000` |
+| PC-DEF-020 state-basis HEAD | `76064c91033860653de1e11a08e29d7245061ec1` (verified exposure-audit closeout; source and Core-staging commits follow it) |
+| PC-DEF-020 canonical Core build-input commit | `f8bc52a0757f7b0a9f6c0704d2a3586db929e33f` |
 | Version | `0.2.0+62` |
 | Accepted physical baseline | vc62 / `lastAcceptedVersionCode=62` |
 | Current phase | Final Production Release Hardening; H5C production-signed native/ELF validation closed |
 | Developer production signer | `176dca6b198b9552fb4d9ad3ca18da8d6f23c0a3f5ed4bd6b75a0700f9f0efcf` |
-| Core fingerprint | `bd4a8629a2682e2f05aa3859a400be8a77fb4954ad14994e5703ccbe365d05ec`; the staged Core pair carries it — `PC-DEF-019` resolved |
+| Core fingerprint | `2692de41b2fe2487475911b62cec519193d581b25cf6d0ebe935fc63973229df`; the staged Core pair carries it — moved by the `PC-DEF-020` fix |
 | Distribution targets | Direct APK, Google Play, Official F-Droid |
 | Exposure-audit state-basis HEAD | `25753cef5fa4d956e11d37b5a6176cdef977f015` (verified PC-DEF-019 closeout; the audit closeout commit follows it) |
-| Final release exposure audit | **RUN, BLOCKED.** Two release blockers proven: `PC-DEF-020`, `PC-DEF-021`. Four further defects opened: `PC-DEF-022`..`PC-DEF-025`. No fix applied — each needs its own authorization |
-| Next authorized milestone | Fix `PC-DEF-020` and `PC-DEF-021` under separate prompts, then re-run the exposure audit to closure. No production candidate may be built before then |
+| Final release exposure audit | **RUN, BLOCKED.** Blockers were `PC-DEF-020` (now RESOLVED) and `PC-DEF-021` (still open). `PC-DEF-022`..`PC-DEF-025` open |
+| Next authorized milestone | Fix `PC-DEF-021` under its own prompt, then re-run the exposure audit to closure. No production candidate may be built before then |
 
 The H2 production validation APK has SHA-256
 `f0d83298c2ce061c01a9fc931ad29676e4d4b646bb5b204a9bf0002b11a7f46f`
@@ -348,6 +350,45 @@ APK; source gate 25 PASS / 0 FAIL / 0 SKIPPED; artifact gate 54 PASS / 0 FAIL /
 byte-identical to H3A onward. Full evidence is in
 [`docs/prompts/history/EXPOSURE_AUDIT.md`](docs/prompts/history/EXPOSURE_AUDIT.md).
 
+`PC-DEF-020` is **RESOLVED**. The dashboard's public/loopback decision had two
+persisted authorities and no rule for which won: the Android host passed
+`-public` only when Public Mode was on, so "off" arrived as silence and fell
+through to `launcher-config.json`'s `public` field, which the console's own
+Config page can set to true. The host now always states the decision —
+`-public=true` or `-public=false` — and Go's `flag.Visit` reports an explicit
+false as supplied, so the persisted field is never consulted on Android. The
+resolution rule itself is unchanged; what changed is that the fallback branch is
+now unreachable there rather than merely discouraged.
+
+The Config page was the second half, and is fixed by what the API reports rather
+than by a UI change: where the host owns the decision the page returns the
+effective mode and a save persists that instead of the submitted value, which
+also repairs a file that had already drifted. `effectiveLauncherPublic` already
+encoded the precedence and had no product caller; it was wired up rather than
+duplicated, and extended to prefer a runtime rebind over the startup flag. The
+frontend is untouched.
+
+Enforcement was never the failure — the password wall held in every state and
+the Core gateway on 18790 was loopback-only throughout — so nothing in the
+authentication or transport boundary was changed. The required state matrix is
+covered by three new test files, including the end-to-end case that a stale
+stored `true` with an explicit off opens loopback sockets and nothing else, and
+the gateway staying loopback for every gateway host value.
+
+The fix touched `core/src`, so the source fingerprint moved from `bd4a8629…` to
+`2692de41b2fe2487475911b62cec519193d581b25cf6d0ebe935fc63973229df` and the pair
+was rebuilt and re-staged under the two-commit rule from build-input commit
+`f8bc52a`:
+
+    libpocketclaw.so       37,724,640  602ce034…  build ID ed130bed…
+    libpocketclaw-web.so   25,517,952  b5cce071…  build ID f61a369f…
+    BuildTime              2026-09-12T18:54:26+0000
+
+Byte-identical in three independent output roots, one with a cold Go cache;
+both private companions likewise. Native contract 22 PASS / 0 FAIL for the pair;
+no Managed Runtime payload rebuilt. Evidence is in
+[`docs/prompts/history/PC-DEF-020_PUBLIC_MODE_AUTHORITY.md`](docs/prompts/history/PC-DEF-020_PUBLIC_MODE_AUTHORITY.md).
+
 ### Completed major milestones
 
 - vc62 Zero-Pico namespace closeout: physically accepted and merged.
@@ -369,6 +410,7 @@ byte-identical to H3A onward. Full evidence is in
 - UI-1 guided tour hardening: closed (console defect repair, not a release milestone).
 - PC-DEF-019 Core rebuild and re-stage: resolved (artifact prerequisite, not a release milestone).
 - Final release exposure audit: run and BLOCKED on `PC-DEF-020` and `PC-DEF-021`; not closed.
+- PC-DEF-020 Public Mode authority fix: resolved (release blocker cleared; not a release milestone).
 
 See [`docs/ROADMAP.md`](docs/ROADMAP.md) for the phase sequence and
 [`docs/AI_HANDOFF.md`](docs/AI_HANDOFF.md) for the mandatory read order.
@@ -430,18 +472,16 @@ current release inventory.
 
 ### Exact next action
 
-The exposure audit has run and is BLOCKED. The next actions are the two
-release blockers it proved, each under its own authorized prompt:
+`PC-DEF-020` is cleared. One release blocker remains, under its own authorized
+prompt:
 
-1. `PC-DEF-020` — make the Android Public Mode choice the single authority for
-   the dashboard listener, so "off" survives a service restart.
-2. `PC-DEF-021` — correct the mapping/symbol policy for bundles, forbid the AAB
+1. `PC-DEF-021` — correct the mapping/symbol policy for bundles, forbid the AAB
    as a public release asset, and give the release gate a real
    `artifact.r8_mapping_private` check plus an AAB mode.
 
 Then re-run the exposure audit to closure, and only then build a
 production-signed candidate. `PC-DEF-022` through `PC-DEF-025` are open and
-scheduled after those two unless the owner reorders them.
+scheduled after that unless the owner reorders them.
 
 Prepare and review an explicit final release exposure audit prompt —
 secrets/configuration plus full APK and AAB inspection — from
