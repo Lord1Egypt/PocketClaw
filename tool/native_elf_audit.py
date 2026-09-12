@@ -315,8 +315,16 @@ def support_manifest_checks(manifest_path: Path, apk: Path,
         record = record_by_name.get(name)
         if not record or record["sha256"] != item.get("shippedSha256") or record["sizeBytes"] != item.get("shippedSizeBytes") or record["buildId"] != item.get("buildId"):
             binding_ok = False; problems.append(f"{name}: shipped ELF binding mismatch")
-        sections = parse_sections(run_tool([tools["readelf"], "-SW", str(support)]))
-        symbolization = item.get("symbolization", {})
+        # A support file the manifest names but readelf cannot parse is a
+        # finding, not a crash: this audit must report on whatever the private
+        # root actually contains.
+        try:
+            sections = parse_sections(run_tool([tools["readelf"], "-SW", str(support)]))
+        except subprocess.CalledProcessError:
+            sections = []
+        symbolization = item.get("symbolization")
+        if not isinstance(symbolization, dict):
+            symbolization = {}
         if not any(section.startswith((".debug_", ".zdebug_")) for section in sections) or not symbolization.get("resolvedFunction") or symbolization.get("resolvedFunction") == "??":
             symbols_ok = False; problems.append(f"{name}: missing debug/symbolization evidence")
     checks.extend([

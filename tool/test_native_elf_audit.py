@@ -129,6 +129,22 @@ class NativeElfAuditTest(unittest.TestCase):
                 checks = audit.support_manifest_checks(manifest, apk, [], {"readelf": "readelf"})
                 self.assertEqual([check.status for check in checks], ["FAIL"], broken)
 
+    def test_unparsable_support_file_is_a_finding_not_a_crash(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            apk = root / "candidate.apk"
+            apk.write_bytes(b"not an apk")
+            (root / "libpocketclaw.so.debug").write_text("not an ELF")
+            (root / "manifest.json").write_text(json.dumps({"artifacts": [{
+                "logicalName": "libpocketclaw.so",
+                "supportPath": "libpocketclaw.so.debug",
+                "supportSha256": audit.sha256_bytes(b"not an ELF"),
+                "supportSizeBytes": 10, "symbolization": "not an object",
+            }]}))
+            statuses = {check.name: check.status for check in audit.support_manifest_checks(
+                root / "manifest.json", apk, [], {"readelf": audit.find_tool(("llvm-readelf", "readelf"))})}
+            self.assertEqual(statuses["native.private_support_symbolization"], "FAIL")
+
     def test_support_path_outside_the_private_root_is_rejected(self) -> None:
         """The manifest names its companions; it must not be able to name others."""
         with tempfile.TemporaryDirectory() as temporary:

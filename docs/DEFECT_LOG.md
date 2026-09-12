@@ -7,71 +7,6 @@ only reconstructable examples belong here.
 
 ## Open / deferred
 
-### PC-DEF-009 — Managed Git HTTP helper carries a build-only RUNPATH
-
-- **Discovered:** H5A native/ELF audit, 2026-09-11.
-- **Component:** Managed Runtime `libpocketclaw-git-remote-http.so`.
-- **Severity:** Release-hardening defect; non-blocking for the audit-only H5A
-  milestone and blocking for final native-policy enforcement.
-- **Description:** The packaged PIE contains `DT_RUNPATH` set to
-  `/tmp/pocketclaw-runtime-build/deps/lib`. It is a build-host search path and
-  has no runtime purpose on Android. The executable currently resolves only
-  Android platform libraries, but a distributed artifact must not retain the
-  build-only loader directive.
-- **Evidence:** Exact H4B APK SHA-256
-  `14ba7d138a4092aefe264c7e2af6240c97fc1b782ded69918cbf545351eb5eb2`;
-  `readelf -dW` finds the one RUNPATH while all other 17 packaged ELF entries
-  have no RPATH/RUNPATH. `tool/native_elf_audit.py` reports the same finding.
-- **Reason deferred:** H5A may inspect but may not rebuild or rewrite native
-  payloads. The correction belongs at the source/link step and must be followed
-  by reproducibility and runtime-contract validation.
-- **Target milestone:** H5B targeted native hardening.
-- **Status:** OPEN / DIRECTLY RELATED / DEFERRED TO H5B.
-
-### PC-DEF-010 — Three runtime payloads retain the neutral build root
-
-- **Discovered:** H5A native/ELF audit, 2026-09-11.
-- **Component:** Managed Runtime curl, Git HTTP helper, and Python payloads.
-- **Severity:** Low exposure / release metadata hygiene; blocks the final H5B
-  no-build-path policy.
-- **Description:** The fixed neutral root prevents owner-home disclosure, but
-  it still leaves avoidable build identifiers in shipped bytes. Curl and the
-  Git HTTP helper each contain ten mbedTLS source paths rooted at
-  `/tmp/pocketclaw-runtime-build/mbedtls-3.6.4/`; the Git helper also carries
-  the RUNPATH tracked by `PC-DEF-009`. Python contains
-  `/tmp/pocketclaw-runtime-build/python/cpython` despite its existing
-  `-ffile-prefix-map` setting. No ELF contains `/home/lordegypt` or the
-  PocketClaw checkout path.
-- **Evidence:** Exact H4B APK and the H5A `strings` inventory reproduced by
-  `tool/native_elf_audit.py`: 10 curl hits, 11 Git HTTP hits, and one Python
-  hit. Intentional runtime/documentation strings such as `/tmp/perf-%jd.map`,
-  Core's `/tmp/project1` examples, and upstream `gh` `/home/runner/work/` data
-  are recorded but are not classified as this build machine's source paths.
-- **Reason deferred:** Fixing prefix maps requires source rebuilds, which H5A
-  expressly forbids.
-- **Target milestone:** H5B targeted native hardening.
-- **Status:** OPEN / DIRECTLY RELATED / DEFERRED TO H5B.
-
-### PC-DEF-011 — Native private symbol companions are not preserved
-
-- **Discovered:** H5A native/ELF audit, 2026-09-11.
-- **Component:** PocketClaw Core and Managed Runtime build recipes.
-- **Severity:** Release-support gap; blocks final native symbol-archive policy.
-- **Description:** All packaged payloads are stripped, which is correct for
-  distribution, but the tracked recipes do not preserve a private unstripped
-  twin or separate debug companion before stripping. Core and `gh` currently
-  build with Go `-s -w`; the shared runtime installer applies
-  `llvm-strip --strip-unneeded`; Python strips before appending its standard
-  library. Existing build IDs are absent from six C/Rust runtime payloads.
-- **Evidence:** H5A found no `.debug_*`, `.symtab`, or `.strtab` in any of the 18
-  packaged ELFs and found build IDs in 12. The build scripts show that stripped
-  outputs are installed directly without archiving a symbol-capable precursor.
-- **Reason deferred:** H5A defines policy but may not change flags or rebuild
-  Core/runtime. Each language/toolchain needs its own derivation and
-  symbolization proof; Python's appended ZIP requires ordering care.
-- **Target milestone:** H5B targeted native hardening and private archive.
-- **Status:** OPEN / DIRECTLY RELATED / DEFERRED TO H5B.
-
 ### PC-DEF-012 — Broad dependency export surfaces need reachability evidence
 
 - **Discovered:** H5A native/ELF audit, 2026-09-11.
@@ -91,9 +26,15 @@ only reconstructable examples belong here.
 - **Reason deferred:** Static counts do not establish that an export is safe to
   remove. Narrowing requires dependency-specific call/reachability evidence and
   runtime validation.
-- **Target milestone:** Evaluate in H5B; preserve unless evidence supports a
-  narrow export map. Any remaining dependency surface must be explicitly
-  accepted or assigned a later dependency-focused milestone.
+- **H5B disposition:** Evaluated and deliberately unchanged. H5B produced no
+  call/reachability evidence for any of these surfaces, and narrowing a
+  visibility surface without it is how a runtime `UnsatisfiedLinkError` ships.
+  No export map was added and the packaged export counts are unchanged. The
+  automated audit continues to assert the required boundary rather than hide
+  the rest.
+- **Target milestone:** A later dependency-focused milestone. Narrowing requires
+  dependency-specific reachability plus runtime validation, or an explicit
+  owner acceptance of the retained surface.
 - **Status:** OPEN / FUTURE EVIDENCE REQUIRED.
 
 ### PC-DEF-002 — Web console listens on `0.0.0.0:18800`
@@ -186,6 +127,66 @@ only reconstructable examples belong here.
 
 ## Resolved
 
+### PC-DEF-009 — Managed Git HTTP helper carried a build-only RUNPATH
+
+- **Phase discovered:** H5A native/ELF audit, 2026-09-11.
+- **Component:** Managed Runtime `libpocketclaw-git-remote-http.so`.
+- **Problem:** The packaged PIE carried `DT_RUNPATH`
+  `/tmp/pocketclaw-runtime-build/deps/lib`, a build-host search path with no
+  runtime purpose on Android.
+- **Resolution:** H5B found the cause in git's own Makefile, which turns
+  `CURLDIR` into `-Wl,-rpath,$CURLDIR/lib`. The recipe now passes
+  `CURL_CFLAGS="-I$DEPS_PREFIX/include"` and an explicit `CURL_LDFLAGS` library
+  list, with `-L$DEPS_PREFIX/lib` in `LDFLAGS`. No finished ELF was rewritten.
+- **Evidence:** Candidate APK SHA-256
+  `d4fe2c4a035051e3b6500d2a2fe9bdad639c97323c355b26a3f8ae6f215b9dd8`; the
+  enforced audit reports `no_runtime_search_path` PASS for all 18 packaged
+  entries, and the payload still resolves only `libz.so`, `libdl.so`,
+  `libc.so`. `install_payload` now fails on any RPATH/RUNPATH, not on one known
+  root.
+- **Status:** RESOLVED in H5B; owner production validation still pending.
+
+### PC-DEF-010 — Three runtime payloads retained the neutral build root
+
+- **Phase discovered:** H5A native/ELF audit, 2026-09-11.
+- **Component:** Managed Runtime curl, Git HTTP helper, and Python payloads.
+- **Problem:** curl and the Git HTTP helper each carried ten mbedTLS source
+  paths under `/tmp/pocketclaw-runtime-build/`, and Python one CPython build
+  root, despite an existing `-ffile-prefix-map`.
+- **Resolution:** H5B added shared `-ffile-prefix-map` / `-fdebug-prefix-map` /
+  `-fmacro-prefix-map` settings and widened ripgrep's `--remap-path-prefix` to
+  the whole build root. Two cases needed more, because a prefix map cannot
+  rewrite a string the build wrote into generated *source*: jq records its
+  literal `CFLAGS` in `src/config_opts.inc`, and CPython compiles its
+  configure-time `VPATH` into `getpath.c` as a C string literal. Both generated
+  inputs are normalized before compilation, the CPython one only after the host
+  build interpreter is complete.
+- **Evidence:** `strings` over all ten payloads finds zero build roots,
+  `/home/lordegypt` or checkout paths; the audit asserts `build_path_privacy`
+  per entry, and `install_payload` fails the build if `$BUILD_ROOT` survives.
+- **Status:** RESOLVED in H5B; owner production validation still pending.
+
+### PC-DEF-011 — Native private symbol companions are now preserved
+
+- **Phase discovered:** H5A native/ELF audit, 2026-09-11.
+- **Component:** PocketClaw Core and Managed Runtime build recipes.
+- **Problem:** All packaged payloads were stripped, correctly, but no recipe
+  preserved a symbol-capable precursor, so a native crash address from a
+  shipped build could not be resolved.
+- **Resolution:** H5B builds every owned payload with debug information, strips
+  the shipped copy, and derives a `.debug` companion from the same link through
+  `tool/native_support.py`. Core drops Go's `-s -w` and strips the installed
+  copy instead, which is what makes a Go companion possible; Python's companion
+  comes from the interpreter before its standard library is appended, because
+  that append is why the shipped file cannot be stripped.
+- **Evidence:** Ignored `build/private-symbols/native/android-arm64/` holds ten
+  companions and a 0600 manifest binding each to its shipped hash, size and
+  build ID, plus a resolved representative function, and bound to the exact
+  candidate APK. The audit's five `native.private_support_*` checks pass and
+  nothing is tracked by Git. ripgrep's entry point is a qualified result and is
+  recorded as such in the H5B operating record.
+- **Status:** RESOLVED in H5B; owner production validation still pending.
+
 ### PC-DEF-008 — Dart intermediate strip boundary verified
 
 - **Phase discovered:** Post-H3B packaged-DWARF inspection.
@@ -211,6 +212,98 @@ only reconstructable examples belong here.
 - **Commit:** H5A audit/closeout commit containing this record.
 - **Status:** RESOLVED / VERIFIED NON-BLOCKING. Future Flutter/AGP changes must
   retain the packaged-DWARF regression check.
+
+### PC-DEF-R018 — Runtime payload epoch was derived from `HEAD`
+
+- **Phase discovered:** H5B review of the inherited native implementation.
+- **Component:** `runtime/android-build-env.sh`.
+- **Problem/root cause:** `SOURCE_DATE_EPOCH` defaulted to
+  `git show -s --format=%ct HEAD`. `libpocketclaw-python.so` embeds that date
+  literally, so any commit — documentation included — changed the bytes the
+  Core catalog had just pinned. The commit recording a checksum would have
+  invalidated it, and the catalog could never be reproduced from the tree
+  carrying it. `core/resolve-build-time.sh` documents this exact failure for
+  Core and solves it by path scoping, which cannot help here because the
+  recipes are their own build input.
+- **Resolution:** Pin `RUNTIME_EPOCH=1789157892` as a build input alongside the
+  tarball checksums, still overridable by an explicit `SOURCE_DATE_EPOCH`,
+  which is now validated as Unix seconds.
+- **Verification:** A regression test asserts no `HEAD`-derived derivation
+  remains, that sourcing the script resolves to the pinned value, and that the
+  staged Python payload actually contains that epoch's UTC date. The pinned
+  value equals the one the payloads were built with, so no byte moved.
+- **Commit:** H5B source commit `aa24d9e`.
+- **Status:** RESOLVED.
+
+### PC-DEF-R017 — Private companion path was taken from an unvalidated argument
+
+- **Phase discovered:** H5B review of the inherited native implementation.
+- **Component:** `tool/native_support.py`.
+- **Problem/root cause:** The companion path was built directly from
+  `--logical-name`. A name containing a separator or `..` would have written
+  outside the private root, and the manifest's relative `supportPath` would
+  then have been wrong about where the file is. The audit reads that name back
+  out of the manifest, so the value is not purely internal.
+- **Resolution:** Constrain the logical name to a plain file name and require
+  the resolved path to stay directly inside the private root.
+- **Verification:** A focused test rejects `../escape`, `nested/name.so`,
+  `/absolute`, empty, `.` and `..`, and accepts a real payload name. The audit
+  side has its own test that a manifest naming a support file outside its root
+  fails `native.private_support_hashes`.
+- **Commit:** H5B source commit `aa24d9e`.
+- **Status:** RESOLVED.
+
+### PC-DEF-R016 — A malformed private manifest raised instead of failing closed
+
+- **Phase discovered:** H5B review of the inherited native implementation.
+- **Component:** `tool/native_support.py`, `tool/native_elf_audit.py`.
+- **Problem/root cause:** Both tools assumed a well-formed manifest. A truncated
+  or hand-edited file made `update_manifest` raise an opaque `KeyError`, and the
+  audit crashed with an unhandled `CalledProcessError` when a `supportPath`
+  named something `readelf` cannot parse. An audit must report on whatever the
+  private root actually contains.
+- **Resolution:** `update_manifest` reports a malformed manifest as an
+  actionable error and leaves the file untouched; the audit treats a malformed
+  manifest, a non-object artifact list and an unparsable support file as
+  findings.
+- **Verification:** Tests cover truncated JSON, a non-list `artifacts`, a list
+  of non-objects, a top-level array, a non-ELF support file and a non-object
+  `symbolization`; every case fails closed and the malformed file is unchanged.
+- **Commit:** H5B source commit `aa24d9e`.
+- **Status:** RESOLVED.
+
+### PC-DEF-R015 — Private symbols were archived before the release checks ran
+
+- **Phase discovered:** H5B review of the inherited native implementation.
+- **Component:** `runtime/android-build-env.sh`, `core/build-android-arm64.sh`.
+- **Problem/root cause:** Both recipes captured the companion and wrote its
+  manifest entry immediately after stripping, before the build-path privacy,
+  RUNPATH, ABI and page-alignment checks. A build rejected by any of those would
+  have left a support file and a manifest entry describing bytes that were
+  never adopted.
+- **Resolution:** Move the capture to the end of both recipes, after every
+  check.
+- **Verification:** A test asserts the capture appears after the `-trimpath`
+  and source-fingerprint guards in the Core recipe, and the full third-root
+  rebuild produced identical payloads and companions under the new order.
+- **Commit:** H5B source commit `aa24d9e`.
+- **Status:** RESOLVED.
+
+### PC-DEF-R014 — ABI check could fail by SIGPIPE rather than by machine type
+
+- **Phase discovered:** H5B third-root reproducibility build.
+- **Component:** `runtime/android-build-env.sh`, `install_payload`.
+- **Problem/root cause:** The check piped `llvm-readelf -h` into `grep -q` under
+  `pipefail`. `grep -q` exits on its match, which can leave the reader writing
+  into a closed pipe; the resulting SIGPIPE fails the pipeline for a reason
+  unrelated to the machine type. It misfired once on a python payload whose
+  bytes were provably correct and byte-identical to two other roots. This
+  predates H5B and was fixed because it blocked the milestone.
+- **Resolution:** Capture the header into a variable and match it with `case`.
+- **Verification:** The same payload re-ran through `install_payload` and passed
+  with the identical SHA-256 it had already produced in three roots.
+- **Commit:** H5B closeout commit containing this record.
+- **Status:** RESOLVED.
 
 ### PC-DEF-R013 — Release manifest still listed H4B as pending after validation
 

@@ -1,6 +1,6 @@
 # PocketClaw Project State
 
-## Authoritative current snapshot — H5A
+## Authoritative current snapshot — H5B
 
 This section is the current project-state authority. It is verified against Git,
 tracked release inputs, the production signer enrollment, and current GitHub
@@ -16,13 +16,15 @@ evidence and describe the state at the date of each entry.
 | H4A state-basis HEAD | `30ec1951cb91df2d3ab80ce09d3e1176611242f7` (verified H4A starting commit; the H4A closeout commit follows it) |
 | H4B state-basis HEAD | `a6034c065becccc0a01ed7e734dad6b2558a0ef1` (verified H4B starting commit; the H4B closeout commit follows it) |
 | H5A state-basis HEAD | `9aa7066cb30ca00800291b980de34e0ebccdce89` (verified H5A starting commit; the audit-only closeout commit follows it) |
+| H5B state-basis HEAD | `6c24f9ac67989a8bb2e08344ef9dcd113cdf7f18` (verified H5B starting commit; the source commit and the Core-staging closeout commit follow it) |
+| H5B canonical Core build-input commit | `aa24d9e906a28f71eb8231c8bf0f236cb1f96410` |
 | Version | `0.2.0+62` |
 | Accepted physical baseline | vc62 / `lastAcceptedVersionCode=62` |
-| Current phase | Final Production Release Hardening; H5A native/ELF audit and symbol policy closed |
+| Current phase | Final Production Release Hardening; H5B targeted native hardening implemented under LOCAL TEST signing, owner production validation required |
 | Developer production signer | `176dca6b198b9552fb4d9ad3ca18da8d6f23c0a3f5ed4bd6b75a0700f9f0efcf` |
-| Core fingerprint | `876b87f5950452ba903301b6cce4cc96502ab4ff25d90d13e31b9da537e24b44` |
+| Core fingerprint | `86369a32a9873715672f7867b31dcd72a7d19088c49cdb1df2b584c548ba4c73` |
 | Distribution targets | Direct APK, Google Play, Official F-Droid |
-| Next authorized milestone | H5B targeted native hardening and private native-symbol archive; it has not started |
+| Next authorized milestone | H5C; it has not started and requires a separate explicit prompt |
 
 The H2 production validation APK has SHA-256
 `f0d83298c2ce061c01a9fc931ad29676e4d4b646bb5b204a9bf0002b11a7f46f`
@@ -155,6 +157,51 @@ or committed in H5A. The full inventory, per-entry hashes/build IDs, security
 matrix, export analysis, and ordered H5B plan are in
 [`docs/prompts/history/H5A_NATIVE_ELF_AUDIT.md`](docs/prompts/history/H5A_NATIVE_ELF_AUDIT.md).
 
+H5B rebuilt the ten project-owned native executables and left the four
+dependency-owned ELFs untouched. `PC-DEF-009` and `PC-DEF-010` are resolved at
+the source/link step: the Git HTTP helper's `DT_RUNPATH` is gone because the
+recipe passes explicit `CURL_CFLAGS`/`CURL_LDFLAGS` instead of `CURLDIR`, and no
+packaged ELF contains any build root, `/home/lordegypt` or the checkout path.
+jq and CPython needed their generated source inputs normalized, because a
+prefix map cannot rewrite a string the build compiled in as a C literal. No
+finished binary was patched.
+
+`PC-DEF-011` is implemented. Every owned recipe now builds with debug
+information, strips the shipped payload and derives a `.debug` companion from
+the same link through `tool/native_support.py`, which proves the companion
+symbolizes a representative function and records the pair in an ignored private
+manifest under `build/private-symbols/native/android-arm64/`. That manifest has
+ten entries, binds each companion to its shipped hash, size and build ID, and is
+bound to the exact candidate APK. `PC-DEF-012` remains open by decision: H5B
+produced no reachability evidence, so no export map was added.
+
+The staged Core pair is `libpocketclaw.so`, 37,724,640 bytes, SHA-256
+`62f741be6f71f7518ba0df8f4457e0f7b666dfe512cde88e79e213ca0907e901`, and
+`libpocketclaw-web.so`, 25,517,952 bytes, SHA-256
+`42d418bd3e2d1863d2dda4d46357e541a222b831cfffb17e5f36e442e455e9f5`. Both carry
+source fingerprint
+`86369a32a9873715672f7867b31dcd72a7d19088c49cdb1df2b584c548ba4c73` and
+`BuildTime` `2026-09-12T05:01:21+0000`.
+
+All eight Managed Runtime payloads and all ten companions reproduced
+byte-identically across three independent build roots; the Core pair reproduced
+across three output roots. `runtime/android-build-env.sh` pins
+`RUNTIME_EPOCH=1789157892` as a build input because `libpocketclaw-python.so`
+embeds its date, so the catalog stays reproducible from the tree that records
+it.
+
+The H5B candidate is a LOCAL TEST / NON-RELEASABLE APK,
+`build/app/outputs/apk/release/app-release.apk`, 63,560,467 bytes, SHA-256
+`d4fe2c4a035051e3b6500d2a2fe9bdad639c97323c355b26a3f8ae6f215b9dd8`, with exactly
+one v2 signer, the development certificate
+`15cf75f9945d5354e75707e0326b7cffc60ac51a68df38156db318ef4578a27c`. The enrolled
+production signer was not used. The enforced native audit is 194 PASS / 0 FAIL /
+0 SKIP and the full test-class release gate passes with `releasable: false`.
+Packaged Dart AOT, the private Dart DWARF and the private R8 mapping are
+byte-identical to H3A/H3B/H4A/H4B. The APK was not installed, published,
+accepted, or committed, and it does not advance vc62. Full evidence is in
+[`docs/prompts/history/H5B_NATIVE_HARDENING.md`](docs/prompts/history/H5B_NATIVE_HARDENING.md).
+
 ### Completed major milestones
 
 - vc62 Zero-Pico namespace closeout: physically accepted and merged.
@@ -170,13 +217,15 @@ matrix, export analysis, and ordered H5B plan are in
 - H4A R8/ProGuard hardening and non-releasable validation: closed.
 - H4B production-signed R8/ProGuard validation: closed.
 - H5A native/ELF audit and private-symbol policy: closed.
+- H5B targeted native hardening and private native-symbol archive:
+  implemented under LOCAL TEST signing; owner production validation required.
 
 See [`docs/ROADMAP.md`](docs/ROADMAP.md) for the phase sequence and
 [`docs/AI_HANDOFF.md`](docs/AI_HANDOFF.md) for the mandatory read order.
 
 ### Pending hardening and deferred work
 
-- H5B targeted native hardening and private native-symbol archive.
+- H5B owner production-signed validation and physical acceptance.
 - Secrets/configuration plus APK/AAB exposure audit.
 - Full APK/AAB production inspection and production-class gate.
 - APK-level reproducibility for the target F-Droid path.
@@ -229,14 +278,17 @@ current release inventory.
 
 ### Exact next action
 
-Prepare and review an explicit H5B targeted native-hardening and private
-native-symbol-archive prompt from
-[`docs/prompts/PROMPT_TEMPLATE.md`](docs/prompts/PROMPT_TEMPLATE.md),
-review it against
-[`docs/prompts/REVIEW_PROTOCOL.md`](docs/prompts/REVIEW_PROTOCOL.md), and wait
-for owner authorization. Its implementation targets are `PC-DEF-009` through
-`PC-DEF-012` and the ordered plan in the H5A operating record. Do not begin H5B
-from this closeout.
+Owner production validation of the H5B native contract: rebuild under the
+enrolled production signer and confirm on the Samsung device that Core, the
+Core launcher and all eight Managed Runtime payloads still start and run. The
+native changes are source-level and every gate here is green, but no H5B
+artifact has touched hardware, and Core now relies on `llvm-strip` rather than
+Go's `-s -w` to remove its symbol table.
+
+After that, prepare and review an explicit H5C prompt from
+[`docs/prompts/PROMPT_TEMPLATE.md`](docs/prompts/PROMPT_TEMPLATE.md) against
+[`docs/prompts/REVIEW_PROTOCOL.md`](docs/prompts/REVIEW_PROTOCOL.md) and wait
+for owner authorization. Do not begin H5C from this closeout.
 
 # Historical milestone archive
 

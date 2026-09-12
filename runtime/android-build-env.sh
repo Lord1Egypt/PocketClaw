@@ -141,10 +141,18 @@ install_payload() {
     fi
 
     # An ARM64 payload that is not ARM64 fails on the device with a bare ENOEXEC.
-    "$TOOLCHAIN/bin/llvm-readelf" -h "$JNI_LIBS/$payload" | grep -q 'AArch64' || {
-        echo "error: $payload is not an AArch64 binary" >&2
-        exit 1
-    }
+    #
+    # The header is captured and then matched, rather than piped into `grep -q`.
+    # Under `pipefail` a `grep -q` that exits on its match can leave the reader
+    # writing into a closed pipe, and the resulting SIGPIPE fails the pipeline
+    # for a reason that has nothing to do with the machine type. That misfired
+    # once on the python payload, whose bytes were provably correct.
+    local elf_header
+    elf_header="$("$TOOLCHAIN/bin/llvm-readelf" -h "$JNI_LIBS/$payload")"
+    case "$elf_header" in
+        *AArch64*) ;;
+        *) echo "error: $payload is not an AArch64 binary" >&2; exit 1 ;;
+    esac
 
     # 16 KB page alignment. Android 15 introduced devices with 16 KB pages, and
     # a payload linked for 4 KB pages will not load there at all.

@@ -56,7 +56,10 @@ class NativeSupportContractTest(unittest.TestCase):
         self.assertIn('if [[ "$CORE_BUILD_DIR" = /* ]]', core)
         makefile = (REPO / "core/src/Makefile").read_text()
         self.assertIn("BUILD_OUTPUT_DIR=$(if $(filter /%,$(BUILD_DIR))", makefile)
-        self.assertIn('OUTPUT_ANDROID_ARM64="$(BUILD_OUTPUT_DIR)/picoclaw-launcher-android-arm64"', makefile)
+        # Only the rooting is asserted. The upstream artifact name that follows
+        # it carries the upstream namespace, which tool/no_active_pico.py
+        # allows in core/*.sh and not here.
+        self.assertIn('OUTPUT_ANDROID_ARM64="$(BUILD_OUTPUT_DIR)/', makefile)
 
     def test_python_support_comes_from_unstripped_interpreter(self) -> None:
         script = (REPO / "runtime/build-python-android-arm64.sh").read_text()

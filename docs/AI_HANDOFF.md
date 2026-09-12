@@ -40,20 +40,32 @@ phase-scoped statement in them does not override the current snapshot.
 
 ## Current handoff
 
-H2 developer production signing, H3A/H3B Dart hardening, and H4A/H4B
-R8/ProGuard hardening are closed. H5A native/ELF audit and symbol policy is
-also closed; it made no native binary change.
-Their artifacts are private validation evidence; none was installed, published,
-or accepted. The accepted physical baseline remains vc62 / versionCode 62.
+H2 developer production signing, H3A/H3B Dart hardening, H4A/H4B R8/ProGuard
+hardening and H5A native/ELF audit are closed. **H5B targeted native hardening
+and private native-symbol archive is implemented** under LOCAL TEST /
+NON-RELEASABLE signing; it rebuilt the ten project-owned native executables and
+resolved `PC-DEF-009`, `PC-DEF-010` and `PC-DEF-011`. `PC-DEF-012` stays open by
+decision — no reachability evidence, so no export narrowing.
 
-The next authorized engineering milestone is **H5B targeted native hardening
-and private native-symbol archive**, but implementation must wait for an
-explicit prompt. H5A's exact 18-entry ELF inventory, category policy, four
-target-policy findings, and ordered H5B plan are in
+Every H5B artifact is private validation evidence. None was installed,
+published, or accepted, and the accepted physical baseline remains vc62 /
+versionCode 62. Do not treat the H5B candidate APK as a release or as an
+accepted physical baseline.
+
+**H5B is not physically validated.** The native changes are source-level and
+all gates are green, but nothing ran on hardware and Core now relies on
+`llvm-strip` rather than Go's `-s -w`. Owner production-signed validation on the
+Samsung device is the next action.
+
+Full H5B evidence — old and new hashes for all ten payloads, the private
+support manifest, reproducibility proof, and the four findings corrected in the
+inherited implementation — is in
+[`prompts/history/H5B_NATIVE_HARDENING.md`](prompts/history/H5B_NATIVE_HARDENING.md).
+H5A's 18-entry ELF inventory and category policy remain in
 [`prompts/history/H5A_NATIVE_ELF_AUDIT.md`](prompts/history/H5A_NATIVE_ELF_AUDIT.md).
-`PC-DEF-008` is resolved as verified non-blocking; `PC-DEF-009` through
-`PC-DEF-012` define the remaining native targets. Do not treat the H4B
-validation APK as a final release or accepted physical baseline.
+
+The next engineering milestone is **H5C**, which has not started and requires a
+separate explicit prompt.
 
 Do not create a stable tag, publish a release, access a device, rebuild Core or
 Managed Runtime, or advance the accepted baseline without explicit milestone
