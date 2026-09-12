@@ -19,6 +19,7 @@ import sys
 import zipfile
 
 ENTRY = "pocketclaw_bootstrap.py"
+ZIP_EPOCH = (1980, 1, 1, 0, 0, 0)
 
 
 def main(argv):
@@ -50,7 +51,10 @@ def main(argv):
         sys.exit("error: %s has no readable appended stdlib: %s" % (payload, error))
 
     with zipfile.ZipFile(payload, "a", zipfile.ZIP_DEFLATED, compresslevel=9) as archive:
-        archive.writestr(ENTRY, source)
+        info = zipfile.ZipInfo(ENTRY, date_time=ZIP_EPOCH)
+        info.compress_type = zipfile.ZIP_DEFLATED
+        info.external_attr = 0o644 << 16
+        archive.writestr(info, source, compresslevel=9)
 
     verify(payload, source)
 

@@ -51,11 +51,12 @@ export CC="$TOOLCHAIN/bin/$TARGET_CC"
 export AR="$TOOLCHAIN/bin/llvm-ar"
 export RANLIB="$TOOLCHAIN/bin/llvm-ranlib"
 export STRIP="$TOOLCHAIN/bin/llvm-strip"
+PY_NATIVE_DEBUG_CFLAGS="-g -ffile-prefix-map=$BUILD_ROOT=/pocketclaw-runtime/build -fdebug-prefix-map=$BUILD_ROOT=/pocketclaw-runtime/build -fmacro-prefix-map=$BUILD_ROOT=/pocketclaw-runtime/build"
 
 echo "Building bzip2 $BZIP2_VERSION"
 tar xzf "$CACHE_DIR/$BZIP2_TGZ" -C "$PY_ROOT"
 ( cd "$PY_ROOT/bzip2-$BZIP2_VERSION"
-  "$CC" -c -O2 -fPIC -D_FILE_OFFSET_BITS=64 -D__BIONIC_NO_PAGE_SIZE_MACRO \
+  "$CC" -c -O2 -fPIC $PY_NATIVE_DEBUG_CFLAGS -D_FILE_OFFSET_BITS=64 -D__BIONIC_NO_PAGE_SIZE_MACRO \
       blocksort.c huffman.c crctable.c randtable.c compress.c decompress.c bzlib.c
   "$AR" rcs "$PY_PREFIX/lib/libbz2.a" ./*.o
   cp bzlib.h "$PY_PREFIX/include/" )
@@ -67,14 +68,14 @@ tar xzf "$CACHE_DIR/$XZ_TGZ" -C "$PY_ROOT"
       --enable-static --disable-shared \
       --disable-xz --disable-xzdec --disable-lzmadec --disable-lzmainfo \
       --disable-lzma-links --disable-scripts --disable-doc --disable-nls \
-      CFLAGS="-O2 -fPIC -D__BIONIC_NO_PAGE_SIZE_MACRO" >/dev/null
+      CFLAGS="-O2 -fPIC $PY_NATIVE_DEBUG_CFLAGS -D__BIONIC_NO_PAGE_SIZE_MACRO" >/dev/null
   make -j"$(nproc)" >/dev/null
   make install >/dev/null )
 
 echo "Building SQLite $SQLITE_VERSION"
 unzip -o -q "$CACHE_DIR/$SQLITE_ZIP" -d "$PY_ROOT"
 ( cd "$PY_ROOT/sqlite-amalgamation-$SQLITE_VERSION"
-  "$CC" -c sqlite3.c -o sqlite3.o -O2 -fPIC \
+  "$CC" -c sqlite3.c -o sqlite3.o -O2 -fPIC $PY_NATIVE_DEBUG_CFLAGS \
       -DSQLITE_ENABLE_FTS5 -DSQLITE_ENABLE_JSON1 -DSQLITE_ENABLE_RTREE \
       -DSQLITE_ENABLE_COLUMN_METADATA -DSQLITE_THREADSAFE=1 \
       -DSQLITE_OMIT_LOAD_EXTENSION -D__BIONIC_NO_PAGE_SIZE_MACRO
@@ -104,6 +105,23 @@ echo "Building the host (build) interpreter"
   python3 Android/android.py make-build >/dev/null )
 BUILD_PYTHON="$PY_SRC/cross-build/build/python"
 
+# CPython compiles its configure-time VPATH into getpath.c as a runtime fallback.
+# The out-of-tree source directory is useful to make, but meaningless on an
+# Android device and would disclose whichever temporary root built the payload.
+# Normalize that generated C input only after the native host interpreter is
+# complete: that build tool needs its real source tree, while the Android target
+# does not. Prefix-map flags cannot rewrite an explicit C string literal.
+python3 - "$PY_SRC/Makefile.pre.in" <<'NORMALIZE_VPATH'
+import pathlib, sys
+path = pathlib.Path(sys.argv[1])
+text = path.read_text()
+needle = "-DVPATH='\"$(VPATH)\"'"
+replacement = "-DVPATH='\"/pocketclaw/cpython\"'"
+if text.count(needle) != 1:
+    raise SystemExit(f"error: expected exactly one CPython VPATH definition, found {text.count(needle)}")
+path.write_text(text.replace(needle, replacement))
+NORMALIZE_VPATH
+
 echo "Cross-compiling CPython $PYTHON_VERSION for aarch64-linux-android"
 export HOST=aarch64-linux-android
 export ANDROID_API_LEVEL="$ANDROID_API"
@@ -113,13 +131,17 @@ export MODULE_BUILDTYPE=static           # link stdlib extensions into the binar
 source "$PY_SRC/Android/android-env.sh"
 export PATH="$TOOLCHAIN/bin:$PATH"       # configure looks for llvm-ar on PATH
 # __FILE__ from assert() would otherwise name the build machine in the binary.
-export CFLAGS="$CFLAGS -ffile-prefix-map=$PY_SRC=/pocketclaw/cpython"
+export CFLAGS="$CFLAGS $PY_NATIVE_DEBUG_CFLAGS"
 export CXXFLAGS="$CFLAGS"
 
 OBJ="$PY_ROOT/obj"
 mkdir -p "$OBJ"
 ( cd "$OBJ"
-  "$PY_SRC/configure" \
+  # Invoke configure relative to the object root. With full LTO, Clang retains
+  # the source filename as the bitcode module identifier; an absolute srcdir
+  # changes link layout across otherwise equivalent build roots even after
+  # debug/file prefix maps have normalized the final paths.
+  ../cpython/configure \
       --host=aarch64-linux-android \
       --build="$("$PY_SRC/config.guess")" \
       --with-build-python="$BUILD_PYTHON" \
@@ -202,5 +224,5 @@ if "json/__init__.pyc" not in names:
 print(f"  appended stdlib: {len(names)} modules, ELF header intact")
 VERIFY
 
-install_payload "$PY_ROOT/payload.so" "libpocketclaw-python.so" no-strip
+install_payload "$PY_ROOT/payload.so" "libpocketclaw-python.so" no-strip "$OBJ/python"
 report_catalog_reminder

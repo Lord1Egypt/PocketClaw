@@ -3,7 +3,10 @@
 
 from __future__ import annotations
 
+import json
+import tempfile
 import unittest
+from pathlib import Path
 
 import native_elf_audit as audit
 
@@ -69,6 +72,12 @@ class NativeElfAuditTest(unittest.TestCase):
         self.assertIn("/home/runner/work/upstream/project/file.go", strings["absolutePathSamples"])
         self.assertEqual(strings["hostPathSamples"], ["/home/runner/work/upstream/project/file.go"])
 
+    def test_build_path_policy_catches_two_build_validation_roots(self) -> None:
+        strings = audit.collect_interesting_strings(
+            "/tmp/pocketclaw-h5b-a/curl/file.c\n/tmp/pocketclaw-native-proof/source.rs\n"
+        )
+        self.assertEqual(len(strings["prohibitedBuildPaths"]), 2)
+
     def test_export_parser_excludes_undefined_and_local_symbols(self) -> None:
         output = (
             "  1: 00000001 4 FUNC GLOBAL DEFAULT 12 Present\n"
@@ -105,6 +114,39 @@ class NativeElfAuditTest(unittest.TestCase):
     def test_private_support_suffix_contract_is_explicit(self) -> None:
         for name in ("app.symbols", "lib.debug", "lib.dwarf", "lib.dbg", "lib.sym", "mapping.txt"):
             self.assertTrue(any(name.endswith(suffix) for suffix in audit.PRIVATE_SUPPORT_SUFFIXES))
+
+    def test_private_support_expected_set_is_all_owned_executables(self) -> None:
+        self.assertEqual(len(audit.CORE_EXECUTABLES | audit.RUNTIME_EXECUTABLES), 10)
+
+    def test_malformed_private_manifest_fails_closed(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            apk = root / "candidate.apk"
+            apk.write_bytes(b"not an apk")
+            manifest = root / "manifest.json"
+            for broken in ("{ not json", "[]", '{"artifacts": 7}', '{"artifacts": ["name"]}'):
+                manifest.write_text(broken)
+                checks = audit.support_manifest_checks(manifest, apk, [], {"readelf": "readelf"})
+                self.assertEqual([check.status for check in checks], ["FAIL"], broken)
+
+    def test_support_path_outside_the_private_root_is_rejected(self) -> None:
+        """The manifest names its companions; it must not be able to name others."""
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary) / "private"
+            root.mkdir()
+            outside = Path(temporary) / "libpocketclaw.so.debug"
+            outside.write_bytes(b"debug")
+            apk = root / "candidate.apk"
+            apk.write_bytes(b"not an apk")
+            manifest = root / "manifest.json"
+            for escape in ("../libpocketclaw.so.debug", str(outside)):
+                manifest.write_text(json.dumps({"artifacts": [{
+                    "logicalName": "libpocketclaw.so", "supportPath": escape,
+                    "supportSha256": audit.sha256_bytes(b"debug"), "supportSizeBytes": 5,
+                }]}))
+                statuses = {check.name: check.status for check
+                            in audit.support_manifest_checks(manifest, apk, [], {"readelf": "readelf"})}
+                self.assertEqual(statuses["native.private_support_hashes"], "FAIL", escape)
 
     @staticmethod
     def _passing_record(entry: str) -> dict[str, object]:

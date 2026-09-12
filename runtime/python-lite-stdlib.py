@@ -171,8 +171,10 @@ def main():
             dst = os.path.join(staging, rel + "c")
             os.makedirs(os.path.dirname(dst), exist_ok=True)
             try:
-                py_compile.compile(os.path.join(lib, rel), cfile=dst, dfile=rel,
-                                   doraise=True)
+                py_compile.compile(
+                    os.path.join(lib, rel), cfile=dst, dfile=rel, doraise=True,
+                    invalidation_mode=py_compile.PycInvalidationMode.CHECKED_HASH,
+                )
             except py_compile.PyCompileError as exc:
                 failures.append(f"{rel}: {exc}")
         pyc_zip = os.path.join(out, "stdlib-pyc.zip")

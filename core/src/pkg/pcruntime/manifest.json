@@ -650,7 +650,7 @@
       "abi": "arm64-v8a",
       "delivery_type": "bundled",
       "trusted_source": "https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-1.7.1.tar.gz",
-      "sha256": "3c1f61c100d7b8f3a68355f9cd697952bae27579cba516a0a3e43ac54926c997",
+      "sha256": "843b324de37727e59f9ec88b40c4f347832b91f4bd52719eebb5a7baeb4f097d",
       "capabilities": [
         "json.query",
         "json.transform",
@@ -669,7 +669,7 @@
       "abi": "arm64-v8a",
       "delivery_type": "bundled",
       "trusted_source": "https://github.com/git/git/archive/refs/tags/v2.51.0.tar.gz",
-      "sha256": "b3e905b81a46d5903ca22ebb169ee7698984384ff2f30a9ac0009490f8d7b66b",
+      "sha256": "a8a342ac2cff1c39bb9d8d3165921a4b6843b18908e8714b9be051bad68e7681",
       "capabilities": [
         "vcs.repository",
         "vcs.history",
@@ -684,17 +684,17 @@
         {
           "logical_name": "git",
           "library_name": "libpocketclaw-git.so",
-          "sha256": "b3e905b81a46d5903ca22ebb169ee7698984384ff2f30a9ac0009490f8d7b66b"
+          "sha256": "a8a342ac2cff1c39bb9d8d3165921a4b6843b18908e8714b9be051bad68e7681"
         },
         {
           "logical_name": "git-remote-http",
           "library_name": "libpocketclaw-git-remote-http.so",
-          "sha256": "9790f8179d62c52f3d7a2f757103383a1120537fe7bdc40b9efed49d7a2b5200"
+          "sha256": "baea79ac073e5b3ceff5b14ada00a56931462652604b1c38e0db8b19ec30c260"
         },
         {
           "logical_name": "git-remote-https",
           "library_name": "libpocketclaw-git-remote-http.so",
-          "sha256": "9790f8179d62c52f3d7a2f757103383a1120537fe7bdc40b9efed49d7a2b5200"
+          "sha256": "baea79ac073e5b3ceff5b14ada00a56931462652604b1c38e0db8b19ec30c260"
         }
       ],
       "environment_profile": "git"
@@ -707,7 +707,7 @@
       "abi": "arm64-v8a",
       "delivery_type": "bundled",
       "trusted_source": "https://github.com/cli/cli/archive/refs/tags/v2.82.1.tar.gz",
-      "sha256": "fe97fb29f2b2036c71a7626b0fd3c9611cd3c746a7911a6e3b074cf7b20fdf96",
+      "sha256": "804ed93f89b0cdfc20ae282466a89be5e2b23bfe9848eb78b7e7c5ca159a44ac",
       "capabilities": [
         "github.api",
         "github.repository",
@@ -724,17 +724,17 @@
         {
           "logical_name": "git",
           "library_name": "libpocketclaw-git.so",
-          "sha256": "b3e905b81a46d5903ca22ebb169ee7698984384ff2f30a9ac0009490f8d7b66b"
+          "sha256": "a8a342ac2cff1c39bb9d8d3165921a4b6843b18908e8714b9be051bad68e7681"
         },
         {
           "logical_name": "git-remote-http",
           "library_name": "libpocketclaw-git-remote-http.so",
-          "sha256": "9790f8179d62c52f3d7a2f757103383a1120537fe7bdc40b9efed49d7a2b5200"
+          "sha256": "baea79ac073e5b3ceff5b14ada00a56931462652604b1c38e0db8b19ec30c260"
         },
         {
           "logical_name": "git-remote-https",
           "library_name": "libpocketclaw-git-remote-http.so",
-          "sha256": "9790f8179d62c52f3d7a2f757103383a1120537fe7bdc40b9efed49d7a2b5200"
+          "sha256": "baea79ac073e5b3ceff5b14ada00a56931462652604b1c38e0db8b19ec30c260"
         }
       ],
       "environment_profile": "gh"
@@ -747,7 +747,7 @@
       "abi": "arm64-v8a",
       "delivery_type": "bundled",
       "trusted_source": "https://github.com/curl/curl/releases/download/curl-8_11_1/curl-8.11.1.tar.xz",
-      "sha256": "0da29feaef9865014c48b3e4d54add375c79693bcb61607096338fbd69a20194",
+      "sha256": "9dd4b75a8cf4ad0e3e078e77884336ae6e84110f3cd48111ababe664bad15a96",
       "capabilities": [
         "network.https",
         "network.http",
@@ -767,7 +767,7 @@
       "abi": "arm64-v8a",
       "delivery_type": "bundled",
       "trusted_source": "https://github.com/BurntSushi/ripgrep/archive/refs/tags/14.1.1.tar.gz",
-      "sha256": "7dfcc880667642d9d3f4b5d7955bfae8602e5f76796144c556cba9f0aab1c73a",
+      "sha256": "0a5fc43f8df2fca3dbe70365e0496670df2e904239d9a4b5358fee40c4c70e4e",
       "capabilities": [
         "text.search",
         "text.regex",
@@ -786,7 +786,7 @@
       "abi": "arm64-v8a",
       "delivery_type": "bundled",
       "trusted_source": "https://sqlite.org/2025/sqlite-amalgamation-3500400.zip",
-      "sha256": "6a5d6c3d9dc6da31235908084b076ce9c02ef51f2c35857f768e2d84a2ab286e",
+      "sha256": "b940785d77bb7c82d43843a721f9135c4b59e641f911ea4406eae67cc201cf43",
       "capabilities": [
         "database.sqlite",
         "database.query",
@@ -869,7 +869,7 @@
       "abi": "arm64-v8a",
       "delivery_type": "bundled",
       "trusted_source": "https://www.python.org/ftp/python/3.14.7/Python-3.14.7.tgz",
-      "sha256": "4f98d0e31d0d0d35bf063c28da80b03a202af3c1acfefe3f05bda68f1e9d084d",
+      "sha256": "8b52e36dd4975763af46c9c26ab07b40e25d407e2df4415166e9d3d7d26a5b44",
       "capabilities": [
         "script.execute",
         "text.transform",

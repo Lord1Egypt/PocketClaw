@@ -607,6 +607,11 @@ def source_gates(gate: Gate, run_tests: bool, release_class: str = "test"):
                expected="read-only category-aware ELF audit regression suite",
                observed="PASS" if rc == 0 else out.strip().splitlines()[-1] if out.strip() else "FAIL")
 
+    rc, out = run([sys.executable, str(REPO / "tool/test_native_support.py")])
+    gate.check("native.private_support_contract", rc == 0,
+               expected="root-independent native builds, private companions and source-level RUNPATH guard",
+               observed="PASS" if rc == 0 else out.strip().splitlines()[-1] if out.strip() else "FAIL")
+
 
     flutter = shutil.which("flutter")
     if not flutter:

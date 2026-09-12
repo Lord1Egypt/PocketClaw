@@ -12,7 +12,16 @@ set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 CORE_SRC="$REPO_ROOT/core/src"
-JNI_LIBS="$REPO_ROOT/android/app/src/main/jniLibs/arm64-v8a"
+JNI_LIBS="${JNI_LIBS:-$REPO_ROOT/android/app/src/main/jniLibs/arm64-v8a}"
+CORE_BUILD_DIR="${CORE_BUILD_DIR:-build}"
+NATIVE_SYMBOL_ROOT="${NATIVE_SYMBOL_ROOT:-$REPO_ROOT/build/private-symbols/native/android-arm64}"
+NDK_ROOT="${NDK_ROOT:-/home/lordegypt/PocketCLaw/.tooling/android-sdk/ndk/28.2.13676358}"
+ELF_TOOLS="$NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin"
+if [[ "$CORE_BUILD_DIR" = /* ]]; then
+    CORE_OUTPUT_ROOT="$CORE_BUILD_DIR"
+else
+    CORE_OUTPUT_ROOT="$CORE_SRC/$CORE_BUILD_DIR"
+fi
 
 # Upstream provenance stamped into the binaries. These are fixed to the pinned
 # PicoClaw baseline and must never be derived from PocketClaw's own git state,
@@ -64,10 +73,12 @@ echo
 
 make build-android-arm64          VERSION="$CORE_VERSION" GIT_COMMIT="$CORE_GIT_COMMIT" \
                                   BUILD_TIME="$BUILD_TIME" \
-                                  SOURCE_FINGERPRINT="$SOURCE_FINGERPRINT"
+                                  SOURCE_FINGERPRINT="$SOURCE_FINGERPRINT" \
+                                  BUILD_DIR="$CORE_BUILD_DIR" STRIP_LDFLAGS=
 make build-launcher-android-arm64 VERSION="$CORE_VERSION" GIT_COMMIT="$CORE_GIT_COMMIT" \
                                   BUILD_TIME="$BUILD_TIME" \
-                                  SOURCE_FINGERPRINT="$SOURCE_FINGERPRINT"
+                                  SOURCE_FINGERPRINT="$SOURCE_FINGERPRINT" \
+                                  BUILD_DIR="$CORE_BUILD_DIR" STRIP_LDFLAGS=
 
 # The upstream build emits picoclaw-android-arm64 and
 # picoclaw-launcher-android-arm64; those intermediate names stay as upstream
@@ -75,8 +86,11 @@ make build-launcher-android-arm64 VERSION="$CORE_VERSION" GIT_COMMIT="$CORE_GIT_
 # destination — the name that reaches nativeLibraryDir, /proc/<pid>/comm and the
 # APK payload — is libpocketclaw*.so. Renaming here rather than in the Makefile
 # keeps the upstream build recipe untouched.
-install -m 0755 "$CORE_SRC/build/picoclaw-android-arm64"          "$JNI_LIBS/libpocketclaw.so"
-install -m 0755 "$CORE_SRC/build/picoclaw-launcher-android-arm64" "$JNI_LIBS/libpocketclaw-web.so"
+mkdir -p "$JNI_LIBS"
+install -m 0755 "$CORE_OUTPUT_ROOT/picoclaw-android-arm64"          "$JNI_LIBS/libpocketclaw.so"
+install -m 0755 "$CORE_OUTPUT_ROOT/picoclaw-launcher-android-arm64" "$JNI_LIBS/libpocketclaw-web.so"
+"$ELF_TOOLS/llvm-strip" --strip-unneeded "$JNI_LIBS/libpocketclaw.so"
+"$ELF_TOOLS/llvm-strip" --strip-unneeded "$JNI_LIBS/libpocketclaw-web.so"
 
 echo
 echo "Installed into $JNI_LIBS:"
@@ -118,6 +132,26 @@ for lib in libpocketclaw.so libpocketclaw-web.so; do
 done
 echo
 echo "  source fingerprint stamped in both binaries: $SOURCE_FINGERPRINT"
+
+# Both shipped binaries are stripped, so the only way to read a future crash
+# address is the private companion derived here from the same link. It is
+# archived last: a build rejected by any check above must not leave symbols
+# describing bytes that were never adopted.
+echo
+for lib in libpocketclaw.so libpocketclaw-web.so; do
+    case "$lib" in
+        libpocketclaw.so)     source_binary=picoclaw-android-arm64;          category=core ;;
+        libpocketclaw-web.so) source_binary=picoclaw-launcher-android-arm64; category=core-launcher ;;
+    esac
+    python3 "$REPO_ROOT/tool/native_support.py" \
+        --source "$CORE_OUTPUT_ROOT/$source_binary" \
+        --shipped "$JNI_LIBS/$lib" --output-root "$NATIVE_SYMBOL_ROOT" \
+        --logical-name "$lib" --category "$category" --toolchain go \
+        --source-id "Core $CORE_VERSION ($CORE_GIT_COMMIT), fingerprint $SOURCE_FINGERPRINT" \
+        --probe-symbol main.main --objcopy "$ELF_TOOLS/llvm-objcopy" \
+        --readelf "$ELF_TOOLS/llvm-readelf" --nm "$ELF_TOOLS/llvm-nm" \
+        --addr2line "$ELF_TOOLS/llvm-addr2line"
+done
 
 echo
 echo "Core build complete. Package with:"

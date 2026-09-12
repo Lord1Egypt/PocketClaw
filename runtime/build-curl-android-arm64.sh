@@ -29,6 +29,7 @@ cmake -S "$BUILD_ROOT/mbedtls-$MBEDTLS_VERSION" -B "$BUILD_ROOT/mbedtls-$MBEDTLS
     -DCMAKE_TOOLCHAIN_FILE="$NDK_ROOT/build/cmake/android.toolchain.cmake" \
     -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM="android-$ANDROID_API" \
     -DCMAKE_BUILD_TYPE=MinSizeRel -DCMAKE_INSTALL_PREFIX="$DEPS_PREFIX" \
+    -DCMAKE_C_FLAGS="$NATIVE_DEBUG_CFLAGS" \
     -DENABLE_TESTING=OFF -DENABLE_PROGRAMS=OFF \
     -DUSE_SHARED_MBEDTLS_LIBRARY=OFF -DUSE_STATIC_MBEDTLS_LIBRARY=ON >/dev/null
 cmake --build "$BUILD_ROOT/mbedtls-$MBEDTLS_VERSION/build-android" -j"$(nproc)" >/dev/null
@@ -41,7 +42,7 @@ cd "$BUILD_ROOT/curl-$CURL_VERSION"
 
 export PATH="$TOOLCHAIN/bin:$PATH"
 export CC="$TARGET_CC" AR="llvm-ar" RANLIB="llvm-ranlib"
-export CFLAGS="-Os -fPIE" LDFLAGS="-pie"
+export CFLAGS="-Os -fPIE $NATIVE_DEBUG_CFLAGS" LDFLAGS="-pie"
 export CPPFLAGS="-I$DEPS_PREFIX/include" LIBS="-L$DEPS_PREFIX/lib"
 
 # Protocols PocketClaw's agent actually needs. Everything else is disabled to

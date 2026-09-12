@@ -3,6 +3,7 @@
 # Build variables
 BINARY_NAME=picoclaw
 BUILD_DIR=build
+BUILD_OUTPUT_DIR=$(if $(filter /%,$(BUILD_DIR)),$(BUILD_DIR),$(CURDIR)/$(BUILD_DIR))
 CMD_DIR=cmd/$(BINARY_NAME)
 MAIN_GO=$(CMD_DIR)/main.go
 EXT=
@@ -50,7 +51,8 @@ CONFIG_PKG=github.com/sipeed/picoclaw/pkg/config
 CORESOURCE_PKG=github.com/sipeed/picoclaw/pkg/coresource
 SOURCE_FINGERPRINT?=
 SOURCE_FINGERPRINT_LDFLAG=$(if $(SOURCE_FINGERPRINT),-X $(CORESOURCE_PKG).Stamped=$(SOURCE_FINGERPRINT),)
-LDFLAGS=-X $(CONFIG_PKG).Version=$(VERSION) -X $(CONFIG_PKG).GitCommit=$(GIT_COMMIT) -X $(CONFIG_PKG).BuildTime=$(BUILD_TIME) -X $(CONFIG_PKG).GoVersion=$(GO_VERSION) $(SOURCE_FINGERPRINT_LDFLAG) -s -w
+STRIP_LDFLAGS?=-s -w
+LDFLAGS=-X $(CONFIG_PKG).Version=$(VERSION) -X $(CONFIG_PKG).GitCommit=$(GIT_COMMIT) -X $(CONFIG_PKG).BuildTime=$(BUILD_TIME) -X $(CONFIG_PKG).GoVersion=$(GO_VERSION) $(SOURCE_FINGERPRINT_LDFLAG) $(STRIP_LDFLAGS)
 
 # Go variables
 GO?=go
@@ -322,7 +324,7 @@ build-launcher-android-arm64:
 	@echo "Building picoclaw-launcher for android/arm64..."
 	@mkdir -p $(BUILD_DIR)
 	@$(MAKE) -C web build-android-arm64 \
-		OUTPUT_ANDROID_ARM64="$(CURDIR)/$(BUILD_DIR)/picoclaw-launcher-android-arm64" \
+		OUTPUT_ANDROID_ARM64="$(BUILD_OUTPUT_DIR)/picoclaw-launcher-android-arm64" \
 		GO='$(GO)' \
 		LDFLAGS='$(LDFLAGS)'
 	@echo "Build complete: $(BUILD_DIR)/picoclaw-launcher-android-arm64"

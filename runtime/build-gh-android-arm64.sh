@@ -87,7 +87,7 @@ func init() {
 SHIM
 
 GOOS=android GOARCH=arm64 CGO_ENABLED=0 go build -trimpath \
-    -ldflags "-s -w -X github.com/cli/cli/v2/internal/build.Version=$GH_VERSION" \
+    -ldflags "-X github.com/cli/cli/v2/internal/build.Version=$GH_VERSION" \
     -o "$BUILD_ROOT/gh-android-arm64" ./cmd/gh
 
 # The shim is only useful if it is actually linked in. A silent drop -- a build

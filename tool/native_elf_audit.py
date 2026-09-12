@@ -54,6 +54,7 @@ DARTJNI_REQUIRED_EXPORTS = {
 PROHIBITED_PATH_MARKERS = (
     "/home/lordegypt", "PocketClaw-App", "/tmp/pocketclaw-runtime-build",
 )
+PROHIBITED_TEMP_BUILD_RE = re.compile(r"/tmp/pocketclaw-(?:h5b|native|runtime)[A-Za-z0-9_./+-]*")
 PRIVATE_SUPPORT_SUFFIXES = (".symbols", ".dwarf", ".debug", ".dbg", ".sym", "mapping.txt")
 
 
@@ -174,7 +175,9 @@ def parse_build_id(output: str) -> str | None:
 
 def collect_interesting_strings(output: str) -> dict[str, list[str]]:
     values = [line.strip() for line in output.splitlines() if line.strip()]
-    prohibited = sorted({line for line in values if any(marker in line for marker in PROHIBITED_PATH_MARKERS)})
+    prohibited = sorted({line for line in values
+                         if any(marker in line for marker in PROHIBITED_PATH_MARKERS)
+                         or PROHIBITED_TEMP_BUILD_RE.search(line)})
     host_paths = sorted({line for line in values if any(marker in line for marker in ("/home/", "/Users/", "/root/"))})
     absolute = sorted({line for line in values if re.search(r"(?:^|\s)/(?:home|tmp|root|mnt|Users)/[^\s]+", line)})
     source_paths = sorted({
@@ -282,7 +285,63 @@ def evaluate_record(record: dict[str, object]) -> list[Check]:
     return checks
 
 
-def audit_apk(apk: Path) -> dict[str, object]:
+def support_manifest_checks(manifest_path: Path, apk: Path,
+                            records: list[dict[str, object]], tools: dict[str, str]) -> list[Check]:
+    expected = CORE_EXECUTABLES | RUNTIME_EXECUTABLES
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        items = manifest["artifacts"]
+        if not isinstance(manifest, dict) or not isinstance(items, list) \
+                or not all(isinstance(item, dict) for item in items):
+            raise TypeError("artifacts must be a list of objects")
+    except (OSError, KeyError, json.JSONDecodeError, TypeError) as error:
+        return [Check("native.private_support_manifest", "FAIL", f"cannot read manifest: {error}")]
+    names = {str(item.get("logicalName", "")) for item in items}
+    checks = [Check("native.private_support_manifest", "PASS" if names == expected else "FAIL",
+                    f"entries={len(names)}; missing={sorted(expected - names)}; unexpected={sorted(names - expected)}")]
+    record_by_name = {str(record["name"]): record for record in records}
+    hashes_ok = binding_ok = symbols_ok = True
+    problems: list[str] = []
+    root = manifest_path.resolve().parent
+    for item in items:
+        name = str(item.get("logicalName", ""))
+        relative = Path(str(item.get("supportPath", "")))
+        support = (root / relative).resolve()
+        if relative.is_absolute() or root not in support.parents or not support.is_file():
+            hashes_ok = False; problems.append(f"{name}: invalid support path")
+            continue
+        if sha256_bytes(support.read_bytes()) != item.get("supportSha256") or support.stat().st_size != item.get("supportSizeBytes"):
+            hashes_ok = False; problems.append(f"{name}: support hash/size mismatch")
+        record = record_by_name.get(name)
+        if not record or record["sha256"] != item.get("shippedSha256") or record["sizeBytes"] != item.get("shippedSizeBytes") or record["buildId"] != item.get("buildId"):
+            binding_ok = False; problems.append(f"{name}: shipped ELF binding mismatch")
+        sections = parse_sections(run_tool([tools["readelf"], "-SW", str(support)]))
+        symbolization = item.get("symbolization", {})
+        if not any(section.startswith((".debug_", ".zdebug_")) for section in sections) or not symbolization.get("resolvedFunction") or symbolization.get("resolvedFunction") == "??":
+            symbols_ok = False; problems.append(f"{name}: missing debug/symbolization evidence")
+    checks.extend([
+        Check("native.private_support_hashes", "PASS" if hashes_ok else "FAIL", "; ".join(problems) or "all support hashes and relative paths valid"),
+        Check("native.private_support_binding", "PASS" if binding_ok else "FAIL", "all support entries match shipped ELF hash/size/build ID" if binding_ok else "; ".join(problems)),
+        Check("native.private_support_symbolization", "PASS" if symbols_ok else "FAIL", "all entries contain debug data and a resolved representative function" if symbols_ok else "; ".join(problems)),
+    ])
+    apk_info = manifest.get("apk", {})
+    checks.append(Check("native.private_support_apk_binding", "PASS" if apk_info.get("sha256") == sha256_bytes(apk.read_bytes()) and apk_info.get("sizeBytes") == apk.stat().st_size else "FAIL", f"manifest APK SHA-256={apk_info.get('sha256')}"))
+    repo = Path(__file__).resolve().parents[1]
+    candidates = [manifest_path, *(root / str(item.get("supportPath", "")) for item in items)]
+    tracked = []
+    for candidate in candidates:
+        try:
+            query = candidate.resolve().relative_to(repo).as_posix()
+        except ValueError:
+            continue
+        result = subprocess.run(["git", "-C", str(repo), "ls-files", "--error-unmatch", query], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        if result.returncode == 0:
+            tracked.append(str(candidate))
+    checks.append(Check("native.private_support_untracked", "PASS" if not tracked else "FAIL", f"tracked private files={tracked}"))
+    return checks
+
+
+def audit_apk(apk: Path, support_manifest: Path | None = None) -> dict[str, object]:
     tools = {"readelf": find_tool(("llvm-readelf", "readelf")),
              "strings": find_tool(("llvm-strings", "strings")), "file": find_tool(("file",))}
     apk_bytes = apk.read_bytes()
@@ -304,6 +363,8 @@ def audit_apk(apk: Path) -> dict[str, object]:
                 record = inspect_elf(entry, archive.read(entry), Path(work), tools)
                 records.append(record)
                 checks.extend(evaluate_record(record))
+    if support_manifest is not None:
+        checks.extend(support_manifest_checks(support_manifest, apk, records, tools))
     totals = {status: sum(check.status == status for check in checks) for status in ("PASS", "FAIL", "SKIP")}
     return {"schemaVersion": 1, "apk": {"path": str(apk.resolve()), "sizeBytes": len(apk_bytes),
             "sha256": sha256_bytes(apk_bytes)}, "tools": tools, "records": records,
@@ -332,10 +393,12 @@ def main() -> int:
     parser.add_argument("--apk", type=Path, required=True, help="APK to inspect without modifying")
     parser.add_argument("--manifest", type=Path, help="write full JSON evidence to this path")
     parser.add_argument("--enforce-target", action="store_true", help="fail if final native policy is unmet")
+    parser.add_argument("--native-support-manifest", type=Path,
+                        help="verify the private native support manifest and APK binding")
     args = parser.parse_args()
     if not args.apk.is_file():
         parser.error(f"APK does not exist: {args.apk}")
-    manifest = audit_apk(args.apk)
+    manifest = audit_apk(args.apk, args.native_support_manifest)
     if args.manifest:
         args.manifest.parent.mkdir(parents=True, exist_ok=True)
         args.manifest.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
