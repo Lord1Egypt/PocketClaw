@@ -184,6 +184,44 @@ The APK and private symbols were not committed, installed, or published. The
 accepted physical baseline remains vc62 / 62. H3B does not authorize later
 hardening or release work.
 
+### Production-signed native/ELF validation (H5C — performed 2026-09-12)
+
+The same hidden-input model, from a temporary helper outside the repository
+that completed every non-secret prerequisite before its first prompt and
+unset all four variables on exit. The keystore and alias were additionally
+confirmed to open by piping the password to `keytool` on stdin — never as an
+argument — before committing to a long build.
+
+    path       build/app/outputs/apk/release/app-release.apk
+    size       63564563 bytes
+    sha256     3774202ef9832c70ffa376e663db1da69e17ae9318df4cc8cb31156fc0c7eae7
+    package    com.lord1egypt.pocketclaw
+    version    0.2.0 (62)
+    signers    exactly one, v2 scheme only
+    signer     176dca6b198b9552fb4d9ad3ca18da8d6f23c0a3f5ed4bd6b75a0700f9f0efcf
+    subject    CN=PocketClaw, OU=PocketClaw Release, O=PocketClaw
+    key        RSA 4096
+
+The development certificate `15cf75f9945d5354e75707e0326b7cffc60ac51a68df38156db318ef4578a27c`
+is absent. The artifact is exactly 4,096 bytes larger than the H5B
+development-signed candidate, which is the signing block: a 4096-bit production
+key against the debug key's 2048. That difference is the *only* one — all 18
+packaged ELF entries, the Dart AOT, the private split DWARF and the private R8
+mapping are byte-identical between the two builds.
+
+The production release gate passed **55 PASS / 0 FAIL / 0 SKIPPED** with
+`releasable: true` — the first PocketClaw artifact to reach
+`PASS — production release candidate` with no skips.
+
+**This artifact must not be installed over the current device state.** The
+Samsung carries the development-signed H5B build; the production certificate is
+a different identity, so a cross-signer `adb install -r` is forbidden and would
+fail. The transition needs its own migration, clean-install and data-safeguard
+milestone. See [`RELEASE_PROCESS.md`](RELEASE_PROCESS.md).
+
+The APK and private symbols were not committed, installed, or published. The
+accepted physical baseline remains vc62 / 62.
+
 ### Owner-local prerequisite ordering
 
 Any helper that collects owner signing passwords must finish all non-secret

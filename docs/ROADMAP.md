@@ -23,43 +23,41 @@ not that PocketClaw is a final release.
 | H4A R8/ProGuard hardening and local validation | **Closed by this H4A closeout** | Project blanket keeps removed; non-releasable APK `db7fa8cb190fcebc160b2c718d9c120de296efb378d8a1196a5ff722ba3e1f78`; private mapping `14d49fad46e773e32da69b7b2336b7a968808cd1130f0319f7806ca4d09c1beb`; 30/30 artifact checks PASS |
 | H4B production-signed R8/ProGuard validation | **Closed by this H4B closeout** | Production-validation APK `14ba7d138a4092aefe264c7e2af6240c97fc1b782ded69918cbf545351eb5eb2`; H4A-identical DEX/mapping/Dart payloads; enrolled signer; 30/30 production artifact checks PASS |
 | H5A native/ELF audit and symbol policy | **Closed by this H5A closeout** | Exact H4B APK; 18 ELF entries classified and inspected; category-specific policy and read-only audit; `PC-DEF-008` resolved; four target-policy findings assigned to H5B |
-| H5B targeted native hardening and private native-symbol archive | **Implemented by this H5B closeout; owner production validation required** | Ten owned executables rebuilt; `PC-DEF-009`/`010`/`011` resolved and `PC-DEF-012` deferred by decision; LOCAL TEST APK `d4fe2c4a035051e3b6500d2a2fe9bdad639c97323c355b26a3f8ae6f215b9dd8`; enforced native audit 194/0/0; ten-entry private support manifest bound to that APK |
+| H5B targeted native hardening and private native-symbol archive | **Closed; owner Samsung physical native smoke PASS** | Ten owned executables rebuilt; `PC-DEF-009`/`010`/`011` resolved and `PC-DEF-012` deferred by decision; LOCAL TEST APK `d4fe2c4a035051e3b6500d2a2fe9bdad639c97323c355b26a3f8ae6f215b9dd8`; enforced native audit 194/0/0; ten-entry private support manifest bound to that APK |
+| H5C production-signed native/ELF validation | **Closed by this H5C closeout** | Production APK `3774202ef9832c70ffa376e663db1da69e17ae9318df4cc8cb31156fc0c7eae7`, one v2 signer `176dca6b198b9552fb4d9ad3ca18da8d6f23c0a3f5ed4bd6b75a0700f9f0efcf`; all 18 packaged ELF entries byte-identical to the physically validated H5B APK; native audit 194/0/0; production gate 55/0/0 with `releasable: true` |
 
 ## Authorized next milestone
 
-### H5B owner production validation
+### Final release exposure audit
 
-Status: **implementation complete; physical validation not started**.
+Status: **not started; an explicit milestone prompt is required**.
 
-H5B rebuilt the ten project-owned native executables, resolved `PC-DEF-009`,
-`PC-DEF-010` and `PC-DEF-011`, and deliberately left `PC-DEF-012` open for want
-of reachability evidence. Its only artifact is a LOCAL TEST / NON-RELEASABLE
-APK signed by the development certificate; the enrolled production signer was
-not used and no device was touched.
+Expected scope: secrets and configuration exposure, then full APK and AAB
+inspection. H5C closed the native layer — the production-signed artifact carries
+byte-identical native payloads to the build the owner exercised on the Samsung —
+so the remaining questions are about what the package discloses, not how it was
+compiled.
 
-What the owner still has to do:
+Carried forward, none of them blocking this audit:
 
-- rebuild under the enrolled production signer and run the production-class
-  gate;
-- confirm on the Samsung device that Core, the Core launcher and all eight
-  Managed Runtime payloads start and run. Core now relies on `llvm-strip`
-  rather than Go's `-s -w`, and jq and CPython had generated source inputs
-  normalized; those are the changes a device can falsify and a gate cannot.
+- `PC-DEF-012`: dependency and JNI export surfaces stay as they are until
+  reachability evidence exists.
+- APK-level reproducibility for the F-Droid path.
+- The versioned non-destructive bootstrap update strategy.
+- The production-signer physical transition, which needs its own migration,
+  clean-install and data-safeguard milestone because the installed device path
+  is development-signed.
 
-The full evidence, including the four findings corrected in the inherited
-implementation, is in
-[`prompts/history/H5B_NATIVE_HARDENING.md`](prompts/history/H5B_NATIVE_HARDENING.md).
-
-## Required sequence after H5B
+## Required sequence after H5C
 
 Do not collapse these into one milestone. Each receives its own prompt, evidence,
 review result, documentation closeout, and `STOP`.
 
-1. H5B owner production-signed validation and physical device confirmation.
-   `PC-DEF-008` through `PC-DEF-011` are resolved; `PC-DEF-012` stays open.
-2. Secrets/configuration and APK/AAB exposure audit.
-3. APK and AAB production inspection.
-4. Run the full production-class release gate after all hardening phases.
+1. Secrets/configuration and APK/AAB exposure audit.
+2. APK and AAB production inspection.
+3. Production-signer physical transition: migration, clean install and data
+   safeguard. `PC-DEF-008` through `PC-DEF-011` are resolved; `PC-DEF-012`
+   stays open.
 5. Perform an external-view reverse-engineering exposure audit.
 6. Run the final Samsung physical-device smoke test under an explicitly
    authorized device milestone.

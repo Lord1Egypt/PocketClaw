@@ -26,6 +26,9 @@ only reconstructable examples belong here.
 - **Reason deferred:** Static counts do not establish that an export is safe to
   remove. Narrowing requires dependency-specific call/reachability evidence and
   runtime validation.
+- **H5C disposition:** Unchanged again. H5C narrowed no export and produced no
+  new reachability evidence; the packaged export counts in the production APK
+  are identical to H5B's.
 - **H5B disposition:** Evaluated and deliberately unchanged. H5B produced no
   call/reachability evidence for any of these surfaces, and narrowing a
   visibility surface without it is how a runtime `UnsatisfiedLinkError` ships.
@@ -144,7 +147,10 @@ only reconstructable examples belong here.
   entries, and the payload still resolves only `libz.so`, `libdl.so`,
   `libc.so`. `install_payload` now fails on any RPATH/RUNPATH, not on one known
   root.
-- **Status:** RESOLVED in H5B; owner production validation still pending.
+- **Status:** RESOLVED. Confirmed on the Samsung SM-A165F in the H5B
+  physical smoke and again under the enrolled production signer in H5C, whose
+  packaged native payloads are byte-identical to the artifact that ran on the
+  device.
 
 ### PC-DEF-010 — Three runtime payloads retained the neutral build root
 
@@ -164,7 +170,10 @@ only reconstructable examples belong here.
 - **Evidence:** `strings` over all ten payloads finds zero build roots,
   `/home/lordegypt` or checkout paths; the audit asserts `build_path_privacy`
   per entry, and `install_payload` fails the build if `$BUILD_ROOT` survives.
-- **Status:** RESOLVED in H5B; owner production validation still pending.
+- **Status:** RESOLVED. Confirmed on the Samsung SM-A165F in the H5B
+  physical smoke and again under the enrolled production signer in H5C, whose
+  packaged native payloads are byte-identical to the artifact that ran on the
+  device.
 
 ### PC-DEF-011 — Native private symbol companions are now preserved
 
@@ -185,7 +194,10 @@ only reconstructable examples belong here.
   candidate APK. The audit's five `native.private_support_*` checks pass and
   nothing is tracked by Git. ripgrep's entry point is a qualified result and is
   recorded as such in the H5B operating record.
-- **Status:** RESOLVED in H5B; owner production validation still pending.
+- **Status:** RESOLVED. Confirmed on the Samsung SM-A165F in the H5B
+  physical smoke and again under the enrolled production signer in H5C, whose
+  packaged native payloads are byte-identical to the artifact that ran on the
+  device.
 
 ### PC-DEF-008 — Dart intermediate strip boundary verified
 

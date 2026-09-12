@@ -37,3 +37,4 @@ boundary.
 - [`H4B — Production-signed R8/ProGuard validation`](history/H4B_PRODUCTION_R8_PROGUARD_VALIDATION.md)
 - [`H5A — Native/ELF audit and symbol policy`](history/H5A_NATIVE_ELF_AUDIT.md)
 - [`H5B — Targeted native hardening and private symbol archive`](history/H5B_NATIVE_HARDENING.md)
+- [`H5C — Production-signed native/ELF validation`](history/H5C_PRODUCTION_NATIVE_VALIDATION.md)

@@ -41,31 +41,41 @@ phase-scoped statement in them does not override the current snapshot.
 ## Current handoff
 
 H2 developer production signing, H3A/H3B Dart hardening, H4A/H4B R8/ProGuard
-hardening and H5A native/ELF audit are closed. **H5B targeted native hardening
-and private native-symbol archive is implemented** under LOCAL TEST /
-NON-RELEASABLE signing; it rebuilt the ten project-owned native executables and
-resolved `PC-DEF-009`, `PC-DEF-010` and `PC-DEF-011`. `PC-DEF-012` stays open by
+hardening, H5A native/ELF audit, H5B targeted native hardening and **H5C
+production-signed native/ELF validation** are all closed.
+
+H5B was confirmed on hardware: the exact LOCAL TEST APK was installed in place
+on the Samsung SM-A165F as a same-identity upgrade with all application data
+preserved, and the owner's manual native/runtime smoke returned PASS with no
+failing item. H5C then rebuilt the same tree under the enrolled production
+signer and proved all 18 packaged ELF entries byte-identical to that physically
+validated artifact, so the device result transfers to the production APK.
+
+The production artifact is private validation evidence:
+63,564,563 bytes, SHA-256
+`3774202ef9832c70ffa376e663db1da69e17ae9318df4cc8cb31156fc0c7eae7`, one v2
+signer `176dca6b198b9552fb4d9ad3ca18da8d6f23c0a3f5ed4bd6b75a0700f9f0efcf`. The
+production release gate passes 55 PASS / 0 FAIL / 0 SKIPPED with
+`releasable: true`. It was not installed, published, accepted, or committed, and
+the accepted physical baseline remains vc62 / versionCode 62.
+
+**Do not install the production APK over the current device state.** The
+installed path is development-signed; the production certificate is a different
+identity and a cross-signer `adb install -r` is forbidden. That transition is a
+separately authorized migration / clean-install / data-safeguard milestone.
+
+`PC-DEF-009` through `PC-DEF-011` are resolved. `PC-DEF-012` stays open by
 decision — no reachability evidence, so no export narrowing.
 
-Every H5B artifact is private validation evidence. None was installed,
-published, or accepted, and the accepted physical baseline remains vc62 /
-versionCode 62. Do not treat the H5B candidate APK as a release or as an
-accepted physical baseline.
-
-**H5B is not physically validated.** The native changes are source-level and
-all gates are green, but nothing ran on hardware and Core now relies on
-`llvm-strip` rather than Go's `-s -w`. Owner production-signed validation on the
-Samsung device is the next action.
-
-Full H5B evidence — old and new hashes for all ten payloads, the private
-support manifest, reproducibility proof, and the four findings corrected in the
-inherited implementation — is in
-[`prompts/history/H5B_NATIVE_HARDENING.md`](prompts/history/H5B_NATIVE_HARDENING.md).
+Full evidence is in
+[`prompts/history/H5C_PRODUCTION_NATIVE_VALIDATION.md`](prompts/history/H5C_PRODUCTION_NATIVE_VALIDATION.md)
+and [`prompts/history/H5B_NATIVE_HARDENING.md`](prompts/history/H5B_NATIVE_HARDENING.md);
 H5A's 18-entry ELF inventory and category policy remain in
 [`prompts/history/H5A_NATIVE_ELF_AUDIT.md`](prompts/history/H5A_NATIVE_ELF_AUDIT.md).
 
-The next engineering milestone is **H5C**, which has not started and requires a
-separate explicit prompt.
+The next engineering milestone is the **final release exposure audit**
+(secrets/configuration plus APK and AAB inspection). It has not started and
+requires a separate explicit prompt.
 
 Do not create a stable tag, publish a release, access a device, rebuild Core or
 Managed Runtime, or advance the accepted baseline without explicit milestone
