@@ -212,6 +212,84 @@ def find_jdk() -> Path | None:
     return None
 
 
+def find_flutter() -> Path | None:
+    """Locates Flutter deterministically, preferring the repository toolchain.
+
+    Order matters and PATH is last. The gate decides whether a release is
+    acceptable, so it must not depend on which Flutter happens to be first on
+    whichever shell invoked it — two machines answering differently is the one
+    thing a gate cannot do.
+    """
+    candidates = []
+    pinned = REPO.parent / "PocketCLaw/.tooling/flutter/bin/flutter"
+    candidates.append(pinned)
+    flutter_root = os.environ.get("FLUTTER_ROOT")
+    if flutter_root:
+        candidates.append(Path(flutter_root) / "bin/flutter")
+    for candidate in candidates:
+        if candidate.is_file():
+            return candidate
+    found = shutil.which("flutter")
+    return Path(found) if found else None
+
+
+def run_flutter_suite(flutter: Path) -> tuple[int, dict[str, object]]:
+    """Run the whole Flutter suite once and summarise it.
+
+    Once, not once per named contract: the suite is the expensive part, and
+    four invocations of it would be four chances for the gate to disagree with
+    itself about the same tree.
+
+    The JSON reporter is used so the summary is parsed rather than scraped, and
+    so a failure can name the suite it came from. If the reporter yields nothing
+    usable the exit code still decides — a gate that cannot read the output must
+    not therefore call it a pass.
+    """
+    rc, out = run([str(flutter), "test", "--reporter", "json"], cwd=REPO)
+    suites: dict[int, str] = {}
+    test_suite: dict[int, int] = {}
+    passed = failed = 0
+    failing_suites: set[str] = set()
+    failing_tests: list[str] = []
+    names: dict[int, str] = {}
+    for line in out.splitlines():
+        line = line.strip()
+        if not line.startswith("{"):
+            continue
+        try:
+            event = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        kind = event.get("type")
+        if kind == "suite":
+            suite = event.get("suite", {})
+            suites[suite.get("id")] = suite.get("path") or "<unknown>"
+        elif kind == "testStart":
+            test = event.get("test", {})
+            test_suite[test.get("id")] = test.get("suiteID")
+            names[test.get("id")] = test.get("name", "<unnamed>")
+        elif kind == "testDone":
+            if event.get("hidden"):
+                continue
+            test_id = event.get("testID")
+            if event.get("result") == "success":
+                passed += 1
+            else:
+                failed += 1
+                path = suites.get(test_suite.get(test_id), "<unknown>")
+                failing_suites.add(path)
+                if len(failing_tests) < 10:
+                    failing_tests.append(f"{path}: {names.get(test_id, '?')}")
+    summary = {
+        "passed": passed,
+        "failed": failed,
+        "failingSuites": sorted(failing_suites),
+        "failingTests": failing_tests,
+        "parsed": bool(passed or failed),
+    }
+    return rc, summary
+
+
 def find_sdk_tool(name: str) -> Path | None:
     """Locates an Android build-tool without hard-coding a machine path."""
     found = shutil.which(name)
@@ -639,27 +717,80 @@ def source_gates(gate: Gate, run_tests: bool, release_class: str = "test"):
                observed="PASS" if rc == 0 else out.strip().splitlines()[-1] if out.strip() else "FAIL")
 
 
-    flutter = shutil.which("flutter")
+    flutter_suite_gates(gate)
+
+
+# The named Dart contracts, and the file each is carried by. They remain
+# individually reported because a release record that says only "the suite
+# passed" loses which guarantee was checked — but they are now derived from the
+# full-suite run rather than being the whole of it. Before PC-DEF-025 these
+# three files *were* the Flutter gate, so the other 25 files could be red while
+# the gate reported green, which is exactly what happened for five milestones.
+FLUTTER_NAMED_CONTRACTS = (
+    ("a1.contracts",
+     ("test/unit/android_release_contract_test.dart",
+      "test/unit/android_backup_exclusion_test.dart"),
+     "signing fail-closed, version source, backup exclusions"),
+    ("signing.production_contract",
+     ("test/unit/production_signing_contract_test.dart",),
+     "production signing fails closed and pins its signer"),
+    ("a2.placement_guards",
+     ("test/unit/android_runtime_secret_placement_test.dart",),
+     "credential and logs app-private"),
+)
+
+
+def flutter_suite_gates(gate: Gate):
+    """The complete Flutter suite is the acceptance criterion.
+
+    One run, and every Flutter gate item is read from it. `flutter.suite` is the
+    authoritative one: any failing test fails the gate, whatever file it is in.
+    """
+    flutter = find_flutter()
     if not flutter:
-        gate.record("a1.contracts", SKIP, "flutter not on PATH")
-        gate.record("a2.placement_guards", SKIP, "flutter not on PATH")
-    else:
-        rc, out = run([flutter, "test",
-                       "test/unit/android_release_contract_test.dart",
-                       "test/unit/android_backup_exclusion_test.dart"])
-        gate.check("a1.contracts", rc == 0,
-                   expected="signing fail-closed, version source, backup exclusions",
-                   observed="PASS" if rc == 0 else "FAIL")
-        rc, out = run([flutter, "test",
-                       "test/unit/production_signing_contract_test.dart"])
-        gate.check("signing.production_contract", rc == 0,
-                   expected="production signing fails closed and pins its signer",
-                   observed="PASS" if rc == 0 else "FAIL")
-        rc, out = run([flutter, "test",
-                       "test/unit/android_runtime_secret_placement_test.dart"])
-        gate.check("a2.placement_guards", rc == 0,
-                   expected="credential and logs app-private",
-                   observed="PASS" if rc == 0 else "FAIL")
+        gate.record("flutter.suite", SKIP, "flutter toolchain not found")
+        for name, _, _ in FLUTTER_NAMED_CONTRACTS:
+            gate.record(name, SKIP, "flutter toolchain not found")
+        return
+
+    gate.facts["flutterExecutable"] = str(flutter)
+    rc, summary = run_flutter_suite(flutter)
+    gate.facts["flutterPassed"] = summary["passed"]
+    gate.facts["flutterFailed"] = summary["failed"]
+    gate.facts["flutterFailingSuites"] = summary["failingSuites"]
+
+    if rc == 0 and not summary["parsed"]:
+        # Exit 0 with nothing parsed means the suite did not run. Reporting that
+        # as a pass would be the failure mode this gate exists to remove.
+        gate.check("flutter.suite", False,
+                   expected="the complete Flutter suite runs and passes",
+                   observed="flutter test produced no test results")
+        for name, _, expected in FLUTTER_NAMED_CONTRACTS:
+            gate.check(name, False, expected=expected,
+                       observed="no Flutter results")
+        return
+
+    # The exit code is authoritative and the parsed counts are evidence. A
+    # non-zero exit can never be reported as PASS even if nothing was parsed.
+    ok = rc == 0 and summary["failed"] == 0
+    failing = summary["failingTests"]
+    detail = f"{summary['passed']} passed, {summary['failed']} failed"
+    if not ok:
+        shown = "; ".join(failing[:3]) if failing else f"flutter test exit {rc}"
+        more = len(summary["failingSuites"]) - 3
+        if more > 0:
+            shown += f" (+{more} more suite(s))"
+        detail = f"{detail} — {shown}"
+    gate.check("flutter.suite", ok,
+               expected="the complete Flutter suite passes",
+               observed=detail)
+
+    failing_suites = set(summary["failingSuites"])
+    for name, files, expected in FLUTTER_NAMED_CONTRACTS:
+        hit = sorted(path for path in failing_suites
+                     if any(path.endswith(f) for f in files))
+        gate.check(name, not hit, expected=expected,
+                   observed="PASS" if not hit else ", ".join(hit))
 
 
 # --------------------------------------------------------------------------

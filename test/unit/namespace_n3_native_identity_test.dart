@@ -106,8 +106,66 @@ void main() {
 
     test('the build script still consumes the upstream artifact names', () {
       final script = read('core/build-android-arm64.sh');
-      expect(script, contains('build/picoclaw-android-arm64'));
-      expect(script, contains('build/picoclaw-launcher-android-arm64'));
+
+      // What N3 pinned is the *rename boundary*: upstream emits two artifacts
+      // under their own names, and PocketClaw's identity is applied at the
+      // install step rather than in the upstream recipe. So the contract is the
+      // pairing, not the path.
+      //
+      // This used to assert the composed literal `build/picoclaw-android-arm64`.
+      // H5B made the output root overridable — CORE_BUILD_DIR / CORE_OUTPUT_ROOT,
+      // which is what lets reproducibility runs build into independent roots —
+      // and that literal stopped existing while the guarantee it stood for did
+      // not. Asserting a fixed root would break again the next time the build
+      // legitimately moves its output. See PC-DEF-025.
+      for (final pair in const [
+        ('picoclaw-android-arm64', 'libpocketclaw.so'),
+        ('picoclaw-launcher-android-arm64', 'libpocketclaw-web.so'),
+      ]) {
+        final (upstream, shipped) = pair;
+        expect(
+          script,
+          matches(
+            RegExp(
+              r'install\s+-m\s+0755\s+"\$CORE_OUTPUT_ROOT/' +
+                  RegExp.escape(upstream) +
+                  r'"\s+"\$JNI_LIBS/' +
+                  RegExp.escape(shipped) +
+                  r'"',
+            ),
+          ),
+          reason:
+              'the install step must take upstream $upstream and ship it as '
+              '$shipped; that rename is where PocketClaw identity is applied',
+        );
+      }
+
+      // The source path is resolved through a variable, never a fixed root.
+      // This is the assertion the old one should have been.
+      expect(
+        script,
+        contains(r'CORE_OUTPUT_ROOT='),
+        reason: 'the output root must stay relocatable for reproducibility runs',
+      );
+      expect(
+        script,
+        isNot(matches(RegExp(r'install\s+-m\s+0755\s+"?build/picoclaw-'))),
+        reason: 'a hard-coded build/ root would defeat CORE_BUILD_DIR',
+      );
+
+      // The private-support step consumes the same two upstream names, so a
+      // rename that missed it would archive symbols for the wrong binary.
+      for (final upstream in const [
+        'picoclaw-android-arm64',
+        'picoclaw-launcher-android-arm64',
+      ]) {
+        expect(
+          script,
+          contains('source_binary=$upstream'),
+          reason: 'the private symbol companion must come from $upstream',
+        );
+      }
+      expect(script, contains(r'--source "$CORE_OUTPUT_ROOT/$source_binary"'));
     });
 
     test('runtime environment and on-disk compatibility names are unchanged', () {

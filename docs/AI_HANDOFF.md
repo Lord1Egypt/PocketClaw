@@ -86,8 +86,8 @@ still bound to the H5C candidate and is rebound at the next artifact build.
 relabelled; the next artifact build is the first to contain the current Core
 pair, and it needs its own validation.
 
-`PC-DEF-009` through `PC-DEF-011`, `PC-DEF-013` through `PC-DEF-019`,
-`PC-DEF-020` and `PC-DEF-021` are resolved. `PC-DEF-012` stays open by decision — no reachability evidence, so no
+`PC-DEF-009` through `PC-DEF-011`, `PC-DEF-013` through `PC-DEF-021` and
+`PC-DEF-025` are resolved. `PC-DEF-012` stays open by decision — no reachability evidence, so no
 export narrowing; the exposure audit produced none and did not narrow anything.
 
 Full evidence is in
@@ -107,7 +107,7 @@ defects and fixed none.
     PC-DEF-022  /api/update fetches an arbitrary URL unverified      open
     PC-DEF-023  third-party Google OAuth client secret embedded      open
     PC-DEF-024  dead analytics deep link exported in the manifest    open
-    PC-DEF-025  flutter test red since H5B; no gate runs the suite   open
+    PC-DEF-025  flutter test red since H5B; no gate runs the suite   RESOLVED
 
 **`PC-DEF-020` is now RESOLVED.** The Android host always states the Public Mode
 decision (`-public=true` / `-public=false`), so the persisted
@@ -160,14 +160,25 @@ nothing else, and the Core gateway stays loopback-only in both states — with
 `PC-DEF-020` as its one actionable residue. `PC-DEF-006` stays open: one
 artifact was built, not two compared.
 
-The next milestone is `PC-DEF-025` under its own explicit prompt, then a re-run
-of the exposure audit to closure. **`flutter test` is red by one test until then**
-— the stale literal in `namespace_n3_native_identity_test.dart` — and no gate
-notices, because the gate runs three named Flutter files rather than the suite.
+**`PC-DEF-025` is RESOLVED.** `flutter test` is green — 490 passed, 0 failed —
+and the **complete** suite is now a release gate (`flutter.suite`), resolved
+through a deterministic `find_flutter()` that prefers the repository toolchain
+and puts `PATH` last. The gate previously ran three named files, so the suite
+stayed red for five milestones while the gate reported green; that blind spot is
+closed, and a non-zero exit or an unrun suite can no longer be reported as PASS.
+
+Gate composition grew by one item: source 25 → 26, full APK 56 → 57. The earlier
+55-vs-56 reporting difference was reconciled — same 56 items, with
+`repo.clean_worktree` reporting SKIPPED on a dirty tree and PASS on a clean one.
+No defect.
+
+The next milestone is a **re-run of the Final Release Exposure Audit to
+closure**, under its own explicit prompt, against the current Core generation.
 Full evidence is in
 [`prompts/history/EXPOSURE_AUDIT.md`](prompts/history/EXPOSURE_AUDIT.md),
 [`prompts/history/PC-DEF-020_PUBLIC_MODE_AUTHORITY.md`](prompts/history/PC-DEF-020_PUBLIC_MODE_AUTHORITY.md)
-and [`prompts/history/PC-DEF-021_AAB_RELEASE_POLICY.md`](prompts/history/PC-DEF-021_AAB_RELEASE_POLICY.md).
+[`prompts/history/PC-DEF-021_AAB_RELEASE_POLICY.md`](prompts/history/PC-DEF-021_AAB_RELEASE_POLICY.md)
+and [`prompts/history/PC-DEF-025_FLUTTER_SUITE_GATE.md`](prompts/history/PC-DEF-025_FLUTTER_SUITE_GATE.md).
 
 Do not create a stable tag, publish a release, access a device, rebuild Core or
 Managed Runtime, or advance the accepted baseline without explicit milestone

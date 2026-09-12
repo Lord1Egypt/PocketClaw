@@ -32,7 +32,8 @@ not that PocketClaw is a final release.
 
 Status: **run at `25753ce`; BLOCKED, not closed.** Two release blockers proven
 (`PC-DEF-020` and `PC-DEF-021`, both since resolved) plus four further defects
-(`PC-DEF-022` through `PC-DEF-025`), each needing its own prompt. `PC-DEF-002` resolved as
+(`PC-DEF-022` through `PC-DEF-025`; `PC-DEF-025` is also resolved). The audit is
+ready to be re-run to closure. `PC-DEF-002` resolved as
 explained. Evidence:
 [`prompts/history/EXPOSURE_AUDIT.md`](prompts/history/EXPOSURE_AUDIT.md).
 Re-running it to closure requires a fresh prompt after the blockers are fixed.
@@ -66,7 +67,8 @@ review result, documentation closeout, and `STOP`.
     resolved 2026-09-12; evidence in
     [`prompts/history/PC-DEF-021_AAB_RELEASE_POLICY.md`](prompts/history/PC-DEF-021_AAB_RELEASE_POLICY.md).
 1c-pre. Fix `PC-DEF-025` (stale Flutter assertion; gate runs three files, not
-    the suite) — own prompt, next.
+    the suite) — **DONE**, resolved 2026-09-13; evidence in
+    [`prompts/history/PC-DEF-025_FLUTTER_SUITE_GATE.md`](prompts/history/PC-DEF-025_FLUTTER_SUITE_GATE.md).
 1c. Re-run the exposure audit to closure.
 2. APK and AAB production inspection. Blocked until 1c closes: no
    production-signed candidate may be built before then, and the owner signing

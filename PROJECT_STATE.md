@@ -31,8 +31,9 @@ evidence and describe the state at the date of each entry.
 | Core fingerprint | `2692de41b2fe2487475911b62cec519193d581b25cf6d0ebe935fc63973229df`; the staged Core pair carries it — moved by the `PC-DEF-020` fix |
 | Distribution targets | Direct APK, Google Play, Official F-Droid |
 | Exposure-audit state-basis HEAD | `25753cef5fa4d956e11d37b5a6176cdef977f015` (verified PC-DEF-019 closeout; the audit closeout commit follows it) |
-| Final release exposure audit | **RUN, BLOCKED.** Both blockers are now RESOLVED: `PC-DEF-020` and `PC-DEF-021`. `PC-DEF-022`..`PC-DEF-025` open |
-| Next authorized milestone | Fix `PC-DEF-025` under its own prompt, then re-run the exposure audit to closure. No production candidate may be built before then |
+| Final release exposure audit | **RUN, BLOCKED.** Both blockers RESOLVED (`PC-DEF-020`, `PC-DEF-021`), and `PC-DEF-025` with them. `PC-DEF-022`..`PC-DEF-024` open. Ready to re-run to closure |
+| Next authorized milestone | Re-run the Final Release Exposure Audit to closure. No production candidate may be built before then |
+| Flutter suite | Green — 490 passed, 0 failed — and the **complete** suite is now a release gate (`flutter.suite`) |
 | Public release asset policy | APK only. An AAB is a Play-upload artifact and is never a public release asset — `PC-DEF-021` |
 
 The H2 production validation APK has SHA-256
@@ -444,6 +445,42 @@ policy retires. The exact owner action for removal, and what it does and does
 not achieve, is recorded in `docs/RELEASE_PROCESS.md`. Full evidence is in
 [`docs/prompts/history/PC-DEF-021_AAB_RELEASE_POLICY.md`](docs/prompts/history/PC-DEF-021_AAB_RELEASE_POLICY.md).
 
+`PC-DEF-025` is **RESOLVED**, and it had two halves. The stale assertion in
+`namespace_n3_native_identity_test.dart` pinned a *path* —
+`build/picoclaw-android-arm64` — when the contract is a *rename boundary*:
+upstream emits two artifacts under its own names and PocketClaw's identity is
+applied at the install step. H5B made the output root overridable for
+reproducibility runs, the literal stopped existing, and the test went red while
+the guarantee was intact. It now asserts the install pairing
+(`picoclaw-android-arm64` → `libpocketclaw.so`, `picoclaw-launcher-android-arm64`
+→ `libpocketclaw-web.so`) through `$CORE_OUTPUT_ROOT`, asserts the
+private-support step consumes the same two names, and asserts the *absence* of a
+hard-coded `build/` root — strictly stronger than what it replaced, and
+mutation-tested both ways against the real script.
+
+The second half is why it mattered. The release gate ran three named Flutter
+files, so twenty-five others were outside it entirely and the suite stayed red
+through five milestones with the gate reporting green. `flutter.suite` now runs
+the **complete** suite and is the acceptance criterion, resolved through a
+deterministic `find_flutter()` that prefers the repository toolchain and puts
+`PATH` last. The suite runs once through the JSON reporter and the three named
+contract items are derived from that run rather than being the whole of it. A
+non-zero exit can never be reported as PASS, and exit 0 with no parsed results
+fails — a suite that did not run must not look like one that passed.
+
+Proven for real: a deliberately failing test in a file none of the named
+contracts covers made the gate exit 1 and name it, while those three stayed
+green. `flutter analyze` is clean and `flutter test` is **490 passed, 0 failed**.
+`tool/test_release_gate.py` grew from 24 to 35 tests.
+
+The `PC-DEF-021` 55-vs-56 reporting difference was reconciled rather than
+propagated: re-running the gate at `3e3941f` gives **56 PASS / 0 FAIL / 0
+SKIPPED** on a clean tree and 55 PASS / 1 SKIPPED on a dirty one — the same 56
+items, with `repo.clean_worktree` flipping status. No gate-execution
+inconsistency and no defect. This milestone adds one item: source 25 → 26,
+full APK 56 → 57. Evidence is in
+[`docs/prompts/history/PC-DEF-025_FLUTTER_SUITE_GATE.md`](docs/prompts/history/PC-DEF-025_FLUTTER_SUITE_GATE.md).
+
 ### Completed major milestones
 
 - vc62 Zero-Pico namespace closeout: physically accepted and merged.
@@ -467,6 +504,7 @@ not achieve, is recorded in `docs/RELEASE_PROCESS.md`. Full evidence is in
 - Final release exposure audit: run and BLOCKED on `PC-DEF-020` and `PC-DEF-021`; not closed.
 - PC-DEF-020 Public Mode authority fix: resolved (release blocker cleared; not a release milestone).
 - PC-DEF-021 AAB privacy and release-artifact policy: resolved (second release blocker cleared).
+- PC-DEF-025 Flutter suite and release-gate integrity: resolved (the full suite is now a gate).
 
 See [`docs/ROADMAP.md`](docs/ROADMAP.md) for the phase sequence and
 [`docs/AI_HANDOFF.md`](docs/AI_HANDOFF.md) for the mandatory read order.
@@ -528,17 +566,16 @@ current release inventory.
 
 ### Exact next action
 
-Both exposure-audit release blockers are cleared. The next planned milestone is:
+Both exposure-audit release blockers are cleared and `PC-DEF-025` with them, so
+the tree is ready for the audit to be re-run:
 
-1. `PC-DEF-025` — re-point the stale assertion in
-   `namespace_n3_native_identity_test.dart` at the artifact names the build
-   script actually installs, and add a gate item that runs the whole Flutter
-   suite instead of three named files. Until that lands, `flutter test` is red
-   by one test and no gate notices.
+1. **Re-run the Final Release Exposure Audit to closure**, under its own prompt,
+   against the current Core generation. The first run was blocked; the two
+   blockers it proved are fixed, the Flutter suite is green and the complete
+   suite is now a gate.
 
-Then re-run the exposure audit to closure, and only then build a
-production-signed candidate. `PC-DEF-022`, `PC-DEF-023` and `PC-DEF-024` are
-open and scheduled after that unless the owner reorders them.
+Only then build a production-signed candidate. `PC-DEF-022`, `PC-DEF-023` and
+`PC-DEF-024` are open and scheduled after that unless the owner reorders them.
 
 Prepare and review an explicit final release exposure audit prompt —
 secrets/configuration plus full APK and AAB inspection — from

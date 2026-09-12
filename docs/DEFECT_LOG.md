@@ -94,35 +94,6 @@ only reconstructable examples belong here.
   required.**
 - **Status:** OPEN.
 
-### PC-DEF-025 — `flutter test` has been failing since H5B and no gate runs it
-
-- **Discovered:** final release exposure audit, 2026-09-12.
-- **Component:** `test/unit/namespace_n3_native_identity_test.dart`;
-  `tool/release_gate.py` Flutter coverage.
-- **Severity:** Test and gate integrity. No product impact.
-- **Description:** `flutter test` reports **480 passed, 1 failed**. The failure
-  is "the build script still consumes the upstream artifact names", which
-  asserts that `core/build-android-arm64.sh` contains the literal
-  `build/picoclaw-android-arm64`. H5B made the output root overridable, so the
-  script now builds that path from `CORE_BUILD_DIR` / `CORE_OUTPUT_ROOT` and the
-  literal no longer appears. The assertion is stale; the behaviour it guards —
-  that the install step still consumes the upstream artifact names — is intact.
-- **Why it went unnoticed:** the release gate never runs the suite. It runs three
-  named files only — `android_release_contract_test.dart`,
-  `android_backup_exclusion_test.dart` and
-  `android_runtime_secret_placement_test.dart`
-  (`tool/release_gate.py:621-633`) — so a red Flutter suite has passed every
-  gate since `aa24d9e`, through H5B, H5C, UI-1 and `PC-DEF-019`.
-- **Evidence:** the literal is present in `core/build-android-arm64.sh` at
-  `6c24f9a` and absent from `aa24d9e` onward; the test file has not been touched
-  since `0f0332d`, which predates H5B.
-- **Narrow fix plan:** re-point the assertion at the artifact names the script
-  actually installs (`picoclaw-android-arm64`,
-  `picoclaw-launcher-android-arm64`) rather than a composed path, and add a
-  gate item that runs the whole Flutter suite instead of three files.
-  **No fix applied: separate authorization required.**
-- **Status:** OPEN.
-
 
 ### PC-DEF-012 — Broad dependency export surfaces need reachability evidence
 
@@ -277,6 +248,81 @@ only reconstructable examples belong here.
 - **Status:** OPEN.
 
 ## Resolved
+
+### PC-DEF-025 — `flutter test` has been failing since H5B and no gate runs it
+
+- **Discovered:** final release exposure audit, 2026-09-12.
+- **Component:** `test/unit/namespace_n3_native_identity_test.dart`;
+  `tool/release_gate.py` Flutter coverage.
+- **Severity:** Test and gate integrity. No product impact.
+- **Description:** `flutter test` reports **480 passed, 1 failed**. The failure
+  is "the build script still consumes the upstream artifact names", which
+  asserts that `core/build-android-arm64.sh` contains the literal
+  `build/picoclaw-android-arm64`. H5B made the output root overridable, so the
+  script now builds that path from `CORE_BUILD_DIR` / `CORE_OUTPUT_ROOT` and the
+  literal no longer appears. The assertion is stale; the behaviour it guards —
+  that the install step still consumes the upstream artifact names — is intact.
+- **Why it went unnoticed:** the release gate never runs the suite. It runs three
+  named files only — `android_release_contract_test.dart`,
+  `android_backup_exclusion_test.dart` and
+  `android_runtime_secret_placement_test.dart`
+  (`tool/release_gate.py:621-633`) — so a red Flutter suite has passed every
+  gate since `aa24d9e`, through H5B, H5C, UI-1 and `PC-DEF-019`.
+- **Evidence:** the literal is present in `core/build-android-arm64.sh` at
+  `6c24f9a` and absent from `aa24d9e` onward; the test file has not been touched
+  since `0f0332d`, which predates H5B.
+- **Fix applied, 2026-09-13.** Both halves.
+
+  **The assertion.** It now pins the *rename boundary* rather than a path: the
+  install step must take upstream `picoclaw-android-arm64` and ship it as
+  `libpocketclaw.so`, and `picoclaw-launcher-android-arm64` as
+  `libpocketclaw-web.so`, matched as a regex over the real `install -m 0755`
+  lines through `$CORE_OUTPUT_ROOT`. It additionally asserts the private-support
+  step consumes the same two upstream names — a rename that missed it would
+  archive symbols for the wrong binary — and asserts the *absence* of a
+  hard-coded `build/` root, which is the shape that went stale. So the test now
+  fails if the rename boundary breaks and also fails if someone reintroduces the
+  fixed root, while surviving legitimate output-root relocation.
+
+  Mutation-tested both ways against the real script: renaming the upstream
+  artifact fails it, and hard-coding `build/picoclaw-android-arm64` fails it.
+  The script was restored byte-for-byte afterwards.
+
+  **The gate.** `tool/release_gate.py` now runs the **complete** Flutter suite
+  as `flutter.suite`, using a deterministic `find_flutter()` that prefers the
+  repository toolchain, then `FLUTTER_ROOT`, and only then `PATH` — a gate that
+  answers differently depending on the caller's shell is not a gate. The suite
+  runs **once**, through the JSON reporter, and the three named contract items
+  (`a1.contracts`, `signing.production_contract`, `a2.placement_guards`) are
+  derived from that single run rather than being the whole of it. They are kept
+  because a record that says only "the suite passed" loses which guarantee was
+  checked.
+
+  A non-zero exit can never be reported as PASS, and exit 0 with no parsed
+  results is a FAIL rather than a pass — a suite that did not run must not look
+  like a suite that passed. Failure output is bounded and names the failing
+  suite and test.
+- **Verification:** `flutter analyze` clean; `flutter test` **490 passed, 0
+  failed**. Proven against a real red suite: a deliberately failing test placed
+  in a file none of the three named contracts covers made the gate exit 1 and
+  report `490 passed, 1 failed — …/pc_def_025_probe_test.dart: deliberate
+  failure outside the three named contract files`, while the three named items
+  stayed PASS. That is precisely the scenario that went unnoticed for five
+  milestones. The probe was removed. `tool/test_release_gate.py` grew from 24 to
+  **35 tests**, covering full-suite success, a failure outside the named files,
+  failing-test identity in the output, bounded output under 100 failures,
+  non-zero exit never passing, exit-0-with-no-results failing, the command not
+  being the three named files, a missing toolchain skipping rather than passing,
+  a named contract failing when its own file fails, and PATH being last in
+  resolution order.
+- **Gate composition:** the source gate gains one item (25 → 26) and the full
+  artifact gate 56 → 57. Measured at `3e3941f` before this change: **56 PASS / 0
+  FAIL / 0 SKIPPED**, 56 items on a clean tree.
+- **Core impact:** none. Tests, release tooling and documentation only; the
+  source fingerprint is unchanged at
+  `2692de41b2fe2487475911b62cec519193d581b25cf6d0ebe935fc63973229df` and Core
+  was not rebuilt.
+- **Status:** RESOLVED, 2026-09-13.
 
 ### PC-DEF-021 — The AAB embeds the private R8 mapping and native debug symbols
 
