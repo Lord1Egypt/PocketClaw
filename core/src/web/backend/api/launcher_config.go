@@ -51,6 +51,18 @@ func (h *Handler) loadLauncherConfig() (launcherconfig.Config, error) {
 	return launcherconfig.Load(h.launcherConfigPath(), h.launcherFallbackConfig())
 }
 
+// reportedLauncherPublic is what the Config page should show for this process.
+//
+// The stored value, except where the host already owns the decision — there the
+// stored value can disagree with the listener that is actually bound, and
+// showing it makes the page look like a second authority. See PC-DEF-020.
+func (h *Handler) reportedLauncherPublic(stored bool) bool {
+	if h.launcherPublicDecisionIsHostOwned() {
+		return h.effectiveLauncherPublic()
+	}
+	return stored
+}
+
 func (h *Handler) handleGetLauncherConfig(w http.ResponseWriter, r *http.Request) {
 	cfg, err := h.loadLauncherConfig()
 	if err != nil {
@@ -61,7 +73,7 @@ func (h *Handler) handleGetLauncherConfig(w http.ResponseWriter, r *http.Request
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(launcherConfigPayload{
 		Port:                 cfg.Port,
-		Public:               cfg.Public,
+		Public:               h.reportedLauncherPublic(cfg.Public),
 		AllowedCIDRs:         append([]string(nil), cfg.AllowedCIDRs...),
 		AllowLocalhostBypass: cfg.AllowLocalhostBypass,
 		TrustedProxyCIDRs:    append([]string(nil), cfg.TrustedProxyCIDRs...),
@@ -81,7 +93,12 @@ func (h *Handler) handleUpdateLauncherConfig(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	cfg.Port = payload.Port
-	cfg.Public = payload.Public
+	// A host-owned decision is not the page's to change, and writing the
+	// submitted value anyway is what left a stale `public: true` behind for the
+	// next start to pick up. Persisting the effective mode instead keeps the
+	// file in step with the listener and repairs a file that had already
+	// drifted. See PC-DEF-020.
+	cfg.Public = h.reportedLauncherPublic(payload.Public)
 	cfg.AllowedCIDRs = append([]string(nil), payload.AllowedCIDRs...)
 	if payload.AllowLocalhostBypass != nil {
 		cfg.AllowLocalhostBypass = *payload.AllowLocalhostBypass

@@ -127,6 +127,50 @@ func resolveLauncherHostInput(flagHost string, explicitFlag bool, envHost string
 	return normalized, true, nil
 }
 
+// launcherExplicitFlags reports which listen flags the caller actually supplied.
+//
+// This is flag.Visit rather than a value comparison, and the difference is the
+// whole point: -public=false and an omitted -public both leave the parsed value
+// false, and they must not mean the same thing. Visit only reports flags that
+// were Set, so an explicit false is distinguishable from silence — which is
+// what lets a host own the decision. See resolveLauncherPublicMode.
+func launcherExplicitFlags(fs *flag.FlagSet) (port, host, public bool) {
+	fs.Visit(func(f *flag.Flag) {
+		switch f.Name {
+		case "port":
+			port = true
+		case "host":
+			host = true
+		case "public":
+			public = true
+		}
+	})
+	return port, host, public
+}
+
+// resolveLauncherPublicMode decides whether the dashboard listener may leave
+// loopback.
+//
+// A supplied flag is the authority for this process; the persisted launcher
+// config is consulted only when no flag was supplied. That ordering is the
+// fix for PC-DEF-020. The Android host stores the user's Public Mode choice
+// natively and used to pass -public only when it was on, so "off" arrived as
+// silence — and silence fell through to launcher-config.json's `public` field,
+// which the dashboard's own Config page can set to true. A user who enabled LAN
+// access, saved that page and then switched the native toggle off got a
+// loopback listener for the life of that process and a wildcard one on the next
+// start, with the toggle still reading OFF. The host now always passes the
+// value, so this function never reaches the persisted field on Android.
+//
+// The persisted field remains the authority on desktop, where there is no
+// native toggle and the Config page is how Public Mode is set at all.
+func resolveLauncherPublicMode(flagPublic, flagPublicExplicit, configPublic bool) bool {
+	if flagPublicExplicit {
+		return flagPublic
+	}
+	return configPublic
+}
+
 func openLauncherListeners(hostInput string, public bool, port string) (netbind.OpenResult, error) {
 	defaultMode := netbind.DefaultLoopback
 	if strings.TrimSpace(hostInput) == "" && public {
@@ -525,19 +569,7 @@ func main() {
 		)
 	}
 
-	var explicitPort bool
-	var explicitPublic bool
-	var explicitHost bool
-	flag.Visit(func(f *flag.Flag) {
-		switch f.Name {
-		case "port":
-			explicitPort = true
-		case "host":
-			explicitHost = true
-		case "public":
-			explicitPublic = true
-		}
-	})
+	explicitPort, explicitHost, explicitPublic := launcherExplicitFlags(flag.CommandLine)
 
 	launcherPath := launcherconfig.PathForAppConfig(absPath)
 	launcherCfg, err := launcherconfig.Load(launcherPath, launcherconfig.Default())
@@ -547,13 +579,10 @@ func main() {
 	}
 
 	effectivePort := *port
-	effectivePublic := *public
 	if !explicitPort {
 		effectivePort = strconv.Itoa(launcherCfg.Port)
 	}
-	if !explicitPublic {
-		effectivePublic = launcherCfg.Public
-	}
+	effectivePublic := resolveLauncherPublicMode(*public, explicitPublic, launcherCfg.Public)
 	envHost := strings.TrimSpace(os.Getenv(launcherconfig.EnvLauncherHost))
 
 	hostInput, hostOverrideActive, err := resolveLauncherHostInput(*host, explicitHost, envHost)

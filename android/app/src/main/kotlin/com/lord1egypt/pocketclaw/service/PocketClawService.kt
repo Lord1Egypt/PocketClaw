@@ -724,13 +724,19 @@ class PocketClawService : Service() {
             "--no-browser"
         )
 
-        // 只有在公共模式开启时才添加 -public 参数
-        if (publicMode) {
-            cmdList.add("-public")
-            Log.i(TAG, "Public mode enabled, adding -public flag")
-        } else {
-            Log.i(TAG, "Public mode disabled, service will listen on localhost only")
-        }
+        // The native toggle is the authority for the dashboard listener, so the
+        // decision is always passed explicitly -- including when it is off.
+        //
+        // Omitting the flag is not "off". With no -public on the command line
+        // the backend falls back to launcher-config.json's `public` field, and
+        // the dashboard's own Config page can persist true there. Turning the
+        // native toggle off then rebound the live listener to loopback and left
+        // that true behind, so the next service start bound the console to
+        // every interface while this toggle still read OFF. Passing the value
+        // explicitly makes Go's flag.Visit see it, which is what stops the
+        // backend consulting the persisted field at all. See PC-DEF-020.
+        cmdList.add("-public=" + publicMode)
+        Log.i(TAG, "Public mode explicit: $publicMode")
 
         cmdList.addAll(listOf("-port", WEB_PORT.toString(), configFile.absolutePath))
 
