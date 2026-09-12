@@ -1100,10 +1100,6 @@
     "gateway": {
       "title": "Iniciar Gateway",
       "description": "Após configurar modelos, clique no botão \"Iniciar Gateway\" no topo para começar a conversar com a IA."
-    },
-    "docs": {
-      "title": "Ver Documentação",
-      "description": "Precisa de mais ajuda? Clique no botão de documentação no canto superior direito para ver guias detalhados e documentação de configuração."
     }
   }
 }

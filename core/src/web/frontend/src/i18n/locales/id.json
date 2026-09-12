@@ -1100,10 +1100,6 @@
     "gateway": {
       "title": "Mulai Gateway",
       "description": "Setelah model dikonfigurasi, klik tombol «Mulai Gateway» di bagian atas untuk mulai mengobrol dengan AI."
-    },
-    "docs": {
-      "title": "Lihat Dokumentasi",
-      "description": "Butuh bantuan lain? Klik tombol dokumentasi di pojok kanan atas untuk melihat panduan lengkap dan dokumen konfigurasi."
     }
   }
 }

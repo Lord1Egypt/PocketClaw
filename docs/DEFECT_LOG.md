@@ -7,6 +7,29 @@ only reconstructable examples belong here.
 
 ## Open / deferred
 
+### PC-DEF-019 — Staged Core predates the guided-tour dashboard change
+
+- **Discovered:** guided-tour hardening repair, 2026-09-12.
+- **Component:** staged `libpocketclaw.so` / `libpocketclaw-web.so`.
+- **Severity:** Release blocker for the next artifact build; no runtime defect.
+- **Description:** `libpocketclaw-web.so` embeds the compiled dashboard, so
+  everything under `core/src/web/frontend` is a Core build input. Repairing the
+  tour moved the Core source fingerprint from
+  `86369a32a9873715672f7867b31dcd72a7d19088c49cdb1df2b584c548ba4c73` to
+  `bd4a8629a2682e2f05aa3859a400be8a77fb4954ad14994e5703ccbe365d05ec`, so the
+  staged pair no longer matches the source it is supposed to be built from.
+- **Evidence:** `cmd/corefingerprint` recomputes the new value; the test-class
+  source gate reports `core.staged_freshness` and `build.reproducibility_tests`
+  FAIL with 22 PASS / 2 FAIL / 1 SKIPPED. Every other gate is unaffected.
+- **Reason deferred:** This repair had no authority to rebuild Core. The H5C
+  production artifact and its evidence remain historically valid; they simply
+  describe the previous dashboard.
+- **Target milestone:** The next milestone that may rebuild Core — before any
+  further artifact build. Follow the two-commit rule: the source commit sets the
+  canonical build time, and the staged pair lands in a following commit that
+  touches no build input.
+- **Status:** OPEN / EXPECTED CONSEQUENCE / DEFERRED.
+
 ### PC-DEF-012 — Broad dependency export surfaces need reachability evidence
 
 - **Discovered:** H5A native/ELF audit, 2026-09-11.
@@ -129,6 +152,146 @@ only reconstructable examples belong here.
 - **Status:** OPEN.
 
 ## Resolved
+
+### PC-DEF-013 — Guided tour placed its card outside the viewport in RTL
+
+- **Phase discovered:** Guided-tour read-only audit, 2026-09-12.
+- **Component:** `core/src/web/frontend/src/components/tour/tour-guide.tsx`.
+- **Problem/root cause:** Steps declared a physical placement (`"left"` /
+  `"right"`). The sidebar anchors to the right edge in Arabic — see
+  `sidebar-direction.test.tsx` — so the Models step computed
+  `left = rect.right + 12` and put the card, and the only Next button, past the
+  viewport edge. There was no flip and no clamp, so the step could not be
+  advanced, dismissed or reached at all.
+- **Resolution:** Placement is now logical (`start`/`end`/`above`/`below`),
+  resolved against the document direction, and the finished rectangle is clamped
+  inside the viewport with an 8px margin. The clamp is the guarantee: no layout
+  can put a tour control out of reach.
+- **Verification:** Measured in real Chrome and Brave at 1440x900. In Arabic the
+  live target is `left 1193 / right 1432`; the pre-fix formula would have placed
+  the card at `left 1444`, right edge `1764`, off-screen. It now renders at
+  `861..1181`, fully inside, with the primary control hit-testable at its own
+  centre. Both directions, every step, both browsers.
+- **Commit:** the guided-tour hardening commit containing this record.
+- **Status:** RESOLVED.
+
+### PC-DEF-014 — Guided tour left focus on the control it spotlighted
+
+- **Phase discovered:** Guided-tour read-only audit, 2026-09-12.
+- **Component:** `tour-guide.tsx`; the visible symptom surfaced on
+  `SidebarMenuButton`.
+- **Problem/root cause:** Reported as a highlight the tour failed to clear. It
+  was not: the audit proved every tour node unmounts on every close path and
+  that the tour never touches the target's classes, attributes or inline style.
+  The spotlight was `pointer-events-none`, so a click on the highlighted item
+  passed through to the real `<Link>`; the app navigated and the anchor kept DOM
+  focus. `sidebarMenuButtonVariants` carries `outline-hidden focus-visible:ring-2`,
+  so that anchor then painted a persistent ring almost identical to the tour's
+  own spotlight, and it outlived the tour.
+- **Resolution:** Two explicit policies instead of an accident. The spotlight now
+  captures the click and swallows it, so the tour's own buttons own progression.
+  And the tour captures the previously focused element when it opens and restores
+  it on every termination path — finish, skip, Escape, click-outside, unmount —
+  blurring instead when the opener is gone.
+- **Verification:** In Chrome and Brave, clicking the spotlight leaves the path
+  at `/`, keeps the tour open, and leaves no focused `[data-tour]` element. After
+  the tour closes: `0` tour nodes, `activeElement` is `BODY`, no focused tour
+  target. Route-active styling is untouched and still correct.
+- **Commit:** the guided-tour hardening commit containing this record.
+- **Status:** RESOLVED.
+
+### PC-DEF-015 — Guided tour declared a step for a control that does not exist
+
+- **Phase discovered:** Guided-tour read-only audit, 2026-09-12.
+- **Component:** `tour-guide.tsx` step table; `tour.docs.*` translations.
+- **Problem/root cause:** The `docs` step targeted `[data-tour='docs-button']`.
+  No component has ever rendered that attribute, and the console has no
+  documentation control for it to point at — the translated copy described a
+  button in the top-right corner that does not exist. The step highlighted
+  nothing in every layout and every language, and never failed loudly because
+  a missing target fell back to a centred card.
+- **Resolution:** The step is removed rather than answered with a new control
+  invented to satisfy the tour. The now-unreferenced `tour.docs.*` keys are
+  removed from all 14 locales and the i18n assertion re-pointed at a live step.
+  The tour is three steps; the counter reads `1 / 3` through `3 / 3`.
+- **Verification:** A structural test walks the step table and fails if any
+  declared selector names a `data-tour` attribute no component renders, so a
+  renamed target now breaks CI instead of shipping. Confirmed in-browser: the
+  counter reads `1 / 3` in Chrome and Brave.
+- **Commit:** the guided-tour hardening commit containing this record.
+- **Status:** RESOLVED.
+
+### PC-DEF-016 — Guided tour never re-measured its target
+
+- **Phase discovered:** Guided-tour read-only audit, 2026-09-12.
+- **Component:** `tour-guide.tsx`.
+- **Problem/root cause:** Geometry was read during the render a click produced
+  and never again — the component had no effect, listener or observer of any
+  kind. Scrolling, resizing, a breakpoint swap or the header finishing its first
+  data load all left the spotlight stranded at coordinates that no longer meant
+  anything. An all-zero rect from an unlaid-out element was also accepted as
+  valid, producing a 16px spotlight at (-8,-8) that dimmed the whole screen from
+  the corner.
+- **Resolution:** A target is eligible only when connected, not `display:none`,
+  not `visibility:hidden` and of non-zero size. Resolution retries on
+  `requestAnimationFrame` under a finite 90-frame budget and then degrades to a
+  centred card — never a fixed delay, never an unbounded wait. While a step is
+  live, a `ResizeObserver`, capture-phase `scroll`, `resize` and a
+  `MutationObserver` keep it synchronized, and the target is brought into view
+  through its own scroll container with `scrollIntoView({block:"nearest"})`
+  rather than scrolling the page. All of it is released on step change, close
+  and unmount.
+- **Verification:** Regression tests move the target, resize, remove it from the
+  DOM and swap it for a replacement, asserting the overlay follows or degrades;
+  a listener-balance test proves `scroll` and `resize` counts return to zero
+  after close.
+- **Commit:** the guided-tour hardening commit containing this record.
+- **Status:** RESOLVED.
+
+### PC-DEF-017 — Guided tour backdrop blocked the app with no way out
+
+- **Phase discovered:** Guided-tour read-only audit, 2026-09-12.
+- **Component:** `tour-guide.tsx`.
+- **Problem/root cause:** The no-target backdrop was a full-screen
+  `fixed inset-0` layer without `pointer-events-none`; it absorbed every click
+  aimed at the application. Escape did nothing, clicking outside did nothing,
+  and nothing in the app could reopen the tour once dismissed. On a large
+  desktop screen a dimmed, blurred, click-dead page with one small card reads as
+  a freeze.
+- **Resolution:** The dimmer is an explicit dismissal surface: clicking it ends
+  the tour. Escape ends it too. The spotlight still blocks its target, by
+  design, but it is the only blocking region and the card is always reachable.
+- **Verification:** Tests assert Escape and a dimmer click each leave zero tour
+  nodes and record completion, and that the centred fallback is dismissible.
+  Confirmed in Chrome and Brave.
+- **Commit:** the guided-tour hardening commit containing this record.
+- **Status:** RESOLVED.
+
+### PC-DEF-018 — Guided tour state had no schema version
+
+- **Phase discovered:** Guided-tour read-only audit, 2026-09-12.
+- **Component:** `core/src/web/frontend/src/store/tour.ts`.
+- **Problem/root cause:** `localStorage["pocketclaw-tour-state"]` held
+  `{currentStep, isActive}` with no version, so a changed step list would strand
+  users on a step that no longer exists and the tour could never be replayed
+  deliberately. It also meant the reported "the tour comes back after updates"
+  had no versioning explanation: the real cause is that the embedded WebView
+  (`http://127.0.0.1:<port>`) and Public Mode (`http://<device-ip>:18800`) are
+  different origins with independent storage, so a changed LAN IP presents a
+  fresh origin. That is browser behaviour and is left alone.
+- **Resolution:** State is `{version, currentStep, isActive}` with
+  `TOUR_VERSION = 1` and a migration that reads an absent version as 0. Anyone
+  who finished stays finished; a step this build no longer defines completes
+  rather than stranding; a corrupt value falls back to the default instead of
+  throwing; state written by a newer build is left alone. `localStorage` is
+  probed and degrades to memory where it is unavailable.
+- **Verification:** Migration tests cover completed state, a resumable
+  unversioned step, the removed `docs` step, corrupt values and future versions.
+  Confirmed in-browser: a stored completed state renders zero tour nodes, and
+  legacy `{currentStep:"docs", isActive:true}` renders zero tour nodes rather
+  than hanging.
+- **Commit:** the guided-tour hardening commit containing this record.
+- **Status:** RESOLVED.
 
 ### PC-DEF-009 — Managed Git HTTP helper carried a build-only RUNPATH
 

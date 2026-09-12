@@ -23,7 +23,7 @@ evidence and describe the state at the date of each entry.
 | Accepted physical baseline | vc62 / `lastAcceptedVersionCode=62` |
 | Current phase | Final Production Release Hardening; H5C production-signed native/ELF validation closed |
 | Developer production signer | `176dca6b198b9552fb4d9ad3ca18da8d6f23c0a3f5ed4bd6b75a0700f9f0efcf` |
-| Core fingerprint | `86369a32a9873715672f7867b31dcd72a7d19088c49cdb1df2b584c548ba4c73` |
+| Core fingerprint | `bd4a8629a2682e2f05aa3859a400be8a77fb4954ad14994e5703ccbe365d05ec` (moved by the UI-1 dashboard repair; the staged Core still carries `86369a32…` — see `PC-DEF-019`) |
 | Distribution targets | Direct APK, Google Play, Official F-Droid |
 | Next authorized milestone | Final release exposure audit (secrets/configuration plus APK+AAB inspection); it has not started and requires a separate explicit prompt |
 
@@ -240,6 +240,28 @@ development-signed and a cross-signer `adb install -r` is forbidden. Full
 evidence is in
 [`docs/prompts/history/H5C_PRODUCTION_NATIVE_VALIDATION.md`](docs/prompts/history/H5C_PRODUCTION_NATIVE_VALIDATION.md).
 
+UI-1, an isolated guided-tour repair authorized between H5C and the exposure
+audit, then fixed six confirmed console defects — `PC-DEF-013` through
+`PC-DEF-018`, all resolved. The tour now places its card logically and clamps it
+inside the viewport, blocks click-through to the control it spotlights, restores
+focus on every termination path, resolves targets under a bounded frame budget,
+keeps geometry synchronized while a step is live, always offers Escape and
+click-outside, and versions its persisted state. A step that pointed at a
+documentation button the console does not have was removed. The full frontend
+suite is 418 tests in 25 files, all passing; Chrome and Brave confirm every step
+on-screen and reachable in both Arabic and English.
+
+UI-1 changed no native binary, signing input, Core payload or Managed Runtime
+payload, and did not touch the release roadmap. It did move one thing:
+`libpocketclaw-web.so` embeds the compiled dashboard, so the Core source
+fingerprint is now
+`bd4a8629a2682e2f05aa3859a400be8a77fb4954ad14994e5703ccbe365d05ec` and the
+staged Core pair predates it. UI-1 had no authority to rebuild Core, so this is
+tracked as `PC-DEF-019`: **Core must be rebuilt and re-staged before the next
+artifact build.** The H5C production artifact and its evidence remain valid for
+the dashboard they were built from. Evidence is in
+[`docs/prompts/history/UI-1_GUIDED_TOUR_HARDENING.md`](docs/prompts/history/UI-1_GUIDED_TOUR_HARDENING.md).
+
 ### Completed major milestones
 
 - vc62 Zero-Pico namespace closeout: physically accepted and merged.
@@ -258,6 +280,7 @@ evidence is in
 - H5B targeted native hardening and private native-symbol archive: closed,
   with owner Samsung physical native smoke PASS.
 - H5C production-signed native/ELF validation: closed.
+- UI-1 guided tour hardening: closed (console defect repair, not a release milestone).
 
 See [`docs/ROADMAP.md`](docs/ROADMAP.md) for the phase sequence and
 [`docs/AI_HANDOFF.md`](docs/AI_HANDOFF.md) for the mandatory read order.
@@ -318,6 +341,13 @@ the repository state before RC publication. They are historical facts, not the
 current release inventory.
 
 ### Exact next action
+
+Rebuild and re-stage Core before any further artifact build: `PC-DEF-019` records
+that the staged pair predates the UI-1 dashboard change. That is a prerequisite
+of the next artifact, not a new milestone, and it does not change the ordering
+below.
+
+The next release milestone is unchanged.
 
 Prepare and review an explicit final release exposure audit prompt —
 secrets/configuration plus full APK and AAB inspection — from

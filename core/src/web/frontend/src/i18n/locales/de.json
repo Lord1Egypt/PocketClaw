@@ -1100,10 +1100,6 @@
     "gateway": {
       "title": "Gateway starten",
       "description": "Klicken Sie nach dem Einrichten der Modelle oben auf „Gateway starten“, um mit der KI zu chatten."
-    },
-    "docs": {
-      "title": "Dokumentation ansehen",
-      "description": "Brauchen Sie mehr Hilfe? Über die Schaltfläche oben rechts erreichen Sie ausführliche Anleitungen und die Konfigurationsdokumentation."
     }
   }
 }

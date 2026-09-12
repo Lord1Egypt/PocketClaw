@@ -1100,10 +1100,6 @@
     "gateway": {
       "title": "Iniciar la puerta de enlace",
       "description": "Una vez configurados los modelos, pulsa «Iniciar puerta de enlace» en la parte superior para empezar a chatear con la IA."
-    },
-    "docs": {
-      "title": "Ver la documentación",
-      "description": "¿Necesitas más ayuda? Pulsa el botón de documentación de la esquina superior derecha para consultar guías detalladas y la documentación de configuración."
     }
   }
 }

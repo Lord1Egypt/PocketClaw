@@ -1609,7 +1609,7 @@ describe("Tour, launcher setup and launcher login", () => {
       expect(i18n.t("tour.gateway.description"), locale).not.toBe(
         'After configuring models, click the "Start Gateway" button at the top to begin chatting with AI.',
       )
-      expect(i18n.t("tour.docs.title"), locale).not.toBe("View Documentation")
+      expect(i18n.t("tour.gateway.title"), locale).not.toBe("Start Gateway")
 
       // Navigation actions.
       expect(i18n.t("tour.skip"), locale).not.toBe("Skip tour")

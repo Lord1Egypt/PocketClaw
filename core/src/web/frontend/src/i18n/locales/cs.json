@@ -1100,10 +1100,6 @@
     "gateway": {
       "title": "Spusťte gateway",
       "description": "Po nakonfigurování modelů klikněte na tlačítko \"Spustit gateway\" nahoře pro zahájení chatu s AI."
-    },
-    "docs": {
-      "title": "Zobrazit dokumentaci",
-      "description": "Potřebujete další pomoc? Klikněte na tlačítko dokumentace v pravém horním rohu pro zobrazení podrobných průvodců a dokumentace ke konfiguraci."
     }
   }
 }

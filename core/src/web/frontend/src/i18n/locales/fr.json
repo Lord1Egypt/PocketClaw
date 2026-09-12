@@ -1100,10 +1100,6 @@
     "gateway": {
       "title": "Démarrer la passerelle",
       "description": "Une fois les modèles configurés, cliquez sur « Démarrer la passerelle » en haut pour commencer à discuter avec l'IA."
-    },
-    "docs": {
-      "title": "Consulter la documentation",
-      "description": "Besoin d'aide ? Cliquez sur le bouton de documentation en haut à droite pour accéder aux guides détaillés et à la documentation de configuration."
     }
   }
 }
