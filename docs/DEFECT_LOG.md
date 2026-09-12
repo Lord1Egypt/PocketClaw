@@ -24,11 +24,32 @@ only reconstructable examples belong here.
 - **Reason deferred:** This repair had no authority to rebuild Core. The H5C
   production artifact and its evidence remain historically valid; they simply
   describe the previous dashboard.
-- **Target milestone:** The next milestone that may rebuild Core — before any
-  further artifact build. Follow the two-commit rule: the source commit sets the
-  canonical build time, and the staged pair lands in a following commit that
-  touches no build input.
-- **Status:** OPEN / EXPECTED CONSEQUENCE / DEFERRED.
+- **Resolution:** Core was rebuilt and re-staged on 2026-09-12 from canonical
+  build-input commit `ea43369289c8b6c618faa08f7b91355882fc050c` — the UI-1
+  source commit — under the two-commit rule, so the staged pair landed in a
+  following commit that changes no build input and the source fingerprint stayed
+  `bd4a8629a2682e2f05aa3859a400be8a77fb4954ad14994e5703ccbe365d05ec`.
+
+      libpocketclaw.so       37,724,640 bytes
+                             f273b9ced85f4d00cb542df9c2f4c691b4151526cb0ac9c2c7612a1432d7230f
+                             build ID 25e206ab402f8cd44a766bc03935468beebd8633
+      libpocketclaw-web.so   25,517,952 bytes
+                             900c43fcaad2094017c6959eed623d1e2499cfd560f01f2cff36dd34202b86b9
+                             build ID 84afbe2439b779722b22c2b4c6aa1300cd3ef199
+      BuildTime              2026-09-12T07:27:12+0000
+
+  Byte-identical in three independent output roots, one with a cold Go cache.
+  `core.staged_freshness` and `build.reproducibility_tests` are PASS; the whole
+  `pkg/coresource` package passes, 46 tests. The embedded dashboard is identified
+  by content rather than timestamp: UI-1's `__pocketclaw_tour_probe__` is present
+  and the deleted docs-step copy is absent, both reversed in the binary staged at
+  `ea43369`. The pair holds the H5B/H5C native contract at 22 PASS / 0 FAIL under
+  the repository's own ELF audit logic, and both private-support companions were
+  rebuilt and rebound. Only the Core pair changed; no Managed Runtime payload,
+  export map or `PC-DEF-012` disposition was touched, and no APK or AAB was
+  built. Evidence:
+  [`docs/prompts/history/PC-DEF-019_CORE_REBUILD_RESTAGE.md`](prompts/history/PC-DEF-019_CORE_REBUILD_RESTAGE.md).
+- **Status:** RESOLVED, 2026-09-12.
 
 ### PC-DEF-012 — Broad dependency export surfaces need reachability evidence
 

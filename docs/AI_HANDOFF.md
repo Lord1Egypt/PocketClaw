@@ -64,14 +64,39 @@ installed path is development-signed; the production certificate is a different
 identity and a cross-signer `adb install -r` is forbidden. That transition is a
 separately authorized migration / clean-install / data-safeguard milestone.
 
-`PC-DEF-009` through `PC-DEF-011` are resolved. `PC-DEF-012` stays open by
-decision — no reachability evidence, so no export narrowing.
+UI-1, an isolated guided-tour repair authorized between H5C and the exposure
+audit, then fixed `PC-DEF-013` through `PC-DEF-018` in the console. Because
+`libpocketclaw-web.so` embeds the dashboard, that moved the Core source
+fingerprint to
+`bd4a8629a2682e2f05aa3859a400be8a77fb4954ad14994e5703ccbe365d05ec` and left the
+staged pair stale — tracked as `PC-DEF-019` and now **resolved**. Core was
+rebuilt and re-staged from canonical build-input commit `ea43369` under the
+two-commit rule:
+
+    libpocketclaw.so       37,724,640  f273b9ce…  build ID 25e206ab…
+    libpocketclaw-web.so   25,517,952  900c43fc…  build ID 84afbe24…
+    BuildTime              2026-09-12T07:27:12+0000
+
+Byte-identical in three independent output roots; `core.staged_freshness` and
+`build.reproducibility_tests` PASS; 22 PASS / 0 FAIL on the native contract for
+the pair. No APK or AAB was built, so the private native support manifest is
+still bound to the H5C candidate and is rebound at the next artifact build.
+
+**The H5C production APK is evidence for the pre-UI-1 dashboard.** It is not
+relabelled; the next artifact build is the first to contain the current Core
+pair, and it needs its own validation.
+
+`PC-DEF-009` through `PC-DEF-011` and `PC-DEF-013` through `PC-DEF-019` are
+resolved. `PC-DEF-012` stays open by decision — no reachability evidence, so no
+export narrowing.
 
 Full evidence is in
 [`prompts/history/H5C_PRODUCTION_NATIVE_VALIDATION.md`](prompts/history/H5C_PRODUCTION_NATIVE_VALIDATION.md)
 and [`prompts/history/H5B_NATIVE_HARDENING.md`](prompts/history/H5B_NATIVE_HARDENING.md);
 H5A's 18-entry ELF inventory and category policy remain in
 [`prompts/history/H5A_NATIVE_ELF_AUDIT.md`](prompts/history/H5A_NATIVE_ELF_AUDIT.md).
+The Core rebuild/re-stage evidence is in
+[`prompts/history/PC-DEF-019_CORE_REBUILD_RESTAGE.md`](prompts/history/PC-DEF-019_CORE_REBUILD_RESTAGE.md).
 
 The next engineering milestone is the **final release exposure audit**
 (secrets/configuration plus APK and AAB inspection). It has not started and

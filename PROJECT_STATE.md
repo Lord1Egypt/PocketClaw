@@ -19,11 +19,14 @@ evidence and describe the state at the date of each entry.
 | H5B state-basis HEAD | `6c24f9ac67989a8bb2e08344ef9dcd113cdf7f18` (verified H5B starting commit; the source commit and the Core-staging closeout commit follow it) |
 | H5B canonical Core build-input commit | `aa24d9e906a28f71eb8231c8bf0f236cb1f96410` |
 | H5C state-basis HEAD | `33f0db672eab86985986a76598b66f968e2f44a8` (verified H5C starting commit; the closeout commit follows it) |
+| PC-DEF-019 state-basis HEAD | `ea43369289c8b6c618faa08f7b91355882fc050c` (verified UI-1 closeout; the Core staging/closeout commit follows it) |
+| PC-DEF-019 canonical Core build-input commit | `ea43369289c8b6c618faa08f7b91355882fc050c` |
+| Staged Core pair | `libpocketclaw.so` `f273b9ce…` 37,724,640 bytes; `libpocketclaw-web.so` `900c43fc…` 25,517,952 bytes; BuildTime `2026-09-12T07:27:12+0000` |
 | Version | `0.2.0+62` |
 | Accepted physical baseline | vc62 / `lastAcceptedVersionCode=62` |
 | Current phase | Final Production Release Hardening; H5C production-signed native/ELF validation closed |
 | Developer production signer | `176dca6b198b9552fb4d9ad3ca18da8d6f23c0a3f5ed4bd6b75a0700f9f0efcf` |
-| Core fingerprint | `bd4a8629a2682e2f05aa3859a400be8a77fb4954ad14994e5703ccbe365d05ec` (moved by the UI-1 dashboard repair; the staged Core still carries `86369a32…` — see `PC-DEF-019`) |
+| Core fingerprint | `bd4a8629a2682e2f05aa3859a400be8a77fb4954ad14994e5703ccbe365d05ec`; the staged Core pair carries it — `PC-DEF-019` resolved |
 | Distribution targets | Direct APK, Google Play, Official F-Droid |
 | Next authorized milestone | Final release exposure audit (secrets/configuration plus APK+AAB inspection); it has not started and requires a separate explicit prompt |
 
@@ -262,6 +265,39 @@ artifact build.** The H5C production artifact and its evidence remain valid for
 the dashboard they were built from. Evidence is in
 [`docs/prompts/history/UI-1_GUIDED_TOUR_HARDENING.md`](docs/prompts/history/UI-1_GUIDED_TOUR_HARDENING.md).
 
+`PC-DEF-019` is now **RESOLVED**. Core was rebuilt and re-staged from canonical
+build-input commit `ea43369289c8b6c618faa08f7b91355882fc050c` — the UI-1 source
+commit itself — under the two-commit rule, so the staged pair landed in a
+following commit that changes no build input and the source fingerprint stayed
+`bd4a8629a2682e2f05aa3859a400be8a77fb4954ad14994e5703ccbe365d05ec`.
+
+    libpocketclaw.so       37,724,640 bytes
+                           f273b9ced85f4d00cb542df9c2f4c691b4151526cb0ac9c2c7612a1432d7230f
+                           build ID 25e206ab402f8cd44a766bc03935468beebd8633
+    libpocketclaw-web.so   25,517,952 bytes
+                           900c43fcaad2094017c6959eed623d1e2499cfd560f01f2cff36dd34202b86b9
+                           build ID 84afbe2439b779722b22c2b4c6aa1300cd3ef199
+    BuildTime              2026-09-12T07:27:12+0000
+
+Both binaries were reproduced byte-identically in three independent output
+roots, one with a cold Go build cache, and so were both private-support
+companions. `core.staged_freshness` and `build.reproducibility_tests` are PASS.
+The embedded dashboard is identified by content rather than by timestamp: UI-1's
+`__pocketclaw_tour_probe__` is present and the deleted docs-step copy is absent,
+both reversed in the binary staged at `ea43369`. The pair holds the H5B/H5C
+native hardening contract at 22 PASS / 0 FAIL under the repository's own ELF
+audit logic. Only the Core pair changed — no Managed Runtime payload, export map
+or `PC-DEF-012` disposition — and no APK or AAB was built, so the private
+support manifest stays bound to the H5C candidate until the next artifact build
+rebinds it.
+
+This was a prerequisite repair, not a release milestone. The H5C production APK
+`3774202ef9832c70ffa376e663db1da69e17ae9318df4cc8cb31156fc0c7eae7` remains
+historically valid for the dashboard it was built from and is **not** relabelled
+as containing UI-1; this Core pair belongs to the post-UI-1 source state and
+reaches the next artifact build. Evidence is in
+[`docs/prompts/history/PC-DEF-019_CORE_REBUILD_RESTAGE.md`](docs/prompts/history/PC-DEF-019_CORE_REBUILD_RESTAGE.md).
+
 ### Completed major milestones
 
 - vc62 Zero-Pico namespace closeout: physically accepted and merged.
@@ -281,6 +317,7 @@ the dashboard they were built from. Evidence is in
   with owner Samsung physical native smoke PASS.
 - H5C production-signed native/ELF validation: closed.
 - UI-1 guided tour hardening: closed (console defect repair, not a release milestone).
+- PC-DEF-019 Core rebuild and re-stage: resolved (artifact prerequisite, not a release milestone).
 
 See [`docs/ROADMAP.md`](docs/ROADMAP.md) for the phase sequence and
 [`docs/AI_HANDOFF.md`](docs/AI_HANDOFF.md) for the mandatory read order.
@@ -342,10 +379,9 @@ current release inventory.
 
 ### Exact next action
 
-Rebuild and re-stage Core before any further artifact build: `PC-DEF-019` records
-that the staged pair predates the UI-1 dashboard change. That is a prerequisite
-of the next artifact, not a new milestone, and it does not change the ordering
-below.
+The Core rebuild/re-stage prerequisite is discharged: `PC-DEF-019` is RESOLVED
+and the staged pair carries the current source fingerprint, so no Core work
+blocks the next artifact build.
 
 The next release milestone is unchanged.
 
