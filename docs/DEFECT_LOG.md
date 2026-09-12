@@ -7,49 +7,218 @@ only reconstructable examples belong here.
 
 ## Open / deferred
 
-### PC-DEF-019 — Staged Core predates the guided-tour dashboard change
+### PC-DEF-020 — Public Mode OFF does not guarantee a loopback-only console
 
-- **Discovered:** guided-tour hardening repair, 2026-09-12.
-- **Component:** staged `libpocketclaw.so` / `libpocketclaw-web.so`.
-- **Severity:** Release blocker for the next artifact build; no runtime defect.
-- **Description:** `libpocketclaw-web.so` embeds the compiled dashboard, so
-  everything under `core/src/web/frontend` is a Core build input. Repairing the
-  tour moved the Core source fingerprint from
-  `86369a32a9873715672f7867b31dcd72a7d19088c49cdb1df2b584c548ba4c73` to
-  `bd4a8629a2682e2f05aa3859a400be8a77fb4954ad14994e5703ccbe365d05ec`, so the
-  staged pair no longer matches the source it is supposed to be built from.
-- **Evidence:** `cmd/corefingerprint` recomputes the new value; the test-class
-  source gate reports `core.staged_freshness` and `build.reproducibility_tests`
-  FAIL with 22 PASS / 2 FAIL / 1 SKIPPED. Every other gate is unaffected.
-- **Reason deferred:** This repair had no authority to rebuild Core. The H5C
-  production artifact and its evidence remain historically valid; they simply
-  describe the previous dashboard.
-- **Resolution:** Core was rebuilt and re-staged on 2026-09-12 from canonical
-  build-input commit `ea43369289c8b6c618faa08f7b91355882fc050c` — the UI-1
-  source commit — under the two-commit rule, so the staged pair landed in a
-  following commit that changes no build input and the source fingerprint stayed
-  `bd4a8629a2682e2f05aa3859a400be8a77fb4954ad14994e5703ccbe365d05ec`.
+- **Discovered:** final release exposure audit, 2026-09-12.
+- **Component:** Dashboard listener; Android Public Mode toggle; `launcher-config.json`.
+- **Severity:** **RELEASE BLOCKER.** The product's stated network posture can
+  differ from the listener it actually opens.
+- **Description:** The dashboard's public/loopback decision has two persisted
+  authorities that are never reconciled. Android stores the user's choice in
+  SharedPreferences `public_mode` and passes `-public` only when it is on. When
+  it is off the flag is absent, so `web/backend/main.go` takes
+  `effectivePublic = launcherCfg.Public` — the `public` field of
+  `launcher-config.json`. Nothing on the Android OFF path ever writes that file:
+  `handleAndroidNetworkModeApply` and `launcherHTTPRuntime.ApplyPublicMode`
+  rebind the live listener and update in-memory state only, and
+  `PUT /api/system/launcher-config` is the single writer of the file. The
+  console's own Config page does send `public`, so saving that page while LAN
+  access is on persists `public: true`. After that, turning Public Mode off in
+  the native UI rebinds the listener to loopback for the life of the process and
+  leaves the file saying `true`; the next service start — app restart, service
+  kill, device reboot — binds the console to all interfaces while the native
+  toggle still reports OFF.
+- **Evidence:** `core/src/web/backend/main.go:550-556` (`if !explicitPublic {
+  effectivePublic = launcherCfg.Public }`);
+  `core/src/web/backend/api/android_bridge.go:154-212` (no config write);
+  `core/src/web/backend/launcher_http_runtime.go:134-161` (no config write);
+  `core/src/web/backend/api/launcher_config.go:84-96` (the only writer);
+  `core/src/web/frontend/src/components/config/config-page.tsx:701-706` (sends
+  `public`). Reproducible bind evidence from the shipped `pkg/netbind` with the
+  same default-mode selection `openLauncherListeners` applies:
 
-      libpocketclaw.so       37,724,640 bytes
-                             f273b9ced85f4d00cb542df9c2f4c691b4151526cb0ac9c2c7612a1432d7230f
-                             build ID 25e206ab402f8cd44a766bc03935468beebd8633
-      libpocketclaw-web.so   25,517,952 bytes
-                             900c43fcaad2094017c6959eed623d1e2499cfd560f01f2cff36dd34202b86b9
-                             build ID 84afbe2439b779722b22c2b4c6aa1300cd3ef199
-      BuildTime              2026-09-12T07:27:12+0000
+      PUBLIC OFF (no -public, no host)   bindHosts=[::1 127.0.0.1]
+      PUBLIC ON  (-public, no host)      bindHosts=[:: 0.0.0.0]
+      host override 127.0.0.1 + -public  bindHosts=[127.0.0.1]
+      gateway (host=localhost)           bindHosts=[::1 127.0.0.1]  in BOTH states
 
-  Byte-identical in three independent output roots, one with a cold Go cache.
-  `core.staged_freshness` and `build.reproducibility_tests` are PASS; the whole
-  `pkg/coresource` package passes, 46 tests. The embedded dashboard is identified
-  by content rather than timestamp: UI-1's `__pocketclaw_tour_probe__` is present
-  and the deleted docs-step copy is absent, both reversed in the binary staged at
-  `ea43369`. The pair holds the H5B/H5C native contract at 22 PASS / 0 FAIL under
-  the repository's own ELF audit logic, and both private-support companions were
-  rebuilt and rebound. Only the Core pair changed; no Managed Runtime payload,
-  export map or `PC-DEF-012` disposition was touched, and no APK or AAB was
-  built. Evidence:
-  [`docs/prompts/history/PC-DEF-019_CORE_REBUILD_RESTAGE.md`](prompts/history/PC-DEF-019_CORE_REBUILD_RESTAGE.md).
-- **Status:** RESOLVED, 2026-09-12.
+  The dashboard password wall is unaffected in every state, so this is exposure
+  of a password-protected surface, not an unauthenticated one. The Core gateway
+  on 18790 stays loopback-only regardless: `openGatewayListeners` always passes
+  `netbind.DefaultLoopback` and never sees the launcher's public flag.
+- **Narrow fix plan:** make the Android choice the single authority for the
+  Android listener. Either (a) have the network-mode bridge persist the decision
+  through the same `launcherconfig.Save` path it already rebinds, so file and
+  listener cannot disagree, or (b) have the Android host always pass the flag
+  explicitly — `-public` or a `-public=false` equivalent — so `explicitPublic`
+  is always true and the file is never consulted on Android. (b) is smaller and
+  touches no Core storage behaviour; (a) also fixes the console's own display.
+  Add a test that asserts the OFF path cannot resolve to an unspecified bind
+  host. **No fix applied: product change, separate authorization required.**
+- **Status:** OPEN / RELEASE BLOCKER.
+
+### PC-DEF-021 — The AAB embeds the private R8 mapping and native debug symbols
+
+- **Discovered:** final release exposure audit, 2026-09-12.
+- **Component:** Android App Bundle packaging; release-asset policy; release gate.
+- **Severity:** **RELEASE BLOCKER for any path that publishes the AAB.** No
+  impact on the APK or on installed devices.
+- **Description:** `:app:bundleRelease` writes release-support material that the
+  APK correctly excludes into `BUNDLE-METADATA/`:
+
+      18,776,264  BUNDLE-METADATA/com.android.tools.build.debugsymbols/arm64-v8a/libflutter.so.sym
+      13,630,085  BUNDLE-METADATA/com.android.tools.build.obfuscation/proguard.map
+       6,763,120  BUNDLE-METADATA/com.android.tools.build.debugsymbols/arm64-v8a/libapp.so.sym
+         159,016  .../debugsymbols/arm64-v8a/libdartjni.so.sym
+         134,544  .../debugsymbols/x86_64/libdartjni.so.sym
+         109,380  .../debugsymbols/armeabi-v7a/libdartjni.so.sym
+
+  `proguard.map` is SHA-256
+  `14d49fad46e773e32da69b7b2336b7a968808cd1130f0319f7806ca4d09c1beb` —
+  byte-identical to the private `mapping.txt`. `libapp.so.sym` is native debug
+  data for the obfuscated Dart AOT library. Roughly 39.5 MB of the bundle is
+  material H3A/H3B/H4A/H4B exist to keep out of distributed artifacts. This is
+  AGP's intended design — Play consumes `BUNDLE-METADATA/` for crash
+  symbolication and strips it from delivered splits — so it is correct for a
+  Play upload and wrong for anything else.
+- **Why it is not theoretical:** attaching the AAB to a public GitHub
+  pre-release is this project's established practice.
+  `PocketClaw-v0.2.0-rc1.aab` and `PocketClaw-v0.2.0-rc2.aab` are published
+  assets today. Repeating that for a hardened release would publish the complete
+  Java/Kotlin deobfuscation map and the Dart AOT symbols.
+- **Why no gate caught it:** `RELEASE_PROCESS.md` states this material stays
+  "outside APK/AAB files", which AGP cannot satisfy for a bundle, and
+  `artifact.r8_mapping_private` in `tool/release_gate.py:864` is a hardcoded
+  `True` whose observation reads "absent from APK" — it verifies nothing and is
+  scoped to the APK. The repository also has no AAB build or inspection path at
+  all: `tool/build_hardened_android.py` only runs `:app:assembleRelease`, and
+  neither the release gate nor the native audit accepts a bundle.
+- **Narrow fix plan:** (1) correct the policy text — the mapping and symbols are
+  private and must never appear in a **published** artifact; inside a
+  Play-destined AAB is permitted and expected. (2) Add an explicit rule that an
+  AAB is a Play-upload artifact only and is never a public release asset; retire
+  the practice that published rc1/rc2. (3) Give the release gate a real
+  `artifact.r8_mapping_private` check, and an AAB mode that enumerates
+  `BUNDLE-METADATA/` and fails if a bundle is classified for public
+  distribution. (4) Decide separately whether the already-published rc1/rc2
+  bundles should be removed. **No fix applied: policy and tooling change,
+  separate authorization required.**
+- **Status:** OPEN / RELEASE BLOCKER for AAB publication.
+
+### PC-DEF-022 — `/api/update` fetches and extracts an arbitrary URL with no provenance check
+
+- **Discovered:** final release exposure audit, 2026-09-12.
+- **Component:** `core/src/web/backend/api/update.go`; `core/src/pkg/updater`.
+- **Severity:** Authenticated attack surface. Not a release blocker.
+- **Description:** `POST /api/update` takes a caller-supplied `url`, hands it to
+  `updater.UpdateSelfFromRelease`, which downloads the named asset, extracts the
+  archive, `chmod 0755`s the binary it finds and calls `selfupdate.Apply` on the
+  running executable. The SHA-256 it computes comes from the same
+  caller-controlled release document, so it authenticates nothing; there is no
+  host allowlist and no signature check. The route is registered unconditionally
+  for every platform, including Android.
+- **Mitigations that bound it:** the route is behind the dashboard session wall
+  (it is absent from `isPublicLauncherDashboardPath`); archive extraction is
+  guarded against path traversal in both the zip and tar paths
+  (`updater.go:558-562`, `635-638`); and on Android `os.Executable()` is inside
+  the read-only install directory, so the replace step cannot succeed. What
+  remains is an authenticated arbitrary-URL fetch with archive extraction to a
+  temporary directory. Nothing in PocketClaw's own UI calls it — no Flutter,
+  Kotlin or dashboard code references `/api/update` — so it is inherited
+  upstream desktop surface with no product use.
+- **Interaction with `PC-DEF-020`:** in Public Mode the route is LAN-reachable,
+  and `PC-DEF-020` means Public Mode can be active while the UI reports it off.
+- **Narrow fix plan:** remove the route from the Android/Core build, or pin it to
+  an allowlisted release host and verify a detached signature before applying.
+  Removal is preferable: the product does not use it.
+  **No fix applied: product change, separate authorization required.**
+- **Status:** OPEN.
+
+### PC-DEF-023 — A third-party Google OAuth client secret is embedded in both Core binaries
+
+- **Discovered:** final release exposure audit, 2026-09-12.
+- **Component:** `core/src/pkg/auth/oauth.go`, `GoogleAntigravityOAuthConfig`.
+- **Severity:** Third-party credential reuse and availability risk. Not a
+  disclosure of any PocketClaw or user secret; not a release blocker.
+- **Description:** the Google Cloud Code Assist ("Antigravity") OAuth
+  configuration carries a hardcoded client ID **and client secret**, stored
+  base64-encoded and decoded at runtime by a local `decodeBase64` helper. The
+  encoded form is present in both `libpocketclaw.so` and `libpocketclaw-web.so`;
+  the decoded form is not, so a plain string scan for the credential's prefix
+  finds nothing. The source comment states these are "the same client
+  credentials used by the OpenCode antigravity plugin" — that is, a credential
+  registered to another project's Google Cloud account, not PocketClaw's.
+  `web/backend/api/oauth.go:552` reaches it, so it is live product surface, not
+  dead code.
+- **Assessment:** for an installed application this class of secret is not
+  confidential — RFC 8252 and Google's own desktop-client model assume it cannot
+  be kept — so shipping it does not leak anything that was ever protected. The
+  real exposures are different: PocketClaw depends on a credential a third party
+  can revoke at any time, which would break the provider for every user; and the
+  base64 wrapper means the credential is invisible to routine secret scanning,
+  including this audit's own pattern pass. It was found by entropy review.
+- **Narrow fix plan:** an owner decision, not a code fix. Either register
+  PocketClaw's own Google Cloud OAuth client for this provider, or accept the
+  reuse explicitly in `DECISIONS.md` with the revocation risk stated, or drop the
+  provider. Whichever is chosen, replace the base64 wrapper with a plain literal
+  and a comment: obfuscating a credential that is not secret only hides it from
+  the project's own audits. **No fix applied: separate authorization required.**
+- **Status:** OPEN.
+
+### PC-DEF-024 — A dead analytics deep link is exported in the release manifest
+
+- **Discovered:** final release exposure audit, 2026-09-12.
+- **Component:** `android/app/src/main/AndroidManifest.xml`; `MainActivity`.
+- **Severity:** Unnecessary externally reachable entry point. Low.
+- **Description:** `MainActivity` is exported and carries a second intent filter
+  with `VIEW` + `DEFAULT` + `BROWSABLE` on scheme
+  `${POCKETCLAW_UMENG_LINK_SCHEME}`. In the shipped configuration
+  `POCKETCLAW_UMENG_APP_KEY` is empty, so `build.gradle.kts:42-46` resolves the
+  scheme to the literal `um.placeholder`, and the merged release manifest
+  confirms `android:scheme="um.placeholder"` reaches the artifact. Any web page
+  can therefore launch PocketClaw with `um.placeholder://…`, and
+  `MainActivity.logIncomingIntent` writes the full attacker-supplied URI to
+  logcat at INFO. The Umeng SDK it exists for is not packaged
+  (`POCKETCLAW_UMENG_PACKAGED=false`, and H1.5 removed the SDK entirely).
+- **Assessment:** `MainActivity` is already launchable by any app through its
+  LAUNCHER filter, so the added capability is web-originated launch plus
+  attacker-controlled text in a log other apps cannot read on current Android.
+  No injection surface: the URI is logged and otherwise unused.
+- **Narrow fix plan:** drop the intent filter and the `logIncomingIntent` branch
+  from the default build, or make the filter conditional on an analytics build
+  the way the SDK itself already is. **No fix applied: separate authorization
+  required.**
+- **Status:** OPEN.
+
+### PC-DEF-025 — `flutter test` has been failing since H5B and no gate runs it
+
+- **Discovered:** final release exposure audit, 2026-09-12.
+- **Component:** `test/unit/namespace_n3_native_identity_test.dart`;
+  `tool/release_gate.py` Flutter coverage.
+- **Severity:** Test and gate integrity. No product impact.
+- **Description:** `flutter test` reports **480 passed, 1 failed**. The failure
+  is "the build script still consumes the upstream artifact names", which
+  asserts that `core/build-android-arm64.sh` contains the literal
+  `build/picoclaw-android-arm64`. H5B made the output root overridable, so the
+  script now builds that path from `CORE_BUILD_DIR` / `CORE_OUTPUT_ROOT` and the
+  literal no longer appears. The assertion is stale; the behaviour it guards —
+  that the install step still consumes the upstream artifact names — is intact.
+- **Why it went unnoticed:** the release gate never runs the suite. It runs three
+  named files only — `android_release_contract_test.dart`,
+  `android_backup_exclusion_test.dart` and
+  `android_runtime_secret_placement_test.dart`
+  (`tool/release_gate.py:621-633`) — so a red Flutter suite has passed every
+  gate since `aa24d9e`, through H5B, H5C, UI-1 and `PC-DEF-019`.
+- **Evidence:** the literal is present in `core/build-android-arm64.sh` at
+  `6c24f9a` and absent from `aa24d9e` onward; the test file has not been touched
+  since `0f0332d`, which predates H5B.
+- **Narrow fix plan:** re-point the assertion at the artifact names the script
+  actually installs (`picoclaw-android-arm64`,
+  `picoclaw-launcher-android-arm64`) rather than a composed path, and add a
+  gate item that runs the whole Flutter suite instead of three files.
+  **No fix applied: separate authorization required.**
+- **Status:** OPEN.
+
 
 ### PC-DEF-012 — Broad dependency export surfaces need reachability evidence
 
@@ -96,7 +265,38 @@ only reconstructable examples belong here.
 - **Reason deferred:** It predated the milestone that found it and requires a
   product decision about cross-device console access.
 - **Target milestone:** Secrets/configuration and exposure audit, before stable.
-- **Status:** OPEN.
+- **Audited 2026-09-12, and the observation is explained.** The product now has
+  an explicit Public Mode whose stated purpose is LAN access to the
+  password-protected dashboard. Reproducible evidence from the shipped
+  `pkg/netbind`, driven with the same default-mode selection
+  `openLauncherListeners` applies:
+
+      PUBLIC OFF (no -public, no host)   bindHosts=[::1 127.0.0.1]
+      PUBLIC ON  (-public, no host)      bindHosts=[:: 0.0.0.0]
+      host override 127.0.0.1 + -public  bindHosts=[127.0.0.1]   (host wins)
+      gateway (host=localhost)           bindHosts=[::1 127.0.0.1]  in BOTH states
+
+  `0.0.0.0:18800` is Public Mode ON and nothing else. The Core gateway on 18790
+  is loopback-only in both states and is not reachable by the launcher's public
+  flag at all — `openGatewayListeners` always passes `netbind.DefaultLoopback`.
+  Authentication is mandatory whenever Public Mode is on: the unauthenticated
+  surface is only `POST /api/auth/{login,logout,setup}`, `GET /api/auth/status`
+  and GET/HEAD of the login/setup SPA routes, `/assets/`, the favicons,
+  `site.webmanifest` and `robots.txt`; there is no unauthenticated health,
+  config or control endpoint. The realtime WebSocket requires a live session
+  **and** an origin check, and auth-path canonicalization blocks
+  `/assets/../` traversal. `/api/auth/setup` is unauthenticated only while no
+  password exists and requires a session once one does. The Android
+  local-auto-login grant cannot exist on Android at all, because the host passes
+  `--no-browser` and `shouldEnableLocalAutoLogin` requires its absence. The
+  empty default `allowed_cidrs` means the IP allowlist is a documented no-op and
+  the password is the boundary.
+- **Disposition:** the original wording — "the console was observed listening on
+  all interfaces" — is **resolved as explained by design**. Its one remaining
+  actionable residue is that "Public Mode off" is not reliably enforced across a
+  service restart, which is tracked precisely as `PC-DEF-020` rather than left
+  inside this entry.
+- **Status:** RESOLVED AS EXPLAINED / superseded by `PC-DEF-020`.
 
 ### PC-DEF-003 — Restart-required banner can remain after hot reload
 
@@ -173,6 +373,50 @@ only reconstructable examples belong here.
 - **Status:** OPEN.
 
 ## Resolved
+
+### PC-DEF-019 — Staged Core predates the guided-tour dashboard change
+
+- **Discovered:** guided-tour hardening repair, 2026-09-12.
+- **Component:** staged `libpocketclaw.so` / `libpocketclaw-web.so`.
+- **Severity:** Release blocker for the next artifact build; no runtime defect.
+- **Description:** `libpocketclaw-web.so` embeds the compiled dashboard, so
+  everything under `core/src/web/frontend` is a Core build input. Repairing the
+  tour moved the Core source fingerprint from
+  `86369a32a9873715672f7867b31dcd72a7d19088c49cdb1df2b584c548ba4c73` to
+  `bd4a8629a2682e2f05aa3859a400be8a77fb4954ad14994e5703ccbe365d05ec`, so the
+  staged pair no longer matches the source it is supposed to be built from.
+- **Evidence:** `cmd/corefingerprint` recomputes the new value; the test-class
+  source gate reports `core.staged_freshness` and `build.reproducibility_tests`
+  FAIL with 22 PASS / 2 FAIL / 1 SKIPPED. Every other gate is unaffected.
+- **Reason deferred:** This repair had no authority to rebuild Core. The H5C
+  production artifact and its evidence remain historically valid; they simply
+  describe the previous dashboard.
+- **Resolution:** Core was rebuilt and re-staged on 2026-09-12 from canonical
+  build-input commit `ea43369289c8b6c618faa08f7b91355882fc050c` — the UI-1
+  source commit — under the two-commit rule, so the staged pair landed in a
+  following commit that changes no build input and the source fingerprint stayed
+  `bd4a8629a2682e2f05aa3859a400be8a77fb4954ad14994e5703ccbe365d05ec`.
+
+      libpocketclaw.so       37,724,640 bytes
+                             f273b9ced85f4d00cb542df9c2f4c691b4151526cb0ac9c2c7612a1432d7230f
+                             build ID 25e206ab402f8cd44a766bc03935468beebd8633
+      libpocketclaw-web.so   25,517,952 bytes
+                             900c43fcaad2094017c6959eed623d1e2499cfd560f01f2cff36dd34202b86b9
+                             build ID 84afbe2439b779722b22c2b4c6aa1300cd3ef199
+      BuildTime              2026-09-12T07:27:12+0000
+
+  Byte-identical in three independent output roots, one with a cold Go cache.
+  `core.staged_freshness` and `build.reproducibility_tests` are PASS; the whole
+  `pkg/coresource` package passes, 46 tests. The embedded dashboard is identified
+  by content rather than timestamp: UI-1's `__pocketclaw_tour_probe__` is present
+  and the deleted docs-step copy is absent, both reversed in the binary staged at
+  `ea43369`. The pair holds the H5B/H5C native contract at 22 PASS / 0 FAIL under
+  the repository's own ELF audit logic, and both private-support companions were
+  rebuilt and rebound. Only the Core pair changed; no Managed Runtime payload,
+  export map or `PC-DEF-012` disposition was touched, and no APK or AAB was
+  built. Evidence:
+  [`docs/prompts/history/PC-DEF-019_CORE_REBUILD_RESTAGE.md`](prompts/history/PC-DEF-019_CORE_REBUILD_RESTAGE.md).
+- **Status:** RESOLVED, 2026-09-12.
 
 ### PC-DEF-013 — Guided tour placed its card outside the viewport in RTL
 

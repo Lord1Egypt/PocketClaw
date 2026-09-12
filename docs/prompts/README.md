@@ -40,3 +40,4 @@ boundary.
 - [`H5C — Production-signed native/ELF validation`](history/H5C_PRODUCTION_NATIVE_VALIDATION.md)
 - [`UI-1 — Guided tour hardening`](history/UI-1_GUIDED_TOUR_HARDENING.md)
 - [`PC-DEF-019 — Core rebuild and re-stage`](history/PC-DEF-019_CORE_REBUILD_RESTAGE.md)
+- [`Final release exposure audit`](history/EXPOSURE_AUDIT.md)

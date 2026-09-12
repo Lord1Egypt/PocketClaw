@@ -30,7 +30,12 @@ not that PocketClaw is a final release.
 
 ### Final release exposure audit
 
-Status: **not started; an explicit milestone prompt is required**.
+Status: **run at `25753ce`; BLOCKED, not closed.** Two release blockers proven
+(`PC-DEF-020`, `PC-DEF-021`) plus four further defects (`PC-DEF-022` through
+`PC-DEF-025`); none fixed, each needs its own prompt. `PC-DEF-002` resolved as
+explained. Evidence:
+[`prompts/history/EXPOSURE_AUDIT.md`](prompts/history/EXPOSURE_AUDIT.md).
+Re-running it to closure requires a fresh prompt after the blockers are fixed.
 
 Expected scope: secrets and configuration exposure, then full APK and AAB
 inspection. H5C closed the native layer — the production-signed artifact carries
@@ -53,8 +58,13 @@ Carried forward, none of them blocking this audit:
 Do not collapse these into one milestone. Each receives its own prompt, evidence,
 review result, documentation closeout, and `STOP`.
 
-1. Secrets/configuration and APK/AAB exposure audit.
-2. APK and AAB production inspection.
+1. Secrets/configuration and APK/AAB exposure audit. **Run; BLOCKED.**
+1a. Fix `PC-DEF-020` (Public Mode durability) — own prompt.
+1b. Fix `PC-DEF-021` (bundle mapping/symbol policy and gate) — own prompt.
+1c. Re-run the exposure audit to closure.
+2. APK and AAB production inspection. Blocked until 1c closes: no
+   production-signed candidate may be built before then, and the owner signing
+   ceremony must not be requested for a candidate that will be superseded.
 3. Production-signer physical transition: migration, clean install and data
    safeguard. `PC-DEF-008` through `PC-DEF-011` are resolved; `PC-DEF-012`
    stays open.

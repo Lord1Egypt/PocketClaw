@@ -28,7 +28,9 @@ evidence and describe the state at the date of each entry.
 | Developer production signer | `176dca6b198b9552fb4d9ad3ca18da8d6f23c0a3f5ed4bd6b75a0700f9f0efcf` |
 | Core fingerprint | `bd4a8629a2682e2f05aa3859a400be8a77fb4954ad14994e5703ccbe365d05ec`; the staged Core pair carries it — `PC-DEF-019` resolved |
 | Distribution targets | Direct APK, Google Play, Official F-Droid |
-| Next authorized milestone | Final release exposure audit (secrets/configuration plus APK+AAB inspection); it has not started and requires a separate explicit prompt |
+| Exposure-audit state-basis HEAD | `25753cef5fa4d956e11d37b5a6176cdef977f015` (verified PC-DEF-019 closeout; the audit closeout commit follows it) |
+| Final release exposure audit | **RUN, BLOCKED.** Two release blockers proven: `PC-DEF-020`, `PC-DEF-021`. Four further defects opened: `PC-DEF-022`..`PC-DEF-025`. No fix applied — each needs its own authorization |
+| Next authorized milestone | Fix `PC-DEF-020` and `PC-DEF-021` under separate prompts, then re-run the exposure audit to closure. No production candidate may be built before then |
 
 The H2 production validation APK has SHA-256
 `f0d83298c2ce061c01a9fc931ad29676e4d4b646bb5b204a9bf0002b11a7f46f`
@@ -298,6 +300,54 @@ as containing UI-1; this Core pair belongs to the post-UI-1 source state and
 reaches the next artifact build. Evidence is in
 [`docs/prompts/history/PC-DEF-019_CORE_REBUILD_RESTAGE.md`](docs/prompts/history/PC-DEF-019_CORE_REBUILD_RESTAGE.md).
 
+The **final release exposure audit** then ran at `25753ce` and is **BLOCKED**.
+It completed every part that does not depend on the production signing identity
+and opened six defects, fixing none: each carries a narrow fix plan and waits
+for its own authorization.
+
+Two are release blockers. `PC-DEF-020`: the dashboard's public/loopback decision
+has two persisted authorities and the Android Public Mode OFF path never writes
+`launcher-config.json`, so a `public: true` left in that file rebinds the
+console to all interfaces on the next service start while the native toggle
+still reports OFF. Enforcement is not the problem — the password wall holds in
+every state and the Core gateway on 18790 is loopback-only in both — durability
+is. `PC-DEF-021`: `:app:bundleRelease` embeds ~39.5 MB of release-support
+material in `BUNDLE-METADATA/`, including `proguard.map` byte-identical to the
+private R8 mapping and native debug symbols for the obfuscated Dart AOT
+library. That is correct for a Play upload and wrong for a public release asset
+— and `PocketClaw-v0.2.0-rc1.aab` and `-rc2.aab` are published GitHub assets
+today, so the practice that would leak it is already established. The APK is
+clean; this is bundle-only.
+
+The other four: `PC-DEF-022`, an `/api/update` route that fetches and extracts
+an arbitrary caller-supplied URL with no provenance check, authenticated and
+unused by any PocketClaw UI; `PC-DEF-023`, a base64-wrapped third-party Google
+OAuth client secret embedded in both Core binaries, found by entropy review
+after the pattern scan missed it; `PC-DEF-024`, a dead `um.placeholder://`
+BROWSABLE deep link exported on `MainActivity` for an SDK that is not packaged;
+and `PC-DEF-025`, `flutter test` red since `aa24d9e` on a stale assertion, which
+went unnoticed because the release gate runs three Flutter test files rather
+than the suite.
+
+`PC-DEF-002` is **resolved as explained**: `0.0.0.0:18800` is Public Mode ON and
+nothing else, proved with reproducible bind evidence, and its one actionable
+residue is now `PC-DEF-020`. `PC-DEF-006` stays open — one artifact was built,
+not two compared. `PC-DEF-012` is unchanged by decision.
+
+The audit deliberately did **not** request the owner signing ceremony: a
+production candidate built before these blockers are fixed would have to be
+rebuilt, and its hash, native-support binding and gate evidence would all be
+superseded. It audited a fresh LOCAL TEST / NON-RELEASABLE APK from this exact
+tree instead — 63,560,203 bytes, SHA-256
+`5460d86a80d74219a39554e4da2ceb819c708c32050789396c95e394c533346a` — plus a
+debug-signed NON-PUBLISH structural AAB. Both carry the post-UI-1 Core pair
+`f273b9ce…` / `900c43fc…` and the H5B Managed Runtime byte-for-byte. Native
+audit 194 PASS / 0 FAIL / 0 SKIP with the support manifest rebound to the fresh
+APK; source gate 25 PASS / 0 FAIL / 0 SKIPPED; artifact gate 54 PASS / 0 FAIL /
+0 SKIPPED in test class; Dart AOT, private DWARF and private R8 mapping all
+byte-identical to H3A onward. Full evidence is in
+[`docs/prompts/history/EXPOSURE_AUDIT.md`](docs/prompts/history/EXPOSURE_AUDIT.md).
+
 ### Completed major milestones
 
 - vc62 Zero-Pico namespace closeout: physically accepted and merged.
@@ -318,6 +368,7 @@ reaches the next artifact build. Evidence is in
 - H5C production-signed native/ELF validation: closed.
 - UI-1 guided tour hardening: closed (console defect repair, not a release milestone).
 - PC-DEF-019 Core rebuild and re-stage: resolved (artifact prerequisite, not a release milestone).
+- Final release exposure audit: run and BLOCKED on `PC-DEF-020` and `PC-DEF-021`; not closed.
 
 See [`docs/ROADMAP.md`](docs/ROADMAP.md) for the phase sequence and
 [`docs/AI_HANDOFF.md`](docs/AI_HANDOFF.md) for the mandatory read order.
@@ -379,11 +430,18 @@ current release inventory.
 
 ### Exact next action
 
-The Core rebuild/re-stage prerequisite is discharged: `PC-DEF-019` is RESOLVED
-and the staged pair carries the current source fingerprint, so no Core work
-blocks the next artifact build.
+The exposure audit has run and is BLOCKED. The next actions are the two
+release blockers it proved, each under its own authorized prompt:
 
-The next release milestone is unchanged.
+1. `PC-DEF-020` — make the Android Public Mode choice the single authority for
+   the dashboard listener, so "off" survives a service restart.
+2. `PC-DEF-021` — correct the mapping/symbol policy for bundles, forbid the AAB
+   as a public release asset, and give the release gate a real
+   `artifact.r8_mapping_private` check plus an AAB mode.
+
+Then re-run the exposure audit to closure, and only then build a
+production-signed candidate. `PC-DEF-022` through `PC-DEF-025` are open and
+scheduled after those two unless the owner reorders them.
 
 Prepare and review an explicit final release exposure audit prompt —
 secrets/configuration plus full APK and AAB inspection — from

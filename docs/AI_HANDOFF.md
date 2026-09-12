@@ -88,7 +88,7 @@ pair, and it needs its own validation.
 
 `PC-DEF-009` through `PC-DEF-011` and `PC-DEF-013` through `PC-DEF-019` are
 resolved. `PC-DEF-012` stays open by decision — no reachability evidence, so no
-export narrowing.
+export narrowing; the exposure audit produced none and did not narrow anything.
 
 Full evidence is in
 [`prompts/history/H5C_PRODUCTION_NATIVE_VALIDATION.md`](prompts/history/H5C_PRODUCTION_NATIVE_VALIDATION.md)
@@ -98,9 +98,39 @@ H5A's 18-entry ELF inventory and category policy remain in
 The Core rebuild/re-stage evidence is in
 [`prompts/history/PC-DEF-019_CORE_REBUILD_RESTAGE.md`](prompts/history/PC-DEF-019_CORE_REBUILD_RESTAGE.md).
 
-The next engineering milestone is the **final release exposure audit**
-(secrets/configuration plus APK and AAB inspection). It has not started and
-requires a separate explicit prompt.
+The **final release exposure audit has run and is BLOCKED.** It completed every
+part that does not depend on the production signing identity, opened six
+defects and fixed none.
+
+    PC-DEF-020  Public Mode OFF is not durable across a restart      RELEASE BLOCKER
+    PC-DEF-021  AAB embeds the private R8 mapping and Dart symbols   RELEASE BLOCKER (publication)
+    PC-DEF-022  /api/update fetches an arbitrary URL unverified      open
+    PC-DEF-023  third-party Google OAuth client secret embedded      open
+    PC-DEF-024  dead analytics deep link exported in the manifest    open
+    PC-DEF-025  flutter test red since H5B; no gate runs the suite   open
+
+**Do not build a production-signed candidate yet, and do not request the owner
+signing ceremony.** The audit deliberately did not: a candidate built before
+`PC-DEF-020` and `PC-DEF-021` are fixed must be rebuilt, and its hash,
+native-support binding and gate evidence would all be superseded. It audited a
+fresh LOCAL TEST / NON-RELEASABLE APK from the same tree instead
+(`5460d86a…`), which is sound because H5C proved the production and development
+builds of one tree differ only by the signing block.
+
+**Do not publish an AAB as a release asset.** `PocketClaw-v0.2.0-rc1.aab` and
+`-rc2.aab` already are, and a hardened bundle carries the complete R8
+deobfuscation map and the Dart AOT symbols. `PC-DEF-021` covers the policy and
+tooling correction; whether to remove the existing published bundles is an
+owner decision recorded there.
+
+`PC-DEF-002` is resolved as explained — `0.0.0.0:18800` is Public Mode ON and
+nothing else, and the Core gateway stays loopback-only in both states — with
+`PC-DEF-020` as its one actionable residue. `PC-DEF-006` stays open: one
+artifact was built, not two compared.
+
+The next milestones are `PC-DEF-020` and `PC-DEF-021`, each under its own
+explicit prompt, then a re-run of the exposure audit to closure. Full evidence
+is in [`prompts/history/EXPOSURE_AUDIT.md`](prompts/history/EXPOSURE_AUDIT.md).
 
 Do not create a stable tag, publish a release, access a device, rebuild Core or
 Managed Runtime, or advance the accepted baseline without explicit milestone
