@@ -142,12 +142,22 @@ pre-releases. That was left alone deliberately — mutating published releases w
 not authorized — and the owner action for removal is recorded in
 `RELEASE_PROCESS.md`.
 
-**Do not build a production-signed candidate yet, and do not request the owner
-signing ceremony.** The exposure audit must be re-run to closure first, and
-`PC-DEF-025` is the planned milestone before it. The audit's structural evidence
-came from a LOCAL TEST APK (`5460d86a…`) that predates the `PC-DEF-020` Core
-generation and is no longer current; the fresh pair from this milestone is APK
-`7155de0a…` and audit AAB `00bde2c9…`, both LOCAL TEST and neither publishable.
+**The next milestone is the production-signed candidate, and it needs the
+owner.** The audit is closed, so the ceremony is now the right next step rather
+than a premature one — but it still requires its own explicit prompt. Build with
+`tool/build_hardened_android.py --signing production`, then
+`tool/release_gate.py --full <apk> --release-class production --artifact-class
+public-release`.
+
+Everything the audit inspected was **development-signed**: APK `113a8382…` and
+audit AAB `d45efcbf…`, both LOCAL TEST and neither publishable. H5C proved that
+production and development builds of one tree differ only by the signing block,
+so the structural findings transfer — but the production candidate itself has
+not been built or gated, and that is not something the audit established.
+
+**Do not install the production APK over the current device state.** The
+installed path is development-signed; that transition needs its own migration /
+clean-install / data-safeguard milestone.
 
 **Do not publish an AAB as a release asset.** `PocketClaw-v0.2.0-rc1.aab` and
 `-rc2.aab` already are, and a hardened bundle carries the complete R8
@@ -159,6 +169,13 @@ owner decision recorded there.
 nothing else, and the Core gateway stays loopback-only in both states — with
 `PC-DEF-020` as its one actionable residue. `PC-DEF-006` stays open: one
 artifact was built, not two compared.
+
+**THE FINAL RELEASE EXPOSURE AUDIT IS CLOSED / PASS.** The re-run at `6031898`
+found **no remaining release blocker** for the intended GitHub / direct APK
+stable release and opened no new defect. `PC-DEF-020`, `PC-DEF-021` and
+`PC-DEF-025` were each re-validated from the current tree, not taken on trust.
+Evidence:
+[`prompts/history/EXPOSURE_AUDIT_RERUN.md`](prompts/history/EXPOSURE_AUDIT_RERUN.md).
 
 **`PC-DEF-025` is RESOLVED.** `flutter test` is green — 490 passed, 0 failed —
 and the **complete** suite is now a release gate (`flutter.suite`), resolved

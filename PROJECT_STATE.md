@@ -31,8 +31,8 @@ evidence and describe the state at the date of each entry.
 | Core fingerprint | `2692de41b2fe2487475911b62cec519193d581b25cf6d0ebe935fc63973229df`; the staged Core pair carries it — moved by the `PC-DEF-020` fix |
 | Distribution targets | Direct APK, Google Play, Official F-Droid |
 | Exposure-audit state-basis HEAD | `25753cef5fa4d956e11d37b5a6176cdef977f015` (verified PC-DEF-019 closeout; the audit closeout commit follows it) |
-| Final release exposure audit | **RUN, BLOCKED.** Both blockers RESOLVED (`PC-DEF-020`, `PC-DEF-021`), and `PC-DEF-025` with them. `PC-DEF-022`..`PC-DEF-024` open. Ready to re-run to closure |
-| Next authorized milestone | Re-run the Final Release Exposure Audit to closure. No production candidate may be built before then |
+| Final release exposure audit | **CLOSED / PASS** on the re-run at `6031898`. No release blocker remains for the GitHub / direct APK release. `PC-DEF-022`..`PC-DEF-024`, `PC-DEF-006` and `PC-DEF-012` remain open and non-blocking for that path |
+| Next authorized milestone | Production-signed release candidate: owner signing ceremony, `--release-class production --artifact-class public-release`, then the final physical smoke. Requires its own explicit prompt |
 | Flutter suite | Green — 490 passed, 0 failed — and the **complete** suite is now a release gate (`flutter.suite`) |
 | Public release asset policy | APK only. An AAB is a Play-upload artifact and is never a public release asset — `PC-DEF-021` |
 
@@ -481,6 +481,45 @@ inconsistency and no defect. This milestone adds one item: source 25 → 26,
 full APK 56 → 57. Evidence is in
 [`docs/prompts/history/PC-DEF-025_FLUTTER_SUITE_GATE.md`](docs/prompts/history/PC-DEF-025_FLUTTER_SUITE_GATE.md).
 
+**The Final Release Exposure Audit is CLOSED / PASS.** The re-run at `6031898`
+found **no remaining release blocker** for the intended GitHub / direct APK
+stable release, and opened no new defect.
+
+All three defects the first run produced were re-validated from the current tree
+rather than taken on trust. `PC-DEF-020`: the Android host still states the
+Public Mode decision unconditionally, and a live bind probe re-confirmed
+loopback-only when off, wildcard when on, host override winning, and the Core
+gateway on 18790 loopback-only in **both** states; 94 matching tests and all
+seven network/auth packages green, with the unauthenticated surface unchanged.
+`PC-DEF-021`: the bundle classification matrix behaves exactly as specified —
+`public-release` exit 1, `play-upload` exit 0 with its metadata inventoried,
+`non-publish-audit` exit 0 with the notice, unclassified exit 2 — and the asset
+allowlist rejects `*.aab`. `PC-DEF-025`: `flutter analyze` clean and
+`flutter test` 490 passed / 0 failed, with the gate reporting the full suite.
+
+Fresh artifacts, both development-signed: APK 63,560,039 bytes `113a8382…`
+(LOCAL TEST / NON-RELEASABLE) and audit AAB 74,028,994 bytes `d45efcbf…`
+(NON-PUBLISH). Both carry the current Core pair `602ce034…` / `b5cce071…` and
+the H5B Managed Runtime byte for byte. Native audit **194 PASS / 0 FAIL / 0
+SKIP** with the private support manifest rebound to the fresh APK; source gate
+**26 PASS / 0 FAIL / 0 SKIPPED** in both classes; full artifact gate **57 PASS /
+0 FAIL / 0 SKIPPED**; frontend 418 tests; Core 98 packages; 139 release-tool
+tests. Secrets and entropy scans reproduced the first run's results with no new
+candidates, and no packaged entry carries a developer path.
+
+`PC-DEF-022`, `PC-DEF-023` and `PC-DEF-024` keep their classifications, each
+re-confirmed against current source and the fresh manifest, and none blocks the
+GitHub APK path. `PC-DEF-006` stays open for the F-Droid reproducibility path —
+not down-ranked, simply a different distribution path — and `PC-DEF-012` stays
+open with no new evidence.
+
+One thing the audit deliberately does not claim: the candidate inspected is
+development-signed. H5C proved production and development builds of one tree
+differ only by the signing block, so the findings transfer, but the
+production-signed candidate has not been built or gated under
+`--release-class production`. That is the next milestone. Evidence is in
+[`docs/prompts/history/EXPOSURE_AUDIT_RERUN.md`](docs/prompts/history/EXPOSURE_AUDIT_RERUN.md).
+
 ### Completed major milestones
 
 - vc62 Zero-Pico namespace closeout: physically accepted and merged.
@@ -505,6 +544,7 @@ full APK 56 → 57. Evidence is in
 - PC-DEF-020 Public Mode authority fix: resolved (release blocker cleared; not a release milestone).
 - PC-DEF-021 AAB privacy and release-artifact policy: resolved (second release blocker cleared).
 - PC-DEF-025 Flutter suite and release-gate integrity: resolved (the full suite is now a gate).
+- Final release exposure audit: **CLOSED / PASS** on re-run; no release blocker remains.
 
 See [`docs/ROADMAP.md`](docs/ROADMAP.md) for the phase sequence and
 [`docs/AI_HANDOFF.md`](docs/AI_HANDOFF.md) for the mandatory read order.
@@ -566,16 +606,20 @@ current release inventory.
 
 ### Exact next action
 
-Both exposure-audit release blockers are cleared and `PC-DEF-025` with them, so
-the tree is ready for the audit to be re-run:
+The exposure audit is closed and no release blocker remains. The next milestone
+is the one that needs the owner:
 
-1. **Re-run the Final Release Exposure Audit to closure**, under its own prompt,
-   against the current Core generation. The first run was blocked; the two
-   blockers it proved are fixed, the Flutter suite is green and the complete
-   suite is now a gate.
+1. **Production-signed release candidate.** The owner signing ceremony, then
+   `tool/build_hardened_android.py --signing production` and
+   `tool/release_gate.py --full <apk> --release-class production
+   --artifact-class public-release`, then the final Samsung physical smoke under
+   its own device authorization. Note the installed device path is
+   development-signed, so the production transition needs its migration /
+   clean-install / data-safeguard plan.
 
-Only then build a production-signed candidate. `PC-DEF-022`, `PC-DEF-023` and
-`PC-DEF-024` are open and scheduled after that unless the owner reorders them.
+`PC-DEF-022`, `PC-DEF-023` and `PC-DEF-024` are open, non-blocking cleanup the
+owner may schedule before or after that. `PC-DEF-006` gates the F-Droid path
+only; `PC-DEF-012` awaits reachability evidence.
 
 Prepare and review an explicit final release exposure audit prompt —
 secrets/configuration plus full APK and AAB inspection — from

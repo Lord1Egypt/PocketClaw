@@ -30,8 +30,16 @@ only reconstructable examples belong here.
   temporary directory. Nothing in PocketClaw's own UI calls it — no Flutter,
   Kotlin or dashboard code references `/api/update` — so it is inherited
   upstream desktop surface with no product use.
-- **Interaction with `PC-DEF-020`:** in Public Mode the route is LAN-reachable,
-  and `PC-DEF-020` means Public Mode can be active while the UI reports it off.
+- **Interaction with `PC-DEF-020`:** in Public Mode the route is LAN-reachable.
+  `PC-DEF-020` is now resolved, so Public Mode can no longer be active while the
+  UI reports it off; the route is reachable only when the user has deliberately
+  enabled LAN access.
+- **Re-confirmed by the exposure-audit closure re-run, 2026-09-13:** still
+  registered unconditionally, still absent from the unauthenticated allowlist,
+  still takes a caller-supplied URL, both traversal guards intact, still called
+  by no PocketClaw UI, and the Android apply step still cannot succeed against
+  the read-only install directory. Classification unchanged; **not a release
+  blocker for the GitHub APK path.**
 - **Narrow fix plan:** remove the route from the Android/Core build, or pin it to
   an allowlisted release host and verify a detached signature before applying.
   Removal is preferable: the product does not use it.
@@ -67,6 +75,12 @@ only reconstructable examples belong here.
   provider. Whichever is chosen, replace the base64 wrapper with a plain literal
   and a comment: obfuscating a credential that is not secret only hides it from
   the project's own audits. **No fix applied: separate authorization required.**
+- **Re-confirmed by the exposure-audit closure re-run, 2026-09-13:** still live
+  product surface; the encoded form appears once in each Core binary and the
+  decoded form zero times; the upstream-origin comment is intact. An
+  installed-app OAuth client class, so the real exposure remains third-party
+  revocation/dependency rather than secrecy, and no PocketClaw or user secret is
+  disclosed. Classification unchanged; **not a release blocker.**
 - **Status:** OPEN.
 
 ### PC-DEF-024 — A dead analytics deep link is exported in the release manifest
@@ -92,6 +106,12 @@ only reconstructable examples belong here.
   from the default build, or make the filter conditional on an analytics build
   the way the SDK itself already is. **No fix applied: separate authorization
   required.**
+- **Re-confirmed by the exposure-audit closure re-run, 2026-09-13:**
+  `android:scheme="um.placeholder"` is present in the fresh merged release
+  manifest; `POCKETCLAW_ANALYTICS_PROVIDER` still defaults to `none` so the SDK
+  is not packaged; `logIncomingIntent` still only writes the URI to logcat.
+  `MainActivity` is already LAUNCHER-exported. Classification unchanged; **not a
+  release blocker.**
 - **Status:** OPEN.
 
 
@@ -230,6 +250,16 @@ only reconstructable examples belong here.
 - **Reason deferred:** Final APK inputs are still changing during H3 and later
   hardening.
 - **Target milestone:** Production artifact hardening/reproducibility proof.
+- **Not closed by the exposure-audit closure re-run, 2026-09-13.** That audit
+  built one APK and did not build and compare two independent final builds, so
+  this acceptance criterion is untouched. One observation recorded without
+  overstating it: the APK built at the re-run (`113a8382…`) and the one built at
+  `PC-DEF-021` (`7155de0a…`) differ while their Dart AOT and R8 mapping are
+  byte-identical. The earlier APK had been overwritten by `--clean`, so no
+  byte-level comparison was possible; differing archive hashes with identical
+  compiled inputs are consistent with packaging non-determinism, which is
+  precisely what this defect is about. It gates the F-Droid path, not the
+  GitHub / direct APK release.
 - **Status:** OPEN.
 
 ### PC-DEF-007 — F-Droid builder compatibility and committed prebuilts remain open
