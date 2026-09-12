@@ -3,19 +3,13 @@ package com.lord1egypt.pocketclaw
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
-import android.os.Bundle
 import android.os.Environment
 import android.provider.Settings
-import android.util.Log
 import com.lord1egypt.pocketclaw.media.ChatImagePicker
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 
 class MainActivity : FlutterActivity() {
-    companion object {
-        private const val TAG = "MainActivity"
-    }
-
     private var methodChannel: PocketClawMethodChannel? = null
 
     /**
@@ -27,11 +21,6 @@ class MainActivity : FlutterActivity() {
 
     /** Guards the all-files-access prompt to one appearance per launch. */
     private var storageAccessPromptShown = false
-
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        logIncomingIntent(intent)
-    }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -46,8 +35,10 @@ class MainActivity : FlutterActivity() {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
+        // setIntent stays: FlutterActivity and plugins read getIntent(). What
+        // was removed beside it is the analytics-only branch that logged the
+        // incoming URI — see PC-DEF-024.
         setIntent(intent)
-        logIncomingIntent(intent)
     }
 
     override fun onResume() {
@@ -84,12 +75,5 @@ class MainActivity : FlutterActivity() {
         methodChannel?.dispose()
         methodChannel = null
         super.cleanUpFlutterEngine(flutterEngine)
-    }
-
-    private fun logIncomingIntent(intent: Intent?) {
-        val data = intent?.data ?: return
-        if (data.scheme == BuildConfig.POCKETCLAW_UMENG_LINK_SCHEME) {
-            Log.i(TAG, "Received Umeng link: $data")
-        }
     }
 }

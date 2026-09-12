@@ -32,7 +32,7 @@ evidence and describe the state at the date of each entry.
 | Core fingerprint | `6f00359dc9e8bf7ee24f9d170754b2792a41fb880d9da4f34a8600dd8f99df00`; the staged Core pair carries it — moved by the `PC-DEF-022` removal |
 | Distribution targets | Direct APK, Google Play, Official F-Droid |
 | Exposure-audit state-basis HEAD | `25753cef5fa4d956e11d37b5a6176cdef977f015` (verified PC-DEF-019 closeout; the audit closeout commit follows it) |
-| Final release exposure audit | **CLOSED / PASS** on the re-run at `6031898`. No release blocker remains for the GitHub / direct APK release. `PC-DEF-022` has since been RESOLVED; `PC-DEF-023`, `PC-DEF-024`, `PC-DEF-006` and `PC-DEF-012` remain open and non-blocking for that path |
+| Final release exposure audit | **CLOSED / PASS** on the re-run at `6031898`. No release blocker remains for the GitHub / direct APK release. `PC-DEF-022` and `PC-DEF-024` have since been RESOLVED; `PC-DEF-023`, `PC-DEF-006` and `PC-DEF-012` remain open and non-blocking for that path |
 | Next authorized milestone | Production-signed release candidate: owner signing ceremony, `--release-class production --artifact-class public-release`, then the final physical smoke. Requires its own explicit prompt |
 | Flutter suite | Green — 490 passed, 0 failed — and the **complete** suite is now a release gate (`flutter.suite`) |
 | Public release asset policy | APK only. An AAB is a Play-upload artifact and is never a public release asset — `PC-DEF-021` |
@@ -557,6 +557,39 @@ payload rebuilt. Public Mode, the session wall, the WebSocket boundary and the
 gateway's loopback pin are unchanged. Evidence is in
 [`docs/prompts/history/PC-DEF-022_UPDATE_SURFACE_REMOVAL.md`](docs/prompts/history/PC-DEF-022_UPDATE_SURFACE_REMOVAL.md).
 
+`PC-DEF-024` is **RESOLVED by removal**. `MainActivity` carried a second
+`VIEW` + `DEFAULT` + `BROWSABLE` intent filter whose scheme came from a manifest
+placeholder; H1.5 removed the analytics SDK from the shipping build, so the
+placeholder resolved to the literal `um.placeholder` and the release manifest
+advertised a web-reachable entry point into an exported activity for an SDK that
+is not in the APK. `MainActivity` then logged the incoming URI from it.
+
+Removal rather than a conditional, because the repository had already decided
+that shape for the same integration: the manifest's advertising-permission
+comment records that an analytics build gets what the SDK's own AAR manifest
+declares, and that an app-level declaration it needs belongs to that build's
+manifest. The filter, the Gradle link-scheme plumbing and the
+`logIncomingIntent` branch are gone, along with the `TAG`, `Log` and `Bundle`
+symbols that existed only for them. `setIntent(intent)` stays — FlutterActivity
+and plugins read `getIntent()`, and removing analytics logging must not remove
+real intent handling. `POCKETCLAW_UMENG_APP_KEY`, `_CHANNEL` and `_PACKAGED` are
+kept: `AnalyticsReporter` and two `meta-data` entries consume them, and they are
+not an exported surface.
+
+A fresh LOCAL TEST APK (`f580cadc…`, 63,500,459 bytes) confirms it in the
+packaged merged manifest: zero `um.placeholder`, zero `BROWSABLE`, zero
+`android:scheme`, zero `action.VIEW`, with `category.LAUNCHER` and
+`.MainActivity` still present and `debuggable`/`testOnly` still absent. Seven
+new tests guard it and are mutation-tested; they strip XML comments and assert
+declarations, which is what caught that Gradle carries comments through its
+merge while `aapt2` strips them.
+
+`flutter test` is **497 passed, 0 failed** (up from 490 by the seven new tests),
+`flutter analyze` clean. No Core build input was touched: the fingerprint stays
+`6f00359dc9e8bf7ee24f9d170754b2792a41fb880d9da4f34a8600dd8f99df00` and Core was
+not rebuilt. Evidence is in
+[`docs/prompts/history/PC-DEF-024_DEAD_DEEP_LINK_REMOVAL.md`](docs/prompts/history/PC-DEF-024_DEAD_DEEP_LINK_REMOVAL.md).
+
 ### Completed major milestones
 
 - vc62 Zero-Pico namespace closeout: physically accepted and merged.
@@ -583,6 +616,7 @@ gateway's loopback pin are unchanged. Evidence is in
 - PC-DEF-025 Flutter suite and release-gate integrity: resolved (the full suite is now a gate).
 - Final release exposure audit: **CLOSED / PASS** on re-run; no release blocker remains.
 - PC-DEF-022 update-surface removal: resolved (the unused self-update route is gone).
+- PC-DEF-024 dead analytics deep-link removal: resolved (the dead BROWSABLE surface is gone).
 
 See [`docs/ROADMAP.md`](docs/ROADMAP.md) for the phase sequence and
 [`docs/AI_HANDOFF.md`](docs/AI_HANDOFF.md) for the mandatory read order.
@@ -655,9 +689,12 @@ is the one that needs the owner:
    development-signed, so the production transition needs its migration /
    clean-install / data-safeguard plan.
 
-`PC-DEF-023` and `PC-DEF-024` are open, non-blocking cleanup the owner may
-schedule before or after that; `PC-DEF-022` is now resolved. `PC-DEF-006` gates
-the F-Droid path only; `PC-DEF-012` awaits reachability evidence.
+`PC-DEF-023` is the one remaining non-blocking cleanup item, and it needs an
+owner **product decision** rather than an implementation: whether to register
+PocketClaw's own Google Cloud OAuth client for the Antigravity provider, accept
+the third-party credential reuse explicitly with its revocation risk stated, or
+drop the provider. `PC-DEF-022` and `PC-DEF-024` are resolved. `PC-DEF-006`
+gates the F-Droid path only; `PC-DEF-012` awaits reachability evidence.
 
 Prepare and review an explicit final release exposure audit prompt —
 secrets/configuration plus full APK and AAB inspection — from

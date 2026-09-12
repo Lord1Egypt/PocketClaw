@@ -47,37 +47,6 @@ only reconstructable examples belong here.
   disclosed. Classification unchanged; **not a release blocker.**
 - **Status:** OPEN.
 
-### PC-DEF-024 — A dead analytics deep link is exported in the release manifest
-
-- **Discovered:** final release exposure audit, 2026-09-12.
-- **Component:** `android/app/src/main/AndroidManifest.xml`; `MainActivity`.
-- **Severity:** Unnecessary externally reachable entry point. Low.
-- **Description:** `MainActivity` is exported and carries a second intent filter
-  with `VIEW` + `DEFAULT` + `BROWSABLE` on scheme
-  `${POCKETCLAW_UMENG_LINK_SCHEME}`. In the shipped configuration
-  `POCKETCLAW_UMENG_APP_KEY` is empty, so `build.gradle.kts:42-46` resolves the
-  scheme to the literal `um.placeholder`, and the merged release manifest
-  confirms `android:scheme="um.placeholder"` reaches the artifact. Any web page
-  can therefore launch PocketClaw with `um.placeholder://…`, and
-  `MainActivity.logIncomingIntent` writes the full attacker-supplied URI to
-  logcat at INFO. The Umeng SDK it exists for is not packaged
-  (`POCKETCLAW_UMENG_PACKAGED=false`, and H1.5 removed the SDK entirely).
-- **Assessment:** `MainActivity` is already launchable by any app through its
-  LAUNCHER filter, so the added capability is web-originated launch plus
-  attacker-controlled text in a log other apps cannot read on current Android.
-  No injection surface: the URI is logged and otherwise unused.
-- **Narrow fix plan:** drop the intent filter and the `logIncomingIntent` branch
-  from the default build, or make the filter conditional on an analytics build
-  the way the SDK itself already is. **No fix applied: separate authorization
-  required.**
-- **Re-confirmed by the exposure-audit closure re-run, 2026-09-13:**
-  `android:scheme="um.placeholder"` is present in the fresh merged release
-  manifest; `POCKETCLAW_ANALYTICS_PROVIDER` still defaults to `none` so the SDK
-  is not packaged; `logIncomingIntent` still only writes the URI to logcat.
-  `MainActivity` is already LAUNCHER-exported. Classification unchanged; **not a
-  release blocker.**
-- **Status:** OPEN.
-
 
 ### PC-DEF-012 — Broad dependency export surfaces need reachability evidence
 
@@ -242,6 +211,77 @@ only reconstructable examples belong here.
 - **Status:** OPEN.
 
 ## Resolved
+
+### PC-DEF-024 — A dead analytics deep link is exported in the release manifest
+
+- **Discovered:** final release exposure audit, 2026-09-12.
+- **Component:** `android/app/src/main/AndroidManifest.xml`; `MainActivity`.
+- **Severity:** Unnecessary externally reachable entry point. Low.
+- **Description:** `MainActivity` is exported and carries a second intent filter
+  with `VIEW` + `DEFAULT` + `BROWSABLE` on scheme
+  `${POCKETCLAW_UMENG_LINK_SCHEME}`. In the shipped configuration
+  `POCKETCLAW_UMENG_APP_KEY` is empty, so `build.gradle.kts:42-46` resolves the
+  scheme to the literal `um.placeholder`, and the merged release manifest
+  confirms `android:scheme="um.placeholder"` reaches the artifact. Any web page
+  can therefore launch PocketClaw with `um.placeholder://…`, and
+  `MainActivity.logIncomingIntent` writes the full attacker-supplied URI to
+  logcat at INFO. The Umeng SDK it exists for is not packaged
+  (`POCKETCLAW_UMENG_PACKAGED=false`, and H1.5 removed the SDK entirely).
+- **Assessment:** `MainActivity` is already launchable by any app through its
+  LAUNCHER filter, so the added capability is web-originated launch plus
+  attacker-controlled text in a log other apps cannot read on current Android.
+  No injection surface: the URI is logged and otherwise unused.
+- **Fix applied, 2026-09-13 — removed, not made conditional.** The repository
+  had already decided this shape for the same integration: the manifest's
+  advertising-permission comment records that "an analytics build gets whatever
+  the analytics SDK's own AAR manifest declares" and that an app-level
+  declaration it genuinely needs belongs to that build's own manifest. A filter
+  that is only correct for a build PocketClaw does not ship should not sit in
+  the manifest it does, and making it conditional would have added complexity to
+  preserve dead code.
+
+  Removed: the `VIEW` + `DEFAULT` + `BROWSABLE` intent filter from
+  `AndroidManifest.xml`; `umengLinkScheme`, its `POCKETCLAW_UMENG_LINK_SCHEME`
+  `buildConfigField` and its `manifestPlaceholders` entry from
+  `build.gradle.kts`; and `MainActivity.logIncomingIntent` with both its call
+  sites, plus the `TAG` constant and `android.util.Log` import that existed only
+  for it. `onCreate` became an override that only called `super`, so it and the
+  then-unused `Bundle` import went too. `setIntent(intent)` in `onNewIntent`
+  **stays** — FlutterActivity and plugins read `getIntent()`, and removing the
+  logging must not remove real intent handling.
+
+  `POCKETCLAW_UMENG_APP_KEY`, `_CHANNEL` and `_PACKAGED` are **kept**: they are
+  consumed by `AnalyticsReporter.kt` and the two `meta-data` entries, so they are
+  live plumbing rather than residue, and they are not an exported surface.
+- **Verification:** the packaged merged manifest of a fresh LOCAL TEST APK
+  (`f580cadc…`) contains **zero** occurrences of `um.placeholder`, `BROWSABLE`,
+  `android:scheme` and `action.VIEW`, while `category.LAUNCHER` and
+  `.MainActivity` are still present and `debuggable`/`testOnly` remain absent.
+
+  Seven tests in `test/unit/android_release_contract_test.dart` guard it: the
+  source manifest declares no scheme at all; no `BROWSABLE` or `VIEW` survives;
+  the `MAIN`/`LAUNCHER` contract and the exported launcher activity remain; the
+  Gradle link-scheme plumbing is gone so no stale placeholder can survive merge
+  processing; the logging branch is gone while `setIntent` remains; the default
+  provider still packages no SDK; and the **merged** release manifest carries
+  none of it when one has been built. Assertions strip XML comments first and
+  check declarations, because the comment documenting the removal necessarily
+  names what was removed — running the merged-manifest assertion for real caught
+  exactly that, since Gradle carries comments through and only aapt2 strips them.
+
+  Mutation-tested: reintroducing the filter fails the contract.
+- **Core impact:** none. Android product source and tests only; the Core source
+  fingerprint is unchanged at
+  `6f00359dc9e8bf7ee24f9d170754b2792a41fb880d9da4f34a8600dd8f99df00`, Core was
+  not rebuilt and the staged pair is untouched.
+- **Status:** RESOLVED, 2026-09-13.
+- **Re-confirmed by the exposure-audit closure re-run, 2026-09-13:**
+  `android:scheme="um.placeholder"` is present in the fresh merged release
+  manifest; `POCKETCLAW_ANALYTICS_PROVIDER` still defaults to `none` so the SDK
+  is not packaged; `logIncomingIntent` still only writes the URI to logcat.
+  `MainActivity` is already LAUNCHER-exported. Classification unchanged; **not a
+  release blocker.**
+- **Status:** OPEN.
 
 ### PC-DEF-022 — `/api/update` fetches and extracts an arbitrary URL with no provenance check
 

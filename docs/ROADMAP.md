@@ -78,6 +78,12 @@ review result, documentation closeout, and `STOP`.
 1d. `PC-DEF-022` update-surface removal — **DONE**, resolved 2026-09-13;
     evidence in
     [`prompts/history/PC-DEF-022_UPDATE_SURFACE_REMOVAL.md`](prompts/history/PC-DEF-022_UPDATE_SURFACE_REMOVAL.md).
+1e. `PC-DEF-024` dead analytics deep-link removal — **DONE**, resolved
+    2026-09-13; evidence in
+    [`prompts/history/PC-DEF-024_DEAD_DEEP_LINK_REMOVAL.md`](prompts/history/PC-DEF-024_DEAD_DEEP_LINK_REMOVAL.md).
+1f. `PC-DEF-023` — **owner product decision required**, not an implementation
+    task. Register PocketClaw's own Google OAuth client, accept the third-party
+    credential reuse explicitly, or drop the Antigravity provider.
 2. APK and AAB production inspection. Blocked until 1c closes: no
    production-signed candidate may be built before then, and the owner signing
    ceremony must not be requested for a candidate that will be superseded.

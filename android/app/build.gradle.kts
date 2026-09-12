@@ -39,11 +39,6 @@ val dartDefines = decodedDartDefines(project)
 val analyticsProvider = dartDefines["POCKETCLAW_ANALYTICS_PROVIDER"] ?: "none"
 val umengAppKey = dartDefines["POCKETCLAW_UMENG_APP_KEY"] ?: ""
 val umengChannel = dartDefines["POCKETCLAW_UMENG_CHANNEL"] ?: "official"
-val umengLinkScheme = if (umengAppKey.isNotBlank()) {
-    "um.$umengAppKey"
-} else {
-    "um.placeholder"
-}
 
 
 // ---------------------------------------------------------------------------
@@ -336,11 +331,9 @@ android {
         buildConfigField("boolean", "POCKETCLAW_UMENG_PACKAGED", umengAnalyticsRequested.toString())
         buildConfigField("String", "POCKETCLAW_UMENG_APP_KEY", umengAppKey.toQuotedBuildConfigValue())
         buildConfigField("String", "POCKETCLAW_UMENG_CHANNEL", umengChannel.toQuotedBuildConfigValue())
-        buildConfigField("String", "POCKETCLAW_UMENG_LINK_SCHEME", umengLinkScheme.toQuotedBuildConfigValue())
         // Pass values to AndroidManifest.xml via manifestPlaceholders
         manifestPlaceholders["POCKETCLAW_UMENG_APP_KEY"] = umengAppKey
         manifestPlaceholders["POCKETCLAW_UMENG_CHANNEL"] = umengChannel
-        manifestPlaceholders["POCKETCLAW_UMENG_LINK_SCHEME"] = umengLinkScheme
     }
 
     signingConfigs {

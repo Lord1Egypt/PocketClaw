@@ -46,3 +46,4 @@ boundary.
 - [`PC-DEF-025 — Flutter suite and release-gate integrity`](history/PC-DEF-025_FLUTTER_SUITE_GATE.md)
 - [`Final release exposure audit — closure re-run`](history/EXPOSURE_AUDIT_RERUN.md)
 - [`PC-DEF-022 — update-surface removal`](history/PC-DEF-022_UPDATE_SURFACE_REMOVAL.md)
+- [`PC-DEF-024 — dead analytics deep-link removal`](history/PC-DEF-024_DEAD_DEEP_LINK_REMOVAL.md)

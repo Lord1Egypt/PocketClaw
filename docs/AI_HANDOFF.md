@@ -86,8 +86,24 @@ still bound to the H5C candidate and is rebound at the next artifact build.
 relabelled; the next artifact build is the first to contain the current Core
 pair, and it needs its own validation.
 
-`PC-DEF-009` through `PC-DEF-011`, `PC-DEF-013` through `PC-DEF-022` and
-`PC-DEF-025` are resolved.
+`PC-DEF-009` through `PC-DEF-011`, `PC-DEF-013` through `PC-DEF-022`,
+`PC-DEF-024` and `PC-DEF-025` are resolved.
+
+**`PC-DEF-024` was resolved by removing the filter, not making it conditional.**
+The `um.placeholder` `VIEW`/`DEFAULT`/`BROWSABLE` filter, its Gradle
+link-scheme plumbing and `MainActivity.logIncomingIntent` are gone; the packaged
+merged manifest has zero `BROWSABLE`, `android:scheme` and `action.VIEW` while
+`MAIN`/`LAUNCHER` still works. Do not reintroduce a placeholder scheme — an
+analytics build declares what it needs in its own manifest.
+`POCKETCLAW_UMENG_APP_KEY`, `_CHANNEL` and `_PACKAGED` stay: `AnalyticsReporter`
+and two `meta-data` entries consume them.
+
+**`PC-DEF-023` is the only open cleanup item, and it is an owner product
+decision, not an implementation task:** register PocketClaw's own Google Cloud
+OAuth client for the Antigravity provider, accept the third-party credential
+reuse explicitly with its revocation risk recorded, or drop the provider. Do not
+replace, decode or re-encode the credential, and do not document acceptance,
+without that decision.
 
 **`PC-DEF-022` was resolved by removing the route, not by hardening it.**
 `POST /api/update` is gone from source and from both Core binaries; `embed.go`'s
@@ -115,7 +131,7 @@ defects and fixed none.
     PC-DEF-021  AAB embeds the private R8 mapping and Dart symbols   RESOLVED
     PC-DEF-022  /api/update fetches an arbitrary URL unverified      RESOLVED (removed)
     PC-DEF-023  third-party Google OAuth client secret embedded      open
-    PC-DEF-024  dead analytics deep link exported in the manifest    open
+    PC-DEF-024  dead analytics deep link exported in the manifest    RESOLVED (removed)
     PC-DEF-025  flutter test red since H5B; no gate runs the suite   RESOLVED
 
 **`PC-DEF-020` is now RESOLVED.** The Android host always states the Public Mode
