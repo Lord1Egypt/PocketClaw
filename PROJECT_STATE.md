@@ -845,14 +845,14 @@ unproven causal role.
 
 | Field | Value |
 | --- | --- |
-| Verification APK | `3a8507e5ae5580118f78068dadff59e60c94757a4be84683bf2e7d14fd3821cf` |
-| Size | 63,501,639 bytes |
+| Verification APK | `234d1d69ea63c505ad47fba931ab12b86c66abf301293d2cc664cb854f5440f1` |
+| Size | 63,501,635 bytes |
 | Version / package | `0.2.0+62` · `com.lord1egypt.pocketclaw` |
 | Signer | development — LOCAL TEST / NON-RELEASABLE |
 | Core source fingerprint | `5933e74f9e94e8efa631e24369b767547e3b1c589402b7c312e9b2e8edc56313` (both binaries) |
-| Core BuildTime | `2026-09-13T15:20:47+0000` (build-input commit `23ca0a4`) |
-| `libpocketclaw.so` | `d21c7c0f457958e67495e891260baa399f7d9618b9ee3554371f141754c92e0c` |
-| `libpocketclaw-web.so` | `aed3c6f1569abb0ba3b5168678b80bf64c2be0f3ee9941e48b2ff6ca5dbe89aa` |
+| Core BuildTime | `2026-09-13T15:53:52+0000` (build-input commit `7b6c43c`) |
+| `libpocketclaw.so` | `5111ab8fa3add72011786aec131cbe1d8f5d7c365b2a24965508e26a5dea2c3b` |
+| `libpocketclaw-web.so` | `f7f015b250c0a4e8142b957c97309930504799d45d35dbe9a18238e9f2f48de1` |
 | Dart AOT | `f5d84c9477617c6f4253819e6fcc5bc8c0f42a5c7977c13bb62ea59c5067e5a5` |
 | Dart symbols | `e04449135e470d4d8a279354f696fa7022cbb716d5495daaea56e25fd77fbee2` |
 
@@ -878,6 +878,16 @@ onboarding endpoint.
 PC-DEF-048's fix was exercised rather than assumed: this artifact was built
 **without** `--clean`, under the no-Dart-change condition that reproduced the
 defect, and the private symbol file was produced.
+
+The Core was rebuilt once more after the staged pair was already correct.
+Untracking a state file the test suite had written changed a path under
+`core/src`, and `BUILD_INPUTS` covers `core/src` whole — deliberate
+over-inclusion, per `resolve-build-time.sh`: "an extra commit moves the
+timestamp slightly more often than strictly necessary, whereas a missing path
+means a real build-input change that does not move it at all." The fingerprint
+was unchanged at `5933e74f…` throughout, because it excludes tests and stray
+JSON by name; only the timestamp moved, and rebuilding was the right answer
+rather than narrowing a provenance rule.
 
 ### Not physically verified
 
