@@ -35,8 +35,9 @@ evidence and describe the state at the date of each entry.
 | Final release exposure audit | **CLOSED / PASS** on the re-run at `6031898`. No release blocker remains for the GitHub / direct APK release. `PC-DEF-022`, `PC-DEF-023` and `PC-DEF-024` have all since been RESOLVED; only `PC-DEF-006` (F-Droid path) and `PC-DEF-012` remain open |
 | Production candidate | **BUILT AND GATED.** `4d4bc33a…`, 63,472,307 bytes, one v2 signer `176dca6b…`; production artifact gate 57 PASS / 0 FAIL / 0 SKIPPED. Private validation evidence — not installed, published or accepted |
 | Next authorized milestone | **Samsung physical round for PC-DEF-056/057 on a new Verification APK.** PC-DEF-030/032/033/049/051/053 are physically verified PASS; PC-DEF-050/052/055 remain unverified. Earlier note, still current: **Samsung physical round for PC-DEF-049..055 on the Verification APK below.** The APK is built, gated and archived; no device was attached to the session that built it, so nothing is physically verified. Samsung acceptance of the production candidate follows, under its own prompt, with a migration / clean-install / data-safeguard plan; that candidate is production-signed, so it can never be installed over this development-signed build |
-| Verification APK (PC-DEF-049..055) | `6df7abaa6bec5a5124d21d30b582fc37d2837be036fa75e93eb3d30d5634894c`, 63,528,459 bytes, development signer `15cf75f9945d5354e75707e0326b7cffc60ac51a68df38156db318ef4578a27c`, Dart AOT `d5d52742ab6cc5672e7c3910dc20c50e5c4da430c80d65c49501d12ea17a7968`. Source gate 26/26, artifact gate 24/24, native ELF audit 188 PASS / 0 FAIL. Archived read-only at `build/forensic/apk-6df7abaa…/` with its private R8 material separated. LOCAL TEST / NON-RELEASABLE |
-| Staged Core freshness | **CURRENT.** Rebuilt from the PC-DEF-052..055 source commit `7bb0810` and staged in `2bab839`, which touches no build input. Fingerprint `212131a86b5d089030c911af8f2c827eaa1c096fd2aab6978f13bf1a95f166a6` (was `181cfcbd…`), BuildTime `2026-09-13T19:56:34+0000`; `libpocketclaw.so` 37,659,200 bytes `eb6fd342…`, `libpocketclaw-web.so` 25,516,352 bytes `a28d78f1…`. `core.staged_freshness` passes |
+| Verification APK (PC-DEF-056/057) | `7c8eefd399318b6187b0fb87c8bd687d7d08c3537959e31f38767a642908e3cb`, 63,539,059 bytes, development signer `15cf75f9…`, Dart AOT `007c23b6be22a9a44f429a53f8fb9eaf930180e67bb20f111cadceedb68e22f4`. Source gate 26/26 with `flutter.suite 561 passed`, artifact gate 24/24, native ELF 188 PASS / 0 FAIL. Archived read-only at `build/forensic/apk-7c8eefd3…/`. LOCAL TEST / NON-RELEASABLE. **Nothing in it is physically verified** |
+| Verification APK (PC-DEF-049..055, superseded) | `6df7abaa6bec5a5124d21d30b582fc37d2837be036fa75e93eb3d30d5634894c`, 63,528,459 bytes, development signer `15cf75f9945d5354e75707e0326b7cffc60ac51a68df38156db318ef4578a27c`, Dart AOT `d5d52742ab6cc5672e7c3910dc20c50e5c4da430c80d65c49501d12ea17a7968`. Source gate 26/26, artifact gate 24/24, native ELF audit 188 PASS / 0 FAIL. Archived read-only at `build/forensic/apk-6df7abaa…/` with its private R8 material separated. LOCAL TEST / NON-RELEASABLE |
+| Staged Core freshness | **CURRENT.** Rebuilt from the PC-DEF-056/057 source commit `934c6bf` and staged in `659576c`, which touches no build input. Fingerprint `d1d3b98fe500fae3ec118a3e7f8a1525c1ee4f05e4a90470f4a208b86422edc6` (was `212131a8…`), BuildTime `2026-09-13T21:44:42+0000`; `libpocketclaw.so` 37,725,376 bytes `4ab62892…`, `libpocketclaw-web.so` 25,516,992 bytes `0b3d13b5…`. `core.staged_freshness` passes |
 | Flutter suite | Green — 497 passed, 0 failed — and the **complete** suite is now a release gate (`flutter.suite`) |
 | Public release asset policy | APK only. An AAB is a Play-upload artifact and is never a public release asset — `PC-DEF-021` |
 
@@ -104,6 +105,26 @@ level reading the writer's bytes. `pkg/logger` 50 tests. Full Go suite green und
 `-tags goolm` apart from the staged-Core freshness guard, which correctly reports
 the pair as stale for the source commit. `flutter analyze` clean, Flutter **561
 passed**, frontend **475 passed**, `tsc -b` and ESLint clean.
+
+**Verification APK built, gated and archived.**
+`7c8eefd399318b6187b0fb87c8bd687d7d08c3537959e31f38767a642908e3cb`, 63,539,059
+bytes, `0.2.0+62`, development signer `15cf75f9…`, Core fingerprint
+`d1d3b98f…` on both packaged binaries, BuildTime `2026-09-13T21:44:42+0000`, Dart
+AOT `007c23b6…` (5,702,536 bytes). ABI arm64-v8a with plugin stubs and
+`lib/arm64-v8a/libdartjni.so` present.
+
+Gates: source **26 PASS / 0 FAIL / 0 SKIPPED** (`flutter.suite 561 passed`,
+`core.staged_freshness PASS`), artifact **24 PASS / 0 FAIL / 0 SKIPPED** as
+`non-publish-audit`, native ELF **188 PASS / 0 FAIL / 0 SKIP**, Zero-Pico PASS.
+
+Archived read-only at
+`build/forensic/apk-7c8eefd399318b6187b0fb87c8bd687d7d08c3537959e31f38767a642908e3cb/`
+with `FORENSIC.md` naming what to check on the device, and the private R8 material
+in `private-do-not-distribute/`.
+
+No device was attached to this session, so **nothing in this APK is physically
+verified**. Outstanding on the Samsung: PC-DEF-056, PC-DEF-057, and the still
+unverified PC-DEF-050, PC-DEF-052 and PC-DEF-055.
 
 ## 2026-09-13 — Onboarding privacy, actionable errors, signature secrets
 
