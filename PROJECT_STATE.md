@@ -802,6 +802,80 @@ reachability evidence exists.
 
 # Historical milestone archive
 
+## Consolidated physical-defect hardening PD1 — SOURCE COMPLETE, PHYSICALLY UNVERIFIED
+
+- **Date:** 2026-09-13.
+- **Branch:** `feature/final-release-hardening`. Not merged, not pushed, not
+  tagged, not published.
+- **Basis:** owner Samsung physical testing of verification APK
+  `b6d6e6f9bd6316e24308a63265dcb1e4c15ef7bd1b7e04ba921a5d6b0a1e63b7`.
+- **Commits:** `361c89b` (source) and `56ca091` (staged Core pair), plus this
+  documentation commit.
+
+### Artifact identity
+
+| Field | Value |
+| --- | --- |
+| Verification APK | `dd792aabc23482b49312dcdb2393213e0934d60a465b4311e5fac5b512e41cea` |
+| Size | 63,495,923 bytes |
+| Path | `build/app/outputs/apk/release/app-release.apk` (ignored; not committed) |
+| Version | `0.2.0+62`, package `com.lord1egypt.pocketclaw` |
+| Signer | development — LOCAL TEST / NON-RELEASABLE |
+| Core source fingerprint | `1a40356e985d333be014f82988376931dfb176cf50a76e5abbb510cd65e268fc` (both binaries) |
+| Core BuildTime | `2026-09-13T09:14:52+0000` (from build-input commit `361c89b`) |
+| `libpocketclaw.so` | 37,659,104 bytes, `6593229b3707377f2c0aab5bcb4a31ac26b41875ed265e034f55539800bded02` |
+| `libpocketclaw-web.so` | 25,385,088 bytes, `7122d7f0b94f72d96694c4a769c32361921869d4a5b414924f54e9c31c23156e` |
+| Dart AOT | `f5d84c9477617c6f4253819e6fcc5bc8c0f42a5c7977c13bb62ea59c5067e5a5` |
+| Onboarding endpoint | `https://pocketclaw-telegram-setup-bot-83ai.vercel.app` (PC-DEF-026 contract intact) |
+
+### Gate counts
+
+| Gate | Result |
+| --- | --- |
+| Source gate (`--verify-source --release-class test`) | PASS; `repo.clean_worktree` SKIPPED while the tree carried the milestone changes |
+| Artifact gate (`--verify-artifact ... --artifact-class non-publish-audit`) | 32 PASS / 0 FAIL / 0 SKIPPED |
+| Native ELF audit (`--enforce-target`) | 188 PASS / 0 FAIL / 0 SKIP |
+| Zero-Pico | PASS — 19 allowlist entries, all in use, no new occurrences |
+| Core staleness (`pkg/coresource`) | PASS after the rebuild |
+| Core Go suite (`-tags goolm ./...`) | PASS |
+| Frontend (`vitest`) | 31 files / 448 tests PASS |
+| Frontend (`tsc -b`, `eslint .`) | clean |
+| Flutter (`flutter test`, `flutter analyze`) | 530 tests PASS; no analyzer issues |
+| Python tool suites | PASS (`test_create_release_keystore.py` needs the toolchain JDK on PATH) |
+
+### Defects closed in source
+
+PC-DEF-030, PC-DEF-032, PC-DEF-033, PC-DEF-041, PC-DEF-042, and the new
+PC-DEF-043 (model removal left references and failed silently) and PC-DEF-044
+(a replaced Telegram token skipped the owner contract). Root causes, evidence
+and verification are in `docs/DEFECT_LOG.md`. The audited provider matrix is
+`docs/PROVIDER_COMPATIBILITY.md`.
+
+PC-DEF-031 (Telegram remove/disconnect/reconnect/replace) was audited, not
+rewritten: the existing implementation stands, and the one repair it needed was
+PC-DEF-044.
+
+### What is NOT verified
+
+No Android device was attached to this session (`adb devices` empty), so **no
+user-visible defect in this milestone is physically verified**. Every status in
+the defect log reads FIXED IN SOURCE. The artifact is ARTIFACT VERIFIED by the
+gates above and by direct string inspection of the packaged Core, Dart and Dex.
+Phase D remains entirely outstanding.
+
+### Forensic artifact note
+
+The build wrote to the repository's standard `build/app/outputs` path and
+therefore replaced the `b6d6e6f9` verification APK in place, which is how every
+previous milestone's artifact was also handled. Its two Core binaries were
+extracted before the build and preserved outside the repository at
+`/home/lordegypt/pocketclaw-forensics/b6d6e6f9/`
+(`libpocketclaw.so` `ee7c3d75a9376cb16a25c8414b67489051fa96baa350b443f1f9006c4a25f36e`,
+`libpocketclaw-web.so` `c1c2f5bb39d80989d623556f9cb76b6feb6617d25879babbfe80d247a7e0bad5`),
+together with a copy of the new APK. The full `b6d6e6f9` APK itself is gone and
+would have to be rebuilt from `e65ecc2`, which APK-level reproducibility does
+not yet guarantee byte-for-byte.
+
 ## Final Production Release Hardening H4B — CLOSED / PRIVATE VALIDATION
 
 H4B started from `a6034c065becccc0a01ed7e734dad6b2558a0ef1` and validated

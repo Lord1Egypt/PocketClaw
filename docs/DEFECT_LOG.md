@@ -175,6 +175,200 @@ only reconstructable examples belong here.
 
 ## Resolved
 
+### PC-DEF-030 — A saved Telegram configuration did not become live
+
+- **Discovered:** Samsung physical testing of verification APK
+  `b6d6e6f9bd6316e24308a63265dcb1e4c15ef7bd1b7e04ba921a5d6b0a1e63b7`,
+  2026-09-13.
+- **Component:** `web/backend/api/gateway_config_restart.go`,
+  `web/backend/api/android_bridge.go`,
+  `android/.../service/PocketClawService.kt`, `lib/src/core/service_manager.dart`.
+- **Description:** managed Telegram onboarding completed, the bot was created
+  and the configuration was saved, and the bot did not answer until the owner
+  restarted the PocketClaw Service **and** the Gateway by hand. After that
+  restart the runtime log shows the whole path healthy: channel initialised,
+  `getMe` succeeded, long polling started, the owner accepted, the model
+  answered, the reply delivered. The auto-apply added in `a7533bd` is present in
+  the tested APK — `libpocketclaw-web.so` contains `telegram_configured`,
+  `/api/pocketclaw/internal/gateway-idle` and the configuration-restart log
+  strings — so the fix shipped and did not work.
+- **Root cause:** three independent holes, each sufficient on its own.
+  1. `gatewayProcessRunning` read only the launcher's in-memory gateway state,
+     which is populated when this process starts the gateway or when a client
+     polls `GET /api/gateway/status`. The Android Telegram bridge does neither,
+     so a live gateway read as "not running": the busy check was skipped
+     entirely, `stopGatewayProcessForRestart(nil)` stopped nothing, and a second
+     gateway was started against a port the first still held. The original
+     process went on serving the previous configuration.
+  2. A change parked with outcome `unverified` waited for an idle notification
+     that cannot arrive. The gateway reports only the in-flight transition
+     N>0 → 0, and a gateway that is already idle never crosses it.
+  3. Flutter's reload was `stop()` then `start()`. On Android those are two
+     service intents with an unconditional `stopSelf()` between them, which
+     Android honours even though the start request has already been queued, so
+     the freshly started service is destroyed and Core is left stopped.
+- **Resolution:** the restart path reconciles against the pid file before
+  deciding anything and adopts a gateway it is not tracking; a bounded
+  supervisor re-asks the idle question for a parked change and applies it the
+  first time the answer is trustworthy; the Android service gained one
+  `ACTION_RESTART` that stops and starts Core in order, and
+  `ServiceManager.restartCore()` is the only way Flutter asks for a restart. The
+  Android Telegram bridge no longer blocks its response on the two-minute idle
+  wait: it parks the change, which both the notification and the supervisor pick
+  up. "Unknown is not idle" is unchanged — nothing interrupts a running answer.
+- **Verification:** `TestGatewayProcessRunningAdoptsAnUntrackedGateway`,
+  `TestGatewayProcessRunningStaysFalseWithoutAPidFile`,
+  `TestWaitForGatewayIdleDoesNotInterruptAnAdoptedGateway`,
+  `TestPendingApplySupervisorAppliesOnceTheGatewayIsSafeToRestart`,
+  `TestPendingApplySupervisorIsSingular`, and the Flutter
+  `service_restart_single_intent_test.dart` suite.
+- **Status:** FIXED IN SOURCE. **Not physically verified** — no device was
+  attached to this session.
+
+### PC-DEF-032 — OpenCode inference failed with an unexplained HTTP 400
+
+- **Discovered:** Samsung physical testing, 2026-09-13.
+- **Component:** `pkg/agent/error_format.go`, the Add and Edit model sheets.
+- **Description:** OpenCode Zen and OpenCode Go both passed Fetch Models
+  (roughly 70 and 37 models). A chat request for `deepseek-v4.1-flash` returned
+  HTTP 400 and the chat window said only "request rejected (400)".
+- **Root cause:** two separate things, both proven.
+  1. **The model is not served by the endpoint it was configured against.**
+     `GET https://opencode.ai/zen/go/v1/models` returns 38 ids including
+     `deepseek-v4.1-flash`; `GET https://opencode.ai/zen/v1/models` returns 70
+     and does not. Posting that model to the Zen endpoint answers
+     `{"type":"error","error":{"type":"ModelError","message":"Model
+     deepseek-v4.1-flash is not supported"}}`. The gateway validates the model
+     before the credential, so this is what a valid key sees as a 400. The Add
+     and Edit sheets let a fetched list outlive the endpoint it was fetched
+     from: changing the provider or base URL left the chips on screen still
+     labelled as this provider's verified inventory.
+  2. **The explanation was discarded.** `failoverReasonSummary` maps
+     `FailoverFormat` to the fixed string "request rejected" and nothing carried
+     the provider's own sentence.
+- **Resolution:** `providerErrorDetail` extracts exactly one known message field
+  from a JSON error body, redacts it through `pcruntime.RedactText` plus a
+  high-entropy-token and URL pass, collapses it to one line and caps it at 200
+  runes, and the chat summary quotes it as the provider's words. The response
+  body itself still never reaches the user. The sheets drop a fetched list the
+  moment the provider or effective base URL changes.
+- **Verification:** `pkg/agent/provider_detail_test.go` — nine cases covering
+  the OpenCode rejection, four body shapes, credential echo-back for five
+  credential families, model ids that must survive redaction, link stripping,
+  the length cap, HTML bodies and non-HTTP errors.
+- **Status:** FIXED IN SOURCE. **Not physically verified.** A live OpenCode Go
+  inference with the owner's key remains the outstanding proof.
+
+### PC-DEF-033 — An empty amber rectangle on every configuration screen
+
+- **Discovered:** Samsung physical testing, 2026-09-13.
+- **Component:** `web/frontend/src/components/config-change-notice.tsx`.
+- **Root cause:** the notice rendered `text-pc-warning` on `bg-pc-warning` —
+  the same design token for the surface and the label, so the text and the icon
+  were painted in the colour of the box behind them. `--pc-warning` is fully
+  opaque in both themes; `--pc-warning-soft` is the 14%-alpha variant the rest
+  of the codebase uses for exactly this. The notice appears in the footer of the
+  Add Model and Edit Model sheets, the settings and channel-config pages and the
+  web-search tab, which is why it was reproduced on several screens; on a phone
+  the footer is a single column, so it read as a large empty block near the
+  bottom. The `kind` ternary had two identical branches, which is how it
+  survived review.
+- **Note:** the notice is what appears the moment a form becomes dirty. On the
+  Edit Model sheet that is the moment a new API key is typed, so the one
+  affordance telling the owner there was something to save was invisible.
+- **Resolution:** soft background, solid foreground, matching the established
+  pattern. Three further `bg-pc-warning/70`-with-`text-pc-warning` collisions in
+  the Agent hub and tools screens were fixed with it.
+- **Verification:** `config-change-notice.test.tsx` asserts the token identity
+  rather than a rendered colour, so the regression cannot return under a
+  different class name.
+- **Status:** FIXED IN SOURCE. **Not physically verified.**
+
+### PC-DEF-041 — Model chips did not say where they came from
+
+- **Discovered:** Samsung physical testing, 2026-09-13.
+- **Component:** the Add and Edit model sheets.
+- **Root cause:** three sources of model ids rendered as three consecutive,
+  unlabelled rows of chips: the provider preset's curated `common_models` (a
+  static list compiled into the build), a cached earlier fetch from
+  `model_catalogs.json`, and this session's live Fetch Models result. Nothing
+  distinguished a name this build happens to know from one the provider had just
+  confirmed it serves.
+- **Resolution:** one `ModelChipGroup` used by both sheets, with an explicit
+  label and hint per origin — Suggestions, Previously fetched, Verified
+  available — in all fourteen locales. A suggestion never renders with the
+  confirmed-selection variant. Fetched ids are exact: nothing normalises or
+  aliases them.
+- **Status:** FIXED IN SOURCE. **Not physically verified.**
+
+### PC-DEF-042 — A chat model selection appeared to be ignored
+
+- **Discovered:** Samsung physical testing, 2026-09-13.
+- **Component:** `web/frontend/src/hooks/use-chat-models.ts`.
+- **Root cause:** the selector is a fully controlled `Select` whose value is
+  server state, and that state was written only after `POST /api/models/default`,
+  a second `GET /api/models` and a gateway restart had all resolved. Until then
+  the trigger went on showing the previous model with nothing to indicate work in
+  progress, so the selection read as having been ignored. Navigating to Settings
+  and back remounts the hook, which re-reads the persisted default — which is
+  exactly the workaround the owner found.
+- **Resolution:** the picked model is held separately and shown immediately, the
+  trigger is disabled while the save is in flight, the pending value yields to
+  the persisted one on success, and a failed save reverts it and reports the
+  error rather than pretending it succeeded.
+- **Verification:** `hooks/use-chat-models.test.ts`.
+- **Status:** FIXED IN SOURCE. **Not physically verified.**
+
+### PC-DEF-043 — Removing a model left references behind and failed silently
+
+- **Discovered:** provider-settings audit during this milestone, 2026-09-13.
+- **Component:** `web/backend/api/models.go`,
+  `web/frontend/src/components/models/delete-model-dialog.tsx`.
+- **Description:** three defects in one removal path.
+  1. `handleDeleteModel` cleared `agents.defaults.model_name` when the deleted
+     entry was the default, but left the deleted name in
+     `agents.defaults.model_fallbacks` and `image_model_fallbacks`. Those are
+     lists of `model_list` names, so a deleted name stays as a candidate the
+     router will try and cannot resolve.
+  2. The dialog's confirm handler returned without doing anything when the model
+     was the default: the user pressed Delete, the dialog closed, and the model
+     was still there with no reason given.
+  3. A failed delete was caught and discarded with a comment saying the user
+     could retry — the user was told nothing, and a failed delete looked
+     identical to a stale list.
+  Removal was also never applied to the gateway, so a running gateway went on
+  holding the deleted entry.
+- **Resolution:** the deleted name is purged from both fallback chains; the
+  default model is refused in the dialog with a reason and a disabled action;
+  a failure is reported and leaves the dialog open; and the removal is applied
+  through the same gateway path every other configuration change uses.
+- **Verification:** `web/backend/api/model_delete_references_test.go` and
+  `delete-model-dialog.test.tsx`.
+- **Status:** FIXED IN SOURCE. **Not physically verified.**
+
+### PC-DEF-044 — A replaced Telegram token skipped the owner contract
+
+- **Discovered:** source audit of the historical
+  "telegram requires exactly one paired numeric owner" failure, 2026-09-13.
+- **Component:** `web/backend/api/telegram_owner_contract.go`.
+- **Description:** `telegramSemanticKey` recorded `token_set=true|false` and a
+  comment claiming that "a changed token still reads as an edit". It does not:
+  replacing one token with another leaves the flag `true` both times, so the key
+  is identical, `telegramSubtreeChanged` returns false and `PUT /api/config`
+  skips the owner check entirely. A Replace Bot save could therefore persist a
+  fresh token alongside a stale or malformed owner — which Core then refuses at
+  startup with exactly the historical message.
+- **Assessment of the historical failure:** **INFERRED**, not proven. This is a
+  demonstrated path to that message, and it is the only writer-side gap found.
+  No log or configuration from the original broken build survives to establish
+  that this is the path it actually took.
+- **Resolution:** the key carries a SHA-256 digest of the token instead of a
+  presence flag. The digest is built, compared and discarded inside the call;
+  it is never persisted, logged or returned past the comparison.
+- **Verification:** four cases in `telegram_owner_contract_test.go`.
+- **Status:** FIXED IN SOURCE.
+
+
 ### PC-DEF-023 — A third-party Google OAuth client secret is embedded in both Core binaries
 
 - **Discovered:** final release exposure audit, 2026-09-12.
