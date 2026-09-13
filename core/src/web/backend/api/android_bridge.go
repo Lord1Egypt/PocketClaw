@@ -19,6 +19,7 @@ const AndroidBridgeTokenEnv = "POCKETCLAW_ANDROID_BRIDGE_TOKEN"
 const androidTelegramBridgePath = "/api/pocketclaw/android/telegram"
 const androidNetworkModeBridgePath = "/api/pocketclaw/android/network-mode"
 const androidContextMemoryBridgePath = "/api/pocketclaw/android/context-memory"
+const androidGatewayStartBridgePath = "/api/pocketclaw/android/gateway/start"
 
 // Telegram context-memory bounds. Native Settings offers presets inside this
 // range and a custom value; Core is the authority, so the range is enforced
@@ -122,6 +123,19 @@ func (h *Handler) RegisterAndroidBridgeRoutes(mux *http.ServeMux, bridgeToken st
 	})
 	// Telegram context memory. Native Settings reads and writes it here so Core
 	// stays the only writer of config.json, exactly as Telegram pairing does.
+	// Gateway lifecycle for the Android host. The host owns the auto-start
+	// preference, so when the user turns it on while the service is already
+	// running the host has to be able to act on it now rather than at the next
+	// service start. Dashboard credentials are deliberately not accepted for
+	// this: lifecycle control belongs to the host process, not to a browser
+	// session. See PC-DEF-034.
+	mux.HandleFunc("POST "+androidGatewayStartBridgePath, func(w http.ResponseWriter, r *http.Request) {
+		if !authorizedAndroidBridgeRequest(r, bridgeToken) {
+			http.NotFound(w, r)
+			return
+		}
+		h.handleAndroidGatewayStart(w, r)
+	})
 	mux.HandleFunc("GET "+androidContextMemoryBridgePath, func(w http.ResponseWriter, r *http.Request) {
 		if !authorizedAndroidBridgeRequest(r, bridgeToken) {
 			http.NotFound(w, r)
@@ -380,4 +394,36 @@ func effectiveTelegramRecentContextMessages(cfg *config.Config) int {
 	return config.ResolveTelegramRecentContextMessages(
 		cfg.Agents.Defaults.TelegramRecentContextMessages,
 	)
+}
+
+// handleAndroidGatewayStart starts the gateway on behalf of the Android host.
+//
+// Idempotent: a gateway that is already running is reported as such rather
+// than started twice. Everything else delegates to handleGatewayStart, so the
+// lifecycle, the precondition check and the PID-file attach behaviour are the
+// same code the manual start uses -- this endpoint is an authorization
+// boundary, not a second implementation.
+//
+// After PC-DEF-038 this succeeds with zero providers and zero models
+// configured, which is the entire point: the host must be able to bring
+// infrastructure up before the user has configured any AI provider.
+func (h *Handler) handleAndroidGatewayStart(w http.ResponseWriter, r *http.Request) {
+	gateway.mu.Lock()
+	if gateway.cmd != nil && isCmdProcessAliveLocked(gateway.cmd) {
+		pid := 0
+		if gateway.cmd.Process != nil {
+			pid = gateway.cmd.Process.Pid
+		}
+		gateway.mu.Unlock()
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"status": "already_running",
+			"pid":    pid,
+		})
+		return
+	}
+	gateway.mu.Unlock()
+
+	h.handleGatewayStart(w, r)
 }

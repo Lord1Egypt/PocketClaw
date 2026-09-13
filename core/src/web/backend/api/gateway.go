@@ -442,7 +442,7 @@ func (h *Handler) TryAutoStartGateway() {
 	pidData := h.sanitizeGatewayPidData(ppid.ReadPidFileWithCheck(globalConfigDir()), nil, "autostart")
 	if pidData != nil {
 		gateway.mu.Lock()
-		ready, reason, err := h.gatewayStartReady()
+		ready, reason, err := h.gatewayInfrastructureReady()
 		if err != nil {
 			logger.ErrorC("gateway", fmt.Sprintf("Skip auto-starting gateway: %v", err))
 			gateway.mu.Unlock()
@@ -474,7 +474,7 @@ func (h *Handler) TryAutoStartGateway() {
 		gateway.cmd = nil
 	}
 
-	ready, reason, err := h.gatewayStartReady()
+	ready, reason, err := h.gatewayInfrastructureReady()
 	if err != nil {
 		logger.ErrorC("gateway", fmt.Sprintf("Skip auto-starting gateway: %v", err))
 		return
@@ -492,8 +492,33 @@ func (h *Handler) TryAutoStartGateway() {
 	logger.InfoC("gateway", fmt.Sprintf("Gateway auto-started (PID: %d)", pid))
 }
 
-// gatewayStartReady validates whether current config can start the gateway.
-func (h *Handler) gatewayStartReady() (bool, string, error) {
+// gatewayInfrastructureReady reports whether the gateway PROCESS can start.
+//
+// Infrastructure only. It must never consult provider, model, credential or
+// reachability state: the gateway is infrastructure, and a PocketClaw with no
+// AI provider configured is a valid running system whose dashboard, settings,
+// provider setup and health endpoints all have to be reachable -- that is how
+// a user configures their first provider in the first place.
+//
+// This function and chatReady were one function until PC-DEF-038. Conflating
+// them made "add a model" a hidden prerequisite for "make the gateway start":
+// a fresh install reported "Skip auto-starting gateway: no default model
+// configured" and manual start returned precondition_failed, so the one path
+// a new user has to reach provider setup was gated on already having done it.
+func (h *Handler) gatewayInfrastructureReady() (bool, string, error) {
+	if _, err := config.LoadConfig(h.configPath); err != nil {
+		return false, "", fmt.Errorf("failed to load config: %w", err)
+	}
+	return true, "", nil
+}
+
+// chatReady reports whether an AI-dependent request can actually be served.
+//
+// This is the other half of the old gatewayStartReady: everything here is a
+// real prerequisite for talking to a model, and none of it is a prerequisite
+// for running the gateway. Callers that serve chat ask this; callers that
+// start or restart the process must not.
+func (h *Handler) chatReady() (bool, string, error) {
 	cfg, err := config.LoadConfig(h.configPath)
 	if err != nil {
 		return false, "", fmt.Errorf("failed to load config: %w", err)
@@ -1344,7 +1369,7 @@ func (h *Handler) handleGatewayStart(w http.ResponseWriter, r *http.Request) {
 	if pidData != nil {
 		pid := pidData.PID
 		gateway.mu.Lock()
-		ready, reason, err := h.gatewayStartReady()
+		ready, reason, err := h.gatewayInfrastructureReady()
 		if err != nil {
 			gateway.mu.Unlock()
 			http.Error(
@@ -1390,7 +1415,7 @@ func (h *Handler) handleGatewayStart(w http.ResponseWriter, r *http.Request) {
 		setGatewayRuntimeStatusLocked("stopped")
 	}
 
-	ready, reason, err := h.gatewayStartReady()
+	ready, reason, err := h.gatewayInfrastructureReady()
 	if err != nil {
 		http.Error(
 			w,
@@ -1456,7 +1481,7 @@ func (h *Handler) handleGatewayStop(w http.ResponseWriter, r *http.Request) {
 // that stops the current gateway (if running) and starts a new one.
 // Returns the PID of the new gateway process or an error.
 func (h *Handler) RestartGateway() (int, error) {
-	ready, reason, err := h.gatewayStartReady()
+	ready, reason, err := h.gatewayInfrastructureReady()
 	if err != nil {
 		return 0, fmt.Errorf("failed to validate gateway start conditions: %w", err)
 	}
@@ -1644,7 +1669,10 @@ func (h *Handler) gatewayStatusData() map[string]any {
 		gatewayStatus,
 	)
 
-	ready, reason, readyErr := h.gatewayStartReady()
+	// Gateway health and AI availability are independent facts and are
+	// reported as such: "Gateway: Running / AI provider: Not configured" is a
+	// valid, expected state, not a degraded one. See PC-DEF-038.
+	ready, reason, readyErr := h.gatewayInfrastructureReady()
 	if readyErr != nil {
 		data["gateway_start_allowed"] = false
 		data["gateway_start_reason"] = readyErr.Error()
@@ -1652,6 +1680,17 @@ func (h *Handler) gatewayStatusData() map[string]any {
 		data["gateway_start_allowed"] = ready
 		if !ready {
 			data["gateway_start_reason"] = reason
+		}
+	}
+
+	chatOK, chatReason, chatErr := h.chatReady()
+	if chatErr != nil {
+		data["chat_ready"] = false
+		data["chat_not_ready_reason"] = chatErr.Error()
+	} else {
+		data["chat_ready"] = chatOK
+		if !chatOK {
+			data["chat_not_ready_reason"] = chatReason
 		}
 	}
 

@@ -62,6 +62,8 @@ class PocketClawMethodChannel(
             "http://127.0.0.1:18800/api/pocketclaw/android/github/validate"
         private const val GITHUB_STATUS_BRIDGE_URL =
             "http://127.0.0.1:18800/api/pocketclaw/android/github/status"
+        private const val GATEWAY_START_BRIDGE_URL =
+            "http://127.0.0.1:18800/api/pocketclaw/android/gateway/start"
     }
 
     // Copy a content:// URI to the app cache and return the absolute file path.
@@ -486,6 +488,23 @@ class PocketClawMethodChannel(
                         )
                     }
                 }
+                "startGatewayNow" -> {
+                    // PC-DEF-034. Turning on "start Gateway automatically"
+                    // while the service is already running has to act now;
+                    // waiting for the next service start is the behaviour the
+                    // user just told us they did not want. The bridge token
+                    // stays in the host: Flutter asks for the operation and
+                    // never sees the credential.
+                    try {
+                        result.success(callGatewayStartBridge())
+                    } catch (e: Exception) {
+                        result.error(
+                            "GATEWAY_START_FAILED",
+                            e.message ?: "Could not start the Gateway",
+                            null,
+                        )
+                    }
+                }
                 "setAutoStart" -> {
                     try {
                         val enabled = call.argument<Boolean>("enabled") ?: false
@@ -698,6 +717,44 @@ class PocketClawMethodChannel(
         return first == 10 ||
             (first == 172 && second in 16..31) ||
             (first == 192 && second == 168)
+    }
+
+    /**
+     * Asks Core to start the Gateway over the loopback Android bridge.
+     *
+     * Returns the status Core reports -- "ok" or "already_running" -- so the
+     * caller can distinguish a start from a no-op. The token is read here and
+     * never returned, logged or handed to Flutter.
+     */
+    private fun callGatewayStartBridge(): String {
+        val connection = (URL(GATEWAY_START_BRIDGE_URL).openConnection() as HttpURLConnection).apply {
+            requestMethod = "POST"
+            connectTimeout = 3_000
+            readTimeout = 15_000
+            setRequestProperty(
+                "X-PocketClaw-Android-Bridge",
+                PocketClawService.bridgeTokenForHost(),
+            )
+            setRequestProperty("Accept", "application/json")
+        }
+        try {
+            val code = connection.responseCode
+            val payload = if (code in 200..299) {
+                connection.inputStream.bufferedReader().use { it.readText() }
+            } else {
+                connection.errorStream?.bufferedReader()?.use { it.readText() } ?: ""
+            }
+            if (code !in 200..299) {
+                // Core's message, not the token or the URL.
+                throw IllegalStateException(
+                    JSONObject(payload.ifBlank { "{}" }).optString("message")
+                        .ifBlank { "Gateway start failed (HTTP $code)" }
+                )
+            }
+            return JSONObject(payload.ifBlank { "{}" }).optString("status").ifBlank { "ok" }
+        } finally {
+            connection.disconnect()
+        }
     }
 
     /** Writes paired credentials through Core's own config/security store. */

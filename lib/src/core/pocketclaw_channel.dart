@@ -162,6 +162,16 @@ class PocketClawChannel {
 
   /// Persists Telegram credentials through Core so config.json and
   /// .security.yml are updated together by Core's normal SaveConfig path.
+  /// Asks the host to start the Gateway now, over the loopback Android
+  /// bridge. Returns Core's status: "ok" or "already_running".
+  ///
+  /// The bridge token stays in the host process. Flutter requests the
+  /// operation and never handles the credential. See PC-DEF-034.
+  static Future<String> startGatewayNow() async {
+    final status = await _channel.invokeMethod<String>('startGatewayNow');
+    return status ?? 'ok';
+  }
+
   static Future<bool> configureTelegram({
     required String token,
     required int ownerUserId,

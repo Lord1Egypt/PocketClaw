@@ -1041,8 +1041,36 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
   Future<void> setServiceLaunchAutoStart(bool enabled) =>
       _commitLaunchAutoStart(serviceEnabled: enabled);
 
-  Future<void> setGatewayLaunchAutoStart(bool enabled) =>
-      _commitLaunchAutoStart(gatewayEnabled: enabled);
+  Future<void> setGatewayLaunchAutoStart(bool enabled) async {
+    final wasEnabled = _launchAutoStart.gatewayEnabled;
+    await _commitLaunchAutoStart(gatewayEnabled: enabled);
+
+    // PC-DEF-034. Enabling this while the service is already running has to
+    // start the Gateway now. Persisting and waiting for the next service start
+    // is what made the preference look broken: the user turned it on, nothing
+    // happened, and the only way forward was an undocumented manual start.
+    //
+    // Only on a real OFF -> ON transition, only when the host actually
+    // persisted the change, and only when there is a running service to ask.
+    if (!enabled || wasEnabled || !_launchAutoStart.gatewayEnabled) return;
+    if (_status != ServiceStatus.running) return;
+
+    try {
+      final result = await PocketClawChannel.startGatewayNow();
+      if (result == 'already_running') {
+        _addLog('Gateway is already running');
+      } else {
+        _addLog('Gateway started');
+      }
+    } catch (e) {
+      // The preference stays on: it was persisted before this ran, and the
+      // next service start still honours it. Report the real failure rather
+      // than reverting a choice the user made.
+      _addLog('Could not start the Gateway now; it will start with the service');
+      debugPrint('Immediate gateway start failed: $e');
+    }
+    notifyListeners();
+  }
 
   Future<void> _commitLaunchAutoStart({
     bool? serviceEnabled,
