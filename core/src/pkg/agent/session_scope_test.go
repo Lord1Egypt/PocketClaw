@@ -46,13 +46,21 @@ func (p *sessionScopeCaptureProvider) snapshot() []string {
 	return append([]string(nil), p.scopes...)
 }
 
-func sessionScopeConfig() *config.Config {
+// sessionScopeConfig scopes the agent to a temporary workspace.
+//
+// Without one the workspace is "", so pkg/state resolves state/state.json
+// relative to the test's working directory and writes it into pkg/agent/ in the
+// source tree. Every other agent test that runs a turn already passes
+// t.TempDir() for the same reason.
+func sessionScopeConfig(t *testing.T) *config.Config {
+	t.Helper()
 	return &config.Config{
 		Agents: config.AgentsConfig{
 			Defaults: config.AgentDefaults{
 				ModelName:         "test-model",
 				MaxTokens:         4096,
 				MaxToolIterations: 10,
+				Workspace:         t.TempDir(),
 			},
 		},
 		ModelList: []*config.ModelConfig{{
@@ -82,7 +90,7 @@ func sendTurn(t *testing.T, al *AgentLoop, chatID, content string) {
 func TestTurnOptionsCarryTheConversationScope(t *testing.T) {
 	t.Setenv("PICOCLAW_BUILTIN_SKILLS", t.TempDir())
 	capture := &sessionScopeCaptureProvider{}
-	al := NewAgentLoop(sessionScopeConfig(), bus.NewMessageBus(), capture)
+	al := NewAgentLoop(sessionScopeConfig(t), bus.NewMessageBus(), capture)
 
 	sendTurn(t, al, "pocketclaw:scope-a", "hello")
 
@@ -100,7 +108,7 @@ func TestTurnOptionsCarryTheConversationScope(t *testing.T) {
 func TestFollowUpTurnsShareOneConversationScope(t *testing.T) {
 	t.Setenv("PICOCLAW_BUILTIN_SKILLS", t.TempDir())
 	capture := &sessionScopeCaptureProvider{}
-	al := NewAgentLoop(sessionScopeConfig(), bus.NewMessageBus(), capture)
+	al := NewAgentLoop(sessionScopeConfig(t), bus.NewMessageBus(), capture)
 
 	sendTurn(t, al, "pocketclaw:scope-a", "first")
 	sendTurn(t, al, "pocketclaw:scope-a", "second")
@@ -121,7 +129,7 @@ func TestFollowUpTurnsShareOneConversationScope(t *testing.T) {
 func TestDifferentConversationsGetDifferentScopes(t *testing.T) {
 	t.Setenv("PICOCLAW_BUILTIN_SKILLS", t.TempDir())
 	capture := &sessionScopeCaptureProvider{}
-	al := NewAgentLoop(sessionScopeConfig(), bus.NewMessageBus(), capture)
+	al := NewAgentLoop(sessionScopeConfig(t), bus.NewMessageBus(), capture)
 
 	sendTurn(t, al, "pocketclaw:scope-a", "hello")
 	sendTurn(t, al, "pocketclaw:scope-b", "hello")

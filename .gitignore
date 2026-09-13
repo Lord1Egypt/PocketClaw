@@ -47,3 +47,10 @@ local.properties
 *.iml
 .DS_Store
 __pycache__/
+
+# Runtime state a Go test leaves beside the package it exercises when the agent
+# workspace is unset. pkg/coresource deliberately excludes stray JSON from the
+# Core fingerprint for the same reason; this keeps it out of the repository as
+# well, so `git add -A` after a test run cannot commit one.
+core/src/pkg/*/state/state.json
+core/src/pkg/*/*/state/state.json
