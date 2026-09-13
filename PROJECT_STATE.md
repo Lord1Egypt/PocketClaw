@@ -35,7 +35,7 @@ evidence and describe the state at the date of each entry.
 | Final release exposure audit | **CLOSED / PASS** on the re-run at `6031898`. No release blocker remains for the GitHub / direct APK release. `PC-DEF-022`, `PC-DEF-023` and `PC-DEF-024` have all since been RESOLVED; only `PC-DEF-006` (F-Droid path) and `PC-DEF-012` remain open |
 | Production candidate | **BUILT AND GATED.** `4d4bc33a…`, 63,472,307 bytes, one v2 signer `176dca6b…`; production artifact gate 57 PASS / 0 FAIL / 0 SKIPPED. Private validation evidence — not installed, published or accepted |
 | Next authorized milestone | Samsung physical acceptance of the production candidate, under its own prompt, with a migration / clean-install / data-safeguard plan. The device is development-signed, so a cross-signer install is forbidden |
-| Flutter suite | Green — 490 passed, 0 failed — and the **complete** suite is now a release gate (`flutter.suite`) |
+| Flutter suite | Green — 497 passed, 0 failed — and the **complete** suite is now a release gate (`flutter.suite`) |
 | Public release asset policy | APK only. An AAB is a Play-upload artifact and is never a public release asset — `PC-DEF-021` |
 
 The H2 production validation APK has SHA-256
