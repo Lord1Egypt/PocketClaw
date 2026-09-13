@@ -47,7 +47,7 @@ function renderCard(overrides: Partial<ModelInfo> = {}) {
 }
 
 /**
- * PC-DEF-046. The owner reported from the device that there was no obvious way
+ * PC-DEF-047. The owner reported from the device that there was no obvious way
  * to delete a model. There was one: a 32px grey trash glyph packed beside the
  * edit and set-default glyphs in the card's top-right corner, next to a
  * truncating title, explained only by a tooltip — and a tooltip never opens on

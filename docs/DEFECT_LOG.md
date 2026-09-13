@@ -314,7 +314,7 @@ only reconstructable examples belong here.
   long form, this fixes that too.
 - **Status:** FIXED IN SOURCE. **Physical confirmation required.**
 
-### PC-DEF-046 — No obvious Delete/Remove action for a model
+### PC-DEF-047 — No obvious Delete/Remove action for a model
 
 - **Discovered:** Samsung physical testing, 2026-09-13.
 - **Component:** `web/frontend/src/components/models/model-card.tsx`.
@@ -333,6 +333,153 @@ only reconstructable examples belong here.
   badge — but it is the same affordance pattern and is recorded here rather than
   left unmentioned.
 - **Status:** FIXED IN SOURCE. **Physical confirmation required.**
+- **Note on the identifier:** this was allocated PC-DEF-046 earlier in the same
+  session and renumbered when the owner allocated 046 to the navigation stall
+  below. Commit `806c083`'s message predates the renumbering and still says 046.
+
+### PC-DEF-046 — UI navigation stalls during rapid screen switching
+
+- **Discovered:** Samsung physical testing, 2026-09-13, owner-reported.
+- **Component:** `lib/main.dart` navigation shell, `lib/src/ui/webview_page.dart`,
+  `lib/src/ui/webview/webview_android.dart`.
+- **Status:** **UNKNOWN — INVESTIGATION REQUIRED. Android-client-specific or
+  device-specific.** Owner classification, 2026-09-13. No fix has been applied
+  and none may be applied by guess.
+- **Symptom:** rapidly switching between Chat, Models, Credentials and Settings
+  sometimes stops responding; the UI stays on Chat although another destination
+  was tapped. No crash.
+
+- **What is ruled out, and by what.**
+  - *Core/Gateway.* The owner established that the supplied Core log does not
+    explain it: the failing OpenCode turn completed in ~621 ms. The OpenCode 400
+    is explicitly **not** the cause and must not be offered as one.
+  - *The console web app itself.* The PocketClaw dashboard in a desktop browser
+    is fast and shows no stall (owner, 2026-09-13). The same HTML, JavaScript and
+    Core serve both, so whatever is slow is not the page.
+
+  Neither of those makes the remaining hypothesis true. They narrow where to
+  look: the Android client, its WebView integration, or the device.
+
+- **The discriminator that decides this, owner-specified and not yet run.**
+
+  | Test | Reading |
+  | --- | --- |
+  | Same physical phone, console in the phone's **browser**, rapid switching | responsive → the defect is in the PocketClaw Android application |
+  | Same physical phone, console in the **app** | both stall similarly → investigate device CPU/RAM pressure before changing any application architecture |
+
+  Until that runs, everything below is a hypothesis with a known code basis,
+  not a cause.
+
+- **Audit findings: code properties that are proven, whose causal role is not.**
+
+  These are facts about the source, verified by reading it. They would produce
+  work on exactly the path the owner is exercising, and they need no network —
+  which is consistent with the Core log showing nothing. That consistency is not
+  proof, and none of it is offered as the answer.
+  Chat, Models and Credentials are not separate Flutter routes. They are one
+  IndexedStack child, index 1, the WebView, with a different `_webPath`.
+  Switching between them is therefore not navigation; it is a change of one
+  string. Two keys turn that string into a full teardown.
+
+  1. **`WebViewPage(key: ValueKey<String>(_webPath))`** — `lib/main.dart:330`.
+     A changed key unmounts the element and mounts a new one, so every switch
+     between Chat, Models and Credentials **destroys and recreates the
+     WebView**. `WebViewAndroid` has no `didUpdateWidget`: it loads its URL once
+     in `initState` (line 171), so remounting is in fact the only way a URL
+     change is honoured today. Each switch is a fresh `WebViewController` and a
+     cold boot of the console single-page app, whose main bundle is ~1.36 MB of
+     JavaScript, followed by host-bridge re-injection. The file says as much:
+     "the console is a single-page app served fresh on each navigation into the
+     tab".
+  2. **`IndexedStack(key: ValueKey<int>(_selectedIndex))`** — `lib/main.dart:320`.
+     The same rule applies one level up, so every tab change **destroys and
+     recreates all four pages**: DashboardPage, the WebView, LogPage and the
+     2095-line ConfigPage. Three lines below it the code states the opposite
+     intent — "The pages live in an IndexedStack and are never disposed on a tab
+     change, so the flag — not the widget lifecycle — is what stops the extra
+     work." The key contradicts the design it sits inside.
+
+  Under rapid tapping this composes exactly into the reported symptom: a tap
+  arriving while the previous WebView is still initialising has nothing settled
+  to act on and is effectively lost, and what stays on screen is whatever last
+  finished loading — Chat.
+
+- **Secondary finding, same audit.** `getGitHubStatus` runs
+  `GitHubCredentialStore.status()` **on the Android platform main thread**:
+  a file read plus an Android Keystore key load and an AES-GCM decrypt, all
+  under a `@Synchronized` class lock (`PocketClawMethodChannel.kt:351`,
+  `GitHubCredentialStore.kt:153`). Platform-channel handlers run on the main
+  thread, so this blocks the UI for as long as the Keystore takes. It is
+  reachable from the Settings screen, one of the four the owner was switching
+  between. Every other I/O-bearing handler in that file (`configureTelegram`,
+  `checkHealth`, `connectGitHub`) correctly uses a `Thread`; this one and
+  `saveConfig` do not.
+
+- **Context, not yet implicated.** Two `Timer.periodic` loops run at 3-second
+  intervals — `_nativePollingTimer` (status + health over the platform channel)
+  and `_lanAddressPollingTimer` — each ending in `notifyListeners()`. They are
+  a steady background cost rather than a stall, and are recorded so the next
+  measurement can rule them in or out rather than rediscover them.
+
+- **Why no patch.** Two reasons, and the first is sufficient on its own.
+
+  The cause is not established. Changing the navigation architecture to fix a
+  hypothesis would be exactly the guess the owner ruled out, and if the stall is
+  device pressure it would be a rewrite that fixes nothing while removing a
+  shipped behaviour.
+
+  Second, even once confirmed, both primary findings are one-line keys whose
+  removal changes product behaviour, and the choice is the owner's:
+  - Removing the IndexedStack key keeps page state and ends the remounting, and
+    also **removes the cross-tab `PageTransitionSwitcher` animation**, which
+    only fires because the child's identity changes. Keep the animation or keep
+    the state; the current code pays for the animation with a full remount.
+  - Removing the WebView key requires `WebViewAndroid` to gain a
+    `didUpdateWidget` that navigates the existing controller instead, and the
+    console is an SPA, so the real question is whether to `loadRequest` the new
+    path or push it through the page's own router. That is a design decision,
+    not a key deletion.
+
+- **Evidence that would confirm or refute the audit, in order.**
+  1. The browser-versus-app discriminator above. It decides whether this is an
+     application defect at all, and costs one minute on the device.
+  2. If it is the application: `adb logcat` during rapid switching, looking for
+     repeated WebView or renderer creation, and a Flutter timeline showing
+     element rebuilds. The audit predicts both.
+  3. If neither appears, the findings above are not the cause, and the 3-second
+     polling loops and the main-thread Keystore read are the next candidates.
+  4. If both surfaces stall on the same phone: device CPU and memory pressure
+     first, and no application change until that is excluded.
+
+- **Acceptance contract (owner's, recorded verbatim in intent):** rapid repeated
+  switching between Chat, Models, Credentials and Settings stays responsive — no
+  lost taps, no navigation deadlock, no multi-second freeze, and no waiting on
+  an unrelated network or provider request. Not closed until reproduced on the
+  Samsung and physically verified after a fix.
+
+### PC-DEF-048 — The hardened build silently skipped Flutter AOT
+
+- **Discovered:** building the verification APK for this milestone, 2026-09-13.
+- **Component:** `tool/build_hardened_android.py`.
+- **Description:** the build failed with
+  `Hardened Android build FAILED: split debug info was not produced at ...`.
+  Nothing in that message says why, and the APK it had just assembled was
+  otherwise complete.
+- **Root cause:** this milestone's second round changed Go, Kotlin and
+  web-console source and no Dart source. `reset_generated_build_outputs` clears
+  `.dart_tool/flutter_build`, which is Flutter's own incremental cache and the
+  fix for the sibling defect PC-DEF-R009 — but Gradle decides **separately**
+  whether to run the Flutter AOT task at all, and its up-to-date check watches
+  the Dart sources, not the private symbol file, which lives outside the project
+  tree by design. With no Dart change the task was skipped, no symbols were
+  emitted, and the post-build assertion failed. `454 actionable tasks: 29
+  executed` against 38 on the previous, Dart-touching build.
+- **Resolution:** the same reset now also drops Gradle's own
+  `build/app/intermediates/flutter`, removing the answer its up-to-date check
+  was relying on, with the same symlink refusal the Dart-side clear already had.
+- **Workaround used for this milestone's artifact:** `--clean`.
+- **Status:** FIXED IN SOURCE; the fix has not yet been exercised by a build
+  that changes no Dart source, which is the only condition that reproduces it.
 
 ### PC-DEF-033 — An empty amber rectangle on every configuration screen
 

@@ -41,6 +41,9 @@ REPO = Path(__file__).resolve().parent.parent
 ANDROID = REPO / "android"
 PACKAGE_CONFIG = REPO / ".dart_tool/package_config.json"
 FLUTTER_BUILD_DIR = REPO / ".dart_tool/flutter_build"
+# Gradle's own view of the Flutter AOT step. Clearing the Dart-side cache is not
+# enough on its own: Gradle decides separately whether to run the task at all.
+FLUTTER_GRADLE_INTERMEDIATES = REPO / "build/app/intermediates/flutter"
 APK = REPO / "build/app/outputs/apk/release/app-release.apk"
 BUNDLE = REPO / "build/app/outputs/bundle/release/app-release.aab"
 DEFAULT_SYMBOLS_DIR = Path("build/private-symbols/dart/android-arm64")
@@ -157,6 +160,7 @@ def reset_generated_build_outputs(
     symbols: Path | None = None,
     flutter_build_dir: Path = FLUTTER_BUILD_DIR,
     r8_mapping: Path | None = None,
+    flutter_gradle_intermediates: Path | None = None,
 ) -> None:
     """Force Flutter to regenerate AOT and its external DWARF as one pair.
 
@@ -166,13 +170,29 @@ def reset_generated_build_outputs(
     recreating its required symbol companion.  A hardened build clears only
     Flutter's generated build cache before assembly so ``gen_snapshot`` must
     emit both outputs again.
+
+    PC-DEF-048.  That is necessary and was not sufficient.  Gradle decides
+    independently whether to run the Flutter AOT task, and its up-to-date check
+    watches the Dart sources -- not the private symbol file, which lives outside
+    the project tree by design.  A build whose only changes were Go, Kotlin or
+    web-console source therefore skipped the task entirely, emitted no symbols,
+    and failed the post-build assertion with nothing to say about why.  Dropping
+    Gradle's own Flutter intermediates removes the answer it was relying on.
     """
+    if flutter_gradle_intermediates is None:
+        flutter_gradle_intermediates = FLUTTER_GRADLE_INTERMEDIATES
     if flutter_build_dir.is_symlink():
         raise HardeningError(f"refusing to clear symlinked Flutter build cache: {flutter_build_dir}")
     if flutter_build_dir.exists():
         if not flutter_build_dir.is_dir():
             raise HardeningError(f"Flutter build cache is not a directory: {flutter_build_dir}")
         shutil.rmtree(flutter_build_dir)
+    if flutter_gradle_intermediates.is_symlink():
+        raise HardeningError(
+            "refusing to clear symlinked Flutter intermediates: "
+            f"{flutter_gradle_intermediates}")
+    if flutter_gradle_intermediates.is_dir():
+        shutil.rmtree(flutter_gradle_intermediates)
     if symbols is not None and symbols.exists():
         symbols.unlink()
     if apk.exists():

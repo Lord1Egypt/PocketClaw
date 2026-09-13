@@ -166,7 +166,7 @@ export function ModelCard({
       </p>
 
       {/* Edit and Delete are labelled controls on their own row.
-          PC-DEF-046: they used to be 32px unlabelled icon buttons packed into
+          PC-DEF-047: they used to be 32px unlabelled icon buttons packed into
           the card's top-right corner, explained only by a tooltip -- and a
           tooltip never opens on a touch screen. The owner reported, from the
           device, that there was no obvious way to delete a model; there was
