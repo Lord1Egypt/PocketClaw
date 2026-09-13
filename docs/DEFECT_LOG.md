@@ -222,16 +222,20 @@ only reconstructable examples belong here.
   `TestPendingApplySupervisorAppliesOnceTheGatewayIsSafeToRestart`,
   `TestPendingApplySupervisorIsSingular`, and the Flutter
   `service_restart_single_intent_test.dart` suite.
-- **Status:** FIXED IN SOURCE. **Not physically verified** — no device was
-  attached to this session.
+- **Status:** **RESOLVED — PHYSICALLY VERIFIED PASS**, Samsung, 2026-09-13. The
+  managed Telegram setup activates and the bot answers with no manual Service or
+  Gateway restart.
 
 ### PC-DEF-032 — OpenCode inference failed with an unexplained HTTP 400
 
 - **Discovered:** Samsung physical testing, 2026-09-13.
 - **Component:** `pkg/providers/opencode_routing.go`, the three OpenCode
   transport arms, `pkg/agent/pipeline_llm.go`, `pkg/agent/error_format.go`.
-- **Status:** **OPEN.** Fixed in source; not closed until the Samsung produces a
-  real successful OpenCode Go answer.
+- **Status:** **RESOLVED — PHYSICALLY VERIFIED PASS**, Samsung, 2026-09-13.
+  `deepseek-v4.1-flash` produced a real Chat response on the device, so the
+  `x-opencode-session` implementation, the OpenCode Go endpoint, the API key and
+  model inference are all confirmed in the tested flow. Not to be reopened
+  without contradictory evidence.
 
 - **Root cause — PROVEN, and not what this log first recorded.**
   OpenCode Go requires an `x-opencode-session` header and PocketClaw never sent
@@ -291,6 +295,198 @@ only reconstructable examples belong here.
   the turn options); `pkg/agent/provider_detail_test.go` (the error detail).
 - **Outstanding:** owner's regression items 10 — a real physical request from
   the Samsung. Until then this defect is FIXED IN SOURCE and OPEN.
+
+### Identifier note for the 2026-09-13 Samsung results
+
+The owner's report allocated **PC-DEF-047, 048 and 049** to provider CRUD, the
+API-key update and the Telegram command menu. All three numbers were already in
+use in this log — 047 is the model Delete affordance, 048 is the hardened build
+skipping Flutter AOT. The three new defects are therefore recorded as
+**PC-DEF-049, PC-DEF-050 and PC-DEF-051**, in the owner's order, and each entry
+names the number the owner used. This is the same renumbering the PC-DEF-047
+entry below already carries a note about.
+
+Two corrections from the same report are applied to this log rather than argued
+with:
+
+- **PC-DEF-032 (OpenCode Go) is PHYSICALLY VERIFIED PASS.** `deepseek-v4.1-flash`
+  produced a real Chat response on the device. The `x-opencode-session` work, the
+  Go endpoint, the key and model inference are all confirmed in the tested flow.
+  Not to be reopened without contradictory evidence.
+- **PC-DEF-033 (the amber block) and PC-DEF-030 (Telegram automatic runtime
+  apply) are PHYSICALLY VERIFIED PASS.** The managed bot activates and answers
+  with no manual Service or Gateway restart.
+- **Model Delete exists.** The Model screen carries Delete Model, Edit API Key
+  and the default-model state. PC-DEF-047's fix is confirmed by the screenshots;
+  nothing below claims model deletion is missing. The management gap is at the
+  **provider** level.
+
+### PC-DEF-049 — A configured provider had no management path at all
+
+- **Owner's number:** PC-DEF-047.
+- **Discovered:** Samsung physical testing, 2026-09-13, owner-reported.
+- **Component:** `web/frontend/src/components/models/provider-section.tsx`,
+  `provider-picker.tsx`; new `web/backend/api/providers.go`.
+- **Problem:** the console could add a provider and add or edit a model, but the
+  provider object itself had no lifecycle. `ProviderSection` was a divider, an
+  icon and a label wrapped in a collapse toggle — no action on it of any kind.
+  The picker marked an existing provider "Already configured" with a checkmark
+  and, when tapped, went to Add Model. So a provider could be created and seen
+  but never viewed, edited, re-keyed, or removed, and the owner was left editing
+  every model to change one thing that belongs to the provider.
+- **Root cause of the shape, established by audit and not assumed:** there is no
+  provider record in the configuration schema. `config.Config` holds only
+  `model_list`, and each entry carries its own `provider` label, `api_base`,
+  `api_keys`, `proxy` and `custom_headers`. A "provider" is a derived grouping
+  over that string. There was nothing for a management screen to be a screen
+  *of*. The full audit is `docs/PROVIDER_ARCHITECTURE.md` section 13.
+- **Resolution:** provider management as an explicit view over `model_list`,
+  introducing no provider object — a derived view cannot disagree with the models
+  it is derived from, a stored one can.
+  - `GET /api/providers`, `GET /api/providers/{provider}`,
+    `PUT /api/providers/{provider}`, `DELETE /api/providers/{provider}`.
+  - Provider-scoped state is reported as what the models *agree on*.
+    Disagreement returns `credential_state: "mixed"` / `api_base_mixed: true`
+    rather than picking one of several keys — presenting one as "the provider
+    key" is exactly what would let a rotation update one model and leave its
+    siblings on an old credential.
+  - A labelled **Manage** control on the provider heading, `min-h-10`, separate
+    from the collapse toggle so it stays reachable while collapsed. Not an icon
+    with a tooltip: a touch screen has no hover, which is what made the model
+    controls unfindable in PC-DEF-047.
+  - A Manage Provider sheet carrying provider identity, credential state,
+    Replace API Key, the base URL where the models agree on one, the provider's
+    models by name, and Delete Provider. The primary action is in the header as
+    well as the footer, for the PC-DEF-045 reason: the soft keyboard covers the
+    footer the moment the credential field is focused.
+  - Delete reports dependent models **by name**, calls out the default chat
+    model, removes the models, and purges all seven reference sites. Recreating
+    the provider afterwards carries nothing over.
+- **Also fixed while in the same contract:** the single-model delete path covered
+  only three of the seven reference sites (`PC-DEF-043` widened it to two
+  fallback chains). It now uses the same complete purge, so `image_model`,
+  `routing.light_model` and per-agent and per-subagent model references can no
+  longer keep a deleted name.
+- **Verification:** 17 backend cases in `web/backend/api/providers_test.go`
+  (view, alias/case lookup, shared vs mixed credentials, rotation reaching every
+  sibling, whole-key-list replacement, unsent fields untouched, blank key
+  refused, delete removing models and clearing default/fallback/light-model and
+  agent references, delete reporting what it removed, clean recreate);
+  `TestDeleteModelClearsTheLightModelAndAgentReferences` and
+  `TestPurgeModelReferencesListSemantics`; 4 cases in
+  `delete-provider-dialog.test.tsx`, 9 in `manage-provider-sheet.test.tsx`, 4 in
+  `provider-section.test.tsx`. Full Go backend suite and the 469-test frontend
+  suite green.
+- **Status:** FIXED IN SOURCE. **Physical confirmation required.** Not closed by
+  unit tests, per the owner's instruction.
+
+### PC-DEF-050 — A replaced API key was saved but never reached the running gateway
+
+- **Owner's number:** PC-DEF-048.
+- **Discovered:** Samsung physical testing, 2026-09-13, owner-reported: "the
+  owner cannot confidently change the API key and have the new key saved and
+  used."
+- **Component:** `web/backend/api/gateway.go`, `computeConfigSignature`.
+- **Root cause — PROVEN, not inferred.** `gateway_restart_required` is the
+  difference between a saved configuration and a live one, and it is a comparison
+  of the signature the gateway booted with against the signature of the config on
+  disk. That signature covered the default model name, the *streaming flag* of
+  referenced entries, the tool set, the web-search config and the channels. It
+  covered **no credential, no endpoint and no header** of any `model_list` entry.
+
+  So the whole flow succeeded and changed nothing that answers a request:
+  `PUT /api/models/{index}` persisted the new key correctly; the console then
+  asked whether a restart was required and was told **false**; it reported the
+  save as applied; and the running gateway went on using the previous credential
+  until some unrelated change or a manual restart happened to reload it.
+
+  Proven by computing the signature either side of a rotation before the fix: the
+  string was byte-identical after replacing the key, after changing `api_base`,
+  and after changing `custom_headers`. The owner's report is accurate, and the
+  editable field was never the problem — the apply step was.
+- **Resolution:** `computeModelCredentialSignatures`
+  (`web/backend/api/model_credential_signature.go`) adds one entry per
+  `model_list` index covering provider, model, `api_base`, `proxy`,
+  `auth_method`, `enabled`, a digest of the whole key list, and a digest of the
+  custom headers. Every entry is covered, not only those reachable from the
+  default and fallback chains: a key belonging to any configured model is
+  material the booted process holds, and narrowing it would restore the same
+  silent staleness for the rest. Secrets are reduced to SHA-256 digests — the
+  value is compared in process and never serialised, but a comparison does not
+  need the plaintext, and the whole key list is digested because a multi-key
+  entry fails over between them.
+- **Verification:** 8 cases in `model_credential_signature_test.go` — rotation,
+  `api_base`, header add and header change, a non-default sibling's rotation,
+  disabling a model, stability across repeated computation of one config, and
+  that no raw key or header credential appears in the signature. Existing gateway
+  signature tests still pass, so no restart-decision behaviour regressed.
+- **Note:** the provider-level rotation added for PC-DEF-049 goes through the same
+  apply path, so one rotation now both persists and becomes live for every model
+  of the provider.
+- **Status:** FIXED IN SOURCE. **Physical confirmation required** — real
+  inference with a replaced key on the device.
+
+### PC-DEF-051 — The Telegram command menu is empty; registration evidence was never trustworthy
+
+- **Owner's number:** PC-DEF-049.
+- **Discovered:** Samsung physical testing, 2026-09-13, owner-reported. Message
+  round-trip **PASS**; the command menu, previously about 14 commands, shows
+  nothing, `/start` included.
+- **Component:** `pkg/channels/telegram/command_registration.go`,
+  `pkg/commands/builtin.go`.
+- **Classification, kept separate as the owner instructed:**
+  - TELEGRAM MESSAGE ROUND-TRIP = **PASS**.
+  - TELEGRAM BOT COMMAND REGISTRATION = **BROKEN on the device. Root cause
+    UNKNOWN — device evidence required.**
+- **What the source audit rules out, and by what.** The registry and the wiring
+  are intact, so this is not a narrowed command set and not removed
+  registration:
+  - `commands.BuiltinDefinitions()` returns **14** definitions, every one with a
+    non-empty name and description, `/start` first. None is filtered out on the
+    way to Telegram. Pinned by `pkg/commands/telegram_command_menu_test.go`.
+  - `TelegramChannel.Start` calls `startCommandRegistration(c.ctx,
+    commands.BuiltinDefinitions())` after the bot connects, and the goroutine
+    retries with backoff until it succeeds or the channel shuts down.
+  - The `/model` picker revert (`5c92d9b`) and its replacement (`bc6ad04`) did not
+    touch the registration wiring. `/model` is still in the set.
+
+  None of that makes the bot's menu correct — it means the explanation is not in
+  the command list or the call site, and must not be guessed at.
+- **What *is* provably wrong, and is fixed: the success log was never evidence.**
+  The completion log printed `"count": len(defs)` — the number of definitions
+  *received*, never the number of commands Telegram accepted. It printed
+  `count=14` whether fourteen commands were published, none were because every
+  definition had been filtered out, or the call was skipped because Telegram
+  already agreed. The historical `Telegram commands registered count=14` the
+  owner cites therefore never proved the menu was populated, and its absence now
+  is the only real signal in either direction.
+
+  `RegisterCommands` now logs what it actually did — `sent` versus `defined`, or
+  "already current" with the count Telegram reported — plus the bot username, so
+  a replaced or reconnected managed bot is distinguishable from the one before
+  it. Any definition that cannot be published is named in a warning instead of
+  dropped in silence.
+- **Verification:** 6 cases in `command_registration_test.go`, including that
+  registration receives the complete set with `/start` present, that it is
+  attempted again on a reconnected channel, and that an empty definition list
+  touches the menu not at all; 6 in `telegram_command_menu_test.go` pinning the
+  expected 14-command set, `/start`'s presence, publishability, and Telegram's
+  name and description limits — a single over-long description or invalid name
+  fails `setMyCommands` for *every* command, which is one mechanism that would
+  produce exactly this symptom.
+- **Owner security contract: unchanged.** `NewTelegramChannel` still requires
+  exactly one positive numeric owner in `AllowFrom` and refuses empty, wildcard,
+  username and multiple entries — `TestNewTelegramChannelRejectsOpenAuthorization`.
+  Command registration does not read or write it.
+- **Next step is diagnostic, not a fix.** On the device, after connecting or
+  reconnecting the managed bot, the Core log must be read for
+  `Telegram command menu set` / `already current` with its `sent` count and bot
+  username, or for `Telegram command registration failed; will retry` with the
+  API error. That single line separates "never called", "called and rejected by
+  Telegram", and "called, accepted, and the menu is a client-side view problem".
+  **No further change may be made to registration by guess.**
+- **Status:** **OPEN. Observability fixed in source; cause UNKNOWN.** Physical
+  diagnosis required.
 
 ### PC-DEF-045 — The Save/Update action was not reachable in the real flow
 
@@ -504,7 +700,8 @@ only reconstructable examples belong here.
 - **Verification:** `config-change-notice.test.tsx` asserts the token identity
   rather than a rendered colour, so the regression cannot return under a
   different class name.
-- **Status:** FIXED IN SOURCE. **Not physically verified.**
+- **Status:** **RESOLVED — PHYSICALLY VERIFIED PASS**, Samsung, 2026-09-13. The
+  warning renders visible text on the device.
 
 ### PC-DEF-041 — Model chips did not say where they came from
 

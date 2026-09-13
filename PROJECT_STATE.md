@@ -34,9 +34,61 @@ evidence and describe the state at the date of each entry.
 | Exposure-audit state-basis HEAD | `25753cef5fa4d956e11d37b5a6176cdef977f015` (verified PC-DEF-019 closeout; the audit closeout commit follows it) |
 | Final release exposure audit | **CLOSED / PASS** on the re-run at `6031898`. No release blocker remains for the GitHub / direct APK release. `PC-DEF-022`, `PC-DEF-023` and `PC-DEF-024` have all since been RESOLVED; only `PC-DEF-006` (F-Droid path) and `PC-DEF-012` remain open |
 | Production candidate | **BUILT AND GATED.** `4d4bc33a…`, 63,472,307 bytes, one v2 signer `176dca6b…`; production artifact gate 57 PASS / 0 FAIL / 0 SKIPPED. Private validation evidence — not installed, published or accepted |
-| Next authorized milestone | Samsung physical acceptance of the production candidate, under its own prompt, with a migration / clean-install / data-safeguard plan. The device is development-signed, so a cross-signer install is forbidden |
+| Next authorized milestone | **A development-signed Verification APK for the PC-DEF-049/050/051 physical round.** `core/src` changed, so the staged Core pair is stale and a Core rebuild plus a second staging commit come first. Samsung physical acceptance of the production candidate follows, under its own prompt, with a migration / clean-install / data-safeguard plan; the device is development-signed, so a cross-signer install is forbidden |
+| Staged Core freshness | **STALE.** The committed `core/src` fingerprint was `5933e74f9e94e8efa631e24369b767547e3b1c589402b7c312e9b2e8edc56313`; the PC-DEF-049/050/051 source changes move it to `181cfcbd344f9eb7f4b45440758d2ee42590a17f36a9125e7cec6e4d5e48871c`. No APK may be built for physical testing until the Core is rebuilt from the source commit and staged in a second commit that touches no build input |
 | Flutter suite | Green — 497 passed, 0 failed — and the **complete** suite is now a release gate (`flutter.suite`) |
 | Public release asset policy | APK only. An AAB is a Play-upload artifact and is never a public release asset — `PC-DEF-021` |
+
+## 2026-09-13 — Provider CRUD, credential apply, and Telegram command menu
+
+Samsung physical results corrected the ledger and opened three defects. The
+owner's numbers 047/048/049 collided with entries already in use, so they are
+recorded as **PC-DEF-049, PC-DEF-050, PC-DEF-051**; `docs/DEFECT_LOG.md` carries
+an identifier note and each entry names the owner's number.
+
+Confirmed physically PASS and now RESOLVED in the log: **PC-DEF-030** (Telegram
+automatic runtime apply), **PC-DEF-032** (OpenCode Go — `deepseek-v4.1-flash`
+produced a real Chat response), **PC-DEF-033** (the amber warning block). Model
+Delete exists and PC-DEF-047's fix is confirmed; the management gap was at the
+provider level, not the model level.
+
+**The data-model audit the owner asked for is `docs/PROVIDER_ARCHITECTURE.md`
+section 13.** Its finding: credentials are **model-scoped** and there is no
+provider record anywhere in the configuration schema. `config.Config` holds only
+`model_list`, and each entry carries its own `provider` label, `api_base`,
+`api_keys`, `proxy` and `custom_headers`. Two models of one provider that share a
+key hold two copies of the same secret. A "provider" is a derived grouping over
+that label, so provider management is implemented as a view over `model_list` and
+introduces no provider object — a derived view cannot disagree with the models it
+is derived from, a stored one can. A stored provider record with per-model
+overrides remains open as a schema change; it needs a config version, a migration
+and a rule for which of several disagreeing keys wins.
+
+**PC-DEF-050's root cause is proven, not inferred.** `computeConfigSignature`
+decides `gateway_restart_required`, and it covered no credential, endpoint or
+header of any `model_list` entry. A rotated key was persisted correctly, the
+console was told no restart was required, it reported success, and the running
+gateway kept the old credential. Computing the signature either side of a
+rotation before the fix produced a byte-identical string — likewise for
+`api_base` and `custom_headers`. Fixed by digesting that material into the
+signature; secrets are SHA-256 digests, never plaintext.
+
+**PC-DEF-051 is OPEN with cause UNKNOWN.** The command registry is intact — 14
+definitions, all publishable, `/start` first — and `Start` still passes the whole
+set to registration with retry. What was provably wrong is that the success log
+printed the number of definitions *received* rather than what Telegram accepted,
+so the historical `count=14` never proved the menu was populated. That
+observability is fixed; the cause must come from a device log line, not a guess.
+
+Verification at this point: full Go backend suite green
+(`web/backend/...`, 26 s), `pkg/commands` and `pkg/channels/...` green under
+`-tags goolm`, `go vet` clean; frontend 469/469 Vitest across 35 files, `tsc -b`
+clean, ESLint clean on every changed file; i18n parity green with 26 new keys
+added in all 14 locales; `tool/no_active_pico.py` passes with 19 allowlist
+entries all in use; source release gate 15 PASS / 0 FAIL in test class. No Dart
+file changed, so the Flutter suite is untouched by this work.
+
+Not merged, not tagged, nothing published — per the owner's instruction.
 
 The H2 production validation APK has SHA-256
 `f0d83298c2ce061c01a9fc931ad29676e4d4b646bb5b204a9bf0002b11a7f46f`

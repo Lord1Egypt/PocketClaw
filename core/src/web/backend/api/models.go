@@ -502,29 +502,6 @@ func (h *Handler) handleUpdateModel(w http.ResponseWriter, r *http.Request) {
 // handleDeleteModel removes a model configuration entry at the given index.
 //
 //	DELETE /api/models/{index}
-//
-// removeModelReference drops every occurrence of a model_list name from an
-// ordered reference list, preserving the order of what is left.
-//
-// A nil result is returned for a list that becomes empty, so the field is
-// omitted from the saved config rather than written as an empty array.
-func removeModelReference(references []string, modelName string) []string {
-	if len(references) == 0 {
-		return references
-	}
-	kept := make([]string, 0, len(references))
-	for _, reference := range references {
-		if strings.TrimSpace(reference) == modelName {
-			continue
-		}
-		kept = append(kept, reference)
-	}
-	if len(kept) == 0 {
-		return nil
-	}
-	return kept
-}
-
 func (h *Handler) handleDeleteModel(w http.ResponseWriter, r *http.Request) {
 	idx, err := strconv.Atoi(r.PathValue("index"))
 	if err != nil {
@@ -547,20 +524,13 @@ func (h *Handler) handleDeleteModel(w http.ResponseWriter, r *http.Request) {
 
 	cfg.ModelList = append(cfg.ModelList[:idx], cfg.ModelList[idx+1:]...)
 
-	// If the deleted model was the default, clear it.
-	if cfg.Agents.Defaults.ModelName == deletedModelName {
-		cfg.Agents.Defaults.ModelName = ""
-	}
-
-	// Every reference to the entry goes with it. The fallback chain is a list
-	// of model_list names, and a deleted name left in it is a candidate the
-	// router will try and cannot resolve -- the "never silently continue with a
-	// deleted model" rule, applied to the reference the default-model check
-	// above does not cover.
-	cfg.Agents.Defaults.ModelFallbacks = removeModelReference(
-		cfg.Agents.Defaults.ModelFallbacks, deletedModelName)
-	cfg.Agents.Defaults.ImageModelFallbacks = removeModelReference(
-		cfg.Agents.Defaults.ImageModelFallbacks, deletedModelName)
+	// Every reference to the entry goes with it. A fallback chain is a list of
+	// model_list names, and a deleted name left in one is a candidate the router
+	// will try and cannot resolve -- the "never silently continue with a deleted
+	// model" rule. purgeModelReferences covers all of them, including the image
+	// model, the complexity router's light model and each agent's own
+	// primary/fallback pair, which an earlier version of this handler missed.
+	purgeModelReferences(cfg, newModelReferenceSet(deletedModelName))
 
 	if err := config.SaveConfig(h.configPath, cfg); err != nil {
 		http.Error(w, fmt.Sprintf("Failed to save config: %v", err), http.StatusInternalServerError)

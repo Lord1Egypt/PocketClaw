@@ -331,3 +331,129 @@ Two consequences worth remembering:
 - No API key may be logged, committed, or written into any document.
 - The Android DNS bridge, MQTT `/pocketclaw` default, workspace path, Skill
   Hub, Telegram, and the arm64 release guard are untouched.
+
+## 13. Credential ownership audit — where an API key actually lives
+
+Audit date: 2026-09-13. Requested by the owner alongside the Samsung physical
+results that opened `PC-DEF-049` and `PC-DEF-050`. Read out of the source at
+`feature/final-release-hardening`, not assumed.
+
+### 13.1 The finding, stated plainly
+
+**Credentials are model-scoped. There is no provider record anywhere in the
+configuration schema.**
+
+`config.Config` (`core/src/pkg/config/config.go:41`) holds exactly one
+model-related field:
+
+```go
+ModelList SecureModelList `json:"model_list" yaml:"model_list"`
+```
+
+There is no `providers` map, no provider object, and no provider table. Each
+`ModelConfig` entry (`config.go:763`) carries its own complete connection
+material:
+
+| Field | JSON | Scope in practice |
+| --- | --- | --- |
+| `Provider` | `provider` | A **string label** on the model. Not a foreign key: nothing on the other end. |
+| `APIBase` | `api_base` | Per model. |
+| `APIKeys` | `api_keys` | Per model. |
+| `Proxy` | `proxy` | Per model. |
+| `CustomHeaders` | `custom_headers` | Per model. |
+| `AuthMethod` | `auth_method` | Per model. |
+
+So the answer to each question the owner asked:
+
+- **provider-scoped?** No.
+- **model-scoped?** Yes. This is the source of truth.
+- **duplicated between provider and model?** There is nothing to duplicate from.
+  Two models of one provider that share a key hold **two copies of the same
+  secret**, one per `model_list` entry.
+- **inherited from provider?** No. There is no inheritance mechanism.
+- **overridden per model?** Every value is a per-model value, so "override" does
+  not apply — there is no base to override.
+
+### 13.2 What "a provider" is, then
+
+A derived grouping, computed in two places from the same `provider` string:
+
+- Frontend: `getCanonicalProviderKey(model.provider, providerOptions)` groups
+  `model_list` into sections (`models-page.tsx`).
+- Backend: `providers.NormalizeProvider` canonicalizes the label and
+  `provider_metadata.go` supplies the preset's identity, default base and
+  aliases.
+
+The preset catalog is backend-owned and read-only (section 3). It describes how
+to talk to a provider; it stores nothing the user configured.
+
+### 13.3 Consequence for provider management
+
+Provider CRUD is therefore implemented as a **view over `model_list`**, in
+`core/src/web/backend/api/providers.go`, and deliberately introduces no provider
+object:
+
+- A provider is the set of entries whose canonical provider key matches.
+- **Replace API key** writes the new key to every entry in that set, replacing
+  the whole `api_keys` list rather than its first element, so a multi-key entry
+  cannot keep failing over to the credential just rotated away from.
+- **Delete provider** removes those entries and purges every reference to them.
+- Provider-scoped state is reported as what the set *agrees on*. Where the models
+  disagree the API returns `credential_state: "mixed"` / `api_base_mixed: true`
+  rather than picking one. Presenting one of several keys as "the provider key"
+  is precisely what would let a rotation update one model while its siblings kept
+  an old credential.
+
+A stored provider record with an optional per-model override is the cleaner
+model and remains open as a schema change. It is **not** what ships here: it
+needs a config schema version, a migration for existing files, and a decision
+about which of several disagreeing keys becomes the provider's. A derived view
+cannot disagree with the models it is derived from; a stored one can.
+
+### 13.4 The reference sites a removed model name appears in
+
+Seven, all naming a `model_list` entry by `model_name`. Any one of them left
+holding a deleted name is a candidate the router resolves against a model that
+does not exist:
+
+1. `agents.defaults.model_name`
+2. `agents.defaults.model_fallbacks`
+3. `agents.defaults.image_model`
+4. `agents.defaults.image_model_fallbacks`
+5. `agents.defaults.routing.light_model`
+6. `agents.list[].model.primary` / `.fallbacks`
+7. `agents.list[].subagents.model.primary` / `.fallbacks`
+
+`purgeModelReferences` (`core/src/web/backend/api/model_references.go`) is the
+single implementation, used by both provider delete and single-model delete. The
+single-model path previously covered only 1, 2 and 4 — `PC-DEF-043`'s fix — and
+has been widened to all seven.
+
+Scalar references are cleared to empty rather than repointed at a surviving
+model: which model takes over is the user's decision, and every consumer already
+treats empty as "not configured". An empty `routing.light_model`, for instance,
+means no router is constructed at all (`pkg/agent/instance.go:257`).
+
+### 13.5 Credential exposure, re-checked
+
+The section 6 posture holds and is unchanged by this work:
+
+- `GET /api/providers` and `GET /api/providers/{provider}` return
+  `maskAPIKey(...)` only, and only when the provider's models agree on one key.
+- The Manage Provider credential field is never prefilled. An empty field means
+  "leave the stored credential alone".
+- `PUT /api/providers/{provider}` with an empty `api_key` is refused as a request
+  that changes nothing, rather than treated as "clear the key". Revoking a
+  provider's ability to answer is what Delete Provider is for; it must not be the
+  silent consequence of submitting a form with a blank field.
+- The gateway restart signature digests key and header material with SHA-256 and
+  never carries the plaintext (`model_credential_signature.go`, and
+  `TestConfigSignatureDoesNotCarryTheRawAPIKey`).
+
+One pre-existing exception is recorded rather than left unmentioned: the
+`webcfg:` component of the gateway restart signature is a JSON dump of
+`cfg.Tools.Web`, which embeds the **plaintext** web-search API keys
+(`baidu_search.api_key`, `brave.api_keys`, and so on). That value stays in
+process memory and only a boolean derived from it reaches a client, so it is not
+a disclosure, but it is raw secret material in a comparison value that does not
+need it. It predates this work and is out of its scope.

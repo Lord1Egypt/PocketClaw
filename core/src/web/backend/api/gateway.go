@@ -568,6 +568,10 @@ func computeConfigSignature(cfg *config.Config) string {
 	if len(modelStreamingSignatures) > 0 {
 		parts = append(parts, "model_streaming:"+strings.Join(modelStreamingSignatures, ","))
 	}
+	modelCredentialSignatures := computeModelCredentialSignatures(cfg)
+	if len(modelCredentialSignatures) > 0 {
+		parts = append(parts, "model_credentials:"+strings.Join(modelCredentialSignatures, ","))
+	}
 	toolSignatures := []string{}
 	if cfg.Tools.ReadFile.Enabled {
 		toolSignatures = append(toolSignatures, "read_file")

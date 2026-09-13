@@ -119,7 +119,9 @@ func TestDeleteModelClearsTheDefaultAndLeavesOthersAlone(t *testing.T) {
 	}
 }
 
-func TestRemoveModelReference(t *testing.T) {
+// The list-clearing semantics the delete path depends on, held against the
+// helper that now performs it for every reference site.
+func TestPurgeModelReferencesListSemantics(t *testing.T) {
 	cases := []struct {
 		name       string
 		references []string
@@ -135,15 +137,69 @@ func TestRemoveModelReference(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			got := removeModelReference(tc.references, tc.remove)
+			cfg := config.DefaultConfig()
+			cfg.Agents.Defaults.ModelFallbacks = tc.references
+			purgeModelReferences(cfg, newModelReferenceSet(tc.remove))
+
+			got := cfg.Agents.Defaults.ModelFallbacks
 			if len(got) != len(tc.want) {
-				t.Fatalf("removeModelReference() = %v, want %v", got, tc.want)
+				t.Fatalf("model_fallbacks = %v, want %v", got, tc.want)
 			}
 			for i := range got {
 				if got[i] != tc.want[i] {
-					t.Fatalf("removeModelReference() = %v, want %v", got, tc.want)
+					t.Fatalf("model_fallbacks = %v, want %v", got, tc.want)
 				}
 			}
+			if len(tc.want) == 0 && got != nil {
+				t.Fatal("an emptied chain must be nil so the field is omitted from the saved config")
+			}
 		})
+	}
+}
+
+// A single-model delete has to reach every reference site, not only the default
+// model and the two default fallback chains.
+func TestDeleteModelClearsTheLightModelAndAgentReferences(t *testing.T) {
+	configPath, mux := fallbackTestEnv(t)
+
+	cfg, err := config.LoadConfig(configPath)
+	if err != nil {
+		t.Fatalf("LoadConfig() error = %v", err)
+	}
+	cfg.Agents.Defaults.Routing = &config.RoutingConfig{
+		Enabled: true, LightModel: "Gemini", Threshold: 0.3,
+	}
+	cfg.Agents.Defaults.ImageModel = "Gemini"
+	cfg.Agents.List = []config.AgentConfig{{
+		ID:    "main",
+		Model: &config.AgentModelConfig{Primary: "Gemini", Fallbacks: []string{"Claude"}},
+	}}
+	if err := config.SaveConfig(configPath, cfg); err != nil {
+		t.Fatalf("SaveConfig() error = %v", err)
+	}
+
+	// Index 1 is Gemini.
+	if rec := deleteModelAt(t, mux, "1"); rec.Code != http.StatusOK {
+		t.Fatalf("delete status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+
+	cfg, err = config.LoadConfig(configPath)
+	if err != nil {
+		t.Fatalf("LoadConfig() error = %v", err)
+	}
+	if got := cfg.Agents.Defaults.Routing.LightModel; got != "" {
+		t.Errorf("routing.light_model = %q, want cleared", got)
+	}
+	if got := cfg.Agents.Defaults.ImageModel; got != "" {
+		t.Errorf("image_model = %q, want cleared", got)
+	}
+	if len(cfg.Agents.List) != 1 || cfg.Agents.List[0].Model == nil {
+		t.Fatalf("agent list did not round-trip: %+v", cfg.Agents.List)
+	}
+	if got := cfg.Agents.List[0].Model.Primary; got != "" {
+		t.Errorf("agent model primary = %q, want cleared", got)
+	}
+	if got := cfg.Agents.List[0].Model.Fallbacks; len(got) != 1 || got[0] != "Claude" {
+		t.Errorf("agent model fallbacks = %v, want [Claude] untouched", got)
 	}
 }
