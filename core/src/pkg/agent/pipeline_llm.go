@@ -14,6 +14,7 @@ import (
 	runtimeevents "github.com/sipeed/picoclaw/pkg/events"
 	"github.com/sipeed/picoclaw/pkg/logger"
 	"github.com/sipeed/picoclaw/pkg/providers"
+	"github.com/sipeed/picoclaw/pkg/providers/common"
 
 	"github.com/sipeed/picoclaw/pkg/config"
 )
@@ -74,6 +75,12 @@ func (p *Pipeline) CallLLM(
 		"max_tokens":       ts.agent.MaxTokens,
 		"temperature":      ts.agent.Temperature,
 		"prompt_cache_key": ts.agent.ID,
+		// The conversation this turn belongs to. Providers that route on
+		// conversation identity derive an opaque id from it; the scope itself
+		// never leaves the device. Every request of this turn -- streamed,
+		// retried, or continuing a tool call -- carries the same scope, because
+		// it is read from the turn's options and the turn has one. PC-DEF-032.
+		common.SessionOptionKey: turnConversationScope(ts),
 	}
 	if exec.useNativeSearch {
 		exec.llmOpts["native_search"] = true

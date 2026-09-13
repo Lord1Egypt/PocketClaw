@@ -228,36 +228,111 @@ only reconstructable examples belong here.
 ### PC-DEF-032 — OpenCode inference failed with an unexplained HTTP 400
 
 - **Discovered:** Samsung physical testing, 2026-09-13.
-- **Component:** `pkg/agent/error_format.go`, the Add and Edit model sheets.
-- **Description:** OpenCode Zen and OpenCode Go both passed Fetch Models
-  (roughly 70 and 37 models). A chat request for `deepseek-v4.1-flash` returned
-  HTTP 400 and the chat window said only "request rejected (400)".
-- **Root cause:** two separate things, both proven.
-  1. **The model is not served by the endpoint it was configured against.**
-     `GET https://opencode.ai/zen/go/v1/models` returns 38 ids including
-     `deepseek-v4.1-flash`; `GET https://opencode.ai/zen/v1/models` returns 70
-     and does not. Posting that model to the Zen endpoint answers
-     `{"type":"error","error":{"type":"ModelError","message":"Model
-     deepseek-v4.1-flash is not supported"}}`. The gateway validates the model
-     before the credential, so this is what a valid key sees as a 400. The Add
-     and Edit sheets let a fetched list outlive the endpoint it was fetched
-     from: changing the provider or base URL left the chips on screen still
-     labelled as this provider's verified inventory.
-  2. **The explanation was discarded.** `failoverReasonSummary` maps
-     `FailoverFormat` to the fixed string "request rejected" and nothing carried
-     the provider's own sentence.
-- **Resolution:** `providerErrorDetail` extracts exactly one known message field
-  from a JSON error body, redacts it through `pcruntime.RedactText` plus a
-  high-entropy-token and URL pass, collapses it to one line and caps it at 200
-  runes, and the chat summary quotes it as the provider's words. The response
-  body itself still never reaches the user. The sheets drop a fetched list the
-  moment the provider or effective base URL changes.
-- **Verification:** `pkg/agent/provider_detail_test.go` — nine cases covering
-  the OpenCode rejection, four body shapes, credential echo-back for five
-  credential families, model ids that must survive redaction, link stripping,
-  the length cap, HTML bodies and non-HTTP errors.
-- **Status:** FIXED IN SOURCE. **Not physically verified.** A live OpenCode Go
-  inference with the owner's key remains the outstanding proof.
+- **Component:** `pkg/providers/opencode_routing.go`, the three OpenCode
+  transport arms, `pkg/agent/pipeline_llm.go`, `pkg/agent/error_format.go`.
+- **Status:** **OPEN.** Fixed in source; not closed until the Samsung produces a
+  real successful OpenCode Go answer.
+
+- **Root cause — PROVEN, and not what this log first recorded.**
+  OpenCode Go requires an `x-opencode-session` header and PocketClaw never sent
+  one. Owner's direct external test against the live service, 2026-09-13:
+
+  `POST https://opencode.ai/zen/go/v1/chat/completions`, model
+  `deepseek-v4.1-flash`, same key, same body.
+
+  | Request | Result |
+  | --- | --- |
+  | without `x-opencode-session` | HTTP 400 `{"error":{"type":"MissingSessionID","message":"Error from provider (Console Go): Request is missing x-opencode-session and cannot be routed efficiently..."}}` |
+  | with `x-opencode-session: <uuid>` and `User-Agent: PocketClaw/0.2.0` | HTTP 200, assistant content `OK` |
+
+  So the service, the API key, the model and the Go endpoint are all PROVEN
+  WORKING. The incompatibility was PocketClaw's.
+
+- **Correction to the earlier entry.** This log previously recorded the cause as
+  a model configured against the wrong OpenCode endpoint, on the evidence that
+  `deepseek-v4.1-flash` appears in Go's inventory and not in Zen's. That
+  observation is still true and still a real hazard — Zen answers that model id
+  with `ModelError: Model deepseek-v4.1-flash is not supported` — but it was not
+  the cause of the owner's failure, which was on Go. The endpoint-provenance
+  work done for it stands on its own merits and is retained.
+
+- **Resolution.**
+  - `common.StableSessionID` maps a conversation scope to a stable, opaque,
+    UUID-shaped identifier through a process-lifetime random salt. The scope is
+    never sent: a PocketClaw session key can be a token-shaped identifier and a
+    chat id can be the owner's Telegram account, and neither belongs to a third
+    party. A restarted gateway re-salts, so a conversation spanning a restart
+    continues under a new id — a routing inefficiency, never an error.
+  - `turnConversationScope` composes the scope from the turn's session key **and**
+    chat id. The session key alone was the wrong granularity: under the default
+    session policy several chats on one channel share one key, which a test
+    caught by finding two conversations collapsing into one session.
+  - The scope rides on the per-turn options every request is built from, so each
+    turn, each streamed turn, each tool-call continuation, each retry and each
+    fallback candidate carry the same value. Summarisation and compaction, which
+    run outside any conversation, fall back to a process identifier rather than
+    sending no header — "no header" is the 400 this exists to prevent.
+  - Applied to all three OpenCode transport arms (chat completions, responses,
+    Anthropic messages) and to both gateways, with `User-Agent: PocketClaw/0.2.0`.
+    It is opt-in per provider and reaches nothing else.
+  - Separately, the provider's own explanation now reaches the user. The
+    `MissingSessionID` message names the problem exactly, and PocketClaw was
+    replacing it with "request rejected (400)". `providerErrorDetail` extracts
+    one known message field, redacts it, collapses it to one line and caps it.
+
+- **Verification:** `pkg/providers/common/session_test.go` (identity, stability,
+  per-conversation distinctness, no scope or credential in the output, the
+  process fallback, opt-in); `pkg/providers/opencode_session_test.go` (the
+  header on the wire for non-streaming and streaming turns, one value across a
+  turn/tool-continuation/retry sequence, a different value for a new
+  conversation, and the header reaching none of five unrelated providers, each
+  against a stub that refuses a request without it exactly as the real gateway
+  does); `pkg/agent/session_scope_test.go` (the agent actually puts the scope on
+  the turn options); `pkg/agent/provider_detail_test.go` (the error detail).
+- **Outstanding:** owner's regression items 10 — a real physical request from
+  the Samsung. Until then this defect is FIXED IN SOURCE and OPEN.
+
+### PC-DEF-045 — The Save/Update action was not reachable in the real flow
+
+- **Discovered:** Samsung physical testing, 2026-09-13, after PC-DEF-033 was
+  confirmed fixed on the device.
+- **Component:** the Add and Edit model sheets.
+- **Description:** the owner reports, from the device, that the Edit Model
+  screen still has no clear Save/Update control available in the actual flow.
+- **Assessment:** the control exists, is enabled when the form is dirty, and is
+  now labelled "Update Model" — so its absence is a matter of where it is, not
+  whether it is there. The sheet is a fixed-height panel whose footer sits at the
+  bottom edge; the soft keyboard opens the moment the API key field is focused,
+  which is precisely when there is something to save. A footer below the
+  keyboard is a control that does not exist as far as the user is concerned.
+  This is INFERRED: it fits the report and the layout, and no device was
+  available to this session to confirm it.
+- **Resolution deliberately chosen to be robust to the diagnosis being wrong:**
+  the primary action is now also in the sheet header, which no keyboard can
+  cover and which is visible without scrolling. If the cause was the keyboard,
+  this fixes it; if the cause was that the owner never reached the bottom of a
+  long form, this fixes that too.
+- **Status:** FIXED IN SOURCE. **Physical confirmation required.**
+
+### PC-DEF-046 — No obvious Delete/Remove action for a model
+
+- **Discovered:** Samsung physical testing, 2026-09-13.
+- **Component:** `web/frontend/src/components/models/model-card.tsx`.
+- **Root cause:** Edit and Delete were 32px (`size-8`) icon-only ghost buttons,
+  packed with a 2px gap into the card's top-right corner beside a truncating
+  model name, and explained only by a Radix tooltip. A tooltip opens on hover;
+  a touch screen has no hover, so on the device the two controls were unlabelled
+  grey glyphs and the delete one was `text-pc-muted` until a hover that never
+  came. Reporting it as missing was accurate to the experience.
+- **Resolution:** both are now labelled text controls on their own row, each
+  `min-h-10` and half the card's width, and the reason a disabled Delete is
+  disabled is printed on the card instead of hidden in a tooltip.
+- **Note:** the set-default star is still a 32px icon with a tooltip. It is
+  left alone deliberately — adding a third control to the row would recreate the
+  crowding this fixes, and its meaning is carried by the visible "Default"
+  badge — but it is the same affordance pattern and is recorded here rather than
+  left unmentioned.
+- **Status:** FIXED IN SOURCE. **Physical confirmation required.**
 
 ### PC-DEF-033 — An empty amber rectangle on every configuration screen
 

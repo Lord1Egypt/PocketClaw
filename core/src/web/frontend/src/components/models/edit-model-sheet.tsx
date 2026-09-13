@@ -476,13 +476,34 @@ export function EditModelSheet({
           side="right"
           className="flex flex-col gap-0 p-0 data-[side=right]:!w-full data-[side=right]:sm:!w-[560px] data-[side=right]:sm:!max-w-[560px]"
         >
-          <SheetHeader className="border-b-muted border-b px-6 py-5">
-            <SheetTitle className="text-base">
-              {t("models.edit.title", { name: model?.model_name })}
-            </SheetTitle>
-            <SheetDescription className="font-mono text-xs">
-              {model?.model}
-            </SheetDescription>
+          {/* The primary action is in the header as well as the footer.
+              PC-DEF-045: the footer is the bottom of a fixed-height sheet, and
+              on a phone the soft keyboard opens the moment the API key field is
+              focused -- which is exactly when there is something to save. A
+              header action cannot be covered by it. The end padding leaves room
+              for the sheet's own close button. */}
+          <SheetHeader className="border-b-muted border-b px-6 py-5 pe-16">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <SheetTitle className="text-base">
+                  {t("models.edit.title", { name: model?.model_name })}
+                </SheetTitle>
+                <SheetDescription className="font-mono text-xs">
+                  {model?.model}
+                </SheetDescription>
+              </div>
+              <Button
+                size="sm"
+                className="min-h-10 shrink-0"
+                onClick={handleSave}
+                disabled={
+                  !isDirty || saving || modelValidation?.level === "error"
+                }
+              >
+                {saving && <IconLoader2 className="size-4 animate-spin" />}
+                {t("models.edit.confirm")}
+              </Button>
+            </div>
           </SheetHeader>
 
           <div

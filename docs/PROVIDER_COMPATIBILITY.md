@@ -52,8 +52,8 @@ as PROVEN WORKING on its own.
 | `nvidia` | OpenAI Chat Completions | POST {base}/chat/completions | Bearer | yes | `https://integrate.api.nvidia.com/v1` | UNTESTED |
 | `ollama` | OpenAI Chat Completions | POST {base}/chat/completions | Bearer | yes | `http://localhost:11434/v1` | UNTESTED |
 | `openai` | OpenAI Responses API, or Chat Completions | POST {base}/responses (OAuth/token) or {base}/chat/completions | Bearer, or Codex OAuth | yes | `https://api.openai.com/v1` | UNTESTED |
-| `opencode_go` | Mixed: Responses / Chat Completions / Anthropic Messages, chosen per model | POST {base}/responses | /chat/completions | /messages | Bearer (plus x-api-key on the Messages arm) | yes | `https://opencode.ai/zen/go/v1` | PARTIALLY COMPATIBLE |
-| `opencode_zen` | Mixed: Responses / Chat Completions / Anthropic Messages, chosen per model | POST {base}/responses | /chat/completions | /messages | Bearer (plus x-api-key on the Messages arm) | yes | `https://opencode.ai/zen/v1` | PARTIALLY COMPATIBLE |
+| `opencode_go` | Mixed: Responses / Chat Completions / Anthropic Messages, chosen per model | POST {base}/responses \| /chat/completions \| /messages | Bearer (plus x-api-key on the Messages arm) **and a required `x-opencode-session`** | yes | `https://opencode.ai/zen/go/v1` | PROVEN BROKEN (service healthy; PocketClaw fixed in source, unverified) |
+| `opencode_zen` | Mixed: Responses / Chat Completions / Anthropic Messages, chosen per model | POST {base}/responses \| /chat/completions \| /messages | Bearer (plus x-api-key on the Messages arm) and `x-opencode-session` | yes | `https://opencode.ai/zen/v1` | PARTIALLY COMPATIBLE |
 | `openrouter` | OpenAI Chat Completions | POST {base}/chat/completions | Bearer | yes | `https://openrouter.ai/api/v1` | UNTESTED |
 | `qwen-intl` | OpenAI Chat Completions | POST {base}/chat/completions | Bearer | yes | `https://dashscope-intl.aliyuncs.com/compatible-mode/v1` | UNTESTED |
 | `qwen-portal` | OpenAI Chat Completions | POST {base}/chat/completions | Bearer | yes | `https://dashscope.aliyuncs.com/compatible-mode/v1` | UNTESTED |
@@ -71,13 +71,44 @@ as PROVEN WORKING on its own.
 
 ## Evidence
 
-### `opencode_go` — PARTIALLY COMPATIBLE
+### `opencode_go` — service PROVEN WORKING, PocketClaw PROVEN BROKEN
 
-Discovery PASS on device (~37 models) and re-confirmed here: GET https://opencode.ai/zen/go/v1/models returns 200 with 38 ids including `deepseek-v4.1-flash`. Inference not exercised with a live key.
+Discovery PASS on device (~37 models) and re-confirmed here: `GET
+https://opencode.ai/zen/go/v1/models` returns 200 with 38 ids including
+`deepseek-v4.1-flash`.
+
+Inference was then proven working **outside PocketClaw** by the owner, against
+the same endpoint, key and model:
+
+| Request | Result |
+| --- | --- |
+| no `x-opencode-session` | HTTP 400 `MissingSessionID` — "Request is missing x-opencode-session and cannot be routed efficiently" |
+| `x-opencode-session: <uuid>` + `User-Agent: PocketClaw/0.2.0` | HTTP 200, assistant content `OK` |
+
+So the service, the key, the model and the endpoint are healthy, and the
+incompatibility was PocketClaw's: it sent no session header at all. This gateway
+routes on conversation identity and refuses a request that does not carry one.
+
+PocketClaw now derives a stable, opaque, per-conversation identifier and sends
+it on all three transport arms. Not yet confirmed from the device, so this row
+stays broken until it is.
 
 ### `opencode_zen` — PARTIALLY COMPATIBLE
 
-Discovery PASS on device (~70 models). Inference of `deepseek-v4.1-flash` PROVEN BROKEN against this base: the endpoint answers `Model deepseek-v4.1-flash is not supported` because that model is served only by OpenCode Go. Zen's own ids (`deepseek-v4-flash`, `deepseek-v4-pro`) were not exercised.
+Discovery PASS on device (~70 models). Two separate facts about this endpoint,
+neither of which was the owner's failure:
+
+1. It does not serve `deepseek-v4.1-flash`. `GET .../zen/v1/models` does not
+   list it, and posting it answers `ModelError: Model deepseek-v4.1-flash is not
+   supported`. That model belongs to OpenCode Go. This is a real hazard when a
+   model id is carried across an endpoint change, and is guarded now, but it is
+   not what broke the owner's chat.
+2. It is the same service and account key as OpenCode Go, so it receives the
+   same `x-opencode-session` header. The requirement is proven on Go only; an
+   additive routing header cannot harm the Zen surface, and omitting it there
+   would leave a second gateway broken for the same reason.
+
+Zen's own model ids were not exercised against inference.
 
 ### `gemini` — PROVEN WORKING
 
@@ -104,10 +135,16 @@ OpenCode Zen and OpenCode Go share one base-URL shape, one key and three
 request protocols, chosen per model in `opencode_routing.go`. Two consequences
 this milestone confirmed:
 
-1. **The two endpoints do not serve the same inventory.** `deepseek-v4.1-flash`
+1. **They require a conversation identity.** `x-opencode-session` is not
+   optional on Go: without it every request is a 400, whatever the key or model.
+   It must be stable per conversation, which means it cannot be generated per
+   request, and it must not be the conversation's own key, which means it cannot
+   be sent raw.
+2. **The two endpoints do not serve the same inventory.** `deepseek-v4.1-flash`
    is in Go's list and not in Zen's. A model id is only meaningful together
    with the endpoint it was discovered from.
-2. **The gateway validates the model before the credential.** An unsupported
+3. **The gateway validates the model before the credential.** An unsupported
    model produces a `ModelError` naming the model, which is exactly the detail
-   the chat window used to discard.
+   the chat window used to discard — as is the `MissingSessionID` message that
+   would have made this whole defect self-diagnosing.
 

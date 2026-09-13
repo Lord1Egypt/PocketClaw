@@ -51,6 +51,10 @@ type Provider struct {
 	// convention; it is off by default so api.anthropic.com behavior is
 	// unchanged.
 	alsoSendBearerAuth bool
+
+	// sessionHeader, when set, names the request header that carries this
+	// conversation's identity. PC-DEF-032.
+	sessionHeader string
 }
 
 // Option customizes a Provider.
@@ -59,6 +63,14 @@ type Option func(*Provider)
 // WithBearerAuth additionally sends Authorization: Bearer <api_key>.
 // Use it for gateways that front the Messages protocol with a bearer-token
 // account key rather than an Anthropic API key.
+// WithSessionHeader makes this provider send the conversation identity under
+// the named header. See common.ApplySessionHeader.
+func WithSessionHeader(header string) Option {
+	return func(p *Provider) {
+		p.sessionHeader = header
+	}
+}
+
 func WithBearerAuth() Option {
 	return func(p *Provider) { p.alsoSendBearerAuth = true }
 }
@@ -133,6 +145,7 @@ func (p *Provider) Chat(
 	// Set headers
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-API-Key", p.apiKey) //nolint:canonicalheader // Anthropic API requires exact header name
+	common.ApplySessionHeader(req, p.sessionHeader, options)
 	req.Header.Set("Anthropic-Version", defaultAPIVersion)
 	if p.alsoSendBearerAuth {
 		req.Header.Set("Authorization", "Bearer "+p.apiKey)

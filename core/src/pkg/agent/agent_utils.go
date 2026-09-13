@@ -686,3 +686,25 @@ func extractProvider(registry *AgentRegistry) (providers.LLMProvider, bool) {
 	}
 	return defaultAgent.Provider, true
 }
+
+// turnConversationScope names the conversation a turn belongs to, for providers
+// that route on conversation identity.
+//
+// PC-DEF-032. The session key alone is the wrong granularity: under the default
+// session policy several chats on one channel are allocated a single session
+// key, so two unrelated conversations would be handed to the provider as one.
+// The chat id alone is the wrong granularity in the other direction, because an
+// explicit session key is exactly the thing that is meant to separate two
+// conversations sharing a chat.
+//
+// Both together are stable for one conversation and distinct between any two,
+// which is the whole contract. The value never leaves the device: it is the
+// input to an opaque, salted derivation in providers/common, never a header
+// value. That matters here, because a session key can be a token-shaped
+// identifier and a chat id can be the owner's Telegram account.
+func turnConversationScope(ts *turnState) string {
+	if ts == nil {
+		return ""
+	}
+	return ts.sessionKey + "|" + ts.chatID
+}

@@ -497,17 +497,38 @@ export function AddModelSheet({
           side="right"
           className="flex flex-col gap-0 p-0 data-[side=right]:!w-full data-[side=right]:sm:!w-[560px] data-[side=right]:sm:!max-w-[560px]"
         >
-          <SheetHeader className="border-b-muted border-b px-6 py-5">
-            <SheetTitle className="text-base">
-              {step === "provider"
-                ? t("models.picker.title")
-                : t("models.add.title")}
-            </SheetTitle>
-            <SheetDescription className="text-xs">
-              {step === "provider"
-                ? t("models.picker.subtitle")
-                : t("models.add.description")}
-            </SheetDescription>
+          {/* Same reason as the Edit sheet: the footer action is below the soft
+              keyboard on a phone, and the header action is not. PC-DEF-045. */}
+          <SheetHeader className="border-b-muted border-b px-6 py-5 pe-16">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <SheetTitle className="text-base">
+                  {step === "provider"
+                    ? t("models.picker.title")
+                    : t("models.add.title")}
+                </SheetTitle>
+                <SheetDescription className="text-xs">
+                  {step === "provider"
+                    ? t("models.picker.subtitle")
+                    : t("models.add.description")}
+                </SheetDescription>
+              </div>
+              {step === "configure" && (
+                <Button
+                  size="sm"
+                  className="min-h-10 shrink-0"
+                  onClick={handleSave}
+                  disabled={
+                    !form.model.trim() ||
+                    saving ||
+                    modelValidation?.level === "error"
+                  }
+                >
+                  {saving && <IconLoader2 className="size-4 animate-spin" />}
+                  {t("models.add.confirm")}
+                </Button>
+              )}
+            </div>
           </SheetHeader>
 
           <div

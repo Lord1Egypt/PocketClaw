@@ -25,6 +25,33 @@ const (
 	openCodeGoProvider  = "opencode_go"
 )
 
+// OpenCodeSessionHeader is the conversation identity these gateways route on.
+//
+// PC-DEF-032. Owner-verified against the live service on 2026-09-13: the same
+// endpoint, key and model that answers HTTP 200 with this header present
+// answers HTTP 400 without it:
+//
+//	{"type":"error","error":{"type":"MissingSessionID","message":
+//	 "Error from provider (Console Go): Request is missing x-opencode-session
+//	 and cannot be routed efficiently..."}}
+//
+// The value is derived, never the session key itself — see
+// common.StableSessionID for why a PocketClaw session key must not leave the
+// device.
+//
+// Applied to both gateways rather than to Go alone. They are one service behind
+// one account key, sharing this file's routing; the requirement was proven on
+// Go, and an additive routing header is not something the Zen surface can be
+// harmed by. It is scoped to this provider family and reaches nothing else.
+const OpenCodeSessionHeader = "x-opencode-session"
+
+// OpenCodeUserAgent identifies PocketClaw to the OpenCode gateways.
+//
+// The factory's default is the upstream "PicoClaw/<core version>", which says
+// nothing true about the client actually making the request. Bump this with the
+// product version in pubspec.yaml; Core does not carry the app's version.
+const OpenCodeUserAgent = "PocketClaw/0.2.0"
+
 // IsOpenCodeProvider reports whether a normalized provider ID is one of the
 // mixed-protocol OpenCode gateways.
 func IsOpenCodeProvider(provider string) bool {

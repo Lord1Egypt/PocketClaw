@@ -42,6 +42,11 @@ type Provider struct {
 	extraBody      map[string]any // Additional fields to inject into request body
 	customHeaders  map[string]string
 	userAgent      string
+	// sessionHeader, when set, names the request header that carries this
+	// conversation's identity. Empty for every provider that has not asked for
+	// one: a gateway requirement is never sent to a service that did not ask.
+	// PC-DEF-032.
+	sessionHeader string
 }
 
 type Option func(*Provider)
@@ -94,6 +99,14 @@ func WithRequestTimeout(timeout time.Duration) Option {
 func WithExtraBody(extraBody map[string]any) Option {
 	return func(p *Provider) {
 		p.extraBody = extraBody
+	}
+}
+
+// WithSessionHeader makes this provider send the conversation identity under
+// the named header. See common.ApplySessionHeader.
+func WithSessionHeader(header string) Option {
+	return func(p *Provider) {
+		p.sessionHeader = header
 	}
 }
 
@@ -336,6 +349,12 @@ func (p *Provider) SetProviderName(providerName string) {
 	p.providerName = strings.ToLower(strings.TrimSpace(providerName))
 }
 
+// SetSessionHeader makes this provider send the conversation identity under the
+// named header. See common.ApplySessionHeader.
+func (p *Provider) SetSessionHeader(header string) {
+	p.sessionHeader = header
+}
+
 func (p *Provider) SupportsThinking() bool {
 	return strings.EqualFold(strings.TrimSpace(p.providerName), "deepseek") || isDeepSeekHost(p.apiBase)
 }
@@ -487,6 +506,8 @@ func (p *Provider) Chat(
 	if p.apiKey != "" {
 		req.Header.Set("Authorization", "Bearer "+p.apiKey)
 	}
+	common.ApplySessionHeader(req, p.sessionHeader, options)
+	// Custom headers last, so an operator can still override anything above.
 	p.applyCustomHeaders(req)
 
 	resp, err := p.httpClient.Do(req)
@@ -559,6 +580,8 @@ func (p *Provider) ChatStreamEvents(
 	if p.apiKey != "" {
 		req.Header.Set("Authorization", "Bearer "+p.apiKey)
 	}
+	// A streamed turn is the same conversation as an unstreamed one.
+	common.ApplySessionHeader(req, p.sessionHeader, options)
 	p.applyCustomHeaders(req)
 
 	// Use a client without Timeout for streaming — the http.Client.Timeout covers

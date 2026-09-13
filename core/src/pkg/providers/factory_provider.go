@@ -414,16 +414,22 @@ func createOpenCodeProvider(
 		)
 	}
 
+	// Both gateways route on the conversation header and neither is served by
+	// the upstream user agent. PC-DEF-032.
+	_ = userAgent
+
 	switch routed {
 	case OpenCodeResponses:
-		return openairesponses.NewProvider(
+		provider := openairesponses.NewProvider(
 			cfg.APIKey(),
 			apiBase,
 			cfg.Proxy,
-			userAgent,
+			OpenCodeUserAgent,
 			cfg.RequestTimeout,
 			cfg.CustomHeaders,
-		), nil
+		)
+		provider.SetSessionHeader(OpenCodeSessionHeader)
+		return provider, nil
 
 	case OpenCodeMessages:
 		// OpenCode issues one account key for every surface, so the Messages
@@ -432,9 +438,10 @@ func createOpenCodeProvider(
 		return anthropicmessages.NewProviderWithTimeout(
 			cfg.APIKey(),
 			apiBase,
-			userAgent,
+			OpenCodeUserAgent,
 			cfg.RequestTimeout,
 			anthropicmessages.WithBearerAuth(),
+			anthropicmessages.WithSessionHeader(OpenCodeSessionHeader),
 		), nil
 
 	case OpenCodeChatCompletions:
@@ -443,12 +450,13 @@ func createOpenCodeProvider(
 			apiBase,
 			cfg.Proxy,
 			cfg.MaxTokensField,
-			userAgent,
+			OpenCodeUserAgent,
 			cfg.RequestTimeout,
 			cfg.ExtraBody,
 			cfg.CustomHeaders,
 		)
 		provider.SetProviderName(protocol)
+		provider.SetSessionHeader(OpenCodeSessionHeader)
 		return provider, nil
 	}
 
