@@ -1,8 +1,11 @@
 import { IconLoader2 } from "@tabler/icons-react"
+import type React from "react"
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
+import { toast } from "sonner"
 
 import { type ModelInfo, deleteModel } from "@/api/models"
+import { applyGatewayConfigIfRequired } from "@/lib/restart-required"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -28,21 +31,36 @@ export function DeleteModelDialog({
   const { t } = useTranslation()
   const [deleting, setDeleting] = useState(false)
 
-  const handleConfirm = async () => {
-    if (!model) return
-    if (model.is_default) {
-      onClose()
-      return
-    }
+  // The default model is the one Chat routes through, so removing it is
+  // refused rather than performed. It used to be refused by closing the dialog
+  // and doing nothing at all: the user pressed Delete, the dialog went away and
+  // the model was still there, with no reason given.
+  const isDefault = model?.is_default === true
+
+  // Radix closes the dialog on the action button's own click. A delete that
+  // fails must not disappear along with the dialog, so the close is taken over
+  // here and only performed once the delete has actually succeeded.
+  const handleConfirm = async (event: React.MouseEvent) => {
+    event.preventDefault()
+    if (!model || isDefault) return
+
     setDeleting(true)
     try {
       await deleteModel(model.index)
       onDeleted()
-    } catch {
-      // ignore, user can retry from list
+      // Removal is a configuration change like any other: a gateway still
+      // holding the deleted entry would go on routing to it.
+      await applyGatewayConfigIfRequired(t, {
+        savedMessage: t("models.delete.success", { name: model.model_name }),
+        name: model.model_name,
+      })
+      onClose()
+    } catch (e) {
+      // A swallowed failure left the model in the list with no explanation and
+      // no way to tell a failed delete from a stale list.
+      toast.error(e instanceof Error ? e.message : t("models.delete.error"))
     } finally {
       setDeleting(false)
-      onClose()
     }
   }
 
@@ -52,17 +70,19 @@ export function DeleteModelDialog({
         <AlertDialogHeader>
           <AlertDialogTitle>{t("models.delete.title")}</AlertDialogTitle>
           <AlertDialogDescription>
-            {t("models.delete.description", { name: model?.model_name })}
+            {isDefault
+              ? t("models.delete.defaultBlocked", { name: model?.model_name })
+              : t("models.delete.description", { name: model?.model_name })}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel onClick={onClose} disabled={deleting}>
-            {t("common.cancel")}
+            {isDefault ? t("common.close") : t("common.cancel")}
           </AlertDialogCancel>
           <AlertDialogAction
             variant="destructive"
             onClick={handleConfirm}
-            disabled={deleting}
+            disabled={deleting || isDefault}
           >
             {deleting && <IconLoader2 className="size-4 animate-spin" />}
             {t("models.delete.confirm")}

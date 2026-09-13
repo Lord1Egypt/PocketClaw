@@ -1,6 +1,8 @@
 package api
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"strconv"
 	"strings"
@@ -101,15 +103,37 @@ func telegramSemanticKey(cfg *config.Config) string {
 	if !ok || settings == nil {
 		return key + ";settings=absent"
 	}
-	// The token itself is never part of the key material that gets compared as
-	// a value: only whether one is present, so a changed token still reads as
-	// an edit without the secret entering this path.
-	return fmt.Sprintf("%s;token_set=%t;base_url=%s;proxy=%s",
+	// The token reaches the key as a digest, never as a value.
+	//
+	// It used to reach it as `token_set=true|false`, which the comment here
+	// claimed was enough to make "a changed token read as an edit". It is not:
+	// replacing one token with another leaves the flag true both times, the key
+	// is identical, and a Replace Bot save skips the owner contract entirely --
+	// which is how a channel ends up enabled with a fresh token and a stale or
+	// malformed owner, the exact configuration Core then refuses at startup
+	// with "telegram requires exactly one paired numeric owner".
+	//
+	// The digest is built, compared and discarded inside this call. It is never
+	// persisted, never logged and never returned past the comparison.
+	return fmt.Sprintf("%s;token=%s;base_url=%s;proxy=%s",
 		key,
-		strings.TrimSpace(settings.Token.String()) != "",
+		telegramTokenDigest(settings.Token.String()),
 		strings.TrimSpace(settings.BaseURL),
 		strings.TrimSpace(settings.Proxy),
 	)
+}
+
+// telegramTokenDigest identifies a token without carrying it.
+//
+// Empty stays distinguishable from set, because "no token" and "some token" are
+// different configurations and the owner rule cares about the difference.
+func telegramTokenDigest(token string) string {
+	token = strings.TrimSpace(token)
+	if token == "" {
+		return "none"
+	}
+	sum := sha256.Sum256([]byte(token))
+	return hex.EncodeToString(sum[:])
 }
 
 // telegramSubtreeChanged reports whether a save alters Telegram at all.

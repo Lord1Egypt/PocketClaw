@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/sipeed/picoclaw/pkg/config"
+	"github.com/sipeed/picoclaw/pkg/logger"
 )
 
 // AndroidBridgeTokenEnv is a random per-process credential shared only by the
@@ -315,7 +316,28 @@ func (h *Handler) handleAndroidTelegramConfigure(w http.ResponseWriter, r *http.
 // is busy leaves the change pending, and a gateway that is stopped leaves it
 // for the next start. Neither is an error, and neither may be presented as a
 // working Telegram channel -- runtime status decides that, not this.
+//
+// The idle question is asked once here rather than waited out. The wait inside
+// RestartGatewayForConfigChange runs for up to two minutes, and this handler is
+// answering an Android host whose bridge call has its own read timeout: a save
+// that blocks past it is reported to the user as a failed configuration even
+// though the token is on disk. Parking the change instead loses nothing --
+// the gateway's idle notification and the pending supervisor both apply it with
+// no user action -- and it keeps "do not interrupt a running answer" intact,
+// because a gateway that will not say it is idle is never restarted.
 func (h *Handler) applyTelegramConfigChange(reason string) (applied bool, pending bool) {
+	if !h.gatewayIdleNow() {
+		markConfigApplyPending(reason)
+		if startPendingApplySupervisor() {
+			go h.supervisePendingConfigApply()
+		}
+		logger.InfoCF("gateway",
+			"Telegram configuration saved while the gateway was busy; "+
+				"it will be applied automatically once the gateway is idle",
+			map[string]any{"reason": reason})
+		return false, true
+	}
+
 	if _, _, err := h.RestartGatewayForConfigChange(reason); err != nil {
 		isPending, _ := pendingConfigApplyState()
 		return false, isPending

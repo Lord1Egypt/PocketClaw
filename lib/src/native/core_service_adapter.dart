@@ -3,6 +3,15 @@ import 'dart:async';
 abstract class CoreServiceAdapter {
   Future<bool> startService({int? port, String? args});
   Future<bool> stopService();
+
+  /// Stops and starts Core as one operation.
+  ///
+  /// PC-DEF-030. A caller that issues stopService() then startService() is
+  /// expressing a restart the platform cannot honour as two requests: on
+  /// Android the stop ends in an unconditional stopSelf(), which tears down the
+  /// service the start has already asked for, so Core is left stopped and the
+  /// user has to start it by hand. The platform is told "restart" instead.
+  Future<bool> restartService({int? port, String? args});
   Future<Map<String, dynamic>> getServiceStatus();
   /// Polls the gateway's health endpoint.
   ///

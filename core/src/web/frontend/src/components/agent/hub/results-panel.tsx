@@ -42,7 +42,7 @@ export function ResultsPanel({
       <div className="w-full">
         {canSearchMarketplace && hasSubmittedQuery ? (
           <div className="space-y-6">
-            <div className="rounded-xl border border-pc-warning/80 bg-pc-warning/70 px-4 py-3 text-sm text-pc-warning">
+            <div className="rounded-xl border border-pc-warning/30 bg-pc-warning-soft px-4 py-3 text-sm text-pc-warning">
               <div className="font-semibold">
                 {t("pages.agent.skills.marketplace_notice_title")}
               </div>

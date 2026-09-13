@@ -325,7 +325,10 @@
     "delete": {
       "title": "モデルを削除しますか？",
       "description": "「{{name}}」がモデル一覧から完全に削除されます。この操作は取り消せません。",
-      "confirm": "削除"
+      "confirm": "削除",
+      "defaultBlocked": "「{{name}}」は既定のチャットモデルです。先に別の既定を選んでから削除してください。",
+      "success": "「{{name}}」を削除しました。",
+      "error": "このモデルを削除できませんでした。"
     },
     "advanced": {
       "toggle": "詳細オプション"
@@ -377,7 +380,8 @@
       "apiKeyHint": "キーは設定済みです。変更しない場合は空欄のままにしてください。",
       "oauthNote": "このプロバイダーは OAuth を使用します — API キーは不要です。",
       "saveError": "保存に失敗しました",
-      "saveSuccess": "モデル設定を保存しました。"
+      "saveSuccess": "モデル設定を保存しました。",
+      "confirm": "モデルを更新"
     },
     "fetch": {
       "title": "利用可能なモデルを取得",
@@ -495,6 +499,20 @@
       "description": "PocketClaw が応答に使うモデルです。設定済みのプロバイダーから選択します。",
       "none": "デフォルトモデルが選択されていません。",
       "change": "デフォルトモデルを変更"
+    },
+    "provenance": {
+      "suggestions": "候補",
+      "suggestionsHint": "このプロバイダーでよく使われる名前です。アカウントに対して確認されていません。",
+      "cached": "以前に取得",
+      "cachedHint": "このプロバイダーとエンドポイントの以前の取得結果です。更新するには再取得してください。",
+      "verified": "利用可能を確認済み",
+      "verifiedHint": "このプロバイダーがたった今返した一覧です。"
+    },
+    "discard": {
+      "title": "変更を破棄しますか？",
+      "description": "この画面の編集は保存されておらず、失われます。",
+      "keepEditing": "編集を続ける",
+      "confirm": "破棄"
     }
   },
   "channels": {

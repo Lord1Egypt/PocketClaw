@@ -325,7 +325,10 @@
     "delete": {
       "title": "Hapus Model?",
       "description": "\"{{name}}\" akan dihapus permanen dari daftar model Anda. Tindakan ini tidak dapat dibatalkan.",
-      "confirm": "Hapus"
+      "confirm": "Hapus",
+      "defaultBlocked": "\"{{name}}\" adalah model chat default. Pilih default lain dulu, lalu hapus model ini.",
+      "success": "\"{{name}}\" telah dihapus.",
+      "error": "Model ini tidak dapat dihapus."
     },
     "advanced": {
       "toggle": "Opsi lanjutan"
@@ -377,7 +380,8 @@
       "apiKeyHint": "Kunci sudah disetel. Kosongkan untuk membiarkannya.",
       "oauthNote": "Penyedia ini memakai OAuth — tidak perlu kunci API.",
       "saveError": "Gagal menyimpan",
-      "saveSuccess": "Konfigurasi model disimpan."
+      "saveSuccess": "Konfigurasi model disimpan.",
+      "confirm": "Perbarui Model"
     },
     "fetch": {
       "title": "Ambil Model yang Tersedia",
@@ -495,6 +499,20 @@
       "description": "Model yang dipakai PocketClaw untuk menjawab. Pilih dari penyedia yang sudah Anda konfigurasi.",
       "none": "Belum ada model bawaan yang dipilih.",
       "change": "Ubah model bawaan"
+    },
+    "provenance": {
+      "suggestions": "Saran",
+      "suggestionsHint": "Nama umum untuk penyedia ini. Belum dikonfirmasi terhadap akun Anda.",
+      "cached": "Diambil sebelumnya",
+      "cachedHint": "Dari pengambilan sebelumnya untuk penyedia dan endpoint ini. Ambil lagi untuk menyegarkan.",
+      "verified": "Terverifikasi tersedia",
+      "verifiedHint": "Baru saja dikembalikan oleh penyedia ini."
+    },
+    "discard": {
+      "title": "Buang perubahan?",
+      "description": "Perubahan di layar ini belum disimpan dan akan hilang.",
+      "keepEditing": "Lanjut mengedit",
+      "confirm": "Buang"
     }
   },
   "channels": {

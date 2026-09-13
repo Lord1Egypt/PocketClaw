@@ -22,7 +22,6 @@ import {
   KeyInput,
   SwitchCardField,
 } from "@/components/shared-form"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
@@ -43,6 +42,8 @@ import {
   normalizeApiBase,
 } from "./model-provider-form-shared"
 import { type FieldValidation, validateModelField } from "./model-validation"
+import { DiscardChangesDialog } from "./discard-changes-dialog"
+import { ModelChipGroup } from "./model-chip-group"
 import { ProviderIcon } from "./provider-icon"
 import { ProviderPicker } from "./provider-picker"
 import {
@@ -122,6 +123,7 @@ export function AddModelSheet({
   const [step, setStep] = useState<AddStep>("provider")
   const [form, setForm] = useState<AddForm>(EMPTY_ADD_FORM)
   const [saving, setSaving] = useState(false)
+  const [discardPrompt, setDiscardPrompt] = useState(false)
   const [setAsDefault, setSetAsDefault] = useState(false)
   const [fieldErrors, setFieldErrors] = useState<
     Partial<Record<keyof AddForm, string>>
@@ -143,6 +145,21 @@ export function AddModelSheet({
   )
   const isDirty =
     JSON.stringify(form) !== JSON.stringify(EMPTY_ADD_FORM) || setAsDefault
+
+  // Every close route -- Cancel, Escape, the overlay -- asks before dropping a
+  // half-filled provider, including a typed API key.
+  const requestClose = () => {
+    if (isDirty && !saving) {
+      setDiscardPrompt(true)
+      return
+    }
+    onClose()
+  }
+
+  const discardAndClose = () => {
+    setDiscardPrompt(false)
+    onClose()
+  }
 
   useEffect(() => {
     if (open) {
@@ -361,6 +378,25 @@ export function AddModelSheet({
     providerOptions,
   )
   const submittedApiBase = getSubmittedAPIBase(form.apiBase)
+
+  /**
+   * Live-fetched ids describe one endpoint, and only for as long as that is the
+   * endpoint being configured.
+   *
+   * PC-DEF-032. `deepseek-v4.1-flash` is served by OpenCode Go and not by
+   * OpenCode Zen. Fetching from one, then changing the provider or the base
+   * URL, left the fetched list on screen still labelled as this provider's
+   * verified inventory -- and a model saved from it against an endpoint that
+   * does not serve it, which fails at inference with a bare 400. The list is
+   * dropped the moment it stops describing what is configured.
+   */
+  const fetchedForEndpointRef = useRef("")
+  useEffect(() => {
+    const endpoint = `${canonicalProvider}|${effectiveApiBase}`
+    if (fetchedForEndpointRef.current === endpoint) return
+    fetchedForEndpointRef.current = endpoint
+    setFetchedModels((current) => (current.length === 0 ? current : []))
+  }, [canonicalProvider, effectiveApiBase])
   // Base URL is part of the normal flow only where the endpoint is genuinely
   // the user's to choose: local servers and custom OpenAI-compatible hosts.
   const showApiBaseInNormalFlow = requiresVisibleApiBase(
@@ -456,7 +492,7 @@ export function AddModelSheet({
 
   return (
     <>
-      <Sheet open={open} onOpenChange={(v) => !v && onClose()}>
+      <Sheet open={open} onOpenChange={(v) => !v && requestClose()}>
         <SheetContent
           side="right"
           className="flex flex-col gap-0 p-0 data-[side=right]:!w-full data-[side=right]:sm:!w-[560px] data-[side=right]:sm:!max-w-[560px]"
@@ -575,48 +611,30 @@ export function AddModelSheet({
                     {fieldErrors.model}
                   </p>
                 )}
-                {commonModels.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5">
-                    {commonModels.map((m) => (
-                      <Badge
-                        key={m}
-                        variant="secondary"
-                        className="hover:bg-secondary/80 cursor-pointer font-mono text-xs"
-                        onClick={() => handleCommonModel(m)}
-                      >
-                        {m}
-                      </Badge>
-                    ))}
-                  </div>
-                )}
-                {catalogModels.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5">
-                    {catalogModels.map((m) => (
-                      <Badge
-                        key={m}
-                        variant={form.model === m ? "default" : "outline"}
-                        className="cursor-pointer font-mono text-xs"
-                        onClick={() => handleCommonModel(m)}
-                      >
-                        {m}
-                      </Badge>
-                    ))}
-                  </div>
-                )}
-                {fetchedModels.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5">
-                    {fetchedModels.map((m) => (
-                      <Badge
-                        key={m}
-                        variant={form.model === m ? "default" : "outline"}
-                        className="cursor-pointer font-mono text-xs"
-                        onClick={() => handleCommonModel(m)}
-                      >
-                        {m}
-                      </Badge>
-                    ))}
-                  </div>
-                )}
+                <ModelChipGroup
+                  origin="suggestion"
+                  label={t("models.provenance.suggestions")}
+                  hint={t("models.provenance.suggestionsHint")}
+                  models={commonModels}
+                  selected={form.model}
+                  onSelect={handleCommonModel}
+                />
+                <ModelChipGroup
+                  origin="cached"
+                  label={t("models.provenance.cached")}
+                  hint={t("models.provenance.cachedHint")}
+                  models={catalogModels}
+                  selected={form.model}
+                  onSelect={handleCommonModel}
+                />
+                <ModelChipGroup
+                  origin="verified"
+                  label={t("models.provenance.verified")}
+                  hint={t("models.provenance.verifiedHint")}
+                  models={fetchedModels}
+                  selected={form.model}
+                  onSelect={handleCommonModel}
+                />
                 <div className="flex items-center gap-2">
                   {providerSupportsFetch(form.provider, providerOptions) && (
                     <Button
@@ -900,7 +918,7 @@ export function AddModelSheet({
                 description={t("models.unsavedPrompt")}
               />
             )}
-            <Button variant="ghost" onClick={onClose} disabled={saving}>
+            <Button variant="ghost" onClick={requestClose} disabled={saving}>
               {t("common.cancel")}
             </Button>
             {step === "configure" && (
@@ -918,6 +936,12 @@ export function AddModelSheet({
             )}
           </SheetFooter>
         </SheetContent>
+
+        <DiscardChangesDialog
+          open={discardPrompt}
+          onKeepEditing={() => setDiscardPrompt(false)}
+          onDiscard={discardAndClose}
+        />
 
         <FetchModelsDialog
           open={fetchOpen}

@@ -1532,9 +1532,83 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
     if (_status == ServiceStatus.stopped) {
       return CredentialApplyOutcome.notRunning;
     }
-    await stop();
-    await start();
+    // One intent, not stop-then-start. The outcome vocabulary is unchanged:
+    // "applied" has always meant the restart was performed, and whether Core
+    // came back up is reported by the status poll, not by this call.
+    await restartCore();
     return CredentialApplyOutcome.applied;
+  }
+
+  /// The launch arguments Core is started with.
+  ///
+  /// Shared by start and restart so a restarted Core cannot come up with a
+  /// different network mode than a started one.
+  String _launchArguments() {
+    // Simple token logic (split by spaces and dedupe) instead of regex.
+    // _arguments is initialized to '' and loaded with `?? ''` in init(), so
+    // it's non-null.
+    final tokens = _arguments.split(' ').where((t) => t.isNotEmpty).toList();
+
+    if (_publicMode && !tokens.contains('-public')) {
+      tokens.add('-public');
+    }
+    if (!tokens.contains('-no-browser')) {
+      tokens.add('-no-browser');
+    }
+    return tokens.join(' ');
+  }
+
+  /// Restarts Core so configuration it reads only at launch takes effect.
+  ///
+  /// PC-DEF-030. Callers used to write `await stop(); await start();`, which on
+  /// Android is two service intents and an unconditional stopSelf() between
+  /// them: the start is honoured and then destroyed, leaving PocketClaw stopped
+  /// with no indication that anything went wrong. Telegram onboarding is the
+  /// flow that made it visible — the bot stayed silent until the owner started
+  /// the Service and the Gateway by hand.
+  ///
+  /// The platform is asked to restart instead. A service that is mid-transition
+  /// is still never interrupted: `starting` defers, exactly as
+  /// [applyCredentialChange] already does, and `stopped` is not a restart.
+  Future<bool> restartCore() async {
+    if (_status != ServiceStatus.running) return false;
+
+    _syncAdapterConfiguration();
+    _status = ServiceStatus.starting;
+    notifyListeners();
+
+    try {
+      final ok = await _adapter.restartService(
+        port: _port,
+        args: _launchArguments(),
+      );
+      if (!ok) {
+        _status = ServiceStatus.stopped;
+        final code = _adapter.getLastErrorCode();
+        _addLog('Failed to restart service: ${code ?? 'unknown'}');
+        notifyListeners();
+        return false;
+      }
+
+      if (Platform.isAndroid) {
+        _addLog('Restarting PocketClaw service...');
+        // Same deferral the start path uses: the host reports the settled
+        // state, this side does not guess at it.
+        Future.delayed(const Duration(seconds: 2), () {
+          _syncNativeServiceStatus();
+        });
+      } else {
+        _status = ServiceStatus.running;
+        _addLog('Service restarted on $webUrl');
+      }
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _status = ServiceStatus.stopped;
+      _addLog('Failed to restart service: $e');
+      notifyListeners();
+      return false;
+    }
   }
 
   Future<void> start() async {
@@ -1544,19 +1618,7 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
     _status = ServiceStatus.starting;
     notifyListeners();
 
-    String launchArgs = _arguments;
-    // Use simple token logic (split by spaces and dedupe) instead of regex.
-    // _arguments is initialized to '' and loaded with `?? ''` in init(), so it's non-null.
-    final tokens = launchArgs.split(' ').where((t) => t.isNotEmpty).toList();
-
-    if (_publicMode && !tokens.contains('-public')) {
-      tokens.add('-public');
-    }
-    if (!tokens.contains('-no-browser')) {
-      tokens.add('-no-browser');
-    }
-
-    launchArgs = tokens.join(' ');
+    final String launchArgs = _launchArguments();
     try {
       final ok = await _adapter.startService(port: _port, args: launchArgs);
 

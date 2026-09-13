@@ -325,7 +325,10 @@
     "delete": {
       "title": "Supprimer le modèle ?",
       "description": "« {{name}} » sera définitivement retiré de votre liste de modèles. Cette action est irréversible.",
-      "confirm": "Supprimer"
+      "confirm": "Supprimer",
+      "defaultBlocked": "« {{name}} » est le modèle de chat par défaut. Choisissez d'abord un autre modèle par défaut, puis supprimez-le.",
+      "success": "« {{name}} » a été supprimé.",
+      "error": "Impossible de supprimer ce modèle."
     },
     "advanced": {
       "toggle": "Options avancées"
@@ -377,7 +380,8 @@
       "apiKeyHint": "Une clé est déjà définie. Laissez vide pour la conserver.",
       "oauthNote": "Ce fournisseur utilise OAuth — aucune clé d'API nécessaire.",
       "saveError": "Échec de l'enregistrement",
-      "saveSuccess": "Configuration du modèle enregistrée."
+      "saveSuccess": "Configuration du modèle enregistrée.",
+      "confirm": "Mettre à jour le modèle"
     },
     "fetch": {
       "title": "Récupérer les modèles disponibles",
@@ -495,6 +499,20 @@
       "description": "Le modèle avec lequel PocketClaw répond. Choisissez parmi vos fournisseurs configurés.",
       "none": "Aucun modèle par défaut sélectionné.",
       "change": "Changer le modèle par défaut"
+    },
+    "provenance": {
+      "suggestions": "Suggestions",
+      "suggestionsHint": "Noms courants pour ce fournisseur. Non confirmés auprès de votre compte.",
+      "cached": "Récupérés précédemment",
+      "cachedHint": "D'une récupération antérieure pour ce fournisseur et ce point de terminaison. Récupérez à nouveau pour actualiser.",
+      "verified": "Disponibilité vérifiée",
+      "verifiedHint": "Renvoyés à l'instant par ce fournisseur."
+    },
+    "discard": {
+      "title": "Abandonner les modifications ?",
+      "description": "Les modifications de cet écran n'ont pas été enregistrées et seront perdues.",
+      "keepEditing": "Continuer l'édition",
+      "confirm": "Abandonner"
     }
   },
   "channels": {

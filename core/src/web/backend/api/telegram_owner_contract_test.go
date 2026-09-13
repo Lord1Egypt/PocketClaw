@@ -1,6 +1,7 @@
 package api
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/sipeed/picoclaw/pkg/config"
@@ -72,6 +73,22 @@ func telegramConfig(t *testing.T, enabled bool, owners ...string) *config.Config
 	return cfg
 }
 
+// telegramConfigWith builds the same shape with a bot token, which the plain
+// helper leaves unset.
+func telegramConfigWith(
+	t *testing.T, enabled bool, owners []string, token string,
+) *config.Config {
+	t.Helper()
+	cfg := telegramConfig(t, enabled, owners...)
+	channel := cfg.Channels.GetByType(config.ChannelTelegram)
+	settings := &config.TelegramSettings{}
+	settings.Token.Set(token)
+	if err := channel.Decode(settings); err != nil {
+		t.Fatalf("Decode(TelegramSettings) error = %v", err)
+	}
+	return cfg
+}
+
 // Serialization noise is not an edit. Item 31.
 func TestReorderedOwnersAreNotATelegramEdit(t *testing.T) {
 	before := telegramConfig(t, true, "111", "222")
@@ -121,5 +138,64 @@ func TestLegacyInvalidTelegramIsUnchangedByAnUnrelatedSave(t *testing.T) {
 	// And the corruption is still corruption -- it is surfaced, not repaired.
 	if errs := telegramOwnerErrors(unrelated.Channels.GetByType(config.ChannelTelegram)); len(errs) == 0 {
 		t.Fatal("the legacy configuration stopped being reported as invalid")
+	}
+}
+
+// Replacing the bot token is an edit to Telegram, and an edit to Telegram is
+// held to the owner contract.
+//
+// The semantic key used to record only whether a token was present, so a
+// Replace Bot save -- new token, same everything else -- produced an identical
+// key and skipped the owner check. That is how a channel ends up enabled with a
+// working token and a stale or malformed owner, which Core then refuses at
+// startup with "telegram requires exactly one paired numeric owner": the
+// historical failure, reachable from a path the validation could not see.
+func TestTelegramSubtreeChangedDetectsAReplacedToken(t *testing.T) {
+	before := telegramConfigWith(t, true, []string{"12345"}, "111:AAHoldTokenValue0123456789")
+	after := telegramConfigWith(t, true, []string{"12345"}, "222:AAHnewTokenValue0123456789")
+
+	if !telegramSubtreeChanged(before, after) {
+		t.Fatal("a replaced bot token did not read as a Telegram edit, so the " +
+			"owner contract would not be enforced on that save")
+	}
+}
+
+func TestTelegramSubtreeUnchangedForAnIdenticalToken(t *testing.T) {
+	before := telegramConfigWith(t, true, []string{"12345"}, "111:AAHoldTokenValue0123456789")
+	after := telegramConfigWith(t, true, []string{"12345"}, "111:AAHoldTokenValue0123456789")
+
+	if telegramSubtreeChanged(before, after) {
+		t.Fatal("an unrelated save that carries the same Telegram subtree through " +
+			"must not be held to the contract")
+	}
+}
+
+// Adding a token where there was none, and removing one, are both edits.
+func TestTelegramSubtreeChangedDetectsTokenPresence(t *testing.T) {
+	none := telegramConfigWith(t, true, []string{"12345"}, "")
+	some := telegramConfigWith(t, true, []string{"12345"}, "111:AAHtokenValue0123456789")
+
+	if !telegramSubtreeChanged(none, some) {
+		t.Fatal("adding a token is an edit")
+	}
+	if !telegramSubtreeChanged(some, none) {
+		t.Fatal("removing a token is an edit")
+	}
+}
+
+// The digest exists to compare, not to carry. Whatever else it does, it must
+// not be the token.
+func TestTelegramTokenDigestDoesNotCarryTheToken(t *testing.T) {
+	const token = "123456789:AAHfSomeTelegramBotTokenValue0123456789"
+
+	digest := telegramTokenDigest(token)
+	if strings.Contains(digest, token) || strings.Contains(digest, "AAHfSome") {
+		t.Fatalf("the digest carries the token: %q", digest)
+	}
+	if digest == telegramTokenDigest("") {
+		t.Fatal("a set token is indistinguishable from no token")
+	}
+	if digest != telegramTokenDigest(" "+token+" ") {
+		t.Fatal("surrounding whitespace changed the identity of the same token")
 	}
 }

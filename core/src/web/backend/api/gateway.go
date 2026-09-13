@@ -1490,6 +1490,12 @@ func (h *Handler) handleGatewayStop(w http.ResponseWriter, r *http.Request) {
 // that stops the current gateway (if running) and starts a new one.
 // Returns the PID of the new gateway process or an error.
 func (h *Handler) RestartGateway() (int, error) {
+	// Adopt a live gateway this process is not tracking before deciding what to
+	// stop. Without it the restart signals nothing, starts a second gateway
+	// against a port the first one still holds, and leaves the old
+	// configuration serving. PC-DEF-030.
+	h.reconcileGatewayWithPidFile()
+
 	ready, reason, err := h.gatewayInfrastructureReady()
 	if err != nil {
 		return 0, fmt.Errorf("failed to validate gateway start conditions: %w", err)

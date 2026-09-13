@@ -78,7 +78,7 @@ export function SearchPanel({
           {unavailableToolMessages.map((item) => (
             <div
               key={item.key}
-              className="rounded-xl border border-pc-warning/80 bg-pc-warning/70 px-4 py-3 text-left text-sm text-pc-warning"
+              className="rounded-xl border border-pc-warning/30 bg-pc-warning-soft px-4 py-3 text-left text-sm text-pc-warning"
             >
               <div className="font-semibold">{item.label}</div>
               <div className="mt-1 leading-6">{item.message}</div>

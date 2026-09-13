@@ -312,7 +312,10 @@
     "delete": {
       "title": "Smazat model?",
       "description": "\"{{name}}\" bude trvale odstraněn ze seznamu modelů. Tuto akci nelze vrátit.",
-      "confirm": "Smazat"
+      "confirm": "Smazat",
+      "defaultBlocked": "„{{name}}“ je výchozí model chatu. Nejdřív zvolte jiný výchozí a pak jej smažte.",
+      "success": "„{{name}}“ byl odstraněn.",
+      "error": "Tento model se nepodařilo smazat."
     },
     "advanced": {
       "toggle": "Pokročilé možnosti"
@@ -364,7 +367,8 @@
       "apiKeyHint": "Klíč je již nastaven. Ponechte prázdné pro zachování beze změny.",
       "oauthNote": "Tento provider používá OAuth — API klíč není vyžadován.",
       "saveError": "Uložení selhalo",
-      "saveSuccess": "Konfigurace modelu uložena."
+      "saveSuccess": "Konfigurace modelu uložena.",
+      "confirm": "Aktualizovat model"
     },
     "fetch": {
       "title": "Načíst dostupné modely",
@@ -495,6 +499,20 @@
       "description": "Model, kterým PocketClaw odpovídá. Vyberte z poskytovatelů, které máte nakonfigurované.",
       "none": "Není vybrán žádný výchozí model.",
       "change": "Změnit výchozí model"
+    },
+    "provenance": {
+      "suggestions": "Návrhy",
+      "suggestionsHint": "Běžné názvy pro tohoto poskytovatele. Nejsou ověřené proti vašemu účtu.",
+      "cached": "Dříve načtené",
+      "cachedHint": "Z dřívějšího načtení pro tohoto poskytovatele a endpoint. Načtěte znovu pro aktualizaci.",
+      "verified": "Ověřeně dostupné",
+      "verifiedHint": "Právě vrácené tímto poskytovatelem."
+    },
+    "discard": {
+      "title": "Zahodit změny?",
+      "description": "Úpravy na této obrazovce nejsou uložené a budou ztraceny.",
+      "keepEditing": "Pokračovat v úpravách",
+      "confirm": "Zahodit"
     }
   },
   "channels": {

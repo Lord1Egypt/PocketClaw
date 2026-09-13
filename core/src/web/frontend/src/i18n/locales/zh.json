@@ -312,7 +312,10 @@
     "delete": {
       "title": "确认删除模型？",
       "description": "「{{name}}」将从模型列表中永久移除，此操作不可撤销。",
-      "confirm": "删除"
+      "confirm": "删除",
+      "defaultBlocked": "“{{name}}”是默认聊天模型。请先选择其他默认模型，再删除它。",
+      "success": "已删除“{{name}}”。",
+      "error": "无法删除该模型。"
     },
     "advanced": {
       "toggle": "高级选项"
@@ -364,7 +367,8 @@
       "apiKeyHint": "已设置 API Key，留空表示不修改。",
       "oauthNote": "该服务商使用 OAuth 认证，无需 API Key。",
       "saveError": "保存失败",
-      "saveSuccess": "模型配置已保存。"
+      "saveSuccess": "模型配置已保存。",
+      "confirm": "更新模型"
     },
     "fetch": {
       "title": "获取可用模型",
@@ -495,6 +499,20 @@
       "description": "PocketClaw 用于回答的模型。从你已配置的服务商中选择。",
       "none": "尚未选择默认模型。",
       "change": "更改默认模型"
+    },
+    "provenance": {
+      "suggestions": "建议",
+      "suggestionsHint": "该提供方的常见名称，未针对你的账户核实。",
+      "cached": "先前获取",
+      "cachedHint": "来自此提供方与该端点的上一次获取。重新获取可刷新。",
+      "verified": "已验证可用",
+      "verifiedHint": "该提供方刚刚返回的列表。"
+    },
+    "discard": {
+      "title": "放弃更改？",
+      "description": "此页面的修改尚未保存，将会丢失。",
+      "keepEditing": "继续编辑",
+      "confirm": "放弃"
     }
   },
   "channels": {

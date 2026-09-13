@@ -69,11 +69,26 @@ abstract final class TelegramOnboardingLauncher {
     }
   }
 
+  /// Makes a saved Telegram configuration live.
+  ///
+  /// PC-DEF-030. Core loads channel credentials at launch, and this used to be
+  /// `stop()` followed by `start()` — two Android service intents with an
+  /// unconditional stopSelf() between them, which left PocketClaw stopped often
+  /// enough that the owner had to restart the Service and the Gateway by hand
+  /// before a newly paired bot would answer. [ServiceManager.restartCore] is
+  /// one intent the host executes in order.
+  ///
+  /// Throwing on failure is deliberate: the caller turns it into the failed
+  /// stage, so a bot that is configured but not running is never presented as
+  /// connected.
   static Future<void> _reloadCore(ServiceManager service) async {
-    // Core loads channel credentials at gateway startup.
-    if (service.status == ServiceStatus.running) {
-      await service.stop();
-      await service.start();
+    if (service.status != ServiceStatus.running) {
+      // Nothing is running to reload. Core reads the saved configuration on its
+      // next start, which is the correct outcome and not a failure.
+      return;
+    }
+    if (!await service.restartCore()) {
+      throw StateError('Core did not restart after the Telegram change');
     }
   }
 }

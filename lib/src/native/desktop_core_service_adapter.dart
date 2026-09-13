@@ -348,6 +348,14 @@ class DesktopCoreServiceAdapter implements CoreServiceAdapter {
   }
 
   @override
+  Future<bool> restartService({int? port, String? args}) async {
+    // Desktop has no service container to race: stopService() kills the process
+    // synchronously, so stop-then-start is a restart here.
+    await stopService();
+    return startService(port: port, args: args);
+  }
+
+  @override
   Future<bool> stopService() async {
     if (_proc == null) return true;
     try {

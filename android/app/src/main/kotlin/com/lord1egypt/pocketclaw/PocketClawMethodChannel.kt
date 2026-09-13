@@ -225,6 +225,20 @@ class PocketClawMethodChannel(
                         result.error("STOP_FAILED", e.message, null)
                     }
                 }
+                "restartService" -> {
+                    // One intent, because two cannot express a restart. See
+                    // PocketClawService.ACTION_RESTART. PC-DEF-030.
+                    try {
+                        val args = call.argument<String>("args") ?: ""
+                        val publicMode = args.contains("-public")
+                        val prefs = PocketClawPreferences.open(context)
+                        prefs.edit().putBoolean("public_mode", publicMode).apply()
+                        PocketClawService.restart(context, publicMode)
+                        result.success(true)
+                    } catch (e: Exception) {
+                        result.error("RESTART_FAILED", e.message, null)
+                    }
+                }
                 "getServiceStatus" -> {
                     result.success(mapOf(
                         "isRunning" to PocketClawService.isRunning,

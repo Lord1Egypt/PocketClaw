@@ -312,7 +312,10 @@
     "delete": {
       "title": "Excluir Modelo?",
       "description": "\"{{name}}\" será removido permanentemente da sua lista de modelos. Esta ação não pode ser desfeita.",
-      "confirm": "Excluir"
+      "confirm": "Excluir",
+      "defaultBlocked": "\"{{name}}\" é o modelo de chat padrão. Escolha outro padrão primeiro e depois exclua-o.",
+      "success": "\"{{name}}\" foi removido.",
+      "error": "Não foi possível excluir este modelo."
     },
     "advanced": {
       "toggle": "Opções avançadas"
@@ -364,7 +367,8 @@
       "apiKeyHint": "Já existe uma chave definida. Deixe em branco para mantê-la inalterada.",
       "oauthNote": "Este provider usa OAuth — não é necessária API Key.",
       "saveError": "Falha ao salvar",
-      "saveSuccess": "Configuração do modelo salva."
+      "saveSuccess": "Configuração do modelo salva.",
+      "confirm": "Atualizar modelo"
     },
     "fetch": {
       "title": "Buscar Modelos Disponíveis",
@@ -495,6 +499,20 @@
       "description": "O modelo com que o PocketClaw responde. Escolha entre os provedores que você configurou.",
       "none": "Nenhum modelo padrão selecionado.",
       "change": "Alterar modelo padrão"
+    },
+    "provenance": {
+      "suggestions": "Sugestões",
+      "suggestionsHint": "Nomes comuns deste provedor. Não confirmados com a sua conta.",
+      "cached": "Obtidos anteriormente",
+      "cachedHint": "De uma obtenção anterior para este provedor e endpoint. Obtenha de novo para atualizar.",
+      "verified": "Disponibilidade verificada",
+      "verifiedHint": "Retornados por este provedor agora mesmo."
+    },
+    "discard": {
+      "title": "Descartar alterações?",
+      "description": "As edições desta tela não foram salvas e serão perdidas.",
+      "keepEditing": "Continuar editando",
+      "confirm": "Descartar"
     }
   },
   "channels": {

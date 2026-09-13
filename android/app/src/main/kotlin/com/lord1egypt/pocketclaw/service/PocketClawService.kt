@@ -84,6 +84,23 @@ class PocketClawService : Service() {
 
         const val ACTION_START = "com.lord1egypt.pocketclaw.action.START"
         const val ACTION_STOP = "com.lord1egypt.pocketclaw.action.STOP"
+
+        /**
+         * Restart Core in one intent.
+         *
+         * PC-DEF-030. A configuration Core reads only at launch used to be
+         * applied by sending ACTION_STOP and then ACTION_START from Flutter.
+         * Two intents cannot express "restart": ACTION_STOP ends in an
+         * unconditional [stopSelf], which Android honours even though a later
+         * start request has already arrived, so the freshly started service is
+         * destroyed again and PocketClaw is left stopped. That is what made
+         * Telegram onboarding need a manual Service and Gateway restart.
+         *
+         * Handled here instead, where stopService() and startService() already
+         * run in order on one thread and the service is never asked to stop
+         * itself at all.
+         */
+        const val ACTION_RESTART = "com.lord1egypt.pocketclaw.action.RESTART"
         const val EXTRA_PUBLIC_MODE = "public_mode"
 
         // 共享状态供 UI 读取
@@ -194,6 +211,21 @@ class PocketClawService : Service() {
                 action = ACTION_STOP
             }
             context.startService(intent)
+        }
+
+        /**
+         * Stops and starts Core without the service ever leaving the foreground.
+         *
+         * startForegroundService, not startService: a restart may be requested
+         * while the service is already running, and the foreground form is the
+         * one that is allowed either way.
+         */
+        fun restart(context: Context, publicMode: Boolean = false) {
+            val intent = Intent(context, PocketClawService::class.java).apply {
+                action = ACTION_RESTART
+                putExtra(EXTRA_PUBLIC_MODE, publicMode)
+            }
+            context.startForegroundService(intent)
         }
 
         /**
@@ -571,6 +603,19 @@ class PocketClawService : Service() {
                 stopService()
                 stopForeground(STOP_FOREGROUND_REMOVE)
                 stopSelf()
+                return START_NOT_STICKY
+            }
+            ACTION_RESTART -> {
+                // stopService() is synchronous and bounded: it destroys the Core
+                // process, joins it, and sweeps orphaned children, so the start
+                // below cannot race a Core that still holds the launcher port or
+                // the gateway pid file.
+                publicMode = intent.getBooleanExtra(EXTRA_PUBLIC_MODE, publicMode)
+                gatewayAutoStart = LaunchAutoStartPreferences.read(this).gatewayEnabled
+                startForeground(NOTIFICATION_ID, createNotification("Restarting..."))
+                acquireWakeLock()
+                stopService()
+                startService()
                 return START_NOT_STICKY
             }
             else -> {

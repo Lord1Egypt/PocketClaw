@@ -325,7 +325,10 @@
     "delete": {
       "title": "Delete Model?",
       "description": "\"{{name}}\" will be permanently removed from your model list. This cannot be undone.",
-      "confirm": "Delete"
+      "confirm": "Delete",
+      "defaultBlocked": "\"{{name}}\" is the default chat model. Choose a different default first, then delete it.",
+      "success": "\"{{name}}\" was removed.",
+      "error": "Could not delete this model."
     },
     "advanced": {
       "toggle": "Advanced options"
@@ -377,7 +380,8 @@
       "apiKeyHint": "A key is already set. Leave blank to keep it unchanged.",
       "oauthNote": "This provider uses OAuth — no API key required.",
       "saveError": "Failed to save",
-      "saveSuccess": "Model configuration saved."
+      "saveSuccess": "Model configuration saved.",
+      "confirm": "Update Model"
     },
     "fetch": {
       "title": "Fetch Available Models",
@@ -495,6 +499,20 @@
       "description": "The model PocketClaw answers with. Choose from the providers you have configured.",
       "none": "No default model selected.",
       "change": "Change default model"
+    },
+    "provenance": {
+      "suggestions": "Suggestions",
+      "suggestionsHint": "Common names for this provider. Not confirmed against your account.",
+      "cached": "Previously fetched",
+      "cachedHint": "From an earlier fetch for this provider and endpoint. Fetch again to refresh.",
+      "verified": "Verified available",
+      "verifiedHint": "Returned by this provider just now."
+    },
+    "discard": {
+      "title": "Discard changes?",
+      "description": "The edits on this screen have not been saved and will be lost.",
+      "keepEditing": "Keep editing",
+      "confirm": "Discard"
     }
   },
   "channels": {

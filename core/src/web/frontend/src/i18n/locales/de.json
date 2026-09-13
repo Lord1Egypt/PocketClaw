@@ -325,7 +325,10 @@
     "delete": {
       "title": "Modell löschen?",
       "description": "„{{name}}“ wird dauerhaft aus Ihrer Modellliste entfernt. Dies kann nicht rückgängig gemacht werden.",
-      "confirm": "Löschen"
+      "confirm": "Löschen",
+      "defaultBlocked": "„{{name}}“ ist das Standard-Chatmodell. Wählen Sie zuerst ein anderes Standardmodell und löschen Sie es dann.",
+      "success": "„{{name}}“ wurde entfernt.",
+      "error": "Dieses Modell konnte nicht gelöscht werden."
     },
     "advanced": {
       "toggle": "Erweiterte Optionen"
@@ -377,7 +380,8 @@
       "apiKeyHint": "Ein Schlüssel ist bereits gesetzt. Leer lassen, um ihn unverändert zu lassen.",
       "oauthNote": "Dieser Anbieter verwendet OAuth — kein API-Schlüssel erforderlich.",
       "saveError": "Speichern fehlgeschlagen",
-      "saveSuccess": "Modellkonfiguration gespeichert."
+      "saveSuccess": "Modellkonfiguration gespeichert.",
+      "confirm": "Modell aktualisieren"
     },
     "fetch": {
       "title": "Verfügbare Modelle abrufen",
@@ -495,6 +499,20 @@
       "description": "Das Modell, mit dem PocketClaw antwortet. Wähle aus deinen konfigurierten Anbietern.",
       "none": "Kein Standardmodell ausgewählt.",
       "change": "Standardmodell ändern"
+    },
+    "provenance": {
+      "suggestions": "Vorschläge",
+      "suggestionsHint": "Gängige Namen für diesen Anbieter. Nicht mit Ihrem Konto abgeglichen.",
+      "cached": "Zuvor abgerufen",
+      "cachedHint": "Aus einem früheren Abruf für diesen Anbieter und Endpunkt. Erneut abrufen zum Aktualisieren.",
+      "verified": "Bestätigt verfügbar",
+      "verifiedHint": "Soeben von diesem Anbieter zurückgegeben."
+    },
+    "discard": {
+      "title": "Änderungen verwerfen?",
+      "description": "Die Änderungen auf diesem Bildschirm sind nicht gespeichert und gehen verloren.",
+      "keepEditing": "Weiter bearbeiten",
+      "confirm": "Verwerfen"
     }
   },
   "channels": {

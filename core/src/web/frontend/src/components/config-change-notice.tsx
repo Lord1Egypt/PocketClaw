@@ -28,11 +28,13 @@ export function ConfigChangeNotice({
 
   return (
     <div
+      // The background is the soft (14% alpha) warning token, never the solid
+      // one: `bg-pc-warning` with `text-pc-warning` paints the label in the
+      // same colour as the surface behind it, which is a filled amber rectangle
+      // with no readable content. PC-DEF-033.
       className={cn(
         "flex items-start gap-3 rounded-lg border px-3 py-2 text-sm",
-        kind === "restart"
-          ? "border-pc-warning bg-pc-warning text-pc-warning"
-          : "border-pc-warning bg-pc-warning text-pc-warning",
+        "border-pc-warning/30 bg-pc-warning-soft text-pc-warning",
         className,
       )}
     >
