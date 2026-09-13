@@ -98,21 +98,32 @@ analytics build declares what it needs in its own manifest.
 `POCKETCLAW_UMENG_APP_KEY`, `_CHANNEL` and `_PACKAGED` stay: `AnalyticsReporter`
 and two `meta-data` entries consume them.
 
-**`PC-DEF-023` is the only open cleanup item, and it is an owner product
-decision, not an implementation task:** register PocketClaw's own Google Cloud
-OAuth client for the Antigravity provider, accept the third-party credential
-reuse explicitly with its revocation risk recorded, or drop the provider. Do not
-replace, decode or re-encode the credential, and do not document acceptance,
-without that decision.
+**`PC-DEF-023` is RESOLVED: Google Antigravity is not shipped in v0.2.0**
+(owner decision `PC-D014`). The provider is gone from the OAuth API, the
+catalogue, the factory, the default `model_list`, the CLI — including the
+`auth models` subcommand — the dashboard, all fourteen locale bundles and the
+embedded agent guidance. Both credentials are absent from source and from both
+Core binaries.
+
+**Do not reintroduce it with a third party's OAuth client.** That is the thing
+the decision forbids; it may return only under a PocketClaw-owned integration.
+**Gemini is a different provider and was not touched** — API-key auth against
+`generativelanguage.googleapis.com`, with a test pinning it and its `google`
+alias. Shared OAuth infrastructure stays, including `ClientSecret` and the
+confidential-client token exchange.
+
+Every cleanup item from the exposure audit is now closed. `PC-DEF-006` gates the
+F-Droid reproducibility path only and `PC-DEF-012` awaits reachability evidence;
+neither blocks the GitHub / direct APK release.
 
 **`PC-DEF-022` was resolved by removing the route, not by hardening it.**
 `POST /api/update` is gone from source and from both Core binaries; `embed.go`'s
 existing not-found path makes it an ordinary 404. `pkg/updater` stays because
 `cmd/picoclaw` registers its CLI update command — do not delete the library, and
-do not reintroduce an HTTP download endpoint under any name. That Core
-generation is fingerprint
-`6f00359dc9e8bf7ee24f9d170754b2792a41fb880d9da4f34a8600dd8f99df00`, staged pair
-`7ebeebd1…` / `b682b76d…`, BuildTime `2026-09-12T23:25:34+0000`. `PC-DEF-012` stays open by decision — no reachability evidence, so no
+do not reintroduce an HTTP download endpoint under any name. The current Core generation is fingerprint
+`bc35a598d3a836e0a0c95afc73314fe49a38877b985b5b0f15bab11460184fa9`, staged pair
+`0a28bd5e…` / `9ae1d2d9…`, BuildTime `2026-09-13T00:24:56+0000`, from
+build-input commit `54ff2525fa555744d017aae56c9a26e2049812e1`. `PC-DEF-012` stays open by decision — no reachability evidence, so no
 export narrowing; the exposure audit produced none and did not narrow anything.
 
 Full evidence is in
@@ -130,7 +141,7 @@ defects and fixed none.
     PC-DEF-020  Public Mode OFF is not durable across a restart      RESOLVED
     PC-DEF-021  AAB embeds the private R8 mapping and Dart symbols   RESOLVED
     PC-DEF-022  /api/update fetches an arbitrary URL unverified      RESOLVED (removed)
-    PC-DEF-023  third-party Google OAuth client secret embedded      open
+    PC-DEF-023  third-party Google OAuth client secret embedded      RESOLVED (provider removed)
     PC-DEF-024  dead analytics deep link exported in the manifest    RESOLVED (removed)
     PC-DEF-025  flutter test red since H5B; no gate runs the suite   RESOLVED
 

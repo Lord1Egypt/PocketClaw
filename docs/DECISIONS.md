@@ -220,3 +220,36 @@ decision journal and supplies the underlying engineering narratives.
   `14ba7d138a4092aefe264c7e2af6240c97fc1b782ded69918cbf545351eb5eb2`;
   18-entry H5A inventory, security matrix, automated audit and H5B plan in
   [`prompts/history/H5A_NATIVE_ELF_AUDIT.md`](prompts/history/H5A_NATIVE_ELF_AUDIT.md).
+
+## PC-D014 — Do not ship a provider on a third party's OAuth client
+
+- **Decision:** Google Antigravity (Google Cloud Code Assist) is **not shipped in
+  v0.2.0**. PocketClaw stable will not depend on OAuth client credentials owned
+  by another project.
+- **Date:** 2026-09-13, owner product decision, implemented as `PC-DEF-023`.
+- **Context:** the provider's client ID and secret were embedded in Core, and
+  the source recorded them as the same credentials another project's plugin
+  uses. The exposure audit classified this deliberately: it is **not** a secret
+  disclosure. An installed-app OAuth client cannot keep a secret — RFC 8252 and
+  Google's own desktop-client model do not treat one as confidential — so
+  nothing that was ever protected was published, and no PocketClaw or user
+  credential was involved.
+- **Why it still blocks shipping:** ownership, not secrecy. A third party can
+  revoke those credentials at any time. Every PocketClaw user's provider would
+  stop working, for a reason PocketClaw could neither predict, detect in advance,
+  nor fix. Shipping a feature whose availability is someone else's decision is
+  not a dependency a stable release should carry.
+- **Consequences:** the provider is removed from the OAuth surface, the provider
+  catalogue, the factory, the default `model_list`, the CLI, the dashboard and
+  the embedded agent guidance, and both credentials are gone from source and
+  from the staged Core binaries. `antigravity` and `google-antigravity` now
+  return the ordinary unsupported-provider error. Shared OAuth infrastructure is
+  kept, including confidential-client support in the token exchange, because
+  other providers may legitimately need it.
+- **Reintroduction requires a PocketClaw-owned OAuth client.** Restoring the
+  provider with a third party's credentials is precisely what this decision
+  forbids. Google Gemini is unaffected and unrelated: it is a separate provider
+  with API-key auth against `generativelanguage.googleapis.com`.
+- **Evidence:** [`prompts/history/PC-DEF-023_ANTIGRAVITY_REMOVAL.md`](prompts/history/PC-DEF-023_ANTIGRAVITY_REMOVAL.md);
+  Core fingerprint `bc35a598d3a836e0a0c95afc73314fe49a38877b985b5b0f15bab11460184fa9`
+  from build-input commit `54ff2525fa555744d017aae56c9a26e2049812e1`.

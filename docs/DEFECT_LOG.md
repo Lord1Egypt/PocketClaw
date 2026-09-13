@@ -10,43 +10,6 @@ only reconstructable examples belong here.
 
 
 
-### PC-DEF-023 — A third-party Google OAuth client secret is embedded in both Core binaries
-
-- **Discovered:** final release exposure audit, 2026-09-12.
-- **Component:** `core/src/pkg/auth/oauth.go`, `GoogleAntigravityOAuthConfig`.
-- **Severity:** Third-party credential reuse and availability risk. Not a
-  disclosure of any PocketClaw or user secret; not a release blocker.
-- **Description:** the Google Cloud Code Assist ("Antigravity") OAuth
-  configuration carries a hardcoded client ID **and client secret**, stored
-  base64-encoded and decoded at runtime by a local `decodeBase64` helper. The
-  encoded form is present in both `libpocketclaw.so` and `libpocketclaw-web.so`;
-  the decoded form is not, so a plain string scan for the credential's prefix
-  finds nothing. The source comment states these are "the same client
-  credentials used by the OpenCode antigravity plugin" — that is, a credential
-  registered to another project's Google Cloud account, not PocketClaw's.
-  `web/backend/api/oauth.go:552` reaches it, so it is live product surface, not
-  dead code.
-- **Assessment:** for an installed application this class of secret is not
-  confidential — RFC 8252 and Google's own desktop-client model assume it cannot
-  be kept — so shipping it does not leak anything that was ever protected. The
-  real exposures are different: PocketClaw depends on a credential a third party
-  can revoke at any time, which would break the provider for every user; and the
-  base64 wrapper means the credential is invisible to routine secret scanning,
-  including this audit's own pattern pass. It was found by entropy review.
-- **Narrow fix plan:** an owner decision, not a code fix. Either register
-  PocketClaw's own Google Cloud OAuth client for this provider, or accept the
-  reuse explicitly in `DECISIONS.md` with the revocation risk stated, or drop the
-  provider. Whichever is chosen, replace the base64 wrapper with a plain literal
-  and a comment: obfuscating a credential that is not secret only hides it from
-  the project's own audits. **No fix applied: separate authorization required.**
-- **Re-confirmed by the exposure-audit closure re-run, 2026-09-13:** still live
-  product surface; the encoded form appears once in each Core binary and the
-  decoded form zero times; the upstream-origin comment is intact. An
-  installed-app OAuth client class, so the real exposure remains third-party
-  revocation/dependency rather than secrecy, and no PocketClaw or user secret is
-  disclosed. Classification unchanged; **not a release blocker.**
-- **Status:** OPEN.
-
 
 ### PC-DEF-012 — Broad dependency export surfaces need reachability evidence
 
@@ -211,6 +174,109 @@ only reconstructable examples belong here.
 - **Status:** OPEN.
 
 ## Resolved
+
+### PC-DEF-023 — A third-party Google OAuth client secret is embedded in both Core binaries
+
+- **Discovered:** final release exposure audit, 2026-09-12.
+- **Component:** `core/src/pkg/auth/oauth.go`, `GoogleAntigravityOAuthConfig`.
+- **Severity:** Third-party credential reuse and availability risk. Not a
+  disclosure of any PocketClaw or user secret; not a release blocker.
+- **Description:** the Google Cloud Code Assist ("Antigravity") OAuth
+  configuration carries a hardcoded client ID **and client secret**, stored
+  base64-encoded and decoded at runtime by a local `decodeBase64` helper. The
+  encoded form is present in both `libpocketclaw.so` and `libpocketclaw-web.so`;
+  the decoded form is not, so a plain string scan for the credential's prefix
+  finds nothing. The source comment states these are "the same client
+  credentials used by the OpenCode antigravity plugin" — that is, a credential
+  registered to another project's Google Cloud account, not PocketClaw's.
+  `web/backend/api/oauth.go:552` reaches it, so it is live product surface, not
+  dead code.
+- **Assessment:** for an installed application this class of secret is not
+  confidential — RFC 8252 and Google's own desktop-client model assume it cannot
+  be kept — so shipping it does not leak anything that was ever protected. The
+  real exposures are different: PocketClaw depends on a credential a third party
+  can revoke at any time, which would break the provider for every user; and the
+  base64 wrapper means the credential is invisible to routine secret scanning,
+  including this audit's own pattern pass. It was found by entropy review.
+- **Owner decision, 2026-09-13: do not ship Google Antigravity in v0.2.0.**
+  PocketClaw stable will not depend on another project's OAuth client. The
+  provider may return later under a PocketClaw-owned integration; see
+  `DECISIONS.md`.
+- **Fix applied, 2026-09-13 — the provider is removed from the product.**
+  Surface by surface rather than by deleting one function:
+  `GoogleAntigravityOAuthConfig`, both embedded credentials and the orphaned
+  `decodeBase64`; the `googleapis.com` token-URL inference that produced the
+  `google-antigravity` provider name; the credential-store alias; the provider
+  implementation and its test; the facade type aliases and fetch wrappers; the
+  factory construction arm; the product-facing catalogue entry; the keyless
+  `model_list` template; the legacy-import protocol mapping; the OAuth API's
+  constant, order, methods, labels, config arm, project-ID fetch and default
+  model; the implicit-OAuth handling in `models.go` and `model_status.go`; the
+  CLI login arm, `authLoginGoogleAntigravity`, `authModelsCmd` and the
+  `auth models` subcommand that existed only to list Antigravity models; and on
+  the frontend the credential card, the union-type member, the hook status and
+  label, and the locale key in all fourteen bundles.
+
+  **Retained deliberately.** `OAuthProviderConfig.ClientSecret` stays: the
+  generic token exchange supports confidential clients and that is shared
+  infrastructure. `canonicalProvider` keeps its trim/lower-case normalisation,
+  which every credential-store caller goes through — only the alias went.
+  Gemini is untouched and is a different provider entirely, with its own
+  catalogue entry, API-key auth and `generativelanguage.googleapis.com` base.
+  OpenAI OAuth, the Anthropic token flow, PKCE, state, the callback and session
+  handling are unchanged.
+
+  **Backend behaviour:** `antigravity` and `google-antigravity` fall through to
+  the existing unsupported-provider error rather than being special-cased, and
+  the provider is absent from the catalogue — not a hidden callable provider
+  behind a removed UI.
+- **Verification:** `core/src/web/backend/api/no_antigravity_test.go` pins that
+  five spellings are rejected as unsupported, that the OAuth surface is OpenAI
+  and Anthropic only across order/methods/labels, that no catalogue entry or
+  alias mentions it, that Gemini and the `google` → `gemini` alias survive, and
+  that neither the encoded nor the decoded third-party credential exists in any
+  Go, TS, TSX, JSON, Dart or Kotlin source file. `NormalizeProvider` is
+  deliberately *not* the absence assertion: it is a string normaliser that
+  echoes an unknown id back and says nothing about registration, which a first
+  attempt at this test got wrong.
+
+  Both staged Core binaries carry **zero** occurrences of `google-antigravity`,
+  `antigravity`, `Antigravity`, `Google Code Assist`, `antigravity.google` and
+  every encoded or decoded credential marker, while Gemini's endpoint and
+  display name are still present. The first rebuild still showed three
+  `antigravity` strings in the gateway binary: they came from the **embedded**
+  agent skill document, which advertised the provider and the removed
+  `auth models` command to the agent. That is a shipped product surface, so it
+  was corrected and the pair rebuilt.
+- **Core impact:** `core/src` changed, so the pair was rebuilt and re-staged
+  under the two-commit rule from build-input commit
+  `54ff2525fa555744d017aae56c9a26e2049812e1`. Source fingerprint moved from
+  `6f00359dc9e8bf7ee24f9d170754b2792a41fb880d9da4f34a8600dd8f99df00` to
+  `bc35a598d3a836e0a0c95afc73314fe49a38877b985b5b0f15bab11460184fa9`.
+
+      libpocketclaw.so       37,658,976  0a28bd5e1d6e33dc35b808039571b6683e4d47dec021941650f916641b859f6e
+                                         build ID c657e80da54549a3bcc9a8bdba0a576d7b7273a0
+      libpocketclaw-web.so   25,319,424  9ae1d2d9e7ac26d602db722649ebec4ac9cd982fa166c50ded303685d2abce50
+                                         build ID 45355d87ba5ec042740675f82bc3d3940265318a
+      BuildTime              2026-09-13T00:24:56+0000
+
+  Byte-identical in three independent output roots, one with a cold Go cache;
+  both private companions likewise — `libpocketclaw.so.debug` 14,525,160 bytes
+  `709cf86397dcb365b545eed00a84aede20a20ce77b1663562b1803cc4f77e546` and
+  `libpocketclaw-web.so.debug` 9,687,312 bytes
+  `a8c8f3d421fdce710a709cb330c79b63fe9aa68d7e0e5d55d58d0dd152006ebe`. Native
+  contract 22 PASS / 0 FAIL. No Managed Runtime payload was rebuilt. The support
+  manifest still names the PC-DEF-024 audit APK `f580cadc…`, which no longer
+  contains this pair — the established pre-artifact state, rebound at the next
+  artifact build.
+- **Status:** RESOLVED, 2026-09-13.
+- **Re-confirmed by the exposure-audit closure re-run, 2026-09-13:** still live
+  product surface; the encoded form appears once in each Core binary and the
+  decoded form zero times; the upstream-origin comment is intact. An
+  installed-app OAuth client class, so the real exposure remains third-party
+  revocation/dependency rather than secrecy, and no PocketClaw or user secret is
+  disclosed. Classification unchanged; **not a release blocker.**
+- **Status:** OPEN.
 
 ### PC-DEF-024 — A dead analytics deep link is exported in the release manifest
 

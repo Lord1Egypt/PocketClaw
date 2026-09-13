@@ -21,18 +21,18 @@ evidence and describe the state at the date of each entry.
 | H5C state-basis HEAD | `33f0db672eab86985986a76598b66f968e2f44a8` (verified H5C starting commit; the closeout commit follows it) |
 | PC-DEF-019 state-basis HEAD | `ea43369289c8b6c618faa08f7b91355882fc050c` (verified UI-1 closeout; the Core staging/closeout commit follows it) |
 | PC-DEF-019 canonical Core build-input commit | `ea43369289c8b6c618faa08f7b91355882fc050c` |
-| Staged Core pair | `libpocketclaw.so` `7ebeebd1…` 37,724,640 bytes; `libpocketclaw-web.so` `b682b76d…` 25,385,088 bytes; BuildTime `2026-09-12T23:25:34+0000` |
-| PC-DEF-022 canonical Core build-input commit | `a0be2a705c1b255c5bd2fe1d8c9f44c094019627` |
+| Staged Core pair | `libpocketclaw.so` `0a28bd5e…` 37,658,976 bytes; `libpocketclaw-web.so` `9ae1d2d9…` 25,319,424 bytes; BuildTime `2026-09-13T00:24:56+0000` |
+| PC-DEF-023 canonical Core build-input commit | `54ff2525fa555744d017aae56c9a26e2049812e1` |
 | PC-DEF-020 state-basis HEAD | `76064c91033860653de1e11a08e29d7245061ec1` (verified exposure-audit closeout; source and Core-staging commits follow it) |
 | PC-DEF-020 canonical Core build-input commit | `f8bc52a0757f7b0a9f6c0704d2a3586db929e33f` |
 | Version | `0.2.0+62` |
 | Accepted physical baseline | vc62 / `lastAcceptedVersionCode=62` |
 | Current phase | Final Production Release Hardening; H5C production-signed native/ELF validation closed |
 | Developer production signer | `176dca6b198b9552fb4d9ad3ca18da8d6f23c0a3f5ed4bd6b75a0700f9f0efcf` |
-| Core fingerprint | `6f00359dc9e8bf7ee24f9d170754b2792a41fb880d9da4f34a8600dd8f99df00`; the staged Core pair carries it — moved by the `PC-DEF-022` removal |
+| Core fingerprint | `bc35a598d3a836e0a0c95afc73314fe49a38877b985b5b0f15bab11460184fa9`; the staged Core pair carries it — moved by the `PC-DEF-023` removal |
 | Distribution targets | Direct APK, Google Play, Official F-Droid |
 | Exposure-audit state-basis HEAD | `25753cef5fa4d956e11d37b5a6176cdef977f015` (verified PC-DEF-019 closeout; the audit closeout commit follows it) |
-| Final release exposure audit | **CLOSED / PASS** on the re-run at `6031898`. No release blocker remains for the GitHub / direct APK release. `PC-DEF-022` and `PC-DEF-024` have since been RESOLVED; `PC-DEF-023`, `PC-DEF-006` and `PC-DEF-012` remain open and non-blocking for that path |
+| Final release exposure audit | **CLOSED / PASS** on the re-run at `6031898`. No release blocker remains for the GitHub / direct APK release. `PC-DEF-022`, `PC-DEF-023` and `PC-DEF-024` have all since been RESOLVED; only `PC-DEF-006` (F-Droid path) and `PC-DEF-012` remain open |
 | Next authorized milestone | Production-signed release candidate: owner signing ceremony, `--release-class production --artifact-class public-release`, then the final physical smoke. Requires its own explicit prompt |
 | Flutter suite | Green — 490 passed, 0 failed — and the **complete** suite is now a release gate (`flutter.suite`) |
 | Public release asset policy | APK only. An AAB is a Play-upload artifact and is never a public release asset — `PC-DEF-021` |
@@ -590,6 +590,51 @@ merge while `aapt2` strips them.
 not rebuilt. Evidence is in
 [`docs/prompts/history/PC-DEF-024_DEAD_DEEP_LINK_REMOVAL.md`](docs/prompts/history/PC-DEF-024_DEAD_DEEP_LINK_REMOVAL.md).
 
+`PC-DEF-023` is **RESOLVED: Google Antigravity is not shipped in v0.2.0.** This
+was an owner product decision, recorded as `PC-D014`.
+
+The classification from the exposure audit stands — it is **not** a secret
+disclosure. An installed-app OAuth client cannot keep a secret, so nothing that
+was ever protected was published and no PocketClaw or user credential was
+involved. What blocks shipping is **ownership**: the client ID and secret
+belonged to another project, and a third party can revoke them at any time,
+breaking the provider for every user for a reason PocketClaw could neither
+predict nor fix.
+
+The provider is removed from every surface a user or caller can reach — the
+OAuth API, the provider catalogue, the factory, the default `model_list`, the
+legacy-import mapping, the CLI (including the `auth models` subcommand that
+existed only to list its models), the dashboard credential card, all fourteen
+locale bundles, and the embedded agent guidance. `antigravity` and
+`google-antigravity` now return the ordinary unsupported-provider error, and the
+provider is absent from the catalogue rather than hidden behind a removed UI.
+
+Shared OAuth infrastructure is kept: `ClientSecret` and the confidential-client
+token exchange, and `canonicalProvider`'s trim/case normalisation. **Gemini is
+untouched** and is a different provider entirely — its own catalogue entry,
+API-key auth and `generativelanguage.googleapis.com` base — with a test pinning
+it and its `google` alias. OpenAI OAuth, the Anthropic token flow, PKCE, state
+and session handling are unchanged.
+
+Both staged binaries carry zero occurrences of every Antigravity and credential
+marker, while Gemini's endpoint and display name remain. The first rebuild was
+not clean: three strings survived in the embedded agent skill document, which
+still advertised the provider. Checking the binary rather than trusting the
+source diff is what caught it; it was corrected and the pair rebuilt.
+
+Fingerprint moved from `6f00359d…` to
+`bc35a598d3a836e0a0c95afc73314fe49a38877b985b5b0f15bab11460184fa9`, rebuilt and
+re-staged under the two-commit rule from build-input commit `54ff252`:
+
+    libpocketclaw.so       37,658,976  0a28bd5e…  build ID c657e80d…
+    libpocketclaw-web.so   25,319,424  9ae1d2d9…  build ID 45355d87…
+    BuildTime              2026-09-13T00:24:56+0000
+
+Both shrank by exactly 65,664 bytes as the provider left the binaries.
+Byte-identical in three independent roots, one with a cold Go cache; native
+contract 22 PASS / 0 FAIL; no Managed Runtime payload rebuilt. Evidence is in
+[`docs/prompts/history/PC-DEF-023_ANTIGRAVITY_REMOVAL.md`](docs/prompts/history/PC-DEF-023_ANTIGRAVITY_REMOVAL.md).
+
 ### Completed major milestones
 
 - vc62 Zero-Pico namespace closeout: physically accepted and merged.
@@ -617,6 +662,7 @@ not rebuilt. Evidence is in
 - Final release exposure audit: **CLOSED / PASS** on re-run; no release blocker remains.
 - PC-DEF-022 update-surface removal: resolved (the unused self-update route is gone).
 - PC-DEF-024 dead analytics deep-link removal: resolved (the dead BROWSABLE surface is gone).
+- PC-DEF-023 third-party OAuth dependency removal: resolved (Google Antigravity is not shipped in v0.2.0).
 
 See [`docs/ROADMAP.md`](docs/ROADMAP.md) for the phase sequence and
 [`docs/AI_HANDOFF.md`](docs/AI_HANDOFF.md) for the mandatory read order.
@@ -689,12 +735,10 @@ is the one that needs the owner:
    development-signed, so the production transition needs its migration /
    clean-install / data-safeguard plan.
 
-`PC-DEF-023` is the one remaining non-blocking cleanup item, and it needs an
-owner **product decision** rather than an implementation: whether to register
-PocketClaw's own Google Cloud OAuth client for the Antigravity provider, accept
-the third-party credential reuse explicitly with its revocation risk stated, or
-drop the provider. `PC-DEF-022` and `PC-DEF-024` are resolved. `PC-DEF-006`
-gates the F-Droid path only; `PC-DEF-012` awaits reachability evidence.
+Every cleanup item the exposure audit raised is now closed: `PC-DEF-022`,
+`PC-DEF-023` and `PC-DEF-024` are all resolved. `PC-DEF-006` gates the F-Droid
+path only; `PC-DEF-012` awaits reachability evidence. Neither blocks the GitHub /
+direct APK release.
 
 Prepare and review an explicit final release exposure audit prompt —
 secrets/configuration plus full APK and AAB inspection — from
