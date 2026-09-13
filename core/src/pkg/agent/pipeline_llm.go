@@ -568,21 +568,43 @@ func (p *Pipeline) CallLLM(
 	}
 
 	if err != nil {
+		// A configuration block is not a failure. PC-E-AI-004 -- "every
+		// configured AI model is disabled" -- was reaching the operational log as
+		// `ERR agent > LLM call failed` with severity=error, which reads as an
+		// outage while the runtime is healthy and simply waiting on the owner.
+		// The user-facing reply is unchanged; only how this is recorded is.
+		classification := ""
+		fields := map[string]any{
+			"agent_id":  ts.agent.ID,
+			"iteration": iteration,
+			"model":     exec.llmModel,
+			"error":     err.Error(),
+		}
+		userFacing, isUserFacing := AsUserFacingError(err)
+		if isUserFacing {
+			classification = ClassificationConfigurationBlocked
+			fields["reason"] = classification
+			fields["code"] = userFacing.Code
+		}
+
 		al.emitEvent(
 			runtimeevents.KindAgentError,
 			ts.eventMeta("runTurn", "turn.error"),
 			ErrorPayload{
-				Stage:   "llm",
-				Message: err.Error(),
+				Stage:          "llm",
+				Message:        err.Error(),
+				Classification: classification,
 			},
 		)
-		logger.ErrorCF("agent", "LLM call failed",
-			map[string]any{
-				"agent_id":  ts.agent.ID,
-				"iteration": iteration,
-				"model":     exec.llmModel,
-				"error":     err.Error(),
-			})
+
+		if isUserFacing {
+			logger.WarnCF("agent", "Turn blocked by configuration", fields)
+			// No failover event either: nothing was attempted, so there is no
+			// exhausted chain to report.
+			return ControlBreak, err
+		}
+
+		logger.ErrorCF("agent", "LLM call failed", fields)
 		p.emitProviderFailoverExhausted(ts, exec, err)
 		return ControlBreak, fmt.Errorf("LLM call failed after retries: %w", err)
 	}

@@ -1,7 +1,9 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:pocketclaw/src/core/pocketclaw_channel.dart';
 import 'package:pocketclaw/src/core/service_manager.dart';
 import 'package:pocketclaw/src/core/aperture_theme.dart';
 import 'package:pocketclaw/src/generated/l10n/app_localizations.dart';
@@ -231,6 +233,9 @@ class ConfigPage extends StatefulWidget {
 }
 
 class ConfigPageState extends State<ConfigPage> with WidgetsBindingObserver {
+  /// What the host says about PocketClaw's permission to post notifications.
+  /// Null until the first read completes. PC-DEF-058.
+  NotificationPermissionStatus? _notificationPermission;
   static ConfigPageState? _current;
   static ConfigPageState? get current => _current;
   final _hostController = TextEditingController();
@@ -286,6 +291,32 @@ class ConfigPageState extends State<ConfigPage> with WidgetsBindingObserver {
 
     _loadConfig();
     _loadWhatsNewState();
+    // PC-DEF-058. Ask for notification permission once, after the first frame so
+    // the app is on screen behind the system dialog rather than the dialog being
+    // the first thing a fresh install shows. The host refuses to ask twice, so
+    // this cannot nag.
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => unawaited(_ensureNotificationPermission()),
+    );
+  }
+
+  /// Requests notification permission on first run, and records the outcome so
+  /// Settings can show it.
+  Future<void> _ensureNotificationPermission() async {
+    var status = await PocketClawChannel.getNotificationPermission();
+    if (status.shouldRequest) {
+      status = await PocketClawChannel.requestNotificationPermission();
+    }
+    if (!mounted) return;
+    setState(() => _notificationPermission = status);
+  }
+
+  /// Re-reads the state, for the case where the user granted it in Settings and
+  /// came back.
+  Future<void> _refreshNotificationPermission() async {
+    final status = await PocketClawChannel.getNotificationPermission();
+    if (!mounted) return;
+    setState(() => _notificationPermission = status);
   }
 
   WhatsNewSeenStore get _whatsNewStore =>
@@ -962,6 +993,20 @@ class ConfigPageState extends State<ConfigPage> with WidgetsBindingObserver {
                 prevFocusNode: _hostFocusNode,
               ),
               const SizedBox(height: 16),
+
+              // PC-DEF-058. The state is shown whatever it is, and a recovery
+              // action appears only when one is needed -- someone who granted the
+              // permission has nothing to do here.
+              if (Platform.isAndroid && _notificationPermission != null)
+                _NotificationPermissionTile(
+                  status: _notificationPermission!,
+                  onOpenSettings: () async {
+                    await PocketClawChannel.openNotificationSettings();
+                    await _refreshNotificationPermission();
+                  },
+                ),
+              if (Platform.isAndroid && _notificationPermission != null)
+                const SizedBox(height: 16),
 
               SettingsSectionLabel(l10n.settingsGroupIntegrations),
               TelegramSettingsCard(onManage: widget.onManageTelegram),
@@ -2088,6 +2133,77 @@ class _DeviceFeedbackToggleState extends State<DeviceFeedbackToggle> {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Notification permission state, and a way back for someone who said no.
+///
+/// PC-DEF-058. PocketClaw's foreground notification is how the owner sees that the
+/// service is running, and on a fresh install it never appeared because
+/// `POST_NOTIFICATIONS` was declared but never requested.
+class _NotificationPermissionTile extends StatelessWidget {
+  const _NotificationPermissionTile({
+    required this.status,
+    required this.onOpenSettings,
+  });
+
+  final NotificationPermissionStatus status;
+  final Future<void> Function() onOpenSettings;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+    final ok = status.expectedVisible;
+
+    return Card(
+      margin: EdgeInsets.zero,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(
+              ok ? Icons.notifications_active : Icons.notifications_off,
+              size: 20,
+              color: ok ? theme.colorScheme.primary : theme.colorScheme.error,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    l10n.notificationPermissionTitle,
+                    style: theme.textTheme.titleSmall,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    ok
+                        ? l10n.notificationPermissionGranted
+                        : l10n.notificationPermissionBlocked,
+                    style: theme.textTheme.bodySmall,
+                  ),
+                  if (status.shouldOfferSettings) ...[
+                    const SizedBox(height: 8),
+                    // A full-height labelled control, not an icon: this screen is
+                    // used on a phone.
+                    SizedBox(
+                      height: 40,
+                      child: OutlinedButton.icon(
+                        onPressed: () => unawaited(onOpenSettings()),
+                        icon: const Icon(Icons.open_in_new, size: 16),
+                        label: Text(l10n.notificationPermissionOpenSettings),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );

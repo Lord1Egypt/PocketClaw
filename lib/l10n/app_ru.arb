@@ -218,5 +218,9 @@
   "statusDurationSeconds": "{seconds} с",
   "statusDurationMinutes": "{minutes} мин {seconds} с",
   "statusDurationHours": "{hours} ч {minutes} мин",
-  "statusDurationDays": "{days} дн {hours} ч"
+  "statusDurationDays": "{days} дн {hours} ч",
+  "notificationPermissionTitle": "Уведомления",
+  "notificationPermissionGranted": "PocketClaw может показывать уведомление о работе.",
+  "notificationPermissionBlocked": "Уведомления отключены, поэтому уведомление о работе PocketClaw не появится.",
+  "notificationPermissionOpenSettings": "Открыть настройки уведомлений"
 }

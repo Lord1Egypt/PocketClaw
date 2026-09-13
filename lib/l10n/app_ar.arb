@@ -218,5 +218,9 @@
   "statusDurationSeconds": "{seconds} ث",
   "statusDurationMinutes": "{minutes} د {seconds} ث",
   "statusDurationHours": "{hours} س {minutes} د",
-  "statusDurationDays": "{days} ي {hours} س"
+  "statusDurationDays": "{days} ي {hours} س",
+  "notificationPermissionTitle": "الإشعارات",
+  "notificationPermissionGranted": "يمكن لـ PocketClaw إظهار إشعار التشغيل.",
+  "notificationPermissionBlocked": "الإشعارات مُعطَّلة، لذا لن يظهر إشعار تشغيل PocketClaw.",
+  "notificationPermissionOpenSettings": "فتح إعدادات الإشعارات"
 }

@@ -309,7 +309,12 @@ entry below already carries a note about.
 A third collision followed on 2026-09-14: the owner allocated **PC-DEF-054** to
 the Telegram readiness race, but 054 was already the signature-plaintext defect.
 That race is recorded as **PC-DEF-056**, and the logging-hardening work beside it
-as **PC-DEF-057**.
+as **PC-DEF-057**. The owner's later report refers to the race as PC-DEF-054
+again — **owner's 054 = PC-DEF-056 here**, and it is now physically verified.
+
+The two UX defects from that same report took the next free numbers:
+**PC-DEF-058** (first run never requested Android notification permission) and
+**PC-DEF-059** (authentication discarded the requested Dashboard destination).
 
 Two later owner requirements, and two items this session disclosed and was told
 to act on, took the next free identifiers: **PC-DEF-052** (Telegram onboarding
@@ -334,6 +339,94 @@ with:
   and the default-model state. PC-DEF-047's fix is confirmed by the screenshots;
   nothing below claims model deletion is missing. The management gap is at the
   **provider** level.
+
+### PC-DEF-058 — First run never requested Android notification permission
+
+- **Discovered:** Samsung physical testing, 2026-09-14, owner-reported.
+- **Component:** `android/.../NotificationPermission.kt`,
+  `PocketClawMethodChannel.kt`, `MainActivity.kt`, `PocketClawPreferences.kt`,
+  `lib/src/core/pocketclaw_channel.dart`, `lib/src/ui/config_page.dart`.
+- **Problem:** `POST_NOTIFICATIONS` **was already declared** in the manifest and
+  **never requested at runtime**, so on a fresh install the persistent "PocketClaw
+  Running (PID …)" notification simply never appeared and the owner had to enable
+  notifications by hand in Android Settings. The storage flow beside it jumps
+  straight to Settings, which is correct for `MANAGE_EXTERNAL_STORAGE` — that
+  permission has no runtime dialog — and that shape was applied to a permission
+  which does have one.
+- **Resolution.** The rules live in `NotificationPermissionPolicy`, separate from
+  the platform calls, because they are what is worth testing:
+  - Android 13 (API 33) is the boundary. Below it there is no runtime permission,
+    and `NOT_REQUIRED` is reported rather than a false denial.
+  - PocketClaw keeps **its own record of having asked**. Android's
+    `shouldShowRequestPermissionRationale` cannot answer this — it returns false
+    both before the first ask and after a permanent refusal — so it cannot tell
+    "never asked" from "refused for good".
+  - Asked once. A refusal yields `OFFER_SETTINGS`, never a second dialog: Android
+    stops showing it after a refusal, so re-requesting is a silent no-op that
+    makes the app look broken.
+  - "Permission granted" and "the notification will appear" are kept as separate
+    facts. On every Android version the user can switch notifications off in
+    Settings, and below API 33 that is the only control there is, so visibility is
+    reported from `areNotificationsEnabled()` as well as the permission.
+  - The ask is recorded **before** the dialog, not after: the callback does not
+    fire if the activity is recreated mid-dialog, and an unrecorded ask would
+    re-prompt on the next launch.
+  - The request runs after the first frame, so the app is on screen behind the
+    system dialog rather than the dialog being the first thing a fresh install
+    shows.
+  - Settings gains a tile showing the state, with an **Open notification
+    settings** action that appears only when one is needed, and re-reads the state
+    on return. Labelled, 40px, for the touch reasons in PC-DEF-047/055.
+- **Denial is not a failure:** nothing gates on the permission. PocketClaw keeps
+  running; only the notification is absent, which is what Android decided.
+- **Verification:** 7 cases in
+  `android/app/src/test/kotlin/.../NotificationPermissionPolicyTest.kt` — the
+  API-33 boundary across four SDK levels, fresh install, granted with and without
+  a prior ask, asked-and-refused, the dialog offered exactly once, visibility
+  following the notification switch on every version, and the wire names the Dart
+  side matches on. Android unit suite 26 tests, 0 failures. Four l10n keys added
+  in all 12 locales.
+- **Status:** FIXED IN SOURCE. **Physical confirmation required** — fresh install,
+  the system dialog appears, grant, start the service, "PocketClaw Running" is
+  visible with no trip through Android app settings.
+
+### PC-DEF-059 — Authentication discarded the requested Dashboard destination
+
+- **Discovered:** Samsung physical testing, 2026-09-14, owner-reproduced.
+- **Component:** `web/frontend/src/lib/post-auth-destination.ts` (new),
+  `routes/__root.tsx`, `routes/launcher-login.tsx`.
+- **Problem:** the native Settings cards open the console at
+  `canonicalModelsConsolePath` = `/models` and `canonicalTelegramConsolePath` =
+  `/channels/telegram`. When the Dashboard session had expired, the root auth
+  guard redirected to `/launcher-login`, and on success the login page called
+  `globalThis.location.assign("/")` — unconditionally Chat/Home. The destination
+  the user asked for was discarded, so they had to navigate inside the Dashboard
+  or go back to native Settings and tap the same thing again.
+- **Resolution:** the destination travels through the auth flow as `?next=`. The
+  guard builds the login URL with `launcherLoginUrlFor(...)`, and the login page
+  resolves it once on mount — captured in state rather than re-read per submit, so
+  a wrong password followed by the right one still lands on the original
+  destination.
+- **Security: `next` is untrusted input that ends in a navigation, so it is
+  matched against the route set rather than sanitised.** An allowlist cannot be
+  talked into an external host and does not depend on completing a denylist.
+  Rejected: any scheme (`https:`, `javascript:`, `data:`, `mailto:`, `vbscript:`,
+  `file:`), protocol-relative `//host`, backslash smuggling (`/\evil.example` —
+  a browser can read `\` as `/`), control characters and header-injection
+  newlines, traversal, unrooted relative paths, unknown internal paths, a channel
+  segment that is not one plain segment, and the auth pages themselves (returning
+  to login after logging in is a loop). Anything rejected falls back to home.
+  The routes were read from the generated route tree rather than invented, and no
+  new route was added.
+- **Unchanged:** a direct login with no request still goes to home, so the
+  ordinary path behaves exactly as before, and dashboard authentication itself is
+  untouched.
+- **Verification:** 18 cases in `post-auth-destination.test.ts` covering the
+  owner's matrix — both native destinations, every other Dashboard route, the
+  already-authenticated path, each open-redirect vector above, absent/empty/
+  hostile `next`, the login-URL builder staying bare for home, and the round trip
+  the guard and login page actually perform.
+- **Status:** FIXED IN SOURCE. **Physical confirmation required.**
 
 ### PC-DEF-056 — The final bot chat opened before the Telegram runtime was ready
 
@@ -402,8 +495,22 @@ with:
   nothing, the owner identity unchanged, and an already-running runtime not
   delayed. Plus the rewritten background test (polling continues) and the widget
   test at page level. Flutter suite 561 passed.
-- **Status:** FIXED IN SOURCE. **Physical confirmation required** — the exact
-  owner flow, with no return to PocketClaw and no second Open Chat.
+- **Status:** **RESOLVED — PHYSICALLY VERIFIED PASS** in the tested normal
+  onboarding path, Samsung, 2026-09-14. Managed onboarding completes without the
+  old second "Open Chat in Telegram" workaround.
+
+  **Performance observation, not a defect:** the first Telegram reply can take
+  about 15-25 s during initial runtime activation, after which the bot responds
+  normally. Deliberately **not** optimised — no sleeps, no speculative change. The
+  stages are instrumented instead, so a later session can attribute the wait
+  rather than guess: `TelegramOnboardingController` now records
+  `runtimeReadyLatency` and `onboardingLatency` and emits
+  `pocketclaw.onboarding stage=telegram_running runtime_wait_ms=… onboarding_total_ms=…`
+  at the moment Core first reports the channel running. Both marks reset when a new
+  flow begins, so a retry never reports the previous flow's timing.
+
+  The owner's number for this defect was PC-DEF-054, which was already the
+  signature-plaintext entry; see the identifier note.
 
 ### PC-DEF-057 — Structured log fields were not recursively redacted
 
@@ -453,7 +560,71 @@ with:
   applied when nested, bounded depth, and an end-to-end pass through the real
   emit path at DEBUG/INFO/WARN/ERROR reading the writer's bytes. Plus 3 endpoint
   sanitisation cases. `pkg/logger` 50 tests pass.
-- **Status:** **RESOLVED.** The redaction tests are the gate the owner asked for.
+- **Status:** **OPEN / PARTIAL**, at the owner's instruction. Redaction is proven
+  safe and the two follow-ups below are fixed in source; it stays open until the
+  Samsung DEBUG output is read again.
+
+#### Follow-up 1 — redaction was too aggressive, proven by the physical log
+
+The device log showed `max_tokens=<redacted>`. `max_tokens` is a model parameter,
+not a credential: the substring rule matched `token` inside it.
+
+`token` is a substring of every credential worth hiding **and** of every usage
+metric worth keeping, so it cannot be resolved by substring alone. Explicit safe
+metadata is now evaluated **before** the broad secret match:
+
+- an enumerated set of token *measurements* — `max_tokens`, `prompt_tokens`,
+  `completion_tokens`, `total_tokens`, `reasoning_tokens`, `cached_tokens`,
+  `input_tokens`/`output_tokens` and their `_details` breakdowns, `tokens_before`
+  /`_after`, `used_tokens`, `token_count`, `prompt_token_count`,
+  `summarize_token_percent`, and the generic `_tokens` / `_token_count` /
+  `_token_percent` shapes;
+- **the value's type decides where the name cannot.** `tokens` is a count as a log
+  field (`pkg/seahorse`) and a **map of credentials** as a struct field
+  (`pkg/channels/weixin`, `pkg/providers/cli`), so a numeric `tokens` is a metric
+  and a string or string-map `tokens` stays redacted;
+- `max_tokens_field` names a config field, so it joins `changed_fields` as a name
+  rather than a value;
+- a bool is never redacted whatever it is called, stated in the predicate as well
+  as the sanitizer so the two cannot disagree.
+
+**A hole found while doing this and closed:** the generic "facts about a
+credential" suffixes had included `_hash` and `_digest`, which made
+`dashboard_password_hash` read as safe. A hash of a secret is a verifier and is
+offline-crackable, so both suffixes are gone and such names redact.
+
+Verification: the owner's six named cases pass exactly
+(`api_token`/`bot_token`/`refresh_token` → `<redacted>`; `max_tokens=32768`,
+`prompt_tokens=123`, `completion_tokens=45` → visible), plus 17 metrics asserted
+visible in one line with no `<redacted>` anywhere in it, 18 credential names
+asserted redacted, the `tokens` type discrimination in both directions, the
+password-hash case, and every real field name this codebase logs classified.
+`pkg/logger` 177 assertions pass.
+
+#### Follow-up 2 — a configuration block was logged as a runtime failure
+
+The device log showed `PC-E-AI-004` — "every configured AI model is disabled" —
+arriving as `ERR agent > LLM call failed`, `severity=error`. Telegram and the
+gateway were healthy; the product was waiting on the owner.
+
+`ErrorPayload` gained a `Classification`, and
+`runtimeSeverityForAgentEvent` returns **warning** severity for
+`configuration_blocked`. The log line is now
+`WARN agent > Turn blocked by configuration` carrying `reason` and `code`, and the
+provider-failover-exhausted event is **not** emitted — nothing was attempted, so
+there is no exhausted chain to report.
+
+The **event kind is deliberately unchanged**: it is still what ended the turn, and
+every consumer that routes on kind keeps working. The zero-value classification
+means "ordinary failure", so every existing caller is unaffected.
+
+**The user-facing reply is byte-identical**, which the owner required, and a test
+asserts the full text and code.
+
+Verification: 6 cases in `pkg/agent/configuration_block_severity_test.go` —
+warning for a configuration block, error for an unclassified payload, the zero
+value meaning ordinary failure, the other error kinds unaffected, the user-facing
+reply unchanged, and the user-facing identity surviving being returned and wrapped.
 
 ### PC-DEF-052 — Managed Telegram onboarding exposed the hosting origin
 

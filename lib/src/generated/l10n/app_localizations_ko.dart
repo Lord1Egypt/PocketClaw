@@ -639,4 +639,18 @@ class AppLocalizationsKo extends AppLocalizations {
   String statusDurationDays(int days, int hours) {
     return '$days일 $hours시간';
   }
+
+  @override
+  String get notificationPermissionTitle => '알림';
+
+  @override
+  String get notificationPermissionGranted =>
+      'PocketClaw가 실행 중 알림을 표시할 수 있습니다.';
+
+  @override
+  String get notificationPermissionBlocked =>
+      '알림이 꺼져 있어 PocketClaw 실행 중 알림이 표시되지 않습니다.';
+
+  @override
+  String get notificationPermissionOpenSettings => '알림 설정 열기';
 }

@@ -304,24 +304,38 @@ func TestDeepNestingIsBounded(t *testing.T) {
 	}
 }
 
-func TestFieldNameClassification(t *testing.T) {
+// The combined decision, which is what the sanitizer uses: safe metadata is
+// checked before the credential-name rule.
+func TestFieldClassification(t *testing.T) {
 	secret := []string{
 		"api_key", "API_KEY", "X-Api-Key", "apiKey", "bot_token",
 		"authorization", "Proxy-Password", "crypto_passphrase", "cookie",
+		// A digest or hash of a secret is a verifier and offline-crackable, so
+		// the "facts about a credential" allowance deliberately stops short of
+		// it. Nothing in this codebase logs one.
+		"api_key_digest", "password_hash",
 	}
 	safe := []string{
 		"auth_method", "authorization_present", "api_key_changed",
-		"token_count", "secret_count", "api_key_digest", "provider", "model",
+		"token_count", "secret_count", "provider", "model",
 		"endpoint", "status", "duration_ms", "changed_fields", "token_type",
+		"max_tokens", "prompt_tokens", "max_tokens_field",
 	}
 
 	for _, key := range secret {
-		if !fieldNameHoldsSecret(key) {
-			t.Errorf("%q must be treated as a credential name", key)
+		if !fieldIsSecret(key, "some-value") {
+			t.Errorf("%q must be treated as a credential", key)
 		}
 	}
 	for _, key := range safe {
-		if fieldNameHoldsSecret(key) {
+		// Numeric where the name is a metric, so the value can be consulted.
+		var value any = "some-value"
+		switch key {
+		case "token_count", "secret_count", "status", "duration_ms",
+			"max_tokens", "prompt_tokens":
+			value = 1
+		}
+		if fieldIsSecret(key, value) {
 			t.Errorf("%q is metadata and must survive", key)
 		}
 	}
@@ -400,5 +414,156 @@ func swapLoggerOutput(t *testing.T, sink *bytes.Buffer) func() {
 		logger = previousLogger
 		currentLevel = previousLevel
 		zerolog.SetGlobalLevel(previousGlobal)
+	}
+}
+
+// PC-DEF-057 follow-up. The physical DEBUG log showed `max_tokens=<redacted>`:
+// `token` is a substring of every credential worth hiding and of every usage
+// metric worth keeping, and resolving that by substring alone lost the metric.
+//
+// Both halves are asserted together, because fixing one by breaking the other is
+// the failure mode here.
+func TestTokenMetricsStayVisibleWhileTokenCredentialsDoNot(t *testing.T) {
+	t.Run("metrics survive", func(t *testing.T) {
+		output := sanitize(t, map[string]any{
+			"max_tokens":              32768,
+			"prompt_tokens":           123,
+			"completion_tokens":       45,
+			"total_tokens":            168,
+			"reasoning_tokens":        12,
+			"cached_tokens":           99,
+			"input_tokens":            100,
+			"output_tokens":           68,
+			"tokens":                  168,
+			"tokens_after":            140,
+			"tokens_before":           168,
+			"used_tokens":             168,
+			"token_count":             168,
+			"prompt_token_count":      123,
+			"completion_token_count":  45,
+			"summarize_token_percent": 75,
+			"max_tokens_field":        "max_completion_tokens",
+		})
+
+		for _, expected := range []string{
+			`"max_tokens":32768`, `"prompt_tokens":123`, `"completion_tokens":45`,
+			`"total_tokens":168`, `"reasoning_tokens":12`, `"cached_tokens":99`,
+			`"input_tokens":100`, `"output_tokens":68`, `"tokens":168`,
+			`"tokens_after":140`, `"tokens_before":168`, `"used_tokens":168`,
+			`"token_count":168`, `"prompt_token_count":123`,
+			`"completion_token_count":45`, `"summarize_token_percent":75`,
+			`"max_tokens_field":"max_completion_tokens"`,
+		} {
+			if !strings.Contains(output, expected) {
+				t.Errorf("a token metric was redacted into uselessness: want %s in\n%s",
+					expected, output)
+			}
+		}
+		if strings.Contains(output, "<redacted>") {
+			t.Errorf("no token metric should be redacted:\n%s", output)
+		}
+	})
+
+	t.Run("credentials stay redacted", func(t *testing.T) {
+		for _, field := range []string{
+			"token", "api_token", "bot_token", "access_token", "refresh_token",
+			"oauth_token", "id_token", "auth_token", "session_token",
+			"launcher_token", "app_token", "channel_access_token",
+			"context_token", "reply_token", "authorization", "api_key",
+			"password", "secret",
+		} {
+			output := sanitize(t, map[string]any{field: canary})
+			assertNoCanary(t, "credential field "+field, output)
+			if !strings.Contains(output, "<redacted>") {
+				t.Errorf("field %q must be redacted: %s", field, output)
+			}
+		}
+	})
+
+	// The name alone cannot decide `tokens`: a count in a log, a credential map
+	// in weixin state and the codex CLI. The value's type decides.
+	t.Run("a tokens map of credentials is still redacted", func(t *testing.T) {
+		output := sanitize(t, map[string]any{
+			"tokens": map[string]string{"access": canary, "refresh": canary},
+		})
+		assertNoCanary(t, "tokens credential map", output)
+	})
+
+	t.Run("a tokens breakdown of numbers survives", func(t *testing.T) {
+		output := sanitize(t, map[string]any{
+			"input_tokens_details": map[string]any{"cached_tokens": 64, "audio_tokens": 0},
+		})
+		if !strings.Contains(output, "64") {
+			t.Errorf("a numeric token breakdown must survive: %s", output)
+		}
+	})
+
+	// A string under a metric name is not a metric.
+	t.Run("a string under a metric name is not trusted", func(t *testing.T) {
+		output := sanitize(t, map[string]any{"tokens": canary})
+		assertNoCanary(t, "string tokens", output)
+	})
+}
+
+// A hash of a secret is a verifier and is offline-crackable, so the generic
+// "facts about a credential" allowance must not extend to it.
+func TestAPasswordHashIsStillRedacted(t *testing.T) {
+	output := sanitize(t, map[string]any{
+		"dashboard_password_hash": canary,
+		"password_digest":         canary,
+	})
+
+	assertNoCanary(t, "password hash", output)
+}
+
+// The real field names this codebase logs, classified. A regression here is a
+// fidelity loss the owner would see on the device.
+func TestRealLogFieldNamesAreClassifiedCorrectly(t *testing.T) {
+	safeWithValue := map[string]any{
+		"auth_method":                "oauth",
+		"auth_url":                   "https://accounts.example.com/authorize",
+		"authenticated":              true,
+		"authorization_present":      true,
+		"session_header_present":     true,
+		"x_opencode_session_present": true,
+		"api_key_changed":            true,
+		"api_key_valid":              true,
+		"has_api_key":                true,
+		"has_key":                    true,
+		"credential_change":          true,
+		"allow_token_query":          false,
+		"secret_count":               2,
+		"token_type":                 "bearer",
+		"sessions_migrated":          7,
+		"max_tokens":                 4096,
+	}
+	for key, value := range safeWithValue {
+		if fieldIsSecret(key, value) {
+			t.Errorf("%q is metadata and must stay visible", key)
+		}
+	}
+
+	secret := map[string]any{
+		"api_key": "x", "api_keys": []string{"x"}, "app_secret": "x",
+		"channel_secret": "x", "client_secret": "x", "nickserv_password": "x",
+		"password": "x", "dashboard_password_hash": "x", "secret": "x",
+		"cookie": "x", "authorization": "x", "access_token": "x",
+		"refresh_token": "x", "id_token": "x", "session_token": "x",
+		"bot_token": "x", "app_token": "x", "channel_access_token": "x",
+		"launcher_token": "x", "reply_token": "x", "context_token": "x",
+		"session": "x",
+	}
+	for key, value := range secret {
+		if !fieldIsSecret(key, value) {
+			t.Errorf("%q is a credential and must be redacted", key)
+		}
+	}
+
+	// These are covered by the logger's exact-name map, which runs before the
+	// name rule, so they are asserted through the real path rather than the
+	// predicate.
+	for _, key := range []string{"session_key", "scope_key", "route_main_session"} {
+		output := sanitize(t, map[string]any{key: canary})
+		assertNoCanary(t, "exact-name field "+key, output)
 	}
 }

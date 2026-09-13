@@ -218,5 +218,9 @@
   "statusDurationSeconds": "{seconds} dtk",
   "statusDurationMinutes": "{minutes} mnt {seconds} dtk",
   "statusDurationHours": "{hours} jam {minutes} mnt",
-  "statusDurationDays": "{days} hr {hours} jam"
+  "statusDurationDays": "{days} hr {hours} jam",
+  "notificationPermissionTitle": "Notifikasi",
+  "notificationPermissionGranted": "PocketClaw dapat menampilkan notifikasi Running-nya.",
+  "notificationPermissionBlocked": "Notifikasi nonaktif, sehingga notifikasi PocketClaw Running tidak akan muncul.",
+  "notificationPermissionOpenSettings": "Buka pengaturan notifikasi"
 }

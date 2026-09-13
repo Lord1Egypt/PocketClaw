@@ -33,6 +33,19 @@ class MainActivity : FlutterActivity() {
         super.onActivityResult(requestCode, resultCode, data)
     }
 
+    /**
+     * Android delivers a permission answer to the Activity, so it is routed to the
+     * method channel that asked. PC-DEF-058.
+     */
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray,
+    ) {
+        if (methodChannel?.onRequestPermissionsResult(requestCode) == true) return
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+    }
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         // setIntent stays: FlutterActivity and plugins read getIntent(). What

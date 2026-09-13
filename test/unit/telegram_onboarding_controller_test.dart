@@ -174,6 +174,7 @@ Future<void> waitFor(bool Function() predicate) async {
 void main() {
   _deepLinkGroup();
   _readinessGroup();
+  _latencyGroup();
   test('start issues a pairing and begins waiting for Telegram', () async {
     final h = Harness();
     await h.controller.start();
@@ -869,6 +870,46 @@ void _readinessGroup() {
 
       expect(h.runtimeChecks, lessThanOrEqualTo(2),
           reason: 'readiness is polled, not slept through');
+      h.controller.dispose();
+    });
+  });
+}
+
+/// The owner's 15-25 s observation, instrumented rather than optimised.
+void _latencyGroup() {
+  group('onboarding latency marks', () {
+    test('records how long the runtime wait took', () async {
+      final h = Harness();
+      h.client.statusQueue.add(
+        const TelegramPairingStatus(state: PairingState.ready),
+      );
+      await h.controller.start();
+      await waitFor(
+        () => h.controller.stage == TelegramOnboardingStage.connected,
+      );
+
+      expect(h.controller.runtimeReadyLatency, isNotNull,
+          reason: 'the stage has to be attributable, not guessed at');
+      expect(h.controller.onboardingLatency, isNotNull);
+      expect(h.controller.runtimeReadyLatency!.inMilliseconds,
+          greaterThanOrEqualTo(0));
+      h.controller.dispose();
+    });
+
+    test('clears the marks when a new flow begins', () async {
+      final h = Harness();
+      h.client.statusQueue.add(
+        const TelegramPairingStatus(state: PairingState.ready),
+      );
+      await h.controller.start();
+      await waitFor(
+        () => h.controller.stage == TelegramOnboardingStage.connected,
+      );
+      expect(h.controller.runtimeReadyLatency, isNotNull);
+
+      await h.controller.retry();
+      // A fresh flow must not report the previous flow's timing.
+      expect(h.controller.runtimeReadyLatency, isNull);
       h.controller.dispose();
     });
   });

@@ -348,5 +348,21 @@
         "type": "int"
       }
     }
+  },
+  "notificationPermissionTitle": "Notifications",
+  "@notificationPermissionTitle": {
+    "description": "Settings label for PocketClaw's notification permission state."
+  },
+  "notificationPermissionGranted": "PocketClaw can show its Running notification.",
+  "@notificationPermissionGranted": {
+    "description": "Shown when PocketClaw may post its foreground notification."
+  },
+  "notificationPermissionBlocked": "Notifications are off, so the PocketClaw Running notification will not appear.",
+  "@notificationPermissionBlocked": {
+    "description": "Shown when notifications are off so the Running notification cannot appear."
+  },
+  "notificationPermissionOpenSettings": "Open notification settings",
+  "@notificationPermissionOpenSettings": {
+    "description": "Action that opens the per-app Android notification settings."
   }
 }

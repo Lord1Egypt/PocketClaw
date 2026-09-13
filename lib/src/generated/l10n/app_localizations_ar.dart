@@ -654,4 +654,18 @@ class AppLocalizationsAr extends AppLocalizations {
   String statusDurationDays(int days, int hours) {
     return '$days ي $hours س';
   }
+
+  @override
+  String get notificationPermissionTitle => 'الإشعارات';
+
+  @override
+  String get notificationPermissionGranted =>
+      'يمكن لـ PocketClaw إظهار إشعار التشغيل.';
+
+  @override
+  String get notificationPermissionBlocked =>
+      'الإشعارات مُعطَّلة، لذا لن يظهر إشعار تشغيل PocketClaw.';
+
+  @override
+  String get notificationPermissionOpenSettings => 'فتح إعدادات الإشعارات';
 }

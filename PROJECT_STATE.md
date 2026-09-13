@@ -34,12 +34,72 @@ evidence and describe the state at the date of each entry.
 | Exposure-audit state-basis HEAD | `25753cef5fa4d956e11d37b5a6176cdef977f015` (verified PC-DEF-019 closeout; the audit closeout commit follows it) |
 | Final release exposure audit | **CLOSED / PASS** on the re-run at `6031898`. No release blocker remains for the GitHub / direct APK release. `PC-DEF-022`, `PC-DEF-023` and `PC-DEF-024` have all since been RESOLVED; only `PC-DEF-006` (F-Droid path) and `PC-DEF-012` remain open |
 | Production candidate | **BUILT AND GATED.** `4d4bc33a…`, 63,472,307 bytes, one v2 signer `176dca6b…`; production artifact gate 57 PASS / 0 FAIL / 0 SKIPPED. Private validation evidence — not installed, published or accepted |
-| Next authorized milestone | **Samsung physical round for PC-DEF-056/057 on a new Verification APK.** PC-DEF-030/032/033/049/051/053 are physically verified PASS; PC-DEF-050/052/055 remain unverified. Earlier note, still current: **Samsung physical round for PC-DEF-049..055 on the Verification APK below.** The APK is built, gated and archived; no device was attached to the session that built it, so nothing is physically verified. Samsung acceptance of the production candidate follows, under its own prompt, with a migration / clean-install / data-safeguard plan; that candidate is production-signed, so it can never be installed over this development-signed build |
+| Next authorized milestone | **Samsung physical round for PC-DEF-057/058/059 on the Verification APK below.** Physically verified PASS so far: PC-DEF-030/032/033/049/051/053/056. Still unverified: PC-DEF-050, PC-DEF-052, PC-DEF-055, PC-DEF-057 (DEBUG output), PC-DEF-058, PC-DEF-059 The APK is built, gated and archived; no device was attached to the session that built it, so nothing is physically verified. Samsung acceptance of the production candidate follows, under its own prompt, with a migration / clean-install / data-safeguard plan; that candidate is production-signed, so it can never be installed over this development-signed build |
 | Verification APK (PC-DEF-056/057) | `7c8eefd399318b6187b0fb87c8bd687d7d08c3537959e31f38767a642908e3cb`, 63,539,059 bytes, development signer `15cf75f9…`, Dart AOT `007c23b6be22a9a44f429a53f8fb9eaf930180e67bb20f111cadceedb68e22f4`. Source gate 26/26 with `flutter.suite 561 passed`, artifact gate 24/24, native ELF 188 PASS / 0 FAIL. Archived read-only at `build/forensic/apk-7c8eefd3…/`. LOCAL TEST / NON-RELEASABLE. **Nothing in it is physically verified** |
 | Verification APK (PC-DEF-049..055, superseded) | `6df7abaa6bec5a5124d21d30b582fc37d2837be036fa75e93eb3d30d5634894c`, 63,528,459 bytes, development signer `15cf75f9945d5354e75707e0326b7cffc60ac51a68df38156db318ef4578a27c`, Dart AOT `d5d52742ab6cc5672e7c3910dc20c50e5c4da430c80d65c49501d12ea17a7968`. Source gate 26/26, artifact gate 24/24, native ELF audit 188 PASS / 0 FAIL. Archived read-only at `build/forensic/apk-6df7abaa…/` with its private R8 material separated. LOCAL TEST / NON-RELEASABLE |
 | Staged Core freshness | **CURRENT.** Rebuilt from the PC-DEF-056/057 source commit `934c6bf` and staged in `659576c`, which touches no build input. Fingerprint `d1d3b98fe500fae3ec118a3e7f8a1525c1ee4f05e4a90470f4a208b86422edc6` (was `212131a8…`), BuildTime `2026-09-13T21:44:42+0000`; `libpocketclaw.so` 37,725,376 bytes `4ab62892…`, `libpocketclaw-web.so` 25,516,992 bytes `0b3d13b5…`. `core.staged_freshness` passes |
 | Flutter suite | Green — 497 passed, 0 failed — and the **complete** suite is now a release gate (`flutter.suite`) |
 | Public release asset policy | APK only. An AAB is a Play-upload artifact and is never a public release asset — `PC-DEF-021` |
+
+## 2026-09-14 — Notification permission, post-auth destination, logging fidelity
+
+**PC-DEF-056 is PHYSICALLY VERIFIED PASS** (the owner calls it 054; see the
+identifier note). Managed onboarding completes with no second "Open Chat in
+Telegram". The first reply can take about **15-25 s** during initial runtime
+activation — recorded as a **performance observation, not a defect**, and
+deliberately not optimised. The stages are instrumented instead:
+`runtimeReadyLatency` / `onboardingLatency` plus a
+`pocketclaw.onboarding stage=telegram_running runtime_wait_ms=… onboarding_total_ms=…`
+mark, so a later session can attribute the wait rather than guess. Both reset per
+flow.
+
+**PC-DEF-057 stays OPEN / PARTIAL** at the owner's instruction, with two
+follow-ups fixed:
+
+1. **Redaction was too aggressive** — the device log showed
+   `max_tokens=<redacted>`. `token` is a substring of every credential worth
+   hiding *and* every usage metric worth keeping, so explicit safe metadata is now
+   evaluated **before** the broad match: an enumerated set of token measurements,
+   the generic `_tokens` / `_token_count` / `_token_percent` shapes, and **the
+   value's type deciding where the name cannot** — `tokens` is a count as a log
+   field and a *map of credentials* as a struct field, so numeric is a metric and
+   string stays secret. A hole was found and closed at the same time: the
+   "facts about a credential" suffixes had included `_hash`/`_digest`, which made
+   `dashboard_password_hash` read as safe. A hash of a secret is offline-crackable;
+   both suffixes are gone.
+2. **A configuration block was logged as a runtime failure** — `PC-E-AI-004`
+   arrived as `ERR agent > LLM call failed`. `ErrorPayload` gained a
+   `Classification` and `configuration_blocked` now yields **warning** severity,
+   logged as `WARN agent > Turn blocked by configuration` with `reason` and `code`,
+   and no failover-exhausted event since nothing was attempted. The **event kind is
+   unchanged** so kind-routing consumers keep working, the zero value means
+   ordinary failure, and the **user-facing reply is byte-identical** — asserted.
+
+**PC-DEF-058 — first run never requested notification permission.**
+`POST_NOTIFICATIONS` was *declared* and never requested, so the "PocketClaw
+Running" notification never appeared on a fresh install. The rules are in a
+testable `NotificationPermissionPolicy`: API 33 is the boundary, PocketClaw keeps
+**its own record of having asked** because Android's
+`shouldShowRequestPermissionRationale` cannot tell "never asked" from "refused for
+good", the dialog is shown exactly once, a refusal offers Settings instead, and
+"granted" is kept separate from "will appear" because below API 33 the Settings
+switch is the only control. The ask is recorded *before* the dialog, since the
+callback does not fire if the activity is recreated mid-dialog.
+
+**PC-DEF-059 — authentication discarded the requested destination.** The native
+cards open `/models` and `/channels/telegram`; the login page called
+`location.assign("/")` on success. The destination now travels as `?next=`,
+captured once on mount so a wrong-then-right password still lands correctly.
+`next` is untrusted input ending in a navigation, so it is **matched against the
+route set**, not sanitised — schemes, `//host`, backslash smuggling, control
+characters, traversal, unknown paths and the auth pages are all rejected to a home
+fallback. Routes were read from the generated route tree; none was invented.
+
+Verification: Go suite green under `-tags goolm` apart from the staged-Core
+freshness guard (correct for the source commit); `pkg/logger` **177 assertions**;
+Android unit suite **26 tests, 0 failures** including 7 new policy cases;
+`flutter analyze` clean and Flutter **563 passed**; frontend **493 passed** with
+`tsc -b` and ESLint clean; 4 l10n keys added in all 12 locales.
 
 ## 2026-09-14 — Telegram readiness race and logging hardening
 

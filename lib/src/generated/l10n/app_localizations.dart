@@ -1269,6 +1269,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{days}d {hours}h'**
   String statusDurationDays(int days, int hours);
+
+  /// Settings label for PocketClaw's notification permission state.
+  ///
+  /// In en, this message translates to:
+  /// **'Notifications'**
+  String get notificationPermissionTitle;
+
+  /// Shown when PocketClaw may post its foreground notification.
+  ///
+  /// In en, this message translates to:
+  /// **'PocketClaw can show its Running notification.'**
+  String get notificationPermissionGranted;
+
+  /// Shown when notifications are off so the Running notification cannot appear.
+  ///
+  /// In en, this message translates to:
+  /// **'Notifications are off, so the PocketClaw Running notification will not appear.'**
+  String get notificationPermissionBlocked;
+
+  /// Action that opens the per-app Android notification settings.
+  ///
+  /// In en, this message translates to:
+  /// **'Open notification settings'**
+  String get notificationPermissionOpenSettings;
 }
 
 class _AppLocalizationsDelegate

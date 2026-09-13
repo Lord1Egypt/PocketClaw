@@ -657,4 +657,18 @@ class AppLocalizationsEn extends AppLocalizations {
   String statusDurationDays(int days, int hours) {
     return '${days}d ${hours}h';
   }
+
+  @override
+  String get notificationPermissionTitle => 'Notifications';
+
+  @override
+  String get notificationPermissionGranted =>
+      'PocketClaw can show its Running notification.';
+
+  @override
+  String get notificationPermissionBlocked =>
+      'Notifications are off, so the PocketClaw Running notification will not appear.';
+
+  @override
+  String get notificationPermissionOpenSettings => 'Open notification settings';
 }

@@ -218,5 +218,9 @@
   "statusDurationSeconds": "{seconds} s",
   "statusDurationMinutes": "{minutes} min {seconds} s",
   "statusDurationHours": "{hours} h {minutes} min",
-  "statusDurationDays": "{days} d {hours} h"
+  "statusDurationDays": "{days} d {hours} h",
+  "notificationPermissionTitle": "Notificações",
+  "notificationPermissionGranted": "O PocketClaw pode mostrar a notificação de execução.",
+  "notificationPermissionBlocked": "As notificações estão desativadas, portanto a notificação de execução do PocketClaw não aparecerá.",
+  "notificationPermissionOpenSettings": "Abrir configurações de notificação"
 }

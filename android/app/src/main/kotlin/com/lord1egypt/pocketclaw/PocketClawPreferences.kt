@@ -22,6 +22,9 @@ object PocketClawPreferences {
     /** Canonical store. Every current read and write uses this. */
     const val NAME = "pocketclaw_prefs"
 
+    private const val KEY_NOTIFICATION_PERMISSION_ASKED =
+        "notification_permission_asked"
+
     /**
      * LEGACY READ-ONLY MIGRATION — the pre-Zero-Pico store.
      *
@@ -133,5 +136,21 @@ object PocketClawPreferences {
     private fun deleteLegacy(context: Context, why: String) {
         val deleted = context.deleteSharedPreferences(LEGACY_NAME)
         Log.i(TAG, "Removed the legacy preference store ($why); deleted=$deleted")
+    }
+
+    /**
+     * Whether PocketClaw has already shown the system notification-permission
+     * dialog.
+     *
+     * PC-DEF-058. Android's own `shouldShowRequestPermissionRationale` cannot
+     * answer this: it returns false both before the first ask and after a
+     * permanent denial, so it cannot tell "never asked" from "refused for good".
+     * PocketClaw keeps its own record so it asks exactly once and never nags.
+     */
+    fun notificationPermissionAsked(context: Context): Boolean =
+        open(context).getBoolean(KEY_NOTIFICATION_PERMISSION_ASKED, false)
+
+    fun setNotificationPermissionAsked(context: Context, asked: Boolean) {
+        open(context).edit().putBoolean(KEY_NOTIFICATION_PERMISSION_ASKED, asked).apply()
     }
 }

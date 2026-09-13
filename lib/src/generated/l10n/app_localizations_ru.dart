@@ -663,4 +663,19 @@ class AppLocalizationsRu extends AppLocalizations {
   String statusDurationDays(int days, int hours) {
     return '$days дн $hours ч';
   }
+
+  @override
+  String get notificationPermissionTitle => 'Уведомления';
+
+  @override
+  String get notificationPermissionGranted =>
+      'PocketClaw может показывать уведомление о работе.';
+
+  @override
+  String get notificationPermissionBlocked =>
+      'Уведомления отключены, поэтому уведомление о работе PocketClaw не появится.';
+
+  @override
+  String get notificationPermissionOpenSettings =>
+      'Открыть настройки уведомлений';
 }

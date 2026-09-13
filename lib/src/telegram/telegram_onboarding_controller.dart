@@ -105,6 +105,18 @@ class TelegramOnboardingController extends ChangeNotifier {
 
   /// Whether this pairing has already had its bot chat opened automatically.
   bool _autoOpenedBotChat = false;
+
+  /// When the current flow began, for the latency marks below.
+  DateTime? _startedAt;
+
+  /// How long Core took to report the Telegram channel running, once known.
+  ///
+  /// Recorded so the owner's 15-25 s observation can be attributed to a stage
+  /// instead of guessed at. Null until the flow reaches connected.
+  Duration? runtimeReadyLatency;
+
+  /// How long the whole flow took, from start to connected.
+  Duration? onboardingLatency;
   final DateTime Function() _clock;
 
   /// False when this build has no PocketClaw onboarding endpoint. The flow
@@ -163,6 +175,9 @@ class TelegramOnboardingController extends ChangeNotifier {
     _stopPolling();
     _errorKind = null;
     _connectedBotUsername = null;
+    _startedAt = _clock();
+    runtimeReadyLatency = null;
+    onboardingLatency = null;
 
     if (!_serviceConfigured) {
       _fail(TelegramOnboardingErrorKind.notConfigured);
@@ -345,6 +360,11 @@ class TelegramOnboardingController extends ChangeNotifier {
       // exposes no per-channel command state -- so running is the authoritative
       // signal available, and it is the one the gate uses.
       _setStage(TelegramOnboardingStage.startingRuntime);
+      // The owner measured 15-25 s to the first Telegram reply on a fresh
+      // onboarding and asked for the stages to be instrumented rather than
+      // optimised by guesswork. These are wall-clock marks, not a fix: they say
+      // which step the wait is actually in.
+      final runtimeWaitStarted = _clock();
       if (!await _awaitTelegramRunning()) {
         if (_disposed) return;
         // A wait the user cancelled is not a runtime failure, and must not
@@ -356,6 +376,17 @@ class TelegramOnboardingController extends ChangeNotifier {
         return;
       }
       if (_disposed || _stage != TelegramOnboardingStage.startingRuntime) return;
+
+      runtimeReadyLatency = _clock().difference(runtimeWaitStarted);
+      final startedAt = _startedAt;
+      if (startedAt != null) {
+        onboardingLatency = _clock().difference(startedAt);
+      }
+      debugPrint(
+        'pocketclaw.onboarding stage=telegram_running '
+        'runtime_wait_ms=${runtimeReadyLatency!.inMilliseconds} '
+        'onboarding_total_ms=${onboardingLatency?.inMilliseconds ?? -1}',
+      );
 
       _setStage(TelegramOnboardingStage.connected);
       await _openConnectedBotChatOnce();

@@ -2,8 +2,10 @@ package com.lord1egypt.pocketclaw
 
 import com.lord1egypt.pocketclaw.media.ChatImagePicker
 import com.lord1egypt.pocketclaw.security.GitHubCredentialStore
+import android.app.Activity
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.net.ConnectivityManager
 import android.net.Network
@@ -14,6 +16,9 @@ import android.os.Handler
 import android.os.Looper
 import android.provider.Settings
 import android.util.Log
+import androidx.core.app.ActivityCompat
+import androidx.core.app.NotificationManagerCompat
+import androidx.core.content.ContextCompat
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 import com.lord1egypt.pocketclaw.service.PocketClawService
@@ -52,6 +57,9 @@ class PocketClawMethodChannel(
         private const val TAG = "PocketClawMethodChannel"
         private const val CHANNEL_NAME = "com.lord1egypt.pocketclaw/pocketclaw"
         private const val KEY_AUTO_START = "auto_start"
+        private const val POST_NOTIFICATIONS_PERMISSION =
+            "android.permission.POST_NOTIFICATIONS"
+        private const val NOTIFICATION_PERMISSION_REQUEST_CODE = 9731
         private const val TELEGRAM_BRIDGE_URL =
             "http://127.0.0.1:18800/api/pocketclaw/android/telegram"
         private const val NETWORK_MODE_BRIDGE_URL =
@@ -94,6 +102,48 @@ class PocketClawMethodChannel(
 
     private val channel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL_NAME)
     private val healthChecker = HealthChecker.forHost(context)
+
+    /** Set while the system notification dialog is on screen. */
+    private var pendingNotificationPermissionResult: MethodChannel.Result? = null
+
+    private fun currentNotificationPermissionState(): NotificationPermissionState =
+        NotificationPermissionPolicy.resolve(
+            sdkInt = Build.VERSION.SDK_INT,
+            permissionGranted = Build.VERSION.SDK_INT < NotificationPermissionPolicy.RUNTIME_PERMISSION_SDK ||
+                ContextCompat.checkSelfPermission(context, POST_NOTIFICATIONS_PERMISSION) ==
+                PackageManager.PERMISSION_GRANTED,
+            alreadyAsked = PocketClawPreferences.notificationPermissionAsked(context),
+        )
+
+    /** What Flutter receives for every notification-permission call. */
+    private fun notificationPermissionSnapshot(): Map<String, Any> {
+        val state = currentNotificationPermissionState()
+        val enabled = NotificationManagerCompat.from(context).areNotificationsEnabled()
+        return mapOf(
+            "state" to NotificationPermissionPolicy.wireName(state),
+            "action" to NotificationPermissionPolicy.actionFor(state).name,
+            "notificationsEnabled" to enabled,
+            "expectedVisible" to
+                NotificationPermissionPolicy.notificationsExpectedVisible(state, enabled),
+        )
+    }
+
+    /**
+     * Delivers the system dialog's answer. Called by the Activity, which is the only
+     * thing Android hands the result to.
+     *
+     * Returns whether the request code was ours, so the Activity can pass everything
+     * else through.
+     */
+    fun onRequestPermissionsResult(requestCode: Int): Boolean {
+        if (requestCode != NOTIFICATION_PERMISSION_REQUEST_CODE) return false
+        val pending = pendingNotificationPermissionResult
+        pendingNotificationPermissionResult = null
+        // The snapshot is re-read rather than taken from the callback's grant array:
+        // it is the same question and one source of truth is better than two.
+        pending?.success(notificationPermissionSnapshot())
+        return true
+    }
 
     private fun getMainExecutor(): Executor {
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
@@ -587,6 +637,62 @@ class PocketClawMethodChannel(
                         true
                     }
                     result.success(granted)
+                }
+                // PC-DEF-058. POST_NOTIFICATIONS was declared and never requested, so
+                // the persistent "PocketClaw Running" notification never appeared on a
+                // fresh install and the owner enabled it in Settings by hand. The
+                // decision rules are in NotificationPermissionPolicy; these three are
+                // the platform calls.
+                "getNotificationPermission" -> {
+                    result.success(notificationPermissionSnapshot())
+                }
+                "requestNotificationPermission" -> {
+                    val state = currentNotificationPermissionState()
+                    if (NotificationPermissionPolicy.actionFor(state) !=
+                        NotificationPermissionAction.REQUEST_SYSTEM_DIALOG
+                    ) {
+                        // Already granted, not applicable, or already refused. Asking
+                        // again is either pointless or a silent no-op Android will not
+                        // show, and either way it must not be reported as a request.
+                        result.success(notificationPermissionSnapshot())
+                    } else {
+                        val activity = context as? Activity
+                        if (activity == null) {
+                            result.success(notificationPermissionSnapshot())
+                        } else {
+                            // Recorded before the dialog, not after: the callback does
+                            // not fire if the activity is recreated mid-dialog, and an
+                            // unrecorded ask would re-prompt on the next launch.
+                            PocketClawPreferences.setNotificationPermissionAsked(context, true)
+                            pendingNotificationPermissionResult = result
+                            ActivityCompat.requestPermissions(
+                                activity,
+                                arrayOf(POST_NOTIFICATIONS_PERMISSION),
+                                NOTIFICATION_PERMISSION_REQUEST_CODE,
+                            )
+                        }
+                    }
+                }
+                "openNotificationSettings" -> {
+                    try {
+                        val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                        intent.putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+                        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        context.startActivity(intent)
+                        result.success(true)
+                    } catch (e: Exception) {
+                        // Not every device honours the per-app screen.
+                        try {
+                            val fallback = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+                            fallback.data = Uri.parse("package:${context.packageName}")
+                            fallback.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            context.startActivity(fallback)
+                            result.success(true)
+                        } catch (e2: Exception) {
+                            Log.w(TAG, "notification settings unavailable: ${e2.message}")
+                            result.success(false)
+                        }
+                    }
                 }
                 "requestStorageManager" -> {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {

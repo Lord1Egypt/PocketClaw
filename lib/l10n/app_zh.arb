@@ -218,5 +218,9 @@
   "statusDurationSeconds": "{seconds} 秒",
   "statusDurationMinutes": "{minutes} 分 {seconds} 秒",
   "statusDurationHours": "{hours} 小时 {minutes} 分",
-  "statusDurationDays": "{days} 天 {hours} 小时"
+  "statusDurationDays": "{days} 天 {hours} 小时",
+  "notificationPermissionTitle": "通知",
+  "notificationPermissionGranted": "PocketClaw 可以显示运行中通知。",
+  "notificationPermissionBlocked": "通知已关闭，因此不会显示 PocketClaw 运行中通知。",
+  "notificationPermissionOpenSettings": "打开通知设置"
 }

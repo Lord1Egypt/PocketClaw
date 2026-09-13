@@ -669,4 +669,19 @@ class AppLocalizationsPt extends AppLocalizations {
   String statusDurationDays(int days, int hours) {
     return '$days d $hours h';
   }
+
+  @override
+  String get notificationPermissionTitle => 'Notificações';
+
+  @override
+  String get notificationPermissionGranted =>
+      'O PocketClaw pode mostrar a notificação de execução.';
+
+  @override
+  String get notificationPermissionBlocked =>
+      'As notificações estão desativadas, portanto a notificação de execução do PocketClaw não aparecerá.';
+
+  @override
+  String get notificationPermissionOpenSettings =>
+      'Abrir configurações de notificação';
 }

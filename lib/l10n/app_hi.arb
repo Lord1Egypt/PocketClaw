@@ -218,5 +218,9 @@
   "statusDurationSeconds": "{seconds} से",
   "statusDurationMinutes": "{minutes} मि {seconds} से",
   "statusDurationHours": "{hours} घं {minutes} मि",
-  "statusDurationDays": "{days} दि {hours} घं"
+  "statusDurationDays": "{days} दि {hours} घं",
+  "notificationPermissionTitle": "सूचनाएँ",
+  "notificationPermissionGranted": "PocketClaw अपनी चालू सूचना दिखा सकता है।",
+  "notificationPermissionBlocked": "सूचनाएँ बंद हैं, इसलिए PocketClaw की चालू सूचना दिखाई नहीं देगी।",
+  "notificationPermissionOpenSettings": "सूचना सेटिंग्स खोलें"
 }

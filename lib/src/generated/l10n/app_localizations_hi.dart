@@ -657,4 +657,18 @@ class AppLocalizationsHi extends AppLocalizations {
   String statusDurationDays(int days, int hours) {
     return '$days दि $hours घं';
   }
+
+  @override
+  String get notificationPermissionTitle => 'सूचनाएँ';
+
+  @override
+  String get notificationPermissionGranted =>
+      'PocketClaw अपनी चालू सूचना दिखा सकता है।';
+
+  @override
+  String get notificationPermissionBlocked =>
+      'सूचनाएँ बंद हैं, इसलिए PocketClaw की चालू सूचना दिखाई नहीं देगी।';
+
+  @override
+  String get notificationPermissionOpenSettings => 'सूचना सेटिंग्स खोलें';
 }

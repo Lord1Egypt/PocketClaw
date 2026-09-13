@@ -218,5 +218,9 @@
   "statusDurationSeconds": "{seconds} S.",
   "statusDurationMinutes": "{minutes} Min. {seconds} S.",
   "statusDurationHours": "{hours} Std. {minutes} Min.",
-  "statusDurationDays": "{days} T. {hours} Std."
+  "statusDurationDays": "{days} T. {hours} Std.",
+  "notificationPermissionTitle": "Benachrichtigungen",
+  "notificationPermissionGranted": "PocketClaw kann seine Running-Benachrichtigung anzeigen.",
+  "notificationPermissionBlocked": "Benachrichtigungen sind aus, daher erscheint die PocketClaw-Running-Benachrichtigung nicht.",
+  "notificationPermissionOpenSettings": "Benachrichtigungseinstellungen öffnen"
 }

@@ -662,4 +662,18 @@ class AppLocalizationsId extends AppLocalizations {
   String statusDurationDays(int days, int hours) {
     return '$days hr $hours jam';
   }
+
+  @override
+  String get notificationPermissionTitle => 'Notifikasi';
+
+  @override
+  String get notificationPermissionGranted =>
+      'PocketClaw dapat menampilkan notifikasi Running-nya.';
+
+  @override
+  String get notificationPermissionBlocked =>
+      'Notifikasi nonaktif, sehingga notifikasi PocketClaw Running tidak akan muncul.';
+
+  @override
+  String get notificationPermissionOpenSettings => 'Buka pengaturan notifikasi';
 }

@@ -53,18 +53,52 @@ var secretFieldNameParts = []string{
 //   - changed_fields is a list of field *names*, which is the whole point of
 //     logging a configuration change without its values.
 var safeFieldNames = map[string]struct{}{
-	"auth_method":    {},
-	"changed_fields": {},
-	"token_type":     {},
-	"secret_count":   {},
+	"auth_method": {},
+	// Lists and names of fields, never their values.
+	"changed_fields":   {},
+	"max_tokens_field": {},
+	"token_type":       {},
+	"secret_count":     {},
 }
 
 // safeFieldSuffixes mark a field as a fact *about* a credential rather than the
 // credential. `authorization_present=true` and `api_key_changed=true` are
 // exactly what DEBUG is supposed to carry.
 var safeFieldSuffixes = []string{
-	"_present", "_set", "_configured", "_changed", "_required",
-	"_count", "_length", "_len", "_digest", "_hash", "_type", "_kind",
+	"_present", "_set", "_configured", "_changed", "_change", "_required",
+	"_valid", "_count", "_length", "_len", "_type", "_kind",
+	"_percent", "_migrated",
+}
+
+// safeFieldPrefixes mark a name as a question about a credential rather than the
+// credential: `has_api_key` is a fact, not a key.
+var safeFieldPrefixes = []string{"has_", "is_", "any_"}
+
+// tokenMetricNames are the exact names that carry a token *measurement*.
+//
+// PC-DEF-057 follow-up. `token` is a substring of every credential name worth
+// redacting and of every usage metric worth keeping, and the physical DEBUG log
+// showed the cost of resolving that the wrong way: `max_tokens=<redacted>`, which
+// is a model parameter, not a secret.
+//
+// Enumerated rather than pattern-matched because the two families genuinely
+// overlap. `tokens` is the clearest case: as a log field it is a count
+// (pkg/seahorse), and as a struct field it is a map of credentials
+// (pkg/channels/weixin, pkg/providers/cli) -- so the name alone cannot decide it
+// and the value's type has to.
+var tokenMetricNames = map[string]struct{}{
+	"tokens": {}, "max_tokens": {}, "min_tokens": {},
+	"max_completion_tokens": {},
+	"prompt_tokens":         {}, "completion_tokens": {}, "total_tokens": {},
+	"reasoning_tokens": {}, "thinking_tokens": {}, "context_tokens": {},
+	"input_tokens": {}, "output_tokens": {},
+	"input_tokens_details": {}, "output_tokens_details": {},
+	"cached_tokens": {}, "cached_input_tokens": {},
+	"cache_creation_input_tokens": {}, "cache_read_input_tokens": {},
+	"tokens_after": {}, "tokens_before": {}, "tokens_used": {}, "used_tokens": {},
+	"history_tokens": {}, "fresh_tail_tokens": {}, "original_fresh_tokens": {},
+	"compress_at_tokens": {}, "summarize_at_tokens": {},
+	"tokens_per_second": {},
 }
 
 // The markers. Spelled once so every surface redacts identically, and not a
@@ -95,23 +129,103 @@ func normalizeFieldName(key string) string {
 	return b.String()
 }
 
-// fieldNameHoldsSecret reports whether a field name denotes a credential value.
-func fieldNameHoldsSecret(key string) bool {
+// fieldIsSafeMetadata reports whether a field is a measurement or a fact about a
+// credential rather than the credential itself.
+//
+// Checked before the secret-name match, so explicit safe semantics win over the
+// broad substring rule. The value is consulted only where the name genuinely
+// cannot decide -- see tokenMetricNames.
+func fieldIsSafeMetadata(key string, value any) bool {
+	// A bool cannot carry a credential whatever it is called. Stated here as well
+	// as in sanitizeLogValue so the predicate and the sanitizer cannot disagree.
+	if _, isBool := value.(bool); isBool {
+		return true
+	}
+
 	name := normalizeFieldName(key)
+
 	if _, safe := safeFieldNames[name]; safe {
-		return false
+		return true
 	}
 	for _, suffix := range safeFieldSuffixes {
 		if strings.HasSuffix(name, suffix) {
-			return false
+			return true
 		}
 	}
+	for _, prefix := range safeFieldPrefixes {
+		if strings.HasPrefix(name, prefix) {
+			return true
+		}
+	}
+
+	if _, metric := tokenMetricNames[name]; metric {
+		// A counted token is a number or a breakdown of numbers. A credential
+		// under one of these names -- weixin's `tokens` map, the codex CLI's
+		// `tokens` struct -- is a string or a map of strings, and stays secret.
+		return isNumericOrNumericContainer(value)
+	}
+	// The generic shape, for a metric name not yet enumerated. Numeric only, for
+	// the same reason.
+	if strings.HasSuffix(name, "_tokens") ||
+		strings.HasSuffix(name, "_token_count") ||
+		strings.HasSuffix(name, "_token_percent") {
+		return isNumeric(value)
+	}
+	return false
+}
+
+// isNumeric reports whether value is a number, including the float64 a JSON
+// round trip produces.
+func isNumeric(value any) bool {
+	switch value.(type) {
+	case int, int8, int16, int32, int64,
+		uint, uint8, uint16, uint32, uint64,
+		float32, float64:
+		return true
+	}
+	return false
+}
+
+// isNumericOrNumericContainer also accepts a breakdown such as
+// `input_tokens_details`, whose members are themselves walked by key.
+func isNumericOrNumericContainer(value any) bool {
+	if isNumeric(value) {
+		return true
+	}
+	switch typed := value.(type) {
+	case map[string]any:
+		for _, v := range typed {
+			if !isNumeric(v) {
+				return false
+			}
+		}
+		return true
+	case map[string]int:
+		return true
+	}
+	return false
+}
+
+// fieldNameHoldsSecret reports whether a field name denotes a credential value.
+//
+// Name-only. Callers that have the value should use fieldIsSafeMetadata first.
+func fieldNameHoldsSecret(key string) bool {
+	name := normalizeFieldName(key)
 	for _, part := range secretFieldNameParts {
 		if strings.Contains(name, part) {
 			return true
 		}
 	}
 	return false
+}
+
+// fieldIsSecret is the decision the sanitizer uses: safe metadata wins, then the
+// credential-name rule.
+func fieldIsSecret(key string, value any) bool {
+	if fieldIsSafeMetadata(key, value) {
+		return false
+	}
+	return fieldNameHoldsSecret(key)
 }
 
 // sanitizeLogValue returns value with credential material removed, walking
@@ -130,7 +244,7 @@ func sanitizeLogValue(key string, value any, depth int) any {
 	case bool:
 		return typed
 	case string:
-		if fieldNameHoldsSecret(key) {
+		if fieldIsSecret(key, typed) {
 			return redactedFieldMarker
 		}
 		return redactSecrets(typed)
@@ -143,21 +257,28 @@ func sanitizeLogValue(key string, value any, depth int) any {
 		uint, uint8, uint16, uint32, uint64,
 		float32, float64:
 		// A numeric field named for a credential is still one: a Telegram owner
-		// id arrives as an int.
-		if fieldNameHoldsSecret(key) {
+		// id arrives as an int. A token *metric* is not, which is what
+		// fieldIsSafeMetadata separates.
+		if fieldIsSecret(key, value) {
 			return redactedFieldMarker
 		}
 		return value
 	case map[string]any:
+		if fieldIsSecret(key, typed) {
+			return redactedFieldMarker
+		}
 		return sanitizeLogMap(typed, depth)
 	case map[string]string:
+		if fieldIsSecret(key, typed) {
+			return redactedFieldMarker
+		}
 		safe := make(map[string]any, len(typed))
 		for k, v := range typed {
 			safe[k] = sanitizeLogValue(k, v, depth+1)
 		}
 		return safe
 	case []string:
-		if fieldNameHoldsSecret(key) {
+		if fieldIsSecret(key, typed) {
 			return redactedFieldMarker
 		}
 		safe := make([]any, 0, len(typed))
@@ -166,7 +287,7 @@ func sanitizeLogValue(key string, value any, depth int) any {
 		}
 		return safe
 	case []any:
-		if fieldNameHoldsSecret(key) {
+		if fieldIsSecret(key, typed) {
 			return redactedFieldMarker
 		}
 		safe := make([]any, 0, len(typed))
@@ -181,7 +302,7 @@ func sanitizeLogValue(key string, value any, depth int) any {
 	// Anything else -- a struct, a pointer to one, a typed slice, a custom
 	// string type. A field named for a credential is dropped outright rather
 	// than inspected.
-	if fieldNameHoldsSecret(key) {
+	if fieldIsSecret(key, value) {
 		return redactedFieldMarker
 	}
 	return sanitizeViaJSON(key, value, depth)

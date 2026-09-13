@@ -381,6 +381,135 @@ class PocketClawChannel {
     final result = await _channel.invokeMethod<bool>('requestStorageManager');
     return result ?? false;
   }
+
+  /// Reads PocketClaw's notification-permission state without asking for anything.
+  ///
+  /// PC-DEF-058. Safe to call on every Settings build: it shows the dialog for
+  /// nothing.
+  static Future<NotificationPermissionStatus> getNotificationPermission() async {
+    try {
+      final result = await _channel.invokeMethod<Map<Object?, Object?>>(
+        'getNotificationPermission',
+      );
+      return NotificationPermissionStatus.fromMap(result);
+    } on PlatformException {
+      return NotificationPermissionStatus.unknown();
+    } on MissingPluginException {
+      // A host without this method — a desktop build, or an older APK.
+      return NotificationPermissionStatus.unknown();
+    }
+  }
+
+  /// Shows the standard Android notification-permission dialog, once.
+  ///
+  /// The host declines to ask a second time, so calling this when the answer is
+  /// already known returns the current state and shows nothing.
+  static Future<NotificationPermissionStatus>
+      requestNotificationPermission() async {
+    try {
+      final result = await _channel.invokeMethod<Map<Object?, Object?>>(
+        'requestNotificationPermission',
+      );
+      return NotificationPermissionStatus.fromMap(result);
+    } on PlatformException {
+      return NotificationPermissionStatus.unknown();
+    } on MissingPluginException {
+      return NotificationPermissionStatus.unknown();
+    }
+  }
+
+  /// Opens the per-app notification settings, for someone who said no earlier.
+  static Future<bool> openNotificationSettings() async {
+    try {
+      final result = await _channel.invokeMethod<bool>(
+        'openNotificationSettings',
+      );
+      return result ?? false;
+    } on PlatformException {
+      return false;
+    } on MissingPluginException {
+      return false;
+    }
+  }
+}
+
+/// Whether PocketClaw may post notifications, and what to do about it.
+///
+/// PC-DEF-058. `POST_NOTIFICATIONS` was declared and never requested, so on a
+/// fresh install the persistent "PocketClaw Running" notification never appeared
+/// and the owner enabled it in Android Settings by hand.
+enum NotificationPermissionState {
+  /// This Android version has no runtime notification permission.
+  notRequired,
+  granted,
+
+  /// Never asked on this install; the system dialog is the right next step.
+  notRequested,
+
+  /// Asked and refused. Only Settings can change it now.
+  denied,
+
+  /// The host did not answer — an older APK, or a platform without the method.
+  unknown,
+}
+
+class NotificationPermissionStatus {
+  const NotificationPermissionStatus({
+    required this.state,
+    required this.notificationsEnabled,
+    required this.expectedVisible,
+  });
+
+  factory NotificationPermissionStatus.unknown() =>
+      const NotificationPermissionStatus(
+        state: NotificationPermissionState.unknown,
+        notificationsEnabled: false,
+        expectedVisible: false,
+      );
+
+  factory NotificationPermissionStatus.fromMap(Map<Object?, Object?>? map) {
+    if (map == null) return NotificationPermissionStatus.unknown();
+    return NotificationPermissionStatus(
+      state: _stateFromWire(map['state']),
+      notificationsEnabled: map['notificationsEnabled'] == true,
+      expectedVisible: map['expectedVisible'] == true,
+    );
+  }
+
+  final NotificationPermissionState state;
+
+  /// Whether notifications are switched on for PocketClaw at all. On Android
+  /// below 13 this is the only control there is, so it is a separate fact from
+  /// [state].
+  final bool notificationsEnabled;
+
+  /// Whether the foreground notification should be visible.
+  final bool expectedVisible;
+
+  /// Whether the system dialog is worth showing. False once the answer is known,
+  /// so first-run setup never nags.
+  bool get shouldRequest =>
+      state == NotificationPermissionState.notRequested;
+
+  /// Whether Settings should offer an explicit recovery action.
+  bool get shouldOfferSettings =>
+      state == NotificationPermissionState.denied ||
+      (!notificationsEnabled && state != NotificationPermissionState.unknown);
+
+  static NotificationPermissionState _stateFromWire(Object? raw) {
+    switch (raw) {
+      case 'notRequired':
+        return NotificationPermissionState.notRequired;
+      case 'granted':
+        return NotificationPermissionState.granted;
+      case 'notRequested':
+        return NotificationPermissionState.notRequested;
+      case 'denied':
+        return NotificationPermissionState.denied;
+      default:
+        return NotificationPermissionState.unknown;
+    }
+  }
 }
 
 /// What Settings is allowed to know about the GitHub credential: that there is

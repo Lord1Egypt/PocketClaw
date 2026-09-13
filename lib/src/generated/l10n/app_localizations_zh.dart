@@ -626,4 +626,16 @@ class AppLocalizationsZh extends AppLocalizations {
   String statusDurationDays(int days, int hours) {
     return '$days 天 $hours 小时';
   }
+
+  @override
+  String get notificationPermissionTitle => '通知';
+
+  @override
+  String get notificationPermissionGranted => 'PocketClaw 可以显示运行中通知。';
+
+  @override
+  String get notificationPermissionBlocked => '通知已关闭，因此不会显示 PocketClaw 运行中通知。';
+
+  @override
+  String get notificationPermissionOpenSettings => '打开通知设置';
 }
