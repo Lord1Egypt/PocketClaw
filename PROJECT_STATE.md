@@ -802,6 +802,90 @@ reachability evidence exists.
 
 # Historical milestone archive
 
+## Consolidated physical-defect hardening PD2 — SOURCE COMPLETE, PHYSICALLY UNVERIFIED
+
+- **Date:** 2026-09-13, continuing PD1 on new owner evidence.
+- **Branch:** `feature/final-release-hardening`. Not merged, not pushed, not
+  tagged, not published.
+
+### What changed the picture
+
+PD1 recorded PC-DEF-032 as a model configured against the wrong OpenCode
+endpoint. The owner then proved, directly against the live service, that the
+cause is different and that the service is healthy:
+
+| `POST https://opencode.ai/zen/go/v1/chat/completions`, `deepseek-v4.1-flash` | Result |
+| --- | --- |
+| no `x-opencode-session` | HTTP 400 `MissingSessionID` |
+| `x-opencode-session: <uuid>` + `User-Agent: PocketClaw/0.2.0` | HTTP 200, `OK` |
+
+Service, key, model and endpoint are PROVEN WORKING. PocketClaw sent no session
+header at all. The endpoint-inventory finding from PD1 remains true and remains
+guarded, but it was not this failure. The correction is recorded in the defect
+log rather than overwritten.
+
+### Defects
+
+| ID | State |
+| --- | --- |
+| PC-DEF-032 | **OPEN.** Fixed in source; not closed until the Samsung produces a real successful OpenCode Go answer. |
+| PC-DEF-045 | Save/Update unreachable in the real flow — fixed in source, physical confirmation required. |
+| PC-DEF-046 | **UNKNOWN — INVESTIGATION REQUIRED.** Android-client-specific or device-specific. Audited, not patched. |
+| PC-DEF-047 | No obvious Delete/Remove action — fixed in source, physical confirmation required. |
+| PC-DEF-048 | Hardened build skipped Flutter AOT — fixed in source. |
+
+PC-DEF-046 is deliberately not attributed. The Core log does not explain it and
+the console is fast in a desktop browser, which narrows it to the Android client
+or the device without deciding between them. The defect log records the
+discriminator that does decide it — the same phone's browser against the same
+phone's app — and separates the audit's proven code properties from their
+unproven causal role.
+
+### Artifact identity
+
+| Field | Value |
+| --- | --- |
+| Verification APK | `3a8507e5ae5580118f78068dadff59e60c94757a4be84683bf2e7d14fd3821cf` |
+| Size | 63,501,639 bytes |
+| Version / package | `0.2.0+62` · `com.lord1egypt.pocketclaw` |
+| Signer | development — LOCAL TEST / NON-RELEASABLE |
+| Core source fingerprint | `5933e74f9e94e8efa631e24369b767547e3b1c589402b7c312e9b2e8edc56313` (both binaries) |
+| Core BuildTime | `2026-09-13T15:20:47+0000` (build-input commit `23ca0a4`) |
+| `libpocketclaw.so` | `d21c7c0f457958e67495e891260baa399f7d9618b9ee3554371f141754c92e0c` |
+| `libpocketclaw-web.so` | `aed3c6f1569abb0ba3b5168678b80bf64c2be0f3ee9941e48b2ff6ca5dbe89aa` |
+| Dart AOT | `f5d84c9477617c6f4253819e6fcc5bc8c0f42a5c7977c13bb62ea59c5067e5a5` |
+| Dart symbols | `e04449135e470d4d8a279354f696fa7022cbb716d5495daaea56e25fd77fbee2` |
+
+Present in the packaged artifact, verified by direct inspection rather than
+inferred from the build succeeding: `x-opencode-session`, `PocketClaw/0.2.0`,
+the pending-apply supervisor, the provider error detail, the model provenance
+labels, `com.lord1egypt.pocketclaw.action.RESTART` in the Dex, and the official
+onboarding endpoint.
+
+### Gate counts
+
+| Gate | Result |
+| --- | --- |
+| Artifact gate | 33 PASS / 0 FAIL / 0 SKIPPED |
+| Native ELF audit (`--enforce-target`) | 188 PASS / 0 FAIL / 0 SKIP |
+| Source gate | PASS |
+| Zero-Pico | PASS, no new occurrences |
+| Core staleness (`pkg/coresource`) | PASS |
+| Core Go suite (`-tags goolm ./...`) | PASS |
+| Frontend | 32 files / 452 tests PASS; `tsc` and `eslint` clean |
+| Flutter | 530 tests PASS; `flutter analyze` clean |
+
+PC-DEF-048's fix was exercised rather than assumed: this artifact was built
+**without** `--clean`, under the no-Dart-change condition that reproduced the
+defect, and the private symbol file was produced.
+
+### Not physically verified
+
+No Android device reached this session: `adb devices` was empty throughout,
+`/dev/bus/usb` does not exist under this WSL2 kernel, and Windows interop is
+unavailable in this shell, so neither usbipd attach nor a host-side adb could be
+driven. Every user-visible status in this milestone reads FIXED IN SOURCE.
+
 ## Consolidated physical-defect hardening PD1 — SOURCE COMPLETE, PHYSICALLY UNVERIFIED
 
 - **Date:** 2026-09-13.
