@@ -34,10 +34,115 @@ evidence and describe the state at the date of each entry.
 | Exposure-audit state-basis HEAD | `25753cef5fa4d956e11d37b5a6176cdef977f015` (verified PC-DEF-019 closeout; the audit closeout commit follows it) |
 | Final release exposure audit | **CLOSED / PASS** on the re-run at `6031898`. No release blocker remains for the GitHub / direct APK release. `PC-DEF-022`, `PC-DEF-023` and `PC-DEF-024` have all since been RESOLVED; only `PC-DEF-006` (F-Droid path) and `PC-DEF-012` remain open |
 | Production candidate | **BUILT AND GATED.** `4d4bc33a…`, 63,472,307 bytes, one v2 signer `176dca6b…`; production artifact gate 57 PASS / 0 FAIL / 0 SKIPPED. Private validation evidence — not installed, published or accepted |
-| Next authorized milestone | **Build the development-signed Verification APK and run the PC-DEF-049/050/051 physical round on the Samsung.** The Core prerequisite is done; no device was attached to the session that wrote this, so nothing is physically verified. Samsung physical acceptance of the production candidate follows, under its own prompt, with a migration / clean-install / data-safeguard plan; the device is development-signed, so a cross-signer install is forbidden |
-| Staged Core freshness | **CURRENT.** Rebuilt from the PC-DEF-049/050/051 source commit `7f549a5` and staged in `a41106d`, which touches no build input. Fingerprint `181cfcbd344f9eb7f4b45440758d2ee42590a17f36a9125e7cec6e4d5e48871c` (was `5933e74f…`), BuildTime `2026-09-13T19:02:12+0000`; `libpocketclaw.so` 37,659,104 bytes `0b64b9f0…`, `libpocketclaw-web.so` 25,516,384 bytes `d6a06bc7…` |
+| Next authorized milestone | **Samsung physical round for PC-DEF-049..055 on the Verification APK below.** The APK is built, gated and archived; no device was attached to the session that built it, so nothing is physically verified. Samsung acceptance of the production candidate follows, under its own prompt, with a migration / clean-install / data-safeguard plan; that candidate is production-signed, so it can never be installed over this development-signed build |
+| Verification APK (PC-DEF-049..055) | `6df7abaa6bec5a5124d21d30b582fc37d2837be036fa75e93eb3d30d5634894c`, 63,528,459 bytes, development signer `15cf75f9945d5354e75707e0326b7cffc60ac51a68df38156db318ef4578a27c`, Dart AOT `d5d52742ab6cc5672e7c3910dc20c50e5c4da430c80d65c49501d12ea17a7968`. Source gate 26/26, artifact gate 24/24, native ELF audit 188 PASS / 0 FAIL. Archived read-only at `build/forensic/apk-6df7abaa…/` with its private R8 material separated. LOCAL TEST / NON-RELEASABLE |
+| Staged Core freshness | **CURRENT.** Rebuilt from the PC-DEF-052..055 source commit `7bb0810` and staged in `2bab839`, which touches no build input. Fingerprint `212131a86b5d089030c911af8f2c827eaa1c096fd2aab6978f13bf1a95f166a6` (was `181cfcbd…`), BuildTime `2026-09-13T19:56:34+0000`; `libpocketclaw.so` 37,659,200 bytes `eb6fd342…`, `libpocketclaw-web.so` 25,516,352 bytes `a28d78f1…`. `core.staged_freshness` passes |
 | Flutter suite | Green — 497 passed, 0 failed — and the **complete** suite is now a release gate (`flutter.suite`) |
 | Public release asset policy | APK only. An AAB is a Play-upload artifact and is never a public release asset — `PC-DEF-021` |
+
+## 2026-09-13 — Onboarding privacy, actionable errors, signature secrets
+
+Four items: two owner requirements added after the previous milestone, and two
+this session had disclosed and was told to act on rather than defer. Recorded as
+**PC-DEF-052..055**; the owner named 052 and 053, and 054/055 took the next free
+identifiers because each carries its own evidence and resolution.
+
+**PC-DEF-054 — signature material carried credentials in plaintext. RESOLVED,
+not deferred.** Investigated first, because it had a stop-and-ask condition on it.
+Wider than originally disclosed: the mechanism is `canonicalizeSignatureValue`
+resolving `SecureString`/`SecureStrings` to plaintext, and it fed channel settings
+as well as the `webcfg:` component. Proven by test that a Brave web-search key, a
+proxy URL password and a Telegram bot token were each present verbatim.
+
+The owner's five exposure questions, answered: **not** logged, **not** persisted,
+**not** returned to any client (only the derived `gateway_restart_required`
+boolean is), **not** in any error or panic text, and **no crash reporter exists at
+all** — Firebase/Crashlytics went under PC-DEF-R005. So it was never a disclosure;
+it was unnecessary plaintext retained in long-lived package state. Fixed by
+digesting each payload, which is why no approval to defer was needed. Nine
+sub-cases prove the signature still moves when each secret changes.
+
+**PC-DEF-052 — onboarding exposed the hosting origin. FIXED IN SOURCE.** Every
+launch site was read: the screen opens exactly two URLs and `qr_payload` is
+rendered rather than navigated to, so `pairing.deepLink` is the only candidate,
+and the tracked endpoint in `android/official-onboarding.properties` is a
+`*.vercel.app` deployment whose service returns its own redirect there. That
+service lives in a separate repository, so the fix could not be "change the
+service". The app now resolves the setup link to a Telegram destination **in the
+background** and opens only `t.me` / `telegram.me` / `telegram.dog` / `tg://`; a
+link that does not resolve is **refused, not opened**. It is also the security
+boundary that was missing — a URL from a network response was going straight to
+the OS — now bounded to 5 hops, https-only, and sending no credential to an
+unvetted host.
+
+**PC-DEF-053 — first-run Telegram got an internal error. FIXED IN SOURCE.** Root
+cause proven by reading the path: `startupBlockedProvider.Chat` returned
+`fmt.Errorf("no default model configured; gateway started in limited mode")`,
+which no classifier recognises, so it reached the chat window as "Error processing
+message: ..." — jargon, no instruction, and nothing separating "Telegram works"
+from "no AI configured". Replaced by `agent.UserFacingError` with stable codes
+`PC-E-AI-001..004`, chosen by `AIConfigurationProblem`, checked first by
+`formatProcessingError`.
+
+A wrong first attempt is worth recording: the check was written as a precondition
+in `processMessage` and broke two existing tests, which were right —
+`NewAgentLoop` takes an **injected** provider, so an empty `model_list` does not
+mean there is nothing to send a request to. It belongs where the gateway already
+decides it cannot build one. The check also deliberately does **not** judge
+credential usability; that needs the OAuth store and probe
+`hasModelConfiguration` owns, and a second copy is the drift that had
+`pkg/modelaccess` reverted.
+
+The other error categories the owner listed were already covered by
+`error_format.go` and `provider_detail.go`. The web UI's equivalent for the
+configuration category is already localised in all 14 bundles
+(`chat-empty-state.tsx`, verified key by key). **Core has no locale field and no
+i18n layer**, so Telegram replies are English as every other Core reply is; the
+codes exist so a later layer can localise without touching Core. Open item, not
+guessed at.
+
+**PC-DEF-055 — Set Default audit. FIXED IN SOURCE.** Label and default-state
+visibility pass (badge, accent edge, filled star). Touch discoverability failed
+twice — a target smaller than the 40px Edit and Delete use on the same card, and a
+disabled reason living only in a Radix tooltip that never opens on touch. Fixed to
+exactly those two points, no redesign.
+
+Verification: source release gate **26 PASS / 0 FAIL / 0 SKIPPED** in test class,
+including `flutter.suite 549 passed` and `core.staged_freshness PASS`; full Go
+suite green under `-tags goolm`; `go vet` clean; frontend **475/475** across 35
+files with `tsc -b` and ESLint clean; `flutter analyze` clean; `no_active_pico`
+passes with 19 allowlist entries all in use.
+
+Pre-existing and untouched: `gofmt` reports struct-field alignment drift in
+`core/src/web/backend/unclaimed_dashboard_exposure_test.go`, which this work does
+not touch and no gate checks.
+
+**Verification APK built, gated and archived.**
+`6df7abaa6bec5a5124d21d30b582fc37d2837be036fa75e93eb3d30d5634894c`, 63,528,459
+bytes, `0.2.0+62`, development signer `15cf75f9…`, Core fingerprint
+`212131a8…` on both packaged binaries, BuildTime `2026-09-13T19:56:34+0000`,
+Dart AOT `d5d52742…` (5,702,536 bytes). ABI arm64-v8a with plugin stubs, and
+`lib/arm64-v8a/libdartjni.so` present — the black-screen trap from 2026-08-25 is
+not reintroduced.
+
+Gates: source **26 PASS / 0 FAIL / 0 SKIPPED** (including `flutter.suite 549
+passed` and `core.staged_freshness PASS`), artifact **24 PASS / 0 FAIL / 0
+SKIPPED** as `non-publish-audit`, native ELF audit **188 PASS / 0 FAIL / 0 SKIP**,
+Zero-Pico PASS. `artifact.dart_snapshot_paths` passes here, where the H2
+production artifact had it as its one known skip.
+
+Archived read-only at
+`build/forensic/apk-6df7abaa6bec5a5124d21d30b582fc37d2837be036fa75e93eb3d30d5634894c/`
+before any later build can overwrite the Gradle output, with `FORENSIC.md`
+recording the identity and the private R8 material moved into
+`private-do-not-distribute/` — `PC-DEF-021`'s rule applied to the archive itself.
+
+**Build gotcha worth keeping:** the hardened build needs `JAVA_HOME`. The first
+attempt failed at `:app:clean` with "JAVA_HOME is not set", which a backgrounded
+`nohup` reported as exit code 0. The toolchain JDK is
+`/home/lordegypt/PocketCLaw/.tooling/jdk-17`.
+
+Not merged, not tagged, nothing published.
 
 ## 2026-09-13 — Provider CRUD, credential apply, and Telegram command menu
 
