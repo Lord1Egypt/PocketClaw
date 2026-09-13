@@ -5,6 +5,7 @@ import importlib.util
 import json
 import os
 import sys
+import base64
 import tempfile
 import unittest
 import zipfile
@@ -203,6 +204,119 @@ class OutputInspectionTest(unittest.TestCase):
             apk, symbols, mapping = self.make_outputs(Path(tmp), packaged_symbol=True)
             with self.assertRaises(hardening.HardeningError):
                 hardening.inspect_hardened_outputs(apk, symbols, r8_mapping=mapping)
+
+
+OFFICIAL_URL = "https://pocketclaw-telegram-setup-bot-83ai.vercel.app"
+
+
+class OfficialOnboardingContract(unittest.TestCase):
+    """The build must carry the official endpoint without being reminded to.
+
+    vc51 through vc62 shipped without managed Telegram onboarding because the
+    define lived in a hand-typed command. Every assertion here exists because
+    that failure produced no error, no red test and no changed gate.
+    """
+
+    def write_properties(self, directory: Path, value: str | None) -> Path:
+        path = directory / "official-onboarding.properties"
+        body = "# tracked official endpoint\n"
+        if value is not None:
+            body += f"{hardening.ONBOARDING_PROPERTY}={value}\n"
+        path.write_text(body, encoding="utf-8")
+        return path
+
+    def test_tracked_official_url_is_https_and_parses(self):
+        url = hardening.read_official_onboarding_base_url()
+        self.assertEqual(url, OFFICIAL_URL)
+        self.assertTrue(url.startswith("https://"))
+
+    def test_reads_the_value_from_a_properties_file(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = self.write_properties(Path(tmp), OFFICIAL_URL)
+            self.assertEqual(hardening.read_official_onboarding_base_url(path), OFFICIAL_URL)
+
+    def test_missing_file_or_missing_key_fails_closed(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            absent = Path(tmp) / "nope.properties"
+            with self.assertRaises(hardening.HardeningError):
+                hardening.read_official_onboarding_base_url(absent)
+            empty = self.write_properties(Path(tmp), None)
+            with self.assertRaises(hardening.HardeningError):
+                hardening.read_official_onboarding_base_url(empty)
+
+    def test_refuses_plain_http_and_hostless_and_credentialed_urls(self):
+        for bad in (
+            "http://pocketclaw-telegram-setup-bot-83ai.vercel.app",
+            "https://",
+            "ftp://example.test",
+            "not-a-url",
+            "https://user:secret@example.test",
+        ):
+            with self.subTest(url=bad):
+                with self.assertRaises(hardening.HardeningError):
+                    hardening.validate_onboarding_base_url(bad)
+
+    def test_gradle_command_carries_the_define_as_base64(self):
+        command = hardening.gradle_command("production", "sym", "apk", OFFICIAL_URL)
+        defines = [arg for arg in command if arg.startswith("-Pdart-defines=")]
+        self.assertEqual(len(defines), 1)
+        payload = defines[0].split("=", 1)[1]
+        decoded = base64.b64decode(payload).decode()
+        self.assertEqual(decoded, f"{hardening.ONBOARDING_DEFINE}={OFFICIAL_URL}")
+
+    def test_gradle_command_omits_the_property_when_no_url(self):
+        command = hardening.gradle_command("local-test", "sym", "apk", None)
+        self.assertFalse([arg for arg in command if arg.startswith("-Pdart-defines=")])
+
+    def test_production_resolves_the_official_url_without_a_flag(self):
+        self.assertEqual(
+            hardening.resolve_onboarding_base_url("production", "official", None),
+            OFFICIAL_URL,
+        )
+
+    def test_production_cannot_omit_managed_onboarding(self):
+        with self.assertRaises(hardening.HardeningError):
+            hardening.resolve_onboarding_base_url("production", "omit", None)
+
+    def test_local_test_may_omit_and_downstream_may_override(self):
+        self.assertIsNone(hardening.resolve_onboarding_base_url("local-test", "omit", None))
+        self.assertEqual(
+            hardening.resolve_onboarding_base_url("local-test", "official", "https://fork.test"),
+            "https://fork.test",
+        )
+
+    def test_override_must_still_be_https(self):
+        with self.assertRaises(hardening.HardeningError):
+            hardening.resolve_onboarding_base_url("production", "official", "http://fork.test")
+
+    def test_finished_apk_without_the_url_is_refused(self):
+        """The build command is a claim; libapp.so is the evidence."""
+        with tempfile.TemporaryDirectory() as tmp:
+            apk, symbols, mapping = self.make_apk(Path(tmp), carries=False)
+            with self.assertRaises(hardening.HardeningError):
+                hardening.inspect_hardened_outputs(
+                    apk, symbols, r8_mapping=mapping, onboarding_base_url=OFFICIAL_URL)
+
+    def test_finished_apk_with_the_url_is_accepted_and_recorded(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            apk, symbols, mapping = self.make_apk(Path(tmp), carries=True)
+            evidence = hardening.inspect_hardened_outputs(
+                apk, symbols, r8_mapping=mapping, onboarding_base_url=OFFICIAL_URL)
+            self.assertEqual(evidence["onboardingBaseUrl"], OFFICIAL_URL)
+
+    def test_stale_artifact_is_caught_when_the_build_omits_the_url(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            apk, symbols, mapping = self.make_apk(Path(tmp), carries=True)
+            with self.assertRaises(hardening.HardeningError):
+                hardening.inspect_hardened_outputs(
+                    apk, symbols, r8_mapping=mapping, onboarding_base_url=None)
+
+    def make_apk(self, directory: Path, carries: bool):
+        app = b"\x7fELF" + hardening.GENERATED_REGISTRANT_URI
+        if carries:
+            app += OFFICIAL_URL.encode()
+        return OutputInspectionTest.make_outputs(self, directory, app=app)
+
 
 
 if __name__ == "__main__":

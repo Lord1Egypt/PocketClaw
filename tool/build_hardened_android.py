@@ -9,6 +9,7 @@ and local validation explicitly opts into the development signer.
 from __future__ import annotations
 
 import argparse
+import base64
 import hashlib
 import json
 import os
@@ -16,6 +17,7 @@ import shlex
 import shutil
 import subprocess
 import sys
+import urllib.parse
 import zipfile
 from pathlib import Path
 
@@ -56,6 +58,9 @@ APP_SYMBOL_MARKERS = (
     b"StatusSnapshot",
 )
 SIGNING_ENV = ("KEYSTORE_PATH", "KEYSTORE_PASSWORD", "KEY_ALIAS", "KEY_PASSWORD")
+OFFICIAL_ONBOARDING_PROPERTIES = ANDROID / "official-onboarding.properties"
+ONBOARDING_PROPERTY = "officialOnboardingBaseUrl"
+ONBOARDING_DEFINE = "POCKETCLAW_ONBOARDING_BASE_URL"
 
 
 class HardeningError(RuntimeError):
@@ -190,7 +195,105 @@ GRADLE_TASKS = {
 }
 
 
-def gradle_command(signing: str, symbols_property: str, package: str = "apk") -> list[str]:
+def validate_onboarding_base_url(url: str) -> str:
+    """Accepts only a public https base URL, and says why when it refuses.
+
+    Plain http would put the pairing poll token -- and, once, the child bot
+    token -- on the wire in the clear, so a downgrade is refused rather than
+    warned about. Credentials in the authority are refused for the same reason
+    the token never ships: a URL is compiled into the APK, and anything inside
+    it is published with the app.
+    """
+    if url != url.strip() or not url:
+        raise HardeningError(f"{ONBOARDING_PROPERTY} must be a non-empty, untrimmed-free URL")
+    parsed = urllib.parse.urlsplit(url)
+    if parsed.scheme != "https":
+        raise HardeningError(
+            f"{ONBOARDING_PROPERTY} must be https, got {parsed.scheme or 'no scheme'!r}: {url}")
+    if not parsed.hostname:
+        raise HardeningError(f"{ONBOARDING_PROPERTY} has no host: {url}")
+    if parsed.username or parsed.password or "@" in parsed.netloc:
+        raise HardeningError(
+            f"{ONBOARDING_PROPERTY} must not carry credentials; they would ship in the APK")
+    return url
+
+
+def read_official_onboarding_base_url(path: Path = OFFICIAL_ONBOARDING_PROPERTIES) -> str:
+    """The tracked official endpoint, so no release depends on a typed flag."""
+    if not path.is_file():
+        raise HardeningError(
+            f"official onboarding configuration is missing at {path}; a production build "
+            "cannot decide on its own where PocketClaw's onboarding service lives")
+    value = ""
+    for line in path.read_text(encoding="utf-8").splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        key, sep, raw = stripped.partition("=")
+        if sep and key.strip() == ONBOARDING_PROPERTY:
+            value = raw.strip()
+    if not value:
+        raise HardeningError(f"{path} does not set {ONBOARDING_PROPERTY}")
+    return validate_onboarding_base_url(value)
+
+
+def dart_defines_property(defines: dict[str, str]) -> str:
+    """Gradle takes a comma-separated list of base64 KEY=VALUE pairs."""
+    encoded = [
+        base64.b64encode(f"{key}={value}".encode()).decode()
+        for key, value in defines.items()
+    ]
+    return "-Pdart-defines=" + ",".join(encoded)
+
+
+def resolve_onboarding_base_url(signing: str, onboarding: str, override: str | None) -> str | None:
+    """Decides what this build class compiles in, failing closed for production.
+
+    Production never reaches the "omit" arm: an official build that quietly
+    shipped without managed onboarding is the defect this whole contract
+    exists to prevent, and it is not a choice a flag gets to make.
+    """
+    if override is not None:
+        return validate_onboarding_base_url(override.strip())
+    if onboarding == "omit":
+        if signing == "production":
+            raise HardeningError(
+                "a production build cannot omit the official onboarding URL: managed "
+                "Telegram onboarding would be silently absent from the shipped product")
+        return None
+    return read_official_onboarding_base_url()
+
+
+def verify_packaged_onboarding_url(app: bytes, expected: str | None) -> None:
+    """Holds the finished AOT blob to what the build claimed to compile in.
+
+    The build command is a claim; libapp.so is the evidence. vc51 proved the
+    difference matters: the command lost the define, every gate stayed green,
+    and the feature vanished from the product for eleven builds.
+    """
+    present = expected is not None and expected.encode() in app
+    if expected is not None and not present:
+        raise HardeningError(
+            f"the packaged Dart AOT does not contain {ONBOARDING_DEFINE}={expected}; "
+            "the build did not carry the define, so managed Telegram onboarding "
+            "would be unavailable in this artifact")
+    if expected is None:
+        try:
+            tracked = read_official_onboarding_base_url()
+        except HardeningError:
+            return
+        if tracked.encode() in app:
+            raise HardeningError(
+                "this build omits the onboarding URL, but the packaged Dart AOT still "
+                "contains it -- the artifact is stale and was not rebuilt")
+
+
+def gradle_command(
+    signing: str,
+    symbols_property: str,
+    package: str = "apk",
+    onboarding_base_url: str | None = None,
+) -> list[str]:
     try:
         task = GRADLE_TASKS[package]
     except KeyError as error:
@@ -203,6 +306,11 @@ def gradle_command(signing: str, symbols_property: str, package: str = "apk") ->
         "-Pdart-obfuscation=true",
         f"-Psplit-debug-info={symbols_property}",
     ]
+    # The canonical release is the Gradle path, which has no --dart-define.
+    # It takes -Pdart-defines instead: FlutterPlugin reads the property and
+    # forwards it to `flutter assemble` as --DartDefines.
+    if onboarding_base_url is not None:
+        command.append(dart_defines_property({ONBOARDING_DEFINE: onboarding_base_url}))
     if signing == "local-test":
         command.append("-PallowDebugSigning=true")
     return command
@@ -261,6 +369,7 @@ def inspect_hardened_bundle(
     distribution: str,
     classification: str = "LOCAL TEST / NON-PUBLISH",
     r8_mapping: Path = R8_MAPPING,
+    onboarding_base_url: str | None = None,
 ) -> dict[str, object]:
     """Verify a hardened AAB and record what its distribution class permits.
 
@@ -292,6 +401,7 @@ def inspect_hardened_bundle(
             raise HardeningError(f"{bundle} does not package {app_entry}")
         app = archive.read(app_entry)
     verify_packaged_dart_aot(app)
+    verify_packaged_onboarding_url(app, onboarding_base_url)
 
     leaks = private_material_violations(names, kind=kind)
     if leaks:
@@ -345,6 +455,7 @@ def inspect_hardened_outputs(
     symbols: Path,
     classification: str = "LOCAL TEST / NON-RELEASABLE",
     r8_mapping: Path = R8_MAPPING,
+    onboarding_base_url: str | None = None,
 ) -> dict[str, object]:
     if not apk.is_file():
         raise HardeningError(f"Gradle completed without producing {apk}")
@@ -366,6 +477,7 @@ def inspect_hardened_outputs(
     if packaged_symbols:
         raise HardeningError("private Dart symbols were packaged: " + ", ".join(packaged_symbols))
     verify_packaged_dart_aot(app)
+    verify_packaged_onboarding_url(app, onboarding_base_url)
 
     evidence = {
         "apk": str(apk),
@@ -378,6 +490,7 @@ def inspect_hardened_outputs(
         "retainedPrivateMarkers": len(retained),
         "generatedSourceUri": GENERATED_REGISTRANT_URI.decode(),
         "classification": classification,
+        "onboardingBaseUrl": onboarding_base_url or "omitted",
     }
     evidence.update(inspect_r8_outputs(apk, r8_mapping))
     return evidence
@@ -404,7 +517,21 @@ def parse_args() -> argparse.Namespace:
              "unclassified bundle fails closed. A bundle can never be "
              f"{PUBLIC_RELEASE}, so that choice is not offered here",
     )
+    parser.add_argument(
+        "--onboarding", choices=("official", "omit"), default="official",
+        help="which onboarding contract this build class carries (default: "
+             "%(default)s). 'official' compiles in the tracked PocketClaw "
+             "endpoint; 'omit' ships without managed onboarding and is refused "
+             "for --signing production",
+    )
+    parser.add_argument(
+        "--onboarding-url", default=None,
+        help="override the onboarding base URL for a downstream or F-Droid "
+             "build. Must be https. Only a public base URL belongs here",
+    )
     args = parser.parse_args()
+    if args.onboarding_url is not None and args.onboarding == "omit":
+        parser.error("--onboarding-url cannot be combined with --onboarding omit")
     if args.package == "bundle" and not args.artifact_class:
         parser.error(
             "--artifact-class is required with --package bundle and has no "
@@ -454,7 +581,15 @@ def main() -> int:
             clean = [str(ANDROID / "gradlew"), ":app:clean"]
             print("Build step: " + shlex.join(clean), flush=True)
             subprocess.run(clean, cwd=ANDROID, env=environment, check=True)
-        command = gradle_command(args.signing, symbols_property, args.package)
+        onboarding_base_url = resolve_onboarding_base_url(
+            args.signing, args.onboarding, args.onboarding_url)
+        print(
+            "Onboarding contract: "
+            + (onboarding_base_url if onboarding_base_url else "omitted (no managed onboarding)"),
+            flush=True,
+        )
+        command = gradle_command(
+            args.signing, symbols_property, args.package, onboarding_base_url)
         print("Build step: " + shlex.join(command), flush=True)
         subprocess.run(command, cwd=ANDROID, env=environment, check=True)
         if args.package == "bundle":
@@ -463,11 +598,13 @@ def main() -> int:
                 else "PRODUCTION / NON-PUBLISH"
             )
             evidence = inspect_hardened_bundle(
-                BUNDLE, symbols, args.artifact_class, bundle_classification)
+                BUNDLE, symbols, args.artifact_class, bundle_classification,
+                onboarding_base_url=onboarding_base_url)
             print(json.dumps(evidence, indent=2, sort_keys=True))
             print("\n" + evidence["notice"], flush=True)
             return 0
-        evidence = inspect_hardened_outputs(APK, symbols, classification)
+        evidence = inspect_hardened_outputs(
+            APK, symbols, classification, onboarding_base_url=onboarding_base_url)
         print(json.dumps(evidence, indent=2, sort_keys=True))
         return 0
     except (HardeningError, R8ContractError, subprocess.CalledProcessError) as error:
