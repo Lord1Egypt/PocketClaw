@@ -178,20 +178,32 @@ pre-releases. That was left alone deliberately — mutating published releases w
 not authorized — and the owner action for removal is recorded in
 `RELEASE_PROCESS.md`.
 
-**The next milestone is the production-signed candidate, and it needs the
-owner.** The audit is closed, so the ceremony is now the right next step rather
-than a premature one — but it still requires its own explicit prompt. Build with
-`tool/build_hardened_android.py --signing production`, then
-`tool/release_gate.py --full <apk> --release-class production --artifact-class
-public-release`.
+**The production-signed v0.2.0 candidate exists and passes every gate.**
 
-Everything the audit inspected was **development-signed**: APK `113a8382…` and
-audit AAB `d45efcbf…`, both LOCAL TEST and neither publishable. Both predate the
-`PC-DEF-022` Core generation, so the next candidate must be rebuilt rather than
-compared against them. H5C proved that
-production and development builds of one tree differ only by the signing block,
-so the structural findings transfer — but the production candidate itself has
-not been built or gated, and that is not something the audit established.
+    path    build/app/outputs/apk/release/app-release.apk
+    bytes   63,472,307
+    sha256  4d4bc33a63059450383c4eedb34e2902486fbbc8c0d85b91413ab9654b4f3dac
+    signer  one v2 signer, 176dca6b198b9552fb4d9ad3ca18da8d6f23c0a3f5ed4bd6b75a0700f9f0efcf
+    gate    57 PASS / 0 FAIL / 0 SKIPPED — "PASS — production release candidate"
+
+Core generation `bc35a598…`, BuildTime `2026-09-13T00:24:56+0000`, native audit
+194/0/0, and the private native support manifest is bound to this exact APK.
+Evidence:
+[`prompts/history/V0_2_0_PRODUCTION_CANDIDATE.md`](prompts/history/V0_2_0_PRODUCTION_CANDIDATE.md).
+
+**Do not rebuild it casually.** That hash is the frozen candidate; any rebuild
+supersedes it and every artifact check must restart against the new hash,
+including the native-support rebinding.
+
+**Provenance warning.** Two superseded literals live in commit messages —
+fingerprint `f9a2d2a8…` in `54ff252`, BuildTime `00:23:11` in `1c477e6`. The
+authoritative values are `bc35a598…` and `2026-09-13T00:24:56+0000`, which the
+binaries carry, and neither superseded literal appears in any binary or tracked
+document. Do not quote the commit-message values as artifact provenance, and do
+not rewrite those commits.
+
+**The next milestone is Samsung physical acceptance**, under its own explicit
+prompt and with a migration / clean-install / data-safeguard plan.
 
 **Do not install the production APK over the current device state.** The
 installed path is development-signed; that transition needs its own migration /

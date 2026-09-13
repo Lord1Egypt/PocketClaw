@@ -86,9 +86,14 @@ review result, documentation closeout, and `STOP`.
     not depend on a third party's OAuth client. Evidence in
     [`prompts/history/PC-DEF-023_ANTIGRAVITY_REMOVAL.md`](prompts/history/PC-DEF-023_ANTIGRAVITY_REMOVAL.md).
     It may return under a PocketClaw-owned OAuth integration.
-2. APK and AAB production inspection. Blocked until 1c closes: no
-   production-signed candidate may be built before then, and the owner signing
-   ceremony must not be requested for a candidate that will be superseded.
+2. APK and AAB production inspection — **DONE for the APK**, 2026-09-13. The
+   final production-signed candidate is `4d4bc33a…`, 63,472,307 bytes, one v2
+   signer `176dca6b…`, full production artifact gate 57 PASS / 0 FAIL /
+   0 SKIPPED. No AAB was built: public GitHub assets are APK-only, and a bundle
+   is a Play-upload artifact (`PC-DEF-021`). Evidence in
+   [`prompts/history/V0_2_0_PRODUCTION_CANDIDATE.md`](prompts/history/V0_2_0_PRODUCTION_CANDIDATE.md).
+   The candidate is private validation evidence: not installed, published or
+   accepted, and the baseline is unchanged.
 3. Production-signer physical transition: migration, clean install and data
    safeguard. `PC-DEF-008` through `PC-DEF-011` are resolved; `PC-DEF-012`
    stays open.

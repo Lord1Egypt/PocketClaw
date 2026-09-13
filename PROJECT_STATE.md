@@ -33,7 +33,8 @@ evidence and describe the state at the date of each entry.
 | Distribution targets | Direct APK, Google Play, Official F-Droid |
 | Exposure-audit state-basis HEAD | `25753cef5fa4d956e11d37b5a6176cdef977f015` (verified PC-DEF-019 closeout; the audit closeout commit follows it) |
 | Final release exposure audit | **CLOSED / PASS** on the re-run at `6031898`. No release blocker remains for the GitHub / direct APK release. `PC-DEF-022`, `PC-DEF-023` and `PC-DEF-024` have all since been RESOLVED; only `PC-DEF-006` (F-Droid path) and `PC-DEF-012` remain open |
-| Next authorized milestone | Production-signed release candidate: owner signing ceremony, `--release-class production --artifact-class public-release`, then the final physical smoke. Requires its own explicit prompt |
+| Production candidate | **BUILT AND GATED.** `4d4bc33a…`, 63,472,307 bytes, one v2 signer `176dca6b…`; production artifact gate 57 PASS / 0 FAIL / 0 SKIPPED. Private validation evidence — not installed, published or accepted |
+| Next authorized milestone | Samsung physical acceptance of the production candidate, under its own prompt, with a migration / clean-install / data-safeguard plan. The device is development-signed, so a cross-signer install is forbidden |
 | Flutter suite | Green — 490 passed, 0 failed — and the **complete** suite is now a release gate (`flutter.suite`) |
 | Public release asset policy | APK only. An AAB is a Play-upload artifact and is never a public release asset — `PC-DEF-021` |
 
@@ -635,6 +636,43 @@ Byte-identical in three independent roots, one with a cold Go cache; native
 contract 22 PASS / 0 FAIL; no Managed Runtime payload rebuilt. Evidence is in
 [`docs/prompts/history/PC-DEF-023_ANTIGRAVITY_REMOVAL.md`](docs/prompts/history/PC-DEF-023_ANTIGRAVITY_REMOVAL.md).
 
+**The final v0.2.0 production-signed candidate exists and passes every gate.**
+Built at `1c477e60` by the canonical hardened path through an owner-run
+hidden-input signing helper outside the repository; no password reached a
+command line, a repository file, a Gradle property or a log.
+
+    path    build/app/outputs/apk/release/app-release.apk
+    bytes   63,472,307
+    sha256  4d4bc33a63059450383c4eedb34e2902486fbbc8c0d85b91413ab9654b4f3dac
+    signer  one v2 signer, 176dca6b198b9552fb4d9ad3ca18da8d6f23c0a3f5ed4bd6b75a0700f9f0efcf
+            (the enrolled production certificate; the development signer is absent)
+
+It carries Core generation `bc35a598…` — `libpocketclaw.so` `0a28bd5e…` and
+`libpocketclaw-web.so` `9ae1d2d9…`, BuildTime `2026-09-13T00:24:56+0000` — with
+all eight Managed Runtime payloads at their pinned checksums, and Dart AOT
+`c7b2a885…` plus private DWARF `0f52873b…` byte-identical to H3A onward.
+
+**Full production artifact gate: 57 PASS / 0 FAIL / 0 SKIPPED**, printing
+`PASS — production release candidate`. Native audit 194 PASS / 0 FAIL / 0 SKIP
+over 18 ELF entries, with the private support manifest rebound to this exact
+APK. All thirteen private/residue categories clean, and `um.placeholder`,
+`/api/update`, `google-antigravity` and every third-party credential marker
+occur zero times. One `antigravity` string remains and is not a finding: it is
+CPython's own stdlib module name inside the byte-unchanged `libpocketclaw-python.so`.
+
+**Provenance warning for future readers.** Two superseded literals survive in
+commit messages — fingerprint `f9a2d2a8…` in `54ff252` and BuildTime
+`00:23:11` in `1c477e6` — both predating an amend and the rebuild that followed.
+The authoritative values are `bc35a598…` and `2026-09-13T00:24:56+0000`, which
+are what the binaries carry; neither superseded literal appears in any binary or
+tracked document. The commits were deliberately not rewritten.
+
+This is **private validation evidence**. It was not installed, published,
+accepted or released, and the baseline is unchanged. **Do not install it over
+the current device state** — the Samsung is development-signed and a
+cross-signer install is forbidden. Evidence is in
+[`docs/prompts/history/V0_2_0_PRODUCTION_CANDIDATE.md`](docs/prompts/history/V0_2_0_PRODUCTION_CANDIDATE.md).
+
 ### Completed major milestones
 
 - vc62 Zero-Pico namespace closeout: physically accepted and merged.
@@ -663,6 +701,7 @@ contract 22 PASS / 0 FAIL; no Managed Runtime payload rebuilt. Evidence is in
 - PC-DEF-022 update-surface removal: resolved (the unused self-update route is gone).
 - PC-DEF-024 dead analytics deep-link removal: resolved (the dead BROWSABLE surface is gone).
 - PC-DEF-023 third-party OAuth dependency removal: resolved (Google Antigravity is not shipped in v0.2.0).
+- Final v0.2.0 production-signed candidate: built, inspected and gated 57/0/0; not installed or released.
 
 See [`docs/ROADMAP.md`](docs/ROADMAP.md) for the phase sequence and
 [`docs/AI_HANDOFF.md`](docs/AI_HANDOFF.md) for the mandatory read order.
@@ -735,10 +774,20 @@ is the one that needs the owner:
    development-signed, so the production transition needs its migration /
    clean-install / data-safeguard plan.
 
-Every cleanup item the exposure audit raised is now closed: `PC-DEF-022`,
-`PC-DEF-023` and `PC-DEF-024` are all resolved. `PC-DEF-006` gates the F-Droid
-path only; `PC-DEF-012` awaits reachability evidence. Neither blocks the GitHub /
-direct APK release.
+The production candidate is built and gated, so the remaining work is physical
+and then editorial:
+
+1. **Samsung physical acceptance**, under its own prompt. The device carries a
+   development-signed lineage and the candidate carries the production
+   certificate, so a cross-signer `adb install -r` is forbidden and would fail.
+   That milestone needs a migration / clean-install / data-safeguard plan before
+   any device action.
+2. Only after physical acceptance: advance the baseline in the commit that
+   records it, then tag and publish under explicit owner authorization, with the
+   APK-only asset set the allowlist already validates.
+
+`PC-DEF-006` gates the F-Droid reproducibility path only; `PC-DEF-012` awaits
+reachability evidence. Neither blocks the GitHub / direct APK release.
 
 Prepare and review an explicit final release exposure audit prompt —
 secrets/configuration plus full APK and AAB inspection — from
