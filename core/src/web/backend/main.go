@@ -171,6 +171,20 @@ func resolveLauncherPublicMode(flagPublic, flagPublicExplicit, configPublic bool
 	return configPublic
 }
 
+// effectiveLauncherExposure narrows the desired Public Mode to what is safe to
+// bind right now, and reports whether it narrowed anything.
+//
+// Desired and effective are kept separate on purpose. The user's preference is
+// not edited and not forgotten: an unclaimed dashboard simply is not offered
+// beyond loopback, because until a password exists the first client to reach
+// POST /api/auth/setup would own the agent. See PC-DEF-039.
+func effectiveLauncherExposure(desiredPublic, dashboardInitialized bool) (effective bool, narrowed bool) {
+	if desiredPublic && !dashboardInitialized {
+		return false, true
+	}
+	return desiredPublic, false
+}
+
 func openLauncherListeners(hostInput string, public bool, port string) (netbind.OpenResult, error) {
 	defaultMode := netbind.DefaultLoopback
 	if strings.TrimSpace(hostInput) == "" && public {
@@ -618,12 +632,6 @@ func main() {
 		logger.Fatalf("Invalid port %q: %v", effectivePort, err)
 	}
 
-	openResult, err := openLauncherListeners(hostInput, effectivePublic, effectivePort)
-	if err != nil {
-		logger.Fatalf("Failed to open launcher listener(s): %v", err)
-	}
-	listeners := openResult.Listeners
-
 	dashboardSessions := middleware.NewLauncherDashboardSessions(0)
 
 	// The credential verifier moves to private storage where the host demands
@@ -713,6 +721,40 @@ func main() {
 			),
 		)
 	}
+
+	// PC-DEF-039. An unclaimed dashboard is never exposed beyond loopback.
+	//
+	// Public Mode says where the user wants the dashboard reachable from. It
+	// does not say who owns it, and until a password exists nobody does: the
+	// first client to reach POST /api/auth/setup would become the owner. The
+	// handler refuses that from off-device, and this refuses to offer them the
+	// port in the first place -- two independent controls, because either one
+	// regressing alone must not reopen the takeover.
+	//
+	// The desired preference is untouched and is reported as desired; only the
+	// effective bind is narrowed while the dashboard is unclaimed.
+	desiredPublic := effectivePublic
+	dashboardInitialized := false
+	if passwordStore != nil {
+		if ok, initErr := passwordStore.IsInitialized(context.Background()); initErr != nil {
+			logger.ErrorC("web", fmt.Sprintf(
+				"Could not determine dashboard initialization state, binding to loopback only: %v", initErr))
+		} else {
+			dashboardInitialized = ok
+		}
+	}
+	effectivePublic, narrowed := effectiveLauncherExposure(desiredPublic, dashboardInitialized)
+	if narrowed {
+		logger.WarnC("web",
+			"Public Mode is requested but the Dashboard has no password yet; "+
+				"binding to loopback only until it is set up on this device")
+	}
+
+	openResult, err := openLauncherListeners(hostInput, effectivePublic, effectivePort)
+	if err != nil {
+		logger.Fatalf("Failed to open launcher listener(s): %v", err)
+	}
+	listeners := openResult.Listeners
 
 	var localAutoLogin *middleware.LauncherDashboardLocalAutoLogin
 	needsInitialSetup := false

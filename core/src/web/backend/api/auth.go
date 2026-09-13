@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"strings"
 
@@ -230,6 +231,23 @@ func (h *launcherAuthHandlers) handleSetup(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	// PC-DEF-039. First-claim setup is loopback-only.
+	//
+	// Before this, an uninitialized dashboard required no authorization at all
+	// -- the session check below sits inside `if initialized`, so any client
+	// that could reach the port could claim ownership of the agent. On a
+	// Public-Mode device that is the whole LAN, and whoever asked first won.
+	//
+	// Ownership therefore has to come from the host, and the only thing that
+	// distinguishes the host is the connection itself. Host, Origin and
+	// X-Forwarded-For are all attacker-controlled on a direct connection, so
+	// the decision uses RemoteAddr and nothing else.
+	if !initialized && !isLoopbackRequest(r) {
+		w.WriteHeader(http.StatusForbidden)
+		_, _ = w.Write([]byte(`{"error":"initial dashboard setup must be performed on this device"}`))
+		return
+	}
+
 	// If already initialized, require an active session (change-password flow).
 	if initialized {
 		authed := false
@@ -289,4 +307,21 @@ func (h *launcherAuthHandlers) validSession(value string) bool {
 func writeErrorf(w http.ResponseWriter, format string, args ...any) {
 	msg, _ := json.Marshal(fmt.Sprintf(format, args...))
 	_, _ = w.Write([]byte(`{"error":` + string(msg) + `}`))
+}
+
+// isLoopbackRequest reports whether the connection itself originates on this
+// device.
+//
+// Deliberately RemoteAddr only. Host, Origin, X-Forwarded-For and friends are
+// request content: a LAN client can send Host: localhost or
+// X-Forwarded-For: 127.0.0.1 and there is no proxy in this deployment that
+// would make either trustworthy. An unparseable RemoteAddr is not loopback --
+// this fails closed.
+func isLoopbackRequest(r *http.Request) bool {
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		return false
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsLoopback()
 }

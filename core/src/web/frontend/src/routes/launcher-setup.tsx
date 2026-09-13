@@ -3,7 +3,10 @@ import { createFileRoute } from "@tanstack/react-router"
 import * as React from "react"
 import { useTranslation } from "react-i18next"
 
-import { postLauncherDashboardSetup } from "@/api/launcher-auth"
+import {
+  getLauncherAuthStatus,
+  postLauncherDashboardSetup,
+} from "@/api/launcher-auth"
 import { LanguageMenu } from "@/components/language-menu"
 import { Button } from "@/components/ui/button"
 import {
@@ -14,6 +17,7 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
+import { resolveLauncherSetupGate } from "@/lib/launcher-setup-gate"
 import { Label } from "@/components/ui/label"
 import { useTheme } from "@/hooks/use-theme"
 
@@ -24,6 +28,37 @@ function LauncherSetupPage() {
   const [confirm, setConfirm] = React.useState("")
   const [submitting, setSubmitting] = React.useState(false)
   const [error, setError] = React.useState("")
+  // PC-DEF-037. This route used to render the first-run "create a dashboard
+  // password" form to anyone who navigated to it, including an unauthenticated
+  // visitor on an already-initialized dashboard. The backend always refused the
+  // POST, so nothing could be taken over -- but the page invited the attempt and
+  // told a stranger that a PocketClaw dashboard lives here. The guard is UX
+  // only; authorization stays in the backend (PC-DEF-039).
+  const [gate, setGate] = React.useState<"checking" | "first-run" | "leaving">(
+    "checking",
+  )
+
+  React.useEffect(() => {
+    let cancelled = false
+    void (async () => {
+      let decision
+      try {
+        decision = resolveLauncherSetupGate(await getLauncherAuthStatus())
+      } catch {
+        decision = resolveLauncherSetupGate(null)
+      }
+      if (cancelled) return
+      if (decision.render === "first-run") {
+        setGate("first-run")
+        return
+      }
+      setGate("leaving")
+      globalThis.location.assign(decision.redirectTo)
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const onSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -45,6 +80,15 @@ function LauncherSetupPage() {
     } finally {
       setSubmitting(false)
     }
+  }
+
+  if (gate !== "first-run") {
+    return (
+      <div
+        className="bg-background text-foreground flex min-h-dvh flex-col"
+        data-testid="launcher-setup-gate"
+      />
+    )
   }
 
   return (
