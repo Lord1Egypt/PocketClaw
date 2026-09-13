@@ -751,7 +751,9 @@
       "openChat": "Open Chat",
       "reconnect": "Reconnect / Create New Bot",
       "manualOnlyTitle": "Manual setup",
-      "manualOnlyBody": "One-tap bot creation is not available in this build, so Telegram is set up with a bot token from BotFather. Paste the token below and save."
+      "manualOnlyBody": "One-tap bot creation is not available in this build, so Telegram is set up with a bot token from BotFather. Paste the token below and save.",
+      "manualOnlyDesktopBody": "One-tap bot creation happens in the PocketClaw app on Android, so it is not offered in a browser. Open PocketClaw on your phone for one-tap setup, or create a bot with BotFather and paste its token below.",
+      "openBotFather": "Open BotFather"
     }
   },
   "pages": {

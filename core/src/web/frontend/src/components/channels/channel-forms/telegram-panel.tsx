@@ -13,6 +13,7 @@ import { TelegramForm } from "@/components/channels/channel-forms/telegram-form"
 import {
   type TelegramSurface,
   isAdvancedFormAlwaysVisible,
+  resolveTelegramManualReason,
   resolveTelegramSurface,
 } from "@/components/channels/channel-forms/telegram-surface"
 import { Button } from "@/components/ui/button"
@@ -108,16 +109,39 @@ export function TelegramPanel({
   )
 
   if (advancedAlwaysVisible) {
+    // PC-DEF-060. The reason decides the wording. A desktop browser is not a build
+    // without the feature, and saying so sent the user looking for a different
+    // build instead of telling them where one-tap setup actually lives.
+    const manualReason = resolveTelegramManualReason({
+      hostPresent: host !== null,
+      onboardingConfigured: host?.onboardingConfigured === true,
+    })
     return (
-      <div className="space-y-6" data-testid="telegram-surface-manual-only">
+      <div
+        className="space-y-6"
+        data-testid="telegram-surface-manual-only"
+        data-manual-reason={manualReason}
+      >
         <Card className="shadow-sm">
           <CardContent className="px-6 py-5">
             <p className="text-sm font-medium">
               {t("channels.telegram.manualOnlyTitle")}
             </p>
             <p className="text-muted-foreground mt-1 text-sm">
-              {t("channels.telegram.manualOnlyBody")}
+              {manualReason === "no-host"
+                ? t("channels.telegram.manualOnlyDesktopBody")
+                : t("channels.telegram.manualOnlyBody")}
             </p>
+            {/* An external link, because BotFather is where a token comes from and
+                the manual path is otherwise a form with no starting point. */}
+            <a
+              className="text-primary mt-3 inline-block text-sm underline hover:no-underline"
+              href="https://t.me/BotFather"
+              target="_blank"
+              rel="noreferrer noopener"
+            >
+              {t("channels.telegram.openBotFather")}
+            </a>
           </CardContent>
         </Card>
         {advancedForm}

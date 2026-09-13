@@ -314,7 +314,8 @@ again — **owner's 054 = PC-DEF-056 here**, and it is now physically verified.
 
 The two UX defects from that same report took the next free numbers:
 **PC-DEF-058** (first run never requested Android notification permission) and
-**PC-DEF-059** (authentication discarded the requested Dashboard destination).
+**PC-DEF-059** (authentication discarded the requested Dashboard destination). The
+desktop Telegram observation that followed is **PC-DEF-060**.
 
 Two later owner requirements, and two items this session disclosed and was told
 to act on, took the next free identifiers: **PC-DEF-052** (Telegram onboarding
@@ -339,6 +340,61 @@ with:
   and the default-model state. PC-DEF-047's fix is confirmed by the screenshots;
   nothing below claims model deletion is missing. The management gap is at the
   **provider** level.
+
+### PC-DEF-060 — Desktop Dashboard gave the wrong reason for no Telegram Connect
+
+- **Discovered:** owner UI observation, 2026-09-14.
+- **Component:** `web/frontend/src/components/channels/channel-forms/telegram-surface.ts`,
+  `telegram-panel.tsx`.
+- **Audit first, as the owner asked. The cause is the host-bridge check — not
+  responsive CSS, not a user-agent test, not a different route or component.**
+  `Channels → Telegram` is the same route and component on both clients. It resolves
+  a surface from two facts: `configured`, and
+  `isTelegramOnboardingAvailable(host)` = `host !== null && host.onboardingConfigured`.
+  `getPocketClawHost()` reads `window.__pocketclawHost`, which only the Android
+  WebView injects. In a desktop browser there is no host, so the surface is
+  `manual-only`.
+
+  Managed pairing genuinely cannot run in a browser: it needs the native flow to
+  launch Telegram and write the token into Core's config. The feature is not
+  mobile-only by preference; it is mobile-only by mechanism.
+
+- **What the owner's report gets right, and where it overstates.** Desktop does
+  **not** silently omit Telegram management: the manual token form is the whole page
+  there, with an explanation above it, and an already-connected channel shows its
+  connected summary on desktop because `configured` outranks the host check. So
+  there is a working management path.
+
+  The real defect is narrower and worth fixing: the explanation said **"One-tap bot
+  creation is not available in this build."** On a desktop browser that is simply
+  untrue — the build has the feature, this client cannot run it — and it sends the
+  user looking for a different build instead of telling them where one-tap setup
+  lives. One sentence was serving two different causes.
+
+- **Resolution, kept to that.** `resolveTelegramManualReason` separates `no-host`
+  (a browser) from `host-without-endpoint` (a build compiled without the onboarding
+  URL), and each gets its own wording. The desktop copy names the actual route:
+  open PocketClaw on the phone for one-tap setup, or create a bot with BotFather and
+  paste its token below — with a BotFather link, because the manual path was
+  otherwise a form with no starting point. The surface itself is unchanged, and no
+  Android-only action was copied to desktop.
+- **Deliberately not done:** a browser-side managed flow. Pairing needs an HTTPS
+  conversation with the onboarding service and a write into Core's config; doing it
+  from the console would mean either cross-origin calls the service does not permit
+  or a second implementation of the whole pairing state machine in Go. That is its
+  own milestone, not a copy of an Android action, and the owner's instruction was
+  explicitly not to blindly copy one.
+- **Unchanged:** the owner contract. Nothing here touches `AllowFrom`, the
+  OwnerUserID pairing, or the token path.
+- **Verification:** 9 cases in `telegram-surface.test.ts` — a connected channel
+  first whatever the client, managed onboarding offered only where it can run, the
+  manual form staying visible when it is the only path, the browser reason not
+  blaming the build, the build blamed only when a host is present without an
+  endpoint, and an existing configuration manageable without a host as its own
+  stated rule. Two i18n keys added in all 14 locales; parity suite green.
+- **Status:** FIXED IN SOURCE. **Physical confirmation required** — open the
+  Dashboard in a desktop browser with Telegram unconfigured and read the
+  explanation, then with Telegram connected and confirm it is still manageable.
 
 ### PC-DEF-058 — First run never requested Android notification permission
 
@@ -421,12 +477,64 @@ with:
 - **Unchanged:** a direct login with no request still goes to home, so the
   ordinary path behaves exactly as before, and dashboard authentication itself is
   untouched.
-- **Verification:** 18 cases in `post-auth-destination.test.ts` covering the
-  owner's matrix — both native destinations, every other Dashboard route, the
-  already-authenticated path, each open-redirect vector above, absent/empty/
-  hostile `next`, the login-URL builder staying bare for home, and the round trip
-  the guard and login page actually perform.
-- **Status:** FIXED IN SOURCE. **Physical confirmation required.**
+- **First attempt: PHYSICALLY FAILED**, Samsung, 2026-09-14. It was frontend-only,
+  and it did nothing on the device.
+
+- **Why it failed, traced through the real path rather than the route tests.**
+  `lib/main.dart`'s `_webUrl` loads the WebView at
+  `http://127.0.0.1:18800/models?lng=en`, and for an unauthenticated request
+  `rejectLauncherDashboardAuth`
+  (`web/backend/middleware/launcher_dashboard_auth.go`) answered
+  **`http.Redirect(w, r, "/launcher-login", 302)`** — server-side, before one line
+  of JavaScript loaded. So:
+  - the exact destination URL before auth was `/models?lng=en`;
+  - `next` was **absent**, because the server never put one there;
+  - the login page therefore received nothing and its `readPostAuthDestination`
+    correctly fell back to `/`;
+  - the router guard in `__root.tsx` that built the `?next=` URL **never ran**: it
+    lives on the `/models` page, and that page was never served.
+
+  The frontend half was not wrong, it was unreachable. The whole previous round's
+  coverage was route-level, and a route-level test cannot see a redirect that
+  happens before the routes exist.
+
+- **Second resolution:** the destination now survives the server redirect.
+  `web/backend/middleware/post_auth_destination.go` builds
+  `/launcher-login?next=<path>` for a rejected page request whose path is a
+  Dashboard route, and the bare login path for anything else — so an ordinary
+  unauthenticated visit is unchanged. API and websocket rejections keep their 401
+  shapes; a 302 to an HTML page is not a useful answer to a fetch.
+
+  The frontend half is kept and is now reachable: the login page reads
+  `globalThis.location.search` **once on mount into state**, so a wrong password
+  followed by the right one still lands on the original destination, and a later
+  router rewrite cannot take it away. `/launcher-login` has no `validateSearch` or
+  `beforeLoad`, so the query is not stripped before that read.
+
+- **Security, restated for the server side.** The value goes into a `Location` a
+  browser follows and the path comes from the request, so anyone may ask for
+  anything. It is matched against an allowlist, never sanitised: rejected are any
+  scheme or colon-bearing first segment, protocol-relative `//host`, backslashes,
+  control characters and CR/LF (header splitting), traversal, unrooted paths,
+  unknown routes, a `/channels/<name>` segment that is not one plain lowercase
+  segment, and the auth pages. A **request-supplied `next` is never reflected** —
+  the middleware decides the destination from the path it rejected, which is
+  asserted directly.
+- **Drift is guarded mechanically.** The backend cannot import the frontend's
+  allowlist, so it is duplicated — and
+  `TestPostAuthDestinationsMatchTheFrontendAllowlist` parses
+  `post-auth-destination.ts` and fails if the two diverge. That guard was confirmed
+  to fail on a deliberately removed route, so it is not a vacuous pass.
+- **Verification:** 8 middleware cases driven by the URLs the native app actually
+  launches, including `?lng=en` exactly as `_webUrl` builds it — the two native
+  destinations surviving, the full unauthenticated request through the real
+  middleware, home and auth pages staying bare, API/websocket rejections
+  unchanged, 20 hostile destinations refused, every `Location` same-origin
+  relative, a request-supplied `next` ignored, and the drift guard. Plus the 18
+  frontend cases from the first attempt, which still hold. Middleware package 40
+  tests.
+- **Status:** FIXED IN SOURCE, second attempt. **Physical confirmation required** —
+  and this time the check is the native flow, not a route test.
 
 ### PC-DEF-056 — The final bot chat opened before the Telegram runtime was ready
 
@@ -563,6 +671,17 @@ with:
 - **Status:** **OPEN / PARTIAL**, at the owner's instruction. Redaction is proven
   safe and the two follow-ups below are fixed in source; it stays open until the
   Samsung DEBUG output is read again.
+
+**Physically verified portion**, Samsung, 2026-09-14: **safe token metrics and
+provider DEBUG fidelity PASS.** The device log shows `max_tokens=32768`,
+`provider.request` with `authorization_present=true`, `custom_header_count=4`,
+`endpoint=https://opencode.ai/zen/go/v1/chat/completions`,
+`model=deepseek-v4-flash-vision-exp`, `request_bytes`, `session_header_present=true`,
+`stream=false`, `tools=19`, and `provider.response` with `status=200`,
+`content_type=application/json` and `duration_ms`. `prompt_tokens`,
+`completion_tokens` and `total_tokens` are all visible, and no sensitive value
+appears. PC-DEF-057 stays OPEN overall until the remaining logging-hardening
+acceptance criteria are checked on the device.
 
 #### Follow-up 1 — redaction was too aggressive, proven by the physical log
 

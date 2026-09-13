@@ -742,6 +742,8 @@
       "connectTitle": "将 PocketClaw 连接到 Telegram",
       "connected": "已连接",
       "manualOnlyBody": "当前版本不支持一键创建机器人，因此需要使用 BotFather 提供的机器人令牌配置 Telegram。请在下方粘贴令牌并保存。",
+      "manualOnlyDesktopBody": "一键创建机器人在 Android 上的 PocketClaw 应用中完成，因此浏览器中不提供。请在手机上打开 PocketClaw 进行一键设置，或使用 BotFather 创建机器人并将其令牌粘贴到下方。",
+      "openBotFather": "打开 BotFather",
       "manualOnlyTitle": "手动设置",
       "openChat": "打开对话",
       "openTelegram": "打开 Telegram",

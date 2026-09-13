@@ -742,6 +742,8 @@
       "connectTitle": "PocketClaw-কে Telegram-এর সাথে সংযুক্ত করুন",
       "connected": "সংযুক্ত",
       "manualOnlyBody": "এই বিল্ডে এক-ট্যাপে বট তৈরি করা যায় না, তাই BotFather-এর বট টোকেন দিয়ে Telegram সেট আপ করা হয়। নিচে টোকেনটি পেস্ট করে সংরক্ষণ করুন।",
+      "manualOnlyDesktopBody": "এক-ট্যাপে বট তৈরি Android-এর PocketClaw অ্যাপে হয়, তাই ব্রাউজারে এটি দেওয়া হয় না। এক-ট্যাপ সেটআপের জন্য ফোনে PocketClaw খুলুন, বা BotFather দিয়ে একটি বট তৈরি করে তার টোকেন নিচে পেস্ট করুন।",
+      "openBotFather": "BotFather খুলুন",
       "manualOnlyTitle": "ম্যানুয়াল সেটআপ",
       "openChat": "চ্যাট খুলুন",
       "openTelegram": "Telegram খুলুন",

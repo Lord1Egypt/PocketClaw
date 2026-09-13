@@ -751,7 +751,9 @@
       "openChat": "Chat öffnen",
       "reconnect": "Neu verbinden / neuen Bot erstellen",
       "manualOnlyTitle": "Manuelle Einrichtung",
-      "manualOnlyBody": "Die Bot-Erstellung mit einem Tippen ist in diesem Build nicht verfügbar, daher wird Telegram mit einem BotFather-Token eingerichtet. Fügen Sie das Token unten ein und speichern Sie."
+      "manualOnlyBody": "Die Bot-Erstellung mit einem Tippen ist in diesem Build nicht verfügbar, daher wird Telegram mit einem BotFather-Token eingerichtet. Fügen Sie das Token unten ein und speichern Sie.",
+      "manualOnlyDesktopBody": "Die Ein-Tipp-Bot-Erstellung findet in der PocketClaw-App unter Android statt und wird daher im Browser nicht angeboten. Öffne PocketClaw auf dem Telefon für die Ein-Tipp-Einrichtung, oder erstelle einen Bot mit BotFather und füge dessen Token unten ein.",
+      "openBotFather": "BotFather öffnen"
     }
   },
   "pages": {

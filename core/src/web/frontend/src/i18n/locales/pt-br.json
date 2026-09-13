@@ -742,6 +742,8 @@
       "connectTitle": "Conectar o PocketClaw ao Telegram",
       "connected": "Conectado",
       "manualOnlyBody": "A criação de bot com um toque não está disponível nesta versão, então o Telegram é configurado com um token de bot do BotFather. Cole o token abaixo e salve.",
+      "manualOnlyDesktopBody": "A criação do bot com um toque acontece no aplicativo PocketClaw no Android, por isso não é oferecida em um navegador. Abra o PocketClaw no telefone para a configuração com um toque, ou crie um bot com o BotFather e cole o token dele abaixo.",
+      "openBotFather": "Abrir o BotFather",
       "manualOnlyTitle": "Configuração manual",
       "openChat": "Abrir conversa",
       "openTelegram": "Abrir o Telegram",

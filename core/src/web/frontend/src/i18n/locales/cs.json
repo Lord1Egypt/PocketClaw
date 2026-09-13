@@ -742,6 +742,8 @@
       "connectTitle": "Připojit PocketClaw k Telegramu",
       "connected": "Připojeno",
       "manualOnlyBody": "Vytvoření bota jedním klepnutím není v tomto sestavení dostupné, Telegram se proto nastavuje pomocí tokenu bota z BotFather. Vložte token níže a uložte jej.",
+      "manualOnlyDesktopBody": "Vytvoření bota jedním tapnutím probíhá v aplikaci PocketClaw na Androidu, proto se v prohlížeči nenabízí. Pro nastavení jedním tapnutím otevřete PocketClaw v telefonu, nebo si vytvořte bota pomocí BotFather a jeho token vložte níže.",
+      "openBotFather": "Otevřít BotFather",
       "manualOnlyTitle": "Ruční nastavení",
       "openChat": "Otevřít chat",
       "openTelegram": "Otevřít Telegram",

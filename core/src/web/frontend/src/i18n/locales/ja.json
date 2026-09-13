@@ -751,7 +751,9 @@
       "openChat": "チャットを開く",
       "reconnect": "再接続 / 新しいボットを作成",
       "manualOnlyTitle": "手動セットアップ",
-      "manualOnlyBody": "このビルドではワンタップでのボット作成が利用できないため、BotFather のボットトークンで Telegram を設定します。下にトークンを貼り付けて保存してください。"
+      "manualOnlyBody": "このビルドではワンタップでのボット作成が利用できないため、BotFather のボットトークンで Telegram を設定します。下にトークンを貼り付けて保存してください。",
+      "manualOnlyDesktopBody": "ワンタップのボット作成は Android の PocketClaw アプリで行うため、ブラウザーでは提供されません。ワンタップ設定にはスマートフォンで PocketClaw を開くか、BotFather でボットを作成してそのトークンを下に貼り付けてください。",
+      "openBotFather": "BotFather を開く"
     }
   },
   "pages": {

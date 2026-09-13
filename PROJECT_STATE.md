@@ -34,13 +34,69 @@ evidence and describe the state at the date of each entry.
 | Exposure-audit state-basis HEAD | `25753cef5fa4d956e11d37b5a6176cdef977f015` (verified PC-DEF-019 closeout; the audit closeout commit follows it) |
 | Final release exposure audit | **CLOSED / PASS** on the re-run at `6031898`. No release blocker remains for the GitHub / direct APK release. `PC-DEF-022`, `PC-DEF-023` and `PC-DEF-024` have all since been RESOLVED; only `PC-DEF-006` (F-Droid path) and `PC-DEF-012` remain open |
 | Production candidate | **BUILT AND GATED.** `4d4bc33a…`, 63,472,307 bytes, one v2 signer `176dca6b…`; production artifact gate 57 PASS / 0 FAIL / 0 SKIPPED. Private validation evidence — not installed, published or accepted |
-| Next authorized milestone | **Samsung physical round for PC-DEF-057/058/059 on the Verification APK below.** Physically verified PASS so far: PC-DEF-030/032/033/049/051/053/056. Still unverified: PC-DEF-050, PC-DEF-052, PC-DEF-055, PC-DEF-057 (DEBUG output), PC-DEF-058, PC-DEF-059 The APK is built, gated and archived; no device was attached to the session that built it, so nothing is physically verified. Samsung acceptance of the production candidate follows, under its own prompt, with a migration / clean-install / data-safeguard plan; that candidate is production-signed, so it can never be installed over this development-signed build |
+| Next authorized milestone | **Samsung physical round for PC-DEF-059 (second attempt), PC-DEF-060, PC-DEF-058 and the rest of PC-DEF-057 on the Verification APK below.** Physically verified PASS: PC-DEF-030/032/033/049/051/053/056 and PC-DEF-057's token-metric and provider-DEBUG fidelity. **PC-DEF-059 physically FAILED its first attempt** and is fixed again, server-side. Still unverified: PC-DEF-050, PC-DEF-052, PC-DEF-055, PC-DEF-058, PC-DEF-059, PC-DEF-060 The APK is built, gated and archived; no device was attached to the session that built it, so nothing is physically verified. Samsung acceptance of the production candidate follows, under its own prompt, with a migration / clean-install / data-safeguard plan; that candidate is production-signed, so it can never be installed over this development-signed build |
 | Verification APK (PC-DEF-057/058/059) | `6bb32b387cc82c436247fde50c04216ae2a434a95015ad0f3a147b6d5935ba18`, 63,552,763 bytes, development signer `15cf75f9…`, Dart AOT `af14f0ec2b1604181e4d2780248e62dcc216778205732232f4eeb0a6b7b86189`. Source gate 26/26 with `flutter.suite 563 passed`, artifact gate 25/25, native ELF 188 PASS / 0 FAIL. Archived read-only at `build/forensic/apk-6bb32b38…/`, whose `FORENSIC.md` lists the exact per-defect device checks. **PC-DEF-058 needs a FRESH INSTALL.** LOCAL TEST / NON-RELEASABLE; nothing in it is physically verified |
 | Verification APK (PC-DEF-056/057, superseded) | `7c8eefd399318b6187b0fb87c8bd687d7d08c3537959e31f38767a642908e3cb`, 63,539,059 bytes, development signer `15cf75f9…`, Dart AOT `007c23b6be22a9a44f429a53f8fb9eaf930180e67bb20f111cadceedb68e22f4`. Source gate 26/26 with `flutter.suite 561 passed`, artifact gate 24/24, native ELF 188 PASS / 0 FAIL. Archived read-only at `build/forensic/apk-7c8eefd3…/`. LOCAL TEST / NON-RELEASABLE. **Nothing in it is physically verified** |
 | Verification APK (PC-DEF-049..055, superseded) | `6df7abaa6bec5a5124d21d30b582fc37d2837be036fa75e93eb3d30d5634894c`, 63,528,459 bytes, development signer `15cf75f9945d5354e75707e0326b7cffc60ac51a68df38156db318ef4578a27c`, Dart AOT `d5d52742ab6cc5672e7c3910dc20c50e5c4da430c80d65c49501d12ea17a7968`. Source gate 26/26, artifact gate 24/24, native ELF audit 188 PASS / 0 FAIL. Archived read-only at `build/forensic/apk-6df7abaa…/` with its private R8 material separated. LOCAL TEST / NON-RELEASABLE |
 | Staged Core freshness | **CURRENT.** Rebuilt from the PC-DEF-057/058/059 source commit `e81d9b6` and staged in `f650a7e`, which touches no build input. Fingerprint `66c247c36d3ac966f6cd432e6e7217ad02100a34d739a338405e32839716d79e` (was `d1d3b98f…`), BuildTime `2026-09-13T22:48:21+0000`; `libpocketclaw.so` 37,725,504 bytes `ca12c5d3…`, `libpocketclaw-web.so` 25,517,120 bytes `8796f16f…`. `core.staged_freshness` passes |
 | Flutter suite | Green — 497 passed, 0 failed — and the **complete** suite is now a release gate (`flutter.suite`) |
 | Public release asset policy | APK only. An AAB is a Play-upload artifact and is never a public release asset — `PC-DEF-021` |
+
+## 2026-09-14 — PC-DEF-059 refixed server-side, PC-DEF-060, PC-DEF-057 part-verified
+
+**PC-DEF-059 physically FAILED its first attempt.** The fix was frontend-only and
+did nothing on the device. Traced through the real path this time: `_webUrl` loads
+the WebView at `http://127.0.0.1:18800/models?lng=en`, and
+`rejectLauncherDashboardAuth` answered `http.Redirect(w, r, "/launcher-login", 302)`
+— **server-side, before one line of JavaScript loaded.** So `next` was absent
+because the server never put one there, the login page correctly fell back to `/`,
+and the router guard that built the `?next=` URL never ran because it lives on the
+`/models` page, which was never served.
+
+The frontend half was not wrong, it was unreachable — and every test from that round
+was route-level, which cannot see a redirect that happens before the routes exist.
+That is the lesson worth keeping: a fix for a navigation defect has to be tested
+against the URL the native app actually launches.
+
+Now the server carries it: `web/backend/middleware/post_auth_destination.go` builds
+`/launcher-login?next=<path>` for a rejected page request whose path is a Dashboard
+route, bare otherwise, with API and websocket rejections keeping their 401 shapes.
+The value goes into a `Location` a browser follows and the path comes from the
+request, so it is **allowlisted, never sanitised** — and a request-supplied `next`
+is never reflected. The backend list is duplicated from the frontend's because Go
+cannot import TypeScript, and a test **parses the TS file** to fail on drift; that
+guard was confirmed to fail on a deliberately removed route.
+
+**PC-DEF-060 — desktop Telegram, audited before changing anything.** The cause is
+the host-bridge check (`window.__pocketclawHost`, injected only by the Android
+WebView) — not responsive CSS, not a user-agent test, not a different route. Managed
+pairing cannot run in a browser by mechanism: it needs the native flow to launch
+Telegram and write the token.
+
+The owner's report overstates slightly and it is worth recording accurately: desktop
+does **not** silently omit management — the manual token form is the whole page and a
+connected channel still shows its summary, because `configured` outranks the host
+check. The real defect is narrower: the explanation said *"not available in this
+build"*, which on a browser is untrue and sends the user looking for a different
+build. One sentence was serving two different causes. Now `no-host` and
+`host-without-endpoint` are separated, and the desktop copy names the actual route
+(open PocketClaw on the phone, or create a bot with BotFather) with a BotFather link.
+A browser-side managed flow was deliberately **not** built: it needs either
+cross-origin calls the service does not permit or a second pairing state machine in
+Go, which is its own milestone.
+
+**PC-DEF-057 part-verified.** The device log confirms safe token metrics and provider
+DEBUG fidelity: `max_tokens=32768`, `provider.request` with
+`authorization_present=true`, `custom_header_count=4`, the OpenCode Go endpoint,
+`session_header_present=true`, `tools=19`, and `provider.response` with `status=200`
+and `duration_ms`; `prompt_tokens`/`completion_tokens`/`total_tokens` visible and no
+sensitive value present. It stays OPEN overall until the rest of the acceptance
+criteria are checked.
+
+Verification: Go suite green under `-tags goolm` apart from the staged-Core freshness
+guard (correct for the source commit); middleware package **40 tests**;
+`flutter analyze` clean and Flutter **563 passed**; frontend **501 passed** with
+`tsc -b` and ESLint clean; 2 i18n keys added in all 14 locales, parity green.
 
 ## 2026-09-14 — Notification permission, post-auth destination, logging fidelity
 

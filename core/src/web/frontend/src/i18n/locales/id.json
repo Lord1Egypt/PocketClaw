@@ -751,7 +751,9 @@
       "openChat": "Buka Obrolan",
       "reconnect": "Hubungkan ulang / buat bot baru",
       "manualOnlyTitle": "Pengaturan manual",
-      "manualOnlyBody": "Pembuatan bot sekali ketuk tidak tersedia pada build ini, jadi Telegram disiapkan dengan token bot dari BotFather. Tempel token di bawah lalu simpan."
+      "manualOnlyBody": "Pembuatan bot sekali ketuk tidak tersedia pada build ini, jadi Telegram disiapkan dengan token bot dari BotFather. Tempel token di bawah lalu simpan.",
+      "manualOnlyDesktopBody": "Pembuatan bot sekali sentuh berlangsung di aplikasi PocketClaw pada Android, jadi tidak ditawarkan di peramban. Buka PocketClaw di ponsel untuk penyiapan sekali sentuh, atau buat bot dengan BotFather lalu tempel tokennya di bawah.",
+      "openBotFather": "Buka BotFather"
     }
   },
   "pages": {

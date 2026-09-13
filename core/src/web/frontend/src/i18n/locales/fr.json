@@ -751,7 +751,9 @@
       "openChat": "Ouvrir la discussion",
       "reconnect": "Reconnecter / créer un nouveau bot",
       "manualOnlyTitle": "Configuration manuelle",
-      "manualOnlyBody": "La création de bot en un geste n'est pas disponible dans cette version ; Telegram se configure donc avec un jeton BotFather. Collez le jeton ci-dessous et enregistrez."
+      "manualOnlyBody": "La création de bot en un geste n'est pas disponible dans cette version ; Telegram se configure donc avec un jeton BotFather. Collez le jeton ci-dessous et enregistrez.",
+      "manualOnlyDesktopBody": "La création du bot en une touche se fait dans l'application PocketClaw sur Android, elle n'est donc pas proposée dans un navigateur. Ouvre PocketClaw sur ton téléphone pour la configuration en une touche, ou crée un bot avec BotFather et colle son jeton ci-dessous.",
+      "openBotFather": "Ouvrir BotFather"
     }
   },
   "pages": {

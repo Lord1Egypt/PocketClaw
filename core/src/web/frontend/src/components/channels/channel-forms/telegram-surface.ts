@@ -28,6 +28,47 @@ export function resolveTelegramSurface({
 }
 
 /**
+ * Why managed onboarding is not on offer.
+ *
+ * PC-DEF-060. Both reasons produced the same sentence — "One-tap bot creation is
+ * not available in this build" — and on a desktop browser that is simply untrue:
+ * the build has the feature, this client cannot run it. Managed pairing needs the
+ * native flow to launch Telegram and write the token, which only the Android host
+ * provides. Telling a desktop user their build lacks the feature sends them looking
+ * for a different build.
+ */
+export type TelegramManualReason =
+  /** No PocketClaw host: an ordinary browser. Managed setup lives in the app. */
+  | "no-host"
+  /** A host that was compiled without an onboarding endpoint. */
+  | "host-without-endpoint"
+
+export interface TelegramManualReasonInput {
+  hostPresent: boolean
+  onboardingConfigured: boolean
+}
+
+export function resolveTelegramManualReason({
+  hostPresent,
+  onboardingConfigured,
+}: TelegramManualReasonInput): TelegramManualReason {
+  if (!hostPresent) return "no-host"
+  // A host is present and still cannot pair, so the endpoint is what is missing.
+  return onboardingConfigured ? "no-host" : "host-without-endpoint"
+}
+
+/**
+ * Whether an already-connected Telegram channel stays manageable here.
+ *
+ * Always true, and asserted as its own rule: a connected configuration is Core's,
+ * not the Android host's, so viewing and editing it must never depend on which
+ * client opened the console. Only *pairing a new bot* needs the host.
+ */
+export function isTelegramManageableWithoutHost(configured: boolean): boolean {
+  return configured
+}
+
+/**
  * Whether the legacy token/base-URL/proxy form is visible without a further
  * click. It is never removed — only demoted behind Advanced when there is a
  * friendlier primary action to show first.

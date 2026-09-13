@@ -471,5 +471,9 @@ func rejectLauncherDashboardAuth(w http.ResponseWriter, r *http.Request, canonic
 		_, _ = w.Write([]byte(`{"error":"unauthorized"}`))
 		return
 	}
-	http.Redirect(w, r, "/launcher-login", http.StatusFound)
+	// PC-DEF-059. The destination has to survive this redirect. This is the point
+	// where it used to be discarded: the WebView asks for /models, gets 302'd to a
+	// bare /launcher-login, and by the time the SPA loads there is nothing left to
+	// tell it where the user was going. See post_auth_destination.go.
+	http.Redirect(w, r, launcherLoginRedirectTarget(canonicalPath), http.StatusFound)
 }

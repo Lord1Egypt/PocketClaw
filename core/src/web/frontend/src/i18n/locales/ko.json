@@ -751,7 +751,9 @@
       "openChat": "채팅 열기",
       "reconnect": "다시 연결 / 새 봇 만들기",
       "manualOnlyTitle": "수동 설정",
-      "manualOnlyBody": "이 빌드에서는 한 번에 봇을 만드는 기능을 사용할 수 없으므로 BotFather의 봇 토큰으로 Telegram을 설정합니다. 아래에 토큰을 붙여 넣고 저장하세요."
+      "manualOnlyBody": "이 빌드에서는 한 번에 봇을 만드는 기능을 사용할 수 없으므로 BotFather의 봇 토큰으로 Telegram을 설정합니다. 아래에 토큰을 붙여 넣고 저장하세요.",
+      "manualOnlyDesktopBody": "원탭 봇 생성은 Android의 PocketClaw 앱에서 이루어지므로 브라우저에서는 제공되지 않습니다. 원탭 설정은 휴대폰에서 PocketClaw를 열거나, BotFather로 봇을 만들어 아래에 토큰을 붙여 넣으세요.",
+      "openBotFather": "BotFather 열기"
     }
   },
   "pages": {
