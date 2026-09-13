@@ -4,6 +4,7 @@ import {
   resolveTelegramRuntimeState,
   telegramMayReportConnected,
   type RuntimeChannel,
+  type TelegramRuntimeState,
 } from "./telegram-runtime-state"
 
 const telegram = (over: Partial<RuntimeChannel> = {}): RuntimeChannel => ({
@@ -15,61 +16,93 @@ const telegram = (over: Partial<RuntimeChannel> = {}): RuntimeChannel => ({
 })
 
 describe("telegram runtime state", () => {
-  it("never reports Connected for a channel Core refused", () => {
-    const state = resolveTelegramRuntimeState([
-      telegram({ started: false, running: false }),
-    ])
-    expect(state).toBe("error")
-    expect(telegramMayReportConnected(state)).toBe(false)
-  })
-
   it("reports Connected only for a running channel", () => {
-    expect(resolveTelegramRuntimeState([telegram()])).toBe("running")
-    expect(telegramMayReportConnected("running")).toBe(true)
+    const state = resolveTelegramRuntimeState({
+      configuredAndValid: true,
+      channels: [telegram()],
+    })
+    expect(state).toBe("running")
+    expect(telegramMayReportConnected(state)).toBe(true)
   })
 
-  it("treats a stopped channel as configured but not running", () => {
-    const state = resolveTelegramRuntimeState([telegram({ running: false })])
-    expect(state).toBe("configured-not-running")
+  // The correction: runtime silence must never read as "not configured".
+  it("keeps a configured channel configured while the Gateway is stopped", () => {
+    const state = resolveTelegramRuntimeState({
+      configuredAndValid: true,
+      channels: null,
+    })
+    expect(state).toBe("configured-runtime-not-active")
+    expect(state).not.toBe("not-configured")
+    expect(state).not.toBe("error")
     expect(telegramMayReportConnected(state)).toBe(false)
   })
 
-  it("treats an absent or unconfigured channel as not configured", () => {
-    expect(resolveTelegramRuntimeState([])).toBe("not-configured")
+  // The second correction: not started is not failed.
+  it("does not treat an unstarted channel as an error", () => {
     expect(
-      resolveTelegramRuntimeState([
-        telegram({ configured: false, started: false, running: false }),
-      ]),
+      resolveTelegramRuntimeState({
+        configuredAndValid: true,
+        channels: [telegram({ started: false, running: false })],
+      }),
+    ).toBe("configured-runtime-not-active")
+  })
+
+  it("produces an error only from affirmative failure evidence", () => {
+    expect(
+      resolveTelegramRuntimeState({
+        configuredAndValid: true,
+        startupError: "channel failed to start",
+      }),
+    ).toBe("error")
+    expect(
+      resolveTelegramRuntimeState({ configuredAndValid: true, startupError: "  " }),
+    ).toBe("configured-runtime-not-active")
+  })
+
+  it("reports not configured only when configuration says so", () => {
+    expect(
+      resolveTelegramRuntimeState({ configuredAndValid: false, channels: null }),
+    ).toBe("not-configured")
+    expect(
+      resolveTelegramRuntimeState({ configuredAndValid: false, channels: [] }),
     ).toBe("not-configured")
   })
 
-  it("never guesses when the runtime has not reported", () => {
-    expect(resolveTelegramRuntimeState(null)).toBe("not-configured")
-    expect(resolveTelegramRuntimeState(undefined)).toBe("not-configured")
+  it("lets a live channel outrank stale configuration", () => {
+    expect(
+      resolveTelegramRuntimeState({
+        configuredAndValid: false,
+        channels: [telegram()],
+      }),
+    ).toBe("running")
   })
 
-  it("does not mistake another running channel for Telegram", () => {
+  it("does not mistake another channel for Telegram", () => {
     expect(
-      resolveTelegramRuntimeState([telegram({ name: "pocketclaw" })]),
+      resolveTelegramRuntimeState({
+        configuredAndValid: false,
+        channels: [telegram({ name: "pocketclaw" })],
+      }),
     ).toBe("not-configured")
   })
 
   it("matches the channel name case-insensitively", () => {
-    expect(resolveTelegramRuntimeState([telegram({ name: "Telegram" })])).toBe(
-      "running",
-    )
+    expect(
+      resolveTelegramRuntimeState({
+        configuredAndValid: true,
+        channels: [telegram({ name: "Telegram" })],
+      }),
+    ).toBe("running")
   })
 
   // The contract table both languages must agree on.
   it("permits Connected for exactly one state", () => {
     const states: TelegramRuntimeState[] = [
       "not-configured",
-      "configured-not-running",
+      "configured-runtime-not-active",
       "running",
       "error",
     ]
     expect(states.filter(telegramMayReportConnected)).toEqual(["running"])
   })
 })
-
-type TelegramRuntimeState = ReturnType<typeof resolveTelegramRuntimeState>

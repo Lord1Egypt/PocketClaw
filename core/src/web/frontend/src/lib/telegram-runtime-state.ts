@@ -1,18 +1,35 @@
 /**
- * What Telegram is actually doing, as opposed to what was configured.
+ * What Telegram is, as opposed to what was configured — with configuration
+ * truth and runtime truth kept apart.
  *
  * PC-DEF-027. This mirrors lib/src/core/telegram_runtime_state.dart exactly.
- * Two surfaces showing the same channel must not be able to disagree about
- * whether it is running, so the derivation is written once per language and
- * the contract tests on both sides assert the same table.
+ * Two surfaces showing the same channel must not be able to disagree, so the
+ * derivation is written once per language and the same contract table is
+ * asserted on both sides.
  *
- * Core publishes three separate booleans per channel and deliberately
- * publishes no reachability field, because nothing probes the network.
+ * Runtime silence is not a verdict: a validly configured channel is still
+ * configured while the Gateway is stopped, and "has not started" is not the
+ * same fact as "failed to start".
  */
 export type TelegramRuntimeState =
+  /** No enabled, valid Telegram configuration exists. */
   | "not-configured"
-  | "configured-not-running"
+  /**
+   * Configured, but the runtime is not active or not observable: Gateway
+   * stopped, still starting, not yet reporting, or the channel disabled. None
+   * of those is a failure and none is Running.
+   */
+  | "configured-runtime-not-active"
+  /**
+   * Core reports the channel running. This is the product's "Connected", and
+   * it means exactly that — not that Telegram was reached or the token
+   * verified, because Core performs no such probe.
+   */
   | "running"
+  /**
+   * Affirmative evidence that start or apply failed. Only ever produced from
+   * an explicit failure signal; `started === false` does not imply it.
+   */
   | "error"
 
 export type RuntimeChannel = {
@@ -22,32 +39,35 @@ export type RuntimeChannel = {
   running: boolean
 }
 
-/**
- * `null`/`undefined` channels mean the runtime has not reported yet -- the
- * gateway may be stopped or still starting. Not an error, and not running.
- */
-export function resolveTelegramRuntimeState(
-  channels: RuntimeChannel[] | null | undefined,
-): TelegramRuntimeState {
-  if (!channels) return "not-configured"
-
-  const telegram = channels.find((c) => c.name?.toLowerCase() === "telegram")
-  if (!telegram || !telegram.configured) return "not-configured"
-  if (telegram.running) return "running"
-
-  // Configured and not running splits on whether a start ever succeeded: a
-  // channel that started and stopped has stopped, one that never started
-  // failed to.
-  return telegram.started ? "configured-not-running" : "error"
+export type TelegramStateInput = {
+  /** From persisted configuration — the only thing that can answer this. */
+  configuredAndValid: boolean
+  /** Core's runtime report. `null`/`undefined` means not observed. */
+  channels?: RuntimeChannel[] | null
+  /** Affirmative sanitized failure evidence, never inferred. */
+  startupError?: string | null
 }
 
-/**
- * Whether the product may show its "Connected" wording.
- *
- * It means exactly that the Telegram runtime channel is running. It does NOT
- * mean Telegram's servers were reached or the token independently verified:
- * Core performs no such probe, so the UI must not imply one.
- */
+export function resolveTelegramRuntimeState({
+  configuredAndValid,
+  channels,
+  startupError,
+}: TelegramStateInput): TelegramRuntimeState {
+  const telegram = channels?.find((c) => c.name?.toLowerCase() === "telegram")
+
+  // Running is affirmative evidence and outranks everything: a channel that
+  // reports running is running, whatever configuration was edited since.
+  if (telegram?.running) return "running"
+
+  if (startupError && startupError.trim() !== "") return "error"
+
+  // Configuration decides configured-ness. Runtime silence never does.
+  if (!configuredAndValid) return "not-configured"
+
+  return "configured-runtime-not-active"
+}
+
+/** Whether the product may show its "Connected" wording. */
 export function telegramMayReportConnected(
   state: TelegramRuntimeState,
 ): boolean {
