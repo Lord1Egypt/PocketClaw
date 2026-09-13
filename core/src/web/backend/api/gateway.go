@@ -596,9 +596,12 @@ func computeConfigSignature(cfg *config.Config) string {
 	}
 	if cfg.Tools.Web.Enabled {
 		toolSignatures = append(toolSignatures, "web")
+		// Digested, not embedded. This subtree holds every web-search
+		// credential -- brave, tavily, kagi, perplexity, baidu, glm, gemini --
+		// plus a proxy URL that can carry userinfo. See signature_digest.go.
 		webConfig, err := json.Marshal(canonicalizeSignatureValue(reflect.ValueOf(cfg.Tools.Web)))
 		if err == nil {
-			parts = append(parts, "webcfg:"+string(webConfig))
+			parts = append(parts, "webcfg:"+signatureDigestBytes(webConfig))
 		}
 	}
 	if cfg.Tools.WebFetch.Enabled {
@@ -840,7 +843,11 @@ func computeChannelSignatures(channels config.ChannelsConfig) []string {
 			signatures = append(signatures, name+":<invalid>")
 			continue
 		}
-		signatures = append(signatures, name+":"+string(encoded))
+		// Digested, not embedded. Settings carry the channel's credential --
+		// a Telegram bot token, Slack bot/app tokens, a Matrix access token and
+		// crypto passphrase, and so on -- and the raw-JSON fallback below dumps
+		// them verbatim when a settings subtree cannot be decoded.
+		signatures = append(signatures, name+":"+signatureDigestBytes(encoded))
 	}
 
 	return signatures

@@ -10,11 +10,6 @@ import { useTranslation } from "react-i18next"
 
 import type { ModelInfo } from "@/api/models"
 import { Button } from "@/components/ui/button"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip"
 
 interface ModelCardProps {
   model: ModelInfo
@@ -111,50 +106,33 @@ export function ModelCard({
               <IconStarFilled className="size-3.5" />
             </span>
           ) : (
-            <Tooltip delayDuration={!canSetDefault || settingDefault ? 0 : 700}>
-              <TooltipTrigger asChild>
-                <span
-                  className={
-                    !canSetDefault || settingDefault
-                      ? "cursor-not-allowed"
-                      : undefined
-                  }
-                  tabIndex={!canSetDefault || settingDefault ? 0 : undefined}
-                  role={!canSetDefault || settingDefault ? "button" : undefined}
-                  aria-disabled={
-                    !canSetDefault || settingDefault ? true : undefined
-                  }
-                  aria-label={
-                    !canSetDefault || settingDefault
-                      ? setDefaultLabel
-                      : undefined
-                  }
-                  title={
-                    !canSetDefault || settingDefault
-                      ? setDefaultLabel
-                      : undefined
-                  }
-                >
-                  <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    onClick={() => onSetDefault(model)}
-                    disabled={settingDefault || !canSetDefault}
-                    aria-label={setDefaultLabel}
-                    title={setDefaultLabel}
-                  >
-                    {settingDefault ? (
-                      <IconLoader2 className="size-3.5 animate-spin" />
-                    ) : (
-                      <IconStar className="size-3.5" />
-                    )}
-                  </Button>
-                </span>
-              </TooltipTrigger>
-              <TooltipContent>{setDefaultDisabledReason}</TooltipContent>
-            </Tooltip>
+            /* A 40px target, matching Edit and Delete below, and no tooltip.
+               The tooltip needed a wrapper span carrying tabIndex, role and
+               aria-disabled purely so Radix could trigger on a disabled
+               button -- and it still never opened on the device, because a
+               touch screen has no hover. The reason a disabled star is
+               disabled is printed under the row instead, the same way
+               Delete's is. */
+            <Button
+              variant="ghost"
+              size="icon"
+              className="min-h-10 min-w-10"
+              onClick={() => onSetDefault(model)}
+              disabled={settingDefault || !canSetDefault}
+              aria-label={setDefaultLabel}
+              title={
+                canSetDefault && !settingDefault
+                  ? setDefaultLabel
+                  : setDefaultDisabledReason
+              }
+            >
+              {settingDefault ? (
+                <IconLoader2 className="size-4 animate-spin" />
+              ) : (
+                <IconStar className="size-4" />
+              )}
+            </Button>
           )}
-
         </div>
       </div>
 
@@ -197,6 +175,9 @@ export function ModelCard({
       </div>
       {deleteDisabled && (
         <p className="text-pc-faint text-[11px]">{deleteDisabledReason}</p>
+      )}
+      {!model.is_default && !canSetDefault && !settingDefault && (
+        <p className="text-pc-faint text-[11px]">{setDefaultDisabledReason}</p>
       )}
 
       <div className="flex items-center gap-2">

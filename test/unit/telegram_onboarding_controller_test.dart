@@ -24,6 +24,10 @@ class FakeClient extends TelegramOnboardingClient {
 
   DateTime expiresAt = DateTime.now().toUtc().add(const Duration(minutes: 10));
 
+  /// Lets a test make the service answer with its own hosting URL, which is the
+  /// shape PC-DEF-052 is about.
+  String? deepLinkOverride;
+
   @override
   Future<TelegramPairing> createPairing() async {
     createCalls++;
@@ -35,10 +39,10 @@ class FakeClient extends TelegramOnboardingClient {
           'pocketclaw_abcd123$createCalls'
           '_bot',
       suggestedName: 'PocketClaw Agent',
-      deepLink:
+      deepLink: deepLinkOverride ??
           'https://t.me/newbot/PocketClawSetupBot/'
-          'pocketclaw_abcd123$createCalls'
-          '_bot?name=PocketClaw%20Agent',
+              'pocketclaw_abcd123$createCalls'
+              '_bot?name=PocketClaw%20Agent',
       qrPayload:
           'https://t.me/newbot/PocketClawSetupBot/'
           'pocketclaw_abcd123$createCalls'
@@ -89,7 +93,10 @@ class MemoryStorage implements PairingStorage {
 }
 
 class Harness {
-  Harness({DateTime Function()? clock}) {
+  Harness({DateTime Function()? clock, Future<String?> Function(String)? resolveDeepLink}) {
+    if (resolveDeepLink != null) {
+      resolvedLinks = resolveDeepLink;
+    }
     controller = TelegramOnboardingController(
       client: client,
       configWriter: TelegramConfigWriter(
@@ -107,6 +114,10 @@ class Harness {
         openedUrls.add(url);
         return openSucceeds;
       },
+      resolveDeepLink: (rawUrl) async {
+        resolveRequests.add(rawUrl);
+        return resolvedLinks(rawUrl);
+      },
       storage: storage,
       clock: clock ?? DateTime.now,
     );
@@ -115,6 +126,13 @@ class Harness {
   final client = FakeClient();
   final storage = MemoryStorage();
   final openedUrls = <String>[];
+  final resolveRequests = <String>[];
+
+  /// Mirrors the production resolver's contract: a Telegram link passes through,
+  /// anything else has to be resolved and may come back null.
+  Future<String?> Function(String) resolvedLinks =
+      (rawUrl) async => rawUrl.startsWith('https://t.me/') ? rawUrl : null;
+
   late final TelegramOnboardingController controller;
 
   TelegramBotCredentials? savedCredentials;
@@ -134,6 +152,7 @@ Future<void> waitFor(bool Function() predicate) async {
 }
 
 void main() {
+  _deepLinkGroup();
   test('start issues a pairing and begins waiting for Telegram', () async {
     final h = Harness();
     await h.controller.start();
@@ -505,5 +524,102 @@ void main() {
   test('an unknown state from a newer service is treated as failure', () {
     expect(PairingState.parse('something_new'), PairingState.failed);
     expect(PairingState.parse('ready'), PairingState.ready);
+  });
+}
+
+/// PC-DEF-052. The user must see Telegram, never the host that issued the link.
+void _deepLinkGroup() {
+  group('PC-DEF-052 direct Telegram launch', () {
+    test('opens the resolved Telegram link, not the service link', () async {
+      const hosted = 'https://pocketclaw-telegram-setup.vercel.app/go/abc';
+      const telegram = 'https://t.me/newbot/Mgr/pocketclaw_bot';
+
+      final h = Harness();
+      h.client.deepLinkOverride = hosted;
+      h.resolvedLinks = (raw) async => raw == hosted ? telegram : null;
+
+      await h.controller.start();
+      await h.controller.openTelegram();
+
+      expect(h.resolveRequests, [hosted],
+          reason: 'the service link is resolved in the background');
+      expect(h.openedUrls, [telegram]);
+      expect(h.openedUrls.single, isNot(contains('vercel.app')),
+          reason: 'the hosting origin must never be user-visible navigation');
+      expect(h.controller.stage, TelegramOnboardingStage.awaitingConfirmation);
+    });
+
+    test('refuses to open a link that does not resolve to Telegram', () async {
+      const hosted = 'https://pocketclaw-telegram-setup.vercel.app/go/abc';
+
+      final h = Harness();
+      h.client.deepLinkOverride = hosted;
+      h.resolvedLinks = (_) async => null;
+
+      await h.controller.start();
+      await h.controller.openTelegram();
+
+      expect(h.openedUrls, isEmpty,
+          reason: 'opening the hosting page is the defect, not the fallback');
+      expect(h.controller.stage, TelegramOnboardingStage.failed);
+      expect(
+        h.controller.errorKind,
+        TelegramOnboardingErrorKind.telegramLinkUnavailable,
+      );
+    });
+
+    test('a Telegram link is opened as-is', () async {
+      final h = Harness();
+      await h.controller.start();
+      await h.controller.openTelegram();
+
+      expect(h.openedUrls.single, startsWith('https://t.me/'));
+    });
+
+    // Telegram missing is a different failure from no link to give it: one tells
+    // the user to install Telegram, the other to try setup again.
+    test('a failed launch of a valid link reports Telegram unavailable',
+        () async {
+      final h = Harness()..openSucceeds = false;
+      await h.controller.start();
+      await h.controller.openTelegram();
+
+      expect(
+        h.controller.errorKind,
+        TelegramOnboardingErrorKind.telegramUnavailable,
+      );
+    });
+
+    test('no bot token or poll token ever appears in an opened URI', () async {
+      final h = Harness();
+      await h.controller.start();
+      await h.controller.openTelegram();
+      await h.controller.openBotChat();
+
+      for (final url in h.openedUrls) {
+        expect(url, isNot(contains(h.controller.pairing!.pollToken)));
+        // A Telegram bot token is `<digits>:<base64url>`; nothing shaped like a
+        // credential belongs in a URL the OS is handed.
+        expect(RegExp(r'\d{6,}:[A-Za-z0-9_-]{20,}').hasMatch(url), isFalse,
+            reason: url);
+      }
+    });
+
+    test('a reconnect resolves and launches again for the new pairing',
+        () async {
+      final h = Harness();
+      await h.controller.start();
+      await h.controller.openTelegram();
+
+      h.controller.reset();
+      await h.controller.start();
+      await h.controller.openTelegram();
+
+      expect(h.resolveRequests.length, 2,
+          reason: 'each pairing gets its own resolution');
+      expect(h.openedUrls.length, 2);
+      expect(h.openedUrls[0], isNot(h.openedUrls[1]),
+          reason: 'a reconnect pairs a different suggested bot');
+    });
   });
 }

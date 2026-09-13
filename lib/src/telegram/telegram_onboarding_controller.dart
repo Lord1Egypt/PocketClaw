@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 
 import 'telegram_config_writer.dart';
+import 'telegram_deep_link.dart';
 import 'telegram_onboarding_client.dart';
 import 'telegram_onboarding_models.dart';
 
@@ -53,6 +54,7 @@ class TelegramOnboardingController extends ChangeNotifier {
     required TelegramConfigWriter configWriter,
     required Future<void> Function() reloadCore,
     required Future<bool> Function(String url) openUrl,
+    Future<String?> Function(String rawUrl)? resolveDeepLink,
     PairingStorage? storage,
     DateTime Function()? clock,
     bool serviceConfigured = true,
@@ -60,6 +62,7 @@ class TelegramOnboardingController extends ChangeNotifier {
         _configWriter = configWriter,
         _reloadCore = reloadCore,
         _openUrl = openUrl,
+        _resolveDeepLink = resolveDeepLink ?? _defaultResolveDeepLink,
         _storage = storage,
         _clock = clock ?? DateTime.now,
         _serviceConfigured = serviceConfigured;
@@ -68,6 +71,7 @@ class TelegramOnboardingController extends ChangeNotifier {
   final TelegramConfigWriter _configWriter;
   final Future<void> Function() _reloadCore;
   final Future<bool> Function(String url) _openUrl;
+  final Future<String?> Function(String rawUrl) _resolveDeepLink;
   final PairingStorage? _storage;
   final DateTime Function() _clock;
 
@@ -151,10 +155,25 @@ class TelegramOnboardingController extends ChangeNotifier {
   /// The link carries no secret: it names the manager bot, the suggested
   /// username, and the suggested display name, all of which Telegram is about
   /// to show the user anyway.
+  ///
+  /// PC-DEF-052. The service's link is resolved to a Telegram destination first,
+  /// in the background, and only Telegram is ever opened. A deployment that
+  /// serves the setup link from its own redirect endpoint used to put that
+  /// hosting origin on screen for a moment on the way through. A link that does
+  /// not resolve to Telegram is refused, not opened: opening it is the defect,
+  /// and a URL taken from a network response is untrusted input being handed
+  /// straight to the OS.
   Future<void> openTelegram() async {
     final pairing = _pairing;
     if (pairing == null) return;
-    final opened = await _openUrl(pairing.deepLink);
+
+    final target = await _resolveDeepLink(pairing.deepLink);
+    if (target == null) {
+      _fail(TelegramOnboardingErrorKind.telegramLinkUnavailable);
+      return;
+    }
+
+    final opened = await _openUrl(target);
     if (!opened) {
       _fail(TelegramOnboardingErrorKind.telegramUnavailable);
     }
@@ -341,4 +360,18 @@ class SharedPreferencesPairingStorage implements PairingStorage {
 
   @override
   Future<void> clear() => _remove(storageKey);
+}
+
+/// The production deep-link resolver.
+///
+/// A short-lived client per resolution: onboarding resolves one link, once, and
+/// a resolver held for the life of the controller would keep a connection open
+/// across the whole flow for no benefit.
+Future<String?> _defaultResolveDeepLink(String rawUrl) async {
+  final resolver = TelegramDeepLinkResolver();
+  try {
+    return await resolver.resolve(rawUrl);
+  } finally {
+    resolver.close();
+  }
 }

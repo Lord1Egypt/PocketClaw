@@ -91,6 +91,9 @@ abstract final class TelegramOnboardingStrings {
       case TelegramOnboardingErrorKind.telegramUnavailable:
         return 'PocketClaw could not open Telegram. '
             'Install Telegram, or scan the QR code from another device.';
+      case TelegramOnboardingErrorKind.telegramLinkUnavailable:
+        return 'PocketClaw could not prepare your Telegram setup link. '
+            'Try again, or set it up manually.';
       case TelegramOnboardingErrorKind.configurationFailed:
         return 'The bot was created, but PocketClaw could not finish '
             'configuring it. Try again, or set it up manually.';

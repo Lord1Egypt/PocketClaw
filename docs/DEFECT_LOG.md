@@ -306,6 +306,15 @@ skipping Flutter AOT. The three new defects are therefore recorded as
 names the number the owner used. This is the same renumbering the PC-DEF-047
 entry below already carries a note about.
 
+Two later owner requirements, and two items this session disclosed and was told
+to act on, took the next free identifiers: **PC-DEF-052** (Telegram onboarding
+exposed the hosting origin), **PC-DEF-053** (actionable user-facing runtime and
+configuration errors), **PC-DEF-054** (the config-change signature carried
+credentials in plaintext) and **PC-DEF-055** (Set Default was the last
+tooltip-only control). The owner named 052 and 053 directly; 054 and 055 were
+allocated here because they are defects with their own evidence and resolution,
+not sub-points of another entry.
+
 Two corrections from the same report are applied to this log rather than argued
 with:
 
@@ -320,6 +329,203 @@ with:
   and the default-model state. PC-DEF-047's fix is confirmed by the screenshots;
   nothing below claims model deletion is missing. The management gap is at the
   **provider** level.
+
+### PC-DEF-052 — Managed Telegram onboarding exposed the hosting origin
+
+- **Discovered:** owner requirement after the 2026-09-13 physical round.
+- **Component:** `lib/src/telegram/telegram_onboarding_controller.dart`, new
+  `lib/src/telegram/telegram_deep_link.dart`.
+- **Symptom:** starting managed Telegram setup opened a browser that showed a
+  `*.vercel.app` page for a moment before redirecting into Telegram. The
+  intermediate page does nothing for the user and names infrastructure that is
+  not theirs to think about.
+- **Where it came from, established by reading every launch site.** The
+  onboarding screen can open exactly two URLs: `openTelegram()` →
+  `pairing.deepLink`, and `openBotChat()` → `https://t.me/{username}`. The
+  second is Telegram by construction, and `qr_payload` is rendered, never
+  navigated to. So `deep_link` is the only candidate, and the deployed service
+  returns its own redirect endpoint there. **The service is in a separate
+  repository** (`Lord1Egypt/PocketClaw-Telegram-Setup`), so the fix could not be
+  "make the service return a `t.me` link".
+- **Resolution:** the app stops opening whatever URL it is handed.
+  `TelegramDeepLinkResolver` resolves the setup link to a Telegram destination
+  **in the background** before anything is shown — a link that is already
+  Telegram passes through with no request at all, and anything else is followed
+  by reading `Location` without rendering the intermediate page. Only
+  `https://t.me`, `telegram.me`, `telegram.dog` and `tg://` are accepted as
+  destinations.
+  A link that does not resolve to Telegram is **refused, not opened**: opening it
+  is the defect. That surfaces as the new `telegramLinkUnavailable` kind, distinct
+  from `telegramUnavailable` (Telegram missing) because the two need different
+  actions from the user, and manual token entry stays available.
+- **Security posture this also buys:** a URL from a network response was being
+  handed straight to the OS. Resolution is now bounded to 5 hops, refuses any
+  non-`https` hop including a downgrade to `http://t.me`, dereferences nothing
+  that is not `https` to begin with, and attaches no `Authorization` or `Cookie`
+  to a host it has not vetted. The setup link is public by construction, so there
+  is nothing to authenticate with.
+- **What did not change:** the owner contract (exactly one positive numeric owner
+  in `AllowFrom`), token handling, reconnect and replace behaviour, and the
+  automatic runtime apply from PC-DEF-030. The backend may stay on Vercel; the
+  requirement was that it not be user-visible navigation.
+- **Verification:** 13 cases in `test/unit/telegram_deep_link_test.dart`
+  (Telegram-target classification including `https://t.me.evil.invalid` and
+  `?next=` smuggling, pass-through with no request, hosting-redirect resolution,
+  relative `Location`, refusal of a chain that never reaches Telegram, refusal of
+  a plaintext downgrade, refusal of a non-https start, hop cap, no-redirect
+  endpoint, no credential sent, transport failure, blank input) and 6 in
+  `telegram_onboarding_controller_test.dart` under "PC-DEF-052 direct Telegram
+  launch" (opens the resolved link and never the `vercel.app` one, refuses an
+  unresolvable link, passes a Telegram link through, distinguishes Telegram
+  missing, proves no bot or poll token appears in any opened URI, and re-resolves
+  on reconnect).
+- **Status:** FIXED IN SOURCE. **Physical confirmation required** — connect a bot
+  on the device and watch for any intermediate page.
+- **Note for the service repository:** returning a `t.me` link directly as
+  `deep_link` would make the background resolution a no-op and remove the round
+  trip. The app is correct either way now, so this is an optimisation, not a
+  prerequisite.
+
+### PC-DEF-053 — A first-run Telegram message got an internal error, not advice
+
+- **Discovered:** owner requirement after the 2026-09-13 physical round.
+- **Component:** `pkg/gateway/gateway.go` (`startupBlockedProvider`), new
+  `pkg/agent/user_error.go` and `pkg/agent/ai_readiness.go`.
+- **Root cause — PROVEN by reading the path end to end.** With no model
+  configured, the gateway starts in limited mode and installs
+  `startupBlockedProvider`, whose `Chat` returned
+  `fmt.Errorf("no default model configured; gateway started in limited mode")`.
+  That error is not an `*common.HTTPError`, so `providerErrorDetail` declines it;
+  it is not classifiable, so `formatProviderFailure` declines it; and it lands in
+  `formatProcessingError`'s last branch as **"Error processing message: no
+  default model configured; gateway started in limited mode"**. Implementation
+  jargon, no instruction, and nothing separating "Telegram works" from "no AI
+  configured" — so a silent-looking bot sends the owner to re-pair a bot that was
+  never at fault.
+- **Resolution:** a `UserFacingError` carrying a stable code and a safe,
+  actionable sentence, checked first by `formatProcessingError`. The blocked
+  provider carries one instead of a bare string, and
+  `agent.AIConfigurationProblem` picks which: nothing added (`PC-E-AI-001`),
+  everything disabled (`PC-E-AI-004`), nothing selected (`PC-E-AI-002`), or a
+  selection whose `model_list` entry is gone (`PC-E-AI-003`, which names the
+  model). The first-run wording states that PocketClaw is connected before saying
+  what is missing.
+- **A wrong first attempt, recorded because it is the instructive part.** The
+  check was first written as a precondition at the top of `processMessage`. Two
+  existing tests failed, and they were right to: `NewAgentLoop` takes an
+  **injected** provider, so an empty `model_list` does not imply there is nothing
+  to send a request to, and a config-only precondition there refuses turns for a
+  loop that has a perfectly good provider. The check belongs where the gateway
+  already decides it cannot build one.
+- **Scope boundary, deliberate.** `AIConfigurationProblem` does **not** judge
+  whether a credential is usable. That needs the OAuth credential store and the
+  local-endpoint probe that `web/backend/api`'s `hasModelConfiguration` owns, and
+  a second copy of it is exactly the drift that had `pkg/modelaccess` reverted —
+  an ambient-credential provider (a local Ollama, an OAuth provider) legitimately
+  has no `api_key`. A missing or rejected credential is already reported
+  accurately at request time by the provider's own 401 through
+  `AuthErrorMissingAPIKey`.
+- **The other categories the owner listed were already covered** by
+  `pkg/agent/error_format.go` and `provider_detail.go` (PC-DEF-032): invalid /
+  missing / expired credentials, rate limit, hard quota, billing, provider 5xx,
+  network, timeout, request rejection, context overflow, overloaded, and the one
+  sanitised sentence of the provider's own message. The configuration category
+  was the gap.
+- **Web UI: already localised, verified rather than assumed.**
+  `chat-empty-state.tsx` already renders `chat.empty.noConfiguredModel` /
+  `noSelectedModel` with a "Go to Models" action, and all five keys are present in
+  all 14 locale bundles. No new web strings were needed for this category.
+- **Telegram replies are English, because Core has no locale to localise
+  against.** There is no `locale`/`language` field anywhere in `pkg/config`, and
+  no i18n layer in Core. The stable codes exist so a future layer can localise
+  them without touching Core. Recorded as an open item rather than guessed at.
+- **Verification:** 14 cases in `pkg/agent/ai_readiness_test.go` (each
+  configuration state, the message stating "connected" and telling the user what
+  to do, no message blaming the channel, codes stable and distinct, no secret /
+  path / stack-trace shapes in any message, the wrapped cause kept out of the user
+  message, and a model with no API key deliberately **not** blocked) and 5 in
+  `pkg/gateway/startup_blocked_provider_test.go` (limited mode produces a
+  user-facing problem, the Chat failure is actionable and no longer says "limited
+  mode" or "Error processing message", nothing-selected is distinguished from
+  nothing-configured, a reasonless blocked provider still fails closed, and
+  limited mode stays opt-in).
+- **Status:** FIXED IN SOURCE. **Physical confirmation required** — the first-run
+  Telegram case on the device.
+
+### PC-DEF-054 — Config-change signature carried credentials in plaintext
+
+- **Discovered:** disclosed by this session while fixing PC-DEF-050, then
+  investigated at the owner's instruction.
+- **Component:** `web/backend/api/gateway.go`, new
+  `web/backend/api/signature_digest.go`.
+- **Scope — wider than first disclosed.** The original note named the `webcfg:`
+  component. The mechanism is `canonicalizeSignatureValue`, which resolves
+  `SecureString`/`SecureStrings` to plaintext, and it is used for channel settings
+  too. Proven by test: a Brave web-search key, a proxy URL password and a Telegram
+  bot token were all present verbatim in the signature string. By inspection the
+  same applies to every channel credential (Slack bot/app tokens, Matrix access
+  token and crypto passphrase, Feishu app secret, DingTalk client secret, LINE
+  channel secret, OneBot/WeCom/WeiXin/QQ secrets) and every web-search key, plus
+  the `normalizeRawJSON` fallback which dumps an undecodable settings subtree
+  verbatim.
+- **Exposure assessment — answered per the owner's list.**
+  - *Logged?* **No.** No logger call takes a signature.
+  - *Status/debug output?* **No.** Only the derived boolean
+    `gateway_restart_required` reaches a client.
+  - *Persisted?* **No.** It lives in `gateway.bootConfigSignature`, package
+    memory, and is never written.
+  - *In error text?* **No.** No error or panic embeds it.
+  - *Crash reporting?* **No crash reporter exists** — Firebase/Crashlytics were
+    removed under PC-DEF-R005.
+  So this was **not a disclosure**. It was unnecessary plaintext secret material
+  retained in long-lived package state, one careless
+  `logger.Debugf("signature=%s")` away from becoming one.
+- **Resolution — not deferred.** `computeChannelSignatures` and the `webcfg:`
+  component now embed a SHA-256 digest of their payload instead of the payload.
+  Digesting the whole subtree rather than classifying fields is deliberate: a
+  field-by-field secret list would need updating every time a channel gains a
+  credential, and missing one is silent. The model-credential digests added for
+  PC-DEF-050 now share the same helper, which length-prefixes each part so a
+  shifted boundary cannot collide. Plaintext still exists transiently inside the
+  call — detecting that a secret changed requires reading it — but nothing
+  retained carries it, which is the owner's stated invariant.
+- **Verification:** `signature_secrets_test.go` — one case asserting that none of
+  11 distinctive markers across web-search keys, a proxy password, four channel
+  credentials, a raw-fallback secret, a model key and a model header appears in
+  the signature; 9 sub-cases proving the signature still moves when each of those
+  changes, so no sensitivity was traded away; stability across repeated
+  computation; and digest unambiguity across part boundaries. Every pre-existing
+  signature test still passes, so no restart decision changed.
+- **Gotcha found while testing, worth keeping.** `Channel.GetDecoded` decodes
+  lazily and **caches** into `extend`, so mutating raw `Settings` after a decode
+  reads back the stale typed value. Production is unaffected —
+  `handleGatewayStatus` calls `config.LoadConfig` on every poll — but a test must
+  compare two freshly built configs rather than mutate one in place.
+- **Status:** **RESOLVED.**
+
+### PC-DEF-055 — Set Default was the last tooltip-only control on the model card
+
+- **Discovered:** disclosed by this session under PC-DEF-047, audited at the
+  owner's instruction as a low-severity mobile UX item.
+- **Component:** `web/frontend/src/components/models/model-card.tsx`.
+- **Audit result against the three things the owner asked to verify:**
+  - *Accessible semantic label* — **PASS.** `aria-label` and `title` were already
+    present on the control and on its disabled wrapper.
+  - *Default state visually obvious* — **PASS.** A model that is default carries a
+    visible "Default" badge, a start-edge accent (`border-s-pc-claw`) and a filled
+    star. Not a glyph alone.
+  - *Discoverability on touch* — **FAIL, on two counts.** The control was
+    `size="icon-sm"`, smaller than the 40px Edit and Delete use on the same card,
+    and the reason a disabled star was disabled lived only in a Radix tooltip,
+    which never opens on a touch screen — the same PC-DEF-047 pattern.
+- **Resolution, kept to the two failures.** A 40px touch target, and the disabled
+  reason printed under the row exactly as Delete's already is. The tooltip is
+  gone, and with it the wrapper `<span>` that existed only to carry `tabIndex`,
+  `role` and `aria-disabled` so Radix could trigger on a disabled button. No
+  redesign: the badge, the accent edge and the icon are unchanged.
+- **Verification:** 6 cases in `model-card.test.tsx` under "ModelCard
+  set-default affordance".
+- **Status:** FIXED IN SOURCE. **Physical confirmation required.**
 
 ### PC-DEF-049 — A configured provider had no management path at all
 

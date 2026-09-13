@@ -110,3 +110,61 @@ describe("ModelCard actions", () => {
     }
   })
 })
+
+/**
+ * Set Default affordance audit, requested alongside PC-DEF-049..051.
+ *
+ * The star was the one control on this card still carrying PC-DEF-047's shape:
+ * a 32px icon whose meaning and whose disabled reason lived in a Radix tooltip
+ * that a touch screen never opens. These pin what the audit checked so it cannot
+ * quietly regress into the pattern the card was fixed out of.
+ */
+describe("ModelCard set-default affordance", () => {
+  it("labels the star for assistive technology", () => {
+    renderCard({ is_default: false })
+
+    const star = screen.getByLabelText("models.action.setDefault")
+    expect(star, "the star must carry a semantic label").toBeTruthy()
+  })
+
+  it("gives the star the same 40px touch target as the row controls", () => {
+    renderCard({ is_default: false })
+
+    const star = screen
+      .getByLabelText("models.action.setDefault")
+      .closest("button") as HTMLElement
+    expect(star.className).toContain("min-h-10")
+    expect(star.className).toContain("min-w-10")
+  })
+
+  // A tooltip explains nothing on touch, so the reason is on the card.
+  it("prints why a disabled star is disabled instead of hiding it in a tooltip", () => {
+    renderCard({ is_default: false, available: false, status: "unconfigured" })
+
+    expect(
+      screen.getByText("models.action.setDefaultDisabled.unavailable"),
+      "the reason must be visible without hover",
+    ).toBeTruthy()
+  })
+
+  it("does not print a reason when the star is usable", () => {
+    renderCard({ is_default: false })
+
+    expect(
+      screen.queryByText("models.action.setDefaultDisabled.unavailable"),
+    ).toBeNull()
+  })
+
+  // Default state has to be readable without interpreting a 14px glyph.
+  it("marks the default model with a visible badge, not only the filled star", () => {
+    renderCard({ is_default: true })
+
+    expect(screen.getByText("models.badge.default")).toBeTruthy()
+  })
+
+  it("offers no set-default control on the model that is already default", () => {
+    renderCard({ is_default: true })
+
+    expect(screen.queryByLabelText("models.action.setDefault")).toBeNull()
+  })
+})

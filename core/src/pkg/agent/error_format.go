@@ -27,6 +27,13 @@ func formatProcessingError(err error) string {
 		return ""
 	}
 
+	// Already worded for the user, with a stable code. Checked first: these are
+	// PocketClaw's own preconditions, and nothing below could classify them
+	// because no provider was ever contacted.
+	if userFacing, ok := AsUserFacingError(err); ok {
+		return userFacing.UserMessage()
+	}
+
 	// A model chain that ran out of candidates has one line to say per
 	// candidate. Its Error() concatenates every raw provider body, which in a
 	// chat window is pages of JSON, billing URLs and provider internals for a

@@ -202,6 +202,14 @@ enum TelegramOnboardingErrorKind {
   /// Telegram is not installed, so the deep link could not be opened.
   telegramUnavailable,
 
+  /// The setup link could not be resolved to a Telegram destination.
+  ///
+  /// PC-DEF-052. The app opens Telegram, never the service that issued the link,
+  /// so a link that does not resolve to Telegram is refused rather than opened.
+  /// Distinct from [telegramUnavailable]: there Telegram is missing, here there
+  /// was nothing safe to hand it.
+  telegramLinkUnavailable,
+
   /// Core's configuration could not be written or reloaded.
   configurationFailed,
 }

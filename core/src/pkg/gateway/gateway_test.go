@@ -256,7 +256,7 @@ func TestPublishGatewayEvent(t *testing.T) {
 	al := agent.NewAgentLoop(
 		config.DefaultConfig(),
 		bus.NewMessageBus(),
-		&startupBlockedProvider{reason: "not used"},
+		&startupBlockedProvider{},
 		agent.WithRuntimeEvents(eventBus),
 	)
 	t.Cleanup(al.Close)
@@ -287,7 +287,7 @@ func TestShutdownGatewayClosesMessageBus(t *testing.T) {
 	al := agent.NewAgentLoop(
 		config.DefaultConfig(),
 		msgBus,
-		&startupBlockedProvider{reason: "not used"},
+		&startupBlockedProvider{},
 	)
 	msgBus.SetEventPublisher(al.RuntimeEventBus())
 
@@ -304,7 +304,7 @@ func TestShutdownGatewayClosesMessageBus(t *testing.T) {
 		_ = sub.Close()
 	}()
 
-	shutdownGateway(&services{}, al, &startupBlockedProvider{reason: "not used"}, msgBus, true)
+	shutdownGateway(&services{}, al, &startupBlockedProvider{}, msgBus, true)
 
 	evt := receiveGatewayRuntimeEvent(t, eventsCh)
 	if evt.Kind != runtimeevents.KindBusCloseCompleted {

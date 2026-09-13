@@ -1,9 +1,6 @@
 package api
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
-	"fmt"
 	"sort"
 	"strconv"
 	"strings"
@@ -67,11 +64,11 @@ func apiKeysDigest(mc *config.ModelConfig) string {
 	if mc == nil || len(mc.APIKeys) == 0 {
 		return "nokey"
 	}
-	hash := sha256.New()
+	parts := make([]string, 0, len(mc.APIKeys)*2)
 	for i, key := range mc.APIKeys {
-		fmt.Fprintf(hash, "%d:%s\n", i, key.String())
+		parts = append(parts, strconv.Itoa(i), key.String())
 	}
-	return hex.EncodeToString(hash.Sum(nil))[:16]
+	return signatureDigest(parts...)
 }
 
 // customHeadersDigest reduces per-model headers to one digest over a sorted
@@ -87,9 +84,9 @@ func customHeadersDigest(headers map[string]string) string {
 		names = append(names, name)
 	}
 	sort.Strings(names)
-	hash := sha256.New()
+	parts := make([]string, 0, len(names)*2)
 	for _, name := range names {
-		fmt.Fprintf(hash, "%s:%s\n", name, headers[name])
+		parts = append(parts, name, headers[name])
 	}
-	return hex.EncodeToString(hash.Sum(nil))[:16]
+	return signatureDigest(parts...)
 }

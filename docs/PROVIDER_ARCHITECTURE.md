@@ -450,10 +450,43 @@ The section 6 posture holds and is unchanged by this work:
   never carries the plaintext (`model_credential_signature.go`, and
   `TestConfigSignatureDoesNotCarryTheRawAPIKey`).
 
-One pre-existing exception is recorded rather than left unmentioned: the
-`webcfg:` component of the gateway restart signature is a JSON dump of
-`cfg.Tools.Web`, which embeds the **plaintext** web-search API keys
-(`baidu_search.api_key`, `brave.api_keys`, and so on). That value stays in
-process memory and only a boolean derived from it reaches a client, so it is not
-a disclosure, but it is raw secret material in a comparison value that does not
-need it. It predates this work and is out of its scope.
+That exception is now closed, and was wider than first recorded — see
+`PC-DEF-054`. The mechanism was `canonicalizeSignatureValue`, which resolves
+`SecureString`/`SecureStrings` to plaintext, and it fed both the `webcfg:`
+component **and** every channel's settings. A Brave key, a proxy URL password and
+a Telegram bot token were each provably present verbatim in the signature string.
+Both components now embed a SHA-256 digest of their payload instead, sharing the
+helper in `web/backend/api/signature_digest.go` with the model-credential
+digests. Change detection is unchanged; the retained value is non-reversible.
+
+### 13.6 Stable user-facing error codes
+
+`PC-DEF-053` introduced `agent.UserFacingError`: a failure already worded for the
+person who caused it, carrying a stable code. The message is primary; the code is
+a handle for support and for a localisation layer.
+
+| Code | Meaning | What the user does |
+| --- | --- | --- |
+| `PC-E-AI-001` | No AI model is configured at all | Add a provider and model |
+| `PC-E-AI-002` | Models exist, none is selected | Choose a default model |
+| `PC-E-AI-003` | The selected model's entry is gone | Choose one that still exists |
+| `PC-E-AI-004` | Every configured model is disabled | Enable a model |
+
+Codes are never renamed or reused once shipped. `formatProcessingError` checks for
+one first, so these never reach the generic "Error processing message" branch.
+
+Two boundaries worth keeping:
+
+- These are **configuration** states, decided from config alone. Credential
+  *usability* is not decided here — that needs the OAuth store and local-endpoint
+  probe `hasModelConfiguration` owns (section 6), and a second copy is the drift
+  that had `pkg/modelaccess` reverted. A bad or missing credential is reported at
+  request time by the provider's own 401.
+- The check lives where the gateway decides it cannot build a provider, **not** as
+  a precondition in the message path. `NewAgentLoop` takes an injected provider,
+  so an empty `model_list` does not mean there is nothing to send a request to.
+
+Core has no locale field and no i18n layer, so these sentences reach Telegram in
+English, as every other Core reply does. The dashboard's own equivalent for the
+configuration category — `chat-empty-state.tsx` — is already localised in all 14
+bundles. Localising Core's replies is an open item, not something to guess at.
