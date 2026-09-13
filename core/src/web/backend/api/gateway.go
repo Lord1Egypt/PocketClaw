@@ -1126,6 +1126,9 @@ func stopGatewayLocked() (int, error) {
 	gateway.owned = false
 	gateway.bootDefaultModel = ""
 	gateway.pidData = nil
+	// No current gateway means no valid idle credential, so a process that is
+	// on its way out cannot trigger lifecycle work afterwards. PC-DEF-030.
+	clearGatewayIdleToken()
 	setGatewayRuntimeStatusLocked("stopped")
 
 	return pid, nil
@@ -1193,6 +1196,12 @@ func (h *Handler) startGatewayLocked(initialStatus string, existingPid int) (int
 	cmd = gatewayExecCommand(execPath, h.gatewayCommandArgs()...)
 	applyLauncherProcAttrs(cmd)
 	cmd.Env = os.Environ()
+	// A fresh idle credential for this generation only, so a superseded
+	// gateway cannot drive the lifecycle of the one that replaced it.
+	if idleToken := newGatewayIdleToken(); idleToken != "" {
+		cmd.Env = append(cmd.Env, config.EnvGatewayIdleToken+"="+idleToken)
+		cmd.Env = append(cmd.Env, config.EnvGatewayIdleURL+"="+h.launcherIdleNotifyURL())
+	}
 	// Forward the launcher's config path via the environment variable that
 	// GetConfigPath() already reads, so the gateway sub-process uses the same
 	// config file without requiring a --config flag on the gateway subcommand.
@@ -1681,6 +1690,14 @@ func (h *Handler) gatewayStatusData() map[string]any {
 		if !ready {
 			data["gateway_start_reason"] = reason
 		}
+	}
+
+	// Read-only by contract. Monitoring must never apply, restart, clear or
+	// retry anything -- the gateway's idle notification is the only trigger.
+	applyPending, applyErr := pendingConfigApplyState()
+	data["config_apply_pending"] = applyPending
+	if applyErr != "" {
+		data["config_apply_error"] = applyErr
 	}
 
 	chatOK, chatReason, chatErr := h.chatReady()

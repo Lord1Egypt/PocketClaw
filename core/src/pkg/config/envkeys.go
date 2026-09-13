@@ -44,6 +44,25 @@ const (
 	// Default: "localhost"
 	EnvGatewayHost = "PICOCLAW_GATEWAY_HOST"
 
+	// EnvGatewayIdleToken is the gateway's credential for reporting that it has
+	// become idle, and it authorizes nothing else.
+	//
+	// PC-DEF-030. The launcher mints one per gateway generation, hands it to
+	// that child only, and rotates it on every spawn, so a superseded gateway
+	// cannot drive the lifecycle of the one that replaced it. It is
+	// deliberately not the Android bridge token: that authorizes Telegram
+	// writes, listener rebinds and credential checks, and the gateway needs
+	// none of them.
+	//
+	// Never persisted, never logged, never given to Flutter or the WebView.
+	// Default: unset, which disables the notification entirely.
+	EnvGatewayIdleToken = "POCKETCLAW_GATEWAY_IDLE_TOKEN"
+
+	// EnvGatewayIdleURL is the loopback endpoint the gateway posts that
+	// notification to. Set by the launcher alongside EnvGatewayIdleToken.
+	// Default: unset.
+	EnvGatewayIdleURL = "POCKETCLAW_GATEWAY_IDLE_URL"
+
 	// EnvGatewayTokenFile moves the gateway's bearer credential out of the
 	// PID record and into a file of its own.
 	//

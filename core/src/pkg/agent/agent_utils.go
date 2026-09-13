@@ -559,10 +559,19 @@ func (al *AgentLoop) activeRequestsInc() {
 func (al *AgentLoop) activeRequestsDec() {
 	al.activeReqMu.Lock()
 	al.activeReqCount--
-	if al.activeReqCount == 0 {
+	becameIdle := al.activeReqCount == 0
+	if becameIdle {
 		al.activeReqCond.Broadcast()
 	}
 	al.activeReqMu.Unlock()
+
+	// The transition is detected under the lock and reported outside it: this
+	// makes a network call, and holding activeReqMu across it would stall
+	// every other request completion behind an HTTP timeout. Only the real
+	// N>0 -> 0 edge notifies, so a gateway sitting idle is silent. PC-DEF-030.
+	if becameIdle {
+		go notifyGatewayIdle()
+	}
 }
 
 func (al *AgentLoop) waitForActiveRequests(ctx context.Context, timeout time.Duration) bool {

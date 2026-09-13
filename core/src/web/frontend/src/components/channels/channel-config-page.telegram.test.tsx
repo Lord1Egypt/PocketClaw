@@ -31,6 +31,13 @@ vi.mock("@/store/gateway", () => ({ refreshGatewayState: vi.fn() }))
 
 vi.mock("@/lib/restart-required", () => ({
   showSaveSuccessOrRestartToast: vi.fn(),
+  // PC-DEF-030: saving a channel now applies it through this helper instead of
+  // telling the user to restart. The stub runs the save so these tests keep
+  // asserting what they always did -- what gets persisted.
+  saveAndApplyGatewayConfig: vi.fn(
+    async (_t: unknown, options: { save: () => Promise<unknown> }) =>
+      options.save(),
+  ),
 }))
 
 // The real header pulls in sidebar context this page does not otherwise need.

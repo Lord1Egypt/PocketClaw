@@ -293,8 +293,34 @@ func (h *Handler) handleAndroidTelegramConfigure(w http.ResponseWriter, r *http.
 		http.Error(w, "Failed to save config", http.StatusInternalServerError)
 		return
 	}
+
+	// PC-DEF-030. Saving Telegram used to end here, so the running channel
+	// never learned about the change and the user was told to restart the
+	// Gateway by hand. Applying is part of saving now: immediately when the
+	// gateway is idle, and otherwise marked pending for its own idle
+	// notification to pick up. Either way nothing is asked of the user.
+	applied, pending := h.applyTelegramConfigChange("telegram_configured")
+
 	w.Header().Set("Content-Type", "application/json")
-	_, _ = w.Write([]byte(`{"ok":true}`))
+	_ = json.NewEncoder(w).Encode(map[string]any{
+		"ok":      true,
+		"applied": applied,
+		"pending": pending,
+	})
+}
+
+// applyTelegramConfigChange makes a saved Telegram change live.
+//
+// Reports what actually happened rather than assuming success: a gateway that
+// is busy leaves the change pending, and a gateway that is stopped leaves it
+// for the next start. Neither is an error, and neither may be presented as a
+// working Telegram channel -- runtime status decides that, not this.
+func (h *Handler) applyTelegramConfigChange(reason string) (applied bool, pending bool) {
+	if _, _, err := h.RestartGatewayForConfigChange(reason); err != nil {
+		isPending, _ := pendingConfigApplyState()
+		return false, isPending
+	}
+	return true, false
 }
 
 func (h *Handler) loadTelegramConfigForUpdate() (*config.Config, *config.Channel, *config.TelegramSettings, error) {

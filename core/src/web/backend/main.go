@@ -813,6 +813,9 @@ func main() {
 	}, accessControlledMux)
 	appMux := http.NewServeMux()
 	apiHandler.RegisterAndroidBridgeRoutes(appMux, os.Getenv(api.AndroidBridgeTokenEnv))
+	// PC-DEF-030. One internal notification, authorized by a credential that
+	// belongs to the current gateway generation and grants nothing else.
+	apiHandler.RegisterGatewayIdleRoute(appMux)
 	appMux.Handle("/", dashAuth)
 
 	// Apply middleware stack

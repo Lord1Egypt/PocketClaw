@@ -104,6 +104,67 @@ type configRestartResult struct {
 
 var configRestart configRestartState
 
+// pendingConfigApply is a configuration change that is persisted but not yet
+// live, because the gateway was still busy when the bounded wait ran out.
+//
+// PC-DEF-030. It is applied by the gateway's own idle notification, not by a
+// timer and not by anything a client does: GET /api/gateway/status reports
+// this state and must never act on it.
+var pendingConfigApply = struct {
+	mu     sync.Mutex
+	reason string
+	err    string
+}{}
+
+// markConfigApplyPending records that a saved change is waiting for idle.
+//
+// Later saves collapse into the one pending entry rather than queueing. The
+// configuration file is written before any of this runs, so a single apply
+// always boots the latest persisted configuration -- A, B and C become one
+// restart that loads C.
+func markConfigApplyPending(reason string) {
+	pendingConfigApply.mu.Lock()
+	pendingConfigApply.reason = reason
+	pendingConfigApply.err = ""
+	pendingConfigApply.mu.Unlock()
+}
+
+// takePendingConfigApply claims the pending change, if any, exactly once.
+func takePendingConfigApply() string {
+	pendingConfigApply.mu.Lock()
+	defer pendingConfigApply.mu.Unlock()
+	reason := pendingConfigApply.reason
+	pendingConfigApply.reason = ""
+	return reason
+}
+
+// setPendingConfigApplyError records why the last pending apply failed.
+func setPendingConfigApplyError(message string) {
+	pendingConfigApply.mu.Lock()
+	pendingConfigApply.err = message
+	pendingConfigApply.mu.Unlock()
+}
+
+// pendingConfigApplyState reports what status should show. Read-only.
+func pendingConfigApplyState() (pending bool, applyErr string) {
+	pendingConfigApply.mu.Lock()
+	defer pendingConfigApply.mu.Unlock()
+	return pendingConfigApply.reason != "", pendingConfigApply.err
+}
+
+// sanitizeConfigApplyError keeps a user-visible reason free of anything the
+// configuration might carry. Only the shape of the failure is reported.
+func sanitizeConfigApplyError(err error) string {
+	if err == nil {
+		return ""
+	}
+	var busy *ErrGatewayBusy
+	if errors.As(err, &busy) {
+		return "the gateway was still busy"
+	}
+	return "the gateway could not be restarted"
+}
+
 // RestartGatewayForConfigChange restarts the gateway once the gateway is idle.
 //
 // It is the automatic counterpart to the manual restart action, and it
@@ -162,8 +223,13 @@ func (h *Handler) runConfigRestart(reason string) (int, bool, error) {
 		// The configuration is already persisted. Not restarting leaves it
 		// pending, which the restart-required indicator continues to show, and
 		// the manual Restart Gateway action still applies it.
+		// PC-DEF-030. Persisted but not live is not a resting state: the
+		// gateway's own idle notification applies this later, with no timer,
+		// no polling and nothing for the user to do.
+		markConfigApplyPending(reason)
 		logger.WarnCF("gateway",
-			"Configuration saved but the gateway was not safe to restart",
+			"Configuration saved but the gateway was not safe to restart; "+
+				"it will be applied when the gateway becomes idle",
 			map[string]any{
 				"reason":      reason,
 				"outcome":     string(outcome),
