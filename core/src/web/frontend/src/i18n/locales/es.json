@@ -200,9 +200,6 @@
       },
       "anthropic": {
         "description": "Usa el inicio de sesión con token para acceder a Claude."
-      },
-      "antigravity": {
-        "description": "Usa OAuth en el navegador para Google Cloud Code Assist."
       }
     },
     "status": {

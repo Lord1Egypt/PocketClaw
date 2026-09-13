@@ -17,7 +17,6 @@ type FlowWatchMode = "" | "status" | "poll"
 function getProviderLabel(provider: OAuthProvider | ""): string {
   if (provider === "openai") return "OpenAI"
   if (provider === "anthropic") return "Anthropic"
-  if (provider === "google-antigravity") return "Google Antigravity"
   return ""
 }
 
@@ -168,7 +167,6 @@ export function useCredentialsPage() {
 
   const openaiStatus = providersMap.get("openai")
   const anthropicStatus = providersMap.get("anthropic")
-  const antigravityStatus = providersMap.get("google-antigravity")
 
   const bumpActionToken = useCallback(() => {
     actionTokenRef.current += 1
@@ -416,7 +414,6 @@ export function useCredentialsPage() {
     anthropicToken,
     openaiStatus,
     anthropicStatus,
-    antigravityStatus,
     logoutDialogOpen,
     logoutConfirmProvider,
     logoutProviderLabel,

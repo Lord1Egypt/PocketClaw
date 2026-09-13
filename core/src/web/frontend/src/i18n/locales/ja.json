@@ -200,9 +200,6 @@
       },
       "anthropic": {
         "description": "Claude へのアクセスにトークンログインを使用します。"
-      },
-      "antigravity": {
-        "description": "Google Cloud Code Assist にブラウザー OAuth を使用します。"
       }
     },
     "status": {

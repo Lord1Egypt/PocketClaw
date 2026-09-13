@@ -5,7 +5,6 @@ import { PageHeader } from "@/components/page-header"
 import { useCredentialsPage } from "@/hooks/use-credentials-page"
 
 import { AnthropicCredentialCard } from "./anthropic-credential-card"
-import { AntigravityCredentialCard } from "./antigravity-credential-card"
 import { DeviceCodeSheet } from "./device-code-sheet"
 import { LogoutConfirmDialog } from "./logout-confirm-dialog"
 import { OpenAICredentialCard } from "./openai-credential-card"
@@ -22,7 +21,6 @@ export function CredentialsPage() {
     anthropicToken,
     openaiStatus,
     anthropicStatus,
-    antigravityStatus,
     logoutDialogOpen,
     logoutConfirmProvider,
     logoutProviderLabel,
@@ -93,16 +91,6 @@ export function CredentialsPage() {
                 void saveToken("anthropic", anthropicToken.trim())
               }
               onAskLogout={() => askLogout("anthropic")}
-            />
-
-            <AntigravityCredentialCard
-              status={antigravityStatus}
-              activeAction={activeAction}
-              onStopLoading={stopLoading}
-              onStartBrowserOAuth={() =>
-                void startBrowserOAuth("google-antigravity")
-              }
-              onAskLogout={() => askLogout("google-antigravity")}
             />
           </div>
         )}

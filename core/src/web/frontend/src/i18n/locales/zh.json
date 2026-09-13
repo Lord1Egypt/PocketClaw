@@ -200,9 +200,6 @@
       },
       "anthropic": {
         "description": "使用 Token 登录 Claude。"
-      },
-      "antigravity": {
-        "description": "使用浏览器 OAuth 登录 Google Cloud Code Assist。"
       }
     },
     "status": {

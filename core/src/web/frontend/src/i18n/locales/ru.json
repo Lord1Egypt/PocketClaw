@@ -200,9 +200,6 @@
       },
       "anthropic": {
         "description": "Использует вход по токену для доступа к Claude."
-      },
-      "antigravity": {
-        "description": "Использует OAuth в браузере для Google Cloud Code Assist."
       }
     },
     "status": {

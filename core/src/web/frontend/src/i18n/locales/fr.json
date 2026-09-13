@@ -200,9 +200,6 @@
       },
       "anthropic": {
         "description": "Utilise la connexion par jeton pour accéder à Claude."
-      },
-      "antigravity": {
-        "description": "Utilise l'OAuth navigateur pour Google Cloud Code Assist."
       }
     },
     "status": {

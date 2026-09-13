@@ -152,9 +152,6 @@ func normalizeIncomingModelConfig(mc *config.ModelConfig) {
 			}
 		}
 	}
-	if mc.Provider == "antigravity" && mc.AuthMethod == "" {
-		mc.AuthMethod = "oauth"
-	}
 }
 
 func createAllowedForProvider(provider string) bool {

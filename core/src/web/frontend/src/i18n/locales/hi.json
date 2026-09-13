@@ -200,9 +200,6 @@
       },
       "anthropic": {
         "description": "Claude तक पहुँच हेतु टोकन लॉगिन उपयोग करता है।"
-      },
-      "antigravity": {
-        "description": "Google Cloud Code Assist हेतु ब्राउज़र OAuth उपयोग करता है।"
       }
     },
     "status": {

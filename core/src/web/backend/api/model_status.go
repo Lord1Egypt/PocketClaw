@@ -95,12 +95,6 @@ func hasModelConfiguration(m *config.ModelConfig) bool {
 		}
 	}
 
-	if authMethod == "" && providerUsesImplicitOAuth(protocol) {
-		if configured, checked := hasStoredOAuthCredential(m); checked {
-			return configured
-		}
-	}
-
 	if providerUsesAmbientCredentials(protocol) {
 		return true
 	}
@@ -122,15 +116,6 @@ func hasStoredOAuthCredential(m *config.ModelConfig) (bool, bool) {
 		return false, true
 	}
 	return strings.TrimSpace(cred.AccessToken) != "" || strings.TrimSpace(cred.RefreshToken) != "", true
-}
-
-func providerUsesImplicitOAuth(protocol string) bool {
-	switch protocol {
-	case "antigravity":
-		return true
-	default:
-		return false
-	}
 }
 
 func providerUsesAmbientCredentials(protocol string) bool {
@@ -480,8 +465,6 @@ func oauthProviderForModel(m *config.ModelConfig) (string, bool) {
 		return oauthProviderOpenAI, true
 	case "anthropic":
 		return oauthProviderAnthropic, true
-	case "antigravity":
-		return oauthProviderGoogleAntigravity, true
 	default:
 		return "", false
 	}

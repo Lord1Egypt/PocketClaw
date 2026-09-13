@@ -200,9 +200,6 @@
       },
       "anthropic": {
         "description": "Claude অ্যাক্সেসের জন্য টোকেন লগইন ব্যবহার করে।"
-      },
-      "antigravity": {
-        "description": "Google Cloud Code Assist-এর জন্য ব্রাউজার OAuth ব্যবহার করে।"
       }
     },
     "status": {

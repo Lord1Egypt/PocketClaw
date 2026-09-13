@@ -200,9 +200,6 @@
       },
       "anthropic": {
         "description": "Memakai masuk dengan token untuk mengakses Claude."
-      },
-      "antigravity": {
-        "description": "Memakai OAuth peramban untuk Google Cloud Code Assist."
       }
     },
     "status": {

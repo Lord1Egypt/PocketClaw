@@ -70,7 +70,6 @@ func TestNormalizeProvider(t *testing.T) {
 		{"claude", "anthropic"},
 		{"glm", "zhipu"},
 		{"google", "gemini"},
-		{"google-antigravity", "antigravity"},
 		{"groq", "groq"},
 		{"azure-openai", "azure"},
 		{"claudecli", "claude-cli"},

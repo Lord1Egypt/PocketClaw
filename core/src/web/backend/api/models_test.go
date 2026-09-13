@@ -277,60 +277,6 @@ func TestHasModelConfiguration_OAuthWithoutMappedCredentialFallsBackToAPIKey(t *
 	}
 }
 
-func TestHandleListModels_AntigravityImplicitOAuthAvailability(t *testing.T) {
-	configPath, cleanup := setupOAuthTestEnv(t)
-	defer cleanup()
-	resetOAuthHooks(t)
-	resetModelProbeHooks(t)
-
-	cfg, err := config.LoadConfig(configPath)
-	if err != nil {
-		t.Fatalf("LoadConfig() error = %v", err)
-	}
-	cfg.ModelList = []*config.ModelConfig{{
-		ModelName: "gemini-flash",
-		Provider:  "antigravity",
-		Model:     "gemini-3-flash",
-	}}
-	err = config.SaveConfig(configPath, cfg)
-	if err != nil {
-		t.Fatalf("SaveConfig() error = %v", err)
-	}
-
-	if err := auth.SetCredential(oauthProviderGoogleAntigravity, &auth.AuthCredential{
-		AccessToken: "antigravity-token",
-		Provider:    oauthProviderGoogleAntigravity,
-		AuthMethod:  "oauth",
-	}); err != nil {
-		t.Fatalf("SetCredential() error = %v", err)
-	}
-
-	h := NewHandler(configPath)
-	mux := http.NewServeMux()
-	h.RegisterRoutes(mux)
-
-	rec := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/api/models", nil)
-	mux.ServeHTTP(rec, req)
-
-	if rec.Code != http.StatusOK {
-		t.Fatalf("status = %d, want %d, body=%s", rec.Code, http.StatusOK, rec.Body.String())
-	}
-
-	var resp struct {
-		Models []modelResponse `json:"models"`
-	}
-	if unmarshalErr := json.Unmarshal(rec.Body.Bytes(), &resp); unmarshalErr != nil {
-		t.Fatalf("Unmarshal() error = %v", unmarshalErr)
-	}
-	if len(resp.Models) != 1 {
-		t.Fatalf("len(models) = %d, want 1", len(resp.Models))
-	}
-	if !resp.Models[0].Available {
-		t.Fatal("antigravity model available = false, want true with stored credential even without auth_method")
-	}
-}
-
 func TestHandleListModels_BedrockUsesAmbientCredentialStatus(t *testing.T) {
 	configPath, cleanup := setupOAuthTestEnv(t)
 	defer cleanup()
@@ -994,20 +940,6 @@ func TestHandleAddModel_RejectsMissingCLIProviderCommand(t *testing.T) {
 	}
 	if !strings.Contains(rec.Body.String(), `provider "claude-cli" is not available for new models`) {
 		t.Fatalf("body = %q, want missing cli command error", rec.Body.String())
-	}
-}
-
-func TestHandleAddModel_DefaultsAntigravityToOAuth(t *testing.T) {
-	configPath, cleanup := setupOAuthTestEnv(t)
-	defer cleanup()
-
-	added := addModelAndLoadLatest(t, configPath, `{
-		"model_name":"gemini-flash",
-		"provider":"antigravity",
-		"model":"gemini-3-flash"
-	}`)
-	if got := added.AuthMethod; got != "oauth" {
-		t.Fatalf("auth_method = %q, want %q", got, "oauth")
 	}
 }
 
@@ -1972,16 +1904,6 @@ func TestHandleListModels_ReturnsProviderOptionsWithoutPersistingLegacyMigration
 		t.Fatal("bedrock provider option missing")
 	} else if !option.CreateAllowed {
 		t.Fatal("bedrock should stay creatable and defer AWS credential failures to runtime")
-	}
-	if option, ok := optionsByID["antigravity"]; !ok {
-		t.Fatal("antigravity provider option missing")
-	} else {
-		if option.DefaultAuthMethod != "oauth" {
-			t.Fatalf("antigravity default_auth_method = %q, want %q", option.DefaultAuthMethod, "oauth")
-		}
-		if !option.AuthMethodLocked {
-			t.Fatal("antigravity auth method should be locked")
-		}
 	}
 	if option, ok := optionsByID["qwen-portal"]; !ok {
 		t.Fatal("qwen-portal provider option missing")

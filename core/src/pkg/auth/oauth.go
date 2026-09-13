@@ -49,31 +49,20 @@ func OpenAIOAuthConfig() OAuthProviderConfig {
 	}
 }
 
-// GoogleAntigravityOAuthConfig returns the OAuth configuration for Google Cloud Code Assist (Antigravity).
-// Client credentials are the same ones used by OpenCode/pi-ai for Cloud Code Assist access.
-func GoogleAntigravityOAuthConfig() OAuthProviderConfig {
-	// These are the same client credentials used by the OpenCode antigravity plugin.
-	clientID := decodeBase64(
-		"MTA3MTAwNjA2MDU5MS10bWhzc2luMmgyMWxjcmUyMzV2dG9sb2poNGc0MDNlcC5hcHBzLmdvb2dsZXVzZXJjb250ZW50LmNvbQ==",
-	)
-	clientSecret := decodeBase64("R09DU1BYLUs1OEZXUjQ4NkxkTEoxbUxCOHNYQzR6NnFEQWY=")
-	return OAuthProviderConfig{
-		Issuer:       "https://accounts.google.com/o/oauth2/v2",
-		TokenURL:     "https://oauth2.googleapis.com/token",
-		ClientID:     clientID,
-		ClientSecret: clientSecret,
-		Scopes:       "https://www.googleapis.com/auth/cloud-platform https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/cclog https://www.googleapis.com/auth/experimentsandconfigs",
-		Port:         51121,
-	}
-}
-
-func decodeBase64(s string) string {
-	data, err := base64.StdEncoding.DecodeString(s)
-	if err != nil {
-		return s
-	}
-	return string(data)
-}
+// The Google Cloud Code Assist ("Antigravity") OAuth configuration used to live
+// here. It is deliberately not shipped in v0.2.0.
+//
+// Its client ID and secret were not PocketClaw's: the source comment recorded
+// them as the same credentials used by another project's plugin. That is not a
+// secret disclosure — an installed-app OAuth client cannot keep one, which is
+// why RFC 8252 and Google's desktop-client model do not treat it as
+// confidential. The release concern is ownership: a third party can revoke
+// those credentials at any time, and every PocketClaw user's provider would
+// stop working for a reason PocketClaw could neither predict nor fix.
+//
+// The provider may return under a PocketClaw-owned OAuth client. Reintroducing
+// it with someone else's is the thing this removal exists to prevent. See
+// PC-DEF-023 and docs/DECISIONS.md.
 
 // GenerateState generates a random state string for OAuth CSRF protection.
 func GenerateState() (string, error) {
@@ -545,11 +534,10 @@ func ExchangeCodeForTokens(cfg OAuthProviderConfig, code, codeVerifier, redirect
 		tokenURL = cfg.TokenURL
 	}
 
-	// Determine provider name from config
+	// OpenAI is the only browser-OAuth provider shipped in v0.2.0. The Google
+	// branch that used to live here went with the Antigravity removal; see
+	// PC-DEF-023.
 	provider := "openai"
-	if cfg.TokenURL != "" && strings.Contains(cfg.TokenURL, "googleapis.com") {
-		provider = "google-antigravity"
-	}
 
 	resp, err := http.PostForm(tokenURL, data)
 	if err != nil {

@@ -200,9 +200,6 @@
       },
       "anthropic": {
         "description": "يستخدم تسجيل الدخول بالرمز للوصول إلى Claude."
-      },
-      "antigravity": {
-        "description": "يستخدم مصادقة OAuth عبر المتصفح لخدمة Google Cloud Code Assist."
       }
     },
     "status": {

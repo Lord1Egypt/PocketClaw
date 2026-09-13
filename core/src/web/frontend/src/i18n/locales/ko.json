@@ -200,9 +200,6 @@
       },
       "anthropic": {
         "description": "Claude 접근에 토큰 로그인을 사용합니다."
-      },
-      "antigravity": {
-        "description": "Google Cloud Code Assist에 브라우저 OAuth를 사용합니다."
       }
     },
     "status": {

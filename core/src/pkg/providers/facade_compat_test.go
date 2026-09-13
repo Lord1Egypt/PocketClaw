@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	cliprovider "github.com/sipeed/picoclaw/pkg/providers/cli"
-	oauthprovider "github.com/sipeed/picoclaw/pkg/providers/oauth"
 )
 
 func TestNormalizeToolCallFacadeMatchesCLIProvider(t *testing.T) {
@@ -35,10 +34,4 @@ func TestNormalizeToolCallFacadeMatchesCLIProvider(t *testing.T) {
 	if got.Arguments["path"] != want.Arguments["path"] {
 		t.Fatalf("Arguments[path] = %v, want %v", got.Arguments["path"], want.Arguments["path"])
 	}
-}
-
-func TestAntigravityFacadeSignaturesRemainAvailable(t *testing.T) {
-	var _ func(string) (string, error) = FetchAntigravityProjectID
-	var _ func(string, string) ([]AntigravityModelInfo, error) = FetchAntigravityModels
-	var _ AntigravityModelInfo = oauthprovider.AntigravityModelInfo{}
 }

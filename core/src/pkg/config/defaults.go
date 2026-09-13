@@ -236,14 +236,6 @@ func DefaultConfig() *Config {
 				APIBase:   "https://api.shengsuanyun.com/v1",
 			},
 
-			// Antigravity (Google Cloud Code Assist) - OAuth only
-			{
-				ModelName:  "gemini-flash",
-				Provider:   "antigravity",
-				Model:      "gemini-3-flash",
-				AuthMethod: "oauth",
-			},
-
 			// GitHub Copilot - https://github.com/settings/tokens
 			{
 				ModelName:  "copilot-gpt-5.4",
