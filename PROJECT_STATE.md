@@ -34,11 +34,76 @@ evidence and describe the state at the date of each entry.
 | Exposure-audit state-basis HEAD | `25753cef5fa4d956e11d37b5a6176cdef977f015` (verified PC-DEF-019 closeout; the audit closeout commit follows it) |
 | Final release exposure audit | **CLOSED / PASS** on the re-run at `6031898`. No release blocker remains for the GitHub / direct APK release. `PC-DEF-022`, `PC-DEF-023` and `PC-DEF-024` have all since been RESOLVED; only `PC-DEF-006` (F-Droid path) and `PC-DEF-012` remain open |
 | Production candidate | **BUILT AND GATED.** `4d4bc33a…`, 63,472,307 bytes, one v2 signer `176dca6b…`; production artifact gate 57 PASS / 0 FAIL / 0 SKIPPED. Private validation evidence — not installed, published or accepted |
-| Next authorized milestone | **Samsung physical round for PC-DEF-049..055 on the Verification APK below.** The APK is built, gated and archived; no device was attached to the session that built it, so nothing is physically verified. Samsung acceptance of the production candidate follows, under its own prompt, with a migration / clean-install / data-safeguard plan; that candidate is production-signed, so it can never be installed over this development-signed build |
+| Next authorized milestone | **Samsung physical round for PC-DEF-056/057 on a new Verification APK.** PC-DEF-030/032/033/049/051/053 are physically verified PASS; PC-DEF-050/052/055 remain unverified. Earlier note, still current: **Samsung physical round for PC-DEF-049..055 on the Verification APK below.** The APK is built, gated and archived; no device was attached to the session that built it, so nothing is physically verified. Samsung acceptance of the production candidate follows, under its own prompt, with a migration / clean-install / data-safeguard plan; that candidate is production-signed, so it can never be installed over this development-signed build |
 | Verification APK (PC-DEF-049..055) | `6df7abaa6bec5a5124d21d30b582fc37d2837be036fa75e93eb3d30d5634894c`, 63,528,459 bytes, development signer `15cf75f9945d5354e75707e0326b7cffc60ac51a68df38156db318ef4578a27c`, Dart AOT `d5d52742ab6cc5672e7c3910dc20c50e5c4da430c80d65c49501d12ea17a7968`. Source gate 26/26, artifact gate 24/24, native ELF audit 188 PASS / 0 FAIL. Archived read-only at `build/forensic/apk-6df7abaa…/` with its private R8 material separated. LOCAL TEST / NON-RELEASABLE |
 | Staged Core freshness | **CURRENT.** Rebuilt from the PC-DEF-052..055 source commit `7bb0810` and staged in `2bab839`, which touches no build input. Fingerprint `212131a86b5d089030c911af8f2c827eaa1c096fd2aab6978f13bf1a95f166a6` (was `181cfcbd…`), BuildTime `2026-09-13T19:56:34+0000`; `libpocketclaw.so` 37,659,200 bytes `eb6fd342…`, `libpocketclaw-web.so` 25,516,352 bytes `a28d78f1…`. `core.staged_freshness` passes |
 | Flutter suite | Green — 497 passed, 0 failed — and the **complete** suite is now a release gate (`flutter.suite`) |
 | Public release asset policy | APK only. An AAB is a Play-upload artifact and is never a public release asset — `PC-DEF-021` |
+
+## 2026-09-14 — Telegram readiness race and logging hardening
+
+Samsung results moved the Telegram diagnosis decisively, and two defects follow.
+A third identifier collision: the owner allocated **PC-DEF-054** to the readiness
+race, but 054 was already the signature-plaintext defect, so the race is
+**PC-DEF-056** and the logging work **PC-DEF-057**.
+
+**Physically verified PASS, now RESOLVED in the log:** PC-DEF-032 (real OpenCode
+Go inference), PC-DEF-049 (Manage Provider present, including provider deletion
+and credential management), PC-DEF-053 (Telegram replied
+`PC-E-AI-004` with the actionable disabled-model text, classified and delivered
+per the runtime log), and **PC-DEF-051**, which was never a
+missing-registration defect: the device shows `getMyCommands → ok=true`,
+`registered=14`, and the menu visibly exposes `/start` and the rest.
+
+**PC-DEF-056 — the final bot chat opened before the runtime was ready. Root cause
+proven in source, two independent faults.**
+
+1. `telegram_onboarding_page.dart` called `pausePolling()` on
+   `paused`/`hidden`/`detached` — exactly the window the user spends in Telegram.
+   So the pairing result was never consumed while it became ready: no token, no
+   config, no Telegram channel. The bot chat Telegram navigated to belonged to a
+   bot PocketClaw had not finished creating. On return, `resumePolling()` did all
+   of it at once, which is why the second Open Chat worked and why no manual
+   restart was ever involved.
+2. `connected` was declared as soon as `_reloadCore()` returned, and that returns
+   when the restart has been *requested* — `restartCore` hands Android one intent
+   and comes back. Configuration applied is not runtime running.
+
+Fixed by keeping polling alive across the handoff (still bounded by the pairing's
+`expiresAt`, with `restore()` covering a killed process), and by gating
+`connected` on Core reporting the channel running through PC-DEF-027's
+`resolveTelegramRuntimeState` — bounded at 45 s, polled rather than slept, with a
+failed status read counted as silence rather than failure. On reaching connected
+the flow opens the bot chat itself, exactly once, so no second action is needed. A
+runtime that never starts yields `runtimeNotReady`: the bot is saved, the start is
+outstanding, and the user is never sent into a dead chat.
+
+The tests found a bug the device could not have shown cheaply: `reset()` during
+the readiness wait did not abort it, so a cancelled pairing whose runtime came up
+later declared itself connected and opened a chat the user had walked away from.
+
+**PC-DEF-057 — structured log fields were not recursively redacted.** Two shapes
+survived: a field *named* for a credential whose value no pattern recognises
+(`token: "hunter2"` is not `sk-…`, has no vendor prefix, is not `KEY=value`), and
+anything nested in a map, slice or struct, which the `default:` branch handed
+straight to the encoder. The sensitive-name list held three entries and none of
+them was `api_key`, `authorization`, `bot_token` or `password`.
+
+Now a central layer classifies field names — normalised, substring-matched, so
+`bot_token`, `proxy_password`, `crypto_passphrase` and `x-opencode-session` are
+all caught — and walks non-primitives by JSON shape, so what is checked is exactly
+what the encoder would have written. DEBUG stays worth reading: a bool is never
+redacted, `_present`/`_set`/`_changed`/`_count`/`_digest` suffixes survive, and
+`auth_method`, `changed_fields` and `token_type` are metadata. Added the owner's
+exemplar line, `provider.request`/`provider.response`/`provider.transport_failed`,
+with endpoints reduced to scheme+host+path and header facts as booleans.
+
+Verification: 46 redaction cases driven by a canary chosen so only the name rule
+can catch it, including an end-to-end pass through the real emit path at every
+level reading the writer's bytes. `pkg/logger` 50 tests. Full Go suite green under
+`-tags goolm` apart from the staged-Core freshness guard, which correctly reports
+the pair as stale for the source commit. `flutter analyze` clean, Flutter **561
+passed**, frontend **475 passed**, `tsc -b` and ESLint clean.
 
 ## 2026-09-13 — Onboarding privacy, actionable errors, signature secrets
 

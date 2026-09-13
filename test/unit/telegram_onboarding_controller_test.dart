@@ -93,9 +93,17 @@ class MemoryStorage implements PairingStorage {
 }
 
 class Harness {
-  Harness({DateTime Function()? clock, Future<String?> Function(String)? resolveDeepLink}) {
+  Harness({
+    DateTime Function()? clock,
+    Future<String?> Function(String)? resolveDeepLink,
+    Future<bool> Function()? telegramRuntimeRunning,
+    Duration? runtimeReadyTimeout,
+  }) {
     if (resolveDeepLink != null) {
       resolvedLinks = resolveDeepLink;
+    }
+    if (telegramRuntimeRunning != null) {
+      runtimeRunning = telegramRuntimeRunning;
     }
     controller = TelegramOnboardingController(
       client: client,
@@ -118,6 +126,13 @@ class Harness {
         resolveRequests.add(rawUrl);
         return resolvedLinks(rawUrl);
       },
+      telegramRuntimeRunning: () async {
+        runtimeChecks++;
+        return runtimeRunning();
+      },
+      // Short, so a readiness test does not sit out the production wait.
+      runtimeReadyTimeout: runtimeReadyTimeout ?? const Duration(milliseconds: 400),
+      runtimePollInterval: const Duration(milliseconds: 10),
       storage: storage,
       clock: clock ?? DateTime.now,
     );
@@ -132,6 +147,11 @@ class Harness {
   /// anything else has to be resolved and may come back null.
   Future<String?> Function(String) resolvedLinks =
       (rawUrl) async => rawUrl.startsWith('https://t.me/') ? rawUrl : null;
+
+  /// Core's report that the Telegram channel is running. Ready by default, so
+  /// only a test about readiness has to think about it.
+  Future<bool> Function() runtimeRunning = () async => true;
+  int runtimeChecks = 0;
 
   late final TelegramOnboardingController controller;
 
@@ -153,6 +173,7 @@ Future<void> waitFor(bool Function() predicate) async {
 
 void main() {
   _deepLinkGroup();
+  _readinessGroup();
   test('start issues a pairing and begins waiting for Telegram', () async {
     final h = Harness();
     await h.controller.start();
@@ -241,28 +262,31 @@ void main() {
     h.controller.dispose();
   });
 
-  test('backgrounding pauses polling and returning resumes it', () async {
+  // PC-DEF-056. Polling used to stop while the app was backgrounded, which is
+  // exactly the window the user spends in Telegram. The pairing result could
+  // not be consumed until they came back, so the bot chat Telegram showed them
+  // was silent with no command menu.
+  test('polling continues across the handoff to Telegram', () async {
     final h = Harness();
     await h.controller.start();
     expect(h.controller.isPolling, isTrue);
 
-    h.controller.pausePolling();
-    expect(h.controller.isPolling, isFalse);
-    final callsWhilePaused = h.client.statusCalls;
-    await Future<void>.delayed(const Duration(milliseconds: 60));
-    expect(
-      h.client.statusCalls,
-      callsWhilePaused,
-      reason: 'polling must stop while the app is backgrounded',
-    );
+    final before = h.client.statusCalls;
+    // The app is in Telegram here. Nothing stops the pairing being polled.
+    await waitFor(() => h.client.statusCalls > before);
 
-    // The pairing itself must survive Telegram taking focus.
     expect(h.controller.pairing, isNotNull);
     expect(h.controller.stage, TelegramOnboardingStage.awaitingConfirmation);
+    h.controller.dispose();
+  });
+
+  test('resuming is a no-op when polling is already live', () async {
+    final h = Harness();
+    await h.controller.start();
+    expect(h.controller.isPolling, isTrue);
 
     h.controller.resumePolling();
     expect(h.controller.isPolling, isTrue);
-    await waitFor(() => h.client.statusCalls > callsWhilePaused);
     h.controller.dispose();
   });
 
@@ -274,7 +298,6 @@ void main() {
         const Duration(minutes: 10),
       );
       await h.controller.start();
-      h.controller.pausePolling();
       final before = h.client.statusCalls;
 
       h.controller.resumePolling();
@@ -477,7 +500,6 @@ void main() {
     final h = Harness(clock: () => now);
     h.client.expiresAt = now.add(const Duration(minutes: 10));
     await h.controller.start();
-    h.controller.pausePolling();
 
     expect(h.controller.timeRemaining, const Duration(minutes: 10));
     now = now.add(const Duration(minutes: 4));
@@ -620,6 +642,234 @@ void _deepLinkGroup() {
       expect(h.openedUrls.length, 2);
       expect(h.openedUrls[0], isNot(h.openedUrls[1]),
           reason: 'a reconnect pairs a different suggested bot');
+    });
+  });
+}
+
+/// PC-DEF-056. The user must never be dropped into a bot chat that is not ready.
+///
+/// The physical symptom: onboarding finished, Telegram opened the new bot chat,
+/// and the bot was silent with no command menu until the owner returned to
+/// PocketClaw and pressed Open Chat a second time. Two causes, both here.
+void _readinessGroup() {
+  group('PC-DEF-056 runtime readiness', () {
+    /// Drives a pairing to the point where the service says it is ready.
+    Future<Harness> completing({
+      Future<bool> Function()? runtime,
+      Duration? timeout,
+    }) async {
+      final h = Harness(
+        telegramRuntimeRunning: runtime,
+        runtimeReadyTimeout: timeout,
+      );
+      h.client.statusQueue.add(
+        const TelegramPairingStatus(state: PairingState.ready),
+      );
+      await h.controller.start();
+      return h;
+    }
+
+    test('connected is reached only once Core reports the channel running',
+        () async {
+      var running = false;
+      final h = await completing(
+        runtime: () async => running,
+        timeout: const Duration(seconds: 5),
+      );
+
+      // Configuration is written and Core restarted, but the channel is not up.
+      await waitFor(
+        () => h.controller.stage == TelegramOnboardingStage.startingRuntime,
+      );
+      expect(h.savedCredentials, isNotNull,
+          reason: 'the token is persisted before the wait, not after');
+      expect(h.controller.stage, isNot(TelegramOnboardingStage.connected));
+
+      running = true;
+      await waitFor(
+        () => h.controller.stage == TelegramOnboardingStage.connected,
+      );
+      h.controller.dispose();
+    });
+
+    // The whole point: no second action by the user.
+    test('the bot chat is opened automatically on reaching connected', () async {
+      final h = await completing();
+      await waitFor(
+        () => h.controller.stage == TelegramOnboardingStage.connected,
+      );
+
+      expect(
+        h.openedUrls.where((u) => u.startsWith('https://t.me/')).length,
+        greaterThan(0),
+        reason: 'reaching the bot must take no second Open Chat press',
+      );
+      h.controller.dispose();
+    });
+
+    test('the bot chat is never opened before the runtime is running', () async {
+      var running = false;
+      final h = await completing(
+        runtime: () async => running,
+        timeout: const Duration(seconds: 5),
+      );
+      await waitFor(
+        () => h.controller.stage == TelegramOnboardingStage.startingRuntime,
+      );
+
+      expect(h.openedUrls, isEmpty,
+          reason: 'an inactive bot chat is the defect');
+
+      running = true;
+      await waitFor(
+        () => h.controller.stage == TelegramOnboardingStage.connected,
+      );
+      expect(h.openedUrls, isNotEmpty);
+      h.controller.dispose();
+    });
+
+    test('the automatic open happens exactly once', () async {
+      final h = await completing();
+      await waitFor(
+        () => h.controller.stage == TelegramOnboardingStage.connected,
+      );
+      final afterConnect = h.openedUrls.length;
+
+      // A resume, a rebuild and a second listener callback must not reopen it.
+      h.controller.resumePolling();
+      h.controller.resumePolling();
+      await Future<void>.delayed(const Duration(milliseconds: 40));
+
+      expect(h.openedUrls.length, afterConnect);
+      h.controller.dispose();
+    });
+
+    // Bounded, because an unbounded wait is a hang.
+    test('a runtime that never starts is reported, not waited on forever',
+        () async {
+      final h = await completing(
+        runtime: () async => false,
+        timeout: const Duration(milliseconds: 150),
+      );
+
+      await waitFor(
+        () => h.controller.stage == TelegramOnboardingStage.failed,
+      );
+      expect(h.controller.errorKind, TelegramOnboardingErrorKind.runtimeNotReady);
+      expect(h.openedUrls, isEmpty,
+          reason: 'a failed start must not send the user into a dead chat');
+      // The configuration is sound; only the start is outstanding.
+      expect(h.savedCredentials, isNotNull);
+      h.controller.dispose();
+    });
+
+    // Silence right after a restart is not a failure: Core is not reporting yet.
+    test('a status read that throws is treated as not-yet-running', () async {
+      var attempts = 0;
+      final h = await completing(
+        runtime: () async {
+          attempts++;
+          if (attempts < 3) throw StateError('host unavailable');
+          return true;
+        },
+        timeout: const Duration(seconds: 5),
+      );
+
+      await waitFor(
+        () => h.controller.stage == TelegramOnboardingStage.connected,
+      );
+      expect(attempts, greaterThanOrEqualTo(3));
+      h.controller.dispose();
+    });
+
+    test('the configuration is applied exactly once across the wait', () async {
+      var running = false;
+      final h = await completing(
+        runtime: () async => running,
+        timeout: const Duration(seconds: 5),
+      );
+      await waitFor(
+        () => h.controller.stage == TelegramOnboardingStage.startingRuntime,
+      );
+      final reloadsDuringWait = h.reloads;
+
+      running = true;
+      await waitFor(
+        () => h.controller.stage == TelegramOnboardingStage.connected,
+      );
+
+      expect(h.reloads, reloadsDuringWait,
+          reason: 'waiting for readiness must not re-apply the configuration');
+      expect(h.reloads, 1);
+      expect(h.client.collectCalls, 1,
+          reason: 'the token is collected exactly once');
+      h.controller.dispose();
+    });
+
+    test('a reconnect runs the readiness gate again for the new bot', () async {
+      final h = await completing();
+      await waitFor(
+        () => h.controller.stage == TelegramOnboardingStage.connected,
+      );
+      final firstOpens = h.openedUrls.length;
+
+      h.client.statusQueue.add(
+        const TelegramPairingStatus(state: PairingState.ready),
+      );
+      await h.controller.retry();
+      await waitFor(
+        () => h.controller.stage == TelegramOnboardingStage.connected,
+      );
+
+      expect(h.openedUrls.length, greaterThan(firstOpens),
+          reason: 'a replacement bot gets its own automatic open');
+      expect(h.client.collectCalls, 2);
+      h.controller.dispose();
+    });
+
+    test('cancelling before readiness opens nothing', () async {
+      var running = false;
+      final h = await completing(
+        runtime: () async => running,
+        timeout: const Duration(seconds: 5),
+      );
+      await waitFor(
+        () => h.controller.stage == TelegramOnboardingStage.startingRuntime,
+      );
+
+      await h.controller.reset();
+      running = true;
+      await Future<void>.delayed(const Duration(milliseconds: 60));
+
+      expect(h.controller.stage, TelegramOnboardingStage.idle);
+      expect(h.openedUrls, isEmpty);
+      h.controller.dispose();
+    });
+
+    // The owner contract from PC-DEF-044: exactly one paired numeric owner.
+    test('the owner identity written to Core is unchanged by the gate', () async {
+      final h = await completing();
+      await waitFor(
+        () => h.controller.stage == TelegramOnboardingStage.connected,
+      );
+
+      final credentials = h.savedCredentials!;
+      expect(credentials.ownerUserId, greaterThan(0));
+      expect(credentials.token, isNotEmpty);
+      h.controller.dispose();
+    });
+
+    // No sleep-based patch: the gate is driven by the readiness signal, so a
+    // runtime that comes up immediately must not be made to wait.
+    test('a runtime already running does not delay the flow', () async {
+      final h = await completing();
+      await waitFor(
+        () => h.controller.stage == TelegramOnboardingStage.connected,
+      );
+
+      expect(h.runtimeChecks, lessThanOrEqualTo(2),
+          reason: 'readiness is polled, not slept through');
+      h.controller.dispose();
     });
   });
 }

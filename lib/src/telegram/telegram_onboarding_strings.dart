@@ -28,6 +28,7 @@ abstract final class TelegramOnboardingStrings {
 
   static const botCreated = 'Bot created';
   static const configuring = 'Configuring PocketClaw…';
+  static const startingRuntime = 'Starting Telegram…';
 
   static const connected = 'Connected';
   static const connectedBody = 'Your PocketClaw bot is ready.';
@@ -97,6 +98,9 @@ abstract final class TelegramOnboardingStrings {
       case TelegramOnboardingErrorKind.configurationFailed:
         return 'The bot was created, but PocketClaw could not finish '
             'configuring it. Try again, or set it up manually.';
+      case TelegramOnboardingErrorKind.runtimeNotReady:
+        return 'Your bot is saved, but Telegram has not started yet. '
+            'Open PocketClaw and try again in a moment.';
       case TelegramOnboardingErrorKind.serviceError:
       case null:
         return 'Something went wrong during setup. Try again, '

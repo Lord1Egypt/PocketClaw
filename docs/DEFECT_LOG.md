@@ -306,6 +306,11 @@ skipping Flutter AOT. The three new defects are therefore recorded as
 names the number the owner used. This is the same renumbering the PC-DEF-047
 entry below already carries a note about.
 
+A third collision followed on 2026-09-14: the owner allocated **PC-DEF-054** to
+the Telegram readiness race, but 054 was already the signature-plaintext defect.
+That race is recorded as **PC-DEF-056**, and the logging-hardening work beside it
+as **PC-DEF-057**.
+
 Two later owner requirements, and two items this session disclosed and was told
 to act on, took the next free identifiers: **PC-DEF-052** (Telegram onboarding
 exposed the hosting origin), **PC-DEF-053** (actionable user-facing runtime and
@@ -329,6 +334,126 @@ with:
   and the default-model state. PC-DEF-047's fix is confirmed by the screenshots;
   nothing below claims model deletion is missing. The management gap is at the
   **provider** level.
+
+### PC-DEF-056 — The final bot chat opened before the Telegram runtime was ready
+
+- **Owner's number:** PC-DEF-054, which was already in use for the signature
+  plaintext defect below. Recorded as 056, the next free identifier.
+- **Discovered:** Samsung physical testing, 2026-09-14, owner-reproduced.
+- **Component:** `lib/src/ui/telegram_onboarding_page.dart`,
+  `lib/src/telegram/telegram_onboarding_controller.dart`.
+- **Symptom, exactly as reproduced:** Connect → Telegram opens → bot creation
+  completes → Telegram opens the new bot chat → **the bot does not answer and has
+  no command menu**. Returning to PocketClaw, opening the Telegram tab and
+  pressing Open Chat a second time made everything work. No manual Service or
+  Gateway restart was needed, which is what distinguishes this from PC-DEF-030.
+- **Root cause — PROVEN in source, two independent faults.**
+  1. **Polling stopped while the app was backgrounded.**
+     `telegram_onboarding_page.dart` called `controller.pausePolling()` on
+     `paused`/`hidden`/`detached` — and that window is precisely the time the user
+     spends in Telegram confirming the bot. So `fetchStatus` was never called
+     while the pairing became ready, `collectCredentials` never ran, the token was
+     never written, and Core had no Telegram channel at all. The bot chat Telegram
+     navigated to was therefore a bot PocketClaw had not finished creating. On
+     return, `resumePolling()` polled immediately, collected the token, wrote the
+     config and reloaded Core — which is why the second Open Chat worked and why
+     no manual restart was involved.
+  2. **`connected` was declared on config-applied, not on runtime-running.**
+     `_completePairing` set the `connected` stage as soon as `_reloadCore()`
+     returned, and that returns when the restart has been *requested*:
+     `ServiceManager.restartCore` hands Android one intent and comes back. Even
+     once the token was consumed, the flow could present a ready bot before the
+     channel had started.
+- **Resolution.**
+  - Polling continues across the handoff. It stays bounded by the pairing's own
+    `expiresAt`, and if Android kills the timer or the process instead, the
+    existing `restore()` plus the resume catch-up still picks it up — so nothing
+    now depends on the foreground loop being alive at the moment the result
+    lands.
+  - A new `startingRuntime` stage, and `connected` is reached only when Core
+    reports the Telegram channel running. Readiness is asked through
+    `resolveTelegramRuntimeState` — PC-DEF-027's single definition of "Telegram is
+    running" — rather than a second definition invented here. The wait is
+    **bounded** (45 s in production) and polls; it is not a sleep. A status read
+    that fails or a Core that is not reporting yet counts as silence, not failure,
+    which is PC-DEF-027's rule applied to a restart in progress.
+  - On reaching `connected` the flow **opens the bot chat itself**, exactly once,
+    so reaching a working bot takes no second action. A failure to open is not an
+    error: the configuration is live and Open Chat remains on the screen.
+  - A runtime that never comes up produces `runtimeNotReady`: "your bot is saved,
+    but Telegram has not started yet". The token and owner are persisted and
+    sound, so the user is told to retry the start, never that setup failed — and
+    is never sent into a dead chat.
+- **A real bug the tests found before the device could.** `reset()` during the
+  readiness wait did not abort it, so a cancelled pairing whose runtime came up
+  later went on to declare itself connected and open a bot chat the user had
+  walked away from. The wait now re-checks the stage every iteration, and a
+  cancelled wait is not reported as a runtime failure either.
+- **What did not change:** PC-DEF-052's no-visible-hosting-page fix is intact —
+  the readiness gate sits after the launch, not in place of it. The owner contract
+  (exactly one positive numeric owner in `AllowFrom`), token handling, reconnect,
+  replace and PC-DEF-030's automatic apply are all untouched.
+- **Verification:** 11 cases in `telegram_onboarding_controller_test.dart` under
+  "PC-DEF-056 runtime readiness" — connected only once running is reported, the
+  chat opened automatically, never opened before running, opened exactly once
+  across resumes, a never-starting runtime reported rather than waited on, a
+  throwing status read treated as not-yet-running, configuration applied exactly
+  once across the wait, reconnect re-running the gate, cancellation opening
+  nothing, the owner identity unchanged, and an already-running runtime not
+  delayed. Plus the rewritten background test (polling continues) and the widget
+  test at page level. Flutter suite 561 passed.
+- **Status:** FIXED IN SOURCE. **Physical confirmation required** — the exact
+  owner flow, with no return to PocketClaw and no second Open Chat.
+
+### PC-DEF-057 — Structured log fields were not recursively redacted
+
+- **Discovered:** owner logging-hardening requirement, 2026-09-14.
+- **Component:** `pkg/logger`, new `pkg/logger/field_redaction.go`.
+- **Problem — two shapes a secret survived in.** `sanitizeFieldsForLog` matched a
+  short list of **exact** field names and pattern-redacted string values. So:
+  1. A field *named* for a credential whose value no pattern recognises went
+     through verbatim. `token: "hunter2"` is not `sk-…`, has no vendor prefix and
+     is not `KEY=value`, so every pattern declined it. The sensitive-name list
+     held only `session_key`, `scope_key` and `route_main_session` — not
+     `api_key`, `authorization`, `bot_token`, `password` or any of the rest.
+  2. A secret nested inside a map, slice or struct never reached the string case
+     at all: the `default:` branch handed the value straight to the encoder.
+- **Resolution:** a central layer that classifies field **names** and walks
+  values recursively. Names are normalised (`X-Api-Key`, `x_api_key`, `apiKey`
+  compare equal) and matched on substrings, because credentials arrive under
+  compound names nobody can enumerate — `bot_token`, `proxy_password`,
+  `crypto_passphrase`, `channel_access_token`, `x-opencode-session`.
+  Non-primitives are walked by JSON shape, so structs, nested structs and typed
+  collections all go through the same key-aware pass and what is checked is
+  exactly what the encoder would have written. The walk is depth-bounded.
+- **What is deliberately kept, because DEBUG has to stay worth reading.** A bool
+  is never redacted whatever it is called — `authorization_present=true` and
+  `api_key_changed=true` are the point of logging them. Names ending `_present`,
+  `_set`, `_configured`, `_changed`, `_count`, `_length`, `_digest`, `_hash`,
+  `_type`, `_kind` are facts *about* a credential, and `auth_method`,
+  `changed_fields`, `token_type` are metadata. Provider, model, protocol, method,
+  sanitised endpoint, status, duration, counts, trace id and error class all
+  survive.
+- **`session` is treated as sensitive**, including bare. This codebase already
+  redacted every session identifier it named, `x-opencode-session` is a secret
+  header value, and the facts about a session survive through the suffix rule.
+- **Also added:** `provider.request` / `provider.response` /
+  `provider.transport_failed` DEBUG lines in the OpenAI-compatible provider — the
+  owner's exemplar, and the line missing when an inference failure had to be
+  reconstructed. Endpoints are reduced to scheme, host and path, so a key in
+  `?key=`, a signed URL's signature, userinfo credentials and an auth fragment
+  are all dropped rather than inspected. Header facts are booleans.
+- **Verification:** 46 redaction cases in `pkg/logger/field_redaction_test.go`,
+  driven by a canary (`POCKETCLAW_TEST_SECRET_123456`) chosen so that only the
+  *name* rule can catch it — 23 credential field names, 8 nesting shapes
+  (nested map, twice-nested, header map, slice of maps, struct, pointer to
+  struct, struct in a map, string slice), pattern redaction still applying under
+  an innocent name, useful metadata surviving, presence booleans surviving,
+  numeric credentials redacted, existing omit/internal rules unregressed and now
+  applied when nested, bounded depth, and an end-to-end pass through the real
+  emit path at DEBUG/INFO/WARN/ERROR reading the writer's bytes. Plus 3 endpoint
+  sanitisation cases. `pkg/logger` 50 tests pass.
+- **Status:** **RESOLVED.** The redaction tests are the gate the owner asked for.
 
 ### PC-DEF-052 — Managed Telegram onboarding exposed the hosting origin
 
@@ -449,8 +574,16 @@ with:
   mode" or "Error processing message", nothing-selected is distinguished from
   nothing-configured, a reasonless blocked provider still fails closed, and
   limited mode stays opt-in).
-- **Status:** FIXED IN SOURCE. **Physical confirmation required** — the first-run
-  Telegram case on the device.
+- **Status:** **RESOLVED — PHYSICALLY VERIFIED PASS**, Samsung, 2026-09-14. The
+  device replied over Telegram with:
+
+  > PocketClaw is connected, but every configured AI model is disabled.
+  > Open PocketClaw, enable a model, then send this again.
+  > (PC-E-AI-004)
+
+  The runtime log confirms `PC-E-AI-004` was classified and delivered. That is the
+  disabled-model arm; the never-configured arm (`PC-E-AI-001`) and the
+  stale-selection arm (`PC-E-AI-003`) remain source-verified only.
 
 ### PC-DEF-054 — Config-change signature carried credentials in plaintext
 
@@ -583,8 +716,11 @@ with:
   `delete-provider-dialog.test.tsx`, 9 in `manage-provider-sheet.test.tsx`, 4 in
   `provider-section.test.tsx`. Full Go backend suite and the 469-test frontend
   suite green.
-- **Status:** FIXED IN SOURCE. **Physical confirmation required.** Not closed by
-  unit tests, per the owner's instruction.
+- **Status:** **RESOLVED — PHYSICALLY VERIFIED PASS in the tested flow**, Samsung,
+  2026-09-14. The owner can open Manage Provider and the provider-level
+  management UI is present, including provider deletion and credential
+  management. Credential rotation reaching the runtime (`PC-DEF-050`) is a
+  separate check and is still outstanding.
 
 ### PC-DEF-050 — A replaced API key was saved but never reached the running gateway
 
@@ -691,8 +827,23 @@ with:
   API error. That single line separates "never called", "called and rejected by
   Telegram", and "called, accepted, and the menu is a client-side view problem".
   **No further change may be made to registration by guess.**
-- **Status:** **OPEN. Observability fixed in source; cause UNKNOWN.** Physical
-  diagnosis required.
+- **Status:** **RESOLVED — command registration is PHYSICALLY VERIFIED WORKING**,
+  Samsung, 2026-09-14. The device log shows `getMyCommands → ok=true`,
+  `Telegram command menu already current`, `registered=14`, and the Telegram UI
+  exposes the menu including `/start`, `/help`, `/stop`, `/show`, `/list`, `/use`,
+  `/btw`, `/switch`, `/model` and `/check`.
+
+  So this was never a missing-registration or missing-definition defect. The
+  owner's original observation — an empty menu — is explained by `PC-DEF-056`:
+  onboarding had not finished applying the configuration, so the Telegram channel
+  had not started, so nothing had registered anything yet. The fix that mattered
+  was the readiness race, not the command set.
+
+  **Do not re-debug Telegram API connectivity or command definitions.** The
+  observability improvement made here stands on its own merit: the success log now
+  reports what was actually published rather than the number of definitions
+  received, which is what made the device evidence above readable in the first
+  place.
 
 ### PC-DEF-045 — The Save/Update action was not reachable in the real flow
 

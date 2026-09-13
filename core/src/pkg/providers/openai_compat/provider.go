@@ -510,11 +510,19 @@ func (p *Provider) Chat(
 	// Custom headers last, so an operator can still override anything above.
 	p.applyCustomHeaders(req)
 
+	logProviderRequest(
+		"chat_completions", req, model, len(messages), len(tools), false, len(jsonData))
+	started := time.Now()
+
 	resp, err := p.httpClient.Do(req)
 	if err != nil {
+		logProviderTransportFailure(
+			"chat_completions", p.apiBase+"/chat/completions", model, started, err)
 		return nil, fmt.Errorf("failed to send request: %w", err)
 	}
 	defer resp.Body.Close()
+
+	logProviderResponse("chat_completions", resp, model, started)
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, common.HandleErrorResponse(resp, p.apiBase)

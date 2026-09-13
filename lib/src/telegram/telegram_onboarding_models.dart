@@ -212,4 +212,12 @@ enum TelegramOnboardingErrorKind {
 
   /// Core's configuration could not be written or reloaded.
   configurationFailed,
+
+  /// The configuration was saved, but Core never reported the Telegram channel
+  /// as running within the wait.
+  ///
+  /// PC-DEF-056. Distinct from [configurationFailed]: the token and owner are
+  /// persisted and sound, so the user is told to retry the start rather than
+  /// redo the setup — and is never sent into a bot chat that cannot answer.
+  runtimeNotReady,
 }

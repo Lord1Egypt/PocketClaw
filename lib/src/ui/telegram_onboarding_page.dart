@@ -57,15 +57,17 @@ class _TelegramOnboardingPageState extends State<TelegramOnboardingPage>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    // Telegram taking focus must not end the pairing. Polling stops while the
-    // app is backgrounded and resumes with an immediate check on return.
+    // PC-DEF-056. Backgrounding no longer stops polling. The user spends that
+    // window in Telegram confirming the bot, and stopping meant the pairing
+    // result could not be consumed until they came back -- so the bot chat
+    // Telegram showed them was silent. Resume is a catch-up for the case where
+    // Android killed the timer or the process, and is a no-op otherwise.
     switch (state) {
+      case AppLifecycleState.resumed:
+        widget.controller.resumePolling();
       case AppLifecycleState.paused:
       case AppLifecycleState.hidden:
       case AppLifecycleState.detached:
-        widget.controller.pausePolling();
-      case AppLifecycleState.resumed:
-        widget.controller.resumePolling();
       case AppLifecycleState.inactive:
         break;
     }
@@ -105,6 +107,11 @@ class _TelegramOnboardingPageState extends State<TelegramOnboardingPage>
         );
       case TelegramOnboardingStage.configuring:
         return _buildBusy(context, TelegramOnboardingStrings.configuring);
+      // PC-DEF-056. A distinct step, because it is a distinct fact: the
+      // configuration is saved and what is outstanding is Core reporting the
+      // channel running. No Open Chat action is offered until it does.
+      case TelegramOnboardingStage.startingRuntime:
+        return _buildBusy(context, TelegramOnboardingStrings.startingRuntime);
       case TelegramOnboardingStage.connected:
         return _buildConnected(context);
       case TelegramOnboardingStage.expired:

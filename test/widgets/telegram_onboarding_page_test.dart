@@ -63,11 +63,17 @@ class Fixture {
         opened.add(url);
         return true;
       },
+      // PC-DEF-056. Connected now means Core reports the channel running, so a
+      // widget test has to say whether it does. Ready by default.
+      telegramRuntimeRunning: () async => runtimeRunning,
+      runtimeReadyTimeout: const Duration(milliseconds: 300),
+      runtimePollInterval: const Duration(milliseconds: 10),
     );
   }
 
   final client = StubClient();
   final opened = <String>[];
+  bool runtimeRunning = true;
   TelegramBotCredentials? savedCredentials;
   int reloads = 0;
   late final TelegramOnboardingController controller;
@@ -381,8 +387,12 @@ void main() {
 
     final pairingId = f.controller.pairing!.pairingId;
 
+    // PC-DEF-056. Backgrounding must NOT stop polling: that window is the one
+    // the user spends in Telegram, and stopping meant the pairing result could
+    // only be consumed once they came back -- so the bot chat Telegram showed
+    // them was silent.
     await background(tester);
-    expect(f.controller.isPolling, isFalse);
+    expect(f.controller.isPolling, isTrue);
     expect(f.controller.pairing!.pairingId, pairingId);
     expect(find.text('Open Telegram'), findsOneWidget);
 

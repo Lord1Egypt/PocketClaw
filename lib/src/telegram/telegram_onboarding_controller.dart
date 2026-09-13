@@ -3,6 +3,9 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 
+import '../core/pocketclaw_channel.dart';
+import '../core/status_snapshot.dart';
+import '../core/telegram_runtime_state.dart';
 import 'telegram_config_writer.dart';
 import 'telegram_deep_link.dart';
 import 'telegram_onboarding_client.dart';
@@ -25,7 +28,16 @@ enum TelegramOnboardingStage {
   /// Writing the token into Core and reloading the Telegram channel.
   configuring,
 
-  /// Done. The bot is configured and ready to chat.
+  /// The configuration is saved and Core is restarting; waiting for Core to
+  /// report the Telegram channel as running.
+  ///
+  /// PC-DEF-056. Configuration applied is not the same fact as runtime running,
+  /// and the flow used to declare success on the first. The user was then handed
+  /// a bot chat whose channel had not started, so the bot did not answer and had
+  /// no command menu.
+  startingRuntime,
+
+  /// Done: Core reports the Telegram channel running, so the bot can answer.
   connected,
 
   /// The pairing window closed before Telegram confirmed anything.
@@ -55,6 +67,9 @@ class TelegramOnboardingController extends ChangeNotifier {
     required Future<void> Function() reloadCore,
     required Future<bool> Function(String url) openUrl,
     Future<String?> Function(String rawUrl)? resolveDeepLink,
+    Future<bool> Function()? telegramRuntimeRunning,
+    Duration? runtimeReadyTimeout,
+    Duration? runtimePollInterval,
     PairingStorage? storage,
     DateTime Function()? clock,
     bool serviceConfigured = true,
@@ -63,6 +78,10 @@ class TelegramOnboardingController extends ChangeNotifier {
         _reloadCore = reloadCore,
         _openUrl = openUrl,
         _resolveDeepLink = resolveDeepLink ?? _defaultResolveDeepLink,
+        _telegramRuntimeRunning =
+            telegramRuntimeRunning ?? defaultTelegramRuntimeRunning,
+        _runtimeReadyTimeout = runtimeReadyTimeout ?? const Duration(seconds: 45),
+        _runtimePollInterval = runtimePollInterval ?? const Duration(seconds: 1),
         _storage = storage,
         _clock = clock ?? DateTime.now,
         _serviceConfigured = serviceConfigured;
@@ -72,7 +91,20 @@ class TelegramOnboardingController extends ChangeNotifier {
   final Future<void> Function() _reloadCore;
   final Future<bool> Function(String url) _openUrl;
   final Future<String?> Function(String rawUrl) _resolveDeepLink;
+
+  /// Whether Core reports the Telegram channel as running. The single
+  /// authoritative readiness signal; see PC-DEF-027's resolver.
+  final Future<bool> Function() _telegramRuntimeRunning;
+
+  /// Bounded, because an unbounded wait is a hang. On expiry the flow reports
+  /// that the configuration is saved but the runtime has not started.
+  final Duration _runtimeReadyTimeout;
+  final Duration _runtimePollInterval;
+
   final PairingStorage? _storage;
+
+  /// Whether this pairing has already had its bot chat opened automatically.
+  bool _autoOpenedBotChat = false;
   final DateTime Function() _clock;
 
   /// False when this build has no PocketClaw onboarding endpoint. The flow
@@ -186,12 +218,19 @@ class TelegramOnboardingController extends ChangeNotifier {
     return _openUrl(url);
   }
 
-  /// Suspends polling while the app is in the background. The pairing itself
-  /// is untouched, so returning from Telegram resumes the same session.
-  void pausePolling() => _stopPolling();
-
-  /// Resumes polling and checks once immediately, so returning from Telegram
-  /// does not wait out a full poll interval before showing progress.
+  /// Checks once immediately and makes sure polling is running.
+  ///
+  /// PC-DEF-056. Polling used to be *stopped* while the app was backgrounded,
+  /// which is precisely the window the user spends in Telegram confirming the
+  /// bot. The pairing result therefore could not be consumed until they came
+  /// back: the token was not collected, Core had no Telegram channel, and the
+  /// bot chat Telegram dropped them into was silent with no command menu.
+  ///
+  /// Polling now continues across the handoff, so the result is consumed at the
+  /// earliest moment it exists. It is still bounded — the pairing's own
+  /// `expiresAt` ends it — and if Android kills the process instead, `restore`
+  /// picks the pairing back up. This is called on resume as a catch-up for that
+  /// case and is a no-op when polling is already live.
   void resumePolling() {
     if (_stage != TelegramOnboardingStage.awaitingConfirmation &&
         _stage != TelegramOnboardingStage.botCreated) {
@@ -206,6 +245,7 @@ class TelegramOnboardingController extends ChangeNotifier {
   Future<void> retry() async {
     await _storage?.clear();
     _pairing = null;
+    _autoOpenedBotChat = false;
     await start();
   }
 
@@ -216,6 +256,7 @@ class TelegramOnboardingController extends ChangeNotifier {
     _pairing = null;
     _errorKind = null;
     _connectedBotUsername = null;
+    _autoOpenedBotChat = false;
     _setStage(TelegramOnboardingStage.idle);
   }
 
@@ -292,7 +333,32 @@ class TelegramOnboardingController extends ChangeNotifier {
 
       _connectedBotUsername = credentials.botUsername;
       await _storage?.clear();
+
+      // PC-DEF-056. A reload that returns has been *requested*, not completed:
+      // restartCore hands Core one intent and comes back. Declaring success here
+      // handed the user a bot whose channel had not started, so it did not answer
+      // and had no command menu until something later brought it up.
+      //
+      // Core registers the Telegram command menu as part of starting the
+      // channel, so the channel reporting running is the earliest point at which
+      // the bot can answer. The app cannot observe setMyCommands itself -- Core
+      // exposes no per-channel command state -- so running is the authoritative
+      // signal available, and it is the one the gate uses.
+      _setStage(TelegramOnboardingStage.startingRuntime);
+      if (!await _awaitTelegramRunning()) {
+        if (_disposed) return;
+        // A wait the user cancelled is not a runtime failure, and must not
+        // overwrite the state they moved to.
+        if (_stage != TelegramOnboardingStage.startingRuntime) return;
+        // The token and owner are persisted and sound; only the start is
+        // outstanding. Never "connected", and never an open bot chat.
+        _fail(TelegramOnboardingErrorKind.runtimeNotReady);
+        return;
+      }
+      if (_disposed || _stage != TelegramOnboardingStage.startingRuntime) return;
+
       _setStage(TelegramOnboardingStage.connected);
+      await _openConnectedBotChatOnce();
     } on TelegramOnboardingException catch (error) {
       _fail(error.kind);
     } catch (_) {
@@ -301,6 +367,50 @@ class TelegramOnboardingController extends ChangeNotifier {
       // says so and offers a retry rather than claiming success.
       _fail(TelegramOnboardingErrorKind.configurationFailed);
     }
+  }
+
+  /// Polls the readiness signal until it says running, or the wait expires.
+  ///
+  /// Silence is not failure: right after a restart Core is not reporting at all,
+  /// and PC-DEF-027 is explicit that an absent runtime report is silence rather
+  /// than a verdict. So a false answer keeps waiting and only the deadline
+  /// decides -- which is what makes this bounded rather than a hang.
+  Future<bool> _awaitTelegramRunning() async {
+    final deadline = _clock().add(_runtimeReadyTimeout);
+    // The stage is re-checked every iteration, not just _disposed: a reset or a
+    // retry while the wait is in flight has to abandon it. Without that, a
+    // cancelled pairing whose runtime came up later went on to declare itself
+    // connected and open a bot chat the user had walked away from.
+    while (!_disposed && _stage == TelegramOnboardingStage.startingRuntime) {
+      bool running;
+      try {
+        running = await _telegramRuntimeRunning();
+      } catch (_) {
+        // A failed status read is silence too.
+        running = false;
+      }
+      if (_disposed || _stage != TelegramOnboardingStage.startingRuntime) {
+        return false;
+      }
+      if (running) return true;
+      if (!_clock().isBefore(deadline)) return false;
+      await Future<void>.delayed(_runtimePollInterval);
+    }
+    return false;
+  }
+
+  /// Opens the finished bot's chat, at most once per completed pairing.
+  ///
+  /// The contract is that reaching the bot takes no second action by the user, so
+  /// the flow opens it rather than waiting to be asked. Exactly once: a rebuild,
+  /// a resume or a second listener callback must not reopen Telegram.
+  ///
+  /// A failure to open is deliberately not an error. The configuration is live
+  /// and the bot works; the screen still offers Open Chat.
+  Future<void> _openConnectedBotChatOnce() async {
+    if (_autoOpenedBotChat) return;
+    _autoOpenedBotChat = true;
+    await openBotChat();
   }
 
   Future<void> _expire() async {
@@ -373,5 +483,29 @@ Future<String?> _defaultResolveDeepLink(String rawUrl) async {
     return await resolver.resolve(rawUrl);
   } finally {
     resolver.close();
+  }
+}
+
+/// The production readiness signal: Core's own report that the Telegram channel
+/// is running.
+///
+/// Routed through [resolveTelegramRuntimeState] so there is one definition of
+/// "Telegram is running" in the app (PC-DEF-027) rather than a second one
+/// invented here from a token or a username. `configuredAndValid` is true
+/// because this is only ever asked immediately after the flow wrote the
+/// configuration itself.
+Future<bool> defaultTelegramRuntimeRunning() async {
+  try {
+    final health = await PocketClawChannel.checkHealth(detail: true);
+    if (health['isHealthy'] != true) return false;
+    final snapshot = StatusSnapshot.tryParse(health['detail'] as String?);
+    final state = resolveTelegramRuntimeState(
+      configuredAndValid: true,
+      channels: snapshot?.channels,
+    );
+    return telegramMayReportConnected(state);
+  } catch (_) {
+    // An unavailable host or a malformed snapshot is silence, not a verdict.
+    return false;
   }
 }
