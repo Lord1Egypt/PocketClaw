@@ -8,6 +8,7 @@ import '../generated/l10n/app_localizations.dart';
 import 'app_theme.dart';
 import 'device_feedback_models.dart';
 import 'pocketclaw_channel.dart';
+import 'public_mode_reconciliation.dart';
 import 'plain_text_log_sanitizer.dart';
 import 'status_snapshot.dart';
 import 'umeng_device_reporter.dart';
@@ -1040,6 +1041,41 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
 
   Future<void> setServiceLaunchAutoStart(bool enabled) =>
       _commitLaunchAutoStart(serviceEnabled: enabled);
+
+  /// True once this process has already reconciled, so a repeat is a no-op.
+  bool _publicModeReconciled = false;
+
+  /// Re-applies Public Mode once the Dashboard has an owner. PC-DEF-040.
+  ///
+  /// Called at one host lifecycle transition -- leaving the setup page -- and
+  /// never polled. PC-DEF-039 keeps an unclaimed dashboard on loopback, so
+  /// without this a user with Public Mode on finishes setup and stays private
+  /// with nothing in the UI explaining why.
+  ///
+  /// The privileged rebind stays native: this asks the host, and the Android
+  /// bridge token never enters Dart or the WebView.
+  Future<PublicModeReconciliation> reconcilePublicModeAfterSetup() async {
+    if (!Platform.isAndroid) return PublicModeReconciliation.notRequested;
+    try {
+      final decision = resolvePublicModeReconciliation(
+        dashboardInitialized: await PocketClawChannel.dashboardAuthInitialized(),
+        desiredPublic: _publicMode,
+        alreadyPublic: _publicModeReconciled,
+      );
+      if (decision == PublicModeReconciliation.reapply) {
+        _publicModeReconciled = true;
+        await PocketClawChannel.applyPublicMode(true);
+        _addLog('Public Mode applied now that the Dashboard has a password');
+        notifyListeners();
+      }
+      return decision;
+    } catch (e) {
+      // Never fatal. The preference is intact and the next service start
+      // resolves exposure from it.
+      debugPrint('Public Mode reconciliation failed: $e');
+      return PublicModeReconciliation.dashboardNotInitialized;
+    }
+  }
 
   Future<void> setGatewayLaunchAutoStart(bool enabled) async {
     final wasEnabled = _launchAutoStart.gatewayEnabled;

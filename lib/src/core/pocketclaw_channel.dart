@@ -162,6 +162,10 @@ class PocketClawChannel {
 
   /// Persists Telegram credentials through Core so config.json and
   /// .security.yml are updated together by Core's normal SaveConfig path.
+  /// Whether the Dashboard already has an owner. PC-DEF-040.
+  static Future<bool> dashboardAuthInitialized() async =>
+      await _channel.invokeMethod<bool>('dashboardAuthInitialized') ?? false;
+
   /// Asks the host to start the Gateway now, over the loopback Android
   /// bridge. Returns Core's status: "ok" or "already_running".
   ///

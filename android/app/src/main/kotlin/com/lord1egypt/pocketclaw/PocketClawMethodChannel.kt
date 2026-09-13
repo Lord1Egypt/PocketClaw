@@ -64,6 +64,8 @@ class PocketClawMethodChannel(
             "http://127.0.0.1:18800/api/pocketclaw/android/github/status"
         private const val GATEWAY_START_BRIDGE_URL =
             "http://127.0.0.1:18800/api/pocketclaw/android/gateway/start"
+        private const val DASHBOARD_AUTH_STATUS_URL =
+            "http://127.0.0.1:18800/api/auth/status"
     }
 
     // Copy a content:// URI to the app cache and return the absolute file path.
@@ -118,6 +120,21 @@ class PocketClawMethodChannel(
                         result.success(true)
                     } catch (e: Exception) {
                         result.error("START_FAILED", e.message, null)
+                    }
+                }
+                "dashboardAuthInitialized" -> {
+                    // PC-DEF-040. Read once, at a host lifecycle transition --
+                    // never polled. /api/auth/status is unauthenticated and
+                    // carries no secret: it answers whether an owner exists,
+                    // which is exactly what reconciliation needs to know.
+                    try {
+                        result.success(readDashboardAuthInitialized())
+                    } catch (e: Exception) {
+                        result.error(
+                            "DASHBOARD_AUTH_STATUS_FAILED",
+                            e.message ?: "Could not read dashboard auth status",
+                            null,
+                        )
                     }
                 }
                 "getPublicMode" -> {
@@ -752,6 +769,29 @@ class PocketClawMethodChannel(
                 )
             }
             return JSONObject(payload.ifBlank { "{}" }).optString("status").ifBlank { "ok" }
+        } finally {
+            connection.disconnect()
+        }
+    }
+
+    /**
+     * Whether the Dashboard already has an owner.
+     *
+     * No bridge token: this endpoint is deliberately unauthenticated and
+     * returns only two booleans. The privileged call that may follow -- the
+     * network-mode re-apply -- keeps the token, on loopback, as it always has.
+     */
+    private fun readDashboardAuthInitialized(): Boolean {
+        val connection = (URL(DASHBOARD_AUTH_STATUS_URL).openConnection() as HttpURLConnection).apply {
+            requestMethod = "GET"
+            connectTimeout = 1_000
+            readTimeout = 2_000
+            setRequestProperty("Accept", "application/json")
+        }
+        try {
+            if (connection.responseCode !in 200..299) return false
+            val payload = connection.inputStream.bufferedReader().use { it.readText() }
+            return JSONObject(payload.ifBlank { "{}" }).optBoolean("initialized", false)
         } finally {
             connection.disconnect()
         }

@@ -7,7 +7,10 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:webview_flutter_android/webview_flutter_android.dart';
 
+import 'package:provider/provider.dart';
+
 import 'package:pocketclaw/src/core/pocketclaw_channel.dart';
+import 'package:pocketclaw/src/core/service_manager.dart';
 
 import 'package:pocketclaw/src/telegram/telegram_onboarding_config.dart';
 import 'package:pocketclaw/src/ui/telegram_onboarding_launcher.dart';
@@ -147,7 +150,9 @@ class _WebViewAndroidState extends State<WebViewAndroid>
           },
           onNavigationRequest: (_) => NavigationDecision.navigate,
           onUrlChange: (change) {
+            final previous = _loadedUrl;
             _loadedUrl = change.url ?? _loadedUrl;
+            _maybeReconcilePublicMode(previous, _loadedUrl);
             if (mounted && _isLoading) setState(() => _isLoading = false);
           },
         ),
@@ -165,6 +170,26 @@ class _WebViewAndroidState extends State<WebViewAndroid>
     _controller = controller;
     controller.loadRequest(Uri.parse(widget.url));
   }
+
+  /// PC-DEF-040. Leaving the dashboard setup page is the one deterministic
+  /// moment at which a first-run password may just have been created.
+  ///
+  /// This is a transition, not a poll: it fires only when the URL actually
+  /// moves off /launcher-setup, and the host then reads /api/auth/status once
+  /// to find out whether an owner now exists. Arriving at the login page is
+  /// not on its own proof of success -- the setup route also redirects there
+  /// for an already-initialized dashboard -- so the status read, not the
+  /// destination, is what decides.
+  void _maybeReconcilePublicMode(String? previousUrl, String? currentUrl) {
+    if (previousUrl == null || currentUrl == null) return;
+    if (!_isDashboardSetupUrl(previousUrl)) return;
+    if (_isDashboardSetupUrl(currentUrl)) return;
+    if (!mounted) return;
+    unawaited(context.read<ServiceManager>().reconcilePublicModeAfterSetup());
+  }
+
+  static bool _isDashboardSetupUrl(String url) =>
+      Uri.tryParse(url)?.path == '/launcher-setup';
 
   /// Hands the page a file the user chose from Android's own picker.
   ///
