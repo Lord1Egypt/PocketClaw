@@ -35,11 +35,12 @@ evidence and describe the state at the date of each entry.
 | Final release exposure audit | **CLOSED / PASS** on the re-run at `6031898`. No release blocker remains for the GitHub / direct APK release. `PC-DEF-022`, `PC-DEF-023` and `PC-DEF-024` have all since been RESOLVED; only `PC-DEF-006` (F-Droid path) and `PC-DEF-012` remain open |
 | Production candidate | **BUILT AND GATED.** `4d4bc33a…`, 63,472,307 bytes, one v2 signer `176dca6b…`; production artifact gate 57 PASS / 0 FAIL / 0 SKIPPED. Private validation evidence — not installed, published or accepted |
 | Next authorized milestone | **Samsung + desktop physical round for PC-DEF-040 (reopened) on the Verification APK below**, plus the still-unverified PC-DEF-050/052/055/058 and the rest of PC-DEF-057. Then the **PC-DEF-060 desktop managed-onboarding milestone**, which is scoped in the defect log and blocked on one owner decision: Core does not know the onboarding service URL. Physically verified PASS: PC-DEF-030/032/033/049/051/053/056/059 and PC-DEF-057's token-metric and provider-DEBUG fidelity The APK is built, gated and archived; no device was attached to the session that built it, so nothing is physically verified. Samsung acceptance of the production candidate follows, under its own prompt, with a migration / clean-install / data-safeguard plan; that candidate is production-signed, so it can never be installed over this development-signed build |
-| Verification APK (PC-DEF-059 second attempt, PC-DEF-060) | `41af6c4f96e8a1e64c62be075e0441ba072cd4b218b910c3c8e79daae749dbb1`, 63,554,799 bytes, development signer `15cf75f9…`, Dart AOT `af14f0ec2b1604181e4d2780248e62dcc216778205732232f4eeb0a6b7b86189`. Source gate 27/27 with `flutter.suite 563 passed`, artifact gate 25/25, native ELF 188 PASS / 0 FAIL. The PC-DEF-059 fix is confirmed inside the packaged Core, not just the source tree. Archived read-only at `build/forensic/apk-41af6c4f…/`, whose `FORENSIC.md` lists the exact per-defect device checks. **PC-DEF-058 still needs a FRESH INSTALL.** LOCAL TEST / NON-RELEASABLE; nothing in it is physically verified |
+| Verification APK (PC-DEF-040 reopened) | `ce151adbde6dc40e368908e213cd0178d04236ed7ab227be7771f051bb03ce80`, 63,554,007 bytes, development signer `15cf75f9…`, Dart AOT `af14f0ec2b1604181e4d2780248e62dcc216778205732232f4eeb0a6b7b86189`. Source gate 27/27 with `flutter.suite 563 passed`, artifact gate 25/25, native ELF 188 PASS / 0 FAIL. PC-DEF-040's reconciler is confirmed inside the packaged Core. Archived read-only at `build/forensic/apk-ce151adb…/`. **PC-DEF-040 and PC-DEF-058 both need a FRESH INSTALL.** LOCAL TEST / NON-RELEASABLE; nothing in it is physically verified |
+| Verification APK (PC-DEF-059 second attempt, PC-DEF-060, superseded) | `41af6c4f96e8a1e64c62be075e0441ba072cd4b218b910c3c8e79daae749dbb1`, 63,554,799 bytes, development signer `15cf75f9…`, Dart AOT `af14f0ec2b1604181e4d2780248e62dcc216778205732232f4eeb0a6b7b86189`. Source gate 27/27 with `flutter.suite 563 passed`, artifact gate 25/25, native ELF 188 PASS / 0 FAIL. The PC-DEF-059 fix is confirmed inside the packaged Core, not just the source tree. Archived read-only at `build/forensic/apk-41af6c4f…/`, whose `FORENSIC.md` lists the exact per-defect device checks. **PC-DEF-058 still needs a FRESH INSTALL.** LOCAL TEST / NON-RELEASABLE; nothing in it is physically verified |
 | Verification APK (PC-DEF-057/058/059, superseded) | `6bb32b387cc82c436247fde50c04216ae2a434a95015ad0f3a147b6d5935ba18`, 63,552,763 bytes, development signer `15cf75f9…`, Dart AOT `af14f0ec2b1604181e4d2780248e62dcc216778205732232f4eeb0a6b7b86189`. Source gate 26/26 with `flutter.suite 563 passed`, artifact gate 25/25, native ELF 188 PASS / 0 FAIL. Archived read-only at `build/forensic/apk-6bb32b38…/`, whose `FORENSIC.md` lists the exact per-defect device checks. **PC-DEF-058 needs a FRESH INSTALL.** LOCAL TEST / NON-RELEASABLE; nothing in it is physically verified |
 | Verification APK (PC-DEF-056/057, superseded) | `7c8eefd399318b6187b0fb87c8bd687d7d08c3537959e31f38767a642908e3cb`, 63,539,059 bytes, development signer `15cf75f9…`, Dart AOT `007c23b6be22a9a44f429a53f8fb9eaf930180e67bb20f111cadceedb68e22f4`. Source gate 26/26 with `flutter.suite 561 passed`, artifact gate 24/24, native ELF 188 PASS / 0 FAIL. Archived read-only at `build/forensic/apk-7c8eefd3…/`. LOCAL TEST / NON-RELEASABLE. **Nothing in it is physically verified** |
 | Verification APK (PC-DEF-049..055, superseded) | `6df7abaa6bec5a5124d21d30b582fc37d2837be036fa75e93eb3d30d5634894c`, 63,528,459 bytes, development signer `15cf75f9945d5354e75707e0326b7cffc60ac51a68df38156db318ef4578a27c`, Dart AOT `d5d52742ab6cc5672e7c3910dc20c50e5c4da430c80d65c49501d12ea17a7968`. Source gate 26/26, artifact gate 24/24, native ELF audit 188 PASS / 0 FAIL. Archived read-only at `build/forensic/apk-6df7abaa…/` with its private R8 material separated. LOCAL TEST / NON-RELEASABLE |
-| Staged Core freshness | **CURRENT.** Rebuilt from the PC-DEF-059/060 source commit `0e597e2` and staged in `0b896e6`, which touches no build input. Fingerprint `5d19bf4a961ae35fcdc57e334fc85b25562c36f9ecdbc1a9bbfee3360a41a32c` (was `66c247c3…`), BuildTime `2026-09-13T23:42:30+0000`; `libpocketclaw.so` 37,725,504 bytes `06e52555…`, `libpocketclaw-web.so` 25,517,120 bytes `4feeb44c…`. `core.staged_freshness` and `native.elf_audit_contract` both pass |
+| Staged Core freshness | **CURRENT.** Rebuilt from the PC-DEF-040 source commit `fd8fcd2` and staged in the commit that follows it, which touches no build input. Fingerprint `886ce8370eacbf473376f668732a257dd0a387708c8c9f9de3b7bb0532c533db` (was `5d19bf4a…`), BuildTime `2026-09-14T00:21:08+0000`; `libpocketclaw.so` 37,725,504 bytes `43225f1d…`, `libpocketclaw-web.so` 25,517,120 bytes `3801abbb…`. `core.staged_freshness` and `native.elf_audit_contract` both pass |
 | Flutter suite | Green — 497 passed, 0 failed — and the **complete** suite is now a release gate (`flutter.suite`) |
 | Public release asset policy | APK only. An AAB is a Play-upload artifact and is never a public release asset — `PC-DEF-021` |
 
@@ -95,6 +96,30 @@ Verification: Go suite green under `-tags goolm` apart from the staged-Core fres
 guard (correct for the source commit); `web/backend` and `web/backend/api` green with
 11 new cases; `flutter analyze` clean and Flutter **563 passed**; frontend **502
 passed**.
+
+Incidentally cleared: the long-standing `gofmt` struct-alignment drift in
+`web/backend/unclaimed_dashboard_exposure_test.go`, which had been reported as
+pre-existing for several milestones. `gofmt -l pkg/ web/` is now empty, so it is usable
+as a clean signal again.
+
+**Verification APK built, gated and archived.**
+`ce151adbde6dc40e368908e213cd0178d04236ed7ab227be7771f051bb03ce80`, 63,554,007 bytes,
+`0.2.0+62`, development signer `15cf75f9…`, Core fingerprint `886ce837…` on both
+packaged binaries, BuildTime `2026-09-14T00:21:08+0000`, Dart AOT `af14f0ec…`
+(5,768,072 bytes).
+
+Gates: source **27 PASS / 0 FAIL / 0 SKIPPED**, artifact **25 PASS / 0 FAIL / 0
+SKIPPED**, native ELF **188 PASS / 0 FAIL / 0 SKIP**, Zero-Pico PASS. PC-DEF-040's fix
+lives entirely inside the Core binaries, so it was verified there rather than in the
+source tree.
+
+`FORENSIC.md` spells out that **PC-DEF-040 and PC-DEF-058 both require a fresh
+install** — PC-DEF-040 because the fix reacts to a *first* claim, so the check is
+meaningless unless the dashboard starts unclaimed, and clearing ownership means clearing
+app data.
+
+No device was attached to this session, so **nothing in this APK is physically
+verified**.
 
 ## 2026-09-14 — PC-DEF-059 refixed server-side, PC-DEF-060, PC-DEF-057 part-verified
 
