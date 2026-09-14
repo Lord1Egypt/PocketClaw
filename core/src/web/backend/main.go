@@ -779,6 +779,20 @@ func main() {
 		Sessions:      dashboardSessions,
 		PasswordStore: passwordStore,
 		StoreError:    authStoreErr,
+		// PC-DEF-040. Resolved when called, not now: the routes are registered
+		// before the HTTP runtime exists, and the runtime is what owns the
+		// listener this re-binds.
+		OnDashboardClaimed: func() {
+			runtime := httpRuntime
+			if runtime == nil {
+				return
+			}
+			if err := runtime.ReconcileAfterDashboardClaimed(); err != nil {
+				logger.WarnC("web", fmt.Sprintf(
+					"Dashboard was claimed but the requested Public Mode could not be "+
+						"applied; it stays reachable locally: %v", err))
+			}
+		},
 	})
 
 	// API Routes (e.g. /api/status)
@@ -826,7 +840,8 @@ func main() {
 			),
 		),
 	)
-	httpRuntime = newLauncherHTTPRuntime(handler, hostInput, effectivePublic, openResult)
+	httpRuntime = newLauncherHTTPRuntime(
+		handler, hostInput, effectivePublic, desiredPublic, openResult)
 	apiHandler.SetLauncherNetworkModeController(httpRuntime)
 
 	// Print startup banner (console mode only). Android captures stdout for a

@@ -392,9 +392,45 @@ with:
   blaming the build, the build blamed only when a host is present without an
   endpoint, and an existing configuration manageable without a host as its own
   stated rule. Two i18n keys added in all 14 locales; parity suite green.
-- **Status:** FIXED IN SOURCE. **Physical confirmation required** — open the
-  Dashboard in a desktop browser with Telegram unconfigured and read the
-  explanation, then with Telegram connected and confirm it is still manageable.
+- **Status:** **PARTIALLY ADDRESSED — the wording is fixed; managed onboarding on
+  desktop is NOT built.** Physically confirmed by the owner, 2026-09-14: the desktop
+  page has the BotFather link, token field, API base and proxy fields, and the
+  convenient "Connect to Telegram" flow is still absent.
+
+#### What remains, scoped but deliberately not built
+
+The owner's architecture is the right one and is recorded here rather than attempted
+in a hurry, because it handles a bot token and the owner identity:
+
+1. A Go onboarding client in Core — `POST /telegram/pairings`, status poll, token
+   collection — mirroring `lib/src/telegram/telegram_onboarding_client.dart`.
+2. Same-origin Dashboard endpoints that proxy it, so the browser never needs
+   cross-origin access to the hosted service and never sees its URL.
+3. Completion reusing the authoritative writer. That already exists:
+   `handleAndroidTelegramConfigure` sets the token, enables the channel, sets
+   `AllowFrom` to exactly one owner, saves, and applies the runtime through
+   PC-DEF-030's path. It should be factored into a shared function rather than
+   reimplemented.
+4. Dashboard UI: Connect, deep link, QR for another device, pairing status,
+   cancellation, expiry, retry, reconnect/replace — with Manual/Advanced retained.
+
+**The blocker, which is why this is its own milestone and not a UI change: Core does
+not know the onboarding service URL.** `POCKETCLAW_ONBOARDING_BASE_URL` is a
+build-time dart-define in the APK; a search of `web/` and `pkg/config/` finds no
+equivalent in Go. Something has to give Core that URL, and the choice has product
+consequences:
+
+- the Android host pushes its compiled-in URL to Core at startup — reuses the single
+  existing source of truth and adds no new place for it to be wrong, but leaves a
+  desktop-only PocketClaw deployment without managed onboarding;
+- a Core config field or an ldflag — covers desktop-only deployments, but creates a
+  second place the URL can be set and therefore be wrong or stale.
+
+Recommended: the host-push path, with a config fallback only if desktop-only
+deployments are in scope. That decision is the owner's, and it is the first step of
+the milestone rather than something to assume.
+
+
 
 ### PC-DEF-058 — First run never requested Android notification permission
 
@@ -533,8 +569,78 @@ with:
   relative, a request-supplied `next` ignored, and the drift guard. Plus the 18
   frontend cases from the first attempt, which still hold. Middleware package 40
   tests.
-- **Status:** FIXED IN SOURCE, second attempt. **Physical confirmation required** —
-  and this time the check is the native flow, not a route test.
+- **Status:** **RESOLVED — PHYSICALLY VERIFIED PASS**, Samsung, 2026-09-14. Native
+  Settings → Manage Telegram / Manage Models → authentication → the requested
+  Dashboard destination. Not to be reopened without contradictory evidence.
+
+  The lesson is recorded because it generalises: the first attempt passed every test
+  it had and failed on the device, because all of that coverage was route-level and
+  the redirect that discarded the destination happened before the routes existed. A
+  navigation fix has to be driven by the URL the native app actually launches.
+
+### PC-DEF-040 — REOPENED: Public Mode was never reconciled after the dashboard was claimed
+
+- **Recorded here for the first time.** The original fix (`66e211f`) lived only in
+  commit messages and code comments, which is part of why its structural gap went
+  unexamined.
+- **Reopened:** Samsung + desktop, 2026-09-14, **physically reproduced**. Public Mode
+  desired ON, dashboard protection active, desktop cannot reach the LAN Dashboard;
+  toggling Public Mode OFF then ON makes it reachable immediately. So the desired
+  state existed and the effective binding was never reconciled to it.
+- **Component:** `web/backend/launcher_http_runtime.go`, `web/backend/api/auth.go`,
+  `web/backend/main.go`.
+- **Root cause — the original fix detected the wrong event.** `PC-DEF-039` narrows an
+  unclaimed dashboard to loopback whatever the user asked for, so "Public Mode ON" and
+  "bound to the LAN" necessarily diverge until something re-applies the preference.
+  The only thing that ever did was **the Android app noticing its embedded WebView
+  navigate away from `/launcher-setup`** (`_maybeReconcilePublicMode` →
+  `reconcilePublicModeAfterSetup` → `applyPublicMode(true)`).
+
+  That is an inference from one client's UI navigation, not the event itself. Any
+  route to a first claim that does not pass through exactly that transition — and
+  there are several, including a claim made in a session where the WebView never
+  reaches the setup page — leaves the listener on loopback with a manual Public Mode
+  toggle as the only recovery. The network-mode bridge and the live rebind were never
+  at fault, which is exactly why OFF→ON worked.
+- **Audited at the owner's request: the recent launcher-login / destination changes
+  are NOT the cause.** `PC-DEF-059`'s work touched `launcher-login.tsx`,
+  `__root.tsx` and `rejectLauncherDashboardAuth`. The last commits to
+  `launcher-setup.tsx`, `webview_android.dart`, `service_manager.dart` and
+  `public_mode_reconciliation.dart` all predate this session — `66e211f` and
+  `aa44135`. The setup path and the reconciliation hook were not modified, and the
+  `?next=` redirect does not bypass them: an uninitialized dashboard still lands on
+  `/launcher-setup`, and `Uri.path` ignores the query so the hook's URL match is
+  unaffected. This is the original fix being incomplete, not a regression I introduced.
+- **Resolution — react to the claim, not to a navigation.** The authoritative moment
+  is `POST /api/auth/setup` succeeding on a **first** claim, and it happens inside
+  Core, which already owns both the listener and the desired preference. The runtime
+  now remembers `desiredPublic` alongside the effective value and exposes
+  `ReconcileAfterDashboardClaimed()`, which the setup handler calls after a first
+  claim — after the response, because applying it replaces the listener carrying that
+  request.
+- **PC-DEF-039 is intact, and that mattered more than the fix.** The hook fires only
+  for a **first** claim, and that path already refuses any non-loopback request, so
+  this only ever re-applies the owner's own preference to a dashboard a local owner
+  has just taken. A remote claim is rejected before the hook, a failed or malformed
+  claim never reaches it, and a password change on an already-owned dashboard does not
+  fire it. An unclaimed dashboard is still narrowed to loopback with Public Mode
+  desired.
+- **Also fixed while here:** an explicit `ApplyPublicMode` now updates
+  `desiredPublic` too. Without that, turning Public Mode off and then claiming a
+  dashboard would have re-widened it from a desire the user had retracted.
+- **The Android-side hook is kept**, unchanged, as a second path. Two independent
+  detectors is the same posture PC-DEF-039 takes about the takeover itself.
+- **Verification:** 6 cases in `web/backend/public_mode_reconciliation_test.go` —
+  the owner's case B (claim applies the requested LAN binding with no toggle), case A
+  (a private dashboard is not exposed by being claimed), idempotence, a retracted
+  desire not resurrected, case C (desired and effective stay coherent across explicit
+  changes), and PC-DEF-039's narrowing asserted beside it. Plus 5 in
+  `web/backend/api/auth_claim_hook_test.go` — a first claim fires it exactly once, a
+  password change does not, a remote first claim is refused and fires nothing, four
+  shapes of failed claim fire nothing, and a host with no controller still succeeds.
+- **Status:** FIXED IN SOURCE. **Physical confirmation required** — case D (fresh
+  install, Public Mode ON, remote first-claim still impossible) needs the device, and
+  so does the headline case.
 
 ### PC-DEF-056 — The final bot chat opened before the Telegram runtime was ready
 

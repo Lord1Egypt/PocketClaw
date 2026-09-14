@@ -8,11 +8,11 @@ import "testing"
 // reopen the takeover.
 func TestUnclaimedDashboardIsNeverExposedBeyondLoopback(t *testing.T) {
 	cases := []struct {
-		name            string
-		desiredPublic   bool
-		initialized     bool
-		wantEffective   bool
-		wantNarrowed    bool
+		name          string
+		desiredPublic bool
+		initialized   bool
+		wantEffective bool
+		wantNarrowed  bool
 	}{
 		{
 			name:          "public requested but nobody owns the dashboard yet",

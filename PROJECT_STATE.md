@@ -34,7 +34,7 @@ evidence and describe the state at the date of each entry.
 | Exposure-audit state-basis HEAD | `25753cef5fa4d956e11d37b5a6176cdef977f015` (verified PC-DEF-019 closeout; the audit closeout commit follows it) |
 | Final release exposure audit | **CLOSED / PASS** on the re-run at `6031898`. No release blocker remains for the GitHub / direct APK release. `PC-DEF-022`, `PC-DEF-023` and `PC-DEF-024` have all since been RESOLVED; only `PC-DEF-006` (F-Droid path) and `PC-DEF-012` remain open |
 | Production candidate | **BUILT AND GATED.** `4d4bc33a…`, 63,472,307 bytes, one v2 signer `176dca6b…`; production artifact gate 57 PASS / 0 FAIL / 0 SKIPPED. Private validation evidence — not installed, published or accepted |
-| Next authorized milestone | **Samsung physical round for PC-DEF-059 (second attempt), PC-DEF-060, PC-DEF-058 and the rest of PC-DEF-057 on the Verification APK below.** Physically verified PASS: PC-DEF-030/032/033/049/051/053/056 and PC-DEF-057's token-metric and provider-DEBUG fidelity. **PC-DEF-059 physically FAILED its first attempt** and is fixed again, server-side. Still unverified: PC-DEF-050, PC-DEF-052, PC-DEF-055, PC-DEF-058, PC-DEF-059, PC-DEF-060 The APK is built, gated and archived; no device was attached to the session that built it, so nothing is physically verified. Samsung acceptance of the production candidate follows, under its own prompt, with a migration / clean-install / data-safeguard plan; that candidate is production-signed, so it can never be installed over this development-signed build |
+| Next authorized milestone | **Samsung + desktop physical round for PC-DEF-040 (reopened) on the Verification APK below**, plus the still-unverified PC-DEF-050/052/055/058 and the rest of PC-DEF-057. Then the **PC-DEF-060 desktop managed-onboarding milestone**, which is scoped in the defect log and blocked on one owner decision: Core does not know the onboarding service URL. Physically verified PASS: PC-DEF-030/032/033/049/051/053/056/059 and PC-DEF-057's token-metric and provider-DEBUG fidelity The APK is built, gated and archived; no device was attached to the session that built it, so nothing is physically verified. Samsung acceptance of the production candidate follows, under its own prompt, with a migration / clean-install / data-safeguard plan; that candidate is production-signed, so it can never be installed over this development-signed build |
 | Verification APK (PC-DEF-059 second attempt, PC-DEF-060) | `41af6c4f96e8a1e64c62be075e0441ba072cd4b218b910c3c8e79daae749dbb1`, 63,554,799 bytes, development signer `15cf75f9…`, Dart AOT `af14f0ec2b1604181e4d2780248e62dcc216778205732232f4eeb0a6b7b86189`. Source gate 27/27 with `flutter.suite 563 passed`, artifact gate 25/25, native ELF 188 PASS / 0 FAIL. The PC-DEF-059 fix is confirmed inside the packaged Core, not just the source tree. Archived read-only at `build/forensic/apk-41af6c4f…/`, whose `FORENSIC.md` lists the exact per-defect device checks. **PC-DEF-058 still needs a FRESH INSTALL.** LOCAL TEST / NON-RELEASABLE; nothing in it is physically verified |
 | Verification APK (PC-DEF-057/058/059, superseded) | `6bb32b387cc82c436247fde50c04216ae2a434a95015ad0f3a147b6d5935ba18`, 63,552,763 bytes, development signer `15cf75f9…`, Dart AOT `af14f0ec2b1604181e4d2780248e62dcc216778205732232f4eeb0a6b7b86189`. Source gate 26/26 with `flutter.suite 563 passed`, artifact gate 25/25, native ELF 188 PASS / 0 FAIL. Archived read-only at `build/forensic/apk-6bb32b38…/`, whose `FORENSIC.md` lists the exact per-defect device checks. **PC-DEF-058 needs a FRESH INSTALL.** LOCAL TEST / NON-RELEASABLE; nothing in it is physically verified |
 | Verification APK (PC-DEF-056/057, superseded) | `7c8eefd399318b6187b0fb87c8bd687d7d08c3537959e31f38767a642908e3cb`, 63,539,059 bytes, development signer `15cf75f9…`, Dart AOT `007c23b6be22a9a44f429a53f8fb9eaf930180e67bb20f111cadceedb68e22f4`. Source gate 26/26 with `flutter.suite 561 passed`, artifact gate 24/24, native ELF 188 PASS / 0 FAIL. Archived read-only at `build/forensic/apk-7c8eefd3…/`. LOCAL TEST / NON-RELEASABLE. **Nothing in it is physically verified** |
@@ -42,6 +42,59 @@ evidence and describe the state at the date of each entry.
 | Staged Core freshness | **CURRENT.** Rebuilt from the PC-DEF-059/060 source commit `0e597e2` and staged in `0b896e6`, which touches no build input. Fingerprint `5d19bf4a961ae35fcdc57e334fc85b25562c36f9ecdbc1a9bbfee3360a41a32c` (was `66c247c3…`), BuildTime `2026-09-13T23:42:30+0000`; `libpocketclaw.so` 37,725,504 bytes `06e52555…`, `libpocketclaw-web.so` 25,517,120 bytes `4feeb44c…`. `core.staged_freshness` and `native.elf_audit_contract` both pass |
 | Flutter suite | Green — 497 passed, 0 failed — and the **complete** suite is now a release gate (`flutter.suite`) |
 | Public release asset policy | APK only. An AAB is a Play-upload artifact and is never a public release asset — `PC-DEF-021` |
+
+## 2026-09-14 — PC-DEF-040 reopened and refixed at the claim; PC-DEF-059 verified
+
+**PC-DEF-059 is PHYSICALLY VERIFIED PASS.** Native Settings → Manage Telegram /
+Manage Models → authentication → the requested destination. The lesson is recorded
+because it generalises: the first attempt passed every test it had and failed on the
+device, because all of that coverage was route-level while the redirect that discarded
+the destination happened before the routes existed.
+
+**PC-DEF-040 reopened — physically reproduced, and it is not a regression I
+introduced.** Audited at the owner's request: the last commits to
+`launcher-setup.tsx`, `webview_android.dart`, `service_manager.dart` and
+`public_mode_reconciliation.dart` all predate this session, and the `?next=` redirect
+does not bypass the setup path (`Uri.path` ignores the query, so the hook's URL match
+is unaffected). The original fix was structurally incomplete.
+
+Root cause: `PC-DEF-039` narrows an unclaimed dashboard to loopback whatever the user
+asked for, so desired and effective necessarily diverge until something re-applies the
+preference — and the only thing that ever did was **the Android app noticing its
+embedded WebView navigate away from `/launcher-setup`**. That is an inference from one
+client's UI navigation rather than the event itself, so any other route to a first
+claim left the listener on loopback with a manual toggle as the only recovery. The
+bridge and the live rebind were never at fault, which is precisely why OFF→ON worked.
+
+Now Core reacts to the claim itself. The runtime remembers `desiredPublic` beside the
+effective value and exposes `ReconcileAfterDashboardClaimed()`, which
+`POST /api/auth/setup` calls after a **first** claim — after the response, since
+applying it replaces the listener carrying that request. PC-DEF-039 is intact and that
+mattered more than the fix: the hook fires only on a first claim, that path already
+refuses any non-loopback request, a remote claim is rejected before reaching it, a
+failed claim never does, and a password change on an owned dashboard does not fire it.
+An explicit `ApplyPublicMode` now also updates `desiredPublic`, so a retracted desire
+is not resurrected by a later claim. The Android hook is kept as a second detector.
+
+**PC-DEF-060 is partially addressed and honestly incomplete.** The wording fix shipped
+and the owner confirmed the desktop page has BotFather, token, API base and proxy — and
+confirmed the convenient "Connect to Telegram" flow is still absent. The owner's
+architecture is right and is scoped in the defect log: a Go onboarding client,
+same-origin proxy endpoints, completion through the existing authoritative writer
+(`handleAndroidTelegramConfigure`, factored out rather than reimplemented), and the
+Dashboard UI.
+
+It is **not built**, and the reason is a blocker worth a decision rather than a guess:
+**Core does not know the onboarding service URL.** It is a build-time dart-define in
+the APK and has no Go equivalent. Either the Android host pushes it to Core at startup
+(one source of truth, but no managed onboarding for a desktop-only deployment) or Core
+gains a config field (covers desktop-only, but a second place to be wrong). That is
+the first step of the milestone.
+
+Verification: Go suite green under `-tags goolm` apart from the staged-Core freshness
+guard (correct for the source commit); `web/backend` and `web/backend/api` green with
+11 new cases; `flutter analyze` clean and Flutter **563 passed**; frontend **502
+passed**.
 
 ## 2026-09-14 — PC-DEF-059 refixed server-side, PC-DEF-060, PC-DEF-057 part-verified
 

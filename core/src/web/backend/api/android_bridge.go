@@ -50,6 +50,9 @@ type androidContextMemoryResponse struct {
 type LauncherNetworkModeController interface {
 	ApplyPublicMode(public bool) error
 	PublicMode() bool
+	// ReconcileAfterDashboardClaimed re-applies the desired exposure once the
+	// dashboard has an owner. PC-DEF-040.
+	ReconcileAfterDashboardClaimed() error
 }
 
 type launcherNetworkModeState struct {

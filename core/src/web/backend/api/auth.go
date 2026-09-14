@@ -32,6 +32,12 @@ type LauncherAuthRouteOpts struct {
 	// non-nil and PasswordStore is nil, auth endpoints fail closed with a
 	// recovery message.
 	StoreError error
+	// OnDashboardClaimed is called after a first claim succeeds, so the exposure
+	// PC-DEF-039 narrowed can be re-applied. PC-DEF-040.
+	//
+	// Optional: a host without a network-mode controller passes nil and the claim
+	// simply changes no binding.
+	OnDashboardClaimed func()
 }
 
 type launcherAuthLoginBody struct {
@@ -61,6 +67,7 @@ func RegisterLauncherAuthRoutes(mux *http.ServeMux, opts LauncherAuthRouteOpts) 
 		store:         opts.PasswordStore,
 		storeErr:      opts.StoreError,
 		loginLimit:    newLoginRateLimiter(),
+		onClaimed:     opts.OnDashboardClaimed,
 	}
 	mux.HandleFunc("POST /api/auth/login", h.handleLogin)
 	mux.HandleFunc("POST /api/auth/logout", h.handleLogout)
@@ -75,6 +82,8 @@ type launcherAuthHandlers struct {
 	store         PasswordStore
 	storeErr      error // set when the store failed to open; drives recovery messages
 	loginLimit    *loginRateLimiter
+	// onClaimed fires after a first claim, never after a password change.
+	onClaimed func()
 }
 
 // isStoreInitialized safely queries the store.
@@ -291,8 +300,26 @@ func (h *launcherAuthHandlers) handleSetup(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	// PC-DEF-040, reopened. This is the authoritative moment the dashboard goes
+	// from unclaimed to owned, and it is the event that had no detector: exposure
+	// was reconciled only when the Android app happened to see its WebView leave
+	// /launcher-setup, so any other route to a first claim left Public Mode
+	// desired-but-not-effective until the user toggled it by hand.
+	//
+	// Only a *first* claim, and the check above already required it to be
+	// loopback-only, so PC-DEF-039 holds: this re-applies the owner's own
+	// preference for a dashboard the owner has just taken.
+	//
+	// After the response, because applying it replaces the listener that is
+	// carrying this request.
+	claimed := !initialized && h.onClaimed != nil
+
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write([]byte(`{"status":"ok"}`))
+
+	if claimed {
+		h.onClaimed()
+	}
 }
 
 func (h *launcherAuthHandlers) validSession(value string) bool {

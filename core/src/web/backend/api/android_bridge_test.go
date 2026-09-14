@@ -15,8 +15,10 @@ import (
 )
 
 type fakeNetworkModeController struct {
-	public bool
-	err    error
+	public         bool
+	desiredPublic  bool
+	err            error
+	reconcileCalls int
 }
 
 func (c *fakeNetworkModeController) ApplyPublicMode(public bool) error {
@@ -28,6 +30,20 @@ func (c *fakeNetworkModeController) ApplyPublicMode(public bool) error {
 }
 
 func (c *fakeNetworkModeController) PublicMode() bool { return c.public }
+
+// PC-DEF-040. Mirrors the real runtime: a no-op unless the user asked for LAN and
+// the listener is not already there.
+func (c *fakeNetworkModeController) ReconcileAfterDashboardClaimed() error {
+	c.reconcileCalls++
+	if c.err != nil {
+		return c.err
+	}
+	if !c.desiredPublic || c.public {
+		return nil
+	}
+	c.public = true
+	return nil
+}
 
 const testAndroidBridgeToken = "process-local-test-bridge-token"
 

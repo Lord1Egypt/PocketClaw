@@ -75,24 +75,63 @@ type launcherHTTPRuntime struct {
 	hostInput string
 	port      string
 	public    bool
-	groups    []*launcherListenerGroup
-	open      func(string, bool, string) (netbind.OpenResult, error)
+	// desiredPublic is what the user asked for, which PC-DEF-039 may have
+	// narrowed. Kept so the preference can be re-applied once the dashboard has
+	// an owner; see ReconcileAfterDashboardClaimed.
+	desiredPublic bool
+	groups        []*launcherListenerGroup
+	open          func(string, bool, string) (netbind.OpenResult, error)
 }
 
 func newLauncherHTTPRuntime(
 	handler http.Handler,
 	hostInput string,
 	public bool,
+	desiredPublic bool,
 	initial netbind.OpenResult,
 ) *launcherHTTPRuntime {
 	return &launcherHTTPRuntime{
-		handler:   handler,
-		hostInput: hostInput,
-		port:      initial.Port,
-		public:    public,
-		groups:    launcherListenerGroups(handler, initial.Listeners),
-		open:      openLauncherListeners,
+		handler:       handler,
+		hostInput:     hostInput,
+		port:          initial.Port,
+		public:        public,
+		desiredPublic: desiredPublic,
+		groups:        launcherListenerGroups(handler, initial.Listeners),
+		open:          openLauncherListeners,
 	}
+}
+
+// ReconcileAfterDashboardClaimed re-applies the desired exposure once the
+// dashboard has an owner.
+//
+// PC-DEF-040, reopened. PC-DEF-039 narrows an unclaimed dashboard to loopback
+// whatever the user asked for, so "Public Mode ON" and "bound to the LAN" diverge
+// until something re-applies the preference. Nothing on this side did: the only
+// thing that reconciled was the Android app noticing its embedded WebView navigate
+// away from /launcher-setup, and any other route to a first claim left the listener
+// on loopback with a manual Public Mode OFF→ON as the only recovery. That is what
+// the owner reproduced.
+//
+// The claim itself is the authoritative event, and it happens here, so the decision
+// belongs here too. It is called only after a **first** claim that POST
+// /api/auth/setup already required to be loopback-only, so PC-DEF-039 is intact:
+// this widens exposure only for a dashboard that a local owner has just taken
+// ownership of.
+//
+// A no-op when the user never asked for LAN, and a no-op when the listener is
+// already public, so it is safe to call on every successful claim.
+func (r *launcherHTTPRuntime) ReconcileAfterDashboardClaimed() error {
+	r.mu.Lock()
+	desired := r.desiredPublic
+	already := r.public
+	r.mu.Unlock()
+
+	if !desired || already {
+		return nil
+	}
+	logger.InfoC("web",
+		"Dashboard now has an owner; applying the requested Public Mode")
+	return r.ApplyPublicMode(true)
 }
 
 func launcherListenerGroups(handler http.Handler, listeners []net.Listener) []*launcherListenerGroup {
@@ -139,6 +178,9 @@ func (r *launcherHTTPRuntime) ApplyPublicMode(public bool) error {
 	}
 
 	previousPublic := r.public
+	// An explicit change is also a change of intent: otherwise turning Public Mode
+	// off and then claiming a dashboard would re-widen it from a stale desire.
+	r.desiredPublic = public
 	r.closeLocked()
 
 	result, err := r.open(r.hostInput, public, r.port)
