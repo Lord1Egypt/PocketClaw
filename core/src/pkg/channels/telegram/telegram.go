@@ -158,6 +158,12 @@ func (c *TelegramChannel) Start(ctx context.Context) error {
 
 	c.ctx, c.cancel = context.WithCancel(ctx)
 
+	logger.DebugCF("telegram", "Telegram polling starting", map[string]any{
+		"event": "polling.prepare",
+	})
+	// Offset is deliberately unset, which asks Telegram for everything it still
+	// holds. PocketClaw persists no offset of its own, so this is the only
+	// starting point there is and a replaced bot cannot inherit one.
 	updates, err := c.bot.UpdatesViaLongPolling(c.ctx, &telego.GetUpdatesParams{
 		Timeout: 30,
 	})
@@ -165,8 +171,12 @@ func (c *TelegramChannel) Start(ctx context.Context) error {
 		c.cancel()
 		return fmt.Errorf("failed to start long polling: %w", err)
 	}
+	logger.DebugCF("telegram", "Telegram polling started", map[string]any{
+		"event":                "polling.started",
+		"poll_timeout_seconds": 30,
+	})
 
-	bh, err := th.NewBotHandler(c.bot, updates)
+	bh, err := th.NewBotHandler(c.bot, c.observeUpdates(updates))
 	if err != nil {
 		c.cancel()
 		return fmt.Errorf("failed to create bot handler: %w", err)
@@ -177,19 +187,44 @@ func (c *TelegramChannel) Start(ctx context.Context) error {
 		return c.handleMessage(ctx, &message)
 	}, th.AnyMessage())
 
-	c.SetRunning(true)
-	logger.InfoCF("telegram", "Telegram bot connected", map[string]any{
-		"username": c.bot.Username(),
-	})
-
-	c.startCommandRegistration(c.ctx, commands.BuiltinDefinitions())
-
+	// PC-DEF-061. The consumer goes live here, before anything else and before
+	// Running is reported. Only allocation separates it from the poller now:
+	// polling confirms updates to Telegram as it fetches them, so a blocking
+	// call in this gap -- getMe used to sit here, at four seconds on the device
+	// -- is a window in which a delivered update is already unrecoverable.
 	go func() {
-		if err = bh.Start(); err != nil {
+		if err := bh.Start(); err != nil {
 			logger.ErrorCF("telegram", "Bot handler failed", map[string]any{
 				"error": err.Error(),
 			})
 		}
+	}()
+
+	if !waitForHandlerConsuming(bh, handlerConsumingWait) {
+		// The poller's channel is buffered, so updates are waiting rather than
+		// lost, but Running would be claiming more than is known.
+		logger.WarnCF("telegram",
+			"Telegram intake did not report consuming; updates are buffered until it does",
+			map[string]any{"event": "polling.ready_unconfirmed"})
+	}
+
+	c.SetRunning(true)
+	logger.InfoC("telegram", "Telegram bot connected")
+	logger.DebugCF("telegram", "Telegram polling ready", map[string]any{
+		"event": "polling.ready",
+	})
+
+	c.startCommandRegistration(c.ctx, commands.BuiltinDefinitions())
+
+	// Which bot this is stays in the log -- a replaced managed bot has to be
+	// tellable from the one before it -- but it is resolved off the intake path.
+	// Username performs a getMe on first use, and that is the call that used to
+	// sit between the poller and the handler.
+	go func() {
+		logger.InfoCF("telegram", "Telegram bot identified", map[string]any{
+			"event": "polling.identity",
+			"bot":   c.botUsername(),
+		})
 	}()
 
 	return nil

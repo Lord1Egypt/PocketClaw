@@ -341,6 +341,103 @@ with:
   nothing below claims model deletion is missing. The management gap is at the
   **provider** level.
 
+### PC-DEF-061 — The first owner message after a managed pairing was not received
+
+- **Discovered:** owner physical desktop + Samsung verification, 2026-09-15.
+- **Component:** `pkg/channels/telegram/telegram.go` (`Start`), new
+  `pkg/channels/telegram/polling.go`.
+- **Symptom, physically reproduced:** immediately after the newly created bot's
+  chat became available the owner sent `/start` and got no answer; a second
+  `/start` was answered normally. The device log shows one `/start`-sized update
+  at 21:51:59 and no earlier one, so the first was lost before the agent
+  pipeline. Everything else in the managed desktop flow worked, including 14/14
+  command registration.
+
+**The audit, because the owner's instruction was to prove where the update went
+rather than add a delay. Each of these is a read of the real path, not an
+inference:**
+
+- **PocketClaw persists no Telegram update offset.** There is no `update_id`,
+  offset or last-update state anywhere in `pkg/channels/telegram`. The offset
+  exists only inside Telego's polling loop, which copies the params it is given,
+  and every `Start` passes an unset offset -- which asks Telegram for everything
+  it still holds. **A replaced or reconnected bot therefore cannot inherit an
+  offset, and cannot skip its own first updates.** That is the owner's
+  bot-identity question answered by construction, and it is now pinned by a test.
+- **PocketClaw makes no webhook call at all** -- no `setWebhook`,
+  `deleteWebhook` or `getWebhookInfo` -- and never passes
+  `drop_pending_updates`. It sets no `allowed_updates`, so it asks for every
+  update type.
+- **The onboarding service does not consume the child bot's updates.** Its
+  Telegram client is constructed once, with the *manager* bot's token; its
+  `setWebhook` (which does carry `drop_pending_updates=true`) is therefore the
+  manager bot's webhook. The child token is retrieved by `getManagedBotToken`,
+  stored, and delivered -- the service never builds a client with it, so it
+  issues no `getUpdates` and sets no webhook on the new bot.
+- **The long-poll timeout is not racing the HTTP client.** `telegramHTTPTimeout`
+  is 45s against a 30s long poll, so a poll is never aborted client-side.
+- **Telego does not discard pending updates.** Its loop sends on a 100-deep
+  buffered channel and blocks rather than dropping, and it calls no cleanup
+  method before polling.
+
+**The defect this found, which is real, narrow and proven by test:** long polling
+is at-least-once only while the client behaves. `getUpdates` returns a batch and
+the *next* call, carrying the advanced offset, is what makes Telegram delete that
+batch permanently. Telego's loop issues that next call immediately. So the gap
+between the poller starting and the handler consuming is the one place an update
+that already arrived can still be lost -- and `Start` put a **blocking `getMe`
+inside that gap**: `c.bot.Username()`, used to name the bot in the connect log,
+performs a `getMe` on first use, which the device measured at **four seconds**
+(21:51:42 to 21:51:46). `SetRunning(true)` and the lifecycle-started event both
+fired inside that window, so the channel reported **Running while nothing could
+receive**, and anything that ended the channel in those four seconds destroyed
+whatever polling had already fetched and had already told Telegram to forget.
+
+- **Resolution:** the consumer goes live first. `bh.Start()` is launched
+  immediately after the handler is wired, `Running` is not reported until the
+  handler confirms it is consuming (a yield loop on the handler's own state, not
+  a delay), and the identity call moved off the intake path into its own
+  goroutine -- the bot is still named in the log, since a replaced managed bot
+  has to be tellable from the one before it. Only allocation now separates the
+  poller from the consumer. A new `observeUpdates` forwarder, deliberately
+  unbuffered so it adds no second place an update can sit, logs
+  `polling.update_delivered` with `update_id` and the offset that delivery
+  confirms, and logs `polling.update_dropped` as a **WARN** when an update is
+  lost to shutdown -- the silent version of that was indistinguishable from
+  Telegram never having sent it.
+- **Verification:** 11 cases in `polling_test.go`, driving the real `Start`
+  against a stubbed Telegram. Proven to catch the regression: with the old
+  ordering restored, `TestFirstPollUpdateIsDeliveredWhileGetMeIsStillBlocked`
+  does not merely fail, it hangs until the test timeout, because `Start` never
+  returns while `getMe` is blocked. The bounds in those tests are generous on
+  purpose -- what proves intake is independent of `getMe` is that `getMe` stays
+  blocked until after the assertion, not a short deadline. Also pinned: a
+  pending update delivered in the first poll is processed; it is processed
+  exactly once and the following poll carries `update_id+1`; a replaced bot polls
+  from an unset offset and receives an update id far below the previous bot's;
+  a restarted channel receives the next message; an unpaired sender still never
+  reaches the agent; and the new log fields survive the redaction layer
+  (`pkg/logger/field_redaction_test.go`), without which the instrumentation would
+  prove nothing.
+- **What this does NOT claim.** It does not explain the observed loss on its
+  own. The device log shows Telegram returning no update at all before 21:51:59,
+  and at 21:51:42 the first poll asked with an unset offset; by elimination the
+  update was already gone from Telegram's queue, and neither repository issues a
+  call that could have consumed it. The one hop neither repository can audit is
+  Telegram's own queueing across managed-bot token issuance. **The next physical
+  run settles it:** with DEBUG on, `polling.started` followed by
+  `polling.update_delivered … first_update=true` for the owner's *second* message
+  and none for the first proves polling was live and consuming while Telegram
+  returned nothing -- a Telegram-side drop, not a PocketClaw one.
+- **Also found, reported rather than built:** the desktop pairing reports
+  `applied` when the gateway process has been restarted, not when Telegram is
+  receiving, so the UI's "connected" can precede intake. It did not cause this
+  failure -- the owner's first `/start` preceded even the completion response,
+  since the bot's chat exists in Telegram before PocketClaw has the token -- and
+  gating it needs the authenticated health-detail token plumbed into the backend.
+  Named here for an owner decision rather than bundled into this fix.
+- **Status:** RESOLVED IN SOURCE — awaiting physical verification.
+
 ### PC-DEF-060 — Desktop Dashboard had no managed Telegram onboarding
 
 - **Discovered:** owner UI observation, 2026-09-14.
@@ -445,9 +542,17 @@ with:
   `telegram-desktop-connect.test.tsx` covering the UI lifecycle, that only the Telegram
   link is ever opened, and that nothing credential-shaped is rendered. 19 i18n keys added
   in all 14 locales.
-- **Status:** FIXED IN SOURCE. **Physical confirmation required** — desktop Dashboard →
-  Telegram → Connect to Telegram → managed pairing → bot activates → command menu
-  registered → real round trip.
+- **Status:** **PHYSICALLY VERIFIED PASS**, 2026-09-15, on the desktop Dashboard and the
+  Samsung. Confirmed on the device: managed pairing is offered from a desktop browser, the
+  suggested bot is generated, Telegram opens directly, **no `*.vercel.app` page is ever
+  shown**, bot creation succeeds, PocketClaw receives and configures the bot, the Telegram
+  channel starts, the bot answers, and command registration reached Telegram — the log
+  shows `getMyCommands ok=true`, `setMyCommands ok=true`, `defined=14 sent=14`. The
+  command menu is **not** a defect: it was reached by typing `/`, and the log proves
+  registration succeeded. Not to be reopened without contradictory evidence.
+  The one remaining observation from that run — the owner's **first** `/start` going
+  unanswered while the second was answered — is split out as **PC-DEF-061** rather than
+  reopening this entry, because every step of the pairing itself passed.
 
 ### PC-DEF-058 — First run never requested Android notification permission
 

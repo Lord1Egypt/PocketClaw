@@ -567,3 +567,32 @@ func TestRealLogFieldNamesAreClassifiedCorrectly(t *testing.T) {
 		assertNoCanary(t, "exact-name field "+key, output)
 	}
 }
+
+// PC-DEF-061. The polling lifecycle fields have to survive redaction or the
+// instrumentation proves nothing -- the whole point of them is telling
+// "Telegram never sent it" apart from "it was received and lost".
+//
+// They are safe to keep: a Telegram update id is a per-bot sequence number that
+// identifies no person, and the identifiers the contract does treat as private
+// -- chat_id, sender_id, user_id -- are not logged with them.
+func TestPollingObservabilityFieldsSurviveRedaction(t *testing.T) {
+	t.Parallel()
+
+	safe := sanitizeFieldsForLog(map[string]any{
+		"event":        "polling.update_delivered",
+		"update_id":    9001,
+		"next_offset":  9002,
+		"first_update": true,
+	})
+
+	for key, want := range map[string]any{
+		"event":        "polling.update_delivered",
+		"update_id":    9001,
+		"next_offset":  9002,
+		"first_update": true,
+	} {
+		if got := safe[key]; got != want {
+			t.Fatalf("field %q = %v, want %v", key, got, want)
+		}
+	}
+}
