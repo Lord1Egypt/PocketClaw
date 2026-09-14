@@ -1,5 +1,6 @@
 package com.lord1egypt.pocketclaw.service
 
+import com.lord1egypt.pocketclaw.BuildConfig
 import com.lord1egypt.pocketclaw.PocketClawCoreState
 import com.lord1egypt.pocketclaw.security.GitHubCredentialStore
 import android.app.Notification
@@ -423,6 +424,16 @@ class PocketClawService : Service() {
             GitHubCredentialStore.token(context)?.let {
                 environment["POCKETCLAW_GITHUB_TOKEN"] = it
             }
+            // PC-DEF-060. Managed Telegram pairing from a desktop browser runs inside
+            // Core, which otherwise has no idea where the onboarding service is. This
+            // is the same value the Dart side compiles in, read from the same
+            // dart-define, so there is one place it is configured. A public base URL,
+            // never a credential: the manager bot's token is a server secret and is
+            // not in the APK at all.
+            BuildConfig.POCKETCLAW_ONBOARDING_BASE_URL
+                .trim()
+                .takeIf { it.startsWith("https://") }
+                ?.let { environment["POCKETCLAW_ONBOARDING_BASE_URL"] = it }
             return environment
         }
 

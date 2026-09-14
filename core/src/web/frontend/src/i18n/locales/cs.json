@@ -753,7 +753,28 @@
       "reconnect": "Znovu připojit / vytvořit nového bota",
       "statusLabel": "Stav:",
       "statusReady": "Připraveno k připojení",
-      "troubleLabel": "Máte potíže?"
+      "troubleLabel": "Máte potíže?",
+      "desktop": {
+        "title": "Nastavení jedním tapnutím",
+        "body": "PocketClaw vytvoří vašeho osobního bota přes Telegram. Nic se nepíše a tato stránka nepracuje s žádným tokenem.",
+        "connect": "Připojit Telegram",
+        "creating": "Připravuje se váš odkaz pro nastavení…",
+        "suggestedBot": "Navržený bot",
+        "openTelegram": "Otevřít Telegram",
+        "copyLink": "Kopírovat odkaz",
+        "linkCopied": "Odkaz zkopírován.",
+        "linkCopyFailed": "Odkaz se nepodařilo zkopírovat.",
+        "waiting": "Čekáme, až v Telegramu potvrdíte nového bota…",
+        "botCreated": "Bot vytvořen. Dokončuje se nastavení…",
+        "configuring": "Konfiguruje se PocketClaw…",
+        "connected": "Telegram je připojen.",
+        "savedPending": "Váš bot je uložen a spustí se, jakmile bude PocketClaw volný.",
+        "retry": "Zkusit znovu",
+        "errorStart": "Nastavení se nepodařilo spustit. Zkuste to za chvíli znovu.",
+        "errorRateLimited": "Příliš mnoho pokusů o nastavení. Chvíli počkejte a zkuste to znovu.",
+        "errorExpired": "Tento odkaz pro nastavení vypršel. Začněte znovu a získejte nový.",
+        "errorFailed": "Nastavení se nedokončilo. Zkuste to znovu nebo použijte ruční nastavení níže."
+      }
     }
   },
   "pages": {

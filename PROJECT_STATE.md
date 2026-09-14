@@ -34,7 +34,7 @@ evidence and describe the state at the date of each entry.
 | Exposure-audit state-basis HEAD | `25753cef5fa4d956e11d37b5a6176cdef977f015` (verified PC-DEF-019 closeout; the audit closeout commit follows it) |
 | Final release exposure audit | **CLOSED / PASS** on the re-run at `6031898`. No release blocker remains for the GitHub / direct APK release. `PC-DEF-022`, `PC-DEF-023` and `PC-DEF-024` have all since been RESOLVED; only `PC-DEF-006` (F-Droid path) and `PC-DEF-012` remain open |
 | Production candidate | **BUILT AND GATED.** `4d4bc33a…`, 63,472,307 bytes, one v2 signer `176dca6b…`; production artifact gate 57 PASS / 0 FAIL / 0 SKIPPED. Private validation evidence — not installed, published or accepted |
-| Next authorized milestone | **Samsung + desktop physical round for PC-DEF-040 (reopened) on the Verification APK below**, plus the still-unverified PC-DEF-050/052/055/058 and the rest of PC-DEF-057. Then the **PC-DEF-060 desktop managed-onboarding milestone**, which is scoped in the defect log and blocked on one owner decision: Core does not know the onboarding service URL. Physically verified PASS: PC-DEF-030/032/033/049/051/053/056/059 and PC-DEF-057's token-metric and provider-DEBUG fidelity The APK is built, gated and archived; no device was attached to the session that built it, so nothing is physically verified. Samsung acceptance of the production candidate follows, under its own prompt, with a migration / clean-install / data-safeguard plan; that candidate is production-signed, so it can never be installed over this development-signed build |
+| Next authorized milestone | **Samsung + desktop physical round for PC-DEF-040 (reopened) and PC-DEF-060 (desktop managed onboarding) on the Verification APK below**, plus the still-unverified PC-DEF-050/052/055/058 and the rest of PC-DEF-057. Physically verified PASS: PC-DEF-030/032/033/049/051/053/056/059 and PC-DEF-057's token-metric and provider-DEBUG fidelity The APK is built, gated and archived; no device was attached to the session that built it, so nothing is physically verified. Samsung acceptance of the production candidate follows, under its own prompt, with a migration / clean-install / data-safeguard plan; that candidate is production-signed, so it can never be installed over this development-signed build |
 | Verification APK (PC-DEF-040 reopened) | `ce151adbde6dc40e368908e213cd0178d04236ed7ab227be7771f051bb03ce80`, 63,554,007 bytes, development signer `15cf75f9…`, Dart AOT `af14f0ec2b1604181e4d2780248e62dcc216778205732232f4eeb0a6b7b86189`. Source gate 27/27 with `flutter.suite 563 passed`, artifact gate 25/25, native ELF 188 PASS / 0 FAIL. PC-DEF-040's reconciler is confirmed inside the packaged Core. Archived read-only at `build/forensic/apk-ce151adb…/`. **PC-DEF-040 and PC-DEF-058 both need a FRESH INSTALL.** LOCAL TEST / NON-RELEASABLE; nothing in it is physically verified |
 | Verification APK (PC-DEF-059 second attempt, PC-DEF-060, superseded) | `41af6c4f96e8a1e64c62be075e0441ba072cd4b218b910c3c8e79daae749dbb1`, 63,554,799 bytes, development signer `15cf75f9…`, Dart AOT `af14f0ec2b1604181e4d2780248e62dcc216778205732232f4eeb0a6b7b86189`. Source gate 27/27 with `flutter.suite 563 passed`, artifact gate 25/25, native ELF 188 PASS / 0 FAIL. The PC-DEF-059 fix is confirmed inside the packaged Core, not just the source tree. Archived read-only at `build/forensic/apk-41af6c4f…/`, whose `FORENSIC.md` lists the exact per-defect device checks. **PC-DEF-058 still needs a FRESH INSTALL.** LOCAL TEST / NON-RELEASABLE; nothing in it is physically verified |
 | Verification APK (PC-DEF-057/058/059, superseded) | `6bb32b387cc82c436247fde50c04216ae2a434a95015ad0f3a147b6d5935ba18`, 63,552,763 bytes, development signer `15cf75f9…`, Dart AOT `af14f0ec2b1604181e4d2780248e62dcc216778205732232f4eeb0a6b7b86189`. Source gate 26/26 with `flutter.suite 563 passed`, artifact gate 25/25, native ELF 188 PASS / 0 FAIL. Archived read-only at `build/forensic/apk-6bb32b38…/`, whose `FORENSIC.md` lists the exact per-defect device checks. **PC-DEF-058 needs a FRESH INSTALL.** LOCAL TEST / NON-RELEASABLE; nothing in it is physically verified |
@@ -43,6 +43,45 @@ evidence and describe the state at the date of each entry.
 | Staged Core freshness | **CURRENT.** Rebuilt from the PC-DEF-040 source commit `fd8fcd2` and staged in the commit that follows it, which touches no build input. Fingerprint `886ce8370eacbf473376f668732a257dd0a387708c8c9f9de3b7bb0532c533db` (was `5d19bf4a…`), BuildTime `2026-09-14T00:21:08+0000`; `libpocketclaw.so` 37,725,504 bytes `43225f1d…`, `libpocketclaw-web.so` 25,517,120 bytes `3801abbb…`. `core.staged_freshness` and `native.elf_audit_contract` both pass |
 | Flutter suite | Green — 497 passed, 0 failed — and the **complete** suite is now a release gate (`flutter.suite`) |
 | Public release asset policy | APK only. An AAB is a Play-upload artifact and is never a public release asset — `PC-DEF-021` |
+
+## 2026-09-14 — PC-DEF-060: managed Telegram onboarding from a desktop browser
+
+Built to the owner's architecture. Core performs the pairing and the browser only ever
+calls same origin, so it never needs cross-origin access to the hosted service and never
+handles a credential.
+
+- `pkg/telegramonboarding` — a Go client matching the Dart client's wire contract field
+  for field, because both speak to the same deployment.
+- Five same-origin endpoints under `/api/telegram/onboarding`, all requiring a Dashboard
+  session because none is in the launcher auth allowlist.
+- Completion goes through **`writeTelegramCredentials`**, extracted from
+  `handleAndroidTelegramConfigure` so the Android bridge and the desktop flow share one
+  writer. The owner contract — `AllowFrom` = exactly one positive numeric owner, plus
+  PC-DEF-030's apply — lives there and is not reimplemented.
+
+**What the browser never receives, and it is asserted rather than assumed:** the poll
+token that authorises token collection (Core holds it against the pairing id; the fake
+service 404s without it, so a passing status poll proves Core supplied it), the
+onboarding service's URL (PC-DEF-052's rule kept for this client), and the bot token at
+any point.
+
+**The blocker is resolved with one source of truth.** Core did not know where the service
+lives. Gradle already decodes the dart-defines, so
+`android/official-onboarding.properties` → dart-define → `BuildConfig` → Core's
+environment as `POCKETCLAW_ONBOARDING_BASE_URL`. No second place to set it. Only `https`
+is accepted, since plain HTTP would put the poll token and once the bot token in the
+clear. A deployment without the variable reports managed onboarding unavailable and keeps
+the manual form.
+
+**Deliberately not built: the QR code.** It was one option among several the owner
+listed; rendering one needs a new frontend dependency and `pnpm` is not on PATH here, so
+the other-device case is served by an openable *and copyable* Telegram link. Named rather
+than silently skipped.
+
+Verification: 10 backend cases and 13 UI cases; frontend **515 passed** across 38 files
+with `tsc -b` and ESLint clean; 19 i18n keys in all 14 locales with parity green; Go suite
+green under `-tags goolm` apart from the staged-Core freshness guard; `flutter analyze`
+clean and Flutter **563 passed**; Android unit tests green; Zero-Pico PASS.
 
 ## 2026-09-14 — PC-DEF-040 reopened and refixed at the claim; PC-DEF-059 verified
 

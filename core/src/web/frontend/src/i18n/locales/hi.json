@@ -753,7 +753,28 @@
       "manualOnlyTitle": "मैन्युअल सेटअप",
       "manualOnlyBody": "इस बिल्ड में एक-टैप बॉट निर्माण उपलब्ध नहीं है, इसलिए Telegram को BotFather के बॉट टोकन से सेट किया जाता है। नीचे टोकन चिपकाएँ और सहेजें।",
       "manualOnlyDesktopBody": "एक-टैप बॉट निर्माण Android पर PocketClaw ऐप में होता है, इसलिए यह ब्राउज़र में उपलब्ध नहीं है। एक-टैप सेटअप के लिए फ़ोन पर PocketClaw खोलें, या BotFather से बॉट बनाकर उसका टोकन नीचे चिपकाएँ।",
-      "openBotFather": "BotFather खोलें"
+      "openBotFather": "BotFather खोलें",
+      "desktop": {
+        "title": "एक-टैप सेटअप",
+        "body": "PocketClaw Telegram के ज़रिए आपका निजी बॉट बनाता है। कुछ टाइप नहीं करना पड़ता, और यह पेज कोई टोकन नहीं संभालता।",
+        "connect": "Telegram से जोड़ें",
+        "creating": "आपका सेटअप लिंक तैयार हो रहा है…",
+        "suggestedBot": "सुझाया गया बॉट",
+        "openTelegram": "Telegram खोलें",
+        "copyLink": "लिंक कॉपी करें",
+        "linkCopied": "लिंक कॉपी हो गया।",
+        "linkCopyFailed": "लिंक कॉपी नहीं हो सका।",
+        "waiting": "Telegram में नए बॉट की पुष्टि का इंतज़ार है…",
+        "botCreated": "बॉट बन गया। सेटअप पूरा किया जा रहा है…",
+        "configuring": "PocketClaw कॉन्फ़िगर हो रहा है…",
+        "connected": "Telegram जुड़ गया है।",
+        "savedPending": "आपका बॉट सहेजा गया है और PocketClaw खाली होते ही चालू हो जाएगा।",
+        "retry": "फिर कोशिश करें",
+        "errorStart": "सेटअप शुरू नहीं हो सका। थोड़ी देर में फिर कोशिश करें।",
+        "errorRateLimited": "सेटअप के बहुत ज़्यादा प्रयास। थोड़ा रुककर फिर कोशिश करें।",
+        "errorExpired": "यह सेटअप लिंक समाप्त हो गया। नया पाने के लिए फिर से शुरू करें।",
+        "errorFailed": "सेटअप पूरा नहीं हुआ। फिर कोशिश करें, या नीचे मैन्युअल सेटअप इस्तेमाल करें।"
+      }
     }
   },
   "pages": {

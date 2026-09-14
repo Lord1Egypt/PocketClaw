@@ -3,6 +3,7 @@ package api
 import (
 	"crypto/subtle"
 	"encoding/json"
+	"errors"
 	"net"
 	"net/http"
 	"strconv"
@@ -283,27 +284,11 @@ func (h *Handler) handleAndroidTelegramConfigure(w http.ResponseWriter, r *http.
 		return
 	}
 
-	cfg, channel, settings, err := h.loadTelegramConfigForUpdate()
+	applied, pending, err := h.writeTelegramCredentials(request.Token, request.OwnerUserID)
 	if err != nil {
-		http.Error(w, "Failed to load config", http.StatusInternalServerError)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	settings.Token.Set(request.Token)
-	channel.Enabled = true
-	channel.Type = config.ChannelTelegram
-	channel.AllowFrom = config.FlexibleStringSlice{strconv.FormatInt(request.OwnerUserID, 10)}
-
-	if err := config.SaveConfig(h.configPath, cfg); err != nil {
-		http.Error(w, "Failed to save config", http.StatusInternalServerError)
-		return
-	}
-
-	// PC-DEF-030. Saving Telegram used to end here, so the running channel
-	// never learned about the change and the user was told to restart the
-	// Gateway by hand. Applying is part of saving now: immediately when the
-	// gateway is idle, and otherwise marked pending for its own idle
-	// notification to pick up. Either way nothing is asked of the user.
-	applied, pending := h.applyTelegramConfigChange("telegram_configured")
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]any{
@@ -311,6 +296,50 @@ func (h *Handler) handleAndroidTelegramConfigure(w http.ResponseWriter, r *http.
 		"applied": applied,
 		"pending": pending,
 	})
+}
+
+// writeTelegramCredentials is the one place a paired bot becomes the configured
+// Telegram channel.
+//
+// Extracted so the desktop managed flow (PC-DEF-060) reuses it rather than
+// reimplementing it. The owner contract lives here and nowhere else: AllowFrom is
+// replaced with exactly one positive numeric owner, which is what
+// NewTelegramChannel refuses to start without.
+//
+// Neither the token nor the owner id is logged. The caller reports what happened; the
+// credential does not appear in any message this returns.
+func (h *Handler) writeTelegramCredentials(
+	token string,
+	ownerUserID int64,
+) (applied bool, pending bool, err error) {
+	token = strings.TrimSpace(token)
+	if token == "" {
+		return false, false, errors.New("Telegram token is required")
+	}
+	if ownerUserID <= 0 {
+		return false, false, errors.New("Telegram owner user ID is required")
+	}
+
+	cfg, channel, settings, loadErr := h.loadTelegramConfigForUpdate()
+	if loadErr != nil {
+		return false, false, errors.New("Failed to load config")
+	}
+	settings.Token.Set(token)
+	channel.Enabled = true
+	channel.Type = config.ChannelTelegram
+	channel.AllowFrom = config.FlexibleStringSlice{strconv.FormatInt(ownerUserID, 10)}
+
+	if saveErr := config.SaveConfig(h.configPath, cfg); saveErr != nil {
+		return false, false, errors.New("Failed to save config")
+	}
+
+	// PC-DEF-030. Saving Telegram used to end here, so the running channel
+	// never learned about the change and the user was told to restart the
+	// Gateway by hand. Applying is part of saving now: immediately when the
+	// gateway is idle, and otherwise marked pending for its own idle
+	// notification to pick up. Either way nothing is asked of the user.
+	applied, pending = h.applyTelegramConfigChange("telegram_configured")
+	return applied, pending, nil
 }
 
 // applyTelegramConfigChange makes a saved Telegram change live.

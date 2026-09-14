@@ -753,7 +753,28 @@
       "reconnect": "Reconectar / criar novo bot",
       "statusLabel": "Status:",
       "statusReady": "Pronto para conectar",
-      "troubleLabel": "Está com problemas?"
+      "troubleLabel": "Está com problemas?",
+      "desktop": {
+        "title": "Configuração com um toque",
+        "body": "O PocketClaw cria seu bot pessoal pelo Telegram. Nada é digitado, e esta página não manipula nenhum token.",
+        "connect": "Conectar ao Telegram",
+        "creating": "Preparando seu link de configuração…",
+        "suggestedBot": "Bot sugerido",
+        "openTelegram": "Abrir o Telegram",
+        "copyLink": "Copiar link",
+        "linkCopied": "Link copiado.",
+        "linkCopyFailed": "Não foi possível copiar o link.",
+        "waiting": "Aguardando você confirmar o novo bot no Telegram…",
+        "botCreated": "Bot criado. Concluindo a configuração…",
+        "configuring": "Configurando o PocketClaw…",
+        "connected": "O Telegram está conectado.",
+        "savedPending": "Seu bot está salvo e será iniciado assim que o PocketClaw estiver livre.",
+        "retry": "Tentar de novo",
+        "errorStart": "Não foi possível iniciar a configuração. Tente novamente em instantes.",
+        "errorRateLimited": "Muitas tentativas de configuração. Aguarde um momento e tente de novo.",
+        "errorExpired": "Este link de configuração expirou. Comece de novo para obter outro.",
+        "errorFailed": "A configuração não foi concluída. Tente de novo ou use a configuração manual abaixo."
+      }
     }
   },
   "pages": {

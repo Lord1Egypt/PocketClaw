@@ -753,7 +753,28 @@
       "manualOnlyTitle": "Pengaturan manual",
       "manualOnlyBody": "Pembuatan bot sekali ketuk tidak tersedia pada build ini, jadi Telegram disiapkan dengan token bot dari BotFather. Tempel token di bawah lalu simpan.",
       "manualOnlyDesktopBody": "Pembuatan bot sekali sentuh berlangsung di aplikasi PocketClaw pada Android, jadi tidak ditawarkan di peramban. Buka PocketClaw di ponsel untuk penyiapan sekali sentuh, atau buat bot dengan BotFather lalu tempel tokennya di bawah.",
-      "openBotFather": "Buka BotFather"
+      "openBotFather": "Buka BotFather",
+      "desktop": {
+        "title": "Penyiapan sekali sentuh",
+        "body": "PocketClaw membuat bot pribadimu melalui Telegram. Tidak ada yang perlu diketik, dan halaman ini tidak menangani token apa pun.",
+        "connect": "Hubungkan ke Telegram",
+        "creating": "Menyiapkan tautan penyiapanmu…",
+        "suggestedBot": "Bot yang disarankan",
+        "openTelegram": "Buka Telegram",
+        "copyLink": "Salin tautan",
+        "linkCopied": "Tautan disalin.",
+        "linkCopyFailed": "Tidak dapat menyalin tautan.",
+        "waiting": "Menunggu kamu mengonfirmasi bot baru di Telegram…",
+        "botCreated": "Bot dibuat. Menyelesaikan penyiapan…",
+        "configuring": "Mengonfigurasi PocketClaw…",
+        "connected": "Telegram sudah terhubung.",
+        "savedPending": "Botmu tersimpan dan akan berjalan begitu PocketClaw senggang.",
+        "retry": "Coba lagi",
+        "errorStart": "Tidak dapat memulai penyiapan. Coba lagi sebentar lagi.",
+        "errorRateLimited": "Terlalu banyak upaya penyiapan. Tunggu sejenak lalu coba lagi.",
+        "errorExpired": "Tautan penyiapan ini kedaluwarsa. Mulai lagi untuk mendapatkan yang baru.",
+        "errorFailed": "Penyiapan tidak selesai. Coba lagi, atau gunakan penyiapan manual di bawah."
+      }
     }
   },
   "pages": {

@@ -753,7 +753,28 @@
       "manualOnlyTitle": "Configuración manual",
       "manualOnlyBody": "La creación del bot con un toque no está disponible en esta versión, así que Telegram se configura con un token de BotFather. Pega el token abajo y guarda.",
       "manualOnlyDesktopBody": "La creación del bot con un toque ocurre en la app de PocketClaw en Android, así que no se ofrece en un navegador. Abre PocketClaw en tu teléfono para la configuración con un toque, o crea un bot con BotFather y pega su token abajo.",
-      "openBotFather": "Abrir BotFather"
+      "openBotFather": "Abrir BotFather",
+      "desktop": {
+        "title": "Configuración con un toque",
+        "body": "PocketClaw crea tu bot personal a través de Telegram. No se escribe nada y esta página no maneja ningún token.",
+        "connect": "Conectar con Telegram",
+        "creating": "Preparando tu enlace de configuración…",
+        "suggestedBot": "Bot sugerido",
+        "openTelegram": "Abrir Telegram",
+        "copyLink": "Copiar enlace",
+        "linkCopied": "Enlace copiado.",
+        "linkCopyFailed": "No se pudo copiar el enlace.",
+        "waiting": "Esperando a que confirmes el nuevo bot en Telegram…",
+        "botCreated": "Bot creado. Terminando la configuración…",
+        "configuring": "Configurando PocketClaw…",
+        "connected": "Telegram está conectado.",
+        "savedPending": "Tu bot está guardado y arrancará en cuanto PocketClaw esté libre.",
+        "retry": "Reintentar",
+        "errorStart": "No se pudo iniciar la configuración. Inténtalo en un momento.",
+        "errorRateLimited": "Demasiados intentos de configuración. Espera un momento e inténtalo de nuevo.",
+        "errorExpired": "Este enlace de configuración caducó. Empieza de nuevo para obtener otro.",
+        "errorFailed": "La configuración no terminó. Inténtalo de nuevo o usa la configuración manual de abajo."
+      }
     }
   },
   "pages": {

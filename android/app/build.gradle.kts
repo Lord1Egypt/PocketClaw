@@ -40,6 +40,13 @@ val analyticsProvider = dartDefines["POCKETCLAW_ANALYTICS_PROVIDER"] ?: "none"
 val umengAppKey = dartDefines["POCKETCLAW_UMENG_APP_KEY"] ?: ""
 val umengChannel = dartDefines["POCKETCLAW_UMENG_CHANNEL"] ?: "official"
 
+// PC-DEF-060. The Dashboard opened in a desktop browser has no Android host to run
+// managed Telegram pairing, so Core has to run it instead -- and Core does not know
+// where the onboarding service lives. The URL already reaches the APK as a dart-define
+// from android/official-onboarding.properties; reading it here too means Kotlin can
+// hand the same value to Core's environment without a second place to set it.
+val onboardingBaseUrl = dartDefines["POCKETCLAW_ONBOARDING_BASE_URL"] ?: ""
+
 
 // ---------------------------------------------------------------------------
 // Release contract. See DECISIONS.md, "Release integrity".
@@ -331,6 +338,11 @@ android {
         buildConfigField("boolean", "POCKETCLAW_UMENG_PACKAGED", umengAnalyticsRequested.toString())
         buildConfigField("String", "POCKETCLAW_UMENG_APP_KEY", umengAppKey.toQuotedBuildConfigValue())
         buildConfigField("String", "POCKETCLAW_UMENG_CHANNEL", umengChannel.toQuotedBuildConfigValue())
+        buildConfigField(
+            "String",
+            "POCKETCLAW_ONBOARDING_BASE_URL",
+            onboardingBaseUrl.toQuotedBuildConfigValue(),
+        )
         // Pass values to AndroidManifest.xml via manifestPlaceholders
         manifestPlaceholders["POCKETCLAW_UMENG_APP_KEY"] = umengAppKey
         manifestPlaceholders["POCKETCLAW_UMENG_CHANNEL"] = umengChannel

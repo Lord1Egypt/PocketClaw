@@ -753,7 +753,28 @@
       "manualOnlyTitle": "Manual setup",
       "manualOnlyBody": "One-tap bot creation is not available in this build, so Telegram is set up with a bot token from BotFather. Paste the token below and save.",
       "manualOnlyDesktopBody": "One-tap bot creation happens in the PocketClaw app on Android, so it is not offered in a browser. Open PocketClaw on your phone for one-tap setup, or create a bot with BotFather and paste its token below.",
-      "openBotFather": "Open BotFather"
+      "openBotFather": "Open BotFather",
+      "desktop": {
+        "title": "One-tap setup",
+        "body": "PocketClaw creates your personal bot through Telegram. Nothing is typed, and no token is handled by this page.",
+        "connect": "Connect to Telegram",
+        "creating": "Preparing your setup link…",
+        "suggestedBot": "Suggested bot",
+        "openTelegram": "Open Telegram",
+        "copyLink": "Copy link",
+        "linkCopied": "Link copied.",
+        "linkCopyFailed": "Could not copy the link.",
+        "waiting": "Waiting for you to confirm the new bot in Telegram…",
+        "botCreated": "Bot created. Finishing setup…",
+        "configuring": "Configuring PocketClaw…",
+        "connected": "Telegram is connected.",
+        "savedPending": "Your bot is saved and will start as soon as PocketClaw is free.",
+        "retry": "Try again",
+        "errorStart": "Could not start setup. Try again in a moment.",
+        "errorRateLimited": "Too many setup attempts. Wait a moment and try again.",
+        "errorExpired": "This setup link expired. Start again to get a new one.",
+        "errorFailed": "Setup did not finish. Try again, or use manual setup below."
+      }
     }
   },
   "pages": {

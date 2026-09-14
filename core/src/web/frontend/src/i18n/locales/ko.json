@@ -753,7 +753,28 @@
       "manualOnlyTitle": "수동 설정",
       "manualOnlyBody": "이 빌드에서는 한 번에 봇을 만드는 기능을 사용할 수 없으므로 BotFather의 봇 토큰으로 Telegram을 설정합니다. 아래에 토큰을 붙여 넣고 저장하세요.",
       "manualOnlyDesktopBody": "원탭 봇 생성은 Android의 PocketClaw 앱에서 이루어지므로 브라우저에서는 제공되지 않습니다. 원탭 설정은 휴대폰에서 PocketClaw를 열거나, BotFather로 봇을 만들어 아래에 토큰을 붙여 넣으세요.",
-      "openBotFather": "BotFather 열기"
+      "openBotFather": "BotFather 열기",
+      "desktop": {
+        "title": "원탭 설정",
+        "body": "PocketClaw가 Telegram을 통해 개인 봇을 만듭니다. 입력할 것이 없고, 이 페이지는 토큰을 다루지 않습니다.",
+        "connect": "Telegram에 연결",
+        "creating": "설정 링크를 준비하는 중…",
+        "suggestedBot": "추천 봇",
+        "openTelegram": "Telegram 열기",
+        "copyLink": "링크 복사",
+        "linkCopied": "링크를 복사했습니다.",
+        "linkCopyFailed": "링크를 복사할 수 없습니다.",
+        "waiting": "Telegram에서 새 봇을 확인해 주기를 기다리는 중…",
+        "botCreated": "봇을 만들었습니다. 설정을 마무리하는 중…",
+        "configuring": "PocketClaw를 설정하는 중…",
+        "connected": "Telegram이 연결되었습니다.",
+        "savedPending": "봇이 저장되었고 PocketClaw가 한가해지면 시작됩니다.",
+        "retry": "다시 시도",
+        "errorStart": "설정을 시작할 수 없습니다. 잠시 후 다시 시도하세요.",
+        "errorRateLimited": "설정 시도가 너무 많습니다. 잠시 기다린 후 다시 시도하세요.",
+        "errorExpired": "이 설정 링크가 만료되었습니다. 다시 시작해 새 링크를 받으세요.",
+        "errorFailed": "설정이 끝나지 않았습니다. 다시 시도하거나 아래의 수동 설정을 사용하세요."
+      }
     }
   },
   "pages": {

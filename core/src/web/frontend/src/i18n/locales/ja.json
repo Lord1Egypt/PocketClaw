@@ -753,7 +753,28 @@
       "manualOnlyTitle": "手動セットアップ",
       "manualOnlyBody": "このビルドではワンタップでのボット作成が利用できないため、BotFather のボットトークンで Telegram を設定します。下にトークンを貼り付けて保存してください。",
       "manualOnlyDesktopBody": "ワンタップのボット作成は Android の PocketClaw アプリで行うため、ブラウザーでは提供されません。ワンタップ設定にはスマートフォンで PocketClaw を開くか、BotFather でボットを作成してそのトークンを下に貼り付けてください。",
-      "openBotFather": "BotFather を開く"
+      "openBotFather": "BotFather を開く",
+      "desktop": {
+        "title": "ワンタップ設定",
+        "body": "PocketClaw が Telegram を通じてあなた専用のボットを作成します。入力は不要で、このページはトークンを扱いません。",
+        "connect": "Telegram に接続",
+        "creating": "設定リンクを準備中…",
+        "suggestedBot": "推奨ボット",
+        "openTelegram": "Telegram を開く",
+        "copyLink": "リンクをコピー",
+        "linkCopied": "リンクをコピーしました。",
+        "linkCopyFailed": "リンクをコピーできませんでした。",
+        "waiting": "Telegram で新しいボットの確認をお待ちしています…",
+        "botCreated": "ボットを作成しました。設定を完了しています…",
+        "configuring": "PocketClaw を設定中…",
+        "connected": "Telegram に接続しました。",
+        "savedPending": "ボットは保存され、PocketClaw の処理が空き次第起動します。",
+        "retry": "再試行",
+        "errorStart": "設定を開始できませんでした。しばらくしてからもう一度お試しください。",
+        "errorRateLimited": "設定の試行回数が多すぎます。少し待ってからもう一度お試しください。",
+        "errorExpired": "この設定リンクは期限切れです。やり直して新しいリンクを取得してください。",
+        "errorFailed": "設定が完了しませんでした。もう一度お試しか、下の手動設定をご利用ください。"
+      }
     }
   },
   "pages": {

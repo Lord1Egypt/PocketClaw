@@ -753,7 +753,28 @@
       "reconnect": "重新连接 / 创建新机器人",
       "statusLabel": "状态：",
       "statusReady": "可以连接",
-      "troubleLabel": "遇到问题？"
+      "troubleLabel": "遇到问题？",
+      "desktop": {
+        "title": "一键设置",
+        "body": "PocketClaw 通过 Telegram 创建你的专属机器人。无需输入任何内容，本页面也不处理任何令牌。",
+        "connect": "连接 Telegram",
+        "creating": "正在准备你的设置链接…",
+        "suggestedBot": "建议的机器人",
+        "openTelegram": "打开 Telegram",
+        "copyLink": "复制链接",
+        "linkCopied": "链接已复制。",
+        "linkCopyFailed": "无法复制链接。",
+        "waiting": "正在等待你在 Telegram 中确认新机器人…",
+        "botCreated": "机器人已创建。正在完成设置…",
+        "configuring": "正在配置 PocketClaw…",
+        "connected": "Telegram 已连接。",
+        "savedPending": "你的机器人已保存，PocketClaw 空闲后即会启动。",
+        "retry": "重试",
+        "errorStart": "无法开始设置。请稍后重试。",
+        "errorRateLimited": "设置尝试次数过多。请稍等后重试。",
+        "errorExpired": "该设置链接已过期。请重新开始以获取新链接。",
+        "errorFailed": "设置未完成。请重试，或使用下方的手动设置。"
+      }
     }
   },
   "pages": {

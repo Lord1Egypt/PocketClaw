@@ -10,6 +10,8 @@ import { useTranslation } from "react-i18next"
 import type { ChannelConfig } from "@/api/channels"
 import { type ArrayFieldFlusher } from "@/components/channels/channel-array-list-field"
 import { TelegramForm } from "@/components/channels/channel-forms/telegram-form"
+import { getTelegramOnboardingAvailability } from "@/api/telegram-onboarding"
+import { TelegramDesktopConnect } from "@/components/channels/channel-forms/telegram-desktop-connect"
 import {
   type TelegramSurface,
   isAdvancedFormAlwaysVisible,
@@ -20,6 +22,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import {
   HOST_READY_EVENT,
+  TELEGRAM_UPDATED_EVENT,
   type PocketClawHost,
   getPocketClawHost,
   isTelegramOnboardingAvailable,
@@ -79,6 +82,28 @@ export function TelegramPanel({
   }, [])
 
   const onboardingAvailable = isTelegramOnboardingAvailable(host)
+
+  // PC-DEF-060. With no Android host, Core can still run the pairing — ask it.
+  // Independent of the host check: this is about what the backend can do, not what
+  // this client can.
+  const [coreOnboardingAvailable, setCoreOnboardingAvailable] = useState(false)
+
+  // Reuses the event the page already reloads on, rather than threading a second
+  // refresh path down from the parent.
+  const onManagedConnected = useCallback(() => {
+    window.dispatchEvent(new Event(TELEGRAM_UPDATED_EVENT))
+  }, [])
+
+  useEffect(() => {
+    if (onboardingAvailable) return
+    let cancelled = false
+    void getTelegramOnboardingAvailability().then((available) => {
+      if (!cancelled) setCoreOnboardingAvailable(available)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [onboardingAvailable])
   const surface: TelegramSurface = useMemo(
     () => resolveTelegramSurface({ configured, onboardingAvailable }),
     [configured, onboardingAvailable],
@@ -144,6 +169,12 @@ export function TelegramPanel({
             </a>
           </CardContent>
         </Card>
+        {/* Core can run the managed pairing even where this client cannot, so
+            Connect is offered first and the manual form stays below it rather than
+            being replaced. */}
+        {coreOnboardingAvailable && (
+          <TelegramDesktopConnect onConnected={onManagedConnected} />
+        )}
         {advancedForm}
       </div>
     )

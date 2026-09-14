@@ -753,7 +753,28 @@
       "manualOnlyTitle": "Configuration manuelle",
       "manualOnlyBody": "La création de bot en un geste n'est pas disponible dans cette version ; Telegram se configure donc avec un jeton BotFather. Collez le jeton ci-dessous et enregistrez.",
       "manualOnlyDesktopBody": "La création du bot en une touche se fait dans l'application PocketClaw sur Android, elle n'est donc pas proposée dans un navigateur. Ouvre PocketClaw sur ton téléphone pour la configuration en une touche, ou crée un bot avec BotFather et colle son jeton ci-dessous.",
-      "openBotFather": "Ouvrir BotFather"
+      "openBotFather": "Ouvrir BotFather",
+      "desktop": {
+        "title": "Configuration en une touche",
+        "body": "PocketClaw crée ton bot personnel via Telegram. Rien n'est saisi, et cette page ne manipule aucun jeton.",
+        "connect": "Se connecter à Telegram",
+        "creating": "Préparation de ton lien de configuration…",
+        "suggestedBot": "Bot suggéré",
+        "openTelegram": "Ouvrir Telegram",
+        "copyLink": "Copier le lien",
+        "linkCopied": "Lien copié.",
+        "linkCopyFailed": "Impossible de copier le lien.",
+        "waiting": "En attente de ta confirmation du nouveau bot dans Telegram…",
+        "botCreated": "Bot créé. Finalisation de la configuration…",
+        "configuring": "Configuration de PocketClaw…",
+        "connected": "Telegram est connecté.",
+        "savedPending": "Ton bot est enregistré et démarrera dès que PocketClaw sera libre.",
+        "retry": "Réessayer",
+        "errorStart": "Impossible de démarrer la configuration. Réessaie dans un instant.",
+        "errorRateLimited": "Trop de tentatives de configuration. Attends un instant et réessaie.",
+        "errorExpired": "Ce lien de configuration a expiré. Recommence pour en obtenir un nouveau.",
+        "errorFailed": "La configuration ne s'est pas terminée. Réessaie, ou utilise la configuration manuelle ci-dessous."
+      }
     }
   },
   "pages": {

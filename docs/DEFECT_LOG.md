@@ -341,11 +341,14 @@ with:
   nothing below claims model deletion is missing. The management gap is at the
   **provider** level.
 
-### PC-DEF-060 — Desktop Dashboard gave the wrong reason for no Telegram Connect
+### PC-DEF-060 — Desktop Dashboard had no managed Telegram onboarding
 
 - **Discovered:** owner UI observation, 2026-09-14.
-- **Component:** `web/frontend/src/components/channels/channel-forms/telegram-surface.ts`,
-  `telegram-panel.tsx`.
+- **Component:** new `pkg/telegramonboarding`,
+  `web/backend/api/telegram_onboarding.go`, `web/backend/api/android_bridge.go`
+  (writer extracted), `web/frontend/src/api/telegram-onboarding.ts`,
+  `channel-forms/telegram-desktop-connect.tsx`, `telegram-surface.ts`,
+  `telegram-panel.tsx`, `android/app/build.gradle.kts`, `service/PocketClawService.kt`.
 - **Audit first, as the owner asked. The cause is the host-bridge check — not
   responsive CSS, not a user-agent test, not a different route or component.**
   `Channels → Telegram` is the same route and component on both clients. It resolves
@@ -392,45 +395,59 @@ with:
   blaming the build, the build blamed only when a host is present without an
   endpoint, and an existing configuration manageable without a host as its own
   stated rule. Two i18n keys added in all 14 locales; parity suite green.
-- **Status:** **PARTIALLY ADDRESSED — the wording is fixed; managed onboarding on
-  desktop is NOT built.** Physically confirmed by the owner, 2026-09-14: the desktop
-  page has the BotFather link, token field, API base and proxy fields, and the
-  convenient "Connect to Telegram" flow is still absent.
-
-#### What remains, scoped but deliberately not built
-
-The owner's architecture is the right one and is recorded here rather than attempted
-in a hurry, because it handles a bot token and the owner identity:
-
-1. A Go onboarding client in Core — `POST /telegram/pairings`, status poll, token
-   collection — mirroring `lib/src/telegram/telegram_onboarding_client.dart`.
-2. Same-origin Dashboard endpoints that proxy it, so the browser never needs
-   cross-origin access to the hosted service and never sees its URL.
-3. Completion reusing the authoritative writer. That already exists:
-   `handleAndroidTelegramConfigure` sets the token, enables the channel, sets
-   `AllowFrom` to exactly one owner, saves, and applies the runtime through
-   PC-DEF-030's path. It should be factored into a shared function rather than
-   reimplemented.
-4. Dashboard UI: Connect, deep link, QR for another device, pairing status,
-   cancellation, expiry, retry, reconnect/replace — with Manual/Advanced retained.
-
-**The blocker, which is why this is its own milestone and not a UI change: Core does
-not know the onboarding service URL.** `POCKETCLAW_ONBOARDING_BASE_URL` is a
-build-time dart-define in the APK; a search of `web/` and `pkg/config/` finds no
-equivalent in Go. Something has to give Core that URL, and the choice has product
-consequences:
-
-- the Android host pushes its compiled-in URL to Core at startup — reuses the single
-  existing source of truth and adds no new place for it to be wrong, but leaves a
-  desktop-only PocketClaw deployment without managed onboarding;
-- a Core config field or an ldflag — covers desktop-only deployments, but creates a
-  second place the URL can be set and therefore be wrong or stale.
-
-Recommended: the host-push path, with a config fallback only if desktop-only
-deployments are in scope. That decision is the owner's, and it is the first step of
-the milestone rather than something to assume.
-
-
+- **Resolution, second pass — managed onboarding now runs from desktop.** The owner's
+  architecture, built as specified. Core performs the pairing and the browser only ever
+  calls same origin:
+  - `pkg/telegramonboarding` is a Go client for the onboarding service, matching the Dart
+    client's wire contract field for field, because both speak to the same deployment and
+    a drift between them would be a pairing that works from one client and not the other.
+  - `GET /api/telegram/onboarding` reports availability;
+    `POST …/pairings` starts one; `GET …/pairings/{id}` polls;
+    `POST …/pairings/{id}/complete` collects and configures;
+    `DELETE …/pairings/{id}` forgets it. None is in the launcher auth allowlist, so all
+    require a Dashboard session like every other `/api` path.
+  - Completion goes through **`writeTelegramCredentials`**, extracted from
+    `handleAndroidTelegramConfigure` so the Android bridge and the desktop flow share one
+    writer. The owner contract lives there and is not reimplemented: `AllowFrom` becomes
+    exactly one positive numeric owner, and PC-DEF-030's apply runs as part of saving.
+- **What the browser never receives, asserted rather than assumed.**
+  - **The poll token.** It authorises status reads and the single token collection, so
+    Core holds it against the pairing id and the browser only ever names the id. Two
+    tests assert it appears in no response, and the fake service 404s without it — so a
+    passing status poll proves Core supplied it.
+  - **The onboarding service's URL**, keeping PC-DEF-052's no-visible-hosting-origin rule
+    for this client too.
+  - **The bot token**, at any point. It goes from the service into Core's configuration
+    and is never serialised back.
+- **The blocker resolved, with one source of truth.** Core did not know where the
+  onboarding service lives. The URL now reaches it as `POCKETCLAW_ONBOARDING_BASE_URL` in
+  the service environment: Gradle already decodes the dart-defines, so
+  `android/official-onboarding.properties` → dart-define → `BuildConfig` → Core's
+  environment, with no second place to set it. A deployment without it reports managed
+  onboarding unavailable and the manual form remains. Only `https` is accepted — plain
+  HTTP would put the poll token, and once the bot token, on the wire in the clear.
+- **Lifecycle:** cancellation drops the stored poll token, an unmounted tab cancels its
+  own unfinished pairing, completion is guarded so a second poll tick cannot retry a
+  token the service delivers exactly once, expiry and an unrecognised state both end the
+  flow rather than polling forever, and a parked change is reported as information
+  because PC-DEF-030 says that is not a failure.
+- **Deliberately not built: the QR code.** The owner listed it as one option among
+  several. Rendering one needs a new frontend dependency, and `pnpm` is not on PATH in
+  this environment, so the other-device case is served by an openable *and copyable*
+  Telegram link instead. Adding QR is a small follow-up once the dependency question is
+  settled; it is named here rather than silently skipped.
+- **Verification:** 10 cases in `web/backend/api/telegram_onboarding_test.go` —
+  availability both ways, the poll token absent from create and status responses, the
+  service URL absent, the status poll proving Core supplied the stored token, completion
+  configuring Telegram with exactly one owner and never returning the bot token,
+  completion not replayable, an unknown pairing reported as expired rather than probed,
+  cancellation dropping the token, and retry. Plus 13 in
+  `telegram-desktop-connect.test.tsx` covering the UI lifecycle, that only the Telegram
+  link is ever opened, and that nothing credential-shaped is rendered. 19 i18n keys added
+  in all 14 locales.
+- **Status:** FIXED IN SOURCE. **Physical confirmation required** — desktop Dashboard →
+  Telegram → Connect to Telegram → managed pairing → bot activates → command menu
+  registered → real round trip.
 
 ### PC-DEF-058 — First run never requested Android notification permission
 

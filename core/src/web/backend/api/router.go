@@ -1,6 +1,7 @@
 package api
 
 import (
+	"github.com/sipeed/picoclaw/pkg/telegramonboarding"
 	"net/http"
 	"strings"
 	"sync"
@@ -28,8 +29,13 @@ type Handler struct {
 	wecomMu                    sync.Mutex
 	wecomFlows                 map[string]*wecomFlow
 	launcherNetworkMode        LauncherNetworkModeController
-	launcherNetworkModeMu      sync.Mutex
-	launcherNetworkModeState   launcherNetworkModeState
+	// PC-DEF-060. Managed Telegram onboarding for a client with no Android host.
+	// Resolved once from the environment; the store keeps poll tokens server-side.
+	telegramOnboardingOnce   sync.Once
+	telegramOnboarding       *telegramonboarding.Client
+	telegramOnboardingStore  *telegramOnboardingStore
+	launcherNetworkModeMu    sync.Mutex
+	launcherNetworkModeState launcherNetworkModeState
 	// githubValidator overrides how a candidate GitHub credential is checked.
 	// Production leaves it nil and goes through the Managed Runtime.
 	githubValidator GitHubTokenValidator
@@ -103,6 +109,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	// Model list management
 	h.registerModelRoutes(mux)
 	h.registerProviderRoutes(mux)
+	h.registerTelegramOnboardingRoutes(mux)
 
 	// Channel catalog (for frontend navigation/config pages)
 	h.registerChannelRoutes(mux)
