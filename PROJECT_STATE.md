@@ -34,8 +34,9 @@ evidence and describe the state at the date of each entry.
 | Exposure-audit state-basis HEAD | `25753cef5fa4d956e11d37b5a6176cdef977f015` (verified PC-DEF-019 closeout; the audit closeout commit follows it) |
 | Final release exposure audit | **CLOSED / PASS** on the re-run at `6031898`. No release blocker remains for the GitHub / direct APK release. `PC-DEF-022`, `PC-DEF-023` and `PC-DEF-024` have all since been RESOLVED; only `PC-DEF-006` (F-Droid path) and `PC-DEF-012` remain open |
 | Production candidate | **BUILT AND GATED.** `4d4bc33a…`, 63,472,307 bytes, one v2 signer `176dca6b…`; production artifact gate 57 PASS / 0 FAIL / 0 SKIPPED. Private validation evidence — not installed, published or accepted |
-| Next authorized milestone | **Samsung FRESH-INSTALL JOURNEY on the Verification APK below — nothing else is assessable until it passes**: notification prompt on return from the storage screen, then the first Dashboard password succeeding on the first attempt. Then the PC-DEF-061 first-message test and the PC-DEF-062 lifecycle, plus PC-DEF-063/064 and PC-DEF-040 (reopened), plus the still-unverified PC-DEF-050/052/055/058 and the rest of PC-DEF-057. Physically verified PASS: PC-DEF-030/032/033/049/051/053/056/059 and PC-DEF-057's token-metric and provider-DEBUG fidelity The APK is built, gated and archived; no device was attached to the session that built it, so nothing is physically verified. Samsung acceptance of the production candidate follows, under its own prompt, with a migration / clean-install / data-safeguard plan; that candidate is production-signed, so it can never be installed over this development-signed build |
-| Verification APK (PC-DEF-065 first password, PC-DEF-058 second attempt) | `d653d6c4ff64b3bc1509058e14caa54077cf635f52a9c6ff8f2541a85acbc8d0`, 63,595,479 bytes, `0.2.0+62`, development signer `15cf75f9…`, Dart AOT `08b44517ff47c5679b8ebead16e11c14471053b51ef12b333e1e931a211fba98`. Source gate **29/29** including the new `journey.fresh_install` row, `flutter.suite 567 passed`, artifact gate 25/25, native ELF 188 PASS / 0 FAIL, Zero-Pico PASS. Fixes the two fresh-install blockers: the first Dashboard password (the claim reconciliation was closing the listener carrying its own response) and the notification prompt (asked only from a page a fresh install never opens). Archived read-only at `build/forensic/apk-d653d6c4…/`, whose `FORENSIC.md` leads with the ordered fresh-install journey. **Requires a genuine uninstall first.** LOCAL TEST / NON-RELEASABLE; nothing in it is physically verified |
+| Next authorized milestone | **Samsung fresh install for PC-DEF-058 (third attempt) and a Telegram `/help` check for PC-DEF-066** — the only two items still open. This build is instrumented: if the notification dialog still does not appear, the `notification_permission` log line names which input is wrong. Physically verified and not to be reopened without contradictory evidence: fresh-install first password (PC-DEF-065), Public Mode reconciliation (PC-DEF-040), Telegram Managed Connect (PC-DEF-060), the first `/start` answered on the first send (PC-DEF-061), `PC-E-AI-004` (PC-DEF-053). Still unverified: PC-DEF-062, 050, 052, 055 |
+| Verification APK (PC-DEF-058 third attempt, PC-DEF-066) | `8980c921e37bdf956b874ec7d247a9c6095edcab9dace4bd0b08c985efc03cca`, 63,596,703 bytes, `0.2.0+62`, development signer `15cf75f9…`, Dart AOT `08b44517ff47c5679b8ebead16e11c14471053b51ef12b333e1e931a211fba98`. Source gate **29/29** including `journey.fresh_install`, `flutter.suite 567 passed`, artifact gate 25/25, native ELF 188 PASS / 0 FAIL, Zero-Pico PASS. `POST_NOTIFICATIONS` confirmed declared and `targetSdkVersion` confirmed 36, both read from this APK. Archived read-only at `build/forensic/apk-8980c921…/`. **PC-DEF-058 needs a genuine uninstall.** LOCAL TEST / NON-RELEASABLE; the two open items are not physically verified |
+| Verification APK (PC-DEF-065 first password, PC-DEF-058 second attempt, superseded) | `d653d6c4ff64b3bc1509058e14caa54077cf635f52a9c6ff8f2541a85acbc8d0`, 63,595,479 bytes, `0.2.0+62`, development signer `15cf75f9…`, Dart AOT `08b44517ff47c5679b8ebead16e11c14471053b51ef12b333e1e931a211fba98`. Source gate **29/29** including the new `journey.fresh_install` row, `flutter.suite 567 passed`, artifact gate 25/25, native ELF 188 PASS / 0 FAIL, Zero-Pico PASS. Fixes the two fresh-install blockers: the first Dashboard password (the claim reconciliation was closing the listener carrying its own response) and the notification prompt (asked only from a page a fresh install never opens). Archived read-only at `build/forensic/apk-d653d6c4…/`, whose `FORENSIC.md` leads with the ordered fresh-install journey. **Requires a genuine uninstall first.** LOCAL TEST / NON-RELEASABLE; nothing in it is physically verified |
 | Verification APK (PC-DEF-061 readiness, 062, 063, 064, superseded) | `008d9c4df2436f29e63981a7b45cb98d7c17031b86c6b6576bfd78aa75f3aae8`, 63,591,331 bytes, `0.2.0+62`, development signer `15cf75f9…`, Dart AOT `08b44517ff47c5679b8ebead16e11c14471053b51ef12b333e1e931a211fba98`. Source gate 28/28 with `flutter.suite 567 passed`, artifact gate 25/25, native ELF 188 PASS / 0 FAIL, Zero-Pico PASS. Carries authoritative Telegram readiness, the desktop disconnect and replace lifecycle, the Core-version loading fix and the audited What's New. Archived read-only at `build/forensic/apk-008d9c4d…/`, whose `FORENSIC.md` carries the first-message acceptance test. **PC-DEF-040 and PC-DEF-058 both need a FRESH INSTALL.** LOCAL TEST / NON-RELEASABLE; nothing in it is physically verified |
 | Verification APK (PC-DEF-061 first-message intake, superseded) | `38da4acb1d30a9e46c8226a1f1e66067b6150e59c5bd8c1959cd2e5d4ac5e585`, 63,572,435 bytes, `0.2.0+62`, development signer `15cf75f9…`, Dart AOT `af14f0ec2b1604181e4d2780248e62dcc216778205732232f4eeb0a6b7b86189`. Source gate 27/27 with `flutter.suite 563 passed`, artifact gate 25/25, native ELF 188 PASS / 0 FAIL, Zero-Pico PASS. Carries the PC-DEF-061 intake ordering and the new polling instrumentation. Archived read-only at `build/forensic/apk-38da4acb…/`, whose `FORENSIC.md` lists the exact per-defect device checks. **PC-DEF-040 and PC-DEF-058 both need a FRESH INSTALL.** LOCAL TEST / NON-RELEASABLE; nothing in it is physically verified |
 | Verification APK (PC-DEF-060 desktop onboarding, superseded) | `249b765df37985067479455fa734cc0b0d96ef1247b1d1c4230306774f851847`, 63,573,451 bytes, `0.2.0+62`, development signer `15cf75f9…`, Dart AOT `af14f0ec2b1604181e4d2780248e62dcc216778205732232f4eeb0a6b7b86189`. Source gate 27/27 with `flutter.suite 563 passed`, artifact gate 25/25, native ELF 188 PASS / 0 FAIL, Zero-Pico PASS. Confirmed inside the packaged Core: the PC-DEF-060 endpoints and desktop UI, the PC-DEF-040 claim reconciler, the PC-DEF-059 redirect, and the compiled-in onboarding URL. Archived read-only at `build/forensic/apk-249b765d…/`, whose `FORENSIC.md` lists the exact per-defect device checks. **PC-DEF-040 and PC-DEF-058 both need a FRESH INSTALL.** LOCAL TEST / NON-RELEASABLE; nothing in it is physically verified |
@@ -44,9 +45,60 @@ evidence and describe the state at the date of each entry.
 | Verification APK (PC-DEF-057/058/059, superseded) | `6bb32b387cc82c436247fde50c04216ae2a434a95015ad0f3a147b6d5935ba18`, 63,552,763 bytes, development signer `15cf75f9…`, Dart AOT `af14f0ec2b1604181e4d2780248e62dcc216778205732232f4eeb0a6b7b86189`. Source gate 26/26 with `flutter.suite 563 passed`, artifact gate 25/25, native ELF 188 PASS / 0 FAIL. Archived read-only at `build/forensic/apk-6bb32b38…/`, whose `FORENSIC.md` lists the exact per-defect device checks. **PC-DEF-058 needs a FRESH INSTALL.** LOCAL TEST / NON-RELEASABLE; nothing in it is physically verified |
 | Verification APK (PC-DEF-056/057, superseded) | `7c8eefd399318b6187b0fb87c8bd687d7d08c3537959e31f38767a642908e3cb`, 63,539,059 bytes, development signer `15cf75f9…`, Dart AOT `007c23b6be22a9a44f429a53f8fb9eaf930180e67bb20f111cadceedb68e22f4`. Source gate 26/26 with `flutter.suite 561 passed`, artifact gate 24/24, native ELF 188 PASS / 0 FAIL. Archived read-only at `build/forensic/apk-7c8eefd3…/`. LOCAL TEST / NON-RELEASABLE. **Nothing in it is physically verified** |
 | Verification APK (PC-DEF-049..055, superseded) | `6df7abaa6bec5a5124d21d30b582fc37d2837be036fa75e93eb3d30d5634894c`, 63,528,459 bytes, development signer `15cf75f9945d5354e75707e0326b7cffc60ac51a68df38156db318ef4578a27c`, Dart AOT `d5d52742ab6cc5672e7c3910dc20c50e5c4da430c80d65c49501d12ea17a7968`. Source gate 26/26, artifact gate 24/24, native ELF audit 188 PASS / 0 FAIL. Archived read-only at `build/forensic/apk-6df7abaa…/` with its private R8 material separated. LOCAL TEST / NON-RELEASABLE |
-| Staged Core freshness | **CURRENT.** Rebuilt from the source commit `60f3136` and staged in `063e8d5`, which touches no build input. Fingerprint `1ee6df2a18d0dce272ca6c918ccaf10d4df812f528c7454eaadeb226a5bd076f` (was `f7cfb03f…`), BuildTime `2026-09-15T05:46:27+0000`; `libpocketclaw.so` 37,725,536 bytes `42509bef…`, `libpocketclaw-web.so` 25,648,320 bytes `d8c649ac…`. `core.staged_freshness` and `native.elf_audit_contract` both pass |
+| Staged Core freshness | **CURRENT.** Rebuilt from the source commit `836ce95` and staged in `a9a02dd`, which touches no build input. Fingerprint `7902ab73e62ed65577f8738e1934aff0a0de06acbd7bf473a951645f7e1cc0ba` (was `1ee6df2a…`), BuildTime `2026-09-15T07:22:45+0000`. `core.staged_freshness` and `native.elf_audit_contract` both pass |
 | Flutter suite | Green — 497 passed, 0 failed — and the **complete** suite is now a release gate (`flutter.suite`) |
 | Public release asset policy | APK only. An AAB is a Play-upload artifact and is never a public release asset — `PC-DEF-021` |
+
+## 2026-09-15 — The journey passes; two items left
+
+**Physically verified on the Samsung this round**, and none of it is to be reopened
+without contradictory evidence: the fresh-install **first Dashboard password** succeeded
+on the first attempt, **Public Mode reconciled** to LAN without a toggle, Telegram
+**Managed Connect** worked from the desktop, **`PC-E-AI-004`** behaved, and the
+**first `/start` was answered on the first send** — `polling.started` and
+`polling.ready` at 06:18:13, the delivered update at 06:18:33 with `first_update=true`
+and `message_chars=6`. That closes PC-DEF-061 on the device: both the intake ordering
+and the readiness gate that made "Connected" mean receiving.
+
+**PC-DEF-058 — third attempt, and this time the audit found a wrong input rather than a
+wrong placement.** Two candidates were ruled out *from the built APK* rather than from
+source: `targetSdkVersion` is **36**, so `POST_NOTIFICATIONS` is a runtime permission and
+requestable, and `aapt2 dump permissions` confirms it is declared. What was provably
+wrong: the "have we asked" record lived in `shared_prefs/pocketclaw_prefs.xml`, and this
+app ships `allowBackup="true"` with only three *file*-domain paths excluded. The
+preference store is not one of them, **so a reinstall can restore
+`notification_permission_asked = true` from a previous install** — the state machine then
+resolves `DENIED`, whose action is "offer Settings, do not ask", and a genuinely fresh
+install never sees the dialog. "Have we asked *this* install" is per-install state, so it
+is now a marker under `noBackupFilesDir`; the legacy key is deliberately not migrated,
+since reading it would carry the restored value straight back.
+
+And because the source has now looked correct twice, the state machine is
+**instrumented** with exactly the safe fields the owner specified — api level, declared,
+granted, `should_show_rationale`, the marker, the resolved state, lifecycle state,
+whether this resume returned from the all-files screen, attempted, and result. No chat,
+account or credential value. If the dialog still does not appear, that line names the
+wrong input and there is nothing left to guess.
+
+**PC-DEF-066 — `/help` opened with a lobster.** Pre-Aperture branding, and the first
+thing a new user's first command showed them. Removed rather than substituted: the
+product's mark is not an emoji. `pkg/env.go`'s `Logo` constant is upstream CLI branding
+and is **not referenced from `pkg/` or `web/` at all**, so it reaches no PocketClaw
+surface and was left alone rather than forking the upstream baseline. Verified in the
+packaged binary: the `/help` header string with the mascot is gone, and the only
+remaining occurrences are that unreachable constant.
+
+Nothing caught this — Zero-Pico is lexical, the i18n parity suites cover the Dashboard
+bundles and the Flutter ARB files rather than Core's Go strings, and the menu tests assert
+names and counts. `branding_test.go` now checks the assembled `/help` plus every command
+and subcommand string, and asserts `/help` still names the product so it cannot pass by
+deleting the header. Restoring the lobster fails it.
+
+Gates: source **29 PASS / 0 FAIL / 0 SKIPPED**, artifact **25 PASS / 0 FAIL / 0
+SKIPPED**, native ELF **188 PASS / 0 FAIL / 0 SKIP**, Zero-Pico PASS, Android unit tests
+green. Verification APK `8980c921e37bdf956b874ec7d247a9c6095edcab9dace4bd0b08c985efc03cca`, 63,596,703 bytes, archived read-only at
+`build/forensic/apk-8980c921e37bdf956b874ec7d247a9c6095edcab9dace4bd0b08c985efc03cca.../`. No device was attached to this session, so the two open
+items are **not** physically verified.
 
 ## 2026-09-15 — Two fresh-install blockers, and the journey gate that will catch the next one
 
