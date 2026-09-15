@@ -106,6 +106,9 @@ class PocketClawMethodChannel(
     /** Set while the system notification dialog is on screen. */
     private var pendingNotificationPermissionResult: MethodChannel.Result? = null
 
+    /** One notification dialog per launch, whoever asked for it. */
+    private var notificationPromptShownThisLaunch = false
+
     private fun currentNotificationPermissionState(): NotificationPermissionState =
         NotificationPermissionPolicy.resolve(
             sdkInt = Build.VERSION.SDK_INT,
@@ -126,6 +129,44 @@ class PocketClawMethodChannel(
             "expectedVisible" to
                 NotificationPermissionPolicy.notificationsExpectedVisible(state, enabled),
         )
+    }
+
+    /**
+     * Raises the notification dialog if this launch should.
+     *
+     * PC-DEF-058, second attempt. The only trigger used to be the Settings
+     * page's initState, and a fresh install never opens Settings, so the dialog
+     * never appeared -- the manifest entry, the policy and the platform call
+     * were all correct and all unreached. The Activity calls this from its
+     * resume, which every launch takes.
+     *
+     * Shares the record-keeping and the platform call with the Flutter-initiated
+     * path rather than repeating them: one place decides, one place records.
+     *
+     * @param storagePromptJustLaunched whether this same resume sent the user to
+     *   the all-files-access screen, in which case the ask waits for their return.
+     * @return whether the dialog was requested.
+     */
+    fun requestNotificationPermissionOnResume(storagePromptJustLaunched: Boolean): Boolean {
+        if (!NotificationPermissionPolicy.shouldRequestOnResume(
+                currentNotificationPermissionState(),
+                storagePromptJustLaunched,
+                notificationPromptShownThisLaunch,
+            )
+        ) {
+            return false
+        }
+        val activity = context as? Activity ?: return false
+        notificationPromptShownThisLaunch = true
+        // Recorded before the dialog, for the same reason as the Flutter path:
+        // the callback does not fire if the activity is recreated mid-dialog.
+        PocketClawPreferences.setNotificationPermissionAsked(context, true)
+        ActivityCompat.requestPermissions(
+            activity,
+            arrayOf(POST_NOTIFICATIONS_PERMISSION),
+            NOTIFICATION_PERMISSION_REQUEST_CODE,
+        )
+        return true
     }
 
     /**
@@ -667,6 +708,7 @@ class PocketClawMethodChannel(
                             // not fire if the activity is recreated mid-dialog, and an
                             // unrecorded ask would re-prompt on the next launch.
                             PocketClawPreferences.setNotificationPermissionAsked(context, true)
+                            notificationPromptShownThisLaunch = true
                             pendingNotificationPermissionResult = result
                             ActivityCompat.requestPermissions(
                                 activity,

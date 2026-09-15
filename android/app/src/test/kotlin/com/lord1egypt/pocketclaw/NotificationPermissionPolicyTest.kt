@@ -118,4 +118,70 @@ class NotificationPermissionPolicyTest {
         assertEquals("notRequested", NotificationPermissionPolicy.wireName(NotificationPermissionState.NOT_REQUESTED))
         assertEquals("denied", NotificationPermissionPolicy.wireName(NotificationPermissionState.DENIED))
     }
+
+    // PC-DEF-058, second attempt. The first implementation asked from the
+    // Settings page, which a fresh install never opens, so the dialog was never
+    // raised. The ask now happens on the resume path, and these are its rules.
+    @Test
+    fun `a fresh install asks on resume`() {
+        assertTrue(
+            NotificationPermissionPolicy.shouldRequestOnResume(
+                NotificationPermissionState.NOT_REQUESTED,
+                storagePromptJustLaunched = false,
+                alreadyPromptedThisLaunch = false,
+            )
+        )
+    }
+
+    // The ordering the owner requires: a resume that has just sent the user to
+    // the all-files-access screen must not stack a dialog behind it.
+    @Test
+    fun `the ask waits for the return from the storage screen`() {
+        assertFalse(
+            NotificationPermissionPolicy.shouldRequestOnResume(
+                NotificationPermissionState.NOT_REQUESTED,
+                storagePromptJustLaunched = true,
+                alreadyPromptedThisLaunch = false,
+            )
+        )
+        // And then it does ask, on the resume that comes back.
+        assertTrue(
+            NotificationPermissionPolicy.shouldRequestOnResume(
+                NotificationPermissionState.NOT_REQUESTED,
+                storagePromptJustLaunched = false,
+                alreadyPromptedThisLaunch = false,
+            )
+        )
+    }
+
+    // No nagging: one dialog per launch, so returning from the image picker or a
+    // screen lock cannot re-raise it.
+    @Test
+    fun `one dialog per launch`() {
+        assertFalse(
+            NotificationPermissionPolicy.shouldRequestOnResume(
+                NotificationPermissionState.NOT_REQUESTED,
+                storagePromptJustLaunched = false,
+                alreadyPromptedThisLaunch = true,
+            )
+        )
+    }
+
+    @Test
+    fun `a granted or refused or inapplicable permission never asks on resume`() {
+        for (state in listOf(
+            NotificationPermissionState.GRANTED,
+            NotificationPermissionState.DENIED,
+            NotificationPermissionState.NOT_REQUIRED,
+        )) {
+            assertFalse(
+                "state ${'$'}state must not raise the dialog",
+                NotificationPermissionPolicy.shouldRequestOnResume(
+                    state,
+                    storagePromptJustLaunched = false,
+                    alreadyPromptedThisLaunch = false,
+                )
+            )
+        }
+    }
 }

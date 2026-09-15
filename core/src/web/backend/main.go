@@ -787,11 +787,9 @@ func main() {
 			if runtime == nil {
 				return
 			}
-			if err := runtime.ReconcileAfterDashboardClaimed(); err != nil {
-				logger.WarnC("web", fmt.Sprintf(
-					"Dashboard was claimed but the requested Public Mode could not be "+
-						"applied; it stays reachable locally: %v", err))
-			}
+			// Returns immediately: the apply happens on its own goroutine
+			// because it replaces the listener carrying this very request.
+			runtime.ReconcileAfterDashboardClaimed()
 		},
 	})
 

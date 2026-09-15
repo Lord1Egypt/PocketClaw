@@ -341,6 +341,69 @@ with:
   nothing below claims model deletion is missing. The management gap is at the
   **provider** level.
 
+### PC-DEF-065 — The first Dashboard password could not be created
+
+- **Discovered:** owner physical fresh install on the Samsung, 2026-09-15.
+- **Component:** `web/backend/launcher_http_runtime.go`, `web/backend/main.go`,
+  `web/backend/api/android_bridge.go` (interface), new
+  `web/backend/journey_fresh_install_test.go`, `tool/release_gate.py`.
+- **Symptom:** on a fresh install the first-run Dashboard password page accepted a
+  password and confirmation and answered **"must be authenticated to change
+  password"** — which is impossible for a first setup, because there is nothing to
+  authenticate with yet. First-time Dashboard initialization was impossible.
+
+**Root cause, reproduced in a test before anything was changed.** The exact path:
+
+1. `POST /api/auth/setup` reaches `handleSetup` with the store uninitialized, so
+   the first-claim branch is taken. The request is loopback, so PC-DEF-039 permits
+   it. **The password is written.**
+2. `handleSetup` then calls `onClaimed()` — PC-DEF-040's reconciliation — **on the
+   request's own goroutine**, after `w.Write` but *before the handler returns*. The
+   response is still in `net/http`'s buffer at that point; written is not flushed.
+3. `ReconcileAfterDashboardClaimed` → `ApplyPublicMode(true)` → `closeLocked()` →
+   `server.Close()`, plus an explicit `Close()` of every tracked connection —
+   **including the connection carrying this very request**.
+4. The browser gets an aborted request. The user sees setup fail.
+5. The retry now finds `initialized == true` and is refused with the
+   change-password rule: **401 "must be authenticated to change password"**.
+
+So the two flows the owner asked about were never conflated: the initial-claim
+branch and the authenticated-change branch are correctly distinct, and the report
+was the *second* attempt hitting the second branch after the first had silently
+succeeded. It only reproduces when Public Mode is already requested, which is what
+makes the reconciliation run at all — and that is the documented fresh-install
+sequence.
+
+- **Resolution, in two parts, because either alone is insufficient.**
+  **Widening drains instead of cutting off:** a swap that only *widens* access
+  revokes nothing, so the old listener group is now `Shutdown` with a bounded wait
+  and in-flight requests finish. Narrowing still closes hard — there a remote
+  client is being revoked and must not be allowed to finish.
+  **The reconciliation is asynchronous, and must be:** it is invoked from the very
+  request whose listener it replaces, so draining inline would deadlock against
+  `Shutdown` waiting for that handler. It now runs on its own goroutine and logs
+  its own outcome, so the handler returns, the response flushes, and the drain
+  completes. `ReconcileAfterDashboardClaimed` therefore no longer returns an error
+  — there is no caller left to return one to.
+- **Security is unchanged, and asserted.** First claim is still loopback-only and
+  still refuses spoofed `Host`/`X-Forwarded-For`; an initialized dashboard still
+  refuses an unauthenticated password change; `/launcher-setup` is still not a
+  reset path. PC-DEF-037 and PC-DEF-039 hold.
+- **Verification:** `journey.fresh_install`, a new gate row, drives the ordered path
+  against the real HTTP server, the real listener swap, the real middleware and the
+  real bcrypt store. **Proven to catch the regression:** with the inline
+  hard-closing behaviour restored, the journey fails with
+  `POST /api/auth/setup: the response never arrived: EOF` — the user-visible
+  failure, in a test. It also covers login with the newly created password, the
+  refusal of an anonymous password change (and that the original password still
+  verifies afterwards), the refusal of a remote first claim from three addresses
+  with spoofed headers, and ownership surviving a restart.
+- **The process change the owner required.** The journey is a named gate row rather
+  than one more test in a package, because every isolated test passed while the
+  ordered path was broken. Any change to auth, launcher setup, first claim, Public
+  Mode, Android permissions, the Service lifecycle or Dashboard middleware runs it.
+- **Status:** RESOLVED IN SOURCE — awaiting physical fresh-install verification.
+
 ### PC-DEF-064 — What's New described a release that had moved on
 
 - **Discovered:** owner physical verification, 2026-09-15.
@@ -676,6 +739,36 @@ whatever polling had already fetched and had already told Telegram to forget.
   reopening this entry, because every step of the pairing itself passed.
 
 ### PC-DEF-058 — First run never requested Android notification permission
+
+**REOPENED 2026-09-15 — physically failed again on a fresh install, and the cause
+was placement, not policy.** The manifest entry, the SDK gate, the
+`NotificationPermissionPolicy` rules and the platform call were all correct and all
+**unreached**: the only trigger was `ConfigPage.initState`, and a fresh install
+never opens Settings — `MainShell` starts on the Dashboard at index 0, and Settings
+is index 3. So the dialog was never raised, exactly as reported: the storage screen
+appeared and the notification dialog did not.
+
+Asking now happens on the resume path, which every launch takes.
+`MainActivity.onResume` asks after the all-files-access check, and
+`requestAllFilesAccessIfNeeded` reports whether *this* resume sent the user to
+Settings — when it did, the ask waits for the resume that comes back rather than
+stacking a dialog behind a screen the user is being sent to, which is the order the
+owner requires. The per-launch guard and the persisted asked-record are shared with
+the Flutter-initiated path, so there is one decision and one record; the Settings
+page keeps its request as a second chance and keeps showing the state and the
+recovery action.
+
+`NotificationPermissionPolicy.shouldRequestOnResume` holds the rule and is tested:
+a fresh install asks; a resume that just launched the storage screen does not, and
+the next one does; one dialog per launch; and granted, refused or inapplicable never
+ask. The placement itself is not unit-testable — that is what the physical check is
+for, and why the journey gate exists.
+
+- **Status:** FIXED IN SOURCE (second attempt) — physical fresh-install
+  confirmation required.
+
+#### Original entry
+
 
 - **Discovered:** Samsung physical testing, 2026-09-14, owner-reported.
 - **Component:** `android/.../NotificationPermission.kt`,

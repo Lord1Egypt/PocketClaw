@@ -53,7 +53,12 @@ type LauncherNetworkModeController interface {
 	PublicMode() bool
 	// ReconcileAfterDashboardClaimed re-applies the desired exposure once the
 	// dashboard has an owner. PC-DEF-040.
-	ReconcileAfterDashboardClaimed() error
+	//
+	// It returns nothing because it cannot wait: it is called from the request
+	// that claimed the dashboard, and applying the exposure replaces the
+	// listener carrying that request, so the work happens on its own goroutine
+	// and reports its own outcome (PC-DEF-065).
+	ReconcileAfterDashboardClaimed()
 }
 
 type launcherNetworkModeState struct {

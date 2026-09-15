@@ -56,29 +56,50 @@ class MainActivity : FlutterActivity() {
 
     override fun onResume() {
         super.onResume()
-        // Android 11+ 需要 MANAGE_EXTERNAL_STORAGE 才能写 Downloads 目录。
-        // 若未授予，跳转系统设置页引导用户开启（只弹一次，直到用户授予或主动拒绝）。
+        val storagePromptJustLaunched = requestAllFilesAccessIfNeeded()
+        // PC-DEF-058, second attempt. Asking used to happen in the Settings
+        // page's initState, and a fresh install never opens Settings -- it lands
+        // on the Dashboard -- so the system dialog was never shown and the owner
+        // had to enable notifications by hand. Every launch passes through here.
         //
-        // The "only once" the comment describes was never enforced, so every
-        // resume jumped to Settings — including the resume that comes back from
-        // the Chat attachment picker, which made choosing an image look like it
-        // had thrown the user out of the app.
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R &&
-            !storageAccessPromptShown &&
-            !Environment.isExternalStorageManager()
+        // Ordered after the storage prompt on purpose: when this same resume has
+        // just sent the user to the all-files-access screen, the ask waits for
+        // the resume that comes back, rather than being stacked behind it.
+        methodChannel?.requestNotificationPermissionOnResume(storagePromptJustLaunched)
+    }
+
+    /**
+     * Sends the user to the all-files-access screen if PocketClaw still needs it.
+     *
+     * Android 11+ 需要 MANAGE_EXTERNAL_STORAGE 才能写 Downloads 目录。
+     * 若未授予，跳转系统设置页引导用户开启（只弹一次，直到用户授予或主动拒绝）。
+     *
+     * The "only once" the comment describes was never enforced, so every resume
+     * jumped to Settings — including the resume that comes back from the Chat
+     * attachment picker, which made choosing an image look like it had thrown
+     * the user out of the app.
+     *
+     * @return whether this call launched the Settings screen.
+     */
+    private fun requestAllFilesAccessIfNeeded(): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R ||
+            storageAccessPromptShown ||
+            Environment.isExternalStorageManager()
         ) {
-            storageAccessPromptShown = true
-            try {
-                startActivity(
-                    Intent(
-                        Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
-                        Uri.parse("package:$packageName")
-                    )
-                )
-            } catch (e: Exception) {
-                startActivity(Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION))
-            }
+            return false
         }
+        storageAccessPromptShown = true
+        try {
+            startActivity(
+                Intent(
+                    Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
+                    Uri.parse("package:$packageName")
+                )
+            )
+        } catch (e: Exception) {
+            startActivity(Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION))
+        }
+        return true
     }
 
     override fun cleanUpFlutterEngine(flutterEngine: FlutterEngine) {

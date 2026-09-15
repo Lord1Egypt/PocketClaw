@@ -701,6 +701,22 @@ def source_gates(gate: Gate, run_tests: bool, release_class: str = "test"):
                expected="deterministic build plumbing",
                observed="PASS" if rc == 0 else out.strip().splitlines()[-1] if out.strip() else "FAIL")
 
+    # PC-DEF-065. The ordered fresh-install path, as its own gate row.
+    #
+    # This project kept fixing one step and breaking the next while every
+    # isolated test still passed: the store was right, the handler's rules were
+    # right, the exposure rule was right, and a real first install still could
+    # not create its first password -- the claim reconciliation closed the
+    # listener carrying the setup response. Only the ordered journey shows that,
+    # so it is named here rather than left to be one more test in a package.
+    rc, out = run(["go", "test", "-tags", "stdjson goolm", "-run",
+                   "TestFreshInstallJourney|TestJourney", "./web/backend/"],
+                  cwd=REPO / "core/src", env=go_env)
+    summary = out.strip().splitlines()[-1] if out.strip() else "FAIL"
+    gate.check("journey.fresh_install", rc == 0,
+               expected="the ordered fresh-install path still works end to end",
+               observed="PASS" if rc == 0 else summary)
+
     rc, out = run(["go", "test", "-tags", "stdjson goolm",
                    "./pkg/pid/", "./pkg/logger/", "./pkg/config/",
                    "./pkg/channels/pocketclaw/", "./web/backend/dashboardauth/"],

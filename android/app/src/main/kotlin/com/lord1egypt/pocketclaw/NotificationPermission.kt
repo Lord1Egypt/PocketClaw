@@ -102,6 +102,32 @@ object NotificationPermissionPolicy {
         else -> notificationsEnabled
     }
 
+    /**
+     * Whether a resume should raise the notification dialog.
+     *
+     * PC-DEF-058, second attempt. The first one asked from the Settings page's
+     * initState, and a fresh install never opens Settings -- it lands on the
+     * Dashboard -- so the dialog was never shown at all. Asking belongs on the
+     * resume path, which every launch takes, and this is the rule for it.
+     *
+     * [storagePromptJustLaunched] is the ordering the owner requires: on a first
+     * run the all-files-access screen is opened from the same resume, and
+     * stacking a permission dialog behind a Settings activity the user is being
+     * sent to is how a dialog gets dismissed unseen. The ask waits for the
+     * resume that comes back.
+     *
+     * [alreadyPromptedThisLaunch] keeps one dialog per launch, so a resume from
+     * the image picker or a screen lock cannot re-raise it.
+     */
+    fun shouldRequestOnResume(
+        state: NotificationPermissionState,
+        storagePromptJustLaunched: Boolean,
+        alreadyPromptedThisLaunch: Boolean,
+    ): Boolean {
+        if (storagePromptJustLaunched || alreadyPromptedThisLaunch) return false
+        return actionFor(state) == NotificationPermissionAction.REQUEST_SYSTEM_DIALOG
+    }
+
     /** The wire value handed to Flutter. Stable: the Dart side matches on it. */
     fun wireName(state: NotificationPermissionState): String = when (state) {
         NotificationPermissionState.NOT_REQUIRED -> "notRequired"
