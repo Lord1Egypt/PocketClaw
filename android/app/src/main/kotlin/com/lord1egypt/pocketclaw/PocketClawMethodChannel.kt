@@ -615,7 +615,10 @@ class PocketClawMethodChannel(
                         } catch (e: Exception) {
                             Log.w(TAG, "getCoreVersion failed: ${e.message}", e)
                             mainExecutor.execute {
-                                result.success("unknown")
+                                // Null, not a sentinel: Dart has to be able to
+                                // tell a failed probe from a version, or it
+                                // caches the failure (PC-DEF-063).
+                                result.success(null)
                             }
                         }
                     }.start()

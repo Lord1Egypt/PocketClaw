@@ -94,7 +94,7 @@ class AndroidCoreServiceAdapter implements CoreServiceAdapter {
   }
 
   @override
-  Future<String> getCoreVersion() async {
+  Future<String?> getCoreVersion() async {
     return PocketClawChannel.getCoreVersion();
   }
 

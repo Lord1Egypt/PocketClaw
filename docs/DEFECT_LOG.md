@@ -341,6 +341,100 @@ with:
   nothing below claims model deletion is missing. The management gap is at the
   **provider** level.
 
+### PC-DEF-064 — What's New described a release that had moved on
+
+- **Discovered:** owner physical verification, 2026-09-15.
+- **Component:** `lib/l10n/app_*.arb`, `lib/src/whats_new/whats_new_release.dart`,
+  new `tool/release_notes.py`, `docs/RELEASE_NOTES.md`, `tool/release_gate.py`.
+- **Symptom:** the What's New screen had not been audited against the final 0.2.0
+  candidate. One bullet was actively wrong -- "Telegram integration, set up from
+  Settings" -- because setup had moved: the managed flow is offered in the app
+  *and* from the Dashboard in a browser, and the owner pairing is the part worth
+  saying. Several verified capabilities were missing entirely.
+- **Audit result.** Every existing bullet was checked against the source. The
+  bundled-tool claim holds: `pkg/pcruntime/manifest.json` carries `git`, `gh`,
+  `curl`, `rg`, `jq` and `sqlite3`. The Python claim holds: 3.14.7. The three
+  "one-time effects of upgrading" bullets stay last and stay in Improvements,
+  because they say what to expect after installing rather than what is new.
+- **Resolution:** the inaccurate bullet reworded, and seven added, each for
+  something physically verified in an earlier round -- managed Telegram setup and
+  its owner pairing, Dashboard Telegram management, provider and model management
+  with key rotation, the automatic Telegram apply (PC-DEF-030), the `PC-E-AI`
+  configuration messages (PC-DEF-053), the post-sign-in destination
+  (PC-DEF-059), the logging redaction (PC-DEF-057), and the unclaimed-Dashboard
+  rule (PC-DEF-039). **Deliberately not claimed:** the notification permission,
+  which the owner named as conditional on physical verification and which
+  PC-DEF-058 has not yet had.
+- **The drift itself is now a gate.** `tool/release_notes.py` renders
+  `docs/RELEASE_NOTES.md` from the app's own release structure and English
+  strings, so the published notes cannot say something different from the screen;
+  `release.notes_match_whats_new` fails the source gate on a stale file. Proven
+  to fire: an extra hand-written bullet in the rendered file fails the check.
+- **Status:** RESOLVED.
+
+### PC-DEF-063 — Unknown was used as the About screen's loading placeholder
+
+- **Discovered:** owner physical observation, 2026-09-15.
+- **Component:** `android/.../PocketClawService.kt`,
+  `android/.../PocketClawMethodChannel.kt`, `lib/src/core/pocketclaw_channel.dart`,
+  `lib/src/core/service_manager.dart`, `lib/src/native/core_service_adapter.dart`
+  and both adapters, `lib/src/ui/config_page.dart`.
+- **Symptom:** About showed the Core version as unknown and only later as
+  `0.3.1`.
+- **Cause, which is not a loading-state bug but a value doing two jobs.** Reading
+  the Core version means *running the Core binary*, which can fail transiently.
+  Every layer answered the literal string `"unknown"` for a failure: the Kotlin
+  probe, the method channel's catch, and both Dart adapters. `ServiceManager`
+  then cached it, because `"unknown"` passes a non-empty test -- so one transient
+  failure became the Core version and stayed displayed until something happened
+  to re-probe. The About dialog compounded it by deciding "loading" from whether
+  it had a value rather than from whether the future had completed.
+- **Resolution:** a failed probe is an absence. `readCoreVersion` returns
+  `String?`, the channel reports `null` (still mapping a literal `unknown`,
+  because the host reads the version out of a binary whose output it cannot
+  assume), the adapter interface is `Future<String?>`, and **a failure is never
+  cached** -- the cache stays empty so the next read retries. The three states the
+  owner asked for are now distinct: the future still running renders Loading, a
+  value renders the version, and only a *completed* failed probe renders
+  Unavailable. There is still one source: the version comes from the binary, not
+  a second hardcoded constant.
+- **Verification:** 4 cases in `test/unit/core_version_probe_test.dart` -- a
+  failing probe, a silent probe, a failed probe not being cached so the next read
+  succeeds, and a successful probe being cached. The two existing channel tests
+  that pinned the `"unknown"` sentinel were rewritten to the new contract.
+- **Status:** RESOLVED.
+
+### PC-DEF-062 — Desktop could pair a Telegram bot but never remove one
+
+- **Discovered:** owner physical verification, 2026-09-15.
+- **Component:** new `web/backend/api/telegram_lifecycle.go`, new
+  `web/frontend/src/api/telegram-lifecycle.ts`, new
+  `channel-forms/telegram-disconnect-dialog.tsx`, `channel-forms/telegram-panel.tsx`.
+- **Symptom:** having created a bot from a desktop browser, the owner had to pick
+  the phone up to remove it.
+- **Cause:** the connected card's only actions were Open chat and Reconnect, and
+  both are gated on the Android host -- `openTelegramOnboarding` and
+  `openExternal` are host calls. With no host, a configured Telegram channel
+  rendered as a read-only summary with no lifecycle at all.
+- **Resolution:** removal is Core's operation, so it lives in Core.
+  `clearTelegramCredentials` is the deliberate mirror of
+  `writeTelegramCredentials` -- same loader, same save, same apply -- and clears
+  the token, the owner allowlist and the enabled flag **together**. A partial
+  removal would be worse than none: a disabled channel still holding a token and
+  an owner reads as connected to every surface that asks, and a retained owner
+  would silently authorise the next bot paired there. Going through
+  `applyTelegramConfigChange` is what stops the old bot polling; a client-side
+  field edit would have left it running. The Dashboard gains an explicit
+  confirmation that says what is cleared, and Replace bot reveals the managed
+  flow that was already verified rather than reimplementing pairing.
+- **Verification:** 6 backend cases -- the three fields cleared together, the
+  runtime outcome reported honestly, idempotence, re-pairing afterwards leaving
+  exactly one *new* owner, readiness agreeing that nothing is configured, and no
+  credential in the response -- plus 4 UI cases covering confirmation, the single
+  authoritative call, a parked removal reported as information, and a failure not
+  telling the page it succeeded.
+- **Status:** FIXED IN SOURCE — physical confirmation required.
+
 ### PC-DEF-061 — The first owner message after a managed pairing was not received
 
 - **Discovered:** owner physical desktop + Samsung verification, 2026-09-15.
@@ -436,7 +530,34 @@ whatever polling had already fetched and had already told Telegram to forget.
   since the bot's chat exists in Telegram before PocketClaw has the token -- and
   gating it needs the authenticated health-detail token plumbed into the backend.
   Named here for an owner decision rather than bundled into this fix.
-- **Status:** RESOLVED IN SOURCE — awaiting physical verification.
+- **Update, 2026-09-15 — the ordering fix is confirmed and the readiness gap is
+  now the blocker.** The new instrumentation shows the intended order on the
+  device: `polling.started` and `polling.ready` at 02:58:42, with
+  `Telegram bot identity resolved` only at 02:58:48 -- so the getMe call is
+  provably off the intake path and the four-second window is gone. A first
+  `/start` was still unanswered, and the minute-resolution Telegram timestamp
+  cannot prove whether it was sent just before or just after `polling.ready`, so
+  **no claim is made about a Telegram-side drop.**
+  What that boundary *does* settle is that the product contract was unmet either
+  way: the Dashboard said Connected when the gateway had been restarted, not when
+  Telegram was receiving, so a user could be invited to send the first message
+  into a channel that was still starting. Readiness is now authoritative.
+  `status.Channel` carries a **three-valued** `commands_registered` -- absent
+  means this channel publishes no menu, which is not the same as a menu that has
+  not landed, and a gate that could not tell those apart would wait forever --
+  and `GET /api/telegram/readiness` maps the gateway's own snapshot to the
+  lifecycle states the UI renders. Completion no longer announces anything: the
+  managed flow waits, names the stage it is waiting on, and announces Connected
+  only on `ready`. The wait is bounded at 90s and offers Check again rather than
+  claiming anything on expiry. The credential for the authenticated detail probe
+  is the gateway's own bearer token, read from the private token file on Android
+  and from the pid record on desktop -- nothing new is minted.
+  **A second real bug surfaced while testing the restart case:** `Stop` returned
+  while Telego still held its long-polling lock, so `Start` on a stopped channel
+  failed with "long polling already running" and left Telegram down. `Stop` now
+  waits for the poller to unwind, bounded, and says so if it does not.
+- **Status:** RESOLVED IN SOURCE — awaiting physical verification of the
+  first-message acceptance test.
 
 ### PC-DEF-060 — Desktop Dashboard had no managed Telegram onboarding
 

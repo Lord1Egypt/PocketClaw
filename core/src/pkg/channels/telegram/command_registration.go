@@ -96,8 +96,21 @@ func (c *TelegramChannel) botUsername() string {
 	return c.bot.Username()
 }
 
+// CommandsRegistered reports whether the menu reached Telegram.
+//
+// PC-DEF-061. This is what lets "Connected" mean ready for the owner's first
+// message rather than merely configured. It latches on success and is never
+// cleared while the channel lives: a menu Telegram has accepted stays accepted,
+// and a retry after success is not attempted.
+func (c *TelegramChannel) CommandsRegistered() bool {
+	return c.commandsRegistered.Load()
+}
+
 func (c *TelegramChannel) startCommandRegistration(ctx context.Context, defs []commands.Definition) {
 	if len(defs) == 0 {
+		// Nothing to publish, so nothing can be waited on. Reported as done
+		// rather than pending, or a readiness gate would never finish.
+		c.commandsRegistered.Store(true)
 		return
 	}
 
@@ -128,10 +141,12 @@ func (c *TelegramChannel) startCommandRegistration(ctx context.Context, defs []c
 		for {
 			err := register(regCtx, defs)
 			if err == nil {
+				c.commandsRegistered.Store(true)
 				// Deliberately carries no count: RegisterCommands reports what
 				// it actually published, and a second number here that came from
 				// the definition list would contradict it.
-				logger.InfoC("telegram", "Telegram command registration completed")
+				logger.InfoCF("telegram", "Telegram command registration completed",
+					map[string]any{"event": "commands.registration_completed"})
 				return
 			}
 

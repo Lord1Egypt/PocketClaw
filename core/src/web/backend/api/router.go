@@ -110,6 +110,8 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	h.registerModelRoutes(mux)
 	h.registerProviderRoutes(mux)
 	h.registerTelegramOnboardingRoutes(mux)
+	h.registerTelegramReadinessRoutes(mux)
+	h.registerTelegramLifecycleRoutes(mux)
 
 	// Channel catalog (for frontend navigation/config pages)
 	h.registerChannelRoutes(mux)

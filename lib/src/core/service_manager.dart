@@ -696,10 +696,17 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
     return _cachedAppVersion;
   }
 
-  Future<String> getCoreVersion() async {
+  /// Reads the Core runtime version, or null when it could not be read.
+  ///
+  /// PC-DEF-063. A failed probe is never cached. It used to be: the adapter
+  /// answered 'unknown' for a failure, that string passed the non-empty test,
+  /// and it became the displayed Core version until something re-probed
+  /// successfully. Leaving the cache empty instead means the next read retries.
+  Future<String?> getCoreVersion() async {
     _syncAdapterConfiguration();
     final version = await _adapter.getCoreVersion();
-    if (version.isNotEmpty && version != _cachedCoreVersion) {
+    if (version == null || version.isEmpty) return null;
+    if (version != _cachedCoreVersion) {
       _cachedCoreVersion = version;
       notifyListeners();
     }
@@ -714,6 +721,10 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
   /// Reading it means invoking the Core binary, so it is fetched on demand
   /// rather than on every poll: a version does not change while the process
   /// runs.
+  /// The cached Core version, or an empty string while it is still unread.
+  ///
+  /// Empty means "not known yet", never "failed": a failed probe leaves the
+  /// cache empty so the next read of this getter tries again.
   String get coreVersionLabel {
     if (_cachedCoreVersion.isEmpty) {
       unawaited(getCoreVersion());

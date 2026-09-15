@@ -1,0 +1,243 @@
+package api
+
+import (
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"strconv"
+	"testing"
+
+	"github.com/sipeed/picoclaw/pkg/config"
+	"github.com/sipeed/picoclaw/pkg/health"
+	ppid "github.com/sipeed/picoclaw/pkg/pid"
+	"github.com/sipeed/picoclaw/pkg/status"
+)
+
+// PC-DEF-061. "Connected" has to mean Telegram is receiving.
+//
+// The physical failure was a user who was told Connected and whose first /start
+// went unanswered, because completion was reported when the gateway had been
+// restarted -- not when the channel was consuming. These pin the mapping from
+// the gateway's own status snapshot to what the Dashboard is allowed to say,
+// and in particular that no state short of ready is ever reported as ready.
+
+// fakeGatewayHealth serves a detail snapshot, and only to a bearer that matches.
+func fakeGatewayHealth(t *testing.T, token string, channels []status.Channel) *httptest.Server {
+	t.Helper()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Authorization") != "Bearer "+token {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		body := health.StatusResponse{}
+		if r.URL.Query().Get("detail") == "1" {
+			body.Detail = &status.Snapshot{Channels: channels}
+		}
+		_ = json.NewEncoder(w).Encode(body)
+	}))
+	t.Cleanup(server.Close)
+	return server
+}
+
+// readinessEnv configures Telegram, points the handler at a fake gateway, and
+// makes the gateway look like it is running.
+func readinessEnv(t *testing.T, channels []status.Channel) *Handler {
+	t.Helper()
+	handler, _, configPath := onboardingTestEnv(t)
+
+	// A configured Telegram channel, written the way the pairing writes one.
+	if _, _, err := handler.writeTelegramCredentials("123456789:test-token", 424242); err != nil {
+		t.Fatalf("writeTelegramCredentials: %v", err)
+	}
+
+	const token = "gateway-bearer-token"
+	server := fakeGatewayHealth(t, token, channels)
+	host, port := splitHostPortForTest(t, server.URL)
+
+	gateway.mu.Lock()
+	previous := gateway.pidData
+	gateway.pidData = &ppid.PidFileData{
+		PID: 1, Host: host, Port: port, Token: token,
+	}
+	gateway.mu.Unlock()
+	t.Cleanup(func() {
+		gateway.mu.Lock()
+		gateway.pidData = previous
+		gateway.mu.Unlock()
+	})
+
+	// The gateway's liveness depends on a process this package owns, which a
+	// test cannot produce; the fake health server is what stands in for it.
+	previousProbe := gatewayRunningProbe
+	gatewayRunningProbe = func(*Handler) bool { return true }
+	t.Cleanup(func() { gatewayRunningProbe = previousProbe })
+
+	_ = configPath
+	return handler
+}
+
+func TestTelegramReadinessIsNotReadyWhileTheChannelIsStarting(t *testing.T) {
+	handler := readinessEnv(t, []status.Channel{
+		{Name: "telegram", Configured: true, Started: true, Running: false},
+	})
+
+	state, _ := handler.telegramReadiness()
+	if state != readinessChannelStarting {
+		t.Fatalf("state = %q, want %q", state, readinessChannelStarting)
+	}
+}
+
+func TestTelegramReadinessWaitsForTheCommandMenu(t *testing.T) {
+	notYet := false
+	handler := readinessEnv(t, []status.Channel{
+		{
+			Name: "telegram", Configured: true, Started: true, Running: true,
+			CommandsRegistered: &notYet,
+		},
+	})
+
+	state, _ := handler.telegramReadiness()
+	if state != readinessRegisteringCommands {
+		t.Fatalf("state = %q, want %q", state, readinessRegisteringCommands)
+	}
+}
+
+func TestTelegramReadinessIsReadyOnlyWhenBothAreTrue(t *testing.T) {
+	registered := true
+	handler := readinessEnv(t, []status.Channel{
+		{
+			Name: "telegram", Configured: true, Started: true, Running: true,
+			CommandsRegistered: &registered,
+		},
+	})
+
+	state, _ := handler.telegramReadiness()
+	if state != readinessReady {
+		t.Fatalf("state = %q, want %q", state, readinessReady)
+	}
+}
+
+// A channel that publishes no menu reports nothing, which must not be read as
+// "not yet" -- a gate that waited on it would never finish.
+func TestTelegramReadinessDoesNotWaitOnAChannelWithNoMenu(t *testing.T) {
+	handler := readinessEnv(t, []status.Channel{
+		{Name: "telegram", Configured: true, Started: true, Running: true},
+	})
+
+	state, _ := handler.telegramReadiness()
+	if state != readinessReady {
+		t.Fatalf("state = %q, want %q", state, readinessReady)
+	}
+}
+
+// The gateway is up but has not built the channel yet.
+func TestTelegramReadinessReportsGatewayStartingWithoutTheChannel(t *testing.T) {
+	handler := readinessEnv(t, []status.Channel{
+		{Name: "pocketclaw", Configured: true, Started: true, Running: true},
+	})
+
+	state, _ := handler.telegramReadiness()
+	if state != readinessGatewayStarting {
+		t.Fatalf("state = %q, want %q", state, readinessGatewayStarting)
+	}
+}
+
+// No token on disk is a distinct answer from "starting": nothing is coming.
+func TestTelegramReadinessReportsNotConfigured(t *testing.T) {
+	handler, _, _ := onboardingTestEnv(t)
+
+	state, _ := handler.telegramReadiness()
+	if state != readinessNotConfigured {
+		t.Fatalf("state = %q, want %q", state, readinessNotConfigured)
+	}
+}
+
+// The endpoint never reports ready without the state agreeing.
+func TestTelegramReadinessEndpointReportsTheState(t *testing.T) {
+	registered := true
+	handler := readinessEnv(t, []status.Channel{
+		{
+			Name: "telegram", Configured: true, Started: true, Running: true,
+			CommandsRegistered: &registered,
+		},
+	})
+	mux := http.NewServeMux()
+	handler.RegisterRoutes(mux)
+
+	recorder := onboardingRequest(t, mux, http.MethodGet, "/api/telegram/readiness")
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", recorder.Code, recorder.Body.String())
+	}
+	var body struct {
+		State string `json:"state"`
+		Ready bool   `json:"ready"`
+	}
+	if err := json.Unmarshal(recorder.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	if body.State != string(readinessReady) || !body.Ready {
+		t.Fatalf("body = %+v, want ready", body)
+	}
+	// Nothing identifying belongs in a readiness answer.
+	for _, forbidden := range []string{"424242", "123456789", "token"} {
+		if bytesContainsFold(recorder.Body.Bytes(), forbidden) {
+			t.Fatalf("readiness leaked %q: %s", forbidden, recorder.Body.String())
+		}
+	}
+}
+
+func splitHostPortForTest(t *testing.T, rawURL string) (string, int) {
+	t.Helper()
+	trimmed := rawURL
+	for _, prefix := range []string{"http://", "https://"} {
+		if len(trimmed) > len(prefix) && trimmed[:len(prefix)] == prefix {
+			trimmed = trimmed[len(prefix):]
+		}
+	}
+	for i := len(trimmed) - 1; i >= 0; i-- {
+		if trimmed[i] == ':' {
+			port, err := strconv.Atoi(trimmed[i+1:])
+			if err != nil {
+				t.Fatalf("port in %q: %v", rawURL, err)
+			}
+			return trimmed[:i], port
+		}
+	}
+	t.Fatalf("no port in %q", rawURL)
+	return "", 0
+}
+
+func bytesContainsFold(haystack []byte, needle string) bool {
+	return len(needle) > 0 && indexFold(string(haystack), needle) >= 0
+}
+
+func indexFold(haystack, needle string) int {
+	for i := 0; i+len(needle) <= len(haystack); i++ {
+		if equalFoldASCII(haystack[i:i+len(needle)], needle) {
+			return i
+		}
+	}
+	return -1
+}
+
+func equalFoldASCII(a, b string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range len(a) {
+		x, y := a[i], b[i]
+		if 'A' <= x && x <= 'Z' {
+			x += 'a' - 'A'
+		}
+		if 'A' <= y && y <= 'Z' {
+			y += 'a' - 'A'
+		}
+		if x != y {
+			return false
+		}
+	}
+	return true
+}
+
+var _ = config.ChannelTelegram

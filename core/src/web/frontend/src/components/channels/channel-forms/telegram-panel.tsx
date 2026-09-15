@@ -1,7 +1,9 @@
 import {
+  IconAlertTriangle,
   IconBrandTelegram,
   IconCircleCheckFilled,
   IconChevronDown,
+  IconLoader2,
   IconRefresh,
 } from "@tabler/icons-react"
 import { useCallback, useEffect, useMemo, useState } from "react"
@@ -12,6 +14,11 @@ import { type ArrayFieldFlusher } from "@/components/channels/channel-array-list
 import { TelegramForm } from "@/components/channels/channel-forms/telegram-form"
 import { getTelegramOnboardingAvailability } from "@/api/telegram-onboarding"
 import { TelegramDesktopConnect } from "@/components/channels/channel-forms/telegram-desktop-connect"
+import { TelegramDisconnectDialog } from "@/components/channels/channel-forms/telegram-disconnect-dialog"
+import {
+  readinessLabelKey,
+  useTelegramReadiness,
+} from "@/components/channels/channel-forms/use-telegram-readiness"
 import {
   type TelegramSurface,
   isAdvancedFormAlwaysVisible,
@@ -94,8 +101,9 @@ export function TelegramPanel({
     window.dispatchEvent(new Event(TELEGRAM_UPDATED_EVENT))
   }, [])
 
+  // Asked unconditionally: the connected card needs the answer too, to offer
+  // Replace bot where Core can pair one.
   useEffect(() => {
-    if (onboardingAvailable) return
     let cancelled = false
     void getTelegramOnboardingAvailability().then((available) => {
       if (!cancelled) setCoreOnboardingAvailable(available)
@@ -103,7 +111,7 @@ export function TelegramPanel({
     return () => {
       cancelled = true
     }
-  }, [onboardingAvailable])
+  }, [])
   const surface: TelegramSurface = useMemo(
     () => resolveTelegramSurface({ configured, onboardingAvailable }),
     [configured, onboardingAvailable],
@@ -112,6 +120,20 @@ export function TelegramPanel({
 
   const botUsername = host?.telegramBotUsername ?? null
   const ownerConfigured = asStringArray(config.allow_from).length > 0
+
+  // PC-DEF-061. A page opened while the gateway is still starting must not
+  // simply say Connected: the configuration being present is not the channel
+  // being able to receive. Watched only while configured, and it stops once
+  // ready, so a settled page makes no requests.
+  const { readiness } = useTelegramReadiness(surface === "connected")
+  const receiving = readiness === null || readiness.ready
+  // "unknown" means the gateway would not say, which is neither connected nor
+  // starting. Claiming either would be the dishonest half of this fix.
+  const statusUnreadable = readiness?.state === "unknown"
+
+  // PC-DEF-062. Replacing a bot is pairing a new one over the old; the managed
+  // flow already does exactly that, so it is revealed rather than reimplemented.
+  const [replaceOpen, setReplaceOpen] = useState(false)
 
   const connect = useCallback(() => {
     host?.openTelegramOnboarding()
@@ -193,11 +215,32 @@ export function TelegramPanel({
         <Card className="shadow-sm">
           <CardContent className="space-y-4 px-6 py-5">
             <div className="flex items-center gap-2">
-              <IconCircleCheckFilled className="size-5 text-pc-success" />
+              {receiving ? (
+                <IconCircleCheckFilled className="size-5 text-pc-success" />
+              ) : statusUnreadable ? (
+                <IconAlertTriangle className="text-muted-foreground size-5" />
+              ) : (
+                <IconLoader2 className="text-muted-foreground size-5 animate-spin" />
+              )}
               <p className="text-base font-semibold">
-                {t("channels.telegram.connected")}
+                {receiving
+                  ? t("channels.telegram.connected")
+                  : statusUnreadable
+                    ? t("channels.telegram.statusUnreadableTitle")
+                    : t("channels.telegram.startingTitle")}
               </p>
             </div>
+
+            {/* Named so the user knows why not to send a message yet, rather
+                than being told Connected while the channel is still starting. */}
+            {!receiving && readiness && (
+              <p
+                className="text-muted-foreground text-sm"
+                data-readiness-state={readiness.state}
+              >
+                {t(readinessLabelKey(readiness.state))}
+              </p>
+            )}
 
             {botUsername && (
               <div>
@@ -221,17 +264,36 @@ export function TelegramPanel({
 
             <div className="flex flex-wrap gap-2 pt-1">
               {botUsername && host && (
-                <Button onClick={openChat}>
+                <Button onClick={openChat} className="min-h-10">
                   <IconBrandTelegram />
                   {t("channels.telegram.openChat")}
                 </Button>
               )}
               {onboardingAvailable && (
-                <Button variant="outline" onClick={connect}>
+                <Button
+                  variant="outline"
+                  className="min-h-10"
+                  onClick={connect}
+                >
                   <IconRefresh />
                   {t("channels.telegram.reconnect")}
                 </Button>
               )}
+              {/* PC-DEF-062. Where Core can pair — which includes a plain
+                  browser — replacing the bot is offered here rather than only
+                  in the app. */}
+              {!onboardingAvailable && coreOnboardingAvailable && (
+                <Button
+                  variant="outline"
+                  className="min-h-10"
+                  aria-expanded={replaceOpen}
+                  onClick={() => setReplaceOpen((open) => !open)}
+                >
+                  <IconRefresh />
+                  {t("channels.telegram.replaceBot")}
+                </Button>
+              )}
+              <TelegramDisconnectDialog onDisconnected={onManagedConnected} />
             </div>
           </CardContent>
         </Card>
@@ -260,6 +322,17 @@ export function TelegramPanel({
             </p>
           </CardContent>
         </Card>
+      )}
+
+      {/* Pairing a new bot over the old one. The same managed flow, so the owner
+          contract and the authoritative writer are the ones already verified. */}
+      {surface === "connected" && replaceOpen && (
+        <TelegramDesktopConnect
+          onConnected={() => {
+            setReplaceOpen(false)
+            onManagedConnected()
+          }}
+        />
       )}
 
       <div className="space-y-4">

@@ -773,8 +773,31 @@
         "errorStart": "Nastavení se nepodařilo spustit. Zkuste to za chvíli znovu.",
         "errorRateLimited": "Příliš mnoho pokusů o nastavení. Chvíli počkejte a zkuste to znovu.",
         "errorExpired": "Tento odkaz pro nastavení vypršel. Začněte znovu a získejte nový.",
-        "errorFailed": "Nastavení se nedokončilo. Zkuste to znovu nebo použijte ruční nastavení níže."
-      }
+        "errorFailed": "Nastavení se nedokončilo. Zkuste to znovu nebo použijte ruční nastavení níže.",
+        "errorNotReady": "Váš bot je uložen, ale Telegram ještě nepřijímá zprávy. Zkuste to za chvíli znovu.",
+        "checkAgain": "Zkontrolovat znovu"
+      },
+      "startingTitle": "Spouštění Telegramu…",
+      "replaceBot": "Nahradit bota",
+      "readiness": {
+        "not_configured": "Není nastaven žádný bot.",
+        "gateway_stopped": "PocketClaw neběží, takže Telegram nemůže přijímat zprávy.",
+        "gateway_starting": "PocketClaw se spouští…",
+        "channel_starting": "Připojování k Telegramu…",
+        "registering_commands": "Zveřejňování nabídky příkazů…",
+        "ready": "Telegram je připraven na vaši první zprávu.",
+        "unknown": "PocketClaw nenahlásil stav Telegramu."
+      },
+      "disconnect": {
+        "action": "Odpojit",
+        "title": "Odpojit Telegram?",
+        "body": "Tím se odstraní token bota i seznam vlastníka a zastaví se kanál Telegram. Historie konverzací zůstane zachována. Bota můžete kdykoli připojit znovu.",
+        "confirm": "Odpojit",
+        "removed": "Telegram byl odpojen.",
+        "removedPending": "Telegram byl odstraněn a zastaví se, jakmile bude PocketClaw volný.",
+        "failed": "Telegram se nepodařilo odpojit."
+      },
+      "statusUnreadableTitle": "Stav Telegramu není dostupný"
     }
   },
   "pages": {

@@ -89,3 +89,16 @@ type CorrelatedPlaceholderRecorder interface {
 type CommandRegistrarCapable interface {
 	RegisterCommands(ctx context.Context, defs []commands.Definition) error
 }
+
+// CommandMenuReporter is implemented by a channel that can say whether its
+// command menu has actually reached the platform.
+//
+// PC-DEF-061. "Connected" has to mean the bot is ready for the owner's first
+// message, and registration is part of that. Registration is asynchronous and
+// retried, so its outcome is a fact only the channel holds -- the menu itself
+// cannot be read back from inside the process, since only Telegram knows what
+// it is showing.
+type CommandMenuReporter interface {
+	// CommandsRegistered reports whether the menu was published successfully.
+	CommandsRegistered() bool
+}

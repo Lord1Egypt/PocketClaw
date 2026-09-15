@@ -106,6 +106,16 @@ type Channel struct {
 	Configured bool   `json:"configured"`
 	Started    bool   `json:"started"`
 	Running    bool   `json:"running"`
+
+	// CommandsRegistered is deliberately three-valued. Absent means this
+	// channel publishes no command menu, which is not the same as a menu that
+	// has not been published yet -- and a readiness gate that could not tell
+	// those apart would wait forever on a channel that was never going to
+	// report. False means not yet, true means the platform accepted it.
+	//
+	// PC-DEF-061. "Connected" has to mean ready for the owner's first message,
+	// and registration is asynchronous, so its outcome has to be observable.
+	CommandsRegistered *bool `json:"commands_registered,omitempty"`
 }
 
 // Resources reports the Core process's own usage.

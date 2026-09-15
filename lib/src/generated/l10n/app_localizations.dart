@@ -943,7 +943,7 @@ abstract class AppLocalizations {
   /// No description provided for @whatsNew020New5.
   ///
   /// In en, this message translates to:
-  /// **'Telegram integration, set up from Settings.'**
+  /// **'One-tap Telegram setup: PocketClaw creates your own bot, in the app or from the Dashboard in a browser. There is no token to copy, and only your own account can talk to it.'**
   String get whatsNew020New5;
 
   /// No description provided for @whatsNew020New6.
@@ -1293,6 +1293,48 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Open notification settings'**
   String get notificationPermissionOpenSettings;
+
+  /// No description provided for @whatsNew020New7.
+  ///
+  /// In en, this message translates to:
+  /// **'Telegram management from the Dashboard: connect a bot, replace it, or disconnect it.'**
+  String get whatsNew020New7;
+
+  /// No description provided for @whatsNew020New8.
+  ///
+  /// In en, this message translates to:
+  /// **'Provider and model management in the Dashboard: add a provider, rotate an API key, or remove a model.'**
+  String get whatsNew020New8;
+
+  /// No description provided for @whatsNew020Improvement12.
+  ///
+  /// In en, this message translates to:
+  /// **'Telegram settings apply as soon as you save them, with no manual restart.'**
+  String get whatsNew020Improvement12;
+
+  /// No description provided for @whatsNew020Improvement13.
+  ///
+  /// In en, this message translates to:
+  /// **'When no AI model is set up, PocketClaw says exactly what is missing and gives you a code to look up.'**
+  String get whatsNew020Improvement13;
+
+  /// No description provided for @whatsNew020Improvement14.
+  ///
+  /// In en, this message translates to:
+  /// **'Signing in to the Dashboard takes you to the screen you asked for.'**
+  String get whatsNew020Improvement14;
+
+  /// No description provided for @whatsNew020Improvement15.
+  ///
+  /// In en, this message translates to:
+  /// **'Diagnostic logs stay detailed without ever containing your keys, tokens or message text.'**
+  String get whatsNew020Improvement15;
+
+  /// No description provided for @whatsNew020Improvement16.
+  ///
+  /// In en, this message translates to:
+  /// **'A Dashboard nobody has claimed yet is never reachable from the network, even with Public Mode on.'**
+  String get whatsNew020Improvement16;
 }
 
 class _AppLocalizationsDelegate

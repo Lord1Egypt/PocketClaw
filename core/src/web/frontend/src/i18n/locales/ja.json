@@ -773,8 +773,31 @@
         "errorStart": "設定を開始できませんでした。しばらくしてからもう一度お試しください。",
         "errorRateLimited": "設定の試行回数が多すぎます。少し待ってからもう一度お試しください。",
         "errorExpired": "この設定リンクは期限切れです。やり直して新しいリンクを取得してください。",
-        "errorFailed": "設定が完了しませんでした。もう一度お試しか、下の手動設定をご利用ください。"
-      }
+        "errorFailed": "設定が完了しませんでした。もう一度お試しか、下の手動設定をご利用ください。",
+        "errorNotReady": "ボットは保存されましたが、Telegram はまだ受信していません。しばらくしてからもう一度確認してください。",
+        "checkAgain": "もう一度確認"
+      },
+      "startingTitle": "Telegram を起動しています…",
+      "replaceBot": "ボットを差し替える",
+      "readiness": {
+        "not_configured": "ボットが設定されていません。",
+        "gateway_stopped": "PocketClaw が実行されていないため、Telegram はメッセージを受信できません。",
+        "gateway_starting": "PocketClaw を起動しています…",
+        "channel_starting": "Telegram に接続しています…",
+        "registering_commands": "コマンドメニューを登録しています…",
+        "ready": "Telegram は最初のメッセージを受け取る準備ができました。",
+        "unknown": "PocketClaw が Telegram の状態を報告しませんでした。"
+      },
+      "disconnect": {
+        "action": "接続を解除",
+        "title": "Telegram の接続を解除しますか？",
+        "body": "ボットトークンと所有者リストを削除し、Telegram チャネルを停止します。チャット履歴は保持されます。ボットはいつでも再接続できます。",
+        "confirm": "接続を解除",
+        "removed": "Telegram の接続を解除しました。",
+        "removedPending": "Telegram を削除しました。PocketClaw が空き次第停止します。",
+        "failed": "Telegram の接続を解除できませんでした。"
+      },
+      "statusUnreadableTitle": "Telegram の状態を取得できません"
     }
   },
   "pages": {

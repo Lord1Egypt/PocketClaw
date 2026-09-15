@@ -773,8 +773,31 @@
         "errorStart": "无法开始设置。请稍后重试。",
         "errorRateLimited": "设置尝试次数过多。请稍等后重试。",
         "errorExpired": "该设置链接已过期。请重新开始以获取新链接。",
-        "errorFailed": "设置未完成。请重试，或使用下方的手动设置。"
-      }
+        "errorFailed": "设置未完成。请重试，或使用下方的手动设置。",
+        "errorNotReady": "机器人已保存，但 Telegram 还未开始接收消息。请稍后再检查。",
+        "checkAgain": "重新检查"
+      },
+      "startingTitle": "正在启动 Telegram…",
+      "replaceBot": "更换机器人",
+      "readiness": {
+        "not_configured": "尚未配置机器人。",
+        "gateway_stopped": "PocketClaw 未运行，Telegram 无法接收消息。",
+        "gateway_starting": "PocketClaw 正在启动…",
+        "channel_starting": "正在连接 Telegram…",
+        "registering_commands": "正在发布命令菜单…",
+        "ready": "Telegram 已准备好接收你的第一条消息。",
+        "unknown": "PocketClaw 未报告 Telegram 状态。"
+      },
+      "disconnect": {
+        "action": "断开连接",
+        "title": "断开 Telegram 连接？",
+        "body": "这将删除机器人令牌和所有者名单，并停止 Telegram 通道。聊天记录会保留。你随时可以重新连接机器人。",
+        "confirm": "断开连接",
+        "removed": "已断开 Telegram 连接。",
+        "removedPending": "Telegram 已移除，将在 PocketClaw 空闲后停止。",
+        "failed": "无法断开 Telegram 连接。"
+      },
+      "statusUnreadableTitle": "无法获取 Telegram 状态"
     }
   },
   "pages": {

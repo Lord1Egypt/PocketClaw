@@ -286,13 +286,22 @@ class PocketClawChannel {
     return result ?? false;
   }
 
-  static Future<String> getCoreVersion() async {
+  /// The Core runtime version, or null when the host could not read it.
+  ///
+  /// PC-DEF-063. This used to answer 'unknown' for both "the probe failed" and
+  /// "there is no version", and the caller cached that string as the version --
+  /// so one transient failure showed as the Core version until something
+  /// re-probed. A failure is now an absence, which cannot be cached as a value.
+  /// The literal is still mapped here because the host reads it out of a binary
+  /// whose output this cannot assume.
+  static Future<String?> getCoreVersion() async {
     try {
       final result = await _channel.invokeMethod<String>('getCoreVersion');
       final value = result?.trim() ?? '';
-      return value.isEmpty ? 'unknown' : value;
+      if (value.isEmpty || value.toLowerCase() == 'unknown') return null;
+      return value;
     } catch (_) {
-      return 'unknown';
+      return null;
     }
   }
 

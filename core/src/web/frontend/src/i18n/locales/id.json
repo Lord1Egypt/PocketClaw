@@ -773,8 +773,31 @@
         "errorStart": "Tidak dapat memulai penyiapan. Coba lagi sebentar lagi.",
         "errorRateLimited": "Terlalu banyak upaya penyiapan. Tunggu sejenak lalu coba lagi.",
         "errorExpired": "Tautan penyiapan ini kedaluwarsa. Mulai lagi untuk mendapatkan yang baru.",
-        "errorFailed": "Penyiapan tidak selesai. Coba lagi, atau gunakan penyiapan manual di bawah."
-      }
+        "errorFailed": "Penyiapan tidak selesai. Coba lagi, atau gunakan penyiapan manual di bawah.",
+        "errorNotReady": "Bot Anda sudah disimpan, tetapi Telegram belum menerima pesan. Periksa lagi sebentar.",
+        "checkAgain": "Periksa lagi"
+      },
+      "startingTitle": "Memulai Telegram…",
+      "replaceBot": "Ganti bot",
+      "readiness": {
+        "not_configured": "Belum ada bot yang dikonfigurasi.",
+        "gateway_stopped": "PocketClaw tidak berjalan, jadi Telegram tidak dapat menerima pesan.",
+        "gateway_starting": "PocketClaw sedang dijalankan…",
+        "channel_starting": "Menghubungkan ke Telegram…",
+        "registering_commands": "Menerbitkan menu perintah…",
+        "ready": "Telegram siap menerima pesan pertama Anda.",
+        "unknown": "PocketClaw tidak melaporkan status Telegram."
+      },
+      "disconnect": {
+        "action": "Putuskan",
+        "title": "Putuskan Telegram?",
+        "body": "Tindakan ini menghapus token bot dan daftar pemilik, lalu menghentikan saluran Telegram. Riwayat obrolan Anda tetap tersimpan. Anda dapat menghubungkan bot lagi kapan saja.",
+        "confirm": "Putuskan",
+        "removed": "Telegram telah diputuskan.",
+        "removedPending": "Telegram telah dihapus dan akan berhenti begitu PocketClaw tidak sibuk.",
+        "failed": "Tidak dapat memutuskan Telegram."
+      },
+      "statusUnreadableTitle": "Status Telegram tidak tersedia"
     }
   },
   "pages": {

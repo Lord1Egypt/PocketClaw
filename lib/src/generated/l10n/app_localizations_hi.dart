@@ -467,7 +467,7 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String get whatsNew020New5 =>
-      'Telegram एकीकरण, सेटिंग्स से सेट किया जा सकता है.';
+      'एक टैप में Telegram सेटअप: PocketClaw आपका अपना बॉट बनाता है — ऐप में या ब्राउज़र में डैशबोर्ड से। कोई टोकन कॉपी नहीं करना पड़ता, और सिर्फ़ आपका खाता उससे बात कर सकता है।';
 
   @override
   String get whatsNew020New6 =>
@@ -671,4 +671,32 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String get notificationPermissionOpenSettings => 'सूचना सेटिंग्स खोलें';
+
+  @override
+  String get whatsNew020New7 =>
+      'डैशबोर्ड से Telegram प्रबंधन: बॉट कनेक्ट करें, बदलें या डिस्कनेक्ट करें।';
+
+  @override
+  String get whatsNew020New8 =>
+      'डैशबोर्ड में प्रदाता और मॉडल प्रबंधन: प्रदाता जोड़ें, API कुंजी बदलें या मॉडल हटाएँ।';
+
+  @override
+  String get whatsNew020Improvement12 =>
+      'Telegram सेटिंग्स सहेजते ही लागू हो जाती हैं, किसी मैन्युअल रीस्टार्ट के बिना।';
+
+  @override
+  String get whatsNew020Improvement13 =>
+      'जब कोई AI मॉडल सेट नहीं होता, PocketClaw ठीक-ठीक बताता है कि क्या कमी है और खोजने के लिए एक कोड देता है।';
+
+  @override
+  String get whatsNew020Improvement14 =>
+      'डैशबोर्ड में साइन इन करने पर आप उसी स्क्रीन पर पहुँचते हैं जो आपने माँगी थी।';
+
+  @override
+  String get whatsNew020Improvement15 =>
+      'डायग्नोस्टिक लॉग विस्तृत रहते हैं, लेकिन उनमें आपकी कुंजियाँ, टोकन या संदेश का टेक्स्ट कभी नहीं होता।';
+
+  @override
+  String get whatsNew020Improvement16 =>
+      'जिस डैशबोर्ड पर अभी किसी का स्वामित्व नहीं है, वह नेटवर्क से कभी पहुँच योग्य नहीं होता — पब्लिक मोड चालू होने पर भी।';
 }

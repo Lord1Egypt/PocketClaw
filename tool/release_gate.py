@@ -635,6 +635,19 @@ def source_gates(gate: Gate, run_tests: bool, release_class: str = "test"):
                expected="no unclassified Pico identity in owned production source",
                observed="PASS" if rc == 0 else summary)
 
+    # PC-DEF-064. The What's New screen and the published release notes were
+    # two independent pieces of prose, so the app could describe a release the
+    # notes did not. There is one source now, and this is what stops them
+    # drifting apart again: the notes are rendered from the app's own release
+    # structure and English strings, and a stale file fails here rather than
+    # being noticed by whoever reads the published version.
+    rc, out = run([sys.executable, str(REPO / "tool/release_notes.py"), "--check"],
+                  cwd=REPO)
+    summary = out.strip().splitlines()[-1] if out.strip() else "FAIL"
+    gate.check("release.notes_match_whats_new", rc == 0,
+               expected="published release notes rendered from the app's What's New source",
+               observed=summary.replace("PASS ", "") if rc == 0 else summary)
+
     # Source side of the same rule. A dependency removed from the artifact but
     # left in pubspec would come back on the next `pub get`.
     proprietary = []

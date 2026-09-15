@@ -2131,6 +2131,13 @@ func (m *Manager) SnapshotChannels() []status.Channel {
 		if channel != nil {
 			running = channel.IsRunning()
 		}
+		// Only a channel that publishes a menu reports one, so the field stays
+		// absent for every other channel rather than reading as "not yet".
+		var commandsRegistered *bool
+		if reporter, ok := channel.(CommandMenuReporter); ok && channel != nil {
+			registered := reporter.CommandsRegistered()
+			commandsRegistered = &registered
+		}
 		snapshots = append(snapshots, status.Channel{
 			Name:       StatusDisplayName(name),
 			Configured: true,
@@ -2138,7 +2145,8 @@ func (m *Manager) SnapshotChannels() []status.Channel {
 			// A channel that never started cannot be running. Reporting the
 			// flag unconditionally would let a stale latched value present a
 			// failed channel as healthy.
-			Running: started && running,
+			Running:            started && running,
+			CommandsRegistered: commandsRegistered,
 		})
 	}
 	return snapshots

@@ -773,8 +773,31 @@
         "errorStart": "सेटअप शुरू नहीं हो सका। थोड़ी देर में फिर कोशिश करें।",
         "errorRateLimited": "सेटअप के बहुत ज़्यादा प्रयास। थोड़ा रुककर फिर कोशिश करें।",
         "errorExpired": "यह सेटअप लिंक समाप्त हो गया। नया पाने के लिए फिर से शुरू करें।",
-        "errorFailed": "सेटअप पूरा नहीं हुआ। फिर कोशिश करें, या नीचे मैन्युअल सेटअप इस्तेमाल करें।"
-      }
+        "errorFailed": "सेटअप पूरा नहीं हुआ। फिर कोशिश करें, या नीचे मैन्युअल सेटअप इस्तेमाल करें।",
+        "errorNotReady": "आपका बॉट सहेजा गया है, लेकिन Telegram अभी संदेश प्राप्त नहीं कर रहा है। कुछ क्षण बाद फिर जाँचें।",
+        "checkAgain": "फिर जाँचें"
+      },
+      "startingTitle": "Telegram शुरू हो रहा है…",
+      "replaceBot": "बॉट बदलें",
+      "readiness": {
+        "not_configured": "कोई बॉट कॉन्फ़िगर नहीं है।",
+        "gateway_stopped": "PocketClaw नहीं चल रहा है, इसलिए Telegram संदेश प्राप्त नहीं कर सकता।",
+        "gateway_starting": "PocketClaw शुरू हो रहा है…",
+        "channel_starting": "Telegram से कनेक्ट हो रहा है…",
+        "registering_commands": "कमांड मेनू प्रकाशित हो रहा है…",
+        "ready": "Telegram आपके पहले संदेश के लिए तैयार है।",
+        "unknown": "PocketClaw ने Telegram की स्थिति नहीं बताई।"
+      },
+      "disconnect": {
+        "action": "डिस्कनेक्ट करें",
+        "title": "Telegram डिस्कनेक्ट करें?",
+        "body": "इससे बॉट टोकन और स्वामी सूची हट जाएगी और Telegram चैनल रुक जाएगा। आपकी चैट हिस्ट्री सुरक्षित रहेगी। आप कभी भी दोबारा बॉट कनेक्ट कर सकते हैं।",
+        "confirm": "डिस्कनेक्ट करें",
+        "removed": "Telegram डिस्कनेक्ट कर दिया गया।",
+        "removedPending": "Telegram हटा दिया गया है और PocketClaw खाली होते ही रुक जाएगा।",
+        "failed": "Telegram डिस्कनेक्ट नहीं किया जा सका।"
+      },
+      "statusUnreadableTitle": "Telegram की स्थिति उपलब्ध नहीं"
     }
   },
   "pages": {

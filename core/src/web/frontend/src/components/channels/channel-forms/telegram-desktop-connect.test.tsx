@@ -7,6 +7,7 @@ const createTelegramPairing = vi.fn()
 const fetchTelegramPairingStatus = vi.fn()
 const completeTelegramPairing = vi.fn()
 const cancelTelegramPairing = vi.fn()
+const fetchTelegramReadiness = vi.fn()
 const toastSuccess = vi.fn()
 const toastInfo = vi.fn()
 
@@ -15,6 +16,10 @@ vi.mock("@/api/telegram-onboarding", () => ({
   fetchTelegramPairingStatus: (...a: unknown[]) => fetchTelegramPairingStatus(...a),
   completeTelegramPairing: (...a: unknown[]) => completeTelegramPairing(...a),
   cancelTelegramPairing: (...a: unknown[]) => cancelTelegramPairing(...a),
+}))
+
+vi.mock("@/api/telegram-lifecycle", () => ({
+  fetchTelegramReadiness: (...a: unknown[]) => fetchTelegramReadiness(...a),
 }))
 
 vi.mock("react-i18next", () => ({
@@ -58,6 +63,7 @@ describe("TelegramDesktopConnect", () => {
     fetchTelegramPairingStatus.mockResolvedValue({ state: "pending" })
     completeTelegramPairing.mockResolvedValue({ ok: true, bot_username: "pocketclaw_abc_bot" })
     cancelTelegramPairing.mockResolvedValue(undefined)
+    fetchTelegramReadiness.mockResolvedValue({ state: "ready", ready: true })
   })
 
   it("offers Connect before anything has started", () => {
@@ -92,6 +98,8 @@ describe("TelegramDesktopConnect", () => {
     expect(anchor.getAttribute("rel")).toContain("noopener")
   })
 
+  // PC-DEF-061. Connected is announced from the gateway's own readiness, never
+  // from the configuration having been applied.
   it("completes once the service reports ready, and reports it upward", async () => {
     const onConnected = vi.fn()
     fetchTelegramPairingStatus.mockResolvedValue({ state: "ready" })
@@ -120,12 +128,77 @@ describe("TelegramDesktopConnect", () => {
   it("reports a parked change as information, not an error", async () => {
     fetchTelegramPairingStatus.mockResolvedValue({ state: "ready" })
     completeTelegramPairing.mockResolvedValue({ ok: true, pending: true })
+    // Parked means not receiving, so readiness never arrives here.
+    fetchTelegramReadiness.mockResolvedValue({
+      state: "gateway_stopped",
+      ready: false,
+    })
 
     render(<TelegramDesktopConnect onConnected={vi.fn()} />)
     fireEvent.click(screen.getByText("channels.telegram.desktop.connect"))
 
     await waitFor(() => expect(toastInfo).toHaveBeenCalled())
     expect(toastSuccess).not.toHaveBeenCalled()
+  })
+
+  // The defect this exists for: "Connected" used to be announced as soon as the
+  // configuration was applied, which is before the channel is receiving.
+  it("does not announce connected while Telegram is still starting", async () => {
+    const onConnected = vi.fn()
+    fetchTelegramPairingStatus.mockResolvedValue({ state: "ready" })
+    fetchTelegramReadiness.mockResolvedValue({
+      state: "channel_starting",
+      ready: false,
+    })
+
+    render(<TelegramDesktopConnect onConnected={onConnected} />)
+    fireEvent.click(screen.getByText("channels.telegram.desktop.connect"))
+
+    await waitFor(() => expect(completeTelegramPairing).toHaveBeenCalled())
+    // The stage is named rather than claimed as connected.
+    expect(
+      await screen.findByText("channels.telegram.readiness.channel_starting"),
+    ).toBeTruthy()
+    expect(toastSuccess).not.toHaveBeenCalled()
+    expect(onConnected).not.toHaveBeenCalled()
+  })
+
+  // Each stage is shown, so the user is told why not to send a message yet.
+  it("names the command-registration stage", async () => {
+    fetchTelegramPairingStatus.mockResolvedValue({ state: "ready" })
+    fetchTelegramReadiness.mockResolvedValue({
+      state: "registering_commands",
+      ready: false,
+    })
+
+    render(<TelegramDesktopConnect onConnected={vi.fn()} />)
+    fireEvent.click(screen.getByText("channels.telegram.desktop.connect"))
+
+    expect(
+      await screen.findByText(
+        "channels.telegram.readiness.registering_commands",
+      ),
+    ).toBeTruthy()
+  })
+
+  // Readiness arriving late must still announce, and only once.
+  it("announces connected when readiness finally arrives", async () => {
+    const onConnected = vi.fn()
+    fetchTelegramPairingStatus.mockResolvedValue({ state: "ready" })
+    fetchTelegramReadiness
+      .mockResolvedValueOnce({ state: "gateway_starting", ready: false })
+      .mockResolvedValue({ state: "ready", ready: true })
+
+    render(<TelegramDesktopConnect onConnected={onConnected} />)
+    fireEvent.click(screen.getByText("channels.telegram.desktop.connect"))
+
+    // Long enough to cover a second readiness poll: the first answer is not
+    // ready, so the announcement can only come from the one after it.
+    await waitFor(() => expect(onConnected).toHaveBeenCalled(), {
+      timeout: 5000,
+    })
+    expect(onConnected).toHaveBeenCalledTimes(1)
+    expect(toastSuccess).toHaveBeenCalledTimes(1)
   })
 
   it("reports an expired pairing and offers a retry", async () => {

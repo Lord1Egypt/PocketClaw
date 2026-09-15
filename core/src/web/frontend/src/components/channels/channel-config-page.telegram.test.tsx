@@ -29,6 +29,15 @@ vi.mock("@/hooks/use-gateway", () => ({
 
 vi.mock("@/store/gateway", () => ({ refreshGatewayState: vi.fn() }))
 
+// PC-DEF-061. The connected card's wording comes from authoritative readiness
+// now, so a page test has to state what the gateway reports rather than letting
+// an unmocked probe decide it.
+const fetchTelegramReadiness = vi.fn()
+vi.mock("@/api/telegram-lifecycle", () => ({
+  fetchTelegramReadiness: (...a: unknown[]) => fetchTelegramReadiness(...a),
+  disconnectTelegram: vi.fn(),
+}))
+
 vi.mock("@/lib/restart-required", () => ({
   showSaveSuccessOrRestartToast: vi.fn(),
   // PC-DEF-030: saving a channel now applies it through this helper instead of
@@ -108,6 +117,9 @@ describe("Channels → Telegram", () => {
   beforeEach(() => {
     vi.clearAllMocks()
     delete window.__pocketclawHost
+    // A receiving channel unless a test says otherwise: these cases are about
+    // which surface is shown, not about the readiness lifecycle.
+    fetchTelegramReadiness.mockResolvedValue({ state: "ready", ready: true })
   })
 
   it("case 1: unconfigured with an onboarding URL puts managed onboarding first", async () => {
@@ -163,6 +175,32 @@ describe("Channels → Telegram", () => {
 
     expect(screen.getByTestId("telegram-surface-manual-only")).toBeDefined()
     expect(screen.getByText(translate("channels.field.token"))).toBeDefined()
+  })
+
+  // PC-DEF-061. Configured is not the same as receiving, and the card may not
+  // say Connected until the gateway says the channel is running.
+  it("case 3b: a configured Telegram that is still starting does not say connected", async () => {
+    installHost({
+      onboardingConfigured: true,
+      telegramBotUsername: "pocketclaw_ab12cd34_bot",
+    })
+    fetchTelegramReadiness.mockResolvedValue({
+      state: "channel_starting",
+      ready: false,
+    })
+    arrange({
+      configuredSecrets: ["token"],
+      config: { enabled: true, allow_from: ["123456789"] },
+    })
+
+    await renderTelegramPage()
+
+    expect(
+      await screen.findByText(translate("channels.telegram.startingTitle")),
+    ).toBeDefined()
+    expect(
+      screen.queryByText(translate("channels.telegram.connected")),
+    ).toBeNull()
   })
 
   it("case 3: an already-configured Telegram shows the connected summary first", async () => {

@@ -1,6 +1,7 @@
 package telegram
 
 import (
+	"context"
 	"runtime"
 	"time"
 
@@ -27,6 +28,11 @@ import (
 //   - Running is not reported until the handler is consuming;
 //   - an update that is dropped is said out loud, because the silent version of
 //     this is indistinguishable from Telegram never having sent it.
+
+// pollingStopWait bounds how long Stop waits for the poller to release the
+// library's long-polling lock. Reached only if the poller is wedged; the normal
+// case is one scheduling hop after the context is cancelled.
+const pollingStopWait = 5 * time.Second
 
 // handlerConsumingWait bounds the wait for the handler goroutine to be
 // scheduled. It is a yield loop over the handler's own state, not a delay: the
@@ -72,9 +78,19 @@ func waitForHandlerConsuming(consumer updateConsumer, within time.Duration) bool
 // are, and none is logged here.
 func (c *TelegramChannel) observeUpdates(in <-chan telego.Update) <-chan telego.Update {
 	out := make(chan telego.Update)
+	// Closed when the poller's channel closes, which is the only observable
+	// signal that Telego has released its long-polling lock. Stop waits on it,
+	// so a channel that has been stopped can be started again -- Telego refuses
+	// a second UpdatesViaLongPolling on the same bot until the first has
+	// finished unwinding, and Stop used to return before that happened, which
+	// turned a restart into "long polling already running" and left Telegram
+	// down.
+	done := make(chan struct{})
+	c.pollingDone = done
 
 	go func() {
 		defer close(out)
+		defer close(done)
 
 		first := true
 		for update := range in {
@@ -104,4 +120,26 @@ func (c *TelegramChannel) observeUpdates(in <-chan telego.Update) <-chan telego.
 	}()
 
 	return out
+}
+
+// awaitPollingStopped waits for the poller to unwind after the context is
+// cancelled.
+//
+// Bounded, and a expiry is reported rather than hidden: the next Start would
+// fail with Telego's "already running" error, and a silent wait would make that
+// look like a Telegram problem.
+func (c *TelegramChannel) awaitPollingStopped(ctx context.Context) {
+	done := c.pollingDone
+	if done == nil {
+		return
+	}
+	timer := time.NewTimer(pollingStopWait)
+	defer timer.Stop()
+	select {
+	case <-done:
+	case <-ctx.Done():
+	case <-timer.C:
+		logger.WarnCF("telegram", "Telegram polling did not stop within the wait",
+			map[string]any{"event": "polling.stop_timeout"})
+	}
 }

@@ -164,7 +164,7 @@
   "whatsNew020New2": "同梱の開発ツール: Git、GitHub CLI、curl、ripgrep、jq、SQLite。",
   "whatsNew020New3": "PocketClaw 同梱の Python 3.14 ランタイムに対応しました。",
   "whatsNew020New4": "安全な GitHub サインイン。同梱の Git と GitHub CLI が共通で利用します。",
-  "whatsNew020New5": "Telegram 連携。設定から構成できます。",
+  "whatsNew020New5": "ワンタップの Telegram 設定：PocketClaw があなた専用のボットを作成します。アプリからでも、ブラウザのダッシュボードからでも可能です。トークンをコピーする必要はなく、話しかけられるのはあなたのアカウントだけです。",
   "whatsNew020New6": "ダッシュボードのステータス表示。実行中の処理、チャネル、使用中のモデル、実行リソースを確認できます。",
   "whatsNew020Improvement1": "プロバイダーの耐障害性を向上。リクエストが失敗してもターンは終了しません。",
   "whatsNew020Improvement2": "マネージドランタイムのカタログをより正確にしました。",
@@ -222,5 +222,12 @@
   "notificationPermissionTitle": "通知",
   "notificationPermissionGranted": "PocketClaw は実行中の通知を表示できます。",
   "notificationPermissionBlocked": "通知がオフのため、PocketClaw の実行中通知は表示されません。",
-  "notificationPermissionOpenSettings": "通知設定を開く"
+  "notificationPermissionOpenSettings": "通知設定を開く",
+  "whatsNew020New7": "ダッシュボードからの Telegram 管理：ボットの接続、差し替え、接続解除。",
+  "whatsNew020New8": "ダッシュボードでのプロバイダーとモデルの管理：プロバイダーの追加、API キーの入れ替え、モデルの削除。",
+  "whatsNew020Improvement12": "Telegram の設定は保存した時点で適用され、手動での再起動は不要です。",
+  "whatsNew020Improvement13": "AI モデルが未設定のとき、PocketClaw は何が足りないかを正確に示し、調べるためのコードを提示します。",
+  "whatsNew020Improvement14": "ダッシュボードにサインインすると、開こうとしていた画面に戻ります。",
+  "whatsNew020Improvement15": "診断ログは詳細さを保ちながら、鍵やトークン、メッセージ本文を含むことはありません。",
+  "whatsNew020Improvement16": "まだ誰のものにもなっていないダッシュボードは、パブリックモードが有効でもネットワークから到達できません。"
 }

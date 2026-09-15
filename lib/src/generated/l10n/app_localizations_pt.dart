@@ -478,7 +478,7 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String get whatsNew020New5 =>
-      'Integração com o Telegram, configurada nas Configurações.';
+      'Configuração do Telegram com um toque: o PocketClaw cria o seu próprio bot, no aplicativo ou pelo painel em um navegador. Não há token para copiar e apenas a sua conta pode falar com ele.';
 
   @override
   String get whatsNew020New6 =>
@@ -684,4 +684,32 @@ class AppLocalizationsPt extends AppLocalizations {
   @override
   String get notificationPermissionOpenSettings =>
       'Abrir configurações de notificação';
+
+  @override
+  String get whatsNew020New7 =>
+      'Gerenciamento do Telegram pelo painel: conectar um bot, substituí-lo ou desconectá-lo.';
+
+  @override
+  String get whatsNew020New8 =>
+      'Gerenciamento de provedores e modelos no painel: adicionar um provedor, trocar uma chave de API ou remover um modelo.';
+
+  @override
+  String get whatsNew020Improvement12 =>
+      'As configurações do Telegram são aplicadas assim que você salva, sem reinício manual.';
+
+  @override
+  String get whatsNew020Improvement13 =>
+      'Quando nenhum modelo de IA está configurado, o PocketClaw diz exatamente o que falta e fornece um código para consultar.';
+
+  @override
+  String get whatsNew020Improvement14 =>
+      'Entrar no painel leva você à tela que você pediu.';
+
+  @override
+  String get whatsNew020Improvement15 =>
+      'Os registros de diagnóstico continuam detalhados sem nunca conter suas chaves, tokens ou o texto das mensagens.';
+
+  @override
+  String get whatsNew020Improvement16 =>
+      'Um painel que ainda não foi reivindicado nunca fica acessível pela rede, mesmo com o modo público ativado.';
 }

@@ -456,7 +456,8 @@ class AppLocalizationsKo extends AppLocalizations {
       '안전한 GitHub 로그인. 기본 제공 Git과 GitHub CLI가 함께 사용합니다.';
 
   @override
-  String get whatsNew020New5 => 'Telegram 연동. 설정에서 구성할 수 있습니다.';
+  String get whatsNew020New5 =>
+      '원탭 Telegram 설정: PocketClaw가 앱에서든 브라우저의 대시보드에서든 당신만의 봇을 만들어 줍니다. 복사할 토큰이 없고, 당신의 계정만 봇과 대화할 수 있습니다.';
 
   @override
   String get whatsNew020New6 => '대시보드의 상태 보기: 진행 중인 작업, 채널, 사용 중인 모델, 런타임 리소스.';
@@ -653,4 +654,29 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get notificationPermissionOpenSettings => '알림 설정 열기';
+
+  @override
+  String get whatsNew020New7 => '대시보드에서 Telegram 관리: 봇 연결, 교체, 연결 해제.';
+
+  @override
+  String get whatsNew020New8 => '대시보드에서 공급자와 모델 관리: 공급자 추가, API 키 교체, 모델 삭제.';
+
+  @override
+  String get whatsNew020Improvement12 =>
+      'Telegram 설정은 저장하는 즉시 적용되며 수동 재시작이 필요하지 않습니다.';
+
+  @override
+  String get whatsNew020Improvement13 =>
+      '설정된 AI 모델이 없을 때 PocketClaw는 무엇이 빠졌는지 정확히 알려주고 찾아볼 수 있는 코드를 제시합니다.';
+
+  @override
+  String get whatsNew020Improvement14 => '대시보드에 로그인하면 원래 열려던 화면으로 이동합니다.';
+
+  @override
+  String get whatsNew020Improvement15 =>
+      '진단 로그는 상세하게 유지되지만 키, 토큰, 메시지 내용은 절대 담지 않습니다.';
+
+  @override
+  String get whatsNew020Improvement16 =>
+      '아직 아무도 소유하지 않은 대시보드는 공개 모드가 켜져 있어도 네트워크에서 접근할 수 없습니다.';
 }

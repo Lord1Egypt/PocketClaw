@@ -773,8 +773,31 @@
         "errorStart": "Could not start setup. Try again in a moment.",
         "errorRateLimited": "Too many setup attempts. Wait a moment and try again.",
         "errorExpired": "This setup link expired. Start again to get a new one.",
-        "errorFailed": "Setup did not finish. Try again, or use manual setup below."
-      }
+        "errorFailed": "Setup did not finish. Try again, or use manual setup below.",
+        "errorNotReady": "Your bot is saved, but Telegram is not receiving yet. Check again in a moment.",
+        "checkAgain": "Check again"
+      },
+      "startingTitle": "Starting Telegram…",
+      "replaceBot": "Replace bot",
+      "readiness": {
+        "not_configured": "No bot is configured.",
+        "gateway_stopped": "PocketClaw is not running, so Telegram cannot receive messages.",
+        "gateway_starting": "PocketClaw is starting…",
+        "channel_starting": "Connecting to Telegram…",
+        "registering_commands": "Publishing the command menu…",
+        "ready": "Telegram is ready for your first message.",
+        "unknown": "PocketClaw did not report its Telegram status."
+      },
+      "disconnect": {
+        "action": "Disconnect",
+        "title": "Disconnect Telegram?",
+        "body": "This removes the bot token and the owner allowlist, and stops the Telegram channel. Your chat history is kept. You can connect a bot again at any time.",
+        "confirm": "Disconnect",
+        "removed": "Telegram was disconnected.",
+        "removedPending": "Telegram was removed and will stop as soon as PocketClaw is free.",
+        "failed": "Could not disconnect Telegram."
+      },
+      "statusUnreadableTitle": "Telegram status unavailable"
     }
   },
   "pages": {

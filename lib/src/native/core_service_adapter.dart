@@ -22,7 +22,13 @@ abstract class CoreServiceAdapter {
   Future<Map<String, dynamic>> checkHealth({bool detail = false});
   Future<bool> setAutoStart(bool enabled);
   Future<bool> getAutoStart();
-  Future<String> getCoreVersion();
+  /// The Core runtime version, or null when it could not be read.
+  ///
+  /// Null rather than a sentinel string: reading it means running the Core
+  /// binary, which can fail transiently, and a caller that cannot tell a
+  /// failure from an answer caches the failure and shows it as the version
+  /// (PC-DEF-063).
+  Future<String?> getCoreVersion();
   void setConfiguredPath(String? path);
   String? getLastErrorCode();
 

@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 	"unicode/utf8"
 
@@ -62,9 +63,17 @@ type TelegramChannel struct {
 	tgCfg     *config.TelegramSettings
 	progress  *channels.ToolFeedbackAnimator
 
+	// pollingDone is closed when the long-polling goroutine has unwound. Stop
+	// waits on it so a stopped channel can be started again.
+	pollingDone chan struct{}
+
 	registerFunc      func(context.Context, []commands.Definition) error
 	commandRegDelayFn func(int) time.Duration
 	commandRegCancel  context.CancelFunc
+	// commandsRegistered latches once the menu has reached Telegram. Read from
+	// the status snapshot, so it is atomic rather than mutex-guarded: the
+	// registration goroutine writes it and a health request reads it.
+	commandsRegistered atomic.Bool
 
 	mediaGroupMu    sync.Mutex
 	mediaGroups     map[string]*telegramMediaGroup
@@ -244,6 +253,10 @@ func (c *TelegramChannel) Stop(ctx context.Context) error {
 	if c.cancel != nil {
 		c.cancel()
 	}
+	// And wait for it to actually stop. Returning earlier reported a channel as
+	// stopped while the library still held its long-polling lock, so the next
+	// Start on this channel failed and Telegram stayed down.
+	c.awaitPollingStopped(ctx)
 	if c.progress != nil {
 		c.progress.StopAll()
 	}

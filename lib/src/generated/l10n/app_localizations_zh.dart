@@ -447,7 +447,8 @@ class AppLocalizationsZh extends AppLocalizations {
   String get whatsNew020New4 => '安全的 GitHub 登录，内置的 Git 与 GitHub CLI 共用同一凭据。';
 
   @override
-  String get whatsNew020New5 => 'Telegram 集成，可在“设置”中配置。';
+  String get whatsNew020New5 =>
+      '一键配置 Telegram：PocketClaw 会为你创建自己的机器人，可在应用内或浏览器中的仪表板完成。无需复制任何令牌，而且只有你的账号能与它对话。';
 
   @override
   String get whatsNew020New6 => '仪表板新增状态视图：进行中的工作、渠道、正在使用的模型和运行资源。';
@@ -638,4 +639,26 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get notificationPermissionOpenSettings => '打开通知设置';
+
+  @override
+  String get whatsNew020New7 => '在仪表板中管理 Telegram：连接机器人、更换机器人或断开连接。';
+
+  @override
+  String get whatsNew020New8 => '在仪表板中管理提供商与模型：添加提供商、轮换 API 密钥或删除模型。';
+
+  @override
+  String get whatsNew020Improvement12 => 'Telegram 设置保存后立即生效，无需手动重启。';
+
+  @override
+  String get whatsNew020Improvement13 =>
+      '当尚未配置 AI 模型时，PocketClaw 会准确说明缺少什么，并给出可查阅的代码。';
+
+  @override
+  String get whatsNew020Improvement14 => '登录仪表板后会回到你原本要去的页面。';
+
+  @override
+  String get whatsNew020Improvement15 => '诊断日志保持详尽，但绝不包含你的密钥、令牌或消息内容。';
+
+  @override
+  String get whatsNew020Improvement16 => '尚无人认领的仪表板绝不会从网络可达，即使已开启公开模式。';
 }

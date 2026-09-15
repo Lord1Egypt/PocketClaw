@@ -471,7 +471,16 @@ class PocketClawService : Service() {
             }
         }
 
-        fun readCoreVersion(context: Context): String {
+        /**
+         * The Core runtime version, or null when it could not be read.
+         *
+         * PC-DEF-063. This answered "unknown" for every failure, and Dart
+         * cached that string as the version -- so one transient failure was
+         * displayed as the Core version until something re-probed. Reading the
+         * version means running the Core binary, which can fail transiently,
+         * so a failure has to be distinguishable from an answer.
+         */
+        fun readCoreVersion(context: Context): String? {
             return try {
                 val binaryFile = getGatewayBinaryFile(context)
                 val pb = ProcessBuilder(binaryFile.absolutePath, "version")
@@ -484,13 +493,13 @@ class PocketClawService : Service() {
                 val exitCode = process.waitFor()
 
                 if (exitCode == 0 && output.isNotBlank()) {
-                    extractSemanticVersion(output) ?: "unknown"
+                    extractSemanticVersion(output)
                 } else {
-                    "unknown"
+                    null
                 }
             } catch (e: Exception) {
                 Log.w(TAG, "getCoreVersion failed: ${e.message}", e)
-                "unknown"
+                null
             }
         }
 

@@ -18,6 +18,10 @@ import {
 } from "@/api/telegram-onboarding"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
+import {
+  readinessLabelKey,
+  useTelegramReadiness,
+} from "@/components/channels/channel-forms/use-telegram-readiness"
 
 /**
  * Managed Telegram pairing from a client with no Android host.
@@ -29,6 +33,13 @@ import { Card, CardContent } from "@/components/ui/card"
  *
  * The poll interval and the deadline both come from the pairing, so the service decides
  * them rather than this file guessing.
+ *
+ * PC-DEF-061. "Connected" is not announced when the configuration is applied. Applying it
+ * restarts the gateway, and the Telegram channel is built and starts polling asynchronously
+ * inside that — so the readiness stage below waits for the gateway's own status snapshot to
+ * say the channel is running and its command menu has landed. The wait is bounded and
+ * reports what it is waiting for; it is never a fixed delay, and nothing is claimed if the
+ * bound expires.
  */
 
 type Phase =
@@ -36,6 +47,14 @@ type Phase =
   | { kind: "creating" }
   | { kind: "waiting"; pairing: TelegramDesktopPairing }
   | { kind: "configuring"; pairing: TelegramDesktopPairing }
+  /**
+   * Configured, and now waiting for Telegram to actually be receiving.
+   *
+   * PC-DEF-061. This stage did not exist: completion was reported as connected
+   * the moment the configuration was applied, so the user was invited to send
+   * the first message while the channel was still starting inside the gateway.
+   */
+  | { kind: "starting" }
   | { kind: "failed"; reason: string }
 
 interface TelegramDesktopConnectProps {
@@ -136,12 +155,12 @@ export function TelegramDesktopConnect({
         pairingRef.current = null
         if (result.pending) {
           // Saved but not yet live, which is not a failure — PC-DEF-030's rule.
+          // It is also not readiness, so the wait below still has to happen.
           toast.info(t("channels.telegram.desktop.savedPending"))
-        } else {
-          toast.success(t("channels.telegram.desktop.connected"))
         }
-        setPhase({ kind: "idle" })
-        onConnected()
+        // The configuration is written. Whether Telegram can receive is a
+        // different question, and the readiness stage is where it is answered.
+        setPhase({ kind: "starting" })
       } catch {
         if (!cancelled) fail(t("channels.telegram.desktop.errorFailed"))
       }
@@ -154,6 +173,25 @@ export function TelegramDesktopConnect({
       clearInterval(timer)
     }
   }, [phase, fail, onConnected, t])
+
+  // PC-DEF-061. Watch readiness only while this flow is waiting on it.
+  const { readiness, timedOut, recheck } = useTelegramReadiness(
+    phase.kind === "starting",
+  )
+
+  // Ready is the only state that may be announced, and it is announced once.
+  const announced = useRef(false)
+  useEffect(() => {
+    if (phase.kind !== "starting") {
+      announced.current = false
+      return
+    }
+    if (!readiness?.ready || announced.current) return
+    announced.current = true
+    toast.success(t("channels.telegram.desktop.connected"))
+    setPhase({ kind: "idle" })
+    onConnected()
+  }, [phase.kind, readiness?.ready, onConnected, t])
 
   const copyLink = useCallback(async (link: string) => {
     try {
@@ -248,6 +286,42 @@ export function TelegramDesktopConnect({
             <IconLoader2 className="size-4 animate-spin" />
             {t("channels.telegram.desktop.configuring")}
           </p>
+        )}
+
+        {phase.kind === "starting" && (
+          <div className="space-y-3" data-testid="telegram-desktop-starting">
+            {timedOut ? (
+              <>
+                {/* The configuration is saved — this is not a pairing failure,
+                    so the action offered is to look again, not to start over. */}
+                <p className="text-destructive text-sm" role="alert">
+                  {t("channels.telegram.desktop.errorNotReady")}
+                </p>
+                <Button
+                  variant="outline"
+                  className="min-h-10"
+                  onClick={recheck}
+                >
+                  <IconRefresh className="size-4" />
+                  {t("channels.telegram.desktop.checkAgain")}
+                </Button>
+              </>
+            ) : (
+              <p
+                className="text-muted-foreground flex items-center gap-2 text-sm"
+                data-readiness-state={readiness?.state ?? "pending"}
+              >
+                <IconLoader2 className="size-4 animate-spin" />
+                {/* Names the stage rather than saying "please wait": the user is
+                    being told why they should not send a message yet. */}
+                {t(
+                  readiness
+                    ? readinessLabelKey(readiness.state)
+                    : "channels.telegram.desktop.configuring",
+                )}
+              </p>
+            )}
+          </div>
         )}
 
         {phase.kind === "failed" && (

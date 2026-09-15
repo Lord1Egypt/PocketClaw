@@ -773,8 +773,31 @@
         "errorStart": "Não foi possível iniciar a configuração. Tente novamente em instantes.",
         "errorRateLimited": "Muitas tentativas de configuração. Aguarde um momento e tente de novo.",
         "errorExpired": "Este link de configuração expirou. Comece de novo para obter outro.",
-        "errorFailed": "A configuração não foi concluída. Tente de novo ou use a configuração manual abaixo."
-      }
+        "errorFailed": "A configuração não foi concluída. Tente de novo ou use a configuração manual abaixo.",
+        "errorNotReady": "Seu bot foi salvo, mas o Telegram ainda não está recebendo. Verifique novamente em instantes.",
+        "checkAgain": "Verificar novamente"
+      },
+      "startingTitle": "Iniciando o Telegram…",
+      "replaceBot": "Substituir bot",
+      "readiness": {
+        "not_configured": "Nenhum bot está configurado.",
+        "gateway_stopped": "O PocketClaw não está em execução, então o Telegram não pode receber mensagens.",
+        "gateway_starting": "O PocketClaw está iniciando…",
+        "channel_starting": "Conectando ao Telegram…",
+        "registering_commands": "Publicando o menu de comandos…",
+        "ready": "O Telegram está pronto para sua primeira mensagem.",
+        "unknown": "O PocketClaw não informou o status do Telegram."
+      },
+      "disconnect": {
+        "action": "Desconectar",
+        "title": "Desconectar o Telegram?",
+        "body": "Isso remove o token do bot e a lista do proprietário e para o canal do Telegram. Seu histórico de conversas é mantido. Você pode conectar um bot novamente a qualquer momento.",
+        "confirm": "Desconectar",
+        "removed": "O Telegram foi desconectado.",
+        "removedPending": "O Telegram foi removido e será parado assim que o PocketClaw estiver livre.",
+        "failed": "Não foi possível desconectar o Telegram."
+      },
+      "statusUnreadableTitle": "Status do Telegram indisponível"
     }
   },
   "pages": {

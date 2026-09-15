@@ -410,9 +410,9 @@ class DesktopCoreServiceAdapter implements CoreServiceAdapter {
   }
 
   @override
-  Future<String> getCoreVersion() async {
+  Future<String?> getCoreVersion() async {
     final exe = await _resolveCoreExePath();
-    if (exe == null) return 'unknown';
+    if (exe == null) return null;
 
     try {
       if (!Platform.isWindows) {
@@ -420,13 +420,13 @@ class DesktopCoreServiceAdapter implements CoreServiceAdapter {
       }
 
       final result = await Process.run(exe, const ['version']);
-      if (result.exitCode != 0) return 'unknown';
+      if (result.exitCode != 0) return null;
 
       final output = result.stdout.toString().trim();
-      if (output.isEmpty) return 'unknown';
-      return _extractSemanticVersion(output) ?? 'unknown';
+      if (output.isEmpty) return null;
+      return _extractSemanticVersion(output);
     } catch (_) {
-      return 'unknown';
+      return null;
     }
   }
 

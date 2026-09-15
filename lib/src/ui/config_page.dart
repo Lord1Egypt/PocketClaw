@@ -22,8 +22,12 @@ const String _aboutProjectName = 'PocketClaw';
 class AboutInfo {
   const AboutInfo({required this.appVersion, required this.coreVersion});
 
+  /// PC-DEF-063. Null means the probe failed, which is a different thing from
+  /// "not read yet" -- that one is the future not having completed. Keeping
+  /// them apart is what stopped Unknown being used as a loading placeholder.
+
   final String appVersion;
-  final String coreVersion;
+  final String? coreVersion;
 }
 
 /// Settings control for the two launch auto-start preferences.
@@ -540,8 +544,14 @@ class ConfigPageState extends State<ConfigPage> with WidgetsBindingObserver {
     return AboutInfo(appVersion: appVersion, coreVersion: coreVersion);
   }
 
-  String _normalizeAboutVersion(String value, AppLocalizations l10n) {
-    final normalized = value.trim();
+  /// The text for a version that has already been probed.
+  ///
+  /// Only reached once the probe has finished, so an empty or absent value here
+  /// means it genuinely failed -- which is the one case that may say
+  /// unavailable. While the probe is still running the caller renders the
+  /// pending state instead.
+  String _normalizeAboutVersion(String? value, AppLocalizations l10n) {
+    final normalized = value?.trim() ?? '';
     if (normalized.isEmpty || normalized.toLowerCase() == 'unknown') {
       return l10n.aboutVersionUnavailable;
     }
@@ -679,14 +689,13 @@ class ConfigPageState extends State<ConfigPage> with WidgetsBindingObserver {
                   child: FutureBuilder<AboutInfo>(
                     future: aboutInfoFuture,
                     builder: (ctx, snapshot) {
-                      final loading = !snapshot.hasData && !snapshot.hasError;
-                      final info =
-                          snapshot.data ??
-                          AboutInfo(
-                            appVersion: l10n.aboutVersionUnavailable,
-                            coreVersion: l10n.aboutVersionUnavailable,
-                          );
-                      Widget valueFor(String raw) => loading
+                      // Loading is decided by the future, not by the value:
+                      // an unread version renders as pending, and only a
+                      // completed probe may say unavailable (PC-DEF-063).
+                      final loading =
+                          snapshot.connectionState == ConnectionState.waiting;
+                      final info = snapshot.data;
+                      Widget valueFor(String? raw) => loading
                           ? _buildAboutVersionPending(ctx)
                           : _buildAboutVersionValue(
                               ctx,
@@ -699,13 +708,13 @@ class ConfigPageState extends State<ConfigPage> with WidgetsBindingObserver {
                           _buildAboutVersionRow(
                             ctx,
                             label: l10n.aboutAppVersionLabel,
-                            value: valueFor(info.appVersion),
+                            value: valueFor(info?.appVersion),
                           ),
                           const SizedBox(height: ApertureTheme.spaceMd),
                           _buildAboutVersionRow(
                             ctx,
                             label: l10n.aboutCoreVersionLabel,
-                            value: valueFor(info.coreVersion),
+                            value: valueFor(info?.coreVersion),
                           ),
                         ],
                       );

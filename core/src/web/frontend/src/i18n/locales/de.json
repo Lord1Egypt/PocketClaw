@@ -773,8 +773,31 @@
         "errorStart": "Die Einrichtung konnte nicht gestartet werden. Versuche es gleich noch einmal.",
         "errorRateLimited": "Zu viele Einrichtungsversuche. Warte einen Moment und versuche es erneut.",
         "errorExpired": "Dieser Einrichtungslink ist abgelaufen. Starte neu, um einen neuen zu erhalten.",
-        "errorFailed": "Die Einrichtung wurde nicht abgeschlossen. Versuche es erneut oder nutze unten die manuelle Einrichtung."
-      }
+        "errorFailed": "Die Einrichtung wurde nicht abgeschlossen. Versuche es erneut oder nutze unten die manuelle Einrichtung.",
+        "errorNotReady": "Ihr Bot ist gespeichert, aber Telegram empfängt noch nicht. Prüfen Sie es in einem Moment erneut.",
+        "checkAgain": "Erneut prüfen"
+      },
+      "startingTitle": "Telegram wird gestartet…",
+      "replaceBot": "Bot ersetzen",
+      "readiness": {
+        "not_configured": "Es ist kein Bot eingerichtet.",
+        "gateway_stopped": "PocketClaw läuft nicht, daher kann Telegram keine Nachrichten empfangen.",
+        "gateway_starting": "PocketClaw startet…",
+        "channel_starting": "Verbindung zu Telegram wird aufgebaut…",
+        "registering_commands": "Befehlsmenü wird veröffentlicht…",
+        "ready": "Telegram ist für Ihre erste Nachricht bereit.",
+        "unknown": "PocketClaw hat seinen Telegram-Status nicht gemeldet."
+      },
+      "disconnect": {
+        "action": "Trennen",
+        "title": "Telegram trennen?",
+        "body": "Dadurch werden das Bot-Token und die Besitzerfreigabe entfernt und der Telegram-Kanal gestoppt. Ihr Chatverlauf bleibt erhalten. Sie können jederzeit wieder einen Bot verbinden.",
+        "confirm": "Trennen",
+        "removed": "Telegram wurde getrennt.",
+        "removedPending": "Telegram wurde entfernt und wird gestoppt, sobald PocketClaw frei ist.",
+        "failed": "Telegram konnte nicht getrennt werden."
+      },
+      "statusUnreadableTitle": "Telegram-Status nicht verfügbar"
     }
   },
   "pages": {

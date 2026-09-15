@@ -475,7 +475,7 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get whatsNew020New5 =>
-      'Telegram-Integration, einrichtbar in den Einstellungen.';
+      'Telegram-Einrichtung mit einem Tipp: PocketClaw erstellt Ihren eigenen Bot, in der App oder über das Dashboard im Browser. Es gibt kein Token zum Kopieren, und nur Ihr eigenes Konto kann mit ihm sprechen.';
 
   @override
   String get whatsNew020New6 =>
@@ -681,4 +681,32 @@ class AppLocalizationsDe extends AppLocalizations {
   @override
   String get notificationPermissionOpenSettings =>
       'Benachrichtigungseinstellungen öffnen';
+
+  @override
+  String get whatsNew020New7 =>
+      'Telegram-Verwaltung im Dashboard: einen Bot verbinden, ersetzen oder trennen.';
+
+  @override
+  String get whatsNew020New8 =>
+      'Anbieter- und Modellverwaltung im Dashboard: Anbieter hinzufügen, API-Schlüssel wechseln oder ein Modell entfernen.';
+
+  @override
+  String get whatsNew020Improvement12 =>
+      'Telegram-Einstellungen werden sofort beim Speichern übernommen, ohne manuellen Neustart.';
+
+  @override
+  String get whatsNew020Improvement13 =>
+      'Wenn kein KI-Modell eingerichtet ist, nennt PocketClaw genau das Fehlende und gibt Ihnen einen Code zum Nachschlagen.';
+
+  @override
+  String get whatsNew020Improvement14 =>
+      'Die Anmeldung am Dashboard führt Sie zu der Seite, die Sie geöffnet hatten.';
+
+  @override
+  String get whatsNew020Improvement15 =>
+      'Diagnoseprotokolle bleiben ausführlich, enthalten aber niemals Ihre Schlüssel, Token oder Nachrichtentexte.';
+
+  @override
+  String get whatsNew020Improvement16 =>
+      'Ein Dashboard, das noch niemandem gehört, ist nie aus dem Netzwerk erreichbar – auch bei aktiviertem Public Mode.';
 }
