@@ -22,8 +22,27 @@ object PocketClawPreferences {
     /** Canonical store. Every current read and write uses this. */
     const val NAME = "pocketclaw_prefs"
 
-    private const val KEY_NOTIFICATION_PERMISSION_ASKED =
-        "notification_permission_asked"
+    /**
+     * The per-install marker recording that the notification dialog has been
+     * shown. A file under `noBackupFilesDir`, not a preference.
+     *
+     * PC-DEF-058, third attempt. It was a SharedPreference, and this app has
+     * `allowBackup="true"` with only three `file`-domain paths excluded — so
+     * `shared_prefs/pocketclaw_prefs.xml` is backup-eligible and a reinstall can
+     * restore `notification_permission_asked = true` from a *previous* install.
+     * The state machine then resolves DENIED, whose action is "offer Settings,
+     * do not ask", and a genuinely fresh install never sees the dialog. Which is
+     * what the device kept showing.
+     *
+     * "Have we asked *this install*" is per-install state by definition, so it
+     * belongs somewhere a restore cannot reach. The legacy preference key
+     * `notification_permission_asked` is deliberately **not** read: migrating it
+     * would carry the restored value straight back in. The cost is that an
+     * upgrade from an older build may raise the dialog once more — and only for
+     * someone who has not already granted it, since a granted permission
+     * short-circuits before this is consulted.
+     */
+    private const val NOTIFICATION_ASKED_MARKER = "notification-permission-asked"
 
     /**
      * LEGACY READ-ONLY MIGRATION — the pre-Zero-Pico store.
@@ -147,10 +166,26 @@ object PocketClawPreferences {
      * permanent denial, so it cannot tell "never asked" from "refused for good".
      * PocketClaw keeps its own record so it asks exactly once and never nags.
      */
+    private fun notificationAskedMarker(context: Context): File =
+        File(context.applicationContext.noBackupFilesDir, NOTIFICATION_ASKED_MARKER)
+
     fun notificationPermissionAsked(context: Context): Boolean =
-        open(context).getBoolean(KEY_NOTIFICATION_PERMISSION_ASKED, false)
+        notificationAskedMarker(context).exists()
 
     fun setNotificationPermissionAsked(context: Context, asked: Boolean) {
-        open(context).edit().putBoolean(KEY_NOTIFICATION_PERMISSION_ASKED, asked).apply()
+        val marker = notificationAskedMarker(context)
+        try {
+            if (asked) {
+                marker.parentFile?.mkdirs()
+                marker.createNewFile()
+            } else {
+                marker.delete()
+            }
+        } catch (e: Exception) {
+            // A marker that cannot be written means the dialog may be offered
+            // again on the next launch. That is the safe direction to fail: the
+            // alternative is never asking at all.
+            Log.w(TAG, "notification asked marker unavailable: ${e.message}")
+        }
     }
 }

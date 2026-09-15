@@ -148,25 +148,91 @@ class PocketClawMethodChannel(
      * @return whether the dialog was requested.
      */
     fun requestNotificationPermissionOnResume(storagePromptJustLaunched: Boolean): Boolean {
-        if (!NotificationPermissionPolicy.shouldRequestOnResume(
-                currentNotificationPermissionState(),
-                storagePromptJustLaunched,
-                notificationPromptShownThisLaunch,
-            )
-        ) {
+        val state = currentNotificationPermissionState()
+        val activity = context as? Activity
+        val shouldRequest = NotificationPermissionPolicy.shouldRequestOnResume(
+            state,
+            storagePromptJustLaunched,
+            notificationPromptShownThisLaunch,
+        )
+        // PC-DEF-058, third attempt. The dialog failed to appear twice while every
+        // input looked correct in source, so the inputs are recorded on the device
+        // instead of reasoned about. Every field is a state fact; none of it is
+        // user content, and no chat, account or credential value is included.
+        logNotificationPermissionDecision(
+            state = state,
+            activity = activity,
+            storagePromptJustLaunched = storagePromptJustLaunched,
+            shouldRequest = shouldRequest,
+        )
+        if (!shouldRequest || activity == null) {
             return false
         }
-        val activity = context as? Activity ?: return false
         notificationPromptShownThisLaunch = true
         // Recorded before the dialog, for the same reason as the Flutter path:
         // the callback does not fire if the activity is recreated mid-dialog.
         PocketClawPreferences.setNotificationPermissionAsked(context, true)
-        ActivityCompat.requestPermissions(
-            activity,
-            arrayOf(POST_NOTIFICATIONS_PERMISSION),
-            NOTIFICATION_PERMISSION_REQUEST_CODE,
+        val attempted = try {
+            ActivityCompat.requestPermissions(
+                activity,
+                arrayOf(POST_NOTIFICATIONS_PERMISSION),
+                NOTIFICATION_PERMISSION_REQUEST_CODE,
+            )
+            true
+        } catch (e: Exception) {
+            Log.w(TAG, "notification_request_attempted=false reason=${e.javaClass.simpleName}")
+            false
+        }
+        Log.i(TAG, "notification_permission decision=request notification_request_attempted=$attempted")
+        return attempted
+    }
+
+    /**
+     * Records why the notification dialog was or was not raised.
+     *
+     * Only state facts, and each one answers a question the physical failure
+     * left open: whether the permission is even declared in the installed
+     * manifest, whether the platform already considers it granted, what Android
+     * itself says about showing a rationale, and whether this resume was the one
+     * that sent the user to the all-files screen.
+     */
+    private fun logNotificationPermissionDecision(
+        state: NotificationPermissionState,
+        activity: Activity?,
+        storagePromptJustLaunched: Boolean,
+        shouldRequest: Boolean,
+    ) {
+        val declared = try {
+            val info = context.packageManager.getPackageInfo(
+                context.packageName,
+                PackageManager.GET_PERMISSIONS,
+            )
+            info.requestedPermissions?.contains(POST_NOTIFICATIONS_PERMISSION) == true
+        } catch (e: Exception) {
+            false
+        }
+        val granted = Build.VERSION.SDK_INT < NotificationPermissionPolicy.RUNTIME_PERMISSION_SDK ||
+            ContextCompat.checkSelfPermission(context, POST_NOTIFICATIONS_PERMISSION) ==
+            PackageManager.PERMISSION_GRANTED
+        val rationale = activity != null &&
+            ActivityCompat.shouldShowRequestPermissionRationale(
+                activity, POST_NOTIFICATIONS_PERMISSION,
+            )
+        Log.i(
+            TAG,
+            "notification_permission" +
+                " android_api_level=${Build.VERSION.SDK_INT}" +
+                " notification_permission_declared=$declared" +
+                " notification_permission_granted=$granted" +
+                " should_show_rationale=$rationale" +
+                " asked_marker=${PocketClawPreferences.notificationPermissionAsked(context)}" +
+                " resolved_state=${NotificationPermissionPolicy.wireName(state)}" +
+                " activity_lifecycle_state=${if (activity == null) "no-activity" else "onResume"}" +
+                " returned_from_all_files_settings=${!storagePromptJustLaunched}" +
+                " prompt_shown_this_launch=$notificationPromptShownThisLaunch" +
+                " notifications_enabled=${NotificationManagerCompat.from(context).areNotificationsEnabled()}" +
+                " should_request=$shouldRequest",
         )
-        return true
     }
 
     /**
@@ -180,6 +246,13 @@ class PocketClawMethodChannel(
         if (requestCode != NOTIFICATION_PERMISSION_REQUEST_CODE) return false
         val pending = pendingNotificationPermissionResult
         pendingNotificationPermissionResult = null
+        // The other half of the instrumentation: whether the dialog was answered
+        // at all, and how. PC-DEF-058.
+        Log.i(
+            TAG,
+            "notification_permission request_result=" +
+                NotificationPermissionPolicy.wireName(currentNotificationPermissionState()),
+        )
         // The snapshot is re-read rather than taken from the callback's grant array:
         // it is the same question and one source of truth is better than two.
         pending?.success(notificationPermissionSnapshot())

@@ -341,6 +341,40 @@ with:
   nothing below claims model deletion is missing. The management gap is at the
   **provider** level.
 
+### PC-DEF-066 — Telegram /help opened with pre-Aperture branding
+
+- **Discovered:** owner physical Telegram observation, 2026-09-15.
+- **Component:** `pkg/commands/cmd_help.go`, new `pkg/commands/branding_test.go`.
+- **Symptom:** `/help` began with a lobster emoji before the product name — legacy
+  branding from before the Aperture visual system, and the first thing the command
+  a new user runs showed them.
+- **Audit, since the owner asked for the surface and not just the one string.** The
+  lobster existed in exactly two places. `pkg/commands/cmd_help.go` is the one a
+  chat user reaches. `pkg/env.go`'s `Logo` constant is upstream terminal branding
+  for the PicoClaw CLI and is **not referenced from `pkg/` or `web/` at all**, so it
+  cannot reach a PocketClaw channel, the gateway's user-visible log or the
+  Dashboard; it is left alone deliberately rather than forking the upstream
+  baseline for no user-visible gain. Every other emoji in the command surface
+  (`🤖`, `📋`, `👁`, `🔄`) is functional decoration, not legacy identity, and none
+  was replaced — the instruction was not to introduce new ones. `/start`, `/show`,
+  `/list`, `/check`, `/switch`, every command description and every subcommand
+  description were checked for legacy identity text and are clean.
+- **Resolution:** the header is `PocketClaw`. Removed rather than substituted: the
+  product's mark is not an emoji, and picking a different one would be inventing
+  identity in a help string instead of using the product's own.
+- **Why nothing caught it, and what does now.** Zero-Pico is lexical and an emoji
+  is not a Pico identity; the i18n parity suites cover the Dashboard bundles and
+  the Flutter ARB files, not Core's command text; the command-menu tests assert
+  names and counts. So the branding could sit in `/help` with every gate green.
+  `branding_test.go` now checks the assembled `/help` output and every command and
+  subcommand description, usage and no-args help for the mascot and for legacy
+  product identity in any casing — and asserts `/help` still names the product, so
+  it cannot be satisfied by deleting the header. **Proven to fire:** restoring the
+  lobster fails it with the offending line quoted.
+- **Command behaviour is untouched**, and the 14-command registration the owner
+  physically verified is unchanged.
+- **Status:** RESOLVED.
+
 ### PC-DEF-065 — The first Dashboard password could not be created
 
 - **Discovered:** owner physical fresh install on the Samsung, 2026-09-15.
@@ -402,7 +436,10 @@ sequence.
   than one more test in a package, because every isolated test passed while the
   ordered path was broken. Any change to auth, launcher setup, first claim, Public
   Mode, Android permissions, the Service lifecycle or Dashboard middleware runs it.
-- **Status:** RESOLVED IN SOURCE — awaiting physical fresh-install verification.
+- **Status:** **PHYSICALLY VERIFIED PASS**, 2026-09-15. A fresh install created its
+  first Dashboard password on the first attempt, Public Mode reconciled to LAN
+  without a toggle, and login with that password succeeded. Not to be reopened
+  without contradictory evidence.
 
 ### PC-DEF-064 — What's New described a release that had moved on
 
@@ -619,8 +656,13 @@ whatever polling had already fetched and had already told Telegram to forget.
   while Telego still held its long-polling lock, so `Start` on a stopped channel
   failed with "long polling already running" and left Telegram down. `Stop` now
   waits for the poller to unwind, bounded, and says so if it does not.
-- **Status:** RESOLVED IN SOURCE — awaiting physical verification of the
-  first-message acceptance test.
+- **Status:** **PHYSICALLY VERIFIED PASS**, 2026-09-15. On a fresh install the log
+  shows `polling.started` and `polling.ready` at 06:18:13 and the first delivered
+  update at 06:18:33 with `first_update=true` and `message_chars=6` — the owner's
+  `/start`, answered on the **first** send. Both halves are therefore confirmed on
+  the device: the intake ordering and the readiness gate that made "Connected" mean
+  receiving. **The Telegram intake and readiness logic is not to be modified without
+  new contradictory evidence.**
 
 ### PC-DEF-060 — Desktop Dashboard had no managed Telegram onboarding
 
@@ -739,6 +781,46 @@ whatever polling had already fetched and had already told Telegram to forget.
   reopening this entry, because every step of the pairing itself passed.
 
 ### PC-DEF-058 — First run never requested Android notification permission
+
+**STILL PHYSICALLY FAILED, 2026-09-15 (third attempt). Audited before patching, as
+instructed, and one input is provably wrong.**
+
+Ruled out from the built artifact rather than from source: `targetSdkVersion` is
+**36**, so `POST_NOTIFICATIONS` is a runtime permission and the dialog is
+requestable; and `aapt2 dump permissions` on the packaged APK confirms
+`android.permission.POST_NOTIFICATIONS` is declared. Neither is the cause.
+
+**What is provably wrong: the "have we asked" record was backup-eligible.** It lived
+in `shared_prefs/pocketclaw_prefs.xml`, and this app ships `allowBackup="true"` with
+only three *file*-domain paths excluded — `credentials/`, `pocketclaw-core/` and
+`picoclaw/`. The preference store is not among them, so a reinstall can restore
+`notification_permission_asked = true` from a **previous** install. The state
+machine then resolves `DENIED`, whose action is "offer Settings, do not ask", and a
+genuinely fresh install never sees the dialog. That is the behaviour the device
+showed, and it is consistent with the second attempt's resume trigger being correct
+and still silent.
+
+"Have we asked *this install*" is per-install state by definition, so it is now a
+marker file under `noBackupFilesDir`, which a restore cannot reach. The legacy
+preference key is deliberately **not** migrated: reading it would carry the restored
+value straight back. The cost is that an upgrade from an older build may raise the
+dialog once more, and only for someone who has not already granted it — a granted
+permission short-circuits before the record is consulted.
+
+**Instrumented, because the source has now looked correct twice.** One DEBUG line at
+the decision and one at the result, carrying exactly the safe state the owner
+specified and nothing else: `android_api_level`,
+`notification_permission_declared` (read from the installed manifest via
+`PackageManager`, so it answers the declaration question on the device),
+`notification_permission_granted`, `should_show_rationale`, `asked_marker`,
+`resolved_state`, `activity_lifecycle_state`, `returned_from_all_files_settings`,
+`prompt_shown_this_launch`, `notifications_enabled`, `should_request`, then
+`notification_request_attempted` and `request_result`. No chat, account or
+credential value appears in any of it.
+
+- **Status:** FIXED IN SOURCE (third attempt), with instrumentation — physical
+  fresh-install confirmation required. If the dialog still does not appear, the new
+  log line names which input is wrong.
 
 **REOPENED 2026-09-15 — physically failed again on a fresh install, and the cause
 was placement, not policy.** The manifest entry, the SDK gate, the

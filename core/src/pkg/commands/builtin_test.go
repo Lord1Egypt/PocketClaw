@@ -51,7 +51,10 @@ func TestBuiltinHelpHandler_ReturnsFormattedMessage(t *testing.T) {
 			t.Fatalf("/help reply exposes command grammar %q, got %q", grammar, reply)
 		}
 	}
-	if !strings.HasPrefix(reply, "🦞 PocketClaw") {
+	// PC-DEF-066. The product name and nothing before it: the mascot that used to
+	// lead this line is pre-Aperture branding. branding_test.go is what keeps it
+	// from coming back.
+	if !strings.HasPrefix(reply, "PocketClaw") {
 		t.Fatalf("/help reply should open with the product name, got %q", reply)
 	}
 }
