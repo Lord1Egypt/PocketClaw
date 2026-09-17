@@ -1,4 +1,4 @@
-// this file is for compatible with 3rd party loggers, should not be called in PicoClaw project
+// This file adapts third-party loggers before they enter PocketClaw's writers.
 
 package logger
 
@@ -72,7 +72,10 @@ func redactSecrets(s string) string {
 	s = apiKeyQueryPattern.ReplaceAllString(s, "${1}<redacted>")
 	s = vendorTokenPattern.ReplaceAllString(s, "<redacted>")
 	s = telegramBotURLTokenPattern.ReplaceAllString(s, "bot<redacted>")
-	return telegramBareTokenPattern.ReplaceAllString(s, "<redacted>")
+	s = telegramBareTokenPattern.ReplaceAllString(s, "<redacted>")
+	// Install-specific path prefixes are normalized last, so a credential
+	// pattern still sees the text it was written against.
+	return normalizeAndroidPaths(s)
 }
 
 // prepareThirdPartyLog applies policy before logMessage reaches any writer.

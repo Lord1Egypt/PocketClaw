@@ -133,7 +133,6 @@ func TestRedactionLeavesOrdinaryDiagnosticTextAlone(t *testing.T) {
 		"staged core fingerprint 05418871286f6150b9066a0be9da337531e3f98fb568f3b2142c9896da8f5b16",
 		"GET /api/gateway/status 200 in 4ms",
 		"channel telegram started, 2 allowed senders",
-		"wrote pid file: /data/user/0/app/files/.picoclaw/.picoclaw.pid success",
 		"tool run failed: exit status 1",
 	} {
 		if got := redactSecrets(input); got != input {
