@@ -149,6 +149,32 @@ func TestTelegramCanBePairedAgainAfterRemoval(t *testing.T) {
 	}
 }
 
+// A direct replacement pairs B over A with no intervening removal, which is
+// what the managed Replace flow does. Exactly one owner and one token may
+// remain, and they must be the new bot's: a retained previous owner is an
+// authorisation the user never granted, and a retained token is a second bot
+// still able to poll.
+func TestDirectReplacementLeavesExactlyOneOwnerAndToken(t *testing.T) {
+	handler, _, configPath := onboardingTestEnv(t)
+	if _, _, err := handler.writeTelegramCredentials("111111111:first-token", 111); err != nil {
+		t.Fatalf("first pairing: %v", err)
+	}
+	if _, _, err := handler.writeTelegramCredentials("222222222:second-token", 222); err != nil {
+		t.Fatalf("replacement pairing: %v", err)
+	}
+
+	channel := telegramChannelOnDisk(t, configPath)
+	if !channel.Enabled {
+		t.Fatal("a replacement must leave the channel enabled")
+	}
+	if len(channel.AllowFrom) != 1 || strings.TrimSpace(channel.AllowFrom[0]) != "222" {
+		t.Fatalf("AllowFrom = %v, want exactly [222]", channel.AllowFrom)
+	}
+	if token := telegramTokenOnDisk(t, configPath); token != "222222222:second-token" {
+		t.Fatalf("token on disk = %q, want the replacement", token)
+	}
+}
+
 func TestRejectedReplacementPreservesPreviouslyValidBot(t *testing.T) {
 	handler, _, configPath := onboardingTestEnv(t)
 	if _, _, err := handler.writeTelegramCredentials("111111111:first-token", 111); err != nil {
