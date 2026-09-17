@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"context"
 	"strings"
 	"testing"
 )
@@ -41,10 +42,38 @@ func TestHelpOutputCarriesNoLegacyBranding(t *testing.T) {
 	help := formatHelpMessage(BuiltinDefinitions())
 	assertNoLegacyBranding(t, "/help output", help)
 
-	// And it still names the product, so this cannot be satisfied by an empty
-	// header.
-	if !strings.Contains(help, "PocketClaw") {
-		t.Fatalf("/help no longer names the product: %q", help)
+	// The header is exactly the product name and a blank line. "Contains
+	// PocketClaw" would also pass a substituted emoji or a tagline, and PC-DEF-066
+	// removed the mark rather than replacing it.
+	if !strings.HasPrefix(help, "PocketClaw\n\n") {
+		t.Fatalf("/help must open with exactly %q, got %q", "PocketClaw\n\n", help)
+	}
+}
+
+// The handler prefers the runtime's own definition list over the built-in one,
+// so that is the list that actually reaches a chat user. The branding check has
+// to cover it and not only BuiltinDefinitions().
+func TestRuntimeHelpOutputCarriesNoLegacyBranding(t *testing.T) {
+	defs := append(BuiltinDefinitions(),
+		Definition{Name: "custom", Description: "A runtime-supplied command"},
+	)
+	helpDef := findDefinitionByName(t, defs, "help")
+
+	var reply string
+	err := helpDef.Handler(context.Background(), Request{
+		Text: "/help",
+		Reply: func(text string) error {
+			reply = text
+			return nil
+		},
+	}, &Runtime{ListDefinitions: func() []Definition { return defs }})
+	if err != nil {
+		t.Fatalf("/help handler error: %v", err)
+	}
+
+	assertNoLegacyBranding(t, "runtime /help output", reply)
+	if !strings.Contains(reply, "/custom") {
+		t.Fatalf("the runtime-supplied command did not reach /help: %q", reply)
 	}
 }
 
