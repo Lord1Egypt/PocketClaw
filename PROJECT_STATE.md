@@ -36,6 +36,7 @@ evidence and describe the state at the date of each entry.
 | Production candidate | **BUILT AND GATED.** `4d4bc33a…`, 63,472,307 bytes, one v2 signer `176dca6b…`; production artifact gate 57 PASS / 0 FAIL / 0 SKIPPED. Private validation evidence — not installed, published or accepted |
 | Next authorized milestone | **Samsung physical pass over the remaining source-verified items.** Source-verified and pending device confirmation: PC-DEF-050 (rotate a key and watch the next request), PC-DEF-052 (no hosting URL is ever visible in Telegram onboarding), PC-DEF-055 (Set Default A→B survives restart), PC-DEF-062 (desktop Disconnect/Replace, after Telegram's creation cooldown), PC-DEF-063 (About shows `PocketClaw 0.2.0` / a resolved Core version), PC-DEF-058 (notification dialog, fresh install), PC-DEF-066 (`/help` has no lobster or Pico identity). Physically verified and not to be reopened without contradictory evidence: fresh-install first password (PC-DEF-065), Public Mode reconciliation (PC-DEF-040), Telegram Managed Connect (PC-DEF-060), the first `/start` answered on the first send (PC-DEF-061), `PC-E-AI-004` (PC-DEF-053) |
 | Release-evidence reconciliation | [`docs/RELEASE_EVIDENCE_RECONCILIATION.md`](docs/RELEASE_EVIDENCE_RECONCILIATION.md) — the Zero-Pico allowlist `19 → 22` growth (scope widened by `d4e7107`, three migration/legal exemptions added) and the native ELF `194 → 188` (the 194 runs passed `--native-support-manifest`, adding exactly six checks) |
+| Verification APK (PC-DEF-067, 068) | `0821349ca4f9d0907680c04bd61108d19d62600f0d490b097cf881abf6105905`, 63,624,503 bytes, `0.2.0+62`, development signer `15cf75f9…`, Dart AOT `a135bfe6…`, Core fingerprint `ef212d21…`, Core BuildTime `2026-09-17T19:41:57+0000`. Artifact gate 33/33, native ELF 188 PASS / 0 FAIL, Zero-Pico PASS. Archived read-only at `build/forensic/apk-0821349c…/`. **PC-DEF-067 needs a desktop browser on a LAN/plain-HTTP origin; PC-DEF-068 needs a real bot with a token and no owner.** LOCAL TEST / NON-RELEASABLE |
 | Verification APK (PC-DEF-058 third attempt, PC-DEF-066) | `8980c921e37bdf956b874ec7d247a9c6095edcab9dace4bd0b08c985efc03cca`, 63,596,703 bytes, `0.2.0+62`, development signer `15cf75f9…`, Dart AOT `08b44517ff47c5679b8ebead16e11c14471053b51ef12b333e1e931a211fba98`. Source gate **29/29** including `journey.fresh_install`, `flutter.suite 567 passed`, artifact gate 25/25, native ELF 188 PASS / 0 FAIL, Zero-Pico PASS. `POST_NOTIFICATIONS` confirmed declared and `targetSdkVersion` confirmed 36, both read from this APK. Archived read-only at `build/forensic/apk-8980c921…/`. **PC-DEF-058 needs a genuine uninstall.** LOCAL TEST / NON-RELEASABLE; the two open items are not physically verified |
 | Verification APK (PC-DEF-065 first password, PC-DEF-058 second attempt, superseded) | `d653d6c4ff64b3bc1509058e14caa54077cf635f52a9c6ff8f2541a85acbc8d0`, 63,595,479 bytes, `0.2.0+62`, development signer `15cf75f9…`, Dart AOT `08b44517ff47c5679b8ebead16e11c14471053b51ef12b333e1e931a211fba98`. Source gate **29/29** including the new `journey.fresh_install` row, `flutter.suite 567 passed`, artifact gate 25/25, native ELF 188 PASS / 0 FAIL, Zero-Pico PASS. Fixes the two fresh-install blockers: the first Dashboard password (the claim reconciliation was closing the listener carrying its own response) and the notification prompt (asked only from a page a fresh install never opens). Archived read-only at `build/forensic/apk-d653d6c4…/`, whose `FORENSIC.md` leads with the ordered fresh-install journey. **Requires a genuine uninstall first.** LOCAL TEST / NON-RELEASABLE; nothing in it is physically verified |
 | Verification APK (PC-DEF-061 readiness, 062, 063, 064, superseded) | `008d9c4df2436f29e63981a7b45cb98d7c17031b86c6b6576bfd78aa75f3aae8`, 63,591,331 bytes, `0.2.0+62`, development signer `15cf75f9…`, Dart AOT `08b44517ff47c5679b8ebead16e11c14471053b51ef12b333e1e931a211fba98`. Source gate 28/28 with `flutter.suite 567 passed`, artifact gate 25/25, native ELF 188 PASS / 0 FAIL, Zero-Pico PASS. Carries authoritative Telegram readiness, the desktop disconnect and replace lifecycle, the Core-version loading fix and the audited What's New. Archived read-only at `build/forensic/apk-008d9c4d…/`, whose `FORENSIC.md` carries the first-message acceptance test. **PC-DEF-040 and PC-DEF-058 both need a FRESH INSTALL.** LOCAL TEST / NON-RELEASABLE; nothing in it is physically verified |
@@ -49,6 +50,41 @@ evidence and describe the state at the date of each entry.
 | Staged Core freshness | **CURRENT.** Rebuilt from the source commit `836ce95` and staged in `a9a02dd`, which touches no build input. Fingerprint `7902ab73e62ed65577f8738e1934aff0a0de06acbd7bf473a951645f7e1cc0ba` (was `1ee6df2a…`), BuildTime `2026-09-15T07:22:45+0000`. `core.staged_freshness` and `native.elf_audit_contract` both pass |
 | Flutter suite | Green — 497 passed, 0 failed — and the **complete** suite is now a release gate (`flutter.suite`) |
 | Public release asset policy | APK only. An AAB is a Play-upload artifact and is never a public release asset — `PC-DEF-021` |
+
+## 2026-09-17 — Telegram UX: Copy link, and the owner-missing state
+
+Two Telegram follow-ups, both fixed in source; neither is physically verified.
+
+**PC-DEF-067 — desktop Copy link failed on a plain-HTTP origin.** The component
+was the only copy surface in the Dashboard calling `navigator.clipboard.writeText`
+directly, and the launcher serves plain HTTP: a LAN browser is not a secure
+context, the API is undefined, and the bare `catch` turned the `TypeError` into a
+failure toast. It now uses the shared `copyText` helper (Clipboard API, then
+`execCommand`); when both fail the canonical Telegram link is shown in a
+selectable read-only field with guidance, never a dead-end. `copyText` no longer
+throws when `execCommand` is missing, and the copy path finally has tests.
+
+**PC-DEF-068 — a valid token with no owner was a silent dead bot.** The desktop
+manual save (`PATCH /api/config`) never ran the owner contract, `NewTelegramChannel`
+then refused the channel, the Manager skipped it, and the bot polled nothing while
+the Dashboard still said configured. Zero owners is now an explicit owner-missing
+state: the channel starts and, **before the allowlist**, a private sender gets
+deterministic setup guidance once, including their own numeric id; a group is left
+unanswered. Nothing else runs — no agent, provider, tool, command, session or
+config mutation, no auto-claim. The base allowlist carries a non-matching sentinel
+so it can never read as open access. Readiness reports `setup_required` /
+`owner_missing`, derived from persisted config so every writer converges on the
+same contract, and the Dashboard shows "Telegram setup incomplete" with the Allowed
+From field opened instead of claiming Connected. The one-owner contract, silent
+non-owner rejection, Disconnect/Replace, generation ownership and 401 fail-fast
+are unchanged.
+
+Gates: Go `pkg/channels/...`, `pkg/status`, `web/backend/api` green; `gofmt` and
+`go vet` clean; frontend **536 passed** with `tsc -b` and ESLint clean. APK
+`0821349ca4f9d0907680c04bd61108d19d62600f0d490b097cf881abf6105905`, 63,624,503
+bytes, artifact gate **33/33**, native ELF **188 PASS / 0 FAIL**, Zero-Pico PASS.
+No device or browser was attached, so **nothing in this APK is physically
+verified**.
 
 ## 2026-09-17 — Release-hardening sweep; Telegram creation cooldown respected
 

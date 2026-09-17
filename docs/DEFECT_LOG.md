@@ -175,6 +175,95 @@ only reconstructable examples belong here.
 
 ## Resolved
 
+### PC-DEF-068 — A valid Telegram token with no owner was a silent dead bot
+
+- **Discovered:** owner report, 2026-09-17, during v0.2.0 release hardening.
+- **Component:** `core/src/pkg/channels/telegram/telegram.go`, new
+  `owner_missing_test.go`, `core/src/pkg/channels/{interfaces,manager}.go`,
+  `core/src/pkg/status/status.go`, `core/src/web/backend/api/telegram_readiness.go`,
+  `core/src/web/frontend/src/components/channels/channel-forms/telegram-panel.tsx`.
+- **Symptom, and why it was invisible.** A user could save a valid bot token with
+  an empty owner from the desktop manual form — `PATCH /api/config` never ran the
+  Telegram owner contract, while the full-config PUT and the Android/managed
+  writers always injected exactly one owner. `NewTelegramChannel` then refused the
+  channel with "telegram requires exactly one paired numeric owner", the Manager
+  logged and skipped it, and **the bot polled nothing at all**. Because
+  `telegramIsConfigured` only checks enabled + token, the Dashboard still called
+  it configured while readiness sat at `gateway_starting` forever. A user who
+  messaged the bot got silence and no explanation.
+- **The contract that was missing.** Zero owners is not a construction error to be
+  swallowed; it is an explicit lifecycle state. It must be defended at runtime
+  even when UI validation would normally prevent it.
+- **Resolution, in the channel.** `NewTelegramChannel` now accepts zero owners as
+  the **owner-missing** state instead of failing, and still refuses several,
+  blank, wildcard, non-numeric and non-positive owners. `handleMessages` handles
+  that state **before the allowlist**: a private sender gets deterministic setup
+  guidance exactly once, including their own numeric id (the one fact the inbound
+  update carries that would otherwise need a third-party id bot); a group or
+  channel is left unanswered rather than leaking setup guidance publicly. Nothing
+  else runs: no agent turn, no provider, no tool, no session write, no built-in
+  command (so a `/start` cannot execute as if the sender were the owner), no media
+  download, no config mutation and no auto-claim. Because an empty `AllowFrom`
+  makes `BaseChannel.IsAllowedSender` permissive, the base allowlist is seeded
+  with a non-matching sentinel — a false "allows everyone" warning and a
+  permissive base layer are both avoided.
+- **Resolution, in state and readiness.** `status.Channel` gained an
+  `owner_missing` boolean via a new `OwnerMissingReporter`. `/api/telegram/readiness`
+  gained `setup_required` (detail `owner_missing`), derived from the persisted
+  configuration so it is the same contract whichever writer saved it, and it never
+  names a polling generation, so it cannot authorize a handoff. The Dashboard
+  shows "Telegram setup incomplete" instead of Connected and opens the Allowed
+  From field directly.
+- **What is deliberately unchanged.** The one-owner contract still authorizes the
+  agent; a non-owner is still rejected silently; Disconnect/Replace, generation
+  ownership, intake ordering and the 401 fail-fast are untouched. Core has no
+  locale, so the Telegram reply is English like every other Core reply; the
+  machine-readable state is what the Dashboard localizes.
+- **Verification:** `owner_missing_test.go` — private text gets guidance once with
+  the sender's id and no bus publish; `/start` does not run the authorized start
+  reply; a group gets nothing; two senders each see only their own id; with an
+  owner configured a non-owner still gets no guidance; the constructor accepts
+  zero owners and refuses every invalid list. Backend:
+  `TestTelegramReadinessReportsOwnerMissingAsSetupRequired`,
+  `TestTelegramReadinessEndpointReportsSetupRequired`,
+  `TestTelegramOwnerMissingIsFalseWhenAnOwnerIsConfigured`,
+  `TestTelegramOwnerStateIsDerivedFromConfigurationRegardlessOfWriter`. Frontend:
+  `case 3c: a valid token with no owner shows setup incomplete, not connected`.
+- **Status:** FIXED IN SOURCE — physical confirmation required.
+
+### PC-DEF-067 — Desktop "Copy link" failed on a plain-HTTP origin
+
+- **Discovered:** owner physical browser observation, 2026-09-17.
+- **Component:**
+  `core/src/web/frontend/src/components/channels/channel-forms/telegram-desktop-connect.tsx`,
+  `core/src/web/frontend/src/lib/clipboard.ts`.
+- **Symptom:** pressing "Copy link" on the desktop Telegram onboarding card
+  produced the failure toast ("Could not copy the link") instead of copying.
+- **Root cause, proven by reading every copy path.** The component was the **only**
+  copy surface in the Dashboard that called `navigator.clipboard.writeText`
+  directly. The async Clipboard API exists only in secure contexts, and the
+  launcher serves plain HTTP: a desktop browser reaching the console from a LAN
+  address is not a secure context, and desktop WebViews that do not expose the API
+  behave the same way. `copyText` in `src/lib/clipboard.ts` already handles this
+  with an `execCommand("copy")` fallback and is used by every other surface; this
+  one did not. The bare `catch` converted the `TypeError` into the failure toast.
+  No test covered the copy path, and jsdom defines no `navigator.clipboard`, so CI
+  never saw it.
+- **Resolution.** `copyLink` now goes through `copyText`. On success it shows
+  "Link copied."; when **both** paths fail it does not dead-end: the canonical
+  Telegram link is rendered in a read-only, selectable field with guidance.
+  `copyText` was also made to return `false` rather than throw when `execCommand`
+  is missing (jsdom, some WebViews). Only a link that passed the
+  Telegram-destination guard can be copied or shown; no backend, hosting or
+  callback URL can reach the clipboard.
+- **Verification:** 6 cases in `src/lib/clipboard.test.ts` (Clipboard success,
+  rejected promise falls back, absent API falls back, both unavailable, execCommand
+  refuses, execCommand missing); 2 in `telegram-desktop-connect.test.tsx`
+  (`copies the trusted Telegram link through the shared helper`,
+  `shows a selectable trusted link when copying is impossible`) plus the existing
+  non-Telegram test now asserts nothing was ever offered to the clipboard.
+- **Status:** FIXED IN SOURCE — physical browser confirmation required.
+
 ### PC-DEF-030 — A saved Telegram configuration did not become live
 
 - **Discovered:** Samsung physical testing of verification APK
