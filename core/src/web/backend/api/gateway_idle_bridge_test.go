@@ -157,8 +157,8 @@ func TestGatewayIdleWithNoPendingApplyIsHarmless(t *testing.T) {
 			t.Fatalf("code = %d, want %d", rec.Code, http.StatusAccepted)
 		}
 	}
-	if pending, _ := pendingConfigApplyState(); pending {
-		t.Fatal("an idle notification invented pending work")
+	if reason := takePendingConfigApply(); reason != "" {
+		t.Fatalf("an idle notification invented pending work: %q", reason)
 	}
 }
 

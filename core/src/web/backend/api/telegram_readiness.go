@@ -96,6 +96,12 @@ func (h *Handler) telegramReadiness() (telegramReadinessState, string) {
 	if !configured {
 		return readinessNotConfigured, ""
 	}
+	// A status snapshot from the currently running gateway may describe the
+	// previous Telegram credential. Never let that old generation authorize a
+	// handoff while the persisted configuration is pending or being applied.
+	if configApplyInProgress() {
+		return readinessGatewayStarting, "configuration_applying"
+	}
 	if !gatewayRunningProbe(h) {
 		return readinessGatewayStopped, ""
 	}

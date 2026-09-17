@@ -107,6 +107,18 @@ func (s *pollingStub) calledGetMe() int {
 	return s.getMeCalls
 }
 
+func (s *pollingStub) methodCount(method string) int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	count := 0
+	for _, observed := range s.methods {
+		if observed == method {
+			count++
+		}
+	}
+	return count
+}
+
 func jsonResponse(result any) (*ta.Response, error) {
 	raw, err := json.Marshal(result)
 	if err != nil {
@@ -224,6 +236,20 @@ func TestChannelIsNotRunningUntilIntakeConsumes(t *testing.T) {
 		"Running was reported before the update handler was consuming")
 }
 
+// The old fallback logged ready_unconfirmed and then set Running anyway. That
+// let Android open the final t.me handoff against a receiver that had not
+// attached. A missed scheduling bound must fail closed instead.
+func TestChannelStartFailsClosedWhenHandlerReadinessIsUnconfirmed(t *testing.T) {
+	stub := &pollingStub{}
+	ch, _ := newPollingChannel(t, stub)
+	ch.handlerReadyProbe = func(updateConsumer, time.Duration) bool { return false }
+
+	err := ch.Start(context.Background())
+	require.ErrorContains(t, err, "handler did not become ready")
+	require.False(t, ch.IsRunning(),
+		"unconfirmed intake must never authorize a managed handoff")
+}
+
 // A pending message sent before polling began is what the physical case was:
 // the owner pressed Start in Telegram while PocketClaw was still being
 // configured. Offset 0 is what asks Telegram for it, and it must not be
@@ -291,6 +317,78 @@ func TestReplacedBotStartsFromAnUnsetOffset(t *testing.T) {
 	// because nothing was inherited.
 	require.Equal(t, "/start", waitForInbound(t, newBus, 5*time.Second).Content)
 	require.Zero(t, second.observedOffsets()[0])
+}
+
+// Executes the real built-in /start definition and delivers its response
+// through the real Telegram Send path. This keeps the regression about the
+// product contract rather than merely proving an update reached an internal
+// channel.
+func replyToFirstStart(t *testing.T, ch *TelegramChannel, messageBus *bus.MessageBus) {
+	t.Helper()
+	inbound := waitForInbound(t, messageBus, 5*time.Second)
+	require.Equal(t, "/start", inbound.Content)
+
+	var reply string
+	result := commands.NewExecutor(
+		commands.NewRegistry(commands.BuiltinDefinitions()),
+		&commands.Runtime{},
+	).Execute(context.Background(), commands.Request{
+		Channel:  inbound.Channel,
+		ChatID:   inbound.ChatID,
+		SenderID: inbound.SenderID,
+		Text:     inbound.Content,
+		Reply: func(text string) error {
+			reply = text
+			return nil
+		},
+	})
+	require.Equal(t, commands.OutcomeHandled, result.Outcome)
+	require.NoError(t, result.Err)
+	require.Equal(t, "Hello! I am PocketClaw.", reply)
+
+	_, err := ch.Send(context.Background(), bus.OutboundMessage{
+		Channel: ch.Name(),
+		ChatID:  inbound.ChatID,
+		Context: inbound.Context,
+		Content: reply,
+	})
+	require.NoError(t, err)
+}
+
+func TestManagedFreshAndReplacementBotsReplyToFirstStartExactlyOnce(t *testing.T) {
+	tests := []struct {
+		name     string
+		updateID int
+	}{
+		{name: "fresh bot", updateID: 1},
+		{name: "replacement bot with independent offset", updateID: 99001},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			stub := &pollingStub{
+				batches: [][]telego.Update{{ownerMessage(tt.updateID, 1)}},
+			}
+			ch, messageBus := newPollingChannel(t, stub)
+			require.NoError(t, ch.Start(context.Background()))
+			t.Cleanup(func() { _ = ch.Stop(context.Background()) })
+
+			replyToFirstStart(t, ch, messageBus)
+			require.Eventually(t, func() bool {
+				return stub.methodCount("sendMessage") == 1
+			}, 5*time.Second, 10*time.Millisecond)
+
+			select {
+			case duplicate := <-messageBus.InboundChan():
+				t.Fatalf("first update was delivered twice: %q", duplicate.Content)
+			case <-time.After(300 * time.Millisecond):
+			}
+			require.Equal(t, 1, stub.methodCount("sendMessage"),
+				"one /start must produce exactly one reply")
+			require.Zero(t, stub.observedOffsets()[0],
+				"every bot identity starts from its own unset offset")
+		})
+	}
 }
 
 // Reconnecting the same bot is a fresh start too, and must not need the owner

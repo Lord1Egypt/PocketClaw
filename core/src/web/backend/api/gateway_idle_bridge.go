@@ -112,7 +112,7 @@ func (h *Handler) RegisterGatewayIdleRoute(mux *http.ServeMux) {
 // waits for this response, so the apply is deliberately scheduled outside the
 // handler and the response is released first.
 func (h *Handler) handleGatewayIdleNotification(w http.ResponseWriter) {
-	pending := takePendingConfigApply()
+	pending := claimPendingConfigApply()
 	w.WriteHeader(http.StatusAccepted)
 
 	if pending == "" {
@@ -128,6 +128,7 @@ func (h *Handler) handleGatewayIdleNotification(w http.ResponseWriter) {
 // change or a normal gateway start is what tries again. Spinning here would
 // turn a broken configuration into a restart loop.
 func (h *Handler) applyPendingConfigRestart(reason string) {
+	defer finishPendingConfigApply()
 	if _, _, err := h.RestartGatewayForConfigChange(reason); err != nil {
 		setPendingConfigApplyError(sanitizeConfigApplyError(err))
 		logger.WarnCF("gateway", "Pending configuration apply failed after the gateway became idle",

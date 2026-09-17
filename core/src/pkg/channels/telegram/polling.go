@@ -10,6 +10,15 @@ import (
 	"github.com/sipeed/picoclaw/pkg/logger"
 )
 
+// logTelegramLifecycle emits only a stage name and a wall-clock observation.
+// No bot, owner, chat, message, token or path is carried by these events.
+func logTelegramLifecycle(event string) {
+	logger.DebugCF("telegram", "Telegram managed lifecycle advanced", map[string]any{
+		"event":               event,
+		"observed_at_unix_ms": time.Now().UnixMilli(),
+	})
+}
+
 // Long-polling intake, and the ordering it depends on.
 //
 // PC-DEF-061. Telegram long polling is at-least-once only while the client
@@ -94,6 +103,9 @@ func (c *TelegramChannel) observeUpdates(in <-chan telego.Update) <-chan telego.
 
 		first := true
 		for update := range in {
+			if first {
+				logTelegramLifecycle("first_update_received")
+			}
 			logger.DebugCF("telegram", "Telegram polling delivered an update", map[string]any{
 				"event":        "polling.update_delivered",
 				"update_id":    update.UpdateID,

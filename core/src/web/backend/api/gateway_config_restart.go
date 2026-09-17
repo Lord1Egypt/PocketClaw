@@ -121,6 +121,7 @@ var pendingConfigApply = struct {
 	reason     string
 	err        string
 	supervised bool
+	applying   bool
 }{}
 
 // The gateway's idle notification is the fast path, and for a gateway that was
@@ -198,7 +199,7 @@ func (h *Handler) supervisePendingConfigApply() {
 			continue
 		}
 
-		reason := takePendingConfigApply()
+		reason := claimPendingConfigApply()
 		if reason == "" {
 			return
 		}
@@ -227,6 +228,27 @@ func takePendingConfigApply() string {
 	return reason
 }
 
+// claimPendingConfigApply transfers a parked change to the apply path without
+// creating a readiness gap. The persisted configuration is not live merely
+// because its pending entry has been removed; it remains applying until the
+// gateway restart has completed.
+func claimPendingConfigApply() string {
+	pendingConfigApply.mu.Lock()
+	defer pendingConfigApply.mu.Unlock()
+	reason := pendingConfigApply.reason
+	pendingConfigApply.reason = ""
+	if reason != "" {
+		pendingConfigApply.applying = true
+	}
+	return reason
+}
+
+func finishPendingConfigApply() {
+	pendingConfigApply.mu.Lock()
+	pendingConfigApply.applying = false
+	pendingConfigApply.mu.Unlock()
+}
+
 // setPendingConfigApplyError records why the last pending apply failed.
 func setPendingConfigApplyError(message string) {
 	pendingConfigApply.mu.Lock()
@@ -238,7 +260,19 @@ func setPendingConfigApplyError(message string) {
 func pendingConfigApplyState() (pending bool, applyErr string) {
 	pendingConfigApply.mu.Lock()
 	defer pendingConfigApply.mu.Unlock()
-	return pendingConfigApply.reason != "", pendingConfigApply.err
+	return pendingConfigApply.reason != "" || pendingConfigApply.applying, pendingConfigApply.err
+}
+
+// configApplyInProgress is the configuration-generation boundary used by
+// readiness checks. It covers both an immediate coalesced restart and a parked
+// change that has been claimed by the idle path but is not live yet.
+func configApplyInProgress() bool {
+	if pending, _ := pendingConfigApplyState(); pending {
+		return true
+	}
+	configRestart.mu.Lock()
+	defer configRestart.mu.Unlock()
+	return configRestart.running
 }
 
 // sanitizeConfigApplyError keeps a user-visible reason free of anything the
@@ -346,6 +380,12 @@ func (h *Handler) runConfigRestart(reason string) (int, bool, error) {
 		"deferred":    deferred,
 		"duration_ms": time.Since(started).Milliseconds(),
 	})
+	if reason == "telegram_configured" {
+		logger.DebugCF("telegram", "Telegram configuration applied", map[string]any{
+			"event":               "config_applied",
+			"observed_at_unix_ms": time.Now().UnixMilli(),
+		})
+	}
 	return pid, deferred, nil
 }
 

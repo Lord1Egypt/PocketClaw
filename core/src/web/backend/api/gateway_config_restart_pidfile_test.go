@@ -177,6 +177,7 @@ func resetPendingConfigApplyForTest(t *testing.T) {
 		pendingConfigApply.reason = ""
 		pendingConfigApply.err = ""
 		pendingConfigApply.supervised = false
+		pendingConfigApply.applying = false
 		pendingConfigApply.mu.Unlock()
 	}
 	clear()

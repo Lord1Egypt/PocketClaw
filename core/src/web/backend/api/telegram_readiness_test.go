@@ -118,6 +118,43 @@ func TestTelegramReadinessIsReadyOnlyWhenBothAreTrue(t *testing.T) {
 	}
 }
 
+func TestTelegramReadinessRejectsThePreviousGenerationWhileConfigApplies(t *testing.T) {
+	registered := true
+	handler := readinessEnv(t, []status.Channel{
+		{
+			Name: "telegram", Configured: true, Started: true, Running: true,
+			CommandsRegistered: &registered,
+		},
+	})
+	finishPendingConfigApply()
+	takePendingConfigApply()
+	t.Cleanup(func() {
+		finishPendingConfigApply()
+		takePendingConfigApply()
+		setPendingConfigApplyError("")
+	})
+
+	markConfigApplyPending("telegram_configured")
+	state, detail := handler.telegramReadiness()
+	if state != readinessGatewayStarting || detail != "configuration_applying" {
+		t.Fatalf("pending state = %q (%q), want gateway_starting (configuration_applying)", state, detail)
+	}
+
+	if reason := claimPendingConfigApply(); reason != "telegram_configured" {
+		t.Fatalf("claimed reason = %q", reason)
+	}
+	state, detail = handler.telegramReadiness()
+	if state != readinessGatewayStarting || detail != "configuration_applying" {
+		t.Fatalf("claimed state = %q (%q), want no readiness gap", state, detail)
+	}
+
+	finishPendingConfigApply()
+	state, _ = handler.telegramReadiness()
+	if state != readinessReady {
+		t.Fatalf("applied state = %q, want %q", state, readinessReady)
+	}
+}
+
 // A channel that publishes no menu reports nothing, which must not be read as
 // "not yet" -- a gate that waited on it would never finish.
 func TestTelegramReadinessDoesNotWaitOnAChannelWithNoMenu(t *testing.T) {

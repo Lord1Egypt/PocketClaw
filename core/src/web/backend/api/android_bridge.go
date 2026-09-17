@@ -19,6 +19,7 @@ import (
 const AndroidBridgeTokenEnv = "POCKETCLAW_ANDROID_BRIDGE_TOKEN"
 
 const androidTelegramBridgePath = "/api/pocketclaw/android/telegram"
+const androidTelegramReadinessBridgePath = "/api/pocketclaw/android/telegram/readiness"
 const androidNetworkModeBridgePath = "/api/pocketclaw/android/network-mode"
 const androidContextMemoryBridgePath = "/api/pocketclaw/android/context-memory"
 const androidGatewayStartBridgePath = "/api/pocketclaw/android/gateway/start"
@@ -85,8 +86,8 @@ type androidTelegramCredentials struct {
 }
 
 // RegisterAndroidBridgeRoutes exposes the narrow loopback-only operations the
-// Android host needs: managed Telegram pairing and Dashboard listener rebind.
-// Native Settings does not query Telegram state through this bridge.
+// Android host needs: managed Telegram pairing/readiness and Dashboard listener
+// rebind. Readiness delegates to the same authority as the Dashboard route.
 func (h *Handler) RegisterAndroidBridgeRoutes(mux *http.ServeMux, bridgeToken string) {
 	bridgeToken = strings.TrimSpace(bridgeToken)
 	if bridgeToken == "" {
@@ -99,6 +100,13 @@ func (h *Handler) RegisterAndroidBridgeRoutes(mux *http.ServeMux, bridgeToken st
 			return
 		}
 		h.handleAndroidTelegramConfigure(w, r)
+	})
+	mux.HandleFunc("GET "+androidTelegramReadinessBridgePath, func(w http.ResponseWriter, r *http.Request) {
+		if !authorizedAndroidBridgeRequest(r, bridgeToken) {
+			http.NotFound(w, r)
+			return
+		}
+		h.handleTelegramReadiness(w, r)
 	})
 	mux.HandleFunc("PUT "+androidNetworkModeBridgePath, func(w http.ResponseWriter, r *http.Request) {
 		if !authorizedAndroidBridgeRequest(r, bridgeToken) {

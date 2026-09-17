@@ -575,21 +575,23 @@ func TestRealLogFieldNamesAreClassifiedCorrectly(t *testing.T) {
 // They are safe to keep: a Telegram update id is a per-bot sequence number that
 // identifies no person, and the identifiers the contract does treat as private
 // -- chat_id, sender_id, user_id -- are not logged with them.
-func TestPollingObservabilityFieldsSurviveRedaction(t *testing.T) {
+func TestTelegramLifecycleObservabilityFieldsSurviveRedaction(t *testing.T) {
 	t.Parallel()
 
 	safe := sanitizeFieldsForLog(map[string]any{
-		"event":        "polling.update_delivered",
-		"update_id":    9001,
-		"next_offset":  9002,
-		"first_update": true,
+		"event":               "handler_ready",
+		"observed_at_unix_ms": int64(1789606800000),
+		"update_id":           9001,
+		"next_offset":         9002,
+		"first_update":        true,
 	})
 
 	for key, want := range map[string]any{
-		"event":        "polling.update_delivered",
-		"update_id":    9001,
-		"next_offset":  9002,
-		"first_update": true,
+		"event":               "handler_ready",
+		"observed_at_unix_ms": int64(1789606800000),
+		"update_id":           9001,
+		"next_offset":         9002,
+		"first_update":        true,
 	} {
 		if got := safe[key]; got != want {
 			t.Fatalf("field %q = %v, want %v", key, got, want)

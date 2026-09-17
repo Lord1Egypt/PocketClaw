@@ -74,6 +74,13 @@ type TelegramChannel struct {
 	// the status snapshot, so it is atomic rather than mutex-guarded: the
 	// registration goroutine writes it and a health request reads it.
 	commandsRegistered atomic.Bool
+	// firstStartReplied makes the first successful /start response an explicit,
+	// safe lifecycle fact without logging message, chat or owner data.
+	firstStartReplied atomic.Bool
+
+	// handlerReadyProbe is replaceable only by package tests. Production uses
+	// the real telego handler state and fails closed when it cannot be confirmed.
+	handlerReadyProbe func(updateConsumer, time.Duration) bool
 
 	mediaGroupMu    sync.Mutex
 	mediaGroups     map[string]*telegramMediaGroup
@@ -184,6 +191,7 @@ func (c *TelegramChannel) Start(ctx context.Context) error {
 		"event":                "polling.started",
 		"poll_timeout_seconds": 30,
 	})
+	logTelegramLifecycle("polling_live")
 
 	bh, err := th.NewBotHandler(c.bot, c.observeUpdates(updates))
 	if err != nil {
@@ -195,6 +203,7 @@ func (c *TelegramChannel) Start(ctx context.Context) error {
 	bh.HandleMessage(func(ctx *th.Context, message telego.Message) error {
 		return c.handleMessage(ctx, &message)
 	}, th.AnyMessage())
+	logTelegramLifecycle("consumer_attached")
 
 	// PC-DEF-061. The consumer goes live here, before anything else and before
 	// Running is reported. Only allocation separates it from the poller now:
@@ -209,14 +218,27 @@ func (c *TelegramChannel) Start(ctx context.Context) error {
 		}
 	}()
 
-	if !waitForHandlerConsuming(bh, handlerConsumingWait) {
-		// The poller's channel is buffered, so updates are waiting rather than
-		// lost, but Running would be claiming more than is known.
+	readyProbe := c.handlerReadyProbe
+	if readyProbe == nil {
+		readyProbe = waitForHandlerConsuming
+	}
+	if !readyProbe(bh, handlerConsumingWait) {
+		// Fail closed. Reporting Running here used to authorize the Android
+		// handoff even though the receiver had not confirmed it was consuming.
+		// Stop both halves before returning so a later retry cannot overlap this
+		// unconfirmed poller.
 		logger.WarnCF("telegram",
-			"Telegram intake did not report consuming; updates are buffered until it does",
+			"Telegram intake did not report consuming; channel start refused",
 			map[string]any{"event": "polling.ready_unconfirmed"})
+		stopCtx, stopCancel := context.WithTimeout(context.Background(), pollingStopWait)
+		defer stopCancel()
+		_ = bh.StopWithContext(stopCtx)
+		c.cancel()
+		c.awaitPollingStopped(stopCtx)
+		return fmt.Errorf("telegram update handler did not become ready")
 	}
 
+	logTelegramLifecycle("handler_ready")
 	c.SetRunning(true)
 	logger.InfoC("telegram", "Telegram bot connected")
 	logger.DebugCF("telegram", "Telegram polling ready", map[string]any{
@@ -397,6 +419,10 @@ func (c *TelegramChannel) Send(ctx context.Context, msg bus.OutboundMessage) ([]
 		c.RecordToolFeedbackMessage(trackedChatID, messageIDs[0], toolFeedbackContent)
 	} else if !isToolFeedback && hasTrackedMsg {
 		c.dismissTrackedToolFeedbackMessage(ctx, trackedChatID, trackedMsgID)
+	}
+	if msg.Content == "Hello! I am PocketClaw." &&
+		c.firstStartReplied.CompareAndSwap(false, true) {
+		logTelegramLifecycle("first_start_replied")
 	}
 
 	return messageIDs, nil

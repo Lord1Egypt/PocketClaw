@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/sipeed/picoclaw/pkg/config"
+	"github.com/sipeed/picoclaw/pkg/status"
 )
 
 type fakeNetworkModeController struct {
@@ -166,6 +167,52 @@ func TestAndroidTelegramBridgeRejectsNonLoopbackCaller(t *testing.T) {
 	_, _, settings := readTelegramBridgeConfig(t, path)
 	if settings.Token.String() != "existing-child-token" {
 		t.Fatal("non-loopback request changed Telegram credentials")
+	}
+}
+
+func TestAndroidTelegramReadinessBridgeUsesAuthoritativeReadiness(t *testing.T) {
+	registered := true
+	handler := readinessEnv(t, []status.Channel{
+		{
+			Name: "telegram", Configured: true, Started: true, Running: true,
+			CommandsRegistered: &registered,
+		},
+	})
+	mux := http.NewServeMux()
+	handler.RegisterAndroidBridgeRoutes(mux, testAndroidBridgeToken)
+
+	request := func(token string) *http.Request {
+		req := httptest.NewRequest(http.MethodGet, androidTelegramReadinessBridgePath, nil)
+		req.RemoteAddr = "127.0.0.1:48123"
+		req.Header.Set("X-PocketClaw-Android-Bridge", token)
+		return req
+	}
+
+	hidden := httptest.NewRecorder()
+	mux.ServeHTTP(hidden, request("wrong-token"))
+	if hidden.Code != http.StatusNotFound {
+		t.Fatalf("unauthorized status = %d, want hidden route", hidden.Code)
+	}
+
+	ready := httptest.NewRecorder()
+	mux.ServeHTTP(ready, request(testAndroidBridgeToken))
+	if ready.Code != http.StatusOK {
+		t.Fatalf("readiness status = %d, body=%s", ready.Code, ready.Body.String())
+	}
+	var body struct {
+		State string `json:"state"`
+		Ready bool   `json:"ready"`
+	}
+	if err := json.Unmarshal(ready.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	if body.State != string(readinessReady) || !body.Ready {
+		t.Fatalf("body = %+v, want ready", body)
+	}
+	for _, forbidden := range []string{"424242", "123456789", "test-token"} {
+		if bytesContainsFold(ready.Body.Bytes(), forbidden) {
+			t.Fatalf("readiness leaked %q: %s", forbidden, ready.Body.String())
+		}
 	}
 }
 
