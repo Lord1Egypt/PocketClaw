@@ -231,6 +231,35 @@ void main() {
     );
   });
 
+  // PC-DEF-063. A failed Core probe is an absence (null), which is a different
+  // state from the future still running. The dialog must render Unavailable for
+  // the completed-failure case and never the loading spinner.
+  testWidgets('renders Unavailable when the Core probe returned null', (
+    WidgetTester tester,
+  ) async {
+    await pumpConfigPage(
+      tester,
+      aboutInfoLoader: () async =>
+          const AboutInfo(appVersion: '1.2.3', coreVersion: null),
+    );
+
+    await openAbout(tester);
+
+    expect(find.text('1.2.3'), findsOneWidget);
+    expect(
+      find.text(dialogL10n(tester).aboutVersionUnavailable),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: find.byType(AlertDialog),
+        matching: find.byType(CircularProgressIndicator),
+      ),
+      findsNothing,
+      reason: 'a completed failed probe is not a loading state',
+    );
+  });
+
   testWidgets('lays out on a narrow phone without overflowing', (
     WidgetTester tester,
   ) async {
