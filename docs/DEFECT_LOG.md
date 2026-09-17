@@ -664,6 +664,43 @@ whatever polling had already fetched and had already told Telegram to forget.
   receiving. **The Telegram intake and readiness logic is not to be modified without
   new contradictory evidence.**
 
+- **Regression reopened, 2026-09-17 — contradictory physical Android evidence.**
+  A newly paired bot again ignored its first native Telegram `/start` and answered
+  the second; replacing it with another bot answered the first send. The audit found
+  an Android-only ordering race rather than a command-definition failure. Core's
+  authoritative credential writer already saved the token/owner and applied the
+  change by restarting the Gateway, but Flutter then queued a second whole-service
+  `ACTION_RESTART`. That Android call returns when the intent is submitted, not when
+  stop/start settles, so the readiness poll could observe the first Gateway as READY
+  and open the final `t.me/<bot>` handoff immediately before the queued restart tore
+  that receiver down. An update fetched in that shutdown window follows the existing
+  `polling.update_dropped` path and cannot be redelivered. Desktop does not perform
+  this second service restart and therefore does not have this ordering.
+- **Second violated edge found in the same audit:** Telegram `Start` logged
+  `polling.ready_unconfirmed` after its bounded handler check but nevertheless set
+  `Running=true`. That contradicted both the source comment and this entry's earlier
+  claim that Running meant consumption. Start now fails closed and cleans up the
+  unconfirmed poller; no readiness consumer can authorize a handoff from that state.
+- **Regression resolution:** managed Android onboarding performs exactly one
+  authoritative config apply, then reads Core's authenticated readiness endpoint
+  through a narrow loopback bridge instead of inferring readiness from Android's
+  generic health snapshot. That endpoint rejects the previous bot generation while
+  configuration is pending or applying, and requires the final Gateway snapshot to
+  report both handler-backed Running and `commands_registered=true` before the bot
+  chat opens. No delay was added. Safe timestamped lifecycle events now cover
+  `config_applied`, `polling_live`, `consumer_attached`, `handler_ready`,
+  `telegram_ready`, `handoff_opened`, `first_update_received`, and
+  `first_start_replied` without recording bot, owner, chat, message, token or path
+  data.
+- **Regression verification:** deterministic Core tests make unconfirmed handler
+  readiness fail closed and drive the real polling, built-in `/start`, and Telegram
+  send paths for both fresh and replacement bot identities. Each bot starts from an
+  unset offset, its first `/start` produces exactly one `Hello! I am PocketClaw.`
+  send, and no duplicate inbound or reply appears. Flutter tests pin
+  `config_applied → telegram_ready → handoff_opened` for fresh and replacement flows
+  and prove no bot-chat URL opens while readiness is false.
+- **Current status:** **REOPENED / FIXED IN SOURCE — physical confirmation required.**
+
 ### PC-DEF-060 — Desktop Dashboard had no managed Telegram onboarding
 
 - **Discovered:** owner UI observation, 2026-09-14.

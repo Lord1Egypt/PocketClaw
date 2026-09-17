@@ -98,6 +98,13 @@ class PocketClawChannel {
     return Map<String, dynamic>.from(result);
   }
 
+  /// Reads Core's authoritative managed-Telegram readiness state.
+  static Future<Map<String, dynamic>> telegramReadiness() async {
+    final result = await _channel.invokeMethod<Map>('telegramReadiness');
+    if (result == null) return {'state': 'unknown', 'ready': false};
+    return Map<String, dynamic>.from(result);
+  }
+
   /// Reads the canonical launch auto-start record from the Android host.
   static Future<LaunchAutoStartPreferences>
   getLaunchAutoStartPreferences() async {

@@ -10,7 +10,9 @@ typedef TelegramCredentialSink =
 /// `.security.yml`. Writing only the first file is incorrect: secure fields in
 /// JSON are deliberately redacted and the security file wins when Core loads.
 /// This writer therefore gives the credential to Core, which updates both via
-/// its normal SaveConfig path. No token is ever returned to Flutter.
+/// its normal SaveConfig path and applies the change to the Gateway. No token is
+/// ever returned to Flutter; managed onboarding must not schedule a second
+/// restart after this boundary.
 class TelegramConfigWriter {
   const TelegramConfigWriter({TelegramCredentialSink? writeCredentials})
     : _writeCredentials = writeCredentials;

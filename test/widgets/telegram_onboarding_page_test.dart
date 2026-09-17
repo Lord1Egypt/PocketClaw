@@ -58,14 +58,13 @@ class Fixture {
     controller = TelegramOnboardingController(
       client: client,
       configWriter: configWriter,
-      reloadCore: () async => reloads++,
       openUrl: (url) async {
         opened.add(url);
         return true;
       },
       // PC-DEF-056. Connected now means Core reports the channel running, so a
       // widget test has to say whether it does. Ready by default.
-      telegramRuntimeRunning: () async => runtimeRunning,
+      telegramRuntimeReady: () async => runtimeRunning,
       runtimeReadyTimeout: const Duration(milliseconds: 300),
       runtimePollInterval: const Duration(milliseconds: 10),
     );
@@ -75,7 +74,6 @@ class Fixture {
   final opened = <String>[];
   bool runtimeRunning = true;
   TelegramBotCredentials? savedCredentials;
-  int reloads = 0;
   late final TelegramOnboardingController controller;
 
   late final TelegramConfigWriter configWriter = TelegramConfigWriter(
@@ -202,7 +200,6 @@ void main() {
     // The token configured Core; it is never shown.
     expect(find.textContaining('CHILD-TOKEN'), findsNothing);
     expect(f.savedCredentials?.token, '9001:CHILD-TOKEN');
-    expect(f.reloads, 1);
     f.controller.dispose();
   });
 

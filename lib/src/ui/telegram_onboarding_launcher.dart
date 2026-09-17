@@ -42,7 +42,6 @@ abstract final class TelegramOnboardingLauncher {
         baseUrl: TelegramOnboardingConfig.baseUrl,
       ),
       configWriter: configWriter,
-      reloadCore: () => _reloadCore(service),
       openUrl: (url) =>
           launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication),
       serviceConfigured: TelegramOnboardingConfig.isConfigured,

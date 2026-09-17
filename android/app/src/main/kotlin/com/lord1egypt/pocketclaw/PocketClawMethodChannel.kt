@@ -62,6 +62,8 @@ class PocketClawMethodChannel(
         private const val NOTIFICATION_PERMISSION_REQUEST_CODE = 9731
         private const val TELEGRAM_BRIDGE_URL =
             "http://127.0.0.1:18800/api/pocketclaw/android/telegram"
+        private const val TELEGRAM_READINESS_BRIDGE_URL =
+            "http://127.0.0.1:18800/api/pocketclaw/android/telegram/readiness"
         private const val NETWORK_MODE_BRIDGE_URL =
             "http://127.0.0.1:18800/api/pocketclaw/android/network-mode"
         private const val CONTEXT_MEMORY_BRIDGE_URL =
@@ -487,6 +489,23 @@ class PocketClawMethodChannel(
                                     "TELEGRAM_CONFIG_FAILED",
                                     "Core rejected the Telegram configuration",
                                     null
+                                )
+                            }
+                        }
+                    }.start()
+                }
+                "telegramReadiness" -> {
+                    Thread {
+                        val mainExecutor = getMainExecutor()
+                        try {
+                            val readiness = readTelegramReadiness()
+                            mainExecutor.execute { result.success(readiness) }
+                        } catch (e: Exception) {
+                            mainExecutor.execute {
+                                result.error(
+                                    "TELEGRAM_READINESS_FAILED",
+                                    "Core Telegram readiness is unavailable",
+                                    null,
                                 )
                             }
                         }
@@ -1064,6 +1083,38 @@ class PocketClawMethodChannel(
                 throw IllegalStateException("Core Telegram bridge request failed")
             }
             connection.inputStream.close()
+        } finally {
+            connection.disconnect()
+        }
+    }
+
+    /** Reads Core's authoritative Telegram receiver readiness. */
+    private fun readTelegramReadiness(): Map<String, Any> {
+        val connection =
+            (URL(TELEGRAM_READINESS_BRIDGE_URL).openConnection() as HttpURLConnection).apply {
+                requestMethod = "GET"
+                connectTimeout = 1_000
+                readTimeout = 3_000
+                setRequestProperty(
+                    "X-PocketClaw-Android-Bridge",
+                    PocketClawService.bridgeTokenForHost(),
+                )
+                setRequestProperty("Accept", "application/json")
+            }
+        try {
+            if (connection.responseCode != HttpURLConnection.HTTP_OK) {
+                throw IllegalStateException("Core Telegram readiness request failed")
+            }
+            val payload = connection.inputStream.bufferedReader().use { it.readText() }
+            val json = JSONObject(payload.ifBlank { "{}" })
+            val response = mutableMapOf<String, Any>(
+                "state" to json.optString("state", "unknown"),
+                "ready" to json.optBoolean("ready", false),
+            )
+            json.optString("detail").takeIf { it.isNotBlank() }?.let {
+                response["detail"] = it
+            }
+            return response
         } finally {
             connection.disconnect()
         }

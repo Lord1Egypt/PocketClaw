@@ -39,7 +39,8 @@ class FakeClient extends TelegramOnboardingClient {
           'pocketclaw_abcd123$createCalls'
           '_bot',
       suggestedName: 'PocketClaw Agent',
-      deepLink: deepLinkOverride ??
+      deepLink:
+          deepLinkOverride ??
           'https://t.me/newbot/PocketClawSetupBot/'
               'pocketclaw_abcd123$createCalls'
               '_bot?name=PocketClaw%20Agent',
@@ -96,28 +97,26 @@ class Harness {
   Harness({
     DateTime Function()? clock,
     Future<String?> Function(String)? resolveDeepLink,
-    Future<bool> Function()? telegramRuntimeRunning,
+    Future<bool> Function()? telegramRuntimeReady,
     Duration? runtimeReadyTimeout,
   }) {
     if (resolveDeepLink != null) {
       resolvedLinks = resolveDeepLink;
     }
-    if (telegramRuntimeRunning != null) {
-      runtimeRunning = telegramRuntimeRunning;
+    if (telegramRuntimeReady != null) {
+      runtimeRunning = telegramRuntimeReady;
     }
     controller = TelegramOnboardingController(
       client: client,
       configWriter: TelegramConfigWriter(
         writeCredentials: (credentials) async {
           if (configWriteFails) return false;
+          configWrites++;
+          lifecycleEvents.add('config_applied');
           savedCredentials = credentials;
           return true;
         },
       ),
-      reloadCore: () async {
-        reloads++;
-        if (reloadFails) throw StateError('core did not restart');
-      },
       openUrl: (url) async {
         openedUrls.add(url);
         return openSucceeds;
@@ -126,12 +125,17 @@ class Harness {
         resolveRequests.add(rawUrl);
         return resolvedLinks(rawUrl);
       },
-      telegramRuntimeRunning: () async {
+      telegramRuntimeReady: () async {
         runtimeChecks++;
         return runtimeRunning();
       },
+      lifecycleEventSink: (event, observedAt) {
+        lifecycleEvents.add(event);
+        lifecycleEventTimes.add(observedAt);
+      },
       // Short, so a readiness test does not sit out the production wait.
-      runtimeReadyTimeout: runtimeReadyTimeout ?? const Duration(milliseconds: 400),
+      runtimeReadyTimeout:
+          runtimeReadyTimeout ?? const Duration(milliseconds: 400),
       runtimePollInterval: const Duration(milliseconds: 10),
       storage: storage,
       clock: clock ?? DateTime.now,
@@ -142,13 +146,15 @@ class Harness {
   final storage = MemoryStorage();
   final openedUrls = <String>[];
   final resolveRequests = <String>[];
+  final lifecycleEvents = <String>[];
+  final lifecycleEventTimes = <DateTime>[];
 
   /// Mirrors the production resolver's contract: a Telegram link passes through,
   /// anything else has to be resolved and may come back null.
-  Future<String?> Function(String) resolvedLinks =
-      (rawUrl) async => rawUrl.startsWith('https://t.me/') ? rawUrl : null;
+  Future<String?> Function(String) resolvedLinks = (rawUrl) async =>
+      rawUrl.startsWith('https://t.me/') ? rawUrl : null;
 
-  /// Core's report that the Telegram channel is running. Ready by default, so
+  /// Core's authoritative Telegram readiness. Ready by default, so
   /// only a test about readiness has to think about it.
   Future<bool> Function() runtimeRunning = () async => true;
   int runtimeChecks = 0;
@@ -157,9 +163,8 @@ class Harness {
 
   TelegramBotCredentials? savedCredentials;
   bool configWriteFails = false;
-  bool reloadFails = false;
   bool openSucceeds = true;
-  int reloads = 0;
+  int configWrites = 0;
 }
 
 /// Waits until [predicate] holds, letting the controller's timers run.
@@ -224,7 +229,11 @@ void main() {
       555,
       reason: 'the creating user becomes the allow-list',
     );
-    expect(h.reloads, 1, reason: 'Core must reload to pick up the channel');
+    expect(
+      h.configWrites,
+      1,
+      reason: 'Core\'s authoritative writer applies the configuration once',
+    );
     expect(
       h.client.collectCalls,
       1,
@@ -405,22 +414,6 @@ void main() {
     h.controller.dispose();
   });
 
-  test('a failed Core reload does not report connected', () async {
-    final h = Harness()..reloadFails = true;
-    h.client.statusQueue.add(
-      const TelegramPairingStatus(state: PairingState.ready),
-    );
-    await h.controller.start();
-    await waitFor(() => h.controller.stage == TelegramOnboardingStage.failed);
-
-    expect(
-      h.controller.errorKind,
-      TelegramOnboardingErrorKind.configurationFailed,
-    );
-    expect(h.controller.connectedBotUsername, isNull);
-    h.controller.dispose();
-  });
-
   test('retry abandons the old pairing and issues a new one', () async {
     final h = Harness();
     await h.controller.start();
@@ -527,7 +520,6 @@ void main() {
     final controller = TelegramOnboardingController(
       client: h.client,
       configWriter: TelegramConfigWriter(writeCredentials: (_) async => true),
-      reloadCore: () async {},
       openUrl: (_) async => true,
       serviceConfigured: false,
     );
@@ -564,11 +556,15 @@ void _deepLinkGroup() {
       await h.controller.start();
       await h.controller.openTelegram();
 
-      expect(h.resolveRequests, [hosted],
-          reason: 'the service link is resolved in the background');
+      expect(h.resolveRequests, [
+        hosted,
+      ], reason: 'the service link is resolved in the background');
       expect(h.openedUrls, [telegram]);
-      expect(h.openedUrls.single, isNot(contains('vercel.app')),
-          reason: 'the hosting origin must never be user-visible navigation');
+      expect(
+        h.openedUrls.single,
+        isNot(contains('vercel.app')),
+        reason: 'the hosting origin must never be user-visible navigation',
+      );
       expect(h.controller.stage, TelegramOnboardingStage.awaitingConfirmation);
     });
 
@@ -582,8 +578,11 @@ void _deepLinkGroup() {
       await h.controller.start();
       await h.controller.openTelegram();
 
-      expect(h.openedUrls, isEmpty,
-          reason: 'opening the hosting page is the defect, not the fallback');
+      expect(
+        h.openedUrls,
+        isEmpty,
+        reason: 'opening the hosting page is the defect, not the fallback',
+      );
       expect(h.controller.stage, TelegramOnboardingStage.failed);
       expect(
         h.controller.errorKind,
@@ -601,17 +600,19 @@ void _deepLinkGroup() {
 
     // Telegram missing is a different failure from no link to give it: one tells
     // the user to install Telegram, the other to try setup again.
-    test('a failed launch of a valid link reports Telegram unavailable',
-        () async {
-      final h = Harness()..openSucceeds = false;
-      await h.controller.start();
-      await h.controller.openTelegram();
+    test(
+      'a failed launch of a valid link reports Telegram unavailable',
+      () async {
+        final h = Harness()..openSucceeds = false;
+        await h.controller.start();
+        await h.controller.openTelegram();
 
-      expect(
-        h.controller.errorKind,
-        TelegramOnboardingErrorKind.telegramUnavailable,
-      );
-    });
+        expect(
+          h.controller.errorKind,
+          TelegramOnboardingErrorKind.telegramUnavailable,
+        );
+      },
+    );
 
     test('no bot token or poll token ever appears in an opened URI', () async {
       final h = Harness();
@@ -623,27 +624,38 @@ void _deepLinkGroup() {
         expect(url, isNot(contains(h.controller.pairing!.pollToken)));
         // A Telegram bot token is `<digits>:<base64url>`; nothing shaped like a
         // credential belongs in a URL the OS is handed.
-        expect(RegExp(r'\d{6,}:[A-Za-z0-9_-]{20,}').hasMatch(url), isFalse,
-            reason: url);
+        expect(
+          RegExp(r'\d{6,}:[A-Za-z0-9_-]{20,}').hasMatch(url),
+          isFalse,
+          reason: url,
+        );
       }
     });
 
-    test('a reconnect resolves and launches again for the new pairing',
-        () async {
-      final h = Harness();
-      await h.controller.start();
-      await h.controller.openTelegram();
+    test(
+      'a reconnect resolves and launches again for the new pairing',
+      () async {
+        final h = Harness();
+        await h.controller.start();
+        await h.controller.openTelegram();
 
-      h.controller.reset();
-      await h.controller.start();
-      await h.controller.openTelegram();
+        h.controller.reset();
+        await h.controller.start();
+        await h.controller.openTelegram();
 
-      expect(h.resolveRequests.length, 2,
-          reason: 'each pairing gets its own resolution');
-      expect(h.openedUrls.length, 2);
-      expect(h.openedUrls[0], isNot(h.openedUrls[1]),
-          reason: 'a reconnect pairs a different suggested bot');
-    });
+        expect(
+          h.resolveRequests.length,
+          2,
+          reason: 'each pairing gets its own resolution',
+        );
+        expect(h.openedUrls.length, 2);
+        expect(
+          h.openedUrls[0],
+          isNot(h.openedUrls[1]),
+          reason: 'a reconnect pairs a different suggested bot',
+        );
+      },
+    );
   });
 }
 
@@ -653,14 +665,14 @@ void _deepLinkGroup() {
 /// and the bot was silent with no command menu until the owner returned to
 /// PocketClaw and pressed Open Chat a second time. Two causes, both here.
 void _readinessGroup() {
-  group('PC-DEF-056 runtime readiness', () {
+  group('PC-DEF-061 managed first-message readiness', () {
     /// Drives a pairing to the point where the service says it is ready.
     Future<Harness> completing({
       Future<bool> Function()? runtime,
       Duration? timeout,
     }) async {
       final h = Harness(
-        telegramRuntimeRunning: runtime,
+        telegramRuntimeReady: runtime,
         runtimeReadyTimeout: timeout,
       );
       h.client.statusQueue.add(
@@ -670,20 +682,22 @@ void _readinessGroup() {
       return h;
     }
 
-    test('connected is reached only once Core reports the channel running',
-        () async {
+    test('connected is reached only once Core reports Telegram ready', () async {
       var running = false;
       final h = await completing(
         runtime: () async => running,
         timeout: const Duration(seconds: 5),
       );
 
-      // Configuration is written and Core restarted, but the channel is not up.
+      // Configuration is written, but the authoritative receiver is not ready.
       await waitFor(
         () => h.controller.stage == TelegramOnboardingStage.startingRuntime,
       );
-      expect(h.savedCredentials, isNotNull,
-          reason: 'the token is persisted before the wait, not after');
+      expect(
+        h.savedCredentials,
+        isNotNull,
+        reason: 'the token is persisted before the wait, not after',
+      );
       expect(h.controller.stage, isNot(TelegramOnboardingStage.connected));
 
       running = true;
@@ -694,40 +708,83 @@ void _readinessGroup() {
     });
 
     // The whole point: no second action by the user.
-    test('the bot chat is opened automatically on reaching connected', () async {
-      final h = await completing();
-      await waitFor(
-        () => h.controller.stage == TelegramOnboardingStage.connected,
-      );
+    test(
+      'the bot chat is opened automatically on reaching connected',
+      () async {
+        final h = await completing();
+        await waitFor(
+          () => h.controller.stage == TelegramOnboardingStage.connected,
+        );
 
-      expect(
-        h.openedUrls.where((u) => u.startsWith('https://t.me/')).length,
-        greaterThan(0),
-        reason: 'reaching the bot must take no second Open Chat press',
-      );
-      h.controller.dispose();
-    });
+        expect(
+          h.openedUrls.where((u) => u.startsWith('https://t.me/')).length,
+          greaterThan(0),
+          reason: 'reaching the bot must take no second Open Chat press',
+        );
+        h.controller.dispose();
+      },
+    );
 
-    test('the bot chat is never opened before the runtime is running', () async {
-      var running = false;
-      final h = await completing(
-        runtime: () async => running,
-        timeout: const Duration(seconds: 5),
-      );
-      await waitFor(
-        () => h.controller.stage == TelegramOnboardingStage.startingRuntime,
-      );
+    test(
+      'the bot chat is never opened before authoritative readiness',
+      () async {
+        var running = false;
+        final h = await completing(
+          runtime: () async => running,
+          timeout: const Duration(seconds: 5),
+        );
+        await waitFor(
+          () => h.controller.stage == TelegramOnboardingStage.startingRuntime,
+        );
 
-      expect(h.openedUrls, isEmpty,
-          reason: 'an inactive bot chat is the defect');
+        expect(
+          h.openedUrls,
+          isEmpty,
+          reason: 'an inactive bot chat is the defect',
+        );
 
-      running = true;
-      await waitFor(
-        () => h.controller.stage == TelegramOnboardingStage.connected,
-      );
-      expect(h.openedUrls, isNotEmpty);
-      h.controller.dispose();
-    });
+        running = true;
+        await waitFor(
+          () => h.controller.stage == TelegramOnboardingStage.connected,
+        );
+        expect(h.openedUrls, isNotEmpty);
+        h.controller.dispose();
+      },
+    );
+
+    test(
+      'fresh bot handoff follows the authoritative readiness order',
+      () async {
+        var ready = false;
+        final h = await completing(
+          runtime: () async => ready,
+          timeout: const Duration(seconds: 5),
+        );
+        await waitFor(
+          () => h.controller.stage == TelegramOnboardingStage.startingRuntime,
+        );
+
+        expect(h.lifecycleEvents, ['config_applied']);
+        expect(
+          h.openedUrls,
+          isEmpty,
+          reason: 'the final bot chat must not precede receiver readiness',
+        );
+
+        ready = true;
+        await waitFor(
+          () => h.controller.stage == TelegramOnboardingStage.connected,
+        );
+
+        expect(h.lifecycleEvents, [
+          'config_applied',
+          'telegram_ready',
+          'handoff_opened',
+        ]);
+        expect(h.openedUrls, hasLength(1));
+        h.controller.dispose();
+      },
+    );
 
     test('the automatic open happens exactly once', () async {
       final h = await completing();
@@ -746,26 +803,34 @@ void _readinessGroup() {
     });
 
     // Bounded, because an unbounded wait is a hang.
-    test('a runtime that never starts is reported, not waited on forever',
-        () async {
-      final h = await completing(
-        runtime: () async => false,
-        timeout: const Duration(milliseconds: 150),
-      );
+    test(
+      'a runtime that never starts is reported, not waited on forever',
+      () async {
+        final h = await completing(
+          runtime: () async => false,
+          timeout: const Duration(milliseconds: 150),
+        );
 
-      await waitFor(
-        () => h.controller.stage == TelegramOnboardingStage.failed,
-      );
-      expect(h.controller.errorKind, TelegramOnboardingErrorKind.runtimeNotReady);
-      expect(h.openedUrls, isEmpty,
-          reason: 'a failed start must not send the user into a dead chat');
-      // The configuration is sound; only the start is outstanding.
-      expect(h.savedCredentials, isNotNull);
-      h.controller.dispose();
-    });
+        await waitFor(
+          () => h.controller.stage == TelegramOnboardingStage.failed,
+        );
+        expect(
+          h.controller.errorKind,
+          TelegramOnboardingErrorKind.runtimeNotReady,
+        );
+        expect(
+          h.openedUrls,
+          isEmpty,
+          reason: 'a failed start must not send the user into a dead chat',
+        );
+        // The configuration is sound; only the start is outstanding.
+        expect(h.savedCredentials, isNotNull);
+        h.controller.dispose();
+      },
+    );
 
     // Silence right after a restart is not a failure: Core is not reporting yet.
-    test('a status read that throws is treated as not-yet-running', () async {
+    test('a readiness read that throws is treated as not-yet-ready', () async {
       var attempts = 0;
       final h = await completing(
         runtime: () async {
@@ -792,18 +857,24 @@ void _readinessGroup() {
       await waitFor(
         () => h.controller.stage == TelegramOnboardingStage.startingRuntime,
       );
-      final reloadsDuringWait = h.reloads;
+      final writesDuringWait = h.configWrites;
 
       running = true;
       await waitFor(
         () => h.controller.stage == TelegramOnboardingStage.connected,
       );
 
-      expect(h.reloads, reloadsDuringWait,
-          reason: 'waiting for readiness must not re-apply the configuration');
-      expect(h.reloads, 1);
-      expect(h.client.collectCalls, 1,
-          reason: 'the token is collected exactly once');
+      expect(
+        h.configWrites,
+        writesDuringWait,
+        reason: 'waiting for readiness must not re-apply the configuration',
+      );
+      expect(h.configWrites, 1);
+      expect(
+        h.client.collectCalls,
+        1,
+        reason: 'the token is collected exactly once',
+      );
       h.controller.dispose();
     });
 
@@ -822,9 +893,25 @@ void _readinessGroup() {
         () => h.controller.stage == TelegramOnboardingStage.connected,
       );
 
-      expect(h.openedUrls.length, greaterThan(firstOpens),
-          reason: 'a replacement bot gets its own automatic open');
+      expect(
+        h.openedUrls.length,
+        greaterThan(firstOpens),
+        reason: 'a replacement bot gets its own automatic open',
+      );
       expect(h.client.collectCalls, 2);
+      expect(
+        h.configWrites,
+        2,
+        reason: 'fresh and replacement credentials are each applied once',
+      );
+      expect(h.lifecycleEvents, [
+        'config_applied',
+        'telegram_ready',
+        'handoff_opened',
+        'config_applied',
+        'telegram_ready',
+        'handoff_opened',
+      ]);
       h.controller.dispose();
     });
 
@@ -848,28 +935,34 @@ void _readinessGroup() {
     });
 
     // The owner contract from PC-DEF-044: exactly one paired numeric owner.
-    test('the owner identity written to Core is unchanged by the gate', () async {
-      final h = await completing();
-      await waitFor(
-        () => h.controller.stage == TelegramOnboardingStage.connected,
-      );
+    test(
+      'the owner identity written to Core is unchanged by the gate',
+      () async {
+        final h = await completing();
+        await waitFor(
+          () => h.controller.stage == TelegramOnboardingStage.connected,
+        );
 
-      final credentials = h.savedCredentials!;
-      expect(credentials.ownerUserId, greaterThan(0));
-      expect(credentials.token, isNotEmpty);
-      h.controller.dispose();
-    });
+        final credentials = h.savedCredentials!;
+        expect(credentials.ownerUserId, greaterThan(0));
+        expect(credentials.token, isNotEmpty);
+        h.controller.dispose();
+      },
+    );
 
     // No sleep-based patch: the gate is driven by the readiness signal, so a
     // runtime that comes up immediately must not be made to wait.
-    test('a runtime already running does not delay the flow', () async {
+    test('an already-ready runtime does not delay the flow', () async {
       final h = await completing();
       await waitFor(
         () => h.controller.stage == TelegramOnboardingStage.connected,
       );
 
-      expect(h.runtimeChecks, lessThanOrEqualTo(2),
-          reason: 'readiness is polled, not slept through');
+      expect(
+        h.runtimeChecks,
+        lessThanOrEqualTo(2),
+        reason: 'readiness is polled, not slept through',
+      );
       h.controller.dispose();
     });
   });
@@ -888,11 +981,16 @@ void _latencyGroup() {
         () => h.controller.stage == TelegramOnboardingStage.connected,
       );
 
-      expect(h.controller.runtimeReadyLatency, isNotNull,
-          reason: 'the stage has to be attributable, not guessed at');
+      expect(
+        h.controller.runtimeReadyLatency,
+        isNotNull,
+        reason: 'the stage has to be attributable, not guessed at',
+      );
       expect(h.controller.onboardingLatency, isNotNull);
-      expect(h.controller.runtimeReadyLatency!.inMilliseconds,
-          greaterThanOrEqualTo(0));
+      expect(
+        h.controller.runtimeReadyLatency!.inMilliseconds,
+        greaterThanOrEqualTo(0),
+      );
       h.controller.dispose();
     });
 

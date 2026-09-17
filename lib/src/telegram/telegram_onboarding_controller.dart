@@ -4,8 +4,6 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 
 import '../core/pocketclaw_channel.dart';
-import '../core/status_snapshot.dart';
-import '../core/telegram_runtime_state.dart';
 import 'telegram_config_writer.dart';
 import 'telegram_deep_link.dart';
 import 'telegram_onboarding_client.dart';
@@ -28,8 +26,8 @@ enum TelegramOnboardingStage {
   /// Writing the token into Core and reloading the Telegram channel.
   configuring,
 
-  /// The configuration is saved and Core is restarting; waiting for Core to
-  /// report the Telegram channel as running.
+  /// The configuration is saved and Core is applying it; waiting for Core to
+  /// report the Telegram receiver and command menu ready.
   ///
   /// PC-DEF-056. Configuration applied is not the same fact as runtime running,
   /// and the flow used to declare success on the first. The user was then handed
@@ -37,7 +35,7 @@ enum TelegramOnboardingStage {
   /// no command menu.
   startingRuntime,
 
-  /// Done: Core reports the Telegram channel running, so the bot can answer.
+  /// Done: Core authoritatively reports Telegram ready, so the bot can answer.
   connected,
 
   /// The pairing window closed before Telegram confirmed anything.
@@ -59,42 +57,46 @@ abstract class PairingStorage {
   Future<void> clear();
 }
 
+typedef TelegramLifecycleEventSink =
+    void Function(String event, DateTime observedAt);
+
 /// Drives the Telegram managed-bot onboarding flow.
 class TelegramOnboardingController extends ChangeNotifier {
   TelegramOnboardingController({
     required TelegramOnboardingClient client,
     required TelegramConfigWriter configWriter,
-    required Future<void> Function() reloadCore,
     required Future<bool> Function(String url) openUrl,
     Future<String?> Function(String rawUrl)? resolveDeepLink,
-    Future<bool> Function()? telegramRuntimeRunning,
+    Future<bool> Function()? telegramRuntimeReady,
+    TelegramLifecycleEventSink? lifecycleEventSink,
     Duration? runtimeReadyTimeout,
     Duration? runtimePollInterval,
     PairingStorage? storage,
     DateTime Function()? clock,
     bool serviceConfigured = true,
-  })  : _client = client,
-        _configWriter = configWriter,
-        _reloadCore = reloadCore,
-        _openUrl = openUrl,
-        _resolveDeepLink = resolveDeepLink ?? _defaultResolveDeepLink,
-        _telegramRuntimeRunning =
-            telegramRuntimeRunning ?? defaultTelegramRuntimeRunning,
-        _runtimeReadyTimeout = runtimeReadyTimeout ?? const Duration(seconds: 45),
-        _runtimePollInterval = runtimePollInterval ?? const Duration(seconds: 1),
-        _storage = storage,
-        _clock = clock ?? DateTime.now,
-        _serviceConfigured = serviceConfigured;
+  }) : _client = client,
+       _configWriter = configWriter,
+       _openUrl = openUrl,
+       _resolveDeepLink = resolveDeepLink ?? _defaultResolveDeepLink,
+       _telegramRuntimeReady =
+           telegramRuntimeReady ?? defaultTelegramRuntimeReady,
+       _lifecycleEventSink = lifecycleEventSink ?? _debugTelegramLifecycleEvent,
+       _runtimeReadyTimeout =
+           runtimeReadyTimeout ?? const Duration(seconds: 45),
+       _runtimePollInterval = runtimePollInterval ?? const Duration(seconds: 1),
+       _storage = storage,
+       _clock = clock ?? DateTime.now,
+       _serviceConfigured = serviceConfigured;
 
   final TelegramOnboardingClient _client;
   final TelegramConfigWriter _configWriter;
-  final Future<void> Function() _reloadCore;
   final Future<bool> Function(String url) _openUrl;
   final Future<String?> Function(String rawUrl) _resolveDeepLink;
 
-  /// Whether Core reports the Telegram channel as running. The single
-  /// authoritative readiness signal; see PC-DEF-027's resolver.
-  final Future<bool> Function() _telegramRuntimeRunning;
+  /// Whether Core reports the Telegram receiver and command menu READY. This
+  /// is the same authoritative handoff predicate as the desktop managed flow.
+  final Future<bool> Function() _telegramRuntimeReady;
+  final TelegramLifecycleEventSink _lifecycleEventSink;
 
   /// Bounded, because an unbounded wait is a hang. On expiry the flow reports
   /// that the configuration is saved but the runtime has not started.
@@ -109,7 +111,7 @@ class TelegramOnboardingController extends ChangeNotifier {
   /// When the current flow began, for the latency marks below.
   DateTime? _startedAt;
 
-  /// How long Core took to report the Telegram channel running, once known.
+  /// How long Core took to report authoritative Telegram readiness, once known.
   ///
   /// Recorded so the owner's 15-25 s observation can be attributed to a stage
   /// instead of guessed at. Null until the flow reaches connected.
@@ -139,8 +141,9 @@ class TelegramOnboardingController extends ChangeNotifier {
   String? get connectedBotUsername => _connectedBotUsername;
 
   /// The chat link for the Open Chat action.
-  String? get connectedChatUrl =>
-      _connectedBotUsername == null ? null : 'https://t.me/$_connectedBotUsername';
+  String? get connectedChatUrl => _connectedBotUsername == null
+      ? null
+      : 'https://t.me/$_connectedBotUsername';
 
   /// Whether polling is currently running. Exposed for tests and diagnostics.
   bool get isPolling => _pollTimer?.isActive ?? false;
@@ -230,7 +233,9 @@ class TelegramOnboardingController extends ChangeNotifier {
   Future<bool> openBotChat() async {
     final url = connectedChatUrl;
     if (url == null) return false;
-    return _openUrl(url);
+    final opened = await _openUrl(url);
+    if (opened) _recordLifecycleEvent('handoff_opened');
+    return opened;
   }
 
   /// Checks once immediately and makes sure polling is running.
@@ -341,31 +346,27 @@ class TelegramOnboardingController extends ChangeNotifier {
       await _configWriter.apply(credentials);
       if (_disposed) return;
 
-      // Core reads channel configuration at startup, so the new bot only comes
-      // online after a reload.
-      await _reloadCore();
-      if (_disposed) return;
-
       _connectedBotUsername = credentials.botUsername;
       await _storage?.clear();
 
-      // PC-DEF-056. A reload that returns has been *requested*, not completed:
-      // restartCore hands Core one intent and comes back. Declaring success here
-      // handed the user a bot whose channel had not started, so it did not answer
-      // and had no command menu until something later brought it up.
+      // PC-DEF-061. TelegramConfigWriter crosses Core's authoritative writer,
+      // which both saves and applies the channel configuration. Requesting a
+      // second Android service restart here created a stale-readiness race: the
+      // first Gateway could report ready, this flow could open Telegram, and the
+      // queued service restart could then tear that receiver down under the
+      // owner's first /start. There is exactly one apply now, and this wait
+      // observes the receiver produced by it.
       //
-      // Core registers the Telegram command menu as part of starting the
-      // channel, so the channel reporting running is the earliest point at which
-      // the bot can answer. The app cannot observe setMyCommands itself -- Core
-      // exposes no per-channel command state -- so running is the authoritative
-      // signal available, and it is the one the gate uses.
+      // The readiness predicate matches desktop: handler-backed Running plus a
+      // successfully published command menu. Only that exact receiver may
+      // authorize the final bot-chat handoff.
       _setStage(TelegramOnboardingStage.startingRuntime);
       // The owner measured 15-25 s to the first Telegram reply on a fresh
       // onboarding and asked for the stages to be instrumented rather than
       // optimised by guesswork. These are wall-clock marks, not a fix: they say
       // which step the wait is actually in.
       final runtimeWaitStarted = _clock();
-      if (!await _awaitTelegramRunning()) {
+      if (!await _awaitTelegramReady()) {
         if (_disposed) return;
         // A wait the user cancelled is not a runtime failure, and must not
         // overwrite the state they moved to.
@@ -375,7 +376,9 @@ class TelegramOnboardingController extends ChangeNotifier {
         _fail(TelegramOnboardingErrorKind.runtimeNotReady);
         return;
       }
-      if (_disposed || _stage != TelegramOnboardingStage.startingRuntime) return;
+      if (_disposed || _stage != TelegramOnboardingStage.startingRuntime) {
+        return;
+      }
 
       runtimeReadyLatency = _clock().difference(runtimeWaitStarted);
       final startedAt = _startedAt;
@@ -383,47 +386,48 @@ class TelegramOnboardingController extends ChangeNotifier {
         onboardingLatency = _clock().difference(startedAt);
       }
       debugPrint(
-        'pocketclaw.onboarding stage=telegram_running '
+        'pocketclaw.onboarding stage=telegram_ready '
         'runtime_wait_ms=${runtimeReadyLatency!.inMilliseconds} '
         'onboarding_total_ms=${onboardingLatency?.inMilliseconds ?? -1}',
       );
+
+      _recordLifecycleEvent('telegram_ready');
 
       _setStage(TelegramOnboardingStage.connected);
       await _openConnectedBotChatOnce();
     } on TelegramOnboardingException catch (error) {
       _fail(error.kind);
     } catch (_) {
-      // A reload failure lands here. The token is already written, so the
-      // configuration is sound even though the channel has not come up; the UI
-      // says so and offers a retry rather than claiming success.
+      // The token may already be written, but collection, persistence or the
+      // readiness boundary failed. Never claim a usable channel here.
       _fail(TelegramOnboardingErrorKind.configurationFailed);
     }
   }
 
-  /// Polls the readiness signal until it says running, or the wait expires.
+  /// Polls the readiness signal until it says READY, or the wait expires.
   ///
   /// Silence is not failure: right after a restart Core is not reporting at all,
   /// and PC-DEF-027 is explicit that an absent runtime report is silence rather
   /// than a verdict. So a false answer keeps waiting and only the deadline
   /// decides -- which is what makes this bounded rather than a hang.
-  Future<bool> _awaitTelegramRunning() async {
+  Future<bool> _awaitTelegramReady() async {
     final deadline = _clock().add(_runtimeReadyTimeout);
     // The stage is re-checked every iteration, not just _disposed: a reset or a
     // retry while the wait is in flight has to abandon it. Without that, a
     // cancelled pairing whose runtime came up later went on to declare itself
     // connected and open a bot chat the user had walked away from.
     while (!_disposed && _stage == TelegramOnboardingStage.startingRuntime) {
-      bool running;
+      bool ready;
       try {
-        running = await _telegramRuntimeRunning();
+        ready = await _telegramRuntimeReady();
       } catch (_) {
         // A failed status read is silence too.
-        running = false;
+        ready = false;
       }
       if (_disposed || _stage != TelegramOnboardingStage.startingRuntime) {
         return false;
       }
-      if (running) return true;
+      if (ready) return true;
       if (!_clock().isBefore(deadline)) return false;
       await Future<void>.delayed(_runtimePollInterval);
     }
@@ -442,6 +446,10 @@ class TelegramOnboardingController extends ChangeNotifier {
     if (_autoOpenedBotChat) return;
     _autoOpenedBotChat = true;
     await openBotChat();
+  }
+
+  void _recordLifecycleEvent(String event) {
+    _lifecycleEventSink(event, _clock().toUtc());
   }
 
   Future<void> _expire() async {
@@ -517,26 +525,24 @@ Future<String?> _defaultResolveDeepLink(String rawUrl) async {
   }
 }
 
-/// The production readiness signal: Core's own report that the Telegram channel
-/// is running.
+/// The production readiness signal: Core's own report that Telegram is
+/// consuming and its command menu has reached Telegram.
 ///
-/// Routed through [resolveTelegramRuntimeState] so there is one definition of
-/// "Telegram is running" in the app (PC-DEF-027) rather than a second one
-/// invented here from a token or a username. `configuredAndValid` is true
-/// because this is only ever asked immediately after the flow wrote the
-/// configuration itself.
-Future<bool> defaultTelegramRuntimeRunning() async {
+/// Android reaches the same Core endpoint used by desktop managed onboarding;
+/// Flutter does not infer this from generic process health or a status snapshot.
+Future<bool> defaultTelegramRuntimeReady() async {
   try {
-    final health = await PocketClawChannel.checkHealth(detail: true);
-    if (health['isHealthy'] != true) return false;
-    final snapshot = StatusSnapshot.tryParse(health['detail'] as String?);
-    final state = resolveTelegramRuntimeState(
-      configuredAndValid: true,
-      channels: snapshot?.channels,
-    );
-    return telegramMayReportConnected(state);
+    final readiness = await PocketClawChannel.telegramReadiness();
+    return readiness['state'] == 'ready' && readiness['ready'] == true;
   } catch (_) {
-    // An unavailable host or a malformed snapshot is silence, not a verdict.
+    // An unavailable authority is silence, not permission to open Telegram.
     return false;
   }
+}
+
+void _debugTelegramLifecycleEvent(String event, DateTime observedAt) {
+  debugPrint(
+    'pocketclaw.telegram event=$event '
+    'observed_at_unix_ms=${observedAt.millisecondsSinceEpoch}',
+  );
 }
