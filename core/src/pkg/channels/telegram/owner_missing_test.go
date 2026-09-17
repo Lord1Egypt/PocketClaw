@@ -127,6 +127,46 @@ func TestOwnerConfiguredNonOwnerStillGetsNoGuidance(t *testing.T) {
 	requireNoInbound(t, messageBus)
 }
 
+// Handling a message must not claim or clear the state. Nothing here writes
+// configuration, and ownership is only ever granted by an explicit save through
+// Core -- never by whoever messaged the bot first.
+func TestOwnerMissingStateIsNotAutoClaimed(t *testing.T) {
+	stub := &pollingStub{}
+	ch, _ := newPollingChannelWithOwners(t, stub, nil, true)
+	require.True(t, ch.OwnerMissing())
+
+	require.NoError(t, ch.handleMessages(context.Background(), []*telego.Message{
+		ownerMissingPrivateMessage(1, 1, 424242, "/start"),
+	}))
+
+	require.True(t, ch.OwnerMissing(),
+		"a message from a stranger must never make them the owner")
+}
+
+// Once an owner is configured, the same sender's message follows normal owner
+// routing: it reaches the agent and is not answered locally.
+func TestConfiguringAnOwnerRestoresNormalRouting(t *testing.T) {
+	missingStub := &pollingStub{}
+	missingCh, missingBus := newPollingChannelWithOwners(t, missingStub, nil, true)
+	require.NoError(t, missingCh.handleMessages(context.Background(),
+		[]*telego.Message{ownerMissingPrivateMessage(1, 1, 777000777, "hello")}))
+	require.Len(t, missingStub.observedSentTexts(), 1)
+	requireNoInbound(t, missingBus)
+
+	// A configured owner means a fresh channel, exactly as a restart builds one.
+	ownedStub := &pollingStub{}
+	ownedCh, ownedBus := newPollingChannelWithOwners(t, ownedStub,
+		config.FlexibleStringSlice{"777000777"}, false)
+	require.False(t, ownedCh.OwnerMissing())
+	require.NoError(t, ownedCh.handleMessages(context.Background(),
+		[]*telego.Message{ownerMissingPrivateMessage(2, 2, 777000777, "hello")}))
+
+	msg := waitForInbound(t, ownedBus, 5*time.Second)
+	require.Equal(t, "hello", msg.Content)
+	require.Empty(t, ownedStub.observedSentTexts(),
+		"an owner's message is routed to the agent, not answered locally")
+}
+
 // The constructor contract: zero owners is the setup state, one valid owner is
 // normal, and several or invalid owners are still refused.
 func TestNewTelegramChannelOwnerContracts(t *testing.T) {
