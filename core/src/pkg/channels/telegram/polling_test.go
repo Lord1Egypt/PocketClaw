@@ -146,8 +146,12 @@ func ownerMessage(updateID, messageID int) telego.Update {
 func newPollingChannel(t *testing.T, stub *pollingStub) (*TelegramChannel, *bus.MessageBus) {
 	t.Helper()
 
+	// The intake caller is the production wiring: it records when a generation's
+	// first getUpdates request is actually issued, which is what Start requires
+	// before it reports Running.
+	intakeRef := &telegramIntakeRef{}
 	bot, err := telego.NewBot(testToken,
-		telego.WithAPICaller(stub),
+		telego.WithAPICaller(&telegramIntakeCaller{base: stub, ref: intakeRef}),
 		telego.WithRequestConstructor(&stubConstructor{}),
 		telego.WithDiscardLogger(),
 	)
@@ -170,6 +174,7 @@ func newPollingChannel(t *testing.T, stub *pollingStub) (*TelegramChannel, *bus.
 		},
 		tgCfg:       &config.TelegramSettings{},
 		chatIDs:     make(map[string]int64),
+		intakeRef:   intakeRef,
 		mediaGroups: make(map[string]*telegramMediaGroup),
 		progress:    channels.NewToolFeedbackAnimator(nil),
 		// Command registration is not what is under test and would otherwise
@@ -442,6 +447,89 @@ func TestBotIdentityIsStillResolved(t *testing.T) {
 
 	require.Eventually(t, func() bool { return stub.calledGetMe() > 0 },
 		5*time.Second, 10*time.Millisecond)
+}
+
+// PC-DEF-061. A started poller goroutine is not an established poll. Telego
+// returns from UpdatesViaLongPolling before its first getUpdates request is
+// issued, so a generation whose intake never becomes real must fail closed
+// rather than be reported ready with nothing receiving.
+func TestChannelStartFailsClosedWhenIntakeIsUnconfirmed(t *testing.T) {
+	stub := &pollingStub{}
+	ch, _ := newPollingChannel(t, stub)
+	ch.intakeProbe = func(*telegramIntake, time.Duration) bool { return false }
+
+	err := ch.Start(context.Background())
+	require.ErrorContains(t, err, "intake did not establish")
+	require.False(t, ch.IsRunning(),
+		"unconfirmed intake must never authorize a managed handoff")
+	require.Zero(t, ch.PollingGeneration(),
+		"a refused start must not leave a generation to be inherited")
+}
+
+// The active generation is named, and retired to zero once its poller has
+// confirmed exit, so a successor cannot inherit a stale generation's success.
+func TestChannelNamesItsPollingGenerationAndRetiresIt(t *testing.T) {
+	stub := &pollingStub{}
+	ch, _ := newPollingChannel(t, stub)
+
+	require.Zero(t, ch.PollingGeneration())
+	require.NoError(t, ch.Start(context.Background()))
+	first := ch.PollingGeneration()
+	require.NotZero(t, first)
+
+	require.NoError(t, ch.Stop(context.Background()))
+	require.Zero(t, ch.PollingGeneration())
+
+	require.NoError(t, ch.Start(context.Background()))
+	t.Cleanup(func() { _ = ch.Stop(context.Background()) })
+	require.NotZero(t, ch.PollingGeneration())
+	require.NotEqual(t, first, ch.PollingGeneration(),
+		"a restarted channel is a new polling generation")
+}
+
+// The intake caller is what proves a request exists, so it must record
+// getUpdates and only getUpdates.
+func TestIntakeCallerMarksGetUpdatesOnly(t *testing.T) {
+	intake := newTelegramIntake()
+	ref := &telegramIntakeRef{}
+	ref.store(intake)
+	base := &recordingCaller{}
+	caller := &telegramIntakeCaller{base: base, ref: ref}
+
+	_, _ = caller.Call(context.Background(), "https://api.telegram.org/bot1:AA/getMe", nil)
+	require.False(t, intake.established(), "getMe is not polling intake")
+
+	_, _ = caller.Call(context.Background(), "https://api.telegram.org/bot1:AA/getUpdates", nil)
+	require.True(t, intake.established(), "a getUpdates request is polling intake")
+
+	// A second request does not reopen anything and does not panic.
+	_, _ = caller.Call(context.Background(), "https://api.telegram.org/bot1:AA/getUpdates", nil)
+	require.True(t, intake.established())
+	require.Equal(t, 3, base.calls)
+}
+
+func TestWaitForIntakeEstablished(t *testing.T) {
+	t.Run("returns once the request has been issued", func(t *testing.T) {
+		intake := newTelegramIntake()
+		go func() {
+			time.Sleep(5 * time.Millisecond)
+			intake.markRequestStarted()
+		}()
+		require.True(t, waitForIntakeEstablished(intake, time.Second))
+	})
+
+	t.Run("gives up rather than blocking a start forever", func(t *testing.T) {
+		require.False(t, waitForIntakeEstablished(newTelegramIntake(), 20*time.Millisecond))
+	})
+}
+
+type recordingCaller struct {
+	calls int
+}
+
+func (c *recordingCaller) Call(context.Context, string, *ta.RequestData) (*ta.Response, error) {
+	c.calls++
+	return jsonResponse(map[string]any{})
 }
 
 type fakeConsumer struct {

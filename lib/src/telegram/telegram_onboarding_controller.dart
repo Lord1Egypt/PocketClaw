@@ -533,7 +533,20 @@ Future<String?> _defaultResolveDeepLink(String rawUrl) async {
 Future<bool> defaultTelegramRuntimeReady() async {
   try {
     final readiness = await PocketClawChannel.telegramReadiness();
-    return readiness['state'] == 'ready' && readiness['ready'] == true;
+    if (readiness['state'] != 'ready' || readiness['ready'] != true) {
+      return false;
+    }
+    // PC-DEF-061. A ready answer must name the polling generation it
+    // authorized, and the same generation must still be active on a second
+    // read. Otherwise a handoff could open against an owner that a restart has
+    // already replaced, which is the receiver that acknowledged the first
+    // /start and then went away.
+    final generation = readiness['generation'];
+    if (generation is! int || generation <= 0) return false;
+    final confirm = await PocketClawChannel.telegramReadiness();
+    return confirm['state'] == 'ready' &&
+        confirm['ready'] == true &&
+        confirm['generation'] == generation;
   } catch (_) {
     // An unavailable authority is silence, not permission to open Telegram.
     return false;

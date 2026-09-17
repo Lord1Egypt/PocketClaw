@@ -584,6 +584,9 @@ func TestTelegramLifecycleObservabilityFieldsSurviveRedaction(t *testing.T) {
 		"update_id":           9001,
 		"next_offset":         9002,
 		"first_update":        true,
+		// A process-local generation counter names which polling owner acted.
+		// It is not an identity and carries no credential.
+		"telegram_generation": uint64(7),
 	})
 
 	for key, want := range map[string]any{
@@ -592,6 +595,7 @@ func TestTelegramLifecycleObservabilityFieldsSurviveRedaction(t *testing.T) {
 		"update_id":           9001,
 		"next_offset":         9002,
 		"first_update":        true,
+		"telegram_generation": uint64(7),
 	} {
 		if got := safe[key]; got != want {
 			t.Fatalf("field %q = %v, want %v", key, got, want)

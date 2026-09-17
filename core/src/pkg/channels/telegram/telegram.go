@@ -19,6 +19,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/mymmrac/telego"
+	ta "github.com/mymmrac/telego/telegoapi"
 	th "github.com/mymmrac/telego/telegohandler"
 	tu "github.com/mymmrac/telego/telegoutil"
 
@@ -66,6 +67,17 @@ type TelegramChannel struct {
 	// pollingDone is closed when the long-polling goroutine has unwound. Stop
 	// waits on it so a stopped channel can be started again.
 	pollingDone chan struct{}
+
+	// intakeRef is read by this channel's Bot API caller to learn which
+	// generation's getUpdates request it is recording. It is installed before
+	// UpdatesViaLongPolling, so the first poll is attributable.
+	intakeRef *telegramIntakeRef
+	// generation is the local id of the active getUpdates owner. Zero means no
+	// owner has been established.
+	generation atomic.Uint64
+	// intakeProbe is replaceable only by package tests. Production waits on the
+	// real caller-observed intake and fails closed when it cannot be confirmed.
+	intakeProbe func(*telegramIntake, time.Duration) bool
 
 	registerFunc      func(context.Context, []commands.Definition) error
 	commandRegDelayFn func(int) time.Duration
@@ -126,7 +138,17 @@ func NewTelegramChannel(
 	// Telego otherwise defaults to fasthttp without a deadline. A lost mobile
 	// connection can then block one outbound worker indefinitely while polling
 	// continues accepting updates and emitting Thinking placeholders.
-	opts = append(opts, telego.WithHTTPClient(httpClient))
+	//
+	// PC-DEF-061. The caller is wrapped so the channel can tell when a
+	// generation's first getUpdates request is actually issued. Telego starts
+	// its poller goroutine and returns before that, so this is the only proof
+	// that the Bot API is holding a poll for the generation being reported
+	// ready.
+	intakeRef := &telegramIntakeRef{}
+	opts = append(opts, telego.WithAPICaller(&telegramIntakeCaller{
+		base: ta.HTTPCaller{Client: httpClient},
+		ref:  intakeRef,
+	}))
 
 	if baseURL := strings.TrimRight(strings.TrimSpace(telegramCfg.BaseURL), "/"); baseURL != "" {
 		opts = append(opts, telego.WithAPIServer(baseURL))
@@ -154,6 +176,7 @@ func NewTelegramChannel(
 		bc:          bc,
 		chatIDs:     make(map[string]int64),
 		tgCfg:       telegramCfg,
+		intakeRef:   intakeRef,
 
 		mediaGroups:     make(map[string]*telegramMediaGroup),
 		mediaGroupDelay: telegramMediaGroupDelay(telegramCfg),
@@ -174,6 +197,18 @@ func (c *TelegramChannel) Start(ctx context.Context) error {
 
 	c.ctx, c.cancel = context.WithCancel(ctx)
 
+	// PC-DEF-061. Every activation is a distinct getUpdates owner with its own
+	// intake proof. Readiness is only allowed to describe the generation whose
+	// request is actually in flight.
+	if c.intakeRef == nil {
+		c.intakeRef = &telegramIntakeRef{}
+	}
+	generation := nextTelegramGeneration()
+	intake := newTelegramIntake()
+	c.intakeRef.store(intake)
+	c.generation.Store(uint64(generation))
+	logTelegramLifecycleGeneration("generation_created", uint64(generation))
+
 	logger.DebugCF("telegram", "Telegram polling starting", map[string]any{
 		"event": "polling.prepare",
 	})
@@ -191,6 +226,7 @@ func (c *TelegramChannel) Start(ctx context.Context) error {
 		"event":                "polling.started",
 		"poll_timeout_seconds": 30,
 	})
+	logTelegramLifecycleGeneration("poller_created", uint64(generation))
 	logTelegramLifecycle("polling_live")
 
 	bh, err := th.NewBotHandler(c.bot, c.observeUpdates(updates))
@@ -203,7 +239,7 @@ func (c *TelegramChannel) Start(ctx context.Context) error {
 	bh.HandleMessage(func(ctx *th.Context, message telego.Message) error {
 		return c.handleMessage(ctx, &message)
 	}, th.AnyMessage())
-	logTelegramLifecycle("consumer_attached")
+	logTelegramLifecycleGeneration("consumer_attached", uint64(generation))
 
 	// PC-DEF-061. The consumer goes live here, before anything else and before
 	// Running is reported. Only allocation separates it from the poller now:
@@ -235,14 +271,44 @@ func (c *TelegramChannel) Start(ctx context.Context) error {
 		_ = bh.StopWithContext(stopCtx)
 		c.cancel()
 		c.awaitPollingStopped(stopCtx)
+		c.generation.Store(0)
 		return fmt.Errorf("telegram update handler did not become ready")
 	}
 
-	logTelegramLifecycle("handler_ready")
+	logTelegramLifecycleGeneration("handler_ready", uint64(generation))
+
+	// PC-DEF-061. The handler consuming is not the same fact as Telegram
+	// holding a poll. Telego starts its goroutine and returns before the first
+	// getUpdates request is issued, so a generation that has only started its
+	// goroutine would be reported ready with nothing receiving. Fail closed
+	// until this generation's intake is real, and tear both halves down if it
+	// never is so a later retry cannot overlap an unconfirmed poller.
+	intakeProbe := c.intakeProbe
+	if intakeProbe == nil {
+		intakeProbe = waitForIntakeEstablished
+	}
+	if !intakeProbe(intake, telegramIntakeWait) {
+		logger.WarnCF("telegram",
+			"Telegram getUpdates intake did not establish; channel start refused",
+			map[string]any{
+				"event":               "polling.intake_unconfirmed",
+				"telegram_generation": uint64(generation),
+			})
+		stopCtx, stopCancel := context.WithTimeout(context.Background(), pollingStopWait)
+		defer stopCancel()
+		_ = bh.StopWithContext(stopCtx)
+		c.cancel()
+		c.awaitPollingStopped(stopCtx)
+		c.generation.Store(0)
+		return fmt.Errorf("telegram getUpdates intake did not establish")
+	}
+	logTelegramLifecycleGeneration("getUpdates_intake_established", uint64(generation))
+
 	c.SetRunning(true)
 	logger.InfoC("telegram", "Telegram bot connected")
 	logger.DebugCF("telegram", "Telegram polling ready", map[string]any{
-		"event": "polling.ready",
+		"event":               "polling.ready",
+		"telegram_generation": uint64(generation),
 	})
 
 	c.startCommandRegistration(c.ctx, commands.BuiltinDefinitions())
@@ -261,9 +327,19 @@ func (c *TelegramChannel) Start(ctx context.Context) error {
 	return nil
 }
 
+// PollingGeneration reports the local id of the active getUpdates owner, or
+// zero when no owner has been established. It is a process-local counter and
+// carries no bot, owner, chat or credential identity.
+func (c *TelegramChannel) PollingGeneration() uint64 {
+	return c.generation.Load()
+}
+
 func (c *TelegramChannel) Stop(ctx context.Context) error {
 	logger.InfoC("telegram", "Stopping Telegram bot...")
 	c.SetRunning(false)
+
+	generation := c.generation.Load()
+	logTelegramLifecycleGeneration("generation_retiring", generation)
 
 	// Stop the bot handler
 	if c.bh != nil {
@@ -275,16 +351,23 @@ func (c *TelegramChannel) Stop(ctx context.Context) error {
 	if c.cancel != nil {
 		c.cancel()
 	}
+	logTelegramLifecycleGeneration("poller_cancel_requested", generation)
 	// And wait for it to actually stop. Returning earlier reported a channel as
 	// stopped while the library still held its long-polling lock, so the next
 	// Start on this channel failed and Telegram stayed down.
 	c.awaitPollingStopped(ctx)
+	logTelegramLifecycleGeneration("poller_exit_confirmed", generation)
 	if c.progress != nil {
 		c.progress.StopAll()
 	}
 	if c.commandRegCancel != nil {
 		c.commandRegCancel()
 	}
+	// The generation is only retired once its poller has confirmed exit. A
+	// successor must never inherit a reported generation that could still be
+	// acknowledging updates.
+	c.generation.Store(0)
+	logTelegramLifecycleGeneration("generation_retired", generation)
 
 	return nil
 }

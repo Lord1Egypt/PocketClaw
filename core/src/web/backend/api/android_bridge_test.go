@@ -175,7 +175,7 @@ func TestAndroidTelegramReadinessBridgeUsesAuthoritativeReadiness(t *testing.T) 
 	handler := readinessEnv(t, []status.Channel{
 		{
 			Name: "telegram", Configured: true, Started: true, Running: true,
-			CommandsRegistered: &registered,
+			CommandsRegistered: &registered, PollingGeneration: &testPollingGeneration,
 		},
 	})
 	mux := http.NewServeMux()

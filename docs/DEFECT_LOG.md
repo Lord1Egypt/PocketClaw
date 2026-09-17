@@ -701,6 +701,49 @@ whatever polling had already fetched and had already told Telegram to forget.
   and prove no bot-chat URL opens while readiness is false.
 - **Current status:** **REOPENED / FIXED IN SOURCE — physical confirmation required.**
 
+- **Second reopen, 2026-09-17 — physical still fails; the receiver that answered
+  was not the owner that acknowledged the first `/start`.** The failing run's log
+  shows the active process becoming ready and its **first** delivered update being
+  the owner's *second* message (`message_chars=3`, `first_update=true`,
+  `next_offset` one past it). The first `/start`, sent a second earlier, was never
+  returned to that process with an unset offset, so Telegram had already forgotten
+  it: some getUpdates owner advanced past it before the surviving receiver's poll.
+  Two in-repo facts were then proven, and both are generation-ownership defects:
+  - **A replaced channel lost its worker.** `compareChannels` reports a changed
+    channel as both removed and added. `Reload` stopped the old instance, built the
+    replacement and its worker, and then ran the *outgoing* instance's deferred
+    `UnregisterChannel(name)` — which closed the **replacement's** worker. The
+    reloaded generation was left configured, started and polling, with no worker to
+    send a reply through: exactly a generation that can acknowledge an update and
+    never answer it. Proven by a new deterministic test
+    (`TestReloadChangedChannelKeepsExactlyOneWorker`); fixed by releasing the
+    outgoing instance synchronously and only while it is still the registered one.
+  - **Readiness did not prove intake.** `polling_live` is emitted when Telego's
+    poller goroutine is launched, and Running was set once the handler goroutine
+    started. Telego returns from `UpdatesViaLongPolling` **before** its first
+    `getUpdates` request is issued, so a handoff could be authorized while the Bot
+    API was holding no poll for that generation. Readiness now requires the
+    generation's first `getUpdates` request to be observed at the Bot API caller
+    (`getUpdates_intake_established`); an unconfirmed generation fails closed and
+    tears both halves down.
+- **Generation identity is now end-to-end.** Every activation is a distinct local
+  polling generation (`telegram_generation=N`, a process-local counter carrying no
+  bot, owner, chat or credential identity). `status.Channel` carries the active
+  generation; readiness refuses to report `ready` for a Running channel that names
+  no generation (`generation_unconfirmed`); the readiness answer includes the
+  generation; and the Android client requires the **same** generation on two
+  consecutive reads before it opens the final bot chat. A superseded generation's
+  success can no longer authorize the handoff that belongs to its replacement.
+- **What this does not yet claim.** The log alone cannot say whether the owner that
+  acknowledged the first `/start` was a retired in-process generation or the remote
+  onboarding service (which is not in this repository). The generation-tagged
+  lifecycle events — `generation_created`, `poller_created`,
+  `getUpdates_intake_established`, `first_update_received`,
+  `generation_retiring`, `poller_cancel_requested`, `poller_exit_confirmed`,
+  `generation_retired` — plus the generation in every readiness answer are what the
+  next physical run needs to name that owner definitively.
+- **Second-reopen status:** **FIXED IN SOURCE — physical confirmation required.**
+
 ### PC-DEF-060 — Desktop Dashboard had no managed Telegram onboarding
 
 - **Discovered:** owner UI observation, 2026-09-14.

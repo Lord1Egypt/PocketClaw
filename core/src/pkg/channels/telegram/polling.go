@@ -3,9 +3,13 @@ package telegram
 import (
 	"context"
 	"runtime"
+	"strings"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/mymmrac/telego"
+	ta "github.com/mymmrac/telego/telegoapi"
 
 	"github.com/sipeed/picoclaw/pkg/logger"
 )
@@ -17,6 +21,126 @@ func logTelegramLifecycle(event string) {
 		"event":               event,
 		"observed_at_unix_ms": time.Now().UnixMilli(),
 	})
+}
+
+// telegramGeneration identifies one Telegram getUpdates owner.
+//
+// PC-DEF-061. A local, monotonic counter is the only safe way to tell one
+// polling generation from the next without recording a token, bot id, owner id
+// or chat id. It is process-local and carries no identity.
+type telegramGeneration uint64
+
+var telegramGenerationCounter atomic.Uint64
+
+func nextTelegramGeneration() telegramGeneration {
+	return telegramGeneration(telegramGenerationCounter.Add(1))
+}
+
+// logTelegramLifecycleGeneration is logTelegramLifecycle with the generation
+// the event belongs to, so a timeline can prove which owner acted.
+func logTelegramLifecycleGeneration(event string, generation uint64) {
+	logger.DebugCF("telegram", "Telegram managed lifecycle advanced", map[string]any{
+		"event":               event,
+		"telegram_generation": generation,
+		"observed_at_unix_ms": time.Now().UnixMilli(),
+	})
+}
+
+// telegramIntake is the proof that a generation's getUpdates intake exists.
+//
+// Telego launches its long-polling goroutine and returns before that goroutine
+// has issued its first HTTP getUpdates request. A started goroutine is not a
+// poll: only the request itself is what makes Telegram hold updates for this
+// process. This is closed when the generation's first getUpdates call is
+// actually handed to the transport.
+type telegramIntake struct {
+	started chan struct{}
+	once    sync.Once
+}
+
+func newTelegramIntake() *telegramIntake {
+	return &telegramIntake{started: make(chan struct{})}
+}
+
+func (t *telegramIntake) markRequestStarted() {
+	if t == nil {
+		return
+	}
+	t.once.Do(func() { close(t.started) })
+}
+
+func (t *telegramIntake) established() bool {
+	if t == nil {
+		return false
+	}
+	select {
+	case <-t.started:
+		return true
+	default:
+		return false
+	}
+}
+
+// telegramIntakeRef is the mutable slot a channel's API caller reads, so a new
+// generation's intake can be installed before its poller starts.
+type telegramIntakeRef struct {
+	value atomic.Pointer[telegramIntake]
+}
+
+func (r *telegramIntakeRef) store(intake *telegramIntake) {
+	if r != nil {
+		r.value.Store(intake)
+	}
+}
+
+func (r *telegramIntakeRef) load() *telegramIntake {
+	if r == nil {
+		return nil
+	}
+	return r.value.Load()
+}
+
+// telegramIntakeCaller wraps the real Bot API caller and records when a
+// getUpdates request is issued. Every other method is delegated untouched.
+type telegramIntakeCaller struct {
+	base ta.Caller
+	ref  *telegramIntakeRef
+}
+
+func (c *telegramIntakeCaller) Call(
+	ctx context.Context,
+	url string,
+	data *ta.RequestData,
+) (*ta.Response, error) {
+	if strings.HasSuffix(url, "/getUpdates") {
+		c.ref.load().markRequestStarted()
+	}
+	return c.base.Call(ctx, url, data)
+}
+
+// telegramIntakeWait bounds the wait for a generation's first getUpdates
+// request. The request is issued one scheduling hop after the poller starts, so
+// this is not a delay; it is the window in which a broken poller fails closed.
+const telegramIntakeWait = 5 * time.Second
+
+// waitForIntakeEstablished reports whether the generation's getUpdates intake
+// became real within the bound. A false answer is fatal for the start: without
+// a poll there is nothing to hand a first message to.
+func waitForIntakeEstablished(intake *telegramIntake, within time.Duration) bool {
+	if intake == nil {
+		return false
+	}
+	deadline := time.Now().Add(within)
+	for !intake.established() {
+		if time.Now().After(deadline) {
+			return false
+		}
+		// Yield rather than sleep: the request is issued by a goroutine in this
+		// process and needs a scheduling slot, not time to pass.
+		runtime.Gosched()
+		time.Sleep(time.Millisecond)
+	}
+	return true
 }
 
 // Long-polling intake, and the ordering it depends on.
@@ -103,14 +227,16 @@ func (c *TelegramChannel) observeUpdates(in <-chan telego.Update) <-chan telego.
 
 		first := true
 		for update := range in {
+			generation := c.generation.Load()
 			if first {
-				logTelegramLifecycle("first_update_received")
+				logTelegramLifecycleGeneration("first_update_received", generation)
 			}
 			logger.DebugCF("telegram", "Telegram polling delivered an update", map[string]any{
-				"event":        "polling.update_delivered",
-				"update_id":    update.UpdateID,
-				"next_offset":  update.UpdateID + 1,
-				"first_update": first,
+				"event":               "polling.update_delivered",
+				"update_id":           update.UpdateID,
+				"next_offset":         update.UpdateID + 1,
+				"first_update":        first,
+				"telegram_generation": generation,
 			})
 			first = false
 

@@ -116,6 +116,13 @@ type Channel struct {
 	// PC-DEF-061. "Connected" has to mean ready for the owner's first message,
 	// and registration is asynchronous, so its outcome has to be observable.
 	CommandsRegistered *bool `json:"commands_registered,omitempty"`
+
+	// PollingGeneration is the local id of the polling owner this snapshot
+	// describes, when the channel publishes one. Absent means the channel does
+	// not poll. PC-DEF-061: readiness must name the generation it authorized so
+	// a superseded generation's success cannot be read as the current one's.
+	// It is a process-local counter, never an identity.
+	PollingGeneration *uint64 `json:"polling_generation,omitempty"`
 }
 
 // Resources reports the Core process's own usage.

@@ -1114,6 +1114,12 @@ class PocketClawMethodChannel(
             json.optString("detail").takeIf { it.isNotBlank() }?.let {
                 response["detail"] = it
             }
+            // PC-DEF-061. The polling generation the readiness answer
+            // authorized, so Flutter can require the same owner before it opens
+            // the bot chat. A process-local counter, never a credential.
+            json.optInt("generation", 0).takeIf { it > 0 }?.let {
+                response["generation"] = it
+            }
             return response
         } finally {
             connection.disconnect()

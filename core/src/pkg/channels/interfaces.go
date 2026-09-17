@@ -102,3 +102,15 @@ type CommandMenuReporter interface {
 	// CommandsRegistered reports whether the menu was published successfully.
 	CommandsRegistered() bool
 }
+
+// PollingGenerationReporter is implemented by a channel whose readiness depends
+// on a polling owner, and which can name the owner that is currently active.
+//
+// PC-DEF-061. A readiness decision must be able to say which getUpdates owner
+// it authorized, so a stale generation's success cannot be inherited by the
+// generation that replaced it. The value is a process-local counter, never a
+// token, bot id, owner id or chat id.
+type PollingGenerationReporter interface {
+	// PollingGeneration reports the active owner's id, or zero when none.
+	PollingGeneration() uint64
+}

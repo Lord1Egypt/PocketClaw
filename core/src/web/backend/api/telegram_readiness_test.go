@@ -21,6 +21,10 @@ import (
 // the gateway's own status snapshot to what the Dashboard is allowed to say,
 // and in particular that no state short of ready is ever reported as ready.
 
+// testPollingGeneration stands in for the local polling owner a real gateway
+// channel reports. PC-DEF-061: a ready answer must name its generation.
+var testPollingGeneration = uint64(7)
+
 // fakeGatewayHealth serves a detail snapshot, and only to a bearer that matches.
 func fakeGatewayHealth(t *testing.T, token string, channels []status.Channel) *httptest.Server {
 	t.Helper()
@@ -79,7 +83,7 @@ func readinessEnv(t *testing.T, channels []status.Channel) *Handler {
 
 func TestTelegramReadinessIsNotReadyWhileTheChannelIsStarting(t *testing.T) {
 	handler := readinessEnv(t, []status.Channel{
-		{Name: "telegram", Configured: true, Started: true, Running: false},
+		{Name: "telegram", Configured: true, Started: true, Running: false, PollingGeneration: &testPollingGeneration},
 	})
 
 	state, _ := handler.telegramReadiness()
@@ -92,7 +96,7 @@ func TestTelegramReadinessWaitsForTheCommandMenu(t *testing.T) {
 	notYet := false
 	handler := readinessEnv(t, []status.Channel{
 		{
-			Name: "telegram", Configured: true, Started: true, Running: true,
+			Name: "telegram", Configured: true, Started: true, Running: true, PollingGeneration: &testPollingGeneration,
 			CommandsRegistered: &notYet,
 		},
 	})
@@ -107,7 +111,7 @@ func TestTelegramReadinessIsReadyOnlyWhenBothAreTrue(t *testing.T) {
 	registered := true
 	handler := readinessEnv(t, []status.Channel{
 		{
-			Name: "telegram", Configured: true, Started: true, Running: true,
+			Name: "telegram", Configured: true, Started: true, Running: true, PollingGeneration: &testPollingGeneration,
 			CommandsRegistered: &registered,
 		},
 	})
@@ -122,7 +126,7 @@ func TestTelegramReadinessRejectsThePreviousGenerationWhileConfigApplies(t *test
 	registered := true
 	handler := readinessEnv(t, []status.Channel{
 		{
-			Name: "telegram", Configured: true, Started: true, Running: true,
+			Name: "telegram", Configured: true, Started: true, Running: true, PollingGeneration: &testPollingGeneration,
 			CommandsRegistered: &registered,
 		},
 	})
@@ -155,11 +159,59 @@ func TestTelegramReadinessRejectsThePreviousGenerationWhileConfigApplies(t *test
 	}
 }
 
+// PC-DEF-061. Running without a named polling owner is exactly the state that
+// let a handoff open against a receiver that had not established intake. It
+// must not be reported ready.
+func TestTelegramReadinessRejectsARunningChannelWithNoPollingGeneration(t *testing.T) {
+	registered := true
+	handler := readinessEnv(t, []status.Channel{
+		{
+			Name: "telegram", Configured: true, Started: true, Running: true,
+			CommandsRegistered: &registered,
+		},
+	})
+
+	state, detail := handler.telegramReadiness()
+	if state != readinessChannelStarting || detail != "generation_unconfirmed" {
+		t.Fatalf("state = %q (%q), want channel_starting (generation_unconfirmed)", state, detail)
+	}
+}
+
+// The ready answer names the generation it authorized, so a client can require
+// the same owner across the handoff.
+func TestTelegramReadinessReportsThePollingGeneration(t *testing.T) {
+	registered := true
+	handler := readinessEnv(t, []status.Channel{
+		{
+			Name: "telegram", Configured: true, Started: true, Running: true,
+			CommandsRegistered: &registered, PollingGeneration: &testPollingGeneration,
+		},
+	})
+	mux := http.NewServeMux()
+	handler.RegisterRoutes(mux)
+
+	recorder := onboardingRequest(t, mux, http.MethodGet, "/api/telegram/readiness")
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", recorder.Code, recorder.Body.String())
+	}
+	var body struct {
+		State      string `json:"state"`
+		Ready      bool   `json:"ready"`
+		Generation uint64 `json:"generation"`
+	}
+	if err := json.Unmarshal(recorder.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	if !body.Ready || body.Generation != testPollingGeneration {
+		t.Fatalf("body = %+v, want ready generation %d", body, testPollingGeneration)
+	}
+}
+
 // A channel that publishes no menu reports nothing, which must not be read as
 // "not yet" -- a gate that waited on it would never finish.
 func TestTelegramReadinessDoesNotWaitOnAChannelWithNoMenu(t *testing.T) {
 	handler := readinessEnv(t, []status.Channel{
-		{Name: "telegram", Configured: true, Started: true, Running: true},
+		{Name: "telegram", Configured: true, Started: true, Running: true, PollingGeneration: &testPollingGeneration},
 	})
 
 	state, _ := handler.telegramReadiness()
@@ -195,7 +247,7 @@ func TestTelegramReadinessEndpointReportsTheState(t *testing.T) {
 	registered := true
 	handler := readinessEnv(t, []status.Channel{
 		{
-			Name: "telegram", Configured: true, Started: true, Running: true,
+			Name: "telegram", Configured: true, Started: true, Running: true, PollingGeneration: &testPollingGeneration,
 			CommandsRegistered: &registered,
 		},
 	})

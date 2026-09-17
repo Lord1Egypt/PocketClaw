@@ -72,10 +72,16 @@ func (h *Handler) registerTelegramReadinessRoutes(mux *http.ServeMux) {
 // Carries no bot identity, no owner id and no token -- only the lifecycle
 // state, which is all the UI needs to decide what to say.
 func (h *Handler) handleTelegramReadiness(w http.ResponseWriter, _ *http.Request) {
-	state, detail := h.telegramReadiness()
+	state, detail, generation := h.telegramReadinessWithGeneration()
 	body := map[string]any{"state": string(state), "ready": state == readinessReady}
 	if detail != "" {
 		body["detail"] = detail
+	}
+	if generation != 0 {
+		// The generation that this answer authorized. A process-local counter,
+		// never a bot, owner, chat or credential identity. PC-DEF-061: the
+		// client can require it to stay the same before opening the handoff.
+		body["generation"] = generation
 	}
 	writeJSON(w, body)
 }
@@ -89,21 +95,29 @@ var gatewayRunningProbe = func(h *Handler) bool { return h.gatewayProcessRunning
 
 // telegramReadiness resolves the state, and says why when it is not ready.
 func (h *Handler) telegramReadiness() (telegramReadinessState, string) {
+	state, detail, _ := h.telegramReadinessWithGeneration()
+	return state, detail
+}
+
+// telegramReadinessWithGeneration resolves the state and names the polling
+// generation that authorized it, so a client can prove the handoff it opens
+// belongs to the receiver that was checked.
+func (h *Handler) telegramReadinessWithGeneration() (telegramReadinessState, string, uint64) {
 	configured, err := h.telegramIsConfigured()
 	if err != nil {
-		return readinessUnknown, "configuration_unreadable"
+		return readinessUnknown, "configuration_unreadable", 0
 	}
 	if !configured {
-		return readinessNotConfigured, ""
+		return readinessNotConfigured, "", 0
 	}
 	// A status snapshot from the currently running gateway may describe the
 	// previous Telegram credential. Never let that old generation authorize a
 	// handoff while the persisted configuration is pending or being applied.
 	if configApplyInProgress() {
-		return readinessGatewayStarting, "configuration_applying"
+		return readinessGatewayStarting, "configuration_applying", 0
 	}
 	if !gatewayRunningProbe(h) {
-		return readinessGatewayStopped, ""
+		return readinessGatewayStopped, "", 0
 	}
 
 	channel, err := h.gatewayTelegramChannelStatus()
@@ -111,23 +125,29 @@ func (h *Handler) telegramReadiness() (telegramReadinessState, string) {
 		if errors.Is(err, errGatewayStatusUnavailable) {
 			// Up but not answering the authenticated probe yet. Starting, not
 			// broken -- and explicitly not ready.
-			return readinessGatewayStarting, "status_unavailable"
+			return readinessGatewayStarting, "status_unavailable", 0
 		}
-		return readinessUnknown, "status_unreadable"
+		return readinessUnknown, "status_unreadable", 0
 	}
 	if channel == nil {
 		// The gateway is answering and does not have the channel yet.
-		return readinessGatewayStarting, ""
+		return readinessGatewayStarting, "", 0
 	}
 	if !channel.Running {
-		return readinessChannelStarting, ""
+		return readinessChannelStarting, "", 0
+	}
+	// PC-DEF-061. Running must describe a polling owner that can be named. An
+	// older snapshot, or a channel that never established its getUpdates
+	// intake, reports no generation and must not authorize a handoff.
+	if channel.PollingGeneration == nil || *channel.PollingGeneration == 0 {
+		return readinessChannelStarting, "generation_unconfirmed", 0
 	}
 	// Absent means this channel publishes no menu, so there is nothing to wait
 	// for. False means it has not landed yet.
 	if channel.CommandsRegistered != nil && !*channel.CommandsRegistered {
-		return readinessRegisteringCommands, ""
+		return readinessRegisteringCommands, "", *channel.PollingGeneration
 	}
-	return readinessReady, ""
+	return readinessReady, "", *channel.PollingGeneration
 }
 
 // telegramIsConfigured reports whether a Telegram token is on disk.
