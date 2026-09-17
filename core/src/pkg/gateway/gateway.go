@@ -482,6 +482,11 @@ func setupAndStartServices(
 	}
 	fmt.Println("✓ Heartbeat service started")
 
+	// Zero-Pico. The media cache directory was renamed, so the one an older
+	// build created is deleted rather than left behind as a stale Pico path.
+	// Before the store starts, so a cleanup pass cannot race the removal.
+	media.RetireLegacyTempDir()
+
 	runningServices.MediaStore = media.NewFileMediaStoreWithCleanup(media.MediaCleanerConfig{
 		Enabled:  cfg.Tools.MediaCleanup.Enabled,
 		MaxAge:   time.Duration(cfg.Tools.MediaCleanup.MaxAge) * time.Minute,
@@ -746,6 +751,11 @@ func restartServices(
 		return fmt.Errorf("error restarting heartbeat service: %w", err)
 	}
 	fmt.Println("  ✓ Heartbeat service restarted")
+
+	// Zero-Pico. The media cache directory was renamed, so the one an older
+	// build created is deleted rather than left behind as a stale Pico path.
+	// Before the store starts, so a cleanup pass cannot race the removal.
+	media.RetireLegacyTempDir()
 
 	runningServices.MediaStore = media.NewFileMediaStoreWithCleanup(media.MediaCleanerConfig{
 		Enabled:  cfg.Tools.MediaCleanup.Enabled,

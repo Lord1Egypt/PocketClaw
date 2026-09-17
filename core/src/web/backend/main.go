@@ -797,7 +797,7 @@ func main() {
 	apiHandler = api.NewHandler(absPath)
 	apiHandler.SetDebug(debug)
 	if _, err = apiHandler.EnsurePocketClawChannel(); err != nil {
-		logger.ErrorC("web", fmt.Sprintf("Warning: failed to ensure pico channel on startup: %v", err))
+		logger.ErrorC("web", fmt.Sprintf("Warning: failed to ensure PocketClaw channel on startup: %v", err))
 	}
 	apiHandler.SetServerOptions(portNum, effectivePublic, explicitPublic, launcherCfg.AllowedCIDRs)
 	apiHandler.SetServerAccessOptions(

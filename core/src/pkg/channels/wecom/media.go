@@ -324,7 +324,7 @@ func (c *WeComChannel) storeRemoteMedia(
 	if ext == "" {
 		ext = inferMediaExt(contentType, fallbackExt)
 	}
-	mediaDir := filepath.Join(os.TempDir(), "picoclaw_media")
+	mediaDir := media.TempDir()
 	if mkdirErr := os.MkdirAll(mediaDir, 0o700); mkdirErr != nil {
 		return "", fmt.Errorf("mkdir media dir: %w", mkdirErr)
 	}
@@ -390,7 +390,7 @@ func detectLocalWeComContentType(localPath, hint string) string {
 }
 
 func writeWeComTempFile(prefix, filename string, data []byte) (string, error) {
-	mediaDir := filepath.Join(os.TempDir(), "picoclaw_media")
+	mediaDir := media.TempDir()
 	if err := os.MkdirAll(mediaDir, 0o700); err != nil {
 		return "", fmt.Errorf("mkdir media dir: %w", err)
 	}

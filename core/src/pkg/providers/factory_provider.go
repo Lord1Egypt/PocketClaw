@@ -1,4 +1,4 @@
-// PicoClaw - Ultra-lightweight personal AI agent
+// PocketClaw - private Android AI agent
 // License: MIT
 //
 // Copyright (c) 2026 PicoClaw contributors
@@ -104,7 +104,7 @@ func CreateProviderFromConfig(cfg *config.ModelConfig) (LLMProvider, string, err
 
 	userAgent := cfg.UserAgent
 	if userAgent == "" {
-		userAgent = fmt.Sprintf("PicoClaw/%s", config.Version)
+		userAgent = fmt.Sprintf("PocketClaw/%s", config.Version)
 	}
 
 	switch protocol {
