@@ -16,12 +16,12 @@ import {
   createTelegramPairing,
   fetchTelegramPairingStatus,
 } from "@/api/telegram-onboarding"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
 import {
   readinessLabelKey,
   useTelegramReadiness,
 } from "@/components/channels/channel-forms/use-telegram-readiness"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent } from "@/components/ui/card"
 
 /**
  * Managed Telegram pairing from a client with no Android host.
@@ -161,8 +161,14 @@ export function TelegramDesktopConnect({
         // The configuration is written. Whether Telegram can receive is a
         // different question, and the readiness stage is where it is answered.
         setPhase({ kind: "starting" })
-      } catch {
-        if (!cancelled) fail(t("channels.telegram.desktop.errorFailed"))
+      } catch (error) {
+        if (!cancelled) {
+          fail(
+            error instanceof Error && error.message === "invalid_credentials"
+              ? t("channels.telegram.desktop.errorInvalidCredentials")
+              : t("channels.telegram.desktop.errorFailed"),
+          )
+        }
       }
     }
 
@@ -179,6 +185,15 @@ export function TelegramDesktopConnect({
     phase.kind === "starting",
   )
 
+  useEffect(() => {
+    if (
+      phase.kind === "starting" &&
+      readiness?.state === "authentication_failed"
+    ) {
+      fail(t("channels.telegram.desktop.errorInvalidCredentials"))
+    }
+  }, [phase.kind, readiness?.state, fail, t])
+
   // Ready is the only state that may be announced, and it is announced once.
   const announced = useRef(false)
   useEffect(() => {
@@ -193,16 +208,19 @@ export function TelegramDesktopConnect({
     onConnected()
   }, [phase.kind, readiness?.ready, onConnected, t])
 
-  const copyLink = useCallback(async (link: string) => {
-    try {
-      await navigator.clipboard.writeText(link)
-      toast.success(t("channels.telegram.desktop.linkCopied"))
-    } catch {
-      // A browser that refuses clipboard access is not an error worth a dialog; the
-      // link is on screen and selectable.
-      toast.error(t("channels.telegram.desktop.linkCopyFailed"))
-    }
-  }, [t])
+  const copyLink = useCallback(
+    async (link: string) => {
+      try {
+        await navigator.clipboard.writeText(link)
+        toast.success(t("channels.telegram.desktop.linkCopied"))
+      } catch {
+        // A browser that refuses clipboard access is not an error worth a dialog; the
+        // link is on screen and selectable.
+        toast.error(t("channels.telegram.desktop.linkCopyFailed"))
+      }
+    },
+    [t],
+  )
 
   return (
     <Card className="shadow-sm" data-testid="telegram-desktop-connect">

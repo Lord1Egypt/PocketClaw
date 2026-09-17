@@ -3,6 +3,7 @@ import 'dart:collection';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pocketclaw/src/telegram/telegram_onboarding_controller.dart';
+import 'package:pocketclaw/src/telegram/telegram_onboarding_models.dart';
 
 // PC-DEF-061. A ready answer must name the polling generation it authorized,
 // and that same generation must still be active on a second read. Otherwise a
@@ -28,37 +29,48 @@ void main() {
   }
 
   test('a stable generation across two reads is ready', () async {
-    respondWith(Queue.of([
-      <String, Object?>{'state': 'ready', 'ready': true, 'generation': 7},
-      <String, Object?>{'state': 'ready', 'ready': true, 'generation': 7},
-    ]));
+    respondWith(
+      Queue.of([
+        <String, Object?>{'state': 'ready', 'ready': true, 'generation': 7},
+        <String, Object?>{'state': 'ready', 'ready': true, 'generation': 7},
+      ]),
+    );
 
     expect(await defaultTelegramRuntimeReady(), isTrue);
   });
 
-  test('ready without a generation is not permission to open the handoff', () async {
-    respondWith(Queue.of([
-      <String, Object?>{'state': 'ready', 'ready': true},
-      <String, Object?>{'state': 'ready', 'ready': true},
-    ]));
+  test(
+    'ready without a generation is not permission to open the handoff',
+    () async {
+      respondWith(
+        Queue.of([
+          <String, Object?>{'state': 'ready', 'ready': true},
+          <String, Object?>{'state': 'ready', 'ready': true},
+        ]),
+      );
 
-    expect(await defaultTelegramRuntimeReady(), isFalse);
-  });
+      expect(await defaultTelegramRuntimeReady(), isFalse);
+    },
+  );
 
   test('a generation that changed between reads is not ready', () async {
-    respondWith(Queue.of([
-      <String, Object?>{'state': 'ready', 'ready': true, 'generation': 7},
-      <String, Object?>{'state': 'ready', 'ready': true, 'generation': 8},
-    ]));
+    respondWith(
+      Queue.of([
+        <String, Object?>{'state': 'ready', 'ready': true, 'generation': 7},
+        <String, Object?>{'state': 'ready', 'ready': true, 'generation': 8},
+      ]),
+    );
 
     expect(await defaultTelegramRuntimeReady(), isFalse);
   });
 
   test('a generation that went away is not ready', () async {
-    respondWith(Queue.of([
-      <String, Object?>{'state': 'ready', 'ready': true, 'generation': 7},
-      <String, Object?>{'state': 'gateway_starting', 'ready': false},
-    ]));
+    respondWith(
+      Queue.of([
+        <String, Object?>{'state': 'ready', 'ready': true, 'generation': 7},
+        <String, Object?>{'state': 'gateway_starting', 'ready': false},
+      ]),
+    );
 
     expect(await defaultTelegramRuntimeReady(), isFalse);
   });
@@ -70,5 +82,28 @@ void main() {
         });
 
     expect(await defaultTelegramRuntimeReady(), isFalse);
+  });
+
+  test('authentication failure is terminal, not readiness silence', () async {
+    respondWith(
+      Queue.of([
+        <String, Object?>{
+          'state': 'authentication_failed',
+          'ready': false,
+          'detail': 'invalid_credentials',
+        },
+      ]),
+    );
+
+    await expectLater(
+      defaultTelegramRuntimeReady(),
+      throwsA(
+        isA<TelegramOnboardingException>().having(
+          (error) => error.kind,
+          'kind',
+          TelegramOnboardingErrorKind.invalidCredentials,
+        ),
+      ),
+    );
   });
 }

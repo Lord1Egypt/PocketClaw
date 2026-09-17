@@ -420,6 +420,8 @@ class TelegramOnboardingController extends ChangeNotifier {
       bool ready;
       try {
         ready = await _telegramRuntimeReady();
+      } on TelegramOnboardingException {
+        rethrow;
       } catch (_) {
         // A failed status read is silence too.
         ready = false;
@@ -533,6 +535,11 @@ Future<String?> _defaultResolveDeepLink(String rawUrl) async {
 Future<bool> defaultTelegramRuntimeReady() async {
   try {
     final readiness = await PocketClawChannel.telegramReadiness();
+    if (readiness['state'] == 'authentication_failed') {
+      throw const TelegramOnboardingException(
+        TelegramOnboardingErrorKind.invalidCredentials,
+      );
+    }
     if (readiness['state'] != 'ready' || readiness['ready'] != true) {
       return false;
     }
@@ -547,6 +554,8 @@ Future<bool> defaultTelegramRuntimeReady() async {
     return confirm['state'] == 'ready' &&
         confirm['ready'] == true &&
         confirm['generation'] == generation;
+  } on TelegramOnboardingException {
+    rethrow;
   } catch (_) {
     // An unavailable authority is silence, not permission to open Telegram.
     return false;

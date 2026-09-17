@@ -309,11 +309,19 @@ class _TelegramOnboardingPageState extends State<TelegramOnboardingPage>
   }
 
   Widget _buildFailed(BuildContext context) {
+    final invalidCredentials =
+        widget.controller.errorKind ==
+        TelegramOnboardingErrorKind.invalidCredentials;
     return _buildProblem(
       context,
       icon: Icons.error_outline_rounded,
-      headline: TelegramOnboardingStrings.tryAgain,
+      headline: invalidCredentials
+          ? TelegramOnboardingStrings.connectionFailed
+          : TelegramOnboardingStrings.tryAgain,
       body: TelegramOnboardingStrings.errorMessage(widget.controller.errorKind),
+      actionLabel: invalidCredentials
+          ? TelegramOnboardingStrings.createOrReplaceBot
+          : TelegramOnboardingStrings.tryAgain,
     );
   }
 
@@ -322,6 +330,7 @@ class _TelegramOnboardingPageState extends State<TelegramOnboardingPage>
     required IconData icon,
     required String headline,
     required String body,
+    String actionLabel = TelegramOnboardingStrings.tryAgain,
   }) {
     final theme = Theme.of(context);
     return Column(
@@ -344,7 +353,7 @@ class _TelegramOnboardingPageState extends State<TelegramOnboardingPage>
         const SizedBox(height: PocketClawDesign.spaceLarge),
         FilledButton(
           onPressed: widget.controller.retry,
-          child: const Text(TelegramOnboardingStrings.tryAgain),
+          child: Text(actionLabel),
         ),
         const SizedBox(height: PocketClawDesign.spaceSmall),
         _buildManualFallback(context),

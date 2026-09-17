@@ -70,7 +70,7 @@ export function useTelegramReadiness(active: boolean): TelegramReadinessPoll {
       // Settled either way: a ready channel has nothing left to report, and an
       // expired bound has handed the decision to the user. Neither should keep
       // making requests.
-      if (next.ready) {
+      if (next.ready || next.state === "authentication_failed") {
         stop()
         return
       }

@@ -829,6 +829,24 @@ void _readinessGroup() {
       },
     );
 
+    test('Telegram 401 fails immediately and never opens handoff', () async {
+      final h = await completing(
+        runtime: () async => throw const TelegramOnboardingException(
+          TelegramOnboardingErrorKind.invalidCredentials,
+        ),
+        timeout: const Duration(seconds: 5),
+      );
+
+      await waitFor(() => h.controller.stage == TelegramOnboardingStage.failed);
+      expect(
+        h.controller.errorKind,
+        TelegramOnboardingErrorKind.invalidCredentials,
+      );
+      expect(h.runtimeChecks, 1, reason: 'a terminal 401 is not polled again');
+      expect(h.openedUrls, isEmpty, reason: '401 must never authorize handoff');
+      h.controller.dispose();
+    });
+
     // Silence right after a restart is not a failure: Core is not reporting yet.
     test('a readiness read that throws is treated as not-yet-ready', () async {
       var attempts = 0;

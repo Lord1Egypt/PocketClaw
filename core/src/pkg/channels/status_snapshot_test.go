@@ -19,6 +19,7 @@ type snapshotTestChannel struct {
 	name     string
 	startErr error
 	running  atomic.Bool
+	failure  string
 }
 
 func (c *snapshotTestChannel) Name() string { return c.name }
@@ -44,6 +45,7 @@ func (c *snapshotTestChannel) IsRunning() bool                     { return c.ru
 func (c *snapshotTestChannel) IsAllowed(string) bool               { return true }
 func (c *snapshotTestChannel) IsAllowedSender(bus.SenderInfo) bool { return true }
 func (c *snapshotTestChannel) ReasoningChannelID() string          { return "" }
+func (c *snapshotTestChannel) RuntimeFailure() string              { return c.failure }
 
 func snapshotByName(t *testing.T, snapshots []status.Channel, name string) status.Channel {
 	t.Helper()
@@ -115,6 +117,21 @@ func TestSnapshotChannelsIgnoresStaleRunningFlagWithoutWorker(t *testing.T) {
 	}
 	if snapshot.Started {
 		t.Errorf("expected not Started: %+v", snapshot)
+	}
+}
+
+func TestSnapshotChannelsRetainsSanitizedTerminalFailure(t *testing.T) {
+	m := newTestManager()
+	m.channels["telegram"] = &snapshotTestChannel{
+		name: "telegram", failure: "authentication_failed",
+	}
+
+	snapshot := snapshotByName(t, m.SnapshotChannels(), "telegram")
+	if snapshot.RuntimeFailure != "authentication_failed" {
+		t.Fatalf("runtime failure = %q", snapshot.RuntimeFailure)
+	}
+	if snapshot.Running || snapshot.Started {
+		t.Fatalf("a failed generation reported ready state: %+v", snapshot)
 	}
 }
 

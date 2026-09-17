@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"crypto/subtle"
 	"encoding/json"
 	"errors"
@@ -297,8 +298,15 @@ func (h *Handler) handleAndroidTelegramConfigure(w http.ResponseWriter, r *http.
 		return
 	}
 
-	applied, pending, err := h.writeTelegramCredentials(request.Token, request.OwnerUserID)
+	applied, pending, err := h.writeTelegramCredentialsContext(
+		r.Context(), request.Token, request.OwnerUserID)
 	if err != nil {
+		if errors.Is(err, ErrTelegramCredentialsInvalid) {
+			writeJSONStatus(w, http.StatusUnauthorized, map[string]any{
+				"error": "invalid_credentials",
+			})
+			return
+		}
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -325,6 +333,14 @@ func (h *Handler) writeTelegramCredentials(
 	token string,
 	ownerUserID int64,
 ) (applied bool, pending bool, err error) {
+	return h.writeTelegramCredentialsContext(context.Background(), token, ownerUserID)
+}
+
+func (h *Handler) writeTelegramCredentialsContext(
+	ctx context.Context,
+	token string,
+	ownerUserID int64,
+) (applied bool, pending bool, err error) {
 	token = strings.TrimSpace(token)
 	if token == "" {
 		return false, false, errors.New("Telegram token is required")
@@ -336,6 +352,19 @@ func (h *Handler) writeTelegramCredentials(
 	cfg, channel, settings, loadErr := h.loadTelegramConfigForUpdate()
 	if loadErr != nil {
 		return false, false, errors.New("Failed to load config")
+	}
+
+	// Validate before mutating or saving. This is the transaction boundary for
+	// replacements: a rejected candidate never displaces the old token, owner
+	// or running bot. The managed service may deliver its candidate only once,
+	// but failure here still leaves the previously committed bot recoverable.
+	if validationErr := h.validateTelegramCredentials(
+		ctx, token, settings.BaseURL, settings.Proxy,
+	); validationErr != nil {
+		if errors.Is(validationErr, ErrTelegramCredentialsInvalid) {
+			return false, false, ErrTelegramCredentialsInvalid
+		}
+		return false, false, errors.New("Telegram credential validation failed")
 	}
 	settings.Token.Set(token)
 	channel.Enabled = true

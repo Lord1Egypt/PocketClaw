@@ -2,6 +2,7 @@ package telegram
 
 import (
 	"context"
+	"errors"
 	"math/rand"
 	"slices"
 	"time"
@@ -62,6 +63,9 @@ func (c *TelegramChannel) RegisterCommands(ctx context.Context, defs []commands.
 
 	current, err := c.bot.GetMyCommands(ctx, &telego.GetMyCommandsParams{})
 	if err != nil {
+		if errors.Is(err, errTelegramAuthentication) {
+			return err
+		}
 		// If we can't read current commands, fall through to set them.
 		logger.WarnCF("telegram", "Failed to get current commands, will set unconditionally",
 			map[string]any{"error": err.Error()})
@@ -90,10 +94,9 @@ func (c *TelegramChannel) RegisterCommands(ctx context.Context, defs []commands.
 // botUsername identifies which bot the menu was published to, so a replaced or
 // reconnected managed bot can be told apart from the one before it in the log.
 func (c *TelegramChannel) botUsername() string {
-	if c.bot == nil {
-		return ""
-	}
-	return c.bot.Username()
+	c.botIdentityMu.RLock()
+	defer c.botIdentityMu.RUnlock()
+	return c.botIdentity
 }
 
 // CommandsRegistered reports whether the menu reached Telegram.
@@ -147,6 +150,12 @@ func (c *TelegramChannel) startCommandRegistration(ctx context.Context, defs []c
 				// the definition list would contradict it.
 				logger.InfoCF("telegram", "Telegram command registration completed",
 					map[string]any{"event": "commands.registration_completed"})
+				return
+			}
+			if errors.Is(err, errTelegramAuthentication) {
+				// Invalid credentials cannot heal on a timer. The API caller has
+				// already retired this generation; do not create a second retry
+				// loop here.
 				return
 			}
 

@@ -123,6 +123,10 @@ type Channel struct {
 	// a superseded generation's success cannot be read as the current one's.
 	// It is a process-local counter, never an identity.
 	PollingGeneration *uint64 `json:"polling_generation,omitempty"`
+
+	// RuntimeFailure is a sanitized terminal code retained after a generation
+	// has stopped. Empty means no terminal failure is known.
+	RuntimeFailure string `json:"runtime_failure,omitempty"`
 }
 
 // Resources reports the Core process's own usage.

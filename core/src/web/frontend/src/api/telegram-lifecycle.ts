@@ -21,6 +21,7 @@ export type TelegramReadinessState =
   | "gateway_starting"
   | "channel_starting"
   | "registering_commands"
+  | "authentication_failed"
   | "ready"
   | "unknown"
 
@@ -42,7 +43,8 @@ export async function fetchTelegramReadiness(): Promise<TelegramReadiness> {
     const response = await launcherFetch("/api/telegram/readiness")
     if (!response.ok) return { state: "unknown", ready: false }
     const body = (await response.json()) as Partial<TelegramReadiness>
-    if (typeof body.state !== "string") return { state: "unknown", ready: false }
+    if (typeof body.state !== "string")
+      return { state: "unknown", ready: false }
     return {
       state: body.state as TelegramReadinessState,
       ready: body.ready === true,

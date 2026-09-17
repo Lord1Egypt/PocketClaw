@@ -2147,6 +2147,10 @@ func (m *Manager) SnapshotChannels() []status.Channel {
 				pollingGeneration = &generation
 			}
 		}
+		var runtimeFailure string
+		if reporter, ok := channel.(RuntimeFailureReporter); ok && channel != nil {
+			runtimeFailure = reporter.RuntimeFailure()
+		}
 		snapshots = append(snapshots, status.Channel{
 			Name:       StatusDisplayName(name),
 			Configured: true,
@@ -2157,6 +2161,7 @@ func (m *Manager) SnapshotChannels() []status.Channel {
 			Running:            started && running,
 			CommandsRegistered: commandsRegistered,
 			PollingGeneration:  pollingGeneration,
+			RuntimeFailure:     runtimeFailure,
 		})
 	}
 	return snapshots

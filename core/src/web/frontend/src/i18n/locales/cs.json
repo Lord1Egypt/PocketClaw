@@ -774,6 +774,7 @@
         "errorRateLimited": "Příliš mnoho pokusů o nastavení. Chvíli počkejte a zkuste to znovu.",
         "errorExpired": "Tento odkaz pro nastavení vypršel. Začněte znovu a získejte nový.",
         "errorFailed": "Nastavení se nedokončilo. Zkuste to znovu nebo použijte ruční nastavení níže.",
+        "errorInvalidCredentials": "Telegram tohoto bota odmítl. Vytvoření nemuselo být dokončeno nebo je token neplatný. Zkuste to později nebo níže použijte existujícího platného bota.",
         "errorNotReady": "Váš bot je uložen, ale Telegram ještě nepřijímá zprávy. Zkuste to za chvíli znovu.",
         "checkAgain": "Zkontrolovat znovu"
       },
@@ -785,6 +786,7 @@
         "gateway_starting": "PocketClaw se spouští…",
         "channel_starting": "Připojování k Telegramu…",
         "registering_commands": "Zveřejňování nabídky příkazů…",
+        "authentication_failed": "Telegram odmítl přihlašovací údaje bota.",
         "ready": "Telegram je připraven na vaši první zprávu.",
         "unknown": "PocketClaw nenahlásil stav Telegramu."
       },

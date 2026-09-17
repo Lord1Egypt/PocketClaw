@@ -177,6 +177,25 @@ func TestTelegramReadinessRejectsARunningChannelWithNoPollingGeneration(t *testi
 	}
 }
 
+func TestTelegramReadinessReportsAuthenticationFailureAsTerminal(t *testing.T) {
+	registered := true
+	handler := readinessEnv(t, []status.Channel{
+		{
+			Name: "telegram", Configured: true, Started: true, Running: true,
+			CommandsRegistered: &registered, PollingGeneration: &testPollingGeneration,
+			RuntimeFailure: "authentication_failed",
+		},
+	})
+
+	state, detail, generation := handler.telegramReadinessWithGeneration()
+	if state != readinessAuthenticationFailed || detail != "invalid_credentials" {
+		t.Fatalf("state = %q (%q), want authentication_failed (invalid_credentials)", state, detail)
+	}
+	if generation != 0 {
+		t.Fatalf("failed generation %d must not authorize a handoff", generation)
+	}
+}
+
 // The ready answer names the generation it authorized, so a client can require
 // the same owner across the handoff.
 func TestTelegramReadinessReportsThePollingGeneration(t *testing.T) {

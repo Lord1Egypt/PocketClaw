@@ -774,6 +774,7 @@
         "errorRateLimited": "设置尝试次数过多。请稍等后重试。",
         "errorExpired": "该设置链接已过期。请重新开始以获取新链接。",
         "errorFailed": "设置未完成。请重试，或使用下方的手动设置。",
+        "errorInvalidCredentials": "Telegram 拒绝了此机器人。机器人创建可能尚未完成，或令牌已失效。请稍后重试，或在下方使用现有的有效机器人。",
         "errorNotReady": "机器人已保存，但 Telegram 还未开始接收消息。请稍后再检查。",
         "checkAgain": "重新检查"
       },
@@ -785,6 +786,7 @@
         "gateway_starting": "PocketClaw 正在启动…",
         "channel_starting": "正在连接 Telegram…",
         "registering_commands": "正在发布命令菜单…",
+        "authentication_failed": "Telegram 拒绝了机器人凭据。",
         "ready": "Telegram 已准备好接收你的第一条消息。",
         "unknown": "PocketClaw 未报告 Telegram 状态。"
       },

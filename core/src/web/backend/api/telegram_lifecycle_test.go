@@ -1,7 +1,9 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strings"
 	"testing"
@@ -144,6 +146,34 @@ func TestTelegramCanBePairedAgainAfterRemoval(t *testing.T) {
 	}
 	if token := telegramTokenOnDisk(t, configPath); token != "222222222:second-token" {
 		t.Fatalf("token on disk = %q, want the replacement", token)
+	}
+}
+
+func TestRejectedReplacementPreservesPreviouslyValidBot(t *testing.T) {
+	handler, _, configPath := onboardingTestEnv(t)
+	if _, _, err := handler.writeTelegramCredentials("111111111:first-token", 111); err != nil {
+		t.Fatalf("first pairing: %v", err)
+	}
+	handler.SetTelegramCredentialValidator(func(
+		_ context.Context, token, _, _ string,
+	) error {
+		if token == "222222222:rejected-token" {
+			return ErrTelegramCredentialsInvalid
+		}
+		return nil
+	})
+
+	_, _, err := handler.writeTelegramCredentials("222222222:rejected-token", 222)
+	if !errors.Is(err, ErrTelegramCredentialsInvalid) {
+		t.Fatalf("replacement error = %v, want invalid credentials", err)
+	}
+
+	channel := telegramChannelOnDisk(t, configPath)
+	if token := telegramTokenOnDisk(t, configPath); token != "111111111:first-token" {
+		t.Fatalf("rejected candidate replaced the committed token: %q", token)
+	}
+	if len(channel.AllowFrom) != 1 || channel.AllowFrom[0] != "111" {
+		t.Fatalf("rejected candidate replaced the committed owner: %v", channel.AllowFrom)
 	}
 }
 

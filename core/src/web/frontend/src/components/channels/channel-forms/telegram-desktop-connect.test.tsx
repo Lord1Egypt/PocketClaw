@@ -3,6 +3,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 
 import type { TelegramDesktopPairing } from "@/api/telegram-onboarding"
 
+import { TelegramDesktopConnect } from "./telegram-desktop-connect"
+
 const createTelegramPairing = vi.fn()
 const fetchTelegramPairingStatus = vi.fn()
 const completeTelegramPairing = vi.fn()
@@ -13,7 +15,8 @@ const toastInfo = vi.fn()
 
 vi.mock("@/api/telegram-onboarding", () => ({
   createTelegramPairing: (...a: unknown[]) => createTelegramPairing(...a),
-  fetchTelegramPairingStatus: (...a: unknown[]) => fetchTelegramPairingStatus(...a),
+  fetchTelegramPairingStatus: (...a: unknown[]) =>
+    fetchTelegramPairingStatus(...a),
   completeTelegramPairing: (...a: unknown[]) => completeTelegramPairing(...a),
   cancelTelegramPairing: (...a: unknown[]) => cancelTelegramPairing(...a),
 }))
@@ -34,8 +37,6 @@ vi.mock("sonner", () => ({
   },
 }))
 
-import { TelegramDesktopConnect } from "./telegram-desktop-connect"
-
 /**
  * PC-DEF-060. Managed pairing driven from a browser with no Android host.
  *
@@ -43,7 +44,9 @@ import { TelegramDesktopConnect } from "./telegram-desktop-connect"
  * never opens anything but a Telegram link, and reaches a finished state for each of the
  * outcomes the service can report.
  */
-function pairing(overrides: Partial<TelegramDesktopPairing> = {}): TelegramDesktopPairing {
+function pairing(
+  overrides: Partial<TelegramDesktopPairing> = {},
+): TelegramDesktopPairing {
   return {
     pairing_id: "pair-1",
     suggested_username: "pocketclaw_abc_bot",
@@ -61,7 +64,10 @@ describe("TelegramDesktopConnect", () => {
     vi.clearAllMocks()
     createTelegramPairing.mockResolvedValue(pairing())
     fetchTelegramPairingStatus.mockResolvedValue({ state: "pending" })
-    completeTelegramPairing.mockResolvedValue({ ok: true, bot_username: "pocketclaw_abc_bot" })
+    completeTelegramPairing.mockResolvedValue({
+      ok: true,
+      bot_username: "pocketclaw_abc_bot",
+    })
     cancelTelegramPairing.mockResolvedValue(undefined)
     fetchTelegramReadiness.mockResolvedValue({ state: "ready", ready: true })
   })
@@ -89,7 +95,9 @@ describe("TelegramDesktopConnect", () => {
     render(<TelegramDesktopConnect onConnected={vi.fn()} />)
     fireEvent.click(screen.getByText("channels.telegram.desktop.connect"))
 
-    const open = await screen.findByText("channels.telegram.desktop.openTelegram")
+    const open = await screen.findByText(
+      "channels.telegram.desktop.openTelegram",
+    )
     const anchor = open.closest("a") as HTMLAnchorElement
     expect(anchor.getAttribute("href")).toBe(
       "https://t.me/newbot/Mgr/pocketclaw_abc_bot",
@@ -107,7 +115,9 @@ describe("TelegramDesktopConnect", () => {
     render(<TelegramDesktopConnect onConnected={onConnected} />)
     fireEvent.click(screen.getByText("channels.telegram.desktop.connect"))
 
-    await waitFor(() => expect(completeTelegramPairing).toHaveBeenCalledWith("pair-1"))
+    await waitFor(() =>
+      expect(completeTelegramPairing).toHaveBeenCalledWith("pair-1"),
+    )
     await waitFor(() => expect(onConnected).toHaveBeenCalled())
     expect(toastSuccess).toHaveBeenCalled()
   })
@@ -181,6 +191,42 @@ describe("TelegramDesktopConnect", () => {
     ).toBeTruthy()
   })
 
+  it("leaves Starting immediately when Telegram rejects the credentials", async () => {
+    const onConnected = vi.fn()
+    fetchTelegramPairingStatus.mockResolvedValue({ state: "ready" })
+    fetchTelegramReadiness.mockResolvedValue({
+      state: "authentication_failed",
+      ready: false,
+    })
+
+    render(<TelegramDesktopConnect onConnected={onConnected} />)
+    fireEvent.click(screen.getByText("channels.telegram.desktop.connect"))
+
+    expect(
+      await screen.findByText(
+        "channels.telegram.desktop.errorInvalidCredentials",
+      ),
+    ).toBeTruthy()
+    expect(onConnected).not.toHaveBeenCalled()
+    expect(toastSuccess).not.toHaveBeenCalled()
+    expect(fetchTelegramReadiness).toHaveBeenCalledTimes(1)
+  })
+
+  it("reports a rejected candidate without replacing readiness", async () => {
+    fetchTelegramPairingStatus.mockResolvedValue({ state: "ready" })
+    completeTelegramPairing.mockRejectedValue(new Error("invalid_credentials"))
+
+    render(<TelegramDesktopConnect onConnected={vi.fn()} />)
+    fireEvent.click(screen.getByText("channels.telegram.desktop.connect"))
+
+    expect(
+      await screen.findByText(
+        "channels.telegram.desktop.errorInvalidCredentials",
+      ),
+    ).toBeTruthy()
+    expect(fetchTelegramReadiness).not.toHaveBeenCalled()
+  })
+
   // Readiness arriving late must still announce, and only once.
   it("announces connected when readiness finally arrives", async () => {
     const onConnected = vi.fn()
@@ -246,7 +292,9 @@ describe("TelegramDesktopConnect", () => {
 
     fireEvent.click(screen.getByText("common.cancel"))
 
-    await waitFor(() => expect(cancelTelegramPairing).toHaveBeenCalledWith("pair-1"))
+    await waitFor(() =>
+      expect(cancelTelegramPairing).toHaveBeenCalledWith("pair-1"),
+    )
     // Back to the beginning, so the user can start again.
     expect(
       await screen.findByText("channels.telegram.desktop.connect"),
@@ -261,7 +309,9 @@ describe("TelegramDesktopConnect", () => {
 
     view.unmount()
 
-    await waitFor(() => expect(cancelTelegramPairing).toHaveBeenCalledWith("pair-1"))
+    await waitFor(() =>
+      expect(cancelTelegramPairing).toHaveBeenCalledWith("pair-1"),
+    )
   })
 
   // A completed pairing is already spent; cancelling it would be a pointless call.

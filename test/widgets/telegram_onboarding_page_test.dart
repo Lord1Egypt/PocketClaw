@@ -54,7 +54,7 @@ class StubClient extends TelegramOnboardingClient {
 }
 
 class Fixture {
-  Fixture() {
+  Fixture({this.runtimeError}) {
     controller = TelegramOnboardingController(
       client: client,
       configWriter: configWriter,
@@ -64,7 +64,10 @@ class Fixture {
       },
       // PC-DEF-056. Connected now means Core reports the channel running, so a
       // widget test has to say whether it does. Ready by default.
-      telegramRuntimeReady: () async => runtimeRunning,
+      telegramRuntimeReady: () async {
+        if (runtimeError != null) throw runtimeError!;
+        return runtimeRunning;
+      },
       runtimeReadyTimeout: const Duration(milliseconds: 300),
       runtimePollInterval: const Duration(milliseconds: 10),
     );
@@ -73,6 +76,7 @@ class Fixture {
   final client = StubClient();
   final opened = <String>[];
   bool runtimeRunning = true;
+  final TelegramOnboardingException? runtimeError;
   TelegramBotCredentials? savedCredentials;
   late final TelegramOnboardingController controller;
 
@@ -271,6 +275,34 @@ void main() {
     expect(find.text('Set up manually'), findsOneWidget);
     f.controller.dispose();
   });
+
+  testWidgets(
+    'invalid bot credentials leave Starting with actionable choices',
+    (tester) async {
+      final f = Fixture(
+        runtimeError: const TelegramOnboardingException(
+          TelegramOnboardingErrorKind.invalidCredentials,
+        ),
+      );
+      f.client.statusQueue.add(
+        const TelegramPairingStatus(state: PairingState.ready),
+      );
+      await tester.pumpWidget(f.widget());
+      await tester.tap(find.text('Connect Telegram'));
+      await settle(tester);
+
+      expect(find.text('Starting Telegram…'), findsNothing);
+      expect(find.text('Telegram connection failed'), findsOneWidget);
+      expect(find.textContaining('Telegram rejected this bot'), findsOneWidget);
+      expect(
+        find.widgetWithText(FilledButton, 'Create or replace bot'),
+        findsOneWidget,
+      );
+      expect(find.text('Set up manually'), findsOneWidget);
+      expect(f.opened, isEmpty, reason: '401 must not open the bot handoff');
+      f.controller.dispose();
+    },
+  );
 
   testWidgets('manual setup writes the same Telegram configuration', (
     tester,

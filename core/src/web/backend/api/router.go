@@ -39,12 +39,20 @@ type Handler struct {
 	// githubValidator overrides how a candidate GitHub credential is checked.
 	// Production leaves it nil and goes through the Managed Runtime.
 	githubValidator GitHubTokenValidator
+	// telegramCredentialValidator overrides the pre-commit Telegram getMe
+	// check. Production leaves it nil; tests use it to avoid external traffic.
+	telegramCredentialValidator TelegramCredentialValidator
 }
 
 // SetGitHubTokenValidator replaces credential validation. It exists for tests,
 // which have no gh binary and must not depend on network access.
 func (h *Handler) SetGitHubTokenValidator(validator GitHubTokenValidator) {
 	h.githubValidator = validator
+}
+
+// SetTelegramCredentialValidator replaces candidate validation for tests.
+func (h *Handler) SetTelegramCredentialValidator(validator TelegramCredentialValidator) {
+	h.telegramCredentialValidator = validator
 }
 
 // NewHandler creates an instance of the API handler.

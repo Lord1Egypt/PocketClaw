@@ -2,6 +2,8 @@ package telegram
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"runtime"
 	"strings"
 	"sync"
@@ -46,39 +48,83 @@ func logTelegramLifecycleGeneration(event string, generation uint64) {
 	})
 }
 
-// telegramIntake is the proof that a generation's getUpdates intake exists.
+// telegramIntake records the distinct facts that make a generation usable.
 //
 // Telego launches its long-polling goroutine and returns before that goroutine
 // has issued its first HTTP getUpdates request. A started goroutine is not a
-// poll: only the request itself is what makes Telegram hold updates for this
-// process. This is closed when the generation's first getUpdates call is
-// actually handed to the transport.
+// poll, and a request handed to the transport is not authenticated intake. A
+// generation becomes usable only after Telegram has accepted both the
+// credential and a getUpdates request.
 type telegramIntake struct {
-	started chan struct{}
-	once    sync.Once
+	generation       telegramGeneration
+	started          chan struct{}
+	auth             chan struct{}
+	usable           chan struct{}
+	unauthorized     chan struct{}
+	startedOnce      sync.Once
+	authOnce         sync.Once
+	usableOnce       sync.Once
+	unauthorizedOnce sync.Once
+	firstGetUpdates  sync.Once
+	onUnauthorized   func()
 }
 
-func newTelegramIntake() *telegramIntake {
-	return &telegramIntake{started: make(chan struct{})}
+func newTelegramIntake(generation ...telegramGeneration) *telegramIntake {
+	var current telegramGeneration
+	if len(generation) > 0 {
+		current = generation[0]
+	}
+	return &telegramIntake{
+		generation:   current,
+		started:      make(chan struct{}),
+		auth:         make(chan struct{}),
+		usable:       make(chan struct{}),
+		unauthorized: make(chan struct{}),
+	}
 }
 
 func (t *telegramIntake) markRequestStarted() {
 	if t == nil {
 		return
 	}
-	t.once.Do(func() { close(t.started) })
+	t.startedOnce.Do(func() {
+		close(t.started)
+		logTelegramLifecycleGeneration("getUpdates_request_started", uint64(t.generation))
+	})
 }
 
-func (t *telegramIntake) established() bool {
+func (t *telegramIntake) markAuthenticated() {
 	if t == nil {
-		return false
+		return
 	}
-	select {
-	case <-t.started:
-		return true
-	default:
-		return false
+	t.authOnce.Do(func() {
+		close(t.auth)
+		logTelegramLifecycleGeneration("telegram_auth_confirmed", uint64(t.generation))
+	})
+}
+
+func (t *telegramIntake) markUsable() {
+	if t == nil {
+		return
 	}
+	t.markAuthenticated()
+	t.usableOnce.Do(func() {
+		close(t.usable)
+		logTelegramLifecycleGeneration("getUpdates_intake_usable", uint64(t.generation))
+	})
+}
+
+func (t *telegramIntake) markUnauthorized() {
+	if t == nil {
+		return
+	}
+	t.unauthorizedOnce.Do(func() {
+		close(t.unauthorized)
+		logTelegramLifecycleGeneration("telegram_authentication_failed", uint64(t.generation))
+		if t.onUnauthorized != nil {
+			t.onUnauthorized()
+		}
+	})
 }
 
 // telegramIntakeRef is the mutable slot a channel's API caller reads, so a new
@@ -100,8 +146,9 @@ func (r *telegramIntakeRef) load() *telegramIntake {
 	return r.value.Load()
 }
 
-// telegramIntakeCaller wraps the real Bot API caller and records when a
-// getUpdates request is issued. Every other method is delegated untouched.
+// telegramIntakeCaller separates request initiation, authentication and usable
+// intake. It also turns a getUpdates 401 into cancellation so Telego does not
+// enter its generic eight-second retry loop for a credential that cannot work.
 type telegramIntakeCaller struct {
 	base ta.Caller
 	ref  *telegramIntakeRef
@@ -112,10 +159,53 @@ func (c *telegramIntakeCaller) Call(
 	url string,
 	data *ta.RequestData,
 ) (*ta.Response, error) {
-	if strings.HasSuffix(url, "/getUpdates") {
-		c.ref.load().markRequestStarted()
+	intake := c.ref.load()
+	isGetUpdates := strings.HasSuffix(url, "/getUpdates")
+	if isGetUpdates {
+		intake.markRequestStarted()
+		data = intake.firstGetUpdatesRequest(data)
 	}
-	return c.base.Call(ctx, url, data)
+	response, err := c.base.Call(ctx, url, data)
+	if response != nil && response.Error != nil && response.ErrorCode == 401 {
+		intake.markUnauthorized()
+		if isGetUpdates {
+			// Telego retries every polling error after eight seconds unless it
+			// sees cancellation. Invalid credentials are terminal, so return a
+			// cancellation-shaped error after recording the real cause.
+			return nil, errors.Join(context.Canceled, errTelegramAuthentication)
+		}
+		return nil, errTelegramAuthentication
+	}
+	if err == nil && response != nil && response.Ok {
+		intake.markAuthenticated()
+		if isGetUpdates {
+			intake.markUsable()
+		}
+	}
+	return response, err
+}
+
+// firstGetUpdatesRequest makes only the readiness probe a short poll. The
+// long-polling parameters Telego owns remain unchanged, so every later request
+// still uses the configured 30-second hold and a quiet bot is never hammered.
+func (t *telegramIntake) firstGetUpdatesRequest(data *ta.RequestData) *ta.RequestData {
+	if t == nil || data == nil || len(data.BodyRaw) == 0 {
+		return data
+	}
+	result := data
+	t.firstGetUpdates.Do(func() {
+		var body map[string]any
+		if json.Unmarshal(data.BodyRaw, &body) != nil {
+			return
+		}
+		body["timeout"] = 0
+		raw, err := json.Marshal(body)
+		if err != nil {
+			return
+		}
+		result = &ta.RequestData{ContentType: data.ContentType, BodyRaw: raw}
+	})
+	return result
 }
 
 // telegramIntakeWait bounds the wait for a generation's first getUpdates
@@ -123,24 +213,24 @@ func (c *telegramIntakeCaller) Call(
 // this is not a delay; it is the window in which a broken poller fails closed.
 const telegramIntakeWait = 5 * time.Second
 
-// waitForIntakeEstablished reports whether the generation's getUpdates intake
-// became real within the bound. A false answer is fatal for the start: without
-// a poll there is nothing to hand a first message to.
-func waitForIntakeEstablished(intake *telegramIntake, within time.Duration) bool {
+var errTelegramAuthentication = errors.New("telegram authentication failed")
+
+// waitForIntakeUsable reports only a successful getUpdates response. Merely
+// initiating the request cannot satisfy this boundary; a 401 wins immediately.
+func waitForIntakeUsable(intake *telegramIntake, within time.Duration) error {
 	if intake == nil {
-		return false
+		return errors.New("telegram intake is unavailable")
 	}
-	deadline := time.Now().Add(within)
-	for !intake.established() {
-		if time.Now().After(deadline) {
-			return false
-		}
-		// Yield rather than sleep: the request is issued by a goroutine in this
-		// process and needs a scheduling slot, not time to pass.
-		runtime.Gosched()
-		time.Sleep(time.Millisecond)
+	timer := time.NewTimer(within)
+	defer timer.Stop()
+	select {
+	case <-intake.usable:
+		return nil
+	case <-intake.unauthorized:
+		return errTelegramAuthentication
+	case <-timer.C:
+		return errors.New("telegram getUpdates intake did not become usable")
 	}
-	return true
 }
 
 // Long-polling intake, and the ordering it depends on.

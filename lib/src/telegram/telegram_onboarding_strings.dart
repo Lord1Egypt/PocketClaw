@@ -57,6 +57,8 @@ abstract final class TelegramOnboardingStrings {
       'The link is only valid for a few minutes. Start again to get a new one.';
 
   static const tryAgain = 'Try again';
+  static const connectionFailed = 'Telegram connection failed';
+  static const createOrReplaceBot = 'Create or replace bot';
   static const manualSetup = 'Set up manually';
   static const manualPrompt = 'Having trouble connecting automatically?';
 
@@ -86,7 +88,8 @@ abstract final class TelegramOnboardingStrings {
         return 'PocketClaw could not reach the setup service. '
             'Check your connection and try again.';
       case TelegramOnboardingErrorKind.rateLimited:
-        return 'Too many setup attempts. Wait a moment and try again.';
+        return 'Telegram is limiting bot creation. Try again later, '
+            'or set up an existing valid bot manually.';
       case TelegramOnboardingErrorKind.pairingGone:
         return 'This setup link is no longer valid. Start again to get a new one.';
       case TelegramOnboardingErrorKind.telegramUnavailable:
@@ -98,6 +101,10 @@ abstract final class TelegramOnboardingStrings {
       case TelegramOnboardingErrorKind.configurationFailed:
         return 'The bot was created, but PocketClaw could not finish '
             'configuring it. Try again, or set it up manually.';
+      case TelegramOnboardingErrorKind.invalidCredentials:
+        return 'Telegram rejected this bot. Bot creation may be incomplete, '
+            'or its token is no longer valid. Try again later, create or replace '
+            'the bot, or set up an existing valid bot manually.';
       case TelegramOnboardingErrorKind.runtimeNotReady:
         return 'Your bot is saved, but Telegram has not started yet. '
             'Open PocketClaw and try again in a moment.';

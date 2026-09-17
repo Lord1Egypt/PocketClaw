@@ -774,6 +774,7 @@
         "errorRateLimited": "Muitas tentativas de configuração. Aguarde um momento e tente de novo.",
         "errorExpired": "Este link de configuração expirou. Comece de novo para obter outro.",
         "errorFailed": "A configuração não foi concluída. Tente de novo ou use a configuração manual abaixo.",
+        "errorInvalidCredentials": "O Telegram rejeitou este bot. A criação pode estar incompleta ou o token pode ser inválido. Tente novamente mais tarde ou use abaixo um bot válido existente.",
         "errorNotReady": "Seu bot foi salvo, mas o Telegram ainda não está recebendo. Verifique novamente em instantes.",
         "checkAgain": "Verificar novamente"
       },
@@ -785,6 +786,7 @@
         "gateway_starting": "O PocketClaw está iniciando…",
         "channel_starting": "Conectando ao Telegram…",
         "registering_commands": "Publicando o menu de comandos…",
+        "authentication_failed": "O Telegram rejeitou as credenciais do bot.",
         "ready": "O Telegram está pronto para sua primeira mensagem.",
         "unknown": "O PocketClaw não informou o status do Telegram."
       },

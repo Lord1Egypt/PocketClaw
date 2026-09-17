@@ -51,6 +51,9 @@ const (
 	readinessChannelStarting telegramReadinessState = "channel_starting"
 	// readinessRegisteringCommands: consuming, menu not published yet.
 	readinessRegisteringCommands telegramReadinessState = "registering_commands"
+	// readinessAuthenticationFailed: Telegram rejected the bot credential.
+	// Terminal for this configuration; retrying the same token cannot help.
+	readinessAuthenticationFailed telegramReadinessState = "authentication_failed"
 	// readinessReady: consuming and the menu reached Telegram.
 	readinessReady telegramReadinessState = "ready"
 	// readinessUnknown: the gateway would not say. Never reported as ready.
@@ -132,6 +135,9 @@ func (h *Handler) telegramReadinessWithGeneration() (telegramReadinessState, str
 	if channel == nil {
 		// The gateway is answering and does not have the channel yet.
 		return readinessGatewayStarting, "", 0
+	}
+	if channel.RuntimeFailure == "authentication_failed" {
+		return readinessAuthenticationFailed, "invalid_credentials", 0
 	}
 	if !channel.Running {
 		return readinessChannelStarting, "", 0

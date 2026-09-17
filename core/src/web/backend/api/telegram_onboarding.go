@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"sync"
 	"time"
@@ -229,16 +230,20 @@ func (h *Handler) handleTelegramOnboardingComplete(w http.ResponseWriter, r *htt
 	// way from here.
 	h.telegramOnboardingStore.delete(id)
 
-	applied, pending, writeErr := h.writeTelegramCredentials(
-		credentials.Token, credentials.OwnerUserID)
+	applied, pending, writeErr := h.writeTelegramCredentialsContext(
+		r.Context(), credentials.Token, credentials.OwnerUserID)
 	if writeErr != nil {
 		// The pairing is gone and the token is not stored, so this is terminal for
 		// this attempt. Say so rather than leaving the UI polling a dead session.
 		logger.ErrorCF("telegram", "Managed onboarding could not configure Telegram",
 			map[string]any{"surface": "dashboard", "error": writeErr.Error()})
-		writeJSONStatus(w, http.StatusInternalServerError, map[string]any{
-			"error": "configuration_failed",
-		})
+		status := http.StatusInternalServerError
+		kind := "configuration_failed"
+		if errors.Is(writeErr, ErrTelegramCredentialsInvalid) {
+			status = http.StatusUnauthorized
+			kind = "invalid_credentials"
+		}
+		writeJSONStatus(w, status, map[string]any{"error": kind})
 		return
 	}
 

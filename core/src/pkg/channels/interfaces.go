@@ -114,3 +114,10 @@ type PollingGenerationReporter interface {
 	// PollingGeneration reports the active owner's id, or zero when none.
 	PollingGeneration() uint64
 }
+
+// RuntimeFailureReporter is implemented by a channel that can expose a safe,
+// terminal lifecycle code. Codes are machine-readable and must never contain
+// an upstream response, identity or credential.
+type RuntimeFailureReporter interface {
+	RuntimeFailure() string
+}

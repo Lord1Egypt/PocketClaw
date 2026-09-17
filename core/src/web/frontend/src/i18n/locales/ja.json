@@ -774,6 +774,7 @@
         "errorRateLimited": "設定の試行回数が多すぎます。少し待ってからもう一度お試しください。",
         "errorExpired": "この設定リンクは期限切れです。やり直して新しいリンクを取得してください。",
         "errorFailed": "設定が完了しませんでした。もう一度お試しか、下の手動設定をご利用ください。",
+        "errorInvalidCredentials": "Telegram がこのボットを拒否しました。作成が完了していないか、トークンが無効な可能性があります。後でもう一度試すか、下で既存の有効なボットを使用してください。",
         "errorNotReady": "ボットは保存されましたが、Telegram はまだ受信していません。しばらくしてからもう一度確認してください。",
         "checkAgain": "もう一度確認"
       },
@@ -785,6 +786,7 @@
         "gateway_starting": "PocketClaw を起動しています…",
         "channel_starting": "Telegram に接続しています…",
         "registering_commands": "コマンドメニューを登録しています…",
+        "authentication_failed": "Telegram がボットの認証情報を拒否しました。",
         "ready": "Telegram は最初のメッセージを受け取る準備ができました。",
         "unknown": "PocketClaw が Telegram の状態を報告しませんでした。"
       },

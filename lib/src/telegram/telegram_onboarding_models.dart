@@ -81,15 +81,15 @@ class TelegramPairing {
   /// every field here is either public or scoped to this one short-lived
   /// session — but it is kept explicit so the choice is visible.
   Map<String, dynamic> toStorageJson() => {
-        'pairing_id': pairingId,
-        'poll_token': pollToken,
-        'suggested_username': suggestedUsername,
-        'suggested_name': suggestedName,
-        'deep_link': deepLink,
-        'qr_payload': qrPayload,
-        'expires_at': expiresAt.toIso8601String(),
-        'poll_interval_seconds': pollInterval.inSeconds,
-      };
+    'pairing_id': pairingId,
+    'poll_token': pollToken,
+    'suggested_username': suggestedUsername,
+    'suggested_name': suggestedName,
+    'deep_link': deepLink,
+    'qr_payload': qrPayload,
+    'expires_at': expiresAt.toIso8601String(),
+    'poll_interval_seconds': pollInterval.inSeconds,
+  };
 
   static TelegramPairing? fromStorageJson(Map<String, dynamic> json) {
     try {
@@ -212,6 +212,10 @@ enum TelegramOnboardingErrorKind {
 
   /// Core's configuration could not be written or reloaded.
   configurationFailed,
+
+  /// Telegram answered 401 for this bot token. Retrying the same credential
+  /// cannot work; the user must finish creation or provide another bot.
+  invalidCredentials,
 
   /// The configuration was saved, but Core never reported the Telegram channel
   /// as running within the wait.

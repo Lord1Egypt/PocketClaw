@@ -771,9 +771,10 @@
         "savedPending": "Your bot is saved and will start as soon as PocketClaw is free.",
         "retry": "Try again",
         "errorStart": "Could not start setup. Try again in a moment.",
-        "errorRateLimited": "Too many setup attempts. Wait a moment and try again.",
+        "errorRateLimited": "Telegram is limiting bot creation. Try again later, or use an existing valid bot below.",
         "errorExpired": "This setup link expired. Start again to get a new one.",
         "errorFailed": "Setup did not finish. Try again, or use manual setup below.",
+        "errorInvalidCredentials": "Telegram rejected this bot. Creation may be incomplete, or its token is invalid. Try again later or use an existing valid bot below.",
         "errorNotReady": "Your bot is saved, but Telegram is not receiving yet. Check again in a moment.",
         "checkAgain": "Check again"
       },
@@ -785,6 +786,7 @@
         "gateway_starting": "PocketClaw is starting…",
         "channel_starting": "Connecting to Telegram…",
         "registering_commands": "Publishing the command menu…",
+        "authentication_failed": "Telegram rejected the bot credentials.",
         "ready": "Telegram is ready for your first message.",
         "unknown": "PocketClaw did not report its Telegram status."
       },

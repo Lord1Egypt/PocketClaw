@@ -774,6 +774,7 @@
         "errorRateLimited": "Trop de tentatives de configuration. Attends un instant et réessaie.",
         "errorExpired": "Ce lien de configuration a expiré. Recommence pour en obtenir un nouveau.",
         "errorFailed": "La configuration ne s'est pas terminée. Réessaie, ou utilise la configuration manuelle ci-dessous.",
+        "errorInvalidCredentials": "Telegram a refusé ce bot. Sa création est peut-être incomplète ou son jeton est invalide. Réessaie plus tard ou utilise un bot valide existant ci-dessous.",
         "errorNotReady": "Votre bot est enregistré, mais Telegram ne reçoit pas encore. Réessayez dans un instant.",
         "checkAgain": "Vérifier à nouveau"
       },
@@ -785,6 +786,7 @@
         "gateway_starting": "PocketClaw démarre…",
         "channel_starting": "Connexion à Telegram…",
         "registering_commands": "Publication du menu de commandes…",
+        "authentication_failed": "Telegram a refusé les identifiants du bot.",
         "ready": "Telegram est prêt pour votre premier message.",
         "unknown": "PocketClaw n'a pas indiqué l'état de Telegram."
       },

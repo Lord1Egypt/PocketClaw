@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -80,6 +81,11 @@ func onboardingTestEnv(t *testing.T) (*Handler, *http.ServeMux, string) {
 	t.Cleanup(cleanup)
 
 	handler := NewHandler(configPath)
+	handler.SetTelegramCredentialValidator(func(
+		context.Context, string, string, string,
+	) error {
+		return nil
+	})
 	// Injected directly: onboardingClient() resolves from the environment once per
 	// Handler, and a test must not depend on a real endpoint being configured.
 	handler.telegramOnboardingOnce.Do(func() {

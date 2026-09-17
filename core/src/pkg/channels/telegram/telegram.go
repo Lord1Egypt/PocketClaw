@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -94,6 +95,11 @@ type TelegramChannel struct {
 	// the status snapshot, so it is atomic rather than mutex-guarded: the
 	// registration goroutine writes it and a health request reads it.
 	commandsRegistered atomic.Bool
+	// runtimeFailure is a sanitized terminal lifecycle code. It intentionally
+	// carries no Telegram response, bot identity or credential material.
+	runtimeFailure atomic.Uint32
+	botIdentityMu  sync.RWMutex
+	botIdentity    string
 	// firstStartReplied makes the first successful /start response an explicit,
 	// safe lifecycle fact without logging message, chat or owner data.
 	firstStartReplied atomic.Bool
@@ -219,6 +225,9 @@ func telegramMediaGroupDelay(telegramCfg *config.TelegramSettings) time.Duration
 func (c *TelegramChannel) Start(ctx context.Context) error {
 	logger.InfoC("telegram", "Starting Telegram bot (polling mode)...")
 
+	c.SetRunning(false)
+	c.commandsRegistered.Store(false)
+	c.runtimeFailure.Store(telegramRuntimeFailureNone)
 	c.ctx, c.cancel = context.WithCancel(ctx)
 
 	// PC-DEF-061. Every activation is a distinct getUpdates owner with its own
@@ -228,10 +237,36 @@ func (c *TelegramChannel) Start(ctx context.Context) error {
 		c.intakeRef = &telegramIntakeRef{}
 	}
 	generation := nextTelegramGeneration()
-	intake := newTelegramIntake()
+	intake := newTelegramIntake(generation)
 	c.intakeRef.store(intake)
 	c.generation.Store(uint64(generation))
 	logTelegramLifecycleGeneration("generation_created", uint64(generation))
+
+	// Authentication is established before polling is allowed to own intake.
+	// This call cannot lose an update because no getUpdates request exists yet.
+	// It also gives invalid replacement credentials a synchronous terminal path
+	// rather than letting Telego's generic polling retry loop own the outcome.
+	me, err := c.bot.GetMe(c.ctx)
+	if err != nil {
+		if errors.Is(err, errTelegramAuthentication) {
+			c.runtimeFailure.Store(telegramRuntimeFailureAuthentication)
+			logger.ErrorCF("telegram", "Telegram rejected the configured bot credentials", map[string]any{
+				"event":               "telegram.authentication_failed",
+				"telegram_generation": uint64(generation),
+			})
+		}
+		c.refuseStart(uint64(generation), nil)
+		if errors.Is(err, errTelegramAuthentication) {
+			return errTelegramAuthentication
+		}
+		return fmt.Errorf("telegram authentication check failed: %w", err)
+	}
+	c.botIdentityMu.Lock()
+	c.botIdentity = me.Username
+	c.botIdentityMu.Unlock()
+	// From here on a 401 is asynchronous (polling or menu registration), so
+	// this generation owns the callback that revokes readiness and retires it.
+	intake.onUnauthorized = func() { c.failAuthentication(uint64(generation)) }
 
 	logger.DebugCF("telegram", "Telegram polling starting", map[string]any{
 		"event": "polling.prepare",
@@ -243,7 +278,7 @@ func (c *TelegramChannel) Start(ctx context.Context) error {
 		Timeout: 30,
 	})
 	if err != nil {
-		c.cancel()
+		c.refuseStart(uint64(generation), nil)
 		return fmt.Errorf("failed to start long polling: %w", err)
 	}
 	logger.DebugCF("telegram", "Telegram polling started", map[string]any{
@@ -255,7 +290,7 @@ func (c *TelegramChannel) Start(ctx context.Context) error {
 
 	bh, err := th.NewBotHandler(c.bot, c.observeUpdates(updates))
 	if err != nil {
-		c.cancel()
+		c.refuseStart(uint64(generation), nil)
 		return fmt.Errorf("failed to create bot handler: %w", err)
 	}
 	c.bh = bh
@@ -290,43 +325,37 @@ func (c *TelegramChannel) Start(ctx context.Context) error {
 		logger.WarnCF("telegram",
 			"Telegram intake did not report consuming; channel start refused",
 			map[string]any{"event": "polling.ready_unconfirmed"})
-		stopCtx, stopCancel := context.WithTimeout(context.Background(), pollingStopWait)
-		defer stopCancel()
-		_ = bh.StopWithContext(stopCtx)
-		c.cancel()
-		c.awaitPollingStopped(stopCtx)
-		c.generation.Store(0)
+		c.refuseStart(uint64(generation), bh)
 		return fmt.Errorf("telegram update handler did not become ready")
 	}
 
 	logTelegramLifecycleGeneration("handler_ready", uint64(generation))
 
-	// PC-DEF-061. The handler consuming is not the same fact as Telegram
-	// holding a poll. Telego starts its goroutine and returns before the first
-	// getUpdates request is issued, so a generation that has only started its
-	// goroutine would be reported ready with nothing receiving. Fail closed
-	// until this generation's intake is real, and tear both halves down if it
-	// never is so a later retry cannot overlap an unconfirmed poller.
-	intakeProbe := c.intakeProbe
-	if intakeProbe == nil {
-		intakeProbe = waitForIntakeEstablished
+	// PC-DEF-061. Handler consumption and a request handed to the transport are
+	// still insufficient: Telegram must successfully answer this generation's
+	// first getUpdates call. The API caller makes only that first call a short
+	// poll, so success is immediate without changing the steady 30-second poll.
+	var intakeErr error
+	if c.intakeProbe != nil {
+		if !c.intakeProbe(intake, telegramIntakeWait) {
+			intakeErr = fmt.Errorf("telegram getUpdates intake did not become usable")
+		}
+	} else {
+		intakeErr = waitForIntakeUsable(intake, telegramIntakeWait)
 	}
-	if !intakeProbe(intake, telegramIntakeWait) {
+	if intakeErr != nil {
 		logger.WarnCF("telegram",
-			"Telegram getUpdates intake did not establish; channel start refused",
+			"Telegram getUpdates intake did not become usable; channel start refused",
 			map[string]any{
 				"event":               "polling.intake_unconfirmed",
 				"telegram_generation": uint64(generation),
 			})
-		stopCtx, stopCancel := context.WithTimeout(context.Background(), pollingStopWait)
-		defer stopCancel()
-		_ = bh.StopWithContext(stopCtx)
-		c.cancel()
-		c.awaitPollingStopped(stopCtx)
-		c.generation.Store(0)
-		return fmt.Errorf("telegram getUpdates intake did not establish")
+		c.refuseStart(uint64(generation), bh)
+		if errors.Is(intakeErr, errTelegramAuthentication) {
+			return errTelegramAuthentication
+		}
+		return intakeErr
 	}
-	logTelegramLifecycleGeneration("getUpdates_intake_established", uint64(generation))
 
 	c.SetRunning(true)
 	logger.InfoC("telegram", "Telegram bot connected")
@@ -337,18 +366,80 @@ func (c *TelegramChannel) Start(ctx context.Context) error {
 
 	c.startCommandRegistration(c.ctx, commands.BuiltinDefinitions())
 
-	// Which bot this is stays in the log -- a replaced managed bot has to be
-	// tellable from the one before it -- but it is resolved off the intake path.
-	// Username performs a getMe on first use, and that is the call that used to
-	// sit between the poller and the handler.
-	go func() {
-		logger.InfoCF("telegram", "Telegram bot identified", map[string]any{
-			"event": "polling.identity",
-			"bot":   c.botUsername(),
-		})
-	}()
+	logger.InfoCF("telegram", "Telegram bot identified", map[string]any{
+		"event": "polling.identity",
+		"bot":   c.botUsername(),
+	})
 
 	return nil
+}
+
+const (
+	telegramRuntimeFailureNone uint32 = iota
+	telegramRuntimeFailureAuthentication
+)
+
+// RuntimeFailure reports a sanitized terminal code for readiness. It remains
+// latched after the failed generation is retired and is cleared only by a new
+// Start attempt.
+func (c *TelegramChannel) RuntimeFailure() string {
+	if c.runtimeFailure.Load() == telegramRuntimeFailureAuthentication {
+		return "authentication_failed"
+	}
+	return ""
+}
+
+// failAuthentication owns the asynchronous 401 path (getUpdates and command
+// registration). It immediately revokes Running, cancels every loop, then
+// retires the exact generation after its poller confirms exit.
+func (c *TelegramChannel) failAuthentication(generation uint64) {
+	if generation == 0 || c.generation.Load() != generation {
+		return
+	}
+	c.runtimeFailure.Store(telegramRuntimeFailureAuthentication)
+	c.SetRunning(false)
+	c.commandsRegistered.Store(false)
+	if c.commandRegCancel != nil {
+		c.commandRegCancel()
+	}
+	if c.cancel != nil {
+		c.cancel()
+	}
+	logger.ErrorCF("telegram", "Telegram rejected the configured bot credentials", map[string]any{
+		"event":               "telegram.authentication_failed",
+		"telegram_generation": generation,
+	})
+	bh := c.bh
+	go c.retireFailedGeneration(generation, bh)
+}
+
+func (c *TelegramChannel) refuseStart(generation uint64, bh *th.BotHandler) {
+	if c.cancel != nil {
+		c.cancel()
+	}
+	stopCtx, stopCancel := context.WithTimeout(context.Background(), pollingStopWait)
+	defer stopCancel()
+	if bh != nil {
+		_ = bh.StopWithContext(stopCtx)
+	}
+	c.awaitPollingStopped(stopCtx)
+	if c.generation.CompareAndSwap(generation, 0) {
+		logTelegramLifecycleGeneration("generation_retired", generation)
+	}
+}
+
+func (c *TelegramChannel) retireFailedGeneration(generation uint64, bh *th.BotHandler) {
+	logTelegramLifecycleGeneration("generation_retiring", generation)
+	stopCtx, stopCancel := context.WithTimeout(context.Background(), pollingStopWait)
+	defer stopCancel()
+	if bh != nil {
+		_ = bh.StopWithContext(stopCtx)
+	}
+	c.awaitPollingStopped(stopCtx)
+	if c.generation.CompareAndSwap(generation, 0) {
+		logTelegramLifecycleGeneration("poller_exit_confirmed", generation)
+		logTelegramLifecycleGeneration("generation_retired", generation)
+	}
 }
 
 // PollingGeneration reports the local id of the active getUpdates owner, or

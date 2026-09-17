@@ -2,12 +2,14 @@ package api
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -89,7 +91,13 @@ func readTelegramBridgeConfig(t *testing.T, path string) (*config.Config, *confi
 func TestAndroidTelegramBridgeWritesThroughAuthoritativeConfig(t *testing.T) {
 	path := writeAndroidBridgeTestConfig(t, "")
 	mux := http.NewServeMux()
-	NewHandler(path).RegisterAndroidBridgeRoutes(mux, testAndroidBridgeToken)
+	handler := NewHandler(path)
+	handler.SetTelegramCredentialValidator(func(
+		context.Context, string, string, string,
+	) error {
+		return nil
+	})
+	handler.RegisterAndroidBridgeRoutes(mux, testAndroidBridgeToken)
 
 	rec := httptest.NewRecorder()
 	mux.ServeHTTP(rec, telegramBridgeRequest(
@@ -112,6 +120,44 @@ func TestAndroidTelegramBridgeWritesThroughAuthoritativeConfig(t *testing.T) {
 	}
 	if cfg.Gateway.Port != 19999 {
 		t.Fatalf("unrelated config was changed: gateway port = %d", cfg.Gateway.Port)
+	}
+}
+
+func TestAndroidTelegramBridgeRejectsInvalidCandidateWithoutReplacingOldBot(t *testing.T) {
+	path := writeAndroidBridgeTestConfig(t, "existing-child-token")
+	beforeCfg, beforeChannel, _ := readTelegramBridgeConfig(t, path)
+	beforeChannel.AllowFrom = config.FlexibleStringSlice{"111"}
+	if err := config.SaveConfig(path, beforeCfg); err != nil {
+		t.Fatal(err)
+	}
+
+	handler := NewHandler(path)
+	handler.SetTelegramCredentialValidator(func(
+		context.Context, string, string, string,
+	) error {
+		return ErrTelegramCredentialsInvalid
+	})
+	mux := http.NewServeMux()
+	handler.RegisterAndroidBridgeRoutes(mux, testAndroidBridgeToken)
+
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, telegramBridgeRequest(
+		`{"token":"rejected-child-token","owner_user_id":222}`,
+		testAndroidBridgeToken,
+	))
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("status = %d, body=%s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), "invalid_credentials") {
+		t.Fatalf("classified failure missing from body: %s", rec.Body.String())
+	}
+
+	_, channel, settings := readTelegramBridgeConfig(t, path)
+	if settings.Token.String() != "existing-child-token" {
+		t.Fatal("the rejected candidate replaced the old token")
+	}
+	if len(channel.AllowFrom) != 1 || channel.AllowFrom[0] != "111" {
+		t.Fatalf("the rejected candidate replaced the old owner: %v", channel.AllowFrom)
 	}
 }
 

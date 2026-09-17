@@ -47,8 +47,9 @@ type pollingStub struct {
 
 	// failSend and failDelete make the corresponding Bot API call fail, so the
 	// cleanup ordering can be exercised without a network.
-	failSend   bool
-	failDelete bool
+	failSend     bool
+	failDelete   bool
+	unauthorized map[string]bool
 
 	offsets    []int64
 	getMeCalls int
@@ -78,9 +79,15 @@ func (s *pollingStub) Call(_ context.Context, url string, data *ta.RequestData) 
 		if block != nil {
 			<-block
 		}
+		if s.isUnauthorized(method) {
+			return unauthorizedResponse()
+		}
 		return jsonResponse(&telego.User{ID: 42, Username: "pocketclaw_test_bot", IsBot: true})
 
 	case "getUpdates":
+		if s.isUnauthorized(method) {
+			return unauthorizedResponse()
+		}
 		var params struct {
 			Offset int64 `json:"offset"`
 		}
@@ -100,6 +107,9 @@ func (s *pollingStub) Call(_ context.Context, url string, data *ta.RequestData) 
 		return jsonResponse(batch)
 
 	case "getMyCommands":
+		if s.isUnauthorized(method) {
+			return unauthorizedResponse()
+		}
 		return jsonResponse([]telego.BotCommand{})
 
 	case "sendMessage":
@@ -130,8 +140,24 @@ func (s *pollingStub) Call(_ context.Context, url string, data *ta.RequestData) 
 
 	default:
 		// setMyCommands and anything else the lifecycle touches.
+		if s.isUnauthorized(method) {
+			return unauthorizedResponse()
+		}
 		return jsonResponse(map[string]any{})
 	}
+}
+
+func (s *pollingStub) isUnauthorized(method string) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.unauthorized[method]
+}
+
+func unauthorizedResponse() (*ta.Response, error) {
+	return &ta.Response{
+		Ok:    false,
+		Error: &ta.Error{ErrorCode: 401, Description: "Unauthorized"},
+	}, nil
 }
 
 func (s *pollingStub) observedDeletes() []deleteCall {
@@ -252,31 +278,35 @@ func waitForInbound(t *testing.T, messageBus *bus.MessageBus, within time.Durati
 // and the handler, so intake was held for as long as that call took. Four
 // seconds on the device; held here until the test releases it, so a fix that
 // reintroduces the dependency cannot pass by being fast.
-func TestFirstPollUpdateIsDeliveredWhileGetMeIsStillBlocked(t *testing.T) {
+func TestAuthenticationCompletesBeforePollingOwnsIntake(t *testing.T) {
 	stub := &pollingStub{
 		getMeBlock: make(chan struct{}),
 		batches:    [][]telego.Update{{ownerMessage(9001, 1)}},
 	}
 	ch, messageBus := newPollingChannel(t, stub)
 
-	require.NoError(t, ch.Start(context.Background()))
+	startResult := make(chan error, 1)
+	go func() { startResult <- ch.Start(context.Background()) }()
+	require.Eventually(t, func() bool { return stub.calledGetMe() == 1 },
+		time.Second, time.Millisecond)
+	require.Zero(t, stub.methodCount("getUpdates"),
+		"no unauthenticated poll may acknowledge an update")
+	require.False(t, ch.IsRunning())
+	close(stub.getMeBlock)
+	require.NoError(t, <-startResult)
 	t.Cleanup(func() { _ = ch.Stop(context.Background()) })
 
 	msg := waitForInbound(t, messageBus, 5*time.Second)
 	require.Equal(t, "/start", msg.Content)
 	require.Equal(t, pollingOwnerID, msg.Context.SenderID)
 
-	// Only now is the identity call allowed to finish, proving intake never
-	// depended on it.
-	close(stub.getMeBlock)
 }
 
 // Running must mean receiving. It is what the desktop pairing and the status
 // snapshot both read, so it may not be true while nothing can consume an update.
 func TestChannelIsNotRunningUntilIntakeConsumes(t *testing.T) {
-	stub := &pollingStub{getMeBlock: make(chan struct{})}
+	stub := &pollingStub{}
 	ch, _ := newPollingChannel(t, stub)
-	defer close(stub.getMeBlock)
 
 	require.False(t, ch.IsRunning())
 	require.NoError(t, ch.Start(context.Background()))
@@ -505,11 +535,62 @@ func TestChannelStartFailsClosedWhenIntakeIsUnconfirmed(t *testing.T) {
 	ch.intakeProbe = func(*telegramIntake, time.Duration) bool { return false }
 
 	err := ch.Start(context.Background())
-	require.ErrorContains(t, err, "intake did not establish")
+	require.ErrorContains(t, err, "intake did not become usable")
 	require.False(t, ch.IsRunning(),
 		"unconfirmed intake must never authorize a managed handoff")
 	require.Zero(t, ch.PollingGeneration(),
 		"a refused start must not leave a generation to be inherited")
+}
+
+func TestGetMeUnauthorizedFailsBeforePollingStarts(t *testing.T) {
+	stub := &pollingStub{unauthorized: map[string]bool{"getMe": true}}
+	ch, _ := newPollingChannel(t, stub)
+
+	err := ch.Start(context.Background())
+	require.ErrorIs(t, err, errTelegramAuthentication)
+	require.False(t, ch.IsRunning())
+	require.Equal(t, "authentication_failed", ch.RuntimeFailure())
+	require.Zero(t, stub.methodCount("getUpdates"))
+	require.Eventually(t, func() bool { return ch.PollingGeneration() == 0 },
+		time.Second, time.Millisecond)
+}
+
+func TestGetUpdatesUnauthorizedRetiresGenerationWithoutRetry(t *testing.T) {
+	stub := &pollingStub{unauthorized: map[string]bool{"getUpdates": true}}
+	ch, _ := newPollingChannel(t, stub)
+
+	err := ch.Start(context.Background())
+	require.ErrorIs(t, err, errTelegramAuthentication)
+	require.False(t, ch.IsRunning())
+	require.Equal(t, "authentication_failed", ch.RuntimeFailure())
+	require.Eventually(t, func() bool { return ch.PollingGeneration() == 0 },
+		time.Second, time.Millisecond)
+	require.Equal(t, 1, stub.methodCount("getUpdates"),
+		"invalid credentials must not enter Telego's retry loop")
+}
+
+func TestCommandMenuUnauthorizedIsTerminal(t *testing.T) {
+	for _, method := range []string{"getMyCommands", "setMyCommands"} {
+		t.Run(method, func(t *testing.T) {
+			stub := &pollingStub{unauthorized: map[string]bool{method: true}}
+			ch, _ := newPollingChannel(t, stub)
+			ch.registerFunc = nil
+
+			require.NoError(t, ch.Start(context.Background()))
+			require.Eventually(t, func() bool {
+				return ch.RuntimeFailure() == "authentication_failed"
+			}, time.Second, time.Millisecond)
+			require.Eventually(t, func() bool {
+				return !ch.IsRunning() && ch.PollingGeneration() == 0
+			}, time.Second, time.Millisecond)
+			require.Equal(t, 1, stub.methodCount(method),
+				"an authentication failure must not be retried")
+			if method == "getMyCommands" {
+				require.Zero(t, stub.methodCount("setMyCommands"),
+					"a rejected read must not fall through to a write")
+			}
+		})
+	}
 }
 
 // The active generation is named, and retired to zero once its poller has
@@ -535,7 +616,7 @@ func TestChannelNamesItsPollingGenerationAndRetiresIt(t *testing.T) {
 
 // The intake caller is what proves a request exists, so it must record
 // getUpdates and only getUpdates.
-func TestIntakeCallerMarksGetUpdatesOnly(t *testing.T) {
+func TestIntakeCallerSeparatesRequestFromUsableIntake(t *testing.T) {
 	intake := newTelegramIntake()
 	ref := &telegramIntakeRef{}
 	ref.store(intake)
@@ -543,39 +624,81 @@ func TestIntakeCallerMarksGetUpdatesOnly(t *testing.T) {
 	caller := &telegramIntakeCaller{base: base, ref: ref}
 
 	_, _ = caller.Call(context.Background(), "https://api.telegram.org/bot1:AA/getMe", nil)
-	require.False(t, intake.established(), "getMe is not polling intake")
+	require.False(t, channelClosed(intake.started), "getMe is not polling intake")
+	require.True(t, channelClosed(intake.auth), "successful getMe confirms authentication")
 
 	_, _ = caller.Call(context.Background(), "https://api.telegram.org/bot1:AA/getUpdates", nil)
-	require.True(t, intake.established(), "a getUpdates request is polling intake")
+	require.True(t, channelClosed(intake.started), "the getUpdates request was issued")
+	require.True(t, channelClosed(intake.usable), "Telegram accepted getUpdates")
 
 	// A second request does not reopen anything and does not panic.
 	_, _ = caller.Call(context.Background(), "https://api.telegram.org/bot1:AA/getUpdates", nil)
-	require.True(t, intake.established())
+	require.True(t, channelClosed(intake.usable))
 	require.Equal(t, 3, base.calls)
 }
 
-func TestWaitForIntakeEstablished(t *testing.T) {
-	t.Run("returns once the request has been issued", func(t *testing.T) {
+func TestWaitForIntakeUsable(t *testing.T) {
+	t.Run("request initiation alone is insufficient", func(t *testing.T) {
 		intake := newTelegramIntake()
-		go func() {
-			time.Sleep(5 * time.Millisecond)
-			intake.markRequestStarted()
-		}()
-		require.True(t, waitForIntakeEstablished(intake, time.Second))
+		intake.markRequestStarted()
+		require.Error(t, waitForIntakeUsable(intake, time.Millisecond))
 	})
 
-	t.Run("gives up rather than blocking a start forever", func(t *testing.T) {
-		require.False(t, waitForIntakeEstablished(newTelegramIntake(), 20*time.Millisecond))
+	t.Run("returns only after Telegram accepts getUpdates", func(t *testing.T) {
+		intake := newTelegramIntake()
+		intake.markUsable()
+		require.NoError(t, waitForIntakeUsable(intake, time.Second))
 	})
+
+	t.Run("401 is terminal", func(t *testing.T) {
+		intake := newTelegramIntake()
+		intake.markUnauthorized()
+		require.ErrorIs(t, waitForIntakeUsable(intake, time.Second), errTelegramAuthentication)
+	})
+}
+
+func channelClosed(ch <-chan struct{}) bool {
+	select {
+	case <-ch:
+		return true
+	default:
+		return false
+	}
 }
 
 type recordingCaller struct {
-	calls int
+	calls  int
+	bodies [][]byte
 }
 
-func (c *recordingCaller) Call(context.Context, string, *ta.RequestData) (*ta.Response, error) {
+func (c *recordingCaller) Call(_ context.Context, _ string, data *ta.RequestData) (*ta.Response, error) {
 	c.calls++
+	if data != nil {
+		c.bodies = append(c.bodies, append([]byte(nil), data.BodyRaw...))
+	}
 	return jsonResponse(map[string]any{})
+}
+
+func TestOnlyFirstGetUpdatesIsShortenedForReadiness(t *testing.T) {
+	intake := newTelegramIntake()
+	ref := &telegramIntakeRef{}
+	ref.store(intake)
+	base := &recordingCaller{}
+	caller := &telegramIntakeCaller{base: base, ref: ref}
+	request := &ta.RequestData{ContentType: "application/json", BodyRaw: []byte(`{"timeout":30}`)}
+
+	_, _ = caller.Call(context.Background(), "https://api.telegram.org/bot1:AA/getUpdates", request)
+	_, _ = caller.Call(context.Background(), "https://api.telegram.org/bot1:AA/getUpdates", request)
+	require.Len(t, base.bodies, 2)
+
+	var first, second struct {
+		Timeout int `json:"timeout"`
+	}
+	require.NoError(t, json.Unmarshal(base.bodies[0], &first))
+	require.NoError(t, json.Unmarshal(base.bodies[1], &second))
+	require.Zero(t, first.Timeout)
+	require.Equal(t, 30, second.Timeout,
+		"steady-state polling must keep its long hold instead of hammering Telegram")
 }
 
 type fakeConsumer struct {

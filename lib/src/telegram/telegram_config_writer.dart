@@ -1,3 +1,5 @@
+import 'package:flutter/services.dart';
+
 import '../core/pocketclaw_channel.dart';
 import 'telegram_onboarding_models.dart';
 
@@ -30,6 +32,19 @@ class TelegramConfigWriter {
     final bool saved;
     try {
       saved = await sink(credentials);
+    } on PlatformException catch (error) {
+      if (error.code == 'TELEGRAM_CREDENTIALS_INVALID') {
+        throw const TelegramOnboardingException(
+          TelegramOnboardingErrorKind.invalidCredentials,
+          'Telegram rejected the bot credentials',
+        );
+      }
+      throw const TelegramOnboardingException(
+        TelegramOnboardingErrorKind.configurationFailed,
+        'could not save the Core Telegram configuration',
+      );
+    } on TelegramOnboardingException {
+      rethrow;
     } catch (_) {
       throw const TelegramOnboardingException(
         TelegramOnboardingErrorKind.configurationFailed,

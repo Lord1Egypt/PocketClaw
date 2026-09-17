@@ -483,6 +483,14 @@ class PocketClawMethodChannel(
                                 .put("owner_user_id", ownerUserId)
                             callTelegramBridge("PUT", body)
                             mainExecutor.execute { result.success(true) }
+                        } catch (e: TelegramCredentialsInvalidException) {
+                            mainExecutor.execute {
+                                result.error(
+                                    "TELEGRAM_CREDENTIALS_INVALID",
+                                    "Telegram rejected these bot credentials",
+                                    null
+                                )
+                            }
                         } catch (e: Exception) {
                             mainExecutor.execute {
                                 result.error(
@@ -1055,6 +1063,8 @@ class PocketClawMethodChannel(
     }
 
     /** Writes paired credentials through Core's own config/security store. */
+    private class TelegramCredentialsInvalidException : Exception()
+
     private fun callTelegramBridge(
         method: String,
         body: JSONObject? = null
@@ -1062,7 +1072,10 @@ class PocketClawMethodChannel(
         val connection = (URL(TELEGRAM_BRIDGE_URL).openConnection() as HttpURLConnection).apply {
             requestMethod = method
             connectTimeout = 3_000
-            readTimeout = 5_000
+            // Core validates a replacement with Telegram before committing it.
+            // Keep this just above Core's bounded validation timeout so the
+            // host receives the classified result instead of timing out first.
+            readTimeout = 12_000
             setRequestProperty(
                 "X-PocketClaw-Android-Bridge",
                 PocketClawService.bridgeTokenForHost()
@@ -1078,6 +1091,9 @@ class PocketClawMethodChannel(
                 connection.outputStream.use { output ->
                     output.write(body.toString().toByteArray(Charsets.UTF_8))
                 }
+            }
+            if (connection.responseCode == HttpURLConnection.HTTP_UNAUTHORIZED) {
+                throw TelegramCredentialsInvalidException()
             }
             if (connection.responseCode != HttpURLConnection.HTTP_OK) {
                 throw IllegalStateException("Core Telegram bridge request failed")
