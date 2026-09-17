@@ -301,9 +301,22 @@ func (h *Handler) handleAndroidTelegramConfigure(w http.ResponseWriter, r *http.
 	applied, pending, err := h.writeTelegramCredentialsContext(
 		r.Context(), request.Token, request.OwnerUserID)
 	if err != nil {
-		if errors.Is(err, ErrTelegramCredentialsInvalid) {
+		// Distinct, actionable candidate outcomes. The token is not stored and
+		// the previous bot is untouched in every one of these.
+		switch {
+		case errors.Is(err, ErrTelegramCredentialsInvalid):
 			writeJSONStatus(w, http.StatusUnauthorized, map[string]any{
 				"error": "invalid_credentials",
+			})
+			return
+		case errors.Is(err, ErrTelegramWebhookConflict):
+			writeJSONStatus(w, http.StatusConflict, map[string]any{
+				"error": "webhook_active",
+			})
+			return
+		case errors.Is(err, ErrTelegramBotInUse):
+			writeJSONStatus(w, http.StatusConflict, map[string]any{
+				"error": "bot_in_use",
 			})
 			return
 		}
@@ -361,8 +374,16 @@ func (h *Handler) writeTelegramCredentialsContext(
 	if validationErr := h.validateTelegramCredentials(
 		ctx, token, settings.BaseURL, settings.Proxy,
 	); validationErr != nil {
-		if errors.Is(validationErr, ErrTelegramCredentialsInvalid) {
+		// Terminal candidate outcomes are propagated by identity so the caller
+		// can show the actionable reason. Nothing is mutated before this point,
+		// which is what keeps the previously committed bot recoverable.
+		switch {
+		case errors.Is(validationErr, ErrTelegramCredentialsInvalid):
 			return false, false, ErrTelegramCredentialsInvalid
+		case errors.Is(validationErr, ErrTelegramWebhookConflict):
+			return false, false, ErrTelegramWebhookConflict
+		case errors.Is(validationErr, ErrTelegramBotInUse):
+			return false, false, ErrTelegramBotInUse
 		}
 		return false, false, errors.New("Telegram credential validation failed")
 	}

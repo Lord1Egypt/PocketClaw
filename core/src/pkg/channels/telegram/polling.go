@@ -61,12 +61,16 @@ type telegramIntake struct {
 	auth             chan struct{}
 	usable           chan struct{}
 	unauthorized     chan struct{}
+	conflict         chan struct{}
 	startedOnce      sync.Once
 	authOnce         sync.Once
 	usableOnce       sync.Once
 	unauthorizedOnce sync.Once
+	conflictOnce     sync.Once
 	firstGetUpdates  sync.Once
 	onUnauthorized   func()
+	// onConflict receives a safe subtype ("webhook_active" or "bot_in_use").
+	onConflict func(reason string)
 }
 
 func newTelegramIntake(generation ...telegramGeneration) *telegramIntake {
@@ -80,6 +84,7 @@ func newTelegramIntake(generation ...telegramGeneration) *telegramIntake {
 		auth:         make(chan struct{}),
 		usable:       make(chan struct{}),
 		unauthorized: make(chan struct{}),
+		conflict:     make(chan struct{}),
 	}
 }
 
@@ -127,6 +132,41 @@ func (t *telegramIntake) markUnauthorized() {
 	})
 }
 
+// terminalError reports a terminal outcome that has already been recorded, or
+// nil. Used to prefer the real cause (invalid credentials, or a bot owned
+// elsewhere) over a generic "not ready" when both are true at once.
+func (t *telegramIntake) terminalError() error {
+	if t == nil {
+		return nil
+	}
+	select {
+	case <-t.unauthorized:
+		return errTelegramAuthentication
+	case <-t.conflict:
+		return errTelegramConflict
+	default:
+		return nil
+	}
+}
+
+// markConflict records that Telegram refused this generation's getUpdates
+// because the bot is owned elsewhere. It fires the terminal callback exactly
+// once and unblocks any Start wait.
+func (t *telegramIntake) markConflict(reason string) {
+	if t == nil {
+		return
+	}
+	t.conflictOnce.Do(func() {
+		// Record the terminal state before unblocking any Start wait, so the
+		// channel's runtime failure is already set when the wait returns.
+		if t.onConflict != nil {
+			t.onConflict(reason)
+		}
+		close(t.conflict)
+		logTelegramLifecycleGeneration("telegram_conflict", uint64(t.generation))
+	})
+}
+
 // telegramIntakeRef is the mutable slot a channel's API caller reads, so a new
 // generation's intake can be installed before its poller starts.
 type telegramIntakeRef struct {
@@ -166,15 +206,28 @@ func (c *telegramIntakeCaller) Call(
 		data = intake.firstGetUpdatesRequest(data)
 	}
 	response, err := c.base.Call(ctx, url, data)
-	if response != nil && response.Error != nil && response.ErrorCode == 401 {
-		intake.markUnauthorized()
-		if isGetUpdates {
-			// Telego retries every polling error after eight seconds unless it
-			// sees cancellation. Invalid credentials are terminal, so return a
-			// cancellation-shaped error after recording the real cause.
-			return nil, errors.Join(context.Canceled, errTelegramAuthentication)
+	// The HTTP status code is the primary signal. Telegram answers 401 for a
+	// bad credential and 409 when the bot is already owned -- by an active
+	// webhook or by another long poller. Both are terminal for this generation,
+	// and neither may be retried: telego's generic loop would otherwise retry a
+	// 409 every eight seconds and fight the other owner indefinitely.
+	if response != nil && response.Error != nil {
+		switch response.ErrorCode {
+		case 401:
+			intake.markUnauthorized()
+			if isGetUpdates {
+				// Return a cancellation-shaped error after recording the real
+				// cause so telego stops its retry loop.
+				return nil, errors.Join(context.Canceled, errTelegramAuthentication)
+			}
+			return nil, errTelegramAuthentication
+		case 409:
+			reason := classifyTelegramConflict(response.Description)
+			intake.markConflict(reason)
+			if isGetUpdates {
+				return nil, errors.Join(context.Canceled, &telegramConflictError{reason: reason})
+			}
 		}
-		return nil, errTelegramAuthentication
 	}
 	if err == nil && response != nil && response.Ok {
 		intake.markAuthenticated()
@@ -183,6 +236,25 @@ func (c *telegramIntakeCaller) Call(
 		}
 	}
 	return response, err
+}
+
+// telegramConflictError is the cancellation-shaped error a conflicted getUpdates
+// returns, so telego stops polling and the channel can name the cause.
+type telegramConflictError struct{ reason string }
+
+func (e *telegramConflictError) Error() string {
+	return "telegram conflict: " + e.reason
+}
+
+// classifyTelegramConflict maps a 409 to a subtype using the description only as
+// a best-effort hint. The reliable signal is the 409 code itself; an unknown
+// description falls back to bot_in_use, which is the safe, non-destructive
+// default and carries no external URL or identity.
+func classifyTelegramConflict(description string) string {
+	if strings.Contains(strings.ToLower(description), "webhook") {
+		return "webhook_active"
+	}
+	return "bot_in_use"
 }
 
 // firstGetUpdatesRequest makes only the readiness probe a short poll. The
@@ -213,10 +285,17 @@ func (t *telegramIntake) firstGetUpdatesRequest(data *ta.RequestData) *ta.Reques
 // this is not a delay; it is the window in which a broken poller fails closed.
 const telegramIntakeWait = 5 * time.Second
 
-var errTelegramAuthentication = errors.New("telegram authentication failed")
+var (
+	errTelegramAuthentication = errors.New("telegram authentication failed")
+	errTelegramConflict       = errors.New("telegram conflict")
+	// errTelegramWebhookActive is the non-destructive webhook refusal. The URL
+	// itself is never carried in the error.
+	errTelegramWebhookActive = errors.New("telegram bot has an active webhook")
+)
 
 // waitForIntakeUsable reports only a successful getUpdates response. Merely
-// initiating the request cannot satisfy this boundary; a 401 wins immediately.
+// initiating the request cannot satisfy this boundary; a 401 or a 409 wins
+// immediately, so a conflicted candidate never waits out the bound.
 func waitForIntakeUsable(intake *telegramIntake, within time.Duration) error {
 	if intake == nil {
 		return errors.New("telegram intake is unavailable")
@@ -228,6 +307,8 @@ func waitForIntakeUsable(intake *telegramIntake, within time.Duration) error {
 		return nil
 	case <-intake.unauthorized:
 		return errTelegramAuthentication
+	case <-intake.conflict:
+		return errTelegramConflict
 	case <-timer.C:
 		return errors.New("telegram getUpdates intake did not become usable")
 	}

@@ -161,6 +161,58 @@ func TestAndroidTelegramBridgeRejectsInvalidCandidateWithoutReplacingOldBot(t *t
 	}
 }
 
+// A candidate that passes getMe but is owned elsewhere -- an active webhook or
+// another long poller -- must not replace the working bot. The preflight rejects
+// it before any mutation, so the committed bot stays authoritative, and the
+// response names the actionable reason rather than collapsing it.
+func TestAndroidTelegramBridgeRejectsOwnedCandidateWithoutReplacingOldBot(t *testing.T) {
+	for name, tc := range map[string]struct {
+		validator error
+		wantKind  string
+	}{
+		"active webhook": {ErrTelegramWebhookConflict, "webhook_active"},
+		"another poller": {ErrTelegramBotInUse, "bot_in_use"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			path := writeAndroidBridgeTestConfig(t, "existing-child-token")
+			beforeCfg, beforeChannel, _ := readTelegramBridgeConfig(t, path)
+			beforeChannel.AllowFrom = config.FlexibleStringSlice{"111"}
+			if err := config.SaveConfig(path, beforeCfg); err != nil {
+				t.Fatal(err)
+			}
+
+			handler := NewHandler(path)
+			handler.SetTelegramCredentialValidator(func(
+				context.Context, string, string, string,
+			) error {
+				return tc.validator
+			})
+			mux := http.NewServeMux()
+			handler.RegisterAndroidBridgeRoutes(mux, testAndroidBridgeToken)
+
+			rec := httptest.NewRecorder()
+			mux.ServeHTTP(rec, telegramBridgeRequest(
+				`{"token":"owned-candidate","owner_user_id":222}`,
+				testAndroidBridgeToken,
+			))
+			if rec.Code != http.StatusConflict {
+				t.Fatalf("status = %d, body=%s", rec.Code, rec.Body.String())
+			}
+			if !strings.Contains(rec.Body.String(), tc.wantKind) {
+				t.Fatalf("body = %q, want kind %q", rec.Body.String(), tc.wantKind)
+			}
+
+			_, channel, settings := readTelegramBridgeConfig(t, path)
+			if settings.Token.String() != "existing-child-token" {
+				t.Fatal("the owned candidate replaced the old token")
+			}
+			if len(channel.AllowFrom) != 1 || channel.AllowFrom[0] != "111" {
+				t.Fatalf("the owned candidate replaced the old owner: %v", channel.AllowFrom)
+			}
+		})
+	}
+}
+
 func TestAndroidTelegramBridgeFailurePreservesWorkingConfiguration(t *testing.T) {
 	path := writeAndroidBridgeTestConfig(t, "existing-child-token")
 	mux := http.NewServeMux()

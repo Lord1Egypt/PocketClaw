@@ -59,6 +59,10 @@ const (
 	// private message gets deterministic local setup guidance and no agent
 	// access. The detail is "owner_missing".
 	readinessSetupRequired telegramReadinessState = "setup_required"
+	// readinessConflict: the bot is owned by another service -- an active
+	// webhook or another long poller. Terminal for this configuration and never
+	// ready. The detail is "webhook_active" or "bot_in_use".
+	readinessConflict telegramReadinessState = "telegram_conflict"
 	// readinessReady: consuming and the menu reached Telegram.
 	readinessReady telegramReadinessState = "ready"
 	// readinessUnknown: the gateway would not say. Never reported as ready.
@@ -150,6 +154,12 @@ func (h *Handler) telegramReadinessWithGeneration() (telegramReadinessState, str
 	}
 	if channel.RuntimeFailure == "authentication_failed" {
 		return readinessAuthenticationFailed, "invalid_credentials", 0
+	}
+	// A bot owned by another service is terminal for this configuration and is
+	// never ready. The subtype rides after "conflict:" and carries no URL or
+	// identity.
+	if reason, ok := strings.CutPrefix(channel.RuntimeFailure, "conflict:"); ok {
+		return readinessConflict, reason, 0
 	}
 	if !channel.Running {
 		return readinessChannelStarting, "", 0

@@ -286,9 +286,16 @@ func (h *Handler) handleTelegramOnboardingComplete(w http.ResponseWriter, r *htt
 			map[string]any{"surface": "dashboard", "error": writeErr.Error()})
 		status := http.StatusInternalServerError
 		kind := "configuration_failed"
-		if errors.Is(writeErr, ErrTelegramCredentialsInvalid) {
+		switch {
+		case errors.Is(writeErr, ErrTelegramCredentialsInvalid):
 			status = http.StatusUnauthorized
 			kind = "invalid_credentials"
+		case errors.Is(writeErr, ErrTelegramWebhookConflict):
+			status = http.StatusConflict
+			kind = "webhook_active"
+		case errors.Is(writeErr, ErrTelegramBotInUse):
+			status = http.StatusConflict
+			kind = "bot_in_use"
 		}
 		writeJSONStatus(w, status, map[string]any{"error": kind})
 		return

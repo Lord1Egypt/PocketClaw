@@ -295,6 +295,19 @@ func (c *TelegramChannel) Start(ctx context.Context) error {
 	// From here on a 401 is asynchronous (polling or menu registration), so
 	// this generation owns the callback that revokes readiness and retires it.
 	intake.onUnauthorized = func() { c.failAuthentication(uint64(generation)) }
+	// A 409 on getUpdates means another service owns this bot. It is terminal
+	// for this generation and is never retried.
+	intake.onConflict = func(reason string) { c.failConflict(uint64(generation), reason) }
+
+	// PC-DEF-069. Before this bot is allowed to own the update stream, check for
+	// an existing webhook non-destructively. PocketClaw never calls
+	// deleteWebhook, never replaces it and never mutates the other service; it
+	// refuses to start and reports the conflict. A check that cannot be read
+	// does not block the start: an active webhook is still caught terminally by
+	// the getUpdates 409 path below.
+	if err := c.refuseIfWebhookActive(uint64(generation)); err != nil {
+		return err
+	}
 
 	logger.DebugCF("telegram", "Telegram polling starting", map[string]any{
 		"event": "polling.prepare",
@@ -346,6 +359,14 @@ func (c *TelegramChannel) Start(ctx context.Context) error {
 		readyProbe = waitForHandlerConsuming
 	}
 	if !readyProbe(bh, handlerConsumingWait) {
+		// A terminal intake outcome may already be recorded. It names the real
+		// cause -- invalid credentials, or a bot owned by another service -- and
+		// must win over the generic "not ready", or a conflict would be reported
+		// as an unconfirmed receiver.
+		if terminal := intake.terminalError(); terminal != nil {
+			c.refuseStart(uint64(generation), bh)
+			return terminal
+		}
 		// Fail closed. Reporting Running here used to authorize the Android
 		// handoff even though the receiver had not confirmed it was consuming.
 		// Stop both halves before returning so a later retry cannot overlap this
@@ -382,6 +403,11 @@ func (c *TelegramChannel) Start(ctx context.Context) error {
 		if errors.Is(intakeErr, errTelegramAuthentication) {
 			return errTelegramAuthentication
 		}
+		if errors.Is(intakeErr, errTelegramConflict) {
+			// The intake callback already recorded the terminal conflict reason
+			// (webhook_active or bot_in_use) before unblocking this wait.
+			return errTelegramConflict
+		}
 		return intakeErr
 	}
 
@@ -405,16 +431,71 @@ func (c *TelegramChannel) Start(ctx context.Context) error {
 const (
 	telegramRuntimeFailureNone uint32 = iota
 	telegramRuntimeFailureAuthentication
+	telegramRuntimeFailureConflictWebhook
+	telegramRuntimeFailureConflictInUse
 )
 
 // RuntimeFailure reports a sanitized terminal code for readiness. It remains
 // latched after the failed generation is retired and is cleared only by a new
 // Start attempt.
+//
+// The conflict codes carry a machine-readable subtype after "conflict:". They
+// never carry the webhook URL, a bot id, an owner id or a credential.
 func (c *TelegramChannel) RuntimeFailure() string {
-	if c.runtimeFailure.Load() == telegramRuntimeFailureAuthentication {
+	switch c.runtimeFailure.Load() {
+	case telegramRuntimeFailureAuthentication:
 		return "authentication_failed"
+	case telegramRuntimeFailureConflictWebhook:
+		return "conflict:webhook_active"
+	case telegramRuntimeFailureConflictInUse:
+		return "conflict:bot_in_use"
 	}
 	return ""
+}
+
+// conflictReason names the conflict subtype from the runtime failure code.
+func (c *TelegramChannel) conflictReason() string {
+	switch c.runtimeFailure.Load() {
+	case telegramRuntimeFailureConflictWebhook:
+		return "webhook_active"
+	case telegramRuntimeFailureConflictInUse:
+		return "bot_in_use"
+	}
+	return ""
+}
+
+// refuseIfWebhookActive is the non-destructive webhook conflict check.
+//
+// It asks Telegram for the bot's current webhook with getWebhookInfo and, when
+// one is configured, refuses to start this generation. It never calls
+// deleteWebhook, never sets one, and never mutates the other service: taking
+// over somebody else's bot is not PocketClaw's decision to make. Only the fact
+// of the conflict is recorded, never the webhook URL.
+//
+// A getWebhookInfo that cannot be read does not block the start. Proceeding is
+// safe because an active webhook still makes getUpdates answer 409, which the
+// intake caller handles terminally.
+func (c *TelegramChannel) refuseIfWebhookActive(generation uint64) error {
+	info, err := c.bot.GetWebhookInfo(c.ctx)
+	if err != nil {
+		logger.DebugCF("telegram", "Telegram webhook check unavailable", map[string]any{
+			"event":               "webhook_check_unavailable",
+			"telegram_generation": generation,
+		})
+		return nil
+	}
+	if info == nil || strings.TrimSpace(info.URL) == "" {
+		return nil
+	}
+	c.runtimeFailure.Store(telegramRuntimeFailureConflictWebhook)
+	logger.WarnCF("telegram", "Telegram bot has an active webhook; refusing to start",
+		map[string]any{
+			"event":               "telegram.conflict",
+			"telegram_generation": generation,
+			"reason":              "webhook_active",
+		})
+	c.refuseStart(generation, nil)
+	return errTelegramWebhookActive
 }
 
 // failAuthentication owns the asynchronous 401 path (getUpdates and command
@@ -425,6 +506,42 @@ func (c *TelegramChannel) failAuthentication(generation uint64) {
 		return
 	}
 	c.runtimeFailure.Store(telegramRuntimeFailureAuthentication)
+	logger.ErrorCF("telegram", "Telegram rejected the configured bot credentials", map[string]any{
+		"event":               "telegram.authentication_failed",
+		"telegram_generation": generation,
+	})
+	c.revokeAndRetire(generation)
+}
+
+// failConflict owns the terminal conflict path. A bot already owned by another
+// service -- by webhook or by another long poller -- is not something to fight:
+// the generation is revoked and retired exactly once, and no retry is scheduled.
+//
+// reason is a safe machine code ("webhook_active" or "bot_in_use"), never the
+// webhook URL or any identity.
+func (c *TelegramChannel) failConflict(generation uint64, reason string) {
+	if generation == 0 || c.generation.Load() != generation {
+		return
+	}
+	if reason == "webhook_active" {
+		c.runtimeFailure.Store(telegramRuntimeFailureConflictWebhook)
+	} else {
+		c.runtimeFailure.Store(telegramRuntimeFailureConflictInUse)
+	}
+	logger.WarnCF("telegram", "Telegram bot is already owned by another service",
+		map[string]any{
+			"event":               "telegram.conflict",
+			"telegram_generation": generation,
+			"reason":              reason,
+		})
+	c.revokeAndRetire(generation)
+}
+
+// revokeAndRetire is the shared terminal path for a generation that cannot be
+// the update owner: revoke Running and the command menu, cancel every loop, and
+// retire the exact generation once its poller confirms exit. It never schedules
+// a retry.
+func (c *TelegramChannel) revokeAndRetire(generation uint64) {
 	c.SetRunning(false)
 	c.commandsRegistered.Store(false)
 	if c.commandRegCancel != nil {
@@ -433,10 +550,6 @@ func (c *TelegramChannel) failAuthentication(generation uint64) {
 	if c.cancel != nil {
 		c.cancel()
 	}
-	logger.ErrorCF("telegram", "Telegram rejected the configured bot credentials", map[string]any{
-		"event":               "telegram.authentication_failed",
-		"telegram_generation": generation,
-	})
 	bh := c.bh
 	go c.retireFailedGeneration(generation, bh)
 }

@@ -158,6 +158,11 @@ func (c *TelegramChannel) startCommandRegistration(ctx context.Context, defs []c
 				// loop here.
 				return
 			}
+			if errors.Is(err, errTelegramConflict) {
+				// A terminal conflict is not retried here either, for the same
+				// reason: the generation is already being retired.
+				return
+			}
 
 			delay := delayFn(attempt)
 			logger.WarnCF("telegram", "Telegram command registration failed; will retry", map[string]any{

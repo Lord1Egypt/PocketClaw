@@ -81,6 +81,49 @@ func readinessEnv(t *testing.T, channels []status.Channel) *Handler {
 	return handler
 }
 
+// A bot owned by another service is a terminal conflict, never ready, and it
+// names no polling generation that could authorize a handoff.
+func TestTelegramReadinessReportsWebhookConflict(t *testing.T) {
+	handler := readinessEnv(t, []status.Channel{{
+		Name: "telegram", Configured: true, RuntimeFailure: "conflict:webhook_active",
+	}})
+
+	state, detail, generation := handler.telegramReadinessWithGeneration()
+	if state != readinessConflict {
+		t.Fatalf("state = %q, want %q", state, readinessConflict)
+	}
+	if detail != "webhook_active" {
+		t.Fatalf("detail = %q, want webhook_active", detail)
+	}
+	if generation != 0 {
+		t.Fatalf("generation = %d, want 0: a conflict authorizes nothing", generation)
+	}
+}
+
+func TestTelegramReadinessReportsBotInUse(t *testing.T) {
+	handler := readinessEnv(t, []status.Channel{{
+		Name: "telegram", Configured: true, RuntimeFailure: "conflict:bot_in_use",
+	}})
+
+	state, detail, generation := handler.telegramReadinessWithGeneration()
+	if state != readinessConflict || detail != "bot_in_use" || generation != 0 {
+		t.Fatalf("state/detail/generation = %q/%q/%d, want telegram_conflict/bot_in_use/0",
+			state, detail, generation)
+	}
+}
+
+// 401 and 409 are different failures and must stay distinct all the way to
+// readiness.
+func TestTelegramReadinessKeeps401And409Distinct(t *testing.T) {
+	auth := readinessEnv(t, []status.Channel{{
+		Name: "telegram", Configured: true, RuntimeFailure: "authentication_failed",
+	}})
+	state, detail, _ := auth.telegramReadinessWithGeneration()
+	if state != readinessAuthenticationFailed || detail != "invalid_credentials" {
+		t.Fatalf("401 mapped to %q/%q, want authentication_failed/invalid_credentials", state, detail)
+	}
+}
+
 // writeOwnerlessTelegramConfig persists a valid token with no owner: the state
 // the desktop manual save (PATCH /api/config) can produce, and the reason Core
 // has to defend it.

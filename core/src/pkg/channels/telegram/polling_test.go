@@ -51,6 +51,14 @@ type pollingStub struct {
 	failDelete   bool
 	unauthorized map[string]bool
 
+	// webhookURL is what getWebhookInfo reports. Non-empty means the bot is
+	// attached to another service through a webhook.
+	webhookURL string
+	// getUpdatesErrorCode makes getUpdates answer a Bot API error (409 for a
+	// bot owned by another poller). Zero means a normal answer.
+	getUpdatesErrorCode   int
+	getUpdatesDescription string
+
 	offsets    []int64
 	getMeCalls int
 	methods    []string
@@ -85,9 +93,25 @@ func (s *pollingStub) Call(_ context.Context, url string, data *ta.RequestData) 
 		}
 		return jsonResponse(&telego.User{ID: 42, Username: "pocketclaw_test_bot", IsBot: true})
 
+	case "getWebhookInfo":
+		s.mu.Lock()
+		url := s.webhookURL
+		s.mu.Unlock()
+		return jsonResponse(&telego.WebhookInfo{URL: url})
+
 	case "getUpdates":
 		if s.isUnauthorized(method) {
 			return unauthorizedResponse()
+		}
+		s.mu.Lock()
+		conflictCode := s.getUpdatesErrorCode
+		conflictDescription := s.getUpdatesDescription
+		s.mu.Unlock()
+		if conflictCode != 0 {
+			return &ta.Response{
+				Ok:    false,
+				Error: &ta.Error{ErrorCode: conflictCode, Description: conflictDescription},
+			}, nil
 		}
 		var params struct {
 			Offset int64 `json:"offset"`
