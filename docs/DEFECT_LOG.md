@@ -373,6 +373,14 @@ with:
   lobster fails it with the offending line quoted.
 - **Command behaviour is untouched**, and the 14-command registration the owner
   physically verified is unchanged.
+- **Sweep update, 2026-09-17.** The branding check covered
+  `BuiltinDefinitions()` only, while the handler prefers the runtime's own
+  `ListDefinitions()` — the list that actually reaches a chat user. Added
+  `TestRuntimeHelpOutputCarriesNoLegacyBranding`, which drives the real handler
+  with a runtime-supplied command, asserts the assembled reply is clean and that
+  the runtime command reached it. The header assertion is now exact
+  (`PocketClaw\n\n`) rather than a substring, so a substituted emoji or tagline
+  cannot satisfy it.
 - **Status:** RESOLVED.
 
 ### PC-DEF-065 — The first Dashboard password could not be created
@@ -502,6 +510,12 @@ sequence.
   failing probe, a silent probe, a failed probe not being cached so the next read
   succeeds, and a successful probe being cached. The two existing channel tests
   that pinned the `"unknown"` sentinel were rewritten to the new contract.
+- **Sweep update, 2026-09-17.** Added the widget case that was missing:
+  `renders Unavailable when the Core probe returned null` pins the real
+  completed-failure representation (`AboutInfo(coreVersion: null)`) to
+  Unavailable and asserts no spinner, which is the distinction PC-DEF-063 is
+  about. The app version still comes from `package_info_plus` and the Core
+  version from the binary probe; no hardcoded release number was added.
 - **Status:** RESOLVED.
 
 ### PC-DEF-062 — Desktop could pair a Telegram bot but never remove one
@@ -533,6 +547,15 @@ sequence.
   credential in the response -- plus 4 UI cases covering confirmation, the single
   authoritative call, a parked removal reported as information, and a failure not
   telling the page it succeeded.
+- **Sweep update, 2026-09-17 — the direct-replacement gap closed.** The earlier
+  round covered delete-then-pair and rejected-candidate-preserves-old, but not a
+  pair-over-pair with no intervening removal, which is what Replace actually
+  does. `TestDirectReplacementLeavesExactlyOneOwnerAndToken` now asserts exactly
+  one owner and the new token remain. The Telegram generation/intake/401 fixes
+  are untouched. The generation-overlap and stale-identity invariants remain
+  covered by `TestTelegramReadinessRejectsThePreviousGenerationWhileConfigApplies`,
+  `TestChannelNamesItsPollingGenerationAndRetiresIt` and
+  `TestStartCleanupRequiresTheSameActiveGeneration`.
 - **Status:** FIXED IN SOURCE — physical confirmation required.
 
 ### PC-DEF-061 — The first owner message after a managed pairing was not received
@@ -1400,6 +1423,22 @@ reply unchanged, and the user-facing identity surviving being returned and wrapp
   on reconnect).
 - **Status:** FIXED IN SOURCE. **Physical confirmation required** — connect a bot
   on the device and watch for any intermediate page.
+- **Sweep update, 2026-09-17 — the browser path was the remaining hole.** The
+  Android native launch was guarded, but the audit found two render paths that
+  still accepted the service's value verbatim: the Dashboard anchor/`copyLink`
+  (`telegram-desktop-connect.tsx`) and the Android QR
+  (`TelegramPairingQr(payload: pairing.qrPayload)`), and the Go handler forwarded
+  `deep_link`/`qr_payload` unvalidated despite comments claiming otherwise. Core
+  now returns only a Telegram destination
+  (`telegramDestinationOrEmpty`, mirroring the Dart resolver); the desktop
+  component refuses to render a non-Telegram link even if Core had returned one;
+  and the QR is omitted when its payload is not a Telegram destination. Tests:
+  `TestCreatePairingDropsANonTelegramDeepLink`,
+  `TestTelegramDestinationOrEmptyAdmitsOnlyTelegram` (Go); the
+  `drops a non-Telegram deep link` and `classifies only real Telegram
+  destinations` Vitest cases; and the `drops a QR whose payload is not a
+  Telegram link` widget case. The rejected-pairing behaviour is unchanged: the
+  manual form remains.
 - **Note for the service repository:** returning a `t.me` link directly as
   `deep_link` would make the background resolution a no-op and remove the round
   trip. The app is correct either way now, so this is an optimisation, not a
@@ -1552,6 +1591,23 @@ reply unchanged, and the user-facing identity surviving being returned and wrapp
   redesign: the badge, the accent edge and the icon are unchanged.
 - **Verification:** 6 cases in `model-card.test.tsx` under "ModelCard
   set-default affordance".
+- **Sweep update, 2026-09-17 — a real data-loss bug beside the UX one.** The add
+  and edit request shapes carry no `enabled` field, and both handlers wrote Go's
+  zero value back: a model added through the API started disabled, and editing
+  one disabled it. An omitted field now means enabled on add and preserves the
+  stored value on edit (`models.go`). Added handler-level tests for the default
+  contract the earlier round left unproven: `TestHandleSetDefaultModelPersistsAnEnabledModel`,
+  `TestHandleSetDefaultModelSwitchesBetweenModels`,
+  `TestHandleAddModelEnablesAnOmittedEnabledField`,
+  `TestHandleUpdateModelPreservesEnabledWhenOmitted`, and
+  `TestUpdatingTheDefaultModelsKeyKeepsItDefault`. **Deliberate limitation,
+  recorded rather than hidden:** the product still exposes no enable/disable
+  control, so the default-selectability gate remains `available` +
+  `default_model_allowed` + non-virtual; `validateDefaultModelSelection` was not
+  widened to require `Enabled`, because `Enabled` is not a user-facing control in
+  this build and doing so would reject ordinary models. The only removal path is
+  delete, which clears the default to the empty string (documented canonical
+  fallback, `model_references.go`), already tested.
 - **Status:** FIXED IN SOURCE. **Physical confirmation required.**
 
 ### PC-DEF-049 — A configured provider had no management path at all
@@ -1661,6 +1717,15 @@ reply unchanged, and the user-facing identity surviving being returned and wrapp
   of the provider.
 - **Status:** FIXED IN SOURCE. **Physical confirmation required** — real
   inference with a replaced key on the device.
+- **Sweep update, 2026-09-17.** Reconfirmed that the credential material is
+  covered by `computeModelCredentialSignatures` and that the apply path goes
+  through `RestartGatewayForConfigChange`, so a rotation that changes the
+  signature reaches a restarted runtime. The end-to-end physical proof (next
+  request uses K2, K1 never reused) is still a device check. Added
+  `TestUpdatingTheDefaultModelsKeyKeepsItDefault`, which pins that a rotation of
+  the model that is currently default does not move the selection. No production
+  change was needed for this defect beyond the shared `enabled` preservation
+  recorded under PC-DEF-055.
 
 ### PC-DEF-051 — The Telegram command menu is empty; registration evidence was never trustworthy
 

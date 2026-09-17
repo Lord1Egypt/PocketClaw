@@ -34,7 +34,8 @@ evidence and describe the state at the date of each entry.
 | Exposure-audit state-basis HEAD | `25753cef5fa4d956e11d37b5a6176cdef977f015` (verified PC-DEF-019 closeout; the audit closeout commit follows it) |
 | Final release exposure audit | **CLOSED / PASS** on the re-run at `6031898`. No release blocker remains for the GitHub / direct APK release. `PC-DEF-022`, `PC-DEF-023` and `PC-DEF-024` have all since been RESOLVED; only `PC-DEF-006` (F-Droid path) and `PC-DEF-012` remain open |
 | Production candidate | **BUILT AND GATED.** `4d4bc33a…`, 63,472,307 bytes, one v2 signer `176dca6b…`; production artifact gate 57 PASS / 0 FAIL / 0 SKIPPED. Private validation evidence — not installed, published or accepted |
-| Next authorized milestone | **Samsung fresh install for PC-DEF-058 (third attempt) and a Telegram `/help` check for PC-DEF-066** — the only two items still open. This build is instrumented: if the notification dialog still does not appear, the `notification_permission` log line names which input is wrong. Physically verified and not to be reopened without contradictory evidence: fresh-install first password (PC-DEF-065), Public Mode reconciliation (PC-DEF-040), Telegram Managed Connect (PC-DEF-060), the first `/start` answered on the first send (PC-DEF-061), `PC-E-AI-004` (PC-DEF-053). Still unverified: PC-DEF-062, 050, 052, 055 |
+| Next authorized milestone | **Samsung physical pass over the remaining source-verified items.** Source-verified and pending device confirmation: PC-DEF-050 (rotate a key and watch the next request), PC-DEF-052 (no hosting URL is ever visible in Telegram onboarding), PC-DEF-055 (Set Default A→B survives restart), PC-DEF-062 (desktop Disconnect/Replace, after Telegram's creation cooldown), PC-DEF-063 (About shows `PocketClaw 0.2.0` / a resolved Core version), PC-DEF-058 (notification dialog, fresh install), PC-DEF-066 (`/help` has no lobster or Pico identity). Physically verified and not to be reopened without contradictory evidence: fresh-install first password (PC-DEF-065), Public Mode reconciliation (PC-DEF-040), Telegram Managed Connect (PC-DEF-060), the first `/start` answered on the first send (PC-DEF-061), `PC-E-AI-004` (PC-DEF-053) |
+| Release-evidence reconciliation | [`docs/RELEASE_EVIDENCE_RECONCILIATION.md`](docs/RELEASE_EVIDENCE_RECONCILIATION.md) — the Zero-Pico allowlist `19 → 22` growth (scope widened by `d4e7107`, three migration/legal exemptions added) and the native ELF `194 → 188` (the 194 runs passed `--native-support-manifest`, adding exactly six checks) |
 | Verification APK (PC-DEF-058 third attempt, PC-DEF-066) | `8980c921e37bdf956b874ec7d247a9c6095edcab9dace4bd0b08c985efc03cca`, 63,596,703 bytes, `0.2.0+62`, development signer `15cf75f9…`, Dart AOT `08b44517ff47c5679b8ebead16e11c14471053b51ef12b333e1e931a211fba98`. Source gate **29/29** including `journey.fresh_install`, `flutter.suite 567 passed`, artifact gate 25/25, native ELF 188 PASS / 0 FAIL, Zero-Pico PASS. `POST_NOTIFICATIONS` confirmed declared and `targetSdkVersion` confirmed 36, both read from this APK. Archived read-only at `build/forensic/apk-8980c921…/`. **PC-DEF-058 needs a genuine uninstall.** LOCAL TEST / NON-RELEASABLE; the two open items are not physically verified |
 | Verification APK (PC-DEF-065 first password, PC-DEF-058 second attempt, superseded) | `d653d6c4ff64b3bc1509058e14caa54077cf635f52a9c6ff8f2541a85acbc8d0`, 63,595,479 bytes, `0.2.0+62`, development signer `15cf75f9…`, Dart AOT `08b44517ff47c5679b8ebead16e11c14471053b51ef12b333e1e931a211fba98`. Source gate **29/29** including the new `journey.fresh_install` row, `flutter.suite 567 passed`, artifact gate 25/25, native ELF 188 PASS / 0 FAIL, Zero-Pico PASS. Fixes the two fresh-install blockers: the first Dashboard password (the claim reconciliation was closing the listener carrying its own response) and the notification prompt (asked only from a page a fresh install never opens). Archived read-only at `build/forensic/apk-d653d6c4…/`, whose `FORENSIC.md` leads with the ordered fresh-install journey. **Requires a genuine uninstall first.** LOCAL TEST / NON-RELEASABLE; nothing in it is physically verified |
 | Verification APK (PC-DEF-061 readiness, 062, 063, 064, superseded) | `008d9c4df2436f29e63981a7b45cb98d7c17031b86c6b6576bfd78aa75f3aae8`, 63,591,331 bytes, `0.2.0+62`, development signer `15cf75f9…`, Dart AOT `08b44517ff47c5679b8ebead16e11c14471053b51ef12b333e1e931a211fba98`. Source gate 28/28 with `flutter.suite 567 passed`, artifact gate 25/25, native ELF 188 PASS / 0 FAIL, Zero-Pico PASS. Carries authoritative Telegram readiness, the desktop disconnect and replace lifecycle, the Core-version loading fix and the audited What's New. Archived read-only at `build/forensic/apk-008d9c4d…/`, whose `FORENSIC.md` carries the first-message acceptance test. **PC-DEF-040 and PC-DEF-058 both need a FRESH INSTALL.** LOCAL TEST / NON-RELEASABLE; nothing in it is physically verified |
@@ -48,6 +49,53 @@ evidence and describe the state at the date of each entry.
 | Staged Core freshness | **CURRENT.** Rebuilt from the source commit `836ce95` and staged in `a9a02dd`, which touches no build input. Fingerprint `7902ab73e62ed65577f8738e1934aff0a0de06acbd7bf473a951645f7e1cc0ba` (was `1ee6df2a…`), BuildTime `2026-09-15T07:22:45+0000`. `core.staged_freshness` and `native.elf_audit_contract` both pass |
 | Flutter suite | Green — 497 passed, 0 failed — and the **complete** suite is now a release gate (`flutter.suite`) |
 | Public release asset policy | APK only. An AAB is a Play-upload artifact and is never a public release asset — `PC-DEF-021` |
+
+## 2026-09-17 — Release-hardening sweep; Telegram creation cooldown respected
+
+An external Telegram cooldown blocked creating another bot, so this round closed
+the non-Telegram release blockers that share config/runtime/UI surfaces. No
+Telegram bot was created and no Telegram API was hammered.
+
+**PC-DEF-052 had one real hole left.** The Android native launch already resolved
+the setup link in the background and refused anything that was not Telegram, but
+three other paths still accepted the service's value verbatim: the Dashboard
+anchor and `copyLink`, the Android QR, and the Go handler that forwarded
+`deep_link`/`qr_payload` — despite comments claiming Core validated them. Core now
+drops any non-Telegram destination (`telegramDestinationOrEmpty`, mirroring
+`telegram_link.dart`); the desktop component refuses to render one anyway; and the
+QR is omitted when its payload is not a Telegram destination. Confirmed in the
+packaged `libpocketclaw-web.so` (the warning string and the host list are present).
+
+**PC-DEF-055 had a data-loss bug beside the UX one.** The add/edit request shapes
+carry no `enabled` field, so both handlers wrote Go's zero value back: a model
+added through the API started disabled and editing one disabled it. An omitted
+field now means enabled on add and preserves the stored value on edit. The Set
+Default handler-level contract is now tested (persistence, A→B switch, enabled
+field, key rotation preserving the selection). **Recorded limitation:** the
+product exposes no enable/disable control, so `validateDefaultModelSelection` was
+not widened to require `Enabled`; the default-selectability gate remains
+`available` + `default_model_allowed` + non-virtual, and delete clears the default
+to empty.
+
+**PC-DEF-062/063/066 — tests, not code.** A direct pair-over-pair Replace test
+asserts exactly one owner and the new token. The About widget test now pins the
+real failed-probe representation (`coreVersion: null`) to Unavailable. The `/help`
+branding test now drives the runtime-supplied `ListDefinitions()` path and asserts
+the exact header. PC-DEF-066 already resolved the lobster; nothing was re-touched.
+
+**Reconciled, not "fixed":** the Zero-Pico allowlist `19 → 22` and the native ELF
+`194 → 188` are both scope changes, fully accounted for in
+[`docs/RELEASE_EVIDENCE_RECONCILIATION.md`](docs/RELEASE_EVIDENCE_RECONCILIATION.md).
+
+Gates: source **all rows PASS** (`flutter.suite 579 passed`, `native.elf_audit_contract`,
+`core.staged_freshness`), artifact **33 PASS / 0 FAIL / 0 SKIPPED**, native ELF
+**188 PASS / 0 FAIL / 0 SKIP**, Zero-Pico **22 entries, all in use**, frontend
+**527 passed** with `tsc -b` and ESLint clean, `flutter analyze` clean. Verification
+APK `adea8f173adc90268ff7119a60f00bd07e8a22dbbaa64704a9d089ac7fdbcf6f`,
+63,620,051 bytes, `0.2.0+62`, development signer, Core fingerprint `5c1aa8b4…`,
+Core BuildTime `2026-09-17T18:44:31+0000`, Dart AOT `a135bfe6…`, archived read-only
+at `build/forensic/apk-adea8f17…/`. **LOCAL TEST / NON-RELEASABLE.** No device was
+attached, so nothing in this APK is physically verified.
 
 ## 2026-09-15 — The journey passes; two items left
 
