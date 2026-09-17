@@ -50,6 +50,14 @@ const (
 	defaultMediaGroupDelay = 500 * time.Millisecond
 	telegramCaptionLimit   = 1024
 	telegramHTTPTimeout    = 45 * time.Second
+
+	// startCleanupTTL bounds how long a received private /start may wait for
+	// its built-in reply before the cosmetic cleanup is abandoned. It is a
+	// timestamp check, never a sleep or a delay.
+	startCleanupTTL = 2 * time.Minute
+	// startCleanupTimeout bounds the best-effort deleteMessage call. A slow
+	// delete must not hold the outbound path.
+	startCleanupTimeout = 5 * time.Second
 )
 
 type TelegramChannel struct {
@@ -90,6 +98,13 @@ type TelegramChannel struct {
 	// safe lifecycle fact without logging message, chat or owner data.
 	firstStartReplied atomic.Bool
 
+	// startCleanup holds, per private chat, the exact inbound /start message
+	// whose built-in reply is still owed. It is consumed only after that reply
+	// is sent successfully, so a /start is never deleted before PocketClaw has
+	// proved it received and handled it. Cosmetic and best-effort only.
+	startCleanupMu sync.Mutex
+	startCleanup   map[int64]telegramStartCleanup
+
 	// handlerReadyProbe is replaceable only by package tests. Production uses
 	// the real telego handler state and fails closed when it cannot be confirmed.
 	handlerReadyProbe func(updateConsumer, time.Duration) bool
@@ -103,6 +118,14 @@ type telegramMediaGroup struct {
 	messages   []*telego.Message
 	timer      *time.Timer
 	generation uint64
+}
+
+// telegramStartCleanup records the exact inbound /start message that is
+// awaiting its built-in reply, bound to the generation that received it.
+type telegramStartCleanup struct {
+	messageID  int
+	generation uint64
+	recordedAt time.Time
 }
 
 type telegramMessageParts struct {
@@ -171,12 +194,13 @@ func NewTelegramChannel(
 	)
 
 	ch := &TelegramChannel{
-		BaseChannel: base,
-		bot:         bot,
-		bc:          bc,
-		chatIDs:     make(map[string]int64),
-		tgCfg:       telegramCfg,
-		intakeRef:   intakeRef,
+		BaseChannel:  base,
+		bot:          bot,
+		bc:           bc,
+		chatIDs:      make(map[string]int64),
+		tgCfg:        telegramCfg,
+		intakeRef:    intakeRef,
+		startCleanup: make(map[int64]telegramStartCleanup),
 
 		mediaGroups:     make(map[string]*telegramMediaGroup),
 		mediaGroupDelay: telegramMediaGroupDelay(telegramCfg),
@@ -503,10 +527,13 @@ func (c *TelegramChannel) Send(ctx context.Context, msg bus.OutboundMessage) ([]
 	} else if !isToolFeedback && hasTrackedMsg {
 		c.dismissTrackedToolFeedbackMessage(ctx, trackedChatID, trackedMsgID)
 	}
-	if msg.Content == "Hello! I am PocketClaw." &&
+	if msg.Content == commands.StartReplyText &&
 		c.firstStartReplied.CompareAndSwap(false, true) {
 		logTelegramLifecycle("first_start_replied")
 	}
+	// The reply is delivered by this point. Only now may the cosmetic /start
+	// cleanup run; it is best-effort and cannot affect the reply above.
+	c.cleanupStartMessage(ctx, chatID, msg.Content)
 
 	return messageIDs, nil
 }
@@ -1347,6 +1374,12 @@ func (c *TelegramChannel) handleMessages(ctx context.Context, messages []*telego
 		inboundCtx.ReplyToMessageID = fmt.Sprintf("%d", message.ReplyToMessage.MessageID)
 	}
 
+	// PC-DEF-061 UX cleanup. Note the exact inbound /start before it is
+	// published, so the reply that follows can prove receipt and then remove
+	// the command. This changes nothing about intake, generation ownership or
+	// readiness; it only remembers the message id the reply belongs to.
+	c.recordStartCleanupCandidate(message, chatID)
+
 	c.HandleMessageWithContext(
 		c.ctx,
 		compositeChatID,
@@ -1356,6 +1389,87 @@ func (c *TelegramChannel) handleMessages(ctx context.Context, messages []*telego
 		sender,
 	)
 	return nil
+}
+
+// recordStartCleanupCandidate notes the exact inbound /start message in a
+// private chat, bound to the active generation. The entry is acted on only
+// after the built-in reply for that message is sent successfully.
+//
+// Groups and supergroups are deliberately excluded: deleting a command a user
+// sent in a shared chat would be surprising, and the /start handshake is a
+// private one.
+func (c *TelegramChannel) recordStartCleanupCandidate(message *telego.Message, chatID int64) {
+	if c == nil || message == nil || message.Chat.Type != "private" {
+		return
+	}
+	name, ok := commands.CommandName(strings.TrimSpace(message.Text))
+	if !ok || name != "start" {
+		return
+	}
+	generation := c.generation.Load()
+	if generation == 0 {
+		// No active owner has been established, so nothing about this receipt
+		// can be attributed. Record nothing.
+		return
+	}
+	c.startCleanupMu.Lock()
+	if c.startCleanup == nil {
+		c.startCleanup = make(map[int64]telegramStartCleanup)
+	}
+	c.startCleanup[chatID] = telegramStartCleanup{
+		messageID:  message.MessageID,
+		generation: generation,
+		recordedAt: time.Now(),
+	}
+	c.startCleanupMu.Unlock()
+	logTelegramLifecycleGeneration("telegram_start_received", generation)
+}
+
+// cleanupStartMessage removes the user's /start message after PocketClaw has
+// successfully sent the built-in reply for it.
+//
+// Ordering is the whole contract: this is reached only after the reply send
+// succeeded, it targets the exact inbound message id recorded when the command
+// was received, it acts only for the same active generation, and every failure
+// is swallowed. The reply already stands, so a failed cosmetic delete must
+// never fail the user turn, retry, or duplicate anything.
+func (c *TelegramChannel) cleanupStartMessage(ctx context.Context, chatID int64, content string) {
+	if c == nil || strings.TrimSpace(content) != commands.StartReplyText {
+		return
+	}
+	c.startCleanupMu.Lock()
+	entry, ok := c.startCleanup[chatID]
+	if ok {
+		delete(c.startCleanup, chatID)
+	}
+	c.startCleanupMu.Unlock()
+	if !ok {
+		return
+	}
+	generation := c.generation.Load()
+	logTelegramLifecycleGeneration("telegram_start_reply_sent", generation)
+	if generation == 0 || entry.generation != generation {
+		// The reply was delivered by a generation that no longer owns intake;
+		// deleting now would be cleanup for someone else's receipt.
+		logTelegramLifecycleGeneration("telegram_start_cleanup_skipped", generation)
+		return
+	}
+	if time.Since(entry.recordedAt) > startCleanupTTL {
+		logTelegramLifecycleGeneration("telegram_start_cleanup_skipped", generation)
+		return
+	}
+	logTelegramLifecycleGeneration("telegram_start_cleanup_requested", generation)
+	delCtx, cancel := context.WithTimeout(ctx, startCleanupTimeout)
+	defer cancel()
+	if err := c.DeleteMessage(delCtx, strconv.FormatInt(chatID, 10), strconv.Itoa(entry.messageID)); err != nil {
+		logger.DebugCF("telegram", "Telegram /start cleanup failed", map[string]any{
+			"event":               "telegram_start_cleanup_failed",
+			"telegram_generation": generation,
+			"error":               err.Error(),
+		})
+		return
+	}
+	logTelegramLifecycleGeneration("telegram_start_cleanup_completed", generation)
 }
 
 func (c *TelegramChannel) collectTelegramMessageParts(

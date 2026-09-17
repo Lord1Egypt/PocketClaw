@@ -3,6 +3,7 @@ package telegram
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"strings"
 	"sync"
 	"testing"
@@ -44,9 +45,21 @@ type pollingStub struct {
 	// empty, which is what a quiet long poll looks like.
 	batches [][]telego.Update
 
+	// failSend and failDelete make the corresponding Bot API call fail, so the
+	// cleanup ordering can be exercised without a network.
+	failSend   bool
+	failDelete bool
+
 	offsets    []int64
 	getMeCalls int
 	methods    []string
+	deletes    []deleteCall
+}
+
+// deleteCall records one deleteMessage request.
+type deleteCall struct {
+	chatID    int64
+	messageID int
 }
 
 func (s *pollingStub) Call(_ context.Context, url string, data *ta.RequestData) (*ta.Response, error) {
@@ -89,10 +102,42 @@ func (s *pollingStub) Call(_ context.Context, url string, data *ta.RequestData) 
 	case "getMyCommands":
 		return jsonResponse([]telego.BotCommand{})
 
+	case "sendMessage":
+		s.mu.Lock()
+		fail := s.failSend
+		s.mu.Unlock()
+		if fail {
+			return nil, errors.New("send failed")
+		}
+		return jsonResponse(&telego.Message{MessageID: 1})
+
+	case "deleteMessage":
+		var params struct {
+			ChatID    int64 `json:"chat_id"`
+			MessageID int   `json:"message_id"`
+		}
+		if data != nil && len(data.BodyRaw) > 0 {
+			_ = json.Unmarshal(data.BodyRaw, &params)
+		}
+		s.mu.Lock()
+		s.deletes = append(s.deletes, deleteCall{chatID: params.ChatID, messageID: params.MessageID})
+		fail := s.failDelete
+		s.mu.Unlock()
+		if fail {
+			return nil, errors.New("delete failed")
+		}
+		return jsonResponse(true)
+
 	default:
-		// setMyCommands, sendMessage and anything else the lifecycle touches.
+		// setMyCommands and anything else the lifecycle touches.
 		return jsonResponse(map[string]any{})
 	}
+}
+
+func (s *pollingStub) observedDeletes() []deleteCall {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return append([]deleteCall(nil), s.deletes...)
 }
 
 func (s *pollingStub) observedOffsets() []int64 {
@@ -172,11 +217,12 @@ func newPollingChannel(t *testing.T, stub *pollingStub) (*TelegramChannel, *bus.
 			Enabled:   true,
 			AllowFrom: config.FlexibleStringSlice{pollingOwnerID},
 		},
-		tgCfg:       &config.TelegramSettings{},
-		chatIDs:     make(map[string]int64),
-		intakeRef:   intakeRef,
-		mediaGroups: make(map[string]*telegramMediaGroup),
-		progress:    channels.NewToolFeedbackAnimator(nil),
+		tgCfg:        &config.TelegramSettings{},
+		chatIDs:      make(map[string]int64),
+		intakeRef:    intakeRef,
+		startCleanup: make(map[int64]telegramStartCleanup),
+		mediaGroups:  make(map[string]*telegramMediaGroup),
+		progress:     channels.NewToolFeedbackAnimator(nil),
 		// Command registration is not what is under test and would otherwise
 		// make real calls on every start.
 		registerFunc: func(context.Context, []commands.Definition) error { return nil },
@@ -562,4 +608,172 @@ func TestWaitForHandlerConsuming(t *testing.T) {
 	t.Run("gives up rather than blocking a start forever", func(t *testing.T) {
 		require.False(t, waitForHandlerConsuming(&fakeConsumer{}, 20*time.Millisecond))
 	})
+}
+
+// PC-DEF-061 UX cleanup. Telegram's native /start is removed from the private
+// bot chat after PocketClaw has received it and successfully sent the built-in
+// reply. It is cosmetic and best-effort; it never runs before the reply, never
+// targets anything but the exact inbound message, and never fails the turn.
+
+// A. Successful /start: the reply is sent, then deleteMessage removes exactly
+// the inbound message the reply belongs to.
+func TestStartCleanupDeletesTheExactInboundMessageAfterReply(t *testing.T) {
+	const inboundMessageID = 77
+	stub := &pollingStub{batches: [][]telego.Update{{ownerMessage(9001, inboundMessageID)}}}
+	ch, messageBus := newPollingChannel(t, stub)
+	require.NoError(t, ch.Start(context.Background()))
+	t.Cleanup(func() { _ = ch.Stop(context.Background()) })
+
+	replyToFirstStart(t, ch, messageBus)
+
+	deletes := stub.observedDeletes()
+	require.Len(t, deletes, 1, "the /start message must be deleted exactly once")
+	require.Equal(t, inboundMessageID, deletes[0].messageID,
+		"deletion must target the inbound /start message, not a later one")
+	require.Equal(t, int64(777000777), deletes[0].chatID)
+	require.Equal(t, 1, stub.methodCount("sendMessage"))
+}
+
+// B. Reply failure: no reply was delivered, so nothing may be deleted.
+func TestStartCleanupDoesNotDeleteWhenTheReplyFails(t *testing.T) {
+	stub := &pollingStub{
+		batches:  [][]telego.Update{{ownerMessage(9002, 88)}},
+		failSend: true,
+	}
+	ch, messageBus := newPollingChannel(t, stub)
+	require.NoError(t, ch.Start(context.Background()))
+	t.Cleanup(func() { _ = ch.Stop(context.Background()) })
+
+	inbound := waitForInbound(t, messageBus, 5*time.Second)
+	require.Equal(t, "/start", inbound.Content)
+
+	_, err := ch.Send(context.Background(), bus.OutboundMessage{
+		Channel: ch.Name(),
+		ChatID:  inbound.ChatID,
+		Context: inbound.Context,
+		Content: commands.StartReplyText,
+	})
+	require.Error(t, err)
+	require.Empty(t, stub.observedDeletes(),
+		"a /start must never be deleted when its reply did not land")
+}
+
+// C. Delete failure: the reply already stands, the turn still succeeds, and the
+// failure is not retried.
+func TestStartCleanupDeleteFailureDoesNotBreakTheReply(t *testing.T) {
+	stub := &pollingStub{
+		batches:    [][]telego.Update{{ownerMessage(9003, 99)}},
+		failDelete: true,
+	}
+	ch, messageBus := newPollingChannel(t, stub)
+	require.NoError(t, ch.Start(context.Background()))
+	t.Cleanup(func() { _ = ch.Stop(context.Background()) })
+
+	// replyToFirstStart requires no error, so a failed cosmetic delete cannot
+	// have failed the turn.
+	replyToFirstStart(t, ch, messageBus)
+	require.Len(t, stub.observedDeletes(), 1)
+	require.Equal(t, 1, stub.methodCount("sendMessage"))
+
+	time.Sleep(200 * time.Millisecond)
+	require.Len(t, stub.observedDeletes(), 1, "a failed delete must not be retried")
+	require.Equal(t, 1, stub.methodCount("sendMessage"), "the reply must not be duplicated")
+}
+
+// D. Normal messages are never deleted, even if a reply is sent for them.
+func TestStartCleanupNeverDeletesNormalMessages(t *testing.T) {
+	msg := ownerMessage(9004, 11)
+	msg.Message.Text = "hi"
+	stub := &pollingStub{batches: [][]telego.Update{{msg}}}
+	ch, messageBus := newPollingChannel(t, stub)
+	require.NoError(t, ch.Start(context.Background()))
+	t.Cleanup(func() { _ = ch.Stop(context.Background()) })
+
+	inbound := waitForInbound(t, messageBus, 5*time.Second)
+	require.Equal(t, "hi", inbound.Content)
+
+	_, err := ch.Send(context.Background(), bus.OutboundMessage{
+		Channel: ch.Name(),
+		ChatID:  inbound.ChatID,
+		Context: inbound.Context,
+		Content: commands.StartReplyText,
+	})
+	require.NoError(t, err)
+	require.Empty(t, stub.observedDeletes())
+}
+
+// E. Only the built-in /start is eligible. Other commands, including one whose
+// name merely begins with "start", are never deleted.
+func TestStartCleanupNeverDeletesOtherCommands(t *testing.T) {
+	for i, command := range []string{"/help", "/clear", "/startle", "/stop"} {
+		msg := ownerMessage(9100+i, 20+i)
+		msg.Message.Text = command
+		stub := &pollingStub{batches: [][]telego.Update{{msg}}}
+		ch, messageBus := newPollingChannel(t, stub)
+		require.NoError(t, ch.Start(context.Background()))
+
+		inbound := waitForInbound(t, messageBus, 5*time.Second)
+		require.Equal(t, command, inbound.Content)
+
+		_, err := ch.Send(context.Background(), bus.OutboundMessage{
+			Channel: ch.Name(),
+			ChatID:  inbound.ChatID,
+			Context: inbound.Context,
+			Content: commands.StartReplyText,
+		})
+		require.NoError(t, err)
+		require.Empty(t, stub.observedDeletes(), "%s must never be deleted", command)
+
+		require.NoError(t, ch.Stop(context.Background()))
+	}
+}
+
+// F. Private chats only. A /start in a group is not deleted.
+func TestStartCleanupIsPrivateChatOnly(t *testing.T) {
+	msg := ownerMessage(9006, 13)
+	msg.Message.Chat = telego.Chat{ID: -100200, Type: "group"}
+	stub := &pollingStub{batches: [][]telego.Update{{msg}}}
+	ch, messageBus := newPollingChannel(t, stub)
+	require.NoError(t, ch.Start(context.Background()))
+	t.Cleanup(func() { _ = ch.Stop(context.Background()) })
+
+	// Whether or not the group trigger lets it through, no cleanup is recorded.
+	select {
+	case <-messageBus.InboundChan():
+	case <-time.After(300 * time.Millisecond):
+	}
+
+	_, err := ch.Send(context.Background(), bus.OutboundMessage{
+		Channel: ch.Name(),
+		ChatID:  "-100200",
+		Content: commands.StartReplyText,
+	})
+	require.NoError(t, err)
+	require.Empty(t, stub.observedDeletes(),
+		"a group /start must not be deleted")
+}
+
+// G. Generation safety: deletion belongs to the generation that received the
+// /start. A receipt from a superseded generation is never cleaned up.
+func TestStartCleanupRequiresTheSameActiveGeneration(t *testing.T) {
+	stub := &pollingStub{batches: [][]telego.Update{{ownerMessage(9007, 14)}}}
+	ch, messageBus := newPollingChannel(t, stub)
+	require.NoError(t, ch.Start(context.Background()))
+	t.Cleanup(func() { _ = ch.Stop(context.Background()) })
+
+	inbound := waitForInbound(t, messageBus, 5*time.Second)
+	require.Equal(t, "/start", inbound.Content)
+
+	// A new generation now owns intake; the receipt belongs to the old one.
+	ch.generation.Store(ch.generation.Load() + 1)
+
+	_, err := ch.Send(context.Background(), bus.OutboundMessage{
+		Channel: ch.Name(),
+		ChatID:  inbound.ChatID,
+		Context: inbound.Context,
+		Content: commands.StartReplyText,
+	})
+	require.NoError(t, err)
+	require.Empty(t, stub.observedDeletes(),
+		"a superseded generation's receipt must not be deleted by its successor")
 }
