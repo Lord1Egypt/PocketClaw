@@ -227,7 +227,10 @@ only reconstructable examples belong here.
   `TestTelegramReadinessReportsOwnerMissingAsSetupRequired`,
   `TestTelegramReadinessEndpointReportsSetupRequired`,
   `TestTelegramOwnerMissingIsFalseWhenAnOwnerIsConfigured`,
-  `TestTelegramOwnerStateIsDerivedFromConfigurationRegardlessOfWriter`. Frontend:
+  `TestTelegramOwnerStateIsDerivedFromConfigurationRegardlessOfWriter`. Also
+  pinned: `TestOwnerMissingStateIsNotAutoClaimed` (a stranger's message never
+  makes them the owner) and `TestConfiguringAnOwnerRestoresNormalRouting` (after
+  an owner is configured, the same sender reaches the agent). Frontend:
   `case 3c: a valid token with no owner shows setup incomplete, not connected`.
 - **Status:** FIXED IN SOURCE — physical confirmation required.
 
