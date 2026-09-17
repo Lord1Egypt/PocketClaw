@@ -82,31 +82,33 @@ func TestConflictIsNotAuthenticationFailure(t *testing.T) {
 	require.NotEqual(t, "authentication_failed", ch.RuntimeFailure())
 }
 
-// A 409 whose description names a webhook is the webhook subtype even when the
-// proactive getWebhookInfo was unreadable or raced: the status code is the
-// reliable signal, the description only refines it.
-func TestGetUpdatesWebhookConflictClassifiesAsWebhookActive(t *testing.T) {
+// A runtime 409 is classified by a fresh, non-destructive getWebhookInfo
+// re-check, not by matching the English description. Here the proactive check
+// read empty (webhookSeq[0]) and the re-check finds a URL, so the conflict is
+// webhook_active even though the 409 description is generic.
+func TestRuntimeConflictRecheckClassifiesAWebhook(t *testing.T) {
 	stub := &pollingStub{
+		webhookSeq:            []string{"", "https://other-service.invalid/hook"},
 		getUpdatesErrorCode:   409,
-		getUpdatesDescription: "Conflict: can't use getUpdates method while webhook is active",
-	}
-	ch, _ := newPollingChannel(t, stub)
-
-	_ = ch.Start(context.Background())
-	require.Equal(t, "conflict:webhook_active", ch.RuntimeFailure())
-}
-
-// A webhook that appears after the proactive check is still caught. The check
-// reads empty, then the poll answers 409 with a webhook description.
-func TestWebhookAppearingAfterThePreflightIsStillCaught(t *testing.T) {
-	stub := &pollingStub{
-		webhookURL:            "",
-		getUpdatesErrorCode:   409,
-		getUpdatesDescription: "Conflict: can't use getUpdates method while webhook is active",
+		getUpdatesDescription: "Conflict: terminated by other getUpdates request",
 	}
 	ch, _ := newPollingChannel(t, stub)
 
 	_ = ch.Start(context.Background())
 	require.Equal(t, "conflict:webhook_active", ch.RuntimeFailure())
 	require.Zero(t, stub.methodCount("deleteWebhook"))
+}
+
+// The description is only a fallback: with no webhook in the re-check, the same
+// generic 409 is bot_in_use.
+func TestRuntimeConflictRecheckClassifiesAnotherPoller(t *testing.T) {
+	stub := &pollingStub{
+		webhookSeq:            []string{"", ""},
+		getUpdatesErrorCode:   409,
+		getUpdatesDescription: "Conflict: terminated by other getUpdates request",
+	}
+	ch, _ := newPollingChannel(t, stub)
+
+	_ = ch.Start(context.Background())
+	require.Equal(t, "conflict:bot_in_use", ch.RuntimeFailure())
 }

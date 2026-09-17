@@ -54,6 +54,11 @@ type pollingStub struct {
 	// webhookURL is what getWebhookInfo reports. Non-empty means the bot is
 	// attached to another service through a webhook.
 	webhookURL string
+	// webhookSeq, when non-empty, is consumed one value per getWebhookInfo call
+	// (the last repeats). It models a webhook appearing after the proactive
+	// check but before the conflict re-check.
+	webhookSeq  []string
+	webhookCall int
 	// getUpdatesErrorCode makes getUpdates answer a Bot API error (409 for a
 	// bot owned by another poller). Zero means a normal answer.
 	getUpdatesErrorCode   int
@@ -96,6 +101,14 @@ func (s *pollingStub) Call(_ context.Context, url string, data *ta.RequestData) 
 	case "getWebhookInfo":
 		s.mu.Lock()
 		url := s.webhookURL
+		if len(s.webhookSeq) > 0 {
+			idx := s.webhookCall
+			if idx >= len(s.webhookSeq) {
+				idx = len(s.webhookSeq) - 1
+			}
+			url = s.webhookSeq[idx]
+			s.webhookCall++
+		}
 		s.mu.Unlock()
 		return jsonResponse(&telego.WebhookInfo{URL: url})
 

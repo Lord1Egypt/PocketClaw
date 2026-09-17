@@ -62,7 +62,10 @@ now terminal and non-destructive. An active webhook is found with
 status code, the exact generation is revoked and retired, and Telego's retry loop
 is stopped via a cancellation-shaped error, so PocketClaw never fights the other
 service. Replacement is now a pre-commit transaction: `getMe` → `getWebhookInfo`
-→ a non-consuming `getUpdates` probe, and a candidate owned elsewhere is rejected
+→ a non-consuming `getUpdates` probe with **no offset** (a negative offset was
+tried first and corrected before any physical test: Telegram forgets all earlier
+updates on a negative-offset call, which would discard a pending first `/start`),
+and a candidate owned elsewhere is rejected
 before any mutation, so the previously working bot stays authoritative and
 recoverable. Readiness reports `telegram_conflict` / `webhook_active` or
 `bot_in_use`, never ready and never generation-authorized. 401 (`invalid_credentials`),

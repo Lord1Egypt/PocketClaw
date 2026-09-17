@@ -68,9 +68,17 @@ type telegramValidationResponse struct {
 //  2. getWebhookInfo shows no active webhook. This is non-destructive: the
 //     webhook is never deleted, replaced or otherwise mutated. Taking over
 //     somebody else's bot is not PocketClaw's decision.
-//  3. a getUpdates probe (offset -1, which asks for the last update without
-//     consuming it) is accepted. A 409 here means another long poller owns the
-//     bot right now.
+//  3. a getUpdates probe is accepted. A 409 here means another long poller owns
+//     the bot right now.
+//
+// The probe deliberately carries NO offset. Telegram documents that a negative
+// offset retrieves updates from the end of the queue and forgets all earlier
+// ones, so it would silently discard exactly the pending first /start that
+// PC-DEF-061 exists to preserve. With no offset, an update is returned but not
+// confirmed: Telegram confirms an update only when a later getUpdates is called
+// with an offset higher than its update_id. This call never advances the offset,
+// so every pending update remains available to the real channel Start, which
+// polls from an unset offset.
 //
 // A decisive conflict or 401 rejects the candidate; a transport or unexpected
 // error is not treated as a conflict, so a valid token is never refused because
@@ -116,7 +124,10 @@ func validateTelegramCredentials(
 	// probe below still catches an active webhook with a 409.
 
 	// 3. Can PocketClaw own the update stream?
-	probeBody := bytes.NewReader([]byte(`{"offset":-1,"limit":1,"timeout":0}`))
+	//
+	// No offset field: see the function comment. This one short call confirms
+	// nothing and drops nothing.
+	probeBody := bytes.NewReader([]byte(`{"limit":1,"timeout":0}`))
 	probe, err := telegramValidationCall(validationCtx, client, apiRoot, token, "getUpdates", probeBody)
 	if err != nil {
 		// A transport error is not a conflict; do not reject a valid candidate.
@@ -126,12 +137,42 @@ func validateTelegramCredentials(
 	case http.StatusUnauthorized:
 		return ErrTelegramCredentialsInvalid
 	case http.StatusConflict:
-		if strings.Contains(strings.ToLower(probe.Description), "webhook") {
+		// The 409 is authoritative; the subtype is decided by a fresh,
+		// non-destructive webhook re-check, not by matching English prose.
+		if validationConflictReason(validationCtx, client, apiRoot, token, probe.Description) == "webhook_active" {
 			return ErrTelegramWebhookConflict
 		}
 		return ErrTelegramBotInUse
 	}
 	return nil
+}
+
+// validationConflictReason resolves a getUpdates 409 to a safe subtype. It asks
+// Telegram for the current webhook non-destructively: a configured URL means the
+// conflict is a webhook; no URL means another long poller owns the bot. The
+// description is used only as a fallback when the re-check cannot be read, and
+// never as the primary signal.
+func validationConflictReason(
+	ctx context.Context,
+	client *http.Client,
+	apiRoot, token, fallbackDescription string,
+) string {
+	webhook, err := telegramValidationCall(ctx, client, apiRoot, token, "getWebhookInfo", nil)
+	if err == nil && webhook.OK {
+		var info struct {
+			URL string `json:"url"`
+		}
+		if json.Unmarshal(webhook.Result, &info) == nil {
+			if strings.TrimSpace(info.URL) != "" {
+				return "webhook_active"
+			}
+			return "bot_in_use"
+		}
+	}
+	if strings.Contains(strings.ToLower(fallbackDescription), "webhook") {
+		return "webhook_active"
+	}
+	return "bot_in_use"
 }
 
 // decisiveStatus is the HTTP status that classifies a validation call, or 0

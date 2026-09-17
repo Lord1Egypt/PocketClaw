@@ -193,16 +193,26 @@ only reconstructable examples belong here.
   before polling. A configured webhook is refused; PocketClaw **never calls
   `deleteWebhook` or `setWebhook`**, and mutations of the other service are
   impossible by construction. The `telegramIntakeCaller` classifies a `getUpdates`
-  409 (the reliable signal is the status code; the description only refines the
-  subtype to `webhook_active` vs `bot_in_use`) and returns a cancellation-shaped
+  409 (the reliable signal is the status code; the subtype is decided by a fresh,
+  non-destructive `getWebhookInfo` re-check — webhook present means
+  `webhook_active`, no webhook means `bot_in_use` — with the description only as
+  a fallback when the re-check cannot be read) and returns a cancellation-shaped
   error so Telego stops immediately. The exact generation is revoked, its command
   registration cancelled, and it is retired once — no retry loop, and no
   generation left that could authorize a handoff.
 - **Resolution — replacement transaction.** Candidate validation is a pre-commit
   gate: `getMe`, then the non-destructive `getWebhookInfo`, then a
-  non-consuming `getUpdates` probe (`offset -1`). A candidate owned elsewhere is
-  rejected with `ErrTelegramWebhookConflict` / `ErrTelegramBotInUse` **before any
-  config mutation**, so the previously committed bot stays authoritative and
+  non-consuming `getUpdates` probe with **no offset** (`limit 1`, `timeout 0`).
+  A negative offset was tried first and corrected before any physical test:
+  Telegram documents that a negative offset retrieves updates from the end of
+  the queue and forgets all earlier ones, so `offset -1` would have discarded
+  exactly the pending first `/start` this project preserves. With no offset, an
+  update is returned but not confirmed — Telegram confirms an update only when a
+  later `getUpdates` carries an offset higher than its `update_id` — so pending
+  updates remain available to the real channel `Start`, which polls from an
+  unset offset. A candidate owned elsewhere is rejected with
+  `ErrTelegramWebhookConflict` / `ErrTelegramBotInUse` **before any config
+  mutation**, so the previously committed bot stays authoritative and
   recoverable. A transport or unexpected probe answer is not treated as a
   conflict, so a valid token is never refused for a network hiccup; the runtime
   409 path remains the backstop.

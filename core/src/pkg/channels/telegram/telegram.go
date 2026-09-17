@@ -519,10 +519,11 @@ func (c *TelegramChannel) failAuthentication(generation uint64) {
 //
 // reason is a safe machine code ("webhook_active" or "bot_in_use"), never the
 // webhook URL or any identity.
-func (c *TelegramChannel) failConflict(generation uint64, reason string) {
+func (c *TelegramChannel) failConflict(generation uint64, tentativeReason string) {
 	if generation == 0 || c.generation.Load() != generation {
 		return
 	}
+	reason := c.resolveConflictReason(tentativeReason)
 	if reason == "webhook_active" {
 		c.runtimeFailure.Store(telegramRuntimeFailureConflictWebhook)
 	} else {
@@ -535,6 +536,30 @@ func (c *TelegramChannel) failConflict(generation uint64, reason string) {
 			"reason":              reason,
 		})
 	c.revokeAndRetire(generation)
+}
+
+// resolveConflictReason decides a 409 subtype from the bot's actual state, not
+// from an English message. It re-checks the webhook non-destructively: a
+// configured URL means webhook_active; a readable answer with no URL means
+// another long poller owns the bot. Only when the re-check cannot be read does
+// it fall back to the tentative classification, which the caller derived from
+// the description.
+func (c *TelegramChannel) resolveConflictReason(tentative string) string {
+	// Bounded: this runs on the poller's terminal path, and a slow re-check
+	// must not delay the conflict teardown.
+	ctx, cancel := context.WithTimeout(c.ctx, 5*time.Second)
+	defer cancel()
+	info, err := c.bot.GetWebhookInfo(ctx)
+	if err == nil && info != nil {
+		if strings.TrimSpace(info.URL) != "" {
+			return "webhook_active"
+		}
+		return "bot_in_use"
+	}
+	if tentative == "webhook_active" {
+		return "webhook_active"
+	}
+	return "bot_in_use"
 }
 
 // revokeAndRetire is the shared terminal path for a generation that cannot be
