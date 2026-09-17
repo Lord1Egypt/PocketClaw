@@ -175,6 +175,60 @@ only reconstructable examples belong here.
 
 ## Resolved
 
+### PC-DEF-069 — A bot already owned by another service fought it or died silently
+
+- **Discovered:** owner requirement, 2026-09-17, v0.2.0 release hardening.
+- **Component:** `core/src/pkg/channels/telegram/{telegram.go,polling.go,command_registration.go}`,
+  new `conflict_test.go`; `core/src/web/backend/api/{telegram_credentials.go,telegram_readiness.go,android_bridge.go,telegram_onboarding.go}`,
+  new `telegram_credentials_test.go`; `core/src/web/frontend/...` and 14 locale bundles.
+- **Two conflict classes, one root cause.** `getMe` proves only that a token is
+  valid; it says nothing about whether PocketClaw can own the update stream. So a
+  manually entered token already attached to another application could pass
+  `getMe` and then either (a) face an active webhook, which makes `getUpdates`
+  answer 409, or (b) be owned by another long poller, which also answers 409.
+  Before this fix the 409 fell into Telego's generic eight-second retry loop and
+  PocketClaw fought the other service indefinitely; and a candidate could be
+  persisted over a working bot before the conflict surfaced.
+- **Resolution — runtime, non-destructive.** `Start` now asks `getWebhookInfo`
+  before polling. A configured webhook is refused; PocketClaw **never calls
+  `deleteWebhook` or `setWebhook`**, and mutations of the other service are
+  impossible by construction. The `telegramIntakeCaller` classifies a `getUpdates`
+  409 (the reliable signal is the status code; the description only refines the
+  subtype to `webhook_active` vs `bot_in_use`) and returns a cancellation-shaped
+  error so Telego stops immediately. The exact generation is revoked, its command
+  registration cancelled, and it is retired once — no retry loop, and no
+  generation left that could authorize a handoff.
+- **Resolution — replacement transaction.** Candidate validation is a pre-commit
+  gate: `getMe`, then the non-destructive `getWebhookInfo`, then a
+  non-consuming `getUpdates` probe (`offset -1`). A candidate owned elsewhere is
+  rejected with `ErrTelegramWebhookConflict` / `ErrTelegramBotInUse` **before any
+  config mutation**, so the previously committed bot stays authoritative and
+  recoverable. A transport or unexpected probe answer is not treated as a
+  conflict, so a valid token is never refused for a network hiccup; the runtime
+  409 path remains the backstop.
+- **Failure states stay distinct.** 401 → `invalid_credentials`; 409 webhook →
+  `telegram_conflict` / `webhook_active`; 409 poller → `telegram_conflict` /
+  `bot_in_use`; missing owner → `setup_required` / `owner_missing`. None collapse
+  into one "connection failed". Readiness returns generation 0 for a conflict.
+- **Logging.** The conflict path logs the generation, the safe subtype and the
+  state transition only — never the token, the webhook URL, an owner id or a chat
+  id. The webhook URL is never returned to a client.
+- **Verification:** channel `conflict_test.go` (webhook refused non-destructively
+  with no `getUpdates`/`deleteWebhook`/`setWebhook`; 409 retires the generation
+  with exactly one ownership attempt and no retry; 409 is not 401; a webhook-
+  described 409 classifies as `webhook_active`; a webhook appearing after the
+  preflight is still caught). Backend `telegram_credentials_test.go` (healthy
+  accept; webhook rejected without delete; another poller rejected; poll-409
+  webhook classification; 401 stays 401; probe-401 stays invalid; an unexpected
+  probe answer is not a conflict).
+  `TestAndroidTelegramBridgeRejectsOwnedCandidateWithoutReplacingOldBot` proves
+  A is preserved for both conflict kinds; `TestTelegramReadinessReportsWebhookConflict`,
+  `...ReportsBotInUse`, `...Keeps401And409Distinct` prove the state mapping.
+  Frontend: `case 3d`/`case 3e` conflict cards and two managed-connect error-kind
+  tests.
+- **Status:** FIXED IN SOURCE — physical confirmation required (disposable bots
+  only, per the consolidated checklist).
+
 ### PC-DEF-068 — A valid Telegram token with no owner was a silent dead bot
 
 - **Discovered:** owner report, 2026-09-17, during v0.2.0 release hardening.
