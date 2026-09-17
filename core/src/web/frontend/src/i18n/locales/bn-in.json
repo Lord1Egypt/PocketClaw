@@ -764,6 +764,7 @@
         "copyLink": "লিঙ্ক কপি করুন",
         "linkCopied": "লিঙ্ক কপি হয়েছে।",
         "linkCopyFailed": "লিঙ্ক কপি করা যায়নি।",
+        "linkCopyManual": "লিঙ্কটি ম্যানুয়ালি কপি করুন: নিচে নির্বাচন করুন।",
         "waiting": "Telegram-এ নতুন বট নিশ্চিত করার অপেক্ষায়…",
         "botCreated": "বট তৈরি হয়েছে। সেটআপ শেষ করা হচ্ছে…",
         "configuring": "PocketClaw কনফিগার করা হচ্ছে…",
@@ -786,6 +787,7 @@
         "gateway_starting": "PocketClaw চালু হচ্ছে…",
         "channel_starting": "Telegram-এ সংযোগ করা হচ্ছে…",
         "registering_commands": "কমান্ড মেনু প্রকাশ করা হচ্ছে…",
+        "setup_required": "এই বট যেন কেবল আপনাকে উত্তর দেয়, সেজন্য Allowed From-এ আপনার Telegram সংখ্যাসূচক ID যোগ করুন।",
         "authentication_failed": "Telegram বটের শংসাপত্র প্রত্যাখ্যান করেছে।",
         "ready": "Telegram আপনার প্রথম বার্তার জন্য প্রস্তুত।",
         "unknown": "PocketClaw Telegram-এর অবস্থা জানায়নি।"
@@ -799,7 +801,8 @@
         "removedPending": "Telegram সরানো হয়েছে এবং PocketClaw মুক্ত হলেই বন্ধ হবে।",
         "failed": "Telegram-এর সংযোগ বিচ্ছিন্ন করা যায়নি।"
       },
-      "statusUnreadableTitle": "Telegram-এর অবস্থা পাওয়া যাচ্ছে না"
+      "statusUnreadableTitle": "Telegram-এর অবস্থা পাওয়া যাচ্ছে না",
+      "setupIncompleteTitle": "Telegram সেটআপ অসম্পূর্ণ"
     }
   },
   "pages": {

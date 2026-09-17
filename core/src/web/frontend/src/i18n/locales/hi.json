@@ -764,6 +764,7 @@
         "copyLink": "लिंक कॉपी करें",
         "linkCopied": "लिंक कॉपी हो गया।",
         "linkCopyFailed": "लिंक कॉपी नहीं हो सका।",
+        "linkCopyManual": "लिंक को मैन्युअल रूप से कॉपी करें: नीचे उसे चुनें।",
         "waiting": "Telegram में नए बॉट की पुष्टि का इंतज़ार है…",
         "botCreated": "बॉट बन गया। सेटअप पूरा किया जा रहा है…",
         "configuring": "PocketClaw कॉन्फ़िगर हो रहा है…",
@@ -786,6 +787,7 @@
         "gateway_starting": "PocketClaw शुरू हो रहा है…",
         "channel_starting": "Telegram से कनेक्ट हो रहा है…",
         "registering_commands": "कमांड मेनू प्रकाशित हो रहा है…",
+        "setup_required": "इस बॉट से केवल आपको जवाब पाने के लिए Allowed From में अपनी Telegram संख्यात्मक ID जोड़ें।",
         "authentication_failed": "Telegram ने बॉट क्रेडेंशियल अस्वीकार कर दिए।",
         "ready": "Telegram आपके पहले संदेश के लिए तैयार है।",
         "unknown": "PocketClaw ने Telegram की स्थिति नहीं बताई।"
@@ -799,7 +801,8 @@
         "removedPending": "Telegram हटा दिया गया है और PocketClaw खाली होते ही रुक जाएगा।",
         "failed": "Telegram डिस्कनेक्ट नहीं किया जा सका।"
       },
-      "statusUnreadableTitle": "Telegram की स्थिति उपलब्ध नहीं"
+      "statusUnreadableTitle": "Telegram की स्थिति उपलब्ध नहीं",
+      "setupIncompleteTitle": "Telegram सेटअप अधूरा है"
     }
   },
   "pages": {

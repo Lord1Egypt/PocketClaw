@@ -203,6 +203,34 @@ describe("Channels → Telegram", () => {
     ).toBeNull()
   })
 
+  // A valid token with no owner is an explicit incomplete setup. It must never
+  // be presented as Connected, and the owner field is opened for the user.
+  it("case 3c: a valid token with no owner shows setup incomplete, not connected", async () => {
+    installHost({
+      onboardingConfigured: true,
+      telegramBotUsername: "pocketclaw_ab12cd34_bot",
+    })
+    fetchTelegramReadiness.mockResolvedValue({
+      state: "setup_required",
+      ready: false,
+      detail: "owner_missing",
+    })
+    arrange({ configuredSecrets: ["token"], config: { enabled: true } })
+
+    await renderTelegramPage()
+
+    expect(
+      await screen.findByText(
+        translate("channels.telegram.setupIncompleteTitle"),
+      ),
+    ).toBeDefined()
+    expect(
+      screen.queryByText(translate("channels.telegram.connected")),
+    ).toBeNull()
+    // The direct route to the owner field is revealed, not hidden behind a tap.
+    expect(screen.getByText(translate("channels.field.allowFrom"))).toBeDefined()
+  })
+
   it("case 3: an already-configured Telegram shows the connected summary first", async () => {
     const host = installHost({
       onboardingConfigured: true,

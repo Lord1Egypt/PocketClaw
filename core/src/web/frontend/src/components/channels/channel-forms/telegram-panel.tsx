@@ -130,6 +130,16 @@ export function TelegramPanel({
   // "unknown" means the gateway would not say, which is neither connected nor
   // starting. Claiming either would be the dishonest half of this fix.
   const statusUnreadable = readiness?.state === "unknown"
+  // A valid token with no owner is an explicit incomplete state, never
+  // "Connected": the bot answers private senders with setup guidance and grants
+  // no agent access until an owner is configured.
+  const setupIncomplete = readiness?.state === "setup_required"
+
+  // Route the user straight to the owner field: opening the advanced form is
+  // the direct path to Allowed From, and it is the same form on every client.
+  useEffect(() => {
+    if (setupIncomplete) setAdvancedOpen(true)
+  }, [setupIncomplete])
 
   // PC-DEF-062. Replacing a bot is pairing a new one over the old; the managed
   // flow already does exactly that, so it is revealed rather than reimplemented.
@@ -215,7 +225,9 @@ export function TelegramPanel({
         <Card className="shadow-sm">
           <CardContent className="space-y-4 px-6 py-5">
             <div className="flex items-center gap-2">
-              {receiving ? (
+              {setupIncomplete ? (
+                <IconAlertTriangle className="size-5 text-pc-warning" />
+              ) : receiving ? (
                 <IconCircleCheckFilled className="size-5 text-pc-success" />
               ) : statusUnreadable ? (
                 <IconAlertTriangle className="text-muted-foreground size-5" />
@@ -223,11 +235,13 @@ export function TelegramPanel({
                 <IconLoader2 className="text-muted-foreground size-5 animate-spin" />
               )}
               <p className="text-base font-semibold">
-                {receiving
-                  ? t("channels.telegram.connected")
-                  : statusUnreadable
-                    ? t("channels.telegram.statusUnreadableTitle")
-                    : t("channels.telegram.startingTitle")}
+                {setupIncomplete
+                  ? t("channels.telegram.setupIncompleteTitle")
+                  : receiving
+                    ? t("channels.telegram.connected")
+                    : statusUnreadable
+                      ? t("channels.telegram.statusUnreadableTitle")
+                      : t("channels.telegram.startingTitle")}
               </p>
             </div>
 

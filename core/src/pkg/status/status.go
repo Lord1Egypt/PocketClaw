@@ -127,6 +127,12 @@ type Channel struct {
 	// RuntimeFailure is a sanitized terminal code retained after a generation
 	// has stopped. Empty means no terminal failure is known.
 	RuntimeFailure string `json:"runtime_failure,omitempty"`
+
+	// OwnerMissing reports that this channel has a valid credential but no
+	// configured owner identity. It is an incomplete setup, never ready: the
+	// channel answers private senders with deterministic setup guidance and
+	// grants no agent access. Boolean only; carries no identity.
+	OwnerMissing bool `json:"owner_missing,omitempty"`
 }
 
 // Resources reports the Core process's own usage.

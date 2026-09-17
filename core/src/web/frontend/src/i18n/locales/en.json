@@ -764,6 +764,7 @@
         "copyLink": "Copy link",
         "linkCopied": "Link copied.",
         "linkCopyFailed": "Could not copy the link.",
+        "linkCopyManual": "Copy the link manually: select it below.",
         "waiting": "Waiting for you to confirm the new bot in Telegram…",
         "botCreated": "Bot created. Finishing setup…",
         "configuring": "Configuring PocketClaw…",
@@ -786,6 +787,7 @@
         "gateway_starting": "PocketClaw is starting…",
         "channel_starting": "Connecting to Telegram…",
         "registering_commands": "Publishing the command menu…",
+        "setup_required": "Add your Telegram numeric ID under Allowed From so this bot answers only you.",
         "authentication_failed": "Telegram rejected the bot credentials.",
         "ready": "Telegram is ready for your first message.",
         "unknown": "PocketClaw did not report its Telegram status."
@@ -799,7 +801,8 @@
         "removedPending": "Telegram was removed and will stop as soon as PocketClaw is free.",
         "failed": "Could not disconnect Telegram."
       },
-      "statusUnreadableTitle": "Telegram status unavailable"
+      "statusUnreadableTitle": "Telegram status unavailable",
+      "setupIncompleteTitle": "Telegram setup incomplete"
     }
   },
   "pages": {

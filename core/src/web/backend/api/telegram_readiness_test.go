@@ -81,6 +81,99 @@ func readinessEnv(t *testing.T, channels []status.Channel) *Handler {
 	return handler
 }
 
+// writeOwnerlessTelegramConfig persists a valid token with no owner: the state
+// the desktop manual save (PATCH /api/config) can produce, and the reason Core
+// has to defend it.
+func writeOwnerlessTelegramConfig(t *testing.T, handler *Handler) {
+	t.Helper()
+	cfg, channel, settings, err := handler.loadTelegramConfigForUpdate()
+	if err != nil {
+		t.Fatalf("loadTelegramConfigForUpdate: %v", err)
+	}
+	settings.Token.Set("123456789:test-token")
+	channel.Enabled = true
+	channel.Type = config.ChannelTelegram
+	channel.AllowFrom = config.FlexibleStringSlice{}
+	if err := config.SaveConfig(handler.configPath, cfg); err != nil {
+		t.Fatalf("SaveConfig: %v", err)
+	}
+}
+
+// A valid token with no owner is an incomplete setup, never ready, and it must
+// not name a polling generation that could authorize a handoff.
+func TestTelegramReadinessReportsOwnerMissingAsSetupRequired(t *testing.T) {
+	handler, _, _ := onboardingTestEnv(t)
+	writeOwnerlessTelegramConfig(t, handler)
+
+	if !handler.telegramOwnerMissing() {
+		t.Fatal("an enabled token with no owner must report owner_missing")
+	}
+	state, detail, generation := handler.telegramReadinessWithGeneration()
+	if state != readinessSetupRequired {
+		t.Fatalf("state = %q, want %q", state, readinessSetupRequired)
+	}
+	if detail != "owner_missing" {
+		t.Fatalf("detail = %q, want owner_missing", detail)
+	}
+	if generation != 0 {
+		t.Fatalf("generation = %d, want 0: an incomplete setup authorizes nothing", generation)
+	}
+}
+
+func TestTelegramReadinessEndpointReportsSetupRequired(t *testing.T) {
+	handler, mux, _ := onboardingTestEnv(t)
+	writeOwnerlessTelegramConfig(t, handler)
+
+	recorder := onboardingRequest(t, mux, http.MethodGet, "/api/telegram/readiness")
+	var body struct {
+		State  string `json:"state"`
+		Ready  bool   `json:"ready"`
+		Detail string `json:"detail"`
+	}
+	if err := json.Unmarshal(recorder.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	if body.State != string(readinessSetupRequired) {
+		t.Fatalf("state = %q, want setup_required", body.State)
+	}
+	if body.Ready {
+		t.Fatal("an incomplete setup must never report ready")
+	}
+	if body.Detail != "owner_missing" {
+		t.Fatalf("detail = %q, want owner_missing", body.Detail)
+	}
+}
+
+func TestTelegramOwnerMissingIsFalseWhenAnOwnerIsConfigured(t *testing.T) {
+	handler, _, _ := onboardingTestEnv(t)
+	if _, _, err := handler.writeTelegramCredentials("123456789:test-token", 424242); err != nil {
+		t.Fatalf("writeTelegramCredentials: %v", err)
+	}
+	if handler.telegramOwnerMissing() {
+		t.Fatal("a configured owner must not report owner_missing")
+	}
+}
+
+// The same authoritative state is derived from the persisted configuration, so
+// the desktop manual save and the mobile/managed writer converge on one
+// contract rather than each deciding for itself.
+func TestTelegramOwnerStateIsDerivedFromConfigurationRegardlessOfWriter(t *testing.T) {
+	handler, _, _ := onboardingTestEnv(t)
+
+	writeOwnerlessTelegramConfig(t, handler)
+	if state, _ := handler.telegramReadiness(); state != readinessSetupRequired {
+		t.Fatalf("ownerless config: state = %q, want setup_required", state)
+	}
+
+	// The mobile/managed writer always names exactly one owner.
+	if _, _, err := handler.writeTelegramCredentials("123456789:test-token", 424242); err != nil {
+		t.Fatalf("writeTelegramCredentials: %v", err)
+	}
+	if handler.telegramOwnerMissing() {
+		t.Fatal("the managed writer must leave no owner-missing state")
+	}
+}
+
 func TestTelegramReadinessIsNotReadyWhileTheChannelIsStarting(t *testing.T) {
 	handler := readinessEnv(t, []status.Channel{
 		{Name: "telegram", Configured: true, Started: true, Running: false, PollingGeneration: &testPollingGeneration},

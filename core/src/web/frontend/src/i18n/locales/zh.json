@@ -764,6 +764,7 @@
         "copyLink": "复制链接",
         "linkCopied": "链接已复制。",
         "linkCopyFailed": "无法复制链接。",
+        "linkCopyManual": "手动复制链接：在下方选择。",
         "waiting": "正在等待你在 Telegram 中确认新机器人…",
         "botCreated": "机器人已创建。正在完成设置…",
         "configuring": "正在配置 PocketClaw…",
@@ -786,6 +787,7 @@
         "gateway_starting": "PocketClaw 正在启动…",
         "channel_starting": "正在连接 Telegram…",
         "registering_commands": "正在发布命令菜单…",
+        "setup_required": "在 Allowed From 中添加你的 Telegram 数字 ID，让此机器人只回复你。",
         "authentication_failed": "Telegram 拒绝了机器人凭据。",
         "ready": "Telegram 已准备好接收你的第一条消息。",
         "unknown": "PocketClaw 未报告 Telegram 状态。"
@@ -799,7 +801,8 @@
         "removedPending": "Telegram 已移除，将在 PocketClaw 空闲后停止。",
         "failed": "无法断开 Telegram 连接。"
       },
-      "statusUnreadableTitle": "无法获取 Telegram 状态"
+      "statusUnreadableTitle": "无法获取 Telegram 状态",
+      "setupIncompleteTitle": "Telegram 设置未完成"
     }
   },
   "pages": {

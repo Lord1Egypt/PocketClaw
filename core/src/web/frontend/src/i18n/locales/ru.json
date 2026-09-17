@@ -764,6 +764,7 @@
         "copyLink": "Скопировать ссылку",
         "linkCopied": "Ссылка скопирована.",
         "linkCopyFailed": "Не удалось скопировать ссылку.",
+        "linkCopyManual": "Скопируйте ссылку вручную: выделите её ниже.",
         "waiting": "Ожидаем подтверждения нового бота в Telegram…",
         "botCreated": "Бот создан. Завершаем настройку…",
         "configuring": "Настраиваем PocketClaw…",
@@ -786,6 +787,7 @@
         "gateway_starting": "PocketClaw запускается…",
         "channel_starting": "Подключение к Telegram…",
         "registering_commands": "Публикация меню команд…",
+        "setup_required": "Добавьте свой числовой ID Telegram в «Разрешённые», чтобы этот бот отвечал только вам.",
         "authentication_failed": "Telegram отклонил учетные данные бота.",
         "ready": "Telegram готов к вашему первому сообщению.",
         "unknown": "PocketClaw не сообщил состояние Telegram."
@@ -799,7 +801,8 @@
         "removedPending": "Telegram удалён и остановится, как только PocketClaw освободится.",
         "failed": "Не удалось отключить Telegram."
       },
-      "statusUnreadableTitle": "Состояние Telegram недоступно"
+      "statusUnreadableTitle": "Состояние Telegram недоступно",
+      "setupIncompleteTitle": "Настройка Telegram не завершена"
     }
   },
   "pages": {

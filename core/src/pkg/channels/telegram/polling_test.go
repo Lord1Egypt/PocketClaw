@@ -55,6 +55,7 @@ type pollingStub struct {
 	getMeCalls int
 	methods    []string
 	deletes    []deleteCall
+	sentTexts  []string
 }
 
 // deleteCall records one deleteMessage request.
@@ -113,8 +114,15 @@ func (s *pollingStub) Call(_ context.Context, url string, data *ta.RequestData) 
 		return jsonResponse([]telego.BotCommand{})
 
 	case "sendMessage":
+		var params struct {
+			Text string `json:"text"`
+		}
+		if data != nil && len(data.BodyRaw) > 0 {
+			_ = json.Unmarshal(data.BodyRaw, &params)
+		}
 		s.mu.Lock()
 		fail := s.failSend
+		s.sentTexts = append(s.sentTexts, params.Text)
 		s.mu.Unlock()
 		if fail {
 			return nil, errors.New("send failed")
@@ -190,6 +198,12 @@ func (s *pollingStub) methodCount(method string) int {
 	return count
 }
 
+func (s *pollingStub) observedSentTexts() []string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return append([]string(nil), s.sentTexts...)
+}
+
 func jsonResponse(result any) (*ta.Response, error) {
 	raw, err := json.Marshal(result)
 	if err != nil {
@@ -216,6 +230,20 @@ func ownerMessage(updateID, messageID int) telego.Update {
 // wired to a real bus so delivery is asserted end to end rather than at a seam.
 func newPollingChannel(t *testing.T, stub *pollingStub) (*TelegramChannel, *bus.MessageBus) {
 	t.Helper()
+	return newPollingChannelWithOwners(t, stub,
+		config.FlexibleStringSlice{pollingOwnerID}, false)
+}
+
+// newPollingChannelWithOwners is newPollingChannel with the owner list made
+// explicit, so the owner-missing setup state can be built the way the factory
+// builds it (empty AllowFrom, ownerMissing true).
+func newPollingChannelWithOwners(
+	t *testing.T,
+	stub *pollingStub,
+	allowFrom config.FlexibleStringSlice,
+	ownerMissing bool,
+) (*TelegramChannel, *bus.MessageBus) {
+	t.Helper()
 
 	// The intake caller is the production wiring: it records when a generation's
 	// first getUpdates request is actually issued, which is what Start requires
@@ -232,16 +260,17 @@ func newPollingChannel(t *testing.T, stub *pollingStub) (*TelegramChannel, *bus.
 	t.Cleanup(messageBus.Close)
 
 	base := channels.NewBaseChannel("telegram", nil, messageBus,
-		config.FlexibleStringSlice{pollingOwnerID},
+		allowFrom,
 		channels.WithMaxMessageLength(4000),
 	)
 	ch := &TelegramChannel{
-		BaseChannel: base,
-		bot:         bot,
+		BaseChannel:  base,
+		bot:          bot,
+		ownerMissing: ownerMissing,
 		bc: &config.Channel{
 			Type:      config.ChannelTelegram,
 			Enabled:   true,
-			AllowFrom: config.FlexibleStringSlice{pollingOwnerID},
+			AllowFrom: allowFrom,
 		},
 		tgCfg:        &config.TelegramSettings{},
 		chatIDs:      make(map[string]int64),

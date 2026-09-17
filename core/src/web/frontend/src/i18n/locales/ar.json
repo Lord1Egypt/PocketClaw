@@ -764,6 +764,7 @@
         "copyLink": "نسخ الرابط",
         "linkCopied": "تم نسخ الرابط.",
         "linkCopyFailed": "تعذّر نسخ الرابط.",
+        "linkCopyManual": "انسخ الرابط يدويًا: حدّده من الأسفل.",
         "waiting": "في انتظار تأكيدك للبوت الجديد في تيليجرام…",
         "botCreated": "تم إنشاء البوت. جارٍ إكمال الإعداد…",
         "configuring": "جارٍ تهيئة PocketClaw…",
@@ -786,6 +787,7 @@
         "gateway_starting": "جارٍ تشغيل PocketClaw…",
         "channel_starting": "جارٍ الاتصال بتيليجرام…",
         "registering_commands": "جارٍ نشر قائمة الأوامر…",
+        "setup_required": "أضف مُعرّفك الرقمي في تيليجرام ضمن «المسموح لهم» ليجيب هذا البوت عليك وحدك.",
         "authentication_failed": "رفض تيليجرام بيانات اعتماد البوت.",
         "ready": "تيليجرام جاهز لرسالتك الأولى.",
         "unknown": "لم يُبلِّغ PocketClaw عن حالة تيليجرام."
@@ -799,7 +801,8 @@
         "removedPending": "تمت إزالة تيليجرام وسيتوقف بمجرد أن يصبح PocketClaw متفرغًا.",
         "failed": "تعذّر قطع الاتصال بتيليجرام."
       },
-      "statusUnreadableTitle": "حالة تيليجرام غير متاحة"
+      "statusUnreadableTitle": "حالة تيليجرام غير متاحة",
+      "setupIncompleteTitle": "إعداد تيليجرام غير مكتمل"
     }
   },
   "pages": {

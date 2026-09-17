@@ -2151,6 +2151,10 @@ func (m *Manager) SnapshotChannels() []status.Channel {
 		if reporter, ok := channel.(RuntimeFailureReporter); ok && channel != nil {
 			runtimeFailure = reporter.RuntimeFailure()
 		}
+		var ownerMissing bool
+		if reporter, ok := channel.(OwnerMissingReporter); ok && channel != nil {
+			ownerMissing = reporter.OwnerMissing()
+		}
 		snapshots = append(snapshots, status.Channel{
 			Name:       StatusDisplayName(name),
 			Configured: true,
@@ -2162,6 +2166,7 @@ func (m *Manager) SnapshotChannels() []status.Channel {
 			CommandsRegistered: commandsRegistered,
 			PollingGeneration:  pollingGeneration,
 			RuntimeFailure:     runtimeFailure,
+			OwnerMissing:       ownerMissing,
 		})
 	}
 	return snapshots

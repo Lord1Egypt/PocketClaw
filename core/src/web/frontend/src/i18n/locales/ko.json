@@ -764,6 +764,7 @@
         "copyLink": "링크 복사",
         "linkCopied": "링크를 복사했습니다.",
         "linkCopyFailed": "링크를 복사할 수 없습니다.",
+        "linkCopyManual": "링크를 수동으로 복사하세요: 아래에서 선택하세요.",
         "waiting": "Telegram에서 새 봇을 확인해 주기를 기다리는 중…",
         "botCreated": "봇을 만들었습니다. 설정을 마무리하는 중…",
         "configuring": "PocketClaw를 설정하는 중…",
@@ -786,6 +787,7 @@
         "gateway_starting": "PocketClaw를 시작하는 중…",
         "channel_starting": "Telegram에 연결하는 중…",
         "registering_commands": "명령 메뉴를 등록하는 중…",
+        "setup_required": "이 봇이 당신에게만 응답하도록 Allowed From에 Telegram 숫자 ID를 추가하세요.",
         "authentication_failed": "Telegram이 봇 자격 증명을 거부했습니다.",
         "ready": "Telegram이 첫 메시지를 받을 준비가 되었습니다.",
         "unknown": "PocketClaw가 Telegram 상태를 보고하지 않았습니다."
@@ -799,7 +801,8 @@
         "removedPending": "Telegram이 제거되었으며 PocketClaw가 유휴 상태가 되면 중지됩니다.",
         "failed": "Telegram 연결을 해제할 수 없습니다."
       },
-      "statusUnreadableTitle": "Telegram 상태를 확인할 수 없음"
+      "statusUnreadableTitle": "Telegram 상태를 확인할 수 없음",
+      "setupIncompleteTitle": "Telegram 설정이 완료되지 않았습니다"
     }
   },
   "pages": {

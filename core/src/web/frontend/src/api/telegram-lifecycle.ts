@@ -22,6 +22,7 @@ export type TelegramReadinessState =
   | "channel_starting"
   | "registering_commands"
   | "authentication_failed"
+  | "setup_required"
   | "ready"
   | "unknown"
 

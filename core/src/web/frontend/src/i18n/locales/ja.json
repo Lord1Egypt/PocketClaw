@@ -764,6 +764,7 @@
         "copyLink": "リンクをコピー",
         "linkCopied": "リンクをコピーしました。",
         "linkCopyFailed": "リンクをコピーできませんでした。",
+        "linkCopyManual": "リンクを手動でコピー: 下記を選択してください。",
         "waiting": "Telegram で新しいボットの確認をお待ちしています…",
         "botCreated": "ボットを作成しました。設定を完了しています…",
         "configuring": "PocketClaw を設定中…",
@@ -786,6 +787,7 @@
         "gateway_starting": "PocketClaw を起動しています…",
         "channel_starting": "Telegram に接続しています…",
         "registering_commands": "コマンドメニューを登録しています…",
+        "setup_required": "このボットがあなただけに応答するように、Allowed From にあなたの Telegram 数値 ID を追加してください。",
         "authentication_failed": "Telegram がボットの認証情報を拒否しました。",
         "ready": "Telegram は最初のメッセージを受け取る準備ができました。",
         "unknown": "PocketClaw が Telegram の状態を報告しませんでした。"
@@ -799,7 +801,8 @@
         "removedPending": "Telegram を削除しました。PocketClaw が空き次第停止します。",
         "failed": "Telegram の接続を解除できませんでした。"
       },
-      "statusUnreadableTitle": "Telegram の状態を取得できません"
+      "statusUnreadableTitle": "Telegram の状態を取得できません",
+      "setupIncompleteTitle": "Telegram のセットアップが未完了です"
     }
   },
   "pages": {

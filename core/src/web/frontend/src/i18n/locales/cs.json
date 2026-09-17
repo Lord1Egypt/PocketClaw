@@ -764,6 +764,7 @@
         "copyLink": "Kopírovat odkaz",
         "linkCopied": "Odkaz zkopírován.",
         "linkCopyFailed": "Odkaz se nepodařilo zkopírovat.",
+        "linkCopyManual": "Zkopírujte odkaz ručně: vyberte jej níže.",
         "waiting": "Čekáme, až v Telegramu potvrdíte nového bota…",
         "botCreated": "Bot vytvořen. Dokončuje se nastavení…",
         "configuring": "Konfiguruje se PocketClaw…",
@@ -786,6 +787,7 @@
         "gateway_starting": "PocketClaw se spouští…",
         "channel_starting": "Připojování k Telegramu…",
         "registering_commands": "Zveřejňování nabídky příkazů…",
+        "setup_required": "Přidejte své číselné ID Telegramu do „Povoleno od“, aby tento bot odpovídal jen vám.",
         "authentication_failed": "Telegram odmítl přihlašovací údaje bota.",
         "ready": "Telegram je připraven na vaši první zprávu.",
         "unknown": "PocketClaw nenahlásil stav Telegramu."
@@ -799,7 +801,8 @@
         "removedPending": "Telegram byl odstraněn a zastaví se, jakmile bude PocketClaw volný.",
         "failed": "Telegram se nepodařilo odpojit."
       },
-      "statusUnreadableTitle": "Stav Telegramu není dostupný"
+      "statusUnreadableTitle": "Stav Telegramu není dostupný",
+      "setupIncompleteTitle": "Nastavení Telegramu není dokončeno"
     }
   },
   "pages": {

@@ -67,11 +67,18 @@ type TelegramChannel struct {
 	bh        *th.BotHandler
 	bc        *config.Channel
 	chatIDsMu sync.Mutex
-	chatIDs   map[string]int64
-	ctx       context.Context
-	cancel    context.CancelFunc
-	tgCfg     *config.TelegramSettings
-	progress  *channels.ToolFeedbackAnimator
+
+	// ownerMissing records that this channel was configured with a valid bot
+	// credential but no owner identity. It is an incomplete setup, not a
+	// working bot: private senders get deterministic setup guidance and no
+	// agent turn is ever created, and other chat types are left unanswered.
+	// It is fixed at construction; configuring an owner requires a new channel.
+	ownerMissing bool
+	chatIDs      map[string]int64
+	ctx          context.Context
+	cancel       context.CancelFunc
+	tgCfg        *config.TelegramSettings
+	progress     *channels.ToolFeedbackAnimator
 
 	// pollingDone is closed when the long-polling goroutine has unwound. Stop
 	// waits on it so a stopped channel can be started again.
@@ -144,11 +151,21 @@ func NewTelegramChannel(
 	telegramCfg *config.TelegramSettings,
 	bus *bus.MessageBus,
 ) (*TelegramChannel, error) {
-	if len(bc.AllowFrom) != 1 {
-		return nil, fmt.Errorf("telegram requires exactly one paired numeric owner")
-	}
-	ownerID, err := strconv.ParseInt(strings.TrimSpace(bc.AllowFrom[0]), 10, 64)
-	if err != nil || ownerID <= 0 {
+	// The owner contract, minus the empty case. Exactly one positive numeric
+	// owner authorizes the agent. Zero owners is no longer a construction
+	// failure: it is the explicit owner-missing setup state, handled below
+	// without ever granting agent access. Several owners, or one that is not a
+	// positive numeric id, remain errors -- there is nothing sensible to pick.
+	ownerMissing := false
+	switch len(bc.AllowFrom) {
+	case 0:
+		ownerMissing = true
+	case 1:
+		ownerID, err := strconv.ParseInt(strings.TrimSpace(bc.AllowFrom[0]), 10, 64)
+		if err != nil || ownerID <= 0 {
+			return nil, fmt.Errorf("telegram owner must be exactly one positive numeric Telegram user ID")
+		}
+	default:
 		return nil, fmt.Errorf("telegram requires exactly one paired numeric owner")
 	}
 	channelName := bc.Name()
@@ -189,11 +206,21 @@ func NewTelegramChannel(
 		return nil, fmt.Errorf("failed to create telegram bot: %w", err)
 	}
 
+	// Defense in depth for the owner-missing state. The configured AllowFrom is
+	// empty, and BaseChannel reads an empty allowlist as "allow everyone" -- a
+	// false warning here and, worse, a permissive base layer behind the
+	// owner-missing branch. A non-numeric sentinel matches no real Telegram
+	// user, so the base layer denies every sender even if a future path
+	// bypassed the branch above.
+	baseAllowFrom := bc.AllowFrom
+	if ownerMissing {
+		baseAllowFrom = config.FlexibleStringSlice{telegramOwnerMissingSentinel}
+	}
 	base := channels.NewBaseChannel(
 		channelName,
 		telegramCfg,
 		bus,
-		bc.AllowFrom,
+		baseAllowFrom,
 		channels.WithMaxMessageLength(4000),
 		channels.WithGroupTrigger(bc.GroupTrigger),
 		channels.WithReasoningChannelID(bc.ReasoningChannelID),
@@ -203,6 +230,7 @@ func NewTelegramChannel(
 		BaseChannel:  base,
 		bot:          bot,
 		bc:           bc,
+		ownerMissing: ownerMissing,
 		chatIDs:      make(map[string]int64),
 		tgCfg:        telegramCfg,
 		intakeRef:    intakeRef,
@@ -447,6 +475,43 @@ func (c *TelegramChannel) retireFailedGeneration(generation uint64, bh *th.BotHa
 // carries no bot, owner, chat or credential identity.
 func (c *TelegramChannel) PollingGeneration() uint64 {
 	return c.generation.Load()
+}
+
+// OwnerMissing reports that this channel has a valid credential but no
+// configured owner, so it is in the incomplete-setup state rather than ready.
+// It carries no identity: only the boolean fact.
+func (c *TelegramChannel) OwnerMissing() bool {
+	return c.ownerMissing
+}
+
+// telegramOwnerMissingSentinel is a non-numeric marker installed as the base
+// channel's allowlist while no owner is configured. It matches no real Telegram
+// user id, so the base layer denies every sender rather than reading an empty
+// allowlist as open access.
+const telegramOwnerMissingSentinel = "__owner_missing__"
+
+// telegramOwnerMissingReply is the deterministic local guidance a private
+// sender receives while Telegram is configured with a valid token but no
+// owner. It names the sender's own numeric id -- the one fact the inbound
+// update carries that the user would otherwise need a third-party bot to learn
+// -- and nothing about anyone else.
+//
+// Core has no locale, so this is English like every other Core reply; the stable
+// machine-readable state is `setup_required` / `owner_missing` on readiness, and
+// the Dashboard localizes its own copy.
+const telegramOwnerMissingReply = "PocketClaw is connected, but Telegram setup is incomplete.\n\n" +
+	"Add your Telegram numeric ID in PocketClaw -> Telegram -> Manual setup / Allowed From.\n\n" +
+	"Your Telegram numeric ID is: %d\n\n" +
+	"That ID identifies which account is allowed to control this bot."
+
+// sendOwnerMissingSetupReply delivers the setup guidance to the sender's own
+// private chat. It logs nothing about the sender: not the id, not the chat.
+func (c *TelegramChannel) sendOwnerMissingSetupReply(ctx context.Context, chatID, senderID int64) {
+	tgMsg := tu.Message(tu.ID(chatID), fmt.Sprintf(telegramOwnerMissingReply, senderID))
+	if _, err := c.bot.SendMessage(ctx, tgMsg); err != nil {
+		logger.WarnC("telegram",
+			"Could not deliver the Telegram owner-missing setup guidance")
+	}
 }
 
 func (c *TelegramChannel) Stop(ctx context.Context) error {
@@ -1321,6 +1386,30 @@ func (c *TelegramChannel) handleMessages(ctx context.Context, messages []*telego
 	user := message.From
 	if user == nil {
 		return fmt.Errorf("message sender (user) is nil")
+	}
+
+	// The owner-missing setup state is handled before anything else reaches the
+	// update. A valid credential with no owner is an incomplete setup, not a
+	// working bot: it must never create an agent turn, call a provider, run a
+	// tool, write session history, execute a built-in command, download media,
+	// or mutate configuration. Only a private sender is answered, with the
+	// deterministic setup guidance, and only their own numeric id.
+	//
+	// The check is before the allowlist deliberately: an empty AllowFrom makes
+	// BaseChannel.IsAllowedSender permissive, so this branch is the boundary
+	// that keeps an ownerless channel from ever being treated as open.
+	if c.ownerMissing {
+		isPrivate := strings.EqualFold(strings.TrimSpace(message.Chat.Type), "private")
+		if isPrivate {
+			c.sendOwnerMissingSetupReply(ctx, message.Chat.ID, user.ID)
+		}
+		// A group or channel gets no public setup guidance: it is left
+		// unanswered rather than naming infrastructure or identity in a chat
+		// the user did not control.
+		logger.DebugCF("telegram", "Telegram message handled by the owner-missing setup path", map[string]any{
+			"is_private": isPrivate,
+		})
+		return nil
 	}
 
 	platformID := fmt.Sprintf("%d", user.ID)

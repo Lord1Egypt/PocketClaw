@@ -54,6 +54,11 @@ const (
 	// readinessAuthenticationFailed: Telegram rejected the bot credential.
 	// Terminal for this configuration; retrying the same token cannot help.
 	readinessAuthenticationFailed telegramReadinessState = "authentication_failed"
+	// readinessSetupRequired: the credential is valid but no owner identity is
+	// configured. Telegram is not usable yet, so this is never ready -- a
+	// private message gets deterministic local setup guidance and no agent
+	// access. The detail is "owner_missing".
+	readinessSetupRequired telegramReadinessState = "setup_required"
 	// readinessReady: consuming and the menu reached Telegram.
 	readinessReady telegramReadinessState = "ready"
 	// readinessUnknown: the gateway would not say. Never reported as ready.
@@ -112,6 +117,13 @@ func (h *Handler) telegramReadinessWithGeneration() (telegramReadinessState, str
 	}
 	if !configured {
 		return readinessNotConfigured, "", 0
+	}
+	// A token with no owner is an incomplete setup, and that is a fact of the
+	// persisted configuration rather than of the running gateway, so it is
+	// answered before any gateway state. It never authorizes a handoff
+	// (generation 0), so it cannot resurrect a stale generation either.
+	if h.telegramOwnerMissing() {
+		return readinessSetupRequired, "owner_missing", 0
 	}
 	// A status snapshot from the currently running gateway may describe the
 	// previous Telegram credential. Never let that old generation authorize a
@@ -175,6 +187,47 @@ func (h *Handler) telegramIsConfigured() (bool, error) {
 		return false, nil
 	}
 	return strings.TrimSpace(settings.Token.String()) != "", nil
+}
+
+// telegramOwnerMissing reports the owner-missing setup state from the persisted
+// configuration: Telegram is enabled with a token, but AllowFrom does not name
+// exactly one positive numeric owner.
+//
+// It is deliberately authoritative from config rather than from the gateway
+// snapshot. The channel never starts its agent path in this state, and the
+// gateway may not even have built the channel, so the config is the only place
+// that can always answer. This is also the state the desktop manual save
+// (PATCH /api/config) can produce, where the full-config PUT and the Android
+// writers normally prevent it -- the Core still represents it honestly.
+func (h *Handler) telegramOwnerMissing() bool {
+	configured, err := h.telegramIsConfigured()
+	if err != nil || !configured {
+		return false
+	}
+	cfg, err := config.LoadConfig(h.configPath)
+	if err != nil {
+		return false
+	}
+	channel := cfg.Channels.Get(config.ChannelTelegram)
+	if channel == nil || !channel.Enabled {
+		return false
+	}
+	return telegramValidOwnerCount(channel.AllowFrom) != 1
+}
+
+// telegramValidOwnerCount counts the AllowFrom entries that are a positive
+// numeric Telegram user id. Used only to decide whether the owner contract is
+// satisfied; the value itself is never reported.
+func telegramValidOwnerCount(allowFrom config.FlexibleStringSlice) int {
+	count := 0
+	for _, raw := range allowFrom {
+		id, err := strconv.ParseInt(strings.TrimSpace(raw), 10, 64)
+		if err != nil || id <= 0 {
+			continue
+		}
+		count++
+	}
+	return count
 }
 
 // errGatewayStatusUnavailable means the gateway did not serve its detail

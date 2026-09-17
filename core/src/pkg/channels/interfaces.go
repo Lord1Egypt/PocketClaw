@@ -116,8 +116,18 @@ type PollingGenerationReporter interface {
 }
 
 // RuntimeFailureReporter is implemented by a channel that can expose a safe,
-// terminal lifecycle code. Codes are machine-readable and must never contain
-// an upstream response, identity or credential.
+// terminal lifecycle code. Codes are machine-readable and must never contain an
+// upstream response, identity or credential.
 type RuntimeFailureReporter interface {
 	RuntimeFailure() string
+}
+
+// OwnerMissingReporter is implemented by a channel that requires a configured
+// owner identity and can say when the credential is valid but no owner is set.
+//
+// It is a boolean fact only, carrying no identity: it lets readiness report an
+// incomplete setup instead of "connected", so a UI never presents a bot that
+// will not answer its owner as ready.
+type OwnerMissingReporter interface {
+	OwnerMissing() bool
 }

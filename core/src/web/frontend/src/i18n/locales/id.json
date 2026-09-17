@@ -764,6 +764,7 @@
         "copyLink": "Salin tautan",
         "linkCopied": "Tautan disalin.",
         "linkCopyFailed": "Tidak dapat menyalin tautan.",
+        "linkCopyManual": "Salin tautan secara manual: pilih di bawah ini.",
         "waiting": "Menunggu kamu mengonfirmasi bot baru di Telegram…",
         "botCreated": "Bot dibuat. Menyelesaikan penyiapan…",
         "configuring": "Mengonfigurasi PocketClaw…",
@@ -786,6 +787,7 @@
         "gateway_starting": "PocketClaw sedang dijalankan…",
         "channel_starting": "Menghubungkan ke Telegram…",
         "registering_commands": "Menerbitkan menu perintah…",
+        "setup_required": "Tambahkan ID numerik Telegram Anda di Allowed From agar bot ini hanya menjawab Anda.",
         "authentication_failed": "Telegram menolak kredensial bot.",
         "ready": "Telegram siap menerima pesan pertama Anda.",
         "unknown": "PocketClaw tidak melaporkan status Telegram."
@@ -799,7 +801,8 @@
         "removedPending": "Telegram telah dihapus dan akan berhenti begitu PocketClaw tidak sibuk.",
         "failed": "Tidak dapat memutuskan Telegram."
       },
-      "statusUnreadableTitle": "Status Telegram tidak tersedia"
+      "statusUnreadableTitle": "Status Telegram tidak tersedia",
+      "setupIncompleteTitle": "Penyiapan Telegram belum lengkap"
     }
   },
   "pages": {
