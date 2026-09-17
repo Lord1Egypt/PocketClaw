@@ -231,6 +231,58 @@ describe("Channels → Telegram", () => {
     expect(screen.getByText(translate("channels.field.allowFrom"))).toBeDefined()
   })
 
+  // A bot owned by another service is never Connected. The two ownerships need
+  // different instructions, so the body differs by reason.
+  it("case 3d: a webhook conflict shows an actionable conflict, not connected", async () => {
+    installHost({
+      onboardingConfigured: true,
+      telegramBotUsername: "pocketclaw_ab12cd34_bot",
+    })
+    fetchTelegramReadiness.mockResolvedValue({
+      state: "telegram_conflict",
+      ready: false,
+      detail: "webhook_active",
+    })
+    arrange({ configuredSecrets: ["token"], config: { enabled: true, allow_from: ["1"] } })
+
+    await renderTelegramPage()
+
+    expect(
+      await screen.findByText(translate("channels.telegram.conflictTitle")),
+    ).toBeDefined()
+    expect(
+      screen.getByText(translate("channels.telegram.conflictWebhook")),
+    ).toBeDefined()
+    expect(
+      screen.queryByText(translate("channels.telegram.connected")),
+    ).toBeNull()
+  })
+
+  it("case 3e: another poller shows the bot-in-use guidance", async () => {
+    installHost({
+      onboardingConfigured: true,
+      telegramBotUsername: "pocketclaw_ab12cd34_bot",
+    })
+    fetchTelegramReadiness.mockResolvedValue({
+      state: "telegram_conflict",
+      ready: false,
+      detail: "bot_in_use",
+    })
+    arrange({ configuredSecrets: ["token"], config: { enabled: true, allow_from: ["1"] } })
+
+    await renderTelegramPage()
+
+    expect(
+      await screen.findByText(translate("channels.telegram.conflictTitle")),
+    ).toBeDefined()
+    expect(
+      screen.getByText(translate("channels.telegram.conflictInUse")),
+    ).toBeDefined()
+    expect(
+      screen.queryByText(translate("channels.telegram.connected")),
+    ).toBeNull()
+  })
+
   it("case 3: an already-configured Telegram shows the connected summary first", async () => {
     const host = installHost({
       onboardingConfigured: true,

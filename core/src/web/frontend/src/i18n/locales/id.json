@@ -776,6 +776,8 @@
         "errorExpired": "Tautan penyiapan ini kedaluwarsa. Mulai lagi untuk mendapatkan yang baru.",
         "errorFailed": "Penyiapan tidak selesai. Coba lagi, atau gunakan penyiapan manual di bawah.",
         "errorInvalidCredentials": "Telegram menolak bot ini. Pembuatan mungkin belum selesai atau tokennya tidak valid. Coba lagi nanti atau gunakan bot valid yang sudah ada di bawah.",
+        "errorWebhookActive": "Bot ini memiliki webhook Telegram yang aktif. Putuskan dari layanan lain atau gunakan bot lain.",
+        "errorBotInUse": "Bot ini sedang digunakan oleh aplikasi lain. Hentikan layanan bot lain atau pilih bot lain.",
         "errorNotReady": "Bot Anda sudah disimpan, tetapi Telegram belum menerima pesan. Periksa lagi sebentar.",
         "checkAgain": "Periksa lagi"
       },
@@ -788,6 +790,7 @@
         "channel_starting": "Menghubungkan ke Telegram…",
         "registering_commands": "Menerbitkan menu perintah…",
         "setup_required": "Tambahkan ID numerik Telegram Anda di Allowed From agar bot ini hanya menjawab Anda.",
+        "telegram_conflict": "Bot ini sudah digunakan oleh layanan lain.",
         "authentication_failed": "Telegram menolak kredensial bot.",
         "ready": "Telegram siap menerima pesan pertama Anda.",
         "unknown": "PocketClaw tidak melaporkan status Telegram."
@@ -802,7 +805,10 @@
         "failed": "Tidak dapat memutuskan Telegram."
       },
       "statusUnreadableTitle": "Status Telegram tidak tersedia",
-      "setupIncompleteTitle": "Penyiapan Telegram belum lengkap"
+      "setupIncompleteTitle": "Penyiapan Telegram belum lengkap",
+      "conflictTitle": "Bot Telegram sudah digunakan",
+      "conflictWebhook": "Bot ini memiliki webhook Telegram yang aktif. Putuskan dari layanan lain atau gunakan bot lain.",
+      "conflictInUse": "Bot ini sedang digunakan oleh aplikasi lain. Hentikan layanan bot lain atau pilih bot lain."
     }
   },
   "pages": {

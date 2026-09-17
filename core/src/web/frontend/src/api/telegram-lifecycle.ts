@@ -23,6 +23,7 @@ export type TelegramReadinessState =
   | "registering_commands"
   | "authentication_failed"
   | "setup_required"
+  | "telegram_conflict"
   | "ready"
   | "unknown"
 

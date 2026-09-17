@@ -70,7 +70,14 @@ export function useTelegramReadiness(active: boolean): TelegramReadinessPoll {
       // Settled either way: a ready channel has nothing left to report, and an
       // expired bound has handed the decision to the user. Neither should keep
       // making requests.
-      if (next.ready || next.state === "authentication_failed") {
+      // Settled terminal states stop the poll: a ready channel has nothing left
+      // to report, and an invalid credential or a bot owned by another service
+      // will not heal on a timer. The conflict is terminal, not transient.
+      if (
+        next.ready ||
+        next.state === "authentication_failed" ||
+        next.state === "telegram_conflict"
+      ) {
         stop()
         return
       }

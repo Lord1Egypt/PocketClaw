@@ -776,6 +776,8 @@
         "errorExpired": "Dieser Einrichtungslink ist abgelaufen. Starte neu, um einen neuen zu erhalten.",
         "errorFailed": "Die Einrichtung wurde nicht abgeschlossen. Versuche es erneut oder nutze unten die manuelle Einrichtung.",
         "errorInvalidCredentials": "Telegram hat diesen Bot abgelehnt. Die Erstellung ist möglicherweise unvollständig oder das Token ist ungültig. Versuche es später erneut oder verwende unten einen vorhandenen gültigen Bot.",
+        "errorWebhookActive": "Für diesen Bot ist ein aktiver Telegram-Webhook eingerichtet. Trenne ihn vom anderen Dienst oder verwende einen anderen Bot.",
+        "errorBotInUse": "Dieser Bot wird derzeit von einer anderen Anwendung verwendet. Stoppe den anderen Bot-Dienst oder wähle einen anderen Bot.",
         "errorNotReady": "Ihr Bot ist gespeichert, aber Telegram empfängt noch nicht. Prüfen Sie es in einem Moment erneut.",
         "checkAgain": "Erneut prüfen"
       },
@@ -788,6 +790,7 @@
         "channel_starting": "Verbindung zu Telegram wird aufgebaut…",
         "registering_commands": "Befehlsmenü wird veröffentlicht…",
         "setup_required": "Füge deine numerische Telegram-ID unter „Erlaubt von“ hinzu, damit dieser Bot nur dir antwortet.",
+        "telegram_conflict": "Dieser Bot wird bereits von einem anderen Dienst verwendet.",
         "authentication_failed": "Telegram hat die Bot-Zugangsdaten abgelehnt.",
         "ready": "Telegram ist für Ihre erste Nachricht bereit.",
         "unknown": "PocketClaw hat seinen Telegram-Status nicht gemeldet."
@@ -802,7 +805,10 @@
         "failed": "Telegram konnte nicht getrennt werden."
       },
       "statusUnreadableTitle": "Telegram-Status nicht verfügbar",
-      "setupIncompleteTitle": "Telegram-Einrichtung unvollständig"
+      "setupIncompleteTitle": "Telegram-Einrichtung unvollständig",
+      "conflictTitle": "Telegram-Bot bereits in Verwendung",
+      "conflictWebhook": "Für diesen Bot ist ein aktiver Telegram-Webhook eingerichtet. Trenne ihn vom anderen Dienst oder verwende einen anderen Bot.",
+      "conflictInUse": "Dieser Bot wird derzeit von einer anderen Anwendung verwendet. Stoppe den anderen Bot-Dienst oder wähle einen anderen Bot."
     }
   },
   "pages": {

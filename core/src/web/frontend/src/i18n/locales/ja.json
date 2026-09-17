@@ -776,6 +776,8 @@
         "errorExpired": "この設定リンクは期限切れです。やり直して新しいリンクを取得してください。",
         "errorFailed": "設定が完了しませんでした。もう一度お試しか、下の手動設定をご利用ください。",
         "errorInvalidCredentials": "Telegram がこのボットを拒否しました。作成が完了していないか、トークンが無効な可能性があります。後でもう一度試すか、下で既存の有効なボットを使用してください。",
+        "errorWebhookActive": "このボットには有効な Telegram Webhook が設定されています。他のサービスから切断するか、別のボットを使用してください。",
+        "errorBotInUse": "このボットは現在別のアプリケーションで使用されています。他のボットサービスを停止するか、別のボットを選んでください。",
         "errorNotReady": "ボットは保存されましたが、Telegram はまだ受信していません。しばらくしてからもう一度確認してください。",
         "checkAgain": "もう一度確認"
       },
@@ -788,6 +790,7 @@
         "channel_starting": "Telegram に接続しています…",
         "registering_commands": "コマンドメニューを登録しています…",
         "setup_required": "このボットがあなただけに応答するように、Allowed From にあなたの Telegram 数値 ID を追加してください。",
+        "telegram_conflict": "このボットはすでに別のサービスで使用されています。",
         "authentication_failed": "Telegram がボットの認証情報を拒否しました。",
         "ready": "Telegram は最初のメッセージを受け取る準備ができました。",
         "unknown": "PocketClaw が Telegram の状態を報告しませんでした。"
@@ -802,7 +805,10 @@
         "failed": "Telegram の接続を解除できませんでした。"
       },
       "statusUnreadableTitle": "Telegram の状態を取得できません",
-      "setupIncompleteTitle": "Telegram のセットアップが未完了です"
+      "setupIncompleteTitle": "Telegram のセットアップが未完了です",
+      "conflictTitle": "Telegram ボットは使用中です",
+      "conflictWebhook": "このボットには有効な Telegram Webhook が設定されています。他のサービスから切断するか、別のボットを使用してください。",
+      "conflictInUse": "このボットは現在別のアプリケーションで使用されています。他のボットサービスを停止するか、別のボットを選んでください。"
     }
   },
   "pages": {

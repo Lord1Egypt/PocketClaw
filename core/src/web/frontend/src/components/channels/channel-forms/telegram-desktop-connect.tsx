@@ -59,6 +59,26 @@ type Phase =
   | { kind: "starting" }
   | { kind: "failed"; reason: string }
 
+/**
+ * Maps a Core onboarding error kind to its localized, actionable message.
+ *
+ * A failed candidate is never collapsed into one "connection failed": invalid
+ * credentials, an active webhook and another poller need different user actions.
+ */
+function desktopOnboardingErrorKey(error: unknown): string {
+  const kind = error instanceof Error ? error.message : ""
+  switch (kind) {
+    case "invalid_credentials":
+      return "channels.telegram.desktop.errorInvalidCredentials"
+    case "webhook_active":
+      return "channels.telegram.desktop.errorWebhookActive"
+    case "bot_in_use":
+      return "channels.telegram.desktop.errorBotInUse"
+    default:
+      return "channels.telegram.desktop.errorFailed"
+  }
+}
+
 interface TelegramDesktopConnectProps {
   /** Called once Telegram is configured, so the page can reload its config. */
   onConnected: () => void
@@ -172,11 +192,7 @@ export function TelegramDesktopConnect({
         setPhase({ kind: "starting" })
       } catch (error) {
         if (!cancelled) {
-          fail(
-            error instanceof Error && error.message === "invalid_credentials"
-              ? t("channels.telegram.desktop.errorInvalidCredentials")
-              : t("channels.telegram.desktop.errorFailed"),
-          )
+          fail(t(desktopOnboardingErrorKey(error)))
         }
       }
     }
@@ -195,13 +211,23 @@ export function TelegramDesktopConnect({
   )
 
   useEffect(() => {
-    if (
-      phase.kind === "starting" &&
-      readiness?.state === "authentication_failed"
-    ) {
+    if (phase.kind !== "starting") return
+    if (readiness?.state === "authentication_failed") {
       fail(t("channels.telegram.desktop.errorInvalidCredentials"))
+      return
     }
-  }, [phase.kind, readiness?.state, fail, t])
+    // A bot owned elsewhere is terminal too, and the two ownerships need
+    // different instructions, so they do not collapse into one message.
+    if (readiness?.state === "telegram_conflict") {
+      fail(
+        t(
+          readiness.detail === "webhook_active"
+            ? "channels.telegram.desktop.errorWebhookActive"
+            : "channels.telegram.desktop.errorBotInUse",
+        ),
+      )
+    }
+  }, [phase.kind, readiness?.state, readiness?.detail, fail, t])
 
   // Ready is the only state that may be announced, and it is announced once.
   const announced = useRef(false)

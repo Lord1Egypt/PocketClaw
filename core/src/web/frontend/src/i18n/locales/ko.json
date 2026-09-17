@@ -776,6 +776,8 @@
         "errorExpired": "이 설정 링크가 만료되었습니다. 다시 시작해 새 링크를 받으세요.",
         "errorFailed": "설정이 끝나지 않았습니다. 다시 시도하거나 아래의 수동 설정을 사용하세요.",
         "errorInvalidCredentials": "Telegram이 이 봇을 거부했습니다. 봇 생성이 완료되지 않았거나 토큰이 유효하지 않을 수 있습니다. 나중에 다시 시도하거나 아래에서 기존의 유효한 봇을 사용하세요.",
+        "errorWebhookActive": "이 봇에 활성 Telegram 웹훅이 있습니다. 다른 서비스에서 연결을 해제하거나 다른 봇을 사용하세요.",
+        "errorBotInUse": "이 봇은 현재 다른 애플리케이션에서 사용 중입니다. 다른 봇 서비스를 중지하거나 다른 봇을 선택하세요.",
         "errorNotReady": "봇은 저장되었지만 Telegram이 아직 메시지를 받지 못합니다. 잠시 후 다시 확인하세요.",
         "checkAgain": "다시 확인"
       },
@@ -788,6 +790,7 @@
         "channel_starting": "Telegram에 연결하는 중…",
         "registering_commands": "명령 메뉴를 등록하는 중…",
         "setup_required": "이 봇이 당신에게만 응답하도록 Allowed From에 Telegram 숫자 ID를 추가하세요.",
+        "telegram_conflict": "이 봇은 이미 다른 서비스에서 사용 중입니다.",
         "authentication_failed": "Telegram이 봇 자격 증명을 거부했습니다.",
         "ready": "Telegram이 첫 메시지를 받을 준비가 되었습니다.",
         "unknown": "PocketClaw가 Telegram 상태를 보고하지 않았습니다."
@@ -802,7 +805,10 @@
         "failed": "Telegram 연결을 해제할 수 없습니다."
       },
       "statusUnreadableTitle": "Telegram 상태를 확인할 수 없음",
-      "setupIncompleteTitle": "Telegram 설정이 완료되지 않았습니다"
+      "setupIncompleteTitle": "Telegram 설정이 완료되지 않았습니다",
+      "conflictTitle": "Telegram 봇이 이미 사용 중입니다",
+      "conflictWebhook": "이 봇에 활성 Telegram 웹훅이 있습니다. 다른 서비스에서 연결을 해제하거나 다른 봇을 사용하세요.",
+      "conflictInUse": "이 봇은 현재 다른 애플리케이션에서 사용 중입니다. 다른 봇 서비스를 중지하거나 다른 봇을 선택하세요."
     }
   },
   "pages": {

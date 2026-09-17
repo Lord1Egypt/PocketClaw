@@ -125,7 +125,7 @@ export function TelegramPanel({
   // simply say Connected: the configuration being present is not the channel
   // being able to receive. Watched only while configured, and it stops once
   // ready, so a settled page makes no requests.
-  const { readiness } = useTelegramReadiness(surface === "connected")
+  const { readiness, recheck } = useTelegramReadiness(surface === "connected")
   const receiving = readiness === null || readiness.ready
   // "unknown" means the gateway would not say, which is neither connected nor
   // starting. Claiming either would be the dishonest half of this fix.
@@ -134,6 +134,14 @@ export function TelegramPanel({
   // "Connected": the bot answers private senders with setup guidance and grants
   // no agent access until an owner is configured.
   const setupIncomplete = readiness?.state === "setup_required"
+  // A bot owned by another service -- an active webhook or another long poller
+  // -- is terminal for this configuration. It is never "Connected", and the
+  // actionable explanation depends on which ownership the other service holds.
+  const conflict = readiness?.state === "telegram_conflict"
+  const conflictBodyKey =
+    readiness?.detail === "webhook_active"
+      ? "channels.telegram.conflictWebhook"
+      : "channels.telegram.conflictInUse"
 
   // Route the user straight to the owner field: opening the advanced form is
   // the direct path to Allowed From, and it is the same form on every client.
@@ -225,7 +233,7 @@ export function TelegramPanel({
         <Card className="shadow-sm">
           <CardContent className="space-y-4 px-6 py-5">
             <div className="flex items-center gap-2">
-              {setupIncomplete ? (
+              {setupIncomplete || conflict ? (
                 <IconAlertTriangle className="size-5 text-pc-warning" />
               ) : receiving ? (
                 <IconCircleCheckFilled className="size-5 text-pc-success" />
@@ -235,24 +243,36 @@ export function TelegramPanel({
                 <IconLoader2 className="text-muted-foreground size-5 animate-spin" />
               )}
               <p className="text-base font-semibold">
-                {setupIncomplete
-                  ? t("channels.telegram.setupIncompleteTitle")
-                  : receiving
-                    ? t("channels.telegram.connected")
-                    : statusUnreadable
-                      ? t("channels.telegram.statusUnreadableTitle")
-                      : t("channels.telegram.startingTitle")}
+                {conflict
+                  ? t("channels.telegram.conflictTitle")
+                  : setupIncomplete
+                    ? t("channels.telegram.setupIncompleteTitle")
+                    : receiving
+                      ? t("channels.telegram.connected")
+                      : statusUnreadable
+                        ? t("channels.telegram.statusUnreadableTitle")
+                        : t("channels.telegram.startingTitle")}
               </p>
             </div>
 
             {/* Named so the user knows why not to send a message yet, rather
                 than being told Connected while the channel is still starting. */}
-            {!receiving && readiness && (
+            {!receiving && readiness && !conflict && (
               <p
                 className="text-muted-foreground text-sm"
                 data-readiness-state={readiness.state}
               >
                 {t(readinessLabelKey(readiness.state))}
+              </p>
+            )}
+            {/* A bot owned elsewhere needs its own actionable sentence: an
+                active webhook and another long poller need different fixes. */}
+            {conflict && (
+              <p
+                className="text-muted-foreground text-sm"
+                data-readiness-state="telegram_conflict"
+              >
+                {t(conflictBodyKey)}
               </p>
             )}
 
@@ -277,6 +297,18 @@ export function TelegramPanel({
             </div>
 
             <div className="flex flex-wrap gap-2 pt-1">
+              {/* A conflict is terminal; the user resolves it elsewhere and
+                  then asks again. Re-polling is the honest action. */}
+              {conflict && (
+                <Button
+                  variant="outline"
+                  className="min-h-10"
+                  onClick={recheck}
+                >
+                  <IconRefresh />
+                  {t("channels.telegram.desktop.retry")}
+                </Button>
+              )}
               {botUsername && host && (
                 <Button onClick={openChat} className="min-h-10">
                   <IconBrandTelegram />

@@ -205,6 +205,34 @@ describe("TelegramDesktopConnect", () => {
     }
   })
 
+  // A failed candidate is never collapsed into one generic message: the three
+  // terminal outcomes need different user actions.
+  it("reports an active webhook distinctly on completion", async () => {
+    fetchTelegramPairingStatus.mockResolvedValue({ state: "ready" })
+    completeTelegramPairing.mockRejectedValue(new Error("webhook_active"))
+
+    render(<TelegramDesktopConnect onConnected={vi.fn()} />)
+    fireEvent.click(screen.getByText("channels.telegram.desktop.connect"))
+
+    expect(
+      await screen.findByText(
+        "channels.telegram.desktop.errorWebhookActive",
+      ),
+    ).toBeTruthy()
+  })
+
+  it("reports another poller distinctly on completion", async () => {
+    fetchTelegramPairingStatus.mockResolvedValue({ state: "ready" })
+    completeTelegramPairing.mockRejectedValue(new Error("bot_in_use"))
+
+    render(<TelegramDesktopConnect onConnected={vi.fn()} />)
+    fireEvent.click(screen.getByText("channels.telegram.desktop.connect"))
+
+    expect(
+      await screen.findByText("channels.telegram.desktop.errorBotInUse"),
+    ).toBeTruthy()
+  })
+
   // PC-DEF-061. Connected is announced from the gateway's own readiness, never
   // from the configuration having been applied.
   it("completes once the service reports ready, and reports it upward", async () => {

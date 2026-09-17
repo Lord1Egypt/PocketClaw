@@ -776,6 +776,8 @@
         "errorExpired": "Este link de configuração expirou. Comece de novo para obter outro.",
         "errorFailed": "A configuração não foi concluída. Tente de novo ou use a configuração manual abaixo.",
         "errorInvalidCredentials": "O Telegram rejeitou este bot. A criação pode estar incompleta ou o token pode ser inválido. Tente novamente mais tarde ou use abaixo um bot válido existente.",
+        "errorWebhookActive": "Este bot tem um webhook do Telegram ativo. Desconecte-o do outro serviço ou use outro bot.",
+        "errorBotInUse": "Este bot está sendo usado por outro aplicativo no momento. Pare o outro serviço de bot ou escolha outro bot.",
         "errorNotReady": "Seu bot foi salvo, mas o Telegram ainda não está recebendo. Verifique novamente em instantes.",
         "checkAgain": "Verificar novamente"
       },
@@ -788,6 +790,7 @@
         "channel_starting": "Conectando ao Telegram…",
         "registering_commands": "Publicando o menu de comandos…",
         "setup_required": "Adicione seu ID numérico do Telegram em “Permitidos” para que este bot responda apenas a você.",
+        "telegram_conflict": "Este bot já está sendo usado por outro serviço.",
         "authentication_failed": "O Telegram rejeitou as credenciais do bot.",
         "ready": "O Telegram está pronto para sua primeira mensagem.",
         "unknown": "O PocketClaw não informou o status do Telegram."
@@ -802,7 +805,10 @@
         "failed": "Não foi possível desconectar o Telegram."
       },
       "statusUnreadableTitle": "Status do Telegram indisponível",
-      "setupIncompleteTitle": "Configuração do Telegram incompleta"
+      "setupIncompleteTitle": "Configuração do Telegram incompleta",
+      "conflictTitle": "Bot do Telegram já em uso",
+      "conflictWebhook": "Este bot tem um webhook do Telegram ativo. Desconecte-o do outro serviço ou use outro bot.",
+      "conflictInUse": "Este bot está sendo usado por outro aplicativo no momento. Pare o outro serviço de bot ou escolha outro bot."
     }
   },
   "pages": {

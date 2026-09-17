@@ -776,6 +776,8 @@
         "errorExpired": "Este enlace de configuración caducó. Empieza de nuevo para obtener otro.",
         "errorFailed": "La configuración no terminó. Inténtalo de nuevo o usa la configuración manual de abajo.",
         "errorInvalidCredentials": "Telegram rechazó este bot. Es posible que la creación esté incompleta o que el token no sea válido. Inténtalo más tarde o usa abajo un bot válido existente.",
+        "errorWebhookActive": "Este bot tiene un webhook de Telegram activo. Desconéctalo del otro servicio o usa otro bot.",
+        "errorBotInUse": "Otra aplicación está usando este bot en este momento. Detén el otro servicio de bot o elige otro bot.",
         "errorNotReady": "Tu bot está guardado, pero Telegram aún no recibe mensajes. Vuelve a comprobarlo en un momento.",
         "checkAgain": "Comprobar de nuevo"
       },
@@ -788,6 +790,7 @@
         "channel_starting": "Conectando con Telegram…",
         "registering_commands": "Publicando el menú de comandos…",
         "setup_required": "Añade tu ID numérica de Telegram en «Permitidos» para que este bot solo te responda a ti.",
+        "telegram_conflict": "Este bot ya está siendo usado por otro servicio.",
         "authentication_failed": "Telegram rechazó las credenciales del bot.",
         "ready": "Telegram está listo para tu primer mensaje.",
         "unknown": "PocketClaw no informó del estado de Telegram."
@@ -802,7 +805,10 @@
         "failed": "No se pudo desconectar Telegram."
       },
       "statusUnreadableTitle": "Estado de Telegram no disponible",
-      "setupIncompleteTitle": "Configuración de Telegram incompleta"
+      "setupIncompleteTitle": "Configuración de Telegram incompleta",
+      "conflictTitle": "Bot de Telegram ya en uso",
+      "conflictWebhook": "Este bot tiene un webhook de Telegram activo. Desconéctalo del otro servicio o usa otro bot.",
+      "conflictInUse": "Otra aplicación está usando este bot en este momento. Detén el otro servicio de bot o elige otro bot."
     }
   },
   "pages": {

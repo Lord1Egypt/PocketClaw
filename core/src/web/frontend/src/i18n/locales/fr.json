@@ -776,6 +776,8 @@
         "errorExpired": "Ce lien de configuration a expiré. Recommence pour en obtenir un nouveau.",
         "errorFailed": "La configuration ne s'est pas terminée. Réessaie, ou utilise la configuration manuelle ci-dessous.",
         "errorInvalidCredentials": "Telegram a refusé ce bot. Sa création est peut-être incomplète ou son jeton est invalide. Réessaie plus tard ou utilise un bot valide existant ci-dessous.",
+        "errorWebhookActive": "Ce bot a un webhook Telegram actif. Déconnectez-le de l'autre service ou utilisez un autre bot.",
+        "errorBotInUse": "Une autre application utilise actuellement ce bot. Arrêtez l'autre service de bot ou choisissez un autre bot.",
         "errorNotReady": "Votre bot est enregistré, mais Telegram ne reçoit pas encore. Réessayez dans un instant.",
         "checkAgain": "Vérifier à nouveau"
       },
@@ -788,6 +790,7 @@
         "channel_starting": "Connexion à Telegram…",
         "registering_commands": "Publication du menu de commandes…",
         "setup_required": "Ajoutez votre identifiant numérique Telegram dans « Autorisés » pour que ce bot ne réponde qu'à vous.",
+        "telegram_conflict": "Ce bot est déjà utilisé par un autre service.",
         "authentication_failed": "Telegram a refusé les identifiants du bot.",
         "ready": "Telegram est prêt pour votre premier message.",
         "unknown": "PocketClaw n'a pas indiqué l'état de Telegram."
@@ -802,7 +805,10 @@
         "failed": "Impossible de déconnecter Telegram."
       },
       "statusUnreadableTitle": "État de Telegram indisponible",
-      "setupIncompleteTitle": "Configuration Telegram incomplète"
+      "setupIncompleteTitle": "Configuration Telegram incomplète",
+      "conflictTitle": "Bot Telegram déjà utilisé",
+      "conflictWebhook": "Ce bot a un webhook Telegram actif. Déconnectez-le de l'autre service ou utilisez un autre bot.",
+      "conflictInUse": "Une autre application utilise actuellement ce bot. Arrêtez l'autre service de bot ou choisissez un autre bot."
     }
   },
   "pages": {

@@ -776,6 +776,8 @@
         "errorExpired": "该设置链接已过期。请重新开始以获取新链接。",
         "errorFailed": "设置未完成。请重试，或使用下方的手动设置。",
         "errorInvalidCredentials": "Telegram 拒绝了此机器人。机器人创建可能尚未完成，或令牌已失效。请稍后重试，或在下方使用现有的有效机器人。",
+        "errorWebhookActive": "此机器人配置了有效的 Telegram Webhook。请将其从其他服务断开，或使用其他机器人。",
+        "errorBotInUse": "此机器人当前正被其他应用使用。请停止其他机器人服务，或选择其他机器人。",
         "errorNotReady": "机器人已保存，但 Telegram 还未开始接收消息。请稍后再检查。",
         "checkAgain": "重新检查"
       },
@@ -788,6 +790,7 @@
         "channel_starting": "正在连接 Telegram…",
         "registering_commands": "正在发布命令菜单…",
         "setup_required": "在 Allowed From 中添加你的 Telegram 数字 ID，让此机器人只回复你。",
+        "telegram_conflict": "此机器人已被其他服务使用。",
         "authentication_failed": "Telegram 拒绝了机器人凭据。",
         "ready": "Telegram 已准备好接收你的第一条消息。",
         "unknown": "PocketClaw 未报告 Telegram 状态。"
@@ -802,7 +805,10 @@
         "failed": "无法断开 Telegram 连接。"
       },
       "statusUnreadableTitle": "无法获取 Telegram 状态",
-      "setupIncompleteTitle": "Telegram 设置未完成"
+      "setupIncompleteTitle": "Telegram 设置未完成",
+      "conflictTitle": "Telegram 机器人已被使用",
+      "conflictWebhook": "此机器人配置了有效的 Telegram Webhook。请将其从其他服务断开，或使用其他机器人。",
+      "conflictInUse": "此机器人当前正被其他应用使用。请停止其他机器人服务，或选择其他机器人。"
     }
   },
   "pages": {

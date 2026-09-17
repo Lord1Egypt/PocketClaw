@@ -776,6 +776,8 @@
         "errorExpired": "Tento odkaz pro nastavení vypršel. Začněte znovu a získejte nový.",
         "errorFailed": "Nastavení se nedokončilo. Zkuste to znovu nebo použijte ruční nastavení níže.",
         "errorInvalidCredentials": "Telegram tohoto bota odmítl. Vytvoření nemuselo být dokončeno nebo je token neplatný. Zkuste to později nebo níže použijte existujícího platného bota.",
+        "errorWebhookActive": "Tento bot má aktivní webhook Telegramu. Odpojte jej od jiné služby nebo použijte jiného bota.",
+        "errorBotInUse": "Tento bot právě používá jiná aplikace. Zastavte druhou službu bota nebo zvolte jiného bota.",
         "errorNotReady": "Váš bot je uložen, ale Telegram ještě nepřijímá zprávy. Zkuste to za chvíli znovu.",
         "checkAgain": "Zkontrolovat znovu"
       },
@@ -788,6 +790,7 @@
         "channel_starting": "Připojování k Telegramu…",
         "registering_commands": "Zveřejňování nabídky příkazů…",
         "setup_required": "Přidejte své číselné ID Telegramu do „Povoleno od“, aby tento bot odpovídal jen vám.",
+        "telegram_conflict": "Tento bot je již používán jinou službou.",
         "authentication_failed": "Telegram odmítl přihlašovací údaje bota.",
         "ready": "Telegram je připraven na vaši první zprávu.",
         "unknown": "PocketClaw nenahlásil stav Telegramu."
@@ -802,7 +805,10 @@
         "failed": "Telegram se nepodařilo odpojit."
       },
       "statusUnreadableTitle": "Stav Telegramu není dostupný",
-      "setupIncompleteTitle": "Nastavení Telegramu není dokončeno"
+      "setupIncompleteTitle": "Nastavení Telegramu není dokončeno",
+      "conflictTitle": "Bot Telegram je již používán",
+      "conflictWebhook": "Tento bot má aktivní webhook Telegramu. Odpojte jej od jiné služby nebo použijte jiného bota.",
+      "conflictInUse": "Tento bot právě používá jiná aplikace. Zastavte druhou službu bota nebo zvolte jiného bota."
     }
   },
   "pages": {

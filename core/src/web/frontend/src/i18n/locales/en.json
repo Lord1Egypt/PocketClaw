@@ -776,6 +776,8 @@
         "errorExpired": "This setup link expired. Start again to get a new one.",
         "errorFailed": "Setup did not finish. Try again, or use manual setup below.",
         "errorInvalidCredentials": "Telegram rejected this bot. Creation may be incomplete, or its token is invalid. Try again later or use an existing valid bot below.",
+        "errorWebhookActive": "This bot has an active Telegram webhook. Disconnect it from the other service or use another bot.",
+        "errorBotInUse": "This bot is currently being used by another application. Stop the other bot service or choose another bot.",
         "errorNotReady": "Your bot is saved, but Telegram is not receiving yet. Check again in a moment.",
         "checkAgain": "Check again"
       },
@@ -788,6 +790,7 @@
         "channel_starting": "Connecting to Telegram…",
         "registering_commands": "Publishing the command menu…",
         "setup_required": "Add your Telegram numeric ID under Allowed From so this bot answers only you.",
+        "telegram_conflict": "This bot is already being used by another service.",
         "authentication_failed": "Telegram rejected the bot credentials.",
         "ready": "Telegram is ready for your first message.",
         "unknown": "PocketClaw did not report its Telegram status."
@@ -802,7 +805,10 @@
         "failed": "Could not disconnect Telegram."
       },
       "statusUnreadableTitle": "Telegram status unavailable",
-      "setupIncompleteTitle": "Telegram setup incomplete"
+      "setupIncompleteTitle": "Telegram setup incomplete",
+      "conflictTitle": "Telegram bot already in use",
+      "conflictWebhook": "This bot has an active Telegram webhook. Disconnect it from the other service or use another bot.",
+      "conflictInUse": "This bot is currently being used by another application. Stop the other bot service or choose another bot."
     }
   },
   "pages": {
