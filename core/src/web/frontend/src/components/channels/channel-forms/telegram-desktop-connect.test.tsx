@@ -10,8 +10,13 @@ const fetchTelegramPairingStatus = vi.fn()
 const completeTelegramPairing = vi.fn()
 const cancelTelegramPairing = vi.fn()
 const fetchTelegramReadiness = vi.fn()
+const copyText = vi.fn()
 const toastSuccess = vi.fn()
 const toastInfo = vi.fn()
+
+vi.mock("@/lib/clipboard", () => ({
+  copyText: (...a: unknown[]) => copyText(...a),
+}))
 
 vi.mock("@/api/telegram-onboarding", async (importOriginal) => {
   const actual =
@@ -75,6 +80,7 @@ describe("TelegramDesktopConnect", () => {
     })
     cancelTelegramPairing.mockResolvedValue(undefined)
     fetchTelegramReadiness.mockResolvedValue({ state: "ready", ready: true })
+    copyText.mockResolvedValue(true)
   })
 
   it("offers Connect before anything has started", () => {
@@ -111,6 +117,47 @@ describe("TelegramDesktopConnect", () => {
     expect(anchor.getAttribute("rel")).toContain("noopener")
   })
 
+  // The copy path goes through the shared helper, which is what makes it work
+  // on a plain-HTTP LAN origin where navigator.clipboard is undefined.
+  it("copies the trusted Telegram link through the shared helper", async () => {
+    render(<TelegramDesktopConnect onConnected={vi.fn()} />)
+    fireEvent.click(screen.getByText("channels.telegram.desktop.connect"))
+
+    fireEvent.click(
+      await screen.findByText("channels.telegram.desktop.copyLink"),
+    )
+
+    await waitFor(() =>
+      expect(copyText).toHaveBeenCalledWith(
+        "https://t.me/newbot/Mgr/pocketclaw_abc_bot",
+      ),
+    )
+    expect(toastSuccess).toHaveBeenCalledWith(
+      "channels.telegram.desktop.linkCopied",
+    )
+  })
+
+  // When neither copy path works, the canonical link is shown in a selectable
+  // field with guidance -- never a dead-end failure toast.
+  it("shows a selectable trusted link when copying is impossible", async () => {
+    copyText.mockResolvedValue(false)
+
+    render(<TelegramDesktopConnect onConnected={vi.fn()} />)
+    fireEvent.click(screen.getByText("channels.telegram.desktop.connect"))
+
+    fireEvent.click(
+      await screen.findByText("channels.telegram.desktop.copyLink"),
+    )
+
+    const fallback = await screen.findByTestId("telegram-manual-copy")
+    const input = fallback.querySelector("input") as HTMLInputElement
+    expect(input.value).toBe("https://t.me/newbot/Mgr/pocketclaw_abc_bot")
+    expect(input.readOnly).toBe(true)
+    expect(toastInfo).toHaveBeenCalledWith(
+      "channels.telegram.desktop.linkCopyManual",
+    )
+  })
+
   // PC-DEF-052. A hosting origin handed back as the "Telegram" link must never
   // become an anchor or a clipboard entry: Core drops it, and this refuses to
   // render it even if Core has not.
@@ -131,6 +178,8 @@ describe("TelegramDesktopConnect", () => {
     ).toBeNull()
     // The suggested username is the way in, and the manual form remains below.
     expect(screen.getByText("channels.telegram.desktop.waiting")).toBeTruthy()
+    // And nothing ever offered it to the clipboard.
+    expect(copyText).not.toHaveBeenCalled()
   })
 
   it("classifies only real Telegram destinations as openable", async () => {

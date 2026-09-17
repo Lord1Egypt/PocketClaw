@@ -23,6 +23,7 @@ import {
 } from "@/components/channels/channel-forms/use-telegram-readiness"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
+import { copyText } from "@/lib/clipboard"
 
 /**
  * Managed Telegram pairing from a client with no Android host.
@@ -69,6 +70,11 @@ export function TelegramDesktopConnect({
   const { t } = useTranslation()
   const [phase, setPhase] = useState<Phase>({ kind: "idle" })
   const [state, setState] = useState<TelegramPairingState>("pending")
+  // A copy that neither the Clipboard API nor the execCommand fallback could
+  // perform still has a way out: the canonical link is shown in a selectable
+  // field instead of a dead-end failure. Only ever set from a link that passed
+  // the Telegram-destination guard.
+  const [manualLink, setManualLink] = useState<string | null>(null)
 
   // Held in a ref so the polling effect can stop without being re-created, and so an
   // unmount cancels the pairing it started rather than leaving Core holding a token.
@@ -94,6 +100,7 @@ export function TelegramDesktopConnect({
   const start = useCallback(async () => {
     setPhase({ kind: "creating" })
     setState("pending")
+    setManualLink(null)
     try {
       const pairing = await createTelegramPairing()
       pairingRef.current = pairing
@@ -112,6 +119,7 @@ export function TelegramDesktopConnect({
     const pairing = pairingRef.current
     pairingRef.current = null
     completingRef.current = false
+    setManualLink(null)
     setPhase({ kind: "idle" })
     if (pairing) await cancelTelegramPairing(pairing.pairing_id)
   }, [])
@@ -211,14 +219,20 @@ export function TelegramDesktopConnect({
 
   const copyLink = useCallback(
     async (link: string) => {
-      try {
-        await navigator.clipboard.writeText(link)
+      // copyText tries navigator.clipboard.writeText and falls back to
+      // execCommand("copy"), which is exactly the path a plain-HTTP LAN origin
+      // or a WebView without the async Clipboard API needs. The previous
+      // direct navigator.clipboard call is why "Copy link" failed there.
+      const copied = await copyText(link)
+      if (copied) {
+        setManualLink(null)
         toast.success(t("channels.telegram.desktop.linkCopied"))
-      } catch {
-        // A browser that refuses clipboard access is not an error worth a dialog; the
-        // link is on screen and selectable.
-        toast.error(t("channels.telegram.desktop.linkCopyFailed"))
+        return
       }
+      // Neither path worked. Show the canonical link so the user can select and
+      // copy it by hand -- never a dead-end failure toast carrying nothing.
+      setManualLink(link)
+      toast.info(t("channels.telegram.desktop.linkCopyManual"))
     },
     [t],
   )
@@ -298,6 +312,25 @@ export function TelegramDesktopConnect({
                 {t("common.cancel")}
               </Button>
             </div>
+
+            {/* The fallback when neither copy path worked. It only ever holds a
+                link that passed the Telegram-destination guard, it is selectable
+                rather than merely shown, and the guidance says what to do. */}
+            {manualLink && isTelegramDestination(manualLink) && (
+              <div className="space-y-1" data-testid="telegram-manual-copy">
+                <p className="text-muted-foreground text-sm">
+                  {t("channels.telegram.desktop.linkCopyManual")}
+                </p>
+                <input
+                  readOnly
+                  value={manualLink}
+                  dir="ltr"
+                  aria-label={t("channels.telegram.desktop.copyLink")}
+                  onFocus={(event) => event.currentTarget.select()}
+                  className="border-pc-line bg-pc-surface-2 text-pc-text w-full rounded border px-3 py-2 font-mono text-xs"
+                />
+              </div>
+            )}
 
             <p className="text-muted-foreground text-sm">
               {state === "created"
