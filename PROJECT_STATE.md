@@ -36,7 +36,8 @@ evidence and describe the state at the date of each entry.
 | Production candidate | **BUILT AND GATED.** `4d4bc33a…`, 63,472,307 bytes, one v2 signer `176dca6b…`; production artifact gate 57 PASS / 0 FAIL / 0 SKIPPED. Private validation evidence — not installed, published or accepted |
 | Next authorized milestone | **Samsung physical pass over the remaining source-verified items.** Source-verified and pending device confirmation: PC-DEF-050 (rotate a key and watch the next request), PC-DEF-052 (no hosting URL is ever visible in Telegram onboarding), PC-DEF-055 (Set Default A→B survives restart), PC-DEF-062 (desktop Disconnect/Replace, after Telegram's creation cooldown), PC-DEF-063 (About shows `PocketClaw 0.2.0` / a resolved Core version), PC-DEF-058 (notification dialog, fresh install), PC-DEF-066 (`/help` has no lobster or Pico identity). Physically verified and not to be reopened without contradictory evidence: fresh-install first password (PC-DEF-065), Public Mode reconciliation (PC-DEF-040), Telegram Managed Connect (PC-DEF-060), the first `/start` answered on the first send (PC-DEF-061), `PC-E-AI-004` (PC-DEF-053) |
 | Release-evidence reconciliation | [`docs/RELEASE_EVIDENCE_RECONCILIATION.md`](docs/RELEASE_EVIDENCE_RECONCILIATION.md) — the Zero-Pico allowlist `19 → 22` growth (scope widened by `d4e7107`, three migration/legal exemptions added) and the native ELF `194 → 188` (the 194 runs passed `--native-support-manifest`, adding exactly six checks) |
-| **Consolidated verification APK (PC-DEF-050/052/055/061/062/063/066/067/068/069)** | `250c1c47b3cea18ca54df26e1c355f65f9011619cac3da8dcd243fe76068d437`, 63,633,491 bytes, `0.2.0+62`, package `com.lord1egypt.pocketclaw`, development signer `15cf75f9…`, Dart AOT `a135bfe6…`, Core fingerprint `aaaccb58…`, Core BuildTime `2026-09-17T20:36:35+0000`. Source gate all rows PASS, artifact gate 33/33, native ELF 188 PASS / 0 FAIL, Zero-Pico 22 entries all in use, frontend 540 passed, Flutter 579 passed. Archived read-only at `build/forensic/apk-250c1c47…/`. **This is the single build for the remaining physical pass.** LOCAL TEST / NON-RELEASABLE |
+| **Consolidated verification APK (corrected) (PC-DEF-050/052/055/061/062/063/066/067/068/069)** | `de325ce64d1270c58c6bca14999b6b93d96db03538b4115668654d14a945c45e`, 63,631,635 bytes, `0.2.0+62`, package `com.lord1egypt.pocketclaw`, development signer `15cf75f9…`, Dart AOT `a135bfe6…`, Core fingerprint `f2fd1ee7…`, Core BuildTime `2026-09-17T21:02:29+0000`. Source gate all rows PASS, artifact gate 33/33, native ELF 188 PASS / 0 FAIL, Zero-Pico 22 entries all in use, frontend 540 passed, Flutter 579 passed. Archived read-only at `build/forensic/apk-de325ce6…/`. Carries the **no-offset** ownership probe (a negative offset would forget pending updates). **This is the single build for the remaining physical pass.** LOCAL TEST / NON-RELEASABLE |
+| Consolidated verification APK (PC-DEF-050/052/055/061/062/063/066/067/068/069, superseded) | `250c1c47b3cea18ca54df26e1c355f65f9011619cac3da8dcd243fe76068d437`, 63,633,491 bytes, `0.2.0+62`, Core fingerprint `aaaccb58…`, Core BuildTime `2026-09-17T20:36:35+0000`. **Superseded before physical testing: its ownership probe used `offset=-1`.** Archived read-only at `build/forensic/apk-250c1c47…/`. LOCAL TEST / NON-RELEASABLE |
 | Verification APK (PC-DEF-067, 068, superseded) | `0821349ca4f9d0907680c04bd61108d19d62600f0d490b097cf881abf6105905`, 63,624,503 bytes, `0.2.0+62`, development signer `15cf75f9…`, Dart AOT `a135bfe6…`, Core fingerprint `ef212d21…`, Core BuildTime `2026-09-17T19:41:57+0000`. Artifact gate 33/33, native ELF 188 PASS / 0 FAIL, Zero-Pico PASS. Archived read-only at `build/forensic/apk-0821349c…/`. LOCAL TEST / NON-RELEASABLE |
 | Verification APK (PC-DEF-058 third attempt, PC-DEF-066) | `8980c921e37bdf956b874ec7d247a9c6095edcab9dace4bd0b08c985efc03cca`, 63,596,703 bytes, `0.2.0+62`, development signer `15cf75f9…`, Dart AOT `08b44517ff47c5679b8ebead16e11c14471053b51ef12b333e1e931a211fba98`. Source gate **29/29** including `journey.fresh_install`, `flutter.suite 567 passed`, artifact gate 25/25, native ELF 188 PASS / 0 FAIL, Zero-Pico PASS. `POST_NOTIFICATIONS` confirmed declared and `targetSdkVersion` confirmed 36, both read from this APK. Archived read-only at `build/forensic/apk-8980c921…/`. **PC-DEF-058 needs a genuine uninstall.** LOCAL TEST / NON-RELEASABLE; the two open items are not physically verified |
 | Verification APK (PC-DEF-065 first password, PC-DEF-058 second attempt, superseded) | `d653d6c4ff64b3bc1509058e14caa54077cf635f52a9c6ff8f2541a85acbc8d0`, 63,595,479 bytes, `0.2.0+62`, development signer `15cf75f9…`, Dart AOT `08b44517ff47c5679b8ebead16e11c14471053b51ef12b333e1e931a211fba98`. Source gate **29/29** including the new `journey.fresh_install` row, `flutter.suite 567 passed`, artifact gate 25/25, native ELF 188 PASS / 0 FAIL, Zero-Pico PASS. Fixes the two fresh-install blockers: the first Dashboard password (the claim reconciliation was closing the listener carrying its own response) and the notification prompt (asked only from a page a fresh install never opens). Archived read-only at `build/forensic/apk-d653d6c4…/`, whose `FORENSIC.md` leads with the ordered fresh-install journey. **Requires a genuine uninstall first.** LOCAL TEST / NON-RELEASABLE; nothing in it is physically verified |
@@ -74,13 +75,25 @@ conflict logs carry the generation, subtype and transition only — never the to
 webhook URL, owner id or chat id.
 
 **One consolidated DEV APK** now carries all current Telegram fixes for the
-remaining physical pass: `250c1c47b3cea18ca54df26e1c355f65f9011619cac3da8dcd243fe76068d437`,
-63,633,491 bytes, `0.2.0+62`, development signer `15cf75f9…`, Core fingerprint
-`aaaccb58…`, Core BuildTime `2026-09-17T20:36:35+0000`, Dart AOT `a135bfe6…`.
-Archived read-only at `build/forensic/apk-250c1c47…/`. Source gate all rows PASS,
+remaining physical pass: `de325ce64d1270c58c6bca14999b6b93d96db03538b4115668654d14a945c45e`,
+63,631,635 bytes, `0.2.0+62`, development signer `15cf75f9…`, Core fingerprint
+`f2fd1ee7…`, Core BuildTime `2026-09-17T21:02:29+0000`, Dart AOT `a135bfe6…`.
+Archived read-only at `build/forensic/apk-de325ce6…/`. Source gate all rows PASS,
 artifact **33/33**, native ELF **188 PASS / 0 FAIL**, Zero-Pico PASS, frontend
 **540 passed**, Flutter **579 passed**. No device was attached, so nothing in it
 is physically verified.
+
+**Correction before physical testing — the ownership probe was destructive.**
+The first version of this build (`250c1c47…`) probed another poller with
+`getUpdates offset=-1`. Telegram forgets all earlier updates on a negative-offset
+call, so that probe could have discarded a pending first `/start` — the exact
+update PC-DEF-061 preserves. It was corrected before any physical test: the probe
+now carries **no offset** (`limit 1`, `timeout 0`), and an update is confirmed
+only when a later `getUpdates` carries a higher offset, so the probe returns
+pending updates without confirming or dropping them. The 409 subtype is now
+decided by a fresh non-destructive `getWebhookInfo` re-check, not by English
+description matching. The superseded `250c1c47…` APK must not be used for the
+physical pass.
 
 ## 2026-09-17 — Telegram UX: Copy link, and the owner-missing state
 
