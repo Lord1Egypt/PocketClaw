@@ -334,6 +334,19 @@ func (h *Handler) handleAddModel(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// PC-DEF-055. A model added through the API is meant to be active, and the
+	// runtime and the readiness check both read this field. The request shape
+	// does not carry `enabled`, and Go's zero value would silently store false,
+	// so an omitted field means enabled.
+	var rawFields map[string]json.RawMessage
+	if err = json.Unmarshal(body, &rawFields); err != nil {
+		http.Error(w, fmt.Sprintf("Invalid JSON: %v", err), http.StatusBadRequest)
+		return
+	}
+	if _, ok := rawFields["enabled"]; !ok {
+		mc.Enabled = true
+	}
+
 	normalizeIncomingModelConfig(&mc.ModelConfig)
 
 	if err = validateIncomingModelConfig(&mc.ModelConfig, nil); err != nil {
@@ -442,6 +455,12 @@ func (h *Handler) handleUpdateModel(w http.ResponseWriter, r *http.Request) {
 	}
 	if _, ok := rawFields["streaming"]; !ok {
 		mc.Streaming = cfg.ModelList[idx].Streaming
+	}
+	// PC-DEF-055. `enabled` is not part of the edit payload, so an omitted field
+	// must preserve the stored value rather than write Go's zero value back. An
+	// edit used to disable the model it touched.
+	if _, ok := rawFields["enabled"]; !ok {
+		mc.Enabled = cfg.ModelList[idx].Enabled
 	}
 	// Preserve the existing Provider when the caller omits it. This keeps the
 	// update API backward-compatible for clients that haven't started sending

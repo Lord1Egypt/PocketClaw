@@ -2226,6 +2226,214 @@ func TestHandleSetDefaultModel_RejectsElevenLabsASRProvider(t *testing.T) {
 	}
 }
 
+// PC-DEF-055. The Set Default contract, proved through the real HTTP handler:
+// the write persists, a switch replaces the previous default, and editing the
+// default's key does not silently move the selection.
+
+func setDefaultRequest(t *testing.T, mux *http.ServeMux, modelName string) *httptest.ResponseRecorder {
+	t.Helper()
+	rec := httptest.NewRecorder()
+	body := bytes.NewBufferString(fmt.Sprintf(`{"model_name":%q}`, modelName))
+	req := httptest.NewRequest(http.MethodPost, "/api/models/default", body)
+	req.Header.Set("Content-Type", "application/json")
+	mux.ServeHTTP(rec, req)
+	return rec
+}
+
+func twoDefaultCapableModels(t *testing.T, configPath string) {
+	t.Helper()
+	cfg, err := config.LoadConfig(configPath)
+	if err != nil {
+		t.Fatalf("LoadConfig() error = %v", err)
+	}
+	cfg.ModelList = []*config.ModelConfig{
+		{
+			ModelName: "primary",
+			Provider:  "openai",
+			Model:     "gpt-4o-mini",
+			APIKeys:   config.SimpleSecureStrings("sk-primary"),
+			Enabled:   true,
+		},
+		{
+			ModelName: "secondary",
+			Provider:  "openai",
+			Model:     "gpt-4o",
+			APIKeys:   config.SimpleSecureStrings("sk-secondary"),
+			Enabled:   true,
+		},
+	}
+	if err = config.SaveConfig(configPath, cfg); err != nil {
+		t.Fatalf("SaveConfig() error = %v", err)
+	}
+}
+
+func TestHandleSetDefaultModelPersistsAnEnabledModel(t *testing.T) {
+	configPath, cleanup := setupOAuthTestEnv(t)
+	defer cleanup()
+	twoDefaultCapableModels(t, configPath)
+
+	h := NewHandler(configPath)
+	mux := http.NewServeMux()
+	h.RegisterRoutes(mux)
+
+	rec := setDefaultRequest(t, mux, "primary")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200, body=%s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), `"default_model":"primary"`) {
+		t.Fatalf("body = %q, want the selected model echoed", rec.Body.String())
+	}
+
+	// Persisted, not merely echoed: this is what must survive a restart.
+	cfg, err := config.LoadConfig(configPath)
+	if err != nil {
+		t.Fatalf("LoadConfig() error = %v", err)
+	}
+	if got := cfg.Agents.Defaults.GetModelName(); got != "primary" {
+		t.Fatalf("default model = %q, want primary", got)
+	}
+}
+
+func TestHandleSetDefaultModelSwitchesBetweenModels(t *testing.T) {
+	configPath, cleanup := setupOAuthTestEnv(t)
+	defer cleanup()
+	twoDefaultCapableModels(t, configPath)
+
+	h := NewHandler(configPath)
+	mux := http.NewServeMux()
+	h.RegisterRoutes(mux)
+
+	if rec := setDefaultRequest(t, mux, "primary"); rec.Code != http.StatusOK {
+		t.Fatalf("set primary status = %d, body=%s", rec.Code, rec.Body.String())
+	}
+	if rec := setDefaultRequest(t, mux, "secondary"); rec.Code != http.StatusOK {
+		t.Fatalf("set secondary status = %d, body=%s", rec.Code, rec.Body.String())
+	}
+
+	cfg, err := config.LoadConfig(configPath)
+	if err != nil {
+		t.Fatalf("LoadConfig() error = %v", err)
+	}
+	if got := cfg.Agents.Defaults.GetModelName(); got != "secondary" {
+		t.Fatalf("default model = %q, want the switch to have replaced it", got)
+	}
+}
+
+func TestHandleAddModelEnablesAnOmittedEnabledField(t *testing.T) {
+	configPath, cleanup := setupOAuthTestEnv(t)
+	defer cleanup()
+
+	h := NewHandler(configPath)
+	mux := http.NewServeMux()
+	h.RegisterRoutes(mux)
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/api/models", bytes.NewBufferString(`{
+		"model_name":"added-with-key",
+		"provider":"openai",
+		"model":"gpt-4o-mini",
+		"api_key":"sk-added"
+	}`))
+	req.Header.Set("Content-Type", "application/json")
+	mux.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, body=%s", rec.Code, rec.Body.String())
+	}
+
+	cfg, err := config.LoadConfig(configPath)
+	if err != nil {
+		t.Fatalf("LoadConfig() error = %v", err)
+	}
+	added := cfg.ModelList[len(cfg.ModelList)-1]
+	if !added.Enabled {
+		t.Fatal("a model added without an explicit enabled field must be enabled")
+	}
+}
+
+func TestHandleUpdateModelPreservesEnabledWhenOmitted(t *testing.T) {
+	configPath, cleanup := setupOAuthTestEnv(t)
+	defer cleanup()
+
+	cfg, err := config.LoadConfig(configPath)
+	if err != nil {
+		t.Fatalf("LoadConfig() error = %v", err)
+	}
+	cfg.ModelList = []*config.ModelConfig{{
+		ModelName: "editable",
+		Provider:  "openai",
+		Model:     "gpt-4o-mini",
+		APIKeys:   config.SimpleSecureStrings("sk-existing"),
+		Enabled:   true,
+	}}
+	if err = config.SaveConfig(configPath, cfg); err != nil {
+		t.Fatalf("SaveConfig() error = %v", err)
+	}
+
+	h := NewHandler(configPath)
+	mux := http.NewServeMux()
+	h.RegisterRoutes(mux)
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPut, "/api/models/0", bytes.NewBufferString(`{
+		"model_name":"editable",
+		"provider":"openai",
+		"model":"gpt-4o-mini"
+	}`))
+	req.Header.Set("Content-Type", "application/json")
+	mux.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, body=%s", rec.Code, rec.Body.String())
+	}
+
+	after, err := config.LoadConfig(configPath)
+	if err != nil {
+		t.Fatalf("LoadConfig() after error = %v", err)
+	}
+	if !after.ModelList[0].Enabled {
+		t.Fatal("editing a model without an enabled field must not disable it")
+	}
+}
+
+func TestUpdatingTheDefaultModelsKeyKeepsItDefault(t *testing.T) {
+	configPath, cleanup := setupOAuthTestEnv(t)
+	defer cleanup()
+	twoDefaultCapableModels(t, configPath)
+
+	h := NewHandler(configPath)
+	mux := http.NewServeMux()
+	h.RegisterRoutes(mux)
+
+	if rec := setDefaultRequest(t, mux, "primary"); rec.Code != http.StatusOK {
+		t.Fatalf("set default status = %d, body=%s", rec.Code, rec.Body.String())
+	}
+
+	// Rotate the key of the model that is currently the default. PC-DEF-050's
+	// rotation must not move the selection.
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPut, "/api/models/0", bytes.NewBufferString(`{
+		"model_name":"primary",
+		"provider":"openai",
+		"model":"gpt-4o-mini",
+		"api_key":"sk-rotated"
+	}`))
+	req.Header.Set("Content-Type", "application/json")
+	mux.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("rotation status = %d, body=%s", rec.Code, rec.Body.String())
+	}
+
+	cfg, err := config.LoadConfig(configPath)
+	if err != nil {
+		t.Fatalf("LoadConfig() error = %v", err)
+	}
+	if got := cfg.Agents.Defaults.GetModelName(); got != "primary" {
+		t.Fatalf("default model = %q, want primary after its key rotated", got)
+	}
+	if got := cfg.ModelList[0].APIKey(); got != "sk-rotated" {
+		t.Fatalf("api_key = %q, want the rotated key", got)
+	}
+}
+
 func TestMaskAPIKey(t *testing.T) {
 	tests := []struct {
 		name string
