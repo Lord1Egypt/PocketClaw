@@ -14,10 +14,12 @@ class StubClient extends TelegramOnboardingClient {
     state: PairingState.pending,
   );
   TelegramOnboardingException? createError;
+  TelegramPairing? pairingOverride;
 
   @override
   Future<TelegramPairing> createPairing() async {
     if (createError != null) throw createError!;
+    if (pairingOverride != null) return pairingOverride!;
     return TelegramPairing(
       pairingId: 'pairing-1',
       pollToken: 'poll-secret-value',
@@ -167,6 +169,32 @@ void main() {
     expect(qr.payload, startsWith('https://t.me/newbot/PocketClawSetupBot/'));
     expect(qr.payload, isNot(contains('poll-secret-value')));
     expect(qr.payload, isNot(contains('CHILD-TOKEN')));
+    f.controller.dispose();
+  });
+
+  // PC-DEF-052. The QR encodes whatever the service returned, and a scanner
+  // follows it. A payload that is not a Telegram destination must not render.
+  testWidgets('drops a QR whose payload is not a Telegram link', (tester) async {
+    final f = Fixture();
+    f.client.pairingOverride = TelegramPairing(
+      pairingId: 'pairing-1',
+      pollToken: 'poll-secret-value',
+      suggestedUsername: 'pocketclaw_abcd1234_bot',
+      suggestedName: 'PocketClaw Agent',
+      deepLink:
+          'https://t.me/newbot/PocketClawSetupBot/pocketclaw_abcd1234_bot',
+      qrPayload: 'https://pocketclaw-telegram-setup.vercel.app/redirect',
+      expiresAt: DateTime.now().toUtc().add(const Duration(minutes: 10)),
+      pollInterval: const Duration(milliseconds: 20),
+    );
+    await tester.pumpWidget(f.widget());
+    await tester.tap(find.text('Connect Telegram'));
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.byType(TelegramPairingQr), findsNothing);
+    // The deep link is a separate field and is still a Telegram link.
+    expect(find.text('Open Telegram'), findsOneWidget);
     f.controller.dispose();
   });
 

@@ -13,13 +13,18 @@ const fetchTelegramReadiness = vi.fn()
 const toastSuccess = vi.fn()
 const toastInfo = vi.fn()
 
-vi.mock("@/api/telegram-onboarding", () => ({
-  createTelegramPairing: (...a: unknown[]) => createTelegramPairing(...a),
-  fetchTelegramPairingStatus: (...a: unknown[]) =>
-    fetchTelegramPairingStatus(...a),
-  completeTelegramPairing: (...a: unknown[]) => completeTelegramPairing(...a),
-  cancelTelegramPairing: (...a: unknown[]) => cancelTelegramPairing(...a),
-}))
+vi.mock("@/api/telegram-onboarding", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("@/api/telegram-onboarding")>()
+  return {
+    ...actual,
+    createTelegramPairing: (...a: unknown[]) => createTelegramPairing(...a),
+    fetchTelegramPairingStatus: (...a: unknown[]) =>
+      fetchTelegramPairingStatus(...a),
+    completeTelegramPairing: (...a: unknown[]) => completeTelegramPairing(...a),
+    cancelTelegramPairing: (...a: unknown[]) => cancelTelegramPairing(...a),
+  }
+})
 
 vi.mock("@/api/telegram-lifecycle", () => ({
   fetchTelegramReadiness: (...a: unknown[]) => fetchTelegramReadiness(...a),
@@ -104,6 +109,51 @@ describe("TelegramDesktopConnect", () => {
     )
     // A new tab from a page that can be navigated back to needs both.
     expect(anchor.getAttribute("rel")).toContain("noopener")
+  })
+
+  // PC-DEF-052. A hosting origin handed back as the "Telegram" link must never
+  // become an anchor or a clipboard entry: Core drops it, and this refuses to
+  // render it even if Core has not.
+  it("drops a non-Telegram deep link instead of rendering it", async () => {
+    createTelegramPairing.mockResolvedValue(
+      pairing({ deep_link: "https://pocketclaw-telegram-setup.vercel.app/x" }),
+    )
+
+    render(<TelegramDesktopConnect onConnected={vi.fn()} />)
+    fireEvent.click(screen.getByText("channels.telegram.desktop.connect"))
+
+    await screen.findByText("@pocketclaw_abc_bot")
+    expect(
+      screen.queryByText("channels.telegram.desktop.openTelegram"),
+    ).toBeNull()
+    expect(
+      screen.queryByText("channels.telegram.desktop.copyLink"),
+    ).toBeNull()
+    // The suggested username is the way in, and the manual form remains below.
+    expect(screen.getByText("channels.telegram.desktop.waiting")).toBeTruthy()
+  })
+
+  it("classifies only real Telegram destinations as openable", async () => {
+    const { isTelegramDestination } = await import("@/api/telegram-onboarding")
+
+    for (const link of [
+      "https://t.me/x",
+      "https://telegram.me/x",
+      "https://telegram.dog/x",
+      "tg://resolve?domain=x",
+    ]) {
+      expect(isTelegramDestination(link), link).toBe(true)
+    }
+    for (const link of [
+      "",
+      "https://pocketclaw-telegram-setup.vercel.app/x",
+      "http://t.me/x",
+      "https://t.me.evil.invalid/x",
+      "https://evil.invalid/?next=https://t.me/x",
+      "not a url",
+    ]) {
+      expect(isTelegramDestination(link), link).toBe(false)
+    }
   })
 
   // PC-DEF-061. Connected is announced from the gateway's own readiness, never

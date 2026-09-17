@@ -3,6 +3,7 @@ import 'package:qr_flutter/qr_flutter.dart';
 
 import '../core/pocketclaw_design.dart';
 import '../telegram/telegram_config_writer.dart';
+import '../telegram/telegram_deep_link.dart';
 import '../telegram/telegram_onboarding_controller.dart';
 import '../telegram/telegram_onboarding_models.dart';
 import '../telegram/telegram_onboarding_strings.dart';
@@ -191,13 +192,19 @@ class _TelegramOnboardingPageState extends State<TelegramOnboardingPage>
           label: const Text(TelegramOnboardingStrings.openTelegram),
         ),
         const SizedBox(height: PocketClawDesign.spaceLarge),
-        Text(
-          TelegramOnboardingStrings.scanInstead,
-          style: theme.textTheme.bodySmall,
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: PocketClawDesign.spaceMedium),
-        Center(child: TelegramPairingQr(payload: pairing.qrPayload)),
+        // PC-DEF-052. The QR encodes whatever the service returned. Only a
+        // Telegram destination is rendered, because a scanner follows it and an
+        // implementation URL behind this code would be exactly the defect. A
+        // non-Telegram payload drops the QR rather than showing it.
+        if (TelegramDeepLink.isTelegramTarget(pairing.qrPayload)) ...[
+          Text(
+            TelegramOnboardingStrings.scanInstead,
+            style: theme.textTheme.bodySmall,
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: PocketClawDesign.spaceMedium),
+          Center(child: TelegramPairingQr(payload: pairing.qrPayload)),
+        ],
         const SizedBox(height: PocketClawDesign.spaceLarge),
         Row(
           mainAxisAlignment: MainAxisAlignment.center,

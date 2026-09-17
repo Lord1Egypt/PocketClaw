@@ -26,11 +26,36 @@ export interface TelegramDesktopPairing {
   pairing_id: string
   suggested_username: string
   suggested_name: string
-  /** A Telegram link. Core does not return anything else. */
+  /** A Telegram link, or the empty string when Core refused the one it was given. */
   deep_link: string
   qr_payload: string
   expires_at: string
   poll_interval_seconds: number
+}
+
+/** Telegram's own web hosts and app scheme. Nothing else is a destination. */
+const TELEGRAM_HOSTS = new Set(["t.me", "telegram.me", "telegram.dog"])
+
+/**
+ * Whether a link is a Telegram destination PocketClaw may show a user.
+ *
+ * PC-DEF-052. Core drops a non-Telegram link before returning it, but a service
+ * response is untrusted input and this is the surface that renders it: a hosting
+ * origin in an anchor or on the clipboard is exactly the defect. The check is
+ * kept local so the last line of defence lives beside the render.
+ */
+export function isTelegramDestination(raw: string): boolean {
+  const value = raw.trim()
+  if (!value) return false
+  let url: URL
+  try {
+    url = new URL(value)
+  } catch {
+    return false
+  }
+  if (url.protocol === "tg:") return true
+  if (url.protocol !== "https:") return false
+  return TELEGRAM_HOSTS.has(url.hostname.toLowerCase())
 }
 
 export interface TelegramDesktopStatus {

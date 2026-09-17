@@ -15,6 +15,7 @@ import {
   completeTelegramPairing,
   createTelegramPairing,
   fetchTelegramPairingStatus,
+  isTelegramDestination,
 } from "@/api/telegram-onboarding"
 import {
   readinessLabelKey,
@@ -260,28 +261,35 @@ export function TelegramDesktopConnect({
             </div>
 
             <div className="flex flex-wrap gap-2">
-              {/* The link Core returned is a Telegram link by construction — it
-                  validates that before returning it — so this never sends the user
-                  to a hosting origin. */}
-              <Button asChild className="min-h-10">
-                <a
-                  href={phase.pairing.deep_link}
-                  target="_blank"
-                  rel="noreferrer noopener"
-                >
-                  <IconBrandTelegram className="size-4" />
-                  {t("channels.telegram.desktop.openTelegram")}
-                </a>
-              </Button>
-              {/* For finishing on a phone instead of this machine. */}
-              <Button
-                variant="outline"
-                className="min-h-10"
-                onClick={() => void copyLink(phase.pairing.deep_link)}
-              >
-                <IconCopy className="size-4" />
-                {t("channels.telegram.desktop.copyLink")}
-              </Button>
+              {/* Core drops a non-Telegram link before returning it, and this
+                  refuses to render one anyway: a network response is untrusted
+                  input, and an anchor or a clipboard entry pointing at a hosting
+                  origin is the PC-DEF-052 defect. When no Telegram link is
+                  available the buttons are absent and the suggested @username
+                  above is the way in, with the manual form as the fallback. */}
+              {isTelegramDestination(phase.pairing.deep_link) && (
+                <>
+                  <Button asChild className="min-h-10">
+                    <a
+                      href={phase.pairing.deep_link}
+                      target="_blank"
+                      rel="noreferrer noopener"
+                    >
+                      <IconBrandTelegram className="size-4" />
+                      {t("channels.telegram.desktop.openTelegram")}
+                    </a>
+                  </Button>
+                  {/* For finishing on a phone instead of this machine. */}
+                  <Button
+                    variant="outline"
+                    className="min-h-10"
+                    onClick={() => void copyLink(phase.pairing.deep_link)}
+                  >
+                    <IconCopy className="size-4" />
+                    {t("channels.telegram.desktop.copyLink")}
+                  </Button>
+                </>
+              )}
               <Button
                 variant="ghost"
                 className="min-h-10"

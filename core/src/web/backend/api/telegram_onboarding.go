@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"net/url"
+	"strings"
 	"sync"
 	"time"
 
@@ -153,6 +155,18 @@ func (h *Handler) handleTelegramOnboardingCreate(w http.ResponseWriter, r *http.
 	}
 	h.telegramOnboardingStore.put(pairing)
 
+	// PC-DEF-052. A link from a network response is untrusted input, and this one
+	// reaches a user-visible navigation: the Dashboard renders it as an anchor and
+	// copies it to the clipboard, and the QR renderer encodes it. Only a Telegram
+	// destination is returned; anything else is dropped rather than shown, which
+	// is the same refusal the Android resolver applies before opening a link.
+	deepLink := telegramDestinationOrEmpty(pairing.DeepLink)
+	qrPayload := telegramDestinationOrEmpty(pairing.QRPayload)
+	if deepLink == "" || qrPayload == "" {
+		logger.WarnC("telegram",
+			"Managed onboarding returned a non-Telegram link; dropping it rather than rendering it")
+	}
+
 	logger.InfoCF("telegram", "Managed onboarding pairing created", map[string]any{
 		"surface":            "dashboard",
 		"suggested_username": pairing.SuggestedUsername,
@@ -162,11 +176,44 @@ func (h *Handler) handleTelegramOnboardingCreate(w http.ResponseWriter, r *http.
 		"pairing_id":            pairing.PairingID,
 		"suggested_username":    pairing.SuggestedUsername,
 		"suggested_name":        pairing.SuggestedName,
-		"deep_link":             pairing.DeepLink,
-		"qr_payload":            pairing.QRPayload,
+		"deep_link":             deepLink,
+		"qr_payload":            qrPayload,
 		"expires_at":            pairing.ExpiresAt.Format(time.RFC3339),
 		"poll_interval_seconds": int(pairing.PollInterval / time.Second),
 	})
+}
+
+// telegramLinkHosts are the only hosts PocketClaw will send a user to for
+// Telegram onboarding. It mirrors lib/src/telegram/telegram_deep_link.dart: the
+// same destinations the Android resolver admits, so neither client can be handed
+// a hosting origin as a "Telegram" link.
+var telegramLinkHosts = map[string]bool{
+	"t.me": true, "telegram.me": true, "telegram.dog": true,
+}
+
+// telegramDestinationOrEmpty returns raw when it is a Telegram destination, and
+// the empty string otherwise. It never resolves a link, because following a
+// redirect is what would make the intermediate page part of the user's
+// navigation — the PC-DEF-052 defect.
+func telegramDestinationOrEmpty(raw string) string {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return ""
+	}
+	parsed, err := url.Parse(trimmed)
+	if err != nil {
+		return ""
+	}
+	if strings.EqualFold(parsed.Scheme, "tg") {
+		return trimmed
+	}
+	if !strings.EqualFold(parsed.Scheme, "https") {
+		return ""
+	}
+	if telegramLinkHosts[strings.ToLower(parsed.Hostname())] {
+		return trimmed
+	}
+	return ""
 }
 
 // handleTelegramOnboardingStatus reports a pairing's state.

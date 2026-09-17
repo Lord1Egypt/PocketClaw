@@ -337,6 +337,93 @@ func TestCancellationForgetsThePairing(t *testing.T) {
 	}
 }
 
+// A service that hands back a hosting origin as the "Telegram" link must not
+// have that link rendered by the browser client. The Dashboard puts deep_link in
+// an anchor and copies it to the clipboard, so Core is the boundary that keeps a
+// non-Telegram destination out of the user's navigation — PC-DEF-052 applied to
+// this client, where the test fixture otherwise always returns a t.me link.
+func TestCreatePairingDropsANonTelegramDeepLink(t *testing.T) {
+	service := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.Method == http.MethodPost && r.URL.Path == "/telegram/pairings" {
+			w.WriteHeader(http.StatusCreated)
+			_, _ = w.Write([]byte(`{
+				"pairing_id":"pair-evil",
+				"poll_token":"poll",
+				"suggested_username":"pocketclaw_evil_bot",
+				"suggested_name":"PocketClaw Agent",
+				"deep_link":"https://pocketclaw-telegram-setup.vercel.app/redirect",
+				"qr_payload":"https://pocketclaw-telegram-setup.vercel.app/redirect",
+				"expires_at":"2099-01-01T00:00:00Z",
+				"poll_interval_seconds":2
+			}`))
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	t.Cleanup(service.Close)
+
+	configPath, cleanup := setupOAuthTestEnv(t)
+	t.Cleanup(cleanup)
+	handler := NewHandler(configPath)
+	handler.telegramOnboardingOnce.Do(func() {
+		handler.telegramOnboarding = telegramonboarding.NewClient(
+			strings.Replace(service.URL, "http://", "https://", 1), service.Client())
+		handler.telegramOnboardingStore = newTelegramOnboardingStore()
+	})
+	mux := http.NewServeMux()
+	handler.RegisterRoutes(mux)
+
+	recorder := onboardingRequest(t, mux, http.MethodPost, "/api/telegram/onboarding/pairings")
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", recorder.Code, recorder.Body.String())
+	}
+	var body struct {
+		DeepLink  string `json:"deep_link"`
+		QRPayload string `json:"qr_payload"`
+	}
+	if err := json.Unmarshal(recorder.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	if body.DeepLink != "" {
+		t.Fatalf("deep_link = %q, want it dropped rather than rendered", body.DeepLink)
+	}
+	if body.QRPayload != "" {
+		t.Fatalf("qr_payload = %q, want it dropped rather than encoded", body.QRPayload)
+	}
+	if strings.Contains(recorder.Body.String(), "vercel.app") {
+		t.Fatal("the hosting origin must not appear in the response at all")
+	}
+}
+
+func TestTelegramDestinationOrEmptyAdmitsOnlyTelegram(t *testing.T) {
+	admitted := []string{
+		"https://t.me/newbot/Mgr/bot",
+		"https://telegram.me/x",
+		"https://telegram.dog/x",
+		"tg://resolve?domain=x",
+	}
+	for _, link := range admitted {
+		if got := telegramDestinationOrEmpty(link); got != link {
+			t.Errorf("telegramDestinationOrEmpty(%q) = %q, want it admitted", link, got)
+		}
+	}
+
+	refused := []string{
+		"",
+		"https://pocketclaw-telegram-setup.vercel.app/x",
+		"http://t.me/x",
+		"https://t.me.evil.invalid/x",
+		"https://evil.invalid/?next=https://t.me/x",
+		"not a url",
+	}
+	for _, link := range refused {
+		if got := telegramDestinationOrEmpty(link); got != "" {
+			t.Errorf("telegramDestinationOrEmpty(%q) = %q, want it refused", link, got)
+		}
+	}
+}
+
 // Retry means a new pairing, and the old one must stop being usable.
 func TestRetryIssuesAFreshPairing(t *testing.T) {
 	_, mux, _ := onboardingTestEnv(t)
