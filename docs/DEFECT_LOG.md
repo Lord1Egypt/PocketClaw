@@ -250,6 +250,17 @@ only reconstructable examples belong here.
   process is the only route to RUNNING, that RUNNING is unreachable for every
   value of `starting` without one, and that a notification found in a process
   hosting no service is stale. `:app:testDebugUnitTest` — 36 passed, 0 failed.
+- **What could not be reproduced here.** The *survival* mechanism needs the real
+  OEM or low-memory kill path. `adb shell am force-stop` correctly clears the
+  live notification on the device (the remaining `dumpsys notification` entry
+  after a force-stop is in `mArchive`, the notification history, not the status
+  bar), and the shell uid cannot signal an app-uid process without root. So the
+  owner's observation stands as the evidence that it survived, and this fix makes
+  the app immune to it regardless of which kill path caused it. The two halves
+  that *are* source-provable are independent of that mechanism: a Running claim
+  could outlive its process in-process too (it was posted outside `serviceLock`,
+  after the spawn, so a stop landing immediately afterwards left it standing),
+  and nothing reconciled a found notification at process start.
 - **Status:** FIXED IN SOURCE — physical confirmation required. Scenario A
   (process killed with auto-start on) and scenario E (reboot with auto-start on)
   need the device; the source-provable half is that "Running" can no longer be

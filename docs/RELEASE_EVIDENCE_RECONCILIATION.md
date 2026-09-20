@@ -1,9 +1,10 @@
 # Release-evidence reconciliation
 
 This record reconciles two counts that looked like regressions against older
-release reports. Both differences are explained by a documented change of scope,
-not by a lost or weakened check. It is evidence for the release record, not a
-change to any gate.
+release reports, and states the architectural verdict on the Telegram ownership
+probe. Both count differences are explained by a documented change of scope, not
+by a lost or weakened check. It is evidence for the release record, not a change
+to any gate.
 
 ## 1. Zero-Pico allowlist: 19 → 22 entries
 
@@ -142,3 +143,71 @@ missing: the packaged set is exactly `EXPECTED_ELF_ENTRIES` in the tool.
 
 The 194 → 188 difference is a scope difference, fully accounted for by the
 private-support manifest's six checks. There is no missing native audit target.
+
+## 3. Should the speculative `getUpdates` ownership probe remain?
+
+**Verdict: keep it. It is not destructive, and the alternative cannot deliver
+the one thing it exists for — a pre-commit rejection. One bounded guard is
+recommended and deliberately not implemented in this pass.**
+
+### What the probe actually is
+
+`validateTelegramCredentials` issues `getMe`, then a non-destructive
+`getWebhookInfo`, then one `getUpdates` carrying `{"limit":1,"timeout":0}` and
+**no offset**. Telegram returns updates starting from the earliest unconfirmed
+one and confirms an update only when a later `getUpdates` carries an offset
+higher than its `update_id`, so this call returns pending updates without
+confirming or dropping any. A negative offset would have done the opposite —
+Telegram documents that it retrieves from the end of the queue and forgets all
+earlier updates — which is why `offset=-1` was removed at `0535740`.
+
+It is **not** a duplicate of the runtime's own first poll. The runtime's first
+`getUpdates` is telego's, made short by `firstGetUpdatesRequest` setting
+`timeout=0` on the first request only; the steady 30-second poll is unchanged.
+Nothing in the live ownership path carries an offset parameter at all.
+
+### Why not option B (ownership only through real runtime intake)
+
+The probe's purpose is that a candidate owned by another service is rejected
+**before any configuration mutation**, so the previously committed bot is
+untouched and stays authoritative. Option B cannot do that: establishing
+ownership through real intake means writing the candidate over the committed
+configuration first and rolling back on failure. Rolling back a Telegram
+credential is not free — the old token must be re-saved and re-applied, and the
+managed service delivers a token exactly once — so the rollback window is a
+window in which the install has neither bot live. The current shape trades that
+for one short, non-confirming HTTP call.
+
+### The residual, and the recommended guard
+
+The probe is a real `getUpdates` consumer, and Telegram allows one. If
+PocketClaw's own runtime is already long-polling the **same** bot, the probe
+collides with itself: Telegram answers one of the two with 409, and the
+runtime's 409 handling is terminal with no retry, so the running channel would
+be revoked and retired while the candidate is rejected as `bot_in_use`.
+
+Reachability is narrow. `validateTelegramCredentials` runs only from
+`writeTelegramCredentialsContext`, whose two callers both deliver a token from
+the managed pairing service, and a replacement (bot B ≠ bot A) cannot collide.
+It requires the service to hand back a bot this install is already polling,
+which is behaviour outside this repository.
+
+**Recommended, not implemented:** skip step 3 when the candidate token is
+identical to the currently committed token *and* the gateway reports Telegram
+running. A token already committed and polling has already proved ownership, so
+the probe buys nothing there and is the only thing that can cause the collision.
+It is left out of this pass because the collision has not been demonstrated —
+committing a fix for an unproven defect is the thing the review rule forbids —
+and because the condition needs a device test of its own.
+
+### The other residual: a conflict that appears after a passing probe
+
+A bot that is free at probe time can be claimed by another service before the
+runtime's first real intake. This is surfaced, not hidden: the runtime 409 is
+terminal, the generation is retired, readiness reports `telegram_conflict` with
+`webhook_active` or `bot_in_use` and generation 0, and both the managed-connect
+flow and the connected card show an actionable, subtype-specific message. Note
+what is *not* true of this case: the candidate passed validation, so it was
+legitimately committed and the previous bot's token is gone. "The previous bot
+stays recoverable" is a contract about *rejected* candidates, and it holds
+exactly there.
