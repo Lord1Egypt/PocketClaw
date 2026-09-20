@@ -137,6 +137,27 @@ class PocketClawService : Service() {
         fun bridgeTokenForHost(): String = androidBridgeToken
 
         /**
+         * Removes a service notification left behind by a process that is gone.
+         *
+         * PC-DEF-070. Called from `Application.onCreate`, which the platform
+         * runs before any component of a newly created process: [isRunning] is
+         * the default there, so the policy's answer is unconditional and it is
+         * asked rather than assumed. Nothing is re-posted -- a process that has
+         * only just started knows nothing about a runtime yet, and inventing a
+         * replacement claim is the same mistake in the other direction.
+         */
+        fun cancelStaleRuntimeNotification(context: Context) {
+            if (!RuntimeNotificationPolicy.isStaleOnProcessStart(isRunning)) return
+            try {
+                context.applicationContext
+                    .getSystemService(android.app.NotificationManager::class.java)
+                    ?.cancel(NOTIFICATION_ID)
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to clear a stale runtime notification", e)
+            }
+        }
+
+        /**
          * Returns the installation-scoped Core realtime credential. It is
          * generated with Android's CSPRNG and stored only in app-private
          * no-backup storage; it is never copied into the public workspace,
@@ -654,6 +675,12 @@ class PocketClawService : Service() {
         stopService()
         releaseWakeLock()
         isRunning = false
+        // PC-DEF-070. Only ACTION_STOP used to remove the notification, so every
+        // other way this service ends -- a stopSelf from elsewhere, the system
+        // tearing it down -- relied on the platform cancelling it for us. It is
+        // removed here instead, because the one thing the notification must never
+        // do is outlive the runtime it describes.
+        stopForeground(STOP_FOREGROUND_REMOVE)
         Log.i(TAG, "Service destroyed")
         super.onDestroy()
     }
@@ -839,7 +866,7 @@ class PocketClawService : Service() {
             -1
         }
 
-        updateNotification("Running (PID: $processId)")
+        publishRuntimeNotification()
         Log.i(TAG, "Web service started with PID: $processId, listening on port $WEB_PORT")
 
         // 后台线程读取 stdout/stderr
@@ -878,7 +905,7 @@ class PocketClawService : Service() {
         val lastOutput = logBuffer.toString().takeLast(500)
         Log.w(TAG, "Web service exited with code: $exitCode, last output: $lastOutput")
         publishLog("Process exited (code $exitCode)\n$lastOutput")
-        updateNotification("Stopped (exit code $exitCode)")
+        publishRuntimeNotification(stoppedDetail = "Stopped (exit code $exitCode)")
 
         // 非正常退出时自动重启（限制重试次数）
         if (exitCode != 0) {
@@ -1084,6 +1111,31 @@ class PocketClawService : Service() {
             manager.notify(NOTIFICATION_ID, notification)
         } catch (e: Exception) {
             Log.w(TAG, "Failed to update notification", e)
+        }
+    }
+
+    /**
+     * Posts the runtime line, deriving Running rather than asserting it.
+     *
+     * PC-DEF-070. Every caller that wants to say the runtime is up goes through
+     * here, and here the claim is checked against the live process under the
+     * same lock that owns it. The old call sites wrote "Running (PID: n)"
+     * straight out at the moment the process was spawned, so a stop that landed
+     * immediately afterwards -- or a service thread orphaned by a stop whose
+     * join timed out -- left that sentence on screen with nothing behind it.
+     *
+     * [starting] says what to show when no process is up yet: the service is
+     * still coming up, or it is genuinely down. Neither can produce Running.
+     */
+    private fun publishRuntimeNotification(starting: Boolean = false, stoppedDetail: String? = null) {
+        val (alive, pid) = synchronized(serviceLock) {
+            (process?.isAlive == true) to processId
+        }
+        when (RuntimeNotificationPolicy.resolve(processAlive = alive, starting = starting)) {
+            RuntimeNotificationState.RUNNING -> updateNotification("Running (PID: $pid)")
+            RuntimeNotificationState.STARTING -> updateNotification("Starting...")
+            RuntimeNotificationState.STOPPED ->
+                updateNotification(stoppedDetail ?: "Stopped")
         }
     }
 

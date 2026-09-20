@@ -76,3 +76,24 @@ export function isTelegramManageableWithoutHost(configured: boolean): boolean {
 export function isAdvancedFormAlwaysVisible(surface: TelegramSurface): boolean {
   return surface === "manual-only"
 }
+
+/**
+ * Whether a readiness state is a stage of Telegram starting up.
+ *
+ * PC-DEF-071. The connected card built its heading as an else-chain whose last
+ * branch was "Starting Telegram…" with a spinner, so every state that had no
+ * branch of its own was presented as a stage of starting. Three of them are not:
+ * `not_configured` and `gateway_stopped` describe something that is not
+ * happening at all, and `authentication_failed` is terminal — its poll stops, so
+ * the spinner never stopped spinning and the heading sat directly above a body
+ * sentence saying the opposite ("No bot is configured.", "Telegram rejected the
+ * bot credentials."). Naming the starting stages positively is what stops a new
+ * state inheriting that claim by default.
+ */
+export function isTelegramStartingState(state: string): boolean {
+  return (
+    state === "gateway_starting" ||
+    state === "channel_starting" ||
+    state === "registering_commands"
+  )
+}

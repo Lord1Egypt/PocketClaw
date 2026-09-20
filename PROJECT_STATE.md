@@ -53,6 +53,39 @@ evidence and describe the state at the date of each entry.
 | Flutter suite | Green — 497 passed, 0 failed — and the **complete** suite is now a release gate (`flutter.suite`) |
 | Public release asset policy | APK only. An AAB is a Play-upload artifact and is never a public release asset — `PC-DEF-021` |
 
+## 2026-09-20 — Runtime-state truthfulness: the notification, and the Telegram card
+
+**PC-DEF-070 — "PocketClaw Running" over a stopped runtime.** The persistent
+notification was a log of the last thing the service thread did, not a rendering
+of what was true. `"Running (PID: n)"` was written once, when the Core process
+was spawned, and nothing ever revised it against that process still being alive;
+only `ACTION_STOP` removed the notification, so every other teardown relied on
+the platform cancelling it, and on the owner's device it did not. The
+authoritative subject is now stated: the foreground service and the Core runtime
+process it owns — the same subject as the notification's Stop action, and
+deliberately not the Gateway, whose auto-start the owner may legitimately turn
+off. `RuntimeNotificationPolicy` derives RUNNING from a live process read under
+`serviceLock` and cannot reach it from intent; `onDestroy` removes the
+notification in every path; and `PocketClawApp.onCreate` — which Android runs
+before any component of a new process — cancels a notification that survived the
+previous one rather than rewriting it into a new claim.
+
+**PC-DEF-071 — terminal Telegram states shown as "Starting Telegram…".** The
+connected card's heading was an else-chain ending in `startingTitle`, so every
+readiness state without a branch of its own was dressed as a stage of starting.
+`not_configured`, `gateway_stopped` and `authentication_failed` are not stages of
+anything, and each already had an accurate body sentence, so the card rendered
+two contradictory answers at once. `authentication_failed` is terminal and stops
+the poll, so its spinner never stopped. The starting stages are now named
+positively and anything else renders its own sentence, once, under a warning
+icon. No new user-facing string, so no locale drifted.
+
+**PC-DEF-072 opened, not fixed.** `stopService()` clears `serviceThread` whether
+or not the join succeeded, so `ACTION_RESTART` can start a second service thread
+over a live one and spawn a second Core. Not observed physically; the one-line
+change makes the restart silently do nothing instead, so it needs a design and
+its own device test rather than a patch in a fix-only pass.
+
 ## 2026-09-17 — Telegram conflict handling, and the consolidated verification APK
 
 **PC-DEF-069 — a bot already owned by another service.** `getMe` proves a token

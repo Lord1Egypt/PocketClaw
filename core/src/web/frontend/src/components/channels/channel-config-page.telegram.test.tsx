@@ -231,6 +231,79 @@ describe("Channels → Telegram", () => {
     expect(screen.getByText(translate("channels.field.allowFrom"))).toBeDefined()
   })
 
+  // PC-DEF-071. The heading was an else-chain ending in "Starting Telegram…", so
+  // every readiness state without a branch of its own was dressed as a stage of
+  // starting -- spinner included -- directly above a body sentence that said the
+  // opposite. None of the three below is a stage of anything.
+
+  it.each([
+    ["authentication_failed", undefined],
+    ["not_configured", undefined],
+    ["gateway_stopped", undefined],
+  ] as const)(
+    "case 3f: %s is not presented as Telegram starting",
+    async (state, detail) => {
+      installHost({
+        onboardingConfigured: true,
+        telegramBotUsername: "pocketclaw_ab12cd34_bot",
+      })
+      fetchTelegramReadiness.mockResolvedValue({ state, ready: false, detail })
+      arrange({
+        configuredSecrets: ["token"],
+        config: { enabled: true, allow_from: ["123456789"] },
+      })
+
+      await renderTelegramPage()
+
+      const heading = await waitFor(() => {
+        const node = document.querySelector("[data-telegram-heading]")
+        expect(node?.getAttribute("data-telegram-heading")).toBe("stalled")
+        return node as HTMLElement
+      })
+      // The readiness sentence is the heading, stated exactly once.
+      expect(heading.textContent).toBe(
+        translate(`channels.telegram.readiness.${state}`),
+      )
+      expect(
+        screen.queryByText(translate("channels.telegram.startingTitle")),
+      ).toBeNull()
+      expect(
+        screen.queryByText(translate("channels.telegram.connected")),
+      ).toBeNull()
+      expect(
+        screen.queryAllByText(
+          translate(`channels.telegram.readiness.${state}`),
+        ),
+      ).toHaveLength(1)
+    },
+  )
+
+  // The starting stages keep the stage heading they always had: this fix names
+  // them positively rather than widening the terminal branch.
+  it.each(["gateway_starting", "channel_starting", "registering_commands"] as const)(
+    "case 3g: %s is still presented as Telegram starting",
+    async (state) => {
+      installHost({
+        onboardingConfigured: true,
+        telegramBotUsername: "pocketclaw_ab12cd34_bot",
+      })
+      fetchTelegramReadiness.mockResolvedValue({ state, ready: false })
+      arrange({
+        configuredSecrets: ["token"],
+        config: { enabled: true, allow_from: ["123456789"] },
+      })
+
+      await renderTelegramPage()
+
+      expect(
+        await screen.findByText(translate("channels.telegram.startingTitle")),
+      ).toBeDefined()
+      expect(
+        screen.getByText(translate(`channels.telegram.readiness.${state}`)),
+      ).toBeDefined()
+    },
+  )
+
   // A bot owned by another service is never Connected. The two ownerships need
   // different instructions, so the body differs by reason.
   it("case 3d: a webhook conflict shows an actionable conflict, not connected", async () => {

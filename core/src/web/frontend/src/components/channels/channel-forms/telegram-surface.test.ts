@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest"
 import {
   isAdvancedFormAlwaysVisible,
   isTelegramManageableWithoutHost,
+  isTelegramStartingState,
   resolveTelegramManualReason,
   resolveTelegramSurface,
 } from "./telegram-surface"
@@ -83,6 +84,30 @@ describe("telegram surface", () => {
 
     it("has nothing to manage when not configured", () => {
       expect(isTelegramManageableWithoutHost(false)).toBe(false)
+    })
+  })
+
+  // PC-DEF-071. The connected card presented anything without a branch of its
+  // own as a stage of starting. The membership is stated positively here so a
+  // state added later cannot inherit that claim by omission.
+  describe("which readiness states are stages of starting", () => {
+    it.each(["gateway_starting", "channel_starting", "registering_commands"])(
+      "%s is a starting stage",
+      (state) => {
+        expect(isTelegramStartingState(state)).toBe(true)
+      },
+    )
+
+    it.each([
+      "not_configured",
+      "gateway_stopped",
+      "authentication_failed",
+      "telegram_conflict",
+      "setup_required",
+      "ready",
+      "unknown",
+    ])("%s is not a starting stage", (state) => {
+      expect(isTelegramStartingState(state)).toBe(false)
     })
   })
 })

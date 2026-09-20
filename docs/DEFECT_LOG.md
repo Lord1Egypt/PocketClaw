@@ -11,6 +11,36 @@ only reconstructable examples belong here.
 
 
 
+### PC-DEF-072 — A slow service thread can be orphaned and then double-started
+
+- **Discovered:** source audit, 2026-09-20, while closing PC-DEF-070.
+- **Component:** `android/app/src/main/kotlin/com/lord1egypt/pocketclaw/service/PocketClawService.kt`
+  (`stopService`, `startService`).
+- **Severity:** Not observed physically. No demonstrated failure; reported
+  because the mechanism is exact and the consequence is two Core processes.
+- **Description:** `stopService()` joins the service thread with a five-second
+  bound and then sets `serviceThread = null` whether or not the thread exited.
+  `startService()`'s duplicate guard reads `serviceThread?.isAlive` and
+  `process?.isAlive`, both of which are now false, so `ACTION_RESTART` can start
+  a second service thread while the first is still running — and it sets
+  `stopped = false`, un-stopping the orphan. The orphan then continues into
+  `runWebService()` and spawns a second Core web process, which loses the race
+  for port 18800 and enters its own restart loop. The realistic way to exceed
+  the bound is a first-run `ensureOnboarded` (the Python payload extraction) or
+  the five-second restart backoff, both of which an immediately following
+  config-apply restart can land on.
+- **Why it is not fixed here:** the obvious one-line change — only clear
+  `serviceThread` when it actually exited — makes the duplicate guard refuse the
+  restart instead, which turns a double-Core into a restart that silently does
+  nothing and leaves the old configuration live. That is arguably worse and is a
+  change to the service's threading model, not a defect fix. It needs a real
+  design (a generation-owned service thread, as Telegram already has) and its
+  own physical test.
+- **Relationship to PC-DEF-070:** the notification is no longer a symptom of
+  this. `publishRuntimeNotification` reads the live process under `serviceLock`,
+  so an orphan thread cannot post a Running claim for a process that is gone.
+- **Status:** OPEN / NEEDS DESIGN.
+
 ### PC-DEF-012 — Broad dependency export surfaces need reachability evidence
 
 - **Discovered:** H5A native/ELF audit, 2026-09-11.
@@ -174,6 +204,96 @@ only reconstructable examples belong here.
 - **Status:** OPEN.
 
 ## Resolved
+
+### PC-DEF-070 — The persistent notification claimed Running over a stopped runtime
+
+- **Discovered:** owner physical observation, 2026-09-20, v0.2.0 release
+  hardening. The Android notification read "PocketClaw — Running"; opening the
+  app showed Services OFF and Gateway OFF, and both came up only *afterwards*,
+  because launch auto-start started them. Distinct from PC-DEF-058, which is
+  about the permission to post a notification at all.
+- **Component:** `android/app/src/main/kotlin/com/lord1egypt/pocketclaw/service/{PocketClawService.kt,RuntimeNotificationPolicy.kt}`,
+  `android/app/src/main/kotlin/com/lord1egypt/pocketclaw/PocketClawApp.kt`,
+  new `android/app/src/test/kotlin/.../service/RuntimeNotificationPolicyTest.kt`.
+- **Root cause — the notification was a log, not a rendering.**
+  `updateNotification("Running (PID: n)")` was written once, at the moment the
+  Core process was spawned, and nothing ever revised that sentence against the
+  process still being alive. Every later notification was likewise a free-form
+  string emitted by whichever service-thread step ran last. Two consequences:
+  a Running claim outlived the process it described, and it was posted outside
+  `serviceLock`, so a stop landing immediately after the spawn left it standing.
+- **Root cause — no teardown was authoritative.** Only `ACTION_STOP` removed the
+  notification (`stopForeground(STOP_FOREGROUND_REMOVE)`). Every other way the
+  service ends relied on the platform cancelling it, and the owner's device did
+  not: a notification survived into a process that no longer existed. Nothing in
+  the app ever reconciled a found notification against reality.
+- **Authoritative definition adopted.** The notification's subject is **the
+  PocketClaw foreground service and the Core runtime process that service owns**
+  — the same subject as its own Stop action. It is deliberately *not* the
+  Gateway: Gateway auto-start is a preference the owner may legitimately turn
+  off, so a service running without a Gateway is a correct state and must not be
+  reported as a failure. The Status screen reports Service and Gateway as the
+  two separate facts they are.
+- **Resolution.** `RuntimeNotificationPolicy.resolve` derives the state from the
+  one fact that can support the claim — a Core process this service still holds,
+  read under `serviceLock` at the moment the notification is built. Intent is an
+  input (`starting`) that provably cannot reach RUNNING. `publishRuntimeNotification`
+  is now the only way to post a runtime line. `onDestroy` removes the
+  notification in every teardown path. `PocketClawApp.onCreate` — which Android
+  runs before any component of a newly created process, so the service cannot be
+  hosted there — asks `isStaleOnProcessStart` and cancels a surviving
+  notification rather than rewriting it into a different claim.
+- **Not derived from, by construction:** auto-start preferences, intended future
+  state, SharedPreferences, the service's desired state, or a previous process.
+  The policy takes two booleans and neither is any of those.
+- **Verification:** `RuntimeNotificationPolicyTest` (6 cases) pins that a live
+  process is the only route to RUNNING, that RUNNING is unreachable for every
+  value of `starting` without one, and that a notification found in a process
+  hosting no service is stale. `:app:testDebugUnitTest` — 36 passed, 0 failed.
+- **Status:** FIXED IN SOURCE — physical confirmation required. Scenario A
+  (process killed with auto-start on) and scenario E (reboot with auto-start on)
+  need the device; the source-provable half is that "Running" can no longer be
+  emitted without a live process, and that a surviving notification is removed
+  at process start.
+
+### PC-DEF-071 — Terminal Telegram states were rendered as "Starting Telegram…"
+
+- **Discovered:** owner observation, 2026-09-20, v0.2.0 release hardening. The
+  Dashboard showed "Starting Telegram…" next to "No bot is configured." and
+  authorization text, while the gateway log for that startup read
+  `enabled_channels=1` / `Channels enabled: [pocketclaw]` — Telegram was not
+  active at all.
+- **Component:** `core/src/web/frontend/src/components/channels/channel-forms/{telegram-panel.tsx,telegram-surface.ts}`.
+- **Root cause.** The connected card built its heading as an else-chain whose
+  last branch was `startingTitle` with a spinner, so every readiness state
+  without a branch of its own was presented as a stage of starting. Three states
+  have no branch and are not stages of anything: `not_configured`,
+  `gateway_stopped` and `authentication_failed`. Each already had an accurate
+  body sentence, so the card rendered two contradictory answers at once — a
+  spinning "Starting Telegram…" directly above "No bot is configured." or
+  "Telegram rejected the bot credentials."
+- **Why it persisted rather than resolving.** The card's surface is chosen from
+  the frontend's own `configured` projection (the edit buffer holds a token),
+  while readiness is Core's (`enabled` **and** a token on disk). The two
+  disagree for a channel that holds a token with `enabled: false` — exactly the
+  state `clearTelegramCredentials` exists to avoid — and for the edit buffer
+  before a save. `authentication_failed` is worse: it is terminal, so
+  `useTelegramReadiness` stops polling, and the spinner never stopped.
+- **Resolution.** `isTelegramStartingState` names the three real starting stages
+  positively (`gateway_starting`, `channel_starting`, `registering_commands`).
+  Anything else that is neither ready nor already branched is `stalled`: the
+  warning icon replaces the spinner and the readiness sentence becomes the
+  heading, stated exactly once instead of contradicting one above it. Naming the
+  stages positively is what stops a state added later inheriting the claim by
+  omission. No new user-facing string was introduced, so no locale drifted.
+- **Verification:** `telegram-surface.test.ts` pins the membership in both
+  directions (3 starting, 7 not). `channel-config-page.telegram.test.tsx`
+  `case 3f` asserts, through the real page, that each of the three states
+  renders as stalled with its own sentence exactly once and never
+  `startingTitle` or `connected`; `case 3g` asserts the three genuine stages
+  still render as starting. All three `case 3f` rows fail against the previous
+  component and pass against this one.
+- **Status:** FIXED IN SOURCE — physical confirmation required.
 
 ### PC-DEF-069 — A bot already owned by another service fought it or died silently
 

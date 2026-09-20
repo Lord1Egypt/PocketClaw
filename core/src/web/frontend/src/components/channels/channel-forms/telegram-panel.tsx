@@ -22,6 +22,7 @@ import {
 import {
   type TelegramSurface,
   isAdvancedFormAlwaysVisible,
+  isTelegramStartingState,
   resolveTelegramManualReason,
   resolveTelegramSurface,
 } from "@/components/channels/channel-forms/telegram-surface"
@@ -142,6 +143,17 @@ export function TelegramPanel({
     readiness?.detail === "webhook_active"
       ? "channels.telegram.conflictWebhook"
       : "channels.telegram.conflictInUse"
+  // PC-DEF-071. Anything that is neither ready nor a stage of starting must not
+  // be dressed as one. Its readiness sentence is already a complete, accurate
+  // statement, so it becomes the heading rather than sitting underneath a
+  // spinner that contradicts it.
+  const stalled =
+    readiness !== null &&
+    !receiving &&
+    !conflict &&
+    !setupIncomplete &&
+    !statusUnreadable &&
+    !isTelegramStartingState(readiness.state)
 
   // Route the user straight to the owner field: opening the advanced form is
   // the direct path to Allowed From, and it is the same form on every client.
@@ -233,7 +245,7 @@ export function TelegramPanel({
         <Card className="shadow-sm">
           <CardContent className="space-y-4 px-6 py-5">
             <div className="flex items-center gap-2">
-              {setupIncomplete || conflict ? (
+              {setupIncomplete || conflict || stalled ? (
                 <IconAlertTriangle className="size-5 text-pc-warning" />
               ) : receiving ? (
                 <IconCircleCheckFilled className="size-5 text-pc-success" />
@@ -242,7 +254,10 @@ export function TelegramPanel({
               ) : (
                 <IconLoader2 className="text-muted-foreground size-5 animate-spin" />
               )}
-              <p className="text-base font-semibold">
+              <p
+                className="text-base font-semibold"
+                data-telegram-heading={stalled ? "stalled" : "stage"}
+              >
                 {conflict
                   ? t("channels.telegram.conflictTitle")
                   : setupIncomplete
@@ -251,13 +266,17 @@ export function TelegramPanel({
                       ? t("channels.telegram.connected")
                       : statusUnreadable
                         ? t("channels.telegram.statusUnreadableTitle")
-                        : t("channels.telegram.startingTitle")}
+                        : stalled && readiness
+                          ? t(readinessLabelKey(readiness.state))
+                          : t("channels.telegram.startingTitle")}
               </p>
             </div>
 
             {/* Named so the user knows why not to send a message yet, rather
-                than being told Connected while the channel is still starting. */}
-            {!receiving && readiness && !conflict && (
+                than being told Connected while the channel is still starting.
+                A stalled state has already said it in the heading; repeating it
+                is what made the card read as two different answers at once. */}
+            {!receiving && readiness && !conflict && !stalled && (
               <p
                 className="text-muted-foreground text-sm"
                 data-readiness-state={readiness.state}
