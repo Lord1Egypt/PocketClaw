@@ -40,6 +40,19 @@ class PocketClawService : Service() {
         private const val REALTIME_AUTH_FILE = "realtime_auth"
 
         /**
+         * How long a stop waits for the owning worker to exit before it reports
+         * that it did not.
+         *
+         * PC-DEF-072. It is a bound on *waiting*, never on ownership: when it
+         * expires the worker keeps ownership and a start queues behind it. The
+         * previous code treated the same expiry as proof the thread was gone.
+         */
+        private const val SERVICE_THREAD_JOIN_MS = 5_000L
+
+        /** Backoff between Core crash restarts. Interruptible by a stop. */
+        private const val RESTART_BACKOFF_MS = 5_000L
+
+        /**
          * Where Core writes the gateway bearer credential.
          *
          * It used to live inside `.picoclaw.pid` in POCKETCLAW_HOME, which on
@@ -609,14 +622,38 @@ class PocketClawService : Service() {
     }
 
     private var process: Process? = null
-    private var serviceThread: Thread? = null
     private var logThread: Thread? = null
     private var wakeLock: PowerManager.WakeLock? = null
     private val logBuffer = StringBuilder()
     private val maxLogSize = 64 * 1024 // 64KB 日志缓冲
     private val serviceLock = Object() // 保护启动/停止并发
-    @Volatile
-    private var stopped = false // 用于通知运行中的线程应该停止
+
+    /**
+     * Who owns the Core runtime. PC-DEF-072.
+     *
+     * Replaces the `serviceThread` field plus the single `stopped` flag. Those
+     * two could disagree with reality in the same direction at the same time: a
+     * timed-out join cleared the thread reference although the thread was alive,
+     * and the next start cleared `stopped` for everybody, including the worker
+     * that had just been abandoned. Ownership is an epoch now, and only its
+     * holder may run a Core.
+     */
+    private val ownership = CoreRuntimeOwnership()
+
+    /**
+     * The child process the owning worker is currently blocked on — the onboard
+     * run, the version probe, or the Core web process itself.
+     *
+     * Stop used to reach only the web process, so a worker inside `onboard`
+     * (the Python payload extraction, the slow one on a fresh install) could not
+     * be made to exit at all and the five-second join simply expired. Destroying
+     * whichever child is live is what turns the stop from a request into an
+     * event the worker cannot miss.
+     */
+    private var activeChild: Process? = null
+
+    /** The epoch that registered [activeChild], so no other epoch can clear it. */
+    private var activeChildEpoch: Long = 0
     @Volatile
     private var publicMode = false // 是否启用公共模式（监听所有接口）
     @Volatile
@@ -688,38 +725,76 @@ class PocketClawService : Service() {
     // --- 核心逻辑 ---
 
     private fun startService() {
-        synchronized(serviceLock) {
-            // 防止重复启动
-            if (serviceThread?.isAlive == true || process?.isAlive == true) {
-                Log.w(TAG, "Service is already starting or running, ignoring duplicate start request")
-                return
-            }
-            stopped = false
+        val outcome = ownership.start { epoch ->
             restartCount = 0
+            Thread({ runCoreRuntime(epoch) }, "pocketclaw-core-runtime-$epoch")
+                .also { it.start() }
+        }
+        when (outcome) {
+            is CoreRuntimeOwnership.StartOutcome.Started ->
+                Log.i(TAG, "Core runtime epoch ${outcome.epoch} started")
+            CoreRuntimeOwnership.StartOutcome.AlreadyRunning ->
+                Log.w(TAG, "Core runtime is already running, ignoring duplicate start request")
+            CoreRuntimeOwnership.StartOutcome.Queued -> {
+                // PC-DEF-072. The previous owner has been asked to stop and has
+                // not released. Starting here would put a second Core on port
+                // 18800; dropping the request would make a restart silently do
+                // nothing. It runs when that owner releases, and the state is
+                // said out loud rather than left looking idle.
+                Log.w(TAG, "Previous Core runtime has not released; start queued behind it")
+                publishLog("Waiting for the previous PocketClaw runtime to exit before restarting")
+                publishRuntimeNotification(starting = true)
+            }
+        }
+    }
 
-            serviceThread = Thread {
-                try {
-                    val gatewayBinary = getGatewayBinaryFile()
-                    testBinary(gatewayBinary)
-                    ensureOnboarded(gatewayBinary)
-                    // 启动前先清理可能残留的旧进程
-                    killPocketClawOrphanProcesses()
-                    runWebService()
-                } catch (e: Exception) {
-                    if (!stopped) {
-                        Log.e(TAG, "Failed to start service", e)
-                        publishLog("Error: ${e.message}")
-                        updateNotification("Error: ${e.message}")
-                    }
-                }
-            }.also { it.start() }
+    /**
+     * One Core runtime, from binary probe to exit, owned by [epoch].
+     *
+     * Every step that can outlive a stop re-asks whether [epoch] is still the
+     * live runtime, and the `finally` is the only place ownership is released —
+     * so a worker that took longer than the stop's join still cleans up after
+     * itself, and a start queued behind it runs then rather than never.
+     */
+    private fun runCoreRuntime(epoch: Long) {
+        try {
+            val gatewayBinary = getGatewayBinaryFile()
+            testBinary(epoch, gatewayBinary)
+            ensureOnboarded(epoch, gatewayBinary)
+            if (!ownership.isCurrent(epoch)) return
+            // 启动前先清理可能残留的旧进程
+            killPocketClawOrphanProcesses()
+            runWebService(epoch)
+        } catch (e: InterruptedException) {
+            Log.i(TAG, "Core runtime epoch $epoch interrupted during stop")
+            Thread.currentThread().interrupt()
+        } catch (e: Exception) {
+            if (ownership.isCurrent(epoch)) {
+                Log.e(TAG, "Failed to start service", e)
+                publishLog("Error: ${e.message}")
+                updateNotification("Error: ${e.message}")
+            } else {
+                Log.i(TAG, "Core runtime epoch $epoch failed after it stopped being current", e)
+            }
+        } finally {
+            clearActiveChild(epoch)
+            // The stopper never releases ownership: a bounded join that expired
+            // is not evidence that this thread is gone. This is.
+            val runQueued = ownership.release(epoch)
+            Log.i(TAG, "Core runtime epoch $epoch released (queued start: $runQueued)")
+            if (runQueued) {
+                // Clear the interrupt first: the queued start must not inherit
+                // the stop that was aimed at this worker.
+                Thread.interrupted()
+                startService()
+            }
         }
     }
 
     /**
      * 测试 gateway 二进制是否可执行
      */
-    private fun testBinary(binaryFile: File) {
+    private fun testBinary(epoch: Long, binaryFile: File) {
         Log.i(TAG, "Testing binary at ${binaryFile.absolutePath}...")
         val env = buildEnvironment()
 
@@ -730,10 +805,19 @@ class PocketClawService : Service() {
 
         try {
             val proc = pb.start()
+            if (!adoptActiveChild(epoch, proc)) {
+                // Not the live runtime any more: do not leave the child behind.
+                proc.destroyForcibly()
+                throw InterruptedException("Core runtime epoch $epoch stopped during the binary probe")
+            }
             val output = proc.inputStream.bufferedReader().readText()
             val exitCode = proc.waitFor()
+            clearActiveChild(epoch)
             Log.i(TAG, "Binary test: exit=$exitCode, output=$output")
 
+            if (!ownership.isCurrent(epoch)) {
+                throw InterruptedException("Core runtime epoch $epoch stopped during the binary probe")
+            }
             if (exitCode != 0) {
                 throw RuntimeException(
                     "Core binary test failed (exit $exitCode): $output"
@@ -765,7 +849,7 @@ class PocketClawService : Service() {
     /**
      * 运行 Core 的 `onboard` 初始化配置和工作区
      */
-    private fun ensureOnboarded(binaryFile: File) {
+    private fun ensureOnboarded(epoch: Long, binaryFile: File) {
         val configFile = PocketClawCoreState.configFile(this)
 
         if (configFile.exists()) {
@@ -785,13 +869,51 @@ class PocketClawService : Service() {
         pb.environment().putAll(env)
 
         val proc = pb.start()
+        // PC-DEF-072. This is the slow step on a fresh install -- it extracts the
+        // Python payload -- and it is the one a stop could not previously reach,
+        // so the five-second join simply expired against it. Registering the
+        // child is what lets stopService() destroy it.
+        if (!adoptActiveChild(epoch, proc)) {
+            proc.destroyForcibly()
+            throw InterruptedException("Core runtime epoch $epoch stopped before onboard")
+        }
         val output = proc.inputStream.bufferedReader().readText()
         val exitCode = proc.waitFor()
+        clearActiveChild(epoch)
 
         Log.i(TAG, "Onboard exit code: $exitCode, output: $output")
 
+        if (!ownership.isCurrent(epoch)) {
+            throw InterruptedException("Core runtime epoch $epoch stopped during onboard")
+        }
         if (exitCode != 0) {
             throw RuntimeException("Onboard failed (exit $exitCode): $output")
+        }
+    }
+
+    /**
+     * Registers [proc] as the child [epoch] is blocked on, or reports that
+     * [epoch] is no longer the live runtime.
+     *
+     * The currency check and the registration happen under one lock, so a stop
+     * either sees this child and destroys it or is seen here and refuses it.
+     * There is no order in which a child is both unregistered and kept.
+     */
+    private fun adoptActiveChild(epoch: Long, proc: Process): Boolean =
+        synchronized(serviceLock) {
+            if (!ownership.isCurrent(epoch)) return false
+            activeChild = proc
+            activeChildEpoch = epoch
+            true
+        }
+
+    /** Drops the registered child, but only the one this epoch registered. */
+    private fun clearActiveChild(epoch: Long) {
+        synchronized(serviceLock) {
+            if (activeChildEpoch == epoch) {
+                activeChild = null
+                activeChildEpoch = 0
+            }
         }
     }
 
@@ -799,10 +921,10 @@ class PocketClawService : Service() {
      * 运行 web 服务进程（libpocketclaw-web.so）
      * web 服务会通过 TryAutoStartGateway() 自动启动并管理 gateway
      */
-    private fun runWebService() {
+    private fun runWebService(epoch: Long) {
         // 检查是否已被要求停止
-        if (stopped) {
-            Log.i(TAG, "Service was stopped, aborting web service start")
+        if (!ownership.isCurrent(epoch)) {
+            Log.i(TAG, "Core runtime epoch $epoch is no longer current, aborting web service start")
             return
         }
 
@@ -842,14 +964,20 @@ class PocketClawService : Service() {
         updateNotification("Starting web service...")
 
         val proc = pb.start()
+        // PC-DEF-072. The only place a Core web process becomes this service's
+        // runtime. The currency check and the registration are one critical
+        // section, so an epoch that lost ownership between pb.start() and here
+        // destroys what it spawned instead of publishing a second Core on
+        // port 18800.
         synchronized(serviceLock) {
-            if (stopped) {
-                // 在启动后立刻被停止，杀掉刚启动的进程
-                Log.i(TAG, "Service stopped during startup, killing new process")
+            if (!ownership.isCurrent(epoch)) {
+                Log.i(TAG, "Core runtime epoch $epoch stopped during startup, killing new process")
                 proc.destroyForcibly()
                 return
             }
             process = proc
+            activeChild = proc
+            activeChildEpoch = epoch
             isRunning = true
         }
 
@@ -880,7 +1008,7 @@ class PocketClawService : Service() {
                     appendLog(logLine)
                 }
             } catch (e: Exception) {
-                if (!stopped) {
+                if (ownership.isCurrent(epoch)) {
                     Log.w(TAG, "Log reader interrupted", e)
                 }
             }
@@ -893,12 +1021,15 @@ class PocketClawService : Service() {
         val exitCode = proc.waitFor()
         isRunning = false
         processId = -1
+        clearActiveChild(epoch)
 
-        try { logThread?.join(2000) } catch (_: InterruptedException) {}
+        try { logThread?.join(2000) } catch (_: InterruptedException) {
+            Thread.currentThread().interrupt()
+        }
 
         // 如果是被主动停止的，不需要重启
-        if (stopped) {
-            Log.i(TAG, "Web service exited due to stop request (code $exitCode)")
+        if (!ownership.isCurrent(epoch)) {
+            Log.i(TAG, "Web service for epoch $epoch exited after it stopped being current (code $exitCode)")
             return
         }
 
@@ -919,13 +1050,17 @@ class PocketClawService : Service() {
             Log.i(TAG, "Scheduling restart in 5 seconds... (attempt $restartCount/$maxRestartAttempts)")
             // 清理可能残留的占用端口的进程
             killPocketClawOrphanProcesses()
-            Thread.sleep(5000)
+            // Interruptible on purpose: a sleeping worker owns no child process,
+            // so the interrupt from stopService() is the only thing that can
+            // reach it. Letting it propagate is what ends the epoch promptly
+            // instead of after the full backoff.
+            Thread.sleep(RESTART_BACKOFF_MS)
             // 再次检查是否被要求停止
-            if (stopped) {
-                Log.i(TAG, "Service was stopped during restart wait, aborting")
+            if (!ownership.isCurrent(epoch)) {
+                Log.i(TAG, "Core runtime epoch $epoch stopped during the restart wait, aborting")
                 return
             }
-            runWebService()
+            runWebService(epoch)
         }
     }
 
@@ -1010,47 +1145,66 @@ class PocketClawService : Service() {
     private fun stopService() {
         Log.i(TAG, "Stopping service...")
 
-        synchronized(serviceLock) {
-            // 设置停止标志，通知所有运行中的线程
-            stopped = true
+        // Name the exact owner this stop is aimed at, and mark it stopping, before
+        // touching anything it owns.
+        val target = ownership.requestStop()
 
-            process?.let { proc ->
-                try {
-                    proc.destroy()
-
-                    val thread = Thread {
-                        try {
-                            proc.waitFor()
-                        } catch (_: InterruptedException) {
-                        }
-                    }
-                    thread.start()
-                    thread.join(10_000)
-
-                    if (proc.isAlive) {
-                        Log.w(TAG, "Force killing web service process")
-                        proc.destroyForcibly()
-                    }
-                } catch (e: Exception) {
-                    Log.e(TAG, "Error stopping web service process", e)
-                }
-            }
-
+        val child = synchronized(serviceLock) {
+            val live = process ?: activeChild
             process = null
+            activeChild = null
+            activeChildEpoch = 0
             isRunning = false
             processId = -1
-
             logThread?.interrupt()
             logThread = null
+            live
+        }
+
+        // Destroy whichever child the worker is blocked on -- the web process,
+        // or the onboard/version run that stop could not previously reach at all.
+        child?.let { proc ->
+            try {
+                proc.destroy()
+
+                val waiter = Thread {
+                    try {
+                        proc.waitFor()
+                    } catch (_: InterruptedException) {
+                    }
+                }
+                waiter.start()
+                waiter.join(10_000)
+
+                if (proc.isAlive) {
+                    Log.w(TAG, "Force killing Core child process")
+                    proc.destroyForcibly()
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error stopping Core child process", e)
+            }
         }
 
         // 等待服务线程退出
-        serviceThread?.let { thread ->
+        if (target != null && target.thread !== Thread.currentThread()) {
+            // Interrupt as well as destroy: the restart backoff is a sleep, and a
+            // sleeping worker has no child to kill.
+            target.thread.interrupt()
             try {
-                thread.join(5_000)
-            } catch (_: InterruptedException) {}
+                target.thread.join(SERVICE_THREAD_JOIN_MS)
+            } catch (_: InterruptedException) {
+                Thread.currentThread().interrupt()
+            }
+            if (target.thread.isAlive) {
+                // PC-DEF-072. The join expired. Ownership is NOT cleared here:
+                // clearing it is what let the next start put a second Core on
+                // port 18800. The worker releases from its own finally, and a
+                // start requested in the meantime is queued behind it.
+                Log.w(TAG, "Core runtime epoch ${target.epoch} did not exit within the join; " +
+                    "ownership retained until it releases")
+                publishLog("PocketClaw runtime is still shutting down")
+            }
         }
-        serviceThread = null
 
         // 清理可能残留的孤儿进程（包括 web 服务自己启动的 gateway）
         killPocketClawOrphanProcesses()

@@ -367,11 +367,29 @@ func (h *Handler) writeTelegramCredentialsContext(
 		return false, false, errors.New("Failed to load config")
 	}
 
-	// Validate before mutating or saving. This is the transaction boundary for
-	// replacements: a rejected candidate never displaces the old token, owner
-	// or running bot. The managed service may deliver its candidate only once,
-	// but failure here still leaves the previously committed bot recoverable.
-	if validationErr := h.validateTelegramCredentials(
+	// PC-DEF-073. Never probe ownership against PocketClaw's own active
+	// generation. The candidate validation ends in a real getUpdates call, and
+	// Telegram allows exactly one of those per bot, so re-pairing a bot this
+	// install is already polling would make PocketClaw collide with itself:
+	// Telegram answers 409, the runtime treats a 409 as terminal with no retry,
+	// and a healthy generation would be retired by its own owner.
+	//
+	// The skip is not a weakening. When the committed credential is byte-identical
+	// and this install's channel is the live getUpdates owner for it, the running
+	// poller has *already* proved every fact the validation would ask for —
+	// the token authenticates, no webhook is attached (a webhook makes getUpdates
+	// answer 409, so a poller that is succeeding proves there is none), and
+	// nobody else owns the stream. A live successful poll is stronger evidence
+	// than a speculative probe, and it costs no competing request.
+	//
+	// Any other candidate — a different token, or the same token while this
+	// install is not authoritatively polling it — takes the full validation.
+	if h.telegramCandidateIsAuthoritativeRunningBot(token, settings) {
+		logger.InfoCF("telegram",
+			"Candidate is the bot this install is already polling; "+
+				"reusing the live runtime's ownership instead of probing it",
+			map[string]any{"surface": "telegram_configure"})
+	} else if validationErr := h.validateTelegramCredentials(
 		ctx, token, settings.BaseURL, settings.Proxy,
 	); validationErr != nil {
 		// Terminal candidate outcomes are propagated by identity so the caller

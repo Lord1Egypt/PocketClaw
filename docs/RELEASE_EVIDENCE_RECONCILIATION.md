@@ -1,10 +1,11 @@
 # Release-evidence reconciliation
 
 This record reconciles two counts that looked like regressions against older
-release reports, and states the architectural verdict on the Telegram ownership
-probe. Both count differences are explained by a documented change of scope, not
-by a lost or weakened check. It is evidence for the release record, not a change
-to any gate.
+release reports, states the architectural verdict on the Telegram ownership
+probe, and records the design recommendation for making one Telegram
+"configured" state authoritative. Both count differences are explained by a
+documented change of scope, not by a lost or weakened check. It is evidence for
+the release record, not a change to any gate.
 
 ## 1. Zero-Pico allowlist: 19 → 22 entries
 
@@ -211,3 +212,59 @@ what is *not* true of this case: the candidate passed validation, so it was
 legitimately committed and the previous bot's token is gone. "The previous bot
 stays recoverable" is a contract about *rejected* candidates, and it holds
 exactly there.
+
+## 4. Telegram "configured" authority — design recommendation for a later pass
+
+**Not changed in this pass, and not required by either runtime-integrity fix.**
+PC-DEF-071 made the contradiction honest; it did not merge the definitions.
+This is the recommendation for doing that deliberately, later.
+
+### The problem, stated once
+
+Three places answer "is Telegram configured?" and they do not agree:
+
+| Answerer | Definition | Source |
+| --- | --- | --- |
+| `channel-config-page.tsx` `isConfigured` | the `token` field of the **in-memory edit buffer** is non-empty | unsaved UI state |
+| `telegram_readiness.go` `telegramIsConfigured` | `channel.Enabled` **and** a token **on disk** | persisted config |
+| `telegramOwnerMissing` | the above **and** exactly one positive numeric owner | persisted config |
+
+The frontend picks its whole surface (`connected` / `managed-onboarding` /
+`manual-only`) from the first, then renders authoritative state from the second.
+They disagree for a channel holding a token with `enabled: false`, and for the
+edit buffer before a save — which is why the connected card could show a
+starting spinner above "No bot is configured."
+
+`clearTelegramCredentials` already clears token, owner and `enabled` together
+precisely to avoid leaving that state behind, and its comment says why: *"a
+disabled channel that still holds a token and an owner reads as connected to
+every surface that asks."* That is the invariant; it is just not enforced
+anywhere but in that one function.
+
+### Recommendation
+
+1. **Make Core the single authority.** Extend the readiness payload with the
+   setup facts the page needs to choose a surface — `configured`, `enabled`,
+   `has_token`, `owner_count` — so one backend-derived object answers both "which
+   surface" and "what state". Readiness is already polled by both surfaces and
+   already carries no identity, so this adds a field set, not an endpoint.
+2. **Make the frontend's `configured` a rendering of that field, never a
+   derivation from the edit buffer.** The edit buffer stays what it is — unsaved
+   input — and drives the *form*, not the *surface*. This is the actual fix: the
+   surface stops being chosen by something the user is still typing.
+3. **Keep `isTelegramStartingState` as the stage list.** PC-DEF-071's positive
+   naming is what makes a state added later render honestly by default; that
+   property should survive the refactor rather than be replaced by a new
+   else-chain.
+4. **Add a Core-side invariant test** that a channel with a token and
+   `enabled: false` is reported as not configured by *every* accessor, so the
+   state `clearTelegramCredentials` guards against cannot be reintroduced by a
+   different writer.
+
+### Why later rather than now
+
+It changes a payload contract that two surfaces and the Flutter client read, and
+the 14-locale copy that hangs off it. Neither runtime-integrity fix in this pass
+depends on it, and doing it alongside them would put a UI-contract change inside
+a release-hardening pass whose whole point is that each change is provable on its
+own.

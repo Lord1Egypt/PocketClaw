@@ -3,6 +3,7 @@ package api
 import (
 	"bytes"
 	"context"
+	"crypto/subtle"
 	"encoding/json"
 	"errors"
 	"io"
@@ -11,6 +12,8 @@ import (
 	"os"
 	"strings"
 	"time"
+
+	"github.com/sipeed/picoclaw/pkg/config"
 )
 
 // TelegramCredentialValidator proves a candidate token before it can replace
@@ -246,4 +249,62 @@ func telegramValidationCall(
 	result.Description = envelope.Description
 	result.Result = envelope.Result
 	return result, nil
+}
+
+// telegramCandidateIsAuthoritativeRunningBot reports that this candidate is
+// already the committed credential *and* that PocketClaw's own Telegram channel
+// is the live getUpdates owner for it.
+//
+// PC-DEF-073. It exists to keep one invariant: PocketClaw must never issue a
+// competing getUpdates against its own active generation. Telegram permits one
+// long-polling consumer per bot, so the validation probe aimed at a bot this
+// install is already polling makes Telegram answer 409 to one of the two — and
+// the runtime's 409 handling is terminal with no retry, so PocketClaw would
+// retire a healthy generation on its own evidence.
+//
+// Every condition below has to hold, and each is doing work:
+//
+//   - The candidate must equal the committed token byte for byte. Compared in
+//     constant time: this is credential material, and a length-or-prefix
+//     shortcut is the thing that turns a comparison into an oracle.
+//   - No config apply may be pending or in flight. While one is, the running
+//     gateway may be holding a *different* credential from the one on disk, so
+//     the snapshot cannot vouch for this token.
+//   - The gateway's own Telegram channel must be Running with a non-zero polling
+//     generation and no runtime failure. That is the authoritative statement
+//     that this process owns the update stream right now.
+//
+// When it answers false — a different token, or the same token that this install
+// is not authoritatively polling — the caller runs the full validation
+// unchanged, so a genuine webhook conflict, another poller, or an invalid
+// credential is detected exactly as before.
+func (h *Handler) telegramCandidateIsAuthoritativeRunningBot(
+	candidate string,
+	settings *config.TelegramSettings,
+) bool {
+	if settings == nil {
+		return false
+	}
+	candidate = strings.TrimSpace(candidate)
+	committed := strings.TrimSpace(settings.Token.String())
+	if candidate == "" || committed == "" || len(candidate) != len(committed) {
+		return false
+	}
+	if subtle.ConstantTimeCompare([]byte(candidate), []byte(committed)) != 1 {
+		return false
+	}
+	// A parked or in-flight apply means the live gateway and the committed
+	// configuration can disagree, and the snapshot then proves nothing about
+	// this token.
+	if configApplyInProgress() {
+		return false
+	}
+	channel, err := h.gatewayTelegramChannelStatus()
+	if err != nil || channel == nil {
+		return false
+	}
+	if !channel.Running || channel.RuntimeFailure != "" {
+		return false
+	}
+	return channel.PollingGeneration != nil && *channel.PollingGeneration != 0
 }

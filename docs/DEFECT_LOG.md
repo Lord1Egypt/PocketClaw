@@ -11,36 +11,6 @@ only reconstructable examples belong here.
 
 
 
-### PC-DEF-072 — A slow service thread can be orphaned and then double-started
-
-- **Discovered:** source audit, 2026-09-20, while closing PC-DEF-070.
-- **Component:** `android/app/src/main/kotlin/com/lord1egypt/pocketclaw/service/PocketClawService.kt`
-  (`stopService`, `startService`).
-- **Severity:** Not observed physically. No demonstrated failure; reported
-  because the mechanism is exact and the consequence is two Core processes.
-- **Description:** `stopService()` joins the service thread with a five-second
-  bound and then sets `serviceThread = null` whether or not the thread exited.
-  `startService()`'s duplicate guard reads `serviceThread?.isAlive` and
-  `process?.isAlive`, both of which are now false, so `ACTION_RESTART` can start
-  a second service thread while the first is still running — and it sets
-  `stopped = false`, un-stopping the orphan. The orphan then continues into
-  `runWebService()` and spawns a second Core web process, which loses the race
-  for port 18800 and enters its own restart loop. The realistic way to exceed
-  the bound is a first-run `ensureOnboarded` (the Python payload extraction) or
-  the five-second restart backoff, both of which an immediately following
-  config-apply restart can land on.
-- **Why it is not fixed here:** the obvious one-line change — only clear
-  `serviceThread` when it actually exited — makes the duplicate guard refuse the
-  restart instead, which turns a double-Core into a restart that silently does
-  nothing and leaves the old configuration live. That is arguably worse and is a
-  change to the service's threading model, not a defect fix. It needs a real
-  design (a generation-owned service thread, as Telegram already has) and its
-  own physical test.
-- **Relationship to PC-DEF-070:** the notification is no longer a symptom of
-  this. `publishRuntimeNotification` reads the live process under `serviceLock`,
-  so an orphan thread cannot post a Running claim for a process that is gone.
-- **Status:** OPEN / NEEDS DESIGN.
-
 ### PC-DEF-012 — Broad dependency export surfaces need reachability evidence
 
 - **Discovered:** H5A native/ELF audit, 2026-09-11.
@@ -204,6 +174,110 @@ only reconstructable examples belong here.
 - **Status:** OPEN.
 
 ## Resolved
+
+### PC-DEF-073 — The ownership probe could collide with PocketClaw's own poller
+
+- **Discovered:** source audit, 2026-09-20, while answering the architectural
+  question about the candidate preflight.
+- **Component:** `core/src/web/backend/api/{telegram_credentials.go,android_bridge.go}`,
+  `telegram_credentials_test.go`.
+- **The collision.** Candidate validation ends in a real `getUpdates`, and
+  Telegram permits exactly one long-polling consumer per bot. Aimed at a bot this
+  install is already polling, the probe competes with PocketClaw's own poller:
+  Telegram answers 409 to one of the two, the runtime treats a 409 as terminal
+  with **no retry**, and a healthy generation is revoked and retired on evidence
+  PocketClaw manufactured itself. Telegram then stays down until something
+  restarts the gateway.
+- **Reachability: not provable either way from this repository, so it is fixed.**
+  The validator has exactly two callers, `handleAndroidTelegramConfigure` and
+  `handleTelegramOnboardingComplete`; the manual form (`PUT`/`PATCH /api/config`)
+  does not validate at all, so a manual re-save never probes. Both callers take
+  the token from `Client.CollectCredentials`, an external pairing service. Whether
+  that service can hand back a bot this install already holds is not decidable
+  from the code here, and a pairing is spent on collection so a local retry cannot
+  do it. An unprovable input is not the same as an unreachable state, and the
+  blast radius is a permanently retired Telegram channel.
+- **Resolution.** `telegramCandidateIsAuthoritativeRunningBot` skips the whole
+  validation — not just the probe — when the candidate is byte-identical to the
+  committed token (constant-time comparison; it is credential material) **and**
+  the gateway's own Telegram channel reports Running with a non-zero polling
+  generation and no runtime failure, **and** no config apply is pending or in
+  flight.
+- **Why skipping is stronger, not weaker.** In exactly that state the live poller
+  has already proved every fact the validation would ask: the token
+  authenticates, nobody else owns the stream, and no webhook is attached — a
+  webhook makes `getUpdates` answer 409, so a poller that is succeeding proves
+  there is none. A successful live poll is better evidence than a speculative
+  probe and costs no competing request. Every other candidate takes the full
+  three-call validation unchanged.
+- **Why each condition is load-bearing.** A pending or in-flight apply means the
+  running gateway may hold a different credential from the one on disk, so its
+  snapshot cannot vouch for this token. A latched runtime failure, a stopped
+  channel or generation 0 all mean this install is *not* the authoritative owner,
+  and each falls back to full validation — otherwise a stale snapshot would let a
+  genuinely contested bot through unchecked.
+- **Verification:** `TestSameAuthoritativeTokenIssuesNoCompetingProbe` (0
+  `getUpdates`), `TestDifferentCandidateStillReceivesFullValidation` (all three
+  calls), `TestWebhookConflictStillDetectedAlongsideTheGuard`,
+  `TestExternalPollerConflictStillTerminalAlongsideTheGuard` (both still terminal,
+  committed bot untouched, no `deleteWebhook`),
+  `TestSameTokenWithoutAnAuthoritativeGenerationStillValidates` (5 non-authoritative
+  snapshots), `TestNearMissTokenIsNotTreatedAsAuthoritative` (3 near misses),
+  `TestPendingConfigApplyDisablesTheGuard`. The first fails with the guard
+  disabled (`getUpdates probes = 1, want 0`).
+- **Status:** FIXED IN SOURCE. Not physically reproducible on demand — it needs
+  the pairing service to re-issue a live bot — so the regression coverage is the
+  evidence.
+
+### PC-DEF-072 — A slow service thread was orphaned and could double-start Core
+
+- **Discovered:** source audit, 2026-09-20, while closing PC-DEF-070; fixed in
+  the following pass.
+- **Component:** `android/app/src/main/kotlin/com/lord1egypt/pocketclaw/service/{PocketClawService.kt,CoreRuntimeOwnership.kt}`,
+  new `CoreRuntimeOwnershipTest.kt`.
+- **Root cause — two authorities, both wrong in the same direction.**
+  `stopService()` joined the worker for five seconds and then set
+  `serviceThread = null` whether or not it had exited, so a bounded wait that
+  expired was recorded as proof the thread was gone. `startService()`'s duplicate
+  guard reads exactly that field, so it saw no owner and started a second worker
+  over a live one. It also set `stopped = false`, and `stopped` was a **single
+  flag shared by every worker that had ever run**, so the new start un-stopped
+  the abandoned one, which carried on into `runWebService()` and spawned a second
+  Core. Two Cores, both reaching for port 18800.
+- **Why the join expired at all.** Stop could only reach the Core web process.
+  A worker inside `ensureOnboarded` — the Python payload extraction, the slow
+  step on a fresh install — or inside the five-second crash backoff had no
+  reachable child and no interrupt, so nothing could make it exit.
+- **Design.** `CoreRuntimeOwnership` holds one invariant: *at most one worker may
+  hold the current epoch, and only the holder of the current epoch may start or
+  register a Core process.* The stopper never releases ownership; the worker
+  releases from its own `finally`, which is the only place that knows it has
+  finished. A start arriving while a stopping owner still holds ownership is
+  **queued**, not dropped and not forced through, and the worker runs it as it
+  releases — so a restart is never silently ignored and never starts a second
+  Core. `stopped` is gone: currency is per epoch, so nobody else's start can
+  un-stop an abandoned worker.
+- **Making stop effective.** Every child the worker can block on — the version
+  probe, `onboard`, and the Core web process — is registered in one
+  `activeChild` slot scoped to its epoch, so `stopService()` destroys whichever
+  one is live. The worker is also interrupted, because a worker in the crash
+  backoff owns no child at all. The currency check and the process registration
+  happen in one critical section, so an epoch that lost ownership between
+  `pb.start()` and registration destroys what it spawned.
+- **Reconciliation, not silence.** A join that expires logs the epoch, says
+  "PocketClaw runtime is still shutting down" in the user-visible log, and renders
+  the starting state. Nothing claims the runtime is up, and nothing pretends the
+  restart was performed.
+- **Verification:** `CoreRuntimeOwnershipTest`, 10 cases driven with real threads
+  and latches rather than a clock — clean stop then restart; duplicate start over
+  a healthy runtime; join timeout with the worker still alive; restart during the
+  timeout; the old worker exiting later and handing the queued start over; the
+  abandoned worker failing to bind the Core port while the replacement succeeds;
+  40 concurrent starts and stops with a peak of exactly one live worker and zero
+  concurrent port bindings; a stop cancelling a start queued before it. Replaying
+  them against the pre-fix semantics (stopper clears ownership, one shared
+  `stopped`) fails 6 of the 10, including the port case.
+- **Status:** FIXED IN SOURCE — physical confirmation required.
 
 ### PC-DEF-070 — The persistent notification claimed Running over a stopped runtime
 

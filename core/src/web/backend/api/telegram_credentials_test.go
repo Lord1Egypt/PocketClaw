@@ -10,6 +10,10 @@ import (
 	"strings"
 	"sync"
 	"testing"
+
+	"github.com/sipeed/picoclaw/pkg/config"
+	ppid "github.com/sipeed/picoclaw/pkg/pid"
+	"github.com/sipeed/picoclaw/pkg/status"
 )
 
 // PC-DEF-069. The candidate preflight is the replacement transaction's commit
@@ -320,5 +324,233 @@ func TestTelegramPreflightDoesNotTreatAnUnexpectedProbeAnswerAsConflict(t *testi
 
 	if err := validateTelegramCredentials(context.Background(), "123:abc", server.URL, ""); err != nil {
 		t.Fatalf("an unexpected probe answer must not reject a valid candidate: %v", err)
+	}
+}
+
+// PC-DEF-073. PocketClaw must never probe ownership against its own active
+// generation.
+//
+// The candidate preflight ends in a real getUpdates call and Telegram allows one
+// long-polling consumer per bot, so aiming it at a bot this install is already
+// polling makes PocketClaw collide with itself: Telegram answers 409 to one of
+// the two, and the runtime treats a 409 as terminal with no retry. A healthy
+// generation would be retired on evidence PocketClaw manufactured.
+//
+// Reachability could not be ruled out from the repository: the candidate token
+// comes from an external pairing service through CollectCredentials, so whether
+// it can ever be a bot this install already holds is not decidable here. These
+// pin the guard instead of the assumption.
+
+// selfCollisionEnv commits a Telegram bot, points the real validator at a fake
+// Bot API, and makes the gateway report whatever channel state the case needs.
+func selfCollisionEnv(
+	t *testing.T,
+	fake *fakeTelegramAPI,
+	channels []status.Channel,
+	committedToken string,
+) *Handler {
+	t.Helper()
+	handler, _, configPath := onboardingTestEnv(t)
+	botAPI := fake.server(t)
+
+	// Commit the bot exactly as a pairing would, and aim the validator at the
+	// fake Bot API by way of the channel's own base URL.
+	cfg, channel, settings, err := handler.loadTelegramConfigForUpdate()
+	if err != nil {
+		t.Fatalf("loadTelegramConfigForUpdate: %v", err)
+	}
+	settings.Token.Set(committedToken)
+	settings.BaseURL = botAPI.URL
+	channel.Enabled = true
+	channel.Type = config.ChannelTelegram
+	channel.AllowFrom = config.FlexibleStringSlice{"424242"}
+	if err := config.SaveConfig(configPath, cfg); err != nil {
+		t.Fatalf("SaveConfig: %v", err)
+	}
+
+	// The real validator, so a probe it makes is a call the fake records.
+	handler.SetTelegramCredentialValidator(validateTelegramCredentials)
+
+	const bearer = "gateway-bearer-token"
+	server := fakeGatewayHealth(t, bearer, channels)
+	host, port := splitHostPortForTest(t, server.URL)
+	gateway.mu.Lock()
+	previous := gateway.pidData
+	gateway.pidData = &ppid.PidFileData{PID: 1, Host: host, Port: port, Token: bearer}
+	gateway.mu.Unlock()
+	t.Cleanup(func() {
+		gateway.mu.Lock()
+		gateway.pidData = previous
+		gateway.mu.Unlock()
+	})
+
+	previousProbe := gatewayRunningProbe
+	gatewayRunningProbe = func(*Handler) bool { return true }
+	t.Cleanup(func() { gatewayRunningProbe = previousProbe })
+
+	return handler
+}
+
+// runningTelegramChannel is the gateway saying it owns the update stream now.
+func runningTelegramChannel() []status.Channel {
+	generation := uint64(11)
+	return []status.Channel{{
+		Name:              "telegram",
+		Configured:        true,
+		Running:           true,
+		PollingGeneration: &generation,
+	}}
+}
+
+const selfCollisionToken = "123456789:committed-and-polling"
+
+// The defect: re-pairing the bot this install is already polling must not issue
+// a competing getUpdates.
+func TestSameAuthoritativeTokenIssuesNoCompetingProbe(t *testing.T) {
+	fake := &fakeTelegramAPI{}
+	handler := selfCollisionEnv(t, fake, runningTelegramChannel(), selfCollisionToken)
+
+	if _, _, err := handler.writeTelegramCredentials(selfCollisionToken, 424242); err != nil {
+		t.Fatalf("re-pairing the authoritative bot must succeed: %v", err)
+	}
+
+	if got := fake.count("getUpdates"); got != 0 {
+		t.Fatalf("getUpdates probes = %d, want 0: PocketClaw probed its own active generation", got)
+	}
+}
+
+// A different candidate is a genuine ownership question and still gets the full
+// three-call validation. The guard must not become a way to skip it.
+func TestDifferentCandidateStillReceivesFullValidation(t *testing.T) {
+	fake := &fakeTelegramAPI{}
+	handler := selfCollisionEnv(t, fake, runningTelegramChannel(), selfCollisionToken)
+
+	if _, _, err := handler.writeTelegramCredentials("987654321:a-different-bot", 424242); err != nil {
+		t.Fatalf("a healthy replacement must be accepted: %v", err)
+	}
+
+	if fake.count("getMe") != 1 || fake.count("getWebhookInfo") != 1 || fake.count("getUpdates") != 1 {
+		t.Fatalf("a different candidate must take the full validation: %v", fake.calls)
+	}
+}
+
+// A webhook on a different candidate is still a conflict, and the committed bot
+// is still left alone.
+func TestWebhookConflictStillDetectedAlongsideTheGuard(t *testing.T) {
+	fake := &fakeTelegramAPI{webhook: `{"ok":true,"result":{"url":"https://other.invalid/hook"}}`}
+	handler := selfCollisionEnv(t, fake, runningTelegramChannel(), selfCollisionToken)
+
+	_, _, err := handler.writeTelegramCredentials("987654321:a-different-bot", 424242)
+	if !errors.Is(err, ErrTelegramWebhookConflict) {
+		t.Fatalf("err = %v, want ErrTelegramWebhookConflict", err)
+	}
+	if fake.count("deleteWebhook") != 0 {
+		t.Fatal("the webhook check must stay non-destructive")
+	}
+	assertCommittedTokenUnchanged(t, handler, selfCollisionToken)
+}
+
+// Another poller on a different candidate is still terminal.
+func TestExternalPollerConflictStillTerminalAlongsideTheGuard(t *testing.T) {
+	fake := &fakeTelegramAPI{
+		updates: `{"ok":false,"error_code":409,"description":"Conflict: terminated by other getUpdates request"}`,
+	}
+	handler := selfCollisionEnv(t, fake, runningTelegramChannel(), selfCollisionToken)
+
+	_, _, err := handler.writeTelegramCredentials("987654321:a-different-bot", 424242)
+	if !errors.Is(err, ErrTelegramBotInUse) {
+		t.Fatalf("err = %v, want ErrTelegramBotInUse", err)
+	}
+	assertCommittedTokenUnchanged(t, handler, selfCollisionToken)
+}
+
+// The guard is about an *authoritative* runtime, not merely a matching token.
+// Every state that is not "this install owns the stream right now" must fall
+// back to the full validation -- otherwise a stale snapshot would let a
+// genuinely contested bot through unchecked.
+func TestSameTokenWithoutAnAuthoritativeGenerationStillValidates(t *testing.T) {
+	zero := uint64(0)
+	generation := uint64(11)
+	cases := map[string][]status.Channel{
+		"channel not running": {{
+			Name: "telegram", Configured: true, Running: false,
+			PollingGeneration: &generation,
+		}},
+		"no polling generation": {{
+			Name: "telegram", Configured: true, Running: true,
+		}},
+		"generation zero": {{
+			Name: "telegram", Configured: true, Running: true, PollingGeneration: &zero,
+		}},
+		"runtime failure latched": {{
+			Name: "telegram", Configured: true, Running: true,
+			PollingGeneration: &generation, RuntimeFailure: "conflict:bot_in_use",
+		}},
+		"gateway has no telegram channel": {},
+	}
+	for name, channels := range cases {
+		t.Run(name, func(t *testing.T) {
+			fake := &fakeTelegramAPI{}
+			handler := selfCollisionEnv(t, fake, channels, selfCollisionToken)
+
+			if _, _, err := handler.writeTelegramCredentials(selfCollisionToken, 424242); err != nil {
+				t.Fatalf("write: %v", err)
+			}
+			if got := fake.count("getUpdates"); got != 1 {
+				t.Fatalf("getUpdates probes = %d, want 1: no active generation vouches for this token", got)
+			}
+		})
+	}
+}
+
+// A near-miss token is not the committed one. The comparison is constant time,
+// and it is a whole-value comparison -- a shared prefix proves nothing.
+func TestNearMissTokenIsNotTreatedAsAuthoritative(t *testing.T) {
+	for _, candidate := range []string{
+		selfCollisionToken + "x",
+		selfCollisionToken[:len(selfCollisionToken)-1],
+		"123456789:committed-and-pollinG",
+	} {
+		t.Run(candidate, func(t *testing.T) {
+			fake := &fakeTelegramAPI{}
+			handler := selfCollisionEnv(t, fake, runningTelegramChannel(), selfCollisionToken)
+
+			if _, _, err := handler.writeTelegramCredentials(candidate, 424242); err != nil {
+				t.Fatalf("write: %v", err)
+			}
+			if got := fake.count("getUpdates"); got != 1 {
+				t.Fatalf("getUpdates probes = %d, want 1: a near-miss is a different bot", got)
+			}
+		})
+	}
+}
+
+// A pending or in-flight apply means the running gateway may hold a different
+// credential from the one on disk, so its snapshot cannot vouch for this token.
+func TestPendingConfigApplyDisablesTheGuard(t *testing.T) {
+	fake := &fakeTelegramAPI{}
+	handler := selfCollisionEnv(t, fake, runningTelegramChannel(), selfCollisionToken)
+
+	resetPendingConfigApplyForTest(t)
+	markConfigApplyPending("test_pending")
+
+	if _, _, err := handler.writeTelegramCredentials(selfCollisionToken, 424242); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	if got := fake.count("getUpdates"); got != 1 {
+		t.Fatalf("getUpdates probes = %d, want 1: a parked apply invalidates the snapshot", got)
+	}
+}
+
+// The skip must not leave a half-written configuration: the committed bot is
+// still exactly the authoritative one afterwards.
+func assertCommittedTokenUnchanged(t *testing.T, handler *Handler, want string) {
+	t.Helper()
+	_, _, settings, err := handler.loadTelegramConfigForUpdate()
+	if err != nil {
+		t.Fatalf("loadTelegramConfigForUpdate: %v", err)
+	}
+	if got := strings.TrimSpace(settings.Token.String()); got != want {
+		t.Fatalf("committed token changed; a rejected candidate must not displace it")
 	}
 }
