@@ -48,7 +48,10 @@ void main() {
       // The bug lived in the else-branch that added nothing. A conditional
       // here is not automatically wrong, but it is how the defect looked, so
       // reintroducing one must be a deliberate act that fails this test first.
-      final webServiceStart = source.indexOf('private fun runWebService()');
+      // Anchored on the declaration, not on a full signature: runWebService
+      // takes the owning runtime epoch since PC-DEF-072, and this guard is
+      // about the argv it assembles, not about its parameter list.
+      final webServiceStart = source.indexOf('private fun runWebService(');
       expect(webServiceStart, greaterThan(-1),
           reason: 'runWebService() is where the launcher argv is assembled');
       final webServiceEnd = source.indexOf('-port', webServiceStart);
