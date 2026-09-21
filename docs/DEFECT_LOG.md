@@ -234,9 +234,9 @@ only reconstructable examples belong here.
   link, no `@` in the path), `case 3i` (Core's getMe identity replaces a stale
   cached username), `case 3j` (an unusable username offers no button). All three
   page cases fail against the previous component.
-- **Status:** FIXED IN SOURCE — physical confirmation required: Connected bot →
-  Open chat → the existing working conversation opens, with no "Username not
-  found".
+- **Status:** **RESOLVED — PHYSICAL PASS** (owner, 2026-09-21, on the Samsung,
+  against APK `643c2495…`). Connected bot → Open chat → the existing Telegram
+  conversation opens correctly. No "Username not found".
 
 ### PC-DEF-074 — The managed pairing's Start press was answered by nobody
 
