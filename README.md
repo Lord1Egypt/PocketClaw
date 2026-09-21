@@ -121,16 +121,18 @@ Anthropic (both the Messages API and the classic surface), OpenAI-compatible
 endpoints, OpenAI Responses, Azure OpenAI, AWS Bedrock, and a CLI provider for
 locally reachable models.
 
-### Channel transports compiled into the Core
+### Channels you can configure
 
 `pocketclaw` (the native realtime channel), `telegram`, `discord`, `slack`,
-`matrix`, `irc`, `mqtt`, `whatsapp`, `qq`, `wecom`, `weixin`, `feishu`,
-`dingtalk`, `line`, `onebot`, `teams_webhook`, `slack_webhook`, `vk`,
-`maixcam`.
+`matrix`, `irc`, `mqtt`, `qq`, `wecom`, `weixin`, `feishu`, `dingtalk`, `line`,
+`onebot`, `teams_webhook`, `slack_webhook`, `vk`, `maixcam`.
 
-> Compiled in is not the same as first-class. Telegram and the built-in web chat
+> Available is not the same as first-class. Telegram and the built-in web chat
 > are the two paths the app itself guides you through; the rest are configured
 > from the dashboard.
+>
+> WhatsApp is not among them. It is not offered in the app or the dashboard and
+> is not part of this release.
 
 ## How it works
 
