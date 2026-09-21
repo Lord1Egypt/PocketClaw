@@ -11,6 +11,12 @@ the credentials — lives on the device you are holding.
 
 <br />
 
+[![Download v0.2.0](https://img.shields.io/badge/⬇_Download-v0.2.0_APK-3DDC84?style=for-the-badge&logo=android&logoColor=white)](https://github.com/Lord1Egypt/PocketClaw/releases/latest)
+
+<br />
+
+![Release](https://img.shields.io/badge/release-v0.2.0%20(62)-success)
+![Status](https://img.shields.io/badge/status-stable-brightgreen)
 ![Platform](https://img.shields.io/badge/platform-Android-3DDC84?logo=android&logoColor=white)
 ![ABI](https://img.shields.io/badge/ABI-arm64--v8a-0A7EA4)
 ![minSdk](https://img.shields.io/badge/minSdk-24-555555)
@@ -19,8 +25,8 @@ the credentials — lives on the device you are holding.
 ![Flutter](https://img.shields.io/badge/Flutter-3.47-02569B?logo=flutter&logoColor=white)
 ![Dart](https://img.shields.io/badge/Dart-3.13-0175C2?logo=dart&logoColor=white)
 ![Go](https://img.shields.io/badge/Go-1.25-00ADD8?logo=go&logoColor=white)
-![Version](https://img.shields.io/badge/version-0.2.0%20(62)-blue)
-![Status](https://img.shields.io/badge/status-pre--release-orange)
+![Locales](https://img.shields.io/badge/locales-12_app_·_14_dashboard-8A2BE2)
+![Signed](https://img.shields.io/badge/signed-production_key-informational?logo=android&logoColor=white)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 </div>
@@ -28,16 +34,59 @@ the credentials — lives on the device you are holding.
 <!--
 Dynamic GitHub badges are deliberately omitted while this repository is private:
 shields.io cannot read a private repo, so each one would render as an error
-rather than a status. When the repository becomes public, add:
+rather than a status. When the repository becomes public, swap the static
+Release badge above for these:
 
   [![Release gate](https://github.com/Lord1Egypt/PocketClaw/actions/workflows/release-gate.yml/badge.svg)](https://github.com/Lord1Egypt/PocketClaw/actions/workflows/release-gate.yml)
-  ![Latest release](https://img.shields.io/github/v/release/Lord1Egypt/PocketClaw?include_prereleases)
+  [![Latest release](https://img.shields.io/github/v/release/Lord1Egypt/PocketClaw)](https://github.com/Lord1Egypt/PocketClaw/releases/latest)
+  ![Downloads](https://img.shields.io/github/downloads/Lord1Egypt/PocketClaw/total)
   ![Last commit](https://img.shields.io/github/last-commit/Lord1Egypt/PocketClaw)
   ![Stars](https://img.shields.io/github/stars/Lord1Egypt/PocketClaw)
 
 The release-gate workflow is real and already runs on every pull request; only
 its badge needs public visibility to render.
 -->
+
+---
+
+## Download
+
+**[PocketClaw v0.2.0 — arm64-v8a APK](https://github.com/Lord1Egypt/PocketClaw/releases/latest)**
+
+An `arm64-v8a` Android device on **Android 7.0 (API 24)** or newer, and an API
+key for a model provider. Built and physically validated on Android 16.
+
+<details>
+<summary><b>Verify what you downloaded</b></summary>
+
+<br />
+
+Both files are on the release page. Check the APK against the checksum file:
+
+```bash
+sha256sum -c PocketClaw-v0.2.0-SHA256SUMS.txt
+```
+
+```
+c8d599517dcaf6b954691634c2eb2c5e5cd8c88200cb77cb21a7f5861439e28c  PocketClaw-v0.2.0-arm64-v8a.apk
+```
+
+And confirm it was signed by the PocketClaw release key — a checksum proves the
+file is intact, the signature proves who built it:
+
+```bash
+apksigner verify --print-certs PocketClaw-v0.2.0-arm64-v8a.apk
+```
+
+```
+Signer #1 certificate SHA-256 digest: 176dca6b198b9552fb4d9ad3ca18da8d6f23c0a3f5ed4bd6b75a0700f9f0efcf
+```
+
+That fingerprint is the public half of the signing key and is committed to this
+repository at [`android/release-signing-cert.sha256`](android/release-signing-cert.sha256).
+An APK that does not show it was not built by this project.
+
+</details>
 
 ---
 
@@ -125,14 +174,13 @@ the dashboard on your laptop.
 
 ## Quick start
 
-**Requirements:** an `arm64-v8a` Android device on **Android 7.0 (API 24)** or
-newer, and an API key for a model provider. Built and physically validated on
-Android 16.
-
 1. Install the APK.
 2. Open PocketClaw and press **Start**. The gateway comes up on loopback.
 3. Open the **Dashboard** and add your provider API key.
 4. Chat in the app, or connect Telegram from **Settings → Channels**.
+
+Telegram setup is one tap: PocketClaw creates your own bot for you. There is no
+token to copy, and only your own account can talk to it.
 
 ## Security and privacy design
 
@@ -149,6 +197,8 @@ This is the part worth reading before you trust an agent with a shell.
   environment, and never exposed to the agent.
 - **The dashboard session cookie is `HttpOnly`, `SameSite=Lax`, host-only**, and
   backed by a server-side session store — the cookie alone is not a credential.
+- **Logs are redacted at the source.** Keys, tokens and message text never reach
+  a log line, however deeply they are nested in a structured field.
 - **Your workspace stays yours.** Seeded once, then owned by you; upgrades never
   rewrite your files.
 
@@ -169,6 +219,13 @@ The two native binaries are reproducible and provenance-stamped:
 - **`tool/release_gate.py` decides what "releasable" means**, and the same
   command runs in CI and on a developer machine, so the two cannot disagree.
 - **`tool/no_active_pico.py`** enforces the namespace policy on every gate run.
+- **Signing is owner-held.** The keystore and its passwords live outside this
+  repository and are never in CI; only the public certificate fingerprint is
+  committed, and the gate fails closed if an artifact does not carry it.
+
+This release was signed from commit
+[`ca984fa`](https://github.com/Lord1Egypt/PocketClaw/commit/ca984fa1780fa4bbf925e93e2fe45614673b4b40),
+Core fingerprint `87c320c1…`, Dart AOT `5c0f5825…`.
 
 </details>
 
@@ -193,22 +250,26 @@ python3 tool/release_gate.py --verify-source --release-class production
 Never commit generated APKs, tool caches, signing material, or
 provider/Telegram/Firebase credentials.
 
+> **Note on branches.** `develop` is the active branch and carries the released
+> source; the `v0.2.0` tag points into it. Work from `develop`.
+
 ## Project status
 
-**Pre-release.** Version `0.2.0+62`, physically accepted on a Samsung SM-A165F
-running Android 16. Developer production signing has been privately validated;
-no production artifact has been published or accepted as a release, and the
-accepted physical baseline remains vc62.
+**Released.** `v0.2.0` (build 62), physically accepted on a Samsung SM-A165F
+running Android 16 and published as a production-signed `arm64-v8a` APK.
 
-## Roadmap
+Binary hardening is complete: Dart obfuscation with private split debug info,
+R8 shrinking and obfuscation, and a native/ELF audit covering every packaged
+binary — all enforced by the release gate rather than asserted.
 
-H2 production signing is closed. H3 Dart binary hardening is next and has not
-started. The authoritative phase sequence is in
-[`docs/ROADMAP.md`](docs/ROADMAP.md).
+**Not in this release.** Account-login credential management — Google, Claude
+subscription and ChatGPT/Codex sign-in — is deliberately deferred. Provider
+access in v0.2.0 is configured with API keys through **Models**.
 
-Engineering agents and maintainers should begin with
-[`docs/AI_HANDOFF.md`](docs/AI_HANDOFF.md), which defines the repository read
-order and milestone protocol.
+Known open items are tracked in [`docs/DEFECT_LOG.md`](docs/DEFECT_LOG.md); the
+phase sequence is in [`docs/ROADMAP.md`](docs/ROADMAP.md). Engineering agents and
+maintainers should begin with [`docs/AI_HANDOFF.md`](docs/AI_HANDOFF.md), which
+defines the repository read order and milestone protocol.
 
 ## Contributing
 
@@ -234,3 +295,8 @@ upstream commits and licence texts are in
 PocketClaw's own code is [MIT licensed](LICENSE). Third-party and upstream
 components keep their own licences and copyright notices — see
 [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) and [`licenses/`](licenses/).
+
+<div align="center">
+<br />
+<sub>Built for people who would rather their agent ran on their own hardware.</sub>
+</div>
