@@ -150,6 +150,11 @@ class PocketClawMethodChannel(
      * @return whether the dialog was requested.
      */
     fun requestNotificationPermissionOnResume(storagePromptJustLaunched: Boolean): Boolean {
+        // PC-DEF-070 (reopened). Every launch and every return from Settings
+        // takes this path, so it is also where a grant made outside our own
+        // dialog is first observed. Re-rendering here is what covers the
+        // OFFER_SETTINGS route, and it is a no-op when nothing changed.
+        PocketClawService.refreshRuntimeNotification(context)
         val state = currentNotificationPermissionState()
         val activity = context as? Activity
         val shouldRequest = NotificationPermissionPolicy.shouldRequestOnResume(
@@ -255,6 +260,11 @@ class PocketClawMethodChannel(
             "notification_permission request_result=" +
                 NotificationPermissionPolicy.wireName(currentNotificationPermissionState()),
         )
+        // PC-DEF-070 (reopened). The answer has just arrived, and a foreground
+        // notification Android suppressed while the permission was missing is
+        // never retried on its own. Re-render it now, from the live service's
+        // own derivation -- this is the event, not a timer.
+        PocketClawService.refreshRuntimeNotification(context)
         // The snapshot is re-read rather than taken from the callback's grant array:
         // it is the same question and one source of truth is better than two.
         pending?.success(notificationPermissionSnapshot())

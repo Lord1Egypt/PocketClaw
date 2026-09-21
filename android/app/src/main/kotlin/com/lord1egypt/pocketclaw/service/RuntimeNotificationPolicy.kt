@@ -61,4 +61,32 @@ object RuntimeNotificationPolicy {
      */
     fun isStaleOnProcessStart(serviceHostedInThisProcess: Boolean): Boolean =
         !serviceHostedInThisProcess
+
+    /**
+     * Whether the runtime notification should be rendered again now that the
+     * permission picture may have changed.
+     *
+     * PC-DEF-070, reopened. The contract has two directions, and only one of
+     * them was closed. A notification is posted on state transitions, so a post
+     * that Android **suppressed** — because `POST_NOTIFICATIONS` had not been
+     * granted when the service went foreground — is never retried. Granting the
+     * permission afterwards does not retroactively show anything, and on a fresh
+     * install the service auto-starts *before* the dialog is answered. The
+     * result is a running foreground service, a live Core runtime, a listening
+     * port, `isForeground=true`, and zero notification records: a runtime that
+     * is genuinely up with nothing on screen saying so.
+     *
+     * Re-rendering is safe to do whenever it might help because it is
+     * idempotent and it re-derives through [resolve] — it can no more claim
+     * RUNNING without a live process than the original post could. So the rule
+     * is only "is there a service in this process to describe, and can a
+     * notification be seen at all".
+     *
+     * [notificationsEnabled] false means posting is a no-op, and pretending
+     * otherwise is the mistake this defect is made of.
+     */
+    fun shouldRenderOnPermissionChange(
+        serviceHostedInThisProcess: Boolean,
+        notificationsEnabled: Boolean,
+    ): Boolean = serviceHostedInThisProcess && notificationsEnabled
 }

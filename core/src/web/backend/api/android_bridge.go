@@ -414,6 +414,11 @@ func (h *Handler) writeTelegramCredentialsContext(
 		return false, false, errors.New("Failed to save config")
 	}
 
+	// PC-DEF-061 (managed onboarding). Answer the Start press that completed
+	// this pairing. It is sent before the apply because it does not depend on
+	// the gateway: it is an outbound sendMessage, not an intake.
+	h.greetTelegramOwnerAfterPairing(ctx, settings, token, ownerUserID)
+
 	// PC-DEF-030. Saving Telegram used to end here, so the running channel
 	// never learned about the change and the user was told to restart the
 	// Gateway by hand. Applying is part of saving now: immediately when the

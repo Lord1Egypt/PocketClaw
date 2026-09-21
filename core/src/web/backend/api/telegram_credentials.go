@@ -13,7 +13,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/sipeed/picoclaw/pkg/commands"
 	"github.com/sipeed/picoclaw/pkg/config"
+	"github.com/sipeed/picoclaw/pkg/logger"
 )
 
 // TelegramCredentialValidator proves a candidate token before it can replace
@@ -307,4 +309,80 @@ func (h *Handler) telegramCandidateIsAuthoritativeRunningBot(
 		return false
 	}
 	return channel.PollingGeneration != nil && *channel.PollingGeneration != 0
+}
+
+// telegramOwnerGreetingTimeout bounds the one greeting attempt. Short on
+// purpose: the credential is already committed, and a slow Telegram must not
+// hold the pairing response open.
+const telegramOwnerGreetingTimeout = 10 * time.Second
+
+// greetTelegramOwnerAfterPairing answers the Start press that completed a
+// managed pairing.
+//
+// PC-DEF-061. The owner presses Telegram's Start exactly once, and that press
+// is what completes the pairing: the onboarding service holds a webhook on the
+// child bot and receives the `/start` itself — that is the only way it can
+// learn `owner_user_id` for a bot nobody has ever messaged (see
+// services/README.md). A webhook delivery is terminal; Telegram does not also
+// queue the update for getUpdates. So by the time PocketClaw owns the bot there
+// is nothing left to receive, the built-in `/start` path is never reached
+// because it has no input, and the owner is left looking at their own `/start`
+// with no reply under it until they send a second message.
+//
+// None of that is a polling defect, and no amount of intake ordering can fix
+// it: the update was consumed before this install held the credential. The
+// writer that commits the credential is the one place that can honour the
+// press, so it sends the same built-in reply the `/start` handler would have.
+//
+// Why here and not in the channel: this is an outbound sendMessage, not an
+// intake, so it cannot compete with the poller the way a getUpdates probe would
+// (PC-DEF-073). It needs no persistence and no readiness wait, and it runs
+// exactly once per committed pairing because this function does.
+//
+// The inbound `/start` path is deliberately unchanged. Manual setup has no
+// service webhook eating its `/start`, and a later `/start` is a fresh request
+// that still gets its own reply.
+//
+// Best effort by contract: the credential is already committed and the channel
+// works either way, so a failure is logged as a fact and never retried,
+// escalated, or allowed to fail the pairing. Nothing here logs the token, the
+// owner id, or any message content.
+func (h *Handler) greetTelegramOwnerAfterPairing(
+	ctx context.Context,
+	settings *config.TelegramSettings,
+	token string,
+	ownerUserID int64,
+) {
+	if settings == nil || strings.TrimSpace(token) == "" || ownerUserID <= 0 {
+		return
+	}
+	client, apiRoot, err := telegramValidationHTTP(settings.BaseURL, settings.Proxy)
+	if err != nil {
+		logger.DebugC("telegram", "Owner greeting unavailable: no usable Bot API transport")
+		return
+	}
+	greetCtx, cancel := context.WithTimeout(ctx, telegramOwnerGreetingTimeout)
+	defer cancel()
+
+	// The owner's private chat id is their user id, and that chat provably
+	// exists: pressing Start is what created it.
+	payload, err := json.Marshal(map[string]any{
+		"chat_id": ownerUserID,
+		"text":    commands.StartReplyText,
+	})
+	if err != nil {
+		return
+	}
+	response, err := telegramValidationCall(
+		greetCtx, client, apiRoot, token, "sendMessage", bytes.NewReader(payload),
+	)
+	if err != nil || !response.OK {
+		// Named as the fact it is, with no identity and no Telegram description:
+		// the description can quote the chat. The owner can still send /start.
+		logger.InfoCF("telegram", "Could not deliver the pairing greeting to the owner",
+			map[string]any{"surface": "telegram_pairing", "delivered": false})
+		return
+	}
+	logger.InfoCF("telegram", "Delivered the pairing greeting to the owner",
+		map[string]any{"surface": "telegram_pairing", "delivered": true})
 }

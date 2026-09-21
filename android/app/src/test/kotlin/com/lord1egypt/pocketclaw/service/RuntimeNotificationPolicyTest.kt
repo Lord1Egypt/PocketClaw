@@ -74,4 +74,60 @@ class RuntimeNotificationPolicyTest {
             ),
         )
     }
+
+    // PC-DEF-070, reopened. The other direction of the contract: a runtime that
+    // is genuinely running must have a notification. On a fresh install the
+    // service auto-starts before the POST_NOTIFICATIONS dialog is answered, so
+    // Android suppresses the foreground post; granting afterwards shows nothing
+    // retroactively and nothing retries. Physically: isForeground=true, Core and
+    // Gateway alive, port 18800 listening, granted=true, and zero notification
+    // records.
+
+    @Test
+    fun `a granted permission re-renders the notification for a hosted service`() {
+        assertTrue(
+            RuntimeNotificationPolicy.shouldRenderOnPermissionChange(
+                serviceHostedInThisProcess = true,
+                notificationsEnabled = true,
+            ),
+        )
+    }
+
+    @Test
+    fun `no service in this process means there is nothing to render`() {
+        assertFalse(
+            "re-rendering for a runtime this process does not host is how a " +
+                "false Running notification would come back",
+            RuntimeNotificationPolicy.shouldRenderOnPermissionChange(
+                serviceHostedInThisProcess = false,
+                notificationsEnabled = true,
+            ),
+        )
+    }
+
+    @Test
+    fun `notifications still disabled means posting would be a no-op`() {
+        assertFalse(
+            RuntimeNotificationPolicy.shouldRenderOnPermissionChange(
+                serviceHostedInThisProcess = true,
+                notificationsEnabled = false,
+            ),
+        )
+        assertFalse(
+            RuntimeNotificationPolicy.shouldRenderOnPermissionChange(
+                serviceHostedInThisProcess = false,
+                notificationsEnabled = false,
+            ),
+        )
+    }
+
+    // The re-render goes through resolve(), so it inherits the first direction
+    // of the contract: it cannot manufacture a Running claim for a dead runtime.
+    @Test
+    fun `a re-render of a stopped runtime is still not running`() {
+        assertEquals(
+            RuntimeNotificationState.STOPPED,
+            RuntimeNotificationPolicy.resolve(processAlive = false, starting = false),
+        )
+    }
 }

@@ -11,6 +11,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/sipeed/picoclaw/pkg/commands"
 	"github.com/sipeed/picoclaw/pkg/config"
 	ppid "github.com/sipeed/picoclaw/pkg/pid"
 	"github.com/sipeed/picoclaw/pkg/status"
@@ -43,6 +44,9 @@ type fakeTelegramAPI struct {
 	updates    string
 	updatesC   int
 	pending    []int64
+	// sendMessage, when set, is the raw envelope the fake answers the greeting
+	// with. Empty means an ordinary success.
+	sendMessage string
 }
 
 func (f *fakeTelegramAPI) server(t *testing.T) *httptest.Server {
@@ -130,6 +134,13 @@ func (f *fakeTelegramAPI) server(t *testing.T) *httptest.Server {
 			}
 			result, _ := json.Marshal(updates)
 			_, _ = w.Write([]byte(`{"ok":true,"result":` + string(result) + `}`))
+
+		case "sendMessage":
+			if f.sendMessage != "" {
+				_, _ = w.Write([]byte(f.sendMessage))
+				return
+			}
+			_, _ = w.Write([]byte(`{"ok":true,"result":{"message_id":1}}`))
 
 		default:
 			_, _ = w.Write([]byte(`{"ok":true,"result":{}}`))
@@ -552,5 +563,92 @@ func assertCommittedTokenUnchanged(t *testing.T, handler *Handler, want string) 
 	}
 	if got := strings.TrimSpace(settings.Token.String()); got != want {
 		t.Fatalf("committed token changed; a rejected candidate must not displace it")
+	}
+}
+
+// PC-DEF-061 (managed onboarding). The owner presses Telegram's Start exactly
+// once, and that press is what completes the pairing: the onboarding service
+// holds a webhook on the child bot and receives the `/start` itself, which is
+// how it learns `owner_user_id` at all (see services/README.md). A webhook
+// delivery is terminal -- Telegram does not also queue the update for
+// getUpdates -- so by the time PocketClaw owns the bot there is nothing left to
+// receive. The built-in `/start` path is never reached because it has no input,
+// which is why the owner saw their `/start` still sitting there with no
+// "Hello! I am PocketClaw." under it, and why the next message worked.
+//
+// The writer that commits the credential is therefore the one place that can
+// honour the press. It already holds the token and the owner, and the private
+// chat provably exists because the press created it.
+
+func telegramGreetingBody(t *testing.T, fake *fakeTelegramAPI) string {
+	t.Helper()
+	return fake.firstBody("sendMessage")
+}
+
+func TestManagedPairingGreetsTheOwnerOnce(t *testing.T) {
+	fake := &fakeTelegramAPI{}
+	handler := selfCollisionEnv(t, fake, nil, selfCollisionToken)
+
+	if _, _, err := handler.writeTelegramCredentials("987654321:a-fresh-bot", 424242); err != nil {
+		t.Fatalf("pairing write: %v", err)
+	}
+
+	if got := fake.count("sendMessage"); got != 1 {
+		t.Fatalf("sendMessage calls = %d, want exactly 1: the Start press must be answered once", got)
+	}
+
+	var sent struct {
+		ChatID int64  `json:"chat_id"`
+		Text   string `json:"text"`
+	}
+	if err := json.Unmarshal([]byte(telegramGreetingBody(t, fake)), &sent); err != nil {
+		t.Fatalf("greeting body: %v", err)
+	}
+	if sent.Text != commands.StartReplyText {
+		t.Fatalf("greeting = %q, want the built-in start reply %q", sent.Text, commands.StartReplyText)
+	}
+	if sent.ChatID != 424242 {
+		t.Fatalf("greeting chat = %d, want the owner's private chat", sent.ChatID)
+	}
+}
+
+// A candidate that never becomes the configured bot must not greet anyone: the
+// greeting belongs to a committed pairing, not to an attempt.
+func TestRejectedCandidateGreetsNobody(t *testing.T) {
+	for name, fake := range map[string]*fakeTelegramAPI{
+		"webhook conflict": {webhook: `{"ok":true,"result":{"url":"https://other.invalid/hook"}}`},
+		"another poller": {
+			updates: `{"ok":false,"error_code":409,"description":"Conflict: terminated by other getUpdates request"}`,
+		},
+		"invalid credentials": {getMe: `{"ok":false,"error_code":401,"description":"Unauthorized"}`},
+	} {
+		t.Run(name, func(t *testing.T) {
+			handler := selfCollisionEnv(t, fake, nil, selfCollisionToken)
+			if _, _, err := handler.writeTelegramCredentials("987654321:a-fresh-bot", 424242); err == nil {
+				t.Fatal("the candidate should have been rejected")
+			}
+			if got := fake.count("sendMessage"); got != 0 {
+				t.Fatalf("sendMessage calls = %d, want 0 for a rejected candidate", got)
+			}
+		})
+	}
+}
+
+// A greeting that cannot be delivered is cosmetic, not a pairing failure: the
+// credential is committed and the channel works either way.
+func TestAFailedGreetingDoesNotFailThePairing(t *testing.T) {
+	fake := &fakeTelegramAPI{
+		sendMessage: `{"ok":false,"error_code":403,"description":"Forbidden: bot was blocked by the user"}`,
+	}
+	handler := selfCollisionEnv(t, fake, nil, selfCollisionToken)
+
+	applied, pending, err := handler.writeTelegramCredentials("987654321:a-fresh-bot", 424242)
+	if err != nil {
+		t.Fatalf("a failed greeting must not fail the pairing: %v", err)
+	}
+	_ = applied
+	_ = pending
+	if got := fake.count("sendMessage"); got != 1 {
+		t.Fatalf("sendMessage attempts = %d, want exactly 1 and no retry", got)
 	}
 }

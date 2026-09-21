@@ -159,6 +159,54 @@ class PocketClawService : Service() {
          * only just started knows nothing about a runtime yet, and inventing a
          * replacement claim is the same mistake in the other direction.
          */
+        /**
+         * The service instance hosted by this process, or null when none is.
+         *
+         * PC-DEF-070 (reopened). Needed so a re-render goes through the live
+         * instance's own derivation rather than re-deriving Running from
+         * statics, which is the mistake this defect is made of. Set in
+         * onCreate and cleared in onDestroy, and only ever by the instance that
+         * owns the slot, so it cannot outlive its service.
+         */
+        @Volatile
+        private var hosted: PocketClawService? = null
+
+        /**
+         * Renders the runtime notification again after the notification
+         * permission may have changed.
+         *
+         * A post Android suppressed because `POST_NOTIFICATIONS` was not granted
+         * is never retried on its own, and granting afterwards shows nothing
+         * retroactively. On a fresh install the service auto-starts before the
+         * dialog is answered, so the runtime ends up genuinely running with
+         * nothing on screen. This is the event-driven retry: it is called when
+         * the permission answer arrives, never on a timer.
+         *
+         * Nothing is asserted here. The instance re-derives the state from its
+         * own live process, so a stopped runtime still cannot produce a Running
+         * notification.
+         */
+        fun refreshRuntimeNotification(context: Context) {
+            val service = hosted ?: return
+            val enabled = try {
+                context.applicationContext
+                    .getSystemService(android.app.NotificationManager::class.java)
+                    ?.areNotificationsEnabled() ?: false
+            } catch (e: Exception) {
+                Log.w(TAG, "Could not read notification enablement", e)
+                return
+            }
+            if (!RuntimeNotificationPolicy.shouldRenderOnPermissionChange(
+                    serviceHostedInThisProcess = true,
+                    notificationsEnabled = enabled,
+                )
+            ) {
+                return
+            }
+            service.publishRuntimeNotification(starting = !isRunning)
+            Log.i(TAG, "Runtime notification re-rendered after a permission change")
+        }
+
         fun cancelStaleRuntimeNotification(context: Context) {
             if (!RuntimeNotificationPolicy.isStaleOnProcessStart(isRunning)) return
             try {
@@ -665,6 +713,7 @@ class PocketClawService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        hosted = this
         Log.i(TAG, "Service created")
     }
 
@@ -718,6 +767,8 @@ class PocketClawService : Service() {
         // removed here instead, because the one thing the notification must never
         // do is outlive the runtime it describes.
         stopForeground(STOP_FOREGROUND_REMOVE)
+        // Only ever released by the instance that owns the slot.
+        if (hosted === this) hosted = null
         Log.i(TAG, "Service destroyed")
         super.onDestroy()
     }

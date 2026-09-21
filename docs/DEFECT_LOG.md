@@ -175,6 +175,74 @@ only reconstructable examples belong here.
 
 ## Resolved
 
+### PC-DEF-074 — The managed pairing's Start press was answered by nobody
+
+- **Discovered:** owner physical report, 2026-09-21, after PC-DEF-061's polling
+  work was otherwise confirmed healthy. The first `/start` stayed visible in
+  Telegram with no `Hello! I am PocketClaw.` under it; a following `hi` routed to
+  the AI normally.
+- **Component:** `core/src/web/backend/api/{telegram_credentials.go,android_bridge.go}`,
+  `telegram_credentials_test.go`.
+- **Root cause — the update never reached PocketClaw, and structurally could
+  not.** The onboarding service holds a Telegram **webhook** on the child bot for
+  the duration of the pairing; `services/README.md` states it ("receives
+  Telegram's `managed_bot` webhook"; "Updates arrived by `getUpdates`
+  long-polling… It is now a webhook"). That webhook is how the service learns
+  `owner_user_id` at all — for a brand-new bot nobody has messaged, the only
+  source of the owner's numeric id is an update from that user to that bot. A
+  webhook delivery is terminal: Telegram does not also queue the update for
+  `getUpdates`. So the Start press is spent before this install holds the
+  credential, and by the time the channel polls with no offset, Telegram's queue
+  is empty.
+- **Consequence.** No update means no `handleMessages`, no bus publish, no
+  commands executor, no built-in reply, and no `recordStartCleanupCandidate` —
+  so nothing was there to delete either, which is why the `/start` stayed on
+  screen. The next message was genuinely queued and worked, which is what made
+  this look like a first-message polling defect.
+- **Why PC-DEF-061's work could not fix it.** Every invariant that round
+  established — per-activation generations, exact retirement, getUpdates intake
+  proof, generation-bound readiness — governs what happens to an update
+  PocketClaw *receives*. None of it can conjure an update that was consumed
+  elsewhere.
+- **Why the tests missed it.** Every regression injects the `/start` into
+  PocketClaw's own poller stub (`batches: [][]telego.Update{{ownerMessage(1, 1)}}`).
+  They assert "if a `/start` arrives, it is answered exactly once and cleaned
+  up", which was true then and is true now. No test modelled the managed
+  topology in which another consumer holds the bot during pairing, so none could
+  fail on *no `/start` arriving at all*. An absent input is invisible to a test
+  that supplies the input.
+- **Resolution.** `greetTelegramOwnerAfterPairing` sends the same built-in reply
+  from `writeTelegramCredentialsContext`, the one authoritative writer, right
+  after the credential is committed. It already holds the token and the owner,
+  and the owner's private chat provably exists because the Start press created
+  it. It is an outbound `sendMessage`, not an intake, so unlike a `getUpdates`
+  probe it cannot compete with the poller (PC-DEF-073). No persistence and no
+  readiness wait are needed: it runs exactly once per committed pairing because
+  that function does.
+- **Deliberately unchanged.** The inbound `/start` path. Manual setup
+  (`PUT`/`PATCH /api/config`) has no service webhook eating its `/start` and does
+  not go through this writer, so it gets no greeting and keeps the behaviour its
+  tests already pin. A later `/start` is a fresh request and still gets its own
+  reply.
+- **Contract note.** "The first `/start` reaches the current active generation"
+  is unachievable for managed onboarding, because the press is consumed before
+  PocketClaw holds the bot. What is achievable, and what is now true, is the
+  purpose behind it: one Start press produces exactly one
+  `Hello! I am PocketClaw.` with no second message needed.
+- **Residual.** If a future service build stopped consuming the press, the
+  queued `/start` would also get the ordinary built-in reply and the owner would
+  see the same line twice. Preferred over the current failure, and not
+  suppressible without either a timer or a competing `getUpdates`.
+- **Verification:** `TestManagedPairingGreetsTheOwnerOnce` (exactly one
+  `sendMessage`, carrying `commands.StartReplyText` to the owner's chat),
+  `TestRejectedCandidateGreetsNobody` (webhook conflict, another poller, invalid
+  credentials — none greets), `TestAFailedGreetingDoesNotFailThePairing` (one
+  attempt, no retry, pairing still succeeds). The first and third fail against
+  the previous code with `sendMessage calls = 0`.
+- **Status:** FIXED IN SOURCE — physical confirmation required: pair a fresh
+  disposable bot, press Start once, expect exactly one `Hello! I am PocketClaw.`
+  with no second message.
+
 ### PC-DEF-073 — The ownership probe could collide with PocketClaw's own poller
 
 - **Discovered:** source audit, 2026-09-20, while answering the architectural
