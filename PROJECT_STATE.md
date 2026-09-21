@@ -55,6 +55,41 @@ evidence and describe the state at the date of each entry.
 | Flutter suite | Green — 579 passed, 0 failed — and the **complete** suite is now a release gate (`flutter.suite`) |
 | Public release asset policy | APK only. An AAB is a Play-upload artifact and is never a public release asset — `PC-DEF-021` |
 
+## 2026-09-21 — Credentials withdrawn from the v0.2.0 surface
+
+**A scoped release decision, not a defect, so no defect ID is allocated.**
+
+Account-login credential management is not finished for v0.2.0. OpenAI browser
+OAuth reaches a real authentication screen and returns `unknown_error`, and the
+Claude, ChatGPT/Codex and Google account-login flows are not implemented. A
+stable release must not show a user a door that does not open, so the way in is
+withdrawn for this release — not decorated with a disabled control or a "coming
+soon" label, both of which are still a door.
+
+**What was withdrawn.** The sidebar's Credentials entry, the `/credentials`
+post-auth `?next=` destination, and the ability to reach the page by normal
+navigation. `/credentials` is redirected to `/models` in `beforeLoad`, so a
+bookmark or a stale embedded bundle cannot mount unfinished auth controls on the
+way past and lands where provider access is actually configured.
+
+**What was deliberately kept.** The page, its hook, the OAuth API, the provider
+credential models and all `credentials.*` i18n strings across 14 locales. This
+is a product-surface change, not a deletion: the later feature phase — Google
+account login, Claude subscription login, ChatGPT/Codex subscription login and
+the finished credential-management UI — starts from this code.
+
+**Unaffected, and asserted.** API-key provider configuration keeps its own
+finished path through Models: add and manage a provider, key rotation, Set
+Default, and the runtime apply. None of it routes through the withdrawn page,
+and `manage-provider-sheet`, `delete-provider-dialog`, `fallback-models-section`
+and the models routing tests all still pass.
+
+**Navigation is data now.** `components/app-navigation.ts` builds the sidebar's
+groups as a pure function, so the *absence* of Credentials is assertable — a
+snapshot of a rendered sidebar records whatever is there, which is exactly the
+wrong instrument for proving something is gone. Mobile and desktop render the
+one builder, so parity is structural rather than two lists agreeing.
+
 ## 2026-09-20 — One Core owner, and never probing our own Telegram generation
 
 **PC-DEF-072 — a slow service thread was orphaned and could double-start Core.**
