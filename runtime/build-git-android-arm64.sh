@@ -56,6 +56,17 @@ export PATH="$TOOLCHAIN/bin:$PATH"
 #                           header git does not include on this path.
 #   PTHREAD_LIBS=           pthreads live inside bionic's libc; -lpthread does
 #                           not exist and the link fails if it is passed.
+#   NO_GECOS_IN_PWENT=1     bionic declares pw_gecos on LP64 but never assigns
+#                           it, so getpwuid() returns a passwd whose pw_gecos
+#                           is NULL. Without this, get_gecos() expands to
+#                           w->pw_gecos and copy_gecos() dereferences NULL the
+#                           first time git needs a default identity -- which is
+#                           every reflog write, so update-ref, branch, checkout
+#                           and clone all died with SIGSEGV while git init,
+#                           fetch and ls-remote survived. Upstream sets the same
+#                           flag for OS/390; there is no Android profile in
+#                           config.mak.uname and uname_S=Linux promises glibc
+#                           pwent semantics bionic does not have. See PC-DEF-076.
 #   NO_OPENSSL=1            git needs OpenSSL only for imap-send and SHA-1;
 #                           its own SHA-1 is used instead and HTTPS comes
 #                           entirely from libcurl.
@@ -80,7 +91,7 @@ make -j"$(nproc)" \
     PTHREAD_LIBS= PTHREAD_CFLAGS= \
     uname_S=Linux \
     HAVE_SYNC_FILE_RANGE= CSPRNG_METHOD=arc4random \
-    NO_OPENSSL=1 NO_EXPAT=1 NO_GETTEXT=1 NO_ICONV=1 \
+    NO_OPENSSL=1 NO_EXPAT=1 NO_GETTEXT=1 NO_ICONV=1 NO_GECOS_IN_PWENT=1 \
     NO_PERL=1 NO_PYTHON=1 NO_TCLTK=1 NO_INSTALL_HARDLINKS=1 \
     prefix=/pocketclaw-runtime/git \
     git git-remote-http >/dev/null
