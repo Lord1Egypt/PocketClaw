@@ -108,3 +108,41 @@ class TelegramDeepLinkResolver {
 
   void close() => _http.close();
 }
+
+/// Telegram's username shape, applied strictly.
+///
+/// The job is not to be generous about what a username may look like; it is to
+/// make sure a display string can never become a destination. This rejects a
+/// second `@`, a path separator, a scheme, a dot, a space, and every
+/// bidirectional control character.
+final RegExp _telegramUsername = RegExp(r'^[A-Za-z][A-Za-z0-9_]{3,30}[A-Za-z0-9]$');
+
+/// Trims, removes **exactly one** optional leading `@`, and validates.
+///
+/// PC-DEF-075. Telegram's canonical bot link is `https://t.me/name`;
+/// `https://t.me/@name` is a different, non-existent username and Telegram
+/// answers "Username not found". The value reaching here comes from the
+/// onboarding service, and this package could not agree on its shape — one
+/// doc comment promised an `@username`, another formatter added the `@` itself.
+/// So it is canonicalised rather than trusted.
+///
+/// Exactly one `@` is removed: stripping repeatedly would quietly turn `@@name`
+/// — already evidence that something upstream is wrong — into a working link.
+///
+/// Returns null when the value is not a usable Telegram username, so a caller
+/// cannot build a link from junk.
+String? canonicalTelegramUsername(String? raw) {
+  if (raw == null) return null;
+  var value = raw.trim();
+  if (value.startsWith('@')) value = value.substring(1);
+  value = value.trim();
+  return _telegramUsername.hasMatch(value) ? value : null;
+}
+
+/// The canonical bot chat link, or null when there is no usable username.
+///
+/// Null means "offer no link", never "offer a broken one".
+String? telegramBotChatUrl(String? raw) {
+  final username = canonicalTelegramUsername(raw);
+  return username == null ? null : 'https://t.me/$username';
+}

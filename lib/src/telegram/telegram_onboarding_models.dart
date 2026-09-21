@@ -6,6 +6,8 @@
 /// [TelegramBotCredentials].
 library;
 
+import 'telegram_deep_link.dart';
+
 /// The observable state of a pairing session, as reported by the service.
 enum PairingState {
   /// The link has been issued and Telegram has reported nothing yet.
@@ -150,7 +152,11 @@ class TelegramBotCredentials {
   final int ownerUserId;
 
   /// The bot's chat link, for the Open Chat action.
-  String get chatUrl => 'https://t.me/$botUsername';
+  ///
+  /// PC-DEF-075. Canonicalised rather than interpolated: a leading `@` from the
+  /// service would produce `https://t.me/@name`, which Telegram reports as
+  /// "Username not found". Null when the username is unusable.
+  String? get chatUrl => telegramBotChatUrl(botUsername);
 
   factory TelegramBotCredentials.fromJson(Map<String, dynamic> json) {
     return TelegramBotCredentials(

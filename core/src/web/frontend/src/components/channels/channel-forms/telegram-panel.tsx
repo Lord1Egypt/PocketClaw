@@ -13,6 +13,8 @@ import type { ChannelConfig } from "@/api/channels"
 import { type ArrayFieldFlusher } from "@/components/channels/channel-array-list-field"
 import { TelegramForm } from "@/components/channels/channel-forms/telegram-form"
 import { getTelegramOnboardingAvailability } from "@/api/telegram-onboarding"
+import { fetchTelegramIdentity } from "@/api/telegram-identity"
+import { telegramBotChatUrl } from "@/lib/telegram-bot-url"
 import { TelegramDesktopConnect } from "@/components/channels/channel-forms/telegram-desktop-connect"
 import { TelegramDisconnectDialog } from "@/components/channels/channel-forms/telegram-disconnect-dialog"
 import {
@@ -119,7 +121,29 @@ export function TelegramPanel({
   )
   const advancedAlwaysVisible = isAdvancedFormAlwaysVisible(surface)
 
-  const botUsername = host?.telegramBotUsername ?? null
+  // PC-DEF-075. Core's getMe identity is the authority. The host-injected value
+  // is a cache written only by the native pairing launcher, so a bot paired any
+  // other way leaves it pointing at a bot that may no longer exist -- which is
+  // a stale destination no amount of formatting repairs. The cache is the
+  // fallback only until Core has answered.
+  const [coreUsername, setCoreUsername] = useState<string | null>(null)
+  useEffect(() => {
+    if (!configured) {
+      setCoreUsername(null)
+      return
+    }
+    let cancelled = false
+    void fetchTelegramIdentity().then((identity) => {
+      if (!cancelled) setCoreUsername(identity.username ?? null)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [configured])
+  const botUsername = coreUsername ?? host?.telegramBotUsername ?? null
+  // Built once, by the shared helper, so Open chat cannot drift from any other
+  // surface that offers the same destination. Null means offer no button.
+  const botChatUrl = telegramBotChatUrl(botUsername)
   const ownerConfigured = asStringArray(config.allow_from).length > 0
 
   // PC-DEF-061. A page opened while the gateway is still starting must not
@@ -170,9 +194,9 @@ export function TelegramPanel({
   }, [host])
 
   const openChat = useCallback(() => {
-    if (!host || !botUsername) return
-    host.openExternal(`https://t.me/${botUsername}`)
-  }, [botUsername, host])
+    if (!host || !botChatUrl) return
+    host.openExternal(botChatUrl)
+  }, [botChatUrl, host])
 
   const advancedForm = (
     <TelegramForm
@@ -328,7 +352,7 @@ export function TelegramPanel({
                   {t("channels.telegram.desktop.retry")}
                 </Button>
               )}
-              {botUsername && host && (
+              {botChatUrl && host && (
                 <Button onClick={openChat} className="min-h-10">
                   <IconBrandTelegram />
                   {t("channels.telegram.openChat")}

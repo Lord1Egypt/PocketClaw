@@ -38,6 +38,13 @@ vi.mock("@/api/telegram-lifecycle", () => ({
   disconnectTelegram: vi.fn(),
 }))
 
+// PC-DEF-075. Core's getMe identity is the authority for the Open chat
+// destination; the host-injected username is only a cache.
+const fetchTelegramIdentity = vi.fn()
+vi.mock("@/api/telegram-identity", () => ({
+  fetchTelegramIdentity: () => fetchTelegramIdentity(),
+}))
+
 vi.mock("@/lib/restart-required", () => ({
   showSaveSuccessOrRestartToast: vi.fn(),
   // PC-DEF-030: saving a channel now applies it through this helper instead of
@@ -120,6 +127,7 @@ describe("Channels → Telegram", () => {
     // A receiving channel unless a test says otherwise: these cases are about
     // which surface is shown, not about the readiness lifecycle.
     fetchTelegramReadiness.mockResolvedValue({ state: "ready", ready: true })
+    fetchTelegramIdentity.mockResolvedValue({ configured: false })
   })
 
   it("case 1: unconfigured with an onboarding URL puts managed onboarding first", async () => {
@@ -303,6 +311,95 @@ describe("Channels → Telegram", () => {
       ).toBeDefined()
     },
   )
+
+  // PC-DEF-075. "Open chat" sent the owner to https://t.me/@name and Telegram
+  // answered "Username not found" while the bot itself worked. Two causes, one
+  // destination: an un-stripped "@", and a host-cached username that only the
+  // native pairing launcher ever writes, so a bot paired any other way leaves it
+  // pointing at a bot that may no longer exist.
+
+  it("case 3h: Open chat uses the canonical link, with no @ in the path", async () => {
+    const host = installHost({
+      onboardingConfigured: true,
+      // The cache carries the "@" shape the service can return.
+      telegramBotUsername: "@pocketclaw_ab12cd34_bot",
+    })
+    fetchTelegramIdentity.mockResolvedValue({ configured: true })
+    arrange({
+      configuredSecrets: ["token"],
+      config: { enabled: true, allow_from: ["123456789"] },
+    })
+
+    await renderTelegramPage()
+    const openChat = await screen.findByRole("button", {
+      name: translate("channels.telegram.openChat"),
+    })
+    await userEvent.click(openChat)
+
+    expect(host.openExternal).toHaveBeenCalledWith(
+      "https://t.me/pocketclaw_ab12cd34_bot",
+    )
+    const url = (host.openExternal as ReturnType<typeof vi.fn>).mock
+      .calls[0][0] as string
+    expect(url).not.toContain("@")
+  })
+
+  it("case 3i: Core's getMe identity replaces a stale cached username", async () => {
+    const host = installHost({
+      onboardingConfigured: true,
+      // A bot from an earlier pairing that no longer exists.
+      telegramBotUsername: "pocketclaw_stale0000_bot",
+    })
+    fetchTelegramIdentity.mockResolvedValue({
+      configured: true,
+      username: "pocketclaw_current1_bot",
+      chat_url: "https://t.me/pocketclaw_current1_bot",
+    })
+    arrange({
+      configuredSecrets: ["token"],
+      config: { enabled: true, allow_from: ["123456789"] },
+    })
+
+    await renderTelegramPage()
+    await waitFor(() =>
+      expect(screen.getByText("@pocketclaw_current1_bot")).toBeDefined(),
+    )
+    await userEvent.click(
+      screen.getByRole("button", {
+        name: translate("channels.telegram.openChat"),
+      }),
+    )
+
+    expect(host.openExternal).toHaveBeenCalledWith(
+      "https://t.me/pocketclaw_current1_bot",
+    )
+    expect(host.openExternal).not.toHaveBeenCalledWith(
+      expect.stringContaining("stale"),
+    )
+  })
+
+  it("case 3j: an unusable username offers no Open chat button at all", async () => {
+    installHost({
+      onboardingConfigured: true,
+      telegramBotUsername: "@@pocketclaw_ab12cd34_bot",
+    })
+    fetchTelegramIdentity.mockResolvedValue({ configured: true })
+    arrange({
+      configuredSecrets: ["token"],
+      config: { enabled: true, allow_from: ["123456789"] },
+    })
+
+    await renderTelegramPage()
+    await waitFor(() =>
+      expect(screen.getByTestId("telegram-surface-connected")).toBeDefined(),
+    )
+    // No button beats a button that leads to "Username not found".
+    expect(
+      screen.queryByRole("button", {
+        name: translate("channels.telegram.openChat"),
+      }),
+    ).toBeNull()
+  })
 
   // A bot owned by another service is never Connected. The two ownerships need
   // different instructions, so the body differs by reason.

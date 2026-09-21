@@ -141,9 +141,11 @@ class TelegramOnboardingController extends ChangeNotifier {
   String? get connectedBotUsername => _connectedBotUsername;
 
   /// The chat link for the Open Chat action.
-  String? get connectedChatUrl => _connectedBotUsername == null
-      ? null
-      : 'https://t.me/$_connectedBotUsername';
+  ///
+  /// PC-DEF-075. Built by the shared canonicaliser so every surface that offers
+  /// this destination offers the same one, and so a service-supplied `@` can
+  /// never reach the URL path.
+  String? get connectedChatUrl => telegramBotChatUrl(_connectedBotUsername);
 
   /// Whether polling is currently running. Exposed for tests and diagnostics.
   bool get isPolling => _pollTimer?.isActive ?? false;

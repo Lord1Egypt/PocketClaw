@@ -175,6 +175,69 @@ only reconstructable examples belong here.
 
 ## Resolved
 
+### PC-DEF-075 — "Open chat" sent the owner to a username that does not exist
+
+- **Discovered:** owner physical report, 2026-09-21, final v0.2.0 review. The
+  Telegram card showed Connected and the bot chat itself worked, but "Open chat"
+  opened Telegram and got **"Username not found"** — so the bot, token and
+  channel were all valid and only the generated destination was wrong.
+- **Component:** `core/src/web/backend/api/telegram_identity.go` (new),
+  `core/src/web/frontend/src/lib/telegram-bot-url.ts` (new),
+  `core/src/web/frontend/src/api/telegram-identity.ts` (new),
+  `.../channel-forms/telegram-panel.tsx`, `lib/src/telegram/telegram_deep_link.dart`,
+  `lib/src/telegram/{telegram_onboarding_models.dart,telegram_onboarding_controller.dart}`.
+- **Root cause — a raw value interpolated into a URL, in three places.** The
+  destination was built as `https://t.me/<value>` with no canonicalisation and
+  no validation, from a username the onboarding service supplies:
+  `telegram-panel.tsx` for Open chat, `TelegramBotCredentials.chatUrl`, and
+  `TelegramOnboardingController.connectedChatUrl`. Telegram's canonical bot link
+  is `https://t.me/name`; `https://t.me/@name` is a different, non-existent
+  username, which is exactly the error reported.
+- **The codebase disagreed with itself about the shape.**
+  `TelegramOnboardingLauncher.startPairing` documents its return as "the paired
+  bot's `@username`", while `TelegramBotCredentials.toString` writes
+  `@$botUsername` — adding one — and the card renders `@{botUsername}`, also
+  adding one. Core already strips `@` before it compares usernames internally
+  (`telegram.go`, `isOwnBotUser`), which is the same defence the link path never
+  had. With no single canonicaliser, the shape depended on whatever the external
+  service happened to return, and nothing would have caught either answer.
+- **Second, independent cause: a stale cache.** `botUsername` came from the
+  Android host, which reads `pocketclaw.telegram.bot_username` — a preference
+  written **only** by the native pairing launcher. A bot paired any other way
+  (the Dashboard's own managed connect, or a manual token save) never updates
+  it, so the card can hold the username of a bot that no longer exists while the
+  configured bot works perfectly. That produces the identical symptom and
+  canonicalisation alone does not fix it.
+- **RTL note.** The card renders `@{botUsername}`, and in an RTL locale the
+  neutral `@` is reordered to the visual right — so the string on screen and the
+  string that belongs in the path are not the same. Display formatting is now
+  structurally unable to reach the URL: bidirectional control characters are not
+  part of a username and are refused outright rather than silently stripped into
+  something that merely looks right.
+- **Resolution.** One canonicaliser per language — trim, remove **exactly one**
+  optional leading `@`, validate against a strict Telegram username shape,
+  build `https://t.me/<canonical>` — and one authority for the identity itself:
+  `GET /api/telegram/identity` reads the configured bot's `getMe` username
+  against the committed credential and canonicalises it in Core, so no client
+  has to and a cached username that disagrees is stale by definition. The panel
+  prefers Core's answer and falls back to the host cache only until Core has
+  replied. An unusable username renders **no button** rather than a broken one.
+  `@@name` is refused rather than repaired: it is already evidence that
+  something upstream is wrong, and repairing it would hide the bug.
+- **Before / after**, from the same input (`@pocketclaw_…_bot`):
+  `https://t.me/@pocketclaw_ab12cd34_bot` → `https://t.me/pocketclaw_ab12cd34_bot`.
+- **Verification:** `telegram_identity_test.go` (17 raw inputs; bare, `@`,
+  whitespace, `@@`, bidi marks, a full URL, traversal, a scheme, a dot, a space);
+  `telegram-bot-url.test.ts` (8 cases, same matrix); `telegram_bot_url_test.dart`
+  (7 cases, same matrix); and through the real page,
+  `channel-config-page.telegram.test.tsx` `case 3h` (Open chat uses the canonical
+  link, no `@` in the path), `case 3i` (Core's getMe identity replaces a stale
+  cached username), `case 3j` (an unusable username offers no button). All three
+  page cases fail against the previous component.
+- **Status:** FIXED IN SOURCE — physical confirmation required: Connected bot →
+  Open chat → the existing working conversation opens, with no "Username not
+  found".
+
 ### PC-DEF-074 — The managed pairing's Start press was answered by nobody
 
 - **Discovered:** owner physical report, 2026-09-21, after PC-DEF-061's polling
