@@ -314,3 +314,27 @@ func TestWorkingDirectoryAppliesToTheChildProcess(t *testing.T) {
 		t.Fatalf("the tool did not run in test_repo: %q", result.Stdout)
 	}
 }
+
+// PC-DEF-076. Bionic declares pw_gecos on LP64 and never assigns it, so
+// getpwuid() hands back a struct passwd whose gecos pointer is NULL. Without
+// NO_GECOS_IN_PWENT, git's get_gecos() expands to w->pw_gecos and copy_gecos()
+// reads through that NULL the first time git needs a default identity — which
+// is every reflog write, so update-ref, branch, checkout and clone all died
+// with SIGSEGV while init, fetch and ls-remote passed. Upstream's
+// config.mak.uname has no Android profile and the recipe claims uname_S=Linux,
+// so nothing supplies this flag on our behalf. Deleting it reintroduces a
+// crash no amount of Go-side testing can see.
+func TestGitRecipeDeclaresBionicHasNoGecosField(t *testing.T) {
+	root := repoRoot()
+	if root == "" {
+		t.Skip("not running inside a PocketClaw checkout; the recipe is not present")
+	}
+	recipe, err := os.ReadFile(filepath.Join(root, "runtime", "build-git-android-arm64.sh"))
+	if err != nil {
+		t.Fatalf("cannot read the git build recipe: %v", err)
+	}
+	if !strings.Contains(string(recipe), "NO_GECOS_IN_PWENT=1") {
+		t.Error("the git recipe must pass NO_GECOS_IN_PWENT=1; without it every " +
+			"reflog write segfaults on Android (PC-DEF-076)")
+	}
+}

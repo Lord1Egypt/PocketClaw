@@ -537,6 +537,10 @@ class AppLocalizationsPt extends AppLocalizations {
       'Listas de canais com mais de uma entrada são preservadas corretamente ao salvar.';
 
   @override
+  String get whatsNew021Fix1 =>
+      'O Git incluído não trava mais ao clonar um repositório ou atualizar um branch.';
+
+  @override
   String get settingsGroupConnection => 'Conexão';
 
   @override

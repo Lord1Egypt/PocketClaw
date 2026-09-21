@@ -179,6 +179,7 @@
   "whatsNew020Improvement11": "本次更新后，建议检查一次您的通知偏好设置。",
   "whatsNew020Fix1": "网关现在可以从上一次运行遗留的过期进程记录中恢复。",
   "whatsNew020Fix2": "包含多个条目的频道列表在保存时能够正确保留。",
+  "whatsNew021Fix1": "内置 Git 在克隆仓库或更新分支时不再崩溃。",
   "settingsGroupConnection": "连接",
   "settingsGroupAgent": "智能体",
   "settingsGroupIntegrations": "集成",

@@ -539,6 +539,10 @@ class AppLocalizationsFr extends AppLocalizations {
       'Les listes de canaux comportant plusieurs entrées sont correctement conservées lors de l\'enregistrement.';
 
   @override
+  String get whatsNew021Fix1 =>
+      'Le Git intégré ne plante plus lors du clonage d\'un dépôt ou de la mise à jour d\'une branche.';
+
+  @override
   String get settingsGroupConnection => 'Connexion';
 
   @override

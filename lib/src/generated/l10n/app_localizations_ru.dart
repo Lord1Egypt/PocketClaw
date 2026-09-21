@@ -531,6 +531,10 @@ class AppLocalizationsRu extends AppLocalizations {
       'Списки каналов с несколькими записями корректно сохраняются.';
 
   @override
+  String get whatsNew021Fix1 =>
+      'Встроенный Git больше не аварийно завершается при клонировании репозитория или обновлении ветки.';
+
+  @override
   String get settingsGroupConnection => 'Подключение';
 
   @override

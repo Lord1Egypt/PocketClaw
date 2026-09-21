@@ -7,6 +7,50 @@ only reconstructable examples belong here.
 
 ## Open / deferred
 
+### PC-DEF-077 — the workspace resolves under `Android/data`, and an empty `Download/pocketclaw` remains
+
+- **Observed:** owner report, 2026-09-21, on the released install. A runtime log
+  shows `MEMORY.md` read from
+  `/storage/emulated/0/Android/data/com.lord1egypt.pocketclaw/files/pocketclaw/workspace/memory/`,
+  while an empty `/storage/emulated/0/Download/pocketclaw` still exists. The
+  owner's reading was that PocketClaw is still creating that shared directory.
+- **Component:** `PocketClawService.getWorkspacePath` / `buildEnvironment`;
+  `PocketClawMethodChannel.saveToDownloads`.
+- **Source finding — the two observations cannot both come from this build.**
+  `getWorkspacePath` computes the `Download/pocketclaw` path unconditionally but
+  calls `mkdirs()` on it *only inside the branch that also returns it*, chosen by
+  `Environment.isExternalStorageManager()`. `buildEnvironment` then `mkdirs()` the
+  **resolved** path and exports it as `POCKETCLAW_HOME`, which Core's
+  canonical-env adapter maps onto `PICOCLAW_HOME` with the workspace at
+  `$HOME/workspace`. A build running from `Android/data/...` therefore took the
+  permission-denied branch and cannot have created the shared directory in the
+  same call. The only other creator is the legacy fallback inside
+  `saveToDownloads`, reached solely when the MediaStore insert throws, and it
+  writes a file — so it would not leave the directory empty.
+- **Not a code regression.** `getWorkspacePath` last changed at `1c07bfd`,
+  2026-08-25. There is no workspace migration code anywhere, so there is no
+  mechanism by which a workspace could be moved or lost.
+- **Intended contract** is recorded and unchanged: `DECISIONS.md` "Fresh installs
+  use `Download/pocketclaw`; old data is left alone" (no startup migration) and
+  "The workspace is the user's; the runtime's control state is not". The
+  app-specific location is the documented no-permission fallback, not a new
+  policy.
+- **Leading explanation, not yet proven:** All Files Access is not currently
+  granted, most plausibly because the production-signed build was a fresh
+  install and MANAGE_EXTERNAL_STORAGE is a per-install grant. `PROJECT_STATE.md`
+  records that on the validated SM-A165F the permission *was* granted and the
+  fallback was *not* in use, so the state changed at some point.
+- **What is still owed:** the physical read-only checks —
+  `isExternalStorageManager`, the host's `getHomePath`, the live
+  `POCKETCLAW_HOME`, and whether startup touches `Download/pocketclaw`. These
+  were not run: no device was reachable from the build host in the sessions that
+  investigated this.
+- **Release impact: none for v0.2.1.** That release changes no storage code, no
+  permission handling and no workspace path, so it can neither cause nor worsen
+  this. Nothing here justifies a storage-policy change, and none was made.
+- **Status:** OPEN — SOURCE-INVESTIGATED, PHYSICAL CLASSIFICATION PENDING.
+
+
 
 
 
@@ -174,6 +218,84 @@ only reconstructable examples belong here.
 - **Status:** OPEN.
 
 ## Resolved
+
+### PC-DEF-076 — bundled git died with SIGSEGV on every reflog write
+
+- **Discovered:** owner physical report, 2026-09-21, on the released v0.2.0
+  install. The agent was asked over Telegram to clone a public repository with
+  the bundled Managed Runtime git. The pack downloaded and git then died late in
+  the operation, leaving a partially constructed repository. The narrowed case
+  the agent reported was `git update-ref refs/heads/x FETCH_HEAD` returning
+  `rc = -11`, which under Python's subprocess semantics is SIGSEGV, while
+  `git init`, `git fetch` and `git ls-remote` all passed and
+  `git -c core.logAllRefUpdates=false ...` avoided the failure.
+- **Component:** `runtime/build-git-android-arm64.sh`; the payloads
+  `libpocketclaw-git.so` and `libpocketclaw-git-remote-http.so`.
+- **Severity:** Functional defect. Every ref write that creates a reflog entry
+  crashes, which is `update-ref`, `branch`, `checkout`, `switch`, `commit` and
+  `clone` — in practice all of git beyond fetching.
+- **Root cause — a NULL `pw_gecos` dereference in git's identity code.** git
+  gates the gecos field on the `NO_GECOS_IN_PWENT` build flag
+  (`ident.c:34-38`): with the flag, `get_gecos(w)` expands to the literal `"&"`;
+  without it, to `w->pw_gecos`. The recipe passed `uname_S=Linux`, and
+  upstream's `config.mak.uname` has no Android profile and sets the flag only
+  for OS/390, so the flag was never defined. Bionic declares `pw_gecos` on LP64
+  and never assigns it — its own `pwd.h` records that the field is always NULL,
+  which is why it is aliased away entirely on LP32. `getpwuid()` for an app UID
+  returns a non-NULL `passwd`, so git's `xgetpwuid_self()` NULL fallback in
+  `ident.c:40-57` is never taken, and `copy_gecos()` at `ident.c:66`
+  dereferences NULL on its very first read.
+- **Symbolized frame.** In the shipped `libpocketclaw-git.so`
+  (`a8a342ac2cff1c39bb9d8d3165921a4b6843b18908e8714b9be051bad68e7681`),
+  `copy_gecos` is inlined into `ident_default_name` at the `ident.c:165` call
+  site. `0x2295dc: ldr x23, [x0, #0x18]` loads `pw_gecos` (offset 24 on LP64)
+  from the `struct passwd *` just returned by `xgetpwuid_self`, and
+  `0x2295ec: ldrb w26, [x23]` reads through it. With `pw_gecos == NULL` that is
+  a load from address 0: **SIGSEGV / SEGV_MAPERR at fault address 0x0 in
+  `copy_gecos` at `ident.c:66`, inlined into `ident_default_name`
+  (`ident.c:165`).**
+- **Why only reflog writes.** A reflog entry carries a committer identity, so
+  every ref update that logs calls `git_committer_info()` and reaches
+  `ident_default_name()`. `git init`, `git fetch` and `git ls-remote` never need
+  an identity, which is exactly the pass/fail split the owner observed.
+  `core.logAllRefUpdates=false` is therefore not a cure: it removes the only
+  caller on that path and leaves the NULL dereference in the binary.
+- **Not an H5B regression.** The pre-H5B payload
+  (`b3e905b81a46d5903ca22ebb169ee7698984384ff2f30a9ac0009490f8d7b66b`, commit
+  `b13f297`) carries the identical sequence at `0x2295ec`/`0x2295fc`. The defect
+  has been in every shipped git payload since Runtime Pack v2; H5B changed the
+  debug-info and libcurl link flags and moved the code by 0x10 bytes, nothing
+  more. The 2026-08-30 physical PASS for `git clone` stands as a record of what
+  was tested then and is not rewritten here, but it cannot have exercised a
+  default-identity reflog write on this binary.
+- **Fix.** `NO_GECOS_IN_PWENT=1` added to the git make invocation in
+  `runtime/build-git-android-arm64.sh`. This is upstream's own supported knob
+  for a platform whose `struct passwd` has no usable gecos field, not a patch to
+  git. No global reflog disable ships, and no git invocation is wrapped.
+- **Fix verified in the rebuilt bytes.** In the new payload
+  (`60d3a1c0651ebdad17116f01d9c835a1d00adf5af43bb476046a37259769627f`) the load
+  from the `passwd` struct is gone: `0x2295f0: ldrb w26, [x22]` now reads the
+  rodata literal `"&"` at `0x43695`, whose bytes are `26 00`. The dereference
+  cannot occur.
+- **New payload hashes.** `libpocketclaw-git.so`
+  `60d3a1c0651ebdad17116f01d9c835a1d00adf5af43bb476046a37259769627f`;
+  `libpocketclaw-git-remote-http.so`
+  `90e187128a9e92ed348abbd4de412677159887988b02c7630bc04192c2ea2aa9`. The
+  runtime catalog and the upstream provenance patch carry them, and the manifest
+  is a Core build input, so the staged Core pair is rebuilt with it.
+- **Behaviour after the fix.** With no `user.name`, git's default name becomes
+  the capitalized app user (`U0_a…`) exactly as on any Linux host without a
+  gecos field, and the default email stays bogus-flagged, so reflog writes
+  succeed while `git commit` still asks the user to set an identity. That is
+  upstream behaviour, not a PocketClaw special case.
+- **Physical PASS, 2026-09-22, owner-run on the Samsung SM-A165F.** Exercised
+  through PocketClaw itself against the production-signed 0.2.1+63 artifact
+  `1203cd46f30cc6e7d69b3cd54be2d2dbca29150a9bce4f722b112576ccf4401b`, with
+  **ordinary git defaults and reflogs enabled** — no `core.logAllRefUpdates`
+  override and no other workaround flag. An ordinary `git clone` exited 0, and
+  `git init`, `git fetch`, `git update-ref`, `git log` and `git reflog show` all
+  passed with a reflog entry actually written. No SIGSEGV and no `rc = -11`.
+- **Status:** RESOLVED / PHYSICAL PASS.
 
 ### PC-DEF-075 — "Open chat" sent the owner to a username that does not exist
 

@@ -184,8 +184,8 @@ void main() {
       );
       expect(
         version!.group(1),
-        '0.2.0',
-        reason: 'this milestone does not change the product version',
+        '0.2.1',
+        reason: 'the tracked product version for this release',
       );
       final floor = readAcceptedVersionCodeFloor();
       expect(

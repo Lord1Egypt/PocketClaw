@@ -530,6 +530,10 @@ class AppLocalizationsId extends AppLocalizations {
       'Daftar saluran dengan lebih dari satu entri kini tersimpan dengan benar.';
 
   @override
+  String get whatsNew021Fix1 =>
+      'Git bawaan tidak lagi mogok saat mengkloning repositori atau memperbarui cabang.';
+
+  @override
   String get settingsGroupConnection => 'Koneksi';
 
   @override

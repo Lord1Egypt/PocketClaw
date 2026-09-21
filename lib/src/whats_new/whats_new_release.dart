@@ -89,5 +89,15 @@ final WhatsNewRelease whatsNewRelease020 = WhatsNewRelease(
   ],
 );
 
+final WhatsNewRelease whatsNewRelease021 = WhatsNewRelease(
+  version: '0.2.1',
+  sections: [
+    WhatsNewSection(
+      kind: WhatsNewSectionKind.fixed,
+      bullets: [(l10n) => l10n.whatsNew021Fix1],
+    ),
+  ],
+);
+
 /// The release the What's New page renders.
-final WhatsNewRelease currentWhatsNewRelease = whatsNewRelease020;
+final WhatsNewRelease currentWhatsNewRelease = whatsNewRelease021;

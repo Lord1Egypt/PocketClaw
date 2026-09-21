@@ -495,6 +495,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get whatsNew020Fix2 => '包含多个条目的频道列表在保存时能够正确保留。';
 
   @override
+  String get whatsNew021Fix1 => '内置 Git 在克隆仓库或更新分支时不再崩溃。';
+
+  @override
   String get settingsGroupConnection => '连接';
 
   @override

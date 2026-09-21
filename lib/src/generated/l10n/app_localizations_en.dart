@@ -526,6 +526,10 @@ class AppLocalizationsEn extends AppLocalizations {
       'Channel lists with more than one entry are preserved correctly when settings are saved.';
 
   @override
+  String get whatsNew021Fix1 =>
+      'The bundled Git no longer crashes while cloning a repository or updating a branch.';
+
+  @override
   String get settingsGroupConnection => 'Connection';
 
   @override

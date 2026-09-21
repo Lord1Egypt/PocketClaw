@@ -179,6 +179,7 @@
   "whatsNew020Improvement11": "Nach diesem Update lohnt es sich, Ihre Benachrichtigungseinstellungen einmal zu prüfen.",
   "whatsNew020Fix1": "Das Gateway erholt sich jetzt von einem veralteten Prozesseintrag eines früheren Laufs.",
   "whatsNew020Fix2": "Kanallisten mit mehreren Einträgen bleiben beim Speichern korrekt erhalten.",
+  "whatsNew021Fix1": "Das mitgelieferte Git stürzt beim Klonen eines Repositorys oder beim Aktualisieren eines Branch nicht mehr ab.",
   "settingsGroupConnection": "Verbindung",
   "settingsGroupAgent": "Agent",
   "settingsGroupIntegrations": "Integrationen",

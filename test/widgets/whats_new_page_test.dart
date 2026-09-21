@@ -44,15 +44,21 @@ void main() {
     return AppLocalizations.of(tester.element(find.byType(WhatsNewPage)))!;
   }
 
-  testWidgets('renders the 0.2.0 release header and every section', (
+  // Written against currentWhatsNewRelease rather than a pinned version and a
+  // fixed set of headings: a patch release legitimately ships one section, and
+  // a test that has to be edited every release stops testing the page.
+  testWidgets('renders the current release header and its sections', (
     tester,
   ) async {
     final l10n = await pumpWhatsNew(tester);
 
-    expect(find.text('PocketClaw 0.2.0'), findsOneWidget);
-    expect(find.text(l10n.whatsNewSectionNew), findsOneWidget);
-    expect(find.text(l10n.whatsNewSectionImprovements), findsOneWidget);
-    expect(find.text(l10n.whatsNewSectionFixes), findsOneWidget);
+    expect(
+      find.text('PocketClaw ${currentWhatsNewRelease.version}'),
+      findsOneWidget,
+    );
+    for (final section in currentWhatsNewRelease.sections) {
+      expect(find.text(section.title(l10n)), findsOneWidget);
+    }
   });
 
   testWidgets('renders every bullet of the current release', (tester) async {
@@ -101,9 +107,13 @@ void main() {
       Directionality.of(tester.element(find.byType(WhatsNewPage))),
       TextDirection.rtl,
     );
-    expect(find.text(l10n.whatsNewSectionNew), findsOneWidget);
-    expect(find.text(l10n.whatsNew020Fix1), findsOneWidget);
-    expect(find.text('PocketClaw 0.2.0'), findsOneWidget);
+    final first = currentWhatsNewRelease.sections.first;
+    expect(find.text(first.title(l10n)), findsOneWidget);
+    expect(find.text(first.bullets.first(l10n)), findsOneWidget);
+    expect(
+      find.text('PocketClaw ${currentWhatsNewRelease.version}'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('mirrors the bullet marker between LTR and RTL', (tester) async {
@@ -112,7 +122,9 @@ void main() {
       final marker = tester
           .getCenter(find.byKey(const Key('whatsNewBulletMarker')).first)
           .dx;
-      final text = tester.getRect(find.text(l10n.whatsNew020New1));
+      final text = tester.getRect(
+        find.text(currentWhatsNewRelease.sections.first.bullets.first(l10n)),
+      );
       return (marker: marker, text: text);
     }
 

@@ -179,6 +179,7 @@
   "whatsNew020Improvement11": "Tras esta actualización, conviene revisar una vez tus preferencias de notificaciones.",
   "whatsNew020Fix1": "La puerta de enlace ahora se recupera de un registro de proceso obsoleto dejado por una ejecución anterior.",
   "whatsNew020Fix2": "Las listas de canales con más de una entrada se conservan correctamente al guardar los ajustes.",
+  "whatsNew021Fix1": "El Git incluido ya no se bloquea al clonar un repositorio o actualizar una rama.",
   "settingsGroupConnection": "Conexión",
   "settingsGroupAgent": "Agente",
   "settingsGroupIntegrations": "Integraciones",

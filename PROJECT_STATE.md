@@ -25,12 +25,13 @@ evidence and describe the state at the date of each entry.
 | PC-DEF-023 canonical Core build-input commit | `54ff2525fa555744d017aae56c9a26e2049812e1` |
 | PC-DEF-020 state-basis HEAD | `76064c91033860653de1e11a08e29d7245061ec1` (verified exposure-audit closeout; source and Core-staging commits follow it) |
 | PC-DEF-020 canonical Core build-input commit | `f8bc52a0757f7b0a9f6c0704d2a3586db929e33f` |
-| Version | `0.2.0+62` |
-| Accepted physical baseline | vc62 / `lastAcceptedVersionCode=62` |
+| Version | `0.2.1+63` |
+| Accepted physical baseline | vc63 / `lastAcceptedVersionCode=63` — advanced by the v0.2.1 acceptance commit |
 | Current phase | Final Production Release Hardening; H5C production-signed native/ELF validation closed |
 | Developer production signer | `176dca6b198b9552fb4d9ad3ca18da8d6f23c0a3f5ed4bd6b75a0700f9f0efcf` |
 | Core fingerprint | `87c320c1cb6dffe6395043265c3d4d659ddaf26a4b588d303c5d06355a4acc2b`; the staged Core pair carries it — last moved by the PC-DEF-075 identity endpoint and its Dashboard consumer |
 | Distribution targets | Direct APK, Google Play, Official F-Droid |
+| **Released — PocketClaw v0.2.1** | Patch release for PC-DEF-076, the bundled-Git SIGSEGV. `PocketClaw-v0.2.1-arm64-v8a.apk`, 63,613,115 bytes, `1203cd46f30cc6e7d69b3cd54be2d2dbca29150a9bce4f722b112576ccf4401b`, `0.2.1+63`, one production signer `176dca6b…`, Core fingerprint `76a114fd…`, bundled git `60d3a1c0…` and git-remote-http `90e18712…`. Owner-signed from `c898581`; **physically accepted on SM-A165F / Android 16 on 2026-09-22** with an ordinary `git clone` and reflogs enabled. |
 | Exposure-audit state-basis HEAD | `25753cef5fa4d956e11d37b5a6176cdef977f015` (verified PC-DEF-019 closeout; the audit closeout commit follows it) |
 | Final release exposure audit | **CLOSED / PASS** on the re-run at `6031898`. No release blocker remains for the GitHub / direct APK release. `PC-DEF-022`, `PC-DEF-023` and `PC-DEF-024` have all since been RESOLVED; only `PC-DEF-006` (F-Droid path) and `PC-DEF-012` remain open |
 | Production candidate | **BUILT AND GATED.** `4d4bc33a…`, 63,472,307 bytes, one v2 signer `176dca6b…`; production artifact gate 57 PASS / 0 FAIL / 0 SKIPPED. Private validation evidence — not installed, published or accepted |

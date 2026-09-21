@@ -669,7 +669,7 @@
       "abi": "arm64-v8a",
       "delivery_type": "bundled",
       "trusted_source": "https://github.com/git/git/archive/refs/tags/v2.51.0.tar.gz",
-      "sha256": "a8a342ac2cff1c39bb9d8d3165921a4b6843b18908e8714b9be051bad68e7681",
+      "sha256": "60d3a1c0651ebdad17116f01d9c835a1d00adf5af43bb476046a37259769627f",
       "capabilities": [
         "vcs.repository",
         "vcs.history",
@@ -684,17 +684,17 @@
         {
           "logical_name": "git",
           "library_name": "libpocketclaw-git.so",
-          "sha256": "a8a342ac2cff1c39bb9d8d3165921a4b6843b18908e8714b9be051bad68e7681"
+          "sha256": "60d3a1c0651ebdad17116f01d9c835a1d00adf5af43bb476046a37259769627f"
         },
         {
           "logical_name": "git-remote-http",
           "library_name": "libpocketclaw-git-remote-http.so",
-          "sha256": "baea79ac073e5b3ceff5b14ada00a56931462652604b1c38e0db8b19ec30c260"
+          "sha256": "90e187128a9e92ed348abbd4de412677159887988b02c7630bc04192c2ea2aa9"
         },
         {
           "logical_name": "git-remote-https",
           "library_name": "libpocketclaw-git-remote-http.so",
-          "sha256": "baea79ac073e5b3ceff5b14ada00a56931462652604b1c38e0db8b19ec30c260"
+          "sha256": "90e187128a9e92ed348abbd4de412677159887988b02c7630bc04192c2ea2aa9"
         }
       ],
       "environment_profile": "git"
@@ -724,17 +724,17 @@
         {
           "logical_name": "git",
           "library_name": "libpocketclaw-git.so",
-          "sha256": "a8a342ac2cff1c39bb9d8d3165921a4b6843b18908e8714b9be051bad68e7681"
+          "sha256": "60d3a1c0651ebdad17116f01d9c835a1d00adf5af43bb476046a37259769627f"
         },
         {
           "logical_name": "git-remote-http",
           "library_name": "libpocketclaw-git-remote-http.so",
-          "sha256": "baea79ac073e5b3ceff5b14ada00a56931462652604b1c38e0db8b19ec30c260"
+          "sha256": "90e187128a9e92ed348abbd4de412677159887988b02c7630bc04192c2ea2aa9"
         },
         {
           "logical_name": "git-remote-https",
           "library_name": "libpocketclaw-git-remote-http.so",
-          "sha256": "baea79ac073e5b3ceff5b14ada00a56931462652604b1c38e0db8b19ec30c260"
+          "sha256": "90e187128a9e92ed348abbd4de412677159887988b02c7630bc04192c2ea2aa9"
         }
       ],
       "environment_profile": "gh"

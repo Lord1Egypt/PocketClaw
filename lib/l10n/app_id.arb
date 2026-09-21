@@ -179,6 +179,7 @@
   "whatsNew020Improvement11": "Setelah pembaruan ini, ada baiknya memeriksa sekali preferensi notifikasi Anda.",
   "whatsNew020Fix1": "Gateway kini pulih dari catatan proses usang yang ditinggalkan oleh proses sebelumnya.",
   "whatsNew020Fix2": "Daftar saluran dengan lebih dari satu entri kini tersimpan dengan benar.",
+  "whatsNew021Fix1": "Git bawaan tidak lagi mogok saat mengkloning repositori atau memperbarui cabang.",
   "settingsGroupConnection": "Koneksi",
   "settingsGroupAgent": "Agen",
   "settingsGroupIntegrations": "Integrasi",

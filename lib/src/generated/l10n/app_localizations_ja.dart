@@ -506,6 +506,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get whatsNew020Fix2 => '複数の項目を持つチャンネル一覧が保存時に正しく保持されるようになりました。';
 
   @override
+  String get whatsNew021Fix1 => '同梱の Git がリポジトリのクローンやブランチの更新中にクラッシュしなくなりました。';
+
+  @override
   String get settingsGroupConnection => '接続';
 
   @override
