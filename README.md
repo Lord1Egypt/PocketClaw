@@ -15,8 +15,9 @@ the credentials — lives on the device you are holding.
 
 <br />
 
-![Release](https://img.shields.io/badge/release-v0.2.0%20(62)-success)
-![Status](https://img.shields.io/badge/status-stable-brightgreen)
+[![Release gate](https://github.com/Lord1Egypt/PocketClaw/actions/workflows/release-gate.yml/badge.svg)](https://github.com/Lord1Egypt/PocketClaw/actions/workflows/release-gate.yml)
+[![Latest release](https://img.shields.io/github/v/release/Lord1Egypt/PocketClaw?color=success&label=release)](https://github.com/Lord1Egypt/PocketClaw/releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/Lord1Egypt/PocketClaw/total?color=success)](https://github.com/Lord1Egypt/PocketClaw/releases/latest)
 ![Platform](https://img.shields.io/badge/platform-Android-3DDC84?logo=android&logoColor=white)
 ![ABI](https://img.shields.io/badge/ABI-arm64--v8a-0A7EA4)
 ![minSdk](https://img.shields.io/badge/minSdk-24-555555)
@@ -27,25 +28,13 @@ the credentials — lives on the device you are holding.
 ![Go](https://img.shields.io/badge/Go-1.25-00ADD8?logo=go&logoColor=white)
 ![Locales](https://img.shields.io/badge/locales-12_app_·_14_dashboard-8A2BE2)
 ![Signed](https://img.shields.io/badge/signed-production_key-informational?logo=android&logoColor=white)
-![License](https://img.shields.io/badge/license-MIT-green)
+[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+<br />
+[![Stars](https://img.shields.io/github/stars/Lord1Egypt/PocketClaw?style=social)](https://github.com/Lord1Egypt/PocketClaw/stargazers)
+[![Last commit](https://img.shields.io/github/last-commit/Lord1Egypt/PocketClaw)](https://github.com/Lord1Egypt/PocketClaw/commits/main)
+[![Issues](https://img.shields.io/github/issues/Lord1Egypt/PocketClaw)](https://github.com/Lord1Egypt/PocketClaw/issues)
 
 </div>
-
-<!--
-Dynamic GitHub badges are deliberately omitted while this repository is private:
-shields.io cannot read a private repo, so each one would render as an error
-rather than a status. When the repository becomes public, swap the static
-Release badge above for these:
-
-  [![Release gate](https://github.com/Lord1Egypt/PocketClaw/actions/workflows/release-gate.yml/badge.svg)](https://github.com/Lord1Egypt/PocketClaw/actions/workflows/release-gate.yml)
-  [![Latest release](https://img.shields.io/github/v/release/Lord1Egypt/PocketClaw)](https://github.com/Lord1Egypt/PocketClaw/releases/latest)
-  ![Downloads](https://img.shields.io/github/downloads/Lord1Egypt/PocketClaw/total)
-  ![Last commit](https://img.shields.io/github/last-commit/Lord1Egypt/PocketClaw)
-  ![Stars](https://img.shields.io/github/stars/Lord1Egypt/PocketClaw)
-
-The release-gate workflow is real and already runs on every pull request; only
-its badge needs public visibility to render.
--->
 
 ---
 
