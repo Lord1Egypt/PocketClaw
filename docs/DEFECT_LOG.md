@@ -403,6 +403,55 @@ only reconstructable examples belong here.
   could outlive its process in-process too (it was posted outside `serviceLock`,
   after the spawn, so a stop landing immediately afterwards left it standing),
   and nothing reconciled a found notification at process start.
+- **REOPENED 2026-09-21 by physical evidence, and closed again.** The owner
+  granted notification permission during first-run setup and PocketClaw was then
+  not visible in notifications at all. The contract has two directions and the
+  first round only closed one of them: a *stopped* runtime can no longer claim
+  Running, but a *running* runtime could still have no notification.
+- **Reopened root cause — the post was suppressed, and nothing retried it.**
+  The notification is posted on state transitions. On a fresh install, launch
+  auto-start starts the service *before* the `POST_NOTIFICATIONS` dialog is
+  answered, so Android suppresses the foreground post. Granting afterwards shows
+  nothing retroactively, and no later transition occurs while the runtime simply
+  keeps running — so the notification is never created at all.
+- **Physical state captured at the moment it was absent** (reproduced on the
+  Samsung device by revoking the permission, launching, then granting it while
+  the runtime kept running — the app process pid was unchanged across the grant,
+  so nothing restarted):
+
+  | Fact | Observed |
+  | --- | --- |
+  | Foreground service | alive, `isForeground=true foregroundId=1`, `foregroundNoti` set |
+  | Core runtime process | alive |
+  | Gateway process | alive |
+  | Port 18800 | 1 listening socket |
+  | `POST_NOTIFICATIONS` | `granted=true` |
+  | Channel `pocketclaw_service` | exists, `mImportance=2` (LOW), `mDeleted=false`, not blocked |
+  | NotificationManager live records | **0** |
+
+  So: **never posted / suppressed**, not cancelled. The archive held no record
+  either, which is what separates this from a cancellation.
+- **Ruled out, with evidence.** The `Application.onCreate` stale cleanup is *not*
+  implicated: the app is single-process (no `android:process` in the manifest),
+  `Application.onCreate` runs before any component of a new process, and the
+  cancel is guarded by `isRunning`, which is false there by construction — so it
+  always precedes the service's own `startForeground` and can never cancel a live
+  post. No foreground-service deadline issue either: `startForeground` is still
+  called synchronously in `onStartCommand` with "Starting…", and
+  `publishRuntimeNotification` only *updates* afterwards — `isForeground=true`
+  was observed in every state.
+- **Reopened resolution.** `RuntimeNotificationPolicy.shouldRenderOnPermissionChange`
+  states the rule, and `PocketClawService.refreshRuntimeNotification` re-renders
+  through the **live instance's own derivation**, so a stopped runtime still
+  cannot produce a Running notification. It is driven by the permission answer —
+  `onRequestPermissionsResult` for the dialog, and the resume path for a grant
+  made in Android Settings (the `OFFER_SETTINGS` route) — never by a timer or a
+  delay.
+- **Reopened verification:** `RuntimeNotificationPolicyTest` grows to 10 cases —
+  a hosted service with notifications enabled re-renders; a process hosting no
+  service never does (that is how a false Running would come back); notifications
+  still disabled is a no-op in both directions; and a re-render of a stopped
+  runtime is still STOPPED.
 - **Status:** FIXED IN SOURCE — physical confirmation required. Scenario A
   (process killed with auto-start on) and scenario E (reboot with auto-start on)
   need the device; the source-provable half is that "Running" can no longer be

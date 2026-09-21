@@ -31,7 +31,10 @@ export const DEFAULT_POST_AUTH_DESTINATION = "/"
 const STATIC_DESTINATIONS: ReadonlySet<string> = new Set([
   "/",
   "/models",
-  "/credentials",
+  // "/credentials" is deliberately absent: it is not a v0.2.0 destination, and
+  // this list is what the product will navigate a user to after login. The
+  // route still redirects to /models for a stale bookmark; an unrecognised
+  // ?next= falls back to home, which is the documented behaviour.
   "/logs",
   "/config",
   "/config/raw",

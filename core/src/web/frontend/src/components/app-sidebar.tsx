@@ -1,20 +1,16 @@
-import { IconChevronRight } from "@tabler/icons-react"
 import {
-  IconAtom,
+  IconChevronRight,
   IconChevronsDown,
   IconChevronsUp,
-  IconKey,
-  IconListDetails,
-  IconMessageCircle,
-  IconSearch,
-  IconSettings,
-  IconSparkles,
-  IconTools,
 } from "@tabler/icons-react"
 import { Link, useRouterState } from "@tanstack/react-router"
 import * as React from "react"
 import { useTranslation } from "react-i18next"
 
+import {
+  type NavGroup,
+  buildNavGroups,
+} from "@/components/app-navigation"
 import { PocketClawLockup } from "@/components/brand/pocketclaw-mark"
 import {
   Collapsible,
@@ -34,39 +30,6 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar"
 import { useSidebarChannels } from "@/hooks/use-sidebar-channels"
-
-interface NavItem {
-  title: string
-  url: string
-  icon: React.ComponentType<{ className?: string }>
-  translateTitle?: boolean
-}
-
-interface NavGroup {
-  label: string
-  defaultOpen: boolean
-  items: NavItem[]
-  isChannelsGroup?: boolean
-}
-
-const baseNavGroups: Omit<NavGroup, "items">[] = [
-  {
-    label: "navigation.chat",
-    defaultOpen: true,
-  },
-  {
-    label: "navigation.model_group",
-    defaultOpen: true,
-  },
-  {
-    label: "navigation.agent_group",
-    defaultOpen: true,
-  },
-  {
-    label: "navigation.services",
-    defaultOpen: true,
-  },
-]
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const routerState = useRouterState()
@@ -89,89 +52,12 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     }
   }, [isMobile, setOpenMobile])
 
-  const navGroups: NavGroup[] = React.useMemo(() => {
-    return [
-      {
-        ...baseNavGroups[0],
-        items: [
-          {
-            title: "navigation.chat",
-            url: "/",
-            icon: IconMessageCircle,
-            translateTitle: true,
-          },
-        ],
-      },
-      {
-        ...baseNavGroups[1],
-        items: [
-          {
-            title: "navigation.models",
-            url: "/models",
-            icon: IconAtom,
-            translateTitle: true,
-          },
-          {
-            title: "navigation.credentials",
-            url: "/credentials",
-            icon: IconKey,
-            translateTitle: true,
-          },
-        ],
-      },
-      {
-        label: "navigation.channels_group",
-        defaultOpen: true,
-        items: channelItems.map((item) => ({
-          title: item.title,
-          url: item.url,
-          icon: item.icon,
-          translateTitle: false,
-        })),
-        isChannelsGroup: true,
-      },
-      {
-        ...baseNavGroups[2],
-        items: [
-          {
-            title: "navigation.hub",
-            url: "/agent/hub",
-            icon: IconSearch,
-            translateTitle: true,
-          },
-          {
-            title: "navigation.skills",
-            url: "/agent/skills",
-            icon: IconSparkles,
-            translateTitle: true,
-          },
-          {
-            title: "navigation.tools",
-            url: "/agent/tools",
-            icon: IconTools,
-            translateTitle: true,
-          },
-        ],
-      },
-      {
-        ...baseNavGroups[3],
-        items: [
-          {
-            title: "navigation.config",
-            url: "/config",
-            icon: IconSettings,
-            translateTitle: true,
-          },
-          {
-            title: "navigation.logs",
-            url: "/logs",
-            icon: IconListDetails,
-            translateTitle: true,
-          },
-        ],
-      },
-    ]
-  }, [channelItems])
+  // v0.2.0 ships no Credentials entry; see app-navigation.ts for why and for
+  // what replaces it. The structure is data so that absence is testable.
+  const navGroups: NavGroup[] = React.useMemo(
+    () => buildNavGroups(channelItems),
+    [channelItems],
+  )
 
   return (
     <Sidebar
