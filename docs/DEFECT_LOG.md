@@ -7,6 +7,50 @@ only reconstructable examples belong here.
 
 ## Open / deferred
 
+### PC-DEF-077 — the workspace resolves under `Android/data`, and an empty `Download/pocketclaw` remains
+
+- **Observed:** owner report, 2026-09-21, on the released install. A runtime log
+  shows `MEMORY.md` read from
+  `/storage/emulated/0/Android/data/com.lord1egypt.pocketclaw/files/pocketclaw/workspace/memory/`,
+  while an empty `/storage/emulated/0/Download/pocketclaw` still exists. The
+  owner's reading was that PocketClaw is still creating that shared directory.
+- **Component:** `PocketClawService.getWorkspacePath` / `buildEnvironment`;
+  `PocketClawMethodChannel.saveToDownloads`.
+- **Source finding — the two observations cannot both come from this build.**
+  `getWorkspacePath` computes the `Download/pocketclaw` path unconditionally but
+  calls `mkdirs()` on it *only inside the branch that also returns it*, chosen by
+  `Environment.isExternalStorageManager()`. `buildEnvironment` then `mkdirs()` the
+  **resolved** path and exports it as `POCKETCLAW_HOME`, which Core's
+  canonical-env adapter maps onto `PICOCLAW_HOME` with the workspace at
+  `$HOME/workspace`. A build running from `Android/data/...` therefore took the
+  permission-denied branch and cannot have created the shared directory in the
+  same call. The only other creator is the legacy fallback inside
+  `saveToDownloads`, reached solely when the MediaStore insert throws, and it
+  writes a file — so it would not leave the directory empty.
+- **Not a code regression.** `getWorkspacePath` last changed at `1c07bfd`,
+  2026-08-25. There is no workspace migration code anywhere, so there is no
+  mechanism by which a workspace could be moved or lost.
+- **Intended contract** is recorded and unchanged: `DECISIONS.md` "Fresh installs
+  use `Download/pocketclaw`; old data is left alone" (no startup migration) and
+  "The workspace is the user's; the runtime's control state is not". The
+  app-specific location is the documented no-permission fallback, not a new
+  policy.
+- **Leading explanation, not yet proven:** All Files Access is not currently
+  granted, most plausibly because the production-signed build was a fresh
+  install and MANAGE_EXTERNAL_STORAGE is a per-install grant. `PROJECT_STATE.md`
+  records that on the validated SM-A165F the permission *was* granted and the
+  fallback was *not* in use, so the state changed at some point.
+- **What is still owed:** the physical read-only checks —
+  `isExternalStorageManager`, the host's `getHomePath`, the live
+  `POCKETCLAW_HOME`, and whether startup touches `Download/pocketclaw`. These
+  were not run: no device was reachable from the build host in the sessions that
+  investigated this.
+- **Release impact: none for v0.2.1.** That release changes no storage code, no
+  permission handling and no workspace path, so it can neither cause nor worsen
+  this. Nothing here justifies a storage-policy change, and none was made.
+- **Status:** OPEN — SOURCE-INVESTIGATED, PHYSICAL CLASSIFICATION PENDING.
+
+
 
 
 
@@ -244,11 +288,14 @@ only reconstructable examples belong here.
   gecos field, and the default email stays bogus-flagged, so reflog writes
   succeed while `git commit` still asks the user to set an identity. That is
   upstream behaviour, not a PocketClaw special case.
-- **Status:** FIXED IN SOURCE. **Physical verification owed** — no device was
-  attached for this session, so the rebuilt payload has not run on hardware. The
-  device contract in `PC-DEF-076` terms is an ordinary `git clone <url>` with
-  reflogs enabled, followed by `git status`, `git log` and a non-empty
-  `git reflog`.
+- **Physical PASS, 2026-09-22, owner-run on the Samsung SM-A165F.** Exercised
+  through PocketClaw itself against the production-signed 0.2.1+63 artifact
+  `1203cd46f30cc6e7d69b3cd54be2d2dbca29150a9bce4f722b112576ccf4401b`, with
+  **ordinary git defaults and reflogs enabled** — no `core.logAllRefUpdates`
+  override and no other workaround flag. An ordinary `git clone` exited 0, and
+  `git init`, `git fetch`, `git update-ref`, `git log` and `git reflog show` all
+  passed with a reflog entry actually written. No SIGSEGV and no `rc = -11`.
+- **Status:** RESOLVED / PHYSICAL PASS.
 
 ### PC-DEF-075 — "Open chat" sent the owner to a username that does not exist
 
