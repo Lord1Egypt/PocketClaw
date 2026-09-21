@@ -179,6 +179,7 @@
   "whatsNew020Improvement11": "Após esta atualização, vale a pena conferir uma vez suas preferências de notificação.",
   "whatsNew020Fix1": "O gateway agora se recupera de um registro de processo obsoleto deixado por uma execução anterior.",
   "whatsNew020Fix2": "Listas de canais com mais de uma entrada são preservadas corretamente ao salvar.",
+  "whatsNew021Fix1": "O Git incluído não trava mais ao clonar um repositório ou atualizar um branch.",
   "settingsGroupConnection": "Conexão",
   "settingsGroupAgent": "Agente",
   "settingsGroupIntegrations": "Integrações",

@@ -1,7 +1,7 @@
 name: pocketclaw
 description: "A private AI agent that runs on your Android device — on-device gateway, bundled arm64 tooling, and a local web dashboard."
 publish_to: "none"
-version: 0.2.0+62
+version: 0.2.1+63
 
 environment:
   sdk: ^3.11.3

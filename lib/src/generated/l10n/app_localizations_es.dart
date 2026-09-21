@@ -535,6 +535,10 @@ class AppLocalizationsEs extends AppLocalizations {
       'Las listas de canales con más de una entrada se conservan correctamente al guardar los ajustes.';
 
   @override
+  String get whatsNew021Fix1 =>
+      'El Git incluido ya no se bloquea al clonar un repositorio o actualizar una rama.';
+
+  @override
   String get settingsGroupConnection => 'Conexión';
 
   @override

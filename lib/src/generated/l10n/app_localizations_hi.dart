@@ -525,6 +525,10 @@ class AppLocalizationsHi extends AppLocalizations {
       'एक से अधिक प्रविष्टि वाली चैनल सूचियाँ सहेजते समय सही ढंग से बनी रहती हैं.';
 
   @override
+  String get whatsNew021Fix1 =>
+      'अंतर्निर्मित Git अब रिपॉज़िटरी क्लोन करते समय या ब्रांच अपडेट करते समय क्रैश नहीं होता.';
+
+  @override
   String get settingsGroupConnection => 'कनेक्शन';
 
   @override

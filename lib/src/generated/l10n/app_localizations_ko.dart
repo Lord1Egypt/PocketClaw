@@ -508,6 +508,10 @@ class AppLocalizationsKo extends AppLocalizations {
   String get whatsNew020Fix2 => '항목이 두 개 이상인 채널 목록이 저장 시 올바르게 유지됩니다.';
 
   @override
+  String get whatsNew021Fix1 =>
+      '번들로 제공되는 Git이 저장소를 복제하거나 브랜치를 업데이트할 때 더 이상 충돌하지 않습니다.';
+
+  @override
   String get settingsGroupConnection => '연결';
 
   @override

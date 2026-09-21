@@ -179,6 +179,7 @@
   "whatsNew020Improvement11": "このアップデート後、通知の設定を一度ご確認いただくことをおすすめします。",
   "whatsNew020Fix1": "以前の実行が残した古いプロセス記録からゲートウェイが復帰するようになりました。",
   "whatsNew020Fix2": "複数の項目を持つチャンネル一覧が保存時に正しく保持されるようになりました。",
+  "whatsNew021Fix1": "同梱の Git がリポジトリのクローンやブランチの更新中にクラッシュしなくなりました。",
   "settingsGroupConnection": "接続",
   "settingsGroupAgent": "エージェント",
   "settingsGroupIntegrations": "連携",

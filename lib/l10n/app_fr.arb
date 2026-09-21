@@ -179,6 +179,7 @@
   "whatsNew020Improvement11": "Après cette mise à jour, il vaut la peine de vérifier une fois vos préférences de notification.",
   "whatsNew020Fix1": "La passerelle se rétablit désormais après un enregistrement de processus obsolète laissé par une exécution précédente.",
   "whatsNew020Fix2": "Les listes de canaux comportant plusieurs entrées sont correctement conservées lors de l'enregistrement.",
+  "whatsNew021Fix1": "Le Git intégré ne plante plus lors du clonage d'un dépôt ou de la mise à jour d'une branche.",
   "settingsGroupConnection": "Connexion",
   "settingsGroupAgent": "Agent",
   "settingsGroupIntegrations": "Intégrations",

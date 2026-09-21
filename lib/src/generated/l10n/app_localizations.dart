@@ -1030,6 +1030,12 @@ abstract class AppLocalizations {
   /// **'Channel lists with more than one entry are preserved correctly when settings are saved.'**
   String get whatsNew020Fix2;
 
+  /// No description provided for @whatsNew021Fix1.
+  ///
+  /// In en, this message translates to:
+  /// **'The bundled Git no longer crashes while cloning a repository or updating a branch.'**
+  String get whatsNew021Fix1;
+
   /// Settings section label above the address, port and public mode controls
   ///
   /// In en, this message translates to:

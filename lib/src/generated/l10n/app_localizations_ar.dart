@@ -523,6 +523,10 @@ class AppLocalizationsAr extends AppLocalizations {
       'يتم الآن حفظ قوائم القنوات التي تحتوي أكثر من عنصر واحد بشكل صحيح.';
 
   @override
+  String get whatsNew021Fix1 =>
+      'لم يعد Git المضمّن ينهار أثناء استنساخ مستودع أو تحديث فرع.';
+
+  @override
   String get settingsGroupConnection => 'الاتصال';
 
   @override

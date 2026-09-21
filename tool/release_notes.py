@@ -32,12 +32,43 @@ SECTION_TITLES = {
 }
 
 
+def current_release_source(dart_source: str) -> str:
+    """Narrows the source to the one release the app actually renders.
+
+    The file keeps each shipped release and names the live one through
+    currentWhatsNewRelease. Parsing the whole file would concatenate two
+    releases into a single set of notes -- two "Fixes" headings, and a patch
+    release described with the previous release's bullets.
+    """
+    named = re.search(r"currentWhatsNewRelease\s*=\s*(\w+)\s*;", dart_source)
+    if not named:
+        raise SystemExit("release notes: no currentWhatsNewRelease in whats_new_release.dart")
+    opening = re.search(
+        rf"final WhatsNewRelease {named.group(1)}\s*=\s*WhatsNewRelease\(",
+        dart_source,
+    )
+    if not opening:
+        raise SystemExit(
+            f"release notes: {named.group(1)} is not defined in whats_new_release.dart"
+        )
+    depth = 0
+    for index in range(opening.end() - 1, len(dart_source)):
+        if dart_source[index] == "(":
+            depth += 1
+        elif dart_source[index] == ")":
+            depth -= 1
+            if depth == 0:
+                return dart_source[opening.start():index + 1]
+    raise SystemExit("release notes: unterminated WhatsNewRelease literal")
+
+
 def parse_release(dart_source: str) -> tuple[str, list[tuple[str, list[str]]]]:
     """Reads the version and the ordered bullet keys per section.
 
     Parsed rather than duplicated: a bullet added to the Dart list but not here
     would be exactly the drift this exists to prevent.
     """
+    dart_source = current_release_source(dart_source)
     version = re.search(r"version:\s*'([^']+)'", dart_source)
     if not version:
         raise SystemExit("release notes: no version in whats_new_release.dart")

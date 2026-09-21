@@ -534,6 +534,10 @@ class AppLocalizationsDe extends AppLocalizations {
       'Kanallisten mit mehreren Einträgen bleiben beim Speichern korrekt erhalten.';
 
   @override
+  String get whatsNew021Fix1 =>
+      'Das mitgelieferte Git stürzt beim Klonen eines Repositorys oder beim Aktualisieren eines Branch nicht mehr ab.';
+
+  @override
   String get settingsGroupConnection => 'Verbindung';
 
   @override

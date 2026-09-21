@@ -2,39 +2,8 @@
      the source is lib/src/whats_new/whats_new_release.dart and
      lib/l10n/app_en.arb, which are what the app itself renders. -->
 
-# PocketClaw 0.2.0
-
-## New
-
-- Managed Runtime installs and keeps PocketClaw's bundled tools up to date for you.
-- Bundled developer tools: Git, GitHub CLI, curl, ripgrep, jq and SQLite.
-- Support for PocketClaw's bundled Python 3.14 runtime.
-- Secure GitHub sign-in, shared by the bundled Git and GitHub CLI.
-- One-tap Telegram setup: PocketClaw creates your own bot, in the app or from the Dashboard in a browser. There is no token to copy, and only your own account can talk to it.
-- Telegram management from the Dashboard: connect a bot, replace it, or disconnect it.
-- A Status view on the Dashboard: active work, channels, the model in use and runtime resources.
-- Provider and model management in the Dashboard: add a provider, rotate an API key, or remove a model.
-
-## Improvements
-
-- More resilient providers: a failing request no longer ends the turn.
-- A more accurate Managed Runtime catalog.
-- A cleaner PocketClaw identity across the web interface and the default workspace.
-- A new app icon and a refreshed About screen, drawn from PocketClaw's Aperture design.
-- Assistant replies read more naturally, without a fixed sign-off at the end.
-- PocketClaw no longer asks for the Phone permission — nothing in the app used it.
-- Diagnostic logs are now kept privately inside the app instead of in your Downloads folder. Your workspace stays where it was.
-- A substantial upgrade to how PocketClaw keeps its state and runs its services, for steadier day-to-day reliability.
-- Telegram settings apply as soon as you save them, with no manual restart.
-- When no AI model is set up, PocketClaw says exactly what is missing and gives you a code to look up.
-- Signing in to the Dashboard takes you to the screen you asked for.
-- Diagnostic logs stay detailed without ever containing your keys, tokens or message text.
-- A Dashboard nobody has claimed yet is never reachable from the network, even with Public Mode on.
-- After this update, the Dashboard asks you to sign in once more.
-- After this update, the Web chat channel starts a new conversation.
-- After this update, it is worth checking your notification preferences once.
+# PocketClaw 0.2.1
 
 ## Fixes
 
-- The Gateway now recovers from a stale process record left behind by an earlier run.
-- Channel lists with more than one entry are preserved correctly when settings are saved.
+- The bundled Git no longer crashes while cloning a repository or updating a branch.
