@@ -35,7 +35,7 @@ import { Button } from "@/components/ui/button"
 import { Switch } from "@/components/ui/switch"
 import { useGateway } from "@/hooks/use-gateway"
 import { TELEGRAM_UPDATED_EVENT } from "@/lib/pocketclaw-host"
-import { showSaveSuccessOrRestartToast } from "@/lib/restart-required"
+import { saveAndApplyGatewayConfig } from "@/lib/restart-required"
 import { refreshGatewayState } from "@/store/gateway"
 
 interface ChannelConfigPageProps {
@@ -486,20 +486,28 @@ export function ChannelConfigPage({ channelName }: ChannelConfigPageProps) {
     setServerError("")
     setFieldErrors({})
     try {
-      const savePayload = buildSavePayload(channel, preparedEditConfig, enabled)
-      await patchAppConfig({
-        channel_list: {
-          [channel.config_key]: savePayload,
+      // PC-DEF-030. Saving a channel used to end by telling the user a Gateway
+      // restart was required, which made applying their own configuration a
+      // manual step they had to know about. Saving applies it now, through the
+      // same helper the models pages already use; a gateway that is busy
+      // leaves it pending and its own idle notification picks it up.
+      await saveAndApplyGatewayConfig(t, {
+        save: async () => {
+          const savePayload = buildSavePayload(
+            channel,
+            preparedEditConfig,
+            enabled,
+          )
+          await patchAppConfig({
+            channel_list: {
+              [channel.config_key]: savePayload,
+            },
+          })
+          await loadData()
         },
+        savedMessage: t("channels.page.saveSuccess"),
+        name: channelDisplayName,
       })
-      await loadData()
-      const gateway = await refreshGatewayState({ force: true })
-      showSaveSuccessOrRestartToast(
-        t,
-        t("channels.page.saveSuccess"),
-        channelDisplayName,
-        gateway?.restartRequired === true,
-      )
     } catch (e) {
       const message =
         e instanceof Error ? e.message : t("channels.page.saveError")

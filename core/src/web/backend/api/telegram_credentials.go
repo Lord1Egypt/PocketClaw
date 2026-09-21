@@ -1,0 +1,388 @@
+package api
+
+import (
+	"bytes"
+	"context"
+	"crypto/subtle"
+	"encoding/json"
+	"errors"
+	"io"
+	"net/http"
+	"net/url"
+	"os"
+	"strings"
+	"time"
+
+	"github.com/sipeed/picoclaw/pkg/commands"
+	"github.com/sipeed/picoclaw/pkg/config"
+	"github.com/sipeed/picoclaw/pkg/logger"
+)
+
+// TelegramCredentialValidator proves a candidate token before it can replace
+// the committed Telegram configuration.
+type TelegramCredentialValidator func(
+	ctx context.Context,
+	token string,
+	baseURL string,
+	proxy string,
+) error
+
+// The candidate outcomes the writer distinguishes. Invalid credentials and a
+// bot owned by another service are all terminal for the candidate, but they are
+// not the same user-facing problem, so they are separate sentinels rather than
+// one "validation failed".
+var (
+	ErrTelegramCredentialsInvalid = errors.New("telegram credentials invalid")
+	ErrTelegramWebhookConflict    = errors.New("telegram webhook conflict")
+	ErrTelegramBotInUse           = errors.New("telegram bot already in use")
+)
+
+const telegramCredentialValidationTimeout = 10 * time.Second
+
+func (h *Handler) validateTelegramCredentials(
+	ctx context.Context,
+	token string,
+	baseURL string,
+	proxy string,
+) error {
+	validator := h.telegramCredentialValidator
+	if validator == nil {
+		validator = validateTelegramCredentials
+	}
+	return validator(ctx, token, baseURL, proxy)
+}
+
+// telegramValidationResponse is the parsed envelope of a Bot API call made
+// during candidate validation. It never carries the token or the request URL.
+type telegramValidationResponse struct {
+	StatusCode  int
+	OK          bool
+	ErrorCode   int
+	Result      json.RawMessage
+	Description string
+}
+
+// validateTelegramCredentials is the replacement transaction's pre-commit gate.
+//
+// getMe proves only that the token is valid. It does not prove that PocketClaw
+// can own the update stream: a bot attached to another service answers getMe
+// normally and then refuses getUpdates. So the candidate is proved on three
+// facts, and only the last one is allowed to touch the returned configuration:
+//
+//  1. getMe succeeds -- the token is valid.
+//  2. getWebhookInfo shows no active webhook. This is non-destructive: the
+//     webhook is never deleted, replaced or otherwise mutated. Taking over
+//     somebody else's bot is not PocketClaw's decision.
+//  3. a getUpdates probe is accepted. A 409 here means another long poller owns
+//     the bot right now.
+//
+// The probe deliberately carries NO offset. Telegram documents that a negative
+// offset retrieves updates from the end of the queue and forgets all earlier
+// ones, so it would silently discard exactly the pending first /start that
+// PC-DEF-061 exists to preserve. With no offset, an update is returned but not
+// confirmed: Telegram confirms an update only when a later getUpdates is called
+// with an offset higher than its update_id. This call never advances the offset,
+// so every pending update remains available to the real channel Start, which
+// polls from an unset offset.
+//
+// A decisive conflict or 401 rejects the candidate; a transport or unexpected
+// error is not treated as a conflict, so a valid token is never refused because
+// of a transient network failure. The real getUpdates 409 path remains the
+// runtime backstop.
+func validateTelegramCredentials(
+	ctx context.Context,
+	token string,
+	baseURL string,
+	proxy string,
+) error {
+	client, apiRoot, err := telegramValidationHTTP(baseURL, proxy)
+	if err != nil {
+		return errors.New("telegram credential validation unavailable")
+	}
+
+	validationCtx, cancel := context.WithTimeout(ctx, telegramCredentialValidationTimeout)
+	defer cancel()
+
+	// 1. The token must be valid.
+	me, err := telegramValidationCall(validationCtx, client, apiRoot, token, "getMe", nil)
+	if err != nil {
+		return errors.New("telegram credential validation unavailable")
+	}
+	if me.decisiveStatus() == http.StatusUnauthorized {
+		return ErrTelegramCredentialsInvalid
+	}
+	if !me.OK {
+		return errors.New("telegram credential validation rejected")
+	}
+
+	// 2. Non-destructive webhook check.
+	webhook, err := telegramValidationCall(validationCtx, client, apiRoot, token, "getWebhookInfo", nil)
+	if err == nil && webhook.OK {
+		var info struct {
+			URL string `json:"url"`
+		}
+		if json.Unmarshal(webhook.Result, &info) == nil && strings.TrimSpace(info.URL) != "" {
+			return ErrTelegramWebhookConflict
+		}
+	}
+	// A webhook check that cannot be read is not a conflict. The getUpdates
+	// probe below still catches an active webhook with a 409.
+
+	// 3. Can PocketClaw own the update stream?
+	//
+	// No offset field: see the function comment. This one short call confirms
+	// nothing and drops nothing.
+	probeBody := bytes.NewReader([]byte(`{"limit":1,"timeout":0}`))
+	probe, err := telegramValidationCall(validationCtx, client, apiRoot, token, "getUpdates", probeBody)
+	if err != nil {
+		// A transport error is not a conflict; do not reject a valid candidate.
+		return nil
+	}
+	switch probe.decisiveStatus() {
+	case http.StatusUnauthorized:
+		return ErrTelegramCredentialsInvalid
+	case http.StatusConflict:
+		// The 409 is authoritative; the subtype is decided by a fresh,
+		// non-destructive webhook re-check, not by matching English prose.
+		if validationConflictReason(validationCtx, client, apiRoot, token, probe.Description) == "webhook_active" {
+			return ErrTelegramWebhookConflict
+		}
+		return ErrTelegramBotInUse
+	}
+	return nil
+}
+
+// validationConflictReason resolves a getUpdates 409 to a safe subtype. It asks
+// Telegram for the current webhook non-destructively: a configured URL means the
+// conflict is a webhook; no URL means another long poller owns the bot. The
+// description is used only as a fallback when the re-check cannot be read, and
+// never as the primary signal.
+func validationConflictReason(
+	ctx context.Context,
+	client *http.Client,
+	apiRoot, token, fallbackDescription string,
+) string {
+	webhook, err := telegramValidationCall(ctx, client, apiRoot, token, "getWebhookInfo", nil)
+	if err == nil && webhook.OK {
+		var info struct {
+			URL string `json:"url"`
+		}
+		if json.Unmarshal(webhook.Result, &info) == nil {
+			if strings.TrimSpace(info.URL) != "" {
+				return "webhook_active"
+			}
+			return "bot_in_use"
+		}
+	}
+	if strings.Contains(strings.ToLower(fallbackDescription), "webhook") {
+		return "webhook_active"
+	}
+	return "bot_in_use"
+}
+
+// decisiveStatus is the HTTP status that classifies a validation call, or 0
+// when the answer is not decisive. Telegram answers 401 for a bad credential and
+// 409 for a bot owned elsewhere; everything else is informational here.
+func (r telegramValidationResponse) decisiveStatus() int {
+	if r.StatusCode == http.StatusUnauthorized || r.ErrorCode == http.StatusUnauthorized {
+		return http.StatusUnauthorized
+	}
+	if r.StatusCode == http.StatusConflict || r.ErrorCode == http.StatusConflict {
+		return http.StatusConflict
+	}
+	return 0
+}
+
+func telegramValidationHTTP(baseURL, proxy string) (*http.Client, string, error) {
+	apiRoot := strings.TrimRight(strings.TrimSpace(baseURL), "/")
+	if apiRoot == "" {
+		apiRoot = "https://api.telegram.org"
+	}
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	if strings.TrimSpace(proxy) != "" {
+		proxyURL, err := url.Parse(proxy)
+		if err != nil {
+			return nil, "", err
+		}
+		transport.Proxy = http.ProxyURL(proxyURL)
+	} else if os.Getenv("HTTP_PROXY") != "" || os.Getenv("HTTPS_PROXY") != "" {
+		transport.Proxy = http.ProxyFromEnvironment
+	}
+	return &http.Client{Transport: transport}, apiRoot, nil
+}
+
+// telegramValidationCall issues one Bot API method and parses its envelope. It
+// never logs or returns the request URL, which contains the candidate token.
+func telegramValidationCall(
+	ctx context.Context,
+	client *http.Client,
+	apiRoot, token, method string,
+	body io.Reader,
+) (telegramValidationResponse, error) {
+	if body == nil {
+		body = bytes.NewReader([]byte("{}"))
+	}
+	req, err := http.NewRequestWithContext(
+		ctx, http.MethodPost, apiRoot+"/bot"+token+"/"+method, body,
+	)
+	if err != nil {
+		return telegramValidationResponse{}, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return telegramValidationResponse{}, err
+	}
+	defer resp.Body.Close()
+
+	result := telegramValidationResponse{StatusCode: resp.StatusCode}
+	var envelope struct {
+		OK          bool            `json:"ok"`
+		ErrorCode   int             `json:"error_code"`
+		Description string          `json:"description"`
+		Result      json.RawMessage `json:"result"`
+	}
+	if decodeErr := json.NewDecoder(io.LimitReader(resp.Body, 256<<10)).Decode(&envelope); decodeErr != nil {
+		return result, nil
+	}
+	result.OK = envelope.OK
+	result.ErrorCode = envelope.ErrorCode
+	result.Description = envelope.Description
+	result.Result = envelope.Result
+	return result, nil
+}
+
+// telegramCandidateIsAuthoritativeRunningBot reports that this candidate is
+// already the committed credential *and* that PocketClaw's own Telegram channel
+// is the live getUpdates owner for it.
+//
+// PC-DEF-073. It exists to keep one invariant: PocketClaw must never issue a
+// competing getUpdates against its own active generation. Telegram permits one
+// long-polling consumer per bot, so the validation probe aimed at a bot this
+// install is already polling makes Telegram answer 409 to one of the two — and
+// the runtime's 409 handling is terminal with no retry, so PocketClaw would
+// retire a healthy generation on its own evidence.
+//
+// Every condition below has to hold, and each is doing work:
+//
+//   - The candidate must equal the committed token byte for byte. Compared in
+//     constant time: this is credential material, and a length-or-prefix
+//     shortcut is the thing that turns a comparison into an oracle.
+//   - No config apply may be pending or in flight. While one is, the running
+//     gateway may be holding a *different* credential from the one on disk, so
+//     the snapshot cannot vouch for this token.
+//   - The gateway's own Telegram channel must be Running with a non-zero polling
+//     generation and no runtime failure. That is the authoritative statement
+//     that this process owns the update stream right now.
+//
+// When it answers false — a different token, or the same token that this install
+// is not authoritatively polling — the caller runs the full validation
+// unchanged, so a genuine webhook conflict, another poller, or an invalid
+// credential is detected exactly as before.
+func (h *Handler) telegramCandidateIsAuthoritativeRunningBot(
+	candidate string,
+	settings *config.TelegramSettings,
+) bool {
+	if settings == nil {
+		return false
+	}
+	candidate = strings.TrimSpace(candidate)
+	committed := strings.TrimSpace(settings.Token.String())
+	if candidate == "" || committed == "" || len(candidate) != len(committed) {
+		return false
+	}
+	if subtle.ConstantTimeCompare([]byte(candidate), []byte(committed)) != 1 {
+		return false
+	}
+	// A parked or in-flight apply means the live gateway and the committed
+	// configuration can disagree, and the snapshot then proves nothing about
+	// this token.
+	if configApplyInProgress() {
+		return false
+	}
+	channel, err := h.gatewayTelegramChannelStatus()
+	if err != nil || channel == nil {
+		return false
+	}
+	if !channel.Running || channel.RuntimeFailure != "" {
+		return false
+	}
+	return channel.PollingGeneration != nil && *channel.PollingGeneration != 0
+}
+
+// telegramOwnerGreetingTimeout bounds the one greeting attempt. Short on
+// purpose: the credential is already committed, and a slow Telegram must not
+// hold the pairing response open.
+const telegramOwnerGreetingTimeout = 10 * time.Second
+
+// greetTelegramOwnerAfterPairing answers the Start press that completed a
+// managed pairing.
+//
+// PC-DEF-061. The owner presses Telegram's Start exactly once, and that press
+// is what completes the pairing: the onboarding service holds a webhook on the
+// child bot and receives the `/start` itself — that is the only way it can
+// learn `owner_user_id` for a bot nobody has ever messaged (see
+// services/README.md). A webhook delivery is terminal; Telegram does not also
+// queue the update for getUpdates. So by the time PocketClaw owns the bot there
+// is nothing left to receive, the built-in `/start` path is never reached
+// because it has no input, and the owner is left looking at their own `/start`
+// with no reply under it until they send a second message.
+//
+// None of that is a polling defect, and no amount of intake ordering can fix
+// it: the update was consumed before this install held the credential. The
+// writer that commits the credential is the one place that can honour the
+// press, so it sends the same built-in reply the `/start` handler would have.
+//
+// Why here and not in the channel: this is an outbound sendMessage, not an
+// intake, so it cannot compete with the poller the way a getUpdates probe would
+// (PC-DEF-073). It needs no persistence and no readiness wait, and it runs
+// exactly once per committed pairing because this function does.
+//
+// The inbound `/start` path is deliberately unchanged. Manual setup has no
+// service webhook eating its `/start`, and a later `/start` is a fresh request
+// that still gets its own reply.
+//
+// Best effort by contract: the credential is already committed and the channel
+// works either way, so a failure is logged as a fact and never retried,
+// escalated, or allowed to fail the pairing. Nothing here logs the token, the
+// owner id, or any message content.
+func (h *Handler) greetTelegramOwnerAfterPairing(
+	ctx context.Context,
+	settings *config.TelegramSettings,
+	token string,
+	ownerUserID int64,
+) {
+	if settings == nil || strings.TrimSpace(token) == "" || ownerUserID <= 0 {
+		return
+	}
+	client, apiRoot, err := telegramValidationHTTP(settings.BaseURL, settings.Proxy)
+	if err != nil {
+		logger.DebugC("telegram", "Owner greeting unavailable: no usable Bot API transport")
+		return
+	}
+	greetCtx, cancel := context.WithTimeout(ctx, telegramOwnerGreetingTimeout)
+	defer cancel()
+
+	// The owner's private chat id is their user id, and that chat provably
+	// exists: pressing Start is what created it.
+	payload, err := json.Marshal(map[string]any{
+		"chat_id": ownerUserID,
+		"text":    commands.StartReplyText,
+	})
+	if err != nil {
+		return
+	}
+	response, err := telegramValidationCall(
+		greetCtx, client, apiRoot, token, "sendMessage", bytes.NewReader(payload),
+	)
+	if err != nil || !response.OK {
+		// Named as the fact it is, with no identity and no Telegram description:
+		// the description can quote the chat. The owner can still send /start.
+		logger.InfoCF("telegram", "Could not deliver the pairing greeting to the owner",
+			map[string]any{"surface": "telegram_pairing", "delivered": false})
+		return
+	}
+	logger.InfoCF("telegram", "Delivered the pairing greeting to the owner",
+		map[string]any{"surface": "telegram_pairing", "delivered": true})
+}

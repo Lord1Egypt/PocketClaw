@@ -9,9 +9,14 @@ artifact that should have been refused.
 """
 
 import importlib.util
+import json
 import sys
+import tempfile
 import unittest
+import zipfile
 from pathlib import Path, PurePosixPath
+
+import r8_contract
 
 spec = importlib.util.spec_from_file_location(
     "release_gate", Path(__file__).resolve().parent / "release_gate.py")
@@ -27,6 +32,18 @@ PASS, FAIL, SKIP = gate_module.PASS, gate_module.FAIL, gate_module.SKIP
 # A Core binary carries its BuildTime as a plain linker-written string.
 STAMPED = b"\x00padding\x00" + b"2026-09-08T04:02:42+0000" + b"\x00more\x00"
 DEV_ONLY = b"\x00padding\x00" + b"dev" + b"\x00more\x00"
+
+
+class PendingHardeningState(unittest.TestCase):
+    def test_h4b_is_not_reported_pending_after_production_validation(self):
+        self.assertNotIn(
+            "R8 production-signed validation pending",
+            gate_module.PENDING_FINAL_HARDENING,
+        )
+        self.assertIn(
+            "APK-level reproducibility not yet proven (required for F-Droid)",
+            gate_module.PENDING_FINAL_HARDENING,
+        )
 
 
 def status_of(gate, name):
@@ -189,6 +206,284 @@ class ManagedRuntimeCountTest(unittest.TestCase):
         self.assertIn("artifact.core_matches_staged", source)
         self.assertIn("core.staged_freshness", source)
         self.assertIn('CORE_LIBS = ("libpocketclaw.so", "libpocketclaw-web.so")', source)
+
+
+class DartHardeningEvidenceTest(unittest.TestCase):
+    def make_symbols(self, directory):
+        path = Path(directory) / "app.android-arm64.symbols"
+        path.write_bytes(
+            b"\x7fELF.debug_info.debug_line\0"
+            + b"\0".join(gate_module.DART_APP_SYMBOL_MARKERS)
+        )
+        return path
+
+    def test_hardened_artifact_requires_both_public_and_private_evidence(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            symbols = self.make_symbols(tmp)
+            app = b"\x7fELF" + gate_module.DART_GENERATED_REGISTRANT_URI
+            gate = Gate()
+            gate_module.dart_hardening_gates(gate, app, ["lib/arm64-v8a/libapp.so"], symbols)
+            for name in (
+                "artifact.dart_split_debug_info",
+                "artifact.dart_generated_source_uri",
+                "artifact.dart_obfuscation",
+                "artifact.dart_symbols_private",
+            ):
+                self.assertEqual(status_of(gate, name), PASS)
+
+    def test_host_uri_strategy_cannot_pass_without_controlled_package_uri(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            symbols = self.make_symbols(tmp)
+            app = b"file:///home/person/checkout/dart_plugin_registrant.dart"
+            gate = Gate()
+            gate_module.dart_hardening_gates(gate, app, ["lib/arm64-v8a/libapp.so"], symbols)
+            self.assertEqual(status_of(gate, "artifact.dart_generated_source_uri"), FAIL)
+
+    def test_unobfuscated_name_fails_even_when_split_info_exists(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            symbols = self.make_symbols(tmp)
+            app = gate_module.DART_GENERATED_REGISTRANT_URI + gate_module.DART_APP_SYMBOL_MARKERS[0]
+            gate = Gate()
+            gate_module.dart_hardening_gates(gate, app, ["lib/arm64-v8a/libapp.so"], symbols)
+            self.assertEqual(status_of(gate, "artifact.dart_obfuscation"), FAIL)
+
+    def test_packaged_private_symbols_fail(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            symbols = self.make_symbols(tmp)
+            app = gate_module.DART_GENERATED_REGISTRANT_URI
+            gate = Gate()
+            gate_module.dart_hardening_gates(
+                gate,
+                app,
+                ["lib/arm64-v8a/libapp.so", "assets/private-symbols/app.android-arm64.symbols"],
+                symbols,
+            )
+            self.assertEqual(status_of(gate, "artifact.dart_symbols_private"), FAIL)
+
+
+class R8HardeningEvidenceTest(unittest.TestCase):
+    def make_outputs(self, directory: Path, packaged_mapping=False):
+        apk = directory / "app-release.apk"
+        mapping = directory / "mapping.txt"
+        lines = [f"{name} -> {name}:" for name in r8_contract.REQUIRED_COMPONENTS]
+        lines += [
+            f"{name} -> gate.{index}:"
+            for index, name in enumerate(r8_contract.INTERNAL_CLASSES)
+        ]
+        mapping.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        mapping.with_name("usage.txt").write_text("removed.Class\n", encoding="utf-8")
+        with zipfile.ZipFile(apk, "w") as archive:
+            archive.writestr("classes.dex", b"dex\n035\0obfuscated")
+            if packaged_mapping:
+                archive.writestr("assets/mapping.txt", mapping.read_bytes())
+        return apk, mapping
+
+    def test_gate_records_effective_private_r8_evidence(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            apk, mapping = self.make_outputs(Path(tmp))
+            gate = Gate()
+            gate_module.r8_hardening_gates(gate, apk, mapping)
+            for name in (
+                "artifact.r8_mapping",
+                "artifact.r8_shrinking",
+                "artifact.r8_obfuscation",
+                "artifact.r8_entry_points",
+            ):
+                self.assertEqual(status_of(gate, name), PASS)
+
+    def test_mapping_privacy_is_checked_independently_of_mapping_evidence(self):
+        """PC-DEF-021: it is a property of the artifact, so it stands alone.
+
+        It used to live inside r8_hardening_gates, which meant it only ran when
+        --r8-mapping was supplied and never ran at all when the R8 contract
+        raised first — the one case it was written for.
+        """
+        with tempfile.TemporaryDirectory() as tmp:
+            clean, _ = self.make_outputs(Path(tmp))
+            gate = Gate()
+            gate_module.deobfuscation_privacy_gate(gate, clean)
+            self.assertEqual(status_of(gate, "artifact.r8_mapping_private"), PASS)
+            self.assertIn("entries scanned",
+                          next(r.observed for r in gate.results
+                               if r.name == "artifact.r8_mapping_private"))
+
+        with tempfile.TemporaryDirectory() as tmp:
+            leaky, _ = self.make_outputs(Path(tmp), packaged_mapping=True)
+            gate = Gate()
+            gate_module.deobfuscation_privacy_gate(gate, leaky)
+            self.assertEqual(status_of(gate, "artifact.r8_mapping_private"), FAIL)
+
+    def test_gate_refuses_packaged_mapping(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            apk, mapping = self.make_outputs(Path(tmp), packaged_mapping=True)
+            gate = Gate()
+            gate_module.r8_hardening_gates(gate, apk, mapping)
+            self.assertEqual(status_of(gate, "artifact.r8_contract"), FAIL)
+
+
+
+
+# ---------------------------------------------------------------------------
+# PC-DEF-025: the complete Flutter suite is the release acceptance criterion.
+#
+# Before this, the gate ran three named files. The other 25 test files could be
+# red -- and one was, for five milestones -- while the gate reported green. These
+# pin that the whole suite decides, that a failure cannot be reported as a pass,
+# and that the toolchain is resolved deterministically rather than from PATH.
+# ---------------------------------------------------------------------------
+
+def _flutter_json(events):
+    """Render reporter events as the newline-delimited JSON flutter emits."""
+    return "\n".join(json.dumps(event) for event in events) + "\n"
+
+
+def _suite_events(results):
+    """results: {suite path: [(test name, 'success'|'failure'), ...]}"""
+    events = [{"type": "start"}]
+    test_id = 0
+    for suite_id, (path, tests) in enumerate(results.items()):
+        events.append({"type": "suite", "suite": {"id": suite_id, "path": path}})
+        for name, result in tests:
+            test_id += 1
+            events.append({"type": "testStart",
+                           "test": {"id": test_id, "name": name, "suiteID": suite_id}})
+            events.append({"type": "testDone", "testID": test_id,
+                           "result": result, "hidden": False})
+    events.append({"type": "done"})
+    return events
+
+
+class FlutterSuiteGate(unittest.TestCase):
+    def setUp(self):
+        self._real_run = gate_module.run
+        self._real_find = gate_module.find_flutter
+        self.addCleanup(setattr, gate_module, "run", self._real_run)
+        self.addCleanup(setattr, gate_module, "find_flutter", self._real_find)
+        self.commands = []
+
+    def install(self, rc, events, flutter="/pinned/flutter"):
+        gate_module.find_flutter = lambda: Path(flutter) if flutter else None
+
+        def fake_run(cmd, cwd=None, env=None):
+            self.commands.append([str(part) for part in cmd])
+            return rc, _flutter_json(events) if events is not None else ""
+
+        gate_module.run = fake_run
+
+    def test_full_suite_success_passes_every_flutter_gate(self):
+        self.install(0, _suite_events({
+            "test/unit/android_release_contract_test.dart": [("a", "success")],
+            "test/unit/android_backup_exclusion_test.dart": [("b", "success")],
+            "test/unit/production_signing_contract_test.dart": [("c", "success")],
+            "test/unit/android_runtime_secret_placement_test.dart": [("d", "success")],
+            "test/unit/some_unrelated_test.dart": [("e", "success")],
+        }))
+        gate = Gate()
+        gate_module.flutter_suite_gates(gate)
+        for name in ("flutter.suite", "a1.contracts",
+                     "signing.production_contract", "a2.placement_guards"):
+            self.assertEqual(status_of(gate, name), PASS, name)
+        self.assertIn("5 passed, 0 failed", detail_of(gate, "flutter.suite"))
+
+    def test_one_failing_test_fails_the_gate(self):
+        """Even in a file none of the three named contracts covers."""
+        self.install(1, _suite_events({
+            "test/unit/android_release_contract_test.dart": [("a", "success")],
+            "test/unit/namespace_n3_native_identity_test.dart": [
+                ("the build script still consumes the upstream artifact names",
+                 "failure"),
+            ],
+        }))
+        gate = Gate()
+        gate_module.flutter_suite_gates(gate)
+        self.assertEqual(status_of(gate, "flutter.suite"), FAIL)
+        # The named contracts are unaffected, which is the point: the suite gate
+        # is what catches a failure outside them.
+        self.assertEqual(status_of(gate, "a1.contracts"), PASS)
+
+    def test_the_failing_test_identity_is_reported(self):
+        self.install(1, _suite_events({
+            "test/unit/namespace_n3_native_identity_test.dart": [
+                ("upstream artifact names", "failure")],
+        }))
+        gate = Gate()
+        gate_module.flutter_suite_gates(gate)
+        detail = detail_of(gate, "flutter.suite")
+        self.assertIn("namespace_n3_native_identity_test.dart", detail)
+        self.assertIn("upstream artifact names", detail)
+
+    def test_output_is_bounded(self):
+        """A hundred failures must not become a hundred-line gate line."""
+        self.install(1, _suite_events({
+            f"test/unit/suite_{i}_test.dart": [(f"t{i}", "failure")]
+            for i in range(100)
+        }))
+        gate = Gate()
+        gate_module.flutter_suite_gates(gate)
+        detail = detail_of(gate, "flutter.suite")
+        self.assertEqual(status_of(gate, "flutter.suite"), FAIL)
+        self.assertLess(len(detail), 400, "gate output is unbounded")
+        self.assertIn("more suite(s)", detail)
+
+    def test_nonzero_exit_can_never_be_reported_as_pass(self):
+        """Exit code is authoritative even when every parsed test passed."""
+        self.install(1, _suite_events({
+            "test/unit/a_test.dart": [("a", "success")],
+        }))
+        gate = Gate()
+        gate_module.flutter_suite_gates(gate)
+        self.assertEqual(status_of(gate, "flutter.suite"), FAIL)
+
+    def test_exit_zero_with_no_results_is_not_a_pass(self):
+        """A suite that did not run must not look like a suite that passed."""
+        self.install(0, [])
+        gate = Gate()
+        gate_module.flutter_suite_gates(gate)
+        self.assertEqual(status_of(gate, "flutter.suite"), FAIL)
+        self.assertIn("no test results", detail_of(gate, "flutter.suite"))
+
+    def test_gate_runs_the_whole_suite_not_named_files(self):
+        self.install(0, _suite_events({"test/unit/a_test.dart": [("a", "success")]}))
+        gate = Gate()
+        gate_module.flutter_suite_gates(gate)
+        self.assertEqual(len(self.commands), 1, "the suite must run exactly once")
+        command = self.commands[0]
+        self.assertEqual(command[:2], ["/pinned/flutter", "test"])
+        self.assertNotIn("test/unit/android_release_contract_test.dart", command)
+        self.assertNotIn("test/unit/production_signing_contract_test.dart", command)
+        self.assertNotIn("test/unit/android_runtime_secret_placement_test.dart", command)
+
+    def test_missing_toolchain_skips_rather_than_passes(self):
+        self.install(0, [], flutter=None)
+        gate = Gate()
+        gate_module.flutter_suite_gates(gate)
+        for name in ("flutter.suite", "a1.contracts",
+                     "signing.production_contract", "a2.placement_guards"):
+            self.assertEqual(status_of(gate, name), SKIP, name)
+
+    def test_named_contract_fails_when_its_own_file_fails(self):
+        self.install(1, _suite_events({
+            "test/unit/production_signing_contract_test.dart": [("x", "failure")],
+        }))
+        gate = Gate()
+        gate_module.flutter_suite_gates(gate)
+        self.assertEqual(status_of(gate, "signing.production_contract"), FAIL)
+        self.assertEqual(status_of(gate, "a1.contracts"), PASS)
+
+
+class FlutterToolchainResolution(unittest.TestCase):
+    def test_repository_toolchain_is_preferred_over_path(self):
+        """Deterministic: the gate must not depend on the caller's PATH."""
+        source = (Path(gate_module.__file__)).read_text(encoding="utf-8")
+        locator = source.split("def find_flutter()")[1].split("\ndef ")[0]
+        pinned = locator.index("PocketCLaw/.tooling/flutter")
+        path_lookup = locator.index('shutil.which("flutter")')
+        self.assertLess(pinned, path_lookup,
+                        "PATH must be the last resort, not the first")
+        self.assertIn("FLUTTER_ROOT", locator)
+
+    def test_resolution_is_stable_across_calls(self):
+        self.assertEqual(gate_module.find_flutter(), gate_module.find_flutter())
 
 
 if __name__ == "__main__":

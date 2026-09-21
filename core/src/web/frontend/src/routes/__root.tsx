@@ -7,6 +7,7 @@ import { getLauncherAuthStatus } from "@/api/launcher-auth"
 import { AppLayout } from "@/components/app-layout"
 import { initializeChatStore } from "@/features/chat/controller"
 import { isLauncherAuthPathname } from "@/lib/launcher-login-path"
+import { launcherLoginUrlFor } from "@/lib/post-auth-destination"
 
 const RootLayout = () => {
   const { t } = useTranslation()
@@ -42,7 +43,15 @@ const RootLayout = () => {
         if (!s.initialized) {
           globalThis.location.assign("/launcher-setup")
         } else if (!s.authenticated) {
-          globalThis.location.assign("/launcher-login")
+          // PC-DEF-059. Remember where the user was going. Opening Manage Models
+          // from native Settings lands on /models; without this the login page
+          // sent them to / and the destination was lost.
+          globalThis.location.assign(
+            launcherLoginUrlFor(
+              globalThis.location.pathname,
+              globalThis.location.search,
+            ),
+          )
         }
       })
       .catch((err: unknown) => {
@@ -51,7 +60,12 @@ const RootLayout = () => {
         // do NOT redirect: a subsequent successful login would loop straight back here.
         // launcherFetch handles 401 on real API calls regardless.
         if (err instanceof Error && /^status 40[13]$/.test(err.message)) {
-          globalThis.location.assign("/launcher-login")
+          globalThis.location.assign(
+            launcherLoginUrlFor(
+              globalThis.location.pathname,
+              globalThis.location.search,
+            ),
+          )
         } else {
           setAuthError(
             err instanceof Error

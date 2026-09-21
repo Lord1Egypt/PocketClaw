@@ -604,24 +604,6 @@ func TestCreateProviderFromConfig_Anthropic(t *testing.T) {
 	}
 }
 
-func TestCreateProviderFromConfig_Antigravity(t *testing.T) {
-	cfg := &config.ModelConfig{
-		ModelName: "test-antigravity",
-		Model:     "antigravity/gemini-2.0-flash",
-	}
-
-	provider, modelID, err := CreateProviderFromConfig(cfg)
-	if err != nil {
-		t.Fatalf("CreateProviderFromConfig() error = %v", err)
-	}
-	if provider == nil {
-		t.Fatal("CreateProviderFromConfig() returned nil provider")
-	}
-	if modelID != "gemini-2.0-flash" {
-		t.Errorf("modelID = %q, want %q", modelID, "gemini-2.0-flash")
-	}
-}
-
 func TestCreateProviderFromConfig_Gemini(t *testing.T) {
 	cfg := &config.ModelConfig{
 		ModelName: "test-gemini",
@@ -1162,19 +1144,6 @@ func TestModelProviderOptions(t *testing.T) {
 			t.Fatal("elevenlabs should be ASR-only and therefore not allowed as a default chat model")
 		}
 	}
-	if option, ok := seen["antigravity"]; !ok {
-		t.Fatal("antigravity option missing")
-	} else {
-		if !option.CreateAllowed {
-			t.Fatal("antigravity should be creatable")
-		}
-		if option.DefaultAuthMethod != "oauth" {
-			t.Fatalf("antigravity default_auth_method = %q, want %q", option.DefaultAuthMethod, "oauth")
-		}
-		if !option.AuthMethodLocked {
-			t.Fatal("antigravity auth method should be locked")
-		}
-	}
 	if option, ok := seen["github-copilot"]; !ok {
 		t.Fatal("github-copilot option missing")
 	} else if option.DefaultAPIBase != "localhost:4321" {
@@ -1392,7 +1361,7 @@ const openaiCompatResponse = `{"choices":[{"message":{"content":"ok"},"finish_re
 const anthropicResponse = `{"content":[{"type":"text","text":"ok"}],"stop_reason":"end_turn","model":"claude-sonnet-4-20250514","usage":{"input_tokens":10,"output_tokens":5}}`
 
 func TestCreateProviderFromConfig_UserAgent(t *testing.T) {
-	defaultUA := "PicoClaw/" + config.Version
+	defaultUA := "PocketClaw/" + config.Version
 
 	tests := []struct {
 		name      string

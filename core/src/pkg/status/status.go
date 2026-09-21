@@ -106,6 +106,33 @@ type Channel struct {
 	Configured bool   `json:"configured"`
 	Started    bool   `json:"started"`
 	Running    bool   `json:"running"`
+
+	// CommandsRegistered is deliberately three-valued. Absent means this
+	// channel publishes no command menu, which is not the same as a menu that
+	// has not been published yet -- and a readiness gate that could not tell
+	// those apart would wait forever on a channel that was never going to
+	// report. False means not yet, true means the platform accepted it.
+	//
+	// PC-DEF-061. "Connected" has to mean ready for the owner's first message,
+	// and registration is asynchronous, so its outcome has to be observable.
+	CommandsRegistered *bool `json:"commands_registered,omitempty"`
+
+	// PollingGeneration is the local id of the polling owner this snapshot
+	// describes, when the channel publishes one. Absent means the channel does
+	// not poll. PC-DEF-061: readiness must name the generation it authorized so
+	// a superseded generation's success cannot be read as the current one's.
+	// It is a process-local counter, never an identity.
+	PollingGeneration *uint64 `json:"polling_generation,omitempty"`
+
+	// RuntimeFailure is a sanitized terminal code retained after a generation
+	// has stopped. Empty means no terminal failure is known.
+	RuntimeFailure string `json:"runtime_failure,omitempty"`
+
+	// OwnerMissing reports that this channel has a valid credential but no
+	// configured owner identity. It is an incomplete setup, never ready: the
+	// channel answers private senders with deterministic setup guidance and
+	// grants no agent access. Boolean only; carries no identity.
+	OwnerMissing bool `json:"owner_missing,omitempty"`
 }
 
 // Resources reports the Core process's own usage.

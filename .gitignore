@@ -16,10 +16,13 @@ android/app/build/
 *.pfx
 *.pem
 key.properties
+signing.properties
+keystore.properties
+*.keystore.properties
 
-# Release hardening output. Obfuscation and split debug info are the next
-# milestone; a symbols archive is the one artifact that must never be committed,
-# because it undoes the obfuscation it accompanies.
+# Private Dart release-support output. Split debug info preserves the names and
+# source metadata removed from the APK, so it must never enter Git or public
+# release assets. The canonical local output lives under build/private-symbols/.
 split-debug-info/
 symbols/
 *.symbols.zip
@@ -44,3 +47,10 @@ local.properties
 *.iml
 .DS_Store
 __pycache__/
+
+# Runtime state a Go test leaves beside the package it exercises when the agent
+# workspace is unset. pkg/coresource deliberately excludes stray JSON from the
+# Core fingerprint for the same reason; this keeps it out of the repository as
+# well, so `git add -A` after a test run cannot commit one.
+core/src/pkg/*/state/state.json
+core/src/pkg/*/*/state/state.json

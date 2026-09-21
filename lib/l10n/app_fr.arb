@@ -164,7 +164,7 @@
   "whatsNew020New2": "Outils de développement fournis : Git, GitHub CLI, curl, ripgrep, jq et SQLite.",
   "whatsNew020New3": "Prise en charge de l'environnement Python 3.14 fourni avec PocketClaw.",
   "whatsNew020New4": "Connexion sécurisée à GitHub, partagée par Git et la CLI GitHub fournis.",
-  "whatsNew020New5": "Intégration de Telegram, à configurer depuis les Paramètres.",
+  "whatsNew020New5": "Configuration de Telegram en un geste : PocketClaw crée votre propre bot, dans l'application ou depuis le tableau de bord dans un navigateur. Aucun jeton à copier, et seul votre compte peut lui parler.",
   "whatsNew020New6": "Une vue État sur le tableau de bord : travail en cours, canaux, modèle utilisé et ressources d'exécution.",
   "whatsNew020Improvement1": "Des fournisseurs plus robustes : une requête en échec ne met plus fin au tour.",
   "whatsNew020Improvement2": "Un catalogue de l'environnement d'exécution géré plus précis.",
@@ -218,5 +218,16 @@
   "statusDurationSeconds": "{seconds} s",
   "statusDurationMinutes": "{minutes} min {seconds} s",
   "statusDurationHours": "{hours} h {minutes} min",
-  "statusDurationDays": "{days} j {hours} h"
+  "statusDurationDays": "{days} j {hours} h",
+  "notificationPermissionTitle": "Notifications",
+  "notificationPermissionGranted": "PocketClaw peut afficher sa notification d'exécution.",
+  "notificationPermissionBlocked": "Les notifications sont désactivées, la notification d'exécution de PocketClaw n'apparaîtra donc pas.",
+  "notificationPermissionOpenSettings": "Ouvrir les paramètres de notification",
+  "whatsNew020New7": "Gestion de Telegram depuis le tableau de bord : connecter un bot, le remplacer ou le déconnecter.",
+  "whatsNew020New8": "Gestion des fournisseurs et des modèles dans le tableau de bord : ajouter un fournisseur, changer une clé d'API ou supprimer un modèle.",
+  "whatsNew020Improvement12": "Les réglages Telegram s'appliquent dès l'enregistrement, sans redémarrage manuel.",
+  "whatsNew020Improvement13": "Lorsqu'aucun modèle d'IA n'est configuré, PocketClaw indique précisément ce qui manque et vous donne un code à consulter.",
+  "whatsNew020Improvement14": "La connexion au tableau de bord vous ramène à l'écran que vous avez demandé.",
+  "whatsNew020Improvement15": "Les journaux de diagnostic restent détaillés sans jamais contenir vos clés, vos jetons ni le texte de vos messages.",
+  "whatsNew020Improvement16": "Un tableau de bord que personne n'a encore revendiqué n'est jamais joignable depuis le réseau, même avec le mode public activé."
 }

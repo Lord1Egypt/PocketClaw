@@ -23,22 +23,69 @@ type reqIDStore struct {
 }
 
 func newReqIDStore(path string) *reqIDStore {
+	legacyPath := ""
 	if path == "" {
-		path = defaultReqIDStorePath()
+		path, legacyPath = defaultReqIDStorePaths()
 	}
 	s := &reqIDStore{
 		path:   path,
 		routes: make(map[string]wecomRoute),
 	}
-	_ = s.load()
+	canonicalMissing := false
+	if legacyPath != "" {
+		_, statErr := os.Stat(path)
+		canonicalMissing = errors.Is(statErr, os.ErrNotExist)
+	}
+	if err := s.load(); err == nil && legacyPath != "" {
+		if canonicalMissing {
+			_ = s.migrateLegacy(legacyPath)
+		} else {
+			// Canonical state wins. A surviving old file is stale once the
+			// canonical store has loaded successfully.
+			_ = os.Remove(legacyPath)
+		}
+	}
 	return s
 }
 
 func defaultReqIDStorePath() string {
+	path, _ := defaultReqIDStorePaths()
+	return path
+}
+
+func defaultReqIDStorePaths() (canonical, legacy string) {
 	if home, err := os.UserHomeDir(); err == nil && home != "" {
-		return filepath.Join(home, ".picoclaw", "wecom", "reqid-store.json")
+		return filepath.Join(home, ".pocketclaw", "wecom", "reqid-store.json"),
+			filepath.Join(home, ".picoclaw", "wecom", "reqid-store.json")
 	}
-	return filepath.Join(os.TempDir(), "picoclaw-wecom-reqid-store.json")
+	return filepath.Join(os.TempDir(), "pocketclaw-wecom-reqid-store.json"),
+		filepath.Join(os.TempDir(), "picoclaw-wecom-reqid-store.json")
+}
+
+// migrateLegacy carries a still-live route table forward once, then removes
+// the old store. The old path is read-only: every write targets s.path.
+func (s *reqIDStore) migrateLegacy(legacyPath string) error {
+	data, err := os.ReadFile(legacyPath)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil
+		}
+		return err
+	}
+
+	var routes map[string]wecomRoute
+	if err := json.Unmarshal(data, &routes); err != nil {
+		return err
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.routes = routes
+	s.deleteExpiredLocked(time.Now())
+	if err := s.saveLocked(); err != nil {
+		return err
+	}
+	return os.Remove(legacyPath)
 }
 
 func (s *reqIDStore) Put(chatID, reqID string, chatType uint32, ttl time.Duration) error {

@@ -164,7 +164,7 @@
   "whatsNew020New2": "Mitgelieferte Entwicklerwerkzeuge: Git, GitHub CLI, curl, ripgrep, jq und SQLite.",
   "whatsNew020New3": "Unterstützung für die mitgelieferte Python-3.14-Laufzeitumgebung von PocketClaw.",
   "whatsNew020New4": "Sichere GitHub-Anmeldung, gemeinsam genutzt von Git und der GitHub CLI.",
-  "whatsNew020New5": "Telegram-Integration, einrichtbar in den Einstellungen.",
+  "whatsNew020New5": "Telegram-Einrichtung mit einem Tipp: PocketClaw erstellt Ihren eigenen Bot, in der App oder über das Dashboard im Browser. Es gibt kein Token zum Kopieren, und nur Ihr eigenes Konto kann mit ihm sprechen.",
   "whatsNew020New6": "Eine Statusansicht im Dashboard: laufende Arbeit, Kanäle, das genutzte Modell und die Laufzeitressourcen.",
   "whatsNew020Improvement1": "Robustere Anbieter: Eine fehlgeschlagene Anfrage beendet den Durchgang nicht mehr.",
   "whatsNew020Improvement2": "Ein genauerer Katalog der verwalteten Laufzeitumgebung.",
@@ -218,5 +218,16 @@
   "statusDurationSeconds": "{seconds} S.",
   "statusDurationMinutes": "{minutes} Min. {seconds} S.",
   "statusDurationHours": "{hours} Std. {minutes} Min.",
-  "statusDurationDays": "{days} T. {hours} Std."
+  "statusDurationDays": "{days} T. {hours} Std.",
+  "notificationPermissionTitle": "Benachrichtigungen",
+  "notificationPermissionGranted": "PocketClaw kann seine Running-Benachrichtigung anzeigen.",
+  "notificationPermissionBlocked": "Benachrichtigungen sind aus, daher erscheint die PocketClaw-Running-Benachrichtigung nicht.",
+  "notificationPermissionOpenSettings": "Benachrichtigungseinstellungen öffnen",
+  "whatsNew020New7": "Telegram-Verwaltung im Dashboard: einen Bot verbinden, ersetzen oder trennen.",
+  "whatsNew020New8": "Anbieter- und Modellverwaltung im Dashboard: Anbieter hinzufügen, API-Schlüssel wechseln oder ein Modell entfernen.",
+  "whatsNew020Improvement12": "Telegram-Einstellungen werden sofort beim Speichern übernommen, ohne manuellen Neustart.",
+  "whatsNew020Improvement13": "Wenn kein KI-Modell eingerichtet ist, nennt PocketClaw genau das Fehlende und gibt Ihnen einen Code zum Nachschlagen.",
+  "whatsNew020Improvement14": "Die Anmeldung am Dashboard führt Sie zu der Seite, die Sie geöffnet hatten.",
+  "whatsNew020Improvement15": "Diagnoseprotokolle bleiben ausführlich, enthalten aber niemals Ihre Schlüssel, Token oder Nachrichtentexte.",
+  "whatsNew020Improvement16": "Ein Dashboard, das noch niemandem gehört, ist nie aus dem Netzwerk erreichbar – auch bei aktiviertem Public Mode."
 }

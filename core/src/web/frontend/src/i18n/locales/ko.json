@@ -200,9 +200,6 @@
       },
       "anthropic": {
         "description": "Claude 접근에 토큰 로그인을 사용합니다."
-      },
-      "antigravity": {
-        "description": "Google Cloud Code Assist에 브라우저 OAuth를 사용합니다."
       }
     },
     "status": {
@@ -328,7 +325,10 @@
     "delete": {
       "title": "모델을 삭제할까요?",
       "description": "\"{{name}}\"이(가) 모델 목록에서 영구히 제거됩니다. 이 작업은 되돌릴 수 없습니다.",
-      "confirm": "삭제"
+      "confirm": "삭제",
+      "defaultBlocked": "\"{{name}}\"은(는) 기본 채팅 모델입니다. 다른 기본 모델을 먼저 선택한 뒤 삭제하세요.",
+      "success": "\"{{name}}\"을(를) 삭제했습니다.",
+      "error": "이 모델을 삭제할 수 없습니다."
     },
     "advanced": {
       "toggle": "고급 옵션"
@@ -380,7 +380,8 @@
       "apiKeyHint": "키가 이미 설정되어 있습니다. 그대로 두려면 비워 두세요.",
       "oauthNote": "이 공급자는 OAuth를 사용합니다 — API 키가 필요 없습니다.",
       "saveError": "저장하지 못했습니다",
-      "saveSuccess": "모델 구성을 저장했습니다."
+      "saveSuccess": "모델 구성을 저장했습니다.",
+      "confirm": "모델 업데이트"
     },
     "fetch": {
       "title": "사용 가능한 모델 가져오기",
@@ -479,6 +480,34 @@
         "speech": "음성 인식 전용"
       }
     },
+    "provider": {
+      "manage": "관리",
+      "manageTitle": "{{name}} 관리",
+      "modelCount": "구성된 모델: {{count}}",
+      "loading": "공급자 설정을 불러오는 중…",
+      "save": "공급자 저장",
+      "saved": "공급자 설정을 저장했습니다.",
+      "saveError": "이 공급자 설정을 저장할 수 없습니다.",
+      "loadError": "이 공급자를 불러올 수 없습니다.",
+      "keyRotated": "API 키를 교체했습니다. 갱신된 모델: {{count}}",
+      "credential": "API 키",
+      "credentialShared": "이 공급자의 모든 모델이 하나의 키를 공유합니다 ({{key}}).",
+      "credentialSetGeneric": "저장됨",
+      "credentialMixed": "이 모델들은 서로 다른 키를 사용합니다. 새 키를 저장하면 모두 교체됩니다.",
+      "credentialUnset": "이 공급자에 저장된 키가 아직 없습니다.",
+      "replaceKeyPlaceholder": "저장된 키를 교체할 새 키 입력",
+      "replaceKeyHint": "비워 두면 저장된 키를 유지합니다. 영향을 받는 모델: {{count}}",
+      "apiBaseHint": "이 공급자의 모든 모델에 적용됩니다.",
+      "apiBaseMixed": "이 모델들은 서로 다른 기본 URL을 사용합니다. 각 모델에서 수정하세요.",
+      "modelsHeading": "이 공급자의 모델",
+      "delete": "공급자 삭제",
+      "deleteTitle": "{{name}}을(를) 삭제할까요?",
+      "deleteDescription": "해당 모델이 삭제되고 모델을 가리키는 모든 참조가 정리됩니다. 삭제할 모델: {{count}}",
+      "deleteDefaultNote": "(기본 채팅 모델)",
+      "deleteConfirm": "공급자 삭제",
+      "deleteSuccess": "{{name}}을(를) 삭제했습니다.",
+      "deleteError": "이 공급자를 삭제할 수 없습니다."
+    },
     "discovery": {
       "heading": "구성된 제공자에서 추가",
       "configured": "구성됨",
@@ -498,6 +527,20 @@
       "description": "PocketClaw가 응답에 사용하는 모델입니다. 구성한 제공자 중에서 선택하세요.",
       "none": "선택된 기본 모델이 없습니다.",
       "change": "기본 모델 변경"
+    },
+    "provenance": {
+      "suggestions": "제안",
+      "suggestionsHint": "이 제공자에서 흔히 쓰는 이름입니다. 계정 기준으로 확인되지 않았습니다.",
+      "cached": "이전에 가져옴",
+      "cachedHint": "이 제공자와 엔드포인트의 이전 가져오기 결과입니다. 새로 고치려면 다시 가져오세요.",
+      "verified": "사용 가능 확인됨",
+      "verifiedHint": "이 제공자가 방금 반환했습니다."
+    },
+    "discard": {
+      "title": "변경 사항을 버릴까요?",
+      "description": "이 화면의 편집 내용은 저장되지 않았으며 사라집니다.",
+      "keepEditing": "계속 편집",
+      "confirm": "버리기"
     }
   },
   "channels": {
@@ -708,7 +751,64 @@
       "openChat": "채팅 열기",
       "reconnect": "다시 연결 / 새 봇 만들기",
       "manualOnlyTitle": "수동 설정",
-      "manualOnlyBody": "이 빌드에서는 한 번에 봇을 만드는 기능을 사용할 수 없으므로 BotFather의 봇 토큰으로 Telegram을 설정합니다. 아래에 토큰을 붙여 넣고 저장하세요."
+      "manualOnlyBody": "이 빌드에서는 한 번에 봇을 만드는 기능을 사용할 수 없으므로 BotFather의 봇 토큰으로 Telegram을 설정합니다. 아래에 토큰을 붙여 넣고 저장하세요.",
+      "manualOnlyDesktopBody": "원탭 봇 생성은 Android의 PocketClaw 앱에서 이루어지므로 브라우저에서는 제공되지 않습니다. 원탭 설정은 휴대폰에서 PocketClaw를 열거나, BotFather로 봇을 만들어 아래에 토큰을 붙여 넣으세요.",
+      "openBotFather": "BotFather 열기",
+      "desktop": {
+        "title": "원탭 설정",
+        "body": "PocketClaw가 Telegram을 통해 개인 봇을 만듭니다. 입력할 것이 없고, 이 페이지는 토큰을 다루지 않습니다.",
+        "connect": "Telegram에 연결",
+        "creating": "설정 링크를 준비하는 중…",
+        "suggestedBot": "추천 봇",
+        "openTelegram": "Telegram 열기",
+        "copyLink": "링크 복사",
+        "linkCopied": "링크를 복사했습니다.",
+        "linkCopyFailed": "링크를 복사할 수 없습니다.",
+        "linkCopyManual": "링크를 수동으로 복사하세요: 아래에서 선택하세요.",
+        "waiting": "Telegram에서 새 봇을 확인해 주기를 기다리는 중…",
+        "botCreated": "봇을 만들었습니다. 설정을 마무리하는 중…",
+        "configuring": "PocketClaw를 설정하는 중…",
+        "connected": "Telegram이 연결되었습니다.",
+        "savedPending": "봇이 저장되었고 PocketClaw가 한가해지면 시작됩니다.",
+        "retry": "다시 시도",
+        "errorStart": "설정을 시작할 수 없습니다. 잠시 후 다시 시도하세요.",
+        "errorRateLimited": "설정 시도가 너무 많습니다. 잠시 기다린 후 다시 시도하세요.",
+        "errorExpired": "이 설정 링크가 만료되었습니다. 다시 시작해 새 링크를 받으세요.",
+        "errorFailed": "설정이 끝나지 않았습니다. 다시 시도하거나 아래의 수동 설정을 사용하세요.",
+        "errorInvalidCredentials": "Telegram이 이 봇을 거부했습니다. 봇 생성이 완료되지 않았거나 토큰이 유효하지 않을 수 있습니다. 나중에 다시 시도하거나 아래에서 기존의 유효한 봇을 사용하세요.",
+        "errorWebhookActive": "이 봇에 활성 Telegram 웹훅이 있습니다. 다른 서비스에서 연결을 해제하거나 다른 봇을 사용하세요.",
+        "errorBotInUse": "이 봇은 현재 다른 애플리케이션에서 사용 중입니다. 다른 봇 서비스를 중지하거나 다른 봇을 선택하세요.",
+        "errorNotReady": "봇은 저장되었지만 Telegram이 아직 메시지를 받지 못합니다. 잠시 후 다시 확인하세요.",
+        "checkAgain": "다시 확인"
+      },
+      "startingTitle": "Telegram을 시작하는 중…",
+      "replaceBot": "봇 교체",
+      "readiness": {
+        "not_configured": "구성된 봇이 없습니다.",
+        "gateway_stopped": "PocketClaw가 실행되지 않아 Telegram이 메시지를 받을 수 없습니다.",
+        "gateway_starting": "PocketClaw를 시작하는 중…",
+        "channel_starting": "Telegram에 연결하는 중…",
+        "registering_commands": "명령 메뉴를 등록하는 중…",
+        "setup_required": "이 봇이 당신에게만 응답하도록 Allowed From에 Telegram 숫자 ID를 추가하세요.",
+        "telegram_conflict": "이 봇은 이미 다른 서비스에서 사용 중입니다.",
+        "authentication_failed": "Telegram이 봇 자격 증명을 거부했습니다.",
+        "ready": "Telegram이 첫 메시지를 받을 준비가 되었습니다.",
+        "unknown": "PocketClaw가 Telegram 상태를 보고하지 않았습니다."
+      },
+      "disconnect": {
+        "action": "연결 해제",
+        "title": "Telegram 연결을 해제할까요?",
+        "body": "봇 토큰과 소유자 목록을 삭제하고 Telegram 채널을 중지합니다. 대화 기록은 유지됩니다. 언제든지 봇을 다시 연결할 수 있습니다.",
+        "confirm": "연결 해제",
+        "removed": "Telegram 연결이 해제되었습니다.",
+        "removedPending": "Telegram이 제거되었으며 PocketClaw가 유휴 상태가 되면 중지됩니다.",
+        "failed": "Telegram 연결을 해제할 수 없습니다."
+      },
+      "statusUnreadableTitle": "Telegram 상태를 확인할 수 없음",
+      "setupIncompleteTitle": "Telegram 설정이 완료되지 않았습니다",
+      "conflictTitle": "Telegram 봇이 이미 사용 중입니다",
+      "conflictWebhook": "이 봇에 활성 Telegram 웹훅이 있습니다. 다른 서비스에서 연결을 해제하거나 다른 봇을 사용하세요.",
+      "conflictInUse": "이 봇은 현재 다른 애플리케이션에서 사용 중입니다. 다른 봇 서비스를 중지하거나 다른 봇을 선택하세요."
     }
   },
   "pages": {
@@ -1100,10 +1200,6 @@
     "gateway": {
       "title": "게이트웨이 시작",
       "description": "모델 설정을 마쳤다면 위쪽의 「게이트웨이 시작」 버튼을 눌러 AI와 대화를 시작하세요."
-    },
-    "docs": {
-      "title": "문서 보기",
-      "description": "도움이 더 필요하신가요? 오른쪽 위의 문서 버튼을 누르면 자세한 안내와 설정 문서를 볼 수 있습니다."
     }
   }
 }

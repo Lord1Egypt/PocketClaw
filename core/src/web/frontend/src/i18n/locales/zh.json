@@ -200,9 +200,6 @@
       },
       "anthropic": {
         "description": "使用 Token 登录 Claude。"
-      },
-      "antigravity": {
-        "description": "使用浏览器 OAuth 登录 Google Cloud Code Assist。"
       }
     },
     "status": {
@@ -315,7 +312,10 @@
     "delete": {
       "title": "确认删除模型？",
       "description": "「{{name}}」将从模型列表中永久移除，此操作不可撤销。",
-      "confirm": "删除"
+      "confirm": "删除",
+      "defaultBlocked": "“{{name}}”是默认聊天模型。请先选择其他默认模型，再删除它。",
+      "success": "已删除“{{name}}”。",
+      "error": "无法删除该模型。"
     },
     "advanced": {
       "toggle": "高级选项"
@@ -367,7 +367,8 @@
       "apiKeyHint": "已设置 API Key，留空表示不修改。",
       "oauthNote": "该服务商使用 OAuth 认证，无需 API Key。",
       "saveError": "保存失败",
-      "saveSuccess": "模型配置已保存。"
+      "saveSuccess": "模型配置已保存。",
+      "confirm": "更新模型"
     },
     "fetch": {
       "title": "获取可用模型",
@@ -466,6 +467,34 @@
         "speech": "仅语音识别"
       }
     },
+    "provider": {
+      "manage": "管理",
+      "manageTitle": "管理 {{name}}",
+      "modelCount": "已配置模型：{{count}}",
+      "loading": "正在加载提供商设置…",
+      "save": "保存提供商",
+      "saved": "提供商设置已保存。",
+      "saveError": "无法保存该提供商的设置。",
+      "loadError": "无法加载该提供商。",
+      "keyRotated": "API 密钥已替换。已更新模型：{{count}}",
+      "credential": "API 密钥",
+      "credentialShared": "该提供商的所有模型共用同一个密钥（{{key}}）。",
+      "credentialSetGeneric": "已保存",
+      "credentialMixed": "这些模型使用不同的密钥。保存新密钥将全部替换。",
+      "credentialUnset": "尚未为该提供商保存密钥。",
+      "replaceKeyPlaceholder": "输入新密钥以替换已保存的密钥",
+      "replaceKeyHint": "留空则保留已保存的密钥。受影响的模型：{{count}}",
+      "apiBaseHint": "应用于该提供商的所有模型。",
+      "apiBaseMixed": "这些模型使用不同的基础 URL。请在各个模型中分别修改。",
+      "modelsHeading": "该提供商的模型",
+      "delete": "删除提供商",
+      "deleteTitle": "删除 {{name}}？",
+      "deleteDescription": "其模型将被删除，并清除所有对它们的引用。将删除的模型：{{count}}",
+      "deleteDefaultNote": "（默认聊天模型）",
+      "deleteConfirm": "删除提供商",
+      "deleteSuccess": "{{name}} 已删除。",
+      "deleteError": "无法删除该提供商。"
+    },
     "fallbacks": {
       "title": "备用模型",
       "description": "当该模型暂时不可用时，PocketClaw 可以按顺序尝试这些模型。",
@@ -498,6 +527,20 @@
       "description": "PocketClaw 用于回答的模型。从你已配置的服务商中选择。",
       "none": "尚未选择默认模型。",
       "change": "更改默认模型"
+    },
+    "provenance": {
+      "suggestions": "建议",
+      "suggestionsHint": "该提供方的常见名称，未针对你的账户核实。",
+      "cached": "先前获取",
+      "cachedHint": "来自此提供方与该端点的上一次获取。重新获取可刷新。",
+      "verified": "已验证可用",
+      "verifiedHint": "该提供方刚刚返回的列表。"
+    },
+    "discard": {
+      "title": "放弃更改？",
+      "description": "此页面的修改尚未保存，将会丢失。",
+      "keepEditing": "继续编辑",
+      "confirm": "放弃"
     }
   },
   "channels": {
@@ -699,6 +742,8 @@
       "connectTitle": "将 PocketClaw 连接到 Telegram",
       "connected": "已连接",
       "manualOnlyBody": "当前版本不支持一键创建机器人，因此需要使用 BotFather 提供的机器人令牌配置 Telegram。请在下方粘贴令牌并保存。",
+      "manualOnlyDesktopBody": "一键创建机器人在 Android 上的 PocketClaw 应用中完成，因此浏览器中不提供。请在手机上打开 PocketClaw 进行一键设置，或使用 BotFather 创建机器人并将其令牌粘贴到下方。",
+      "openBotFather": "打开 BotFather",
       "manualOnlyTitle": "手动设置",
       "openChat": "打开对话",
       "openTelegram": "打开 Telegram",
@@ -708,7 +753,62 @@
       "reconnect": "重新连接 / 创建新机器人",
       "statusLabel": "状态：",
       "statusReady": "可以连接",
-      "troubleLabel": "遇到问题？"
+      "troubleLabel": "遇到问题？",
+      "desktop": {
+        "title": "一键设置",
+        "body": "PocketClaw 通过 Telegram 创建你的专属机器人。无需输入任何内容，本页面也不处理任何令牌。",
+        "connect": "连接 Telegram",
+        "creating": "正在准备你的设置链接…",
+        "suggestedBot": "建议的机器人",
+        "openTelegram": "打开 Telegram",
+        "copyLink": "复制链接",
+        "linkCopied": "链接已复制。",
+        "linkCopyFailed": "无法复制链接。",
+        "linkCopyManual": "手动复制链接：在下方选择。",
+        "waiting": "正在等待你在 Telegram 中确认新机器人…",
+        "botCreated": "机器人已创建。正在完成设置…",
+        "configuring": "正在配置 PocketClaw…",
+        "connected": "Telegram 已连接。",
+        "savedPending": "你的机器人已保存，PocketClaw 空闲后即会启动。",
+        "retry": "重试",
+        "errorStart": "无法开始设置。请稍后重试。",
+        "errorRateLimited": "设置尝试次数过多。请稍等后重试。",
+        "errorExpired": "该设置链接已过期。请重新开始以获取新链接。",
+        "errorFailed": "设置未完成。请重试，或使用下方的手动设置。",
+        "errorInvalidCredentials": "Telegram 拒绝了此机器人。机器人创建可能尚未完成，或令牌已失效。请稍后重试，或在下方使用现有的有效机器人。",
+        "errorWebhookActive": "此机器人配置了有效的 Telegram Webhook。请将其从其他服务断开，或使用其他机器人。",
+        "errorBotInUse": "此机器人当前正被其他应用使用。请停止其他机器人服务，或选择其他机器人。",
+        "errorNotReady": "机器人已保存，但 Telegram 还未开始接收消息。请稍后再检查。",
+        "checkAgain": "重新检查"
+      },
+      "startingTitle": "正在启动 Telegram…",
+      "replaceBot": "更换机器人",
+      "readiness": {
+        "not_configured": "尚未配置机器人。",
+        "gateway_stopped": "PocketClaw 未运行，Telegram 无法接收消息。",
+        "gateway_starting": "PocketClaw 正在启动…",
+        "channel_starting": "正在连接 Telegram…",
+        "registering_commands": "正在发布命令菜单…",
+        "setup_required": "在 Allowed From 中添加你的 Telegram 数字 ID，让此机器人只回复你。",
+        "telegram_conflict": "此机器人已被其他服务使用。",
+        "authentication_failed": "Telegram 拒绝了机器人凭据。",
+        "ready": "Telegram 已准备好接收你的第一条消息。",
+        "unknown": "PocketClaw 未报告 Telegram 状态。"
+      },
+      "disconnect": {
+        "action": "断开连接",
+        "title": "断开 Telegram 连接？",
+        "body": "这将删除机器人令牌和所有者名单，并停止 Telegram 通道。聊天记录会保留。你随时可以重新连接机器人。",
+        "confirm": "断开连接",
+        "removed": "已断开 Telegram 连接。",
+        "removedPending": "Telegram 已移除，将在 PocketClaw 空闲后停止。",
+        "failed": "无法断开 Telegram 连接。"
+      },
+      "statusUnreadableTitle": "无法获取 Telegram 状态",
+      "setupIncompleteTitle": "Telegram 设置未完成",
+      "conflictTitle": "Telegram 机器人已被使用",
+      "conflictWebhook": "此机器人配置了有效的 Telegram Webhook。请将其从其他服务断开，或使用其他机器人。",
+      "conflictInUse": "此机器人当前正被其他应用使用。请停止其他机器人服务，或选择其他机器人。"
     }
   },
   "pages": {
@@ -1100,10 +1200,6 @@
     "gateway": {
       "title": "启动服务",
       "description": "配置好模型后，点击顶部的「启动服务」按钮，即可开始与 AI 对话。"
-    },
-    "docs": {
-      "title": "查看文档",
-      "description": "需要更多帮助？点击右上角的文档按钮，查看详细的使用文档和配置指南。"
     }
   }
 }

@@ -48,7 +48,11 @@ func formatHelpMessage(defs []Definition) string {
 		byName[def.Name] = def
 	}
 
-	lines := []string{"🦞 PocketClaw", ""}
+	// PC-DEF-066. The header carried a lobster, which is pre-Aperture branding
+	// residue and the first thing /help showed a user. Removed rather than
+	// replaced: the product's mark is not an emoji, and substituting a different
+	// one would be inventing identity here instead of using it.
+	lines := []string{"PocketClaw", ""}
 	seen := make(map[string]bool, len(defs))
 
 	appendCommand := func(def Definition) {

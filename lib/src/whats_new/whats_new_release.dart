@@ -41,8 +41,14 @@ final WhatsNewRelease whatsNewRelease020 = WhatsNewRelease(
         (l10n) => l10n.whatsNew020New2,
         (l10n) => l10n.whatsNew020New3,
         (l10n) => l10n.whatsNew020New4,
+        // PC-DEF-064. New5 used to read "Telegram integration, set up from
+        // Settings", which stopped being where setup happens: the managed flow
+        // is offered in the app and in a browser, and the owner pairing is the
+        // part worth saying.
         (l10n) => l10n.whatsNew020New5,
+        (l10n) => l10n.whatsNew020New7,
         (l10n) => l10n.whatsNew020New6,
+        (l10n) => l10n.whatsNew020New8,
       ],
     ),
     WhatsNewSection(
@@ -56,9 +62,18 @@ final WhatsNewRelease whatsNewRelease020 = WhatsNewRelease(
         (l10n) => l10n.whatsNew020Improvement6,
         (l10n) => l10n.whatsNew020Improvement7,
         (l10n) => l10n.whatsNew020Improvement8,
+        // PC-DEF-064. Added after physical verification of each: the automatic
+        // Telegram apply, the PC-E-AI configuration messages, the post-sign-in
+        // destination, the logging redaction, and the unclaimed-Dashboard rule.
+        (l10n) => l10n.whatsNew020Improvement12,
+        (l10n) => l10n.whatsNew020Improvement13,
+        (l10n) => l10n.whatsNew020Improvement14,
+        (l10n) => l10n.whatsNew020Improvement15,
+        (l10n) => l10n.whatsNew020Improvement16,
         // The three one-time effects of upgrading into this release. They are
         // here rather than in Fixes because nothing was broken: they are what
-        // the user should expect to see once, and then not again.
+        // the user should expect to see once, and then not again. They stay
+        // last: they are what to expect after installing, not what is new.
         (l10n) => l10n.whatsNew020Improvement9,
         (l10n) => l10n.whatsNew020Improvement10,
         (l10n) => l10n.whatsNew020Improvement11,

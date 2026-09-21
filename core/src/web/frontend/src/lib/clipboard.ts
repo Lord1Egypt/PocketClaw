@@ -70,6 +70,10 @@ export async function copyText(
 
   try {
     return environment.document.execCommand("copy")
+  } catch {
+    // jsdom and some real WebViews do not implement execCommand at all. A
+    // copy helper's contract is to report success or failure, not to throw.
+    return false
   } finally {
     environment.document.body.removeChild(textArea)
   }

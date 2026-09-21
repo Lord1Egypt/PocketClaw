@@ -2131,6 +2131,30 @@ func (m *Manager) SnapshotChannels() []status.Channel {
 		if channel != nil {
 			running = channel.IsRunning()
 		}
+		// Only a channel that publishes a menu reports one, so the field stays
+		// absent for every other channel rather than reading as "not yet".
+		var commandsRegistered *bool
+		if reporter, ok := channel.(CommandMenuReporter); ok && channel != nil {
+			registered := reporter.CommandsRegistered()
+			commandsRegistered = &registered
+		}
+		// Only a channel with a polling owner reports a generation, and only
+		// while it has one. A zero generation is reported as absent so a
+		// superseded owner cannot look like a current one. PC-DEF-061.
+		var pollingGeneration *uint64
+		if reporter, ok := channel.(PollingGenerationReporter); ok && channel != nil {
+			if generation := reporter.PollingGeneration(); generation != 0 {
+				pollingGeneration = &generation
+			}
+		}
+		var runtimeFailure string
+		if reporter, ok := channel.(RuntimeFailureReporter); ok && channel != nil {
+			runtimeFailure = reporter.RuntimeFailure()
+		}
+		var ownerMissing bool
+		if reporter, ok := channel.(OwnerMissingReporter); ok && channel != nil {
+			ownerMissing = reporter.OwnerMissing()
+		}
 		snapshots = append(snapshots, status.Channel{
 			Name:       StatusDisplayName(name),
 			Configured: true,
@@ -2138,7 +2162,11 @@ func (m *Manager) SnapshotChannels() []status.Channel {
 			// A channel that never started cannot be running. Reporting the
 			// flag unconditionally would let a stale latched value present a
 			// failed channel as healthy.
-			Running: started && running,
+			Running:            started && running,
+			CommandsRegistered: commandsRegistered,
+			PollingGeneration:  pollingGeneration,
+			RuntimeFailure:     runtimeFailure,
+			OwnerMissing:       ownerMissing,
 		})
 	}
 	return snapshots
@@ -2186,6 +2214,17 @@ func (m *Manager) Reload(ctx context.Context, cfg *config.Config) error {
 	list := toChannelHashes(cfg)
 	added, removed := compareChannels(m.channelHashes, list)
 
+	// A channel whose configuration changed is reported as both removed and
+	// added: it is stopped and then rebuilt under the same name. Its outgoing
+	// cleanup must not run after the replacement is registered, or it would
+	// tear down the incoming instance's worker -- leaving a channel that is
+	// configured, started and polling but has no worker to send through. The
+	// replacement is released synchronously here instead, before it is built.
+	replaced := make(map[string]bool, len(added))
+	for _, name := range added {
+		replaced[name] = true
+	}
+
 	deferFuncs := make([]func(), 0, len(removed)+len(added))
 	for _, name := range removed {
 		// Stop all channels
@@ -2209,6 +2248,12 @@ func (m *Manager) Reload(ctx context.Context, cfg *config.Config) error {
 				"channel": name,
 				"error":   err.Error(),
 			})
+		}
+		if replaced[name] {
+			// Release only this instance's runtime; the name is about to be
+			// taken by its replacement.
+			m.releaseChannelInstanceLocked(name, channel)
+			continue
 		}
 		deferFuncs = append(deferFuncs, func() {
 			m.UnregisterChannel(name)
@@ -2325,6 +2370,35 @@ func (m *Manager) UnregisterChannel(name string) {
 	defer m.mu.Unlock()
 	if ch, ok := m.channels[name]; ok && m.mux != nil {
 		m.unregisterChannelHTTPHandler(name, ch)
+	}
+	if w, ok := m.workers[name]; ok && w != nil {
+		close(w.queue)
+		<-w.done
+		close(w.mediaQueue)
+		<-w.mediaDone
+	}
+	delete(m.workers, name)
+	delete(m.channels, name)
+}
+
+// releaseChannelInstanceLocked tears down one specific channel instance's
+// runtime without touching a replacement registered under the same name.
+//
+// Reload reports a changed channel as both removed and added, and the
+// replacement is registered before the outgoing cleanup runs. Unregistering by
+// name alone would therefore close the replacement's worker. This releases the
+// outgoing instance only while it is still the one the manager holds.
+//
+// Assumes m.mu is held.
+func (m *Manager) releaseChannelInstanceLocked(name string, channel Channel) {
+	if channel == nil {
+		return
+	}
+	if current, ok := m.channels[name]; !ok || current != channel {
+		return
+	}
+	if m.mux != nil {
+		m.unregisterChannelHTTPHandler(name, channel)
 	}
 	if w, ok := m.workers[name]; ok && w != nil {
 		close(w.queue)

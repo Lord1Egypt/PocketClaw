@@ -220,7 +220,7 @@ function ToolCard({
 
         {reasonText && (
           <div className="border-border/40 mt-4 border-t pt-4">
-            <div className="inline-flex rounded-lg border border-pc-warning/50 bg-pc-warning/80 px-3 py-2 text-[13px] font-medium text-pc-warning">
+            <div className="inline-flex rounded-lg border border-pc-warning/30 bg-pc-warning-soft px-3 py-2 text-[13px] font-medium text-pc-warning">
               {reasonText}
             </div>
           </div>

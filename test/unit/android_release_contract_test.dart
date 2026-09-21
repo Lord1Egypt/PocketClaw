@@ -396,4 +396,250 @@ void main() {
       }
     });
   });
+
+  group('Dart release hardening', () {
+    const helper = 'tool/build_hardened_android.py';
+
+    test('release compilation is fail-closed around one complete contract', () {
+      final source = read(gradle);
+      expect(source, contains('tasks.register("validateDartHardening")'));
+      expect(source, contains('dartHardeningMode != "true"'));
+      expect(source, contains('dartObfuscationProperty != "true"'));
+      expect(source, contains('splitDebugInfoProperty'));
+      expect(source, contains('dartTargetPlatformProperty != "android-arm64"'));
+      expect(source, contains('dependsOn("validateDartHardening")'));
+      expect(source, contains('"compileFlutterBuildRelease"'));
+    });
+
+    test('the canonical helper passes the exact pinned Flutter properties', () {
+      final source = read(helper);
+      for (final property in const [
+        '-PpocketclawDartHardening=true',
+        '-Pdart-obfuscation=true',
+        '-Psplit-debug-info=',
+        '-Ptarget-platform=android-arm64',
+      ]) {
+        expect(source, contains(property));
+      }
+      expect(source, contains('DEFAULT_SYMBOLS_DIR'));
+      expect(source, contains('build/private-symbols/dart/android-arm64'));
+    });
+
+    test('the generated registrant uses a stable package URI', () {
+      final gradleSource = read(gradle);
+      final helperSource = read(helper);
+      expect(gradleSource, contains('pocketclaw_generated'));
+      expect(gradleSource, contains('rootUri'));
+      expect(helperSource, contains('"rootUri": "flutter_build/"'));
+      expect(helperSource, contains('"packageUri": "./"'));
+      expect(
+        helperSource,
+        contains('package:pocketclaw_generated/dart_plugin_registrant.dart'),
+      );
+      expect(
+        gradleSource,
+        contains('competing generated-source options'),
+        reason: 'the pinned plugin must not silently accept a second URI path',
+      );
+    });
+
+    test('local validation cannot accidentally select production material', () {
+      final source = read(helper);
+      expect(source, contains('LOCAL TEST mode refuses declared production'));
+      expect(source, contains('environment.pop(name, None)'));
+      expect(source, contains('-PallowDebugSigning=true'));
+      expect(source, contains('LOCAL TEST / NON-RELEASABLE'));
+    });
+
+    test('private symbols are ignored and verified outside the APK', () {
+      final ignore = read('.gitignore');
+      final source = read(helper);
+      expect(ignore, contains('build/'));
+      expect(ignore, contains('split-debug-info/'));
+      expect(ignore, contains('symbols/'));
+      expect(source, contains('private Dart symbols were packaged'));
+      expect(source, contains('app.android-arm64.symbols'));
+      expect(source, contains('.debug_info'));
+      expect(source, contains('.debug_line'));
+    });
+
+    test('canonical builds regenerate cached AOT and split symbols together', () {
+      final source = read(helper);
+      expect(source, contains('FLUTTER_BUILD_DIR'));
+      // The reset is called for whichever artifact this run packages. Asserting
+      // the call and its arguments rather than one literal spelling: PC-DEF-021
+      // parameterised the target so the same helper can package an AAB, and a
+      // literal match on `(APK, symbols, ...)` failed while the guarantee it
+      // exists for — cached AOT and split symbols are invalidated together, for
+      // whatever is being built — was intact.
+      expect(source, contains('reset_generated_build_outputs('));
+      expect(source, contains('symbols, r8_mapping=R8_MAPPING)'));
+      expect(
+        source,
+        contains("BUNDLE if args.package == \"bundle\" else APK"),
+        reason: 'the reset must clear the artifact this run actually packages',
+      );
+      expect(source, contains('shutil.rmtree(flutter_build_dir)'));
+      expect(
+        source,
+        contains('AOT and private symbols will be regenerated'),
+      );
+    });
+  });
+
+  group('dead analytics deep link', () {
+    const mainActivity =
+        'android/app/src/main/kotlin/com/lord1egypt/pocketclaw/MainActivity.kt';
+    const mergedManifest =
+        'build/app/intermediates/merged_manifest/release/'
+        'processReleaseMainManifest/AndroidManifest.xml';
+
+    // PC-DEF-024. MainActivity carried a second VIEW + DEFAULT + BROWSABLE
+    // intent filter whose scheme came from a manifest placeholder. H1.5 removed
+    // the analytics SDK from the shipping build, so the placeholder resolved to
+    // a literal placeholder scheme and the release manifest advertised a
+    // web-reachable entry point into an exported activity for an SDK that is not
+    // in the APK. MainActivity then logged the incoming URI from it.
+
+    /// The manifest with XML comments removed.
+    ///
+    /// The removal is documented in a comment that necessarily names what was
+    /// removed, so a raw substring search would match the explanation rather
+    /// than a declaration. These assertions are about what the manifest
+    /// *declares*, so the prose is stripped before they run.
+    String declaredManifest() =>
+        read(manifest).replaceAll(RegExp(r'<!--.*?-->', dotAll: true), '');
+
+    test('the source manifest declares no um.placeholder scheme', () {
+      final declared = declaredManifest();
+      expect(
+        declared,
+        isNot(contains('um.placeholder')),
+        reason: 'the dead analytics scheme must not be declared',
+      );
+      expect(
+        declared,
+        isNot(contains(r'${POCKETCLAW_UMENG_LINK_SCHEME}')),
+        reason: 'the placeholder that produced it must be gone too',
+      );
+      expect(
+        declared,
+        isNot(contains('android:scheme=')),
+        reason: 'that filter declared the only scheme in this manifest; a new '
+            'one is a deliberate act to review, not something to inherit',
+      );
+    });
+
+    test('no BROWSABLE filter survives on the launcher activity', () {
+      final declared = declaredManifest();
+      expect(
+        declared,
+        isNot(contains('android.intent.category.BROWSABLE')),
+        reason: 'the only BROWSABLE filter was the removed analytics one',
+      );
+      expect(
+        declared,
+        isNot(contains('android.intent.action.VIEW')),
+        reason: 'likewise the VIEW action it was paired with',
+      );
+    });
+
+    test('the normal MAIN/LAUNCHER contract is untouched', () {
+      final source = declaredManifest();
+      expect(source, contains('android.intent.action.MAIN'));
+      expect(source, contains('android.intent.category.LAUNCHER'));
+      expect(
+        source,
+        contains('android:name=".MainActivity"'),
+        reason: 'the app must still be launchable',
+      );
+      expect(
+        source,
+        contains('android:exported="true"'),
+        reason: 'a LAUNCHER activity must stay exported',
+      );
+    });
+
+    test('the link-scheme plumbing is gone from Gradle', () {
+      final source = read(gradle);
+      for (final symbol in const [
+        'umengLinkScheme',
+        'POCKETCLAW_UMENG_LINK_SCHEME',
+        'um.placeholder',
+      ]) {
+        expect(
+          source,
+          isNot(contains(symbol)),
+          reason: '$symbol is dead plumbing; a stale manifestPlaceholder would '
+              'survive merge processing and reintroduce the scheme',
+        );
+      }
+    });
+
+    test('the analytics-only URI logging branch is gone', () {
+      final source = read(mainActivity);
+      expect(source, isNot(contains('logIncomingIntent')));
+      expect(
+        source,
+        isNot(contains('Received Umeng link')),
+        reason: 'attacker-controlled URI logging for a removed filter',
+      );
+      // setIntent stays: FlutterActivity and plugins read getIntent().
+      expect(
+        source,
+        contains('setIntent(intent)'),
+        reason: 'removing the logging must not remove real intent handling',
+      );
+    });
+
+    test('the default build still packages no analytics SDK', () {
+      expect(
+        read(gradle),
+        contains(r'val analyticsProvider = dartDefines["POCKETCLAW_ANALYTICS_PROVIDER"] ?: "none"'),
+        reason: 'the default provider decides whether the SDK is a dependency',
+      );
+      expect(
+        read(gradle),
+        contains('umengAnalyticsRequested = analyticsProvider.equals("umeng"'),
+      );
+    });
+
+    test('the merged release manifest carries neither, when built', () {
+      final file = File(mergedManifest);
+      if (!file.existsSync()) {
+        markTestSkipped(
+          'no merged manifest; run :app:processReleaseMainManifest',
+        );
+        return;
+      }
+      // Gradle's merge carries XML comments through, and the comment that
+      // documents this removal necessarily names what was removed. aapt2 strips
+      // comments when it compiles the binary manifest, so the packaged artifact
+      // has neither string at all — but this intermediate still does, and the
+      // assertion is about what is *declared*.
+      final source = file.readAsStringSync().replaceAll(
+        RegExp(r'<!--.*?-->', dotAll: true),
+        '',
+      );
+      expect(
+        source,
+        isNot(contains('um.placeholder')),
+        reason: 'the placeholder must not survive Gradle merge processing',
+      );
+      expect(
+        source,
+        isNot(contains('BROWSABLE')),
+        reason: 'no BROWSABLE filter may reach the shipped manifest',
+      );
+      expect(
+        source,
+        isNot(contains('android:scheme=')),
+        reason: 'no scheme declaration may reach the shipped manifest',
+      );
+      // The same merged file must still prove the app is launchable, so this
+      // cannot pass by the manifest being empty or wrong.
+      expect(source, contains('android.intent.category.LAUNCHER'));
+      expect(source, contains('.MainActivity'));
+    });
+  });
 }

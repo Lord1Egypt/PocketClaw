@@ -11,10 +11,41 @@ import (
 	"github.com/sipeed/picoclaw/pkg/netbind"
 )
 
+// launcherPublicDecisionIsHostOwned reports whether the process was started
+// with the public/loopback decision already made for it.
+//
+// When it was, the persisted launcher config is not an authority over this
+// process's listener and must not be presented as one. See PC-DEF-020.
+func (h *Handler) launcherPublicDecisionIsHostOwned() bool {
+	return h.serverHostExplicit || h.serverPublicExplicit
+}
+
+// livePublicMode returns the listener's current public state when a rebind
+// controller is registered.
+//
+// The startup value goes stale the moment Public Mode is toggled at runtime:
+// ApplyPublicMode replaces the listeners but nothing rewrites serverPublic. So
+// the controller, when there is one, is the only truth about what is bound now.
+func (h *Handler) livePublicMode() (bool, bool) {
+	h.launcherNetworkModeMu.Lock()
+	controller := h.launcherNetworkMode
+	h.launcherNetworkModeMu.Unlock()
+	if controller == nil {
+		return false, false
+	}
+	return controller.PublicMode(), true
+}
+
 func (h *Handler) effectiveLauncherPublic() bool {
 	if h.serverHostExplicit {
 		// -host takes precedence over -public and launcher-config public setting.
 		return false
+	}
+
+	// A runtime rebind outranks the startup flag, which is why this comes
+	// before serverPublicExplicit rather than after it.
+	if live, ok := h.livePublicMode(); ok {
+		return live
 	}
 
 	if h.serverPublicExplicit {

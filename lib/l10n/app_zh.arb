@@ -164,7 +164,7 @@
   "whatsNew020New2": "内置开发工具：Git、GitHub CLI、curl、ripgrep、jq 和 SQLite。",
   "whatsNew020New3": "支持 PocketClaw 内置的 Python 3.14 运行时。",
   "whatsNew020New4": "安全的 GitHub 登录，内置的 Git 与 GitHub CLI 共用同一凭据。",
-  "whatsNew020New5": "Telegram 集成，可在“设置”中配置。",
+  "whatsNew020New5": "一键配置 Telegram：PocketClaw 会为你创建自己的机器人，可在应用内或浏览器中的仪表板完成。无需复制任何令牌，而且只有你的账号能与它对话。",
   "whatsNew020New6": "仪表板新增状态视图：进行中的工作、渠道、正在使用的模型和运行资源。",
   "whatsNew020Improvement1": "更稳健的服务商：单次请求失败不再中断本轮对话。",
   "whatsNew020Improvement2": "更准确的托管运行时目录。",
@@ -218,5 +218,16 @@
   "statusDurationSeconds": "{seconds} 秒",
   "statusDurationMinutes": "{minutes} 分 {seconds} 秒",
   "statusDurationHours": "{hours} 小时 {minutes} 分",
-  "statusDurationDays": "{days} 天 {hours} 小时"
+  "statusDurationDays": "{days} 天 {hours} 小时",
+  "notificationPermissionTitle": "通知",
+  "notificationPermissionGranted": "PocketClaw 可以显示运行中通知。",
+  "notificationPermissionBlocked": "通知已关闭，因此不会显示 PocketClaw 运行中通知。",
+  "notificationPermissionOpenSettings": "打开通知设置",
+  "whatsNew020New7": "在仪表板中管理 Telegram：连接机器人、更换机器人或断开连接。",
+  "whatsNew020New8": "在仪表板中管理提供商与模型：添加提供商、轮换 API 密钥或删除模型。",
+  "whatsNew020Improvement12": "Telegram 设置保存后立即生效，无需手动重启。",
+  "whatsNew020Improvement13": "当尚未配置 AI 模型时，PocketClaw 会准确说明缺少什么，并给出可查阅的代码。",
+  "whatsNew020Improvement14": "登录仪表板后会回到你原本要去的页面。",
+  "whatsNew020Improvement15": "诊断日志保持详尽，但绝不包含你的密钥、令牌或消息内容。",
+  "whatsNew020Improvement16": "尚无人认领的仪表板绝不会从网络可达，即使已开启公开模式。"
 }

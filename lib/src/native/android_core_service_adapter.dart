@@ -40,6 +40,22 @@ class AndroidCoreServiceAdapter implements CoreServiceAdapter {
   }
 
   @override
+  Future<bool> restartService({int? port, String? args}) async {
+    try {
+      final Map<String, Object?> params = {
+        'port': port ?? 18800,
+        'args': args ?? '',
+      };
+      final result =
+          await _channel.invokeMethod<bool>('restartService', params);
+      return result ?? false;
+    } catch (_) {
+      _lastErrorCode = 'core.restart_failed';
+      return false;
+    }
+  }
+
+  @override
   Future<Map<String, dynamic>> getServiceStatus() async {
     final res = await _channel.invokeMethod<dynamic>('getServiceStatus');
     return Map<String, dynamic>.from(res as Map);
@@ -78,7 +94,7 @@ class AndroidCoreServiceAdapter implements CoreServiceAdapter {
   }
 
   @override
-  Future<String> getCoreVersion() async {
+  Future<String?> getCoreVersion() async {
     return PocketClawChannel.getCoreVersion();
   }
 

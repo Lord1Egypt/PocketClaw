@@ -559,10 +559,19 @@ func (al *AgentLoop) activeRequestsInc() {
 func (al *AgentLoop) activeRequestsDec() {
 	al.activeReqMu.Lock()
 	al.activeReqCount--
-	if al.activeReqCount == 0 {
+	becameIdle := al.activeReqCount == 0
+	if becameIdle {
 		al.activeReqCond.Broadcast()
 	}
 	al.activeReqMu.Unlock()
+
+	// The transition is detected under the lock and reported outside it: this
+	// makes a network call, and holding activeReqMu across it would stall
+	// every other request completion behind an HTTP timeout. Only the real
+	// N>0 -> 0 edge notifies, so a gateway sitting idle is silent. PC-DEF-030.
+	if becameIdle {
+		go notifyGatewayIdle()
+	}
 }
 
 func (al *AgentLoop) waitForActiveRequests(ctx context.Context, timeout time.Duration) bool {
@@ -676,4 +685,26 @@ func extractProvider(registry *AgentRegistry) (providers.LLMProvider, bool) {
 		return nil, false
 	}
 	return defaultAgent.Provider, true
+}
+
+// turnConversationScope names the conversation a turn belongs to, for providers
+// that route on conversation identity.
+//
+// PC-DEF-032. The session key alone is the wrong granularity: under the default
+// session policy several chats on one channel are allocated a single session
+// key, so two unrelated conversations would be handed to the provider as one.
+// The chat id alone is the wrong granularity in the other direction, because an
+// explicit session key is exactly the thing that is meant to separate two
+// conversations sharing a chat.
+//
+// Both together are stable for one conversation and distinct between any two,
+// which is the whole contract. The value never leaves the device: it is the
+// input to an opaque, salted derivation in providers/common, never a header
+// value. That matters here, because a session key can be a token-shaped
+// identifier and a chat id can be the owner's Telegram account.
+func turnConversationScope(ts *turnState) string {
+	if ts == nil {
+		return ""
+	}
+	return ts.sessionKey + "|" + ts.chatID
 }

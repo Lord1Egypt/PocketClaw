@@ -11,15 +11,27 @@ import (
 
 // formatProcessingError renders a failed turn for the chat window.
 //
-// A provider's own response text never reaches the user. It is written for an
-// API client, not a person: raw JSON, billing links, request ids and account
+// A provider's response *body* never reaches the user. It is written for an API
+// client, not a person: raw JSON, billing links, request ids and account
 // internals, none of which help someone decide what to do next, and some of
 // which should not be repeated into a chat at all. Everything that is not the
 // provider's own words still passes through — an unsupported-media explanation
 // or a configuration error is guidance the user needs verbatim.
+//
+// PC-DEF-032 carved out one exception: the provider's own message field, taken
+// alone, redacted and capped. "Model deepseek-v4.1-flash is not supported" is
+// the difference between a user who can fix their configuration and one staring
+// at a status code. See providerErrorDetail.
 func formatProcessingError(err error) string {
 	if err == nil {
 		return ""
+	}
+
+	// Already worded for the user, with a stable code. Checked first: these are
+	// PocketClaw's own preconditions, and nothing below could classify them
+	// because no provider was ever contacted.
+	if userFacing, ok := AsUserFacingError(err); ok {
+		return userFacing.UserMessage()
 	}
 
 	// A model chain that ran out of candidates has one line to say per
@@ -58,10 +70,16 @@ func formatProviderFailure(err error) (string, bool) {
 	}
 
 	summary := failureSummary(failErr.Reason, failErr.Status)
+	sentence := fmt.Sprintf("The model could not complete this request: %s.", summary)
 	if failErr.Status > 0 {
-		return fmt.Sprintf("The model could not complete this request: %s (%d).", summary, failErr.Status), true
+		sentence = fmt.Sprintf("The model could not complete this request: %s (%d).", summary, failErr.Status)
 	}
-	return fmt.Sprintf("The model could not complete this request: %s.", summary), true
+	if detail := providerErrorDetail(err); detail != "" {
+		// Attributed, so the user can tell the provider's words from ours and
+		// knows which system to go and change.
+		sentence += fmt.Sprintf(" The provider said: %s", detail)
+	}
+	return sentence, true
 }
 
 // accountBalancePattern recognises a rejection that is about money rather than
@@ -153,7 +171,12 @@ func attemptFailureSummary(attempt providers.FallbackAttempt) string {
 
 	summary := failureSummary(failErr.Reason, failErr.Status)
 	if failErr.Status > 0 {
-		return fmt.Sprintf("%s (%d)", summary, failErr.Status)
+		summary = fmt.Sprintf("%s (%d)", summary, failErr.Status)
+	}
+	// One candidate gets one line, so the provider's own words are appended to
+	// that line rather than given a paragraph of their own.
+	if detail := providerErrorDetail(attempt.Error); detail != "" {
+		summary += " — " + detail
 	}
 	return summary
 }

@@ -603,11 +603,14 @@ func sanitizeFieldsForLog(fields map[string]any) map[string]any {
 				typed == legacyRealtimeChannelName {
 				typed = realtimeChannelName
 			}
-			safe[key] = redactSecrets(typed)
+			safe[key] = sanitizeLogValue(key, typed, 0)
 		case error:
 			safe[key] = redactSecrets(typed.Error())
 		default:
-			safe[key] = value
+			// Everything that is not a plain string: maps, slices, structs, and
+			// numbers. This branch used to hand the value to the encoder
+			// unexamined, so a secret nested one level down was written verbatim.
+			safe[key] = sanitizeLogValue(key, value, 0)
 		}
 	}
 	return safe

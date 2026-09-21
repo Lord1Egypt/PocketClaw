@@ -13,8 +13,9 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-JNI_LIBS="$REPO_ROOT/android/app/src/main/jniLibs/arm64-v8a"
+JNI_LIBS="${JNI_LIBS:-$REPO_ROOT/android/app/src/main/jniLibs/arm64-v8a}"
 MANIFEST="$REPO_ROOT/core/src/pkg/pcruntime/manifest.json"
+NATIVE_SYMBOL_ROOT="${NATIVE_SYMBOL_ROOT:-$REPO_ROOT/build/private-symbols/native/android-arm64}"
 
 # API 24 is the oldest sysroot these payloads need. It is well below the app's
 # minSdk, so nothing is gained by raising it and older devices keep working.
@@ -32,11 +33,37 @@ DEPS_PREFIX="${DEPS_PREFIX:-$BUILD_ROOT/deps}"
 
 TARGET_CC="aarch64-linux-android${ANDROID_API}-clang"
 
+# CPython and some upstream C sources use __DATE__/__TIME__, so the shipped
+# payload bytes depend on this value: libpocketclaw-python.so embeds the UTC
+# date of RUNTIME_EPOCH literally.
+#
+# It is therefore a pinned build input, like the tarball checksums and
+# RUNTIME_* versions below it, and deliberately not derived from repository
+# state. Deriving it from HEAD -- or from the last commit touching runtime/ --
+# would mean that the very commit which records a payload checksum in the Core
+# catalog also changes the bytes that checksum describes, so the catalog could
+# never be reproduced from the tree that carries it. core/resolve-build-time.sh
+# documents the same failure for Core and solves it by path scoping; scoping
+# cannot help here because the recipes are their own build input.
+#
+# Move this value only together with a rebuild and a catalog update.
+RUNTIME_EPOCH=1789157892   # 2026-09-11T20:18:12Z, the H5B native-hardening build input
+SOURCE_DATE_EPOCH="${SOURCE_DATE_EPOCH:-$RUNTIME_EPOCH}"
+case "$SOURCE_DATE_EPOCH" in
+    ''|*[!0-9]*) echo "error: SOURCE_DATE_EPOCH must be Unix seconds, got: $SOURCE_DATE_EPOCH" >&2; exit 1 ;;
+esac
+export SOURCE_DATE_EPOCH
+
 [ -d "$TOOLCHAIN/bin" ] || {
     echo "error: NDK toolchain not found at $TOOLCHAIN; set NDK_ROOT" >&2
     exit 1
 }
 mkdir -p "$CACHE_DIR" "$DEPS_PREFIX" "$JNI_LIBS"
+
+# C/C++ debug companions need source lines, while shipped payloads remain
+# stripped. Both maps make distinct build roots produce the same debug and
+# shipped bytes without rewriting any finished ELF.
+NATIVE_DEBUG_CFLAGS="-g -ffile-prefix-map=$BUILD_ROOT=/pocketclaw-runtime/build -fdebug-prefix-map=$BUILD_ROOT=/pocketclaw-runtime/build -fmacro-prefix-map=$BUILD_ROOT=/pocketclaw-runtime/build"
 
 # fetch_pinned <url> <filename> <sha256>
 #
@@ -58,13 +85,13 @@ fetch_pinned() {
 #
 # Strips, verifies, and installs one payload, then prints its checksum for the
 # runtime catalog.
-# install_payload <built-file> <lib*.so name> [no-strip]
+# install_payload <built-file> <lib*.so name> [strip-mode] [symbol-source]
 #
 # Pass "no-strip" for a payload that carries data after the ELF image, such as
 # the Python interpreter with its standard library appended: llvm-strip rewrites
 # the file and would discard everything past the last section.
 install_payload() {
-    local built="$1" payload="$2" strip_mode="${3:-strip}"
+    local built="$1" payload="$2" strip_mode="${3:-strip}" symbol_source="${4:-$1}"
 
     install -m 0755 "$built" "$JNI_LIBS/$payload"
     if [ "$strip_mode" != "no-strip" ]; then
@@ -88,6 +115,24 @@ install_payload() {
         strings -a "$JNI_LIBS/$payload" | grep -F "$HOME" | head -5 >&2
         exit 1
     fi
+    leaked="$(strings -a "$JNI_LIBS/$payload" | grep -c -F "$BUILD_ROOT" || true)"
+    if [ "$leaked" -ne 0 ]; then
+        echo "error: $payload contains its temporary native build root" >&2
+        strings -a "$JNI_LIBS/$payload" | grep -F "$BUILD_ROOT" | head -5 >&2
+        exit 1
+    fi
+
+    # Executable payloads resolve only Android platform dependencies. A build
+    # directory in DT_RPATH/DT_RUNPATH is both non-reproducible and unusable on
+    # device, so reject every search path rather than matching one known root.
+    local search_path
+    search_path="$("$TOOLCHAIN/bin/llvm-readelf" -dW "$JNI_LIBS/$payload" \
+        | sed -n '/(RPATH)\|(RUNPATH)/p')"
+    if [ -n "$search_path" ]; then
+        echo "error: $payload contains an RPATH/RUNPATH" >&2
+        printf '%s\n' "$search_path" >&2
+        exit 1
+    fi
     leaked="$(strings -a "$JNI_LIBS/$payload"         | grep -c -E '(^|[^[:alnum:]_./-])(/home/[a-z]|/Users/[A-Za-z]|/root/[a-z.])' || true)"
     if [ "$leaked" -ne 0 ]; then
         echo "error: $payload contains developer-machine paths" >&2
@@ -96,10 +141,18 @@ install_payload() {
     fi
 
     # An ARM64 payload that is not ARM64 fails on the device with a bare ENOEXEC.
-    "$TOOLCHAIN/bin/llvm-readelf" -h "$JNI_LIBS/$payload" | grep -q 'AArch64' || {
-        echo "error: $payload is not an AArch64 binary" >&2
-        exit 1
-    }
+    #
+    # The header is captured and then matched, rather than piped into `grep -q`.
+    # Under `pipefail` a `grep -q` that exits on its match can leave the reader
+    # writing into a closed pipe, and the resulting SIGPIPE fails the pipeline
+    # for a reason that has nothing to do with the machine type. That misfired
+    # once on the python payload, whose bytes were provably correct.
+    local elf_header
+    elf_header="$("$TOOLCHAIN/bin/llvm-readelf" -h "$JNI_LIBS/$payload")"
+    case "$elf_header" in
+        *AArch64*) ;;
+        *) echo "error: $payload is not an AArch64 binary" >&2; exit 1 ;;
+    esac
 
     # 16 KB page alignment. Android 15 introduced devices with 16 KB pages, and
     # a payload linked for 4 KB pages will not load there at all.
@@ -119,6 +172,24 @@ install_payload() {
             exit 1
         fi
     done
+
+    # Archive the private companion only once the payload has passed every
+    # release check above: a rejected build must not leave a support file and a
+    # manifest entry describing bytes that were never adopted.
+    local probe="main" toolchain_id="ndk-clang"
+    case "$payload" in
+        libpocketclaw-gh.so) probe="main.main"; toolchain_id="go" ;;
+        libpocketclaw-rg.so) toolchain_id="rust" ;;
+        libpocketclaw-python.so) toolchain_id="cpython-ndk-clang" ;;
+    esac
+    python3 "$REPO_ROOT/tool/native_support.py" \
+        --source "$symbol_source" --shipped "$JNI_LIBS/$payload" \
+        --output-root "$NATIVE_SYMBOL_ROOT" --logical-name "$payload" \
+        --category managed-runtime --toolchain "$toolchain_id" \
+        --source-id "pinned runtime recipe for $payload" --probe-symbol "$probe" \
+        --objcopy "$TOOLCHAIN/bin/llvm-objcopy" \
+        --readelf "$TOOLCHAIN/bin/llvm-readelf" --nm "$TOOLCHAIN/bin/llvm-nm" \
+        --addr2line "$TOOLCHAIN/bin/llvm-addr2line"
 
     printf '  %-38s %10d bytes  %s\n' "$payload" \
         "$(stat -c%s "$JNI_LIBS/$payload")" \

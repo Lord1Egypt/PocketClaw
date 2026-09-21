@@ -403,21 +403,6 @@ func v0ProvidersMapToModelList(providers map[string]any, userProvider, userModel
 			},
 		},
 		{
-			jsonKeys: []string{"antigravity"},
-			protocol: "antigravity",
-			defModel: "antigravity/gemini-2.0-flash",
-			extractFn: func(prov map[string]any) map[string]any {
-				entry := make(map[string]any)
-				if v, ok := prov["api_key"]; ok && v != "" {
-					entry["api_key"] = v
-				}
-				if v, ok := prov["auth_method"]; ok && v != "" {
-					entry["auth_method"] = v
-				}
-				return entry
-			},
-		},
-		{
 			jsonKeys: []string{"qwen", "tongyi"},
 			protocol: "qwen",
 			defModel: "qwen/qwen-max",

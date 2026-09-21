@@ -111,6 +111,24 @@ def is_owned_production(path: str) -> bool:
     ):
         return True
 
+    # Runtime path owners. These are in the vendored tree, but the shipped
+    # product actively mints their paths, so an upstream-derived spelling is
+    # not provenance once it reaches the device filesystem.
+    if path in (
+        "core/src/pkg/channels/wecom/reqid_store.go",
+        "core/src/pkg/channels/mqtt/mqtt.go",
+        "core/src/pkg/channels/weixin/media.go",
+        "core/src/pkg/agent/context.go",
+        "core/src/pkg/agent/prompt.go",
+        "core/src/pkg/media/tempdir.go",
+        "core/src/pkg/mcp/manager.go",
+        "core/src/pkg/providers/factory_provider.go",
+        "core/src/pkg/skills/clawhub_registry.go",
+        "core/src/pkg/tools/integration/skills_install.go",
+        "core/src/pkg/utils/download.go",
+    ):
+        return True
+
     # Go packages PocketClaw authored inside the vendored tree.
     for pkg in ("pcruntime", "coresource", "pid", "channels/pocketclaw"):
         if path.startswith(f"core/src/pkg/{pkg}/") and path.endswith(".go"):
@@ -124,12 +142,46 @@ def is_owned_production(path: str) -> bool:
 # survive, and it should be obvious from the reason why that is not a bug.
 ALLOWLIST: list[dict] = [
     {
+        "pattern": r"LegacyTempDirName = \"picoclaw_media\"|`picoclaw_media`",
+        "category": "legacy_migration",
+        "paths": ("core/src/pkg/media/tempdir.go",),
+        "reason": (
+            "the pre-migration runtime media cache directory, named only so the "
+            "one an older build created can be deleted. Deliberately anchored to "
+            "the Legacy declaration and to prose quoting it, NOT to the bare "
+            "string: a pattern of `picoclaw_media` alone would also claim "
+            "TempDirName if it regressed, which is the exact defect this entry "
+            "exists beside. RetireLegacyTempDir deletes it and nothing writes "
+            "it; the runtime walk in pkg/media proves no path PocketClaw creates "
+            "mentions Pico at all."
+        ),
+    },
+    {
+        "pattern": r"\.picoclaw\", \"wecom\"|picoclaw-wecom-reqid-store",
+        "category": "legacy_migration",
+        "paths": ("core/src/pkg/channels/wecom/reqid_store.go",),
+        "reason": (
+            "the two pre-migration WeCom request-ID store paths. They are read "
+            "only when the canonical store is absent, written into the "
+            "PocketClaw path, then deleted; every later write uses the "
+            "canonical path."
+        ),
+    },
+    {
         "pattern": r"github\.com/sipeed/picoclaw",
         "category": "upstream",
         "reason": "the Go module path. Renaming it forks the upstream baseline.",
     },
     {
-        "pattern": r"\bpicoclaw(\.exe)?\b|picoclaw-launcher|cmd/picoclaw"
+        "pattern": r"Copyright \(c\) 2026 PicoClaw contributors",
+        "category": "legal",
+        "paths": ("core/src/pkg/providers/factory_provider.go",),
+        "reason": "the upstream copyright attribution; product branding and "
+                  "the runtime User-Agent in this file are PocketClaw.",
+    },
+    {
+        "pattern": r"(?<![-_])\bpicoclaw(?:\.exe)?\b(?![-_])|picoclaw-launcher"
+                   r"|picoclaw-web|cmd/picoclaw"
                    r"|FindPicoclawBinary|GetPicoclawHome|isPicoclawProcess"
                    r"|executePicoclawVersion|parsePicoclawVersionOutput"
                    r"|PICOCLAW_BINARY|build-dev-picoclaw|picoHome|picotools",
@@ -250,7 +302,9 @@ ALLOWLIST: list[dict] = [
         "paths": ["tool/*.py"],
     },
     {
-        "pattern": r"PicoClaw Launcher|To launch PicoClaw|picobot",
+        "pattern": r"PicoClaw Launcher|To launch PicoClaw|picobot"
+                   r"|picoclaw-\$\{EXECUTABLE\}|picoclaw-int-"
+                   r"|picoclaw-agent|picoclaw-test-ergo",
         "category": "upstream",
         "reason": "upstream desktop packaging and an upstream IRC smoke-test "
                   "script. Neither is part of what PocketClaw ships for Android.",
@@ -258,7 +312,7 @@ ALLOWLIST: list[dict] = [
     },
     {
         "pattern": r"upstream PicoClaw|PicoClaw baseline|local PicoClaw checkout"
-                   r"|PicoClaw Core v",
+                   r"|PicoClaw Core v|picoclaw-core-v",
         "category": "upstream",
         "reason": "names the upstream project this Core is derived from, in the "
                   "scripts that track that relationship and in the staged "

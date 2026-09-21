@@ -242,4 +242,17 @@ type SubTurnOrphanPayload struct {
 type ErrorPayload struct {
 	Stage   string
 	Message string
+	// Classification separates an expected configuration block from an
+	// unexpected processing failure.
+	//
+	// Both are turn-ending and both reach the user, but they are not the same
+	// operational fact: "no AI model is enabled" is the product waiting on the
+	// owner, while a provider 500 is something going wrong. Empty means an
+	// ordinary failure, which is what every existing caller produces.
+	Classification string
 }
+
+// ClassificationConfigurationBlocked marks a turn that could not run because
+// PocketClaw is not configured to run it. It is reported at warning severity, not
+// error: nothing failed.
+const ClassificationConfigurationBlocked = "configuration_blocked"

@@ -164,7 +164,7 @@
   "whatsNew020New2": "Встроенные инструменты разработчика: Git, GitHub CLI, curl, ripgrep, jq и SQLite.",
   "whatsNew020New3": "Поддержка встроенной в PocketClaw среды Python 3.14.",
   "whatsNew020New4": "Безопасный вход в GitHub, общий для встроенных Git и GitHub CLI.",
-  "whatsNew020New5": "Интеграция с Telegram, настраивается в разделе «Настройки».",
+  "whatsNew020New5": "Настройка Telegram одним касанием: PocketClaw создаёт вашего собственного бота — в приложении или из панели в браузере. Никакой токен копировать не нужно, и говорить с ним может только ваша учётная запись.",
   "whatsNew020New6": "Раздел «Состояние» на панели: текущая работа, каналы, используемая модель и ресурсы среды выполнения.",
   "whatsNew020Improvement1": "Более устойчивые провайдеры: неудачный запрос больше не обрывает ход.",
   "whatsNew020Improvement2": "Более точный каталог управляемой среды выполнения.",
@@ -218,5 +218,16 @@
   "statusDurationSeconds": "{seconds} с",
   "statusDurationMinutes": "{minutes} мин {seconds} с",
   "statusDurationHours": "{hours} ч {minutes} мин",
-  "statusDurationDays": "{days} дн {hours} ч"
+  "statusDurationDays": "{days} дн {hours} ч",
+  "notificationPermissionTitle": "Уведомления",
+  "notificationPermissionGranted": "PocketClaw может показывать уведомление о работе.",
+  "notificationPermissionBlocked": "Уведомления отключены, поэтому уведомление о работе PocketClaw не появится.",
+  "notificationPermissionOpenSettings": "Открыть настройки уведомлений",
+  "whatsNew020New7": "Управление Telegram из панели: подключить бота, заменить его или отключить.",
+  "whatsNew020New8": "Управление провайдерами и моделями в панели: добавить провайдера, сменить ключ API или удалить модель.",
+  "whatsNew020Improvement12": "Настройки Telegram применяются сразу после сохранения, без ручного перезапуска.",
+  "whatsNew020Improvement13": "Если модель ИИ не настроена, PocketClaw точно называет, чего не хватает, и даёт код для поиска.",
+  "whatsNew020Improvement14": "Вход в панель возвращает вас на тот экран, который вы запрашивали.",
+  "whatsNew020Improvement15": "Диагностические журналы остаются подробными и никогда не содержат ваши ключи, токены или текст сообщений.",
+  "whatsNew020Improvement16": "Панель, которую ещё никто не занял, недоступна из сети даже при включённом публичном режиме."
 }

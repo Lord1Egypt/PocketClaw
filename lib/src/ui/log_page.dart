@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../core/app_fonts.dart';
 import 'package:pocketclaw/src/core/log_export_writer.dart';
 import 'package:pocketclaw/src/core/service_manager.dart';
 import 'package:pocketclaw/src/core/ui_constants.dart';
@@ -134,7 +134,7 @@ class _LogPageState extends State<LogPage> {
           child: Text(
             logs[index],
             style: TextStyle(
-              fontFamily: GoogleFonts.firaCode().fontFamily,
+              fontFamily: AppFonts.mono,
               fontSize: 13,
               color: colorScheme.onSurfaceVariant,
               height: 1.5,
@@ -168,7 +168,7 @@ class _LogPageState extends State<LogPage> {
         centerTitle: false,
         title: Text(
           l10n.logs.toUpperCase(),
-          style: GoogleFonts.inter(
+          style: AppFonts.inter(
             fontWeight: FontWeight.w800,
             fontSize: 20,
             letterSpacing: 1.0,
@@ -189,7 +189,7 @@ class _LogPageState extends State<LogPage> {
             child: Center(
               child: Text(
                 l10n.logEventsCount(logs.length),
-                style: GoogleFonts.firaCode(
+                style: AppFonts.firaCode(
                   fontSize: 10,
                   color: colorScheme.onSurface.withAlpha(
                     ((0.4).clamp(0.0, 1.0) * 255).round(),

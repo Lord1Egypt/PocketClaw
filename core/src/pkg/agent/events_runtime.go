@@ -42,6 +42,16 @@ func runtimeCorrelationFromHookMeta(meta HookMeta) runtimeevents.Correlation {
 }
 
 func runtimeSeverityForAgentEvent(kind runtimeevents.Kind, payload any) runtimeevents.Severity {
+	// An error event that is really a configuration block is a warning. The kind
+	// is deliberately unchanged -- it is still what ended the turn, and every
+	// consumer that routes on kind keeps working -- but presenting "no AI model
+	// is enabled" at error severity makes a healthy runtime waiting on the owner
+	// look like a fault.
+	if errPayload, ok := payload.(ErrorPayload); ok &&
+		errPayload.Classification == ClassificationConfigurationBlocked {
+		return runtimeevents.SeverityWarn
+	}
+
 	switch kind {
 	case runtimeevents.KindAgentError,
 		runtimeevents.KindAgentSubTurnOrphan,

@@ -34,23 +34,41 @@ cd "$BUILD_ROOT/cli-$GH_VERSION"
 # indistinguishable from a rejected credential unless you look at GH_DEBUG.
 #
 # Core and the launcher already solve this: the Android host passes the servers
-# from ConnectivityManager in PICOCLAW_DNS_SERVER, and pkg/androiddns installs a
-# resolver that uses them. That file is copied in here rather than reimplemented,
-# so there is one resolver in the repository and gh cannot drift from it. It
-# imports nothing outside the standard library, which is what makes the copy
-# safe; the build fails below if that stops being true.
+# from ConnectivityManager in POCKETCLAW_DNS_SERVER, and pkg/androiddns installs
+# a resolver that uses them. Those files are copied in here rather than
+# reimplemented, so there is one resolver in the repository and gh cannot drift
+# from it.
+#
+# The resolver used to import nothing outside the standard library. It now reads
+# its variable through pkg/canonicalenv, which accepts the canonical
+# POCKETCLAW_* name and the legacy PICOCLAW_* one. canonicalenv is itself a
+# std-lib-only leaf, so both files are vendored, and the guard below allows that
+# one import and nothing else. If either file grows a dependency that is not on
+# this list, the build stops rather than producing a gh whose DNS behaviour has
+# silently diverged from Core's.
 CORE_DNS_SOURCE="$REPO_ROOT/core/src/pkg/androiddns/resolver.go"
-[ -f "$CORE_DNS_SOURCE" ] || {
-    echo "error: the shared Android resolver is missing: $CORE_DNS_SOURCE" >&2
-    exit 1
-}
-if grep -qE '^\s+"github\.com/' "$CORE_DNS_SOURCE"; then
-    echo "error: $CORE_DNS_SOURCE now imports a module package and can no longer" >&2
-    echo "       be copied into the gh build. Vendor it or split the leaf out." >&2
+CORE_ENV_SOURCE="$REPO_ROOT/core/src/pkg/canonicalenv/canonicalenv.go"
+for src in "$CORE_DNS_SOURCE" "$CORE_ENV_SOURCE"; do
+    [ -f "$src" ] || { echo "error: missing shared source: $src" >&2; exit 1; }
+done
+
+# canonicalenv is the only module import either file may have.
+UNEXPECTED="$(grep -hoE '^\s+"github\.com/[^"]+"' "$CORE_DNS_SOURCE" "$CORE_ENV_SOURCE" \
+    | tr -d ' \t"' | grep -vFx 'github.com/sipeed/picoclaw/pkg/canonicalenv' || true)"
+if [ -n "$UNEXPECTED" ]; then
+    echo "error: the vendored Android resolver imports a module package that is" >&2
+    echo "       not vendored with it:" >&2
+    printf '         %s\n' $UNEXPECTED >&2
+    echo "       Vendor it here too, or split the leaf out." >&2
     exit 1
 fi
-mkdir -p internal/androiddns
+
+mkdir -p internal/androiddns internal/canonicalenv
 cp "$CORE_DNS_SOURCE" internal/androiddns/resolver.go
+cp "$CORE_ENV_SOURCE" internal/canonicalenv/canonicalenv.go
+# Repoint the vendored copy at the vendored dependency.
+sed -i 's|"github.com/sipeed/picoclaw/pkg/canonicalenv"|"github.com/cli/cli/v2/internal/canonicalenv"|' \
+    internal/androiddns/resolver.go
 cat > cmd/gh/pocketclaw_android_dns.go <<'SHIM'
 package main
 
@@ -69,7 +87,7 @@ func init() {
 SHIM
 
 GOOS=android GOARCH=arm64 CGO_ENABLED=0 go build -trimpath \
-    -ldflags "-s -w -X github.com/cli/cli/v2/internal/build.Version=$GH_VERSION" \
+    -ldflags "-X github.com/cli/cli/v2/internal/build.Version=$GH_VERSION" \
     -o "$BUILD_ROOT/gh-android-arm64" ./cmd/gh
 
 # The shim is only useful if it is actually linked in. A silent drop -- a build

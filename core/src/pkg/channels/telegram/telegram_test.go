@@ -1812,11 +1812,17 @@ func TestNewTelegramChannelUsesConfiguredMediaGroupDelay(t *testing.T) {
 }
 
 func TestNewTelegramChannelRejectsOpenAuthorization(t *testing.T) {
+	// An empty AllowFrom is the explicit owner-missing state, not open
+	// authorization: the channel is constructed but grants no agent access and
+	// only answers a private sender with setup guidance. Every allowlist that
+	// would name a non-owner, several owners or nobody valid is still refused.
 	for name, allowFrom := range map[string]config.FlexibleStringSlice{
-		"empty":    nil,
 		"wildcard": {"*"},
 		"username": {"mutable_username"},
 		"multiple": {"24680", "13579"},
+		"zero":     {"0"},
+		"negative": {"-5"},
+		"blank":    {""},
 	} {
 		t.Run(name, func(t *testing.T) {
 			_, err := NewTelegramChannel(
@@ -1827,6 +1833,14 @@ func TestNewTelegramChannelRejectsOpenAuthorization(t *testing.T) {
 			require.Error(t, err)
 		})
 	}
+
+	ch, err := NewTelegramChannel(
+		&config.Channel{Type: config.ChannelTelegram, Enabled: true},
+		&config.TelegramSettings{Token: *config.NewSecureString(testToken)},
+		bus.NewMessageBus(),
+	)
+	require.NoError(t, err)
+	require.True(t, ch.OwnerMissing())
 }
 
 func newMediaGroupTestChannel(delay time.Duration) (*bus.MessageBus, *TelegramChannel) {

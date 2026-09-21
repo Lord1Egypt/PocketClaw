@@ -50,6 +50,16 @@ type Provider struct {
 	httpClient    *http.Client
 	userAgent     string
 	customHeaders map[string]string
+
+	// sessionHeader, when set, names the request header that carries this
+	// conversation's identity. PC-DEF-032.
+	sessionHeader string
+}
+
+// SetSessionHeader makes this provider send the conversation identity under the
+// named header. See common.ApplySessionHeader.
+func (p *Provider) SetSessionHeader(header string) {
+	p.sessionHeader = header
 }
 
 // NewProvider creates a Responses provider for an arbitrary OpenAI-compatible
@@ -141,6 +151,8 @@ func (p *Provider) Chat(
 	if p.userAgent != "" {
 		req.Header.Set("User-Agent", p.userAgent)
 	}
+	common.ApplySessionHeader(req, p.sessionHeader, options)
+	// Custom headers last, so an operator can still override anything above.
 	for k, v := range p.customHeaders {
 		if strings.TrimSpace(k) == "" {
 			continue

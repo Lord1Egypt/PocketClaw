@@ -179,6 +179,10 @@ func TestLauncherAuthUninitializedStoreRequiresSetup(t *testing.T) {
 		strings.NewReader(`{"password":"12345678","confirm":"12345678"}`),
 	)
 	req.Header.Set("Content-Type", "application/json")
+	// First-claim setup is loopback-only since PC-DEF-039. This test is about
+	// the setup flow, not about where it may come from, so it takes the
+	// legitimate local path; the origin rules have their own coverage.
+	req.RemoteAddr = "127.0.0.1:51000"
 	mux.ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("setup code = %d body=%s", rec.Code, rec.Body.String())
@@ -225,8 +229,143 @@ func TestLauncherAuthSetupRequiresSessionWhenInitialized(t *testing.T) {
 	}
 }
 
-func TestLauncherAuthInitialSetupAllowsDirectSetup(t *testing.T) {
+// Replaces TestLauncherAuthInitialSetupAllowsDirectSetup, which asserted that
+// an uninitialized dashboard accepts a password from any client with no
+// authorization whatsoever. That was the defect, written down as the contract:
+// the session check in handleSetup sits inside `if initialized`, so before
+// PC-DEF-039 whoever reached the port first became the owner of the agent --
+// on a Public-Mode device, anyone on the LAN. The old test could never fail,
+// because passing it only required the vulnerability to still be present.
+//
+// The contract is now loopback-vs-remote, and that is what these assert.
+
+func setupRequest(remoteAddr string) *http.Request {
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/api/auth/setup",
+		strings.NewReader(`{"password":"12345678","confirm":"12345678"}`),
+	)
+	req.Header.Set("Content-Type", "application/json")
+	req.RemoteAddr = remoteAddr
+	return req
+}
+
+func uninitializedAuthMux() (*http.ServeMux, *fakePasswordStore) {
 	store := &fakePasswordStore{}
+	mux := http.NewServeMux()
+	RegisterLauncherAuthRoutes(mux, LauncherAuthRouteOpts{
+		SessionCookie: "session-cookie-value",
+		PasswordStore: store,
+	})
+	return mux, store
+}
+
+func TestInitialSetupAllowedFromIPv4Loopback(t *testing.T) {
+	mux, store := uninitializedAuthMux()
+
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, setupRequest("127.0.0.1:51000"))
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("code = %d, want %d, body=%s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+	if !store.initialized {
+		t.Fatal("the local owner could not claim an unclaimed dashboard")
+	}
+}
+
+func TestInitialSetupAllowedFromIPv6Loopback(t *testing.T) {
+	mux, store := uninitializedAuthMux()
+
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, setupRequest("[::1]:51000"))
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("code = %d, want %d, body=%s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+	if !store.initialized {
+		t.Fatal("IPv6 loopback is this device too")
+	}
+}
+
+func TestInitialSetupDeniedFromLAN(t *testing.T) {
+	for _, addr := range []string{
+		"192.168.1.50:44444",
+		"10.0.0.7:44444",
+		"172.16.4.9:44444",
+		"[2001:db8::1]:44444",
+	} {
+		t.Run(addr, func(t *testing.T) {
+			mux, store := uninitializedAuthMux()
+
+			rec := httptest.NewRecorder()
+			mux.ServeHTTP(rec, setupRequest(addr))
+
+			if rec.Code == http.StatusOK {
+				t.Fatalf("a LAN client claimed the dashboard from %s", addr)
+			}
+			if store.initialized {
+				t.Fatalf("a password was set by a remote first-claim from %s", addr)
+			}
+		})
+	}
+}
+
+// Host, Origin and X-Forwarded-For are request content. A LAN attacker sets
+// them freely, so the decision must ignore them entirely.
+func TestInitialSetupIgnoresSpoofableHeaders(t *testing.T) {
+	headers := []struct {
+		name  string
+		key   string
+		value string
+	}{
+		{"Host", "Host", "localhost"},
+		{"X-Forwarded-For", "X-Forwarded-For", "127.0.0.1"},
+		{"X-Real-IP", "X-Real-IP", "127.0.0.1"},
+		{"Origin", "Origin", "http://localhost:18800"},
+		{"Forwarded", "Forwarded", "for=127.0.0.1"},
+	}
+	for _, h := range headers {
+		t.Run(h.name, func(t *testing.T) {
+			mux, store := uninitializedAuthMux()
+
+			req := setupRequest("192.168.1.50:44444")
+			if h.key == "Host" {
+				req.Host = h.value
+			} else {
+				req.Header.Set(h.key, h.value)
+			}
+
+			rec := httptest.NewRecorder()
+			mux.ServeHTTP(rec, req)
+
+			if rec.Code == http.StatusOK || store.initialized {
+				t.Fatalf("spoofed %s let a LAN client claim the dashboard", h.name)
+			}
+		})
+	}
+}
+
+// An unparseable RemoteAddr is not loopback. Fail closed.
+func TestInitialSetupDeniedWhenRemoteAddrIsUnparseable(t *testing.T) {
+	for _, addr := range []string{"", "garbage", "127.0.0.1", "not:a:port"} {
+		t.Run(addr, func(t *testing.T) {
+			mux, store := uninitializedAuthMux()
+
+			rec := httptest.NewRecorder()
+			mux.ServeHTTP(rec, setupRequest(addr))
+
+			if rec.Code == http.StatusOK || store.initialized {
+				t.Fatalf("an unparseable RemoteAddr %q was treated as loopback", addr)
+			}
+		})
+	}
+}
+
+// The initialized contract is unchanged: loopback is not a substitute for a
+// session once an owner exists.
+func TestInitializedSetupStillRequiresASessionEvenFromLoopback(t *testing.T) {
+	store := &fakePasswordStore{initialized: true}
 	mux := http.NewServeMux()
 	RegisterLauncherAuthRoutes(mux, LauncherAuthRouteOpts{
 		SessionCookie: "session-cookie-value",
@@ -234,15 +373,11 @@ func TestLauncherAuthInitialSetupAllowsDirectSetup(t *testing.T) {
 	})
 
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest(
-		http.MethodPost,
-		"/api/auth/setup",
-		strings.NewReader(`{"password":"12345678","confirm":"12345678"}`),
-	)
-	req.Header.Set("Content-Type", "application/json")
-	mux.ServeHTTP(rec, req)
-	if rec.Code != http.StatusOK {
-		t.Fatalf("setup without grant code = %d body=%s", rec.Code, rec.Body.String())
+	mux.ServeHTTP(rec, setupRequest("127.0.0.1:51000"))
+
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("code = %d, want %d: an existing owner must not be overwritten "+
+			"just because the request came from this device", rec.Code, http.StatusUnauthorized)
 	}
 }
 

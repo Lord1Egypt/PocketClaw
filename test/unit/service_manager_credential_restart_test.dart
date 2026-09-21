@@ -66,13 +66,20 @@ void main() {
     // The host has a desktop adapter rather than the Android service, so the
     // observable proof of a restart is the status transition, not a native
     // method name.
+    //
+    // PC-DEF-030. This used to assert that the manager passed through
+    // `stopped`, which was proof of the stop-then-start the restart is no
+    // longer allowed to be: on Android those are two service intents with an
+    // unconditional stopSelf() between them, and the result was a Core that
+    // stayed down. `starting` is the first state of a restart that was
+    // requested as one operation.
     final seen = <ServiceStatus>[];
     service.addListener(() => seen.add(service.status));
 
     final outcome = await service.applyCredentialChange();
 
     expect(outcome, CredentialApplyOutcome.applied);
-    expect(seen, contains(ServiceStatus.stopped));
+    expect(seen.first, ServiceStatus.starting);
   });
 
   test('a starting service is never interrupted', () async {
@@ -102,7 +109,10 @@ void main() {
     await Future<void>.delayed(Duration.zero);
 
     expect(service.hasPendingCredentialRestart, isFalse);
-    expect(seen, contains(ServiceStatus.stopped));
+    // The settled service is restarted, not stopped and separately started:
+    // nothing may observe it passing through `stopped` on the way. PC-DEF-030.
+    expect(seen, contains(ServiceStatus.starting));
+    expect(seen, isNot(contains(ServiceStatus.stopped)));
   });
 }
 

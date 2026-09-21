@@ -22,6 +22,7 @@ import { AddModelSheet } from "./add-model-sheet"
 import { CatalogDialog } from "./catalog-dialog"
 import { DeleteModelDialog } from "./delete-model-dialog"
 import { EditModelSheet } from "./edit-model-sheet"
+import { ManageProviderSheet } from "./manage-provider-sheet"
 import { DefaultModelSection } from "./default-model-section"
 import { FallbackModelsSection } from "./fallback-models-section"
 import {
@@ -52,6 +53,7 @@ export function ModelsPage() {
   const [editingModel, setEditingModel] = useState<ModelInfo | null>(null)
   const [deletingModel, setDeletingModel] = useState<ModelInfo | null>(null)
   const [addOpen, setAddOpen] = useState(false)
+  const [managingProvider, setManagingProvider] = useState<string | null>(null)
   const [catalogOpen, setCatalogOpen] = useState(false)
   const [settingDefaultIndex, setSettingDefaultIndex] = useState<number | null>(
     null,
@@ -265,6 +267,7 @@ export function ModelsPage() {
                 onEdit={setEditingModel}
                 onSetDefault={handleSetDefault}
                 onDelete={setDeletingModel}
+                onManageProvider={setManagingProvider}
                 settingDefaultIndex={settingDefaultIndex}
               />
             ))}
@@ -278,6 +281,13 @@ export function ModelsPage() {
         onClose={() => setEditingModel(null)}
         onSaved={fetchModels}
         providerOptions={providerOptions}
+      />
+
+      <ManageProviderSheet
+        provider={managingProvider}
+        providerOptions={providerOptions}
+        onClose={() => setManagingProvider(null)}
+        onChanged={fetchModels}
       />
 
       <AddModelSheet

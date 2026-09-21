@@ -480,7 +480,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get whatsNew020New5 =>
-      'Intégration de Telegram, à configurer depuis les Paramètres.';
+      'Configuration de Telegram en un geste : PocketClaw crée votre propre bot, dans l\'application ou depuis le tableau de bord dans un navigateur. Aucun jeton à copier, et seul votre compte peut lui parler.';
 
   @override
   String get whatsNew020New6 =>
@@ -672,4 +672,47 @@ class AppLocalizationsFr extends AppLocalizations {
   String statusDurationDays(int days, int hours) {
     return '$days j $hours h';
   }
+
+  @override
+  String get notificationPermissionTitle => 'Notifications';
+
+  @override
+  String get notificationPermissionGranted =>
+      'PocketClaw peut afficher sa notification d\'exécution.';
+
+  @override
+  String get notificationPermissionBlocked =>
+      'Les notifications sont désactivées, la notification d\'exécution de PocketClaw n\'apparaîtra donc pas.';
+
+  @override
+  String get notificationPermissionOpenSettings =>
+      'Ouvrir les paramètres de notification';
+
+  @override
+  String get whatsNew020New7 =>
+      'Gestion de Telegram depuis le tableau de bord : connecter un bot, le remplacer ou le déconnecter.';
+
+  @override
+  String get whatsNew020New8 =>
+      'Gestion des fournisseurs et des modèles dans le tableau de bord : ajouter un fournisseur, changer une clé d\'API ou supprimer un modèle.';
+
+  @override
+  String get whatsNew020Improvement12 =>
+      'Les réglages Telegram s\'appliquent dès l\'enregistrement, sans redémarrage manuel.';
+
+  @override
+  String get whatsNew020Improvement13 =>
+      'Lorsqu\'aucun modèle d\'IA n\'est configuré, PocketClaw indique précisément ce qui manque et vous donne un code à consulter.';
+
+  @override
+  String get whatsNew020Improvement14 =>
+      'La connexion au tableau de bord vous ramène à l\'écran que vous avez demandé.';
+
+  @override
+  String get whatsNew020Improvement15 =>
+      'Les journaux de diagnostic restent détaillés sans jamais contenir vos clés, vos jetons ni le texte de vos messages.';
+
+  @override
+  String get whatsNew020Improvement16 =>
+      'Un tableau de bord que personne n\'a encore revendiqué n\'est jamais joignable depuis le réseau, même avec le mode public activé.';
 }

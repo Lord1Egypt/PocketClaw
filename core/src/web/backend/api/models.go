@@ -152,9 +152,6 @@ func normalizeIncomingModelConfig(mc *config.ModelConfig) {
 			}
 		}
 	}
-	if mc.Provider == "antigravity" && mc.AuthMethod == "" {
-		mc.AuthMethod = "oauth"
-	}
 }
 
 func createAllowedForProvider(provider string) bool {
@@ -337,6 +334,19 @@ func (h *Handler) handleAddModel(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// PC-DEF-055. A model added through the API is meant to be active, and the
+	// runtime and the readiness check both read this field. The request shape
+	// does not carry `enabled`, and Go's zero value would silently store false,
+	// so an omitted field means enabled.
+	var rawFields map[string]json.RawMessage
+	if err = json.Unmarshal(body, &rawFields); err != nil {
+		http.Error(w, fmt.Sprintf("Invalid JSON: %v", err), http.StatusBadRequest)
+		return
+	}
+	if _, ok := rawFields["enabled"]; !ok {
+		mc.Enabled = true
+	}
+
 	normalizeIncomingModelConfig(&mc.ModelConfig)
 
 	if err = validateIncomingModelConfig(&mc.ModelConfig, nil); err != nil {
@@ -446,6 +456,12 @@ func (h *Handler) handleUpdateModel(w http.ResponseWriter, r *http.Request) {
 	if _, ok := rawFields["streaming"]; !ok {
 		mc.Streaming = cfg.ModelList[idx].Streaming
 	}
+	// PC-DEF-055. `enabled` is not part of the edit payload, so an omitted field
+	// must preserve the stored value rather than write Go's zero value back. An
+	// edit used to disable the model it touched.
+	if _, ok := rawFields["enabled"]; !ok {
+		mc.Enabled = cfg.ModelList[idx].Enabled
+	}
 	// Preserve the existing Provider when the caller omits it. This keeps the
 	// update API backward-compatible for clients that haven't started sending
 	// the new field yet, while still allowing explicit clearing via "".
@@ -527,10 +543,13 @@ func (h *Handler) handleDeleteModel(w http.ResponseWriter, r *http.Request) {
 
 	cfg.ModelList = append(cfg.ModelList[:idx], cfg.ModelList[idx+1:]...)
 
-	// If the deleted model was the default, clear it.
-	if cfg.Agents.Defaults.ModelName == deletedModelName {
-		cfg.Agents.Defaults.ModelName = ""
-	}
+	// Every reference to the entry goes with it. A fallback chain is a list of
+	// model_list names, and a deleted name left in one is a candidate the router
+	// will try and cannot resolve -- the "never silently continue with a deleted
+	// model" rule. purgeModelReferences covers all of them, including the image
+	// model, the complexity router's light model and each agent's own
+	// primary/fallback pair, which an earlier version of this handler missed.
+	purgeModelReferences(cfg, newModelReferenceSet(deletedModelName))
 
 	if err := config.SaveConfig(h.configPath, cfg); err != nil {
 		http.Error(w, fmt.Sprintf("Failed to save config: %v", err), http.StatusInternalServerError)

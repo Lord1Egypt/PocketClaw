@@ -464,7 +464,8 @@ class AppLocalizationsAr extends AppLocalizations {
       'تسجيل دخول آمن إلى GitHub، يشترك فيه Git وGitHub CLI المضمّنان.';
 
   @override
-  String get whatsNew020New5 => 'تكامل مع تيليجرام، يُضبط من الإعدادات.';
+  String get whatsNew020New5 =>
+      'إعداد تيليجرام بلمسة واحدة: ينشئ PocketClaw بوتك الخاص، من التطبيق أو من لوحة التحكم في المتصفح. لا يوجد رمز لنسخه، ولا يمكن التحدث إليه إلا من حسابك.';
 
   @override
   String get whatsNew020New6 =>
@@ -654,4 +655,46 @@ class AppLocalizationsAr extends AppLocalizations {
   String statusDurationDays(int days, int hours) {
     return '$days ي $hours س';
   }
+
+  @override
+  String get notificationPermissionTitle => 'الإشعارات';
+
+  @override
+  String get notificationPermissionGranted =>
+      'يمكن لـ PocketClaw إظهار إشعار التشغيل.';
+
+  @override
+  String get notificationPermissionBlocked =>
+      'الإشعارات مُعطَّلة، لذا لن يظهر إشعار تشغيل PocketClaw.';
+
+  @override
+  String get notificationPermissionOpenSettings => 'فتح إعدادات الإشعارات';
+
+  @override
+  String get whatsNew020New7 =>
+      'إدارة تيليجرام من لوحة التحكم: ربط بوت أو استبداله أو قطع اتصاله.';
+
+  @override
+  String get whatsNew020New8 =>
+      'إدارة المزودين والطُرز في لوحة التحكم: إضافة مزود أو تغيير مفتاح API أو إزالة طراز.';
+
+  @override
+  String get whatsNew020Improvement12 =>
+      'تُطبَّق إعدادات تيليجرام بمجرد حفظها، بدون إعادة تشغيل يدوية.';
+
+  @override
+  String get whatsNew020Improvement13 =>
+      'عندما لا يكون هناك طراز ذكاء اصطناعي مُعد، يوضّح PocketClaw ما ينقص بالتحديد ويعطيك رمزًا للرجوع إليه.';
+
+  @override
+  String get whatsNew020Improvement14 =>
+      'تسجيل الدخول إلى لوحة التحكم ينقلك إلى الشاشة التي طلبتها.';
+
+  @override
+  String get whatsNew020Improvement15 =>
+      'تبقى سجلات التشخيص مفصّلة دون أن تحتوي أبدًا على مفاتيحك أو رموزك أو نص رسائلك.';
+
+  @override
+  String get whatsNew020Improvement16 =>
+      'لوحة التحكم التي لم يطالب بها أحد بعد لا يمكن الوصول إليها من الشبكة أبدًا، حتى مع تشغيل الوضع العام.';
 }

@@ -14,10 +14,12 @@ class StubClient extends TelegramOnboardingClient {
     state: PairingState.pending,
   );
   TelegramOnboardingException? createError;
+  TelegramPairing? pairingOverride;
 
   @override
   Future<TelegramPairing> createPairing() async {
     if (createError != null) throw createError!;
+    if (pairingOverride != null) return pairingOverride!;
     return TelegramPairing(
       pairingId: 'pairing-1',
       pollToken: 'poll-secret-value',
@@ -54,22 +56,30 @@ class StubClient extends TelegramOnboardingClient {
 }
 
 class Fixture {
-  Fixture() {
+  Fixture({this.runtimeError}) {
     controller = TelegramOnboardingController(
       client: client,
       configWriter: configWriter,
-      reloadCore: () async => reloads++,
       openUrl: (url) async {
         opened.add(url);
         return true;
       },
+      // PC-DEF-056. Connected now means Core reports the channel running, so a
+      // widget test has to say whether it does. Ready by default.
+      telegramRuntimeReady: () async {
+        if (runtimeError != null) throw runtimeError!;
+        return runtimeRunning;
+      },
+      runtimeReadyTimeout: const Duration(milliseconds: 300),
+      runtimePollInterval: const Duration(milliseconds: 10),
     );
   }
 
   final client = StubClient();
   final opened = <String>[];
+  bool runtimeRunning = true;
+  final TelegramOnboardingException? runtimeError;
   TelegramBotCredentials? savedCredentials;
-  int reloads = 0;
   late final TelegramOnboardingController controller;
 
   late final TelegramConfigWriter configWriter = TelegramConfigWriter(
@@ -162,6 +172,32 @@ void main() {
     f.controller.dispose();
   });
 
+  // PC-DEF-052. The QR encodes whatever the service returned, and a scanner
+  // follows it. A payload that is not a Telegram destination must not render.
+  testWidgets('drops a QR whose payload is not a Telegram link', (tester) async {
+    final f = Fixture();
+    f.client.pairingOverride = TelegramPairing(
+      pairingId: 'pairing-1',
+      pollToken: 'poll-secret-value',
+      suggestedUsername: 'pocketclaw_abcd1234_bot',
+      suggestedName: 'PocketClaw Agent',
+      deepLink:
+          'https://t.me/newbot/PocketClawSetupBot/pocketclaw_abcd1234_bot',
+      qrPayload: 'https://pocketclaw-telegram-setup.vercel.app/redirect',
+      expiresAt: DateTime.now().toUtc().add(const Duration(minutes: 10)),
+      pollInterval: const Duration(milliseconds: 20),
+    );
+    await tester.pumpWidget(f.widget());
+    await tester.tap(find.text('Connect Telegram'));
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.byType(TelegramPairingQr), findsNothing);
+    // The deep link is a separate field and is still a Telegram link.
+    expect(find.text('Open Telegram'), findsOneWidget);
+    f.controller.dispose();
+  });
+
   testWidgets('tapping Open Telegram launches the deep link', (tester) async {
     final f = Fixture();
     await tester.pumpWidget(f.widget());
@@ -196,7 +232,6 @@ void main() {
     // The token configured Core; it is never shown.
     expect(find.textContaining('CHILD-TOKEN'), findsNothing);
     expect(f.savedCredentials?.token, '9001:CHILD-TOKEN');
-    expect(f.reloads, 1);
     f.controller.dispose();
   });
 
@@ -268,6 +303,34 @@ void main() {
     expect(find.text('Set up manually'), findsOneWidget);
     f.controller.dispose();
   });
+
+  testWidgets(
+    'invalid bot credentials leave Starting with actionable choices',
+    (tester) async {
+      final f = Fixture(
+        runtimeError: const TelegramOnboardingException(
+          TelegramOnboardingErrorKind.invalidCredentials,
+        ),
+      );
+      f.client.statusQueue.add(
+        const TelegramPairingStatus(state: PairingState.ready),
+      );
+      await tester.pumpWidget(f.widget());
+      await tester.tap(find.text('Connect Telegram'));
+      await settle(tester);
+
+      expect(find.text('Starting Telegram…'), findsNothing);
+      expect(find.text('Telegram connection failed'), findsOneWidget);
+      expect(find.textContaining('Telegram rejected this bot'), findsOneWidget);
+      expect(
+        find.widgetWithText(FilledButton, 'Create or replace bot'),
+        findsOneWidget,
+      );
+      expect(find.text('Set up manually'), findsOneWidget);
+      expect(f.opened, isEmpty, reason: '401 must not open the bot handoff');
+      f.controller.dispose();
+    },
+  );
 
   testWidgets('manual setup writes the same Telegram configuration', (
     tester,
@@ -381,8 +444,12 @@ void main() {
 
     final pairingId = f.controller.pairing!.pairingId;
 
+    // PC-DEF-056. Backgrounding must NOT stop polling: that window is the one
+    // the user spends in Telegram, and stopping meant the pairing result could
+    // only be consumed once they came back -- so the bot chat Telegram showed
+    // them was silent.
     await background(tester);
-    expect(f.controller.isPolling, isFalse);
+    expect(f.controller.isPolling, isTrue);
     expect(f.controller.pairing!.pairingId, pairingId);
     expect(find.text('Open Telegram'), findsOneWidget);
 

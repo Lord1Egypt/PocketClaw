@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -14,10 +15,12 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 	"unicode/utf8"
 
 	"github.com/mymmrac/telego"
+	ta "github.com/mymmrac/telego/telegoapi"
 	th "github.com/mymmrac/telego/telegohandler"
 	tu "github.com/mymmrac/telego/telegoutil"
 
@@ -48,6 +51,14 @@ const (
 	defaultMediaGroupDelay = 500 * time.Millisecond
 	telegramCaptionLimit   = 1024
 	telegramHTTPTimeout    = 45 * time.Second
+
+	// startCleanupTTL bounds how long a received private /start may wait for
+	// its built-in reply before the cosmetic cleanup is abandoned. It is a
+	// timestamp check, never a sleep or a delay.
+	startCleanupTTL = 2 * time.Minute
+	// startCleanupTimeout bounds the best-effort deleteMessage call. A slow
+	// delete must not hold the outbound path.
+	startCleanupTimeout = 5 * time.Second
 )
 
 type TelegramChannel struct {
@@ -56,15 +67,60 @@ type TelegramChannel struct {
 	bh        *th.BotHandler
 	bc        *config.Channel
 	chatIDsMu sync.Mutex
-	chatIDs   map[string]int64
-	ctx       context.Context
-	cancel    context.CancelFunc
-	tgCfg     *config.TelegramSettings
-	progress  *channels.ToolFeedbackAnimator
+
+	// ownerMissing records that this channel was configured with a valid bot
+	// credential but no owner identity. It is an incomplete setup, not a
+	// working bot: private senders get deterministic setup guidance and no
+	// agent turn is ever created, and other chat types are left unanswered.
+	// It is fixed at construction; configuring an owner requires a new channel.
+	ownerMissing bool
+	chatIDs      map[string]int64
+	ctx          context.Context
+	cancel       context.CancelFunc
+	tgCfg        *config.TelegramSettings
+	progress     *channels.ToolFeedbackAnimator
+
+	// pollingDone is closed when the long-polling goroutine has unwound. Stop
+	// waits on it so a stopped channel can be started again.
+	pollingDone chan struct{}
+
+	// intakeRef is read by this channel's Bot API caller to learn which
+	// generation's getUpdates request it is recording. It is installed before
+	// UpdatesViaLongPolling, so the first poll is attributable.
+	intakeRef *telegramIntakeRef
+	// generation is the local id of the active getUpdates owner. Zero means no
+	// owner has been established.
+	generation atomic.Uint64
+	// intakeProbe is replaceable only by package tests. Production waits on the
+	// real caller-observed intake and fails closed when it cannot be confirmed.
+	intakeProbe func(*telegramIntake, time.Duration) bool
 
 	registerFunc      func(context.Context, []commands.Definition) error
 	commandRegDelayFn func(int) time.Duration
 	commandRegCancel  context.CancelFunc
+	// commandsRegistered latches once the menu has reached Telegram. Read from
+	// the status snapshot, so it is atomic rather than mutex-guarded: the
+	// registration goroutine writes it and a health request reads it.
+	commandsRegistered atomic.Bool
+	// runtimeFailure is a sanitized terminal lifecycle code. It intentionally
+	// carries no Telegram response, bot identity or credential material.
+	runtimeFailure atomic.Uint32
+	botIdentityMu  sync.RWMutex
+	botIdentity    string
+	// firstStartReplied makes the first successful /start response an explicit,
+	// safe lifecycle fact without logging message, chat or owner data.
+	firstStartReplied atomic.Bool
+
+	// startCleanup holds, per private chat, the exact inbound /start message
+	// whose built-in reply is still owed. It is consumed only after that reply
+	// is sent successfully, so a /start is never deleted before PocketClaw has
+	// proved it received and handled it. Cosmetic and best-effort only.
+	startCleanupMu sync.Mutex
+	startCleanup   map[int64]telegramStartCleanup
+
+	// handlerReadyProbe is replaceable only by package tests. Production uses
+	// the real telego handler state and fails closed when it cannot be confirmed.
+	handlerReadyProbe func(updateConsumer, time.Duration) bool
 
 	mediaGroupMu    sync.Mutex
 	mediaGroups     map[string]*telegramMediaGroup
@@ -77,6 +133,14 @@ type telegramMediaGroup struct {
 	generation uint64
 }
 
+// telegramStartCleanup records the exact inbound /start message that is
+// awaiting its built-in reply, bound to the generation that received it.
+type telegramStartCleanup struct {
+	messageID  int
+	generation uint64
+	recordedAt time.Time
+}
+
 type telegramMessageParts struct {
 	content    []string
 	mediaPaths []string
@@ -87,11 +151,21 @@ func NewTelegramChannel(
 	telegramCfg *config.TelegramSettings,
 	bus *bus.MessageBus,
 ) (*TelegramChannel, error) {
-	if len(bc.AllowFrom) != 1 {
-		return nil, fmt.Errorf("telegram requires exactly one paired numeric owner")
-	}
-	ownerID, err := strconv.ParseInt(strings.TrimSpace(bc.AllowFrom[0]), 10, 64)
-	if err != nil || ownerID <= 0 {
+	// The owner contract, minus the empty case. Exactly one positive numeric
+	// owner authorizes the agent. Zero owners is no longer a construction
+	// failure: it is the explicit owner-missing setup state, handled below
+	// without ever granting agent access. Several owners, or one that is not a
+	// positive numeric id, remain errors -- there is nothing sensible to pick.
+	ownerMissing := false
+	switch len(bc.AllowFrom) {
+	case 0:
+		ownerMissing = true
+	case 1:
+		ownerID, err := strconv.ParseInt(strings.TrimSpace(bc.AllowFrom[0]), 10, 64)
+		if err != nil || ownerID <= 0 {
+			return nil, fmt.Errorf("telegram owner must be exactly one positive numeric Telegram user ID")
+		}
+	default:
 		return nil, fmt.Errorf("telegram requires exactly one paired numeric owner")
 	}
 	channelName := bc.Name()
@@ -110,7 +184,17 @@ func NewTelegramChannel(
 	// Telego otherwise defaults to fasthttp without a deadline. A lost mobile
 	// connection can then block one outbound worker indefinitely while polling
 	// continues accepting updates and emitting Thinking placeholders.
-	opts = append(opts, telego.WithHTTPClient(httpClient))
+	//
+	// PC-DEF-061. The caller is wrapped so the channel can tell when a
+	// generation's first getUpdates request is actually issued. Telego starts
+	// its poller goroutine and returns before that, so this is the only proof
+	// that the Bot API is holding a poll for the generation being reported
+	// ready.
+	intakeRef := &telegramIntakeRef{}
+	opts = append(opts, telego.WithAPICaller(&telegramIntakeCaller{
+		base: ta.HTTPCaller{Client: httpClient},
+		ref:  intakeRef,
+	}))
 
 	if baseURL := strings.TrimRight(strings.TrimSpace(telegramCfg.BaseURL), "/"); baseURL != "" {
 		opts = append(opts, telego.WithAPIServer(baseURL))
@@ -122,22 +206,35 @@ func NewTelegramChannel(
 		return nil, fmt.Errorf("failed to create telegram bot: %w", err)
 	}
 
+	// Defense in depth for the owner-missing state. The configured AllowFrom is
+	// empty, and BaseChannel reads an empty allowlist as "allow everyone" -- a
+	// false warning here and, worse, a permissive base layer behind the
+	// owner-missing branch. A non-numeric sentinel matches no real Telegram
+	// user, so the base layer denies every sender even if a future path
+	// bypassed the branch above.
+	baseAllowFrom := bc.AllowFrom
+	if ownerMissing {
+		baseAllowFrom = config.FlexibleStringSlice{telegramOwnerMissingSentinel}
+	}
 	base := channels.NewBaseChannel(
 		channelName,
 		telegramCfg,
 		bus,
-		bc.AllowFrom,
+		baseAllowFrom,
 		channels.WithMaxMessageLength(4000),
 		channels.WithGroupTrigger(bc.GroupTrigger),
 		channels.WithReasoningChannelID(bc.ReasoningChannelID),
 	)
 
 	ch := &TelegramChannel{
-		BaseChannel: base,
-		bot:         bot,
-		bc:          bc,
-		chatIDs:     make(map[string]int64),
-		tgCfg:       telegramCfg,
+		BaseChannel:  base,
+		bot:          bot,
+		bc:           bc,
+		ownerMissing: ownerMissing,
+		chatIDs:      make(map[string]int64),
+		tgCfg:        telegramCfg,
+		intakeRef:    intakeRef,
+		startCleanup: make(map[int64]telegramStartCleanup),
 
 		mediaGroups:     make(map[string]*telegramMediaGroup),
 		mediaGroupDelay: telegramMediaGroupDelay(telegramCfg),
@@ -156,19 +253,85 @@ func telegramMediaGroupDelay(telegramCfg *config.TelegramSettings) time.Duration
 func (c *TelegramChannel) Start(ctx context.Context) error {
 	logger.InfoC("telegram", "Starting Telegram bot (polling mode)...")
 
+	c.SetRunning(false)
+	c.commandsRegistered.Store(false)
+	c.runtimeFailure.Store(telegramRuntimeFailureNone)
 	c.ctx, c.cancel = context.WithCancel(ctx)
 
+	// PC-DEF-061. Every activation is a distinct getUpdates owner with its own
+	// intake proof. Readiness is only allowed to describe the generation whose
+	// request is actually in flight.
+	if c.intakeRef == nil {
+		c.intakeRef = &telegramIntakeRef{}
+	}
+	generation := nextTelegramGeneration()
+	intake := newTelegramIntake(generation)
+	c.intakeRef.store(intake)
+	c.generation.Store(uint64(generation))
+	logTelegramLifecycleGeneration("generation_created", uint64(generation))
+
+	// Authentication is established before polling is allowed to own intake.
+	// This call cannot lose an update because no getUpdates request exists yet.
+	// It also gives invalid replacement credentials a synchronous terminal path
+	// rather than letting Telego's generic polling retry loop own the outcome.
+	me, err := c.bot.GetMe(c.ctx)
+	if err != nil {
+		if errors.Is(err, errTelegramAuthentication) {
+			c.runtimeFailure.Store(telegramRuntimeFailureAuthentication)
+			logger.ErrorCF("telegram", "Telegram rejected the configured bot credentials", map[string]any{
+				"event":               "telegram.authentication_failed",
+				"telegram_generation": uint64(generation),
+			})
+		}
+		c.refuseStart(uint64(generation), nil)
+		if errors.Is(err, errTelegramAuthentication) {
+			return errTelegramAuthentication
+		}
+		return fmt.Errorf("telegram authentication check failed: %w", err)
+	}
+	c.botIdentityMu.Lock()
+	c.botIdentity = me.Username
+	c.botIdentityMu.Unlock()
+	// From here on a 401 is asynchronous (polling or menu registration), so
+	// this generation owns the callback that revokes readiness and retires it.
+	intake.onUnauthorized = func() { c.failAuthentication(uint64(generation)) }
+	// A 409 on getUpdates means another service owns this bot. It is terminal
+	// for this generation and is never retried.
+	intake.onConflict = func(reason string) { c.failConflict(uint64(generation), reason) }
+
+	// PC-DEF-069. Before this bot is allowed to own the update stream, check for
+	// an existing webhook non-destructively. PocketClaw never calls
+	// deleteWebhook, never replaces it and never mutates the other service; it
+	// refuses to start and reports the conflict. A check that cannot be read
+	// does not block the start: an active webhook is still caught terminally by
+	// the getUpdates 409 path below.
+	if err := c.refuseIfWebhookActive(uint64(generation)); err != nil {
+		return err
+	}
+
+	logger.DebugCF("telegram", "Telegram polling starting", map[string]any{
+		"event": "polling.prepare",
+	})
+	// Offset is deliberately unset, which asks Telegram for everything it still
+	// holds. PocketClaw persists no offset of its own, so this is the only
+	// starting point there is and a replaced bot cannot inherit one.
 	updates, err := c.bot.UpdatesViaLongPolling(c.ctx, &telego.GetUpdatesParams{
 		Timeout: 30,
 	})
 	if err != nil {
-		c.cancel()
+		c.refuseStart(uint64(generation), nil)
 		return fmt.Errorf("failed to start long polling: %w", err)
 	}
+	logger.DebugCF("telegram", "Telegram polling started", map[string]any{
+		"event":                "polling.started",
+		"poll_timeout_seconds": 30,
+	})
+	logTelegramLifecycleGeneration("poller_created", uint64(generation))
+	logTelegramLifecycle("polling_live")
 
-	bh, err := th.NewBotHandler(c.bot, updates)
+	bh, err := th.NewBotHandler(c.bot, c.observeUpdates(updates))
 	if err != nil {
-		c.cancel()
+		c.refuseStart(uint64(generation), nil)
 		return fmt.Errorf("failed to create bot handler: %w", err)
 	}
 	c.bh = bh
@@ -176,28 +339,325 @@ func (c *TelegramChannel) Start(ctx context.Context) error {
 	bh.HandleMessage(func(ctx *th.Context, message telego.Message) error {
 		return c.handleMessage(ctx, &message)
 	}, th.AnyMessage())
+	logTelegramLifecycleGeneration("consumer_attached", uint64(generation))
 
-	c.SetRunning(true)
-	logger.InfoCF("telegram", "Telegram bot connected", map[string]any{
-		"username": c.bot.Username(),
-	})
-
-	c.startCommandRegistration(c.ctx, commands.BuiltinDefinitions())
-
+	// PC-DEF-061. The consumer goes live here, before anything else and before
+	// Running is reported. Only allocation separates it from the poller now:
+	// polling confirms updates to Telegram as it fetches them, so a blocking
+	// call in this gap -- getMe used to sit here, at four seconds on the device
+	// -- is a window in which a delivered update is already unrecoverable.
 	go func() {
-		if err = bh.Start(); err != nil {
+		if err := bh.Start(); err != nil {
 			logger.ErrorCF("telegram", "Bot handler failed", map[string]any{
 				"error": err.Error(),
 			})
 		}
 	}()
 
+	readyProbe := c.handlerReadyProbe
+	if readyProbe == nil {
+		readyProbe = waitForHandlerConsuming
+	}
+	if !readyProbe(bh, handlerConsumingWait) {
+		// A terminal intake outcome may already be recorded. It names the real
+		// cause -- invalid credentials, or a bot owned by another service -- and
+		// must win over the generic "not ready", or a conflict would be reported
+		// as an unconfirmed receiver.
+		if terminal := intake.terminalError(); terminal != nil {
+			c.refuseStart(uint64(generation), bh)
+			return terminal
+		}
+		// Fail closed. Reporting Running here used to authorize the Android
+		// handoff even though the receiver had not confirmed it was consuming.
+		// Stop both halves before returning so a later retry cannot overlap this
+		// unconfirmed poller.
+		logger.WarnCF("telegram",
+			"Telegram intake did not report consuming; channel start refused",
+			map[string]any{"event": "polling.ready_unconfirmed"})
+		c.refuseStart(uint64(generation), bh)
+		return fmt.Errorf("telegram update handler did not become ready")
+	}
+
+	logTelegramLifecycleGeneration("handler_ready", uint64(generation))
+
+	// PC-DEF-061. Handler consumption and a request handed to the transport are
+	// still insufficient: Telegram must successfully answer this generation's
+	// first getUpdates call. The API caller makes only that first call a short
+	// poll, so success is immediate without changing the steady 30-second poll.
+	var intakeErr error
+	if c.intakeProbe != nil {
+		if !c.intakeProbe(intake, telegramIntakeWait) {
+			intakeErr = fmt.Errorf("telegram getUpdates intake did not become usable")
+		}
+	} else {
+		intakeErr = waitForIntakeUsable(intake, telegramIntakeWait)
+	}
+	if intakeErr != nil {
+		logger.WarnCF("telegram",
+			"Telegram getUpdates intake did not become usable; channel start refused",
+			map[string]any{
+				"event":               "polling.intake_unconfirmed",
+				"telegram_generation": uint64(generation),
+			})
+		c.refuseStart(uint64(generation), bh)
+		if errors.Is(intakeErr, errTelegramAuthentication) {
+			return errTelegramAuthentication
+		}
+		if errors.Is(intakeErr, errTelegramConflict) {
+			// The intake callback already recorded the terminal conflict reason
+			// (webhook_active or bot_in_use) before unblocking this wait.
+			return errTelegramConflict
+		}
+		return intakeErr
+	}
+
+	c.SetRunning(true)
+	logger.InfoC("telegram", "Telegram bot connected")
+	logger.DebugCF("telegram", "Telegram polling ready", map[string]any{
+		"event":               "polling.ready",
+		"telegram_generation": uint64(generation),
+	})
+
+	c.startCommandRegistration(c.ctx, commands.BuiltinDefinitions())
+
+	logger.InfoCF("telegram", "Telegram bot identified", map[string]any{
+		"event": "polling.identity",
+		"bot":   c.botUsername(),
+	})
+
 	return nil
+}
+
+const (
+	telegramRuntimeFailureNone uint32 = iota
+	telegramRuntimeFailureAuthentication
+	telegramRuntimeFailureConflictWebhook
+	telegramRuntimeFailureConflictInUse
+)
+
+// RuntimeFailure reports a sanitized terminal code for readiness. It remains
+// latched after the failed generation is retired and is cleared only by a new
+// Start attempt.
+//
+// The conflict codes carry a machine-readable subtype after "conflict:". They
+// never carry the webhook URL, a bot id, an owner id or a credential.
+func (c *TelegramChannel) RuntimeFailure() string {
+	switch c.runtimeFailure.Load() {
+	case telegramRuntimeFailureAuthentication:
+		return "authentication_failed"
+	case telegramRuntimeFailureConflictWebhook:
+		return "conflict:webhook_active"
+	case telegramRuntimeFailureConflictInUse:
+		return "conflict:bot_in_use"
+	}
+	return ""
+}
+
+// conflictReason names the conflict subtype from the runtime failure code.
+func (c *TelegramChannel) conflictReason() string {
+	switch c.runtimeFailure.Load() {
+	case telegramRuntimeFailureConflictWebhook:
+		return "webhook_active"
+	case telegramRuntimeFailureConflictInUse:
+		return "bot_in_use"
+	}
+	return ""
+}
+
+// refuseIfWebhookActive is the non-destructive webhook conflict check.
+//
+// It asks Telegram for the bot's current webhook with getWebhookInfo and, when
+// one is configured, refuses to start this generation. It never calls
+// deleteWebhook, never sets one, and never mutates the other service: taking
+// over somebody else's bot is not PocketClaw's decision to make. Only the fact
+// of the conflict is recorded, never the webhook URL.
+//
+// A getWebhookInfo that cannot be read does not block the start. Proceeding is
+// safe because an active webhook still makes getUpdates answer 409, which the
+// intake caller handles terminally.
+func (c *TelegramChannel) refuseIfWebhookActive(generation uint64) error {
+	info, err := c.bot.GetWebhookInfo(c.ctx)
+	if err != nil {
+		logger.DebugCF("telegram", "Telegram webhook check unavailable", map[string]any{
+			"event":               "webhook_check_unavailable",
+			"telegram_generation": generation,
+		})
+		return nil
+	}
+	if info == nil || strings.TrimSpace(info.URL) == "" {
+		return nil
+	}
+	c.runtimeFailure.Store(telegramRuntimeFailureConflictWebhook)
+	logger.WarnCF("telegram", "Telegram bot has an active webhook; refusing to start",
+		map[string]any{
+			"event":               "telegram.conflict",
+			"telegram_generation": generation,
+			"reason":              "webhook_active",
+		})
+	c.refuseStart(generation, nil)
+	return errTelegramWebhookActive
+}
+
+// failAuthentication owns the asynchronous 401 path (getUpdates and command
+// registration). It immediately revokes Running, cancels every loop, then
+// retires the exact generation after its poller confirms exit.
+func (c *TelegramChannel) failAuthentication(generation uint64) {
+	if generation == 0 || c.generation.Load() != generation {
+		return
+	}
+	c.runtimeFailure.Store(telegramRuntimeFailureAuthentication)
+	logger.ErrorCF("telegram", "Telegram rejected the configured bot credentials", map[string]any{
+		"event":               "telegram.authentication_failed",
+		"telegram_generation": generation,
+	})
+	c.revokeAndRetire(generation)
+}
+
+// failConflict owns the terminal conflict path. A bot already owned by another
+// service -- by webhook or by another long poller -- is not something to fight:
+// the generation is revoked and retired exactly once, and no retry is scheduled.
+//
+// reason is a safe machine code ("webhook_active" or "bot_in_use"), never the
+// webhook URL or any identity.
+func (c *TelegramChannel) failConflict(generation uint64, tentativeReason string) {
+	if generation == 0 || c.generation.Load() != generation {
+		return
+	}
+	reason := c.resolveConflictReason(tentativeReason)
+	if reason == "webhook_active" {
+		c.runtimeFailure.Store(telegramRuntimeFailureConflictWebhook)
+	} else {
+		c.runtimeFailure.Store(telegramRuntimeFailureConflictInUse)
+	}
+	logger.WarnCF("telegram", "Telegram bot is already owned by another service",
+		map[string]any{
+			"event":               "telegram.conflict",
+			"telegram_generation": generation,
+			"reason":              reason,
+		})
+	c.revokeAndRetire(generation)
+}
+
+// resolveConflictReason decides a 409 subtype from the bot's actual state, not
+// from an English message. It re-checks the webhook non-destructively: a
+// configured URL means webhook_active; a readable answer with no URL means
+// another long poller owns the bot. Only when the re-check cannot be read does
+// it fall back to the tentative classification, which the caller derived from
+// the description.
+func (c *TelegramChannel) resolveConflictReason(tentative string) string {
+	// Bounded: this runs on the poller's terminal path, and a slow re-check
+	// must not delay the conflict teardown.
+	ctx, cancel := context.WithTimeout(c.ctx, 5*time.Second)
+	defer cancel()
+	info, err := c.bot.GetWebhookInfo(ctx)
+	if err == nil && info != nil {
+		if strings.TrimSpace(info.URL) != "" {
+			return "webhook_active"
+		}
+		return "bot_in_use"
+	}
+	if tentative == "webhook_active" {
+		return "webhook_active"
+	}
+	return "bot_in_use"
+}
+
+// revokeAndRetire is the shared terminal path for a generation that cannot be
+// the update owner: revoke Running and the command menu, cancel every loop, and
+// retire the exact generation once its poller confirms exit. It never schedules
+// a retry.
+func (c *TelegramChannel) revokeAndRetire(generation uint64) {
+	c.SetRunning(false)
+	c.commandsRegistered.Store(false)
+	if c.commandRegCancel != nil {
+		c.commandRegCancel()
+	}
+	if c.cancel != nil {
+		c.cancel()
+	}
+	bh := c.bh
+	go c.retireFailedGeneration(generation, bh)
+}
+
+func (c *TelegramChannel) refuseStart(generation uint64, bh *th.BotHandler) {
+	if c.cancel != nil {
+		c.cancel()
+	}
+	stopCtx, stopCancel := context.WithTimeout(context.Background(), pollingStopWait)
+	defer stopCancel()
+	if bh != nil {
+		_ = bh.StopWithContext(stopCtx)
+	}
+	c.awaitPollingStopped(stopCtx)
+	if c.generation.CompareAndSwap(generation, 0) {
+		logTelegramLifecycleGeneration("generation_retired", generation)
+	}
+}
+
+func (c *TelegramChannel) retireFailedGeneration(generation uint64, bh *th.BotHandler) {
+	logTelegramLifecycleGeneration("generation_retiring", generation)
+	stopCtx, stopCancel := context.WithTimeout(context.Background(), pollingStopWait)
+	defer stopCancel()
+	if bh != nil {
+		_ = bh.StopWithContext(stopCtx)
+	}
+	c.awaitPollingStopped(stopCtx)
+	if c.generation.CompareAndSwap(generation, 0) {
+		logTelegramLifecycleGeneration("poller_exit_confirmed", generation)
+		logTelegramLifecycleGeneration("generation_retired", generation)
+	}
+}
+
+// PollingGeneration reports the local id of the active getUpdates owner, or
+// zero when no owner has been established. It is a process-local counter and
+// carries no bot, owner, chat or credential identity.
+func (c *TelegramChannel) PollingGeneration() uint64 {
+	return c.generation.Load()
+}
+
+// OwnerMissing reports that this channel has a valid credential but no
+// configured owner, so it is in the incomplete-setup state rather than ready.
+// It carries no identity: only the boolean fact.
+func (c *TelegramChannel) OwnerMissing() bool {
+	return c.ownerMissing
+}
+
+// telegramOwnerMissingSentinel is a non-numeric marker installed as the base
+// channel's allowlist while no owner is configured. It matches no real Telegram
+// user id, so the base layer denies every sender rather than reading an empty
+// allowlist as open access.
+const telegramOwnerMissingSentinel = "__owner_missing__"
+
+// telegramOwnerMissingReply is the deterministic local guidance a private
+// sender receives while Telegram is configured with a valid token but no
+// owner. It names the sender's own numeric id -- the one fact the inbound
+// update carries that the user would otherwise need a third-party bot to learn
+// -- and nothing about anyone else.
+//
+// Core has no locale, so this is English like every other Core reply; the stable
+// machine-readable state is `setup_required` / `owner_missing` on readiness, and
+// the Dashboard localizes its own copy.
+const telegramOwnerMissingReply = "PocketClaw is connected, but Telegram setup is incomplete.\n\n" +
+	"Add your Telegram numeric ID in PocketClaw -> Telegram -> Manual setup / Allowed From.\n\n" +
+	"Your Telegram numeric ID is: %d\n\n" +
+	"That ID identifies which account is allowed to control this bot."
+
+// sendOwnerMissingSetupReply delivers the setup guidance to the sender's own
+// private chat. It logs nothing about the sender: not the id, not the chat.
+func (c *TelegramChannel) sendOwnerMissingSetupReply(ctx context.Context, chatID, senderID int64) {
+	tgMsg := tu.Message(tu.ID(chatID), fmt.Sprintf(telegramOwnerMissingReply, senderID))
+	if _, err := c.bot.SendMessage(ctx, tgMsg); err != nil {
+		logger.WarnC("telegram",
+			"Could not deliver the Telegram owner-missing setup guidance")
+	}
 }
 
 func (c *TelegramChannel) Stop(ctx context.Context) error {
 	logger.InfoC("telegram", "Stopping Telegram bot...")
 	c.SetRunning(false)
+
+	generation := c.generation.Load()
+	logTelegramLifecycleGeneration("generation_retiring", generation)
 
 	// Stop the bot handler
 	if c.bh != nil {
@@ -209,12 +669,23 @@ func (c *TelegramChannel) Stop(ctx context.Context) error {
 	if c.cancel != nil {
 		c.cancel()
 	}
+	logTelegramLifecycleGeneration("poller_cancel_requested", generation)
+	// And wait for it to actually stop. Returning earlier reported a channel as
+	// stopped while the library still held its long-polling lock, so the next
+	// Start on this channel failed and Telegram stayed down.
+	c.awaitPollingStopped(ctx)
+	logTelegramLifecycleGeneration("poller_exit_confirmed", generation)
 	if c.progress != nil {
 		c.progress.StopAll()
 	}
 	if c.commandRegCancel != nil {
 		c.commandRegCancel()
 	}
+	// The generation is only retired once its poller has confirmed exit. A
+	// successor must never inherit a reported generation that could still be
+	// acknowledging updates.
+	c.generation.Store(0)
+	logTelegramLifecycleGeneration("generation_retired", generation)
 
 	return nil
 }
@@ -350,6 +821,13 @@ func (c *TelegramChannel) Send(ctx context.Context, msg bus.OutboundMessage) ([]
 	} else if !isToolFeedback && hasTrackedMsg {
 		c.dismissTrackedToolFeedbackMessage(ctx, trackedChatID, trackedMsgID)
 	}
+	if msg.Content == commands.StartReplyText &&
+		c.firstStartReplied.CompareAndSwap(false, true) {
+		logTelegramLifecycle("first_start_replied")
+	}
+	// The reply is delivered by this point. Only now may the cosmetic /start
+	// cleanup run; it is best-effort and cannot affect the reply above.
+	c.cleanupStartMessage(ctx, chatID, msg.Content)
 
 	return messageIDs, nil
 }
@@ -1048,6 +1526,30 @@ func (c *TelegramChannel) handleMessages(ctx context.Context, messages []*telego
 		return fmt.Errorf("message sender (user) is nil")
 	}
 
+	// The owner-missing setup state is handled before anything else reaches the
+	// update. A valid credential with no owner is an incomplete setup, not a
+	// working bot: it must never create an agent turn, call a provider, run a
+	// tool, write session history, execute a built-in command, download media,
+	// or mutate configuration. Only a private sender is answered, with the
+	// deterministic setup guidance, and only their own numeric id.
+	//
+	// The check is before the allowlist deliberately: an empty AllowFrom makes
+	// BaseChannel.IsAllowedSender permissive, so this branch is the boundary
+	// that keeps an ownerless channel from ever being treated as open.
+	if c.ownerMissing {
+		isPrivate := strings.EqualFold(strings.TrimSpace(message.Chat.Type), "private")
+		if isPrivate {
+			c.sendOwnerMissingSetupReply(ctx, message.Chat.ID, user.ID)
+		}
+		// A group or channel gets no public setup guidance: it is left
+		// unanswered rather than naming infrastructure or identity in a chat
+		// the user did not control.
+		logger.DebugCF("telegram", "Telegram message handled by the owner-missing setup path", map[string]any{
+			"is_private": isPrivate,
+		})
+		return nil
+	}
+
 	platformID := fmt.Sprintf("%d", user.ID)
 	sender := bus.SenderInfo{
 		Platform:    "telegram",
@@ -1190,6 +1692,12 @@ func (c *TelegramChannel) handleMessages(ctx context.Context, messages []*telego
 		inboundCtx.ReplyToMessageID = fmt.Sprintf("%d", message.ReplyToMessage.MessageID)
 	}
 
+	// PC-DEF-061 UX cleanup. Note the exact inbound /start before it is
+	// published, so the reply that follows can prove receipt and then remove
+	// the command. This changes nothing about intake, generation ownership or
+	// readiness; it only remembers the message id the reply belongs to.
+	c.recordStartCleanupCandidate(message, chatID)
+
 	c.HandleMessageWithContext(
 		c.ctx,
 		compositeChatID,
@@ -1199,6 +1707,87 @@ func (c *TelegramChannel) handleMessages(ctx context.Context, messages []*telego
 		sender,
 	)
 	return nil
+}
+
+// recordStartCleanupCandidate notes the exact inbound /start message in a
+// private chat, bound to the active generation. The entry is acted on only
+// after the built-in reply for that message is sent successfully.
+//
+// Groups and supergroups are deliberately excluded: deleting a command a user
+// sent in a shared chat would be surprising, and the /start handshake is a
+// private one.
+func (c *TelegramChannel) recordStartCleanupCandidate(message *telego.Message, chatID int64) {
+	if c == nil || message == nil || message.Chat.Type != "private" {
+		return
+	}
+	name, ok := commands.CommandName(strings.TrimSpace(message.Text))
+	if !ok || name != "start" {
+		return
+	}
+	generation := c.generation.Load()
+	if generation == 0 {
+		// No active owner has been established, so nothing about this receipt
+		// can be attributed. Record nothing.
+		return
+	}
+	c.startCleanupMu.Lock()
+	if c.startCleanup == nil {
+		c.startCleanup = make(map[int64]telegramStartCleanup)
+	}
+	c.startCleanup[chatID] = telegramStartCleanup{
+		messageID:  message.MessageID,
+		generation: generation,
+		recordedAt: time.Now(),
+	}
+	c.startCleanupMu.Unlock()
+	logTelegramLifecycleGeneration("telegram_start_received", generation)
+}
+
+// cleanupStartMessage removes the user's /start message after PocketClaw has
+// successfully sent the built-in reply for it.
+//
+// Ordering is the whole contract: this is reached only after the reply send
+// succeeded, it targets the exact inbound message id recorded when the command
+// was received, it acts only for the same active generation, and every failure
+// is swallowed. The reply already stands, so a failed cosmetic delete must
+// never fail the user turn, retry, or duplicate anything.
+func (c *TelegramChannel) cleanupStartMessage(ctx context.Context, chatID int64, content string) {
+	if c == nil || strings.TrimSpace(content) != commands.StartReplyText {
+		return
+	}
+	c.startCleanupMu.Lock()
+	entry, ok := c.startCleanup[chatID]
+	if ok {
+		delete(c.startCleanup, chatID)
+	}
+	c.startCleanupMu.Unlock()
+	if !ok {
+		return
+	}
+	generation := c.generation.Load()
+	logTelegramLifecycleGeneration("telegram_start_reply_sent", generation)
+	if generation == 0 || entry.generation != generation {
+		// The reply was delivered by a generation that no longer owns intake;
+		// deleting now would be cleanup for someone else's receipt.
+		logTelegramLifecycleGeneration("telegram_start_cleanup_skipped", generation)
+		return
+	}
+	if time.Since(entry.recordedAt) > startCleanupTTL {
+		logTelegramLifecycleGeneration("telegram_start_cleanup_skipped", generation)
+		return
+	}
+	logTelegramLifecycleGeneration("telegram_start_cleanup_requested", generation)
+	delCtx, cancel := context.WithTimeout(ctx, startCleanupTimeout)
+	defer cancel()
+	if err := c.DeleteMessage(delCtx, strconv.FormatInt(chatID, 10), strconv.Itoa(entry.messageID)); err != nil {
+		logger.DebugCF("telegram", "Telegram /start cleanup failed", map[string]any{
+			"event":               "telegram_start_cleanup_failed",
+			"telegram_generation": generation,
+			"error":               err.Error(),
+		})
+		return
+	}
+	logTelegramLifecycleGeneration("telegram_start_cleanup_completed", generation)
 }
 
 func (c *TelegramChannel) collectTelegramMessageParts(

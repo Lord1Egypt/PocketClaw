@@ -1,5 +1,10 @@
 # PocketClaw Decisions
 
+> **DETAILED HISTORICAL DECISION JOURNAL.** The concise authoritative register
+> for durable cross-milestone decisions is
+> [`docs/DECISIONS.md`](docs/DECISIONS.md). Entries below retain their original
+> date and context and must not be silently rewritten when current state changes.
+
 ## Zero Active Pico is a rule about direction, not about spelling
 
 - Date: 2026-09-09

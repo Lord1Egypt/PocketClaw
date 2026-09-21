@@ -442,7 +442,7 @@ func (h *Handler) TryAutoStartGateway() {
 	pidData := h.sanitizeGatewayPidData(ppid.ReadPidFileWithCheck(globalConfigDir()), nil, "autostart")
 	if pidData != nil {
 		gateway.mu.Lock()
-		ready, reason, err := h.gatewayStartReady()
+		ready, reason, err := h.gatewayInfrastructureReady()
 		if err != nil {
 			logger.ErrorC("gateway", fmt.Sprintf("Skip auto-starting gateway: %v", err))
 			gateway.mu.Unlock()
@@ -474,7 +474,7 @@ func (h *Handler) TryAutoStartGateway() {
 		gateway.cmd = nil
 	}
 
-	ready, reason, err := h.gatewayStartReady()
+	ready, reason, err := h.gatewayInfrastructureReady()
 	if err != nil {
 		logger.ErrorC("gateway", fmt.Sprintf("Skip auto-starting gateway: %v", err))
 		return
@@ -492,8 +492,33 @@ func (h *Handler) TryAutoStartGateway() {
 	logger.InfoC("gateway", fmt.Sprintf("Gateway auto-started (PID: %d)", pid))
 }
 
-// gatewayStartReady validates whether current config can start the gateway.
-func (h *Handler) gatewayStartReady() (bool, string, error) {
+// gatewayInfrastructureReady reports whether the gateway PROCESS can start.
+//
+// Infrastructure only. It must never consult provider, model, credential or
+// reachability state: the gateway is infrastructure, and a PocketClaw with no
+// AI provider configured is a valid running system whose dashboard, settings,
+// provider setup and health endpoints all have to be reachable -- that is how
+// a user configures their first provider in the first place.
+//
+// This function and chatReady were one function until PC-DEF-038. Conflating
+// them made "add a model" a hidden prerequisite for "make the gateway start":
+// a fresh install reported "Skip auto-starting gateway: no default model
+// configured" and manual start returned precondition_failed, so the one path
+// a new user has to reach provider setup was gated on already having done it.
+func (h *Handler) gatewayInfrastructureReady() (bool, string, error) {
+	if _, err := config.LoadConfig(h.configPath); err != nil {
+		return false, "", fmt.Errorf("failed to load config: %w", err)
+	}
+	return true, "", nil
+}
+
+// chatReady reports whether an AI-dependent request can actually be served.
+//
+// This is the other half of the old gatewayStartReady: everything here is a
+// real prerequisite for talking to a model, and none of it is a prerequisite
+// for running the gateway. Callers that serve chat ask this; callers that
+// start or restart the process must not.
+func (h *Handler) chatReady() (bool, string, error) {
 	cfg, err := config.LoadConfig(h.configPath)
 	if err != nil {
 		return false, "", fmt.Errorf("failed to load config: %w", err)
@@ -543,6 +568,10 @@ func computeConfigSignature(cfg *config.Config) string {
 	if len(modelStreamingSignatures) > 0 {
 		parts = append(parts, "model_streaming:"+strings.Join(modelStreamingSignatures, ","))
 	}
+	modelCredentialSignatures := computeModelCredentialSignatures(cfg)
+	if len(modelCredentialSignatures) > 0 {
+		parts = append(parts, "model_credentials:"+strings.Join(modelCredentialSignatures, ","))
+	}
 	toolSignatures := []string{}
 	if cfg.Tools.ReadFile.Enabled {
 		toolSignatures = append(toolSignatures, "read_file")
@@ -567,9 +596,12 @@ func computeConfigSignature(cfg *config.Config) string {
 	}
 	if cfg.Tools.Web.Enabled {
 		toolSignatures = append(toolSignatures, "web")
+		// Digested, not embedded. This subtree holds every web-search
+		// credential -- brave, tavily, kagi, perplexity, baidu, glm, gemini --
+		// plus a proxy URL that can carry userinfo. See signature_digest.go.
 		webConfig, err := json.Marshal(canonicalizeSignatureValue(reflect.ValueOf(cfg.Tools.Web)))
 		if err == nil {
-			parts = append(parts, "webcfg:"+string(webConfig))
+			parts = append(parts, "webcfg:"+signatureDigestBytes(webConfig))
 		}
 	}
 	if cfg.Tools.WebFetch.Enabled {
@@ -811,7 +843,11 @@ func computeChannelSignatures(channels config.ChannelsConfig) []string {
 			signatures = append(signatures, name+":<invalid>")
 			continue
 		}
-		signatures = append(signatures, name+":"+string(encoded))
+		// Digested, not embedded. Settings carry the channel's credential --
+		// a Telegram bot token, Slack bot/app tokens, a Matrix access token and
+		// crypto passphrase, and so on -- and the raw-JSON fallback below dumps
+		// them verbatim when a settings subtree cannot be decoded.
+		signatures = append(signatures, name+":"+signatureDigestBytes(encoded))
 	}
 
 	return signatures
@@ -1101,6 +1137,9 @@ func stopGatewayLocked() (int, error) {
 	gateway.owned = false
 	gateway.bootDefaultModel = ""
 	gateway.pidData = nil
+	// No current gateway means no valid idle credential, so a process that is
+	// on its way out cannot trigger lifecycle work afterwards. PC-DEF-030.
+	clearGatewayIdleToken()
 	setGatewayRuntimeStatusLocked("stopped")
 
 	return pid, nil
@@ -1168,6 +1207,12 @@ func (h *Handler) startGatewayLocked(initialStatus string, existingPid int) (int
 	cmd = gatewayExecCommand(execPath, h.gatewayCommandArgs()...)
 	applyLauncherProcAttrs(cmd)
 	cmd.Env = os.Environ()
+	// A fresh idle credential for this generation only, so a superseded
+	// gateway cannot drive the lifecycle of the one that replaced it.
+	if idleToken := newGatewayIdleToken(); idleToken != "" {
+		cmd.Env = append(cmd.Env, config.EnvGatewayIdleToken+"="+idleToken)
+		cmd.Env = append(cmd.Env, config.EnvGatewayIdleURL+"="+h.launcherIdleNotifyURL())
+	}
 	// Forward the launcher's config path via the environment variable that
 	// GetConfigPath() already reads, so the gateway sub-process uses the same
 	// config file without requiring a --config flag on the gateway subcommand.
@@ -1344,7 +1389,7 @@ func (h *Handler) handleGatewayStart(w http.ResponseWriter, r *http.Request) {
 	if pidData != nil {
 		pid := pidData.PID
 		gateway.mu.Lock()
-		ready, reason, err := h.gatewayStartReady()
+		ready, reason, err := h.gatewayInfrastructureReady()
 		if err != nil {
 			gateway.mu.Unlock()
 			http.Error(
@@ -1390,7 +1435,7 @@ func (h *Handler) handleGatewayStart(w http.ResponseWriter, r *http.Request) {
 		setGatewayRuntimeStatusLocked("stopped")
 	}
 
-	ready, reason, err := h.gatewayStartReady()
+	ready, reason, err := h.gatewayInfrastructureReady()
 	if err != nil {
 		http.Error(
 			w,
@@ -1456,7 +1501,13 @@ func (h *Handler) handleGatewayStop(w http.ResponseWriter, r *http.Request) {
 // that stops the current gateway (if running) and starts a new one.
 // Returns the PID of the new gateway process or an error.
 func (h *Handler) RestartGateway() (int, error) {
-	ready, reason, err := h.gatewayStartReady()
+	// Adopt a live gateway this process is not tracking before deciding what to
+	// stop. Without it the restart signals nothing, starts a second gateway
+	// against a port the first one still holds, and leaves the old
+	// configuration serving. PC-DEF-030.
+	h.reconcileGatewayWithPidFile()
+
+	ready, reason, err := h.gatewayInfrastructureReady()
 	if err != nil {
 		return 0, fmt.Errorf("failed to validate gateway start conditions: %w", err)
 	}
@@ -1644,7 +1695,10 @@ func (h *Handler) gatewayStatusData() map[string]any {
 		gatewayStatus,
 	)
 
-	ready, reason, readyErr := h.gatewayStartReady()
+	// Gateway health and AI availability are independent facts and are
+	// reported as such: "Gateway: Running / AI provider: Not configured" is a
+	// valid, expected state, not a degraded one. See PC-DEF-038.
+	ready, reason, readyErr := h.gatewayInfrastructureReady()
 	if readyErr != nil {
 		data["gateway_start_allowed"] = false
 		data["gateway_start_reason"] = readyErr.Error()
@@ -1652,6 +1706,25 @@ func (h *Handler) gatewayStatusData() map[string]any {
 		data["gateway_start_allowed"] = ready
 		if !ready {
 			data["gateway_start_reason"] = reason
+		}
+	}
+
+	// Read-only by contract. Monitoring must never apply, restart, clear or
+	// retry anything -- the gateway's idle notification is the only trigger.
+	applyPending, applyErr := pendingConfigApplyState()
+	data["config_apply_pending"] = applyPending
+	if applyErr != "" {
+		data["config_apply_error"] = applyErr
+	}
+
+	chatOK, chatReason, chatErr := h.chatReady()
+	if chatErr != nil {
+		data["chat_ready"] = false
+		data["chat_not_ready_reason"] = chatErr.Error()
+	} else {
+		data["chat_ready"] = chatOK
+		if !chatOK {
+			data["chat_not_ready_reason"] = chatReason
 		}
 	}
 

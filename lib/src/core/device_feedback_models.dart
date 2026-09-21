@@ -1,20 +1,25 @@
+/// Where optional device feedback goes, when the user turns it on.
+///
+/// Firebase was removed in H1.5: its SDK is proprietary and Google Play
+/// Services came with it, which is disqualifying for official F-Droid — and
+/// F-Droid judges what is in the binary, not what the code decides at runtime.
+/// Nothing replaced it. PocketClaw does not need a tracking SDK to work, and
+/// swapping one in for another would have missed the point.
 enum DeviceFeedbackProvider {
   none,
-  firebase,
   umeng;
 
+  /// Anything unrecognised is [none].
+  ///
+  /// This used to fall through to Firebase, which meant a build that simply did
+  /// not pass the dart-define selected an analytics provider by accident. Off
+  /// is the only defensible default for something a user has to opt into.
   static DeviceFeedbackProvider fromEnvironmentValue(String raw) {
     switch (raw.trim().toLowerCase()) {
-      case 'firebase':
-        return DeviceFeedbackProvider.firebase;
       case 'umeng':
         return DeviceFeedbackProvider.umeng;
-      case 'none':
-      case 'off':
-      case 'disabled':
-        return DeviceFeedbackProvider.none;
       default:
-        return DeviceFeedbackProvider.firebase;
+        return DeviceFeedbackProvider.none;
     }
   }
 }
@@ -32,8 +37,6 @@ class DeviceFeedbackUploadResult {
   final String? uploadedAt;
   final Map<String, String>? deviceInfo;
 }
-
-typedef FirebaseUploadResult = DeviceFeedbackUploadResult;
 
 enum DeviceTelemetryState {
   unknown,
@@ -307,7 +310,7 @@ class DeviceTelemetrySnapshot {
     ].join('|');
   }
 
-  Map<String, Object> toFirebaseParameters() {
+  Map<String, Object> toAnalyticsParameters() {
     return _withoutNullValues<Object>({
       'telemetry_state': state.wireValue,
       'telemetry_prev_state': previousState.wireValue,

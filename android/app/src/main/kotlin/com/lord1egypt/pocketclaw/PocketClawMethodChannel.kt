@@ -2,8 +2,10 @@ package com.lord1egypt.pocketclaw
 
 import com.lord1egypt.pocketclaw.media.ChatImagePicker
 import com.lord1egypt.pocketclaw.security.GitHubCredentialStore
+import android.app.Activity
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.net.ConnectivityManager
 import android.net.Network
@@ -14,6 +16,9 @@ import android.os.Handler
 import android.os.Looper
 import android.provider.Settings
 import android.util.Log
+import androidx.core.app.ActivityCompat
+import androidx.core.app.NotificationManagerCompat
+import androidx.core.content.ContextCompat
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 import com.lord1egypt.pocketclaw.service.PocketClawService
@@ -52,8 +57,13 @@ class PocketClawMethodChannel(
         private const val TAG = "PocketClawMethodChannel"
         private const val CHANNEL_NAME = "com.lord1egypt.pocketclaw/pocketclaw"
         private const val KEY_AUTO_START = "auto_start"
+        private const val POST_NOTIFICATIONS_PERMISSION =
+            "android.permission.POST_NOTIFICATIONS"
+        private const val NOTIFICATION_PERMISSION_REQUEST_CODE = 9731
         private const val TELEGRAM_BRIDGE_URL =
             "http://127.0.0.1:18800/api/pocketclaw/android/telegram"
+        private const val TELEGRAM_READINESS_BRIDGE_URL =
+            "http://127.0.0.1:18800/api/pocketclaw/android/telegram/readiness"
         private const val NETWORK_MODE_BRIDGE_URL =
             "http://127.0.0.1:18800/api/pocketclaw/android/network-mode"
         private const val CONTEXT_MEMORY_BRIDGE_URL =
@@ -62,6 +72,10 @@ class PocketClawMethodChannel(
             "http://127.0.0.1:18800/api/pocketclaw/android/github/validate"
         private const val GITHUB_STATUS_BRIDGE_URL =
             "http://127.0.0.1:18800/api/pocketclaw/android/github/status"
+        private const val GATEWAY_START_BRIDGE_URL =
+            "http://127.0.0.1:18800/api/pocketclaw/android/gateway/start"
+        private const val DASHBOARD_AUTH_STATUS_URL =
+            "http://127.0.0.1:18800/api/auth/status"
     }
 
     // Copy a content:// URI to the app cache and return the absolute file path.
@@ -91,6 +105,172 @@ class PocketClawMethodChannel(
     private val channel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL_NAME)
     private val healthChecker = HealthChecker.forHost(context)
 
+    /** Set while the system notification dialog is on screen. */
+    private var pendingNotificationPermissionResult: MethodChannel.Result? = null
+
+    /** One notification dialog per launch, whoever asked for it. */
+    private var notificationPromptShownThisLaunch = false
+
+    private fun currentNotificationPermissionState(): NotificationPermissionState =
+        NotificationPermissionPolicy.resolve(
+            sdkInt = Build.VERSION.SDK_INT,
+            permissionGranted = Build.VERSION.SDK_INT < NotificationPermissionPolicy.RUNTIME_PERMISSION_SDK ||
+                ContextCompat.checkSelfPermission(context, POST_NOTIFICATIONS_PERMISSION) ==
+                PackageManager.PERMISSION_GRANTED,
+            alreadyAsked = PocketClawPreferences.notificationPermissionAsked(context),
+        )
+
+    /** What Flutter receives for every notification-permission call. */
+    private fun notificationPermissionSnapshot(): Map<String, Any> {
+        val state = currentNotificationPermissionState()
+        val enabled = NotificationManagerCompat.from(context).areNotificationsEnabled()
+        return mapOf(
+            "state" to NotificationPermissionPolicy.wireName(state),
+            "action" to NotificationPermissionPolicy.actionFor(state).name,
+            "notificationsEnabled" to enabled,
+            "expectedVisible" to
+                NotificationPermissionPolicy.notificationsExpectedVisible(state, enabled),
+        )
+    }
+
+    /**
+     * Raises the notification dialog if this launch should.
+     *
+     * PC-DEF-058, second attempt. The only trigger used to be the Settings
+     * page's initState, and a fresh install never opens Settings, so the dialog
+     * never appeared -- the manifest entry, the policy and the platform call
+     * were all correct and all unreached. The Activity calls this from its
+     * resume, which every launch takes.
+     *
+     * Shares the record-keeping and the platform call with the Flutter-initiated
+     * path rather than repeating them: one place decides, one place records.
+     *
+     * @param storagePromptJustLaunched whether this same resume sent the user to
+     *   the all-files-access screen, in which case the ask waits for their return.
+     * @return whether the dialog was requested.
+     */
+    fun requestNotificationPermissionOnResume(storagePromptJustLaunched: Boolean): Boolean {
+        // PC-DEF-070 (reopened). Every launch and every return from Settings
+        // takes this path, so it is also where a grant made outside our own
+        // dialog is first observed. Re-rendering here is what covers the
+        // OFFER_SETTINGS route, and it is a no-op when nothing changed.
+        PocketClawService.refreshRuntimeNotification(context)
+        val state = currentNotificationPermissionState()
+        val activity = context as? Activity
+        val shouldRequest = NotificationPermissionPolicy.shouldRequestOnResume(
+            state,
+            storagePromptJustLaunched,
+            notificationPromptShownThisLaunch,
+        )
+        // PC-DEF-058, third attempt. The dialog failed to appear twice while every
+        // input looked correct in source, so the inputs are recorded on the device
+        // instead of reasoned about. Every field is a state fact; none of it is
+        // user content, and no chat, account or credential value is included.
+        logNotificationPermissionDecision(
+            state = state,
+            activity = activity,
+            storagePromptJustLaunched = storagePromptJustLaunched,
+            shouldRequest = shouldRequest,
+        )
+        if (!shouldRequest || activity == null) {
+            return false
+        }
+        notificationPromptShownThisLaunch = true
+        // Recorded before the dialog, for the same reason as the Flutter path:
+        // the callback does not fire if the activity is recreated mid-dialog.
+        PocketClawPreferences.setNotificationPermissionAsked(context, true)
+        val attempted = try {
+            ActivityCompat.requestPermissions(
+                activity,
+                arrayOf(POST_NOTIFICATIONS_PERMISSION),
+                NOTIFICATION_PERMISSION_REQUEST_CODE,
+            )
+            true
+        } catch (e: Exception) {
+            Log.w(TAG, "notification_request_attempted=false reason=${e.javaClass.simpleName}")
+            false
+        }
+        Log.i(TAG, "notification_permission decision=request notification_request_attempted=$attempted")
+        return attempted
+    }
+
+    /**
+     * Records why the notification dialog was or was not raised.
+     *
+     * Only state facts, and each one answers a question the physical failure
+     * left open: whether the permission is even declared in the installed
+     * manifest, whether the platform already considers it granted, what Android
+     * itself says about showing a rationale, and whether this resume was the one
+     * that sent the user to the all-files screen.
+     */
+    private fun logNotificationPermissionDecision(
+        state: NotificationPermissionState,
+        activity: Activity?,
+        storagePromptJustLaunched: Boolean,
+        shouldRequest: Boolean,
+    ) {
+        val declared = try {
+            val info = context.packageManager.getPackageInfo(
+                context.packageName,
+                PackageManager.GET_PERMISSIONS,
+            )
+            info.requestedPermissions?.contains(POST_NOTIFICATIONS_PERMISSION) == true
+        } catch (e: Exception) {
+            false
+        }
+        val granted = Build.VERSION.SDK_INT < NotificationPermissionPolicy.RUNTIME_PERMISSION_SDK ||
+            ContextCompat.checkSelfPermission(context, POST_NOTIFICATIONS_PERMISSION) ==
+            PackageManager.PERMISSION_GRANTED
+        val rationale = activity != null &&
+            ActivityCompat.shouldShowRequestPermissionRationale(
+                activity, POST_NOTIFICATIONS_PERMISSION,
+            )
+        Log.i(
+            TAG,
+            "notification_permission" +
+                " android_api_level=${Build.VERSION.SDK_INT}" +
+                " notification_permission_declared=$declared" +
+                " notification_permission_granted=$granted" +
+                " should_show_rationale=$rationale" +
+                " asked_marker=${PocketClawPreferences.notificationPermissionAsked(context)}" +
+                " resolved_state=${NotificationPermissionPolicy.wireName(state)}" +
+                " activity_lifecycle_state=${if (activity == null) "no-activity" else "onResume"}" +
+                " returned_from_all_files_settings=${!storagePromptJustLaunched}" +
+                " prompt_shown_this_launch=$notificationPromptShownThisLaunch" +
+                " notifications_enabled=${NotificationManagerCompat.from(context).areNotificationsEnabled()}" +
+                " should_request=$shouldRequest",
+        )
+    }
+
+    /**
+     * Delivers the system dialog's answer. Called by the Activity, which is the only
+     * thing Android hands the result to.
+     *
+     * Returns whether the request code was ours, so the Activity can pass everything
+     * else through.
+     */
+    fun onRequestPermissionsResult(requestCode: Int): Boolean {
+        if (requestCode != NOTIFICATION_PERMISSION_REQUEST_CODE) return false
+        val pending = pendingNotificationPermissionResult
+        pendingNotificationPermissionResult = null
+        // The other half of the instrumentation: whether the dialog was answered
+        // at all, and how. PC-DEF-058.
+        Log.i(
+            TAG,
+            "notification_permission request_result=" +
+                NotificationPermissionPolicy.wireName(currentNotificationPermissionState()),
+        )
+        // PC-DEF-070 (reopened). The answer has just arrived, and a foreground
+        // notification Android suppressed while the permission was missing is
+        // never retried on its own. Re-render it now, from the live service's
+        // own derivation -- this is the event, not a timer.
+        PocketClawService.refreshRuntimeNotification(context)
+        // The snapshot is re-read rather than taken from the callback's grant array:
+        // it is the same question and one source of truth is better than two.
+        pending?.success(notificationPermissionSnapshot())
+        return true
+    }
+
     private fun getMainExecutor(): Executor {
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             context.mainExecutor
@@ -116,6 +296,21 @@ class PocketClawMethodChannel(
                         result.success(true)
                     } catch (e: Exception) {
                         result.error("START_FAILED", e.message, null)
+                    }
+                }
+                "dashboardAuthInitialized" -> {
+                    // PC-DEF-040. Read once, at a host lifecycle transition --
+                    // never polled. /api/auth/status is unauthenticated and
+                    // carries no secret: it answers whether an owner exists,
+                    // which is exactly what reconciliation needs to know.
+                    try {
+                        result.success(readDashboardAuthInitialized())
+                    } catch (e: Exception) {
+                        result.error(
+                            "DASHBOARD_AUTH_STATUS_FAILED",
+                            e.message ?: "Could not read dashboard auth status",
+                            null,
+                        )
                     }
                 }
                 "getPublicMode" -> {
@@ -206,6 +401,20 @@ class PocketClawMethodChannel(
                         result.error("STOP_FAILED", e.message, null)
                     }
                 }
+                "restartService" -> {
+                    // One intent, because two cannot express a restart. See
+                    // PocketClawService.ACTION_RESTART. PC-DEF-030.
+                    try {
+                        val args = call.argument<String>("args") ?: ""
+                        val publicMode = args.contains("-public")
+                        val prefs = PocketClawPreferences.open(context)
+                        prefs.edit().putBoolean("public_mode", publicMode).apply()
+                        PocketClawService.restart(context, publicMode)
+                        result.success(true)
+                    } catch (e: Exception) {
+                        result.error("RESTART_FAILED", e.message, null)
+                    }
+                }
                 "getServiceStatus" -> {
                     result.success(mapOf(
                         "isRunning" to PocketClawService.isRunning,
@@ -284,12 +493,37 @@ class PocketClawMethodChannel(
                                 .put("owner_user_id", ownerUserId)
                             callTelegramBridge("PUT", body)
                             mainExecutor.execute { result.success(true) }
+                        } catch (e: TelegramCredentialsInvalidException) {
+                            mainExecutor.execute {
+                                result.error(
+                                    "TELEGRAM_CREDENTIALS_INVALID",
+                                    "Telegram rejected these bot credentials",
+                                    null
+                                )
+                            }
                         } catch (e: Exception) {
                             mainExecutor.execute {
                                 result.error(
                                     "TELEGRAM_CONFIG_FAILED",
                                     "Core rejected the Telegram configuration",
                                     null
+                                )
+                            }
+                        }
+                    }.start()
+                }
+                "telegramReadiness" -> {
+                    Thread {
+                        val mainExecutor = getMainExecutor()
+                        try {
+                            val readiness = readTelegramReadiness()
+                            mainExecutor.execute { result.success(readiness) }
+                        } catch (e: Exception) {
+                            mainExecutor.execute {
+                                result.error(
+                                    "TELEGRAM_READINESS_FAILED",
+                                    "Core Telegram readiness is unavailable",
+                                    null,
                                 )
                             }
                         }
@@ -486,6 +720,23 @@ class PocketClawMethodChannel(
                         )
                     }
                 }
+                "startGatewayNow" -> {
+                    // PC-DEF-034. Turning on "start Gateway automatically"
+                    // while the service is already running has to act now;
+                    // waiting for the next service start is the behaviour the
+                    // user just told us they did not want. The bridge token
+                    // stays in the host: Flutter asks for the operation and
+                    // never sees the credential.
+                    try {
+                        result.success(callGatewayStartBridge())
+                    } catch (e: Exception) {
+                        result.error(
+                            "GATEWAY_START_FAILED",
+                            e.message ?: "Could not start the Gateway",
+                            null,
+                        )
+                    }
+                }
                 "setAutoStart" -> {
                     try {
                         val enabled = call.argument<Boolean>("enabled") ?: false
@@ -515,7 +766,10 @@ class PocketClawMethodChannel(
                         } catch (e: Exception) {
                             Log.w(TAG, "getCoreVersion failed: ${e.message}", e)
                             mainExecutor.execute {
-                                result.success("unknown")
+                                // Null, not a sentinel: Dart has to be able to
+                                // tell a failed probe from a version, or it
+                                // caches the failure (PC-DEF-063).
+                                result.success(null)
                             }
                         }
                     }.start()
@@ -537,6 +791,63 @@ class PocketClawMethodChannel(
                         true
                     }
                     result.success(granted)
+                }
+                // PC-DEF-058. POST_NOTIFICATIONS was declared and never requested, so
+                // the persistent "PocketClaw Running" notification never appeared on a
+                // fresh install and the owner enabled it in Settings by hand. The
+                // decision rules are in NotificationPermissionPolicy; these three are
+                // the platform calls.
+                "getNotificationPermission" -> {
+                    result.success(notificationPermissionSnapshot())
+                }
+                "requestNotificationPermission" -> {
+                    val state = currentNotificationPermissionState()
+                    if (NotificationPermissionPolicy.actionFor(state) !=
+                        NotificationPermissionAction.REQUEST_SYSTEM_DIALOG
+                    ) {
+                        // Already granted, not applicable, or already refused. Asking
+                        // again is either pointless or a silent no-op Android will not
+                        // show, and either way it must not be reported as a request.
+                        result.success(notificationPermissionSnapshot())
+                    } else {
+                        val activity = context as? Activity
+                        if (activity == null) {
+                            result.success(notificationPermissionSnapshot())
+                        } else {
+                            // Recorded before the dialog, not after: the callback does
+                            // not fire if the activity is recreated mid-dialog, and an
+                            // unrecorded ask would re-prompt on the next launch.
+                            PocketClawPreferences.setNotificationPermissionAsked(context, true)
+                            notificationPromptShownThisLaunch = true
+                            pendingNotificationPermissionResult = result
+                            ActivityCompat.requestPermissions(
+                                activity,
+                                arrayOf(POST_NOTIFICATIONS_PERMISSION),
+                                NOTIFICATION_PERMISSION_REQUEST_CODE,
+                            )
+                        }
+                    }
+                }
+                "openNotificationSettings" -> {
+                    try {
+                        val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                        intent.putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+                        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        context.startActivity(intent)
+                        result.success(true)
+                    } catch (e: Exception) {
+                        // Not every device honours the per-app screen.
+                        try {
+                            val fallback = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+                            fallback.data = Uri.parse("package:${context.packageName}")
+                            fallback.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            context.startActivity(fallback)
+                            result.success(true)
+                        } catch (e2: Exception) {
+                            Log.w(TAG, "notification settings unavailable: ${e2.message}")
+                            result.success(false)
+                        }
+                    }
                 }
                 "requestStorageManager" -> {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
@@ -700,7 +1011,70 @@ class PocketClawMethodChannel(
             (first == 192 && second == 168)
     }
 
+    /**
+     * Asks Core to start the Gateway over the loopback Android bridge.
+     *
+     * Returns the status Core reports -- "ok" or "already_running" -- so the
+     * caller can distinguish a start from a no-op. The token is read here and
+     * never returned, logged or handed to Flutter.
+     */
+    private fun callGatewayStartBridge(): String {
+        val connection = (URL(GATEWAY_START_BRIDGE_URL).openConnection() as HttpURLConnection).apply {
+            requestMethod = "POST"
+            connectTimeout = 3_000
+            readTimeout = 15_000
+            setRequestProperty(
+                "X-PocketClaw-Android-Bridge",
+                PocketClawService.bridgeTokenForHost(),
+            )
+            setRequestProperty("Accept", "application/json")
+        }
+        try {
+            val code = connection.responseCode
+            val payload = if (code in 200..299) {
+                connection.inputStream.bufferedReader().use { it.readText() }
+            } else {
+                connection.errorStream?.bufferedReader()?.use { it.readText() } ?: ""
+            }
+            if (code !in 200..299) {
+                // Core's message, not the token or the URL.
+                throw IllegalStateException(
+                    JSONObject(payload.ifBlank { "{}" }).optString("message")
+                        .ifBlank { "Gateway start failed (HTTP $code)" }
+                )
+            }
+            return JSONObject(payload.ifBlank { "{}" }).optString("status").ifBlank { "ok" }
+        } finally {
+            connection.disconnect()
+        }
+    }
+
+    /**
+     * Whether the Dashboard already has an owner.
+     *
+     * No bridge token: this endpoint is deliberately unauthenticated and
+     * returns only two booleans. The privileged call that may follow -- the
+     * network-mode re-apply -- keeps the token, on loopback, as it always has.
+     */
+    private fun readDashboardAuthInitialized(): Boolean {
+        val connection = (URL(DASHBOARD_AUTH_STATUS_URL).openConnection() as HttpURLConnection).apply {
+            requestMethod = "GET"
+            connectTimeout = 1_000
+            readTimeout = 2_000
+            setRequestProperty("Accept", "application/json")
+        }
+        try {
+            if (connection.responseCode !in 200..299) return false
+            val payload = connection.inputStream.bufferedReader().use { it.readText() }
+            return JSONObject(payload.ifBlank { "{}" }).optBoolean("initialized", false)
+        } finally {
+            connection.disconnect()
+        }
+    }
+
     /** Writes paired credentials through Core's own config/security store. */
+    private class TelegramCredentialsInvalidException : Exception()
+
     private fun callTelegramBridge(
         method: String,
         body: JSONObject? = null
@@ -708,7 +1082,10 @@ class PocketClawMethodChannel(
         val connection = (URL(TELEGRAM_BRIDGE_URL).openConnection() as HttpURLConnection).apply {
             requestMethod = method
             connectTimeout = 3_000
-            readTimeout = 5_000
+            // Core validates a replacement with Telegram before committing it.
+            // Keep this just above Core's bounded validation timeout so the
+            // host receives the classified result instead of timing out first.
+            readTimeout = 12_000
             setRequestProperty(
                 "X-PocketClaw-Android-Bridge",
                 PocketClawService.bridgeTokenForHost()
@@ -725,10 +1102,51 @@ class PocketClawMethodChannel(
                     output.write(body.toString().toByteArray(Charsets.UTF_8))
                 }
             }
+            if (connection.responseCode == HttpURLConnection.HTTP_UNAUTHORIZED) {
+                throw TelegramCredentialsInvalidException()
+            }
             if (connection.responseCode != HttpURLConnection.HTTP_OK) {
                 throw IllegalStateException("Core Telegram bridge request failed")
             }
             connection.inputStream.close()
+        } finally {
+            connection.disconnect()
+        }
+    }
+
+    /** Reads Core's authoritative Telegram receiver readiness. */
+    private fun readTelegramReadiness(): Map<String, Any> {
+        val connection =
+            (URL(TELEGRAM_READINESS_BRIDGE_URL).openConnection() as HttpURLConnection).apply {
+                requestMethod = "GET"
+                connectTimeout = 1_000
+                readTimeout = 3_000
+                setRequestProperty(
+                    "X-PocketClaw-Android-Bridge",
+                    PocketClawService.bridgeTokenForHost(),
+                )
+                setRequestProperty("Accept", "application/json")
+            }
+        try {
+            if (connection.responseCode != HttpURLConnection.HTTP_OK) {
+                throw IllegalStateException("Core Telegram readiness request failed")
+            }
+            val payload = connection.inputStream.bufferedReader().use { it.readText() }
+            val json = JSONObject(payload.ifBlank { "{}" })
+            val response = mutableMapOf<String, Any>(
+                "state" to json.optString("state", "unknown"),
+                "ready" to json.optBoolean("ready", false),
+            )
+            json.optString("detail").takeIf { it.isNotBlank() }?.let {
+                response["detail"] = it
+            }
+            // PC-DEF-061. The polling generation the readiness answer
+            // authorized, so Flutter can require the same owner before it opens
+            // the bot chat. A process-local counter, never a credential.
+            json.optInt("generation", 0).takeIf { it > 0 }?.let {
+                response["generation"] = it
+            }
+            return response
         } finally {
             connection.disconnect()
         }

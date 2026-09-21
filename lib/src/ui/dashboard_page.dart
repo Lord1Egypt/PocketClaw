@@ -5,7 +5,7 @@ import 'package:qr_flutter/qr_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:pocketclaw/src/core/aperture_theme.dart';
 import 'package:pocketclaw/src/generated/l10n/app_localizations.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../core/app_fonts.dart';
 import 'package:remixicon/remixicon.dart';
 import 'package:pocketclaw/src/ui/widgets/tv_focusable.dart';
 import 'package:pocketclaw/src/ui/status_sections.dart';
@@ -88,7 +88,7 @@ class _DashboardPageState extends State<DashboardPage> {
             centerTitle: false,
             title: Text(
               l10n.statusTitle,
-              style: GoogleFonts.inter(
+              style: AppFonts.inter(
                 fontWeight: FontWeight.w600,
                 fontSize: 22,
                 letterSpacing: -0.3,
@@ -163,7 +163,7 @@ class _DashboardPageState extends State<DashboardPage> {
                                     isRunning
                                         ? l10n.stopService
                                         : l10n.launchService,
-                                    style: GoogleFonts.inter(
+                                    style: AppFonts.inter(
                                       fontSize: 17,
                                       fontWeight: FontWeight.w600,
                                       letterSpacing: 0.2,
@@ -309,7 +309,7 @@ class _DashboardPageState extends State<DashboardPage> {
               Flexible(
                 child: Text(
                   l10n.endpoint,
-                  style: GoogleFonts.inter(
+                  style: AppFonts.inter(
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
                     letterSpacing: 0.9,
@@ -362,7 +362,7 @@ class _DashboardPageState extends State<DashboardPage> {
                       children: [
                         Text(
                           l10n.unableToGetDeviceIp,
-                          style: GoogleFonts.firaCode(
+                          style: AppFonts.firaCode(
                             fontSize: 16,
                             color: tokens.warning,
                             fontWeight: FontWeight.w600,
@@ -385,7 +385,7 @@ class _DashboardPageState extends State<DashboardPage> {
                     textDirection: TextDirection.ltr,
                     child: Text(
                       displayUrl,
-                      style: GoogleFonts.firaCode(
+                      style: AppFonts.firaCode(
                         fontSize: 18,
                         color: tokens.accent,
                         fontWeight: FontWeight.w600,
@@ -506,7 +506,7 @@ class _DashboardPageState extends State<DashboardPage> {
           const SizedBox(width: 7),
           Text(
             label,
-            style: GoogleFonts.inter(
+            style: AppFonts.inter(
               color: color,
               fontWeight: FontWeight.w600,
               fontSize: 11,

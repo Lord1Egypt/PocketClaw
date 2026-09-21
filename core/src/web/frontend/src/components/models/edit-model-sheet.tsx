@@ -21,7 +21,6 @@ import {
   KeyInput,
   SwitchCardField,
 } from "@/components/shared-form"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
@@ -42,6 +41,8 @@ import {
   normalizeApiBase,
 } from "./model-provider-form-shared"
 import { type FieldValidation, validateModelField } from "./model-validation"
+import { DiscardChangesDialog } from "./discard-changes-dialog"
+import { ModelChipGroup } from "./model-chip-group"
 import { ProviderCombobox } from "./provider-combobox"
 import {
   getCanonicalProviderKey,
@@ -134,6 +135,7 @@ export function EditModelSheet({
     customHeaders: "",
   })
   const [saving, setSaving] = useState(false)
+  const [discardPrompt, setDiscardPrompt] = useState(false)
   const [setAsDefault, setSetAsDefault] = useState(false)
   const [error, setError] = useState("")
   const [modelValidation, setModelValidation] =
@@ -152,6 +154,22 @@ export function EditModelSheet({
     (JSON.stringify(form) !== JSON.stringify(initialForm) ||
       setAsDefault !== model.is_default)
 
+  // Closing with unsaved edits asks first. Every close route goes through here
+  // -- Cancel, Escape and the overlay -- so none of them can silently drop a
+  // newly typed API key.
+  const requestClose = () => {
+    if (isDirty && !saving) {
+      setDiscardPrompt(true)
+      return
+    }
+    onClose()
+  }
+
+  const discardAndClose = () => {
+    setDiscardPrompt(false)
+    onClose()
+  }
+
   useEffect(() => {
     if (model) {
       setForm(buildInitialEditForm(model))
@@ -160,30 +178,8 @@ export function EditModelSheet({
       setModelValidation(null)
       setFetchedModels([])
       setCatalogModels([])
-      // Load matching catalog models
-      const providerKey = getCanonicalProviderKey(
-        model.provider,
-        providerOptions,
-      )
-      const apiBase = getEffectiveAPIBase(
-        model.provider ?? "",
-        model.api_base ?? "",
-        providerOptions,
-      )
-      getCatalogs()
-        .then((res) => {
-          const matched = (res.entries || []).filter((e) => {
-            const ep = getCanonicalProviderKey(e.provider, providerOptions)
-            const eb = (e.api_base ?? "").trim().replace(/\/+$/, "")
-            return ep === providerKey && eb === apiBase
-          })
-          const ids = matched.flatMap((e) => e.models.map((m) => m.id))
-          const unique = [...new Set(ids)]
-          if (unique.length > 0) setCatalogModels(unique)
-        })
-        .catch(() => {})
     }
-  }, [model, providerOptions])
+  }, [model])
 
   const setField =
     (key: keyof EditForm) =>
@@ -316,6 +312,57 @@ export function EditModelSheet({
     providerOptions,
   )
   const submittedApiBase = getSubmittedAPIBase(form.apiBase)
+
+  /**
+   * Live-fetched ids describe one endpoint, and only for as long as that is the
+   * endpoint being configured.
+   *
+   * PC-DEF-032. `deepseek-v4.1-flash` is served by OpenCode Go and not by
+   * OpenCode Zen. Fetching from one, then changing the provider or the base
+   * URL, left the fetched list on screen still labelled as this provider's
+   * verified inventory -- and a model saved from it against an endpoint that
+   * does not serve it, which fails at inference with a bare 400. The list is
+   * dropped the moment it stops describing what is configured.
+   */
+  const fetchedForEndpointRef = useRef("")
+  useEffect(() => {
+    const endpoint = `${canonicalProvider}|${effectiveApiBase}`
+    if (fetchedForEndpointRef.current === endpoint) return
+    fetchedForEndpointRef.current = endpoint
+    setFetchedModels((current) => (current.length === 0 ? current : []))
+  }, [canonicalProvider, effectiveApiBase])
+
+  // The cached list is keyed on the endpoint too, and is reloaded when the
+  // endpoint changes rather than left describing the model's original one. The
+  // Add sheet has always done this; the Edit sheet loaded it once per model and
+  // then went on showing it after the provider had been changed underneath it.
+  useEffect(() => {
+    if (!canonicalProvider) {
+      setCatalogModels([])
+      return
+    }
+    let cancelled = false
+    getCatalogs()
+      .then((res) => {
+        if (cancelled) return
+        const matched = (res.entries || []).filter((entry) => {
+          const provider = getCanonicalProviderKey(
+            entry.provider,
+            providerOptions,
+          )
+          const base = (entry.api_base ?? "").trim().replace(/\/+$/, "")
+          return provider === canonicalProvider && base === effectiveApiBase
+        })
+        const ids = matched.flatMap((entry) => entry.models.map((m) => m.id))
+        setCatalogModels([...new Set(ids)])
+      })
+      .catch(() => {
+        if (!cancelled) setCatalogModels([])
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [canonicalProvider, effectiveApiBase, providerOptions])
   // Surface a stored base URL that differs from the preset instead of quietly
   // presenting it as the provider default, so an existing custom endpoint is
   // visible to the user and is never overwritten by accident.
@@ -424,18 +471,39 @@ export function EditModelSheet({
 
   return (
     <>
-      <Sheet open={open} onOpenChange={(v) => !v && onClose()}>
+      <Sheet open={open} onOpenChange={(v) => !v && requestClose()}>
         <SheetContent
           side="right"
           className="flex flex-col gap-0 p-0 data-[side=right]:!w-full data-[side=right]:sm:!w-[560px] data-[side=right]:sm:!max-w-[560px]"
         >
-          <SheetHeader className="border-b-muted border-b px-6 py-5">
-            <SheetTitle className="text-base">
-              {t("models.edit.title", { name: model?.model_name })}
-            </SheetTitle>
-            <SheetDescription className="font-mono text-xs">
-              {model?.model}
-            </SheetDescription>
+          {/* The primary action is in the header as well as the footer.
+              PC-DEF-045: the footer is the bottom of a fixed-height sheet, and
+              on a phone the soft keyboard opens the moment the API key field is
+              focused -- which is exactly when there is something to save. A
+              header action cannot be covered by it. The end padding leaves room
+              for the sheet's own close button. */}
+          <SheetHeader className="border-b-muted border-b px-6 py-5 pe-16">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <SheetTitle className="text-base">
+                  {t("models.edit.title", { name: model?.model_name })}
+                </SheetTitle>
+                <SheetDescription className="font-mono text-xs">
+                  {model?.model}
+                </SheetDescription>
+              </div>
+              <Button
+                size="sm"
+                className="min-h-10 shrink-0"
+                onClick={handleSave}
+                disabled={
+                  !isDirty || saving || modelValidation?.level === "error"
+                }
+              >
+                {saving && <IconLoader2 className="size-4 animate-spin" />}
+                {t("models.edit.confirm")}
+              </Button>
+            </div>
           </SheetHeader>
 
           <div
@@ -504,48 +572,30 @@ export function EditModelSheet({
                     )}
                   </div>
                 )}
-                {commonModels.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5">
-                    {commonModels.map((m) => (
-                      <Badge
-                        key={m}
-                        variant="secondary"
-                        className="hover:bg-secondary/80 cursor-pointer font-mono text-xs"
-                        onClick={() => handleCommonModel(m)}
-                      >
-                        {m}
-                      </Badge>
-                    ))}
-                  </div>
-                )}
-                {catalogModels.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5">
-                    {catalogModels.map((m) => (
-                      <Badge
-                        key={m}
-                        variant={form.modelId === m ? "default" : "outline"}
-                        className="cursor-pointer font-mono text-xs"
-                        onClick={() => handleCommonModel(m)}
-                      >
-                        {m}
-                      </Badge>
-                    ))}
-                  </div>
-                )}
-                {fetchedModels.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5">
-                    {fetchedModels.map((m) => (
-                      <Badge
-                        key={m}
-                        variant={form.modelId === m ? "default" : "outline"}
-                        className="cursor-pointer font-mono text-xs"
-                        onClick={() => handleCommonModel(m)}
-                      >
-                        {m}
-                      </Badge>
-                    ))}
-                  </div>
-                )}
+                <ModelChipGroup
+                  origin="suggestion"
+                  label={t("models.provenance.suggestions")}
+                  hint={t("models.provenance.suggestionsHint")}
+                  models={commonModels}
+                  selected={form.modelId}
+                  onSelect={handleCommonModel}
+                />
+                <ModelChipGroup
+                  origin="cached"
+                  label={t("models.provenance.cached")}
+                  hint={t("models.provenance.cachedHint")}
+                  models={catalogModels}
+                  selected={form.modelId}
+                  onSelect={handleCommonModel}
+                />
+                <ModelChipGroup
+                  origin="verified"
+                  label={t("models.provenance.verified")}
+                  hint={t("models.provenance.verifiedHint")}
+                  models={fetchedModels}
+                  selected={form.modelId}
+                  onSelect={handleCommonModel}
+                />
                 <div className="flex items-center gap-2">
                   {providerSupportsFetch(form.provider, providerOptions) && (
                     <Button
@@ -782,9 +832,12 @@ export function EditModelSheet({
                 description={t("models.unsavedPrompt")}
               />
             )}
-            <Button variant="ghost" onClick={onClose} disabled={saving}>
+            <Button variant="ghost" onClick={requestClose} disabled={saving}>
               {t("common.cancel")}
             </Button>
+            {/* "Update", not "Save": this sheet edits an entry that already
+                exists, and an Add-shaped label on it is what left the owner
+                looking for a way to persist a corrected API key. */}
             <Button
               onClick={handleSave}
               disabled={
@@ -792,11 +845,17 @@ export function EditModelSheet({
               }
             >
               {saving && <IconLoader2 className="size-4 animate-spin" />}
-              {t("common.save")}
+              {t("models.edit.confirm")}
             </Button>
           </SheetFooter>
         </SheetContent>
       </Sheet>
+
+      <DiscardChangesDialog
+        open={discardPrompt}
+        onKeepEditing={() => setDiscardPrompt(false)}
+        onDiscard={discardAndClose}
+      />
 
       <TestModelDialog
         model={model}

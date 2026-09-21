@@ -1,6 +1,8 @@
+import java.io.File
 import java.util.Base64
 import java.util.Properties
 import java.util.zip.ZipFile
+import groovy.json.JsonSlurper
 
 plugins {
     id("com.android.application")
@@ -37,18 +39,14 @@ val dartDefines = decodedDartDefines(project)
 val analyticsProvider = dartDefines["POCKETCLAW_ANALYTICS_PROVIDER"] ?: "none"
 val umengAppKey = dartDefines["POCKETCLAW_UMENG_APP_KEY"] ?: ""
 val umengChannel = dartDefines["POCKETCLAW_UMENG_CHANNEL"] ?: "official"
-val umengLinkScheme = if (umengAppKey.isNotBlank()) {
-    "um.$umengAppKey"
-} else {
-    "um.placeholder"
-}
 
-// Firebase Configuration from dart-define
-val firebaseAppId = dartDefines["POCKETCLAW_FIREBASE_APP_ID"] ?: ""
-val firebaseApiKey = dartDefines["POCKETCLAW_FIREBASE_API_KEY"] ?: ""
-val firebaseProjectId = dartDefines["POCKETCLAW_FIREBASE_PROJECT_ID"] ?: ""
-val firebaseMessagingSenderId = dartDefines["POCKETCLAW_FIREBASE_MESSAGING_SENDER_ID"] ?: ""
-val firebaseStorageBucket = dartDefines["POCKETCLAW_FIREBASE_STORAGE_BUCKET"] ?: ""
+// PC-DEF-060. The Dashboard opened in a desktop browser has no Android host to run
+// managed Telegram pairing, so Core has to run it instead -- and Core does not know
+// where the onboarding service lives. The URL already reaches the APK as a dart-define
+// from android/official-onboarding.properties; reading it here too means Kotlin can
+// hand the same value to Core's environment without a second place to set it.
+val onboardingBaseUrl = dartDefines["POCKETCLAW_ONBOARDING_BASE_URL"] ?: ""
+
 
 // ---------------------------------------------------------------------------
 // Release contract. See DECISIONS.md, "Release integrity".
@@ -182,17 +180,119 @@ val releaseKeystorePassword = System.getenv("KEYSTORE_PASSWORD").orEmpty()
 val releaseKeyAlias = System.getenv("KEY_ALIAS").orEmpty().trim()
 val releaseKeyPassword = System.getenv("KEY_PASSWORD").orEmpty()
 
-val releaseSigningMaterialDeclared =
-    releaseKeystorePath.isNotEmpty() &&
-        releaseKeystorePassword.isNotEmpty() &&
-        releaseKeyAlias.isNotEmpty() &&
-        releaseKeyPassword.isNotEmpty()
+// The four fields, named once. The names are safe to print; the values never
+// are, so only the keys of this map ever reach a log or an error message.
+val releaseSigningFields = linkedMapOf(
+    "KEYSTORE_PATH" to releaseKeystorePath,
+    "KEYSTORE_PASSWORD" to releaseKeystorePassword,
+    "KEY_ALIAS" to releaseKeyAlias,
+    "KEY_PASSWORD" to releaseKeyPassword,
+)
+
+val missingReleaseSigningFields = releaseSigningFields.filterValues { it.isEmpty() }.keys.toList()
+
+val releaseSigningMaterialDeclared = missingReleaseSigningFields.isEmpty()
+
+// Some but not all. This is the dangerous shape: it says someone meant to sign
+// for production and got a name wrong, so it must never resolve to anything —
+// least of all to the debug key, which would hand back a plausible-looking
+// artifact carrying a development identity.
+val releaseSigningPartiallyDeclared =
+    missingReleaseSigningFields.isNotEmpty() &&
+        missingReleaseSigningFields.size < releaseSigningFields.size
+
+// A production keystore inside the repository is refused outright.
+//
+// .gitignore stops an accidental `git add`; it does nothing about `git add -f`,
+// a future pattern change, or a keystore copied in "just for this build" and
+// forgotten. The signing path is the last place that can still say no, so it
+// does. Resolved canonically, because a relative path or a symlink out and back
+// in would otherwise walk straight past a prefix comparison.
+val repositoryRoot = rootProject.projectDir.parentFile.canonicalFile
+
+fun keystoreIsInsideRepository(path: String): Boolean {
+    if (path.isEmpty()) return false
+    val candidate = File(path).let { if (it.isAbsolute) it else File(rootProject.projectDir, path) }
+    val resolved = runCatching { candidate.canonicalFile }.getOrElse { return false }
+    return generateSequence(resolved) { it.parentFile }.any { it == repositoryRoot }
+}
+
+val releaseKeystoreInsideRepository = keystoreIsInsideRepository(releaseKeystorePath)
 
 val releaseSigningMaterialUsable =
-    releaseSigningMaterialDeclared && file(releaseKeystorePath).isFile
+    releaseSigningMaterialDeclared &&
+        !releaseKeystoreInsideRepository &&
+        file(releaseKeystorePath).isFile
 
 val allowDebugSigning =
     (project.findProperty("allowDebugSigning") as String?)?.toBoolean() == true
+
+// --- Dart release hardening ---------------------------------------------
+//
+// Flutter 3.47.1's Gradle plugin consumes the target, obfuscation, and split
+// properties below. PocketClaw adds one explicit mode marker so a release
+// compile cannot be mistaken for a hardened compile merely because one flag
+// happened to be set. The canonical entry point is
+// tool/build_hardened_android.py.
+val dartHardeningMode = (project.findProperty("pocketclawDartHardening") as String?)?.trim()
+val dartObfuscationProperty = (project.findProperty("dart-obfuscation") as String?)?.trim()
+val splitDebugInfoProperty = (project.findProperty("split-debug-info") as String?)?.trim()
+val dartTargetPlatformProperty = (project.findProperty("target-platform") as String?)?.trim()
+
+fun validateGeneratedDartPackageMapping(packageConfig: File) {
+    if (!packageConfig.isFile) {
+        throw GradleException(
+            "${packageConfig.path} is missing. Run the pinned `flutter pub get`, then use " +
+                "tool/build_hardened_android.py."
+        )
+    }
+    val parsed = runCatching { JsonSlurper().parse(packageConfig) as Map<*, *> }
+        .getOrElse { error ->
+            throw GradleException("Cannot parse ${packageConfig.path}: ${error.message}")
+        }
+    val packages = parsed["packages"] as? List<*>
+        ?: throw GradleException("${packageConfig.path} has no package list.")
+    val mappings = packages
+        .filterIsInstance<Map<*, *>>()
+        .filter { entry -> entry["name"] == "pocketclaw_generated" }
+    val mappingIsControlled = mappings.size == 1 &&
+        mappings.single()["rootUri"] == "flutter_build/" &&
+        mappings.single()["packageUri"] == "./"
+    if (!mappingIsControlled) {
+        throw GradleException(
+            buildString {
+                appendLine("The controlled generated-Dart package mapping is absent or malformed.")
+                appendLine("A release compile would embed the checkout-specific absolute URI for")
+                appendLine(".dart_tool/flutter_build/dart_plugin_registrant.dart.")
+                appendLine("Use tool/build_hardened_android.py; it prepares the deterministic")
+                appendLine("package:pocketclaw_generated mapping before Gradle starts.")
+            }
+        )
+    }
+}
+
+fun validatePrivateDartSymbolDirectory(raw: String) {
+    val repository = rootProject.projectDir.parentFile.canonicalFile
+    val requested = File(raw).let { candidate ->
+        if (candidate.isAbsolute) candidate else File(repository, raw)
+    }.canonicalFile
+    if (requested == repository || generateSequence(repository) { it.parentFile }.any { it == requested }) {
+        throw GradleException("split-debug-info cannot name the repository or one of its parents.")
+    }
+    if (generateSequence(requested) { it.parentFile }.any { it == repository }) {
+        val relative = requested.relativeTo(repository).invariantSeparatorsPath
+        val safelyIgnored = relative == "build/private-symbols" ||
+            relative.startsWith("build/private-symbols/") ||
+            relative == "split-debug-info" || relative.startsWith("split-debug-info/") ||
+            relative == "symbols" || relative.startsWith("symbols/")
+        if (!safelyIgnored) {
+            throw GradleException(
+                "Repository-local split-debug-info must be under build/private-symbols/, " +
+                    "split-debug-info/, or symbols/."
+            )
+        }
+    }
+}
 
 // --- Analytics -----------------------------------------------------------
 //
@@ -238,11 +338,14 @@ android {
         buildConfigField("boolean", "POCKETCLAW_UMENG_PACKAGED", umengAnalyticsRequested.toString())
         buildConfigField("String", "POCKETCLAW_UMENG_APP_KEY", umengAppKey.toQuotedBuildConfigValue())
         buildConfigField("String", "POCKETCLAW_UMENG_CHANNEL", umengChannel.toQuotedBuildConfigValue())
-        buildConfigField("String", "POCKETCLAW_UMENG_LINK_SCHEME", umengLinkScheme.toQuotedBuildConfigValue())
+        buildConfigField(
+            "String",
+            "POCKETCLAW_ONBOARDING_BASE_URL",
+            onboardingBaseUrl.toQuotedBuildConfigValue(),
+        )
         // Pass values to AndroidManifest.xml via manifestPlaceholders
         manifestPlaceholders["POCKETCLAW_UMENG_APP_KEY"] = umengAppKey
         manifestPlaceholders["POCKETCLAW_UMENG_CHANNEL"] = umengChannel
-        manifestPlaceholders["POCKETCLAW_UMENG_LINK_SCHEME"] = umengLinkScheme
     }
 
     signingConfigs {
@@ -269,8 +372,14 @@ android {
             // silent outcome. Debug signing is a development identity: it is
             // not a release identity, and an artifact signed with a different
             // key cannot update an existing installation in place.
+            // Partial production material outranks the debug opt-in: someone
+            // who set three of the four fields was aiming at a production
+            // build, and quietly giving them a debug-signed one instead is the
+            // silent downgrade this whole arrangement exists to prevent.
             signingConfig = when {
                 releaseSigningMaterialUsable -> signingConfigs.getByName("release")
+                releaseSigningPartiallyDeclared -> null
+                releaseKeystoreInsideRepository -> null
                 allowDebugSigning -> signingConfigs.getByName("debug")
                 else -> null
             }
@@ -340,6 +449,56 @@ dependencies {
     testImplementation("junit:junit:4.13.2")
 }
 
+// Fail every release compile unless the complete H3A Dart-hardening contract is
+// selected. Debug builds are unaffected. The Python entry point also verifies
+// the actual APK and split artifact after assembly; this task protects direct
+// Gradle callers before the compiler does expensive work.
+tasks.register("validateDartHardening") {
+    doLast {
+        if (dartHardeningMode != "true") {
+            throw GradleException(
+                buildString {
+                    appendLine("Dart-hardened release mode was not selected.")
+                    appendLine("Release compilation is supported through:")
+                    appendLine("  python3 tool/build_hardened_android.py --signing <local-test|production>")
+                    appendLine("That entry point enables obfuscation, split debug info, and the")
+                    appendLine("controlled generated-source URI as one fail-closed contract.")
+                }
+            )
+        }
+        if (dartObfuscationProperty != "true") {
+            throw GradleException(
+                "Hardened mode requires the exact project property -Pdart-obfuscation=true."
+            )
+        }
+        val splitDebugInfo = splitDebugInfoProperty
+        if (splitDebugInfo.isNullOrEmpty()) {
+            throw GradleException(
+                "Hardened mode requires a non-empty -Psplit-debug-info directory."
+            )
+        }
+        if (dartTargetPlatformProperty != "android-arm64") {
+            throw GradleException(
+                "Hardened PocketClaw APKs require -Ptarget-platform=android-arm64."
+            )
+        }
+        val competingUriProperties = listOf(
+            "filesystem-roots",
+            "filesystem-scheme",
+            "extra-front-end-options",
+        ).filter(project::hasProperty)
+        if (competingUriProperties.isNotEmpty()) {
+            throw GradleException(
+                "Hardened mode rejects competing generated-source options: " +
+                    competingUriProperties.joinToString(", ")
+            )
+        }
+        validatePrivateDartSymbolDirectory(splitDebugInfo)
+        validateGeneratedDartPackageMapping(rootProject.file("../.dart_tool/package_config.json"))
+        println("Dart hardening: obfuscation + private split debug info + controlled package URI.")
+    }
+}
+
 // Fail a release build that has no authentic signer.
 //
 // This runs before anything is compiled, so the failure arrives in seconds
@@ -350,6 +509,41 @@ tasks.register("validateReleaseSigning") {
         if (releaseSigningMaterialUsable) {
             println("Release signing: production keystore (from the environment).")
             return@doLast
+        }
+        // Checked before the debug opt-in, deliberately. Both of these mean
+        // "production signing was intended and is wrong", and answering them
+        // with a debug-signed artifact would be answering a different question.
+        if (releaseKeystoreInsideRepository) {
+            throw GradleException(
+                buildString {
+                    appendLine("KEYSTORE_PATH points inside this repository.")
+                    appendLine()
+                    appendLine("A production keystore must live outside the working tree. Ignoring")
+                    appendLine("it is not protection: `git add -f`, a changed ignore pattern or a")
+                    appendLine("copy left behind after a build would all commit it, and a signing")
+                    appendLine("key in history cannot be un-published — it can only be rotated,")
+                    appendLine("which invalidates every update path for already-installed apps.")
+                    appendLine()
+                    appendLine("Move the keystore somewhere outside the repository and point")
+                    appendLine("KEYSTORE_PATH at it. See docs/RELEASE_SIGNING.md.")
+                }
+            )
+        }
+        if (releaseSigningPartiallyDeclared) {
+            throw GradleException(
+                buildString {
+                    appendLine("Production signing is partially configured, so this build stops.")
+                    appendLine()
+                    appendLine("Missing: " + missingReleaseSigningFields.joinToString(", "))
+                    appendLine()
+                    appendLine("Field names only — no value is read back or printed. Some of the")
+                    appendLine("four are set, which means production signing was intended; a")
+                    appendLine("typo in one name would otherwise fall through to the debug key")
+                    appendLine("and hand back an artifact that looks like a release and is not.")
+                    appendLine("-PallowDebugSigning=true does not apply here: fix the")
+                    appendLine("configuration, or unset all four to build a local test artifact.")
+                }
+            )
         }
         if (allowDebugSigning) {
             println("Release signing: DEBUG KEY, by explicit -PallowDebugSigning=true.")
@@ -391,89 +585,12 @@ afterEvaluate {
     listOf("preReleaseBuild", "packageRelease", "bundleRelease").forEach { name ->
         tasks.findByName(name)?.dependsOn("validateReleaseSigning")
     }
-}
-
-// Generate Firebase resources from dart-define
-tasks.register("generateFirebaseResources") {
-    doLast {
-        val resDir = file("src/main/res/values")
-        resDir.mkdirs()
-        
-        val stringsXml = file("$resDir/strings.xml")
-        
-        // Build the content - always generate required fields even if empty
-        // to prevent AAPT errors when AndroidManifest references them
-        val content = buildString {
-            appendLine("<?xml version=\"1.0\" encoding=\"utf-8\"?>")
-            appendLine("<resources>")
-            appendLine("    <!-- Auto-generated from dart-define, do not edit manually -->")
-            
-            // Always generate google_app_id (required by AndroidManifest.xml)
-            appendLine("    <string name=\"google_app_id\" translatable=\"false\">${firebaseAppId.xmlEscape()}</string>")
-            
-            if (firebaseApiKey.isNotEmpty()) {
-                appendLine("    <string name=\"google_api_key\" translatable=\"false\">${firebaseApiKey.xmlEscape()}</string>")
-            }
-            if (firebaseProjectId.isNotEmpty()) {
-                appendLine("    <string name=\"project_id\" translatable=\"false\">${firebaseProjectId.xmlEscape()}</string>")
-                appendLine("    <string name=\"firebase_database_url\" translatable=\"false\">https://${firebaseProjectId.xmlEscape()}.firebaseio.com</string>")
-            }
-            if (firebaseMessagingSenderId.isNotEmpty()) {
-                appendLine("    <string name=\"gcm_defaultSenderId\" translatable=\"false\">${firebaseMessagingSenderId.xmlEscape()}</string>")
-            }
-            if (firebaseStorageBucket.isNotEmpty()) {
-                appendLine("    <string name=\"google_storage_bucket\" translatable=\"false\">${firebaseStorageBucket.xmlEscape()}</string>")
-            } else if (firebaseProjectId.isNotEmpty()) {
-                appendLine("    <string name=\"google_storage_bucket\" translatable=\"false\">${firebaseProjectId.xmlEscape()}.appspot.com</string>")
-            }
-            
-            appendLine("</resources>")
+    listOf("preReleaseBuild", "compileFlutterBuildRelease", "packageRelease", "bundleRelease")
+        .forEach { name ->
+            tasks.findByName(name)?.dependsOn("validateDartHardening")
         }
-        
-        stringsXml.writeText(content)
-        println("Generated Firebase resources at: ${stringsXml.absolutePath}")
-        println("Firebase Config: appId=${firebaseAppId.isNotEmpty()}, apiKey=${firebaseApiKey.isNotEmpty()}, projectId=${firebaseProjectId.isNotEmpty()}")
-    }
 }
 
-// Helper function to escape XML
-fun String.xmlEscape(): String {
-    return this
-        .replace("&", "&amp;")
-        .replace("<", "&lt;")
-        .replace(">", "&gt;")
-        .replace("\"", "&quot;")
-        .replace("'", "&apos;")
-}
-
-// Ensure resources are generated before any resource processing
-afterEvaluate {
-    // Hook into resource processing tasks which happen before AAPT linking
-    tasks.findByName("mergeDebugResources")?.dependsOn("generateFirebaseResources")
-    tasks.findByName("mergeReleaseResources")?.dependsOn("generateFirebaseResources")
-    tasks.findByName("processDebugResources")?.dependsOn("generateFirebaseResources")
-    tasks.findByName("processReleaseResources")?.dependsOn("generateFirebaseResources")
-    // Also hook into pre-build tasks as fallback
-    tasks.findByName("preBuild")?.dependsOn("generateFirebaseResources")
-}
-
-// Clean up sensitive resources after build
-tasks.register("cleanupFirebaseResources") {
-    doLast {
-        val stringsXml = file("src/main/res/values/strings.xml")
-        if (stringsXml.exists()) {
-            stringsXml.delete()
-            println("Cleaned up Firebase resources for security")
-        }
-    }
-}
-
-// Run cleanup after build completion - use afterEvaluate to ensure tasks exist
-afterEvaluate {
-    tasks.findByName("assembleDebug")?.finalizedBy("cleanupFirebaseResources")
-    tasks.findByName("assembleRelease")?.finalizedBy("cleanupFirebaseResources")
-    tasks.findByName("bundleRelease")?.finalizedBy("cleanupFirebaseResources")
-}
 
 // Fail the release build if the arm64 native payload is incomplete.
 //

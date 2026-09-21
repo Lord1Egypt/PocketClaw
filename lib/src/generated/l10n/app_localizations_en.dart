@@ -466,7 +466,8 @@ class AppLocalizationsEn extends AppLocalizations {
       'Secure GitHub sign-in, shared by the bundled Git and GitHub CLI.';
 
   @override
-  String get whatsNew020New5 => 'Telegram integration, set up from Settings.';
+  String get whatsNew020New5 =>
+      'One-tap Telegram setup: PocketClaw creates your own bot, in the app or from the Dashboard in a browser. There is no token to copy, and only your own account can talk to it.';
 
   @override
   String get whatsNew020New6 =>
@@ -657,4 +658,46 @@ class AppLocalizationsEn extends AppLocalizations {
   String statusDurationDays(int days, int hours) {
     return '${days}d ${hours}h';
   }
+
+  @override
+  String get notificationPermissionTitle => 'Notifications';
+
+  @override
+  String get notificationPermissionGranted =>
+      'PocketClaw can show its Running notification.';
+
+  @override
+  String get notificationPermissionBlocked =>
+      'Notifications are off, so the PocketClaw Running notification will not appear.';
+
+  @override
+  String get notificationPermissionOpenSettings => 'Open notification settings';
+
+  @override
+  String get whatsNew020New7 =>
+      'Telegram management from the Dashboard: connect a bot, replace it, or disconnect it.';
+
+  @override
+  String get whatsNew020New8 =>
+      'Provider and model management in the Dashboard: add a provider, rotate an API key, or remove a model.';
+
+  @override
+  String get whatsNew020Improvement12 =>
+      'Telegram settings apply as soon as you save them, with no manual restart.';
+
+  @override
+  String get whatsNew020Improvement13 =>
+      'When no AI model is set up, PocketClaw says exactly what is missing and gives you a code to look up.';
+
+  @override
+  String get whatsNew020Improvement14 =>
+      'Signing in to the Dashboard takes you to the screen you asked for.';
+
+  @override
+  String get whatsNew020Improvement15 =>
+      'Diagnostic logs stay detailed without ever containing your keys, tokens or message text.';
+
+  @override
+  String get whatsNew020Improvement16 =>
+      'A Dashboard nobody has claimed yet is never reachable from the network, even with Public Mode on.';
 }

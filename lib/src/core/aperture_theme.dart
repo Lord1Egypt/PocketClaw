@@ -1,7 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import './app_fonts.dart';
 
 import 'package:pocketclaw/src/core/app_theme.dart';
 
@@ -92,7 +92,7 @@ abstract final class ApertureTheme {
       scaffoldBackgroundColor: tokens.canvas,
       canvasColor: tokens.canvas,
       dividerColor: tokens.border,
-      textTheme: GoogleFonts.interTextTheme(
+      textTheme: AppFonts.interTextTheme(
         ThemeData(brightness: brightness).textTheme,
       ).apply(bodyColor: tokens.text, displayColor: tokens.text),
       visualDensity: VisualDensity.adaptivePlatformDensity,

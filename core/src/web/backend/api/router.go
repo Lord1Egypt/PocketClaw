@@ -1,6 +1,7 @@
 package api
 
 import (
+	"github.com/sipeed/picoclaw/pkg/telegramonboarding"
 	"net/http"
 	"strings"
 	"sync"
@@ -28,17 +29,30 @@ type Handler struct {
 	wecomMu                    sync.Mutex
 	wecomFlows                 map[string]*wecomFlow
 	launcherNetworkMode        LauncherNetworkModeController
-	launcherNetworkModeMu      sync.Mutex
-	launcherNetworkModeState   launcherNetworkModeState
+	// PC-DEF-060. Managed Telegram onboarding for a client with no Android host.
+	// Resolved once from the environment; the store keeps poll tokens server-side.
+	telegramOnboardingOnce   sync.Once
+	telegramOnboarding       *telegramonboarding.Client
+	telegramOnboardingStore  *telegramOnboardingStore
+	launcherNetworkModeMu    sync.Mutex
+	launcherNetworkModeState launcherNetworkModeState
 	// githubValidator overrides how a candidate GitHub credential is checked.
 	// Production leaves it nil and goes through the Managed Runtime.
 	githubValidator GitHubTokenValidator
+	// telegramCredentialValidator overrides the pre-commit Telegram getMe
+	// check. Production leaves it nil; tests use it to avoid external traffic.
+	telegramCredentialValidator TelegramCredentialValidator
 }
 
 // SetGitHubTokenValidator replaces credential validation. It exists for tests,
 // which have no gh binary and must not depend on network access.
 func (h *Handler) SetGitHubTokenValidator(validator GitHubTokenValidator) {
 	h.githubValidator = validator
+}
+
+// SetTelegramCredentialValidator replaces candidate validation for tests.
+func (h *Handler) SetTelegramCredentialValidator(validator TelegramCredentialValidator) {
+	h.telegramCredentialValidator = validator
 }
 
 // NewHandler creates an instance of the API handler.
@@ -102,6 +116,11 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 
 	// Model list management
 	h.registerModelRoutes(mux)
+	h.registerProviderRoutes(mux)
+	h.registerTelegramOnboardingRoutes(mux)
+	h.registerTelegramReadinessRoutes(mux)
+	h.registerTelegramLifecycleRoutes(mux)
+	h.registerTelegramIdentityRoutes(mux)
 
 	// Channel catalog (for frontend navigation/config pages)
 	h.registerChannelRoutes(mux)
@@ -115,9 +134,6 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 
 	// Launcher service parameters (port/public)
 	h.registerLauncherConfigRoutes(mux)
-
-	// Self-update endpoint (requires dashboard auth)
-	h.registerUpdateRoutes(mux)
 
 	// Runtime build/version metadata
 	h.registerVersionRoutes(mux)

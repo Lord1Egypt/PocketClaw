@@ -164,7 +164,7 @@
   "whatsNew020New2": "Ferramentas de desenvolvimento incluídas: Git, GitHub CLI, curl, ripgrep, jq e SQLite.",
   "whatsNew020New3": "Suporte ao tempo de execução Python 3.14 incluído no PocketClaw.",
   "whatsNew020New4": "Login seguro no GitHub, compartilhado pelo Git e pela CLI do GitHub incluídos.",
-  "whatsNew020New5": "Integração com o Telegram, configurada nas Configurações.",
+  "whatsNew020New5": "Configuração do Telegram com um toque: o PocketClaw cria o seu próprio bot, no aplicativo ou pelo painel em um navegador. Não há token para copiar e apenas a sua conta pode falar com ele.",
   "whatsNew020New6": "Uma visão de Status no painel: trabalho ativo, canais, o modelo em uso e os recursos de execução.",
   "whatsNew020Improvement1": "Provedores mais resilientes: uma requisição com falha não encerra mais o turno.",
   "whatsNew020Improvement2": "Um catálogo do tempo de execução gerenciado mais preciso.",
@@ -218,5 +218,16 @@
   "statusDurationSeconds": "{seconds} s",
   "statusDurationMinutes": "{minutes} min {seconds} s",
   "statusDurationHours": "{hours} h {minutes} min",
-  "statusDurationDays": "{days} d {hours} h"
+  "statusDurationDays": "{days} d {hours} h",
+  "notificationPermissionTitle": "Notificações",
+  "notificationPermissionGranted": "O PocketClaw pode mostrar a notificação de execução.",
+  "notificationPermissionBlocked": "As notificações estão desativadas, portanto a notificação de execução do PocketClaw não aparecerá.",
+  "notificationPermissionOpenSettings": "Abrir configurações de notificação",
+  "whatsNew020New7": "Gerenciamento do Telegram pelo painel: conectar um bot, substituí-lo ou desconectá-lo.",
+  "whatsNew020New8": "Gerenciamento de provedores e modelos no painel: adicionar um provedor, trocar uma chave de API ou remover um modelo.",
+  "whatsNew020Improvement12": "As configurações do Telegram são aplicadas assim que você salva, sem reinício manual.",
+  "whatsNew020Improvement13": "Quando nenhum modelo de IA está configurado, o PocketClaw diz exatamente o que falta e fornece um código para consultar.",
+  "whatsNew020Improvement14": "Entrar no painel leva você à tela que você pediu.",
+  "whatsNew020Improvement15": "Os registros de diagnóstico continuam detalhados sem nunca conter suas chaves, tokens ou o texto das mensagens.",
+  "whatsNew020Improvement16": "Um painel que ainda não foi reivindicado nunca fica acessível pela rede, mesmo com o modo público ativado."
 }

@@ -29,6 +29,22 @@ void main() {
     expect(kotlin, contains('"$expected"'));
   });
 
+  test(
+    'managed Telegram reads Core authoritative readiness over the bridge',
+    () {
+      final dart = read('lib/src/core/pocketclaw_channel.dart');
+      final kotlin = read(
+        'android/app/src/main/kotlin/com/lord1egypt/pocketclaw/'
+        'PocketClawMethodChannel.kt',
+      );
+
+      expect(dart, contains("invokeMethod<Map>('telegramReadiness')"));
+      expect(kotlin, contains('"telegramReadiness" ->'));
+      expect(kotlin, contains('/api/pocketclaw/android/telegram/readiness'));
+      expect(kotlin, contains('X-PocketClaw-Android-Bridge'));
+    },
+  );
+
   test('no source still names the pre-N1 channel', () {
     for (final path in [
       'lib/src/core/pocketclaw_channel.dart',

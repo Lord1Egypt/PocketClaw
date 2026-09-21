@@ -52,7 +52,7 @@ func NewMQTTChannel(bc *config.Channel, cfg *config.MQTTSettings, b *bus.Message
 	if mqttClientID == "" {
 		var suffix [4]byte
 		_, _ = rand.Read(suffix[:])
-		mqttClientID = fmt.Sprintf("picoclaw-mqtt-%s-%s", cfg.AgentID, hex.EncodeToString(suffix[:]))
+		mqttClientID = fmt.Sprintf("pocketclaw-mqtt-%s-%s", cfg.AgentID, hex.EncodeToString(suffix[:]))
 	}
 
 	return &MQTTChannel{
@@ -127,7 +127,7 @@ func (c *MQTTChannel) Start(ctx context.Context) error {
 }
 
 // DefaultTopicPrefix is used when a configuration does not set one. Existing
-// deployments that explicitly configured the legacy "/picoclaw" prefix keep it:
+// deployments that explicitly configured the legacy upstream prefix keep it:
 // topicPrefix only substitutes this default for an empty value, so broker-side
 // topics are never rewritten underneath a running deployment.
 const DefaultTopicPrefix = "/pocketclaw"

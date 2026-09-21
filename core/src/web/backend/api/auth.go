@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"strings"
 
@@ -31,6 +32,12 @@ type LauncherAuthRouteOpts struct {
 	// non-nil and PasswordStore is nil, auth endpoints fail closed with a
 	// recovery message.
 	StoreError error
+	// OnDashboardClaimed is called after a first claim succeeds, so the exposure
+	// PC-DEF-039 narrowed can be re-applied. PC-DEF-040.
+	//
+	// Optional: a host without a network-mode controller passes nil and the claim
+	// simply changes no binding.
+	OnDashboardClaimed func()
 }
 
 type launcherAuthLoginBody struct {
@@ -60,6 +67,7 @@ func RegisterLauncherAuthRoutes(mux *http.ServeMux, opts LauncherAuthRouteOpts) 
 		store:         opts.PasswordStore,
 		storeErr:      opts.StoreError,
 		loginLimit:    newLoginRateLimiter(),
+		onClaimed:     opts.OnDashboardClaimed,
 	}
 	mux.HandleFunc("POST /api/auth/login", h.handleLogin)
 	mux.HandleFunc("POST /api/auth/logout", h.handleLogout)
@@ -74,6 +82,8 @@ type launcherAuthHandlers struct {
 	store         PasswordStore
 	storeErr      error // set when the store failed to open; drives recovery messages
 	loginLimit    *loginRateLimiter
+	// onClaimed fires after a first claim, never after a password change.
+	onClaimed func()
 }
 
 // isStoreInitialized safely queries the store.
@@ -230,6 +240,23 @@ func (h *launcherAuthHandlers) handleSetup(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	// PC-DEF-039. First-claim setup is loopback-only.
+	//
+	// Before this, an uninitialized dashboard required no authorization at all
+	// -- the session check below sits inside `if initialized`, so any client
+	// that could reach the port could claim ownership of the agent. On a
+	// Public-Mode device that is the whole LAN, and whoever asked first won.
+	//
+	// Ownership therefore has to come from the host, and the only thing that
+	// distinguishes the host is the connection itself. Host, Origin and
+	// X-Forwarded-For are all attacker-controlled on a direct connection, so
+	// the decision uses RemoteAddr and nothing else.
+	if !initialized && !isLoopbackRequest(r) {
+		w.WriteHeader(http.StatusForbidden)
+		_, _ = w.Write([]byte(`{"error":"initial dashboard setup must be performed on this device"}`))
+		return
+	}
+
 	// If already initialized, require an active session (change-password flow).
 	if initialized {
 		authed := false
@@ -273,8 +300,26 @@ func (h *launcherAuthHandlers) handleSetup(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	// PC-DEF-040, reopened. This is the authoritative moment the dashboard goes
+	// from unclaimed to owned, and it is the event that had no detector: exposure
+	// was reconciled only when the Android app happened to see its WebView leave
+	// /launcher-setup, so any other route to a first claim left Public Mode
+	// desired-but-not-effective until the user toggled it by hand.
+	//
+	// Only a *first* claim, and the check above already required it to be
+	// loopback-only, so PC-DEF-039 holds: this re-applies the owner's own
+	// preference for a dashboard the owner has just taken.
+	//
+	// After the response, because applying it replaces the listener that is
+	// carrying this request.
+	claimed := !initialized && h.onClaimed != nil
+
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write([]byte(`{"status":"ok"}`))
+
+	if claimed {
+		h.onClaimed()
+	}
 }
 
 func (h *launcherAuthHandlers) validSession(value string) bool {
@@ -289,4 +334,21 @@ func (h *launcherAuthHandlers) validSession(value string) bool {
 func writeErrorf(w http.ResponseWriter, format string, args ...any) {
 	msg, _ := json.Marshal(fmt.Sprintf(format, args...))
 	_, _ = w.Write([]byte(`{"error":` + string(msg) + `}`))
+}
+
+// isLoopbackRequest reports whether the connection itself originates on this
+// device.
+//
+// Deliberately RemoteAddr only. Host, Origin, X-Forwarded-For and friends are
+// request content: a LAN client can send Host: localhost or
+// X-Forwarded-For: 127.0.0.1 and there is no proxy in this deployment that
+// would make either trustworthy. An unparseable RemoteAddr is not loopback --
+// this fails closed.
+func isLoopbackRequest(r *http.Request) bool {
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		return false
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsLoopback()
 }

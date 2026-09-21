@@ -19,7 +19,7 @@ func newTestLauncherRuntime(t *testing.T, public bool, handler http.Handler) *la
 	if err != nil {
 		t.Fatal(err)
 	}
-	runtime := newLauncherHTTPRuntime(handler, "", public, initial)
+	runtime := newLauncherHTTPRuntime(handler, "", public, public, initial)
 	runtime.Start()
 	t.Cleanup(runtime.Shutdown)
 	return runtime

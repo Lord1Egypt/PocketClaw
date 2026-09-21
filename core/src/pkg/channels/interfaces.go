@@ -89,3 +89,45 @@ type CorrelatedPlaceholderRecorder interface {
 type CommandRegistrarCapable interface {
 	RegisterCommands(ctx context.Context, defs []commands.Definition) error
 }
+
+// CommandMenuReporter is implemented by a channel that can say whether its
+// command menu has actually reached the platform.
+//
+// PC-DEF-061. "Connected" has to mean the bot is ready for the owner's first
+// message, and registration is part of that. Registration is asynchronous and
+// retried, so its outcome is a fact only the channel holds -- the menu itself
+// cannot be read back from inside the process, since only Telegram knows what
+// it is showing.
+type CommandMenuReporter interface {
+	// CommandsRegistered reports whether the menu was published successfully.
+	CommandsRegistered() bool
+}
+
+// PollingGenerationReporter is implemented by a channel whose readiness depends
+// on a polling owner, and which can name the owner that is currently active.
+//
+// PC-DEF-061. A readiness decision must be able to say which getUpdates owner
+// it authorized, so a stale generation's success cannot be inherited by the
+// generation that replaced it. The value is a process-local counter, never a
+// token, bot id, owner id or chat id.
+type PollingGenerationReporter interface {
+	// PollingGeneration reports the active owner's id, or zero when none.
+	PollingGeneration() uint64
+}
+
+// RuntimeFailureReporter is implemented by a channel that can expose a safe,
+// terminal lifecycle code. Codes are machine-readable and must never contain an
+// upstream response, identity or credential.
+type RuntimeFailureReporter interface {
+	RuntimeFailure() string
+}
+
+// OwnerMissingReporter is implemented by a channel that requires a configured
+// owner identity and can say when the credential is valid but no owner is set.
+//
+// It is a boolean fact only, carrying no identity: it lets readiness report an
+// incomplete setup instead of "connected", so a UI never presents a bot that
+// will not answer its owner as ready.
+type OwnerMissingReporter interface {
+	OwnerMissing() bool
+}

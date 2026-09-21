@@ -1,5 +1,6 @@
 package com.lord1egypt.pocketclaw.service
 
+import com.lord1egypt.pocketclaw.BuildConfig
 import com.lord1egypt.pocketclaw.PocketClawCoreState
 import com.lord1egypt.pocketclaw.security.GitHubCredentialStore
 import android.app.Notification
@@ -37,6 +38,19 @@ class PocketClawService : Service() {
             "(?<!\\d)v?(\\d+\\.\\d+\\.\\d+(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?)(?!\\d)"
         )
         private const val REALTIME_AUTH_FILE = "realtime_auth"
+
+        /**
+         * How long a stop waits for the owning worker to exit before it reports
+         * that it did not.
+         *
+         * PC-DEF-072. It is a bound on *waiting*, never on ownership: when it
+         * expires the worker keeps ownership and a start queues behind it. The
+         * previous code treated the same expiry as proof the thread was gone.
+         */
+        private const val SERVICE_THREAD_JOIN_MS = 5_000L
+
+        /** Backoff between Core crash restarts. Interruptible by a stop. */
+        private const val RESTART_BACKOFF_MS = 5_000L
 
         /**
          * Where Core writes the gateway bearer credential.
@@ -84,6 +98,23 @@ class PocketClawService : Service() {
 
         const val ACTION_START = "com.lord1egypt.pocketclaw.action.START"
         const val ACTION_STOP = "com.lord1egypt.pocketclaw.action.STOP"
+
+        /**
+         * Restart Core in one intent.
+         *
+         * PC-DEF-030. A configuration Core reads only at launch used to be
+         * applied by sending ACTION_STOP and then ACTION_START from Flutter.
+         * Two intents cannot express "restart": ACTION_STOP ends in an
+         * unconditional [stopSelf], which Android honours even though a later
+         * start request has already arrived, so the freshly started service is
+         * destroyed again and PocketClaw is left stopped. That is what made
+         * Telegram onboarding need a manual Service and Gateway restart.
+         *
+         * Handled here instead, where stopService() and startService() already
+         * run in order on one thread and the service is never asked to stop
+         * itself at all.
+         */
+        const val ACTION_RESTART = "com.lord1egypt.pocketclaw.action.RESTART"
         const val EXTRA_PUBLIC_MODE = "public_mode"
 
         // 共享状态供 UI 读取
@@ -117,6 +148,75 @@ class PocketClawService : Service() {
         }
 
         fun bridgeTokenForHost(): String = androidBridgeToken
+
+        /**
+         * Removes a service notification left behind by a process that is gone.
+         *
+         * PC-DEF-070. Called from `Application.onCreate`, which the platform
+         * runs before any component of a newly created process: [isRunning] is
+         * the default there, so the policy's answer is unconditional and it is
+         * asked rather than assumed. Nothing is re-posted -- a process that has
+         * only just started knows nothing about a runtime yet, and inventing a
+         * replacement claim is the same mistake in the other direction.
+         */
+        /**
+         * The service instance hosted by this process, or null when none is.
+         *
+         * PC-DEF-070 (reopened). Needed so a re-render goes through the live
+         * instance's own derivation rather than re-deriving Running from
+         * statics, which is the mistake this defect is made of. Set in
+         * onCreate and cleared in onDestroy, and only ever by the instance that
+         * owns the slot, so it cannot outlive its service.
+         */
+        @Volatile
+        private var hosted: PocketClawService? = null
+
+        /**
+         * Renders the runtime notification again after the notification
+         * permission may have changed.
+         *
+         * A post Android suppressed because `POST_NOTIFICATIONS` was not granted
+         * is never retried on its own, and granting afterwards shows nothing
+         * retroactively. On a fresh install the service auto-starts before the
+         * dialog is answered, so the runtime ends up genuinely running with
+         * nothing on screen. This is the event-driven retry: it is called when
+         * the permission answer arrives, never on a timer.
+         *
+         * Nothing is asserted here. The instance re-derives the state from its
+         * own live process, so a stopped runtime still cannot produce a Running
+         * notification.
+         */
+        fun refreshRuntimeNotification(context: Context) {
+            val service = hosted ?: return
+            val enabled = try {
+                context.applicationContext
+                    .getSystemService(android.app.NotificationManager::class.java)
+                    ?.areNotificationsEnabled() ?: false
+            } catch (e: Exception) {
+                Log.w(TAG, "Could not read notification enablement", e)
+                return
+            }
+            if (!RuntimeNotificationPolicy.shouldRenderOnPermissionChange(
+                    serviceHostedInThisProcess = true,
+                    notificationsEnabled = enabled,
+                )
+            ) {
+                return
+            }
+            service.publishRuntimeNotification(starting = !isRunning)
+            Log.i(TAG, "Runtime notification re-rendered after a permission change")
+        }
+
+        fun cancelStaleRuntimeNotification(context: Context) {
+            if (!RuntimeNotificationPolicy.isStaleOnProcessStart(isRunning)) return
+            try {
+                context.applicationContext
+                    .getSystemService(android.app.NotificationManager::class.java)
+                    ?.cancel(NOTIFICATION_ID)
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to clear a stale runtime notification", e)
+            }
+        }
 
         /**
          * Returns the installation-scoped Core realtime credential. It is
@@ -194,6 +294,21 @@ class PocketClawService : Service() {
                 action = ACTION_STOP
             }
             context.startService(intent)
+        }
+
+        /**
+         * Stops and starts Core without the service ever leaving the foreground.
+         *
+         * startForegroundService, not startService: a restart may be requested
+         * while the service is already running, and the foreground form is the
+         * one that is allowed either way.
+         */
+        fun restart(context: Context, publicMode: Boolean = false) {
+            val intent = Intent(context, PocketClawService::class.java).apply {
+                action = ACTION_RESTART
+                putExtra(EXTRA_PUBLIC_MODE, publicMode)
+            }
+            context.startForegroundService(intent)
         }
 
         /**
@@ -391,6 +506,16 @@ class PocketClawService : Service() {
             GitHubCredentialStore.token(context)?.let {
                 environment["POCKETCLAW_GITHUB_TOKEN"] = it
             }
+            // PC-DEF-060. Managed Telegram pairing from a desktop browser runs inside
+            // Core, which otherwise has no idea where the onboarding service is. This
+            // is the same value the Dart side compiles in, read from the same
+            // dart-define, so there is one place it is configured. A public base URL,
+            // never a credential: the manager bot's token is a server secret and is
+            // not in the APK at all.
+            BuildConfig.POCKETCLAW_ONBOARDING_BASE_URL
+                .trim()
+                .takeIf { it.startsWith("https://") }
+                ?.let { environment["POCKETCLAW_ONBOARDING_BASE_URL"] = it }
             return environment
         }
 
@@ -428,7 +553,16 @@ class PocketClawService : Service() {
             }
         }
 
-        fun readCoreVersion(context: Context): String {
+        /**
+         * The Core runtime version, or null when it could not be read.
+         *
+         * PC-DEF-063. This answered "unknown" for every failure, and Dart
+         * cached that string as the version -- so one transient failure was
+         * displayed as the Core version until something re-probed. Reading the
+         * version means running the Core binary, which can fail transiently,
+         * so a failure has to be distinguishable from an answer.
+         */
+        fun readCoreVersion(context: Context): String? {
             return try {
                 val binaryFile = getGatewayBinaryFile(context)
                 val pb = ProcessBuilder(binaryFile.absolutePath, "version")
@@ -441,13 +575,13 @@ class PocketClawService : Service() {
                 val exitCode = process.waitFor()
 
                 if (exitCode == 0 && output.isNotBlank()) {
-                    extractSemanticVersion(output) ?: "unknown"
+                    extractSemanticVersion(output)
                 } else {
-                    "unknown"
+                    null
                 }
             } catch (e: Exception) {
                 Log.w(TAG, "getCoreVersion failed: ${e.message}", e)
-                "unknown"
+                null
             }
         }
 
@@ -536,14 +670,38 @@ class PocketClawService : Service() {
     }
 
     private var process: Process? = null
-    private var serviceThread: Thread? = null
     private var logThread: Thread? = null
     private var wakeLock: PowerManager.WakeLock? = null
     private val logBuffer = StringBuilder()
     private val maxLogSize = 64 * 1024 // 64KB 日志缓冲
     private val serviceLock = Object() // 保护启动/停止并发
-    @Volatile
-    private var stopped = false // 用于通知运行中的线程应该停止
+
+    /**
+     * Who owns the Core runtime. PC-DEF-072.
+     *
+     * Replaces the `serviceThread` field plus the single `stopped` flag. Those
+     * two could disagree with reality in the same direction at the same time: a
+     * timed-out join cleared the thread reference although the thread was alive,
+     * and the next start cleared `stopped` for everybody, including the worker
+     * that had just been abandoned. Ownership is an epoch now, and only its
+     * holder may run a Core.
+     */
+    private val ownership = CoreRuntimeOwnership()
+
+    /**
+     * The child process the owning worker is currently blocked on — the onboard
+     * run, the version probe, or the Core web process itself.
+     *
+     * Stop used to reach only the web process, so a worker inside `onboard`
+     * (the Python payload extraction, the slow one on a fresh install) could not
+     * be made to exit at all and the five-second join simply expired. Destroying
+     * whichever child is live is what turns the stop from a request into an
+     * event the worker cannot miss.
+     */
+    private var activeChild: Process? = null
+
+    /** The epoch that registered [activeChild], so no other epoch can clear it. */
+    private var activeChildEpoch: Long = 0
     @Volatile
     private var publicMode = false // 是否启用公共模式（监听所有接口）
     @Volatile
@@ -555,6 +713,7 @@ class PocketClawService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        hosted = this
         Log.i(TAG, "Service created")
     }
 
@@ -573,6 +732,19 @@ class PocketClawService : Service() {
                 stopSelf()
                 return START_NOT_STICKY
             }
+            ACTION_RESTART -> {
+                // stopService() is synchronous and bounded: it destroys the Core
+                // process, joins it, and sweeps orphaned children, so the start
+                // below cannot race a Core that still holds the launcher port or
+                // the gateway pid file.
+                publicMode = intent.getBooleanExtra(EXTRA_PUBLIC_MODE, publicMode)
+                gatewayAutoStart = LaunchAutoStartPreferences.read(this).gatewayEnabled
+                startForeground(NOTIFICATION_ID, createNotification("Restarting..."))
+                acquireWakeLock()
+                stopService()
+                startService()
+                return START_NOT_STICKY
+            }
             else -> {
                 // 从 Intent 读取 publicMode 参数
                 publicMode = intent.getBooleanExtra(EXTRA_PUBLIC_MODE, false)
@@ -589,6 +761,14 @@ class PocketClawService : Service() {
         stopService()
         releaseWakeLock()
         isRunning = false
+        // PC-DEF-070. Only ACTION_STOP used to remove the notification, so every
+        // other way this service ends -- a stopSelf from elsewhere, the system
+        // tearing it down -- relied on the platform cancelling it for us. It is
+        // removed here instead, because the one thing the notification must never
+        // do is outlive the runtime it describes.
+        stopForeground(STOP_FOREGROUND_REMOVE)
+        // Only ever released by the instance that owns the slot.
+        if (hosted === this) hosted = null
         Log.i(TAG, "Service destroyed")
         super.onDestroy()
     }
@@ -596,38 +776,76 @@ class PocketClawService : Service() {
     // --- 核心逻辑 ---
 
     private fun startService() {
-        synchronized(serviceLock) {
-            // 防止重复启动
-            if (serviceThread?.isAlive == true || process?.isAlive == true) {
-                Log.w(TAG, "Service is already starting or running, ignoring duplicate start request")
-                return
-            }
-            stopped = false
+        val outcome = ownership.start { epoch ->
             restartCount = 0
+            Thread({ runCoreRuntime(epoch) }, "pocketclaw-core-runtime-$epoch")
+                .also { it.start() }
+        }
+        when (outcome) {
+            is CoreRuntimeOwnership.StartOutcome.Started ->
+                Log.i(TAG, "Core runtime epoch ${outcome.epoch} started")
+            CoreRuntimeOwnership.StartOutcome.AlreadyRunning ->
+                Log.w(TAG, "Core runtime is already running, ignoring duplicate start request")
+            CoreRuntimeOwnership.StartOutcome.Queued -> {
+                // PC-DEF-072. The previous owner has been asked to stop and has
+                // not released. Starting here would put a second Core on port
+                // 18800; dropping the request would make a restart silently do
+                // nothing. It runs when that owner releases, and the state is
+                // said out loud rather than left looking idle.
+                Log.w(TAG, "Previous Core runtime has not released; start queued behind it")
+                publishLog("Waiting for the previous PocketClaw runtime to exit before restarting")
+                publishRuntimeNotification(starting = true)
+            }
+        }
+    }
 
-            serviceThread = Thread {
-                try {
-                    val gatewayBinary = getGatewayBinaryFile()
-                    testBinary(gatewayBinary)
-                    ensureOnboarded(gatewayBinary)
-                    // 启动前先清理可能残留的旧进程
-                    killPocketClawOrphanProcesses()
-                    runWebService()
-                } catch (e: Exception) {
-                    if (!stopped) {
-                        Log.e(TAG, "Failed to start service", e)
-                        publishLog("Error: ${e.message}")
-                        updateNotification("Error: ${e.message}")
-                    }
-                }
-            }.also { it.start() }
+    /**
+     * One Core runtime, from binary probe to exit, owned by [epoch].
+     *
+     * Every step that can outlive a stop re-asks whether [epoch] is still the
+     * live runtime, and the `finally` is the only place ownership is released —
+     * so a worker that took longer than the stop's join still cleans up after
+     * itself, and a start queued behind it runs then rather than never.
+     */
+    private fun runCoreRuntime(epoch: Long) {
+        try {
+            val gatewayBinary = getGatewayBinaryFile()
+            testBinary(epoch, gatewayBinary)
+            ensureOnboarded(epoch, gatewayBinary)
+            if (!ownership.isCurrent(epoch)) return
+            // 启动前先清理可能残留的旧进程
+            killPocketClawOrphanProcesses()
+            runWebService(epoch)
+        } catch (e: InterruptedException) {
+            Log.i(TAG, "Core runtime epoch $epoch interrupted during stop")
+            Thread.currentThread().interrupt()
+        } catch (e: Exception) {
+            if (ownership.isCurrent(epoch)) {
+                Log.e(TAG, "Failed to start service", e)
+                publishLog("Error: ${e.message}")
+                updateNotification("Error: ${e.message}")
+            } else {
+                Log.i(TAG, "Core runtime epoch $epoch failed after it stopped being current", e)
+            }
+        } finally {
+            clearActiveChild(epoch)
+            // The stopper never releases ownership: a bounded join that expired
+            // is not evidence that this thread is gone. This is.
+            val runQueued = ownership.release(epoch)
+            Log.i(TAG, "Core runtime epoch $epoch released (queued start: $runQueued)")
+            if (runQueued) {
+                // Clear the interrupt first: the queued start must not inherit
+                // the stop that was aimed at this worker.
+                Thread.interrupted()
+                startService()
+            }
         }
     }
 
     /**
      * 测试 gateway 二进制是否可执行
      */
-    private fun testBinary(binaryFile: File) {
+    private fun testBinary(epoch: Long, binaryFile: File) {
         Log.i(TAG, "Testing binary at ${binaryFile.absolutePath}...")
         val env = buildEnvironment()
 
@@ -638,10 +856,19 @@ class PocketClawService : Service() {
 
         try {
             val proc = pb.start()
+            if (!adoptActiveChild(epoch, proc)) {
+                // Not the live runtime any more: do not leave the child behind.
+                proc.destroyForcibly()
+                throw InterruptedException("Core runtime epoch $epoch stopped during the binary probe")
+            }
             val output = proc.inputStream.bufferedReader().readText()
             val exitCode = proc.waitFor()
+            clearActiveChild(epoch)
             Log.i(TAG, "Binary test: exit=$exitCode, output=$output")
 
+            if (!ownership.isCurrent(epoch)) {
+                throw InterruptedException("Core runtime epoch $epoch stopped during the binary probe")
+            }
             if (exitCode != 0) {
                 throw RuntimeException(
                     "Core binary test failed (exit $exitCode): $output"
@@ -673,7 +900,7 @@ class PocketClawService : Service() {
     /**
      * 运行 Core 的 `onboard` 初始化配置和工作区
      */
-    private fun ensureOnboarded(binaryFile: File) {
+    private fun ensureOnboarded(epoch: Long, binaryFile: File) {
         val configFile = PocketClawCoreState.configFile(this)
 
         if (configFile.exists()) {
@@ -693,13 +920,51 @@ class PocketClawService : Service() {
         pb.environment().putAll(env)
 
         val proc = pb.start()
+        // PC-DEF-072. This is the slow step on a fresh install -- it extracts the
+        // Python payload -- and it is the one a stop could not previously reach,
+        // so the five-second join simply expired against it. Registering the
+        // child is what lets stopService() destroy it.
+        if (!adoptActiveChild(epoch, proc)) {
+            proc.destroyForcibly()
+            throw InterruptedException("Core runtime epoch $epoch stopped before onboard")
+        }
         val output = proc.inputStream.bufferedReader().readText()
         val exitCode = proc.waitFor()
+        clearActiveChild(epoch)
 
         Log.i(TAG, "Onboard exit code: $exitCode, output: $output")
 
+        if (!ownership.isCurrent(epoch)) {
+            throw InterruptedException("Core runtime epoch $epoch stopped during onboard")
+        }
         if (exitCode != 0) {
             throw RuntimeException("Onboard failed (exit $exitCode): $output")
+        }
+    }
+
+    /**
+     * Registers [proc] as the child [epoch] is blocked on, or reports that
+     * [epoch] is no longer the live runtime.
+     *
+     * The currency check and the registration happen under one lock, so a stop
+     * either sees this child and destroys it or is seen here and refuses it.
+     * There is no order in which a child is both unregistered and kept.
+     */
+    private fun adoptActiveChild(epoch: Long, proc: Process): Boolean =
+        synchronized(serviceLock) {
+            if (!ownership.isCurrent(epoch)) return false
+            activeChild = proc
+            activeChildEpoch = epoch
+            true
+        }
+
+    /** Drops the registered child, but only the one this epoch registered. */
+    private fun clearActiveChild(epoch: Long) {
+        synchronized(serviceLock) {
+            if (activeChildEpoch == epoch) {
+                activeChild = null
+                activeChildEpoch = 0
+            }
         }
     }
 
@@ -707,10 +972,10 @@ class PocketClawService : Service() {
      * 运行 web 服务进程（libpocketclaw-web.so）
      * web 服务会通过 TryAutoStartGateway() 自动启动并管理 gateway
      */
-    private fun runWebService() {
+    private fun runWebService(epoch: Long) {
         // 检查是否已被要求停止
-        if (stopped) {
-            Log.i(TAG, "Service was stopped, aborting web service start")
+        if (!ownership.isCurrent(epoch)) {
+            Log.i(TAG, "Core runtime epoch $epoch is no longer current, aborting web service start")
             return
         }
 
@@ -724,13 +989,19 @@ class PocketClawService : Service() {
             "--no-browser"
         )
 
-        // 只有在公共模式开启时才添加 -public 参数
-        if (publicMode) {
-            cmdList.add("-public")
-            Log.i(TAG, "Public mode enabled, adding -public flag")
-        } else {
-            Log.i(TAG, "Public mode disabled, service will listen on localhost only")
-        }
+        // The native toggle is the authority for the dashboard listener, so the
+        // decision is always passed explicitly -- including when it is off.
+        //
+        // Omitting the flag is not "off". With no -public on the command line
+        // the backend falls back to launcher-config.json's `public` field, and
+        // the dashboard's own Config page can persist true there. Turning the
+        // native toggle off then rebound the live listener to loopback and left
+        // that true behind, so the next service start bound the console to
+        // every interface while this toggle still read OFF. Passing the value
+        // explicitly makes Go's flag.Visit see it, which is what stops the
+        // backend consulting the persisted field at all. See PC-DEF-020.
+        cmdList.add("-public=" + publicMode)
+        Log.i(TAG, "Public mode explicit: $publicMode")
 
         cmdList.addAll(listOf("-port", WEB_PORT.toString(), configFile.absolutePath))
 
@@ -744,14 +1015,20 @@ class PocketClawService : Service() {
         updateNotification("Starting web service...")
 
         val proc = pb.start()
+        // PC-DEF-072. The only place a Core web process becomes this service's
+        // runtime. The currency check and the registration are one critical
+        // section, so an epoch that lost ownership between pb.start() and here
+        // destroys what it spawned instead of publishing a second Core on
+        // port 18800.
         synchronized(serviceLock) {
-            if (stopped) {
-                // 在启动后立刻被停止，杀掉刚启动的进程
-                Log.i(TAG, "Service stopped during startup, killing new process")
+            if (!ownership.isCurrent(epoch)) {
+                Log.i(TAG, "Core runtime epoch $epoch stopped during startup, killing new process")
                 proc.destroyForcibly()
                 return
             }
             process = proc
+            activeChild = proc
+            activeChildEpoch = epoch
             isRunning = true
         }
 
@@ -768,7 +1045,7 @@ class PocketClawService : Service() {
             -1
         }
 
-        updateNotification("Running (PID: $processId)")
+        publishRuntimeNotification()
         Log.i(TAG, "Web service started with PID: $processId, listening on port $WEB_PORT")
 
         // 后台线程读取 stdout/stderr
@@ -782,7 +1059,7 @@ class PocketClawService : Service() {
                     appendLog(logLine)
                 }
             } catch (e: Exception) {
-                if (!stopped) {
+                if (ownership.isCurrent(epoch)) {
                     Log.w(TAG, "Log reader interrupted", e)
                 }
             }
@@ -795,19 +1072,22 @@ class PocketClawService : Service() {
         val exitCode = proc.waitFor()
         isRunning = false
         processId = -1
+        clearActiveChild(epoch)
 
-        try { logThread?.join(2000) } catch (_: InterruptedException) {}
+        try { logThread?.join(2000) } catch (_: InterruptedException) {
+            Thread.currentThread().interrupt()
+        }
 
         // 如果是被主动停止的，不需要重启
-        if (stopped) {
-            Log.i(TAG, "Web service exited due to stop request (code $exitCode)")
+        if (!ownership.isCurrent(epoch)) {
+            Log.i(TAG, "Web service for epoch $epoch exited after it stopped being current (code $exitCode)")
             return
         }
 
         val lastOutput = logBuffer.toString().takeLast(500)
         Log.w(TAG, "Web service exited with code: $exitCode, last output: $lastOutput")
         publishLog("Process exited (code $exitCode)\n$lastOutput")
-        updateNotification("Stopped (exit code $exitCode)")
+        publishRuntimeNotification(stoppedDetail = "Stopped (exit code $exitCode)")
 
         // 非正常退出时自动重启（限制重试次数）
         if (exitCode != 0) {
@@ -821,13 +1101,17 @@ class PocketClawService : Service() {
             Log.i(TAG, "Scheduling restart in 5 seconds... (attempt $restartCount/$maxRestartAttempts)")
             // 清理可能残留的占用端口的进程
             killPocketClawOrphanProcesses()
-            Thread.sleep(5000)
+            // Interruptible on purpose: a sleeping worker owns no child process,
+            // so the interrupt from stopService() is the only thing that can
+            // reach it. Letting it propagate is what ends the epoch promptly
+            // instead of after the full backoff.
+            Thread.sleep(RESTART_BACKOFF_MS)
             // 再次检查是否被要求停止
-            if (stopped) {
-                Log.i(TAG, "Service was stopped during restart wait, aborting")
+            if (!ownership.isCurrent(epoch)) {
+                Log.i(TAG, "Core runtime epoch $epoch stopped during the restart wait, aborting")
                 return
             }
-            runWebService()
+            runWebService(epoch)
         }
     }
 
@@ -912,47 +1196,66 @@ class PocketClawService : Service() {
     private fun stopService() {
         Log.i(TAG, "Stopping service...")
 
-        synchronized(serviceLock) {
-            // 设置停止标志，通知所有运行中的线程
-            stopped = true
+        // Name the exact owner this stop is aimed at, and mark it stopping, before
+        // touching anything it owns.
+        val target = ownership.requestStop()
 
-            process?.let { proc ->
-                try {
-                    proc.destroy()
-
-                    val thread = Thread {
-                        try {
-                            proc.waitFor()
-                        } catch (_: InterruptedException) {
-                        }
-                    }
-                    thread.start()
-                    thread.join(10_000)
-
-                    if (proc.isAlive) {
-                        Log.w(TAG, "Force killing web service process")
-                        proc.destroyForcibly()
-                    }
-                } catch (e: Exception) {
-                    Log.e(TAG, "Error stopping web service process", e)
-                }
-            }
-
+        val child = synchronized(serviceLock) {
+            val live = process ?: activeChild
             process = null
+            activeChild = null
+            activeChildEpoch = 0
             isRunning = false
             processId = -1
-
             logThread?.interrupt()
             logThread = null
+            live
+        }
+
+        // Destroy whichever child the worker is blocked on -- the web process,
+        // or the onboard/version run that stop could not previously reach at all.
+        child?.let { proc ->
+            try {
+                proc.destroy()
+
+                val waiter = Thread {
+                    try {
+                        proc.waitFor()
+                    } catch (_: InterruptedException) {
+                    }
+                }
+                waiter.start()
+                waiter.join(10_000)
+
+                if (proc.isAlive) {
+                    Log.w(TAG, "Force killing Core child process")
+                    proc.destroyForcibly()
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error stopping Core child process", e)
+            }
         }
 
         // 等待服务线程退出
-        serviceThread?.let { thread ->
+        if (target != null && target.thread !== Thread.currentThread()) {
+            // Interrupt as well as destroy: the restart backoff is a sleep, and a
+            // sleeping worker has no child to kill.
+            target.thread.interrupt()
             try {
-                thread.join(5_000)
-            } catch (_: InterruptedException) {}
+                target.thread.join(SERVICE_THREAD_JOIN_MS)
+            } catch (_: InterruptedException) {
+                Thread.currentThread().interrupt()
+            }
+            if (target.thread.isAlive) {
+                // PC-DEF-072. The join expired. Ownership is NOT cleared here:
+                // clearing it is what let the next start put a second Core on
+                // port 18800. The worker releases from its own finally, and a
+                // start requested in the meantime is queued behind it.
+                Log.w(TAG, "Core runtime epoch ${target.epoch} did not exit within the join; " +
+                    "ownership retained until it releases")
+                publishLog("PocketClaw runtime is still shutting down")
+            }
         }
-        serviceThread = null
 
         // 清理可能残留的孤儿进程（包括 web 服务自己启动的 gateway）
         killPocketClawOrphanProcesses()
@@ -1013,6 +1316,31 @@ class PocketClawService : Service() {
             manager.notify(NOTIFICATION_ID, notification)
         } catch (e: Exception) {
             Log.w(TAG, "Failed to update notification", e)
+        }
+    }
+
+    /**
+     * Posts the runtime line, deriving Running rather than asserting it.
+     *
+     * PC-DEF-070. Every caller that wants to say the runtime is up goes through
+     * here, and here the claim is checked against the live process under the
+     * same lock that owns it. The old call sites wrote "Running (PID: n)"
+     * straight out at the moment the process was spawned, so a stop that landed
+     * immediately afterwards -- or a service thread orphaned by a stop whose
+     * join timed out -- left that sentence on screen with nothing behind it.
+     *
+     * [starting] says what to show when no process is up yet: the service is
+     * still coming up, or it is genuinely down. Neither can produce Running.
+     */
+    private fun publishRuntimeNotification(starting: Boolean = false, stoppedDetail: String? = null) {
+        val (alive, pid) = synchronized(serviceLock) {
+            (process?.isAlive == true) to processId
+        }
+        when (RuntimeNotificationPolicy.resolve(processAlive = alive, starting = starting)) {
+            RuntimeNotificationState.RUNNING -> updateNotification("Running (PID: $pid)")
+            RuntimeNotificationState.STARTING -> updateNotification("Starting...")
+            RuntimeNotificationState.STOPPED ->
+                updateNotification(stoppedDetail ?: "Stopped")
         }
     }
 

@@ -1,7 +1,9 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:pocketclaw/src/core/pocketclaw_channel.dart';
 import 'package:pocketclaw/src/core/service_manager.dart';
 import 'package:pocketclaw/src/core/aperture_theme.dart';
 import 'package:pocketclaw/src/generated/l10n/app_localizations.dart';
@@ -20,8 +22,12 @@ const String _aboutProjectName = 'PocketClaw';
 class AboutInfo {
   const AboutInfo({required this.appVersion, required this.coreVersion});
 
+  /// PC-DEF-063. Null means the probe failed, which is a different thing from
+  /// "not read yet" -- that one is the future not having completed. Keeping
+  /// them apart is what stopped Unknown being used as a loading placeholder.
+
   final String appVersion;
-  final String coreVersion;
+  final String? coreVersion;
 }
 
 /// Settings control for the two launch auto-start preferences.
@@ -231,6 +237,9 @@ class ConfigPage extends StatefulWidget {
 }
 
 class ConfigPageState extends State<ConfigPage> with WidgetsBindingObserver {
+  /// What the host says about PocketClaw's permission to post notifications.
+  /// Null until the first read completes. PC-DEF-058.
+  NotificationPermissionStatus? _notificationPermission;
   static ConfigPageState? _current;
   static ConfigPageState? get current => _current;
   final _hostController = TextEditingController();
@@ -251,9 +260,9 @@ class ConfigPageState extends State<ConfigPage> with WidgetsBindingObserver {
   final _checkFocusNode = FocusNode();
   final _argsFocusNode = FocusNode();
   final _saveFocusNode = FocusNode();
-  final _firebaseFocusNode = FocusNode();
+  final _deviceFeedbackFocusNode = FocusNode();
   final List<FocusNode> _themeFocusNodes = [];
-  bool _firebaseAllowed = false;
+  bool _deviceFeedbackAllowed = false;
 
   /// The release the notes belong to, and whether the user has read them.
   String? _whatsNewVersion;
@@ -286,6 +295,32 @@ class ConfigPageState extends State<ConfigPage> with WidgetsBindingObserver {
 
     _loadConfig();
     _loadWhatsNewState();
+    // PC-DEF-058. Ask for notification permission once, after the first frame so
+    // the app is on screen behind the system dialog rather than the dialog being
+    // the first thing a fresh install shows. The host refuses to ask twice, so
+    // this cannot nag.
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => unawaited(_ensureNotificationPermission()),
+    );
+  }
+
+  /// Requests notification permission on first run, and records the outcome so
+  /// Settings can show it.
+  Future<void> _ensureNotificationPermission() async {
+    var status = await PocketClawChannel.getNotificationPermission();
+    if (status.shouldRequest) {
+      status = await PocketClawChannel.requestNotificationPermission();
+    }
+    if (!mounted) return;
+    setState(() => _notificationPermission = status);
+  }
+
+  /// Re-reads the state, for the case where the user granted it in Settings and
+  /// came back.
+  Future<void> _refreshNotificationPermission() async {
+    final status = await PocketClawChannel.getNotificationPermission();
+    if (!mounted) return;
+    setState(() => _notificationPermission = status);
   }
 
   WhatsNewSeenStore get _whatsNewStore =>
@@ -370,7 +405,7 @@ class ConfigPageState extends State<ConfigPage> with WidgetsBindingObserver {
         _portController.text = service.port.toString();
         _pathController.text = service.binaryPath;
         _argsController.text = service.arguments;
-        _firebaseAllowed = allowed;
+        _deviceFeedbackAllowed = allowed;
         _originalHost = _hostController.text;
         _originalPort = _portController.text;
         _originalPath = _pathController.text;
@@ -406,7 +441,7 @@ class ConfigPageState extends State<ConfigPage> with WidgetsBindingObserver {
     _browseFocusNode.dispose();
     _checkFocusNode.dispose();
     _argsFocusNode.dispose();
-    _firebaseFocusNode.dispose();
+    _deviceFeedbackFocusNode.dispose();
     for (final node in _themeFocusNodes) {
       node.dispose();
     }
@@ -509,8 +544,14 @@ class ConfigPageState extends State<ConfigPage> with WidgetsBindingObserver {
     return AboutInfo(appVersion: appVersion, coreVersion: coreVersion);
   }
 
-  String _normalizeAboutVersion(String value, AppLocalizations l10n) {
-    final normalized = value.trim();
+  /// The text for a version that has already been probed.
+  ///
+  /// Only reached once the probe has finished, so an empty or absent value here
+  /// means it genuinely failed -- which is the one case that may say
+  /// unavailable. While the probe is still running the caller renders the
+  /// pending state instead.
+  String _normalizeAboutVersion(String? value, AppLocalizations l10n) {
+    final normalized = value?.trim() ?? '';
     if (normalized.isEmpty || normalized.toLowerCase() == 'unknown') {
       return l10n.aboutVersionUnavailable;
     }
@@ -648,14 +689,13 @@ class ConfigPageState extends State<ConfigPage> with WidgetsBindingObserver {
                   child: FutureBuilder<AboutInfo>(
                     future: aboutInfoFuture,
                     builder: (ctx, snapshot) {
-                      final loading = !snapshot.hasData && !snapshot.hasError;
-                      final info =
-                          snapshot.data ??
-                          AboutInfo(
-                            appVersion: l10n.aboutVersionUnavailable,
-                            coreVersion: l10n.aboutVersionUnavailable,
-                          );
-                      Widget valueFor(String raw) => loading
+                      // Loading is decided by the future, not by the value:
+                      // an unread version renders as pending, and only a
+                      // completed probe may say unavailable (PC-DEF-063).
+                      final loading =
+                          snapshot.connectionState == ConnectionState.waiting;
+                      final info = snapshot.data;
+                      Widget valueFor(String? raw) => loading
                           ? _buildAboutVersionPending(ctx)
                           : _buildAboutVersionValue(
                               ctx,
@@ -668,13 +708,13 @@ class ConfigPageState extends State<ConfigPage> with WidgetsBindingObserver {
                           _buildAboutVersionRow(
                             ctx,
                             label: l10n.aboutAppVersionLabel,
-                            value: valueFor(info.appVersion),
+                            value: valueFor(info?.appVersion),
                           ),
                           const SizedBox(height: ApertureTheme.spaceMd),
                           _buildAboutVersionRow(
                             ctx,
                             label: l10n.aboutCoreVersionLabel,
-                            value: valueFor(info.coreVersion),
+                            value: valueFor(info?.coreVersion),
                           ),
                         ],
                       );
@@ -699,20 +739,20 @@ class ConfigPageState extends State<ConfigPage> with WidgetsBindingObserver {
     }
   }
 
-  Future<void> _toggleFirebase(BuildContext context) async {
+  Future<void> _toggleDeviceFeedback(BuildContext context) async {
     final service = context.read<ServiceManager>();
-    final newValue = !_firebaseAllowed;
+    final newValue = !_deviceFeedbackAllowed;
     final l10n = AppLocalizations.of(context)!;
 
     debugPrint(
-      '[ConfigPage] Toggling device feedback: newValue=$newValue (current=$_firebaseAllowed)',
+      '[ConfigPage] Toggling device feedback: newValue=$newValue (current=$_deviceFeedbackAllowed)',
     );
 
     if (newValue) {
       debugPrint('[ConfigPage] Enabling device feedback...');
       await service.setDeviceFeedbackUploadAllowed(true);
       setState(() {
-        _firebaseAllowed = true;
+        _deviceFeedbackAllowed = true;
       });
       debugPrint('[ConfigPage] Triggering background upload...');
       service.triggerDeviceFeedbackUploadInBackground();
@@ -727,7 +767,7 @@ class ConfigPageState extends State<ConfigPage> with WidgetsBindingObserver {
 
     if (!newValue) {
       setState(() {
-        _firebaseAllowed = false;
+        _deviceFeedbackAllowed = false;
       });
     }
   }
@@ -963,6 +1003,20 @@ class ConfigPageState extends State<ConfigPage> with WidgetsBindingObserver {
               ),
               const SizedBox(height: 16),
 
+              // PC-DEF-058. The state is shown whatever it is, and a recovery
+              // action appears only when one is needed -- someone who granted the
+              // permission has nothing to do here.
+              if (Platform.isAndroid && _notificationPermission != null)
+                _NotificationPermissionTile(
+                  status: _notificationPermission!,
+                  onOpenSettings: () async {
+                    await PocketClawChannel.openNotificationSettings();
+                    await _refreshNotificationPermission();
+                  },
+                ),
+              if (Platform.isAndroid && _notificationPermission != null)
+                const SizedBox(height: 16),
+
               SettingsSectionLabel(l10n.settingsGroupIntegrations),
               TelegramSettingsCard(onManage: widget.onManageTelegram),
               const SizedBox(height: 24),
@@ -1163,10 +1217,10 @@ class ConfigPageState extends State<ConfigPage> with WidgetsBindingObserver {
                   return Selector<ServiceManager, String?>(
                     selector: (_, s) => s.lastDeviceFeedbackSyncMessage,
                     builder: (_, msg, _) => DeviceFeedbackToggle(
-                      focusNode: _firebaseFocusNode,
-                      isAllowed: _firebaseAllowed,
+                      focusNode: _deviceFeedbackFocusNode,
+                      isAllowed: _deviceFeedbackAllowed,
                       statusMessage: msg,
-                      onToggle: () => _toggleFirebase(context),
+                      onToggle: () => _toggleDeviceFeedback(context),
                       onArrowDown: () => _saveFocusNode.requestFocus(),
                       onArrowUp: () => _saveFocusNode.requestFocus(),
                     ),
@@ -2088,6 +2142,77 @@ class _DeviceFeedbackToggleState extends State<DeviceFeedbackToggle> {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Notification permission state, and a way back for someone who said no.
+///
+/// PC-DEF-058. PocketClaw's foreground notification is how the owner sees that the
+/// service is running, and on a fresh install it never appeared because
+/// `POST_NOTIFICATIONS` was declared but never requested.
+class _NotificationPermissionTile extends StatelessWidget {
+  const _NotificationPermissionTile({
+    required this.status,
+    required this.onOpenSettings,
+  });
+
+  final NotificationPermissionStatus status;
+  final Future<void> Function() onOpenSettings;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+    final ok = status.expectedVisible;
+
+    return Card(
+      margin: EdgeInsets.zero,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(
+              ok ? Icons.notifications_active : Icons.notifications_off,
+              size: 20,
+              color: ok ? theme.colorScheme.primary : theme.colorScheme.error,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    l10n.notificationPermissionTitle,
+                    style: theme.textTheme.titleSmall,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    ok
+                        ? l10n.notificationPermissionGranted
+                        : l10n.notificationPermissionBlocked,
+                    style: theme.textTheme.bodySmall,
+                  ),
+                  if (status.shouldOfferSettings) ...[
+                    const SizedBox(height: 8),
+                    // A full-height labelled control, not an icon: this screen is
+                    // used on a phone.
+                    SizedBox(
+                      height: 40,
+                      child: OutlinedButton.icon(
+                        onPressed: () => unawaited(onOpenSettings()),
+                        icon: const Icon(Icons.open_in_new, size: 16),
+                        label: Text(l10n.notificationPermissionOpenSettings),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );

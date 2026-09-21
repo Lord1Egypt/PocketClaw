@@ -471,7 +471,7 @@ class AppLocalizationsId extends AppLocalizations {
 
   @override
   String get whatsNew020New5 =>
-      'Integrasi Telegram, disiapkan dari Pengaturan.';
+      'Penyiapan Telegram sekali sentuh: PocketClaw membuat bot Anda sendiri, di aplikasi atau dari Dasbor di peramban. Tidak ada token yang perlu disalin, dan hanya akun Anda yang dapat berbicara dengannya.';
 
   @override
   String get whatsNew020New6 =>
@@ -662,4 +662,46 @@ class AppLocalizationsId extends AppLocalizations {
   String statusDurationDays(int days, int hours) {
     return '$days hr $hours jam';
   }
+
+  @override
+  String get notificationPermissionTitle => 'Notifikasi';
+
+  @override
+  String get notificationPermissionGranted =>
+      'PocketClaw dapat menampilkan notifikasi Running-nya.';
+
+  @override
+  String get notificationPermissionBlocked =>
+      'Notifikasi nonaktif, sehingga notifikasi PocketClaw Running tidak akan muncul.';
+
+  @override
+  String get notificationPermissionOpenSettings => 'Buka pengaturan notifikasi';
+
+  @override
+  String get whatsNew020New7 =>
+      'Pengelolaan Telegram dari Dasbor: menghubungkan bot, menggantinya, atau memutuskannya.';
+
+  @override
+  String get whatsNew020New8 =>
+      'Pengelolaan penyedia dan model di Dasbor: menambah penyedia, mengganti kunci API, atau menghapus model.';
+
+  @override
+  String get whatsNew020Improvement12 =>
+      'Pengaturan Telegram langsung berlaku setelah disimpan, tanpa memulai ulang secara manual.';
+
+  @override
+  String get whatsNew020Improvement13 =>
+      'Jika belum ada model AI yang disiapkan, PocketClaw menyebutkan dengan tepat apa yang kurang dan memberi Anda kode untuk dicari.';
+
+  @override
+  String get whatsNew020Improvement14 =>
+      'Masuk ke Dasbor membawa Anda ke layar yang Anda minta.';
+
+  @override
+  String get whatsNew020Improvement15 =>
+      'Log diagnostik tetap terperinci tanpa pernah memuat kunci, token, atau isi pesan Anda.';
+
+  @override
+  String get whatsNew020Improvement16 =>
+      'Dasbor yang belum diklaim siapa pun tidak pernah dapat dijangkau dari jaringan, bahkan saat Mode Publik aktif.';
 }

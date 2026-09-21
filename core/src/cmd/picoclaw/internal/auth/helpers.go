@@ -17,7 +17,7 @@ import (
 )
 
 const (
-	supportedProvidersMsg = "supported providers: openai, anthropic, google-antigravity, antigravity"
+	supportedProvidersMsg = "supported providers: openai, anthropic"
 	defaultAnthropicModel = "claude-sonnet-4.6"
 )
 
@@ -27,8 +27,6 @@ func authLoginCmd(provider string, useDeviceCode bool, useOauth bool, noBrowser 
 		return authLoginOpenAI(useDeviceCode, noBrowser)
 	case "anthropic":
 		return authLoginAnthropic(useOauth)
-	case "google-antigravity", "antigravity":
-		return authLoginGoogleAntigravity(noBrowser)
 	default:
 		return fmt.Errorf("unsupported provider: %s (%s)", provider, supportedProvidersMsg)
 	}
@@ -88,75 +86,6 @@ func authLoginOpenAI(useDeviceCode bool, noBrowser bool) error {
 		fmt.Printf("Account: %s\n", cred.AccountID)
 	}
 	fmt.Println("Default model set to: gpt-5.4")
-
-	return nil
-}
-
-func authLoginGoogleAntigravity(noBrowser bool) error {
-	cfg := auth.GoogleAntigravityOAuthConfig()
-
-	cred, err := auth.LoginBrowserWithOptions(cfg, auth.LoginBrowserOptions{NoBrowser: noBrowser})
-	if err != nil {
-		return fmt.Errorf("login failed: %w", err)
-	}
-
-	cred.Provider = "google-antigravity"
-
-	// Fetch user email from Google userinfo
-	email, err := fetchGoogleUserEmail(cred.AccessToken)
-	if err != nil {
-		fmt.Printf("Warning: could not fetch email: %v\n", err)
-	} else {
-		cred.Email = email
-		fmt.Printf("Email: %s\n", email)
-	}
-
-	// Fetch Cloud Code Assist project ID
-	projectID, err := providers.FetchAntigravityProjectID(cred.AccessToken)
-	if err != nil {
-		fmt.Printf("Warning: could not fetch project ID: %v\n", err)
-		fmt.Println("You may need Google Cloud Code Assist enabled on your account.")
-	} else {
-		cred.ProjectID = projectID
-		fmt.Printf("Project: %s\n", projectID)
-	}
-
-	if err = auth.SetCredential("google-antigravity", cred); err != nil {
-		return fmt.Errorf("failed to save credentials: %w", err)
-	}
-
-	appCfg, err := internal.LoadConfig()
-	if err == nil {
-		// Update or add antigravity in ModelList
-		foundAntigravity := false
-		for i := range appCfg.ModelList {
-			if isAntigravityModel(appCfg.ModelList[i]) {
-				appCfg.ModelList[i].AuthMethod = "oauth"
-				foundAntigravity = true
-				break
-			}
-		}
-
-		// If no antigravity in ModelList, add it
-		if !foundAntigravity {
-			appCfg.ModelList = append(appCfg.ModelList, &config.ModelConfig{
-				ModelName:  "gemini-flash",
-				Model:      "antigravity/gemini-3-flash",
-				AuthMethod: "oauth",
-			})
-		}
-
-		// Update default model
-		appCfg.Agents.Defaults.ModelName = "gemini-flash"
-
-		if err := config.SaveConfig(internal.GetConfigPath(), appCfg); err != nil {
-			fmt.Printf("Warning: could not update config: %v\n", err)
-		}
-	}
-
-	fmt.Println("\n✓ Google Antigravity login successful!")
-	fmt.Println("Default model set to: gemini-flash")
-	fmt.Println("Try it: picoclaw agent -m \"Hello world\"")
 
 	return nil
 }
@@ -349,10 +278,6 @@ func authLogoutCmd(provider string) error {
 					if isAnthropicModel(appCfg.ModelList[i]) {
 						appCfg.ModelList[i].AuthMethod = ""
 					}
-				case "google-antigravity", "antigravity":
-					if isAntigravityModel(appCfg.ModelList[i]) {
-						appCfg.ModelList[i].AuthMethod = ""
-					}
 				}
 			}
 			config.SaveConfig(internal.GetConfigPath(), appCfg)
@@ -431,63 +356,6 @@ func authStatusCmd() error {
 	}
 
 	return nil
-}
-
-func authModelsCmd() error {
-	cred, err := auth.GetCredential("google-antigravity")
-	if err != nil || cred == nil {
-		return fmt.Errorf(
-			"not logged in to Google Antigravity.\nsign in to this provider again",
-		)
-	}
-
-	// Refresh token if needed
-	if cred.NeedsRefresh() && cred.RefreshToken != "" {
-		oauthCfg := auth.GoogleAntigravityOAuthConfig()
-		refreshed, refreshErr := auth.RefreshAccessToken(cred, oauthCfg)
-		if refreshErr == nil {
-			cred = refreshed
-			_ = auth.SetCredential("google-antigravity", cred)
-		}
-	}
-
-	projectID := cred.ProjectID
-	if projectID == "" {
-		return fmt.Errorf("no project id stored. Try logging in again")
-	}
-
-	fmt.Printf("Fetching models for project: %s\n\n", projectID)
-
-	models, err := providers.FetchAntigravityModels(cred.AccessToken, projectID)
-	if err != nil {
-		return fmt.Errorf("error fetching models: %w", err)
-	}
-
-	if len(models) == 0 {
-		return fmt.Errorf("no models available")
-	}
-
-	fmt.Println("Available Antigravity Models:")
-	fmt.Println("-----------------------------")
-	for _, m := range models {
-		status := "✓"
-		if m.IsExhausted {
-			status = "✗ (quota exhausted)"
-		}
-		name := m.ID
-		if m.DisplayName != "" {
-			name = fmt.Sprintf("%s (%s)", m.ID, m.DisplayName)
-		}
-		fmt.Printf("  %s %s\n", status, name)
-	}
-
-	return nil
-}
-
-// isAntigravityModel checks if a model config belongs to an Antigravity provider.
-func isAntigravityModel(modelCfg *config.ModelConfig) bool {
-	protocol, _ := providers.ExtractProtocol(modelCfg)
-	return protocol == "antigravity" || protocol == "google-antigravity"
 }
 
 // isOpenAIModel checks if a model config belongs to the OpenAI provider.

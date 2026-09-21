@@ -7,8 +7,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../generated/l10n/app_localizations.dart';
 import 'app_theme.dart';
 import 'device_feedback_models.dart';
-import 'firebase_device_reporter.dart';
 import 'pocketclaw_channel.dart';
+import 'public_mode_reconciliation.dart';
 import 'plain_text_log_sanitizer.dart';
 import 'status_snapshot.dart';
 import 'umeng_device_reporter.dart';
@@ -103,28 +103,8 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
   static final DeviceFeedbackProvider _deviceFeedbackProvider =
       resolveDeviceFeedbackProvider(
         requested: _requestedDeviceFeedbackProvider,
-        firebaseProjectId: _firebaseProjectId,
-        firebaseApiKey: _firebaseApiKey,
-        firebaseAppId: _firebaseAppId,
-        firebaseMessagingSenderId: _firebaseMessagingSenderId,
         umengAppKey: _umengAppKey,
       );
-  static const String _firebaseProjectId = String.fromEnvironment(
-    'POCKETCLAW_FIREBASE_PROJECT_ID',
-  );
-  static const String _firebaseApiKey = String.fromEnvironment(
-    'POCKETCLAW_FIREBASE_API_KEY',
-  );
-  static const String _firebaseAppId = String.fromEnvironment(
-    'POCKETCLAW_FIREBASE_APP_ID',
-  );
-  static const String _firebaseMessagingSenderId = String.fromEnvironment(
-    'POCKETCLAW_FIREBASE_MESSAGING_SENDER_ID',
-  );
-  static const String _firebaseStorageBucket = String.fromEnvironment(
-    'POCKETCLAW_FIREBASE_STORAGE_BUCKET',
-    defaultValue: '',
-  );
   static const String _umengAppKey = String.fromEnvironment(
     'POCKETCLAW_UMENG_APP_KEY',
   );
@@ -160,7 +140,6 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   final CoreServiceAdapter _adapter = CoreServiceAdapterFactory.create();
-  final FirebaseDeviceReporter _firebaseReporter = FirebaseDeviceReporter();
   final UmengDeviceReporter _umengReporter = UmengDeviceReporter();
   String? _lastErrorCode;
   String? _lastDeviceFeedbackSyncMessage;
@@ -260,30 +239,15 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
   DeviceFeedbackProvider get deviceFeedbackProvider => _deviceFeedbackProvider;
   bool get isDeviceFeedbackEnabled => switch (_deviceFeedbackProvider) {
     DeviceFeedbackProvider.none => false,
-    DeviceFeedbackProvider.firebase => Platform.isAndroid || Platform.isIOS,
     DeviceFeedbackProvider.umeng => Platform.isAndroid,
   };
 
   @visibleForTesting
   static DeviceFeedbackProvider resolveDeviceFeedbackProvider({
     required DeviceFeedbackProvider requested,
-    required String firebaseProjectId,
-    required String firebaseApiKey,
-    required String firebaseAppId,
-    required String firebaseMessagingSenderId,
     required String umengAppKey,
   }) {
     switch (requested) {
-      case DeviceFeedbackProvider.firebase:
-        final configured = [
-          firebaseProjectId,
-          firebaseApiKey,
-          firebaseAppId,
-          firebaseMessagingSenderId,
-        ].every((value) => value.trim().isNotEmpty);
-        return configured
-            ? DeviceFeedbackProvider.firebase
-            : DeviceFeedbackProvider.none;
       case DeviceFeedbackProvider.umeng:
         return umengAppKey.trim().isNotEmpty
             ? DeviceFeedbackProvider.umeng
@@ -496,8 +460,6 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
     }
     _deviceFeedbackConfigurationNoticeEmitted = true;
     final message = switch (_requestedDeviceFeedbackProvider) {
-      DeviceFeedbackProvider.firebase =>
-        'Device feedback disabled: Firebase build configuration not provided.',
       DeviceFeedbackProvider.umeng =>
         'Device feedback disabled: Umeng build configuration not provided.',
       DeviceFeedbackProvider.none => '',
@@ -734,10 +696,17 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
     return _cachedAppVersion;
   }
 
-  Future<String> getCoreVersion() async {
+  /// Reads the Core runtime version, or null when it could not be read.
+  ///
+  /// PC-DEF-063. A failed probe is never cached. It used to be: the adapter
+  /// answered 'unknown' for a failure, that string passed the non-empty test,
+  /// and it became the displayed Core version until something re-probed
+  /// successfully. Leaving the cache empty instead means the next read retries.
+  Future<String?> getCoreVersion() async {
     _syncAdapterConfiguration();
     final version = await _adapter.getCoreVersion();
-    if (version.isNotEmpty && version != _cachedCoreVersion) {
+    if (version == null || version.isEmpty) return null;
+    if (version != _cachedCoreVersion) {
       _cachedCoreVersion = version;
       notifyListeners();
     }
@@ -752,6 +721,10 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
   /// Reading it means invoking the Core binary, so it is fetched on demand
   /// rather than on every poll: a version does not change while the process
   /// runs.
+  /// The cached Core version, or an empty string while it is still unread.
+  ///
+  /// Empty means "not known yet", never "failed": a failed probe leaves the
+  /// cache empty so the next read of this getter tries again.
   String get coreVersionLabel {
     if (_cachedCoreVersion.isEmpty) {
       unawaited(getCoreVersion());
@@ -1080,8 +1053,71 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
   Future<void> setServiceLaunchAutoStart(bool enabled) =>
       _commitLaunchAutoStart(serviceEnabled: enabled);
 
-  Future<void> setGatewayLaunchAutoStart(bool enabled) =>
-      _commitLaunchAutoStart(gatewayEnabled: enabled);
+  /// True once this process has already reconciled, so a repeat is a no-op.
+  bool _publicModeReconciled = false;
+
+  /// Re-applies Public Mode once the Dashboard has an owner. PC-DEF-040.
+  ///
+  /// Called at one host lifecycle transition -- leaving the setup page -- and
+  /// never polled. PC-DEF-039 keeps an unclaimed dashboard on loopback, so
+  /// without this a user with Public Mode on finishes setup and stays private
+  /// with nothing in the UI explaining why.
+  ///
+  /// The privileged rebind stays native: this asks the host, and the Android
+  /// bridge token never enters Dart or the WebView.
+  Future<PublicModeReconciliation> reconcilePublicModeAfterSetup() async {
+    if (!Platform.isAndroid) return PublicModeReconciliation.notRequested;
+    try {
+      final decision = resolvePublicModeReconciliation(
+        dashboardInitialized: await PocketClawChannel.dashboardAuthInitialized(),
+        desiredPublic: _publicMode,
+        alreadyPublic: _publicModeReconciled,
+      );
+      if (decision == PublicModeReconciliation.reapply) {
+        _publicModeReconciled = true;
+        await PocketClawChannel.applyPublicMode(true);
+        _addLog('Public Mode applied now that the Dashboard has a password');
+        notifyListeners();
+      }
+      return decision;
+    } catch (e) {
+      // Never fatal. The preference is intact and the next service start
+      // resolves exposure from it.
+      debugPrint('Public Mode reconciliation failed: $e');
+      return PublicModeReconciliation.dashboardNotInitialized;
+    }
+  }
+
+  Future<void> setGatewayLaunchAutoStart(bool enabled) async {
+    final wasEnabled = _launchAutoStart.gatewayEnabled;
+    await _commitLaunchAutoStart(gatewayEnabled: enabled);
+
+    // PC-DEF-034. Enabling this while the service is already running has to
+    // start the Gateway now. Persisting and waiting for the next service start
+    // is what made the preference look broken: the user turned it on, nothing
+    // happened, and the only way forward was an undocumented manual start.
+    //
+    // Only on a real OFF -> ON transition, only when the host actually
+    // persisted the change, and only when there is a running service to ask.
+    if (!enabled || wasEnabled || !_launchAutoStart.gatewayEnabled) return;
+    if (_status != ServiceStatus.running) return;
+
+    try {
+      final result = await PocketClawChannel.startGatewayNow();
+      if (result == 'already_running') {
+        _addLog('Gateway is already running');
+      } else {
+        _addLog('Gateway started');
+      }
+    } catch (e) {
+      // The preference stays on: it was persisted before this ran, and the
+      // next service start still honours it. Report the real failure rather
+      // than reverting a choice the user made.
+      _addLog('Could not start the Gateway now; it will start with the service');
+      debugPrint('Immediate gateway start failed: $e');
+    }
+    notifyListeners();
+  }
 
   Future<void> _commitLaunchAutoStart({
     bool? serviceEnabled,
@@ -1173,8 +1209,6 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
 
   Future<Map<String, String>> getDeviceFeedbackDeviceInfo() async {
     switch (_deviceFeedbackProvider) {
-      case DeviceFeedbackProvider.firebase:
-        return _firebaseReporter.collectSafeDeviceInfo();
       case DeviceFeedbackProvider.umeng:
         return _umengReporter.collectSafeDeviceInfo();
       case DeviceFeedbackProvider.none:
@@ -1184,8 +1218,6 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
 
   Future<bool> isDeviceFeedbackAllowed() async {
     switch (_deviceFeedbackProvider) {
-      case DeviceFeedbackProvider.firebase:
-        return _firebaseReporter.isUploadAllowed();
       case DeviceFeedbackProvider.umeng:
         return _umengReporter.isUploadAllowed();
       case DeviceFeedbackProvider.none:
@@ -1208,7 +1240,6 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
         snapshot.lastUploadedSignature != snapshot.buildUploadSignature();
 
     final providerRequestedUpload = switch (_deviceFeedbackProvider) {
-      DeviceFeedbackProvider.firebase => _firebaseReporter.shouldUpload(),
       DeviceFeedbackProvider.umeng => _umengReporter.shouldUpload(),
       DeviceFeedbackProvider.none => Future<bool>.value(false),
     };
@@ -1223,9 +1254,6 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
       _resetDeviceFeedbackRetryState();
     }
     switch (_deviceFeedbackProvider) {
-      case DeviceFeedbackProvider.firebase:
-        await _firebaseReporter.setUploadAllowed(allowed);
-        return;
       case DeviceFeedbackProvider.umeng:
         await _umengReporter.setUploadAllowed(allowed);
         return;
@@ -1272,48 +1300,6 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
     final telemetrySnapshot = await getDeviceTelemetrySnapshot(now: attemptAt);
     late final DeviceFeedbackUploadResult result;
     switch (_deviceFeedbackProvider) {
-      case DeviceFeedbackProvider.firebase:
-        if (_firebaseProjectId.trim().isEmpty) {
-          result = const DeviceFeedbackUploadResult(
-            success: false,
-            message:
-                'Missing POCKETCLAW_FIREBASE_PROJECT_ID build configuration.',
-          );
-          break;
-        }
-        if (_firebaseApiKey.trim().isEmpty) {
-          result = const DeviceFeedbackUploadResult(
-            success: false,
-            message: 'Missing POCKETCLAW_FIREBASE_API_KEY build configuration.',
-          );
-          break;
-        }
-        if (_firebaseAppId.trim().isEmpty) {
-          result = const DeviceFeedbackUploadResult(
-            success: false,
-            message: 'Missing POCKETCLAW_FIREBASE_APP_ID build configuration.',
-          );
-          break;
-        }
-        if (_firebaseMessagingSenderId.trim().isEmpty) {
-          result = const DeviceFeedbackUploadResult(
-            success: false,
-            message:
-                'Missing POCKETCLAW_FIREBASE_MESSAGING_SENDER_ID build configuration.',
-          );
-          break;
-        }
-        result = await _firebaseReporter.uploadDeviceReport(
-          appId: _firebaseAppId,
-          projectId: _firebaseProjectId,
-          apiKey: _firebaseApiKey,
-          messagingSenderId: _firebaseMessagingSenderId,
-          storageBucket: _firebaseStorageBucket.isEmpty
-              ? null
-              : _firebaseStorageBucket,
-          telemetrySnapshot: telemetrySnapshot,
-        );
-        break;
       case DeviceFeedbackProvider.umeng:
         if (_umengAppKey.trim().isEmpty) {
           result = const DeviceFeedbackUploadResult(
@@ -1408,30 +1394,6 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
     if (notify) {
       notifyListeners();
     }
-  }
-
-  Future<Map<String, String>> getFirebaseDeviceInfo() {
-    return getDeviceFeedbackDeviceInfo();
-  }
-
-  Future<bool> isFirebaseUploadAllowed() {
-    return isDeviceFeedbackAllowed();
-  }
-
-  Future<bool> shouldAskForFirebaseUpload() {
-    return shouldAskForDeviceFeedbackUpload();
-  }
-
-  Future<bool> shouldAutoUploadFirebaseDeviceReport() {
-    return shouldAutoUploadDeviceFeedbackReport();
-  }
-
-  Future<void> setFirebaseUploadAllowed(bool allowed) {
-    return setDeviceFeedbackUploadAllowed(allowed);
-  }
-
-  Future<DeviceFeedbackUploadResult> uploadFirebaseDeviceReport() {
-    return uploadDeviceFeedbackReport();
   }
 
   Future<void> updateConfig(
@@ -1581,9 +1543,83 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
     if (_status == ServiceStatus.stopped) {
       return CredentialApplyOutcome.notRunning;
     }
-    await stop();
-    await start();
+    // One intent, not stop-then-start. The outcome vocabulary is unchanged:
+    // "applied" has always meant the restart was performed, and whether Core
+    // came back up is reported by the status poll, not by this call.
+    await restartCore();
     return CredentialApplyOutcome.applied;
+  }
+
+  /// The launch arguments Core is started with.
+  ///
+  /// Shared by start and restart so a restarted Core cannot come up with a
+  /// different network mode than a started one.
+  String _launchArguments() {
+    // Simple token logic (split by spaces and dedupe) instead of regex.
+    // _arguments is initialized to '' and loaded with `?? ''` in init(), so
+    // it's non-null.
+    final tokens = _arguments.split(' ').where((t) => t.isNotEmpty).toList();
+
+    if (_publicMode && !tokens.contains('-public')) {
+      tokens.add('-public');
+    }
+    if (!tokens.contains('-no-browser')) {
+      tokens.add('-no-browser');
+    }
+    return tokens.join(' ');
+  }
+
+  /// Restarts Core so configuration it reads only at launch takes effect.
+  ///
+  /// PC-DEF-030. Callers used to write `await stop(); await start();`, which on
+  /// Android is two service intents and an unconditional stopSelf() between
+  /// them: the start is honoured and then destroyed, leaving PocketClaw stopped
+  /// with no indication that anything went wrong. Telegram onboarding is the
+  /// flow that made it visible — the bot stayed silent until the owner started
+  /// the Service and the Gateway by hand.
+  ///
+  /// The platform is asked to restart instead. A service that is mid-transition
+  /// is still never interrupted: `starting` defers, exactly as
+  /// [applyCredentialChange] already does, and `stopped` is not a restart.
+  Future<bool> restartCore() async {
+    if (_status != ServiceStatus.running) return false;
+
+    _syncAdapterConfiguration();
+    _status = ServiceStatus.starting;
+    notifyListeners();
+
+    try {
+      final ok = await _adapter.restartService(
+        port: _port,
+        args: _launchArguments(),
+      );
+      if (!ok) {
+        _status = ServiceStatus.stopped;
+        final code = _adapter.getLastErrorCode();
+        _addLog('Failed to restart service: ${code ?? 'unknown'}');
+        notifyListeners();
+        return false;
+      }
+
+      if (Platform.isAndroid) {
+        _addLog('Restarting PocketClaw service...');
+        // Same deferral the start path uses: the host reports the settled
+        // state, this side does not guess at it.
+        Future.delayed(const Duration(seconds: 2), () {
+          _syncNativeServiceStatus();
+        });
+      } else {
+        _status = ServiceStatus.running;
+        _addLog('Service restarted on $webUrl');
+      }
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _status = ServiceStatus.stopped;
+      _addLog('Failed to restart service: $e');
+      notifyListeners();
+      return false;
+    }
   }
 
   Future<void> start() async {
@@ -1593,19 +1629,7 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
     _status = ServiceStatus.starting;
     notifyListeners();
 
-    String launchArgs = _arguments;
-    // Use simple token logic (split by spaces and dedupe) instead of regex.
-    // _arguments is initialized to '' and loaded with `?? ''` in init(), so it's non-null.
-    final tokens = launchArgs.split(' ').where((t) => t.isNotEmpty).toList();
-
-    if (_publicMode && !tokens.contains('-public')) {
-      tokens.add('-public');
-    }
-    if (!tokens.contains('-no-browser')) {
-      tokens.add('-no-browser');
-    }
-
-    launchArgs = tokens.join(' ');
+    final String launchArgs = _launchArguments();
     try {
       final ok = await _adapter.startService(port: _port, args: launchArgs);
 

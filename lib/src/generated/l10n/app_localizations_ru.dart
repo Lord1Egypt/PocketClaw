@@ -472,7 +472,7 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get whatsNew020New5 =>
-      'Интеграция с Telegram, настраивается в разделе «Настройки».';
+      'Настройка Telegram одним касанием: PocketClaw создаёт вашего собственного бота — в приложении или из панели в браузере. Никакой токен копировать не нужно, и говорить с ним может только ваша учётная запись.';
 
   @override
   String get whatsNew020New6 =>
@@ -663,4 +663,47 @@ class AppLocalizationsRu extends AppLocalizations {
   String statusDurationDays(int days, int hours) {
     return '$days дн $hours ч';
   }
+
+  @override
+  String get notificationPermissionTitle => 'Уведомления';
+
+  @override
+  String get notificationPermissionGranted =>
+      'PocketClaw может показывать уведомление о работе.';
+
+  @override
+  String get notificationPermissionBlocked =>
+      'Уведомления отключены, поэтому уведомление о работе PocketClaw не появится.';
+
+  @override
+  String get notificationPermissionOpenSettings =>
+      'Открыть настройки уведомлений';
+
+  @override
+  String get whatsNew020New7 =>
+      'Управление Telegram из панели: подключить бота, заменить его или отключить.';
+
+  @override
+  String get whatsNew020New8 =>
+      'Управление провайдерами и моделями в панели: добавить провайдера, сменить ключ API или удалить модель.';
+
+  @override
+  String get whatsNew020Improvement12 =>
+      'Настройки Telegram применяются сразу после сохранения, без ручного перезапуска.';
+
+  @override
+  String get whatsNew020Improvement13 =>
+      'Если модель ИИ не настроена, PocketClaw точно называет, чего не хватает, и даёт код для поиска.';
+
+  @override
+  String get whatsNew020Improvement14 =>
+      'Вход в панель возвращает вас на тот экран, который вы запрашивали.';
+
+  @override
+  String get whatsNew020Improvement15 =>
+      'Диагностические журналы остаются подробными и никогда не содержат ваши ключи, токены или текст сообщений.';
+
+  @override
+  String get whatsNew020Improvement16 =>
+      'Панель, которую ещё никто не занял, недоступна из сети даже при включённом публичном режиме.';
 }

@@ -111,30 +111,43 @@ void main() {
     expect(await PocketClawChannel.getCoreVersion(), '0.24.1');
   });
 
-  test('getCoreVersion falls back to unknown on native failure', () async {
+  // PC-DEF-063. A failed probe is an absence, not the word unknown. It used to
+  // be that string, which passed the caller's non-empty test and was cached and
+  // then displayed as the Core version until something re-probed.
+  test('getCoreVersion reports absence on native failure', () async {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(channel, (call) async {
           throw PlatformException(code: 'ERR', message: 'boom');
         });
 
-    expect(await PocketClawChannel.getCoreVersion(), 'unknown');
+    expect(await PocketClawChannel.getCoreVersion(), isNull);
   });
 
-  test('getCoreVersion maps blank or null native values to unknown', () async {
+  test('getCoreVersion reports absence for blank, null or unknown', () async {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(channel, (call) async {
           if (call.method == 'getCoreVersion') return '   ';
           return null;
         });
 
-    expect(await PocketClawChannel.getCoreVersion(), 'unknown');
+    expect(await PocketClawChannel.getCoreVersion(), isNull);
 
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(channel, (call) async {
           return null;
         });
 
-    expect(await PocketClawChannel.getCoreVersion(), 'unknown');
+    expect(await PocketClawChannel.getCoreVersion(), isNull);
+
+    // Still mapped, because the host reads the version out of a binary whose
+    // output this cannot assume.
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, (call) async {
+          if (call.method == 'getCoreVersion') return 'unknown';
+          return null;
+        });
+
+    expect(await PocketClawChannel.getCoreVersion(), isNull);
   });
 
   test('getLanIpv4Address returns active native LAN address', () async {

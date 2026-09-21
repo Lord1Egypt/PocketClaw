@@ -91,6 +91,31 @@ func (h *Handler) handleUpdateConfig(w http.ResponseWriter, r *http.Request) {
 	}
 	applyConfigSecretsFromMap(&cfg, raw)
 
+	// PC-DEF-028. The Telegram owner rule applies to whoever is editing
+	// Telegram, and only to them.
+	//
+	// A config written by the old console can be enabled with zero, several or
+	// malformed owners. Validating it on every PUT would mean a user cannot
+	// change their theme until they have repaired Telegram, so historical
+	// corruption is not allowed to hold the whole settings UI hostage: an
+	// unrelated save carries the existing Telegram subtree through untouched
+	// and unrepaired, and status reports that Telegram needs attention.
+	//
+	// Touch Telegram, though, and the contract is enforced in full.
+	if existing, loadErr := config.LoadConfig(h.configPath); loadErr != nil ||
+		telegramSubtreeChanged(existing, &cfg) {
+		if errs := telegramOwnerErrors(cfg.Channels.GetByType(config.ChannelTelegram)); len(errs) > 0 {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusBadRequest)
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"error":  "invalid Telegram configuration",
+				"errors": errs,
+				"field":  "channels.telegram.allow_from",
+			})
+			return
+		}
+	}
+
 	if errs := validateConfig(&cfg); len(errs) > 0 {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)

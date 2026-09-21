@@ -26,11 +26,6 @@ type AuthStore struct {
 	Credentials map[string]*AuthCredential `json:"credentials"`
 }
 
-const (
-	providerGoogleAntigravity = "google-antigravity"
-	providerAntigravityAlias  = "antigravity"
-)
-
 func (c *AuthCredential) IsExpired() bool {
 	if c.ExpiresAt.IsZero() {
 		return false
@@ -49,14 +44,13 @@ func authFilePath() string {
 	return filepath.Join(config.GetHome(), "auth.json")
 }
 
+// canonicalProvider normalises a provider key for the credential store.
+//
+// It carried an antigravity -> google-antigravity alias until v0.2.0 removed
+// that provider (PC-DEF-023). Case and whitespace normalisation is what the
+// store still needs, and every caller goes through here.
 func canonicalProvider(provider string) string {
-	normalized := strings.ToLower(strings.TrimSpace(provider))
-	switch normalized {
-	case providerAntigravityAlias:
-		return providerGoogleAntigravity
-	default:
-		return normalized
-	}
+	return strings.ToLower(strings.TrimSpace(provider))
 }
 
 func cloneCredential(cred *AuthCredential) *AuthCredential {

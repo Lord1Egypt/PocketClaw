@@ -28,7 +28,7 @@ cd "$BUILD_ROOT/ripgrep-$RG_VERSION"
 # --remap-path-prefix rewrites what is left, so the shipped payload carries no
 # developer-machine path. install_payload fails the build if any survives.
 export CARGO_HOME="$BUILD_ROOT/cargo"
-export RUSTFLAGS="--remap-path-prefix=$CARGO_HOME=/pocketclaw-runtime/cargo --remap-path-prefix=$BUILD_ROOT/ripgrep-$RG_VERSION=/pocketclaw-runtime/ripgrep"
+export RUSTFLAGS="-C debuginfo=2 --remap-path-prefix=$CARGO_HOME=/pocketclaw-runtime/cargo --remap-path-prefix=$BUILD_ROOT=/pocketclaw-runtime/build"
 
 CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER="$TOOLCHAIN/bin/$TARGET_CC" \
 CC_aarch64_linux_android="$TOOLCHAIN/bin/$TARGET_CC" \

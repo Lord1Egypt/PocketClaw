@@ -200,9 +200,6 @@
       },
       "anthropic": {
         "description": "Uses token login for Claude access."
-      },
-      "antigravity": {
-        "description": "Uses browser OAuth for Google Cloud Code Assist."
       }
     },
     "status": {
@@ -328,7 +325,10 @@
     "delete": {
       "title": "Delete Model?",
       "description": "\"{{name}}\" will be permanently removed from your model list. This cannot be undone.",
-      "confirm": "Delete"
+      "confirm": "Delete",
+      "defaultBlocked": "\"{{name}}\" is the default chat model. Choose a different default first, then delete it.",
+      "success": "\"{{name}}\" was removed.",
+      "error": "Could not delete this model."
     },
     "advanced": {
       "toggle": "Advanced options"
@@ -380,7 +380,8 @@
       "apiKeyHint": "A key is already set. Leave blank to keep it unchanged.",
       "oauthNote": "This provider uses OAuth — no API key required.",
       "saveError": "Failed to save",
-      "saveSuccess": "Model configuration saved."
+      "saveSuccess": "Model configuration saved.",
+      "confirm": "Update Model"
     },
     "fetch": {
       "title": "Fetch Available Models",
@@ -479,6 +480,34 @@
         "speech": "Speech recognition only"
       }
     },
+    "provider": {
+      "manage": "Manage",
+      "manageTitle": "Manage {{name}}",
+      "modelCount": "Configured models: {{count}}",
+      "loading": "Loading provider settings…",
+      "save": "Save Provider",
+      "saved": "Provider settings saved.",
+      "saveError": "Could not save these provider settings.",
+      "loadError": "Could not load this provider.",
+      "keyRotated": "API key replaced. Models updated: {{count}}",
+      "credential": "API Key",
+      "credentialShared": "Every model of this provider shares one key ({{key}}).",
+      "credentialSetGeneric": "saved",
+      "credentialMixed": "These models use different keys. Saving a new key replaces all of them.",
+      "credentialUnset": "No key is stored for this provider yet.",
+      "replaceKeyPlaceholder": "Enter a new key to replace the stored one",
+      "replaceKeyHint": "Leave empty to keep the stored key. Models affected by a replacement: {{count}}",
+      "apiBaseHint": "Applied to every model of this provider.",
+      "apiBaseMixed": "These models use different base URLs. Edit them on each model.",
+      "modelsHeading": "Models from this provider",
+      "delete": "Delete Provider",
+      "deleteTitle": "Delete {{name}}?",
+      "deleteDescription": "Its models are removed and every reference to them is cleared. Models to be removed: {{count}}",
+      "deleteDefaultNote": "(default chat model)",
+      "deleteConfirm": "Delete Provider",
+      "deleteSuccess": "{{name}} was removed.",
+      "deleteError": "Could not delete this provider."
+    },
     "discovery": {
       "heading": "Add from your providers",
       "configured": "Configured",
@@ -498,6 +527,20 @@
       "description": "The model PocketClaw answers with. Choose from the providers you have configured.",
       "none": "No default model selected.",
       "change": "Change default model"
+    },
+    "provenance": {
+      "suggestions": "Suggestions",
+      "suggestionsHint": "Common names for this provider. Not confirmed against your account.",
+      "cached": "Previously fetched",
+      "cachedHint": "From an earlier fetch for this provider and endpoint. Fetch again to refresh.",
+      "verified": "Verified available",
+      "verifiedHint": "Returned by this provider just now."
+    },
+    "discard": {
+      "title": "Discard changes?",
+      "description": "The edits on this screen have not been saved and will be lost.",
+      "keepEditing": "Keep editing",
+      "confirm": "Discard"
     }
   },
   "channels": {
@@ -708,7 +751,64 @@
       "openChat": "Open Chat",
       "reconnect": "Reconnect / Create New Bot",
       "manualOnlyTitle": "Manual setup",
-      "manualOnlyBody": "One-tap bot creation is not available in this build, so Telegram is set up with a bot token from BotFather. Paste the token below and save."
+      "manualOnlyBody": "One-tap bot creation is not available in this build, so Telegram is set up with a bot token from BotFather. Paste the token below and save.",
+      "manualOnlyDesktopBody": "One-tap bot creation happens in the PocketClaw app on Android, so it is not offered in a browser. Open PocketClaw on your phone for one-tap setup, or create a bot with BotFather and paste its token below.",
+      "openBotFather": "Open BotFather",
+      "desktop": {
+        "title": "One-tap setup",
+        "body": "PocketClaw creates your personal bot through Telegram. Nothing is typed, and no token is handled by this page.",
+        "connect": "Connect to Telegram",
+        "creating": "Preparing your setup link…",
+        "suggestedBot": "Suggested bot",
+        "openTelegram": "Open Telegram",
+        "copyLink": "Copy link",
+        "linkCopied": "Link copied.",
+        "linkCopyFailed": "Could not copy the link.",
+        "linkCopyManual": "Copy the link manually: select it below.",
+        "waiting": "Waiting for you to confirm the new bot in Telegram…",
+        "botCreated": "Bot created. Finishing setup…",
+        "configuring": "Configuring PocketClaw…",
+        "connected": "Telegram is connected.",
+        "savedPending": "Your bot is saved and will start as soon as PocketClaw is free.",
+        "retry": "Try again",
+        "errorStart": "Could not start setup. Try again in a moment.",
+        "errorRateLimited": "Telegram is limiting bot creation. Try again later, or use an existing valid bot below.",
+        "errorExpired": "This setup link expired. Start again to get a new one.",
+        "errorFailed": "Setup did not finish. Try again, or use manual setup below.",
+        "errorInvalidCredentials": "Telegram rejected this bot. Creation may be incomplete, or its token is invalid. Try again later or use an existing valid bot below.",
+        "errorWebhookActive": "This bot has an active Telegram webhook. Disconnect it from the other service or use another bot.",
+        "errorBotInUse": "This bot is currently being used by another application. Stop the other bot service or choose another bot.",
+        "errorNotReady": "Your bot is saved, but Telegram is not receiving yet. Check again in a moment.",
+        "checkAgain": "Check again"
+      },
+      "startingTitle": "Starting Telegram…",
+      "replaceBot": "Replace bot",
+      "readiness": {
+        "not_configured": "No bot is configured.",
+        "gateway_stopped": "PocketClaw is not running, so Telegram cannot receive messages.",
+        "gateway_starting": "PocketClaw is starting…",
+        "channel_starting": "Connecting to Telegram…",
+        "registering_commands": "Publishing the command menu…",
+        "setup_required": "Add your Telegram numeric ID under Allowed From so this bot answers only you.",
+        "telegram_conflict": "This bot is already being used by another service.",
+        "authentication_failed": "Telegram rejected the bot credentials.",
+        "ready": "Telegram is ready for your first message.",
+        "unknown": "PocketClaw did not report its Telegram status."
+      },
+      "disconnect": {
+        "action": "Disconnect",
+        "title": "Disconnect Telegram?",
+        "body": "This removes the bot token and the owner allowlist, and stops the Telegram channel. Your chat history is kept. You can connect a bot again at any time.",
+        "confirm": "Disconnect",
+        "removed": "Telegram was disconnected.",
+        "removedPending": "Telegram was removed and will stop as soon as PocketClaw is free.",
+        "failed": "Could not disconnect Telegram."
+      },
+      "statusUnreadableTitle": "Telegram status unavailable",
+      "setupIncompleteTitle": "Telegram setup incomplete",
+      "conflictTitle": "Telegram bot already in use",
+      "conflictWebhook": "This bot has an active Telegram webhook. Disconnect it from the other service or use another bot.",
+      "conflictInUse": "This bot is currently being used by another application. Stop the other bot service or choose another bot."
     }
   },
   "pages": {
@@ -1100,10 +1200,6 @@
     "gateway": {
       "title": "Start Gateway",
       "description": "After configuring models, click the \"Start Gateway\" button at the top to begin chatting with AI."
-    },
-    "docs": {
-      "title": "View Documentation",
-      "description": "Need more help? Click the documentation button in the top right corner to view detailed guides and configuration docs."
     }
   }
 }

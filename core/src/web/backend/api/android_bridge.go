@@ -1,8 +1,10 @@
 package api
 
 import (
+	"context"
 	"crypto/subtle"
 	"encoding/json"
+	"errors"
 	"net"
 	"net/http"
 	"strconv"
@@ -10,6 +12,7 @@ import (
 	"time"
 
 	"github.com/sipeed/picoclaw/pkg/config"
+	"github.com/sipeed/picoclaw/pkg/logger"
 )
 
 // AndroidBridgeTokenEnv is a random per-process credential shared only by the
@@ -17,8 +20,10 @@ import (
 const AndroidBridgeTokenEnv = "POCKETCLAW_ANDROID_BRIDGE_TOKEN"
 
 const androidTelegramBridgePath = "/api/pocketclaw/android/telegram"
+const androidTelegramReadinessBridgePath = "/api/pocketclaw/android/telegram/readiness"
 const androidNetworkModeBridgePath = "/api/pocketclaw/android/network-mode"
 const androidContextMemoryBridgePath = "/api/pocketclaw/android/context-memory"
+const androidGatewayStartBridgePath = "/api/pocketclaw/android/gateway/start"
 
 // Telegram context-memory bounds. Native Settings offers presets inside this
 // range and a custom value; Core is the authority, so the range is enforced
@@ -48,6 +53,14 @@ type androidContextMemoryResponse struct {
 type LauncherNetworkModeController interface {
 	ApplyPublicMode(public bool) error
 	PublicMode() bool
+	// ReconcileAfterDashboardClaimed re-applies the desired exposure once the
+	// dashboard has an owner. PC-DEF-040.
+	//
+	// It returns nothing because it cannot wait: it is called from the request
+	// that claimed the dashboard, and applying the exposure replaces the
+	// listener carrying that request, so the work happens on its own goroutine
+	// and reports its own outcome (PC-DEF-065).
+	ReconcileAfterDashboardClaimed()
 }
 
 type launcherNetworkModeState struct {
@@ -74,8 +87,8 @@ type androidTelegramCredentials struct {
 }
 
 // RegisterAndroidBridgeRoutes exposes the narrow loopback-only operations the
-// Android host needs: managed Telegram pairing and Dashboard listener rebind.
-// Native Settings does not query Telegram state through this bridge.
+// Android host needs: managed Telegram pairing/readiness and Dashboard listener
+// rebind. Readiness delegates to the same authority as the Dashboard route.
 func (h *Handler) RegisterAndroidBridgeRoutes(mux *http.ServeMux, bridgeToken string) {
 	bridgeToken = strings.TrimSpace(bridgeToken)
 	if bridgeToken == "" {
@@ -88,6 +101,13 @@ func (h *Handler) RegisterAndroidBridgeRoutes(mux *http.ServeMux, bridgeToken st
 			return
 		}
 		h.handleAndroidTelegramConfigure(w, r)
+	})
+	mux.HandleFunc("GET "+androidTelegramReadinessBridgePath, func(w http.ResponseWriter, r *http.Request) {
+		if !authorizedAndroidBridgeRequest(r, bridgeToken) {
+			http.NotFound(w, r)
+			return
+		}
+		h.handleTelegramReadiness(w, r)
 	})
 	mux.HandleFunc("PUT "+androidNetworkModeBridgePath, func(w http.ResponseWriter, r *http.Request) {
 		if !authorizedAndroidBridgeRequest(r, bridgeToken) {
@@ -122,6 +142,19 @@ func (h *Handler) RegisterAndroidBridgeRoutes(mux *http.ServeMux, bridgeToken st
 	})
 	// Telegram context memory. Native Settings reads and writes it here so Core
 	// stays the only writer of config.json, exactly as Telegram pairing does.
+	// Gateway lifecycle for the Android host. The host owns the auto-start
+	// preference, so when the user turns it on while the service is already
+	// running the host has to be able to act on it now rather than at the next
+	// service start. Dashboard credentials are deliberately not accepted for
+	// this: lifecycle control belongs to the host process, not to a browser
+	// session. See PC-DEF-034.
+	mux.HandleFunc("POST "+androidGatewayStartBridgePath, func(w http.ResponseWriter, r *http.Request) {
+		if !authorizedAndroidBridgeRequest(r, bridgeToken) {
+			http.NotFound(w, r)
+			return
+		}
+		h.handleAndroidGatewayStart(w, r)
+	})
 	mux.HandleFunc("GET "+androidContextMemoryBridgePath, func(w http.ResponseWriter, r *http.Request) {
 		if !authorizedAndroidBridgeRequest(r, bridgeToken) {
 			http.NotFound(w, r)
@@ -265,22 +298,169 @@ func (h *Handler) handleAndroidTelegramConfigure(w http.ResponseWriter, r *http.
 		return
 	}
 
-	cfg, channel, settings, err := h.loadTelegramConfigForUpdate()
+	applied, pending, err := h.writeTelegramCredentialsContext(
+		r.Context(), request.Token, request.OwnerUserID)
 	if err != nil {
-		http.Error(w, "Failed to load config", http.StatusInternalServerError)
+		// Distinct, actionable candidate outcomes. The token is not stored and
+		// the previous bot is untouched in every one of these.
+		switch {
+		case errors.Is(err, ErrTelegramCredentialsInvalid):
+			writeJSONStatus(w, http.StatusUnauthorized, map[string]any{
+				"error": "invalid_credentials",
+			})
+			return
+		case errors.Is(err, ErrTelegramWebhookConflict):
+			writeJSONStatus(w, http.StatusConflict, map[string]any{
+				"error": "webhook_active",
+			})
+			return
+		case errors.Is(err, ErrTelegramBotInUse):
+			writeJSONStatus(w, http.StatusConflict, map[string]any{
+				"error": "bot_in_use",
+			})
+			return
+		}
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	settings.Token.Set(request.Token)
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]any{
+		"ok":      true,
+		"applied": applied,
+		"pending": pending,
+	})
+}
+
+// writeTelegramCredentials is the one place a paired bot becomes the configured
+// Telegram channel.
+//
+// Extracted so the desktop managed flow (PC-DEF-060) reuses it rather than
+// reimplementing it. The owner contract lives here and nowhere else: AllowFrom is
+// replaced with exactly one positive numeric owner, which is what
+// NewTelegramChannel refuses to start without.
+//
+// Neither the token nor the owner id is logged. The caller reports what happened; the
+// credential does not appear in any message this returns.
+func (h *Handler) writeTelegramCredentials(
+	token string,
+	ownerUserID int64,
+) (applied bool, pending bool, err error) {
+	return h.writeTelegramCredentialsContext(context.Background(), token, ownerUserID)
+}
+
+func (h *Handler) writeTelegramCredentialsContext(
+	ctx context.Context,
+	token string,
+	ownerUserID int64,
+) (applied bool, pending bool, err error) {
+	token = strings.TrimSpace(token)
+	if token == "" {
+		return false, false, errors.New("Telegram token is required")
+	}
+	if ownerUserID <= 0 {
+		return false, false, errors.New("Telegram owner user ID is required")
+	}
+
+	cfg, channel, settings, loadErr := h.loadTelegramConfigForUpdate()
+	if loadErr != nil {
+		return false, false, errors.New("Failed to load config")
+	}
+
+	// PC-DEF-073. Never probe ownership against PocketClaw's own active
+	// generation. The candidate validation ends in a real getUpdates call, and
+	// Telegram allows exactly one of those per bot, so re-pairing a bot this
+	// install is already polling would make PocketClaw collide with itself:
+	// Telegram answers 409, the runtime treats a 409 as terminal with no retry,
+	// and a healthy generation would be retired by its own owner.
+	//
+	// The skip is not a weakening. When the committed credential is byte-identical
+	// and this install's channel is the live getUpdates owner for it, the running
+	// poller has *already* proved every fact the validation would ask for —
+	// the token authenticates, no webhook is attached (a webhook makes getUpdates
+	// answer 409, so a poller that is succeeding proves there is none), and
+	// nobody else owns the stream. A live successful poll is stronger evidence
+	// than a speculative probe, and it costs no competing request.
+	//
+	// Any other candidate — a different token, or the same token while this
+	// install is not authoritatively polling it — takes the full validation.
+	if h.telegramCandidateIsAuthoritativeRunningBot(token, settings) {
+		logger.InfoCF("telegram",
+			"Candidate is the bot this install is already polling; "+
+				"reusing the live runtime's ownership instead of probing it",
+			map[string]any{"surface": "telegram_configure"})
+	} else if validationErr := h.validateTelegramCredentials(
+		ctx, token, settings.BaseURL, settings.Proxy,
+	); validationErr != nil {
+		// Terminal candidate outcomes are propagated by identity so the caller
+		// can show the actionable reason. Nothing is mutated before this point,
+		// which is what keeps the previously committed bot recoverable.
+		switch {
+		case errors.Is(validationErr, ErrTelegramCredentialsInvalid):
+			return false, false, ErrTelegramCredentialsInvalid
+		case errors.Is(validationErr, ErrTelegramWebhookConflict):
+			return false, false, ErrTelegramWebhookConflict
+		case errors.Is(validationErr, ErrTelegramBotInUse):
+			return false, false, ErrTelegramBotInUse
+		}
+		return false, false, errors.New("Telegram credential validation failed")
+	}
+	settings.Token.Set(token)
 	channel.Enabled = true
 	channel.Type = config.ChannelTelegram
-	channel.AllowFrom = config.FlexibleStringSlice{strconv.FormatInt(request.OwnerUserID, 10)}
+	channel.AllowFrom = config.FlexibleStringSlice{strconv.FormatInt(ownerUserID, 10)}
 
-	if err := config.SaveConfig(h.configPath, cfg); err != nil {
-		http.Error(w, "Failed to save config", http.StatusInternalServerError)
-		return
+	if saveErr := config.SaveConfig(h.configPath, cfg); saveErr != nil {
+		return false, false, errors.New("Failed to save config")
 	}
-	w.Header().Set("Content-Type", "application/json")
-	_, _ = w.Write([]byte(`{"ok":true}`))
+
+	// PC-DEF-061 (managed onboarding). Answer the Start press that completed
+	// this pairing. It is sent before the apply because it does not depend on
+	// the gateway: it is an outbound sendMessage, not an intake.
+	h.greetTelegramOwnerAfterPairing(ctx, settings, token, ownerUserID)
+
+	// PC-DEF-030. Saving Telegram used to end here, so the running channel
+	// never learned about the change and the user was told to restart the
+	// Gateway by hand. Applying is part of saving now: immediately when the
+	// gateway is idle, and otherwise marked pending for its own idle
+	// notification to pick up. Either way nothing is asked of the user.
+	applied, pending = h.applyTelegramConfigChange("telegram_configured")
+	return applied, pending, nil
+}
+
+// applyTelegramConfigChange makes a saved Telegram change live.
+//
+// Reports what actually happened rather than assuming success: a gateway that
+// is busy leaves the change pending, and a gateway that is stopped leaves it
+// for the next start. Neither is an error, and neither may be presented as a
+// working Telegram channel -- runtime status decides that, not this.
+//
+// The idle question is asked once here rather than waited out. The wait inside
+// RestartGatewayForConfigChange runs for up to two minutes, and this handler is
+// answering an Android host whose bridge call has its own read timeout: a save
+// that blocks past it is reported to the user as a failed configuration even
+// though the token is on disk. Parking the change instead loses nothing --
+// the gateway's idle notification and the pending supervisor both apply it with
+// no user action -- and it keeps "do not interrupt a running answer" intact,
+// because a gateway that will not say it is idle is never restarted.
+func (h *Handler) applyTelegramConfigChange(reason string) (applied bool, pending bool) {
+	if !h.gatewayIdleNow() {
+		markConfigApplyPending(reason)
+		if startPendingApplySupervisor() {
+			go h.supervisePendingConfigApply()
+		}
+		logger.InfoCF("gateway",
+			"Telegram configuration saved while the gateway was busy; "+
+				"it will be applied automatically once the gateway is idle",
+			map[string]any{"reason": reason})
+		return false, true
+	}
+
+	if _, _, err := h.RestartGatewayForConfigChange(reason); err != nil {
+		isPending, _ := pendingConfigApplyState()
+		return false, isPending
+	}
+	return true, false
 }
 
 func (h *Handler) loadTelegramConfigForUpdate() (*config.Config, *config.Channel, *config.TelegramSettings, error) {
@@ -380,4 +560,36 @@ func effectiveTelegramRecentContextMessages(cfg *config.Config) int {
 	return config.ResolveTelegramRecentContextMessages(
 		cfg.Agents.Defaults.TelegramRecentContextMessages,
 	)
+}
+
+// handleAndroidGatewayStart starts the gateway on behalf of the Android host.
+//
+// Idempotent: a gateway that is already running is reported as such rather
+// than started twice. Everything else delegates to handleGatewayStart, so the
+// lifecycle, the precondition check and the PID-file attach behaviour are the
+// same code the manual start uses -- this endpoint is an authorization
+// boundary, not a second implementation.
+//
+// After PC-DEF-038 this succeeds with zero providers and zero models
+// configured, which is the entire point: the host must be able to bring
+// infrastructure up before the user has configured any AI provider.
+func (h *Handler) handleAndroidGatewayStart(w http.ResponseWriter, r *http.Request) {
+	gateway.mu.Lock()
+	if gateway.cmd != nil && isCmdProcessAliveLocked(gateway.cmd) {
+		pid := 0
+		if gateway.cmd.Process != nil {
+			pid = gateway.cmd.Process.Pid
+		}
+		gateway.mu.Unlock()
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"status": "already_running",
+			"pid":    pid,
+		})
+		return
+	}
+	gateway.mu.Unlock()
+
+	h.handleGatewayStart(w, r)
 }

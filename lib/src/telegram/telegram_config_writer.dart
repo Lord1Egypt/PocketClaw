@@ -1,3 +1,5 @@
+import 'package:flutter/services.dart';
+
 import '../core/pocketclaw_channel.dart';
 import 'telegram_onboarding_models.dart';
 
@@ -10,7 +12,9 @@ typedef TelegramCredentialSink =
 /// `.security.yml`. Writing only the first file is incorrect: secure fields in
 /// JSON are deliberately redacted and the security file wins when Core loads.
 /// This writer therefore gives the credential to Core, which updates both via
-/// its normal SaveConfig path. No token is ever returned to Flutter.
+/// its normal SaveConfig path and applies the change to the Gateway. No token is
+/// ever returned to Flutter; managed onboarding must not schedule a second
+/// restart after this boundary.
 class TelegramConfigWriter {
   const TelegramConfigWriter({TelegramCredentialSink? writeCredentials})
     : _writeCredentials = writeCredentials;
@@ -28,6 +32,19 @@ class TelegramConfigWriter {
     final bool saved;
     try {
       saved = await sink(credentials);
+    } on PlatformException catch (error) {
+      if (error.code == 'TELEGRAM_CREDENTIALS_INVALID') {
+        throw const TelegramOnboardingException(
+          TelegramOnboardingErrorKind.invalidCredentials,
+          'Telegram rejected the bot credentials',
+        );
+      }
+      throw const TelegramOnboardingException(
+        TelegramOnboardingErrorKind.configurationFailed,
+        'could not save the Core Telegram configuration',
+      );
+    } on TelegramOnboardingException {
+      rethrow;
     } catch (_) {
       throw const TelegramOnboardingException(
         TelegramOnboardingErrorKind.configurationFailed,

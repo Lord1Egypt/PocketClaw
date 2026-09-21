@@ -23,15 +23,16 @@
     <!--
       Advertising and attribution surface removed from the merged manifest.
 
-      These four are contributed by play-services-measurement, which arrives
-      with the firebase_analytics plugin. Firebase is kept: device feedback is a
-      real product feature with a Settings toggle, and it logs one custom event.
-      That event needs none of these — they exist for advertising-ID collection
-      and install-campaign attribution, neither of which PocketClaw does.
+      These four used to arrive with play-services-measurement, pulled in by the
+      firebase_analytics plugin. H1.5 removed Firebase and Google Play Services
+      from the build entirely — proprietary SDKs are disqualifying for official
+      F-Droid, and F-Droid judges what is in the binary rather than what the
+      code decides at runtime — so nothing contributes them any more and these
+      four removals are currently no-ops.
 
-      Removing the advertising ID this way is Google's documented opt-out and
-      leaves event logging working. Restore the install-referrer line only if
-      Play campaign attribution ever becomes a real requirement.
+      They are kept deliberately. They cost nothing, and if a future dependency
+      ever reintroduces the advertising and attribution surface, it will arrive
+      already stripped rather than quietly widening the permission set.
     -->
     <uses-permission android:name="com.google.android.gms.permission.AD_ID"
         tools:node="remove" />
@@ -94,13 +95,23 @@
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
-            <!-- 友盟调试/唤起链接。仅匹配 appKey 对应 scheme，不绑定具体 debugkey 或 query。 -->
-            <intent-filter>
-                <action android:name="android.intent.action.VIEW" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="${POCKETCLAW_UMENG_LINK_SCHEME}" />
-            </intent-filter>
+            <!--
+              The Umeng debug/wake link is deliberately not declared here.
+
+              It was an unconditional VIEW + DEFAULT + BROWSABLE filter whose
+              scheme came from a manifest placeholder. H1.5 removed the analytics
+              SDK from the shipping build, so POCKETCLAW_ANALYTICS_PROVIDER
+              defaults to "none" and the placeholder resolved to the literal
+              "um.placeholder" — a web-reachable entry point into an exported
+              activity, for an SDK that is not in the APK.
+
+              Same rule as the advertising permissions above: an analytics build
+              gets whatever the analytics SDK's own AAR manifest declares, and an
+              app-level declaration it genuinely needs belongs to that build's
+              own manifest rather than to this one. So this is a removal, not a
+              conditional — a filter that is only correct for a build we do not
+              ship should not be in the manifest we do. See PC-DEF-024.
+            -->
         </activity>
 
         <!-- PocketClaw 原生前台服务（运行 Go 二进制） -->
@@ -137,15 +148,6 @@
         <meta-data
             android:name="UMENG_CHANNEL"
             android:value="${POCKETCLAW_UMENG_CHANNEL}" />
-        
-        <!-- Firebase Analytics Configuration - 必须配置才能启用 Analytics -->
-        <!-- 从 Firebase Console 的 google-services.json 获取这些值 -->
-        <meta-data
-            android:name="com.google.android.gms.google_app_id"
-            android:value="@string/google_app_id" />
-        <meta-data
-            android:name="com.google.android.gms.ads.APPLICATION_ID"
-            android:value="@string/google_app_id" />
     </application>
 
     <queries>

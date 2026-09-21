@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../../core/app_fonts.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'webview_nav_bar.dart';
 
@@ -91,7 +91,7 @@ class _WebViewMacOSState extends State<WebViewMacOS> {
                       children: [
                         Text(
                           'Web content failed to load',
-                          style: GoogleFonts.inter(
+                          style: AppFonts.inter(
                             fontSize: 16,
                             fontWeight: FontWeight.w700,
                           ),

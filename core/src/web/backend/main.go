@@ -127,6 +127,64 @@ func resolveLauncherHostInput(flagHost string, explicitFlag bool, envHost string
 	return normalized, true, nil
 }
 
+// launcherExplicitFlags reports which listen flags the caller actually supplied.
+//
+// This is flag.Visit rather than a value comparison, and the difference is the
+// whole point: -public=false and an omitted -public both leave the parsed value
+// false, and they must not mean the same thing. Visit only reports flags that
+// were Set, so an explicit false is distinguishable from silence — which is
+// what lets a host own the decision. See resolveLauncherPublicMode.
+func launcherExplicitFlags(fs *flag.FlagSet) (port, host, public bool) {
+	fs.Visit(func(f *flag.Flag) {
+		switch f.Name {
+		case "port":
+			port = true
+		case "host":
+			host = true
+		case "public":
+			public = true
+		}
+	})
+	return port, host, public
+}
+
+// resolveLauncherPublicMode decides whether the dashboard listener may leave
+// loopback.
+//
+// A supplied flag is the authority for this process; the persisted launcher
+// config is consulted only when no flag was supplied. That ordering is the
+// fix for PC-DEF-020. The Android host stores the user's Public Mode choice
+// natively and used to pass -public only when it was on, so "off" arrived as
+// silence — and silence fell through to launcher-config.json's `public` field,
+// which the dashboard's own Config page can set to true. A user who enabled LAN
+// access, saved that page and then switched the native toggle off got a
+// loopback listener for the life of that process and a wildcard one on the next
+// start, with the toggle still reading OFF. The host now always passes the
+// value, so this function never reaches the persisted field on Android.
+//
+// The persisted field remains the authority on desktop, where there is no
+// native toggle and the Config page is how Public Mode is set at all.
+func resolveLauncherPublicMode(flagPublic, flagPublicExplicit, configPublic bool) bool {
+	if flagPublicExplicit {
+		return flagPublic
+	}
+	return configPublic
+}
+
+// effectiveLauncherExposure narrows the desired Public Mode to what is safe to
+// bind right now, and reports whether it narrowed anything.
+//
+// Desired and effective are kept separate on purpose. The user's preference is
+// not edited and not forgotten: an unclaimed dashboard simply is not offered
+// beyond loopback, because until a password exists the first client to reach
+// POST /api/auth/setup would own the agent. See PC-DEF-039.
+func effectiveLauncherExposure(desiredPublic, dashboardInitialized bool) (effective bool, narrowed bool) {
+	if desiredPublic && !dashboardInitialized {
+		return false, true
+	}
+	return desiredPublic, false
+}
+
 func openLauncherListeners(hostInput string, public bool, port string) (netbind.OpenResult, error) {
 	defaultMode := netbind.DefaultLoopback
 	if strings.TrimSpace(hostInput) == "" && public {
@@ -525,19 +583,7 @@ func main() {
 		)
 	}
 
-	var explicitPort bool
-	var explicitPublic bool
-	var explicitHost bool
-	flag.Visit(func(f *flag.Flag) {
-		switch f.Name {
-		case "port":
-			explicitPort = true
-		case "host":
-			explicitHost = true
-		case "public":
-			explicitPublic = true
-		}
-	})
+	explicitPort, explicitHost, explicitPublic := launcherExplicitFlags(flag.CommandLine)
 
 	launcherPath := launcherconfig.PathForAppConfig(absPath)
 	launcherCfg, err := launcherconfig.Load(launcherPath, launcherconfig.Default())
@@ -547,13 +593,10 @@ func main() {
 	}
 
 	effectivePort := *port
-	effectivePublic := *public
 	if !explicitPort {
 		effectivePort = strconv.Itoa(launcherCfg.Port)
 	}
-	if !explicitPublic {
-		effectivePublic = launcherCfg.Public
-	}
+	effectivePublic := resolveLauncherPublicMode(*public, explicitPublic, launcherCfg.Public)
 	envHost := strings.TrimSpace(os.Getenv(launcherconfig.EnvLauncherHost))
 
 	hostInput, hostOverrideActive, err := resolveLauncherHostInput(*host, explicitHost, envHost)
@@ -588,12 +631,6 @@ func main() {
 		}
 		logger.Fatalf("Invalid port %q: %v", effectivePort, err)
 	}
-
-	openResult, err := openLauncherListeners(hostInput, effectivePublic, effectivePort)
-	if err != nil {
-		logger.Fatalf("Failed to open launcher listener(s): %v", err)
-	}
-	listeners := openResult.Listeners
 
 	dashboardSessions := middleware.NewLauncherDashboardSessions(0)
 
@@ -685,6 +722,40 @@ func main() {
 		)
 	}
 
+	// PC-DEF-039. An unclaimed dashboard is never exposed beyond loopback.
+	//
+	// Public Mode says where the user wants the dashboard reachable from. It
+	// does not say who owns it, and until a password exists nobody does: the
+	// first client to reach POST /api/auth/setup would become the owner. The
+	// handler refuses that from off-device, and this refuses to offer them the
+	// port in the first place -- two independent controls, because either one
+	// regressing alone must not reopen the takeover.
+	//
+	// The desired preference is untouched and is reported as desired; only the
+	// effective bind is narrowed while the dashboard is unclaimed.
+	desiredPublic := effectivePublic
+	dashboardInitialized := false
+	if passwordStore != nil {
+		if ok, initErr := passwordStore.IsInitialized(context.Background()); initErr != nil {
+			logger.ErrorC("web", fmt.Sprintf(
+				"Could not determine dashboard initialization state, binding to loopback only: %v", initErr))
+		} else {
+			dashboardInitialized = ok
+		}
+	}
+	effectivePublic, narrowed := effectiveLauncherExposure(desiredPublic, dashboardInitialized)
+	if narrowed {
+		logger.WarnC("web",
+			"Public Mode is requested but the Dashboard has no password yet; "+
+				"binding to loopback only until it is set up on this device")
+	}
+
+	openResult, err := openLauncherListeners(hostInput, effectivePublic, effectivePort)
+	if err != nil {
+		logger.Fatalf("Failed to open launcher listener(s): %v", err)
+	}
+	listeners := openResult.Listeners
+
 	var localAutoLogin *middleware.LauncherDashboardLocalAutoLogin
 	needsInitialSetup := false
 	if passwordStore != nil {
@@ -708,13 +779,25 @@ func main() {
 		Sessions:      dashboardSessions,
 		PasswordStore: passwordStore,
 		StoreError:    authStoreErr,
+		// PC-DEF-040. Resolved when called, not now: the routes are registered
+		// before the HTTP runtime exists, and the runtime is what owns the
+		// listener this re-binds.
+		OnDashboardClaimed: func() {
+			runtime := httpRuntime
+			if runtime == nil {
+				return
+			}
+			// Returns immediately: the apply happens on its own goroutine
+			// because it replaces the listener carrying this very request.
+			runtime.ReconcileAfterDashboardClaimed()
+		},
 	})
 
 	// API Routes (e.g. /api/status)
 	apiHandler = api.NewHandler(absPath)
 	apiHandler.SetDebug(debug)
 	if _, err = apiHandler.EnsurePocketClawChannel(); err != nil {
-		logger.ErrorC("web", fmt.Sprintf("Warning: failed to ensure pico channel on startup: %v", err))
+		logger.ErrorC("web", fmt.Sprintf("Warning: failed to ensure PocketClaw channel on startup: %v", err))
 	}
 	apiHandler.SetServerOptions(portNum, effectivePublic, explicitPublic, launcherCfg.AllowedCIDRs)
 	apiHandler.SetServerAccessOptions(
@@ -742,6 +825,9 @@ func main() {
 	}, accessControlledMux)
 	appMux := http.NewServeMux()
 	apiHandler.RegisterAndroidBridgeRoutes(appMux, os.Getenv(api.AndroidBridgeTokenEnv))
+	// PC-DEF-030. One internal notification, authorized by a credential that
+	// belongs to the current gateway generation and grants nothing else.
+	apiHandler.RegisterGatewayIdleRoute(appMux)
 	appMux.Handle("/", dashAuth)
 
 	// Apply middleware stack
@@ -752,7 +838,8 @@ func main() {
 			),
 		),
 	)
-	httpRuntime = newLauncherHTTPRuntime(handler, hostInput, effectivePublic, openResult)
+	httpRuntime = newLauncherHTTPRuntime(
+		handler, hostInput, effectivePublic, desiredPublic, openResult)
 	apiHandler.SetLauncherNetworkModeController(httpRuntime)
 
 	// Print startup banner (console mode only). Android captures stdout for a

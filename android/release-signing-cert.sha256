@@ -1,0 +1,40 @@
+# PocketClaw production signing certificate — SHA-256 fingerprint.
+#
+# PUBLIC METADATA. This file holds one thing: the SHA-256 digest of the
+# production signing *certificate*. A certificate is the public half. It is not
+# a key, it carries no password, and publishing it is normal — Google Play shows
+# it, and anyone can read it out of a signed APK with apksigner. Committing it
+# is the point: it is what lets the release gate prove that an artifact was
+# signed by the key this project intends to ship with, and not by some other key
+# that also happens to verify.
+#
+# NEVER put the keystore, an alias password, or any key material in this file or
+# anywhere else in this repository. See docs/RELEASE_SIGNING.md.
+#
+# --------------------------------------------------------------------------
+# STATUS: ENROLLED
+# --------------------------------------------------------------------------
+#
+# The developer app-signing key was created by the owner at the H2 ceremony on
+# 2026-09-10. The keystore and both passwords are owner-held and live outside
+# this repository; nothing but the digest below is, or ever will be, committed.
+#
+# One digest, and only one. A second enrolled signer would mean the gate
+# accepted either of two identities without saying which, which is the opposite
+# of what enrolling a fingerprint is for. Rotating the key means replacing this
+# line, not adding another.
+#
+# The certificate subject is deliberately not a trust input. Subjects are
+# self-asserted and anyone can mint a certificate claiming one; the digest is
+# what actually identifies the key.
+#
+# Re-read it from the keystore at any time — this prints exactly the form below,
+# and asks for the keystore password, which it never stores:
+#
+#     tool/create_release_keystore.sh --print-fingerprint <keystore> <alias>
+#
+# or from a signed artifact:
+#
+#     apksigner verify --print-certs <apk> | grep 'SHA-256 digest'
+#
+176dca6b198b9552fb4d9ad3ca18da8d6f23c0a3f5ed4bd6b75a0700f9f0efcf

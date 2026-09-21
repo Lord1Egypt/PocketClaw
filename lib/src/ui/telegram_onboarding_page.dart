@@ -3,6 +3,7 @@ import 'package:qr_flutter/qr_flutter.dart';
 
 import '../core/pocketclaw_design.dart';
 import '../telegram/telegram_config_writer.dart';
+import '../telegram/telegram_deep_link.dart';
 import '../telegram/telegram_onboarding_controller.dart';
 import '../telegram/telegram_onboarding_models.dart';
 import '../telegram/telegram_onboarding_strings.dart';
@@ -57,15 +58,17 @@ class _TelegramOnboardingPageState extends State<TelegramOnboardingPage>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    // Telegram taking focus must not end the pairing. Polling stops while the
-    // app is backgrounded and resumes with an immediate check on return.
+    // PC-DEF-056. Backgrounding no longer stops polling. The user spends that
+    // window in Telegram confirming the bot, and stopping meant the pairing
+    // result could not be consumed until they came back -- so the bot chat
+    // Telegram showed them was silent. Resume is a catch-up for the case where
+    // Android killed the timer or the process, and is a no-op otherwise.
     switch (state) {
+      case AppLifecycleState.resumed:
+        widget.controller.resumePolling();
       case AppLifecycleState.paused:
       case AppLifecycleState.hidden:
       case AppLifecycleState.detached:
-        widget.controller.pausePolling();
-      case AppLifecycleState.resumed:
-        widget.controller.resumePolling();
       case AppLifecycleState.inactive:
         break;
     }
@@ -105,6 +108,11 @@ class _TelegramOnboardingPageState extends State<TelegramOnboardingPage>
         );
       case TelegramOnboardingStage.configuring:
         return _buildBusy(context, TelegramOnboardingStrings.configuring);
+      // PC-DEF-056. A distinct step, because it is a distinct fact: the
+      // configuration is saved and what is outstanding is Core reporting the
+      // channel running. No Open Chat action is offered until it does.
+      case TelegramOnboardingStage.startingRuntime:
+        return _buildBusy(context, TelegramOnboardingStrings.startingRuntime);
       case TelegramOnboardingStage.connected:
         return _buildConnected(context);
       case TelegramOnboardingStage.expired:
@@ -184,13 +192,19 @@ class _TelegramOnboardingPageState extends State<TelegramOnboardingPage>
           label: const Text(TelegramOnboardingStrings.openTelegram),
         ),
         const SizedBox(height: PocketClawDesign.spaceLarge),
-        Text(
-          TelegramOnboardingStrings.scanInstead,
-          style: theme.textTheme.bodySmall,
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: PocketClawDesign.spaceMedium),
-        Center(child: TelegramPairingQr(payload: pairing.qrPayload)),
+        // PC-DEF-052. The QR encodes whatever the service returned. Only a
+        // Telegram destination is rendered, because a scanner follows it and an
+        // implementation URL behind this code would be exactly the defect. A
+        // non-Telegram payload drops the QR rather than showing it.
+        if (TelegramDeepLink.isTelegramTarget(pairing.qrPayload)) ...[
+          Text(
+            TelegramOnboardingStrings.scanInstead,
+            style: theme.textTheme.bodySmall,
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: PocketClawDesign.spaceMedium),
+          Center(child: TelegramPairingQr(payload: pairing.qrPayload)),
+        ],
         const SizedBox(height: PocketClawDesign.spaceLarge),
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -302,11 +316,19 @@ class _TelegramOnboardingPageState extends State<TelegramOnboardingPage>
   }
 
   Widget _buildFailed(BuildContext context) {
+    final invalidCredentials =
+        widget.controller.errorKind ==
+        TelegramOnboardingErrorKind.invalidCredentials;
     return _buildProblem(
       context,
       icon: Icons.error_outline_rounded,
-      headline: TelegramOnboardingStrings.tryAgain,
+      headline: invalidCredentials
+          ? TelegramOnboardingStrings.connectionFailed
+          : TelegramOnboardingStrings.tryAgain,
       body: TelegramOnboardingStrings.errorMessage(widget.controller.errorKind),
+      actionLabel: invalidCredentials
+          ? TelegramOnboardingStrings.createOrReplaceBot
+          : TelegramOnboardingStrings.tryAgain,
     );
   }
 
@@ -315,6 +337,7 @@ class _TelegramOnboardingPageState extends State<TelegramOnboardingPage>
     required IconData icon,
     required String headline,
     required String body,
+    String actionLabel = TelegramOnboardingStrings.tryAgain,
   }) {
     final theme = Theme.of(context);
     return Column(
@@ -337,7 +360,7 @@ class _TelegramOnboardingPageState extends State<TelegramOnboardingPage>
         const SizedBox(height: PocketClawDesign.spaceLarge),
         FilledButton(
           onPressed: widget.controller.retry,
-          child: const Text(TelegramOnboardingStrings.tryAgain),
+          child: Text(actionLabel),
         ),
         const SizedBox(height: PocketClawDesign.spaceSmall),
         _buildManualFallback(context),

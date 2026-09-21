@@ -164,7 +164,7 @@
   "whatsNew020New2": "Herramientas de desarrollo incluidas: Git, GitHub CLI, curl, ripgrep, jq y SQLite.",
   "whatsNew020New3": "Compatibilidad con el entorno de ejecución de Python 3.14 incluido en PocketClaw.",
   "whatsNew020New4": "Inicio de sesión seguro en GitHub, compartido por Git y la CLI de GitHub incluidos.",
-  "whatsNew020New5": "Integración con Telegram, configurable desde Ajustes.",
+  "whatsNew020New5": "Configuración de Telegram con un toque: PocketClaw crea tu propio bot, en la aplicación o desde el panel en un navegador. No hay ningún token que copiar y solo tu cuenta puede hablar con él.",
   "whatsNew020New6": "Una vista de Estado en el panel: trabajo activo, canales, el modelo en uso y los recursos de ejecución.",
   "whatsNew020Improvement1": "Proveedores más resistentes: una solicitud fallida ya no interrumpe el turno.",
   "whatsNew020Improvement2": "Un catálogo del entorno de ejecución gestionado más preciso.",
@@ -218,5 +218,16 @@
   "statusDurationSeconds": "{seconds} s",
   "statusDurationMinutes": "{minutes} min {seconds} s",
   "statusDurationHours": "{hours} h {minutes} min",
-  "statusDurationDays": "{days} d {hours} h"
+  "statusDurationDays": "{days} d {hours} h",
+  "notificationPermissionTitle": "Notificaciones",
+  "notificationPermissionGranted": "PocketClaw puede mostrar su notificación de ejecución.",
+  "notificationPermissionBlocked": "Las notificaciones están desactivadas, así que la notificación de PocketClaw en ejecución no aparecerá.",
+  "notificationPermissionOpenSettings": "Abrir ajustes de notificaciones",
+  "whatsNew020New7": "Gestión de Telegram desde el panel: conectar un bot, reemplazarlo o desconectarlo.",
+  "whatsNew020New8": "Gestión de proveedores y modelos en el panel: añadir un proveedor, rotar una clave de API o eliminar un modelo.",
+  "whatsNew020Improvement12": "Los ajustes de Telegram se aplican al guardarlos, sin reinicios manuales.",
+  "whatsNew020Improvement13": "Cuando no hay ningún modelo de IA configurado, PocketClaw dice exactamente qué falta y te da un código para consultarlo.",
+  "whatsNew020Improvement14": "Al iniciar sesión en el panel vuelves a la pantalla que pediste.",
+  "whatsNew020Improvement15": "Los registros de diagnóstico siguen siendo detallados sin contener nunca tus claves, tokens ni el texto de tus mensajes.",
+  "whatsNew020Improvement16": "Un panel que nadie ha reclamado todavía nunca es accesible desde la red, ni siquiera con el modo público activado."
 }

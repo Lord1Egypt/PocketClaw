@@ -76,8 +76,18 @@ type services struct {
 	authToken        string
 }
 
+// startupBlockedProvider stands in for a provider that could not be built,
+// so the gateway can run its channels while the AI side is still incomplete.
+//
+// It carries a user-facing error rather than a bare string. Every request it
+// receives fails, and that failure is the only thing the user sees -- on a fresh
+// install with a working Telegram bot, it *is* the product's answer. It used to
+// return fmt.Errorf("no default model configured; gateway started in limited
+// mode"), which no classifier recognised, so it reached the chat window as
+// "Error processing message: ..." followed by implementation jargon and no
+// instruction. See agent.AIConfigurationProblem.
 type startupBlockedProvider struct {
-	reason string
+	problem *agent.UserFacingError
 }
 
 func logChannelVoiceCapabilities(cm *channels.Manager, asrAvailable bool, ttsAvailable bool) {
@@ -123,7 +133,12 @@ func (p *startupBlockedProvider) Chat(
 	_ string,
 	_ map[string]any,
 ) (*providers.LLMResponse, error) {
-	return nil, fmt.Errorf("%s", p.reason)
+	if p.problem == nil {
+		// Never nil in practice; a provider that cannot say why it is blocked
+		// must still not answer.
+		return nil, agent.ErrAINotConfigured
+	}
+	return nil, p.problem
 }
 
 func (p *startupBlockedProvider) GetDefaultModel() string {
@@ -406,12 +421,19 @@ func createStartupProvider(
 ) (providers.LLMProvider, string, error) {
 	modelName := cfg.Agents.Defaults.GetModelName()
 	if modelName == "" && allowEmptyStartup {
-		reason := "no default model configured; gateway started in limited mode"
-		fmt.Printf("⚠ Warning: %s\n", reason)
-		logger.WarnCF("gateway", "Gateway started without default model", map[string]any{
+		// The configuration decides *which* explanation is right: nothing added
+		// yet, everything disabled, nothing selected, or a selection whose entry
+		// is gone. They need different actions from the user.
+		problem := agent.AIConfigurationProblem(cfg)
+		if problem == nil {
+			problem = agent.NewNoModelSelectedProblem()
+		}
+		fmt.Printf("⚠ Warning: %s\n", problem.Message)
+		logger.WarnCF("gateway", "Gateway started without a usable AI provider", map[string]any{
 			"limited_mode": true,
+			"code":         problem.Code,
 		})
-		return &startupBlockedProvider{reason: reason}, "", nil
+		return &startupBlockedProvider{problem: problem}, "", nil
 	}
 
 	provider, modelID, err := providers.CreateProvider(cfg)
@@ -459,6 +481,11 @@ func setupAndStartServices(
 		return nil, fmt.Errorf("error starting heartbeat service: %w", err)
 	}
 	fmt.Println("✓ Heartbeat service started")
+
+	// Zero-Pico. The media cache directory was renamed, so the one an older
+	// build created is deleted rather than left behind as a stale Pico path.
+	// Before the store starts, so a cleanup pass cannot race the removal.
+	media.RetireLegacyTempDir()
 
 	runningServices.MediaStore = media.NewFileMediaStoreWithCleanup(media.MediaCleanerConfig{
 		Enabled:  cfg.Tools.MediaCleanup.Enabled,
@@ -724,6 +751,11 @@ func restartServices(
 		return fmt.Errorf("error restarting heartbeat service: %w", err)
 	}
 	fmt.Println("  ✓ Heartbeat service restarted")
+
+	// Zero-Pico. The media cache directory was renamed, so the one an older
+	// build created is deleted rather than left behind as a stale Pico path.
+	// Before the store starts, so a cleanup pass cannot race the removal.
+	media.RetireLegacyTempDir()
 
 	runningServices.MediaStore = media.NewFileMediaStoreWithCleanup(media.MediaCleanerConfig{
 		Enabled:  cfg.Tools.MediaCleanup.Enabled,

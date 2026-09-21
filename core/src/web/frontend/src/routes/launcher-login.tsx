@@ -19,6 +19,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useTheme } from "@/hooks/use-theme"
+import { readPostAuthDestination } from "@/lib/post-auth-destination"
 
 function LauncherLoginPage() {
   const { t } = useTranslation()
@@ -26,6 +27,12 @@ function LauncherLoginPage() {
   const [password, setPassword] = React.useState("")
   const [submitting, setSubmitting] = React.useState(false)
   const [error, setError] = React.useState("")
+
+  // Captured once from the URL rather than re-read per submit, so a wrong
+  // password followed by the right one still lands on the original destination.
+  const [destination] = React.useState(() =>
+    readPostAuthDestination(globalThis.location.search),
+  )
 
   // If the password store has never been initialized, go to setup instead.
   React.useEffect(() => {
@@ -47,7 +54,10 @@ function LauncherLoginPage() {
       try {
         const result = await postLauncherDashboardLogin(passwordValue)
         if (result.ok) {
-          globalThis.location.assign("/")
+          // PC-DEF-059. Return to whatever was requested before the session
+          // expired, validated against the route set — `next` arrives from a URL
+          // and is untrusted. An unrecognised destination falls back to home.
+          globalThis.location.assign(destination)
           return
         }
         if (result.status === 409) {
@@ -65,7 +75,7 @@ function LauncherLoginPage() {
         setSubmitting(false)
       }
     },
-    [t],
+    [t, destination],
   )
 
   const onSubmit = async (e: React.FormEvent<HTMLFormElement>) => {

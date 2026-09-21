@@ -1,0 +1,430 @@
+import {
+  IconBrandTelegram,
+  IconCopy,
+  IconLoader2,
+  IconRefresh,
+} from "@tabler/icons-react"
+import { useCallback, useEffect, useRef, useState } from "react"
+import { useTranslation } from "react-i18next"
+import { toast } from "sonner"
+
+import {
+  type TelegramDesktopPairing,
+  type TelegramPairingState,
+  cancelTelegramPairing,
+  completeTelegramPairing,
+  createTelegramPairing,
+  fetchTelegramPairingStatus,
+  isTelegramDestination,
+} from "@/api/telegram-onboarding"
+import {
+  readinessLabelKey,
+  useTelegramReadiness,
+} from "@/components/channels/channel-forms/use-telegram-readiness"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent } from "@/components/ui/card"
+import { copyText } from "@/lib/clipboard"
+
+/**
+ * Managed Telegram pairing from a client with no Android host.
+ *
+ * PC-DEF-060. The native flow launches Telegram and writes the token itself; a browser
+ * cannot. Core runs the pairing, so this component only ever calls same-origin endpoints
+ * and never handles a credential: it shows the Telegram link, polls state, and asks Core
+ * to finish.
+ *
+ * The poll interval and the deadline both come from the pairing, so the service decides
+ * them rather than this file guessing.
+ *
+ * PC-DEF-061. "Connected" is not announced when the configuration is applied. Applying it
+ * restarts the gateway, and the Telegram channel is built and starts polling asynchronously
+ * inside that — so the readiness stage below waits for the gateway's own status snapshot to
+ * say the channel is running and its command menu has landed. The wait is bounded and
+ * reports what it is waiting for; it is never a fixed delay, and nothing is claimed if the
+ * bound expires.
+ */
+
+type Phase =
+  | { kind: "idle" }
+  | { kind: "creating" }
+  | { kind: "waiting"; pairing: TelegramDesktopPairing }
+  | { kind: "configuring"; pairing: TelegramDesktopPairing }
+  /**
+   * Configured, and now waiting for Telegram to actually be receiving.
+   *
+   * PC-DEF-061. This stage did not exist: completion was reported as connected
+   * the moment the configuration was applied, so the user was invited to send
+   * the first message while the channel was still starting inside the gateway.
+   */
+  | { kind: "starting" }
+  | { kind: "failed"; reason: string }
+
+/**
+ * Maps a Core onboarding error kind to its localized, actionable message.
+ *
+ * A failed candidate is never collapsed into one "connection failed": invalid
+ * credentials, an active webhook and another poller need different user actions.
+ */
+function desktopOnboardingErrorKey(error: unknown): string {
+  const kind = error instanceof Error ? error.message : ""
+  switch (kind) {
+    case "invalid_credentials":
+      return "channels.telegram.desktop.errorInvalidCredentials"
+    case "webhook_active":
+      return "channels.telegram.desktop.errorWebhookActive"
+    case "bot_in_use":
+      return "channels.telegram.desktop.errorBotInUse"
+    default:
+      return "channels.telegram.desktop.errorFailed"
+  }
+}
+
+interface TelegramDesktopConnectProps {
+  /** Called once Telegram is configured, so the page can reload its config. */
+  onConnected: () => void
+}
+
+export function TelegramDesktopConnect({
+  onConnected,
+}: TelegramDesktopConnectProps) {
+  const { t } = useTranslation()
+  const [phase, setPhase] = useState<Phase>({ kind: "idle" })
+  const [state, setState] = useState<TelegramPairingState>("pending")
+  // A copy that neither the Clipboard API nor the execCommand fallback could
+  // perform still has a way out: the canonical link is shown in a selectable
+  // field instead of a dead-end failure. Only ever set from a link that passed
+  // the Telegram-destination guard.
+  const [manualLink, setManualLink] = useState<string | null>(null)
+
+  // Held in a ref so the polling effect can stop without being re-created, and so an
+  // unmount cancels the pairing it started rather than leaving Core holding a token.
+  const pairingRef = useRef<TelegramDesktopPairing | null>(null)
+  const completingRef = useRef(false)
+
+  useEffect(() => {
+    return () => {
+      const pairing = pairingRef.current
+      // Only an unfinished pairing is cancelled: a completed one is already spent.
+      if (pairing && !completingRef.current) {
+        void cancelTelegramPairing(pairing.pairing_id)
+      }
+    }
+  }, [])
+
+  const fail = useCallback((reason: string) => {
+    pairingRef.current = null
+    completingRef.current = false
+    setPhase({ kind: "failed", reason })
+  }, [])
+
+  const start = useCallback(async () => {
+    setPhase({ kind: "creating" })
+    setState("pending")
+    setManualLink(null)
+    try {
+      const pairing = await createTelegramPairing()
+      pairingRef.current = pairing
+      completingRef.current = false
+      setPhase({ kind: "waiting", pairing })
+    } catch (error) {
+      fail(
+        error instanceof Error && error.message === "rate_limited"
+          ? t("channels.telegram.desktop.errorRateLimited")
+          : t("channels.telegram.desktop.errorStart"),
+      )
+    }
+  }, [fail, t])
+
+  const cancel = useCallback(async () => {
+    const pairing = pairingRef.current
+    pairingRef.current = null
+    completingRef.current = false
+    setManualLink(null)
+    setPhase({ kind: "idle" })
+    if (pairing) await cancelTelegramPairing(pairing.pairing_id)
+  }, [])
+
+  // Polls while a pairing is outstanding. The pairing's own expiry ends it, so this
+  // cannot poll forever.
+  useEffect(() => {
+    if (phase.kind !== "waiting") return
+    const pairing = phase.pairing
+    const intervalMs = Math.max(1, pairing.poll_interval_seconds) * 1000
+    const deadline = Date.parse(pairing.expires_at)
+    let cancelled = false
+
+    const tick = async () => {
+      if (cancelled) return
+      if (Number.isFinite(deadline) && Date.now() >= deadline) {
+        fail(t("channels.telegram.desktop.errorExpired"))
+        return
+      }
+      try {
+        const status = await fetchTelegramPairingStatus(pairing.pairing_id)
+        if (cancelled) return
+        setState(status.state)
+        if (status.state === "expired") {
+          fail(t("channels.telegram.desktop.errorExpired"))
+          return
+        }
+        if (status.state === "failed") {
+          fail(t("channels.telegram.desktop.errorFailed"))
+          return
+        }
+        if (status.state !== "ready") return
+
+        // Ready means the token is collectable, exactly once, so guard against a
+        // second tick racing the first.
+        if (completingRef.current) return
+        completingRef.current = true
+        setPhase({ kind: "configuring", pairing })
+
+        const result = await completeTelegramPairing(pairing.pairing_id)
+        if (cancelled) return
+        pairingRef.current = null
+        if (result.pending) {
+          // Saved but not yet live, which is not a failure — PC-DEF-030's rule.
+          // It is also not readiness, so the wait below still has to happen.
+          toast.info(t("channels.telegram.desktop.savedPending"))
+        }
+        // The configuration is written. Whether Telegram can receive is a
+        // different question, and the readiness stage is where it is answered.
+        setPhase({ kind: "starting" })
+      } catch (error) {
+        if (!cancelled) {
+          fail(t(desktopOnboardingErrorKey(error)))
+        }
+      }
+    }
+
+    void tick()
+    const timer = setInterval(() => void tick(), intervalMs)
+    return () => {
+      cancelled = true
+      clearInterval(timer)
+    }
+  }, [phase, fail, onConnected, t])
+
+  // PC-DEF-061. Watch readiness only while this flow is waiting on it.
+  const { readiness, timedOut, recheck } = useTelegramReadiness(
+    phase.kind === "starting",
+  )
+
+  useEffect(() => {
+    if (phase.kind !== "starting") return
+    if (readiness?.state === "authentication_failed") {
+      fail(t("channels.telegram.desktop.errorInvalidCredentials"))
+      return
+    }
+    // A bot owned elsewhere is terminal too, and the two ownerships need
+    // different instructions, so they do not collapse into one message.
+    if (readiness?.state === "telegram_conflict") {
+      fail(
+        t(
+          readiness.detail === "webhook_active"
+            ? "channels.telegram.desktop.errorWebhookActive"
+            : "channels.telegram.desktop.errorBotInUse",
+        ),
+      )
+    }
+  }, [phase.kind, readiness?.state, readiness?.detail, fail, t])
+
+  // Ready is the only state that may be announced, and it is announced once.
+  const announced = useRef(false)
+  useEffect(() => {
+    if (phase.kind !== "starting") {
+      announced.current = false
+      return
+    }
+    if (!readiness?.ready || announced.current) return
+    announced.current = true
+    toast.success(t("channels.telegram.desktop.connected"))
+    setPhase({ kind: "idle" })
+    onConnected()
+  }, [phase.kind, readiness?.ready, onConnected, t])
+
+  const copyLink = useCallback(
+    async (link: string) => {
+      // copyText tries navigator.clipboard.writeText and falls back to
+      // execCommand("copy"), which is exactly the path a plain-HTTP LAN origin
+      // or a WebView without the async Clipboard API needs. The previous
+      // direct navigator.clipboard call is why "Copy link" failed there.
+      const copied = await copyText(link)
+      if (copied) {
+        setManualLink(null)
+        toast.success(t("channels.telegram.desktop.linkCopied"))
+        return
+      }
+      // Neither path worked. Show the canonical link so the user can select and
+      // copy it by hand -- never a dead-end failure toast carrying nothing.
+      setManualLink(link)
+      toast.info(t("channels.telegram.desktop.linkCopyManual"))
+    },
+    [t],
+  )
+
+  return (
+    <Card className="shadow-sm" data-testid="telegram-desktop-connect">
+      <CardContent className="space-y-4 px-6 py-5">
+        <div>
+          <p className="text-sm font-medium">
+            {t("channels.telegram.desktop.title")}
+          </p>
+          <p className="text-muted-foreground mt-1 text-sm">
+            {t("channels.telegram.desktop.body")}
+          </p>
+        </div>
+
+        {phase.kind === "idle" && (
+          <Button onClick={() => void start()} className="min-h-10">
+            <IconBrandTelegram className="size-4" />
+            {t("channels.telegram.desktop.connect")}
+          </Button>
+        )}
+
+        {phase.kind === "creating" && (
+          <p className="text-muted-foreground flex items-center gap-2 text-sm">
+            <IconLoader2 className="size-4 animate-spin" />
+            {t("channels.telegram.desktop.creating")}
+          </p>
+        )}
+
+        {phase.kind === "waiting" && (
+          <div className="space-y-3">
+            <div>
+              <p className="text-muted-foreground text-xs tracking-wide uppercase">
+                {t("channels.telegram.desktop.suggestedBot")}
+              </p>
+              <p className="font-mono text-sm">
+                @{phase.pairing.suggested_username}
+              </p>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              {/* Core drops a non-Telegram link before returning it, and this
+                  refuses to render one anyway: a network response is untrusted
+                  input, and an anchor or a clipboard entry pointing at a hosting
+                  origin is the PC-DEF-052 defect. When no Telegram link is
+                  available the buttons are absent and the suggested @username
+                  above is the way in, with the manual form as the fallback. */}
+              {isTelegramDestination(phase.pairing.deep_link) && (
+                <>
+                  <Button asChild className="min-h-10">
+                    <a
+                      href={phase.pairing.deep_link}
+                      target="_blank"
+                      rel="noreferrer noopener"
+                    >
+                      <IconBrandTelegram className="size-4" />
+                      {t("channels.telegram.desktop.openTelegram")}
+                    </a>
+                  </Button>
+                  {/* For finishing on a phone instead of this machine. */}
+                  <Button
+                    variant="outline"
+                    className="min-h-10"
+                    onClick={() => void copyLink(phase.pairing.deep_link)}
+                  >
+                    <IconCopy className="size-4" />
+                    {t("channels.telegram.desktop.copyLink")}
+                  </Button>
+                </>
+              )}
+              <Button
+                variant="ghost"
+                className="min-h-10"
+                onClick={() => void cancel()}
+              >
+                {t("common.cancel")}
+              </Button>
+            </div>
+
+            {/* The fallback when neither copy path worked. It only ever holds a
+                link that passed the Telegram-destination guard, it is selectable
+                rather than merely shown, and the guidance says what to do. */}
+            {manualLink && isTelegramDestination(manualLink) && (
+              <div className="space-y-1" data-testid="telegram-manual-copy">
+                <p className="text-muted-foreground text-sm">
+                  {t("channels.telegram.desktop.linkCopyManual")}
+                </p>
+                <input
+                  readOnly
+                  value={manualLink}
+                  dir="ltr"
+                  aria-label={t("channels.telegram.desktop.copyLink")}
+                  onFocus={(event) => event.currentTarget.select()}
+                  className="border-pc-line bg-pc-surface-2 text-pc-text w-full rounded border px-3 py-2 font-mono text-xs"
+                />
+              </div>
+            )}
+
+            <p className="text-muted-foreground text-sm">
+              {state === "created"
+                ? t("channels.telegram.desktop.botCreated")
+                : t("channels.telegram.desktop.waiting")}
+            </p>
+          </div>
+        )}
+
+        {phase.kind === "configuring" && (
+          <p className="text-muted-foreground flex items-center gap-2 text-sm">
+            <IconLoader2 className="size-4 animate-spin" />
+            {t("channels.telegram.desktop.configuring")}
+          </p>
+        )}
+
+        {phase.kind === "starting" && (
+          <div className="space-y-3" data-testid="telegram-desktop-starting">
+            {timedOut ? (
+              <>
+                {/* The configuration is saved — this is not a pairing failure,
+                    so the action offered is to look again, not to start over. */}
+                <p className="text-destructive text-sm" role="alert">
+                  {t("channels.telegram.desktop.errorNotReady")}
+                </p>
+                <Button
+                  variant="outline"
+                  className="min-h-10"
+                  onClick={recheck}
+                >
+                  <IconRefresh className="size-4" />
+                  {t("channels.telegram.desktop.checkAgain")}
+                </Button>
+              </>
+            ) : (
+              <p
+                className="text-muted-foreground flex items-center gap-2 text-sm"
+                data-readiness-state={readiness?.state ?? "pending"}
+              >
+                <IconLoader2 className="size-4 animate-spin" />
+                {/* Names the stage rather than saying "please wait": the user is
+                    being told why they should not send a message yet. */}
+                {t(
+                  readiness
+                    ? readinessLabelKey(readiness.state)
+                    : "channels.telegram.desktop.configuring",
+                )}
+              </p>
+            )}
+          </div>
+        )}
+
+        {phase.kind === "failed" && (
+          <div className="space-y-3">
+            <p className="text-destructive text-sm" role="alert">
+              {phase.reason}
+            </p>
+            <Button
+              variant="outline"
+              className="min-h-10"
+              onClick={() => void start()}
+            >
+              <IconRefresh className="size-4" />
+              {t("channels.telegram.desktop.retry")}
+            </Button>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  )
+}

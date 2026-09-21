@@ -342,23 +342,23 @@ func TestStartGatewayLocked_UsesReloadedConfigForBootSignature(t *testing.T) {
 	}
 }
 
-func TestGatewayStartReady_NoDefaultModel(t *testing.T) {
+func TestChatReady_NoDefaultModel(t *testing.T) {
 	configPath := filepath.Join(t.TempDir(), "config.json")
 	h := NewHandler(configPath)
 
-	ready, reason, err := h.gatewayStartReady()
+	ready, reason, err := h.chatReady()
 	if err != nil {
-		t.Fatalf("gatewayStartReady() error = %v", err)
+		t.Fatalf("chatReady() error = %v", err)
 	}
 	if ready {
-		t.Fatalf("gatewayStartReady() ready = true, want false")
+		t.Fatalf("chatReady() ready = true, want false")
 	}
 	if reason != "no default model configured" {
-		t.Fatalf("gatewayStartReady() reason = %q, want %q", reason, "no default model configured")
+		t.Fatalf("chatReady() reason = %q, want %q", reason, "no default model configured")
 	}
 }
 
-func TestGatewayStartReady_RejectsASROnlyDefaultModel(t *testing.T) {
+func TestChatReady_RejectsASROnlyDefaultModel(t *testing.T) {
 	configPath, cleanup := setupOAuthTestEnv(t)
 	defer cleanup()
 
@@ -380,16 +380,16 @@ func TestGatewayStartReady_RejectsASROnlyDefaultModel(t *testing.T) {
 	}
 
 	h := NewHandler(configPath)
-	ready, reason, err := h.gatewayStartReady()
+	ready, reason, err := h.chatReady()
 	if err != nil {
-		t.Fatalf("gatewayStartReady() error = %v", err)
+		t.Fatalf("chatReady() error = %v", err)
 	}
 	if ready {
-		t.Fatal("gatewayStartReady() ready = true, want false")
+		t.Fatal("chatReady() ready = true, want false")
 	}
 	if reason != `default model "elevenlabs-asr" is not usable for chat` {
 		t.Fatalf(
-			"gatewayStartReady() reason = %q, want %q",
+			"chatReady() reason = %q, want %q",
 			reason,
 			`default model "elevenlabs-asr" is not usable for chat`,
 		)
@@ -495,7 +495,7 @@ func TestValidateGatewayPidDataRejectsHealthPidMismatchWhenMatcherInconclusive(t
 	}
 }
 
-func TestGatewayStartReady_InvalidDefaultModel(t *testing.T) {
+func TestChatReady_InvalidDefaultModel(t *testing.T) {
 	configPath := filepath.Join(t.TempDir(), "config.json")
 	cfg := config.DefaultConfig()
 	cfg.Agents.Defaults.ModelName = "missing-model"
@@ -505,19 +505,19 @@ func TestGatewayStartReady_InvalidDefaultModel(t *testing.T) {
 	}
 
 	h := NewHandler(configPath)
-	ready, reason, err := h.gatewayStartReady()
+	ready, reason, err := h.chatReady()
 	if err != nil {
-		t.Fatalf("gatewayStartReady() error = %v", err)
+		t.Fatalf("chatReady() error = %v", err)
 	}
 	if ready {
-		t.Fatalf("gatewayStartReady() ready = true, want false")
+		t.Fatalf("chatReady() ready = true, want false")
 	}
 	if reason == "" {
-		t.Fatalf("gatewayStartReady() reason is empty")
+		t.Fatalf("chatReady() reason is empty")
 	}
 }
 
-func TestGatewayStartReady_ValidDefaultModel(t *testing.T) {
+func TestChatReady_ValidDefaultModel(t *testing.T) {
 	configPath := filepath.Join(t.TempDir(), "config.json")
 	cfg := config.DefaultConfig()
 	cfg.Agents.Defaults.ModelName = cfg.ModelList[0].ModelName
@@ -528,16 +528,16 @@ func TestGatewayStartReady_ValidDefaultModel(t *testing.T) {
 	}
 
 	h := NewHandler(configPath)
-	ready, reason, err := h.gatewayStartReady()
+	ready, reason, err := h.chatReady()
 	if err != nil {
-		t.Fatalf("gatewayStartReady() error = %v", err)
+		t.Fatalf("chatReady() error = %v", err)
 	}
 	if !ready {
-		t.Fatalf("gatewayStartReady() ready = false, want true (reason=%q)", reason)
+		t.Fatalf("chatReady() ready = false, want true (reason=%q)", reason)
 	}
 }
 
-func TestGatewayStartReady_DefaultModelWithoutCredential(t *testing.T) {
+func TestChatReady_DefaultModelWithoutCredential(t *testing.T) {
 	configPath := filepath.Join(t.TempDir(), "config.json")
 	cfg := config.DefaultConfig()
 	cfg.Agents.Defaults.ModelName = cfg.ModelList[0].ModelName
@@ -549,15 +549,15 @@ func TestGatewayStartReady_DefaultModelWithoutCredential(t *testing.T) {
 	}
 
 	h := NewHandler(configPath)
-	ready, reason, err := h.gatewayStartReady()
+	ready, reason, err := h.chatReady()
 	if err != nil {
-		t.Fatalf("gatewayStartReady() error = %v", err)
+		t.Fatalf("chatReady() error = %v", err)
 	}
 	if ready {
-		t.Fatalf("gatewayStartReady() ready = true, want false")
+		t.Fatalf("chatReady() ready = true, want false")
 	}
 	if !strings.Contains(reason, "no credentials configured") {
-		t.Fatalf("gatewayStartReady() reason = %q, want contains %q", reason, "no credentials configured")
+		t.Fatalf("chatReady() reason = %q, want contains %q", reason, "no credentials configured")
 	}
 }
 
@@ -572,7 +572,7 @@ func TestGatewayCommandArgsIncludesDebugFlagWhenEnabled(t *testing.T) {
 	}
 }
 
-func TestGatewayStartReady_LocalModelWithoutAPIKey(t *testing.T) {
+func TestChatReady_LocalModelWithoutAPIKey(t *testing.T) {
 	configPath, cleanup := setupOAuthTestEnv(t)
 	defer cleanup()
 	resetModelProbeHooks(t)
@@ -597,19 +597,19 @@ func TestGatewayStartReady_LocalModelWithoutAPIKey(t *testing.T) {
 	}
 
 	h := NewHandler(configPath)
-	ready, reason, err := h.gatewayStartReady()
+	ready, reason, err := h.chatReady()
 	if err != nil {
-		t.Fatalf("gatewayStartReady() error = %v", err)
+		t.Fatalf("chatReady() error = %v", err)
 	}
 	if ready {
-		t.Fatalf("gatewayStartReady() ready = true, want false without a running local service")
+		t.Fatalf("chatReady() ready = true, want false without a running local service")
 	}
 	if !strings.Contains(reason, "not reachable") {
-		t.Fatalf("gatewayStartReady() reason = %q, want contains %q", reason, "not reachable")
+		t.Fatalf("chatReady() reason = %q, want contains %q", reason, "not reachable")
 	}
 }
 
-func TestGatewayStartReady_LocalModelWithRunningService(t *testing.T) {
+func TestChatReady_LocalModelWithRunningService(t *testing.T) {
 	configPath, cleanup := setupOAuthTestEnv(t)
 	defer cleanup()
 	resetModelProbeHooks(t)
@@ -634,16 +634,16 @@ func TestGatewayStartReady_LocalModelWithRunningService(t *testing.T) {
 	}
 
 	h := NewHandler(configPath)
-	ready, reason, err := h.gatewayStartReady()
+	ready, reason, err := h.chatReady()
 	if err != nil {
-		t.Fatalf("gatewayStartReady() error = %v", err)
+		t.Fatalf("chatReady() error = %v", err)
 	}
 	if !ready {
-		t.Fatalf("gatewayStartReady() ready = false, want true with a running local service (reason=%q)", reason)
+		t.Fatalf("chatReady() ready = false, want true with a running local service (reason=%q)", reason)
 	}
 }
 
-func TestGatewayStartReady_RemoteVLLMWithAPIKeyDoesNotProbe(t *testing.T) {
+func TestChatReady_RemoteVLLMWithAPIKeyDoesNotProbe(t *testing.T) {
 	configPath, cleanup := setupOAuthTestEnv(t)
 	defer cleanup()
 	resetModelProbeHooks(t)
@@ -670,16 +670,16 @@ func TestGatewayStartReady_RemoteVLLMWithAPIKeyDoesNotProbe(t *testing.T) {
 	}
 
 	h := NewHandler(configPath)
-	ready, reason, err := h.gatewayStartReady()
+	ready, reason, err := h.chatReady()
 	if err != nil {
-		t.Fatalf("gatewayStartReady() error = %v", err)
+		t.Fatalf("chatReady() error = %v", err)
 	}
 	if !ready {
-		t.Fatalf("gatewayStartReady() ready = false, want true for remote vllm with api key (reason=%q)", reason)
+		t.Fatalf("chatReady() ready = false, want true for remote vllm with api key (reason=%q)", reason)
 	}
 }
 
-func TestGatewayStartReady_LocalOllamaUsesDefaultProbeBase(t *testing.T) {
+func TestChatReady_LocalOllamaUsesDefaultProbeBase(t *testing.T) {
 	configPath, cleanup := setupOAuthTestEnv(t)
 	defer cleanup()
 	resetModelProbeHooks(t)
@@ -703,16 +703,16 @@ func TestGatewayStartReady_LocalOllamaUsesDefaultProbeBase(t *testing.T) {
 	}
 
 	h := NewHandler(configPath)
-	ready, reason, err := h.gatewayStartReady()
+	ready, reason, err := h.chatReady()
 	if err != nil {
-		t.Fatalf("gatewayStartReady() error = %v", err)
+		t.Fatalf("chatReady() error = %v", err)
 	}
 	if !ready {
-		t.Fatalf("gatewayStartReady() ready = false, want true with default Ollama probe base (reason=%q)", reason)
+		t.Fatalf("chatReady() ready = false, want true with default Ollama probe base (reason=%q)", reason)
 	}
 }
 
-func TestGatewayStartReady_OAuthModelRequiresStoredCredential(t *testing.T) {
+func TestChatReady_OAuthModelRequiresStoredCredential(t *testing.T) {
 	configPath, cleanup := setupOAuthTestEnv(t)
 	defer cleanup()
 
@@ -732,15 +732,15 @@ func TestGatewayStartReady_OAuthModelRequiresStoredCredential(t *testing.T) {
 	}
 
 	h := NewHandler(configPath)
-	ready, reason, err := h.gatewayStartReady()
+	ready, reason, err := h.chatReady()
 	if err != nil {
-		t.Fatalf("gatewayStartReady() error = %v", err)
+		t.Fatalf("chatReady() error = %v", err)
 	}
 	if ready {
-		t.Fatalf("gatewayStartReady() ready = true, want false without stored credential")
+		t.Fatalf("chatReady() ready = true, want false without stored credential")
 	}
 	if !strings.Contains(reason, "no credentials configured") {
-		t.Fatalf("gatewayStartReady() reason = %q, want contains %q", reason, "no credentials configured")
+		t.Fatalf("chatReady() reason = %q, want contains %q", reason, "no credentials configured")
 	}
 
 	err = auth.SetCredential(oauthProviderOpenAI, &auth.AuthCredential{
@@ -752,16 +752,20 @@ func TestGatewayStartReady_OAuthModelRequiresStoredCredential(t *testing.T) {
 		t.Fatalf("SetCredential() error = %v", err)
 	}
 
-	ready, reason, err = h.gatewayStartReady()
+	ready, reason, err = h.chatReady()
 	if err != nil {
-		t.Fatalf("gatewayStartReady() error = %v", err)
+		t.Fatalf("chatReady() error = %v", err)
 	}
 	if !ready {
-		t.Fatalf("gatewayStartReady() ready = false, want true with stored credential (reason=%q)", reason)
+		t.Fatalf("chatReady() ready = false, want true with stored credential (reason=%q)", reason)
 	}
 }
 
-func TestGatewayStatusIncludesStartConditionWhenNotReady(t *testing.T) {
+func TestGatewayStatusSurfacesChatBlockerWithoutBlockingTheGateway(t *testing.T) {
+	// Was TestGatewayStatusIncludesStartConditionWhenNotReady, which asserted
+	// gateway_start_allowed=false on a config with no model. PC-DEF-038 changed
+	// that contract: an empty registry blocks chat, never the gateway. The
+	// property worth keeping is that status still names an actionable blocker.
 	configPath := filepath.Join(t.TempDir(), "config.json")
 	h := NewHandler(configPath)
 	mux := http.NewServeMux()
@@ -784,11 +788,21 @@ func TestGatewayStatusIncludesStartConditionWhenNotReady(t *testing.T) {
 	if !ok {
 		t.Fatalf("gateway_start_allowed missing or not bool: %#v", body["gateway_start_allowed"])
 	}
-	if allowed {
-		t.Fatalf("gateway_start_allowed = true, want false")
+	if !allowed {
+		t.Fatalf("gateway_start_allowed = false with no model configured; the "+
+			"gateway must be startable so the user can reach provider setup (reason=%v)",
+			body["gateway_start_reason"])
 	}
-	if _, ok := body["gateway_start_reason"].(string); !ok {
-		t.Fatalf("gateway_start_reason missing or not string: %#v", body["gateway_start_reason"])
+
+	chatReady, ok := body["chat_ready"].(bool)
+	if !ok {
+		t.Fatalf("chat_ready missing or not bool: %#v", body["chat_ready"])
+	}
+	if chatReady {
+		t.Fatal("chat_ready = true with no model configured")
+	}
+	if _, ok := body["chat_not_ready_reason"].(string); !ok {
+		t.Fatalf("chat_not_ready_reason missing or not string: %#v", body["chat_not_ready_reason"])
 	}
 }
 
@@ -2054,13 +2068,13 @@ func TestGatewayStatusReturnsRestartingDuringRestartGap(t *testing.T) {
 }
 
 func TestGatewayRestartKeepsRunningProcessWhenPreconditionsFail(t *testing.T) {
+	// The safety property is unchanged: a restart that cannot proceed must not
+	// leave the user with a stopped gateway. Only the trigger moved. Under
+	// PC-DEF-038 a missing credential is no longer a gateway precondition, so
+	// this now fails the one precondition that remains -- an unloadable config.
 	configPath := filepath.Join(t.TempDir(), "config.json")
-	cfg := config.DefaultConfig()
-	cfg.Agents.Defaults.ModelName = cfg.ModelList[0].ModelName
-	cfg.ModelList[0].SetAPIKey("")
-	cfg.ModelList[0].AuthMethod = ""
-	if err := config.SaveConfig(configPath, cfg); err != nil {
-		t.Fatalf("SaveConfig() error = %v", err)
+	if err := os.WriteFile(configPath, []byte("{ this is not json"), 0o600); err != nil {
+		t.Fatalf("write corrupt config: %v", err)
 	}
 
 	h := NewHandler(configPath)
@@ -2091,8 +2105,8 @@ func TestGatewayRestartKeepsRunningProcessWhenPreconditionsFail(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/api/gateway/restart", nil)
 	mux.ServeHTTP(rec, req)
 
-	if rec.Code != http.StatusBadRequest {
-		t.Fatalf("status = %d, want %d", rec.Code, http.StatusBadRequest)
+	if rec.Code == http.StatusOK {
+		t.Fatalf("status = %d, want a failure when the config cannot be loaded", rec.Code)
 	}
 
 	gateway.mu.Lock()

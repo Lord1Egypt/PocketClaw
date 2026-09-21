@@ -146,7 +146,7 @@ func (t *InstallSkillTool) Execute(ctx context.Context, args map[string]any) *To
 		}
 	} else {
 		if _, statErr := os.Stat(targetDir); statErr == nil {
-			backupDir = filepath.Join(skillsDir, fmt.Sprintf(".%s.picoclaw-backup-%d", dirName, time.Now().UnixNano()))
+			backupDir = filepath.Join(skillsDir, fmt.Sprintf(".%s.pocketclaw-backup-%d", dirName, time.Now().UnixNano()))
 			if renameErr := os.Rename(targetDir, backupDir); renameErr != nil {
 				return ErrorResult(fmt.Sprintf("failed to prepare reinstall for %q: %v", slug, renameErr))
 			}

@@ -476,7 +476,7 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get whatsNew020New5 =>
-      'Integración con Telegram, configurable desde Ajustes.';
+      'Configuración de Telegram con un toque: PocketClaw crea tu propio bot, en la aplicación o desde el panel en un navegador. No hay ningún token que copiar y solo tu cuenta puede hablar con él.';
 
   @override
   String get whatsNew020New6 =>
@@ -668,4 +668,47 @@ class AppLocalizationsEs extends AppLocalizations {
   String statusDurationDays(int days, int hours) {
     return '$days d $hours h';
   }
+
+  @override
+  String get notificationPermissionTitle => 'Notificaciones';
+
+  @override
+  String get notificationPermissionGranted =>
+      'PocketClaw puede mostrar su notificación de ejecución.';
+
+  @override
+  String get notificationPermissionBlocked =>
+      'Las notificaciones están desactivadas, así que la notificación de PocketClaw en ejecución no aparecerá.';
+
+  @override
+  String get notificationPermissionOpenSettings =>
+      'Abrir ajustes de notificaciones';
+
+  @override
+  String get whatsNew020New7 =>
+      'Gestión de Telegram desde el panel: conectar un bot, reemplazarlo o desconectarlo.';
+
+  @override
+  String get whatsNew020New8 =>
+      'Gestión de proveedores y modelos en el panel: añadir un proveedor, rotar una clave de API o eliminar un modelo.';
+
+  @override
+  String get whatsNew020Improvement12 =>
+      'Los ajustes de Telegram se aplican al guardarlos, sin reinicios manuales.';
+
+  @override
+  String get whatsNew020Improvement13 =>
+      'Cuando no hay ningún modelo de IA configurado, PocketClaw dice exactamente qué falta y te da un código para consultarlo.';
+
+  @override
+  String get whatsNew020Improvement14 =>
+      'Al iniciar sesión en el panel vuelves a la pantalla que pediste.';
+
+  @override
+  String get whatsNew020Improvement15 =>
+      'Los registros de diagnóstico siguen siendo detallados sin contener nunca tus claves, tokens ni el texto de tus mensajes.';
+
+  @override
+  String get whatsNew020Improvement16 =>
+      'Un panel que nadie ha reclamado todavía nunca es accesible desde la red, ni siquiera con el modo público activado.';
 }

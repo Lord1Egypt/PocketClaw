@@ -6,6 +6,8 @@
 /// [TelegramBotCredentials].
 library;
 
+import 'telegram_deep_link.dart';
+
 /// The observable state of a pairing session, as reported by the service.
 enum PairingState {
   /// The link has been issued and Telegram has reported nothing yet.
@@ -81,15 +83,15 @@ class TelegramPairing {
   /// every field here is either public or scoped to this one short-lived
   /// session — but it is kept explicit so the choice is visible.
   Map<String, dynamic> toStorageJson() => {
-        'pairing_id': pairingId,
-        'poll_token': pollToken,
-        'suggested_username': suggestedUsername,
-        'suggested_name': suggestedName,
-        'deep_link': deepLink,
-        'qr_payload': qrPayload,
-        'expires_at': expiresAt.toIso8601String(),
-        'poll_interval_seconds': pollInterval.inSeconds,
-      };
+    'pairing_id': pairingId,
+    'poll_token': pollToken,
+    'suggested_username': suggestedUsername,
+    'suggested_name': suggestedName,
+    'deep_link': deepLink,
+    'qr_payload': qrPayload,
+    'expires_at': expiresAt.toIso8601String(),
+    'poll_interval_seconds': pollInterval.inSeconds,
+  };
 
   static TelegramPairing? fromStorageJson(Map<String, dynamic> json) {
     try {
@@ -150,7 +152,11 @@ class TelegramBotCredentials {
   final int ownerUserId;
 
   /// The bot's chat link, for the Open Chat action.
-  String get chatUrl => 'https://t.me/$botUsername';
+  ///
+  /// PC-DEF-075. Canonicalised rather than interpolated: a leading `@` from the
+  /// service would produce `https://t.me/@name`, which Telegram reports as
+  /// "Username not found". Null when the username is unusable.
+  String? get chatUrl => telegramBotChatUrl(botUsername);
 
   factory TelegramBotCredentials.fromJson(Map<String, dynamic> json) {
     return TelegramBotCredentials(
@@ -202,6 +208,26 @@ enum TelegramOnboardingErrorKind {
   /// Telegram is not installed, so the deep link could not be opened.
   telegramUnavailable,
 
+  /// The setup link could not be resolved to a Telegram destination.
+  ///
+  /// PC-DEF-052. The app opens Telegram, never the service that issued the link,
+  /// so a link that does not resolve to Telegram is refused rather than opened.
+  /// Distinct from [telegramUnavailable]: there Telegram is missing, here there
+  /// was nothing safe to hand it.
+  telegramLinkUnavailable,
+
   /// Core's configuration could not be written or reloaded.
   configurationFailed,
+
+  /// Telegram answered 401 for this bot token. Retrying the same credential
+  /// cannot work; the user must finish creation or provide another bot.
+  invalidCredentials,
+
+  /// The configuration was saved, but Core never reported the Telegram channel
+  /// as running within the wait.
+  ///
+  /// PC-DEF-056. Distinct from [configurationFailed]: the token and owner are
+  /// persisted and sound, so the user is told to retry the start rather than
+  /// redo the setup — and is never sent into a bot chat that cannot answer.
+  runtimeNotReady,
 }

@@ -1609,7 +1609,7 @@ describe("Tour, launcher setup and launcher login", () => {
       expect(i18n.t("tour.gateway.description"), locale).not.toBe(
         'After configuring models, click the "Start Gateway" button at the top to begin chatting with AI.',
       )
-      expect(i18n.t("tour.docs.title"), locale).not.toBe("View Documentation")
+      expect(i18n.t("tour.gateway.title"), locale).not.toBe("Start Gateway")
 
       // Navigation actions.
       expect(i18n.t("tour.skip"), locale).not.toBe("Skip tour")
@@ -1856,6 +1856,59 @@ describe("hard-coded user-facing English", () => {
       }
     }
 
+    expect(failures.join("\n"), failures.join("\n")).toBe("")
+  })
+})
+
+/**
+ * Locale strings are compiled into libpocketclaw-web.so, so they are scanned by
+ * `tool/native_elf_audit.py`'s build-path privacy check — which looks for the
+ * literal markers below because they are this machine's paths and this
+ * repository's directory name.
+ *
+ * A German translation once contained "PocketClaw-App", the idiomatic hyphenated
+ * compound, and failed that gate as a leaked build path. The audit is right to be
+ * blunt: it cannot tell prose from a path. Catching it here means catching it
+ * before a Core rebuild and an APK build, instead of after both.
+ */
+describe("locale strings carry no build-path markers", () => {
+  // Mirrors PROHIBITED_PATH_MARKERS in tool/native_elf_audit.py.
+  const PROHIBITED = [
+    "/home/lordegypt",
+    "PocketClaw-App",
+    "/tmp/pocketclaw-runtime-build",
+  ]
+
+  function flattenStrings(
+    value: unknown,
+    prefix: string,
+    out: Map<string, string>,
+  ): Map<string, string> {
+    if (value && typeof value === "object") {
+      for (const [key, child] of Object.entries(
+        value as Record<string, unknown>,
+      )) {
+        flattenStrings(child, prefix ? `${prefix}.${key}` : key, out)
+      }
+    } else if (typeof value === "string") {
+      out.set(prefix, value)
+    }
+    return out
+  }
+
+  it("has no prohibited marker in any locale", () => {
+    const failures: string[] = []
+    for (const locale of [...APP_LOCALES, "pt-BR", "cs", "bn-IN"]) {
+      const bundle = i18n.getResourceBundle(locale, "translation") as unknown
+      if (!bundle) continue
+      for (const [key, text] of flattenStrings(bundle, "", new Map())) {
+        for (const marker of PROHIBITED) {
+          if (text.includes(marker)) {
+            failures.push(`${locale} | ${key} | contains ${marker}`)
+          }
+        }
+      }
+    }
     expect(failures.join("\n"), failures.join("\n")).toBe("")
   })
 })

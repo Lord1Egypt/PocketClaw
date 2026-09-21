@@ -16,11 +16,25 @@ Modes:
     --verify-source              repository and source contracts only
     --verify-artifact <apk>      inspect a built APK
     --full <apk>                 both
+    --verify-bundle <aab>        inspect an Android App Bundle
+    --release-assets <name...>   check proposed public release asset names
     --release-class test|production
+    --artifact-class public-release|play-upload|non-publish-audit
+    --dart-symbols <path>        require H3 Dart hardening evidence from the
+                                 private split-debug-info file or directory
+    --r8-mapping <path>          require H4 R8 mapping/shrinking evidence
 
 `test` permits the known development signer and can never report a production
 release. `production` treats a development signer as an unconditional failure.
 The caller chooses; the gate never guesses from context.
+
+`--release-class` is about *signing*; `--artifact-class` is about *purpose*, and
+they answer different questions. An artifact phase requires the latter and it
+has no default, because the one thing PC-DEF-021 proved is that guessing
+"publishable" is the guess that costs something: a hardened AAB carries the R8
+mapping and native debug symbols for Google Play to consume, so it is a valid
+Play upload and never a valid public download. The gate refuses an unclassified
+artifact rather than picking the permissive reading.
 
 Exit 0 when every selected check passes, non-zero otherwise. Every check reports
 PASS, FAIL or SKIPPED, and a SKIPPED check is always named.
@@ -39,6 +53,23 @@ import sys
 import zipfile
 from dataclasses import dataclass, field
 from pathlib import Path
+
+from r8_contract import R8ContractError, inspect_outputs as inspect_r8_outputs
+from artifact_policy import (
+    AAB,
+    APK as ARTIFACT_APK,
+    DISTRIBUTION_CLASSES,
+    NON_PUBLISH_AUDIT,
+    PLAY_UPLOAD,
+    PUBLIC_RELEASE,
+    ArtifactPolicyError,
+    detect_artifact_kind,
+    distribution_verdict,
+    inspect_bundle,
+    packaged_r8_mapping_entries,
+    private_material_violations,
+    public_release_asset_violations,
+)
 
 REPO = Path(__file__).resolve().parent.parent
 PACKAGE_ID = "com.lord1egypt.pocketclaw"
@@ -76,18 +107,49 @@ FORBIDDEN_PERMISSIONS = {
 
 CORE_LIBS = ("libpocketclaw.so", "libpocketclaw-web.so")
 STAGED_CORE_DIR = REPO / "android/app/src/main/jniLibs" / EXPECTED_ABI
+DART_GENERATED_REGISTRANT_URI = b"package:pocketclaw_generated/dart_plugin_registrant.dart"
+DART_APP_SYMBOL_MARKERS = (
+    b"TelegramOnboardingController",
+    b"TelegramOnboardingClient",
+    b"_MainShellState",
+    b"StatusSnapshot",
+)
 
 # The Android debug signing certificate this project's local test builds carry.
 # Recorded so a development artifact can be *classified*, never so it can be
 # accepted as a release.
 DEV_SIGNER_SHA256 = "15cf75f9945d5354e75707e0326b7cffc60ac51a68df38156db318ef4578a27c"
 
+# Where the production signing certificate's public fingerprint is enrolled.
+# Public metadata, deliberately tracked: it is the certificate, never the key.
+PRODUCTION_CERT_FILE = REPO / "android/release-signing-cert.sha256"
+
+
+def enrolled_production_signer() -> str | None:
+    """The enrolled production certificate digest, or None before the ceremony.
+
+    The file is comment-heavy on purpose, so anything that is not a bare
+    64-character lowercase hex line is ignored. Before a key exists there is no
+    such line, and production verification is supposed to fail — a placeholder
+    that could accidentally match is worse than no answer at all.
+    """
+    if not PRODUCTION_CERT_FILE.is_file():
+        return None
+    for line in PRODUCTION_CERT_FILE.read_text(encoding="utf-8").splitlines():
+        candidate = line.strip()
+        if re.fullmatch(r"[0-9a-f]{64}", candidate):
+            return candidate
+    return None
+
 # Real work that is not done yet. The gate names these rather than implying the
 # release is fully hardened; it must not pretend they are solved.
 PENDING_FINAL_HARDENING = [
-    "production signing key not created",
-    "Dart obfuscation and split debug info not enabled",
-    "R8 keep rules not narrowed",
+    # Distribution is direct APK + Google Play + official F-Droid. F-Droid will
+    # only publish the developer-signed artifact for a build it can reproduce,
+    # so reproducibility is what decides whether a user can move between the
+    # direct and F-Droid channels without uninstalling. Every hardening step
+    # above is a candidate for breaking it; see docs/FDROID_RELEASE.md.
+    "APK-level reproducibility not yet proven (required for F-Droid)",
     # The namespace migration was listed here until the sweep finished and
     # namespace.no_active_pico started enforcing it on every run. A standing
     # note that a solved problem is outstanding is as misleading as the reverse.
@@ -148,6 +210,84 @@ def find_jdk() -> Path | None:
         if (candidate / "bin/java").is_file():
             return candidate
     return None
+
+
+def find_flutter() -> Path | None:
+    """Locates Flutter deterministically, preferring the repository toolchain.
+
+    Order matters and PATH is last. The gate decides whether a release is
+    acceptable, so it must not depend on which Flutter happens to be first on
+    whichever shell invoked it — two machines answering differently is the one
+    thing a gate cannot do.
+    """
+    candidates = []
+    pinned = REPO.parent / "PocketCLaw/.tooling/flutter/bin/flutter"
+    candidates.append(pinned)
+    flutter_root = os.environ.get("FLUTTER_ROOT")
+    if flutter_root:
+        candidates.append(Path(flutter_root) / "bin/flutter")
+    for candidate in candidates:
+        if candidate.is_file():
+            return candidate
+    found = shutil.which("flutter")
+    return Path(found) if found else None
+
+
+def run_flutter_suite(flutter: Path) -> tuple[int, dict[str, object]]:
+    """Run the whole Flutter suite once and summarise it.
+
+    Once, not once per named contract: the suite is the expensive part, and
+    four invocations of it would be four chances for the gate to disagree with
+    itself about the same tree.
+
+    The JSON reporter is used so the summary is parsed rather than scraped, and
+    so a failure can name the suite it came from. If the reporter yields nothing
+    usable the exit code still decides — a gate that cannot read the output must
+    not therefore call it a pass.
+    """
+    rc, out = run([str(flutter), "test", "--reporter", "json"], cwd=REPO)
+    suites: dict[int, str] = {}
+    test_suite: dict[int, int] = {}
+    passed = failed = 0
+    failing_suites: set[str] = set()
+    failing_tests: list[str] = []
+    names: dict[int, str] = {}
+    for line in out.splitlines():
+        line = line.strip()
+        if not line.startswith("{"):
+            continue
+        try:
+            event = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        kind = event.get("type")
+        if kind == "suite":
+            suite = event.get("suite", {})
+            suites[suite.get("id")] = suite.get("path") or "<unknown>"
+        elif kind == "testStart":
+            test = event.get("test", {})
+            test_suite[test.get("id")] = test.get("suiteID")
+            names[test.get("id")] = test.get("name", "<unnamed>")
+        elif kind == "testDone":
+            if event.get("hidden"):
+                continue
+            test_id = event.get("testID")
+            if event.get("result") == "success":
+                passed += 1
+            else:
+                failed += 1
+                path = suites.get(test_suite.get(test_id), "<unknown>")
+                failing_suites.add(path)
+                if len(failing_tests) < 10:
+                    failing_tests.append(f"{path}: {names.get(test_id, '?')}")
+    summary = {
+        "passed": passed,
+        "failed": failed,
+        "failingSuites": sorted(failing_suites),
+        "failingTests": failing_tests,
+        "parsed": bool(passed or failed),
+    }
+    return rc, summary
 
 
 def find_sdk_tool(name: str) -> Path | None:
@@ -495,6 +635,40 @@ def source_gates(gate: Gate, run_tests: bool, release_class: str = "test"):
                expected="no unclassified Pico identity in owned production source",
                observed="PASS" if rc == 0 else summary)
 
+    # PC-DEF-064. The What's New screen and the published release notes were
+    # two independent pieces of prose, so the app could describe a release the
+    # notes did not. There is one source now, and this is what stops them
+    # drifting apart again: the notes are rendered from the app's own release
+    # structure and English strings, and a stale file fails here rather than
+    # being noticed by whoever reads the published version.
+    rc, out = run([sys.executable, str(REPO / "tool/release_notes.py"), "--check"],
+                  cwd=REPO)
+    summary = out.strip().splitlines()[-1] if out.strip() else "FAIL"
+    gate.check("release.notes_match_whats_new", rc == 0,
+               expected="published release notes rendered from the app's What's New source",
+               observed=summary.replace("PASS ", "") if rc == 0 else summary)
+
+    # Source side of the same rule. A dependency removed from the artifact but
+    # left in pubspec would come back on the next `pub get`.
+    proprietary = []
+    for name, path in (("firebase_analytics", "pubspec.yaml"),
+                       ("firebase_core", "pubspec.yaml"),
+                       ("google_app_id", "android/app/src/main/AndroidManifest.xml")):
+        target = REPO / path
+        if target.is_file() and name in target.read_text(encoding="utf-8"):
+            proprietary.append(f"{name} in {path}")
+    gate.check("source.fdroid_no_proprietary_sdk", not proprietary,
+               expected="no proprietary Google SDK declared in the build",
+               observed=", ".join(proprietary) or "clean")
+
+    # Whether a production signer has been enrolled at all. Reported rather than
+    # failed: before the key ceremony "none" is the correct state, and a source
+    # gate that went red for it would be red for weeks and stop being read.
+    enrolled = enrolled_production_signer()
+    gate.record("signing.enrolled_signer", PASS,
+                detail=f"{enrolled[:16]}…" if enrolled
+                else "none yet — production artifacts cannot pass until H2 enrolls one")
+
     # What the repository *says*, alongside what it does. A reader arriving at
     # the README should meet PocketClaw, not a rename in progress.
     rc, out = run([sys.executable, str(REPO / "tool/no_active_pico.py"), "--public"],
@@ -527,6 +701,22 @@ def source_gates(gate: Gate, run_tests: bool, release_class: str = "test"):
                expected="deterministic build plumbing",
                observed="PASS" if rc == 0 else out.strip().splitlines()[-1] if out.strip() else "FAIL")
 
+    # PC-DEF-065. The ordered fresh-install path, as its own gate row.
+    #
+    # This project kept fixing one step and breaking the next while every
+    # isolated test still passed: the store was right, the handler's rules were
+    # right, the exposure rule was right, and a real first install still could
+    # not create its first password -- the claim reconciliation closed the
+    # listener carrying the setup response. Only the ordered journey shows that,
+    # so it is named here rather than left to be one more test in a package.
+    rc, out = run(["go", "test", "-tags", "stdjson goolm", "-run",
+                   "TestFreshInstallJourney|TestJourney", "./web/backend/"],
+                  cwd=REPO / "core/src", env=go_env)
+    summary = out.strip().splitlines()[-1] if out.strip() else "FAIL"
+    gate.check("journey.fresh_install", rc == 0,
+               expected="the ordered fresh-install path still works end to end",
+               observed="PASS" if rc == 0 else summary)
+
     rc, out = run(["go", "test", "-tags", "stdjson goolm",
                    "./pkg/pid/", "./pkg/logger/", "./pkg/config/",
                    "./pkg/channels/pocketclaw/", "./web/backend/dashboardauth/"],
@@ -535,30 +725,110 @@ def source_gates(gate: Gate, run_tests: bool, release_class: str = "test"):
                expected="A2 credential, log and auth guards pass",
                observed="PASS" if rc == 0 else "FAIL")
 
+    rc, out = run([sys.executable, str(REPO / "tool/test_build_hardened_android.py")])
+    gate.check("dart.hardening_contract", rc == 0,
+               expected="obfuscation, split-info, generated-URI and signing-mode guards",
+               observed="PASS" if rc == 0 else out.strip().splitlines()[-1] if out.strip() else "FAIL")
 
-    flutter = shutil.which("flutter")
+    rc, out = run([sys.executable, str(REPO / "tool/test_r8_hardening.py")])
+    gate.check("r8.hardening_contract", rc == 0,
+               expected="minify/shrink enabled, narrow rules, fresh private mapping evidence",
+               observed="PASS" if rc == 0 else out.strip().splitlines()[-1] if out.strip() else "FAIL")
+
+    rc, out = run([sys.executable, str(REPO / "tool/test_native_elf_audit.py")])
+    gate.check("native.elf_audit_contract", rc == 0,
+               expected="read-only category-aware ELF audit regression suite",
+               observed="PASS" if rc == 0 else out.strip().splitlines()[-1] if out.strip() else "FAIL")
+
+    rc, out = run([sys.executable, str(REPO / "tool/test_native_support.py")])
+    gate.check("native.private_support_contract", rc == 0,
+               expected="root-independent native builds, private companions and source-level RUNPATH guard",
+               observed="PASS" if rc == 0 else out.strip().splitlines()[-1] if out.strip() else "FAIL")
+
+
+    flutter_suite_gates(gate)
+
+
+# The named Dart contracts, and the file each is carried by. They remain
+# individually reported because a release record that says only "the suite
+# passed" loses which guarantee was checked — but they are now derived from the
+# full-suite run rather than being the whole of it. Before PC-DEF-025 these
+# three files *were* the Flutter gate, so the other 25 files could be red while
+# the gate reported green, which is exactly what happened for five milestones.
+FLUTTER_NAMED_CONTRACTS = (
+    ("a1.contracts",
+     ("test/unit/android_release_contract_test.dart",
+      "test/unit/android_backup_exclusion_test.dart"),
+     "signing fail-closed, version source, backup exclusions"),
+    ("signing.production_contract",
+     ("test/unit/production_signing_contract_test.dart",),
+     "production signing fails closed and pins its signer"),
+    ("a2.placement_guards",
+     ("test/unit/android_runtime_secret_placement_test.dart",),
+     "credential and logs app-private"),
+)
+
+
+def flutter_suite_gates(gate: Gate):
+    """The complete Flutter suite is the acceptance criterion.
+
+    One run, and every Flutter gate item is read from it. `flutter.suite` is the
+    authoritative one: any failing test fails the gate, whatever file it is in.
+    """
+    flutter = find_flutter()
     if not flutter:
-        gate.record("a1.contracts", SKIP, "flutter not on PATH")
-        gate.record("a2.placement_guards", SKIP, "flutter not on PATH")
-    else:
-        rc, out = run([flutter, "test",
-                       "test/unit/android_release_contract_test.dart",
-                       "test/unit/android_backup_exclusion_test.dart"])
-        gate.check("a1.contracts", rc == 0,
-                   expected="signing fail-closed, version source, backup exclusions",
-                   observed="PASS" if rc == 0 else "FAIL")
-        rc, out = run([flutter, "test",
-                       "test/unit/android_runtime_secret_placement_test.dart"])
-        gate.check("a2.placement_guards", rc == 0,
-                   expected="credential and logs app-private",
-                   observed="PASS" if rc == 0 else "FAIL")
+        gate.record("flutter.suite", SKIP, "flutter toolchain not found")
+        for name, _, _ in FLUTTER_NAMED_CONTRACTS:
+            gate.record(name, SKIP, "flutter toolchain not found")
+        return
+
+    gate.facts["flutterExecutable"] = str(flutter)
+    rc, summary = run_flutter_suite(flutter)
+    gate.facts["flutterPassed"] = summary["passed"]
+    gate.facts["flutterFailed"] = summary["failed"]
+    gate.facts["flutterFailingSuites"] = summary["failingSuites"]
+
+    if rc == 0 and not summary["parsed"]:
+        # Exit 0 with nothing parsed means the suite did not run. Reporting that
+        # as a pass would be the failure mode this gate exists to remove.
+        gate.check("flutter.suite", False,
+                   expected="the complete Flutter suite runs and passes",
+                   observed="flutter test produced no test results")
+        for name, _, expected in FLUTTER_NAMED_CONTRACTS:
+            gate.check(name, False, expected=expected,
+                       observed="no Flutter results")
+        return
+
+    # The exit code is authoritative and the parsed counts are evidence. A
+    # non-zero exit can never be reported as PASS even if nothing was parsed.
+    ok = rc == 0 and summary["failed"] == 0
+    failing = summary["failingTests"]
+    detail = f"{summary['passed']} passed, {summary['failed']} failed"
+    if not ok:
+        shown = "; ".join(failing[:3]) if failing else f"flutter test exit {rc}"
+        more = len(summary["failingSuites"]) - 3
+        if more > 0:
+            shown += f" (+{more} more suite(s))"
+        detail = f"{detail} — {shown}"
+    gate.check("flutter.suite", ok,
+               expected="the complete Flutter suite passes",
+               observed=detail)
+
+    failing_suites = set(summary["failingSuites"])
+    for name, files, expected in FLUTTER_NAMED_CONTRACTS:
+        hit = sorted(path for path in failing_suites
+                     if any(path.endswith(f) for f in files))
+        gate.check(name, not hit, expected=expected,
+                   observed="PASS" if not hit else ", ".join(hit))
 
 
 # --------------------------------------------------------------------------
 # Artifact-level gates
 # --------------------------------------------------------------------------
 
-def artifact_gates(gate: Gate, apk: Path, release_class: str):
+def artifact_gates(gate: Gate, apk: Path, release_class: str,
+                   dart_symbols: Path | None = None,
+                   r8_mapping: Path | None = None):
     if not apk.is_file():
         gate.check("artifact.present", False, expected=str(apk), observed="missing")
         return
@@ -751,11 +1021,167 @@ def artifact_gates(gate: Gate, apk: Path, release_class: str):
         else:
             gate.record("artifact.backup_exclusions", SKIP, "aapt2 not found")
 
-    native_gates(gate, apk)
+    native_gates(gate, apk, dart_symbols)
+    fdroid_artifact_gate(gate, apk)
     signing_gate(gate, apk, release_class)
+    if r8_mapping is not None:
+        r8_hardening_gates(gate, apk, r8_mapping)
 
 
-def native_gates(gate: Gate, apk: Path):
+def deobfuscation_privacy_gate(gate: Gate, artifact: Path):
+    """Is anything that could deobfuscate the shipped code inside the artifact?
+
+    This is a property of the artifact alone, so it runs on its own rather than
+    behind ``--r8-mapping``: an APK built without mapping evidence to compare
+    against is exactly the one nobody would notice shipping a mapping. It also
+    runs before the R8 contract, which raises and returns early — this check
+    was previously unreachable in the one case it was written for, and reported
+    a hardcoded True with the observation "absent from APK". See PC-DEF-021.
+    """
+    with zipfile.ZipFile(artifact) as archive:
+        names = archive.namelist()
+    packaged = packaged_r8_mapping_entries(names)
+    gate.facts["r8MappingPackagedEntries"] = packaged
+    gate.facts["r8MappingScannedEntries"] = len(names)
+    gate.check(
+        "artifact.r8_mapping_private", not packaged,
+        expected="no R8 deobfuscation entry packaged in the artifact",
+        observed=(", ".join(packaged) if packaged else
+                  f"{len(names)} archive entries scanned, deobfuscation entries = 0"),
+    )
+
+
+def distribution_gates(gate: Gate, artifact: Path, distribution: str | None):
+    """Decide whether this artifact format may serve this distribution purpose.
+
+    The first gate any artifact meets, and the one PC-DEF-021 was missing. It is
+    about purpose rather than contents: a bundle with no mapping at all is still
+    forbidden as a public asset, because what makes the bundle unpublishable is
+    what the format is for.
+    """
+    try:
+        kind = detect_artifact_kind(artifact)
+    except ArtifactPolicyError as error:
+        gate.check("artifact.kind", False,
+                   expected="an APK or an AAB", observed=str(error))
+        return None
+    gate.facts["artifactKind"] = kind
+    gate.check("artifact.kind", True, observed=kind.upper())
+
+    gate.facts["distributionClass"] = distribution
+    ok, message = distribution_verdict(kind, distribution or "")
+    gate.check("artifact.distribution_class", ok,
+               expected="a declared distribution class the format may serve",
+               observed=message)
+    return kind
+
+
+def bundle_gates(gate: Gate, bundle: Path, distribution: str):
+    """Inspect an AAB and hold it to its declared purpose.
+
+    Expected AGP metadata is inventoried deliberately rather than ignored: for a
+    Play upload the mapping and native symbols under BUNDLE-METADATA/ are the
+    point, and a gate that stayed silent about them would teach a reader that
+    the bundle contains no such thing.
+    """
+    inventory = inspect_bundle(bundle)
+    gate.facts["bundle"] = bundle.name
+    gate.facts["bundleSha256"] = sha256(bundle)
+    gate.facts["bundleBytes"] = bundle.stat().st_size
+    gate.facts["bundleModules"] = inventory["modules"]
+    gate.facts["bundleAbis"] = inventory["abis"]
+    gate.facts["bundleMetadata"] = inventory["bundleMetadata"]
+    gate.facts["bundleMetadataBytes"] = inventory["bundleMetadataBytes"]
+
+    gate.check("bundle.modules", bool(inventory["modules"]),
+               expected="at least one bundle module",
+               observed=", ".join(inventory["modules"]) or "none")
+    gate.check("bundle.manifests", bool(inventory["manifests"]),
+               expected="a module manifest",
+               observed=f"{len(inventory['manifests'])} manifest(s)")
+
+    abis = list(inventory["abis"])
+    product = sorted(
+        name for name, _ in inventory["nativeEntries"]
+        if "/libpocketclaw" in name and "/arm64-v8a/" not in name
+    )
+    gate.check("bundle.abi", not product,
+               expected="the PocketClaw product payload is arm64-v8a only",
+               observed=f"{', '.join(abis)}" if not product
+               else f"non-arm64 product payload: {', '.join(product)}")
+    gate.facts["bundleNativeEntryCount"] = len(inventory["nativeEntries"])
+    gate.check("bundle.native_inventory", bool(inventory["nativeEntries"]),
+               expected="packaged native entries",
+               observed=f"{len(inventory['nativeEntries'])} entries across {len(abis)} ABI(s)")
+
+    metadata = inventory["bundleMetadata"]
+    unrecognised = [item["entry"] for item in metadata if not item["allowedForPlayUpload"]]
+    mapping_entries = [item for item in metadata
+                       if item["category"] == "r8 deobfuscation mapping"]
+    symbol_entries = [item for item in metadata if item["category"] == "native debug symbols"]
+
+    if distribution == PLAY_UPLOAD:
+        # Expected, verified, and named — not tolerated by silence.
+        gate.check("bundle.play_metadata_expected", bool(mapping_entries or symbol_entries),
+                   expected="AGP release-support metadata Play consumes",
+                   observed=(f"{len(mapping_entries)} mapping + {len(symbol_entries)} "
+                             f"debug-symbol entries, {inventory['bundleMetadataBytes']:,} bytes "
+                             "— allowed and expected for a Play upload"))
+    else:
+        gate.record("bundle.play_metadata_expected", SKIP,
+                    f"not a Play upload (class: {distribution})")
+
+    gate.check("bundle.metadata_recognised", not unrecognised,
+               expected="every BUNDLE-METADATA entry is known AGP output",
+               observed=", ".join(unrecognised) or f"{len(metadata)} entries, all recognised")
+
+    leaks = private_material_violations(inventory["entryNames"], kind=AAB)
+    gate.check("bundle.no_unrelated_private_material", not leaks,
+               expected="no packaged private material beyond expected AGP metadata",
+               observed="; ".join(f"{name} ({reason})" for name, reason in leaks)
+               or "none")
+
+    if distribution == NON_PUBLISH_AUDIT:
+        gate.facts["bundleClassificationNotice"] = (
+            "NOT PLAY-READY; NOT PUBLIC-RELEASE-SAFE; NOT A GITHUB RELEASE ASSET"
+        )
+        gate.check("bundle.non_publish_notice", True,
+                   observed="NOT PLAY-READY / NOT PUBLIC-RELEASE-SAFE / NOT A GITHUB RELEASE ASSET")
+
+
+def release_asset_gates(gate: Gate, assets):
+    """Hold a proposed set of public release assets to the allowlist."""
+    names = [str(a) for a in assets]
+    gate.facts["publicReleaseAssets"] = names
+    violations = public_release_asset_violations(names)
+    gate.check("release.public_asset_allowlist", not violations,
+               expected="only public-safe assets attached to a public release",
+               observed="; ".join(f"{name} ({reason})" for name, reason in violations)
+               or f"{len(names)} asset(s), all permitted")
+
+
+def r8_hardening_gates(gate: Gate, apk: Path, mapping: Path):
+    """Require effective R8 output and keep its deobfuscation data private."""
+    try:
+        evidence = inspect_r8_outputs(apk, mapping)
+    except R8ContractError as error:
+        gate.check("artifact.r8_contract", False,
+                   expected="fresh, effective, private R8 output",
+                   observed=str(error))
+        return
+    gate.facts.update(evidence)
+    gate.check("artifact.r8_mapping", True,
+               observed=f"{mapping.name}: {evidence['r8MappingBytes']} bytes")
+    gate.check("artifact.r8_shrinking", True,
+               observed=f"usage.txt: {evidence['r8UsageBytes']} bytes")
+    gate.check("artifact.r8_obfuscation", True,
+               observed=(f"{len(evidence['r8RenamedInternalClasses'])} PocketClaw classes renamed; "
+                         f"{len(evidence['r8RemovedOrFoldedInternalClasses'])} removed/folded"))
+    gate.check("artifact.r8_entry_points", True,
+               observed=f"{len(evidence['r8RequiredEntryPoints'])} manifest components preserved")
+
+
+def native_gates(gate: Gate, apk: Path, dart_symbols: Path | None = None):
     """ELF hardening for every native library, and build-path privacy for ours.
 
     The strip / non-executable-stack / alignment rules apply to everything the
@@ -778,12 +1204,18 @@ def native_gates(gate: Gate, apk: Path):
     import tempfile
     problems = []
     dart_snapshot_paths = 0
+    dart_app_blob = None
+    archive_names = []
     with tempfile.TemporaryDirectory() as tmp, zipfile.ZipFile(apk) as archive:
+        archive_names = archive.namelist()
         for entry in (n for n in archive.namelist()
                       if n.startswith("lib/") and n.endswith(".so")):
             name = Path(entry).name
             path = Path(tmp) / name
-            path.write_bytes(archive.read(entry))
+            blob = archive.read(entry)
+            path.write_bytes(blob)
+            if name == "libapp.so" and entry == "lib/arm64-v8a/libapp.so":
+                dart_app_blob = blob
 
             rc, out = run(["readelf", "-lW", str(path)])
             aligns = re.findall(r"LOAD.*?(0x[0-9a-f]+)\s*$", out, re.M)
@@ -819,6 +1251,95 @@ def native_gates(gate: Gate, apk: Path):
     else:
         gate.record("artifact.dart_snapshot_paths", PASS, "no generated-source paths")
 
+    if dart_symbols is not None:
+        dart_hardening_gates(gate, dart_app_blob, archive_names, dart_symbols)
+
+
+def dart_hardening_gates(gate: Gate, app_blob: bytes | None,
+                         archive_names: list[str], symbols_path: Path):
+    """Prove H3 Dart hardening using the APK and its private support artifact."""
+    symbols = symbols_path
+    if symbols.is_dir():
+        symbols = symbols / "app.android-arm64.symbols"
+    present = symbols.is_file() and symbols.stat().st_size > 0
+    symbol_blob = symbols.read_bytes() if present else b""
+    split_shape = (
+        present
+        and symbol_blob.startswith(b"\x7fELF")
+        and b".debug_info" in symbol_blob
+        and b".debug_line" in symbol_blob
+    )
+    retained = [marker for marker in DART_APP_SYMBOL_MARKERS if marker in symbol_blob]
+    gate.check("artifact.dart_split_debug_info", split_shape and len(retained) >= 3,
+               expected="external arm64 ELF with Dart DWARF and application symbols",
+               observed=(f"{symbols.name}: {len(retained)} known private symbols retained"
+                         if present else f"missing: {symbols}"))
+
+    generated_uri = app_blob is not None and DART_GENERATED_REGISTRANT_URI in app_blob
+    gate.check("artifact.dart_generated_source_uri", generated_uri,
+               expected=DART_GENERATED_REGISTRANT_URI.decode(),
+               observed="controlled package URI" if generated_uri else "missing")
+
+    exposed = ([marker.decode() for marker in DART_APP_SYMBOL_MARKERS if marker in app_blob]
+               if app_blob is not None else ["libapp.so missing"])
+    gate.check("artifact.dart_obfuscation", not exposed and len(retained) >= 3,
+               expected="application names absent from libapp.so and retained privately",
+               observed="obfuscated" if not exposed and len(retained) >= 3
+               else ", ".join(exposed) or "private symbol evidence insufficient")
+
+    packaged = [name for name in archive_names
+                if name.endswith((".symbols", ".dwarf")) or "private-symbols" in name]
+    tracked = False
+    if present:
+        try:
+            relative = symbols.resolve().relative_to(REPO)
+        except ValueError:
+            relative = None
+        if relative is not None:
+            rc, _ = run(["git", "ls-files", "--error-unmatch", str(relative)])
+            tracked = rc == 0
+    gate.check("artifact.dart_symbols_private", not packaged and not tracked,
+               expected="split debug info external to APK and untracked",
+               observed=(", ".join(packaged) if packaged else
+                         "tracked by Git" if tracked else "external and untracked"))
+    if present:
+        gate.facts["dartSymbols"] = str(symbols)
+        gate.facts["dartSymbolsBytes"] = symbols.stat().st_size
+        gate.facts["dartSymbolsSha256"] = sha256(symbols)
+
+
+# Proprietary SDKs that disqualify an app from the official F-Droid repository.
+# Matched against DEX class names and packaged entries, because F-Droid judges
+# what is in the binary — a runtime feature flag is not an answer to it.
+PROPRIETARY_SDK_MARKERS = {
+    "firebase": rb"com/google/firebase",
+    "gms": rb"com/google/android/gms",
+    "admob": rb"com/google/android/gms/ads",
+    "measurement": rb"com/google/android/gms/measurement",
+}
+
+
+def fdroid_artifact_gate(gate: Gate, apk: Path):
+    """No proprietary Google SDK in the packaged artifact.
+
+    Reported per marker rather than as one verdict, so a regression names the
+    thing that came back instead of saying "F-Droid: no".
+    """
+    with zipfile.ZipFile(apk) as archive:
+        names = archive.namelist()
+        dex = b"".join(archive.read(n) for n in names if n.endswith(".dex"))
+
+    for label, marker in PROPRIETARY_SDK_MARKERS.items():
+        in_dex = marker in dex
+        token = marker.decode().rsplit("/", 1)[-1]
+        in_entries = [n for n in names if token in n.lower()]
+        gate.check(f"artifact.fdroid_no_{label}", not in_dex and not in_entries,
+                   expected=f"no {label} SDK packaged",
+                   observed="clean" if not in_dex and not in_entries
+                   else f"present ({'dex' if in_dex else ''}"
+                        f"{' and ' if in_dex and in_entries else ''}"
+                        f"{f'{len(in_entries)} entries' if in_entries else ''})")
+
 
 def signing_gate(gate: Gate, apk: Path, release_class: str):
     apksigner = find_sdk_tool("apksigner")
@@ -835,7 +1356,19 @@ def signing_gate(gate: Gate, apk: Path, release_class: str):
         if jdk:
             env["JAVA_HOME"] = str(jdk)
             env["PATH"] = f"{jdk / 'bin'}{os.pathsep}{os.environ.get('PATH', '')}"
-    rc, out = run([str(apksigner), "verify", "--print-certs", str(apk)], env=env)
+    rc, out = run([str(apksigner), "verify", "--print-certs", "--verbose", str(apk)], env=env)
+
+    # Recorded, not enforced. Which schemes AGP emits depends on minSdk and on
+    # the signing config, and hard-failing on a scheme here would either
+    # duplicate a decision that belongs in the build or invent a requirement
+    # nothing has agreed to. The fact is worth having in the report; the
+    # judgement belongs to whoever reads it.
+    schemes = sorted(
+        name for name, ok in re.findall(
+            r"Verified using (v[\d.]+) scheme[^:]*:\s*(true|false)", out)
+        if ok == "true")
+    if schemes:
+        gate.facts["signatureSchemes"] = schemes
     match = re.search(r"certificate SHA-256 digest:\s*([0-9a-f]+)", out)
     if rc != 0 or not match:
         first_line = next((l for l in out.splitlines() if l.strip()), "no output")
@@ -843,22 +1376,40 @@ def signing_gate(gate: Gate, apk: Path, release_class: str):
                    expected="a verifiable signature",
                    observed=f"apksigner failed: {first_line.strip()[:120]}")
         return
+    signers = re.findall(r"certificate SHA-256 digest:\s*([0-9a-f]+)", out)
     signer = match.group(1)
     gate.facts["signerSha256"] = signer
     is_dev = signer == DEV_SIGNER_SHA256
 
     if release_class == "production":
-        # No heuristics: a development signer is an unconditional failure, and
-        # an artifact signed with a different key cannot update an existing
-        # installation in place either.
-        gate.check("artifact.signing", not is_dev,
-                   expected="a production signing identity",
-                   observed="development signer" if is_dev else "non-development signer")
-        gate.facts["releasable"] = not is_dev
+        enrolled = enrolled_production_signer()
+        gate.facts["enrolledProductionSigner"] = enrolled or "none"
+
+        # Four separate ways to be wrong, reported as the one that applies.
+        # The digest is authoritative throughout: a certificate subject is
+        # attacker-chosen text, so "CN=Android Debug" is a hint and never a
+        # check.
+        if is_dev:
+            reason = "development signer — never a production identity"
+        elif enrolled is None:
+            reason = ("no production signer enrolled yet: "
+                      "android/release-signing-cert.sha256 carries no digest")
+        elif len(set(signers)) > 1:
+            reason = f"{len(set(signers))} distinct signers; exactly one is expected"
+        elif signer != enrolled:
+            reason = "signer does not match the enrolled production certificate"
+        else:
+            reason = None
+
+        gate.check("artifact.signing", reason is None,
+                   expected="signed by the enrolled PocketClaw production certificate",
+                   observed=reason or "enrolled production signer")
+        gate.facts["releasable"] = reason is None
     else:
         gate.record("artifact.signing", PASS,
-                    detail="development signer accepted for a local test artifact"
-                    if is_dev else "non-development signer on a test artifact")
+                    detail="LOCAL TEST / NON-RELEASABLE — development signer"
+                    if is_dev else
+                    "LOCAL TEST / NON-RELEASABLE — non-development signer")
         gate.facts["releasable"] = False
 
 
@@ -877,10 +1428,46 @@ def main() -> int:
                         help="skip delegated test suites (source phase)")
     parser.add_argument("--manifest", metavar="PATH",
                         help="write the JSON release manifest here")
+    parser.add_argument(
+        "--dart-symbols", metavar="PATH",
+        help="verify Dart hardening against this private .symbols file or directory",
+    )
+    parser.add_argument(
+        "--r8-mapping", metavar="PATH",
+        help="verify R8 hardening against this private mapping.txt",
+    )
+    parser.add_argument(
+        "--verify-bundle", metavar="AAB",
+        help="inspect an Android App Bundle and hold it to its distribution class",
+    )
+    parser.add_argument(
+        "--artifact-class", choices=DISTRIBUTION_CLASSES, default=None,
+        help="what the artifact is FOR. Required for any artifact phase and "
+             "deliberately has no default: an unclassified artifact fails "
+             "closed rather than being assumed public-safe. "
+             f"{PUBLIC_RELEASE}=published; {PLAY_UPLOAD}=Google Play upload "
+             f"only; {NON_PUBLISH_AUDIT}=inspection evidence only",
+    )
+    parser.add_argument(
+        "--release-assets", metavar="NAME", nargs="+", default=None,
+        help="check these proposed public release asset names against the allowlist",
+    )
     args = parser.parse_args()
 
-    if not (args.verify_source or args.verify_artifact or args.full):
-        parser.error("choose --verify-source, --verify-artifact <apk>, or --full <apk>")
+    if not (args.verify_source or args.verify_artifact or args.full
+            or args.verify_bundle or args.release_assets):
+        parser.error("choose --verify-source, --verify-artifact <apk>, --full <apk>, "
+                     "--verify-bundle <aab>, or --release-assets <name...>")
+
+    # Fail closed. An artifact whose purpose was not stated cannot be judged,
+    # and guessing "public" would be the permissive guess in the one place
+    # PC-DEF-021 proved that is unsafe.
+    if (args.verify_artifact or args.full or args.verify_bundle) and not args.artifact_class:
+        parser.error(
+            "--artifact-class is required with an artifact phase and has no default: "
+            "an unclassified artifact fails closed. Choose one of "
+            + ", ".join(DISTRIBUTION_CLASSES)
+        )
 
     gate = Gate()
     gate.facts["releaseClass"] = args.release_class
@@ -896,7 +1483,24 @@ def main() -> int:
             # source phase was not requested, so an APK can never be validated
             # against nothing.
             tracked_version(gate)
-        artifact_gates(gate, Path(apk).resolve(), args.release_class)
+        apk_path = Path(apk).resolve()
+        if distribution_gates(gate, apk_path, args.artifact_class) is not None:
+            deobfuscation_privacy_gate(gate, apk_path)
+            artifact_gates(
+                gate,
+                apk_path,
+                args.release_class,
+                Path(args.dart_symbols).resolve() if args.dart_symbols else None,
+                Path(args.r8_mapping).resolve() if args.r8_mapping else None,
+            )
+
+    if args.verify_bundle:
+        bundle_path = Path(args.verify_bundle).resolve()
+        if distribution_gates(gate, bundle_path, args.artifact_class) is not None:
+            bundle_gates(gate, bundle_path, args.artifact_class)
+
+    if args.release_assets:
+        release_asset_gates(gate, args.release_assets)
 
     width = max(len(r.name) for r in gate.results)
     print(f"PocketClaw release gate — class: {args.release_class}")

@@ -73,9 +73,9 @@ export PATH="$TOOLCHAIN/bin:$PATH"
 # so this is recorded as a known limitation rather than worked around here.
 make -j"$(nproc)" \
     CC="$TARGET_CC" AR="llvm-ar" \
-    CFLAGS="-Os -fPIE -include compat/pocketclaw-android-pthread-cancel.h" \
+    CFLAGS="-Os -fPIE $NATIVE_DEBUG_CFLAGS -include compat/pocketclaw-android-pthread-cancel.h" \
     LDFLAGS="-pie -L$DEPS_PREFIX/lib" \
-    CURLDIR="$DEPS_PREFIX" \
+    CURL_CFLAGS="-I$DEPS_PREFIX/include" \
     CURL_LDFLAGS="-lcurl -lmbedtls -lmbedx509 -lmbedcrypto -lz" \
     PTHREAD_LIBS= PTHREAD_CFLAGS= \
     uname_S=Linux \

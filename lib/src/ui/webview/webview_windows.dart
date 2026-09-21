@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../../core/app_fonts.dart';
 import 'package:webview_windows/webview_windows.dart' as win_wv;
 import 'dart:async';
 import 'webview_nav_bar.dart';
@@ -232,7 +232,7 @@ class _WebViewWindowsState extends State<WebViewWindows> {
                       children: [
                         Text(
                           'Web content failed to load',
-                          style: GoogleFonts.inter(
+                          style: AppFonts.inter(
                             fontSize: 16,
                             fontWeight: FontWeight.w700,
                           ),

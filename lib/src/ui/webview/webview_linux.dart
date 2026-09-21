@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../../core/app_fonts.dart';
 import 'package:pocketclaw/src/generated/l10n/app_localizations.dart';
 import 'package:remixicon/remixicon.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -40,7 +40,7 @@ class WebViewLinux extends StatelessWidget {
             const SizedBox(height: 32),
             Text(
               'External Browser Required'.toUpperCase(),
-              style: GoogleFonts.inter(
+              style: AppFonts.inter(
                 fontSize: 24,
                 fontWeight: FontWeight.w900,
                 letterSpacing: 1.2,
@@ -51,7 +51,7 @@ class WebViewLinux extends StatelessWidget {
             Text(
               'Embedded WebView is not supported on Linux yet. Please use the external admin panel.',
               textAlign: TextAlign.center,
-              style: GoogleFonts.inter(
+              style: AppFonts.inter(
                 fontSize: 16,
                 color: colorScheme.onSurface.withAlpha(
                   ((0.6).clamp(0.0, 1.0) * 255).round(),

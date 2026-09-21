@@ -164,7 +164,7 @@
   "whatsNew020New2": "Peralatan pengembang bawaan: Git, GitHub CLI, curl, ripgrep, jq, dan SQLite.",
   "whatsNew020New3": "Dukungan untuk runtime Python 3.14 bawaan PocketClaw.",
   "whatsNew020New4": "Masuk ke GitHub secara aman, dipakai bersama oleh Git dan GitHub CLI bawaan.",
-  "whatsNew020New5": "Integrasi Telegram, disiapkan dari Pengaturan.",
+  "whatsNew020New5": "Penyiapan Telegram sekali sentuh: PocketClaw membuat bot Anda sendiri, di aplikasi atau dari Dasbor di peramban. Tidak ada token yang perlu disalin, dan hanya akun Anda yang dapat berbicara dengannya.",
   "whatsNew020New6": "Tampilan Status di Dasbor: pekerjaan aktif, saluran, model yang dipakai, dan sumber daya runtime.",
   "whatsNew020Improvement1": "Penyedia yang lebih tangguh: permintaan yang gagal tidak lagi mengakhiri giliran.",
   "whatsNew020Improvement2": "Katalog Managed Runtime yang lebih akurat.",
@@ -218,5 +218,16 @@
   "statusDurationSeconds": "{seconds} dtk",
   "statusDurationMinutes": "{minutes} mnt {seconds} dtk",
   "statusDurationHours": "{hours} jam {minutes} mnt",
-  "statusDurationDays": "{days} hr {hours} jam"
+  "statusDurationDays": "{days} hr {hours} jam",
+  "notificationPermissionTitle": "Notifikasi",
+  "notificationPermissionGranted": "PocketClaw dapat menampilkan notifikasi Running-nya.",
+  "notificationPermissionBlocked": "Notifikasi nonaktif, sehingga notifikasi PocketClaw Running tidak akan muncul.",
+  "notificationPermissionOpenSettings": "Buka pengaturan notifikasi",
+  "whatsNew020New7": "Pengelolaan Telegram dari Dasbor: menghubungkan bot, menggantinya, atau memutuskannya.",
+  "whatsNew020New8": "Pengelolaan penyedia dan model di Dasbor: menambah penyedia, mengganti kunci API, atau menghapus model.",
+  "whatsNew020Improvement12": "Pengaturan Telegram langsung berlaku setelah disimpan, tanpa memulai ulang secara manual.",
+  "whatsNew020Improvement13": "Jika belum ada model AI yang disiapkan, PocketClaw menyebutkan dengan tepat apa yang kurang dan memberi Anda kode untuk dicari.",
+  "whatsNew020Improvement14": "Masuk ke Dasbor membawa Anda ke layar yang Anda minta.",
+  "whatsNew020Improvement15": "Log diagnostik tetap terperinci tanpa pernah memuat kunci, token, atau isi pesan Anda.",
+  "whatsNew020Improvement16": "Dasbor yang belum diklaim siapa pun tidak pernah dapat dijangkau dari jaringan, bahkan saat Mode Publik aktif."
 }

@@ -200,9 +200,6 @@
       },
       "anthropic": {
         "description": "Utilise la connexion par jeton pour accéder à Claude."
-      },
-      "antigravity": {
-        "description": "Utilise l'OAuth navigateur pour Google Cloud Code Assist."
       }
     },
     "status": {
@@ -328,7 +325,10 @@
     "delete": {
       "title": "Supprimer le modèle ?",
       "description": "« {{name}} » sera définitivement retiré de votre liste de modèles. Cette action est irréversible.",
-      "confirm": "Supprimer"
+      "confirm": "Supprimer",
+      "defaultBlocked": "« {{name}} » est le modèle de chat par défaut. Choisissez d'abord un autre modèle par défaut, puis supprimez-le.",
+      "success": "« {{name}} » a été supprimé.",
+      "error": "Impossible de supprimer ce modèle."
     },
     "advanced": {
       "toggle": "Options avancées"
@@ -380,7 +380,8 @@
       "apiKeyHint": "Une clé est déjà définie. Laissez vide pour la conserver.",
       "oauthNote": "Ce fournisseur utilise OAuth — aucune clé d'API nécessaire.",
       "saveError": "Échec de l'enregistrement",
-      "saveSuccess": "Configuration du modèle enregistrée."
+      "saveSuccess": "Configuration du modèle enregistrée.",
+      "confirm": "Mettre à jour le modèle"
     },
     "fetch": {
       "title": "Récupérer les modèles disponibles",
@@ -479,6 +480,34 @@
         "speech": "Reconnaissance vocale uniquement"
       }
     },
+    "provider": {
+      "manage": "Gérer",
+      "manageTitle": "Gérer {{name}}",
+      "modelCount": "Modèles configurés : {{count}}",
+      "loading": "Chargement des paramètres du fournisseur…",
+      "save": "Enregistrer le fournisseur",
+      "saved": "Paramètres du fournisseur enregistrés.",
+      "saveError": "Impossible d'enregistrer les paramètres de ce fournisseur.",
+      "loadError": "Impossible de charger ce fournisseur.",
+      "keyRotated": "Clé d'API remplacée. Modèles mis à jour : {{count}}",
+      "credential": "Clé d'API",
+      "credentialShared": "Tous les modèles de ce fournisseur partagent la même clé ({{key}}).",
+      "credentialSetGeneric": "enregistrée",
+      "credentialMixed": "Ces modèles utilisent des clés différentes. Enregistrer une nouvelle clé les remplace toutes.",
+      "credentialUnset": "Aucune clé n'est encore enregistrée pour ce fournisseur.",
+      "replaceKeyPlaceholder": "Saisir une nouvelle clé pour remplacer celle enregistrée",
+      "replaceKeyHint": "Laisser vide pour conserver la clé enregistrée. Modèles concernés : {{count}}",
+      "apiBaseHint": "Appliqué à tous les modèles de ce fournisseur.",
+      "apiBaseMixed": "Ces modèles utilisent des URL de base différentes. Modifiez-les dans chaque modèle.",
+      "modelsHeading": "Modèles de ce fournisseur",
+      "delete": "Supprimer le fournisseur",
+      "deleteTitle": "Supprimer {{name}} ?",
+      "deleteDescription": "Ses modèles sont supprimés et toutes les références à ceux-ci sont effacées. Modèles à supprimer : {{count}}",
+      "deleteDefaultNote": "(modèle de chat par défaut)",
+      "deleteConfirm": "Supprimer le fournisseur",
+      "deleteSuccess": "{{name}} a été supprimé.",
+      "deleteError": "Impossible de supprimer ce fournisseur."
+    },
     "discovery": {
       "heading": "Ajouter depuis vos fournisseurs",
       "configured": "Configuré",
@@ -498,6 +527,20 @@
       "description": "Le modèle avec lequel PocketClaw répond. Choisissez parmi vos fournisseurs configurés.",
       "none": "Aucun modèle par défaut sélectionné.",
       "change": "Changer le modèle par défaut"
+    },
+    "provenance": {
+      "suggestions": "Suggestions",
+      "suggestionsHint": "Noms courants pour ce fournisseur. Non confirmés auprès de votre compte.",
+      "cached": "Récupérés précédemment",
+      "cachedHint": "D'une récupération antérieure pour ce fournisseur et ce point de terminaison. Récupérez à nouveau pour actualiser.",
+      "verified": "Disponibilité vérifiée",
+      "verifiedHint": "Renvoyés à l'instant par ce fournisseur."
+    },
+    "discard": {
+      "title": "Abandonner les modifications ?",
+      "description": "Les modifications de cet écran n'ont pas été enregistrées et seront perdues.",
+      "keepEditing": "Continuer l'édition",
+      "confirm": "Abandonner"
     }
   },
   "channels": {
@@ -708,7 +751,64 @@
       "openChat": "Ouvrir la discussion",
       "reconnect": "Reconnecter / créer un nouveau bot",
       "manualOnlyTitle": "Configuration manuelle",
-      "manualOnlyBody": "La création de bot en un geste n'est pas disponible dans cette version ; Telegram se configure donc avec un jeton BotFather. Collez le jeton ci-dessous et enregistrez."
+      "manualOnlyBody": "La création de bot en un geste n'est pas disponible dans cette version ; Telegram se configure donc avec un jeton BotFather. Collez le jeton ci-dessous et enregistrez.",
+      "manualOnlyDesktopBody": "La création du bot en une touche se fait dans l'application PocketClaw sur Android, elle n'est donc pas proposée dans un navigateur. Ouvre PocketClaw sur ton téléphone pour la configuration en une touche, ou crée un bot avec BotFather et colle son jeton ci-dessous.",
+      "openBotFather": "Ouvrir BotFather",
+      "desktop": {
+        "title": "Configuration en une touche",
+        "body": "PocketClaw crée ton bot personnel via Telegram. Rien n'est saisi, et cette page ne manipule aucun jeton.",
+        "connect": "Se connecter à Telegram",
+        "creating": "Préparation de ton lien de configuration…",
+        "suggestedBot": "Bot suggéré",
+        "openTelegram": "Ouvrir Telegram",
+        "copyLink": "Copier le lien",
+        "linkCopied": "Lien copié.",
+        "linkCopyFailed": "Impossible de copier le lien.",
+        "linkCopyManual": "Copiez le lien manuellement : sélectionnez-le ci-dessous.",
+        "waiting": "En attente de ta confirmation du nouveau bot dans Telegram…",
+        "botCreated": "Bot créé. Finalisation de la configuration…",
+        "configuring": "Configuration de PocketClaw…",
+        "connected": "Telegram est connecté.",
+        "savedPending": "Ton bot est enregistré et démarrera dès que PocketClaw sera libre.",
+        "retry": "Réessayer",
+        "errorStart": "Impossible de démarrer la configuration. Réessaie dans un instant.",
+        "errorRateLimited": "Trop de tentatives de configuration. Attends un instant et réessaie.",
+        "errorExpired": "Ce lien de configuration a expiré. Recommence pour en obtenir un nouveau.",
+        "errorFailed": "La configuration ne s'est pas terminée. Réessaie, ou utilise la configuration manuelle ci-dessous.",
+        "errorInvalidCredentials": "Telegram a refusé ce bot. Sa création est peut-être incomplète ou son jeton est invalide. Réessaie plus tard ou utilise un bot valide existant ci-dessous.",
+        "errorWebhookActive": "Ce bot a un webhook Telegram actif. Déconnectez-le de l'autre service ou utilisez un autre bot.",
+        "errorBotInUse": "Une autre application utilise actuellement ce bot. Arrêtez l'autre service de bot ou choisissez un autre bot.",
+        "errorNotReady": "Votre bot est enregistré, mais Telegram ne reçoit pas encore. Réessayez dans un instant.",
+        "checkAgain": "Vérifier à nouveau"
+      },
+      "startingTitle": "Démarrage de Telegram…",
+      "replaceBot": "Remplacer le bot",
+      "readiness": {
+        "not_configured": "Aucun bot n'est configuré.",
+        "gateway_stopped": "PocketClaw n'est pas en cours d'exécution, Telegram ne peut donc pas recevoir de messages.",
+        "gateway_starting": "PocketClaw démarre…",
+        "channel_starting": "Connexion à Telegram…",
+        "registering_commands": "Publication du menu de commandes…",
+        "setup_required": "Ajoutez votre identifiant numérique Telegram dans « Autorisés » pour que ce bot ne réponde qu'à vous.",
+        "telegram_conflict": "Ce bot est déjà utilisé par un autre service.",
+        "authentication_failed": "Telegram a refusé les identifiants du bot.",
+        "ready": "Telegram est prêt pour votre premier message.",
+        "unknown": "PocketClaw n'a pas indiqué l'état de Telegram."
+      },
+      "disconnect": {
+        "action": "Déconnecter",
+        "title": "Déconnecter Telegram ?",
+        "body": "Cela supprime le jeton du bot et la liste du propriétaire, et arrête le canal Telegram. Votre historique de conversation est conservé. Vous pouvez reconnecter un bot à tout moment.",
+        "confirm": "Déconnecter",
+        "removed": "Telegram a été déconnecté.",
+        "removedPending": "Telegram a été supprimé et s'arrêtera dès que PocketClaw sera disponible.",
+        "failed": "Impossible de déconnecter Telegram."
+      },
+      "statusUnreadableTitle": "État de Telegram indisponible",
+      "setupIncompleteTitle": "Configuration Telegram incomplète",
+      "conflictTitle": "Bot Telegram déjà utilisé",
+      "conflictWebhook": "Ce bot a un webhook Telegram actif. Déconnectez-le de l'autre service ou utilisez un autre bot.",
+      "conflictInUse": "Une autre application utilise actuellement ce bot. Arrêtez l'autre service de bot ou choisissez un autre bot."
     }
   },
   "pages": {
@@ -1100,10 +1200,6 @@
     "gateway": {
       "title": "Démarrer la passerelle",
       "description": "Une fois les modèles configurés, cliquez sur « Démarrer la passerelle » en haut pour commencer à discuter avec l'IA."
-    },
-    "docs": {
-      "title": "Consulter la documentation",
-      "description": "Besoin d'aide ? Cliquez sur le bouton de documentation en haut à droite pour accéder aux guides détaillés et à la documentation de configuration."
     }
   }
 }

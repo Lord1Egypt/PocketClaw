@@ -17,6 +17,8 @@ interface ModelSelectorProps {
   apiKeyModels: ModelInfo[]
   oauthModels: ModelInfo[]
   localModels: ModelInfo[]
+  /** A selection is being saved. The trigger already shows it. PC-DEF-042. */
+  saving?: boolean
   onValueChange: (modelName: string) => void
 }
 
@@ -25,12 +27,17 @@ export function ModelSelector({
   apiKeyModels,
   oauthModels,
   localModels,
+  saving = false,
   onValueChange,
 }: ModelSelectorProps) {
   const { t } = useTranslation()
 
   return (
-    <Select value={defaultModelName} onValueChange={onValueChange}>
+    <Select
+      value={defaultModelName}
+      onValueChange={onValueChange}
+      disabled={saving}
+    >
       <SelectTrigger
         size="sm"
         className="text-pc-text hover:bg-pc-surface-2 focus-visible:border-pc-claw border-pc-line bg-pc-surface-1 h-8 max-w-[150px] min-w-[80px] rounded-full shadow-none focus-visible:ring-0 sm:max-w-[240px] [&>span]:truncate"

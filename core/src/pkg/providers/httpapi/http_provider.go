@@ -102,3 +102,12 @@ func (p *HTTPProvider) SetProviderName(providerName string) {
 	}
 	p.delegate.SetProviderName(providerName)
 }
+
+// SetSessionHeader makes this provider send the conversation identity under the
+// named header. PC-DEF-032.
+func (p *HTTPProvider) SetSessionHeader(header string) {
+	if p == nil || p.delegate == nil {
+		return
+	}
+	p.delegate.SetSessionHeader(header)
+}

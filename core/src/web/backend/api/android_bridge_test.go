@@ -2,21 +2,26 @@ package api
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/sipeed/picoclaw/pkg/config"
+	"github.com/sipeed/picoclaw/pkg/status"
 )
 
 type fakeNetworkModeController struct {
-	public bool
-	err    error
+	public         bool
+	desiredPublic  bool
+	err            error
+	reconcileCalls int
 }
 
 func (c *fakeNetworkModeController) ApplyPublicMode(public bool) error {
@@ -28,6 +33,19 @@ func (c *fakeNetworkModeController) ApplyPublicMode(public bool) error {
 }
 
 func (c *fakeNetworkModeController) PublicMode() bool { return c.public }
+
+// PC-DEF-040. Mirrors the real runtime: a no-op unless the user asked for LAN and
+// the listener is not already there.
+func (c *fakeNetworkModeController) ReconcileAfterDashboardClaimed() {
+	c.reconcileCalls++
+	if c.err != nil {
+		return
+	}
+	if !c.desiredPublic || c.public {
+		return
+	}
+	c.public = true
+}
 
 const testAndroidBridgeToken = "process-local-test-bridge-token"
 
@@ -73,7 +91,13 @@ func readTelegramBridgeConfig(t *testing.T, path string) (*config.Config, *confi
 func TestAndroidTelegramBridgeWritesThroughAuthoritativeConfig(t *testing.T) {
 	path := writeAndroidBridgeTestConfig(t, "")
 	mux := http.NewServeMux()
-	NewHandler(path).RegisterAndroidBridgeRoutes(mux, testAndroidBridgeToken)
+	handler := NewHandler(path)
+	handler.SetTelegramCredentialValidator(func(
+		context.Context, string, string, string,
+	) error {
+		return nil
+	})
+	handler.RegisterAndroidBridgeRoutes(mux, testAndroidBridgeToken)
 
 	rec := httptest.NewRecorder()
 	mux.ServeHTTP(rec, telegramBridgeRequest(
@@ -96,6 +120,96 @@ func TestAndroidTelegramBridgeWritesThroughAuthoritativeConfig(t *testing.T) {
 	}
 	if cfg.Gateway.Port != 19999 {
 		t.Fatalf("unrelated config was changed: gateway port = %d", cfg.Gateway.Port)
+	}
+}
+
+func TestAndroidTelegramBridgeRejectsInvalidCandidateWithoutReplacingOldBot(t *testing.T) {
+	path := writeAndroidBridgeTestConfig(t, "existing-child-token")
+	beforeCfg, beforeChannel, _ := readTelegramBridgeConfig(t, path)
+	beforeChannel.AllowFrom = config.FlexibleStringSlice{"111"}
+	if err := config.SaveConfig(path, beforeCfg); err != nil {
+		t.Fatal(err)
+	}
+
+	handler := NewHandler(path)
+	handler.SetTelegramCredentialValidator(func(
+		context.Context, string, string, string,
+	) error {
+		return ErrTelegramCredentialsInvalid
+	})
+	mux := http.NewServeMux()
+	handler.RegisterAndroidBridgeRoutes(mux, testAndroidBridgeToken)
+
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, telegramBridgeRequest(
+		`{"token":"rejected-child-token","owner_user_id":222}`,
+		testAndroidBridgeToken,
+	))
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("status = %d, body=%s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), "invalid_credentials") {
+		t.Fatalf("classified failure missing from body: %s", rec.Body.String())
+	}
+
+	_, channel, settings := readTelegramBridgeConfig(t, path)
+	if settings.Token.String() != "existing-child-token" {
+		t.Fatal("the rejected candidate replaced the old token")
+	}
+	if len(channel.AllowFrom) != 1 || channel.AllowFrom[0] != "111" {
+		t.Fatalf("the rejected candidate replaced the old owner: %v", channel.AllowFrom)
+	}
+}
+
+// A candidate that passes getMe but is owned elsewhere -- an active webhook or
+// another long poller -- must not replace the working bot. The preflight rejects
+// it before any mutation, so the committed bot stays authoritative, and the
+// response names the actionable reason rather than collapsing it.
+func TestAndroidTelegramBridgeRejectsOwnedCandidateWithoutReplacingOldBot(t *testing.T) {
+	for name, tc := range map[string]struct {
+		validator error
+		wantKind  string
+	}{
+		"active webhook": {ErrTelegramWebhookConflict, "webhook_active"},
+		"another poller": {ErrTelegramBotInUse, "bot_in_use"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			path := writeAndroidBridgeTestConfig(t, "existing-child-token")
+			beforeCfg, beforeChannel, _ := readTelegramBridgeConfig(t, path)
+			beforeChannel.AllowFrom = config.FlexibleStringSlice{"111"}
+			if err := config.SaveConfig(path, beforeCfg); err != nil {
+				t.Fatal(err)
+			}
+
+			handler := NewHandler(path)
+			handler.SetTelegramCredentialValidator(func(
+				context.Context, string, string, string,
+			) error {
+				return tc.validator
+			})
+			mux := http.NewServeMux()
+			handler.RegisterAndroidBridgeRoutes(mux, testAndroidBridgeToken)
+
+			rec := httptest.NewRecorder()
+			mux.ServeHTTP(rec, telegramBridgeRequest(
+				`{"token":"owned-candidate","owner_user_id":222}`,
+				testAndroidBridgeToken,
+			))
+			if rec.Code != http.StatusConflict {
+				t.Fatalf("status = %d, body=%s", rec.Code, rec.Body.String())
+			}
+			if !strings.Contains(rec.Body.String(), tc.wantKind) {
+				t.Fatalf("body = %q, want kind %q", rec.Body.String(), tc.wantKind)
+			}
+
+			_, channel, settings := readTelegramBridgeConfig(t, path)
+			if settings.Token.String() != "existing-child-token" {
+				t.Fatal("the owned candidate replaced the old token")
+			}
+			if len(channel.AllowFrom) != 1 || channel.AllowFrom[0] != "111" {
+				t.Fatalf("the owned candidate replaced the old owner: %v", channel.AllowFrom)
+			}
+		})
 	}
 }
 
@@ -151,6 +265,52 @@ func TestAndroidTelegramBridgeRejectsNonLoopbackCaller(t *testing.T) {
 	_, _, settings := readTelegramBridgeConfig(t, path)
 	if settings.Token.String() != "existing-child-token" {
 		t.Fatal("non-loopback request changed Telegram credentials")
+	}
+}
+
+func TestAndroidTelegramReadinessBridgeUsesAuthoritativeReadiness(t *testing.T) {
+	registered := true
+	handler := readinessEnv(t, []status.Channel{
+		{
+			Name: "telegram", Configured: true, Started: true, Running: true,
+			CommandsRegistered: &registered, PollingGeneration: &testPollingGeneration,
+		},
+	})
+	mux := http.NewServeMux()
+	handler.RegisterAndroidBridgeRoutes(mux, testAndroidBridgeToken)
+
+	request := func(token string) *http.Request {
+		req := httptest.NewRequest(http.MethodGet, androidTelegramReadinessBridgePath, nil)
+		req.RemoteAddr = "127.0.0.1:48123"
+		req.Header.Set("X-PocketClaw-Android-Bridge", token)
+		return req
+	}
+
+	hidden := httptest.NewRecorder()
+	mux.ServeHTTP(hidden, request("wrong-token"))
+	if hidden.Code != http.StatusNotFound {
+		t.Fatalf("unauthorized status = %d, want hidden route", hidden.Code)
+	}
+
+	ready := httptest.NewRecorder()
+	mux.ServeHTTP(ready, request(testAndroidBridgeToken))
+	if ready.Code != http.StatusOK {
+		t.Fatalf("readiness status = %d, body=%s", ready.Code, ready.Body.String())
+	}
+	var body struct {
+		State string `json:"state"`
+		Ready bool   `json:"ready"`
+	}
+	if err := json.Unmarshal(ready.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	if body.State != string(readinessReady) || !body.Ready {
+		t.Fatalf("body = %+v, want ready", body)
+	}
+	for _, forbidden := range []string{"424242", "123456789", "test-token"} {
+		if bytesContainsFold(ready.Body.Bytes(), forbidden) {
+			t.Fatalf("readiness leaked %q: %s", forbidden, ready.Body.String())
+		}
 	}
 }
 

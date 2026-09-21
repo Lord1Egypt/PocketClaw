@@ -13,14 +13,12 @@ import (
 
 	"github.com/sipeed/picoclaw/pkg/auth"
 	"github.com/sipeed/picoclaw/pkg/config"
-	"github.com/sipeed/picoclaw/pkg/logger"
 	"github.com/sipeed/picoclaw/pkg/providers"
 )
 
 const (
-	oauthProviderOpenAI            = "openai"
-	oauthProviderAnthropic         = "anthropic"
-	oauthProviderGoogleAntigravity = "google-antigravity"
+	oauthProviderOpenAI    = "openai"
+	oauthProviderAnthropic = "anthropic"
 
 	oauthMethodBrowser    = "browser"
 	oauthMethodDeviceCode = "device_code"
@@ -41,19 +39,16 @@ const (
 var oauthProviderOrder = []string{
 	oauthProviderOpenAI,
 	oauthProviderAnthropic,
-	oauthProviderGoogleAntigravity,
 }
 
 var oauthProviderMethods = map[string][]string{
-	oauthProviderOpenAI:            {oauthMethodBrowser, oauthMethodDeviceCode, oauthMethodToken},
-	oauthProviderAnthropic:         {oauthMethodToken},
-	oauthProviderGoogleAntigravity: {oauthMethodBrowser},
+	oauthProviderOpenAI:    {oauthMethodBrowser, oauthMethodDeviceCode, oauthMethodToken},
+	oauthProviderAnthropic: {oauthMethodToken},
 }
 
 var oauthProviderLabels = map[string]string{
-	oauthProviderOpenAI:            "OpenAI",
-	oauthProviderAnthropic:         "Anthropic",
-	oauthProviderGoogleAntigravity: "Google Antigravity",
+	oauthProviderOpenAI:    "OpenAI",
+	oauthProviderAnthropic: "Anthropic",
 }
 
 var (
@@ -69,7 +64,6 @@ var (
 	oauthDeleteCredential         = auth.DeleteCredential
 	oauthLoadConfig               = config.LoadConfig
 	oauthSaveConfig               = config.SaveConfig
-	oauthFetchAntigravityProject  = providers.FetchAntigravityProjectID
 	oauthFetchGoogleUserEmailFunc = fetchGoogleUserEmail
 )
 
@@ -525,9 +519,9 @@ func renderOAuthCallbackPage(w http.ResponseWriter, flowID, status, title, errMs
 func normalizeOAuthProvider(raw string) (string, error) {
 	provider := strings.ToLower(strings.TrimSpace(raw))
 	switch provider {
-	case "antigravity":
-		return oauthProviderGoogleAntigravity, nil
-	case oauthProviderOpenAI, oauthProviderAnthropic, oauthProviderGoogleAntigravity:
+	// "antigravity" and "google-antigravity" deliberately fall through to the
+	// unsupported-provider error below. See PC-DEF-023.
+	case oauthProviderOpenAI, oauthProviderAnthropic:
 		return provider, nil
 	default:
 		return "", fmt.Errorf("unsupported provider %q", raw)
@@ -548,8 +542,6 @@ func oauthConfigForProvider(provider string) (auth.OAuthProviderConfig, error) {
 	switch provider {
 	case oauthProviderOpenAI:
 		return auth.OpenAIOAuthConfig(), nil
-	case oauthProviderGoogleAntigravity:
-		return auth.GoogleAntigravityOAuthConfig(), nil
 	default:
 		return auth.OAuthProviderConfig{}, fmt.Errorf("provider %q does not support browser oauth", provider)
 	}
@@ -710,25 +702,6 @@ func (h *Handler) persistCredentialAndConfig(provider, authMethod string, cred *
 		cp.AuthMethod = authMethod
 	}
 
-	if provider == oauthProviderGoogleAntigravity {
-		if cp.Email == "" {
-			email, err := oauthFetchGoogleUserEmailFunc(cp.AccessToken)
-			if err != nil {
-				logger.ErrorC("oauth", fmt.Sprintf("oauth warning: could not fetch google email: %v", err))
-			} else {
-				cp.Email = email
-			}
-		}
-		if cp.ProjectID == "" {
-			projectID, err := oauthFetchAntigravityProject(cp.AccessToken)
-			if err != nil {
-				logger.ErrorC("oauth", fmt.Sprintf("oauth warning: could not fetch antigravity project id: %v", err))
-			} else {
-				cp.ProjectID = projectID
-			}
-		}
-	}
-
 	if err := oauthSetCredential(provider, &cp); err != nil {
 		return fmt.Errorf("saving credential: %w", err)
 	}
@@ -766,8 +739,6 @@ func modelBelongsToProvider(provider string, modelCfg *config.ModelConfig) bool 
 		return protocol == "openai"
 	case oauthProviderAnthropic:
 		return protocol == "anthropic"
-	case oauthProviderGoogleAntigravity:
-		return protocol == "antigravity"
 	default:
 		return false
 	}
@@ -787,13 +758,6 @@ func defaultModelConfigForProvider(provider, authMethod string) *config.ModelCon
 			ModelName:  "claude-sonnet-4.6",
 			Provider:   "anthropic",
 			Model:      "claude-sonnet-4.6",
-			AuthMethod: authMethod,
-		}
-	case oauthProviderGoogleAntigravity:
-		return &config.ModelConfig{
-			ModelName:  "gemini-flash",
-			Provider:   "antigravity",
-			Model:      "gemini-3-flash",
 			AuthMethod: authMethod,
 		}
 	default:

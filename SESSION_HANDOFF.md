@@ -1,5 +1,55 @@
 # PocketClaw Session Handoff
 
+> **HISTORICAL SESSION ARCHIVE.** The current entry point is
+> [`docs/AI_HANDOFF.md`](docs/AI_HANDOFF.md), and the current-state authority is
+> [`PROJECT_STATE.md`](PROJECT_STATE.md). Every entry below records the state at
+> its own date; older “no release,” “next milestone,” or unresolved-status text
+> must not be read as current project state.
+
+## H2 developer app-signing key — CLOSED, 2026-09-11
+
+Branch `feature/final-release-hardening`. The owner created the permanent
+PocketClaw developer app-signing key, confirmed a separate backup exists, and
+holds the keystore and both passwords outside this repository. The public certificate
+`176dca6b198b9552fb4d9ad3ca18da8d6f23c0a3f5ed4bd6b75a0700f9f0efcf` is enrolled
+as the single bare line in `android/release-signing-cert.sha256`, and the source
+gate reports one enrolled signer.
+
+The owner entered both passwords through hidden local terminal input into a
+temporary helper outside the repository. Gradle production-signing validation
+passed, one private arm64 validation APK was built, and independent `apksigner`
+inspection found exactly one signer matching the enrolled certificate. The
+production artifact gate passed with 20 PASS, 0 FAIL and the expected one SKIP
+for `artifact.dart_snapshot_paths`.
+
+The private APK is `64359287` bytes with SHA-256
+`f0d83298c2ce061c01a9fc931ad29676e4d4b646bb5b204a9bf0002b11a7f46f`.
+It was not installed, published or accepted. `vc62` remains the accepted
+physical baseline at `lastAcceptedVersionCode=62`; it uses the historical local
+test signer. Version stays `0.2.0+62`, Core fingerprint stays
+`876b87f5950452ba903301b6cce4cc96502ab4ff25d90d13e31b9da537e24b44`,
+and Core and the Managed Runtime were not rebuilt. H2 is complete. H3 has not
+started: no Dart obfuscation, split debug info, R8 narrowing or native
+hardening.
+
+### Do not undo these
+
+**One enrolled digest, not a list.** Two would mean the gate accepted either
+identity without saying which. Rotation replaces the line; it never appends.
+
+**The subject is not the identity.** A certificate subject is attacker-chosen
+text. `CN=`, `O=` and friends are pinned *out* of the enrollment file by test,
+so nothing can quietly start trusting one.
+
+**Never record where the keystore lives.** The repository has no path to it and
+must not acquire one, in a doc, a script default or an example.
+
+**The helper's stderr stays unredirected.** That single `2>/dev/null` is what
+made the real ceremony print an empty fingerprint under its own heading: it hid
+keytool's password prompt, and keytool answers a missing password by listing the
+entry without its certificate and exiting 0. Shape-check the result; an exit
+status is not evidence a fingerprint was produced.
+
 ## Zero-Pico namespace migration — CLOSED and merged, 2026-09-09
 
 Branch `feature/zero-pico-runtime`, head `9910042`, merged to `develop` with

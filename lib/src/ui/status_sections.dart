@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../core/app_fonts.dart';
 import 'package:pocketclaw/src/core/aperture_theme.dart';
 import 'package:pocketclaw/src/core/status_snapshot.dart';
 import 'package:pocketclaw/src/generated/l10n/app_localizations.dart';
@@ -298,7 +298,7 @@ class StatusSections extends StatelessWidget {
                 Expanded(
                   child: Text(
                     title,
-                    style: GoogleFonts.inter(
+                    style: AppFonts.inter(
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
                       letterSpacing: 0.9,

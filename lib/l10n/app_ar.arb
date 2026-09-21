@@ -164,7 +164,7 @@
   "whatsNew020New2": "أدوات تطوير مضمّنة: Git وGitHub CLI وcurl وripgrep وjq وSQLite.",
   "whatsNew020New3": "دعم وقت تشغيل Python 3.14 المضمّن في PocketClaw.",
   "whatsNew020New4": "تسجيل دخول آمن إلى GitHub، يشترك فيه Git وGitHub CLI المضمّنان.",
-  "whatsNew020New5": "تكامل مع تيليجرام، يُضبط من الإعدادات.",
+  "whatsNew020New5": "إعداد تيليجرام بلمسة واحدة: ينشئ PocketClaw بوتك الخاص، من التطبيق أو من لوحة التحكم في المتصفح. لا يوجد رمز لنسخه، ولا يمكن التحدث إليه إلا من حسابك.",
   "whatsNew020New6": "عرض الحالة في لوحة التحكم: الأعمال الجارية والقنوات والنموذج المستخدم وموارد التشغيل.",
   "whatsNew020Improvement1": "مزوّدون أكثر مرونة: لم يعد فشل الطلب ينهي الدور.",
   "whatsNew020Improvement2": "فهرس أدق لوقت التشغيل المُدار.",
@@ -218,5 +218,16 @@
   "statusDurationSeconds": "{seconds} ث",
   "statusDurationMinutes": "{minutes} د {seconds} ث",
   "statusDurationHours": "{hours} س {minutes} د",
-  "statusDurationDays": "{days} ي {hours} س"
+  "statusDurationDays": "{days} ي {hours} س",
+  "notificationPermissionTitle": "الإشعارات",
+  "notificationPermissionGranted": "يمكن لـ PocketClaw إظهار إشعار التشغيل.",
+  "notificationPermissionBlocked": "الإشعارات مُعطَّلة، لذا لن يظهر إشعار تشغيل PocketClaw.",
+  "notificationPermissionOpenSettings": "فتح إعدادات الإشعارات",
+  "whatsNew020New7": "إدارة تيليجرام من لوحة التحكم: ربط بوت أو استبداله أو قطع اتصاله.",
+  "whatsNew020New8": "إدارة المزودين والطُرز في لوحة التحكم: إضافة مزود أو تغيير مفتاح API أو إزالة طراز.",
+  "whatsNew020Improvement12": "تُطبَّق إعدادات تيليجرام بمجرد حفظها، بدون إعادة تشغيل يدوية.",
+  "whatsNew020Improvement13": "عندما لا يكون هناك طراز ذكاء اصطناعي مُعد، يوضّح PocketClaw ما ينقص بالتحديد ويعطيك رمزًا للرجوع إليه.",
+  "whatsNew020Improvement14": "تسجيل الدخول إلى لوحة التحكم ينقلك إلى الشاشة التي طلبتها.",
+  "whatsNew020Improvement15": "تبقى سجلات التشخيص مفصّلة دون أن تحتوي أبدًا على مفاتيحك أو رموزك أو نص رسائلك.",
+  "whatsNew020Improvement16": "لوحة التحكم التي لم يطالب بها أحد بعد لا يمكن الوصول إليها من الشبكة أبدًا، حتى مع تشغيل الوضع العام."
 }

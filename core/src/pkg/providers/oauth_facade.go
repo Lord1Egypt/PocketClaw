@@ -5,15 +5,9 @@ import (
 )
 
 type (
-	AntigravityProvider  = oauthprovider.AntigravityProvider
-	AntigravityModelInfo = oauthprovider.AntigravityModelInfo
-	ClaudeProvider       = oauthprovider.ClaudeProvider
-	CodexProvider        = oauthprovider.CodexProvider
+	ClaudeProvider = oauthprovider.ClaudeProvider
+	CodexProvider  = oauthprovider.CodexProvider
 )
-
-func NewAntigravityProvider() *AntigravityProvider {
-	return oauthprovider.NewAntigravityProvider()
-}
 
 func NewClaudeProvider(token string) *ClaudeProvider {
 	return oauthprovider.NewClaudeProvider(token)
@@ -41,14 +35,6 @@ func NewCodexProviderWithTokenSource(
 	token, accountID string, tokenSource func() (string, string, error),
 ) *CodexProvider {
 	return oauthprovider.NewCodexProviderWithTokenSource(token, accountID, tokenSource)
-}
-
-func FetchAntigravityProjectID(accessToken string) (string, error) {
-	return oauthprovider.FetchAntigravityProjectID(accessToken)
-}
-
-func FetchAntigravityModels(accessToken, projectID string) ([]AntigravityModelInfo, error) {
-	return oauthprovider.FetchAntigravityModels(accessToken, projectID)
 }
 
 func createClaudeTokenSource() func() (string, error) {

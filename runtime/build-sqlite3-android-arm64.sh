@@ -23,7 +23,7 @@ cd "$BUILD_ROOT/sqlite-amalgamation-$SQLITE_VERSION"
 # SQLITE_OMIT_LOAD_EXTENSION matters for more than size: it removes the ability
 # to load a shared library at runtime, which would be a way to execute code the
 # runtime never verified.
-"$TOOLCHAIN/bin/$TARGET_CC" -Os -fPIE -pie \
+"$TOOLCHAIN/bin/$TARGET_CC" -Os -fPIE -pie $NATIVE_DEBUG_CFLAGS \
     -DSQLITE_ENABLE_FTS5 -DSQLITE_ENABLE_JSON1 -DSQLITE_ENABLE_RTREE \
     -DSQLITE_THREADSAFE=1 -DSQLITE_OMIT_LOAD_EXTENSION \
     -o sqlite3.bin shell.c sqlite3.c -lm

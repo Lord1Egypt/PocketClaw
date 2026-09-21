@@ -1,3 +1,4 @@
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pocketclaw/src/telegram/telegram_config_writer.dart';
 import 'package:pocketclaw/src/telegram/telegram_onboarding_models.dart';
@@ -46,6 +47,23 @@ void main() {
       await expectLater(
         writer.apply(_credentials),
         throwsA(isA<TelegramOnboardingException>()),
+      );
+    });
+
+    test('preserves the classified invalid-credential failure', () async {
+      final writer = TelegramConfigWriter(
+        writeCredentials: (_) async =>
+            throw PlatformException(code: 'TELEGRAM_CREDENTIALS_INVALID'),
+      );
+      await expectLater(
+        writer.apply(_credentials),
+        throwsA(
+          isA<TelegramOnboardingException>().having(
+            (error) => error.kind,
+            'kind',
+            TelegramOnboardingErrorKind.invalidCredentials,
+          ),
+        ),
       );
     });
 
