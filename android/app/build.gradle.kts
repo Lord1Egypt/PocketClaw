@@ -389,6 +389,12 @@ android {
 
     // jniLibs packaging: libpocketclaw*.so are statically linked Go executables.
     packaging {
+        resources {
+            // The kotlinx-coroutines debug agent's class, shipped as a resource
+            // and loaded only when DebugProbes is installed as a JVM agent. No
+            // class in the APK references it; Android never loads it.
+            excludes += "DebugProbesKt.bin"
+        }
         jniLibs {
             // Never strip libpocketclaw*.so: they are not ordinary shared libraries.
             keepDebugSymbols += "**/libpocketclaw.so"
