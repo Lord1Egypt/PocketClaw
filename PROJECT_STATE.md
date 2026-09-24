@@ -9,7 +9,7 @@ evidence and describe the state at the date of each entry.
 
 | Field | Current fact |
 | --- | --- |
-| Working branch | `feature/final-release-hardening` |
+| Working branch | `feature/post-v0.2.1-android-cleanup` (from `develop` at `2db9390`; not merged, no release) |
 | PC-1 state-basis HEAD | `0be6afbd92209953d918d5c0516662bc54f0d081` (PC-1's verified starting commit; the documentation-only closeout commit necessarily follows it) |
 | H3A state-basis HEAD | `9a5a5dd9fd4a0697451d27948efe2c5be6e5c028` (verified H3A starting commit; the H3A closeout commit follows it) |
 | H3B state-basis HEAD | `6491ccc6f611c7513506d622dbb1ad4a75c93a43` (verified H3B starting commit; the H3B defect fix and closeout commit follow it) |
@@ -29,7 +29,7 @@ evidence and describe the state at the date of each entry.
 | Accepted physical baseline | vc63 / `lastAcceptedVersionCode=63` — advanced by the v0.2.1 acceptance commit |
 | Current phase | Final Production Release Hardening; H5C production-signed native/ELF validation closed |
 | Developer production signer | `176dca6b198b9552fb4d9ad3ca18da8d6f23c0a3f5ed4bd6b75a0700f9f0efcf` |
-| Core fingerprint | `87c320c1cb6dffe6395043265c3d4d659ddaf26a4b588d303c5d06355a4acc2b`; the staged Core pair carries it — last moved by the PC-DEF-075 identity endpoint and its Dashboard consumer |
+| Core fingerprint | Branch: `e437c610bdd7ec5c0c5ce26a4df1a961471824adcc03742cf7c1c809778233c8`, staged in `a365c97` from build-input commit `ed72fd6` (BuildTime `2026-09-24T11:00:43+0000`), pair `724b6c92…` / `406466e8…`. Released v0.2.1: `76a114fd…` |
 | Distribution targets | Direct APK, Google Play, Official F-Droid |
 | **Released — PocketClaw v0.2.1** | Patch release for PC-DEF-076, the bundled-Git SIGSEGV. `PocketClaw-v0.2.1-arm64-v8a.apk`, 63,613,115 bytes, `1203cd46f30cc6e7d69b3cd54be2d2dbca29150a9bce4f722b112576ccf4401b`, `0.2.1+63`, one production signer `176dca6b…`, Core fingerprint `76a114fd…`, bundled git `60d3a1c0…` and git-remote-http `90e18712…`. Owner-signed from `c898581`; **physically accepted on SM-A165F / Android 16 on 2026-09-22** with an ordinary `git clone` and reflogs enabled. |
 | Exposure-audit state-basis HEAD | `25753cef5fa4d956e11d37b5a6176cdef977f015` (verified PC-DEF-019 closeout; the audit closeout commit follows it) |
@@ -55,8 +55,121 @@ evidence and describe the state at the date of each entry.
 | Verification APK (PC-DEF-056/057, superseded) | `7c8eefd399318b6187b0fb87c8bd687d7d08c3537959e31f38767a642908e3cb`, 63,539,059 bytes, development signer `15cf75f9…`, Dart AOT `007c23b6be22a9a44f429a53f8fb9eaf930180e67bb20f111cadceedb68e22f4`. Source gate 26/26 with `flutter.suite 561 passed`, artifact gate 24/24, native ELF 188 PASS / 0 FAIL. Archived read-only at `build/forensic/apk-7c8eefd3…/`. LOCAL TEST / NON-RELEASABLE. **Nothing in it is physically verified** |
 | Verification APK (PC-DEF-049..055, superseded) | `6df7abaa6bec5a5124d21d30b582fc37d2837be036fa75e93eb3d30d5634894c`, 63,528,459 bytes, development signer `15cf75f9945d5354e75707e0326b7cffc60ac51a68df38156db318ef4578a27c`, Dart AOT `d5d52742ab6cc5672e7c3910dc20c50e5c4da430c80d65c49501d12ea17a7968`. Source gate 26/26, artifact gate 24/24, native ELF audit 188 PASS / 0 FAIL. Archived read-only at `build/forensic/apk-6df7abaa…/` with its private R8 material separated. LOCAL TEST / NON-RELEASABLE |
 | Staged Core freshness | **CURRENT.** Rebuilt from the source commit `55624cd` and staged in `da9e6f5`, which touches no build input. Fingerprint `87c320c1cb6dffe6395043265c3d4d659ddaf26a4b588d303c5d06355a4acc2b` (was `9c22cb22…`), BuildTime `2026-09-21T03:22:04+0000` |
-| Flutter suite | Green — 579 passed, 0 failed — and the **complete** suite is now a release gate (`flutter.suite`) |
+| Flutter suite | Green — 588 passed, 0 failed (gate run on the branch, 2026-09-24) — and the **complete** suite is a release gate (`flutter.suite`) |
 | Public release asset policy | APK only. An AAB is a Play-upload artifact and is never a public release asset — `PC-DEF-021` |
+
+## 2026-09-24 — Post-v0.2.1 Android cleanup and runtime hardening
+
+Branch `feature/post-v0.2.1-android-cleanup` from `develop` at `2db9390`
+(v0.2.1). Nothing merged, no tag moved, no release made. v0.2.0 and v0.2.1
+tags, releases and assets are untouched.
+
+| Commit | What |
+| --- | --- |
+| `dc83b4a` | PC-DEF-078 — tool-result budget, post-tool context preflight, one bounded overflow recovery |
+| `4cecec3` | PC-DEF-079 — Telegram queue notices; a panicking turn no longer drops the queue |
+| `4c1769f` | PC-DEF-080 — Devices card, launch-at-login, service port removed from Config |
+| `ed72fd6` | PC-DEF-082 — WhatsApp packages no longer linked (Core build-input commit) |
+| `eefa558` | PC-DEF-081 — one generated mark everywhere; README describes v0.2.1 |
+| `e66344c` | PC-DEF-083 — desktop host, dead plugins, boot receiver removed from the app |
+| `a365c97` | Core pair restaged (fingerprint `e437c610…`) |
+
+### State by defect
+
+| Defect | CONFIRMED | FIXED IN SOURCE | SOURCE TESTED | PHYSICAL PASS |
+| --- | --- | --- | --- | --- |
+| PC-DEF-078 tool output → 400 | yes (owner log) | yes | yes | **pending** |
+| PC-DEF-079 queue UX / panic drop | yes | yes | yes | **pending** |
+| PC-DEF-080 inert Config controls | yes | yes | yes | **pending** |
+| PC-DEF-081 branding / README | yes | yes | yes | **pending** (visual) |
+| PC-DEF-082 WhatsApp dead weight | yes | yes | yes | n/a (no device behaviour) |
+| PC-DEF-083 desktop host / dead plugins | yes | yes | yes | **pending** |
+| PC-DEF-084 silent edit after a long turn | yes (source) | **no — OPEN** | — | — |
+| PC-DEF-077 workspace location | — | — | — | **OPEN**, unchanged |
+
+### Android relevance audit
+
+| Surface | Class | Action |
+| --- | --- | --- |
+| Config → Devices: Enable Devices, Monitor USB | DEAD-ON-ANDROID | Removed; Android Core compiles the inert USB monitor |
+| Config → Launch at Login, `/api/system/autostart`, `startup.go` | DEAD-ON-ANDROID | Removed |
+| Config → Service Port | DEAD-ON-ANDROID (host passes `-port 18800`) | Field removed; API keeps round-tripping the stored value |
+| Settings → Port, host field | DESKTOP-ONLY-PRODUCT-SURFACE (port broke the WebView URL) | Removed; read-only LAN address kept in Public Mode |
+| Settings → Arguments | DESKTOP-ONLY-PRODUCT-SURFACE (bypassed Public Mode authority) | Removed; launch args derive from Public Mode |
+| Settings → binary path, Browse, Check, Save | DESKTOP-ONLY-PRODUCT-SURFACE | Removed |
+| Tray, window manager, Windows single instance | DEAD-ON-ANDROID | Removed |
+| Desktop Core adapter, Windows/macOS/Linux WebViews | DEAD-ON-ANDROID | Removed |
+| Log export desktop branches (explorer/open/xdg-open) | DEAD-ON-ANDROID | Removed; MediaStore path only |
+| SIGINT/SIGTERM watchers | DESKTOP-ONLY (would turn a signal into a Core stop) | Removed |
+| `flutter_background_service` (+ dataSync FGS, 2 exported receivers) | DEAD-ON-ANDROID (never started) | Removed |
+| `BootReceiver`, set/getAutoStart | DEAD-ON-ANDROID (no UI ever set it) | Removed |
+| `flutter_local_notifications`, `file_picker` | DEAD-ON-ANDROID | Removed |
+| Flutter `ChatPage` | DEAD (unreachable) | Removed |
+| `tools/fetch_core_local.dart` | DEAD (unreferenced upstream binary downloader) | Removed |
+| WhatsApp bridge / native stub in Core | DEAD-ON-ANDROID | No longer linked; packages stay vendored |
+| Launch auto-start (service/gateway on app launch) | ANDROID-USEFUL | Kept |
+| Public Mode, LAN address, QR | ANDROID-USEFUL | Kept |
+| Config → Agent, Runtime, Evolution, MCP, Run Commands, Cron, Launcher password/LAN/CIDRs | ANDROID-USEFUL | Kept |
+| exec/shell, runtime tools, git, gh, curl, python, sqlite | ANDROID-REQUIRED | Kept (exec output bound fixed) |
+| Channels in the dashboard catalog (Discord, Slack, Matrix, …) | UPSTREAM-RETAINED / ANDROID-USEFUL | Kept; README list aligned to the catalog |
+| `pkg/devices` service and `devices` config block | UPSTREAM-RETAINED | Kept, inert on Android |
+| Umeng analytics provider (`AnalyticsReporter`, `compileOnly` SDK) | UPSTREAM-RETAINED, build-time optional, off in shipping build | Kept; recorded in `docs/FDROID_READINESS_NOTES.md` |
+| `TVFocusable`, keyboard/D-pad focus | ANDROID-USEFUL | Kept; desktop branch collapsed |
+| Webhook-only channels behind a loopback gateway | UNKNOWN reachability without a tunnel | Not offered in the dashboard catalog; not changed |
+
+### Manifest and permission matrix (packaged APK, before → after)
+
+| Permission / component | Consumer | Decision | Evidence |
+| --- | --- | --- | --- |
+| `INTERNET`, `ACCESS_NETWORK_STATE` | Core, providers, Telegram | Keep | required |
+| `FOREGROUND_SERVICE`, `_SPECIAL_USE` | `PocketClawService` | Keep | FGS type specialUse |
+| `FOREGROUND_SERVICE_DATA_SYNC` | flutter_background_service (never started) | **Removed** | gate forbids |
+| `WAKE_LOCK` | `PocketClawService` partial wake lock | Keep | `PocketClawService.kt` |
+| `RECEIVE_BOOT_COMPLETED` | BootReceiver (preference never settable) | **Removed** | gate forbids |
+| `VIBRATE` | flutter_local_notifications (never called) | **Removed** | gate forbids |
+| `POST_NOTIFICATIONS` | FGS notification | Keep | PC-DEF-058 |
+| `MANAGE_EXTERNAL_STORAGE`, `READ/WRITE_EXTERNAL_STORAGE` (maxSdk) | workspace in Download | Keep — storage policy out of scope | PC-DEF-077 open |
+| `MainActivity` (exported, launcher) | app entry | Keep | required |
+| `PocketClawService` (not exported) | Core host | Keep | |
+| `id.flutter…BackgroundService`, `WatchdogReceiver`, `BootReceiver` (exported) | dead plugin | **Removed** | |
+| `.receiver.BootReceiver` (exported) | dead feature | **Removed** | |
+| `GET_CONTENT` query | file_picker | **Removed** | |
+| `PROCESS_TEXT` query | Flutter text selection | Keep | Flutter template |
+| share_plus provider/receiver, url_launcher WebViewActivity (not exported) | log sharing, links | Keep | |
+| `ProfileInstallReceiver` (exported, AndroidX) | baseline profiles | Keep | standard AndroidX |
+| `requestLegacyExternalStorage` | ignored at targetSdk 36 | Kept, documented as a no-op | storage out of scope |
+
+### Development APK (physical test, LOCAL TEST / NON-RELEASABLE)
+
+`build/forensic/apk-7ead013e/app-release.apk` — 61,736,146 bytes,
+SHA-256 `7ead013eff15dbbaebb8a960a40a00668c1e7217e8534c6fd3b24831bdc68d43`,
+`com.lord1egypt.pocketclaw` 0.2.1+63, development signer `15cf75f9…`, Dart AOT
+`6fb3d3f7…`, Core fingerprint `e437c610…` (`libpocketclaw.so` `724b6c92…`,
+`libpocketclaw-web.so` `406466e8…`). Every Managed Runtime payload is
+byte-identical to v0.2.1. Gate `--full --release-class test`: all rows PASS,
+`flutter.suite` 588 passed. Native ELF audit 188/0/0 (194/0/0 with the private
+support manifest). Secret scan over 765,094 APK strings and the branch diff: 0.
+
+**Install caveat.** The owner's phone runs the production-signed v0.2.1. This
+APK is development-signed: installing it requires uninstalling first, which
+erases app data, so checklist item 15 (data survives update) can only be
+proven with an owner-signed build of the same source.
+
+### Physical checklist (owner)
+
+1. App launches. 2. Service starts, stops, restarts. 3. Dashboard opens.
+4. Models/providers still work. 5. Telegram connects. 6. A normal Telegram
+message is answered. 7. Several rapid messages: each queued one gets "Queued —
+N messages ahead", the notice disappears when it starts, all are answered in
+order, none twice. 8. Ask for a large download (e.g. `curl` of a big JSON API):
+no provider 400. 9. The answer shows `[OUTPUT TRUNCATED]` handling (original and
+delivered sizes). 10. `git clone` with reflogs still works. 11. Settings/Config
+has no Devices card, no Launch at Login, no Service Port. 12. No empty gaps where
+they were; Flutter Settings has no Port/Arguments/Save and shows the LAN address
+only with Public Mode on. 13. Arabic RTL is correct. 14. Launcher icon matches
+README (`assets/branding/pocketclaw-icon.png`); the notification icon is the
+APERTURE mark. 15. User data/workspace survives the update (owner-signed build
+only, see caveat). 16. App info → Permissions shows no new permission.
 
 ## 2026-09-21 — v0.2.0 publication blocked: the Open chat destination
 

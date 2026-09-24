@@ -55,6 +55,167 @@ only reconstructable examples belong here.
 
 
 
+### PC-DEF-078 — a 3 MB tool result reached the provider whole and the turn died with HTTP 400
+
+- **Observed:** owner, over Telegram, after v0.2.1 was published. Several
+  messages with repository links were sent in quick succession while the agent
+  was researching. The bot went quiet for minutes, answered late, and a later
+  turn failed with "request rejected (400)". The runtime log shows one turn of
+  443,619 ms and 33 LLM iterations; a `curl` result of 3,202,895 bytes logged
+  with `truncated=false` and `for_llm_len=3202942`; the next request at
+  `request_bytes=3851039`; and the provider's `HTTP 400 invalid_request_error`.
+- **Root cause, proven in source.** The Managed Runtime captures up to
+  `max_output_bytes` per tool — 4 MiB for `curl`, `gh`, `git`, `rg`, `sqlite3`
+  and `python` — as a memory bound. Nothing downstream bounded what reached the
+  model: `pipeline_execute.go` put `ContentForLLM()` into the conversation, the
+  session and the next request unchanged. The context budget was checked only
+  when a turn started (`SetupTurn`) and after a provider error; the error path
+  then refused to recover, because the giant result sat in the active turn it
+  will not drop. The URLs were incidental: they caused the research that
+  produced the large result.
+- **Contributing defects found on the way.** The agent's context-error test
+  matched `max_tokens` and `invalidparameter`, so parameter and schema 400s
+  were compacted and resent as if they were overflows; recovery could run up to
+  `MaxLLMRetries` times. The `exec` tool cut long output with a byte prefix,
+  which removed the `[Command exited with code N]` line it appends after the
+  output and could split a UTF-8 character.
+- **Fix:** every tool result — synchronous, hook, async and sub-turn — is
+  bounded to `tools.max_result_bytes` (default 64 KiB) before it enters the
+  conversation or the session: head and tail kept on rune boundaries, invalid
+  UTF-8 repaired, and an explicit notice stating `OUTPUT TRUNCATED`, the
+  original and delivered bytes and how to narrow the request. Every provider
+  request is measured first; over budget, tool results are halved, then history
+  is compacted once per turn and trimmed, re-measuring after each. A provider
+  refusal counts as overflow only for 413 or a 400 whose words say the request
+  was too big, never for auth, billing, quota, rate limit, a missing model or
+  5xx; recovery is one compact-and-resend, and failure yields PC-E-CTX-001.
+  Materialising large output to a file was rejected: the workspace can be
+  shared storage, which is not app-private.
+- **Evidence:** `dc83b4a`; tests in `pkg/tools/result_budget_test.go`,
+  `pkg/tools/shell_test.go` and `pkg/agent/tool_output_budget_test.go` fail on
+  the old code (3 MB sent whole, post-tool request over budget, three overflow
+  sends, a `max_tokens` 400 resent). Present in the staged Core `724b6c92…`.
+- **Status:** FIXED IN SOURCE — SOURCE TESTED — physical confirmation pending
+  (checklist items 7–9 in `PROJECT_STATE.md`).
+
+### PC-DEF-079 — queued Telegram messages looked lost, and a panicking turn dropped them
+
+- **Observed:** same session as PC-DEF-078. The log shows `Inbound response
+  lifecycle queued queue_depth=3`: the messages were held, but a queued
+  message deliberately gets no typing indicator and no placeholder until it
+  starts, so behind a seven-minute turn the bot looked dead.
+- **Found in the audit:** a panic in one mailbox turn unwound the worker, and
+  `releaseSessionMailbox` deleted the mailbox with every queued message still
+  in it — no reply, no log line. An error (not a panic) already continued.
+- **Fix:** each queued Telegram message gets one reply, "Queued — N messages
+  ahead. This will start automatically.", with N computed under the mailbox
+  lock; it is sent straight to the Bot API (Telegram's `Send` would take it for
+  the running turn's answer), follows the placeholder setting, and is deleted
+  when its message starts. Each mailbox turn contains its own panic, tells that
+  sender to resend, and the worker continues in order.
+- **Evidence:** `4cecec3`; `pkg/agent/telegram_queue_test.go` (bursts with a
+  normal, a failed and a panicking first turn: four answers, in order, none
+  duplicated, every notice retired) and `pkg/channels/queue_notice_test.go`.
+  The panic test was run against the old worker loop and fails there.
+- **Status:** FIXED IN SOURCE — SOURCE TESTED — physical confirmation pending
+  (checklist item 7).
+
+### PC-DEF-080 — the dashboard's Config page offered four controls that cannot work on Android
+
+- **Observed:** owner, Settings → Devices: "Enable Devices", "Monitor USB",
+  "Launch at Login" — the last one saying itself it was unsupported.
+- **Evidence:** the USB monitor shells out to `udevadm monitor`, which Android
+  does not provide and an app could not use; `GOOS=android` satisfies the
+  `linux` build tag, so the Android Core compiled it. Launch at login wrote a
+  LaunchAgent, an XDG autostart file or a Windows Run key and answered
+  "unsupported" for `runtime.GOOS == "android"`. Found alongside: "Service
+  Port" was saved and reported as applied, but the host always passes
+  `-port 18800`, which wins.
+- **Fix:** the Devices card, the port field, their 11 strings in 14 locales,
+  `/api/system/autostart` and `startup.go` are removed; the Android Core
+  compiles the inert USB monitor. `pkg/devices` and the `devices` config block
+  stay (upstream, still parsed).
+- **Evidence:** `4c1769f`; `config-page.android.test.tsx`,
+  `no_autostart_route_test.go`, `usb_monitor_selection_test.go`, and an i18n
+  test that no locale carries the keys. Verified absent from the staged
+  `libpocketclaw-web.so` `406466e8…`.
+- **Status:** FIXED IN SOURCE — SOURCE TESTED — physical confirmation pending
+  (checklist items 11–12).
+
+### PC-DEF-081 — the README showed a mark the app does not, and described v0.2.0
+
+- **Observed:** owner. README used `assets/branding/pocketclaw-mark.png`, a
+  glossy 3D mark; the launcher shows the APERTURE mark. The README's download
+  badge, checksum file, APK name and hash, signing commit and project status
+  still described v0.2.0 after v0.2.1 was published.
+- **Found in the audit:** the same glossy bitmap was the pre-Android-12
+  launch splash (`drawable/pocketclaw_mark.png`, byte-identical), and the
+  status-bar icon was a hand-drawn claw matching neither.
+- **Fix:** `tool/generate_android_launcher_icons.py` derives the README icon
+  (`assets/branding/pocketclaw-icon.png`), the splash mark and the
+  notification vector from the canonical APERTURE strokes; the glossy mark and
+  the desktop icons are removed and no branding image is packaged as a Flutter
+  asset. README moved to v0.2.1 with every identity read back from the
+  released APK; a test holds it to `pubspec.yaml`.
+- **Evidence:** `eefa558`. Launcher resources regenerated byte-identical.
+- **Status:** FIXED IN SOURCE — SOURCE TESTED — visual confirmation pending
+  (checklist item 14; the splash change is visible only below Android 12).
+
+### PC-DEF-082 — the shipping Core still linked the removed WhatsApp channels
+
+- **Evidence:** two blank imports in `pkg/gateway/gateway.go` linked the
+  WhatsApp bridge client and the `whatsapp_native` stub into every Core, and a
+  guard required the stub. Channel types are registered in `pkg/config`, so
+  config loading does not depend on these packages; a missing factory only logs
+  "Factory not registered".
+- **Fix:** the imports are gone; the packages stay vendored. The binary guard
+  now requires whatsmeow, the stub, the bridge client and both package paths
+  to be absent, and a source guard keeps the imports out.
+- **Evidence:** `ed72fd6`; neither Android dependency graph contains a WhatsApp
+  package; verified absent from the staged `libpocketclaw.so` `724b6c92…`.
+- **Status:** FIXED IN SOURCE — SOURCE TESTED. No device behaviour depends on
+  it; covered by the ordinary smoke test.
+
+### PC-DEF-083 — the Android app carried a desktop host, two actively wrong settings and plugins it never ran
+
+- **Evidence:** the repository has no Flutter platform but `android`, yet the
+  app kept the FUI desktop launcher. Two Settings fields were wrong on the
+  phone, not merely dead: **Port** was persisted into `webUrl` while the host
+  always listens on 18800, so saving another value pointed the embedded
+  Dashboard at nothing until the next launch; **Arguments** was appended to
+  the launch arguments, and the host reads that string only to look for
+  `-public`, so typing it enabled LAN exposure without the Public Mode toggle
+  (PC-DEF-020's single authority). `flutter_background_service` was configured
+  with `autoStart: false` and never started, yet contributed a `dataSync`
+  foreground service and two exported receivers; `BootReceiver` read a
+  preference no PocketClaw UI ever set; `flutter_local_notifications` was never
+  called and added `VIBRATE`.
+- **Fix:** see `e66344c` for the full list — desktop code and adapters, the
+  dead plugins and dependencies, the unreachable `ChatPage`, 35 unused strings
+  and an unreferenced script that downloaded upstream Core binaries. Launch
+  arguments derive from Public Mode alone. `FOREGROUND_SERVICE_DATA_SYNC`,
+  `RECEIVE_BOOT_COMPLETED` and `VIBRATE` leave the packaged manifest and the
+  release gate forbids them; four exported components are gone.
+- **Evidence:** `flutter analyze` clean; the full Flutter suite and 50 Android
+  unit tests pass; the packaged manifest of `7ead013e…` was read back.
+- **Status:** FIXED IN SOURCE — SOURCE TESTED — physical confirmation pending
+  (checklist items 1–6, 13, 15, 16).
+
+### PC-DEF-084 — a long turn's answer arrives as a silent edit above newer messages
+
+- **Found in the PC-DEF-078 audit, not fixed.** The Thinking placeholder is
+  sent when a turn starts and the final answer is edited into it (or into the
+  tool-progress message). After a turn of several minutes the answer therefore
+  lands above any message the owner sent meanwhile, keeps the placeholder's
+  timestamp, and — because Telegram does not notify on edits — makes no sound.
+  That is part of why a long turn reads as a hang.
+- **Not changed here** on purpose: final delivery through placeholder edits is
+  shared by every Telegram turn and has its own history (PC-DEF-061/067/071).
+  A likely remedy is to deliver a final answer as a new message, deleting the
+  placeholder, once the placeholder is older than a threshold; it needs its own
+  design and physical pass.
+- **Status:** OPEN — CONFIRMED IN SOURCE.
+
 ### PC-DEF-012 — Broad dependency export surfaces need reachability evidence
 
 - **Discovered:** H5A native/ELF audit, 2026-09-11.
