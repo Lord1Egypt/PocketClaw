@@ -1,62 +1,87 @@
 # F-Droid readiness notes
 
-Observations recorded during the post-v0.2.1 Android cleanup
-(`feature/post-v0.2.1-android-cleanup`, 2026-09-24). **Observations only.**
-Nothing here was changed for F-Droid, no metadata was created and no
-submission was made. The standing analysis is `docs/FDROID_RELEASE.md`; this
-file records what the cleanup learned on top of it.
+Where PocketClaw stands against official F-Droid inclusion, measured against the
+**current** policy documents (read 2026-09-24): the Inclusion Policy, the
+Anti-Features list, the Build Metadata Reference, the fdroiddata "App inclusion"
+merge-request template and the reviewers' wiki. The standing background analysis
+is [`FDROID_RELEASE.md`](FDROID_RELEASE.md).
 
-## Improved by this cleanup
+> **Nothing has been submitted.** No fdroiddata metadata exists, no merge
+> request is open, and no release was made for F-Droid. Phase A audited;
+> Phase B (branch `feature/fdroid-phase-b`) fixed the source. Phase C — the
+> F-Droid-shaped build under `fdroid build`, the scanners and the metadata
+> draft — has not started.
 
-- **Fewer dependencies.** Removed from `pubspec.yaml`: `flutter_background_service`,
-  `flutter_local_notifications`, `file_picker`, `bitsdojo_window`,
-  `desktop_webview_window`, `tray_manager`, `webview_windows`,
-  `window_manager`, `windows_single_instance`, `process_run`,
-  `flex_color_scheme`, `local_session_timeout`, `archive`, `args`, `path`,
-  `web_socket_channel` and the dev tool `flutter_launcher_icons`. The Android
-  plugin set is now `jni`, `package_info_plus`, `path_provider_android`
-  (transitive), `share_plus`, `shared_preferences_android`,
-  `url_launcher_android`, `webview_flutter_android`.
-- **Fewer permissions and components.** The packaged manifest no longer
-  requests `FOREGROUND_SERVICE_DATA_SYNC`, `RECEIVE_BOOT_COMPLETED` or
-  `VIBRATE`, has no `GET_CONTENT` query, and has no boot or watchdog
-  receivers. `tool/release_gate.py` forbids all three permissions.
-- **A downloader is gone.** `tools/fetch_core_local.dart` downloaded prebuilt
-  Core binaries from upstream GitHub releases. It was unreferenced; it is
-  deleted. Nothing in the build fetches a binary.
-- **Icons are generated, not drawn.** `tool/generate_android_launcher_icons.py`
-  derives every launcher, splash, notification and README image from one
-  geometry. `assets/branding/android-launcher/ic_launcher_master.png` (1024 px,
-  full-bleed square) is a ready listing icon; `assets/branding/pocketclaw-icon.png`
-  (512 px rounded tile) is the README image.
+## Phase A findings and their Phase B state
 
-## Blockers and questions for the F-Droid phase
+| # | Finding (Phase A) | Phase B |
+| --- | --- | --- |
+| B1 | Umeng resolved in `releaseCompileClasspath` (compileOnly). The policy forbids proprietary analytics in the build, not only in the APK. | **Fixed.** Removed outright with the device-feedback feature; `tool/dependency_graph.py` fails the gate on any proprietary SDK group in the resolved graph. |
+| B2 | `kagi-openapi-golang`, which has no licence, was linked into Core. | **Fixed.** Replaced by a standard-library request with the same wire contract; gone from `go.mod`/`go.sum` and from both Core binaries. |
+| B3 | No unsigned release path. | **Fixed.** `-PpocketclawUnsignedRelease=true` / `build_hardened_android.py --signing unsigned`, refusing any signing material, verified unsigned, classified UNSIGNED / REPOSITORY-SIGNABLE. Gate class `repository`. |
+| B4 | The APK advertised armeabi-v7a and x86_64 through plugin stubs. | **Fixed.** `abiFilters` arm64-v8a; the gate fails on any other ABI. |
+| B5 | MANAGE_EXTERNAL_STORAGE, requested by a Settings redirect on every cold launch. | **Fixed in source** (PC-DEF-077, still OPEN until physically tested). No storage permission; app-specific workspace; explicit SAF import of an old `Download/pocketclaw`. |
+| B6 | Payload toolchains not pinned (ripgrep's Rust in particular), while Core rejects any payload whose bytes change. | **Fixed.** `runtime/toolchains.env`; recipes select exact versions and fail closed. gh and ripgrep rebuild byte-identical under the pins. |
+| B7 | The proprietary-SDK gate checked Firebase names only. | **Fixed.** Resolved-graph check plus Umeng in the source and DEX markers. |
 
-| Area | Observation |
-| --- | --- |
-| Committed prebuilts | `android/app/src/main/jniLibs/arm64-v8a/` holds the staged Core pair and eight Managed Runtime payloads. F-Droid builds from source; the recipes exist (`core/build-android-arm64.sh`, `runtime/`), but an F-Droid build must run them and must not use the committed binaries. |
-| Proprietary SDK in the build files | `com.umeng.umsdk:common` and `:asms` are `compileOnly` in every build and `implementation` only when `POCKETCLAW_ANALYTICS_PROVIDER=umeng`. The shipped APK contains no Umeng code (the gate checks), but `AnalyticsReporter.kt` imports Umeng, so compiling needs the SDK. F-Droid's scanner flags the dependency by name. Options for that phase: a source set without `AnalyticsReporter`, or removing the analytics provider. Not decided here. |
-| Empty Umeng manifest entries | `UMENG_APPKEY` / `UMENG_CHANNEL` `<meta-data>` ship with empty values in the default build. Harmless, but reviewers will ask. |
-| Network services | Managed Telegram onboarding calls a PocketClaw-hosted service whose URL is compiled in (`android/official-onboarding.properties`); `build_hardened_android.py --onboarding omit` or `--onboarding-url` exists for downstream builds. Model providers are remote by design. Candidate anti-feature: **NonFreeNet** for the hosted onboarding service, depending on how F-Droid classifies it. |
-| Toolchains | The recipes need Go 1.25.11 (resolved from `GOMODCACHE`), Android NDK 28.2.13676358, pnpm, Flutter 3.47.1 / Dart 3.13.1, JDK 17, and the Rust/C toolchains of the Managed Runtime recipes. Defaults point at `/home/lordegypt/PocketCLaw/.tooling`; every path is overridable by environment, which an F-Droid recipe must set. |
-| Reproducibility | Both Core binaries are byte-reproducible from source (BuildTime from the last build-input commit). Full-APK reproducibility is **not proven**: Dart AOT with obfuscation and R8 output have not been compared across two clean builds. |
-| Loose version constraints | `intl: any` in `pubspec.yaml`; the lockfile pins it, but a recipe must use `--enforce-lockfile`. |
-| Signing | Production APKs are signed with the owner key `176dca6b…`. F-Droid signs its own builds unless reproducible builds with the upstream signature are adopted; that decision belongs to the F-Droid phase. |
+Also done in Phase B: the upstream self-updater is not linked into the Android
+Core; the Remix Icon font (non-FLOSS licence) was replaced with Material Icons;
+`LICENSE` is standard MIT again with attribution in `THIRD_PARTY_NOTICES.md`;
+the Gradle wrapper pins its distribution checksum; `DebugProbesKt.bin` is no
+longer packaged; the Firebase debug-manifest residue is gone; stray CJK
+developer comments were removed and `tool/cjk_hygiene.py` keeps them out;
+PC-DEF-084 is fixed in source; and upstream Fastlane metadata exists
+(`fastlane/metadata/android/en-US`) — without screenshots, which need a device.
 
-## Permissions a reviewer will ask about
+## Where current policy and the ThothTerm precedent differ
 
-| Permission | Why PocketClaw holds it |
-| --- | --- |
-| `INTERNET`, `ACCESS_NETWORK_STATE` | Model providers, Telegram, the LAN dashboard. |
-| `FOREGROUND_SERVICE`, `FOREGROUND_SERVICE_SPECIAL_USE` | `PocketClawService` hosts Core as a long-running local agent. |
-| `WAKE_LOCK` | `PocketClawService` holds a partial wake lock while Core runs. |
-| `POST_NOTIFICATIONS` | The foreground-service notification (Android 13+). |
-| `MANAGE_EXTERNAL_STORAGE` | The workspace in `Download/pocketclaw`, where the user can reach their files. Without it the workspace falls back to the app's own external folder (see PC-DEF-077, still open). The strongest review question. |
-| `READ_/WRITE_EXTERNAL_STORAGE` (maxSdk 32 / 28) | The same workspace on older Android versions. |
-| `DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION` | Generated by AndroidX for non-exported dynamic receivers. |
+- Prebuilt build tools from Go, Rust/Rustup and Node.js are explicitly allowed
+  by the current Inclusion Policy. PocketClaw needs all three (gh's Go
+  toolchain, ripgrep's Rust, the dashboard's pnpm tree with its esbuild,
+  rolldown, lightningcss and Tailwind oxide binaries).
+- Reproducible builds are requested, not required: the merge-request template
+  says to enable them or give the reason. They decide whether F-Droid can
+  publish the upstream signature, not whether the app is included.
+- The reviewers' wiki checks explicitly for unnecessary MANAGE_EXTERNAL_STORAGE
+  and for permissions requested at startup — the reason B5 was treated as a
+  blocker.
 
-## Not yet present
+## Anti-features
 
-No `fastlane/` metadata, no screenshots, no F-Droid build recipe. Store
-descriptions would need the same truthful scope as README (arm64-v8a only,
-Android 7+, API key required).
+- **NonFreeNet — applies.** PocketClaw promotes and integrates proprietary
+  network services: hosted model providers, Telegram and other chat platforms,
+  Sogou web search by default. It does not depend entirely on any of them.
+- **TetheredNet — does not apply.** Model endpoints are configurable (self-hosted
+  OpenAI-compatible servers work), Telegram's Bot API base URL is editable, and
+  managed onboarding is optional beside a manual token form. The onboarding
+  service is MIT-licensed; its URL is fixed at build time.
+- **Tracking — does not apply**, by source audit: no analytics, crash reporting
+  or update check, and no network contact before the owner configures a
+  provider or channel. Not yet confirmed with a network capture.
+
+## Build from source (Phase C recipe outline)
+
+1. `rm:` the committed `android/app/src/main/jniLibs/arm64-v8a/lib*.so`.
+2. Install the pinned toolchains from `runtime/toolchains.env`: NDK
+   28.2.13676358 (`ndk:`), Go (go1.25.11 for Core; go1.24.6 is fetched by gh's
+   recipe), Rust 1.94.1 with `aarch64-linux-android`, pnpm 10.33 on Node, and a
+   CPython 3.14 host interpreter for the python payload.
+3. Run the runtime recipes (curl before git), then `go test ./pkg/pcruntime/`,
+   which fails unless every rebuilt payload matches the catalog Core embeds.
+4. `./core/build-android-arm64.sh`.
+5. `python3 tool/build_hardened_android.py --signing unsigned`.
+
+Not yet run under `fdroid build`; the two-hour default `timeout:` may not be
+enough.
+
+## Reproducibility
+
+See the Phase B section of `PROJECT_STATE.md` for the byte-level evidence. In
+short: Core, gh, ripgrep, jq and sqlite3 are reproducible from source; the APK
+is reproducible at a fixed path; across checkout paths the Dart AOT snapshot
+still differs. `libdartjni.so`'s path-dependent build ID was fixed in Phase B.
+The leading explanation for the Dart difference — the kernel records the app's
+own libraries by absolute file URI (`package:pocketclaw` resolves to the
+checkout) and pub-cache packages under `$HOME` — is consistent with the
+evidence but not proven. Until it is fixed, a reproducible build requires
+upstream to build at F-Droid's build path and pub-cache location.

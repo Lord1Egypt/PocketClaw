@@ -81,7 +81,7 @@ system tool, so this cannot be overstated by accident.
 |---------------------|-------------------------------------------|------------------------|
 | Executables         | `nativeLibraryDir` and `/system/bin`      | read-only to the app   |
 | Runtime metadata    | `filesDir/picoclaw/runtime`               | inventory, probe records |
-| User workspace      | `/storage/emulated/0/Download/pocketclaw` | the user's own files   |
+| User workspace      | `Android/data/<package>/files/pocketclaw` (app-specific external storage; `filesDir/pocketclaw` without one) | the user's own files   |
 
 The layout refuses to start if runtime metadata would land inside the user
 workspace: user Skills write freely there, and runtime state a Skill can rewrite

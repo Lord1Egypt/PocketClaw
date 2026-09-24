@@ -99,7 +99,7 @@ everything around it.
 | **Web dashboard** | A local console for providers, channels, skills, models and logs, in 14 locales. |
 | **Telegram** | Guided managed-bot onboarding, or a manual bot token if you prefer. |
 | **Chat** | Talk to the agent in the app, or over the built-in web channel. |
-| **Workspace** | A real directory you own that the agent reads and writes — `Download/pocketclaw` when All Files Access is granted, otherwise the app's own external folder. |
+| **Workspace** | A real directory the agent reads and writes, in the app's own storage (`Android/data/com.lord1egypt.pocketclaw/files/pocketclaw`). PocketClaw asks for no storage permission. A workspace an older version left in `Download/pocketclaw` is never touched, and can be copied in from Settings. |
 | **Skills** | Reusable prompt/tooling bundles the agent can load per task. |
 | **12-locale app** | Full app translation, right-to-left included. |
 
@@ -148,7 +148,7 @@ flowchart TD
     GW --> MR["Managed Runtime<br/><i>python · git · gh · curl<br/>rg · jq · sqlite3</i>"]
     GW --> CH["Channels<br/><i>Telegram · Web chat · …</i>"]
 
-    GW --> WS["Workspace<br/><i>your files, shared storage</i>"]
+    GW --> WS["Workspace<br/><i>your files, app storage</i>"]
     GW --> PS["Private Core state<br/><i>app-private, excluded from backup</i>"]
 
     style U fill:#3DDC84,stroke:#2a9d63,color:#08210f

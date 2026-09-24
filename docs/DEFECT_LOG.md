@@ -48,6 +48,20 @@ only reconstructable examples belong here.
 - **Release impact: none for v0.2.1.** That release changes no storage code, no
   permission handling and no workspace path, so it can neither cause nor worsen
   this. Nothing here justifies a storage-policy change, and none was made.
+- **Source fix, F-Droid Phase B (2026-09-24), owner decision.** The canonical
+  build declares no storage permission: MANAGE_EXTERNAL_STORAGE, READ/WRITE_
+  EXTERNAL_STORAGE and requestLegacyExternalStorage are gone, and so is the
+  all-files-access redirect every cold launch made. `getWorkspacePath` returns
+  only the app-specific directory -- the one the owner's install was already
+  using per the log above, so no data moves. An older `Download/pocketclaw` is
+  never read, moved, merged or deleted automatically; Settings shows it when it
+  is visible and offers an explicit copy through the system folder picker into
+  a new `imported-from-downloads-<UTC stamp>` folder inside the agent workspace,
+  with nothing overwritten and no standing grant kept. The gate forbids all
+  three storage permissions.
+- **Status:** OPEN — SOURCE-FIXED, PHYSICAL TEST PENDING (workspace path on the
+  installed build, the notice with and without a visible `Download/pocketclaw`,
+  one import, and a cancelled import).
 - **Status:** OPEN — SOURCE-INVESTIGATED, PHYSICAL CLASSIFICATION PENDING.
 
 
@@ -214,7 +228,16 @@ only reconstructable examples belong here.
   A likely remedy is to deliver a final answer as a new message, deleting the
   placeholder, once the placeholder is older than a threshold; it needs its own
   design and physical pass.
-- **Status:** OPEN — CONFIRMED IN SOURCE.
+- **Source fix, F-Droid Phase B (2026-09-24).** Once a turn's status message
+  is older than `channels.LongTurnEditWindow` (2 minutes), the answer is sent
+  as a new message and the stale placeholder or tool-progress message is
+  deleted after it: one ordinary notification, placed below anything sent
+  meanwhile, and no periodic "still working" traffic. Short turns keep editing
+  in place; status-to-status edits stay edits; only channels declaring
+  `FinalEditWindowChannel` (Telegram) change. The tool-progress animator now
+  keeps the message's first-send time across progress updates.
+- **Status:** OPEN — SOURCE-FIXED, PHYSICAL TEST PENDING (a Telegram turn over
+  two minutes with a message sent meanwhile, and a short turn).
 
 ### PC-DEF-012 — Broad dependency export surfaces need reachability evidence
 
