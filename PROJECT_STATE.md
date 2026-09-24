@@ -25,11 +25,11 @@ evidence and describe the state at the date of each entry.
 | PC-DEF-023 canonical Core build-input commit | `54ff2525fa555744d017aae56c9a26e2049812e1` |
 | PC-DEF-020 state-basis HEAD | `76064c91033860653de1e11a08e29d7245061ec1` (verified exposure-audit closeout; source and Core-staging commits follow it) |
 | PC-DEF-020 canonical Core build-input commit | `f8bc52a0757f7b0a9f6c0704d2a3586db929e33f` |
-| Version | `0.2.1+63` |
+| Version | `0.2.2+64` on `feature/fdroid-phase-b` — unreleased; private owner-signed test builds only. Latest published: `0.2.1+63` (pinned in `docs/release/published.json`) |
 | Accepted physical baseline | vc63 / `lastAcceptedVersionCode=63` — advanced by the v0.2.1 acceptance commit |
 | Current phase | Final Production Release Hardening; H5C production-signed native/ELF validation closed |
 | Developer production signer | `176dca6b198b9552fb4d9ad3ca18da8d6f23c0a3f5ed4bd6b75a0700f9f0efcf` |
-| Core fingerprint | Branch: `a6a0906c381e81e1d068089cc39693534dfbe18ea640510026fb6720c65128c1`, staged in `3932a77` from build-input commit `f8b2db6` (BuildTime `2026-09-24T16:40:56+0000`), pair `1e3126d1…` / `0141e30f…`. Released v0.2.1: `76a114fd…` |
+| Core fingerprint | Branch: `5d443c5eed36d4f3fc31a59712d2ee96497fe33d0d8903286f31a88e6fc31f39`, staged in `03aa66b` from build-input commit `7ee0f05` (BuildTime `2026-09-24T22:27:00+0000`), pair `7ed342f1…` / `1fa6dfaf…`. The private test APK `504d41bb…` carries `a6a0906c…`. Released v0.2.1: `76a114fd…` |
 | Distribution targets | Direct APK, Google Play, Official F-Droid |
 | **Released — PocketClaw v0.2.1** | Patch release for PC-DEF-076, the bundled-Git SIGSEGV. `PocketClaw-v0.2.1-arm64-v8a.apk`, 63,613,115 bytes, `1203cd46f30cc6e7d69b3cd54be2d2dbca29150a9bce4f722b112576ccf4401b`, `0.2.1+63`, one production signer `176dca6b…`, Core fingerprint `76a114fd…`, bundled git `60d3a1c0…` and git-remote-http `90e18712…`. Owner-signed from `c898581`; **physically accepted on SM-A165F / Android 16 on 2026-09-22** with an ordinary `git clone` and reflogs enabled. |
 | Exposure-audit state-basis HEAD | `25753cef5fa4d956e11d37b5a6176cdef977f015` (verified PC-DEF-019 closeout; the audit closeout commit follows it) |
@@ -55,8 +55,86 @@ evidence and describe the state at the date of each entry.
 | Verification APK (PC-DEF-056/057, superseded) | `7c8eefd399318b6187b0fb87c8bd687d7d08c3537959e31f38767a642908e3cb`, 63,539,059 bytes, development signer `15cf75f9…`, Dart AOT `007c23b6be22a9a44f429a53f8fb9eaf930180e67bb20f111cadceedb68e22f4`. Source gate 26/26 with `flutter.suite 561 passed`, artifact gate 24/24, native ELF 188 PASS / 0 FAIL. Archived read-only at `build/forensic/apk-7c8eefd3…/`. LOCAL TEST / NON-RELEASABLE. **Nothing in it is physically verified** |
 | Verification APK (PC-DEF-049..055, superseded) | `6df7abaa6bec5a5124d21d30b582fc37d2837be036fa75e93eb3d30d5634894c`, 63,528,459 bytes, development signer `15cf75f9945d5354e75707e0326b7cffc60ac51a68df38156db318ef4578a27c`, Dart AOT `d5d52742ab6cc5672e7c3910dc20c50e5c4da430c80d65c49501d12ea17a7968`. Source gate 26/26, artifact gate 24/24, native ELF audit 188 PASS / 0 FAIL. Archived read-only at `build/forensic/apk-6df7abaa…/` with its private R8 material separated. LOCAL TEST / NON-RELEASABLE |
 | Staged Core freshness | **CURRENT.** Rebuilt from the source commit `55624cd` and staged in `da9e6f5`, which touches no build input. Fingerprint `87c320c1cb6dffe6395043265c3d4d659ddaf26a4b588d303c5d06355a4acc2b` (was `9c22cb22…`), BuildTime `2026-09-21T03:22:04+0000` |
-| Flutter suite | Green — 586 passed, 0 failed (repository-class gate on `feature/fdroid-phase-b`, 2026-09-24) — and the **complete** suite is a release gate (`flutter.suite`) |
+| Flutter suite | Green — 605 passed, 0 failed (repository-class gate on `feature/fdroid-phase-b`, 2026-09-25) — and the **complete** suite is a release gate (`flutter.suite`) |
 | Public release asset policy | APK only. An AAB is a Play-upload artifact and is never a public release asset — `PC-DEF-021` |
+
+## 2026-09-25 — Final source hardening before the manual physical pass — AUTOMATED PASS, PHYSICAL PENDING
+
+Source-only; no device was touched. Nothing merged, tagged, released,
+published, production-signed by the agent, or submitted to F-Droid.
+
+**Private test build already on the phone.** `PocketClaw-v0.2.2+64-private-test.apk`,
+`504d41bbbd4c2e6c9bc5e4530405feab35776590b7ffba87edea4126f38add43`, owner-signed
+with the production key `176dca6b…` from `f284619`, Core `a6a0906c…`. Installed
+in place over v0.2.1 on the SM-A165F: `firstInstallTime` unchanged, the 31
+workspace files byte-identical, Core logged "Config already exists, skipping
+onboard". Owner then reported the reboot crash (PC-DEF-085).
+
+| Commit | What |
+| --- | --- |
+| `e323106` | PC-DEF-077 — legacy notice only for real workspace evidence; read-only copier, mkdir-claimed destinations, held busy gate, "empty" result |
+| `8defc0b` | PC-DEF-085 — lifecycle diagnostics; refused foreground start contained; ServiceCommand; scheduler libraries refused |
+| `92426fc` | PC-DEF-078 — multibyte 3 MB, stderr + exit status, sequential huge results |
+| `6cfef41` | PC-DEF-079 — middle-turn failure; one notice / placeholder per message, deleted before the answer |
+| `7ee0f05` | PC-DEF-084 — answer sent before the stale placeholder is retired; failure falls back to editing (Core build input) |
+| `03aa66b` | Core restaged, fingerprint `5d443c5e…` |
+| `ca646a8` | PC-DEF-080/083 cleanup regression test |
+| `2dc02bf` | README release identity pinned in `docs/release/published.json`, apart from pubspec |
+| `7ce04f0` | Defect log, F-Droid notes (auto-start components, screenshot rules), Fastlane tests |
+
+### State by defect
+
+| Defect | CONFIRMED | FIXED IN SOURCE | SOURCE TESTED | PHYSICAL |
+| --- | --- | --- | --- | --- |
+| PC-DEF-085 reboot "keeps stopping" | yes (owner) | instrumented; one start state contained | yes | **reproduction required** |
+| PC-DEF-077 false legacy notice | yes (My Files made the folder) | yes | yes | **pending** |
+| PC-DEF-078 huge tool output | yes | yes | yes | **pending** |
+| PC-DEF-079 queue | yes | yes | yes | **pending** |
+| PC-DEF-084 long-turn delivery | yes | yes (order fixed today) | yes | **pending** |
+
+**Validation (one pass at `7ce04f0` plus this docs commit):** unsigned
+repository APK `app-release-unsigned.apk`, 61,304,613 bytes,
+`789e670c777bab33912e22129fdaa358327001392922cb6f9e1bd802ae297f0a`, `0.2.2+64`,
+not installable. `release_gate.py --full --release-class repository
+--artifact-class non-publish-audit` exit 0, 63 PASS / 0 FAIL / 0 SKIP
+(`flutter.suite 605`, `deps.no_proprietary_sdk_resolved` 136 coordinates,
+`source.no_stray_cjk`, Zero-Pico 19 entries all in use, `artifact.abi
+arm64-v8a`, `artifact.core_matches_staged`, `artifact.signing unsigned`);
+native ELF 146/0/0, and 152/0/0 with the private support manifest re-bound to
+this APK; `flutter analyze` clean; Android unit tests 87/0; Go gofmt clean,
+vet clean on host and android/arm64, 99 packages pass; dashboard `tsc` and
+ESLint clean, Vitest 581; tool tests 165 OK (4 skipped); branding generator
+`--check` identical; secret scan of the mission diff clean. Merged release
+manifest: no boot, locked-boot, package-replaced or direct-boot component;
+exported only the launcher and the DUMP-protected ProfileInstallReceiver.
+
+**Owed:** the owner's physical pass below with a fresh owner-signed build of
+this HEAD (same `0.2.2+64`, in-place install); screenshots for Fastlane.
+
+### Physical checklist (owner, manual)
+
+1. Install in place over the current build (`install -r` or the package
+   installer; never uninstall or clear data). App opens; data intact.
+2. Reboot the phone **without opening PocketClaw**. Does "keeps stopping"
+   appear? Either way, open PocketClaw → Logs → export, and keep the
+   `--- lifecycle diagnostics ---` section (PC-DEF-085). Repeat 2–3 reboots.
+3. With `Download/pocketclaw` absent or empty: no "Earlier workspace found"
+   card. With a genuine old workspace there (`workspace/AGENT.md` etc.): the
+   card appears; Copy → pick the folder → count; copy under
+   `workspace/imported-from-downloads-<stamp>`; source unchanged; Cancel changes
+   nothing (PC-DEF-077).
+4. Telegram: a turn over two minutes with a message sent meanwhile → the answer
+   is a new, notifying message and the old status message disappears; a short
+   turn still edits in place (PC-DEF-084). Three quick messages during a long
+   turn → "Queued — N ahead" notices, answered in order, notices removed
+   (PC-DEF-079).
+5. Ask for a very large tool output (e.g. `curl` a multi-MB page): the turn
+   completes, no HTTP 400 (PC-DEF-078).
+6. Settings: no Devices card, Launch at Login, Service Port, Port or Arguments.
+7. Runtime tools once each; Dashboard; Public Mode on/off; background/resume.
+8. Capture 4–6 real portrait screenshots for
+   `fastlane/metadata/android/en-US/images/phoneScreenshots/` (no keys, tokens
+   or chat content visible).
 
 ## 2026-09-24 — F-Droid Phase B: source readiness — AUTOMATED PASS, PHYSICAL PENDING
 
