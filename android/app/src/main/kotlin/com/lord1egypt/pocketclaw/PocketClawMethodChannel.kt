@@ -852,46 +852,6 @@ class PocketClawMethodChannel(
                 "getPocketClawToken" -> {
                     result.success(PocketClawService.pocketClawTokenForHost(context))
                 }
-                "getSafeDeviceInfo" -> {
-                    val packageInfo = context.packageManager.getPackageInfo(context.packageName, 0)
-                    val deviceCategory = if (context.resources.configuration.smallestScreenWidthDp >= 600) {
-                        "Tablet"
-                    } else {
-                        "Mobile"
-                    }
-                    result.success(mapOf(
-                        "deviceModel" to listOf(Build.MANUFACTURER, Build.MODEL)
-                            .filter { it.isNotBlank() }
-                            .joinToString(" ")
-                            .trim(),
-                        "osVersion" to "Android ${Build.VERSION.RELEASE}",
-                        "deviceCategory" to deviceCategory,
-                        "appVersion" to (packageInfo.versionName ?: "unknown")
-                    ))
-                }
-                "setUmengAnalyticsConsent" -> {
-                    try {
-                        val enabled = call.argument<Boolean>("enabled") ?: false
-                        AnalyticsReporter.submitConsent(context, enabled)
-                        result.success(true)
-                    } catch (e: Exception) {
-                        result.error("SET_UMENG_CONSENT_FAILED", e.message, null)
-                    }
-                }
-                "uploadUmengDeviceReport" -> {
-                    android.util.Log.d("PocketClawChannel", "=== uploadUmengDeviceReport called ===")
-                    try {
-                        val payload = call.arguments<Map<String, Any?>>() ?: emptyMap()
-                        android.util.Log.d("PocketClawChannel", "Payload received with ${payload.size} fields")
-                        val reportResult = AnalyticsReporter.uploadDeviceReport(context, payload)
-                        android.util.Log.d("PocketClawChannel", "AnalyticsReporter returned: success=${reportResult["success"]}, message=${reportResult["message"]}")
-                        result.success(reportResult)
-                        android.util.Log.d("PocketClawChannel", "=== uploadUmengDeviceReport completed ===")
-                    } catch (e: Exception) {
-                        android.util.Log.e("PocketClawChannel", "uploadUmengDeviceReport failed: ${e.message}", e)
-                        result.error("UPLOAD_UMENG_REPORT_FAILED", e.message, null)
-                    }
-                }
                 "getWebPort" -> {
                     result.success(18800)
                 }

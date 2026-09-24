@@ -93,16 +93,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get unableToGetDeviceIp => 'デバイスIPを取得できません';
 
   @override
-  String get deviceReportingTitle => 'デバイス互換性フィードバック';
-
-  @override
-  String get deviceReportingSubtitle =>
-      'OSバージョンとアプリバージョンの互換性確認のみに使用されます。チャットメッセージ、アカウント詳細、個人コンテンツは関与しません';
-
-  @override
-  String get deviceReportingDisabled => 'デバイス互換性フィードバックが無効になりました';
-
-  @override
   String get localModeHint =>
       '1. サービス設定に移動\n2. パブリックモードをオン\n3. QRコードをスキャンしてPocketClawにアクセス';
 

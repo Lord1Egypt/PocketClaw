@@ -94,16 +94,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get unableToGetDeviceIp => 'No LAN address available';
 
   @override
-  String get deviceReportingTitle => 'Device compatibility feedback';
-
-  @override
-  String get deviceReportingSubtitle =>
-      'Used only for OS-version and app-version compatibility checks. No chat messages, account details, or personal content are involved';
-
-  @override
-  String get deviceReportingDisabled => 'Device compatibility feedback is off';
-
-  @override
   String get localModeHint =>
       '1. Go to Service Config\n2. Turn on Public Mode\n3. Scan QR code to access PocketClaw';
 

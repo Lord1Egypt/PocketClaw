@@ -36,9 +36,6 @@ fun decodedDartDefines(project: Project): Map<String, String> {
 }
 
 val dartDefines = decodedDartDefines(project)
-val analyticsProvider = dartDefines["POCKETCLAW_ANALYTICS_PROVIDER"] ?: "none"
-val umengAppKey = dartDefines["POCKETCLAW_UMENG_APP_KEY"] ?: ""
-val umengChannel = dartDefines["POCKETCLAW_UMENG_CHANNEL"] ?: "official"
 
 // PC-DEF-060. The Dashboard opened in a desktop browser has no Android host to run
 // managed Telegram pairing, so Core has to run it instead -- and Core does not know
@@ -51,10 +48,9 @@ val onboardingBaseUrl = dartDefines["POCKETCLAW_ONBOARDING_BASE_URL"] ?: ""
 // ---------------------------------------------------------------------------
 // Release contract. See DECISIONS.md, "Release integrity".
 //
-// Three separate things used to be implicit here and are now stated: how a
-// release is signed, where its version number comes from, and whether the
-// analytics SDK is part of the build at all. Each of the three had a silent
-// default that produced a wrong artifact without failing.
+// Two things used to be implicit here and are now stated: how a release is
+// signed and where its version number comes from. Each had a silent default
+// that produced a wrong artifact without failing.
 // ---------------------------------------------------------------------------
 
 /**
@@ -294,16 +290,6 @@ fun validatePrivateDartSymbolDirectory(raw: String) {
     }
 }
 
-// --- Analytics -----------------------------------------------------------
-//
-// The Umeng SDK used to be an unconditional dependency, so its manifest
-// contributions — advertising ID, AdServices attribution, the Play install
-// referrer service and an OEM push permission — merged into every build, and
-// the app declared READ_PHONE_STATE for its device probe. None of that runs
-// when the provider is "none", which is the default and the only configuration
-// PocketClaw ships. An unused SDK must not cost the user a permission prompt.
-val umengAnalyticsRequested = analyticsProvider.equals("umeng", ignoreCase = true)
-
 android {
     namespace = "com.lord1egypt.pocketclaw"
     compileSdk = flutter.compileSdkVersion
@@ -329,23 +315,11 @@ android {
         // Tracked in pubspec.yaml, never in the gitignored local.properties.
         versionCode = resolvedVersionCode
         versionName = resolvedVersionName
-        buildConfigField("String", "POCKETCLAW_ANALYTICS_PROVIDER", analyticsProvider.toQuotedBuildConfigValue())
-        // Whether this APK actually packages the analytics SDK. It is set from
-        // the same value that decides the dependency below, so the runtime
-        // guard cannot drift away from what was built: a build that did not
-        // package the SDK reports false, and AnalyticsReporter refuses to touch
-        // a class that is not there.
-        buildConfigField("boolean", "POCKETCLAW_UMENG_PACKAGED", umengAnalyticsRequested.toString())
-        buildConfigField("String", "POCKETCLAW_UMENG_APP_KEY", umengAppKey.toQuotedBuildConfigValue())
-        buildConfigField("String", "POCKETCLAW_UMENG_CHANNEL", umengChannel.toQuotedBuildConfigValue())
         buildConfigField(
             "String",
             "POCKETCLAW_ONBOARDING_BASE_URL",
             onboardingBaseUrl.toQuotedBuildConfigValue(),
         )
-        // Pass values to AndroidManifest.xml via manifestPlaceholders
-        manifestPlaceholders["POCKETCLAW_UMENG_APP_KEY"] = umengAppKey
-        manifestPlaceholders["POCKETCLAW_UMENG_CHANNEL"] = umengChannel
     }
 
     signingConfigs {
@@ -428,22 +402,6 @@ flutter {
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
     implementation("androidx.core:core-ktx:1.18.0")
-    // AnalyticsReporter compiles against Umeng in every configuration and is
-    // guarded at runtime by isUmengProviderEnabled(). compileOnly keeps that
-    // compilation working while keeping the AAR — and therefore its manifest
-    // contributions — out of a build that will never call it. An analytics
-    // build asks for it by name and gets the real dependency.
-    if (umengAnalyticsRequested) {
-        implementation("com.umeng.umsdk:common:9.9.1")
-        implementation("com.umeng.umsdk:asms:1.8.7.2")
-    } else {
-        compileOnly("com.umeng.umsdk:common:9.9.1")
-        compileOnly("com.umeng.umsdk:asms:1.8.7.2")
-    }
-    // Referenced by Apache Tika, which arrives transitively with Umeng. Kept
-    // unconditional: it contributes no manifest entry and no permission, and
-    // dropping it would change what R8 sees in the analytics build for no gain.
-    implementation("javax.xml.stream:stax-api:1.0-2")
     // The credential store's destroy-or-preserve rule is a pure function of the
     // failure, so it is checked on the JVM rather than only on a device.
     testImplementation("junit:junit:4.13.2")

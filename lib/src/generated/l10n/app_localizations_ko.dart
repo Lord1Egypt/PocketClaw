@@ -93,16 +93,6 @@ class AppLocalizationsKo extends AppLocalizations {
   String get unableToGetDeviceIp => '장치 IP를 가져올 수 없음';
 
   @override
-  String get deviceReportingTitle => '장치 호환성 피드백';
-
-  @override
-  String get deviceReportingSubtitle =>
-      'OS 버전 및 앱 버전 호환성 확인에만 사용됩니다. 채팅 메시지, 계정 세부 정보 또는 개인 콘텐츠는 관련되지 않습니다';
-
-  @override
-  String get deviceReportingDisabled => '장치 호환성 피드백이 비활성화되었습니다';
-
-  @override
   String get localModeHint =>
       '1. 서비스 구성으로 이동\n2. 공용 모드 켜기\n3. PocketClaw에 액세스하려면 QR 코드 스캔';
 

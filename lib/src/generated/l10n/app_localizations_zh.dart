@@ -93,16 +93,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get unableToGetDeviceIp => '无法获取设备IP';
 
   @override
-  String get deviceReportingTitle => '设备兼容反馈';
-
-  @override
-  String get deviceReportingSubtitle =>
-      '仅用于识别操作系统版本与应用版本的兼容性，不涉及聊天消息、账号信息或个人内容';
-
-  @override
-  String get deviceReportingDisabled => '已关闭设备兼容反馈';
-
-  @override
   String get localModeHint => '1. 进入服务配置\n2. 打开公共模式\n3. 扫描二维码访问PocketClaw';
 
   @override

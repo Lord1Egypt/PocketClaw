@@ -96,17 +96,6 @@ class AppLocalizationsDe extends AppLocalizations {
       'IP-Adresse des Geräts kann nicht abgerufen werden';
 
   @override
-  String get deviceReportingTitle => 'Gerätekompatibilitäts-Feedback';
-
-  @override
-  String get deviceReportingSubtitle =>
-      'Wird nur zur Überprüfung der Kompatibilität von Betriebssystemversion und App-Version verwendet. Keine Beteiligung von Chatnachrichten, Kontodetails oder persönlichen Inhalten';
-
-  @override
-  String get deviceReportingDisabled =>
-      'Gerätekompatibilitäts-Feedback ist deaktiviert';
-
-  @override
   String get localModeHint =>
       '1. Gehen Sie zur Dienstkonfiguration\n2. Aktivieren Sie den öffentlichen Modus\n3. Scannen Sie den QR-Code für den Zugriff auf PocketClaw';
 

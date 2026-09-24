@@ -6,18 +6,10 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     
     <!--
-      READ_PHONE_STATE is deliberately not declared here.
-
-      It was requested app-wide for the Umeng device probe, which the default
-      build does not package and never calls. A dangerous telephony permission
-      in the manifest of a build that cannot use it costs the user a prompt and
-      costs the listing a policy justification, for nothing. It cannot be made
-      conditional in place: tools:node is resolved before manifest placeholders,
-      so it takes no build-time value.
-
-      An analytics build gets whatever the analytics SDK's own AAR manifest
-      declares. If that SDK ever genuinely needs an app-level declaration, add it
-      to the analytics build's own manifest, not to this one.
+      READ_PHONE_STATE is deliberately not declared. It served the Umeng device
+      probe, and the Umeng SDK has been removed from PocketClaw entirely: no
+      build variant packages or compiles against an analytics SDK, and nothing
+      reads telephony state.
     -->
 
     <!--
@@ -99,21 +91,11 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
             <!--
-              The Umeng debug/wake link is deliberately not declared here.
-
-              It was an unconditional VIEW + DEFAULT + BROWSABLE filter whose
-              scheme came from a manifest placeholder. H1.5 removed the analytics
-              SDK from the shipping build, so POCKETCLAW_ANALYTICS_PROVIDER
-              defaults to "none" and the placeholder resolved to the literal
-              "um.placeholder" — a web-reachable entry point into an exported
-              activity, for an SDK that is not in the APK.
-
-              Same rule as the advertising permissions above: an analytics build
-              gets whatever the analytics SDK's own AAR manifest declares, and an
-              app-level declaration it genuinely needs belongs to that build's
-              own manifest rather than to this one. So this is a removal, not a
-              conditional — a filter that is only correct for a build we do not
-              ship should not be in the manifest we do. See PC-DEF-024.
+              No VIEW/BROWSABLE filter. The Umeng debug/wake link that used to
+              sit here was a web-reachable entry point into this exported
+              activity for an SDK the APK did not contain (PC-DEF-024); it went
+              first, and the SDK itself has since been removed. PocketClaw has
+              no deep link.
             -->
         </activity>
 
@@ -126,14 +108,7 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
-        
-        <!-- 友盟统计配置 - 从 build.gradle 的 buildConfigField 读取 -->
-        <meta-data
-            android:name="UMENG_APPKEY"
-            android:value="${POCKETCLAW_UMENG_APP_KEY}" />
-        <meta-data
-            android:name="UMENG_CHANNEL"
-            android:value="${POCKETCLAW_UMENG_CHANNEL}" />
+
     </application>
 
     <queries>

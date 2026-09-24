@@ -94,17 +94,6 @@ class AppLocalizationsId extends AppLocalizations {
   String get unableToGetDeviceIp => 'Tidak dapat mendapatkan IP perangkat';
 
   @override
-  String get deviceReportingTitle => 'Umpan balik kompatibilitas perangkat';
-
-  @override
-  String get deviceReportingSubtitle =>
-      'Hanya digunakan untuk memverifikasi kompatibilitas versi OS dan versi aplikasi. Tidak melibatkan pesan obrolan, detail akun, atau konten pribadi';
-
-  @override
-  String get deviceReportingDisabled =>
-      'Umpan balik kompatibilitas perangkat nonaktif';
-
-  @override
   String get localModeHint =>
       '1. Buka Konfigurasi layanan\n2. Aktifkan Mode publik\n3. Pindai kode QR untuk mengakses PocketClaw';
 

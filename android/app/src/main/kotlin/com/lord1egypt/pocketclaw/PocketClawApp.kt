@@ -30,6 +30,5 @@ class PocketClawApp : FlutterApplication() {
         // started them. Removed here rather than waited out, and never rewritten
         // into a different claim, because this process knows nothing yet.
         PocketClawService.cancelStaleRuntimeNotification(this)
-        AnalyticsReporter.preInit(this)
     }
 }

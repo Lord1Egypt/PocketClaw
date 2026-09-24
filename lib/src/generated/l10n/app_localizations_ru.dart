@@ -95,17 +95,6 @@ class AppLocalizationsRu extends AppLocalizations {
   String get unableToGetDeviceIp => 'Не удается получить IP-адрес устройства';
 
   @override
-  String get deviceReportingTitle => 'Отзыв о совместимости устройства';
-
-  @override
-  String get deviceReportingSubtitle =>
-      'Используется только для проверки совместимости версии ОС и версии приложения. Не затрагивает сообщения чата, данные аккаунта или личный контент';
-
-  @override
-  String get deviceReportingDisabled =>
-      'Отзыв о совместимости устройства отключен';
-
-  @override
   String get localModeHint =>
       '1. Перейдите в Настройку службы\n2. Включите Общий режим\n3. Отсканируйте QR-код для доступа к PocketClaw';
 

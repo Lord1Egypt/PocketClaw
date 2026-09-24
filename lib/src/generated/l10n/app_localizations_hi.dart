@@ -94,16 +94,6 @@ class AppLocalizationsHi extends AppLocalizations {
   String get unableToGetDeviceIp => 'डिवाइस IP प्राप्त करने में असमर्थ';
 
   @override
-  String get deviceReportingTitle => 'डिवाइस संगतता प्रतिक्रिया';
-
-  @override
-  String get deviceReportingSubtitle =>
-      'केवल OS संस्करण और ऐप संस्करण संगतता की जांच के लिए उपयोग किया जाता है। चैट संदेशों, खाता विवरण या व्यक्तिगत सामग्री का कोई संबंध नहीं है';
-
-  @override
-  String get deviceReportingDisabled => 'डिवाइस संगतता प्रतिक्रिया अक्षम है';
-
-  @override
   String get localModeHint =>
       '1. सेवा कॉन्फ़िगरेशन पर जाएं\n2. पब्लिक मोड चालू करें\n3. PocketClaw तक पहुंचने के लिए QR कोड स्कैन करें';
 

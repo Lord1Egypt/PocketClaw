@@ -36,12 +36,7 @@ void main() {
 
     test('PocketClaw-owned build-time defines are POCKETCLAW_*', () {
       final gradle = read('android/app/build.gradle.kts');
-      for (final name in [
-        'POCKETCLAW_ANALYTICS_PROVIDER',
-        'POCKETCLAW_UMENG_APP_KEY',
-      ]) {
-        expect(gradle, contains(name));
-      }
+      expect(gradle, contains('POCKETCLAW_ONBOARDING_BASE_URL'));
       // The Firebase defines were renamed by N1 and then removed entirely by
       // H1.5 along with the SDK they configured. Their absence is the point:
       // a define that no longer exists cannot be misnamed.

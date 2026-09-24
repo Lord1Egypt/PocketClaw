@@ -286,24 +286,6 @@ abstract class AppLocalizations {
   /// **'No LAN address available'**
   String get unableToGetDeviceIp;
 
-  /// No description provided for @deviceReportingTitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Device compatibility feedback'**
-  String get deviceReportingTitle;
-
-  /// No description provided for @deviceReportingSubtitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Used only for OS-version and app-version compatibility checks. No chat messages, account details, or personal content are involved'**
-  String get deviceReportingSubtitle;
-
-  /// No description provided for @deviceReportingDisabled.
-  ///
-  /// In en, this message translates to:
-  /// **'Device compatibility feedback is off'**
-  String get deviceReportingDisabled;
-
   /// No description provided for @localModeHint.
   ///
   /// In en, this message translates to:

@@ -272,63 +272,47 @@ void main() {
     });
   });
 
-  group('analytics capability', () {
-    const reporter =
-        'android/app/src/main/kotlin/com/lord1egypt/pocketclaw/AnalyticsReporter.kt';
-
-    test('the runtime guard is tied to what was packaged', () {
-      // Before this, the guard only checked the provider name and app key. It
-      // happened to imply the packaging condition, so no crash was reachable —
-      // but the safety was a coincidence between two independently editable
-      // conditions rather than a stated invariant.
-      expect(
-        read(gradle),
-        contains(
-          'buildConfigField("boolean", "POCKETCLAW_UMENG_PACKAGED", umengAnalyticsRequested.toString())',
-        ),
-        reason: 'the flag must come from the value that decides the dependency',
-      );
-      expect(read(reporter), contains('BuildConfig.POCKETCLAW_UMENG_PACKAGED'));
-      expect(read(reporter), contains('if (!umengPackaged) {'));
-    });
-
-    test('an unpackaged SDK is a disabled capability, never a crash', () {
-      final source = read(reporter);
-      // Every entry point already returns early on isUmengProviderEnabled(),
-      // which now returns false when the SDK is absent. LinkageError is the
-      // backstop for the one failure that flag exists to prevent.
-      expect(source, contains('catch (e: LinkageError)'));
-      expect(source, contains('Analytics SDK is not available in this build.'));
-      for (final entryPoint in const [
-        'fun preInit(',
-        'fun submitConsent(',
-        'fun uploadDeviceReport(',
-      ]) {
-        expect(source, contains(entryPoint));
-      }
-    });
-  });
-
   group('analytics surface', () {
-    test('the default build does not package the analytics SDK', () {
-      final source = read(gradle);
-      expect(source, contains('val umengAnalyticsRequested ='));
-      expect(source, contains('if (umengAnalyticsRequested) {'));
+    // The Umeng SDK was removed outright for official F-Droid (Phase B): not
+    // hidden behind a flavor and not left as a compileOnly dependency, because
+    // F-Droid's inclusion policy forbids a proprietary analytics SDK in the
+    // build graph, not merely in the APK. release_gate.py checks the resolved
+    // Gradle graph; these assertions keep the source from drifting back.
+    test('no analytics SDK is declared, compiled against or configured', () {
+      final source = read(gradle).toLowerCase();
+      for (final symbol in const [
+        'umeng',
+        'pocketclaw_analytics_provider',
+        'stax-api',
+      ]) {
+        expect(
+          source,
+          isNot(contains(symbol)),
+          reason: '$symbol belongs to the removed analytics SDK',
+        );
+      }
       expect(
-        source,
-        contains('compileOnly("com.umeng.umsdk:common'),
-        reason:
-            'the SDK must stay off the runtime classpath of a build that never '
-            'calls it, while AnalyticsReporter still compiles',
+        File(
+          'android/app/src/main/kotlin/com/lord1egypt/pocketclaw/AnalyticsReporter.kt',
+        ).existsSync(),
+        isFalse,
       );
-      expect(
-        RegExp(
-          r'^\s*implementation\("com\.umeng',
-          multiLine: true,
-        ).allMatches(source).length,
-        2,
-        reason: 'the real dependency belongs only inside the analytics branch',
-      );
+    });
+
+    test('the Dart side carries no analytics provider either', () {
+      final offenders = Directory('lib')
+          .listSync(recursive: true)
+          .whereType<File>()
+          .where((file) => file.path.endsWith('.dart'))
+          .where(
+            (file) => RegExp(
+              r'umeng|POCKETCLAW_ANALYTICS_PROVIDER|DeviceFeedback',
+              caseSensitive: false,
+            ).hasMatch(file.readAsStringSync()),
+          )
+          .map((file) => file.path)
+          .toList();
+      expect(offenders, isEmpty);
     });
 
     test('no dangerous telephony permission is requested for it', () {
@@ -364,12 +348,9 @@ void main() {
         r'android:name="([^"]+)"',
       ).allMatches(source).map((match) => match.group(1)!).toSet();
 
-      // Attributed to the analytics SDK by building the merged manifest with
-      // and without it: the first two are the entire difference the SDK makes.
-      // The rest come from play-services-measurement via firebase_analytics and
-      // are removed by the documented manifest opt-out — Firebase itself stays,
-      // because device feedback is a real feature that logs a custom event and
-      // needs none of the advertising surface.
+      // The first two came from the removed Umeng SDK; the advertising and
+      // attribution four came from play-services-measurement via the removed
+      // firebase_analytics plugin and stay opted out in the source manifest.
       for (final permission in const [
         'android.permission.READ_PHONE_STATE',
         'freemme.permission.msa',
@@ -597,16 +578,9 @@ void main() {
       );
     });
 
-    test('the default build still packages no analytics SDK', () {
-      expect(
-        read(gradle),
-        contains(r'val analyticsProvider = dartDefines["POCKETCLAW_ANALYTICS_PROVIDER"] ?: "none"'),
-        reason: 'the default provider decides whether the SDK is a dependency',
-      );
-      expect(
-        read(gradle),
-        contains('umengAnalyticsRequested = analyticsProvider.equals("umeng"'),
-      );
+    test('the manifest declares no analytics metadata', () {
+      final declared = declaredManifest();
+      expect(declared, isNot(contains('UMENG_')));
     });
 
     test('the merged release manifest carries neither, when built', () {

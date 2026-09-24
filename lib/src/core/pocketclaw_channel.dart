@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
 /// The canonical launch auto-start record, as committed by the Android host.
@@ -317,59 +316,6 @@ class PocketClawChannel {
   static Future<String> getPocketClawToken() async {
     final result = await _channel.invokeMethod<String>('getPocketClawToken');
     return result ?? '';
-  }
-
-  /// 获取安全的设备信息（避免敏感标识符）
-  static Future<Map<String, String>> getSafeDeviceInfo() async {
-    final result = await _channel.invokeMethod<Map>('getSafeDeviceInfo');
-    if (result == null) return const {};
-    return result.map(
-      (key, value) => MapEntry(key.toString(), value?.toString() ?? ''),
-    );
-  }
-
-  static Future<bool> setUmengAnalyticsConsent(bool enabled) async {
-    final result = await _channel.invokeMethod<bool>(
-      'setUmengAnalyticsConsent',
-      {'enabled': enabled},
-    );
-    return result ?? false;
-  }
-
-  static Future<Map<String, dynamic>> uploadUmengDeviceReport(
-    Map<String, Object?> payload,
-  ) async {
-    debugPrint('[PocketClawChannel] === uploadUmengDeviceReport START ===');
-    debugPrint(
-      '[PocketClawChannel] Calling native method with payload keys: ${payload.keys.toList()}',
-    );
-
-    try {
-      final result = await _channel
-          .invokeMethod<Map>('uploadUmengDeviceReport', payload)
-          .timeout(const Duration(seconds: 8));
-
-      debugPrint('[PocketClawChannel] Native method returned');
-
-      if (result == null) {
-        debugPrint('[PocketClawChannel] ERROR: Native returned null');
-        return const {
-          'success': false,
-          'message': 'No response from native Umeng bridge.',
-        };
-      }
-
-      final mappedResult = Map<String, dynamic>.from(result);
-      debugPrint(
-        '[PocketClawChannel] Result: success=${mappedResult['success']}, message=${mappedResult['message']}',
-      );
-      debugPrint('[PocketClawChannel] === uploadUmengDeviceReport END ===');
-      return mappedResult;
-    } catch (e) {
-      debugPrint('[PocketClawChannel] ERROR: Exception caught: $e');
-      debugPrint('[PocketClawChannel] === uploadUmengDeviceReport FAILED ===');
-      return {'success': false, 'message': 'Exception: $e'};
-    }
   }
 
   /// 检查存储权限是否已授予（Android 11+）

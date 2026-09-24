@@ -94,18 +94,6 @@ class AppLocalizationsEs extends AppLocalizations {
   String get unableToGetDeviceIp => 'No se puede obtener la IP del dispositivo';
 
   @override
-  String get deviceReportingTitle =>
-      'Comentarios de compatibilidad del dispositivo';
-
-  @override
-  String get deviceReportingSubtitle =>
-      'Solo se usa para verificar la compatibilidad de la versión del SO y la versión de la app. No implica mensajes de chat, detalles de cuenta ni contenido personal';
-
-  @override
-  String get deviceReportingDisabled =>
-      'Comentarios de compatibilidad del dispositivo desactivados';
-
-  @override
   String get localModeHint =>
       '1. Vaya a Configuración del servicio\n2. Active el Modo público\n3. Escanee el código QR para acceder a PocketClaw';
 

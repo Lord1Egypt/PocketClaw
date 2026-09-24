@@ -243,9 +243,7 @@ class ConfigPageState extends State<ConfigPage> with WidgetsBindingObserver {
   final _publicModeFocusNode = FocusNode();
   final _publicAddressFocusNode = FocusNode();
   final _languageFocusNode = FocusNode();
-  final _deviceFeedbackFocusNode = FocusNode();
   final List<FocusNode> _themeFocusNodes = [];
-  bool _deviceFeedbackAllowed = false;
 
   /// The release the notes belong to, and whether the user has read them.
   String? _whatsNewVersion;
@@ -262,7 +260,6 @@ class ConfigPageState extends State<ConfigPage> with WidgetsBindingObserver {
       List.generate(AppThemeMode.values.length, (_) => FocusNode()),
     );
 
-    _loadConfig();
     _loadWhatsNewState();
     // PC-DEF-058. Ask for notification permission once, after the first frame so
     // the app is on screen behind the system dialog rather than the dialog being
@@ -346,14 +343,6 @@ class ConfigPageState extends State<ConfigPage> with WidgetsBindingObserver {
     };
   }
 
-  Future<void> _loadConfig() async {
-    final service = context.read<ServiceManager>();
-    final allowed = await service.isDeviceFeedbackAllowed();
-    if (mounted) {
-      setState(() => _deviceFeedbackAllowed = allowed);
-    }
-  }
-
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
@@ -366,7 +355,6 @@ class ConfigPageState extends State<ConfigPage> with WidgetsBindingObserver {
     _publicModeFocusNode.dispose();
     _publicAddressFocusNode.dispose();
     _languageFocusNode.dispose();
-    _deviceFeedbackFocusNode.dispose();
     for (final node in _themeFocusNodes) {
       node.dispose();
     }
@@ -604,39 +592,6 @@ class ConfigPageState extends State<ConfigPage> with WidgetsBindingObserver {
     }
   }
 
-  Future<void> _toggleDeviceFeedback(BuildContext context) async {
-    final service = context.read<ServiceManager>();
-    final newValue = !_deviceFeedbackAllowed;
-    final l10n = AppLocalizations.of(context)!;
-
-    debugPrint(
-      '[ConfigPage] Toggling device feedback: newValue=$newValue (current=$_deviceFeedbackAllowed)',
-    );
-
-    if (newValue) {
-      debugPrint('[ConfigPage] Enabling device feedback...');
-      await service.setDeviceFeedbackUploadAllowed(true);
-      setState(() {
-        _deviceFeedbackAllowed = true;
-      });
-      debugPrint('[ConfigPage] Triggering background upload...');
-      service.triggerDeviceFeedbackUploadInBackground();
-    } else {
-      debugPrint('[ConfigPage] Disabling device feedback...');
-      await service.setDeviceFeedbackUploadAllowed(false);
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(l10n.deviceReportingDisabled)));
-    }
-
-    if (!newValue) {
-      setState(() {
-        _deviceFeedbackAllowed = false;
-      });
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
@@ -860,24 +815,6 @@ class ConfigPageState extends State<ConfigPage> with WidgetsBindingObserver {
               ),
             ],
             const SizedBox(height: 24),
-
-            Selector<ServiceManager, bool>(
-              selector: (_, s) => s.isDeviceFeedbackEnabled,
-              builder: (_, enabled, _) {
-                if (!enabled) return const SizedBox.shrink();
-                return Selector<ServiceManager, String?>(
-                  selector: (_, s) => s.lastDeviceFeedbackSyncMessage,
-                  builder: (_, msg, _) => DeviceFeedbackToggle(
-                    focusNode: _deviceFeedbackFocusNode,
-                    isAllowed: _deviceFeedbackAllowed,
-                    statusMessage: msg,
-                    onToggle: () => _toggleDeviceFeedback(context),
-                    onArrowDown: () => _languageFocusNode.requestFocus(),
-                    onArrowUp: () => _languageFocusNode.requestFocus(),
-                  ),
-                );
-              },
-            ),
 
             const SizedBox(height: 24),
 
@@ -1504,28 +1441,6 @@ class _ThemeButtonState extends State<ThemeButton> {
   }
 }
 
-class DeviceFeedbackToggle extends StatefulWidget {
-  final FocusNode focusNode;
-  final bool isAllowed;
-  final String? statusMessage;
-  final VoidCallback onToggle;
-  final VoidCallback onArrowDown;
-  final VoidCallback onArrowUp;
-
-  const DeviceFeedbackToggle({
-    super.key,
-    required this.focusNode,
-    required this.isAllowed,
-    this.statusMessage,
-    required this.onToggle,
-    required this.onArrowDown,
-    required this.onArrowUp,
-  });
-
-  @override
-  State<DeviceFeedbackToggle> createState() => _DeviceFeedbackToggleState();
-}
-
 // ThemeModeSelector: isolates theme buttons so only this subtree rebuilds
 class ThemeModeSelector extends StatelessWidget {
   final List<FocusNode> themeFocusNodes;
@@ -1582,183 +1497,6 @@ class ThemeModeSelector extends StatelessWidget {
   }
 }
 
-class _DeviceFeedbackToggleState extends State<DeviceFeedbackToggle> {
-  bool _isFocused = false;
-  bool _hasUserToggled = false;
-
-  @override
-  void initState() {
-    super.initState();
-    widget.focusNode.addListener(_onFocusChange);
-  }
-
-  @override
-  void dispose() {
-    widget.focusNode.removeListener(_onFocusChange);
-    super.dispose();
-  }
-
-  void _onFocusChange() {
-    if (mounted) {
-      setState(() {
-        _isFocused = widget.focusNode.hasFocus;
-      });
-    }
-  }
-
-  void _handleToggle() {
-    if (!_hasUserToggled) {
-      setState(() {
-        _hasUserToggled = true;
-      });
-    }
-    widget.onToggle();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-    return Focus(
-      focusNode: widget.focusNode,
-      canRequestFocus: true,
-      descendantsAreFocusable: false,
-      onKeyEvent: (node, event) {
-        if (event is KeyDownEvent) {
-          if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
-            widget.onArrowDown();
-            return KeyEventResult.handled;
-          } else if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
-            widget.onArrowUp();
-            return KeyEventResult.handled;
-          } else if (event.logicalKey == LogicalKeyboardKey.select ||
-              event.logicalKey == LogicalKeyboardKey.enter) {
-            _handleToggle();
-            return KeyEventResult.handled;
-          }
-        }
-        return KeyEventResult.ignored;
-      },
-      child: GestureDetector(
-        onTap: _handleToggle,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          decoration: BoxDecoration(
-            color: _isFocused
-                ? Theme.of(context).colorScheme.secondary.withAlpha(40)
-                : null,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: _isFocused
-                  ? Theme.of(context).colorScheme.secondary
-                  : Theme.of(context).dividerColor,
-              width: _isFocused ? 2 : 1,
-            ),
-            boxShadow: _isFocused
-                ? [
-                    BoxShadow(
-                      color: Theme.of(
-                        context,
-                      ).colorScheme.secondary.withAlpha(40),
-                      blurRadius: 8,
-                      spreadRadius: 2,
-                    ),
-                  ]
-                : null,
-          ),
-          child: Row(
-            children: [
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: _isFocused
-                      ? Theme.of(context).colorScheme.secondary.withAlpha(40)
-                      : null,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(
-                  widget.isAllowed ? Icons.analytics : Icons.analytics_outlined,
-                  color: _isFocused
-                      ? Theme.of(context).colorScheme.secondary
-                      : Theme.of(context).colorScheme.onSurface.withAlpha(150),
-                  size: 24,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      l10n.deviceReportingTitle,
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: _isFocused
-                            ? Theme.of(context).colorScheme.secondary
-                            : null,
-                        fontWeight: _isFocused
-                            ? FontWeight.bold
-                            : FontWeight.normal,
-                      ),
-                    ),
-                    Text(
-                      l10n.deviceReportingSubtitle,
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                    if (widget.statusMessage != null &&
-                        widget.statusMessage!.isNotEmpty) ...[
-                      const SizedBox(height: 4),
-                      Text(
-                        widget.statusMessage!,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-              Container(
-                width: 48,
-                height: 28,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(14),
-                  color: widget.isAllowed
-                      ? Theme.of(context).colorScheme.secondary
-                      : Theme.of(context).colorScheme.secondary.withAlpha(100),
-                ),
-                child: AnimatedAlign(
-                  duration: Duration(milliseconds: _hasUserToggled ? 200 : 0),
-                  alignment: widget.isAllowed
-                      ? Alignment.centerRight
-                      : Alignment.centerLeft,
-                  child: Container(
-                    width: 24,
-                    height: 24,
-                    margin: const EdgeInsets.all(2),
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: Theme.of(context).colorScheme.surface,
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withAlpha(30),
-                          blurRadius: 2,
-                          offset: const Offset(0, 1),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
 
 /// Notification permission state, and a way back for someone who said no.
 ///

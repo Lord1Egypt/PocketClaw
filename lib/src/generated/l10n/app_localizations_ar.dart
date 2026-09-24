@@ -94,16 +94,6 @@ class AppLocalizationsAr extends AppLocalizations {
   String get unableToGetDeviceIp => 'تعذر الحصول على عنوان IP للجهاز';
 
   @override
-  String get deviceReportingTitle => 'تعليقات توافق الجهاز';
-
-  @override
-  String get deviceReportingSubtitle =>
-      'تُستخدم فقط للتحقق من توافق إصدار نظام التشغيل وإصدار التطبيق. لا تتضمن رسائل الدردشة أو تفاصيل الحساب أو المحتوى الشخصي';
-
-  @override
-  String get deviceReportingDisabled => 'تعليقات توافق الجهاز معطلة';
-
-  @override
   String get localModeHint =>
       '1. انتقل إلى تكوين الخدمة\n2. شغّل الوضع العام\n3. امسح رمز QR للوصول إلى PocketClaw';
 
