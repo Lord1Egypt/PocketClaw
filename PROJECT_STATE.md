@@ -9,7 +9,7 @@ evidence and describe the state at the date of each entry.
 
 | Field | Current fact |
 | --- | --- |
-| Working branch | `feature/post-v0.2.1-android-cleanup` (from `develop` at `2db9390`; not merged, no release) |
+| Working branch | `feature/fdroid-phase-b` (F-Droid Phase B, stacked on `feature/post-v0.2.1-android-cleanup` at `208a3d7`, which is from `develop` at `2db9390`; neither merged, no release) |
 | PC-1 state-basis HEAD | `0be6afbd92209953d918d5c0516662bc54f0d081` (PC-1's verified starting commit; the documentation-only closeout commit necessarily follows it) |
 | H3A state-basis HEAD | `9a5a5dd9fd4a0697451d27948efe2c5be6e5c028` (verified H3A starting commit; the H3A closeout commit follows it) |
 | H3B state-basis HEAD | `6491ccc6f611c7513506d622dbb1ad4a75c93a43` (verified H3B starting commit; the H3B defect fix and closeout commit follow it) |
@@ -29,7 +29,7 @@ evidence and describe the state at the date of each entry.
 | Accepted physical baseline | vc63 / `lastAcceptedVersionCode=63` — advanced by the v0.2.1 acceptance commit |
 | Current phase | Final Production Release Hardening; H5C production-signed native/ELF validation closed |
 | Developer production signer | `176dca6b198b9552fb4d9ad3ca18da8d6f23c0a3f5ed4bd6b75a0700f9f0efcf` |
-| Core fingerprint | Branch: `e437c610bdd7ec5c0c5ce26a4df1a961471824adcc03742cf7c1c809778233c8`, staged in `a365c97` from build-input commit `ed72fd6` (BuildTime `2026-09-24T11:00:43+0000`), pair `724b6c92…` / `406466e8…`. Released v0.2.1: `76a114fd…` |
+| Core fingerprint | Branch: `a6a0906c381e81e1d068089cc39693534dfbe18ea640510026fb6720c65128c1`, staged in `3932a77` from build-input commit `f8b2db6` (BuildTime `2026-09-24T16:40:56+0000`), pair `1e3126d1…` / `0141e30f…`. Released v0.2.1: `76a114fd…` |
 | Distribution targets | Direct APK, Google Play, Official F-Droid |
 | **Released — PocketClaw v0.2.1** | Patch release for PC-DEF-076, the bundled-Git SIGSEGV. `PocketClaw-v0.2.1-arm64-v8a.apk`, 63,613,115 bytes, `1203cd46f30cc6e7d69b3cd54be2d2dbca29150a9bce4f722b112576ccf4401b`, `0.2.1+63`, one production signer `176dca6b…`, Core fingerprint `76a114fd…`, bundled git `60d3a1c0…` and git-remote-http `90e18712…`. Owner-signed from `c898581`; **physically accepted on SM-A165F / Android 16 on 2026-09-22** with an ordinary `git clone` and reflogs enabled. |
 | Exposure-audit state-basis HEAD | `25753cef5fa4d956e11d37b5a6176cdef977f015` (verified PC-DEF-019 closeout; the audit closeout commit follows it) |
@@ -55,8 +55,94 @@ evidence and describe the state at the date of each entry.
 | Verification APK (PC-DEF-056/057, superseded) | `7c8eefd399318b6187b0fb87c8bd687d7d08c3537959e31f38767a642908e3cb`, 63,539,059 bytes, development signer `15cf75f9…`, Dart AOT `007c23b6be22a9a44f429a53f8fb9eaf930180e67bb20f111cadceedb68e22f4`. Source gate 26/26 with `flutter.suite 561 passed`, artifact gate 24/24, native ELF 188 PASS / 0 FAIL. Archived read-only at `build/forensic/apk-7c8eefd3…/`. LOCAL TEST / NON-RELEASABLE. **Nothing in it is physically verified** |
 | Verification APK (PC-DEF-049..055, superseded) | `6df7abaa6bec5a5124d21d30b582fc37d2837be036fa75e93eb3d30d5634894c`, 63,528,459 bytes, development signer `15cf75f9945d5354e75707e0326b7cffc60ac51a68df38156db318ef4578a27c`, Dart AOT `d5d52742ab6cc5672e7c3910dc20c50e5c4da430c80d65c49501d12ea17a7968`. Source gate 26/26, artifact gate 24/24, native ELF audit 188 PASS / 0 FAIL. Archived read-only at `build/forensic/apk-6df7abaa…/` with its private R8 material separated. LOCAL TEST / NON-RELEASABLE |
 | Staged Core freshness | **CURRENT.** Rebuilt from the source commit `55624cd` and staged in `da9e6f5`, which touches no build input. Fingerprint `87c320c1cb6dffe6395043265c3d4d659ddaf26a4b588d303c5d06355a4acc2b` (was `9c22cb22…`), BuildTime `2026-09-21T03:22:04+0000` |
-| Flutter suite | Green — 588 passed, 0 failed (gate run on the branch, 2026-09-24) — and the **complete** suite is a release gate (`flutter.suite`) |
+| Flutter suite | Green — 586 passed, 0 failed (repository-class gate on `feature/fdroid-phase-b`, 2026-09-24) — and the **complete** suite is a release gate (`flutter.suite`) |
 | Public release asset policy | APK only. An AAB is a Play-upload artifact and is never a public release asset — `PC-DEF-021` |
+
+## 2026-09-24 — F-Droid Phase B: source readiness — AUTOMATED PASS, PHYSICAL PENDING
+
+Branch `feature/fdroid-phase-b`, stacked on the unmerged cleanup branch at
+`208a3d7`. Nothing merged, tagged, signed with the production key, published or
+submitted to fdroiddata. The Phase A audit and its policy basis are in
+`docs/FDROID_READINESS_NOTES.md`.
+
+**Changes, one commit each:** Umeng and the device-feedback feature removed
+(`19bdcdc`); Kagi's unlicensed generated client replaced with a standard-library
+request (`160df70`); upstream self-updater left out of the Android Core
+(`5937884`); PC-DEF-084 long-turn fresh delivery (`95bfb7f`); Remix Icon →
+Material Icons (`0716d7e`); PC-DEF-077 app-specific workspace, no storage
+permission, explicit SAF import (`1074c6e`, destination fixed in `0c1a8d5`);
+stray CJK developer text removed and guarded (`7cf7bed`); arm64-only packaging
+(`ed2f53b`, Flutter's override disabled in `d858201`); unsigned repository mode
+and gate class (`452ef3d`, verdict text `5af9284`); toolchain pins (`f8b2db6`);
+resolved-graph SDK gate (`aac09d3`); wrapper checksum and DebugProbesKt.bin
+(`1ef1557`); Core restaged (`3932a77`); libdartjni path independence
+(`c22d6c0`); licence and notices (`fd688ef`); Fastlane metadata (`c8a357b`).
+
+**Unsigned F-Droid-shaped candidate** — `app-release-unsigned.apk` from
+`d858201` (later commits are docs, tests and gate tooling only), 61,287,793
+bytes, `46893103a413fdfc5b38d98a867cdfc549dd35530be0b0699c0323ae510bd1ce`,
+`0.2.1+63`, no signature (apksigner: DOES NOT VERIFY, no v1 entries, no signing
+block), Dart AOT `3236411e…`, R8 mapping `30bdbae5…` (private). Packaged
+manifest: INTERNET, ACCESS_NETWORK_STATE, FOREGROUND_SERVICE,
+FOREGROUND_SERVICE_SPECIAL_USE, WAKE_LOCK, POST_NOTIFICATIONS and AndroidX's
+DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION; no storage permission, no Umeng
+metadata, no requestLegacyExternalStorage. `native-code: 'arm64-v8a'` only.
+Archived read-only at `build/forensic/apk-46893103-unsigned/`.
+UNSIGNED / REPOSITORY-SIGNABLE — not installable, not a release.
+
+**Gates:** `release_gate.py --full --release-class repository` exit 0 (63 PASS,
+0 FAIL, 0 SKIP, including `deps.no_proprietary_sdk_resolved` over 136 resolved
+coordinates, `source.no_stray_cjk`, Zero-Pico with 19 entries all in use,
+`artifact.abi`, `artifact.signing unsigned`, `flutter.suite 586`); native ELF
+146/0/0, 152/0/0 with the bound private support manifest; Go gofmt clean, vet
+(host and android/arm64) clean, all 99 test packages pass; frontend tsc,
+ESLint clean, Vitest 581; `flutter analyze` clean; Android unit tests 53;
+builder tests 29; secret scan: no new secret-shaped string in Phase B history.
+
+**Reproducibility, byte-level:** Core rebuilt from two other checkout paths is
+identical to the staged pair (Phase A). jq and sqlite3 rebuild identical from a
+different build root; gh (go1.24.6) and ripgrep (Rust 1.94.1, `--locked`)
+rebuild identical under the new pins. Two unsigned builds of `d858201` from
+different checkout paths differ in exactly one of 440 entries,
+`lib/arm64-v8a/libapp.so` (Dart AOT); `classes.dex`, resources, the baseline
+profile, `libdartjni.so` and every payload match. At a fixed path the whole APK
+matches except the signing block (Phase A). Leading, unproven explanation for
+the Dart difference: kernel file URIs for the app's own libraries and pub-cache
+packages are absolute.
+
+**Owed:** the physical pass below; screenshots (no device was attached);
+PC-DEF-077 and PC-DEF-084 stay OPEN until then. Phase C (fdroid build, scanners,
+metadata draft) has not started.
+
+### Physical checklist for the next device build
+
+Build an owner-signed or disposable side-by-side artifact; never uninstall the
+production-signed v0.2.1 or clear its data without explicit approval. Confirm
+`adb devices` first.
+
+1. Cold launch: no redirect to All Files Access; the notification prompt once.
+2. Settings → Workspace shows `…/Android/data/com.lord1egypt.pocketclaw/files/pocketclaw`;
+   existing memory and skills are intact (the released install already lives there).
+3. With an old `Download/pocketclaw` present: the "Earlier workspace found"
+   card appears; Copy → pick the folder → snackbar count; the copy is under
+   `workspace/imported-from-downloads-<stamp>`; the source is unchanged; the
+   agent can read the copy; the card is gone. Cancel path: no change. Hide: gone.
+4. Logs → export saves and shares.
+5. Telegram: a turn over two minutes with a message sent meanwhile → the answer
+   arrives as a new, notifying message below it and the progress message is
+   deleted; a short turn still edits in place (PC-DEF-084). Queued notices
+   (PC-DEF-079).
+6. Large tool output bounded (PC-DEF-078); Settings has no Devices card,
+   Launch at Login or Service Port (PC-DEF-080); icons, splash and
+   notification mark (PC-DEF-081); dashboard web search with Kagi if a key is
+   available.
+7. Runtime tools once each (git clone with reflogs, gh, curl, rg, jq, sqlite3,
+   python); Dashboard; Public Mode on/off; background/resume; force-stop recovery.
+8. Denied notification permission path; PCAPdroid capture from install through
+   first launch (expect no connection before configuration).
+9. Logcat: zero UnsatisfiedLinkError, ClassNotFoundException, NoSuchMethodError,
+   VerifyError, crashes or ANRs (R8/JNI/plugin registration).
+10. Fresh screenshots of the post-cleanup UI for Fastlane.
 
 ## 2026-09-24 — Post-v0.2.1 Android cleanup and runtime hardening
 
