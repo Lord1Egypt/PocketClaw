@@ -46,6 +46,7 @@
   "legacyWorkspaceCopied": "파일 {count}개를 {folder}에 복사했습니다.",
   "legacyWorkspacePartial": "파일 {count}개를 {folder}에 복사했습니다. {failed}개는 복사하지 못했습니다.",
   "legacyWorkspaceFailed": "폴더를 복사하지 못했습니다.",
+  "legacyWorkspaceEmpty": "선택한 폴더에 복사할 항목이 없었습니다.",
   "logsSavedToMediaLibraryWithName": "로그가 다운로드(Android 미디어 라이브러리)에 저장되었습니다: {name}",
   "@logsSavedToMediaLibraryWithName": {
     "placeholders": {

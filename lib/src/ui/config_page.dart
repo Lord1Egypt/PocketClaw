@@ -346,6 +346,7 @@ class ConfigPageState extends State<ConfigPage> with WidgetsBindingObserver {
       ),
       LegacyWorkspaceImportStatus.failed ||
       LegacyWorkspaceImportStatus.unavailable => l10n.legacyWorkspaceFailed,
+      LegacyWorkspaceImportStatus.empty => l10n.legacyWorkspaceEmpty,
       LegacyWorkspaceImportStatus.cancelled ||
       LegacyWorkspaceImportStatus.busy => null,
     };

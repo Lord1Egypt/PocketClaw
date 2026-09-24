@@ -11,8 +11,7 @@ import android.os.Looper
 import android.provider.DocumentsContract
 import android.util.Log
 import java.io.File
-import java.io.FileOutputStream
-import java.util.Date
+import java.io.InputStream
 
 /**
  * Copies a workspace left in `Download/pocketclaw` by an older install into the
@@ -22,10 +21,10 @@ import java.util.Date
  * folder cannot be read directly. The owner picks it with the system document
  * tree picker, which grants read access to that one tree and nothing else, and
  * its contents are copied into a new folder inside the agent's workspace
- * directory, where the agent can reach them. The source is
- * never modified or deleted, nothing in the workspace is overwritten, and the
- * two workspaces are never merged: the copy is a folder the owner can inspect
- * and move from.
+ * directory, where the agent can reach them. The source is never modified or
+ * deleted, nothing in the workspace is overwritten, and the two workspaces are
+ * never merged. The copy itself is [WorkspaceTreeCopier]; this class is the
+ * Android glue around it.
  */
 class LegacyWorkspaceImporter(private val activity: Activity) {
 
@@ -35,34 +34,21 @@ class LegacyWorkspaceImporter(private val activity: Activity) {
         /** Distinct from ChatImagePicker and anything Flutter's plugins use. */
         const val REQUEST_CODE = 0x9102
 
-        const val STATUS_COPIED = "copied"
-        const val STATUS_PARTIAL = "partial"
-        const val STATUS_FAILED = "failed"
-        const val STATUS_CANCELLED = "cancelled"
-        const val STATUS_BUSY = "busy"
-        const val STATUS_UNAVAILABLE = "unavailable"
-
-        /** Deep enough for any real workspace, shallow enough to stop a loop. */
-        private const val MAX_DEPTH = 32
-
         fun legacyDirectory(): File = File(
             Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
             "pocketclaw",
         )
 
         /**
-         * Whether the old shared workspace can be seen.
+         * Whether an old PocketClaw workspace is visible at `Download/pocketclaw`.
          *
-         * A directory lookup needs no permission on scoped storage, so an
-         * upgraded install can usually tell. Where it cannot -- Android 7-9
-         * without a storage grant -- the answer is false and nothing is offered,
-         * which is the safe direction.
+         * Evidence, not existence: see [WorkspaceImportRules.looksLikeLegacyWorkspace].
+         * Without a storage permission the app sees only files it created
+         * itself, which is exactly what an earlier install of this package left
+         * there; anything else counts as absent, the safe direction.
          */
-        fun legacyDirectoryVisible(): Boolean = try {
-            legacyDirectory().isDirectory
-        } catch (e: SecurityException) {
-            false
-        }
+        fun legacyWorkspacePresent(): Boolean =
+            WorkspaceImportRules.looksLikeLegacyWorkspace(legacyDirectory())
 
         private fun initialTreeUri(): Uri = DocumentsContract.buildDocumentUri(
             "com.android.externalstorage.documents",
@@ -70,28 +56,15 @@ class LegacyWorkspaceImporter(private val activity: Activity) {
         )
     }
 
-    data class Outcome(
-        val status: String,
-        val folder: String = "",
-        val files: Int = 0,
-        val failed: Int = 0,
-    ) {
-        fun asMap(): Map<String, Any> = mapOf(
-            "status" to status,
-            "folder" to folder,
-            "files" to files,
-            "failed" to failed,
-        )
-    }
-
     private val mainHandler = Handler(Looper.getMainLooper())
-    private var pending: ((Outcome) -> Unit)? = null
+    private val gate = ImportGate()
+    private var pending: ((ImportOutcome) -> Unit)? = null
     private var destinationWorkspace: File? = null
 
     /** Opens the picker. [onResult] is always called exactly once. */
-    fun start(workspace: File, onResult: (Outcome) -> Unit) {
-        if (pending != null) {
-            onResult(Outcome(STATUS_BUSY))
+    fun start(workspace: File, onResult: (ImportOutcome) -> Unit) {
+        if (!gate.tryAcquire()) {
+            onResult(ImportOutcome(ImportOutcome.BUSY))
             return
         }
         val intent = Intent(Intent.ACTION_OPEN_DOCUMENT_TREE).apply {
@@ -106,64 +79,68 @@ class LegacyWorkspaceImporter(private val activity: Activity) {
             activity.startActivityForResult(intent, REQUEST_CODE)
         } catch (e: Exception) {
             Log.w(TAG, "No document tree picker available: ${e.javaClass.simpleName}")
-            pending = null
-            onResult(Outcome(STATUS_UNAVAILABLE))
+            finish(ImportOutcome(ImportOutcome.UNAVAILABLE))
         }
     }
 
     /** Routes an Activity result. Returns true when it was this importer's. */
     fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?): Boolean {
         if (requestCode != REQUEST_CODE) return false
-        val answer = pending ?: return true
-        pending = null
+        if (pending == null) return true
         val tree = if (resultCode == Activity.RESULT_OK) data?.data else null
         val workspace = destinationWorkspace
         if (tree == null || workspace == null) {
-            answer(Outcome(STATUS_CANCELLED))
+            // Cancelling touches nothing: no folder is created, nothing is read.
+            finish(ImportOutcome(ImportOutcome.CANCELLED))
             return true
         }
-        val resolver = activity.applicationContext.contentResolver
-        // A workspace can hold many files; copying must not block the UI.
+        val source = SafImportTree(activity.applicationContext.contentResolver, tree)
+        // A workspace can hold many files; copying must not block the UI. The
+        // gate stays held until the answer is delivered, so a second import
+        // cannot start while this one is still writing.
         Thread {
             val outcome = try {
-                copyTree(resolver, tree, workspace)
+                WorkspaceTreeCopier.copy(source, workspace)
             } catch (e: Exception) {
                 Log.w(TAG, "legacy workspace import failed: ${e.javaClass.simpleName}")
-                Outcome(STATUS_FAILED)
+                ImportOutcome(ImportOutcome.FAILED)
             }
             Log.i(
                 TAG,
                 "legacy workspace import status=${outcome.status}" +
                     " files=${outcome.files} failed=${outcome.failed}",
             )
-            mainHandler.post { answer(outcome) }
+            mainHandler.post { finish(outcome) }
         }.start()
         return true
     }
 
-    /** Answers an import that can no longer be delivered. */
+    /** Answers an import whose picker can no longer return. */
     fun cancelPending() {
-        val answer = pending ?: return
-        pending = null
-        answer(Outcome(STATUS_CANCELLED))
+        if (pending != null) finish(ImportOutcome(ImportOutcome.CANCELLED))
     }
 
-    private fun copyTree(resolver: ContentResolver, tree: Uri, workspace: File): Outcome {
-        workspace.mkdirs()
-        val destination = WorkspaceImportRules.freshDestination(workspace, Date())
-        if (!destination.mkdirs()) return Outcome(STATUS_FAILED)
+    private fun finish(outcome: ImportOutcome) {
+        val answer = pending
+        pending = null
+        destinationWorkspace = null
+        gate.release()
+        answer?.invoke(outcome)
+    }
+}
 
-        var copied = 0
-        var failed = 0
+/** The owner-picked document tree, read through the grant the picker gave. */
+private class SafImportTree(
+    private val resolver: ContentResolver,
+    private val tree: Uri,
+) : ImportTree {
+    override fun rootId(): String = DocumentsContract.getTreeDocumentId(tree)
 
-        fun walk(parentId: String, dir: File, depth: Int) {
-            if (depth > MAX_DEPTH) {
-                failed++
-                return
-            }
-            val children = DocumentsContract.buildChildDocumentsUriUsingTree(tree, parentId)
-            val cursor = resolver.query(
-                children,
+    override fun children(parentId: String): List<ImportTree.Entry>? {
+        val uri = DocumentsContract.buildChildDocumentsUriUsingTree(tree, parentId)
+        val cursor = try {
+            resolver.query(
+                uri,
                 arrayOf(
                     DocumentsContract.Document.COLUMN_DOCUMENT_ID,
                     DocumentsContract.Document.COLUMN_DISPLAY_NAME,
@@ -173,56 +150,24 @@ class LegacyWorkspaceImporter(private val activity: Activity) {
                 null,
                 null,
             )
-            if (cursor == null) {
-                failed++
-                return
-            }
-            cursor.use { rows ->
+        } catch (e: SecurityException) {
+            null
+        } ?: return null
+        return cursor.use { rows ->
+            buildList {
                 while (rows.moveToNext()) {
-                    val id = rows.getString(0)
-                    val name = WorkspaceImportRules.safeChildName(rows.getString(1))
-                    val mime = rows.getString(2)
-                    if (id == null || name == null) {
-                        failed++
-                        continue
-                    }
-                    val target = File(dir, name)
-                    // Never overwrite, even inside the new folder: two source
-                    // entries with one name keep the first and count the second.
-                    if (!WorkspaceImportRules.isInside(destination, target) || target.exists()) {
-                        failed++
-                        continue
-                    }
-                    if (mime == DocumentsContract.Document.MIME_TYPE_DIR) {
-                        if (target.mkdir()) walk(id, target, depth + 1) else failed++
-                        continue
-                    }
-                    try {
-                        val source = DocumentsContract.buildDocumentUriUsingTree(tree, id)
-                        val input = resolver.openInputStream(source)
-                        if (input == null) {
-                            failed++
-                            continue
-                        }
-                        input.use { stream ->
-                            FileOutputStream(target).use { out -> stream.copyTo(out) }
-                        }
-                        copied++
-                    } catch (e: Exception) {
-                        target.delete()
-                        failed++
-                    }
+                    add(
+                        ImportTree.Entry(
+                            id = rows.getString(0),
+                            name = rows.getString(1),
+                            isDirectory = rows.getString(2) == DocumentsContract.Document.MIME_TYPE_DIR,
+                        )
+                    )
                 }
             }
         }
-
-        walk(DocumentsContract.getTreeDocumentId(tree), destination, 0)
-
-        val status = when {
-            failed == 0 -> STATUS_COPIED
-            copied > 0 -> STATUS_PARTIAL
-            else -> STATUS_FAILED
-        }
-        return Outcome(status, destination.name, copied, failed)
     }
+
+    override fun open(id: String): InputStream? =
+        resolver.openInputStream(DocumentsContract.buildDocumentUriUsingTree(tree, id))
 }

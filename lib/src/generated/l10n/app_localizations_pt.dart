@@ -145,6 +145,10 @@ class AppLocalizationsPt extends AppLocalizations {
   String get legacyWorkspaceFailed => 'Não foi possível copiar a pasta.';
 
   @override
+  String get legacyWorkspaceEmpty =>
+      'A pasta selecionada não tinha nada para copiar.';
+
+  @override
   String logsSavedToMediaLibraryWithName(Object name) {
     return 'Registos guardados em Transferências (biblioteca de mídia Android): $name';
   }

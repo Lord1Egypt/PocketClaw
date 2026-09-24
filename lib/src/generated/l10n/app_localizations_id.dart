@@ -143,6 +143,10 @@ class AppLocalizationsId extends AppLocalizations {
   String get legacyWorkspaceFailed => 'Folder tidak dapat disalin.';
 
   @override
+  String get legacyWorkspaceEmpty =>
+      'Folder yang dipilih tidak berisi apa pun untuk disalin.';
+
+  @override
   String logsSavedToMediaLibraryWithName(Object name) {
     return 'Log disimpan ke Unduhan (perpustakaan media Android): $name';
   }

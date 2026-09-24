@@ -144,6 +144,9 @@ class AppLocalizationsRu extends AppLocalizations {
   String get legacyWorkspaceFailed => 'Не удалось скопировать папку.';
 
   @override
+  String get legacyWorkspaceEmpty => 'В выбранной папке нечего копировать.';
+
+  @override
   String logsSavedToMediaLibraryWithName(Object name) {
     return 'Журналы сохранены в Загрузки (медиатека Android): $name';
   }

@@ -64,6 +64,7 @@
     }
   },
   "legacyWorkspaceFailed": "The folder could not be copied.",
+  "legacyWorkspaceEmpty": "The selected folder had nothing to copy.",
   "logsSavedToMediaLibraryWithName": "Logs saved to Downloads (Android media library): {name}",
   "@logsSavedToMediaLibraryWithName": {
     "placeholders": {

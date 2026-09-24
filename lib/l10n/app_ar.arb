@@ -46,6 +46,7 @@
   "legacyWorkspaceCopied": "تم نسخ {count} ملفًا إلى {folder}.",
   "legacyWorkspacePartial": "تم نسخ {count} ملفًا إلى {folder}. تعذّر نسخ {failed}.",
   "legacyWorkspaceFailed": "تعذّر نسخ المجلد.",
+  "legacyWorkspaceEmpty": "لم يكن في المجلد المحدد ما يمكن نسخه.",
   "logsSavedToMediaLibraryWithName": "تم حفظ السجلات في التنزيلات (مكتبة وسائط Android): {name}",
   "@logsSavedToMediaLibraryWithName": {
     "placeholders": {

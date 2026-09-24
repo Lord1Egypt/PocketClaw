@@ -46,6 +46,7 @@
   "legacyWorkspaceCopied": "{count} फ़ाइलें {folder} में कॉपी की गईं।",
   "legacyWorkspacePartial": "{count} फ़ाइलें {folder} में कॉपी की गईं। {failed} कॉपी नहीं हो सकीं।",
   "legacyWorkspaceFailed": "फ़ोल्डर कॉपी नहीं हो सका।",
+  "legacyWorkspaceEmpty": "चुने गए फ़ोल्डर में कॉपी करने के लिए कुछ नहीं था।",
   "logsSavedToMediaLibraryWithName": "लॉग डाउनलोड (Android मीडिया लाइब्रेरी) में सहेजे गए: {name}",
   "@logsSavedToMediaLibraryWithName": {
     "placeholders": {

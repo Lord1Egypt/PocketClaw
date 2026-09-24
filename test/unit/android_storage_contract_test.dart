@@ -64,47 +64,81 @@ void main() {
   group('legacy workspace import', () {
     const importer = '$kotlin/storage/LegacyWorkspaceImporter.kt';
 
+    const copier = '$kotlin/storage/WorkspaceTreeCopier.kt';
+    const rules = '$kotlin/storage/WorkspaceImportRules.kt';
+
     test('it never deletes or rewrites the source', () {
-      final source = read(importer);
-      expect(source, isNot(contains('deleteDocument')));
-      expect(
-        source,
-        isNot(contains('openOutputStream')),
-        reason: 'the source tree is read-only to the import',
-      );
-      expect(
-        source,
-        isNot(contains('takePersistableUriPermission')),
-        reason: 'a one-time copy keeps no standing grant',
-      );
+      final importerSource = read(importer);
+      for (final forbidden in const [
+        'deleteDocument',
+        'openOutputStream',
+        'takePersistableUriPermission',
+      ]) {
+        expect(importerSource, isNot(contains(forbidden)), reason: forbidden);
+      }
+      // The source interface has no write operation to call.
+      final tree = read(copier);
+      final start = tree.indexOf('interface ImportTree {');
+      final body = tree.substring(start, tree.indexOf('\n}', start));
+      expect(body, isNot(contains('delete')));
+      expect(body, isNot(contains('write')));
+      expect(body, isNot(contains('OutputStream')));
     });
 
-    test(
-      'the copy lands inside the agent workspace, where the agent can read it',
-      () {
-        final channel = read('$kotlin/PocketClawMethodChannel.kt');
-        final start = channel.indexOf('"importLegacyWorkspace" -> {');
-        final body = channel.substring(
-          start,
-          channel.indexOf('importer.start(', start),
-        );
-        expect(
-          body,
-          contains('PocketClawService.getWorkspacePath(context), "workspace"'),
-          reason:
-              'restrict_to_workspace hides anything beside the workspace directory',
-        );
-      },
-    );
-
     test('it copies into a fresh folder and never overwrites', () {
-      final source = read(importer);
-      expect(source, contains('WorkspaceImportRules.freshDestination('));
+      final source = read(copier);
+      expect(source, contains('WorkspaceImportRules.createFreshDestination('));
       expect(source, contains('target.exists()'));
       expect(
         source,
         contains('WorkspaceImportRules.isInside(destination, target)'),
       );
+    });
+
+    test('the notice needs workspace evidence, not a bare directory', () {
+      // PC-DEF-077: an empty Download/pocketclaw made by hand in a file manager
+      // was shown as an earlier workspace because the check was isDirectory.
+      final channel = read('$kotlin/PocketClawMethodChannel.kt');
+      final start = channel.indexOf('"getLegacyWorkspaceStatus" -> {');
+      final body = channel.substring(
+        start,
+        channel.indexOf('"importLegacyWorkspace"', start),
+      );
+      expect(
+        body,
+        contains('LegacyWorkspaceImporter.legacyWorkspacePresent()'),
+      );
+      expect(
+        read(importer),
+        contains(
+          'WorkspaceImportRules.looksLikeLegacyWorkspace(legacyDirectory())',
+        ),
+      );
+      final detector = read(rules);
+      final d = detector.indexOf('fun looksLikeLegacyWorkspace(');
+      final detectorBody = detector.substring(
+        d,
+        detector.indexOf('\n    }', d),
+      );
+      for (final forbidden in const [
+        'mkdir',
+        'createNewFile',
+        'writeText',
+        'delete',
+        'renameTo',
+      ]) {
+        expect(detectorBody, isNot(contains(forbidden)), reason: forbidden);
+      }
+    });
+
+    test('hiding the notice only changes UI state', () {
+      final page = read('lib/src/ui/config_page.dart');
+      final start = page.indexOf(
+        'Future<void> _hideLegacyWorkspaceNotice() async {',
+      );
+      final body = page.substring(start, page.indexOf('\n  }', start));
+      expect(body, contains('setBool(_legacyWorkspaceNoticeHiddenKey, true)'));
+      expect(body, isNot(contains('PocketClawChannel')));
     });
 
     test('the host results parse, and unknown statuses are failures', () {

@@ -143,6 +143,10 @@ class AppLocalizationsHi extends AppLocalizations {
   String get legacyWorkspaceFailed => 'फ़ोल्डर कॉपी नहीं हो सका।';
 
   @override
+  String get legacyWorkspaceEmpty =>
+      'चुने गए फ़ोल्डर में कॉपी करने के लिए कुछ नहीं था।';
+
+  @override
   String logsSavedToMediaLibraryWithName(Object name) {
     return 'लॉग डाउनलोड (Android मीडिया लाइब्रेरी) में सहेजे गए: $name';
   }

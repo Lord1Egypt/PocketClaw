@@ -143,6 +143,9 @@ class AppLocalizationsAr extends AppLocalizations {
   String get legacyWorkspaceFailed => 'تعذّر نسخ المجلد.';
 
   @override
+  String get legacyWorkspaceEmpty => 'لم يكن في المجلد المحدد ما يمكن نسخه.';
+
+  @override
   String logsSavedToMediaLibraryWithName(Object name) {
     return 'تم حفظ السجلات في التنزيلات (مكتبة وسائط Android): $name';
   }

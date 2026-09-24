@@ -24,6 +24,7 @@ enum LegacyWorkspaceImportStatus {
   copied,
   partial,
   failed,
+  empty,
   cancelled,
   busy,
   unavailable;

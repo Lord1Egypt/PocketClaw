@@ -46,6 +46,7 @@
   "legacyWorkspaceCopied": "{count} 個のファイルを {folder} にコピーしました。",
   "legacyWorkspacePartial": "{count} 個のファイルを {folder} にコピーしました。{failed} 個はコピーできませんでした。",
   "legacyWorkspaceFailed": "フォルダーをコピーできませんでした。",
+  "legacyWorkspaceEmpty": "選択したフォルダーにはコピーするものがありませんでした。",
   "logsSavedToMediaLibraryWithName": "ログがダウンロード（Androidメディアライブラリ）に保存されました: {name}",
   "@logsSavedToMediaLibraryWithName": {
     "placeholders": {

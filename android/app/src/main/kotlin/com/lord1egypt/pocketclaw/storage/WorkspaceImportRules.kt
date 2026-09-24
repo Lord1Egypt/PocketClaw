@@ -18,6 +18,43 @@ object WorkspaceImportRules {
     const val FOLDER_PREFIX = "imported-from-downloads-"
 
     /**
+     * Files whose presence under `<home>/workspace/` identifies a PocketClaw
+     * home. Core has always placed the agent workspace at `$HOME/workspace`
+     * (`pkg.WorkspaceName`) and seeds it with AGENT.md, SOUL.md, USER.md and
+     * memory/MEMORY.md; the heartbeat service writes HEARTBEAT.md and the
+     * bootstrap record lives in `.pocketclaw/bootstrap.json`. No build ever
+     * kept these directly under the home root, so the root is not searched.
+     */
+    val LEGACY_WORKSPACE_MARKERS = listOf(
+        "AGENT.md",
+        "SOUL.md",
+        "USER.md",
+        "HEARTBEAT.md",
+        "memory/MEMORY.md",
+        ".pocketclaw/bootstrap.json",
+    )
+
+    /**
+     * Whether [home] holds an old PocketClaw workspace. PC-DEF-077.
+     *
+     * Mere existence is not evidence: an empty `Download/pocketclaw`, made by
+     * hand in a file manager, was shown as an earlier workspace. One marker is
+     * enough, because a partly populated genuine workspace must still count,
+     * and a file named `workspace/AGENT.md` does not appear by accident.
+     *
+     * Read-only by construction: it only asks whether paths are directories or
+     * regular files, so it cannot create, write or delete anything. Anything
+     * it may not read counts as absent.
+     */
+    fun looksLikeLegacyWorkspace(home: File): Boolean = try {
+        val workspace = File(home, "workspace")
+        home.isDirectory && workspace.isDirectory &&
+            LEGACY_WORKSPACE_MARKERS.any { File(workspace, it).isFile }
+    } catch (e: SecurityException) {
+        false
+    }
+
+    /**
      * A document name usable as one file name, or null.
      *
      * Document providers return display names, which are not guaranteed to be
@@ -32,21 +69,22 @@ object WorkspaceImportRules {
     }
 
     /**
-     * A folder inside [workspace] that does not exist yet, named for [now].
-     * A second import in the same second gets a numbered suffix, never the
-     * first import's folder.
+     * Creates and returns a new folder inside [workspace] named for [now], or
+     * null when none can be created. `mkdir` is the existence check, so two
+     * imports in the same second can never share a folder.
      */
-    fun freshDestination(workspace: File, now: Date): File {
+    fun createFreshDestination(workspace: File, now: Date): File? {
+        if (!workspace.isDirectory && !workspace.mkdirs()) return null
         val stamp = SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).apply {
             timeZone = TimeZone.getTimeZone("UTC")
         }.format(now)
-        var candidate = File(workspace, FOLDER_PREFIX + stamp)
-        var suffix = 2
-        while (candidate.exists()) {
-            candidate = File(workspace, "$FOLDER_PREFIX$stamp-$suffix")
-            suffix++
+        for (suffix in 1..100) {
+            val name = if (suffix == 1) FOLDER_PREFIX + stamp else "$FOLDER_PREFIX$stamp-$suffix"
+            val candidate = File(workspace, name)
+            if (candidate.mkdir()) return candidate
+            if (!workspace.isDirectory) return null
         }
-        return candidate
+        return null
     }
 
     /** Whether [target] resolves inside [root], symlinks and ".." included. */

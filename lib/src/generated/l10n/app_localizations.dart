@@ -364,6 +364,12 @@ abstract class AppLocalizations {
   /// **'The folder could not be copied.'**
   String get legacyWorkspaceFailed;
 
+  /// No description provided for @legacyWorkspaceEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'The selected folder had nothing to copy.'**
+  String get legacyWorkspaceEmpty;
+
   /// No description provided for @logsSavedToMediaLibraryWithName.
   ///
   /// In en, this message translates to:

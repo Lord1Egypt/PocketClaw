@@ -46,6 +46,7 @@
   "legacyWorkspaceCopied": "{count} fichiers copiés dans {folder}.",
   "legacyWorkspacePartial": "{count} fichiers copiés dans {folder}. {failed} n’ont pas pu être copiés.",
   "legacyWorkspaceFailed": "Le dossier n’a pas pu être copié.",
+  "legacyWorkspaceEmpty": "Le dossier sélectionné ne contenait rien à copier.",
   "logsSavedToMediaLibraryWithName": "Journaux enregistrés dans Téléchargements (bibliothèque multimédia Android): {name}",
   "@logsSavedToMediaLibraryWithName": {
     "placeholders": {

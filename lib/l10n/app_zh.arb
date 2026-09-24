@@ -46,6 +46,7 @@
   "legacyWorkspaceCopied": "已将 {count} 个文件复制到 {folder}。",
   "legacyWorkspacePartial": "已将 {count} 个文件复制到 {folder}。有 {failed} 个未能复制。",
   "legacyWorkspaceFailed": "无法复制该文件夹。",
+  "legacyWorkspaceEmpty": "所选文件夹中没有可复制的内容。",
   "logsSavedToMediaLibraryWithName": "已保存到“下载”目录（Android 媒体库）：{name}",
   "@logsSavedToMediaLibraryWithName": {
     "placeholders": {

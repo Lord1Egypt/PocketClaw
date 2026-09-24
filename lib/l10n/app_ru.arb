@@ -46,6 +46,7 @@
   "legacyWorkspaceCopied": "Скопировано файлов: {count} в {folder}.",
   "legacyWorkspacePartial": "Скопировано файлов: {count} в {folder}. Не удалось скопировать: {failed}.",
   "legacyWorkspaceFailed": "Не удалось скопировать папку.",
+  "legacyWorkspaceEmpty": "В выбранной папке нечего копировать.",
   "logsSavedToMediaLibraryWithName": "Журналы сохранены в Загрузки (медиатека Android): {name}",
   "@logsSavedToMediaLibraryWithName": {
     "placeholders": {

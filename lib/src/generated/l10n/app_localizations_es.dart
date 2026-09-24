@@ -144,6 +144,10 @@ class AppLocalizationsEs extends AppLocalizations {
   String get legacyWorkspaceFailed => 'No se pudo copiar la carpeta.';
 
   @override
+  String get legacyWorkspaceEmpty =>
+      'La carpeta seleccionada no tenía nada que copiar.';
+
+  @override
   String logsSavedToMediaLibraryWithName(Object name) {
     return 'Registros guardados en Descargas (biblioteca multimedia de Android): $name';
   }

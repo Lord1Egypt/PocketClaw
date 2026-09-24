@@ -2,6 +2,7 @@ package com.lord1egypt.pocketclaw
 
 import com.lord1egypt.pocketclaw.media.ChatImagePicker
 import com.lord1egypt.pocketclaw.security.GitHubCredentialStore
+import com.lord1egypt.pocketclaw.storage.ImportOutcome
 import com.lord1egypt.pocketclaw.storage.LegacyWorkspaceImporter
 import android.app.Activity
 import android.content.Context
@@ -757,14 +758,14 @@ class PocketClawMethodChannel(
                     result.success(
                         mapOf(
                             "path" to LegacyWorkspaceImporter.legacyDirectory().absolutePath,
-                            "visible" to LegacyWorkspaceImporter.legacyDirectoryVisible(),
+                            "visible" to LegacyWorkspaceImporter.legacyWorkspacePresent(),
                         )
                     )
                 }
                 "importLegacyWorkspace" -> {
                     val importer = legacyWorkspaceImporter
                     if (importer == null) {
-                        result.success(mapOf("status" to LegacyWorkspaceImporter.STATUS_UNAVAILABLE))
+                        result.success(ImportOutcome(ImportOutcome.UNAVAILABLE).asMap())
                         return@setMethodCallHandler
                     }
                     // Into the agent's own workspace, Core's default

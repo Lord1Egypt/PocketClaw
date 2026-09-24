@@ -143,6 +143,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get legacyWorkspaceFailed => 'The folder could not be copied.';
 
   @override
+  String get legacyWorkspaceEmpty => 'The selected folder had nothing to copy.';
+
+  @override
   String logsSavedToMediaLibraryWithName(Object name) {
     return 'Logs saved to Downloads (Android media library): $name';
   }

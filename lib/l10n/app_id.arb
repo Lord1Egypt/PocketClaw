@@ -46,6 +46,7 @@
   "legacyWorkspaceCopied": "{count} file disalin ke {folder}.",
   "legacyWorkspacePartial": "{count} file disalin ke {folder}. {failed} tidak dapat disalin.",
   "legacyWorkspaceFailed": "Folder tidak dapat disalin.",
+  "legacyWorkspaceEmpty": "Folder yang dipilih tidak berisi apa pun untuk disalin.",
   "logsSavedToMediaLibraryWithName": "Log disimpan ke Unduhan (perpustakaan media Android): {name}",
   "@logsSavedToMediaLibraryWithName": {
     "placeholders": {

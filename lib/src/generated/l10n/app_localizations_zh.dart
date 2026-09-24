@@ -140,6 +140,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get legacyWorkspaceFailed => '无法复制该文件夹。';
 
   @override
+  String get legacyWorkspaceEmpty => '所选文件夹中没有可复制的内容。';
+
+  @override
   String logsSavedToMediaLibraryWithName(Object name) {
     return '已保存到“下载”目录（Android 媒体库）：$name';
   }

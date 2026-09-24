@@ -141,6 +141,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get legacyWorkspaceFailed => 'フォルダーをコピーできませんでした。';
 
   @override
+  String get legacyWorkspaceEmpty => '選択したフォルダーにはコピーするものがありませんでした。';
+
+  @override
   String logsSavedToMediaLibraryWithName(Object name) {
     return 'ログがダウンロード（Androidメディアライブラリ）に保存されました: $name';
   }

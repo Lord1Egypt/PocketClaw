@@ -141,6 +141,9 @@ class AppLocalizationsKo extends AppLocalizations {
   String get legacyWorkspaceFailed => '폴더를 복사하지 못했습니다.';
 
   @override
+  String get legacyWorkspaceEmpty => '선택한 폴더에 복사할 항목이 없었습니다.';
+
+  @override
   String logsSavedToMediaLibraryWithName(Object name) {
     return '로그가 다운로드(Android 미디어 라이브러리)에 저장되었습니다: $name';
   }

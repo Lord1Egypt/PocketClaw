@@ -145,6 +145,10 @@ class AppLocalizationsDe extends AppLocalizations {
   String get legacyWorkspaceFailed => 'Der Ordner konnte nicht kopiert werden.';
 
   @override
+  String get legacyWorkspaceEmpty =>
+      'Der ausgewählte Ordner enthielt nichts zum Kopieren.';
+
+  @override
   String logsSavedToMediaLibraryWithName(Object name) {
     return 'Protokolle in Downloads gespeichert (Android-Medienbibliothek): $name';
   }
