@@ -110,6 +110,10 @@ FORBIDDEN_PERMISSIONS = {
     "android.permission.WRITE_EXTERNAL_STORAGE",
 }
 
+# Classes held to release provenance: clean worktree, deterministic BuildTime,
+# staged Core that matches its source. Only signing differs between them.
+STRICT_RELEASE_CLASSES = ("production", "repository")
+
 CORE_LIBS = ("libpocketclaw.so", "libpocketclaw-web.so")
 STAGED_CORE_DIR = REPO / "android/app/src/main/jniLibs" / EXPECTED_ABI
 DART_GENERATED_REGISTRANT_URI = b"package:pocketclaw_generated/dart_plugin_registrant.dart"
@@ -373,7 +377,7 @@ def staged_build_time_gate(gate: Gate, release_class: str):
         return
 
     detail = ", ".join(f"{lib}={value}" for lib, value in mismatched.items())
-    if release_class == "production":
+    if release_class in STRICT_RELEASE_CLASSES:
         gate.check("core.staged_build_time", False,
                    expected=expected, observed=detail)
     else:
@@ -414,7 +418,7 @@ def build_time_gate(gate: Gate, core_blob: bytes, release_class: str):
         is_dev = b"dev" in core_blob
         detail = "BuildTime=dev (non-deterministic developer build)" if is_dev \
             else "no readable BuildTime"
-        if release_class == "production":
+        if release_class in STRICT_RELEASE_CLASSES:
             gate.check("artifact.build_time", False,
                        expected="a deterministic BuildTime", observed=detail)
         else:
@@ -423,7 +427,7 @@ def build_time_gate(gate: Gate, core_blob: bytes, release_class: str):
         return
 
     if expected is None:
-        if release_class == "production":
+        if release_class in STRICT_RELEASE_CLASSES:
             gate.check("artifact.build_time", False,
                        expected="a resolvable expected BuildTime",
                        observed=f"embedded {observed}, expected unknown")
@@ -439,7 +443,7 @@ def build_time_gate(gate: Gate, core_blob: bytes, release_class: str):
     # A mismatch means the artifact was not built from this tree's build inputs.
     # For a test-class artifact predating the contract that is information, not
     # a defect; for a production artifact it is disqualifying.
-    if release_class == "production":
+    if release_class in STRICT_RELEASE_CLASSES:
         gate.check("artifact.build_time", False,
                    expected=expected, observed=observed)
     else:
@@ -487,7 +491,7 @@ def worktree_gate(gate: Gate, release_class: str):
         # produce. None of that exists outside a git worktree, so "unknown" is
         # a failure rather than something to wave through. Local inspection of
         # an artifact still works — it just cannot claim to be a release.
-        if release_class == "production":
+        if release_class in STRICT_RELEASE_CLASSES:
             gate.check("repo.clean_worktree", False,
                        expected="a usable git worktree (provenance is required "
                                 "for a production release)",
@@ -505,7 +509,7 @@ def worktree_gate(gate: Gate, release_class: str):
     summary = ", ".join(line[3:] for line in dirty[:5])
     if len(dirty) > 5:
         summary += f", +{len(dirty) - 5} more"
-    if release_class == "production":
+    if release_class in STRICT_RELEASE_CLASSES:
         gate.check("repo.clean_worktree", False,
                    expected="a clean worktree", observed=f"{len(dirty)} change(s): {summary}")
     else:
@@ -1367,6 +1371,17 @@ def signing_gate(gate: Gate, apk: Path, release_class: str):
             env["PATH"] = f"{jdk / 'bin'}{os.pathsep}{os.environ.get('PATH', '')}"
     rc, out = run([str(apksigner), "verify", "--print-certs", "--verbose", str(apk)], env=env)
 
+    if release_class == "repository":
+        # A repository-signable artifact must carry no signature at all: the
+        # repository signs it, or attaches the upstream signature once the
+        # build reproduces. Any signer here means the wrong build class ran.
+        signed = re.search(r"certificate SHA-256 digest:", out) is not None
+        gate.check("artifact.signing", rc != 0 and not signed,
+                   expected="no signature (UNSIGNED / REPOSITORY-SIGNABLE)",
+                   observed="signed" if signed else "unsigned")
+        gate.facts["releasable"] = False
+        return
+
     # Recorded, not enforced. Which schemes AGP emits depends on minSdk and on
     # the signing config, and hard-failing on a scheme here would either
     # duplicate a decision that belongs in the build or invent a requirement
@@ -1429,10 +1444,12 @@ def main() -> int:
     parser.add_argument("--verify-source", action="store_true")
     parser.add_argument("--verify-artifact", metavar="APK")
     parser.add_argument("--full", metavar="APK")
-    parser.add_argument("--release-class", choices=("test", "production"),
+    parser.add_argument("--release-class", choices=("test", "production", "repository"),
                         default="test",
                         help="test permits the development signer and can never "
-                             "report a production release; production rejects it")
+                             "report a production release; production rejects it; "
+                             "repository is production-strict and requires an "
+                             "unsigned APK for a repository to sign")
     parser.add_argument("--no-tests", action="store_true",
                         help="skip delegated test suites (source phase)")
     parser.add_argument("--manifest", metavar="PATH",

@@ -93,6 +93,61 @@ class SigningModeTest(unittest.TestCase):
             hardening.validate_signing_environment("production", {"KEYSTORE_PATH": "/outside"})
 
 
+class UnsignedModeTest(unittest.TestCase):
+    def test_unsigned_keeps_the_hardening_contract_and_selects_no_key(self):
+        command = hardening.gradle_command("unsigned", "build/private-symbols/dart/android-arm64")
+        self.assertIn("-PpocketclawUnsignedRelease=true", command)
+        self.assertNotIn("-PallowDebugSigning=true", command)
+        for flag in ("-Pdart-obfuscation=true", "-PpocketclawDartHardening=true",
+                     "-Ptarget-platform=android-arm64"):
+            self.assertIn(flag, command)
+
+    def test_unsigned_refuses_any_declared_signing_variable(self):
+        for name in hardening.SIGNING_ENV:
+            with self.subTest(name=name), self.assertRaises(hardening.HardeningError):
+                hardening.validate_signing_environment("unsigned", {name: "x"})
+        hardening.validate_signing_environment("unsigned", {})
+
+    def test_unsigned_is_classified_as_repository_signable(self):
+        self.assertEqual(hardening.CLASSIFICATIONS["unsigned"],
+                         "UNSIGNED / REPOSITORY-SIGNABLE")
+
+    def _zip(self, path: Path, entries: dict[str, bytes], signing_block: bool = False) -> None:
+        with zipfile.ZipFile(path, "w") as archive:
+            for name, data in entries.items():
+                archive.writestr(name, data)
+        if not signing_block:
+            return
+        # Insert a fake APK Signing Block before the central directory and
+        # repoint the end record, the shape apksigner produces.
+        data = path.read_bytes()
+        eocd = data.rfind(b"PK\x05\x06")
+        cd = int.from_bytes(data[eocd + 16:eocd + 20], "little")
+        block = b"\0" * 8 + b"x" * 16 + b"\0" * 8 + hardening.APK_SIGNING_BLOCK_MAGIC
+        patched = data[:cd] + block + data[cd:]
+        new_eocd = eocd + len(block)
+        patched = (patched[:new_eocd + 16] + (cd + len(block)).to_bytes(4, "little")
+                   + patched[new_eocd + 20:])
+        path.write_bytes(patched)
+
+    def test_the_verifier_accepts_unsigned_and_rejects_either_signature(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            unsigned = root / "unsigned.apk"
+            self._zip(unsigned, {"classes.dex": b"dex"})
+            hardening.verify_unsigned_apk(unsigned)
+
+            v1 = root / "v1.apk"
+            self._zip(v1, {"classes.dex": b"dex", "META-INF/CERT.RSA": b"sig"})
+            with self.assertRaises(hardening.HardeningError):
+                hardening.verify_unsigned_apk(v1)
+
+            v2 = root / "v2.apk"
+            self._zip(v2, {"classes.dex": b"dex"}, signing_block=True)
+            with self.assertRaises(hardening.HardeningError):
+                hardening.verify_unsigned_apk(v2)
+
+
 class GeneratedOutputResetTest(unittest.TestCase):
     def test_clears_cached_aot_and_stale_outputs_but_preserves_package_config(self):
         with tempfile.TemporaryDirectory() as tmp:

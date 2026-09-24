@@ -223,6 +223,15 @@ val releaseSigningMaterialUsable =
 val allowDebugSigning =
     (project.findProperty("allowDebugSigning") as String?)?.toBoolean() == true
 
+// A repository-signable release: built without any signature so a repository
+// (F-Droid) can sign it with its own key, or attach the upstream signature once
+// the build reproduces. It is the production build with the signing step left
+// out -- same R8, Dart hardening and ABI -- so its bytes are what the upstream
+// APK is before signing. It is its own explicit mode, never a fallback: it
+// refuses to run beside production signing material or the debug opt-in.
+val unsignedReleaseRequested =
+    (project.findProperty("pocketclawUnsignedRelease") as String?)?.toBoolean() == true
+
 // --- Dart release hardening ---------------------------------------------
 //
 // Flutter 3.47.1's Gradle plugin consumes the target, obfuscation, and split
@@ -358,6 +367,7 @@ android {
             // build, and quietly giving them a debug-signed one instead is the
             // silent downgrade this whole arrangement exists to prevent.
             signingConfig = when {
+                unsignedReleaseRequested -> null
                 releaseSigningMaterialUsable -> signingConfigs.getByName("release")
                 releaseSigningPartiallyDeclared -> null
                 releaseKeystoreInsideRepository -> null
@@ -471,6 +481,29 @@ tasks.register("validateDartHardening") {
 // on purpose.
 tasks.register("validateReleaseSigning") {
     doLast {
+        if (unsignedReleaseRequested) {
+            val declared = releaseSigningFields.filterValues { it.isNotEmpty() }.keys
+            if (declared.isNotEmpty() || allowDebugSigning) {
+                throw GradleException(
+                    buildString {
+                        appendLine("An unsigned release was requested beside a signing configuration.")
+                        appendLine()
+                        if (declared.isNotEmpty()) {
+                            appendLine("Declared: " + declared.joinToString(", "))
+                        }
+                        if (allowDebugSigning) appendLine("Declared: -PallowDebugSigning=true")
+                        appendLine()
+                        appendLine("-PpocketclawUnsignedRelease=true builds an artifact for a repository")
+                        appendLine("to sign. It never uses a key, so a key being present means two")
+                        appendLine("intentions were mixed. Unset the signing variables, or drop the")
+                        appendLine("unsigned property to build a signed release.")
+                    }
+                )
+            }
+            println("Release signing: NONE. UNSIGNED / REPOSITORY-SIGNABLE, by explicit")
+            println("  -PpocketclawUnsignedRelease=true. Not installable until a repository signs it.")
+            return@doLast
+        }
         if (releaseSigningMaterialUsable) {
             println("Release signing: production keystore (from the environment).")
             return@doLast

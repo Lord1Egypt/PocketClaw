@@ -365,6 +365,19 @@ void main() {
     });
   });
 
+  group('repository-signable release', () {
+    test('is explicit, unsigned, and refuses any signing material', () {
+      final gradle = File('android/app/build.gradle.kts').readAsStringSync();
+      expect(gradle, contains('findProperty("pocketclawUnsignedRelease")'));
+      // It must win over every other branch, so a stray key cannot sign it.
+      final when = gradle.indexOf('signingConfig = when {');
+      expect(gradle.indexOf('unsignedReleaseRequested -> null', when),
+          lessThan(gradle.indexOf('releaseSigningMaterialUsable ->', when)));
+      expect(gradle, contains('An unsigned release was requested beside a signing configuration.'));
+      expect(gradle, contains('UNSIGNED / REPOSITORY-SIGNABLE'));
+    });
+  });
+
   group('what H1 must not have changed', () {
     test('the package identity is untouched', () {
       expect(gradle, contains('applicationId = "com.lord1egypt.pocketclaw"'));
