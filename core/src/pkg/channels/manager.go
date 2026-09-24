@@ -362,6 +362,50 @@ func (m *Manager) SendPlaceholder(ctx context.Context, channel, chatID string) b
 	return true
 }
 
+// SendQueueNotice tells the sender of a queued message that it is waiting.
+// It returns the notice's message ID, or "" when the channel cannot or will
+// not send one. Like SendPlaceholder it bypasses the outbound worker: the
+// notice must not pass through preSend, where it would be taken for the
+// running turn's answer.
+func (m *Manager) SendQueueNotice(ctx context.Context, channel, chatID, replyToMessageID, text string) string {
+	m.mu.RLock()
+	ch, ok := m.channels[channel]
+	m.mu.RUnlock()
+	if !ok {
+		return ""
+	}
+	qc, ok := ch.(QueueNoticeCapable)
+	if !ok {
+		return ""
+	}
+	id, err := qc.SendQueueNotice(ctx, chatID, replyToMessageID, text)
+	if err != nil {
+		logger.DebugCF("channels", "Queue notice not sent", map[string]any{
+			"channel": channel,
+			"error":   err.Error(),
+		})
+		return ""
+	}
+	return id
+}
+
+// DeleteQueueNotice removes a notice sent by SendQueueNotice. Best effort: a
+// notice that cannot be deleted is harmless and stays in the chat.
+func (m *Manager) DeleteQueueNotice(ctx context.Context, channel, chatID, messageID string) {
+	if messageID == "" {
+		return
+	}
+	m.mu.RLock()
+	ch, ok := m.channels[channel]
+	m.mu.RUnlock()
+	if !ok {
+		return
+	}
+	if deleter, ok := ch.(MessageDeleter); ok {
+		_ = deleter.DeleteMessage(ctx, chatID, messageID)
+	}
+}
+
 // StartTyping begins the typing indicator for the given channel/chatID and
 // records its stop function, correlated by the lifecycle ID on ctx when there
 // is one. It is the typing counterpart of SendPlaceholder and exists for the

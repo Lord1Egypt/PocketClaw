@@ -73,6 +73,9 @@ type AgentLoop struct {
 	// than collapsed into steering for the preceding turn.
 	sessionMailboxMu sync.Mutex
 	sessionMailboxes map[string]*sessionMailbox
+	// queueNotices holds the "Queued" notice of each waiting message, by
+	// lifecycle ID, until that message starts and the notice is deleted.
+	queueNotices sync.Map
 
 	turnSeq atomic.Uint64
 
@@ -204,8 +207,9 @@ func (al *AgentLoop) Run(ctx context.Context) error {
 				continue
 			}
 
-			mailbox, claimed, queued := al.claimSessionMailbox(sessionKey, msg)
+			mailbox, claimed, queued, ahead := al.claimSessionMailboxPosition(sessionKey, msg)
 			if queued {
+				al.announceQueuedMessage(ctx, msg, ahead)
 				continue
 			}
 			if !claimed {
@@ -327,7 +331,7 @@ func (al *AgentLoop) Run(ctx context.Context) error {
 
 				current := m
 				for {
-					deliveryErr := al.runTurnWithDeferredActivity(ctx, current)
+					deliveryErr := al.runMailboxTurn(ctx, current)
 					if deliveryErr == nil {
 						traceRequestLifecycle("request_completed", &current.Context, nil)
 					} else {
@@ -570,6 +574,7 @@ func (al *AgentLoop) runTurnWithDeferredActivity(
 	msg bus.InboundMessage,
 ) error {
 	defer al.stopDeferredTyping(msg)
+	al.retireQueueNotice(ctx, msg)
 	al.startDeferredTyping(ctx, msg)
 	al.sendDeferredPlaceholder(ctx, msg)
 	return al.runTurnWithSteering(ctx, msg)

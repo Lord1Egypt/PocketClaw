@@ -1093,6 +1093,39 @@ func (c *TelegramChannel) SendPlaceholder(ctx context.Context, chatID string) (s
 	return fmt.Sprintf("%d", pMsg.MessageID), nil
 }
 
+// SendQueueNotice implements channels.QueueNoticeCapable.
+//
+// It goes straight to the Bot API, like SendPlaceholder, and deliberately not
+// through Send: Send treats any non-feedback text as the running turn's final
+// answer and would finalise that turn's tool-progress message with this
+// notice. It follows the placeholder setting, because both are status messages
+// and a user who switched those off asked for fewer bot messages.
+func (c *TelegramChannel) SendQueueNotice(
+	ctx context.Context,
+	chatID, replyToMessageID, text string,
+) (string, error) {
+	if !c.bc.Placeholder.Enabled {
+		return "", nil
+	}
+	cid, threadID, err := parseTelegramChatID(chatID)
+	if err != nil {
+		return "", err
+	}
+	notice := tu.Message(tu.ID(cid), text)
+	notice.MessageThreadID = threadID
+	if mid, parseErr := strconv.Atoi(replyToMessageID); parseErr == nil {
+		notice.ReplyParameters = &telego.ReplyParameters{
+			MessageID:                mid,
+			AllowSendingWithoutReply: true,
+		}
+	}
+	sent, err := c.bot.SendMessage(ctx, notice)
+	if err != nil {
+		return "", err
+	}
+	return strconv.Itoa(sent.MessageID), nil
+}
+
 // SendMedia implements the channels.MediaSender interface.
 func (c *TelegramChannel) SendMedia(ctx context.Context, msg bus.OutboundMediaMessage) ([]string, error) {
 	if !c.IsRunning() {

@@ -22,6 +22,18 @@ func (al *AgentLoop) claimSessionMailbox(
 	sessionKey string,
 	msg bus.InboundMessage,
 ) (owner *sessionMailbox, claimed, queued bool) {
+	owner, claimed, queued, _ = al.claimSessionMailboxPosition(sessionKey, msg)
+	return owner, claimed, queued
+}
+
+// claimSessionMailboxPosition is claimSessionMailbox that also reports, for a
+// queued message, how many requests are ahead of it: the running turn plus
+// every message queued before it. It is computed under the mailbox lock, so a
+// burst of messages gets consecutive, accurate positions.
+func (al *AgentLoop) claimSessionMailboxPosition(
+	sessionKey string,
+	msg bus.InboundMessage,
+) (owner *sessionMailbox, claimed, queued bool, ahead int) {
 	al.sessionMailboxMu.Lock()
 	defer al.sessionMailboxMu.Unlock()
 
@@ -32,7 +44,7 @@ func (al *AgentLoop) claimSessionMailbox(
 	if !exists {
 		mailbox = &sessionMailbox{}
 		al.sessionMailboxes[sessionKey] = mailbox
-		return mailbox, true, false
+		return mailbox, true, false, 0
 	}
 	if isControlPlaneMessage(msg) {
 		// Control traffic is never queued. /stop exists to cancel the turn that
@@ -40,7 +52,7 @@ func (al *AgentLoop) claimSessionMailbox(
 		// it would be dequeued only after the work it was meant to stop had
 		// already completed. Reported as neither claimed nor queued, so the
 		// dispatcher handles it out of band on the control path.
-		return mailbox, false, false
+		return mailbox, false, false, 0
 	}
 	if !requiresIndependentResponseLifecycle(msg) {
 		// clearActiveTurn runs while a panicking worker unwinds, just before its
@@ -49,9 +61,9 @@ func (al *AgentLoop) claimSessionMailbox(
 		if _, active := al.activeTurnStates.Load(sessionKey); !active {
 			mailbox = &sessionMailbox{}
 			al.sessionMailboxes[sessionKey] = mailbox
-			return mailbox, true, false
+			return mailbox, true, false, 0
 		}
-		return mailbox, false, false
+		return mailbox, false, false, 0
 	}
 	mailbox.independent = append(mailbox.independent, msg)
 	logger.DebugCF("agent", "Inbound response lifecycle queued", map[string]any{
@@ -59,7 +71,7 @@ func (al *AgentLoop) claimSessionMailbox(
 		"lifecycle_id": bus.InboundLifecycleID(&msg.Context),
 		"queue_depth":  len(mailbox.independent),
 	})
-	return mailbox, false, true
+	return mailbox, false, true, len(mailbox.independent)
 }
 
 func (al *AgentLoop) takeNextSessionMessage(
