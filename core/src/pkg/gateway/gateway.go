@@ -36,8 +36,10 @@ import (
 	_ "github.com/sipeed/picoclaw/pkg/channels/vk"
 	_ "github.com/sipeed/picoclaw/pkg/channels/wecom"
 	_ "github.com/sipeed/picoclaw/pkg/channels/weixin"
-	_ "github.com/sipeed/picoclaw/pkg/channels/whatsapp"
-	_ "github.com/sipeed/picoclaw/pkg/channels/whatsapp_native"
+	// whatsapp and whatsapp_native are deliberately not linked. WhatsApp was
+	// removed from the product; config still accepts a leftover block (types
+	// are registered in pkg/config), and an enabled one only logs "Factory not
+	// registered". See PC-DEF-082.
 	"github.com/sipeed/picoclaw/pkg/config"
 	"github.com/sipeed/picoclaw/pkg/cron"
 	"github.com/sipeed/picoclaw/pkg/devices"

@@ -39,9 +39,10 @@ func TestAndroidBuildDoesNotEnableWhatsAppNative(t *testing.T) {
 // TestStagedCoreDoesNotLinkWhatsmeow checks the binary Gradle packages rather
 // than the recipe that produced it.
 //
-// Without the build tag the transport compiles to a stub whose error string is
-// the marker below; whatsmeow itself contributes tens of thousands of symbols,
-// so its absence is unambiguous.
+// whatsmeow contributes tens of thousands of symbols, so its absence is
+// unambiguous. Since PC-DEF-082 the shipping gateway links neither upstream
+// WhatsApp package at all, so the bridge client and the inert native stub are
+// both absent too; their distinctive strings prove it.
 func TestStagedCoreDoesNotLinkWhatsmeow(t *testing.T) {
 	root := repoRoot()
 	if root == "" {
@@ -53,13 +54,35 @@ func TestStagedCoreDoesNotLinkWhatsmeow(t *testing.T) {
 		t.Skipf("no staged Core binary to check: %v", err)
 	}
 
-	if bytes.Contains(core, []byte("go.mau.fi/whatsmeow")) {
-		t.Error("the staged Core links whatsmeow; it was built with -tags whatsapp_native")
+	for marker, what := range map[string]string{
+		"go.mau.fi/whatsmeow":                   "the whatsmeow transport",
+		"whatsapp native not compiled in":       "the inert whatsapp_native stub",
+		"failed to connect to WhatsApp bridge":  "the WhatsApp bridge client",
+		"sipeed/picoclaw/pkg/channels/whatsapp": "an upstream WhatsApp channel package",
+	} {
+		if bytes.Contains(core, []byte(marker)) {
+			t.Errorf("the staged Core still links %s (%q)", what, marker)
+		}
 	}
-	// The stub proves the package is present but inert, which is the intended
-	// dormant state for vendored upstream code.
-	if !bytes.Contains(core, []byte("whatsapp native not compiled in")) {
-		t.Error("the staged Core does not carry the inert WhatsApp stub")
+}
+
+// TestGatewayDoesNotImportWhatsApp pins the source half of PC-DEF-082: the
+// packages stay vendored for upstream provenance, but nothing in the shipping
+// gateway pulls them in.
+func TestGatewayDoesNotImportWhatsApp(t *testing.T) {
+	root := repoRoot()
+	if root == "" {
+		t.Skip("not running inside a PocketClaw checkout")
+	}
+	src, err := os.ReadFile(filepath.Join(root, "core", "src", "pkg", "gateway", "gateway.go"))
+	if err != nil {
+		t.Fatalf("read gateway.go: %v", err)
+	}
+	for _, pkg := range []string{`"github.com/sipeed/picoclaw/pkg/channels/whatsapp"`,
+		`"github.com/sipeed/picoclaw/pkg/channels/whatsapp_native"`} {
+		if bytes.Contains(src, []byte(pkg)) {
+			t.Errorf("gateway.go imports %s again", pkg)
+		}
 	}
 }
 
