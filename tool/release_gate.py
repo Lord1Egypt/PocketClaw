@@ -671,12 +671,14 @@ def source_gates(gate: Gate, run_tests: bool, release_class: str = "test"):
     proprietary = []
     for name, path in (("firebase_analytics", "pubspec.yaml"),
                        ("firebase_core", "pubspec.yaml"),
-                       ("google_app_id", "android/app/src/main/AndroidManifest.xml")):
+                       ("google_app_id", "android/app/src/main/AndroidManifest.xml"),
+                       ("com.umeng", "android/app/build.gradle.kts"),
+                       ("UMENG_", "android/app/src/main/AndroidManifest.xml")):
         target = REPO / path
         if target.is_file() and name in target.read_text(encoding="utf-8"):
             proprietary.append(f"{name} in {path}")
     gate.check("source.fdroid_no_proprietary_sdk", not proprietary,
-               expected="no proprietary Google SDK declared in the build",
+               expected="no proprietary SDK declared in the build files",
                observed=", ".join(proprietary) or "clean")
 
     # Whether a production signer has been enrolled at all. Reported rather than
@@ -742,6 +744,15 @@ def source_gates(gate: Gate, run_tests: bool, release_class: str = "test"):
     gate.check("a2.private_storage_contracts", rc == 0,
                expected="A2 credential, log and auth guards pass",
                observed="PASS" if rc == 0 else "FAIL")
+
+    # B7. What Gradle actually resolves for the release variant, compile and
+    # runtime classpath, rather than what the build files happen to name: a
+    # compileOnly Umeng passed every DEX scan while still being a build input.
+    rc, out = run([sys.executable, str(REPO / "tool/dependency_graph.py")])
+    summary = out.strip().splitlines()[-1] if out.strip() else "FAIL"
+    gate.check("deps.no_proprietary_sdk_resolved", rc == 0,
+               expected="no proprietary analytics/ads/crash SDK group in the resolved graph",
+               observed=summary)
 
     rc, out = run([sys.executable, str(REPO / "tool/test_build_hardened_android.py")])
     gate.check("dart.hardening_contract", rc == 0,
@@ -1329,6 +1340,7 @@ PROPRIETARY_SDK_MARKERS = {
     "gms": rb"com/google/android/gms",
     "admob": rb"com/google/android/gms/ads",
     "measurement": rb"com/google/android/gms/measurement",
+    "umeng": rb"com/umeng",
 }
 
 
