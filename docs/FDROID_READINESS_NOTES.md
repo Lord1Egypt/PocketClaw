@@ -20,7 +20,7 @@ is [`FDROID_RELEASE.md`](FDROID_RELEASE.md).
 | B2 | `kagi-openapi-golang`, which has no licence, was linked into Core. | **Fixed.** Replaced by a standard-library request with the same wire contract; gone from `go.mod`/`go.sum` and from both Core binaries. |
 | B3 | No unsigned release path. | **Fixed.** `-PpocketclawUnsignedRelease=true` / `build_hardened_android.py --signing unsigned`, refusing any signing material, verified unsigned, classified UNSIGNED / REPOSITORY-SIGNABLE. Gate class `repository`. |
 | B4 | The APK advertised armeabi-v7a and x86_64 through plugin stubs. | **Fixed.** `abiFilters` arm64-v8a; the gate fails on any other ABI. |
-| B5 | MANAGE_EXTERNAL_STORAGE, requested by a Settings redirect on every cold launch. | **Fixed in source** (PC-DEF-077, still OPEN until physically tested). No storage permission; app-specific workspace; explicit SAF import of an old `Download/pocketclaw`. |
+| B5 | MANAGE_EXTERNAL_STORAGE, requested by a Settings redirect on every cold launch. | **Fixed in source** (PC-DEF-077, still OPEN until physically tested). No storage permission; app-specific workspace; explicit SAF import of an old `Download/pocketclaw`, offered only when that folder holds real workspace evidence (an empty folder, like the one Samsung My Files created on the owner's phone, is ignored). Detection only stats paths. |
 | B6 | Payload toolchains not pinned (ripgrep's Rust in particular), while Core rejects any payload whose bytes change. | **Fixed.** `runtime/toolchains.env`; recipes select exact versions and fail closed. gh and ripgrep rebuild byte-identical under the pins. |
 | B7 | The proprietary-SDK gate checked Firebase names only. | **Fixed.** Resolved-graph check plus Umeng in the source and DEX markers. |
 
@@ -31,7 +31,45 @@ the Gradle wrapper pins its distribution checksum; `DebugProbesKt.bin` is no
 longer packaged; the Firebase debug-manifest residue is gone; stray CJK
 developer comments were removed and `tool/cjk_hygiene.py` keeps them out;
 PC-DEF-084 is fixed in source; and upstream Fastlane metadata exists
-(`fastlane/metadata/android/en-US`) — without screenshots, which need a device.
+(`fastlane/metadata/android/en-US`) — without screenshots, which need a device
+(see *Fastlane metadata and screenshots* below).
+
+## Components that can start PocketClaw (merged release manifest)
+
+Read from the release merged manifest, 2026-09-25; held by
+`test/unit/android_lifecycle_contract_test.dart`.
+
+| Component | Origin | Exported | What starts it |
+| --- | --- | --- | --- |
+| `MainActivity` | app | yes (MAIN/LAUNCHER only) | the owner tapping the icon |
+| `service.PocketClawService` | app | no | the app itself, `specialUse` foreground service; START_NOT_STICKY, stops on an OS re-creation |
+| `androidx.profileinstaller.ProfileInstallReceiver` | AndroidX | yes, `android.permission.DUMP` | shell/system tooling only (profile install) |
+| `share.SharePlusPendingIntent` | share_plus | no | the system share sheet's result, after the owner shares |
+| `share.ShareFileProvider` | share_plus | no | a share the owner started |
+| `urllauncher.WebViewActivity` | url_launcher | no | the app opening a link in-app |
+| `androidx.startup.InitializationProvider` (ProcessLifecycle, ProfileInstaller initializers) | AndroidX | no | runs inside an already-starting process; starts nothing |
+
+No boot, locked-boot, package-replaced or direct-boot component; no alarm,
+job, WorkManager or sync adapter; `RECEIVE_BOOT_COMPLETED` is forbidden by
+the release gate and background-scheduler libraries by the dependency gate.
+PocketClaw does not start on boot, by design.
+
+## Fastlane metadata and screenshots
+
+`fastlane/metadata/android/en-US` has the title, short and full descriptions,
+the 512 px icon and `changelogs/64.txt` for the version being built.
+`test/unit/fastlane_metadata_test.dart` holds the length limits, the scope
+statements, the changelog for the current versionCode and the icon size.
+
+**Screenshots are still owed and must be real.** F-Droid shows
+`images/phoneScreenshots/*.png|jpg` in file-name order. They must be captured
+by the owner from the installed app on the phone — no mockups, renders or
+placeholders; the test refuses any file there that is not a portrait PNG or
+JPEG at least 320 px wide, and an empty directory. Suggested set, 4–6 images:
+Dashboard home, Chat, Models, Channels → Telegram (connected), Settings. Before
+committing, check each one for API keys, bot tokens, passwords, chat content,
+phone numbers and notification-shade content. `featureGraphic.png` (1024×500)
+is optional and not planned.
 
 ## Where current policy and the ThothTerm precedent differ
 

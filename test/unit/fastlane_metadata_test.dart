@@ -58,6 +58,38 @@ void main() {
     }
   });
 
+  test('the version being built has its changelog', () {
+    final code = RegExp(
+      r'^version:\s*[0-9.]+\+([0-9]+)',
+      multiLine: true,
+    ).firstMatch(File('pubspec.yaml').readAsStringSync())!.group(1)!;
+    expect(
+      File('$root/changelogs/$code.txt').existsSync(),
+      isTrue,
+      reason: 'F-Droid shows changelogs/<versionCode>.txt',
+    );
+  });
+
+  // Screenshots must be captured from the app on a phone by the owner; none
+  // are committed yet. When they are, each must be a real portrait PNG or
+  // JPEG of phone size, never a placeholder.
+  test('phone screenshots, when present, are real portrait captures', () {
+    final dir = Directory('$root/images/phoneScreenshots');
+    if (!dir.existsSync()) return;
+    final files = dir.listSync().whereType<File>().toList();
+    expect(files, isNotEmpty, reason: 'an empty directory is a placeholder');
+    for (final file in files) {
+      final bytes = file.readAsBytesSync();
+      final (width, height) = _imageSize(bytes, file.path);
+      expect(
+        height,
+        greaterThan(width),
+        reason: '${file.path} is not portrait',
+      );
+      expect(width, greaterThanOrEqualTo(320), reason: file.path);
+    }
+  });
+
   test('the listing icon is a 512 px PNG', () {
     final bytes = File('$root/images/icon.png').readAsBytesSync();
     expect(bytes.sublist(1, 4), 'PNG'.codeUnits);
@@ -69,4 +101,23 @@ void main() {
     expect(be32(16), 512);
     expect(be32(20), 512);
   });
+}
+
+(int, int) _imageSize(List<int> b, String path) {
+  int be16(int at) => (b[at] << 8) | b[at + 1];
+  int be32(int at) => (be16(at) << 16) | be16(at + 2);
+  if (b.length > 24 && b[1] == 0x50 && b[2] == 0x4E && b[3] == 0x47) {
+    return (be32(16), be32(20));
+  }
+  if (b.length > 4 && b[0] == 0xFF && b[1] == 0xD8) {
+    var at = 2;
+    while (at + 9 < b.length && b[at] == 0xFF) {
+      final marker = b[at + 1];
+      if (marker >= 0xC0 && marker <= 0xC3) {
+        return (be16(at + 7), be16(at + 5));
+      }
+      at += 2 + be16(at + 2);
+    }
+  }
+  fail('$path is not a PNG or JPEG screenshot');
 }

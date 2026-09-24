@@ -7,6 +7,46 @@ only reconstructable examples belong here.
 
 ## Open / deferred
 
+### PC-DEF-085 — "PocketClaw keeps stopping" after a phone reboot, before the app is opened
+
+- **Observed:** owner, 2026-09-25, on the owner-signed private test build
+  `504d41bb…` (`0.2.2+64`). Intermittently after a reboot, Android shows
+  "PocketClaw keeps stopping" although PocketClaw was not opened. Not yet
+  reproduced on demand; no crash log was captured.
+- **Source audit — no path starts PocketClaw on its own.** The packaged manifest
+  has no BOOT_COMPLETED, LOCKED_BOOT_COMPLETED, QUICKBOOT_POWERON or
+  MY_PACKAGE_REPLACED receiver and no direct-boot component; the only exported
+  components are the launcher activity and AndroidX's ProfileInstallReceiver,
+  which requires the DUMP permission (shell/system only). There is no alarm,
+  JobScheduler, WorkManager or sync adapter. `PocketClawService` is private,
+  every `onStartCommand` returns START_NOT_STICKY, an OS re-creation (null
+  intent) stops itself, and the service is started only from the Flutter
+  channel. `RECEIVE_BOOT_COMPLETED` stays forbidden by the release gate.
+- **Leading explanation, not proven:** a process started by the platform rather
+  than by PocketClaw — Samsung's app pre-launch, a backup or profile-install
+  job, or a content-provider start — crashing during startup. One real state
+  was found and contained: Android 12+ can refuse a foreground start that raced
+  the app into the background (ForegroundServiceStartNotAllowedException); that
+  now stops the service cleanly instead of crashing the process.
+- **Instrumented (`8defc0b`):** each process start records why Android started
+  it (ApplicationStartInfo on Android 15+, with the start component on 16) and
+  how earlier processes ended (ApplicationExitInfo: reason, status, exception
+  class); Application, MainActivity and the service record their entry points;
+  an uncaught exception records its class and first PocketClaw frame before the
+  normal crash handling. Local only (`noBackupFilesDir/diagnostics/lifecycle.log`,
+  32 KiB bound, logcat tag `PocketClawLifecycle`), no message text, no secrets,
+  no upload; appended to Logs → export. The dependency gate also refuses
+  background-scheduler libraries (WorkManager merges a boot receiver).
+- **Tests:** `ServiceCommandTest`, `LifecycleJournalTest`,
+  `android_lifecycle_contract_test.dart` (no boot receiver, private service,
+  every merged receiver/provider/initializer documented, no sticky or
+  scheduled work, breadcrumbs at every entry point),
+  `android_cleanup_regression_test.dart` (no BroadcastReceiver in the app's
+  sources).
+- **Status:** OPEN — CONFIRMED (owner report) — INVESTIGATION INSTRUMENTED —
+  PHYSICAL REPRODUCTION REQUIRED. Not claimed fixed: after the next occurrence,
+  export logs and read the `lifecycle diagnostics` section.
+
 ### PC-DEF-077 — the workspace resolves under `Android/data`, and an empty `Download/pocketclaw` remains
 
 - **Observed:** owner report, 2026-09-21, on the released install. A runtime log
@@ -59,15 +99,26 @@ only reconstructable examples belong here.
   a new `imported-from-downloads-<UTC stamp>` folder inside the agent workspace,
   with nothing overwritten and no standing grant kept. The gate forbids all
   three storage permissions.
-- **Status:** OPEN — SOURCE-FIXED, PHYSICAL TEST PENDING (workspace path on the
-  installed build, the notice with and without a visible `Download/pocketclaw`,
-  one import, and a cancelled import).
-- **Status:** OPEN — SOURCE-INVESTIGATED, PHYSICAL CLASSIFICATION PENDING.
-
-
-
-
-
+- **Physical investigation, accepted (2026-09-25).** On the private test build
+  `504d41bb…`, installed in place over v0.2.1, the workspace resolved to the
+  app-specific directory and existing data was preserved. The empty
+  `Download/pocketclaw` was created by Samsung My Files (its own `CREATE_FOLDER`
+  log entry), not by PocketClaw; after it was removed, no PocketClaw action
+  recreated it. The defect was the detector: it treated any directory at that
+  path as an old workspace, so the "Earlier workspace found" card appeared for
+  an empty folder.
+- **Detector fix (`e323106`).** `WorkspaceImportRules.looksLikeLegacyWorkspace`
+  now requires evidence: a `workspace/` directory holding at least one file Core
+  seeds or writes there (`AGENT.md`, `SOUL.md`, `USER.md`, `HEARTBEAT.md`,
+  `memory/MEMORY.md`, `.pocketclaw/bootstrap.json`). It only stats paths — it
+  cannot create, write or delete — and anything unreadable counts as absent.
+  The copy moved behind a read-only `ImportTree` (`WorkspaceTreeCopier`):
+  destinations are claimed with `mkdir` so two imports never share a folder,
+  the busy gate is held until the copy answers, and an import that copies
+  nothing removes its empty folder and reports "empty". 27 JVM tests.
+- **Status:** OPEN — FIXED IN SOURCE — SOURCE TESTED — PHYSICAL TEST PENDING
+  (no card for an empty `Download/pocketclaw`; the card for a genuine old
+  workspace; one import; a cancelled import).
 
 ### PC-DEF-078 — a 3 MB tool result reached the provider whole and the turn died with HTTP 400
 
@@ -109,6 +160,10 @@ only reconstructable examples belong here.
   `pkg/tools/shell_test.go` and `pkg/agent/tool_output_budget_test.go` fail on
   the old code (3 MB sent whole, post-tool request over budget, three overflow
   sends, a `max_tokens` 400 resent). Present in the staged Core `724b6c92…`.
+- **More tests (2026-09-25, `92426fc`):** 3.3 MB of multibyte text (Arabic,
+  accented Latin, emoji) is bounded on a UTF-8 boundary; a failing command keeps
+  its exit status and stderr tail; three sequential 3 MB tool results in one
+  turn are each bounded in every provider request and in session history.
 - **Status:** FIXED IN SOURCE — SOURCE TESTED — physical confirmation pending
   (checklist items 7–9 in `PROJECT_STATE.md`).
 
@@ -131,6 +186,11 @@ only reconstructable examples belong here.
   normal, a failed and a panicking first turn: four answers, in order, none
   duplicated, every notice retired) and `pkg/channels/queue_notice_test.go`.
   The panic test was run against the old worker loop and fails there.
+- **More tests (2026-09-25, `6cfef41`):** a failing *middle* turn does not
+  strand the message queued behind it; each queued message gets exactly one
+  notice, that notice is the one deleted and it is deleted before its message
+  is answered; each turn's placeholder carries the lifecycle of the message
+  running.
 - **Status:** FIXED IN SOURCE — SOURCE TESTED — physical confirmation pending
   (checklist item 7).
 
@@ -236,8 +296,20 @@ only reconstructable examples belong here.
   in place; status-to-status edits stay edits; only channels declaring
   `FinalEditWindowChannel` (Telegram) change. The tool-progress animator now
   keeps the message's first-send time across progress updates.
-- **Status:** OPEN — SOURCE-FIXED, PHYSICAL TEST PENDING (a Telegram turn over
-  two minutes with a message sent meanwhile, and a short turn).
+- **Send order fixed (2026-09-25, `7ee0f05`).** The manager deleted the stale
+  placeholder *before* the fresh send, so a failed send left the owner with
+  neither the status message nor the answer. It now goes through the existing
+  fallback: deleted once the send succeeds, the answer edited into it if the
+  send fails, and edited into it if it cannot be deleted. Telegram's own
+  tool-progress path already sent first; a test now pins that a failed send
+  keeps the progress message tracked for the retry. New tests: threshold
+  below/exact/above and unknown send time, send-then-delete order, failed send,
+  undeletable placeholder, temporary failure (one answer, one delete), no status
+  message, and a queued turn editing its own young placeholder. Core restaged
+  in `03aa66b` (fingerprint `5d443c5e…`).
+- **Status:** OPEN — FIXED IN SOURCE — SOURCE TESTED — PHYSICAL TEST PENDING (a
+  Telegram turn over two minutes with a message sent meanwhile, and a short
+  turn).
 
 ### PC-DEF-012 — Broad dependency export surfaces need reachability evidence
 
