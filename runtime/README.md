@@ -137,8 +137,18 @@ nothing.
 
 ## Toolchain
 
-Android NDK 28.2.13676358, overridable with `NDK_ROOT`. ripgrep additionally
-needs a Rust toolchain with the `aarch64-linux-android` target; gh needs Go.
+Pinned in one place, [`toolchains.env`](toolchains.env): Android NDK
+28.2.13676358 (overridable location with `NDK_ROOT`, never version), Go
+go1.25.11 for Core, go1.24.6 for gh, and Rust 1.94.1 with the
+`aarch64-linux-android` target for ripgrep. The recipes select exactly these —
+`GOTOOLCHAIN` is set to the pinned version, never `auto`; `RUSTUP_TOOLCHAIN`
+likewise; cargo runs `--locked` — and each fails when the pinned toolchain or
+target is missing, or when the finished binary records a different compiler.
+
+This is not tidiness. Core embeds every payload's SHA-256 and rejects a payload
+that does not match, so a payload rebuilt with any other compiler resolves as
+corrupt on every device. Both gh and ripgrep rebuild byte-identical to the
+committed payloads under these pins.
 
 ## The PocketClaw entry point
 

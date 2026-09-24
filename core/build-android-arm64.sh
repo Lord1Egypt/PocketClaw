@@ -15,7 +15,9 @@ CORE_SRC="$REPO_ROOT/core/src"
 JNI_LIBS="${JNI_LIBS:-$REPO_ROOT/android/app/src/main/jniLibs/arm64-v8a}"
 CORE_BUILD_DIR="${CORE_BUILD_DIR:-build}"
 NATIVE_SYMBOL_ROOT="${NATIVE_SYMBOL_ROOT:-$REPO_ROOT/build/private-symbols/native/android-arm64}"
-NDK_ROOT="${NDK_ROOT:-/home/lordegypt/PocketCLaw/.tooling/android-sdk/ndk/28.2.13676358}"
+# shellcheck source=runtime/toolchains.env
+source "$REPO_ROOT/runtime/toolchains.env"
+NDK_ROOT="${NDK_ROOT:-/home/lordegypt/PocketCLaw/.tooling/android-sdk/ndk/$POCKETCLAW_NDK_VERSION}"
 ELF_TOOLS="$NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin"
 if [[ "$CORE_BUILD_DIR" = /* ]]; then
     CORE_OUTPUT_ROOT="$CORE_BUILD_DIR"
@@ -36,12 +38,17 @@ PNPM_BIN_DIR="${PNPM_BIN_DIR:-/home/lordegypt/PocketCLaw/.tooling/pnpm/node_modu
 
 export GOCACHE="${GOCACHE:-$GO_CACHE_ROOT/go-build}"
 export GOMODCACHE="${GOMODCACHE:-$GO_CACHE_ROOT/go-mod}"
-# The Makefile pins GOTOOLCHAIN=local; go.mod requires a newer Go than the
-# system one, and the required toolchain is resolved from GOMODCACHE.
-export GOTOOLCHAIN="${GOTOOLCHAIN:-auto}"
+# Exactly the pinned Go (runtime/toolchains.env), resolved into GOMODCACHE if
+# the host lacks it. "auto" would let a newer host Go build Core instead.
+export GOTOOLCHAIN="$POCKETCLAW_CORE_GO_TOOLCHAIN"
 export PATH="$PNPM_BIN_DIR:$PATH"
 
 [ -d "$CORE_SRC" ] || { echo "error: repository-local Core source missing: $CORE_SRC" >&2; exit 1; }
+ndk_revision="$(sed -n 's/^Pkg.Revision *= *//p' "$NDK_ROOT/source.properties" 2>/dev/null || true)"
+[ "$ndk_revision" = "$POCKETCLAW_NDK_VERSION" ] || {
+    echo "error: NDK at $NDK_ROOT is '${ndk_revision:-unknown}', pinned $POCKETCLAW_NDK_VERSION" >&2
+    exit 1
+}
 
 cd "$CORE_SRC"
 
@@ -91,6 +98,14 @@ install -m 0755 "$CORE_OUTPUT_ROOT/picoclaw-android-arm64"          "$JNI_LIBS/l
 install -m 0755 "$CORE_OUTPUT_ROOT/picoclaw-launcher-android-arm64" "$JNI_LIBS/libpocketclaw-web.so"
 "$ELF_TOOLS/llvm-strip" --strip-unneeded "$JNI_LIBS/libpocketclaw.so"
 "$ELF_TOOLS/llvm-strip" --strip-unneeded "$JNI_LIBS/libpocketclaw-web.so"
+
+for lib in libpocketclaw.so libpocketclaw-web.so; do
+    built_go="$(go version "$JNI_LIBS/$lib" | awk '{print $NF}')"
+    [ "$built_go" = "$POCKETCLAW_CORE_GO_TOOLCHAIN" ] || {
+        echo "error: $lib was built with $built_go, pinned $POCKETCLAW_CORE_GO_TOOLCHAIN" >&2
+        exit 1
+    }
+done
 
 echo
 echo "Installed into $JNI_LIBS:"

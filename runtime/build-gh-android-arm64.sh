@@ -19,7 +19,9 @@ GH_SHA256="999bdea5c8baf3d03fe0314127c2c393d6c0f7a504a573ad0c107072973af973"
 GO_CACHE_ROOT="${GO_CACHE_ROOT:-/home/lordegypt/PocketCLaw/.tooling/go}"
 export GOCACHE="${GOCACHE:-$GO_CACHE_ROOT/go-build}"
 export GOMODCACHE="${GOMODCACHE:-$GO_CACHE_ROOT/go-mod}"
-export GOTOOLCHAIN="${GOTOOLCHAIN:-auto}"
+# Exactly the pinned Go, never "auto" and never the host's own: a newer Go
+# would silently produce different bytes. Go fetches it if absent.
+export GOTOOLCHAIN="$POCKETCLAW_GH_GO_TOOLCHAIN"
 
 fetch_pinned "$GH_URL" "$GH_TARBALL" "$GH_SHA256"
 
@@ -89,6 +91,12 @@ SHIM
 GOOS=android GOARCH=arm64 CGO_ENABLED=0 go build -trimpath \
     -ldflags "-X github.com/cli/cli/v2/internal/build.Version=$GH_VERSION" \
     -o "$BUILD_ROOT/gh-android-arm64" ./cmd/gh
+
+BUILT_GO="$(go version "$BUILD_ROOT/gh-android-arm64" | awk '{print $NF}')"
+if [ "$BUILT_GO" != "$POCKETCLAW_GH_GO_TOOLCHAIN" ]; then
+    echo "error: gh was built with $BUILT_GO, pinned $POCKETCLAW_GH_GO_TOOLCHAIN" >&2
+    exit 1
+fi
 
 # The shim is only useful if it is actually linked in. A silent drop -- a build
 # tag, a moved main package -- would restore the exact failure this fixes.
