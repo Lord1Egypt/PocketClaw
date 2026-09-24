@@ -633,11 +633,17 @@ func (m *Manager) preSend(ctx context.Context, name string, msg bus.OutboundMess
 				return nil, false
 			}
 			// PC-DEF-084: an answer after a long turn is sent fresh, so it
-			// notifies and lands below anything sent meanwhile. The stale
-			// placeholder goes; a status-to-status edit stays an edit.
+			// notifies and lands below anything sent meanwhile; a
+			// status-to-status edit stays an edit. The stale placeholder is
+			// retired only after that send: finalizeFallbackPlaceholder deletes
+			// it once the send succeeds and edits the answer into it if the
+			// send fails, so a failed send cannot lose both.
 			if !isToolFeedback && statusMessageTooOldToEdit(ch, entry.createdAt, time.Now()) {
-				if deleter, ok := ch.(MessageDeleter); ok {
-					deleter.DeleteMessage(ctx, chatID, entry.id) // best effort
+				if _, ok := ch.(MessageDeleter); ok {
+					m.fallbackPlaceholders.Store(key, fallbackPlaceholderEntry{
+						chatID:      chatID,
+						placeholder: entry,
+					})
 					logger.InfoCF("request_lifecycle", "Request lifecycle", map[string]any{
 						"event":        "long_turn_fresh_delivery",
 						"channel":      name,

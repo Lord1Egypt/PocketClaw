@@ -733,6 +733,30 @@ func TestSend_LongTurnAnswerIsANewMessageAndTheProgressMessageGoes(t *testing.T)
 	assert.False(t, ok, "the progress message must not stay tracked")
 }
 
+// A failed fresh send must not take the progress message with it: nothing is
+// deleted and it stays tracked, so the manager's retry finds it again.
+func TestSend_FailedLongTurnAnswerKeepsTheProgressMessage(t *testing.T) {
+	caller := &stubCaller{
+		callFn: func(ctx context.Context, url string, data *ta.RequestData) (*ta.Response, error) {
+			if strings.Contains(url, "deleteMessage") {
+				t.Fatal("the progress message was deleted although the answer was not sent")
+			}
+			return nil, errors.New("connection reset")
+		},
+	}
+	ch := newTestChannel(t, caller)
+	ch.finalEditWindow = time.Microsecond
+	ch.RecordToolFeedbackMessage("12345", "1", "🔧 `exec`")
+	time.Sleep(time.Millisecond)
+
+	_, err := ch.Send(context.Background(), bus.OutboundMessage{ChatID: "12345", Content: "final reply"})
+
+	require.Error(t, err)
+	msgID, ok := ch.currentToolFeedbackMessage("12345")
+	assert.True(t, ok, "the progress message must stay tracked for the retry")
+	assert.Equal(t, "1", msgID)
+}
+
 func TestTelegramFinalEditWindowDefaultsToTheLongTurnWindow(t *testing.T) {
 	ch := newTestChannel(t, &stubCaller{})
 	assert.Equal(t, channels.LongTurnEditWindow, ch.FinalEditWindow())
