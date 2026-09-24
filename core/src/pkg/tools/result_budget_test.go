@@ -168,3 +168,57 @@ func TestBoundResultForLLMStillReportsTruncationUnderATinyBudget(t *testing.T) {
 		t.Fatalf("tiny budget dropped the truncation notice: %q", got.Content)
 	}
 }
+
+// PC-DEF-078: a multi-megabyte result made of multi-byte characters is bounded
+// to the default budget, stays valid UTF-8, and keeps both ends.
+func TestBoundResultForLLMBoundsThreeMegabytesOfMultibyteText(t *testing.T) {
+	var b strings.Builder
+	b.WriteString("HEAD-MARKER ")
+	for b.Len() < 3_300_000 {
+		b.WriteString("مرحبا بالعالم é 😀 ")
+	}
+	b.WriteString(" TAIL-MARKER")
+	content := b.String()
+
+	got := BoundResultForLLM(content, 64*1024)
+	if !got.Truncated || got.DeliveredBytes > 64*1024 || len(got.Content) > 64*1024 {
+		t.Fatalf("delivered %d bytes (truncated=%v), budget %d", len(got.Content), got.Truncated, 64*1024)
+	}
+	if got.OriginalBytes != len(content) {
+		t.Fatalf("original bytes = %d, want %d", got.OriginalBytes, len(content))
+	}
+	if !utf8.ValidString(got.Content) {
+		t.Fatal("bounded content is not valid UTF-8")
+	}
+	for _, want := range []string{"HEAD-MARKER", "TAIL-MARKER", "[OUTPUT TRUNCATED]"} {
+		if !strings.Contains(got.Content, want) {
+			t.Fatalf("bounded content lacks %q", want)
+		}
+	}
+}
+
+// PC-DEF-078: a failing command's combined stdout and stderr keeps the exit
+// status and the command line at the head and the last stderr lines at the tail.
+func TestBoundResultForLLMKeepsExitStatusAndStderrTail(t *testing.T) {
+	var b strings.Builder
+	b.WriteString("command exited 2 after 5021ms (failed)\n\nstdout:\n")
+	for i := 0; b.Len() < 2_000_000; i++ {
+		fmt.Fprintf(&b, "out %06d building target %d\n", i, i)
+	}
+	b.WriteString("\nstderr:\n")
+	for i := 0; b.Len() < 3_500_000; i++ {
+		fmt.Fprintf(&b, "err %06d warning: deprecated call\n", i)
+	}
+	b.WriteString("fatal: final error line\n")
+
+	got := BoundResultForLLM(b.String(), 64*1024)
+	if len(got.Content) > 64*1024 {
+		t.Fatalf("delivered %d bytes", len(got.Content))
+	}
+	if !strings.HasPrefix(got.Content, "command exited 2 after 5021ms (failed)") {
+		t.Fatalf("exit status was not kept at the head: %q", got.Content[:80])
+	}
+	if !strings.Contains(got.Content, "fatal: final error line") {
+		t.Fatal("the last stderr line was not kept")
+	}
+}

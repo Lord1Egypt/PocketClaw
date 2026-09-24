@@ -308,3 +308,72 @@ func TestIsProviderContextOverflow(t *testing.T) {
 		})
 	}
 }
+
+// sequentialBigToolProvider asks for the big tool three times, one call per
+// iteration, then answers.
+type sequentialBigToolProvider struct {
+	mu       sync.Mutex
+	requests [][]providers.Message
+}
+
+func (p *sequentialBigToolProvider) Chat(
+	_ context.Context,
+	messages []providers.Message,
+	_ []providers.ToolDefinition,
+	_ string,
+	_ map[string]any,
+) (*providers.LLMResponse, error) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.requests = append(p.requests, append([]providers.Message(nil), messages...))
+	if n := len(p.requests); n <= 3 {
+		return &providers.LLMResponse{ToolCalls: []providers.ToolCall{{
+			ID: fmt.Sprintf("call-%d", n), Name: "big_output", Arguments: map[string]any{},
+		}}}, nil
+	}
+	return &providers.LLMResponse{Content: "done", FinishReason: "stop"}, nil
+}
+
+func (p *sequentialBigToolProvider) GetDefaultModel() string { return "scripted" }
+
+// PC-DEF-078: three oversized tool results in one turn are each bounded in
+// every request and in the session, so the history never holds megabytes.
+func TestSequentialHugeToolResultsAreEachBounded(t *testing.T) {
+	provider := &sequentialBigToolProvider{}
+	al, agent := newBudgetTestLoop(t, provider, 32768, 0)
+	agent.Tools.Register(&bigOutputTool{output: "exited 0\n\nstdout:\n" + textLines(3_100_000) + "TAIL\n"})
+
+	resp, err := al.runAgentLoop(context.Background(), agent, processOptions{
+		SessionKey: "budget-seq", Channel: "cli", ChatID: "direct",
+		UserMessage: "run it three times", DefaultResponse: defaultResponse,
+	})
+	if err != nil {
+		t.Fatalf("runAgentLoop: %v", err)
+	}
+	if resp != "done" || len(provider.requests) != 4 {
+		t.Fatalf("response %q after %d requests, want done after 4", resp, len(provider.requests))
+	}
+	for i, request := range provider.requests {
+		for _, message := range request {
+			if message.Role == "tool" && len(message.Content) > config.DefaultToolMaxResultBytes {
+				t.Fatalf("request %d carried a %d-byte tool result", i+1, len(message.Content))
+			}
+		}
+	}
+	total, toolMessages := 0, 0
+	for _, message := range agent.Sessions.GetHistory("budget-seq") {
+		total += len(message.Content)
+		if message.Role == "tool" {
+			toolMessages++
+			if len(message.Content) > config.DefaultToolMaxResultBytes {
+				t.Fatalf("session kept a %d-byte tool result", len(message.Content))
+			}
+		}
+	}
+	if toolMessages != 3 {
+		t.Fatalf("session holds %d tool results, want 3", toolMessages)
+	}
+	if total > 4*config.DefaultToolMaxResultBytes {
+		t.Fatalf("session holds %d bytes after three 3 MB results", total)
+	}
+}
