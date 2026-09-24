@@ -21,7 +21,8 @@ import java.util.Date
  * PC-DEF-077. PocketClaw no longer holds all-files access, so the old shared
  * folder cannot be read directly. The owner picks it with the system document
  * tree picker, which grants read access to that one tree and nothing else, and
- * its contents are copied into a new folder inside the workspace. The source is
+ * its contents are copied into a new folder inside the agent's workspace
+ * directory, where the agent can reach them. The source is
  * never modified or deleted, nothing in the workspace is overwritten, and the
  * two workspaces are never merged: the copy is a folder the owner can inspect
  * and move from.
@@ -148,6 +149,7 @@ class LegacyWorkspaceImporter(private val activity: Activity) {
     }
 
     private fun copyTree(resolver: ContentResolver, tree: Uri, workspace: File): Outcome {
+        workspace.mkdirs()
         val destination = WorkspaceImportRules.freshDestination(workspace, Date())
         if (!destination.mkdirs()) return Outcome(STATUS_FAILED)
 

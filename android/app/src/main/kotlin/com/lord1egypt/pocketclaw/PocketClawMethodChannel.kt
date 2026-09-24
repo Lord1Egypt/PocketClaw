@@ -767,7 +767,12 @@ class PocketClawMethodChannel(
                         result.success(mapOf("status" to LegacyWorkspaceImporter.STATUS_UNAVAILABLE))
                         return@setMethodCallHandler
                     }
-                    val workspace = java.io.File(PocketClawService.getWorkspacePath(context))
+                    // Into the agent's own workspace, Core's default
+                    // $POCKETCLAW_HOME/workspace, so the agent can read the copy:
+                    // restrict_to_workspace keeps it out of anything beside it.
+                    val workspace = java.io.File(
+                        PocketClawService.getWorkspacePath(context), "workspace",
+                    )
                     importer.start(workspace) { outcome -> result.success(outcome.asMap()) }
                 }
                 // PC-DEF-058. POST_NOTIFICATIONS was declared and never requested, so

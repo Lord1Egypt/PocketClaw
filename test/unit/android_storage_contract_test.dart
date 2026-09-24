@@ -79,6 +79,24 @@ void main() {
       );
     });
 
+    test(
+      'the copy lands inside the agent workspace, where the agent can read it',
+      () {
+        final channel = read('$kotlin/PocketClawMethodChannel.kt');
+        final start = channel.indexOf('"importLegacyWorkspace" -> {');
+        final body = channel.substring(
+          start,
+          channel.indexOf('importer.start(', start),
+        );
+        expect(
+          body,
+          contains('PocketClawService.getWorkspacePath(context), "workspace"'),
+          reason:
+              'restrict_to_workspace hides anything beside the workspace directory',
+        );
+      },
+    );
+
     test('it copies into a fresh folder and never overwrites', () {
       final source = read(importer);
       expect(source, contains('WorkspaceImportRules.freshDestination('));
