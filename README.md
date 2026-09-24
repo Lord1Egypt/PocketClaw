@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="assets/branding/pocketclaw-mark.png" alt="PocketClaw" width="120" />
+<img src="assets/branding/pocketclaw-icon.png" alt="PocketClaw" width="120" />
 
 # PocketClaw
 
@@ -11,7 +11,7 @@ the credentials — lives on the device you are holding.
 
 <br />
 
-[![Download v0.2.0](https://img.shields.io/badge/⬇_Download-v0.2.0_APK-3DDC84?style=for-the-badge&logo=android&logoColor=white)](https://github.com/Lord1Egypt/PocketClaw/releases/latest)
+[![Download v0.2.1](https://img.shields.io/badge/⬇_Download-v0.2.1_APK-3DDC84?style=for-the-badge&logo=android&logoColor=white)](https://github.com/Lord1Egypt/PocketClaw/releases/latest)
 
 <br />
 
@@ -40,7 +40,7 @@ the credentials — lives on the device you are holding.
 
 ## Download
 
-**[PocketClaw v0.2.0 — arm64-v8a APK](https://github.com/Lord1Egypt/PocketClaw/releases/latest)**
+**[PocketClaw v0.2.1 — arm64-v8a APK](https://github.com/Lord1Egypt/PocketClaw/releases/latest)**
 
 An `arm64-v8a` Android device on **Android 7.0 (API 24)** or newer, and an API
 key for a model provider. Built and physically validated on Android 16.
@@ -53,18 +53,18 @@ key for a model provider. Built and physically validated on Android 16.
 Both files are on the release page. Check the APK against the checksum file:
 
 ```bash
-sha256sum -c PocketClaw-v0.2.0-SHA256SUMS.txt
+sha256sum -c PocketClaw-v0.2.1-SHA256SUMS.txt
 ```
 
 ```
-c8d599517dcaf6b954691634c2eb2c5e5cd8c88200cb77cb21a7f5861439e28c  PocketClaw-v0.2.0-arm64-v8a.apk
+1203cd46f30cc6e7d69b3cd54be2d2dbca29150a9bce4f722b112576ccf4401b  PocketClaw-v0.2.1-arm64-v8a.apk
 ```
 
 And confirm it was signed by the PocketClaw release key — a checksum proves the
 file is intact, the signature proves who built it:
 
 ```bash
-apksigner verify --print-certs PocketClaw-v0.2.0-arm64-v8a.apk
+apksigner verify --print-certs PocketClaw-v0.2.1-arm64-v8a.apk
 ```
 
 ```
@@ -99,7 +99,7 @@ everything around it.
 | **Web dashboard** | A local console for providers, channels, skills, models and logs, in 14 locales. |
 | **Telegram** | Guided managed-bot onboarding, or a manual bot token if you prefer. |
 | **Chat** | Talk to the agent in the app, or over the built-in web channel. |
-| **Workspace** | A real directory you own, on shared storage, that the agent reads and writes. |
+| **Workspace** | A real directory you own that the agent reads and writes — `Download/pocketclaw` when All Files Access is granted, otherwise the app's own external folder. |
 | **Skills** | Reusable prompt/tooling bundles the agent can load per task. |
 | **12-locale app** | Full app translation, right-to-left included. |
 
@@ -125,7 +125,7 @@ locally reachable models.
 
 `pocketclaw` (the native realtime channel), `telegram`, `discord`, `slack`,
 `matrix`, `irc`, `mqtt`, `qq`, `wecom`, `weixin`, `feishu`, `dingtalk`, `line`,
-`onebot`, `teams_webhook`, `slack_webhook`, `vk`, `maixcam`.
+`onebot`, `maixcam`.
 
 > Available is not the same as first-class. Telegram and the built-in web chat
 > are the two paths the app itself guides you through; the rest are configured
@@ -214,9 +214,14 @@ The two native binaries are reproducible and provenance-stamped:
   repository and are never in CI; only the public certificate fingerprint is
   committed, and the gate fails closed if an artifact does not carry it.
 
-This release was signed from commit
-[`ca984fa`](https://github.com/Lord1Egypt/PocketClaw/commit/ca984fa1780fa4bbf925e93e2fe45614673b4b40),
-Core fingerprint `87c320c1…`, Dart AOT `5c0f5825…`.
+This release is tag `v0.2.1` at commit
+[`2db9390`](https://github.com/Lord1Egypt/PocketClaw/commit/2db9390fc7d19ba7b333104f3ef44d75f985189e).
+Its APK (63,613,115 bytes) carries Core fingerprint `76a114fd…`, Dart AOT
+`d987084d…`, bundled `git` `60d3a1c0…` and `git-remote-http` `90e18712…`. It was
+built and owner-signed from
+[`c898581`](https://github.com/Lord1Egypt/PocketClaw/commit/c898581), and the
+tagged commit adds only documentation and the accepted-build baseline on top of
+it, so the tag carries the exact build inputs.
 
 </details>
 
@@ -241,12 +246,14 @@ python3 tool/release_gate.py --verify-source --release-class production
 Never commit generated APKs, tool caches, signing material, or
 provider/Telegram/Firebase credentials.
 
-> **Note on branches.** `develop` is the active branch and carries the released
-> source; the `v0.2.0` tag points into it. Work from `develop`.
+> **Note on branches.** `develop` is the active branch; `main` and `develop` both
+> carry the released source, and the `v0.2.1` tag points at their shared commit.
+> Work from `develop`.
 
 ## Project status
 
-**Released.** `v0.2.0` (build 62), physically accepted on a Samsung SM-A165F
+**Released.** `v0.2.1` (build 63), a patch release that fixes the bundled `git`
+crashing on every reflog write, physically accepted on a Samsung SM-A165F
 running Android 16 and published as a production-signed `arm64-v8a` APK.
 
 Binary hardening is complete: Dart obfuscation with private split debug info,
@@ -255,7 +262,7 @@ binary — all enforced by the release gate rather than asserted.
 
 **Not in this release.** Account-login credential management — Google, Claude
 subscription and ChatGPT/Codex sign-in — is deliberately deferred. Provider
-access in v0.2.0 is configured with API keys through **Models**.
+access in v0.2.1 is configured with API keys through **Models**.
 
 Known open items are tracked in [`docs/DEFECT_LOG.md`](docs/DEFECT_LOG.md); the
 phase sequence is in [`docs/ROADMAP.md`](docs/ROADMAP.md). Engineering agents and

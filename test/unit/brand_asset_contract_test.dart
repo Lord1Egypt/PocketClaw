@@ -1,21 +1,22 @@
 import 'dart:io';
-import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:flutter_test/flutter_test.dart';
 
-/// The desktop identity assets are derived, not drawn.
+/// Branding assets are derived, not drawn.
 ///
-/// `assets/app_icon.png` and `assets/icon.ico` were the last PicoClaw lobster
-/// artwork in the tree — an orange crustacean shipping inside every APK,
-/// unreferenced by anything Android runs, because they are declared as Flutter
-/// assets and Flutter bundles what it is told to bundle regardless of platform.
+/// One geometry — the APERTURE mark in Core's
+/// `web/frontend/scripts/generate-brand-assets.py` — produces the Android
+/// launcher resources and, through `tool/generate_android_launcher_icons.py`,
+/// the README icon `assets/branding/pocketclaw-icon.png`. The README used to
+/// show a separate glossy 3D mark that nothing on the phone displays; the
+/// generator's `--check` mode now holds the README picture to the same bytes as
+/// the geometry, so a hand-edit or a stale commit fails here rather than
+/// drifting from the launcher again (PC-DEF-081).
 ///
-/// They now come out of `tool/generate_android_launcher_icons.py`, from the
-/// same canonical APERTURE geometry as the launcher and Core's own favicon.
-/// These guards hold the derivation rather than the pixels: the generator's
-/// `--check` mode regenerates every artifact and compares bytes, so a hand-edit
-/// or a stale commit fails here rather than shipping.
+/// The desktop tray and Windows icons this generator also used to write
+/// (`assets/app_icon.png`, `assets/icon.ico`) are gone with the desktop code:
+/// they were bundled into every APK and read by nothing Android runs.
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -43,21 +44,37 @@ void main() {
     }
   });
 
-  test('the historical lobster assets are gone', () {
-    // Digests of the PicoClaw FUI artwork as tracked through 0.2.0+59. Pinned
-    // so that restoring either file from history fails loudly instead of
-    // quietly reintroducing another product's branding.
-    const lobsterPng =
-        '68a133e77515857a245da31ecdeba843a75ad2237790da4b2d3456501e1bd647';
-    const lobsterIco =
-        'dfff202743ae3222b273117cfbf80363b460dcdf2172eed2cb7d942cc0676547';
-
-    expect(_sha256Of('assets/app_icon.png'), isNot(lobsterPng));
-    expect(_sha256Of('assets/icon.ico'), isNot(lobsterIco));
+  test('the historical and desktop-only artwork is gone', () {
+    // The PicoClaw lobster lived at assets/app_icon.png and assets/icon.ico
+    // through 0.2.0+59; later those paths held desktop-only tray icons. The
+    // glossy mark was the README's picture. None of them is PocketClaw's
+    // installed identity, and none of them may come back.
+    for (final path in const [
+      'assets/app_icon.png',
+      'assets/icon.ico',
+      'assets/branding/pocketclaw-mark.png',
+    ]) {
+      expect(File(path).existsSync(), isFalse, reason: '$path is back');
+    }
   });
 
-  test('app_icon.png is a 512px tile with transparent corners', () async {
-    final bytes = File('assets/app_icon.png').readAsBytesSync();
+  test('the README shows the generated icon, not a separate mark', () {
+    final readme = File('README.md').readAsStringSync();
+    expect(readme, contains('assets/branding/pocketclaw-icon.png'));
+    expect(readme, isNot(contains('pocketclaw-mark.png')));
+  });
+
+  test('no branding picture is bundled into the APK as a Flutter asset', () {
+    // Nothing the app runs reads one, and Flutter bundles every declared asset
+    // regardless of use. The launcher icon travels as Android resources.
+    final pubspec = File('pubspec.yaml').readAsStringSync();
+    expect(pubspec, isNot(contains('assets/branding/')));
+    expect(pubspec, isNot(contains('.png')));
+    expect(pubspec, isNot(contains('.ico')));
+  });
+
+  test('pocketclaw-icon.png is a 512px launcher tile with transparent corners', () async {
+    final bytes = File('assets/branding/pocketclaw-icon.png').readAsBytesSync();
     final codec = await ui.instantiateImageCodec(bytes);
     final image = (await codec.getNextFrame()).image;
     addTearDown(image.dispose);
@@ -65,8 +82,7 @@ void main() {
     expect(image.width, 512);
     expect(image.height, 512);
 
-    final data =
-        await image.toByteData(format: ui.ImageByteFormat.rawRgba);
+    final data = await image.toByteData(format: ui.ImageByteFormat.rawRgba);
     final pixels = data!.buffer.asUint8List();
 
     int alphaAt(int x, int y) => pixels[(y * image.width + x) * 4 + 3];
@@ -76,33 +92,12 @@ void main() {
     expect(alphaAt(256, 256), 255, reason: 'the tile centre should be opaque');
   });
 
-  test('icon.ico carries the frames Windows actually asks for', () {
-    // A single 256px frame — what the lobster file had — leaves a 16px tray
-    // request to be downscaled at draw time by whatever is asking, and it
-    // blurs. Parsed straight from the ICONDIR rather than through a decoder.
-    final bytes = File('assets/icon.ico').readAsBytesSync();
-    final header = ByteData.sublistView(bytes);
-
-    expect(header.getUint16(0, Endian.little), 0, reason: 'ICO reserved field');
-    expect(header.getUint16(2, Endian.little), 1, reason: 'ICO type');
-
-    final count = header.getUint16(4, Endian.little);
-    final widths = <int>{};
-    for (var i = 0; i < count; i++) {
-      final entry = 6 + i * 16;
-      // 0 in the ICONDIRENTRY width byte means 256.
-      final raw = bytes[entry];
-      widths.add(raw == 0 ? 256 : raw);
-    }
-
-    expect(widths, {16, 24, 32, 48, 64, 128, 256});
-  });
-
   test('the source-of-truth chain is documented where it is implemented', () {
     final generator =
         File('tool/generate_android_launcher_icons.py').readAsStringSync();
-    expect(generator, contains('assets/app_icon.png'));
-    expect(generator, contains('assets/icon.ico'));
+    expect(generator, contains('pocketclaw-icon.png'));
+    expect(generator, isNot(contains('app_icon.png"')));
+    expect(generator, isNot(contains('icon.ico"')));
     // The geometry must still come from Core, not be restated here.
     expect(
       generator,
@@ -111,9 +106,4 @@ void main() {
     expect(generator, isNot(contains('STROKES = [')),
         reason: 'a second copy of the geometry would drift');
   });
-}
-
-String _sha256Of(String path) {
-  final result = Process.runSync('sha256sum', [path]);
-  return (result.stdout as String).split(' ').first;
 }

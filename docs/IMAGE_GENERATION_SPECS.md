@@ -2,13 +2,15 @@
 
 ## Selected primary direction
 
-The second original PocketClaw mark is the approved primary visual direction.
-All compact Android variants simplify its pocket/container, terminal/claw, and
-luminous-node composition. Do not substitute a cartoon lobster or mascot.
+**Superseded.** The approved identity is the APERTURE mark — an open pocket with
+two claw arms, one stroked geometry — adopted with the Aperture visual redesign
+(`2b37af2`). Every PocketClaw image is generated from it; see
+`docs/ASSET_INVENTORY.md`. The glossy "second mark" described below is history.
+Do not substitute a cartoon lobster or mascot.
 
-## Generated in Milestone B
+## Generated in Milestone B (historical)
 
-`assets/branding/pocketclaw-mark.png` was generated with the built-in image generator as an original, text-free 1254×1254 transparent PNG. Concept: a compact pocket/container opens into three precise claw-like terminal forms around a luminous agent node. It avoids animals, mascots, PicoClaw artwork, text, and watermarks. It is used as the launcher/adaptive foreground and splash mark.
+`assets/branding/pocketclaw-mark.png` was generated with the built-in image generator as an original, text-free 1254×1254 transparent PNG. Concept: a compact pocket/container opens into three precise claw-like terminal forms around a luminous agent node. It served as the launcher and splash mark until the APERTURE redesign replaced the launcher, and it was retired from the tree in PC-DEF-081. The current identity is the APERTURE geometry; see `docs/ASSET_INVENTORY.md` for the generation chain.
 
 ## Future production assets
 

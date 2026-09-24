@@ -239,8 +239,10 @@ applies.
 
 ## PocketClaw-authored identity assets
 
-`assets/branding/pocketclaw-mark.png` is an original PocketClaw identity asset
-generated for this repository from a non-derivative design brief. The selected
-second mark is the primary visual direction; its launcher, adaptive, splash,
-and monochrome notification variants preserve that identity. It is not a
-PicoClaw/FUI image and does not remove or replace the upstream notices above.
+PocketClaw's identity is the APERTURE mark, an original PocketClaw design whose
+geometry lives in `core/src/web/frontend/scripts/generate-brand-assets.py`.
+Every launcher, splash, notification, dashboard and README image is generated
+from that geometry by PocketClaw-owned scripts (see `docs/ASSET_INVENTORY.md`).
+It is not a PicoClaw/FUI image and does not remove or replace the upstream
+notices above. An earlier original mark, `assets/branding/pocketclaw-mark.png`,
+was retired from the tree when the README moved to the launcher's identity.
