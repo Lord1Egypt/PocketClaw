@@ -79,6 +79,9 @@ type TelegramChannel struct {
 	cancel       context.CancelFunc
 	tgCfg        *config.TelegramSettings
 	progress     *channels.ToolFeedbackAnimator
+	// finalEditWindow overrides channels.LongTurnEditWindow; zero means the
+	// default. Only package tests set it.
+	finalEditWindow time.Duration
 
 	// pollingDone is closed when the long-polling goroutine has unwound. Stop
 	// waits on it so a stopped channel can be started again.
@@ -1035,12 +1038,26 @@ func (c *TelegramChannel) dismissTrackedToolFeedbackMessage(ctx context.Context,
 	_ = c.DeleteMessage(ctx, chatID, messageID)
 }
 
+// FinalEditWindow implements channels.FinalEditWindowChannel. Telegram does not
+// notify on an edit and keeps an edited message where it was first sent.
+func (c *TelegramChannel) FinalEditWindow() time.Duration {
+	if c.finalEditWindow > 0 {
+		return c.finalEditWindow
+	}
+	return channels.LongTurnEditWindow
+}
+
 func (c *TelegramChannel) finalizeTrackedToolFeedbackMessage(
 	ctx context.Context,
 	chatID string,
 	content string,
 	editFn func(context.Context, string, string, string) error,
 ) ([]string, bool) {
+	// PC-DEF-084: past the window the answer is sent as a new message. The
+	// progress message stays tracked so Send deletes it after that send.
+	if age, ok := c.progress.Age(chatID); ok && age >= c.FinalEditWindow() {
+		return nil, false
+	}
 	msgID, baseContent, ok := c.takeToolFeedbackMessage(chatID)
 	if !ok || editFn == nil {
 		return nil, false

@@ -28,22 +28,37 @@ func MaxToolFeedbackAnimationFrameLength() int {
 type toolFeedbackAnimationState struct {
 	messageID   string
 	baseContent string
-	stop        chan struct{}
-	done        chan struct{}
+	// sentAt is when this message was first tracked. It survives the
+	// Take/Record cycle of a progress update to the same message, so it keeps
+	// describing the message the chat actually shows.
+	sentAt time.Time
+	stop   chan struct{}
+	done   chan struct{}
 }
 
 type ToolFeedbackAnimator struct {
 	mu      sync.Mutex
 	editFn  func(ctx context.Context, chatID, messageID, content string) error
 	entries map[string]*toolFeedbackAnimationState
+	// lastSent remembers the first-tracked time of each chat's message across
+	// the detach in Update, which removes the entry before re-recording it.
+	lastSent map[string]trackedSend
+	now      func() time.Time
+}
+
+type trackedSend struct {
+	messageID string
+	sentAt    time.Time
 }
 
 func NewToolFeedbackAnimator(
 	editFn func(ctx context.Context, chatID, messageID, content string) error,
 ) *ToolFeedbackAnimator {
 	return &ToolFeedbackAnimator{
-		editFn:  editFn,
-		entries: make(map[string]*toolFeedbackAnimationState),
+		editFn:   editFn,
+		entries:  make(map[string]*toolFeedbackAnimationState),
+		lastSent: make(map[string]trackedSend),
+		now:      time.Now,
 	}
 }
 
@@ -83,11 +98,31 @@ func (a *ToolFeedbackAnimator) Record(chatID, messageID, content string) {
 	if old, ok := a.entries[chatID]; ok {
 		previous = old
 	}
+	if last, ok := a.lastSent[chatID]; ok && last.messageID == messageID {
+		entry.sentAt = last.sentAt
+	} else {
+		entry.sentAt = a.now()
+		a.lastSent[chatID] = trackedSend{messageID: messageID, sentAt: entry.sentAt}
+	}
 	a.entries[chatID] = entry
 	a.mu.Unlock()
 
 	stopToolFeedbackAnimation(previous)
 	go a.run(chatID, entry)
+}
+
+// Age reports how long ago the chat's tracked message was first tracked.
+func (a *ToolFeedbackAnimator) Age(chatID string) (time.Duration, bool) {
+	if a == nil || strings.TrimSpace(chatID) == "" {
+		return 0, false
+	}
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	entry, ok := a.entries[chatID]
+	if !ok || strings.TrimSpace(entry.messageID) == "" || entry.sentAt.IsZero() {
+		return 0, false
+	}
+	return a.now().Sub(entry.sentAt), true
 }
 
 func (a *ToolFeedbackAnimator) Clear(chatID string) {
