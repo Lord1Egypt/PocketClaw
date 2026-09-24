@@ -1,0 +1,31 @@
+PocketClaw is a private AI agent that runs on your Android phone. The language model is remote — you bring an API key for the provider you choose — but everything else lives on the device: the agent's gateway, its tools, its workspace and your credentials.
+
+<b>What it does</b>
+<ul>
+<li>An on-device agent gateway, bound to loopback only.</li>
+<li>A Managed Runtime of real command-line tools compiled for the phone and shipped inside the app: python 3.14, git 2.51, gh 2.82, curl 8.11, ripgrep 14.1, sqlite3 3.50 and jq 1.7. No package manager, no downloads after install.</li>
+<li>A local web dashboard for providers, models, channels, skills and logs, in 14 languages. It opens inside the app, and in a browser on your own network if you turn on Public Mode.</li>
+<li>Chat with the agent in the app, or over Telegram.</li>
+<li>A workspace directory in the app's own storage that the agent reads and writes.</li>
+<li>The app itself in 12 languages, right-to-left included.</li>
+</ul>
+
+<b>Requirements</b>
+<ul>
+<li>An arm64-v8a device with Android 7.0 or newer. The bundled tools and the agent runtime exist for arm64 only.</li>
+<li>An API key for a model provider, or an OpenAI-compatible endpoint you run yourself.</li>
+</ul>
+
+<b>Network services</b>
+PocketClaw contacts nothing until you configure it. It then talks only to what you set up:
+<ul>
+<li>The model provider you choose. Built-in templates include proprietary services (Anthropic, OpenAI, Google Gemini, AWS Bedrock, Azure OpenAI and others) and self-hosted ones (Ollama, vLLM, any OpenAI-compatible server).</li>
+<li>Telegram, if you connect it. One-tap setup uses PocketClaw's onboarding service, whose source is published under the MIT licence; a manual bot token works without it.</li>
+<li>Whatever the agent's tools reach when you ask them to: web search, git remotes, GitHub, URLs you give it.</li>
+</ul>
+There are no analytics, no crash reporting and no update checks.
+
+<b>Anti-feature: non-free network services</b>
+PocketClaw promotes and integrates with proprietary network services: hosted AI model providers, Telegram and other chat platforms. None of them is required — a self-hosted OpenAI-compatible model server and the in-app chat are enough.
+
+PocketClaw's own code is MIT licensed. The agent core is based on PicoClaw.

@@ -29,6 +29,12 @@ README and web derivative:
 
     assets/branding/pocketclaw-icon.png   512px rounded tile
 
+and the store-listing icon:
+
+    fastlane/metadata/android/en-US/images/icon.png   512px full-bleed tile,
+                                                      the launcher tile at the
+                                                      size F-Droid lists
+
 That tile is the installed app's identity as a picture: the launcher's canvas
 colour and mark, in the same rounded-tile composition Core already uses for
 `favicon.ico` — one idiom, not a second interpretation of the brand. README
@@ -60,6 +66,9 @@ CANONICAL = REPO / "core/src/web/frontend/scripts/generate-brand-assets.py"
 RES = REPO / "android/app/src/main/res"
 BRANDING = REPO / "assets/branding"
 MASTER_DIR = BRANDING / "android-launcher"
+# The store-listing icon F-Droid reads from the upstream Fastlane metadata.
+FASTLANE_IMAGES = REPO / "fastlane/metadata/android/en-US/images"
+FASTLANE_ICON_PX = 512
 
 
 def canonical_brand():
@@ -203,6 +212,7 @@ def main() -> None:
         )
 
     write(legacy_tile(brand, MASTER_PX), MASTER_DIR / "ic_launcher_master.png")
+    write(legacy_tile(brand, FASTLANE_ICON_PX), FASTLANE_IMAGES / "icon.png")
 
     write(
         brand.draw_mark(SPLASH_PX, SPLASH_SCALE, brand.CLAW),

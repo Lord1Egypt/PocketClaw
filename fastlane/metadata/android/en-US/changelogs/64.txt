@@ -1,0 +1,5 @@
+• Telegram: a long task's answer arrives as a new message, and queued messages show their place.
+• Huge tool output can no longer overflow the conversation.
+• The workspace moved to app storage; no storage permission is requested. An older Download/pocketclaw workspace is untouched and can be copied in from Settings.
+• Removed settings that did nothing on Android.
+• arm64-only packaging; unused analytics removed.
