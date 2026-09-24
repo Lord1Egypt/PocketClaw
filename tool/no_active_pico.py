@@ -265,13 +265,6 @@ ALLOWLIST: list[dict] = [
         "paths": ["core/src/web/backend/api/version.go"],
     },
     {
-        "pattern": r"missing picoclaw_",
-        "category": "legacy_migration",
-        "reason": "matches an error string an older Core emits, so the host can "
-                  "still explain that failure on a device mid-upgrade.",
-        "paths": ["lib/src/core/service_manager.dart"],
-    },
-    {
         "pattern": r"picoclaw/|PicoClaw to PocketClaw namespace migration"
                    r"|PicoClaw lobster|no_active_pico|no_public_pico"
                    r"|Pico identity|Pico branding",

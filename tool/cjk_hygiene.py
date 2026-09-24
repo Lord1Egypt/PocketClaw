@@ -6,7 +6,7 @@ must match an allowlist entry, and every entry says why the text is there:
 
   localization   user-facing translations, language endonyms, and the tests
                  that assert them
-  upstream       vendored PicoClaw material PocketClaw does not own, or CJK
+  upstream       vendored upstream Core material PocketClaw does not own, or CJK
                  that is functional input handling rather than prose
   fixture        test data that exercises CJK handling on purpose
 
@@ -67,16 +67,16 @@ ALLOWLIST = [
     ("CHANGELOG_DEV.md", "localization", 1,
      "quotes the zh UI label a change aligned with"),
     # --- upstream ---
-    ("core/src/docs/*", "upstream", None, "PicoClaw's translated documentation"),
-    ("core/src/**/README.zh.md", "upstream", None, "PicoClaw's Chinese package READMEs"),
-    ("core/src/README.md", "upstream", 1, "PicoClaw's links to its translated READMEs"),
-    ("core/src/.env.example", "upstream", 1, "PicoClaw's Feishu example label"),
+    ("core/src/docs/*", "upstream", None, "upstream Core's translated documentation"),
+    ("core/src/**/README.zh.md", "upstream", None, "upstream Core's Chinese package READMEs"),
+    ("core/src/README.md", "upstream", 1, "upstream Core's links to its translated READMEs"),
+    ("core/src/.env.example", "upstream", 1, "upstream Core's Feishu example label"),
     ("core/src/workspace/skills/weather/SKILL.md", "upstream", 1,
      "a geocoding example for a Chinese city name"),
     ("core/src/cmd/membench/llm_client.go", "upstream", 2,
-     "a PicoClaw developer benchmark, not shipped"),
+     "an upstream Core developer benchmark, not shipped"),
     ("core/pocketclaw-core-v0.3.1.patch", "upstream", None,
-     "generated diff against PicoClaw; mirrors the vendored files"),
+     "generated diff against upstream Core; mirrors the vendored files"),
     ("core/src/pkg/audio/sentence.go", "upstream", 3,
      "sentence splitting on CJK full stops, question and exclamation marks"),
     ("core/src/pkg/channels/qq/qq.go", "upstream", 2,

@@ -131,7 +131,9 @@ void main() {
     });
 
     test('logcat tag', () {
-      expect(channel, contains('"PocketClawChannel"'));
+      // The "PocketClawChannel" tag lived only in the Umeng handlers removed in
+      // F-Droid Phase B; the class logs under its own TAG constant.
+      expect(channel, contains('TAG = "PocketClawMethodChannel"'));
       expect(channel, isNot(contains('"PicoClawChannel"')));
     });
 

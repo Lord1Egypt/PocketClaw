@@ -156,10 +156,10 @@ void main() {
       expect(auth,
           contains('legacyLauncherDashboardCookieName = "picoclaw_launcher_auth"'),
           reason: 'an old cookie is still expired, never issued');
-      // N4K-B took the distribution-channel define. No build ever supplied the
-      // old name, so it moved without a compatibility arm.
+      // N4K-B took the distribution-channel define; F-Droid Phase B then
+      // removed it with the device telemetry it fed. Neither name may return.
       final serviceManager = read('lib/src/core/service_manager.dart');
-      expect(serviceManager, contains('POCKETCLAW_DISTRIBUTION_CHANNEL'));
+      expect(serviceManager, isNot(contains('POCKETCLAW_DISTRIBUTION_CHANNEL')));
       expect(serviceManager, isNot(contains('PICOCLAW_DISTRIBUTION_CHANNEL')));
     });
 

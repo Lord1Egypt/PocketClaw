@@ -483,8 +483,13 @@ void main() {
       expect(source, contains('symbols, r8_mapping=R8_MAPPING)'));
       expect(
         source,
-        contains("BUNDLE if args.package == \"bundle\" else APK"),
+        contains("BUNDLE if args.package == \"bundle\" else apk"),
         reason: 'the reset must clear the artifact this run actually packages',
+      );
+      expect(
+        source,
+        contains('apk = UNSIGNED_APK if args.signing == "unsigned" else APK'),
+        reason: 'an unsigned build packages a differently named APK',
       );
       expect(source, contains('shutil.rmtree(flutter_build_dir)'));
       expect(
