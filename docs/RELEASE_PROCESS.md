@@ -81,6 +81,15 @@ Git. A certificate digest is public identity evidence; it is not a secret.
 9. Use separate authorization for physical-device acceptance, baseline advance,
    tag creation, publication, or store submission.
 
+**The README describes the latest published release, not the development
+version.** Its identity is pinned in `docs/release/published.json` (version,
+build, tag, commit, APK name, size, SHA-256, checksum file, signer), and
+`test/unit/readme_release_identity_test.dart` holds the README to that file and
+`pubspec.yaml` at or ahead of it. Bumping pubspec for the next version needs no
+README change. Only after a release is actually published, update
+`published.json` from the published asset and move the README with it in the
+same commit; never pin a version that is not published.
+
 ## Canonical Dart-hardened Android build
 
 Use one entry point for release-variant Dart compilation:
