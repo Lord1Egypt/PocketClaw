@@ -1185,10 +1185,18 @@ index 0000000..ba7276a
 +	}
 +}
 diff --git a/cmd/picoclaw/main.go b/cmd/picoclaw/main.go
-index 3f94f81..b4523cc 100644
+index 3f94f81..ce827ff 100644
 --- a/cmd/picoclaw/main.go
 +++ b/cmd/picoclaw/main.go
-@@ -120,7 +120,7 @@ picoclaw --no-color status`,
+@@ -30,7 +30,6 @@ import (
+ 	"github.com/sipeed/picoclaw/cmd/picoclaw/internal/status"
+ 	"github.com/sipeed/picoclaw/cmd/picoclaw/internal/version"
+ 	"github.com/sipeed/picoclaw/pkg/config"
+-	"github.com/sipeed/picoclaw/pkg/updater"
+ )
+ 
+ var rootNoColor bool
+@@ -120,7 +119,7 @@ picoclaw --no-color status`,
  	}
  
  	cmd.PersistentFlags().BoolVar(&rootNoColor, "no-color", false,
@@ -1197,7 +1205,18 @@ index 3f94f81..b4523cc 100644
  
  	cmd.SetHelpFunc(func(c *cobra.Command, _ []string) {
  		syncCliUIColor(c.Root())
-@@ -157,14 +157,10 @@ const (
+@@ -139,9 +138,9 @@ picoclaw --no-color status`,
+ 		migrate.NewMigrateCommand(),
+ 		skills.NewSkillsCommand(),
+ 		model.NewModelCommand(),
+-		updater.NewUpdateCommand("picoclaw"),
+ 		version.NewVersionCommand(),
+ 	)
++	cmd.AddCommand(selfUpdateCommands()...)
+ 
+ 	return cmd
+ }
+@@ -157,14 +156,10 @@ const (
  		colorBlue + "██║     ██║╚██████╗╚██████╔╝" + colorRed + "╚██████╗███████╗██║  ██║╚███╔███╔╝\n" +
  		colorBlue + "╚═╝     ╚═╝ ╚═════╝ ╚═════╝ " + colorRed + " ╚═════╝╚══════╝╚═╝  ╚═╝ ╚══╝╚══╝\n " +
  		"\033[0m\r\n"
@@ -1232,6 +1251,87 @@ index e4f9de5..ccb2e4f 100644
 +	assert.NotContains(t, plainBanner, "PicoClaw")
 +	assert.NotContains(t, plainBanner, "Sipeed")
 +}
+diff --git a/cmd/picoclaw/selfupdate_cmd.go b/cmd/picoclaw/selfupdate_cmd.go
+new file mode 100644
+index 0000000..194a81b
+--- /dev/null
++++ b/cmd/picoclaw/selfupdate_cmd.go
+@@ -0,0 +1,16 @@
++//go:build !android
++
++package main
++
++import (
++	"github.com/spf13/cobra"
++
++	"github.com/sipeed/picoclaw/pkg/updater"
++)
++
++// selfUpdateCommands returns upstream's `update` command, which downloads a
++// release binary and replaces the running executable. It exists on the desktop
++// platforms upstream supports; selfupdate_cmd_android.go leaves it out.
++func selfUpdateCommands() []*cobra.Command {
++	return []*cobra.Command{updater.NewUpdateCommand("picoclaw")}
++}
+diff --git a/cmd/picoclaw/selfupdate_cmd_android.go b/cmd/picoclaw/selfupdate_cmd_android.go
+new file mode 100644
+index 0000000..5b7cc30
+--- /dev/null
++++ b/cmd/picoclaw/selfupdate_cmd_android.go
+@@ -0,0 +1,13 @@
++package main
++
++import "github.com/spf13/cobra"
++
++// selfUpdateCommands is empty on Android. PocketClaw's Core is packaged in the
++// APK and updated only by installing a new APK: a binary that downloads and
++// swaps its own executable has no place there, and official F-Droid does not
++// allow an app to fetch executables outside its own update channel. Leaving the
++// command out also keeps pkg/updater and its self-replacement library out of
++// the Android link entirely (TestAndroidCoreLinksNoSelfUpdater).
++func selfUpdateCommands() []*cobra.Command {
++	return nil
++}
+diff --git a/cmd/picoclaw/selfupdate_cmd_test.go b/cmd/picoclaw/selfupdate_cmd_test.go
+new file mode 100644
+index 0000000..933703d
+--- /dev/null
++++ b/cmd/picoclaw/selfupdate_cmd_test.go
+@@ -0,0 +1,34 @@
++package main
++
++import (
++	"os"
++	"os/exec"
++	"path/filepath"
++	"runtime"
++	"strings"
++	"testing"
++)
++
++// TestAndroidCoreLinksNoSelfUpdater proves the Android Core cannot expose the
++// upstream self-updater: not merely that the command is unregistered, but that
++// neither pkg/updater nor minio/selfupdate is in the Android link at all. It
++// resolves the package graph for the target rather than for this host, which a
++// host test otherwise never sees.
++func TestAndroidCoreLinksNoSelfUpdater(t *testing.T) {
++	goBin := filepath.Join(runtime.GOROOT(), "bin", "go")
++	cmd := exec.Command(goBin, "list", "-deps", "-tags", "stdjson", ".")
++	cmd.Env = append(os.Environ(), "GOOS=android", "GOARCH=arm64", "CGO_ENABLED=0")
++	out, err := cmd.CombinedOutput()
++	if err != nil {
++		t.Fatalf("go list for android/arm64 failed: %v\n%s", err, out)
++	}
++	for _, pkg := range strings.Fields(string(out)) {
++		if pkg == "github.com/sipeed/picoclaw/pkg/updater" ||
++			strings.HasPrefix(pkg, "github.com/minio/selfupdate") {
++			t.Errorf("android Core links %s", pkg)
++		}
++	}
++	if !strings.Contains(string(out), "github.com/spf13/cobra") {
++		t.Fatalf("go list output does not look like the Core graph:\n%s", out)
++	}
++}
 diff --git a/docs/operations/debug.md b/docs/operations/debug.md
 index eacd723..41d45df 100644
 --- a/docs/operations/debug.md
@@ -1258,6 +1358,31 @@ index eacd723..41d45df 100644
  
  ## Real-Time Tool Feedback in Chat (tool_feedback)
  
+diff --git a/go.mod b/go.mod
+index 1335640..a758f78 100644
+--- a/go.mod
++++ b/go.mod
+@@ -24,7 +24,6 @@ require (
+ 	github.com/google/uuid v1.6.0
+ 	github.com/gorilla/websocket v1.5.3
+ 	github.com/h2non/filetype v1.1.3
+-	github.com/kagisearch/kagi-openapi-golang v0.0.0-20260526215348-96575e864d62
+ 	github.com/larksuite/oapi-sdk-go/v3 v3.9.4
+ 	github.com/line/line-bot-sdk-go/v8 v8.20.1
+ 	github.com/mdp/qrterminal/v3 v3.2.1
+diff --git a/go.sum b/go.sum
+index b0b51d2..3efd768 100644
+--- a/go.sum
++++ b/go.sum
+@@ -182,8 +182,6 @@ github.com/inconshreveable/mousetrap v1.1.0 h1:wN+x4NVGpMsO7ErUn/mUI3vEoE6Jt13X2
+ github.com/inconshreveable/mousetrap v1.1.0/go.mod h1:vpF70FUmC8bwa3OWnCshd2FqLfsEA9PFc4w1p2J65bw=
+ github.com/invopop/jsonschema v0.14.0 h1:MHQqLhvpNUZfw+hM3AZDYK7jxO8FZoQeQM77g8iyZjg=
+ github.com/invopop/jsonschema v0.14.0/go.mod h1:ygm6C2EaVNMBDPpaPlnOA2pFAxBnxGjFlMZABxm9n2I=
+-github.com/kagisearch/kagi-openapi-golang v0.0.0-20260526215348-96575e864d62 h1:nyUi7Wel3KlVSa5ArgX/snlizqfaxU48qtvXS/JK5GE=
+-github.com/kagisearch/kagi-openapi-golang v0.0.0-20260526215348-96575e864d62/go.mod h1:vONkS+clG730HSKOw3nZVa22TjB21r6csKYzYt0a9zI=
+ github.com/keybase/go-keychain v0.0.1 h1:way+bWYa6lDppZoZcgMbYsvC7GxljxrskdNInRtuthU=
+ github.com/keybase/go-keychain v0.0.1/go.mod h1:PdEILRW3i9D8JcdM+FmY6RwkHGnhHxXwkPPMeUgOK1k=
+ github.com/kisielk/errcheck v1.5.0/go.mod h1:pFxgyoBC7bSaBwPgfKdkLd5X25qrDl4LWUI2bnpBCr8=
 diff --git a/pkg/agent/adapters/channelmanager.go b/pkg/agent/adapters/channelmanager.go
 index ad0840e..f6330df 100644
 --- a/pkg/agent/adapters/channelmanager.go
@@ -15805,9 +15930,18 @@ index 0000000..fd8120a
 +	}
 +}
 diff --git a/pkg/channels/dingtalk/dingtalk.go b/pkg/channels/dingtalk/dingtalk.go
-index 9cd461b..b14ec46 100644
+index 9cd461b..4d59eff 100644
 --- a/pkg/channels/dingtalk/dingtalk.go
 +++ b/pkg/channels/dingtalk/dingtalk.go
+@@ -21,7 +21,7 @@ import (
+ 	"github.com/sipeed/picoclaw/pkg/utils"
+ )
+ 
+-// DingTalkChannel implements the Channel interface for DingTalk (钉钉)
++// DingTalkChannel implements the Channel interface for DingTalk
+ // It uses WebSocket for receiving messages via stream mode and API for sending
+ type DingTalkChannel struct {
+ 	*channels.BaseChannel
 @@ -258,7 +258,7 @@ func (c *DingTalkChannel) SendDirectReply(ctx context.Context, sessionWebhook, c
  
  	// Convert string content to []byte for the API
@@ -15900,8 +16034,205 @@ index ad44219..29435f1 100644
 +type OwnerMissingReporter interface {
 +	OwnerMissing() bool
 +}
+diff --git a/pkg/channels/long_turn.go b/pkg/channels/long_turn.go
+new file mode 100644
+index 0000000..06dbd37
+--- /dev/null
++++ b/pkg/channels/long_turn.go
+@@ -0,0 +1,34 @@
++package channels
++
++import "time"
++
++// LongTurnEditWindow is how old a turn's status message (the Thinking
++// placeholder, or the tool-progress message it became) may be before the final
++// answer is no longer edited into it.
++//
++// PC-DEF-084. Editing is right for a short turn: the answer replaces its own
++// status line. After a long turn it is wrong on a chat app like Telegram, where
++// an edit makes no sound and keeps the message's original position and time:
++// the answer lands above anything the owner sent meanwhile, silently, and the
++// turn reads as a hang. Past this window the answer is sent as a new message
++// and the stale status message is deleted. That is one ordinary notification
++// per turn and no periodic traffic.
++const LongTurnEditWindow = 2 * time.Minute
++
++// FinalEditWindowChannel is implemented by channels whose edits are silent and
++// positional. The manager sends a final answer fresh, instead of editing a
++// status message older than FinalEditWindow, only for these channels; any
++// other channel keeps editing in place.
++type FinalEditWindowChannel interface {
++	FinalEditWindow() time.Duration
++}
++
++// statusMessageTooOldToEdit reports whether a status message sent at sentAt
++// should be replaced by a fresh message rather than edited on ch.
++func statusMessageTooOldToEdit(ch Channel, sentAt time.Time, now time.Time) bool {
++	windowed, ok := ch.(FinalEditWindowChannel)
++	if !ok || sentAt.IsZero() {
++		return false
++	}
++	return now.Sub(sentAt) >= windowed.FinalEditWindow()
++}
+diff --git a/pkg/channels/long_turn_test.go b/pkg/channels/long_turn_test.go
+new file mode 100644
+index 0000000..212187d
+--- /dev/null
++++ b/pkg/channels/long_turn_test.go
+@@ -0,0 +1,151 @@
++package channels
++
++import (
++	"context"
++	"testing"
++	"time"
++
++	"github.com/sipeed/picoclaw/pkg/bus"
++)
++
++// windowedEditor is a channel whose edits are silent, like Telegram.
++type windowedEditor struct {
++	mockMessageEditor
++	window  time.Duration
++	deleted []string
++}
++
++func (w *windowedEditor) FinalEditWindow() time.Duration { return w.window }
++
++func (w *windowedEditor) DeleteMessage(_ context.Context, _ string, messageID string) error {
++	w.deleted = append(w.deleted, messageID)
++	return nil
++}
++
++func newWindowedEditor(t *testing.T, edits *int) *windowedEditor {
++	t.Helper()
++	return &windowedEditor{
++		mockMessageEditor: mockMessageEditor{
++			editFn: func(context.Context, string, string, string) error {
++				*edits++
++				return nil
++			},
++		},
++		window: LongTurnEditWindow,
++	}
++}
++
++func backdatePlaceholders(m *Manager, age time.Duration) {
++	m.placeholders.Range(func(key, value any) bool {
++		entry := value.(placeholderEntry)
++		entry.createdAt = time.Now().Add(-age)
++		m.placeholders.Store(key, entry)
++		return true
++	})
++}
++
++func TestPreSend_LongTurnAnswerIsSentFreshAndThePlaceholderDeleted(t *testing.T) {
++	m := newTestManager()
++	var edits int
++	ch := newWindowedEditor(t, &edits)
++	m.RecordPlaceholder("test", "123", "456")
++	backdatePlaceholders(m, LongTurnEditWindow+time.Second)
++
++	msg := testOutboundMessage(bus.OutboundMessage{Channel: "test", ChatID: "123", Content: "answer"})
++	ids, handled := m.preSend(context.Background(), "test", msg, ch)
++
++	if handled || ids != nil {
++		t.Fatalf("preSend handled the answer (%v); it must fall through to a fresh Send", ids)
++	}
++	if edits != 0 {
++		t.Fatalf("the stale placeholder was edited %d time(s)", edits)
++	}
++	if len(ch.deleted) != 1 || ch.deleted[0] != "456" {
++		t.Fatalf("deleted = %v, want the placeholder 456", ch.deleted)
++	}
++}
++
++func TestPreSend_ShortTurnAnswerStillEditsThePlaceholder(t *testing.T) {
++	m := newTestManager()
++	var edits int
++	ch := newWindowedEditor(t, &edits)
++	m.RecordPlaceholder("test", "123", "456")
++
++	msg := testOutboundMessage(bus.OutboundMessage{Channel: "test", ChatID: "123", Content: "answer"})
++	if _, handled := m.preSend(context.Background(), "test", msg, ch); !handled {
++		t.Fatal("a short turn must keep editing its placeholder")
++	}
++	if edits != 1 || len(ch.deleted) != 0 {
++		t.Fatalf("edits = %d, deleted = %v; want one edit and no delete", edits, ch.deleted)
++	}
++}
++
++func TestPreSend_OldPlaceholderStillBecomesToolProgress(t *testing.T) {
++	// A status-to-status edit is not an answer; nothing is gained by a new
++	// message, which would only add noise.
++	m := newTestManager()
++	var edits int
++	ch := newWindowedEditor(t, &edits)
++	m.RecordPlaceholder("test", "123", "456")
++	backdatePlaceholders(m, LongTurnEditWindow+time.Second)
++
++	msg := testOutboundMessage(bus.OutboundMessage{
++		Channel: "test",
++		ChatID:  "123",
++		Content: "🔧 `exec`",
++		Context: bus.InboundContext{
++			Channel: "test",
++			ChatID:  "123",
++			Raw:     map[string]string{"message_kind": "tool_feedback"},
++		},
++	})
++	if _, handled := m.preSend(context.Background(), "test", msg, ch); !handled {
++		t.Fatal("tool progress must still be edited into the placeholder")
++	}
++	if edits != 1 || len(ch.deleted) != 0 {
++		t.Fatalf("edits = %d, deleted = %v; want one edit and no delete", edits, ch.deleted)
++	}
++}
++
++func TestPreSend_ChannelsWithoutAWindowKeepEditing(t *testing.T) {
++	m := newTestManager()
++	var edits int
++	ch := &mockMessageEditor{
++		editFn: func(context.Context, string, string, string) error {
++			edits++
++			return nil
++		},
++	}
++	m.RecordPlaceholder("test", "123", "456")
++	backdatePlaceholders(m, time.Hour)
++
++	msg := testOutboundMessage(bus.OutboundMessage{Channel: "test", ChatID: "123", Content: "answer"})
++	if _, handled := m.preSend(context.Background(), "test", msg, ch); !handled || edits != 1 {
++		t.Fatalf("handled = %v, edits = %d; a channel without a window keeps editing", handled, edits)
++	}
++}
++
++func TestToolFeedbackAnimator_AgeSurvivesProgressUpdates(t *testing.T) {
++	clock := time.Date(2026, 9, 24, 12, 0, 0, 0, time.UTC)
++	a := NewToolFeedbackAnimator(func(context.Context, string, string, string) error { return nil })
++	a.now = func() time.Time { return clock }
++	defer a.StopAll()
++
++	a.Record("chat", "1", "🔧 `read_file`")
++	clock = clock.Add(90 * time.Second)
++	if _, _, err := a.Update(context.Background(), "chat", "🔧 `exec`"); err != nil {
++		t.Fatalf("Update: %v", err)
++	}
++	clock = clock.Add(60 * time.Second)
++
++	age, ok := a.Age("chat")
++	if !ok || age != 150*time.Second {
++		t.Fatalf("Age = %v, %v; want 150s measured from the first send", age, ok)
++	}
++
++	// A different message is a different send.
++	a.Record("chat", "2", "🔧 `grep`")
++	if age, ok := a.Age("chat"); !ok || age != 0 {
++		t.Fatalf("Age after a new message = %v, %v; want 0", age, ok)
++	}
++}
 diff --git a/pkg/channels/manager.go b/pkg/channels/manager.go
-index d7c6553..220199d 100644
+index d7c6553..64a8599 100644
 --- a/pkg/channels/manager.go
 +++ b/pkg/channels/manager.go
 @@ -28,6 +28,7 @@ import (
@@ -16136,9 +16467,24 @@ index d7c6553..220199d 100644
  	streamKey := streamSuppressionKey(name, chatID, msg.SessionKey)
  
  	// 1. Stop typing
-@@ -473,6 +633,13 @@ func (m *Manager) preSend(ctx context.Context, name string, msg bus.OutboundMess
+@@ -472,7 +632,28 @@ func (m *Manager) preSend(ctx context.Context, name string, msg bus.OutboundMess
+ 				}
  				return nil, false
  			}
++			// PC-DEF-084: an answer after a long turn is sent fresh, so it
++			// notifies and lands below anything sent meanwhile. The stale
++			// placeholder goes; a status-to-status edit stays an edit.
++			if !isToolFeedback && statusMessageTooOldToEdit(ch, entry.createdAt, time.Now()) {
++				if deleter, ok := ch.(MessageDeleter); ok {
++					deleter.DeleteMessage(ctx, chatID, entry.id) // best effort
++					logger.InfoCF("request_lifecycle", "Request lifecycle", map[string]any{
++						"event":        "long_turn_fresh_delivery",
++						"channel":      name,
++						"lifecycle_id": bus.InboundLifecycleID(&msg.Context),
++					})
++					return nil, false
++				}
++			}
  			if editor, ok := ch.(MessageEditor); ok {
 +				if strings.EqualFold(name, "telegram") {
 +					logger.InfoCF("request_lifecycle", "Request lifecycle", map[string]any{
@@ -16150,7 +16496,7 @@ index d7c6553..220199d 100644
  				content := msg.Content
  				trackedContent := msg.Content
  				if isToolFeedback {
-@@ -491,6 +658,13 @@ func (m *Manager) preSend(ctx context.Context, name string, msg bus.OutboundMess
+@@ -491,6 +672,13 @@ func (m *Manager) preSend(ctx context.Context, name string, msg bus.OutboundMess
  					return editor.EditMessage(ctx, chatID, entry.id, content)
  				}()
  				if err == nil {
@@ -16164,7 +16510,7 @@ index d7c6553..220199d 100644
  					trackedChatID := trackedToolFeedbackMessageChatID(ch, chatID, &msg.Context)
  					if tracker, ok := ch.(toolFeedbackMessageTracker); ok && isToolFeedback {
  						tracker.RecordToolFeedbackMessage(trackedChatID, entry.id, trackedContent)
-@@ -499,7 +673,19 @@ func (m *Manager) preSend(ctx context.Context, name string, msg bus.OutboundMess
+@@ -499,7 +687,19 @@ func (m *Manager) preSend(ctx context.Context, name string, msg bus.OutboundMess
  					}
  					return []string{entry.id}, true
  				}
@@ -16185,7 +16531,7 @@ index d7c6553..220199d 100644
  			}
  		}
  	}
-@@ -507,6 +693,66 @@ func (m *Manager) preSend(ctx context.Context, name string, msg bus.OutboundMess
+@@ -507,6 +707,66 @@ func (m *Manager) preSend(ctx context.Context, name string, msg bus.OutboundMess
  	return nil, false
  }
  
@@ -16252,7 +16598,7 @@ index d7c6553..220199d 100644
  // preSendMedia handles typing stop, reaction undo, and placeholder cleanup
  // before sending media attachments. Unlike preSend for text messages, media
  // delivery never edits the placeholder because there is no text payload to
-@@ -625,11 +871,23 @@ func (m *Manager) GetStreamer(ctx context.Context, channelName, chatID, sessionK
+@@ -625,11 +885,23 @@ func (m *Manager) GetStreamer(ctx context.Context, channelName, chatID, sessionK
  	// Mark streamActive on Finalize so preSend knows to clean up the placeholder
  	// and late auxiliary messages cannot leak after streaming produced a final.
  	streamKey := streamSuppressionKey(channelName, chatID, sessionKey)
@@ -16277,7 +16623,7 @@ index d7c6553..220199d 100644
  		if m.toolFeedbackSeparateMessagesEnabled() {
  			clearTrackedToolFeedbackMessage(
  				ch,
-@@ -653,7 +911,12 @@ func (m *Manager) GetStreamer(ctx context.Context, channelName, chatID, sessionK
+@@ -653,7 +925,12 @@ func (m *Manager) GetStreamer(ctx context.Context, channelName, chatID, sessionK
  		if v, loaded := m.placeholders.LoadAndDelete(placeholderKey); loaded {
  			if entry, ok := v.(placeholderEntry); ok && entry.id != "" {
  				if deleter, ok := ch.(MessageDeleter); ok {
@@ -16291,7 +16637,7 @@ index d7c6553..220199d 100644
  				} else if editor, ok := ch.(MessageEditor); ok {
  					editor.EditMessage(finalizeCtx, chatID, entry.id, finalContent) // best effort fallback
  				}
-@@ -1026,7 +1289,7 @@ func (m *Manager) getChannelConfigAndEnabled(channelName string) (*config.Channe
+@@ -1026,7 +1303,7 @@ func (m *Manager) getChannelConfigAndEnabled(channelName string) (*config.Channe
  		return bc, settings.Homeserver != "" && settings.UserID != "" && settings.AccessToken.String() != ""
  	case *config.WeComSettings:
  		return bc, settings.BotID != "" && settings.Secret.String() != ""
@@ -16300,7 +16646,7 @@ index d7c6553..220199d 100644
  		return bc, settings.URL != ""
  	case *config.DingTalkSettings:
  		return bc, settings.ClientID != ""
-@@ -1034,7 +1297,7 @@ func (m *Manager) getChannelConfigAndEnabled(channelName string) (*config.Channe
+@@ -1034,7 +1311,7 @@ func (m *Manager) getChannelConfigAndEnabled(channelName string) (*config.Channe
  		return bc, settings.BotToken.String() != ""
  	case *config.WeixinSettings:
  		return bc, settings.Token.String() != ""
@@ -16309,7 +16655,7 @@ index d7c6553..220199d 100644
  		return bc, settings.Token.String() != ""
  	case *config.IRCSettings:
  		return bc, settings.Server != ""
-@@ -1550,6 +1813,14 @@ func (m *Manager) sendWithRetry(
+@@ -1550,6 +1827,14 @@ func (m *Manager) sendWithRetry(
  	for attempt := 0; attempt <= maxRetries; attempt++ {
  		msgIDs, lastErr = w.ch.Send(ctx, msg)
  		if lastErr == nil {
@@ -16324,7 +16670,7 @@ index d7c6553..220199d 100644
  			m.publishOutboundSent(name, msg, msgIDs)
  			return msgIDs, true
  		}
-@@ -1583,6 +1854,18 @@ func (m *Manager) sendWithRetry(
+@@ -1583,6 +1868,18 @@ func (m *Manager) sendWithRetry(
  		}
  	}
  
@@ -16343,7 +16689,7 @@ index d7c6553..220199d 100644
  	// All retries exhausted or permanent failure
  	logger.ErrorCF("channels", "Send failed", map[string]any{
  		"channel": name,
-@@ -1860,6 +2143,95 @@ func (m *Manager) GetStatus() map[string]any {
+@@ -1860,6 +2157,95 @@ func (m *Manager) GetStatus() map[string]any {
  	return status
  }
  
@@ -16439,7 +16785,7 @@ index d7c6553..220199d 100644
  func (m *Manager) GetEnabledChannels() []string {
  	m.mu.RLock()
  	defer m.mu.RUnlock()
-@@ -1886,10 +2258,32 @@ func (m *Manager) Reload(ctx context.Context, cfg *config.Config) error {
+@@ -1886,10 +2272,32 @@ func (m *Manager) Reload(ctx context.Context, cfg *config.Config) error {
  	list := toChannelHashes(cfg)
  	added, removed := compareChannels(m.channelHashes, list)
  
@@ -16472,7 +16818,7 @@ index d7c6553..220199d 100644
  		logger.InfoCF("channels", "Stopping channel", map[string]any{
  			"channel": name,
  		})
-@@ -1899,6 +2293,12 @@ func (m *Manager) Reload(ctx context.Context, cfg *config.Config) error {
+@@ -1899,6 +2307,12 @@ func (m *Manager) Reload(ctx context.Context, cfg *config.Config) error {
  				"error":   err.Error(),
  			})
  		}
@@ -16485,7 +16831,7 @@ index d7c6553..220199d 100644
  		deferFuncs = append(deferFuncs, func() {
  			m.UnregisterChannel(name)
  		})
-@@ -1921,6 +2321,26 @@ func (m *Manager) Reload(ctx context.Context, cfg *config.Config) error {
+@@ -1921,6 +2335,26 @@ func (m *Manager) Reload(ctx context.Context, cfg *config.Config) error {
  	}
  	for _, name := range added {
  		channel := m.channels[name]
@@ -16512,7 +16858,7 @@ index d7c6553..220199d 100644
  		logger.InfoCF("channels", "Starting channel", map[string]any{
  			"channel": name,
  		})
-@@ -2005,6 +2425,35 @@ func (m *Manager) UnregisterChannel(name string) {
+@@ -2005,6 +2439,35 @@ func (m *Manager) UnregisterChannel(name string) {
  	delete(m.channels, name)
  }
  
@@ -16548,7 +16894,7 @@ index d7c6553..220199d 100644
  // SendMessage sends an outbound message synchronously through the channel
  // worker's rate limiter and retry logic. It blocks until the message is
  // delivered (or all retries are exhausted), which preserves ordering when
-@@ -2033,13 +2482,17 @@ func (m *Manager) SendMessage(ctx context.Context, msg bus.OutboundMessage) erro
+@@ -2033,13 +2496,17 @@ func (m *Manager) SendMessage(ctx context.Context, msg bus.OutboundMessage) erro
  		for _, chunk := range chunks {
  			chunkMsg := msg
  			chunkMsg.Content = chunk
@@ -22622,7 +22968,7 @@ index 0000000..bf1799d
 +		"a superseded generation's receipt must not be deleted by its successor")
 +}
 diff --git a/pkg/channels/telegram/telegram.go b/pkg/channels/telegram/telegram.go
-index d7265fb..cf5f979 100644
+index d7265fb..9ebf3f5 100644
 --- a/pkg/channels/telegram/telegram.go
 +++ b/pkg/channels/telegram/telegram.go
 @@ -15,9 +15,12 @@ import (
@@ -22654,7 +23000,7 @@ index d7265fb..cf5f979 100644
  )
  
  type TelegramChannel struct {
-@@ -55,15 +67,60 @@ type TelegramChannel struct {
+@@ -55,15 +67,63 @@ type TelegramChannel struct {
  	bh        *th.BotHandler
  	bc        *config.Channel
  	chatIDsMu sync.Mutex
@@ -22675,6 +23021,9 @@ index d7265fb..cf5f979 100644
 +	cancel       context.CancelFunc
 +	tgCfg        *config.TelegramSettings
 +	progress     *channels.ToolFeedbackAnimator
++	// finalEditWindow overrides channels.LongTurnEditWindow; zero means the
++	// default. Only package tests set it.
++	finalEditWindow time.Duration
 +
 +	// pollingDone is closed when the long-polling goroutine has unwound. Stop
 +	// waits on it so a stopped channel can be started again.
@@ -22720,7 +23069,7 @@ index d7265fb..cf5f979 100644
  
  	mediaGroupMu    sync.Mutex
  	mediaGroups     map[string]*telegramMediaGroup
-@@ -76,6 +133,14 @@ type telegramMediaGroup struct {
+@@ -76,6 +136,14 @@ type telegramMediaGroup struct {
  	generation uint64
  }
  
@@ -22735,7 +23084,7 @@ index d7265fb..cf5f979 100644
  type telegramMessageParts struct {
  	content    []string
  	mediaPaths []string
-@@ -86,27 +151,50 @@ func NewTelegramChannel(
+@@ -86,27 +154,50 @@ func NewTelegramChannel(
  	telegramCfg *config.TelegramSettings,
  	bus *bus.MessageBus,
  ) (*TelegramChannel, error) {
@@ -22798,7 +23147,7 @@ index d7265fb..cf5f979 100644
  
  	if baseURL := strings.TrimRight(strings.TrimSpace(telegramCfg.BaseURL), "/"); baseURL != "" {
  		opts = append(opts, telego.WithAPIServer(baseURL))
-@@ -118,22 +206,35 @@ func NewTelegramChannel(
+@@ -118,22 +209,35 @@ func NewTelegramChannel(
  		return nil, fmt.Errorf("failed to create telegram bot: %w", err)
  	}
  
@@ -22840,7 +23189,7 @@ index d7265fb..cf5f979 100644
  
  		mediaGroups:     make(map[string]*telegramMediaGroup),
  		mediaGroupDelay: telegramMediaGroupDelay(telegramCfg),
-@@ -152,19 +253,85 @@ func telegramMediaGroupDelay(telegramCfg *config.TelegramSettings) time.Duration
+@@ -152,19 +256,85 @@ func telegramMediaGroupDelay(telegramCfg *config.TelegramSettings) time.Duration
  func (c *TelegramChannel) Start(ctx context.Context) error {
  	logger.InfoC("telegram", "Starting Telegram bot (polling mode)...")
  
@@ -22929,7 +23278,7 @@ index d7265fb..cf5f979 100644
  		return fmt.Errorf("failed to create bot handler: %w", err)
  	}
  	c.bh = bh
-@@ -172,29 +339,326 @@ func (c *TelegramChannel) Start(ctx context.Context) error {
+@@ -172,29 +342,326 @@ func (c *TelegramChannel) Start(ctx context.Context) error {
  	bh.HandleMessage(func(ctx *th.Context, message telego.Message) error {
  		return c.handleMessage(ctx, &message)
  	}, th.AnyMessage())
@@ -23264,7 +23613,7 @@ index d7265fb..cf5f979 100644
  	// Stop the bot handler
  	if c.bh != nil {
  		_ = c.bh.StopWithContext(ctx)
-@@ -205,12 +669,23 @@ func (c *TelegramChannel) Stop(ctx context.Context) error {
+@@ -205,12 +672,23 @@ func (c *TelegramChannel) Stop(ctx context.Context) error {
  	if c.cancel != nil {
  		c.cancel()
  	}
@@ -23288,7 +23637,7 @@ index d7265fb..cf5f979 100644
  
  	return nil
  }
-@@ -346,6 +821,13 @@ func (c *TelegramChannel) Send(ctx context.Context, msg bus.OutboundMessage) ([]
+@@ -346,6 +824,13 @@ func (c *TelegramChannel) Send(ctx context.Context, msg bus.OutboundMessage) ([]
  	} else if !isToolFeedback && hasTrackedMsg {
  		c.dismissTrackedToolFeedbackMessage(ctx, trackedChatID, trackedMsgID)
  	}
@@ -23302,7 +23651,7 @@ index d7265fb..cf5f979 100644
  
  	return messageIDs, nil
  }
-@@ -481,18 +963,6 @@ func (c *TelegramChannel) EditMessage(ctx context.Context, chatID string, messag
+@@ -481,18 +966,6 @@ func (c *TelegramChannel) EditMessage(ctx context.Context, chatID string, messag
  			return nil
  		}
  
@@ -23321,7 +23670,34 @@ index d7265fb..cf5f979 100644
  	}
  
  	return err
-@@ -623,6 +1093,39 @@ func (c *TelegramChannel) SendPlaceholder(ctx context.Context, chatID string) (s
+@@ -565,12 +1038,26 @@ func (c *TelegramChannel) dismissTrackedToolFeedbackMessage(ctx context.Context,
+ 	_ = c.DeleteMessage(ctx, chatID, messageID)
+ }
+ 
++// FinalEditWindow implements channels.FinalEditWindowChannel. Telegram does not
++// notify on an edit and keeps an edited message where it was first sent.
++func (c *TelegramChannel) FinalEditWindow() time.Duration {
++	if c.finalEditWindow > 0 {
++		return c.finalEditWindow
++	}
++	return channels.LongTurnEditWindow
++}
++
+ func (c *TelegramChannel) finalizeTrackedToolFeedbackMessage(
+ 	ctx context.Context,
+ 	chatID string,
+ 	content string,
+ 	editFn func(context.Context, string, string, string) error,
+ ) ([]string, bool) {
++	// PC-DEF-084: past the window the answer is sent as a new message. The
++	// progress message stays tracked so Send deletes it after that send.
++	if age, ok := c.progress.Age(chatID); ok && age >= c.FinalEditWindow() {
++		return nil, false
++	}
+ 	msgID, baseContent, ok := c.takeToolFeedbackMessage(chatID)
+ 	if !ok || editFn == nil {
+ 		return nil, false
+@@ -623,6 +1110,39 @@ func (c *TelegramChannel) SendPlaceholder(ctx context.Context, chatID string) (s
  	return fmt.Sprintf("%d", pMsg.MessageID), nil
  }
  
@@ -23361,7 +23737,7 @@ index d7265fb..cf5f979 100644
  // SendMedia implements the channels.MediaSender interface.
  func (c *TelegramChannel) SendMedia(ctx context.Context, msg bus.OutboundMediaMessage) ([]string, error) {
  	if !c.IsRunning() {
-@@ -1056,6 +1559,30 @@ func (c *TelegramChannel) handleMessages(ctx context.Context, messages []*telego
+@@ -1056,6 +1576,30 @@ func (c *TelegramChannel) handleMessages(ctx context.Context, messages []*telego
  		return fmt.Errorf("message sender (user) is nil")
  	}
  
@@ -23392,7 +23768,7 @@ index d7265fb..cf5f979 100644
  	platformID := fmt.Sprintf("%d", user.ID)
  	sender := bus.SenderInfo{
  		Platform:    "telegram",
-@@ -1164,10 +1691,9 @@ func (c *TelegramChannel) handleMessages(ctx context.Context, messages []*telego
+@@ -1164,10 +1708,9 @@ func (c *TelegramChannel) handleMessages(ctx context.Context, messages []*telego
  	}
  
  	logger.DebugCF("telegram", "Received message", map[string]any{
@@ -23406,7 +23782,7 @@ index d7265fb..cf5f979 100644
  	})
  
  	peerKind := "direct"
-@@ -1199,6 +1725,12 @@ func (c *TelegramChannel) handleMessages(ctx context.Context, messages []*telego
+@@ -1199,6 +1742,12 @@ func (c *TelegramChannel) handleMessages(ctx context.Context, messages []*telego
  		inboundCtx.ReplyToMessageID = fmt.Sprintf("%d", message.ReplyToMessage.MessageID)
  	}
  
@@ -23419,7 +23795,7 @@ index d7265fb..cf5f979 100644
  	c.HandleMessageWithContext(
  		c.ctx,
  		compositeChatID,
-@@ -1210,6 +1742,87 @@ func (c *TelegramChannel) handleMessages(ctx context.Context, messages []*telego
+@@ -1210,6 +1759,87 @@ func (c *TelegramChannel) handleMessages(ctx context.Context, messages []*telego
  	return nil
  }
  
@@ -23507,7 +23883,7 @@ index d7265fb..cf5f979 100644
  func (c *TelegramChannel) collectTelegramMessageParts(
  	ctx context.Context,
  	msg *telego.Message,
-@@ -1777,30 +2390,6 @@ func cryptoRandInt() int {
+@@ -1777,30 +2407,6 @@ func cryptoRandInt() int {
  	return int(binary.BigEndian.Uint32(b[:])) | 1 // ensure non-zero
  }
  
@@ -23712,7 +24088,7 @@ index 0000000..25c3f7f
 +	assert.False(t, stillPending, "the collection timer must not leak past the flush")
 +}
 diff --git a/pkg/channels/telegram/telegram_test.go b/pkg/channels/telegram/telegram_test.go
-index 19b181c..dde1d00 100644
+index 19b181c..caf8357 100644
 --- a/pkg/channels/telegram/telegram_test.go
 +++ b/pkg/channels/telegram/telegram_test.go
 @@ -164,6 +164,93 @@ func newTestChannelWithConstructor(
@@ -23818,7 +24194,56 @@ index 19b181c..dde1d00 100644
  		&config.TelegramSettings{
  			Token:   *config.NewSecureString(testToken),
  			BaseURL: server.URL,
-@@ -1705,7 +1792,7 @@ func TestStopFlushesPendingMediaGroups(t *testing.T) {
+@@ -610,6 +697,48 @@ func TestSend_NonToolFeedbackDeletesTrackedProgressMessage(t *testing.T) {
+ 	assert.False(t, ok, "tracked tool feedback should be cleared after final reply")
+ }
+ 
++// PC-DEF-084: after a long turn the answer must not be a silent edit of a
++// progress message sent minutes ago, above whatever the owner sent since. It is
++// sent as a new message, and only then is the stale progress message deleted.
++func TestSend_LongTurnAnswerIsANewMessageAndTheProgressMessageGoes(t *testing.T) {
++	caller := &stubCaller{
++		callFn: func(ctx context.Context, url string, data *ta.RequestData) (*ta.Response, error) {
++			switch {
++			case strings.Contains(url, "sendMessage"):
++				return successResponseWithMessageID(t, 2), nil
++			case strings.Contains(url, "deleteMessage"):
++				return &ta.Response{Ok: true, Result: []byte("true")}, nil
++			default:
++				t.Fatalf("unexpected API call: %s", url)
++				return nil, nil
++			}
++		},
++	}
++	ch := newTestChannel(t, caller)
++	ch.finalEditWindow = time.Microsecond
++	ch.RecordToolFeedbackMessage("12345", "1", "🔧 `exec`")
++	time.Sleep(time.Millisecond)
++
++	ids, err := ch.Send(context.Background(), bus.OutboundMessage{
++		ChatID:  "12345",
++		Content: "final reply",
++	})
++
++	require.NoError(t, err)
++	assert.Equal(t, []string{"2"}, ids)
++	require.Len(t, caller.calls, 2)
++	assert.Contains(t, caller.calls[0].URL, "sendMessage", "the answer goes first")
++	assert.Contains(t, caller.calls[1].URL, "deleteMessage", "then the stale progress message")
++	_, ok := ch.currentToolFeedbackMessage("12345")
++	assert.False(t, ok, "the progress message must not stay tracked")
++}
++
++func TestTelegramFinalEditWindowDefaultsToTheLongTurnWindow(t *testing.T) {
++	ch := newTestChannel(t, &stubCaller{})
++	assert.Equal(t, channels.LongTurnEditWindow, ch.FinalEditWindow())
++	var _ channels.FinalEditWindowChannel = ch
++}
++
+ func TestSend_ToolFeedbackTrackingIsTopicScoped(t *testing.T) {
+ 	nextMessageID := 0
+ 	caller := &stubCaller{
+@@ -1705,7 +1834,7 @@ func TestStopFlushesPendingMediaGroups(t *testing.T) {
  
  func TestNewTelegramChannelUsesConfiguredMediaGroupDelay(t *testing.T) {
  	ch, err := NewTelegramChannel(
@@ -23827,7 +24252,7 @@ index 19b181c..dde1d00 100644
  		&config.TelegramSettings{
  			Token:             *config.NewSecureString(testToken),
  			MediaGroupDelayMS: 750,
-@@ -1716,7 +1803,7 @@ func TestNewTelegramChannelUsesConfiguredMediaGroupDelay(t *testing.T) {
+@@ -1716,7 +1845,7 @@ func TestNewTelegramChannelUsesConfiguredMediaGroupDelay(t *testing.T) {
  	assert.Equal(t, 750*time.Millisecond, ch.mediaGroupDelay)
  
  	ch, err = NewTelegramChannel(
@@ -23836,7 +24261,7 @@ index 19b181c..dde1d00 100644
  		&config.TelegramSettings{Token: *config.NewSecureString(testToken)},
  		bus.NewMessageBus(),
  	)
-@@ -1724,6 +1811,38 @@ func TestNewTelegramChannelUsesConfiguredMediaGroupDelay(t *testing.T) {
+@@ -1724,6 +1853,38 @@ func TestNewTelegramChannelUsesConfiguredMediaGroupDelay(t *testing.T) {
  	assert.Equal(t, defaultMediaGroupDelay, ch.mediaGroupDelay)
  }
  
@@ -23875,6 +24300,86 @@ index 19b181c..dde1d00 100644
  func newMediaGroupTestChannel(delay time.Duration) (*bus.MessageBus, *TelegramChannel) {
  	messageBus := bus.NewMessageBus()
  	ch := &TelegramChannel{
+diff --git a/pkg/channels/tool_feedback_animator.go b/pkg/channels/tool_feedback_animator.go
+index b424612..71dbd6c 100644
+--- a/pkg/channels/tool_feedback_animator.go
++++ b/pkg/channels/tool_feedback_animator.go
+@@ -28,22 +28,37 @@ func MaxToolFeedbackAnimationFrameLength() int {
+ type toolFeedbackAnimationState struct {
+ 	messageID   string
+ 	baseContent string
+-	stop        chan struct{}
+-	done        chan struct{}
++	// sentAt is when this message was first tracked. It survives the
++	// Take/Record cycle of a progress update to the same message, so it keeps
++	// describing the message the chat actually shows.
++	sentAt time.Time
++	stop   chan struct{}
++	done   chan struct{}
+ }
+ 
+ type ToolFeedbackAnimator struct {
+ 	mu      sync.Mutex
+ 	editFn  func(ctx context.Context, chatID, messageID, content string) error
+ 	entries map[string]*toolFeedbackAnimationState
++	// lastSent remembers the first-tracked time of each chat's message across
++	// the detach in Update, which removes the entry before re-recording it.
++	lastSent map[string]trackedSend
++	now      func() time.Time
++}
++
++type trackedSend struct {
++	messageID string
++	sentAt    time.Time
+ }
+ 
+ func NewToolFeedbackAnimator(
+ 	editFn func(ctx context.Context, chatID, messageID, content string) error,
+ ) *ToolFeedbackAnimator {
+ 	return &ToolFeedbackAnimator{
+-		editFn:  editFn,
+-		entries: make(map[string]*toolFeedbackAnimationState),
++		editFn:   editFn,
++		entries:  make(map[string]*toolFeedbackAnimationState),
++		lastSent: make(map[string]trackedSend),
++		now:      time.Now,
+ 	}
+ }
+ 
+@@ -83,6 +98,12 @@ func (a *ToolFeedbackAnimator) Record(chatID, messageID, content string) {
+ 	if old, ok := a.entries[chatID]; ok {
+ 		previous = old
+ 	}
++	if last, ok := a.lastSent[chatID]; ok && last.messageID == messageID {
++		entry.sentAt = last.sentAt
++	} else {
++		entry.sentAt = a.now()
++		a.lastSent[chatID] = trackedSend{messageID: messageID, sentAt: entry.sentAt}
++	}
+ 	a.entries[chatID] = entry
+ 	a.mu.Unlock()
+ 
+@@ -90,6 +111,20 @@ func (a *ToolFeedbackAnimator) Record(chatID, messageID, content string) {
+ 	go a.run(chatID, entry)
+ }
+ 
++// Age reports how long ago the chat's tracked message was first tracked.
++func (a *ToolFeedbackAnimator) Age(chatID string) (time.Duration, bool) {
++	if a == nil || strings.TrimSpace(chatID) == "" {
++		return 0, false
++	}
++	a.mu.Lock()
++	defer a.mu.Unlock()
++	entry, ok := a.entries[chatID]
++	if !ok || strings.TrimSpace(entry.messageID) == "" || entry.sentAt.IsZero() {
++		return 0, false
++	}
++	return a.now().Sub(entry.sentAt), true
++}
++
+ func (a *ToolFeedbackAnimator) Clear(chatID string) {
+ 	if a == nil || strings.TrimSpace(chatID) == "" {
+ 		return
 diff --git a/pkg/channels/wecom/media.go b/pkg/channels/wecom/media.go
 index 1494b57..5d51a99 100644
 --- a/pkg/channels/wecom/media.go
@@ -27819,7 +28324,7 @@ index 94f7698..6d97df9 100644
 +	}
 +}
 diff --git a/pkg/config/defaults.go b/pkg/config/defaults.go
-index 7d306c0..13b0bac 100644
+index 7d306c0..1fa731c 100644
 --- a/pkg/config/defaults.go
 +++ b/pkg/config/defaults.go
 @@ -13,6 +13,33 @@ import (
@@ -27882,6 +28387,51 @@ index 7d306c0..13b0bac 100644
  				ToolFeedback: ToolFeedbackConfig{
  					Enabled:          false,
  					MaxArgsLength:    300,
+@@ -68,7 +96,7 @@ func DefaultConfig() *Config {
+ 			// Add your API key to the model you want to use
+ 			// ============================================
+ 
+-			// Zhipu AI (智谱) - https://open.bigmodel.cn/usercenter/apikeys
++			// Zhipu AI - https://open.bigmodel.cn/usercenter/apikeys
+ 			{
+ 				ModelName: "glm-4.7",
+ 				Provider:  "zhipu",
+@@ -124,7 +152,7 @@ func DefaultConfig() *Config {
+ 				APIBase:   "https://generativelanguage.googleapis.com/v1beta",
+ 			},
+ 
+-			// Qwen (通义千问) - https://dashscope.console.aliyun.com/apiKey
++			// Qwen (Alibaba Tongyi) - https://dashscope.console.aliyun.com/apiKey
+ 			{
+ 				ModelName: "qwen-plus",
+ 				Provider:  "qwen",
+@@ -132,7 +160,7 @@ func DefaultConfig() *Config {
+ 				APIBase:   "https://dashscope.aliyuncs.com/compatible-mode/v1",
+ 			},
+ 
+-			// Moonshot (月之暗面) - https://platform.moonshot.cn/console/api-keys
++			// Moonshot AI - https://platform.moonshot.cn/console/api-keys
+ 			{
+ 				ModelName: "moonshot-v1-8k",
+ 				Provider:  "moonshot",
+@@ -186,7 +214,7 @@ func DefaultConfig() *Config {
+ 				APIBase:   "https://api.vivgrid.com/v1",
+ 			},
+ 
+-			// Volcengine (火山引擎) - https://console.volcengine.com/ark
++			// Volcengine - https://console.volcengine.com/ark
+ 			{
+ 				ModelName: "ark-code-latest",
+ 				Provider:  "volcengine",
+@@ -200,7 +228,7 @@ func DefaultConfig() *Config {
+ 				APIBase:   "https://ark.cn-beijing.volces.com/api/v3",
+ 			},
+ 
+-			// ShengsuanYun (神算云)
++			// ShengsuanYun
+ 			{
+ 				ModelName: "deepseek-v3",
+ 				Provider:  "shengsuanyun",
 @@ -208,14 +236,6 @@ func DefaultConfig() *Config {
  				APIBase:   "https://api.shengsuanyun.com/v1",
  			},
@@ -27897,6 +28447,15 @@ index 7d306c0..13b0bac 100644
  			// GitHub Copilot - https://github.com/settings/tokens
  			{
  				ModelName:  "copilot-gpt-5.4",
+@@ -272,7 +292,7 @@ func DefaultConfig() *Config {
+ 				APIBase:   "https://api.longcat.chat/openai",
+ 			},
+ 
+-			// ModelScope (魔搭社区) - https://modelscope.cn/my/tokens
++			// ModelScope - https://modelscope.cn/my/tokens
+ 			{
+ 				ModelName: "modelscope-qwen",
+ 				Provider:  "modelscope",
 @@ -471,6 +491,12 @@ func DefaultConfig() *Config {
  				Mode:            ReadFileModeBytes,
  				MaxReadFileSize: 64 * 1024, // 64KB
@@ -28683,9 +29242,18 @@ index cac7690..50d0f3e 100644
  		// IRC
  		ircSec := decodeChannel("irc")
 diff --git a/pkg/config/security_test.go b/pkg/config/security_test.go
-index 23daf32..439c87c 100644
+index 23daf32..0d6170b 100644
 --- a/pkg/config/security_test.go
 +++ b/pkg/config/security_test.go
+@@ -62,7 +62,7 @@ func TestSaveAndLoadSecurityConfig(t *testing.T) {
+ 			Secret SecureString `json:"secret,omitzero" yaml:"secret,omitempty" env:"TEST_SECURE_STRING"`
+ 		}
+ 		s := testStruct{Secret: *NewSecureString("test")}
+-		out, err := yaml.Marshal(s) // 直接对 SecureString 进行序列化
++		out, err := yaml.Marshal(s) // marshal the SecureString directly
+ 		require.NoError(t, err)
+ 		t.Logf("output: %v", string(out))
+ 		assert.Equal(t, "secret: test\n", string(out))
 @@ -115,7 +115,7 @@ func TestSaveAndLoadSecurityConfig(t *testing.T) {
  				{"feishu", `{"enabled":true,"settings":{"app_id":"feishu_app_id","app_secret":"feishu_app_secret"}}`},
  				{"discord", `{"enabled":true,"settings":{"token":"discord_token"}}`},
@@ -49842,6 +50410,420 @@ index 1824f2c..65c93a7 100644
  			if renameErr := os.Rename(targetDir, backupDir); renameErr != nil {
  				return ErrorResult(fmt.Sprintf("failed to prepare reinstall for %q: %v", slug, renameErr))
  			}
+diff --git a/pkg/tools/integration/web.go b/pkg/tools/integration/web.go
+index d7a3112..77e8d1e 100644
+--- a/pkg/tools/integration/web.go
++++ b/pkg/tools/integration/web.go
+@@ -18,8 +18,6 @@ import (
+ 	"time"
+ 	"unicode"
+ 
+-	kagiopenapi "github.com/kagisearch/kagi-openapi-golang"
+-
+ 	"github.com/sipeed/picoclaw/pkg/config"
+ 	"github.com/sipeed/picoclaw/pkg/logger"
+ 	"github.com/sipeed/picoclaw/pkg/utils"
+@@ -252,21 +250,26 @@ func mapBaiduRecencyFilter(rangeCode string) string {
+ 	}
+ }
+ 
+-func mapKagiLensTimeFilter(rangeCode string, now time.Time) *kagiopenapi.SearchRequestLens {
+-	lens := kagiopenapi.NewSearchRequestLens()
++// kagiSearchLens is the part of the Kagi search request's "lens" object that
++// PocketClaw sets: a time restriction and nothing else.
++type kagiSearchLens struct {
++	TimeAfter    string `json:"time_after,omitempty"`
++	TimeRelative string `json:"time_relative,omitempty"`
++}
++
++func mapKagiLensTimeFilter(rangeCode string, now time.Time) *kagiSearchLens {
+ 	switch rangeCode {
+ 	case "d":
+-		lens.SetTimeRelative("day")
++		return &kagiSearchLens{TimeRelative: "day"}
+ 	case "w":
+-		lens.SetTimeRelative("week")
++		return &kagiSearchLens{TimeRelative: "week"}
+ 	case "m":
+-		lens.SetTimeRelative("month")
++		return &kagiSearchLens{TimeRelative: "month"}
+ 	case "y":
+-		lens.SetTimeAfter(now.AddDate(-1, 0, 0).Format("2006-01-02"))
++		return &kagiSearchLens{TimeAfter: now.AddDate(-1, 0, 0).Format("2006-01-02")}
+ 	default:
+ 		return nil
+ 	}
+-	return lens
+ }
+ 
+ type BraveSearchProvider struct {
+@@ -508,6 +511,21 @@ type KagiSearchProvider struct {
+ 	client  *http.Client
+ }
+ 
++// kagiSearchRequest is the body of POST {base}/search in the Kagi Search API.
++//
++// Kagi's generated Go client used to build this. It carries no licence, so it
++// could not ship in an F-Droid build; this is the same request written out by
++// hand. Workflow, format and safe_search are the defaults that client's
++// constructor always sent, kept so the request Kagi receives is unchanged.
++type kagiSearchRequest struct {
++	Query      string          `json:"query"`
++	Workflow   string          `json:"workflow"`
++	Format     string          `json:"format"`
++	SafeSearch bool            `json:"safe_search"`
++	Limit      int32           `json:"limit"`
++	Lens       *kagiSearchLens `json:"lens,omitempty"`
++}
++
+ func (p *KagiSearchProvider) Search(
+ 	ctx context.Context,
+ 	query string,
+@@ -523,12 +541,18 @@ func (p *KagiSearchProvider) Search(
+ 		client = &http.Client{Timeout: searchTimeout}
+ 	}
+ 
+-	apiClient := newKagiAPIClient(client, p.baseURL)
+-	searchReq := kagiopenapi.NewSearchRequest(query)
+-	searchReq.SetLimit(int32(count))
+-	if lens := mapKagiLensTimeFilter(rangeCode, time.Now().UTC()); lens != nil {
+-		searchReq.SetLens(*lens)
++	body, err := json.Marshal(kagiSearchRequest{
++		Query:      query,
++		Workflow:   "search",
++		Format:     "json",
++		SafeSearch: true,
++		Limit:      int32(count),
++		Lens:       mapKagiLensTimeFilter(rangeCode, time.Now().UTC()),
++	})
++	if err != nil {
++		return "", fmt.Errorf("failed to encode request: %w", err)
+ 	}
++	searchURL := kagiServerURL(p.baseURL) + "/search"
+ 
+ 	var lastErr error
+ 	iter := p.keyPool.NewIterator()
+@@ -539,53 +563,59 @@ func (p *KagiSearchProvider) Search(
+ 			break
+ 		}
+ 
+-		authCtx := context.WithValue(ctx, kagiopenapi.ContextAccessToken, apiKey)
+-		searchResp, httpResp, err := apiClient.SearchAPI.Search(authCtx).SearchRequest(*searchReq).Execute()
+-		if httpResp != nil && httpResp.Body != nil {
+-			defer httpResp.Body.Close()
+-		}
++		status, respBody, err := kagiPost(ctx, client, searchURL, apiKey, body)
+ 		if err != nil {
+-			if httpResp != nil {
+-				if httpResp.StatusCode >= 200 && httpResp.StatusCode < 300 {
+-					results, parseErr := fallbackKagiSearchResults(httpResp, count)
+-					if parseErr != nil {
+-						return "", parseErr
+-					}
+-					return formatKagiSearchResults(query, results), nil
+-				}
+-				lastErr = kagiStatusError(httpResp.StatusCode)
+-				if httpResp.StatusCode == http.StatusTooManyRequests ||
+-					httpResp.StatusCode == http.StatusUnauthorized ||
+-					httpResp.StatusCode == http.StatusForbidden ||
+-					httpResp.StatusCode >= 500 {
+-					continue
+-				}
+-				return "", lastErr
+-			}
+ 			lastErr = fmt.Errorf("request failed: %w", err)
+ 			continue
+ 		}
+-
+-		results := kagiSearchResults(searchResp, count)
+-		if len(results) == 0 {
+-			return fmt.Sprintf("No results for: %s", query), nil
++		if status < 200 || status >= 300 {
++			lastErr = kagiStatusError(status)
++			if status == http.StatusTooManyRequests ||
++				status == http.StatusUnauthorized ||
++				status == http.StatusForbidden ||
++				status >= 500 {
++				continue
++			}
++			return "", lastErr
+ 		}
+ 
++		results, err := parseKagiSearchResults(respBody, count)
++		if err != nil {
++			return "", err
++		}
+ 		return formatKagiSearchResults(query, results), nil
+ 	}
+ 
+ 	return "", fmt.Errorf("all api keys failed, last error: %w", lastErr)
+ }
+ 
+-func newKagiAPIClient(client *http.Client, baseURL string) *kagiopenapi.APIClient {
+-	cfg := kagiopenapi.NewConfiguration()
+-	cfg.UserAgent = fmt.Sprintf(userAgentHonest, config.Version)
+-	cfg.HTTPClient = client
+-	cfg.Servers = kagiopenapi.ServerConfigurations{{
+-		URL:         kagiServerURL(baseURL),
+-		Description: "Kagi Search API endpoint",
+-	}}
+-	return kagiopenapi.NewAPIClient(cfg)
++// kagiPost sends one search request and returns the status and at most 2 MiB
++// of the body. The key travels only in the Authorization header.
++func kagiPost(
++	ctx context.Context,
++	client *http.Client,
++	searchURL, apiKey string,
++	body []byte,
++) (int, []byte, error) {
++	req, err := http.NewRequestWithContext(ctx, http.MethodPost, searchURL, bytes.NewReader(body))
++	if err != nil {
++		return 0, nil, err
++	}
++	req.Header.Set("Content-Type", "application/json")
++	req.Header.Set("Accept", "application/json")
++	req.Header.Set("User-Agent", fmt.Sprintf(userAgentHonest, config.Version))
++	req.Header.Set("Authorization", "Bearer "+apiKey)
++
++	resp, err := client.Do(req)
++	if err != nil {
++		return 0, nil, err
++	}
++	defer resp.Body.Close()
++	respBody, err := io.ReadAll(io.LimitReader(resp.Body, 2<<20))
++	if err != nil {
++		return 0, nil, fmt.Errorf("failed to read response: %w", err)
++	}
++	return resp.StatusCode, respBody, nil
+ }
+ 
+ func formatKagiSearchResults(query string, results []SearchResultItem) string {
+@@ -646,7 +676,7 @@ func kagiStatusError(statusCode int) error {
+ 	}
+ }
+ 
+-type kagiFallbackResult struct {
++type kagiSearchResult struct {
+ 	Type      int    `json:"t"`
+ 	URL       string `json:"url"`
+ 	Title     string `json:"title"`
+@@ -655,18 +685,11 @@ type kagiFallbackResult struct {
+ 	Published string `json:"published"`
+ }
+ 
+-func fallbackKagiSearchResults(resp *http.Response, count int) ([]SearchResultItem, error) {
+-	if resp == nil || resp.Body == nil {
+-		return nil, fmt.Errorf("failed to parse response: empty response body")
+-	}
+-	body, err := io.ReadAll(io.LimitReader(resp.Body, 2<<20))
+-	if err != nil {
+-		return nil, fmt.Errorf("failed to read response: %w", err)
+-	}
+-	return parseFallbackKagiSearchResults(body, count)
+-}
+-
+-func parseFallbackKagiSearchResults(body []byte, count int) ([]SearchResultItem, error) {
++// parseKagiSearchResults reads a 2xx Kagi search response. The v1 API answers
++// {"data":{"search":[...]}}; the older API answered {"data":[...]} with a type
++// field, where only t == 0 is a web result. Items without a URL are skipped
++// rather than failing the whole response.
++func parseKagiSearchResults(body []byte, count int) ([]SearchResultItem, error) {
+ 	if count <= 0 {
+ 		count = 10
+ 	}
+@@ -685,27 +708,27 @@ func parseFallbackKagiSearchResults(body []byte, count int) ([]SearchResultItem,
+ 	switch data[0] {
+ 	case '{':
+ 		var modern struct {
+-			Search []kagiFallbackResult `json:"search"`
++			Search []kagiSearchResult `json:"search"`
+ 		}
+ 		if err := json.Unmarshal(data, &modern); err != nil {
+ 			return nil, fmt.Errorf("failed to parse response: %w", err)
+ 		}
+-		appendFallbackKagiResults(&results, modern.Search, count, false)
++		appendKagiSearchResults(&results, modern.Search, count, false)
+ 	case '[':
+-		var legacy []kagiFallbackResult
++		var legacy []kagiSearchResult
+ 		if err := json.Unmarshal(data, &legacy); err != nil {
+ 			return nil, fmt.Errorf("failed to parse response: %w", err)
+ 		}
+-		appendFallbackKagiResults(&results, legacy, count, true)
++		appendKagiSearchResults(&results, legacy, count, true)
+ 	default:
+ 		return nil, fmt.Errorf("failed to parse response: unexpected data shape")
+ 	}
+ 	return results, nil
+ }
+ 
+-func appendFallbackKagiResults(
++func appendKagiSearchResults(
+ 	results *[]SearchResultItem,
+-	items []kagiFallbackResult,
++	items []kagiSearchResult,
+ 	count int,
+ 	requireLegacyType bool,
+ ) {
+@@ -733,33 +756,6 @@ func appendFallbackKagiResults(
+ 	}
+ }
+ 
+-func kagiSearchResults(searchResp *kagiopenapi.Search200Response, count int) []SearchResultItem {
+-	if count <= 0 {
+-		count = 10
+-	}
+-	if searchResp == nil || searchResp.Data == nil {
+-		return nil
+-	}
+-
+-	results := make([]SearchResultItem, 0, count)
+-	for _, item := range searchResp.Data.Search {
+-		if len(results) >= count {
+-			break
+-		}
+-		urlStr := strings.TrimSpace(item.GetUrl())
+-		if urlStr == "" {
+-			continue
+-		}
+-		results = append(results, SearchResultItem{
+-			Title:     cleanSearchText(item.GetTitle()),
+-			URL:       urlStr,
+-			Snippet:   cleanSearchText(item.GetSnippet()),
+-			Published: strings.TrimSpace(item.GetTime()),
+-		})
+-	}
+-	return results
+-}
+-
+ func cleanSearchText(content string) string {
+ 	return strings.TrimSpace(html.UnescapeString(stripTags(content)))
+ }
+diff --git a/pkg/tools/integration/web_test.go b/pkg/tools/integration/web_test.go
+index c69f734..c001291 100644
+--- a/pkg/tools/integration/web_test.go
++++ b/pkg/tools/integration/web_test.go
+@@ -1380,6 +1380,120 @@ func TestWebTool_KagiSearch_SuccessRequestAndParsing(t *testing.T) {
+ 	}
+ }
+ 
++// The Kagi request used to be built by Kagi's generated client, which had no
++// licence and was removed for F-Droid. This pins the wire contract that client
++// produced, so the hand-written request cannot drift from it.
++func TestWebTool_KagiSearch_RequestMatchesTheGeneratedClientContract(t *testing.T) {
++	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
++		if got := r.Header.Get("Content-Type"); got != "application/json" {
++			t.Errorf("Content-Type = %q, want application/json", got)
++		}
++		if got := r.Header.Get("Accept"); got != "application/json" {
++			t.Errorf("Accept = %q, want application/json", got)
++		}
++		if got := r.Header.Get("User-Agent"); !strings.Contains(got, "picoclaw") {
++			t.Errorf("User-Agent = %q, want the honest agent", got)
++		}
++		var payload map[string]any
++		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
++			t.Fatalf("failed to decode payload: %v", err)
++		}
++		want := map[string]any{
++			"query":       "q",
++			"workflow":    "search",
++			"format":      "json",
++			"safe_search": true,
++			"limit":       float64(3),
++		}
++		if len(payload) != len(want) {
++			t.Errorf("payload keys = %v, want exactly %v (no lens without a range)", payload, want)
++		}
++		for key, value := range want {
++			if payload[key] != value {
++				t.Errorf("payload[%q] = %v, want %v", key, payload[key], value)
++			}
++		}
++		w.Header().Set("Content-Type", "application/json")
++		w.Write([]byte(`{"data":{"search":[]}}`))
++	}))
++	defer server.Close()
++
++	tool, err := NewWebSearchTool(WebSearchToolOptions{
++		KagiEnabled:    true,
++		KagiAPIKeys:    []string{"k"},
++		KagiBaseURL:    server.URL,
++		KagiMaxResults: 5,
++	})
++	if err != nil {
++		t.Fatalf("NewWebSearchTool() error: %v", err)
++	}
++	result := tool.Execute(context.Background(), map[string]any{"query": "q", "count": float64(3)})
++	if result.IsError || !strings.Contains(result.ForUser, "No results for: q") {
++		t.Fatalf("expected an empty result, got %+v", result)
++	}
++}
++
++func TestWebTool_KagiSearch_RotatesKeysAndReadsTheLegacyShape(t *testing.T) {
++	var seen []string
++	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
++		seen = append(seen, r.Header.Get("Authorization"))
++		w.Header().Set("Content-Type", "application/json")
++		if r.Header.Get("Authorization") == "Bearer revoked" {
++			w.WriteHeader(http.StatusUnauthorized)
++			return
++		}
++		w.Write([]byte(`{"data":[
++			{"t":1,"url":"https://example.com/related","title":"Related"},
++			{"t":0,"url":"https://example.com/web","title":"Web","published":"2025-05-05"}
++		]}`))
++	}))
++	defer server.Close()
++
++	tool, err := NewWebSearchTool(WebSearchToolOptions{
++		KagiEnabled:    true,
++		KagiAPIKeys:    []string{"revoked", "good"},
++		KagiBaseURL:    server.URL,
++		KagiMaxResults: 5,
++	})
++	if err != nil {
++		t.Fatalf("NewWebSearchTool() error: %v", err)
++	}
++	result := tool.Execute(context.Background(), map[string]any{"query": "q"})
++	if result.IsError {
++		t.Fatalf("expected success after rotating past the revoked key, got %s", result.ForLLM)
++	}
++	if len(seen) != 2 || seen[0] != "Bearer revoked" || seen[1] != "Bearer good" {
++		t.Fatalf("keys tried = %v, want revoked then good", seen)
++	}
++	if !strings.Contains(result.ForUser, "https://example.com/web") ||
++		!strings.Contains(result.ForUser, "Published: 2025-05-05") ||
++		strings.Contains(result.ForUser, "Related") {
++		t.Fatalf("legacy parsing wrong: %s", result.ForUser)
++	}
++}
++
++func TestWebTool_KagiSearch_MalformedSuccessBodyIsAnError(t *testing.T) {
++	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
++		w.Header().Set("Content-Type", "application/json")
++		w.Write([]byte(`not json`))
++	}))
++	defer server.Close()
++
++	tool, err := NewWebSearchTool(WebSearchToolOptions{
++		KagiEnabled:    true,
++		KagiAPIKeys:    []string{"k"},
++		KagiBaseURL:    server.URL,
++		KagiMaxResults: 5,
++	})
++	if err != nil {
++		t.Fatalf("NewWebSearchTool() error: %v", err)
++	}
++	result := tool.Execute(context.Background(), map[string]any{"query": "q"})
++	if !result.IsError || !strings.Contains(result.ForLLM, "failed to parse response") {
++		t.Fatalf("expected a parse error, got %+v", result)
++	}
++}
++
+ func TestWebTool_KagiSearch_NoApiKey(t *testing.T) {
+ 	tool, err := NewWebSearchTool(WebSearchToolOptions{
+ 		KagiEnabled:    true,
 diff --git a/pkg/tools/python_agent_path_test.go b/pkg/tools/python_agent_path_test.go
 new file mode 100644
 index 0000000..8c29a8d
@@ -55048,7 +56030,7 @@ index a70c9ba..a390b4c 100644
  	if got := resp.Config["enabled"]; got != false {
  		t.Fatalf("config.enabled = %#v, want false", got)
 diff --git a/web/backend/api/config.go b/web/backend/api/config.go
-index f567fe5..ebcffd9 100644
+index f567fe5..e216f83 100644
 --- a/web/backend/api/config.go
 +++ b/web/backend/api/config.go
 @@ -91,6 +91,31 @@ func (h *Handler) handleUpdateConfig(w http.ResponseWriter, r *http.Request) {
@@ -55099,6 +56081,15 @@ index f567fe5..ebcffd9 100644
  					errs = append(errs, "channels.pico.token is required when pico channel is enabled")
  				}
  			}
+@@ -459,7 +484,7 @@ func asMapField(value map[string]any, key string) (map[string]any, bool) {
+ 
+ var (
+ 	allowFromHiddenCharsRe = regexp.MustCompile("[\u200B\u200C\u200D\u200E\u200F\u202A-\u202E\u2060-\u2069\uFEFF]")
+-	allowFromSplitRe       = regexp.MustCompile("[,\uFF0C、;；\r\n\t]+")
++	allowFromSplitRe       = regexp.MustCompile("[,\uFF0C\u3001;\uFF1B\r\n\t]+")
+ 	conservativeSplitRe    = regexp.MustCompile("[,\uFF0C\r\n\t]+")
+ )
+ 
 diff --git a/web/backend/api/config_test.go b/web/backend/api/config_test.go
 index 8a23b7a..0611eb3 100644
 --- a/web/backend/api/config_test.go
@@ -82808,10 +83799,10 @@ index 0000000..cd8dcd0
 +  })
 +})
 diff --git a/web/frontend/src/components/channels/channel-array-utils.ts b/web/frontend/src/components/channels/channel-array-utils.ts
-index 0f6268b..580cde8 100644
+index 0f6268b..47d4b32 100644
 --- a/web/frontend/src/components/channels/channel-array-utils.ts
 +++ b/web/frontend/src/components/channels/channel-array-utils.ts
-@@ -35,10 +35,17 @@ function splitStringList(
+@@ -35,14 +35,21 @@ function splitStringList(
  }
  
  export function asStringArray(value: unknown): string[] {
@@ -82832,6 +83823,11 @@ index 0f6268b..580cde8 100644
  }
  
  export function parseAllowFromInput(raw: string): string[] {
+-  return splitStringList(raw, /[,\uFF0C、;；\n\r\t]+/, {
++  return splitStringList(raw, /[,\uFF0C\u3001;\uFF1B\n\r\t]+/, {
+     stripHiddenChars: true,
+   })
+ }
 @@ -64,9 +71,20 @@ export function mergeUniqueStringItems(
    return normalizeStringListItems([...currentItems, ...nextItems])
  }
