@@ -1,4 +1,9 @@
-//go:build !linux
+//go:build !linux || android
+
+// Android satisfies the linux build tag but has no udevadm — neither toybox nor
+// the PocketClaw Managed Runtime ships it — and an app cannot subscribe to
+// kernel uevents, so the udevadm-based monitor could only fail there. The
+// Android Core compiles this inert monitor instead (PC-DEF-080).
 
 package sources
 
