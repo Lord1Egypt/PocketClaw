@@ -126,6 +126,11 @@ type turnExecution struct {
 	// Iteration tracking
 	iteration int
 
+	// historyCompactedForBudget records that the post-tool preflight already
+	// compacted history this turn. Compaction may itself call a model, and a
+	// second pass over the same history recovers nothing the first did not.
+	historyCompactedForBudget bool
+
 	// Per-iteration state set by Pipeline.PreLLM
 	activeCandidates  []providers.FallbackCandidate
 	activeModel       string

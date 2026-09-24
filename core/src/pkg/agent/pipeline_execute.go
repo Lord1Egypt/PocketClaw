@@ -332,18 +332,21 @@ toolLoop:
 						}
 						toolResultMedia = append(toolResultMedia, hookResult.Media...)
 					}
-					toolResultMsg := toolResultPromptMessage(contentForLLM, tc.ID, toolResultMedia)
+					budget := al.boundToolContentForLLM(toolName, contentForLLM)
+					toolResultMsg := toolResultPromptMessage(budget.Content, tc.ID, toolResultMedia)
 
 					al.emitEvent(
 						runtimeevents.KindAgentToolExecEnd,
 						ts.eventMeta("runTurn", "turn.tool.end"),
 						ToolExecEndPayload{
-							Tool:       toolName,
-							Duration:   toolDuration,
-							ForLLMLen:  len(contentForLLM),
-							ForUserLen: len(hookResult.ForUser),
-							IsError:    hookResult.IsError,
-							Async:      hookResult.Async,
+							Tool:              toolName,
+							Duration:          toolDuration,
+							ForLLMLen:         len(budget.Content),
+							ForLLMOriginalLen: budget.OriginalBytes,
+							ForLLMTruncated:   budget.Truncated,
+							ForUserLen:        len(hookResult.ForUser),
+							IsError:           hookResult.IsError,
+							Async:             hookResult.Async,
 						},
 					)
 					ts.recordToolExecution(
@@ -415,6 +418,7 @@ toolLoop:
 						case result, ok := <-ts.pendingResults:
 							if ok && result != nil && result.ForLLM != "" {
 								content := al.cfg.FilterSensitiveData(result.ForLLM)
+								content = al.boundToolContentForLLM("subturn", content).Content
 								msg := subTurnResultPromptMessage(content)
 								messages = append(messages, msg)
 								if !ts.opts.NoHistory {
@@ -552,6 +556,7 @@ toolLoop:
 			}
 
 			content = al.cfg.FilterSensitiveData(content)
+			content = al.boundToolContentForLLM(asyncToolName, content).Content
 
 			logger.InfoCF("agent", "Async tool completed, publishing result",
 				map[string]any{
@@ -734,17 +739,23 @@ toolLoop:
 		if len(toolResult.Media) > 0 && !toolResult.ResponseHandled {
 			toolResultMedia = append(toolResultMedia, toolResult.Media...)
 		}
-		toolResultMsg := toolResultPromptMessage(contentForLLM, toolCallID, toolResultMedia)
+		// Bounded here, before the result enters the conversation or the
+		// session: a result that is only trimmed at request time would still be
+		// persisted whole and re-sent by every later turn.
+		budget := al.boundToolContentForLLM(toolName, contentForLLM)
+		toolResultMsg := toolResultPromptMessage(budget.Content, toolCallID, toolResultMedia)
 		al.emitEvent(
 			runtimeevents.KindAgentToolExecEnd,
 			ts.eventMeta("runTurn", "turn.tool.end"),
 			ToolExecEndPayload{
-				Tool:       toolName,
-				Duration:   toolDuration,
-				ForLLMLen:  len(contentForLLM),
-				ForUserLen: len(toolResult.ForUser),
-				IsError:    toolResult.IsError,
-				Async:      toolResult.Async,
+				Tool:              toolName,
+				Duration:          toolDuration,
+				ForLLMLen:         len(budget.Content),
+				ForLLMOriginalLen: budget.OriginalBytes,
+				ForLLMTruncated:   budget.Truncated,
+				ForUserLen:        len(toolResult.ForUser),
+				IsError:           toolResult.IsError,
+				Async:             toolResult.Async,
 			},
 		)
 		ts.recordToolExecution(
@@ -818,6 +829,7 @@ toolLoop:
 			case result, ok := <-ts.pendingResults:
 				if ok && result != nil && result.ForLLM != "" {
 					content := al.cfg.FilterSensitiveData(result.ForLLM)
+					content = al.boundToolContentForLLM("subturn", content).Content
 					msg := subTurnResultPromptMessage(content)
 					messages = append(messages, msg)
 					if !ts.opts.NoHistory {

@@ -1936,3 +1936,30 @@ func TestShellTool_SchemelessURLDetection(t *testing.T) {
 		}
 	}
 }
+
+// A long failing command used to lose its exit status: the status is appended
+// after the output, and the old prefix cut removed the end.
+func TestShellTool_LongFailingOutputKeepsItsExitStatus(t *testing.T) {
+	tool, err := NewExecTool("", false)
+	if err != nil {
+		t.Fatalf("unable to configure exec tool: %s", err)
+	}
+
+	result := tool.Execute(context.Background(), map[string]any{
+		"action":  "run",
+		"command": "seq 100000 103000; exit 3",
+	})
+
+	if !result.IsError {
+		t.Fatalf("expected a failing command, got success: %s", result.ForLLM)
+	}
+	if !strings.Contains(result.ForLLM, "[Command exited with code 3]") {
+		t.Fatalf("the exit status was cut off a long output: %q", result.ForLLM)
+	}
+	if !strings.Contains(result.ForLLM, "[OUTPUT TRUNCATED]") {
+		t.Fatal("a long output was shortened without saying so")
+	}
+	if !strings.HasPrefix(result.ForLLM, "100000\n") {
+		t.Fatal("the beginning of the output was not preserved")
+	}
+}

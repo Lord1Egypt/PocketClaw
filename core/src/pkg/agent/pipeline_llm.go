@@ -278,8 +278,14 @@ func (p *Pipeline) CallLLM(
 		return exec.activeProvider.Chat(providerCtx, messagesForCall, toolDefsForCall, exec.llmModel, exec.llmOpts)
 	}
 
+	p.preflightContextBudget(ctx, ts, exec, iteration)
+
 	// Retry loop
 	var err error
+	// contextRecoveryUsed limits compact-and-resend to one attempt per
+	// request. A second overflow after compaction means the request cannot be
+	// made to fit by compacting, and retrying it again only delays the answer.
+	contextRecoveryUsed := false
 	maxRetries := p.Cfg.Agents.Defaults.MaxLLMRetries
 	if maxRetries <= 0 {
 		maxRetries = 2
@@ -371,18 +377,8 @@ func (p *Pipeline) CallLLM(
 			failedPayload,
 		)
 
-		errMsg := strings.ToLower(err.Error())
 		retryReason, isTransientError := transientLLMRetryReason(err)
-		isContextError := !isTransientError && (strings.Contains(errMsg, "context_length_exceeded") ||
-			strings.Contains(errMsg, "context window") ||
-			strings.Contains(errMsg, "context_window") ||
-			strings.Contains(errMsg, "maximum context length") ||
-			strings.Contains(errMsg, "token limit") ||
-			strings.Contains(errMsg, "too many tokens") ||
-			strings.Contains(errMsg, "max_tokens") ||
-			strings.Contains(errMsg, "invalidparameter") ||
-			strings.Contains(errMsg, "prompt is too long") ||
-			strings.Contains(errMsg, "request too large"))
+		isContextError := !isTransientError && isProviderContextOverflow(err, failErr)
 
 		// Auth, billing, hard quota and malformed requests will fail
 		// identically a second later, so a same-candidate retry is pure
@@ -445,124 +441,66 @@ func (p *Pipeline) CallLLM(
 			continue
 		}
 
-		if isContextError && retry < maxRetries && !ts.opts.NoHistory {
+		if isContextError && !contextRecoveryUsed && retry < maxRetries && !ts.opts.NoHistory {
+			contextRecoveryUsed = true
 			al.emitEvent(
 				runtimeevents.KindAgentLLMRetry,
 				ts.eventMeta("runTurn", "turn.llm.retry"),
 				LLMRetryPayload{
 					Attempt:    retry + 1,
-					MaxRetries: maxRetries,
+					MaxRetries: 1,
 					Reason:     "context_limit",
 					Error:      err.Error(),
 				},
 			)
 			logger.WarnCF(
 				"agent",
-				"Context window error detected, attempting compression",
+				"Provider refused the request as too large; compacting once and resending",
 				map[string]any{
-					"error": err.Error(),
-					"retry": retry,
+					"error":       err.Error(),
+					"retry":       retry,
+					"http_status": failedPayload.HTTPStatus,
 				},
 			)
 
-			if retry == 0 && !constants.IsInternalChannel(ts.channel) {
+			if !constants.IsInternalChannel(ts.channel) {
 				al.bus.PublishOutbound(ctx, outboundMessageForTurn(
 					ts,
 					"Context window exceeded. Compressing history and retrying...",
 				))
 			}
 
-			if compactErr := p.ContextManager.Compact(ctx, &CompactRequest{
-				SessionKey: ts.sessionKey,
-				Reason:     ContextCompressReasonRetry,
-				Budget:     ts.agent.ContextWindow,
-			}); compactErr != nil {
-				logger.WarnCF("agent", "Context overflow compact failed", map[string]any{
-					"session_key": ts.sessionKey,
-					"error":       compactErr.Error(),
-				})
-			}
-			ts.refreshRestorePointFromSession(ts.agent)
-			if asmResp, asmErr := p.ContextManager.Assemble(ctx, &AssembleRequest{
-				SessionKey: ts.sessionKey,
-				Budget:     ts.agent.ContextWindow,
-				MaxTokens:  ts.agent.MaxTokens,
-			}); asmErr == nil && asmResp != nil {
-				exec.history = asmResp.History
-				exec.summary = asmResp.Summary
-			}
-			contextualSkills := ts.activeSkills
-			if ts.agent.ContextBuilder != nil {
-				contextualSkills = ts.agent.ContextBuilder.ResolveActiveSkillsForContext(ts.activeSkills)
-			}
-			ts.recordSkillContextSnapshot(skillContextTriggerContextRetryRebuild, contextualSkills)
-			stableHistory, protectedTurnTail := splitHistoryForActiveTurn(
-				exec.history,
-				ts.persistedMessagesSnapshot(),
-			)
-			buildMessages := func(trimmedHistory []providers.Message) []providers.Message {
-				fullHistory := append(append([]providers.Message(nil), trimmedHistory...), protectedTurnTail...)
-				rebuildPromptReq := promptBuildRequestForTurn(ts, fullHistory, exec.summary, "", nil, p.Cfg)
-				rebuildPromptReq.ActiveSkills = append([]string(nil), contextualSkills...)
-				rebuilt := ts.agent.ContextBuilder.BuildMessagesFromPrompt(rebuildPromptReq)
-				return resolveMediaRefs(
-					rebuilt,
-					p.MediaStore,
-					maxMediaSize,
-					len(rebuilt)-len(protectedTurnTail),
-				)
-			}
-			originalHistoryCount := len(exec.history)
-			var fit bool
-			var trimmedStableHistory []providers.Message
-			trimmedStableHistory, exec.callMessages, fit = trimHistoryToFitContextWindow(
-				stableHistory,
-				func(trimmedHistory []providers.Message) []providers.Message {
-					rebuilt := buildMessages(trimmedHistory)
-					if exec.gracefulTerminal {
-						return append(append([]providers.Message(nil), rebuilt...), ts.interruptHintMessage())
-					}
-					return rebuilt
-				},
-				ts.agent.ContextWindow,
-				exec.providerToolDefs,
-				ts.agent.MaxTokens,
-			)
-			exec.history = append(trimmedStableHistory, protectedTurnTail...)
-			exec.messages = buildMessages(trimmedStableHistory)
-			exec.currentTurnStart = len(exec.messages) - len(protectedTurnTail)
-			if exec.gracefulTerminal {
-				msgs := append([]providers.Message(nil), exec.messages...)
-				exec.callMessages = append(msgs, ts.interruptHintMessage())
-			}
-			if dropped := originalHistoryCount - len(exec.history); dropped > 0 {
-				logger.WarnCF("agent", "Trimmed rebuilt history after context retry compaction", map[string]any{
-					"session_key":     ts.sessionKey,
-					"retry":           retry,
-					"dropped_msgs":    dropped,
-					"remaining_msgs":  len(exec.history),
-					"context_window":  ts.agent.ContextWindow,
-					"max_tokens":      ts.agent.MaxTokens,
-					"still_overlimit": !fit,
-				})
-			} else if !fit {
-				logger.WarnCF("agent", "Context still exceeds budget after retry compaction rebuild", map[string]any{
-					"session_key":         ts.sessionKey,
-					"retry":               retry,
-					"history_msgs":        len(exec.history),
-					"protected_turn_msgs": len(protectedTurnTail),
-					"context_window":      ts.agent.ContextWindow,
-					"max_tokens":          ts.agent.MaxTokens,
+			fit := p.rebuildContextWithinBudget(ctx, ts, exec, ContextCompressReasonRetry, retry)
+			if !fit {
+				_, fit = shrinkToolResultsToFit(exec.callMessages, func() bool {
+					return !isOverContextBudget(
+						ts.agent.ContextWindow, exec.callMessages, exec.providerToolDefs, ts.agent.MaxTokens,
+					)
 				})
 			}
 			if !fit {
-				err = fmt.Errorf(
+				logger.WarnCF("agent", "Context recovery could not make the request fit; not resending", map[string]any{
+					"session_key": ts.sessionKey,
+					"retry":       retry,
+				})
+				err = newContextBudgetExceeded(fmt.Errorf(
 					"context window still exceeded after retry compaction; refusing to drop active turn messages: %w",
 					err,
-				)
+				))
 				break
 			}
+			logger.InfoCF("agent", "Context recovery rebuilt the request; resending once", map[string]any{
+				"session_key": ts.sessionKey,
+				"retry":       retry,
+			})
 			continue
+		}
+		if isContextError && contextRecoveryUsed {
+			logger.WarnCF("agent", "Provider refused the compacted request as too large as well; giving up", map[string]any{
+				"session_key": ts.sessionKey,
+				"retry":       retry,
+			})
+			err = newContextBudgetExceeded(err)
 		}
 		break
 	}
@@ -581,6 +519,9 @@ func (p *Pipeline) CallLLM(
 			"error":     err.Error(),
 		}
 		userFacing, isUserFacing := AsUserFacingError(err)
+		// Only a missing or disabled model is a configuration block. A request
+		// the provider refused as too large is a genuine failure of this turn.
+		isUserFacing = isUserFacing && userFacing.Code != CodeContextBudgetExceeded
 		if isUserFacing {
 			classification = ClassificationConfigurationBlocked
 			fields["reason"] = classification

@@ -484,10 +484,9 @@ func (t *ExecTool) runSync(ctx context.Context, command, cwd string) *ToolResult
 		output = "(no output)"
 	}
 
-	maxLen := 10000
-	if len(output) > maxLen {
-		output = output[:maxLen] + fmt.Sprintf("\n... (truncated, %d more chars)", len(output)-maxLen)
-	}
+	// Head and tail, not a prefix: the exit status is appended above, and a
+	// plain prefix cut dropped it from exactly the long outputs that failed.
+	output = BoundResultForLLM(output, 10000).Content
 
 	if err != nil {
 		return &ToolResult{

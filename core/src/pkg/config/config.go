@@ -1121,6 +1121,13 @@ type ToolsConfig struct {
 	Subagent        ToolConfig         `json:"subagent"          yaml:"-"                                                       envPrefix:"PICOCLAW_TOOLS_SUBAGENT_"`
 	WebFetch        ToolConfig         `json:"web_fetch"         yaml:"-"                                                       envPrefix:"PICOCLAW_TOOLS_WEB_FETCH_"`
 	WriteFile       ToolConfig         `json:"write_file"        yaml:"-"                                                       envPrefix:"PICOCLAW_TOOLS_WRITE_FILE_"`
+
+	// MaxResultBytes bounds how much of one tool result enters the model's
+	// conversation. A tool may capture far more for its own purposes — the
+	// runtime keeps up to 4 MiB of a curl response — but a single result must
+	// never be able to fill the context window by itself.
+	// Default: DefaultToolMaxResultBytes.
+	MaxResultBytes int `json:"max_result_bytes,omitempty" yaml:"-"`
 }
 
 // IsFilterSensitiveDataEnabled returns true if sensitive data filtering is enabled
@@ -1134,6 +1141,27 @@ func (c *ToolsConfig) GetFilterMinLength() int {
 		return 8
 	}
 	return c.FilterMinLength
+}
+
+const (
+	// DefaultToolMaxResultBytes matches the read_file tool's own 64 KiB limit,
+	// so a paged file read and any other tool result share one ceiling.
+	DefaultToolMaxResultBytes = 64 * 1024
+	// MinToolMaxResultBytes keeps a configured budget large enough to carry a
+	// useful head, a useful tail and the truncation notice between them.
+	MinToolMaxResultBytes = 4 * 1024
+)
+
+// GetMaxResultBytes returns the per-result budget for model-visible tool output.
+func (c *ToolsConfig) GetMaxResultBytes() int {
+	switch {
+	case c.MaxResultBytes <= 0:
+		return DefaultToolMaxResultBytes
+	case c.MaxResultBytes < MinToolMaxResultBytes:
+		return MinToolMaxResultBytes
+	default:
+		return c.MaxResultBytes
+	}
 }
 
 type SearchCacheConfig struct {
