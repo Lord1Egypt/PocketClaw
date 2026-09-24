@@ -282,6 +282,12 @@ void main() {
         expect(source, isNot(contains(abi)), reason: abi);
       }
     });
+
+    test("Flutter's own ABI list cannot override the filter", () {
+      // FlutterPlugin clears abiFilters after evaluation unless this is set.
+      expect(read('android/gradle.properties'),
+          contains('disable-abi-filtering=true'));
+    });
   });
 
   group('analytics surface', () {
