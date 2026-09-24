@@ -315,6 +315,13 @@ android {
         // Tracked in pubspec.yaml, never in the gitignored local.properties.
         versionCode = resolvedVersionCode
         versionName = resolvedVersionName
+        // arm64-v8a is the only ABI PocketClaw runs on: Core, the Managed
+        // Runtime and the Flutter engine are built for it alone. Without this
+        // filter, plugin stubs (libdartjni, libdatastore_shared_counter) for
+        // armeabi-v7a and x86_64 made the APK advertise ABIs it cannot start on.
+        ndk {
+            abiFilters += listOf("arm64-v8a")
+        }
         buildConfigField(
             "String",
             "POCKETCLAW_ONBOARDING_BASE_URL",

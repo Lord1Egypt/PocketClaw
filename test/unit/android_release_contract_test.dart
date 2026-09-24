@@ -272,6 +272,18 @@ void main() {
     });
   });
 
+  group('ABI', () {
+    test('only arm64-v8a is packaged', () {
+      // Plugin stubs for armeabi-v7a and x86_64 made the APK advertise ABIs it
+      // cannot start on; F-Droid indexes what the APK advertises.
+      final source = read(gradle).replaceAll(RegExp(r'//.*'), '');
+      expect(source, contains('abiFilters += listOf("arm64-v8a")'));
+      for (final abi in const ['armeabi-v7a', 'x86_64', 'x86"']) {
+        expect(source, isNot(contains(abi)), reason: abi);
+      }
+    });
+  });
+
   group('analytics surface', () {
     // The Umeng SDK was removed outright for official F-Droid (Phase B): not
     // hidden behind a flavor and not left as a compileOnly dependency, because

@@ -30,8 +30,6 @@ EXPECTED_ELF_ENTRIES = {
     "lib/arm64-v8a/libpocketclaw-jq.so", "lib/arm64-v8a/libpocketclaw-python.so",
     "lib/arm64-v8a/libpocketclaw-rg.so", "lib/arm64-v8a/libpocketclaw-sqlite3.so",
     "lib/arm64-v8a/libpocketclaw-web.so", "lib/arm64-v8a/libpocketclaw.so",
-    "lib/armeabi-v7a/libdartjni.so", "lib/armeabi-v7a/libdatastore_shared_counter.so",
-    "lib/x86_64/libdartjni.so", "lib/x86_64/libdatastore_shared_counter.so",
 }
 
 RUNTIME_EXECUTABLES = {

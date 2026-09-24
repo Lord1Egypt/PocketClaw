@@ -892,23 +892,18 @@ def artifact_gates(gate: Gate, apk: Path, release_class: str,
 
         abis = {n.split("/")[1] for n in names if n.startswith("lib/") and n.count("/") >= 2}
         gate.facts["abi"] = sorted(abis)
-        # The contract is that the canonical *product* payload — Core and the
-        # Managed Runtime — is arm64 only. Flutter plugins ship small stubs for
-        # other ABIs (libdartjni, libdatastore_shared_counter); those are an
-        # accepted baseline and are recorded rather than failed.
-        product_prefixes = ("libpocketclaw",)
-        misplaced = sorted(
-            n for n in names
-            if n.startswith("lib/") and n.count("/") >= 2
-            and Path(n).name.startswith(product_prefixes)
-            and n.split("/")[1] != EXPECTED_ABI
-        )
-        stub_abis = sorted(abis - {EXPECTED_ABI})
-        gate.facts["nonProductStubAbis"] = stub_abis
-        gate.check("artifact.abi", EXPECTED_ABI in abis and not misplaced,
-                   expected=f"product payload only under {EXPECTED_ABI}",
-                   observed=", ".join(misplaced) if misplaced
-                   else f"{EXPECTED_ABI} (+ plugin stubs: {', '.join(stub_abis) or 'none'})")
+        # arm64-v8a is the only ABI PocketClaw can run on: Core, the Managed
+        # Runtime and libflutter/libapp exist for it alone. Plugin stubs for
+        # other ABIs used to be packaged too, which made the APK advertise
+        # armeabi-v7a and x86_64 -- F-Droid would have offered it to devices
+        # where it crashes on launch. abiFilters removes them; any other ABI
+        # directory is now a failure, not a recorded baseline.
+        extra_abis = sorted(abis - {EXPECTED_ABI})
+        gate.facts["extraAbis"] = extra_abis
+        gate.check("artifact.abi", abis == {EXPECTED_ABI},
+                   expected=f"native libraries under {EXPECTED_ABI} only",
+                   observed=", ".join(extra_abis) if extra_abis
+                   else EXPECTED_ABI if abis else "no native libraries")
 
         # Packaged Core must be byte-identical to what is staged in the tree.
         mismatched = []
