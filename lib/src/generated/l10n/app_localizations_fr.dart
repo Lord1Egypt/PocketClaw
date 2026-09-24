@@ -441,6 +441,26 @@ class AppLocalizationsFr extends AppLocalizations {
       'Le Git intégré ne plante plus lors du clonage d\'un dépôt ou de la mise à jour d\'une branche.';
 
   @override
+  String get whatsNew022Improvement1 =>
+      'Après une longue tâche, Telegram envoie la réponse dans un nouveau message : vous êtes notifié et elle apparaît sous ce que vous avez envoyé entre-temps.';
+
+  @override
+  String get whatsNew022Improvement2 =>
+      'Telegram indique quand votre message est en file d’attente et combien le précèdent.';
+
+  @override
+  String get whatsNew022Improvement3 =>
+      'L’espace de travail se trouve désormais dans le stockage propre à PocketClaw, et l’application ne demande aucune autorisation de stockage. Un espace de travail laissé par une version précédente dans Download/pocketclaw n’est pas modifié et peut être copié depuis les Réglages.';
+
+  @override
+  String get whatsNew022Fix1 =>
+      'Les sorties d’outils très volumineuses ne font plus déborder la conversation.';
+
+  @override
+  String get whatsNew022Fix2 =>
+      'Suppression de réglages sans effet sur Android : Appareils, Lancer à l’ouverture de session et Port du service.';
+
+  @override
   String get settingsGroupConnection => 'Connexion';
 
   @override

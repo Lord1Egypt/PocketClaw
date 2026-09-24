@@ -438,6 +438,26 @@ class AppLocalizationsEs extends AppLocalizations {
       'El Git incluido ya no se bloquea al clonar un repositorio o actualizar una rama.';
 
   @override
+  String get whatsNew022Improvement1 =>
+      'Tras una tarea larga, Telegram entrega la respuesta como un mensaje nuevo, así que te avisa y aparece debajo de lo que hayas enviado mientras tanto.';
+
+  @override
+  String get whatsNew022Improvement2 =>
+      'Telegram te indica cuándo tu mensaje está en cola y cuántos tiene delante.';
+
+  @override
+  String get whatsNew022Improvement3 =>
+      'El espacio de trabajo ahora está en el almacenamiento propio de PocketClaw, y la app no pide ningún permiso de almacenamiento. Un espacio de trabajo que una versión anterior dejó en Download/pocketclaw no se toca y puede copiarse desde Ajustes.';
+
+  @override
+  String get whatsNew022Fix1 =>
+      'Las salidas de herramientas muy grandes ya no desbordan la conversación.';
+
+  @override
+  String get whatsNew022Fix2 =>
+      'Se quitaron ajustes que no tenían efecto en Android: Dispositivos, Iniciar al iniciar sesión y Puerto del servicio.';
+
+  @override
   String get settingsGroupConnection => 'Conexión';
 
   @override

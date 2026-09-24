@@ -203,6 +203,11 @@
   "whatsNew020Fix1": "The Gateway now recovers from a stale process record left behind by an earlier run.",
   "whatsNew020Fix2": "Channel lists with more than one entry are preserved correctly when settings are saved.",
   "whatsNew021Fix1": "The bundled Git no longer crashes while cloning a repository or updating a branch.",
+  "whatsNew022Improvement1": "After a long task, Telegram delivers the answer as a new message, so it notifies you and appears below anything you sent meanwhile.",
+  "whatsNew022Improvement2": "Telegram tells you when your message is queued and how many are ahead of it.",
+  "whatsNew022Improvement3": "The workspace now lives in PocketClaw's own storage, and the app asks for no storage permission. A workspace an older version left in Download/pocketclaw is untouched and can be copied in from Settings.",
+  "whatsNew022Fix1": "Very large tool output no longer overflows the conversation.",
+  "whatsNew022Fix2": "Removed Settings entries that had no effect on Android: Devices, Launch at Login and Service Port.",
   "settingsGroupConnection": "Connection",
   "@settingsGroupConnection": {
     "description": "Settings section label above the address, port and public mode controls"

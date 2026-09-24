@@ -406,6 +406,23 @@ class AppLocalizationsZh extends AppLocalizations {
   String get whatsNew021Fix1 => '内置 Git 在克隆仓库或更新分支时不再崩溃。';
 
   @override
+  String get whatsNew022Improvement1 =>
+      '长任务完成后，Telegram 会以新消息发送回答，因此你会收到通知，且回答显示在你期间发送的所有消息下方。';
+
+  @override
+  String get whatsNew022Improvement2 => '消息排队时，Telegram 会告诉你前面还有几条。';
+
+  @override
+  String get whatsNew022Improvement3 =>
+      '工作区现在位于 PocketClaw 自己的存储空间中，应用不再请求任何存储权限。旧版本留在 Download/pocketclaw 中的工作区保持不变，可以在设置中复制进来。';
+
+  @override
+  String get whatsNew022Fix1 => '超大的工具输出不再会撑爆对话。';
+
+  @override
+  String get whatsNew022Fix2 => '移除了在 Android 上没有作用的设置项：设备、登录时启动和服务端口。';
+
+  @override
   String get settingsGroupConnection => '连接';
 
   @override

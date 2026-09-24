@@ -430,6 +430,26 @@ class AppLocalizationsHi extends AppLocalizations {
       'अंतर्निर्मित Git अब रिपॉज़िटरी क्लोन करते समय या ब्रांच अपडेट करते समय क्रैश नहीं होता.';
 
   @override
+  String get whatsNew022Improvement1 =>
+      'लंबे काम के बाद Telegram उत्तर को नए संदेश के रूप में भेजता है, ताकि आपको सूचना मिले और वह आपके इस बीच भेजे गए संदेशों के नीचे दिखे।';
+
+  @override
+  String get whatsNew022Improvement2 =>
+      'Telegram बताता है कि आपका संदेश कतार में कब है और उससे पहले कितने हैं।';
+
+  @override
+  String get whatsNew022Improvement3 =>
+      'वर्कस्पेस अब PocketClaw के अपने स्टोरेज में है, और ऐप कोई स्टोरेज अनुमति नहीं माँगता। किसी पुराने संस्करण द्वारा Download/pocketclaw में छोड़ा गया वर्कस्पेस जस का तस रहता है और सेटिंग्स से कॉपी किया जा सकता है।';
+
+  @override
+  String get whatsNew022Fix1 =>
+      'बहुत बड़ा टूल आउटपुट अब बातचीत की सीमा पार नहीं करता।';
+
+  @override
+  String get whatsNew022Fix2 =>
+      'सेटिंग्स की वे प्रविष्टियाँ हटाई गईं जिनका Android पर कोई प्रभाव नहीं था: डिवाइस, लॉगिन पर शुरू करें और सेवा पोर्ट।';
+
+  @override
   String get settingsGroupConnection => 'कनेक्शन';
 
   @override

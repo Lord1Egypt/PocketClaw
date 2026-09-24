@@ -850,6 +850,36 @@ abstract class AppLocalizations {
   /// **'The bundled Git no longer crashes while cloning a repository or updating a branch.'**
   String get whatsNew021Fix1;
 
+  /// No description provided for @whatsNew022Improvement1.
+  ///
+  /// In en, this message translates to:
+  /// **'After a long task, Telegram delivers the answer as a new message, so it notifies you and appears below anything you sent meanwhile.'**
+  String get whatsNew022Improvement1;
+
+  /// No description provided for @whatsNew022Improvement2.
+  ///
+  /// In en, this message translates to:
+  /// **'Telegram tells you when your message is queued and how many are ahead of it.'**
+  String get whatsNew022Improvement2;
+
+  /// No description provided for @whatsNew022Improvement3.
+  ///
+  /// In en, this message translates to:
+  /// **'The workspace now lives in PocketClaw\'s own storage, and the app asks for no storage permission. A workspace an older version left in Download/pocketclaw is untouched and can be copied in from Settings.'**
+  String get whatsNew022Improvement3;
+
+  /// No description provided for @whatsNew022Fix1.
+  ///
+  /// In en, this message translates to:
+  /// **'Very large tool output no longer overflows the conversation.'**
+  String get whatsNew022Fix1;
+
+  /// No description provided for @whatsNew022Fix2.
+  ///
+  /// In en, this message translates to:
+  /// **'Removed Settings entries that had no effect on Android: Devices, Launch at Login and Service Port.'**
+  String get whatsNew022Fix2;
+
   /// Settings section label above the address, port and public mode controls
   ///
   /// In en, this message translates to:

@@ -430,6 +430,26 @@ class AppLocalizationsAr extends AppLocalizations {
       'لم يعد Git المضمّن ينهار أثناء استنساخ مستودع أو تحديث فرع.';
 
   @override
+  String get whatsNew022Improvement1 =>
+      'بعد مهمة طويلة، يرسل Telegram الإجابة في رسالة جديدة، فيصلك إشعار وتظهر أسفل أي رسالة أرسلتها في أثناء ذلك.';
+
+  @override
+  String get whatsNew022Improvement2 =>
+      'يخبرك Telegram عندما تكون رسالتك في قائمة الانتظار وكم رسالة قبلها.';
+
+  @override
+  String get whatsNew022Improvement3 =>
+      'أصبحت مساحة العمل الآن في مساحة التخزين الخاصة بـ PocketClaw، ولا يطلب التطبيق أي إذن تخزين. مساحة العمل التي تركها إصدار أقدم في Download/pocketclaw تبقى كما هي، ويمكن نسخها من الإعدادات.';
+
+  @override
+  String get whatsNew022Fix1 =>
+      'لم تعد مخرجات الأدوات الكبيرة جدًا تتجاوز سعة المحادثة.';
+
+  @override
+  String get whatsNew022Fix2 =>
+      'أُزيلت عناصر من الإعدادات لم يكن لها أي أثر على Android: الأجهزة، والتشغيل عند تسجيل الدخول، ومنفذ الخدمة.';
+
+  @override
   String get settingsGroupConnection => 'الاتصال';
 
   @override

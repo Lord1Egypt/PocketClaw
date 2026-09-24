@@ -431,6 +431,26 @@ class AppLocalizationsEn extends AppLocalizations {
       'The bundled Git no longer crashes while cloning a repository or updating a branch.';
 
   @override
+  String get whatsNew022Improvement1 =>
+      'After a long task, Telegram delivers the answer as a new message, so it notifies you and appears below anything you sent meanwhile.';
+
+  @override
+  String get whatsNew022Improvement2 =>
+      'Telegram tells you when your message is queued and how many are ahead of it.';
+
+  @override
+  String get whatsNew022Improvement3 =>
+      'The workspace now lives in PocketClaw\'s own storage, and the app asks for no storage permission. A workspace an older version left in Download/pocketclaw is untouched and can be copied in from Settings.';
+
+  @override
+  String get whatsNew022Fix1 =>
+      'Very large tool output no longer overflows the conversation.';
+
+  @override
+  String get whatsNew022Fix2 =>
+      'Removed Settings entries that had no effect on Android: Devices, Launch at Login and Service Port.';
+
+  @override
   String get settingsGroupConnection => 'Connection';
 
   @override

@@ -415,6 +415,25 @@ class AppLocalizationsJa extends AppLocalizations {
   String get whatsNew021Fix1 => '同梱の Git がリポジトリのクローンやブランチの更新中にクラッシュしなくなりました。';
 
   @override
+  String get whatsNew022Improvement1 =>
+      '長いタスクの後、Telegram は回答を新しいメッセージとして届けます。通知が届き、その間に送ったメッセージの下に表示されます。';
+
+  @override
+  String get whatsNew022Improvement2 =>
+      'メッセージが順番待ちになっているとき、Telegram がその旨と前に何件あるかを知らせます。';
+
+  @override
+  String get whatsNew022Improvement3 =>
+      'ワークスペースは PocketClaw 専用のストレージに置かれるようになり、アプリはストレージの権限を要求しません。以前のバージョンが Download/pocketclaw に残したワークスペースはそのまま残り、設定からコピーできます。';
+
+  @override
+  String get whatsNew022Fix1 => '非常に大きなツール出力で会話があふれることがなくなりました。';
+
+  @override
+  String get whatsNew022Fix2 =>
+      'Android では効果のなかった設定項目（デバイス、ログイン時に起動、サービスポート）を削除しました。';
+
+  @override
   String get settingsGroupConnection => '接続';
 
   @override

@@ -417,6 +417,25 @@ class AppLocalizationsKo extends AppLocalizations {
       '번들로 제공되는 Git이 저장소를 복제하거나 브랜치를 업데이트할 때 더 이상 충돌하지 않습니다.';
 
   @override
+  String get whatsNew022Improvement1 =>
+      '긴 작업이 끝나면 Telegram이 답변을 새 메시지로 보내므로, 알림이 오고 그동안 보낸 메시지 아래에 표시됩니다.';
+
+  @override
+  String get whatsNew022Improvement2 =>
+      '메시지가 대기열에 있을 때 Telegram이 이를 알리고 앞에 몇 개가 있는지 보여 줍니다.';
+
+  @override
+  String get whatsNew022Improvement3 =>
+      '이제 작업 공간은 PocketClaw 전용 저장소에 있으며, 앱은 저장소 권한을 요청하지 않습니다. 이전 버전이 Download/pocketclaw에 남긴 작업 공간은 그대로 유지되며 설정에서 복사해 올 수 있습니다.';
+
+  @override
+  String get whatsNew022Fix1 => '매우 큰 도구 출력이 더 이상 대화를 넘치게 하지 않습니다.';
+
+  @override
+  String get whatsNew022Fix2 =>
+      'Android에서 효과가 없던 설정 항목(기기, 로그인 시 실행, 서비스 포트)을 제거했습니다.';
+
+  @override
   String get settingsGroupConnection => '연결';
 
   @override

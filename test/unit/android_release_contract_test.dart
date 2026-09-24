@@ -184,7 +184,7 @@ void main() {
       );
       expect(
         version!.group(1),
-        '0.2.1',
+        '0.2.2',
         reason: 'the tracked product version for this release',
       );
       final floor = readAcceptedVersionCodeFloor();

@@ -433,6 +433,26 @@ class AppLocalizationsId extends AppLocalizations {
       'Git bawaan tidak lagi mogok saat mengkloning repositori atau memperbarui cabang.';
 
   @override
+  String get whatsNew022Improvement1 =>
+      'Setelah tugas yang lama, Telegram mengirim jawaban sebagai pesan baru, sehingga Anda mendapat notifikasi dan jawaban muncul di bawah pesan yang Anda kirim selama itu.';
+
+  @override
+  String get whatsNew022Improvement2 =>
+      'Telegram memberi tahu saat pesan Anda masuk antrean dan berapa pesan di depannya.';
+
+  @override
+  String get whatsNew022Improvement3 =>
+      'Ruang kerja kini berada di penyimpanan milik PocketClaw sendiri, dan aplikasi tidak meminta izin penyimpanan. Ruang kerja yang ditinggalkan versi lama di Download/pocketclaw tidak diubah dan dapat disalin dari Pengaturan.';
+
+  @override
+  String get whatsNew022Fix1 =>
+      'Keluaran alat yang sangat besar tidak lagi membuat percakapan meluap.';
+
+  @override
+  String get whatsNew022Fix2 =>
+      'Menghapus entri Pengaturan yang tidak berpengaruh di Android: Perangkat, Jalankan saat Masuk, dan Port Layanan.';
+
+  @override
   String get settingsGroupConnection => 'Koneksi';
 
   @override

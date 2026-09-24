@@ -434,6 +434,26 @@ class AppLocalizationsRu extends AppLocalizations {
       'Встроенный Git больше не аварийно завершается при клонировании репозитория или обновлении ветки.';
 
   @override
+  String get whatsNew022Improvement1 =>
+      'После долгой задачи Telegram присылает ответ новым сообщением: приходит уведомление, и ответ появляется ниже всего, что вы отправили за это время.';
+
+  @override
+  String get whatsNew022Improvement2 =>
+      'Telegram сообщает, когда ваше сообщение стоит в очереди и сколько сообщений перед ним.';
+
+  @override
+  String get whatsNew022Improvement3 =>
+      'Рабочее пространство теперь находится в собственном хранилище PocketClaw, и приложение не запрашивает разрешений на доступ к хранилищу. Рабочее пространство, оставленное старой версией в Download/pocketclaw, не изменяется, и его можно скопировать в настройках.';
+
+  @override
+  String get whatsNew022Fix1 =>
+      'Очень большой вывод инструментов больше не переполняет разговор.';
+
+  @override
+  String get whatsNew022Fix2 =>
+      'Удалены пункты настроек, не действовавшие на Android: «Устройства», «Запуск при входе» и «Порт службы».';
+
+  @override
   String get settingsGroupConnection => 'Подключение';
 
   @override
