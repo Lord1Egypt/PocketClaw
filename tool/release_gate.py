@@ -82,14 +82,11 @@ EXPECTED_LOCALES = 12
 EXPECTED_PERMISSIONS = {
     "android.permission.ACCESS_NETWORK_STATE",
     "android.permission.FOREGROUND_SERVICE",
-    "android.permission.FOREGROUND_SERVICE_DATA_SYNC",
     "android.permission.FOREGROUND_SERVICE_SPECIAL_USE",
     "android.permission.INTERNET",
     "android.permission.MANAGE_EXTERNAL_STORAGE",
     "android.permission.POST_NOTIFICATIONS",
     "android.permission.READ_EXTERNAL_STORAGE",
-    "android.permission.RECEIVE_BOOT_COMPLETED",
-    "android.permission.VIBRATE",
     "android.permission.WAKE_LOCK",
     "android.permission.WRITE_EXTERNAL_STORAGE",
     f"{PACKAGE_ID}.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION",
@@ -103,6 +100,12 @@ FORBIDDEN_PERMISSIONS = {
     "android.permission.ACCESS_ADSERVICES_ATTRIBUTION",
     "com.google.android.finsky.permission.BIND_GET_INSTALL_REFERRER_SERVICE",
     "freemme.permission.msa",
+    # PC-DEF-083: contributed by flutter_background_service and
+    # flutter_local_notifications, which were never started or called, and by
+    # a boot receiver no UI could enable. Removed with them; must stay gone.
+    "android.permission.FOREGROUND_SERVICE_DATA_SYNC",
+    "android.permission.RECEIVE_BOOT_COMPLETED",
+    "android.permission.VIBRATE",
 }
 
 CORE_LIBS = ("libpocketclaw.so", "libpocketclaw-web.so")

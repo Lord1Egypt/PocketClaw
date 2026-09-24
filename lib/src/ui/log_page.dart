@@ -6,7 +6,6 @@ import 'package:provider/provider.dart';
 import '../core/app_fonts.dart';
 import 'package:pocketclaw/src/core/log_export_writer.dart';
 import 'package:pocketclaw/src/core/service_manager.dart';
-import 'package:pocketclaw/src/core/ui_constants.dart';
 import 'package:pocketclaw/src/generated/l10n/app_localizations.dart';
 import 'package:pocketclaw/src/ui/widgets/tv_focusable.dart';
 
@@ -115,12 +114,6 @@ class _LogPageState extends State<LogPage> {
     final l10n = AppLocalizations.of(context)!;
     final colorScheme = Theme.of(context).colorScheme;
 
-    // 检测是否需要 TV/焦点导航模式
-    // TV平台: Android TV 使用遥控器导航
-    // 桌面平台: Windows/macOS/Linux 使用键盘导航
-    // 移动端: Android手机/平板、iOS 使用触摸
-    final useFocusMode = kIsTvFocusMode;
-
     WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
 
     Widget logContent = ListView.builder(
@@ -144,21 +137,16 @@ class _LogPageState extends State<LogPage> {
       ),
     );
 
-    if (useFocusMode) {
-      // 焦点导航模式（TV/桌面）：不使用 SelectionArea，使用 Focus 和 KeyboardListener 处理
-      logContent = Focus(
-        focusNode: _logFocusNode,
-        autofocus: true,
-        child: KeyboardListener(
-          focusNode: FocusNode(),
-          onKeyEvent: _handleKeyEvent,
-          child: logContent,
-        ),
-      );
-    } else {
-      // 触摸模式（移动端）：使用 SelectionArea 支持文本选择
-      logContent = SelectionArea(child: logContent);
-    }
+    // Focus navigation, so a keyboard or D-pad can scroll the log.
+    logContent = Focus(
+      focusNode: _logFocusNode,
+      autofocus: true,
+      child: KeyboardListener(
+        focusNode: FocusNode(),
+        onKeyEvent: _handleKeyEvent,
+        child: logContent,
+      ),
+    );
 
     return Scaffold(
       backgroundColor: colorScheme.surface,
@@ -200,9 +188,7 @@ class _LogPageState extends State<LogPage> {
           ),
         ],
       ),
-      body: useFocusMode
-          ? _buildTvLogContainer(context, logContent, colorScheme)
-          : _buildDesktopLogContainer(context, logContent, colorScheme),
+      body: _buildTvLogContainer(context, logContent, colorScheme),
     );
   }
 
@@ -219,49 +205,22 @@ class _LogPageState extends State<LogPage> {
       }
 
       final content = logs.join('\n');
-      String downloadsDir;
-      if (Platform.isWindows) {
-        final userProfile = Platform.environment['USERPROFILE'] ?? '';
-        downloadsDir = userProfile.isNotEmpty ? '$userProfile\\Downloads' : '.';
-      } else {
-        final home = Platform.environment['HOME'] ?? '';
-        downloadsDir = home.isNotEmpty ? '$home/Downloads' : '.';
-      }
-
       final ts = DateTime.now().toIso8601String().replaceAll(':', '-');
       final filename = 'pocketclaw_logs_$ts.txt';
 
-      // Platform-specific save
-      String savedPath = '';
-      if (Platform.isAndroid) {
-        // Use platform MethodChannel to write via MediaStore
-        try {
-          final res = await LogExportWriter.saveToAndroidDownloads(
+      // Written through MediaStore into Downloads. The host answers with a
+      // content:// URI, or with a real path from its legacy fallback.
+      final savedPath =
+          await LogExportWriter.saveToAndroidDownloads(
             filename: filename,
             content: content,
-          );
-          if (res != null) savedPath = res;
-        } catch (_) {}
-      }
-
-      var isContentUri = savedPath.startsWith('content://');
-      File? file;
+          ) ??
+          '';
       if (savedPath.isEmpty) {
-        // Fallback: save to user Downloads (desktop / iOS / fallback on Android)
-        final filePath = '$downloadsDir${Platform.pathSeparator}$filename';
-        file = File(filePath);
-        if (!await file.parent.exists()) {
-          try {
-            await file.parent.create(recursive: true);
-          } catch (_) {}
-        }
-        await file.writeAsString(content);
-        savedPath = file.path;
-        isContentUri = false;
-      } else if (!isContentUri) {
-        // Native returned a real filesystem path
-        file = File(savedPath);
+        throw StateError('the log file could not be written to Downloads');
       }
+      final isContentUri = savedPath.startsWith('content://');
+      final File? file = isContentUri ? null : File(savedPath);
 
       // Notify user with a human-friendly message
       if (mounted) {
@@ -276,25 +235,18 @@ class _LogPageState extends State<LogPage> {
       try {
         // Handle case when we have a filesystem path first (applies to all platforms)
         if (file != null) {
-          if (Platform.isWindows) {
-            await Process.run('explorer', ['/select,${file.path}']);
-          } else if (Platform.isMacOS) {
-            await Process.run('open', ['-R', file.path]);
-          } else if (Platform.isLinux) {
-            await Process.run('xdg-open', [file.parent.path]);
-          } else {
-            // Mobile platforms: share the actual file
-            final params = ShareParams(
-              text: l10n.shareLogsText,
-              files: [XFile(file.path)],
-            );
-            await SharePlus.instance.share(params);
-          }
-        } else if (isContentUri) {
+          final params = ShareParams(
+            text: l10n.shareLogsText,
+            files: [XFile(file.path)],
+          );
+          await SharePlus.instance.share(params);
+        } else {
           // We received a content:// URI (Android MediaStore) — share via XFile with URI
           try {
             // Try to copy content URI to app cache so share_plus can access it reliably
-            final channel = MethodChannel('com.lord1egypt.pocketclaw/pocketclaw');
+            final channel = MethodChannel(
+              'com.lord1egypt.pocketclaw/pocketclaw',
+            );
             String? cachePath;
             try {
               cachePath = await channel.invokeMethod<String>(
@@ -323,12 +275,6 @@ class _LogPageState extends State<LogPage> {
             // also print to console to help with debugging on device
             // ignore: avoid_print
             print('Share failed for content URI $savedPath: $e');
-          }
-        } else {
-          // No specific file or content URI — try to open containing folder when possible
-          if (!Platform.isAndroid && !Platform.isIOS) {
-            final folder = File(savedPath).parent.path;
-            await Process.run('xdg-open', [folder]);
           }
         }
       } catch (e) {
@@ -366,24 +312,6 @@ class _LogPageState extends State<LogPage> {
         padding: const EdgeInsets.all(16),
         child: logContent,
       ),
-    );
-  }
-
-  // 非 TV 平台：普通容器
-  Widget _buildDesktopLogContainer(
-    BuildContext context,
-    Widget logContent,
-    ColorScheme colorScheme,
-  ) {
-    return Container(
-      margin: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: colorScheme.outlineVariant),
-      ),
-      padding: const EdgeInsets.all(16),
-      child: logContent,
     );
   }
 }

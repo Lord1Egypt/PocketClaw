@@ -9,25 +9,13 @@ class AppLocalizationsKo extends AppLocalizations {
   AppLocalizationsKo([String locale = 'ko']) : super(locale);
 
   @override
-  String get appTitle => 'PocketClaw';
-
-  @override
-  String get run => '실행';
-
-  @override
   String get stop => '중지';
-
-  @override
-  String get config => '구성';
 
   @override
   String get webAdmin => '웹 관리';
 
   @override
   String get logs => '로그';
-
-  @override
-  String get viewLogs => '로그 보기';
 
   @override
   String get statusRunning => '실행 중';
@@ -48,27 +36,6 @@ class AppLocalizationsKo extends AppLocalizations {
   String get save => '저장';
 
   @override
-  String get showWindow => '창 표시';
-
-  @override
-  String get exit => '종료';
-
-  @override
-  String get binaryPath => '바이너리 경로';
-
-  @override
-  String get browse => '찾아보기';
-
-  @override
-  String get pathError => '잘못된 경로';
-
-  @override
-  String get arguments => '인수';
-
-  @override
-  String get argumentsHint => '예: config.json';
-
-  @override
   String get notStarted => '서비스가 시작되지 않음';
 
   @override
@@ -87,27 +54,6 @@ class AppLocalizationsKo extends AppLocalizations {
   String get refresh => '새로고침';
 
   @override
-  String get coreBinaryMissing =>
-      '코어 바이너리를 찾을 수 없습니다. 플랫폼 바이너리를 app/bin/에 배치하거나 설정에서 경로를 지정하세요.';
-
-  @override
-  String get coreStartFailed => '코어 서비스 시작에 실패했습니다.';
-
-  @override
-  String get coreStopFailed => '코어 서비스 중지에 실패했습니다.';
-
-  @override
-  String get coreInvalidBinary => '잘못된 코어 바이너리 파일입니다.';
-
-  @override
-  String coreUnknownError(Object code) {
-    return '알 수 없는 코어 오류: $code';
-  }
-
-  @override
-  String get coreValid => '코어 바이너리가 유효합니다.';
-
-  @override
   String get publicMode => '공용 모드';
 
   @override
@@ -118,9 +64,6 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get themeSelection => '테마';
-
-  @override
-  String get check => '확인';
 
   @override
   String get launchService => '서비스 시작';
@@ -157,46 +100,6 @@ class AppLocalizationsKo extends AppLocalizations {
       'OS 버전 및 앱 버전 호환성 확인에만 사용됩니다. 채팅 메시지, 계정 세부 정보 또는 개인 콘텐츠는 관련되지 않습니다';
 
   @override
-  String get deviceReportingConsentTitle => '장치 호환성 개선에 도움을 주세요';
-
-  @override
-  String get deviceReportingConsentDescription =>
-      '활성화되면 호환성을 이해하기 위해 익명 설치 ID, OS 버전 및 앱 버전만 전송됩니다. 언어 및 지역은 Firebase Analytics에서 별도로 수집될 수 있습니다. 채팅 메시지, 입력된 콘텐츠, 계정 세부 정보, 파일 또는 사용자 정의 설정이 업로드되지 않습니다';
-
-  @override
-  String get deviceReportingBannerDescription =>
-      '호환성 개선을 위해 익명 설치 ID, OS 버전 및 앱 버전만 동기화됩니다. 언어 및 지역은 Firebase Analytics에서 별도로 수집될 수 있습니다. 채팅 메시지, 계정 세부 정보, 파일 또는 개인 콘텐츠가 전송되지 않습니다';
-
-  @override
-  String get deviceReportingWhatWillBeSent => '이러한 장치 세부 정보만 포함됩니다';
-
-  @override
-  String get deviceReportingDeviceLabel => '장치 모델';
-
-  @override
-  String get deviceReportingPlatformLabel => '장치 범주';
-
-  @override
-  String get deviceReportingSystemLabel => 'OS 버전';
-
-  @override
-  String get deviceReportingTimingNote =>
-      '활성화 시 한 번 동기화가 실행되고 시스템 업데이트가 감지된 후에만 다시 동기화됩니다';
-
-  @override
-  String get deviceReportingDeny => '나중에';
-
-  @override
-  String get deviceReportingAllow => '활성화';
-
-  @override
-  String get deviceReportingUploadSucceeded => '장치 호환성 피드백이 활성화되었습니다';
-
-  @override
-  String get deviceReportingUploadFailed =>
-      '장치 호환성 피드백이 활성화되었지만 현재 장치 정보 동기화가 완료되지 않았습니다';
-
-  @override
   String get deviceReportingDisabled => '장치 호환성 피드백이 비활성화되었습니다';
 
   @override
@@ -208,9 +111,6 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get noLogsToExport => '내보낼 로그 없음';
-
-  @override
-  String get logsSavedToMediaLibrary => '로그가 다운로드(Android 미디어 라이브러리)에 저장되었습니다';
 
   @override
   String logsSavedToDownloads(Object path) {
@@ -242,19 +142,7 @@ class AppLocalizationsKo extends AppLocalizations {
   }
 
   @override
-  String get unsavedChanges => '저장되지 않은 변경 사항';
-
-  @override
-  String get unsavedChangesHint => '저장되지 않은 변경 사항이 있습니다. 취소하시겠습니까?';
-
-  @override
   String get cancel => '취소';
-
-  @override
-  String get discard => '취소';
-
-  @override
-  String get saved => '저장됨';
 
   @override
   String get language => '언어';

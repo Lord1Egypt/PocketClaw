@@ -24,11 +24,11 @@ void main() {
   setUp(() async {
     SharedPreferences.setMockInitialValues({});
     service = ServiceManager();
-    await service.updateConfig('127.0.0.1', 18800, publicMode: false);
+    await service.setPublicModeConfig(false);
   });
 
   tearDown(() async {
-    await service.updateConfig('127.0.0.1', 18800, publicMode: false);
+    await service.setPublicModeConfig(false);
   });
 
   Future<void> pumpDashboard(
@@ -86,7 +86,10 @@ void main() {
         .toSet()
         .intersection(
           find
-              .ancestor(of: find.byType(QrImageView), matching: find.byType(Container))
+              .ancestor(
+                of: find.byType(QrImageView),
+                matching: find.byType(Container),
+              )
               .evaluate()
               .toSet(),
         );
@@ -121,7 +124,7 @@ void main() {
   testWidgets('Public Mode selects its own instructions, still just once', (
     tester,
   ) async {
-    await service.updateConfig('0.0.0.0', 18800, publicMode: true);
+    await service.setPublicModeConfig(true);
     service.setLanAddressForTest('192.168.1.37');
     await pumpDashboard(tester);
 
@@ -134,7 +137,7 @@ void main() {
     // Public Mode starts the LAN-address poll; stop it inside the test body,
     // as the other public-mode tests do, or the framework fails on a pending
     // timer before tearDown runs.
-    await service.updateConfig('127.0.0.1', 18800, publicMode: false);
+    await service.setPublicModeConfig(false);
   });
 
   testWidgets('the Status sections still render below the access card', (

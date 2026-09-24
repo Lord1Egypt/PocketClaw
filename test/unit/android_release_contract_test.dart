@@ -377,6 +377,12 @@ void main() {
         'android.permission.ACCESS_ADSERVICES_AD_ID',
         'android.permission.ACCESS_ADSERVICES_ATTRIBUTION',
         'com.google.android.finsky.permission.BIND_GET_INSTALL_REFERRER_SERVICE',
+        // PC-DEF-083: from a background-service plugin that was never
+        // started, a notifications plugin that was never called, and a boot
+        // receiver whose preference no UI could set.
+        'android.permission.FOREGROUND_SERVICE_DATA_SYNC',
+        'android.permission.RECEIVE_BOOT_COMPLETED',
+        'android.permission.VIBRATE',
       ]) {
         expect(
           permissions,
@@ -389,7 +395,6 @@ void main() {
       for (final permission in const [
         'android.permission.INTERNET',
         'android.permission.FOREGROUND_SERVICE_SPECIAL_USE',
-        'android.permission.RECEIVE_BOOT_COMPLETED',
         'android.permission.MANAGE_EXTERNAL_STORAGE',
       ]) {
         expect(permissions, contains(permission));

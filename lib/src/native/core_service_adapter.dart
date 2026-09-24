@@ -13,6 +13,7 @@ abstract class CoreServiceAdapter {
   /// user has to start it by hand. The platform is told "restart" instead.
   Future<bool> restartService({int? port, String? args});
   Future<Map<String, dynamic>> getServiceStatus();
+
   /// Polls the gateway's health endpoint.
   ///
   /// When [detail] is true the richer Status snapshot is requested as well.
@@ -20,8 +21,7 @@ abstract class CoreServiceAdapter {
   /// credential, which never crosses into Dart, and it is only asked for while
   /// the Status screen is visible.
   Future<Map<String, dynamic>> checkHealth({bool detail = false});
-  Future<bool> setAutoStart(bool enabled);
-  Future<bool> getAutoStart();
+
   /// The Core runtime version, or null when it could not be read.
   ///
   /// Null rather than a sentinel string: reading it means running the Core
@@ -29,23 +29,9 @@ abstract class CoreServiceAdapter {
   /// failure from an answer caches the failure and shows it as the version
   /// (PC-DEF-063).
   Future<String?> getCoreVersion();
-  void setConfiguredPath(String? path);
   String? getLastErrorCode();
-
-  /// Install a log handler callback which the adapter should call with
-  /// each new log line (or combined message). Pass `null` to clear.
-  void setLogHandler(void Function(String)? handler);
-
-  /// Validate that the binary (optionally at [path]) is present and usable.
-  /// Returns true if valid; adapters should set an internal last error code
-  /// accessible via `getLastErrorCode()` on failure.
-  Future<bool> validateBinary([String? path]);
 
   /// Read the current workspace path from the platform config.
   /// Returns an empty string if not set or not supported.
   Future<String> getWorkspacePath();
-
-  /// Write the workspace path into the platform config.
-  /// Returns true on success.
-  Future<bool> setWorkspacePath(String path);
 }

@@ -46,14 +46,17 @@
     <!-- 前台服务 -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
-    <!-- 保留 dataSync 兼容 flutter_background_service 插件 -->
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <!--
+      FOREGROUND_SERVICE_DATA_SYNC and RECEIVE_BOOT_COMPLETED are deliberately
+      not declared (PC-DEF-083). The first served flutter_background_service,
+      configured with autoStart false and never started; the second served a
+      BootReceiver whose auto_start preference no PocketClaw UI could ever set.
+      Both plugins' components are gone with them, and release_gate.py keeps
+      all three of these permissions out of the packaged manifest.
+    -->
 
     <!-- Wake Lock 防止 CPU 休眠 -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
-
-    <!-- 开机自启 -->
-    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
     <!-- 通知权限 (Android 13+) -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
@@ -119,23 +122,6 @@
             android:name=".service.PocketClawService"
             android:exported="false"
             android:foregroundServiceType="specialUse" />
-
-        <!-- Flutter Background Service 插件 -->
-        <service
-            android:name="id.flutter.flutter_background_service.BackgroundService"
-            android:foregroundServiceType="dataSync"
-            android:exported="false"
-            tools:replace="android:exported" />
-
-        <!-- 开机自启广播接收器 -->
-        <receiver
-            android:name=".receiver.BootReceiver"
-            android:exported="true"
-            android:enabled="true">
-            <intent-filter>
-                <action android:name="android.intent.action.BOOT_COMPLETED" />
-            </intent-filter>
-        </receiver>
 
         <meta-data
             android:name="flutterEmbedding"

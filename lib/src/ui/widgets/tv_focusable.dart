@@ -1,24 +1,8 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:pocketclaw/src/generated/l10n/app_localizations.dart';
 
-/// 检查当前平台是否需要明显的焦点效果（TV/桌面）还是 subtle 效果
-bool get _useSubtleFocus {
-  // 桌面平台使用 subtle 焦点效果
-  if (Platform.isWindows || Platform.isMacOS || Platform.isLinux) {
-    return true;
-  }
-  // Android TV 使用明显效果，Android 手机/平板不使用（触摸平台）
-  // 由于无法区分，我们默认使用 subtle 效果
-  return false;
-}
-
-/// TV 焦点高亮包装器 - 为遥控器导航提供明显的焦点视觉反馈
-///
-/// 支持所有平台：
-/// - TV 平台（Android TV）：明显的焦点效果（边框、缩放、发光）
-/// - 桌面平台（Windows/macOS/Linux）：subtle 焦点效果（仅边框高亮）
-/// - 触摸平台（Android手机/平板、iOS）：焦点效果通常不会触发
+/// Focus highlight for keyboard and D-pad navigation: border, scale and glow.
+/// On a touch screen focus rarely moves, so the effect seldom shows there.
 class TVFocusable extends StatefulWidget {
   final Widget child;
   final VoidCallback? onTap;
@@ -63,18 +47,13 @@ class _TVFocusableState extends State<TVFocusable> {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final focusColor = widget.focusBorderColor ?? colorScheme.secondary;
-    final isSubtle = _useSubtleFocus;
-
-    // 桌面平台使用更 subtle 的效果
     final bgColor =
         widget.focusBackgroundColor ??
-        focusColor.withAlpha(
-          ((isSubtle ? 0.04 : 0.08).clamp(0.0, 1.0) * 255).round(),
-        );
+        focusColor.withAlpha((0.08 * 255).round());
 
-    final effectiveBorderWidth = isSubtle ? 1.5 : widget.focusBorderWidth;
-    final effectiveFocusScale = isSubtle ? 1.0 : widget.focusScale;
-    final effectiveShowGlow = isSubtle ? false : widget.showFocusGlow;
+    final effectiveBorderWidth = widget.focusBorderWidth;
+    final effectiveFocusScale = widget.focusScale;
+    final effectiveShowGlow = widget.showFocusGlow;
 
     return FocusableActionDetector(
       focusNode: _focusNode,
@@ -118,9 +97,7 @@ class _TVFocusableState extends State<TVFocusable> {
                 : null,
             border: _isFocused
                 ? Border.all(
-                    color: focusColor.withAlpha(
-                      ((isSubtle ? 0.4 : 0.6).clamp(0.0, 1.0) * 255).round(),
-                    ),
+                    color: focusColor.withAlpha((0.6 * 255).round()),
                     width: effectiveBorderWidth,
                   )
                 : null,
@@ -214,7 +191,11 @@ class TVTextField extends StatelessWidget {
         return AlertDialog(
           title: Text(
             labelText ?? 'Edit',
-            style: TextStyle(color: colorScheme.secondary, fontSize: 20, fontWeight: FontWeight.bold),
+            style: TextStyle(
+              color: colorScheme.secondary,
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+            ),
           ),
           content: TextField(
             controller: textController,

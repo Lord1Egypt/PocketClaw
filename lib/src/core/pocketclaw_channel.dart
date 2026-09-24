@@ -279,20 +279,6 @@ class PocketClawChannel {
     return result ?? '';
   }
 
-  /// 设置开机自启
-  static Future<bool> setAutoStart(bool enabled) async {
-    final result = await _channel.invokeMethod<bool>('setAutoStart', {
-      'enabled': enabled,
-    });
-    return result ?? false;
-  }
-
-  /// 获取开机自启设置
-  static Future<bool> getAutoStart() async {
-    final result = await _channel.invokeMethod<bool>('getAutoStart');
-    return result ?? false;
-  }
-
   /// The Core runtime version, or null when the host could not read it.
   ///
   /// PC-DEF-063. This used to answer 'unknown' for both "the probe failed" and

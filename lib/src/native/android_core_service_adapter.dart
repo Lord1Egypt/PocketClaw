@@ -9,9 +9,6 @@ class AndroidCoreServiceAdapter implements CoreServiceAdapter {
     'com.lord1egypt.pocketclaw/pocketclaw',
   );
   String? _lastErrorCode;
-  // Stored log handler (not used on Android native adapter, but kept for API compatibility)
-  // ignore: unused_field
-  void Function(String)? _logHandler;
 
   @override
   Future<bool> startService({int? port, String? args}) async {
@@ -46,8 +43,10 @@ class AndroidCoreServiceAdapter implements CoreServiceAdapter {
         'port': port ?? 18800,
         'args': args ?? '',
       };
-      final result =
-          await _channel.invokeMethod<bool>('restartService', params);
+      final result = await _channel.invokeMethod<bool>(
+        'restartService',
+        params,
+      );
       return result ?? false;
     } catch (_) {
       _lastErrorCode = 'core.restart_failed';
@@ -70,56 +69,12 @@ class AndroidCoreServiceAdapter implements CoreServiceAdapter {
   }
 
   @override
-  Future<bool> setAutoStart(bool enabled) async {
-    try {
-      final r = await _channel.invokeMethod<bool>('setAutoStart', {
-        'enabled': enabled,
-      });
-      return r ?? false;
-    } catch (_) {
-      _lastErrorCode = 'core.set_autostart_failed';
-      return false;
-    }
-  }
-
-  @override
-  Future<bool> getAutoStart() async {
-    try {
-      final r = await _channel.invokeMethod<bool>('getAutoStart');
-      return r ?? false;
-    } catch (_) {
-      _lastErrorCode = 'core.get_autostart_failed';
-      return false;
-    }
-  }
-
-  @override
   Future<String?> getCoreVersion() async {
     return PocketClawChannel.getCoreVersion();
   }
 
   @override
-  void setConfiguredPath(String? path) {}
-
-  @override
   String? getLastErrorCode() => _lastErrorCode;
-
-  @override
-  void setLogHandler(void Function(String)? handler) {
-    _logHandler = handler;
-  }
-
-  @override
-  Future<bool> validateBinary([String? path]) async {
-    // Android packages native service inside the app; assume valid.
-    // If needed, native side can expose a validation method via MethodChannel.
-    try {
-      return true;
-    } catch (e) {
-      _lastErrorCode = 'core.binary_missing';
-      return false;
-    }
-  }
 
   @override
   Future<String> getWorkspacePath() async {
@@ -129,12 +84,5 @@ class AndroidCoreServiceAdapter implements CoreServiceAdapter {
     } catch (_) {
       return '';
     }
-  }
-
-  @override
-  Future<bool> setWorkspacePath(String path) async {
-    // Workspace is controlled by the native service via POCKETCLAW_HOME env var.
-    // The GUI does not modify it.
-    return false;
   }
 }

@@ -51,12 +51,16 @@ void main() {
         });
   }
 
-  setUp(() {
+  setUp(() async {
     SharedPreferences.setMockInitialValues({});
     service = ServiceManager();
     nativeCalls = <MethodCall>[];
     nativeRunning = false;
     installNativeStub();
+    // ServiceManager is a singleton; start every test from what the host
+    // reports rather than from whatever the previous test left behind.
+    await service.pollNativeServiceStatusForTest();
+    nativeCalls.clear();
   });
 
   tearDown(() {

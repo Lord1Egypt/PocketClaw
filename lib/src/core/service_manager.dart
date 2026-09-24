@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:io';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -116,28 +115,9 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
     'POCKETCLAW_DISTRIBUTION_CHANNEL',
     defaultValue: _umengChannel,
   );
-  static final bool _isTestEnvironment =
-      Platform.environment.containsKey('FLUTTER_TEST') ||
-      Platform.executable.contains('flutter_tester');
-
   static final ServiceManager _instance = ServiceManager._internal();
   factory ServiceManager() => _instance;
-  ServiceManager._internal() {
-    if (!kIsWeb && !_isTestEnvironment) {
-      try {
-        _signalSubscriptions.add(
-          ProcessSignal.sigint.watch().listen((_) => stop()),
-        );
-      } catch (_) {}
-      try {
-        if (!Platform.isWindows) {
-          _signalSubscriptions.add(
-            ProcessSignal.sigterm.watch().listen((_) => stop()),
-          );
-        }
-      } catch (_) {}
-    }
-  }
+  ServiceManager._internal();
 
   final CoreServiceAdapter _adapter = CoreServiceAdapterFactory.create();
   final UmengDeviceReporter _umengReporter = UmengDeviceReporter();
@@ -150,12 +130,6 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
   String _cachedAppVersion = 'unknown';
   String _cachedCoreVersion = '';
   DeviceTelemetrySnapshot? _lastTelemetrySnapshot;
-  final List<StreamSubscription<ProcessSignal>> _signalSubscriptions = [];
-
-  void _syncAdapterConfiguration() {
-    final configuredPath = _binaryPath.trim().isEmpty ? null : _binaryPath;
-    _adapter.setConfiguredPath(configuredPath);
-  }
 
   String? get lastErrorCode => _lastErrorCode ?? _adapter.getLastErrorCode();
   String? get lastDeviceFeedbackSyncMessage => _lastDeviceFeedbackSyncMessage;
@@ -170,10 +144,10 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
   ServiceStatus get status => _status;
   List<String> get logs => List.unmodifiable(_logs);
 
-  String _host = '127.0.0.1';
-  int _port = 18800;
-  String _binaryPath = '';
-  String _arguments = '';
+  /// The launcher's loopback port. Not a setting: the Android host always
+  /// starts the launcher with an explicit `-port 18800`, and the host's own
+  /// bridge calls to the launcher are pinned to it.
+  static const int dashboardPort = 18800;
   bool _publicMode = false;
   bool _isApplyingPublicMode = false;
   String? _publicModeApplyError;
@@ -190,7 +164,6 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
   // this stays false and the poll costs exactly what it always did.
   bool _statusDetailWanted = false;
   StatusSnapshot? _statusSnapshot;
-  bool _autoStart = false;
   LaunchAutoStartPreferences _launchAutoStart =
       LaunchAutoStartPreferences.defaults;
   bool _launchAutoStartEvaluated = false;
@@ -220,7 +193,7 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
     }
     notifyListeners();
   }
-  bool get autoStart => _autoStart;
+
 
   /// Cached mirror of the Android host's canonical launch auto-start record.
   /// The host remains the only source of truth; this is refreshed from every
@@ -257,17 +230,14 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
-  String get webUrl => 'http://$_host:$_port';
-  String get localDashboardUrl => 'http://127.0.0.1:$_port';
+  String get _host => _publicMode ? '0.0.0.0' : '127.0.0.1';
+  String get webUrl => 'http://$_host:$dashboardPort';
+  String get localDashboardUrl => 'http://127.0.0.1:$dashboardPort';
   String? get lanAddress => _lanAddress;
   String? get publicDashboardUrl =>
-      _lanAddress == null ? null : 'http://${_lanAddress!}:$_port';
+      _lanAddress == null ? null : 'http://${_lanAddress!}:$dashboardPort';
   String? get connectableDashboardUrl =>
       _publicMode ? publicDashboardUrl : webUrl;
-  String get host => _host;
-  int get port => _port;
-  String get binaryPath => _binaryPath;
-  String get arguments => _arguments;
   bool get publicMode => _publicMode;
   bool get isApplyingPublicMode => _isApplyingPublicMode;
   String? get publicModeApplyError => _publicModeApplyError;
@@ -387,13 +357,7 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
   Future<void> init() async {
     WidgetsBinding.instance.addObserver(this);
     final prefs = await SharedPreferences.getInstance();
-    _host = prefs.getString('host') ?? '127.0.0.1';
-    _port = prefs.getInt('port') ?? 18800;
-    _binaryPath = prefs.getString('binaryPath') ?? '';
-    _arguments = prefs.getString('arguments') ?? '';
     _publicMode = prefs.getBool('publicMode') ?? false;
-    _host = _publicMode ? '0.0.0.0' : _host;
-    _syncAdapterConfiguration();
 
     final themeIndex = prefs.getInt('theme_mode') ?? 0;
     _currentThemeMode = AppThemeMode.values[themeIndex];
@@ -415,24 +379,18 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
     }
 
     if (Platform.isAndroid) {
-      _port = 18800;
-      _host = _publicMode ? '0.0.0.0' : '127.0.0.1';
       try {
-        _autoStart = await PocketClawChannel.getAutoStart();
         _workspacePath = await _adapter.getWorkspacePath();
         await _syncNativeServiceStatus();
         // Read last: the launch auto-start decision needs an accurate runtime
         // status more than it needs the preference, and this call must not be
         // able to skip the status sync above.
-        _launchAutoStart = await PocketClawChannel.getLaunchAutoStartPreferences();
+        _launchAutoStart =
+            await PocketClawChannel.getLaunchAutoStartPreferences();
       } catch (_) {}
       _startNativePolling();
     }
     _syncLanAddressPolling();
-
-    try {
-      _adapter.setLogHandler(_addLog);
-    } catch (_) {}
 
     _reportMissingOptionalDeviceFeedbackConfigurationOnce();
 
@@ -467,15 +425,6 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
     _lastDeviceFeedbackSyncMessage = message;
     _addLog(message);
     debugPrint(message);
-  }
-
-  Future<bool> setWorkspacePath(String value) async {
-    final ok = await _adapter.setWorkspacePath(value);
-    if (ok) {
-      _workspacePath = value;
-      notifyListeners();
-    }
-    return ok;
   }
 
   /// 刷新 workspace path（用于权限变化后重新获取）
@@ -703,7 +652,6 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
   /// and it became the displayed Core version until something re-probed
   /// successfully. Leaving the cache empty instead means the next read retries.
   Future<String?> getCoreVersion() async {
-    _syncAdapterConfiguration();
     final version = await _adapter.getCoreVersion();
     if (version == null || version.isEmpty) return null;
     if (version != _cachedCoreVersion) {
@@ -714,7 +662,8 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   /// App version for display, or an empty string until it has been read.
-  String get appVersion => _cachedAppVersion == 'unknown' ? '' : _cachedAppVersion;
+  String get appVersion =>
+      _cachedAppVersion == 'unknown' ? '' : _cachedAppVersion;
 
   /// Core version for display, read once and cached.
   ///
@@ -1042,14 +991,6 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
     );
   }
 
-  Future<void> setAutoStart(bool enabled) async {
-    if (Platform.isAndroid) {
-      await PocketClawChannel.setAutoStart(enabled);
-      _autoStart = enabled;
-      notifyListeners();
-    }
-  }
-
   Future<void> setServiceLaunchAutoStart(bool enabled) =>
       _commitLaunchAutoStart(serviceEnabled: enabled);
 
@@ -1069,7 +1010,8 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
     if (!Platform.isAndroid) return PublicModeReconciliation.notRequested;
     try {
       final decision = resolvePublicModeReconciliation(
-        dashboardInitialized: await PocketClawChannel.dashboardAuthInitialized(),
+        dashboardInitialized:
+            await PocketClawChannel.dashboardAuthInitialized(),
         desiredPublic: _publicMode,
         alreadyPublic: _publicModeReconciled,
       );
@@ -1113,7 +1055,9 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
       // The preference stays on: it was persisted before this ran, and the
       // next service start still honours it. Report the real failure rather
       // than reverting a choice the user made.
-      _addLog('Could not start the Gateway now; it will start with the service');
+      _addLog(
+        'Could not start the Gateway now; it will start with the service',
+      );
       debugPrint('Immediate gateway start failed: $e');
     }
     notifyListeners();
@@ -1137,7 +1081,8 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
       _addLog('Could not save the auto-start preference');
       debugPrint('Failed to persist launch auto-start preferences: $e');
       try {
-        _launchAutoStart = await PocketClawChannel.getLaunchAutoStartPreferences();
+        _launchAutoStart =
+            await PocketClawChannel.getLaunchAutoStartPreferences();
       } catch (_) {}
     }
     notifyListeners();
@@ -1396,32 +1341,11 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
-  Future<void> updateConfig(
-    String host,
-    int port, {
-    String? binaryPath,
-    String? arguments,
-    bool? publicMode,
-  }) async {
-    _host = host;
-    _port = port;
-    if (!(Platform.isWindows || Platform.isAndroid)) {
-      if (binaryPath != null) _binaryPath = binaryPath;
-    }
-    if (arguments != null) _arguments = arguments;
-    if (publicMode != null) {
-      _publicMode = publicMode;
-      _host = publicMode ? '0.0.0.0' : host;
-    }
-    _syncAdapterConfiguration();
-
+  /// Records the network mode Core is started with. The host and port follow
+  /// from it; neither is a setting of its own on Android.
+  Future<void> setPublicModeConfig(bool publicMode) async {
+    _publicMode = publicMode;
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('host', _host);
-    await prefs.setInt('port', port);
-    if (!(Platform.isWindows || Platform.isAndroid)) {
-      if (binaryPath != null) await prefs.setString('binaryPath', binaryPath);
-    }
-    if (arguments != null) await prefs.setString('arguments', arguments);
     await prefs.setBool('publicMode', _publicMode);
     _syncLanAddressPolling();
     notifyListeners();
@@ -1431,21 +1355,12 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
   /// asks the launcher to replace only port 18800's listeners and persists the
   /// setting only after the new bind succeeds. A failed bind reports the
   /// listener mode restored by the launcher.
-  Future<bool> applyPublicMode(
-    bool value, {
-    required int port,
-    String? arguments,
-  }) async {
+  Future<bool> applyPublicMode(bool value) async {
     if (_isApplyingPublicMode) return false;
     _publicModeApplyError = null;
 
     if (!Platform.isAndroid || _status != ServiceStatus.running) {
-      await updateConfig(
-        value ? '0.0.0.0' : '127.0.0.1',
-        port,
-        arguments: arguments,
-        publicMode: value,
-      );
+      await setPublicModeConfig(value);
       return true;
     }
 
@@ -1453,12 +1368,7 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
     notifyListeners();
     try {
       final result = await PocketClawChannel.applyPublicMode(value);
-      await updateConfig(
-        result.publicMode ? '0.0.0.0' : '127.0.0.1',
-        port,
-        arguments: arguments,
-        publicMode: result.publicMode,
-      );
+      await setPublicModeConfig(result.publicMode);
       if (!result.success || result.publicMode != value) {
         _publicModeApplyError = result.message.isNotEmpty
             ? result.message
@@ -1478,21 +1388,6 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
       _isApplyingPublicMode = false;
       notifyListeners();
     }
-  }
-
-  Future<bool> validateBinary([String? path]) async {
-    _syncAdapterConfiguration();
-    String? checkPath;
-    if (path != null && path.isNotEmpty) {
-      checkPath = path;
-    } else if (_binaryPath.isNotEmpty) {
-      checkPath = _binaryPath;
-    }
-
-    final ok = await _adapter.validateBinary(checkPath);
-    _lastErrorCode = _adapter.getLastErrorCode();
-    notifyListeners();
-    return ok;
   }
 
   Timer? _notifyTimer;
@@ -1554,20 +1449,13 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
   ///
   /// Shared by start and restart so a restarted Core cannot come up with a
   /// different network mode than a started one.
-  String _launchArguments() {
-    // Simple token logic (split by spaces and dedupe) instead of regex.
-    // _arguments is initialized to '' and loaded with `?? ''` in init(), so
-    // it's non-null.
-    final tokens = _arguments.split(' ').where((t) => t.isNotEmpty).toList();
-
-    if (_publicMode && !tokens.contains('-public')) {
-      tokens.add('-public');
-    }
-    if (!tokens.contains('-no-browser')) {
-      tokens.add('-no-browser');
-    }
-    return tokens.join(' ');
-  }
+  ///
+  /// Derived from Public Mode alone. A free-form arguments field used to be
+  /// appended here, and the Android host reads this string only to look for
+  /// `-public` — so typing that token enabled LAN exposure without going
+  /// through the Public Mode toggle that PC-DEF-020 made the one authority.
+  String _launchArguments() =>
+      _publicMode ? '-public -no-browser' : '-no-browser';
 
   /// Restarts Core so configuration it reads only at launch takes effect.
   ///
@@ -1584,13 +1472,12 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
   Future<bool> restartCore() async {
     if (_status != ServiceStatus.running) return false;
 
-    _syncAdapterConfiguration();
     _status = ServiceStatus.starting;
     notifyListeners();
 
     try {
       final ok = await _adapter.restartService(
-        port: _port,
+        port: dashboardPort,
         args: _launchArguments(),
       );
       if (!ok) {
@@ -1624,27 +1511,24 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
 
   Future<void> start() async {
     if (_status != ServiceStatus.stopped) return;
-    _syncAdapterConfiguration();
 
     _status = ServiceStatus.starting;
     notifyListeners();
 
     final String launchArgs = _launchArguments();
     try {
-      final ok = await _adapter.startService(port: _port, args: launchArgs);
+      final ok = await _adapter.startService(
+        port: dashboardPort,
+        args: launchArgs,
+      );
 
       if (ok) {
-        if (Platform.isAndroid) {
-          // Android: keep original behavior — log and defer health check to native side
-          _addLog('Starting PocketClaw service...');
-          Future.delayed(const Duration(seconds: 2), () {
-            _syncNativeServiceStatus();
-          });
-        } else {
-          // Desktop: consider service running immediately
-          _status = ServiceStatus.running;
-          _addLog('Service started on $webUrl');
-        }
+        // The native service reports readiness; its status is read back
+        // rather than assumed.
+        _addLog('Starting PocketClaw service...');
+        Future.delayed(const Duration(seconds: 2), () {
+          _syncNativeServiceStatus();
+        });
       } else {
         _status = ServiceStatus.stopped;
         final code = _adapter.getLastErrorCode();
@@ -1676,9 +1560,6 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
     _notifyTimer?.cancel();
     _nativePollingTimer?.cancel();
     _lanAddressPollingTimer?.cancel();
-    for (final subscription in _signalSubscriptions) {
-      subscription.cancel();
-    }
     super.dispose();
   }
 }

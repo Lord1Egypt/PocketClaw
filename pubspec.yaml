@@ -8,41 +8,24 @@ environment:
 
 dependencies:
   animations: 2.1.2
-  bitsdojo_window: ^0.1.6
-  desktop_webview_window: ^0.2.3
-  file_picker: ^10.3.10
-  flex_color_scheme: any
   flutter:
     sdk: flutter
-  flutter_background_service: ^5.1.0
-  flutter_local_notifications: ^21.0.0
   flutter_localizations:
     sdk: flutter
   intl: any
-  local_session_timeout: any
-  path_provider: ^2.1.5
-  process_run: ^1.3.1+1
-  path: any
   package_info_plus: ^8.1.3
   provider: ^6.1.5+1
   qr_flutter: ^4.1.0
   remixicon: ^4.9.2
   shared_preferences: ^2.5.5
-  tray_manager: ^0.5.2
   url_launcher: ^6.3.2
   uuid: ^4.5.1
-  web_socket_channel: ^3.0.2
   webview_flutter: ^4.13.1
   # Direct, because the Android file chooser is an Android-only API:
   # AndroidWebViewController.setOnShowFileSelector is what makes the
   # console's image attachment button open a picker.
   webview_flutter_android: ^4.14.0
-  webview_windows: ^0.4.0
-  window_manager: ^0.5.1
-  windows_single_instance: any
   http: ^1.1.0
-  archive: ^4.0.9
-  args: ^2.4.2
   share_plus: ^12.0.1
 
 dev_dependencies:

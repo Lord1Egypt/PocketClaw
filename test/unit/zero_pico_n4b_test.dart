@@ -74,11 +74,16 @@ void main() {
               'not overwritten or merged');
     });
 
-    test('BootReceiver reads through the migrating accessor', () {
-      expect(read('$kotlin/receiver/BootReceiver.kt'),
-          contains('PocketClawPreferences.open(context)'),
-          reason: 'the first boot after upgrade must not read an empty '
-              'canonical store and silently reset auto-start');
+    // BootReceiver used to be the reason for this rule; it is gone
+    // (PC-DEF-083), and the rule still holds for every other reader.
+    test('no Kotlin source opens the preference store around the migration', () {
+      for (final entity in Directory(kotlin).listSync(recursive: true)) {
+        if (entity is! File || !entity.path.endsWith('.kt')) continue;
+        if (entity.path.endsWith('PocketClawPreferences.kt')) continue;
+        expect(entity.readAsStringSync(),
+            isNot(contains('getSharedPreferences(')),
+            reason: '${entity.path} bypasses PocketClawPreferences.open');
+      }
     });
   });
 

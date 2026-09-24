@@ -9,25 +9,13 @@ class AppLocalizationsPt extends AppLocalizations {
   AppLocalizationsPt([String locale = 'pt']) : super(locale);
 
   @override
-  String get appTitle => 'PocketClaw';
-
-  @override
-  String get run => 'Executar';
-
-  @override
   String get stop => 'Parar';
-
-  @override
-  String get config => 'Config';
 
   @override
   String get webAdmin => 'Admin Web';
 
   @override
   String get logs => 'Registos';
-
-  @override
-  String get viewLogs => 'Ver registos';
 
   @override
   String get statusRunning => 'Em execução';
@@ -46,27 +34,6 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String get save => 'Guardar';
-
-  @override
-  String get showWindow => 'Mostrar janela';
-
-  @override
-  String get exit => 'Sair';
-
-  @override
-  String get binaryPath => 'Caminho do binário';
-
-  @override
-  String get browse => 'Procurar';
-
-  @override
-  String get pathError => 'Caminho inválido';
-
-  @override
-  String get arguments => 'Argumentos';
-
-  @override
-  String get argumentsHint => 'ex. config.json';
 
   @override
   String get notStarted => 'Serviço não iniciado';
@@ -88,27 +55,6 @@ class AppLocalizationsPt extends AppLocalizations {
   String get refresh => 'Atualizar';
 
   @override
-  String get coreBinaryMissing =>
-      'Binário principal não encontrado. Coloque o binário da plataforma em app/bin/ ou defina o caminho nas Definições.';
-
-  @override
-  String get coreStartFailed => 'Falha ao iniciar o serviço principal.';
-
-  @override
-  String get coreStopFailed => 'Falha ao parar o serviço principal.';
-
-  @override
-  String get coreInvalidBinary => 'Ficheiro binário principal inválido.';
-
-  @override
-  String coreUnknownError(Object code) {
-    return 'Erro principal desconhecido: $code';
-  }
-
-  @override
-  String get coreValid => 'O binário principal é válido.';
-
-  @override
   String get publicMode => 'Modo público';
 
   @override
@@ -120,9 +66,6 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String get themeSelection => 'Tema';
-
-  @override
-  String get check => 'Verificar';
 
   @override
   String get launchService => 'INICIAR SERVIÇO';
@@ -161,49 +104,6 @@ class AppLocalizationsPt extends AppLocalizations {
       'Usado apenas para verificar a compatibilidade da versão do SO e da versão da aplicação. Não envolve mensagens de chat, detalhes de conta ou conteúdo pessoal';
 
   @override
-  String get deviceReportingConsentTitle =>
-      'Ajude a melhorar a compatibilidade do dispositivo';
-
-  @override
-  String get deviceReportingConsentDescription =>
-      'Quando ativado, apenas um ID de instalação anónimo, a versão do SO e a versão da aplicação são enviados para compreender a compatibilidade. O idioma e a região podem ser recolhidos separadamente pelo Firebase Analytics. Nenhuma mensagem de chat, conteúdo digitado, detalhes de conta, ficheiros ou configurações personalizadas são carregados';
-
-  @override
-  String get deviceReportingBannerDescription =>
-      'Apenas um ID de instalação anónimo, a versão do SO e a versão da aplicação são sincronizados para melhorar a compatibilidade. O idioma e a região podem ser recolhidos separadamente pelo Firebase Analytics. Nenhuma mensagem de chat, detalhes de conta, ficheiros ou conteúdo pessoal são enviados';
-
-  @override
-  String get deviceReportingWhatWillBeSent =>
-      'Apenas estes detalhes do dispositivo estão incluídos';
-
-  @override
-  String get deviceReportingDeviceLabel => 'Modelo do dispositivo';
-
-  @override
-  String get deviceReportingPlatformLabel => 'Categoria do dispositivo';
-
-  @override
-  String get deviceReportingSystemLabel => 'Versão do SO';
-
-  @override
-  String get deviceReportingTimingNote =>
-      'Uma sincronização é executada uma vez quando ativada, e novamente apenas após uma atualização do sistema ser detectada';
-
-  @override
-  String get deviceReportingDeny => 'Agora não';
-
-  @override
-  String get deviceReportingAllow => 'Ativar';
-
-  @override
-  String get deviceReportingUploadSucceeded =>
-      'Feedback de compatibilidade do dispositivo ativado';
-
-  @override
-  String get deviceReportingUploadFailed =>
-      'Feedback de compatibilidade do dispositivo ativado, mas a sincronização atual das informações do dispositivo não foi concluída';
-
-  @override
   String get deviceReportingDisabled =>
       'Feedback de compatibilidade do dispositivo desativado';
 
@@ -217,10 +117,6 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String get noLogsToExport => 'Não há registos para exportar';
-
-  @override
-  String get logsSavedToMediaLibrary =>
-      'Registos guardados em Transferências (biblioteca de mídia Android)';
 
   @override
   String logsSavedToDownloads(Object path) {
@@ -252,20 +148,7 @@ class AppLocalizationsPt extends AppLocalizations {
   }
 
   @override
-  String get unsavedChanges => 'Alterações não guardadas';
-
-  @override
-  String get unsavedChangesHint =>
-      'Tem alterações não guardadas. Deseja descartá-las?';
-
-  @override
   String get cancel => 'Cancelar';
-
-  @override
-  String get discard => 'Descartar';
-
-  @override
-  String get saved => 'Guardado';
 
   @override
   String get language => 'Idioma';

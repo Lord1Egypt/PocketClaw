@@ -9,25 +9,13 @@ class AppLocalizationsJa extends AppLocalizations {
   AppLocalizationsJa([String locale = 'ja']) : super(locale);
 
   @override
-  String get appTitle => 'PocketClaw';
-
-  @override
-  String get run => '実行';
-
-  @override
   String get stop => '停止';
-
-  @override
-  String get config => '設定';
 
   @override
   String get webAdmin => 'Web管理';
 
   @override
   String get logs => 'ログ';
-
-  @override
-  String get viewLogs => 'ログを表示';
 
   @override
   String get statusRunning => '実行中';
@@ -48,27 +36,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get save => '保存';
 
   @override
-  String get showWindow => 'ウィンドウを表示';
-
-  @override
-  String get exit => '終了';
-
-  @override
-  String get binaryPath => 'バイナリパス';
-
-  @override
-  String get browse => '参照';
-
-  @override
-  String get pathError => '無効なパス';
-
-  @override
-  String get arguments => '引数';
-
-  @override
-  String get argumentsHint => '例: config.json';
-
-  @override
   String get notStarted => 'サービス未起動';
 
   @override
@@ -87,27 +54,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get refresh => '更新';
 
   @override
-  String get coreBinaryMissing =>
-      'コアバイナリが見つかりません。プラットフォームバイナリをapp/bin/に配置するか、設定でパスを指定してください。';
-
-  @override
-  String get coreStartFailed => 'コアサービスの起動に失敗しました。';
-
-  @override
-  String get coreStopFailed => 'コアサービスの停止に失敗しました。';
-
-  @override
-  String get coreInvalidBinary => '無効なコアバイナリファイルです。';
-
-  @override
-  String coreUnknownError(Object code) {
-    return '不明なコアエラー: $code';
-  }
-
-  @override
-  String get coreValid => 'コアバイナリは有効です。';
-
-  @override
   String get publicMode => 'パブリックモード';
 
   @override
@@ -118,9 +64,6 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get themeSelection => 'テーマ';
-
-  @override
-  String get check => '確認';
 
   @override
   String get launchService => 'サービスを起動';
@@ -157,45 +100,6 @@ class AppLocalizationsJa extends AppLocalizations {
       'OSバージョンとアプリバージョンの互換性確認のみに使用されます。チャットメッセージ、アカウント詳細、個人コンテンツは関与しません';
 
   @override
-  String get deviceReportingConsentTitle => 'デバイス互換性の向上にご協力ください';
-
-  @override
-  String get deviceReportingConsentDescription =>
-      '有効にすると、互換性を把握するために匿名インストールID、OSバージョン、アプリバージョンのみが送信されます。言語と地域情報はFirebase Analyticsによって個別に収集される場合があります。チャットメッセージ、入力コンテンツ、アカウント詳細、ファイル、カスタム設定はアップロードされません';
-
-  @override
-  String get deviceReportingBannerDescription =>
-      '互換性向上のため、匿名インストールID、OSバージョン、アプリバージョンのみが同期されます。言語と地域情報はFirebase Analyticsによって個別に収集される場合があります。チャットメッセージ、アカウント詳細、ファイル、個人コンテンツは送信されません';
-
-  @override
-  String get deviceReportingWhatWillBeSent => 'これらのデバイス詳細のみが含まれます';
-
-  @override
-  String get deviceReportingDeviceLabel => 'デバイスモデル';
-
-  @override
-  String get deviceReportingPlatformLabel => 'デバイスカテゴリ';
-
-  @override
-  String get deviceReportingSystemLabel => 'OSバージョン';
-
-  @override
-  String get deviceReportingTimingNote => '有効にすると1回同期され、システム更新が検出された后再同期されます';
-
-  @override
-  String get deviceReportingDeny => '後で';
-
-  @override
-  String get deviceReportingAllow => '有効にする';
-
-  @override
-  String get deviceReportingUploadSucceeded => 'デバイス互換性フィードバックが有効になりました';
-
-  @override
-  String get deviceReportingUploadFailed =>
-      'デバイス互換性フィードバックが有効ですが、現在のデバイス情報同期が完了しませんでした';
-
-  @override
   String get deviceReportingDisabled => 'デバイス互換性フィードバックが無効になりました';
 
   @override
@@ -207,9 +111,6 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get noLogsToExport => 'エクスポートするログがありません';
-
-  @override
-  String get logsSavedToMediaLibrary => 'ログがダウンロード（Androidメディアライブラリ）に保存されました';
 
   @override
   String logsSavedToDownloads(Object path) {
@@ -241,19 +142,7 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
-  String get unsavedChanges => '未保存の変更';
-
-  @override
-  String get unsavedChangesHint => '未保存の変更があります。破棄しますか？';
-
-  @override
   String get cancel => 'キャンセル';
-
-  @override
-  String get discard => '破棄';
-
-  @override
-  String get saved => '保存しました';
 
   @override
   String get language => '言語';

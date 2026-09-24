@@ -32,9 +32,7 @@ class UmengDeviceReporter {
 
     return {
       'platform': Platform.operatingSystem,
-      'deviceModel': Platform.isWindows || Platform.isLinux || Platform.isMacOS
-          ? 'desktop'
-          : 'unknown',
+      'deviceModel': 'unknown',
       'systemVersion': Platform.operatingSystemVersion,
     };
   }

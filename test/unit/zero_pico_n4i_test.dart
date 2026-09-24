@@ -68,10 +68,11 @@ void main() {
   });
 
   group('no client asks for a legacy route', () {
-    test('the Flutter chat socket is canonical', () {
-      final chat = read('lib/src/ui/chat_page.dart');
-      expect(chat, contains('/pocketclaw/ws?session_id='));
-      expect(chat, isNot(contains('/pico/ws')));
+    // The Flutter ChatPage opened its own realtime socket, but nothing in the
+    // app ever navigated to it: Chat is the Dashboard in the WebView, which
+    // uses the canonical route. The unreachable page is gone.
+    test('no Flutter chat page opens a realtime socket of its own', () {
+      expect(File('lib/src/ui/chat_page.dart').existsSync(), isFalse);
     });
 
     test('no Dart source builds a legacy realtime URL', () {

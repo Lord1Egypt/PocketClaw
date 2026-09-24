@@ -118,29 +118,11 @@ abstract class AppLocalizations {
     Locale('zh'),
   ];
 
-  /// The title of the application
-  ///
-  /// In en, this message translates to:
-  /// **'PocketClaw'**
-  String get appTitle;
-
-  /// No description provided for @run.
-  ///
-  /// In en, this message translates to:
-  /// **'Run'**
-  String get run;
-
   /// No description provided for @stop.
   ///
   /// In en, this message translates to:
   /// **'Stop'**
   String get stop;
-
-  /// No description provided for @config.
-  ///
-  /// In en, this message translates to:
-  /// **'Config'**
-  String get config;
 
   /// No description provided for @webAdmin.
   ///
@@ -153,12 +135,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Logs'**
   String get logs;
-
-  /// No description provided for @viewLogs.
-  ///
-  /// In en, this message translates to:
-  /// **'View Logs'**
-  String get viewLogs;
 
   /// No description provided for @statusRunning.
   ///
@@ -196,48 +172,6 @@ abstract class AppLocalizations {
   /// **'Save'**
   String get save;
 
-  /// No description provided for @showWindow.
-  ///
-  /// In en, this message translates to:
-  /// **'Show Window'**
-  String get showWindow;
-
-  /// No description provided for @exit.
-  ///
-  /// In en, this message translates to:
-  /// **'Exit'**
-  String get exit;
-
-  /// No description provided for @binaryPath.
-  ///
-  /// In en, this message translates to:
-  /// **'Binary Path'**
-  String get binaryPath;
-
-  /// No description provided for @browse.
-  ///
-  /// In en, this message translates to:
-  /// **'Browse'**
-  String get browse;
-
-  /// No description provided for @pathError.
-  ///
-  /// In en, this message translates to:
-  /// **'Invalid Path'**
-  String get pathError;
-
-  /// No description provided for @arguments.
-  ///
-  /// In en, this message translates to:
-  /// **'Arguments'**
-  String get arguments;
-
-  /// No description provided for @argumentsHint.
-  ///
-  /// In en, this message translates to:
-  /// **'e.g. config.json'**
-  String get argumentsHint;
-
   /// No description provided for @notStarted.
   ///
   /// In en, this message translates to:
@@ -274,42 +208,6 @@ abstract class AppLocalizations {
   /// **'Refresh'**
   String get refresh;
 
-  /// No description provided for @coreBinaryMissing.
-  ///
-  /// In en, this message translates to:
-  /// **'Core binary not found. Place the platform binary into app/bin/ or set the path in Settings.'**
-  String get coreBinaryMissing;
-
-  /// No description provided for @coreStartFailed.
-  ///
-  /// In en, this message translates to:
-  /// **'Failed to start core service.'**
-  String get coreStartFailed;
-
-  /// No description provided for @coreStopFailed.
-  ///
-  /// In en, this message translates to:
-  /// **'Failed to stop core service.'**
-  String get coreStopFailed;
-
-  /// No description provided for @coreInvalidBinary.
-  ///
-  /// In en, this message translates to:
-  /// **'Invalid core binary file.'**
-  String get coreInvalidBinary;
-
-  /// No description provided for @coreUnknownError.
-  ///
-  /// In en, this message translates to:
-  /// **'Unknown core error: {code}'**
-  String coreUnknownError(Object code);
-
-  /// No description provided for @coreValid.
-  ///
-  /// In en, this message translates to:
-  /// **'Core binary is valid.'**
-  String get coreValid;
-
   /// No description provided for @publicMode.
   ///
   /// In en, this message translates to:
@@ -333,12 +231,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Theme'**
   String get themeSelection;
-
-  /// No description provided for @check.
-  ///
-  /// In en, this message translates to:
-  /// **'Check'**
-  String get check;
 
   /// No description provided for @launchService.
   ///
@@ -406,78 +298,6 @@ abstract class AppLocalizations {
   /// **'Used only for OS-version and app-version compatibility checks. No chat messages, account details, or personal content are involved'**
   String get deviceReportingSubtitle;
 
-  /// No description provided for @deviceReportingConsentTitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Help improve device compatibility'**
-  String get deviceReportingConsentTitle;
-
-  /// No description provided for @deviceReportingConsentDescription.
-  ///
-  /// In en, this message translates to:
-  /// **'When enabled, only an anonymous installation ID, OS version, and app version are sent to understand compatibility. Language and region can be collected by Firebase Analytics separately. No chat messages, typed content, account details, files, or custom settings are uploaded'**
-  String get deviceReportingConsentDescription;
-
-  /// No description provided for @deviceReportingBannerDescription.
-  ///
-  /// In en, this message translates to:
-  /// **'Only an anonymous installation ID, OS version, and app version are synced to improve compatibility. Language and region may be collected separately by Firebase Analytics. No chat messages, account details, files, or personal content are sent'**
-  String get deviceReportingBannerDescription;
-
-  /// No description provided for @deviceReportingWhatWillBeSent.
-  ///
-  /// In en, this message translates to:
-  /// **'Only these device details are included'**
-  String get deviceReportingWhatWillBeSent;
-
-  /// No description provided for @deviceReportingDeviceLabel.
-  ///
-  /// In en, this message translates to:
-  /// **'Device Model'**
-  String get deviceReportingDeviceLabel;
-
-  /// No description provided for @deviceReportingPlatformLabel.
-  ///
-  /// In en, this message translates to:
-  /// **'Device Category'**
-  String get deviceReportingPlatformLabel;
-
-  /// No description provided for @deviceReportingSystemLabel.
-  ///
-  /// In en, this message translates to:
-  /// **'OS Version'**
-  String get deviceReportingSystemLabel;
-
-  /// No description provided for @deviceReportingTimingNote.
-  ///
-  /// In en, this message translates to:
-  /// **'A sync runs once when enabled, and again only after a system update is detected'**
-  String get deviceReportingTimingNote;
-
-  /// No description provided for @deviceReportingDeny.
-  ///
-  /// In en, this message translates to:
-  /// **'Not now'**
-  String get deviceReportingDeny;
-
-  /// No description provided for @deviceReportingAllow.
-  ///
-  /// In en, this message translates to:
-  /// **'Turn on'**
-  String get deviceReportingAllow;
-
-  /// No description provided for @deviceReportingUploadSucceeded.
-  ///
-  /// In en, this message translates to:
-  /// **'Device compatibility feedback is on'**
-  String get deviceReportingUploadSucceeded;
-
-  /// No description provided for @deviceReportingUploadFailed.
-  ///
-  /// In en, this message translates to:
-  /// **'Device compatibility feedback is on, but the current device-info sync did not complete'**
-  String get deviceReportingUploadFailed;
-
   /// No description provided for @deviceReportingDisabled.
   ///
   /// In en, this message translates to:
@@ -501,12 +321,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'No logs to export'**
   String get noLogsToExport;
-
-  /// No description provided for @logsSavedToMediaLibrary.
-  ///
-  /// In en, this message translates to:
-  /// **'Logs saved to Downloads (Android media library)'**
-  String get logsSavedToMediaLibrary;
 
   /// No description provided for @logsSavedToDownloads.
   ///
@@ -550,35 +364,11 @@ abstract class AppLocalizations {
   /// **'{count} EVENTS'**
   String logEventsCount(int count);
 
-  /// No description provided for @unsavedChanges.
-  ///
-  /// In en, this message translates to:
-  /// **'Unsaved Changes'**
-  String get unsavedChanges;
-
-  /// No description provided for @unsavedChangesHint.
-  ///
-  /// In en, this message translates to:
-  /// **'You have unsaved changes. Do you want to discard them?'**
-  String get unsavedChangesHint;
-
   /// No description provided for @cancel.
   ///
   /// In en, this message translates to:
   /// **'Cancel'**
   String get cancel;
-
-  /// No description provided for @discard.
-  ///
-  /// In en, this message translates to:
-  /// **'Discard'**
-  String get discard;
-
-  /// No description provided for @saved.
-  ///
-  /// In en, this message translates to:
-  /// **'Saved'**
-  String get saved;
 
   /// No description provided for @language.
   ///

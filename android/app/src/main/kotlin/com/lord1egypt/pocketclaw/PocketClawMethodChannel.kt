@@ -43,8 +43,6 @@ import java.util.concurrent.Executor
  * - getConfig: 读取 config.json 内容
  * - saveConfig: 保存 config.json 内容
  * - getFullLog: 获取完整日志
- * - setAutoStart: 设置开机自启
- * - getAutoStart: 获取开机自启设置
  * - getWebPort: 获取 Web Console 端口号
  */
 class PocketClawMethodChannel(
@@ -56,7 +54,6 @@ class PocketClawMethodChannel(
     companion object {
         private const val TAG = "PocketClawMethodChannel"
         private const val CHANNEL_NAME = "com.lord1egypt.pocketclaw/pocketclaw"
-        private const val KEY_AUTO_START = "auto_start"
         private const val POST_NOTIFICATIONS_PERMISSION =
             "android.permission.POST_NOTIFICATIONS"
         private const val NOTIFICATION_PERMISSION_REQUEST_CODE = 9731
@@ -735,24 +732,6 @@ class PocketClawMethodChannel(
                             e.message ?: "Could not start the Gateway",
                             null,
                         )
-                    }
-                }
-                "setAutoStart" -> {
-                    try {
-                        val enabled = call.argument<Boolean>("enabled") ?: false
-                        val prefs = PocketClawPreferences.open(context)
-                        prefs.edit().putBoolean(KEY_AUTO_START, enabled).apply()
-                        result.success(true)
-                    } catch (e: Exception) {
-                        result.error("SET_AUTO_START_FAILED", e.message, null)
-                    }
-                }
-                "getAutoStart" -> {
-                    try {
-                        val prefs = PocketClawPreferences.open(context)
-                        result.success(prefs.getBoolean(KEY_AUTO_START, false))
-                    } catch (e: Exception) {
-                        result.error("GET_AUTO_START_FAILED", e.message, null)
                     }
                 }
                 "getCoreVersion" -> {

@@ -7,7 +7,6 @@ import 'package:pocketclaw/src/core/pocketclaw_channel.dart';
 import 'package:pocketclaw/src/core/service_manager.dart';
 import 'package:pocketclaw/src/core/aperture_theme.dart';
 import 'package:pocketclaw/src/generated/l10n/app_localizations.dart';
-import 'package:file_picker/file_picker.dart';
 import 'package:pocketclaw/src/core/app_theme.dart';
 import 'package:pocketclaw/src/ui/github_settings_card.dart';
 import 'package:pocketclaw/src/ui/whats_new_page.dart';
@@ -203,10 +202,6 @@ class _RuntimeStatusChip extends StatelessWidget {
 }
 
 class ConfigPage extends StatefulWidget {
-  final ValueChanged<bool>? onDirtyChanged;
-
-  /// Called once with the save function, so MainShell can call it later.
-  final void Function(Future<void> Function()? saveFn)? onSaveFnReady;
   final Future<AboutInfo> Function()? aboutInfoLoader;
   final Future<void> Function(String path)? onManageTelegram;
 
@@ -223,8 +218,6 @@ class ConfigPage extends StatefulWidget {
 
   const ConfigPage({
     super.key,
-    this.onDirtyChanged,
-    this.onSaveFnReady,
     this.aboutInfoLoader,
     this.onManageTelegram,
     this.onManageConsole,
@@ -242,24 +235,14 @@ class ConfigPageState extends State<ConfigPage> with WidgetsBindingObserver {
   NotificationPermissionStatus? _notificationPermission;
   static ConfigPageState? _current;
   static ConfigPageState? get current => _current;
-  final _hostController = TextEditingController();
   final _publicAddressController = TextEditingController();
-  final _portController = TextEditingController();
-  final _pathController = TextEditingController();
-  final _argsController = TextEditingController();
-
   // Focus nodes for TV navigation
   final _whatsNewFocusNode = FocusNode();
   final _aboutFocusNode = FocusNode();
   final _contextMemoryFocusNode = FocusNode();
   final _publicModeFocusNode = FocusNode();
-  final _hostFocusNode = FocusNode();
-  final _portFocusNode = FocusNode();
-  final _pathFocusNode = FocusNode();
-  final _browseFocusNode = FocusNode();
-  final _checkFocusNode = FocusNode();
-  final _argsFocusNode = FocusNode();
-  final _saveFocusNode = FocusNode();
+  final _publicAddressFocusNode = FocusNode();
+  final _languageFocusNode = FocusNode();
   final _deviceFeedbackFocusNode = FocusNode();
   final List<FocusNode> _themeFocusNodes = [];
   bool _deviceFeedbackAllowed = false;
@@ -268,30 +251,16 @@ class ConfigPageState extends State<ConfigPage> with WidgetsBindingObserver {
   String? _whatsNewVersion;
   bool _whatsNewUnseen = false;
 
-  // Dirty tracking
-  String _originalHost = '';
-  String _originalPort = '';
-  String _originalPath = '';
-  String _originalArgs = '';
-  bool _isDirty = false;
-
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _current = this;
-    widget.onSaveFnReady?.call(_saveConfig);
 
     // Initialize theme focus nodes
     _themeFocusNodes.addAll(
       List.generate(AppThemeMode.values.length, (_) => FocusNode()),
     );
-
-    // Watch for changes to mark dirty
-    _hostController.addListener(_markDirty);
-    _portController.addListener(_markDirty);
-    _pathController.addListener(_markDirty);
-    _argsController.addListener(_markDirty);
 
     _loadConfig();
     _loadWhatsNewState();
@@ -377,70 +346,26 @@ class ConfigPageState extends State<ConfigPage> with WidgetsBindingObserver {
     };
   }
 
-  void _markDirty() {
-    if (!_isDirty &&
-        (_hostController.text != _originalHost ||
-            _portController.text != _originalPort ||
-            _pathController.text != _originalPath ||
-            _argsController.text != _originalArgs)) {
-      setState(() => _isDirty = true);
-      widget.onDirtyChanged?.call(true);
-    }
-  }
-
   Future<void> _loadConfig() async {
-    // 统一从 ServiceManager 加载配置，所有平台使用相同方式
     final service = context.read<ServiceManager>();
     final allowed = await service.isDeviceFeedbackAllowed();
-
-    // 暂时移除监听器，避免设置 controller 值时触发 _markDirty
-    _hostController.removeListener(_markDirty);
-    _portController.removeListener(_markDirty);
-    _pathController.removeListener(_markDirty);
-    _argsController.removeListener(_markDirty);
-
     if (mounted) {
-      setState(() {
-        _hostController.text = service.host;
-        _portController.text = service.port.toString();
-        _pathController.text = service.binaryPath;
-        _argsController.text = service.arguments;
-        _deviceFeedbackAllowed = allowed;
-        _originalHost = _hostController.text;
-        _originalPort = _portController.text;
-        _originalPath = _pathController.text;
-        _originalArgs = _argsController.text;
-        _isDirty = false;
-      });
+      setState(() => _deviceFeedbackAllowed = allowed);
     }
-
-    // 恢复监听器
-    _hostController.addListener(_markDirty);
-    _portController.addListener(_markDirty);
-    _pathController.addListener(_markDirty);
-    _argsController.addListener(_markDirty);
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _current = null;
-    _hostController.dispose();
     _publicAddressController.dispose();
-    _portController.dispose();
-    _pathController.dispose();
-    _argsController.dispose();
 
     _whatsNewFocusNode.dispose();
     _aboutFocusNode.dispose();
     _contextMemoryFocusNode.dispose();
     _publicModeFocusNode.dispose();
-    _hostFocusNode.dispose();
-    _portFocusNode.dispose();
-    _pathFocusNode.dispose();
-    _browseFocusNode.dispose();
-    _checkFocusNode.dispose();
-    _argsFocusNode.dispose();
+    _publicAddressFocusNode.dispose();
+    _languageFocusNode.dispose();
     _deviceFeedbackFocusNode.dispose();
     for (final node in _themeFocusNodes) {
       node.dispose();
@@ -459,72 +384,12 @@ class ConfigPageState extends State<ConfigPage> with WidgetsBindingObserver {
     }
   }
 
-  Future<void> _saveConfig() async {
-    final service = context.read<ServiceManager>();
-    final port = int.tryParse(_portController.text);
-    final wasRunning = service.status == ServiceStatus.running;
-
-    try {
-      if (port != null) {
-        final String? binaryArg = (Platform.isWindows || Platform.isAndroid)
-            ? null
-            : _pathController.text;
-
-        await service.updateConfig(
-          service.publicMode ? '0.0.0.0' : _hostController.text,
-          port,
-          binaryPath: binaryArg,
-          arguments: _argsController.text,
-          publicMode: service.publicMode,
-        );
-      }
-    } catch (e) {
-      debugPrint('[ConfigPage] save failed: $e');
-    }
-
-    // Restart service if it was running to apply new settings
-    if (wasRunning) {
-      await service.stop();
-      await service.start();
-    }
-
-    // 无论保存成功还是失败，都重置 dirty 状态并通知父组件
-    if (!mounted) return;
-    setState(() {
-      _originalHost = _hostController.text;
-      _originalPort = _portController.text;
-      _originalPath = _pathController.text;
-      _originalArgs = _argsController.text;
-      _isDirty = false;
-    });
-    widget.onDirtyChanged?.call(false);
-  }
-
-  Future<void> _pickFile() async {
-    FilePickerResult? result = await FilePicker.platform.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: ['exe', 'bat', 'sh'],
-    );
-
-    if (result != null) {
-      _pathController.text = result.files.single.path ?? '';
-      await _saveConfig();
-    }
-  }
-
   Future<void> _togglePublicMode(bool value) async {
     final service = context.read<ServiceManager>();
 
-    final applied = await service.applyPublicMode(
-      value,
-      port: int.tryParse(_portController.text) ?? 18800,
-      arguments: _argsController.text,
-    );
+    final applied = await service.applyPublicMode(value);
 
     if (!mounted) return;
-    if (!service.publicMode) {
-      setState(() => _hostController.text = '127.0.0.1');
-    }
     if (!applied && service.publicModeApplyError != null) {
       ScaffoldMessenger.of(
         context,
@@ -777,572 +642,319 @@ class ConfigPageState extends State<ConfigPage> with WidgetsBindingObserver {
     final l10n = AppLocalizations.of(context)!;
     // Use scoped Selectors below to avoid whole-page rebuilds when ServiceManager changes.
 
-    return PopScope(
-      canPop: !_isDirty,
-      onPopInvokedWithResult: (didPop, result) async {
-        if (didPop) return;
-        final shouldDiscard = await showDialog<bool>(
-          context: context,
-          builder: (ctx) {
-            final colorScheme = Theme.of(ctx).colorScheme;
-            final btnStyle = TextStyle(color: colorScheme.secondary);
-            return AlertDialog(
-              title: Text(
-                AppLocalizations.of(ctx)!.unsavedChanges,
-                style: TextStyle(
-                  color: colorScheme.secondary,
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
+    return FocusTraversalGroup(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // A Wrap, not a Row: the title and the actions each keep their
+            // natural width and drop to a second line when the two cannot
+            // share one. A Row gave the actions their full width first and
+            // left the title whatever remained, which with the unseen NEW
+            // badge showing was nothing at all.
+            Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 12,
+              runSpacing: 12,
+              children: [
+                Text(
+                  l10n.settings,
+                  style: Theme.of(context).textTheme.titleLarge,
                 ),
-              ),
-              content: Text(
-                AppLocalizations.of(ctx)!.unsavedChangesHint,
-                style: TextStyle(color: colorScheme.secondary),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(ctx).pop(false),
-                  child: Text(
-                    AppLocalizations.of(ctx)!.cancel,
-                    style: btnStyle,
-                  ),
-                ),
-                TextButton(
-                  onPressed: () => Navigator.of(ctx).pop(true),
-                  child: Text(
-                    AppLocalizations.of(ctx)!.discard,
-                    style: btnStyle,
-                  ),
-                ),
-              ],
-            );
-          },
-        );
-        if (shouldDiscard == true && context.mounted) {
-          Navigator.of(context).pop();
-        }
-      },
-      child: FocusTraversalGroup(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // A Wrap, not a Row: the title and the actions each keep their
-              // natural width and drop to a second line when the two cannot
-              // share one. A Row gave the actions their full width first and
-              // left the title whatever remained, which with the unseen NEW
-              // badge showing was nothing at all.
-              Wrap(
-                alignment: WrapAlignment.spaceBetween,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                spacing: 12,
-                runSpacing: 12,
-                children: [
-                  Text(
-                    l10n.settings,
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
-                  Wrap(
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      Tooltip(
-                        message: l10n.whatsNewDescription,
-                        child: FocusableButton(
-                          focusNode: _whatsNewFocusNode,
-                          onPressed: _openWhatsNew,
-                          prevFocusNode: _whatsNewFocusNode,
-                          nextFocusNode: _aboutFocusNode,
-                          style: _ghostActionStyle(context),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(Icons.auto_awesome_outlined, size: 18),
-                              const SizedBox(width: 6),
-                              Flexible(
-                                child: Text(
-                                  l10n.whatsNewTitle,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                              if (_whatsNewUnseen) ...[
-                                const SizedBox(width: 6),
-                                _WhatsNewBadge(label: l10n.whatsNewBadge),
-                              ],
-                            ],
-                          ),
-                        ),
-                      ),
-                      Tooltip(
-                        message: l10n.about,
-                        child: FocusableButton(
-                          focusNode: _aboutFocusNode,
-                          onPressed: () {
-                            _showAboutDialog();
-                          },
-                          prevFocusNode: _whatsNewFocusNode,
-                          nextFocusNode: _publicModeFocusNode,
-                          style: _ghostActionStyle(context),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(Icons.info_outline, size: 18),
-                              const SizedBox(width: 6),
-                              Text(l10n.about),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-
-              SettingsSectionLabel(l10n.settingsGroupConnection),
-
-              Selector<ServiceManager, ({bool isPublic, bool isApplying})>(
-                selector: (_, s) => (
-                  isPublic: s.publicMode,
-                  isApplying: s.isApplyingPublicMode,
-                ),
-                builder: (_, publicModeState, _) => PublicModeToggle(
-                  focusNode: _publicModeFocusNode,
-                  isPublicMode: publicModeState.isPublic,
-                  isApplying: publicModeState.isApplying,
-                  onToggle: _togglePublicModeFromFocus,
-                  onArrowDown: () => _hostFocusNode.requestFocus(),
-                  onArrowUp: () => _aboutFocusNode.requestFocus(),
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              if (Platform.isAndroid) ...[
-                Selector<
-                  ServiceManager,
-                  ({
-                    bool serviceEnabled,
-                    bool gatewayEnabled,
-                    ServiceStatus serviceStatus,
-                  })
-                >(
-                  selector: (_, s) => (
-                    serviceEnabled: s.serviceLaunchAutoStart,
-                    gatewayEnabled: s.gatewayLaunchAutoStart,
-                    serviceStatus: s.status,
-                  ),
-                  builder: (context, autoStart, _) => AutoStartSettingsCard(
-                    serviceEnabled: autoStart.serviceEnabled,
-                    gatewayEnabled: autoStart.gatewayEnabled,
-                    serviceStatus: autoStart.serviceStatus,
-                    onServiceChanged: (value) => context
-                        .read<ServiceManager>()
-                        .setServiceLaunchAutoStart(value),
-                    onGatewayChanged: (value) => context
-                        .read<ServiceManager>()
-                        .setGatewayLaunchAutoStart(value),
-                  ),
-                ),
-                const SizedBox(height: 16),
-              ],
-
-              Text(
-                l10n.address,
-                style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                  color: context.aperture.textMuted,
-                ),
-              ),
-              const SizedBox(height: 8),
-
-              // Host text field - only depends on `publicMode`
-              Selector<ServiceManager, ({bool isPublic, String? url})>(
-                selector: (_, s) =>
-                    (isPublic: s.publicMode, url: s.publicDashboardUrl),
-                builder: (_, addressState, _) {
-                  final isPublicMode = addressState.isPublic;
-                  _publicAddressController.text =
-                      addressState.url ?? l10n.unableToGetDeviceIp;
-                  return FocusableTextField(
-                    controller: isPublicMode
-                        ? _publicAddressController
-                        : _hostController,
-                    focusNode: _hostFocusNode,
-                    label: l10n.address,
-                    enabled: !isPublicMode,
-                    nextFocusNode: _portFocusNode,
-                    prevFocusNode: _publicModeFocusNode,
-                  );
-                },
-              ),
-              const SizedBox(height: 16),
-
-              Text(
-                l10n.port,
-                style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                  color: context.aperture.textMuted,
-                ),
-              ),
-              const SizedBox(height: 8),
-
-              // Port text field
-              FocusableTextField(
-                controller: _portController,
-                focusNode: _portFocusNode,
-                label: l10n.port,
-                keyboardType: TextInputType.number,
-                nextFocusNode:
-                    (!Platform.isWindows &&
-                        !Platform.isAndroid &&
-                        !Platform.isMacOS &&
-                        !Platform.isLinux)
-                    ? _pathFocusNode
-                    : _argsFocusNode,
-                prevFocusNode: _hostFocusNode,
-              ),
-              const SizedBox(height: 16),
-
-              // PC-DEF-058. The state is shown whatever it is, and a recovery
-              // action appears only when one is needed -- someone who granted the
-              // permission has nothing to do here.
-              if (Platform.isAndroid && _notificationPermission != null)
-                _NotificationPermissionTile(
-                  status: _notificationPermission!,
-                  onOpenSettings: () async {
-                    await PocketClawChannel.openNotificationSettings();
-                    await _refreshNotificationPermission();
-                  },
-                ),
-              if (Platform.isAndroid && _notificationPermission != null)
-                const SizedBox(height: 16),
-
-              SettingsSectionLabel(l10n.settingsGroupIntegrations),
-              TelegramSettingsCard(onManage: widget.onManageTelegram),
-              const SizedBox(height: 24),
-
-              SettingsSectionLabel(l10n.settingsGroupAgent),
-              ContextMemoryCard(focusNode: _contextMemoryFocusNode),
-              const SizedBox(height: 12),
-              ModelsSettingsCard(onManage: widget.onManageConsole),
-              const SizedBox(height: 12),
-              GitHubSettingsCard(
-                onCredentialChanged: () =>
-                    context.read<ServiceManager>().applyCredentialChange(),
-              ),
-              const SizedBox(height: 24),
-
-              if (!Platform.isWindows &&
-                  !Platform.isAndroid &&
-                  !Platform.isMacOS &&
-                  !Platform.isLinux)
-                Row(
+                Wrap(
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 8,
+                  runSpacing: 8,
                   children: [
-                    Expanded(
-                      child: FocusableTextField(
-                        controller: _pathController,
-                        focusNode: _pathFocusNode,
-                        label: l10n.binaryPath,
-                        nextFocusNode: _browseFocusNode,
-                        prevFocusNode: _portFocusNode,
+                    Tooltip(
+                      message: l10n.whatsNewDescription,
+                      child: FocusableButton(
+                        focusNode: _whatsNewFocusNode,
+                        onPressed: _openWhatsNew,
+                        prevFocusNode: _whatsNewFocusNode,
+                        nextFocusNode: _aboutFocusNode,
+                        style: _ghostActionStyle(context),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.auto_awesome_outlined, size: 18),
+                            const SizedBox(width: 6),
+                            Flexible(
+                              child: Text(
+                                l10n.whatsNewTitle,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            if (_whatsNewUnseen) ...[
+                              const SizedBox(width: 6),
+                              _WhatsNewBadge(label: l10n.whatsNewBadge),
+                            ],
+                          ],
+                        ),
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    SizedBox(
-                      width: 100,
-                      child: Column(
-                        children: [
-                          Builder(
-                            builder: (ctx) {
-                              final cs = Theme.of(ctx).colorScheme;
-                              return FocusableButton(
-                                focusNode: _browseFocusNode,
-                                onPressed: _pickFile,
-                                nextFocusNode: _checkFocusNode,
-                                prevFocusNode: _pathFocusNode,
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: cs.primary,
-                                  foregroundColor: cs.onPrimary,
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 14,
-                                  ),
-                                  minimumSize: const Size(100, 48),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  elevation: 2,
-                                ),
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    const Icon(Icons.folder_open, size: 20),
-                                    const SizedBox(width: 4),
-                                    Text(l10n.browse),
-                                  ],
-                                ),
-                              );
-                            },
-                          ),
-                          const SizedBox(height: 8),
-                          Builder(
-                            builder: (ctx) {
-                              final messenger = ScaffoldMessenger.of(ctx);
-                              final local = AppLocalizations.of(ctx)!;
-                              final cs = Theme.of(ctx).colorScheme;
-                              final service = ctx.read<ServiceManager>();
-                              return FocusableButton(
-                                focusNode: _checkFocusNode,
-                                onPressed: () async {
-                                  final code = await service.validateBinary(
-                                    _pathController.text,
-                                  );
-                                  String msg;
-                                  if (code) {
-                                    msg = local.coreValid;
-                                  } else {
-                                    final ec = service.lastErrorCode;
-                                    if (ec == 'core.binary_missing') {
-                                      msg = local.coreBinaryMissing;
-                                    } else if (ec == 'core.invalid_binary') {
-                                      msg = local.coreInvalidBinary;
-                                    } else if (ec == 'core.start_failed') {
-                                      msg = local.coreStartFailed;
-                                    } else {
-                                      msg = local.coreUnknownError(ec ?? '');
-                                    }
-                                  }
-                                  messenger.showSnackBar(
-                                    SnackBar(content: Text(msg)),
-                                  );
-                                },
-                                nextFocusNode: _argsFocusNode,
-                                prevFocusNode: _browseFocusNode,
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: cs.secondary,
-                                  foregroundColor: cs.onSecondary,
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 14,
-                                  ),
-                                  minimumSize: const Size(100, 48),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  elevation: 2,
-                                ),
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    const Icon(
-                                      Icons.check_circle_outline,
-                                      size: 20,
-                                    ),
-                                    const SizedBox(width: 4),
-                                    Text(local.check),
-                                  ],
-                                ),
-                              );
-                            },
-                          ),
-                        ],
+                    Tooltip(
+                      message: l10n.about,
+                      child: FocusableButton(
+                        focusNode: _aboutFocusNode,
+                        onPressed: () {
+                          _showAboutDialog();
+                        },
+                        prevFocusNode: _whatsNewFocusNode,
+                        nextFocusNode: _publicModeFocusNode,
+                        style: _ghostActionStyle(context),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.info_outline, size: 18),
+                            const SizedBox(width: 6),
+                            Text(l10n.about),
+                          ],
+                        ),
                       ),
                     ),
                   ],
-                )
-              else
-                const SizedBox.shrink(),
-              const SizedBox(height: 16),
-
-              Text(
-                l10n.arguments,
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurface.withAlpha(153),
-                ),
-              ),
-              const SizedBox(height: 8),
-
-              // Arguments text field
-              FocusableTextField(
-                controller: _argsController,
-                focusNode: _argsFocusNode,
-                label: l10n.arguments,
-                hint: l10n.argumentsHint,
-                nextFocusNode: _saveFocusNode,
-                prevFocusNode: (!Platform.isWindows && !Platform.isAndroid)
-                    ? _checkFocusNode
-                    : _portFocusNode,
-              ),
-              if (Platform.isAndroid) ...[
-                const SizedBox(height: 16),
-                Text(
-                  l10n.workspaceDirectory,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.onSurface.withAlpha(153),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 14,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.surface,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: Theme.of(
-                        context,
-                      ).colorScheme.outline.withAlpha(60),
-                    ),
-                  ),
-                  child: Selector<ServiceManager, String>(
-                    selector: (_, s) => s.workspacePath,
-                    builder: (_, path, _) => Text(
-                      path,
-                      style: Theme.of(context).textTheme.bodyMedium,
-                    ),
-                  ),
                 ),
               ],
-              const SizedBox(height: 24),
+            ),
+            const SizedBox(height: 8),
 
-              Selector<ServiceManager, bool>(
-                selector: (_, s) => s.isDeviceFeedbackEnabled,
-                builder: (_, enabled, _) {
-                  if (!enabled) return const SizedBox.shrink();
-                  return Selector<ServiceManager, String?>(
-                    selector: (_, s) => s.lastDeviceFeedbackSyncMessage,
-                    builder: (_, msg, _) => DeviceFeedbackToggle(
-                      focusNode: _deviceFeedbackFocusNode,
-                      isAllowed: _deviceFeedbackAllowed,
-                      statusMessage: msg,
-                      onToggle: () => _toggleDeviceFeedback(context),
-                      onArrowDown: () => _saveFocusNode.requestFocus(),
-                      onArrowUp: () => _saveFocusNode.requestFocus(),
-                    ),
-                  );
-                },
+            SettingsSectionLabel(l10n.settingsGroupConnection),
+
+            Selector<ServiceManager, ({bool isPublic, bool isApplying})>(
+              selector: (_, s) =>
+                  (isPublic: s.publicMode, isApplying: s.isApplyingPublicMode),
+              builder: (_, publicModeState, _) => PublicModeToggle(
+                focusNode: _publicModeFocusNode,
+                isPublicMode: publicModeState.isPublic,
+                isApplying: publicModeState.isApplying,
+                onToggle: _togglePublicModeFromFocus,
+                onArrowDown: () => _contextMemoryFocusNode.requestFocus(),
+                onArrowUp: () => _aboutFocusNode.requestFocus(),
               ),
+            ),
+            const SizedBox(height: 16),
 
-              const SizedBox(height: 24),
-
-              // Save button
-              Builder(
-                builder: (ctx) {
-                  final cs = Theme.of(ctx).colorScheme;
-                  final messenger = ScaffoldMessenger.of(ctx);
-                  final local = AppLocalizations.of(ctx)!;
-                  return FocusableButton(
-                    focusNode: _saveFocusNode,
-                    onPressed: () async {
-                      await _saveConfig();
-                      if (!ctx.mounted) return;
-                      messenger.showSnackBar(
-                        SnackBar(content: Text(local.saved)),
-                      );
-                    },
-                    nextFocusNode: _themeFocusNodes.isNotEmpty
-                        ? _themeFocusNodes.first
-                        : _saveFocusNode,
-                    prevFocusNode: _argsFocusNode,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: cs.secondary,
-                      foregroundColor: cs.onSecondary,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 20,
-                        vertical: 16,
+            // Where another device reaches the Dashboard, shown only while
+            // Public Mode is on. The editable host and the port that used to
+            // sit here were desktop launcher settings: the Android host binds
+            // 127.0.0.1 or all interfaces from Public Mode alone, always on
+            // port 18800. PC-DEF-083.
+            Selector<ServiceManager, ({bool isPublic, String? url})>(
+              selector: (_, s) =>
+                  (isPublic: s.publicMode, url: s.publicDashboardUrl),
+              builder: (_, addressState, _) {
+                if (!addressState.isPublic) return const SizedBox.shrink();
+                _publicAddressController.text =
+                    addressState.url ?? l10n.unableToGetDeviceIp;
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      l10n.address,
+                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                        color: context.aperture.textMuted,
                       ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      elevation: 2,
                     ),
-                    child: Text(l10n.save),
-                  );
-                },
-              ),
+                    const SizedBox(height: 8),
+                    FocusableTextField(
+                      controller: _publicAddressController,
+                      focusNode: _publicAddressFocusNode,
+                      label: l10n.address,
+                      enabled: false,
+                      nextFocusNode: _contextMemoryFocusNode,
+                      prevFocusNode: _publicModeFocusNode,
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+                );
+              },
+            ),
 
+            if (Platform.isAndroid) ...[
+              Selector<
+                ServiceManager,
+                ({
+                  bool serviceEnabled,
+                  bool gatewayEnabled,
+                  ServiceStatus serviceStatus,
+                })
+              >(
+                selector: (_, s) => (
+                  serviceEnabled: s.serviceLaunchAutoStart,
+                  gatewayEnabled: s.gatewayLaunchAutoStart,
+                  serviceStatus: s.status,
+                ),
+                builder: (context, autoStart, _) => AutoStartSettingsCard(
+                  serviceEnabled: autoStart.serviceEnabled,
+                  gatewayEnabled: autoStart.gatewayEnabled,
+                  serviceStatus: autoStart.serviceStatus,
+                  onServiceChanged: (value) => context
+                      .read<ServiceManager>()
+                      .setServiceLaunchAutoStart(value),
+                  onGatewayChanged: (value) => context
+                      .read<ServiceManager>()
+                      .setGatewayLaunchAutoStart(value),
+                ),
+              ),
               const SizedBox(height: 16),
+            ],
+
+            // PC-DEF-058. The state is shown whatever it is, and a recovery
+            // action appears only when one is needed -- someone who granted the
+            // permission has nothing to do here.
+            if (Platform.isAndroid && _notificationPermission != null)
+              _NotificationPermissionTile(
+                status: _notificationPermission!,
+                onOpenSettings: () async {
+                  await PocketClawChannel.openNotificationSettings();
+                  await _refreshNotificationPermission();
+                },
+              ),
+            if (Platform.isAndroid && _notificationPermission != null)
+              const SizedBox(height: 16),
+
+            SettingsSectionLabel(l10n.settingsGroupIntegrations),
+            TelegramSettingsCard(onManage: widget.onManageTelegram),
+            const SizedBox(height: 24),
+
+            SettingsSectionLabel(l10n.settingsGroupAgent),
+            ContextMemoryCard(focusNode: _contextMemoryFocusNode),
+            const SizedBox(height: 12),
+            ModelsSettingsCard(onManage: widget.onManageConsole),
+            const SizedBox(height: 12),
+            GitHubSettingsCard(
+              onCredentialChanged: () =>
+                  context.read<ServiceManager>().applyCredentialChange(),
+            ),
+            const SizedBox(height: 24),
+
+            if (Platform.isAndroid) ...[
               Text(
-                l10n.language,
+                l10n.workspaceDirectory,
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
                   color: Theme.of(context).colorScheme.onSurface.withAlpha(153),
                 ),
               ),
               const SizedBox(height: 8),
-              Selector<ServiceManager, Locale>(
-                selector: (_, s) => s.currentLocale,
-                builder: (_, currentLocale, _) {
-                  final service = context.read<ServiceManager>();
-                  return FocusableButton(
-                    focusNode: _saveFocusNode,
-                    onPressed: () {},
-                    prevFocusNode: _argsFocusNode,
-                    nextFocusNode: _themeFocusNodes.isNotEmpty
-                        ? _themeFocusNodes.first
-                        : _saveFocusNode,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Theme.of(context).colorScheme.surface,
-                      foregroundColor: Theme.of(context).colorScheme.onSurface,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 12,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        side: BorderSide(
-                          color: Theme.of(
-                            context,
-                          ).colorScheme.outline.withAlpha(60),
-                        ),
-                      ),
-                    ),
-                    child: PopupMenuButton<Locale>(
-                      initialValue: currentLocale,
-                      tooltip: l10n.selectLanguage,
-                      onSelected: (locale) => service.setLocale(locale),
-                      itemBuilder: (ctx) => AppLocalizations.supportedLocales
-                          .map(
-                            (locale) => PopupMenuItem(
-                              value: locale,
-                              child: Text(
-                                _getLanguageName(locale.languageCode),
-                              ),
-                            ),
-                          )
-                          .toList(),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(_getLanguageName(currentLocale.languageCode)),
-                          const SizedBox(width: 8),
-                          const Icon(Icons.arrow_drop_down, size: 20),
-                        ],
-                      ),
-                    ),
-                  );
-                },
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 14,
+                ),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surface,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: Theme.of(context).colorScheme.outline.withAlpha(60),
+                  ),
+                ),
+                child: Selector<ServiceManager, String>(
+                  selector: (_, s) => s.workspacePath,
+                  builder: (_, path, _) =>
+                      Text(path, style: Theme.of(context).textTheme.bodyMedium),
+                ),
               ),
-              const SizedBox(height: 16),
-              const Divider(),
-              const SizedBox(height: 8),
-              SettingsSectionLabel(l10n.settingsGroupAppearance),
-              Text(
-                l10n.themeSelection,
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              const SizedBox(height: 12),
-              ThemeModeSelector(
-                themeFocusNodes: _themeFocusNodes,
-                saveFocusNode: _saveFocusNode,
-              ),
-              const SizedBox(height: 32),
             ],
-          ),
+            const SizedBox(height: 24),
+
+            Selector<ServiceManager, bool>(
+              selector: (_, s) => s.isDeviceFeedbackEnabled,
+              builder: (_, enabled, _) {
+                if (!enabled) return const SizedBox.shrink();
+                return Selector<ServiceManager, String?>(
+                  selector: (_, s) => s.lastDeviceFeedbackSyncMessage,
+                  builder: (_, msg, _) => DeviceFeedbackToggle(
+                    focusNode: _deviceFeedbackFocusNode,
+                    isAllowed: _deviceFeedbackAllowed,
+                    statusMessage: msg,
+                    onToggle: () => _toggleDeviceFeedback(context),
+                    onArrowDown: () => _languageFocusNode.requestFocus(),
+                    onArrowUp: () => _languageFocusNode.requestFocus(),
+                  ),
+                );
+              },
+            ),
+
+            const SizedBox(height: 24),
+
+            const SizedBox(height: 16),
+            Text(
+              l10n.language,
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                color: Theme.of(context).colorScheme.onSurface.withAlpha(153),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Selector<ServiceManager, Locale>(
+              selector: (_, s) => s.currentLocale,
+              builder: (_, currentLocale, _) {
+                final service = context.read<ServiceManager>();
+                return FocusableButton(
+                  focusNode: _languageFocusNode,
+                  onPressed: () {},
+                  prevFocusNode: _publicModeFocusNode,
+                  nextFocusNode: _themeFocusNodes.isNotEmpty
+                      ? _themeFocusNodes.first
+                      : _languageFocusNode,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Theme.of(context).colorScheme.surface,
+                    foregroundColor: Theme.of(context).colorScheme.onSurface,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      side: BorderSide(
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.outline.withAlpha(60),
+                      ),
+                    ),
+                  ),
+                  child: PopupMenuButton<Locale>(
+                    initialValue: currentLocale,
+                    tooltip: l10n.selectLanguage,
+                    onSelected: (locale) => service.setLocale(locale),
+                    itemBuilder: (ctx) => AppLocalizations.supportedLocales
+                        .map(
+                          (locale) => PopupMenuItem(
+                            value: locale,
+                            child: Text(_getLanguageName(locale.languageCode)),
+                          ),
+                        )
+                        .toList(),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(_getLanguageName(currentLocale.languageCode)),
+                        const SizedBox(width: 8),
+                        const Icon(Icons.arrow_drop_down, size: 20),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+            const SizedBox(height: 16),
+            const Divider(),
+            const SizedBox(height: 8),
+            SettingsSectionLabel(l10n.settingsGroupAppearance),
+            Text(
+              l10n.themeSelection,
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 12),
+            ThemeModeSelector(
+              themeFocusNodes: _themeFocusNodes,
+              previousFocusNode: _languageFocusNode,
+            ),
+            const SizedBox(height: 32),
+          ],
         ),
       ),
     );
@@ -1917,12 +1529,12 @@ class DeviceFeedbackToggle extends StatefulWidget {
 // ThemeModeSelector: isolates theme buttons so only this subtree rebuilds
 class ThemeModeSelector extends StatelessWidget {
   final List<FocusNode> themeFocusNodes;
-  final FocusNode saveFocusNode;
+  final FocusNode previousFocusNode;
 
   const ThemeModeSelector({
     super.key,
     required this.themeFocusNodes,
-    required this.saveFocusNode,
+    required this.previousFocusNode,
   });
 
   @override
@@ -1962,7 +1574,7 @@ class ThemeModeSelector extends StatelessWidget {
                 themeFocusNodes[themeFocusNodes.length - 1].requestFocus();
               }
             },
-            onArrowUp: () => saveFocusNode.requestFocus(),
+            onArrowUp: () => previousFocusNode.requestFocus(),
           );
         }).toList(),
       ),

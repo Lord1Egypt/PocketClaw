@@ -9,25 +9,13 @@ class AppLocalizationsAr extends AppLocalizations {
   AppLocalizationsAr([String locale = 'ar']) : super(locale);
 
   @override
-  String get appTitle => 'PocketClaw';
-
-  @override
-  String get run => 'تشغيل';
-
-  @override
   String get stop => 'إيقاف';
-
-  @override
-  String get config => 'إعداد';
 
   @override
   String get webAdmin => 'إدارة الويب';
 
   @override
   String get logs => 'السجلات';
-
-  @override
-  String get viewLogs => 'عرض السجلات';
 
   @override
   String get statusRunning => 'قيد التشغيل';
@@ -48,27 +36,6 @@ class AppLocalizationsAr extends AppLocalizations {
   String get save => 'حفظ';
 
   @override
-  String get showWindow => 'إظهار النافذة';
-
-  @override
-  String get exit => 'خروج';
-
-  @override
-  String get binaryPath => 'مسار الثنائي';
-
-  @override
-  String get browse => 'تصفح';
-
-  @override
-  String get pathError => 'مسار غير صالح';
-
-  @override
-  String get arguments => 'المعاملات';
-
-  @override
-  String get argumentsHint => 'مثلاً: config.json';
-
-  @override
   String get notStarted => 'الخدمة لم تبدأ بعد';
 
   @override
@@ -87,27 +54,6 @@ class AppLocalizationsAr extends AppLocalizations {
   String get refresh => 'تحديث';
 
   @override
-  String get coreBinaryMissing =>
-      'لم يتم العثور على الملف الثنائي الأساسي. ضع الثنائي للنظام الأساسي في app/bin/ أو حدد المسار في الإعدادات.';
-
-  @override
-  String get coreStartFailed => 'فشل في بدء خدمة النواة.';
-
-  @override
-  String get coreStopFailed => 'فشل في إيقاف خدمة النواة.';
-
-  @override
-  String get coreInvalidBinary => 'ملف ثنائي أساسي غير صالح.';
-
-  @override
-  String coreUnknownError(Object code) {
-    return 'خطأ أساسي غير معروف: $code';
-  }
-
-  @override
-  String get coreValid => 'الملف الثنائي الأساسي صالح.';
-
-  @override
   String get publicMode => 'الوضع العام';
 
   @override
@@ -119,9 +65,6 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get themeSelection => 'السمة';
-
-  @override
-  String get check => 'فحص';
 
   @override
   String get launchService => 'تشغيل الخدمة';
@@ -158,46 +101,6 @@ class AppLocalizationsAr extends AppLocalizations {
       'تُستخدم فقط للتحقق من توافق إصدار نظام التشغيل وإصدار التطبيق. لا تتضمن رسائل الدردشة أو تفاصيل الحساب أو المحتوى الشخصي';
 
   @override
-  String get deviceReportingConsentTitle => 'ساعد في تحسين توافق الجهاز';
-
-  @override
-  String get deviceReportingConsentDescription =>
-      'عند التمكين، يتم إرسال معرف تثبيت مجهول فقط وإصدار نظام التشغيل وإصدار التطبيق لفهم التوافق. قد يتم جمع اللغة والمنطقة بشكل منفصل بواسطة Firebase Analytics. لا يتم تحميل رسائل الدردشة أو المحتوى المكتوب أو تفاصيل الحساب أو الملفات أو الإعدادات المخصصة';
-
-  @override
-  String get deviceReportingBannerDescription =>
-      'يتم مزامنة معرف التثبيت المجهول وإصدار نظام التشغيل وإصدار التطبيق فقط لتحسين التوافق. قد يتم جمع اللغة والمنطقة بشكل منفصل بواسطة Firebase Analytics. لا يتم إرسال رسائل الدردشة أو تفاصيل الحساب أو الملفات أو المحتوى الشخصي';
-
-  @override
-  String get deviceReportingWhatWillBeSent => 'تتضمن فقط تفاصيل الجهاز هذه';
-
-  @override
-  String get deviceReportingDeviceLabel => 'طراز الجهاز';
-
-  @override
-  String get deviceReportingPlatformLabel => 'فئة الجهاز';
-
-  @override
-  String get deviceReportingSystemLabel => 'إصدار نظام التشغيل';
-
-  @override
-  String get deviceReportingTimingNote =>
-      'يتم تشغيل المزامنة مرة واحدة عند التمكين، ومرة أخرى فقط بعد اكتشاف تحديث للنظام';
-
-  @override
-  String get deviceReportingDeny => 'ليس الآن';
-
-  @override
-  String get deviceReportingAllow => 'تشغيل';
-
-  @override
-  String get deviceReportingUploadSucceeded => 'تعليقات توافق الجهاز مفعلة';
-
-  @override
-  String get deviceReportingUploadFailed =>
-      'تعليقات توافق الجهاز مفعلة، لكن مزامنة معلومات الجهاز الحالية لم تكتمل';
-
-  @override
   String get deviceReportingDisabled => 'تعليقات توافق الجهاز معطلة';
 
   @override
@@ -210,10 +113,6 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get noLogsToExport => 'لا توجد سجلات للتصدير';
-
-  @override
-  String get logsSavedToMediaLibrary =>
-      'تم حفظ السجلات في التنزيلات (مكتبة وسائط Android)';
 
   @override
   String logsSavedToDownloads(Object path) {
@@ -245,20 +144,7 @@ class AppLocalizationsAr extends AppLocalizations {
   }
 
   @override
-  String get unsavedChanges => 'تغييرات غير محفوظة';
-
-  @override
-  String get unsavedChangesHint =>
-      'لديك تغييرات غير محفوظة. هل تريد التخلص منها؟';
-
-  @override
   String get cancel => 'إلغاء';
-
-  @override
-  String get discard => 'تجاهل';
-
-  @override
-  String get saved => 'تم الحفظ';
 
   @override
   String get language => 'اللغة';

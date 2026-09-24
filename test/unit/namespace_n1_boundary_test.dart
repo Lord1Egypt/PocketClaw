@@ -113,10 +113,14 @@ void main() {
           contains('path="picoclaw/"'));
     });
 
-    test('the desktop adapter still looks up upstream artifact names', () {
-      // These are filenames core/src/Makefile produces, not our identity.
-      final adapter = read('lib/src/native/desktop_core_service_adapter.dart');
-      expect(adapter, contains('picoclaw-launcher'));
+    // N1 preserved the desktop adapter's upstream artifact names. The adapter
+    // itself is gone now: PocketClaw is Android-only, so nothing in the app
+    // looks up a picoclaw-launcher binary on a host PATH any more.
+    test('no desktop adapter remains to look up upstream artifact names', () {
+      expect(
+        File('lib/src/native/desktop_core_service_adapter.dart').existsSync(),
+        isFalse,
+      );
     });
   });
 }

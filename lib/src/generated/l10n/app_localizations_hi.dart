@@ -9,25 +9,13 @@ class AppLocalizationsHi extends AppLocalizations {
   AppLocalizationsHi([String locale = 'hi']) : super(locale);
 
   @override
-  String get appTitle => 'PocketClaw';
-
-  @override
-  String get run => 'चलाएं';
-
-  @override
   String get stop => 'रोकें';
-
-  @override
-  String get config => 'कॉन्फ़िग';
 
   @override
   String get webAdmin => 'वेब एडमिन';
 
   @override
   String get logs => 'लॉग';
-
-  @override
-  String get viewLogs => 'लॉग देखें';
 
   @override
   String get statusRunning => 'चल रहा है';
@@ -48,27 +36,6 @@ class AppLocalizationsHi extends AppLocalizations {
   String get save => 'सहेजें';
 
   @override
-  String get showWindow => 'विंडो दिखाएं';
-
-  @override
-  String get exit => 'बाहर निकलें';
-
-  @override
-  String get binaryPath => 'बाइनरी पथ';
-
-  @override
-  String get browse => 'ब्राउज़ करें';
-
-  @override
-  String get pathError => 'अमान्य पथ';
-
-  @override
-  String get arguments => 'तर्क';
-
-  @override
-  String get argumentsHint => 'उदा. config.json';
-
-  @override
   String get notStarted => 'सेवा शुरू नहीं हुई';
 
   @override
@@ -87,27 +54,6 @@ class AppLocalizationsHi extends AppLocalizations {
   String get refresh => 'रीफ्रेश';
 
   @override
-  String get coreBinaryMissing =>
-      'कोर बाइनरी नहीं मिली। प्लेटफ़ॉर्म बाइनरी को app/bin/ में रखें या सेटिंग्स में पथ सेट करें।';
-
-  @override
-  String get coreStartFailed => 'कोर सेवा शुरू करने में विफल।';
-
-  @override
-  String get coreStopFailed => 'कोर सेवा रोकने में विफल।';
-
-  @override
-  String get coreInvalidBinary => 'अमान्य कोर बाइनरी फ़ाइल।';
-
-  @override
-  String coreUnknownError(Object code) {
-    return 'अज्ञात कोर त्रुटि: $code';
-  }
-
-  @override
-  String get coreValid => 'कोर बाइनरी वैध है।';
-
-  @override
   String get publicMode => 'पब्लिक मोड';
 
   @override
@@ -119,9 +65,6 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String get themeSelection => 'थीम';
-
-  @override
-  String get check => 'जांचें';
 
   @override
   String get launchService => 'सेवा शुरू करें';
@@ -158,48 +101,6 @@ class AppLocalizationsHi extends AppLocalizations {
       'केवल OS संस्करण और ऐप संस्करण संगतता की जांच के लिए उपयोग किया जाता है। चैट संदेशों, खाता विवरण या व्यक्तिगत सामग्री का कोई संबंध नहीं है';
 
   @override
-  String get deviceReportingConsentTitle =>
-      'डिवाइस संगतता में सुधार करने में मदद करें';
-
-  @override
-  String get deviceReportingConsentDescription =>
-      'सक्षम होने पर, केवल संगतता को समझने के लिए एक अनाम इंस्टॉलेशन ID, OS संस्करण और ऐप संस्करण भेजे जाते हैं। भाषा और क्षेत्र Firebase Analytics द्वारा अलग से एकत्र किए जा सकते हैं। कोई चैट संदेश, टाइप की गई सामग्री, खाता विवरण, फ़ाइलें या कस्टम सेटिंग्स अपलोड नहीं की जाती हैं';
-
-  @override
-  String get deviceReportingBannerDescription =>
-      'संगतता में सुधार के लिए केवल एक अनाम इंस्टॉलेशन ID, OS संस्करण और ऐप संस्करण सिंक किए जाते हैं। भाषा और क्षेत्र Firebase Analytics द्वारा अलग से एकत्र किए जा सकते हैं। कोई चैट संदेश, खाता विवरण, फ़ाइलें या व्यक्तिगत सामग्री नहीं भेजी जाती';
-
-  @override
-  String get deviceReportingWhatWillBeSent => 'केवल ये डिवाइस विवरण शामिल हैं';
-
-  @override
-  String get deviceReportingDeviceLabel => 'डिवाइस मॉडल';
-
-  @override
-  String get deviceReportingPlatformLabel => 'डिवाइस श्रेणी';
-
-  @override
-  String get deviceReportingSystemLabel => 'OS संस्करण';
-
-  @override
-  String get deviceReportingTimingNote =>
-      'सक्षम होने पर एक बार सिंक चलता है, और फिर केवल तब जब सिस्टम अपडेट का पता चलता है';
-
-  @override
-  String get deviceReportingDeny => 'अभी नहीं';
-
-  @override
-  String get deviceReportingAllow => 'सक्षम करें';
-
-  @override
-  String get deviceReportingUploadSucceeded =>
-      'डिवाइस संगतता प्रतिक्रिया सक्षम है';
-
-  @override
-  String get deviceReportingUploadFailed =>
-      'डिवाइस संगतता प्रतिक्रिया सक्षम है, लेकिन वर्तमान डिवाइस जानकारी सिंक पूरा नहीं हुआ';
-
-  @override
   String get deviceReportingDisabled => 'डिवाइस संगतता प्रतिक्रिया अक्षम है';
 
   @override
@@ -212,10 +113,6 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String get noLogsToExport => 'निर्यात करने के लिए कोई लॉग नहीं';
-
-  @override
-  String get logsSavedToMediaLibrary =>
-      'लॉग डाउनलोड (Android मीडिया लाइब्रेरी) में सहेजे गए';
 
   @override
   String logsSavedToDownloads(Object path) {
@@ -247,20 +144,7 @@ class AppLocalizationsHi extends AppLocalizations {
   }
 
   @override
-  String get unsavedChanges => 'असहेजे गए परिवर्तन';
-
-  @override
-  String get unsavedChangesHint =>
-      'आपके पास असहेजे गए परिवर्तन हैं। क्या आप उन्हें छोड़ना चाहते हैं?';
-
-  @override
   String get cancel => 'रद्द करें';
-
-  @override
-  String get discard => 'छोड़ें';
-
-  @override
-  String get saved => 'सहेजे गए';
 
   @override
   String get language => 'भाषा';

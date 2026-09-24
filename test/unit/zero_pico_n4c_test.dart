@@ -13,7 +13,15 @@ void main() {
   final channels = File('$kotlin/PocketClawNotificationChannels.kt').readAsStringSync();
   final app = File('$kotlin/PocketClawApp.kt').readAsStringSync();
   final service = File('$kotlin/service/PocketClawService.kt').readAsStringSync();
-  final background = File('lib/src/core/background_service.dart').readAsStringSync();
+  // Every Dart source. The flutter_background_service configuration that used
+  // to live in lib/src/core/background_service.dart is gone with the plugin,
+  // so these assert that no Dart code anywhere creates a channel.
+  final background = Directory('lib')
+      .listSync(recursive: true)
+      .whereType<File>()
+      .where((f) => f.path.endsWith('.dart'))
+      .map((f) => f.readAsStringSync())
+      .join('\n');
 
   group('no current code creates a legacy channel', () {
     test('picoclaw_service is never created', () {
@@ -57,8 +65,12 @@ void main() {
           reason: 'the notification builder resolves through the same constant');
     });
 
-    test('the Flutter configuration points at the one real channel', () {
-      expect(background, contains("notificationChannelId: 'pocketclaw_service'"));
+    // The Flutter background-service configuration that pointed at the real
+    // channel is gone with the plugin (it was never started). The native
+    // service remains the only notification owner.
+    test('no Flutter code configures a background-service channel', () {
+      expect(background, isNot(contains('notificationChannelId')));
+      expect(background, isNot(contains('flutter_background_service')));
     });
   });
 

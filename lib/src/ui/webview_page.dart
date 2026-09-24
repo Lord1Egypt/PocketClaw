@@ -3,12 +3,8 @@ import '../core/app_fonts.dart';
 import 'package:pocketclaw/src/core/service_manager.dart';
 import 'package:pocketclaw/src/generated/l10n/app_localizations.dart';
 import 'package:pocketclaw/src/ui/webview/webview_android.dart';
-import 'package:pocketclaw/src/ui/webview/webview_linux.dart';
-import 'package:pocketclaw/src/ui/webview/webview_macos.dart';
-import 'package:pocketclaw/src/ui/webview/webview_windows.dart';
 import 'package:provider/provider.dart';
 import 'package:remixicon/remixicon.dart';
-import 'dart:io';
 
 class WebViewPage extends StatefulWidget {
   final String url;
@@ -111,33 +107,6 @@ class _WebViewPageState extends State<WebViewPage> {
       );
     }
 
-    if (Platform.isWindows) {
-      return WebViewWindows(
-        url: widget.webviewUrl,
-        onGoToDashboard: widget.onGoToDashboard,
-      );
-    }
-
-    if (Platform.isMacOS) {
-      return WebViewMacOS(
-        url: widget.webviewUrl,
-        onGoToDashboard: widget.onGoToDashboard,
-      );
-    }
-
-    if (Platform.isLinux) {
-      return WebViewLinux(
-        url: widget.webviewUrl,
-        onGoToDashboard: widget.onGoToDashboard,
-      );
-    }
-
-    if (Platform.isAndroid) {
-      return WebViewAndroid(url: widget.webviewUrl);
-    }
-
-    return const Center(
-      child: Text('Platform not supported for embedded WebView'),
-    );
+    return WebViewAndroid(url: widget.webviewUrl);
   }
 }
