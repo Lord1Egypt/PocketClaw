@@ -2181,6 +2181,9 @@
 - Date: 2026-08-24
 - Decision: Preserve upstream MIT notices and defer choosing a license for new
   PocketClaw code until product-owner approval.
+- Superseded 2026-09-09: the owner chose MIT for PocketClaw's own code
+  (`bbe743c`). `LICENSE` is the standard MIT text; third-party attribution lives
+  in `THIRD_PARTY_NOTICES.md`.
 
 ## Bound the local Gradle JVM for reproducible foundation builds
 
