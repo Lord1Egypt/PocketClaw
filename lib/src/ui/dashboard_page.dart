@@ -6,7 +6,6 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:pocketclaw/src/core/aperture_theme.dart';
 import 'package:pocketclaw/src/generated/l10n/app_localizations.dart';
 import '../core/app_fonts.dart';
-import 'package:remixicon/remixicon.dart';
 import 'package:pocketclaw/src/ui/widgets/tv_focusable.dart';
 import 'package:pocketclaw/src/ui/status_sections.dart';
 
@@ -150,8 +149,8 @@ class _DashboardPageState extends State<DashboardPage> {
                               children: [
                                 Icon(
                                   isRunning
-                                      ? Remix.stop_circle_fill
-                                      : Remix.play_circle_fill,
+                                      ? Icons.stop_circle
+                                      : Icons.play_circle,
                                   size: 28,
                                   color: isRunning
                                       ? tokens.danger
@@ -303,7 +302,7 @@ class _DashboardPageState extends State<DashboardPage> {
                   color: tokens.surface3,
                   borderRadius: BorderRadius.circular(ApertureTheme.radiusXs),
                 ),
-                child: Icon(Remix.link_m, color: tokens.accent, size: 16),
+                child: Icon(Icons.link, color: tokens.accent, size: 16),
               ),
               const SizedBox(width: 10),
               Flexible(

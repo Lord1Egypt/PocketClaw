@@ -421,14 +421,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.1.1"
-  remixicon:
-    dependency: "direct main"
-    description:
-      name: remixicon
-      sha256: "4b8e334b78b0fbf05fb7abe1b48f3c3df9e4a11ab767e3f3e7f1cc36dc1e046e"
-      url: "https://pub.dev"
-    source: hosted
-    version: "4.9.3"
   share_plus:
     dependency: "direct main"
     description:

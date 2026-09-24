@@ -4,7 +4,6 @@ import 'package:pocketclaw/src/core/service_manager.dart';
 import 'package:pocketclaw/src/generated/l10n/app_localizations.dart';
 import 'package:pocketclaw/src/ui/webview/webview_android.dart';
 import 'package:provider/provider.dart';
-import 'package:remixicon/remixicon.dart';
 
 class WebViewPage extends StatefulWidget {
   final String url;
@@ -49,7 +48,7 @@ class _WebViewPageState extends State<WebViewPage> {
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
-                  Remix.error_warning_line,
+                  Icons.error_outline,
                   size: 64,
                   color: colorScheme.secondary.withAlpha(
                     ((0.5).clamp(0.0, 1.0) * 255).round(),
@@ -82,7 +81,7 @@ class _WebViewPageState extends State<WebViewPage> {
                 height: 56,
                 child: ElevatedButton.icon(
                   onPressed: widget.onGoToDashboard,
-                  icon: const Icon(Remix.arrow_left_line),
+                  icon: const Icon(Icons.arrow_back),
                   label: Text(
                     l10n.goToDashboard.toUpperCase(),
                     style: const TextStyle(

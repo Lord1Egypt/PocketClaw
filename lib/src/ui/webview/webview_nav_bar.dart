@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:pocketclaw/src/generated/l10n/app_localizations.dart';
-import 'package:remixicon/remixicon.dart';
 
 /// Floating draggable nav-bar (back / forward / reload) for WebView pages.
 ///
@@ -159,7 +158,7 @@ class _DraggableWebNavBarState extends State<DraggableWebNavBar> {
               children: [
                 IconButton(
                   icon: Icon(
-                    Remix.arrow_left_s_line,
+                    Icons.chevron_left,
                     color: colorScheme.secondary,
                   ),
                   tooltip: l10n.back,
@@ -167,14 +166,14 @@ class _DraggableWebNavBarState extends State<DraggableWebNavBar> {
                 ),
                 IconButton(
                   icon: Icon(
-                    Remix.arrow_right_s_line,
+                    Icons.chevron_right,
                     color: colorScheme.secondary,
                   ),
                   tooltip: l10n.forward,
                   onPressed: widget.onForward,
                 ),
                 IconButton(
-                  icon: Icon(Remix.refresh_line, color: colorScheme.secondary),
+                  icon: Icon(Icons.refresh, color: colorScheme.secondary),
                   tooltip: l10n.refresh,
                   onPressed: widget.onReload,
                 ),

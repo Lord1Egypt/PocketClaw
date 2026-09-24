@@ -61,6 +61,18 @@ void main() {
     });
   });
 
+  group('icon glyphs', () {
+    // The remixicon package bundled remix.ttf under the Remix Icon License
+    // v1.0, which is not a FLOSS licence. Its eight glyphs were replaced with
+    // Material Icons, which Flutter ships under Apache-2.0.
+    test('no Remix Icon font is resolved', () {
+      expect((pubspec['dependencies'] as YamlMap).containsKey('remixicon'),
+          isFalse);
+      expect(File('pubspec.lock').readAsStringSync(),
+          isNot(contains('remixicon')));
+    });
+  });
+
   group('bundled assets', () {
     test('both families are declared with per-weight files', () {
       final fonts = flutterSection['fonts'] as YamlList;
