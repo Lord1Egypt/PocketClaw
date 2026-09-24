@@ -1,5 +1,6 @@
 package com.lord1egypt.pocketclaw
 
+import com.lord1egypt.pocketclaw.diagnostics.LifecycleDiagnostics
 import com.lord1egypt.pocketclaw.service.PocketClawService
 import io.flutter.app.FlutterApplication
 
@@ -18,6 +19,10 @@ class PocketClawApp : FlutterApplication() {
 
     override fun onCreate() {
         super.onCreate()
+        // PC-DEF-085. First, so a process Android started on its own -- the
+        // reboot "keeps stopping" report -- leaves a record of why it started
+        // and how the previous one ended, even if something below fails.
+        LifecycleDiagnostics.onProcessStart(this)
         // Before anything can post a foreground notification.
         PocketClawNotificationChannels.ensure(this)
         // PC-DEF-070. Android runs this before any component of a newly created

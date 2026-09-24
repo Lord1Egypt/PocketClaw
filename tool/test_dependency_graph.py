@@ -45,5 +45,11 @@ class DependencyGraphTest(unittest.TestCase):
                                           ("androidx.core", "core")}), [])
 
 
+class BackgroundSchedulerTest(unittest.TestCase):
+    def test_workmanager_is_refused_because_it_starts_the_app_at_boot(self):
+        hits = graph.forbidden({("androidx.work", "work-runtime"), ("androidx.core", "core")})
+        self.assertEqual(hits, ["androidx.work:work-runtime (background scheduler)"])
+
+
 if __name__ == "__main__":
     unittest.main()

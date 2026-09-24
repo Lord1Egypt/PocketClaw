@@ -1,6 +1,8 @@
 package com.lord1egypt.pocketclaw
 
 import android.content.Intent
+import android.os.Bundle
+import com.lord1egypt.pocketclaw.diagnostics.LifecycleDiagnostics
 import com.lord1egypt.pocketclaw.media.ChatImagePicker
 import com.lord1egypt.pocketclaw.storage.LegacyWorkspaceImporter
 import io.flutter.embedding.android.FlutterActivity
@@ -21,6 +23,13 @@ class MainActivity : FlutterActivity() {
      * same reason: the document-tree picker answers through an Activity result.
      */
     private val legacyWorkspaceImporter = LegacyWorkspaceImporter(this)
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        LifecycleDiagnostics.record(
+            this, "activity", "create", "restored=${savedInstanceState != null}",
+        )
+        super.onCreate(savedInstanceState)
+    }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)

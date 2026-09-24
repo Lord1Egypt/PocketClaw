@@ -1,6 +1,7 @@
 package com.lord1egypt.pocketclaw
 
 import com.lord1egypt.pocketclaw.media.ChatImagePicker
+import com.lord1egypt.pocketclaw.diagnostics.LifecycleDiagnostics
 import com.lord1egypt.pocketclaw.security.GitHubCredentialStore
 import com.lord1egypt.pocketclaw.storage.ImportOutcome
 import com.lord1egypt.pocketclaw.storage.LegacyWorkspaceImporter
@@ -754,6 +755,10 @@ class PocketClawMethodChannel(
                 // PC-DEF-077. The workspace moved to app-specific storage; an older
                 // install may have left one in Download/pocketclaw. It is reported,
                 // never read or moved on its own: copying it in is the owner's call.
+                // PC-DEF-085. The local lifecycle journal, for the log export.
+                "getLifecycleDiagnostics" -> {
+                    result.success(LifecycleDiagnostics.read(context))
+                }
                 "getLegacyWorkspaceStatus" -> {
                     result.success(
                         mapOf(

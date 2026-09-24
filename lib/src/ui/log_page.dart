@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../core/app_fonts.dart';
 import 'package:pocketclaw/src/core/log_export_writer.dart';
+import 'package:pocketclaw/src/core/pocketclaw_channel.dart';
 import 'package:pocketclaw/src/core/service_manager.dart';
 import 'package:pocketclaw/src/generated/l10n/app_localizations.dart';
 import 'package:pocketclaw/src/ui/widgets/tv_focusable.dart';
@@ -204,7 +205,20 @@ class _LogPageState extends State<LogPage> {
         return;
       }
 
-      final content = logs.join('\n');
+      // PC-DEF-085. The lifecycle journal travels with an export, so the next
+      // unexplained start or crash can be read without a cable or adb.
+      final lifecycle = Platform.isAndroid
+          ? await PocketClawChannel.getLifecycleDiagnostics()
+          : '';
+      if (!mounted) return;
+      final content = [
+        logs.join('\n'),
+        if (lifecycle.trim().isNotEmpty) ...[
+          '',
+          '--- lifecycle diagnostics ---',
+          lifecycle.trimRight(),
+        ],
+      ].join('\n');
       final ts = DateTime.now().toIso8601String().replaceAll(':', '-');
       final filename = 'pocketclaw_logs_$ts.txt';
 

@@ -320,6 +320,19 @@ class PocketClawChannel {
     return result ?? '';
   }
 
+  /// PC-DEF-085: the bounded local lifecycle journal. Component names, intent
+  /// actions and exception classes only; empty when unavailable.
+  static Future<String> getLifecycleDiagnostics() async {
+    try {
+      return await _channel.invokeMethod<String>('getLifecycleDiagnostics') ??
+          '';
+    } on MissingPluginException {
+      return '';
+    } on PlatformException {
+      return '';
+    }
+  }
+
   /// PC-DEF-077: an older install's `Download/pocketclaw` workspace, if visible.
   static Future<LegacyWorkspaceStatus> getLegacyWorkspaceStatus() async {
     final result = await _channel.invokeMethod<Map>('getLegacyWorkspaceStatus');

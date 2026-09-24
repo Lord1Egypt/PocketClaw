@@ -57,6 +57,15 @@ FORBIDDEN_GROUPS = (
     "com.unity3d.ads",
 )
 
+# Libraries that schedule work Android runs later on its own; WorkManager
+# merges a BOOT_COMPLETED receiver, which would start PocketClaw after a
+# reboot without the owner (PC-DEF-085). PocketClaw schedules nothing.
+BACKGROUND_SCHEDULERS = (
+    "androidx.work",
+    "com.firebase:firebase-jobdispatcher",
+    "com.evernote:android-job",
+)
+
 # "+--- group:artifact:version" and "\--- group:artifact -> version" lines.
 COORDINATE = re.compile(r"^[| +\\-]*--- ([A-Za-z0-9_.\-]+):([A-Za-z0-9_.\-]+)", re.MULTILINE)
 
@@ -68,8 +77,12 @@ def coordinates(tree: str) -> set[tuple[str, str]]:
 def forbidden(coords: set[tuple[str, str]]) -> list[str]:
     hits = []
     for group, artifact in sorted(coords):
+        coordinate = f"{group}:{artifact}"
         if any(group == banned or group.startswith(banned + ".") for banned in FORBIDDEN_GROUPS):
-            hits.append(f"{group}:{artifact}")
+            hits.append(coordinate)
+        elif any(coordinate.startswith(s) if ":" in s else (group == s or group.startswith(s + "."))
+                 for s in BACKGROUND_SCHEDULERS):
+            hits.append(coordinate + " (background scheduler)")
     return hits
 
 
@@ -107,10 +120,10 @@ def main() -> int:
             print(f"{configuration}: forbidden {hit}")
         failed = failed or bool(hits)
     if failed:
-        print("FAIL a proprietary SDK is in the resolved build graph")
+        print("FAIL a proprietary SDK or background scheduler is in the resolved build graph")
         return 1
     print(f"PASS {total} resolved coordinates across {len(CONFIGURATIONS)} graphs, "
-          "no proprietary SDK group")
+          "no proprietary SDK or background scheduler")
     return 0
 
 

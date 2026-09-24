@@ -2,6 +2,8 @@ package com.lord1egypt.pocketclaw.service
 
 import com.lord1egypt.pocketclaw.BuildConfig
 import com.lord1egypt.pocketclaw.PocketClawCoreState
+import com.lord1egypt.pocketclaw.diagnostics.LifecycleDiagnostics
+import com.lord1egypt.pocketclaw.diagnostics.LifecycleText
 import com.lord1egypt.pocketclaw.security.GitHubCredentialStore
 import android.app.Notification
 import android.app.PendingIntent
@@ -10,6 +12,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
+import android.os.Build
 import android.os.IBinder
 import android.os.PowerManager
 import android.util.Base64
@@ -708,50 +711,85 @@ class PocketClawService : Service() {
     override fun onCreate() {
         super.onCreate()
         hosted = this
+        LifecycleDiagnostics.record(this, "service", "create")
         Log.i(TAG, "Service created")
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        // A null intent means Android re-created the Service on its own. Auto-start
-        // is an app-launch decision, so an OS-driven restart must not resurrect it.
-        if (intent == null) {
-            Log.i(TAG, "Ignoring Android service restart with no originating intent")
-            stopSelf(startId)
-            return START_NOT_STICKY
-        }
-        when (intent.action) {
-            ACTION_STOP -> {
+        LifecycleDiagnostics.record(
+            this,
+            "service",
+            "start-command",
+            "action=${LifecycleText.intentAction(intent != null, intent?.action)} flags=$flags",
+        )
+        // Every path answers START_NOT_STICKY: PocketClaw runs because the owner
+        // started it, and Android must never bring it back on its own.
+        when (ServiceCommand.of(intent != null, intent?.action)) {
+            ServiceCommand.IGNORE_OS_RESTART -> {
+                // A null intent means Android re-created the Service on its own.
+                // Auto-start is an app-launch decision, so an OS-driven restart
+                // must not resurrect it.
+                Log.i(TAG, "Ignoring Android service restart with no originating intent")
+                stopSelf(startId)
+            }
+            ServiceCommand.STOP -> {
                 stopService()
                 stopForeground(STOP_FOREGROUND_REMOVE)
                 stopSelf()
-                return START_NOT_STICKY
             }
-            ACTION_RESTART -> {
+            ServiceCommand.RESTART -> {
                 // stopService() is synchronous and bounded: it destroys the Core
                 // process, joins it, and sweeps orphaned children, so the start
                 // below cannot race a Core that still holds the launcher port or
                 // the gateway pid file.
-                publicMode = intent.getBooleanExtra(EXTRA_PUBLIC_MODE, publicMode)
+                publicMode = intent!!.getBooleanExtra(EXTRA_PUBLIC_MODE, publicMode)
                 gatewayAutoStart = LaunchAutoStartPreferences.read(this).gatewayEnabled
-                startForeground(NOTIFICATION_ID, createNotification("Restarting..."))
+                if (!enterForeground("Restarting...", startId)) return START_NOT_STICKY
                 acquireWakeLock()
                 stopService()
                 startService()
-                return START_NOT_STICKY
             }
-            else -> {
+            ServiceCommand.START -> {
                 // Public Mode comes from the Intent.
-                publicMode = intent.getBooleanExtra(EXTRA_PUBLIC_MODE, false)
+                publicMode = intent!!.getBooleanExtra(EXTRA_PUBLIC_MODE, false)
                 gatewayAutoStart = LaunchAutoStartPreferences.read(this).gatewayEnabled
-                startForeground(NOTIFICATION_ID, createNotification("Starting..."))
+                if (!enterForeground("Starting...", startId)) return START_NOT_STICKY
                 acquireWakeLock()
                 startService()
-                return START_NOT_STICKY
             }
+        }
+        return START_NOT_STICKY
+    }
+
+    /**
+     * Promotes the service to the foreground, or stops it when Android refuses.
+     *
+     * Android 12+ refuses a foreground start the app was not allowed to make --
+     * a start request that raced the app going to the background -- with
+     * ForegroundServiceStartNotAllowedException. That is a lifecycle state, not
+     * a bug, and crashing the process over it would be the "keeps stopping"
+     * dialog for no reason, so the service records it and ends cleanly. Any
+     * other exception is a programming error and still propagates.
+     */
+    private fun enterForeground(text: String, startId: Int): Boolean {
+        try {
+            startForeground(NOTIFICATION_ID, createNotification(text))
+            return true
+        } catch (e: IllegalStateException) {
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S ||
+                e !is android.app.ForegroundServiceStartNotAllowedException
+            ) {
+                throw e
+            }
+            LifecycleDiagnostics.record(this, "service", "foreground-refused", "error=${e.javaClass.name}")
+            Log.w(TAG, "Android refused the foreground start; stopping without starting Core")
+            stopSelf(startId)
+            return false
         }
     }
 
     override fun onDestroy() {
+        LifecycleDiagnostics.record(this, "service", "destroy")
         stopService()
         releaseWakeLock()
         isRunning = false
