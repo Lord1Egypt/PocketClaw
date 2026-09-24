@@ -4,9 +4,10 @@ import 'package:flutter_test/flutter_test.dart';
 
 /// Where the Android host puts security-sensitive runtime state.
 ///
-/// The rule this milestone establishes: the workspace under
-/// `Download/pocketclaw` stays where the user can reach it, and the credentials
-/// and diagnostic logs that used to sit beside it do not. These are static
+/// The rule this milestone establishes: the workspace stays where the user can
+/// reach it (app-specific storage since PC-DEF-077; `Download/pocketclaw`
+/// before), and the credentials and diagnostic logs that used to sit beside it
+/// do not. These are static
 /// source assertions — they need no device, and each names the regression it
 /// exists to catch.
 void main() {
@@ -199,12 +200,12 @@ void main() {
       expect(source, contains('legacy shared log cleanup skipped'));
     });
 
-    test('the user workspace itself is untouched', () {
+    test('the user workspace is still what Core calls home', () {
       final source = read(service);
-      // getWorkspacePath still returns the shared Downloads directory — the
-      // workspace staying user-visible is the product decision this milestone
-      // is careful not to reverse.
-      expect(source, contains('DIRECTORY_DOWNLOADS'));
+      // PC-DEF-077 moved the workspace into app-specific storage (the owner
+      // reversed the shared-Downloads decision for F-Droid); it is still the
+      // directory Core is started in, and runtime secrets still live elsewhere.
+      expect(source, contains('getExternalFilesDir(null)?.resolve("pocketclaw")'));
       expect(source, contains('"POCKETCLAW_HOME" to workspace.absolutePath'));
     });
   });

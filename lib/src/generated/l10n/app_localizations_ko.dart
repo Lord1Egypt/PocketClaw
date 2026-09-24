@@ -114,6 +114,33 @@ class AppLocalizationsKo extends AppLocalizations {
   String get workspaceDirectory => '작업 공간';
 
   @override
+  String get legacyWorkspaceTitle => '이전 작업 공간을 찾았습니다';
+
+  @override
+  String legacyWorkspaceBody(Object path) {
+    return '이전 버전은 작업 공간을 $path에 보관했습니다. 이제 PocketClaw는 앱 전용 저장소를 사용하며 해당 폴더는 그대로 두었습니다. 복사해 올 수 있습니다. 복사본은 별도 폴더에 저장되며, 아무것도 덮어쓰거나 삭제하지 않습니다.';
+  }
+
+  @override
+  String get legacyWorkspaceImport => '작업 공간으로 복사';
+
+  @override
+  String get legacyWorkspaceHide => '숨기기';
+
+  @override
+  String legacyWorkspaceCopied(Object count, Object folder) {
+    return '파일 $count개를 $folder에 복사했습니다.';
+  }
+
+  @override
+  String legacyWorkspacePartial(Object count, Object folder, Object failed) {
+    return '파일 $count개를 $folder에 복사했습니다. $failed개는 복사하지 못했습니다.';
+  }
+
+  @override
+  String get legacyWorkspaceFailed => '폴더를 복사하지 못했습니다.';
+
+  @override
   String logsSavedToMediaLibraryWithName(Object name) {
     return '로그가 다운로드(Android 미디어 라이브러리)에 저장되었습니다: $name';
   }

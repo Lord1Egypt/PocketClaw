@@ -56,7 +56,7 @@ class PocketClawService : Service() {
          * Where Core writes the gateway bearer credential.
          *
          * It used to live inside `.picoclaw.pid` in POCKETCLAW_HOME, which on
-         * this platform is `Download/pocketclaw` — user-visible shared storage,
+         * this platform was then `Download/pocketclaw` — user-visible shared storage,
          * where the 0600 Core writes with is synthesised by the filesystem
          * rather than enforced. Any app holding storage access could read it,
          * and Android does not isolate loopback sockets between apps, so that
@@ -312,33 +312,26 @@ class PocketClawService : Service() {
         }
 
         /**
-         * 返回 workspace 目录路径。
-         * Android 11+ 使用 MANAGE_EXTERNAL_STORAGE 权限写入 Downloads；
-         * 权限未授予时回退到应用专属外部目录（无需权限）。
+         * The workspace: a real directory in app-specific external storage,
+         * `Android/data/<package>/files/pocketclaw`, or app-internal storage on
+         * the rare device with no external volume.
+         *
+         * PC-DEF-077. It used to be `Download/pocketclaw` when all-files access
+         * was granted and this same directory when it was not, so the workspace
+         * silently changed with a permission toggle, and the app sent the user
+         * to the all-files screen on every cold launch to get it. The product no
+         * longer declares that permission; this is the only location. It is the
+         * directory the no-permission branch always used, so an install that
+         * never granted access keeps its files where they were.
+         *
+         * An older `Download/pocketclaw` is never read, moved or deleted here.
+         * LegacyWorkspaceImporter offers the owner an explicit copy.
          */
         fun getWorkspacePath(context: Context): String {
-            val downloadsDir = File(
-                android.os.Environment.getExternalStoragePublicDirectory(
-                    android.os.Environment.DIRECTORY_DOWNLOADS
-                ),
-                "pocketclaw"
-            )
-            // Android 11+ 需要 MANAGE_EXTERNAL_STORAGE；低版本 requestLegacyExternalStorage 已可写
-            val canWrite = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
-                android.os.Environment.isExternalStorageManager()
-            } else {
-                true
-            }
-            return if (canWrite) {
-                downloadsDir.mkdirs()
-                downloadsDir.absolutePath
-            } else {
-                // 权限未授予，回退到应用专属目录，避免崩溃
-                val fallback = context.getExternalFilesDir(null)?.resolve("pocketclaw")
-                    ?: File(context.filesDir, "pocketclaw")
-                fallback.mkdirs()
-                fallback.absolutePath
-            }
+            val workspace = context.getExternalFilesDir(null)?.resolve("pocketclaw")
+                ?: File(context.filesDir, "pocketclaw")
+            workspace.mkdirs()
+            return workspace.absolutePath
         }
 
         fun getGatewayBinaryFile(context: Context): File {
@@ -388,10 +381,11 @@ class PocketClawService : Service() {
          *
          * Those files are application output, not user content, and older
          * builds wrote full LLM requests and system-prompt previews into them —
-         * so an upgraded install can be carrying prompt text in a directory any
-         * app with storage access can read. Nothing else under
-         * `Download/pocketclaw` is touched: not the workspace, not memory, not
-         * a file whose origin cannot be established.
+         * so an upgraded install can be carrying prompt text in its workspace.
+         * Nothing else is touched: not memory, not a file whose origin cannot be
+         * established. Since PC-DEF-077 the workspace is app-specific storage,
+         * so this never reaches an older `Download/pocketclaw`, which is left
+         * entirely alone.
          *
          * Best effort and idempotent. It runs after the private log directory
          * has been prepared, and a failure here must never stop the service
@@ -437,7 +431,7 @@ class PocketClawService : Service() {
             // Managed Runtime storage. Executables live in nativeLibraryDir,
             // which the installer unpacked and the app cannot write; metadata
             // lives app-private and outside the user workspace, so a Skill
-            // writing into Download/pocketclaw cannot reach runtime state.
+            // writing into the workspace cannot reach runtime state.
             val runtimeLibDir = context.applicationInfo.nativeLibraryDir
             val runtimeMetadataDir = File(coreState, "runtime")
             runtimeMetadataDir.mkdirs()

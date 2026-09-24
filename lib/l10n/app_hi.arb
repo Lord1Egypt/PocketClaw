@@ -39,6 +39,13 @@
   },
   "shareLogsText": "PocketClaw लॉग",
   "workspaceDirectory": "कार्यस्थान",
+  "legacyWorkspaceTitle": "पिछला वर्कस्पेस मिला",
+  "legacyWorkspaceBody": "एक पुराने संस्करण ने आपका वर्कस्पेस {path} में रखा था। PocketClaw अब अपने ऐप स्टोरेज का उपयोग करता है और उस फ़ोल्डर को जस का तस छोड़ दिया है। आप उसे कॉपी कर सकते हैं: कॉपी एक अलग फ़ोल्डर में जाती है, और कुछ भी ओवरराइट या हटाया नहीं जाता।",
+  "legacyWorkspaceImport": "वर्कस्पेस में कॉपी करें",
+  "legacyWorkspaceHide": "छिपाएँ",
+  "legacyWorkspaceCopied": "{count} फ़ाइलें {folder} में कॉपी की गईं।",
+  "legacyWorkspacePartial": "{count} फ़ाइलें {folder} में कॉपी की गईं। {failed} कॉपी नहीं हो सकीं।",
+  "legacyWorkspaceFailed": "फ़ोल्डर कॉपी नहीं हो सका।",
   "logsSavedToMediaLibraryWithName": "लॉग डाउनलोड (Android मीडिया लाइब्रेरी) में सहेजे गए: {name}",
   "@logsSavedToMediaLibraryWithName": {
     "placeholders": {

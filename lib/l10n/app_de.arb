@@ -39,6 +39,13 @@
   },
   "shareLogsText": "PocketClaw-Protokolle",
   "workspaceDirectory": "Arbeitsbereich",
+  "legacyWorkspaceTitle": "Früherer Arbeitsbereich gefunden",
+  "legacyWorkspaceBody": "Eine ältere Version hat deinen Arbeitsbereich in {path} gespeichert. PocketClaw nutzt jetzt seinen eigenen App-Speicher und hat diesen Ordner unverändert gelassen. Du kannst ihn hineinkopieren: Die Kopie landet in einem eigenen Ordner, und nichts wird überschrieben oder gelöscht.",
+  "legacyWorkspaceImport": "In den Arbeitsbereich kopieren",
+  "legacyWorkspaceHide": "Ausblenden",
+  "legacyWorkspaceCopied": "{count} Dateien nach {folder} kopiert.",
+  "legacyWorkspacePartial": "{count} Dateien nach {folder} kopiert. {failed} konnten nicht kopiert werden.",
+  "legacyWorkspaceFailed": "Der Ordner konnte nicht kopiert werden.",
   "logsSavedToMediaLibraryWithName": "Protokolle in Downloads gespeichert (Android-Medienbibliothek): {name}",
   "@logsSavedToMediaLibraryWithName": {
     "placeholders": {

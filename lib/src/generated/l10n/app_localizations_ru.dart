@@ -117,6 +117,33 @@ class AppLocalizationsRu extends AppLocalizations {
   String get workspaceDirectory => 'Рабочее пространство';
 
   @override
+  String get legacyWorkspaceTitle => 'Найдено прежнее рабочее пространство';
+
+  @override
+  String legacyWorkspaceBody(Object path) {
+    return 'Более старая версия хранила ваше рабочее пространство в $path. Теперь PocketClaw использует собственное хранилище приложения и не трогал эту папку. Вы можете скопировать её: копия попадёт в отдельную папку, ничего не будет перезаписано или удалено.';
+  }
+
+  @override
+  String get legacyWorkspaceImport => 'Скопировать в рабочее пространство';
+
+  @override
+  String get legacyWorkspaceHide => 'Скрыть';
+
+  @override
+  String legacyWorkspaceCopied(Object count, Object folder) {
+    return 'Скопировано файлов: $count в $folder.';
+  }
+
+  @override
+  String legacyWorkspacePartial(Object count, Object folder, Object failed) {
+    return 'Скопировано файлов: $count в $folder. Не удалось скопировать: $failed.';
+  }
+
+  @override
+  String get legacyWorkspaceFailed => 'Не удалось скопировать папку.';
+
+  @override
   String logsSavedToMediaLibraryWithName(Object name) {
     return 'Журналы сохранены в Загрузки (медиатека Android): $name';
   }

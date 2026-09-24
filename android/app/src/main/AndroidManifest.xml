@@ -53,15 +53,15 @@
     <!-- 通知权限 (Android 13+) -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
-    <!-- 外部存储写入（Android 9 及以下） -->
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
-        android:maxSdkVersion="28" />
-    <!-- 外部存储读取（Android 12 及以下） -->
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
-        android:maxSdkVersion="32" />
-    <!-- 管理所有文件（Android 11+，写 Downloads 目录必需） -->
-    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"
-        tools:ignore="ScopedStorage" />
+    <!--
+      No storage permission is declared (PC-DEF-077). The workspace is
+      app-specific external storage, which needs none on any supported Android
+      version; log export uses MediaStore, or the app's own Downloads folder
+      below API 29; the Chat attachment picker and the legacy workspace import
+      use system pickers that grant access to what the user chooses. All-files
+      access, and the Settings redirect every cold launch used to make for it,
+      are gone from the product.
+    -->
 
     <application
         android:label="PocketClaw"
@@ -71,7 +71,6 @@
         android:allowBackup="true"
         android:fullBackupContent="@xml/backup_rules"
         android:dataExtractionRules="@xml/data_extraction_rules"
-        android:requestLegacyExternalStorage="true"
         android:extractNativeLibs="true">
         <activity
             android:name=".MainActivity"

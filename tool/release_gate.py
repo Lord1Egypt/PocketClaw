@@ -84,11 +84,8 @@ EXPECTED_PERMISSIONS = {
     "android.permission.FOREGROUND_SERVICE",
     "android.permission.FOREGROUND_SERVICE_SPECIAL_USE",
     "android.permission.INTERNET",
-    "android.permission.MANAGE_EXTERNAL_STORAGE",
     "android.permission.POST_NOTIFICATIONS",
-    "android.permission.READ_EXTERNAL_STORAGE",
     "android.permission.WAKE_LOCK",
-    "android.permission.WRITE_EXTERNAL_STORAGE",
     f"{PACKAGE_ID}.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION",
 }
 
@@ -106,6 +103,11 @@ FORBIDDEN_PERMISSIONS = {
     "android.permission.FOREGROUND_SERVICE_DATA_SYNC",
     "android.permission.RECEIVE_BOOT_COMPLETED",
     "android.permission.VIBRATE",
+    # PC-DEF-077: the workspace is app-specific storage, which needs no storage
+    # permission; all-files access and the legacy pair are gone for good.
+    "android.permission.MANAGE_EXTERNAL_STORAGE",
+    "android.permission.READ_EXTERNAL_STORAGE",
+    "android.permission.WRITE_EXTERNAL_STORAGE",
 }
 
 CORE_LIBS = ("libpocketclaw.so", "libpocketclaw-web.so")

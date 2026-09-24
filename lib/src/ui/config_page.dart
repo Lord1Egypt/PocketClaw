@@ -3,6 +3,8 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:pocketclaw/src/core/legacy_workspace.dart';
 import 'package:pocketclaw/src/core/pocketclaw_channel.dart';
 import 'package:pocketclaw/src/core/service_manager.dart';
 import 'package:pocketclaw/src/core/aperture_theme.dart';
@@ -245,6 +247,13 @@ class ConfigPageState extends State<ConfigPage> with WidgetsBindingObserver {
   final _languageFocusNode = FocusNode();
   final List<FocusNode> _themeFocusNodes = [];
 
+  /// PC-DEF-077. A workspace an older install left in `Download/pocketclaw`,
+  /// offered for an explicit copy until the owner copies it or hides the notice.
+  LegacyWorkspaceStatus _legacyWorkspace = LegacyWorkspaceStatus.none;
+  bool _legacyWorkspaceBusy = false;
+  static const _legacyWorkspaceNoticeHiddenKey =
+      'legacy_workspace_notice_hidden';
+
   /// The release the notes belong to, and whether the user has read them.
   String? _whatsNewVersion;
   bool _whatsNewUnseen = false;
@@ -261,6 +270,7 @@ class ConfigPageState extends State<ConfigPage> with WidgetsBindingObserver {
     );
 
     _loadWhatsNewState();
+    unawaited(_refreshLegacyWorkspace());
     // PC-DEF-058. Ask for notification permission once, after the first frame so
     // the app is on screen behind the system dialog rather than the dialog being
     // the first thing a fresh install shows. The host refuses to ask twice, so
@@ -287,6 +297,64 @@ class ConfigPageState extends State<ConfigPage> with WidgetsBindingObserver {
     final status = await PocketClawChannel.getNotificationPermission();
     if (!mounted) return;
     setState(() => _notificationPermission = status);
+  }
+
+  Future<void> _refreshLegacyWorkspace() async {
+    if (!Platform.isAndroid) return;
+    final prefs = await SharedPreferences.getInstance();
+    var status = LegacyWorkspaceStatus.none;
+    if (!(prefs.getBool(_legacyWorkspaceNoticeHiddenKey) ?? false)) {
+      try {
+        status = await PocketClawChannel.getLegacyWorkspaceStatus();
+      } catch (_) {
+        status = LegacyWorkspaceStatus.none;
+      }
+    }
+    if (!mounted) return;
+    setState(() => _legacyWorkspace = status);
+  }
+
+  Future<void> _hideLegacyWorkspaceNotice() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_legacyWorkspaceNoticeHiddenKey, true);
+    if (!mounted) return;
+    setState(() => _legacyWorkspace = LegacyWorkspaceStatus.none);
+  }
+
+  Future<void> _importLegacyWorkspace() async {
+    setState(() => _legacyWorkspaceBusy = true);
+    LegacyWorkspaceImportResult result;
+    try {
+      result = await PocketClawChannel.importLegacyWorkspace();
+    } catch (_) {
+      result = const LegacyWorkspaceImportResult(
+        status: LegacyWorkspaceImportStatus.failed,
+      );
+    }
+    if (!mounted) return;
+    setState(() => _legacyWorkspaceBusy = false);
+    final l10n = AppLocalizations.of(context)!;
+    final message = switch (result.status) {
+      LegacyWorkspaceImportStatus.copied => l10n.legacyWorkspaceCopied(
+        result.files,
+        result.folder,
+      ),
+      LegacyWorkspaceImportStatus.partial => l10n.legacyWorkspacePartial(
+        result.files,
+        result.folder,
+        result.failed,
+      ),
+      LegacyWorkspaceImportStatus.failed ||
+      LegacyWorkspaceImportStatus.unavailable => l10n.legacyWorkspaceFailed,
+      LegacyWorkspaceImportStatus.cancelled ||
+      LegacyWorkspaceImportStatus.busy => null,
+    };
+    if (message != null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
+    }
+    if (result.copiedAnything) await _hideLegacyWorkspaceNotice();
   }
 
   WhatsNewSeenStore get _whatsNewStore =>
@@ -366,9 +434,7 @@ class ConfigPageState extends State<ConfigPage> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
     if (state == AppLifecycleState.resumed && Platform.isAndroid) {
-      // App resumed from settings (e.g., storage permission granted)
-      // Refresh workspace path to get the correct path after permission change
-      context.read<ServiceManager>().refreshWorkspacePath();
+      unawaited(_refreshLegacyWorkspace());
     }
   }
 
@@ -813,6 +879,15 @@ class ConfigPageState extends State<ConfigPage> with WidgetsBindingObserver {
                       Text(path, style: Theme.of(context).textTheme.bodyMedium),
                 ),
               ),
+              if (_legacyWorkspace.visible) ...[
+                const SizedBox(height: 12),
+                _LegacyWorkspaceTile(
+                  path: _legacyWorkspace.path,
+                  busy: _legacyWorkspaceBusy,
+                  onImport: _importLegacyWorkspace,
+                  onHide: _hideLegacyWorkspaceNotice,
+                ),
+              ],
             ],
             const SizedBox(height: 24),
 
@@ -1497,6 +1572,90 @@ class ThemeModeSelector extends StatelessWidget {
   }
 }
 
+/// PC-DEF-077. Offers the one explicit copy of an older shared workspace.
+class _LegacyWorkspaceTile extends StatelessWidget {
+  const _LegacyWorkspaceTile({
+    required this.path,
+    required this.busy,
+    required this.onImport,
+    required this.onHide,
+  });
+
+  final String path;
+  final bool busy;
+  final Future<void> Function() onImport;
+  final Future<void> Function() onHide;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+
+    return Card(
+      margin: EdgeInsets.zero,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(
+              Icons.drive_file_move_outline,
+              size: 20,
+              color: theme.colorScheme.primary,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    l10n.legacyWorkspaceTitle,
+                    style: theme.textTheme.titleSmall,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    l10n.legacyWorkspaceBody(path),
+                    style: theme.textTheme.bodySmall,
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      SizedBox(
+                        height: 40,
+                        child: OutlinedButton.icon(
+                          onPressed: busy ? null : () => unawaited(onImport()),
+                          icon: busy
+                              ? const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Icon(Icons.content_copy, size: 16),
+                          label: Text(l10n.legacyWorkspaceImport),
+                        ),
+                      ),
+                      SizedBox(
+                        height: 40,
+                        child: TextButton(
+                          onPressed: busy ? null : () => unawaited(onHide()),
+                          child: Text(l10n.legacyWorkspaceHide),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
 
 /// Notification permission state, and a way back for someone who said no.
 ///

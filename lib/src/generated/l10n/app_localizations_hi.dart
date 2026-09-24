@@ -116,6 +116,33 @@ class AppLocalizationsHi extends AppLocalizations {
   String get workspaceDirectory => 'कार्यस्थान';
 
   @override
+  String get legacyWorkspaceTitle => 'पिछला वर्कस्पेस मिला';
+
+  @override
+  String legacyWorkspaceBody(Object path) {
+    return 'एक पुराने संस्करण ने आपका वर्कस्पेस $path में रखा था। PocketClaw अब अपने ऐप स्टोरेज का उपयोग करता है और उस फ़ोल्डर को जस का तस छोड़ दिया है। आप उसे कॉपी कर सकते हैं: कॉपी एक अलग फ़ोल्डर में जाती है, और कुछ भी ओवरराइट या हटाया नहीं जाता।';
+  }
+
+  @override
+  String get legacyWorkspaceImport => 'वर्कस्पेस में कॉपी करें';
+
+  @override
+  String get legacyWorkspaceHide => 'छिपाएँ';
+
+  @override
+  String legacyWorkspaceCopied(Object count, Object folder) {
+    return '$count फ़ाइलें $folder में कॉपी की गईं।';
+  }
+
+  @override
+  String legacyWorkspacePartial(Object count, Object folder, Object failed) {
+    return '$count फ़ाइलें $folder में कॉपी की गईं। $failed कॉपी नहीं हो सकीं।';
+  }
+
+  @override
+  String get legacyWorkspaceFailed => 'फ़ोल्डर कॉपी नहीं हो सका।';
+
+  @override
   String logsSavedToMediaLibraryWithName(Object name) {
     return 'लॉग डाउनलोड (Android मीडिया लाइब्रेरी) में सहेजे गए: $name';
   }

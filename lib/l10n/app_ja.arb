@@ -39,6 +39,13 @@
   },
   "shareLogsText": "PocketClawログ",
   "workspaceDirectory": "ワークスペース",
+  "legacyWorkspaceTitle": "以前のワークスペースが見つかりました",
+  "legacyWorkspaceBody": "以前のバージョンはワークスペースを {path} に保存していました。PocketClaw は現在アプリ専用のストレージを使用しており、そのフォルダーには手を加えていません。コピーして取り込むことができます。コピーは専用のフォルダーに入り、上書きや削除は一切行われません。",
+  "legacyWorkspaceImport": "ワークスペースにコピー",
+  "legacyWorkspaceHide": "非表示",
+  "legacyWorkspaceCopied": "{count} 個のファイルを {folder} にコピーしました。",
+  "legacyWorkspacePartial": "{count} 個のファイルを {folder} にコピーしました。{failed} 個はコピーできませんでした。",
+  "legacyWorkspaceFailed": "フォルダーをコピーできませんでした。",
   "logsSavedToMediaLibraryWithName": "ログがダウンロード（Androidメディアライブラリ）に保存されました: {name}",
   "@logsSavedToMediaLibraryWithName": {
     "placeholders": {

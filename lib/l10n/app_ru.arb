@@ -39,6 +39,13 @@
   },
   "shareLogsText": "Журналы PocketClaw",
   "workspaceDirectory": "Рабочее пространство",
+  "legacyWorkspaceTitle": "Найдено прежнее рабочее пространство",
+  "legacyWorkspaceBody": "Более старая версия хранила ваше рабочее пространство в {path}. Теперь PocketClaw использует собственное хранилище приложения и не трогал эту папку. Вы можете скопировать её: копия попадёт в отдельную папку, ничего не будет перезаписано или удалено.",
+  "legacyWorkspaceImport": "Скопировать в рабочее пространство",
+  "legacyWorkspaceHide": "Скрыть",
+  "legacyWorkspaceCopied": "Скопировано файлов: {count} в {folder}.",
+  "legacyWorkspacePartial": "Скопировано файлов: {count} в {folder}. Не удалось скопировать: {failed}.",
+  "legacyWorkspaceFailed": "Не удалось скопировать папку.",
   "logsSavedToMediaLibraryWithName": "Журналы сохранены в Загрузки (медиатека Android): {name}",
   "@logsSavedToMediaLibraryWithName": {
     "placeholders": {

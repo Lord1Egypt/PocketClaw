@@ -113,6 +113,33 @@ class AppLocalizationsZh extends AppLocalizations {
   String get workspaceDirectory => '工作目录';
 
   @override
+  String get legacyWorkspaceTitle => '发现旧的工作区';
+
+  @override
+  String legacyWorkspaceBody(Object path) {
+    return '旧版本将你的工作区保存在 $path。PocketClaw 现在使用应用自己的存储空间，并未改动该文件夹。你可以将其复制进来：副本会放入单独的文件夹，不会覆盖或删除任何内容。';
+  }
+
+  @override
+  String get legacyWorkspaceImport => '复制到工作区';
+
+  @override
+  String get legacyWorkspaceHide => '隐藏';
+
+  @override
+  String legacyWorkspaceCopied(Object count, Object folder) {
+    return '已将 $count 个文件复制到 $folder。';
+  }
+
+  @override
+  String legacyWorkspacePartial(Object count, Object folder, Object failed) {
+    return '已将 $count 个文件复制到 $folder。有 $failed 个未能复制。';
+  }
+
+  @override
+  String get legacyWorkspaceFailed => '无法复制该文件夹。';
+
+  @override
   String logsSavedToMediaLibraryWithName(Object name) {
     return '已保存到“下载”目录（Android 媒体库）：$name';
   }

@@ -116,6 +116,34 @@ class AppLocalizationsEs extends AppLocalizations {
   String get workspaceDirectory => 'Espacio de trabajo';
 
   @override
+  String get legacyWorkspaceTitle =>
+      'Se encontró un espacio de trabajo anterior';
+
+  @override
+  String legacyWorkspaceBody(Object path) {
+    return 'Una versión anterior guardaba tu espacio de trabajo en $path. PocketClaw ahora usa su propio almacenamiento de la app y no ha tocado esa carpeta. Puedes copiarla: la copia va a una carpeta propia y no se sobrescribe ni se elimina nada.';
+  }
+
+  @override
+  String get legacyWorkspaceImport => 'Copiar al espacio de trabajo';
+
+  @override
+  String get legacyWorkspaceHide => 'Ocultar';
+
+  @override
+  String legacyWorkspaceCopied(Object count, Object folder) {
+    return 'Se copiaron $count archivos en $folder.';
+  }
+
+  @override
+  String legacyWorkspacePartial(Object count, Object folder, Object failed) {
+    return 'Se copiaron $count archivos en $folder. No se pudieron copiar $failed.';
+  }
+
+  @override
+  String get legacyWorkspaceFailed => 'No se pudo copiar la carpeta.';
+
+  @override
   String logsSavedToMediaLibraryWithName(Object name) {
     return 'Registros guardados en Descargas (biblioteca multimedia de Android): $name';
   }

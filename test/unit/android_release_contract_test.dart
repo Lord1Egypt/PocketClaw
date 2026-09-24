@@ -364,6 +364,10 @@ void main() {
         'android.permission.FOREGROUND_SERVICE_DATA_SYNC',
         'android.permission.RECEIVE_BOOT_COMPLETED',
         'android.permission.VIBRATE',
+        // PC-DEF-077: app-specific storage needs no storage permission.
+        'android.permission.MANAGE_EXTERNAL_STORAGE',
+        'android.permission.READ_EXTERNAL_STORAGE',
+        'android.permission.WRITE_EXTERNAL_STORAGE',
       ]) {
         expect(
           permissions,
@@ -376,7 +380,6 @@ void main() {
       for (final permission in const [
         'android.permission.INTERNET',
         'android.permission.FOREGROUND_SERVICE_SPECIAL_USE',
-        'android.permission.MANAGE_EXTERNAL_STORAGE',
       ]) {
         expect(permissions, contains(permission));
       }

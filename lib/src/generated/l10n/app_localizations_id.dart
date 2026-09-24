@@ -116,6 +116,33 @@ class AppLocalizationsId extends AppLocalizations {
   String get workspaceDirectory => 'Ruang kerja';
 
   @override
+  String get legacyWorkspaceTitle => 'Ruang kerja sebelumnya ditemukan';
+
+  @override
+  String legacyWorkspaceBody(Object path) {
+    return 'Versi lama menyimpan ruang kerja Anda di $path. PocketClaw kini memakai penyimpanan aplikasinya sendiri dan tidak mengubah folder itu. Anda dapat menyalinnya: salinan masuk ke folder tersendiri, dan tidak ada yang ditimpa atau dihapus.';
+  }
+
+  @override
+  String get legacyWorkspaceImport => 'Salin ke ruang kerja';
+
+  @override
+  String get legacyWorkspaceHide => 'Sembunyikan';
+
+  @override
+  String legacyWorkspaceCopied(Object count, Object folder) {
+    return '$count file disalin ke $folder.';
+  }
+
+  @override
+  String legacyWorkspacePartial(Object count, Object folder, Object failed) {
+    return '$count file disalin ke $folder. $failed tidak dapat disalin.';
+  }
+
+  @override
+  String get legacyWorkspaceFailed => 'Folder tidak dapat disalin.';
+
+  @override
   String logsSavedToMediaLibraryWithName(Object name) {
     return 'Log disimpan ke Unduhan (perpustakaan media Android): $name';
   }

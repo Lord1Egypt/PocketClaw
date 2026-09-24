@@ -322,6 +322,48 @@ abstract class AppLocalizations {
   /// **'Workspace'**
   String get workspaceDirectory;
 
+  /// No description provided for @legacyWorkspaceTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Earlier workspace found'**
+  String get legacyWorkspaceTitle;
+
+  /// No description provided for @legacyWorkspaceBody.
+  ///
+  /// In en, this message translates to:
+  /// **'An older version kept your workspace in {path}. PocketClaw now uses its own app storage and has left that folder untouched. You can copy it in: the copy goes into a folder of its own, and nothing is overwritten or deleted.'**
+  String legacyWorkspaceBody(Object path);
+
+  /// No description provided for @legacyWorkspaceImport.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy into workspace'**
+  String get legacyWorkspaceImport;
+
+  /// No description provided for @legacyWorkspaceHide.
+  ///
+  /// In en, this message translates to:
+  /// **'Hide'**
+  String get legacyWorkspaceHide;
+
+  /// No description provided for @legacyWorkspaceCopied.
+  ///
+  /// In en, this message translates to:
+  /// **'Copied {count} files into {folder}.'**
+  String legacyWorkspaceCopied(Object count, Object folder);
+
+  /// No description provided for @legacyWorkspacePartial.
+  ///
+  /// In en, this message translates to:
+  /// **'Copied {count} files into {folder}. {failed} could not be copied.'**
+  String legacyWorkspacePartial(Object count, Object folder, Object failed);
+
+  /// No description provided for @legacyWorkspaceFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'The folder could not be copied.'**
+  String get legacyWorkspaceFailed;
+
   /// No description provided for @logsSavedToMediaLibraryWithName.
   ///
   /// In en, this message translates to:

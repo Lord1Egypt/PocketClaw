@@ -39,6 +39,13 @@
   },
   "shareLogsText": "سجلات PocketClaw",
   "workspaceDirectory": "مساحة العمل",
+  "legacyWorkspaceTitle": "تم العثور على مساحة عمل سابقة",
+  "legacyWorkspaceBody": "كان إصدار أقدم يحفظ مساحة عملك في {path}. يستخدم PocketClaw الآن مساحة التخزين الخاصة بالتطبيق وترك ذلك المجلد كما هو. يمكنك نسخه إلى مساحة العمل: تُوضع النسخة في مجلد مستقل، ولا يُستبدل أو يُحذف أي شيء.",
+  "legacyWorkspaceImport": "نسخ إلى مساحة العمل",
+  "legacyWorkspaceHide": "إخفاء",
+  "legacyWorkspaceCopied": "تم نسخ {count} ملفًا إلى {folder}.",
+  "legacyWorkspacePartial": "تم نسخ {count} ملفًا إلى {folder}. تعذّر نسخ {failed}.",
+  "legacyWorkspaceFailed": "تعذّر نسخ المجلد.",
   "logsSavedToMediaLibraryWithName": "تم حفظ السجلات في التنزيلات (مكتبة وسائط Android): {name}",
   "@logsSavedToMediaLibraryWithName": {
     "placeholders": {

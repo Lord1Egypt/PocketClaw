@@ -127,28 +127,6 @@ class NotificationPermissionPolicyTest {
         assertTrue(
             NotificationPermissionPolicy.shouldRequestOnResume(
                 NotificationPermissionState.NOT_REQUESTED,
-                storagePromptJustLaunched = false,
-                alreadyPromptedThisLaunch = false,
-            )
-        )
-    }
-
-    // The ordering the owner requires: a resume that has just sent the user to
-    // the all-files-access screen must not stack a dialog behind it.
-    @Test
-    fun `the ask waits for the return from the storage screen`() {
-        assertFalse(
-            NotificationPermissionPolicy.shouldRequestOnResume(
-                NotificationPermissionState.NOT_REQUESTED,
-                storagePromptJustLaunched = true,
-                alreadyPromptedThisLaunch = false,
-            )
-        )
-        // And then it does ask, on the resume that comes back.
-        assertTrue(
-            NotificationPermissionPolicy.shouldRequestOnResume(
-                NotificationPermissionState.NOT_REQUESTED,
-                storagePromptJustLaunched = false,
                 alreadyPromptedThisLaunch = false,
             )
         )
@@ -161,7 +139,6 @@ class NotificationPermissionPolicyTest {
         assertFalse(
             NotificationPermissionPolicy.shouldRequestOnResume(
                 NotificationPermissionState.NOT_REQUESTED,
-                storagePromptJustLaunched = false,
                 alreadyPromptedThisLaunch = true,
             )
         )
@@ -178,8 +155,7 @@ class NotificationPermissionPolicyTest {
                 "state ${'$'}state must not raise the dialog",
                 NotificationPermissionPolicy.shouldRequestOnResume(
                     state,
-                    storagePromptJustLaunched = false,
-                    alreadyPromptedThisLaunch = false,
+                        alreadyPromptedThisLaunch = false,
                 )
             )
         }

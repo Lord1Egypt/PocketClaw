@@ -115,7 +115,6 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
     notifyListeners();
   }
 
-
   /// Cached mirror of the Android host's canonical launch auto-start record.
   /// The host remains the only source of truth; this is refreshed from every
   /// read and every committed write.
@@ -295,16 +294,6 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
     _cachedAppVersion = await _readAppVersion();
 
     notifyListeners();
-  }
-
-  /// 刷新 workspace path（用于权限变化后重新获取）
-  Future<void> refreshWorkspacePath() async {
-    if (Platform.isAndroid) {
-      try {
-        _workspacePath = await _adapter.getWorkspacePath();
-        notifyListeners();
-      } catch (_) {}
-    }
   }
 
   @override

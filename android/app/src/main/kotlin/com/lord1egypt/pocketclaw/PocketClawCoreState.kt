@@ -15,8 +15,9 @@ import java.io.IOException
  * moves.
  *
  * This is app-private state and is not the user's workspace. The workspace is
- * `Download/pocketclaw/workspace`, or `filesDir/pocketclaw/` when external
- * storage is unavailable, and holds AGENT.md, SOUL.md, USER.md and memory/.
+ * `Android/data/<package>/files/pocketclaw`, or `filesDir/pocketclaw/` when
+ * external storage is unavailable, and holds AGENT.md, SOUL.md, USER.md and
+ * memory/ (PocketClawService.getWorkspacePath).
  * Those are the user's documents; nothing here reads or writes them.
  *
  * Every caller asks [directory] or [configFile] rather than spelling the path,

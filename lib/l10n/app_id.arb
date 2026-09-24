@@ -39,6 +39,13 @@
   },
   "shareLogsText": "Log PocketClaw",
   "workspaceDirectory": "Ruang kerja",
+  "legacyWorkspaceTitle": "Ruang kerja sebelumnya ditemukan",
+  "legacyWorkspaceBody": "Versi lama menyimpan ruang kerja Anda di {path}. PocketClaw kini memakai penyimpanan aplikasinya sendiri dan tidak mengubah folder itu. Anda dapat menyalinnya: salinan masuk ke folder tersendiri, dan tidak ada yang ditimpa atau dihapus.",
+  "legacyWorkspaceImport": "Salin ke ruang kerja",
+  "legacyWorkspaceHide": "Sembunyikan",
+  "legacyWorkspaceCopied": "{count} file disalin ke {folder}.",
+  "legacyWorkspacePartial": "{count} file disalin ke {folder}. {failed} tidak dapat disalin.",
+  "legacyWorkspaceFailed": "Folder tidak dapat disalin.",
   "logsSavedToMediaLibraryWithName": "Log disimpan ke Unduhan (perpustakaan media Android): {name}",
   "@logsSavedToMediaLibraryWithName": {
     "placeholders": {

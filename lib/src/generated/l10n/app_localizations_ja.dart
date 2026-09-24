@@ -114,6 +114,33 @@ class AppLocalizationsJa extends AppLocalizations {
   String get workspaceDirectory => 'ワークスペース';
 
   @override
+  String get legacyWorkspaceTitle => '以前のワークスペースが見つかりました';
+
+  @override
+  String legacyWorkspaceBody(Object path) {
+    return '以前のバージョンはワークスペースを $path に保存していました。PocketClaw は現在アプリ専用のストレージを使用しており、そのフォルダーには手を加えていません。コピーして取り込むことができます。コピーは専用のフォルダーに入り、上書きや削除は一切行われません。';
+  }
+
+  @override
+  String get legacyWorkspaceImport => 'ワークスペースにコピー';
+
+  @override
+  String get legacyWorkspaceHide => '非表示';
+
+  @override
+  String legacyWorkspaceCopied(Object count, Object folder) {
+    return '$count 個のファイルを $folder にコピーしました。';
+  }
+
+  @override
+  String legacyWorkspacePartial(Object count, Object folder, Object failed) {
+    return '$count 個のファイルを $folder にコピーしました。$failed 個はコピーできませんでした。';
+  }
+
+  @override
+  String get legacyWorkspaceFailed => 'フォルダーをコピーできませんでした。';
+
+  @override
   String logsSavedToMediaLibraryWithName(Object name) {
     return 'ログがダウンロード（Androidメディアライブラリ）に保存されました: $name';
   }

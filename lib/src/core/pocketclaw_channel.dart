@@ -1,5 +1,7 @@
 import 'package:flutter/services.dart';
 
+import 'legacy_workspace.dart';
+
 /// The canonical launch auto-start record, as committed by the Android host.
 ///
 /// Flutter never holds a second copy of this state: every read and write goes
@@ -318,16 +320,17 @@ class PocketClawChannel {
     return result ?? '';
   }
 
-  /// 检查存储权限是否已授予（Android 11+）
-  static Future<bool> isStorageManagerGranted() async {
-    final result = await _channel.invokeMethod<bool>('isStorageManagerGranted');
-    return result ?? false;
+  /// PC-DEF-077: an older install's `Download/pocketclaw` workspace, if visible.
+  static Future<LegacyWorkspaceStatus> getLegacyWorkspaceStatus() async {
+    final result = await _channel.invokeMethod<Map>('getLegacyWorkspaceStatus');
+    return LegacyWorkspaceStatus.fromMap(result);
   }
 
-  /// 请求存储管理权限（Android 11+）
-  static Future<bool> requestStorageManager() async {
-    final result = await _channel.invokeMethod<bool>('requestStorageManager');
-    return result ?? false;
+  /// Opens the system folder picker and copies the chosen tree into a new
+  /// folder inside the workspace. Nothing is overwritten or deleted.
+  static Future<LegacyWorkspaceImportResult> importLegacyWorkspace() async {
+    final result = await _channel.invokeMethod<Map>('importLegacyWorkspace');
+    return LegacyWorkspaceImportResult.fromMap(result);
   }
 
   /// Reads PocketClaw's notification-permission state without asking for anything.
