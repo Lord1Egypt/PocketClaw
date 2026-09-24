@@ -1568,6 +1568,9 @@ def main() -> int:
 
     if args.release_class == "test":
         print("\nPASS — local test candidate. NOT releasable as production.")
+    elif args.release_class == "repository" and not args.verify_source:
+        print("\nPASS — UNSIGNED / REPOSITORY-SIGNABLE candidate. Not installable and "
+              "not a signed release until a repository signs it.")
     elif args.verify_source:
         # Source mode checks the tree, not a package. Calling this a verified
         # production artifact would claim the artifact gates ran when no
