@@ -29,6 +29,8 @@ type queueNoticeRecordingManager struct {
 	notices  []sentQueueNotice
 	deleted  []string
 	replies  []string
+	// events orders deletes against replies: "delete:<id>" and "reply:<text>".
+	events []string
 	// hold, when set, blocks SendQueueNotice until it is closed.
 	hold chan struct{}
 }
@@ -56,6 +58,7 @@ func (m *queueNoticeRecordingManager) SendMessage(_ context.Context, msg bus.Out
 	m.noticeMu.Lock()
 	defer m.noticeMu.Unlock()
 	m.replies = append(m.replies, msg.Content)
+	m.events = append(m.events, "reply:"+msg.Content)
 	return nil
 }
 
@@ -69,6 +72,13 @@ func (m *queueNoticeRecordingManager) DeleteQueueNotice(_ context.Context, _, _,
 	m.noticeMu.Lock()
 	defer m.noticeMu.Unlock()
 	m.deleted = append(m.deleted, messageID)
+	m.events = append(m.events, "delete:"+messageID)
+}
+
+func (m *queueNoticeRecordingManager) snapshotEvents() []string {
+	m.noticeMu.Lock()
+	defer m.noticeMu.Unlock()
+	return append([]string(nil), m.events...)
 }
 
 func (m *queueNoticeRecordingManager) snapshotNotices() ([]sentQueueNotice, []string) {
@@ -166,7 +176,8 @@ func TestQueueNoticeNeedsTheCapability(t *testing.T) {
 
 // burstProvider holds the first turn open until released, then answers every
 // request with the user message it was asked about. failFirst and panicFirst
-// make that first turn fail instead.
+// make that first turn fail instead; failText fails the turn for that one
+// user message.
 type burstProvider struct {
 	mu         sync.Mutex
 	calls      int
@@ -174,6 +185,7 @@ type burstProvider struct {
 	release    chan struct{}
 	failFirst  bool
 	panicFirst bool
+	failText   string
 }
 
 func (p *burstProvider) Chat(
@@ -208,6 +220,9 @@ func (p *burstProvider) Chat(
 			last = messages[i].Content
 			break
 		}
+	}
+	if p.failText != "" && last == p.failText {
+		return nil, &common.HTTPError{StatusCode: 401, BodyPreview: "invalid api key"}
 	}
 	return &providers.LLMResponse{Content: "answer: " + last, FinishReason: "stop"}, nil
 }
@@ -328,4 +343,77 @@ func TestPanickedTurnDoesNotDropTheMessagesQueuedBehindIt(t *testing.T) {
 	}
 	assertQueuedRepliesInOrder(t, replies)
 	assertEveryNoticeRetired(t, cm)
+}
+
+func TestMiddleTurnFailureDoesNotStrandTheMessageQueuedBehindIt(t *testing.T) {
+	provider := &burstProvider{
+		entered: make(chan struct{}), release: make(chan struct{}), failText: "link three",
+	}
+	replies, cm := runTelegramBurst(t, provider)
+	if len(replies) != 4 {
+		t.Fatalf("got %d replies, want exactly 4: %q", len(replies), replies)
+	}
+	if replies[1] != "answer: link two" || replies[3] != "answer: link four" {
+		t.Fatalf("the turns around the failure were not answered in order: %q", replies)
+	}
+	if strings.HasPrefix(replies[2], "answer:") {
+		t.Fatalf("the failing middle turn produced an answer: %q", replies[2])
+	}
+	assertEveryNoticeRetired(t, cm)
+}
+
+// Each queued message gets exactly one notice replying to it, that notice is
+// the one deleted, it is deleted before that message is answered, and each
+// turn's "Thinking…" placeholder carries the lifecycle of the message running.
+func TestBurstKeepsEveryNoticeAndPlaceholderWithItsOwnMessage(t *testing.T) {
+	provider := &burstProvider{entered: make(chan struct{}), release: make(chan struct{})}
+	_, cm := runTelegramBurst(t, provider)
+	assertEveryNoticeRetired(t, cm)
+
+	notices, deleted := cm.snapshotNotices()
+	seen := map[string]int{}
+	for _, n := range notices {
+		seen[n.replyTo]++
+	}
+	for _, id := range []string{"lc-2", "lc-3", "lc-4"} {
+		if seen[id] != 1 {
+			t.Fatalf("%s got %d queue notices, want 1: %+v", id, seen[id], notices)
+		}
+	}
+	if seen["lc-1"] != 0 {
+		t.Fatal("the message that ran at once was told it was queued")
+	}
+	gone := map[string]int{}
+	for _, id := range deleted {
+		gone[id]++
+	}
+	for _, id := range []string{"notice-lc-2", "notice-lc-3", "notice-lc-4"} {
+		if gone[id] != 1 {
+			t.Fatalf("%s deleted %d times, want 1: %v", id, gone[id], deleted)
+		}
+	}
+
+	events := cm.snapshotEvents()
+	index := func(event string) int {
+		for i, e := range events {
+			if e == event {
+				return i
+			}
+		}
+		t.Fatalf("no %q in %q", event, events)
+		return -1
+	}
+	for id, text := range map[string]string{"lc-2": "link two", "lc-3": "link three", "lc-4": "link four"} {
+		if index("delete:notice-"+id) > index("reply:answer: "+text) {
+			t.Fatalf("the notice for %s outlived its answer: %q", id, events)
+		}
+	}
+
+	var placeholders []string
+	for _, send := range cm.snapshot() {
+		placeholders = append(placeholders, send.lifecycleID)
+	}
+	if strings.Join(placeholders, ",") != "lc-1,lc-2,lc-3,lc-4" {
+		t.Fatalf("placeholders went to %v, want one per message in turn order", placeholders)
+	}
 }
