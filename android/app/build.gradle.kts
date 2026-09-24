@@ -370,10 +370,10 @@ android {
         buildConfig = true
     }
 
-    // jniLibs 打包配置：libpocketclaw*.so 是 Go 静态链接的可执行文件
+    // jniLibs packaging: libpocketclaw*.so are statically linked Go executables.
     packaging {
         jniLibs {
-            // 不要 strip libpocketclaw*.so（它们不是标准动态库）
+            // Never strip libpocketclaw*.so: they are not ordinary shared libraries.
             keepDebugSymbols += "**/libpocketclaw.so"
             keepDebugSymbols += "**/libpocketclaw-web.so"
             // Managed Runtime payloads are executables, not shared libraries.

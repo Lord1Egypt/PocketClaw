@@ -34,17 +34,7 @@ import java.net.URL
 import java.util.concurrent.Executor
 
 /**
- * Flutter MethodChannel 桥接层，将 Kotlin 原生功能暴露给 Dart 端。
- *
- * 支持的方法：
- * - startService: 启动 PocketClaw 前台服务
- * - stopService: 停止 PocketClaw 前台服务
- * - getServiceStatus: 获取服务状态（isRunning, pid, lastLog）
- * - checkHealth: 检查 /health 端点
- * - getConfig: 读取 config.json 内容
- * - saveConfig: 保存 config.json 内容
- * - getFullLog: 获取完整日志
- * - getWebPort: 获取 Web Console 端口号
+ * The Flutter MethodChannel bridge: exposes the Kotlin host to Dart.
  */
 class PocketClawMethodChannel(
     private val context: Context,
@@ -279,10 +269,10 @@ class PocketClawMethodChannel(
             when (call.method) {
                 "startService" -> {
                     try {
-                        // 从参数中读取 publicMode，默认为 false
+                        // Public Mode comes from the arguments; false when absent.
                         val args = call.argument<String>("args") ?: ""
                         val publicMode = args.contains("-public")
-                        // 保存 publicMode 到 SharedPreferences
+                        // Persist it in SharedPreferences.
                         val prefs = PocketClawPreferences.open(context)
                         prefs.edit().putBoolean("public_mode", publicMode).apply()
                         Log.d(TAG, "Starting service with publicMode=$publicMode (args: $args)")

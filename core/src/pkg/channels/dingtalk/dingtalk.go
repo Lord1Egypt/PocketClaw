@@ -21,7 +21,7 @@ import (
 	"github.com/sipeed/picoclaw/pkg/utils"
 )
 
-// DingTalkChannel implements the Channel interface for DingTalk (钉钉)
+// DingTalkChannel implements the Channel interface for DingTalk
 // It uses WebSocket for receiving messages via stream mode and API for sending
 type DingTalkChannel struct {
 	*channels.BaseChannel

@@ -62,7 +62,7 @@ func TestSaveAndLoadSecurityConfig(t *testing.T) {
 			Secret SecureString `json:"secret,omitzero" yaml:"secret,omitempty" env:"TEST_SECURE_STRING"`
 		}
 		s := testStruct{Secret: *NewSecureString("test")}
-		out, err := yaml.Marshal(s) // 直接对 SecureString 进行序列化
+		out, err := yaml.Marshal(s) // marshal the SecureString directly
 		require.NoError(t, err)
 		t.Logf("output: %v", string(out))
 		assert.Equal(t, "secret: test\n", string(out))

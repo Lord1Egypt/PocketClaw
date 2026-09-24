@@ -1,7 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- 网络访问 -->
+    <!-- Network access -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     
@@ -35,7 +35,7 @@
     <uses-permission android:name="com.google.android.finsky.permission.BIND_GET_INSTALL_REFERRER_SERVICE"
         tools:node="remove" />
 
-    <!-- 前台服务 -->
+    <!-- Foreground service -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <!--
@@ -47,10 +47,10 @@
       all three of these permissions out of the packaged manifest.
     -->
 
-    <!-- Wake Lock 防止 CPU 休眠 -->
+    <!-- Keeps the CPU awake while Core runs -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
 
-    <!-- 通知权限 (Android 13+) -->
+    <!-- Notifications (Android 13+) -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <!--
@@ -98,7 +98,7 @@
             -->
         </activity>
 
-        <!-- PocketClaw 原生前台服务（运行 Go 二进制） -->
+        <!-- PocketClaw's foreground service, which runs the Go binaries -->
         <service
             android:name=".service.PocketClawService"
             android:exported="false"

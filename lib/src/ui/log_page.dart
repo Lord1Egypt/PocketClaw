@@ -289,7 +289,7 @@ class _LogPageState extends State<LogPage> {
     }
   }
 
-  // TV 平台：使用 TVFocusable 包装，保持焦点样式一致
+  // TV: wrapped in TVFocusable so the focus style matches the rest of the app.
   Widget _buildTvLogContainer(
     BuildContext context,
     Widget logContent,

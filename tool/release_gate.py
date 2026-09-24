@@ -640,6 +640,15 @@ def source_gates(gate: Gate, run_tests: bool, release_class: str = "test"):
                expected="no unclassified Pico identity in owned production source",
                observed="PASS" if rc == 0 else summary)
 
+    # Stray Chinese developer comments were found in PocketClaw's own Kotlin and
+    # Dart. Localization, vendored upstream text and CJK test fixtures are
+    # classified in the tool; anything else fails here.
+    rc, out = run([sys.executable, str(REPO / "tool/cjk_hygiene.py")], cwd=REPO)
+    summary = out.strip().splitlines()[-1] if out.strip() else "FAIL"
+    gate.check("source.no_stray_cjk", rc == 0,
+               expected="every tracked file with CJK text classified and within its count",
+               observed="PASS" if rc == 0 else summary)
+
     # PC-DEF-064. The What's New screen and the published release notes were
     # two independent pieces of prose, so the app could describe a release the
     # notes did not. There is one source now, and this is what stops them

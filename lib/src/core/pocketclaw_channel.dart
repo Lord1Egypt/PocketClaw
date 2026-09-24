@@ -40,12 +40,12 @@ class PublicModeApplyResult {
   final String message;
 }
 
-/// PocketClaw 原生 MethodChannel 客户端。
-/// 仅在 Android 平台可用，用于与 Kotlin 原生服务层通信。
+/// Client for the PocketClaw Android host's MethodChannel.
+/// Android only: it talks to the Kotlin service layer.
 class PocketClawChannel {
   static const _channel = MethodChannel('com.lord1egypt.pocketclaw/pocketclaw');
 
-  /// 启动 PocketClaw 前台服务
+  /// Starts the PocketClaw foreground service.
   static Future<bool> startService({int port = 18800, String args = ''}) async {
     final result = await _channel.invokeMethod<bool>('startService', {
       'port': port,
@@ -54,7 +54,7 @@ class PocketClawChannel {
     return result ?? false;
   }
 
-  /// 停止 PocketClaw 前台服务
+  /// Stops the PocketClaw foreground service.
   static Future<bool> stopService() async {
     final result = await _channel.invokeMethod<bool>('stopService');
     return result ?? false;
@@ -81,14 +81,14 @@ class PocketClawChannel {
     );
   }
 
-  /// 获取服务状态
+  /// Reads the service status.
   static Future<Map<String, dynamic>> getServiceStatus() async {
     final result = await _channel.invokeMethod<Map>('getServiceStatus');
     if (result == null) return {'isRunning': false, 'pid': -1, 'lastLog': ''};
     return Map<String, dynamic>.from(result);
   }
 
-  /// 检查 /health 端点
+  /// Checks the /health endpoint.
   static Future<Map<String, dynamic>> checkHealth({bool detail = false}) async {
     final result = await _channel.invokeMethod<Map>('checkHealth', {
       'detail': detail,
@@ -143,13 +143,13 @@ class PocketClawChannel {
     );
   }
 
-  /// 读取 config.json 内容
+  /// Reads config.json.
   static Future<String> getConfig() async {
     final result = await _channel.invokeMethod<String>('getConfig');
     return result ?? '';
   }
 
-  /// 保存 config.json 内容
+  /// Saves config.json.
   static Future<bool> saveConfig(String content) async {
     final result = await _channel.invokeMethod<bool>('saveConfig', {
       'content': content,
@@ -157,7 +157,7 @@ class PocketClawChannel {
     return result ?? false;
   }
 
-  /// 获取完整日志
+  /// Reads the full log.
   /// Log lines emitted since the previous call, each delivered exactly once.
   ///
   /// Deliberately not `getServiceStatus`'s `lastLog`: that is a sticky
@@ -299,7 +299,7 @@ class PocketClawChannel {
     }
   }
 
-  /// 获取 config.json 文件路径
+  /// The path of config.json.
   static Future<String> getConfigPath() async {
     final result = await _channel.invokeMethod<String>('getConfigPath');
     return result ?? '';
@@ -314,7 +314,7 @@ class PocketClawChannel {
     return address.isEmpty ? null : address;
   }
 
-  /// 获取 PocketClaw Channel token
+  /// The PocketClaw channel token.
   static Future<String> getPocketClawToken() async {
     final result = await _channel.invokeMethod<String>('getPocketClawToken');
     return result ?? '';

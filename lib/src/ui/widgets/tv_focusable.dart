@@ -71,7 +71,7 @@ class _TVFocusableState extends State<TVFocusable> {
       },
       child: GestureDetector(
         onTap: () {
-          // 在触摸设备上点击时请求焦点
+          // On a touch device a tap also takes focus.
           if (!_focusNode.hasFocus) {
             _focusNode.requestFocus();
           }
@@ -114,7 +114,7 @@ class _TVFocusableState extends State<TVFocusable> {
   }
 }
 
-/// TV 专用输入框 - 支持遥控器导航的文本输入框
+/// A text field that can be reached with a TV remote.
 class TVTextField extends StatelessWidget {
   final TextEditingController controller;
   final String? labelText;
@@ -225,7 +225,7 @@ class TVTextField extends StatelessWidget {
   }
 }
 
-/// TV 专用开关 - 支持遥控器导航的开关
+/// A switch that can be reached with a TV remote.
 class TVSwitch extends StatelessWidget {
   final bool value;
   final ValueChanged<bool> onChanged;
@@ -276,7 +276,7 @@ class TVSwitch extends StatelessWidget {
   }
 }
 
-/// TV 专用按钮 - 支持遥控器导航的按钮
+/// A button that can be reached with a TV remote.
 class TVButton extends StatelessWidget {
   final VoidCallback onPressed;
   final Widget child;
@@ -302,7 +302,7 @@ class TVButton extends StatelessWidget {
   }
 }
 
-/// TV 专用卡片选择器 - 支持遥控器导航的选项卡片
+/// An option-card selector that can be reached with a TV remote.
 class TVCardSelector<T> extends StatelessWidget {
   final T value;
   final T groupValue;
