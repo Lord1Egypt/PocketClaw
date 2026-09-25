@@ -28,7 +28,21 @@ only reconstructable examples belong here.
   restage Core. Until then the v0.2.2 fdroiddata draft pins the buildserver's
   deterministic hash with one exact `sed`, so F-Droid's Core embeds the payload
   F-Droid built.
-- **Status:** OPEN (blocks a reproducible, upstream-signed F-Droid build only).
+- **Fixed upstream in 0.2.3 (`3e74c09`).** The shared payload debug flags map
+  `$NDK_ROOT` to `/pocketclaw-ndk` (the Python recipe now reuses them), and
+  ANDROID_HOME is derived from NDK_ROOT so CPython's own scripts cannot compile
+  against an inherited one outside the map. The same commit stops an inherited
+  SOURCE_DATE_EPOCH replacing the pinned RUNTIME_EPOCH.
+- **Proof, 2026-09-25:** the Python payload built from `3e74c09` on the host
+  against the owner's NDK and inside F-Droid's buildserver image against
+  F-Droid's verified r28c at `/opt/android-sdk` (with a bogus ANDROID_HOME and
+  SOURCE_DATE_EPOCH=1234567890 exported) is byte-identical: payload
+  `8c9d49fb…`, unstripped debug ELF `07874ab6…`, GNU build-id `fb8dd931…`;
+  neither debug file holds any NDK install path (1,129 mapped references each).
+  curl, git, git-remote-http, sqlite3 and jq rebuilt under the new flags are
+  byte-identical to their existing pins. The catalog pins `8c9d49fb…`; the
+  v0.2.3 recipe has no checksum `sed`.
+- **Status:** RESOLVED.
 
 ### PC-DEF-092 — the Dart AOT snapshot depends on the length of the checkout path
 
@@ -61,7 +75,22 @@ only reconstructable examples belong here.
 - **Fix (planned for 0.2.3):** go1.25.13, the module bumps, and a current gh
   release; each moves payload or Core bytes, so each needs the usual re-pin
   and restage.
-- **Status:** OPEN.
+- **Fixed in 0.2.3 (`16b2c6d`, Core restaged in `d966ab3`).** Go 1.25 is out
+  of upstream support, and golang.org/x/crypto v0.56.0 — the first release
+  fixing its advisories — requires go 1.26, so Core moved to go1.26.8 (go.mod
+  `go 1.26.0`). Pinned: x/crypto v0.56.0, klauspost/compress v1.18.7; x/net
+  v0.57.0, x/text v0.41.0, x/sys v0.47.0, x/term v0.45.0 and x/sync v0.22.0
+  follow from x/crypto's requirements. gh 2.82.1 (go1.24.6) → gh 2.101.0 on
+  go1.27.1, the version its go.mod selects.
+- **Evidence (govulncheck v1.8.0, DB 2026-09-24):** Core source mode for
+  android/arm64: 0 reachable, 0 imported. gh source mode (`./cmd/gh`,
+  android/arm64): 0 reachable, 0 imported. The only remaining entry in both is
+  module-level GO-2026-5932 (`x/crypto/openpgp` is unmaintained; no fix
+  exists), a package neither imports. Binary mode on the stripped gh reports
+  that advisory with wildcard symbols only because a stripped binary has no
+  symbol table; the binary contains no `x/crypto/openpgp` code at all. Go vet
+  (host, android/arm64) clean; all 99 Go test packages pass.
+- **Status:** RESOLVED.
 
 ### PC-DEF-090 — What's New showed only the newest release; the history disappeared
 

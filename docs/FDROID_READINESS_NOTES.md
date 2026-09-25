@@ -292,10 +292,14 @@ registry are not mentioned at all. Suggested for 0.2.3; not a blocker.
 
 ## Reviewer-visible residue (low)
 
-The Android Dashboard binary embeds PicoClaw's unused lobster tray icon
-(`web/backend/systray_icon_nonwindows.go` builds for Android; an `!android`
-constraint drops it); Core's CLI onboarding prints `🦞 picoclaw is ready!` to
-the log on first start. `public/lark.svg` is vendored from PicoClaw, whose
+**Correction (0.2.3 work, 2026-09-25):** the claim first written here — that
+the Android Dashboard binary embeds PicoClaw's unused tray icon — was wrong.
+`web/backend/systray_icon_nonwindows.go` did compile for Android, but nothing
+there references the variable and the Go linker drops it: the v0.2.2 binary
+contains nothing of the 104,580-byte PNG beyond its first 32 bytes (the PNG
+signature and image header), and Golden #3's debug info has no symbol for it. 0.2.3 adds the `!android` constraint
+anyway (`04c3a52`) so the intent is explicit. Core's CLI onboarding still
+prints `🦞 picoclaw is ready!` to the log on first start. `public/lark.svg` is vendored from PicoClaw, whose
 authorship upstream does not record (already stated in
 `THIRD_PARTY_NOTICES.md`).
 
