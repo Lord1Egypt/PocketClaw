@@ -442,7 +442,7 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get whatsNew022Improvement3 =>
-      'أصبحت مساحة العمل الآن في مساحة التخزين الخاصة بـ PocketClaw، ولا يطلب التطبيق أي إذن تخزين. مساحة العمل التي تركها إصدار أقدم في Download/pocketclaw تبقى كما هي، ويمكن نسخها من الإعدادات.';
+      'أصبحت مساحة العمل الآن في مساحة التخزين الخاصة بـ PocketClaw، ولا يطلب التطبيق أي إذن تخزين. مساحة العمل التي تركها إصدار أقدم في ⁦Download/pocketclaw⁩ تبقى كما هي، ويمكن نسخها من الإعدادات.';
 
   @override
   String get whatsNew022Fix1 =>
