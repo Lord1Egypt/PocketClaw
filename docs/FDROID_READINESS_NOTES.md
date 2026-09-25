@@ -61,7 +61,14 @@ the 512 px icon and `changelogs/64.txt` for the version being built.
 `test/unit/fastlane_metadata_test.dart` holds the length limits, the scope
 statements, the changelog for the current versionCode and the icon size.
 
-**Screenshots are still owed and must be real.** F-Droid shows
+**Four real screenshots are committed** (2026-09-25, build `b4011015…`,
+English UI, demo-mode status bar): `1.png` Status, `2.png` Dashboard chat with
+a Python tool call, `3.png` Settings, `4.png` What's New. Private screens (the
+Telegram bot handle, GitHub account, logs, existing chats, the Models page's
+masked key) were deliberately left out; the Models page also has a layout
+defect (PC-DEF-089). The rules below still apply to any replacement.
+
+F-Droid shows
 `images/phoneScreenshots/*.png|jpg` in file-name order. They must be captured
 by the owner from the installed app on the phone — no mockups, renders or
 placeholders; the test refuses any file there that is not a portrait PNG or
@@ -108,8 +115,10 @@ is optional and not planned.
   initialises Google's metrics client (`FilePhenotypeFlags …
   clearcut_client#com.lord1egypt.pocketclaw` in logcat); PocketClaw's own dex
   has no GMS or Clearcut code. The manifest now opts out with
-  `android.webkit.WebView.MetricsOptOut` (`b39862c`). A capture on a fresh,
-  unconfigured install is still owed for the "before configuration" claim.
+  `android.webkit.WebView.MetricsOptOut` (`b39862c`); on the next build
+  (`b4011015…`) the WebView loaded three times with no metrics-client log line.
+  A capture on a fresh, unconfigured install is still owed for the "before
+  configuration" claim.
 
 ## Build from source (Phase C recipe outline)
 

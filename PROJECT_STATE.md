@@ -55,8 +55,61 @@ evidence and describe the state at the date of each entry.
 | Verification APK (PC-DEF-056/057, superseded) | `7c8eefd399318b6187b0fb87c8bd687d7d08c3537959e31f38767a642908e3cb`, 63,539,059 bytes, development signer `15cf75f9…`, Dart AOT `007c23b6be22a9a44f429a53f8fb9eaf930180e67bb20f111cadceedb68e22f4`. Source gate 26/26 with `flutter.suite 561 passed`, artifact gate 24/24, native ELF 188 PASS / 0 FAIL. Archived read-only at `build/forensic/apk-7c8eefd3…/`. LOCAL TEST / NON-RELEASABLE. **Nothing in it is physically verified** |
 | Verification APK (PC-DEF-049..055, superseded) | `6df7abaa6bec5a5124d21d30b582fc37d2837be036fa75e93eb3d30d5634894c`, 63,528,459 bytes, development signer `15cf75f9945d5354e75707e0326b7cffc60ac51a68df38156db318ef4578a27c`, Dart AOT `d5d52742ab6cc5672e7c3910dc20c50e5c4da430c80d65c49501d12ea17a7968`. Source gate 26/26, artifact gate 24/24, native ELF audit 188 PASS / 0 FAIL. Archived read-only at `build/forensic/apk-6df7abaa…/` with its private R8 material separated. LOCAL TEST / NON-RELEASABLE |
 | Staged Core freshness | **CURRENT.** Rebuilt from the source commit `55624cd` and staged in `da9e6f5`, which touches no build input. Fingerprint `87c320c1cb6dffe6395043265c3d4d659ddaf26a4b588d303c5d06355a4acc2b` (was `9c22cb22…`), BuildTime `2026-09-21T03:22:04+0000` |
-| Flutter suite | Green — 605 passed, 0 failed (repository-class gate on `feature/fdroid-phase-b`, 2026-09-25) — and the **complete** suite is a release gate (`flutter.suite`) |
+| Flutter suite | Green — 608 passed, 0 failed (production-class gate on the owner-signed `b4011015…`, 2026-09-25) — and the **complete** suite is a release gate (`flutter.suite`) |
 | Public release asset policy | APK only. An AAB is a Play-upload artifact and is never a public release asset — `PC-DEF-021` |
+
+## 2026-09-25 — Complete physical validation of 0.2.2+64 — PHYSICAL PASS, three items open
+
+Device SM-A165F / Android 16, Windows adb over wireless debugging. Nothing
+merged, tagged, released or submitted; no uninstall, no data clear.
+
+**Builds.** `…-073671f.apk` `8f6364e8…` (61,312,805 B) tested first; the
+physical findings changed shipping code, so `…-d041ed0.apk`
+`b401101550dd2acda3eb41b1ccd32d0c7b347f389fe98b4ee290e9250689682e`
+(61,312,769 B) followed. Both `0.2.2+64`, one v2 signer `176dca6b…`,
+arm64-v8a, Core pair `7ed342f1…` / `1fa6dfaf…` (fingerprint `5d443c5e…`).
+Each installed with `install -r` as a same-version replacement:
+`firstInstallTime` 2026-09-21 08:07:40 unchanged, workspace file list and
+readable hashes identical. `release_gate.py --full <b4011015…>
+--release-class production --artifact-class non-publish-audit`: 55 PASS / 0
+FAIL / 0 SKIP (flutter.suite 608, enrolled production signer, 7 permissions,
+Core matches staged). Source gate 31/0/0.
+
+| Area | Result |
+| --- | --- |
+| PC-DEF-085 reboot crash | **Root cause captured** in the device's crash records: the released v0.2.1's `flutter_background_service` boot receiver started a `dataSync` FGS at BOOT_COMPLETED, refused by Android 16. Removed in 0.2.2 (PC-DEF-083). 3/3 reboots clean. PHYSICAL PASS; **v0.2.1 still affected** |
+| PC-DEF-077 detector / import | Detector PHYSICAL PASS (empty, unrelated, genuine); copy PHYSICAL PASS (byte-identical, source untouched); cancel and hide not physically exercisable after a copy — PHYSICAL TEST PARTIAL |
+| PC-DEF-078 | PHYSICAL PASS — 3.5 MB multibyte output, exit 3 kept, 64,923 B delivered, history 65 KB, no 400 |
+| PC-DEF-079 | PHYSICAL PASS — 1/2/3 ahead, FIFO, notices removed, no duplicates |
+| PC-DEF-084 | PHYSICAL PASS — short turn edits in place; 2 min 50 s turn sends first, deletes after |
+| PC-DEF-080 / 083 | PHYSICAL PASS |
+| PC-DEF-081 | PHYSICAL PASS (launcher, notification mark); old splash not testable on Android 16 |
+| PC-DEF-076 | No regression: clone, log, branch, checkout, 3-line reflog |
+| Runtime tools | git 2.51.0, gh 2.82.1, curl 8.11.1, rg 14.1.1, jq 1.7.1, sqlite3 3.50.4, python — all ran |
+| Dashboard / chat / service | Chat answers; Stop removes processes and the notification; Start restores both listeners |
+| Public Mode | ON: LAN 302 to login, APIs 401. OFF: loopback only, LAN refused. Restored to ON |
+| Network | Only `api.telegram.org:443` in 120 s from cold start (owner's channel). WebView metrics client found → opted out, verified gone |
+| Logcat | No crash-class entry for PocketClaw across the session |
+| Fastlane | 4 screenshots committed |
+
+**Fixed during the pass (`a7aca77`, `2f7aed9`, `0a54ee4`, `b39862c`), all
+re-checked on `b4011015…`:** start reason logged `stale` on every start
+(Samsung records `pid=0`); Arabic paths lost their leading slash and a blank
+band (PC-DEF-087); the WebView nav pill covered the Dashboard menu
+(PC-DEF-088); WebView metrics opt-out.
+
+**Open:** PC-DEF-086 (minSdk 24 claimed, API 26 required — owner decision),
+PC-DEF-089 (Models header clipped, cosmetic), PC-DEF-077 cancel/hide
+physical. Also observed, not investigated: after the Public Mode OFF→ON test
+and a force-stop, the Dashboard asked for its password once.
+
+**Operator error, corrected:** a blind tap during language restoration turned
+"Start PocketClaw service automatically" OFF; it was restored to ON within a
+minute, with the runtime running throughout. All owner settings were
+verified afterwards: Public Mode ON, both auto-start preferences ON, Arabic,
+screen timeout 30 s, demo mode off. The imported test folder
+`workspace/imported-from-downloads-20260925-034943` (three small test files)
+was left in the workspace for the owner to keep or delete.
 
 ## 2026-09-25 — Final source hardening before the manual physical pass — AUTOMATED PASS, PHYSICAL PENDING
 

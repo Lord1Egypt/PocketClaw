@@ -31,7 +31,11 @@ only reconstructable examples belong here.
 - **Fix (`2f7aed9`):** the path `Text` is forced left-to-right; the notice
   embeds the path between Unicode isolates (U+2066/U+2069); the spacers are
   one 24 dp gap.
-- **Status:** FIXED IN SOURCE — PHYSICAL RE-CHECK PENDING (next build).
+- **Physical re-check on `b4011015…` (2026-09-25):** the path reads
+  `/storage/emulated/0/Android/data/…` left-to-right in Arabic; the band is
+  gone. The notice's embedded path could not be re-seen: the notice stays
+  hidden after the earlier successful copy.
+- **Status:** PHYSICAL PASS (workspace path, gap); notice path source-only.
 
 ### PC-DEF-088 — the floating WebView nav pill covered the Dashboard's menu button
 
@@ -42,7 +46,19 @@ only reconstructable examples belong here.
   left-to-right ones). Dragging the pill away made the menu open at once.
 - **Fix (`0a54ee4`):** the pill starts on the right edge at mid-height;
   `web_nav_bar_position_test.dart` (en, ar) failed on the old position (18 dp).
-- **Status:** FIXED IN SOURCE — PHYSICAL RE-CHECK PENDING (next build).
+- **Physical re-check on `b4011015…` (2026-09-25):** the pill starts at
+  mid-height (y 640–775 px of 2340); the Dashboard header and its menu are
+  uncovered.
+- **Status:** PHYSICAL PASS.
+
+### PC-DEF-089 — the Dashboard Models header overflows at phone width
+
+- **Observed physically (English, 1080 px / 411 dp, 2026-09-25):** the title
+  "Models" and the "Saved Catalogs" and "Add Provider" buttons share one row
+  that does not wrap; "Add Provider" is clipped at the right edge.
+- **Not fixed here:** a Dashboard change is a Core build input (rebuild,
+  restage and another signed build) for a cosmetic defect.
+- **Status:** OPEN — low severity.
 
 ### PC-DEF-085 — "PocketClaw keeps stopping" after a phone reboot, before the app is opened
 
@@ -105,7 +121,9 @@ only reconstructable examples belong here.
   record Android hands the process through
   `addApplicationStartInfoCompletionListener`. Exit reasons 14–16 (freezer,
   package state change, package updated) are named; 16 had shown as
-  `unknown-16` for the install.
+  `unknown-16` for the install. Verified on `b4011015…`: `start-info |
+  reason=start-activity type=cold component=activity target=MainActivity`,
+  and the install exit logged as `package-updated`.
 - **Status:** PHYSICAL PASS — root cause captured from the crash records and
   removed; not closed on non-reproduction alone. **The published v0.2.1 still
   carries the defect** until 0.2.2 is released.
