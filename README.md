@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="assets/branding/pocketclaw-mark.png" alt="PocketClaw" width="120" />
+<img src="assets/branding/pocketclaw-icon.png" alt="PocketClaw" width="120" />
 
 # PocketClaw
 
