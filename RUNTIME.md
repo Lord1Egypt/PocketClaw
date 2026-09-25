@@ -343,7 +343,7 @@ rule at build time rather than letting such a tool ship and fail on every device
 |---|---|---:|---|
 | git | 2.51.0 | 3.23 MB | repository work over HTTPS |
 | git-remote-http | (same build) | 2.98 MB | git's transport helper |
-| gh | 2.82.1 | 55.9 MB | GitHub issues, PRs, releases, API |
+| gh | 2.101.0 | 40.9 MB | GitHub issues, PRs, releases, API |
 | curl | 8.11.1 | 1.30 MB | HTTP and HTTPS requests |
 | ripgrep | 14.1.1 | 4.27 MB | recursive source search |
 | sqlite3 | 3.50.4 | 1.23 MB | local databases |

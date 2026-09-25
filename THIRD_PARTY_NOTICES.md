@@ -140,9 +140,9 @@ projects is distributed.
 
 - Shipped as `libpocketclaw-gh.so`, built by
   [`runtime/build-gh-android-arm64.sh`](runtime/build-gh-android-arm64.sh).
-- Upstream release: gh 2.82.1,
-  <https://github.com/cli/cli/archive/refs/tags/v2.82.1.tar.gz>, tarball SHA-256
-  `999bdea5c8baf3d03fe0314127c2c393d6c0f7a504a573ad0c107072973af973`
+- Upstream release: gh 2.101.0,
+  <https://github.com/cli/cli/archive/refs/tags/v2.101.0.tar.gz>, tarball SHA-256
+  `a266fe8575c0e061b987920c1831a15f71bf0036a8729a5ebb93c2fb0164899c`
 - Copyright: © GitHub, Inc.
 - License: MIT
 

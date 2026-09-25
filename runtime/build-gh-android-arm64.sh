@@ -11,10 +11,10 @@
 #
 source "$(dirname "${BASH_SOURCE[0]}")/android-build-env.sh"
 
-GH_VERSION="2.82.1"
+GH_VERSION="2.101.0"
 GH_TARBALL="gh-$GH_VERSION.tar.gz"
 GH_URL="https://github.com/cli/cli/archive/refs/tags/v$GH_VERSION.tar.gz"
-GH_SHA256="999bdea5c8baf3d03fe0314127c2c393d6c0f7a504a573ad0c107072973af973"
+GH_SHA256="a266fe8575c0e061b987920c1831a15f71bf0036a8729a5ebb93c2fb0164899c"
 
 GO_CACHE_ROOT="${GO_CACHE_ROOT:-/home/lordegypt/PocketCLaw/.tooling/go}"
 export GOCACHE="${GOCACHE:-$GO_CACHE_ROOT/go-build}"
