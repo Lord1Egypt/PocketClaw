@@ -11,16 +11,22 @@ const String _whatsNewProductName = 'PocketClaw';
 /// A page rather than a dialog: the notes are read, not acknowledged, and a
 /// dialog cannot hold three sections on a phone without scrolling inside a
 /// scroll.
+///
+/// It shows the whole history, newest first. The current release is open;
+/// earlier ones are collapsed so the page stays short, and each opens in
+/// place. Everything is in the app bundle, so it works offline.
 class WhatsNewPage extends StatelessWidget {
-  const WhatsNewPage({super.key, this.release});
+  const WhatsNewPage({super.key, this.releases});
 
-  final WhatsNewRelease? release;
+  /// Newest first. Defaults to [whatsNewHistory].
+  final List<WhatsNewRelease>? releases;
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
-    final resolved = release ?? currentWhatsNewRelease;
+    final history = releases ?? whatsNewHistory;
+    final current = history.first;
 
     return Scaffold(
       appBar: AppBar(title: Text(l10n.whatsNewTitle)),
@@ -28,7 +34,7 @@ class WhatsNewPage extends StatelessWidget {
         padding: const EdgeInsetsDirectional.fromSTEB(16, 16, 16, 32),
         children: [
           Text(
-            '$_whatsNewProductName ${resolved.version}',
+            '$_whatsNewProductName ${current.version}',
             style: theme.textTheme.titleLarge?.copyWith(
               fontWeight: FontWeight.w600,
             ),
@@ -41,7 +47,42 @@ class WhatsNewPage extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 20),
-          for (final section in resolved.sections)
+          for (final section in current.sections)
+            _WhatsNewSectionCard(section: section),
+          for (final release in history.skip(1))
+            _EarlierRelease(release: release),
+        ],
+      ),
+    );
+  }
+}
+
+/// One earlier release: its title, collapsed until tapped.
+class _EarlierRelease extends StatelessWidget {
+  const _EarlierRelease({required this.release});
+
+  final WhatsNewRelease release;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsetsDirectional.only(top: 8),
+      child: ExpansionTile(
+        key: ValueKey('whatsNewRelease-${release.version}'),
+        tilePadding: EdgeInsetsDirectional.zero,
+        childrenPadding: EdgeInsetsDirectional.zero,
+        shape: const Border(),
+        collapsedShape: const Border(),
+        expandedCrossAxisAlignment: CrossAxisAlignment.start,
+        title: Text(
+          '$_whatsNewProductName ${release.version}',
+          style: theme.textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        children: [
+          for (final section in release.sections)
             _WhatsNewSectionCard(section: section),
         ],
       ),

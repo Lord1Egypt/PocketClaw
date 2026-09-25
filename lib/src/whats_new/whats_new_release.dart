@@ -81,10 +81,7 @@ final WhatsNewRelease whatsNewRelease020 = WhatsNewRelease(
     ),
     WhatsNewSection(
       kind: WhatsNewSectionKind.fixed,
-      bullets: [
-        (l10n) => l10n.whatsNew020Fix1,
-        (l10n) => l10n.whatsNew020Fix2,
-      ],
+      bullets: [(l10n) => l10n.whatsNew020Fix1, (l10n) => l10n.whatsNew020Fix2],
     ),
   ],
 );
@@ -122,5 +119,17 @@ final WhatsNewRelease whatsNewRelease022 = WhatsNewRelease(
   ],
 );
 
-/// The release the What's New page renders.
-final WhatsNewRelease currentWhatsNewRelease = whatsNewRelease022;
+/// Every release shown in What's New, newest first.
+///
+/// This is a history, not a slot: a new release is added at the front and the
+/// older ones stay, so the page keeps showing what came before. Only the
+/// first entry is the current release; tool/release_notes.py and the "new"
+/// badge read it from here.
+final List<WhatsNewRelease> whatsNewHistory = [
+  whatsNewRelease022,
+  whatsNewRelease021,
+  whatsNewRelease020,
+];
+
+/// The release this build introduces: the newest entry of [whatsNewHistory].
+WhatsNewRelease get currentWhatsNewRelease => whatsNewHistory.first;
