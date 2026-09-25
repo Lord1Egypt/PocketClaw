@@ -22,8 +22,11 @@ only reconstructable examples belong here.
   packaged minSdk (`artifact.min_sdk`, expects 26); a contract test holds
   Gradle and every support statement to it and forbids "Android 7"/"API 24".
   Historical records that describe minSdk 24 at the time are unchanged.
-- **Status:** FIXED IN SOURCE — SOURCE TESTED — packaged minSdk to be read from
-  the next signed build.
+- **Physical (2026-09-25, `56f11173…`):** aapt2 reads `minSdkVersion:'26'`;
+  the device reports `minSdk=26`; the gate row `artifact.min_sdk` passes; the
+  in-place install over the minSdk-24 build succeeded with data preserved;
+  What's New shows the requirement in Arabic.
+- **Status:** PHYSICAL PASS.
 
 ### PC-DEF-087 — Arabic Settings: paths lost their leading slash, and a blank band
 
@@ -40,7 +43,13 @@ only reconstructable examples belong here.
   `/storage/emulated/0/Android/data/…` left-to-right in Arabic; the band is
   gone. The notice's embedded path could not be re-seen: the notice stays
   hidden after the earlier successful copy.
-- **Status:** PHYSICAL PASS (workspace path, gap); notice path source-only.
+- **Also found (2026-09-25):** the Arabic 0.2.2 What's New bullet wrapped
+  `Download/pocketclaw` as `/Download … pocketclaw`; the path is now isolated in
+  the Arabic string (`e332e29`) and `rtl_path_isolation_test.dart` requires
+  every Latin path in the Arabic bundle to be isolated. Not in `56f11173…`;
+  visible from the next build.
+- **Status:** PHYSICAL PASS (workspace path, gap); notice path and the What's
+  New path fixed in source, physical re-check with the next build.
 
 ### PC-DEF-088 — the floating WebView nav pill covered the Dashboard's menu button
 
@@ -66,7 +75,11 @@ only reconstructable examples belong here.
   its action row wraps and sits at the logical end (`ms-auto`), so RTL mirrors
   it. Pages whose actions fit keep one row. `page-header.test.tsx` pins the
   contract (3 of 4 cases fail on the old header).
-- **Status:** FIXED IN SOURCE — SOURCE TESTED — PHYSICAL RE-CHECK PENDING.
+- **Physical (2026-09-25, `56f11173…`):** English: the actions wrap to their
+  own row at the end, "Add Provider" spans x 649–1015 of 1080 and opens its
+  dialog (Cancel closes it, nothing saved). Arabic: the row mirrors, "إضافة
+  مزوّد" fully visible at x 64–351; the WebView nav pill no longer overlaps.
+- **Status:** PHYSICAL PASS.
 
 ### PC-DEF-085 — "PocketClaw keeps stopping" after a phone reboot, before the app is opened
 

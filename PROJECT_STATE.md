@@ -58,6 +58,36 @@ evidence and describe the state at the date of each entry.
 | Flutter suite | Green — 608 passed, 0 failed (production-class gate on the owner-signed `b4011015…`, 2026-09-25) — and the **complete** suite is a release gate (`flutter.suite`) |
 | Public release asset policy | APK only. An AAB is a Play-upload artifact and is never a public release asset — `PC-DEF-021` |
 
+## 2026-09-25 — Final pre-F-Droid cleanup — AUTOMATED PASS, AFFECTED AREAS PHYSICAL PASS
+
+Owner decisions applied on `feature/fdroid-phase-b`: PC-DEF-086 (Android 8.0
+/ minSdk 26, `c633307`), 0.2.2 What's New lines for the Android 8.0
+requirement and the post-restart crash fix in 12 locales (`7a32000`),
+PC-DEF-089 Dashboard header wrap (`47c7f0b`), Core restaged `e868abc`
+(fingerprint `7e48a12042d42e1b8b71b3e1a697ecaad791b6e573e92083dce43bb921a14459`,
+pair `b6236105…` / `f9a638eb…`, BuildTime `2026-09-25T05:31:03+0000`).
+
+**Final private APK:** `PocketClaw-v0.2.2+64-private-test-d5e415f.apk`,
+`56f111739ba7c01a5bb184d77a38ec42c7f9a761f17449dd1c72dea87fd64171`,
+61,302,211 bytes, `0.2.2+64`, minSdk 26, one v2 signer `176dca6b…`, arm64-v8a.
+`release_gate.py --full … --release-class production --artifact-class
+non-publish-audit`: 56 PASS / 0 FAIL / 0 SKIP (flutter.suite 610,
+artifact.min_sdk 26). Installed with `install -r`: firstInstallTime unchanged,
+workspace unchanged. Re-checked physically: launch and Core (both listeners,
+LAN API 401), Models header in English and Arabic, About (PocketClaw 0.2.2,
+runtime 0.3.1, no support claim), What's New (both new lines, Arabic), logcat
+(no crash-class entry; the WebView metrics lines seen were other apps').
+
+After the APK: `e332e29` isolates `Download/pocketclaw` in the Arabic What's
+New (seen wrapping wrongly on the phone) — source-tested, not in `56f11173…`.
+Notes: About shows a generic aperture glyph, not the brand mark (the branding
+contract forbids a fourth geometry copy or a packaged brand image).
+
+The PC-DEF-077 test import's three files were verified by hash and removed; an
+empty `workspace/imported-from-downloads-20260925-034943` folder remains (the
+shell cannot remove a directory in the app-owned workspace). `workspace/temp-smoke`
+(the agent's Hello-World clone from the runtime smoke) was left untouched.
+
 ## 2026-09-25 — Complete physical validation of 0.2.2+64 — PHYSICAL PASS, three items open
 
 Device SM-A165F / Android 16, Windows adb over wireless debugging. Nothing
