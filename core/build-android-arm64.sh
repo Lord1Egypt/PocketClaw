@@ -75,7 +75,7 @@ echo "PocketClaw Core build"
 echo "  source:  $CORE_SRC"
 echo "  version: $CORE_VERSION ($CORE_GIT_COMMIT)"
 echo "  source fingerprint: $SOURCE_FINGERPRINT"
-echo "  build time: $BUILD_TIME${SOURCE_DATE_EPOCH:+ (SOURCE_DATE_EPOCH=$SOURCE_DATE_EPOCH)}"
+echo "  build time: $BUILD_TIME${POCKETCLAW_BUILD_EPOCH:+ (POCKETCLAW_BUILD_EPOCH=$POCKETCLAW_BUILD_EPOCH)}"
 echo
 
 make build-android-arm64          VERSION="$CORE_VERSION" GIT_COMMIT="$CORE_GIT_COMMIT" \

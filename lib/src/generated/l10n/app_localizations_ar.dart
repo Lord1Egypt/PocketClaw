@@ -461,6 +461,18 @@ class AppLocalizationsAr extends AppLocalizations {
       'إصلاح عطل عند بدء التشغيل على Android كان قد يظهر بعد إعادة تشغيل الهاتف.';
 
   @override
+  String get whatsNew023Improvement1 =>
+      'تحديث أمني: يُبنى المحرّك الخلفي لـ PocketClaw الآن بإصدار حديث ومدعوم من Go وبمكتبات محدّثة تعالج ثغرات معروفة.';
+
+  @override
+  String get whatsNew023Improvement2 =>
+      'حُدِّثت أداة GitHub لسطر الأوامر المضمّنة إلى الإصدار 2.101.';
+
+  @override
+  String get whatsNew023Improvement3 =>
+      'تعزيز عملية البناء استعدادًا لـ F-Droid: يُبنى التطبيق وأدواته المضمّنة بالكامل من الشيفرة المصدرية في بيئة ثابتة وقابلة للتكرار.';
+
+  @override
   String get settingsGroupConnection => 'الاتصال';
 
   @override

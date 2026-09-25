@@ -101,19 +101,22 @@ everything around it.
 
 | | |
 | --- | --- |
-| **On-device gateway** | A Go binary bound to loopback only. Nothing listens to the network on your behalf. |
-| **Managed Runtime** | Eight real arm64 tools, version-pinned and shipped in the APK — no package manager, no network install. |
+| **On-device gateway** | A Go binary bound to loopback only. Nothing listens to the network on your behalf. Lightweight background Core: about 20 MB PSS while idle and roughly 26–33 MB during active agent work on our Android 16 test device. The app's screens and web view use more while open. |
+| **Managed Runtime** | Eight real arm64 tools, version-pinned and shipped in the APK. PocketClaw never downloads its runtime; the tools use the network only for work you ask the agent to do. |
 | **Web dashboard** | A local console for providers, channels, skills, models and logs, in 14 locales. |
 | **Telegram** | Guided managed-bot onboarding, or a manual bot token if you prefer. |
 | **Chat** | Talk to the agent in the app, or over the built-in web channel. |
 | **Workspace** | A real directory the agent reads and writes, in the app's own storage (`Android/data/com.lord1egypt.pocketclaw/files/pocketclaw`). PocketClaw asks for no storage permission. A workspace an older version left in `Download/pocketclaw` is never touched, and can be copied in from Settings. |
-| **Skills** | Reusable prompt/tooling bundles the agent can load per task. |
+| **Skills** | Reusable prompt/tooling bundles the agent can load per task, and find or install from the ClawHub registry or GitHub when you ask. |
 | **12-locale app** | Full app translation, right-to-left included. |
 
 ### Managed Runtime — what actually ships
 
 Version-pinned, compiled for `arm64-v8a`, extracted from the APK at install
-time. No download step, no toolchain on the device.
+time. Nothing is downloaded to install or update them, and there is no
+toolchain on the device. They reach the network only when the agent uses them
+for something you asked — PocketClaw is not an offline app: the model runs at
+the provider you choose.
 
 | Tool | Version | Tool | Version |
 | --- | --- | --- | --- |

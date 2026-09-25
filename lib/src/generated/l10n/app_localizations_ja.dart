@@ -445,6 +445,18 @@ class AppLocalizationsJa extends AppLocalizations {
       'スマートフォンの再起動後に発生することがあった Android の起動時クラッシュを修正しました。';
 
   @override
+  String get whatsNew023Improvement1 =>
+      'セキュリティ更新: PocketClaw のバックグラウンドコアは、サポート中の最新の Go と、既知の脆弱性を修正した更新済みライブラリでビルドされるようになりました。';
+
+  @override
+  String get whatsNew023Improvement2 =>
+      '同梱の GitHub コマンドラインツールをバージョン 2.101 に更新しました。';
+
+  @override
+  String get whatsNew023Improvement3 =>
+      'F-Droid に向けたビルドの強化: アプリと同梱ツールは、固定された、同じ手順を繰り返せる環境で、すべてソースコードからビルドされます。';
+
+  @override
   String get settingsGroupConnection => '接続';
 
   @override

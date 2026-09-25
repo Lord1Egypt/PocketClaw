@@ -7,6 +7,122 @@ only reconstructable examples belong here.
 
 ## Open / deferred
 
+### PC-DEF-094 — the bottom navigation icons have no accessibility labels
+
+- **Found:** Golden #4 physical pass, 2026-09-25. The four bottom navigation
+  items (Settings, Logs, Web console, Status) are clickable views with neither
+  text nor a content description in the accessibility tree, so a screen
+  reader announces nothing useful and label-verified automation cannot find
+  them. Pre-existing; unchanged by 0.2.3.
+- **Fix (not in 0.2.3):** give each destination a localized semantics label.
+- **Status:** OPEN.
+
+### PC-DEF-091 — the Python payload's build-id depends on the NDK's install path
+
+- **Found:** F-Droid Phase C, 2026-09-25, in the real `fdroid build`.
+- **Observed:** on the F-Droid buildserver seven payloads rebuild
+  byte-identical to Golden #3; `libpocketclaw-python.so` differs in exactly
+  20 bytes, its GNU build-id (`0cc0755f…` against the pinned `8b52e36d…`).
+- **Cause, proven:** Python is the only payload linked with a build-id, and the
+  build-id hashes the unstripped ELF, whose DWARF records the NDK's absolute
+  path (`/opt/android-sdk/ndk/…` on the buildserver, a developer path
+  upstream). `PY_NATIVE_DEBUG_CFLAGS` maps only `$BUILD_ROOT`. With F-Droid's
+  own verified r28c NDK unpacked at upstream's path and `ANDROID_HOME` pointed
+  at it, the buildserver produced `8b52e36d…` exactly. Trap met on the way:
+  the recipe takes `ANDROID_HOME` from the environment, so CPython's Android
+  scripts used fdroidserver's `/opt/android-sdk` even when `NDK_ROOT` pointed
+  elsewhere.
+- **Fix (planned for 0.2.3, not in 0.2.2):** add
+  `-ffile-prefix-map=$NDK_ROOT=/pocketclaw-ndk` (and the matching
+  `-fdebug-prefix-map`) to the payload debug flags, re-pin the catalog, and
+  restage Core. Until then the v0.2.2 fdroiddata draft pins the buildserver's
+  deterministic hash with one exact `sed`, so F-Droid's Core embeds the payload
+  F-Droid built.
+- **Fixed upstream in 0.2.3 (`3e74c09`).** The shared payload debug flags map
+  `$NDK_ROOT` to `/pocketclaw-ndk` (the Python recipe now reuses them), and
+  ANDROID_HOME is derived from NDK_ROOT so CPython's own scripts cannot compile
+  against an inherited one outside the map. The same commit stops an inherited
+  SOURCE_DATE_EPOCH replacing the pinned RUNTIME_EPOCH.
+- **Proof, 2026-09-25:** the Python payload built from `3e74c09` on the host
+  against the owner's NDK and inside F-Droid's buildserver image against
+  F-Droid's verified r28c at `/opt/android-sdk` (with a bogus ANDROID_HOME and
+  SOURCE_DATE_EPOCH=1234567890 exported) is byte-identical: payload
+  `8c9d49fb…`, unstripped debug ELF `07874ab6…`, GNU build-id `fb8dd931…`;
+  neither debug file holds any NDK install path (1,129 mapped references each).
+  curl, git, git-remote-http, sqlite3 and jq rebuilt under the new flags are
+  byte-identical to their existing pins. The catalog pins `8c9d49fb…`; the
+  v0.2.3 recipe has no checksum `sed`.
+- **Status:** RESOLVED.
+
+### PC-DEF-092 — the Dart AOT snapshot depends on the length of the checkout path
+
+- **Found:** F-Droid Phase C, 2026-09-25.
+- **Observed:** with the Flutter SDK and pub cache fixed, rebuilding at the
+  same checkout path is byte-identical (APK `fe99b529…` twice), and so is a
+  different path of **the same length** (57 characters, all `q`), but a
+  38-character path changes `libapp.so` (322,801 bytes differ, no path string
+  in either). Some other lengths coincide: 30, 40 and 56 all produced Golden
+  #3's `libapp.so`. Moving the Flutter SDK or the pub cache also changes it.
+  Every other APK entry is unaffected.
+- **Why:** the kernel records the app's libraries by absolute `file://` URI,
+  so the path's length reaches `gen_snapshot`'s layout. The exact
+  length-to-layout rule is not established.
+- **Consequence:** an upstream-signed (reproducible) F-Droid build needs
+  upstream to build at F-Droid-equivalent paths — most simply inside the
+  F-Droid buildserver image with the same recipe. It does not affect an
+  F-Droid-signed build.
+- **Why not a compiler fix:** Flutter 3.47.1's only path-remapping knobs
+  (`filesystem-roots` / `filesystem-scheme`) cover the app's own sources;
+  dependencies still resolve through absolute `file://` package-config
+  entries, so there is no supported way to make a pub-based Android AOT build
+  path-independent.
+- **Resolution in 0.2.3 — canonical release environment (`4664026`,
+  `7c0980c`).** `tool/canonical_release_build.py` builds the upstream release
+  with the real `fdroid build --on-server` in F-Droid's buildserver image
+  (pinned by digest), from `/home/vagrant` — the layout fdroidserver's own
+  server mode creates (`/home/vagrant/build/com.lord1egypt.pocketclaw`,
+  `/home/vagrant/build/srclib/flutter`, pub cache in the checkout). The
+  fdroiddata metadata is rendered from the same template.
+- **Proof, 2026-09-25:** two separate clean canonical builds of `7c0980c`
+  produced the same unsigned APK `e09340e7…` (58,434,979 B; also identical
+  private Dart symbols); every PocketClaw native library in it equals the copy
+  staged in the repository. The owner signed that exact APK (Golden #4
+  candidate `77888282…`); fdroidserver's own `verify_apks` matches it against
+  the second build, and the second build plus the upstream signature is
+  byte-identical to the signed APK. Owner-machine builds remain
+  path-dependent by nature; releases are built canonically.
+- **Status:** RESOLVED (by the canonical environment; the final `fdroid build`
+  with `Binaries:` against the published APK is recorded in the release entry).
+
+### PC-DEF-093 — Core's Go toolchain and x/crypto carry reachable advisories
+
+- **Found:** F-Droid Phase C govulncheck, 2026-09-25.
+- **Observed:** source mode: 8 standard-library advisories reachable from Core
+  in go1.25.11, fixed in go1.25.12/13 (among them GO-2026-5856, crypto/tls,
+  and GO-2026-4970, os.Root symlink escape). Binary mode on the staged Core
+  adds golang.org/x/crypto v0.51.0 (fixes up to v0.56.0), x/net v0.55.0,
+  x/text v0.37.0 and klauspost/compress v1.18.6 — 29 in all. The bundled gh
+  2.82.1 (go1.24.6) reports 93. F-Droid's scanner does not flag any of this.
+- **Fix (planned for 0.2.3):** go1.25.13, the module bumps, and a current gh
+  release; each moves payload or Core bytes, so each needs the usual re-pin
+  and restage.
+- **Fixed in 0.2.3 (`16b2c6d`, Core restaged in `d966ab3`).** Go 1.25 is out
+  of upstream support, and golang.org/x/crypto v0.56.0 — the first release
+  fixing its advisories — requires go 1.26, so Core moved to go1.26.8 (go.mod
+  `go 1.26.0`). Pinned: x/crypto v0.56.0, klauspost/compress v1.18.7; x/net
+  v0.57.0, x/text v0.41.0, x/sys v0.47.0, x/term v0.45.0 and x/sync v0.22.0
+  follow from x/crypto's requirements. gh 2.82.1 (go1.24.6) → gh 2.101.0 on
+  go1.27.1, the version its go.mod selects.
+- **Evidence (govulncheck v1.8.0, DB 2026-09-24):** Core source mode for
+  android/arm64: 0 reachable, 0 imported. gh source mode (`./cmd/gh`,
+  android/arm64): 0 reachable, 0 imported. The only remaining entry in both is
+  module-level GO-2026-5932 (`x/crypto/openpgp` is unmaintained; no fix
+  exists), a package neither imports. Binary mode on the stripped gh reports
+  that advisory with wildcard symbols only because a stripped binary has no
+  symbol table; the binary contains no `x/crypto/openpgp` code at all. Go vet
+  (host, android/arm64) clean; all 99 Go test packages pass.
+- **Status:** RESOLVED.
+
 ### PC-DEF-090 — What's New showed only the newest release; the history disappeared
 
 - **Observed:** owner, 2026-09-25. With 0.2.2 added, What's New showed only
@@ -616,7 +732,17 @@ only reconstructable examples belong here.
   compiled inputs are consistent with packaging non-determinism, which is
   precisely what this defect is about. It gates the F-Droid path, not the
   GitHub / direct APK release.
-- **Status:** OPEN.
+- **F-Droid Phase C, 2026-09-25 — the APK half is proven at upstream's
+  toolchain paths.** Two clean clones of `v0.2.2` at different checkout
+  paths, built unsigned with upstream's Flutter SDK, pub cache and JDK 17,
+  produced the identical APK `3efb0081…`; `apksigcopier compare` against
+  Golden #3 matches, and copying Golden #3's signature onto it gives a file
+  byte-identical to `320368ea…`. What remains is the F-Droid buildserver's
+  different paths: PC-DEF-091 (Python build-id) and PC-DEF-092 (Dart AOT).
+- **0.2.3:** PC-DEF-091 fixed; PC-DEF-092 resolved by building releases in the
+  canonical F-Droid layout, where two clean builds are byte-identical and the
+  signature transplant reproduces the signed APK (see PC-DEF-092).
+- **Status:** RESOLVED for the release path (canonical builds).
 
 ### PC-DEF-007 — F-Droid builder compatibility and committed prebuilts remain open
 

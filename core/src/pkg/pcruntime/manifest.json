@@ -703,11 +703,11 @@
       "tool_id": "gh",
       "display_name": "GitHub CLI",
       "command_name": "gh",
-      "version": "2.82.1",
+      "version": "2.101.0",
       "abi": "arm64-v8a",
       "delivery_type": "bundled",
-      "trusted_source": "https://github.com/cli/cli/archive/refs/tags/v2.82.1.tar.gz",
-      "sha256": "804ed93f89b0cdfc20ae282466a89be5e2b23bfe9848eb78b7e7c5ca159a44ac",
+      "trusted_source": "https://github.com/cli/cli/archive/refs/tags/v2.101.0.tar.gz",
+      "sha256": "0a660a0bc7f05ae6af71ca65b70f9a376575fc7a5244c729f23893e4963d6463",
       "capabilities": [
         "github.api",
         "github.repository",
@@ -869,7 +869,7 @@
       "abi": "arm64-v8a",
       "delivery_type": "bundled",
       "trusted_source": "https://www.python.org/ftp/python/3.14.7/Python-3.14.7.tgz",
-      "sha256": "8b52e36dd4975763af46c9c26ab07b40e25d407e2df4415166e9d3d7d26a5b44",
+      "sha256": "8c9d49fb5df86dfe6131db11e0630618bd47534da1d7f409bd5c4181c4e303ba",
       "capabilities": [
         "script.execute",
         "text.transform",

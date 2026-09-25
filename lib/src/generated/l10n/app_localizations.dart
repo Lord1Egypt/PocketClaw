@@ -898,6 +898,24 @@ abstract class AppLocalizations {
   /// **'Fixed an Android startup crash that could appear after restarting the phone.'**
   String get whatsNew022Fix3;
 
+  /// No description provided for @whatsNew023Improvement1.
+  ///
+  /// In en, this message translates to:
+  /// **'Security update: PocketClaw\'s background core is now built with a current, supported Go release and updated libraries that fix known vulnerabilities.'**
+  String get whatsNew023Improvement1;
+
+  /// No description provided for @whatsNew023Improvement2.
+  ///
+  /// In en, this message translates to:
+  /// **'The bundled GitHub command-line tool is updated to version 2.101.'**
+  String get whatsNew023Improvement2;
+
+  /// No description provided for @whatsNew023Improvement3.
+  ///
+  /// In en, this message translates to:
+  /// **'Build hardening in preparation for F-Droid: the app and its bundled tools are built entirely from source in a pinned, repeatable environment.'**
+  String get whatsNew023Improvement3;
+
   /// Settings section label above the address, port and public mode controls
   ///
   /// In en, this message translates to:

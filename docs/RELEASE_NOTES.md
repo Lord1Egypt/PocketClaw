@@ -2,17 +2,10 @@
      the source is lib/src/whats_new/whats_new_release.dart and
      lib/l10n/app_en.arb, which are what the app itself renders. -->
 
-# PocketClaw 0.2.2
+# PocketClaw 0.2.3
 
 ## Improvements
 
-- After a long task, Telegram delivers the answer as a new message, so it notifies you and appears below anything you sent meanwhile.
-- Telegram tells you when your message is queued and how many are ahead of it.
-- The workspace now lives in PocketClaw's own storage, and the app asks for no storage permission. A workspace an older version left in Download/pocketclaw is untouched and can be copied in from Settings.
-- PocketClaw now requires Android 8.0 or newer.
-
-## Fixes
-
-- Very large tool output no longer overflows the conversation.
-- Removed Settings entries that had no effect on Android: Devices, Launch at Login and Service Port.
-- Fixed an Android startup crash that could appear after restarting the phone.
+- Security update: PocketClaw's background core is now built with a current, supported Go release and updated libraries that fix known vulnerabilities.
+- The bundled GitHub command-line tool is updated to version 2.101.
+- Build hardening in preparation for F-Droid: the app and its bundled tools are built entirely from source in a pinned, repeatable environment.

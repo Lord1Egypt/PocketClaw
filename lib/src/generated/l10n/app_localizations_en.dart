@@ -462,6 +462,18 @@ class AppLocalizationsEn extends AppLocalizations {
       'Fixed an Android startup crash that could appear after restarting the phone.';
 
   @override
+  String get whatsNew023Improvement1 =>
+      'Security update: PocketClaw\'s background core is now built with a current, supported Go release and updated libraries that fix known vulnerabilities.';
+
+  @override
+  String get whatsNew023Improvement2 =>
+      'The bundled GitHub command-line tool is updated to version 2.101.';
+
+  @override
+  String get whatsNew023Improvement3 =>
+      'Build hardening in preparation for F-Droid: the app and its bundled tools are built entirely from source in a pinned, repeatable environment.';
+
+  @override
   String get settingsGroupConnection => 'Connection';
 
   @override

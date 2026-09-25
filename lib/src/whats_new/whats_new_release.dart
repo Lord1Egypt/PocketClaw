@@ -119,6 +119,20 @@ final WhatsNewRelease whatsNewRelease022 = WhatsNewRelease(
   ],
 );
 
+final WhatsNewRelease whatsNewRelease023 = WhatsNewRelease(
+  version: '0.2.3',
+  sections: [
+    WhatsNewSection(
+      kind: WhatsNewSectionKind.improved,
+      bullets: [
+        (l10n) => l10n.whatsNew023Improvement1,
+        (l10n) => l10n.whatsNew023Improvement2,
+        (l10n) => l10n.whatsNew023Improvement3,
+      ],
+    ),
+  ],
+);
+
 /// Every release shown in What's New, newest first.
 ///
 /// This is a history, not a slot: a new release is added at the front and the
@@ -126,6 +140,7 @@ final WhatsNewRelease whatsNewRelease022 = WhatsNewRelease(
 /// first entry is the current release; tool/release_notes.py and the "new"
 /// badge read it from here.
 final List<WhatsNewRelease> whatsNewHistory = [
+  whatsNewRelease023,
   whatsNewRelease022,
   whatsNewRelease021,
   whatsNewRelease020,

@@ -317,18 +317,68 @@ def verify_packaged_onboarding_url(app: bytes, expected: str | None) -> None:
                 "contains it -- the artifact is stale and was not rebuilt")
 
 
+GRADLE_DISTRIBUTION = re.compile(r"/gradle-([0-9][0-9.]*)-(?:all|bin)\.zip$")
+GRADLE_VERSION_LINE = re.compile(r"^Gradle ([0-9][0-9.]*)\s*$", re.MULTILINE)
+
+
+def required_gradle_version(android: Path = ANDROID) -> str:
+    """The Gradle version the build is written for, from the wrapper properties."""
+    properties = android / "gradle/wrapper/gradle-wrapper.properties"
+    try:
+        text = properties.read_text(encoding="utf-8")
+    except OSError as error:
+        raise HardeningError(f"cannot read {properties}: {error}") from error
+    for line in text.splitlines():
+        if line.startswith("distributionUrl="):
+            match = GRADLE_DISTRIBUTION.search(line.split("=", 1)[1].replace("\\:", ":"))
+            if match:
+                return match.group(1)
+    raise HardeningError(f"{properties} names no Gradle distribution version")
+
+
+def gradle_launcher(android: Path = ANDROID, which=shutil.which, run=subprocess.run) -> list[str]:
+    """The Gradle to run: the project's wrapper, or a trusted system gradle.
+
+    fdroidserver deletes gradlew and the wrapper jar before building and puts its
+    own `gradle` on PATH, which runs the version named in the wrapper properties.
+    That gradle is accepted only if it reports exactly that version; nothing is
+    ever downloaded here as a fallback.
+    """
+    wrapper = android / "gradlew"
+    if wrapper.is_file():
+        return [str(wrapper)]
+    system = which("gradle")
+    if not system:
+        raise HardeningError(
+            f"no Gradle: {wrapper} is missing and no gradle is on PATH")
+    required = required_gradle_version(android)
+    try:
+        probe = run([system, "--version"], cwd=android, capture_output=True,
+                    text=True, check=True)
+    except (OSError, subprocess.CalledProcessError) as error:
+        raise HardeningError(f"{system} --version failed: {error}") from error
+    match = GRADLE_VERSION_LINE.search(probe.stdout)
+    reported = match.group(1) if match else "unknown"
+    if reported != required:
+        raise HardeningError(
+            f"{wrapper} is missing and {system} is Gradle {reported}; "
+            f"this build requires Gradle {required} (gradle-wrapper.properties)")
+    return [system]
+
+
 def gradle_command(
     signing: str,
     symbols_property: str,
     package: str = "apk",
     onboarding_base_url: str | None = None,
+    launcher: list[str] | None = None,
 ) -> list[str]:
     try:
         task = GRADLE_TASKS[package]
     except KeyError as error:
         raise HardeningError(f"unknown package type: {package}") from error
     command = [
-        str(ANDROID / "gradlew"),
+        *(launcher or [str(ANDROID / "gradlew")]),
         task,
         "-Ptarget-platform=android-arm64",
         "-PpocketclawDartHardening=true",
@@ -639,8 +689,9 @@ def main() -> int:
             "Signing classification: " + classification,
             flush=True,
         )
+        launcher = gradle_launcher()
         if args.clean:
-            clean = [str(ANDROID / "gradlew"), ":app:clean"]
+            clean = [*launcher, ":app:clean"]
             print("Build step: " + shlex.join(clean), flush=True)
             subprocess.run(clean, cwd=ANDROID, env=environment, check=True)
         onboarding_base_url = resolve_onboarding_base_url(
@@ -651,7 +702,7 @@ def main() -> int:
             flush=True,
         )
         command = gradle_command(
-            args.signing, symbols_property, args.package, onboarding_base_url)
+            args.signing, symbols_property, args.package, onboarding_base_url, launcher)
         print("Build step: " + shlex.join(command), flush=True)
         subprocess.run(command, cwd=ANDROID, env=environment, check=True)
         if args.package == "bundle":

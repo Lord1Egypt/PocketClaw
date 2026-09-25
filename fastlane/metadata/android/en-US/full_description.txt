@@ -2,8 +2,9 @@ PocketClaw is a private AI agent that runs on your Android phone. The language m
 
 <b>What it does</b>
 <ul>
-<li>An on-device agent gateway, bound to loopback only.</li>
-<li>A Managed Runtime of real command-line tools compiled for the phone and shipped inside the app: python 3.14, git 2.51, gh 2.82, curl 8.11, ripgrep 14.1, sqlite3 3.50 and jq 1.7. No package manager, no downloads after install.</li>
+<li>An on-device agent gateway, bound to loopback only. The background core uses about 20 MB of memory (PSS) while idle and roughly 26–33 MB during active agent work on our Android 16 test phone; the app's screens and web view use more while they are open.</li>
+<li>A Managed Runtime of real command-line tools compiled for the phone and shipped inside the APK: python 3.14, git 2.51, gh 2.101, curl 8.11, ripgrep 14.1, sqlite3 3.50 and jq 1.7. PocketClaw never downloads its runtime after install; the tools reach the network only when the agent uses them for something you asked.</li>
+<li>Skills: reusable instruction and tool bundles. The agent can find and install them from the ClawHub registry or GitHub when you ask it to.</li>
 <li>A local web dashboard for providers, models, channels, skills and logs, in 14 languages. It opens inside the app, and in a browser on your own network if you turn on Public Mode.</li>
 <li>Chat with the agent in the app, or over Telegram.</li>
 <li>A workspace directory in the app's own storage that the agent reads and writes.</li>
@@ -21,11 +22,11 @@ PocketClaw contacts nothing until you configure it. It then talks only to what y
 <ul>
 <li>The model provider you choose. Built-in templates include proprietary services (Anthropic, OpenAI, Google Gemini, AWS Bedrock, Azure OpenAI and others) and self-hosted ones (Ollama, vLLM, any OpenAI-compatible server).</li>
 <li>Telegram, if you connect it. One-tap setup uses PocketClaw's onboarding service, whose source is published under the MIT licence; a manual bot token works without it.</li>
-<li>Whatever the agent's tools reach when you ask them to: web search, git remotes, GitHub, URLs you give it.</li>
+<li>Whatever the agent's tools reach when you ask them to: web search (Sogou by default; SearXNG and others are selectable), git remotes, GitHub, the ClawHub skill registry, URLs you give it.</li>
 </ul>
 There are no analytics, no crash reporting and no update checks.
 
 <b>Anti-feature: non-free network services</b>
-PocketClaw promotes and integrates with proprietary network services: hosted AI model providers, Telegram and other chat platforms. None of them is required — a self-hosted OpenAI-compatible model server and the in-app chat are enough.
+PocketClaw promotes and integrates with proprietary network services: hosted AI model providers, Telegram and other chat platforms, web search and the ClawHub skill registry. None of them is required — a self-hosted OpenAI-compatible model server and the in-app chat are enough.
 
 PocketClaw's own code is MIT licensed. The agent core is based on PicoClaw.

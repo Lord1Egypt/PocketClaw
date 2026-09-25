@@ -21,9 +21,9 @@ void main() {
   }
 
   group('the history data', () {
-    test('holds 0.2.2, 0.2.1 and 0.2.0, newest first', () {
+    test('holds 0.2.3, 0.2.2, 0.2.1 and 0.2.0, newest first', () {
       final versions = whatsNewHistory.map((r) => r.version).toList();
-      expect(versions.take(3), ['0.2.2', '0.2.1', '0.2.0']);
+      expect(versions.take(4), ['0.2.3', '0.2.2', '0.2.1', '0.2.0']);
       for (var i = 1; i < versions.length; i++) {
         expect(compare(versions[i - 1], versions[i]), greaterThan(0));
       }
@@ -134,12 +134,12 @@ void main() {
       tester,
     ) async {
       final l10n = await pump(tester);
-      expect(find.text('PocketClaw 0.2.2'), findsOneWidget);
+      expect(find.text('PocketClaw 0.2.3'), findsOneWidget);
       expect(
-        find.text(whatsNewRelease022.sections.first.bullets.first(l10n)),
+        find.text(whatsNewRelease023.sections.first.bullets.first(l10n)),
         findsOneWidget,
       );
-      for (final version in const ['0.2.1', '0.2.0']) {
+      for (final version in const ['0.2.2', '0.2.1', '0.2.0']) {
         await tester.scrollUntilVisible(find.text('PocketClaw $version'), 300);
         expect(find.text('PocketClaw $version'), findsOneWidget);
       }
@@ -149,6 +149,10 @@ void main() {
       tester,
     ) async {
       final l10n = await pump(tester);
+      expect(find.text(l10n.whatsNew022Fix3), findsNothing);
+      await openRelease(tester, '0.2.2');
+      await tester.scrollUntilVisible(find.text(l10n.whatsNew022Fix3), 300);
+      expect(find.text(l10n.whatsNew022Fix3), findsOneWidget);
       expect(find.text(l10n.whatsNew021Fix1), findsNothing);
       await openRelease(tester, '0.2.1');
       expect(find.text(l10n.whatsNew021Fix1), findsOneWidget);
@@ -161,12 +165,12 @@ void main() {
       tester,
     ) async {
       final next = WhatsNewRelease(
-        version: '0.2.3',
+        version: '0.2.4',
         sections: whatsNewRelease021.sections,
       );
       await pump(tester, releases: [next, ...whatsNewHistory]);
-      expect(find.text('PocketClaw 0.2.3'), findsOneWidget);
-      for (final version in const ['0.2.2', '0.2.1', '0.2.0']) {
+      expect(find.text('PocketClaw 0.2.4'), findsOneWidget);
+      for (final version in const ['0.2.3', '0.2.2', '0.2.1', '0.2.0']) {
         await tester.scrollUntilVisible(find.text('PocketClaw $version'), 300);
         expect(find.text('PocketClaw $version'), findsOneWidget);
       }
@@ -177,9 +181,10 @@ void main() {
     ) async {
       final l10n = await pump(tester, locale: const Locale('ar'));
       expect(
-        Directionality.of(tester.element(find.text('PocketClaw 0.2.2'))),
+        Directionality.of(tester.element(find.text('PocketClaw 0.2.3'))),
         TextDirection.rtl,
       );
+      await openRelease(tester, '0.2.2');
       await openRelease(tester, '0.2.1');
       expect(find.text(l10n.whatsNew021Fix1), findsOneWidget);
       await openRelease(tester, '0.2.0');

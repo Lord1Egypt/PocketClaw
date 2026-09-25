@@ -25,6 +25,7 @@ ANDROID_API="${ANDROID_API:-24}"
 source "$REPO_ROOT/runtime/toolchains.env"
 
 NDK_ROOT="${NDK_ROOT:-/home/lordegypt/PocketCLaw/.tooling/android-sdk/ndk/$POCKETCLAW_NDK_VERSION}"
+NDK_ROOT="${NDK_ROOT%/}"
 TOOLCHAIN="$NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64"
 
 # require_ndk_version: the NDK decides the bytes of every C payload.
@@ -61,11 +62,12 @@ TARGET_CC="aarch64-linux-android${ANDROID_API}-clang"
 # cannot help here because the recipes are their own build input.
 #
 # Move this value only together with a rebuild and a catalog update.
+#
+# An inherited SOURCE_DATE_EPOCH is deliberately replaced, not honoured: build
+# services export their own (fdroidserver exports the commit time), and letting
+# it win produced a payload that no longer matched the catalog.
 RUNTIME_EPOCH=1789157892   # 2026-09-11T20:18:12Z, the H5B native-hardening build input
-SOURCE_DATE_EPOCH="${SOURCE_DATE_EPOCH:-$RUNTIME_EPOCH}"
-case "$SOURCE_DATE_EPOCH" in
-    ''|*[!0-9]*) echo "error: SOURCE_DATE_EPOCH must be Unix seconds, got: $SOURCE_DATE_EPOCH" >&2; exit 1 ;;
-esac
+SOURCE_DATE_EPOCH="$RUNTIME_EPOCH"
 export SOURCE_DATE_EPOCH
 
 [ -d "$TOOLCHAIN/bin" ] || {
@@ -76,9 +78,12 @@ require_ndk_version
 mkdir -p "$CACHE_DIR" "$DEPS_PREFIX" "$JNI_LIBS"
 
 # C/C++ debug companions need source lines, while shipped payloads remain
-# stripped. Both maps make distinct build roots produce the same debug and
-# shipped bytes without rewriting any finished ELF.
-NATIVE_DEBUG_CFLAGS="-g -ffile-prefix-map=$BUILD_ROOT=/pocketclaw-runtime/build -fdebug-prefix-map=$BUILD_ROOT=/pocketclaw-runtime/build -fmacro-prefix-map=$BUILD_ROOT=/pocketclaw-runtime/build"
+# stripped. The maps make distinct build roots and distinct NDK installations
+# produce the same debug and shipped bytes without rewriting any finished ELF.
+# The NDK map matters wherever a GNU build-id is linked: the build-id hashes the
+# unstripped ELF, so an NDK path left in its DWARF changes shipped bytes
+# (PC-DEF-091).
+NATIVE_DEBUG_CFLAGS="-g -ffile-prefix-map=$BUILD_ROOT=/pocketclaw-runtime/build -fdebug-prefix-map=$BUILD_ROOT=/pocketclaw-runtime/build -fmacro-prefix-map=$BUILD_ROOT=/pocketclaw-runtime/build -ffile-prefix-map=$NDK_ROOT=/pocketclaw-ndk -fdebug-prefix-map=$NDK_ROOT=/pocketclaw-ndk -fmacro-prefix-map=$NDK_ROOT=/pocketclaw-ndk"
 
 # fetch_pinned <url> <filename> <sha256>
 #
