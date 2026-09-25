@@ -180,7 +180,7 @@ def build(args: argparse.Namespace) -> int:
     for lib in SRCLIBS:
         shutil.copy2(fdroiddata / "srclibs" / f"{lib}.yml", work / "srclibs" / f"{lib}.yml")
     (work / "metadata" / f"{APP_ID}.yml").write_text(
-        render_metadata(commit, version_name, version_code, track_b=False), encoding="utf-8")
+        render_metadata(commit, version_name, version_code, track_b=args.track_b), encoding="utf-8")
 
     app_ref = f"{APP_ID}:{version_code}"
     log = work / "logs" / "canonical-build.log"
@@ -193,6 +193,17 @@ def build(args: argparse.Namespace) -> int:
     if result.returncode != 0:
         raise CanonicalBuildError(f"fdroid build failed after {seconds}s; see {log}")
 
+    track_b_verified = None
+    if args.track_b:
+        # fdroidserver downloaded the published APK, compared it with this
+        # rebuild (verify_apks) and checked the signer; it deletes the build
+        # and fails if either check fails, so these lines are its verdict.
+        text = log.read_text(encoding="utf-8", errors="replace")
+        track_b_verified = (
+            "compared built binary to supplied reference binary successfully" in text
+            and "supplied reference binary has allowed signer" in text)
+        if not track_b_verified:
+            raise CanonicalBuildError(f"fdroid build did not verify the reference binary; see {log}")
     unsigned = work / "unsigned" / f"{APP_ID}_{version_code}.apk"
     if not unsigned.is_file():
         raise CanonicalBuildError(f"fdroid build reported success but {unsigned} is missing")
@@ -222,6 +233,7 @@ def build(args: argparse.Namespace) -> int:
         "apkBytes": apk.stat().st_size,
         "apkSha256": sha256_file(apk),
         "seconds": seconds,
+        "trackBVerified": track_b_verified,
     }
     (out / "canonical-build.json").write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
     print(json.dumps(record, indent=2))
@@ -279,6 +291,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     built.add_argument("--out", required=True, help="empty directory for the collected outputs")
     built.add_argument("--fdroidserver", required=True)
     built.add_argument("--fdroiddata", required=True)
+    built.add_argument("--track-b", action="store_true",
+                       help="add Binaries/AllowedAPKSigningKeys: fdroidserver verifies the published APK")
     checked = sub.add_parser("verify", help="fdroidserver verify_apks: signed against unsigned")
     checked.add_argument("--signed", required=True)
     checked.add_argument("--unsigned", required=True)
