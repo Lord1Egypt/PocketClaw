@@ -7,6 +7,26 @@ only reconstructable examples belong here.
 
 ## Open / deferred
 
+### PC-DEF-090 — What's New showed only the newest release; the history disappeared
+
+- **Observed:** owner, 2026-09-25. With 0.2.2 added, What's New showed only
+  the 0.2.2 notes; 0.2.1 and 0.2.0 were gone from the screen.
+- **Cause:** the page rendered a single `currentWhatsNewRelease`. The 0.2.0 and
+  0.2.1 definitions and all their translations were still in the bundle —
+  324 strings across 12 locales, byte-identical to what the `v0.2.0` and
+  `v0.2.1` tags shipped — they were just never shown.
+- **Fix (`f0b1526`):** `whatsNewHistory` is the one ordered source, newest
+  first; the current release is its first entry and opens expanded, earlier
+  releases are collapsible sections. `tool/release_notes.py` reads the same
+  list, so GitHub notes stay current-only and the Fastlane changelog stays
+  version-specific. `whats_new_history_test.dart` (19 cases: order, a defined
+  release missing from the list, every locale, adding a release, Arabic RTL,
+  offline) fails on the old page.
+- **Physical (Golden #3 `320368ea…`):** 0.2.2 open with all its notes; 0.2.1
+  and 0.2.0 listed collapsed and each opens in place with its real Arabic
+  notes, right to left.
+- **Status:** PHYSICAL PASS.
+
 ### PC-DEF-086 — minSdk 24 is claimed, but PocketClaw cannot start below Android 8.0
 
 - **Found in the physical pass (lint, 2026-09-25).** `minSdk` is Flutter's
@@ -47,7 +67,10 @@ only reconstructable examples belong here.
   `Download/pocketclaw` as `/Download … pocketclaw`; the path is now isolated in
   the Arabic string (`e332e29`) and `rtl_path_isolation_test.dart` requires
   every Latin path in the Arabic bundle to be isolated. Not in `56f11173…`;
-  visible from the next build.
+  visible from the next build. Reworked in `80c9dc0`: gen-l10n copies bidi
+  isolates into Dart as literal characters, which `flutter analyze` rejects
+  (Trojan Source lint), so the path's slash is joined with U+2060 WORD JOINER
+  instead; physically verified on Golden #3 — the path stays on one line.
 - **Status:** PHYSICAL PASS (workspace path, gap); notice path and the What's
   New path fixed in source, physical re-check with the next build.
 

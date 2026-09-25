@@ -26,7 +26,8 @@ evidence and describe the state at the date of each entry.
 | PC-DEF-020 state-basis HEAD | `76064c91033860653de1e11a08e29d7245061ec1` (verified exposure-audit closeout; source and Core-staging commits follow it) |
 | PC-DEF-020 canonical Core build-input commit | `f8bc52a0757f7b0a9f6c0704d2a3586db929e33f` |
 | Version | `0.2.2+64` on `feature/fdroid-phase-b` — unreleased; private owner-signed test builds only. Latest published: `0.2.1+63` (pinned in `docs/release/published.json`) |
-| Accepted physical baseline | vc63 / `lastAcceptedVersionCode=63` — advanced by the v0.2.1 acceptance commit |
+| Accepted physical baseline | vc64 / `lastAcceptedVersionCode=64` — advanced by the Golden #3 (v0.2.2) acceptance commit; was vc63 for v0.2.1 |
+| **Golden #3 — PocketClaw v0.2.2** | Source `80c9dc02ce56d565a3fa673d2cdab6fe78e5d006`; APK `320368eaf1c3c48689625e02764a658e3ed291d4c6e49b3d67ed09326dd58af9`, 61,346,447 bytes, `0.2.2+64`, minSdk 26, arm64-v8a, one v2 signer `176dca6b…`, Core fingerprint `7e48a120…` (pair `b6236105…` / `f9a638eb…`). Production gate (public-release class) 57/0/0; native ELF 152/0/0; physically accepted on SM-A165F / Android 16 on 2026-09-25 |
 | Current phase | Final Production Release Hardening; H5C production-signed native/ELF validation closed |
 | Developer production signer | `176dca6b198b9552fb4d9ad3ca18da8d6f23c0a3f5ed4bd6b75a0700f9f0efcf` |
 | Core fingerprint | Branch: `7e48a12042d42e1b8b71b3e1a697ecaad791b6e573e92083dce43bb921a14459`, staged in `e868abc` from build-input commit `47c7f0b` (PC-DEF-089 Dashboard header), pair `b6236105…` / `f9a638eb…`. Previous: `5d443c5e…` (`03aa66b`). The private test APK `504d41bb…` carries `a6a0906c…`. Released v0.2.1: `76a114fd…` |
@@ -57,6 +58,34 @@ evidence and describe the state at the date of each entry.
 | Staged Core freshness | **CURRENT.** Rebuilt from the source commit `55624cd` and staged in `da9e6f5`, which touches no build input. Fingerprint `87c320c1cb6dffe6395043265c3d4d659ddaf26a4b588d303c5d06355a4acc2b` (was `9c22cb22…`), BuildTime `2026-09-21T03:22:04+0000` |
 | Flutter suite | Green — 608 passed, 0 failed (production-class gate on the owner-signed `b4011015…`, 2026-09-25) — and the **complete** suite is a release gate (`flutter.suite`) |
 | Public release asset policy | APK only. An AAB is a Play-upload artifact and is never a public release asset — `PC-DEF-021` |
+
+## 2026-09-25 — Golden #3: PocketClaw v0.2.2 accepted
+
+Source `80c9dc0` (What's New history restored, PC-DEF-090; Arabic path fix
+reworked to word joiners). Owner-signed APK
+`PocketClaw-v0.2.2+64-private-test-80c9dc0.apk`,
+`320368eaf1c3c48689625e02764a658e3ed291d4c6e49b3d67ed09326dd58af9`,
+61,346,447 bytes: `com.lord1egypt.pocketclaw` `0.2.2` (64), minSdk 26,
+targetSdk 36, arm64-v8a only, v2 only, one signer `176dca6b…`, Core
+fingerprint `7e48a120…` with the new Dashboard header embedded.
+
+Automated, on the final source: source gate 31/0/0 (flutter.suite 630);
+`flutter analyze` clean; Android unit 87; frontend 585, `tsc`, ESLint clean;
+Go gofmt/vet (host, android/arm64) clean, 99 packages; branding `--check`,
+CJK, release-notes, Zero-Pico, dependency graph (136 coordinates), tool tests,
+secret scan (v0.2.1..HEAD) clean. On the exact APK: `release_gate.py --full
+--release-class production --artifact-class public-release --release-assets
+PocketClaw-v0.2.2-arm64-v8a.apk SHA256SUMS.txt` 57/0/0 (artifact.min_sdk 26,
+public asset allowlist); native ELF 146/0/0 and 152/0/0 with the private
+support manifest bound to this APK.
+
+Physical (install -r over `56f11173…`): Success, firstInstallTime 2026-09-21
+08:07:40 unchanged, workspace unchanged; launch, Core listeners, LAN API 401;
+About 0.2.2 / runtime 0.3.1; What's New 0.2.2 open with the Android 8.0 and
+restart-crash lines, 0.2.1 and 0.2.0 restored and expanding in Arabic RTL;
+`Download/pocketclaw` on one line in Arabic; Models header passes in English
+and Arabic; no crash-class logcat entry. `lastAcceptedVersionCode` 63 → 64 in
+this acceptance commit (read only as a floor; no packaged byte changes).
 
 ## 2026-09-25 — Final pre-F-Droid cleanup — AUTOMATED PASS, AFFECTED AREAS PHYSICAL PASS
 
