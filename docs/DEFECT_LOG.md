@@ -15,10 +15,15 @@ only reconstructable examples belong here.
   (API 26) unguarded, `PocketClawNotificationChannels` uses `NotificationChannel`
   (API 26) in 37 places, and `Process.isAlive/destroyForcibly` (API 26) are used
   in the service. On Android 7.x the first Start would crash.
-- **Not changed:** raising `minSdk` to 26, or guarding every call, is a product
-  decision; no Android 7 device is available.
-- **Status:** OPEN — owner decision (recommended: `minSdk 26`, and the Fastlane
-  description to say Android 8.0).
+- **Owner decision (2026-09-25): require Android 8.0.** `minSdk = 26` in
+  Gradle (`c633307`); README badge and requirements line, the Fastlane
+  description and the 0.2.2 What's New ("PocketClaw now requires Android 8.0 or
+  newer", 12 locales) say Android 8.0 (API 26). The release gate reads the
+  packaged minSdk (`artifact.min_sdk`, expects 26); a contract test holds
+  Gradle and every support statement to it and forbids "Android 7"/"API 24".
+  Historical records that describe minSdk 24 at the time are unchanged.
+- **Status:** FIXED IN SOURCE — SOURCE TESTED — packaged minSdk to be read from
+  the next signed build.
 
 ### PC-DEF-087 — Arabic Settings: paths lost their leading slash, and a blank band
 
@@ -56,9 +61,12 @@ only reconstructable examples belong here.
 - **Observed physically (English, 1080 px / 411 dp, 2026-09-25):** the title
   "Models" and the "Saved Catalogs" and "Add Provider" buttons share one row
   that does not wrap; "Add Provider" is clipped at the right edge.
-- **Not fixed here:** a Dashboard change is a Core build input (rebuild,
-  restage and another signed build) for a cosmetic defect.
-- **Status:** OPEN — low severity.
+- **Fix (`47c7f0b`, Core restaged in `e868abc`, fingerprint `7e48a120…`):**
+  the shared `PageHeader` has a minimum rather than a fixed height and wraps;
+  its action row wraps and sits at the logical end (`ms-auto`), so RTL mirrors
+  it. Pages whose actions fit keep one row. `page-header.test.tsx` pins the
+  contract (3 of 4 cases fail on the old header).
+- **Status:** FIXED IN SOURCE — SOURCE TESTED — PHYSICAL RE-CHECK PENDING.
 
 ### PC-DEF-085 — "PocketClaw keeps stopping" after a phone reboot, before the app is opened
 

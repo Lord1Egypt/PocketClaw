@@ -29,7 +29,7 @@ evidence and describe the state at the date of each entry.
 | Accepted physical baseline | vc63 / `lastAcceptedVersionCode=63` — advanced by the v0.2.1 acceptance commit |
 | Current phase | Final Production Release Hardening; H5C production-signed native/ELF validation closed |
 | Developer production signer | `176dca6b198b9552fb4d9ad3ca18da8d6f23c0a3f5ed4bd6b75a0700f9f0efcf` |
-| Core fingerprint | Branch: `5d443c5eed36d4f3fc31a59712d2ee96497fe33d0d8903286f31a88e6fc31f39`, staged in `03aa66b` from build-input commit `7ee0f05` (BuildTime `2026-09-24T22:27:00+0000`), pair `7ed342f1…` / `1fa6dfaf…`. The private test APK `504d41bb…` carries `a6a0906c…`. Released v0.2.1: `76a114fd…` |
+| Core fingerprint | Branch: `7e48a12042d42e1b8b71b3e1a697ecaad791b6e573e92083dce43bb921a14459`, staged in `e868abc` from build-input commit `47c7f0b` (PC-DEF-089 Dashboard header), pair `b6236105…` / `f9a638eb…`. Previous: `5d443c5e…` (`03aa66b`). The private test APK `504d41bb…` carries `a6a0906c…`. Released v0.2.1: `76a114fd…` |
 | Distribution targets | Direct APK, Google Play, Official F-Droid |
 | **Released — PocketClaw v0.2.1** | Patch release for PC-DEF-076, the bundled-Git SIGSEGV. `PocketClaw-v0.2.1-arm64-v8a.apk`, 63,613,115 bytes, `1203cd46f30cc6e7d69b3cd54be2d2dbca29150a9bce4f722b112576ccf4401b`, `0.2.1+63`, one production signer `176dca6b…`, Core fingerprint `76a114fd…`, bundled git `60d3a1c0…` and git-remote-http `90e18712…`. Owner-signed from `c898581`; **physically accepted on SM-A165F / Android 16 on 2026-09-22** with an ordinary `git clone` and reflogs enabled. |
 | Exposure-audit state-basis HEAD | `25753cef5fa4d956e11d37b5a6176cdef977f015` (verified PC-DEF-019 closeout; the audit closeout commit follows it) |

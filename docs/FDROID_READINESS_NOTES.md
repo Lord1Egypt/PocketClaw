@@ -78,6 +78,32 @@ committing, check each one for API keys, bot tokens, passwords, chat content,
 phone numbers and notification-shade content. `featureGraphic.png` (1024×500)
 is optional and not planned.
 
+## Fresh-install network capture (owed; must not touch the owner's install)
+
+The owner's `com.lord1egypt.pocketclaw` install holds real data and must never
+be uninstalled or cleared for this. Non-destructive options, safest first:
+
+1. **`fdroid build` output in a disposable environment (Phase C).** The
+   F-Droid-built APK is signed by F-Droid, so it cannot be installed over the
+   owner's production-signed app anyway; run it on a second device or an arm64
+   emulator image and capture there. This is the artifact reviewers will judge.
+2. **A second Android user or profile on the same phone.** An app installed
+   for another user or in Samsung Secure Folder gets its own empty data
+   directory under the same package name; the owner's user-0 data is untouched.
+   Requires the owner to create the user/profile; secondary users can be
+   disabled on some Samsung builds.
+3. **A side-by-side capture build** with a distinct `applicationId` (for example
+   a `.capture` suffix on a local-test build): installs next to the owner's app
+   with fresh data. The package name differs from the shipped one, so record
+   the result as indicative, not as the reviewed artifact.
+
+Capture from first launch, before any configuration: PCAPdroid (non-root VPN,
+per-app filter) gives hostnames via DNS/SNI; the `/proc/net` UID sampling used
+on 2026-09-25 is a fallback that can miss very short connections. Record
+host/IP, trigger and whether it was user-initiated; redact keys, tokens and
+message text. Expected result: no connection until a provider or channel is
+configured.
+
 ## Where current policy and the ThothTerm precedent differ
 
 - Prebuilt build tools from Go, Rust/Rustup and Node.js are explicitly allowed
@@ -118,7 +144,7 @@ is optional and not planned.
   `android.webkit.WebView.MetricsOptOut` (`b39862c`); on the next build
   (`b4011015…`) the WebView loaded three times with no metrics-client log line.
   A capture on a fresh, unconfigured install is still owed for the "before
-  configuration" claim.
+  configuration" claim — see *Fresh-install network capture* below.
 
 ## Build from source (Phase C recipe outline)
 
