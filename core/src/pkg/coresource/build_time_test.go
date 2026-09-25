@@ -28,22 +28,30 @@ func resolverPath(t *testing.T) string {
 	return path
 }
 
-// runResolver executes the script with the given SOURCE_DATE_EPOCH ("" unsets
-// it) and returns trimmed stdout plus any error.
+// withoutEpochs returns the environment minus both epoch variables, so a value
+// in the developer's shell cannot leak into a test.
+func withoutEpochs() []string {
+	env := []string{}
+	for _, kv := range os.Environ() {
+		if !strings.HasPrefix(kv, "SOURCE_DATE_EPOCH=") &&
+			!strings.HasPrefix(kv, "POCKETCLAW_BUILD_EPOCH=") {
+			env = append(env, kv)
+		}
+	}
+	return env
+}
+
+// runResolver executes the script with the given explicit POCKETCLAW_BUILD_EPOCH
+// ("" leaves it unset) and returns trimmed stdout plus any error.
 func runResolver(t *testing.T, epoch string, dir string) (string, error) {
 	t.Helper()
 	cmd := exec.Command(resolverPath(t))
 	if dir != "" {
 		cmd.Dir = dir
 	}
-	env := []string{}
-	for _, kv := range os.Environ() {
-		if !strings.HasPrefix(kv, "SOURCE_DATE_EPOCH=") {
-			env = append(env, kv)
-		}
-	}
+	env := withoutEpochs()
 	if epoch != "" {
-		env = append(env, "SOURCE_DATE_EPOCH="+epoch)
+		env = append(env, "POCKETCLAW_BUILD_EPOCH="+epoch)
 	}
 	cmd.Env = env
 	out, err := cmd.Output()
@@ -55,7 +63,7 @@ var buildTimeFormat = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+
 // The build stamped `date` at build time, so identical source produced
 // different binaries purely because the clock had moved. Everything below is
 // about that not being possible any more.
-func TestSourceDateEpochIsHonouredExactly(t *testing.T) {
+func TestExplicitEpochIsHonouredExactly(t *testing.T) {
 	got, err := runResolver(t, "1700000000", "")
 	if err != nil {
 		t.Fatalf("resolver failed: %v", err)
@@ -89,11 +97,11 @@ func TestResolutionDoesNotDependOnWallClock(t *testing.T) {
 	// from now, so repeated calls still agree.
 	firstGit, err := runResolver(t, "", "")
 	if err != nil {
-		t.Fatalf("resolver failed without SOURCE_DATE_EPOCH: %v", err)
+		t.Fatalf("resolver failed without an explicit epoch: %v", err)
 	}
 	secondGit, err := runResolver(t, "", "")
 	if err != nil {
-		t.Fatalf("resolver failed without SOURCE_DATE_EPOCH: %v", err)
+		t.Fatalf("resolver failed without an explicit epoch: %v", err)
 	}
 	if firstGit != secondGit {
 		t.Fatalf("git-derived time changed between calls: %q then %q", firstGit, secondGit)
@@ -105,14 +113,39 @@ func TestResolutionDoesNotDependOnWallClock(t *testing.T) {
 
 // A malformed value must be an error, not something date(1) quietly
 // reinterprets into a plausible-looking timestamp.
-func TestMalformedSourceDateEpochFailsClearly(t *testing.T) {
+func TestMalformedExplicitEpochFailsClearly(t *testing.T) {
 	for _, bad := range []string{"notanumber", "-1", "17e8", "2023-11-14", " ", "0"} {
 		t.Run(bad, func(t *testing.T) {
 			out, err := runResolver(t, bad, "")
 			if err == nil {
-				t.Fatalf("SOURCE_DATE_EPOCH=%q was accepted and produced %q", bad, out)
+				t.Fatalf("POCKETCLAW_BUILD_EPOCH=%q was accepted and produced %q", bad, out)
 			}
 		})
+	}
+}
+
+// Build services export their own SOURCE_DATE_EPOCH: fdroidserver sets the
+// checked-out commit's time. Honouring it in a full checkout stamped the same
+// Core source with whichever commit was checked out — a release tag's time on
+// the build service, the build-input commit's time everywhere else — so the
+// staged Core could not be reproduced from the tree that carries it.
+func TestInheritedSourceDateEpochDoesNotOverrideHistory(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git is not available")
+	}
+	root := gitInit(t)
+	commit(t, root, "core/src/pkg/base/base.go", "package base\n", 1700000000)
+	commit(t, root, "docs/NOTES.md", "notes\n", 1800000000)
+
+	cmd := exec.Command(filepath.Join(root, "core/resolve-build-time.sh"), "--print-epoch")
+	cmd.Dir = root
+	cmd.Env = append(withoutEpochs(), "SOURCE_DATE_EPOCH=1800000000")
+	out, err := cmd.Output()
+	if err != nil {
+		t.Fatalf("resolver failed: %v", err)
+	}
+	if got := strings.TrimSpace(string(out)); got != "1700000000" {
+		t.Errorf("inherited SOURCE_DATE_EPOCH changed the epoch to %s, want the build-input commit's 1700000000", got)
 	}
 }
 
@@ -126,9 +159,8 @@ func TestNonGitWithoutEpochFailsRatherThanUsingNow(t *testing.T) {
 	cmd := exec.Command(resolverPath(t))
 	cmd.Dir = outside
 	env := []string{}
-	for _, kv := range os.Environ() {
-		if !strings.HasPrefix(kv, "SOURCE_DATE_EPOCH=") &&
-			!strings.HasPrefix(kv, "GIT_CEILING_DIRECTORIES=") {
+	for _, kv := range withoutEpochs() {
+		if !strings.HasPrefix(kv, "GIT_CEILING_DIRECTORIES=") {
 			env = append(env, kv)
 		}
 	}
@@ -152,6 +184,18 @@ func TestNonGitWithoutEpochFailsRatherThanUsingNow(t *testing.T) {
 	}
 	if !strings.Contains(string(out), "SOURCE_DATE_EPOCH") {
 		t.Errorf("the failure does not tell the caller how to fix it:\n%s", out)
+	}
+
+	// With no history to derive from, the cross-ecosystem convention applies.
+	withEpoch := exec.Command(copied, "--print-epoch")
+	withEpoch.Dir = outside
+	withEpoch.Env = append(cmd.Env, "SOURCE_DATE_EPOCH=1700000000")
+	got, err := withEpoch.Output()
+	if err != nil {
+		t.Fatalf("a non-git build with SOURCE_DATE_EPOCH failed: %v", err)
+	}
+	if strings.TrimSpace(string(got)) != "1700000000" {
+		t.Errorf("non-git SOURCE_DATE_EPOCH: got %s, want 1700000000", strings.TrimSpace(string(got)))
 	}
 }
 
@@ -261,13 +305,7 @@ func resolveEpochIn(t *testing.T, root string) string {
 	t.Helper()
 	cmd := exec.Command(filepath.Join(root, "core/resolve-build-time.sh"), "--print-epoch")
 	cmd.Dir = root
-	env := []string{}
-	for _, kv := range os.Environ() {
-		if !strings.HasPrefix(kv, "SOURCE_DATE_EPOCH=") {
-			env = append(env, kv)
-		}
-	}
-	cmd.Env = env
+	cmd.Env = withoutEpochs()
 	out, err := cmd.Output()
 	if err != nil {
 		t.Fatalf("resolver failed in %s: %v", root, err)
@@ -407,12 +445,7 @@ func TestShallowCloneFailsRatherThanDatingFromTheTip(t *testing.T) {
 
 	cmd := exec.Command(filepath.Join(shallow, "core/resolve-build-time.sh"), "--print-epoch")
 	cmd.Dir = shallow
-	env := []string{}
-	for _, kv := range os.Environ() {
-		if !strings.HasPrefix(kv, "SOURCE_DATE_EPOCH=") {
-			env = append(env, kv)
-		}
-	}
+	env := withoutEpochs()
 	cmd.Env = env
 	out, err := cmd.CombinedOutput()
 	if err == nil {
@@ -690,7 +723,7 @@ func TestExplicitEpochStillOverridesTheInputRules(t *testing.T) {
 
 	cmd := exec.Command(filepath.Join(root, "core/resolve-build-time.sh"), "--print-epoch")
 	cmd.Dir = root
-	cmd.Env = append(os.Environ(), "SOURCE_DATE_EPOCH=1234567890")
+	cmd.Env = append(withoutEpochs(), "POCKETCLAW_BUILD_EPOCH=1234567890")
 	out, err := cmd.Output()
 	if err != nil {
 		t.Fatalf("resolver failed: %v", err)

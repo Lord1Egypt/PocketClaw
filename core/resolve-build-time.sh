@@ -10,22 +10,30 @@
 #
 # Contract:
 #
-#   SOURCE_DATE_EPOCH set      → validated and used. This is the cross-ecosystem
-#                                convention, so a downstream reproducer already
-#                                knows to pass it.
-#   SOURCE_DATE_EPOCH unset    → the timestamp of the most recent commit that
+#   POCKETCLAW_BUILD_EPOCH set → validated and used. The explicit override; no
+#                                build service exports it by accident.
+#   full git history           → the timestamp of the most recent commit that
 #                                touched a canonical Core build input, ignoring
 #                                Core *_test.go. Not HEAD:
 #                                HEAD moves for documentation, staged binaries
 #                                and unrelated application changes, which would
 #                                give the same Core source a different timestamp
-#                                and quietly undo the whole guarantee.
-#   neither available          → FAIL. Falling back to the wall clock is what
+#                                and quietly undo the whole guarantee. An
+#                                inherited SOURCE_DATE_EPOCH is ignored here for
+#                                the same reason: build services export their
+#                                own (fdroidserver exports the checked-out
+#                                commit's time), which would stamp identical
+#                                Core source differently per checkout and make
+#                                the staged Core unreproducible from its tree.
+#   no usable history          → SOURCE_DATE_EPOCH, validated. A tarball or a
+#                                shallow clone has nothing to derive from, so
+#                                the cross-ecosystem convention applies there.
+#   none of these              → FAIL. Falling back to the wall clock is what
 #                                this script exists to prevent, and a silent
 #                                fallback would make the guarantee worthless
 #                                exactly when it is hardest to notice. A shallow
-#                                clone counts as unavailable: it has no history
-#                                to scope the query against.
+#                                clone counts as having no history: it has
+#                                nothing to scope the query against.
 #
 # Prints one timestamp on stdout, in the same format the build has always
 # emitted (`%FT%T%z`), fixed to UTC so the output does not depend on the
@@ -91,47 +99,63 @@ fail() {
     exit 1
 }
 
-epoch="${SOURCE_DATE_EPOCH:-}"
-source_of_truth="SOURCE_DATE_EPOCH"
-
-if [ -n "$epoch" ]; then
-    # Digits only, and non-zero: a malformed value must be an error rather
-    # than something `date` quietly reinterprets.
-    case "$epoch" in
-        ''|*[!0-9]*) fail "SOURCE_DATE_EPOCH must be Unix seconds, got: $epoch" ;;
+# validate_epoch <name> <value>: digits only, and non-zero. A malformed value
+# must be an error rather than something `date` quietly reinterprets.
+validate_epoch() {
+    case "$2" in
+        ''|*[!0-9]*) fail "$1 must be Unix seconds, got: $2" ;;
     esac
-    [ "$epoch" -gt 0 ] 2>/dev/null || fail "SOURCE_DATE_EPOCH must be a positive integer, got: $epoch"
+    [ "$2" -gt 0 ] 2>/dev/null || fail "$1 must be a positive integer, got: $2"
+}
+
+epoch=""
+build_input_commit=""
+if [ -n "${POCKETCLAW_BUILD_EPOCH:-}" ]; then
+    validate_epoch POCKETCLAW_BUILD_EPOCH "$POCKETCLAW_BUILD_EPOCH"
+    epoch="$POCKETCLAW_BUILD_EPOCH"
+    source_of_truth="POCKETCLAW_BUILD_EPOCH"
 else
-    source_of_truth="canonical Core build-input commit"
     repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
     # A shallow clone has no history to scope against. Git treats the graft
     # boundary as a root commit, so every path looks introduced by the tip and
-    # the query below returns the tip's timestamp — silently restoring the
+    # the query below would return the tip's timestamp — silently restoring the
     # unscoped-HEAD behaviour this scoping exists to remove, and dating a build
     # by whatever documentation or merge commit happens to be checked out.
-    # Wrong-but-plausible is the worst outcome here, so refuse.
-    if [ "$(git -C "$repo_root" rev-parse --is-shallow-repository 2>/dev/null)" = "true" ]; then
+    # Wrong-but-plausible is the worst outcome here, so it counts as no history.
+    shallow="$(git -C "$repo_root" rev-parse --is-shallow-repository 2>/dev/null || true)"
+    if [ "$shallow" != "true" ]; then
+        # Path-scoped: a documentation or staged-binary commit must not move this.
+        epoch="$(git -C "$repo_root" log -1 --format=%ct -- \
+            "${BUILD_INPUTS[@]}" "${BUILD_INPUT_EXCLUDES[@]}" 2>/dev/null || true)"
+        build_input_commit="$(git -C "$repo_root" log -1 --format=%H -- \
+            "${BUILD_INPUTS[@]}" "${BUILD_INPUT_EXCLUDES[@]}" 2>/dev/null || true)"
+    fi
+    case "$epoch" in
+        ''|*[!0-9]*)
+            epoch=""
+            build_input_commit=""
+            ;;
+    esac
+    if [ -n "$epoch" ]; then
+        source_of_truth="canonical Core build-input commit"
+    elif [ -n "${SOURCE_DATE_EPOCH:-}" ]; then
+        validate_epoch SOURCE_DATE_EPOCH "$SOURCE_DATE_EPOCH"
+        epoch="$SOURCE_DATE_EPOCH"
+        source_of_truth="SOURCE_DATE_EPOCH (no usable git history)"
+    elif [ "$shallow" = "true" ]; then
         fail "refusing to derive the build timestamp from a shallow clone.
   Every path appears to originate at the tip commit, so the timestamp would be
   the tip's rather than the canonical Core build input's. Either fetch the full
   history (actions/checkout with fetch-depth: 0) or supply the timestamp:
     SOURCE_DATE_EPOCH=<seconds> ./core/build-android-arm64.sh"
-    fi
-    # Path-scoped: a documentation or staged-binary commit must not move this.
-    epoch="$(git -C "$repo_root" log -1 --format=%ct -- \
-        "${BUILD_INPUTS[@]}" "${BUILD_INPUT_EXCLUDES[@]}" 2>/dev/null || true)"
-    build_input_commit="$(git -C "$repo_root" log -1 --format=%H -- \
-        "${BUILD_INPUTS[@]}" "${BUILD_INPUT_EXCLUDES[@]}" 2>/dev/null || true)"
-    case "$epoch" in
-        ''|*[!0-9]*)
-            fail "no SOURCE_DATE_EPOCH and no usable canonical Core build-input commit.
+    else
+        fail "no usable canonical Core build-input commit and no SOURCE_DATE_EPOCH.
   A build outside a git checkout, or one whose history contains no commit
   touching ${BUILD_INPUTS[*]}, must supply the timestamp explicitly:
     SOURCE_DATE_EPOCH=\$(date +%s) ./core/build-android-arm64.sh
   The wall clock is deliberately not used: it would make the build
   unreproducible without saying so."
-            ;;
-    esac
+    fi
 fi
 
 # GNU date takes -d @<epoch>; BSD/macOS date takes -r <epoch>.

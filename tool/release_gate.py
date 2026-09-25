@@ -342,7 +342,7 @@ BUILD_TIME_PATTERN = re.compile(rb"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{4}"
 def record_expected_build_time(gate: Gate):
     """Records the BuildTime a canonical build of this tree should produce."""
     resolver = REPO / "core/resolve-build-time.sh"
-    explicit = os.environ.get("SOURCE_DATE_EPOCH", "").strip()
+    explicit = os.environ.get("POCKETCLAW_BUILD_EPOCH", "").strip()
     rc, out = run([str(resolver)])
     if rc == 0 and out.strip():
         gate.facts["buildTimeExpected"] = out.strip()
@@ -350,7 +350,7 @@ def record_expected_build_time(gate: Gate):
     if rc == 0 and out.strip():
         gate.facts["coreBuildInputCommit"] = out.strip()
     gate.facts["buildTimeDerivation"] = (
-        f"explicit SOURCE_DATE_EPOCH={explicit}" if explicit
+        f"explicit POCKETCLAW_BUILD_EPOCH={explicit}" if explicit
         else "canonical Core build-input commit timestamp")
 
 
@@ -584,8 +584,8 @@ def source_gates(gate: Gate, run_tests: bool, release_class: str = "test"):
     # Reproducibility inputs: the resolver must exist and answer deterministically.
     resolver = REPO / "core/resolve-build-time.sh"
     if resolver.is_file():
-        rc1, out1 = run([str(resolver)], env={"SOURCE_DATE_EPOCH": "1700000000"})
-        rc2, out2 = run([str(resolver)], env={"SOURCE_DATE_EPOCH": "1700000000"})
+        rc1, out1 = run([str(resolver)], env={"POCKETCLAW_BUILD_EPOCH": "1700000000"})
+        rc2, out2 = run([str(resolver)], env={"POCKETCLAW_BUILD_EPOCH": "1700000000"})
         stable = rc1 == 0 and rc2 == 0 and out1.strip() == out2.strip()
         gate.check("build.reproducible_timestamp", stable,
                    expected="same epoch resolves identically",

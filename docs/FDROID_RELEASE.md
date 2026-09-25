@@ -246,7 +246,7 @@ requirements PocketClaw partly already meets:
 | --- | --- |
 | Source-available build | Met — the app, the Core and the frontend all build from this tree. |
 | Pinned toolchain | Met in practice: Flutter 3.47.1, Dart 3.13.1, JDK 17, Go 1.25.11, AGP 8.11.1, Gradle 8.14. To be declared explicitly in metadata. |
-| Deterministic timestamp | Met — `core/resolve-build-time.sh` derives it from the last commit touching a build input, never the wall clock, and honours `SOURCE_DATE_EPOCH`. |
+| Deterministic timestamp | Met — `core/resolve-build-time.sh` derives it from the last commit touching a build input, never the wall clock; an explicit `POCKETCLAW_BUILD_EPOCH` overrides it, and `SOURCE_DATE_EPOCH` applies only without usable git history (an inherited one, such as fdroidserver's, would otherwise stamp the checked-out commit's time). |
 | Reproducible native binaries | Met and proven — both Core binaries rebuild byte-identical from the same source and epoch. |
 | Deterministic frontend bundle | Met — verified identical across two independent builds. |
 | Version extraction | `pubspec.yaml` is the tracked source; the Gradle build refuses a version in `local.properties`. |
@@ -298,8 +298,7 @@ The developer app-signing key is described in
 The Core half is already proven and can be re-run:
 
 ```bash
-SOURCE_DATE_EPOCH=$(./core/resolve-build-time.sh --print-epoch) \
-  ./core/build-android-arm64.sh
+./core/build-android-arm64.sh   # the epoch comes from the Core build-input commit
 # then compare sha256 of both staged binaries against the previous build
 ```
 
