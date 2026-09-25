@@ -15,8 +15,12 @@ is [`FDROID_RELEASE.md`](FDROID_RELEASE.md).
 > F-Droid's layout. A real `fdroid build` of the tag with `Binaries:` verified
 > the published APK and its signer: **Track B ready** — see the last section.
 >
-> **Nothing has been submitted.** No merge request is open and no release was
-> made for F-Droid. Phase A audited; Phase B (branch `feature/fdroid-phase-b`)
+> **Submitted 2026-09-25:** fdroiddata MR
+> [!50146](https://gitlab.com/fdroid/fdroiddata/-/merge_requests/50146), Track B
+> (upstream signature). Its CI `fdroid build` verified the published APK and
+> signer. Awaiting review.
+>
+> Earlier: Phase A audited; Phase B (branch `feature/fdroid-phase-b`)
 > fixed the source; Phase C (2026-09-25, below) ran the real `fdroid build`,
 > lint and scanner locally against a metadata draft kept in a separate
 > fdroiddata checkout outside this repository.
