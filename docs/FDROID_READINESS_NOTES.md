@@ -10,6 +10,9 @@ is [`FDROID_RELEASE.md`](FDROID_RELEASE.md).
 > APK `320368ea…`, minSdk 26, arm64-v8a — published as the GitHub release
 > `v0.2.2` (tag at `e535fcabebed3ac977559994fad597c62d6345f7`).
 >
+> **0.2.3 (Golden #4):** the Phase C workarounds are replaced by upstream
+> fixes and the release is built in F-Droid's layout — see the last section.
+>
 > **Nothing has been submitted.** No merge request is open and no release was
 > made for F-Droid. Phase A audited; Phase B (branch `feature/fdroid-phase-b`)
 > fixed the source; Phase C (2026-09-25, below) ran the real `fdroid build`,
@@ -303,7 +306,7 @@ prints `🦞 picoclaw is ready!` to the log on first start. `public/lark.svg` is
 authorship upstream does not record (already stated in
 `THIRD_PARTY_NOTICES.md`).
 
-## Smallest upstream changes for 0.2.3 (not made)
+## Upstream changes planned after Phase C (made in 0.2.3 — see below)
 
 1. PC-DEF-091: map `$NDK_ROOT` out of payload debug info; re-pin; restage
    Core. Drops the recipe's `sed`.
@@ -314,3 +317,39 @@ authorship upstream does not record (already stated in
 4. Optional, for Track B: build the release in the buildserver image
    (PC-DEF-092).
 5. The residue and Fastlane wording above.
+
+## 0.2.3 — the Phase C workarounds replaced by upstream fixes (2026-09-25)
+
+| v0.2.2 dry-run workaround | 0.2.3 root-cause fix | Evidence |
+| --- | --- | --- |
+| `sed` of the CPython catalog hash | PC-DEF-091: NDK path mapped out of payload DWARF; ANDROID_HOME derived from NDK_ROOT (`3e74c09`) | payload `8c9d49fb…`, debug ELF and build-id identical across the owner's NDK and F-Droid's `/opt` NDK; the canonical build's checksum test passes with no `sed` |
+| two-line `android/gradlew` shim | builder uses a system gradle that reports exactly the wrapper's version (`95c5bef`) | canonical builds ran `/usr/local/bin/gradle :app:assembleRelease` |
+| `unset SOURCE_DATE_EPOCH` | runtime epoch always pinned; Core dated from its build-input history, explicit override `POCKETCLAW_BUILD_EPOCH` (`3e74c09`, `bb785ae`) | canonical Core pair byte-identical to the staged pair while fdroidserver exported its own SOURCE_DATE_EPOCH |
+| Track A only (libapp.so path-dependent) | PC-DEF-092: releases built in F-Droid's layout by `tool/canonical_release_build.py` (`4664026`, `7c0980c`) | two clean builds `e09340e7…`; `verify_apks` MATCH against the owner-signed APK; transplant byte-identical |
+| reachable Go advisories | PC-DEF-093: go1.26.8, x/crypto v0.56.0 and deps, gh 2.101.0 on go1.27.1 (`16b2c6d`) | govulncheck 1.8.0: 0 reachable, 0 imported in Core and gh |
+
+The recipe is now `fdroid/metadata.yml.in` in this repository; the fdroiddata
+file is rendered from it (`canonical_release_build.py metadata --track-b`),
+with `Binaries:` pointing at the GitHub release asset and
+`AllowedAPKSigningKeys: 176dca6b…`. Its only deviations from a plain Flutter
+recipe are the pinned toolchains, the ten `rm:` entries with their rebuild, and
+the two pub-cache `scandelete` globs.
+
+**Store text (0.2.3):** "no package manager, no downloads after install" is
+gone. The description and README say PocketClaw never downloads its runtime,
+that the tools and skills from ClawHub or GitHub reach the network only when
+the user asks, name the default web search, and scope the memory claim to the
+background Core.
+
+**Resource use on 0.2.3** (Golden #4 on the SM-A165F, `dumpsys meminfo` total
+PSS incl. swap): Core settles at about 18 MB idle (11 one-minute samples,
+17.9–19.6 MB, RSS about 13 MB) and read 32.9 MB right after a chat and a gh
+tool task; the Dashboard binary settles about 18 MB. The public claim is
+therefore "about 20 MB PSS idle and roughly 26–33 MB during active agent work",
+the Phase C and 0.2.3 measurements together; whole-app memory remains
+dominated by the UI and WebView.
+
+**Network on 0.2.3:** changes touched no startup, network or telemetry code,
+only the Go toolchain and TLS/net libraries, so the focused check was repeated:
+a fresh Core from the Golden #4 binaries with a throwaway workspace on the
+phone opened no external connection in 180 s and listened on loopback only.

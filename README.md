@@ -101,7 +101,7 @@ everything around it.
 
 | | |
 | --- | --- |
-| **On-device gateway** | A Go binary bound to loopback only. Nothing listens to the network on your behalf. Lightweight background Core: about 20 MB PSS while idle and roughly 26–29 MB during active agent work on our Android 16 test device. The app's screens and web view use more while open. |
+| **On-device gateway** | A Go binary bound to loopback only. Nothing listens to the network on your behalf. Lightweight background Core: about 20 MB PSS while idle and roughly 26–33 MB during active agent work on our Android 16 test device. The app's screens and web view use more while open. |
 | **Managed Runtime** | Eight real arm64 tools, version-pinned and shipped in the APK. PocketClaw never downloads its runtime; the tools use the network only for work you ask the agent to do. |
 | **Web dashboard** | A local console for providers, channels, skills, models and logs, in 14 locales. |
 | **Telegram** | Guided managed-bot onboarding, or a manual bot token if you prefer. |

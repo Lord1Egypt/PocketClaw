@@ -7,6 +7,16 @@ only reconstructable examples belong here.
 
 ## Open / deferred
 
+### PC-DEF-094 — the bottom navigation icons have no accessibility labels
+
+- **Found:** Golden #4 physical pass, 2026-09-25. The four bottom navigation
+  items (Settings, Logs, Web console, Status) are clickable views with neither
+  text nor a content description in the accessibility tree, so a screen
+  reader announces nothing useful and label-verified automation cannot find
+  them. Pre-existing; unchanged by 0.2.3.
+- **Fix (not in 0.2.3):** give each destination a localized semantics label.
+- **Status:** OPEN.
+
 ### PC-DEF-091 — the Python payload's build-id depends on the NDK's install path
 
 - **Found:** F-Droid Phase C, 2026-09-25, in the real `fdroid build`.
@@ -61,7 +71,28 @@ only reconstructable examples belong here.
   upstream to build at F-Droid-equivalent paths — most simply inside the
   F-Droid buildserver image with the same recipe. It does not affect an
   F-Droid-signed build.
-- **Status:** OPEN (blocks a reproducible, upstream-signed F-Droid build only).
+- **Why not a compiler fix:** Flutter 3.47.1's only path-remapping knobs
+  (`filesystem-roots` / `filesystem-scheme`) cover the app's own sources;
+  dependencies still resolve through absolute `file://` package-config
+  entries, so there is no supported way to make a pub-based Android AOT build
+  path-independent.
+- **Resolution in 0.2.3 — canonical release environment (`4664026`,
+  `7c0980c`).** `tool/canonical_release_build.py` builds the upstream release
+  with the real `fdroid build --on-server` in F-Droid's buildserver image
+  (pinned by digest), from `/home/vagrant` — the layout fdroidserver's own
+  server mode creates (`/home/vagrant/build/com.lord1egypt.pocketclaw`,
+  `/home/vagrant/build/srclib/flutter`, pub cache in the checkout). The
+  fdroiddata metadata is rendered from the same template.
+- **Proof, 2026-09-25:** two separate clean canonical builds of `7c0980c`
+  produced the same unsigned APK `e09340e7…` (58,434,979 B; also identical
+  private Dart symbols); every PocketClaw native library in it equals the copy
+  staged in the repository. The owner signed that exact APK (Golden #4
+  candidate `77888282…`); fdroidserver's own `verify_apks` matches it against
+  the second build, and the second build plus the upstream signature is
+  byte-identical to the signed APK. Owner-machine builds remain
+  path-dependent by nature; releases are built canonically.
+- **Status:** RESOLVED (by the canonical environment; the final `fdroid build`
+  with `Binaries:` against the published APK is recorded in the release entry).
 
 ### PC-DEF-093 — Core's Go toolchain and x/crypto carry reachable advisories
 
@@ -708,7 +739,10 @@ only reconstructable examples belong here.
   Golden #3 matches, and copying Golden #3's signature onto it gives a file
   byte-identical to `320368ea…`. What remains is the F-Droid buildserver's
   different paths: PC-DEF-091 (Python build-id) and PC-DEF-092 (Dart AOT).
-- **Status:** OPEN — narrowed to PC-DEF-091 and PC-DEF-092.
+- **0.2.3:** PC-DEF-091 fixed; PC-DEF-092 resolved by building releases in the
+  canonical F-Droid layout, where two clean builds are byte-identical and the
+  signature transplant reproduces the signed APK (see PC-DEF-092).
+- **Status:** RESOLVED for the release path (canonical builds).
 
 ### PC-DEF-007 — F-Droid builder compatibility and committed prebuilts remain open
 

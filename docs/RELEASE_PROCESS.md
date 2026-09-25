@@ -170,6 +170,44 @@ so Google Play can symbolicate crashes, and Play does not deliver
 resemble an APK — that would remove Play's ability to read a stack trace and fix
 nothing. The rule that matters is the one below: a bundle is never published.
 
+## Canonical release build (F-Droid layout) — the release path from 0.2.3
+
+The published APK is built where F-Droid rebuilds it, so F-Droid can verify it
+and publish the upstream signature (Track B). The Dart AOT snapshot depends on
+the checkout, Flutter SDK and pub-cache locations (PC-DEF-092), so an
+owner-machine build can never match F-Droid's; a build in the same layout does.
+
+```text
+python3 tool/canonical_release_build.py build --commit <full sha> \
+  --work <empty dir> --out <empty dir> \
+  --fdroidserver <fdroidserver checkout at the pinned commit> \
+  --fdroiddata <fdroiddata checkout, for the flutter and rustup srclibs>
+```
+
+It runs the real `fdroid build --on-server` in F-Droid's buildserver image,
+pinned by digest, from `/home/vagrant`, after the same host-side checkout
+fdroidserver's server mode performs, with the recipe rendered from
+`fdroid/metadata.yml.in`. The commit must be pushed: fdroidserver clones it.
+Outputs: the unsigned APK, the private Dart symbols, native support files and
+R8 mapping under `private/` (mode 0600), the rendered metadata, the log and a
+JSON record. Build it twice from clean directories; the two APKs must be
+byte-identical before anything is signed.
+
+Signing is owner-only and signs that exact APK without rebuilding it: apksigner
+with v2 only (v1, v3 and v4 disabled) and `--alignment-preserved true`, so the
+signed file is the unsigned file plus a signing block. Then:
+
+- `canonical_release_build.py verify --signed <apk> --unsigned <second build>`
+  runs fdroidserver's own `verify_apks` in the same image and must MATCH;
+- `tool/native_support.py bind-apk` binds the private native manifest to the
+  signed APK before `native_elf_audit.py --native-support-manifest`;
+- `release_gate.py --full <signed apk> --release-class production
+  --artifact-class public-release` with the canonical build's `--dart-symbols`
+  and `--r8-mapping`.
+
+`canonical_release_build.py metadata --commit <tag commit> --track-b` renders
+the fdroiddata metadata with `Binaries:` and `AllowedAPKSigningKeys:`.
+
 ## Native ELF and private-symbol policy
 
 Run the read-only packaged-ELF inventory before accepting a native-hardened
@@ -328,8 +366,8 @@ build, source and reproducibility requirements.
 
 The target is a developer-signed APK that F-Droid can reproduce bit-for-bit and
 pin through `AllowedAPKSigningKeys`, preserving update continuity with Direct
-APK. Builder compatibility, committed prebuilts, and full-APK reproducibility
-remain open. An F-Droid-signed fallback would be a separate installation
+APK. From 0.2.3 releases are built in the canonical F-Droid layout (above),
+which is what makes that reproduction possible. An F-Droid-signed fallback would be a separate installation
 lineage and must be an explicit decision, never an accidental result.
 
 ## Stable release threshold

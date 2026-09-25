@@ -2,7 +2,7 @@ PocketClaw is a private AI agent that runs on your Android phone. The language m
 
 <b>What it does</b>
 <ul>
-<li>An on-device agent gateway, bound to loopback only. The background core uses about 20 MB of memory (PSS) while idle and roughly 26–29 MB during active agent work on our Android 16 test phone; the app's screens and web view use more while they are open.</li>
+<li>An on-device agent gateway, bound to loopback only. The background core uses about 20 MB of memory (PSS) while idle and roughly 26–33 MB during active agent work on our Android 16 test phone; the app's screens and web view use more while they are open.</li>
 <li>A Managed Runtime of real command-line tools compiled for the phone and shipped inside the APK: python 3.14, git 2.51, gh 2.101, curl 8.11, ripgrep 14.1, sqlite3 3.50 and jq 1.7. PocketClaw never downloads its runtime after install; the tools reach the network only when the agent uses them for something you asked.</li>
 <li>Skills: reusable instruction and tool bundles. The agent can find and install them from the ClawHub registry or GitHub when you ask it to.</li>
 <li>A local web dashboard for providers, models, channels, skills and logs, in 14 languages. It opens inside the app, and in a browser on your own network if you turn on Public Mode.</li>
