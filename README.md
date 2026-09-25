@@ -29,7 +29,7 @@ the credentials — lives on the device you are holding.
 <br />
 ![Flutter](https://img.shields.io/badge/Flutter-3.47-02569B?logo=flutter&logoColor=white)
 ![Dart](https://img.shields.io/badge/Dart-3.13-0175C2?logo=dart&logoColor=white)
-![Go](https://img.shields.io/badge/Go-1.25-00ADD8?logo=go&logoColor=white)
+![Go](https://img.shields.io/badge/Go-1.26.8-00ADD8?logo=go&logoColor=white)
 ![Locales](https://img.shields.io/badge/locales-12_app_·_14_dashboard-8A2BE2)
 ![Signed](https://img.shields.io/badge/signed-production_key-informational?logo=android&logoColor=white)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)

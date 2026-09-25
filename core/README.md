@@ -120,7 +120,7 @@ Both targets compile with:
       -ldflags "-X ...config.Version=v0.3.1 \
                 -X ...config.GitCommit=2cf030d2 \
                 -X ...config.BuildTime=<timestamp> \
-                -X ...config.GoVersion=go1.25.11 \
+                -X ...config.GoVersion=go1.26.8 \
                 -X ...coresource.Stamped=<source fingerprint> \
                 -s -w"
 
