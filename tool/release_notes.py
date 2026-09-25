@@ -35,14 +35,15 @@ SECTION_TITLES = {
 def current_release_source(dart_source: str) -> str:
     """Narrows the source to the one release the app actually renders.
 
-    The file keeps each shipped release and names the live one through
-    currentWhatsNewRelease. Parsing the whole file would concatenate two
-    releases into a single set of notes -- two "Fixes" headings, and a patch
-    release described with the previous release's bullets.
+    The file keeps every shipped release in whatsNewHistory, newest first, and
+    the app renders all of them; the notes describe only the first. Parsing
+    the whole file would concatenate releases into a single set of notes --
+    two "Fixes" headings, and a patch release described with the previous
+    release's bullets.
     """
-    named = re.search(r"currentWhatsNewRelease\s*=\s*(\w+)\s*;", dart_source)
+    named = re.search(r"whatsNewHistory\s*=\s*\[\s*(\w+)\s*,", dart_source)
     if not named:
-        raise SystemExit("release notes: no currentWhatsNewRelease in whats_new_release.dart")
+        raise SystemExit("release notes: no whatsNewHistory in whats_new_release.dart")
     opening = re.search(
         rf"final WhatsNewRelease {named.group(1)}\s*=\s*WhatsNewRelease\(",
         dart_source,

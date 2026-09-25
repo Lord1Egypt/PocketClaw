@@ -19,18 +19,3 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-
----
-
-This licence covers PocketClaw's own code. It does not extend to third-party
-components distributed with or vendored into this repository, which remain
-under their own licences and copyright:
-
-  - PicoClaw Core, vendored at core/src/ — MIT, © 2026 PicoClaw contributors.
-    See licenses/picoclaw-core-MIT.txt and core/src/LICENSE.
-  - PicoClaw FUI, selectively adapted in the Android/Flutter foundation — MIT,
-    © 2026 Sipeed. See licenses/sipeed-picoclaw-fui-MIT.txt.
-  - The bundled Managed Runtime binaries and every other dependency — see
-    THIRD_PARTY_NOTICES.md.
-
-Nothing here alters, replaces or supersedes those notices.

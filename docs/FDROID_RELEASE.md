@@ -35,10 +35,15 @@ accident. The default is now `none`.
 | `generateFirebaseResources` / `cleanupFirebaseResources` Gradle tasks | Generated `google_app_id` and friends. |
 | Two GMS `<meta-data>` manifest entries | Referenced the generated resources. |
 
-**Nothing replaced it.** Optional device feedback still exists with the Umeng
-provider (`compileOnly` and absent by default) and `none`. No tracking SDK was
-substituted: PocketClaw does not need one to work, and swapping one for another
-would have missed the point.
+**Nothing replaced it.** No tracking SDK was substituted: PocketClaw does not
+need one to work, and swapping one for another would have missed the point.
+
+**Umeng followed in F-Droid Phase B (2026-09-24).** It had stayed as a
+`compileOnly` dependency, absent from the APK but still downloaded and compiled
+against — which F-Droid's inclusion policy forbids as surely as packaging it.
+The SDK, `AnalyticsReporter.kt`, the device-feedback feature and its manifest
+metadata were removed outright, and `tool/dependency_graph.py` now fails the
+gate if any proprietary SDK group appears in the resolved Gradle graph.
 
 ### Verified in the artifact, not in the dependency list
 

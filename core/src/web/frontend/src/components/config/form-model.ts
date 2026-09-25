@@ -24,8 +24,6 @@ export interface CoreConfigForm {
   dmScope: string
   heartbeatEnabled: boolean
   heartbeatInterval: string
-  devicesEnabled: boolean
-  monitorUSB: boolean
   mcpEnabled: boolean
   mcpDiscoveryEnabled: boolean
   mcpDiscoveryTTL: string
@@ -143,8 +141,6 @@ export const EMPTY_FORM: CoreConfigForm = {
   dmScope: "per-channel-peer",
   heartbeatEnabled: true,
   heartbeatInterval: "30",
-  devicesEnabled: false,
-  monitorUSB: true,
   mcpEnabled: false,
   mcpDiscoveryEnabled: false,
   mcpDiscoveryTTL: "5",
@@ -294,7 +290,6 @@ export function buildFormFromConfig(config: unknown): CoreConfigForm {
   const defaults = asRecord(agents.defaults)
   const session = asRecord(root.session)
   const heartbeat = asRecord(root.heartbeat)
-  const devices = asRecord(root.devices)
   const evolution = asRecord(root.evolution)
   const tools = asRecord(root.tools)
   const mcp = asRecord(tools.mcp)
@@ -386,14 +381,6 @@ export function buildFormFromConfig(config: unknown): CoreConfigForm {
       heartbeat.interval,
       EMPTY_FORM.heartbeatInterval,
     ),
-    devicesEnabled:
-      devices.enabled === undefined
-        ? EMPTY_FORM.devicesEnabled
-        : asBool(devices.enabled),
-    monitorUSB:
-      devices.monitor_usb === undefined
-        ? EMPTY_FORM.monitorUSB
-        : asBool(devices.monitor_usb),
     mcpEnabled:
       mcp.enabled === undefined ? EMPTY_FORM.mcpEnabled : asBool(mcp.enabled),
     mcpDiscoveryEnabled:

@@ -19,7 +19,9 @@ export function PageHeader({
   return (
     <div
       className={cn(
-        "z-40 flex h-14 shrink-0 items-center justify-between px-6 pt-2",
+        // Wraps instead of clipping: at phone width the title plus two
+        // actions (Models) do not fit one row (PC-DEF-089).
+        "z-40 flex min-h-14 shrink-0 flex-wrap items-center justify-between gap-x-4 gap-y-2 px-6 pt-2",
         className,
       )}
     >
@@ -33,7 +35,11 @@ export function PageHeader({
         </h2>
         {titleExtra}
       </div>
-      {children && <div className="flex items-center gap-2">{children}</div>}
+      {children && (
+        <div className="ms-auto flex flex-wrap items-center gap-2">
+          {children}
+        </div>
+      )}
     </div>
   )
 }

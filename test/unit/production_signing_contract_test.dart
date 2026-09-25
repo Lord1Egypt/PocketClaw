@@ -339,19 +339,10 @@ void main() {
       expect(gradle, isNot(contains('FIREBASE')));
     });
 
-    test('device feedback defaults to off rather than to a provider', () {
-      // The old fall-through meant a build that omitted the dart-define picked
-      // an analytics provider by accident.
-      final models =
-          File('lib/src/core/device_feedback_models.dart').readAsStringSync();
-      expect(models, isNot(contains('firebase,')),
-          reason: 'the Firebase arm must be gone from the enum');
-      expect(models, contains('return DeviceFeedbackProvider.none;'));
-    });
-
     test('it does not preemptively introduce an F-Droid flavor', () {
       // A flavor is two configurations to verify and two reproducibility
-      // stories. The recommendation is to make the dependency optional instead.
+      // stories. The proprietary SDK was removed instead, so one build graph
+      // serves every channel.
       final gradle = File('android/app/build.gradle.kts').readAsStringSync();
       expect(gradle, isNot(contains('productFlavors')),
           reason: 'no flavor should exist until a blocker actually requires one');
@@ -372,13 +363,18 @@ void main() {
       expect(gate, isNot(contains('Firebase/GMS packaged unconditionally')),
           reason: 'a solved blocker must not still be listed as outstanding');
     });
+  });
 
-    test('the Umeng precedent it points at is real', () {
-      // The recommended fix is "do what Umeng already does". That is only
-      // advice worth following while it remains true.
+  group('repository-signable release', () {
+    test('is explicit, unsigned, and refuses any signing material', () {
       final gradle = File('android/app/build.gradle.kts').readAsStringSync();
-      expect(gradle, contains('compileOnly("com.umeng.umsdk:common'));
-      expect(gradle, contains('umengAnalyticsRequested'));
+      expect(gradle, contains('findProperty("pocketclawUnsignedRelease")'));
+      // It must win over every other branch, so a stray key cannot sign it.
+      final when = gradle.indexOf('signingConfig = when {');
+      expect(gradle.indexOf('unsignedReleaseRequested -> null', when),
+          lessThan(gradle.indexOf('releaseSigningMaterialUsable ->', when)));
+      expect(gradle, contains('An unsigned release was requested beside a signing configuration.'));
+      expect(gradle, contains('UNSIGNED / REPOSITORY-SIGNABLE'));
     });
   });
 

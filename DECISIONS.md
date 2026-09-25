@@ -5,6 +5,39 @@
 > [`docs/DECISIONS.md`](docs/DECISIONS.md). Entries below retain their original
 > date and context and must not be silently rewritten when current state changes.
 
+## Tool output is bounded before the model sees it; the provider decides the rest
+
+- Date: 2026-09-24 (PC-DEF-078)
+- Decision: every tool result is cut to `tools.max_result_bytes` (64 KiB,
+  read_file's limit) — head and tail with an explicit notice — before it
+  enters the conversation or the session. Every provider request is measured
+  and fitted (tool results first, then one history compaction per turn). What
+  still exceeds the estimate after that is irreducible and is **sent**, as it
+  always was; only a provider refusal that is recognisably about size (413, or
+  a 400 whose words say so) triggers one compact-and-resend, and then
+  PC-E-CTX-001.
+- Why: refusing locally would block users whose configured `context_window`
+  is smaller than the model's real window, which the estimate cannot know.
+  Treating every 400 as overflow hid schema and parameter errors.
+- Consequence: no large output is materialised to a file; the workspace can be
+  shared storage, which is not app-private.
+
+## PocketClaw's Flutter app is Android-only
+
+- Date: 2026-09-24 (PC-DEF-083)
+- Decision: the app carries no desktop code, adapters or plugins. The
+  repository has no other Flutter platform, so such code can never run.
+  `Platform.isAndroid` checks remain where they are the test seam.
+- Consequence: settings exist only if the Android host honours them; launch
+  arguments derive from Public Mode alone.
+
+## One mark, one generator
+
+- Date: 2026-09-24 (PC-DEF-081)
+- Decision: every identity image — launcher, splash, notification, README — is
+  generated from the APERTURE geometry by `tool/generate_android_launcher_icons.py`.
+  No branding image is a Flutter asset.
+
 ## Zero Active Pico is a rule about direction, not about spelling
 
 - Date: 2026-09-09
@@ -2148,6 +2181,9 @@
 - Date: 2026-08-24
 - Decision: Preserve upstream MIT notices and defer choosing a license for new
   PocketClaw code until product-owner approval.
+- Superseded 2026-09-09: the owner chose MIT for PocketClaw's own code
+  (`bbe743c`). `LICENSE` is the standard MIT text; third-party attribution lives
+  in `THIRD_PARTY_NOTICES.md`.
 
 ## Bound the local Gradle JVM for reproducible foundation builds
 

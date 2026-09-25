@@ -1,17 +1,14 @@
 import 'dart:async';
 import 'dart:io';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../generated/l10n/app_localizations.dart';
 import 'app_theme.dart';
-import 'device_feedback_models.dart';
 import 'pocketclaw_channel.dart';
 import 'public_mode_reconciliation.dart';
 import 'plain_text_log_sanitizer.dart';
 import 'status_snapshot.dart';
-import 'umeng_device_reporter.dart';
 import '../native/core_service_adapter_factory.dart';
 import '../native/core_service_adapter.dart';
 
@@ -50,118 +47,16 @@ class LanAddressCandidate {
 }
 
 class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
-  static const List<Duration> _deviceFeedbackRetryDelays = [
-    Duration(seconds: 15),
-    Duration(minutes: 1),
-    Duration(minutes: 5),
-  ];
-  static const DeviceTelemetryThresholds _telemetryThresholds =
-      DeviceTelemetryThresholds();
-  static const String _prefsTelemetryCreatedAt = 'telemetry_created_at';
-  static const String _prefsTelemetryLastSeenAt = 'telemetry_last_seen_at';
-  static const String _prefsTelemetryLastLaunchAt = 'telemetry_last_launch_at';
-  static const String _prefsTelemetryLastForegroundAt =
-      'telemetry_last_foreground_at';
-  static const String _prefsTelemetryLastBackgroundAt =
-      'telemetry_last_background_at';
-  static const String _prefsTelemetryLastActiveAt = 'telemetry_last_active_at';
-  static const String _prefsTelemetryLastUploadAttemptAt =
-      'telemetry_last_upload_attempt_at';
-  static const String _prefsTelemetryLastUploadedAt =
-      'telemetry_last_uploaded_at';
-  static const String _prefsTelemetryLastSyncFailureAt =
-      'telemetry_last_sync_failure_at';
-  static const String _prefsTelemetryLastReachabilityLossAt =
-      'telemetry_last_reachability_loss_at';
-  static const String _prefsTelemetryLastReactivatedAt =
-      'telemetry_last_reactivated_at';
-  static const String _prefsTelemetryLastStateChangedAt =
-      'telemetry_last_state_changed_at';
-  static const String _prefsTelemetryLastUploadedSignature =
-      'telemetry_last_uploaded_signature';
-  static const String _prefsTelemetryLastFailureMessage =
-      'telemetry_last_failure_message';
-  static const String _prefsTelemetryLastStateReason =
-      'telemetry_last_state_reason';
-  static const String _prefsTelemetryLastDerivedState =
-      'telemetry_last_derived_state';
-  static const String _prefsTelemetryLaunchCount = 'telemetry_launch_count';
-  static const String _prefsTelemetryForegroundCount =
-      'telemetry_foreground_count';
-  static const String _prefsTelemetryUploadFailureCount =
-      'telemetry_upload_failure_count';
-  static const String _prefsTelemetryConsecutiveUploadFailures =
-      'telemetry_consecutive_upload_failures';
-  static const String _prefsTelemetryReachabilityLost =
-      'telemetry_reachability_lost';
-  static const String _rawAnalyticsProvider = String.fromEnvironment(
-    'POCKETCLAW_ANALYTICS_PROVIDER',
-    defaultValue: 'none',
-  );
-  static final DeviceFeedbackProvider _requestedDeviceFeedbackProvider =
-      DeviceFeedbackProvider.fromEnvironmentValue(_rawAnalyticsProvider);
-  static final DeviceFeedbackProvider _deviceFeedbackProvider =
-      resolveDeviceFeedbackProvider(
-        requested: _requestedDeviceFeedbackProvider,
-        umengAppKey: _umengAppKey,
-      );
-  static const String _umengAppKey = String.fromEnvironment(
-    'POCKETCLAW_UMENG_APP_KEY',
-  );
-  static const String _umengChannel = String.fromEnvironment(
-    'POCKETCLAW_UMENG_CHANNEL',
-    defaultValue: 'official',
-  );
-  static const String _distributionChannel = String.fromEnvironment(
-    'POCKETCLAW_DISTRIBUTION_CHANNEL',
-    defaultValue: _umengChannel,
-  );
-  static final bool _isTestEnvironment =
-      Platform.environment.containsKey('FLUTTER_TEST') ||
-      Platform.executable.contains('flutter_tester');
-
   static final ServiceManager _instance = ServiceManager._internal();
   factory ServiceManager() => _instance;
-  ServiceManager._internal() {
-    if (!kIsWeb && !_isTestEnvironment) {
-      try {
-        _signalSubscriptions.add(
-          ProcessSignal.sigint.watch().listen((_) => stop()),
-        );
-      } catch (_) {}
-      try {
-        if (!Platform.isWindows) {
-          _signalSubscriptions.add(
-            ProcessSignal.sigterm.watch().listen((_) => stop()),
-          );
-        }
-      } catch (_) {}
-    }
-  }
+  ServiceManager._internal();
 
   final CoreServiceAdapter _adapter = CoreServiceAdapterFactory.create();
-  final UmengDeviceReporter _umengReporter = UmengDeviceReporter();
   String? _lastErrorCode;
-  String? _lastDeviceFeedbackSyncMessage;
-  Future<DeviceFeedbackUploadResult>? _deviceFeedbackUploadTask;
-  Timer? _deviceFeedbackRetryTimer;
-  int _deviceFeedbackRetryAttempt = 0;
-  bool _deviceFeedbackConfigurationNoticeEmitted = false;
   String _cachedAppVersion = 'unknown';
   String _cachedCoreVersion = '';
-  DeviceTelemetrySnapshot? _lastTelemetrySnapshot;
-  final List<StreamSubscription<ProcessSignal>> _signalSubscriptions = [];
-
-  void _syncAdapterConfiguration() {
-    final configuredPath = _binaryPath.trim().isEmpty ? null : _binaryPath;
-    _adapter.setConfiguredPath(configuredPath);
-  }
 
   String? get lastErrorCode => _lastErrorCode ?? _adapter.getLastErrorCode();
-  String? get lastDeviceFeedbackSyncMessage => _lastDeviceFeedbackSyncMessage;
-  bool get isDeviceFeedbackUploadInProgress =>
-      _deviceFeedbackUploadTask != null;
-  DeviceTelemetrySnapshot? get lastTelemetrySnapshot => _lastTelemetrySnapshot;
 
   ServiceStatus _status = ServiceStatus.stopped;
   bool _pendingCredentialRestart = false;
@@ -170,10 +65,10 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
   ServiceStatus get status => _status;
   List<String> get logs => List.unmodifiable(_logs);
 
-  String _host = '127.0.0.1';
-  int _port = 18800;
-  String _binaryPath = '';
-  String _arguments = '';
+  /// The launcher's loopback port. Not a setting: the Android host always
+  /// starts the launcher with an explicit `-port 18800`, and the host's own
+  /// bridge calls to the launcher are pinned to it.
+  static const int dashboardPort = 18800;
   bool _publicMode = false;
   bool _isApplyingPublicMode = false;
   String? _publicModeApplyError;
@@ -190,7 +85,6 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
   // this stays false and the poll costs exactly what it always did.
   bool _statusDetailWanted = false;
   StatusSnapshot? _statusSnapshot;
-  bool _autoStart = false;
   LaunchAutoStartPreferences _launchAutoStart =
       LaunchAutoStartPreferences.defaults;
   bool _launchAutoStartEvaluated = false;
@@ -220,7 +114,6 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
     }
     notifyListeners();
   }
-  bool get autoStart => _autoStart;
 
   /// Cached mirror of the Android host's canonical launch auto-start record.
   /// The host remains the only source of truth; this is refreshed from every
@@ -236,38 +129,14 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
   AppThemeMode get currentThemeMode => _currentThemeMode;
   Locale _currentLocale = const Locale('en');
   Locale get currentLocale => _currentLocale;
-  DeviceFeedbackProvider get deviceFeedbackProvider => _deviceFeedbackProvider;
-  bool get isDeviceFeedbackEnabled => switch (_deviceFeedbackProvider) {
-    DeviceFeedbackProvider.none => false,
-    DeviceFeedbackProvider.umeng => Platform.isAndroid,
-  };
-
-  @visibleForTesting
-  static DeviceFeedbackProvider resolveDeviceFeedbackProvider({
-    required DeviceFeedbackProvider requested,
-    required String umengAppKey,
-  }) {
-    switch (requested) {
-      case DeviceFeedbackProvider.umeng:
-        return umengAppKey.trim().isNotEmpty
-            ? DeviceFeedbackProvider.umeng
-            : DeviceFeedbackProvider.none;
-      case DeviceFeedbackProvider.none:
-        return DeviceFeedbackProvider.none;
-    }
-  }
-
-  String get webUrl => 'http://$_host:$_port';
-  String get localDashboardUrl => 'http://127.0.0.1:$_port';
+  String get _host => _publicMode ? '0.0.0.0' : '127.0.0.1';
+  String get webUrl => 'http://$_host:$dashboardPort';
+  String get localDashboardUrl => 'http://127.0.0.1:$dashboardPort';
   String? get lanAddress => _lanAddress;
   String? get publicDashboardUrl =>
-      _lanAddress == null ? null : 'http://${_lanAddress!}:$_port';
+      _lanAddress == null ? null : 'http://${_lanAddress!}:$dashboardPort';
   String? get connectableDashboardUrl =>
       _publicMode ? publicDashboardUrl : webUrl;
-  String get host => _host;
-  int get port => _port;
-  String get binaryPath => _binaryPath;
-  String get arguments => _arguments;
   bool get publicMode => _publicMode;
   bool get isApplyingPublicMode => _isApplyingPublicMode;
   String? get publicModeApplyError => _publicModeApplyError;
@@ -387,13 +256,7 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
   Future<void> init() async {
     WidgetsBinding.instance.addObserver(this);
     final prefs = await SharedPreferences.getInstance();
-    _host = prefs.getString('host') ?? '127.0.0.1';
-    _port = prefs.getInt('port') ?? 18800;
-    _binaryPath = prefs.getString('binaryPath') ?? '';
-    _arguments = prefs.getString('arguments') ?? '';
     _publicMode = prefs.getBool('publicMode') ?? false;
-    _host = _publicMode ? '0.0.0.0' : _host;
-    _syncAdapterConfiguration();
 
     final themeIndex = prefs.getInt('theme_mode') ?? 0;
     _currentThemeMode = AppThemeMode.values[themeIndex];
@@ -415,77 +278,22 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
     }
 
     if (Platform.isAndroid) {
-      _port = 18800;
-      _host = _publicMode ? '0.0.0.0' : '127.0.0.1';
       try {
-        _autoStart = await PocketClawChannel.getAutoStart();
         _workspacePath = await _adapter.getWorkspacePath();
         await _syncNativeServiceStatus();
         // Read last: the launch auto-start decision needs an accurate runtime
         // status more than it needs the preference, and this call must not be
         // able to skip the status sync above.
-        _launchAutoStart = await PocketClawChannel.getLaunchAutoStartPreferences();
+        _launchAutoStart =
+            await PocketClawChannel.getLaunchAutoStartPreferences();
       } catch (_) {}
       _startNativePolling();
     }
     _syncLanAddressPolling();
 
-    try {
-      _adapter.setLogHandler(_addLog);
-    } catch (_) {}
-
-    _reportMissingOptionalDeviceFeedbackConfigurationOnce();
-
-    if (_deviceFeedbackProvider == DeviceFeedbackProvider.umeng) {
-      try {
-        await _umengReporter.ensureDefaultConsentApplied();
-      } catch (_) {}
-    }
-
     _cachedAppVersion = await _readAppVersion();
-    await recordTelemetryLaunch();
-    await recordTelemetryForeground();
-
-    // 自动上报设备反馈（如果用户已同意且满足条件）
-    unawaited(_autoUploadDeviceFeedbackIfNeeded());
 
     notifyListeners();
-  }
-
-  void _reportMissingOptionalDeviceFeedbackConfigurationOnce() {
-    if (_deviceFeedbackConfigurationNoticeEmitted ||
-        _deviceFeedbackProvider != DeviceFeedbackProvider.none ||
-        _requestedDeviceFeedbackProvider == DeviceFeedbackProvider.none) {
-      return;
-    }
-    _deviceFeedbackConfigurationNoticeEmitted = true;
-    final message = switch (_requestedDeviceFeedbackProvider) {
-      DeviceFeedbackProvider.umeng =>
-        'Device feedback disabled: Umeng build configuration not provided.',
-      DeviceFeedbackProvider.none => '',
-    };
-    _lastDeviceFeedbackSyncMessage = message;
-    _addLog(message);
-    debugPrint(message);
-  }
-
-  Future<bool> setWorkspacePath(String value) async {
-    final ok = await _adapter.setWorkspacePath(value);
-    if (ok) {
-      _workspacePath = value;
-      notifyListeners();
-    }
-    return ok;
-  }
-
-  /// 刷新 workspace path（用于权限变化后重新获取）
-  Future<void> refreshWorkspacePath() async {
-    if (Platform.isAndroid) {
-      try {
-        _workspacePath = await _adapter.getWorkspacePath();
-        notifyListeners();
-      } catch (_) {}
-    }
   }
 
   @override
@@ -493,200 +301,13 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
     switch (state) {
       case AppLifecycleState.resumed:
         if (_publicMode) unawaited(refreshLanAddress());
-        unawaited(recordTelemetryForeground());
-        unawaited(_autoUploadDeviceFeedbackIfNeeded());
         break;
       case AppLifecycleState.inactive:
       case AppLifecycleState.hidden:
       case AppLifecycleState.paused:
       case AppLifecycleState.detached:
-        unawaited(recordTelemetryBackground());
         break;
     }
-  }
-
-  Future<void> recordTelemetryLaunch({DateTime? now}) async {
-    final prefs = await SharedPreferences.getInstance();
-    final signalAt = (now ?? DateTime.now()).toUtc();
-    final store = _loadTelemetryStore(prefs);
-    final shouldMarkReactivated =
-        store.lastDerivedState == DeviceTelemetryState.unreachable ||
-        store.lastDerivedState == DeviceTelemetryState.suspectedUninstalled;
-    final updatedStore = store.copyWith(
-      createdAt: store.createdAt ?? signalAt,
-      lastSeenAt: signalAt,
-      lastLaunchAt: signalAt,
-      lastActiveAt: signalAt,
-      lastReactivatedAt: shouldMarkReactivated
-          ? signalAt
-          : store.lastReactivatedAt,
-      launchCount: store.launchCount + 1,
-    );
-    await _persistTelemetryStore(prefs, updatedStore);
-    await _refreshTelemetrySnapshot(prefs: prefs, now: signalAt, notify: false);
-  }
-
-  Future<void> recordTelemetryForeground({DateTime? now}) async {
-    final prefs = await SharedPreferences.getInstance();
-    final signalAt = (now ?? DateTime.now()).toUtc();
-    final store = _loadTelemetryStore(prefs);
-    final shouldMarkReactivated =
-        store.lastDerivedState == DeviceTelemetryState.unreachable ||
-        store.lastDerivedState == DeviceTelemetryState.suspectedUninstalled;
-    final updatedStore = store.copyWith(
-      createdAt: store.createdAt ?? signalAt,
-      lastSeenAt: signalAt,
-      lastForegroundAt: signalAt,
-      lastActiveAt: signalAt,
-      lastReactivatedAt: shouldMarkReactivated
-          ? signalAt
-          : store.lastReactivatedAt,
-      foregroundCount: store.foregroundCount + 1,
-    );
-    await _persistTelemetryStore(prefs, updatedStore);
-    await _refreshTelemetrySnapshot(prefs: prefs, now: signalAt, notify: false);
-  }
-
-  Future<void> recordTelemetryBackground({DateTime? now}) async {
-    final prefs = await SharedPreferences.getInstance();
-    final signalAt = (now ?? DateTime.now()).toUtc();
-    final store = _loadTelemetryStore(prefs);
-    final updatedStore = store.copyWith(
-      createdAt: store.createdAt ?? signalAt,
-      lastSeenAt: signalAt,
-      lastBackgroundAt: signalAt,
-    );
-    await _persistTelemetryStore(prefs, updatedStore);
-    await _refreshTelemetrySnapshot(prefs: prefs, now: signalAt, notify: false);
-  }
-
-  Future<DeviceTelemetrySnapshot> getDeviceTelemetrySnapshot({
-    DateTime? now,
-  }) async {
-    return _refreshTelemetrySnapshot(now: now, notify: false);
-  }
-
-  Future<void> recordTelemetryUploadAttempt({DateTime? now}) async {
-    final prefs = await SharedPreferences.getInstance();
-    final signalAt = (now ?? DateTime.now()).toUtc();
-    final store = _loadTelemetryStore(
-      prefs,
-    ).copyWith(lastUploadAttemptAt: signalAt);
-    await _persistTelemetryStore(prefs, store);
-  }
-
-  Future<void> recordTelemetryUploadSuccess(
-    DeviceTelemetrySnapshot snapshot, {
-    DateTime? now,
-  }) async {
-    final prefs = await SharedPreferences.getInstance();
-    final signalAt = (now ?? DateTime.now()).toUtc();
-    final currentStore = _loadTelemetryStore(prefs);
-    final store = currentStore.copyWith(
-      lastUploadedAt: signalAt,
-      lastUploadedSignature: snapshot.buildUploadSignature(),
-      lastFailureMessage: '',
-      uploadFailureCount: 0,
-      consecutiveUploadFailures: 0,
-      reachabilityLost: false,
-      lastReactivatedAt: snapshot.state == DeviceTelemetryState.reinstalled
-          ? signalAt
-          : currentStore.lastReactivatedAt,
-    );
-    await _persistTelemetryStore(prefs, store);
-    final refreshedSnapshot = await _refreshTelemetrySnapshot(
-      prefs: prefs,
-      now: signalAt,
-      notify: false,
-    );
-    final normalizedStore = _loadTelemetryStore(
-      prefs,
-    ).copyWith(lastUploadedSignature: refreshedSnapshot.buildUploadSignature());
-    await _persistTelemetryStore(prefs, normalizedStore);
-    _lastTelemetrySnapshot = await _refreshTelemetrySnapshot(
-      prefs: prefs,
-      now: signalAt,
-      notify: false,
-    );
-  }
-
-  Future<void> recordTelemetryUploadFailure(
-    String message, {
-    DateTime? now,
-  }) async {
-    final prefs = await SharedPreferences.getInstance();
-    final signalAt = (now ?? DateTime.now()).toUtc();
-    final store = _loadTelemetryStore(prefs);
-    final nextConsecutiveFailures = store.consecutiveUploadFailures + 1;
-    final reachabilityLost =
-        nextConsecutiveFailures >=
-            _telemetryThresholds.reachabilityFailureThreshold ||
-        store.reachabilityLost;
-    final updatedStore = store.copyWith(
-      lastSyncFailureAt: signalAt,
-      lastFailureMessage: message,
-      uploadFailureCount: store.uploadFailureCount + 1,
-      consecutiveUploadFailures: nextConsecutiveFailures,
-      reachabilityLost: reachabilityLost,
-      lastReachabilityLossAt: reachabilityLost
-          ? (store.lastReachabilityLossAt ?? signalAt)
-          : store.lastReachabilityLossAt,
-    );
-    await _persistTelemetryStore(prefs, updatedStore);
-    await _refreshTelemetrySnapshot(prefs: prefs, now: signalAt, notify: false);
-  }
-
-  Future<void> clearTelemetryState() async {
-    final prefs = await SharedPreferences.getInstance();
-    for (final key in const [
-      _prefsTelemetryCreatedAt,
-      _prefsTelemetryLastSeenAt,
-      _prefsTelemetryLastLaunchAt,
-      _prefsTelemetryLastForegroundAt,
-      _prefsTelemetryLastBackgroundAt,
-      _prefsTelemetryLastActiveAt,
-      _prefsTelemetryLastUploadAttemptAt,
-      _prefsTelemetryLastUploadedAt,
-      _prefsTelemetryLastSyncFailureAt,
-      _prefsTelemetryLastReachabilityLossAt,
-      _prefsTelemetryLastReactivatedAt,
-      _prefsTelemetryLastStateChangedAt,
-      _prefsTelemetryLastUploadedSignature,
-      _prefsTelemetryLastFailureMessage,
-      _prefsTelemetryLastStateReason,
-      _prefsTelemetryLastDerivedState,
-      _prefsTelemetryLaunchCount,
-      _prefsTelemetryForegroundCount,
-      _prefsTelemetryUploadFailureCount,
-      _prefsTelemetryConsecutiveUploadFailures,
-      _prefsTelemetryReachabilityLost,
-    ]) {
-      await prefs.remove(key);
-    }
-    _lastTelemetrySnapshot = null;
-  }
-
-  Future<DeviceTelemetryRuntimeContext> _buildTelemetryRuntimeContext() async {
-    if (_cachedAppVersion == 'unknown') {
-      _cachedAppVersion = await _readAppVersion();
-    }
-    return DeviceTelemetryRuntimeContext(
-      platform: Platform.operatingSystem,
-      appVersion: _cachedAppVersion,
-      channel: _distributionChannel.trim().isEmpty
-          ? 'official'
-          : _distributionChannel,
-      region: _resolveTelemetryRegion(),
-      provider: _deviceFeedbackProvider.name,
-    );
-  }
-
-  String _resolveTelemetryRegion() {
-    final countryCode = _currentLocale.countryCode;
-    if (countryCode != null && countryCode.isNotEmpty) {
-      return countryCode.toLowerCase();
-    }
-    return _currentLocale.languageCode.toLowerCase();
   }
 
   Future<String> getAppVersion() async {
@@ -703,7 +324,6 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
   /// and it became the displayed Core version until something re-probed
   /// successfully. Leaving the cache empty instead means the next read retries.
   Future<String?> getCoreVersion() async {
-    _syncAdapterConfiguration();
     final version = await _adapter.getCoreVersion();
     if (version == null || version.isEmpty) return null;
     if (version != _cachedCoreVersion) {
@@ -714,7 +334,8 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   /// App version for display, or an empty string until it has been read.
-  String get appVersion => _cachedAppVersion == 'unknown' ? '' : _cachedAppVersion;
+  String get appVersion =>
+      _cachedAppVersion == 'unknown' ? '' : _cachedAppVersion;
 
   /// Core version for display, read once and cached.
   ///
@@ -738,229 +359,6 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
       return info.version;
     } catch (_) {
       return 'unknown';
-    }
-  }
-
-  DeviceTelemetryStore _loadTelemetryStore(SharedPreferences prefs) {
-    return DeviceTelemetryStore(
-      createdAt: _readTimestamp(prefs, _prefsTelemetryCreatedAt),
-      lastSeenAt: _readTimestamp(prefs, _prefsTelemetryLastSeenAt),
-      lastLaunchAt: _readTimestamp(prefs, _prefsTelemetryLastLaunchAt),
-      lastForegroundAt: _readTimestamp(prefs, _prefsTelemetryLastForegroundAt),
-      lastBackgroundAt: _readTimestamp(prefs, _prefsTelemetryLastBackgroundAt),
-      lastActiveAt: _readTimestamp(prefs, _prefsTelemetryLastActiveAt),
-      lastUploadAttemptAt: _readTimestamp(
-        prefs,
-        _prefsTelemetryLastUploadAttemptAt,
-      ),
-      lastUploadedAt: _readTimestamp(prefs, _prefsTelemetryLastUploadedAt),
-      lastSyncFailureAt: _readTimestamp(
-        prefs,
-        _prefsTelemetryLastSyncFailureAt,
-      ),
-      lastReachabilityLossAt: _readTimestamp(
-        prefs,
-        _prefsTelemetryLastReachabilityLossAt,
-      ),
-      lastReactivatedAt: _readTimestamp(
-        prefs,
-        _prefsTelemetryLastReactivatedAt,
-      ),
-      lastStateChangedAt: _readTimestamp(
-        prefs,
-        _prefsTelemetryLastStateChangedAt,
-      ),
-      lastUploadedSignature: prefs.getString(
-        _prefsTelemetryLastUploadedSignature,
-      ),
-      lastFailureMessage: prefs.getString(_prefsTelemetryLastFailureMessage),
-      lastStateReason: prefs.getString(_prefsTelemetryLastStateReason),
-      lastDerivedState: DeviceTelemetryState.fromWireValue(
-        prefs.getString(_prefsTelemetryLastDerivedState),
-      ),
-      launchCount: prefs.getInt(_prefsTelemetryLaunchCount) ?? 0,
-      foregroundCount: prefs.getInt(_prefsTelemetryForegroundCount) ?? 0,
-      uploadFailureCount: prefs.getInt(_prefsTelemetryUploadFailureCount) ?? 0,
-      consecutiveUploadFailures:
-          prefs.getInt(_prefsTelemetryConsecutiveUploadFailures) ?? 0,
-      reachabilityLost: prefs.getBool(_prefsTelemetryReachabilityLost) ?? false,
-    );
-  }
-
-  Future<void> _persistTelemetryStore(
-    SharedPreferences prefs,
-    DeviceTelemetryStore store,
-  ) async {
-    await _writeTimestamp(prefs, _prefsTelemetryCreatedAt, store.createdAt);
-    await _writeTimestamp(prefs, _prefsTelemetryLastSeenAt, store.lastSeenAt);
-    await _writeTimestamp(
-      prefs,
-      _prefsTelemetryLastLaunchAt,
-      store.lastLaunchAt,
-    );
-    await _writeTimestamp(
-      prefs,
-      _prefsTelemetryLastForegroundAt,
-      store.lastForegroundAt,
-    );
-    await _writeTimestamp(
-      prefs,
-      _prefsTelemetryLastBackgroundAt,
-      store.lastBackgroundAt,
-    );
-    await _writeTimestamp(
-      prefs,
-      _prefsTelemetryLastActiveAt,
-      store.lastActiveAt,
-    );
-    await _writeTimestamp(
-      prefs,
-      _prefsTelemetryLastUploadAttemptAt,
-      store.lastUploadAttemptAt,
-    );
-    await _writeTimestamp(
-      prefs,
-      _prefsTelemetryLastUploadedAt,
-      store.lastUploadedAt,
-    );
-    await _writeTimestamp(
-      prefs,
-      _prefsTelemetryLastSyncFailureAt,
-      store.lastSyncFailureAt,
-    );
-    await _writeTimestamp(
-      prefs,
-      _prefsTelemetryLastReachabilityLossAt,
-      store.lastReachabilityLossAt,
-    );
-    await _writeTimestamp(
-      prefs,
-      _prefsTelemetryLastReactivatedAt,
-      store.lastReactivatedAt,
-    );
-    await _writeTimestamp(
-      prefs,
-      _prefsTelemetryLastStateChangedAt,
-      store.lastStateChangedAt,
-    );
-    await _writeString(
-      prefs,
-      _prefsTelemetryLastUploadedSignature,
-      store.lastUploadedSignature,
-    );
-    await _writeString(
-      prefs,
-      _prefsTelemetryLastFailureMessage,
-      store.lastFailureMessage,
-    );
-    await _writeString(
-      prefs,
-      _prefsTelemetryLastStateReason,
-      store.lastStateReason,
-    );
-    await _writeString(
-      prefs,
-      _prefsTelemetryLastDerivedState,
-      store.lastDerivedState.wireValue,
-    );
-    await prefs.setInt(_prefsTelemetryLaunchCount, store.launchCount);
-    await prefs.setInt(_prefsTelemetryForegroundCount, store.foregroundCount);
-    await prefs.setInt(
-      _prefsTelemetryUploadFailureCount,
-      store.uploadFailureCount,
-    );
-    await prefs.setInt(
-      _prefsTelemetryConsecutiveUploadFailures,
-      store.consecutiveUploadFailures,
-    );
-    await prefs.setBool(
-      _prefsTelemetryReachabilityLost,
-      store.reachabilityLost,
-    );
-  }
-
-  Future<DeviceTelemetrySnapshot> _refreshTelemetrySnapshot({
-    SharedPreferences? prefs,
-    DateTime? now,
-    bool notify = true,
-  }) async {
-    final sharedPrefs = prefs ?? await SharedPreferences.getInstance();
-    final derivedAt = (now ?? DateTime.now()).toUtc();
-    final context = await _buildTelemetryRuntimeContext();
-    var store = _loadTelemetryStore(sharedPrefs);
-    final initialSnapshot = DeviceTelemetryDeriver.derive(
-      store: store,
-      context: context,
-      thresholds: _telemetryThresholds,
-      now: derivedAt,
-    );
-    final stateChanged =
-        initialSnapshot.state != store.lastDerivedState ||
-        initialSnapshot.stateReason != store.lastStateReason;
-    store = store.copyWith(
-      lastDerivedState: initialSnapshot.state,
-      lastStateReason: initialSnapshot.stateReason,
-      lastStateChangedAt: stateChanged
-          ? derivedAt
-          : (store.lastStateChangedAt ?? derivedAt),
-      lastActiveAt: initialSnapshot.lastActiveAt,
-    );
-    await _persistTelemetryStore(sharedPrefs, store);
-    final finalSnapshot = DeviceTelemetryDeriver.derive(
-      store: store,
-      context: context,
-      thresholds: _telemetryThresholds,
-      now: derivedAt,
-    );
-    _lastTelemetrySnapshot = finalSnapshot;
-    if (notify) {
-      notifyListeners();
-    }
-    return finalSnapshot;
-  }
-
-  DateTime? _readTimestamp(SharedPreferences prefs, String key) {
-    final raw = prefs.getString(key);
-    if (raw == null || raw.isEmpty) {
-      return null;
-    }
-    return DateTime.tryParse(raw)?.toUtc();
-  }
-
-  Future<void> _writeTimestamp(
-    SharedPreferences prefs,
-    String key,
-    DateTime? value,
-  ) async {
-    if (value == null) {
-      await prefs.remove(key);
-      return;
-    }
-    await prefs.setString(key, value.toUtc().toIso8601String());
-  }
-
-  Future<void> _writeString(
-    SharedPreferences prefs,
-    String key,
-    String? value,
-  ) async {
-    if (value == null || value.isEmpty) {
-      await prefs.remove(key);
-      return;
-    }
-    await prefs.setString(key, value);
-  }
-
-  Future<void> _autoUploadDeviceFeedbackIfNeeded() async {
-    try {
-      final isAllowed = await isDeviceFeedbackAllowed();
-      final shouldUpload = await shouldAutoUploadDeviceFeedbackReport();
-
-      if (isAllowed && shouldUpload) {
-        triggerDeviceFeedbackUploadInBackground();
-      }
-    } catch (e) {
-      // Silent error handling
     }
   }
 
@@ -1042,14 +440,6 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
     );
   }
 
-  Future<void> setAutoStart(bool enabled) async {
-    if (Platform.isAndroid) {
-      await PocketClawChannel.setAutoStart(enabled);
-      _autoStart = enabled;
-      notifyListeners();
-    }
-  }
-
   Future<void> setServiceLaunchAutoStart(bool enabled) =>
       _commitLaunchAutoStart(serviceEnabled: enabled);
 
@@ -1069,7 +459,8 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
     if (!Platform.isAndroid) return PublicModeReconciliation.notRequested;
     try {
       final decision = resolvePublicModeReconciliation(
-        dashboardInitialized: await PocketClawChannel.dashboardAuthInitialized(),
+        dashboardInitialized:
+            await PocketClawChannel.dashboardAuthInitialized(),
         desiredPublic: _publicMode,
         alreadyPublic: _publicModeReconciled,
       );
@@ -1113,7 +504,9 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
       // The preference stays on: it was persisted before this ran, and the
       // next service start still honours it. Report the real failure rather
       // than reverting a choice the user made.
-      _addLog('Could not start the Gateway now; it will start with the service');
+      _addLog(
+        'Could not start the Gateway now; it will start with the service',
+      );
       debugPrint('Immediate gateway start failed: $e');
     }
     notifyListeners();
@@ -1137,7 +530,8 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
       _addLog('Could not save the auto-start preference');
       debugPrint('Failed to persist launch auto-start preferences: $e');
       try {
-        _launchAutoStart = await PocketClawChannel.getLaunchAutoStartPreferences();
+        _launchAutoStart =
+            await PocketClawChannel.getLaunchAutoStartPreferences();
       } catch (_) {}
     }
     notifyListeners();
@@ -1207,221 +601,11 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
     notifyListeners();
   }
 
-  Future<Map<String, String>> getDeviceFeedbackDeviceInfo() async {
-    switch (_deviceFeedbackProvider) {
-      case DeviceFeedbackProvider.umeng:
-        return _umengReporter.collectSafeDeviceInfo();
-      case DeviceFeedbackProvider.none:
-        return const {};
-    }
-  }
-
-  Future<bool> isDeviceFeedbackAllowed() async {
-    switch (_deviceFeedbackProvider) {
-      case DeviceFeedbackProvider.umeng:
-        return _umengReporter.isUploadAllowed();
-      case DeviceFeedbackProvider.none:
-        return false;
-    }
-  }
-
-  Future<bool> shouldAskForDeviceFeedbackUpload() async {
-    return false;
-  }
-
-  Future<bool> shouldAutoUploadDeviceFeedbackReport() async {
-    if (!await isDeviceFeedbackAllowed()) {
-      return false;
-    }
-
-    final snapshot = await getDeviceTelemetrySnapshot();
-    final signatureChanged =
-        snapshot.lastUploadedSignature == null ||
-        snapshot.lastUploadedSignature != snapshot.buildUploadSignature();
-
-    final providerRequestedUpload = switch (_deviceFeedbackProvider) {
-      DeviceFeedbackProvider.umeng => _umengReporter.shouldUpload(),
-      DeviceFeedbackProvider.none => Future<bool>.value(false),
-    };
-
-    return signatureChanged ||
-        snapshot.isStale ||
-        await providerRequestedUpload;
-  }
-
-  Future<void> setDeviceFeedbackUploadAllowed(bool allowed) async {
-    if (!allowed) {
-      _resetDeviceFeedbackRetryState();
-    }
-    switch (_deviceFeedbackProvider) {
-      case DeviceFeedbackProvider.umeng:
-        await _umengReporter.setUploadAllowed(allowed);
-        return;
-      case DeviceFeedbackProvider.none:
-        return;
-    }
-  }
-
-  Future<DeviceFeedbackUploadResult> uploadDeviceFeedbackReport() async {
-    final ongoingTask = _deviceFeedbackUploadTask;
-    if (ongoingTask != null) {
-      return ongoingTask;
-    }
-
-    _lastDeviceFeedbackSyncMessage = 'Syncing device feedback in background...';
-    notifyListeners();
-
-    final task = _uploadDeviceFeedbackReportInternal();
-    _deviceFeedbackUploadTask = task;
-
-    try {
-      return await task;
-    } finally {
-      if (identical(_deviceFeedbackUploadTask, task)) {
-        _deviceFeedbackUploadTask = null;
-        notifyListeners();
-      }
-    }
-  }
-
-  void triggerDeviceFeedbackUploadInBackground() {
-    if (!isDeviceFeedbackEnabled || isDeviceFeedbackUploadInProgress) {
-      return;
-    }
-    _deviceFeedbackRetryTimer?.cancel();
-    _deviceFeedbackRetryTimer = null;
-    unawaited(uploadDeviceFeedbackReport());
-  }
-
-  Future<DeviceFeedbackUploadResult>
-  _uploadDeviceFeedbackReportInternal() async {
-    final attemptAt = DateTime.now().toUtc();
-    await recordTelemetryUploadAttempt(now: attemptAt);
-    final telemetrySnapshot = await getDeviceTelemetrySnapshot(now: attemptAt);
-    late final DeviceFeedbackUploadResult result;
-    switch (_deviceFeedbackProvider) {
-      case DeviceFeedbackProvider.umeng:
-        if (_umengAppKey.trim().isEmpty) {
-          result = const DeviceFeedbackUploadResult(
-            success: false,
-            message: 'Missing POCKETCLAW_UMENG_APP_KEY build configuration.',
-          );
-          break;
-        }
-        result = await _umengReporter.uploadDeviceReport(
-          appKey: _umengAppKey,
-          channel: _umengChannel,
-          telemetrySnapshot: telemetrySnapshot,
-        );
-        break;
-      case DeviceFeedbackProvider.none:
-        result = const DeviceFeedbackUploadResult(
-          success: false,
-          message: 'Device feedback provider is disabled.',
-        );
-        break;
-    }
-    _lastDeviceFeedbackSyncMessage = result.message;
-    if (result.success) {
-      await recordTelemetryUploadSuccess(telemetrySnapshot, now: attemptAt);
-      _resetDeviceFeedbackRetryState(notify: false);
-    } else {
-      await recordTelemetryUploadFailure(result.message, now: attemptAt);
-      await _scheduleDeviceFeedbackRetryIfNeeded(result);
-    }
-    _addLog(
-      result.success
-          ? 'Device feedback sync succeeded.'
-          : 'Device feedback sync failed: ${result.message}',
-    );
-    if (!result.success) {
-      debugPrint('Device feedback sync failed: ${result.message}');
-    }
-    return result;
-  }
-
-  Future<void> _scheduleDeviceFeedbackRetryIfNeeded(
-    DeviceFeedbackUploadResult result,
-  ) async {
-    if (!_shouldRetryDeviceFeedback(result.message)) {
-      _resetDeviceFeedbackRetryState(notify: false);
-      return;
-    }
-    if (!await isDeviceFeedbackAllowed()) {
-      _resetDeviceFeedbackRetryState(notify: false);
-      return;
-    }
-    if (_deviceFeedbackRetryAttempt >= _deviceFeedbackRetryDelays.length) {
-      _lastDeviceFeedbackSyncMessage =
-          '${result.message} Auto retry stopped for now.';
-      return;
-    }
-
-    final delay = _deviceFeedbackRetryDelays[_deviceFeedbackRetryAttempt];
-    _deviceFeedbackRetryAttempt += 1;
-    _deviceFeedbackRetryTimer?.cancel();
-    _lastDeviceFeedbackSyncMessage =
-        '${result.message} Retrying silently in ${delay.inSeconds}s.';
-    _deviceFeedbackRetryTimer = Timer(delay, () {
-      _deviceFeedbackRetryTimer = null;
-      if (!isDeviceFeedbackEnabled || isDeviceFeedbackUploadInProgress) {
-        return;
-      }
-      unawaited(uploadDeviceFeedbackReport());
-    });
-  }
-
-  bool _shouldRetryDeviceFeedback(String message) {
-    final normalized = message.toLowerCase();
-    if (normalized.contains('missing picoclaw_') ||
-        normalized.contains('provider is disabled') ||
-        normalized.contains('projectid is empty') ||
-        normalized.contains('apikey is empty') ||
-        normalized.contains('appid is empty') ||
-        normalized.contains('messagingsenderid is empty') ||
-        normalized.contains('appkey is empty') ||
-        normalized.contains('not supported on this platform') ||
-        normalized.contains('only supported on android')) {
-      return false;
-    }
-    return true;
-  }
-
-  void _resetDeviceFeedbackRetryState({bool notify = true}) {
-    _deviceFeedbackRetryTimer?.cancel();
-    _deviceFeedbackRetryTimer = null;
-    _deviceFeedbackRetryAttempt = 0;
-    if (notify) {
-      notifyListeners();
-    }
-  }
-
-  Future<void> updateConfig(
-    String host,
-    int port, {
-    String? binaryPath,
-    String? arguments,
-    bool? publicMode,
-  }) async {
-    _host = host;
-    _port = port;
-    if (!(Platform.isWindows || Platform.isAndroid)) {
-      if (binaryPath != null) _binaryPath = binaryPath;
-    }
-    if (arguments != null) _arguments = arguments;
-    if (publicMode != null) {
-      _publicMode = publicMode;
-      _host = publicMode ? '0.0.0.0' : host;
-    }
-    _syncAdapterConfiguration();
-
+  /// Records the network mode Core is started with. The host and port follow
+  /// from it; neither is a setting of its own on Android.
+  Future<void> setPublicModeConfig(bool publicMode) async {
+    _publicMode = publicMode;
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('host', _host);
-    await prefs.setInt('port', port);
-    if (!(Platform.isWindows || Platform.isAndroid)) {
-      if (binaryPath != null) await prefs.setString('binaryPath', binaryPath);
-    }
-    if (arguments != null) await prefs.setString('arguments', arguments);
     await prefs.setBool('publicMode', _publicMode);
     _syncLanAddressPolling();
     notifyListeners();
@@ -1431,21 +615,12 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
   /// asks the launcher to replace only port 18800's listeners and persists the
   /// setting only after the new bind succeeds. A failed bind reports the
   /// listener mode restored by the launcher.
-  Future<bool> applyPublicMode(
-    bool value, {
-    required int port,
-    String? arguments,
-  }) async {
+  Future<bool> applyPublicMode(bool value) async {
     if (_isApplyingPublicMode) return false;
     _publicModeApplyError = null;
 
     if (!Platform.isAndroid || _status != ServiceStatus.running) {
-      await updateConfig(
-        value ? '0.0.0.0' : '127.0.0.1',
-        port,
-        arguments: arguments,
-        publicMode: value,
-      );
+      await setPublicModeConfig(value);
       return true;
     }
 
@@ -1453,12 +628,7 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
     notifyListeners();
     try {
       final result = await PocketClawChannel.applyPublicMode(value);
-      await updateConfig(
-        result.publicMode ? '0.0.0.0' : '127.0.0.1',
-        port,
-        arguments: arguments,
-        publicMode: result.publicMode,
-      );
+      await setPublicModeConfig(result.publicMode);
       if (!result.success || result.publicMode != value) {
         _publicModeApplyError = result.message.isNotEmpty
             ? result.message
@@ -1478,21 +648,6 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
       _isApplyingPublicMode = false;
       notifyListeners();
     }
-  }
-
-  Future<bool> validateBinary([String? path]) async {
-    _syncAdapterConfiguration();
-    String? checkPath;
-    if (path != null && path.isNotEmpty) {
-      checkPath = path;
-    } else if (_binaryPath.isNotEmpty) {
-      checkPath = _binaryPath;
-    }
-
-    final ok = await _adapter.validateBinary(checkPath);
-    _lastErrorCode = _adapter.getLastErrorCode();
-    notifyListeners();
-    return ok;
   }
 
   Timer? _notifyTimer;
@@ -1554,20 +709,13 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
   ///
   /// Shared by start and restart so a restarted Core cannot come up with a
   /// different network mode than a started one.
-  String _launchArguments() {
-    // Simple token logic (split by spaces and dedupe) instead of regex.
-    // _arguments is initialized to '' and loaded with `?? ''` in init(), so
-    // it's non-null.
-    final tokens = _arguments.split(' ').where((t) => t.isNotEmpty).toList();
-
-    if (_publicMode && !tokens.contains('-public')) {
-      tokens.add('-public');
-    }
-    if (!tokens.contains('-no-browser')) {
-      tokens.add('-no-browser');
-    }
-    return tokens.join(' ');
-  }
+  ///
+  /// Derived from Public Mode alone. A free-form arguments field used to be
+  /// appended here, and the Android host reads this string only to look for
+  /// `-public` — so typing that token enabled LAN exposure without going
+  /// through the Public Mode toggle that PC-DEF-020 made the one authority.
+  String _launchArguments() =>
+      _publicMode ? '-public -no-browser' : '-no-browser';
 
   /// Restarts Core so configuration it reads only at launch takes effect.
   ///
@@ -1584,13 +732,12 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
   Future<bool> restartCore() async {
     if (_status != ServiceStatus.running) return false;
 
-    _syncAdapterConfiguration();
     _status = ServiceStatus.starting;
     notifyListeners();
 
     try {
       final ok = await _adapter.restartService(
-        port: _port,
+        port: dashboardPort,
         args: _launchArguments(),
       );
       if (!ok) {
@@ -1624,27 +771,24 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
 
   Future<void> start() async {
     if (_status != ServiceStatus.stopped) return;
-    _syncAdapterConfiguration();
 
     _status = ServiceStatus.starting;
     notifyListeners();
 
     final String launchArgs = _launchArguments();
     try {
-      final ok = await _adapter.startService(port: _port, args: launchArgs);
+      final ok = await _adapter.startService(
+        port: dashboardPort,
+        args: launchArgs,
+      );
 
       if (ok) {
-        if (Platform.isAndroid) {
-          // Android: keep original behavior — log and defer health check to native side
-          _addLog('Starting PocketClaw service...');
-          Future.delayed(const Duration(seconds: 2), () {
-            _syncNativeServiceStatus();
-          });
-        } else {
-          // Desktop: consider service running immediately
-          _status = ServiceStatus.running;
-          _addLog('Service started on $webUrl');
-        }
+        // The native service reports readiness; its status is read back
+        // rather than assumed.
+        _addLog('Starting PocketClaw service...');
+        Future.delayed(const Duration(seconds: 2), () {
+          _syncNativeServiceStatus();
+        });
       } else {
         _status = ServiceStatus.stopped;
         final code = _adapter.getLastErrorCode();
@@ -1672,13 +816,9 @@ class ServiceManager extends ChangeNotifier with WidgetsBindingObserver {
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _deviceFeedbackRetryTimer?.cancel();
     _notifyTimer?.cancel();
     _nativePollingTimer?.cancel();
     _lanAddressPollingTimer?.cancel();
-    for (final subscription in _signalSubscriptions) {
-      subscription.cancel();
-    }
     super.dispose();
   }
 }

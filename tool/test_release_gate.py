@@ -486,5 +486,19 @@ class FlutterToolchainResolution(unittest.TestCase):
         self.assertEqual(gate_module.find_flutter(), gate_module.find_flutter())
 
 
+class MinSdkTest(unittest.TestCase):
+    """PC-DEF-086: the packaged minSdk is what decides which devices get the APK."""
+
+    def test_both_aapt2_spellings_are_read(self):
+        self.assertEqual(gate_module.packaged_min_sdk("package: name='x'\nminSdkVersion:'26'\n"), 26)
+        self.assertEqual(gate_module.packaged_min_sdk("package: name='x'\nsdkVersion:'24'\n"), 24)
+
+    def test_a_target_sdk_line_is_not_mistaken_for_it(self):
+        self.assertIsNone(gate_module.packaged_min_sdk("targetSdkVersion:'36'\n"))
+
+    def test_the_contract_is_android_8(self):
+        self.assertEqual(gate_module.EXPECTED_MIN_SDK, 26)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

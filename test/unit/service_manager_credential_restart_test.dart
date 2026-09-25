@@ -31,18 +31,25 @@ void main() {
             case 'stopService':
               nativeRunning = false;
               return true;
+            case 'restartService':
+              nativeRunning = true;
+              return true;
             default:
               return null;
           }
         });
   }
 
-  setUp(() {
+  setUp(() async {
     SharedPreferences.setMockInitialValues({});
     service = ServiceManager();
     nativeCalls = <String>[];
     nativeRunning = false;
     installNativeStub();
+    // ServiceManager is a singleton; start every test from what the host
+    // reports rather than from whatever the previous test left behind.
+    await service.pollNativeServiceStatusForTest();
+    nativeCalls.clear();
   });
 
   tearDown(() {
@@ -63,10 +70,6 @@ void main() {
     await service.pollNativeServiceStatusForTest();
     expect(service.status, ServiceStatus.running);
 
-    // The host has a desktop adapter rather than the Android service, so the
-    // observable proof of a restart is the status transition, not a native
-    // method name.
-    //
     // PC-DEF-030. This used to assert that the manager passed through
     // `stopped`, which was proof of the stop-then-start the restart is no
     // longer allowed to be: on Android those are two service intents with an
@@ -80,6 +83,8 @@ void main() {
 
     expect(outcome, CredentialApplyOutcome.applied);
     expect(seen.first, ServiceStatus.starting);
+    expect(nativeCalls, contains('restartService'));
+    expect(nativeCalls, isNot(contains('stopService')));
   });
 
   test('a starting service is never interrupted', () async {

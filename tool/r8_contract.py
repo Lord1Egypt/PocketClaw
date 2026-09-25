@@ -18,7 +18,6 @@ MAPPING = REPO / "build/app/outputs/mapping/release/mapping.txt"
 REQUIRED_COMPONENTS = (
     "com.lord1egypt.pocketclaw.MainActivity",
     "com.lord1egypt.pocketclaw.PocketClawApp",
-    "com.lord1egypt.pocketclaw.receiver.BootReceiver",
     "com.lord1egypt.pocketclaw.service.PocketClawService",
 )
 INTERNAL_CLASSES = (

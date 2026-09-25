@@ -1,11 +1,10 @@
 package com.lord1egypt.pocketclaw
 
 import android.content.Intent
-import android.net.Uri
-import android.os.Build
-import android.os.Environment
-import android.provider.Settings
+import android.os.Bundle
+import com.lord1egypt.pocketclaw.diagnostics.LifecycleDiagnostics
 import com.lord1egypt.pocketclaw.media.ChatImagePicker
+import com.lord1egypt.pocketclaw.storage.LegacyWorkspaceImporter
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 
@@ -19,17 +18,30 @@ class MainActivity : FlutterActivity() {
      */
     private val chatImagePicker = ChatImagePicker(this)
 
-    /** Guards the all-files-access prompt to one appearance per launch. */
-    private var storageAccessPromptShown = false
+    /**
+     * Owns the one-time import of the pre-PC-DEF-077 shared workspace, for the
+     * same reason: the document-tree picker answers through an Activity result.
+     */
+    private val legacyWorkspaceImporter = LegacyWorkspaceImporter(this)
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        LifecycleDiagnostics.record(
+            this, "activity", "create", "restored=${savedInstanceState != null}",
+        )
+        super.onCreate(savedInstanceState)
+    }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
-        methodChannel = PocketClawMethodChannel(this, flutterEngine, chatImagePicker)
+        methodChannel = PocketClawMethodChannel(
+            this, flutterEngine, chatImagePicker, legacyWorkspaceImporter,
+        )
     }
 
     @Suppress("DEPRECATION")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         if (chatImagePicker.onActivityResult(requestCode, resultCode, data)) return
+        if (legacyWorkspaceImporter.onActivityResult(requestCode, resultCode, data)) return
         super.onActivityResult(requestCode, resultCode, data)
     }
 
@@ -56,56 +68,22 @@ class MainActivity : FlutterActivity() {
 
     override fun onResume() {
         super.onResume()
-        val storagePromptJustLaunched = requestAllFilesAccessIfNeeded()
         // PC-DEF-058, second attempt. Asking used to happen in the Settings
         // page's initState, and a fresh install never opens Settings -- it lands
         // on the Dashboard -- so the system dialog was never shown and the owner
         // had to enable notifications by hand. Every launch passes through here.
         //
-        // Ordered after the storage prompt on purpose: when this same resume has
-        // just sent the user to the all-files-access screen, the ask waits for
-        // the resume that comes back, rather than being stacked behind it.
-        methodChannel?.requestNotificationPermissionOnResume(storagePromptJustLaunched)
-    }
-
-    /**
-     * Sends the user to the all-files-access screen if PocketClaw still needs it.
-     *
-     * Android 11+ 需要 MANAGE_EXTERNAL_STORAGE 才能写 Downloads 目录。
-     * 若未授予，跳转系统设置页引导用户开启（只弹一次，直到用户授予或主动拒绝）。
-     *
-     * The "only once" the comment describes was never enforced, so every resume
-     * jumped to Settings — including the resume that comes back from the Chat
-     * attachment picker, which made choosing an image look like it had thrown
-     * the user out of the app.
-     *
-     * @return whether this call launched the Settings screen.
-     */
-    private fun requestAllFilesAccessIfNeeded(): Boolean {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R ||
-            storageAccessPromptShown ||
-            Environment.isExternalStorageManager()
-        ) {
-            return false
-        }
-        storageAccessPromptShown = true
-        try {
-            startActivity(
-                Intent(
-                    Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
-                    Uri.parse("package:$packageName")
-                )
-            )
-        } catch (e: Exception) {
-            startActivity(Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION))
-        }
-        return true
+        // Nothing else is requested here. The all-files-access redirect that
+        // used to run first on every cold launch is gone with the permission
+        // (PC-DEF-077): the workspace is app-specific storage, which needs none.
+        methodChannel?.requestNotificationPermissionOnResume()
     }
 
     override fun cleanUpFlutterEngine(flutterEngine: FlutterEngine) {
         // A pick still open here can never be answered, and an unanswered pick
         // leaves the console's file input waiting forever.
         chatImagePicker.cancelPending()
+        legacyWorkspaceImporter.cancelPending()
         methodChannel?.dispose()
         methodChannel = null
         super.cleanUpFlutterEngine(flutterEngine)

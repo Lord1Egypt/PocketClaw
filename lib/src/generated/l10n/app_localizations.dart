@@ -118,29 +118,11 @@ abstract class AppLocalizations {
     Locale('zh'),
   ];
 
-  /// The title of the application
-  ///
-  /// In en, this message translates to:
-  /// **'PocketClaw'**
-  String get appTitle;
-
-  /// No description provided for @run.
-  ///
-  /// In en, this message translates to:
-  /// **'Run'**
-  String get run;
-
   /// No description provided for @stop.
   ///
   /// In en, this message translates to:
   /// **'Stop'**
   String get stop;
-
-  /// No description provided for @config.
-  ///
-  /// In en, this message translates to:
-  /// **'Config'**
-  String get config;
 
   /// No description provided for @webAdmin.
   ///
@@ -153,12 +135,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Logs'**
   String get logs;
-
-  /// No description provided for @viewLogs.
-  ///
-  /// In en, this message translates to:
-  /// **'View Logs'**
-  String get viewLogs;
 
   /// No description provided for @statusRunning.
   ///
@@ -196,48 +172,6 @@ abstract class AppLocalizations {
   /// **'Save'**
   String get save;
 
-  /// No description provided for @showWindow.
-  ///
-  /// In en, this message translates to:
-  /// **'Show Window'**
-  String get showWindow;
-
-  /// No description provided for @exit.
-  ///
-  /// In en, this message translates to:
-  /// **'Exit'**
-  String get exit;
-
-  /// No description provided for @binaryPath.
-  ///
-  /// In en, this message translates to:
-  /// **'Binary Path'**
-  String get binaryPath;
-
-  /// No description provided for @browse.
-  ///
-  /// In en, this message translates to:
-  /// **'Browse'**
-  String get browse;
-
-  /// No description provided for @pathError.
-  ///
-  /// In en, this message translates to:
-  /// **'Invalid Path'**
-  String get pathError;
-
-  /// No description provided for @arguments.
-  ///
-  /// In en, this message translates to:
-  /// **'Arguments'**
-  String get arguments;
-
-  /// No description provided for @argumentsHint.
-  ///
-  /// In en, this message translates to:
-  /// **'e.g. config.json'**
-  String get argumentsHint;
-
   /// No description provided for @notStarted.
   ///
   /// In en, this message translates to:
@@ -274,42 +208,6 @@ abstract class AppLocalizations {
   /// **'Refresh'**
   String get refresh;
 
-  /// No description provided for @coreBinaryMissing.
-  ///
-  /// In en, this message translates to:
-  /// **'Core binary not found. Place the platform binary into app/bin/ or set the path in Settings.'**
-  String get coreBinaryMissing;
-
-  /// No description provided for @coreStartFailed.
-  ///
-  /// In en, this message translates to:
-  /// **'Failed to start core service.'**
-  String get coreStartFailed;
-
-  /// No description provided for @coreStopFailed.
-  ///
-  /// In en, this message translates to:
-  /// **'Failed to stop core service.'**
-  String get coreStopFailed;
-
-  /// No description provided for @coreInvalidBinary.
-  ///
-  /// In en, this message translates to:
-  /// **'Invalid core binary file.'**
-  String get coreInvalidBinary;
-
-  /// No description provided for @coreUnknownError.
-  ///
-  /// In en, this message translates to:
-  /// **'Unknown core error: {code}'**
-  String coreUnknownError(Object code);
-
-  /// No description provided for @coreValid.
-  ///
-  /// In en, this message translates to:
-  /// **'Core binary is valid.'**
-  String get coreValid;
-
   /// No description provided for @publicMode.
   ///
   /// In en, this message translates to:
@@ -333,12 +231,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Theme'**
   String get themeSelection;
-
-  /// No description provided for @check.
-  ///
-  /// In en, this message translates to:
-  /// **'Check'**
-  String get check;
 
   /// No description provided for @launchService.
   ///
@@ -394,96 +286,6 @@ abstract class AppLocalizations {
   /// **'No LAN address available'**
   String get unableToGetDeviceIp;
 
-  /// No description provided for @deviceReportingTitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Device compatibility feedback'**
-  String get deviceReportingTitle;
-
-  /// No description provided for @deviceReportingSubtitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Used only for OS-version and app-version compatibility checks. No chat messages, account details, or personal content are involved'**
-  String get deviceReportingSubtitle;
-
-  /// No description provided for @deviceReportingConsentTitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Help improve device compatibility'**
-  String get deviceReportingConsentTitle;
-
-  /// No description provided for @deviceReportingConsentDescription.
-  ///
-  /// In en, this message translates to:
-  /// **'When enabled, only an anonymous installation ID, OS version, and app version are sent to understand compatibility. Language and region can be collected by Firebase Analytics separately. No chat messages, typed content, account details, files, or custom settings are uploaded'**
-  String get deviceReportingConsentDescription;
-
-  /// No description provided for @deviceReportingBannerDescription.
-  ///
-  /// In en, this message translates to:
-  /// **'Only an anonymous installation ID, OS version, and app version are synced to improve compatibility. Language and region may be collected separately by Firebase Analytics. No chat messages, account details, files, or personal content are sent'**
-  String get deviceReportingBannerDescription;
-
-  /// No description provided for @deviceReportingWhatWillBeSent.
-  ///
-  /// In en, this message translates to:
-  /// **'Only these device details are included'**
-  String get deviceReportingWhatWillBeSent;
-
-  /// No description provided for @deviceReportingDeviceLabel.
-  ///
-  /// In en, this message translates to:
-  /// **'Device Model'**
-  String get deviceReportingDeviceLabel;
-
-  /// No description provided for @deviceReportingPlatformLabel.
-  ///
-  /// In en, this message translates to:
-  /// **'Device Category'**
-  String get deviceReportingPlatformLabel;
-
-  /// No description provided for @deviceReportingSystemLabel.
-  ///
-  /// In en, this message translates to:
-  /// **'OS Version'**
-  String get deviceReportingSystemLabel;
-
-  /// No description provided for @deviceReportingTimingNote.
-  ///
-  /// In en, this message translates to:
-  /// **'A sync runs once when enabled, and again only after a system update is detected'**
-  String get deviceReportingTimingNote;
-
-  /// No description provided for @deviceReportingDeny.
-  ///
-  /// In en, this message translates to:
-  /// **'Not now'**
-  String get deviceReportingDeny;
-
-  /// No description provided for @deviceReportingAllow.
-  ///
-  /// In en, this message translates to:
-  /// **'Turn on'**
-  String get deviceReportingAllow;
-
-  /// No description provided for @deviceReportingUploadSucceeded.
-  ///
-  /// In en, this message translates to:
-  /// **'Device compatibility feedback is on'**
-  String get deviceReportingUploadSucceeded;
-
-  /// No description provided for @deviceReportingUploadFailed.
-  ///
-  /// In en, this message translates to:
-  /// **'Device compatibility feedback is on, but the current device-info sync did not complete'**
-  String get deviceReportingUploadFailed;
-
-  /// No description provided for @deviceReportingDisabled.
-  ///
-  /// In en, this message translates to:
-  /// **'Device compatibility feedback is off'**
-  String get deviceReportingDisabled;
-
   /// No description provided for @localModeHint.
   ///
   /// In en, this message translates to:
@@ -502,12 +304,6 @@ abstract class AppLocalizations {
   /// **'No logs to export'**
   String get noLogsToExport;
 
-  /// No description provided for @logsSavedToMediaLibrary.
-  ///
-  /// In en, this message translates to:
-  /// **'Logs saved to Downloads (Android media library)'**
-  String get logsSavedToMediaLibrary;
-
   /// No description provided for @logsSavedToDownloads.
   ///
   /// In en, this message translates to:
@@ -525,6 +321,54 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Workspace'**
   String get workspaceDirectory;
+
+  /// No description provided for @legacyWorkspaceTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Earlier workspace found'**
+  String get legacyWorkspaceTitle;
+
+  /// No description provided for @legacyWorkspaceBody.
+  ///
+  /// In en, this message translates to:
+  /// **'An older version kept your workspace in {path}. PocketClaw now uses its own app storage and has left that folder untouched. You can copy it in: the copy goes into a folder of its own, and nothing is overwritten or deleted.'**
+  String legacyWorkspaceBody(Object path);
+
+  /// No description provided for @legacyWorkspaceImport.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy into workspace'**
+  String get legacyWorkspaceImport;
+
+  /// No description provided for @legacyWorkspaceHide.
+  ///
+  /// In en, this message translates to:
+  /// **'Hide'**
+  String get legacyWorkspaceHide;
+
+  /// No description provided for @legacyWorkspaceCopied.
+  ///
+  /// In en, this message translates to:
+  /// **'Copied {count} files into {folder}.'**
+  String legacyWorkspaceCopied(Object count, Object folder);
+
+  /// No description provided for @legacyWorkspacePartial.
+  ///
+  /// In en, this message translates to:
+  /// **'Copied {count} files into {folder}. {failed} could not be copied.'**
+  String legacyWorkspacePartial(Object count, Object folder, Object failed);
+
+  /// No description provided for @legacyWorkspaceFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'The folder could not be copied.'**
+  String get legacyWorkspaceFailed;
+
+  /// No description provided for @legacyWorkspaceEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'The selected folder had nothing to copy.'**
+  String get legacyWorkspaceEmpty;
 
   /// No description provided for @logsSavedToMediaLibraryWithName.
   ///
@@ -550,35 +394,11 @@ abstract class AppLocalizations {
   /// **'{count} EVENTS'**
   String logEventsCount(int count);
 
-  /// No description provided for @unsavedChanges.
-  ///
-  /// In en, this message translates to:
-  /// **'Unsaved Changes'**
-  String get unsavedChanges;
-
-  /// No description provided for @unsavedChangesHint.
-  ///
-  /// In en, this message translates to:
-  /// **'You have unsaved changes. Do you want to discard them?'**
-  String get unsavedChangesHint;
-
   /// No description provided for @cancel.
   ///
   /// In en, this message translates to:
   /// **'Cancel'**
   String get cancel;
-
-  /// No description provided for @discard.
-  ///
-  /// In en, this message translates to:
-  /// **'Discard'**
-  String get discard;
-
-  /// No description provided for @saved.
-  ///
-  /// In en, this message translates to:
-  /// **'Saved'**
-  String get saved;
 
   /// No description provided for @language.
   ///
@@ -1035,6 +855,48 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'The bundled Git no longer crashes while cloning a repository or updating a branch.'**
   String get whatsNew021Fix1;
+
+  /// No description provided for @whatsNew022Improvement1.
+  ///
+  /// In en, this message translates to:
+  /// **'After a long task, Telegram delivers the answer as a new message, so it notifies you and appears below anything you sent meanwhile.'**
+  String get whatsNew022Improvement1;
+
+  /// No description provided for @whatsNew022Improvement2.
+  ///
+  /// In en, this message translates to:
+  /// **'Telegram tells you when your message is queued and how many are ahead of it.'**
+  String get whatsNew022Improvement2;
+
+  /// No description provided for @whatsNew022Improvement3.
+  ///
+  /// In en, this message translates to:
+  /// **'The workspace now lives in PocketClaw\'s own storage, and the app asks for no storage permission. A workspace an older version left in Download/pocketclaw is untouched and can be copied in from Settings.'**
+  String get whatsNew022Improvement3;
+
+  /// No description provided for @whatsNew022Fix1.
+  ///
+  /// In en, this message translates to:
+  /// **'Very large tool output no longer overflows the conversation.'**
+  String get whatsNew022Fix1;
+
+  /// No description provided for @whatsNew022Fix2.
+  ///
+  /// In en, this message translates to:
+  /// **'Removed Settings entries that had no effect on Android: Devices, Launch at Login and Service Port.'**
+  String get whatsNew022Fix2;
+
+  /// No description provided for @whatsNew022Improvement4.
+  ///
+  /// In en, this message translates to:
+  /// **'PocketClaw now requires Android 8.0 or newer.'**
+  String get whatsNew022Improvement4;
+
+  /// No description provided for @whatsNew022Fix3.
+  ///
+  /// In en, this message translates to:
+  /// **'Fixed an Android startup crash that could appear after restarting the phone.'**
+  String get whatsNew022Fix3;
 
   /// Settings section label above the address, port and public mode controls
   ///

@@ -18,8 +18,6 @@ import (
 	"time"
 	"unicode"
 
-	kagiopenapi "github.com/kagisearch/kagi-openapi-golang"
-
 	"github.com/sipeed/picoclaw/pkg/config"
 	"github.com/sipeed/picoclaw/pkg/logger"
 	"github.com/sipeed/picoclaw/pkg/utils"
@@ -252,21 +250,26 @@ func mapBaiduRecencyFilter(rangeCode string) string {
 	}
 }
 
-func mapKagiLensTimeFilter(rangeCode string, now time.Time) *kagiopenapi.SearchRequestLens {
-	lens := kagiopenapi.NewSearchRequestLens()
+// kagiSearchLens is the part of the Kagi search request's "lens" object that
+// PocketClaw sets: a time restriction and nothing else.
+type kagiSearchLens struct {
+	TimeAfter    string `json:"time_after,omitempty"`
+	TimeRelative string `json:"time_relative,omitempty"`
+}
+
+func mapKagiLensTimeFilter(rangeCode string, now time.Time) *kagiSearchLens {
 	switch rangeCode {
 	case "d":
-		lens.SetTimeRelative("day")
+		return &kagiSearchLens{TimeRelative: "day"}
 	case "w":
-		lens.SetTimeRelative("week")
+		return &kagiSearchLens{TimeRelative: "week"}
 	case "m":
-		lens.SetTimeRelative("month")
+		return &kagiSearchLens{TimeRelative: "month"}
 	case "y":
-		lens.SetTimeAfter(now.AddDate(-1, 0, 0).Format("2006-01-02"))
+		return &kagiSearchLens{TimeAfter: now.AddDate(-1, 0, 0).Format("2006-01-02")}
 	default:
 		return nil
 	}
-	return lens
 }
 
 type BraveSearchProvider struct {
@@ -508,6 +511,21 @@ type KagiSearchProvider struct {
 	client  *http.Client
 }
 
+// kagiSearchRequest is the body of POST {base}/search in the Kagi Search API.
+//
+// Kagi's generated Go client used to build this. It carries no licence, so it
+// could not ship in an F-Droid build; this is the same request written out by
+// hand. Workflow, format and safe_search are the defaults that client's
+// constructor always sent, kept so the request Kagi receives is unchanged.
+type kagiSearchRequest struct {
+	Query      string          `json:"query"`
+	Workflow   string          `json:"workflow"`
+	Format     string          `json:"format"`
+	SafeSearch bool            `json:"safe_search"`
+	Limit      int32           `json:"limit"`
+	Lens       *kagiSearchLens `json:"lens,omitempty"`
+}
+
 func (p *KagiSearchProvider) Search(
 	ctx context.Context,
 	query string,
@@ -523,12 +541,18 @@ func (p *KagiSearchProvider) Search(
 		client = &http.Client{Timeout: searchTimeout}
 	}
 
-	apiClient := newKagiAPIClient(client, p.baseURL)
-	searchReq := kagiopenapi.NewSearchRequest(query)
-	searchReq.SetLimit(int32(count))
-	if lens := mapKagiLensTimeFilter(rangeCode, time.Now().UTC()); lens != nil {
-		searchReq.SetLens(*lens)
+	body, err := json.Marshal(kagiSearchRequest{
+		Query:      query,
+		Workflow:   "search",
+		Format:     "json",
+		SafeSearch: true,
+		Limit:      int32(count),
+		Lens:       mapKagiLensTimeFilter(rangeCode, time.Now().UTC()),
+	})
+	if err != nil {
+		return "", fmt.Errorf("failed to encode request: %w", err)
 	}
+	searchURL := kagiServerURL(p.baseURL) + "/search"
 
 	var lastErr error
 	iter := p.keyPool.NewIterator()
@@ -539,53 +563,59 @@ func (p *KagiSearchProvider) Search(
 			break
 		}
 
-		authCtx := context.WithValue(ctx, kagiopenapi.ContextAccessToken, apiKey)
-		searchResp, httpResp, err := apiClient.SearchAPI.Search(authCtx).SearchRequest(*searchReq).Execute()
-		if httpResp != nil && httpResp.Body != nil {
-			defer httpResp.Body.Close()
-		}
+		status, respBody, err := kagiPost(ctx, client, searchURL, apiKey, body)
 		if err != nil {
-			if httpResp != nil {
-				if httpResp.StatusCode >= 200 && httpResp.StatusCode < 300 {
-					results, parseErr := fallbackKagiSearchResults(httpResp, count)
-					if parseErr != nil {
-						return "", parseErr
-					}
-					return formatKagiSearchResults(query, results), nil
-				}
-				lastErr = kagiStatusError(httpResp.StatusCode)
-				if httpResp.StatusCode == http.StatusTooManyRequests ||
-					httpResp.StatusCode == http.StatusUnauthorized ||
-					httpResp.StatusCode == http.StatusForbidden ||
-					httpResp.StatusCode >= 500 {
-					continue
-				}
-				return "", lastErr
-			}
 			lastErr = fmt.Errorf("request failed: %w", err)
 			continue
 		}
-
-		results := kagiSearchResults(searchResp, count)
-		if len(results) == 0 {
-			return fmt.Sprintf("No results for: %s", query), nil
+		if status < 200 || status >= 300 {
+			lastErr = kagiStatusError(status)
+			if status == http.StatusTooManyRequests ||
+				status == http.StatusUnauthorized ||
+				status == http.StatusForbidden ||
+				status >= 500 {
+				continue
+			}
+			return "", lastErr
 		}
 
+		results, err := parseKagiSearchResults(respBody, count)
+		if err != nil {
+			return "", err
+		}
 		return formatKagiSearchResults(query, results), nil
 	}
 
 	return "", fmt.Errorf("all api keys failed, last error: %w", lastErr)
 }
 
-func newKagiAPIClient(client *http.Client, baseURL string) *kagiopenapi.APIClient {
-	cfg := kagiopenapi.NewConfiguration()
-	cfg.UserAgent = fmt.Sprintf(userAgentHonest, config.Version)
-	cfg.HTTPClient = client
-	cfg.Servers = kagiopenapi.ServerConfigurations{{
-		URL:         kagiServerURL(baseURL),
-		Description: "Kagi Search API endpoint",
-	}}
-	return kagiopenapi.NewAPIClient(cfg)
+// kagiPost sends one search request and returns the status and at most 2 MiB
+// of the body. The key travels only in the Authorization header.
+func kagiPost(
+	ctx context.Context,
+	client *http.Client,
+	searchURL, apiKey string,
+	body []byte,
+) (int, []byte, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, searchURL, bytes.NewReader(body))
+	if err != nil {
+		return 0, nil, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("User-Agent", fmt.Sprintf(userAgentHonest, config.Version))
+	req.Header.Set("Authorization", "Bearer "+apiKey)
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return 0, nil, err
+	}
+	defer resp.Body.Close()
+	respBody, err := io.ReadAll(io.LimitReader(resp.Body, 2<<20))
+	if err != nil {
+		return 0, nil, fmt.Errorf("failed to read response: %w", err)
+	}
+	return resp.StatusCode, respBody, nil
 }
 
 func formatKagiSearchResults(query string, results []SearchResultItem) string {
@@ -646,7 +676,7 @@ func kagiStatusError(statusCode int) error {
 	}
 }
 
-type kagiFallbackResult struct {
+type kagiSearchResult struct {
 	Type      int    `json:"t"`
 	URL       string `json:"url"`
 	Title     string `json:"title"`
@@ -655,18 +685,11 @@ type kagiFallbackResult struct {
 	Published string `json:"published"`
 }
 
-func fallbackKagiSearchResults(resp *http.Response, count int) ([]SearchResultItem, error) {
-	if resp == nil || resp.Body == nil {
-		return nil, fmt.Errorf("failed to parse response: empty response body")
-	}
-	body, err := io.ReadAll(io.LimitReader(resp.Body, 2<<20))
-	if err != nil {
-		return nil, fmt.Errorf("failed to read response: %w", err)
-	}
-	return parseFallbackKagiSearchResults(body, count)
-}
-
-func parseFallbackKagiSearchResults(body []byte, count int) ([]SearchResultItem, error) {
+// parseKagiSearchResults reads a 2xx Kagi search response. The v1 API answers
+// {"data":{"search":[...]}}; the older API answered {"data":[...]} with a type
+// field, where only t == 0 is a web result. Items without a URL are skipped
+// rather than failing the whole response.
+func parseKagiSearchResults(body []byte, count int) ([]SearchResultItem, error) {
 	if count <= 0 {
 		count = 10
 	}
@@ -685,27 +708,27 @@ func parseFallbackKagiSearchResults(body []byte, count int) ([]SearchResultItem,
 	switch data[0] {
 	case '{':
 		var modern struct {
-			Search []kagiFallbackResult `json:"search"`
+			Search []kagiSearchResult `json:"search"`
 		}
 		if err := json.Unmarshal(data, &modern); err != nil {
 			return nil, fmt.Errorf("failed to parse response: %w", err)
 		}
-		appendFallbackKagiResults(&results, modern.Search, count, false)
+		appendKagiSearchResults(&results, modern.Search, count, false)
 	case '[':
-		var legacy []kagiFallbackResult
+		var legacy []kagiSearchResult
 		if err := json.Unmarshal(data, &legacy); err != nil {
 			return nil, fmt.Errorf("failed to parse response: %w", err)
 		}
-		appendFallbackKagiResults(&results, legacy, count, true)
+		appendKagiSearchResults(&results, legacy, count, true)
 	default:
 		return nil, fmt.Errorf("failed to parse response: unexpected data shape")
 	}
 	return results, nil
 }
 
-func appendFallbackKagiResults(
+func appendKagiSearchResults(
 	results *[]SearchResultItem,
-	items []kagiFallbackResult,
+	items []kagiSearchResult,
 	count int,
 	requireLegacyType bool,
 ) {
@@ -731,33 +754,6 @@ func appendFallbackKagiResults(
 			Published: published,
 		})
 	}
-}
-
-func kagiSearchResults(searchResp *kagiopenapi.Search200Response, count int) []SearchResultItem {
-	if count <= 0 {
-		count = 10
-	}
-	if searchResp == nil || searchResp.Data == nil {
-		return nil
-	}
-
-	results := make([]SearchResultItem, 0, count)
-	for _, item := range searchResp.Data.Search {
-		if len(results) >= count {
-			break
-		}
-		urlStr := strings.TrimSpace(item.GetUrl())
-		if urlStr == "" {
-			continue
-		}
-		results = append(results, SearchResultItem{
-			Title:     cleanSearchText(item.GetTitle()),
-			URL:       urlStr,
-			Snippet:   cleanSearchText(item.GetSnippet()),
-			Published: strings.TrimSpace(item.GetTime()),
-		})
-	}
-	return results
 }
 
 func cleanSearchText(content string) string {

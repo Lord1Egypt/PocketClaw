@@ -49,7 +49,7 @@ export function asStringArray(value: unknown): string[] {
 }
 
 export function parseAllowFromInput(raw: string): string[] {
-  return splitStringList(raw, /[,\uFF0C、;；\n\r\t]+/, {
+  return splitStringList(raw, /[,\uFF0C\u3001;\uFF1B\n\r\t]+/, {
     stripHiddenChars: true,
   })
 }

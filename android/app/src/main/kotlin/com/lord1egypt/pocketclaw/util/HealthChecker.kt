@@ -7,8 +7,8 @@ import java.net.HttpURLConnection
 import java.net.URL
 
 /**
- * 轮询 PocketClaw /health 端点检查服务状态。
- * 使用 HttpURLConnection 避免额外依赖。
+ * Polls PocketClaw's /health endpoint for the service state.
+ * Uses HttpURLConnection so it needs no extra dependency.
  *
  * Basic checks stay anonymous, exactly as they always have been: the launcher
  * and this host both poll /health for liveness and nothing about that request

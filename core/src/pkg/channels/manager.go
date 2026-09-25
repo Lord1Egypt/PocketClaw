@@ -362,6 +362,50 @@ func (m *Manager) SendPlaceholder(ctx context.Context, channel, chatID string) b
 	return true
 }
 
+// SendQueueNotice tells the sender of a queued message that it is waiting.
+// It returns the notice's message ID, or "" when the channel cannot or will
+// not send one. Like SendPlaceholder it bypasses the outbound worker: the
+// notice must not pass through preSend, where it would be taken for the
+// running turn's answer.
+func (m *Manager) SendQueueNotice(ctx context.Context, channel, chatID, replyToMessageID, text string) string {
+	m.mu.RLock()
+	ch, ok := m.channels[channel]
+	m.mu.RUnlock()
+	if !ok {
+		return ""
+	}
+	qc, ok := ch.(QueueNoticeCapable)
+	if !ok {
+		return ""
+	}
+	id, err := qc.SendQueueNotice(ctx, chatID, replyToMessageID, text)
+	if err != nil {
+		logger.DebugCF("channels", "Queue notice not sent", map[string]any{
+			"channel": channel,
+			"error":   err.Error(),
+		})
+		return ""
+	}
+	return id
+}
+
+// DeleteQueueNotice removes a notice sent by SendQueueNotice. Best effort: a
+// notice that cannot be deleted is harmless and stays in the chat.
+func (m *Manager) DeleteQueueNotice(ctx context.Context, channel, chatID, messageID string) {
+	if messageID == "" {
+		return
+	}
+	m.mu.RLock()
+	ch, ok := m.channels[channel]
+	m.mu.RUnlock()
+	if !ok {
+		return
+	}
+	if deleter, ok := ch.(MessageDeleter); ok {
+		_ = deleter.DeleteMessage(ctx, chatID, messageID)
+	}
+}
+
 // StartTyping begins the typing indicator for the given channel/chatID and
 // records its stop function, correlated by the lifecycle ID on ctx when there
 // is one. It is the typing counterpart of SendPlaceholder and exists for the
@@ -587,6 +631,26 @@ func (m *Manager) preSend(ctx context.Context, name string, msg bus.OutboundMess
 					deleter.DeleteMessage(ctx, chatID, entry.id) // best effort
 				}
 				return nil, false
+			}
+			// PC-DEF-084: an answer after a long turn is sent fresh, so it
+			// notifies and lands below anything sent meanwhile; a
+			// status-to-status edit stays an edit. The stale placeholder is
+			// retired only after that send: finalizeFallbackPlaceholder deletes
+			// it once the send succeeds and edits the answer into it if the
+			// send fails, so a failed send cannot lose both.
+			if !isToolFeedback && statusMessageTooOldToEdit(ch, entry.createdAt, time.Now()) {
+				if _, ok := ch.(MessageDeleter); ok {
+					m.fallbackPlaceholders.Store(key, fallbackPlaceholderEntry{
+						chatID:      chatID,
+						placeholder: entry,
+					})
+					logger.InfoCF("request_lifecycle", "Request lifecycle", map[string]any{
+						"event":        "long_turn_fresh_delivery",
+						"channel":      name,
+						"lifecycle_id": bus.InboundLifecycleID(&msg.Context),
+					})
+					return nil, false
+				}
 			}
 			if editor, ok := ch.(MessageEditor); ok {
 				if strings.EqualFold(name, "telegram") {

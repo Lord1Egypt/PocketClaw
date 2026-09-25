@@ -14,9 +14,9 @@ claim below was read out of the source, not assumed.
 
 The Flutter application does **not** contain any AI-provider configuration.
 `lib/src/ui/config_page.dart` configures the Core *service* only: host, port,
-binary path, launch arguments, theme, language, and the optional device
-feedback switch. A repository-wide search for provider/API-key/model handling in
-`lib/` returns only the Firebase/Umeng device-feedback code.
+binary path, launch arguments, theme and language. A repository-wide search for
+provider/API-key/model handling in `lib/` returns nothing; the device-feedback
+code it used to find went with the Umeng SDK in F-Droid Phase B.
 
 All AI provider and model configuration is served by the **embedded web
 console**, which is the Core web frontend compiled into

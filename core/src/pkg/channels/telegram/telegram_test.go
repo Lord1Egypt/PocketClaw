@@ -697,6 +697,72 @@ func TestSend_NonToolFeedbackDeletesTrackedProgressMessage(t *testing.T) {
 	assert.False(t, ok, "tracked tool feedback should be cleared after final reply")
 }
 
+// PC-DEF-084: after a long turn the answer must not be a silent edit of a
+// progress message sent minutes ago, above whatever the owner sent since. It is
+// sent as a new message, and only then is the stale progress message deleted.
+func TestSend_LongTurnAnswerIsANewMessageAndTheProgressMessageGoes(t *testing.T) {
+	caller := &stubCaller{
+		callFn: func(ctx context.Context, url string, data *ta.RequestData) (*ta.Response, error) {
+			switch {
+			case strings.Contains(url, "sendMessage"):
+				return successResponseWithMessageID(t, 2), nil
+			case strings.Contains(url, "deleteMessage"):
+				return &ta.Response{Ok: true, Result: []byte("true")}, nil
+			default:
+				t.Fatalf("unexpected API call: %s", url)
+				return nil, nil
+			}
+		},
+	}
+	ch := newTestChannel(t, caller)
+	ch.finalEditWindow = time.Microsecond
+	ch.RecordToolFeedbackMessage("12345", "1", "🔧 `exec`")
+	time.Sleep(time.Millisecond)
+
+	ids, err := ch.Send(context.Background(), bus.OutboundMessage{
+		ChatID:  "12345",
+		Content: "final reply",
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, []string{"2"}, ids)
+	require.Len(t, caller.calls, 2)
+	assert.Contains(t, caller.calls[0].URL, "sendMessage", "the answer goes first")
+	assert.Contains(t, caller.calls[1].URL, "deleteMessage", "then the stale progress message")
+	_, ok := ch.currentToolFeedbackMessage("12345")
+	assert.False(t, ok, "the progress message must not stay tracked")
+}
+
+// A failed fresh send must not take the progress message with it: nothing is
+// deleted and it stays tracked, so the manager's retry finds it again.
+func TestSend_FailedLongTurnAnswerKeepsTheProgressMessage(t *testing.T) {
+	caller := &stubCaller{
+		callFn: func(ctx context.Context, url string, data *ta.RequestData) (*ta.Response, error) {
+			if strings.Contains(url, "deleteMessage") {
+				t.Fatal("the progress message was deleted although the answer was not sent")
+			}
+			return nil, errors.New("connection reset")
+		},
+	}
+	ch := newTestChannel(t, caller)
+	ch.finalEditWindow = time.Microsecond
+	ch.RecordToolFeedbackMessage("12345", "1", "🔧 `exec`")
+	time.Sleep(time.Millisecond)
+
+	_, err := ch.Send(context.Background(), bus.OutboundMessage{ChatID: "12345", Content: "final reply"})
+
+	require.Error(t, err)
+	msgID, ok := ch.currentToolFeedbackMessage("12345")
+	assert.True(t, ok, "the progress message must stay tracked for the retry")
+	assert.Equal(t, "1", msgID)
+}
+
+func TestTelegramFinalEditWindowDefaultsToTheLongTurnWindow(t *testing.T) {
+	ch := newTestChannel(t, &stubCaller{})
+	assert.Equal(t, channels.LongTurnEditWindow, ch.FinalEditWindow())
+	var _ channels.FinalEditWindowChannel = ch
+}
+
 func TestSend_ToolFeedbackTrackingIsTopicScoped(t *testing.T) {
 	nextMessageID := 0
 	caller := &stubCaller{

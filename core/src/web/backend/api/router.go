@@ -129,9 +129,6 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	h.registerSkillRoutes(mux)
 	h.registerToolRoutes(mux)
 
-	// OS startup / launch-at-login
-	h.registerStartupRoutes(mux)
-
 	// Launcher service parameters (port/public)
 	h.registerLauncherConfigRoutes(mux)
 

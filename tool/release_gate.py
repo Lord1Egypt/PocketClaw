@@ -74,6 +74,10 @@ from artifact_policy import (
 REPO = Path(__file__).resolve().parent.parent
 PACKAGE_ID = "com.lord1egypt.pocketclaw"
 EXPECTED_ABI = "arm64-v8a"
+# Android 8.0. The service needs startForegroundService and notification
+# channels (API 26); a lower minSdk would offer the APK to devices where the
+# first Start crashes (PC-DEF-086).
+EXPECTED_MIN_SDK = 26
 EXPECTED_LOCALES = 12
 
 # The permission contract accepted in Release Hardening A1, asserted against the
@@ -82,16 +86,10 @@ EXPECTED_LOCALES = 12
 EXPECTED_PERMISSIONS = {
     "android.permission.ACCESS_NETWORK_STATE",
     "android.permission.FOREGROUND_SERVICE",
-    "android.permission.FOREGROUND_SERVICE_DATA_SYNC",
     "android.permission.FOREGROUND_SERVICE_SPECIAL_USE",
     "android.permission.INTERNET",
-    "android.permission.MANAGE_EXTERNAL_STORAGE",
     "android.permission.POST_NOTIFICATIONS",
-    "android.permission.READ_EXTERNAL_STORAGE",
-    "android.permission.RECEIVE_BOOT_COMPLETED",
-    "android.permission.VIBRATE",
     "android.permission.WAKE_LOCK",
-    "android.permission.WRITE_EXTERNAL_STORAGE",
     f"{PACKAGE_ID}.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION",
 }
 
@@ -103,7 +101,22 @@ FORBIDDEN_PERMISSIONS = {
     "android.permission.ACCESS_ADSERVICES_ATTRIBUTION",
     "com.google.android.finsky.permission.BIND_GET_INSTALL_REFERRER_SERVICE",
     "freemme.permission.msa",
+    # PC-DEF-083: contributed by flutter_background_service and
+    # flutter_local_notifications, which were never started or called, and by
+    # a boot receiver no UI could enable. Removed with them; must stay gone.
+    "android.permission.FOREGROUND_SERVICE_DATA_SYNC",
+    "android.permission.RECEIVE_BOOT_COMPLETED",
+    "android.permission.VIBRATE",
+    # PC-DEF-077: the workspace is app-specific storage, which needs no storage
+    # permission; all-files access and the legacy pair are gone for good.
+    "android.permission.MANAGE_EXTERNAL_STORAGE",
+    "android.permission.READ_EXTERNAL_STORAGE",
+    "android.permission.WRITE_EXTERNAL_STORAGE",
 }
+
+# Classes held to release provenance: clean worktree, deterministic BuildTime,
+# staged Core that matches its source. Only signing differs between them.
+STRICT_RELEASE_CLASSES = ("production", "repository")
 
 CORE_LIBS = ("libpocketclaw.so", "libpocketclaw-web.so")
 STAGED_CORE_DIR = REPO / "android/app/src/main/jniLibs" / EXPECTED_ABI
@@ -290,6 +303,12 @@ def run_flutter_suite(flutter: Path) -> tuple[int, dict[str, object]]:
     return rc, summary
 
 
+
+def packaged_min_sdk(badging: str) -> int | None:
+    """The minSdk aapt2 reports: `minSdkVersion:'26'` (newer aapt2) or `sdkVersion:'26'`."""
+    match = re.search(r"^(?:minSdkVersion|sdkVersion):'(\d+)'", badging, re.MULTILINE)
+    return int(match.group(1)) if match else None
+
 def find_sdk_tool(name: str) -> Path | None:
     """Locates an Android build-tool without hard-coding a machine path."""
     found = shutil.which(name)
@@ -368,7 +387,7 @@ def staged_build_time_gate(gate: Gate, release_class: str):
         return
 
     detail = ", ".join(f"{lib}={value}" for lib, value in mismatched.items())
-    if release_class == "production":
+    if release_class in STRICT_RELEASE_CLASSES:
         gate.check("core.staged_build_time", False,
                    expected=expected, observed=detail)
     else:
@@ -409,7 +428,7 @@ def build_time_gate(gate: Gate, core_blob: bytes, release_class: str):
         is_dev = b"dev" in core_blob
         detail = "BuildTime=dev (non-deterministic developer build)" if is_dev \
             else "no readable BuildTime"
-        if release_class == "production":
+        if release_class in STRICT_RELEASE_CLASSES:
             gate.check("artifact.build_time", False,
                        expected="a deterministic BuildTime", observed=detail)
         else:
@@ -418,7 +437,7 @@ def build_time_gate(gate: Gate, core_blob: bytes, release_class: str):
         return
 
     if expected is None:
-        if release_class == "production":
+        if release_class in STRICT_RELEASE_CLASSES:
             gate.check("artifact.build_time", False,
                        expected="a resolvable expected BuildTime",
                        observed=f"embedded {observed}, expected unknown")
@@ -434,7 +453,7 @@ def build_time_gate(gate: Gate, core_blob: bytes, release_class: str):
     # A mismatch means the artifact was not built from this tree's build inputs.
     # For a test-class artifact predating the contract that is information, not
     # a defect; for a production artifact it is disqualifying.
-    if release_class == "production":
+    if release_class in STRICT_RELEASE_CLASSES:
         gate.check("artifact.build_time", False,
                    expected=expected, observed=observed)
     else:
@@ -482,7 +501,7 @@ def worktree_gate(gate: Gate, release_class: str):
         # produce. None of that exists outside a git worktree, so "unknown" is
         # a failure rather than something to wave through. Local inspection of
         # an artifact still works — it just cannot claim to be a release.
-        if release_class == "production":
+        if release_class in STRICT_RELEASE_CLASSES:
             gate.check("repo.clean_worktree", False,
                        expected="a usable git worktree (provenance is required "
                                 "for a production release)",
@@ -500,7 +519,7 @@ def worktree_gate(gate: Gate, release_class: str):
     summary = ", ".join(line[3:] for line in dirty[:5])
     if len(dirty) > 5:
         summary += f", +{len(dirty) - 5} more"
-    if release_class == "production":
+    if release_class in STRICT_RELEASE_CLASSES:
         gate.check("repo.clean_worktree", False,
                    expected="a clean worktree", observed=f"{len(dirty)} change(s): {summary}")
     else:
@@ -635,6 +654,15 @@ def source_gates(gate: Gate, run_tests: bool, release_class: str = "test"):
                expected="no unclassified Pico identity in owned production source",
                observed="PASS" if rc == 0 else summary)
 
+    # Stray Chinese developer comments were found in PocketClaw's own Kotlin and
+    # Dart. Localization, vendored upstream text and CJK test fixtures are
+    # classified in the tool; anything else fails here.
+    rc, out = run([sys.executable, str(REPO / "tool/cjk_hygiene.py")], cwd=REPO)
+    summary = out.strip().splitlines()[-1] if out.strip() else "FAIL"
+    gate.check("source.no_stray_cjk", rc == 0,
+               expected="every tracked file with CJK text classified and within its count",
+               observed="PASS" if rc == 0 else summary)
+
     # PC-DEF-064. The What's New screen and the published release notes were
     # two independent pieces of prose, so the app could describe a release the
     # notes did not. There is one source now, and this is what stops them
@@ -653,12 +681,14 @@ def source_gates(gate: Gate, run_tests: bool, release_class: str = "test"):
     proprietary = []
     for name, path in (("firebase_analytics", "pubspec.yaml"),
                        ("firebase_core", "pubspec.yaml"),
-                       ("google_app_id", "android/app/src/main/AndroidManifest.xml")):
+                       ("google_app_id", "android/app/src/main/AndroidManifest.xml"),
+                       ("com.umeng", "android/app/build.gradle.kts"),
+                       ("UMENG_", "android/app/src/main/AndroidManifest.xml")):
         target = REPO / path
         if target.is_file() and name in target.read_text(encoding="utf-8"):
             proprietary.append(f"{name} in {path}")
     gate.check("source.fdroid_no_proprietary_sdk", not proprietary,
-               expected="no proprietary Google SDK declared in the build",
+               expected="no proprietary SDK declared in the build files",
                observed=", ".join(proprietary) or "clean")
 
     # Whether a production signer has been enrolled at all. Reported rather than
@@ -724,6 +754,15 @@ def source_gates(gate: Gate, run_tests: bool, release_class: str = "test"):
     gate.check("a2.private_storage_contracts", rc == 0,
                expected="A2 credential, log and auth guards pass",
                observed="PASS" if rc == 0 else "FAIL")
+
+    # B7. What Gradle actually resolves for the release variant, compile and
+    # runtime classpath, rather than what the build files happen to name: a
+    # compileOnly Umeng passed every DEX scan while still being a build input.
+    rc, out = run([sys.executable, str(REPO / "tool/dependency_graph.py")])
+    summary = out.strip().splitlines()[-1] if out.strip() else "FAIL"
+    gate.check("deps.no_proprietary_sdk_resolved", rc == 0,
+               expected="no proprietary analytics/ads/crash SDK group in the resolved graph",
+               observed=summary)
 
     rc, out = run([sys.executable, str(REPO / "tool/test_build_hardened_android.py")])
     gate.check("dart.hardening_contract", rc == 0,
@@ -855,6 +894,10 @@ def artifact_gates(gate: Gate, apk: Path, release_class: str,
                    and version_name and version_name.group(1) == gate.facts.get("versionName"),
                    expected=f"{gate.facts.get('versionName')}+{gate.facts.get('versionCode')}",
                    observed=f"{version_name.group(1) if version_name else '?'}+{observed_code}")
+        observed_min = packaged_min_sdk(badging)
+        gate.facts["minSdk"] = observed_min
+        gate.check("artifact.min_sdk", observed_min == EXPECTED_MIN_SDK,
+                   expected=f"minSdk {EXPECTED_MIN_SDK} (Android 8.0)", observed=str(observed_min))
 
         rc, perms_out = run([str(aapt), "dump", "permissions", str(apk)])
         packaged = {line.split("name='")[1].split("'")[0]
@@ -878,23 +921,18 @@ def artifact_gates(gate: Gate, apk: Path, release_class: str,
 
         abis = {n.split("/")[1] for n in names if n.startswith("lib/") and n.count("/") >= 2}
         gate.facts["abi"] = sorted(abis)
-        # The contract is that the canonical *product* payload — Core and the
-        # Managed Runtime — is arm64 only. Flutter plugins ship small stubs for
-        # other ABIs (libdartjni, libdatastore_shared_counter); those are an
-        # accepted baseline and are recorded rather than failed.
-        product_prefixes = ("libpocketclaw",)
-        misplaced = sorted(
-            n for n in names
-            if n.startswith("lib/") and n.count("/") >= 2
-            and Path(n).name.startswith(product_prefixes)
-            and n.split("/")[1] != EXPECTED_ABI
-        )
-        stub_abis = sorted(abis - {EXPECTED_ABI})
-        gate.facts["nonProductStubAbis"] = stub_abis
-        gate.check("artifact.abi", EXPECTED_ABI in abis and not misplaced,
-                   expected=f"product payload only under {EXPECTED_ABI}",
-                   observed=", ".join(misplaced) if misplaced
-                   else f"{EXPECTED_ABI} (+ plugin stubs: {', '.join(stub_abis) or 'none'})")
+        # arm64-v8a is the only ABI PocketClaw can run on: Core, the Managed
+        # Runtime and libflutter/libapp exist for it alone. Plugin stubs for
+        # other ABIs used to be packaged too, which made the APK advertise
+        # armeabi-v7a and x86_64 -- F-Droid would have offered it to devices
+        # where it crashes on launch. abiFilters removes them; any other ABI
+        # directory is now a failure, not a recorded baseline.
+        extra_abis = sorted(abis - {EXPECTED_ABI})
+        gate.facts["extraAbis"] = extra_abis
+        gate.check("artifact.abi", abis == {EXPECTED_ABI},
+                   expected=f"native libraries under {EXPECTED_ABI} only",
+                   observed=", ".join(extra_abis) if extra_abis
+                   else EXPECTED_ABI if abis else "no native libraries")
 
         # Packaged Core must be byte-identical to what is staged in the tree.
         mismatched = []
@@ -1316,6 +1354,7 @@ PROPRIETARY_SDK_MARKERS = {
     "gms": rb"com/google/android/gms",
     "admob": rb"com/google/android/gms/ads",
     "measurement": rb"com/google/android/gms/measurement",
+    "umeng": rb"com/umeng",
 }
 
 
@@ -1357,6 +1396,17 @@ def signing_gate(gate: Gate, apk: Path, release_class: str):
             env["JAVA_HOME"] = str(jdk)
             env["PATH"] = f"{jdk / 'bin'}{os.pathsep}{os.environ.get('PATH', '')}"
     rc, out = run([str(apksigner), "verify", "--print-certs", "--verbose", str(apk)], env=env)
+
+    if release_class == "repository":
+        # A repository-signable artifact must carry no signature at all: the
+        # repository signs it, or attaches the upstream signature once the
+        # build reproduces. Any signer here means the wrong build class ran.
+        signed = re.search(r"certificate SHA-256 digest:", out) is not None
+        gate.check("artifact.signing", rc != 0 and not signed,
+                   expected="no signature (UNSIGNED / REPOSITORY-SIGNABLE)",
+                   observed="signed" if signed else "unsigned")
+        gate.facts["releasable"] = False
+        return
 
     # Recorded, not enforced. Which schemes AGP emits depends on minSdk and on
     # the signing config, and hard-failing on a scheme here would either
@@ -1420,10 +1470,12 @@ def main() -> int:
     parser.add_argument("--verify-source", action="store_true")
     parser.add_argument("--verify-artifact", metavar="APK")
     parser.add_argument("--full", metavar="APK")
-    parser.add_argument("--release-class", choices=("test", "production"),
+    parser.add_argument("--release-class", choices=("test", "production", "repository"),
                         default="test",
                         help="test permits the development signer and can never "
-                             "report a production release; production rejects it")
+                             "report a production release; production rejects it; "
+                             "repository is production-strict and requires an "
+                             "unsigned APK for a repository to sign")
     parser.add_argument("--no-tests", action="store_true",
                         help="skip delegated test suites (source phase)")
     parser.add_argument("--manifest", metavar="PATH",
@@ -1530,6 +1582,9 @@ def main() -> int:
 
     if args.release_class == "test":
         print("\nPASS — local test candidate. NOT releasable as production.")
+    elif args.release_class == "repository" and not args.verify_source:
+        print("\nPASS — UNSIGNED / REPOSITORY-SIGNABLE candidate. Not installable and "
+              "not a signed release until a repository signs it.")
     elif args.verify_source:
         # Source mode checks the tree, not a package. Calling this a verified
         # production artifact would claim the artifact gates ran when no

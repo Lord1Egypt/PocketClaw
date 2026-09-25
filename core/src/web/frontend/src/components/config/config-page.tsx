@@ -9,17 +9,14 @@ import { patchAppConfig, resetAppConfig } from "@/api/channels"
 import { launcherFetch } from "@/api/http"
 import { postLauncherDashboardSetup } from "@/api/launcher-auth"
 import {
-  getAutoStartStatus,
   getLauncherConfig,
   getSystemVersionInfo,
-  setAutoStartEnabled as updateAutoStartEnabled,
   setLauncherConfig as updateLauncherConfig,
 } from "@/api/system"
 import { ConfigChangeNotice } from "@/components/config-change-notice"
 import {
   AgentDefaultsSection,
   CronSection,
-  DevicesSection,
   EvolutionSection,
   ExecSection,
   LauncherSection,
@@ -108,8 +105,6 @@ export function ConfigPage() {
     useState<LauncherForm>(EMPTY_LAUNCHER_FORM)
   const [launcherBaseline, setLauncherBaseline] =
     useState<LauncherForm>(EMPTY_LAUNCHER_FORM)
-  const [autoStartEnabled, setAutoStartEnabled] = useState(false)
-  const [autoStartBaseline, setAutoStartBaseline] = useState(false)
   const [saving, setSaving] = useState(false)
   const [showFactoryResetDialog, setShowFactoryResetDialog] = useState(false)
 
@@ -143,15 +138,6 @@ export function ConfigPage() {
     staleTime: 5 * 60 * 1000,
   })
 
-  const {
-    data: autoStartStatus,
-    isLoading: isAutoStartLoading,
-    error: autoStartError,
-  } = useQuery({
-    queryKey: ["system", "autostart"],
-    queryFn: getAutoStartStatus,
-  })
-
   useEffect(() => {
     if (!data) return
     const parsed = buildFormFromConfig(data)
@@ -176,12 +162,6 @@ export function ConfigPage() {
     setLauncherBaseline(parsed)
   }, [launcherConfig])
 
-  useEffect(() => {
-    if (!autoStartStatus) return
-    setAutoStartEnabled(autoStartStatus.enabled)
-    setAutoStartBaseline(autoStartStatus.enabled)
-  }, [autoStartStatus])
-
   const configDirty = JSON.stringify(form) !== JSON.stringify(baseline)
   const launcherSettingsDirty =
     launcherForm.port !== launcherBaseline.port ||
@@ -195,15 +175,7 @@ export function ConfigPage() {
     launcherForm.dashboardPassword.trim() !== "" ||
     launcherForm.dashboardPasswordConfirm.trim() !== ""
   const launcherDirty = launcherSettingsDirty || launcherPasswordDirty
-  const autoStartDirty = autoStartEnabled !== autoStartBaseline
-  const isDirty = configDirty || launcherDirty || autoStartDirty
-
-  const autoStartSupported = autoStartStatus?.supported !== false
-  const autoStartHint = autoStartError
-    ? t("pages.config.autostart_load_error")
-    : !autoStartSupported
-      ? t("pages.config.autostart_unsupported")
-      : t("pages.config.autostart_hint")
+  const isDirty = configDirty || launcherDirty
 
   const updateField = <K extends keyof CoreConfigForm>(
     key: K,
@@ -267,7 +239,6 @@ export function ConfigPage() {
   const handleReset = () => {
     setForm(baseline)
     setLauncherForm(launcherBaseline)
-    setAutoStartEnabled(autoStartBaseline)
     toast.info(t("pages.config.reset_success"))
   }
 
@@ -673,10 +644,6 @@ export function ConfigPage() {
             enabled: form.heartbeatEnabled,
             interval: heartbeatInterval,
           },
-          devices: {
-            enabled: form.devicesEnabled,
-            monitor_usb: form.monitorUSB,
-          },
         })
 
         setBaseline(form)
@@ -685,15 +652,10 @@ export function ConfigPage() {
 
       let savedLauncherForm: LauncherForm | null = null
       if (launcherSettingsDirty) {
-        const port = parseIntField(
-          launcherForm.port,
-          t("pages.config.server_port"),
-          t,
-          {
-            min: 1,
-            max: 65535,
-          },
-        )
+        // Not editable: the Android host always starts the launcher with an
+        // explicit -port, so a stored port never applies. The stored value is
+        // sent back unchanged and the server still validates it.
+        const port = Number.parseInt(launcherForm.port, 10)
         const allowedCIDRs = parseCIDRText(launcherForm.allowedCIDRsText)
         const trustedProxyCIDRs = parseCIDRText(
           launcherForm.trustedProxyCIDRsText,
@@ -743,16 +705,6 @@ export function ConfigPage() {
         if (savedLauncherForm) {
           setLauncherBaseline(savedLauncherForm)
         }
-      }
-
-      if (autoStartDirty) {
-        if (!autoStartSupported) {
-          throw new Error(t("pages.config.autostart_unsupported"))
-        }
-        const status = await updateAutoStartEnabled(autoStartEnabled)
-        setAutoStartEnabled(status.enabled)
-        setAutoStartBaseline(status.enabled)
-        queryClient.setQueryData(["system", "autostart"], status)
       }
 
       const gateway = await refreshGatewayState({ force: true })
@@ -883,20 +835,6 @@ export function ConfigPage() {
               <ExecSection form={form} onFieldChange={updateField} />
 
               <CronSection form={form} onFieldChange={updateField} />
-
-              <DevicesSection
-                form={form}
-                onFieldChange={updateField}
-                autoStartEnabled={autoStartEnabled}
-                autoStartHint={autoStartHint}
-                autoStartDisabled={
-                  isAutoStartLoading ||
-                  Boolean(autoStartError) ||
-                  !autoStartSupported ||
-                  saving
-                }
-                onAutoStartChange={setAutoStartEnabled}
-              />
 
               {!isDirty && actionButtons}
             </div>

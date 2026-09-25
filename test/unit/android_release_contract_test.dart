@@ -184,7 +184,7 @@ void main() {
       );
       expect(
         version!.group(1),
-        '0.2.1',
+        '0.2.2',
         reason: 'the tracked product version for this release',
       );
       final floor = readAcceptedVersionCodeFloor();
@@ -272,63 +272,103 @@ void main() {
     });
   });
 
-  group('analytics capability', () {
-    const reporter =
-        'android/app/src/main/kotlin/com/lord1egypt/pocketclaw/AnalyticsReporter.kt';
-
-    test('the runtime guard is tied to what was packaged', () {
-      // Before this, the guard only checked the provider name and app key. It
-      // happened to imply the packaging condition, so no crash was reachable —
-      // but the safety was a coincidence between two independently editable
-      // conditions rather than a stated invariant.
+  // PC-DEF-086. The service calls startForegroundService and builds
+  // NotificationChannels unguarded (API 26), so Android 8.0 is the real floor
+  // and every surface that states support must say so.
+  group('minimum Android version', () {
+    test('Gradle declares minSdk 26, not the Flutter default', () {
+      final gradle = File('android/app/build.gradle.kts').readAsStringSync();
       expect(
-        read(gradle),
-        contains(
-          'buildConfigField("boolean", "POCKETCLAW_UMENG_PACKAGED", umengAnalyticsRequested.toString())',
-        ),
-        reason: 'the flag must come from the value that decides the dependency',
+        RegExp(r'^\s*minSdk = 26$', multiLine: true).hasMatch(gradle),
+        isTrue,
       );
-      expect(read(reporter), contains('BuildConfig.POCKETCLAW_UMENG_PACKAGED'));
-      expect(read(reporter), contains('if (!umengPackaged) {'));
+      expect(gradle, isNot(contains('minSdk = flutter.minSdkVersion')));
     });
 
-    test('an unpackaged SDK is a disabled capability, never a crash', () {
-      final source = read(reporter);
-      // Every entry point already returns early on isUmengProviderEnabled(),
-      // which now returns false when the SDK is absent. LinkageError is the
-      // backstop for the one failure that flag exists to prevent.
-      expect(source, contains('catch (e: LinkageError)'));
-      expect(source, contains('Analytics SDK is not available in this build.'));
-      for (final entryPoint in const [
-        'fun preInit(',
-        'fun submitConsent(',
-        'fun uploadDeviceReport(',
-      ]) {
-        expect(source, contains(entryPoint));
+    test('every support statement says Android 8.0 and none says 7', () {
+      final surfaces = <String, String>{
+        'README.md': File('README.md').readAsStringSync(),
+        'full_description.txt': File(
+          'fastlane/metadata/android/en-US/full_description.txt',
+        ).readAsStringSync(),
+        'app_en.arb': File('lib/l10n/app_en.arb').readAsStringSync(),
+      };
+      expect(surfaces['README.md'], contains('Android 8.0 (API 26)'));
+      expect(surfaces['README.md'], contains('minSdk-26'));
+      expect(surfaces['full_description.txt'], contains('Android 8.0'));
+      for (final entry in surfaces.entries) {
+        expect(
+          RegExp(
+            r'Android 7(\.\d)?\b|API 24\b|minSdk-24',
+          ).hasMatch(entry.value),
+          isFalse,
+          reason: entry.key,
+        );
       }
     });
   });
 
+  group('ABI', () {
+    test('only arm64-v8a is packaged', () {
+      // Plugin stubs for armeabi-v7a and x86_64 made the APK advertise ABIs it
+      // cannot start on; F-Droid indexes what the APK advertises.
+      final source = read(gradle).replaceAll(RegExp(r'//.*'), '');
+      expect(source, contains('abiFilters += listOf("arm64-v8a")'));
+      for (final abi in const ['armeabi-v7a', 'x86_64', 'x86"']) {
+        expect(source, isNot(contains(abi)), reason: abi);
+      }
+    });
+
+    test("Flutter's own ABI list cannot override the filter", () {
+      // FlutterPlugin clears abiFilters after evaluation unless this is set.
+      expect(
+        read('android/gradle.properties'),
+        contains('disable-abi-filtering=true'),
+      );
+    });
+  });
+
   group('analytics surface', () {
-    test('the default build does not package the analytics SDK', () {
-      final source = read(gradle);
-      expect(source, contains('val umengAnalyticsRequested ='));
-      expect(source, contains('if (umengAnalyticsRequested) {'));
+    // The Umeng SDK was removed outright for official F-Droid (Phase B): not
+    // hidden behind a flavor and not left as a compileOnly dependency, because
+    // F-Droid's inclusion policy forbids a proprietary analytics SDK in the
+    // build graph, not merely in the APK. release_gate.py checks the resolved
+    // Gradle graph; these assertions keep the source from drifting back.
+    test('no analytics SDK is declared, compiled against or configured', () {
+      final source = read(gradle).toLowerCase();
+      for (final symbol in const [
+        'umeng',
+        'pocketclaw_analytics_provider',
+        'stax-api',
+      ]) {
+        expect(
+          source,
+          isNot(contains(symbol)),
+          reason: '$symbol belongs to the removed analytics SDK',
+        );
+      }
       expect(
-        source,
-        contains('compileOnly("com.umeng.umsdk:common'),
-        reason:
-            'the SDK must stay off the runtime classpath of a build that never '
-            'calls it, while AnalyticsReporter still compiles',
+        File(
+          'android/app/src/main/kotlin/com/lord1egypt/pocketclaw/AnalyticsReporter.kt',
+        ).existsSync(),
+        isFalse,
       );
-      expect(
-        RegExp(
-          r'^\s*implementation\("com\.umeng',
-          multiLine: true,
-        ).allMatches(source).length,
-        2,
-        reason: 'the real dependency belongs only inside the analytics branch',
-      );
+    });
+
+    test('the Dart side carries no analytics provider either', () {
+      final offenders = Directory('lib')
+          .listSync(recursive: true)
+          .whereType<File>()
+          .where((file) => file.path.endsWith('.dart'))
+          .where(
+            (file) => RegExp(
+              r'umeng|POCKETCLAW_ANALYTICS_PROVIDER|DeviceFeedback',
+              caseSensitive: false,
+            ).hasMatch(file.readAsStringSync()),
+          )
+          .map((file) => file.path)
+          .toList();
+      expect(offenders, isEmpty);
     });
 
     test('no dangerous telephony permission is requested for it', () {
@@ -364,12 +404,9 @@ void main() {
         r'android:name="([^"]+)"',
       ).allMatches(source).map((match) => match.group(1)!).toSet();
 
-      // Attributed to the analytics SDK by building the merged manifest with
-      // and without it: the first two are the entire difference the SDK makes.
-      // The rest come from play-services-measurement via firebase_analytics and
-      // are removed by the documented manifest opt-out — Firebase itself stays,
-      // because device feedback is a real feature that logs a custom event and
-      // needs none of the advertising surface.
+      // The first two came from the removed Umeng SDK; the advertising and
+      // attribution four came from play-services-measurement via the removed
+      // firebase_analytics plugin and stay opted out in the source manifest.
       for (final permission in const [
         'android.permission.READ_PHONE_STATE',
         'freemme.permission.msa',
@@ -377,6 +414,16 @@ void main() {
         'android.permission.ACCESS_ADSERVICES_AD_ID',
         'android.permission.ACCESS_ADSERVICES_ATTRIBUTION',
         'com.google.android.finsky.permission.BIND_GET_INSTALL_REFERRER_SERVICE',
+        // PC-DEF-083: from a background-service plugin that was never
+        // started, a notifications plugin that was never called, and a boot
+        // receiver whose preference no UI could set.
+        'android.permission.FOREGROUND_SERVICE_DATA_SYNC',
+        'android.permission.RECEIVE_BOOT_COMPLETED',
+        'android.permission.VIBRATE',
+        // PC-DEF-077: app-specific storage needs no storage permission.
+        'android.permission.MANAGE_EXTERNAL_STORAGE',
+        'android.permission.READ_EXTERNAL_STORAGE',
+        'android.permission.WRITE_EXTERNAL_STORAGE',
       ]) {
         expect(
           permissions,
@@ -389,8 +436,6 @@ void main() {
       for (final permission in const [
         'android.permission.INTERNET',
         'android.permission.FOREGROUND_SERVICE_SPECIAL_USE',
-        'android.permission.RECEIVE_BOOT_COMPLETED',
-        'android.permission.MANAGE_EXTERNAL_STORAGE',
       ]) {
         expect(permissions, contains(permission));
       }
@@ -476,14 +521,16 @@ void main() {
       expect(source, contains('symbols, r8_mapping=R8_MAPPING)'));
       expect(
         source,
-        contains("BUNDLE if args.package == \"bundle\" else APK"),
+        contains("BUNDLE if args.package == \"bundle\" else apk"),
         reason: 'the reset must clear the artifact this run actually packages',
       );
-      expect(source, contains('shutil.rmtree(flutter_build_dir)'));
       expect(
         source,
-        contains('AOT and private symbols will be regenerated'),
+        contains('apk = UNSIGNED_APK if args.signing == "unsigned" else APK'),
+        reason: 'an unsigned build packages a differently named APK',
       );
+      expect(source, contains('shutil.rmtree(flutter_build_dir)'));
+      expect(source, contains('AOT and private symbols will be regenerated'));
     });
   });
 
@@ -525,7 +572,8 @@ void main() {
       expect(
         declared,
         isNot(contains('android:scheme=')),
-        reason: 'that filter declared the only scheme in this manifest; a new '
+        reason:
+            'that filter declared the only scheme in this manifest; a new '
             'one is a deliberate act to review, not something to inherit',
       );
     });
@@ -570,7 +618,8 @@ void main() {
         expect(
           source,
           isNot(contains(symbol)),
-          reason: '$symbol is dead plumbing; a stale manifestPlaceholder would '
+          reason:
+              '$symbol is dead plumbing; a stale manifestPlaceholder would '
               'survive merge processing and reintroduce the scheme',
         );
       }
@@ -592,15 +641,20 @@ void main() {
       );
     });
 
-    test('the default build still packages no analytics SDK', () {
+    test('the manifest declares no analytics metadata', () {
+      final declared = declaredManifest();
+      expect(declared, isNot(contains('UMENG_')));
+    });
+
+    test('the embedded WebView is opted out of its usage metrics', () {
+      // Observed physically: the system WebView loads Google's metrics
+      // client inside the PocketClaw process unless the app opts out.
       expect(
-        read(gradle),
-        contains(r'val analyticsProvider = dartDefines["POCKETCLAW_ANALYTICS_PROVIDER"] ?: "none"'),
-        reason: 'the default provider decides whether the SDK is a dependency',
-      );
-      expect(
-        read(gradle),
-        contains('umengAnalyticsRequested = analyticsProvider.equals("umeng"'),
+        RegExp(
+          r'android:name="android\.webkit\.WebView\.MetricsOptOut"\s*'
+          r'android:value="true"',
+        ).hasMatch(declaredManifest()),
+        isTrue,
       );
     });
 

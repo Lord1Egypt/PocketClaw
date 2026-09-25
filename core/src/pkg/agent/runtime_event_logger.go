@@ -293,6 +293,8 @@ func appendRuntimeEventPayloadSummary(fields map[string]any, payload any) {
 		fields["tool"] = payload.Tool
 		fields["duration_ms"] = payload.Duration.Milliseconds()
 		fields["for_llm_len"] = payload.ForLLMLen
+		fields["for_llm_original_len"] = payload.ForLLMOriginalLen
+		fields["truncated"] = payload.ForLLMTruncated
 		fields["for_user_len"] = payload.ForUserLen
 		fields["is_error"] = payload.IsError
 		fields["async"] = payload.Async

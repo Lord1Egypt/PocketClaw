@@ -128,6 +128,17 @@ var (
 		substr("too many tokens"),
 		substr("prompt is too long"),
 		substr("request too large"),
+		// Payload size rather than token count: the request body itself was
+		// refused. Both are cured the same way — send less.
+		substr("request entity too large"),
+		substr("payload too large"),
+		// OpenAI rejects a single oversized message field this way.
+		rxp(`string too long.*maximum length`),
+		// Volcengine/Doubao, Gemini and DashScope word the same condition
+		// without any of the phrases above.
+		rxp(`exceeds? max(imum)? message tokens`),
+		rxp(`input token count.*exceeds`),
+		substr("range of input length"),
 	}
 
 	imageDimensionPatterns = []errorPattern{
@@ -370,6 +381,14 @@ func extractHTTPStatus(msg string) int {
 		}
 	}
 	return 0
+}
+
+// IsContextOverflowMessage reports whether an error message says the request
+// was too large for the model: too many tokens, or too many bytes. It looks at
+// the wording only; a caller must still rule out statuses that mean something
+// else, because a 400 is classified as a format error before its body is read.
+func IsContextOverflowMessage(msg string) bool {
+	return matchesAny(strings.ToLower(msg), contextOverflowPatterns)
 }
 
 // IsImageDimensionError returns true if the message indicates an image dimension error.

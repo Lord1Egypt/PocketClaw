@@ -6,7 +6,6 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:pocketclaw/src/core/aperture_theme.dart';
 import 'package:pocketclaw/src/generated/l10n/app_localizations.dart';
 import '../core/app_fonts.dart';
-import 'package:remixicon/remixicon.dart';
 import 'package:pocketclaw/src/ui/widgets/tv_focusable.dart';
 import 'package:pocketclaw/src/ui/status_sections.dart';
 
@@ -150,8 +149,8 @@ class _DashboardPageState extends State<DashboardPage> {
                               children: [
                                 Icon(
                                   isRunning
-                                      ? Remix.stop_circle_fill
-                                      : Remix.play_circle_fill,
+                                      ? Icons.stop_circle
+                                      : Icons.play_circle,
                                   size: 28,
                                   color: isRunning
                                       ? tokens.danger
@@ -185,7 +184,7 @@ class _DashboardPageState extends State<DashboardPage> {
                 // Glassmorphism Status Card
                 LayoutBuilder(
                   builder: (context, constraints) {
-                    // 窄屏时垂直布局，宽屏时水平布局
+                    // Stacked on narrow screens, side by side on wide ones.
                     final isNarrow = constraints.maxWidth < 600;
 
                     Widget infoSection = _buildInfoSection(
@@ -303,7 +302,7 @@ class _DashboardPageState extends State<DashboardPage> {
                   color: tokens.surface3,
                   borderRadius: BorderRadius.circular(ApertureTheme.radiusXs),
                 ),
-                child: Icon(Remix.link_m, color: tokens.accent, size: 16),
+                child: Icon(Icons.link, color: tokens.accent, size: 16),
               ),
               const SizedBox(width: 10),
               Flexible(
@@ -321,7 +320,7 @@ class _DashboardPageState extends State<DashboardPage> {
             ],
           ),
           const SizedBox(height: 16),
-          // 公共模式状态指示器
+          // Public Mode status indicator.
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -347,10 +346,11 @@ class _DashboardPageState extends State<DashboardPage> {
             ],
           ),
           const SizedBox(height: 8),
-          // Endpoint 显示地址：公共模式开启时使用设备IP，否则使用内部地址
+          // The endpoint shown: the device's LAN address in Public Mode, the local
+          // address otherwise.
           Builder(
             builder: (context) {
-              // 公共模式开启但无法获取IP时显示警告
+              // Public Mode is on but no LAN address was found: show a warning.
               if (service.publicMode && service.publicDashboardUrl == null) {
                 return TVFocusable(
                   onTap: null,

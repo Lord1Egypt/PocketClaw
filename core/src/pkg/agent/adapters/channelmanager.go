@@ -52,6 +52,16 @@ func (a *channelManagerAdapter) SendPlaceholder(ctx context.Context, channel, ch
 	return a.inner.SendPlaceholder(ctx, channel, chatID)
 }
 
+func (a *channelManagerAdapter) SendQueueNotice(
+	ctx context.Context, channel, chatID, replyToMessageID, text string,
+) string {
+	return a.inner.SendQueueNotice(ctx, channel, chatID, replyToMessageID, text)
+}
+
+func (a *channelManagerAdapter) DeleteQueueNotice(ctx context.Context, channel, chatID, messageID string) {
+	a.inner.DeleteQueueNotice(ctx, channel, chatID, messageID)
+}
+
 func (a *channelManagerAdapter) DismissToolFeedback(
 	ctx context.Context, channel, chatID string, outboundCtx *bus.InboundContext,
 ) {

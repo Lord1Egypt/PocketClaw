@@ -247,14 +247,6 @@ ALLOWLIST: list[dict] = [
         "paths": ["core/src/web/frontend/src/features/chat/detail-visibility.ts"],
     },
     {
-        "pattern": r"picoclaw-web\.desktop",
-        "category": "upstream",
-        "reason": "desktop XDG autostart filename. runtime.GOOS is \"android\" "
-                  "on the shipped product, so this branch is unreachable there; "
-                  "renaming it would orphan existing desktop autostart entries.",
-        "paths": ["core/src/web/backend/api/startup.go"],
-    },
-    {
         "pattern": r"Pico Protocol channel|Pico reasoning publish skipped",
         "category": "legacy_migration",
         "reason": "left-hand sides of the old-log sanitizer maps. These are the "
@@ -266,28 +258,11 @@ ALLOWLIST: list[dict] = [
                   "core/src/web/frontend/src/lib/plain-text-log.ts"],
     },
     {
-        "pattern": r"PicoClawLauncher|picoclaw-web\.desktop",
-        "category": "upstream",
-        "reason": "desktop launch-at-login identifiers: a Windows Run key name "
-                  "and an XDG autostart filename. runtime.GOOS is \"android\" on "
-                  "the shipped product, so both branches are unreachable there, "
-                  "and renaming them would orphan entries an existing desktop "
-                  "install already registered.",
-        "paths": ["core/src/web/backend/api/startup.go"],
-    },
-    {
         "pattern": r"findPicoclawBinaryForInfo|runPicoclawVersionOutput",
         "category": "upstream",
         "reason": "indirection seams for locating and running the upstream Core "
                   "binary, whose filename is still picoclaw.",
         "paths": ["core/src/web/backend/api/version.go"],
-    },
-    {
-        "pattern": r"missing picoclaw_",
-        "category": "legacy_migration",
-        "reason": "matches an error string an older Core emits, so the host can "
-                  "still explain that failure on a device mid-upgrade.",
-        "paths": ["lib/src/core/service_manager.dart"],
     },
     {
         "pattern": r"picoclaw/|PicoClaw to PocketClaw namespace migration"

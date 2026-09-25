@@ -1,48 +1,30 @@
 name: pocketclaw
 description: "A private AI agent that runs on your Android device — on-device gateway, bundled arm64 tooling, and a local web dashboard."
 publish_to: "none"
-version: 0.2.1+63
+version: 0.2.2+64
 
 environment:
   sdk: ^3.11.3
 
 dependencies:
   animations: 2.1.2
-  bitsdojo_window: ^0.1.6
-  desktop_webview_window: ^0.2.3
-  file_picker: ^10.3.10
-  flex_color_scheme: any
   flutter:
     sdk: flutter
-  flutter_background_service: ^5.1.0
-  flutter_local_notifications: ^21.0.0
   flutter_localizations:
     sdk: flutter
   intl: any
-  local_session_timeout: any
-  path_provider: ^2.1.5
-  process_run: ^1.3.1+1
-  path: any
   package_info_plus: ^8.1.3
   provider: ^6.1.5+1
   qr_flutter: ^4.1.0
-  remixicon: ^4.9.2
   shared_preferences: ^2.5.5
-  tray_manager: ^0.5.2
   url_launcher: ^6.3.2
   uuid: ^4.5.1
-  web_socket_channel: ^3.0.2
   webview_flutter: ^4.13.1
   # Direct, because the Android file chooser is an Android-only API:
   # AndroidWebViewController.setOnShowFileSelector is what makes the
   # console's image attachment button open a picker.
   webview_flutter_android: ^4.14.0
-  webview_windows: ^0.4.0
-  window_manager: ^0.5.1
-  windows_single_instance: any
   http: ^1.1.0
-  archive: ^4.0.9
-  args: ^2.4.2
   share_plus: ^12.0.1
 
 dev_dependencies:
@@ -51,40 +33,18 @@ dev_dependencies:
   flutter_lints: ^6.0.0
   # Read by the bundled-font contract test, which parses pubspec itself.
   yaml: ^3.1.3
-  flutter_launcher_icons: ^0.14.4
 
-# The Android launcher icon is NOT generated here. It is derived from the
-# canonical APERTURE geometry by tool/generate_android_launcher_icons.py.
-#
-# `android` stays false because this package cannot express what the launcher
-# needs from one source: an opaque legacy tile for API 24/25 and a transparent
-# adaptive foreground are different images, and re-enabling it would overwrite
-# the verified 16% inset and the monochrome layer in
-# mipmap-anydpi-v26/ic_launcher.xml. It previously pointed at
-# assets/branding/pocketclaw-mark.png — the glossy 3D mark — so a stray run
-# would have reverted the launcher to artwork the launcher no longer uses.
-#
-# image_path is the derived APERTURE master, not a second geometry source.
-flutter_launcher_icons:
-  android: false
-  ios: false
-  image_path: "assets/branding/android-launcher/ic_launcher_master.png"
-  windows:
-    generate: true
-    image_path: "assets/app_icon.png"
-    icon_size: 256
-  macos:
-    generate: true
-    image_path: "assets/app_icon.png"
+# The Android launcher icon, and the README icon beside it, are derived from the
+# canonical APERTURE geometry by tool/generate_android_launcher_icons.py. There
+# is deliberately no flutter_launcher_icons configuration: it cannot express an
+# opaque legacy tile and a transparent adaptive foreground from one source, and
+# a stray run would overwrite the verified launcher resources.
 
 flutter:
   uses-material-design: true
   generate: true
 
   assets:
-    - assets/app_icon.png
-    - assets/icon.ico
-    - assets/branding/pocketclaw-mark.png
     # OFL-1.1 requires the licence to travel with the font software, including
     # in a binary redistribution. Packaged, not merely committed.
     - assets/fonts/Inter-OFL.txt

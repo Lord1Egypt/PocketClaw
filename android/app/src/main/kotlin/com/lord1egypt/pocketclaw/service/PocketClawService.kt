@@ -2,6 +2,8 @@ package com.lord1egypt.pocketclaw.service
 
 import com.lord1egypt.pocketclaw.BuildConfig
 import com.lord1egypt.pocketclaw.PocketClawCoreState
+import com.lord1egypt.pocketclaw.diagnostics.LifecycleDiagnostics
+import com.lord1egypt.pocketclaw.diagnostics.LifecycleText
 import com.lord1egypt.pocketclaw.security.GitHubCredentialStore
 import android.app.Notification
 import android.app.PendingIntent
@@ -10,6 +12,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
+import android.os.Build
 import android.os.IBinder
 import android.os.PowerManager
 import android.util.Base64
@@ -56,7 +59,7 @@ class PocketClawService : Service() {
          * Where Core writes the gateway bearer credential.
          *
          * It used to live inside `.picoclaw.pid` in POCKETCLAW_HOME, which on
-         * this platform is `Download/pocketclaw` — user-visible shared storage,
+         * this platform was then `Download/pocketclaw` — user-visible shared storage,
          * where the 0600 Core writes with is synthesised by the filesystem
          * rather than enforced. Any app holding storage access could read it,
          * and Android does not isolate loopback sockets between apps, so that
@@ -117,7 +120,7 @@ class PocketClawService : Service() {
         const val ACTION_RESTART = "com.lord1egypt.pocketclaw.action.RESTART"
         const val EXTRA_PUBLIC_MODE = "public_mode"
 
-        // 共享状态供 UI 读取
+        // Shared state the UI reads.
         @Volatile
         var isRunning = false
             private set
@@ -312,33 +315,26 @@ class PocketClawService : Service() {
         }
 
         /**
-         * 返回 workspace 目录路径。
-         * Android 11+ 使用 MANAGE_EXTERNAL_STORAGE 权限写入 Downloads；
-         * 权限未授予时回退到应用专属外部目录（无需权限）。
+         * The workspace: a real directory in app-specific external storage,
+         * `Android/data/<package>/files/pocketclaw`, or app-internal storage on
+         * the rare device with no external volume.
+         *
+         * PC-DEF-077. It used to be `Download/pocketclaw` when all-files access
+         * was granted and this same directory when it was not, so the workspace
+         * silently changed with a permission toggle, and the app sent the user
+         * to the all-files screen on every cold launch to get it. The product no
+         * longer declares that permission; this is the only location. It is the
+         * directory the no-permission branch always used, so an install that
+         * never granted access keeps its files where they were.
+         *
+         * An older `Download/pocketclaw` is never read, moved or deleted here.
+         * LegacyWorkspaceImporter offers the owner an explicit copy.
          */
         fun getWorkspacePath(context: Context): String {
-            val downloadsDir = File(
-                android.os.Environment.getExternalStoragePublicDirectory(
-                    android.os.Environment.DIRECTORY_DOWNLOADS
-                ),
-                "pocketclaw"
-            )
-            // Android 11+ 需要 MANAGE_EXTERNAL_STORAGE；低版本 requestLegacyExternalStorage 已可写
-            val canWrite = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
-                android.os.Environment.isExternalStorageManager()
-            } else {
-                true
-            }
-            return if (canWrite) {
-                downloadsDir.mkdirs()
-                downloadsDir.absolutePath
-            } else {
-                // 权限未授予，回退到应用专属目录，避免崩溃
-                val fallback = context.getExternalFilesDir(null)?.resolve("pocketclaw")
-                    ?: File(context.filesDir, "pocketclaw")
-                fallback.mkdirs()
-                fallback.absolutePath
-            }
+            val workspace = context.getExternalFilesDir(null)?.resolve("pocketclaw")
+                ?: File(context.filesDir, "pocketclaw")
+            workspace.mkdirs()
+            return workspace.absolutePath
         }
 
         fun getGatewayBinaryFile(context: Context): File {
@@ -388,10 +384,11 @@ class PocketClawService : Service() {
          *
          * Those files are application output, not user content, and older
          * builds wrote full LLM requests and system-prompt previews into them —
-         * so an upgraded install can be carrying prompt text in a directory any
-         * app with storage access can read. Nothing else under
-         * `Download/pocketclaw` is touched: not the workspace, not memory, not
-         * a file whose origin cannot be established.
+         * so an upgraded install can be carrying prompt text in its workspace.
+         * Nothing else is touched: not memory, not a file whose origin cannot be
+         * established. Since PC-DEF-077 the workspace is app-specific storage,
+         * so this never reaches an older `Download/pocketclaw`, which is left
+         * entirely alone.
          *
          * Best effort and idempotent. It runs after the private log directory
          * has been prepared, and a failure here must never stop the service
@@ -437,7 +434,7 @@ class PocketClawService : Service() {
             // Managed Runtime storage. Executables live in nativeLibraryDir,
             // which the installer unpacked and the app cannot write; metadata
             // lives app-private and outside the user workspace, so a Skill
-            // writing into Download/pocketclaw cannot reach runtime state.
+            // writing into the workspace cannot reach runtime state.
             val runtimeLibDir = context.applicationInfo.nativeLibraryDir
             val runtimeMetadataDir = File(coreState, "runtime")
             runtimeMetadataDir.mkdirs()
@@ -673,8 +670,8 @@ class PocketClawService : Service() {
     private var logThread: Thread? = null
     private var wakeLock: PowerManager.WakeLock? = null
     private val logBuffer = StringBuilder()
-    private val maxLogSize = 64 * 1024 // 64KB 日志缓冲
-    private val serviceLock = Object() // 保护启动/停止并发
+    private val maxLogSize = 64 * 1024 // 64 KiB log buffer
+    private val serviceLock = Object() // serializes start and stop
 
     /**
      * Who owns the Core runtime. PC-DEF-072.
@@ -703,61 +700,96 @@ class PocketClawService : Service() {
     /** The epoch that registered [activeChild], so no other epoch can clear it. */
     private var activeChildEpoch: Long = 0
     @Volatile
-    private var publicMode = false // 是否启用公共模式（监听所有接口）
+    private var publicMode = false // Public Mode: listen on all interfaces
     @Volatile
-    private var gatewayAutoStart = true // 由启动偏好决定是否让 Core 自动拉起 gateway
+    private var gatewayAutoStart = true // from the launch preference: whether Core starts the gateway itself
     private var restartCount = 0
-    private val maxRestartAttempts = 3 // 最大重启次数
+    private val maxRestartAttempts = 3 // restart limit
 
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onCreate() {
         super.onCreate()
         hosted = this
+        LifecycleDiagnostics.record(this, "service", "create")
         Log.i(TAG, "Service created")
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        // A null intent means Android re-created the Service on its own. Auto-start
-        // is an app-launch decision, so an OS-driven restart must not resurrect it.
-        if (intent == null) {
-            Log.i(TAG, "Ignoring Android service restart with no originating intent")
-            stopSelf(startId)
-            return START_NOT_STICKY
-        }
-        when (intent.action) {
-            ACTION_STOP -> {
+        LifecycleDiagnostics.record(
+            this,
+            "service",
+            "start-command",
+            "action=${LifecycleText.intentAction(intent != null, intent?.action)} flags=$flags",
+        )
+        // Every path answers START_NOT_STICKY: PocketClaw runs because the owner
+        // started it, and Android must never bring it back on its own.
+        when (ServiceCommand.of(intent != null, intent?.action)) {
+            ServiceCommand.IGNORE_OS_RESTART -> {
+                // A null intent means Android re-created the Service on its own.
+                // Auto-start is an app-launch decision, so an OS-driven restart
+                // must not resurrect it.
+                Log.i(TAG, "Ignoring Android service restart with no originating intent")
+                stopSelf(startId)
+            }
+            ServiceCommand.STOP -> {
                 stopService()
                 stopForeground(STOP_FOREGROUND_REMOVE)
                 stopSelf()
-                return START_NOT_STICKY
             }
-            ACTION_RESTART -> {
+            ServiceCommand.RESTART -> {
                 // stopService() is synchronous and bounded: it destroys the Core
                 // process, joins it, and sweeps orphaned children, so the start
                 // below cannot race a Core that still holds the launcher port or
                 // the gateway pid file.
-                publicMode = intent.getBooleanExtra(EXTRA_PUBLIC_MODE, publicMode)
+                publicMode = intent!!.getBooleanExtra(EXTRA_PUBLIC_MODE, publicMode)
                 gatewayAutoStart = LaunchAutoStartPreferences.read(this).gatewayEnabled
-                startForeground(NOTIFICATION_ID, createNotification("Restarting..."))
+                if (!enterForeground("Restarting...", startId)) return START_NOT_STICKY
                 acquireWakeLock()
                 stopService()
                 startService()
-                return START_NOT_STICKY
             }
-            else -> {
-                // 从 Intent 读取 publicMode 参数
-                publicMode = intent.getBooleanExtra(EXTRA_PUBLIC_MODE, false)
+            ServiceCommand.START -> {
+                // Public Mode comes from the Intent.
+                publicMode = intent!!.getBooleanExtra(EXTRA_PUBLIC_MODE, false)
                 gatewayAutoStart = LaunchAutoStartPreferences.read(this).gatewayEnabled
-                startForeground(NOTIFICATION_ID, createNotification("Starting..."))
+                if (!enterForeground("Starting...", startId)) return START_NOT_STICKY
                 acquireWakeLock()
                 startService()
-                return START_NOT_STICKY
             }
+        }
+        return START_NOT_STICKY
+    }
+
+    /**
+     * Promotes the service to the foreground, or stops it when Android refuses.
+     *
+     * Android 12+ refuses a foreground start the app was not allowed to make --
+     * a start request that raced the app going to the background -- with
+     * ForegroundServiceStartNotAllowedException. That is a lifecycle state, not
+     * a bug, and crashing the process over it would be the "keeps stopping"
+     * dialog for no reason, so the service records it and ends cleanly. Any
+     * other exception is a programming error and still propagates.
+     */
+    private fun enterForeground(text: String, startId: Int): Boolean {
+        try {
+            startForeground(NOTIFICATION_ID, createNotification(text))
+            return true
+        } catch (e: IllegalStateException) {
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S ||
+                e !is android.app.ForegroundServiceStartNotAllowedException
+            ) {
+                throw e
+            }
+            LifecycleDiagnostics.record(this, "service", "foreground-refused", "error=${e.javaClass.name}")
+            Log.w(TAG, "Android refused the foreground start; stopping without starting Core")
+            stopSelf(startId)
+            return false
         }
     }
 
     override fun onDestroy() {
+        LifecycleDiagnostics.record(this, "service", "destroy")
         stopService()
         releaseWakeLock()
         isRunning = false
@@ -773,7 +805,7 @@ class PocketClawService : Service() {
         super.onDestroy()
     }
 
-    // --- 核心逻辑 ---
+    // --- Core lifecycle ---
 
     private fun startService() {
         val outcome = ownership.start { epoch ->
@@ -813,7 +845,7 @@ class PocketClawService : Service() {
             testBinary(epoch, gatewayBinary)
             ensureOnboarded(epoch, gatewayBinary)
             if (!ownership.isCurrent(epoch)) return
-            // 启动前先清理可能残留的旧进程
+            // Clear out any stale process before starting.
             killPocketClawOrphanProcesses()
             runWebService(epoch)
         } catch (e: InterruptedException) {
@@ -843,7 +875,7 @@ class PocketClawService : Service() {
     }
 
     /**
-     * 测试 gateway 二进制是否可执行
+     * Checks that the gateway binary can be executed.
      */
     private fun testBinary(epoch: Long, binaryFile: File) {
         Log.i(TAG, "Testing binary at ${binaryFile.absolutePath}...")
@@ -882,23 +914,23 @@ class PocketClawService : Service() {
     }
 
     /**
-     * 从 app 的 native library 目录获取 gateway 二进制（用于 onboard 初始化和传递给 web 服务）
-     * 如果 nativeLibraryDir 中没有，尝试从 APK 中提取
+     * The gateway binary from nativeLibraryDir, used for onboarding and handed
+     * to the web service. Falls back to extracting it from the APK.
      */
     private fun getGatewayBinaryFile(): File {
         return Companion.getGatewayBinaryFile(this)
     }
 
     /**
-     * 从 app 的 native library 目录获取 web console 二进制
-     * 如果 nativeLibraryDir 中没有，尝试从 APK 中提取
+     * The web console binary from nativeLibraryDir. Falls back to extracting it
+     * from the APK.
      */
     private fun getWebBinaryFile(): File {
         return Companion.resolveBinaryFile(this, WEB_BINARY_NAME)
     }
 
     /**
-     * 运行 Core 的 `onboard` 初始化配置和工作区
+     * Runs Core's `onboard` to create the config and workspace.
      */
     private fun ensureOnboarded(epoch: Long, binaryFile: File) {
         val configFile = PocketClawCoreState.configFile(this)
@@ -969,11 +1001,11 @@ class PocketClawService : Service() {
     }
 
     /**
-     * 运行 web 服务进程（libpocketclaw-web.so）
-     * web 服务会通过 TryAutoStartGateway() 自动启动并管理 gateway
+     * Runs the web service process (libpocketclaw-web.so), which starts and
+     * manages the gateway itself through TryAutoStartGateway().
      */
     private fun runWebService(epoch: Long) {
-        // 检查是否已被要求停止
+        // Stop if a stop was requested.
         if (!ownership.isCurrent(epoch)) {
             Log.i(TAG, "Core runtime epoch $epoch is no longer current, aborting web service start")
             return
@@ -1048,7 +1080,7 @@ class PocketClawService : Service() {
         publishRuntimeNotification()
         Log.i(TAG, "Web service started with PID: $processId, listening on port $WEB_PORT")
 
-        // 后台线程读取 stdout/stderr
+        // Read stdout and stderr on a background thread.
         logThread = Thread({
             try {
                 val reader = BufferedReader(InputStreamReader(proc.inputStream))
@@ -1068,7 +1100,7 @@ class PocketClawService : Service() {
             start()
         }
 
-        // 等待进程退出（阻塞）
+        // Wait for the process to exit (blocking).
         val exitCode = proc.waitFor()
         isRunning = false
         processId = -1
@@ -1078,7 +1110,7 @@ class PocketClawService : Service() {
             Thread.currentThread().interrupt()
         }
 
-        // 如果是被主动停止的，不需要重启
+        // A requested stop is not restarted.
         if (!ownership.isCurrent(epoch)) {
             Log.i(TAG, "Web service for epoch $epoch exited after it stopped being current (code $exitCode)")
             return
@@ -1089,7 +1121,7 @@ class PocketClawService : Service() {
         publishLog("Process exited (code $exitCode)\n$lastOutput")
         publishRuntimeNotification(stoppedDetail = "Stopped (exit code $exitCode)")
 
-        // 非正常退出时自动重启（限制重试次数）
+        // Restart after an abnormal exit, a limited number of times.
         if (exitCode != 0) {
             restartCount++
             if (restartCount > maxRestartAttempts) {
@@ -1099,14 +1131,14 @@ class PocketClawService : Service() {
                 return
             }
             Log.i(TAG, "Scheduling restart in 5 seconds... (attempt $restartCount/$maxRestartAttempts)")
-            // 清理可能残留的占用端口的进程
+            // Clear out any stale process still holding the port.
             killPocketClawOrphanProcesses()
             // Interruptible on purpose: a sleeping worker owns no child process,
             // so the interrupt from stopService() is the only thing that can
             // reach it. Letting it propagate is what ends the epoch promptly
             // instead of after the full backoff.
             Thread.sleep(RESTART_BACKOFF_MS)
-            // 再次检查是否被要求停止
+            // Check again for a requested stop.
             if (!ownership.isCurrent(epoch)) {
                 Log.i(TAG, "Core runtime epoch $epoch stopped during the restart wait, aborting")
                 return
@@ -1115,16 +1147,6 @@ class PocketClawService : Service() {
         }
     }
 
-    /**
-     * 从 APK 中提取二进制文件到 filesDir
-     * 用于某些设备（特别是 TV）so 文件没有被自动解压到 nativeLibraryDir 的情况
-     */
-    /**
-     * 杀掉属于当前应用的所有 PocketClaw Core 残留子进程。
-     *
-     * 通过 UID 匹配（而非 ppid），因为 force-stop 后 app 重启 PID 会变，
-     * 旧的孤儿进程的 ppid 可能已变为 1（被 init 收养），无法通过 ppid 找到。
-     */
     /**
      * Whether a /proc/<pid>/cmdline belongs to one of PocketClaw's own Core
      * executables.
@@ -1156,23 +1178,23 @@ class PocketClawService : Service() {
             val procDir = File("/proc")
             procDir.listFiles()?.forEach { pidDir ->
                 val pid = pidDir.name.toIntOrNull() ?: return@forEach
-                if (pid == myPid) return@forEach // 不杀自己
+                if (pid == myPid) return@forEach // never this process
                 try {
-                    // 通过 /proc/<pid>/status 读取进程的 UID
+                    // Read the process UID from /proc/<pid>/status.
                     val statusFile = File(pidDir, "status")
                     if (!statusFile.canRead()) return@forEach
                     val statusContent = statusFile.readText()
 
-                    // 解析 Uid 行：Uid:\t<real>\t<effective>\t<saved>\t<filesystem>
+                    // The Uid line: Uid:\t<real>\t<effective>\t<saved>\t<filesystem>
                     val uidLine = statusContent.lineSequence()
                         .firstOrNull { it.startsWith("Uid:") } ?: return@forEach
                     val uidFields = uidLine.substringAfter("Uid:").trim().split(Regex("\\s+"))
                     val processUid = uidFields.firstOrNull()?.toIntOrNull() ?: return@forEach
 
-                    // 只处理属于同一 UID（同一应用）的进程
+                    // Only processes with this app's UID.
                     if (processUid != myUid) return@forEach
 
-                    // 只匹配 Core 可执行文件本身，按 argv[0] 的 basename 精确比对。
+                    // Only Core executables themselves, matched exactly on argv[0]'s basename.
                     val cmdlineFile = File(pidDir, "cmdline")
                     if (!cmdlineFile.canRead()) return@forEach
                     val cmdline = cmdlineFile.readText()
@@ -1181,7 +1203,7 @@ class PocketClawService : Service() {
                     Log.i(TAG, "Killing orphan PocketClaw Core process: PID=$pid, UID=$processUid, cmd=$cmdline")
                     android.os.Process.killProcess(pid)
                 } catch (e: Exception) {
-                    // 忽略无权限的进程
+                    // Skip processes this app may not read.
                 }
             }
             Log.i(TAG, "Cleaned up orphan PocketClaw Core processes")
@@ -1191,7 +1213,7 @@ class PocketClawService : Service() {
     }
 
     /**
-     * 停止服务（web 进程会在退出时自动停止其管理的 gateway）
+     * Stops the service. The web process stops the gateway it manages as it exits.
      */
     private fun stopService() {
         Log.i(TAG, "Stopping service...")
@@ -1236,7 +1258,7 @@ class PocketClawService : Service() {
             }
         }
 
-        // 等待服务线程退出
+        // Wait for the service thread to exit.
         if (target != null && target.thread !== Thread.currentThread()) {
             // Interrupt as well as destroy: the restart backoff is a sleep, and a
             // sleeping worker has no child to kill.
@@ -1257,20 +1279,20 @@ class PocketClawService : Service() {
             }
         }
 
-        // 清理可能残留的孤儿进程（包括 web 服务自己启动的 gateway）
+        // Clear out orphaned processes, including a gateway the web service started.
         killPocketClawOrphanProcesses()
 
-        // 重置重启计数
+        // Reset the restart counter.
         restartCount = 0
 
         Log.i(TAG, "Service stopped and cleaned up")
     }
 
-    // --- 环境变量 ---
+    // --- Environment ---
 
     /**
-     * 构建子进程环境变量
-     * 关键：设置 POCKETCLAW_BINARY 指向 gateway 二进制，让 web 服务能找到并启动 gateway
+     * The child-process environment. POCKETCLAW_BINARY must name the gateway
+     * binary so the web service can find and start it.
      */
     private fun buildEnvironment(): Map<String, String> {
         return Companion.buildEnvironment(this).toMutableMap().apply {
@@ -1278,7 +1300,7 @@ class PocketClawService : Service() {
         }
     }
 
-    // --- 通知 ---
+    // --- Notification ---
 
     private fun createNotification(status: String): Notification {
         val launchIntent = Intent(this, MainActivity::class.java).apply {
@@ -1352,7 +1374,7 @@ class PocketClawService : Service() {
             PowerManager.PARTIAL_WAKE_LOCK,
             "PocketClaw::ServiceWakeLock"
         ).apply {
-            acquire(24 * 60 * 60 * 1000L) // 24 小时上限
+            acquire(24 * 60 * 60 * 1000L) // 24-hour cap
         }
         Log.i(TAG, "Wake lock acquired")
     }
@@ -1367,7 +1389,7 @@ class PocketClawService : Service() {
         wakeLock = null
     }
 
-    // --- 日志缓冲 ---
+    // --- Log buffer ---
 
     @Synchronized
     private fun appendLog(line: String) {

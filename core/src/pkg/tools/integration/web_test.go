@@ -1380,6 +1380,120 @@ func TestWebTool_KagiSearch_SuccessRequestAndParsing(t *testing.T) {
 	}
 }
 
+// The Kagi request used to be built by Kagi's generated client, which had no
+// licence and was removed for F-Droid. This pins the wire contract that client
+// produced, so the hand-written request cannot drift from it.
+func TestWebTool_KagiSearch_RequestMatchesTheGeneratedClientContract(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if got := r.Header.Get("Content-Type"); got != "application/json" {
+			t.Errorf("Content-Type = %q, want application/json", got)
+		}
+		if got := r.Header.Get("Accept"); got != "application/json" {
+			t.Errorf("Accept = %q, want application/json", got)
+		}
+		if got := r.Header.Get("User-Agent"); !strings.Contains(got, "picoclaw") {
+			t.Errorf("User-Agent = %q, want the honest agent", got)
+		}
+		var payload map[string]any
+		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+			t.Fatalf("failed to decode payload: %v", err)
+		}
+		want := map[string]any{
+			"query":       "q",
+			"workflow":    "search",
+			"format":      "json",
+			"safe_search": true,
+			"limit":       float64(3),
+		}
+		if len(payload) != len(want) {
+			t.Errorf("payload keys = %v, want exactly %v (no lens without a range)", payload, want)
+		}
+		for key, value := range want {
+			if payload[key] != value {
+				t.Errorf("payload[%q] = %v, want %v", key, payload[key], value)
+			}
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"data":{"search":[]}}`))
+	}))
+	defer server.Close()
+
+	tool, err := NewWebSearchTool(WebSearchToolOptions{
+		KagiEnabled:    true,
+		KagiAPIKeys:    []string{"k"},
+		KagiBaseURL:    server.URL,
+		KagiMaxResults: 5,
+	})
+	if err != nil {
+		t.Fatalf("NewWebSearchTool() error: %v", err)
+	}
+	result := tool.Execute(context.Background(), map[string]any{"query": "q", "count": float64(3)})
+	if result.IsError || !strings.Contains(result.ForUser, "No results for: q") {
+		t.Fatalf("expected an empty result, got %+v", result)
+	}
+}
+
+func TestWebTool_KagiSearch_RotatesKeysAndReadsTheLegacyShape(t *testing.T) {
+	var seen []string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		seen = append(seen, r.Header.Get("Authorization"))
+		w.Header().Set("Content-Type", "application/json")
+		if r.Header.Get("Authorization") == "Bearer revoked" {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		w.Write([]byte(`{"data":[
+			{"t":1,"url":"https://example.com/related","title":"Related"},
+			{"t":0,"url":"https://example.com/web","title":"Web","published":"2025-05-05"}
+		]}`))
+	}))
+	defer server.Close()
+
+	tool, err := NewWebSearchTool(WebSearchToolOptions{
+		KagiEnabled:    true,
+		KagiAPIKeys:    []string{"revoked", "good"},
+		KagiBaseURL:    server.URL,
+		KagiMaxResults: 5,
+	})
+	if err != nil {
+		t.Fatalf("NewWebSearchTool() error: %v", err)
+	}
+	result := tool.Execute(context.Background(), map[string]any{"query": "q"})
+	if result.IsError {
+		t.Fatalf("expected success after rotating past the revoked key, got %s", result.ForLLM)
+	}
+	if len(seen) != 2 || seen[0] != "Bearer revoked" || seen[1] != "Bearer good" {
+		t.Fatalf("keys tried = %v, want revoked then good", seen)
+	}
+	if !strings.Contains(result.ForUser, "https://example.com/web") ||
+		!strings.Contains(result.ForUser, "Published: 2025-05-05") ||
+		strings.Contains(result.ForUser, "Related") {
+		t.Fatalf("legacy parsing wrong: %s", result.ForUser)
+	}
+}
+
+func TestWebTool_KagiSearch_MalformedSuccessBodyIsAnError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`not json`))
+	}))
+	defer server.Close()
+
+	tool, err := NewWebSearchTool(WebSearchToolOptions{
+		KagiEnabled:    true,
+		KagiAPIKeys:    []string{"k"},
+		KagiBaseURL:    server.URL,
+		KagiMaxResults: 5,
+	})
+	if err != nil {
+		t.Fatalf("NewWebSearchTool() error: %v", err)
+	}
+	result := tool.Execute(context.Background(), map[string]any{"query": "q"})
+	if !result.IsError || !strings.Contains(result.ForLLM, "failed to parse response") {
+		t.Fatalf("expected a parse error, got %+v", result)
+	}
+}
+
 func TestWebTool_KagiSearch_NoApiKey(t *testing.T) {
 	tool, err := NewWebSearchTool(WebSearchToolOptions{
 		KagiEnabled:    true,

@@ -13,6 +13,7 @@ import base64
 import hashlib
 import json
 import os
+import re
 import shlex
 import shutil
 import subprocess
@@ -45,6 +46,8 @@ FLUTTER_BUILD_DIR = REPO / ".dart_tool/flutter_build"
 # enough on its own: Gradle decides separately whether to run the task at all.
 FLUTTER_GRADLE_INTERMEDIATES = REPO / "build/app/intermediates/flutter"
 APK = REPO / "build/app/outputs/apk/release/app-release.apk"
+# AGP names a release built with no signing config this way.
+UNSIGNED_APK = REPO / "build/app/outputs/apk/release/app-release-unsigned.apk"
 BUNDLE = REPO / "build/app/outputs/bundle/release/app-release.aab"
 DEFAULT_SYMBOLS_DIR = Path("build/private-symbols/dart/android-arm64")
 GENERATED_PACKAGE = {
@@ -61,6 +64,12 @@ APP_SYMBOL_MARKERS = (
     b"StatusSnapshot",
 )
 SIGNING_ENV = ("KEYSTORE_PATH", "KEYSTORE_PASSWORD", "KEY_ALIAS", "KEY_PASSWORD")
+UNSIGNED_CLASSIFICATION = "UNSIGNED / REPOSITORY-SIGNABLE"
+CLASSIFICATIONS = {
+    "local-test": "LOCAL TEST / NON-RELEASABLE",
+    "production": "PRODUCTION",
+    "unsigned": UNSIGNED_CLASSIFICATION,
+}
 OFFICIAL_ONBOARDING_PROPERTIES = ANDROID / "official-onboarding.properties"
 ONBOARDING_PROPERTY = "officialOnboardingBaseUrl"
 ONBOARDING_DEFINE = "POCKETCLAW_ONBOARDING_BASE_URL"
@@ -333,6 +342,8 @@ def gradle_command(
         command.append(dart_defines_property({ONBOARDING_DEFINE: onboarding_base_url}))
     if signing == "local-test":
         command.append("-PallowDebugSigning=true")
+    if signing == "unsigned":
+        command.append("-PpocketclawUnsignedRelease=true")
     return command
 
 
@@ -341,6 +352,11 @@ def validate_signing_environment(signing: str, environ: dict[str, str]) -> None:
     if signing == "local-test" and declared:
         raise HardeningError(
             "LOCAL TEST mode refuses declared production signing variables: "
+            + ", ".join(declared)
+        )
+    if signing == "unsigned" and declared:
+        raise HardeningError(
+            "UNSIGNED mode refuses declared production signing variables: "
             + ", ".join(declared)
         )
     if signing == "production" and len(declared) != len(SIGNING_ENV):
@@ -470,6 +486,25 @@ def inspect_hardened_bundle(
     return evidence
 
 
+APK_SIGNATURE_ENTRY = re.compile(r"^META-INF/[^/]+\.(SF|RSA|DSA|EC)$")
+APK_SIGNING_BLOCK_MAGIC = b"APK Sig Block 42"
+
+
+def verify_unsigned_apk(apk: Path) -> None:
+    """Fails unless the APK carries no v1 signature and no APK Signing Block."""
+    with zipfile.ZipFile(apk) as archive:
+        v1 = [name for name in archive.namelist() if APK_SIGNATURE_ENTRY.match(name)]
+    if v1:
+        raise HardeningError("the unsigned APK carries JAR signature entries: " + ", ".join(v1))
+    data = apk.read_bytes()
+    eocd = data.rfind(b"PK\x05\x06")
+    if eocd < 0:
+        raise HardeningError(f"{apk} has no ZIP end-of-central-directory record")
+    central_directory = int.from_bytes(data[eocd + 16:eocd + 20], "little")
+    if data[max(0, central_directory - 16):central_directory] == APK_SIGNING_BLOCK_MAGIC:
+        raise HardeningError("the unsigned APK carries an APK Signing Block")
+
+
 def inspect_hardened_outputs(
     apk: Path,
     symbols: Path,
@@ -481,6 +516,8 @@ def inspect_hardened_outputs(
         raise HardeningError(f"Gradle completed without producing {apk}")
     if not symbols.is_file() or symbols.stat().st_size == 0:
         raise HardeningError(f"split debug info was not produced at {symbols}")
+    if classification == UNSIGNED_CLASSIFICATION:
+        verify_unsigned_apk(apk)
 
     retained = verify_private_dart_symbols(symbols)
 
@@ -518,7 +555,11 @@ def inspect_hardened_outputs(
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--signing", required=True, choices=("local-test", "production"))
+    parser.add_argument(
+        "--signing", required=True, choices=("local-test", "production", "unsigned"),
+        help="local-test: development key; production: owner key from the "
+             "environment; unsigned: no signature, for a repository to sign "
+             "(refuses any declared signing variable)")
     parser.add_argument(
         "--symbols-dir",
         default=str(DEFAULT_SYMBOLS_DIR),
@@ -561,6 +602,8 @@ def parse_args() -> argparse.Namespace:
         )
     if args.package == "apk" and args.artifact_class:
         parser.error("--artifact-class applies to --package bundle only")
+    if args.signing == "unsigned" and args.package != "apk":
+        parser.error("--signing unsigned builds a repository APK; an AAB is Play-only")
     return args
 
 
@@ -572,8 +615,9 @@ def main() -> int:
         symbols_property, symbols_dir = resolve_symbols_dir(args.symbols_dir)
         changed = prepare_generated_source_package()
         symbols = symbols_dir / "app.android-arm64.symbols"
+        apk = UNSIGNED_APK if args.signing == "unsigned" else APK
         reset_generated_build_outputs(
-            BUNDLE if args.package == "bundle" else APK, symbols, r8_mapping=R8_MAPPING)
+            BUNDLE if args.package == "bundle" else apk, symbols, r8_mapping=R8_MAPPING)
         symbols_dir.mkdir(parents=True, exist_ok=True)
 
         environment = dict(os.environ)
@@ -590,9 +634,7 @@ def main() -> int:
             "Invalidated generated Flutter build cache; AOT and private symbols will be regenerated.",
             flush=True,
         )
-        classification = (
-            "LOCAL TEST / NON-RELEASABLE" if args.signing == "local-test" else "PRODUCTION"
-        )
+        classification = CLASSIFICATIONS[args.signing]
         print(
             "Signing classification: " + classification,
             flush=True,
@@ -624,7 +666,7 @@ def main() -> int:
             print("\n" + evidence["notice"], flush=True)
             return 0
         evidence = inspect_hardened_outputs(
-            APK, symbols, classification, onboarding_base_url=onboarding_base_url)
+            apk, symbols, classification, onboarding_base_url=onboarding_base_url)
         print(json.dumps(evidence, indent=2, sort_keys=True))
         return 0
     except (HardeningError, R8ContractError, subprocess.CalledProcessError) as error:

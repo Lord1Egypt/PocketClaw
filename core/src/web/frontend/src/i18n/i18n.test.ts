@@ -522,6 +522,46 @@ describe("translation coverage", () => {
     expect(stale.join("\n"), stale.join("\n")).toBe("")
   })
 
+  // The Config page's Devices card, launch-at-login and service port were
+  // removed because none of them can do anything on Android. Their strings go
+  // with them in every locale, so nothing can quietly bring the card back.
+  it("carries none of the retired Android-inert Config strings", () => {
+    const retired = [
+      "devices_enabled",
+      "devices_enabled_hint",
+      "monitor_usb",
+      "monitor_usb_hint",
+      "autostart_label",
+      "autostart_hint",
+      "autostart_unsupported",
+      "autostart_load_error",
+      "server_port",
+      "server_port_hint",
+    ]
+    const localeDir = `${process.cwd()}/src/i18n/locales`
+    const files = fsSync
+      .readdirSync(localeDir)
+      .filter((f) => f.endsWith(".json"))
+    expect(files.length).toBe(14)
+    for (const locale of files) {
+      const config = (
+        JSON.parse(fsSync.readFileSync(`${localeDir}/${locale}`, "utf8")) as {
+          pages: { config: Record<string, unknown> & { sections: object } }
+        }
+      ).pages.config
+      for (const key of retired) {
+        expect(
+          config,
+          `${locale} still has pages.config.${key}`,
+        ).not.toHaveProperty(key)
+      }
+      expect(
+        config.sections,
+        `${locale} still has a Devices section`,
+      ).not.toHaveProperty("devices")
+    }
+  })
+
   it("does not ship English copies as if they were translations", () => {
     const english = enBundleFor("en") as Record<string, Record<string, string>>
     for (const [locale, bundle] of Object.entries(bundles)) {
@@ -1038,9 +1078,6 @@ describe("Pages batch 2 — Tools and Configuration", () => {
       expect(i18n.t("pages.config.sections.cron"), locale).not.toBe(
         "Cron Tasks",
       )
-      expect(i18n.t("pages.config.sections.devices"), locale).not.toBe(
-        "Devices",
-      )
 
       // Field labels and their helper text.
       expect(i18n.t("pages.config.workspace"), locale).not.toBe(
@@ -1191,17 +1228,8 @@ describe("Pages batch 3 — Agent tuning, runtime and security", () => {
       expect(i18n.t("pages.config.heartbeat_enabled_hint"), locale).not.toBe(
         "Send periodic heartbeat messages.",
       )
-      expect(i18n.t("pages.config.monitor_usb_hint"), locale).not.toBe(
-        "Watch USB plug/unplug events when devices are enabled.",
-      )
 
       // Launcher.
-      expect(i18n.t("pages.config.autostart_label"), locale).not.toBe(
-        "Launch at Login",
-      )
-      expect(i18n.t("pages.config.server_port"), locale).not.toBe(
-        "Service Port",
-      )
       expect(i18n.t("pages.config.launcher_section_hint"), locale).not.toBe(
         "Changes in this section take effect after the launcher restarts.",
       )
@@ -1227,14 +1255,6 @@ describe("Pages batch 3 — Agent tuning, runtime and security", () => {
         locale,
       ).not.toBe(
         "When enabled, localhost requests are allowed even when they do not match the allowed CIDRs. Disable this when the launcher is behind a same-host proxy.",
-      )
-
-      // Status / error states.
-      expect(i18n.t("pages.config.autostart_unsupported"), locale).not.toBe(
-        "Launch at login is not supported on this platform.",
-      )
-      expect(i18n.t("pages.config.autostart_load_error"), locale).not.toBe(
-        "Failed to load launch-at-login status.",
       )
     }
   })
@@ -1304,9 +1324,7 @@ describe("Pages batch 3 — Agent tuning, runtime and security", () => {
     expect(document.documentElement.getAttribute("dir")).toBe("rtl")
     expect(i18n.t("pages.config.session_scope")).toBe("نطاق الجلسة")
     expect(i18n.t("pages.config.dashboard_password")).toBe("كلمة مرور الدخول")
-    expect(i18n.t("pages.config.autostart_label")).toBe(
-      "التشغيل عند تسجيل الدخول",
-    )
+    expect(i18n.t("pages.config.lan_access")).not.toBe("LAN Access")
   })
 
   it("keeps English and the pre-existing locales intact for batch 3", async () => {

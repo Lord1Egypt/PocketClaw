@@ -215,9 +215,11 @@ class PinnedDispositionTest(unittest.TestCase):
                       "on a real IRC network")
         self.assertNotIn('"nick":     "picoclaw"', defaults)
 
-    def test_the_distribution_channel_define_is_current(self):
+    def test_the_distribution_channel_define_is_gone(self):
+        # Renamed in N4K-B, then removed with the device telemetry it fed in
+        # F-Droid Phase B. Neither name may come back.
         dart = (REPO / "lib/src/core/service_manager.dart").read_text(encoding="utf-8")
-        self.assertIn("POCKETCLAW_DISTRIBUTION_CHANNEL", dart)
+        self.assertNotIn("POCKETCLAW_DISTRIBUTION_CHANNEL", dart)
         self.assertNotIn("PICOCLAW_DISTRIBUTION_CHANNEL", dart)
 
 

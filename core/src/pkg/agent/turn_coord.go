@@ -146,6 +146,7 @@ func (al *AgentLoop) runTurn(ctx context.Context, ts *turnState, pipeline *Pipel
 			case result, ok := <-ts.pendingResults:
 				if ok && result != nil && result.ForLLM != "" {
 					content := al.cfg.FilterSensitiveData(result.ForLLM)
+					content = al.boundToolContentForLLM("subturn", content).Content
 					msg := subTurnResultPromptMessage(content)
 					pendingMessages = append(pendingMessages, msg)
 				}

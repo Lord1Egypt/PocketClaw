@@ -7,6 +7,171 @@ only reconstructable examples belong here.
 
 ## Open / deferred
 
+### PC-DEF-090 — What's New showed only the newest release; the history disappeared
+
+- **Observed:** owner, 2026-09-25. With 0.2.2 added, What's New showed only
+  the 0.2.2 notes; 0.2.1 and 0.2.0 were gone from the screen.
+- **Cause:** the page rendered a single `currentWhatsNewRelease`. The 0.2.0 and
+  0.2.1 definitions and all their translations were still in the bundle —
+  324 strings across 12 locales, byte-identical to what the `v0.2.0` and
+  `v0.2.1` tags shipped — they were just never shown.
+- **Fix (`f0b1526`):** `whatsNewHistory` is the one ordered source, newest
+  first; the current release is its first entry and opens expanded, earlier
+  releases are collapsible sections. `tool/release_notes.py` reads the same
+  list, so GitHub notes stay current-only and the Fastlane changelog stays
+  version-specific. `whats_new_history_test.dart` (19 cases: order, a defined
+  release missing from the list, every locale, adding a release, Arabic RTL,
+  offline) fails on the old page.
+- **Physical (Golden #3 `320368ea…`):** 0.2.2 open with all its notes; 0.2.1
+  and 0.2.0 listed collapsed and each opens in place with its real Arabic
+  notes, right to left.
+- **Status:** PHYSICAL PASS.
+
+### PC-DEF-086 — minSdk 24 is claimed, but PocketClaw cannot start below Android 8.0
+
+- **Found in the physical pass (lint, 2026-09-25).** `minSdk` is Flutter's
+  default 24 (Android 7.0), and the store description says "Android 7.0". But
+  `PocketClawService.start/restart` call `Context.startForegroundService`
+  (API 26) unguarded, `PocketClawNotificationChannels` uses `NotificationChannel`
+  (API 26) in 37 places, and `Process.isAlive/destroyForcibly` (API 26) are used
+  in the service. On Android 7.x the first Start would crash.
+- **Owner decision (2026-09-25): require Android 8.0.** `minSdk = 26` in
+  Gradle (`c633307`); README badge and requirements line, the Fastlane
+  description and the 0.2.2 What's New ("PocketClaw now requires Android 8.0 or
+  newer", 12 locales) say Android 8.0 (API 26). The release gate reads the
+  packaged minSdk (`artifact.min_sdk`, expects 26); a contract test holds
+  Gradle and every support statement to it and forbids "Android 7"/"API 24".
+  Historical records that describe minSdk 24 at the time are unchanged.
+- **Physical (2026-09-25, `56f11173…`):** aapt2 reads `minSdkVersion:'26'`;
+  the device reports `minSdk=26`; the gate row `artifact.min_sdk` passes; the
+  in-place install over the minSdk-24 build succeeded with data preserved;
+  What's New shows the requirement in Arabic.
+- **Status:** PHYSICAL PASS.
+
+### PC-DEF-087 — Arabic Settings: paths lost their leading slash, and a blank band
+
+- **Observed physically (Arabic, 2026-09-25):** the workspace path rendered as
+  `storage/emulated/0/Android/data//com.lord1egypt…`, and the legacy notice's
+  embedded path as `storage//emulated/0/Download/pocketclaw`: a left-to-right
+  path laid out in the page's right-to-left direction. Below the workspace
+  section, three stacked spacers (24 + 24 + 16 dp) left by removed sections
+  made an empty band.
+- **Fix (`2f7aed9`):** the path `Text` is forced left-to-right; the notice
+  embeds the path between Unicode isolates (U+2066/U+2069); the spacers are
+  one 24 dp gap.
+- **Physical re-check on `b4011015…` (2026-09-25):** the path reads
+  `/storage/emulated/0/Android/data/…` left-to-right in Arabic; the band is
+  gone. The notice's embedded path could not be re-seen: the notice stays
+  hidden after the earlier successful copy.
+- **Also found (2026-09-25):** the Arabic 0.2.2 What's New bullet wrapped
+  `Download/pocketclaw` as `/Download … pocketclaw`; the path is now isolated in
+  the Arabic string (`e332e29`) and `rtl_path_isolation_test.dart` requires
+  every Latin path in the Arabic bundle to be isolated. Not in `56f11173…`;
+  visible from the next build. Reworked in `80c9dc0`: gen-l10n copies bidi
+  isolates into Dart as literal characters, which `flutter analyze` rejects
+  (Trojan Source lint), so the path's slash is joined with U+2060 WORD JOINER
+  instead; physically verified on Golden #3 — the path stays on one line.
+- **Status:** PHYSICAL PASS (workspace path, gap); notice path and the What's
+  New path fixed in source, physical re-check with the next build.
+
+### PC-DEF-088 — the floating WebView nav pill covered the Dashboard's menu button
+
+- **Observed physically (Arabic, 2026-09-25):** taps on the Dashboard's
+  sidebar menu went Back instead. The draggable back/forward/reload pill
+  starts 12 dp below the top-right corner — on the Dashboard header, where the
+  menu button sits in right-to-left locales (and the gateway action in
+  left-to-right ones). Dragging the pill away made the menu open at once.
+- **Fix (`0a54ee4`):** the pill starts on the right edge at mid-height;
+  `web_nav_bar_position_test.dart` (en, ar) failed on the old position (18 dp).
+- **Physical re-check on `b4011015…` (2026-09-25):** the pill starts at
+  mid-height (y 640–775 px of 2340); the Dashboard header and its menu are
+  uncovered.
+- **Status:** PHYSICAL PASS.
+
+### PC-DEF-089 — the Dashboard Models header overflows at phone width
+
+- **Observed physically (English, 1080 px / 411 dp, 2026-09-25):** the title
+  "Models" and the "Saved Catalogs" and "Add Provider" buttons share one row
+  that does not wrap; "Add Provider" is clipped at the right edge.
+- **Fix (`47c7f0b`, Core restaged in `e868abc`, fingerprint `7e48a120…`):**
+  the shared `PageHeader` has a minimum rather than a fixed height and wraps;
+  its action row wraps and sits at the logical end (`ms-auto`), so RTL mirrors
+  it. Pages whose actions fit keep one row. `page-header.test.tsx` pins the
+  contract (3 of 4 cases fail on the old header).
+- **Physical (2026-09-25, `56f11173…`):** English: the actions wrap to their
+  own row at the end, "Add Provider" spans x 649–1015 of 1080 and opens its
+  dialog (Cancel closes it, nothing saved). Arabic: the row mirrors, "إضافة
+  مزوّد" fully visible at x 64–351; the WebView nav pill no longer overlaps.
+- **Status:** PHYSICAL PASS.
+
+### PC-DEF-085 — "PocketClaw keeps stopping" after a phone reboot, before the app is opened
+
+- **Observed:** owner report, 2026-09-25. Intermittently after a reboot,
+  Android shows "PocketClaw keeps stopping" although PocketClaw was not opened.
+- **Root cause, captured physically (2026-09-25).** Android's own records on the
+  SM-A165F hold the crashes. `dumpsys dropbox data_app_crash`: 2026-09-24
+  10:37:36 and 10:37:37, three minutes after a `SYSTEM_BOOT` at 10:34:22, on
+  **`com.lord1egypt.pocketclaw v63 (0.2.1)`** — `RuntimeException: Unable to
+  create service id.flutter.flutter_background_service.BackgroundService`,
+  caused by `ForegroundServiceStartNotAllowedException: FGS type dataSync not
+  allowed to start from BOOT_COMPLETED!`, thrown from the plugin's
+  `BackgroundService.onCreate → startForeground`; the restarted process crashed
+  the same way (two crashes in a row = the "keeps stopping" dialog). A third
+  record, 2026-09-22 07:54:35, same build: `ForegroundServiceDidNotStopInTimeException`
+  for the same plugin's `dataSync` service (Android 15+ time limit). The
+  plugin's boot receiver started its service on every boot. The released
+  v0.2.1 is affected; the private 0.2.2+64 builds were not (no reboot happened
+  on them before this pass). `flutter_background_service`, its receivers and
+  the `dataSync` service were removed from source by PC-DEF-083 (`e66344c`).
+  Evidence archived (untracked) under `build/forensic/pc-def-085/`.
+- **Source audit — no path starts PocketClaw on its own.** The packaged manifest
+  has no BOOT_COMPLETED, LOCKED_BOOT_COMPLETED, QUICKBOOT_POWERON or
+  MY_PACKAGE_REPLACED receiver and no direct-boot component; the only exported
+  components are the launcher activity and AndroidX's ProfileInstallReceiver,
+  which requires the DUMP permission (shell/system only). There is no alarm,
+  JobScheduler, WorkManager or sync adapter. `PocketClawService` is private,
+  every `onStartCommand` returns START_NOT_STICKY, an OS re-creation (null
+  intent) stops itself, and the service is started only from the Flutter
+  channel. `RECEIVE_BOOT_COMPLETED` stays forbidden by the release gate.
+- **Leading explanation, not proven:** a process started by the platform rather
+  than by PocketClaw — Samsung's app pre-launch, a backup or profile-install
+  job, or a content-provider start — crashing during startup. One real state
+  was found and contained: Android 12+ can refuse a foreground start that raced
+  the app into the background (ForegroundServiceStartNotAllowedException); that
+  now stops the service cleanly instead of crashing the process.
+- **Instrumented (`8defc0b`):** each process start records why Android started
+  it (ApplicationStartInfo on Android 15+, with the start component on 16) and
+  how earlier processes ended (ApplicationExitInfo: reason, status, exception
+  class); Application, MainActivity and the service record their entry points;
+  an uncaught exception records its class and first PocketClaw frame before the
+  normal crash handling. Local only (`noBackupFilesDir/diagnostics/lifecycle.log`,
+  32 KiB bound, logcat tag `PocketClawLifecycle`), no message text, no secrets,
+  no upload; appended to Logs → export. The dependency gate also refuses
+  background-scheduler libraries (WorkManager merges a boot receiver).
+- **Tests:** `ServiceCommandTest`, `LifecycleJournalTest`,
+  `android_lifecycle_contract_test.dart` (no boot receiver, private service,
+  every merged receiver/provider/initializer documented, no sticky or
+  scheduled work, breadcrumbs at every entry point),
+  `android_cleanup_regression_test.dart` (no BroadcastReceiver in the app's
+  sources).
+- **Physical result on `8f6364e8…` (0.2.2+64, 2026-09-25):** three reboots
+  with PocketClaw left running, 6–10 minutes of observation each without
+  opening it: no PocketClaw process, no new start record
+  (`dumpsys activity start-info`), no crash, no new exit record. The packaged
+  manifest has no boot receiver.
+- **Diagnostics defect found and fixed (`a7aca77`).** On this device every
+  start was logged `start-info=stale`: Samsung's Android 16 records cold starts
+  with `pid=0`, and the code matched the newest record by pid. It now takes the
+  record Android hands the process through
+  `addApplicationStartInfoCompletionListener`. Exit reasons 14–16 (freezer,
+  package state change, package updated) are named; 16 had shown as
+  `unknown-16` for the install. Verified on `b4011015…`: `start-info |
+  reason=start-activity type=cold component=activity target=MainActivity`,
+  and the install exit logged as `package-updated`.
+- **Status:** PHYSICAL PASS — root cause captured from the crash records and
+  removed; not closed on non-reproduction alone. **The published v0.2.1 still
+  carries the defect** until 0.2.2 is released.
+
 ### PC-DEF-077 — the workspace resolves under `Android/data`, and an empty `Download/pocketclaw` remains
 
 - **Observed:** owner report, 2026-09-21, on the released install. A runtime log
@@ -48,12 +213,262 @@ only reconstructable examples belong here.
 - **Release impact: none for v0.2.1.** That release changes no storage code, no
   permission handling and no workspace path, so it can neither cause nor worsen
   this. Nothing here justifies a storage-policy change, and none was made.
-- **Status:** OPEN — SOURCE-INVESTIGATED, PHYSICAL CLASSIFICATION PENDING.
+- **Source fix, F-Droid Phase B (2026-09-24), owner decision.** The canonical
+  build declares no storage permission: MANAGE_EXTERNAL_STORAGE, READ/WRITE_
+  EXTERNAL_STORAGE and requestLegacyExternalStorage are gone, and so is the
+  all-files-access redirect every cold launch made. `getWorkspacePath` returns
+  only the app-specific directory -- the one the owner's install was already
+  using per the log above, so no data moves. An older `Download/pocketclaw` is
+  never read, moved, merged or deleted automatically; Settings shows it when it
+  is visible and offers an explicit copy through the system folder picker into
+  a new `imported-from-downloads-<UTC stamp>` folder inside the agent workspace,
+  with nothing overwritten and no standing grant kept. The gate forbids all
+  three storage permissions.
+- **Physical investigation, accepted (2026-09-25).** On the private test build
+  `504d41bb…`, installed in place over v0.2.1, the workspace resolved to the
+  app-specific directory and existing data was preserved. The empty
+  `Download/pocketclaw` was created by Samsung My Files (its own `CREATE_FOLDER`
+  log entry), not by PocketClaw; after it was removed, no PocketClaw action
+  recreated it. The defect was the detector: it treated any directory at that
+  path as an old workspace, so the "Earlier workspace found" card appeared for
+  an empty folder.
+- **Detector fix (`e323106`).** `WorkspaceImportRules.looksLikeLegacyWorkspace`
+  now requires evidence: a `workspace/` directory holding at least one file Core
+  seeds or writes there (`AGENT.md`, `SOUL.md`, `USER.md`, `HEARTBEAT.md`,
+  `memory/MEMORY.md`, `.pocketclaw/bootstrap.json`). It only stats paths — it
+  cannot create, write or delete — and anything unreadable counts as absent.
+  The copy moved behind a read-only `ImportTree` (`WorkspaceTreeCopier`):
+  destinations are claimed with `mkdir` so two imports never share a folder,
+  the busy gate is held until the copy answers, and an import that copies
+  nothing removes its empty folder and reports "empty". 27 JVM tests.
+- **Physical result on `8f6364e8…` (2026-09-25).** Empty
+  `Download/pocketclaw`: no card. With an unrelated `notes.txt`: no card. With
+  `workspace/AGENT.md` and `workspace/memory/MEMORY.md`: the card appeared.
+  Copy through the system folder picker (the owner granted the folder): a new
+  `workspace/imported-from-downloads-20260925-034943`, byte-identical to the
+  source (SHA-256 of all three files), source untouched, no existing workspace
+  file changed, card hidden after the copy; the agent read the imported
+  `AGENT.md` through Core. Not exercised: the Cancel path and the Hide button —
+  a successful copy persists "hidden", which cannot be reset without clearing
+  app data (source tests cover both). Found alongside: in Arabic the path in
+  the card and the workspace path rendered with misplaced slashes (PC-DEF-087).
+- **Status:** PHYSICAL TEST PARTIAL — detector PHYSICAL PASS; import PHYSICAL
+  PASS; cancel and hide not physically exercised.
 
+### PC-DEF-078 — a 3 MB tool result reached the provider whole and the turn died with HTTP 400
 
+- **Observed:** owner, over Telegram, after v0.2.1 was published. Several
+  messages with repository links were sent in quick succession while the agent
+  was researching. The bot went quiet for minutes, answered late, and a later
+  turn failed with "request rejected (400)". The runtime log shows one turn of
+  443,619 ms and 33 LLM iterations; a `curl` result of 3,202,895 bytes logged
+  with `truncated=false` and `for_llm_len=3202942`; the next request at
+  `request_bytes=3851039`; and the provider's `HTTP 400 invalid_request_error`.
+- **Root cause, proven in source.** The Managed Runtime captures up to
+  `max_output_bytes` per tool — 4 MiB for `curl`, `gh`, `git`, `rg`, `sqlite3`
+  and `python` — as a memory bound. Nothing downstream bounded what reached the
+  model: `pipeline_execute.go` put `ContentForLLM()` into the conversation, the
+  session and the next request unchanged. The context budget was checked only
+  when a turn started (`SetupTurn`) and after a provider error; the error path
+  then refused to recover, because the giant result sat in the active turn it
+  will not drop. The URLs were incidental: they caused the research that
+  produced the large result.
+- **Contributing defects found on the way.** The agent's context-error test
+  matched `max_tokens` and `invalidparameter`, so parameter and schema 400s
+  were compacted and resent as if they were overflows; recovery could run up to
+  `MaxLLMRetries` times. The `exec` tool cut long output with a byte prefix,
+  which removed the `[Command exited with code N]` line it appends after the
+  output and could split a UTF-8 character.
+- **Fix:** every tool result — synchronous, hook, async and sub-turn — is
+  bounded to `tools.max_result_bytes` (default 64 KiB) before it enters the
+  conversation or the session: head and tail kept on rune boundaries, invalid
+  UTF-8 repaired, and an explicit notice stating `OUTPUT TRUNCATED`, the
+  original and delivered bytes and how to narrow the request. Every provider
+  request is measured first; over budget, tool results are halved, then history
+  is compacted once per turn and trimmed, re-measuring after each. A provider
+  refusal counts as overflow only for 413 or a 400 whose words say the request
+  was too big, never for auth, billing, quota, rate limit, a missing model or
+  5xx; recovery is one compact-and-resend, and failure yields PC-E-CTX-001.
+  Materialising large output to a file was rejected: the workspace can be
+  shared storage, which is not app-private.
+- **Evidence:** `dc83b4a`; tests in `pkg/tools/result_budget_test.go`,
+  `pkg/tools/shell_test.go` and `pkg/agent/tool_output_budget_test.go` fail on
+  the old code (3 MB sent whole, post-tool request over budget, three overflow
+  sends, a `max_tokens` 400 resent). Present in the staged Core `724b6c92…`.
+- **More tests (2026-09-25, `92426fc`):** 3.3 MB of multibyte text (Arabic,
+  accented Latin, emoji) is bounded on a UTF-8 boundary; a failing command keeps
+  its exit status and stderr tail; three sequential 3 MB tool results in one
+  turn are each bounded in every provider request and in session history.
+- **Physical result (2026-09-25):** one Python run writing 3,500,000 bytes of
+  Arabic/accented/emoji UTF-8 and exiting 3: `exit_code=3` kept,
+  `[OUTPUT TRUNCATED]`, `original bytes: 3500433` (stdout plus the result's
+  own framing), `delivered bytes: 64923 (first 45486 + last 19437)`; the
+  session history holds a 65,314-byte tool message, valid UTF-8; no HTTP 400;
+  the turn answered normally.
+- **Status:** PHYSICAL PASS.
 
+### PC-DEF-079 — queued Telegram messages looked lost, and a panicking turn dropped them
 
+- **Observed:** same session as PC-DEF-078. The log shows `Inbound response
+  lifecycle queued queue_depth=3`: the messages were held, but a queued
+  message deliberately gets no typing indicator and no placeholder until it
+  starts, so behind a seven-minute turn the bot looked dead.
+- **Found in the audit:** a panic in one mailbox turn unwound the worker, and
+  `releaseSessionMailbox` deleted the mailbox with every queued message still
+  in it — no reply, no log line. An error (not a panic) already continued.
+- **Fix:** each queued Telegram message gets one reply, "Queued — N messages
+  ahead. This will start automatically.", with N computed under the mailbox
+  lock; it is sent straight to the Bot API (Telegram's `Send` would take it for
+  the running turn's answer), follows the placeholder setting, and is deleted
+  when its message starts. Each mailbox turn contains its own panic, tells that
+  sender to resend, and the worker continues in order.
+- **Evidence:** `4cecec3`; `pkg/agent/telegram_queue_test.go` (bursts with a
+  normal, a failed and a panicking first turn: four answers, in order, none
+  duplicated, every notice retired) and `pkg/channels/queue_notice_test.go`.
+  The panic test was run against the old worker loop and fails there.
+- **More tests (2026-09-25, `6cfef41`):** a failing *middle* turn does not
+  strand the message queued behind it; each queued message gets exactly one
+  notice, that notice is the one deleted and it is deleted before its message
+  is answered; each turn's placeholder carries the lifecycle of the message
+  running.
+- **Physical result (2026-09-25, owner's bot, sent from the phone's Telegram):**
+  three messages during a 2 min 50 s turn got exactly one notice each —
+  "Queued — 1 message ahead", "2 messages ahead", "3 messages ahead", each a
+  reply to its message; all three notices were gone before the answers; the
+  answers A, B, C arrived in order, once each, with no stray placeholder. A
+  failing middle turn was not induced on device (source-tested).
+- **Status:** PHYSICAL PASS.
 
+### PC-DEF-080 — the dashboard's Config page offered four controls that cannot work on Android
+
+- **Observed:** owner, Settings → Devices: "Enable Devices", "Monitor USB",
+  "Launch at Login" — the last one saying itself it was unsupported.
+- **Evidence:** the USB monitor shells out to `udevadm monitor`, which Android
+  does not provide and an app could not use; `GOOS=android` satisfies the
+  `linux` build tag, so the Android Core compiled it. Launch at login wrote a
+  LaunchAgent, an XDG autostart file or a Windows Run key and answered
+  "unsupported" for `runtime.GOOS == "android"`. Found alongside: "Service
+  Port" was saved and reported as applied, but the host always passes
+  `-port 18800`, which wins.
+- **Fix:** the Devices card, the port field, their 11 strings in 14 locales,
+  `/api/system/autostart` and `startup.go` are removed; the Android Core
+  compiles the inert USB monitor. `pkg/devices` and the `devices` config block
+  stay (upstream, still parsed).
+- **Evidence:** `4c1769f`; `config-page.android.test.tsx`,
+  `no_autostart_route_test.go`, `usb_monitor_selection_test.go`, and an i18n
+  test that no locale carries the keys. Verified absent from the staged
+  `libpocketclaw-web.so` `406466e8…`.
+- **Physical result (2026-09-25):** app Settings and the Dashboard Config page
+  read in full: no Devices card, USB monitoring, Launch at Login or Service
+  Port.
+- **Status:** PHYSICAL PASS.
+
+### PC-DEF-081 — the README showed a mark the app does not, and described v0.2.0
+
+- **Observed:** owner. README used `assets/branding/pocketclaw-mark.png`, a
+  glossy 3D mark; the launcher shows the APERTURE mark. The README's download
+  badge, checksum file, APK name and hash, signing commit and project status
+  still described v0.2.0 after v0.2.1 was published.
+- **Found in the audit:** the same glossy bitmap was the pre-Android-12
+  launch splash (`drawable/pocketclaw_mark.png`, byte-identical), and the
+  status-bar icon was a hand-drawn claw matching neither.
+- **Fix:** `tool/generate_android_launcher_icons.py` derives the README icon
+  (`assets/branding/pocketclaw-icon.png`), the splash mark and the
+  notification vector from the canonical APERTURE strokes; the glossy mark and
+  the desktop icons are removed and no branding image is packaged as a Flutter
+  asset. README moved to v0.2.1 with every identity read back from the
+  released APK; a test holds it to `pubspec.yaml`.
+- **Evidence:** `eefa558`. Launcher resources regenerated byte-identical.
+- **Physical result (2026-09-25):** the launcher icon (recents card) and the
+  status-bar notification mark are the APERTURE mark; no glossy 3D mark
+  anywhere. The pre-Android-12 splash cannot be seen on Android 16. The README
+  now pins its identity to `docs/release/published.json` (`2dc02bf`).
+- **Status:** PHYSICAL PASS (launcher, notification); splash below Android 12
+  not testable on this device.
+
+### PC-DEF-082 — the shipping Core still linked the removed WhatsApp channels
+
+- **Evidence:** two blank imports in `pkg/gateway/gateway.go` linked the
+  WhatsApp bridge client and the `whatsapp_native` stub into every Core, and a
+  guard required the stub. Channel types are registered in `pkg/config`, so
+  config loading does not depend on these packages; a missing factory only logs
+  "Factory not registered".
+- **Fix:** the imports are gone; the packages stay vendored. The binary guard
+  now requires whatsmeow, the stub, the bridge client and both package paths
+  to be absent, and a source guard keeps the imports out.
+- **Evidence:** `ed72fd6`; neither Android dependency graph contains a WhatsApp
+  package; verified absent from the staged `libpocketclaw.so` `724b6c92…`.
+- **Status:** FIXED IN SOURCE — SOURCE TESTED. No device behaviour depends on
+  it; covered by the ordinary smoke test.
+
+### PC-DEF-083 — the Android app carried a desktop host, two actively wrong settings and plugins it never ran
+
+- **Evidence:** the repository has no Flutter platform but `android`, yet the
+  app kept the FUI desktop launcher. Two Settings fields were wrong on the
+  phone, not merely dead: **Port** was persisted into `webUrl` while the host
+  always listens on 18800, so saving another value pointed the embedded
+  Dashboard at nothing until the next launch; **Arguments** was appended to
+  the launch arguments, and the host reads that string only to look for
+  `-public`, so typing it enabled LAN exposure without the Public Mode toggle
+  (PC-DEF-020's single authority). `flutter_background_service` was configured
+  with `autoStart: false` and never started, yet contributed a `dataSync`
+  foreground service and two exported receivers; `BootReceiver` read a
+  preference no PocketClaw UI ever set; `flutter_local_notifications` was never
+  called and added `VIBRATE`.
+- **Fix:** see `e66344c` for the full list — desktop code and adapters, the
+  dead plugins and dependencies, the unreachable `ChatPage`, 35 unused strings
+  and an unreferenced script that downloaded upstream Core binaries. Launch
+  arguments derive from Public Mode alone. `FOREGROUND_SERVICE_DATA_SYNC`,
+  `RECEIVE_BOOT_COMPLETED` and `VIBRATE` leave the packaged manifest and the
+  release gate forbids them; four exported components are gone.
+- **Evidence:** `flutter analyze` clean; the full Flutter suite and 50 Android
+  unit tests pass; the packaged manifest of `7ead013e…` was read back.
+- **Physical result (2026-09-25):** Settings has no Port, Arguments or desktop
+  control; the packaged manifest has no boot receiver, `dataSync` service,
+  `RECEIVE_BOOT_COMPLETED` or `VIBRATE`. This removal is also what fixes
+  PC-DEF-085. One leftover found: three stacked spacers where removed sections
+  sat (PC-DEF-087).
+- **Status:** PHYSICAL PASS.
+
+### PC-DEF-084 — a long turn's answer arrives as a silent edit above newer messages
+
+- **Found in the PC-DEF-078 audit, not fixed.** The Thinking placeholder is
+  sent when a turn starts and the final answer is edited into it (or into the
+  tool-progress message). After a turn of several minutes the answer therefore
+  lands above any message the owner sent meanwhile, keeps the placeholder's
+  timestamp, and — because Telegram does not notify on edits — makes no sound.
+  That is part of why a long turn reads as a hang.
+- **Not changed here** on purpose: final delivery through placeholder edits is
+  shared by every Telegram turn and has its own history (PC-DEF-061/067/071).
+  A likely remedy is to deliver a final answer as a new message, deleting the
+  placeholder, once the placeholder is older than a threshold; it needs its own
+  design and physical pass.
+- **Source fix, F-Droid Phase B (2026-09-24).** Once a turn's status message
+  is older than `channels.LongTurnEditWindow` (2 minutes), the answer is sent
+  as a new message and the stale placeholder or tool-progress message is
+  deleted after it: one ordinary notification, placed below anything sent
+  meanwhile, and no periodic "still working" traffic. Short turns keep editing
+  in place; status-to-status edits stay edits; only channels declaring
+  `FinalEditWindowChannel` (Telegram) change. The tool-progress animator now
+  keeps the message's first-send time across progress updates.
+- **Send order fixed (2026-09-25, `7ee0f05`).** The manager deleted the stale
+  placeholder *before* the fresh send, so a failed send left the owner with
+  neither the status message nor the answer. It now goes through the existing
+  fallback: deleted once the send succeeds, the answer edited into it if the
+  send fails, and edited into it if it cannot be deleted. Telegram's own
+  tool-progress path already sent first; a test now pins that a failed send
+  keeps the progress message tracked for the retry. New tests: threshold
+  below/exact/above and unknown send time, send-then-delete order, failed send,
+  undeletable placeholder, temporary failure (one answer, one delete), no status
+  message, and a queued turn editing its own young placeholder. Core restaged
+  in `03aa66b` (fingerprint `5d443c5e…`).
+- **Physical result (2026-09-25):** a short turn edited "Thinking… 💭" in place
+  into "pong". A 2 min 50 s turn with three messages sent meanwhile: "done"
+  arrived as a new message below them; a sample taken while "done" was already
+  visible still showed the old "Thinking…", and the next showed it deleted —
+  send first, then delete. No periodic traffic. The notification sound was not
+  checked: the owner's bot chat is muted.
+- **Status:** PHYSICAL PASS.
 
 ### PC-DEF-012 — Broad dependency export surfaces need reachability evidence
 

@@ -52,6 +52,16 @@ type PlaceholderCapable interface {
 	SendPlaceholder(ctx context.Context, chatID string) (messageID string, err error)
 }
 
+// QueueNoticeCapable — channels that can tell a user their message is waiting
+// behind a turn that is still running. The notice is a short reply to the
+// queued message; it is not a placeholder, is never edited into an answer, and
+// the agent deletes it (MessageDeleter) once the message starts executing.
+// It returns an empty ID, and no error, when the channel has status messages
+// switched off.
+type QueueNoticeCapable interface {
+	SendQueueNotice(ctx context.Context, chatID, replyToMessageID, text string) (messageID string, err error)
+}
+
 // StreamingCapable — channels that can show partial LLM output in real-time.
 // The channel SHOULD gracefully degrade if the platform rejects streaming
 // (e.g. Telegram bot without forum mode). In that case, Update becomes a no-op

@@ -9,25 +9,13 @@ class AppLocalizationsId extends AppLocalizations {
   AppLocalizationsId([String locale = 'id']) : super(locale);
 
   @override
-  String get appTitle => 'PocketClaw';
-
-  @override
-  String get run => 'Jalankan';
-
-  @override
   String get stop => 'Hentikan';
-
-  @override
-  String get config => 'Konfig';
 
   @override
   String get webAdmin => 'Admin Web';
 
   @override
   String get logs => 'Log';
-
-  @override
-  String get viewLogs => 'Lihat log';
 
   @override
   String get statusRunning => 'Berjalan';
@@ -48,27 +36,6 @@ class AppLocalizationsId extends AppLocalizations {
   String get save => 'Simpan';
 
   @override
-  String get showWindow => 'Tampilkan jendela';
-
-  @override
-  String get exit => 'Keluar';
-
-  @override
-  String get binaryPath => 'Jalur biner';
-
-  @override
-  String get browse => 'Telusuri';
-
-  @override
-  String get pathError => 'Jalur tidak valid';
-
-  @override
-  String get arguments => 'Argumen';
-
-  @override
-  String get argumentsHint => 'mis. config.json';
-
-  @override
   String get notStarted => 'Layanan belum dimulai';
 
   @override
@@ -87,27 +54,6 @@ class AppLocalizationsId extends AppLocalizations {
   String get refresh => 'Segarkan';
 
   @override
-  String get coreBinaryMissing =>
-      'Biner inti tidak ditemukan. Tempatkan biner platform di app/bin/ atau atur jalur di Pengaturan.';
-
-  @override
-  String get coreStartFailed => 'Gagal memulai layanan inti.';
-
-  @override
-  String get coreStopFailed => 'Gagal menghentikan layanan inti.';
-
-  @override
-  String get coreInvalidBinary => 'File biner inti tidak valid.';
-
-  @override
-  String coreUnknownError(Object code) {
-    return 'Kesalahan inti tidak dikenal: $code';
-  }
-
-  @override
-  String get coreValid => 'Biner inti valid.';
-
-  @override
   String get publicMode => 'Mode publik';
 
   @override
@@ -119,9 +65,6 @@ class AppLocalizationsId extends AppLocalizations {
 
   @override
   String get themeSelection => 'Tema';
-
-  @override
-  String get check => 'Periksa';
 
   @override
   String get launchService => 'MULAI LAYANAN';
@@ -151,60 +94,6 @@ class AppLocalizationsId extends AppLocalizations {
   String get unableToGetDeviceIp => 'Tidak dapat mendapatkan IP perangkat';
 
   @override
-  String get deviceReportingTitle => 'Umpan balik kompatibilitas perangkat';
-
-  @override
-  String get deviceReportingSubtitle =>
-      'Hanya digunakan untuk memverifikasi kompatibilitas versi OS dan versi aplikasi. Tidak melibatkan pesan obrolan, detail akun, atau konten pribadi';
-
-  @override
-  String get deviceReportingConsentTitle =>
-      'Bantu meningkatkan kompatibilitas perangkat';
-
-  @override
-  String get deviceReportingConsentDescription =>
-      'Bila diaktifkan, hanya ID instalasi anonim, versi OS, dan versi aplikasi yang dikirim untuk memahami kompatibilitas. Bahasa dan kawasan dapat dikumpulkan secara terpisah oleh Firebase Analytics. Tidak ada pesan obrolan, konten yang diketik, detail akun, file, atau pengaturan kustom yang diunggah';
-
-  @override
-  String get deviceReportingBannerDescription =>
-      'Hanya ID instalasi anonim, versi OS, dan versi aplikasi yang disinkronkan untuk meningkatkan kompatibilitas. Bahasa dan kawasan dapat dikumpulkan secara terpisah oleh Firebase Analytics. Tidak ada pesan obrolan, detail akun, file, atau konten pribadi yang dikirim';
-
-  @override
-  String get deviceReportingWhatWillBeSent =>
-      'Hanya detail perangkat ini yang disertakan';
-
-  @override
-  String get deviceReportingDeviceLabel => 'Model Perangkat';
-
-  @override
-  String get deviceReportingPlatformLabel => 'Kategori Perangkat';
-
-  @override
-  String get deviceReportingSystemLabel => 'Versi OS';
-
-  @override
-  String get deviceReportingTimingNote =>
-      'Sinkronisasi berjalan sekali saat diaktifkan, dan lagi hanya setelah pembaruan sistem terdeteksi';
-
-  @override
-  String get deviceReportingDeny => 'Belum sekarang';
-
-  @override
-  String get deviceReportingAllow => 'Aktifkan';
-
-  @override
-  String get deviceReportingUploadSucceeded =>
-      'Umpan balik kompatibilitas perangkat aktif';
-
-  @override
-  String get deviceReportingUploadFailed =>
-      'Umpan balik kompatibilitas perangkat aktif, tetapi sinkronisasi info perangkat saat ini tidak selesai';
-
-  @override
-  String get deviceReportingDisabled =>
-      'Umpan balik kompatibilitas perangkat nonaktif';
-
-  @override
   String get localModeHint =>
       '1. Buka Konfigurasi layanan\n2. Aktifkan Mode publik\n3. Pindai kode QR untuk mengakses PocketClaw';
 
@@ -216,10 +105,6 @@ class AppLocalizationsId extends AppLocalizations {
   String get noLogsToExport => 'Tidak ada log untuk diekspor';
 
   @override
-  String get logsSavedToMediaLibrary =>
-      'Log disimpan ke Unduhan (perpustakaan media Android)';
-
-  @override
   String logsSavedToDownloads(Object path) {
     return 'Log disimpan ke Unduhan: $path';
   }
@@ -229,6 +114,37 @@ class AppLocalizationsId extends AppLocalizations {
 
   @override
   String get workspaceDirectory => 'Ruang kerja';
+
+  @override
+  String get legacyWorkspaceTitle => 'Ruang kerja sebelumnya ditemukan';
+
+  @override
+  String legacyWorkspaceBody(Object path) {
+    return 'Versi lama menyimpan ruang kerja Anda di $path. PocketClaw kini memakai penyimpanan aplikasinya sendiri dan tidak mengubah folder itu. Anda dapat menyalinnya: salinan masuk ke folder tersendiri, dan tidak ada yang ditimpa atau dihapus.';
+  }
+
+  @override
+  String get legacyWorkspaceImport => 'Salin ke ruang kerja';
+
+  @override
+  String get legacyWorkspaceHide => 'Sembunyikan';
+
+  @override
+  String legacyWorkspaceCopied(Object count, Object folder) {
+    return '$count file disalin ke $folder.';
+  }
+
+  @override
+  String legacyWorkspacePartial(Object count, Object folder, Object failed) {
+    return '$count file disalin ke $folder. $failed tidak dapat disalin.';
+  }
+
+  @override
+  String get legacyWorkspaceFailed => 'Folder tidak dapat disalin.';
+
+  @override
+  String get legacyWorkspaceEmpty =>
+      'Folder yang dipilih tidak berisi apa pun untuk disalin.';
 
   @override
   String logsSavedToMediaLibraryWithName(Object name) {
@@ -249,20 +165,7 @@ class AppLocalizationsId extends AppLocalizations {
   }
 
   @override
-  String get unsavedChanges => 'Perubahan belum disimpan';
-
-  @override
-  String get unsavedChangesHint =>
-      'Anda memiliki perubahan yang belum disimpan. Apakah Anda ingin membuangnya?';
-
-  @override
   String get cancel => 'Batal';
-
-  @override
-  String get discard => 'Buang';
-
-  @override
-  String get saved => 'Disimpan';
 
   @override
   String get language => 'Bahasa';
@@ -532,6 +435,34 @@ class AppLocalizationsId extends AppLocalizations {
   @override
   String get whatsNew021Fix1 =>
       'Git bawaan tidak lagi mogok saat mengkloning repositori atau memperbarui cabang.';
+
+  @override
+  String get whatsNew022Improvement1 =>
+      'Setelah tugas yang lama, Telegram mengirim jawaban sebagai pesan baru, sehingga Anda mendapat notifikasi dan jawaban muncul di bawah pesan yang Anda kirim selama itu.';
+
+  @override
+  String get whatsNew022Improvement2 =>
+      'Telegram memberi tahu saat pesan Anda masuk antrean dan berapa pesan di depannya.';
+
+  @override
+  String get whatsNew022Improvement3 =>
+      'Ruang kerja kini berada di penyimpanan milik PocketClaw sendiri, dan aplikasi tidak meminta izin penyimpanan. Ruang kerja yang ditinggalkan versi lama di Download/pocketclaw tidak diubah dan dapat disalin dari Pengaturan.';
+
+  @override
+  String get whatsNew022Fix1 =>
+      'Keluaran alat yang sangat besar tidak lagi membuat percakapan meluap.';
+
+  @override
+  String get whatsNew022Fix2 =>
+      'Menghapus entri Pengaturan yang tidak berpengaruh di Android: Perangkat, Jalankan saat Masuk, dan Port Layanan.';
+
+  @override
+  String get whatsNew022Improvement4 =>
+      'PocketClaw kini memerlukan Android 8.0 atau yang lebih baru.';
+
+  @override
+  String get whatsNew022Fix3 =>
+      'Memperbaiki crash saat memulai di Android yang bisa muncul setelah ponsel dimulai ulang.';
 
   @override
   String get settingsGroupConnection => 'Koneksi';

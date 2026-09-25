@@ -1,5 +1,11 @@
 # Third-Party Notices
 
+PocketClaw's own code is licensed under the MIT License in [`LICENSE`](LICENSE).
+That licence covers PocketClaw's own code only. Third-party components
+distributed with or vendored into this repository keep their own licences and
+copyright notices, listed below; nothing here alters, replaces or supersedes
+them.
+
 ## PicoClaw FUI
 
 The initial Android/Flutter foundation selectively adapts source files from
@@ -51,8 +57,8 @@ Go module dependencies of the vendored Core are resolved through
 licenses. They are not vendored into this repository.
 
 Flutter and Android dependencies are governed by their own upstream licenses,
-as resolved through `pubspec.lock` and Gradle dependency metadata. No final
-license has been selected for newly authored PocketClaw code.
+as resolved through `pubspec.lock` and Gradle dependency metadata; the ones
+that ship in the APK are listed under "Packaged application components" below.
 
 ## PocketClaw Telegram onboarding service
 
@@ -237,10 +243,36 @@ them for the `ssl`, `_hashlib` and `ctypes` modules; PocketClaw's reduced profil
 excludes all three, so neither library is distributed and neither licence
 applies.
 
+## Packaged application components
+
+What the APK carries besides PocketClaw's own code, Core and the Managed
+Runtime above. Each is used unmodified from its upstream release.
+
+| Component | Where it ships | Licence |
+| --- | --- | --- |
+| Flutter engine and framework 3.47.1 (`libflutter.so`, embedding) | APK | BSD-3-Clause, © The Flutter Authors |
+| Material Icons (Flutter's `MaterialIcons-Regular` font) | APK, Flutter UI icons | Apache-2.0, © Google |
+| Inter 4.1, Fira Code 6.2 | APK, Flutter UI text; licence texts packaged beside them | OFL-1.1 (see `assets/fonts/README.md`) |
+| Dart packages (`pubspec.lock`), including `jni` (`libdartjni.so`, built from its C source) | APK | BSD-3-Clause, MIT or Apache-2.0 per package |
+| AndroidX libraries, including DataStore (`libdatastore_shared_counter.so`) | APK | Apache-2.0, © The Android Open Source Project |
+| Kotlin standard library and coroutines | APK | Apache-2.0, © JetBrains |
+| ReLinker | APK | Apache-2.0, © KeepSafe |
+| Go modules linked into Core (`core/src/go.sum`) | `libpocketclaw.so`, `libpocketclaw-web.so` | MIT, BSD, Apache-2.0, ISC, MPL-2.0 (`go.mau.fi/util`) and EPL-2.0/EDL-1.0 (`eclipse/paho.mqtt.golang`) |
+| Dashboard npm packages (`core/src/web/frontend/pnpm-lock.yaml`), including Tabler Icons and highlight.js | `libpocketclaw-web.so` | MIT (Tabler Icons), BSD-3-Clause (highlight.js), and MIT/ISC/Apache-2.0/BSD for the rest |
+| Inter variable font (`@fontsource-variable/inter`) | `libpocketclaw-web.so`, dashboard text | OFL-1.1 |
+| Channel glyphs in the dashboard, including `public/lark.svg` | `libpocketclaw-web.so` | Vendored unchanged from PicoClaw (MIT); upstream does not record their original authorship |
+
+Removed for official F-Droid, and no longer in any build: the Umeng analytics
+SDK (proprietary), Kagi's generated Go client (no licence), and the Remix Icon
+font (Remix Icon License v1.0, not a FLOSS licence), whose glyphs were replaced
+with Material Icons.
+
 ## PocketClaw-authored identity assets
 
-`assets/branding/pocketclaw-mark.png` is an original PocketClaw identity asset
-generated for this repository from a non-derivative design brief. The selected
-second mark is the primary visual direction; its launcher, adaptive, splash,
-and monochrome notification variants preserve that identity. It is not a
-PicoClaw/FUI image and does not remove or replace the upstream notices above.
+PocketClaw's identity is the APERTURE mark, an original PocketClaw design whose
+geometry lives in `core/src/web/frontend/scripts/generate-brand-assets.py`.
+Every launcher, splash, notification, dashboard and README image is generated
+from that geometry by PocketClaw-owned scripts (see `docs/ASSET_INVENTORY.md`).
+It is not a PicoClaw/FUI image and does not remove or replace the upstream
+notices above. An earlier original mark, `assets/branding/pocketclaw-mark.png`,
+was retired from the tree when the README moved to the launcher's identity.

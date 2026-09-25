@@ -38,7 +38,7 @@ void main() {
     // screen and what belongs in the path are different strings.
     test('is unchanged by bidirectional display formatting', () {
       expect(telegramBotChatUrl('‏pocketclaw_ab12cd34_bot'), isNull);
-      expect(telegramBotChatUrl('‫pocketclaw_bot‬'), isNull);
+      expect(telegramBotChatUrl('\u202Bpocketclaw_bot\u202C'), isNull);
       expect(
         telegramBotChatUrl('pocketclaw_ab12cd34_bot'),
         'https://t.me/pocketclaw_ab12cd34_bot',

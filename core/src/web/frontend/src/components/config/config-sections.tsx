@@ -1215,21 +1215,6 @@ export function LauncherSection({
       />
 
       <Field
-        label={t("pages.config.server_port")}
-        hint={t("pages.config.server_port_hint")}
-        layout="setting-row"
-      >
-        <Input
-          type="number"
-          min={1}
-          max={65535}
-          value={launcherForm.port}
-          disabled={disabled}
-          onChange={(e) => onFieldChange("port", e.target.value)}
-        />
-      </Field>
-
-      <Field
         label={t("pages.config.allowed_cidrs")}
         hint={t("pages.config.allowed_cidrs_hint")}
         layout="setting-row"
@@ -1271,55 +1256,6 @@ export function LauncherSection({
           }
         />
       </Field>
-    </ConfigSectionCard>
-  )
-}
-
-interface DevicesSectionProps {
-  form: CoreConfigForm
-  onFieldChange: UpdateCoreField
-  autoStartEnabled: boolean
-  autoStartHint: string
-  autoStartDisabled: boolean
-  onAutoStartChange: (checked: boolean) => void
-}
-
-export function DevicesSection({
-  form,
-  onFieldChange,
-  autoStartEnabled,
-  autoStartHint,
-  autoStartDisabled,
-  onAutoStartChange,
-}: DevicesSectionProps) {
-  const { t } = useTranslation()
-
-  return (
-    <ConfigSectionCard title={t("pages.config.sections.devices")}>
-      <SwitchCardField
-        label={t("pages.config.devices_enabled")}
-        hint={t("pages.config.devices_enabled_hint")}
-        layout="setting-row"
-        checked={form.devicesEnabled}
-        onCheckedChange={(checked) => onFieldChange("devicesEnabled", checked)}
-      />
-
-      <SwitchCardField
-        label={t("pages.config.monitor_usb")}
-        hint={t("pages.config.monitor_usb_hint")}
-        layout="setting-row"
-        checked={form.monitorUSB}
-        onCheckedChange={(checked) => onFieldChange("monitorUSB", checked)}
-      />
-
-      <SwitchCardField
-        label={t("pages.config.autostart_label")}
-        hint={autoStartHint}
-        layout="setting-row"
-        checked={autoStartEnabled}
-        disabled={autoStartDisabled}
-        onCheckedChange={onAutoStartChange}
-      />
     </ConfigSectionCard>
   )
 }

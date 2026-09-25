@@ -1,7 +1,10 @@
 package com.lord1egypt.pocketclaw
 
 import com.lord1egypt.pocketclaw.media.ChatImagePicker
+import com.lord1egypt.pocketclaw.diagnostics.LifecycleDiagnostics
 import com.lord1egypt.pocketclaw.security.GitHubCredentialStore
+import com.lord1egypt.pocketclaw.storage.ImportOutcome
+import com.lord1egypt.pocketclaw.storage.LegacyWorkspaceImporter
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
@@ -33,30 +36,19 @@ import java.net.URL
 import java.util.concurrent.Executor
 
 /**
- * Flutter MethodChannel 桥接层，将 Kotlin 原生功能暴露给 Dart 端。
- *
- * 支持的方法：
- * - startService: 启动 PocketClaw 前台服务
- * - stopService: 停止 PocketClaw 前台服务
- * - getServiceStatus: 获取服务状态（isRunning, pid, lastLog）
- * - checkHealth: 检查 /health 端点
- * - getConfig: 读取 config.json 内容
- * - saveConfig: 保存 config.json 内容
- * - getFullLog: 获取完整日志
- * - setAutoStart: 设置开机自启
- * - getAutoStart: 获取开机自启设置
- * - getWebPort: 获取 Web Console 端口号
+ * The Flutter MethodChannel bridge: exposes the Kotlin host to Dart.
  */
 class PocketClawMethodChannel(
     private val context: Context,
     flutterEngine: FlutterEngine,
     /** Absent on hosts with no Activity to receive a picker result. */
-    private val chatImagePicker: ChatImagePicker? = null
+    private val chatImagePicker: ChatImagePicker? = null,
+    /** Absent for the same reason. */
+    private val legacyWorkspaceImporter: LegacyWorkspaceImporter? = null,
 ) {
     companion object {
         private const val TAG = "PocketClawMethodChannel"
         private const val CHANNEL_NAME = "com.lord1egypt.pocketclaw/pocketclaw"
-        private const val KEY_AUTO_START = "auto_start"
         private const val POST_NOTIFICATIONS_PERMISSION =
             "android.permission.POST_NOTIFICATIONS"
         private const val NOTIFICATION_PERMISSION_REQUEST_CODE = 9731
@@ -145,11 +137,9 @@ class PocketClawMethodChannel(
      * Shares the record-keeping and the platform call with the Flutter-initiated
      * path rather than repeating them: one place decides, one place records.
      *
-     * @param storagePromptJustLaunched whether this same resume sent the user to
-     *   the all-files-access screen, in which case the ask waits for their return.
      * @return whether the dialog was requested.
      */
-    fun requestNotificationPermissionOnResume(storagePromptJustLaunched: Boolean): Boolean {
+    fun requestNotificationPermissionOnResume(): Boolean {
         // PC-DEF-070 (reopened). Every launch and every return from Settings
         // takes this path, so it is also where a grant made outside our own
         // dialog is first observed. Re-rendering here is what covers the
@@ -159,7 +149,6 @@ class PocketClawMethodChannel(
         val activity = context as? Activity
         val shouldRequest = NotificationPermissionPolicy.shouldRequestOnResume(
             state,
-            storagePromptJustLaunched,
             notificationPromptShownThisLaunch,
         )
         // PC-DEF-058, third attempt. The dialog failed to appear twice while every
@@ -169,7 +158,6 @@ class PocketClawMethodChannel(
         logNotificationPermissionDecision(
             state = state,
             activity = activity,
-            storagePromptJustLaunched = storagePromptJustLaunched,
             shouldRequest = shouldRequest,
         )
         if (!shouldRequest || activity == null) {
@@ -200,13 +188,12 @@ class PocketClawMethodChannel(
      * Only state facts, and each one answers a question the physical failure
      * left open: whether the permission is even declared in the installed
      * manifest, whether the platform already considers it granted, what Android
-     * itself says about showing a rationale, and whether this resume was the one
-     * that sent the user to the all-files screen.
+     * itself says about showing a rationale, and whether this launch already
+     * showed the dialog.
      */
     private fun logNotificationPermissionDecision(
         state: NotificationPermissionState,
         activity: Activity?,
-        storagePromptJustLaunched: Boolean,
         shouldRequest: Boolean,
     ) {
         val declared = try {
@@ -235,7 +222,6 @@ class PocketClawMethodChannel(
                 " asked_marker=${PocketClawPreferences.notificationPermissionAsked(context)}" +
                 " resolved_state=${NotificationPermissionPolicy.wireName(state)}" +
                 " activity_lifecycle_state=${if (activity == null) "no-activity" else "onResume"}" +
-                " returned_from_all_files_settings=${!storagePromptJustLaunched}" +
                 " prompt_shown_this_launch=$notificationPromptShownThisLaunch" +
                 " notifications_enabled=${NotificationManagerCompat.from(context).areNotificationsEnabled()}" +
                 " should_request=$shouldRequest",
@@ -285,10 +271,10 @@ class PocketClawMethodChannel(
             when (call.method) {
                 "startService" -> {
                     try {
-                        // 从参数中读取 publicMode，默认为 false
+                        // Public Mode comes from the arguments; false when absent.
                         val args = call.argument<String>("args") ?: ""
                         val publicMode = args.contains("-public")
-                        // 保存 publicMode 到 SharedPreferences
+                        // Persist it in SharedPreferences.
                         val prefs = PocketClawPreferences.open(context)
                         prefs.edit().putBoolean("public_mode", publicMode).apply()
                         Log.d(TAG, "Starting service with publicMode=$publicMode (args: $args)")
@@ -737,24 +723,6 @@ class PocketClawMethodChannel(
                         )
                     }
                 }
-                "setAutoStart" -> {
-                    try {
-                        val enabled = call.argument<Boolean>("enabled") ?: false
-                        val prefs = PocketClawPreferences.open(context)
-                        prefs.edit().putBoolean(KEY_AUTO_START, enabled).apply()
-                        result.success(true)
-                    } catch (e: Exception) {
-                        result.error("SET_AUTO_START_FAILED", e.message, null)
-                    }
-                }
-                "getAutoStart" -> {
-                    try {
-                        val prefs = PocketClawPreferences.open(context)
-                        result.success(prefs.getBoolean(KEY_AUTO_START, false))
-                    } catch (e: Exception) {
-                        result.error("GET_AUTO_START_FAILED", e.message, null)
-                    }
-                }
                 "getCoreVersion" -> {
                     Thread {
                         val mainExecutor = getMainExecutor()
@@ -784,13 +752,34 @@ class PocketClawMethodChannel(
                 "getHomePath" -> {
                     result.success(PocketClawService.getWorkspacePath(context))
                 }
-                "isStorageManagerGranted" -> {
-                    val granted = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                        Environment.isExternalStorageManager()
-                    } else {
-                        true
+                // PC-DEF-077. The workspace moved to app-specific storage; an older
+                // install may have left one in Download/pocketclaw. It is reported,
+                // never read or moved on its own: copying it in is the owner's call.
+                // PC-DEF-085. The local lifecycle journal, for the log export.
+                "getLifecycleDiagnostics" -> {
+                    result.success(LifecycleDiagnostics.read(context))
+                }
+                "getLegacyWorkspaceStatus" -> {
+                    result.success(
+                        mapOf(
+                            "path" to LegacyWorkspaceImporter.legacyDirectory().absolutePath,
+                            "visible" to LegacyWorkspaceImporter.legacyWorkspacePresent(),
+                        )
+                    )
+                }
+                "importLegacyWorkspace" -> {
+                    val importer = legacyWorkspaceImporter
+                    if (importer == null) {
+                        result.success(ImportOutcome(ImportOutcome.UNAVAILABLE).asMap())
+                        return@setMethodCallHandler
                     }
-                    result.success(granted)
+                    // Into the agent's own workspace, Core's default
+                    // $POCKETCLAW_HOME/workspace, so the agent can read the copy:
+                    // restrict_to_workspace keeps it out of anything beside it.
+                    val workspace = java.io.File(
+                        PocketClawService.getWorkspacePath(context), "workspace",
+                    )
+                    importer.start(workspace) { outcome -> result.success(outcome.asMap()) }
                 }
                 // PC-DEF-058. POST_NOTIFICATIONS was declared and never requested, so
                 // the persistent "PocketClaw Running" notification never appeared on a
@@ -849,69 +838,8 @@ class PocketClawMethodChannel(
                         }
                     }
                 }
-                "requestStorageManager" -> {
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                        try {
-                            val intent = Intent(
-                                Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
-                                Uri.parse("package:${context.packageName}")
-                            )
-                            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                            context.startActivity(intent)
-                            result.success(true)
-                        } catch (e: Exception) {
-                            // 部分设备不支持精确跳转，回退到通用页
-                            val intent = Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION)
-                            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                            context.startActivity(intent)
-                            result.success(true)
-                        }
-                    } else {
-                        result.success(true) // 低版本无需此权限
-                    }
-                }
                 "getPocketClawToken" -> {
                     result.success(PocketClawService.pocketClawTokenForHost(context))
-                }
-                "getSafeDeviceInfo" -> {
-                    val packageInfo = context.packageManager.getPackageInfo(context.packageName, 0)
-                    val deviceCategory = if (context.resources.configuration.smallestScreenWidthDp >= 600) {
-                        "Tablet"
-                    } else {
-                        "Mobile"
-                    }
-                    result.success(mapOf(
-                        "deviceModel" to listOf(Build.MANUFACTURER, Build.MODEL)
-                            .filter { it.isNotBlank() }
-                            .joinToString(" ")
-                            .trim(),
-                        "osVersion" to "Android ${Build.VERSION.RELEASE}",
-                        "deviceCategory" to deviceCategory,
-                        "appVersion" to (packageInfo.versionName ?: "unknown")
-                    ))
-                }
-                "setUmengAnalyticsConsent" -> {
-                    try {
-                        val enabled = call.argument<Boolean>("enabled") ?: false
-                        AnalyticsReporter.submitConsent(context, enabled)
-                        result.success(true)
-                    } catch (e: Exception) {
-                        result.error("SET_UMENG_CONSENT_FAILED", e.message, null)
-                    }
-                }
-                "uploadUmengDeviceReport" -> {
-                    android.util.Log.d("PocketClawChannel", "=== uploadUmengDeviceReport called ===")
-                    try {
-                        val payload = call.arguments<Map<String, Any?>>() ?: emptyMap()
-                        android.util.Log.d("PocketClawChannel", "Payload received with ${payload.size} fields")
-                        val reportResult = AnalyticsReporter.uploadDeviceReport(context, payload)
-                        android.util.Log.d("PocketClawChannel", "AnalyticsReporter returned: success=${reportResult["success"]}, message=${reportResult["message"]}")
-                        result.success(reportResult)
-                        android.util.Log.d("PocketClawChannel", "=== uploadUmengDeviceReport completed ===")
-                    } catch (e: Exception) {
-                        android.util.Log.e("PocketClawChannel", "uploadUmengDeviceReport failed: ${e.message}", e)
-                        result.error("UPLOAD_UMENG_REPORT_FAILED", e.message, null)
-                    }
                 }
                 "getWebPort" -> {
                     result.success(18800)
@@ -1269,10 +1197,14 @@ class PocketClawMethodChannel(
 
             return uri.toString()
         } catch (e: Exception) {
-            // For older devices, attempt fallback to legacy external storage path
+            // MediaStore.Downloads needs API 29. Below that the file goes to this
+            // app's own Downloads folder, which needs no storage permission --
+            // the shared Downloads folder would need WRITE_EXTERNAL_STORAGE,
+            // which PocketClaw no longer declares (PC-DEF-077). The caller shares
+            // the file from the returned path.
             try {
-                val downloads = android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS)
-                val dir = java.io.File(downloads, "pocketclaw")
+                val dir = context.getExternalFilesDir(android.os.Environment.DIRECTORY_DOWNLOADS)
+                    ?: java.io.File(context.filesDir, "exports")
                 if (!dir.exists()) dir.mkdirs()
                 val f = java.io.File(dir, fileName)
                 f.writeBytes(data)

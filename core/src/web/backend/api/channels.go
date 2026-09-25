@@ -28,10 +28,9 @@ var channelCatalog = []channelCatalogItem{
 	{Name: "qq", ConfigKey: "qq"},
 	{Name: "onebot", ConfigKey: "onebot"},
 	{Name: "wecom", ConfigKey: "wecom"},
-	// No WhatsApp entry of any kind. The bridge and native transports still
-	// exist in vendored upstream Core and still run for an install that already
-	// configured one by hand, but PocketClaw offers no WhatsApp channel:
-	// Telegram is the supported remote agent channel.
+	// No WhatsApp entry of any kind. The bridge and native transports remain in
+	// vendored upstream Core for provenance, but the shipping gateway no longer
+	// links them (PC-DEF-082): Telegram is the supported remote agent channel.
 	{Name: config.ChannelPocketClaw, ConfigKey: config.ChannelPocketClaw},
 	{Name: "maixcam", ConfigKey: "maixcam"},
 	{Name: "matrix", ConfigKey: "matrix"},

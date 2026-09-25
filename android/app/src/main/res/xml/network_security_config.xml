@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <network-security-config>
-    <!-- 允许对 localhost 的明文通信（PocketClaw gateway 运行在本地） -->
+    <!-- Cleartext only to loopback: the PocketClaw gateway runs on this device -->
     <domain-config cleartextTrafficPermitted="true">
         <domain includeSubdomains="false">127.0.0.1</domain>
         <domain includeSubdomains="false">localhost</domain>

@@ -60,8 +60,8 @@ object PocketClawPreferences {
      *
      * Callers must use this rather than getSharedPreferences(NAME, …) so an
      * upgrade cannot read an empty canonical store before the migration has
-     * run — which for BootReceiver would mean silently reverting the user's
-     * auto-start choice to its default on the first boot after upgrade.
+     * run — which would silently revert a stored choice, such as launch
+     * auto-start, to its default on the first start after the upgrade.
      */
     fun open(context: Context): SharedPreferences {
         migrateIfNeeded(context)

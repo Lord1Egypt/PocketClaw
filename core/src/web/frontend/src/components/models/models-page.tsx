@@ -168,7 +168,7 @@ export function ModelsPage() {
   return (
     <div className="flex h-full flex-col">
       <PageHeader title={t("navigation.models")}>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <Button
             size="sm"
             variant="outline"

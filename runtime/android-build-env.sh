@@ -21,8 +21,22 @@ NATIVE_SYMBOL_ROOT="${NATIVE_SYMBOL_ROOT:-$REPO_ROOT/build/private-symbols/nativ
 # minSdk, so nothing is gained by raising it and older devices keep working.
 ANDROID_API="${ANDROID_API:-24}"
 
-NDK_ROOT="${NDK_ROOT:-/home/lordegypt/PocketCLaw/.tooling/android-sdk/ndk/28.2.13676358}"
+# shellcheck source=runtime/toolchains.env
+source "$REPO_ROOT/runtime/toolchains.env"
+
+NDK_ROOT="${NDK_ROOT:-/home/lordegypt/PocketCLaw/.tooling/android-sdk/ndk/$POCKETCLAW_NDK_VERSION}"
 TOOLCHAIN="$NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64"
+
+# require_ndk_version: the NDK decides the bytes of every C payload.
+require_ndk_version() {
+    local revision
+    revision="$(sed -n 's/^Pkg.Revision *= *//p' "$NDK_ROOT/source.properties" 2>/dev/null || true)"
+    if [ "$revision" != "$POCKETCLAW_NDK_VERSION" ]; then
+        echo "error: NDK at $NDK_ROOT is '${revision:-unknown}', pinned $POCKETCLAW_NDK_VERSION" >&2
+        echo "       (runtime/toolchains.env). Point NDK_ROOT at the pinned NDK." >&2
+        exit 1
+    fi
+}
 
 # A fixed build directory keeps the developer's home path out of the binaries:
 # autotools records its own configure arguments in the compiled result.
@@ -58,6 +72,7 @@ export SOURCE_DATE_EPOCH
     echo "error: NDK toolchain not found at $TOOLCHAIN; set NDK_ROOT" >&2
     exit 1
 }
+require_ndk_version
 mkdir -p "$CACHE_DIR" "$DEPS_PREFIX" "$JNI_LIBS"
 
 # C/C++ debug companions need source lines, while shipped payloads remain

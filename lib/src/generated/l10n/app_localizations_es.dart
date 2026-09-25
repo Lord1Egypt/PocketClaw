@@ -9,25 +9,13 @@ class AppLocalizationsEs extends AppLocalizations {
   AppLocalizationsEs([String locale = 'es']) : super(locale);
 
   @override
-  String get appTitle => 'PocketClaw';
-
-  @override
-  String get run => 'Ejecutar';
-
-  @override
   String get stop => 'Detener';
-
-  @override
-  String get config => 'Config';
 
   @override
   String get webAdmin => 'Admin Web';
 
   @override
   String get logs => 'Registros';
-
-  @override
-  String get viewLogs => 'Ver registros';
 
   @override
   String get statusRunning => 'Ejecutando';
@@ -48,27 +36,6 @@ class AppLocalizationsEs extends AppLocalizations {
   String get save => 'Guardar';
 
   @override
-  String get showWindow => 'Mostrar ventana';
-
-  @override
-  String get exit => 'Salir';
-
-  @override
-  String get binaryPath => 'Ruta binaria';
-
-  @override
-  String get browse => 'Examinar';
-
-  @override
-  String get pathError => 'Ruta inválida';
-
-  @override
-  String get arguments => 'Argumentos';
-
-  @override
-  String get argumentsHint => 'ej. config.json';
-
-  @override
   String get notStarted => 'Servicio no iniciado';
 
   @override
@@ -87,27 +54,6 @@ class AppLocalizationsEs extends AppLocalizations {
   String get refresh => 'Actualizar';
 
   @override
-  String get coreBinaryMissing =>
-      'Binario principal no encontrado. Coloque el binario de la plataforma en app/bin/ o configure la ruta en Ajustes.';
-
-  @override
-  String get coreStartFailed => 'Error al iniciar el servicio principal.';
-
-  @override
-  String get coreStopFailed => 'Error al detener el servicio principal.';
-
-  @override
-  String get coreInvalidBinary => 'Archivo binario principal inválido.';
-
-  @override
-  String coreUnknownError(Object code) {
-    return 'Error principal desconocido: $code';
-  }
-
-  @override
-  String get coreValid => 'El binario principal es válido.';
-
-  @override
   String get publicMode => 'Modo público';
 
   @override
@@ -119,9 +65,6 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get themeSelection => 'Tema';
-
-  @override
-  String get check => 'Verificar';
 
   @override
   String get launchService => 'INICIAR SERVICIO';
@@ -151,61 +94,6 @@ class AppLocalizationsEs extends AppLocalizations {
   String get unableToGetDeviceIp => 'No se puede obtener la IP del dispositivo';
 
   @override
-  String get deviceReportingTitle =>
-      'Comentarios de compatibilidad del dispositivo';
-
-  @override
-  String get deviceReportingSubtitle =>
-      'Solo se usa para verificar la compatibilidad de la versión del SO y la versión de la app. No implica mensajes de chat, detalles de cuenta ni contenido personal';
-
-  @override
-  String get deviceReportingConsentTitle =>
-      'Ayude a mejorar la compatibilidad del dispositivo';
-
-  @override
-  String get deviceReportingConsentDescription =>
-      'Cuando está activado, solo se envía un ID de instalación anónimo, la versión del SO y la versión de la app para comprender la compatibilidad. El idioma y la región pueden ser recopilados por Firebase Analytics por separado. No se suben mensajes de chat, contenido escrito, detalles de cuenta, archivos ni configuración personalizada';
-
-  @override
-  String get deviceReportingBannerDescription =>
-      'Solo se sincronizan un ID de instalación anónimo, la versión del SO y la versión de la app para mejorar la compatibilidad. El idioma y la región pueden ser recopilados por separado por Firebase Analytics. No se envían mensajes de chat, detalles de cuenta, archivos ni contenido personal';
-
-  @override
-  String get deviceReportingWhatWillBeSent =>
-      'Solo se incluyen estos detalles del dispositivo';
-
-  @override
-  String get deviceReportingDeviceLabel => 'Modelo del dispositivo';
-
-  @override
-  String get deviceReportingPlatformLabel => 'Categoría del dispositivo';
-
-  @override
-  String get deviceReportingSystemLabel => 'Versión del SO';
-
-  @override
-  String get deviceReportingTimingNote =>
-      'Una sincronización se ejecuta una vez cuando está activado, y nuevamente solo después de que se detecta una actualización del sistema';
-
-  @override
-  String get deviceReportingDeny => 'Ahora no';
-
-  @override
-  String get deviceReportingAllow => 'Activar';
-
-  @override
-  String get deviceReportingUploadSucceeded =>
-      'Comentarios de compatibilidad del dispositivo activados';
-
-  @override
-  String get deviceReportingUploadFailed =>
-      'Comentarios de compatibilidad del dispositivo activados, pero la sincronización de información del dispositivo actual no se completó';
-
-  @override
-  String get deviceReportingDisabled =>
-      'Comentarios de compatibilidad del dispositivo desactivados';
-
-  @override
   String get localModeHint =>
       '1. Vaya a Configuración del servicio\n2. Active el Modo público\n3. Escanee el código QR para acceder a PocketClaw';
 
@@ -217,10 +105,6 @@ class AppLocalizationsEs extends AppLocalizations {
   String get noLogsToExport => 'No hay registros para exportar';
 
   @override
-  String get logsSavedToMediaLibrary =>
-      'Registros guardados en Descargas (biblioteca multimedia de Android)';
-
-  @override
   String logsSavedToDownloads(Object path) {
     return 'Registros guardados en Descargas: $path';
   }
@@ -230,6 +114,38 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get workspaceDirectory => 'Espacio de trabajo';
+
+  @override
+  String get legacyWorkspaceTitle =>
+      'Se encontró un espacio de trabajo anterior';
+
+  @override
+  String legacyWorkspaceBody(Object path) {
+    return 'Una versión anterior guardaba tu espacio de trabajo en $path. PocketClaw ahora usa su propio almacenamiento de la app y no ha tocado esa carpeta. Puedes copiarla: la copia va a una carpeta propia y no se sobrescribe ni se elimina nada.';
+  }
+
+  @override
+  String get legacyWorkspaceImport => 'Copiar al espacio de trabajo';
+
+  @override
+  String get legacyWorkspaceHide => 'Ocultar';
+
+  @override
+  String legacyWorkspaceCopied(Object count, Object folder) {
+    return 'Se copiaron $count archivos en $folder.';
+  }
+
+  @override
+  String legacyWorkspacePartial(Object count, Object folder, Object failed) {
+    return 'Se copiaron $count archivos en $folder. No se pudieron copiar $failed.';
+  }
+
+  @override
+  String get legacyWorkspaceFailed => 'No se pudo copiar la carpeta.';
+
+  @override
+  String get legacyWorkspaceEmpty =>
+      'La carpeta seleccionada no tenía nada que copiar.';
 
   @override
   String logsSavedToMediaLibraryWithName(Object name) {
@@ -250,20 +166,7 @@ class AppLocalizationsEs extends AppLocalizations {
   }
 
   @override
-  String get unsavedChanges => 'Cambios sin guardar';
-
-  @override
-  String get unsavedChangesHint =>
-      'Tienes cambios sin guardar. ¿Deseas descartarlos?';
-
-  @override
   String get cancel => 'Cancelar';
-
-  @override
-  String get discard => 'Descartar';
-
-  @override
-  String get saved => 'Guardado';
 
   @override
   String get language => 'Idioma';
@@ -537,6 +440,34 @@ class AppLocalizationsEs extends AppLocalizations {
   @override
   String get whatsNew021Fix1 =>
       'El Git incluido ya no se bloquea al clonar un repositorio o actualizar una rama.';
+
+  @override
+  String get whatsNew022Improvement1 =>
+      'Tras una tarea larga, Telegram entrega la respuesta como un mensaje nuevo, así que te avisa y aparece debajo de lo que hayas enviado mientras tanto.';
+
+  @override
+  String get whatsNew022Improvement2 =>
+      'Telegram te indica cuándo tu mensaje está en cola y cuántos tiene delante.';
+
+  @override
+  String get whatsNew022Improvement3 =>
+      'El espacio de trabajo ahora está en el almacenamiento propio de PocketClaw, y la app no pide ningún permiso de almacenamiento. Un espacio de trabajo que una versión anterior dejó en Download/pocketclaw no se toca y puede copiarse desde Ajustes.';
+
+  @override
+  String get whatsNew022Fix1 =>
+      'Las salidas de herramientas muy grandes ya no desbordan la conversación.';
+
+  @override
+  String get whatsNew022Fix2 =>
+      'Se quitaron ajustes que no tenían efecto en Android: Dispositivos, Iniciar al iniciar sesión y Puerto del servicio.';
+
+  @override
+  String get whatsNew022Improvement4 =>
+      'PocketClaw ahora requiere Android 8.0 o posterior.';
+
+  @override
+  String get whatsNew022Fix3 =>
+      'Se corrigió un cierre inesperado al iniciar en Android que podía aparecer tras reiniciar el teléfono.';
 
   @override
   String get settingsGroupConnection => 'Conexión';

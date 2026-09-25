@@ -68,10 +68,11 @@ void main() {
   });
 
   group('no client asks for a legacy route', () {
-    test('the Flutter chat socket is canonical', () {
-      final chat = read('lib/src/ui/chat_page.dart');
-      expect(chat, contains('/pocketclaw/ws?session_id='));
-      expect(chat, isNot(contains('/pico/ws')));
+    // The Flutter ChatPage opened its own realtime socket, but nothing in the
+    // app ever navigated to it: Chat is the Dashboard in the WebView, which
+    // uses the canonical route. The unreachable page is gone.
+    test('no Flutter chat page opens a realtime socket of its own', () {
+      expect(File('lib/src/ui/chat_page.dart').existsSync(), isFalse);
     });
 
     test('no Dart source builds a legacy realtime URL', () {
@@ -155,10 +156,10 @@ void main() {
       expect(auth,
           contains('legacyLauncherDashboardCookieName = "picoclaw_launcher_auth"'),
           reason: 'an old cookie is still expired, never issued');
-      // N4K-B took the distribution-channel define. No build ever supplied the
-      // old name, so it moved without a compatibility arm.
+      // N4K-B took the distribution-channel define; F-Droid Phase B then
+      // removed it with the device telemetry it fed. Neither name may return.
       final serviceManager = read('lib/src/core/service_manager.dart');
-      expect(serviceManager, contains('POCKETCLAW_DISTRIBUTION_CHANNEL'));
+      expect(serviceManager, isNot(contains('POCKETCLAW_DISTRIBUTION_CHANNEL')));
       expect(serviceManager, isNot(contains('PICOCLAW_DISTRIBUTION_CHANNEL')));
     });
 

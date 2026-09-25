@@ -1,0 +1,6 @@
+• Now requires Android 8.0 or newer.
+• Fixed a startup crash that could appear after restarting the phone.
+• Telegram: a long task's answer arrives as a new message; queued messages show their place.
+• Huge tool output can no longer overflow the conversation.
+• Workspace moved to app storage; no storage permission. An older Download/pocketclaw workspace can be copied in from Settings.
+• Removed settings that did nothing on Android.

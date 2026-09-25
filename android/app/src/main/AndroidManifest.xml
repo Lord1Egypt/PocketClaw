@@ -1,23 +1,15 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- 网络访问 -->
+    <!-- Network access -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     
     <!--
-      READ_PHONE_STATE is deliberately not declared here.
-
-      It was requested app-wide for the Umeng device probe, which the default
-      build does not package and never calls. A dangerous telephony permission
-      in the manifest of a build that cannot use it costs the user a prompt and
-      costs the listing a policy justification, for nothing. It cannot be made
-      conditional in place: tools:node is resolved before manifest placeholders,
-      so it takes no build-time value.
-
-      An analytics build gets whatever the analytics SDK's own AAR manifest
-      declares. If that SDK ever genuinely needs an app-level declaration, add it
-      to the analytics build's own manifest, not to this one.
+      READ_PHONE_STATE is deliberately not declared. It served the Umeng device
+      probe, and the Umeng SDK has been removed from PocketClaw entirely: no
+      build variant packages or compiles against an analytics SDK, and nothing
+      reads telephony state.
     -->
 
     <!--
@@ -43,30 +35,33 @@
     <uses-permission android:name="com.google.android.finsky.permission.BIND_GET_INSTALL_REFERRER_SERVICE"
         tools:node="remove" />
 
-    <!-- 前台服务 -->
+    <!-- Foreground service -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
-    <!-- 保留 dataSync 兼容 flutter_background_service 插件 -->
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <!--
+      FOREGROUND_SERVICE_DATA_SYNC and RECEIVE_BOOT_COMPLETED are deliberately
+      not declared (PC-DEF-083). The first served flutter_background_service,
+      configured with autoStart false and never started; the second served a
+      BootReceiver whose auto_start preference no PocketClaw UI could ever set.
+      Both plugins' components are gone with them, and release_gate.py keeps
+      all three of these permissions out of the packaged manifest.
+    -->
 
-    <!-- Wake Lock 防止 CPU 休眠 -->
+    <!-- Keeps the CPU awake while Core runs -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
 
-    <!-- 开机自启 -->
-    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
-
-    <!-- 通知权限 (Android 13+) -->
+    <!-- Notifications (Android 13+) -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
-    <!-- 外部存储写入（Android 9 及以下） -->
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
-        android:maxSdkVersion="28" />
-    <!-- 外部存储读取（Android 12 及以下） -->
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
-        android:maxSdkVersion="32" />
-    <!-- 管理所有文件（Android 11+，写 Downloads 目录必需） -->
-    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"
-        tools:ignore="ScopedStorage" />
+    <!--
+      No storage permission is declared (PC-DEF-077). The workspace is
+      app-specific external storage, which needs none on any supported Android
+      version; log export uses MediaStore, or the app's own Downloads folder
+      below API 29; the Chat attachment picker and the legacy workspace import
+      use system pickers that grant access to what the user chooses. All-files
+      access, and the Settings redirect every cold launch used to make for it,
+      are gone from the product.
+    -->
 
     <application
         android:label="PocketClaw"
@@ -76,7 +71,6 @@
         android:allowBackup="true"
         android:fullBackupContent="@xml/backup_rules"
         android:dataExtractionRules="@xml/data_extraction_rules"
-        android:requestLegacyExternalStorage="true"
         android:extractNativeLibs="true">
         <activity
             android:name=".MainActivity"
@@ -96,58 +90,30 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
             <!--
-              The Umeng debug/wake link is deliberately not declared here.
-
-              It was an unconditional VIEW + DEFAULT + BROWSABLE filter whose
-              scheme came from a manifest placeholder. H1.5 removed the analytics
-              SDK from the shipping build, so POCKETCLAW_ANALYTICS_PROVIDER
-              defaults to "none" and the placeholder resolved to the literal
-              "um.placeholder" — a web-reachable entry point into an exported
-              activity, for an SDK that is not in the APK.
-
-              Same rule as the advertising permissions above: an analytics build
-              gets whatever the analytics SDK's own AAR manifest declares, and an
-              app-level declaration it genuinely needs belongs to that build's
-              own manifest rather than to this one. So this is a removal, not a
-              conditional — a filter that is only correct for a build we do not
-              ship should not be in the manifest we do. See PC-DEF-024.
+              No VIEW/BROWSABLE filter. The Umeng debug/wake link that used to
+              sit here was a web-reachable entry point into this exported
+              activity for an SDK the APK did not contain (PC-DEF-024); it went
+              first, and the SDK itself has since been removed. PocketClaw has
+              no deep link.
             -->
         </activity>
 
-        <!-- PocketClaw 原生前台服务（运行 Go 二进制） -->
+        <!-- PocketClaw's foreground service, which runs the Go binaries -->
         <service
             android:name=".service.PocketClawService"
             android:exported="false"
             android:foregroundServiceType="specialUse" />
 
-        <!-- Flutter Background Service 插件 -->
-        <service
-            android:name="id.flutter.flutter_background_service.BackgroundService"
-            android:foregroundServiceType="dataSync"
-            android:exported="false"
-            tools:replace="android:exported" />
-
-        <!-- 开机自启广播接收器 -->
-        <receiver
-            android:name=".receiver.BootReceiver"
-            android:exported="true"
-            android:enabled="true">
-            <intent-filter>
-                <action android:name="android.intent.action.BOOT_COMPLETED" />
-            </intent-filter>
-        </receiver>
-
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
-        
-        <!-- 友盟统计配置 - 从 build.gradle 的 buildConfigField 读取 -->
+
+        <!-- The Dashboard runs in the system WebView, which otherwise reports
+             its own usage metrics to Google from inside this process. -->
         <meta-data
-            android:name="UMENG_APPKEY"
-            android:value="${POCKETCLAW_UMENG_APP_KEY}" />
-        <meta-data
-            android:name="UMENG_CHANNEL"
-            android:value="${POCKETCLAW_UMENG_CHANNEL}" />
+            android:name="android.webkit.WebView.MetricsOptOut"
+            android:value="true" />
+
     </application>
 
     <queries>

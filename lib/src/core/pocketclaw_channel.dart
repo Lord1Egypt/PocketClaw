@@ -1,5 +1,6 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+
+import 'legacy_workspace.dart';
 
 /// The canonical launch auto-start record, as committed by the Android host.
 ///
@@ -39,12 +40,12 @@ class PublicModeApplyResult {
   final String message;
 }
 
-/// PocketClaw 原生 MethodChannel 客户端。
-/// 仅在 Android 平台可用，用于与 Kotlin 原生服务层通信。
+/// Client for the PocketClaw Android host's MethodChannel.
+/// Android only: it talks to the Kotlin service layer.
 class PocketClawChannel {
   static const _channel = MethodChannel('com.lord1egypt.pocketclaw/pocketclaw');
 
-  /// 启动 PocketClaw 前台服务
+  /// Starts the PocketClaw foreground service.
   static Future<bool> startService({int port = 18800, String args = ''}) async {
     final result = await _channel.invokeMethod<bool>('startService', {
       'port': port,
@@ -53,7 +54,7 @@ class PocketClawChannel {
     return result ?? false;
   }
 
-  /// 停止 PocketClaw 前台服务
+  /// Stops the PocketClaw foreground service.
   static Future<bool> stopService() async {
     final result = await _channel.invokeMethod<bool>('stopService');
     return result ?? false;
@@ -80,14 +81,14 @@ class PocketClawChannel {
     );
   }
 
-  /// 获取服务状态
+  /// Reads the service status.
   static Future<Map<String, dynamic>> getServiceStatus() async {
     final result = await _channel.invokeMethod<Map>('getServiceStatus');
     if (result == null) return {'isRunning': false, 'pid': -1, 'lastLog': ''};
     return Map<String, dynamic>.from(result);
   }
 
-  /// 检查 /health 端点
+  /// Checks the /health endpoint.
   static Future<Map<String, dynamic>> checkHealth({bool detail = false}) async {
     final result = await _channel.invokeMethod<Map>('checkHealth', {
       'detail': detail,
@@ -142,13 +143,13 @@ class PocketClawChannel {
     );
   }
 
-  /// 读取 config.json 内容
+  /// Reads config.json.
   static Future<String> getConfig() async {
     final result = await _channel.invokeMethod<String>('getConfig');
     return result ?? '';
   }
 
-  /// 保存 config.json 内容
+  /// Saves config.json.
   static Future<bool> saveConfig(String content) async {
     final result = await _channel.invokeMethod<bool>('saveConfig', {
       'content': content,
@@ -156,7 +157,7 @@ class PocketClawChannel {
     return result ?? false;
   }
 
-  /// 获取完整日志
+  /// Reads the full log.
   /// Log lines emitted since the previous call, each delivered exactly once.
   ///
   /// Deliberately not `getServiceStatus`'s `lastLog`: that is a sticky
@@ -279,20 +280,6 @@ class PocketClawChannel {
     return result ?? '';
   }
 
-  /// 设置开机自启
-  static Future<bool> setAutoStart(bool enabled) async {
-    final result = await _channel.invokeMethod<bool>('setAutoStart', {
-      'enabled': enabled,
-    });
-    return result ?? false;
-  }
-
-  /// 获取开机自启设置
-  static Future<bool> getAutoStart() async {
-    final result = await _channel.invokeMethod<bool>('getAutoStart');
-    return result ?? false;
-  }
-
   /// The Core runtime version, or null when the host could not read it.
   ///
   /// PC-DEF-063. This used to answer 'unknown' for both "the probe failed" and
@@ -312,7 +299,7 @@ class PocketClawChannel {
     }
   }
 
-  /// 获取 config.json 文件路径
+  /// The path of config.json.
   static Future<String> getConfigPath() async {
     final result = await _channel.invokeMethod<String>('getConfigPath');
     return result ?? '';
@@ -327,75 +314,36 @@ class PocketClawChannel {
     return address.isEmpty ? null : address;
   }
 
-  /// 获取 PocketClaw Channel token
+  /// The PocketClaw channel token.
   static Future<String> getPocketClawToken() async {
     final result = await _channel.invokeMethod<String>('getPocketClawToken');
     return result ?? '';
   }
 
-  /// 获取安全的设备信息（避免敏感标识符）
-  static Future<Map<String, String>> getSafeDeviceInfo() async {
-    final result = await _channel.invokeMethod<Map>('getSafeDeviceInfo');
-    if (result == null) return const {};
-    return result.map(
-      (key, value) => MapEntry(key.toString(), value?.toString() ?? ''),
-    );
-  }
-
-  static Future<bool> setUmengAnalyticsConsent(bool enabled) async {
-    final result = await _channel.invokeMethod<bool>(
-      'setUmengAnalyticsConsent',
-      {'enabled': enabled},
-    );
-    return result ?? false;
-  }
-
-  static Future<Map<String, dynamic>> uploadUmengDeviceReport(
-    Map<String, Object?> payload,
-  ) async {
-    debugPrint('[PocketClawChannel] === uploadUmengDeviceReport START ===');
-    debugPrint(
-      '[PocketClawChannel] Calling native method with payload keys: ${payload.keys.toList()}',
-    );
-
+  /// PC-DEF-085: the bounded local lifecycle journal. Component names, intent
+  /// actions and exception classes only; empty when unavailable.
+  static Future<String> getLifecycleDiagnostics() async {
     try {
-      final result = await _channel
-          .invokeMethod<Map>('uploadUmengDeviceReport', payload)
-          .timeout(const Duration(seconds: 8));
-
-      debugPrint('[PocketClawChannel] Native method returned');
-
-      if (result == null) {
-        debugPrint('[PocketClawChannel] ERROR: Native returned null');
-        return const {
-          'success': false,
-          'message': 'No response from native Umeng bridge.',
-        };
-      }
-
-      final mappedResult = Map<String, dynamic>.from(result);
-      debugPrint(
-        '[PocketClawChannel] Result: success=${mappedResult['success']}, message=${mappedResult['message']}',
-      );
-      debugPrint('[PocketClawChannel] === uploadUmengDeviceReport END ===');
-      return mappedResult;
-    } catch (e) {
-      debugPrint('[PocketClawChannel] ERROR: Exception caught: $e');
-      debugPrint('[PocketClawChannel] === uploadUmengDeviceReport FAILED ===');
-      return {'success': false, 'message': 'Exception: $e'};
+      return await _channel.invokeMethod<String>('getLifecycleDiagnostics') ??
+          '';
+    } on MissingPluginException {
+      return '';
+    } on PlatformException {
+      return '';
     }
   }
 
-  /// 检查存储权限是否已授予（Android 11+）
-  static Future<bool> isStorageManagerGranted() async {
-    final result = await _channel.invokeMethod<bool>('isStorageManagerGranted');
-    return result ?? false;
+  /// PC-DEF-077: an older install's `Download/pocketclaw` workspace, if visible.
+  static Future<LegacyWorkspaceStatus> getLegacyWorkspaceStatus() async {
+    final result = await _channel.invokeMethod<Map>('getLegacyWorkspaceStatus');
+    return LegacyWorkspaceStatus.fromMap(result);
   }
 
-  /// 请求存储管理权限（Android 11+）
-  static Future<bool> requestStorageManager() async {
-    final result = await _channel.invokeMethod<bool>('requestStorageManager');
-    return result ?? false;
+  /// Opens the system folder picker and copies the chosen tree into a new
+  /// folder inside the workspace. Nothing is overwritten or deleted.
+  static Future<LegacyWorkspaceImportResult> importLegacyWorkspace() async {
+    final result = await _channel.invokeMethod<Map>('importLegacyWorkspace');
+    return LegacyWorkspaceImportResult.fromMap(result);
   }
 
   /// Reads PocketClaw's notification-permission state without asking for anything.

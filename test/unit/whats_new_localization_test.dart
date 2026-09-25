@@ -23,6 +23,11 @@ const List<String> whatsNewKeys = <String>[
   'whatsNew020Improvement3',
   'whatsNew020Fix1',
   'whatsNew020Fix2',
+  'whatsNew022Improvement1',
+  'whatsNew022Improvement2',
+  'whatsNew022Improvement3',
+  'whatsNew022Fix1',
+  'whatsNew022Fix2',
 ];
 
 const List<String> locales = <String>[

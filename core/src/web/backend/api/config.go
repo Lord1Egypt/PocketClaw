@@ -484,7 +484,7 @@ func asMapField(value map[string]any, key string) (map[string]any, bool) {
 
 var (
 	allowFromHiddenCharsRe = regexp.MustCompile("[\u200B\u200C\u200D\u200E\u200F\u202A-\u202E\u2060-\u2069\uFEFF]")
-	allowFromSplitRe       = regexp.MustCompile("[,\uFF0C、;；\r\n\t]+")
+	allowFromSplitRe       = regexp.MustCompile("[,\uFF0C\u3001;\uFF1B\r\n\t]+")
 	conservativeSplitRe    = regexp.MustCompile("[,\uFF0C\r\n\t]+")
 )
 

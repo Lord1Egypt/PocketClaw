@@ -121,12 +121,16 @@ type ToolExecStartPayload struct {
 
 // ToolExecEndPayload describes the outcome of a tool execution.
 type ToolExecEndPayload struct {
-	Tool       string
-	Duration   time.Duration
-	ForLLMLen  int
-	ForUserLen int
-	IsError    bool
-	Async      bool
+	Tool     string
+	Duration time.Duration
+	// ForLLMLen is what the model receives; ForLLMOriginalLen is what the tool
+	// produced. They differ only when ForLLMTruncated is set.
+	ForLLMLen         int
+	ForLLMOriginalLen int
+	ForLLMTruncated   bool
+	ForUserLen        int
+	IsError           bool
+	Async             bool
 }
 
 // ToolExecSkippedPayload describes a skipped tool call.

@@ -24,11 +24,11 @@ void main() {
   setUp(() async {
     SharedPreferences.setMockInitialValues({});
     service = ServiceManager();
-    await service.updateConfig('127.0.0.1', 18800, publicMode: false);
+    await service.setPublicModeConfig(false);
   });
 
   tearDown(() async {
-    await service.updateConfig('127.0.0.1', 18800, publicMode: false);
+    await service.setPublicModeConfig(false);
   });
 
   /// Pumps the real shell: the page inside the navigation bar that sits below

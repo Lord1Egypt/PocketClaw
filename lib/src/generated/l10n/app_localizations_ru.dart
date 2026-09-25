@@ -9,25 +9,13 @@ class AppLocalizationsRu extends AppLocalizations {
   AppLocalizationsRu([String locale = 'ru']) : super(locale);
 
   @override
-  String get appTitle => 'PocketClaw';
-
-  @override
-  String get run => 'Запустить';
-
-  @override
   String get stop => 'Остановить';
-
-  @override
-  String get config => 'Конфиг';
 
   @override
   String get webAdmin => 'Веб-админ';
 
   @override
   String get logs => 'Журналы';
-
-  @override
-  String get viewLogs => 'Просмотр журналов';
 
   @override
   String get statusRunning => 'Работает';
@@ -46,27 +34,6 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get save => 'Сохранить';
-
-  @override
-  String get showWindow => 'Показать окно';
-
-  @override
-  String get exit => 'Выйти';
-
-  @override
-  String get binaryPath => 'Путь к бинарнику';
-
-  @override
-  String get browse => 'Обзор';
-
-  @override
-  String get pathError => 'Неверный путь';
-
-  @override
-  String get arguments => 'Аргументы';
-
-  @override
-  String get argumentsHint => 'напр. config.json';
 
   @override
   String get notStarted => 'Служба не запущена';
@@ -88,27 +55,6 @@ class AppLocalizationsRu extends AppLocalizations {
   String get refresh => 'Обновить';
 
   @override
-  String get coreBinaryMissing =>
-      'Основной бинарный файл не найден. Поместите бинарный файл платформы в app/bin/ или укажите путь в Настройках.';
-
-  @override
-  String get coreStartFailed => 'Не удалось запустить основную службу.';
-
-  @override
-  String get coreStopFailed => 'Не удалось остановить основную службу.';
-
-  @override
-  String get coreInvalidBinary => 'Неверный основной бинарный файл.';
-
-  @override
-  String coreUnknownError(Object code) {
-    return 'Неизвестная основная ошибка: $code';
-  }
-
-  @override
-  String get coreValid => 'Основной бинарный файл действителен.';
-
-  @override
   String get publicMode => 'Общий режим';
 
   @override
@@ -120,9 +66,6 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get themeSelection => 'Тема';
-
-  @override
-  String get check => 'Проверить';
 
   @override
   String get launchService => 'ЗАПУСТИТЬ СЛУЖБУ';
@@ -152,60 +95,6 @@ class AppLocalizationsRu extends AppLocalizations {
   String get unableToGetDeviceIp => 'Не удается получить IP-адрес устройства';
 
   @override
-  String get deviceReportingTitle => 'Отзыв о совместимости устройства';
-
-  @override
-  String get deviceReportingSubtitle =>
-      'Используется только для проверки совместимости версии ОС и версии приложения. Не затрагивает сообщения чата, данные аккаунта или личный контент';
-
-  @override
-  String get deviceReportingConsentTitle =>
-      'Помогите улучшить совместимость устройств';
-
-  @override
-  String get deviceReportingConsentDescription =>
-      'При включении отправляются только анонимный ID установки, версия ОС и версия приложения для понимания совместимости. Язык и регион могут собираться Firebase Analytics отдельно. Не загружаются сообщения чата, введенный контент, данные аккаунта, файлы или пользовательские настройки';
-
-  @override
-  String get deviceReportingBannerDescription =>
-      'Только анонимный ID установки, версия ОС и версия приложения синхронизируются для улучшения совместимости. Язык и регион могут собираться Firebase Analytics отдельно. Не отправляются сообщения чата, данные аккаунта, файлы или личный контент';
-
-  @override
-  String get deviceReportingWhatWillBeSent =>
-      'Включены только эти данные об устройстве';
-
-  @override
-  String get deviceReportingDeviceLabel => 'Модель устройства';
-
-  @override
-  String get deviceReportingPlatformLabel => 'Категория устройства';
-
-  @override
-  String get deviceReportingSystemLabel => 'Версия ОС';
-
-  @override
-  String get deviceReportingTimingNote =>
-      'Синхронизация выполняется один раз при включении и снова только после обнаружения обновления системы';
-
-  @override
-  String get deviceReportingDeny => 'Не сейчас';
-
-  @override
-  String get deviceReportingAllow => 'Включить';
-
-  @override
-  String get deviceReportingUploadSucceeded =>
-      'Отзыв о совместимости устройства включен';
-
-  @override
-  String get deviceReportingUploadFailed =>
-      'Отзыв о совместимости устройства включен, но текущая синхронизация информации об устройстве не завершена';
-
-  @override
-  String get deviceReportingDisabled =>
-      'Отзыв о совместимости устройства отключен';
-
-  @override
   String get localModeHint =>
       '1. Перейдите в Настройку службы\n2. Включите Общий режим\n3. Отсканируйте QR-код для доступа к PocketClaw';
 
@@ -217,10 +106,6 @@ class AppLocalizationsRu extends AppLocalizations {
   String get noLogsToExport => 'Нет журналов для экспорта';
 
   @override
-  String get logsSavedToMediaLibrary =>
-      'Журналы сохранены в Загрузки (медиатека Android)';
-
-  @override
   String logsSavedToDownloads(Object path) {
     return 'Журналы сохранены в Загрузки: $path';
   }
@@ -230,6 +115,36 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get workspaceDirectory => 'Рабочее пространство';
+
+  @override
+  String get legacyWorkspaceTitle => 'Найдено прежнее рабочее пространство';
+
+  @override
+  String legacyWorkspaceBody(Object path) {
+    return 'Более старая версия хранила ваше рабочее пространство в $path. Теперь PocketClaw использует собственное хранилище приложения и не трогал эту папку. Вы можете скопировать её: копия попадёт в отдельную папку, ничего не будет перезаписано или удалено.';
+  }
+
+  @override
+  String get legacyWorkspaceImport => 'Скопировать в рабочее пространство';
+
+  @override
+  String get legacyWorkspaceHide => 'Скрыть';
+
+  @override
+  String legacyWorkspaceCopied(Object count, Object folder) {
+    return 'Скопировано файлов: $count в $folder.';
+  }
+
+  @override
+  String legacyWorkspacePartial(Object count, Object folder, Object failed) {
+    return 'Скопировано файлов: $count в $folder. Не удалось скопировать: $failed.';
+  }
+
+  @override
+  String get legacyWorkspaceFailed => 'Не удалось скопировать папку.';
+
+  @override
+  String get legacyWorkspaceEmpty => 'В выбранной папке нечего копировать.';
 
   @override
   String logsSavedToMediaLibraryWithName(Object name) {
@@ -250,20 +165,7 @@ class AppLocalizationsRu extends AppLocalizations {
   }
 
   @override
-  String get unsavedChanges => 'Несохраненные изменения';
-
-  @override
-  String get unsavedChangesHint =>
-      'У вас есть несохраненные изменения. Вы хотите их отменить?';
-
-  @override
   String get cancel => 'Отмена';
-
-  @override
-  String get discard => 'Отменить';
-
-  @override
-  String get saved => 'Сохранено';
 
   @override
   String get language => 'Язык';
@@ -533,6 +435,34 @@ class AppLocalizationsRu extends AppLocalizations {
   @override
   String get whatsNew021Fix1 =>
       'Встроенный Git больше не аварийно завершается при клонировании репозитория или обновлении ветки.';
+
+  @override
+  String get whatsNew022Improvement1 =>
+      'После долгой задачи Telegram присылает ответ новым сообщением: приходит уведомление, и ответ появляется ниже всего, что вы отправили за это время.';
+
+  @override
+  String get whatsNew022Improvement2 =>
+      'Telegram сообщает, когда ваше сообщение стоит в очереди и сколько сообщений перед ним.';
+
+  @override
+  String get whatsNew022Improvement3 =>
+      'Рабочее пространство теперь находится в собственном хранилище PocketClaw, и приложение не запрашивает разрешений на доступ к хранилищу. Рабочее пространство, оставленное старой версией в Download/pocketclaw, не изменяется, и его можно скопировать в настройках.';
+
+  @override
+  String get whatsNew022Fix1 =>
+      'Очень большой вывод инструментов больше не переполняет разговор.';
+
+  @override
+  String get whatsNew022Fix2 =>
+      'Удалены пункты настроек, не действовавшие на Android: «Устройства», «Запуск при входе» и «Порт службы».';
+
+  @override
+  String get whatsNew022Improvement4 =>
+      'Теперь для PocketClaw требуется Android 8.0 или новее.';
+
+  @override
+  String get whatsNew022Fix3 =>
+      'Исправлен сбой при запуске на Android, который мог появляться после перезагрузки телефона.';
 
   @override
   String get settingsGroupConnection => 'Подключение';

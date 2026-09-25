@@ -1,45 +1,24 @@
 {
   "@@locale": "en",
-  "appTitle": "PocketClaw",
-  "@appTitle": {
-    "description": "The title of the application"
-  },
-  "run": "Run",
   "stop": "Stop",
-  "config": "Config",
   "webAdmin": "Web Admin",
   "logs": "Logs",
-  "viewLogs": "View Logs",
   "statusRunning": "Running",
   "statusStopped": "Stopped",
   "settings": "Settings",
   "address": "Address",
   "port": "Port",
   "save": "Save",
-  "showWindow": "Show Window",
-  "exit": "Exit",
-  "binaryPath": "Binary Path",
-  "browse": "Browse",
-  "pathError": "Invalid Path",
-  "arguments": "Arguments",
-  "argumentsHint": "e.g. config.json",
   "notStarted": "Service Not Started",
   "startHint": "Please start the service from the dashboard first.",
   "goToDashboard": "Go to Dashboard",
   "back": "Back",
   "forward": "Forward",
   "refresh": "Refresh",
-  "coreBinaryMissing": "Core binary not found. Place the platform binary into app/bin/ or set the path in Settings.",
-  "coreStartFailed": "Failed to start core service.",
-  "coreStopFailed": "Failed to stop core service.",
-  "coreInvalidBinary": "Invalid core binary file.",
-  "coreUnknownError": "Unknown core error: {code}",
-  "coreValid": "Core binary is valid.",
   "publicMode": "Public Mode",
   "publicModeHintDesc": "Expose the password-protected Dashboard to devices on your LAN. The Core gateway stays private.",
   "publicModeApplying": "Applying network mode...",
   "themeSelection": "Theme",
-  "check": "Check",
   "launchService": "LAUNCH SERVICE",
   "stopService": "STOP SERVICE",
   "endpoint": "ENDPOINT",
@@ -49,30 +28,9 @@
   "publicModeEnabled": "Public Mode Enabled",
   "localMode": "Local Mode",
   "unableToGetDeviceIp": "No LAN address available",
-  "deviceReportingTitle": "Device compatibility feedback",
-  "deviceReportingSubtitle": "Used only for OS-version and app-version compatibility checks. No chat messages, account details, or personal content are involved",
-  "deviceReportingConsentTitle": "Help improve device compatibility",
-  "deviceReportingConsentDescription": "When enabled, only an anonymous installation ID, OS version, and app version are sent to understand compatibility. Language and region can be collected by Firebase Analytics separately. No chat messages, typed content, account details, files, or custom settings are uploaded",
-  "deviceReportingBannerDescription": "Only an anonymous installation ID, OS version, and app version are synced to improve compatibility. Language and region may be collected separately by Firebase Analytics. No chat messages, account details, files, or personal content are sent",
-  "deviceReportingWhatWillBeSent": "Only these device details are included",
-  "deviceReportingDeviceLabel": "Device Model",
-  "deviceReportingPlatformLabel": "Device Category",
-  "deviceReportingSystemLabel": "OS Version",
-  "deviceReportingTimingNote": "A sync runs once when enabled, and again only after a system update is detected",
-  "deviceReportingDeny": "Not now",
-  "deviceReportingAllow": "Turn on",
-  "deviceReportingUploadSucceeded": "Device compatibility feedback is on",
-  "deviceReportingUploadFailed": "Device compatibility feedback is on, but the current device-info sync did not complete",
-  "deviceReportingDisabled": "Device compatibility feedback is off",
   "localModeHint": "1. Go to Service Config\n2. Turn on Public Mode\n3. Scan QR code to access PocketClaw",
   "publicModeHint": "1. Start the service\n2. Scan QR code to access PocketClaw",
-  "@coreUnknownError": {
-    "placeholders": {
-      "code": {}
-    }
-  },
   "noLogsToExport": "No logs to export",
-  "logsSavedToMediaLibrary": "Logs saved to Downloads (Android media library)",
   "logsSavedToDownloads": "Logs saved to Downloads: {path}",
   "@logsSavedToDownloads": {
     "placeholders": {
@@ -81,6 +39,32 @@
   },
   "shareLogsText": "PocketClaw logs",
   "workspaceDirectory": "Workspace",
+  "legacyWorkspaceTitle": "Earlier workspace found",
+  "legacyWorkspaceBody": "An older version kept your workspace in {path}. PocketClaw now uses its own app storage and has left that folder untouched. You can copy it in: the copy goes into a folder of its own, and nothing is overwritten or deleted.",
+  "@legacyWorkspaceBody": {
+    "placeholders": {
+      "path": {}
+    }
+  },
+  "legacyWorkspaceImport": "Copy into workspace",
+  "legacyWorkspaceHide": "Hide",
+  "legacyWorkspaceCopied": "Copied {count} files into {folder}.",
+  "@legacyWorkspaceCopied": {
+    "placeholders": {
+      "count": {},
+      "folder": {}
+    }
+  },
+  "legacyWorkspacePartial": "Copied {count} files into {folder}. {failed} could not be copied.",
+  "@legacyWorkspacePartial": {
+    "placeholders": {
+      "count": {},
+      "folder": {},
+      "failed": {}
+    }
+  },
+  "legacyWorkspaceFailed": "The folder could not be copied.",
+  "legacyWorkspaceEmpty": "The selected folder had nothing to copy.",
   "logsSavedToMediaLibraryWithName": "Logs saved to Downloads (Android media library): {name}",
   "@logsSavedToMediaLibraryWithName": {
     "placeholders": {
@@ -102,11 +86,7 @@
       }
     }
   },
-  "unsavedChanges": "Unsaved Changes",
-  "unsavedChangesHint": "You have unsaved changes. Do you want to discard them?",
   "cancel": "Cancel",
-  "discard": "Discard",
-  "saved": "Saved",
   "language": "Language",
   "selectLanguage": "Select Language",
   "about": "About",
@@ -224,6 +204,13 @@
   "whatsNew020Fix1": "The Gateway now recovers from a stale process record left behind by an earlier run.",
   "whatsNew020Fix2": "Channel lists with more than one entry are preserved correctly when settings are saved.",
   "whatsNew021Fix1": "The bundled Git no longer crashes while cloning a repository or updating a branch.",
+  "whatsNew022Improvement1": "After a long task, Telegram delivers the answer as a new message, so it notifies you and appears below anything you sent meanwhile.",
+  "whatsNew022Improvement2": "Telegram tells you when your message is queued and how many are ahead of it.",
+  "whatsNew022Improvement3": "The workspace now lives in PocketClaw's own storage, and the app asks for no storage permission. A workspace an older version left in Download/pocketclaw is untouched and can be copied in from Settings.",
+  "whatsNew022Fix1": "Very large tool output no longer overflows the conversation.",
+  "whatsNew022Fix2": "Removed Settings entries that had no effect on Android: Devices, Launch at Login and Service Port.",
+  "whatsNew022Improvement4": "PocketClaw now requires Android 8.0 or newer.",
+  "whatsNew022Fix3": "Fixed an Android startup crash that could appear after restarting the phone.",
   "settingsGroupConnection": "Connection",
   "@settingsGroupConnection": {
     "description": "Settings section label above the address, port and public mode controls"
