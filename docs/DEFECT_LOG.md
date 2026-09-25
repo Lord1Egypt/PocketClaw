@@ -91,8 +91,10 @@ only reconstructable examples belong here.
   the second build, and the second build plus the upstream signature is
   byte-identical to the signed APK. Owner-machine builds remain
   path-dependent by nature; releases are built canonically.
-- **Status:** RESOLVED (by the canonical environment; the final `fdroid build`
-  with `Binaries:` against the published APK is recorded in the release entry).
+- **Final proof (after publication):** `fdroid build` of tag `v0.2.3` with
+  `Binaries:` pointing at the GitHub asset verified the published APK and its
+  signer (fourth identical build, `e09340e7…`).
+- **Status:** RESOLVED (by the canonical environment).
 
 ### PC-DEF-093 — Core's Go toolchain and x/crypto carry reachable advisories
 

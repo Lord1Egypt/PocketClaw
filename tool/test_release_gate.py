@@ -40,8 +40,14 @@ class PendingHardeningState(unittest.TestCase):
             "R8 production-signed validation pending",
             gate_module.PENDING_FINAL_HARDENING,
         )
-        self.assertIn(
+        # Proven for 0.2.3 by the canonical build and fdroidserver's Track B
+        # verification of the published APK (PC-DEF-092).
+        self.assertNotIn(
             "APK-level reproducibility not yet proven (required for F-Droid)",
+            gate_module.PENDING_FINAL_HARDENING,
+        )
+        self.assertIn(
+            "versioned non-destructive bootstrap update strategy outstanding",
             gate_module.PENDING_FINAL_HARDENING,
         )
 

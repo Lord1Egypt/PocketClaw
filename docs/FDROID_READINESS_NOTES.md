@@ -10,8 +10,10 @@ is [`FDROID_RELEASE.md`](FDROID_RELEASE.md).
 > APK `320368ea…`, minSdk 26, arm64-v8a — published as the GitHub release
 > `v0.2.2` (tag at `e535fcabebed3ac977559994fad597c62d6345f7`).
 >
-> **0.2.3 (Golden #4):** the Phase C workarounds are replaced by upstream
-> fixes and the release is built in F-Droid's layout — see the last section.
+> **0.2.3 (Golden #4, published 2026-09-25, tag `v0.2.3` → `ee68747`):** the
+> Phase C workarounds are replaced by upstream fixes and the release is built in
+> F-Droid's layout. A real `fdroid build` of the tag with `Binaries:` verified
+> the published APK and its signer: **Track B ready** — see the last section.
 >
 > **Nothing has been submitted.** No merge request is open and no release was
 > made for F-Droid. Phase A audited; Phase B (branch `feature/fdroid-phase-b`)
@@ -353,3 +355,15 @@ dominated by the UI and WebView.
 only the Go toolchain and TLS/net libraries, so the focused check was repeated:
 a fresh Core from the Golden #4 binaries with a throwaway workspace on the
 phone opened no external connection in 180 s and listened on loopback only.
+
+**Final delta against the released source (tag `v0.2.3`, `ee68747`):** the
+Track B metadata rendered for the tag passes `fdroid readmeta`, `lint` and
+`rewritemeta` (byte-stable). `fdroid build` of the tag in the buildserver
+image, fdroidserver's server layout, with `Binaries:
+https://github.com/Lord1Egypt/PocketClaw/releases/download/v%v/PocketClaw-v%v-arm64-v8a.apk`
+and `AllowedAPKSigningKeys: 176dca6b…`: scanner clean apart from the two
+pub-cache globs, unsigned rebuild `e09340e7…` (the fourth identical build),
+"compared built binary to supplied reference binary successfully", "supplied
+reference binary has allowed signer 176dca6b…". F-Droid can therefore publish
+PocketClaw with the upstream signature, and an F-Droid install and a GitHub
+install update each other.

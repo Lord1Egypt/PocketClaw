@@ -25,8 +25,9 @@ evidence and describe the state at the date of each entry.
 | PC-DEF-023 canonical Core build-input commit | `54ff2525fa555744d017aae56c9a26e2049812e1` |
 | PC-DEF-020 state-basis HEAD | `76064c91033860653de1e11a08e29d7245061ec1` (verified exposure-audit closeout; source and Core-staging commits follow it) |
 | PC-DEF-020 canonical Core build-input commit | `f8bc52a0757f7b0a9f6c0704d2a3586db929e33f` |
-| Version | `0.2.3+65` on `release/v0.2.3-fdroid-hardening` — Golden #4 accepted physically 2026-09-25; latest published remains v0.2.2 until the v0.2.3 release is published |
+| Version | `0.2.3+65` — published as v0.2.3 (Golden #4) and pinned in `docs/release/published.json`; `main` = `develop` |
 | Accepted physical baseline | vc65 / `lastAcceptedVersionCode=65` — advanced by the Golden #4 (v0.2.3) acceptance commit; was vc64 for v0.2.2 |
+| **Released — PocketClaw v0.2.3 (Golden #4)** | Published 2026-09-25 as the Latest GitHub release: https://github.com/Lord1Egypt/PocketClaw/releases/tag/v0.2.3, annotated tag `v0.2.3` → `ee68747` (merge into `main`; `develop` fast-forwarded). Assets `PocketClaw-v0.2.3-arm64-v8a.apk` (58,441,695 B, `77888282…`) and `SHA256SUMS.txt`; downloaded back byte-identical. **F-Droid Track B verified**: a real `fdroid build` of the tag with `Binaries:` downloaded the published APK, compared it with its rebuild and accepted signer `176dca6b…`. Nothing submitted |
 | **Released — PocketClaw v0.2.2 (Golden #3)** | Published 2026-09-25 as the Latest GitHub release: https://github.com/Lord1Egypt/PocketClaw/releases/tag/v0.2.2, tag `v0.2.2` → `e535fca` (main = develop at tagging). Assets `PocketClaw-v0.2.2-arm64-v8a.apk` (61,346,447 B, `320368ea…`) and `SHA256SUMS.txt`; downloaded back byte-identical |
 | **Golden #4 — PocketClaw v0.2.3** | Built canonically (F-Droid buildserver layout) from `7c0980ca851adc5d79985433d72b5207186a1ffa`: unsigned `e09340e7…` twice; owner-signed APK `778882828e2f818aac31ed1f58dd3b2e8530828970b535ce72564f5ed2857599`, 58,441,695 bytes, `0.2.3+65`, minSdk 26, targetSdk 36, arm64-v8a, one v2 signer `176dca6b…`, Core fingerprint `cac3e443…` (pair `39686942…` / `182b5fa1…`, go1.26.8). Production gate (public-release) 65/0/0; native ELF 152/0/0 bound; fdroidserver `verify_apks` MATCH; physically accepted on SM-A165F / Android 16 on 2026-09-25 |
 | **Golden #3 — PocketClaw v0.2.2** | Source `80c9dc02ce56d565a3fa673d2cdab6fe78e5d006`; APK `320368eaf1c3c48689625e02764a658e3ed291d4c6e49b3d67ed09326dd58af9`, 61,346,447 bytes, `0.2.2+64`, minSdk 26, arm64-v8a, one v2 signer `176dca6b…`, Core fingerprint `7e48a120…` (pair `b6236105…` / `f9a638eb…`). Production gate (public-release class) 57/0/0; native ELF 152/0/0; physically accepted on SM-A165F / Android 16 on 2026-09-25 |
@@ -60,6 +61,26 @@ evidence and describe the state at the date of each entry.
 | Staged Core freshness | **CURRENT.** Rebuilt from the source commit `55624cd` and staged in `da9e6f5`, which touches no build input. Fingerprint `87c320c1cb6dffe6395043265c3d4d659ddaf26a4b588d303c5d06355a4acc2b` (was `9c22cb22…`), BuildTime `2026-09-21T03:22:04+0000` |
 | Flutter suite | Green — 608 passed, 0 failed (production-class gate on the owner-signed `b4011015…`, 2026-09-25) — and the **complete** suite is a release gate (`flutter.suite`) |
 | Public release asset policy | APK only. An AAB is a Play-upload artifact and is never a public release asset — `PC-DEF-021` |
+
+## 2026-09-25 — PocketClaw v0.2.3 published; F-Droid Track B verified
+
+`release/v0.2.3-fdroid-hardening` (`b0b9745`) merged into `main` as `ee68747`
+(tree identical); `develop` fast-forwarded. A canonical build of `ee68747`
+reproduced the signed candidate's unsigned APK `e09340e7…` before tagging.
+Annotated tag `v0.2.3` at `ee68747`; GitHub release "PocketClaw v0.2.3 —
+Golden #4", Latest, not a pre-release, with the APK and `SHA256SUMS.txt`;
+downloaded back byte-identical (size, package, 0.2.3/65, minSdk 26,
+arm64-v8a, signer). README and `docs/release/published.json` moved in
+`920ec4b`.
+
+**Final F-Droid delta:** `canonical_release_build.py build --track-b` of the
+tag: the real `fdroid build` retrieved the published APK, "compared built
+binary to supplied reference binary successfully" and found the allowed signer
+`176dca6b…` — the fourth identical unsigned build (`e09340e7…`, 2,650 s). The
+fdroiddata draft (outside this repo) is rendered from `fdroid/metadata.yml.in`
+at `ee68747` with `Binaries:` and `AllowedAPKSigningKeys:`; readmeta, lint and
+rewritemeta pass, byte-stable. **TRACK B READY. No submission, no merge
+request.**
 
 ## 2026-09-25 — Golden #4: PocketClaw v0.2.3 accepted (F-Droid hardening)
 

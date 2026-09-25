@@ -157,12 +157,10 @@ def enrolled_production_signer() -> str | None:
 # Real work that is not done yet. The gate names these rather than implying the
 # release is fully hardened; it must not pretend they are solved.
 PENDING_FINAL_HARDENING = [
-    # Distribution is direct APK + Google Play + official F-Droid. F-Droid will
-    # only publish the developer-signed artifact for a build it can reproduce,
-    # so reproducibility is what decides whether a user can move between the
-    # direct and F-Droid channels without uninstalling. Every hardening step
-    # above is a candidate for breaking it; see docs/FDROID_RELEASE.md.
-    "APK-level reproducibility not yet proven (required for F-Droid)",
+    # "APK-level reproducibility not yet proven" was listed here until 0.2.3:
+    # releases are now built by tool/canonical_release_build.py in F-Droid's
+    # layout, and a real `fdroid build` of tag v0.2.3 verified the published
+    # APK (PC-DEF-092). It is proven per release by that build, not by a note.
     # The namespace migration was listed here until the sweep finished and
     # namespace.no_active_pico started enforcing it on every run. A standing
     # note that a solved problem is outstanding is as misleading as the reverse.
