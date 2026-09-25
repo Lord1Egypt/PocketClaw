@@ -1,11 +1,11 @@
 {
-  "version": "0.2.1",
-  "build": 63,
-  "tag": "v0.2.1",
-  "commit": "2db9390fc7d19ba7b333104f3ef44d75f985189e",
-  "apk": "PocketClaw-v0.2.1-arm64-v8a.apk",
-  "apk_bytes": 63613115,
-  "apk_sha256": "1203cd46f30cc6e7d69b3cd54be2d2dbca29150a9bce4f722b112576ccf4401b",
-  "checksums": "PocketClaw-v0.2.1-SHA256SUMS.txt",
+  "version": "0.2.2",
+  "build": 64,
+  "tag": "v0.2.2",
+  "commit": "e535fcabebed3ac977559994fad597c62d6345f7",
+  "apk": "PocketClaw-v0.2.2-arm64-v8a.apk",
+  "apk_bytes": 61346447,
+  "apk_sha256": "320368eaf1c3c48689625e02764a658e3ed291d4c6e49b3d67ed09326dd58af9",
+  "checksums": "SHA256SUMS.txt",
   "signer_sha256": "176dca6b198b9552fb4d9ad3ca18da8d6f23c0a3f5ed4bd6b75a0700f9f0efcf"
 }

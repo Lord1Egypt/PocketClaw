@@ -11,7 +11,11 @@ the credentials — lives on the device you are holding.
 
 <br />
 
-[![Download v0.2.1](https://img.shields.io/badge/⬇_Download-v0.2.1_APK-3DDC84?style=for-the-badge&logo=android&logoColor=white)](https://github.com/Lord1Egypt/PocketClaw/releases/latest)
+[![Download v0.2.2](https://img.shields.io/badge/⬇_Download-v0.2.2_APK-3DDC84?style=for-the-badge&logo=android&logoColor=white)](https://github.com/Lord1Egypt/PocketClaw/releases/download/v0.2.2/PocketClaw-v0.2.2-arm64-v8a.apk)
+
+| Latest stable | Android | Architecture | Status | Distribution |
+| :---: | :---: | :---: | :---: | :---: |
+| [**v0.2.2**](https://github.com/Lord1Egypt/PocketClaw/releases/tag/v0.2.2) | 8.0+ (API 26+) | arm64-v8a | Stable | GitHub Release |
 
 <br />
 
@@ -40,7 +44,10 @@ the credentials — lives on the device you are holding.
 
 ## Download
 
-**[PocketClaw v0.2.1 — arm64-v8a APK](https://github.com/Lord1Egypt/PocketClaw/releases/latest)**
+**[PocketClaw v0.2.2 — arm64-v8a APK](https://github.com/Lord1Egypt/PocketClaw/releases/download/v0.2.2/PocketClaw-v0.2.2-arm64-v8a.apk)** · [release page](https://github.com/Lord1Egypt/PocketClaw/releases/tag/v0.2.2)
+
+`PocketClaw-v0.2.2-arm64-v8a.apk` — 61,346,447 bytes — SHA-256
+`320368eaf1c3c48689625e02764a658e3ed291d4c6e49b3d67ed09326dd58af9`
 
 An `arm64-v8a` Android device on **Android 8.0 (API 26)** or newer, and an API
 key for a model provider. Built and physically validated on Android 16.
@@ -53,18 +60,18 @@ key for a model provider. Built and physically validated on Android 16.
 Both files are on the release page. Check the APK against the checksum file:
 
 ```bash
-sha256sum -c PocketClaw-v0.2.1-SHA256SUMS.txt
+sha256sum -c SHA256SUMS.txt
 ```
 
 ```
-1203cd46f30cc6e7d69b3cd54be2d2dbca29150a9bce4f722b112576ccf4401b  PocketClaw-v0.2.1-arm64-v8a.apk
+320368eaf1c3c48689625e02764a658e3ed291d4c6e49b3d67ed09326dd58af9  PocketClaw-v0.2.2-arm64-v8a.apk
 ```
 
 And confirm it was signed by the PocketClaw release key — a checksum proves the
 file is intact, the signature proves who built it:
 
 ```bash
-apksigner verify --print-certs PocketClaw-v0.2.1-arm64-v8a.apk
+apksigner verify --print-certs PocketClaw-v0.2.2-arm64-v8a.apk
 ```
 
 ```
@@ -214,14 +221,16 @@ The two native binaries are reproducible and provenance-stamped:
   repository and are never in CI; only the public certificate fingerprint is
   committed, and the gate fails closed if an artifact does not carry it.
 
-This release is tag `v0.2.1` at commit
-[`2db9390`](https://github.com/Lord1Egypt/PocketClaw/commit/2db9390fc7d19ba7b333104f3ef44d75f985189e).
-Its APK (63,613,115 bytes) carries Core fingerprint `76a114fd…`, Dart AOT
-`d987084d…`, bundled `git` `60d3a1c0…` and `git-remote-http` `90e18712…`. It was
+This release is tag `v0.2.2` at commit
+[`e535fca`](https://github.com/Lord1Egypt/PocketClaw/commit/e535fcabebed3ac977559994fad597c62d6345f7).
+Its APK (61,346,447 bytes) carries Core fingerprint `7e48a120…`, Dart AOT
+`01ef3535…`, bundled `git` `60d3a1c0…` and `git-remote-http` `90e18712…`. It was
 built and owner-signed from
-[`c898581`](https://github.com/Lord1Egypt/PocketClaw/commit/c898581), and the
-tagged commit adds only documentation and the accepted-build baseline on top of
-it, so the tag carries the exact build inputs.
+[`80c9dc0`](https://github.com/Lord1Egypt/PocketClaw/commit/80c9dc02ce56d565a3fa673d2cdab6fe78e5d006),
+and the tagged commit adds only the acceptance record, the accepted-build
+baseline and the merge on top of it, so the tag carries the exact build inputs.
+Earlier releases, v0.2.1 included, stay on their
+[release pages](https://github.com/Lord1Egypt/PocketClaw/releases).
 
 </details>
 
@@ -247,14 +256,18 @@ Never commit generated APKs, tool caches, signing material, or
 provider/Telegram/Firebase credentials.
 
 > **Note on branches.** `develop` is the active branch; `main` and `develop` both
-> carry the released source, and the `v0.2.1` tag points at their shared commit.
+> carry the released source, and the `v0.2.2` tag points at their shared merge commit.
 > Work from `develop`.
 
 ## Project status
 
-**Released.** `v0.2.1` (build 63), a patch release that fixes the bundled `git`
-crashing on every reflog write, physically accepted on a Samsung SM-A165F
-running Android 16 and published as a production-signed `arm64-v8a` APK.
+**Released.** `v0.2.2` (build 64), stable, "Golden #3": a reliability and
+cleanup release — a fix for a startup crash after restarting the phone, Telegram
+long-turn and queue delivery, bounded tool output, workspace in app storage with
+no storage permission, Android settings cleanup, Arabic/RTL and Dashboard mobile
+fixes, and Android 8.0 (API 26) as the minimum. Physically accepted on a Samsung
+SM-A165F running Android 16 and published as a production-signed `arm64-v8a`
+APK. The previous release, `v0.2.1` (build 63), fixed the bundled `git`.
 
 Binary hardening is complete: Dart obfuscation with private split debug info,
 R8 shrinking and obfuscation, and a native/ELF audit covering every packaged
@@ -262,7 +275,7 @@ binary — all enforced by the release gate rather than asserted.
 
 **Not in this release.** Account-login credential management — Google, Claude
 subscription and ChatGPT/Codex sign-in — is deliberately deferred. Provider
-access in v0.2.1 is configured with API keys through **Models**.
+access in v0.2.2 is configured with API keys through **Models**.
 
 Known open items are tracked in [`docs/DEFECT_LOG.md`](docs/DEFECT_LOG.md); the
 phase sequence is in [`docs/ROADMAP.md`](docs/ROADMAP.md). Engineering agents and

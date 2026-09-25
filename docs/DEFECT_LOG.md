@@ -170,7 +170,8 @@ only reconstructable examples belong here.
   and the install exit logged as `package-updated`.
 - **Status:** PHYSICAL PASS — root cause captured from the crash records and
   removed; not closed on non-reproduction alone. **The published v0.2.1 still
-  carries the defect** until 0.2.2 is released.
+  carries the defect** until 0.2.2 is released. **Released in v0.2.2
+  (2026-09-25).**
 
 ### PC-DEF-077 — the workspace resolves under `Android/data`, and an empty `Download/pocketclaw` remains
 

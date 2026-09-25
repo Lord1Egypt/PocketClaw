@@ -40,7 +40,13 @@ void main() {
     expect(version, matches(RegExp(r'^[0-9]+\.[0-9]+\.[0-9]+$')));
     expect(published['tag'], 'v$version');
     expect(published['apk'], 'PocketClaw-v$version-arm64-v8a.apk');
-    expect(published['checksums'], 'PocketClaw-v$version-SHA256SUMS.txt');
+    // v0.2.1 published PocketClaw-v0.2.1-SHA256SUMS.txt; from v0.2.2 the
+    // checksum asset is SHA256SUMS.txt. Either is a checksum file for this
+    // release; the README must name whichever was actually published.
+    expect(
+      published['checksums'],
+      anyOf('SHA256SUMS.txt', 'PocketClaw-v$version-SHA256SUMS.txt'),
+    );
     expect(published['commit'], matches(RegExp(r'^[0-9a-f]{40}$')));
     expect(published['apk_sha256'], matches(RegExp(r'^[0-9a-f]{64}$')));
     expect(published['apk_bytes'], isA<int>());

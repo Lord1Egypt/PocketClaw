@@ -7,7 +7,8 @@ merge-request template and the reviewers' wiki. The standing background analysis
 is [`FDROID_RELEASE.md`](FDROID_RELEASE.md).
 
 > **Golden #3 (2026-09-25):** PocketClaw v0.2.2, source `80c9dc0`, owner-signed
-> APK `320368ea…`, minSdk 26, arm64-v8a — the GitHub release candidate. F-Droid
+> APK `320368ea…`, minSdk 26, arm64-v8a — published as the GitHub release
+> `v0.2.2` (tag at `e535fca`). F-Droid
 > will build and sign its own APK from the tagged source in Phase C.
 >
 > **Nothing has been submitted.** No fdroiddata metadata exists, no merge

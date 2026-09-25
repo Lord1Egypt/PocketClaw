@@ -27,6 +27,7 @@ evidence and describe the state at the date of each entry.
 | PC-DEF-020 canonical Core build-input commit | `f8bc52a0757f7b0a9f6c0704d2a3586db929e33f` |
 | Version | `0.2.2+64` on `feature/fdroid-phase-b` — unreleased; private owner-signed test builds only. Latest published: `0.2.1+63` (pinned in `docs/release/published.json`) |
 | Accepted physical baseline | vc64 / `lastAcceptedVersionCode=64` — advanced by the Golden #3 (v0.2.2) acceptance commit; was vc63 for v0.2.1 |
+| **Released — PocketClaw v0.2.2 (Golden #3)** | Published 2026-09-25 as the Latest GitHub release: https://github.com/Lord1Egypt/PocketClaw/releases/tag/v0.2.2, tag `v0.2.2` → `e535fca` (main = develop at tagging). Assets `PocketClaw-v0.2.2-arm64-v8a.apk` (61,346,447 B, `320368ea…`) and `SHA256SUMS.txt`; downloaded back byte-identical |
 | **Golden #3 — PocketClaw v0.2.2** | Source `80c9dc02ce56d565a3fa673d2cdab6fe78e5d006`; APK `320368eaf1c3c48689625e02764a658e3ed291d4c6e49b3d67ed09326dd58af9`, 61,346,447 bytes, `0.2.2+64`, minSdk 26, arm64-v8a, one v2 signer `176dca6b…`, Core fingerprint `7e48a120…` (pair `b6236105…` / `f9a638eb…`). Production gate (public-release class) 57/0/0; native ELF 152/0/0; physically accepted on SM-A165F / Android 16 on 2026-09-25 |
 | Current phase | Final Production Release Hardening; H5C production-signed native/ELF validation closed |
 | Developer production signer | `176dca6b198b9552fb4d9ad3ca18da8d6f23c0a3f5ed4bd6b75a0700f9f0efcf` |
@@ -86,6 +87,16 @@ restart-crash lines, 0.2.1 and 0.2.0 restored and expanding in Arabic RTL;
 `Download/pocketclaw` on one line in Arabic; Models header passes in English
 and Arabic; no crash-class logcat entry. `lastAcceptedVersionCode` 63 → 64 in
 this acceptance commit (read only as a floor; no packaged byte changes).
+
+**Integrated and published.** `feature/fdroid-phase-b` (`a39c66c`) merged into
+`main` as `e535fca` (tree identical to the feature branch; `main`'s README icon
+commit `eb49063` was already identical); `develop` fast-forwarded to it; tag
+`v0.2.2` at `e535fca`. GitHub release "PocketClaw v0.2.2 — Golden #3", Latest,
+not a pre-release, with `PocketClaw-v0.2.2-arm64-v8a.apk` and `SHA256SUMS.txt`.
+Download-back: byte-identical to the Golden #3 APK (SHA-256, size, package,
+0.2.2/64, minSdk 26, arm64-v8a, signer `176dca6b…`); `releases/latest`
+resolves to it. README on `main` now names v0.2.2 as the latest stable release
+and pins `docs/release/published.json` to it. No F-Droid submission was made.
 
 ## 2026-09-25 — Final pre-F-Droid cleanup — AUTOMATED PASS, AFFECTED AREAS PHYSICAL PASS
 
