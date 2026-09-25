@@ -11,11 +11,11 @@ the credentials — lives on the device you are holding.
 
 <br />
 
-[![Download v0.2.2](https://img.shields.io/badge/⬇_Download-v0.2.2_APK-3DDC84?style=for-the-badge&logo=android&logoColor=white)](https://github.com/Lord1Egypt/PocketClaw/releases/download/v0.2.2/PocketClaw-v0.2.2-arm64-v8a.apk)
+[![Download v0.2.3](https://img.shields.io/badge/⬇_Download-v0.2.3_APK-3DDC84?style=for-the-badge&logo=android&logoColor=white)](https://github.com/Lord1Egypt/PocketClaw/releases/download/v0.2.3/PocketClaw-v0.2.3-arm64-v8a.apk)
 
 | Latest stable | Android | Architecture | Status | Distribution |
 | :---: | :---: | :---: | :---: | :---: |
-| [**v0.2.2**](https://github.com/Lord1Egypt/PocketClaw/releases/tag/v0.2.2) | 8.0+ (API 26+) | arm64-v8a | Stable | GitHub Release |
+| [**v0.2.3**](https://github.com/Lord1Egypt/PocketClaw/releases/tag/v0.2.3) | 8.0+ (API 26+) | arm64-v8a | Stable | GitHub Release |
 
 <br />
 
@@ -44,10 +44,10 @@ the credentials — lives on the device you are holding.
 
 ## Download
 
-**[PocketClaw v0.2.2 — arm64-v8a APK](https://github.com/Lord1Egypt/PocketClaw/releases/download/v0.2.2/PocketClaw-v0.2.2-arm64-v8a.apk)** · [release page](https://github.com/Lord1Egypt/PocketClaw/releases/tag/v0.2.2)
+**[PocketClaw v0.2.3 — arm64-v8a APK](https://github.com/Lord1Egypt/PocketClaw/releases/download/v0.2.3/PocketClaw-v0.2.3-arm64-v8a.apk)** · [release page](https://github.com/Lord1Egypt/PocketClaw/releases/tag/v0.2.3)
 
-`PocketClaw-v0.2.2-arm64-v8a.apk` — 61,346,447 bytes — SHA-256
-`320368eaf1c3c48689625e02764a658e3ed291d4c6e49b3d67ed09326dd58af9`
+`PocketClaw-v0.2.3-arm64-v8a.apk` — 58,441,695 bytes — SHA-256
+`778882828e2f818aac31ed1f58dd3b2e8530828970b535ce72564f5ed2857599`
 
 An `arm64-v8a` Android device on **Android 8.0 (API 26)** or newer, and an API
 key for a model provider. Built and physically validated on Android 16.
@@ -64,14 +64,14 @@ sha256sum -c SHA256SUMS.txt
 ```
 
 ```
-320368eaf1c3c48689625e02764a658e3ed291d4c6e49b3d67ed09326dd58af9  PocketClaw-v0.2.2-arm64-v8a.apk
+778882828e2f818aac31ed1f58dd3b2e8530828970b535ce72564f5ed2857599  PocketClaw-v0.2.3-arm64-v8a.apk
 ```
 
 And confirm it was signed by the PocketClaw release key — a checksum proves the
 file is intact, the signature proves who built it:
 
 ```bash
-apksigner verify --print-certs PocketClaw-v0.2.2-arm64-v8a.apk
+apksigner verify --print-certs PocketClaw-v0.2.3-arm64-v8a.apk
 ```
 
 ```
@@ -121,7 +121,7 @@ the provider you choose.
 | Tool | Version | Tool | Version |
 | --- | --- | --- | --- |
 | `python` | 3.14.7 | `git` | 2.51.0 |
-| `gh` | 2.82.1 | `curl` | 8.11.1 |
+| `gh` | 2.101.0 | `curl` | 8.11.1 |
 | `rg` | 14.1.1 | `sqlite3` | 3.50.4 |
 | `jq` | 1.7.1 | `git-remote-http` | (with `git`) |
 
@@ -224,14 +224,18 @@ The two native binaries are reproducible and provenance-stamped:
   repository and are never in CI; only the public certificate fingerprint is
   committed, and the gate fails closed if an artifact does not carry it.
 
-This release is tag `v0.2.2` at commit
-[`e535fca`](https://github.com/Lord1Egypt/PocketClaw/commit/e535fcabebed3ac977559994fad597c62d6345f7).
-Its APK (61,346,447 bytes) carries Core fingerprint `7e48a120…`, Dart AOT
-`01ef3535…`, bundled `git` `60d3a1c0…` and `git-remote-http` `90e18712…`. It was
-built and owner-signed from
-[`80c9dc0`](https://github.com/Lord1Egypt/PocketClaw/commit/80c9dc02ce56d565a3fa673d2cdab6fe78e5d006),
-and the tagged commit adds only the acceptance record, the accepted-build
-baseline and the merge on top of it, so the tag carries the exact build inputs.
+This release is tag `v0.2.3` at commit
+[`ee68747`](https://github.com/Lord1Egypt/PocketClaw/commit/ee68747ba385d59f9719b475b98e298825899717).
+Its APK (58,441,695 bytes) carries Core fingerprint `cac3e443…` (built with
+go1.26.8), Dart AOT `f8088d17…`, bundled `gh` 2.101.0 `0a660a0b…` and `git`
+`60d3a1c0…`. It was built in F-Droid's buildserver layout by
+[`tool/canonical_release_build.py`](tool/canonical_release_build.py): three
+clean builds — two of the build commit
+[`7c0980c`](https://github.com/Lord1Egypt/PocketClaw/commit/7c0980ca851adc5d79985433d72b5207186a1ffa)
+and one of the tagged commit — produced the identical unsigned APK
+`e09340e7…`, which the owner signed without rebuilding. The tagged commit adds
+only documentation, the acceptance record, the accepted-build baseline and the
+merge on top of the build commit.
 Earlier releases, v0.2.1 included, stay on their
 [release pages](https://github.com/Lord1Egypt/PocketClaw/releases).
 
@@ -259,18 +263,18 @@ Never commit generated APKs, tool caches, signing material, or
 provider/Telegram/Firebase credentials.
 
 > **Note on branches.** `develop` is the active branch; `main` and `develop` both
-> carry the released source, and the `v0.2.2` tag points at their shared merge commit.
+> carry the released source, and the `v0.2.3` tag points at their shared merge commit.
 > Work from `develop`.
 
 ## Project status
 
-**Released.** `v0.2.2` (build 64), stable, "Golden #3": a reliability and
-cleanup release — a fix for a startup crash after restarting the phone, Telegram
-long-turn and queue delivery, bounded tool output, workspace in app storage with
-no storage permission, Android settings cleanup, Arabic/RTL and Dashboard mobile
-fixes, and Android 8.0 (API 26) as the minimum. Physically accepted on a Samsung
-SM-A165F running Android 16 and published as a production-signed `arm64-v8a`
-APK. The previous release, `v0.2.1` (build 63), fixed the bundled `git`.
+**Released.** `v0.2.3` (build 65), stable, "Golden #4": a security and
+build-hardening release — Core built with Go 1.26.8 and patched libraries, the
+bundled GitHub CLI updated to 2.101.0, and every binary built from source in
+F-Droid's pinned build environment, where the release reproduces byte for byte.
+Physically accepted on a Samsung SM-A165F running Android 16 and published as a
+production-signed `arm64-v8a` APK. PocketClaw is not yet listed on F-Droid. The
+previous release, `v0.2.2` (build 64), was a reliability and cleanup release.
 
 Binary hardening is complete: Dart obfuscation with private split debug info,
 R8 shrinking and obfuscation, and a native/ELF audit covering every packaged
@@ -278,7 +282,7 @@ binary — all enforced by the release gate rather than asserted.
 
 **Not in this release.** Account-login credential management — Google, Claude
 subscription and ChatGPT/Codex sign-in — is deliberately deferred. Provider
-access in v0.2.2 is configured with API keys through **Models**.
+access in v0.2.3 is configured with API keys through **Models**.
 
 Known open items are tracked in [`docs/DEFECT_LOG.md`](docs/DEFECT_LOG.md); the
 phase sequence is in [`docs/ROADMAP.md`](docs/ROADMAP.md). Engineering agents and
