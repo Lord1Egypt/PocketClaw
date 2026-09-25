@@ -4,6 +4,7 @@
 import importlib.util
 import json
 import os
+import subprocess
 import sys
 import base64
 import tempfile
@@ -91,6 +92,64 @@ class SigningModeTest(unittest.TestCase):
     def test_production_requires_all_variable_names_without_reading_values(self):
         with self.assertRaises(hardening.HardeningError):
             hardening.validate_signing_environment("production", {"KEYSTORE_PATH": "/outside"})
+
+
+class GradleLauncherTest(unittest.TestCase):
+    """fdroidserver deletes the wrapper; the builder must neither break nor download."""
+
+    PROPERTIES = (
+        "distributionUrl=https\\://services.gradle.org/distributions/gradle-8.14-all.zip\n"
+    )
+
+    def android_dir(self, directory: Path, wrapper: bool) -> Path:
+        (directory / "gradle/wrapper").mkdir(parents=True)
+        (directory / "gradle/wrapper/gradle-wrapper.properties").write_text(self.PROPERTIES)
+        if wrapper:
+            (directory / "gradlew").write_text("#!/bin/sh\n")
+        return directory
+
+    @staticmethod
+    def reporting(version, calls):
+        def run(command, **kwargs):
+            calls.append(command)
+            return subprocess.CompletedProcess(command, 0, stdout=f"\nGradle {version}\n\n", stderr="")
+        return run
+
+    def test_the_wrapper_wins_when_present(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            android = self.android_dir(Path(temporary), wrapper=True)
+            calls = []
+            launcher = hardening.gradle_launcher(
+                android, which=lambda _: "/usr/bin/gradle", run=self.reporting("8.14", calls))
+            self.assertEqual(launcher, [str(android / "gradlew")])
+            self.assertEqual(calls, [])
+
+    def test_a_removed_wrapper_falls_back_to_the_matching_system_gradle(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            android = self.android_dir(Path(temporary), wrapper=False)
+            calls = []
+            launcher = hardening.gradle_launcher(
+                android, which=lambda _: "/usr/local/bin/gradle", run=self.reporting("8.14", calls))
+            self.assertEqual(launcher, ["/usr/local/bin/gradle"])
+            self.assertEqual(calls, [["/usr/local/bin/gradle", "--version"]])
+            command = hardening.gradle_command("unsigned", "sym", launcher=launcher)
+            self.assertEqual(command[:2], ["/usr/local/bin/gradle", ":app:assembleRelease"])
+
+    def test_a_system_gradle_of_another_version_is_refused(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            android = self.android_dir(Path(temporary), wrapper=False)
+            with self.assertRaisesRegex(hardening.HardeningError, "requires Gradle 8.14"):
+                hardening.gradle_launcher(
+                    android, which=lambda _: "/usr/bin/gradle", run=self.reporting("8.10.2", []))
+
+    def test_no_wrapper_and_no_gradle_fails_clearly(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            android = self.android_dir(Path(temporary), wrapper=False)
+            with self.assertRaisesRegex(hardening.HardeningError, "no gradle is on PATH"):
+                hardening.gradle_launcher(android, which=lambda _: None, run=self.reporting("8.14", []))
+
+    def test_the_required_version_comes_from_the_real_wrapper_properties(self):
+        self.assertRegex(hardening.required_gradle_version(), r"^\d+\.\d+")
 
 
 class UnsignedModeTest(unittest.TestCase):
