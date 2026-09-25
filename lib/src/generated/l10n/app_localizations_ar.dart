@@ -453,6 +453,14 @@ class AppLocalizationsAr extends AppLocalizations {
       'أُزيلت عناصر من الإعدادات لم يكن لها أي أثر على Android: الأجهزة، والتشغيل عند تسجيل الدخول، ومنفذ الخدمة.';
 
   @override
+  String get whatsNew022Improvement4 =>
+      'يتطلب PocketClaw الآن Android 8.0 أو أحدث.';
+
+  @override
+  String get whatsNew022Fix3 =>
+      'إصلاح عطل عند بدء التشغيل على Android كان قد يظهر بعد إعادة تشغيل الهاتف.';
+
+  @override
   String get settingsGroupConnection => 'الاتصال';
 
   @override

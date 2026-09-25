@@ -457,6 +457,14 @@ class AppLocalizationsRu extends AppLocalizations {
       'Удалены пункты настроек, не действовавшие на Android: «Устройства», «Запуск при входе» и «Порт службы».';
 
   @override
+  String get whatsNew022Improvement4 =>
+      'Теперь для PocketClaw требуется Android 8.0 или новее.';
+
+  @override
+  String get whatsNew022Fix3 =>
+      'Исправлен сбой при запуске на Android, который мог появляться после перезагрузки телефона.';
+
+  @override
   String get settingsGroupConnection => 'Подключение';
 
   @override

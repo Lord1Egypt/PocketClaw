@@ -150,6 +150,8 @@
   "whatsNew022Improvement3": "Der Arbeitsbereich liegt jetzt im eigenen Speicher von PocketClaw, und die App fragt nach keiner Speicherberechtigung. Ein Arbeitsbereich, den eine ältere Version in Download/pocketclaw hinterlassen hat, bleibt unverändert und kann in den Einstellungen hineinkopiert werden.",
   "whatsNew022Fix1": "Sehr große Werkzeugausgaben lassen das Gespräch nicht mehr überlaufen.",
   "whatsNew022Fix2": "Einstellungen ohne Wirkung auf Android entfernt: Geräte, Beim Anmelden starten und Dienstport.",
+  "whatsNew022Improvement4": "PocketClaw benötigt jetzt Android 8.0 oder neuer.",
+  "whatsNew022Fix3": "Ein Absturz beim Start unter Android, der nach einem Neustart des Telefons auftreten konnte, wurde behoben.",
   "settingsGroupConnection": "Verbindung",
   "settingsGroupAgent": "Agent",
   "settingsGroupIntegrations": "Integrationen",

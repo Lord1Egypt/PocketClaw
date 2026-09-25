@@ -462,6 +462,14 @@ class AppLocalizationsEs extends AppLocalizations {
       'Se quitaron ajustes que no tenían efecto en Android: Dispositivos, Iniciar al iniciar sesión y Puerto del servicio.';
 
   @override
+  String get whatsNew022Improvement4 =>
+      'PocketClaw ahora requiere Android 8.0 o posterior.';
+
+  @override
+  String get whatsNew022Fix3 =>
+      'Se corrigió un cierre inesperado al iniciar en Android que podía aparecer tras reiniciar el teléfono.';
+
+  @override
   String get settingsGroupConnection => 'Conexión';
 
   @override

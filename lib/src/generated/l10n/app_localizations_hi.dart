@@ -454,6 +454,14 @@ class AppLocalizationsHi extends AppLocalizations {
       'सेटिंग्स की वे प्रविष्टियाँ हटाई गईं जिनका Android पर कोई प्रभाव नहीं था: डिवाइस, लॉगिन पर शुरू करें और सेवा पोर्ट।';
 
   @override
+  String get whatsNew022Improvement4 =>
+      'PocketClaw के लिए अब Android 8.0 या उससे नया संस्करण ज़रूरी है।';
+
+  @override
+  String get whatsNew022Fix3 =>
+      'फ़ोन रीस्टार्ट करने के बाद दिख सकने वाला Android स्टार्टअप क्रैश ठीक किया गया।';
+
+  @override
   String get settingsGroupConnection => 'कनेक्शन';
 
   @override

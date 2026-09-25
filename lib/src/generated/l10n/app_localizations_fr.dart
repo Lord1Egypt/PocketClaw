@@ -465,6 +465,14 @@ class AppLocalizationsFr extends AppLocalizations {
       'Suppression de réglages sans effet sur Android : Appareils, Lancer à l’ouverture de session et Port du service.';
 
   @override
+  String get whatsNew022Improvement4 =>
+      'PocketClaw nécessite désormais Android 8.0 ou une version ultérieure.';
+
+  @override
+  String get whatsNew022Fix3 =>
+      'Correction d’un plantage au démarrage sous Android qui pouvait survenir après le redémarrage du téléphone.';
+
+  @override
   String get settingsGroupConnection => 'Connexion';
 
   @override

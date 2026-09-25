@@ -150,6 +150,8 @@
   "whatsNew022Improvement3": "L’espace de travail se trouve désormais dans le stockage propre à PocketClaw, et l’application ne demande aucune autorisation de stockage. Un espace de travail laissé par une version précédente dans Download/pocketclaw n’est pas modifié et peut être copié depuis les Réglages.",
   "whatsNew022Fix1": "Les sorties d’outils très volumineuses ne font plus déborder la conversation.",
   "whatsNew022Fix2": "Suppression de réglages sans effet sur Android : Appareils, Lancer à l’ouverture de session et Port du service.",
+  "whatsNew022Improvement4": "PocketClaw nécessite désormais Android 8.0 ou une version ultérieure.",
+  "whatsNew022Fix3": "Correction d’un plantage au démarrage sous Android qui pouvait survenir après le redémarrage du téléphone.",
   "settingsGroupConnection": "Connexion",
   "settingsGroupAgent": "Agent",
   "settingsGroupIntegrations": "Intégrations",

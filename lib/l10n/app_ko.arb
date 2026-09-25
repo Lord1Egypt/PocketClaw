@@ -150,6 +150,8 @@
   "whatsNew022Improvement3": "이제 작업 공간은 PocketClaw 전용 저장소에 있으며, 앱은 저장소 권한을 요청하지 않습니다. 이전 버전이 Download/pocketclaw에 남긴 작업 공간은 그대로 유지되며 설정에서 복사해 올 수 있습니다.",
   "whatsNew022Fix1": "매우 큰 도구 출력이 더 이상 대화를 넘치게 하지 않습니다.",
   "whatsNew022Fix2": "Android에서 효과가 없던 설정 항목(기기, 로그인 시 실행, 서비스 포트)을 제거했습니다.",
+  "whatsNew022Improvement4": "이제 PocketClaw는 Android 8.0 이상이 필요합니다.",
+  "whatsNew022Fix3": "휴대전화를 다시 시작한 뒤 나타날 수 있던 Android 시작 오류를 수정했습니다.",
   "settingsGroupConnection": "연결",
   "settingsGroupAgent": "에이전트",
   "settingsGroupIntegrations": "연동",

@@ -437,6 +437,14 @@ class AppLocalizationsJa extends AppLocalizations {
       'Android では効果のなかった設定項目（デバイス、ログイン時に起動、サービスポート）を削除しました。';
 
   @override
+  String get whatsNew022Improvement4 =>
+      'PocketClaw の動作には Android 8.0 以降が必要になりました。';
+
+  @override
+  String get whatsNew022Fix3 =>
+      'スマートフォンの再起動後に発生することがあった Android の起動時クラッシュを修正しました。';
+
+  @override
   String get settingsGroupConnection => '接続';
 
   @override

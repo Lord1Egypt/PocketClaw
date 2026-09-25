@@ -457,6 +457,14 @@ class AppLocalizationsId extends AppLocalizations {
       'Menghapus entri Pengaturan yang tidak berpengaruh di Android: Perangkat, Jalankan saat Masuk, dan Port Layanan.';
 
   @override
+  String get whatsNew022Improvement4 =>
+      'PocketClaw kini memerlukan Android 8.0 atau yang lebih baru.';
+
+  @override
+  String get whatsNew022Fix3 =>
+      'Memperbaiki crash saat memulai di Android yang bisa muncul setelah ponsel dimulai ulang.';
+
+  @override
   String get settingsGroupConnection => 'Koneksi';
 
   @override

@@ -9,8 +9,10 @@
 - After a long task, Telegram delivers the answer as a new message, so it notifies you and appears below anything you sent meanwhile.
 - Telegram tells you when your message is queued and how many are ahead of it.
 - The workspace now lives in PocketClaw's own storage, and the app asks for no storage permission. A workspace an older version left in Download/pocketclaw is untouched and can be copied in from Settings.
+- PocketClaw now requires Android 8.0 or newer.
 
 ## Fixes
 
 - Very large tool output no longer overflows the conversation.
 - Removed Settings entries that had no effect on Android: Devices, Launch at Login and Service Port.
+- Fixed an Android startup crash that could appear after restarting the phone.

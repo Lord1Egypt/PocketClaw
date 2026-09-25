@@ -463,6 +463,14 @@ class AppLocalizationsPt extends AppLocalizations {
       'Removidos itens das Configurações sem efeito no Android: Dispositivos, Iniciar ao entrar e Porta do serviço.';
 
   @override
+  String get whatsNew022Improvement4 =>
+      'O PocketClaw agora requer Android 8.0 ou mais recente.';
+
+  @override
+  String get whatsNew022Fix3 =>
+      'Corrigida uma falha na inicialização do Android que podia aparecer depois de reiniciar o celular.';
+
+  @override
   String get settingsGroupConnection => 'Conexão';
 
   @override

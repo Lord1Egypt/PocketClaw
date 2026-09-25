@@ -439,6 +439,13 @@ class AppLocalizationsKo extends AppLocalizations {
       'Android에서 효과가 없던 설정 항목(기기, 로그인 시 실행, 서비스 포트)을 제거했습니다.';
 
   @override
+  String get whatsNew022Improvement4 => '이제 PocketClaw는 Android 8.0 이상이 필요합니다.';
+
+  @override
+  String get whatsNew022Fix3 =>
+      '휴대전화를 다시 시작한 뒤 나타날 수 있던 Android 시작 오류를 수정했습니다.';
+
+  @override
   String get settingsGroupConnection => '연결';
 
   @override

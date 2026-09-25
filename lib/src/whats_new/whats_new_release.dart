@@ -108,6 +108,7 @@ final WhatsNewRelease whatsNewRelease022 = WhatsNewRelease(
         (l10n) => l10n.whatsNew022Improvement1,
         (l10n) => l10n.whatsNew022Improvement2,
         (l10n) => l10n.whatsNew022Improvement3,
+        (l10n) => l10n.whatsNew022Improvement4,
       ],
     ),
     WhatsNewSection(
@@ -115,6 +116,7 @@ final WhatsNewRelease whatsNewRelease022 = WhatsNewRelease(
       bullets: [
         (l10n) => l10n.whatsNew022Fix1,
         (l10n) => l10n.whatsNew022Fix2,
+        (l10n) => l10n.whatsNew022Fix3,
       ],
     ),
   ],

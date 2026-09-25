@@ -454,6 +454,14 @@ class AppLocalizationsEn extends AppLocalizations {
       'Removed Settings entries that had no effect on Android: Devices, Launch at Login and Service Port.';
 
   @override
+  String get whatsNew022Improvement4 =>
+      'PocketClaw now requires Android 8.0 or newer.';
+
+  @override
+  String get whatsNew022Fix3 =>
+      'Fixed an Android startup crash that could appear after restarting the phone.';
+
+  @override
   String get settingsGroupConnection => 'Connection';
 
   @override

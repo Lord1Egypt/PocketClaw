@@ -150,6 +150,8 @@
   "whatsNew022Improvement3": "Ruang kerja kini berada di penyimpanan milik PocketClaw sendiri, dan aplikasi tidak meminta izin penyimpanan. Ruang kerja yang ditinggalkan versi lama di Download/pocketclaw tidak diubah dan dapat disalin dari Pengaturan.",
   "whatsNew022Fix1": "Keluaran alat yang sangat besar tidak lagi membuat percakapan meluap.",
   "whatsNew022Fix2": "Menghapus entri Pengaturan yang tidak berpengaruh di Android: Perangkat, Jalankan saat Masuk, dan Port Layanan.",
+  "whatsNew022Improvement4": "PocketClaw kini memerlukan Android 8.0 atau yang lebih baru.",
+  "whatsNew022Fix3": "Memperbaiki crash saat memulai di Android yang bisa muncul setelah ponsel dimulai ulang.",
   "settingsGroupConnection": "Koneksi",
   "settingsGroupAgent": "Agen",
   "settingsGroupIntegrations": "Integrasi",

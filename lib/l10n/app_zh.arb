@@ -150,6 +150,8 @@
   "whatsNew022Improvement3": "工作区现在位于 PocketClaw 自己的存储空间中，应用不再请求任何存储权限。旧版本留在 Download/pocketclaw 中的工作区保持不变，可以在设置中复制进来。",
   "whatsNew022Fix1": "超大的工具输出不再会撑爆对话。",
   "whatsNew022Fix2": "移除了在 Android 上没有作用的设置项：设备、登录时启动和服务端口。",
+  "whatsNew022Improvement4": "PocketClaw 现在需要 Android 8.0 或更高版本。",
+  "whatsNew022Fix3": "修复了重启手机后可能出现的 Android 启动崩溃问题。",
   "settingsGroupConnection": "连接",
   "settingsGroupAgent": "智能体",
   "settingsGroupIntegrations": "集成",

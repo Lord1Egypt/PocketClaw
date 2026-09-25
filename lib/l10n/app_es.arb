@@ -150,6 +150,8 @@
   "whatsNew022Improvement3": "El espacio de trabajo ahora está en el almacenamiento propio de PocketClaw, y la app no pide ningún permiso de almacenamiento. Un espacio de trabajo que una versión anterior dejó en Download/pocketclaw no se toca y puede copiarse desde Ajustes.",
   "whatsNew022Fix1": "Las salidas de herramientas muy grandes ya no desbordan la conversación.",
   "whatsNew022Fix2": "Se quitaron ajustes que no tenían efecto en Android: Dispositivos, Iniciar al iniciar sesión y Puerto del servicio.",
+  "whatsNew022Improvement4": "PocketClaw ahora requiere Android 8.0 o posterior.",
+  "whatsNew022Fix3": "Se corrigió un cierre inesperado al iniciar en Android que podía aparecer tras reiniciar el teléfono.",
   "settingsGroupConnection": "Conexión",
   "settingsGroupAgent": "Agente",
   "settingsGroupIntegrations": "Integraciones",

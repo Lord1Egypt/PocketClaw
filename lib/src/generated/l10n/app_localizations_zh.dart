@@ -426,6 +426,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get whatsNew022Fix2 => '移除了在 Android 上没有作用的设置项：设备、登录时启动和服务端口。';
 
   @override
+  String get whatsNew022Improvement4 => 'PocketClaw 现在需要 Android 8.0 或更高版本。';
+
+  @override
+  String get whatsNew022Fix3 => '修复了重启手机后可能出现的 Android 启动崩溃问题。';
+
+  @override
   String get settingsGroupConnection => '连接';
 
   @override

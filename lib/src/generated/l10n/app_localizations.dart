@@ -886,6 +886,18 @@ abstract class AppLocalizations {
   /// **'Removed Settings entries that had no effect on Android: Devices, Launch at Login and Service Port.'**
   String get whatsNew022Fix2;
 
+  /// No description provided for @whatsNew022Improvement4.
+  ///
+  /// In en, this message translates to:
+  /// **'PocketClaw now requires Android 8.0 or newer.'**
+  String get whatsNew022Improvement4;
+
+  /// No description provided for @whatsNew022Fix3.
+  ///
+  /// In en, this message translates to:
+  /// **'Fixed an Android startup crash that could appear after restarting the phone.'**
+  String get whatsNew022Fix3;
+
   /// Settings section label above the address, port and public mode controls
   ///
   /// In en, this message translates to:
