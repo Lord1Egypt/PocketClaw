@@ -432,6 +432,17 @@ class AppLocalizationsZh extends AppLocalizations {
   String get whatsNew022Fix3 => '修复了重启手机后可能出现的 Android 启动崩溃问题。';
 
   @override
+  String get whatsNew023Improvement1 =>
+      '安全更新：PocketClaw 的后台核心现在使用受支持的最新 Go 版本，以及修复了已知漏洞的更新库进行构建。';
+
+  @override
+  String get whatsNew023Improvement2 => '内置的 GitHub 命令行工具已更新至 2.101 版。';
+
+  @override
+  String get whatsNew023Improvement3 =>
+      '为 F-Droid 做准备的构建加固：应用及其内置工具完全从源代码构建，构建环境固定且可重复。';
+
+  @override
   String get settingsGroupConnection => '连接';
 
   @override

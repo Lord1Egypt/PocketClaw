@@ -1,0 +1,3 @@
+• Security update: the background core is built with a current, supported Go release and patched libraries.
+• The bundled GitHub CLI is updated to 2.101.
+• Build hardening for F-Droid: the app and its bundled tools are built from source in a pinned, repeatable environment.

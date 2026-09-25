@@ -471,6 +471,18 @@ class AppLocalizationsPt extends AppLocalizations {
       'Corrigida uma falha na inicialização do Android que podia aparecer depois de reiniciar o celular.';
 
   @override
+  String get whatsNew023Improvement1 =>
+      'Atualização de segurança: o núcleo em segundo plano do PocketClaw agora é compilado com uma versão atual e suportada do Go e com bibliotecas atualizadas que corrigem vulnerabilidades conhecidas.';
+
+  @override
+  String get whatsNew023Improvement2 =>
+      'A ferramenta de linha de comando do GitHub incluída foi atualizada para a versão 2.101.';
+
+  @override
+  String get whatsNew023Improvement3 =>
+      'Processo de compilação reforçado em preparação para o F-Droid: o app e suas ferramentas incluídas são compilados inteiramente a partir do código-fonte em um ambiente fixo e repetível.';
+
+  @override
   String get settingsGroupConnection => 'Conexão';
 
   @override

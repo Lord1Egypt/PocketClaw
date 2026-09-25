@@ -446,6 +446,18 @@ class AppLocalizationsKo extends AppLocalizations {
       '휴대전화를 다시 시작한 뒤 나타날 수 있던 Android 시작 오류를 수정했습니다.';
 
   @override
+  String get whatsNew023Improvement1 =>
+      '보안 업데이트: PocketClaw의 백그라운드 코어가 이제 지원되는 최신 Go 버전과 알려진 취약점을 수정한 업데이트된 라이브러리로 빌드됩니다.';
+
+  @override
+  String get whatsNew023Improvement2 =>
+      '기본 제공되는 GitHub 명령줄 도구가 버전 2.101로 업데이트되었습니다.';
+
+  @override
+  String get whatsNew023Improvement3 =>
+      'F-Droid 준비를 위한 빌드 강화: 앱과 기본 제공 도구는 고정되고 반복 가능한 환경에서 모두 소스 코드로부터 빌드됩니다.';
+
+  @override
   String get settingsGroupConnection => '연결';
 
   @override

@@ -211,6 +211,9 @@
   "whatsNew022Fix2": "Removed Settings entries that had no effect on Android: Devices, Launch at Login and Service Port.",
   "whatsNew022Improvement4": "PocketClaw now requires Android 8.0 or newer.",
   "whatsNew022Fix3": "Fixed an Android startup crash that could appear after restarting the phone.",
+  "whatsNew023Improvement1": "Security update: PocketClaw's background core is now built with a current, supported Go release and updated libraries that fix known vulnerabilities.",
+  "whatsNew023Improvement2": "The bundled GitHub command-line tool is updated to version 2.101.",
+  "whatsNew023Improvement3": "Build hardening in preparation for F-Droid: the app and its bundled tools are built entirely from source in a pinned, repeatable environment.",
   "settingsGroupConnection": "Connection",
   "@settingsGroupConnection": {
     "description": "Settings section label above the address, port and public mode controls"

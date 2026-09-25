@@ -465,6 +465,18 @@ class AppLocalizationsRu extends AppLocalizations {
       'Исправлен сбой при запуске на Android, который мог появляться после перезагрузки телефона.';
 
   @override
+  String get whatsNew023Improvement1 =>
+      'Обновление безопасности: фоновое ядро PocketClaw теперь собирается актуальной поддерживаемой версией Go с обновлёнными библиотеками, в которых исправлены известные уязвимости.';
+
+  @override
+  String get whatsNew023Improvement2 =>
+      'Встроенный инструмент командной строки GitHub обновлён до версии 2.101.';
+
+  @override
+  String get whatsNew023Improvement3 =>
+      'Усиленный процесс сборки в рамках подготовки к F-Droid: приложение и встроенные инструменты полностью собираются из исходного кода в зафиксированной, повторяемой среде.';
+
+  @override
   String get settingsGroupConnection => 'Подключение';
 
   @override

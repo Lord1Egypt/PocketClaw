@@ -465,6 +465,18 @@ class AppLocalizationsId extends AppLocalizations {
       'Memperbaiki crash saat memulai di Android yang bisa muncul setelah ponsel dimulai ulang.';
 
   @override
+  String get whatsNew023Improvement1 =>
+      'Pembaruan keamanan: inti latar belakang PocketClaw kini dibangun dengan rilis Go terkini yang masih didukung serta pustaka yang diperbarui untuk memperbaiki kerentanan yang diketahui.';
+
+  @override
+  String get whatsNew023Improvement2 =>
+      'Alat baris perintah GitHub bawaan diperbarui ke versi 2.101.';
+
+  @override
+  String get whatsNew023Improvement3 =>
+      'Proses build diperkuat sebagai persiapan untuk F-Droid: aplikasi dan alat bawaannya dibangun sepenuhnya dari kode sumber dalam lingkungan yang tetap dan dapat diulang.';
+
+  @override
   String get settingsGroupConnection => 'Koneksi';
 
   @override

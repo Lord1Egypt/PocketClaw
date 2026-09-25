@@ -462,6 +462,18 @@ class AppLocalizationsHi extends AppLocalizations {
       'फ़ोन रीस्टार्ट करने के बाद दिख सकने वाला Android स्टार्टअप क्रैश ठीक किया गया।';
 
   @override
+  String get whatsNew023Improvement1 =>
+      'सुरक्षा अपडेट: PocketClaw का बैकग्राउंड कोर अब Go के एक मौजूदा, समर्थित संस्करण और अपडेट की गई लाइब्रेरी के साथ बनाया जाता है, जो ज्ञात कमज़ोरियों को ठीक करती हैं।';
+
+  @override
+  String get whatsNew023Improvement2 =>
+      'साथ आने वाला GitHub कमांड-लाइन टूल संस्करण 2.101 पर अपडेट किया गया है।';
+
+  @override
+  String get whatsNew023Improvement3 =>
+      'F-Droid की तैयारी में बिल्ड प्रक्रिया को मज़बूत किया गया: ऐप और उसके साथ आने वाले टूल पूरी तरह सोर्स कोड से एक तय और दोहराए जा सकने वाले वातावरण में बनाए जाते हैं।';
+
+  @override
   String get settingsGroupConnection => 'कनेक्शन';
 
   @override
