@@ -108,6 +108,12 @@
             android:name="flutterEmbedding"
             android:value="2" />
 
+        <!-- The Dashboard runs in the system WebView, which otherwise reports
+             its own usage metrics to Google from inside this process. -->
+        <meta-data
+            android:name="android.webkit.WebView.MetricsOptOut"
+            android:value="true" />
+
     </application>
 
     <queries>

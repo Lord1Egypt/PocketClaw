@@ -609,6 +609,18 @@ void main() {
       expect(declared, isNot(contains('UMENG_')));
     });
 
+    test('the embedded WebView is opted out of its usage metrics', () {
+      // Observed physically: the system WebView loads Google's metrics
+      // client inside the PocketClaw process unless the app opts out.
+      expect(
+        RegExp(
+          r'android:name="android\.webkit\.WebView\.MetricsOptOut"\s*'
+          r'android:value="true"',
+        ).hasMatch(declaredManifest()),
+        isTrue,
+      );
+    });
+
     test('the merged release manifest carries neither, when built', () {
       final file = File(mergedManifest);
       if (!file.existsSync()) {
