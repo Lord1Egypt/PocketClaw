@@ -62,7 +62,7 @@ class MetadataTest(unittest.TestCase):
 class LayoutTest(unittest.TestCase):
     def test_the_container_uses_fdroidservers_server_layout(self):
         command = canonical.docker_run_command(
-            Path("/work"), Path("/fdroidserver"), "name", "com.lord1egypt.pocketclaw:65")
+            Path("/work"), Path("/fdroidserver"), "name", "com.lord1egypt.pocketclaw:65", COMMIT)
         joined = " ".join(command)
         for mount in ("/work/build:/home/vagrant/build", "/work/metadata:/home/vagrant/metadata",
                       "/work/srclibs:/home/vagrant/srclibs", "/work/cache:/home/vagrant/.cache",
@@ -71,6 +71,10 @@ class LayoutTest(unittest.TestCase):
         self.assertIn("-u vagrant", joined)
         self.assertIn("fdroid build --on-server --no-tarball", command[-1])
         self.assertIn("cd /home/vagrant", command[-1])
+        # The host half of server mode checks the commit out with fdroidserver's
+        # own VCS layer before the server half builds it.
+        self.assertIn(f"build/com.lord1egypt.pocketclaw {COMMIT}", command[-1])
+        self.assertLess(command[-1].index("gotorevision"), command[-1].index("--on-server"))
 
     def test_the_image_is_pinned_by_digest(self):
         self.assertRegex(canonical.IMAGE, r"@sha256:[0-9a-f]{64}$")

@@ -37,6 +37,7 @@ import time
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
+SOURCE_REPO = "https://github.com/Lord1Egypt/PocketClaw.git"
 TEMPLATE = REPO / "fdroid/metadata.yml.in"
 SIGNER_FILE = REPO / "android/release-signing-cert.sha256"
 APP_ID = "com.lord1egypt.pocketclaw"
@@ -128,18 +129,30 @@ def fdroidserver_commit(path: Path) -> str:
         raise CanonicalBuildError(f"{path} is not a git checkout of fdroidserver") from error
 
 
-def container_command(app_ref: str) -> str:
+# The host half of `fdroid build --server`: fdroidserver's own VCS layer clones
+# the app into build/<appid> and checks out the commit, and that directory is
+# what the server half builds from.
+HOST_CHECKOUT = (
+    "import sys; from fdroidserver import common; "
+    "common.config = common.read_config(); "
+    "common.getvcs('git', sys.argv[1], sys.argv[2]).gotorevision(sys.argv[3])"
+)
+
+
+def container_command(app_ref: str, commit: str) -> str:
     return (
         ". /etc/profile; "
         f"export PATH=\"{HOME}/fdroidserver:$PATH\" PYTHONPATH=\"{HOME}/fdroidserver\"; "
         "export JAVA_HOME=$(java -XshowSettings:properties -version 2>&1 >/dev/null "
         "| sed -n 's/^ *java.home = //p'); "
         f"cd {HOME} && fdroid fetch_srclibs -v {app_ref} "
+        f"&& python3 -c \"{HOST_CHECKOUT}\" {SOURCE_REPO} build/{APP_ID} {commit} "
         f"&& fdroid build --on-server --no-tarball -v {app_ref}"
     )
 
 
-def docker_run_command(work: Path, fdroidserver: Path, name: str, app_ref: str) -> list[str]:
+def docker_run_command(work: Path, fdroidserver: Path, name: str, app_ref: str,
+                       commit: str) -> list[str]:
     mounts = []
     for directory in LAYOUT:
         target = f"{HOME}/.cache" if directory == "cache" else f"{HOME}/{directory}"
@@ -147,7 +160,7 @@ def docker_run_command(work: Path, fdroidserver: Path, name: str, app_ref: str) 
     return [
         "docker", "run", "--rm", "--name", name, "-u", "vagrant", "-w", HOME,
         *mounts, "-v", f"{fdroidserver}:{HOME}/fdroidserver:ro",
-        "--entrypoint", "/bin/bash", IMAGE, "-c", container_command(app_ref),
+        "--entrypoint", "/bin/bash", IMAGE, "-c", container_command(app_ref, commit),
     ]
 
 
@@ -171,7 +184,8 @@ def build(args: argparse.Namespace) -> int:
 
     app_ref = f"{APP_ID}:{version_code}"
     log = work / "logs" / "canonical-build.log"
-    command = docker_run_command(work, fdroidserver, f"pocketclaw-canonical-{os.getpid()}", app_ref)
+    command = docker_run_command(
+        work, fdroidserver, f"pocketclaw-canonical-{os.getpid()}", app_ref, commit)
     started = time.monotonic()
     with log.open("w", encoding="utf-8") as handle:
         result = subprocess.run(command, stdout=handle, stderr=subprocess.STDOUT)
