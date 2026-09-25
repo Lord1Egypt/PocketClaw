@@ -26,8 +26,8 @@ Builds:
     timeout: 14400
     sudo:
       - apt-get update
-      - apt-get install -y --no-install-recommends build-essential bzip2 cmake 
-        file golang-go make pkg-config unzip xz-utils zlib1g-dev
+      - apt-get install -y --no-install-recommends build-essential bzip2 cmake file
+        golang-go make pkg-config unzip xz-utils zlib1g-dev
     output: build/app/outputs/apk/release/app-release-unsigned.apk
     srclibs:
       - flutter@3.47.1
@@ -44,15 +44,14 @@ Builds:
       - android/app/src/main/jniLibs/arm64-v8a/libpocketclaw-rg.so
       - android/app/src/main/jniLibs/arm64-v8a/libpocketclaw-sqlite3.so
     prebuild:
-      - curl -fsSL -o $HOME/node.tar.xz 
-        https://nodejs.org/dist/v25.8.1/node-v25.8.1-linux-x64.tar.xz
-      - echo "8c13c85f73b1f8e57d5fff0732b3f25880910aafa6d5c811073a2ec7fcd45b4c 
-        $HOME/node.tar.xz" | sha256sum -c
+      - curl -fsSL -o $HOME/node.tar.xz https://nodejs.org/dist/v25.8.1/node-v25.8.1-linux-x64.tar.xz
+      - echo "8c13c85f73b1f8e57d5fff0732b3f25880910aafa6d5c811073a2ec7fcd45b4c $HOME/node.tar.xz"
+        | sha256sum -c
       - tar -xJf $HOME/node.tar.xz -C $HOME
       - export PATH="$HOME/node-v25.8.1-linux-x64/bin:$PATH"
       - npm install --prefix $HOME/pnpm --no-audit --no-fund pnpm@10.33.0
-      - bash $$rustup$$/rustup-init.sh -y --profile minimal --default-toolchain 
-        1.94.1 --target aarch64-linux-android
+      - bash $$rustup$$/rustup-init.sh -y --profile minimal --default-toolchain 1.94.1
+        --target aarch64-linux-android
       - $$flutter$$/bin/flutter config --no-analytics
       - export PUB_CACHE="$(pwd)/.pub-cache"
       - $$flutter$$/bin/flutter pub get --enforce-lockfile
@@ -60,11 +59,9 @@ Builds:
       - .pub-cache/hosted/pub.dev/*/example
       - .pub-cache/hosted/pub.dev/*/extension/devtools/build
     build:
-      - export 
-        PATH="$HOME/node-v25.8.1-linux-x64/bin:$HOME/.cargo/bin:$$flutter$$/bin:$PATH"
+      - export PATH="$HOME/node-v25.8.1-linux-x64/bin:$HOME/.cargo/bin:$$flutter$$/bin:$PATH"
       - export PUB_CACHE="$(pwd)/.pub-cache"
-      - export NDK_ROOT="$$NDK$$" GO_CACHE_ROOT="$HOME/go-cache" 
-        PNPM_BIN_DIR="$HOME/pnpm/node_modules/.bin"
+      - export NDK_ROOT="$$NDK$$" GO_CACHE_ROOT="$HOME/go-cache" PNPM_BIN_DIR="$HOME/pnpm/node_modules/.bin"
       - runtime/build-curl-android-arm64.sh
       - runtime/build-git-android-arm64.sh
       - runtime/build-gh-android-arm64.sh
@@ -74,9 +71,8 @@ Builds:
       - runtime/build-python-android-arm64.sh
       - source runtime/toolchains.env
       - pushd core/src
-      - GOTOOLCHAIN=$POCKETCLAW_CORE_GO_TOOLCHAIN 
-        GOCACHE=$GO_CACHE_ROOT/go-build GOMODCACHE=$GO_CACHE_ROOT/go-mod go test
-        -tags "stdjson goolm" -count=1 -run 
+      - GOTOOLCHAIN=$POCKETCLAW_CORE_GO_TOOLCHAIN GOCACHE=$GO_CACHE_ROOT/go-build
+        GOMODCACHE=$GO_CACHE_ROOT/go-mod go test -tags "stdjson goolm" -count=1 -run
         TestBundledPayloadsMatchTheirPinnedChecksums ./pkg/pcruntime/
       - popd
       - core/build-android-arm64.sh

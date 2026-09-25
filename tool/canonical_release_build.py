@@ -109,10 +109,11 @@ def render_metadata(commit: str, version_name: str, version_code: int, track_b: 
         "@VERSION_NAME@": version_name,
         "@VERSION_CODE@": str(version_code),
         "@COMMIT@": commit,
-        # Laid out exactly as `fdroid rewritemeta` writes them, so the rendered
-        # file is already in canonical form.
+        # Laid out exactly as fdroiddata CI's `fdroid rewritemeta` writes them
+        # (Debian's fdroidserver with ruamel.yaml 0.18; 0.19 folds lines
+        # differently), so the rendered file passes that job unchanged.
         "@BINARIES@": f"Binaries: \n  {BINARIES_URL}\n" if track_b else "",
-        "@SIGNING_KEYS@": f"\nAllowedAPKSigningKeys: \n  {enrolled_signer()}\n" if track_b else "",
+        "@SIGNING_KEYS@": f"\nAllowedAPKSigningKeys: {enrolled_signer()}\n" if track_b else "",
     }
     for placeholder, value in replacements.items():
         if placeholder not in text:
