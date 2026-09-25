@@ -319,7 +319,9 @@ android {
         applicationId = "com.lord1egypt.pocketclaw"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = flutter.minSdkVersion
+        // Android 8.0: the service calls startForegroundService and builds
+        // NotificationChannels unguarded, both API 26 (PC-DEF-086).
+        minSdk = 26
         targetSdk = flutter.targetSdkVersion
         // Tracked in pubspec.yaml, never in the gitignored local.properties.
         versionCode = resolvedVersionCode

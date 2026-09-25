@@ -20,7 +20,7 @@ the credentials — lives on the device you are holding.
 [![Downloads](https://img.shields.io/github/downloads/Lord1Egypt/PocketClaw/total?color=success)](https://github.com/Lord1Egypt/PocketClaw/releases/latest)
 ![Platform](https://img.shields.io/badge/platform-Android-3DDC84?logo=android&logoColor=white)
 ![ABI](https://img.shields.io/badge/ABI-arm64--v8a-0A7EA4)
-![minSdk](https://img.shields.io/badge/minSdk-24-555555)
+![minSdk](https://img.shields.io/badge/minSdk-26_(Android_8.0)-555555)
 ![targetSdk](https://img.shields.io/badge/targetSdk-36-555555)
 <br />
 ![Flutter](https://img.shields.io/badge/Flutter-3.47-02569B?logo=flutter&logoColor=white)
@@ -42,7 +42,7 @@ the credentials — lives on the device you are holding.
 
 **[PocketClaw v0.2.1 — arm64-v8a APK](https://github.com/Lord1Egypt/PocketClaw/releases/latest)**
 
-An `arm64-v8a` Android device on **Android 7.0 (API 24)** or newer, and an API
+An `arm64-v8a` Android device on **Android 8.0 (API 26)** or newer, and an API
 key for a model provider. Built and physically validated on Android 16.
 
 <details>

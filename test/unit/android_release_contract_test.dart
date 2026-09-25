@@ -272,6 +272,42 @@ void main() {
     });
   });
 
+  // PC-DEF-086. The service calls startForegroundService and builds
+  // NotificationChannels unguarded (API 26), so Android 8.0 is the real floor
+  // and every surface that states support must say so.
+  group('minimum Android version', () {
+    test('Gradle declares minSdk 26, not the Flutter default', () {
+      final gradle = File('android/app/build.gradle.kts').readAsStringSync();
+      expect(
+        RegExp(r'^\s*minSdk = 26$', multiLine: true).hasMatch(gradle),
+        isTrue,
+      );
+      expect(gradle, isNot(contains('minSdk = flutter.minSdkVersion')));
+    });
+
+    test('every support statement says Android 8.0 and none says 7', () {
+      final surfaces = <String, String>{
+        'README.md': File('README.md').readAsStringSync(),
+        'full_description.txt': File(
+          'fastlane/metadata/android/en-US/full_description.txt',
+        ).readAsStringSync(),
+        'app_en.arb': File('lib/l10n/app_en.arb').readAsStringSync(),
+      };
+      expect(surfaces['README.md'], contains('Android 8.0 (API 26)'));
+      expect(surfaces['README.md'], contains('minSdk-26'));
+      expect(surfaces['full_description.txt'], contains('Android 8.0'));
+      for (final entry in surfaces.entries) {
+        expect(
+          RegExp(
+            r'Android 7(\.\d)?\b|API 24\b|minSdk-24',
+          ).hasMatch(entry.value),
+          isFalse,
+          reason: entry.key,
+        );
+      }
+    });
+  });
+
   group('ABI', () {
     test('only arm64-v8a is packaged', () {
       // Plugin stubs for armeabi-v7a and x86_64 made the APK advertise ABIs it
@@ -285,8 +321,10 @@ void main() {
 
     test("Flutter's own ABI list cannot override the filter", () {
       // FlutterPlugin clears abiFilters after evaluation unless this is set.
-      expect(read('android/gradle.properties'),
-          contains('disable-abi-filtering=true'));
+      expect(
+        read('android/gradle.properties'),
+        contains('disable-abi-filtering=true'),
+      );
     });
   });
 
@@ -492,10 +530,7 @@ void main() {
         reason: 'an unsigned build packages a differently named APK',
       );
       expect(source, contains('shutil.rmtree(flutter_build_dir)'));
-      expect(
-        source,
-        contains('AOT and private symbols will be regenerated'),
-      );
+      expect(source, contains('AOT and private symbols will be regenerated'));
     });
   });
 
@@ -537,7 +572,8 @@ void main() {
       expect(
         declared,
         isNot(contains('android:scheme=')),
-        reason: 'that filter declared the only scheme in this manifest; a new '
+        reason:
+            'that filter declared the only scheme in this manifest; a new '
             'one is a deliberate act to review, not something to inherit',
       );
     });
@@ -582,7 +618,8 @@ void main() {
         expect(
           source,
           isNot(contains(symbol)),
-          reason: '$symbol is dead plumbing; a stale manifestPlaceholder would '
+          reason:
+              '$symbol is dead plumbing; a stale manifestPlaceholder would '
               'survive merge processing and reintroduce the scheme',
         );
       }

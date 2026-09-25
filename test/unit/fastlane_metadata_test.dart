@@ -41,7 +41,7 @@ void main() {
     final description = text('full_description.txt');
     for (final fact in const [
       'arm64-v8a',
-      'Android 7.0',
+      'Android 8.0',
       'API key',
       'non-free network services',
       'no analytics',

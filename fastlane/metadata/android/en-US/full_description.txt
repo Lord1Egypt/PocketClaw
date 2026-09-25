@@ -12,7 +12,7 @@ PocketClaw is a private AI agent that runs on your Android phone. The language m
 
 <b>Requirements</b>
 <ul>
-<li>An arm64-v8a device with Android 7.0 or newer. The bundled tools and the agent runtime exist for arm64 only.</li>
+<li>An arm64-v8a device with Android 8.0 or newer. The bundled tools and the agent runtime exist for arm64 only.</li>
 <li>An API key for a model provider, or an OpenAI-compatible endpoint you run yourself.</li>
 </ul>
 

@@ -74,6 +74,10 @@ from artifact_policy import (
 REPO = Path(__file__).resolve().parent.parent
 PACKAGE_ID = "com.lord1egypt.pocketclaw"
 EXPECTED_ABI = "arm64-v8a"
+# Android 8.0. The service needs startForegroundService and notification
+# channels (API 26); a lower minSdk would offer the APK to devices where the
+# first Start crashes (PC-DEF-086).
+EXPECTED_MIN_SDK = 26
 EXPECTED_LOCALES = 12
 
 # The permission contract accepted in Release Hardening A1, asserted against the
@@ -298,6 +302,12 @@ def run_flutter_suite(flutter: Path) -> tuple[int, dict[str, object]]:
     }
     return rc, summary
 
+
+
+def packaged_min_sdk(badging: str) -> int | None:
+    """The minSdk aapt2 reports: `minSdkVersion:'26'` (newer aapt2) or `sdkVersion:'26'`."""
+    match = re.search(r"^(?:minSdkVersion|sdkVersion):'(\d+)'", badging, re.MULTILINE)
+    return int(match.group(1)) if match else None
 
 def find_sdk_tool(name: str) -> Path | None:
     """Locates an Android build-tool without hard-coding a machine path."""
@@ -884,6 +894,10 @@ def artifact_gates(gate: Gate, apk: Path, release_class: str,
                    and version_name and version_name.group(1) == gate.facts.get("versionName"),
                    expected=f"{gate.facts.get('versionName')}+{gate.facts.get('versionCode')}",
                    observed=f"{version_name.group(1) if version_name else '?'}+{observed_code}")
+        observed_min = packaged_min_sdk(badging)
+        gate.facts["minSdk"] = observed_min
+        gate.check("artifact.min_sdk", observed_min == EXPECTED_MIN_SDK,
+                   expected=f"minSdk {EXPECTED_MIN_SDK} (Android 8.0)", observed=str(observed_min))
 
         rc, perms_out = run([str(aapt), "dump", "permissions", str(apk)])
         packaged = {line.split("name='")[1].split("'")[0]
