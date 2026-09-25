@@ -876,8 +876,11 @@ class ConfigPageState extends State<ConfigPage> with WidgetsBindingObserver {
                 ),
                 child: Selector<ServiceManager, String>(
                   selector: (_, s) => s.workspacePath,
-                  builder: (_, path, _) =>
-                      Text(path, style: Theme.of(context).textTheme.bodyMedium),
+                  builder: (_, path, _) => Text(
+                    path,
+                    textDirection: TextDirection.ltr,
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
                 ),
               ),
               if (_legacyWorkspace.visible) ...[
@@ -891,10 +894,6 @@ class ConfigPageState extends State<ConfigPage> with WidgetsBindingObserver {
               ],
             ],
             const SizedBox(height: 24),
-
-            const SizedBox(height: 24),
-
-            const SizedBox(height: 16),
             Text(
               l10n.language,
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
@@ -1615,7 +1614,9 @@ class _LegacyWorkspaceTile extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    l10n.legacyWorkspaceBody(path),
+                    // A path is left-to-right text; isolated, an RTL sentence
+                    // cannot move its slashes.
+                    l10n.legacyWorkspaceBody('\u2066$path\u2069'),
                     style: theme.textTheme.bodySmall,
                   ),
                   const SizedBox(height: 8),
