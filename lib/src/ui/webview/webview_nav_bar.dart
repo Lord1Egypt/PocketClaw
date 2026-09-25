@@ -56,10 +56,19 @@ class _DraggableWebNavBarState extends State<DraggableWebNavBar> {
     return Offset(o.dx.clamp(0.0, maxX), o.dy.clamp(0.0, maxY));
   }
 
+  // The default sits on the right edge at mid-height. The top corners hold the
+  // dashboard's own header controls -- its menu button in right-to-left
+  // locales, its gateway action in left-to-right ones -- and a pill there
+  // takes their taps.
+  static Offset defaultOffset(BoxConstraints constraints) {
+    final maxX = (constraints.maxWidth - _pillW).clamp(0.0, double.infinity);
+    final maxY = (constraints.maxHeight - _pillH).clamp(0.0, double.infinity);
+    return Offset((maxX - 12.0).clamp(0.0, maxX), maxY / 2);
+  }
+
   void _ensureOffset() {
     if (_offset != null || _constraints == null) return;
-    final maxX = (_constraints!.maxWidth - _pillW).clamp(0.0, double.infinity);
-    _offset = Offset((maxX - 12.0).clamp(0.0, maxX), 12.0);
+    _offset = defaultOffset(_constraints!);
   }
 
   // ---------------------------------------------------------------------------
@@ -144,7 +153,7 @@ class _DraggableWebNavBarState extends State<DraggableWebNavBar> {
         // Clamp stored offset into current bounds (handles window resize).
         final effective = _offset != null
             ? Offset(_offset!.dx.clamp(0.0, maxX), _offset!.dy.clamp(0.0, maxY))
-            : Offset((maxX - 12.0).clamp(0.0, maxX), 12.0);
+            : defaultOffset(constraints);
 
         final pill = Material(
           color: colorScheme.surface.withAlpha(
@@ -157,18 +166,12 @@ class _DraggableWebNavBarState extends State<DraggableWebNavBar> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 IconButton(
-                  icon: Icon(
-                    Icons.chevron_left,
-                    color: colorScheme.secondary,
-                  ),
+                  icon: Icon(Icons.chevron_left, color: colorScheme.secondary),
                   tooltip: l10n.back,
                   onPressed: widget.onBack,
                 ),
                 IconButton(
-                  icon: Icon(
-                    Icons.chevron_right,
-                    color: colorScheme.secondary,
-                  ),
+                  icon: Icon(Icons.chevron_right, color: colorScheme.secondary),
                   tooltip: l10n.forward,
                   onPressed: widget.onForward,
                 ),
