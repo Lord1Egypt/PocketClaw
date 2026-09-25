@@ -51,7 +51,7 @@ export CC="$TOOLCHAIN/bin/$TARGET_CC"
 export AR="$TOOLCHAIN/bin/llvm-ar"
 export RANLIB="$TOOLCHAIN/bin/llvm-ranlib"
 export STRIP="$TOOLCHAIN/bin/llvm-strip"
-PY_NATIVE_DEBUG_CFLAGS="-g -ffile-prefix-map=$BUILD_ROOT=/pocketclaw-runtime/build -fdebug-prefix-map=$BUILD_ROOT=/pocketclaw-runtime/build -fmacro-prefix-map=$BUILD_ROOT=/pocketclaw-runtime/build"
+PY_NATIVE_DEBUG_CFLAGS="$NATIVE_DEBUG_CFLAGS"
 
 echo "Building bzip2 $BZIP2_VERSION"
 tar xzf "$CACHE_DIR/$BZIP2_TGZ" -C "$PY_ROOT"
@@ -91,7 +91,11 @@ mv "$PY_ROOT/Python-$PYTHON_VERSION"/* "$PY_SRC/"
 sed -i "s/^ndk_version=.*/ndk_version=$(basename "$NDK_ROOT")/" \
     "$PY_SRC/Android/android-env.sh"
 
-export ANDROID_HOME="${ANDROID_HOME:-$(dirname "$(dirname "$NDK_ROOT")")}"
+# android-env.sh finds the NDK as $ANDROID_HOME/ndk/<version>. Derive it from
+# NDK_ROOT unconditionally: an inherited ANDROID_HOME (fdroidserver exports one)
+# would otherwise compile CPython with a different NDK than NDK_ROOT names, and
+# outside the NDK prefix map.
+export ANDROID_HOME="$(dirname "$(dirname "$NDK_ROOT")")"
 
 # The dependency builds above needed the cross toolchain in the environment.
 # The "build" interpreter is a native host build and must not see it, or its

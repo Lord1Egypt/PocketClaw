@@ -32,7 +32,13 @@ class NativeSupportContractTest(unittest.TestCase):
         self.assertIn('JNI_LIBS="${JNI_LIBS:-', script)
         self.assertIn('NATIVE_SYMBOL_ROOT="${NATIVE_SYMBOL_ROOT:-', script)
         self.assertIn("-ffile-prefix-map=$BUILD_ROOT=/pocketclaw-runtime/build", script)
-        self.assertIn('SOURCE_DATE_EPOCH="${SOURCE_DATE_EPOCH:-$RUNTIME_EPOCH}"', script)
+        self.assertIn('SOURCE_DATE_EPOCH="$RUNTIME_EPOCH"', script)
+        # PC-DEF-091: the NDK's install path must not reach any payload's DWARF.
+        self.assertIn("-ffile-prefix-map=$NDK_ROOT=/pocketclaw-ndk", script)
+        self.assertIn("-fdebug-prefix-map=$NDK_ROOT=/pocketclaw-ndk", script)
+        python = (REPO / "runtime/build-python-android-arm64.sh").read_text()
+        self.assertIn('PY_NATIVE_DEBUG_CFLAGS="$NATIVE_DEBUG_CFLAGS"', python)
+        self.assertIn('export ANDROID_HOME="$(dirname "$(dirname "$NDK_ROOT")")"', python)
         self.assertNotIn("show -s --format=%ct HEAD", script)
         self.assertIn("/(RPATH)\\|(RUNPATH)/p", script)
         self.assertIn('grep -c -F "$BUILD_ROOT"', script)
@@ -125,6 +131,8 @@ class NativeSupportContractTest(unittest.TestCase):
 
         A commit that records a payload checksum must not also change the bytes
         that checksum describes, which is what any HEAD-derived epoch would do.
+        An inherited SOURCE_DATE_EPOCH (fdroidserver exports the commit time)
+        must not replace it either.
         """
         script = (REPO / "runtime/android-build-env.sh").read_text()
         pinned = re.search(r"^RUNTIME_EPOCH=(\d+)", script, re.MULTILINE)
@@ -132,7 +140,7 @@ class NativeSupportContractTest(unittest.TestCase):
         resolved = subprocess.run(
             ["bash", "-c", 'source "$1" >/dev/null 2>&1; printf %s "$SOURCE_DATE_EPOCH"',
              "_", str(REPO / "runtime/android-build-env.sh")],
-            cwd=REPO, text=True, stdout=subprocess.PIPE, env={**os.environ, "SOURCE_DATE_EPOCH": ""},
+            cwd=REPO, text=True, stdout=subprocess.PIPE, env={**os.environ, "SOURCE_DATE_EPOCH": "1700000000"},
         )
         self.assertEqual(resolved.stdout, pinned.group(1))
         staged = REPO / "android/app/src/main/jniLibs/arm64-v8a/libpocketclaw-python.so"
