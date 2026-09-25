@@ -7,6 +7,7 @@ import android.content.Context
 import android.os.Build
 import android.os.Process
 import android.util.Log
+import androidx.annotation.RequiresApi
 import java.io.File
 import java.io.IOException
 
@@ -59,20 +60,34 @@ object LifecycleDiagnostics {
 
     /** Called first thing in Application.onCreate. */
     fun onProcessStart(context: Context) {
-        record(context, "process", "start", startDetail(context))
+        record(context, "process", "start")
+        recordStartReason(context.applicationContext)
         recordEarlierExits(context)
         installCrashBreadcrumb(context.applicationContext)
     }
 
-    private fun startDetail(context: Context): String {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.VANILLA_ICE_CREAM) return "start-info=unavailable"
-        val manager = context.getSystemService(ActivityManager::class.java) ?: return "start-info=unavailable"
-        val info = try {
-            manager.getHistoricalProcessStartReasons(1).firstOrNull()
+    /**
+     * Android hands this process its own start record once the start completes.
+     * Looking the record up by pid does not work: Samsung's Android 16 records
+     * cold starts with pid 0, so the lookup rejected every one as stale.
+     */
+    private fun recordStartReason(context: Context) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.VANILLA_ICE_CREAM) {
+            record(context, "process", "start-info", "unavailable")
+            return
+        }
+        val manager = context.getSystemService(ActivityManager::class.java) ?: return
+        try {
+            manager.addApplicationStartInfoCompletionListener(context.mainExecutor) { info ->
+                record(context, "process", "start-info", startDetail(info))
+            }
         } catch (e: RuntimeException) {
-            null
-        } ?: return "start-info=none"
-        if (info.pid != Process.myPid()) return "start-info=stale"
+            record(context, "process", "start-info", "unavailable")
+        }
+    }
+
+    @RequiresApi(Build.VERSION_CODES.VANILLA_ICE_CREAM)
+    private fun startDetail(info: ApplicationStartInfo): String {
         return buildString {
             append("reason=").append(startReason(info.reason))
             append(" type=").append(startType(info.startType))
@@ -176,9 +191,12 @@ object LifecycleDiagnostics {
         ApplicationExitInfo.REASON_DEPENDENCY_DIED -> "dependency-died"
         ApplicationExitInfo.REASON_EXCESSIVE_RESOURCE_USAGE -> "excessive-resource"
         ApplicationExitInfo.REASON_EXIT_SELF -> "exit-self"
+        ApplicationExitInfo.REASON_FREEZER -> "freezer"
         ApplicationExitInfo.REASON_INITIALIZATION_FAILURE -> "initialization-failure"
         ApplicationExitInfo.REASON_LOW_MEMORY -> "low-memory"
         ApplicationExitInfo.REASON_OTHER -> "other"
+        ApplicationExitInfo.REASON_PACKAGE_STATE_CHANGE -> "package-state-change"
+        ApplicationExitInfo.REASON_PACKAGE_UPDATED -> "package-updated"
         ApplicationExitInfo.REASON_PERMISSION_CHANGE -> "permission-change"
         ApplicationExitInfo.REASON_SIGNALED -> "signaled"
         ApplicationExitInfo.REASON_USER_REQUESTED -> "user-requested"
