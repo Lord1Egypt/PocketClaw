@@ -20,7 +20,7 @@ is [`FDROID_RELEASE.md`](FDROID_RELEASE.md).
 | B2 | `kagi-openapi-golang`, which has no licence, was linked into Core. | **Fixed.** Replaced by a standard-library request with the same wire contract; gone from `go.mod`/`go.sum` and from both Core binaries. |
 | B3 | No unsigned release path. | **Fixed.** `-PpocketclawUnsignedRelease=true` / `build_hardened_android.py --signing unsigned`, refusing any signing material, verified unsigned, classified UNSIGNED / REPOSITORY-SIGNABLE. Gate class `repository`. |
 | B4 | The APK advertised armeabi-v7a and x86_64 through plugin stubs. | **Fixed.** `abiFilters` arm64-v8a; the gate fails on any other ABI. |
-| B5 | MANAGE_EXTERNAL_STORAGE, requested by a Settings redirect on every cold launch. | **Fixed in source** (PC-DEF-077, still OPEN until physically tested). No storage permission; app-specific workspace; explicit SAF import of an old `Download/pocketclaw`, offered only when that folder holds real workspace evidence (an empty folder, like the one Samsung My Files created on the owner's phone, is ignored). Detection only stats paths. |
+| B5 | MANAGE_EXTERNAL_STORAGE, requested by a Settings redirect on every cold launch. | **Fixed; physically tested 2026-09-25** (PC-DEF-077: detector and import pass; cancel/hide not physically exercised). No storage permission; app-specific workspace; explicit SAF import of an old `Download/pocketclaw`, offered only when that folder holds real workspace evidence (an empty folder, like the one Samsung My Files created on the owner's phone, is ignored). Detection only stats paths. |
 | B6 | Payload toolchains not pinned (ripgrep's Rust in particular), while Core rejects any payload whose bytes change. | **Fixed.** `runtime/toolchains.env`; recipes select exact versions and fail closed. gh and ripgrep rebuild byte-identical under the pins. |
 | B7 | The proprietary-SDK gate checked Firebase names only. | **Fixed.** Resolved-graph check plus Umeng in the source and DEX markers. |
 
@@ -95,7 +95,21 @@ is optional and not planned.
   service is MIT-licensed; its URL is fixed at build time.
 - **Tracking — does not apply**, by source audit: no analytics, crash reporting
   or update check, and no network contact before the owner configures a
-  provider or channel. Not yet confirmed with a network capture.
+  provider or channel.
+  **Physical observation (2026-09-25, SM-A165F, build `8f6364e8…`):** from a
+  cold start, with no interaction for 120 s, every socket owned by
+  PocketClaw's UID was sampled every 0.2 s from `/proc/net/{tcp,tcp6,udp,udp6}`
+  (no root, so no packet capture; connections shorter than the sample interval
+  could be missed). The only external endpoint was `149.154.166.110:443` =
+  `api.telegram.org`, 4 s after start: the owner's configured Telegram channel
+  long-polling, started by the owner's gateway auto-start preference. No
+  analytics, update or other host. Model providers are contacted only on a
+  chat turn. One finding: the system WebView, loaded into the app process,
+  initialises Google's metrics client (`FilePhenotypeFlags …
+  clearcut_client#com.lord1egypt.pocketclaw` in logcat); PocketClaw's own dex
+  has no GMS or Clearcut code. The manifest now opts out with
+  `android.webkit.WebView.MetricsOptOut` (`b39862c`). A capture on a fresh,
+  unconfigured install is still owed for the "before configuration" claim.
 
 ## Build from source (Phase C recipe outline)
 

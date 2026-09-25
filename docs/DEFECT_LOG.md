@@ -7,12 +7,63 @@ only reconstructable examples belong here.
 
 ## Open / deferred
 
+### PC-DEF-086 — minSdk 24 is claimed, but PocketClaw cannot start below Android 8.0
+
+- **Found in the physical pass (lint, 2026-09-25).** `minSdk` is Flutter's
+  default 24 (Android 7.0), and the store description says "Android 7.0". But
+  `PocketClawService.start/restart` call `Context.startForegroundService`
+  (API 26) unguarded, `PocketClawNotificationChannels` uses `NotificationChannel`
+  (API 26) in 37 places, and `Process.isAlive/destroyForcibly` (API 26) are used
+  in the service. On Android 7.x the first Start would crash.
+- **Not changed:** raising `minSdk` to 26, or guarding every call, is a product
+  decision; no Android 7 device is available.
+- **Status:** OPEN — owner decision (recommended: `minSdk 26`, and the Fastlane
+  description to say Android 8.0).
+
+### PC-DEF-087 — Arabic Settings: paths lost their leading slash, and a blank band
+
+- **Observed physically (Arabic, 2026-09-25):** the workspace path rendered as
+  `storage/emulated/0/Android/data//com.lord1egypt…`, and the legacy notice's
+  embedded path as `storage//emulated/0/Download/pocketclaw`: a left-to-right
+  path laid out in the page's right-to-left direction. Below the workspace
+  section, three stacked spacers (24 + 24 + 16 dp) left by removed sections
+  made an empty band.
+- **Fix (`2f7aed9`):** the path `Text` is forced left-to-right; the notice
+  embeds the path between Unicode isolates (U+2066/U+2069); the spacers are
+  one 24 dp gap.
+- **Status:** FIXED IN SOURCE — PHYSICAL RE-CHECK PENDING (next build).
+
+### PC-DEF-088 — the floating WebView nav pill covered the Dashboard's menu button
+
+- **Observed physically (Arabic, 2026-09-25):** taps on the Dashboard's
+  sidebar menu went Back instead. The draggable back/forward/reload pill
+  starts 12 dp below the top-right corner — on the Dashboard header, where the
+  menu button sits in right-to-left locales (and the gateway action in
+  left-to-right ones). Dragging the pill away made the menu open at once.
+- **Fix (`0a54ee4`):** the pill starts on the right edge at mid-height;
+  `web_nav_bar_position_test.dart` (en, ar) failed on the old position (18 dp).
+- **Status:** FIXED IN SOURCE — PHYSICAL RE-CHECK PENDING (next build).
+
 ### PC-DEF-085 — "PocketClaw keeps stopping" after a phone reboot, before the app is opened
 
-- **Observed:** owner, 2026-09-25, on the owner-signed private test build
-  `504d41bb…` (`0.2.2+64`). Intermittently after a reboot, Android shows
-  "PocketClaw keeps stopping" although PocketClaw was not opened. Not yet
-  reproduced on demand; no crash log was captured.
+- **Observed:** owner report, 2026-09-25. Intermittently after a reboot,
+  Android shows "PocketClaw keeps stopping" although PocketClaw was not opened.
+- **Root cause, captured physically (2026-09-25).** Android's own records on the
+  SM-A165F hold the crashes. `dumpsys dropbox data_app_crash`: 2026-09-24
+  10:37:36 and 10:37:37, three minutes after a `SYSTEM_BOOT` at 10:34:22, on
+  **`com.lord1egypt.pocketclaw v63 (0.2.1)`** — `RuntimeException: Unable to
+  create service id.flutter.flutter_background_service.BackgroundService`,
+  caused by `ForegroundServiceStartNotAllowedException: FGS type dataSync not
+  allowed to start from BOOT_COMPLETED!`, thrown from the plugin's
+  `BackgroundService.onCreate → startForeground`; the restarted process crashed
+  the same way (two crashes in a row = the "keeps stopping" dialog). A third
+  record, 2026-09-22 07:54:35, same build: `ForegroundServiceDidNotStopInTimeException`
+  for the same plugin's `dataSync` service (Android 15+ time limit). The
+  plugin's boot receiver started its service on every boot. The released
+  v0.2.1 is affected; the private 0.2.2+64 builds were not (no reboot happened
+  on them before this pass). `flutter_background_service`, its receivers and
+  the `dataSync` service were removed from source by PC-DEF-083 (`e66344c`).
+  Evidence archived (untracked) under `build/forensic/pc-def-085/`.
 - **Source audit — no path starts PocketClaw on its own.** The packaged manifest
   has no BOOT_COMPLETED, LOCKED_BOOT_COMPLETED, QUICKBOOT_POWERON or
   MY_PACKAGE_REPLACED receiver and no direct-boot component; the only exported
@@ -43,9 +94,21 @@ only reconstructable examples belong here.
   scheduled work, breadcrumbs at every entry point),
   `android_cleanup_regression_test.dart` (no BroadcastReceiver in the app's
   sources).
-- **Status:** OPEN — CONFIRMED (owner report) — INVESTIGATION INSTRUMENTED —
-  PHYSICAL REPRODUCTION REQUIRED. Not claimed fixed: after the next occurrence,
-  export logs and read the `lifecycle diagnostics` section.
+- **Physical result on `8f6364e8…` (0.2.2+64, 2026-09-25):** three reboots
+  with PocketClaw left running, 6–10 minutes of observation each without
+  opening it: no PocketClaw process, no new start record
+  (`dumpsys activity start-info`), no crash, no new exit record. The packaged
+  manifest has no boot receiver.
+- **Diagnostics defect found and fixed (`a7aca77`).** On this device every
+  start was logged `start-info=stale`: Samsung's Android 16 records cold starts
+  with `pid=0`, and the code matched the newest record by pid. It now takes the
+  record Android hands the process through
+  `addApplicationStartInfoCompletionListener`. Exit reasons 14–16 (freezer,
+  package state change, package updated) are named; 16 had shown as
+  `unknown-16` for the install.
+- **Status:** PHYSICAL PASS — root cause captured from the crash records and
+  removed; not closed on non-reproduction alone. **The published v0.2.1 still
+  carries the defect** until 0.2.2 is released.
 
 ### PC-DEF-077 — the workspace resolves under `Android/data`, and an empty `Download/pocketclaw` remains
 
@@ -116,9 +179,19 @@ only reconstructable examples belong here.
   destinations are claimed with `mkdir` so two imports never share a folder,
   the busy gate is held until the copy answers, and an import that copies
   nothing removes its empty folder and reports "empty". 27 JVM tests.
-- **Status:** OPEN — FIXED IN SOURCE — SOURCE TESTED — PHYSICAL TEST PENDING
-  (no card for an empty `Download/pocketclaw`; the card for a genuine old
-  workspace; one import; a cancelled import).
+- **Physical result on `8f6364e8…` (2026-09-25).** Empty
+  `Download/pocketclaw`: no card. With an unrelated `notes.txt`: no card. With
+  `workspace/AGENT.md` and `workspace/memory/MEMORY.md`: the card appeared.
+  Copy through the system folder picker (the owner granted the folder): a new
+  `workspace/imported-from-downloads-20260925-034943`, byte-identical to the
+  source (SHA-256 of all three files), source untouched, no existing workspace
+  file changed, card hidden after the copy; the agent read the imported
+  `AGENT.md` through Core. Not exercised: the Cancel path and the Hide button —
+  a successful copy persists "hidden", which cannot be reset without clearing
+  app data (source tests cover both). Found alongside: in Arabic the path in
+  the card and the workspace path rendered with misplaced slashes (PC-DEF-087).
+- **Status:** PHYSICAL TEST PARTIAL — detector PHYSICAL PASS; import PHYSICAL
+  PASS; cancel and hide not physically exercised.
 
 ### PC-DEF-078 — a 3 MB tool result reached the provider whole and the turn died with HTTP 400
 
@@ -164,8 +237,13 @@ only reconstructable examples belong here.
   accented Latin, emoji) is bounded on a UTF-8 boundary; a failing command keeps
   its exit status and stderr tail; three sequential 3 MB tool results in one
   turn are each bounded in every provider request and in session history.
-- **Status:** FIXED IN SOURCE — SOURCE TESTED — physical confirmation pending
-  (checklist items 7–9 in `PROJECT_STATE.md`).
+- **Physical result (2026-09-25):** one Python run writing 3,500,000 bytes of
+  Arabic/accented/emoji UTF-8 and exiting 3: `exit_code=3` kept,
+  `[OUTPUT TRUNCATED]`, `original bytes: 3500433` (stdout plus the result's
+  own framing), `delivered bytes: 64923 (first 45486 + last 19437)`; the
+  session history holds a 65,314-byte tool message, valid UTF-8; no HTTP 400;
+  the turn answered normally.
+- **Status:** PHYSICAL PASS.
 
 ### PC-DEF-079 — queued Telegram messages looked lost, and a panicking turn dropped them
 
@@ -191,8 +269,13 @@ only reconstructable examples belong here.
   notice, that notice is the one deleted and it is deleted before its message
   is answered; each turn's placeholder carries the lifecycle of the message
   running.
-- **Status:** FIXED IN SOURCE — SOURCE TESTED — physical confirmation pending
-  (checklist item 7).
+- **Physical result (2026-09-25, owner's bot, sent from the phone's Telegram):**
+  three messages during a 2 min 50 s turn got exactly one notice each —
+  "Queued — 1 message ahead", "2 messages ahead", "3 messages ahead", each a
+  reply to its message; all three notices were gone before the answers; the
+  answers A, B, C arrived in order, once each, with no stray placeholder. A
+  failing middle turn was not induced on device (source-tested).
+- **Status:** PHYSICAL PASS.
 
 ### PC-DEF-080 — the dashboard's Config page offered four controls that cannot work on Android
 
@@ -213,8 +296,10 @@ only reconstructable examples belong here.
   `no_autostart_route_test.go`, `usb_monitor_selection_test.go`, and an i18n
   test that no locale carries the keys. Verified absent from the staged
   `libpocketclaw-web.so` `406466e8…`.
-- **Status:** FIXED IN SOURCE — SOURCE TESTED — physical confirmation pending
-  (checklist items 11–12).
+- **Physical result (2026-09-25):** app Settings and the Dashboard Config page
+  read in full: no Devices card, USB monitoring, Launch at Login or Service
+  Port.
+- **Status:** PHYSICAL PASS.
 
 ### PC-DEF-081 — the README showed a mark the app does not, and described v0.2.0
 
@@ -232,8 +317,12 @@ only reconstructable examples belong here.
   asset. README moved to v0.2.1 with every identity read back from the
   released APK; a test holds it to `pubspec.yaml`.
 - **Evidence:** `eefa558`. Launcher resources regenerated byte-identical.
-- **Status:** FIXED IN SOURCE — SOURCE TESTED — visual confirmation pending
-  (checklist item 14; the splash change is visible only below Android 12).
+- **Physical result (2026-09-25):** the launcher icon (recents card) and the
+  status-bar notification mark are the APERTURE mark; no glossy 3D mark
+  anywhere. The pre-Android-12 splash cannot be seen on Android 16. The README
+  now pins its identity to `docs/release/published.json` (`2dc02bf`).
+- **Status:** PHYSICAL PASS (launcher, notification); splash below Android 12
+  not testable on this device.
 
 ### PC-DEF-082 — the shipping Core still linked the removed WhatsApp channels
 
@@ -272,8 +361,12 @@ only reconstructable examples belong here.
   release gate forbids them; four exported components are gone.
 - **Evidence:** `flutter analyze` clean; the full Flutter suite and 50 Android
   unit tests pass; the packaged manifest of `7ead013e…` was read back.
-- **Status:** FIXED IN SOURCE — SOURCE TESTED — physical confirmation pending
-  (checklist items 1–6, 13, 15, 16).
+- **Physical result (2026-09-25):** Settings has no Port, Arguments or desktop
+  control; the packaged manifest has no boot receiver, `dataSync` service,
+  `RECEIVE_BOOT_COMPLETED` or `VIBRATE`. This removal is also what fixes
+  PC-DEF-085. One leftover found: three stacked spacers where removed sections
+  sat (PC-DEF-087).
+- **Status:** PHYSICAL PASS.
 
 ### PC-DEF-084 — a long turn's answer arrives as a silent edit above newer messages
 
@@ -307,9 +400,13 @@ only reconstructable examples belong here.
   undeletable placeholder, temporary failure (one answer, one delete), no status
   message, and a queued turn editing its own young placeholder. Core restaged
   in `03aa66b` (fingerprint `5d443c5e…`).
-- **Status:** OPEN — FIXED IN SOURCE — SOURCE TESTED — PHYSICAL TEST PENDING (a
-  Telegram turn over two minutes with a message sent meanwhile, and a short
-  turn).
+- **Physical result (2026-09-25):** a short turn edited "Thinking… 💭" in place
+  into "pong". A 2 min 50 s turn with three messages sent meanwhile: "done"
+  arrived as a new message below them; a sample taken while "done" was already
+  visible still showed the old "Thinking…", and the next showed it deleted —
+  send first, then delete. No periodic traffic. The notification sound was not
+  checked: the owner's bot chat is muted.
+- **Status:** PHYSICAL PASS.
 
 ### PC-DEF-012 — Broad dependency export surfaces need reachability evidence
 
