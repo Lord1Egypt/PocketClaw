@@ -25,7 +25,7 @@ evidence and describe the state at the date of each entry.
 | PC-DEF-023 canonical Core build-input commit | `54ff2525fa555744d017aae56c9a26e2049812e1` |
 | PC-DEF-020 state-basis HEAD | `76064c91033860653de1e11a08e29d7245061ec1` (verified exposure-audit closeout; source and Core-staging commits follow it) |
 | PC-DEF-020 canonical Core build-input commit | `f8bc52a0757f7b0a9f6c0704d2a3586db929e33f` |
-| Version | `0.2.2+64` on `feature/fdroid-phase-b` — unreleased; private owner-signed test builds only. Latest published: `0.2.1+63` (pinned in `docs/release/published.json`) |
+| Version | `0.2.2+64` — published as v0.2.2 (Golden #3) and pinned in `docs/release/published.json`; F-Droid Phase C dry run done, nothing submitted |
 | Accepted physical baseline | vc64 / `lastAcceptedVersionCode=64` — advanced by the Golden #3 (v0.2.2) acceptance commit; was vc63 for v0.2.1 |
 | **Released — PocketClaw v0.2.2 (Golden #3)** | Published 2026-09-25 as the Latest GitHub release: https://github.com/Lord1Egypt/PocketClaw/releases/tag/v0.2.2, tag `v0.2.2` → `e535fca` (main = develop at tagging). Assets `PocketClaw-v0.2.2-arm64-v8a.apk` (61,346,447 B, `320368ea…`) and `SHA256SUMS.txt`; downloaded back byte-identical |
 | **Golden #3 — PocketClaw v0.2.2** | Source `80c9dc02ce56d565a3fa673d2cdab6fe78e5d006`; APK `320368eaf1c3c48689625e02764a658e3ed291d4c6e49b3d67ed09326dd58af9`, 61,346,447 bytes, `0.2.2+64`, minSdk 26, arm64-v8a, one v2 signer `176dca6b…`, Core fingerprint `7e48a120…` (pair `b6236105…` / `f9a638eb…`). Production gate (public-release class) 57/0/0; native ELF 152/0/0; physically accepted on SM-A165F / Android 16 on 2026-09-25 |
@@ -59,6 +59,40 @@ evidence and describe the state at the date of each entry.
 | Staged Core freshness | **CURRENT.** Rebuilt from the source commit `55624cd` and staged in `da9e6f5`, which touches no build input. Fingerprint `87c320c1cb6dffe6395043265c3d4d659ddaf26a4b588d303c5d06355a4acc2b` (was `9c22cb22…`), BuildTime `2026-09-21T03:22:04+0000` |
 | Flutter suite | Green — 608 passed, 0 failed (production-class gate on the owner-signed `b4011015…`, 2026-09-25) — and the **complete** suite is a release gate (`flutter.suite`) |
 | Public release asset policy | APK only. An AAB is a Play-upload artifact and is never a public release asset — `PC-DEF-021` |
+
+## 2026-09-25 — F-Droid Phase C: local dry run from Golden #3 — BUILD PASS, NOT SUBMITTED
+
+Baseline, unchanged: tag `v0.2.2` → `e535fcabebed3ac977559994fad597c62d6345f7`,
+Golden #3 APK `320368ea…`. No F-Droid submission, no merge request, no new
+release, no tag or release edit; the owner's install was not uninstalled or
+cleared. Full record: `docs/FDROID_READINESS_NOTES.md` (Phase C sections).
+
+- **Real `fdroid build` succeeds** (fdroidserver 2.4.2 in F-Droid's buildserver
+  image) from a path-neutral metadata draft kept outside this repository;
+  `fdroid lint`, `rewritemeta` and the scanner pass (two `.pub-cache`
+  scandelete globs, nothing in PocketClaw's source).
+- **F-Droid APK** `3aad94d4…` (unsigned, 61,338,235 B): 0.2.2 (64), minSdk 26,
+  arm64-v8a, seven permissions, same exported components. 426/430 entries
+  byte-identical to Golden #3 (`classes.dex` included, despite JDK 21);
+  differs in `libapp.so`, the CPython payload and the Core pair. Release gate
+  (repository, non-publish-audit) 34/2 from this tree — the two are Core
+  provenance against this tree's catalog — and those two PASS from the
+  F-Droid tree; native ELF 146/0/0.
+- **New defects:** PC-DEF-091 (CPython build-id embeds the NDK path; proven by
+  reproducing `8b52e36d…` on the buildserver with the NDK at upstream's
+  path), PC-DEF-092 (Dart AOT varies with checkout-path length and the
+  Flutter SDK / pub cache locations), PC-DEF-093 (Go advisories). PC-DEF-006
+  narrowed: two clean clones at different paths give the same unsigned APK,
+  and Golden #3's signature copied onto it gives `320368ea…` byte for byte.
+- **Signing:** Track A (F-Droid-signed) for v0.2.2; Track B (upstream
+  signature) blocked by PC-DEF-091/092 until 0.2.3.
+- **Measurements:** Core ~20 MB PSS idle, 26–29 MB working; whole app
+  93–397 MB, dominated by the WebView — only Core may be called lightweight.
+- **Network:** fresh Core on the phone (shell user, throwaway workspace,
+  180 s) and fresh app on an emulator (270 s): no external connection.
+- **Side effect to know:** a reproducibility script ran `flutter config
+  --no-analytics` against the owner's user-global Flutter settings
+  (`flutter config --analytics` restores it).
 
 ## 2026-09-25 — Golden #3: PocketClaw v0.2.2 accepted
 

@@ -8,14 +8,13 @@ is [`FDROID_RELEASE.md`](FDROID_RELEASE.md).
 
 > **Golden #3 (2026-09-25):** PocketClaw v0.2.2, source `80c9dc0`, owner-signed
 > APK `320368ea…`, minSdk 26, arm64-v8a — published as the GitHub release
-> `v0.2.2` (tag at `e535fca`). F-Droid
-> will build and sign its own APK from the tagged source in Phase C.
+> `v0.2.2` (tag at `e535fcabebed3ac977559994fad597c62d6345f7`).
 >
-> **Nothing has been submitted.** No fdroiddata metadata exists, no merge
-> request is open, and no release was made for F-Droid. Phase A audited;
-> Phase B (branch `feature/fdroid-phase-b`) fixed the source. Phase C — the
-> F-Droid-shaped build under `fdroid build`, the scanners and the metadata
-> draft — has not started.
+> **Nothing has been submitted.** No merge request is open and no release was
+> made for F-Droid. Phase A audited; Phase B (branch `feature/fdroid-phase-b`)
+> fixed the source; Phase C (2026-09-25, below) ran the real `fdroid build`,
+> lint and scanner locally against a metadata draft kept in a separate
+> fdroiddata checkout outside this repository.
 
 ## Phase A findings and their Phase B state
 
@@ -83,31 +82,31 @@ committing, check each one for API keys, bot tokens, passwords, chat content,
 phone numbers and notification-shade content. `featureGraphic.png` (1024×500)
 is optional and not planned.
 
-## Fresh-install network capture (owed; must not touch the owner's install)
+## Network before configuration (Phase C, 2026-09-25)
 
-The owner's `com.lord1egypt.pocketclaw` install holds real data and must never
-be uninstalled or cleared for this. Non-destructive options, safest first:
+The owner's install was not uninstalled, cleared or reconfigured for any of
+this.
 
-1. **`fdroid build` output in a disposable environment (Phase C).** The
-   F-Droid-built APK is signed by F-Droid, so it cannot be installed over the
-   owner's production-signed app anyway; run it on a second device or an arm64
-   emulator image and capture there. This is the artifact reviewers will judge.
-2. **A second Android user or profile on the same phone.** An app installed
-   for another user or in Samsung Secure Folder gets its own empty data
-   directory under the same package name; the owner's user-0 data is untouched.
-   Requires the owner to create the user/profile; secondary users can be
-   disabled on some Samsung builds.
-3. **A side-by-side capture build** with a distinct `applicationId` (for example
-   a `.capture` suffix on a local-test build): installs next to the owner's app
-   with fresh data. The package name differs from the shipped one, so record
-   the result as indicative, not as the reviewed artifact.
+- **Fresh Core on the phone.** The Golden #3 Core and Dashboard binaries, run
+  from `adb shell` out of the installed app's `nativeLibraryDir` against a
+  throwaway workspace in `/data/local/tmp` (gateway moved to 18791 to avoid
+  the owner's running instance): in 180 s, sampling the shell UID's
+  `/proc/net/{tcp,tcp6,udp,udp6}` every 0.2 s, **no external endpoint**; the
+  only listeners were `127.0.0.1`/`::1` on 18791 and 18877. No outbound URL
+  in either log.
+- **Fresh app on an emulator.** Golden #3 on an Android 16 x86_64 emulator
+  (docker, KVM), first launch, no interaction for 270 s: the app UID owned no
+  socket; the kernel's per-UID counters showed one packet each way (60/40
+  bytes, a loopback probe of the Core port) and the pcap held only the
+  system's boot connectivity checks. The arm64 Go Core cannot run under the
+  emulator's ARM translation (SIGSEGV), and the emulator's own internet
+  reachability was not verified, so this covers the Flutter layer only.
+- **Configured phone (earlier, 2026-09-25):** only `api.telegram.org:443`,
+  the owner's configured channel.
 
-Capture from first launch, before any configuration: PCAPdroid (non-root VPN,
-per-app filter) gives hostnames via DNS/SNI; the `/proc/net` UID sampling used
-on 2026-09-25 is a fallback that can miss very short connections. Record
-host/IP, trigger and whether it was user-initiated; redact keys, tokens and
-message text. Expected result: no connection until a provider or channel is
-configured.
+Not done: a capture of the F-Droid-built APK itself on a disposable arm64
+device (none is available; a second Android user on the owner's phone would
+need the owner to create it).
 
 ## Where current policy and the ThothTerm precedent differ
 
@@ -148,32 +147,166 @@ configured.
   has no GMS or Clearcut code. The manifest now opts out with
   `android.webkit.WebView.MetricsOptOut` (`b39862c`); on the next build
   (`b4011015…`) the WebView loaded three times with no metrics-client log line.
-  A capture on a fresh, unconfigured install is still owed for the "before
-  configuration" claim — see *Fresh-install network capture* below.
+  The fresh, unconfigured observations are under *Network before
+  configuration* above.
+- **NonFreeDep, NonFreeAssets, NonFreeAdd, Ads — do not apply.** Every linked
+  Go module, npm production dependency and Dart package has a FLOSS licence
+  (Phase C licence sweep; paho.mqtt is EPL-2.0/EDL-1.0); fonts are OFL; no
+  proprietary SDK in the resolved Gradle graph (release gate); no ads.
+- **KnownVuln — not flagged by F-Droid's scanner.** govulncheck does report
+  reachable Go advisories (see *Vulnerability scans* below); they are
+  disclosed in the reviewer notes and fixed upstream in 0.2.3 rather than
+  hidden.
 
-## Build from source (Phase C recipe outline)
+Draft metadata reason (the fdroiddata draft carries it verbatim):
+*"Integrates proprietary network services: hosted AI model providers you
+choose to configure (a self-hosted OpenAI-compatible endpoint works instead),
+messaging channels such as Telegram, the agent's default web search (Sogou;
+SearXNG and others are selectable) and the ClawHub skill registry. Nothing is
+contacted until you configure a model or a channel."*
 
-1. `rm:` the committed `android/app/src/main/jniLibs/arm64-v8a/lib*.so`.
-2. Install the pinned toolchains from `runtime/toolchains.env`: NDK
-   28.2.13676358 (`ndk:`), Go (go1.25.11 for Core; go1.24.6 is fetched by gh's
-   recipe), Rust 1.94.1 with `aarch64-linux-android`, pnpm 10.33 on Node, and a
-   CPython 3.14 host interpreter for the python payload.
-3. Run the runtime recipes (curl before git), then `go test ./pkg/pcruntime/`,
-   which fails unless every rebuilt payload matches the catalog Core embeds.
-4. `./core/build-android-arm64.sh`.
-5. `python3 tool/build_hardened_android.py --signing unsigned`.
+## Phase C — local F-Droid dry run (2026-09-25)
 
-Not yet run under `fdroid build`; the two-hour default `timeout:` may not be
-enough.
+**Environment.** fdroidserver 2.4.2 (git `a35fdfdd`, 2026-09-14) and
+fdroiddata `786a8c38`, in F-Droid's buildserver image
+(`registry.gitlab.com/fdroid/fdroidserver:buildserver`, `sha256:9cb68105…`:
+Debian 13, Python 3.13.5, OpenJDK 21), run with `fdroid fetch_srclibs` then
+`fdroid build --on-server --no-tarball`. The fdroiddata checkout and all
+evidence live in a separate workspace outside this repository; nothing from it
+is committed here.
+
+**Metadata draft** (`metadata/com.lord1egypt.pocketclaw.yml`, not submitted):
+`commit:` the full `v0.2.2` hash; srclibs `flutter@3.47.1` and
+`rustup@1.29.1`; `ndk: r28c`; `rm:` all ten committed `lib*.so`; Node 25.8.1
+by SHA-256 and pnpm 10.33.0 in prebuild; the seven runtime recipes, the
+payload checksum test, `core/build-android-arm64.sh` and
+`build_hardened_android.py --signing unsigned` in build. It depends on no
+developer path, secret or signing material. `fdroid readmeta`, `rewritemeta`
+and `lint` pass. Three recipe details the runs forced:
+
+| Recipe line | Why |
+| --- | --- |
+| `unset SOURCE_DATE_EPOCH` | fdroidserver exports the commit time, which overrides the payloads' pinned `RUNTIME_EPOCH` (zip timestamps, CPython's `__DATE__`) |
+| `sed` of one catalog hash (prebuild) | PC-DEF-091: the buildserver's CPython payload differs from upstream's only in its build-id; the recipe pins the buildserver's deterministic `0cc0755f…` (identical in two full runs) instead of upstream's `8b52e36d…` |
+| a two-line `android/gradlew` that runs `gradle` | fdroidserver deletes `gradlew`, `gradlew.bat` and the wrapper jar; its own `gradle` reads Gradle 8.14 and its checksum from `gradle-wrapper.properties` |
+
+**Build runs.** 1–4 fixed invocation and cache-mount mistakes and the scanner
+findings; 5 found the `SOURCE_DATE_EPOCH` override; 6 isolated the Python
+build-id; 7 and a Python-only rerun proved its cause (PC-DEF-091); 8 found the
+deleted `gradlew`; **9 succeeded**: "Successfully built
+com.lord1egypt.pocketclaw:64 from e535fcab…", about 23 minutes on this
+machine.
+
+**Scanner.** Passes. Two `scandelete` globs, both inside the in-tree pub
+cache, cover every finding: pub packages' `example/` Android projects
+(unknown Maven repositories) and the DevTools extension builds shipped inside
+`shared_preferences` and `provider` (wasm, `AssetManifest.bin`). Nothing in
+PocketClaw's own source is flagged; the committed `lib*.so` are removed by
+`rm:` and rebuilt.
+
+**The F-Droid APK** (`com.lord1egypt.pocketclaw_64.apk`, 61,338,235 bytes,
+`3aad94d4…`, unsigned): `com.lord1egypt.pocketclaw` 0.2.2 (64), minSdk 26,
+targetSdk 36, `native-code: 'arm64-v8a'`, the same seven permissions and the
+same exported components as the table above; apksigner: DOES NOT VERIFY (no
+signature). `release_gate.py --verify-artifact --release-class repository
+--artifact-class non-publish-audit` from this repository: 34 PASS, 2 FAIL —
+both Core provenance rows, because the recipe's catalog edit gives F-Droid's
+Core a different source fingerprint (`a543e437…`); run from the F-Droid build
+tree the same two rows PASS (fingerprint stamped in both binaries, identical
+to what that tree staged). Native ELF audit `--enforce-target`: 146 PASS / 0
+FAIL. Against Golden #3, 426 of 430 entries are byte-identical — including
+`classes.dex`, resources, the baseline profile and seven payloads, so JDK 21
+versus upstream's JDK 17 changes nothing. The four that differ:
+`libapp.so` (PC-DEF-092), `libpocketclaw-python.so` (PC-DEF-091) and the
+Core pair. Core built on the owner's machine from the same edited catalog is
+byte-identical to F-Droid's pair (`eccd6458…` / `89af23be…`).
 
 ## Reproducibility
 
-See the Phase B section of `PROJECT_STATE.md` for the byte-level evidence. In
-short: Core, gh, ripgrep, jq and sqlite3 are reproducible from source; the APK
-is reproducible at a fixed path; across checkout paths the Dart AOT snapshot
-still differs. `libdartjni.so`'s path-dependent build ID was fixed in Phase B.
-The leading explanation for the Dart difference — the kernel records the app's
-own libraries by absolute file URI (`package:pocketclaw` resolves to the
-checkout) and pub-cache packages under `$HOME` — is consistent with the
-evidence but not proven. Until it is fixed, a reproducible build requires
-upstream to build at F-Droid's build path and pub-cache location.
+- **Payloads:** curl, git, git-remote-http, gh, ripgrep, sqlite3 and jq
+  rebuild on the buildserver byte-identical to Golden #3. CPython differs only
+  by PC-DEF-091, and matches exactly when the NDK sits at upstream's path.
+- **Core:** reproducible across machines for the same source.
+- **APK:** two clean clones of `v0.2.2` at different checkout paths, with
+  upstream's Flutter SDK, pub cache and JDK 17, give the identical unsigned
+  APK `3efb0081…`; `apksigcopier compare` against Golden #3 matches, and the
+  signature copied onto it gives a file byte-identical to `320368ea…`. On the
+  buildserver the Dart snapshot differs because its paths differ
+  (PC-DEF-092: the checkout path's length, the Flutter SDK location and the
+  pub cache location all reach `libapp.so`; a different checkout path of the
+  same length does not).
+
+## Signing strategy
+
+**Track A — F-Droid signs its own build — for v0.2.2.** It needs nothing
+reproducible and is what the draft does. Consequence to state to users: the
+F-Droid APK and the GitHub APK (signer `176dca6b…`) cannot update each other;
+switching channels means uninstalling, which deletes app data unless it was
+exported first.
+
+**Track B — F-Droid publishes the upstream signature — not possible for
+v0.2.2.** It needs a byte-identical APK. Proven remaining gaps: PC-DEF-091
+(fixable upstream by mapping the NDK path) and PC-DEF-092 (upstream would
+have to build at F-Droid's paths — most simply inside the buildserver image
+with this recipe; the Flutter SDK and pub cache locations change the snapshot
+too). Then the metadata gains `Binaries:` and `AllowedAPKSigningKeys:
+176dca6b198b9552fb4d9ad3ca18da8d6f23c0a3f5ed4bd6b75a0700f9f0efcf`, and the
+catalog `sed` goes away.
+
+## Vulnerability scans
+
+govulncheck v1.1.4: see PC-DEF-093 (8 reachable standard-library advisories
+in go1.25.11; 29 in the staged Core binary including x/crypto v0.51; 93 in gh
+2.82.1). `pnpm audit --prod`: 54 advisories, all in build-time tooling
+(`@tailwindcss/vite`, jotai's babel peer, the shadcn CLI) — none present in
+the shipped Dashboard bundle. OSV over the 85 locked Dart packages: none.
+Secret scan: the source hits are fake fixtures in
+`core/pocketclaw-core-v0.3.1.patch`; the APK hits are mbedTLS PEM header
+constants.
+
+## Resource use (Golden #3 on the SM-A165F, Android 16)
+
+`dumpsys meminfo` total PSS (includes swapped PSS), KB:
+
+| State | Whole app (Flutter + WebView) | Core `libpocketclaw.so` | Dashboard `libpocketclaw-web.so` | WebView renderer |
+| --- | --- | --- | --- | --- |
+| Long idle | ~93,000 | ~19,500 | ~15,000 | ~50,000 |
+| Dashboard open | ~343,000 | ~21,400 | ~27,400 | ~101,000 |
+| Chat turn | ~397,000 | 26,000–27,400 | ~27,900 | ~110,000 |
+| Tool work | ~384,000 | ~28,600 | ~27,300 | ~113,000 |
+
+CPU, share of one core: idle — app 0.3 %, Core 0.6 %, Dashboard 0.1 %; during
+a chat turn — app ~120 % (UI and WebView rendering), Core 1.5 %, Dashboard
+3 %. **What the numbers support:** "Core uses about 20 MB idle and under
+30 MB while working." They do not support a lightweight claim for the whole
+app, whose memory is dominated by the WebView; never quote a whole-app figure
+of 24 MB.
+
+## Fastlane and store text (audit)
+
+Four real screenshots, the 512 px icon and `changelogs/64.txt` are in place.
+Two wording issues: the description's "No package manager, no downloads after
+install" reads as "the app never downloads anything", while the agent can
+fetch skills from ClawHub and files on request; and skills / the ClawHub
+registry are not mentioned at all. Suggested for 0.2.3; not a blocker.
+
+## Reviewer-visible residue (low)
+
+The Android Dashboard binary embeds PicoClaw's unused lobster tray icon
+(`web/backend/systray_icon_nonwindows.go` builds for Android; an `!android`
+constraint drops it); Core's CLI onboarding prints `🦞 picoclaw is ready!` to
+the log on first start. `public/lark.svg` is vendored from PicoClaw, whose
+authorship upstream does not record (already stated in
+`THIRD_PARTY_NOTICES.md`).
+
+## Smallest upstream changes for 0.2.3 (not made)
+
+1. PC-DEF-091: map `$NDK_ROOT` out of payload debug info; re-pin; restage
+   Core. Drops the recipe's `sed`.
+2. PC-DEF-093: go1.25.13, x/crypto ≥ v0.56 and the other module bumps, a
+   current gh.
+3. `build_hardened_android.py`: run `gradle` when `android/gradlew` is absent,
+   dropping the recipe's shim.
+4. Optional, for Track B: build the release in the buildserver image
+   (PC-DEF-092).
+5. The residue and Fastlane wording above.
