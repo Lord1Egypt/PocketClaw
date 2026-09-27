@@ -81,10 +81,16 @@ Track B run. A local real `fdroid build` of the fdroiddata file rebuilt unsigned
 `e09340e7…` again (2,496 s) and verified the reference APK and signer. MR
 pipeline 2885751317: all nine jobs green; its `fdroid build` reported "compared
 built binary to supplied reference binary successfully" with allowed signer
-`176dca6b…`. Reviewer answered in the thread. **Follow-up:** the release
-template `fdroid/metadata.yml.in` and `SRCLIBS` in
-`tool/canonical_release_build.py` still describe the old Node/rustup recipe;
-sync them before the next release render.
+`176dca6b…`. Reviewer answered in the thread.
+
+**2026-09-27 — template synced (develop only).** `fdroid/metadata.yml.in` and
+`SRCLIBS = ("flutter",)` in `tool/canonical_release_build.py` now produce the
+reviewer-approved recipe: `canonical_release_build.py metadata --commit ee68747…
+--track-b` renders a file byte-identical to fdroiddata `26b9eaaf3` (`bb329734…`),
+the file both Track B verifications built, so no rebuild was needed.
+`test_node_and_rustup_come_from_debian` fails if the Node download, the rustup
+srclib, `rustup-init.sh`, `~/.cargo/bin` or per-file `.so` removals return (the
+old template fails four tests). Tool suite 182 OK.
 
 ## 2026-09-25 — F-Droid Track B submitted: fdroiddata MR !50146
 

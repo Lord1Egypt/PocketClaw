@@ -181,7 +181,7 @@ owner-machine build can never match F-Droid's; a build in the same layout does.
 python3 tool/canonical_release_build.py build --commit <full sha> \
   --work <empty dir> --out <empty dir> \
   --fdroidserver <fdroidserver checkout at the pinned commit> \
-  --fdroiddata <fdroiddata checkout, for the flutter and rustup srclibs>
+  --fdroiddata <fdroiddata checkout, for the flutter srclib>
 ```
 
 It runs the real `fdroid build --on-server` in F-Droid's buildserver image,

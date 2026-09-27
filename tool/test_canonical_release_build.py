@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Tests for the canonical (F-Droid buildserver) release build: PC-DEF-092."""
 
+import fnmatch
 import importlib.util
 import sys
 import unittest
@@ -14,6 +15,8 @@ sys.modules["canonical_release_build"] = canonical
 spec.loader.exec_module(canonical)
 
 COMMIT = "0123456789abcdef0123456789abcdef01234567"
+JNI_DIR = "android/app/src/main/jniLibs/arm64-v8a"
+JNI_GLOB = f"{JNI_DIR}/*.so"
 
 
 class MetadataTest(unittest.TestCase):
@@ -25,7 +28,7 @@ class MetadataTest(unittest.TestCase):
         self.assertIn("CurrentVersionCode: 65\n", text)
         self.assertNotIn("Binaries", text)
         self.assertNotIn("AllowedAPKSigningKeys", text)
-        self.assertNotIn("@", text.replace("flutter@", "").replace("rustup@", "").replace("pnpm@", ""))
+        self.assertNotIn("@", text.replace("flutter@", "").replace("pnpm@", ""))
 
     def test_track_b_pins_the_upstream_apk_and_the_enrolled_signer(self):
         text = canonical.render_metadata(COMMIT, "0.2.3", 65, track_b=True)
@@ -49,9 +52,36 @@ class MetadataTest(unittest.TestCase):
 
     def test_the_recipe_rebuilds_every_committed_native_payload(self):
         template = canonical.TEMPLATE.read_text(encoding="utf-8")
-        jni = canonical.REPO / "android/app/src/main/jniLibs/arm64-v8a"
-        for library in sorted(p.name for p in jni.glob("lib*.so")):
-            self.assertIn(f"android/app/src/main/jniLibs/arm64-v8a/{library}", template, library)
+        self.assertIn(f"      - {JNI_GLOB}\n", template)
+        jni = canonical.REPO / JNI_DIR
+        libraries = sorted(p.name for p in jni.glob("lib*.so"))
+        self.assertEqual(len(libraries), 10)
+        for library in libraries:
+            self.assertTrue(fnmatch.fnmatchcase(f"{JNI_DIR}/{library}", JNI_GLOB), library)
+        self.assertFalse(fnmatch.fnmatchcase(f"{JNI_DIR}/version.txt", JNI_GLOB))
+
+    def test_node_and_rustup_come_from_debian(self):
+        # fdroiddata review of MR !50146: Debian packages, not downloads or a
+        # rustup srclib; rustup still installs the pinned rustc that decides
+        # the rg payload bytes.
+        jni = canonical.REPO / JNI_DIR
+        for track_b in (False, True):
+            text = canonical.render_metadata(COMMIT, "0.2.3", 65, track_b=track_b)
+            with self.subTest(track_b=track_b):
+                for obsolete in ("nodejs.org/dist", "node-v25.8.1", "rustup@1.29.1",
+                                 "$$rustup$$/rustup-init.sh", ".cargo/bin"):
+                    self.assertNotIn(obsolete, text)
+                for library in jni.glob("lib*.so"):
+                    self.assertNotIn(f"{JNI_DIR}/{library.name}", text)
+                self.assertRegex(text, r"apt-get install [^\n]*(\n        [^\n]*)*"
+                                       r"\bnodejs npm\b[^\n]*\brustup\b")
+                self.assertIn("      - flutter@3.47.1\n    rm:", text)
+                self.assertIn("      - rustup toolchain install 1.94.1 --profile minimal"
+                              " --target aarch64-linux-android\n", text)
+                self.assertIn("pnpm@10.33.0", text)
+                self.assertIn(f"      - {JNI_GLOB}\n", text)
+                self.assertIn('      - export PATH="$$flutter$$/bin:$PATH"\n', text)
+        self.assertEqual(canonical.SRCLIBS, ("flutter",))
 
     def test_the_current_commit_declares_a_version(self):
         name, code = canonical.version_at("HEAD")

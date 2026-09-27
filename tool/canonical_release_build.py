@@ -18,7 +18,7 @@ the same file, so the two builds cannot drift apart.
                own verify_apks (apksigcopier), inside the same image
 
 Needs docker, a checkout of fdroidserver at the pinned commit and an fdroiddata
-checkout for the flutter and rustup srclib definitions. The container runs as
+checkout for the flutter srclib definition. The container runs as
 the image's vagrant user (uid 1000), so the work directory must be writable by
 that uid. Nothing here signs anything.
 """
@@ -44,7 +44,7 @@ APP_ID = "com.lord1egypt.pocketclaw"
 IMAGE = ("registry.gitlab.com/fdroid/fdroidserver@sha256:"
          "9cb68105642ca4e7b295f0ceab10f069f5b3247dc18fa7c36046e9d81aa469a8")
 FDROIDSERVER_COMMIT = "a35fdfddd9c66823987a410566a6101186e39c84"
-SRCLIBS = ("flutter", "rustup")
+SRCLIBS = ("flutter",)
 BINARIES_URL = ("https://github.com/Lord1Egypt/PocketClaw/releases/download/"
                 "v%v/PocketClaw-v%v-arm64-v8a.apk")
 HOME = "/home/vagrant"
