@@ -84,6 +84,35 @@ def version_at(commit: str) -> tuple[str, int]:
     return match.group(1), int(match.group(2))
 
 
+FLUTTER_PIN = re.compile(r"^POCKETCLAW_FLUTTER_VERSION=(\d+\.\d+\.\d+)$")
+
+
+def flutter_pin(toolchains: str) -> str:
+    """The Flutter version runtime/toolchains.env pins.
+
+    The recipe's prebuild extracts the same line and checks that version out in
+    the flutter@stable srclib, so a missing or ambiguous pin must stop the
+    render here rather than leave the buildserver on whatever stable is.
+    """
+    lines = [line for line in toolchains.splitlines()
+             if line.startswith("POCKETCLAW_FLUTTER_VERSION=")]
+    match = FLUTTER_PIN.match(lines[0]) if len(lines) == 1 else None
+    if not match:
+        raise CanonicalBuildError(
+            f"runtime/toolchains.env must pin exactly one POCKETCLAW_FLUTTER_VERSION=<x.y.z>, got {lines}")
+    return match.group(1)
+
+
+def flutter_version_at(commit: str) -> str:
+    try:
+        toolchains = subprocess.run(
+            ["git", "-C", str(REPO), "show", f"{commit}:runtime/toolchains.env"],
+            check=True, capture_output=True, text=True).stdout
+    except subprocess.CalledProcessError as error:
+        raise CanonicalBuildError(f"cannot read runtime/toolchains.env at {commit}: {error.stderr}") from error
+    return flutter_pin(toolchains)
+
+
 def full_commit(commit: str) -> str:
     try:
         resolved = subprocess.run(
@@ -168,6 +197,7 @@ def docker_run_command(work: Path, fdroidserver: Path, name: str, app_ref: str,
 def build(args: argparse.Namespace) -> int:
     commit = full_commit(args.commit)
     version_name, version_code = version_at(commit)
+    flutter_version_at(commit)
     work, out = Path(args.work).resolve(), Path(args.out).resolve()
     fdroidserver, fdroiddata = Path(args.fdroidserver).resolve(), Path(args.fdroiddata).resolve()
     if work.exists() and any(work.iterdir()):
@@ -270,6 +300,7 @@ def verify(args: argparse.Namespace) -> int:
 def metadata(args: argparse.Namespace) -> int:
     commit = full_commit(args.commit)
     version_name, version_code = version_at(commit)
+    flutter_version_at(commit)
     text = render_metadata(commit, version_name, version_code, track_b=args.track_b)
     if args.out:
         Path(args.out).write_text(text, encoding="utf-8")

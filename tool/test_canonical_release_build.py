@@ -3,7 +3,10 @@
 
 import fnmatch
 import importlib.util
+import re
+import subprocess
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -75,7 +78,7 @@ class MetadataTest(unittest.TestCase):
                     self.assertNotIn(f"{JNI_DIR}/{library.name}", text)
                 self.assertRegex(text, r"apt-get install [^\n]*(\n        [^\n]*)*"
                                        r"\bnodejs npm\b[^\n]*\brustup\b")
-                self.assertIn("      - flutter@3.47.1\n    rm:", text)
+                self.assertIn("      - flutter@stable\n    rm:", text)
                 self.assertIn("      - rustup toolchain install 1.94.1 --profile minimal"
                               " --target aarch64-linux-android\n", text)
                 self.assertIn("pnpm@10.33.0", text)
@@ -87,6 +90,76 @@ class MetadataTest(unittest.TestCase):
         name, code = canonical.version_at("HEAD")
         self.assertRegex(name, r"^\d+\.\d+\.\d+$")
         self.assertGreater(code, 64)
+
+
+def prebuild_commands(text: str) -> list[str]:
+    """The prebuild list as fdroidserver sees it: folded lines rejoined, quotes off."""
+    block = text.split("    prebuild:\n", 1)[1].split("    scandelete:\n", 1)[0]
+    items = [line[len("      - "):] for line in re.sub(r"\n {8}(?=\S)", " ", block).splitlines()]
+    return [item[1:-1].replace("''", "'") if item.startswith("'") else item for item in items]
+
+
+class FlutterPinTest(unittest.TestCase):
+    """fdroiddata review of MR !50146: pin Flutter upstream and extract it."""
+
+    def setUp(self):
+        self.text = canonical.render_metadata(COMMIT, "0.2.3", 65, track_b=True)
+        self.commands = prebuild_commands(self.text)
+
+    def test_fdroiddata_names_only_the_generic_srclib(self):
+        self.assertIn("    srclibs:\n      - flutter@stable\n    rm:", self.text)
+        self.assertNotRegex(self.text, r"flutter@\d")
+
+    def test_the_version_is_extracted_then_checked_out_before_flutter_runs(self):
+        extract = next(i for i, c in enumerate(self.commands) if c.startswith("flutterVersion="))
+        self.assertIn("runtime/toolchains.env", self.commands[extract])
+        self.assertTrue(self.commands[extract + 1].startswith("[[ $flutterVersion =~ "))
+        self.assertEqual(self.commands[extract + 2], "git -C $$flutter$$ checkout -f $flutterVersion")
+        first_flutter = next(i for i, c in enumerate(self.commands) if c.startswith("$$flutter$$/bin/"))
+        self.assertLess(extract + 2, first_flutter)
+
+    def run_extraction(self, toolchains: str | None) -> tuple[int, str]:
+        """Runs the rendered extraction and checkout the way fdroidserver does."""
+        extract = next(i for i, c in enumerate(self.commands) if c.startswith("flutterVersion="))
+        with tempfile.TemporaryDirectory() as tmp:
+            source, flutter = Path(tmp, "app"), Path(tmp, "flutter")
+            (source / "runtime").mkdir(parents=True)
+            if toolchains is not None:
+                (source / "runtime/toolchains.env").write_text(toolchains, encoding="utf-8")
+            git = ["git", "-c", "user.name=t", "-c", "user.email=t@t", "-C", str(flutter)]
+            flutter.mkdir()
+            subprocess.run(git + ["init", "-q"], check=True)
+            for tag in ("3.47.1", "3.99.0"):
+                subprocess.run(git + ["commit", "-q", "--allow-empty", "-m", tag], check=True)
+                subprocess.run(git + ["tag", tag], check=True)
+            script = "; ".join(self.commands[extract:extract + 3]).replace("$$flutter$$", str(flutter))
+            result = subprocess.run(["bash", "-e", "-u", "-o", "pipefail", "-c", script],
+                                    cwd=source, capture_output=True, text=True)
+            head = subprocess.run(git + ["describe", "--tags"], capture_output=True, text=True)
+            return result.returncode, head.stdout.strip()
+
+    def test_the_upstream_pin_is_what_gets_checked_out(self):
+        pinned = canonical.flutter_pin((canonical.REPO / "runtime/toolchains.env").read_text(encoding="utf-8"))
+        self.assertRegex(pinned, r"^\d+\.\d+\.\d+$")
+        code, checked_out = self.run_extraction(f"# x\nPOCKETCLAW_FLUTTER_VERSION={pinned}\n")
+        self.assertEqual((code, checked_out), (0, pinned))
+
+    def test_an_absent_or_malformed_pin_stops_the_build_before_checkout(self):
+        for toolchains in (None, "", "POCKETCLAW_RUST_TOOLCHAIN=1.94.1\n",
+                           "POCKETCLAW_FLUTTER_VERSION=3.47\n", "POCKETCLAW_FLUTTER_VERSION=stable\n",
+                           "POCKETCLAW_FLUTTER_VERSION=3.47.1\nPOCKETCLAW_FLUTTER_VERSION=3.47.1\n"):
+            with self.subTest(toolchains=toolchains):
+                code, checked_out = self.run_extraction(toolchains)
+                self.assertNotEqual(code, 0)
+                self.assertEqual(checked_out, "3.99.0")
+
+    def test_rendering_refuses_a_missing_or_ambiguous_pin(self):
+        for toolchains in ("", "POCKETCLAW_FLUTTER_VERSION=3.47\n", " POCKETCLAW_FLUTTER_VERSION=3.47.1\n",
+                           "POCKETCLAW_FLUTTER_VERSION=3.47.1\nPOCKETCLAW_FLUTTER_VERSION=3.48.0\n"):
+            with self.subTest(toolchains=toolchains), self.assertRaises(canonical.CanonicalBuildError):
+                canonical.flutter_pin(toolchains)
+        with self.assertRaises(canonical.CanonicalBuildError):
+            canonical.flutter_version_at("0000000000000000000000000000000000000000")
 
 
 class LayoutTest(unittest.TestCase):

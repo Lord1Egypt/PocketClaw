@@ -27,7 +27,7 @@ evidence and describe the state at the date of each entry.
 | PC-DEF-020 canonical Core build-input commit | `f8bc52a0757f7b0a9f6c0704d2a3586db929e33f` |
 | Version | `0.2.3+65` — published as v0.2.3 (Golden #4) and pinned in `docs/release/published.json`; `main` = `develop` |
 | Accepted physical baseline | vc65 / `lastAcceptedVersionCode=65` — advanced by the Golden #4 (v0.2.3) acceptance commit; was vc64 for v0.2.2 |
-| **Released — PocketClaw v0.2.3 (Golden #4)** | Published 2026-09-25 as the Latest GitHub release: https://github.com/Lord1Egypt/PocketClaw/releases/tag/v0.2.3, annotated tag `v0.2.3` → `ee68747` (merge into `main`; `develop` fast-forwarded). Assets `PocketClaw-v0.2.3-arm64-v8a.apk` (58,441,695 B, `77888282…`) and `SHA256SUMS.txt`; downloaded back byte-identical. **F-Droid Track B verified**: a real `fdroid build` of the tag with `Binaries:` downloaded the published APK, compared it with its rebuild and accepted signer `176dca6b…`. **Submitted** as fdroiddata MR !50146; first review answered in fdroiddata `26b9eaaf3` (Debian Node/rustup, `*.so` rm), pipeline 2885751317 green with Track B verified in F-Droid CI; awaiting review |
+| **Released — PocketClaw v0.2.3 (Golden #4)** | Published 2026-09-25 as the Latest GitHub release: https://github.com/Lord1Egypt/PocketClaw/releases/tag/v0.2.3, annotated tag `v0.2.3` → `ee68747` (merge into `main`; `develop` fast-forwarded). Assets `PocketClaw-v0.2.3-arm64-v8a.apk` (58,441,695 B, `77888282…`) and `SHA256SUMS.txt`; downloaded back byte-identical. **F-Droid Track B verified**: a real `fdroid build` of the tag with `Binaries:` downloaded the published APK, compared it with its rebuild and accepted signer `176dca6b…`. **Submitted** as fdroiddata MR !50146; reviews answered in fdroiddata `26b9eaaf3` (Debian Node/rustup, `*.so` rm) and `e799a79b6` (Flutter from `flutter@stable`, version extracted from upstream), pipeline 2886174727 green with Track B verified in F-Droid CI; awaiting review |
 | **Released — PocketClaw v0.2.2 (Golden #3)** | Published 2026-09-25 as the Latest GitHub release: https://github.com/Lord1Egypt/PocketClaw/releases/tag/v0.2.2, tag `v0.2.2` → `e535fca` (main = develop at tagging). Assets `PocketClaw-v0.2.2-arm64-v8a.apk` (61,346,447 B, `320368ea…`) and `SHA256SUMS.txt`; downloaded back byte-identical |
 | **Golden #4 — PocketClaw v0.2.3** | Built canonically (F-Droid buildserver layout) from `7c0980ca851adc5d79985433d72b5207186a1ffa`: unsigned `e09340e7…` twice; owner-signed APK `778882828e2f818aac31ed1f58dd3b2e8530828970b535ce72564f5ed2857599`, 58,441,695 bytes, `0.2.3+65`, minSdk 26, targetSdk 36, arm64-v8a, one v2 signer `176dca6b…`, Core fingerprint `cac3e443…` (pair `39686942…` / `182b5fa1…`, go1.26.8). Production gate (public-release) 65/0/0; native ELF 152/0/0 bound; fdroidserver `verify_apks` MATCH; physically accepted on SM-A165F / Android 16 on 2026-09-25 |
 | **Golden #3 — PocketClaw v0.2.2** | Source `80c9dc02ce56d565a3fa673d2cdab6fe78e5d006`; APK `320368eaf1c3c48689625e02764a658e3ed291d4c6e49b3d67ed09326dd58af9`, 61,346,447 bytes, `0.2.2+64`, minSdk 26, arm64-v8a, one v2 signer `176dca6b…`, Core fingerprint `7e48a120…` (pair `b6236105…` / `f9a638eb…`). Production gate (public-release class) 57/0/0; native ELF 152/0/0; physically accepted on SM-A165F / Android 16 on 2026-09-25 |
@@ -61,6 +61,37 @@ evidence and describe the state at the date of each entry.
 | Staged Core freshness | **CURRENT.** Rebuilt from the source commit `55624cd` and staged in `da9e6f5`, which touches no build input. Fingerprint `87c320c1cb6dffe6395043265c3d4d659ddaf26a4b588d303c5d06355a4acc2b` (was `9c22cb22…`), BuildTime `2026-09-21T03:22:04+0000` |
 | Flutter suite | Green — 608 passed, 0 failed (production-class gate on the owner-signed `b4011015…`, 2026-09-25) — and the **complete** suite is a release gate (`flutter.suite`) |
 | Public release asset policy | APK only. An AAB is a Play-upload artifact and is never a public release asset — `PC-DEF-021` |
+
+## 2026-09-27 — MR !50146 second review: Flutter pinned upstream and extracted
+
+linsui asked to pin Flutter in the app repo and extract it (fdroiddata
+`templates/build-flutter.yml`). The only machine-readable pin in the immutable
+`ee68747` is `fdroid/metadata.yml.in:33` (`      - flutter@3.47.1`); pubspec.lock
+has only `flutter: ">=3.44.0"`. fdroiddata `e799a79b6` (on `26b9eaaf3`, no
+rebase): srclib `flutter@stable`, and in prebuild
+`flutterVersion=$(sed -n -E 's/^ +- flutter@([0-9]+\.[0-9]+\.[0-9]+)$/\1/p'
+fdroid/metadata.yml.in)`, `'[[ $flutterVersion =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]'`,
+`git -C $$flutter$$ checkout -f $flutterVersion`. It fails closed on a missing
+file, no pin, a duplicate pin or a channel name. Round-1 changes and the Track B
+fields are unchanged.
+
+Verified: readmeta, rewritemeta (0.18.10; it folds the sed line, then is
+byte-stable), lint, schema; scanner output identical to round 1. Local real
+`fdroid build`: `flutterVersion=3.47.1`, srclib at `6655482ec06` (tag 3.47.1,
+the commit `flutter@3.47.1` used), unsigned `e09340e7…` again, Track B
+verified. Pipeline 2886174727: nine jobs green, the same extraction lines and
+"compared built binary to supplied reference binary successfully" with signer
+`176dca6b…`. Reviewer answered in the thread; it is left for them to resolve.
+
+**Future releases (develop):** Flutter is pinned as
+`POCKETCLAW_FLUTTER_VERSION=3.47.1` in `runtime/toolchains.env` (not a Core
+fingerprint or build-time input); `fdroid/metadata.yml.in` renders
+`flutter@stable` plus the same extract/check/checkout pattern reading that line,
+and `canonical_release_build.py` refuses to render or build a commit without
+exactly one valid pin. **Next release:** F-Droid's auto-update copies the
+v0.2.3 build block, which reads `fdroid/metadata.yml.in` and now finds no pin,
+so it fails closed; the next fdroiddata update must use the recipe rendered
+from the template.
 
 ## 2026-09-26 — MR !50146 first review answered (fdroiddata-only)
 
